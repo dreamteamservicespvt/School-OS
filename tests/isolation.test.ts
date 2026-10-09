@@ -223,3 +223,21 @@ describe("every school table has its walls", () => {
     }
   });
 });
+
+describe("Communication records stay in their school", () => {
+  it("cannot read school B's messages, notices, queries or Parent Links", async () => {
+    const ctxB = { schoolId: b.id, userId: userB.id };
+    await withSchool(ctxB, async (tx) => {
+      await tx.message.create({ data: { schoolId: b.id, body: "School B only", channels: ["app"], audienceLabel: "B", status: "SENT" } });
+      await tx.notice.create({ data: { schoolId: b.id, title: "School B notice", body: "x", audience: {}, audienceLabel: "B" } });
+    });
+    await withSchool(ctxA(), async (tx) => {
+      expect(await tx.message.count()).toBe(0);
+      expect(await tx.messageRecipient.count()).toBe(0);
+      expect(await tx.notice.count()).toBe(0);
+      expect(await tx.query.count()).toBe(0);
+      expect(await tx.parentLink.count()).toBe(0);
+      expect(await tx.consentRecord.count()).toBe(0);
+    });
+  });
+});

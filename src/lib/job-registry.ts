@@ -9,6 +9,7 @@ import "./exports";
 import "./importer";
 import "./approval-handlers";
 import "./messaging/jobs";
+import "./communication/jobs";
 
 defineSchedule("approval-escalation", 60, (tx, ctx, now) => escalateOverdue(tx, ctx, now));
 defineSchedule("prune-rate-limits", 24 * 60, () => pruneRateLimits());

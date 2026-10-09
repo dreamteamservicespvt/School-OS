@@ -17,6 +17,7 @@ import { providerFor, type Outgoing, type Provider, type SendResult } from "./pr
 import { DELIVER_JOB, MessagingProblem } from "./send";
 import { messageSettings, type BackupType } from "./settings";
 import { currentVersions, render } from "./templates";
+import { withRealLinks } from "../parent-link/token";
 
 /** Stop starting new sends after this long, so a job always finishes within its transaction time. */
 const RUN_BUDGET_MS = 6_000;
@@ -56,10 +57,10 @@ async function outgoingFor(tx: Tx, ctx: SchoolContext, r: Claimed, c: Context): 
     if (row) { v = row; c.versions.set(r.templateVersionId, row); }
   }
   const values = (r.values ?? {}) as Record<string, string>;
-  const out: Outgoing = { channel: r.channel as Outgoing["channel"], to: r.address, text: r.text, subject: r.message.title };
+  const out: Outgoing = { channel: r.channel as Outgoing["channel"], to: r.address, text: withRealLinks(r.text), subject: r.message.title };
   if (r.channel === "sms") Object.assign(out, { dltTemplateId: v?.dltTemplateId ?? null, dltEntityId: c.dlt.entityId, senderHeader: c.dlt.header });
   if (r.channel === "whatsapp" && v?.whatsappStatus === "APPROVED" && v.whatsappName) {
-    out.whatsappTemplate = { name: v.whatsappName, language: r.language, params: v.variables.map((k) => values[k] ?? "") };
+    out.whatsappTemplate = { name: v.whatsappName, language: r.language, params: v.variables.map((k) => withRealLinks(values[k] ?? "")) };
   }
   if (r.channel === "email" && r.message.attachmentFileIds.length) {
     let files = c.attachments.get(r.messageId);

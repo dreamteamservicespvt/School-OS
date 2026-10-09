@@ -32,6 +32,8 @@ export type SendInput = {
   values?: Record<string, string>;
   /** Blanks for one student's guardians (e.g. due amount). Brothers and sisters then get one message each. */
   perStudent?: Record<string, Record<string, string>>;
+  /** Blanks for one guardian or staff member (e.g. their own Parent Link), by their id. */
+  perPerson?: Record<string, Record<string, string>>;
   messageType?: "general" | BackupType;
   /** Fee, attendance and result messages: also send by SMS if not delivered or read in time. */
   smsBackup?: boolean;
@@ -222,6 +224,7 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
         ...baseValues(school, c, studentId ? [studentId] : null),
         ...(input.values ?? {}),
         ...(studentId ? input.perStudent![studentId] : c.students.length === 1 && input.perStudent?.[c.students[0].id] ? input.perStudent[c.students[0].id] : {}),
+        ...(input.perPerson?.[c.id] ?? {}),
       };
       for (const ch of channels) {
         const addr = addressFor(c, ch);

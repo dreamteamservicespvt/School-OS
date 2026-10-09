@@ -5,6 +5,7 @@ import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
 import type { Channel } from "./channels";
+import { appUrl } from "../parent-link/token";
 
 export const TEMPLATE_CATEGORIES = [
   { key: "fees", label: "Fees" },
@@ -78,7 +79,9 @@ export function missingWords(missing: string[]) {
 }
 
 /** SMS parts: 160 characters (153 per part when longer), or 70 (67) with Indian scripts. */
-export function smsParts(text: string): number {
+export function smsParts(raw: string): number {
+  // A Parent Link placeholder is counted as the real link it becomes.
+  const text = raw.replace(/⟦parent-link:[^⟧]+⟧/g, `${appUrl()}/p/${"x".repeat(43)}`);
   const unicode = /[^\x00-\x7F₹]/.test(text);
   const len = [...text].length;
   const single = unicode ? 70 : 160;
@@ -223,6 +226,9 @@ export const READY_TEMPLATES: ReadyTemplate[] = [
   } },
   { key: "notice", name: "New notice", category: "general", channel: "whatsapp", texts: {
     en: "{school_name}: {title}. {message}",
+  } },
+  { key: "notice", name: "New notice (SMS)", category: "general", channel: "sms", texts: {
+    en: "{school_name}: New notice: {title}. Please see your Parent Link.",
   } },
   { key: "general", name: "General announcement", category: "general", channel: "whatsapp", texts: {
     en: "Dear {guardian_name}, {message} - {school_name}",

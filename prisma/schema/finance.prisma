@@ -85,22 +85,22 @@ model CostCentre {
 
 /// Bank Account: cash in hand or one of the school's bank accounts.
 model BankAccount {
-  id                  String           @id @default(uuid()) @db.Uuid
-  schoolId            String           @map("school_id") @db.Uuid
-  kind                MoneyAccountKind
-  name                String
-  bankName            String?          @map("bank_name")
+  id           String           @id @default(uuid()) @db.Uuid
+  schoolId     String           @map("school_id") @db.Uuid
+  kind         MoneyAccountKind
+  name         String
+  bankName     String?          @map("bank_name")
   /// Encrypted full account number; screens show the last 4 only.
-  accountNoEnc        String?          @map("account_no_enc")
-  accountLast4        String?          @map("account_last4")
-  ifsc                String?
+  accountNoEnc String?          @map("account_no_enc")
+  accountLast4 String?          @map("account_last4")
+  ifsc         String?
   /// The main bank account (fees with no account chosen go here).
-  isMain              Boolean          @default(false) @map("is_main")
-  campusId            String?          @map("campus_id") @db.Uuid
-  createdById         String?          @map("created_by_id") @db.Uuid
-  createdAt           DateTime         @default(now()) @map("created_at")
-  updatedAt           DateTime         @updatedAt @map("updated_at")
-  archivedAt          DateTime?        @map("archived_at")
+  isMain       Boolean          @default(false) @map("is_main")
+  campusId     String?          @map("campus_id") @db.Uuid
+  createdById  String?          @map("created_by_id") @db.Uuid
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+  archivedAt   DateTime?        @map("archived_at")
 
   @@unique([schoolId, name])
   @@map("bank_account")
@@ -109,39 +109,41 @@ model BankAccount {
 /// Day Book Entry: one line in the Day Book, made only by the software.
 /// Each source record posts once (sourceKey); a cancellation adds a reversing entry.
 model DayBookEntry {
-  id              String           @id @default(uuid()) @db.Uuid
-  schoolId        String           @map("school_id") @db.Uuid
-  financialYearId String           @map("financial_year_id") @db.Uuid
-  date            DateTime         @db.Date
-  postedAt        DateTime         @default(now()) @map("posted_at")
-  direction       DayBookDirection
+  id               String           @id @default(uuid()) @db.Uuid
+  schoolId         String           @map("school_id") @db.Uuid
+  financialYearId  String           @map("financial_year_id") @db.Uuid
+  date             DateTime         @db.Date
+  postedAt         DateTime         @default(now()) @map("posted_at")
+  direction        DayBookDirection
   /// Total of the entry (amount + penalty).
-  amountPaise     BigInt           @map("amount_paise")
+  amountPaise      BigInt           @map("amount_paise")
   /// The late fee part, shown as penalty.
-  penaltyPaise    BigInt           @default(0) @map("penalty_paise")
-  mode            String
+  penaltyPaise     BigInt           @default(0) @map("penalty_paise")
+  mode             String
   /// online-fees, fees-full, fees-partial, other-fees, daycare, other-income, expense, salary, refund, reversal, opening, transfer.
-  section         String
-  headName        String           @map("head_name")
-  feeHeadIds      String[]         @default([]) @map("fee_head_ids")
-  accountHeadId   String?          @map("account_head_id") @db.Uuid
+  section          String
+  headName         String           @map("head_name")
+  feeHeadIds       String[]         @default([]) @map("fee_head_ids")
+  accountHeadId    String?          @map("account_head_id") @db.Uuid
   /// Cash or bank account the money is in.
-  accountId       String?          @map("account_id") @db.Uuid
+  accountId        String?          @map("account_id") @db.Uuid
+  /// For fee entries when fees go into different bank accounts: the bank account the fee head goes to.
+  depositAccountId String?          @map("deposit_account_id") @db.Uuid
   /// payment, payment-cancel, refund, income, income-cancel, expense-payment, expense-cancel, payroll, salary-advance, opening-balance, transfer.
-  sourceType      String           @map("source_type")
-  sourceId        String           @map("source_id")
-  sourceKey       String           @map("source_key")
-  studentId       String?          @map("student_id") @db.Uuid
-  classId         String?          @map("class_id") @db.Uuid
-  sectionId       String?          @map("section_id") @db.Uuid
-  staffId         String?          @map("staff_id") @db.Uuid
-  vendorId        String?          @map("vendor_id") @db.Uuid
-  costCentreId    String?          @map("cost_centre_id") @db.Uuid
-  partyName       String           @map("party_name")
-  reference       String?
-  note            String?
-  reversesEntryId String?          @map("reverses_entry_id") @db.Uuid
-  createdById     String?          @map("created_by_id") @db.Uuid
+  sourceType       String           @map("source_type")
+  sourceId         String           @map("source_id")
+  sourceKey        String           @map("source_key")
+  studentId        String?          @map("student_id") @db.Uuid
+  classId          String?          @map("class_id") @db.Uuid
+  sectionId        String?          @map("section_id") @db.Uuid
+  staffId          String?          @map("staff_id") @db.Uuid
+  vendorId         String?          @map("vendor_id") @db.Uuid
+  costCentreId     String?          @map("cost_centre_id") @db.Uuid
+  partyName        String           @map("party_name")
+  reference        String?
+  note             String?
+  reversesEntryId  String?          @map("reverses_entry_id") @db.Uuid
+  createdById      String?          @map("created_by_id") @db.Uuid
 
   @@unique([schoolId, sourceKey])
   @@index([schoolId, financialYearId, date])
@@ -321,17 +323,17 @@ model CashTransfer {
 
 /// Journal Entry (optional, full accounts): debits must equal credits; never edited, only reversed.
 model JournalEntry {
-  id              String    @id @default(uuid()) @db.Uuid
-  schoolId        String    @map("school_id") @db.Uuid
-  financialYearId String    @map("financial_year_id") @db.Uuid
+  id              String   @id @default(uuid()) @db.Uuid
+  schoolId        String   @map("school_id") @db.Uuid
+  financialYearId String   @map("financial_year_id") @db.Uuid
   number          String
-  date            DateTime  @db.Date
+  date            DateTime @db.Date
   narration       String
-  campusId        String?   @map("campus_id") @db.Uuid
-  reversesId      String?   @map("reverses_id") @db.Uuid
-  reversedById    String?   @map("reversed_by_id") @db.Uuid
-  createdById     String?   @map("created_by_id") @db.Uuid
-  createdAt       DateTime  @default(now()) @map("created_at")
+  campusId        String?  @map("campus_id") @db.Uuid
+  reversesId      String?  @map("reverses_id") @db.Uuid
+  reversedById    String?  @map("reversed_by_id") @db.Uuid
+  createdById     String?  @map("created_by_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at")
 
   lines JournalLine[]
 

@@ -300,37 +300,37 @@ model FeeAdjustment {
 
 /// Concession: a discount, scholarship, bulk discount or late-fee waiver.
 model Concession {
-  id               String           @id @default(uuid()) @db.Uuid
-  schoolId         String           @map("school_id") @db.Uuid
-  studentId        String           @map("student_id") @db.Uuid
-  academicYearId   String           @map("academic_year_id") @db.Uuid
-  type             ConcessionType   @default(DISCOUNT)
+  id              String           @id @default(uuid()) @db.Uuid
+  schoolId        String           @map("school_id") @db.Uuid
+  studentId       String           @map("student_id") @db.Uuid
+  academicYearId  String           @map("academic_year_id") @db.Uuid
+  type            ConcessionType   @default(DISCOUNT)
   /// "amount" (a total amount) or "percent" (of each due).
-  mode             String           @default("amount")
-  amountPaise      BigInt           @default(0) @map("amount_paise")
-  percentBp        Int              @default(0) @map("percent_bp")
-  feeHeadIds       String[]         @default([]) @map("fee_head_ids")
+  mode            String           @default("amount")
+  amountPaise     BigInt           @default(0) @map("amount_paise")
+  percentBp       Int              @default(0) @map("percent_bp")
+  feeHeadIds      String[]         @default([]) @map("fee_head_ids")
   /// Specific rows, when chosen (late-fee waiver, counter discount).
-  dueIds           String[]         @default([]) @map("due_ids")
-  periodFrom       DateTime?        @map("period_from") @db.Date
-  periodTo         DateTime?        @map("period_to") @db.Date
-  reason           String
-  scholarshipType  String?          @map("scholarship_type")
-  documentFileId   String?          @map("document_file_id") @db.Uuid
-  status           ConcessionStatus @default(WAITING)
+  dueIds          String[]         @default([]) @map("due_ids")
+  periodFrom      DateTime?        @map("period_from") @db.Date
+  periodTo        DateTime?        @map("period_to") @db.Date
+  reason          String
+  scholarshipType String?          @map("scholarship_type")
+  documentFileId  String?          @map("document_file_id") @db.Uuid
+  status          ConcessionStatus @default(WAITING)
   /// Worked out when asked, and the amount actually applied once applied.
-  estimatedPaise   BigInt           @default(0) @map("estimated_paise")
-  appliedPaise     BigInt           @default(0) @map("applied_paise")
-  approvalId       String?          @map("approval_id") @db.Uuid
-  decidedById      String?          @map("decided_by_id") @db.Uuid
-  decisionNote     String?          @map("decision_note")
+  estimatedPaise  BigInt           @default(0) @map("estimated_paise")
+  appliedPaise    BigInt           @default(0) @map("applied_paise")
+  approvalId      String?          @map("approval_id") @db.Uuid
+  decidedById     String?          @map("decided_by_id") @db.Uuid
+  decisionNote    String?          @map("decision_note")
   /// The bulk discount rule or payment it came with.
-  bulkRuleId       String?          @map("bulk_rule_id") @db.Uuid
-  paymentId        String?          @map("payment_id") @db.Uuid
-  requestedById    String?          @map("requested_by_id") @db.Uuid
-  createdAt        DateTime         @default(now()) @map("created_at")
-  updatedAt        DateTime         @updatedAt @map("updated_at")
-  archivedAt       DateTime?        @map("archived_at")
+  bulkRuleId      String?          @map("bulk_rule_id") @db.Uuid
+  paymentId       String?          @map("payment_id") @db.Uuid
+  requestedById   String?          @map("requested_by_id") @db.Uuid
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  archivedAt      DateTime?        @map("archived_at")
 
   lines ConcessionLine[]
 
@@ -488,23 +488,25 @@ model TaxInvoice {
 
 /// Refund: money given back from a payment, never more than paid (rule 9).
 model Refund {
-  id            String       @id @default(uuid()) @db.Uuid
-  schoolId      String       @map("school_id") @db.Uuid
-  paymentId     String       @map("payment_id") @db.Uuid
-  studentId     String       @map("student_id") @db.Uuid
-  amountPaise   BigInt       @map("amount_paise")
-  mode          PaymentMode
-  reason        String
-  status        RefundStatus @default(WAITING)
-  approvalId    String?      @map("approval_id") @db.Uuid
-  decisionNote  String?      @map("decision_note")
-  refundedOn    DateTime?    @map("refunded_on") @db.Date
-  reference     String?
-  accountId     String?      @map("account_id") @db.Uuid
-  refundedById  String?      @map("refunded_by_id") @db.Uuid
-  requestedById String?      @map("requested_by_id") @db.Uuid
-  createdAt     DateTime     @default(now()) @map("created_at")
-  updatedAt     DateTime     @updatedAt @map("updated_at")
+  id               String       @id @default(uuid()) @db.Uuid
+  schoolId         String       @map("school_id") @db.Uuid
+  paymentId        String       @map("payment_id") @db.Uuid
+  studentId        String       @map("student_id") @db.Uuid
+  amountPaise      BigInt       @map("amount_paise")
+  mode             PaymentMode
+  reason           String
+  status           RefundStatus @default(WAITING)
+  approvalId       String?      @map("approval_id") @db.Uuid
+  decisionNote     String?      @map("decision_note")
+  refundedOn       DateTime?    @map("refunded_on") @db.Date
+  reference        String?
+  accountId        String?      @map("account_id") @db.Uuid
+  /// The part of the refund that came out of advance held for the student.
+  advanceUsedPaise BigInt       @default(0) @map("advance_used_paise")
+  refundedById     String?      @map("refunded_by_id") @db.Uuid
+  requestedById    String?      @map("requested_by_id") @db.Uuid
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
 
   @@index([schoolId, paymentId])
   @@index([schoolId, status])
@@ -516,6 +518,8 @@ model PaymentLink {
   id               String            @id @default(uuid()) @db.Uuid
   schoolId         String            @map("school_id") @db.Uuid
   studentId        String            @map("student_id") @db.Uuid
+  /// The guardian who started it from Parent Link, or who it was sent to.
+  guardianId       String?           @map("guardian_id") @db.Uuid
   dueIds           String[]          @map("due_ids")
   amountPaise      BigInt            @map("amount_paise")
   gatewayAccountId String            @map("gateway_account_id") @db.Uuid

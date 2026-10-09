@@ -101,6 +101,7 @@ export async function idCardsHtml(tx: Tx, ctx: SchoolContext, students: CardStud
   }
   return `<!doctype html><html><head><meta charset="utf-8"><style>
     @page { size: A4; margin: 10mm; }
+    html { background: #fff; }
     body { margin: 0; font-family: Arial, "Noto Sans", sans-serif; color: #111; }
     .sheet { display: grid; grid-template-columns: repeat(2, 85.6mm); gap: 6mm 8mm; justify-content: center; }
     .card { width: 85.6mm; height: 54mm; border: 0.3mm solid #888; border-radius: 3mm; overflow: hidden; display: flex; flex-direction: column; break-inside: avoid; page-break-inside: avoid; }
@@ -117,6 +118,7 @@ export async function idCardsHtml(tx: Tx, ctx: SchoolContext, students: CardStud
     .bottom { display: flex; justify-content: space-between; align-items: center; padding: 0 2.5mm 1.2mm; }
     .bar svg { height: 5.5mm; width: auto; } .valid { font-size: 6pt; color: #333; }
     .sheet + .sheet { break-before: page; page-break-before: always; }
+    @media screen { body { padding: 8px; } .sheet { grid-template-columns: repeat(auto-fill, 85.6mm); justify-content: start; } }
   </style></head><body>${sheets(cards, Math.min(8, Math.max(1, settings.idCardsPerPage)))}</body></html>`;
 }
 

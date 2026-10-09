@@ -122,4 +122,11 @@ export function WhenSaved({ children }: { children: React.ReactNode }) {
   return state?.ok ? <>{children}</> : null;
 }
 
+/** After saving, a link the action sent back (for example a PDF to print), opened in a new tab. */
+export function ResultLink({ label }: { label: string }) {
+  const state = useFormResult();
+  const href = state?.ok ? (state.data as { href?: string } | undefined)?.href : undefined;
+  return href ? <a href={href} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center font-medium text-brand-text underline">{label}</a> : null;
+}
+
 export { useFormResult };

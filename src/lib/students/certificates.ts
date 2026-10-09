@@ -178,8 +178,14 @@ const GENDER_WORDS = (g: string | null) => (g === "Female" ? { child: "daughter"
 /** Saves the printed details at issue, so a reprint shows exactly the same. */
 async function snapshot(tx: Tx, certificateId: string) {
   const cert = await tx.certificate.findUniqueOrThrow({ where: { id: certificateId } });
+  const data = await certificateData(tx, cert.studentId, cert.leavingRequestId, cert.data as Record<string, unknown>);
+  await tx.certificate.update({ where: { id: cert.id }, data: { data: data as Prisma.InputJsonValue } });
+}
+
+/** The details a certificate prints, from the student's record (also used for the preview before issuing). */
+export async function certificateData(tx: Tx, studentId: string, leavingRequestId: string | null, extra: Record<string, unknown> = {}) {
   const s = await tx.student.findUniqueOrThrow({
-    where: { id: cert.studentId },
+    where: { id: studentId },
     include: { guardians: { where: { archivedAt: null }, include: { guardian: true } }, enrolments: { where: { archivedAt: null }, orderBy: { createdAt: "asc" } } },
   });
   const sections = await tx.section.findMany({ where: { id: { in: s.enrolments.map((e) => e.sectionId) } }, include: { schoolClass: true, academicYear: true } });
@@ -188,10 +194,10 @@ async function snapshot(tx: Tx, certificateId: string) {
   const last = s.enrolments.length ? sec(s.enrolments[s.enrolments.length - 1].sectionId) : undefined;
   const father = s.guardians.find((g) => g.relationship === "Father")?.guardian.name ?? s.guardians.find((g) => g.isPrimary)?.guardian.name ?? "";
   const mother = s.guardians.find((g) => g.relationship === "Mother")?.guardian.name ?? "";
-  const leaving = cert.leavingRequestId ? await tx.leavingRequest.findUnique({ where: { id: cert.leavingRequestId } }) : null;
+  const leaving = leavingRequestId ? await tx.leavingRequest.findUnique({ where: { id: leavingRequestId } }) : null;
   const lastEnr = s.enrolments[s.enrolments.length - 1];
-  const data = {
-    ...(cert.data as Record<string, unknown>),
+  return {
+    ...extra,
     name: s.fullName, admissionNo: s.admissionNo, gender: s.gender, father, mother,
     dateOfBirth: s.dateOfBirth?.toISOString().slice(0, 10) ?? null,
     category: s.category, religion: s.religion, nationality: "Indian",
@@ -203,7 +209,6 @@ async function snapshot(tx: Tx, certificateId: string) {
     appliedOn: leaving?.createdAt.toISOString().slice(0, 10) ?? null,
     apaarId: s.apaarId, pen: s.pen,
   };
-  await tx.certificate.update({ where: { id: cert.id }, data: { data: data as Prisma.InputJsonValue } });
 }
 
 const ONES = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
@@ -295,7 +300,7 @@ export async function certificateHtml(cert: { type: CertificateType; number: str
     if (cert.type === "BONAFIDE") {
       body = `<p>This is to certify that ${name}${of} bearing ${adm}, is a bonafide student of this school, studying in <strong>${esc(d.lastClass ?? "")}</strong> during the academic year <strong>${esc(d.lastYear ?? "")}</strong>.${dob}</p><p>This certificate is issued on request for the purpose of <strong>${esc(cert.purpose ?? "")}</strong>.</p>`;
     } else if (cert.type === "STUDY") {
-      body = `<p>This is to certify that ${name}${of} bearing ${adm}, studied in this school from <strong>${esc(dmy(d.joinedOn))}</strong>${d.firstClass ? ` (admitted to ${esc(d.firstClass)})` : ""} and ${d.leavingDate ? "was last" : "is"} in<strong>${esc(d.lastClass ?? "")}</strong> in the academic year <strong>${esc(d.lastYear ?? "")}</strong>.${dob}</p>${cert.purpose ? `<p>Issued for the purpose of <strong>${esc(cert.purpose)}</strong>.</p>` : ""}`;
+      body = `<p>This is to certify that ${name}${of} bearing ${adm}, studied in this school from <strong>${esc(dmy(d.joinedOn))}</strong>${d.firstClass ? ` (admitted to ${esc(d.firstClass)})` : ""} and ${d.leavingDate ? "was last" : "is"} in <strong>${esc(d.lastClass ?? "")}</strong> in the academic year <strong>${esc(d.lastYear ?? "")}</strong>.${dob}</p>${cert.purpose ? `<p>Issued for the purpose of <strong>${esc(cert.purpose)}</strong>.</p>` : ""}`;
     } else if (cert.type === "CHARACTER") {
       body = `<p>This is to certify that ${name}${of} bearing ${adm}, has been a student of this school${d.joinedOn ? ` since <strong>${esc(dmy(d.joinedOn))}</strong>` : ""}, last in <strong>${esc(d.lastClass ?? "")}</strong>.</p><p>To the best of our knowledge, ${w.his} conduct and character during this period were <strong>${esc((d.conduct ?? "Good").toLowerCase())}</strong>.${cert.purpose ? ` This certificate is issued for the purpose of <strong>${esc(cert.purpose)}</strong>.` : ""}</p>`;
     } else {
@@ -306,6 +311,7 @@ export async function certificateHtml(cert: { type: CertificateType; number: str
   const cancelled = cert.status === "CANCELLED";
   return `<!doctype html><html><head><meta charset="utf-8"><style>
     @page { size: A4; margin: 14mm; }
+    html { background: #fff; }
     body { font-family: "Noto Serif", Georgia, "Times New Roman", serif; color: #111; font-size: 12.5pt; line-height: 1.6; }
     .frame { border: 3px double #1d3a8a; padding: 18mm 14mm 14mm; min-height: 240mm; position: relative; box-sizing: border-box; }
     header { text-align: center; border-bottom: 1px solid #999; padding-bottom: 8px; margin-bottom: 18px; }

@@ -4,13 +4,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-export function SubTabs({ tabs, label }: { tabs: { href: string; label: string; exact?: boolean; also?: string[] }[]; label: string }) {
+export function SubTabs({ tabs, label }: { tabs: { href: string; label: string; exact?: boolean; also?: string[]; not?: string[] }[]; label: string }) {
   const path = usePathname();
   return (
     <nav aria-label={label} className="-mx-4 mb-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
       <ul className="flex gap-1">
         {tabs.map((t) => {
-          const on = (t.exact ? path === t.href : path === t.href || path.startsWith(`${t.href}/`)) || Boolean(t.also?.some((a) => path === a || path.startsWith(`${a}/`)));
+          const on = !t.not?.some((n) => path === n || path.startsWith(`${n}/`)) && ((t.exact ? path === t.href : path === t.href || path.startsWith(`${t.href}/`)) || Boolean(t.also?.some((a) => path === a || path.startsWith(`${a}/`))));
           return (
             <li key={t.href}>
               <Link href={t.href} aria-current={on ? "page" : undefined}

@@ -1,0 +1,324 @@
+// School OS database. Record names follow docs/blueprint/04-data-model.md.
+//
+// Every record that belongs to a school carries school_id and is protected by
+// PostgreSQL row-level security (see the migration SQL). The running app
+// connects as a role that cannot see past those walls; see src/lib/db.ts.
+//
+// Conventions:
+// - Records are archived (archived_at), never deleted. The app role has no
+//   DELETE grant at all.
+// - Money is stored as whole paise (BigInt), never as floating point.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("MIGRATION_DATABASE_URL")
+}
+
+enum SchoolStatus {
+  TRIAL
+  ACTIVE
+  SUSPENDED
+  CLOSED
+}
+
+enum UserLoginStatus {
+  INVITED
+  ACTIVE
+  DISABLED
+}
+
+enum RoleKind {
+  READY
+  TEMPLATE
+  CUSTOM
+}
+
+enum AccessScope {
+  WHOLE_SCHOOL
+  CAMPUS
+  CHOSEN_CLASSES
+  OWN
+}
+
+enum ApprovalStatus {
+  WAITING
+  APPROVED
+  REJECTED
+  WITHDRAWN
+  ESCALATED
+}
+
+/// Group: a group or trust that runs several schools. Group screens come later.
+model Group {
+  id         String    @id @default(uuid()) @db.Uuid
+  name       String
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  archivedAt DateTime? @map("archived_at")
+  schools    School[]
+
+  @@map("school_group")
+}
+
+/// School: the school using School OS. Made by Add School in the Super Admin console.
+model School {
+  id                String       @id @default(uuid()) @db.Uuid
+  code              String       @unique
+  name              String
+  status            SchoolStatus @default(TRIAL)
+  schoolType        String?      @map("school_type")
+  trialEndsOn       DateTime?    @map("trial_ends_on") @db.Date
+  logoUrl           String?      @map("logo_url")
+  address           String?
+  board             String?
+  affiliationNumber String?      @map("affiliation_number")
+  languages         String[]     @default(["en"])
+  timeZone          String       @default("Asia/Kolkata") @map("time_zone")
+  groupId           String?      @map("group_id") @db.Uuid
+  gstin             String?
+  smsDltEntityId    String?      @map("sms_dlt_entity_id")
+  smsSenderHeader   String?      @map("sms_sender_header")
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+  archivedAt        DateTime?    @map("archived_at")
+
+  group         Group?          @relation(fields: [groupId], references: [id])
+  campuses      Campus[]
+  roles         Role[]
+  accesses      SchoolAccess[]
+  modules       SchoolModule[]
+  features      SchoolFeature[]
+  notifications Notification[]
+  approvals     Approval[]
+  auditLog      AuditLogEntry[]
+
+  @@map("school")
+}
+
+/// Campus: one site of the school. Most schools have one.
+model Campus {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  name        String
+  address     String?
+  isMain      Boolean   @default(false) @map("is_main")
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedById String?   @map("updated_by_id") @db.Uuid
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  school   School         @relation(fields: [schoolId], references: [id])
+  accesses SchoolAccess[]
+
+  @@index([schoolId])
+  @@map("campus")
+}
+
+/// User Login: how one person signs in. One login can work in several schools
+/// through School Access. It will be linked to exactly one Staff, Student or
+/// Driver record when those modules are built (04-data-model.md, rule 32).
+model UserLogin {
+  id                String          @id @default(uuid()) @db.Uuid
+  username          String          @unique
+  displayName       String          @map("display_name")
+  phone             String?
+  email             String?
+  passwordHash      String?         @map("password_hash")
+  status            UserLoginStatus @default(INVITED)
+  inviteTokenHash   String?         @unique @map("invite_token_hash")
+  inviteExpiresAt   DateTime?       @map("invite_expires_at")
+  failedAttempts    Int             @default(0) @map("failed_attempts")
+  lockedUntil       DateTime?       @map("locked_until")
+  lastSignInAt      DateTime?       @map("last_sign_in_at")
+  passwordChangedAt DateTime?       @map("password_changed_at")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+  archivedAt        DateTime?       @map("archived_at")
+
+  sessions      Session[]
+  accesses      SchoolAccess[]
+  notifications Notification[]
+
+  @@map("user_login")
+}
+
+/// One signed-in device. The browser keeps a random token; only its hash is stored.
+model Session {
+  id            String    @id @default(uuid()) @db.Uuid
+  userLoginId   String    @map("user_login_id") @db.Uuid
+  tokenHash     String    @unique @map("token_hash")
+  schoolId      String?   @map("school_id") @db.Uuid
+  campusId      String?   @map("campus_id") @db.Uuid
+  userAgent     String?   @map("user_agent")
+  ipAddress     String?   @map("ip_address")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  lastUsedAt    DateTime  @default(now()) @map("last_used_at")
+  expiresAt     DateTime  @map("expires_at")
+  revokedAt     DateTime? @map("revoked_at")
+  revokedReason String?   @map("revoked_reason")
+
+  userLogin UserLogin @relation(fields: [userLoginId], references: [id])
+
+  @@index([userLoginId])
+  @@map("session")
+}
+
+/// Role: a named set of things a person may do, such as Principal or Accountant.
+/// permissions maps each module key to "full", "view", "own" or "none".
+model Role {
+  id              String    @id @default(uuid()) @db.Uuid
+  schoolId        String    @map("school_id") @db.Uuid
+  key             String?
+  name            String
+  kind            RoleKind  @default(CUSTOM)
+  isEnabled       Boolean   @default(true) @map("is_enabled")
+  requiresTwoStep Boolean   @default(false) @map("requires_two_step")
+  permissions     Json
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  archivedAt      DateTime? @map("archived_at")
+
+  school   School             @relation(fields: [schoolId], references: [id])
+  accesses SchoolAccessRole[]
+
+  @@unique([schoolId, name])
+  @@map("role")
+}
+
+/// School Access: which school (and optionally which campus) a login can open,
+/// with which roles and scope.
+model SchoolAccess {
+  id          String      @id @default(uuid()) @db.Uuid
+  schoolId    String      @map("school_id") @db.Uuid
+  campusId    String?     @map("campus_id") @db.Uuid
+  userLoginId String      @map("user_login_id") @db.Uuid
+  scope       AccessScope @default(WHOLE_SCHOOL)
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  archivedAt  DateTime?   @map("archived_at")
+
+  school    School             @relation(fields: [schoolId], references: [id])
+  campus    Campus?            @relation(fields: [campusId], references: [id])
+  userLogin UserLogin          @relation(fields: [userLoginId], references: [id])
+  roles     SchoolAccessRole[]
+
+  @@index([userLoginId])
+  @@index([schoolId])
+  @@map("school_access")
+}
+
+model SchoolAccessRole {
+  schoolId       String @map("school_id") @db.Uuid
+  schoolAccessId String @map("school_access_id") @db.Uuid
+  roleId         String @map("role_id") @db.Uuid
+
+  schoolAccess SchoolAccess @relation(fields: [schoolAccessId], references: [id])
+  role         Role         @relation(fields: [roleId], references: [id])
+
+  @@id([schoolAccessId, roleId])
+  @@map("school_access_role")
+}
+
+/// Modules On/Off: optional modules stay hidden until the school switches them on.
+model SchoolModule {
+  schoolId  String   @map("school_id") @db.Uuid
+  moduleKey String   @map("module_key")
+  isOn      Boolean  @default(false) @map("is_on")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  school School @relation(fields: [schoolId], references: [id])
+
+  @@id([schoolId, moduleKey])
+  @@map("school_module")
+}
+
+/// New features can be switched on school by school (08-platform-security.md §14, rule 3).
+model SchoolFeature {
+  schoolId   String   @map("school_id") @db.Uuid
+  featureKey String   @map("feature_key")
+  isOn       Boolean  @default(false) @map("is_on")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  school School @relation(fields: [schoolId], references: [id])
+
+  @@id([schoolId, featureKey])
+  @@map("school_feature")
+}
+
+/// Notification: an alert inside School OS for one person with a login.
+model Notification {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  userLoginId String    @map("user_login_id") @db.Uuid
+  type        String
+  text        String
+  link        String
+  groupKey    String?   @map("group_key")
+  count       Int       @default(1)
+  readAt      DateTime? @map("read_at")
+  doneAt      DateTime? @map("done_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  school    School    @relation(fields: [schoolId], references: [id])
+  userLogin UserLogin @relation(fields: [userLoginId], references: [id])
+
+  @@index([schoolId, userLoginId, readAt])
+  @@map("notification")
+}
+
+/// Approval: one request waiting for a yes or no.
+model Approval {
+  id                  String         @id @default(uuid()) @db.Uuid
+  schoolId            String         @map("school_id") @db.Uuid
+  type                String
+  recordType          String         @map("record_type")
+  recordId            String         @map("record_id")
+  summary             String
+  amountPaise         BigInt?        @map("amount_paise")
+  reason              String?
+  askedById           String         @map("asked_by_id") @db.Uuid
+  currentApproverId   String?        @map("current_approver_id") @db.Uuid
+  currentApproverRole String?        @map("current_approver_role")
+  step                Int            @default(1)
+  status              ApprovalStatus @default(WAITING)
+  decidedById         String?        @map("decided_by_id") @db.Uuid
+  decisionReason      String?        @map("decision_reason")
+  decidedAt           DateTime?      @map("decided_at")
+  history             Json           @default("[]")
+  createdAt           DateTime       @default(now()) @map("created_at")
+  updatedAt           DateTime       @updatedAt @map("updated_at")
+
+  school School @relation(fields: [schoolId], references: [id])
+
+  @@index([schoolId, status])
+  @@map("approval")
+}
+
+/// Audit Log Entry: one change to any record. It can never be changed or deleted.
+model AuditLogEntry {
+  id          String   @id @default(uuid()) @db.Uuid
+  schoolId    String   @map("school_id") @db.Uuid
+  userLoginId String?  @map("user_login_id") @db.Uuid
+  actorNote   String?  @map("actor_note")
+  action      String
+  recordType  String   @map("record_type")
+  recordId    String?  @map("record_id")
+  before      Json?
+  after       Json?
+  device      String?
+  ipAddress   String?  @map("ip_address")
+  at          DateTime @default(now())
+
+  school School @relation(fields: [schoolId], references: [id])
+
+  @@index([schoolId, recordType, recordId])
+  @@index([schoolId, at])
+  @@map("audit_log_entry")
+}

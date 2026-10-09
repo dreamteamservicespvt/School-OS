@@ -96,7 +96,7 @@ export function subjectResult(p: PaperInput, bands: Band[], rules: PassRules): S
       grace = needed;
     }
   }
-  return { ...base, marks, absent: false, grade: band?.grade ?? null, points: band?.points ?? null, percent, passed, missing: false };
+  return { ...base, marks, absent: false, grade: band?.grade ?? null, points: band?.points ?? null, percent, passed, grace, missing: false };
 }
 
 /** A student's result for one exam. Incomplete results show what is missing and have no outcome. */

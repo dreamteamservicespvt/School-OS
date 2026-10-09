@@ -1,0 +1,23 @@
+// School OS database. Record names follow docs/blueprint/04-data-model.md.
+//
+// The schema is split into one file per area in this folder. Every record
+// that belongs to a school carries school_id and is protected by PostgreSQL
+// row-level security (see the migration SQL). The running app connects as a
+// role that cannot see past those walls; see src/lib/db.ts.
+//
+// Conventions:
+// - Records are archived (archived_at), never deleted. The app role has no
+//   DELETE grant at all.
+// - Money is stored as whole paise (BigInt), never as floating point.
+// - A new school table needs, in its migration: row-level security, the
+//   same-school policy, and a line in tests/isolation.test.ts.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("MIGRATION_DATABASE_URL")
+}

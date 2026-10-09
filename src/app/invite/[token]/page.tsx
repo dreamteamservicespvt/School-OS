@@ -25,7 +25,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
             <p className="mt-2 text-sm text-ink-2">
               Invite links work once, for 7 days. Ask your School Admin to send you a new one.
             </p>
-            <Link href="/sign-in" className="mt-4 inline-block font-medium text-brand underline">Go to sign in</Link>
+            <Link href="/sign-in" className="mt-4 inline-block font-medium text-brand-text underline">Go to sign in</Link>
           </>
         )}
       </div>

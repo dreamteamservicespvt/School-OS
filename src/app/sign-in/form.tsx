@@ -11,7 +11,7 @@ export function SignInForm({ notice }: { notice?: string }) {
         <p className="rounded-lg bg-brand-soft px-3 py-2 text-sm text-ink" role="status">{notice}</p>
       )}
       {state?.message && (
-        <p className="rounded-lg border border-danger/30 bg-red-50 px-3 py-2 text-sm text-danger" role="alert">{state.message}</p>
+        <p className="rounded-lg border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger" role="alert">{state.message}</p>
       )}
       <div>
         <label htmlFor="username" className="mb-1 block text-sm font-medium">Username</label>

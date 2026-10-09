@@ -29,7 +29,7 @@ export function SchoolSwitcher({ current, schools }: { current: School; schools:
             <input type="hidden" name="schoolId" value={s.id} />
             <input type="hidden" name="back" value={pathname} />
             <button type="submit" aria-current={s.id === current.id ? "true" : undefined}
-              className={`flex min-h-11 w-full items-center rounded-lg px-3 text-left ${s.id === current.id ? "bg-brand-soft font-medium text-brand" : "hover:bg-surface-2"}`}>
+              className={`flex min-h-11 w-full items-center rounded-lg px-3 text-left ${s.id === current.id ? "bg-brand-soft font-medium text-brand-text" : "hover:bg-surface-2"}`}>
               {s.name}
             </button>
           </form>

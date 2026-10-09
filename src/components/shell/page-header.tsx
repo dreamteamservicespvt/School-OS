@@ -28,7 +28,7 @@ export function PageHeader({ title, href, userId, children }: { title: string; h
         <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
         <button type="button" onClick={toggle}
           aria-pressed={pinned} aria-label={pinned ? `Unpin ${title}` : `Pin ${title} to Search`} title={pinned ? "Pinned to Search" : "Pin to Search"}
-          className={`grid size-11 place-items-center rounded-lg hover:bg-surface-2 ${pinned ? "text-brand" : "text-ink-2"}`}>
+          className={`grid size-11 place-items-center rounded-lg hover:bg-surface-2 ${pinned ? "text-brand-text" : "text-ink-2"}`}>
           <PinIcon className={`size-5 ${pinned ? "fill-current" : ""}`} />
         </button>
       </div>

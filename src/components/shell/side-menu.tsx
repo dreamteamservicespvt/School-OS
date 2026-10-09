@@ -22,7 +22,7 @@ function MenuList({ items, onPick }: { items: MenuItem[]; onPick?: () => void })
               onClick={onPick}
               aria-current={active ? "page" : undefined}
               className={`flex min-h-11 items-center gap-3 rounded-lg px-3 text-[15px] ${
-                active ? "bg-brand-soft font-medium text-brand" : "text-ink hover:bg-surface-2"
+                active ? "bg-brand-soft font-medium text-brand-text" : "text-ink hover:bg-surface-2"
               }`}
             >
               <ModuleIcon module={item.key} className="size-5 shrink-0" />
@@ -72,7 +72,7 @@ function SideMenuInner({ items, schoolName, footer }: SideMenuProps) {
 
       {open && (
         <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label="Main menu">
-          <button type="button" className="absolute inset-0 bg-black/40" aria-label="Close menu" onClick={() => setOpen(false)} />
+          <button type="button" className="absolute inset-0 bg-overlay" aria-label="Close menu" onClick={() => setOpen(false)} />
           <nav className="absolute inset-y-0 left-0 flex w-[min(20rem,85vw)] flex-col bg-surface shadow-xl">
             <div className="flex h-16 items-center justify-between border-b border-line px-4">
               <span className="truncate font-semibold">{schoolName}</span>

@@ -8,7 +8,7 @@ export function InviteForm({ token }: { token: string }) {
   return (
     <form action={action} className="space-y-4">
       {state?.message && (
-        <p className="rounded-lg border border-danger/30 bg-red-50 px-3 py-2 text-sm text-danger" role="alert">{state.message}</p>
+        <p className="rounded-lg border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger" role="alert">{state.message}</p>
       )}
       <div>
         <label htmlFor="password" className="mb-1 block text-sm font-medium">New password</label>

@@ -10,7 +10,7 @@ export function PasswordForm() {
     <form action={action} className="max-w-md space-y-4">
       {state && (
         <p role={state.ok ? "status" : "alert"}
-          className={`rounded-lg px-3 py-2 text-sm ${state.ok ? "bg-green-50 text-success" : "border border-danger/30 bg-red-50 text-danger"}`}>
+          className={`rounded-lg px-3 py-2 text-sm ${state.ok ? "bg-success-soft text-success" : "border border-danger/30 bg-danger-soft text-danger"}`}>
           {state.message}
         </p>
       )}

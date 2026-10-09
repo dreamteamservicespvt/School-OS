@@ -144,3 +144,25 @@ describe("one login in several schools", () => {
     });
   });
 });
+
+describe("every school table has its walls", () => {
+  it("has row-level security forced and a same-school policy on each table with a school_id", async () => {
+    const { PrismaClient } = await import("@prisma/client");
+    const owner = new PrismaClient({ datasourceUrl: process.env.MIGRATION_DATABASE_URL });
+    try {
+      const tables = await owner.$queryRaw<{ table: string; rls: boolean; forced: boolean; policies: bigint }[]>`
+        SELECT c.relname AS table, c.relrowsecurity AS rls, c.relforcerowsecurity AS forced,
+               (SELECT count(*) FROM pg_policy p WHERE p.polrelid = c.oid) AS policies
+        FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace AND n.nspname = 'public'
+        WHERE c.relkind = 'r'
+          AND EXISTS (SELECT 1 FROM information_schema.columns col
+                      WHERE col.table_schema = 'public' AND col.table_name = c.relname AND col.column_name = 'school_id')`;
+      expect(tables.length).toBeGreaterThan(5);
+      const unprotected = tables.filter((t) => !t.rls || !t.forced || Number(t.policies) === 0).map((t) => t.table);
+      expect(unprotected).toEqual([]);
+    } finally {
+      await owner.$disconnect();
+    }
+  });
+});

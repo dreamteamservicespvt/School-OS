@@ -17,7 +17,7 @@ export function BottomBar({ approvals, unread, showApprovals }: { approvals: num
     const active = pathname === href;
     return (
       <Link href={href} aria-current={active ? "page" : undefined}
-        className={`flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] ${active ? "text-brand" : "text-ink-2"}`}>
+        className={`flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] ${active ? "text-brand-text" : "text-ink-2"}`}>
         <span className="relative">{icon}<Badge count={count} /></span>
         {label}
       </Link>

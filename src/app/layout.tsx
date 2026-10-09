@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from "next";
+import { cookies } from "next/headers";
+import { ACCENT_COOKIE, THEME_COOKIE, cleanAccent, cleanTheme } from "@/lib/theme";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -12,12 +14,16 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#1d4ed8",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f6f7f9" },
+    { media: "(prefers-color-scheme: dark)", color: "#0d1117" },
+  ],
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const jar = await cookies();
   return (
-    <html lang="en">
+    <html lang="en" data-theme={cleanTheme(jar.get(THEME_COOKIE)?.value)} data-accent={cleanAccent(jar.get(ACCENT_COOKIE)?.value)}>
       <body className="min-h-dvh">{children}</body>
     </html>
   );

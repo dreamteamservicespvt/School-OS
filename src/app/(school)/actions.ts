@@ -8,6 +8,8 @@ import { checkNewPassword, hashPassword, verifyPassword } from "@/lib/auth/passw
 import { revokeAllSessions, revokeSession, setSessionSchool } from "@/lib/auth/sessions";
 import { schoolsFor } from "@/lib/auth/access";
 import { clearSessionCookie, deviceInfo, requireCurrent } from "@/lib/current";
+import { cookies } from "next/headers";
+import { ACCENT_COOKIE, THEME_COOKIE, cleanAccent, cleanTheme } from "@/lib/theme";
 
 async function audit(action: string, extra: { recordId?: string; after?: object } = {}) {
   const current = await requireCurrent();
@@ -95,4 +97,17 @@ export async function changePassword(_prev: PasswordState, formData: FormData): 
     ok: true,
     message: others > 0 ? `Password changed. You were signed out on ${others} other device${others === 1 ? "" : "s"}.` : "Password changed.",
   };
+}
+
+/** Appearance: light, dark or the device's choice, and an accent colour. */
+export async function setAppearance(formData: FormData) {
+  const current = await requireCurrent();
+  const theme = cleanTheme(String(formData.get("theme") ?? current.user.theme));
+  const accent = cleanAccent(String(formData.get("accent") ?? current.user.accent));
+  await prisma.userLogin.update({ where: { id: current.user.id }, data: { theme, accent } });
+  const jar = await cookies();
+  const opts = { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax" as const };
+  jar.set(THEME_COOKIE, theme, opts);
+  jar.set(ACCENT_COOKIE, accent, opts);
+  revalidatePath("/", "layout");
 }

@@ -1,23 +1,4 @@
-// School OS database. Record names follow docs/blueprint/04-data-model.md.
-//
-// Every record that belongs to a school carries school_id and is protected by
-// PostgreSQL row-level security (see the migration SQL). The running app
-// connects as a role that cannot see past those walls; see src/lib/db.ts.
-//
-// Conventions:
-// - Records are archived (archived_at), never deleted. The app role has no
-//   DELETE grant at all.
-// - Money is stored as whole paise (BigInt), never as floating point.
-
-generator client {
-  provider = "prisma-client-js"
-}
-
-datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("MIGRATION_DATABASE_URL")
-}
+// Foundation: schools, logins, roles, approvals, notifications, audit log.
 
 enum SchoolStatus {
   TRIAL
@@ -137,6 +118,9 @@ model UserLogin {
   lockedUntil       DateTime?       @map("locked_until")
   lastSignInAt      DateTime?       @map("last_sign_in_at")
   passwordChangedAt DateTime?       @map("password_changed_at")
+  /// Appearance chosen in Profile: light, dark or system; and an accent colour.
+  theme             String          @default("system")
+  accent            String          @default("blue")
   createdAt         DateTime        @default(now()) @map("created_at")
   updatedAt         DateTime        @updatedAt @map("updated_at")
   archivedAt        DateTime?       @map("archived_at")
@@ -153,8 +137,9 @@ model Session {
   id            String    @id @default(uuid()) @db.Uuid
   userLoginId   String    @map("user_login_id") @db.Uuid
   tokenHash     String    @unique @map("token_hash")
-  schoolId      String?   @map("school_id") @db.Uuid
-  campusId      String?   @map("campus_id") @db.Uuid
+  /// The school this device is working in now (not a school record itself).
+  schoolId      String?   @map("active_school_id") @db.Uuid
+  campusId      String?   @map("active_campus_id") @db.Uuid
   userAgent     String?   @map("user_agent")
   ipAddress     String?   @map("ip_address")
   createdAt     DateTime  @default(now()) @map("created_at")

@@ -5,6 +5,7 @@ import { formatDateTime } from "@/lib/format";
 import { PageHeader } from "@/components/shell/page-header";
 import { signOut, signOutDevice, signOutEverywhere } from "../actions";
 import { PasswordForm } from "./password-form";
+import { Appearance } from "./appearance";
 
 export const metadata: Metadata = { title: "My profile" };
 
@@ -49,6 +50,10 @@ export default async function ProfilePage() {
           <p className="mt-4 text-sm text-ink-2">Changing your phone or email will need a one-time code; that arrives with Settings.</p>
         </Section>
 
+        <Section id="appearance" title="Appearance">
+          <Appearance theme={u.theme} accent={u.accent} />
+        </Section>
+
         <Section id="password" title="Change password">
           <PasswordForm />
         </Section>
@@ -60,7 +65,7 @@ export default async function ProfilePage() {
                 <div>
                   <p className="font-medium">
                     {describeDevice(s.userAgent)}
-                    {s.id === current.session.id && <span className="ml-2 rounded-full bg-brand-soft px-2 py-0.5 text-xs font-medium text-brand">This device</span>}
+                    {s.id === current.session.id && <span className="ml-2 rounded-full bg-brand-soft px-2 py-0.5 text-xs font-medium text-brand-text">This device</span>}
                   </p>
                   <p className="text-sm text-ink-2">Last used {formatDateTime(s.lastUsedAt, tz)}{s.ipAddress ? ` · ${s.ipAddress}` : ""}</p>
                 </div>
@@ -72,7 +77,7 @@ export default async function ProfilePage() {
             ))}
           </ul>
           <form action={signOutEverywhere} className="mt-4">
-            <button type="submit" className="min-h-11 rounded-lg border border-danger/40 px-4 font-medium text-danger hover:bg-red-50">
+            <button type="submit" className="min-h-11 rounded-lg border border-danger/40 px-4 font-medium text-danger hover:bg-danger-soft">
               Sign out everywhere ({sessions.length} device{sessions.length === 1 ? "" : "s"})
             </button>
           </form>

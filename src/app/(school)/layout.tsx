@@ -7,6 +7,9 @@ import { SearchBox } from "@/components/shell/search-box";
 import { ProfileMenu } from "@/components/shell/profile-menu";
 import { SchoolSwitcher } from "@/components/shell/school-switcher";
 import { BottomBar, Badge } from "@/components/shell/bottom-bar";
+import { Toast } from "@/components/ui/toast";
+import { readFlash } from "@/lib/flash";
+import { undoChange } from "./undo-action";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +36,7 @@ function TopIcon({ href, label, count, children }: { href: string; label: string
 
 export default async function SchoolLayout({ children }: { children: React.ReactNode }) {
   const current = await requireCurrent();
-  const shell = await shellData(current);
+  const [shell, flashed] = await Promise.all([shellData(current), readFlash()]);
   const school = { id: current.school.id, name: current.school.name };
 
   return (
@@ -61,6 +64,7 @@ export default async function SchoolLayout({ children }: { children: React.React
       </header>
 
       <main id="main" className="mx-auto max-w-6xl p-4 pb-24 sm:p-6">{children}</main>
+      <Toast key={flashed ? JSON.stringify(flashed) : "none"} flash={flashed} undoAction={undoChange} />
       <BottomBar approvals={shell.approvals} unread={shell.unread} showApprovals={shell.canApprove} />
     </div>
   );

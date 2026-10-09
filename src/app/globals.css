@@ -1,28 +1,110 @@
 @import "tailwindcss";
 
 /* Colour tokens. Text on surfaces meets WCAG 2.1 AA contrast (08-platform-security.md §14). */
+/*
+ * Colour tokens. Light and dark modes, and six accent colours a person can
+ * choose in Profile. Every pair of text and surface meets WCAG 2.1 AA
+ * contrast (08-platform-security.md §14 rule 6).
+ * <html data-theme="light|dark|system" data-accent="blue|teal|violet|rose|amber|green">
+ */
 :root {
+  color-scheme: light;
   --bg: #f6f7f9;
   --surface: #ffffff;
   --surface-2: #f0f2f5;
+  --surface-3: #e6e9ee;
   --border: #dfe3e8;
+  --border-strong: #c3cad4;
   --text: #17202a;
   --text-2: #4a5563;
-  --brand: #1d4ed8;
-  --brand-ink: #ffffff;
-  --brand-soft: #e8efff;
-  --warn-bg: #fff7d6;
+  --overlay: rgb(15 23 42 / 0.45);
+  --warn: #8a5a00;
+  --warn-bg: #fff6d6;
   --warn-text: #6b4e00;
   --danger: #b42318;
+  --danger-soft: #fef0ee;
   --success: #067647;
+  --success-soft: #e9f8ef;
+  --info-soft: #eef4ff;
+  --shadow: 0 1px 2px rgb(16 24 40 / 0.06), 0 1px 3px rgb(16 24 40 / 0.08);
+  --shadow-lg: 0 12px 32px rgb(16 24 40 / 0.14);
+  /* accent: blue (default) */
+  --brand: #1d4ed8;
+  --brand-hover: #1e40af;
+  --brand-ink: #ffffff;
+  --brand-soft: #e8efff;
+  --brand-text: #1d4ed8;
   --focus: #1d4ed8;
+}
+:root[data-accent="teal"] { --brand: #0f766e; --brand-hover: #115e59; --brand-soft: #e0f5f2; --brand-text: #0f766e; --focus: #0f766e; }
+:root[data-accent="violet"] { --brand: #6d28d9; --brand-hover: #5b21b6; --brand-soft: #f1ebff; --brand-text: #6d28d9; --focus: #6d28d9; }
+:root[data-accent="rose"] { --brand: #be123c; --brand-hover: #9f1239; --brand-soft: #ffe9ee; --brand-text: #be123c; --focus: #be123c; }
+:root[data-accent="amber"] { --brand: #b45309; --brand-hover: #92400e; --brand-soft: #fff1dc; --brand-text: #a34a06; --focus: #b45309; }
+:root[data-accent="green"] { --brand: #15803d; --brand-hover: #166534; --brand-soft: #e5f6ea; --brand-text: #15803d; --focus: #15803d; }
+
+/* Dark mode: chosen, or following the device when "system". */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface-2: #1f2630;
+  --surface-3: #2a323d;
+  --border: #2d3540;
+  --border-strong: #46505d;
+  --text: #e8edf3;
+  --text-2: #a5b0bd;
+  --overlay: rgb(0 0 0 / 0.6);
+  --warn: #f5c451;
+  --warn-bg: #3a2f0b;
+  --warn-text: #f8d77c;
+  --danger: #ff8a7a;
+  --danger-soft: #3b1714;
+  --success: #5fd49a;
+  --success-soft: #0f2e20;
+  --info-soft: #172338;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-lg: 0 12px 32px rgb(0 0 0 / 0.5);
+  --brand: #3b82f6; --brand-hover: #60a5fa; --brand-ink: #ffffff; --brand-soft: #172540; --brand-text: #8db7ff; --focus: #8db7ff;
+}
+:root[data-theme="dark"][data-accent="teal"] { --brand: #0f9488; --brand-hover: #14b8a6; --brand-soft: #0f2d2a; --brand-text: #5eead4; --focus: #5eead4; }
+:root[data-theme="dark"][data-accent="violet"] { --brand: #7c3aed; --brand-hover: #8b5cf6; --brand-soft: #251a40; --brand-text: #c4b5fd; --focus: #c4b5fd; }
+:root[data-theme="dark"][data-accent="rose"] { --brand: #e11d48; --brand-hover: #f43f5e; --brand-soft: #3b1420; --brand-text: #fda4af; --focus: #fda4af; }
+:root[data-theme="dark"][data-accent="amber"] { --brand: #c2610c; --brand-hover: #d97706; --brand-soft: #3a2410; --brand-text: #fcd34d; --focus: #fcd34d; }
+:root[data-theme="dark"][data-accent="green"] { --brand: #16a34a; --brand-hover: #22c55e; --brand-soft: #12301d; --brand-text: #86efac; --focus: #86efac; }
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] {
+    color-scheme: dark;
+    --bg: #0d1117; --surface: #161b22; --surface-2: #1f2630; --surface-3: #2a323d;
+    --border: #2d3540; --border-strong: #46505d; --text: #e8edf3; --text-2: #a5b0bd;
+    --overlay: rgb(0 0 0 / 0.6); --warn: #f5c451; --warn-bg: #3a2f0b; --warn-text: #f8d77c;
+    --danger: #ff8a7a; --danger-soft: #3b1714; --success: #5fd49a; --success-soft: #0f2e20; --info-soft: #172338;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.4); --shadow-lg: 0 12px 32px rgb(0 0 0 / 0.5);
+    --brand: #3b82f6; --brand-hover: #60a5fa; --brand-ink: #ffffff; --brand-soft: #172540; --brand-text: #8db7ff; --focus: #8db7ff;
+  }
+  :root[data-theme="system"][data-accent="teal"] { --brand: #0f9488; --brand-hover: #14b8a6; --brand-soft: #0f2d2a; --brand-text: #5eead4; --focus: #5eead4; }
+  :root[data-theme="system"][data-accent="violet"] { --brand: #7c3aed; --brand-hover: #8b5cf6; --brand-soft: #251a40; --brand-text: #c4b5fd; --focus: #c4b5fd; }
+  :root[data-theme="system"][data-accent="rose"] { --brand: #e11d48; --brand-hover: #f43f5e; --brand-soft: #3b1420; --brand-text: #fda4af; --focus: #fda4af; }
+  :root[data-theme="system"][data-accent="amber"] { --brand: #c2610c; --brand-hover: #d97706; --brand-soft: #3a2410; --brand-text: #fcd34d; --focus: #fcd34d; }
+  :root[data-theme="system"][data-accent="green"] { --brand: #16a34a; --brand-hover: #22c55e; --brand-soft: #12301d; --brand-text: #86efac; --focus: #86efac; }
 }
 
 @theme inline {
   --color-bg: var(--bg);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
   --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-overlay: var(--overlay);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-text: var(--brand-text);
+  --color-warn: var(--warn);
+  --color-danger-soft: var(--danger-soft);
+  --color-success-soft: var(--success-soft);
+  --color-info-soft: var(--info-soft);
+  --shadow-card: var(--shadow);
+  --shadow-pop: var(--shadow-lg);
   --color-ink: var(--text);
   --color-ink-2: var(--text-2);
   --color-brand: var(--brand);
@@ -62,4 +144,19 @@ body {
   z-index: 100;
   background: var(--surface);
   padding: 0.5rem 1rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+@keyframes sos-skeleton { 0%, 100% { opacity: 1 } 50% { opacity: 0.45 } }
+.skeleton { background: var(--surface-3); border-radius: 8px; animation: sos-skeleton 1.4s ease-in-out infinite; }
+
+@keyframes sos-toast-in { from { transform: translateY(8px); opacity: 0 } to { transform: none; opacity: 1 } }
+.toast-in { animation: sos-toast-in 160ms ease-out; }
+
+@media print {
+  .no-print { display: none !important; }
+  body { background: #fff; }
 }

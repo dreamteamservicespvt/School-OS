@@ -15,8 +15,10 @@
     "test": "vitest run",
     "db:setup": "bash scripts/setup-db.sh",
     "db:migrate": "prisma migrate deploy",
-    "db:seed": "tsx --env-file-if-exists=.env prisma/seed.ts",
-    "postinstall": "prisma generate"
+    "db:seed": "prisma db seed",
+    "postinstall": "prisma generate",
+    "db:new-migration": "bash scripts/new-migration.sh",
+    "db:reset": "bash scripts/reset-dev-db.sh"
   },
   "dependencies": {
     "@node-rs/argon2": "2.0.2",

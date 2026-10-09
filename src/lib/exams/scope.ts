@@ -34,6 +34,8 @@ export type ExamScope = {
   classTeacherOf: string[];
   /** Can see results and analysis at all (not Office Staff on their own). */
   results: boolean;
+  /** Writes principal remarks on report cards: the Principal (or the School Admin acting as head). */
+  principal: boolean;
 };
 
 export async function examScope(tx: Tx, who: Who, yearId: string | null): Promise<ExamScope> {
@@ -81,6 +83,7 @@ export async function examScope(tx: Tx, who: Who, yearId: string | null): Promis
     teaches: office ? [] : teaches,
     classTeacherOf,
     results: !office || manage,
+    principal: manage && roleKeys.some((k) => k === "principal" || k === "school-admin"),
   };
 }
 

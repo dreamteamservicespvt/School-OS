@@ -23,6 +23,9 @@ import { writesReportCards, type ExamScope } from "./scope";
 
 export { periodsForClass, refreshReportCards } from "./report-status";
 
+/** The most report cards made while the person waits; more go to a background job. */
+export const DIRECT_REPORT_LIMIT = 40;
+
 async function features(tx: Tx, ctx: SchoolContext) {
   const rows = await tx.schoolFeature.findMany({ where: { schoolId: ctx.schoolId, isOn: true, featureKey: { in: ["exam-co-scholastic", "exam-competencies", "exam-boards", "ai-assistant", "ai-teacher-assistant"] } } });
   const on = new Set(rows.map((r) => r.featureKey));

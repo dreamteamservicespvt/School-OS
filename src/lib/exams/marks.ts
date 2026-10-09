@@ -287,8 +287,9 @@ export async function papersFor(tx: Tx, ctx: SchoolContext, scope: ExamScope, ye
 }
 
 /** Moderation requests with the old and new marks, for the moderation report (08 §7). */
-export async function moderationList(tx: Tx, f: { examId?: string; status?: string }) {
-  const rows = await tx.marksModeration.findMany({ where: { ...(f.status ? { status: f.status } : {}), ...(f.examId ? { entryId: { in: (await tx.datesheetEntry.findMany({ where: { examId: f.examId }, select: { id: true } })).map((e) => e.id) } } : {}) }, orderBy: { createdAt: "desc" }, take: 500 });
+export async function moderationList(tx: Tx, f: { examId?: string; status?: string; yearId?: string }) {
+  const entryFilter = f.examId || f.yearId ? { entryId: { in: (await tx.datesheetEntry.findMany({ where: { ...(f.examId ? { examId: f.examId } : {}), ...(f.yearId ? { exam: { academicYearId: f.yearId } } : {}) }, select: { id: true } })).map((e) => e.id) } } : {};
+  const rows = await tx.marksModeration.findMany({ where: { ...(f.status ? { status: f.status } : {}), ...entryFilter }, orderBy: { createdAt: "desc" }, take: 500 });
   const entries = await tx.datesheetEntry.findMany({ where: { id: { in: [...new Set(rows.map((r) => r.entryId))] } }, include: { exam: { select: { title: true } } } });
   const [subjects, students, people, marks] = await Promise.all([
     tx.subject.findMany({ where: { id: { in: entries.map((e) => e.subjectId) } }, select: { id: true, name: true, gradeOnly: true } }),

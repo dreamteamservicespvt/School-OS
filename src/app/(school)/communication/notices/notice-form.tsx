@@ -41,6 +41,7 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
   const [word, setWord] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const intent = useRef<"draft" | "publish">("draft");
+  const [pressed, setPressed] = useState<"draft" | "publish">("draft");
   const err = (k: string) => errors[k] ?? state?.errors?.[k];
   const approval = (parents && data.needsApproval.parents) || data.needsApproval.all;
 
@@ -199,12 +200,12 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
       </section>
 
       <div className="flex flex-wrap gap-2">
-        <Button type="submit" loading={pending && intent.current === "publish"} loadingText="Saving" disabled={pending}
-          onClick={() => { intent.current = "publish"; }}>
+        <Button type="submit" loading={pending && pressed === "publish"} loadingText="Saving" disabled={pending}
+          onClick={() => { intent.current = "publish"; setPressed("publish"); }}>
           {approval ? "Send for approval" : "Publish"}
         </Button>
-        <Button type="submit" variant="secondary" loading={pending && intent.current === "draft"} loadingText="Saving" disabled={pending}
-          onClick={() => { intent.current = "draft"; }}>
+        <Button type="submit" variant="secondary" loading={pending && pressed === "draft"} loadingText="Saving" disabled={pending}
+          onClick={() => { intent.current = "draft"; setPressed("draft"); }}>
           Save draft
         </Button>
       </div>

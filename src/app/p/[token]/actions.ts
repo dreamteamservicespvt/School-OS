@@ -36,6 +36,7 @@ async function setDeviceCookie(linkId: string, key: string, days: number) {
 }
 
 /** Sends a one-time code to the guardian's registered mobile for this phone. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- the form action passes these; nothing is read from them
 export async function sendDeviceCode(token: string, _prev: GuardianState, _form: FormData): Promise<GuardianState> {
   const device = await deviceInfo();
   const found = await findLink(token);

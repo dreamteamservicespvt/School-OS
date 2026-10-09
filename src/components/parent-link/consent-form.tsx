@@ -9,7 +9,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 
 export type ConsentChild = { id: string; name: string; given: boolean };
 
-export function ConsentForm({ token, consentTextId, title, children, maskedPhone, preview }: { token: string; consentTextId: string; title: string; children: ConsentChild[]; maskedPhone: string; preview: boolean }) {
+export function ConsentForm({ token, consentTextId, title, kids: children, maskedPhone, preview }: { token: string; consentTextId: string; title: string; kids: ConsentChild[]; maskedPhone: string; preview: boolean }) {
   const [action, setAction] = useState<"give" | "withdraw" | null>(null);
   const [asked, ask] = useActionState<GuardianState, FormData>(askConsent.bind(null, token), null);
   const [confirmed, confirm] = useActionState<GuardianState, FormData>(confirmConsentCode.bind(null, token), null);

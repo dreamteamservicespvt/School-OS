@@ -111,7 +111,7 @@ function ConsentSection({ data, view }: { data: ConsentData; view: GuardianView 
             ))}
           </ul>
           <ConsentForm token={view.token} consentTextId={f.text.id} title={f.text.title} maskedPhone={data.maskedPhone} preview={view.preview}
-            children={f.children.map((c) => ({ id: c.id, name: c.name, given: c.given }))} />
+            kids={f.children.map((c) => ({ id: c.id, name: c.name, given: c.given }))} />
         </article>
       ))}
     </div>

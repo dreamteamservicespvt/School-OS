@@ -55,7 +55,7 @@ export async function sendExamReminders(tx: Tx, ctx: SchoolContext, today: Date)
       const r = await messageParents(tx, ctx, {
         template: "exam-reminder", studentIds,
         idempotencyKey: `exam-reminder:${exam.id}:${list[0].classId}:${isoDay(day)}:${papers}`,
-        vars: { exam: exam.title, date: formatDate(day), papers },
+        vars: { exam_name: `${exam.title} (${papers})`, date: formatDate(day) }, source: { type: "Exam", id: exam.id },
         text: `Reminder: ${exam.title} on ${formatDate(day)}: ${papers}. Please carry the admit card.`,
       });
       sent += r.recipients;

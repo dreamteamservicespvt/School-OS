@@ -299,10 +299,10 @@ export async function runPublication(tx: Tx, ctx: SchoolContext, publicationId: 
 
   let parents = 0;
   if (pub.messageParents && studentIds.length) {
-    const title = isExam ? (await tx.exam.findFirst({ where: { id: pub.key.slice(5) } }))?.title ?? "Exam" : "Final";
+    const title = isExam ? (await tx.exam.findFirst({ where: { id: pub.key.slice(5) } }))?.title ?? "Exam" : "the final result";
     const sent = await messageParents(tx, ctx, {
-      template: "result-published", studentIds, idempotencyKey: `result:${pub.key}:${pub.sectionIds.slice().sort().join(",")}`,
-      vars: { exam: title }, text: `${title} results are out. The report card is on your Parent Link.`,
+      template: "result-published", studentIds, idempotencyKey: `result:${pub.key}`, source: { type: "Result Publication", id: pub.id },
+      vars: { exam_name: title }, text: `${title} results are out. The report card is on your Parent Link.`,
     });
     parents = sent.recipients;
   }

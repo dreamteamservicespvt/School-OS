@@ -1,51 +1,42 @@
-// Messages to parents from Examination & Results: datesheet published, exam
-// reminders (A10) and results published (A9). Parents have no login, so these
-// go by WhatsApp, SMS or email through Communication, which owns templates,
-// opt-outs, credits, Message History and the SMS backup (00-global.md §8).
+// Messages to parents from Examination & Results: datesheet published and
+// exam reminders (A10, the "Exam reminder" rule), and results published (A9,
+// the "Results" rule). Communication owns templates, opt-outs, credits, the
+// SMS backup and Message History; its rules can be switched off in Message
+// Settings. The same event never reaches the same parent twice.
 import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
-import { writeAudit } from "../audit";
+import { sendAutomatic } from "../messaging";
 
 export type ParentMessage = {
-  /** Communication template key: "datesheet-published", "exam-reminder" or "result-published". */
+  /** What happened: the datesheet was published, an exam is near, or results were published. */
   template: "datesheet-published" | "exam-reminder" | "result-published";
   studentIds: string[];
-  /** Makes sending twice harmless: the same key never sends again (00-global.md §8). */
+  /** The event: the same key never sends again to the same parent. */
   idempotencyKey: string;
+  /** Blanks for the template: exam_name and date. */
   vars: Record<string, string>;
-  /** The plain message, used until the school's template is filled in. */
+  /** In school words, for the automation log. */
   text: string;
+  source?: { type: string; id: string } | null;
 };
 
-/**
- * The one place this module sends to parents. Picks each student's primary
- * guardian (or the first one) who has not opted out, and hands the message
- * on. Returns how many parents it went to.
- */
-export async function messageParents(tx: Tx, ctx: SchoolContext, msg: ParentMessage): Promise<{ recipients: number; skippedOptedOut: number }> {
-  if (msg.studentIds.length === 0) return { recipients: 0, skippedOptedOut: 0 };
-  const links = await tx.studentGuardian.findMany({
-    where: { studentId: { in: [...new Set(msg.studentIds)] }, archivedAt: null, guardian: { archivedAt: null } },
-    include: { guardian: { select: { id: true, optedOut: true } } },
-    orderBy: [{ isPrimary: "desc" }, { emergencyOrder: "asc" }],
+const RULE: Record<ParentMessage["template"], string> = {
+  "datesheet-published": "exam-reminder",
+  "exam-reminder": "exam-reminder",
+  "result-published": "result",
+};
+
+/** The one place this module sends to parents. Returns how many parents it went to. */
+export async function messageParents(tx: Tx, ctx: SchoolContext, msg: ParentMessage): Promise<{ recipients: number; status: string }> {
+  const studentIds = [...new Set(msg.studentIds)];
+  if (studentIds.length === 0) return { recipients: 0, status: "nobody" };
+  const r = await sendAutomatic(tx, ctx, {
+    rule: RULE[msg.template],
+    event: { key: msg.idempotencyKey, label: msg.text.slice(0, 120) },
+    to: { guardiansOf: studentIds },
+    values: msg.vars,
+    source: msg.source ?? null,
   });
-  const perStudent = new Map<string, { guardianId: string; optedOut: boolean }>();
-  for (const l of links) if (!perStudent.has(l.studentId)) perStudent.set(l.studentId, { guardianId: l.guardian.id, optedOut: l.guardian.optedOut });
-  const guardians = new Set<string>();
-  let skipped = 0;
-  for (const g of perStudent.values()) {
-    if (g.optedOut) skipped++;
-    else guardians.add(g.guardianId);
-  }
-  // messaging: hand { template, guardianIds: [...guardians], vars, text, idempotencyKey } to
-  // Communication's sendMessage once it exists; it sends by WhatsApp or SMS with credits.
-  const already = await tx.auditLogEntry.findFirst({ where: { action: "parent-message", recordType: "Exam Message", recordId: msg.idempotencyKey } });
-  if (!already) {
-    await writeAudit(tx, ctx, {
-      action: "parent-message", recordType: "Exam Message", recordId: msg.idempotencyKey,
-      after: { template: msg.template, recipients: guardians.size, optedOut: skipped, text: msg.text },
-    });
-  }
-  return { recipients: already ? 0 : guardians.size, skippedOptedOut: skipped };
+  return { recipients: r.status === "sent" ? r.result.people : 0, status: r.status };
 }

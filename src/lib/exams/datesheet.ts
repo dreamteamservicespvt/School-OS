@@ -363,7 +363,7 @@ export async function publishDatesheet(tx: Tx, ctx: SchoolContext, examId: strin
       template: "datesheet-published",
       studentIds: enrolments.map((e) => e.studentId),
       idempotencyKey: `datesheet-published:${examId}`,
-      vars: { exam: exam.title, from: formatDate(exam.startDate), to: formatDate(exam.endDate) },
+      vars: { exam_name: exam.title, date: formatDate(exam.startDate) }, source: { type: "Exam", id: examId },
       text: `${exam.title} begins on ${formatDate(exam.startDate)}. The datesheet is on your Parent Link.`,
     });
     parents = sent.recipients;

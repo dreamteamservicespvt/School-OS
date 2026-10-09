@@ -14,7 +14,7 @@ type Store = {
 };
 
 function localStore(): Store {
-  const root = path.resolve(process.env.STORAGE_DIR ?? "storage");
+  const root = path.resolve(/*turbopackIgnore: true*/ process.env.STORAGE_DIR ?? "storage");
   const full = (key: string) => {
     const p = path.resolve(root, key);
     if (!p.startsWith(root + path.sep)) throw new Error("Bad file key");

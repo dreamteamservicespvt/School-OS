@@ -214,6 +214,13 @@ export const DOC_TYPES: readonly DocType[] = [
     defaultFields: ["pass_no", "purpose", "to_meet", "visit_date", "time_in"], codeField: "pass_no",
   },
   {
+    key: "admission-offer-letter", label: "Admission offer letter", group: "Letters", family: "letter", usedBy: "Admission Management", title: "Offer of Admission", defaultPaper: "A4",
+    fields: [f("letter_no", "Letter number", "SPS/OL/2026/0012"), f("student_name", "Child's name", "Aarav Sharma"), f("application_no", "Application number", "APP/2026/0042"), f("class_name", "Class offered", "Class 6"), f("academic_year", "Academic year", "2026-27"), f("parent_name", "Parent's name", "Rajesh Sharma"), f("address", "Address", "Flat 302, Lake View Apartments, Kondapur, Hyderabad"), f("accept_by", "Accept by", "20-10-2026")],
+    defaultFields: [],
+    defaultBody: "Dear {{parent_name}},\n\nWe are pleased to offer {{student_name}} admission to {{class_name}} for the academic year {{academic_year}} (application {{application_no}}).\n\nPlease visit the school office by {{accept_by}} with the original documents to accept this offer and complete the admission.",
+    codeField: "letter_no",
+  },
+  {
     key: "letter", label: "Letter", group: "Letters", family: "letter", usedBy: "Every module", title: "", defaultPaper: "A4",
     fields: [f("letter_no", "Letter number", "SPS/2026/L/0058"), f("recipient_name", "To (name)", "The Parents of Class 5"), f("recipient_address", "To (address)", ""), f("subject", "Subject", "Annual Day on 14 November"), f("message", "Message", "We are happy to invite you to our Annual Day celebrations on Saturday, 14 November, at 5 PM in the school auditorium.")],
     defaultFields: [],

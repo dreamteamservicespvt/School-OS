@@ -68,4 +68,5 @@ export function findModule(key: string): SchoolModuleInfo | undefined {
 export const BUILT_MODULES: ReadonlySet<ModuleKey> = new Set<ModuleKey>([
   "settings",
   "staff-hr-management",
+  "admission-management",
 ]);

@@ -1,0 +1,472 @@
+// 02 Admission Management: enquiries with their activity, applications with
+// documents, tests, interviews, decisions and the waiting list, the
+// application fee, consent given on the form, and Admission Settings.
+// Records of other files (Student, Staff, Section...) are referred to by id.
+
+enum ApplicationStage {
+  /// Filled at the counter, not yet reviewed.
+  SUBMITTED
+  /// Filled by the parent on the online form.
+  SUBMITTED_ONLINE
+  REVIEWED
+  DOCUMENTS
+  TEST_INTERVIEW
+  DECISION
+  APPROVED
+  WAITING_LIST
+  REJECTED
+  ADMITTED
+  WITHDRAWN
+}
+
+enum AdmissionDocStatus {
+  NOT_RECEIVED
+  RECEIVED
+  VERIFIED
+  REJECTED
+}
+
+enum InterviewOutcome {
+  RECOMMENDED
+  NOT_RECOMMENDED
+  HOLD
+}
+
+enum FeePaymentStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+}
+
+/// Admission Settings: the rules for admissions in one school (02 §6).
+model AdmissionSetting {
+  id                     String   @id @default(uuid()) @db.Uuid
+  schoolId               String   @unique @map("school_id") @db.Uuid
+  /// The academic year admissions are open for. Empty: worked out (upcoming year with sections, else the current one).
+  admissionYearId        String?  @map("admission_year_id") @db.Uuid
+  /// [{ key, label, on, needsApproval }] in order.
+  stages                 Json     @default("[]")
+  /// [{ key, label, archived }] in order. "applied", "admitted" and "lost" are kept by the system.
+  enquiryStatuses        Json     @default("[]") @map("enquiry_statuses")
+  /// [{ key, label, archived }]
+  sources                Json     @default("[]")
+  /// [{ key, label, archived }]
+  lossReasons            Json     @default("[]") @map("loss_reasons")
+  /// "default" | "turn" | "class"
+  ownerRule              String   @default("default") @map("owner_rule")
+  defaultOwnerStaffId    String?  @map("default_owner_staff_id") @db.Uuid
+  turnStaffIds           String[] @default([]) @map("turn_staff_ids")
+  /// Index into turnStaffIds of the next person in turn.
+  turnNext               Int      @default(0) @map("turn_next")
+  allowOverCapacity      Boolean  @default(false) @map("allow_over_capacity")
+  admitWithPapersPending Boolean  @default(false) @map("admit_with_papers_pending")
+  waitingListOn          Boolean  @default(true) @map("waiting_list_on")
+  siblingPriorityOn      Boolean  @default(false) @map("sibling_priority_on")
+  /// How much a sibling counts in waiting-list ranking, as points (score out of 100 plus this).
+  siblingWeight          Int      @default(20) @map("sibling_weight")
+  quotaOn                Boolean  @default(false) @map("quota_on")
+  /// [{ category, sharePct }]
+  quotas                 Json     @default("[]")
+  testsOn                Boolean  @default(false) @map("tests_on")
+  interviewsOn           Boolean  @default(false) @map("interviews_on")
+  onlineOn               Boolean  @default(false) @map("online_on")
+  applicationFeeOn       Boolean  @default(false) @map("application_fee_on")
+  offerLettersOn         Boolean  @default(false) @map("offer_letters_on")
+  campaignsOn            Boolean  @default(false) @map("campaigns_on")
+  /// Application number format, e.g. "APP/{YYYY}/" followed by a 4-digit number.
+  applicationPrefix      String   @default("APP/{YYYY}/") @map("application_prefix")
+  /// Facts an automatic reply may use (dates, fees, documents, contact).
+  facts                  String?
+  updatedById            String?  @map("updated_by_id") @db.Uuid
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  @@map("admission_setting")
+}
+
+/// Per class: papers needed, application fee, online form, age rule and the staff member for "by class wanted".
+model AdmissionClassRule {
+  id           String   @id @default(uuid()) @db.Uuid
+  schoolId     String   @map("school_id") @db.Uuid
+  classId      String   @map("class_id") @db.Uuid
+  /// [{ type, required }]
+  documents    Json     @default("[]")
+  feePaise     BigInt?  @map("fee_paise")
+  onlineOpen   Boolean  @default(true) @map("online_open")
+  /// Age on 31 March of the admission year, in whole years (inferred rule).
+  minAge       Int?     @map("min_age")
+  maxAge       Int?     @map("max_age")
+  ownerStaffId String?  @map("owner_staff_id") @db.Uuid
+  updatedById  String?  @map("updated_by_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@unique([schoolId, classId])
+  @@map("admission_class_rule")
+}
+
+/// Campaign: a message sent to chosen enquiries through Communication.
+model AdmissionCampaign {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  name        String
+  message     String
+  /// whatsapp | sms | email
+  channel     String    @default("whatsapp")
+  sentCount   Int       @default(0) @map("sent_count")
+  skipped     Int       @default(0)
+  sentAt      DateTime? @map("sent_at")
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  enquiries Enquiry[]
+
+  @@index([schoolId, createdAt])
+  @@map("admission_campaign")
+}
+
+/// Enquiry: the first contact from a family about admission.
+model Enquiry {
+  id             String    @id @default(uuid()) @db.Uuid
+  schoolId       String    @map("school_id") @db.Uuid
+  campusId       String    @map("campus_id") @db.Uuid
+  academicYearId String    @map("academic_year_id") @db.Uuid
+  childName      String    @map("child_name")
+  parentName     String    @map("parent_name")
+  phone          String
+  email          String?
+  /// Class wanted (School Class id).
+  classId        String?   @map("class_id") @db.Uuid
+  source         String
+  /// Kept as first recorded; source reports count this one.
+  firstSource    String    @map("first_source")
+  /// Key from the school's status list.
+  status         String    @default("new")
+  ownerStaffId   String?   @map("owner_staff_id") @db.Uuid
+  nextFollowUpAt DateTime? @map("next_follow_up_at")
+  nextAction     String?   @map("next_action")
+  /// The follow-up time a reminder was last sent for, so it is sent once.
+  remindedFor    DateTime? @map("reminded_for")
+  childDob       DateTime? @map("child_dob") @db.Date
+  currentSchool  String?   @map("current_school")
+  referredBy     String?   @map("referred_by")
+  notes          String?
+  lostReason     String?   @map("lost_reason")
+  lostNote       String?   @map("lost_note")
+  closedAt       DateTime? @map("closed_at")
+  campaignId     String?   @map("campaign_id") @db.Uuid
+  /// Saved on purpose as a brother or sister of another enquiry with the same phone.
+  siblingOfId    String?   @map("sibling_of_id") @db.Uuid
+  customFields   Json      @default("{}") @map("custom_fields")
+  importBatchId  String?   @map("import_batch_id") @db.Uuid
+  createdById    String?   @map("created_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedById    String?   @map("updated_by_id") @db.Uuid
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  archivedAt     DateTime? @map("archived_at")
+
+  campaign     AdmissionCampaign? @relation(fields: [campaignId], references: [id])
+  activities   EnquiryActivity[]
+  applications Application[]
+
+  @@index([schoolId, academicYearId, status])
+  @@index([schoolId, ownerStaffId, nextFollowUpAt])
+  @@index([schoolId, phone])
+  @@index([schoolId, createdAt])
+  @@map("enquiry")
+}
+
+/// Enquiry Activity: one note, call, follow-up, reassignment, status or source change, or message. Never deleted.
+model EnquiryActivity {
+  id        String   @id @default(uuid()) @db.Uuid
+  schoolId  String   @map("school_id") @db.Uuid
+  enquiryId String   @map("enquiry_id") @db.Uuid
+  /// created | note | call | follow-up | reassigned | status | source | message | lost | reopened | application | campaign | admitted
+  kind      String
+  text      String
+  /// For calls: incoming | outgoing
+  direction String?
+  /// For calls: the outcome chosen.
+  outcome   String?
+  data      Json?
+  byId      String?  @map("by_id") @db.Uuid
+  at        DateTime @default(now())
+
+  enquiry Enquiry @relation(fields: [enquiryId], references: [id])
+
+  @@index([schoolId, enquiryId, at])
+  @@map("enquiry_activity")
+}
+
+/// Application: the admission form for one child.
+model Application {
+  id               String           @id @default(uuid()) @db.Uuid
+  schoolId         String           @map("school_id") @db.Uuid
+  campusId         String           @map("campus_id") @db.Uuid
+  academicYearId   String           @map("academic_year_id") @db.Uuid
+  applicationNo    String           @map("application_no")
+  enquiryId        String?          @map("enquiry_id") @db.Uuid
+  classId          String           @map("class_id") @db.Uuid
+  firstName        String           @map("first_name")
+  lastName         String?          @map("last_name")
+  fullName         String           @map("full_name")
+  dateOfBirth      DateTime         @map("date_of_birth") @db.Date
+  gender           String
+  fatherName       String?          @map("father_name")
+  motherName       String?          @map("mother_name")
+  guardianName     String?          @map("guardian_name")
+  guardianRelation String?          @map("guardian_relation")
+  phone            String
+  altPhone         String?          @map("alt_phone")
+  email            String?
+  address          String
+  previousSchool   String?          @map("previous_school")
+  previousClass    String?          @map("previous_class")
+  previousMarks    String?          @map("previous_marks")
+  /// { secondLanguage, transportNeeded, transportStop, hostelNeeded }
+  preferences      Json             @default("{}")
+  /// Brother or sister already studying here (Student id), found from the parent's phone.
+  siblingStudentId String?          @map("sibling_student_id") @db.Uuid
+  category         String?
+  religion         String?
+  motherTongue     String?          @map("mother_tongue")
+  occupation       String?
+  /// Restricted, encrypted; shown masked.
+  aadhaarEnc       String?          @map("aadhaar_enc")
+  customFields     Json             @default("{}") @map("custom_fields")
+  /// counter | online
+  channel          String           @default("counter")
+  stage            ApplicationStage @default(SUBMITTED)
+  reviewedAt       DateTime?        @map("reviewed_at")
+  reviewedById     String?          @map("reviewed_by_id") @db.Uuid
+  reviewNote       String?          @map("review_note")
+  sentBackAt       DateTime?        @map("sent_back_at")
+  sentBackNote     String?          @map("sent_back_note")
+  /// Exception to the papers rule at decision, with its reason.
+  papersException  String?          @map("papers_exception")
+  feeDuePaise      BigInt?          @map("fee_due_paise")
+  decisionRemarks  String?          @map("decision_remarks")
+  decidedById      String?          @map("decided_by_id") @db.Uuid
+  decidedAt        DateTime?        @map("decided_at")
+  approvalId       String?          @map("approval_id") @db.Uuid
+  waitingRank      Int?             @map("waiting_rank")
+  waitingReason    String?          @map("waiting_reason")
+  waitingSince     DateTime?        @map("waiting_since")
+  offerLetterNo    String?          @map("offer_letter_no")
+  offerSentAt      DateTime?        @map("offer_sent_at")
+  offerAcceptedAt  DateTime?        @map("offer_accepted_at")
+  withdrawnReason  String?          @map("withdrawn_reason")
+  withdrawnAt      DateTime?        @map("withdrawn_at")
+  /// Set once on conversion; Student.applicationId is unique too.
+  studentId        String?          @unique @map("student_id") @db.Uuid
+  admittedAt       DateTime?        @map("admitted_at")
+  admittedById     String?          @map("admitted_by_id") @db.Uuid
+  /// What the conversion made, for the result screen and Undo: { enrolmentId, newGuardianIds, linkedGuardianIds, links }.
+  conversion       Json?
+  createdById      String?          @map("created_by_id") @db.Uuid
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedById      String?          @map("updated_by_id") @db.Uuid
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+  archivedAt       DateTime?        @map("archived_at")
+
+  enquiry    Enquiry?                @relation(fields: [enquiryId], references: [id])
+  documents  ApplicationDocument[]
+  activities ApplicationActivity[]
+  tests      AdmissionTestBooking[]
+  interviews InterviewSlot[]
+  payments   ApplicationFeePayment[]
+  consents   AdmissionConsent[]
+
+  @@unique([schoolId, applicationNo])
+  @@index([schoolId, academicYearId, stage])
+  @@index([schoolId, classId, stage])
+  @@index([schoolId, phone])
+  @@map("application")
+}
+
+/// Application Activity: the application's history (review, stage moves, decisions, waiting-list moves, interview outcomes).
+model ApplicationActivity {
+  id            String   @id @default(uuid()) @db.Uuid
+  schoolId      String   @map("school_id") @db.Uuid
+  applicationId String   @map("application_id") @db.Uuid
+  kind          String
+  text          String
+  data          Json?
+  byId          String?  @map("by_id") @db.Uuid
+  at            DateTime @default(now())
+
+  application Application @relation(fields: [applicationId], references: [id])
+
+  @@index([schoolId, applicationId, at])
+  @@map("application_activity")
+}
+
+/// Admission Document: one paper of the checklist for one applicant.
+model ApplicationDocument {
+  id            String             @id @default(uuid()) @db.Uuid
+  schoolId      String             @map("school_id") @db.Uuid
+  applicationId String             @map("application_id") @db.Uuid
+  docType       String             @map("doc_type")
+  /// Required by the class checklist (optional papers do not block admission).
+  required      Boolean            @default(true)
+  fileId        String?            @map("file_id") @db.Uuid
+  status        AdmissionDocStatus @default(NOT_RECEIVED)
+  note          String?
+  rejectReason  String?            @map("reject_reason")
+  originalSeen  Boolean            @default(false) @map("original_seen")
+  verifiedById  String?            @map("verified_by_id") @db.Uuid
+  verifiedAt    DateTime?          @map("verified_at")
+  uploadedById  String?            @map("uploaded_by_id") @db.Uuid
+  uploadedAt    DateTime?          @map("uploaded_at")
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+
+  application Application @relation(fields: [applicationId], references: [id])
+
+  @@unique([applicationId, docType])
+  @@index([schoolId, status])
+  @@map("application_document")
+}
+
+/// Admission Test: an entrance test on one date, for one or many applicants.
+model AdmissionTest {
+  id              String    @id @default(uuid()) @db.Uuid
+  schoolId        String    @map("school_id") @db.Uuid
+  academicYearId  String    @map("academic_year_id") @db.Uuid
+  classId         String?   @map("class_id") @db.Uuid
+  title           String
+  startsAt        DateTime  @map("starts_at")
+  venue           String?
+  maxMarks        Int       @default(100) @map("max_marks")
+  calendarEntryId String?   @map("calendar_entry_id") @db.Uuid
+  createdById     String?   @map("created_by_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  archivedAt      DateTime? @map("archived_at")
+
+  bookings AdmissionTestBooking[]
+
+  @@index([schoolId, startsAt])
+  @@map("admission_test")
+}
+
+/// One applicant booked for one test, with the score.
+model AdmissionTestBooking {
+  id            String    @id @default(uuid()) @db.Uuid
+  schoolId      String    @map("school_id") @db.Uuid
+  testId        String    @map("test_id") @db.Uuid
+  applicationId String    @map("application_id") @db.Uuid
+  marks         Decimal?  @db.Decimal(6, 2)
+  absent        Boolean   @default(false)
+  remarks       String?
+  scoredById    String?   @map("scored_by_id") @db.Uuid
+  scoredAt      DateTime? @map("scored_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  archivedAt    DateTime? @map("archived_at")
+
+  test        AdmissionTest @relation(fields: [testId], references: [id])
+  application Application   @relation(fields: [applicationId], references: [id])
+
+  @@unique([testId, applicationId])
+  @@index([schoolId, applicationId])
+  @@map("admission_test_booking")
+}
+
+/// Interview Slot: one applicant with one interviewer at one time; outcome and history.
+model InterviewSlot {
+  id                 String            @id @default(uuid()) @db.Uuid
+  schoolId           String            @map("school_id") @db.Uuid
+  applicationId      String            @map("application_id") @db.Uuid
+  interviewerStaffId String            @map("interviewer_staff_id") @db.Uuid
+  startsAt           DateTime          @map("starts_at")
+  minutes            Int               @default(15)
+  outcome            InterviewOutcome?
+  notes              String?
+  /// Every outcome given, oldest first: [{ at, by, outcome, notes }].
+  history            Json              @default("[]")
+  cancelledAt        DateTime?         @map("cancelled_at")
+  createdById        String?           @map("created_by_id") @db.Uuid
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
+
+  application Application @relation(fields: [applicationId], references: [id])
+
+  @@index([schoolId, interviewerStaffId, startsAt])
+  @@index([schoolId, applicationId])
+  @@map("interview_slot")
+}
+
+/// Application fee: one payment, at the counter or online. A receipt number is given only once confirmed.
+model ApplicationFeePayment {
+  id               String           @id @default(uuid()) @db.Uuid
+  schoolId         String           @map("school_id") @db.Uuid
+  applicationId    String           @map("application_id") @db.Uuid
+  amountPaise      BigInt           @map("amount_paise")
+  /// cash | upi | card | cheque | bank-transfer | online
+  mode             String
+  reference        String?
+  status           FeePaymentStatus @default(PENDING)
+  gatewayAccountId String?          @map("gateway_account_id") @db.Uuid
+  gatewayOrderId   String?          @unique @map("gateway_order_id")
+  gatewayPaymentId String?          @unique @map("gateway_payment_id")
+  receiptNo        String?          @map("receipt_no")
+  confirmedAt      DateTime?        @map("confirmed_at")
+  failedReason     String?          @map("failed_reason")
+  receivedById     String?          @map("received_by_id") @db.Uuid
+  /// Cancelled with a reason, never deleted.
+  cancelledAt      DateTime?        @map("cancelled_at")
+  cancelReason     String?          @map("cancel_reason")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+
+  application Application @relation(fields: [applicationId], references: [id])
+
+  @@unique([schoolId, receiptNo])
+  @@index([schoolId, applicationId])
+  @@map("application_fee_payment")
+}
+
+/// Consent given on the application (data, photo), confirmed by a one-time code.
+/// On admission the guardian and student are filled in: this is the guardian's Consent Record from the admission form.
+model AdmissionConsent {
+  id            String    @id @default(uuid()) @db.Uuid
+  schoolId      String    @map("school_id") @db.Uuid
+  applicationId String    @map("application_id") @db.Uuid
+  consentType   String    @map("consent_type")
+  /// The Consent Text version agreed to (0 = the ready text before the school saved its own).
+  version       Int
+  givenByName   String    @map("given_by_name")
+  phone         String
+  /// admission-form-counter | admission-form-online
+  howGiven      String    @map("how_given")
+  givenAt       DateTime  @default(now()) @map("given_at")
+  otpVerifiedAt DateTime? @map("otp_verified_at")
+  guardianId    String?   @map("guardian_id") @db.Uuid
+  studentId     String?   @map("student_id") @db.Uuid
+  withdrawnAt   DateTime? @map("withdrawn_at")
+
+  application Application @relation(fields: [applicationId], references: [id])
+
+  @@unique([applicationId, consentType])
+  @@index([schoolId, guardianId])
+  @@map("admission_consent")
+}
+
+/// A one-time code sent to a parent's mobile to confirm consent. Only its hash is kept.
+model AdmissionOtp {
+  id        String    @id @default(uuid()) @db.Uuid
+  schoolId  String    @map("school_id") @db.Uuid
+  phone     String
+  /// What it confirms, e.g. "consent:<application id>" or "online:<form token>".
+  purpose   String
+  codeHash  String    @map("code_hash")
+  attempts  Int       @default(0)
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([schoolId, purpose])
+  @@map("admission_otp")
+}

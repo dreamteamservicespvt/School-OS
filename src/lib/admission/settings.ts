@@ -1,0 +1,238 @@
+// Admission Settings (02 §6): stages and approvals, enquiry statuses,
+// sources, loss reasons, who gets new enquiries, papers needed per class,
+// seat rules, waiting list, sibling priority, quotas, tests and interviews,
+// the online form, the application fee and the application number format.
+// The row is made with sensible defaults the first time a page needs it.
+import "server-only";
+
+import type { AdmissionClassRule, AdmissionSetting, Prisma } from "@prisma/client";
+import type { SchoolContext, Tx } from "../db";
+import { currentYear } from "../academic/years";
+import { combineRoles, applyExceptions } from "../permissions";
+import type { AccessLevel, RolePermissions } from "../roles";
+
+export type ListItem = { key: string; label: string; archived?: boolean };
+export type Stage = { key: StageKey; label: string; on: boolean; needsApproval?: boolean };
+export type StageKey = "enquiry" | "application" | "documents" | "payment" | "test" | "interview" | "decision" | "admitted";
+
+export const DEFAULT_STAGES: Stage[] = [
+  { key: "enquiry", label: "Enquiry", on: true },
+  { key: "application", label: "Application", on: true },
+  { key: "documents", label: "Documents", on: true },
+  { key: "payment", label: "Application fee", on: false },
+  { key: "test", label: "Test", on: false },
+  { key: "interview", label: "Interview", on: false },
+  { key: "decision", label: "Decision", on: true, needsApproval: true },
+  { key: "admitted", label: "Admitted", on: true },
+];
+
+/** Statuses the software sets by itself: they stay in the list and cannot be archived. */
+export const SYSTEM_STATUSES = ["applied", "admitted", "lost"] as const;
+/** Enquiries in these statuses are closed: no follow-up is needed. */
+export const CLOSED_STATUSES: readonly string[] = SYSTEM_STATUSES;
+
+export const DEFAULT_STATUSES: ListItem[] = [
+  { key: "new", label: "New" },
+  { key: "contacted", label: "Contacted" },
+  { key: "visit-scheduled", label: "Visit scheduled" },
+  { key: "visited", label: "Visited" },
+  { key: "application-given", label: "Application given" },
+  { key: "applied", label: "Applied" },
+  { key: "admitted", label: "Admitted" },
+  { key: "lost", label: "Lost" },
+];
+
+export const DEFAULT_SOURCES: ListItem[] = [
+  { key: "walk-in", label: "Walk-in" },
+  { key: "phone", label: "Phone" },
+  { key: "website", label: "Website" },
+  { key: "whatsapp", label: "WhatsApp" },
+  { key: "campaign", label: "Campaign" },
+  { key: "referral", label: "Referral" },
+];
+
+export const DEFAULT_LOSS_REASONS: ListItem[] = [
+  { key: "fees", label: "Fees too high" },
+  { key: "other-school", label: "Chose another school" },
+  { key: "distance", label: "Too far from home" },
+  { key: "no-seat", label: "No seat in the class wanted" },
+  { key: "not-reachable", label: "Could not reach the family" },
+  { key: "plans-changed", label: "Family plans changed" },
+  { key: "other", label: "Other" },
+];
+
+export const DOC_TYPES = [
+  { key: "birth-certificate", label: "Birth certificate" },
+  { key: "transfer-certificate", label: "Transfer certificate (TC)" },
+  { key: "marksheet", label: "Previous marksheet" },
+  { key: "aadhaar", label: "Aadhaar card (child)" },
+  { key: "address-proof", label: "Address proof" },
+  { key: "parent-id", label: "Parent ID proof" },
+  { key: "photo", label: "Passport-size photo" },
+  { key: "other", label: "Other certificate" },
+] as const;
+export const docLabel = (key: string) => DOC_TYPES.find((d) => d.key === key)?.label ?? key;
+
+export type ClassDoc = { type: string; required: boolean };
+
+export const OWNER_RULES = [
+  { value: "default", label: "One default owner", help: "Every new enquiry goes to one person." },
+  { value: "turn", label: "In turn among chosen staff", help: "Each new enquiry goes to the next person on the list. Staff on approved leave that day are skipped." },
+  { value: "class", label: "By class wanted", help: "A staff member for each class. Enquiries with no class wanted go to the default owner." },
+] as const;
+
+export const CATEGORIES = ["General", "OBC", "SC", "ST", "EWS"] as const;
+
+export type Quota = { category: string; sharePct: number };
+
+export type Settings = AdmissionSetting & {
+  stageList: Stage[];
+  statusList: ListItem[];
+  sourceList: ListItem[];
+  lossList: ListItem[];
+  quotaList: Quota[];
+};
+
+function asList(v: Prisma.JsonValue, fallback: ListItem[]): ListItem[] {
+  if (!Array.isArray(v) || v.length === 0) return fallback;
+  return (v as ListItem[]).filter((x) => x && typeof x.key === "string" && typeof x.label === "string");
+}
+
+function stagesOf(row: AdmissionSetting): Stage[] {
+  const saved = Array.isArray(row.stages) ? (row.stages as Stage[]) : [];
+  return DEFAULT_STAGES.map((d) => {
+    const s = saved.find((x) => x?.key === d.key);
+    const base = { ...d, ...(s ? { label: s.label || d.label, on: Boolean(s.on), needsApproval: Boolean(s.needsApproval) } : {}) };
+    // Tests and interviews follow their own switches, so there is one place to turn them on.
+    if (d.key === "test") base.on = row.testsOn;
+    if (d.key === "interview") base.on = row.interviewsOn;
+    if (d.key === "enquiry" || d.key === "application" || d.key === "admitted") base.on = true;
+    if (d.key === "decision") base.on = true;
+    return base;
+  });
+}
+
+export function shape(row: AdmissionSetting): Settings {
+  return {
+    ...row,
+    stageList: stagesOf(row),
+    statusList: asList(row.enquiryStatuses, DEFAULT_STATUSES),
+    sourceList: asList(row.sources, DEFAULT_SOURCES),
+    lossList: asList(row.lossReasons, DEFAULT_LOSS_REASONS),
+    quotaList: Array.isArray(row.quotas) ? (row.quotas as Quota[]) : [],
+  };
+}
+
+export async function loadSettings(tx: Tx, ctx: SchoolContext): Promise<Settings> {
+  const row = await tx.admissionSetting.upsert({
+    where: { schoolId: ctx.schoolId },
+    create: {
+      schoolId: ctx.schoolId,
+      stages: DEFAULT_STAGES as unknown as Prisma.InputJsonValue,
+      enquiryStatuses: DEFAULT_STATUSES as unknown as Prisma.InputJsonValue,
+      sources: DEFAULT_SOURCES as unknown as Prisma.InputJsonValue,
+      lossReasons: DEFAULT_LOSS_REASONS as unknown as Prisma.InputJsonValue,
+    },
+    update: {},
+  });
+  return shape(row);
+}
+
+export const stageOn = (s: Settings, key: StageKey) => s.stageList.find((x) => x.key === key)?.on ?? false;
+export const label = (list: ListItem[], key: string | null | undefined) => (key ? list.find((x) => x.key === key)?.label ?? key : "");
+export const live = (list: ListItem[]) => list.filter((x) => !x.archived);
+
+/**
+ * The year admissions are open for: the one chosen in Admission Settings,
+ * else the upcoming year once it has sections, else the current year (inferred).
+ */
+export async function admissionYear(tx: Tx, ctx: SchoolContext, s: Pick<Settings, "admissionYearId">) {
+  if (s.admissionYearId) {
+    const y = await tx.academicYear.findFirst({ where: { id: s.admissionYearId, archivedAt: null } });
+    if (y && y.status !== "CLOSED") return y;
+  }
+  const upcoming = await tx.academicYear.findFirst({ where: { status: "UPCOMING", archivedAt: null }, orderBy: { startDate: "asc" } });
+  if (upcoming && (await tx.section.count({ where: { academicYearId: upcoming.id, archivedAt: null } })) > 0) return upcoming;
+  return currentYear(tx, ctx);
+}
+
+/** Years an admission can be for: the current one and upcoming ones. */
+export async function openYears(tx: Tx) {
+  return tx.academicYear.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "UPCOMING"] } }, orderBy: { startDate: "asc" } });
+}
+
+/** Classes in order. */
+export async function classList(tx: Tx) {
+  return tx.schoolClass.findMany({ where: { archivedAt: null }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true, sortOrder: true, campusId: true } });
+}
+
+/** Class 2 and above ask for the previous school, TC and marksheet (inferred). */
+export function needsPreviousSchool(cls: { sortOrder: number }, classes: { name: string; sortOrder: number }[]) {
+  const class2 = classes.find((c) => /^class\s*(2|ii)$/i.test(c.name.trim()));
+  return class2 ? cls.sortOrder >= class2.sortOrder : false;
+}
+
+export function defaultDocsFor(previousSchool: boolean): ClassDoc[] {
+  return [
+    { type: "birth-certificate", required: true },
+    { type: "photo", required: true },
+    { type: "address-proof", required: true },
+    { type: "parent-id", required: true },
+    { type: "aadhaar", required: false },
+    ...(previousSchool ? [{ type: "transfer-certificate", required: true }, { type: "marksheet", required: true }] : []),
+  ];
+}
+
+export type ClassRule = { classId: string; documents: ClassDoc[]; feePaise: bigint | null; onlineOpen: boolean; minAge: number | null; maxAge: number | null; ownerStaffId: string | null; saved: boolean };
+
+/** Every class's rule: the saved one, or the defaults. */
+export async function classRules(tx: Tx): Promise<Map<string, ClassRule>> {
+  const [classes, rows] = await Promise.all([classList(tx), tx.admissionClassRule.findMany()]);
+  const out = new Map<string, ClassRule>();
+  for (const c of classes) {
+    const r = rows.find((x) => x.classId === c.id);
+    out.set(c.id, r ? fromRow(r) : { classId: c.id, documents: defaultDocsFor(needsPreviousSchool(c, classes)), feePaise: null, onlineOpen: true, minAge: null, maxAge: null, ownerStaffId: null, saved: false });
+  }
+  return out;
+}
+
+function fromRow(r: AdmissionClassRule): ClassRule {
+  const docs = Array.isArray(r.documents) ? (r.documents as ClassDoc[]).filter((d) => d && typeof d.type === "string") : [];
+  return { classId: r.classId, documents: docs, feePaise: r.feePaise, onlineOpen: r.onlineOpen, minAge: r.minAge, maxAge: r.maxAge, ownerStaffId: r.ownerStaffId, saved: true };
+}
+
+export async function classRule(tx: Tx, classId: string): Promise<ClassRule> {
+  const all = await classRules(tx);
+  return all.get(classId) ?? { classId, documents: defaultDocsFor(false), feePaise: null, onlineOpen: true, minAge: null, maxAge: null, ownerStaffId: null, saved: false };
+}
+
+/**
+ * Staff who can work on enquiries: active staff with a login whose roles give
+ * Admission Management (full or own). Owners and interviewers come from here.
+ */
+export async function admissionStaff(tx: Tx, ctx: SchoolContext, opts: { allStaff?: boolean } = {}) {
+  const staff = await tx.staff.findMany({
+    where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] }, ...(opts.allStaff ? {} : { userLoginId: { not: null } }) },
+    orderBy: { fullName: "asc" },
+    select: { id: true, fullName: true, designation: true, userLoginId: true },
+  });
+  if (opts.allStaff) return staff.map((s) => ({ ...s, canWork: true }));
+  const accesses = await tx.schoolAccess.findMany({
+    where: { schoolId: ctx.schoolId, archivedAt: null, userLoginId: { in: staff.map((s) => s.userLoginId!) }, userLogin: { status: "ACTIVE" } },
+    include: { roles: { include: { role: true } } },
+  });
+  return staff
+    .map((s) => {
+      const mine = accesses.filter((a) => a.userLoginId === s.userLoginId);
+      const roles = mine.flatMap((a) => a.roles.map((r) => r.role)).filter((r) => r.isEnabled && !r.archivedAt);
+      const perms = applyExceptions(combineRoles(roles.map((r) => r.permissions as RolePermissions)), mine.map((a) => a.exceptions as Record<string, AccessLevel>));
+      return { ...s, canWork: perms["admission-management"].change !== "none" };
+    })
+    .filter((s) => s.canWork);
+}
+
+/** Next application number in the school's format, e.g. APP/2026/0001. Unique and never reused. */
+export function applicationPrefix(format: string, yearName: string) {
+  const startYear = yearName.slice(0, 4);
+  return format.replace(/\{YYYY\}/g, startYear).replace(/\{YY\}/g, startYear.slice(2)).replace(/\{YEAR\}/g, yearName);
+}

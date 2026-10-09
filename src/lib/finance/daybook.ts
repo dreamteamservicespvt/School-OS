@@ -199,10 +199,12 @@ export function displaySection(e: Pick<DayBookEntry, "section">): string {
  * year's closing), receipts, payments, closing, and each entry in time order.
  */
 export async function accountBook(tx: Tx, accountId: string, from: Date, to: Date) {
-  const before = await tx.dayBookEntry.groupBy({ by: ["direction"], where: { accountId, date: { lt: from } }, _sum: { amountPaise: true } });
+  // A go-live opening balance dated on the first day shown is the opening, not a receipt (07 §9, 12).
+  const openingWhere = { accountId, OR: [{ date: { lt: from } }, { date: from, section: "opening" }] };
+  const before = await tx.dayBookEntry.groupBy({ by: ["direction"], where: openingWhere, _sum: { amountPaise: true } });
   const val = (rows: typeof before, d: "IN" | "OUT") => rows.find((r) => r.direction === d)?._sum.amountPaise ?? BigInt(0);
   const opening = val(before, "IN") - val(before, "OUT");
-  const entries = await tx.dayBookEntry.findMany({ where: { accountId, date: { gte: from, lte: to } }, orderBy: [{ date: "asc" }, { postedAt: "asc" }] });
+  const entries = await tx.dayBookEntry.findMany({ where: { accountId, date: { gte: from, lte: to }, NOT: { date: from, section: "opening" } }, orderBy: [{ date: "asc" }, { postedAt: "asc" }] });
   let receipts = BigInt(0), payments = BigInt(0), running = opening;
   const lines = entries.map((e) => {
     if (e.direction === "IN") { receipts += e.amountPaise; running += e.amountPaise; }

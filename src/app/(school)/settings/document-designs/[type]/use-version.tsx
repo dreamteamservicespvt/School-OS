@@ -2,14 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { ConfirmButton } from "@/components/ui/confirm";
-import { useVersionAction } from "../actions";
+import { restoreVersionAction } from "../actions";
 
 export function UseVersionButton({ docType, version }: { docType: string; version: number }) {
   const router = useRouter();
   return (
     <ConfirmButton trigger={`Use version ${version}`} title={`Use version ${version} again?`} confirmLabel={`Use version ${version}`}
       onConfirm={async () => {
-        const problem = await useVersionAction(docType, version);
+        const problem = await restoreVersionAction(docType, version);
         if (!problem) window.location.reload();
         else router.refresh();
         return problem;

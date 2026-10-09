@@ -62,7 +62,7 @@ export async function saveDesign(tx: Tx, ctx: SchoolContext, docType: string, ba
 }
 
 /** Uses an earlier version again, as a new version, so history is never rewritten. */
-export async function useVersion(tx: Tx, ctx: SchoolContext, docType: string, version: number) {
+export async function restoreVersion(tx: Tx, ctx: SchoolContext, docType: string, version: number) {
   const old = await tx.documentDesign.findFirst({ where: { docType, version } });
   if (!old) throw new DesignProblem("That version was not found.");
   const t = findDocType(docType)!;

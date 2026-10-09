@@ -7,7 +7,7 @@ import { flash } from "@/lib/flash";
 import { formValues, type FormState } from "@/lib/forms";
 import { FileProblem, IMAGE_TYPES, saveFile } from "@/lib/files";
 import { renderDocument } from "@/lib/documents";
-import { DesignProblem, optionsSchema, saveDesign, useVersion, BASES, type BaseKey } from "@/lib/documents/designs";
+import { DesignProblem, optionsSchema, saveDesign, restoreVersion, BASES, type BaseKey } from "@/lib/documents/designs";
 import { recordData, type RecordRef } from "@/lib/documents/records";
 import { findDocType } from "@/lib/documents/types";
 import { addSignatory, archiveSignatory, SignatoryProblem } from "@/lib/documents/signatories";
@@ -51,8 +51,8 @@ export type RecordHit = { kind: "student" | "staff"; id: string; label: string }
 /** Finds students or staff to preview with. Needs permission to see them. */
 export async function findRecords(kind: "student" | "staff", q: string): Promise<RecordHit[]> {
   const { current } = await requireAction("settings", "view");
-  const module = kind === "student" ? "student-management" : "staff-hr-management";
-  if (current.permissions[module].see !== "all") return [];
+  const area = kind === "student" ? "student-management" : "staff-hr-management";
+  if (current.permissions[area].see !== "all") return [];
   const text = q.trim().slice(0, 60);
   return withSchool(current.ctx, async (tx) => {
     if (kind === "student") {
@@ -90,10 +90,10 @@ export async function saveDesignAction(docType: string, base: string, optionsJso
   }
 }
 
-export async function useVersionAction(docType: string, version: number): Promise<string | void> {
+export async function restoreVersionAction(docType: string, version: number): Promise<string | void> {
   const { current } = await requireAction("settings", "edit");
   try {
-    const row = await withSchool(current.ctx, (tx) => useVersion(tx, current.ctx, docType, version));
+    const row = await withSchool(current.ctx, (tx) => restoreVersion(tx, current.ctx, docType, version));
     await flash({ message: `Version ${version} is in use again, saved as version ${row.version}.` });
   } catch (e) {
     return e instanceof DesignProblem ? e.message : "That did not work. Nothing was changed. Try again.";

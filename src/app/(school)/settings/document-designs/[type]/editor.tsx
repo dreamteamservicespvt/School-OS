@@ -276,7 +276,7 @@ function RecordPicker({ kinds, label, onPick }: { kinds: ("student" | "staff")[]
   const [hits, setHits] = useState<RecordHit[] | null>(null);
   const [pending, start] = useTransition();
   useEffect(() => {
-    if (q.trim().length < 2) { setHits(null); return; }
+    if (q.trim().length < 2) return;
     const t = setTimeout(() => start(async () => setHits(await findRecords(kind, q))), 250);
     return () => clearTimeout(t);
   }, [q, kind]);
@@ -290,7 +290,7 @@ function RecordPicker({ kinds, label, onPick }: { kinds: ("student" | "staff")[]
               <option value="student">Student</option><option value="staff">Staff</option>
             </select>
           )}
-          <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={kind === "student" ? "Name or admission number" : "Name or staff ID"} aria-label="Search records"
+          <input type="search" value={q} onChange={(e) => { setQ(e.target.value); if (e.target.value.trim().length < 2) setHits(null); }} placeholder={kind === "student" ? "Name or admission number" : "Name or staff ID"} aria-label="Search records"
             className="h-11 min-w-0 flex-1 rounded-lg border border-line-strong bg-surface px-3" />
         </div>
         {pending && <p className="text-sm text-ink-2">Searching…</p>}

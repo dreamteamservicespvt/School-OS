@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import { beforeAll, describe, expect, it } from "vitest";
 import { withSchool } from "@/lib/db";
 import { renderDocument } from "@/lib/documents";
-import { currentDesign, defaultOptions, saveDesign, useVersion } from "@/lib/documents/designs";
+import { currentDesign, defaultOptions, saveDesign, restoreVersion } from "@/lib/documents/designs";
 import { mergeText, renderHtml, sampleData } from "@/lib/documents/render";
 import { DOC_TYPES, findDocType } from "@/lib/documents/types";
 import { makeQr } from "@/lib/documents/qr";
@@ -94,7 +94,7 @@ describe("saved designs", () => {
     await withSchool(ctx, (tx) => saveDesign(tx, ctx, t.key, "classic", { ...o, title: "Bonafide One" }));
     await withSchool(ctx, (tx) => saveDesign(tx, ctx, t.key, "modern", { ...o, title: "Bonafide Two" }));
     expect((await withSchool(ctx, (tx) => currentDesign(tx, t.key))).options.title).toBe("Bonafide Two");
-    const back = await withSchool(ctx, (tx) => useVersion(tx, ctx, t.key, 1));
+    const back = await withSchool(ctx, (tx) => restoreVersion(tx, ctx, t.key, 1));
     expect(back.version).toBe(3);
     const now = await withSchool(ctx, (tx) => currentDesign(tx, t.key));
     expect(now.options.title).toBe("Bonafide One");

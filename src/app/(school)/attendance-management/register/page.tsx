@@ -8,7 +8,6 @@ import { studentMonth } from "@/lib/attendance/integrations";
 import { attendanceSummary, percentText } from "@/lib/attendance/summary";
 import { lockState } from "@/lib/attendance/marks";
 import { isoDay, monthStart } from "@/lib/staff/dates";
-import { UUID_RE } from "@/lib/staff/act";
 import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardBody } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";

@@ -11,7 +11,12 @@ export type UrlField =
   | { name: string; label: string; type: "select"; value: string; options: { value: string; label: string }[]; allLabel?: string }
   | { name: string; label: string; type: "month" | "date"; value: string; min?: string; max?: string };
 
-export function UrlFilters({ fields, reset = [], children }: { fields: UrlField[]; /** Params cleared when any filter changes (like page). */ reset?: string[]; children?: React.ReactNode }) {
+export function UrlFilters({ fields, reset = [], children }: {
+  fields: UrlField[];
+  /** Params cleared when a filter changes: for any change (a list), or per field (field name → params). */
+  reset?: string[] | Record<string, string[]>;
+  children?: React.ReactNode;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const sp = useSearchParams();
@@ -21,7 +26,8 @@ export function UrlFilters({ fields, reset = [], children }: { fields: UrlField[
     if (value) next.set(name, value);
     else next.delete(name);
     next.delete("page");
-    for (const r of reset) if (r !== name) next.delete(r);
+    const clear = Array.isArray(reset) ? reset : reset[name] ?? [];
+    for (const r of clear) if (r !== name) next.delete(r);
     start(() => router.replace(next.toString() ? `${pathname}?${next}` : pathname, { scroll: false }));
   };
   return (

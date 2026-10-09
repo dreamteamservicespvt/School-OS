@@ -147,7 +147,7 @@ export async function saveStaffAttendance(tx: Tx, ctx: SchoolContext, access: At
   }
   if (changes.length === 0) return { changed: 0 };
   if (lock.locked && !access.lockOverride && changes.some((c) => c.before !== null)) {
-    throw new LockedError(input.date, lock, `${BASE}/staff/correction?date=${isoDay(input.date)}`);
+    throw new LockedError(input.date, lock, `${BASE}/register/correction?for=staff&date=${isoDay(input.date)}`);
   }
   for (const c of changes) {
     const b = existing.find((x) => x.staffId === c.staffId);

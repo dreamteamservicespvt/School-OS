@@ -7,7 +7,7 @@ import { canDecide } from "@/lib/approvals";
 import { attendancePage } from "@/lib/attendance/page";
 import { BASE } from "@/lib/attendance/access";
 import { registerChoices } from "@/lib/attendance/register";
-import { CORRECTION_WORDS, statusName, type CorrectionEntry } from "@/lib/attendance/corrections";
+import { CORRECTION_WORDS, type CorrectionEntry } from "@/lib/attendance/corrections";
 import { statusList } from "@/lib/attendance/settings";
 import { UUID_RE } from "@/lib/staff/act";
 import { PageHeader } from "@/components/shell/page-header";

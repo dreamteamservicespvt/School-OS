@@ -19,14 +19,15 @@ export function PhotoUpload({ action, remove, hasPhoto, name, children }: {
 }) {
   const [open, setOpen] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
-  const [state, formAction] = useActionState<FormState, FormData>(action, null);
+  const router = useRouter();
+  const [state, formAction] = useActionState<FormState, FormData>(async (prev, fd) => {
+    const r = await action(prev, fd);
+    if (r?.ok) { setOpen(false); setPreview(null); router.refresh(); }
+    return r;
+  }, null);
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
-  const router = useRouter();
 
-  useEffect(() => {
-    if (state?.ok) { setOpen(false); setPreview(null); router.refresh(); }
-  }, [state, router]);
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
 
   return (

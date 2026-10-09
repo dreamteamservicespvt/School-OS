@@ -54,6 +54,8 @@ export function BulkBar({ form, actions, noun = "student" }: { form: string; act
       if (!target) return;
       const ids = [...new Set([...document.querySelectorAll<HTMLInputElement>(`input[data-bulk-row][form="${form}"]:checked`)].map((i) => i.value))];
       const url = `${target}${target.includes("?") ? "&" : "?"}ids=${ids.join(",")}`;
+      // A file (PDF, CSV) is downloaded by the browser, not shown as a page.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
       if (submitter?.dataset.file) window.location.assign(url); else router.push(url);
     }}
       className={count ? "no-print fixed inset-x-2 bottom-20 z-30 rounded-2xl border border-line bg-surface p-3 shadow-pop sm:bottom-4 lg:left-[17rem]" : "hidden"}

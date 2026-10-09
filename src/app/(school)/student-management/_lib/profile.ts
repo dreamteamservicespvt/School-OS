@@ -9,7 +9,6 @@ import { fileLink } from "@/lib/files";
 import { loadVisibleStudent, noteVisible, type StudentAbilities } from "@/lib/students/access";
 import { emergencyList, previousSchoolLocked } from "@/lib/students/students";
 import { pointsTotal } from "@/lib/students/behaviour";
-import { photoConsentStands } from "@/lib/students/consent";
 import { pickupList } from "@/lib/students/guardians";
 import type { ResolvedSettings } from "@/lib/students/settings";
 
@@ -29,7 +28,7 @@ export async function loadProfile(tx: Tx, current: Current, id: string, can: Stu
     can.seeBehaviour && settings.pointsOn ? pointsTotal(tx, id) : Promise.resolve(null),
     can.seeBehaviour ? tx.behaviourIncidentStudent.findFirst({ where: { studentId: id, incident: { archivedAt: null, kind: "suspension", suspensionTo: { gte: new Date(new Date().toISOString().slice(0, 10)) } } }, include: { incident: true } }) : Promise.resolve(null),
     tx.role.findMany({ where: { archivedAt: null, isEnabled: true, key: { not: null } }, select: { key: true, name: true }, orderBy: { name: "asc" } }),
-    photoConsentStands(tx, id),
+    tx.consentRecord.count({ where: { studentId: id, consentType: "photo", status: "WITHDRAWN" } }),
     pickupList(tx, id),
     previousSchoolLocked(tx, id),
   ]);
@@ -48,7 +47,13 @@ export async function loadProfile(tx: Tx, current: Current, id: string, can: Stu
   if (student.aadhaarEnc) {
     try { aadhaar = show(decryptField(student.aadhaarEnc)); } catch { aadhaar = "On record (could not be read)"; }
   }
-  const idValues = settings.identifierTypes.map((t) => {
+  // Aadhaar, APAAR and PEN always show (India); the school's own identifier types follow.
+  const fixed: { key: string; label: string; level: "restricted" | "highly" }[] = [
+    { key: "aadhaar", label: "Aadhaar number", level: "highly" },
+    { key: "apaar", label: "APAAR ID", level: "restricted" },
+    { key: "pen", label: "PEN", level: "restricted" },
+  ];
+  const idValues = [...fixed, ...settings.identifierTypes.filter((t) => !fixed.some((f) => f.key === t.key))].map((t) => {
     if (t.key === "aadhaar") return { ...t, value: aadhaar };
     if (t.key === "apaar") return { ...t, value: show(student.apaarId) };
     if (t.key === "pen") return { ...t, value: show(student.pen) };
@@ -66,7 +71,8 @@ export async function loadProfile(tx: Tx, current: Current, id: string, can: Stu
   return {
     student,
     photo: student.photoFileId ? fileLink(student.photoFileId, current.ctx.schoolId) : null,
-    photoConsent: photoOk,
+    /** A parent withdrew photo consent: the photo is hidden from the gallery and social posts. */
+    photoWithdrawn: photoOk > 0,
     history,
     now,
     links,
@@ -76,7 +82,7 @@ export async function loadProfile(tx: Tx, current: Current, id: string, can: Stu
     previousLocked: lockedYear,
     identifiers: idValues,
     notes: notes.filter((n) => noteVisible(n, current)),
-    roles: roles.filter((r): r is { key: string; name: string } => Boolean(r.key)),
+    roles: roles.filter((r, i): r is { key: string; name: string } => Boolean(r.key) && roles.findIndex((x) => x.key === r.key) === i),
     customFields: customFields.filter((f) => f.visibility !== "restricted" || can.seeRestricted),
     extra,
     permanentAddress: extra._permanentAddress ?? null,

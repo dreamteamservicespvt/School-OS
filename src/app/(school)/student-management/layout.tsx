@@ -15,7 +15,7 @@ export default async function StudentManagementLayout({ children }: { children: 
   ].filter((t) => t.show);
   return (
     <>
-      <Tabs label="Student Management pages" tabs={tabs.map(({ show: _show, ...t }) => t)} />
+      <Tabs label="Student Management pages" tabs={tabs.map((t) => ({ href: t.href, label: t.label, exact: t.exact, also: t.also }))} />
       {children}
     </>
   );

@@ -154,7 +154,6 @@ export async function confirmPromotion(tx: Tx, ctx: SchoolContext, q: { fromSect
   const counts = { PROMOTE: 0, DETAIN: 0, LEAVING: 0 };
   const sectionCounts = new Map<string, number>();
   const newYearStarted = p.toYear.status === "ACTIVE";
-  const decisionRows: { decisionId: string; enrolmentId: string; sectionId: string; name: string }[] = [];
 
   for (const r of rows) {
     const d = byId.get(r.studentId)!;
@@ -182,7 +181,6 @@ export async function confirmPromotion(tx: Tx, ctx: SchoolContext, q: { fromSect
         await applyStatus(tx, ctx, r.studentId, newYearStarted ? "ACTIVE" : "PROMOTED", p.from.year.endDate, `Promoted to ${p.toClass!.name} ${chosen.name} (${p.toYear.name})`, `promotion:${batch.id}`);
       }
       await runEnrolled(tx, ctx, { studentId: r.studentId, enrolmentId: enr.id, academicYearId: p.toYear.id, classId, sectionId: chosen.id, how: "promoted", applyFeePlan: true });
-      decisionRows.push({ decisionId: "", enrolmentId: enr.id, sectionId: chosen.id, name: r.fullName });
     } else if (!leavingRequestId) {
       const lr = await tx.leavingRequest.create({
         data: {

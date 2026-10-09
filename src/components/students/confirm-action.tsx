@@ -77,3 +77,31 @@ export function ActionButton({ action, fields = {}, children, variant = "seconda
     </span>
   );
 }
+
+/** A choice that saves as soon as it changes (for example an application's status). */
+export function ActionSelect({ action, fields = {}, name, label, value, options }: {
+  action: ServerAction; fields?: Record<string, string>; name: string; label: string; value: string; options: readonly string[];
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+  return (
+    <span className="inline-flex flex-col">
+      <label className="sr-only" htmlFor={`${name}-${fields.id ?? ""}`}>{label}</label>
+      <select id={`${name}-${fields.id ?? ""}`} defaultValue={value} disabled={busy} aria-busy={busy || undefined}
+        onChange={async (e) => {
+          setBusy(true); setError(null);
+          const fd = new FormData();
+          for (const [k, v] of Object.entries(fields)) fd.set(k, v);
+          fd.set(name, e.target.value);
+          const problem = await action(fd).catch(() => "That did not save. Please try again.");
+          setBusy(false);
+          if (problem) setError(problem); else router.refresh();
+        }}
+        className="h-11 rounded-lg border border-line-strong bg-surface px-2 text-[15px]">
+        {options.map((o) => <option key={o} value={o}>{o}</option>)}
+      </select>
+      {error && <span role="alert" className="mt-1 text-sm text-danger">{error}</span>}
+    </span>
+  );
+}

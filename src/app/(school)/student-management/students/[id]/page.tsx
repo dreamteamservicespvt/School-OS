@@ -121,7 +121,7 @@ export default async function StudentProfilePage({ params, searchParams }: { par
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <Badge tone={STATUS_TONE[status]}>{STATUS_LABEL[status]}</Badge>
-            {!p.photoConsent && <Badge tone="warning">Photo consent withdrawn</Badge>}
+            {p.photoWithdrawn && <Badge tone="warning">Photo consent withdrawn</Badge>}
           </div>
           <dl className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 text-[15px] sm:flex sm:flex-wrap">
             <div><dt className="text-sm text-ink-2">Class</dt><dd className="font-medium">{sectionLabel ?? "No class this year"}</dd></div>

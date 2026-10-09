@@ -38,7 +38,7 @@ export default async function ConsentPage() {
     <>
       <PageHeader title="Parent Link" href="/communication/parent-link/consent" userId={current.user.id} />
       <ParentLinkNav on="consent" />
-      <div className="grid gap-6 lg:grid-cols-5">
+      <div className="grid grid-cols-1 gap-6 *:min-w-0 lg:grid-cols-5">
         <section aria-labelledby="ask" className="lg:col-span-2">
           <h2 id="ask" className="mb-1 text-lg font-semibold">Request consent</h2>
           <p className="mb-3 text-ink-2">Each guardian sees the form on their Parent Link and agrees with a one-time code to their mobile.</p>

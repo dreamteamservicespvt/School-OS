@@ -29,7 +29,7 @@ export function VerifyPhone({ token, maskedPhone, codeSent }: { token: string; m
         <>
           <form action={check} className="space-y-3">
             <p role="status" className="rounded-xl bg-success-soft p-3 text-sm text-success">
-              {sent?.message ?? "Code sent."} We have sent a code to {maskedPhone}.
+              Code sent to {maskedPhone}. {sent?.message?.replace(/^Code sent\. ?/, "") ?? ""}
             </p>
             <label className="block">
               <span className="font-medium">6-digit code</span>

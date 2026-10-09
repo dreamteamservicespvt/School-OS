@@ -46,7 +46,7 @@ export default async function QueryPage({ params }: { params: Promise<{ id: stri
       {overdue && <Alert tone="danger" className="mb-4">Past its reply time limit ({formatDateTime(q.dueBy!, tz)}).</Alert>}
       {q.escalatedAt && <Alert tone="warning" className="mb-4">Escalated on {formatDateTime(q.escalatedAt, tz)} because it was overdue.</Alert>}
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 *:min-w-0 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <Card>
             <CardBody>

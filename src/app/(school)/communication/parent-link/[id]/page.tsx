@@ -65,7 +65,7 @@ export default async function LinkPage({ params }: { params: Promise<{ id: strin
         </Alert>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 *:min-w-0 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <Card>
             <CardBody>

@@ -156,7 +156,7 @@ export function TemplateForm({ data }: { data: TemplateFormData }) {
         </div>
 
         {cur && (
-          <div className="grid gap-5 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-5 *:min-w-0 lg:grid-cols-2">
             <div className="space-y-4">
               {cur.locked && <Alert tone="info">This text is approved by WhatsApp and locked. Make a new template to change the wording.</Alert>}
               {hasSubject && (

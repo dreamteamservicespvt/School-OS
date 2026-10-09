@@ -75,7 +75,7 @@ export default async function TemplatePage({ params }: { params: Promise<{ id: s
               <CardBody>
                 {missingDlt && <Alert tone="danger" className="mb-3">This SMS template has no DLT template ID, so it cannot be used. Add the ID from the DLT portal with Edit.</Alert>}
                 {v.whatsappStatus === "REJECTED" && <Alert tone="danger" className="mb-3">WhatsApp rejected this text{v.whatsappNote ? `: ${v.whatsappNote}` : ""}. Change the wording with Edit and send it again.</Alert>}
-                <div className="grid gap-4 lg:grid-cols-2">
+                <div className="grid grid-cols-1 gap-4 *:min-w-0 lg:grid-cols-2">
                   <div>
                     <h3 className="mb-1 text-sm font-medium text-ink-2">Text</h3>
                     {v.subject && <p className="font-semibold">{v.subject}</p>}

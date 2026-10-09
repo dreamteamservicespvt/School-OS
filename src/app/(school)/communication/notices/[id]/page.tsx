@@ -68,7 +68,7 @@ export default async function NoticePage({ params }: { params: Promise<{ id: str
       {n.status === "SCHEDULED" && n.publishAt && <Alert tone="info" className="mb-4">Scheduled for {formatDateTime(n.publishAt, tz)}.</Alert>}
       {n.status === "ARCHIVED" && <Alert tone="info" className="mb-4">Archived. It is no longer on the board or Parent Link.</Alert>}
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 *:min-w-0 lg:grid-cols-3">
         <Card className={`lg:col-span-2 ${n.priority === "CRITICAL" ? "border-2 border-danger" : ""}`}>
           <CardBody>
             <div className="mb-3 flex flex-wrap gap-2">

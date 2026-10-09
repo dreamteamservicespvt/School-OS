@@ -1,0 +1,56 @@
+// Staff ID cards as a PDF, in batches of up to 50 (P9), from the shared ID
+// card design. Chosen staff (?ids=), one staff member (?staff=), or the
+// Staff List filters (?designation=...). Every printed card is recorded;
+// a card printed before is a reprint, with its reason.
+import { requireAction } from "@/lib/current";
+import { withSchool } from "@/lib/db";
+import { readListParams } from "@/lib/list";
+import { htmlToPdf } from "@/lib/pdf";
+import { writeAudit } from "@/lib/audit";
+import { logExport } from "@/lib/exports";
+import { viewerFor } from "@/lib/staff/access";
+import { STAFF_FILTERS, staffWhere } from "@/lib/staff/list";
+import { idCardsHtml } from "@/lib/staff/print";
+import { UUID_RE } from "@/lib/staff/act";
+
+const BATCH = 50;
+
+const problem = (text: string, status = 400) => new Response(text, { status, headers: { "Content-Type": "text/plain; charset=utf-8" } });
+
+export async function GET(req: Request) {
+  const { current } = await requireAction("staff-hr-management", "print");
+  const url = new URL(req.url);
+  const sp = url.searchParams;
+  const batch = Math.max(1, Number.parseInt(sp.get("batch") ?? "1", 10) || 1);
+  const reason = (sp.get("reason") ?? "").trim().slice(0, 200);
+  return withSchool(current.ctx, async (tx) => {
+    const viewer = await viewerFor(tx, current.ctx, current);
+    let where;
+    if (sp.get("ids")) {
+      const ids = sp.get("ids")!.split(",").filter((v) => UUID_RE.test(v)).slice(0, 500);
+      where = { id: { in: ids }, archivedAt: null };
+    } else if (sp.get("staff") && UUID_RE.test(sp.get("staff")!)) {
+      where = { id: sp.get("staff")!, archivedAt: null };
+    } else {
+      where = staffWhere(readListParams(Object.fromEntries(sp.entries()), STAFF_FILTERS), viewer);
+    }
+    // Own reach prints only their own card.
+    if (viewer.see !== "all") where = { AND: [where, { id: viewer.staffId ?? "00000000-0000-0000-0000-000000000000" }] };
+    const all = await tx.staff.findMany({ where, orderBy: [{ designation: "asc" }, { fullName: "asc" }], select: { id: true }, take: 2000 });
+    if (all.length === 0) return problem("No staff to print. Go back and choose staff or change the filters.", 404);
+    const pageIds = all.slice((batch - 1) * BATCH, batch * BATCH).map((s) => s.id);
+    if (pageIds.length === 0) return problem(`There is no batch ${batch}. There are ${Math.ceil(all.length / BATCH)} batches.`, 404);
+    const staff = await tx.staff.findMany({ where: { id: { in: pageIds } }, orderBy: [{ designation: "asc" }, { fullName: "asc" }], include: { department: { select: { name: true } } } });
+    const before = new Set((await tx.staffIdCardPrint.findMany({ where: { staffId: { in: pageIds } }, select: { staffId: true } })).map((p) => p.staffId));
+    const batchKey = `${new Date().toISOString()}:${batch}`;
+    await tx.staffIdCardPrint.createMany({
+      data: staff.map((s) => ({ schoolId: current.ctx.schoolId, staffId: s.id, batchKey, reprint: before.has(s.id), reason: before.has(s.id) ? reason || "Printed again" : null, printedById: current.user.id })),
+    });
+    await writeAudit(tx, current.ctx, { action: "printed", recordType: "Staff ID Card Print", recordId: null, after: { cards: staff.length, reprints: staff.filter((s) => before.has(s.id)).length, batch, of: Math.ceil(all.length / BATCH), reason: reason || null } });
+    await logExport(tx, current.ctx, { title: "Staff ID cards", format: "pdf", filters: `Batch ${batch} of ${Math.ceil(all.length / BATCH)}`, rows: staff.length });
+    const pdf = await htmlToPdf(await idCardsHtml(tx, current.ctx, staff, current.school.timeZone), { margin: "10mm" });
+    return new Response(new Uint8Array(pdf), {
+      headers: { "Content-Type": "application/pdf", "Content-Disposition": `inline; filename="staff-id-cards-${batch}.pdf"`, "Cache-Control": "no-store" },
+    });
+  }, { timeout: 120_000 });
+}

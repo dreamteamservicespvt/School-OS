@@ -1,0 +1,30 @@
+"use server";
+
+import { requireAction } from "@/lib/current";
+import { withSchool } from "@/lib/db";
+import type { FormState } from "@/lib/forms";
+import { DOCUMENT_TYPES, saveFile } from "@/lib/files";
+import { act, file, FieldProblem, id, optionalDateOf, optionalId, str } from "@/lib/staff/act";
+import { HrOnlyError } from "@/lib/staff/access";
+import { addDocument } from "@/lib/staff/documents";
+
+/** Upload a staff document, or renew / fill a missing one (replaceId). HR only. */
+export async function uploadDocument(_: FormState<unknown>, fd: FormData) {
+  return act(fd, async () => {
+    const { current, reach } = await requireAction("staff-hr-management", "edit");
+    if (reach !== "all") throw new HrOnlyError("uploading staff documents");
+    const staffId = id(fd, "staffId", "staff member");
+    const replaceId = optionalId(fd, "replaceId");
+    const kind = str(fd, "kind");
+    const upload = file(fd, "file");
+    if (!upload) throw new FieldProblem("Choose the file to upload.", "file");
+    const issuedOn = optionalDateOf(fd, "issuedOn", "Issue date");
+    const expiresOn = optionalDateOf(fd, "expiresOn", "Expiry date");
+    return withSchool(current.ctx, async (tx) => {
+      if (!replaceId && kind.length < 2) throw new FieldProblem("Choose the document type.", "kind");
+      const saved = await saveFile(tx, current.ctx, { file: upload, purpose: "staff-document", allowed: DOCUMENT_TYPES, maxImageWidth: 1600 });
+      const doc = await addDocument(tx, current.ctx, { staffId, kind: kind.slice(0, 80), fileId: saved.id, number: str(fd, "number").slice(0, 40) || null, issuedOn, expiresOn }, replaceId);
+      return doc.kind;
+    }, { timeout: 30_000 });
+  }, (kind) => `${kind} saved.`);
+}

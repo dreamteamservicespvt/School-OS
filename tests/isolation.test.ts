@@ -71,6 +71,19 @@ describe("a user of school A cannot read school B", () => {
     });
   });
 
+  it("sees none of school B's Staff & HR records", async () => {
+    await withSchool({ schoolId: b.id, userId: userB.id }, async (tx) => {
+      await tx.hrSetting.create({ data: { schoolId: b.id } });
+      await tx.designation.create({ data: { schoolId: b.id, name: "School B post" } });
+      await tx.vacancy.create({ data: { schoolId: b.id, designation: "School B post" } });
+    });
+    await withSchool(ctxA(), async (tx) => {
+      expect(await tx.hrSetting.findUnique({ where: { schoolId: b.id } })).toBeNull();
+      expect(await tx.designation.count({ where: { name: "School B post" } })).toBe(0);
+      expect(await tx.vacancy.count()).toBe(0);
+    });
+  });
+
   it("gets no permissions in school B", async () => {
     expect(await accessIn(userA.id, b.id)).toBeNull();
     expect((await schoolsFor(userA.id)).map((s) => s.id)).toEqual([a.id]);

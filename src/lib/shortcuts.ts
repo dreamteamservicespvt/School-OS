@@ -17,7 +17,7 @@ const BY_ROLE: Record<string, Shortcut[]> = {
     { label: "Users & Permissions", href: "/settings", module: "settings" },
     { label: "School Profile", href: "/settings", module: "settings" },
     { label: "Add a student", href: "/student-management", module: "student-management" },
-    { label: "Add staff", href: "/staff-hr-management", module: "staff-hr-management" },
+    { label: "Add staff", href: "/staff-hr-management/add", module: "staff-hr-management" },
   ],
   accountant: [
     { label: "Collect Fee", href: "/fee-management", module: "fee-management" },

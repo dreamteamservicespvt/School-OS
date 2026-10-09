@@ -9,3 +9,5 @@ import "./importer";
 import "./approval-handlers";
 
 defineSchedule("approval-escalation", 60, (tx, ctx, now) => escalateOverdue(tx, ctx, now));
+import "./students/jobs";
+import "./students/import";

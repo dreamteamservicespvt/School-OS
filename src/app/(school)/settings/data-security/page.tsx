@@ -36,7 +36,7 @@ export default async function DataSecurityPage() {
       const people = ids.length ? await tx.schoolAccess.findMany({ where: { userLoginId: { in: ids } }, select: { userLogin: { select: { id: true, displayName: true } } } }) : [];
       const twoStep = await tx.schoolFeature.findUnique({ where: { schoolId_featureKey: { schoolId: current.ctx.schoolId, featureKey: TWO_STEP_FEATURE } } });
       const twoStepRoles = await tx.role.findMany({ where: { requiresTwoStep: true, isEnabled: true, archivedAt: null }, select: { name: true } });
-      return { exports, jobStatus: new Map(jobs.map((j) => [j.idempotencyKey, j.status])), alerts, names: new Map(people.map((p) => [p.userLogin.id, p.userLogin.displayName])), twoStepOn: twoStep?.isOn ?? false, twoStepRoles: twoStepRoles.map((r) => r.name) };
+      return { exports, jobStatus: new Map(jobs.map((j) => [j.idempotencyKey, j.status])), alerts, names: new Map(people.map((p) => [p.userLogin.id, p.userLogin.displayName])), twoStepOn: twoStep?.isOn ?? false, twoStepRoles: [...new Set(twoStepRoles.map((r) => r.name))] };
     }),
   ]);
   const canExport = can(current.permissions, "settings", "export");

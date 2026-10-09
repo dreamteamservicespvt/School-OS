@@ -83,6 +83,7 @@ export default async function PrivacyPage({ searchParams }: Search) {
             </form>
           )}
 
+          {q.length === 1 && <p className="text-ink-2">Type at least 2 letters or digits.</p>}
           {q.length >= 2 && !data.chosen && (
             data.found.length === 0 ? <p className="text-ink-2">Nobody matches “{q}”. Check the spelling, or search by number.</p> : (
               <ul className="divide-y divide-line rounded-xl border border-line">

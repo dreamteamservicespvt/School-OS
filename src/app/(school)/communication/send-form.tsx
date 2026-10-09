@@ -32,6 +32,10 @@ export type SendFormData = {
   sendKey: string;
   timeZone: string;
   channelLabels: Record<Channel, string>;
+  /** People chosen before the page opened, e.g. the parents of students chosen on the Student List. */
+  initialPeople?: Person[];
+  /** Why some chosen students were left out (outside the sender's classes, or not studying). */
+  initialNote?: string | null;
 };
 
 const KINDS = [
@@ -47,7 +51,8 @@ const TYPES = [
   { key: "attendance", label: "Attendance" },
   { key: "result", label: "Result" },
 ];
-type Person = { type: "guardian" | "student" | "staff"; id: string; name: string; detail: string };
+export type Person = { type: "guardian" | "student" | "staff" | "parentsOf"; id: string; name: string; detail: string };
+const PERSON_FIELD: Record<Person["type"], string> = { guardian: "guardianIds", student: "studentIds", staff: "staffIds", parentsOf: "guardiansOf" };
 
 const chip = (on: boolean) =>
   `inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border px-4 text-[15px] has-[:focus-visible]:outline has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-[var(--focus)] ${on ? "border-brand bg-brand-soft font-medium text-brand-text" : "border-line-strong bg-surface hover:bg-surface-2"}`;
@@ -60,11 +65,11 @@ export function SendForm({ data }: { data: SendFormData }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [state, dispatch, pending] = useActionState<SendState, FormData>(checkOrSend, null);
   const [groupState, dispatchGroup, groupPending] = useActionState<SendState, FormData>(saveGroup, null);
-  const [kinds, setKinds] = useState<string[]>(["parents"]);
+  const [kinds, setKinds] = useState<string[]>(data.initialPeople?.length ? [] : ["parents"]);
   const [sections, setSections] = useState<string[]>([]);
   const [classes, setClasses] = useState<string[]>([]);
   const [groupId, setGroupId] = useState("");
-  const [people, setPeople] = useState<Person[]>([]);
+  const [people, setPeople] = useState<Person[]>(data.initialPeople ?? []);
   const [channels, setChannels] = useState<Channel[]>([data.preferred]);
   const [tpl, setTpl] = useState<Partial<Record<Channel, string>>>({});
   const [text, setText] = useState("");
@@ -156,6 +161,12 @@ export function SendForm({ data }: { data: SendFormData }) {
       <section aria-labelledby="who" className="rounded-2xl border border-line bg-surface p-4 shadow-card sm:p-5">
         <h2 id="who" className="text-lg font-semibold">1. Who</h2>
         <p className="text-sm text-ink-2">You can reach: {data.scopeLabel}.</p>
+        {data.initialPeople && data.initialPeople.length > 0 && (
+          <Alert tone="info" className="mt-3">
+            The main contact of each of the {data.initialPeople.length} student{data.initialPeople.length === 1 ? "" : "s"} you chose is added below. Tick &ldquo;Both parents&rdquo; to reach every guardian.
+            {data.initialNote && <span className="mt-1 block">{data.initialNote}</span>}
+          </Alert>
+        )}
         <fieldset className="mt-3" aria-describedby={err("kinds") ? "e-kinds" : undefined}>
           <legend className="mb-2 text-sm font-medium">Recipient type</legend>
           <div className="flex flex-wrap gap-2" id="f-kinds" tabIndex={-1}>
@@ -197,7 +208,7 @@ export function SendForm({ data }: { data: SendFormData }) {
           </fieldset>
         )}
 
-        {kinds.includes("parents") && (
+        {(kinds.includes("parents") || people.some((p) => p.type === "parentsOf")) && (
           <label className="mt-3 flex min-h-11 items-center gap-2">
             <input type="checkbox" name="allGuardians" onChange={touch} className="size-5 accent-[var(--brand)]" />
             Both parents, not only the main contact
@@ -260,7 +271,7 @@ export function SendForm({ data }: { data: SendFormData }) {
           <ul className="mt-3 flex flex-wrap gap-2" aria-label="People added">
             {people.map((p) => (
               <li key={p.id} className="inline-flex items-center gap-1 rounded-full bg-brand-soft py-1 pl-3 pr-1 text-brand-text">
-                <input type="hidden" name={p.type === "guardian" ? "guardianIds" : p.type === "student" ? "studentIds" : "staffIds"} value={p.id} />
+                <input type="hidden" name={PERSON_FIELD[p.type]} value={p.id} />
                 {p.name}
                 <button type="button" aria-label={`Remove ${p.name}`} onClick={() => { setPeople(people.filter((x) => x.id !== p.id)); touch(); }} className="grid size-8 place-items-center rounded-full hover:bg-surface">×</button>
               </li>

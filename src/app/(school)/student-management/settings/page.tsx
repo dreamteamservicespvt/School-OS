@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { SettingsLink } from "@/components/settings-link";
 import { redirect } from "next/navigation";
 import type { CertificateType } from "@prisma/client";
 import { withSchool } from "@/lib/db";
@@ -102,7 +103,7 @@ export default async function StudentSettingsPage({ searchParams }: { searchPara
                 </CardBody>
               </Card>
               <Card>
-                <CardHeader title="Student status and allowed changes" description="The default list. Extra fields for students are added in Settings, Forms & Approvals." />
+                <CardHeader title="Student status and allowed changes" description={<>The default list. Extra fields for students are added in <SettingsLink href="/settings/forms-approvals">Settings, Forms &amp; Approvals</SettingsLink>.</>} />
                 <CardBody>
                   <ul className="divide-y divide-line text-[15px]">
                     {STATUS_RULES.map((r) => <li key={`${r.from}-${r.to}`} className="grid gap-1 py-2 sm:grid-cols-3"><span>{r.from}</span><span>to {r.to}</span><span className="text-ink-2">{r.how}</span></li>)}
@@ -179,11 +180,11 @@ export default async function StudentSettingsPage({ searchParams }: { searchPara
 
           {tab === "certificates" && (
             <Card>
-              <CardHeader title="Certificates" description="Certificate designs are set in Settings, Document Designs. Numbers run in a series per type and year, for example BONAFIDE/2026-27/0001." />
+              <CardHeader title="Certificates" description={<>Certificate designs are set in <SettingsLink href="/settings/document-designs">Settings, Document Designs</SettingsLink>. Numbers run in a series per type and year, for example BONAFIDE/2026-27/0001.</>} />
               <CardBody>
                 <ActionForm action={save} submitLabel="Save" pendingText="Saving…">
                   <Choices name="approvalCertificates" label="Need approval before issuing" options={certTypes.filter((t) => t !== "TC").map((t) => ({ key: t, label: CERTIFICATE_LABEL[t] }))} chosen={settings.approvalCertificates} help="A TC always needs approval." />
-                  {data.signatories.length === 0 ? <p className="text-sm text-ink-2">No signatories yet. They are added in Settings, Document Designs.</p> : (
+                  {data.signatories.length === 0 ? <p className="text-sm text-ink-2">No signatories yet. They are added in <SettingsLink href="/settings/document-designs">Settings, Document Designs</SettingsLink>.</p> : (
                     <div className="grid gap-4 sm:grid-cols-2">
                       {certTypes.map((t) => <FormSelect key={t} name={`sig_${t}`} label={`Default signatory: ${CERTIFICATE_LABEL[t]}`} defaultValue={settings.defaultSignatories[t] ?? ""} placeholder="None" options={data.signatories.map((s) => ({ value: s.id, label: `${s.name}, ${s.title}` }))} />)}
                     </div>
@@ -197,7 +198,7 @@ export default async function StudentSettingsPage({ searchParams }: { searchPara
 
           {tab === "id-cards" && (
             <Card>
-              <CardHeader title="ID cards" description="Photo, name, class, QR code, barcode, academic year and valid-until date always print." />
+              <CardHeader title="ID cards" description={<>Which details a card may show, and how many cards go on a page. The card&apos;s look (layout, colours, size, QR code and barcode) is set in <SettingsLink href="/settings/document-designs">Settings, Document Designs</SettingsLink>.</>} />
               <CardBody>
                 <ActionForm action={save} submitLabel="Save" pendingText="Saving…">
                   <Choices name="idCardFields" label="Also show" options={ID_CARD_FIELDS} chosen={settings.idCardFields} />

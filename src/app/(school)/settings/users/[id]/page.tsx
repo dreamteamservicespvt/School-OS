@@ -158,7 +158,7 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
           <CardHeader title="Belongs to" description="The Staff record this login is for." />
           <CardBody>
             {staff && <p className="mb-3 text-sm">Linked to <Link href={`/staff-hr-management/${staff.id}`} className="font-medium text-brand-text underline">{staff.fullName}</Link>, {staff.designation}.</p>}
-            {student && <p className="mb-3 text-sm">Linked to the student {student.fullName}.</p>}
+            {student && <p className="mb-3 text-sm">Linked to the student <Link href={`/student-management/students/${student.id}`} className="font-medium text-brand-text underline">{student.fullName}</Link>.</p>}
             {mayEdit ? <LinkForm userId={id} current={belongsTo} options={linkOptions} /> : !staff && !student && <p className="text-sm text-ink-2">Not linked to a record.</p>}
           </CardBody>
         </Card>

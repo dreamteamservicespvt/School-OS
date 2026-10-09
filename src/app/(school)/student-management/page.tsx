@@ -4,6 +4,7 @@ import { withSchool } from "@/lib/db";
 import { readListParams, skipTake, orderByFor, listHref } from "@/lib/list";
 import { formatDate } from "@/lib/format";
 import { BUILT_MODULES } from "@/lib/modules";
+import { can as canDo } from "@/lib/permissions";
 import { PageHeader } from "@/components/shell/page-header";
 import { DataTable, type Column } from "@/components/list/data-table";
 import { ListToolbar } from "@/components/list/list-toolbar";
@@ -78,8 +79,8 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
     ...(can.reach === "all" && !can.lookupOnly ? [{ label: "Print ID cards", href: `${BASE}/certificates/id-cards/print`, file: true }, { label: "Print certificates", href: `${BASE}/certificates/new` }] : []),
     ...(can.manage ? [{ label: "Change section", href: `${BASE}/bulk-update?field=section` }, { label: "Update a field", href: `${BASE}/bulk-update` }] : []),
     ...(can.manage && settings.studentLoginsOn ? [{ label: "Student logins", href: `${BASE}/logins` }] : []),
-    // messaging: "Send message" joins this bar when Communication is built (it owns sending).
-    ...(BUILT_MODULES.has("communication") ? [{ label: "Send message", href: `/communication/new` }] : []),
+    // Communication owns sending: its Send Message page opens with these students' parents chosen.
+    ...(BUILT_MODULES.has("communication") && canDo(current.permissions, "communication", "create") ? [{ label: "Send message", href: "/communication?for=students" }] : []),
     { label: "Export", href: `${BASE}/export?format=xlsx`, file: true },
   ];
 

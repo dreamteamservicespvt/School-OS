@@ -10,10 +10,11 @@ import { schoolsFor } from "@/lib/auth/access";
 import { changeAccess, disableUser, enableUser, inviteUser, linkRecord, resendInvite, resetTwoStep, setExceptions, updateDetails } from "@/lib/settings/users";
 import { archiveRole, createRole, restoreRole, restoreRoleVersion, setTemplateOn, updateRole } from "@/lib/settings/roles";
 import { asFormState, runSettings } from "../run";
+import { inviteSentWords } from "@/lib/settings/invite-message";
 
 const USERS = "/settings/users";
 
-export type InviteState = FormState<{ userId: string; link: string; name: string }>;
+export type InviteState = FormState<{ userId: string; link: string; name: string; sentBy: string[]; sentNote: string | null }>;
 
 const inviteSchema = z.object({
   displayName: z.string().trim().min(1, "Full name is needed").max(100, "Full name can be at most 100 characters."),
@@ -49,7 +50,11 @@ export async function inviteAction(_: InviteState, fd: FormData): Promise<Invite
   );
   if (!r.ok) return asFormState(r, values, "");
   revalidatePath(USERS);
-  return { ok: true, message: `${r.data.login.displayName} is invited.`, data: { userId: r.data.login.id, link: `/invite/${r.data.token}`, name: r.data.login.displayName } };
+  return {
+    ok: true,
+    message: `${r.data.login.displayName} is invited.${inviteSentWords(r.data.sent)}`,
+    data: { userId: r.data.login.id, link: `/invite/${r.data.token}`, name: r.data.login.displayName, sentBy: r.data.sent.sentBy, sentNote: r.data.sent.note },
+  };
 }
 
 export type LinkState = { ok: boolean; message: string; link?: string } | null;
@@ -58,7 +63,7 @@ export async function resendInviteAction(userId: string): Promise<LinkState> {
   const r = await runSettings("edit", (tx, current) => resendInvite(tx, current.ctx, userId));
   if (!r.ok) return { ok: false, message: r.message };
   revalidatePath(`${USERS}/${userId}`);
-  return { ok: true, message: "A new invite link is ready. The old link no longer works. It works once, for 7 days.", link: `/invite/${r.data}` };
+  return { ok: true, message: `A new invite link is ready. The old link no longer works. It works once, for 7 days.${inviteSentWords(r.data.sent)}`, link: `/invite/${r.data.token}` };
 }
 
 export async function accessAction(_: FormState, fd: FormData): Promise<FormState> {

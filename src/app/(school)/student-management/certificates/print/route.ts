@@ -12,12 +12,24 @@ export const dynamic = "force-dynamic";
 
 const isId = (v: string) => /^[0-9a-f-]{36}$/i.test(v);
 
-/** Joins printable pages into one document, one certificate per page. */
+/**
+ * Joins printable pages into one document, one certificate per page. Each
+ * certificate type may have its own design (Settings, Document Designs), so
+ * every distinct style is kept, and each page keeps its own font and colour.
+ */
 function joinPages(pages: string[]) {
   if (pages.length === 1) return pages[0];
-  const head = pages[0].slice(0, pages[0].indexOf("<body>"));
+  const styleOf = (p: string) => /<style>([\s\S]*?)<\/style>/.exec(p)?.[1] ?? "";
+  // A design's font and colour sit on its <body>; they move onto the page's own wrapper.
+  const pageVars = (p: string) => {
+    const m = /body\{font-family:([^;]+);color:#111;font-size:([^;]+);line-height:[^;]+;--accent:([^}]+)\}/.exec(styleOf(p));
+    return m ? `font-family:${m[1]};font-size:${m[2]};--accent:${m[3]};`.replace(/"/g, "'") : "";
+  };
+  const styles = [...new Set(pages.map(styleOf))];
   const bodies = pages.map((p) => p.slice(p.indexOf("<body>") + 6, p.lastIndexOf("</body>")));
-  return `${head}<body>${bodies.map((b, i) => `<div style="${i ? "break-before:page;page-break-before:always;" : ""}">${b}</div>`).join("")}</body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><style>${styles.join("\n")}</style></head><body>${bodies
+    .map((b, i) => `<div style="${pageVars(pages[i])}${i ? "break-before:page;page-break-before:always;" : ""}">${b}</div>`)
+    .join("")}</body></html>`;
 }
 
 /** Certificates as a print-ready PDF (?ids=a,b). Only issued (or cancelled, marked so) certificates print. */

@@ -17,6 +17,8 @@ import { ModuleIcon } from "@/components/icons";
 import { Avatar, ExportLinks, StatusBadge } from "./_components/bits";
 import { BulkBar, BulkForm, RowCheck, SelectAll } from "./_components/bulk-bar";
 import { bulkChangeDepartment, bulkMessage } from "./actions";
+import { copyChannelsOn } from "@/lib/staff/staff-message";
+import { CHANNEL_LABEL } from "@/lib/messaging/channels";
 
 export const metadata: Metadata = { title: "Staff List" };
 
@@ -38,7 +40,8 @@ export default async function StaffListPage({ searchParams }: Search) {
       tx.staff.count({ where: { archivedAt: null } }),
     ]);
     const onLeave = await onLeaveOn(tx, current.ctx, today, rows.map((r) => r.id));
-    return { rows, total, designations, departments, campuses, counts, onLeave };
+    const copyChannels = viewer.change === "all" ? await copyChannelsOn(tx, current.ctx) : [];
+    return { rows, total, designations, departments, campuses, counts, onLeave, copyChannels };
   });
   type Row = (typeof data.rows)[number];
   const canChange = viewer.change === "all";
@@ -100,7 +103,7 @@ export default async function StaffListPage({ searchParams }: Search) {
         </div>
       )}
       <BulkForm />
-      {canChange && <BulkBar departments={data.departments.map((d) => ({ value: d.id, label: d.name }))} changeDepartment={bulkChangeDepartment} message={bulkMessage} />}
+      {canChange && <BulkBar departments={data.departments.map((d) => ({ value: d.id, label: d.name }))} changeDepartment={bulkChangeDepartment} message={bulkMessage} copyChannels={data.copyChannels.map((c) => ({ value: c, label: CHANNEL_LABEL[c] }))} />}
       <DataTable
         rows={data.rows}
         columns={columns}

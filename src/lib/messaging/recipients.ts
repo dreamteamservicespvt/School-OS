@@ -38,6 +38,8 @@ export type AudienceRule = {
   /** The students themselves (they get app messages when they have a login). */
   studentIds?: string[];
   staffIds?: string[];
+  /** School OS logins of this school, at the phone and email on the login (e.g. someone just invited, with no staff record). */
+  loginIds?: string[];
 };
 
 /** How far a sender may reach. "all" for the office; a teacher's own sections otherwise. */
@@ -60,7 +62,7 @@ export type StudentInfo = { id: string; name: string; classLabel: string; classN
 
 export type Candidate = {
   key: string;
-  type: "guardian" | "student" | "staff";
+  type: "guardian" | "student" | "staff" | "login";
   id: string;
   name: string;
   description: string;
@@ -265,6 +267,18 @@ export async function resolveAudience(tx: Tx, ctx: SchoolContext, rule: Audience
     for (const c of await staffCandidates(tx, ctx, { staffIds: r.staffIds })) if (!others.some((o) => o.key === c.key)) others.push({ ...c, inScope: scope.staff });
   }
 
+  if (r.loginIds?.length) {
+    // Only logins that have (or had) access to this school.
+    const access = await tx.schoolAccess.findMany({ where: { schoolId: ctx.schoolId, userLoginId: { in: r.loginIds } }, select: { userLoginId: true } });
+    const ids = [...new Set(access.map((a) => a.userLoginId))];
+    const logins = ids.length ? await tx.userLogin.findMany({ where: { id: { in: ids }, archivedAt: null }, select: { id: true, displayName: true, phone: true, email: true }, orderBy: { displayName: "asc" } }) : [];
+    const school = logins.length ? await tx.school.findUnique({ where: { id: ctx.schoolId }, select: { defaultLanguage: true } }) : null;
+    for (const l of logins) {
+      if (others.some((o) => o.userLoginId === l.id)) continue;
+      others.push({ key: `login:${l.id}`, type: "login", id: l.id, name: l.displayName, description: "School OS login", phone: l.phone, email: l.email, userLoginId: l.id, language: school?.defaultLanguage ?? "en", optedOut: false, students: [], inScope: scope.staff });
+    }
+  }
+
   for (const c of guardians.values()) c.inScope = c.students.length === 0 ? scope.sectionIds === "all" : c.students.some((s) => inScopeSection(scope, s.sectionId));
   for (const c of others) if (c.type === "student") c.inScope = c.students.every((s) => inScopeSection(scope, s.sectionId));
   return [...guardians.values(), ...others];
@@ -316,6 +330,7 @@ export async function describeAudience(tx: Tx, ctx: SchoolContext, rule: Audienc
   if (rule.guardiansOf?.length) counts.push(`parents of ${rule.guardiansOf.length} student${rule.guardiansOf.length === 1 ? "" : "s"}`);
   if (rule.studentIds?.length) counts.push(`${rule.studentIds.length} student${rule.studentIds.length === 1 ? "" : "s"}`);
   if (rule.staffIds?.length) counts.push(`${rule.staffIds.length} staff member${rule.staffIds.length === 1 ? "" : "s"}`);
+  if (rule.loginIds?.length) counts.push(`${rule.loginIds.length} School OS login${rule.loginIds.length === 1 ? "" : "s"}`);
   if (counts.length) parts.push(joinNames(counts));
   return parts.join("; ") || "Nobody chosen";
 }

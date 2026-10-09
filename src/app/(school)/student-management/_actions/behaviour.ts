@@ -51,15 +51,21 @@ export async function reportIncidentAction(_prev: FormState, fd: FormData): Prom
   if (studentIds.length === 0) return { ok: false, message: "Choose at least one student.", errors: { studentIds: "Choose at least one student." }, values };
   const photo = fd.get("photo");
   let id = "";
+  let told = "";
   const r = await attemptForm(values, async () => {
     await withSchool(current.ctx, async (tx) => {
       for (const s of studentIds) await loadVisibleStudent(tx, current, s);
       const photoFileId = photo instanceof File && photo.size > 0 ? (await saveFile(tx, current.ctx, { file: photo, purpose: "behaviour-photo", allowed: IMAGE_TYPES, maxImageWidth: 1600 })).id : null;
-      id = (await reportIncident(tx, current.ctx, { ...parsed.data, studentIds, photoFileId })).id;
+      const inc = await reportIncident(tx, current.ctx, { ...parsed.data, studentIds, photoFileId });
+      id = inc.id;
+      if (inc.parentMessage) {
+        const m = inc.parentMessage;
+        told = m.sent ? ` ${m.people === 1 ? "The parent is" : `${m.people} parents are`} being told by message.${m.note ? ` ${m.note}` : ""}` : ` ${m.note ?? "The parent was not told."}`;
+      }
     });
   });
   if (!r?.ok) return r;
-  await flash({ message: `Recorded for ${studentIds.length} ${studentIds.length === 1 ? "student" : "students"}.${parsed.data.informParent ? " The parent will be told when messaging is set up in Communication." : ""}`, link: { href: `${B}/new`, label: "Report another" } });
+  await flash({ message: `Recorded for ${studentIds.length} ${studentIds.length === 1 ? "student" : "students"}.${told}`, link: { href: `${B}/new`, label: "Report another" } });
   revalidatePath(B);
   redirect(studentIds.length === 1 && fd.get("back") === "profile" ? `${BASE}/students/${studentIds[0]}?tab=behaviour` : `${B}/${id}`);
 }

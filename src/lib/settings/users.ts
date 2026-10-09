@@ -12,7 +12,10 @@ import type { AccessScope, Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { notify } from "../notifications";
+import { randomUUID } from "node:crypto";
 import { hashToken, newToken } from "../auth/tokens";
+import { inviteTokenFor } from "../parent-link/token";
+import { sendInviteMessage, type InviteSent } from "./invite-message";
 import { INVITE_VALID_MS } from "../auth/invites";
 import { MODULE_KEYS, MODULES } from "../modules";
 import type { AccessLevel } from "../roles";
@@ -123,9 +126,14 @@ export async function inviteUser(tx: Tx, ctx: SchoolContext, input: InviteInput,
     if (staff.userLoginId) throw new SettingsProblem(`${staff.fullName} already has a login.`, "staffId");
   }
 
-  const token = newToken();
+  // The link's secret is worked out from the login's id and a nonce, so the
+  // message can carry a placeholder instead of the link (see invite-message.ts).
+  const id = randomUUID();
+  const nonce = newToken().slice(0, 32);
+  const token = inviteTokenFor(id, nonce);
   const login = await tx.userLogin.create({
     data: {
+      id,
       username,
       displayName: input.displayName.trim(),
       phone: input.phone,
@@ -153,8 +161,8 @@ export async function inviteUser(tx: Tx, ctx: SchoolContext, input: InviteInput,
   });
   const who = await actorName(tx, ctx);
   await alertPermissionChange(tx, ctx, `${who} invited ${login.displayName} with the ${roleWords(roles)} role${roles.length > 1 ? "s" : ""}.`, `/settings/users/${login.id}`);
-  // messaging: send the invite link to login.phone / login.email through Communication's sendMessage once it exists.
-  return { login, token };
+  const sent: InviteSent = await sendInviteMessage(tx, ctx, login, nonce);
+  return { login, token, sent };
 }
 
 /** A new invite link for someone who has not set their password yet. The old link stops working. */
@@ -162,11 +170,12 @@ export async function resendInvite(tx: Tx, ctx: SchoolContext, userLoginId: stri
   await belongsHere(tx, ctx.schoolId, userLoginId);
   const login = await tx.userLogin.findUnique({ where: { id: userLoginId } });
   if (!login || login.status !== "INVITED") throw new SettingsProblem("This person has already set a password, so they do not need an invite.");
-  const token = newToken();
+  const nonce = newToken().slice(0, 32);
+  const token = inviteTokenFor(login.id, nonce);
   await tx.userLogin.update({ where: { id: login.id }, data: { inviteTokenHash: hashToken(token), inviteExpiresAt: new Date(now.getTime() + INVITE_VALID_MS) } });
   await writeAudit(tx, ctx, { action: "invite-sent-again", recordType: "User Login", recordId: login.id });
-  // messaging: the same invite hand-off as inviteUser.
-  return token;
+  const sent = await sendInviteMessage(tx, ctx, login, nonce);
+  return { token, sent };
 }
 
 /** Changes a person's roles, scope and campus here. Signs them out everywhere when their roles change (08 §2). */

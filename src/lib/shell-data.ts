@@ -4,12 +4,14 @@ import "server-only";
 import { withSchool } from "./db";
 import { BUILT_MODULES, MODULES } from "./modules";
 import { shortcutsFor } from "./shortcuts";
+import { approvalsFor } from "./approvals";
 import type { Current } from "./current";
 
 export async function shellData(current: Current) {
   const { unread, approvals } = await withSchool(current.ctx, async (tx) => ({
     unread: await tx.notification.count({ where: { userLoginId: current.user.id, readAt: null } }),
-    approvals: await tx.approval.count({ where: { status: "WAITING", currentApproverId: current.user.id } }),
+    // Only requests this person may decide: named to them, or to one of their roles (00-global.md §3.2).
+    approvals: await tx.approval.count({ where: await approvalsFor(tx, current.ctx, current.roles.map((r) => r.key)) }),
   }));
 
   const menu = current.menu.map((m) => ({ key: m.key, name: m.name, href: `/${m.key}` }));

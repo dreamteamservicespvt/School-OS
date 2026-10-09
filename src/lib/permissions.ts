@@ -93,3 +93,13 @@ export function requirePermission(permissions: PermissionMap, module: ModuleKey,
   if (reach === "none") throw new PermissionDeniedError(module);
   return reach;
 }
+
+/**
+ * Scope "own records only" (Settings, Users & Permissions): whatever the
+ * roles give for the whole school is narrowed to the person's own classes
+ * and records. Exceptions are applied after this, so they can still widen one module.
+ */
+export function narrowToOwn(map: PermissionMap): PermissionMap {
+  const own = (r: Reach): Reach => (r === "all" ? "own" : r);
+  return Object.fromEntries(Object.entries(map).map(([k, a]) => [k, { see: own(a.see), change: own(a.change) }])) as PermissionMap;
+}

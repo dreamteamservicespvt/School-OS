@@ -5,8 +5,12 @@ import "server-only";
 import type { Tx, SchoolContext } from "../db";
 
 export class ClosedYearError extends Error {
-  constructor() {
-    super("This academic year is closed, so its records can only be read. Ask the Principal for an authorised correction if something must change.");
+  constructor(yearName?: string) {
+    super(
+      yearName
+        ? `${yearName} is closed, so its records can only be read. Use Make a correction if something must change.`
+        : "This academic year is closed, so its records can only be read. Ask the Principal for an authorised correction if something must change.",
+    );
     this.name = "ClosedYearError";
   }
 }
@@ -36,7 +40,21 @@ export async function isYearClosed(tx: Tx, academicYearId: string) {
 
 /** Throws ClosedYearError when the year is closed. Call before any change. */
 export async function assertYearOpen(tx: Tx, academicYearId: string) {
-  if (await isYearClosed(tx, academicYearId)) throw new ClosedYearError();
+  const y = await tx.academicYear.findUnique({ where: { id: academicYearId }, select: { status: true, name: true } });
+  if (y?.status === "CLOSED") throw new ClosedYearError(y.name);
+}
+
+/**
+ * Before a change in a year: closed years are read-only, except an
+ * authorised correction with a reason (04 §5 "Closed year changed").
+ * Returns the audit note to write with the change, if it is a correction.
+ */
+export async function assertYearWritable(tx: Tx, academicYearId: string, correction?: string | null): Promise<string | null> {
+  const y = await tx.academicYear.findUnique({ where: { id: academicYearId }, select: { status: true, name: true } });
+  if (!y) throw new ClosedYearError();
+  if (y.status !== "CLOSED") return null;
+  if (!correction) throw new ClosedYearError(y.name);
+  return `Correction to closed year ${y.name}: ${correction}`;
 }
 
 /** The financial year holding a date (default April to March). */

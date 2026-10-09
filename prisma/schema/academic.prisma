@@ -4,6 +4,8 @@
 enum AcademicYearStatus {
   UPCOMING
   ACTIVE
+  /// No longer the active year, but kept open for late changes until closed.
+  OPEN
   CLOSED
 }
 
@@ -129,6 +131,8 @@ model Section {
   /// Staff id of the class teacher.
   classTeacherId String?   @map("class_teacher_id") @db.Uuid
   room           String?
+  /// Stream (Science, Commerce...) when streams are on.
+  streamId       String?   @map("stream_id") @db.Uuid
   createdById    String?   @map("created_by_id") @db.Uuid
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedById    String?   @map("updated_by_id") @db.Uuid
@@ -198,6 +202,8 @@ model TeacherAllocation {
   sectionId      String    @map("section_id") @db.Uuid
   subjectId      String    @map("subject_id") @db.Uuid
   isMain         Boolean   @default(true) @map("is_main")
+  /// Empty means the subject's periods per week for the class.
+  periodsPerWeek Int?      @map("periods_per_week")
   fromDate       DateTime? @map("from_date") @db.Date
   toDate         DateTime? @map("to_date") @db.Date
   createdById    String?   @map("created_by_id") @db.Uuid
@@ -224,6 +230,8 @@ model PeriodSlot {
   startTime  String    @map("start_time")
   endTime    String    @map("end_time")
   isBreak    Boolean   @default(false) @map("is_break")
+  /// Days of the week this slot runs (1 = Monday ... 7 = Sunday).
+  days       Int[]     @default([1, 2, 3, 4, 5, 6])
   createdAt  DateTime  @default(now()) @map("created_at")
   archivedAt DateTime? @map("archived_at")
 
@@ -268,6 +276,8 @@ model TimetablePeriod {
   staffId    String?   @map("staff_id") @db.Uuid
   room       String?
   isBreak    Boolean   @default(false) @map("is_break")
+  /// A fixed period with no subject, such as Assembly or Library.
+  label      String?
   createdAt  DateTime  @default(now()) @map("created_at")
   updatedAt  DateTime  @updatedAt @map("updated_at")
   archivedAt DateTime? @map("archived_at")
@@ -292,6 +302,9 @@ model Substitution {
   substituteStaffId String?            @map("substitute_staff_id") @db.Uuid
   leaveRequestId    String?            @map("leave_request_id") @db.Uuid
   status            SubstitutionStatus @default(NEEDED)
+  /// "leave", "absent" or "temporary".
+  reason            String             @default("leave")
+  coverId           String?            @map("cover_id") @db.Uuid
   note              String?
   createdById       String?            @map("created_by_id") @db.Uuid
   createdAt         DateTime           @default(now()) @map("created_at")

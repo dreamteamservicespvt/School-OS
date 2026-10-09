@@ -32,13 +32,21 @@ function checkId(id: string | null, what: string): string {
   return id;
 }
 
-export async function withSchool<T>(ctx: SchoolContext, work: (tx: Tx) => Promise<T>): Promise<T> {
+export type WorkOptions = {
+  /** Milliseconds before the work is given up and rolled back (default 15 s). Long jobs pass more. */
+  timeout?: number;
+};
+
+export async function withSchool<T>(ctx: SchoolContext, work: (tx: Tx) => Promise<T>, opts: WorkOptions = {}): Promise<T> {
   const schoolId = checkId(ctx.schoolId, "School");
   const userId = checkId(ctx.userId, "User");
-  return prisma.$transaction(async (tx) => {
-    await tx.$executeRaw`SELECT set_config('app.school_id', ${schoolId}, true), set_config('app.user_id', ${userId}, true)`;
-    return work(tx);
-  });
+  return prisma.$transaction(
+    async (tx) => {
+      await tx.$executeRaw`SELECT set_config('app.school_id', ${schoolId}, true), set_config('app.user_id', ${userId}, true)`;
+      return work(tx);
+    },
+    { timeout: opts.timeout ?? 15_000, maxWait: 10_000 },
+  );
 }
 
 export async function withUser<T>(userId: string, work: (tx: Tx) => Promise<T>): Promise<T> {

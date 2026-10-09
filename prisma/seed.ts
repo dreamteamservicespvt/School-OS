@@ -11,6 +11,8 @@ import { createSchool } from "../src/lib/schools";
 import { hashPassword } from "../src/lib/auth/password";
 import { createInvite } from "../src/lib/auth/invites";
 import { notify } from "../src/lib/notifications";
+import { seedCore } from "./seeds/core";
+import { MODULE_SEEDS } from "./seeds/index";
 
 async function main() {
   if (process.env.NODE_ENV === "production") throw new Error("The demo seed never runs in production.");
@@ -62,6 +64,18 @@ async function main() {
     });
   });
   const token = await createInvite(invited.id);
+
+  const users = Object.fromEntries(
+    (await prisma.userLogin.findMany({ select: { id: true, username: true } })).map((u) => [u.username, u.id]),
+  );
+  const schools = [
+    await seedCore({ schoolId: sunrise.school.id, campusId: sunrise.campus.id, code: "SPS", name: "Sunrise Public School", users, full: true }),
+    await seedCore({ schoolId: valley.school.id, campusId: valley.campus.id, code: "GVS", name: "Green Valley School", users: { principal: users.principal }, full: false }),
+  ];
+  for (const { module, seed } of MODULE_SEEDS) {
+    for (const school of schools) await seed(school);
+    console.log(`  demo data added: ${module}`);
+  }
 
   console.log("Demo ready. Sign in with any of these usernames and DEMO_PASSWORD from .env:");
   for (const p of people) console.log(`  ${p.username.padEnd(12)} ${p.name}`);

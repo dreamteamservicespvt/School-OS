@@ -1,0 +1,107 @@
+// 09 Staff & HR Management core: one Staff record for every module.
+
+enum StaffStatus {
+  ACTIVE
+  ON_LEAVE
+  SUSPENDED
+  RESIGNED
+  RETIRED
+  TERMINATED
+}
+
+/// Department: such as Science, Accounts or Transport.
+model Department {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  name        String
+  /// Staff id of the head of department.
+  headStaffId String?   @map("head_staff_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  staff Staff[]
+
+  @@unique([schoolId, name])
+  @@map("department")
+}
+
+/// Staff: every teacher and staff member.
+model Staff {
+  id              String      @id @default(uuid()) @db.Uuid
+  schoolId        String      @map("school_id") @db.Uuid
+  campusId        String      @map("campus_id") @db.Uuid
+  staffCode       String      @map("staff_code")
+  firstName       String      @map("first_name")
+  lastName        String?     @map("last_name")
+  fullName        String      @map("full_name")
+  photoFileId     String?     @map("photo_file_id") @db.Uuid
+  phone           String
+  email           String?
+  gender          String?
+  dateOfBirth     DateTime?   @map("date_of_birth") @db.Date
+  designation     String
+  departmentId    String?     @map("department_id") @db.Uuid
+  /// Teaching or Non-teaching.
+  staffType       String      @default("Teaching") @map("staff_type")
+  /// Permanent, Probation, Contract, Part-time, Guest.
+  employmentType  String      @default("Permanent") @map("employment_type")
+  joiningDate     DateTime    @map("joining_date") @db.Date
+  reportingToId   String?     @map("reporting_to_id") @db.Uuid
+  qualification   String?
+  experienceYears Int?        @map("experience_years")
+  address         String?
+  bloodGroup      String?     @map("blood_group")
+  emergencyName   String?     @map("emergency_name")
+  emergencyPhone  String?     @map("emergency_phone")
+  /// Restricted, encrypted; shown masked.
+  aadhaarEnc      String?     @map("aadhaar_enc")
+  panEnc          String?     @map("pan_enc")
+  bankAccountEnc  String?     @map("bank_account_enc")
+  bankIfsc        String?     @map("bank_ifsc")
+  bankName        String?     @map("bank_name")
+  uan             String?
+  esiNo           String?     @map("esi_no")
+  status          StaffStatus @default(ACTIVE)
+  leavingDate     DateTime?   @map("leaving_date") @db.Date
+  leavingReason   String?     @map("leaving_reason")
+  customFields    Json        @default("{}") @map("custom_fields")
+  userLoginId     String?     @map("user_login_id") @db.Uuid
+  createdById     String?     @map("created_by_id") @db.Uuid
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedById     String?     @map("updated_by_id") @db.Uuid
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+  archivedAt      DateTime?   @map("archived_at")
+
+  department Department?     @relation(fields: [departmentId], references: [id])
+  documents  StaffDocument[]
+
+  @@unique([schoolId, staffCode])
+  @@unique([schoolId, userLoginId])
+  @@index([schoolId, status])
+  @@index([schoolId, fullName])
+  @@map("staff")
+}
+
+/// Staff Document: a document on file, with an expiry date where it has one.
+model StaffDocument {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  staffId     String    @map("staff_id") @db.Uuid
+  /// Aadhaar, PAN, Degree, Experience letter, Police verification...
+  kind        String
+  fileId      String?   @map("file_id") @db.Uuid
+  number      String?
+  expiresOn   DateTime? @map("expires_on") @db.Date
+  verified    Boolean   @default(false)
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  staff Staff @relation(fields: [staffId], references: [id])
+
+  @@index([schoolId, staffId])
+  @@index([schoolId, expiresOn])
+  @@map("staff_document")
+}

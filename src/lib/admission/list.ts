@@ -99,6 +99,43 @@ export function applicationWhere(params: ListParams, opts: { yearId: string }): 
   };
 }
 
+type Names = { classes: Map<string, string>; staff: Map<string, string>; years?: Map<string, string> };
+
+/** The filters in words, printed on every export (P8). */
+export function describeEnquiryFilters(params: ListParams, s: { statusList: { key: string; label: string }[]; sourceList: { key: string; label: string }[] }, n: Names) {
+  const f = params.filters;
+  const parts: string[] = [];
+  if (params.q) parts.push(`Search "${params.q}"`);
+  if (f.quick) parts.push(QUICK.find((q) => q.value === f.quick)?.label ?? f.quick);
+  if (f.status) parts.push(`Status: ${s.statusList.find((x) => x.key === f.status)?.label ?? f.status}`);
+  if (f.source) parts.push(`Source: ${s.sourceList.find((x) => x.key === f.source)?.label ?? f.source}`);
+  if (f.class) parts.push(`Class: ${n.classes.get(f.class) ?? "?"}`);
+  if (f.owner) parts.push(`Owner: ${f.owner === "none" ? "No owner" : n.staff.get(f.owner) ?? "?"}`);
+  if (f.year) parts.push(`Year: ${f.year === "all" ? "All" : n.years?.get(f.year) ?? "?"}`);
+  if (f.from || f.to) parts.push(`Added ${f.from ?? "…"} to ${f.to ?? "…"}`);
+  if (params.archived) parts.push("Archived");
+  return parts.join(", ") || "All enquiries this admission year";
+}
+
+export function describeApplicationFilters(params: ListParams, n: Names) {
+  const f = params.filters;
+  const parts: string[] = [];
+  if (params.q) parts.push(`Search "${params.q}"`);
+  if (f.stage) parts.push(`Stage: ${f.stage === "open" ? "Not yet decided" : STAGES.find((x) => x.value === f.stage)?.label ?? f.stage}`);
+  if (f.class) parts.push(`Class: ${n.classes.get(f.class) ?? "?"}`);
+  if (f.year) parts.push(`Year: ${f.year === "all" ? "All" : n.years?.get(f.year) ?? "?"}`);
+  if (f.docs) parts.push(f.docs === "complete" ? "Documents complete" : "Documents missing");
+  if (f.fee) parts.push(f.fee === "paid" ? "Fee paid" : f.fee === "unpaid" ? "Fee not paid" : "No fee");
+  if (f.channel) parts.push(f.channel === "online" ? "Online" : "At the counter");
+  if (params.archived) parts.push("Archived");
+  return parts.join(", ") || "All applications this admission year";
+}
+
+export function exportFormatOf(url: URL): "csv" | "xlsx" | "pdf" {
+  const f = url.searchParams.get("format");
+  return f === "csv" || f === "pdf" ? f : "xlsx";
+}
+
 export function applicationOrder(params: ListParams) {
   return orderByFor(params, {
     number: { applicationNo: params.dir },

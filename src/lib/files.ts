@@ -1,0 +1,100 @@
+// Uploading and opening private files (08-platform-security.md §8).
+import "server-only";
+
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import sharp from "sharp";
+import type { SchoolContext, Tx } from "./db";
+import { fileStore } from "./storage";
+
+/** Default upload limit (inferred: 10 MB per file). */
+export const MAX_FILE_BYTES = 10 * 1024 * 1024;
+/** A file link works for this long (inferred: 15 minutes). */
+export const FILE_LINK_MS = 15 * 60 * 1000;
+
+export const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+export const DOCUMENT_TYPES = [...IMAGE_TYPES, "application/pdf"] as const;
+export const SHEET_TYPES = [
+  "text/csv",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+] as const;
+
+export class FileProblem extends Error {}
+
+/** Looks at the first bytes, not the name, to know what a file really is. */
+export function sniffType(buf: Buffer): string | null {
+  if (buf.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff]))) return "image/jpeg";
+  if (buf.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return "image/png";
+  if (buf.subarray(0, 4).toString("latin1") === "RIFF" && buf.subarray(8, 12).toString("latin1") === "WEBP") return "image/webp";
+  if (buf.subarray(0, 5).toString("latin1") === "%PDF-") return "application/pdf";
+  if (buf.subarray(0, 4).equals(Buffer.from([0x50, 0x4b, 0x03, 0x04]))) return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  return null;
+}
+
+export type SaveFileInput = {
+  file: File;
+  purpose: string;
+  allowed: readonly string[];
+  /** Photos are made smaller for phones (08 §8). */
+  maxImageWidth?: number;
+};
+
+export async function saveFile(tx: Tx, ctx: SchoolContext, input: SaveFileInput) {
+  const { file } = input;
+  if (!file || file.size === 0) throw new FileProblem("Choose a file to upload.");
+  if (file.size > MAX_FILE_BYTES) throw new FileProblem(`This file is ${(file.size / 1024 / 1024).toFixed(1)} MB. Files can be at most 10 MB.`);
+  let body: Buffer = Buffer.from(await file.arrayBuffer());
+  let type = sniffType(body) ?? (file.name.toLowerCase().endsWith(".csv") ? "text/csv" : null);
+  if (!type || !input.allowed.includes(type)) {
+    const kinds = input.allowed.some((t) => t.startsWith("image/")) && input.allowed.includes("application/pdf")
+      ? "a photo (JPG or PNG) or a PDF" : input.allowed.some((t) => t.startsWith("image/")) ? "a photo (JPG or PNG)" : "a CSV or Excel file";
+    throw new FileProblem(`This file type is not allowed here. Upload ${kinds}.`);
+  }
+  if (type.startsWith("image/") && input.maxImageWidth) {
+    body = await sharp(body).rotate().resize({ width: input.maxImageWidth, withoutEnlargement: true }).jpeg({ quality: 82 }).toBuffer();
+    type = "image/jpeg";
+  }
+  const id = randomUUID();
+  const key = `${ctx.schoolId}/${input.purpose}/${id}`;
+  await fileStore().put(key, body, type);
+  return tx.storedFile.create({
+    data: {
+      id,
+      schoolId: ctx.schoolId,
+      storageKey: key,
+      fileName: file.name.slice(0, 200) || "file",
+      contentType: type,
+      sizeBytes: body.length,
+      purpose: input.purpose,
+      uploadedById: ctx.userId,
+    },
+  });
+}
+
+function secret() {
+  const s = process.env.FILE_LINK_SECRET ?? process.env.FIELD_ENCRYPTION_KEY;
+  if (!s) throw new Error("FILE_LINK_SECRET is not set");
+  return s;
+}
+
+function sign(fileId: string, schoolId: string, expires: number) {
+  return createHmac("sha256", secret()).update(`${fileId}.${schoolId}.${expires}`).digest("base64url");
+}
+
+/** A link to one file for someone already allowed to see it. Expires in 15 minutes. */
+export function fileLink(fileId: string, schoolId: string, now = Date.now()) {
+  const expires = now + FILE_LINK_MS;
+  return `/api/v1/files/${fileId}?s=${schoolId}&e=${expires}&t=${sign(fileId, schoolId, expires)}`;
+}
+
+export type LinkCheck = { ok: true } | { ok: false; reason: "expired" | "bad" };
+
+export function checkFileLink(fileId: string, schoolId: string, expires: string, token: string, now = Date.now()): LinkCheck {
+  const e = Number(expires);
+  if (!Number.isFinite(e) || !token) return { ok: false, reason: "bad" };
+  const expected = Buffer.from(sign(fileId, schoolId, e));
+  const given = Buffer.from(token);
+  if (expected.length !== given.length || !timingSafeEqual(expected, given)) return { ok: false, reason: "bad" };
+  if (e < now) return { ok: false, reason: "expired" };
+  return { ok: true };
+}

@@ -2,9 +2,9 @@
 // permissions in the chosen school.
 
 import { withSchool, withUser } from "../db";
-import { combineRoles, type PermissionMap } from "../permissions";
+import { applyExceptions, combineRoles, type PermissionMap } from "../permissions";
 import type { ModuleKey } from "../modules";
-import type { RolePermissions } from "../roles";
+import type { AccessLevel, RolePermissions } from "../roles";
 
 export type SchoolChoice = { id: string; name: string; code: string; logoUrl: string | null };
 
@@ -54,7 +54,10 @@ export async function accessIn(userLoginId: string, schoolId: string): Promise<S
     return {
       school: { id: school.id, name: school.name, code: school.code, logoUrl: school.logoUrl, timeZone: school.timeZone },
       roles: roles.map((r) => ({ key: r.key, name: r.name })),
-      permissions: combineRoles(roles.map((r) => r.permissions as RolePermissions)),
+      permissions: applyExceptions(
+        combineRoles(roles.map((r) => r.permissions as RolePermissions)),
+        accesses.map((a) => a.exceptions as Record<string, AccessLevel>),
+      ),
       modulesOn: new Set(modules.map((m) => m.moduleKey as ModuleKey)),
       features: new Set(features.map((f) => f.featureKey)),
     };

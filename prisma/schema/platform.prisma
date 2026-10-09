@@ -1,0 +1,92 @@
+// Platform pieces every module uses: files, numbering, approval rules,
+// background jobs, imports and exports (08-platform-security.md, 00-global.md).
+
+/// A private file (photo, document, bill). Opened only through a link that expires.
+model StoredFile {
+  id           String    @id @default(uuid()) @db.Uuid
+  schoolId     String    @map("school_id") @db.Uuid
+  storageKey   String    @unique @map("storage_key")
+  fileName     String    @map("file_name")
+  contentType  String    @map("content_type")
+  sizeBytes    Int       @map("size_bytes")
+  /// What it is for, e.g. "school-logo", "student-photo", "school-document".
+  purpose      String
+  uploadedById String?   @map("uploaded_by_id") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at")
+  archivedAt   DateTime? @map("archived_at")
+
+  @@index([schoolId, purpose])
+  @@map("stored_file")
+}
+
+/// Running numbers that are never reused: receipts, admission numbers, staff IDs.
+model NumberSequence {
+  schoolId  String   @map("school_id") @db.Uuid
+  key       String
+  nextValue Int      @default(1) @map("next_value")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@id([schoolId, key])
+  @@map("number_sequence")
+}
+
+/// Settings, Forms & Approvals: who approves one kind of request, step by step.
+model ApprovalRule {
+  id                String    @id @default(uuid()) @db.Uuid
+  schoolId          String    @map("school_id") @db.Uuid
+  requestType       String    @map("request_type")
+  /// [{ approverRole?: string, approverUserId?: string, upToPaise?: string | null }], in order.
+  steps             Json
+  escalateAfterDays Int       @default(2) @map("escalate_after_days")
+  updatedById       String?   @map("updated_by_id") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  archivedAt        DateTime? @map("archived_at")
+
+  @@unique([schoolId, requestType])
+  @@map("approval_rule")
+}
+
+/// Heavy work that runs in the background: exports, imports, messages, reminders.
+/// Safe to run twice: the idempotency key makes a second copy a no-op.
+model BackgroundJob {
+  id             String    @id @default(uuid()) @db.Uuid
+  schoolId       String    @map("school_id") @db.Uuid
+  kind           String
+  idempotencyKey String    @map("idempotency_key")
+  payload        Json
+  status         String    @default("queued")
+  attempts       Int       @default(0)
+  runAfter       DateTime  @default(now()) @map("run_after")
+  lockedAt       DateTime? @map("locked_at")
+  lastError      String?   @map("last_error")
+  result         Json?
+  requestedById  String?   @map("requested_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  finishedAt     DateTime? @map("finished_at")
+
+  @@unique([schoolId, idempotencyKey])
+  @@index([status, runAfter])
+  @@map("background_job")
+}
+
+/// One run of the shared importer (P10), which can be undone as a whole.
+model ImportBatch {
+  id           String    @id @default(uuid()) @db.Uuid
+  schoolId     String    @map("school_id") @db.Uuid
+  kind         String
+  fileName     String    @map("file_name")
+  added        Int       @default(0)
+  updated      Int       @default(0)
+  skipped      Int       @default(0)
+  /// Ids of records this import created, for Undo.
+  createdIds   Json      @default("[]") @map("created_ids")
+  errorReport  Json      @default("[]") @map("error_report")
+  importedById String?   @map("imported_by_id") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at")
+  undoneAt     DateTime? @map("undone_at")
+  undoneById   String?   @map("undone_by_id") @db.Uuid
+
+  @@index([schoolId, createdAt])
+  @@map("import_batch")
+}

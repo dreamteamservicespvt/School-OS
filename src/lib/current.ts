@@ -7,8 +7,8 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { findSession } from "./auth/sessions";
 import { accessIn, schoolsFor } from "./auth/access";
-import { menuModules, requirePermission, type Action } from "./permissions";
-import type { ModuleKey } from "./modules";
+import { menuModules, reachFor, requirePermission, type Action } from "./permissions";
+import { MODULES, type ModuleKey } from "./modules";
 
 export const SESSION_COOKIE = "sos_session";
 
@@ -78,4 +78,13 @@ export async function requireAction(module: ModuleKey, action: Action) {
   const current = await requireCurrent();
   const reach = requirePermission(current.permissions, module, action);
   return { current, reach };
+}
+
+/** For pages: the signed-in person, if their roles let them open this module; otherwise a plain-words "no access" page. */
+export async function requirePage(module: ModuleKey, action: Action = "view"): Promise<Current> {
+  const current = await requireCurrent();
+  if (reachFor(current.permissions, module, action) === "none") redirect(`/no-access?m=${module}`);
+  const info = MODULES.find((m) => m.key === module);
+  if (info?.optional && !current.modulesOn.has(module)) redirect(`/no-access?m=${module}&off=1`);
+  return current;
 }

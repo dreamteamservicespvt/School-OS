@@ -53,6 +53,14 @@ model School {
   name              String
   status            SchoolStatus @default(TRIAL)
   schoolType        String?      @map("school_type")
+  phone             String?
+  email             String?
+  website           String?
+  logoFileId        String?      @map("logo_file_id") @db.Uuid
+  brandColor        String?      @map("brand_color")
+  defaultLanguage   String       @default("en") @map("default_language")
+  /// Settings, Modules On/Off: system preferences such as the week start day.
+  preferences       Json         @default("{}")
   trialEndsOn       DateTime?    @map("trial_ends_on") @db.Date
   logoUrl           String?      @map("logo_url")
   address           String?
@@ -88,6 +96,8 @@ model Campus {
   name        String
   address     String?
   isMain      Boolean   @default(false) @map("is_main")
+  phone       String?
+  headName    String?   @map("head_name")
   createdById String?   @map("created_by_id") @db.Uuid
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedById String?   @map("updated_by_id") @db.Uuid
@@ -118,6 +128,10 @@ model UserLogin {
   lockedUntil       DateTime?       @map("locked_until")
   lastSignInAt      DateTime?       @map("last_sign_in_at")
   passwordChangedAt DateTime?       @map("password_changed_at")
+  /// Two-step login: a one-time code at sign-in, for roles that need it.
+  twoStepResetAt    DateTime?       @map("two_step_reset_at")
+  /// Per-person notification channel choices: { [type]: ["app","push","email","whatsapp"] }.
+  notificationPrefs Json            @default("{}") @map("notification_prefs")
   /// Appearance chosen in Profile: light, dark or system; and an accent colour.
   theme             String          @default("system")
   accent            String          @default("blue")
@@ -184,6 +198,8 @@ model SchoolAccess {
   campusId    String?     @map("campus_id") @db.Uuid
   userLoginId String      @map("user_login_id") @db.Uuid
   scope       AccessScope @default(WHOLE_SCHOOL)
+  /// Exceptions for this one person: { [moduleKey]: "full" | "view" | "own" | "none" }.
+  exceptions  Json        @default("{}")
   createdAt   DateTime    @default(now()) @map("created_at")
   updatedAt   DateTime    @updatedAt @map("updated_at")
   archivedAt  DateTime?   @map("archived_at")

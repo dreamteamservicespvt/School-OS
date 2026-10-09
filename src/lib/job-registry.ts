@@ -1,0 +1,10 @@
+// Imports every module's background jobs and schedules, so the worker knows
+// them. Add one import line per module that defines jobs.
+import "server-only";
+
+import { defineSchedule } from "./jobs";
+import { escalateOverdue } from "./approvals";
+import "./exports";
+import "./importer";
+
+defineSchedule("approval-escalation", 60, (tx, ctx, now) => escalateOverdue(tx, ctx, now));

@@ -43,6 +43,20 @@ export function combineRoles(roles: readonly RolePermissions[]): PermissionMap {
   ) as PermissionMap;
 }
 
+/**
+ * Exceptions for one person (Settings, Users & Permissions): a module set to
+ * a level here replaces what their roles give, wider or narrower.
+ */
+export function applyExceptions(map: PermissionMap, exceptions: Record<string, AccessLevel>[]): PermissionMap {
+  const out = { ...map };
+  for (const ex of exceptions) {
+    for (const [key, level] of Object.entries(ex ?? {})) {
+      if (key in out && level in LEVEL_ACCESS) out[key as ModuleKey] = LEVEL_ACCESS[level as AccessLevel];
+    }
+  }
+  return out;
+}
+
 /** Reading actions need "see"; everything else needs "change". */
 const READ_ACTIONS: ReadonlySet<Action> = new Set(["view", "export", "print"]);
 

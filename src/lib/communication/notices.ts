@@ -381,3 +381,46 @@ export async function noticesForGuardian(tx: Tx, ctx: SchoolContext, children: {
     return a.sectionIds.some((s) => sections.has(s)) || a.classIds.some((c) => classes.has(c));
   });
 }
+
+/** Guardians in a notice's audience who have not seen it (Parent Link or WhatsApp read). */
+export async function unseenGuardianIds(tx: Tx, ctx: SchoolContext, noticeId: string) {
+  const n = await tx.notice.findFirstOrThrow({ where: { id: noticeId, schoolId: ctx.schoolId } });
+  const all = await audienceGuardianIds(tx, ctx, readAudience(n.audience));
+  const seen = new Set((await tx.noticeGuardianView.findMany({ where: { noticeId }, select: { guardianId: true } })).map((v) => v.guardianId));
+  return { notice: n, ids: all.filter((g) => !seen.has(g)) };
+}
+
+/** Resend to parents who have not seen it, by the same or another channel (decided 9 October 2026). */
+export async function noticeResendInput(tx: Tx, ctx: SchoolContext, noticeId: string, channel: "whatsapp" | "sms" | "email"): Promise<import("../messaging/send").SendInput> {
+  const { notice, ids } = await unseenGuardianIds(tx, ctx, noticeId);
+  if (notice.status !== "PUBLISHED") throw new NoticeProblem("Only a published notice can be sent again.");
+  if (!ids.length) throw new NoticeProblem("Every parent has seen this notice. There is nothing to resend.");
+  await ensureReadyTemplates(tx, ctx);
+  const t = channel === "email" ? null : await templateByKey(tx, ctx, "notice", channel);
+  if (channel !== "email" && !t) throw new NoticeProblem(`There is no ${channel === "sms" ? "SMS" : "WhatsApp"} notice template. Add one in Message Templates.`);
+  return {
+    to: { guardianIds: ids },
+    channels: [channel],
+    templates: t ? { [channel]: t.id } : undefined,
+    title: notice.title,
+    text: `${notice.title}\n\n${notice.body}`.slice(0, 1000),
+    values: { title: notice.title, message: notice.body.slice(0, 600) },
+    trigger: `Notice resent to parents who have not seen it: ${notice.title}`,
+    source: { type: "Notice", id: notice.id },
+    emergency: notice.priority === "CRITICAL",
+    audienceLabel: `Parents who have not seen "${notice.title}"`,
+  };
+}
+
+/** Remind staff and students who have not tapped "I have read this" (inferred). */
+export async function remindUnacknowledged(tx: Tx, ctx: SchoolContext, noticeId: string) {
+  const n = await tx.notice.findFirstOrThrow({ where: { id: noticeId, schoolId: ctx.schoolId } });
+  if (!n.askAck || n.status !== "PUBLISHED") throw new NoticeProblem("This notice does not ask for acknowledgement.");
+  const logins = await audienceLogins(tx, ctx, readAudience(n.audience));
+  const done = new Set((await tx.noticeAcknowledgement.findMany({ where: { noticeId, acknowledgedAt: { not: null } }, select: { userLoginId: true } })).map((a) => a.userLoginId));
+  const todo = logins.filter((l) => !done.has(l));
+  if (!todo.length) throw new NoticeProblem("Everyone has acknowledged this notice.");
+  for (const to of todo) await notify(tx, ctx, { to, type: "notice", text: `Reminder: please read and acknowledge "${n.title}"`, link: `/communication/notices/${n.id}` });
+  await writeAudit(tx, ctx, { action: "reminded", recordType: "Notice", recordId: n.id, after: { people: todo.length } });
+  return todo.length;
+}

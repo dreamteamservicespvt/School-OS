@@ -11,6 +11,7 @@ export default defineConfig({
   schema: "prisma/schema",
   migrations: {
     path: "prisma/schema/migrations",
-    seed: "tsx prisma/seed.ts",
+    // react-server: module code marked "server-only" can run in the seed.
+    seed: "tsx --conditions=react-server prisma/seed.ts",
   },
 });

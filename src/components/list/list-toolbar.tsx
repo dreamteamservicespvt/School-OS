@@ -8,10 +8,10 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { SearchIcon } from "@/components/icons";
 import { Spinner } from "@/components/ui/button";
 
-export type FilterDef = { key: string; label: string; options: { value: string; label: string }[] };
+export type FilterDef = { key: string; label: string; options: { value: string; label: string }[]; /** Words for the empty choice; default "{label}: all". */ allLabel?: string };
 
-export function ListToolbar({ placeholder = "Search", filters = [], showArchived = true, children }: {
-  placeholder?: string; filters?: FilterDef[]; showArchived?: boolean; children?: React.ReactNode;
+export function ListToolbar({ placeholder = "Search", filters = [], more = [], showArchived = true, children }: {
+  placeholder?: string; filters?: FilterDef[]; /** Less used filters, behind "More filters". */ more?: FilterDef[]; showArchived?: boolean; children?: React.ReactNode;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -29,7 +29,19 @@ export function ListToolbar({ placeholder = "Search", filters = [], showArchived
 
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
 
-  const active = filters.filter((f) => sp.get(f.key));
+  const all = [...filters, ...more];
+  const active = all.filter((f) => sp.get(f.key));
+  const moreOn = more.filter((f) => sp.get(f.key)).length;
+  const select = (f: FilterDef) => (
+    <label key={f.key}>
+      <span className="sr-only">{f.label}</span>
+      <select value={sp.get(f.key) ?? ""} onChange={(e) => go({ [f.key]: e.target.value || null })}
+        className="h-11 max-w-full rounded-lg border border-line-strong bg-surface px-3 text-[15px]">
+        <option value="">{f.allLabel ?? `${f.label}: all`}</option>
+        {f.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+    </label>
+  );
   const anything = active.length > 0 || sp.get("q") || sp.get("archived");
 
   return (
@@ -47,16 +59,17 @@ export function ListToolbar({ placeholder = "Search", filters = [], showArchived
             className="h-11 w-full rounded-lg border border-line-strong bg-surface pl-10 pr-10 text-base" />
           {pending && <Spinner className="absolute right-3 top-3.5 size-4 text-ink-2" />}
         </div>
-        {filters.map((f) => (
-          <label key={f.key}>
-            <span className="sr-only">{f.label}</span>
-            <select value={sp.get(f.key) ?? ""} onChange={(e) => go({ [f.key]: e.target.value || null })}
-              className="h-11 rounded-lg border border-line-strong bg-surface px-3 text-[15px]">
-              <option value="">{f.label}: all</option>
-              {f.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
-          </label>
-        ))}
+        {filters.map(select)}
+        {more.length > 0 && (
+          <details className="relative">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center rounded-lg border border-line-strong bg-surface px-3 text-[15px] hover:bg-surface-2">
+              More filters{moreOn ? ` (${moreOn})` : ""}
+            </summary>
+            <div className="mt-2 flex flex-wrap gap-2 sm:absolute sm:left-0 sm:z-20 sm:w-max sm:max-w-[36rem] sm:rounded-xl sm:border sm:border-line sm:bg-surface sm:p-3 sm:shadow-pop">
+              {more.map(select)}
+            </div>
+          </details>
+        )}
         {showArchived && (
           <label className="flex min-h-11 items-center gap-2 rounded-lg px-2 text-[15px]">
             <input type="checkbox" className="size-5 accent-[var(--brand)]" checked={sp.get("archived") === "1"} onChange={(e) => go({ archived: e.target.checked ? "1" : null })} />

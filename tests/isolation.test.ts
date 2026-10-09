@@ -147,6 +147,32 @@ describe("a user of school A cannot change school B", () => {
   });
 });
 
+describe("student records stay in their school", () => {
+  it("a user of school A cannot see or change school B's students, parents, certificates or leaving records", async () => {
+    const ids = await withSchool({ schoolId: b.id, userId: userB.id }, async (tx) => {
+      const student = await tx.student.create({ data: { schoolId: b.id, campusId: b.campus.id, admissionNo: "B/0001", firstName: "Only", fullName: "Only In B" } });
+      const guardian = await tx.guardian.create({ data: { schoolId: b.id, name: "Parent In B", relationship: "Father", phone: "9876512340" } });
+      await tx.studentGuardian.create({ data: { schoolId: b.id, studentId: student.id, guardianId: guardian.id, relationship: "Father", isPrimary: true } });
+      await tx.studentNote.create({ data: { schoolId: b.id, studentId: student.id, text: "Note in B" } });
+      const cert = await tx.certificate.create({ data: { schoolId: b.id, studentId: student.id, type: "BONAFIDE", issueDate: new Date(), verifyCode: "BSCHOOLCODE23456" } });
+      await tx.leavingRequest.create({ data: { schoolId: b.id, studentId: student.id, type: "TRANSFER", reason: "Moving", lastDate: new Date(), previousStatus: "ACTIVE" } });
+      return { student: student.id, guardian: guardian.id, cert: cert.id };
+    });
+    await withSchool(ctxA(), async (tx) => {
+      expect(await tx.student.findUnique({ where: { id: ids.student } })).toBeNull();
+      expect(await tx.student.findMany({ where: { fullName: { contains: "Only In B" } } })).toHaveLength(0);
+      expect(await tx.guardian.findMany({ where: { phone: "9876512340" } })).toHaveLength(0);
+      expect(await tx.studentGuardian.count({ where: { studentId: ids.student } })).toBe(0);
+      expect(await tx.studentNote.count({ where: { studentId: ids.student } })).toBe(0);
+      expect(await tx.certificate.findUnique({ where: { id: ids.cert } })).toBeNull();
+      expect(await tx.leavingRequest.count({ where: { studentId: ids.student } })).toBe(0);
+      expect((await tx.student.updateMany({ where: { id: ids.student }, data: { fullName: "Taken over" } })).count).toBe(0);
+      expect((await tx.guardian.updateMany({ where: { id: ids.guardian }, data: { phone: "9000000000" } })).count).toBe(0);
+    });
+    await expect(withSchool(ctxA(), (tx) => tx.studentNote.create({ data: { schoolId: b.id, studentId: ids.student, text: "Sneaky" } }))).rejects.toThrow();
+  });
+});
+
 describe("one login in several schools", () => {
   it("lists both schools and keeps each one's data apart", async () => {
     const both = await makeUser({ schools: [{ id: a.id, roleKeys: ["principal"] }, { id: b.id, roleKeys: ["teacher"] }] });
@@ -161,6 +187,43 @@ describe("one login in several schools", () => {
 
     await withSchool({ schoolId: a.id, userId: both.id }, async (tx) => {
       expect(await tx.approval.count()).toBe(0);
+    });
+  });
+});
+
+describe("Academic Management records stay in their school", () => {
+  it("school A sees none of school B's settings, rooms, syllabus, lesson plans, substitutions or absences", async () => {
+    const ctxB = { schoolId: b.id, userId: userB.id };
+    await withSchool(ctxB, async (tx) => {
+      const year = await tx.academicYear.create({ data: { schoolId: b.id, campusId: b.campus.id, name: "2026-27", startDate: new Date("2026-04-01"), endDate: new Date("2027-03-31"), status: "ACTIVE" } });
+      const cls = await tx.schoolClass.create({ data: { schoolId: b.id, campusId: b.campus.id, name: "Class 1" } });
+      const subject = await tx.subject.create({ data: { schoolId: b.id, code: "MAT", name: "Mathematics" } });
+      const staff = await tx.staff.create({ data: { schoolId: b.id, campusId: b.campus.id, staffCode: "B-1", firstName: "B", lastName: "Teacher", fullName: "B Teacher", phone: "9000000001", designation: "Teacher", staffType: "Teaching", joiningDate: new Date("2020-01-01") } });
+      const section = await tx.section.create({ data: { schoolId: b.id, classId: cls.id, academicYearId: year.id, name: "A" } });
+      const room = await tx.room.create({ data: { schoolId: b.id, campusId: b.campus.id, name: "Lab B" } });
+      const item = await tx.syllabusItem.create({ data: { schoolId: b.id, academicYearId: year.id, classId: cls.id, subjectId: subject.id, kind: "TOPIC", title: "Counting" } });
+      const version = await tx.timetableVersion.create({ data: { schoolId: b.id, academicYearId: year.id, campusId: b.campus.id, name: "TT", status: "PUBLISHED" } });
+      const period = await tx.timetablePeriod.create({ data: { schoolId: b.id, versionId: version.id, sectionId: section.id, dayOfWeek: 1, periodNo: 1, startTime: "09:00", endTime: "09:40", staffId: staff.id } });
+      await tx.academicSettings.create({ data: { schoolId: b.id, campusId: b.campus.id } });
+      await tx.stream.create({ data: { schoolId: b.id, campusId: b.campus.id, name: "Science" } });
+      await tx.labBooking.create({ data: { schoolId: b.id, roomId: room.id, date: new Date("2026-10-12"), periodNo: 1, staffId: staff.id } });
+      await tx.teacherPreference.create({ data: { schoolId: b.id, staffId: staff.id, maxPerDay: 5 } });
+      await tx.subjectCondition.create({ data: { schoolId: b.id, subjectId: subject.id, periodNo: 8 } });
+      await tx.electiveOption.create({ data: { schoolId: b.id, academicYearId: year.id, classId: cls.id, subjectId: subject.id, groupName: "Optional" } });
+      await tx.syllabusProgressEntry.create({ data: { schoolId: b.id, academicYearId: year.id, sectionId: section.id, itemId: item.id, date: new Date("2026-10-09"), status: "taught" } });
+      await tx.lessonPlan.create({ data: { schoolId: b.id, academicYearId: year.id, sectionId: section.id, subjectId: subject.id, topicId: item.id, staffId: staff.id, date: new Date("2026-10-12") } });
+      await tx.substitution.create({ data: { schoolId: b.id, date: new Date("2026-10-12"), periodId: period.id, absentStaffId: staff.id } });
+      await tx.staffAbsence.create({ data: { schoolId: b.id, staffId: staff.id, date: new Date("2026-10-12") } });
+      await tx.temporaryCover.create({ data: { schoolId: b.id, absentStaffId: staff.id, tempStaffId: staff.id, fromDate: new Date("2026-10-12"), toDate: new Date("2026-10-13") } });
+    });
+    await withSchool(ctxA(), async (tx) => {
+      const counts = await Promise.all([
+        tx.academicSettings.count(), tx.stream.count(), tx.room.count(), tx.labBooking.count(), tx.teacherPreference.count(), tx.subjectCondition.count(),
+        tx.electiveOption.count(), tx.electiveChoice.count(), tx.syllabusItem.count(), tx.syllabusProgressEntry.count(), tx.lessonPlan.count(),
+        tx.substitution.count(), tx.staffAbsence.count(), tx.temporaryCover.count(), tx.timetablePeriod.count(), tx.section.count(),
+      ]);
+      expect(counts.every((n) => n === 0)).toBe(true);
+      await expect(tx.room.create({ data: { schoolId: b.id, campusId: b.campus.id, name: "Sneaky lab" } })).rejects.toThrow();
     });
   });
 });
@@ -184,5 +247,23 @@ describe("every school table has its walls", () => {
     } finally {
       await owner.$disconnect();
     }
+  });
+});
+
+describe("Communication records stay in their school", () => {
+  it("cannot read school B's messages, notices, queries or Parent Links", async () => {
+    const ctxB = { schoolId: b.id, userId: userB.id };
+    await withSchool(ctxB, async (tx) => {
+      await tx.message.create({ data: { schoolId: b.id, body: "School B only", channels: ["app"], audienceLabel: "B", status: "SENT" } });
+      await tx.notice.create({ data: { schoolId: b.id, title: "School B notice", body: "x", audience: {}, audienceLabel: "B" } });
+    });
+    await withSchool(ctxA(), async (tx) => {
+      expect(await tx.message.count()).toBe(0);
+      expect(await tx.messageRecipient.count()).toBe(0);
+      expect(await tx.notice.count()).toBe(0);
+      expect(await tx.query.count()).toBe(0);
+      expect(await tx.parentLink.count()).toBe(0);
+      expect(await tx.consentRecord.count()).toBe(0);
+    });
   });
 });

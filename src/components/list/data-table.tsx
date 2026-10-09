@@ -26,15 +26,21 @@ type Props<Row> = {
   caption: string;
   pageSize?: number;
   empty: React.ReactNode;
+  /** Bulk actions (P11): a tick box on each row, sent with the form named here. */
+  select?: { form: string; name?: string; label: (row: Row) => string; value: (row: Row) => string };
 };
 
-export function DataTable<Row>({ rows, columns, rowKey, rowHref, total, params, path, actions, caption, pageSize = PAGE_SIZE, empty }: Props<Row>) {
+export function DataTable<Row>({ rows, columns, rowKey, rowHref, total, params, path, actions, caption, pageSize = PAGE_SIZE, empty, select }: Props<Row>) {
   if (total === 0) return <>{empty}</>;
   const from = (params.page - 1) * pageSize + 1;
   const to = Math.min(total, params.page * pageSize);
   const pages = Math.max(1, Math.ceil(total / pageSize));
   const sortLink = (key: string) => listHref(path, params, { sort: key, dir: params.sort === key && params.dir === "asc" ? "desc" : "asc", page: null });
   const titleCol = columns.find((c) => c.phone === "title") ?? columns[0];
+  const tick = (row: Row) => select ? (
+    <input type="checkbox" form={select.form} name={select.name ?? "id"} value={select.value(row)} aria-label={select.label(row)} data-bulk-row
+      className="size-5 accent-[var(--brand)]" />
+  ) : null;
 
   return (
     <div>
@@ -44,6 +50,7 @@ export function DataTable<Row>({ rows, columns, rowKey, rowHref, total, params, 
           <caption className="sr-only">{caption}</caption>
           <thead className="border-b border-line bg-surface-2 text-sm text-ink-2">
             <tr>
+              {select && <th scope="col" className="w-12 px-4 py-3"><input type="checkbox" data-bulk-all aria-label="Choose every student on this page" className="size-5 accent-[var(--brand)]" /></th>}
               {columns.map((c) => (
                 <th key={c.key} scope="col" className={`px-4 py-3 font-medium ${c.className ?? ""}`}
                   aria-sort={params.sort === c.key ? (params.dir === "asc" ? "ascending" : "descending") : undefined}>
@@ -61,6 +68,7 @@ export function DataTable<Row>({ rows, columns, rowKey, rowHref, total, params, 
           <tbody className="divide-y divide-line">
             {rows.map((row) => (
               <tr key={rowKey(row)} className="hover:bg-surface-2/60">
+                {select && <td className="px-4 py-3">{tick(row)}</td>}
                 {columns.map((c, i) => (
                   <td key={c.key} className={`px-4 py-3 align-middle ${c.className ?? ""}`}>
                     {i === 0 && rowHref ? <Link href={rowHref(row)} className="font-medium text-brand-text hover:underline">{c.cell(row)}</Link> : c.cell(row)}
@@ -90,9 +98,12 @@ export function DataTable<Row>({ rows, columns, rowKey, rowHref, total, params, 
             </>
           );
           return (
-            <li key={rowKey(row)} className="rounded-xl border border-line bg-surface">
+            <li key={rowKey(row)} className={`rounded-xl border border-line bg-surface ${select ? "flex items-start" : ""}`}>
+              {select && <label className="grid min-h-11 min-w-11 place-items-center self-stretch pl-3"><span className="sr-only">Choose</span>{tick(row)}</label>}
+              <div className="min-w-0 flex-1">
               {rowHref ? <Link href={rowHref(row)} className="block p-4">{body}</Link> : <div className="p-4">{body}</div>}
               {actions && <div className="flex flex-wrap justify-end gap-2 border-t border-line px-3 py-2">{actions(row)}</div>}
+              </div>
             </li>
           );
         })}

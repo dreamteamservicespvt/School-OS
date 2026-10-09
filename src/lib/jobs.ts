@@ -43,7 +43,8 @@ async function runOne(jobId: string, schoolId: string) {
   try {
     if (!def) throw new Error(`No handler for job kind ${job.kind}`);
     const jobCtx: SchoolContext = { schoolId, userId: job.requestedById };
-    const result = await withSchool(jobCtx, (tx) => def.handler(tx, jobCtx, job.payload as Record<string, unknown>, job));
+    // Long work (full exports, imports) gets up to 10 minutes in its transaction.
+    const result = await withSchool(jobCtx, (tx) => def.handler(tx, jobCtx, job.payload as Record<string, unknown>, job), { timeout: def.ownTransaction ? 600_000 : undefined });
     await withSchool(ctx, (tx) =>
       tx.backgroundJob.update({ where: { id: jobId }, data: { status: "done", finishedAt: new Date(), lockedAt: null, lastError: null, result: result ?? undefined } }),
     );

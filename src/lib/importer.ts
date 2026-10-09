@@ -31,6 +31,9 @@ export function defineImport<T>(kind: ImportKind<T>) {
 export function importKind(key: string) {
   return kinds.get(key);
 }
+export function importKinds() {
+  return [...kinds.values()].sort((a, b) => a.label.localeCompare(b.label));
+}
 
 export function templateCsv(kind: Pick<ImportKind<unknown>, "columns">) {
   const header = kind.columns.map((c) => c.label + (c.required ? " *" : "")).join(",");

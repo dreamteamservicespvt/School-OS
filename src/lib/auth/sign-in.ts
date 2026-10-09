@@ -7,6 +7,7 @@ import { notify } from "../notifications";
 import { burnPasswordCheck, verifyPassword } from "./password";
 import { createSession, type DeviceInfo } from "./sessions";
 import { schoolsFor } from "./access";
+import { isTrustedDevice, needsTwoStep } from "./two-step";
 
 /** Wrong passwords before the login is locked (inferred). */
 export const MAX_FAILED_ATTEMPTS = 5;
@@ -17,11 +18,13 @@ export const SLOW_DOWN_AFTER = 3;
 
 export type SignInResult =
   | { ok: true; token: string; userLoginId: string; schoolId: string }
-  | { ok: false; message: string };
+  | { ok: false; message: string; twoStep?: undefined }
+  /** The password is right, but a one-time code is needed first (two-step login). */
+  | { ok: false; message: string; twoStep: { userLoginId: string; schoolId: string } };
 
 const WRONG = "The username or password is wrong. Check both and try again.";
 
-type Options = { now?: Date; sleep?: (ms: number) => Promise<void> };
+type Options = { now?: Date; sleep?: (ms: number) => Promise<void>; /** The browser's trusted-device token, if any. */ trustedDevice?: string | null };
 const realSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 export async function signIn(usernameInput: string, password: string, device: DeviceInfo, opts: Options = {}): Promise<SignInResult> {
@@ -56,6 +59,7 @@ export async function signIn(usernameInput: string, password: string, device: De
       where: { id: user.id },
       data: { failedAttempts: locks ? 0 : failedAttempts, lockedUntil: locks ? new Date(now.getTime() + LOCK_MS) : null },
     });
+    await reportFailure(user.id, device);
     if (locks) {
       await reportLock(user.id, user.displayName, device);
       return { ok: false, message: "Too many wrong passwords. This login is locked for 15 minutes. Your School Admin has been told." };
@@ -76,19 +80,45 @@ export async function signIn(usernameInput: string, password: string, device: De
 
   await prisma.userLogin.update({
     where: { id: user.id },
-    data: { failedAttempts: 0, lockedUntil: null, lastSignInAt: now },
+    data: { failedAttempts: 0, lockedUntil: null },
   });
-  const { token } = await createSession(user.id, schoolId, device, now);
-  await withSchool({ schoolId, userId: user.id }, (tx) =>
-    writeAudit(tx, { schoolId, userId: user.id }, {
-      action: "signed-in",
+  if ((await needsTwoStep(user.id, schoolId)) && !(await isTrustedDevice(user.id, opts.trustedDevice, now))) {
+    return { ok: false, message: "Type the one-time code to finish signing in.", twoStep: { userLoginId: user.id, schoolId } };
+  }
+  const { token } = await completeSignIn(user.id, schoolId, device, now);
+  return { ok: true, token, userLoginId: user.id, schoolId };
+}
+
+/**
+ * The last step of signing in (after the password, and the one-time code
+ * when needed): a new session, written to the audit log. A sign-in from a
+ * browser this person has not used before is marked as a new device.
+ */
+export async function completeSignIn(userLoginId: string, schoolId: string, device: DeviceInfo, now = new Date()) {
+  const [earlier, sameDevice] = await Promise.all([
+    prisma.session.count({ where: { userLoginId } }),
+    device.userAgent ? prisma.session.count({ where: { userLoginId, userAgent: device.userAgent.slice(0, 400) } }) : Promise.resolve(1),
+  ]);
+  await prisma.userLogin.update({ where: { id: userLoginId }, data: { lastSignInAt: now } });
+  const { token } = await createSession(userLoginId, schoolId, device, now);
+  await withSchool({ schoolId, userId: userLoginId }, (tx) =>
+    writeAudit(tx, { schoolId, userId: userLoginId }, {
+      action: earlier > 0 && sameDevice === 0 ? "signed-in-new-device" : "signed-in",
       recordType: "User Login",
-      recordId: user.id,
+      recordId: userLoginId,
       device: device.userAgent,
       ipAddress: device.ipAddress,
     }),
   );
-  return { ok: true, token, userLoginId: user.id, schoolId };
+  return { token };
+}
+
+/** A wrong password for a real login goes into each of its schools' login history. */
+async function reportFailure(userLoginId: string, device: DeviceInfo) {
+  for (const school of await schoolsFor(userLoginId)) {
+    const ctx = { schoolId: school.id, userId: userLoginId };
+    await withSchool(ctx, (tx) => writeAudit(tx, ctx, { action: "sign-in-failed", recordType: "User Login", recordId: userLoginId, device: device.userAgent, ipAddress: device.ipAddress }));
+  }
 }
 
 /** Tells the person and their schools' School Admins, and writes it to each school's audit log. */

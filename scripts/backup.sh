@@ -12,4 +12,6 @@ file="/tmp/school-os-${stamp}.dump.gpg"
 pg_dump --format=custom --no-owner "$MIGRATION_DATABASE_URL" | gpg --encrypt --recipient "$BACKUP_GPG_RECIPIENT" --trust-model always > "$file"
 aws s3 cp "$file" "${BACKUP_BUCKET}/nightly/school-os-${stamp}.dump.gpg"
 rm -f "$file"
+# Every school sees this time in Settings, Data Backup & Security ("Last backup").
+psql "$MIGRATION_DATABASE_URL" -q -c "INSERT INTO backup_run (id, kind, location) VALUES (gen_random_uuid(), 'nightly', '${BACKUP_BUCKET}/nightly/school-os-${stamp}.dump.gpg')"
 echo "Backup uploaded: school-os-${stamp}"

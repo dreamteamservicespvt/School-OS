@@ -227,7 +227,7 @@ export default async function RecruitmentPage({ searchParams }: Props) {
                   </div>
                 )}
                 {hr && (
-                  <div className="overflow-x-auto">
+                  <div className="relative overflow-x-auto [contain:inline-size]">
                     <table className="w-full min-w-[32rem] text-left text-sm">
                       <caption className="sr-only">Every staff member&apos;s appraisal</caption>
                       <thead><tr className="border-b border-line"><th scope="col" className="p-2">Staff</th><th scope="col" className="p-2">Reviewer</th><th scope="col" className="p-2">Status</th><th scope="col" className="p-2">Rating</th></tr></thead>

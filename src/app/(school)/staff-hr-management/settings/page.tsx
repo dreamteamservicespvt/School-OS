@@ -50,7 +50,7 @@ export default async function HrSettingsPage({ searchParams }: Props) {
   });
   const staffOptions = data.staff.map((s) => ({ value: s.id, label: `${s.fullName} (${s.designation})` }));
   const deptOptions = data.departments.map((d) => ({ value: d.id, label: d.name }));
-  const roleOptions = data.roles.map((r) => ({ value: r.key ?? r.id, label: r.name }));
+  const roleOptions = data.roles.filter((r, i) => data.roles.findIndex((x) => (x.key ?? x.id) === (r.key ?? r.id)) === i).map((r) => ({ value: r.key ?? r.id, label: r.name }));
   const nameOf = (id: string | null) => data.staff.find((s) => s.id === id)?.fullName;
 
   return (

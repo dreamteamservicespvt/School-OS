@@ -52,7 +52,7 @@ export default async function AddStaffPage({ searchParams }: Search) {
       departments: departments.map((d) => ({ value: d.id, label: d.name })),
       staff: staff.map((s) => ({ value: s.id, label: `${s.fullName} (${s.designation})` })),
       campuses: campuses.map((c) => ({ value: c.id, label: c.name })),
-      roles: roles.filter((r) => r.key !== "student").map((r) => {
+      roles: roles.filter((r, i) => r.key !== "student" && roles.findIndex((x) => (x.key ?? x.id) === (r.key ?? r.id)) === i).map((r) => {
         const perms = r.permissions as RolePermissions;
         return { key: r.key ?? r.id, name: r.name, perms: perms as Record<string, AccessLevel>, lines: roleLines(perms).map((l) => `${l.module}: ${l.words}`) };
       }),

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useState, useTransition } from "react";
 import { SelectField, TextArea, TextField } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import type { FormState } from "@/lib/forms";
@@ -9,11 +9,19 @@ import { ActionButton, FormDialog, type Action } from "../_components/forms";
 type Option = { value: string; label: string };
 type LeaveTypeOption = Option & { halfDay: boolean; note: string };
 
+/** Checks days, balance and periods without submitting (a submitted form is reset, losing what was typed). */
 function Preview({ action }: { action: (s: FormState<{ text: string }>, fd: FormData) => Promise<FormState<{ text: string }>> }) {
-  const [state, run, pending] = useActionState(action, null);
+  const [state, setState] = useState<FormState<{ text: string }>>(null);
+  const [pending, start] = useTransition();
+  const run = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const form = e.currentTarget.form;
+    if (!form) return;
+    const fd = new FormData(form);
+    start(async () => setState(await action(null, fd)));
+  };
   return (
     <div className="sm:col-span-2" aria-live="polite">
-      <Button type="submit" variant="ghost" size="sm" formAction={run} loading={pending} loadingText="Checking…" formNoValidate>Check days and balance</Button>
+      <Button variant="ghost" size="sm" onClick={run} loading={pending} loadingText="Checking…">Check days and balance</Button>
       {state && <p className={`mt-1 text-sm ${state.ok ? "text-ink" : "text-danger"}`}>{state.ok ? state.data?.text : state.message}</p>}
     </div>
   );

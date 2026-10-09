@@ -181,7 +181,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
     const exceptions = (data.access?.exceptions ?? {}) as Record<string, AccessLevel>;
     const base = combineLevels(accessRoles.map((r) => r.permissions as RolePermissions));
     const extras = extraPermissions(base, exceptions);
-    const roleOptions = data.roles.map((r) => ({ key: r.key ?? r.id, name: r.name, lines: roleLines(r.permissions as RolePermissions).map((l) => `${l.module}: ${l.words}`) }));
+    const roleOptions = data.roles.filter((r, i) => data.roles.findIndex((x) => (x.key ?? x.id) === (r.key ?? r.id)) === i).map((r) => ({ key: r.key ?? r.id, name: r.name, lines: roleLines(r.permissions as RolePermissions).map((l) => `${l.module}: ${l.words}`) }));
     const defaultRole = data.designations.find((d) => d.name === s!.designation)?.defaultRoleKey ?? null;
 
     return (
@@ -359,7 +359,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
       <Card>
         <CardHeader title="Time Table" description={`${data.version.name}${data.version.effectiveFrom ? `, from ${formatDate(data.version.effectiveFrom, tz)}` : ""} · ${data.periods.length} periods a week`} />
         <CardBody>
-          <div className="hidden overflow-x-auto md:block">
+          <div className="hidden relative overflow-x-auto [contain:inline-size] md:block">
             <table className="w-full text-left text-sm">
               <caption className="sr-only">Periods by day</caption>
               <thead><tr><th scope="col" className="p-2 text-ink-2">Day</th>{nos.map((n) => <th key={n} scope="col" className="p-2 text-ink-2">Period {n}</th>)}</tr></thead>

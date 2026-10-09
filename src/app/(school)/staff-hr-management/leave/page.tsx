@@ -328,7 +328,7 @@ export default async function StaffLeavePage({ searchParams }: Props) {
               {data.years.map((y) => <Link key={y.id} href={`${BASE}/leave?view=balances&year=${y.id}`} aria-current={y.id === data.year!.id ? "page" : undefined} className={`inline-flex min-h-11 items-center rounded-full border px-4 ${y.id === data.year!.id ? "border-brand bg-brand-soft text-brand-text" : "border-line text-ink-2"}`}>{y.name}</Link>)}
             </nav>
           )}
-          <div className="overflow-x-auto">
+          <div className="relative overflow-x-auto [contain:inline-size]">
             <table className="w-full min-w-[36rem] text-left text-sm">
               <caption className="sr-only">Leave left for each staff member</caption>
               <thead>

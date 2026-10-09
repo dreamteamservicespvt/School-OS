@@ -1,0 +1,83 @@
+/* Layout concept: calm command centre. A quiet sidebar and soft tinted canvas, white work surfaces,
+   and one bold coloured moment per screen (the "School today" band, the Collect button, the Save bar). */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Neutrals, light. Slight teal bias so greys feel chosen, not default. */
+  --bg: 243 246 245; --surface: 255 255 255; --sunken: 236 241 239; --line: 222 229 226;
+  --ink: 15 23 21; --ink-2: 66 80 76; --ink-3: 112 127 122; --shadow: 16 32 28;
+  /* Accent (default: Lagoon) */
+  --brand: 12 112 100; --brand-ink: 255 255 255;
+  /* Meaning colours */
+  --ok: 21 128 72; --warn: 180 110 0; --bad: 200 40 48; --info: 28 100 200;
+  --av-l: 38%;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: 9 13 13; --surface: 17 23 23; --sunken: 23 30 30; --line: 36 46 45;
+    --ink: 233 239 237; --ink-2: 166 180 176; --ink-3: 118 133 129; --shadow: 0 0 0;
+    --brand: 52 196 174; --brand-ink: 4 20 18;
+    --ok: 72 205 135; --warn: 240 178 70; --bad: 255 110 112; --info: 112 168 255; --av-l: 74%;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: 9 13 13; --surface: 17 23 23; --sunken: 23 30 30; --line: 36 46 45;
+  --ink: 233 239 237; --ink-2: 166 180 176; --ink-3: 118 133 129; --shadow: 0 0 0;
+  --brand: 52 196 174; --brand-ink: 4 20 18;
+  --ok: 72 205 135; --warn: 240 178 70; --bad: 255 110 112; --info: 112 168 255; --av-l: 74%;
+  color-scheme: dark;
+}
+
+/* Accent themes the school can pick. Light value first, dark value repeated in both dark blocks. */
+:root[data-accent="royal"]   { --brand: 37 88 216; }
+:root[data-accent="plum"]    { --brand: 122 52 186; }
+:root[data-accent="saffron"] { --brand: 184 88 6; }
+:root[data-accent="rose"]    { --brand: 190 28 78; }
+:root[data-accent="graphite"]{ --brand: 46 60 78; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"])[data-accent="royal"]   { --brand: 118 158 255; }
+  :root:not([data-theme="light"])[data-accent="plum"]    { --brand: 192 146 252; }
+  :root:not([data-theme="light"])[data-accent="saffron"] { --brand: 248 168 72; }
+  :root:not([data-theme="light"])[data-accent="rose"]    { --brand: 255 120 156; }
+  :root:not([data-theme="light"])[data-accent="graphite"]{ --brand: 190 204 222; }
+}
+:root[data-theme="dark"][data-accent="royal"]   { --brand: 118 158 255; }
+:root[data-theme="dark"][data-accent="plum"]    { --brand: 192 146 252; }
+:root[data-theme="dark"][data-accent="saffron"] { --brand: 248 168 72; }
+:root[data-theme="dark"][data-accent="rose"]    { --brand: 255 120 156; }
+:root[data-theme="dark"][data-accent="graphite"]{ --brand: 190 204 222; }
+
+/* Text size choice for people who want bigger text */
+:root[data-size="large"] { font-size: 17.5px; }
+
+html, body { height: 100%; }
+body {
+  background: rgb(var(--bg)); color: rgb(var(--ink));
+  font-family: Figtree, ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent;
+}
+#root { height: 100%; }
+h1, h2, h3 { text-wrap: balance; }
+.tnum { font-variant-numeric: tabular-nums; }
+.eyebrow { font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; font-weight: 600; }
+.scroll-thin { scrollbar-width: thin; scrollbar-color: rgb(var(--line)) transparent; }
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.skeleton {
+  background: linear-gradient(90deg, rgb(var(--sunken)) 0%, rgb(var(--line)) 50%, rgb(var(--sunken)) 100%);
+  background-size: 800px 100%; animation: shimmer 1.2s linear infinite; border-radius: .5rem;
+}
+@keyframes shimmer { 0% { background-position: -400px 0 } 100% { background-position: 400px 0 } }
+:where(button, a, select, [tabindex], [role="button"]):focus-visible { outline: 2px solid rgb(var(--brand)); outline-offset: 2px; }
+input:focus-visible, textarea:focus-visible { outline: none; }
+.dotgrid {
+  background-image: radial-gradient(rgb(var(--brand-ink) / .16) 1px, transparent 1.2px);
+  background-size: 14px 14px;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+}

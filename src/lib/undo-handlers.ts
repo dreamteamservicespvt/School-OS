@@ -2,3 +2,4 @@
 // before an undo runs. Add one import line per module that offers Undo.
 import "server-only";
 import "./settings/undo";
+import "./academic/undo";

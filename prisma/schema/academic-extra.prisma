@@ -1,0 +1,264 @@
+// 04 Academic Management, other records (inferred in the spec, §8):
+// Academic Settings, Stream, Room and Lab Booking, Teacher Preference,
+// Subject Condition, Elective Option and Choice, Temporary Cover, Staff
+// Absence, Syllabus Item, Lesson Plan and Syllabus Progress Entry.
+
+/// Academic Settings for one campus: school timings, working days, limits.
+model AcademicSettings {
+  schoolId            String   @map("school_id") @db.Uuid
+  campusId            String   @map("campus_id") @db.Uuid
+  /// "HH:MM" 24-hour.
+  dayStart            String   @default("08:30") @map("day_start")
+  dayEnd              String   @default("15:00") @map("day_end")
+  /// 1 = Monday ... 7 = Sunday.
+  workingDays         Int[]    @default([1, 2, 3, 4, 5, 6]) @map("working_days")
+  /// Working days that end early, e.g. Saturday.
+  halfDays            Int[]    @default([]) @map("half_days")
+  halfDayEnd          String?  @map("half_day_end")
+  maxPeriodsPerDay    Int      @default(7) @map("max_periods_per_day")
+  maxPeriodsPerWeek   Int      @default(32) @map("max_periods_per_week")
+  maxConsecutive      Int      @default(4) @map("max_consecutive")
+  /// Raise substitutions automatically when a teacher's leave is approved.
+  autoSubstitutions   Boolean  @default(true) @map("auto_substitutions")
+  updatedById         String?  @map("updated_by_id") @db.Uuid
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@id([schoolId, campusId])
+  @@map("academic_settings")
+}
+
+/// Stream: Science, Commerce, Arts... for higher-secondary sections.
+model Stream {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  campusId    String    @map("campus_id") @db.Uuid
+  name        String
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  @@unique([schoolId, campusId, name])
+  @@map("stream")
+}
+
+/// Room: a classroom, lab or activity room used by the Time Table room view.
+model Room {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  campusId    String    @map("campus_id") @db.Uuid
+  name        String
+  /// "classroom", "lab" or "activity".
+  kind        String    @default("classroom")
+  capacity    Int?
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  bookings LabBooking[]
+
+  @@unique([schoolId, campusId, name])
+  @@map("room")
+}
+
+/// Lab Booking: a room or lab booked for one period on one date.
+model LabBooking {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  roomId      String    @map("room_id") @db.Uuid
+  date        DateTime  @db.Date
+  periodNo    Int       @map("period_no")
+  sectionId   String?   @map("section_id") @db.Uuid
+  staffId     String    @map("staff_id") @db.Uuid
+  purpose     String?
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  room Room @relation(fields: [roomId], references: [id])
+
+  @@index([schoolId, roomId, date])
+  @@map("lab_booking")
+}
+
+/// Teacher Preference: limits and availability used when making the Time Table automatically.
+model TeacherPreference {
+  schoolId       String   @map("school_id") @db.Uuid
+  staffId        String   @map("staff_id") @db.Uuid
+  maxPerDay      Int?     @map("max_per_day")
+  maxPerWeek     Int?     @map("max_per_week")
+  /// ["1:8", "6:1"]: day:period slots the teacher is not available.
+  unavailable    String[] @default([])
+  note           String?
+  updatedById    String?  @map("updated_by_id") @db.Uuid
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@id([schoolId, staffId])
+  @@map("teacher_preference")
+}
+
+/// Subject Condition: keeps a subject out of a period, for one class or all classes.
+model SubjectCondition {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  subjectId   String    @map("subject_id") @db.Uuid
+  /// Empty means every class.
+  classId     String?   @map("class_id") @db.Uuid
+  /// Empty means every day.
+  dayOfWeek   Int?      @map("day_of_week")
+  periodNo    Int       @map("period_no")
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  @@index([schoolId, subjectId])
+  @@map("subject_condition")
+}
+
+/// Elective Option: one optional subject or language a class can choose, with seats.
+model ElectiveOption {
+  id             String    @id @default(uuid()) @db.Uuid
+  schoolId       String    @map("school_id") @db.Uuid
+  academicYearId String    @map("academic_year_id") @db.Uuid
+  classId        String    @map("class_id") @db.Uuid
+  subjectId      String    @map("subject_id") @db.Uuid
+  /// The choice it belongs to, e.g. "Second language". A student picks one per group.
+  groupName      String    @map("group_name")
+  seats          Int?
+  /// Plain words, e.g. "60% in Class 8 Mathematics".
+  prerequisite   String?
+  createdById    String?   @map("created_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  archivedAt     DateTime? @map("archived_at")
+
+  choices ElectiveChoice[]
+
+  @@index([schoolId, academicYearId, classId])
+  @@map("elective_option")
+}
+
+/// Elective Choice: one student's choice in one elective group for one year.
+model ElectiveChoice {
+  id             String    @id @default(uuid()) @db.Uuid
+  schoolId       String    @map("school_id") @db.Uuid
+  academicYearId String    @map("academic_year_id") @db.Uuid
+  studentId      String    @map("student_id") @db.Uuid
+  optionId       String    @map("option_id") @db.Uuid
+  groupName      String    @map("group_name")
+  createdById    String?   @map("created_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  archivedAt     DateTime? @map("archived_at")
+
+  option ElectiveOption @relation(fields: [optionId], references: [id])
+
+  @@index([schoolId, academicYearId, studentId])
+  @@index([schoolId, optionId])
+  @@map("elective_choice")
+}
+
+/// Temporary Cover: a temporary teacher taking an absent teacher's periods between two dates.
+model TemporaryCover {
+  id            String    @id @default(uuid()) @db.Uuid
+  schoolId      String    @map("school_id") @db.Uuid
+  absentStaffId String    @map("absent_staff_id") @db.Uuid
+  tempStaffId   String    @map("temp_staff_id") @db.Uuid
+  fromDate      DateTime  @map("from_date") @db.Date
+  toDate        DateTime  @map("to_date") @db.Date
+  note          String?
+  createdById   String?   @map("created_by_id") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at")
+  archivedAt    DateTime? @map("archived_at")
+
+  @@index([schoolId, absentStaffId])
+  @@map("temporary_cover")
+}
+
+/// Staff Absence: a teacher marked absent for a day by hand (until Staff Attendance sends it).
+model StaffAbsence {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  staffId     String    @map("staff_id") @db.Uuid
+  date        DateTime  @db.Date
+  note        String?
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  @@index([schoolId, date])
+  @@map("staff_absence")
+}
+
+enum SyllabusItemKind {
+  UNIT
+  CHAPTER
+  LESSON
+  TOPIC
+}
+
+/// Syllabus Item: a unit, chapter, lesson or topic of a subject's syllabus for one class.
+model SyllabusItem {
+  id             String           @id @default(uuid()) @db.Uuid
+  schoolId       String           @map("school_id") @db.Uuid
+  academicYearId String           @map("academic_year_id") @db.Uuid
+  classId        String           @map("class_id") @db.Uuid
+  subjectId      String           @map("subject_id") @db.Uuid
+  parentId       String?          @map("parent_id") @db.Uuid
+  kind           SyllabusItemKind
+  title          String
+  sortOrder      Int              @default(0) @map("sort_order")
+  plannedFrom    DateTime?        @map("planned_from") @db.Date
+  plannedTo      DateTime?        @map("planned_to") @db.Date
+  createdById    String?          @map("created_by_id") @db.Uuid
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+  archivedAt     DateTime?        @map("archived_at")
+
+  parent   SyllabusItem?  @relation("SyllabusTree", fields: [parentId], references: [id])
+  children SyllabusItem[] @relation("SyllabusTree")
+
+  @@index([schoolId, academicYearId, classId, subjectId])
+  @@map("syllabus_item")
+}
+
+/// Lesson Plan: a teacher's plan for one topic on one date.
+model LessonPlan {
+  id             String    @id @default(uuid()) @db.Uuid
+  schoolId       String    @map("school_id") @db.Uuid
+  academicYearId String    @map("academic_year_id") @db.Uuid
+  sectionId      String    @map("section_id") @db.Uuid
+  subjectId      String    @map("subject_id") @db.Uuid
+  topicId        String    @map("topic_id") @db.Uuid
+  staffId        String    @map("staff_id") @db.Uuid
+  date           DateTime  @db.Date
+  objectives     String?
+  resources      String?
+  activities     String?
+  createdById    String?   @map("created_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  archivedAt     DateTime? @map("archived_at")
+
+  @@index([schoolId, academicYearId, staffId, date])
+  @@index([schoolId, sectionId, subjectId])
+  @@map("lesson_plan")
+}
+
+/// Syllabus Progress Entry: the daily log, a topic taught or a chapter completed in a section.
+model SyllabusProgressEntry {
+  id             String    @id @default(uuid()) @db.Uuid
+  schoolId       String    @map("school_id") @db.Uuid
+  academicYearId String    @map("academic_year_id") @db.Uuid
+  sectionId      String    @map("section_id") @db.Uuid
+  itemId         String    @map("item_id") @db.Uuid
+  staffId        String?   @map("staff_id") @db.Uuid
+  date           DateTime  @db.Date
+  /// "taught" or "completed".
+  status         String    @default("taught")
+  note           String?
+  createdById    String?   @map("created_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  archivedAt     DateTime? @map("archived_at")
+
+  @@index([schoolId, sectionId, itemId])
+  @@index([schoolId, academicYearId, date])
+  @@map("syllabus_progress_entry")
+}

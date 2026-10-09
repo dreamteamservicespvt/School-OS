@@ -10,6 +10,7 @@ import { BottomBar, Badge } from "@/components/shell/bottom-bar";
 import { Toast } from "@/components/ui/toast";
 import { readFlash } from "@/lib/flash";
 import { undoChange } from "./undo-action";
+import { activeSystemNotices } from "@/lib/errors";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +37,7 @@ function TopIcon({ href, label, count, children }: { href: string; label: string
 
 export default async function SchoolLayout({ children }: { children: React.ReactNode }) {
   const current = await requireCurrent();
-  const [shell, flashed] = await Promise.all([shellData(current), readFlash()]);
+  const [shell, flashed, notices] = await Promise.all([shellData(current), readFlash(), activeSystemNotices()]);
   const school = { id: current.school.id, name: current.school.name };
 
   return (
@@ -63,6 +64,11 @@ export default async function SchoolLayout({ children }: { children: React.React
         <ProfileMenu name={current.user.displayName} roles={shell.roleNames} />
       </header>
 
+      {notices.map((n) => (
+        <div key={n.id} role="status" className={`border-b border-line px-4 py-2 text-center text-sm ${n.level === "problem" ? "bg-danger-soft" : n.level === "info" ? "bg-info-soft" : "bg-warn-bg text-warn-text"}`}>
+          {n.message}
+        </div>
+      ))}
       <main id="main" className="mx-auto max-w-6xl p-4 pb-24 sm:p-6">{children}</main>
       <Toast key={flashed ? JSON.stringify(flashed) : "none"} flash={flashed} undoAction={undoChange} />
       <BottomBar approvals={shell.approvals} unread={shell.unread} showApprovals={shell.canApprove} />

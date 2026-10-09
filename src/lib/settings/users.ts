@@ -113,7 +113,7 @@ export async function inviteUser(tx: Tx, ctx: SchoolContext, input: InviteInput,
   const username = input.username.trim().toLowerCase();
   const bad = checkUsername(username);
   if (bad) throw new SettingsProblem(bad, "username");
-  if (await tx.userLogin.findUnique({ where: { username } })) throw new SettingsProblem(`The username ${username} is taken. Try another.`, "username");
+  if (await tx.userLogin.findUnique({ where: { username } })) throw new SettingsProblem(`The username ${username} is taken. Try ${await suggestUsername(tx, username)}.`, "username");
   const roles = await rolesFor(tx, ctx.schoolId, input.roleIds);
   const campusId = await checkScope(tx, input.scope, input.campusId);
   let staff = null;

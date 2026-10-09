@@ -127,7 +127,7 @@ export default async function SubstitutionsPage({ searchParams }: { searchParams
         <>
           <p className="mb-3 text-ink-2">Substitutions taken in the week and month of {formatDate(date)}. Helps share extra periods fairly.</p>
           {data.loads.length === 0 ? <EmptyState title="No teachers yet">Teachers appear here once they are added in Staff &amp; HR.</EmptyState> : (
-            <div className="overflow-x-auto rounded-2xl border border-line bg-surface">
+            <div className="relative overflow-x-auto rounded-2xl border border-line bg-surface">
               <table className="w-full text-left text-sm">
                 <thead className="bg-surface-2"><tr><th scope="col" className="px-4 py-2 font-medium">Teacher</th><th scope="col" className="px-4 py-2 text-right font-medium">This week</th><th scope="col" className="px-4 py-2 text-right font-medium">This month</th></tr></thead>
                 <tbody>{data.loads.map((l) => <tr key={l.id} className="border-t border-line"><td className="px-4 py-2">{l.name}</td><td className="px-4 py-2 text-right tabular-nums">{l.week}</td><td className="px-4 py-2 text-right tabular-nums">{l.month}</td></tr>)}</tbody>

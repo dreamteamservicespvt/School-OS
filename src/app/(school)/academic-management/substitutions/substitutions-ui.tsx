@@ -17,7 +17,7 @@ export type Need = {
 type Suggestion = { id: string; name: string; designation: string; sameSubject: boolean; sameClass: boolean; thisWeek: number; why: string };
 
 const REASON: Record<string, string> = { leave: "Leave", absent: "Absent", temporary: "Temporary teacher" };
-const t12 = (t: string) => { const [h, m] = t.split(":").map(Number); return `${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")} ${h < 12 ? "am" : "pm"}`; };
+const t12 = (t: string) => { const [h, m] = t.split(":").map(Number); return `${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`; };
 
 export function NeedsList({ rows, date, canArrange }: { rows: Need[]; date: string; canArrange: boolean }) {
   const router = useRouter();
@@ -44,7 +44,7 @@ export function NeedsList({ rows, date, canArrange }: { rows: Need[]; date: stri
                   return (
                     <li key={r.periodId} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
                       <div className="w-24 shrink-0 text-sm"><span className="block font-semibold">Period {r.periodNo}</span><span className="text-ink-2">{t12(r.startTime)}</span></div>
-                      <div className="min-w-0 flex-1">
+                      <div className="min-w-40 flex-1">
                         <p className="font-medium">{r.sectionLabel} · {r.subjectName ?? "Period"}</p>
                         {arranged ? <p className="text-sm">Substitute: <strong>{r.substitution!.substituteName}</strong>{r.substitution!.note ? ` · ${r.substitution!.note}` : ""}</p> : <p><Badge tone="danger">Needed</Badge></p>}
                       </div>

@@ -263,7 +263,7 @@ export function PreferenceButton({ teacher, pref, days, slots }: { teacher: { id
           <fieldset>
             <legend className="mb-1 text-sm font-medium">Not available (rest times)</legend>
             <p className="mb-2 text-xs text-ink-2">Tick the periods this teacher should not get when the Time Table is made automatically.</p>
-            <div className="overflow-x-auto">
+            <div className="relative overflow-x-auto">
               <table className="text-sm">
                 <thead><tr><th className="px-2 text-left font-medium">Period</th>{days.map((d) => <th key={d} className="px-2 font-medium">{DAY_SHORT[d]}</th>)}</tr></thead>
                 <tbody>

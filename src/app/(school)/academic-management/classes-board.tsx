@@ -197,7 +197,7 @@ export function ClassesBoard(props: {
               {c.sections.length === 0 ? (
                 <p className="px-4 py-3 text-sm text-ink-2">No sections in this year. {canEdit && "Add a section to place students."}</p>
               ) : (
-                <div className="overflow-x-auto">
+                <div className="relative overflow-x-auto">
                   <table className="w-full text-left text-[15px]">
                     <caption className="sr-only">Sections of {c.name}</caption>
                     <thead className="bg-surface-2 text-sm text-ink-2">

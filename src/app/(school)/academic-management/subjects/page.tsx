@@ -133,7 +133,7 @@ async function ByClass({ raw, page, classes, canEdit }: P & { classes: { id: str
 
 function MapTable({ rows, canEdit, className, today, ended }: { rows: { id: string; periodsPerWeek: number; fromDate: Date | null; toDate: Date | null; subject: { name: string; code: string; type: string; gradeOnly: boolean } }[]; canEdit: boolean; className: string; today: string; ended?: boolean }) {
   return (
-    <div className="overflow-x-auto">
+    <div className="relative overflow-x-auto">
       <table className="w-full text-left text-[15px]">
         <thead className="bg-surface-2 text-sm text-ink-2"><tr>
           <th scope="col" className="px-4 py-2 font-medium">Subject</th>

@@ -269,7 +269,7 @@ function Overview({ data, day, q, versionQ, clashAt: clashList }: { data: Overvi
       </div>
       <section aria-labelledby="ov-classes">
         <h2 id="ov-classes" className="mb-2 font-semibold">All classes on {DAY_NAMES[day]}</h2>
-        <div className="overflow-x-auto rounded-2xl border border-line bg-surface">
+        <div className="relative overflow-x-auto rounded-2xl border border-line bg-surface">
           <table className="w-full min-w-[640px] text-left text-sm">
             <thead className="bg-surface-2">
               <tr><th scope="col" className="sticky left-0 bg-surface-2 px-3 py-2 font-medium">Section</th>{teaching.map((s) => <th key={s.number} scope="col" className="px-2 py-2 font-medium">{s.label}</th>)}</tr>

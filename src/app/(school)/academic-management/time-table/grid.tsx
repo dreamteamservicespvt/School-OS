@@ -35,7 +35,7 @@ export type EditContext = {
 
 const t12 = (t: string) => {
   const [h, m] = t.split(":").map(Number);
-  return `${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")}${h < 12 ? " am" : " pm"}`;
+  return `${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")}${h < 12 ? " AM" : " PM"}`;
 };
 
 export function TimetableGrid({ slots, days, cells, mode, edit, highlight, clashKeys = [], linkFor, today }: {
@@ -108,7 +108,7 @@ export function TimetableGrid({ slots, days, cells, mode, edit, highlight, clash
   return (
     <>
       {/* Week grid on wider screens and in print. */}
-      <div className="tt-grid hidden overflow-x-auto rounded-2xl border border-line bg-surface md:block print:block print:overflow-visible print:border-0">
+      <div className="tt-grid relative hidden overflow-x-auto rounded-2xl border border-line bg-surface md:block print:block print:overflow-visible print:border-0">
         <table className="w-full table-fixed border-separate border-spacing-1 text-left">
           <caption className="sr-only">Periods down the side, days across</caption>
           <thead>

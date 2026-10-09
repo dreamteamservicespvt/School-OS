@@ -22,7 +22,7 @@ export function AllocationGrid({ rows, subjects, teachers, canEdit, yearId, toda
   if (shownRows.length === 0) return <p className="rounded-xl border border-dashed border-line p-6 text-center text-ink-2">{gapsOnly ? "No gaps: every subject in these classes has a teacher." : "No sections to show."}</p>;
   return (
     <>
-      <div className="max-h-[70vh] overflow-auto rounded-2xl border border-line bg-surface">
+      <div className="relative max-h-[70vh] overflow-auto rounded-2xl border border-line bg-surface">
         <table className="w-full border-separate border-spacing-0 text-left text-sm">
           <caption className="sr-only">Teachers for each subject in each section</caption>
           <thead>

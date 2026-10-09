@@ -9,6 +9,7 @@ import { notify } from "../notifications";
 import { formatDate } from "../format";
 import { maskLast4 } from "../crypto";
 import { hrPeople } from "./access";
+import { StaffProblem } from "./staff";
 import { hrSettings } from "./settings";
 import { DAY_MS, isoDay } from "./dates";
 
@@ -44,8 +45,8 @@ export type NewDocument = { staffId: string; kind: string; fileId: string; numbe
 
 export async function addDocument(tx: Tx, ctx: SchoolContext, input: NewDocument, replaceId?: string | null) {
   const staff = await tx.staff.findFirst({ where: { id: input.staffId, archivedAt: null } });
-  if (!staff) throw new Error("This staff member was not found.");
-  if (input.issuedOn && input.expiresOn && input.expiresOn < input.issuedOn) throw new Error("Expiry date is before the issue date. Check the dates.");
+  if (!staff) throw new StaffProblem("This staff member was not found.");
+  if (input.issuedOn && input.expiresOn && input.expiresOn < input.issuedOn) throw new StaffProblem("Expiry date is before the issue date. Check the dates.", "expiresOn");
   let doc: StaffDocument;
   if (replaceId) {
     // A missing document gets its file, or an expired one is renewed: the old file stays in the history.

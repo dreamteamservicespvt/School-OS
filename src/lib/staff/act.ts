@@ -83,3 +83,22 @@ export function dateOf(fd: FormData, key: string, label: string): Date {
 export function optionalDateOf(fd: FormData, key: string, label: string): Date | null {
   return str(fd, key) ? dateOf(fd, key, label) : null;
 }
+
+/** Rupees typed by a person (like 45000 or 45,000.50) as whole paise. */
+export function rupeesOf(fd: FormData, key: string, label: string): bigint | null {
+  const v = str(fd, key).replace(/[,₹\s]/g, "");
+  if (!v) return null;
+  if (!/^\d{1,9}(\.\d{1,2})?$/.test(v)) throw new FieldProblem(`${label} must be an amount in rupees, like 45000.`, key);
+  const [r, p = ""] = v.split(".");
+  return BigInt(r) * BigInt(100) + BigInt((p + "00").slice(0, 2));
+}
+
+/** A date and time typed in the school's time zone (datetime-local), as a real instant. */
+export function dateTimeOf(fd: FormData, key: string, label: string, timeZone: string): Date {
+  const v = str(fd, key);
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(v)) throw new FieldProblem(`Choose the ${label.toLowerCase()}.`, key);
+  const asUtc = new Date(`${v}:00Z`);
+  const shown = new Date(asUtc.toLocaleString("en-US", { timeZone }));
+  const utcShown = new Date(asUtc.toLocaleString("en-US", { timeZone: "UTC" }));
+  return new Date(asUtc.getTime() - (shown.getTime() - utcShown.getTime()));
+}

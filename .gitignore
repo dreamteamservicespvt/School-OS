@@ -8,3 +8,5 @@ next-env.d.ts
 .env.local
 .env.test
 test-results/
+.claude/worktrees/
+/storage/

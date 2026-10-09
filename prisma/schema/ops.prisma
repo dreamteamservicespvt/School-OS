@@ -1,0 +1,44 @@
+// Running the service: limits against abuse, error records and the
+// "something is not working" banner (08-platform-security.md §5, §7, §11).
+// None of these hold a school's data.
+
+/// Requests counted per key (person, device, IP) per time window.
+model RateLimitBucket {
+  key         String   @id
+  windowStart DateTime @map("window_start")
+  hits        Int      @default(0)
+
+  @@index([windowStart])
+  @@map("rate_limit_bucket")
+}
+
+/// One recorded error, without names, phone numbers or other personal details.
+model ErrorEvent {
+  id         String   @id @default(uuid()) @db.Uuid
+  at         DateTime @default(now())
+  /// "server", "client", "job", "webhook"
+  source     String
+  /// The page or job, with ids replaced by ":id".
+  where      String
+  message    String
+  digest     String?
+  /// School code (not the id), so DREAM TEAM can see which schools are affected.
+  schoolCode String?  @map("school_code")
+
+  @@index([at])
+  @@map("error_event")
+}
+
+/// A banner shown to every user while something is not working, or before planned work.
+model SystemNotice {
+  id        String    @id @default(uuid()) @db.Uuid
+  /// "info", "warning" or "problem"
+  level     String    @default("warning")
+  message   String
+  startsAt  DateTime  @default(now()) @map("starts_at")
+  endsAt    DateTime? @map("ends_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([startsAt])
+  @@map("system_notice")
+}

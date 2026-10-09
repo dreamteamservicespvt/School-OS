@@ -1,45 +1,63 @@
-// Every message Fee Management sends to a parent goes through this one
-// function: payment confirmations (A1), fee reminders (A7), payment links and
-// fee invoices. Parents who opted out of messages are skipped (06 open
-// questions: opted-out parents get no reminders).
+// Every message Fee Management sends to parents goes through Communication
+// (src/lib/messaging): the payment confirmation (A1, rule "fee-paid"), fee
+// reminders (A7, rule "fee-due", and reminders sent by hand from Defaulters),
+// and payment links. Opt-outs, templates, languages, credits, SMS backup and
+// Message History are all handled there.
 import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
+import { sendAutomatic, sendMessage, planMessage, MessagingProblem, type SendInput } from "../messaging";
+import { formatDate, formatRupees } from "../format";
 
-export type ParentMessage = {
-  guardianId: string;
-  phone: string | null;
-  email?: string | null;
-  optedOut: boolean;
-  /** "whatsapp", "sms" or "email". */
-  channel: string;
-  /** The template it was made from, e.g. "fee-receipt", "fee-reminder", "payment-link". */
-  template: string;
-  text: string;
-  /** Same key = same message: sending again does nothing (automations are safe to run twice). */
-  onceKey: string;
-};
-
-export type SendResult = { status: "queued" | "skipped-opted-out" | "skipped-no-phone" };
-
-// messaging: wire this to Communication's sendMessage (src/lib/messaging) once it
-// exists. It must use the school's template, respect opt-outs, write Message
-// History, use SMS backup for fee messages (A1, A7) when the school has it on,
-// and use onceKey so the same message is never sent twice.
-export async function sendParentMessage(_tx: Tx, _ctx: SchoolContext, msg: ParentMessage): Promise<SendResult> {
-  if (msg.optedOut) return { status: "skipped-opted-out" };
-  if (msg.channel !== "email" && !msg.phone) return { status: "skipped-no-phone" };
-  return { status: "queued" };
+/** A1: the parent's "Fee received" message. Never stops the payment: a messaging setup problem is only logged. */
+export async function sendFeePaid(tx: Tx, ctx: SchoolContext, p: { paymentId: string; studentId: string; amountPaise: bigint; date: Date; receiptNo: string }) {
+  try {
+    return await sendAutomatic(tx, ctx, {
+      rule: "fee-paid",
+      event: { key: `fee-paid:${p.paymentId}`, label: `Fee received, receipt ${p.receiptNo}` },
+      to: { guardiansOf: [p.studentId] },
+      perStudent: { [p.studentId]: { paid_amount: formatRupees(p.amountPaise), payment_date: formatDate(p.date), receipt_number: p.receiptNo } },
+      source: { type: "Payment", id: p.paymentId },
+    });
+  } catch (e) {
+    if (e instanceof MessagingProblem) {
+      console.warn(JSON.stringify({ level: "warn", event: "fee-paid-message-not-sent", reason: e.message }));
+      return null;
+    }
+    throw e;
+  }
 }
 
-/** Message credits left for a channel (Settings, SMS, WhatsApp & Email). Email costs nothing (inferred). */
-export async function creditsLeft(tx: Tx, ctx: SchoolContext, channel: string) {
-  if (channel === "email") return Number.POSITIVE_INFINITY;
-  const sum = await tx.creditLedgerEntry.aggregate({ where: { schoolId: ctx.schoolId, channel }, _sum: { amount: true } });
-  return sum._sum.amount ?? 0;
+/** Values for one student's fee message. */
+export function dueValues(v: { amountPaise: bigint; dueDate: Date; link: string | null }) {
+  return { due_amount: formatRupees(v.amountPaise), due_date: formatDate(v.dueDate), link: v.link ?? "your Parent Link" };
 }
 
-/** Credits one message costs on a channel (inferred: 1 for SMS and WhatsApp, 0 for email). */
-export function creditsPerMessage(channel: string) {
-  return channel === "email" ? 0 : 1;
+/** The message a person sends from Defaulters or Collect Fee (payment link, reminder). */
+export function feeMessageInput(input: {
+  studentIds: string[];
+  channel: "whatsapp" | "sms" | "email";
+  templateId: string | null;
+  text: string | null;
+  perStudent: Record<string, Record<string, string>>;
+  trigger: string;
+  source?: { type: string; id: string } | null;
+  scheduledAt?: Date | null;
+  idempotencyKey?: string | null;
+}): SendInput {
+  return {
+    to: { guardiansOf: input.studentIds },
+    channels: [input.channel],
+    templates: input.templateId ? { [input.channel]: input.templateId } : undefined,
+    text: input.templateId ? null : input.text,
+    perStudent: input.perStudent,
+    messageType: "fee",
+    trigger: input.trigger,
+    source: input.source ?? null,
+    scheduledAt: input.scheduledAt ?? null,
+    idempotencyKey: input.idempotencyKey ?? null,
+    audienceLabel: input.studentIds.length === 1 ? "Parents of one student" : `Parents of ${input.studentIds.length} students`,
+  };
 }
+
+export { sendMessage, planMessage, sendAutomatic, MessagingProblem };

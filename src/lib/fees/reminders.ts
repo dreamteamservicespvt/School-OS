@@ -1,21 +1,26 @@
 // Fee reminders (06 §2 Defaulters, A7): sent to one, selected or everyone on
 // a list in one go, with a preview of the count and credit cost first (P4).
-// Parents who opted out are skipped and counted. Automatic reminders go on
-// the days set in Fee Settings, once per installment per scheduled day.
+// Messages go through Communication (src/lib/messaging): opted-out parents,
+// missing numbers, templates, languages, credits and SMS backup are handled
+// there. Each reminder is also logged here, against the student, so the
+// Defaulters list can show reminder history and the "once per installment per
+// scheduled day" rule holds.
 import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { formatDate, formatRupees } from "../format";
 import { addDays } from "../staff/dates";
+import { appUrl } from "../parent-link/token";
 import { MoneyProblem } from "./problem";
-import { openDues, studentCard } from "./dues";
+import { openDues } from "./dues";
 import { feeSettings, gatewayFor } from "./settings";
-import { creditsLeft, creditsPerMessage, sendParentMessage } from "./notify-parents";
+import { feeMessageInput, planMessage, sendAutomatic, sendMessage } from "./notify-parents";
 import { createPaymentLink, payPath } from "./online";
-import { TEMPLATE_VARIABLES } from "./words";
+import { REMINDER_CHANNELS, TEMPLATE_VARIABLES } from "./words";
 
 const ZERO = BigInt(0);
+type ReminderChannel = (typeof REMINDER_CHANNELS)[number]["value"];
 
 export function fillTemplate(template: string, values: Record<string, string>) {
   return template.replace(/\{([a-z_]+)\}/g, (m, k: string) => (k in values ? values[k] : m));
@@ -23,125 +28,199 @@ export function fillTemplate(template: string, values: Record<string, string>) {
 
 export function checkTemplate(template: string) {
   const t = template.trim();
-  if (t.length < 20) throw new MoneyProblem("The message is too short. Say what is due and when.", "template");
-  if (t.length > 900) throw new MoneyProblem("The message can be at most 900 characters.", "template");
+  if (t.length < 20) throw new MoneyProblem("The message is too short. Say what is due and when.", "text");
+  if (t.length > 900) throw new MoneyProblem("The message can be at most 900 characters.", "text");
   const unknown = [...t.matchAll(/\{([a-z_]+)\}/g)].map((m) => m[1]).filter((k) => !(TEMPLATE_VARIABLES as readonly string[]).includes(k));
-  if (unknown.length) throw new MoneyProblem(`{${unknown[0]}} is not a variable. Use ${TEMPLATE_VARIABLES.map((v) => `{${v}}`).join(", ")}.`, "template");
+  if (unknown.length) throw new MoneyProblem(`{${unknown[0]}} is not a blank you can use. Use ${TEMPLATE_VARIABLES.map((v) => `{${v}}`).join(", ")}.`, "text");
   return t;
+}
+
+export function isReminderChannel(v: string): v is ReminderChannel {
+  return REMINDER_CHANNELS.some((c) => c.value === v);
+}
+
+/** The fee templates a person can pick for a channel (Communication, Templates, category Fees). */
+export async function feeTemplates(tx: Tx, ctx: SchoolContext, channel: ReminderChannel) {
+  return tx.template.findMany({
+    where: { schoolId: ctx.schoolId, channel, category: "fees", archivedAt: null },
+    orderBy: [{ key: "asc" }, { createdAt: "asc" }],
+    select: { id: true, name: true, key: true },
+  });
+}
+
+export type ReminderInput = {
+  studentIds: string[];
+  channel: string;
+  /** A Communication template (fees category). Required for SMS. */
+  templateId: string | null;
+  /** Own wording, for WhatsApp and email only. */
+  text: string | null;
+  includeLink: boolean;
+  scheduledAt?: Date | null;
+};
+
+type Planned = { studentId: string; due: bigint; dueDate: Date; dueIds: string[]; classId: string | null };
+
+/** The students on the list who still owe something, with the oldest due date. */
+async function whoOwes(tx: Tx, studentIds: string[]) {
+  const out: Planned[] = [];
+  let nothing = 0;
+  const unique = [...new Set(studentIds)];
+  const enrolments = await tx.enrolment.findMany({ where: { studentId: { in: unique }, archivedAt: null }, orderBy: { createdAt: "desc" }, select: { studentId: true, classId: true } });
+  for (const id of unique) {
+    const dues = await openDues(tx, id);
+    const due = dues.reduce((s, d) => s + (d.balancePaise > ZERO ? d.balancePaise : ZERO), ZERO);
+    if (due <= ZERO) { nothing++; continue; }
+    out.push({ studentId: id, due, dueDate: dues[0].dueDate, dueIds: dues.filter((d) => d.balancePaise > ZERO).map((d) => d.id), classId: enrolments.find((e) => e.studentId === id)?.classId ?? null });
+  }
+  return { out, nothing };
+}
+
+async function checkInput(tx: Tx, ctx: SchoolContext, input: ReminderInput) {
+  if (!input.studentIds.length) throw new MoneyProblem("Choose at least one student.", "studentIds");
+  if (!isReminderChannel(input.channel)) throw new MoneyProblem("Choose WhatsApp, SMS or email.", "channel");
+  const channel = input.channel;
+  if (input.templateId) {
+    const t = await tx.template.findFirst({ where: { id: input.templateId, schoolId: ctx.schoolId, channel, archivedAt: null } });
+    if (!t) throw new MoneyProblem("That template is not available for this channel. Choose another.", "templateId");
+    return { channel, templateId: t.id, text: null as string | null };
+  }
+  if (channel === "sms") throw new MoneyProblem("SMS can only use an approved template. Choose one.", "templateId");
+  return { channel, templateId: null, text: checkTemplate(input.text ?? "") };
+}
+
+function valuesFor(r: Planned, link: string) {
+  return { due_amount: formatRupees(r.due), due_date: formatDate(r.dueDate), link };
 }
 
 export type ReminderPreview = {
   recipients: number;
-  skippedOptedOut: number;
-  skippedNoPhone: number;
+  skipped: { reason: string; count: number; names: string[] }[];
   skippedNothingDue: number;
-  creditsNeeded: number;
-  creditsLeft: number;
-  enough: boolean;
+  cost: number;
+  creditProblem: string | null;
+  problems: string[];
   sample: string | null;
   linkAvailable: boolean;
 };
 
-async function plan(tx: Tx, ctx: SchoolContext, studentIds: string[]) {
-  const out: { studentId: string; card: NonNullable<Awaited<ReturnType<typeof studentCard>>>; due: bigint; dueDate: Date; dueIds: string[] }[] = [];
-  let optedOut = 0, noPhone = 0, nothing = 0;
-  for (const id of studentIds) {
-    const card = await studentCard(tx, ctx, id);
-    if (!card) continue;
-    const dues = await openDues(tx, id);
-    const due = dues.reduce((s, d) => s + d.balancePaise, ZERO);
-    if (due <= ZERO) { nothing++; continue; }
-    const g = card.primaryGuardian;
-    if (!g || !g.phone) { noPhone++; continue; }
-    if (g.optedOut) { optedOut++; continue; }
-    out.push({ studentId: id, card, due, dueDate: dues[0].dueDate, dueIds: dues.map((d) => d.id) });
-  }
-  return { out, optedOut, noPhone, nothing };
-}
-
-/** P4 preview: how many get it, how many are skipped and why, and the credit cost. */
-export async function previewReminders(tx: Tx, ctx: SchoolContext, input: { studentIds: string[]; channel: string; template: string; includeLink: boolean }): Promise<ReminderPreview> {
-  if (!input.studentIds.length) throw new MoneyProblem("Choose at least one student.", "studentIds");
-  const p = await plan(tx, ctx, input.studentIds);
-  const left = await creditsLeft(tx, ctx, input.channel);
-  const needed = p.out.length * creditsPerMessage(input.channel);
-  const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { name: true } });
-  const first = p.out[0];
-  const gateway = await gatewayFor(tx, ctx, first?.card.classId ?? null);
+/** P4 preview: how many get it, how many are skipped and why, and the credit cost. Saves nothing. */
+export async function previewReminders(tx: Tx, ctx: SchoolContext, input: ReminderInput): Promise<ReminderPreview> {
+  const c = await checkInput(tx, ctx, input);
+  const p = await whoOwes(tx, input.studentIds);
+  const linkAvailable = p.out.length > 0 && Boolean(await gatewayFor(tx, ctx, p.out[0].classId));
+  if (!p.out.length) return { recipients: 0, skipped: [], skippedNothingDue: p.nothing, cost: 0, creditProblem: null, problems: [], sample: null, linkAvailable };
+  const link = input.includeLink && linkAvailable ? `${appUrl()}/pay/…` : "the school office";
+  const plan = await planMessage(tx, ctx, feeMessageInput({
+    studentIds: p.out.map((r) => r.studentId), channel: c.channel, templateId: c.templateId, text: c.text,
+    perStudent: Object.fromEntries(p.out.map((r) => [r.studentId, valuesFor(r, link)])), trigger: "Fee reminder", scheduledAt: input.scheduledAt ?? null,
+  }));
   return {
-    recipients: p.out.length,
-    skippedOptedOut: p.optedOut,
-    skippedNoPhone: p.noPhone,
+    recipients: plan.people,
+    skipped: plan.skipped.map((s) => ({ reason: s.reason, count: s.count, names: s.names })),
     skippedNothingDue: p.nothing,
-    creditsNeeded: needed,
-    creditsLeft: Number.isFinite(left) ? left : -1,
-    enough: needed <= left,
-    sample: first ? fillTemplate(input.template, { student_name: first.card.name, class: first.card.classSection, due_amount: formatRupees(first.due), due_date: formatDate(first.dueDate), link: input.includeLink && gateway ? "(payment link)" : "the school office", school_name: school.name }) : null,
-    linkAvailable: Boolean(gateway),
+    cost: plan.cost[c.channel] ?? 0,
+    creditProblem: plan.creditProblem,
+    problems: plan.problems,
+    sample: plan.rows[0]?.text ?? null,
+    linkAvailable,
   };
 }
 
-/** Sends the reminders now. Each is logged in the student's reminder history. */
-export async function sendReminders(tx: Tx, ctx: SchoolContext, input: { studentIds: string[]; channel: string; template: string; includeLink: boolean; origin: string; automatic?: boolean; onceKeyFor?: (studentId: string) => string | null }) {
-  const template = checkTemplate(input.template);
-  const p = await plan(tx, ctx, input.studentIds);
-  const left = await creditsLeft(tx, ctx, input.channel);
-  const needed = p.out.length * creditsPerMessage(input.channel);
-  if (needed > left) throw new MoneyProblem(`These reminders need ${needed} ${input.channel === "sms" ? "SMS" : "WhatsApp"} credits and ${left} are left. Buy credits in Settings, SMS, WhatsApp & Email, or send to fewer parents.`);
-  const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { name: true } });
-  let sent = 0;
+/** Sends the reminders now (or at the chosen time). Each student's reminder is logged in their reminder history. */
+export async function sendReminders(tx: Tx, ctx: SchoolContext, input: ReminderInput) {
+  const c = await checkInput(tx, ctx, input);
+  const p = await whoOwes(tx, input.studentIds);
+  if (!p.out.length) throw new MoneyProblem("None of these students owe anything now. Nothing was sent.");
+  const links = new Map<string, string>();
   for (const r of p.out) {
-    const onceKey = input.onceKeyFor?.(r.studentId) ?? null;
-    if (onceKey && (await tx.feeReminder.findUnique({ where: { schoolId_onceKey: { schoolId: ctx.schoolId, onceKey } } }))) continue;
     let link = "the school office";
-    if (input.includeLink && (await gatewayFor(tx, ctx, r.card.classId))) {
-      const made = await createPaymentLink(tx, ctx, { studentId: r.studentId, dueIds: r.dueIds, source: "LINK", channel: input.channel });
-      link = `${input.origin}${payPath(ctx.schoolId, made.token)}`;
+    if (input.includeLink && (await gatewayFor(tx, ctx, r.classId))) {
+      const made = await createPaymentLink(tx, ctx, { studentId: r.studentId, dueIds: r.dueIds, source: "LINK", channel: c.channel });
+      link = `${appUrl()}${payPath(ctx.schoolId, made.token)}`;
     }
-    const text = fillTemplate(template, { student_name: r.card.name, class: r.card.classSection, due_amount: formatRupees(r.due), due_date: formatDate(r.dueDate), link, school_name: school.name });
-    const g = r.card.primaryGuardian!;
-    const result = await sendParentMessage(tx, ctx, { guardianId: g.id, phone: g.phone, optedOut: g.optedOut, channel: input.channel, template: "fee-reminder", text, onceKey: onceKey ?? `fee-reminder:${r.studentId}:${Date.now()}` });
-    await tx.feeReminder.create({
-      data: { schoolId: ctx.schoolId, studentId: r.studentId, dueId: r.dueIds[0] ?? null, onceKey, channel: input.channel, template: "fee-reminder", text, phone: g.phone, amountPaise: r.due, status: result.status, automatic: Boolean(input.automatic), sentById: ctx.userId },
-    });
-    if (result.status === "queued") sent++;
+    links.set(r.studentId, link);
   }
-  if (!input.automatic) await writeAudit(tx, ctx, { action: "sent-reminders", recordType: "Fee Reminder", recordId: null, after: { sent, skippedOptedOut: p.optedOut, skippedNoPhone: p.noPhone, channel: input.channel } });
-  return { sent, skippedOptedOut: p.optedOut, skippedNoPhone: p.noPhone, skippedNothingDue: p.nothing };
+  const send = feeMessageInput({
+    studentIds: p.out.map((r) => r.studentId), channel: c.channel, templateId: c.templateId, text: c.text,
+    perStudent: Object.fromEntries(p.out.map((r) => [r.studentId, valuesFor(r, links.get(r.studentId)!)])),
+    trigger: "Fee reminder", scheduledAt: input.scheduledAt ?? null,
+  });
+  const plan = await planMessage(tx, ctx, send);
+  if (plan.problems.length) throw new MoneyProblem(plan.problems[0]);
+  if (plan.creditProblem) throw new MoneyProblem(plan.creditProblem);
+  if (!plan.rows.length) throw new MoneyProblem(`Nobody can get this message: ${plan.skipped.map((s) => `${s.count} ${s.reason.toLowerCase()}`).join(", ")}.`);
+  const result = await sendMessage(tx, ctx, send);
+  const reached = new Set(plan.rows.map((r) => r.studentId));
+  for (const r of p.out) {
+    const row = plan.rows.find((x) => x.studentId === r.studentId);
+    await tx.feeReminder.create({
+      data: {
+        schoolId: ctx.schoolId, studentId: r.studentId, dueId: r.dueIds[0] ?? null, channel: c.channel, template: c.templateId ? "template" : "own wording",
+        text: row?.text ?? "Not sent", phone: row?.address ?? null, amountPaise: r.due,
+        status: !reached.has(r.studentId) ? "skipped" : result.scheduled ? "scheduled" : "queued",
+        automatic: false, messageId: reached.has(r.studentId) ? result.messageId : null, sentById: ctx.userId,
+      },
+    });
+  }
+  const skipped = plan.skipped.reduce((s, g) => s + g.count, 0);
+  await writeAudit(tx, ctx, { action: "sent-reminders", recordType: "Fee Reminder", recordId: null, after: { students: reached.size, people: plan.people, skipped, channel: c.channel, scheduledAt: input.scheduledAt?.toISOString() ?? null } });
+  return { sent: plan.people, students: reached.size, skipped: plan.skipped, skippedNothingDue: p.nothing, scheduled: result.scheduled, messageId: result.messageId };
 }
 
 /**
  * A7: the scheduled reminders for today. For each day in Fee Settings (for
  * example 3 days before, on the day, 7 days after) the parents of students
- * with an unpaid row due on that day get one reminder, only once.
+ * with an unpaid row due on that day get one reminder, only once. The rule's
+ * on/off switch, channels and template are in Communication, Message Settings
+ * (rule "Fee reminder").
  */
-export async function automaticReminders(tx: Tx, ctx: SchoolContext, today: Date, origin: string) {
+export async function automaticReminders(tx: Tx, ctx: SchoolContext, today: Date) {
   const s = await feeSettings(tx, ctx);
   if (!s.remindersOn) return { sent: 0 };
   let sent = 0;
   for (const offset of s.reminderDays) {
     const dueDate = addDays(today, -offset);
-    const rows = await tx.studentFeeDue.findMany({ where: { state: "OPEN", balancePaise: { gt: 0 }, kind: { in: ["FEE", "CHARGE"] }, dueDate }, select: { studentId: true } });
-    const studentIds = [...new Set(rows.map((r) => r.studentId))];
+    const day = dueDate.toISOString().slice(0, 10);
+    const rows = await tx.studentFeeDue.findMany({ where: { state: "OPEN", balancePaise: { gt: 0 }, kind: { in: ["FEE", "CHARGE", "LATE_FEE"] }, dueDate }, select: { studentId: true } });
+    let studentIds = [...new Set(rows.map((r) => r.studentId))];
+    const onceKey = (id: string) => `auto:${id}:${day}:${offset}`;
+    const done = new Set((await tx.feeReminder.findMany({ where: { onceKey: { in: studentIds.map(onceKey) } }, select: { onceKey: true } })).map((r) => r.onceKey));
+    studentIds = studentIds.filter((id) => !done.has(onceKey(id)));
     if (!studentIds.length) continue;
-    const left = await creditsLeft(tx, ctx, s.reminderChannel);
-    if (studentIds.length * creditsPerMessage(s.reminderChannel) > left) continue;
-    const r = await sendReminders(tx, ctx, {
-      studentIds,
-      channel: s.reminderChannel,
-      template: s.reminderTemplate,
-      // A link needs the full address of School OS (APP_URL); without it the message says to pay at the office.
-      includeLink: Boolean(origin),
-      origin,
-      automatic: true,
-      onceKeyFor: (studentId) => `auto:${studentId}:${dueDate.toISOString().slice(0, 10)}:${offset}`,
+    const p = await whoOwes(tx, studentIds);
+    if (!p.out.length) continue;
+    const r = await sendAutomatic(tx, ctx, {
+      rule: "fee-due",
+      event: { key: `fee-due:${day}:${offset}`, label: `Fee due on ${formatDate(dueDate)}` },
+      to: { guardiansOf: p.out.map((x) => x.studentId) },
+      perStudent: Object.fromEntries(p.out.map((x) => [x.studentId, valuesFor(x, "your Parent Link")])),
+      source: null,
     });
-    sent += r.sent;
+    if (r.status === "off" || r.status === "no-channel") return { sent, status: r.status };
+    if (r.status !== "sent") continue;
+    sent += r.result.people;
+    await tx.feeReminder.createMany({
+      data: p.out.map((x) => ({
+        schoolId: ctx.schoolId, studentId: x.studentId, dueId: x.dueIds[0] ?? null, onceKey: onceKey(x.studentId), channel: "automatic", template: "fee-due",
+        text: `Fee reminder for ${formatRupees(x.due)} due on ${formatDate(x.dueDate)}`, amountPaise: x.due, status: "queued", automatic: true, messageId: r.result.messageId,
+      })),
+      skipDuplicates: true,
+    });
   }
   return { sent };
 }
 
-/** One student's reminder history: date, channel, template, delivery status. */
+const RECIPIENT_STATUS: Record<string, string> = { QUEUED: "Waiting", SENDING: "Sending", SENT: "Sent", DELIVERED: "Delivered", READ: "Read", FAILED: "Failed" };
+
+/** One student's reminder history: date, channel, template and delivery status (from Communication). */
 export async function reminderHistory(tx: Tx, studentId: string) {
-  return tx.feeReminder.findMany({ where: { studentId }, orderBy: { sentAt: "desc" }, take: 50 });
+  const rows = await tx.feeReminder.findMany({ where: { studentId }, orderBy: { sentAt: "desc" }, take: 50 });
+  const ids = rows.map((r) => r.messageId).filter((x): x is string => Boolean(x));
+  const recipients = ids.length ? await tx.messageRecipient.findMany({ where: { messageId: { in: ids }, studentId }, select: { messageId: true, status: true, channel: true } }) : [];
+  return rows.map((r) => {
+    const mine = recipients.filter((x) => x.messageId === r.messageId);
+    const status = !r.messageId ? (r.status === "skipped" ? "Skipped" : "Not sent") : mine.length ? [...new Set(mine.map((m) => RECIPIENT_STATUS[m.status] ?? m.status))].join(", ") : r.status === "scheduled" ? "Scheduled" : "Waiting";
+    return { ...r, deliveryStatus: status, channels: [...new Set(mine.map((m) => m.channel))] };
+  });
 }

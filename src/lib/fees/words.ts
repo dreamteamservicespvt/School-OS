@@ -112,7 +112,7 @@ export const REMINDER_CHANNELS = [
 
 export const DEFAULT_REMINDER_TEMPLATE =
   "Dear parent, fees of {due_amount} for {student_name} ({class}) are due on {due_date}. Please pay at the school office or online: {link}. Thank you, {school_name}.";
-export const TEMPLATE_VARIABLES = ["student_name", "class", "due_amount", "due_date", "link", "school_name"] as const;
+export const TEMPLATE_VARIABLES = ["guardian_name", "student_name", "class", "due_amount", "due_date", "link", "school_name"] as const;
 
 /** Whole days a payment status word for Days overdue. */
 export function daysWord(n: number) {

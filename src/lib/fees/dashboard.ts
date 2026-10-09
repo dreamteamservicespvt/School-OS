@@ -4,7 +4,7 @@
 import "server-only";
 
 import type { Prisma } from "@prisma/client";
-import type { SchoolContext, Tx } from "../db";
+import type { Tx } from "../db";
 import { addDays, monthEnd, monthStart } from "../staff/dates";
 import { DUE_WINDOW_DAYS, classOfStudents } from "./dues";
 import { studentScope, type FeeViewer } from "./access";
@@ -12,8 +12,6 @@ import { studentScope, type FeeViewer } from "./access";
 const ZERO = BigInt(0);
 
 export async function feeTiles(tx: Tx, viewer: FeeViewer, today: Date) {
-  const scope = viewer.see === "all" ? {} : { student: studentScope(viewer) };
-  void scope;
   const studentFilter: Prisma.PaymentWhereInput = viewer.see === "all" ? {} : { studentId: { in: await scopedStudentIds(tx, viewer) } };
   const dueFilter: Prisma.StudentFeeDueWhereInput = viewer.see === "all" ? {} : { studentId: { in: await scopedStudentIds(tx, viewer) } };
   const [todayAgg, monthAgg, pending, overdue] = await Promise.all([

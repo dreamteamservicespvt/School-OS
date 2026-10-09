@@ -24,7 +24,7 @@ import { counterAllowed, featureOn, feeSettings, type FeeSettings } from "./sett
 import { bulkDiscountFor, recordAppliedLines, spread } from "./concessions";
 import { modeLabel, NEEDS_REFERENCE } from "./words";
 import { placeOfSupply, taxLines } from "./tax";
-import { sendParentMessage } from "./notify-parents";
+import { sendFeePaid } from "./notify-parents";
 
 export type CollectInput = {
   studentId: string;
@@ -329,16 +329,8 @@ export async function finishPosting(tx: Tx, ctx: SchoolContext, paymentId: strin
 
   // A1: the parent's payment message.
   const card = await studentCard(tx, ctx, payment.studentId);
-  if (card?.primaryGuardian) {
-    await sendParentMessage(tx, ctx, {
-      guardianId: card.primaryGuardian.id,
-      phone: card.primaryGuardian.phone,
-      optedOut: card.primaryGuardian.optedOut,
-      channel: "whatsapp",
-      template: "fee-receipt",
-      text: `Dear parent, ${school.name} received ${formatRupees(payment.amountPaise)} for ${card.name} (${card.classSection}) on ${formatDate(payment.paymentDate)}. Receipt ${receiptNo}. Thank you.`,
-      onceKey: `fee-receipt:${payment.id}`,
-    });
+  if (card && !payment.broughtIn) {
+    await sendFeePaid(tx, ctx, { paymentId: payment.id, studentId: payment.studentId, amountPaise: payment.amountPaise, date: payment.paymentDate, receiptNo });
   }
   await writeAudit(tx, ctx, { action: "posted", recordType: "Payment", recordId: payment.id, after: { ...paymentAudit(payment), receipt: receiptNo, student: card?.name ?? null } });
   return { receiptNo, created: true };

@@ -463,6 +463,7 @@ CREATE TABLE "fee_reminder" (
     "amount_paise" BIGINT NOT NULL,
     "status" TEXT NOT NULL DEFAULT 'queued',
     "automatic" BOOLEAN NOT NULL DEFAULT false,
+    "message_id" UUID,
     "sent_by_id" UUID,
     "sent_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 

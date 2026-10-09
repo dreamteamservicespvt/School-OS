@@ -18,7 +18,8 @@ import { MoneyProblem } from "./problem";
 import { DUE_WINDOW_DAYS, openDues, studentCard } from "./dues";
 import { featureOn, feeSettings, gatewayFor } from "./settings";
 import { allocate, finishPosting, notifyOnlinePayment } from "./collect";
-import { sendParentMessage } from "./notify-parents";
+import { feeMessageInput, planMessage, sendMessage } from "./notify-parents";
+import { appUrl } from "../parent-link/token";
 import { mainBankAccount } from "../finance/settings";
 
 const ZERO = BigInt(0);
@@ -76,23 +77,30 @@ export async function createPaymentLink(
 }
 
 /** Sends a payment link to the parent by WhatsApp or SMS. Returns what happened. */
-export async function sendPaymentLink(tx: Tx, ctx: SchoolContext, input: { studentId: string; dueIds: string[]; channel: string; origin: string }) {
+export async function sendPaymentLink(tx: Tx, ctx: SchoolContext, input: { studentId: string; dueIds: string[]; channel: string }) {
+  if (input.channel !== "whatsapp" && input.channel !== "email") throw new MoneyProblem("Send payment links by WhatsApp or email. SMS needs an approved template; use Fee reminders with the link instead.", "channel");
   const made = await createPaymentLink(tx, ctx, { studentId: input.studentId, dueIds: input.dueIds, source: "LINK", channel: input.channel });
-  const g = made.card.primaryGuardian;
-  if (!g) throw new MoneyProblem(`${made.card.name} has no parent with a phone number. Add one in Student Management.`);
-  const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { name: true } });
-  const url = `${input.origin}${payPath(ctx.schoolId, made.token)}`;
-  const result = await sendParentMessage(tx, ctx, {
-    guardianId: g.id,
-    phone: g.phone,
-    optedOut: g.optedOut,
+  const url = `${appUrl()}${payPath(ctx.schoolId, made.token)}`;
+  const send = feeMessageInput({
+    studentIds: [input.studentId],
     channel: input.channel,
-    template: "payment-link",
-    text: `Dear parent, please pay ${formatRupees(made.amount)} school fees for ${made.card.name} (${made.card.classSection}) online: ${url} . ${school.name}`,
-    onceKey: `payment-link:${made.link.id}`,
+    templateId: null,
+    text: `Dear {guardian_name}, please pay {due_amount} school fees for {student_name} ({class}) online: {link} . The link works for ${LINK_DAYS} days. - {school_name}`,
+    perStudent: { [input.studentId]: { due_amount: formatRupees(made.amount), link: url } },
+    trigger: "Payment link",
+    source: { type: "Payment Link", id: made.link.id },
+    idempotencyKey: `payment-link:${made.link.id}`,
   });
-  await tx.paymentLink.update({ where: { id: made.link.id }, data: { sentTo: g.phone } });
-  return { ...made, url, result };
+  const plan = await planMessage(tx, ctx, send);
+  if (plan.problems.length) throw new MoneyProblem(plan.problems[0]);
+  if (plan.creditProblem) throw new MoneyProblem(plan.creditProblem);
+  if (!plan.rows.length) {
+    const why = plan.skipped.map((s) => s.reason.toLowerCase()).join(", ") || "no parent to send to";
+    throw new MoneyProblem(`The link could not be sent to ${made.card.name}'s parents: ${why}. Copy the link and share it yourself, or fix the contact in Student Management.`);
+  }
+  const result = await sendMessage(tx, ctx, send);
+  await tx.paymentLink.update({ where: { id: made.link.id }, data: { sentTo: plan.rows.map((r) => r.address).join(", ").slice(0, 200) } });
+  return { ...made, url, result, people: plan.people };
 }
 
 /** Finds a link by its secret token. */

@@ -605,6 +605,8 @@ model FeeReminder {
   /// "queued", "sent", "skipped-opted-out", "failed".
   status      String   @default("queued")
   automatic   Boolean  @default(false)
+  /// The Message in Communication that carried it (delivery status lives there).
+  messageId   String?  @map("message_id") @db.Uuid
   sentById    String?  @map("sent_by_id") @db.Uuid
   sentAt      DateTime @default(now()) @map("sent_at")
 

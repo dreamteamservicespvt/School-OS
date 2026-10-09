@@ -8,7 +8,7 @@ export class ClosedYearError extends Error {
   constructor(yearName?: string) {
     super(
       yearName
-        ? `${yearName} is closed, so its records can only be read. Use Make a correction if something must change.`
+        ? `${yearName} is closed. Use Make a correction.`
         : "This academic year is closed, so its records can only be read. Ask the Principal for an authorised correction if something must change.",
     );
     this.name = "ClosedYearError";

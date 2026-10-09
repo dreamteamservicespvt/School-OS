@@ -96,13 +96,14 @@ function Fields({ c, saved, state, mode, onDuplicates }: { c: EnquiryChoices; sa
 
 function EnquiryForm({ c, saved, mode, onDone, onCancel }: { c: EnquiryChoices; saved?: Saved; mode: "add" | "edit"; onDone: (id: string) => void; onCancel: () => void }) {
   const [state, formAction] = useActionState(mode === "add" ? addEnquiryAction : editEnquiryAction, null);
-  const [matches, setMatches] = useState<Match[]>([]);
+  const [typedMatches, setMatches] = useState<Match[]>([]);
+  const [dismissed, setDismissed] = useState<unknown>(null);
+  const matches = typedMatches.length ? typedMatches : state?.data?.matches && dismissed !== state ? state.data.matches : [];
   const [force, setForce] = useState(false);
   const [siblingOf, setSiblingOf] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const done = useRef(false);
   useEffect(() => {
-    if (state?.data?.matches) { setMatches(state.data.matches); setForce(false); }
     if (state?.ok && state.data?.id && !done.current) { done.current = true; onDone(state.data.id); }
   }, [state, onDone]);
   const sibling = () => {
@@ -110,6 +111,7 @@ function EnquiryForm({ c, saved, mode, onDone, onCancel }: { c: EnquiryChoices; 
     setSiblingOf(enquiry?.id ?? null);
     setForce(true);
     setMatches([]);
+    setDismissed(state);
     // Submit after the hidden fields are in the form.
     setTimeout(() => formRef.current?.requestSubmit(), 0);
   };
@@ -120,7 +122,7 @@ function EnquiryForm({ c, saved, mode, onDone, onCancel }: { c: EnquiryChoices; 
       {force && <input type="hidden" name="force" value="1" />}
       {siblingOf && <input type="hidden" name="siblingOfId" value={siblingOf} />}
       {showSummary ? <ErrorSummary errors={state.errors} /> : state && !state.ok && !state.data?.matches && state.message && <Alert tone="danger">{state.message}</Alert>}
-      <DuplicateBox matches={matches} onSibling={sibling} onCancel={() => { setMatches([]); onCancel(); }} siblingLabel={mode === "add" ? "Add as sibling enquiry" : "Save anyway"} />
+      <DuplicateBox matches={matches} onSibling={sibling} onCancel={() => { setMatches([]); setDismissed(state); onCancel(); }} siblingLabel={mode === "add" ? "Add as sibling enquiry" : "Save anyway"} />
       <Fields c={c} saved={saved} state={state} mode={mode} onDuplicates={setMatches} />
       <div className="flex flex-col-reverse gap-2 border-t border-line pt-4 sm:flex-row sm:justify-end">
         <Button variant="secondary" onClick={onCancel}>Cancel</Button>

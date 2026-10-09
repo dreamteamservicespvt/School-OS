@@ -40,18 +40,17 @@ export function ApplicationForm(p: Props) {
   const [state, formAction] = useActionState(saveApplicationAction, null);
   const [force, setForce] = useState(false);
   const [classId, setClassId] = useState(state?.values?.classId ?? p.values.classId ?? "");
-  const [dismissed, setDismissed] = useState(false);
+  const [dismissedFor, setDismissedFor] = useState<unknown>(null);
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const done = useRef(false);
   useEffect(() => {
     if (state?.ok && state.data?.id && !done.current) { done.current = true; router.push(`/admission-management/applications/${state.data.id}`); }
-    if (state && !state.ok) setDismissed(false);
   }, [state, router]);
   const val = (k: keyof ApplicationValues) => state?.values?.[k] ?? (typeof p.values[k] === "string" ? (p.values[k] as string) : undefined);
   const err = (k: string) => state?.errors?.[k];
   const cls = p.classes.find((c) => c.value === classId);
-  const matches = !dismissed ? state?.data?.matches ?? [] : [];
+  const matches = dismissedFor !== state ? state?.data?.matches ?? [] : [];
   const many = state?.errors && Object.keys(state.errors).length > 1;
   const edit = Boolean(p.values.id);
 
@@ -67,8 +66,8 @@ export function ApplicationForm(p: Props) {
           <ul className="mt-2 space-y-1 text-sm">{matches.map((m) => <li key={`${m.kind}-${m.id}`}>{m.text}</li>)}</ul>
           <div className="mt-3 flex flex-wrap gap-2">
             <Link href={matches[0].href} className={buttonClass("secondary", "sm")}>Open existing</Link>
-            <Button size="sm" variant="secondary" onClick={() => { setForce(true); setDismissed(true); setTimeout(() => formRef.current?.requestSubmit(), 0); }}>Save anyway</Button>
-            <Button size="sm" variant="ghost" onClick={() => setDismissed(true)}>Cancel</Button>
+            <Button size="sm" variant="secondary" onClick={() => { setForce(true); setDismissedFor(state); setTimeout(() => formRef.current?.requestSubmit(), 0); }}>Save anyway</Button>
+            <Button size="sm" variant="ghost" onClick={() => setDismissedFor(state)}>Cancel</Button>
           </div>
         </div>
       )}

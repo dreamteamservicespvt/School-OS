@@ -15,7 +15,7 @@ import { createOrder, verifyPaymentSignature, type RazorpayCredentials } from ".
 import { linkedAccountFor, razorpayCredentials } from "../payments/gateways";
 import { addDays, todayIn } from "../staff/dates";
 import { MoneyProblem } from "./problem";
-import { DUE_WINDOW_DAYS, openDues, studentCard } from "./dues";
+import { DUE_WINDOW_DAYS, lockDues, openDues, studentCard } from "./dues";
 import { featureOn, feeSettings, gatewayFor } from "./settings";
 import { allocate, finishPosting, notifyOnlinePayment } from "./collect";
 import { feeMessageInput, planMessage, sendMessage } from "./notify-parents";
@@ -234,7 +234,8 @@ export async function confirmGatewayPayment(
   const amount = input.amountPaise !== null ? BigInt(input.amountPaise) : link.amountPaise;
   const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { timeZone: true } });
   const now = new Date();
-  const dues = (await tx.studentFeeDue.findMany({ where: { id: { in: link.dueIds }, state: "OPEN" }, orderBy: [{ dueDate: "asc" }, { createdAt: "asc" }] }));
+  await lockDues(tx, link.dueIds);
+  const dues = await tx.studentFeeDue.findMany({ where: { id: { in: link.dueIds }, state: "OPEN" }, orderBy: [{ dueDate: "asc" }, { createdAt: "asc" }] });
   const { lines, extra } = allocate(amount, dues);
   const total = dues.reduce((s, d) => s + (d.balancePaise > ZERO ? d.balancePaise : ZERO), ZERO);
   const data = {

@@ -12,6 +12,22 @@ import { detailsSchema } from "@/lib/staff/schemas";
 import { createStaff, findDuplicates, type AllocationPick, type Duplicate } from "@/lib/staff/staff";
 import { markHired } from "@/lib/staff/talent";
 import { flash } from "@/lib/flash";
+import { hrSettings } from "@/lib/staff/settings";
+
+const REQUIRED_LABELS: Record<string, string> = {
+  email: "Email", dateOfBirth: "Date of birth", gender: "Gender", bloodGroup: "Blood group", address: "Current address", qualification: "Qualifications", aadhaar: "Aadhaar", photo: "Photo",
+};
+
+/** Fields the school made required in HR Settings. */
+async function missingRequired(ctx: Parameters<typeof hrSettings>[1], data: Record<string, unknown>, fd: FormData) {
+  const settings = await withSchool(ctx, (tx) => hrSettings(tx, ctx));
+  const errors: Record<string, string> = {};
+  for (const f of settings.requiredFields) {
+    const has = f === "photo" ? Boolean(file(fd, "photo")) : data[f] !== null && data[f] !== undefined && data[f] !== "";
+    if (!has && REQUIRED_LABELS[f]) errors[f] = `${REQUIRED_LABELS[f]} is needed (HR Settings).`;
+  }
+  return Object.keys(errors).length ? errors : null;
+}
 
 /** Step 1 check before moving on: every field, and the duplicate warning (P3). */
 export async function checkDetails(_: FormState<{ duplicates: Duplicate[] }>, fd: FormData): Promise<FormState<{ duplicates: Duplicate[] }>> {
@@ -19,6 +35,8 @@ export async function checkDetails(_: FormState<{ duplicates: Duplicate[] }>, fd
   if (reach !== "all") return problemState(new HrOnlyError("adding staff")) as FormState<{ duplicates: Duplicate[] }>;
   const parsed = parseForm(detailsSchema, fd);
   if (!parsed.ok) return parsed.state as FormState<{ duplicates: Duplicate[] }>;
+  const missing = await missingRequired(current.ctx, parsed.data, fd);
+  if (missing) return { ok: false, message: Object.values(missing)[0], errors: missing };
   const photo = file(fd, "photo");
   if (photo && photo.size > 2 * 1024 * 1024) return { ok: false, message: `The photo is ${(photo.size / 1024 / 1024).toFixed(1)} MB. Photos can be at most 2 MB.`, errors: { photo: "Photos can be at most 2 MB." } };
   const duplicates = await withSchool(current.ctx, (tx) => findDuplicates(tx, current.ctx, { phone: parsed.data.phone, email: parsed.data.email }));
@@ -35,6 +53,8 @@ export async function createStaffAction(_: FormState<Created>, fd: FormData): Pr
     const parsed = parseForm(detailsSchema, fd);
     if (!parsed.ok) return { ...parsed.state, data: undefined, message: `Step 1: ${parsed.state.message}` };
     const d = parsed.data;
+    const missing = await missingRequired(current.ctx, d, fd);
+    if (missing) return { ok: false, message: `Step 1: ${Object.values(missing)[0]}`, errors: missing, data: undefined };
 
     const giveLogin = str(fd, "giveLogin") === "on";
     const roleKeys = fd.getAll("roleKeys").map(String).filter(Boolean);

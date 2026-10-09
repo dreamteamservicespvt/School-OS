@@ -50,6 +50,13 @@ describe("a user of school A cannot read school B", () => {
     });
   });
 
+  it("sees only school A's custom forms (Settings, Forms & Approvals)", async () => {
+    await withSchool({ schoolId: b.id, userId: userB.id }, (tx) => tx.customForm.create({ data: { schoolId: b.id, name: "School B consent form" } }));
+    await withSchool(ctxA(), async (tx) => {
+      expect(await tx.customForm.findMany({ where: { name: { contains: "School B" } } })).toHaveLength(0);
+    });
+  });
+
   it("cannot open a school B record even by its exact id", async () => {
     await withSchool(ctxA(), async (tx) => {
       expect(await tx.school.findUnique({ where: { id: b.id } })).toBeNull();

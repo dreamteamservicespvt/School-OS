@@ -15,7 +15,7 @@ import { BULK_FIELDS, BLOOD_GROUPS } from "./labels";
 export type BulkRow = { studentId: string; fullName: string; admissionNo: string; before: string | null; after: string | null; problem: string | null };
 
 /** Reads the current value of a bulk field for one student. */
-async function readField(tx: Tx, field: string, studentId: string, yearId: string | null): Promise<string | null> {
+export async function readField(tx: Tx, field: string, studentId: string, yearId: string | null): Promise<string | null> {
   if (field === "rollNo") {
     const e = yearId ? await tx.enrolment.findFirst({ where: { studentId, academicYearId: yearId, archivedAt: null } }) : null;
     return e?.rollNo != null ? String(e.rollNo) : null;

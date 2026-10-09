@@ -31,6 +31,7 @@ export const REQUEST_TYPES = [
   { key: "data-deletion", label: "Data deletion" },
   { key: "user-request", label: "User join request" },
   { key: "payment-cancellation", label: "Fee payment cancellation" },
+  { key: "opening-balance", label: "Opening balance change" },
   { key: "staff-exit", label: "Staff exit" },
 ] as const;
 

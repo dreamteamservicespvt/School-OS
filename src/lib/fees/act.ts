@@ -15,11 +15,11 @@ import { MoneyProblem } from "./problem";
 
 export { MoneyProblem } from "./problem";
 
-type Known = Error & { field?: string; link?: { href: string; label: string }; warning?: boolean };
+type Known = Error & { field?: string; link?: { href: string; label: string }; warning?: boolean; code?: string };
 
-export type ActData<T> = T & { link?: { href: string; label: string }; warning?: boolean };
+export type ProblemData = { link?: { href: string; label: string }; warning?: boolean; code?: string };
 
-export function problemState(e: unknown, fd?: FormData): NonNullable<FormState<{ link?: { href: string; label: string }; warning?: boolean }>> {
+export function problemState(e: unknown, fd?: FormData): NonNullable<FormState<ProblemData>> {
   const known = [MoneyProblem, PermissionDeniedError, ClosedYearError, FileProblem, DecisionProblem, RazorpayProblem];
   if (known.some((K) => e instanceof K)) {
     const err = e as Known;
@@ -28,7 +28,7 @@ export function problemState(e: unknown, fd?: FormData): NonNullable<FormState<{
       message: err.message,
       errors: err.field ? { [err.field]: err.message } : undefined,
       values: fd ? formValues(fd) : undefined,
-      data: err.link || err.warning ? { link: err.link, warning: err.warning } : undefined,
+      data: err.link || err.warning || err.code ? { link: err.link, warning: err.warning, code: err.code } : undefined,
     };
   }
   console.error(JSON.stringify({ level: "error", event: "money-action-failed", error: e instanceof Error ? e.message : String(e) }));

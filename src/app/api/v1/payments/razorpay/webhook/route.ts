@@ -7,6 +7,8 @@ import { gatewayCredentials } from "@/lib/payments/gateways";
 import { verifyWebhookSignature } from "@/lib/payments/razorpay";
 import { readRazorpayEvent, runGatewayEvent } from "@/lib/payments/events";
 import { hitLimit } from "@/lib/rate-limit";
+// Fee Management's handler for confirmed and failed payments (A8).
+import "@/lib/fees/gateway-handler";
 
 export const dynamic = "force-dynamic";
 

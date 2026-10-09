@@ -7,6 +7,7 @@
 //   { "punches": [{ "punchNo": "10023", "userNo": "SPS-ST-004", "time": "2026-10-09T08:41:00+05:30" }] }
 //
 //   GET  /api/v1/attendance/punches?s=<school id>   (connection check)
+import type { AttendanceDevice } from "@prisma/client";
 import { withSchool } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
 import { hitLimit } from "@/lib/rate-limit";
@@ -23,7 +24,9 @@ const DEVICE_LIMIT_PER_MINUTE = 60;
 const reply = (status: number, body: object, headers: Record<string, string> = {}) =>
   Response.json(body, { status, headers: { "Cache-Control": "no-store", ...headers } });
 
-async function findDevice(request: Request) {
+type Found = { ctx: { schoolId: string; userId: null }; device: AttendanceDevice; on: boolean; timeZone: string };
+
+async function findDevice(request: Request): Promise<{ problem: Response } | Found> {
   const url = new URL(request.url);
   const schoolId = url.searchParams.get("s") ?? "";
   const auth = request.headers.get("authorization") ?? "";
@@ -32,7 +35,7 @@ async function findDevice(request: Request) {
   const keyHash = hashKey(key);
   const limit = await hitLimit(`attendance-device:${keyHash.slice(0, 32)}`, DEVICE_LIMIT_PER_MINUTE, 60);
   if (!limit.ok) return { problem: reply(429, { problem: "Too many requests from this device. Send punches in batches." }, { "Retry-After": String(limit.retryAfterSeconds) }) };
-  const ctx = { schoolId, userId: null };
+  const ctx = { schoolId, userId: null as null };
   const found = await withSchool(ctx, async (tx) => {
     const device = await tx.attendanceDevice.findFirst({ where: { keyHash, archivedAt: null } });
     if (!device) return null;

@@ -72,7 +72,7 @@ export function absenceSendTime(settings: Pick<AttendanceSetting, "absenceAlertO
 
 // ---------------------------------------------------------------- choosing a class
 
-export type TakeChoice = { sectionId: string; name: string; periodNo: number; periodLabel: string | null; done: boolean };
+export type TakeChoice = { sectionId: string; name: string; periodNo: number; periodLabel: string | null; startTime: string | null; done: boolean };
 
 /** The classes (and periods) a person may take on a date, for Take Attendance and the teacher's home. */
 export async function takeChoices(tx: Tx, ctx: SchoolContext, access: AttendanceAccess, date: Date): Promise<TakeChoice[]> {
@@ -87,13 +87,13 @@ export async function takeChoices(tx: Tx, ctx: SchoolContext, access: Attendance
   sections.sort((a, b) => a.schoolClass.sortOrder - b.schoolClass.sortOrder || a.name.localeCompare(b.name));
   const done = await tx.attendanceMark.groupBy({ by: ["sectionId", "periodNo"], where: { date, sectionId: { in: sections.map((s) => s.id) }, archivedAt: null }, _count: true });
   const isDone = (sid: string, p: number) => done.some((d) => d.sectionId === sid && d.periodNo === p);
-  if (!periodWise) return sections.map((s) => ({ sectionId: s.id, name: `${s.schoolClass.name} ${s.name}`, periodNo: 0, periodLabel: null, done: isDone(s.id, 0) }));
+  if (!periodWise) return sections.map((s) => ({ sectionId: s.id, name: `${s.schoolClass.name} ${s.name}`, periodNo: 0, periodLabel: null, startTime: null, done: isDone(s.id, 0) }));
 
   const out: TakeChoice[] = [];
   if (full) {
     for (const s of sections) {
       const periods = await sectionPeriods(tx, ctx, s.id, s.schoolClass.campusId, date);
-      for (const p of periods) out.push({ sectionId: s.id, name: `${s.schoolClass.name} ${s.name}`, periodNo: p.periodNo, periodLabel: `Period ${p.periodNo}, ${time12(p.startTime)}${p.subject ? ` · ${p.subject}` : ""}`, done: isDone(s.id, p.periodNo) });
+      for (const p of periods) out.push({ sectionId: s.id, name: `${s.schoolClass.name} ${s.name}`, periodNo: p.periodNo, periodLabel: `Period ${p.periodNo}, ${time12(p.startTime)}${p.subject ? ` · ${p.subject}` : ""}`, startTime: p.startTime, done: isDone(s.id, p.periodNo) });
     }
     return out;
   }
@@ -102,7 +102,7 @@ export async function takeChoices(tx: Tx, ctx: SchoolContext, access: Attendance
   for (const p of mine) {
     const s = sections.find((x) => x.id === p.sectionId) ?? (await tx.section.findFirst({ where: { id: p.sectionId }, include: { schoolClass: { select: { name: true, sortOrder: true, campusId: true } } } }));
     if (!s) continue;
-    out.push({ sectionId: s.id, name: `${s.schoolClass.name} ${s.name}`, periodNo: p.periodNo, periodLabel: `Period ${p.periodNo}, ${time12(p.startTime)}${p.subject ? ` · ${p.subject}` : ""}${p.substitute ? " (substitution)" : ""}`, done: isDone(s.id, p.periodNo) });
+    out.push({ sectionId: s.id, name: `${s.schoolClass.name} ${s.name}`, periodNo: p.periodNo, periodLabel: `Period ${p.periodNo}, ${time12(p.startTime)}${p.subject ? ` · ${p.subject}` : ""}${p.substitute ? " (substitution)" : ""}`, startTime: p.startTime, done: isDone(s.id, p.periodNo) });
   }
   return out;
 }

@@ -48,7 +48,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       "Cache-Control": `private, max-age=${Math.min(secondsLeft, 900)}`,
       "X-Content-Type-Options": "nosniff",
       // Only checked photos, PDFs and sheets are stored (saveFile); none of them may run scripts.
-      ...(file.contentType === "application/pdf" ? {} : { "Content-Security-Policy": "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'" }),
+      ...(file.contentType === "application/pdf" ? {} : { "Content-Security-Policy": "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox" }),
       "Referrer-Policy": "no-referrer",
     },
   });

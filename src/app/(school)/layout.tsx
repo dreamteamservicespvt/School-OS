@@ -11,17 +11,18 @@ import { Toast } from "@/components/ui/toast";
 import { readFlash } from "@/lib/flash";
 import { undoChange } from "./undo-action";
 import { activeSystemNotices } from "@/lib/errors";
+import { withSchool } from "@/lib/db";
+import { currentYear } from "@/lib/academic/years";
 
 export const dynamic = "force-dynamic";
 
-function YearChip() {
-  // The academic year is opened in Academic Management (module 2 in the build
-  // order). Until then the chip says so instead of showing an invented year.
+function YearChip({ year }: { year: { name: string; status: string } | null }) {
+  // The academic year every screen works in (03-school-year-and-day.md).
   return (
-    <Link href="/academic-management" className="flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-sm text-ink-2 hover:bg-surface-2"
-      title="The academic year is opened in Academic Management">
+    <Link href="/academic-management/settings" className="flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-sm text-ink-2 hover:bg-surface-2"
+      title={year ? `Academic year ${year.name}` : "Open an academic year in Academic Settings"}>
       <CalendarIcon className="size-5" />
-      <span>No academic year yet</span>
+      <span>{year ? `Year ${year.name}` : "No academic year yet"}</span>
     </Link>
   );
 }
@@ -37,13 +38,18 @@ function TopIcon({ href, label, count, children }: { href: string; label: string
 
 export default async function SchoolLayout({ children }: { children: React.ReactNode }) {
   const current = await requireCurrent();
-  const [shell, flashed, notices] = await Promise.all([shellData(current), readFlash(), activeSystemNotices()]);
+  const [shell, flashed, notices, year] = await Promise.all([
+    shellData(current),
+    readFlash(),
+    activeSystemNotices(),
+    withSchool(current.ctx, (tx) => currentYear(tx, current.ctx)),
+  ]);
   const school = { id: current.school.id, name: current.school.name };
 
   return (
     <div className="min-h-dvh lg:pl-64">
       <a href="#main" className="skip-link">Skip to the page</a>
-      <SideMenu items={shell.menu} schoolName={current.school.name} footer={<YearChip />} />
+      <SideMenu items={shell.menu} schoolName={current.school.name} footer={<YearChip year={year} />} />
 
       <header className="sticky top-0 z-20 flex h-16 items-center gap-2 border-b border-line bg-surface/95 px-2 backdrop-blur sm:px-4">
         <MenuButton />
@@ -55,7 +61,7 @@ export default async function SchoolLayout({ children }: { children: React.React
         <div className="flex flex-1 justify-center px-2">
           <SearchBox userId={current.user.id} pages={shell.pages} shortcuts={shell.shortcuts} />
         </div>
-        <div className="hidden md:block"><YearChip /></div>
+        <div className="hidden md:block"><YearChip year={year} /></div>
         <nav aria-label="Your work" className="hidden items-center sm:flex">
           {shell.canApprove && <TopIcon href="/approvals" label="Approvals" count={shell.approvals}><ApprovalIcon /></TopIcon>}
           <TopIcon href="/notifications" label="Notifications" count={shell.unread}><BellIcon /></TopIcon>

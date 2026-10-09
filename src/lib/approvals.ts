@@ -33,6 +33,8 @@ export const REQUEST_TYPES = [
   { key: "payment-cancellation", label: "Fee payment cancellation" },
   { key: "opening-balance", label: "Opening balance change" },
   { key: "staff-exit", label: "Staff exit" },
+  { key: "re-admission", label: "Student re-admission" },
+  { key: "clearance-waiver", label: "Clearance waiver (student leaving)" },
 ] as const;
 
 export type RequestType = (typeof REQUEST_TYPES)[number]["key"];

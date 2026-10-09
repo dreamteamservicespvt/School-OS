@@ -148,6 +148,15 @@ export const LIST_COLUMNS: { key: string; label: string }[] = [
   { key: "dateOfBirth", label: "Date of birth" },
 ];
 
+/** Extra fields an ID card can show (Student Settings, ID cards); photo, name, class, QR code and barcode always show. */
+export const ID_CARD_FIELDS: { key: string; label: string }[] = [
+  { key: "admissionNo", label: "Admission number" },
+  { key: "dateOfBirth", label: "Date of birth" },
+  { key: "bloodGroup", label: "Blood group" },
+  { key: "guardianPhone", label: "Parent's phone" },
+  { key: "address", label: "Address" },
+];
+
 /** Fields the school can make required on the student form (Student Settings). */
 export const OPTIONAL_FORM_FIELDS: { key: string; label: string }[] = [
   { key: "bloodGroup", label: "Blood group" },

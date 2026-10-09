@@ -81,9 +81,12 @@ function sign(fileId: string, schoolId: string, expires: number) {
   return createHmac("sha256", secret()).update(`${fileId}.${schoolId}.${expires}`).digest("base64url");
 }
 
-/** A link to one file for someone already allowed to see it. Expires in 15 minutes. */
-export function fileLink(fileId: string, schoolId: string, now = Date.now()) {
-  const expires = now + FILE_LINK_MS;
+/**
+ * A link to one file for someone already allowed to see it. Expires in 15
+ * minutes, or after validMs for a sharing link (School Profile, document vault).
+ */
+export function fileLink(fileId: string, schoolId: string, now = Date.now(), validMs = FILE_LINK_MS) {
+  const expires = now + validMs;
   return `/api/v1/files/${fileId}?s=${schoolId}&e=${expires}&t=${sign(fileId, schoolId, expires)}`;
 }
 

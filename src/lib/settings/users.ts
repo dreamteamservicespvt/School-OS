@@ -27,6 +27,7 @@ export const scopeLabel = (s: string) => SCOPES.find((x) => x.value === s)?.labe
 
 export type UserState = "ACTIVE" | "INVITED" | "DISABLED";
 export const STATE_LABEL: Record<UserState, string> = { ACTIVE: "Active", INVITED: "Invited", DISABLED: "Disabled" };
+export const STATE_TONE = { ACTIVE: "success", INVITED: "warning", DISABLED: "neutral" } as const;
 
 const USERNAME = /^[a-z0-9][a-z0-9._-]{2,39}$/;
 

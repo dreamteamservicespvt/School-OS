@@ -7,48 +7,12 @@ import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
-import { MODULES, MODULE_KEYS, type ModuleKey } from "../modules";
+import { MODULES, type ModuleKey } from "../modules";
 import type { AccessLevel, RolePermissions } from "../roles";
 import { SettingsProblem, actorName, alertPermissionChange } from "./common";
 
-export const LEVELS: { value: AccessLevel; label: string; words: string }[] = [
-  { value: "full", label: "Full", words: "can see and change everything" },
-  { value: "view", label: "View", words: "can see but not change" },
-  { value: "own", label: "Own", words: "only their own classes or records" },
-  { value: "none", label: "None", words: "no access" },
-];
-
-/** Cleans a submitted permission grid: every module gets a known level. */
-export function cleanPermissions(input: Record<string, unknown>): RolePermissions {
-  return Object.fromEntries(
-    MODULE_KEYS.map((k) => {
-      const v = input[k];
-      return [k, v === "full" || v === "view" || v === "own" ? v : "none"];
-    }),
-  ) as RolePermissions;
-}
-
-const moduleName = (k: string) => MODULES.find((m) => m.key === k)?.name ?? k;
-
-/**
- * The changes in plain words, for the confirmation and the alert:
- * "Teacher role can now see Salary Management".
- */
-export function permissionChanges(roleName: string, before: Partial<RolePermissions>, after: Partial<RolePermissions>): string[] {
-  const out: string[] = [];
-  for (const k of MODULE_KEYS) {
-    const a = before[k] ?? "none";
-    const b = after[k] ?? "none";
-    if (a === b) continue;
-    const name = moduleName(k);
-    if (b === "none") out.push(`${roleName} role can no longer open ${name}`);
-    else if (a === "none") out.push(`${roleName} role can now ${b === "full" ? "see and change everything in" : b === "view" ? "see" : "see their own records in"} ${name}`);
-    else if (b === "full") out.push(`${roleName} role can now change everything in ${name}`);
-    else if (b === "view") out.push(`${roleName} role can now only see ${name}, not change it`);
-    else out.push(`${roleName} role now sees only their own records in ${name}`);
-  }
-  return out;
-}
+import { cleanPermissions, permissionChanges } from "./role-words";
+export { LEVELS, cleanPermissions, permissionChanges } from "./role-words";
 
 /** How many people hold each role right now (live School Access only). */
 export async function roleUsage(tx: Tx, schoolId: string): Promise<Map<string, number>> {
@@ -187,4 +151,24 @@ export async function setTemplateOn(tx: Tx, ctx: SchoolContext, roleId: string, 
 /** Modules where a role's level is not "none", in menu order, for short summaries. */
 export function roleModules(permissions: Partial<Record<ModuleKey, AccessLevel>>) {
   return MODULES.filter((m) => (permissions[m.key] ?? "none") !== "none");
+}
+
+/** One line about what a role reaches, for role pickers: "Full: Fee Management · View: …". */
+export function roleAbout(permissions: Partial<Record<ModuleKey, AccessLevel>>): string {
+  const mods = roleModules(permissions);
+  if (mods.length === MODULES.length && mods.every((m) => permissions[m.key] === "full")) return "Everything, in every module.";
+  const by = (level: AccessLevel) => mods.filter((m) => permissions[m.key] === level && m.key !== "dashboard").map((m) => m.name);
+  const parts = [["Full", by("full")], ["View", by("view")], ["Own", by("own")]] as const;
+  const words = parts
+    .filter(([, list]) => list.length)
+    .map(([l, list]) => `${l}: ${list.length > 3 ? `${list.slice(0, 3).join(", ")} and ${list.length - 3} more` : list.join(", ")}`);
+  return words.join(" · ") || "Only the Dashboard.";
+}
+
+/** Roles a person can be given now: not archived, and templates only when switched on. */
+export async function assignableRoles(tx: Tx) {
+  const roles = await tx.role.findMany({ where: { archivedAt: null }, orderBy: [{ kind: "asc" }, { name: "asc" }] });
+  return roles
+    .filter((r) => r.kind !== "TEMPLATE" || r.isEnabled)
+    .map((r) => ({ id: r.id, key: r.key, name: r.name, kind: r.kind as string, twoStep: r.requiresTwoStep, about: roleAbout(r.permissions as Partial<RolePermissions>) }));
 }

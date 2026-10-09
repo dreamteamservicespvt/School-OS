@@ -213,20 +213,22 @@ function PeriodFields({ edit, day, slot, cell, state }: { edit: EditContext; day
   const [room, setRoom] = useState(v(state, "room", cell?.room && cell.room !== edit.sectionRoom ? cell.room : ""));
   const [wholeWeek, setWholeWeek] = useState(v(state, "wholeWeek") === "on");
   const [label, setLabel] = useState(v(state, "label", cell && !cell.isBreak ? cell.label : ""));
-  const [problems, setProblems] = useState<string[]>([]);
-  const [checking, setChecking] = useState(false);
+  const [result, setResult] = useState<{ key: string; problems: string[] }>({ key: "", problems: [] });
 
   // Live clash check (rule 26): a teacher or room in two places at once.
+  const active = !isBreak && Boolean(staffId || room);
+  const checkKey = `${staffId}|${room}|${wholeWeek}`;
   useEffect(() => {
-    if (isBreak || (!staffId && !room)) { setProblems([]); return; }
+    if (!active) return;
     let live = true;
-    setChecking(true);
     const t = setTimeout(async () => {
       const r = await checkClashAction({ versionId: edit.versionId, sectionId: edit.sectionId, dayOfWeek: day, periodNo: slot.number, staffId: staffId || null, room: room || null, wholeWeek });
-      if (live) { setProblems(r); setChecking(false); }
+      if (live) setResult({ key: checkKey, problems: r });
     }, 250);
     return () => { live = false; clearTimeout(t); };
-  }, [staffId, room, wholeWeek, isBreak, edit.versionId, edit.sectionId, day, slot.number]);
+  }, [active, checkKey, staffId, room, wholeWeek, edit.versionId, edit.sectionId, day, slot.number]);
+  const checking = active && result.key !== checkKey;
+  const problems = active && result.key === checkKey ? result.problems : [];
 
   const teacherOptions = showAll || assigned.length === 0
     ? edit.teachers.map((t) => ({ value: t.id, label: assigned.some((a) => a.id === t.id) ? `${t.name} (assigned)` : t.name }))

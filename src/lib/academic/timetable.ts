@@ -3,7 +3,7 @@
 // publishing, copying, and reading the Time Table for a day.
 import "server-only";
 
-import type { PeriodSlot, Prisma, TimetablePeriod } from "@prisma/client";
+import type { PeriodSlot, Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { notify } from "../notifications";
@@ -144,8 +144,6 @@ export async function gridRows(tx: Tx, ctx: SchoolContext, campusId: string) {
 // ---------------------------------------------------------------- the clash check
 
 export type Clash = { kind: "teacher" | "room" | "workload" | "consecutive" | "condition" | "availability"; hard: boolean; message: string; sectionId: string; dayOfWeek: number; periodNo: number };
-
-type Slim = Pick<TimetablePeriod, "id" | "sectionId" | "dayOfWeek" | "periodNo" | "staffId" | "subjectId" | "room" | "isBreak">;
 
 /** Every clash and warning in a version: teacher or room booked twice (hard), limits and conditions (warnings). */
 export async function clashCheck(tx: Tx, ctx: SchoolContext, versionId: string): Promise<Clash[]> {

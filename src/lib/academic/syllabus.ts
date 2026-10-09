@@ -16,7 +16,7 @@ export const KIND_WORDS: Record<SyllabusItemKind, string> = { UNIT: "Unit", CHAP
 
 export type ItemStatus = "Planned" | "Taught" | "Completed" | "Pending";
 
-export type TreeNode = SyllabusItem & { children: TreeNode[]; status: ItemStatus; plannedTo: Date | null; lastTaught: Date | null; leaves: number; done: number };
+export type TreeNode = SyllabusItem & { children: TreeNode[]; status: ItemStatus; plannedTo: Date | null; ownPlannedTo: Date | null; lastTaught: Date | null; leaves: number; done: number };
 
 export async function syllabusItems(tx: Tx, yearId: string, classId: string, subjectId: string) {
   return tx.syllabusItem.findMany({ where: { academicYearId: yearId, classId, subjectId, archivedAt: null }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] });
@@ -44,7 +44,7 @@ export async function syllabusTree(tx: Tx, yearId: string, classId: string, subj
     else if (mine.length > 0 || done > 0) status = "Taught";
     else if (plannedTo && plannedTo < today) status = "Pending";
     else status = "Planned";
-    return { ...item, plannedTo, children, status, lastTaught, leaves, done };
+    return { ...item, ownPlannedTo: item.plannedTo, plannedTo, children, status, lastTaught, leaves, done };
   };
   return (byParent.get(null) ?? []).map((i) => build(i, null));
 }

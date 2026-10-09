@@ -76,22 +76,22 @@ export function NeedsList({ rows, date, canArrange }: { rows: Need[]; date: stri
 
 function AssignDialog({ teacher, periods, initial, date, onClose }: { teacher: string; periods: Need[]; initial: string[]; date: string; onClose: () => void }) {
   const [chosen, setChosen] = useState<string[]>(initial);
-  const [list, setList] = useState<Suggestion[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<{ key: string; list: Suggestion[]; error: string | null }>({ key: "", list: [], error: null });
   const [pick, setPick] = useState("");
+  const key = chosen.join(",");
 
   useEffect(() => {
+    if (!key) return;
     let live = true;
-    setList(null);
-    if (chosen.length === 0) { setList([]); return; }
-    suggestAction(chosen, date).then((r) => {
+    suggestAction(key.split(","), date).then((r) => {
       if (!live) return;
-      setList(r.suggestions);
-      setError(r.error ?? null);
+      setResult({ key, list: r.suggestions, error: r.error ?? null });
       setPick((p) => (r.suggestions.some((s) => s.id === p) ? p : r.suggestions[0]?.id ?? ""));
-    }).catch(() => live && setError("Could not load free teachers. Try again."));
+    }).catch(() => { if (live) setResult({ key, list: [], error: "Could not load free teachers. Try again." }); });
     return () => { live = false; };
-  }, [chosen, date]);
+  }, [key, date]);
+  const list: Suggestion[] | null = !key ? [] : result.key === key ? result.list : null;
+  const error = result.key === key ? result.error : null;
 
   const toggle = (id: string) => setChosen((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]));
 

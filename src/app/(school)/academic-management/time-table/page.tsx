@@ -207,7 +207,7 @@ export default async function TimeTablePage({ searchParams }: { searchParams: Se
         )
       ) : view === "room" ? (
         data.roomList.length === 0 ? (
-          <EmptyState title="No rooms yet">{scope.manage ? <>Add rooms and labs in <Link className="font-medium text-brand-text underline" href="/academic-management/settings?tab=rooms">Academic Settings</Link>, or give sections a room.</> : "Rooms appear once the school adds them."}</EmptyState>
+          <EmptyState title="No rooms yet">{scope.manage ? <>Add rooms and labs in <Link className="font-medium text-brand-text underline" href="/academic-management/settings?tab=options">Academic Settings</Link>, or give sections a room.</> : "Rooms appear once the school adds them."}</EmptyState>
         ) : (
           <>
             <div className="no-print mb-3 flex flex-wrap items-end justify-between gap-3">

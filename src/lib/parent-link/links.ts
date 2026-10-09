@@ -75,7 +75,7 @@ export async function sendLinks(tx: Tx, ctx: SchoolContext, links: { id: string;
     // The link is the guardian's own key to their children's records: it goes even to parents who opted out of general messages.
     emergency: true,
     trigger: opts.trigger,
-    source: links.length === 1 ? { type: "Parent Link", id: links[0].id } : { type: "Parent Link", id: links[0].id },
+    source: links.length === 1 ? { type: "Parent Link", id: links[0].id } : null,
     scheduledAt: opts.scheduledAt ?? null,
     audienceLabel: opts.audienceLabel,
   });

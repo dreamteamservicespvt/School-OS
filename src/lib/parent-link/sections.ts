@@ -46,6 +46,8 @@ export type SectionDef<T = unknown> = {
   /** One line for Message Settings, e.g. "Each installment with the Pay button". */
   description: string;
   order: number;
+  /** The switch that controls this section when it shares another section's switch. */
+  switchKey?: string;
   /** Per child (the default) or for the guardian as a whole. */
   scope?: "child" | "family";
   load: (tx: Tx, ctx: SchoolContext, view: GuardianView) => Promise<T | null>;
@@ -64,5 +66,10 @@ export function allSections(): SectionDef[] {
 
 /** The sections the school has switched on (Message Settings, Parent Link). Missing switches are on. */
 export function shownSections(shows: Record<string, boolean>): SectionDef[] {
-  return allSections().filter((s) => shows[s.key] !== false);
+  return allSections().filter((s) => shows[s.switchKey ?? s.key] !== false);
+}
+
+/** The switches for Message Settings, Parent Link: one per section with its own switch. */
+export function sectionSwitches(): { key: string; label: string; description: string }[] {
+  return allSections().filter((s) => !s.switchKey).map((s) => ({ key: s.key, label: s.label, description: s.description }));
 }

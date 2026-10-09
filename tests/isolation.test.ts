@@ -147,6 +147,32 @@ describe("a user of school A cannot change school B", () => {
   });
 });
 
+describe("student records stay in their school", () => {
+  it("a user of school A cannot see or change school B's students, parents, certificates or leaving records", async () => {
+    const ids = await withSchool({ schoolId: b.id, userId: userB.id }, async (tx) => {
+      const student = await tx.student.create({ data: { schoolId: b.id, campusId: b.campus.id, admissionNo: "B/0001", firstName: "Only", fullName: "Only In B" } });
+      const guardian = await tx.guardian.create({ data: { schoolId: b.id, name: "Parent In B", relationship: "Father", phone: "9876512340" } });
+      await tx.studentGuardian.create({ data: { schoolId: b.id, studentId: student.id, guardianId: guardian.id, relationship: "Father", isPrimary: true } });
+      await tx.studentNote.create({ data: { schoolId: b.id, studentId: student.id, text: "Note in B" } });
+      const cert = await tx.certificate.create({ data: { schoolId: b.id, studentId: student.id, type: "BONAFIDE", issueDate: new Date(), verifyCode: "BSCHOOLCODE23456" } });
+      await tx.leavingRequest.create({ data: { schoolId: b.id, studentId: student.id, type: "TRANSFER", reason: "Moving", lastDate: new Date(), previousStatus: "ACTIVE" } });
+      return { student: student.id, guardian: guardian.id, cert: cert.id };
+    });
+    await withSchool(ctxA(), async (tx) => {
+      expect(await tx.student.findUnique({ where: { id: ids.student } })).toBeNull();
+      expect(await tx.student.findMany({ where: { fullName: { contains: "Only In B" } } })).toHaveLength(0);
+      expect(await tx.guardian.findMany({ where: { phone: "9876512340" } })).toHaveLength(0);
+      expect(await tx.studentGuardian.count({ where: { studentId: ids.student } })).toBe(0);
+      expect(await tx.studentNote.count({ where: { studentId: ids.student } })).toBe(0);
+      expect(await tx.certificate.findUnique({ where: { id: ids.cert } })).toBeNull();
+      expect(await tx.leavingRequest.count({ where: { studentId: ids.student } })).toBe(0);
+      expect((await tx.student.updateMany({ where: { id: ids.student }, data: { fullName: "Taken over" } })).count).toBe(0);
+      expect((await tx.guardian.updateMany({ where: { id: ids.guardian }, data: { phone: "9000000000" } })).count).toBe(0);
+    });
+    await expect(withSchool(ctxA(), (tx) => tx.studentNote.create({ data: { schoolId: b.id, studentId: ids.student, text: "Sneaky" } }))).rejects.toThrow();
+  });
+});
+
 describe("one login in several schools", () => {
   it("lists both schools and keeps each one's data apart", async () => {
     const both = await makeUser({ schools: [{ id: a.id, roleKeys: ["principal"] }, { id: b.id, roleKeys: ["teacher"] }] });
@@ -221,5 +247,23 @@ describe("every school table has its walls", () => {
     } finally {
       await owner.$disconnect();
     }
+  });
+});
+
+describe("Communication records stay in their school", () => {
+  it("cannot read school B's messages, notices, queries or Parent Links", async () => {
+    const ctxB = { schoolId: b.id, userId: userB.id };
+    await withSchool(ctxB, async (tx) => {
+      await tx.message.create({ data: { schoolId: b.id, body: "School B only", channels: ["app"], audienceLabel: "B", status: "SENT" } });
+      await tx.notice.create({ data: { schoolId: b.id, title: "School B notice", body: "x", audience: {}, audienceLabel: "B" } });
+    });
+    await withSchool(ctxA(), async (tx) => {
+      expect(await tx.message.count()).toBe(0);
+      expect(await tx.messageRecipient.count()).toBe(0);
+      expect(await tx.notice.count()).toBe(0);
+      expect(await tx.query.count()).toBe(0);
+      expect(await tx.parentLink.count()).toBe(0);
+      expect(await tx.consentRecord.count()).toBe(0);
+    });
   });
 });

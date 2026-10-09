@@ -65,3 +65,19 @@ model GatewayLinkedAccount {
   @@unique([schoolId, gatewayAccountId, linkedAccountId])
   @@map("gateway_linked_account")
 }
+
+/// One finished backup of the whole database, written by scripts/backup.sh.
+/// Holds no school data; each school sees the latest time in Settings.
+model BackupRun {
+  id              String    @id @default(uuid()) @db.Uuid
+  /// "nightly" (full database copy) or "files".
+  kind            String    @default("nightly")
+  finishedAt      DateTime  @default(now()) @map("finished_at")
+  /// Where it went, e.g. the bucket path, for DREAM TEAM.
+  location        String?
+  /// When a restore of this copy was proven on a test copy (monthly).
+  restoreTestedAt DateTime? @map("restore_tested_at")
+
+  @@index([finishedAt])
+  @@map("backup_run")
+}

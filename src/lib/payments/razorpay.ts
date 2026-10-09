@@ -108,7 +108,7 @@ async function call<T>(creds: RazorpayCredentials, method: "GET" | "POST", path:
 export type RazorpayOrder = { id: string; amount: number; currency: string; receipt: string | null; status: string; notes?: Record<string, string> };
 
 /** Makes an order for an amount in paise. The receipt is our own reference (at most 40 characters). */
-export function createOrder(
+export async function createOrder(
   creds: RazorpayCredentials,
   input: { amountPaise: bigint | number; receipt: string; notes?: Record<string, string>; transfers?: { account: string; amountPaise: bigint | number; notes?: Record<string, string> }[] },
   fetchImpl?: FetchLike,
@@ -128,7 +128,7 @@ export function createOrder(
 export type RazorpayPayment = { id: string; order_id: string | null; amount: number; currency: string; status: "created" | "authorized" | "captured" | "refunded" | "failed"; method?: string; email?: string; contact?: string; created_at: number; error_description?: string | null };
 
 /** Reads one payment from Razorpay, e.g. to match a payment confirmed while School OS was busy. */
-export function fetchPayment(creds: RazorpayCredentials, paymentId: string, fetchImpl?: FetchLike) {
+export async function fetchPayment(creds: RazorpayCredentials, paymentId: string, fetchImpl?: FetchLike) {
   if (!/^pay_[A-Za-z0-9]+$/.test(paymentId)) throw new RazorpayProblem("That does not look like a Razorpay payment ID (it starts with pay_).", "refused");
   return call<RazorpayPayment>(creds, "GET", `/v1/payments/${paymentId}`, undefined, fetchImpl);
 }

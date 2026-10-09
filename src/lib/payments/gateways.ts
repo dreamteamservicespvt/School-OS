@@ -110,15 +110,18 @@ export function checkDisplayName(name: string) {
   return n;
 }
 
-export async function addGateway(tx: Tx, ctx: SchoolContext, input: GatewayInput) {
+export async function addGateway(tx: Tx, ctx: SchoolContext, input: GatewayInput, id?: string) {
   const provider = findProvider(input.provider);
   if (!provider) throw new GatewayProblem("Choose a provider.", "provider");
   const displayName = checkDisplayName(input.displayName);
   const clash = await tx.paymentGatewayAccount.findFirst({ where: { displayName: { equals: displayName, mode: "insensitive" }, archivedAt: null } });
   if (clash) throw new GatewayProblem(`A gateway called "${clash.displayName}" is already added. Use a distinct name, such as "${provider.name} Class A".`, "displayName");
   const { values, webhookSecret } = checkValues(provider, input, null);
+  // The form shows the webhook address before saving, so it may bring the new id.
+  const newId = id && /^[0-9a-f-]{36}$/i.test(id) && !(await tx.paymentGatewayAccount.findUnique({ where: { id } })) ? id : undefined;
   const g = await tx.paymentGatewayAccount.create({
     data: {
+      id: newId,
       schoolId: ctx.schoolId,
       displayName,
       provider: provider.key,

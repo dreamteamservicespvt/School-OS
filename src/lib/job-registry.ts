@@ -6,5 +6,6 @@ import { defineSchedule } from "./jobs";
 import { escalateOverdue } from "./approvals";
 import "./exports";
 import "./importer";
+import "./approval-handlers";
 
 defineSchedule("approval-escalation", 60, (tx, ctx, now) => escalateOverdue(tx, ctx, now));

@@ -34,7 +34,7 @@ export function creditProblem(needs: Partial<Record<Channel, number>>, have: Rec
   return lines.length ? `${lines.join(" ")} Top up in Settings, SMS, WhatsApp & Email, or send by app only.` : null;
 }
 
-export async function useCredits(tx: Tx, ctx: SchoolContext, channel: Channel, amount: number, note: string, messageId: string | null) {
+export async function spendCredits(tx: Tx, ctx: SchoolContext, channel: Channel, amount: number, note: string, messageId: string | null) {
   if (amount === 0 || !PAID_CHANNELS.has(channel)) return;
   await tx.creditLedgerEntry.create({ data: { schoolId: ctx.schoolId, channel, amount: -amount, note: note.slice(0, 200), messageId, createdById: ctx.userId } });
 }

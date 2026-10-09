@@ -8,10 +8,10 @@ import { writeAudit } from "../audit";
 import { enqueue } from "../jobs";
 import { formatDate } from "../format";
 import { CHANNEL_LABEL, onChannels, preferredChannel, type Channel } from "./channels";
-import { creditBalances, creditProblem, creditsFor, PAID_CHANNELS, useCredits } from "./credits";
+import { creditBalances, creditProblem, creditsFor, PAID_CHANNELS, spendCredits } from "./credits";
 import { describeAudience, resolveAudience, SYSTEM_SCOPE, type AudienceRule, type Candidate, type Scope } from "./recipients";
 import { currentVersions, missingWords, render, unusableReason, type UsableVersion } from "./templates";
-import { messageSettings, BACKUP_TYPES, type BackupType } from "./settings";
+import { BACKUP_TYPES, type BackupType } from "./settings";
 
 export const MAX_TEXT = 1000;
 export const DELIVER_JOB = "messaging:deliver";
@@ -182,7 +182,6 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
   // SMS backup (fee, attendance and result messages only).
   let backupVersions: UsableVersion[] = [];
   let backupTemplateId: string | null = null;
-  const settings = await messageSettings(tx, ctx);
   const backupWanted = Boolean(input.smsBackup && input.messageType && (BACKUP_TYPES as readonly string[]).includes(input.messageType) && channels.some((c) => c !== "sms"));
   if (backupWanted) {
     backupTemplateId = input.backupTemplateId ?? null;
@@ -382,7 +381,7 @@ export async function recordSend(tx: Tx, ctx: SchoolContext, input: SendInput, p
   });
   if (!failForCredits) {
     for (const [ch, n] of Object.entries(plan.cost)) {
-      await useCredits(tx, ctx, ch as Channel, n ?? 0, `${message.title ?? message.audienceLabel}: ${plan.rows.filter((r) => r.channel === ch).length} ${CHANNEL_LABEL[ch as Channel]}`, message.id);
+      await spendCredits(tx, ctx, ch as Channel, n ?? 0, `${message.title ?? message.audienceLabel}: ${plan.rows.filter((r) => r.channel === ch).length} ${CHANNEL_LABEL[ch as Channel]}`, message.id);
     }
   }
   await enqueue(tx, ctx, DELIVER_JOB, `deliver:${message.id}:0:0`, { messageId: message.id, round: "0", chunk: 0 }, scheduled ? input.scheduledAt! : now);

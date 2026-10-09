@@ -12,7 +12,7 @@ import { enqueue } from "../jobs";
 import { notify } from "../notifications";
 import { fileStore } from "../storage";
 import { CHANNEL_LABEL, channelSecrets, channelSetups, type Channel, type ProviderChannel } from "./channels";
-import { creditBalances, creditsFor, PAID_CHANNELS, returnCredits, useCredits } from "./credits";
+import { creditBalances, creditsFor, PAID_CHANNELS, returnCredits, spendCredits } from "./credits";
 import { providerFor, type Outgoing, type Provider, type SendResult } from "./providers";
 import { DELIVER_JOB, MessagingProblem } from "./send";
 import { messageSettings, type BackupType } from "./settings";
@@ -268,7 +268,7 @@ export async function retryFailed(tx: Tx, ctx: SchoolContext, messageId: string)
       data: { status: "QUEUED", failReason: null, failedAt: null, queuedAt: now, credits: creditsFor(r.channel as Channel, r.text), history: historyWith(r.history, { at: now.toISOString(), status: "QUEUED", note: "Retry" }) },
     });
   }
-  for (const [ch, n] of Object.entries(needs)) await useCredits(tx, ctx, ch as Channel, n, `Retry: ${msg.title ?? msg.audienceLabel}`, msg.id);
+  for (const [ch, n] of Object.entries(needs)) await spendCredits(tx, ctx, ch as Channel, n, `Retry: ${msg.title ?? msg.audienceLabel}`, msg.id);
   await tx.message.update({ where: { id: msg.id }, data: { status: "QUEUED" } });
   const round = `r${now.getTime()}`;
   await enqueue(tx, ctx, DELIVER_JOB, `deliver:${msg.id}:${round}:0`, { messageId: msg.id, round, chunk: 0 });
@@ -329,7 +329,7 @@ export async function runSmsBackup(tx: Tx, ctx: SchoolContext, now = new Date())
           history: [{ at: now.toISOString(), status: "QUEUED", note: `Sent by SMS backup: ${reason}` }],
         },
       });
-      await useCredits(tx, ctx, "sms", cost, `SMS backup for ${r.name}`, m.id);
+      await spendCredits(tx, ctx, "sms", cost, `SMS backup for ${r.name}`, m.id);
       made++;
     }
     const round = `b${Math.floor(now.getTime() / 60_000)}`;

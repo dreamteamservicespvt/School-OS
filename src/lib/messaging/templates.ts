@@ -79,7 +79,6 @@ export function missingWords(missing: string[]) {
 
 /** SMS parts: 160 characters (153 per part when longer), or 70 (67) with Indian scripts. */
 export function smsParts(text: string): number {
-  // eslint-disable-next-line no-control-regex
   const unicode = /[^\x00-\x7F₹]/.test(text);
   const len = [...text].length;
   const single = unicode ? 70 : 160;

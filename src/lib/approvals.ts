@@ -31,6 +31,7 @@ export const REQUEST_TYPES = [
   { key: "data-deletion", label: "Data deletion" },
   { key: "user-request", label: "User join request" },
   { key: "payment-cancellation", label: "Fee payment cancellation" },
+  { key: "staff-exit", label: "Staff exit" },
 ] as const;
 
 export type RequestType = (typeof REQUEST_TYPES)[number]["key"];
@@ -78,6 +79,12 @@ export type NewRequest = {
   reason?: string | null;
   /** A named person for this one request, e.g. the class teacher of the student's section. Used when the rule's first step is that role. */
   preferredApproverId?: string | null;
+  /**
+   * A named person who decides first, before the rule's steps (e.g. the head
+   * of the staff member's department for staff leave). If nobody decides in
+   * time, escalation moves the request to the rule's first step.
+   */
+  firstApproverId?: string | null;
 };
 
 async function stepsFor(tx: Tx, schoolId: string, type: string): Promise<{ steps: RuleStep[]; escalateAfterDays: number }> {
@@ -97,7 +104,14 @@ export async function requestApproval(tx: Tx, ctx: SchoolContext, req: NewReques
   const { steps } = await stepsFor(tx, ctx.schoolId, req.type);
   let index = stepForAmount(steps, amount);
   let route: { role: string | null; user: string | null; people: string[] } | null = null;
-  if (req.preferredApproverId && req.preferredApproverId !== ctx.userId && index >= 0) {
+  if (req.firstApproverId && req.firstApproverId !== ctx.userId && index >= 0) {
+    const people = await holders(tx, ctx.schoolId, { approverUserId: req.firstApproverId });
+    if (people.length > 0) {
+      route = { role: null, user: req.firstApproverId, people };
+      index = -1;
+    }
+  }
+  if (!route && req.preferredApproverId && req.preferredApproverId !== ctx.userId && index >= 0) {
     const people = await holders(tx, ctx.schoolId, steps[index]);
     if (people.includes(req.preferredApproverId)) route = { role: null, user: req.preferredApproverId, people: [req.preferredApproverId] };
   }

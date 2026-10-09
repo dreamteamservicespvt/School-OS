@@ -1,0 +1,389 @@
+// 09 Staff & HR Management: HR Settings, leave rules, emergency contacts,
+// ID card prints, recruitment, appraisal, training, promotions and exits.
+// Records named in 09-staff-hr-management.md §8 ("Other records (inferred)").
+
+/// HR Settings for one school: staff ID and username formats, notice period, document reminders.
+model HrSetting {
+  schoolId       String   @id @map("school_id") @db.Uuid
+  /// Staff ID prefix; the running number follows, e.g. "SPS-ST-" + 042.
+  staffIdPrefix  String   @default("ST-") @map("staff_id_prefix")
+  staffIdDigits  Int      @default(3) @map("staff_id_digits")
+  /// "first.last", "firstlast", "phone" or "staffid".
+  usernameFormat String   @default("first.last") @map("username_format")
+  noticeDays     Int      @default(30) @map("notice_days")
+  /// Days before expiry when reminders go (A15).
+  reminderDays   Int[]    @default([30, 7]) @map("reminder_days")
+  documentTypes  String[] @default(["Certificate", "ID proof", "Contract", "Police verification", "Other"]) @map("document_types")
+  /// Staff form: optional fields the school makes required, e.g. ["email", "dateOfBirth"].
+  requiredFields String[] @default([]) @map("required_fields")
+  updatedById    String?  @map("updated_by_id") @db.Uuid
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("hr_setting")
+}
+
+/// Designation: a post such as Teacher or Accountant. Not a role.
+model Designation {
+  id                  String    @id @default(uuid()) @db.Uuid
+  schoolId            String    @map("school_id") @db.Uuid
+  name                String
+  /// Teaching or Non-teaching.
+  staffType           String    @default("Teaching") @map("staff_type")
+  defaultDepartmentId String?   @map("default_department_id") @db.Uuid
+  /// Role key offered first in Add Staff, e.g. "teacher".
+  defaultRoleKey      String?   @map("default_role_key")
+  sortOrder           Int       @default(0) @map("sort_order")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+  archivedAt          DateTime? @map("archived_at")
+
+  @@unique([schoolId, name])
+  @@map("designation")
+}
+
+/// The staff rules of one Leave Type (HR Settings): half days, documents, holidays, loss of pay, sensitive.
+model LeaveTypeRule {
+  leaveTypeId      String   @id @map("leave_type_id") @db.Uuid
+  schoolId         String   @map("school_id") @db.Uuid
+  halfDayAllowed   Boolean  @default(true) @map("half_day_allowed")
+  /// A document is always needed (for example maternity leave).
+  documentRequired Boolean  @default(false) @map("document_required")
+  /// Weekends and holidays inside the dates count as leave days.
+  countsHolidays   Boolean  @default(false) @map("counts_holidays")
+  /// Days beyond the balance are saved as loss of pay instead of being refused.
+  lossOfPay        Boolean  @default(false) @map("loss_of_pay")
+  /// Shown only as "On leave" to colleagues on the shared leave calendar.
+  sensitive        Boolean  @default(false)
+  /// Yearly quota by employment type, e.g. { "Contract": 6 }. Others get the type's days per year.
+  quotaByGroup     Json     @default("{}") @map("quota_by_group")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@index([schoolId])
+  @@map("leave_type_rule")
+}
+
+/// Staff-only details of a Leave Request: which half of the day, loss-of-pay days.
+model StaffLeaveDetail {
+  leaveRequestId  String   @id @map("leave_request_id") @db.Uuid
+  schoolId        String   @map("school_id") @db.Uuid
+  /// "first" or "second" for half days.
+  halfDayPart     String?  @map("half_day_part")
+  /// Days beyond the balance, unpaid (they reach Generate Salary).
+  lopDays         Decimal  @default(0) @map("lop_days") @db.Decimal(5, 1)
+  /// Applied by HR for the staff member.
+  onBehalf        Boolean  @default(false) @map("on_behalf")
+  /// Teacher periods affected, worked out when applied.
+  periodsAffected Int      @default(0) @map("periods_affected")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([schoolId])
+  @@map("staff_leave_detail")
+}
+
+/// Emergency Contact: a person to call for a staff member, in priority order.
+model EmergencyContact {
+  id         String    @id @default(uuid()) @db.Uuid
+  schoolId   String    @map("school_id") @db.Uuid
+  staffId    String    @map("staff_id") @db.Uuid
+  name       String
+  relation   String
+  phone      String
+  priority   Int       @default(1)
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  archivedAt DateTime? @map("archived_at")
+
+  @@index([schoolId, staffId])
+  @@map("emergency_contact")
+}
+
+/// Staff ID Card Print: one printed card, with the reason when it is a reprint.
+model StaffIdCardPrint {
+  id          String   @id @default(uuid()) @db.Uuid
+  schoolId    String   @map("school_id") @db.Uuid
+  staffId     String   @map("staff_id") @db.Uuid
+  batchKey    String?  @map("batch_key")
+  reprint     Boolean  @default(false)
+  reason      String?
+  printedById String?  @map("printed_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([schoolId, staffId])
+  @@map("staff_id_card_print")
+}
+
+enum VacancyStatus {
+  OPEN
+  ON_HOLD
+  FILLED
+  CLOSED
+}
+
+enum ApplicationStatus {
+  NEW
+  SHORTLISTED
+  INTERVIEW
+  OFFERED
+  HIRED
+  REJECTED
+  WITHDRAWN
+}
+
+/// Vacancy: an open post.
+model Vacancy {
+  id           String        @id @default(uuid()) @db.Uuid
+  schoolId     String        @map("school_id") @db.Uuid
+  designation  String
+  departmentId String?       @map("department_id") @db.Uuid
+  openings     Int           @default(1)
+  closingDate  DateTime?     @map("closing_date") @db.Date
+  details      String?
+  status       VacancyStatus @default(OPEN)
+  createdById  String?       @map("created_by_id") @db.Uuid
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  archivedAt   DateTime?     @map("archived_at")
+
+  applications JobApplication[]
+
+  @@index([schoolId, status])
+  @@map("vacancy")
+}
+
+/// Job Application: one person applying for a vacancy.
+model JobApplication {
+  id              String            @id @default(uuid()) @db.Uuid
+  schoolId        String            @map("school_id") @db.Uuid
+  vacancyId       String            @map("vacancy_id") @db.Uuid
+  name            String
+  phone           String
+  email           String?
+  qualification   String?
+  experienceYears Int?              @map("experience_years")
+  resumeFileId    String?           @map("resume_file_id") @db.Uuid
+  status          ApplicationStatus @default(NEW)
+  notes           String?
+  hiredStaffId    String?           @map("hired_staff_id") @db.Uuid
+  createdById     String?           @map("created_by_id") @db.Uuid
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+  archivedAt      DateTime?         @map("archived_at")
+
+  vacancy    Vacancy     @relation(fields: [vacancyId], references: [id])
+  interviews Interview[]
+  offers     Offer[]
+
+  @@index([schoolId, vacancyId])
+  @@map("job_application")
+}
+
+/// Interview: one interview of an applicant, with the staff who interview.
+model Interview {
+  id             String   @id @default(uuid()) @db.Uuid
+  schoolId       String   @map("school_id") @db.Uuid
+  applicationId  String   @map("application_id") @db.Uuid
+  startsAt       DateTime @map("starts_at")
+  minutes        Int      @default(30)
+  interviewerIds String[] @map("interviewer_ids") @db.Uuid
+  place          String?
+  /// PENDING, PASSED, FAILED, NO_SHOW, CANCELLED.
+  outcome        String   @default("PENDING")
+  notes          String?
+  createdById    String?  @map("created_by_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  application JobApplication @relation(fields: [applicationId], references: [id])
+
+  @@index([schoolId, startsAt])
+  @@map("interview")
+}
+
+/// Offer: an offer made to an applicant.
+model Offer {
+  id            String    @id @default(uuid()) @db.Uuid
+  schoolId      String    @map("school_id") @db.Uuid
+  applicationId String    @map("application_id") @db.Uuid
+  offerNo       String    @map("offer_no")
+  designation   String
+  departmentId  String?   @map("department_id") @db.Uuid
+  joiningDate   DateTime  @map("joining_date") @db.Date
+  monthlyPaise  BigInt?   @map("monthly_paise")
+  respondBy     DateTime? @map("respond_by") @db.Date
+  /// MADE, ACCEPTED, DECLINED, WITHDRAWN.
+  status        String    @default("MADE")
+  createdById   String?   @map("created_by_id") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  application JobApplication @relation(fields: [applicationId], references: [id])
+
+  @@unique([schoolId, offerNo])
+  @@map("offer")
+}
+
+/// Appraisal Cycle: one year's appraisal with its form (criteria rated 1 to 5).
+model AppraisalCycle {
+  id             String    @id @default(uuid()) @db.Uuid
+  schoolId       String    @map("school_id") @db.Uuid
+  academicYearId String    @map("academic_year_id") @db.Uuid
+  name           String
+  /// The form: criteria names, each rated 1 to 5.
+  criteria       String[]
+  startDate      DateTime  @map("start_date") @db.Date
+  endDate        DateTime  @map("end_date") @db.Date
+  /// OPEN or CLOSED.
+  status         String    @default("OPEN")
+  closedAt       DateTime? @map("closed_at")
+  createdById    String?   @map("created_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  appraisals Appraisal[]
+
+  @@unique([schoolId, name])
+  @@map("appraisal_cycle")
+}
+
+/// Appraisal: one staff member's review in a cycle.
+model Appraisal {
+  id             String   @id @default(uuid()) @db.Uuid
+  schoolId       String   @map("school_id") @db.Uuid
+  cycleId        String   @map("cycle_id") @db.Uuid
+  staffId        String   @map("staff_id") @db.Uuid
+  reviewerId     String?  @map("reviewer_id") @db.Uuid
+  /// SELF_REVIEW, MANAGER_REVIEW, DONE.
+  status         String   @default("SELF_REVIEW")
+  selfRatings    Json     @default("{}") @map("self_ratings")
+  selfComment    String?  @map("self_comment")
+  managerRatings Json     @default("{}") @map("manager_ratings")
+  managerComment String?  @map("manager_comment")
+  finalRating    Decimal? @map("final_rating") @db.Decimal(3, 1)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  cycle AppraisalCycle @relation(fields: [cycleId], references: [id])
+
+  @@unique([cycleId, staffId])
+  @@map("appraisal")
+}
+
+/// Training Record: a course a staff member attended.
+model TrainingRecord {
+  id                String    @id @default(uuid()) @db.Uuid
+  schoolId          String    @map("school_id") @db.Uuid
+  staffId           String    @map("staff_id") @db.Uuid
+  course            String
+  provider          String?
+  fromDate          DateTime  @map("from_date") @db.Date
+  toDate            DateTime  @map("to_date") @db.Date
+  hours             Decimal   @db.Decimal(6, 1)
+  certificateFileId String?   @map("certificate_file_id") @db.Uuid
+  createdById       String?   @map("created_by_id") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at")
+  archivedAt        DateTime? @map("archived_at")
+
+  @@index([schoolId, staffId])
+  @@map("training_record")
+}
+
+/// Promotion Record: a change of designation.
+model PromotionRecord {
+  id               String   @id @default(uuid()) @db.Uuid
+  schoolId         String   @map("school_id") @db.Uuid
+  staffId          String   @map("staff_id") @db.Uuid
+  fromDesignation  String   @map("from_designation")
+  toDesignation    String   @map("to_designation")
+  fromDepartmentId String?  @map("from_department_id") @db.Uuid
+  toDepartmentId   String?  @map("to_department_id") @db.Uuid
+  effectiveFrom    DateTime @map("effective_from") @db.Date
+  reason           String
+  createdById      String?  @map("created_by_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([schoolId, staffId])
+  @@map("promotion_record")
+}
+
+enum ExitType {
+  RESIGNATION
+  RETIREMENT
+  TERMINATION
+}
+
+enum ExitStatus {
+  WAITING_APPROVAL
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+/// Exit Case: a staff member leaving, with handover, clearance and final settlement.
+model ExitCase {
+  id                 String     @id @default(uuid()) @db.Uuid
+  schoolId           String     @map("school_id") @db.Uuid
+  staffId            String     @map("staff_id") @db.Uuid
+  type               ExitType
+  receivedOn         DateTime   @map("received_on") @db.Date
+  lastWorkingDay     DateTime   @map("last_working_day") @db.Date
+  reason             String
+  letterFileId       String?    @map("letter_file_id") @db.Uuid
+  status             ExitStatus @default(IN_PROGRESS)
+  approvalId         String?    @map("approval_id") @db.Uuid
+  /// NOT_SENT, SENT (to Salary Management), DONE.
+  settlementStatus   String     @default("NOT_SENT") @map("settlement_status")
+  settlementNote     String?    @map("settlement_note")
+  loginDisabledAt    DateTime?  @map("login_disabled_at")
+  experienceLetterNo String?    @map("experience_letter_no")
+  experienceLetterAt DateTime?  @map("experience_letter_at")
+  createdById        String?    @map("created_by_id") @db.Uuid
+  createdAt          DateTime   @default(now()) @map("created_at")
+  updatedAt          DateTime   @updatedAt @map("updated_at")
+
+  handover  HandoverItem[]
+  clearance ClearanceCheck[]
+
+  @@index([schoolId, status])
+  @@index([schoolId, staffId])
+  @@map("exit_case")
+}
+
+/// Handover Item: one class, duty, item or document to hand over, and who takes it.
+model HandoverItem {
+  id         String    @id @default(uuid()) @db.Uuid
+  schoolId   String    @map("school_id") @db.Uuid
+  exitCaseId String    @map("exit_case_id") @db.Uuid
+  /// allocation, class-teacher, asset, book, document, other.
+  kind       String
+  label      String
+  /// The record handed over (Teacher Allocation or Section id).
+  refId      String?   @map("ref_id") @db.Uuid
+  toStaffId  String?   @map("to_staff_id") @db.Uuid
+  doneAt     DateTime? @map("done_at")
+  doneById   String?   @map("done_by_id") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  exitCase ExitCase @relation(fields: [exitCaseId], references: [id])
+
+  @@index([schoolId, exitCaseId])
+  @@map("handover_item")
+}
+
+/// Clearance Check: one check across modules (assets, books, advances, ID card).
+model ClearanceCheck {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  exitCaseId  String    @map("exit_case_id") @db.Uuid
+  key         String
+  label       String
+  /// PENDING, CLEARED, NOT_NEEDED.
+  status      String    @default("PENDING")
+  note        String?
+  clearedById String?   @map("cleared_by_id") @db.Uuid
+  clearedAt   DateTime? @map("cleared_at")
+
+  exitCase ExitCase @relation(fields: [exitCaseId], references: [id])
+
+  @@unique([exitCaseId, key])
+  @@map("clearance_check")
+}

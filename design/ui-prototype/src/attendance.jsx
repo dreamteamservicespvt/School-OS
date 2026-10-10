@@ -3,6 +3,7 @@ import * as I from './icons.js';
 import { CLASS_7B } from './data.js';
 import { cx, Card, Button, Pill, Avatar, Tabs, Sheet, PageHead, useToast } from './ui.jsx';
 import { ModuleHead } from './kit.jsx';
+import { useRole } from './shell.jsx';
 
 const ST = {
   P: { label: 'Present', short: 'P', on: 'bg-ok text-surface border-ok', soft: 'text-ok' },
@@ -11,7 +12,11 @@ const ST = {
   V: { label: 'Leave', short: 'Leave', on: 'bg-info/15 text-info border-info/30', soft: 'text-info' },
 };
 
-const AttHead = () => <ModuleHead title="Attendance" sub="Class 7 B · Friday, 9 October · Class teacher Ravi Teja" />;
+const AttHead = () => {
+  const { role } = useRole();
+  const sub = role.id === 'teacher' ? 'Class 7 B · Period 2, Mathematics · Friday, 9 October · Imran Shaikh' : 'Class 7 B · Friday, 9 October · Class teacher Ravi Teja';
+  return <ModuleHead title="Attendance" sub={sub} />;
+};
 export const ATTENDANCE_BASE = {
   take: () => <div><AttHead /><Take /></div>,
   register: () => <div><AttHead /><Register /></div>,

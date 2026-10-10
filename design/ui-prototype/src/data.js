@@ -236,24 +236,3 @@ export const NAV = [
     { id: 'settings', label: 'Settings', icon: 'Settings' },
   ] },
 ];
-
-// Pages per module (from the blueprint), shown on modules whose screens come in the next design round
-export const MODULE_PAGES = {
-  admissions: ['Enquiries', 'Applications', 'Entrance test', 'Admission approval', 'Admission form designer'],
-  communication: ['Send message', 'Notice board', 'Parent Link', 'Templates', 'Message history'],
-  academic: ['Classes & sections', 'Subjects', 'Time Table', 'Lesson plans', 'Syllabus progress'],
-  exams: ['Exams & datesheet', 'Admit cards', 'Marks entry', 'Results', 'Report cards'],
-  homework: ['Give homework', 'Check submissions', 'Study material', 'Online classes'],
-  events: ['School calendar', 'Holidays', 'Events', 'PTM planner'],
-  staff: ['Staff list', 'Staff profile', 'Leave', 'Documents', 'Staff attendance'],
-  salary: ['Salary structure', 'Run payroll', 'Payslips', 'PF & ESI statements'],
-  finance: ['Day Book', 'Income', 'Expenses', 'Budget', 'Bank & cash books'],
-  frontoffice: ['Reception desk', 'Visitors', 'Gate pass', 'Calls & enquiries', 'Postal'],
-  transport: ['Routes & stops', 'Vehicles', 'Drivers', 'Live tracking', 'Transport fee'],
-  library: ['Books', 'Issue & return', 'Members', 'Fines'],
-  inventory: ['Items', 'Stock in & out', 'Assets', 'Vendors', 'Purchase orders'],
-  hostel: ['Rooms & beds', 'Allocation', 'Outing passes', 'Mess'],
-  reports: ['Ready reports', 'Government reports', 'Make your own report', 'Scheduled reports'],
-  settings: ['School profile', 'Academic year', 'Users & permissions', 'Fee settings', 'Payment gateways'],
-  approvals: ['Leave requests', 'Concessions', 'Expenses', 'Payment verification'],
-};

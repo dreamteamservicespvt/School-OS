@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import * as I from './icons.js';
-import { NAV, MODULE_PAGES, APPROVALS } from './data.js';
+import { NAV, APPROVALS } from './data.js';
 import { cx, Card, CardHead, Button, Pill, Avatar, Switch, PageHead, useToast, Empty } from './ui.jsx';
-import { useNav, useTheme } from './shell.jsx';
+import { useNav, useTheme, useRole, approvalsFor } from './shell.jsx';
 
 export const ACCENTS = [
   { id: 'lagoon', name: 'Lagoon', light: '12 112 100', dark: '52 196 174' },
@@ -100,43 +100,12 @@ function ThemeThumb({ kind }) {
   );
 }
 
-/* Modules designed in the next round. Honest about it, and shows the pages the module will have. */
-export function ModuleNext({ id }) {
-  const { go } = useNav();
-  const item = NAV.flatMap((g) => g.items).find((x) => x.id === id) || { label: 'Approvals', icon: 'ListChecks' };
-  const Ic = I[item.icon];
-  const pages = MODULE_PAGES[id] || [];
-  return (
-    <div className="max-w-4xl">
-      <PageHead title={item.label} />
-      <Card className="p-5 @md:p-6 flex flex-col @md:flex-row gap-5 @md:items-center">
-        <span className="w-14 h-14 rounded-2xl bg-brand/10 text-brand grid place-items-center shrink-0"><Ic size={26} /></span>
-        <div className="flex-1">
-          <p className="font-semibold text-[16px]">These screens come in the next design round</p>
-          <p className="text-[14px] text-ink3 mt-1 leading-relaxed">This preview covers the screens a school uses every day. Once you approve the look, {item.label} gets the same design, using the pages below from the blueprint.</p>
-        </div>
-        <Button variant="secondary" icon={I.LayoutGrid} onClick={() => go('dashboard')}>Back to Dashboard</Button>
-      </Card>
-      {pages.length > 0 && (
-        <>
-          <p className="eyebrow text-ink3 mt-6 mb-3">Pages in {item.label}</p>
-          <ul className="grid @sm:grid-cols-2 @xl:grid-cols-3 gap-3">
-            {pages.map((p, i) => (
-              <li key={p} className="rounded-2xl border border-dashed border-line p-4 flex items-center gap-3">
-                <span className="w-8 h-8 rounded-lg bg-sunken text-ink3 grid place-items-center text-[13px] font-bold tnum">{i + 1}</span>
-                <span className="font-semibold text-[14.5px]">{p}</span>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-    </div>
-  );
-}
-
 export function Approvals() {
   const toast = useToast();
-  const [list, setList] = useState(APPROVALS);
+  const { role } = useRole();
+  const [list, setList] = useState(() => approvalsFor(role));
+  const admin = role.id === 'principal' || role.id === 'schooladmin';
+  const [support, setSupport] = useState(admin ? 'waiting' : null);
   const decide = (a, ok) => {
     setList((x) => x.filter((y) => y !== a));
     toast({ title: `${ok ? 'Approved' : 'Declined'}: ${a.what}`, undo: () => setList((x) => [a, ...x]) });
@@ -144,6 +113,26 @@ export function Approvals() {
   return (
     <div className="max-w-3xl">
       <PageHead title="Approvals" sub="Requests only you can decide" />
+      {support && (
+        <Card className="mb-5 border-info/30">
+          <div className="flex flex-col @md:flex-row @md:items-center gap-3 p-4">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <span className="w-[42px] h-[42px] rounded-full bg-info/10 text-info grid place-items-center shrink-0"><I.LifeBuoy size={20} /></span>
+              <div className="min-w-0">
+                <p className="font-semibold text-[15px]">DREAM TEAM support · Neha Gupta</p>
+                <p className="text-[13.5px] text-ink3">{support === 'waiting' ? 'Asks to look inside School OS for 1 hour: “Fee structure is not saving”' : support === 'allowed' ? 'Allowed until 3:40 PM. Everything they do is in your audit log, marked DREAM TEAM support.' : 'Declined. They have been told.'}</p>
+              </div>
+              <Pill tone="info" className="ml-auto @md:ml-2">Support access</Pill>
+            </div>
+            {support === 'waiting' ? (
+              <div className="flex gap-2">
+                <Button variant="soft" icon={I.Check} onClick={() => { setSupport('allowed'); toast({ title: 'Support access allowed for 1 hour', body: 'They cannot see Aadhaar numbers, salaries or counselling notes, export data or cancel payments.' }); }}>Allow</Button>
+                <Button variant="ghost" onClick={() => setSupport('declined')}>Decline</Button>
+              </div>
+            ) : support === 'allowed' ? <Button variant="secondary" onClick={() => { setSupport('declined'); toast({ title: 'Support access ended now' }); }}>End access now</Button> : null}
+          </div>
+        </Card>
+      )}
       <Card>
         {list.length === 0 ? <Empty icon={I.CheckCheck} title="Nothing waiting" body="New requests show up here and in your notifications." /> : (
           <ul className="divide-y divide-line/70">

@@ -12,7 +12,7 @@ import { StudentProfile, AddStudentSheet } from './students.jsx';
 import { ParentLink } from './parent.jsx';
 import { SignIn } from './signin.jsx';
 import { Appearance, Approvals } from './other.jsx';
-import { RoleHome, MyProfile } from './dashboards.jsx';
+import { RoleHome, MyProfile, SetupHome } from './dashboards.jsx';
 import { SuperAdminApp, SuperAdminSignIn } from './superadmin.jsx';
 import { DriverApp, ParentFirstOpen, AdminInvite, SchoolPaused } from './apps.jsx';
 
@@ -23,7 +23,7 @@ const store = {
 
 // Screens outside the school's menu
 const OUTSIDE = ['signin', 'parent', 'parentotp', 'invite', 'suspended', 'driver', 'sa-signin', 'sa'];
-const SPECIAL = ['student', 'appearance', 'approvals', 'profile'];
+const SPECIAL = ['student', 'appearance', 'approvals', 'profile', 'setup'];
 const KNOWN = new Set([...OUTSIDE, ...SPECIAL, ...Object.keys(MODULES)]);
 // '#fees.defaulters' -> { screen: 'fees', params: { page: 'defaulters' } }
 const parseHash = () => {
@@ -151,8 +151,9 @@ function Shell({ route }) {
     s === 'appearance' ? <Appearance /> :
     s === 'approvals' ? <Approvals /> :
     s === 'profile' ? <MyProfile /> :
+    s === 'setup' ? <SetupHome /> :
     <ModuleScreen id={s} params={route.params} onAddStudent={() => setAdd(true)} />;
-  const title = s === 'dashboard' ? 'Dashboard' : s === 'student' ? 'Student profile' : s === 'appearance' ? 'Appearance' : s === 'approvals' ? 'Approvals' : s === 'profile' ? 'My profile' : s === 'fees' && (route.params.page || 'collect') === 'collect' ? 'Collect fee' : MODULES[s]?.short;
+  const title = s === 'dashboard' ? 'Dashboard' : s === 'student' ? 'Student profile' : s === 'appearance' ? 'Appearance' : s === 'approvals' ? 'Approvals' : s === 'profile' ? 'My profile' : s === 'setup' ? 'Setup checklist' : s === 'fees' && (route.params.page || 'collect') === 'collect' ? 'Collect fee' : MODULES[s]?.short;
 
   return (
     <div className="flex flex-col h-full">
@@ -249,7 +250,7 @@ const JUMP = [
   ['Modules', NAV.flatMap((g) => g.items).filter((x) => x.id !== 'dashboard').map((x) => [x.id, x.label])],
   ['Everyone', [['profile', 'My profile and password']]],
   ['Super Admin console (DREAM TEAM)', [['sa-signin', 'Console sign in'], ['sa', 'Console dashboard'], ['sa.schools', 'Schools'], ['sa.school', 'One school’s page'], ['sa.add', 'Add School'], ['sa.support', 'Support Access'], ['sa.billing', 'Plans & Billing'], ['sa.team', 'Team'], ['sa.activity', 'Activity Log']]],
-  ['Other sides', [['invite', 'School Admin invite: set password'], ['parentotp', 'Parent Link: first open on a new phone'], ['driver', 'Driver app (Android)'], ['suspended', 'School paused (Suspended)']]],
+  ['Other sides', [['invite', 'School Admin invite: set password'], ['setup', 'School Admin first day: Setup checklist'], ['parentotp', 'Parent Link: first open on a new phone'], ['driver', 'Driver app (Android)'], ['suspended', 'School paused (Suspended)']]],
 ];
 const JUMP_IDS = JUMP.flatMap((g) => g[1].map((x) => x[0]));
 

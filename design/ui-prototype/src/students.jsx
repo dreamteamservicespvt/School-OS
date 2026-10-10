@@ -2,8 +2,16 @@ import React, { useEffect, useMemo, useState } from 'react';
 import * as I from './icons.js';
 import { STUDENTS, CLASSES, FEATURED, STUDENT_PROFILE as P, FEE_ROWS, OCT_ATT, inr } from './data.js';
 import { cx, Card, CardHead, Button, Pill, Avatar, Checkbox, Input, Field, Segmented, Tabs, Ring, Empty, Skel, Sheet, PageHead, useToast, feeTone, inputCls } from './ui.jsx';
-import { useNav } from './shell.jsx';
-import { ModuleHead, useCanEdit } from './kit.jsx';
+import { useNav, useRole } from './shell.jsx';
+import { ModuleHead, useCanEdit, usePage } from './kit.jsx';
+
+// Which students a role sees in the list: teachers their own classes, the class teacher their section, the warden the boarders
+export function studentScope(roleId) {
+  if (roleId === 'teacher') return { list: STUDENTS.filter((s) => ['6', '7'].includes(s.clsId) && ['A', 'B'].includes(s.sec)), note: 'Your classes: 6 A, 6 B, 7 A, 7 B' };
+  if (roleId === 'classteacher') return { list: STUDENTS.filter((s) => s.clsId === '7' && s.sec === 'B'), note: 'Your class: 7 B' };
+  if (roleId === 'warden') return { list: STUDENTS.filter((s, i) => Number(s.clsId) >= 6 && !s.girl && i % 3 === 0), note: 'Boarders in the boys’ hostel' };
+  return { list: STUDENTS, note: null };
+}
 
 export const StudentListPage = ({ onAddStudent }) => <Students onAddStudent={onAddStudent} />;
 
@@ -11,6 +19,11 @@ export const StudentListPage = ({ onAddStudent }) => <Students onAddStudent={onA
 export function Students({ onAddStudent }) {
   const { go } = useNav();
   const toast = useToast();
+  const { role } = useRole();
+  const { access } = usePage();
+  const scope = useMemo(() => studentScope(role.id), [role.id]);
+  const POOL = scope.list;
+  const classes = CLASSES.filter((c) => POOL.some((s) => s.clsId === c.id));
   const [cls, setCls] = useState('all');
   const [sec, setSec] = useState('all');
   const [q, setQ] = useState('');
@@ -22,17 +35,17 @@ export function Students({ onAddStudent }) {
 
   const counts = useMemo(() => {
     const m = {};
-    STUDENTS.forEach((s) => (m[s.clsId] = (m[s.clsId] || 0) + 1));
+    POOL.forEach((s) => (m[s.clsId] = (m[s.clsId] || 0) + 1));
     return m;
-  }, []);
+  }, [POOL]);
   const rows = useMemo(() => {
     const t = q.trim().toLowerCase();
-    return STUDENTS.filter((s) =>
+    return POOL.filter((s) =>
       (cls === 'all' || s.clsId === cls) && (sec === 'all' || s.sec === sec) &&
       (fee === 'all' || (fee === 'dues' ? s.due > 0 : s.feeState === 'Overdue')) &&
       (!t || s.name.toLowerCase().includes(t) || s.adm.toLowerCase().includes(t) || s.father.toLowerCase().includes(t) || s.phone.replace(' ', '').includes(t.replace(/\s/g, '')))
     ).sort((a, b) => (a.clsId === b.clsId ? a.sec.localeCompare(b.sec) || a.roll - b.roll : 0));
-  }, [cls, sec, q, fee]);
+  }, [cls, sec, q, fee, POOL]);
   const shown = rows.slice(0, limit);
   const curClass = CLASSES.find((c) => c.id === cls);
   const allOn = shown.length > 0 && shown.every((s) => sel.has(s.id));
@@ -41,8 +54,8 @@ export function Students({ onAddStudent }) {
 
   return (
     <div>
-      <ModuleHead title="Students" sub={`${STUDENTS.length} studying in 2026–27 · example records`}
-        actions={<>
+      <ModuleHead title="Students" sub={scope.note ? `${scope.note} · ${POOL.length} students` : `${STUDENTS.length} studying in 2026–27 · example records`}
+        actions={access === 'full' && <>
           <Button variant="secondary" icon={I.Upload} className="hidden @md:inline-flex" onClick={() => toast({ title: 'Import from Excel', body: 'Pick a file. We check every row before adding anything.', tone: 'info' })}>Import</Button>
           <Button variant="secondary" icon={I.Download} className="hidden @md:inline-flex" onClick={() => toast({ title: `Exported ${rows.length} students`, body: 'students-2026-27.xlsx is ready in Downloads' })}>Export</Button>
           <Button variant="primary" icon={I.UserPlus} onClick={onAddStudent}>Add student</Button>
@@ -51,14 +64,14 @@ export function Students({ onAddStudent }) {
       {/* Class picker */}
       <div className="-mx-4 px-4 @md:mx-0 @md:px-0 overflow-x-auto no-scrollbar">
         <div className="flex gap-2 w-max pb-1">
-          {[{ id: 'all', name: 'All classes' }, ...CLASSES].map((c) => {
+          {[{ id: 'all', name: classes.length === 1 ? 'My class' : 'All classes' }, ...classes].map((c) => {
             const on = cls === c.id;
             return (
               <button key={c.id} onClick={() => { setCls(c.id); setSec('all'); setLimit(20); }}
                 className={cx('h-10 px-3.5 rounded-xl text-[13.5px] font-semibold border transition inline-flex items-center gap-2',
                   on ? 'bg-ink text-bg border-ink' : 'bg-surface border-line text-ink2 hover:border-ink3/50 hover:text-ink')}>
                 {c.name}
-                <span className={cx('text-[11.5px] tnum', on ? 'opacity-70' : 'text-ink3')}>{c.id === 'all' ? STUDENTS.length : counts[c.id] || 0}</span>
+                <span className={cx('text-[11.5px] tnum', on ? 'opacity-70' : 'text-ink3')}>{c.id === 'all' ? POOL.length : counts[c.id] || 0}</span>
               </button>
             );
           })}
@@ -67,7 +80,7 @@ export function Students({ onAddStudent }) {
       {curClass && (
         <div className="flex gap-2 mt-3 items-center flex-wrap animate-rise">
           <span className="text-[13px] text-ink3 font-medium mr-1">Section</span>
-          <Segmented size="sm" value={sec} onChange={setSec} options={[{ value: 'all', label: 'All' }, ...curClass.sections.map((s) => ({ value: s, label: s }))]} />
+          <Segmented size="sm" value={sec} onChange={setSec} options={[{ value: 'all', label: 'All' }, ...curClass.sections.filter((x) => POOL.some((s) => s.clsId === curClass.id && s.sec === x)).map((s) => ({ value: s, label: s }))]} />
         </div>
       )}
 
@@ -252,6 +265,13 @@ export function StudentProfile({ id }) {
   const [tab, setTab] = useState('overview');
   const [more, setMore] = useState(false);
   const docsDone = P.docs.filter((d) => d.ok).length;
+  const { role } = useRole();
+  const acc = role.access;
+  // Which profile tabs each role may open (05-roles.md): the accountant sees fees, front desk and library only the overview
+  const TABS = { accountant: ['overview', 'fees'], receptionist: ['overview'], librarian: ['overview'], gatesecurity: ['overview'], admissioncounsellor: ['overview', 'documents'] }[role.id]
+    || (acc.fees ? ['overview', 'attendance', 'fees', 'exams', 'documents', 'timeline'] : ['overview', 'attendance', 'exams', 'documents', 'timeline']);
+  const canCollect = acc.fees === 'full';
+  const canAdmin = acc.students === 'full';
 
   return (
     <div>
@@ -274,9 +294,9 @@ export function StudentProfile({ id }) {
             </div>
           </div>
           <div className="flex gap-2 relative">
-            <Button variant="primary" icon={I.IndianRupee} className="flex-1 @lg:flex-none" onClick={() => go('fees', { student: s.id })}>Collect fee</Button>
-            <Button variant="secondary" icon={I.MessageCircle} className="flex-1 @lg:flex-none" onClick={() => toast({ title: `Message to ${s.father}`, body: 'Opening WhatsApp message with the school template', tone: 'info' })}>Message<span className="hidden @sm:inline">&nbsp;parent</span></Button>
-            <Button variant="secondary" icon={I.Ellipsis} aria-label="More actions" onClick={() => setMore(!more)} className="!px-3" />
+            {canCollect && <Button variant="primary" icon={I.IndianRupee} className="flex-1 @lg:flex-none" onClick={() => go('fees', { student: s.id })}>Collect fee</Button>}
+            {acc.communication && <Button variant={canCollect ? 'secondary' : 'primary'} icon={I.MessageCircle} className="flex-1 @lg:flex-none" onClick={() => toast({ title: `Message to ${s.father}`, body: 'Opening WhatsApp message with the school template', tone: 'info' })}>Message<span className="hidden @sm:inline">&nbsp;parent</span></Button>}
+            {canAdmin && <Button variant="secondary" icon={I.Ellipsis} aria-label="More actions" onClick={() => setMore(!more)} className="!px-3" />}
             {more && (
               <>
                 <div className="fixed inset-0 z-30" onClick={() => setMore(false)} />
@@ -299,7 +319,7 @@ export function StudentProfile({ id }) {
             { k: 'Documents', v: `${docsDone} of ${P.docs.length}`, sub: '1 missing', tone: 'warn', icon: I.FolderOpen, tab: 'documents' },
             { k: 'Library', v: '1 book', sub: 'Due 14 Oct', icon: I.BookOpen },
           ].map((m, i) => (
-            <button key={m.k} onClick={() => m.tab && setTab(m.tab)} disabled={!m.tab}
+            <button key={m.k} onClick={() => m.tab && setTab(m.tab)} disabled={!m.tab || !TABS.includes(m.tab)}
               className={cx('text-left px-4 @md:px-5 py-3.5 border-line enabled:hover:bg-sunken/60 transition', 'border-b @xl:border-b-0', i % 2 === 0 && 'border-r', '@md:border-r @xl:border-r', i === 5 && '@xl:border-r-0')}>
               <p className="text-[12px] text-ink3 font-semibold flex items-center gap-1.5"><m.icon size={14} />{m.k}</p>
               <p className={cx('font-semibold text-[17px] tnum mt-0.5', m.tone === 'bad' && 'text-bad', m.tone === 'warn' && m.k !== 'Documents' && 'text-warn')}>{m.v}</p>
@@ -312,7 +332,7 @@ export function StudentProfile({ id }) {
       <Tabs className="mt-5" value={tab} onChange={setTab} tabs={[
         { id: 'overview', label: 'Overview' }, { id: 'attendance', label: 'Attendance' }, { id: 'fees', label: 'Fees' },
         { id: 'exams', label: 'Exams' }, { id: 'documents', label: 'Documents' }, { id: 'timeline', label: 'Timeline' },
-      ]} />
+      ].filter((t) => TABS.includes(t.id))} />
 
       <div className="mt-5 animate-rise" key={tab}>
         {tab === 'overview' && <Overview s={s} featured={featured} />}
@@ -454,7 +474,7 @@ function FeesTab({ s }) {
           <div><p className="text-[12px] text-ink3 font-semibold">Paid</p><p className="text-[18px] font-semibold tnum text-ok">{inr(paid)}</p></div>
           <div><p className="text-[12px] text-ink3 font-semibold">Balance</p><p className="text-[18px] font-semibold tnum text-bad">{inr(total - paid)}</p></div>
         </div>
-        <Button variant="primary" icon={I.IndianRupee} onClick={() => go('fees', { student: s.id })}>Collect fee</Button>
+        {useRole().role.access.fees === 'full' && <Button variant="primary" icon={I.IndianRupee} onClick={() => go('fees', { student: s.id })}>Collect fee</Button>}
       </Card>
       <Card className="overflow-hidden">
         <CardHead title="Installments" sub="Oldest first" />

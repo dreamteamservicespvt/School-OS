@@ -3,6 +3,7 @@ import * as I from './icons.js';
 import { PARENT, SCHOOL, OCT_ATT, FEE_ROWS, inr } from './data.js';
 import { cx, Button, Pill, Avatar, Sheet, useToast, Spinner } from './ui.jsx';
 import { useNav } from './shell.jsx';
+import { ConsentCard } from './apps.jsx';
 
 export function ParentLink() {
   const { go } = useNav();
@@ -132,6 +133,9 @@ function ParentPage() {
             </ul>
           </section>
         )}
+
+        {/* Consent forms (Classes 5 to 7 picnic) */}
+        {c.id === 'c1' && <ConsentCard child="Aarav" />}
 
         {/* Report card */}
         <section className="rounded-3xl bg-surface border border-line shadow-card p-5 flex items-center gap-4">

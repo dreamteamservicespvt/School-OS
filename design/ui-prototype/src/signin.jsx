@@ -2,12 +2,14 @@ import React, { useRef, useState } from 'react';
 import * as I from './icons.js';
 import { SCHOOL } from './data.js';
 import { cx, Button, Field, Input, Checkbox } from './ui.jsx';
-import { useNav, Logo } from './shell.jsx';
+import { useNav, useRole, Logo } from './shell.jsx';
+import { ROLES } from './config.js';
 
 export function SignIn() {
   const { go } = useNav();
+  const { role, setRole } = useRole();
   const [mode, setMode] = useState('password');
-  const [id, setId] = useState('lakshmi.rao@sunriseps.in');
+  const [id, setId] = useState(role.person.email || role.person.phone);
   const [pw, setPw] = useState('');
   const [show, setShow] = useState(false);
   const [remember, setRemember] = useState(true);
@@ -35,7 +37,7 @@ export function SignIn() {
       }
       if (mode === 'otp' && !otpSent) { setOtpSent(true); setTimeout(() => boxes.current[0]?.focus(), 50); return; }
       if (mode === 'otp' && otp.join('').length < 6) { setErr({ otp: 'Enter all 6 digits' }); return; }
-      go('dashboard');
+      go(role.id === 'student' ? 'homework' : 'dashboard');
     }, 900);
   };
 
@@ -122,7 +124,19 @@ export function SignIn() {
               {mode === 'otp' ? 'Use password instead' : 'Sign in with a one-time code instead'}
             </button>
           </form>
-          <p className="mt-6 text-[12.5px] text-ink3 text-center rounded-xl border border-dashed border-line p-3">Design preview: any password with 6 or more characters signs you in. A shorter one shows the wrong-password message.</p>
+          <div className="mt-6 text-[12.5px] text-ink3 rounded-xl border border-dashed border-line p-3 flex flex-col gap-2.5">
+            <p className="text-center">Design preview: any password with 6 or more characters signs you in. A shorter one shows the wrong-password message.</p>
+            <label htmlFor="si-as" className="font-semibold text-ink2">Sign in as</label>
+            <div className="relative">
+              <select id="si-as" value={role.id} onChange={(e) => { const r = ROLES.find((x) => x.id === e.target.value); setRole(r.id); setId(r.person.email || r.person.phone); setErr({}); }}
+                className="h-10 w-full appearance-none rounded-lg bg-surface border border-line pl-3 pr-9 text-[13.5px] text-ink font-semibold outline-none focus:border-brand cursor-pointer">
+                <optgroup label="Ready roles">{ROLES.filter((r) => r.group === 'ready').map((r) => <option key={r.id} value={r.id}>{r.label} · {r.person.name}</option>)}</optgroup>
+                <optgroup label="Role templates">{ROLES.filter((r) => r.group === 'template').map((r) => <option key={r.id} value={r.id}>{r.label} · {r.person.name}</option>)}</optgroup>
+              </select>
+              <I.ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-ink3" />
+            </div>
+            <p>Each role sees only its own menu and home screen. Parents use Parent Link, drivers use the Android app, and DREAM TEAM uses its own console: pick them from <b className="font-semibold text-ink2">View as</b> in the dark bar above.</p>
+          </div>
         </div>
         <p className="text-[12.5px] text-ink3 text-center flex items-center justify-center gap-1.5"><I.ShieldCheck size={14} />Protected sign-in · Works on phone, tablet and computer</p>
       </div>

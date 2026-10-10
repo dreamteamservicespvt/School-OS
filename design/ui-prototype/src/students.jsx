@@ -3,6 +3,9 @@ import * as I from './icons.js';
 import { STUDENTS, CLASSES, FEATURED, STUDENT_PROFILE as P, FEE_ROWS, OCT_ATT, inr } from './data.js';
 import { cx, Card, CardHead, Button, Pill, Avatar, Checkbox, Input, Field, Segmented, Tabs, Ring, Empty, Skel, Sheet, PageHead, useToast, feeTone, inputCls } from './ui.jsx';
 import { useNav } from './shell.jsx';
+import { ModuleHead, useCanEdit } from './kit.jsx';
+
+export const StudentListPage = ({ onAddStudent }) => <Students onAddStudent={onAddStudent} />;
 
 /* ======================= Student List ======================= */
 export function Students({ onAddStudent }) {
@@ -38,7 +41,7 @@ export function Students({ onAddStudent }) {
 
   return (
     <div>
-      <PageHead title="Students" sub={`${STUDENTS.length} studying in 2026–27 · example records`}
+      <ModuleHead title="Students" sub={`${STUDENTS.length} studying in 2026–27 · example records`}
         actions={<>
           <Button variant="secondary" icon={I.Upload} className="hidden @md:inline-flex" onClick={() => toast({ title: 'Import from Excel', body: 'Pick a file. We check every row before adding anything.', tone: 'info' })}>Import</Button>
           <Button variant="secondary" icon={I.Download} className="hidden @md:inline-flex" onClick={() => toast({ title: `Exported ${rows.length} students`, body: 'students-2026-27.xlsx is ready in Downloads' })}>Export</Button>

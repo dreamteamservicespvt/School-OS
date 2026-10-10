@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState, createContext, useContext } from 'react';
 import * as I from './icons.js';
 import { NAV, SCHOOL, ME, STUDENTS, NOTIFICATIONS, APPROVALS, FEATURED } from './data.js';
+import { MODULES, BOTTOM, QUICK_BY_ROLE, APPROVALS_BY_ROLE, SCHOOLS_IN_GROUP, pagesFor } from './config.js';
 import { cx, IconButton, Avatar, Kbd, Sheet, Button, Pill, useToast } from './ui.jsx';
 
 export const NavCtx = createContext({ go: () => {}, screen: 'dashboard' });
@@ -9,6 +10,21 @@ export const ThemeCtx = createContext({});
 export const useTheme = () => useContext(ThemeCtx);
 
 export const ICONS = I;
+
+// Who is signed in, which modules are switched on, which academic year is open
+export const RoleCtx = createContext({ role: { id: 'principal', access: {} }, access: () => 'full', modulesOn: {}, year: { label: '2026–27' } });
+export const useRole = () => useContext(RoleCtx);
+// The menu for this person: only modules their roles allow and the school has switched on
+export function useMenu() {
+  const { role, modulesOn } = useRole();
+  return NAV.map((g) => ({ ...g, items: g.items.filter((it) => role.access[it.id] && modulesOn[it.id] !== false) })).filter((g) => g.items.length);
+}
+export function approvalsFor(role) {
+  if (role.id === 'principal' || role.id === 'schooladmin') return APPROVALS;
+  return APPROVALS_BY_ROLE[role.id] || [];
+}
+// 'fees.defaulters' -> go('fees', { page: 'defaulters' })
+export const goTo = (go, id, extra = {}) => { const [m, p] = id.split('.'); go(m, p ? { page: p, ...extra } : extra); };
 
 /* School mark: a rising sun over three lines (rows of a register) */
 export function Logo({ size = 36 }) {
@@ -24,23 +40,26 @@ export function Logo({ size = 36 }) {
 }
 
 const MAIN_IDS = ['dashboard', 'students', 'fees', 'attendance'];
-const activeFor = (screen) => (screen === 'student' ? 'students' : screen === 'appearance' ? 'settings' : screen);
+const activeFor = (screen) => (screen === 'student' ? 'students' : screen === 'appearance' || screen === 'profile' ? null : screen);
 
 /* ---------- Sidebar (computer and tablet) ---------- */
-export function Sidebar({ collapsed, onQuick }) {
+export function Sidebar({ collapsed, onQuick, onSwitch }) {
   const { go, screen } = useNav();
+  const { role } = useRole();
+  const menu = useMenu();
   const active = activeFor(screen);
   return (
     <aside className={cx('hidden @md:flex flex-col shrink-0 h-full border-r border-line bg-surface transition-[width] duration-200',
       collapsed ? 'w-[76px]' : 'w-[76px] @lg:w-[268px]')}>
-      <div className="h-16 flex items-center gap-3 px-[18px] shrink-0">
+      <button onClick={role.multiSchool ? onSwitch : undefined} title={role.multiSchool ? 'Switch school or campus' : SCHOOL.name}
+        className={cx('h-16 flex items-center gap-3 px-[18px] shrink-0 text-left', !role.multiSchool && 'cursor-default')}>
         <Logo />
         <div className={cx('min-w-0 hidden', !collapsed && '@lg:block')}>
           <p className="font-display font-semibold text-[15px] leading-tight truncate">{SCHOOL.name}</p>
           <p className="text-xs text-ink3 truncate">{SCHOOL.place}</p>
         </div>
-      </div>
-      <div className="px-3.5 pb-2 pt-1">
+      </button>
+      <div className={cx('px-3.5 pb-2 pt-1', !quickFor(role).length && 'hidden')}>
         <button onClick={onQuick}
           className={cx('w-full h-11 rounded-xl bg-brand text-brandink font-semibold text-sm inline-flex items-center justify-center gap-2 hover:brightness-110 shadow-sm transition')}
           title="Quick actions">
@@ -49,7 +68,7 @@ export function Sidebar({ collapsed, onQuick }) {
         </button>
       </div>
       <nav className="flex-1 overflow-y-auto scroll-thin px-3 pb-4" aria-label="Main menu">
-        {NAV.map((g, gi) => (
+        {menu.map((g, gi) => (
           <div key={gi} className="pt-3">
             {g.group && (
               <p className={cx('eyebrow text-ink3 px-3 pb-1.5 hidden', !collapsed && '@lg:block')}>{g.group}</p>
@@ -68,7 +87,7 @@ export function Sidebar({ collapsed, onQuick }) {
                       {on && <span className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r bg-brand -ml-3" />}
                       <Ic size={19} strokeWidth={on ? 2.3 : 2} className="shrink-0" />
                       <span className={cx('truncate hidden', !collapsed && '@lg:inline')}>{it.label}</span>
-                      {it.count && (
+                      {it.count && role.access[it.id] === 'full' && (
                         <span className={cx('ml-auto text-[11px] font-bold tnum px-1.5 h-5 rounded-md bg-sunken text-ink2 items-center hidden', !collapsed && '@lg:inline-flex')}>{it.count}</span>
                       )}
                     </button>
@@ -88,9 +107,12 @@ export function Sidebar({ collapsed, onQuick }) {
 }
 
 /* ---------- Top bar ---------- */
-export function TopBar({ onSearch, onNotif, onProfile, onApprovals, unread, title }) {
+export function TopBar({ onSearch, onNotif, onProfile, onApprovals, unread, title, onYear }) {
   const { go } = useNav();
   const { mode, setMode, resolved } = useTheme();
+  const { role, year } = useRole();
+  const ME = role.person;
+  const appr = approvalsFor(role);
   return (
     <header className="h-16 shrink-0 flex items-center gap-2 px-3 @md:px-5 border-b border-line bg-surface/85 backdrop-blur-md z-20">
       {/* Phone: logo + title */}
@@ -109,11 +131,12 @@ export function TopBar({ onSearch, onNotif, onProfile, onApprovals, unread, titl
         <span className="ml-auto flex gap-1"><Kbd>Ctrl</Kbd><Kbd>K</Kbd></span>
       </button>
       <div className="flex-1 hidden @md:block" />
-      <button className="hidden @lg:inline-flex items-center gap-2 h-9 px-3 rounded-xl border border-line text-[13px] font-semibold text-ink2 hover:bg-sunken" title="Academic year">
-        <I.CalendarRange size={16} /> {SCHOOL.year}
+      <button onClick={onYear} className={cx('hidden @lg:inline-flex items-center gap-2 h-9 px-3 rounded-xl border text-[13px] font-semibold hover:bg-sunken', year.closed ? 'border-warn/50 text-warn' : 'border-line text-ink2')} title="Academic year">
+        <I.CalendarRange size={16} /> {year.label}
       </button>
       <IconButton className="@md:hidden" icon={I.Search} label="Search" onClick={onSearch} />
-      <IconButton className="hidden @md:inline-flex" icon={I.ListChecks} label="Approvals waiting" badge={APPROVALS.length} onClick={onApprovals} />
+      {appr.length > 0 && <IconButton className="hidden @md:inline-flex" icon={I.ListChecks} label="Approvals waiting" badge={appr.length} onClick={onApprovals} />}
+      {role.access.communication && <IconButton className="hidden @md:inline-flex" icon={I.MessageCircle} label="Messages" badge={role.id === 'student' ? null : 2} onClick={() => go('communication', { page: 'inbox' })} />}
       <IconButton icon={I.Bell} label="Notifications" badge={unread || null} onClick={onNotif} />
       <IconButton className="hidden @md:inline-flex" icon={resolved === 'dark' ? I.Sun : I.Moon} label={resolved === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
         onClick={() => setMode(resolved === 'dark' ? 'light' : 'dark')} />
@@ -130,23 +153,20 @@ export function TopBar({ onSearch, onNotif, onProfile, onApprovals, unread, titl
 
 /* ---------- Bottom bar (phone) ---------- */
 export function BottomNav({ onMore }) {
-  const { go, screen } = useNav();
+  const { go, screen, params } = useNav();
+  const { role } = useRole();
   const active = activeFor(screen);
-  const items = [
-    { id: 'dashboard', label: 'Home', icon: I.House },
-    { id: 'students', label: 'Students', icon: I.GraduationCap },
-    { id: 'fees', label: 'Collect', icon: I.IndianRupee, big: true },
-    { id: 'attendance', label: 'Attendance', icon: I.CalendarCheck2 },
-  ];
-  const moreOn = !MAIN_IDS.includes(active);
+  const items = (BOTTOM[role.id] || BOTTOM.principal).map(([id, label, icon, big]) => ({ id, label, icon: I[icon] || I.Circle, big: !!big }));
+  const isOn = (id) => { const [m, p] = id.split('.'); return m === active && (!p || p === params?.page); };
+  const moreOn = !items.some((it) => isOn(it.id));
   return (
     <nav className="@md:hidden shrink-0 border-t border-line bg-surface/95 backdrop-blur-md px-2 pt-1.5 z-20" style={{ paddingBottom: 'calc(6px + env(safe-area-inset-bottom, 0px))' }} aria-label="Main menu">
       <ul className="grid grid-cols-5">
         {items.map((it) => {
-          const on = active === it.id;
+          const on = isOn(it.id);
           return (
             <li key={it.id} className="flex justify-center">
-              <button onClick={() => go(it.id)} aria-current={on ? 'page' : undefined}
+              <button onClick={() => goTo(go, it.id)} aria-current={on ? 'page' : undefined}
                 className={cx('flex flex-col items-center gap-1 w-full py-1 text-[11px] font-semibold', on ? 'text-brand' : 'text-ink3')}>
                 {it.big ? (
                   <span className={cx('w-12 h-9 -mt-0.5 rounded-2xl grid place-items-center transition', on ? 'bg-brand text-brandink' : 'bg-brand/12 text-brand')}>
@@ -176,10 +196,11 @@ export function BottomNav({ onMore }) {
 /* ---------- "More" on phone: every module as a big tile ---------- */
 export function MoreSheet({ open, onClose }) {
   const { go } = useNav();
+  const menu = useMenu();
   return (
     <Sheet open={open} onClose={onClose} title="All modules" sub="Tap any module to open it">
       <div className="flex flex-col gap-5">
-        {NAV.filter((g) => g.group).map((g) => (
+        {menu.filter((g) => g.group).map((g) => (
           <div key={g.group}>
             <p className="eyebrow text-ink3 mb-2">{g.group}</p>
             <div className="grid grid-cols-3 gap-2">
@@ -210,13 +231,19 @@ export const QUICK = [
   { id: 'admissions', label: 'Add enquiry', sub: 'A parent asked about admission', icon: I.PhoneIncoming },
   { id: 'finance', label: 'Record expense', sub: 'Bills, purchases, petty cash', icon: I.ReceiptText },
 ];
+const QUICK_BIG = ['principal', 'schooladmin', 'vp'];
+export function quickFor(role) {
+  if (QUICK_BIG.includes(role.id)) return QUICK;
+  return (QUICK_BY_ROLE[role.id] || []).map(([id, label, sub, icon]) => ({ id, label, sub, icon: I[icon] || I.Circle }));
+}
 export function QuickSheet({ open, onClose, onAddStudent }) {
   const { go } = useNav();
+  const { role } = useRole();
   return (
     <Sheet open={open} onClose={onClose} title="What do you want to do?">
       <div className="grid @sm:grid-cols-2 gap-2">
-        {QUICK.map((q) => (
-          <button key={q.id} onClick={() => { onClose(); q.id === 'add-student' ? onAddStudent() : go(q.id); }}
+        {quickFor(role).map((q) => (
+          <button key={q.id + q.label} onClick={() => { onClose(); q.id === 'add-student' ? onAddStudent() : goTo(go, q.id); }}
             className="flex items-center gap-3 text-left p-3 rounded-2xl border border-line hover:border-brand/40 hover:bg-brand/5 transition">
             <span className="w-11 h-11 rounded-xl bg-brand/10 text-brand grid place-items-center shrink-0"><q.icon size={21} /></span>
             <span className="min-w-0">
@@ -233,6 +260,10 @@ export function QuickSheet({ open, onClose, onAddStudent }) {
 /* ---------- Search / Ask / Do ---------- */
 export function CommandPalette({ open, onClose, onAddStudent }) {
   const { go } = useNav();
+  const { role } = useRole();
+  const menu = useMenu();
+  const canStudents = !!role.access.students;
+  const canFees = role.access.fees === 'full';
   const [q, setQ] = useState('');
   const [sel, setSel] = useState(0);
   const inp = useRef(null);
@@ -241,27 +272,31 @@ export function CommandPalette({ open, onClose, onAddStudent }) {
   const results = useMemo(() => {
     const t = q.trim().toLowerCase();
     const out = [];
-    const feeMatch = t.match(/^(fee|fees|collect)\s+(.+)/);
+    const feeMatch = canFees && t.match(/^(fee|fees|collect)\s+(.+)/);
     if (feeMatch) {
       STUDENTS.filter((s) => s.name.toLowerCase().includes(feeMatch[2])).slice(0, 3).forEach((s) =>
         out.push({ sec: 'Do this', icon: I.IndianRupee, label: `Collect fee from ${s.name}`, sub: `${s.cls} ${s.sec} · ${s.due ? '₹' + s.due.toLocaleString('en-IN') + ' due' : 'No dues'}`, run: () => go('fees', { student: s.id }) }));
     }
-    if (t.includes('absent')) out.push({ sec: 'Do this', icon: I.UserX, label: 'Show students absent today', sub: '52 students · Attendance register', run: () => go('attendance') });
+    if (t.includes('absent') && role.access.attendance) out.push({ sec: 'Do this', icon: I.UserX, label: 'Show students absent today', sub: '52 students · Attendance register', run: () => go('attendance') });
     if (!t) {
-      QUICK.slice(0, 4).forEach((x) => out.push({ sec: 'Quick actions', icon: x.icon, label: x.label, sub: x.sub, run: () => (x.id === 'add-student' ? onAddStudent() : go(x.id)) }));
-      out.push({ sec: 'Recent', icon: I.User, label: FEATURED.name, sub: `Class 7 B · Roll ${FEATURED.roll} · ${FEATURED.adm}`, run: () => go('student', { id: FEATURED.id }) });
-      out.push({ sec: 'Try asking', icon: I.Sparkles, label: 'fee Aarav', sub: 'Jumps straight to collecting a fee', fill: 'fee Aarav' });
-      out.push({ sec: 'Try asking', icon: I.Sparkles, label: 'absent today', sub: 'Lists who is absent right now', fill: 'absent today' });
+      quickFor(role).slice(0, 4).forEach((x) => out.push({ sec: 'Quick actions', icon: x.icon, label: x.label, sub: x.sub, run: () => (x.id === 'add-student' ? onAddStudent() : goTo(go, x.id)) }));
+      if (canStudents) out.push({ sec: 'Recent', icon: I.User, label: FEATURED.name, sub: `Class 7 B · Roll ${FEATURED.roll} · ${FEATURED.adm}`, run: () => go('student', { id: FEATURED.id }) });
+      if (canFees) out.push({ sec: 'Try asking', icon: I.Sparkles, label: 'fee Aarav', sub: 'Jumps straight to collecting a fee', fill: 'fee Aarav' });
+      if (role.access.attendance) out.push({ sec: 'Try asking', icon: I.Sparkles, label: 'absent today', sub: 'Lists who is absent right now', fill: 'absent today' });
       return out;
     }
-    if (!feeMatch) {
+    if (!feeMatch && canStudents) {
       STUDENTS.filter((s) => s.name.toLowerCase().includes(t) || s.adm.toLowerCase().includes(t) || s.phone.replace(' ', '').includes(t.replace(' ', '')))
         .slice(0, 5).forEach((s) => out.push({ sec: 'Students', icon: I.User, avatar: s.name, label: s.name, sub: `${s.cls} ${s.sec} · Roll ${s.roll} · ${s.adm}`, run: () => go('student', { id: s.id }) }));
     }
-    NAV.flatMap((g) => g.items).filter((it) => it.label.toLowerCase().includes(t)).slice(0, 4)
+    const items = menu.flatMap((g) => g.items);
+    items.filter((it) => it.label.toLowerCase().includes(t)).slice(0, 4)
       .forEach((it) => out.push({ sec: 'Pages', icon: I[it.icon], label: it.label, sub: 'Open', run: () => go(it.id) }));
+    items.flatMap((it) => pagesFor(it.id, role.access[it.id], role.id).map((p) => ({ it, p })))
+      .filter(({ p }) => p.label.toLowerCase().includes(t)).slice(0, 6)
+      .forEach(({ it, p }) => out.push({ sec: 'Pages', icon: I[it.icon], label: p.label, sub: it.label, run: () => go(it.id, { page: p.id }) }));
     return out;
-  }, [q]);
+  }, [q, role]);
 
   useEffect(() => setSel(0), [q]);
   const choose = (r) => { if (r.fill) { setQ(r.fill); inp.current?.focus(); return; } onClose(); r.run(); };
@@ -344,7 +379,7 @@ export function NotifPanel({ open, onClose, items, setItems }) {
         <ul className="overflow-y-auto scroll-thin px-2 pb-3">
           {items.map((n) => (
             <li key={n.id}>
-              <button onClick={() => { setItems(items.map((x) => (x.id === n.id ? { ...x, unread: false } : x))); onClose(); go(n.to); }}
+              <button onClick={() => { setItems(items.map((x) => (x.id === n.id ? { ...x, unread: false } : x))); onClose(); goTo(go, n.to); }}
                 className="w-full text-left flex gap-3 px-3 py-3 rounded-xl hover:bg-sunken">
                 <span className={cx('mt-1.5 w-2 h-2 rounded-full shrink-0', n.unread ? 'bg-brand' : 'bg-transparent')} />
                 <span className="min-w-0 flex-1">
@@ -362,9 +397,11 @@ export function NotifPanel({ open, onClose, items, setItems }) {
 }
 
 /* ---------- Profile menu ---------- */
-export function ProfileMenu({ open, onClose }) {
+export function ProfileMenu({ open, onClose, onSwitch }) {
   const { go } = useNav();
   const { mode, setMode } = useTheme();
+  const { role } = useRole();
+  const ME = role.person;
   if (!open) return null;
   const row = 'w-full flex items-center gap-3 px-3 h-11 rounded-xl hover:bg-sunken text-[14px] font-medium text-left';
   return (
@@ -390,8 +427,11 @@ export function ProfileMenu({ open, onClose }) {
         </div>
         <div className="border-t border-line my-1" />
         <button className={row} onClick={() => { onClose(); go('appearance'); }}><I.Palette size={18} className="text-ink3" />Colours and text size</button>
-        <button className={row} onClick={() => { onClose(); go('settings'); }}><I.UserCog size={18} className="text-ink3" />My profile and password</button>
-        <button className={row} onClick={() => { onClose(); go('parent'); }}><I.Smartphone size={18} className="text-ink3" />See what parents see</button>
+        <button className={row} onClick={() => { onClose(); go('profile'); }}><I.UserCog size={18} className="text-ink3" />My profile and password</button>
+        {role.access.staff === 'own' && <button className={row} onClick={() => { onClose(); go('staff', { page: 'leave' }); }}><I.CalendarDays size={18} className="text-ink3" />My leave</button>}
+        {role.access.salary === 'own' && <button className={row} onClick={() => { onClose(); go('salary', { page: 'slips' }); }}><I.Wallet size={18} className="text-ink3" />My salary slips</button>}
+        {role.multiSchool && <button className={row} onClick={() => { onClose(); onSwitch?.(); }}><I.ArrowRightLeft size={18} className="text-ink3" />Switch school or campus</button>}
+        {(role.id === 'principal' || role.id === 'schooladmin') && <button className={row} onClick={() => { onClose(); go('parent'); }}><I.Smartphone size={18} className="text-ink3" />See what parents see</button>}
         <div className="border-t border-line my-1" />
         <button className={cx(row, 'text-bad')} onClick={() => { onClose(); go('signin'); }}><I.LogOut size={18} />Sign out</button>
       </div>

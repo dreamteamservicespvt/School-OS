@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import * as I from './icons.js';
 import { CLASS_7B } from './data.js';
 import { cx, Card, Button, Pill, Avatar, Tabs, Sheet, PageHead, useToast } from './ui.jsx';
+import { ModuleHead } from './kit.jsx';
 
 const ST = {
   P: { label: 'Present', short: 'P', on: 'bg-ok text-surface border-ok', soft: 'text-ok' },
@@ -10,16 +11,11 @@ const ST = {
   V: { label: 'Leave', short: 'Leave', on: 'bg-info/15 text-info border-info/30', soft: 'text-info' },
 };
 
-export function Attendance() {
-  const [tab, setTab] = useState('take');
-  return (
-    <div>
-      <PageHead title="Attendance" sub="Class 7 B · Friday, 9 October · Class teacher Ravi Teja" />
-      <Tabs value={tab} onChange={setTab} tabs={[{ id: 'take', label: 'Take attendance' }, { id: 'register', label: 'Register' }]} className="mb-5" />
-      {tab === 'take' ? <Take /> : <Register />}
-    </div>
-  );
-}
+const AttHead = () => <ModuleHead title="Attendance" sub="Class 7 B · Friday, 9 October · Class teacher Ravi Teja" />;
+export const ATTENDANCE_BASE = {
+  take: () => <div><AttHead /><Take /></div>,
+  register: () => <div><AttHead /><Register /></div>,
+};
 
 function Take() {
   const toast = useToast();

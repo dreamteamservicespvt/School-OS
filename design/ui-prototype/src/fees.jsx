@@ -3,6 +3,9 @@ import * as I from './icons.js';
 import { STUDENTS, FEATURED, FEE_ROWS, ME, inr } from './data.js';
 import { cx, Card, CardHead, Button, Pill, Avatar, Checkbox, Input, Field, Ring, Sheet, PageHead, useToast, feeTone, inputCls, Empty } from './ui.jsx';
 import { useNav } from './shell.jsx';
+import { ModuleHead } from './kit.jsx';
+
+export const FEES_BASE = { collect: ({ params }) => <CollectFee studentId={params?.student} /> };
 
 const MODES = [
   { id: 'Cash', icon: I.Banknote },
@@ -29,8 +32,9 @@ function FindStudent({ onPick }) {
   const res = t ? STUDENTS.filter((s) => s.name.toLowerCase().includes(t) || s.adm.toLowerCase().includes(t) || s.phone.replace(' ', '').includes(t.replace(/\s/g, ''))).slice(0, 8) : [];
   const dueToday = [FEATURED, ...STUDENTS.filter((s) => s.feeState === 'Overdue' && s.id !== FEATURED.id).slice(0, 5)];
   return (
-    <div className="max-w-3xl mx-auto">
-      <PageHead title="Collect fee" sub="Find the student. Their dues show up ready to collect." />
+    <div>
+      <ModuleHead title="Collect fee" sub="Find the student. Their dues show up ready to collect." />
+      <div className="max-w-3xl">
       <div className="relative">
         <I.Search size={22} className="absolute left-4 top-1/2 -translate-y-1/2 text-ink3" />
         <input ref={inp} id="fee-search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Student name, admission no. or parent phone"
@@ -60,6 +64,7 @@ function FindStudent({ onPick }) {
           </>
         )}
       </Card>
+      </div>
     </div>
   );
 }

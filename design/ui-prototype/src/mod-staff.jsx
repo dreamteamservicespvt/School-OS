@@ -336,10 +336,10 @@ function StaffList() {
             <Button variant="primary" icon={I.UserPlus} onClick={() => go('staff', { page: 'add' })}>Add staff</Button>
           </>} />
         <Band items={[
-          { label: 'Staff on roll', big: '86', foot: '58 teaching · 28 non-teaching' },
-          { label: 'Present today', big: <>82<span className="text-[0.55em] opacity-70 font-medium"> / 86</span></>, foot: '1 came late · marked by 9:05 AM', onClick: () => go('attendance', { page: 'staff' }) },
-          { label: 'On leave today', big: '3', foot: 'Anitha K., Ramu Y., Shobha R.', onClick: () => go('staff', { page: 'leave' }) },
-          { label: 'Not in yet', big: '1', foot: 'Swapna Reddy · no call so far' },
+          { label: 'Staff on roll', big: '86', foot: '58 teaching, 28 others' },
+          { label: 'Present today', big: <>82<span className="text-[0.55em] opacity-70 font-medium"> / 86</span></>, foot: '1 came late today', onClick: () => go('attendance', { page: 'staff' }) },
+          { label: 'On leave today', big: '3', foot: 'Anitha, Ramu, Shobha', onClick: () => go('staff', { page: 'leave' }) },
+          { label: 'Not in yet', big: '1', foot: 'Swapna Reddy' },
         ]} />
       </div>
       <div>

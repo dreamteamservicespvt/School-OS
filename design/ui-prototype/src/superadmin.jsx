@@ -2696,7 +2696,7 @@ function AddSchool() {
   const est = f.start === 'Active' ? yearly(f.plan, approx || 100) + (f.hostel ? HOSTEL : 0) : 0;
 
   const steps = [
-    ['Building2', <>The school record is made with school code <span className="font-mono text-[12.5px]">{code}</span>, and its first campus.</>],
+    ['Building2', f.name.trim() && f.city.trim() ? <>The school record is made with school code <span className="font-mono text-[12.5px]">{code}</span>, and its first campus.</> : <>The school record is made with its own school code, made from the name and city (like <span className="font-mono text-[12.5px]">SPS-JAI-001</span>), and its first campus.</>],
     ['Database', 'Its own data space is made, kept apart from every other school.'],
     ['UsersRound', 'The starting roles are made: Principal / Owner, School Admin, Accountant, Teacher and the rest.'],
     ['LayoutGrid', `${modCount} modules are switched on, with the ${f.board} defaults ready to apply.`],

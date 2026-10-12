@@ -2,14 +2,15 @@ import type { Metadata } from "next";
 import type { Prisma } from "@prisma/client";
 import { DoorOpen, LogOut, SearchX } from "lucide-react";
 import { withSchool } from "@/lib/db";
+import { dateWhere, periodFromSearch } from "@/lib/periods";
 import { readListParams, orderByFor, listHref } from "@/lib/list";
 import { ButtonLink } from "@/components/ui/button";
 import { Pill } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
-import { Empty, FilterMenu, ListFooter, Toolbar } from "@/components/ui/blocks";
+import { Empty, ListFooter, Toolbar } from "@/components/ui/blocks";
+import { ListToolbar } from "@/components/list/list-toolbar";
 import { DataList, cardPill, type DataColumn } from "@/components/ui/data-list";
-import { UrlSearch, UrlSelect } from "@/components/ui/list-controls";
 import { isCleared } from "@/lib/students/leaving";
 import { shortDate, shownCount } from "@/lib/students/show";
 import { BASE, studentPage } from "../_lib/page";
@@ -29,11 +30,13 @@ export default async function LeavingPage({ searchParams }: { searchParams: Prom
   const raw = await searchParams;
   const params = readListParams(raw, FILTERS);
   const take = shownCount(raw, STEP);
+  const range = periodFromSearch(raw, { timeZone: tz });
   const path = `${BASE}/leaving`;
   const data = await withSchool(current.ctx, async (tx) => {
     const f = params.filters;
     const where: Prisma.LeavingRequestWhereInput = {
       status: "IN_PROGRESS",
+      ...(range ? { lastDate: dateWhere(range) } : {}),
       ...(f.type ? { type: f.type as "TRANSFER" } : {}),
       ...(f.clearance === "pending" ? { checks: { some: { status: { in: ["PENDING", "WAIVER_ASKED"] } } } } : f.clearance === "clear" ? { checks: { none: { status: { in: ["PENDING", "WAIVER_ASKED"] } } } } : {}),
       ...(params.q ? { OR: [{ reason: { contains: params.q, mode: "insensitive" as const } }, { studentId: { in: (await tx.student.findMany({ where: { OR: [{ fullName: { contains: params.q, mode: "insensitive" } }, { admissionNo: { contains: params.q, mode: "insensitive" } }] }, select: { id: true } })).map((s) => s.id) } }] } : {}),
@@ -74,7 +77,7 @@ export default async function LeavingPage({ searchParams }: { searchParams: Prom
     { key: "clearance", label: "Clearance", render: (r) => r.checks.length ? <div className="flex flex-wrap gap-1.5">{r.checks.map((c) => checkPill(c))}</div> : <span className="text-[12.5px] text-ink3">No checks yet</span> },
     { key: "tc", label: "TC", render: (r) => { const t = tcState(r); return <Pill tone={t.tone}>{t.label}</Pill>; } },
   ];
-  const filtered = Boolean(params.q || Object.keys(params.filters).length);
+  const filtered = Boolean(params.q || Object.keys(params.filters).length || range);
 
   return (
     <>
@@ -83,13 +86,9 @@ export default async function LeavingPage({ searchParams }: { searchParams: Prom
         subTabs={await leavingTabs()} subLabel="Leaving & Alumni" />
       <Card className="overflow-hidden">
         <Toolbar>
-          <UrlSearch id="lv-search" placeholder="Student name, admission number or reason" />
-          <div className="flex gap-2.5 items-center">
-            <UrlSelect id="lv-clear" param="clearance" label="Clearance" allLabel="Any clearance" options={[{ value: "pending", label: "Clearance pending" }, { value: "clear", label: "Cleared" }]} className="flex-1 md:w-48" />
-            <FilterMenu on={params.filters.type ? 1 : 0} clearHref={listHref(path, params, { type: null })}>
-              <UrlSelect id="lv-type" param="type" label="Type" allLabel="Every type" options={[{ value: "TRANSFER", label: "Transfer" }, { value: "WITHDRAWAL", label: "Withdrawal" }, { value: "GRADUATION", label: "Graduation" }]} />
-            </FilterMenu>
-          </div>
+          <ListToolbar placeholder="Student name, admission number or reason" showArchived={false} period={{ timeZone: tz, allLabel: "Last date: any" }}
+            filters={[{ key: "clearance", label: "Clearance", allLabel: "Any clearance", options: [{ value: "pending", label: "Clearance pending" }, { value: "clear", label: "Cleared" }] }]}
+            more={[{ key: "type", label: "Type", allLabel: "Every type", options: [{ value: "TRANSFER", label: "Transfer" }, { value: "WITHDRAWAL", label: "Withdrawal" }, { value: "GRADUATION", label: "Graduation" }] }]} />
         </Toolbar>
         <DataList caption="Students leaving" rows={data.rows} columns={columns} rowKey={(r) => r.id} minWidth={900}
           rowHref={(r) => `${path}/${r.id}`} rowLabel={(r) => `Open the leaving of ${data.facts.get(r.studentId)?.name ?? ""}`}

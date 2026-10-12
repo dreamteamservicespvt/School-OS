@@ -2,14 +2,15 @@ import type { Metadata } from "next";
 import type { Prisma } from "@prisma/client";
 import { DoorClosed, SearchX } from "lucide-react";
 import { withSchool } from "@/lib/db";
+import { dateWhere, periodFromSearch } from "@/lib/periods";
 import { readListParams, orderByFor, listHref } from "@/lib/list";
 import { ButtonLink } from "@/components/ui/button";
 import { Pill } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
-import { Empty, ListFooter, SegLinks, Toolbar } from "@/components/ui/blocks";
+import { Empty, ListFooter, Toolbar } from "@/components/ui/blocks";
+import { ListToolbar } from "@/components/list/list-toolbar";
 import { DataList, cardPill, type DataColumn } from "@/components/ui/data-list";
-import { UrlSearch, UrlSelect } from "@/components/ui/list-controls";
 import { shortDate, shownCount } from "@/lib/students/show";
 import { BASE, studentPage } from "../../_lib/page";
 import { StudentsHead } from "../../_lib/head";
@@ -27,6 +28,7 @@ export default async function LeftPage({ searchParams }: { searchParams: Promise
   const raw = await searchParams;
   const params = readListParams(raw, FILTERS);
   const take = shownCount(raw, STEP);
+  const range = periodFromSearch(raw, { timeZone: tz });
   const path = `${BASE}/leaving/left`;
   const data = await withSchool(current.ctx, async (tx) => {
     const f = params.filters;
@@ -34,6 +36,7 @@ export default async function LeftPage({ searchParams }: { searchParams: Promise
     const where: Prisma.LeavingRequestWhereInput = {
       status: f.status === "CANCELLED" ? "CANCELLED" : "LEFT",
       ...(f.type ? { type: f.type as "TRANSFER" } : {}),
+      ...(range ? { lastDate: dateWhere(range) } : {}),
       ...(nameIds ? { studentId: { in: nameIds } } : {}),
     };
     const orderBy = orderByFor(params, { lastDate: { lastDate: params.dir } }, [{ lastDate: "desc" }]);
@@ -59,7 +62,7 @@ export default async function LeftPage({ searchParams }: { searchParams: Promise
     { key: "destination", label: "Going to", render: (r) => <span className="text-[13.5px]">{r.destinationSchool ?? "–"}</span> },
     { key: "tc", label: "TC", render: (r) => <Pill tone={data.tcs.get(r.id)?.status === "ISSUED" ? "ok" : "neutral"}>{tcLabel(r)}</Pill> },
   ];
-  const filtered = Boolean(params.q || params.filters.type);
+  const filtered = Boolean(params.q || params.filters.type || range);
 
   return (
     <>
@@ -67,14 +70,11 @@ export default async function LeftPage({ searchParams }: { searchParams: Promise
         subTabs={await leavingTabs()} subLabel="Leaving & Alumni" />
       <Card className="overflow-hidden">
         <Toolbar>
-          <UrlSearch id="left-search" placeholder="Student name or admission number" />
-          <div className="flex gap-2.5 items-center flex-wrap">
-            <SegLinks label="Show" value={cancelled ? "cancelled" : "left"} options={[
-              { value: "left", label: "Left", href: listHref(path, params, { status: null, n: null }) },
-              { value: "cancelled", label: "Cancelled", href: listHref(path, params, { status: "CANCELLED", n: null }) },
+          <ListToolbar placeholder="Student name or admission number" showArchived={false} period={{ timeZone: tz, allLabel: "Last date: any" }}
+            filters={[
+              { key: "status", label: "Show", allLabel: "Left", options: [{ value: "CANCELLED", label: "Cancelled requests" }] },
+              { key: "type", label: "Type", allLabel: "Every type", options: [{ value: "TRANSFER", label: "Transfer" }, { value: "WITHDRAWAL", label: "Withdrawal" }, { value: "GRADUATION", label: "Graduation" }] },
             ]} />
-            <UrlSelect id="left-type" param="type" label="Type" allLabel="Every type" options={[{ value: "TRANSFER", label: "Transfer" }, { value: "WITHDRAWAL", label: "Withdrawal" }, { value: "GRADUATION", label: "Graduation" }]} className="flex-1 md:w-40" />
-          </div>
         </Toolbar>
         <DataList caption={cancelled ? "Cancelled leaving requests" : "Students who left"} rows={data.rows} columns={columns} rowKey={(r) => r.id} minWidth={880}
           rowHref={(r) => `${BASE}/leaving/${r.id}`} rowLabel={(r) => `Open the leaving of ${data.facts.get(r.studentId)?.name ?? ""}`}

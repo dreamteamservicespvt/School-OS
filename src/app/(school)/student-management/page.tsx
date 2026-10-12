@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Info, Download, IdCard, FileBadge, ArrowRightLeft, PenLine, KeyRound, Send, SlidersHorizontal, Upload, UserPlus, Images, History, SearchX, Users } from "lucide-react";
+import { Info, Download, IdCard, FileBadge, ArrowRightLeft, PenLine, KeyRound, Send, Upload, UserPlus, Images, History, SearchX, Users } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { readListParams, listHref, orderByFor } from "@/lib/list";
 import { formatDate, formatRupees } from "@/lib/format";
@@ -15,7 +15,8 @@ import { Avatar } from "@/components/ui/avatar";
 import { ButtonLink, buttonClass } from "@/components/ui/button";
 import { Banner, Chips, Empty, ListFooter, SegLinks, Toolbar } from "@/components/ui/blocks";
 import { DataList, cardPill, type DataColumn } from "@/components/ui/data-list";
-import { InlineBulkBar, UrlSearch, UrlSelect, UrlToggle, type BulkAction } from "@/components/ui/list-controls";
+import { InlineBulkBar, type BulkAction } from "@/components/ui/list-controls";
+import { ListToolbar } from "@/components/list/list-toolbar";
 import { MoreMenu } from "@/components/ui/more-menu";
 import { BASE, studentPage } from "./_lib/page";
 import { StudentsHead } from "./_lib/head";
@@ -126,7 +127,6 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
   if (params.q) filtersInUrl.set("q", params.q);
   for (const [k, v] of Object.entries(f)) filtersInUrl.set(k, v);
   if (params.archived) filtersInUrl.set("archived", "1");
-  const moreOn = ["status", "gender", "category", "new", "docs", "photo"].filter((k) => f[k]).length + (params.archived ? 1 : 0);
   const anyFilter = Boolean(params.q || Object.keys(f).length || params.archived);
   const ownNote = ab.reach === "own" ? `Your classes: ${data.tiles.flatMap((t) => t.sections.map((s) => classShort(t.name, s.name))).join(", ") || "none yet"}` : null;
   const moreHref = data.rows.length < data.total ? listHref(BASE, params, { n: shownCount + STEP, page: null }) : null;
@@ -193,31 +193,16 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
 
       <Card className="mt-4 overflow-hidden">
         <Toolbar>
-          <UrlSearch id="student-search" placeholder="Name, admission no., parent name or phone" />
-          <div className="flex gap-2.5 items-center">
-            {feesOn && seeFees && (
-              <SegLinks label="Fees" value={f.fee ?? "all"} className="flex-1 md:flex-none" options={[
-                { value: "all", label: "Everyone", href: href({ fee: null }) },
-                { value: "dues", label: "Has dues", href: href({ fee: "dues" }) },
-                { value: "overdue", label: "Overdue", href: href({ fee: "overdue" }) },
-              ]} />
-            )}
-            <details className="relative">
-              <summary className={buttonClass("secondary", "md", "list-none cursor-pointer h-11 [&::-webkit-details-marker]:hidden")}>
-                <SlidersHorizontal size={17} aria-hidden="true" />Filters{moreOn ? <span className="ml-0.5 grid h-5 min-w-5 place-items-center rounded-full bg-brand px-1 text-[11px] text-brandink tnum">{moreOn}</span> : null}
-              </summary>
-              <div className="absolute right-0 z-30 mt-1.5 w-[min(19rem,calc(100vw-2rem))] rounded-2xl border border-line bg-surface p-3 shadow-pop animate-rise flex flex-col gap-2">
-                <UrlSelect id="f-status" param="status" label="Status" allLabel="Status: studying" options={[...STUDENT_STATUSES.map((s) => ({ value: s, label: STATUS_LABEL[s] })), { value: "all", label: "Every status" }]} />
-                <UrlSelect id="f-gender" param="gender" label="Gender" allLabel="Gender: all" options={GENDERS.map((g) => ({ value: g, label: g }))} />
-                <UrlSelect id="f-category" param="category" label="Category" allLabel="Category: all" options={CATEGORIES.map((c) => ({ value: c, label: c }))} />
-                <UrlSelect id="f-new" param="new" label="New this year" allLabel="New this year: all" options={[{ value: "1", label: "Joined this year" }]} />
-                {ab.seeDocuments && <UrlSelect id="f-docs" param="docs" label="Documents" allLabel="Documents: all" options={[{ value: "missing", label: "Missing documents" }]} />}
-                <UrlSelect id="f-photo" param="photo" label="Photo" allLabel="Photo: all" options={[{ value: "missing", label: "Missing photo" }]} />
-                {ab.manage && <UrlToggle param="archived" label="Show archived students" />}
-                {anyFilter && <Link href={BASE} className={buttonClass("ghost", "sm", "self-start")}>Clear filters</Link>}
-              </div>
-            </details>
-          </div>
+          <ListToolbar placeholder="Name, admission no., parent name or phone" showArchived={ab.manage}
+            filters={feesOn && seeFees ? [{ key: "fee", label: "Fees", allLabel: "Fees: everyone", options: [{ value: "dues", label: "Has dues" }, { value: "overdue", label: "Overdue" }] }] : []}
+            more={[
+              { key: "status", label: "Status", allLabel: "Status: studying", options: [...STUDENT_STATUSES.map((s) => ({ value: s, label: STATUS_LABEL[s] })), { value: "all", label: "Every status" }] },
+              { key: "gender", label: "Gender", options: GENDERS.map((g) => ({ value: g, label: g })) },
+              { key: "category", label: "Category", options: CATEGORIES.map((c) => ({ value: c, label: c })) },
+              { key: "new", label: "New this year", options: [{ value: "1", label: "Joined this year" }] },
+              ...(ab.seeDocuments ? [{ key: "docs", label: "Documents", options: [{ value: "missing", label: "Missing documents" }] }] : []),
+              { key: "photo", label: "Photo", options: [{ value: "missing", label: "Missing photo" }] },
+            ]} />
         </Toolbar>
 
         {bulk.length > 0 && <InlineBulkBar form="student-bulk" actions={bulk} />}

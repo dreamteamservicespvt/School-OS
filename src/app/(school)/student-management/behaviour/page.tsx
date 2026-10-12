@@ -4,14 +4,15 @@ import { redirect } from "next/navigation";
 import type { Prisma } from "@prisma/client";
 import { Award, BarChart3, Plus, SearchX, ShieldCheck } from "lucide-react";
 import { withSchool } from "@/lib/db";
+import { dateWhere, periodFromSearch } from "@/lib/periods";
 import { readListParams, orderByFor, listHref } from "@/lib/list";
 import { ButtonLink } from "@/components/ui/button";
 import { Pill } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Card, CardHeader } from "@/components/ui/card";
-import { Col, Empty, FilterMenu, HBars, ListFooter, Split, Toolbar } from "@/components/ui/blocks";
+import { Col, Empty, HBars, ListFooter, Split, Toolbar } from "@/components/ui/blocks";
+import { ListToolbar } from "@/components/list/list-toolbar";
 import { DataList, cardPill, type DataColumn } from "@/components/ui/data-list";
-import { UrlSearch, UrlSelect, UrlToggle } from "@/components/ui/list-controls";
 import { cx } from "@/components/ui/cx";
 import { studentScope } from "@/lib/students/access";
 import { BEHAVIOUR_KINDS, BEHAVIOUR_KIND_LABEL, isPositive, type BehaviourKind } from "@/lib/students/labels";
@@ -33,6 +34,7 @@ export default async function BehaviourPage({ searchParams }: { searchParams: Pr
   const raw = await searchParams;
   const params = readListParams(raw, FILTERS);
   const take = shownCount(raw, STEP);
+  const range = periodFromSearch(raw, { timeZone: tz });
   const path = `${BASE}/behaviour`;
 
   const data = await withSchool(current.ctx, async (tx) => {
@@ -42,7 +44,7 @@ export default async function BehaviourPage({ searchParams }: { searchParams: Pr
     const base: Prisma.BehaviourIncidentWhereInput = { archivedAt: params.archived ? { not: null } : null, ...(year ? { academicYearId: year.id } : {}) };
     const mine = can.reach === "all" ? null : (await tx.student.findMany({ where: scope, select: { id: true } })).map((x) => x.id);
     if (mine) base.students = { some: { studentId: { in: mine } } };
-    const where: Prisma.BehaviourIncidentWhereInput = { ...base, ...(f.kind ? { kind: f.kind } : {}), ...(f.status ? { status: f.status } : {}) };
+    const where: Prisma.BehaviourIncidentWhereInput = { ...base, ...(f.kind ? { kind: f.kind } : {}), ...(f.status ? { status: f.status } : {}), ...(range ? { date: dateWhere(range) } : {}) };
     // Incident rows link to students by id only: narrow to the students in the filters.
     if (f.section || params.q) {
       const ids = (await tx.student.findMany({ where: studentWhere, select: { id: true } })).map((x) => x.id);
@@ -105,7 +107,7 @@ export default async function BehaviourPage({ searchParams }: { searchParams: Pr
       </div>
     ) },
   ];
-  const filtered = Boolean(params.q || Object.keys(params.filters).length || params.archived);
+  const filtered = Boolean(params.q || Object.keys(params.filters).length || params.archived || range);
   const count = (k: BehaviourKind) => data.month.find((m) => m.kind === k)?._count ?? 0;
   const monthRows = [
     { k: "Incidents", v: count("incident") },
@@ -123,15 +125,12 @@ export default async function BehaviourPage({ searchParams }: { searchParams: Pr
       <Split side={300}>
         <Card className="overflow-hidden">
           <Toolbar>
-            <UrlSearch id="beh-search" placeholder="Student or what happened" />
-            <div className="flex gap-2.5 items-center">
-              <UrlSelect id="beh-kind" param="kind" label="Type" allLabel="All types" options={BEHAVIOUR_KINDS.map((k) => ({ value: k, label: BEHAVIOUR_KIND_LABEL[k] }))} className="flex-1 md:w-40" />
-              <FilterMenu on={[params.filters.status, params.filters.section, params.archived].filter(Boolean).length} clearHref={listHref(path, params, { status: null, section: null, archived: null })}>
-                <UrlSelect id="beh-status" param="status" label="Status" allLabel="Open and closed" options={[{ value: "OPEN", label: "Open" }, { value: "CLOSED", label: "Closed" }]} />
-                {data.sections.length > 1 && <UrlSelect id="beh-section" param="section" label="Class" allLabel="Every class" options={data.sections.map((s) => ({ value: s.value, label: s.label }))} />}
-                {can.manage && <UrlToggle param="archived" label="Show archived records" />}
-              </FilterMenu>
-            </div>
+            <ListToolbar placeholder="Student or what happened" showArchived={can.manage} period={{ timeZone: tz }}
+              filters={[{ key: "kind", label: "Type", allLabel: "All types", options: BEHAVIOUR_KINDS.map((k) => ({ value: k, label: BEHAVIOUR_KIND_LABEL[k] })) }]}
+              more={[
+                { key: "status", label: "Status", allLabel: "Open and closed", options: [{ value: "OPEN", label: "Open" }, { value: "CLOSED", label: "Closed" }] },
+                ...(data.sections.length > 1 ? [{ key: "section", label: "Class", allLabel: "Every class", options: data.sections.map((s) => ({ value: s.value, label: s.label })) }] : []),
+              ]} />
           </Toolbar>
           <DataList caption="Behaviour records" rows={data.rows} columns={columns} rowKey={(r) => r.id} minWidth={860}
             rowHref={(r) => `${path}/${r.id}`} rowLabel={(r) => `Open the ${typeLabel(r).toLowerCase()} of ${shortDate(r.date, tz)}`}

@@ -2,14 +2,15 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { HeartHandshake, Lock, SearchX, UserPlus } from "lucide-react";
 import { withSchool } from "@/lib/db";
+import { dateWhere, periodFromSearch } from "@/lib/periods";
 import { readListParams, listHref } from "@/lib/list";
 import { ButtonLink } from "@/components/ui/button";
 import { Pill } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Empty, ListFooter, Toolbar } from "@/components/ui/blocks";
+import { ListToolbar } from "@/components/list/list-toolbar";
 import { DataList, cardPill, type DataColumn } from "@/components/ui/data-list";
-import { UrlSearch, UrlSelect } from "@/components/ui/list-controls";
 import { classShort, shortDate, shownCount } from "@/lib/students/show";
 import { BASE, studentPage } from "../../_lib/page";
 import { StudentsHead } from "../../_lib/head";
@@ -26,12 +27,14 @@ export default async function CounsellingPage({ searchParams }: { searchParams: 
   const raw = await searchParams;
   const params = readListParams(raw, ["status"]);
   const take = shownCount(raw, STEP);
+  const range = periodFromSearch(raw, { timeZone: tz });
   const path = `${BASE}/behaviour/counselling`;
   const data = await withSchool(current.ctx, async (tx) => {
     const where = {
       archivedAt: null,
       ...(can.seeCounselling ? {} : { counsellorId: current.ctx.userId ?? "" }),
       ...(params.filters.status ? { status: params.filters.status } : {}),
+      ...(range ? { openedOn: dateWhere(range) } : {}),
     };
     const ids = params.q ? (await tx.student.findMany({ where: { fullName: { contains: params.q, mode: "insensitive" } }, select: { id: true }, take: 200 })).map((s) => s.id) : null;
     const full = ids ? { ...where, studentId: { in: ids } } : where;
@@ -53,7 +56,7 @@ export default async function CounsellingPage({ searchParams }: { searchParams: 
   type Row = (typeof data.rows)[number];
   const name = (id: string) => data.students.find((s) => s.id === id)?.fullName ?? "";
   const person = (id: string | null) => data.people.find((p) => p.id === id)?.displayName ?? null;
-  const filtered = Boolean(params.q || params.filters.status);
+  const filtered = Boolean(params.q || params.filters.status || range);
 
   const columns: DataColumn<Row>[] = [
     { key: "student", label: "Student", render: (r) => (
@@ -82,8 +85,8 @@ export default async function CounsellingPage({ searchParams }: { searchParams: 
         <Card className="overflow-hidden">
           <CardHeader title={can.seeCounselling ? "Counselling cases" : "My cases"} description={`${data.open} open · nobody else can read sessions or notes`} icon={Lock} />
           <Toolbar>
-            <UrlSearch id="cou-search" placeholder="Search by student’s name" />
-            <UrlSelect id="cou-status" param="status" label="Status" allLabel="Open and closed" options={[{ value: "OPEN", label: "Open" }, { value: "CLOSED", label: "Closed" }]} className="md:w-48" />
+            <ListToolbar placeholder="Search by student’s name" showArchived={false} period={{ timeZone: tz, allLabel: "Opened: any date" }}
+              filters={[{ key: "status", label: "Status", allLabel: "Open and closed", options: [{ value: "OPEN", label: "Open" }, { value: "CLOSED", label: "Closed" }] }]} />
           </Toolbar>
           <DataList caption="Counselling cases" rows={data.rows} columns={columns} rowKey={(r) => r.id} minWidth={820}
             rowHref={(r) => `${path}/${r.id}`} rowLabel={(r) => `Open the case of ${name(r.studentId)}`}

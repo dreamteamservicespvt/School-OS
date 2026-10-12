@@ -8,8 +8,9 @@ import { Pill } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { Chips, Empty, ListFooter, Stats, Toolbar } from "@/components/ui/blocks";
+import { ListToolbar } from "@/components/list/list-toolbar";
 import { DataList, cardPill, type DataColumn } from "@/components/ui/data-list";
-import { InlineBulkBar, UrlSearch, UrlSelect, UrlToggle } from "@/components/ui/list-controls";
+import { InlineBulkBar } from "@/components/ui/list-controls";
 import { cx } from "@/components/ui/cx";
 import { studentScope } from "@/lib/students/access";
 import { consentRows, consentState } from "@/lib/students/consent";
@@ -147,11 +148,8 @@ export default async function GuardiansPage({ searchParams }: { searchParams: Pr
         ]} />
         <Card className="overflow-hidden">
           <Toolbar>
-            <UrlSearch id="par-search" placeholder="Parent name, child’s name or phone" />
-            <div className="flex gap-2.5 items-center">
-              <UrlSelect id="par-rel" param="relation" label="Relation" allLabel="Every relation" options={["Father", "Mother", "Guardian", "Other"].map((r) => ({ value: r, label: r }))} className="flex-1 md:w-44" />
-              {can.manage && <UrlToggle param="archived" label="Archived" />}
-            </div>
+            <ListToolbar placeholder="Parent name, child’s name or phone" showArchived={can.manage}
+              filters={[{ key: "relation", label: "Relation", allLabel: "Every relation", options: ["Father", "Mother", "Guardian", "Other"].map((r) => ({ value: r, label: r })) }]} />
           </Toolbar>
           {can.manage && <InlineBulkBar form="guardian-bulk" actions={[{ label: "Send consent request", href: `${path}/consent`, icon: <ShieldCheck size={15} aria-hidden="true" /> }]} />}
           <DataList caption="Parents and guardians" rows={data.rows} columns={columns} rowKey={(g) => g.id} minWidth={1020}

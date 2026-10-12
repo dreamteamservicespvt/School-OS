@@ -85,9 +85,9 @@ export function SegLinks({ value, options, size = "md", className, label }: { va
   );
 }
 
-/* ---------- The search and filters row at the top of a list card ---------- */
+/* ---------- The search and filters row at the top of a list card (holds a ListToolbar) ---------- */
 export function Toolbar({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <div className={cx("flex flex-col md:flex-row gap-2.5 p-3 border-b border-line", className)}>{children}</div>;
+  return <div className={cx("px-3 pt-3 border-b border-line [&>div]:!mb-3", className)}>{children}</div>;
 }
 
 /* ---------- One row in a simple list: icon or avatar, title, sub, right side ---------- */

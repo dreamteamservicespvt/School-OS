@@ -101,7 +101,14 @@ describe("a user of school A cannot read school B", () => {
       await tx.attendanceAlert.create({ data: { schoolId: b.id, studentId: b.id, date: new Date("2026-10-05T00:00:00Z"), kind: "absence", text: "School B absence" } });
       await tx.attendanceCorrection.create({ data: { schoolId: b.id, date: new Date("2026-10-05T00:00:00Z"), entries: [], reason: "School B correction" } });
       await tx.qrSession.create({ data: { schoolId: b.id, name: "School B QR", secretEnc: "x" } });
-      await tx.staffShift.create({ data: { schoolId: b.id, name: "School B shift", startTime: "08:00", endTime: "16:00" } });
+      const shift = await tx.staffShift.create({ data: { schoolId: b.id, name: "School B shift", startTime: "08:00", endTime: "16:00" } });
+      await tx.staffShiftAssignment.create({ data: { schoolId: b.id, staffId: b.id, shiftId: shift.id, fromDate: new Date("2026-10-01T00:00:00Z") } });
+      await tx.deviceUserMap.create({ data: { schoolId: b.id, deviceId: device.id, deviceUserNo: "7" } });
+      await tx.attendanceSubmission.create({ data: { schoolId: b.id, clientId: `b-${b.id}`, sectionId: b.id, date: new Date("2026-10-05T00:00:00Z"), outcome: "saved" } });
+      await tx.attendanceFlag.create({ data: { schoolId: b.id, studentId: b.id, kind: "threshold", value: 60, raisedOn: new Date("2026-10-05T00:00:00Z") } });
+      await tx.geoFence.create({ data: { schoolId: b.id, campusId: b.campus.id, latitude: 17.4, longitude: 78.4 } });
+      await tx.overtimeEntry.create({ data: { schoolId: b.id, staffId: b.id, date: new Date("2026-10-05T00:00:00Z"), minutes: 30 } });
+      await tx.studentLeaveQuota.create({ data: { schoolId: b.id, leaveTypeId: b.id, days: 6 } });
     });
     await withSchool(ctxA(), async (tx) => {
       expect(await tx.attendanceSetting.findUnique({ where: { schoolId: b.id } })).toBeNull();
@@ -113,6 +120,13 @@ describe("a user of school A cannot read school B", () => {
       expect(await tx.attendanceCorrection.count()).toBe(0);
       expect(await tx.qrSession.count()).toBe(0);
       expect(await tx.staffShift.count()).toBe(0);
+      expect(await tx.staffShiftAssignment.count()).toBe(0);
+      expect(await tx.deviceUserMap.count()).toBe(0);
+      expect(await tx.attendanceSubmission.count()).toBe(0);
+      expect(await tx.attendanceFlag.count()).toBe(0);
+      expect(await tx.geoFence.count()).toBe(0);
+      expect(await tx.overtimeEntry.count()).toBe(0);
+      expect(await tx.studentLeaveQuota.count()).toBe(0);
       expect((await tx.attendanceMark.updateMany({ where: { note: "School B mark" }, data: { statusKey: "present" } })).count).toBe(0);
     });
   });

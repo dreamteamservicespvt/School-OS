@@ -54,6 +54,19 @@ describe("device keys", () => {
     await expect(withSchool(as(f, f.teacherA.id), (tx) => addDevice(tx, as(f, f.teacherA.id), access, { name: "Mine", serialNo: "X-1", location: null, campusId: f.school.campus.id, deviceType: "face", allowedUsers: "both", ipAddress: null, connectionNote: null })))
       .rejects.toThrow(/Only the School Admin or the Principal/);
   });
+
+  it("the server refuses QR and campus area changes from a teacher, office staff and HR", async () => {
+    for (const user of [f.teacherA, f.officeLogin, f.hrLogin]) {
+      const access = await accessFor(f, user.id);
+      expect(access.admin).toBe(false);
+      await expect(withSchool(as(f, user.id), (tx) => createQrSession(tx, as(f, user.id), access, { name: "Mine", forWhom: "staff", scope: "school", campusId: null, rotation: "daily", expiresAt: null, now: new Date() })))
+        .rejects.toThrow(/Only the School Admin or the Principal/);
+      await expect(withSchool(as(f, user.id), (tx) => saveGeoFence(tx, as(f, user.id), access, { campusId: f.school.campus.id, latitude: 17.385, longitude: 78.4867, radiusM: 200, studentsOn: false, staffOn: true })))
+        .rejects.toThrow(/Only the School Admin or the Principal/);
+      await expect(withSchool(as(f, user.id), (tx) => regenerateKey(tx, as(f, user.id), access, deviceId)))
+        .rejects.toThrow(/Only the School Admin or the Principal/);
+    }
+  });
 });
 
 describe("punches (Done when 7)", () => {

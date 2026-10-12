@@ -124,3 +124,14 @@ describe("modules that are not built or are switched off", () => {
     expect(loaded).toBe(0);
   });
 });
+
+describe("a widget that fails", () => {
+  it("does not stop the widgets after it, even when its database query fails", async () => {
+    const real = WIDGETS.filter((w) => w.id === "staff.head-count");
+    expect(real).toHaveLength(1);
+    const broken: Widget = { ...real[0], id: "test.broken", load: async (c) => { await c.tx.$queryRawUnsafe("SELECT * FROM no_such_table"); return null; } };
+    const home = await buildHome(principal, { now: NOW, widgets: [broken, ...real] });
+    expect(home.failed).toEqual(["test.broken"]);
+    expect(ids(home)).toContain("staff.head-count");
+  });
+});

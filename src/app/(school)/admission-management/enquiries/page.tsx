@@ -1,168 +1,227 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { CircleAlert, Inbox, MessageCircle, SearchX, Upload } from "lucide-react";
 import { withSchool } from "@/lib/db";
-import { readListParams, skipTake, listHref } from "@/lib/list";
+import { readListParams, skipTake, listHref, PAGE_SIZE } from "@/lib/list";
 import { formatDate, formatDateTime } from "@/lib/format";
+import { can } from "@/lib/permissions";
 import { admissionPage, BASE } from "@/lib/admission/page";
-import { ENQUIRY_FILTERS, QUICK, enquiryOrder, enquiryWhere } from "@/lib/admission/list";
-import { enquiryScope } from "@/lib/admission/access";
+import { UUID_RE, instantToLocal, zonedToInstant } from "@/lib/admission/act";
+import { ENQUIRY_FILTERS, enquiryOrder, enquiryWhere } from "@/lib/admission/list";
+import { enquiryScope, canWorkOn } from "@/lib/admission/access";
 import { CLOSED_STATUSES, label, live, openYears } from "@/lib/admission/settings";
 import { enquiryChoices, names } from "@/lib/admission/choices";
-import { PageHeader } from "@/components/shell/page-header";
-import { DataTable, type Column } from "@/components/list/data-table";
-import { ListToolbar } from "@/components/list/list-toolbar";
-import { EmptyState } from "@/components/empty-state";
+import { enquiryTemplates } from "@/lib/admission/enquiries";
+import { seatsFor } from "@/lib/admission/seats";
+import { phoneWords, whenWords } from "@/lib/admission/words";
+import { Card } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
-import { ModuleIcon } from "@/components/icons";
-import { ExportLinks, StatusBadge, SubNav, linkClass } from "../_components/bits";
-import { Board, type Column as BoardColumn } from "../_components/board";
-import { AddEnquiry } from "./enquiry-forms";
-import { BulkForm, CampaignBar, RowCheck, SelectAll } from "./campaign-bar";
-import { campaignAction, moveEnquiryCard } from "./actions";
+import { Pill } from "@/components/ui/badge";
+import { Chips } from "@/components/ui/chips";
+import { DataList, Pager, SelectionProvider, type ListRow } from "@/components/ui/data-list";
+import { ExportMenu, UrlSearch, UrlSegmented, UrlSelect } from "@/components/ui/url-filters";
+import { Avatar } from "@/components/ui/avatar";
+import { EmptyState } from "@/components/empty-state";
+import { cx } from "@/components/ui/cx";
+import { AdmissionHead } from "../_components/head";
+import { AddEnquiryButton } from "./enquiry-forms";
+import { EnquiryBulk } from "./campaign-bar";
+import { EnquiryPanel, type PanelEnquiry } from "./panel";
+import { STATUS_TONE } from "@/lib/admission/tones";
 
 export const metadata: Metadata = { title: "Enquiries" };
 
 type Search = { searchParams: Promise<Record<string, string | string[] | undefined>> };
+const PATH = `${BASE}/enquiries`;
 
 export default async function EnquiriesPage({ searchParams }: Search) {
-  const { current, viewer, settings, year, tz } = await admissionPage();
+  const { current, viewer, settings, year, tz, today } = await admissionPage();
   const raw = await searchParams;
   const params = readListParams(raw, ENQUIRY_FILTERS);
-  const view = raw.view === "board" ? "board" : "list";
+  const openId = typeof raw.id === "string" && UUID_RE.test(raw.id) ? raw.id : null;
   const now = new Date();
-  const yearId = year?.id ?? "00000000-0000-0000-0000-000000000000";
-  const where = enquiryWhere(params, viewer, { yearId, timeZone: tz, now });
+  const own = viewer.see !== "all";
+  const dayStart = zonedToInstant(`${today}T00:00`, tz);
+  const dayEnd = new Date(dayStart.getTime() + 86_400_000);
 
   const data = await withSchool(current.ctx, async (tx) => {
-    const scope = { AND: [enquiryScope(viewer)], archivedAt: null, academicYearId: yearId };
-    const [rows, total, choices, n, campaigns, years, overdue, today] = await Promise.all([
-      view === "list" ? tx.enquiry.findMany({ where, orderBy: enquiryOrder(params), ...skipTake(params), include: { campaign: { select: { name: true } } } }) : Promise.resolve([]),
+    const years = await openYears(tx);
+    const yearIds = years.map((y) => y.id);
+    const where = enquiryWhere(params, viewer, { yearId: yearIds.length ? yearIds : ["00000000-0000-0000-0000-000000000000"], timeZone: tz, now });
+    const base = { AND: [enquiryScope(viewer)], archivedAt: null, academicYearId: { in: yearIds } };
+    const open = { ...base, status: { notIn: [...CLOSED_STATUSES] } };
+    const [rows, total, choices, n, all, mine, dueToday, overdue, week, lost, openCount] = await Promise.all([
+      tx.enquiry.findMany({
+        where, orderBy: enquiryOrder(params), ...skipTake(params),
+        include: { campaign: { select: { name: true } }, activities: params.filters.view === "whatsapp" ? { where: { kind: "message" }, orderBy: { at: "desc" }, take: 1 } : false },
+      }),
       tx.enquiry.count({ where }),
       enquiryChoices(tx, current.ctx, current, settings, tz),
       names(tx),
-      tx.admissionCampaign.findMany({ orderBy: { createdAt: "desc" }, take: 50, select: { id: true, name: true } }),
-      openYears(tx),
-      tx.enquiry.count({ where: { ...scope, status: { notIn: [...CLOSED_STATUSES] }, nextFollowUpAt: { lt: now } } }),
-      tx.enquiry.count({ where: enquiryWhere({ ...params, filters: { quick: "today" }, q: "" }, viewer, { yearId, timeZone: tz, now }) }),
+      tx.enquiry.count({ where: base }),
+      viewer.staffId ? tx.enquiry.count({ where: { ...base, ownerStaffId: viewer.staffId } }) : Promise.resolve(0),
+      tx.enquiry.count({ where: { ...open, nextFollowUpAt: { gte: dayStart, lt: dayEnd } } }),
+      tx.enquiry.count({ where: { ...open, nextFollowUpAt: { lt: now } } }),
+      tx.enquiry.count({ where: { ...base, createdAt: { gte: new Date(now.getTime() - 7 * 86_400_000) } } }),
+      tx.enquiry.count({ where: { ...base, status: "lost" } }),
+      tx.enquiry.count({ where: open }),
     ]);
-    let board: BoardColumn[] = [];
-    if (view === "board") {
-      const statuses = live(settings.statusList);
-      const grouped = await tx.enquiry.groupBy({ by: ["status"], where, _count: { _all: true } });
-      board = await Promise.all(statuses.map(async (st) => {
-        const cards = await tx.enquiry.findMany({ where: { AND: [where, { status: st.key }] }, orderBy: [{ nextFollowUpAt: { sort: "asc", nulls: "last" } }, { createdAt: "desc" }], take: 20 });
-        return {
-          key: st.key, label: st.label, count: grouped.find((g) => g.status === st.key)?._count._all ?? 0,
-          href: listHref(`${BASE}/enquiries`, params, { status: st.key, page: null }),
-          accepts: !(["applied", "admitted", "lost"] as string[]).includes(st.key),
-          cards: cards.map((e) => {
-            const late = e.nextFollowUpAt && e.nextFollowUpAt < now && !CLOSED_STATUSES.includes(e.status);
-            return { id: e.id, title: e.childName, href: `${BASE}/enquiries/${e.id}`, meta: `${e.parentName} · ${e.classId ? n.classes.get(e.classId) ?? "" : "Class not set"}`, tone: late ? ("danger" as const) : undefined, note: e.nextFollowUpAt && !CLOSED_STATUSES.includes(e.status) ? `${late ? "Overdue: " : "Follow up "}${formatDateTime(e.nextFollowUpAt, tz)}` : undefined };
-          }),
+    let panel: PanelEnquiry | null = null;
+    let canWork = false;
+    if (openId) {
+      const e = await tx.enquiry.findFirst({
+        where: { id: openId, AND: [enquiryScope(viewer)] },
+        include: { campaign: { select: { name: true } }, activities: { orderBy: { at: "desc" } }, applications: { where: { archivedAt: null }, orderBy: { createdAt: "desc" }, take: 1, select: { id: true } } },
+      });
+      if (e) {
+        canWork = canWorkOn(viewer, e) && !e.archivedAt;
+        const users = await tx.userLogin.findMany({ where: { id: { in: [...new Set([e.createdById, ...e.activities.map((a) => a.byId)].filter((x): x is string => Boolean(x)))] } }, select: { id: true, displayName: true } });
+        const who = (id: string | null) => users.find((u) => u.id === id)?.displayName ?? null;
+        const seat = e.classId ? (await seatsFor(tx, e.academicYearId, [e.classId])).get(e.classId) : undefined;
+        const ey = years.find((y) => y.id === e.academicYearId);
+        const isOpen = !CLOSED_STATUSES.includes(e.status);
+        panel = {
+          id: e.id, childName: e.childName, parentName: e.parentName, phone: e.phone, email: e.email,
+          className: e.classId ? n.classes.get(e.classId) ?? null : null,
+          enquiryNo: e.enquiryNo, yearLabel: ey ? (ey.status === "ACTIVE" && year && year.id !== ey.id ? `${ey.name} mid-year` : ey.name) : "Earlier year",
+          status: e.status, statusLabel: label(settings.statusList, e.status), source: e.source, sourceLabel: label(settings.sourceList, e.source),
+          firstSourceLabel: e.firstSource !== e.source ? label(settings.sourceList, e.firstSource) : null,
+          ownerStaffId: e.ownerStaffId, ownerName: e.ownerStaffId ? n.staff.get(e.ownerStaffId) ?? null : null,
+          nextFollowUp: isOpen && e.nextFollowUpAt ? whenWords(e.nextFollowUpAt, tz, now) : null,
+          nextFollowUpLocal: isOpen && e.nextFollowUpAt && e.nextFollowUpAt > now ? instantToLocal(e.nextFollowUpAt, tz) : null,
+          due: isOpen && e.nextFollowUpAt ? (e.nextFollowUpAt < now ? "overdue" : e.nextFollowUpAt < dayEnd ? "today" : "later") : null,
+          nextAction: isOpen ? e.nextAction : null, campaign: e.campaign?.name ?? null, created: formatDate(e.createdAt, tz), addedBy: who(e.createdById),
+          seats: seat ? (seat.free > 0 ? `${seat.free} ${seat.free === 1 ? "seat" : "seats"} left` : "Class is full") : e.classId ? "No sections yet" : null,
+          lostReason: e.status === "lost" && e.lostReason ? label(settings.lossList, e.lostReason) : null, lostNote: e.status === "lost" ? e.lostNote : null,
+          referredBy: e.referredBy, currentSchool: e.currentSchool, childDob: e.childDob ? formatDate(e.childDob, "UTC") : null,
+          applicationId: e.applications[0]?.id ?? null, archived: Boolean(e.archivedAt),
+          activities: e.activities.map((a) => ({ id: a.id, kind: a.kind, text: a.text, when: formatDateTime(a.at, tz), by: who(a.byId), direction: a.direction })),
+          saved: { id: e.id, childName: e.childName, parentName: e.parentName, phone: e.phone, email: e.email, classId: e.classId, childDob: e.childDob ? e.childDob.toISOString().slice(0, 10) : null, currentSchool: e.currentSchool, referredBy: e.referredBy, customFields: (e.customFields ?? {}) as Record<string, string> },
         };
-      }));
+      }
     }
-    return { rows, total, choices, n, campaigns, years, overdue, today, board };
+    return { years, rows, total, choices, n, counts: { all, mine, dueToday, overdue, week, lost, openCount }, panel, canWork };
   });
-  type Row = (typeof data.rows)[number];
-  const canChange = viewer.change !== "none";
-  const bulk = viewer.change === "all" && settings.campaignsOn;
 
-  const columns: Column<Row>[] = [
-    ...(bulk ? [{ key: "select", label: "", className: "w-10", cell: (r: Row) => <RowCheck id={r.id} label={r.childName} /> }] : []),
-    { key: "child", label: "Child's name", sortable: true, phone: "title", cell: (r) => <Link href={`${BASE}/enquiries/${r.id}`} className="font-medium text-brand-text hover:underline">{r.childName}</Link> },
-    { key: "parent", label: "Parent's name", sortable: true, phone: "meta", cell: (r) => r.parentName },
-    { key: "phone", label: "Phone", phone: "meta", cell: (r) => <a href={`tel:+91${r.phone}`} className="hover:underline">{r.phone}</a> },
-    { key: "class", label: "Class wanted", phone: "meta", cell: (r) => (r.classId ? data.n.classes.get(r.classId) ?? "" : "Not decided") },
-    { key: "source", label: "Source", cell: (r) => label(settings.sourceList, r.source) },
-    { key: "status", label: "Status", sortable: true, phone: "badge", cell: (r) => <StatusBadge status={r.status} label={label(settings.statusList, r.status)} /> },
-    { key: "owner", label: "Owner", cell: (r) => (r.ownerStaffId ? data.n.staff.get(r.ownerStaffId) ?? "" : "No owner") },
-    {
-      key: "followup", label: "Next follow-up", sortable: true, phone: "meta",
-      cell: (r) => {
-        if (!r.nextFollowUpAt || CLOSED_STATUSES.includes(r.status)) return <span className="text-ink-2">None</span>;
-        const late = r.nextFollowUpAt < now;
-        return <span className={late ? "font-medium text-danger" : ""}>{late && <span className="sr-only">Overdue: </span>}{formatDateTime(r.nextFollowUpAt, tz)}</span>;
+  const { rows, total, choices, n, counts, panel } = data;
+  const view = params.filters.view === "whatsapp" ? "whatsapp" : "all";
+  const quick = params.filters.quick ?? "all";
+  const chip = (value: string | null) => listHref(PATH, params, { quick: value, page: null, id: null });
+  const yearLabel = (id: string) => {
+    const y = data.years.find((x) => x.id === id);
+    return y ? (y.status === "ACTIVE" && year && year.id !== y.id ? `${y.name} mid-year` : y.name) : "";
+  };
+  const yearsText = data.years.length > 1 && year ? `${year.name} and mid-year ${data.years.find((y) => y.status === "ACTIVE" && y.id !== year.id)?.name ?? ""}`.trim() : year?.name ?? "";
+  const sub = own ? `Only the enquiries you added or own · ${counts.all} ${counts.all === 1 ? "enquiry" : "enquiries"}` : `${counts.openCount} open enquiries · ${yearsText}`;
+  const canAdd = viewer.change !== "none" && data.years.length > 0;
+  const full = viewer.change === "all" && !own;
+  const selectable = full;
+  const narrow = Boolean(panel);
+  const filtered = Boolean(params.q || Object.keys(params.filters).filter((k) => k !== "view").length);
+  const rowHref = (id: string) => listHref(PATH, params, { id });
+
+  const columns = [
+    { key: "child", label: "Child" },
+    ...(narrow ? [] : [{ key: "parent", label: "Parent", nowrap: true }, { key: "class", label: "Class wanted", nowrap: true }, { key: "source", label: view === "whatsapp" ? "Last message" : "Source" }]),
+    { key: "status", label: "Status" },
+    { key: "owner", label: "Owner", nowrap: true },
+    { key: "next", label: "Next follow-up" },
+    ...(narrow ? [] : [{ key: "created", label: "Created", nowrap: true }]),
+  ];
+  const listRows: ListRow[] = rows.map((e) => {
+    const isOpen = !CLOSED_STATUSES.includes(e.status);
+    const due = isOpen && e.nextFollowUpAt ? (e.nextFollowUpAt < now ? "overdue" : e.nextFollowUpAt < dayEnd ? "today" : "later") : null;
+    const cls = e.classId ? n.classes.get(e.classId) ?? "" : "Not decided";
+    const next = due && e.nextFollowUpAt
+      ? <span key="n" className={cx("text-[13px] tnum whitespace-nowrap", due === "overdue" ? "text-bad font-semibold" : due === "today" ? "text-warn font-semibold" : "text-ink2")}>{due === "overdue" && <CircleAlert size={13} className="inline -mt-0.5 mr-1" aria-label="Overdue" />}{whenWords(e.nextFollowUpAt, tz, now)}</span>
+      : <span key="n" className="text-ink3">None</span>;
+    const status = <Pill key="st" tone={STATUS_TONE[e.status] ?? "neutral"}>{label(settings.statusList, e.status)}</Pill>;
+    const owner = e.ownerStaffId ? n.staff.get(e.ownerStaffId) ?? "" : "No owner";
+    const last = "activities" in e && Array.isArray(e.activities) ? (e.activities as { text: string }[])[0]?.text : undefined;
+    return {
+      key: e.id, href: rowHref(e.id), active: e.id === openId,
+      cells: [
+        <div key="c" className="flex items-center gap-3 min-w-0"><Avatar name={e.childName} size={34} /><div className="min-w-0"><p className="font-semibold leading-tight truncate">{e.childName}</p><p className="text-[12px] text-ink3 font-mono">{e.enquiryNo ?? ""}</p></div></div>,
+        ...(narrow ? [] : [
+          <div key="p"><p className="leading-tight">{e.parentName}</p><p className="text-[12.5px] text-ink3 tnum">{phoneWords(e.phone)}</p></div>,
+          <div key="cl"><p className="font-medium">{cls}</p><p className="text-[12px] text-ink3">{yearLabel(e.academicYearId)}</p></div>,
+          view === "whatsapp"
+            ? <p key="s" className="text-[13px] text-ink2 max-w-[220px] truncate">{last ? `“${last}”` : <span className="text-ink3">No messages yet</span>}</p>
+            : <div key="s"><p className="text-[13.5px]">{label(settings.sourceList, e.source)}</p>{e.campaign && <p className="text-[12px] text-info whitespace-nowrap">{e.campaign.name}</p>}</div>,
+        ]),
+        status,
+        <span key="o" className="text-[13.5px]">{owner}</span>,
+        next,
+        ...(narrow ? [] : [<span key="cr" className="text-[13px] tnum">{formatDate(e.createdAt, tz)}</span>]),
+      ],
+      mobile: {
+        title: e.childName, sub: `${e.parentName} · ${cls} · ${label(settings.sourceList, e.source)}`, avatar: e.childName,
+        pills: [<Pill key="s" tone={STATUS_TONE[e.status] ?? "neutral"} className="!h-[22px] !text-[11.5px]">{label(settings.statusList, e.status)}</Pill>,
+          due && e.nextFollowUpAt ? <Pill key="n" tone={due === "overdue" ? "bad" : due === "today" ? "warn" : "neutral"} className="!h-[22px] !text-[11.5px]">{due === "overdue" ? "Overdue · " : ""}{whenWords(e.nextFollowUpAt, tz, now)}</Pill> : null],
       },
-    },
-    ...(settings.campaignsOn ? [{ key: "campaign", label: "Campaign", cell: (r: Row) => r.campaign?.name ?? "" }] : []),
-    { key: "created", label: "Created", sortable: true, cell: (r) => formatDate(r.createdAt, tz) },
+    };
+  });
+
+  const quickOpts = [
+    { value: "all", label: own ? "All of mine" : "All", count: counts.all, href: chip(null) },
+    ...(viewer.change === "none" || !viewer.staffId || own ? [] : [{ value: "mine", label: "My enquiries", count: counts.mine, href: chip("mine") }]),
+    { value: "today", label: "Follow-up today", count: counts.dueToday, href: chip("today") },
+    { value: "overdue", label: "Overdue", count: counts.overdue, href: chip("overdue") },
+    { value: "new-week", label: "New this week", count: counts.week, href: chip("new-week") },
+    { value: "lost", label: "Lost", count: counts.lost, href: chip("lost") },
   ];
 
-  const filters = [
-    { key: "status", label: "Status", options: live(settings.statusList).map((s) => ({ value: s.key, label: s.label })) },
-    { key: "source", label: "Source", options: settings.sourceList.map((s) => ({ value: s.key, label: s.label })) },
-    { key: "class", label: "Class", options: data.choices.classes },
-    ...(viewer.see === "all" ? [{ key: "owner", label: "Owner", options: [...data.choices.owners, { value: "none", label: "No owner" }] }] : []),
-    ...(settings.campaignsOn && data.campaigns.length ? [{ key: "campaign", label: "Campaign", options: data.campaigns.map((c) => ({ value: c.id, label: c.name })) }] : []),
-    { key: "year", label: "Admission year", options: [...data.years.map((y) => ({ value: y.id, label: y.name })), { value: "all", label: "All years" }] },
-  ];
-  const quick = params.filters.quick ?? "";
-  const chip = (value: string | null) => listHref(`${BASE}/enquiries`, params, { quick: value, page: null });
-  const viewHref = (v: string) => { const h = listHref(`${BASE}/enquiries`, params, { page: null }); return v === "board" ? `${h}${h.includes("?") ? "&" : "?"}view=board` : h; };
-  const exportHref = listHref(`${BASE}/enquiries/export`, params, { page: null });
-  const filtered = Boolean(params.q || Object.keys(params.filters).length || params.archived);
+  const actions = (
+    <>
+      {full && <ButtonLink href={`${PATH}/import`} variant="secondary" icon={Upload} className="hidden md:inline-flex">Import</ButtonLink>}
+      {canAdd && <AddEnquiryButton c={choices} />}
+    </>
+  );
+  const empty = filtered ? (
+    <EmptyState bare Icon={SearchX} title="No enquiries match" action={<ButtonLink href={PATH} variant="secondary">Clear filters</ButtonLink>}>
+      {params.q ? `Nobody called “${params.q}”. Try the phone number.` : "Try a different filter."}
+    </EmptyState>
+  ) : (
+    <EmptyState bare Icon={Inbox} title={own ? "No enquiries of yours yet" : "No enquiries yet"} action={canAdd ? <AddEnquiryButton c={choices} /> : undefined}>
+      Add each walk-in or phone enquiry here, with a follow-up date, so no family is forgotten.
+    </EmptyState>
+  );
 
   return (
     <>
-      <PageHeader title="Enquiries" href={`${BASE}/enquiries`} userId={current.user.id}>
-        <div className="flex flex-wrap gap-2">
-          {viewer.change === "all" && <ButtonLink href={`${BASE}/enquiries/import`}>Import</ButtonLink>}
-          <ExportLinks href={exportHref} />
-          {canChange && <AddEnquiry c={data.choices} />}
-        </div>
-      </PageHeader>
-      {!year && <p className="mb-4 rounded-xl border border-warn/40 bg-warn-bg p-3 text-warn-text">No academic year is set up yet. Add one in Academic Management to take enquiries.</p>}
-      <SubNav label="Quick filters" current={quick || "all"} items={[
-        { key: "all", label: "All", href: chip(null) },
-        ...QUICK.filter((q) => viewer.see === "all" || q.value !== "mine").map((q) => ({ key: q.value, label: q.label, href: chip(q.value), count: q.value === "overdue" ? data.overdue : q.value === "today" ? data.today : undefined, tone: q.value === "overdue" ? ("danger" as const) : undefined })),
-      ]} />
-      <div className="mb-3 flex gap-2" role="group" aria-label="Show as">
-        <Link href={viewHref("list")} aria-current={view === "list" ? "page" : undefined} className={`inline-flex min-h-11 items-center rounded-lg border px-4 text-sm ${view === "list" ? "border-brand bg-brand-soft font-medium text-brand-text" : "border-line"}`}>List</Link>
-        <Link href={viewHref("board")} aria-current={view === "board" ? "page" : undefined} className={`inline-flex min-h-11 items-center rounded-lg border px-4 text-sm ${view === "board" ? "border-brand bg-brand-soft font-medium text-brand-text" : "border-line"}`}>Board by status</Link>
-      </div>
-      <ListToolbar placeholder="Search by child, parent, phone or email" filters={filters} />
-      {view === "board" ? (
-        <Board label="Enquiries by status" columns={data.board} move={canChange ? moveEnquiryCard : undefined} moveLabel="Change status" />
-      ) : (
-        <>
-          {bulk && data.total > 0 && (
-            <div className="mb-2 hidden items-center gap-2 text-sm text-ink-2 md:flex">
-              <SelectAll /> <span>Select all on this page to run a campaign</span>
-            </div>
+      <AdmissionHead href={PATH} sub={sub} actions={actions} />
+      <SelectionProvider>
+        <div className={cx("grid gap-5 lg:gap-6 items-start", panel && "xl:grid-cols-[minmax(0,1fr)_420px]")}>
+          <div className={cx("min-w-0 flex-col gap-4", panel ? "hidden xl:flex" : "flex")}>
+            <Chips value={quick} options={quickOpts} />
+            <Card className="overflow-hidden">
+              <div className="flex flex-col md:flex-row gap-2.5 p-3 md:p-4 border-b border-line/70 md:items-center flex-wrap">
+                <UrlSearch placeholder="Child, parent, phone or ENQ number" />
+                <UrlSegmented param="view" label="Show" options={[{ value: "all", label: "All enquiries" }, { value: "whatsapp", label: <><MessageCircle size={15} aria-hidden="true" />WhatsApp</> }]} />
+                {!narrow && (
+                  <div className="grid grid-cols-2 md:flex gap-2">
+                    <UrlSelect param="class" label="Class" allLabel="All classes" options={choices.classes} className="md:w-36" />
+                    <UrlSelect param="source" label="Source" allLabel="All sources" options={live(settings.sourceList).map((s) => ({ value: s.key, label: s.label }))} className="md:w-36" />
+                  </div>
+                )}
+                {!narrow && <ExportMenu href={listHref(`${PATH}/export`, params, { page: null, id: null })} />}
+              </div>
+              {selectable && <EnquiryBulk owners={choices.owners} campaigns={settings.campaignsOn} schoolName={current.school.name} />}
+              <DataList label="Enquiries" columns={columns} rows={listRows} minWidth={narrow ? 600 : 980} selectable={selectable} empty={empty}
+                footer={<Pager page={params.page} pageSize={PAGE_SIZE} total={total} prevHref={listHref(PATH, params, { page: params.page - 1 })} nextHref={listHref(PATH, params, { page: params.page + 1 })} />} />
+            </Card>
+          </div>
+          {panel && (
+            <EnquiryPanel key={panel.id} e={panel} closeHref={listHref(PATH, params, { id: null })} canWork={data.canWork} full={full}
+              canArchive={full && can(current.permissions, "admission-management", "archive")} c={choices}
+              statuses={live(settings.statusList).filter((s) => !CLOSED_STATUSES.includes(s.key)).map((s) => ({ value: s.key, label: s.label }))}
+              lossReasons={live(settings.lossList).map((s) => ({ value: s.key, label: s.label }))}
+              templates={enquiryTemplates(current.school.name, panel)} />
           )}
-          {bulk && <><BulkForm /><CampaignBar run={campaignAction} schoolName={current.school.name} /></>}
-          <DataTable
-            rows={data.rows}
-            columns={columns}
-            rowKey={(r) => r.id}
-            total={data.total}
-            params={params}
-            path={`${BASE}/enquiries`}
-            caption="Enquiries"
-            actions={(r) => (
-              <span className="flex flex-wrap justify-end gap-1">
-                <Link href={`${BASE}/enquiries/${r.id}`} className={linkClass}>Open</Link>
-                <a href={`tel:+91${r.phone}`} className={linkClass} aria-label={`Call ${r.parentName}`}>Call</a>
-              </span>
-            )}
-            empty={
-              filtered ? (
-                <EmptyState title="No enquiries match these filters">
-                  <p>Try another search, or reset the filters to see every enquiry.</p>
-                  <ButtonLink href={`${BASE}/enquiries`} className="mt-4">Reset filters</ButtonLink>
-                </EmptyState>
-              ) : (
-                <EmptyState title="No enquiries yet" icon={<ModuleIcon module="admission-management" className="size-6" />}>
-                  <p>Add each walk-in or phone enquiry here, with a follow-up date, so no family is forgotten.</p>
-                  {canChange && <div className="mt-4"><AddEnquiry c={data.choices} /></div>}
-                </EmptyState>
-              )
-            }
-          />
-        </>
-      )}
-      <p className="mt-2 text-sm text-ink-2">{data.total} {data.total === 1 ? "enquiry" : "enquiries"}{data.overdue ? ` · ${data.overdue} follow-ups overdue` : ""}.</p>
+          {openId && !panel && (
+            <Card className="xl:col-start-2"><EmptyState Icon={SearchX} title="Enquiry not found" action={<ButtonLink href={PATH} variant="secondary">All enquiries</ButtonLink>}>It may have been archived, or it belongs to someone else.</EmptyState></Card>
+          )}
+        </div>
+      </SelectionProvider>
     </>
   );
 }

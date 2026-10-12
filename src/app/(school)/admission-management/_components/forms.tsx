@@ -5,13 +5,15 @@
 // keeps typed values and shows each problem next to its field (P3, P7).
 
 import Link from "next/link";
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useEffect, useId, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { LucideIcon } from "lucide-react";
-import { Check, CircleAlert } from "lucide-react";
+import { Check, ChevronDown, CircleAlert } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button, type ButtonSize, type ButtonVariant } from "@/components/ui/button";
-import { ErrorSummary } from "@/components/ui/field";
+import { ErrorSummary, FieldShell, inputCls } from "@/components/ui/field";
+import { Segmented, type SegOption } from "@/components/ui/controls";
+import { cx } from "@/components/ui/cx";
 import type { FormState } from "@/lib/forms";
 
 export type Action = (prev: FormState<unknown>, fd: FormData) => Promise<FormState<unknown>>;
@@ -127,6 +129,78 @@ export function ActionButton({ action, hidden, children, variant = "secondary", 
     </form>
   );
 }
+
+/** Segmented choice inside a form: the chosen value goes in with the form. */
+export function SegField({ name, label, options, defaultValue, help, size, onChange, required }: { name: string; label: string; options: SegOption[]; defaultValue: string; help?: React.ReactNode; size?: "sm" | "md"; onChange?: (v: string) => void; required?: boolean }) {
+  const [v, setV] = useState(defaultValue);
+  return (
+    <div className="flex flex-col gap-1.5">
+      <p className="text-[13px] font-semibold text-ink2">{label}{required && <span className="text-bad" aria-hidden="true"> *</span>}</p>
+      <Segmented label={label} value={v} onChange={(x) => { setV(x); onChange?.(x); }} options={options} className="w-full" size={size} />
+      <input type="hidden" name={name} value={v} />
+      {help && <p className="text-[12.5px] text-ink3">{help}</p>}
+    </div>
+  );
+}
+
+/** Indian mobile number with +91 in front (design: PhoneInput). */
+export function PhoneField({ name, label, defaultValue, error, help, required, onBlur }: { name: string; label: string; defaultValue?: string; error?: string; help?: React.ReactNode; required?: boolean; onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void }) {
+  const id = `${useId()}-${name}`;
+  return (
+    <FieldShell label={label} id={id} error={error} help={help} required={required}>
+      <div className="relative">
+        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink3 text-[15px]" aria-hidden="true">+91</span>
+        <input id={id} name={name} inputMode="numeric" autoComplete="tel-national" placeholder="98480 12345" defaultValue={defaultValue} onBlur={onBlur}
+          aria-invalid={error ? true : undefined} aria-describedby={error ? `${id}-error` : help ? `${id}-help` : undefined}
+          onInput={(e) => { const t = e.currentTarget; t.value = t.value.replace(/[^\d ]/g, "").slice(0, 11); }}
+          className={cx(inputCls(error), "h-11 pl-12 tnum")} />
+      </div>
+    </FieldShell>
+  );
+}
+
+/** Extra fields folded away. The fields stay in the form when folded. */
+export function MoreDetails({ label = "More details", defaultOpen = false, children }: { label?: string; defaultOpen?: boolean; children: React.ReactNode }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="rounded-xl border border-line">
+      <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="w-full flex items-center justify-between px-3.5 h-11 text-[14px] font-semibold text-ink2 hover:text-ink">
+        {label}<ChevronDown size={17} className={cx("transition", open && "rotate-180")} aria-hidden="true" />
+      </button>
+      <div hidden={!open} className="px-3.5 pb-4 pt-3.5 flex flex-col gap-4 border-t border-line">{children}</div>
+    </div>
+  );
+}
+
+const TIMES = Array.from({ length: 24 }, (_, i) => {
+  const h = 8 + Math.floor(i / 2);
+  const m = i % 2 ? "30" : "00";
+  return { value: `${String(h).padStart(2, "0")}:${m}`, label: `${h > 12 ? h - 12 : h}:${m} ${h >= 12 ? "PM" : "AM"}` };
+});
+
+/** A date and a time, sent together as "YYYY-MM-DDTHH:mm" in the school's time. */
+export function WhenField({ name, label, defaultValue, error, required, timeLabel = "Time", min }: { name: string; label: string; defaultValue?: string; error?: string; required?: boolean; timeLabel?: string; min?: string }) {
+  const [date, setDate] = useState(defaultValue?.slice(0, 10) ?? "");
+  const [time, setTime] = useState(defaultValue?.slice(11, 16) || "11:00");
+  const id = useId();
+  const times = TIMES.some((t) => t.value === time) ? TIMES : [...TIMES, { value: time, label: time }].sort((a, b) => a.value.localeCompare(b.value));
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <FieldShell label={label} id={`${id}-d`} error={error} required={required}>
+        <input id={`${id}-d`} type="date" value={date} min={min} onChange={(e) => setDate(e.target.value)} aria-invalid={error ? true : undefined} className={cx(inputCls(error), "h-11 tnum")} />
+      </FieldShell>
+      <FieldShell label={timeLabel} id={`${id}-t`} required={required}>
+        <select id={`${id}-t`} value={time} onChange={(e) => setTime(e.target.value)} className={cx(inputCls(false), "h-11 pr-9")}>
+          {times.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+        </select>
+      </FieldShell>
+      <input type="hidden" name={name} value={date ? `${date}T${time}` : ""} />
+    </div>
+  );
+}
+
+/** A label-less heading inside a long form. */
+export const SubHead = ({ children }: { children: React.ReactNode }) => <p className="eyebrow text-ink3 -mb-1 pt-1">{children}</p>;
 
 function SubmitInline({ children, variant, size, icon, busyLabel }: { children: React.ReactNode; variant: ButtonVariant; size: ButtonSize; icon?: LucideIcon; busyLabel?: string }) {
   const { pending } = useFormStatus();

@@ -121,7 +121,7 @@ export async function board(tx: Tx, s: Settings, v: Viewer, f: Filters, classNam
 /** Today's follow-ups: overdue, due today, due tomorrow. */
 export async function followUps(tx: Tx, v: Viewer, f: Filters, dayStart: Date, now = new Date()) {
   const e: Prisma.EnquiryWhereInput = { ...enquiryBase(f, v), status: { notIn: [...CLOSED_STATUSES] } };
-  const pick = { id: true, childName: true, parentName: true, phone: true, nextFollowUpAt: true, nextAction: true, ownerStaffId: true } as const;
+  const pick = { id: true, childName: true, parentName: true, phone: true, nextFollowUpAt: true, nextAction: true, ownerStaffId: true, classId: true } as const;
   const [overdue, today, tomorrow, overdueCount] = await Promise.all([
     tx.enquiry.findMany({ where: { ...e, nextFollowUpAt: { lt: now } }, orderBy: { nextFollowUpAt: "asc" }, take: 8, select: pick }),
     tx.enquiry.findMany({ where: { ...e, nextFollowUpAt: { gte: now, lt: new Date(dayStart.getTime() + DAY) } }, orderBy: { nextFollowUpAt: "asc" }, take: 8, select: pick }),

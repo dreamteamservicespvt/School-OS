@@ -5,6 +5,7 @@
 // one-time code when they give data consent (D8a). Each address and phone
 // gets a fair number of tries (08-platform-security.md §7).
 import "server-only";
+import { nextEnquiryNo } from "./enquiries";
 
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { prisma, withSchool, type SchoolContext, type Tx } from "../db";
@@ -98,6 +99,7 @@ export async function submitOnline(schoolId: string, input: OnlineSubmission, ip
       const owner = await pickOwner(tx, ctx, s, { classId: input.classId, adderStaffId: null, today: todayIn(tz) });
       enquiry = await tx.enquiry.create({
         data: {
+          enquiryNo: await nextEnquiryNo(tx, ctx),
           schoolId, campusId, academicYearId: year.id, childName: [input.firstName, input.lastName].filter(Boolean).join(" "),
           parentName: input.fatherName ?? input.motherName ?? input.guardianName ?? "Parent", phone: input.phone, email: input.email, classId: input.classId,
           source, firstSource: source, status: "new", ownerStaffId: owner, childDob: input.dateOfBirth, currentSchool: input.previousSchool,

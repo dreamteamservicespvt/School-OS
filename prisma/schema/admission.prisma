@@ -132,6 +132,8 @@ model Enquiry {
   schoolId       String    @map("school_id") @db.Uuid
   campusId       String    @map("campus_id") @db.Uuid
   academicYearId String    @map("academic_year_id") @db.Uuid
+  /// ENQ-0001, given once, never reused.
+  enquiryNo      String?   @map("enquiry_no")
   childName      String    @map("child_name")
   parentName     String    @map("parent_name")
   phone          String
@@ -170,6 +172,7 @@ model Enquiry {
   activities   EnquiryActivity[]
   applications Application[]
 
+  @@unique([schoolId, enquiryNo])
   @@index([schoolId, academicYearId, status])
   @@index([schoolId, ownerStaffId, nextFollowUpAt])
   @@index([schoolId, phone])

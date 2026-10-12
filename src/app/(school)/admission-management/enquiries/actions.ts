@@ -5,7 +5,7 @@ import { flash } from "@/lib/flash";
 import { formValues, type FormState } from "@/lib/forms";
 import { AdmissionProblem, dateTimeOf, emailOf, id, maybe, mobileOf, need, optionalDateOf, optionalId, problemState, str, todayIn, UUID_RE } from "@/lib/admission/act";
 import { admissionAct, customFrom, inSchool } from "@/lib/admission/server";
-import { admissionYear } from "@/lib/admission/settings";
+import { admissionYear, openYears } from "@/lib/admission/settings";
 import {
   addNote, archiveEnquiry, changeSource, changeStatus, closeLost, createEnquiry, DuplicateProblem, editEnquiry, findDuplicates, logCall,
   reassign, reopen, restoreEnquiry, runCampaign, sendEnquiryMessage, setFollowUp, type Match,
@@ -35,8 +35,9 @@ export async function checkDuplicates(phone: string, email: string, excludeEnqui
 export async function addEnquiryAction(_: DupState, fd: FormData): Promise<DupState> {
   try {
     const e = await inSchool("create", async (w) => {
-      const year = await admissionYear(w.tx, w.ctx, w.s);
-      if (!year) throw new AdmissionProblem("Set up an academic year in Academic Management first.");
+      const chosen = optionalId(fd, "yearId");
+      const year = chosen ? (await openYears(w.tx)).find((y) => y.id === chosen) ?? null : await admissionYear(w.tx, w.ctx, w.s);
+      if (!year) throw new AdmissionProblem(chosen ? "Choose a year that is open for admissions." : "Set up an academic year in Academic Management first.", chosen ? "yearId" : undefined);
       const campus = await w.tx.campus.findFirst({ where: { archivedAt: null }, orderBy: [{ isMain: "desc" }, { createdAt: "asc" }], select: { id: true } });
       if (!campus) throw new AdmissionProblem("Add a campus in Settings first.");
       const customFields = await customFrom(w, "enquiry", fd, {});
@@ -151,6 +152,26 @@ export async function archiveAction(_: FormState<unknown>, fd: FormData) {
 
 export async function restoreAction(_: FormState<unknown>, fd: FormData) {
   return admissionAct("archive", fd, (w) => restoreEnquiry(w.tx, w.ctx, w.v, id(fd, "id", "enquiry")), () => "Enquiry restored.");
+}
+
+/** Assign owner for the selected enquiries: each history keeps the old and new owner and the reason. */
+export async function bulkAssignAction(_: FormState<unknown>, fd: FormData) {
+  return admissionAct("edit", fd, async (w) => {
+    const ids = [...new Set(fd.getAll("ids").map(String).filter((x) => UUID_RE.test(x)))];
+    if (ids.length === 0) throw new AdmissionProblem("Select at least one enquiry.");
+    if (ids.length > 500) throw new AdmissionProblem("Select at most 500 enquiries at a time.");
+    const owner = id(fd, "ownerStaffId", "new owner");
+    const reason = need(fd, "reason", "Reason", 300);
+    let moved = 0;
+    for (const e of ids) {
+      const row = await w.tx.enquiry.findFirst({ where: { id: e }, select: { ownerStaffId: true } });
+      if (!row || row.ownerStaffId === owner) continue;
+      await reassign(w.tx, w.ctx, w.v, e, owner, reason);
+      moved++;
+    }
+    const name = (await w.tx.staff.findFirst({ where: { id: owner }, select: { fullName: true } }))?.fullName ?? "the new owner";
+    return { moved, name };
+  }, (r) => `${r.moved} ${r.moved === 1 ? "enquiry is" : "enquiries are"} now owned by ${r.name}. Each history keeps the old and new owner.`);
 }
 
 export async function campaignAction(_: FormState<unknown>, fd: FormData) {

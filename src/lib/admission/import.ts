@@ -4,6 +4,7 @@
 // existing phone are flagged, not added twice (02 Done when 12). Each
 // enquiry gets an owner and a follow-up. Imported by src/lib/import-registry.ts.
 import "server-only";
+import { nextEnquiryNo } from "./enquiries";
 
 import type { SchoolContext, Tx } from "../db";
 import { defineImport } from "../importer";
@@ -116,6 +117,7 @@ defineImport<Row>({
     const nextFollowUpAt = v.followUp ? zonedToInstant(`${v.followUp}T11:00`, school.timeZone) : await defaultFollowUp(tx, school.timeZone);
     const e = await tx.enquiry.create({
       data: {
+        enquiryNo: await nextEnquiryNo(tx, ctx),
         schoolId: ctx.schoolId, campusId: campus.id, academicYearId: year.id,
         childName: v.childName, parentName: v.parentName, phone: v.phone, email: v.email, classId: v.classId,
         source: v.source, firstSource: v.source, status: v.status, ownerStaffId: owner, nextFollowUpAt, nextAction: v.nextAction, notes: v.notes,

@@ -10,7 +10,7 @@ import { CLOSED_STATUSES } from "./settings";
 import { STAGES } from "./applications";
 import { instantToLocal, zonedToInstant } from "./act";
 
-export const ENQUIRY_FILTERS = ["quick", "source", "status", "class", "owner", "campaign", "from", "to", "year"] as const;
+export const ENQUIRY_FILTERS = ["quick", "source", "status", "class", "owner", "campaign", "from", "to", "year", "view"] as const;
 export const QUICK = [
   { value: "mine", label: "My enquiries" },
   { value: "today", label: "Follow-up today" },
@@ -21,7 +21,7 @@ export const QUICK = [
 
 const UUID = /^[0-9a-f-]{36}$/i;
 
-export function enquiryWhere(params: ListParams, v: Viewer, opts: { yearId: string; timeZone: string; now?: Date }): Prisma.EnquiryWhereInput {
+export function enquiryWhere(params: ListParams, v: Viewer, opts: { yearId: string | string[]; timeZone: string; now?: Date }): Prisma.EnquiryWhereInput {
   const f = params.filters;
   const now = opts.now ?? new Date();
   const and: Prisma.EnquiryWhereInput[] = [enquiryScope(v)];
@@ -31,6 +31,7 @@ export function enquiryWhere(params: ListParams, v: Viewer, opts: { yearId: stri
     and.push({ OR: [
       { childName: { contains: q, mode: "insensitive" } },
       { parentName: { contains: q, mode: "insensitive" } },
+      { enquiryNo: { contains: q, mode: "insensitive" } },
       ...(digits.length >= 3 ? [{ phone: { contains: digits } }] : []),
       { email: { contains: q, mode: "insensitive" } },
     ] });
@@ -43,12 +44,13 @@ export function enquiryWhere(params: ListParams, v: Viewer, opts: { yearId: stri
   if (f.quick === "overdue") and.push({ status: { notIn: [...CLOSED_STATUSES] }, nextFollowUpAt: { lt: now } });
   if (f.quick === "new-week") and.push({ createdAt: { gte: new Date(now.getTime() - 7 * 86_400_000) } });
   if (f.quick === "lost") and.push({ status: "lost" });
+  if (f.view === "whatsapp") and.push({ OR: [{ source: "whatsapp" }, { firstSource: "whatsapp" }, { activities: { some: { kind: "message", data: { path: ["channel"], equals: "whatsapp" } } } }] });
   if (f.from && /^\d{4}-\d{2}-\d{2}$/.test(f.from)) and.push({ createdAt: { gte: zonedToInstant(`${f.from}T00:00`, opts.timeZone) } });
   if (f.to && /^\d{4}-\d{2}-\d{2}$/.test(f.to)) and.push({ createdAt: { lt: new Date(zonedToInstant(`${f.to}T00:00`, opts.timeZone).getTime() + 86_400_000) } });
   return {
     AND: and,
     archivedAt: params.archived ? { not: null } : null,
-    academicYearId: f.year && UUID.test(f.year) ? f.year : f.year === "all" ? undefined : opts.yearId,
+    academicYearId: f.year && UUID.test(f.year) ? f.year : f.year === "all" ? undefined : Array.isArray(opts.yearId) ? { in: opts.yearId } : opts.yearId,
     ...(f.source ? { source: f.source } : {}),
     ...(f.status ? { status: f.status } : {}),
     ...(f.class && UUID.test(f.class) ? { classId: f.class } : {}),
@@ -69,7 +71,7 @@ export function enquiryOrder(params: ListParams) {
 
 export const APPLICATION_FILTERS = ["stage", "class", "year", "docs", "fee", "channel"] as const;
 
-export function applicationWhere(params: ListParams, opts: { yearId: string }): Prisma.ApplicationWhereInput {
+export function applicationWhere(params: ListParams, opts: { yearId: string | string[] }): Prisma.ApplicationWhereInput {
   const f = params.filters;
   const and: Prisma.ApplicationWhereInput[] = [];
   if (params.q) {
@@ -92,7 +94,7 @@ export function applicationWhere(params: ListParams, opts: { yearId: string }): 
   return {
     AND: and,
     archivedAt: params.archived ? { not: null } : null,
-    academicYearId: f.year && UUID.test(f.year) ? f.year : f.year === "all" ? undefined : opts.yearId,
+    academicYearId: f.year && UUID.test(f.year) ? f.year : f.year === "all" ? undefined : Array.isArray(opts.yearId) ? { in: opts.yearId } : opts.yearId,
     ...(stage ? { stage } : f.stage === "open" ? { stage: { in: ["SUBMITTED", "SUBMITTED_ONLINE", "REVIEWED", "DOCUMENTS", "TEST_INTERVIEW", "DECISION"] } } : {}),
     ...(f.class && UUID.test(f.class) ? { classId: f.class } : {}),
     ...(f.channel === "online" || f.channel === "counter" ? { channel: f.channel } : {}),

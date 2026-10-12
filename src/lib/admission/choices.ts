@@ -7,7 +7,7 @@ import type { Current } from "../current";
 import { loadCustomFields, visibleFields } from "../custom-fields";
 import { instantToLocal } from "./act";
 import { defaultFollowUp } from "./enquiries";
-import { admissionStaff, CATEGORIES, classList, live, needsPreviousSchool, openYears, type Settings } from "./settings";
+import { admissionStaff, admissionYear, CATEGORIES, classList, live, needsPreviousSchool, openYears, type Settings } from "./settings";
 import { seatsFor } from "./seats";
 
 export async function names(tx: Tx) {
@@ -37,8 +37,13 @@ export async function applicationChoices(tx: Tx, current: Pick<Current, "roles">
 }
 
 export async function enquiryChoices(tx: Tx, ctx: SchoolContext, current: Pick<Current, "roles">, s: Settings, tz: string) {
-  const [classes, staff, fields, follow] = await Promise.all([classList(tx), admissionStaff(tx, ctx), loadCustomFields(tx, "enquiry"), defaultFollowUp(tx, tz)]);
+  const [classes, staff, fields, follow, years, rules, year] = await Promise.all([
+    classList(tx), admissionStaff(tx, ctx), loadCustomFields(tx, "enquiry"), defaultFollowUp(tx, tz), openYears(tx), tx.admissionClassRule.findMany({ select: { classId: true, ownerStaffId: true } }), admissionYear(tx, ctx, s),
+  ]);
   const sources = live(s.sourceList);
+  const active = years.find((y) => y.status === "ACTIVE");
+  const ownerName = (id: string | null | undefined) => staff.find((x) => x.id === id)?.fullName ?? null;
+  const turnNext = s.ownerRule === "turn" && s.turnStaffIds.length ? ownerName(s.turnStaffIds[s.turnNext % s.turnStaffIds.length]) : null;
   return {
     classes: classes.map((c) => ({ value: c.id, label: c.name })),
     sources: sources.map((x) => ({ value: x.key, label: x.label })),
@@ -46,5 +51,11 @@ export async function enquiryChoices(tx: Tx, ctx: SchoolContext, current: Pick<C
     defaultSource: sources.some((x) => x.key === "walk-in") ? "walk-in" : sources[0]?.key ?? "",
     defaultFollowUp: instantToLocal(follow, tz),
     customFields: visibleFields(fields, current.roles),
+    years: years.map((y) => ({ value: y.id, label: active && year && y.id === active.id && y.id !== year.id ? `${y.name} (mid-year)` : y.name })),
+    defaultYearId: year?.id ?? "",
+    ownerRule: s.ownerRule,
+    ownerByClass: s.ownerRule === "class" ? Object.fromEntries(rules.filter((r) => r.ownerStaffId && staff.some((x) => x.id === r.ownerStaffId)).map((r) => [r.classId, r.ownerStaffId!])) : {},
+    defaultOwner: s.defaultOwnerStaffId && staff.some((x) => x.id === s.defaultOwnerStaffId) ? s.defaultOwnerStaffId : "",
+    turnNext,
   };
 }

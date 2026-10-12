@@ -23,6 +23,16 @@ export function Row({ avatar, icon: Ic, iconTone = "neutral", title, sub, right,
   return href ? <Link href={href} className={cls}>{body}</Link> : <div className={cls}>{body}</div>;
 }
 
+/** Main column and a side column on wide screens (kit.jsx Split). */
+export function Split({ children, side = 340, className }: { children: React.ReactNode; side?: 300 | 340 | 380 | 420 | 440; className?: string }) {
+  const cols: Record<number, string> = { 300: "xl:grid-cols-[minmax(0,1fr)_300px]", 340: "xl:grid-cols-[minmax(0,1fr)_340px]", 380: "xl:grid-cols-[minmax(0,1fr)_380px]", 420: "xl:grid-cols-[minmax(0,1fr)_420px]", 440: "xl:grid-cols-[minmax(0,1fr)_440px]" };
+  return <div className={cx("grid gap-5 lg:gap-6 items-start", cols[side], className)}>{children}</div>;
+}
+
+export function Col({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <div className={cx("flex flex-col gap-5 lg:gap-6 min-w-0", className)}>{children}</div>;
+}
+
 /** Label above value, in two or three columns. */
 export function DL({ rows, cols = 2 }: { rows: [string, React.ReactNode][]; cols?: 2 | 3 }) {
   return (

@@ -13,6 +13,12 @@ import { AdmissionProblem, instantToLocal, zonedToInstant } from "./act";
 import { canWorkOn, requireFull, type Viewer } from "./access";
 import { CLOSED_STATUSES, SYSTEM_STATUSES, label, live, type Settings } from "./settings";
 import { messageParent } from "./notify-parents";
+import { formatNumber, nextNumber } from "../sequences";
+
+/** The next enquiry number, ENQ-0001 (never reused). */
+export async function nextEnquiryNo(tx: Tx, ctx: SchoolContext) {
+  return formatNumber("ENQ-", await nextNumber(tx, ctx, "enquiry"), 4);
+}
 
 export const CALL_OUTCOMES = ["Talked", "No answer", "Busy", "Switched off", "Wrong number", "Call back later"] as const;
 
@@ -192,6 +198,7 @@ export async function createEnquiry(tx: Tx, ctx: SchoolContext, v: Viewer, s: Se
   // People with "own" reach work only on their own enquiries: one they hand to someone else stays visible to them as the person who added it.
   const e = await tx.enquiry.create({
     data: {
+      enquiryNo: await nextEnquiryNo(tx, ctx),
       schoolId: ctx.schoolId, campusId: opts.campusId, academicYearId: opts.yearId,
       childName: input.childName, parentName: input.parentName, phone: input.phone, email: input.email, classId: input.classId,
       source: input.source, firstSource: input.source, status: "new", ownerStaffId: owner,

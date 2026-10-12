@@ -6,3 +6,4 @@ import "server-only";
 import "./data-security/import-kinds";
 import "./staff/import";
 import "./students/import";
+import "./admission/import";

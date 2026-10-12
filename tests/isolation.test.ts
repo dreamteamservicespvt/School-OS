@@ -315,3 +315,21 @@ describe("Examination & Results records stay in their school", () => {
     expect(still.total).toBe(70);
   });
 });
+
+describe("Dashboard records stay in their school", () => {
+  it("cannot read school B's tasks, task comments, seen cards or setup steps", async () => {
+    const ctxB = { schoolId: b.id, userId: userB.id };
+    await withSchool(ctxB, async (tx) => {
+      const t = await tx.task.create({ data: { schoolId: b.id, title: "School B task", assignedToId: userB.id, givenById: userB.id } });
+      await tx.taskComment.create({ data: { schoolId: b.id, taskId: t.id, authorId: userB.id, text: "School B comment" } });
+      await tx.dashboardSeen.create({ data: { schoolId: b.id, userLoginId: userB.id, itemKey: "x", value: "1" } });
+      await tx.setupStepStatus.create({ data: { schoolId: b.id, stepKey: "fees", status: "DONE" } });
+    });
+    await withSchool(ctxA(), async (tx) => {
+      expect(await tx.task.count()).toBe(0);
+      expect(await tx.taskComment.count()).toBe(0);
+      expect(await tx.dashboardSeen.count()).toBe(0);
+      expect(await tx.setupStepStatus.count()).toBe(0);
+    });
+  });
+});

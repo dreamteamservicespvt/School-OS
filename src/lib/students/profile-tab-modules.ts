@@ -3,6 +3,7 @@
 //   import "@/lib/fees/profile-tab";
 import "server-only";
 import "@/lib/attendance/profile-tab";
+import "@/lib/fees/profile-tab";
 import "@/lib/exams/profile-tab";
 import "@/lib/academic/student-profile-tab";
 import "@/lib/communication/student-profile-tab";

@@ -25,11 +25,11 @@ afterAll(() => {
 });
 
 describe("clearance", () => {
-  it("passes when no module has registered a check yet", async () => {
+  it("passes when nothing is pending (Fees is registered by Fee Management; this student owes nothing)", async () => {
     const { student } = await addStudent(s.ctx, s.s5a);
     const req = await withSchool(s.ctx, (tx) => startLeaving(tx, s.ctx, { studentId: student.id, type: "WITHDRAWAL", reason: "Family moving to another city", lastDate: today(), destinationSchool: null }));
     const checks = await withSchool(s.ctx, (tx) => refreshClearance(tx, s.ctx, req.id));
-    expect(checks).toHaveLength(0);
+    expect(checks.filter((c) => c.status !== "CLEAR")).toEqual([]);
     const cert = await withSchool(s.ctx, (tx) => requestCertificate(tx, s.ctx, { studentId: student.id, type: "TC", purpose: null, issueDate: today(), signatoryId: null }));
     expect(cert.status).toBe("REQUESTED");
   });

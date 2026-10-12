@@ -4,6 +4,7 @@ import "server-only";
 
 import "./builtin-sections";
 import "../attendance/parent-link";
+import "../fees/parent-link-section";
 import "../exams/parent-link-sections";
 
 export { allSections, shownSections, sectionSwitches } from "./sections";

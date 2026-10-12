@@ -7,6 +7,7 @@ import { formatDate, formatRupees } from "@/lib/format";
 import { BUILT_MODULES } from "@/lib/modules";
 import { can } from "@/lib/permissions";
 import { listFacts, feeFilterAvailable } from "@/lib/students/hooks";
+import { admissionOnlyFor } from "@/lib/fees/access";
 import { phoneShow, classShort } from "@/lib/students/show";
 import { CATEGORIES, GENDERS, LIST_COLUMNS, STATUS_LABEL, STUDENT_STATUSES, type StudentStatusKey } from "@/lib/students/labels";
 import { Card } from "@/components/ui/card";
@@ -78,7 +79,8 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
   const curClass = data.tiles.find((t) => t.id === f.class) ?? null;
   const studying = data.tiles.reduce((n, t) => n + t.total, 0);
   const show = new Set((settings.listColumns.length ? settings.listColumns : LIST_COLUMNS.map((c) => c.key)).filter((k) => fieldAllowed(k, ab)));
-  const feeCol = can(current.permissions, "fee-management", "view");
+  // The Admission Counsellor has Fee "View" for admission fees only: no fee column.
+  const feeCol = can(current.permissions, "fee-management", "view") && !admissionOnlyFor(current);
   const seeFees = data.has.fees && feeCol;
   const href = (change: Record<string, string | null>) => listHref(BASE, { ...params, page: 1 }, { ...change, page: null });
 

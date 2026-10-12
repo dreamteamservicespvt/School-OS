@@ -48,6 +48,8 @@ export type ProfileTab = {
   summary?: (args: ProfileTabArgs) => Promise<SummaryItem[]>;
   /** Items for the Today panel (today's attendance, fees due today...). */
   today?: (args: ProfileTabArgs) => Promise<SummaryItem[]>;
+  /** Optional narrower check than the module permission, e.g. a role that sees only part of the module. */
+  allowed?: (current: Pick<Current, "permissions" | "modulesOn"> & Partial<Pick<Current, "roles">>) => boolean;
   /** Actions for the profile header ("Collect fee", "Mark attendance"). */
   headerActions?: (args: ProfileTabArgs) => Promise<{ label: string; href: string }[]>;
 };
@@ -59,12 +61,12 @@ export function registerProfileTab(tab: ProfileTab) {
 }
 
 /** The registered tabs this person may open, in order. */
-export function profileTabsFor(current: Pick<Current, "permissions" | "modulesOn">): ProfileTab[] {
+export function profileTabsFor(current: Pick<Current, "permissions" | "modulesOn"> & Partial<Pick<Current, "roles">>): ProfileTab[] {
   return [...tabs.values()]
     .filter((t) => {
       const info = MODULES.find((m) => m.key === t.module);
       if (info?.optional && !current.modulesOn.has(t.module)) return false;
-      return can(current.permissions, t.module, t.permission ?? "view");
+      return can(current.permissions, t.module, t.permission ?? "view") && (t.allowed?.(current) ?? true);
     })
     .sort((a, b) => a.order - b.order);
 }

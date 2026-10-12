@@ -85,7 +85,8 @@ describe("setup checklist", () => {
   it("works out steps from the records, and only optional steps can be skipped", async () => {
     const steps = await f.run((tx) => setupSteps(tx, principal.ctx, principal));
     expect(steps.find((s) => s.key === "classes")?.done).toBe(true);
-    expect(steps.find((s) => s.key === "fees")).toBeUndefined(); // Fee Management is not built yet
+    // Fee Management is built: the step shows, and is not done until a fee structure is published.
+    expect(steps.find((s) => s.key === "fees")?.done).toBe(false);
     await expect(f.run((tx) => markStep(tx, principal.ctx, "messaging", "SKIPPED"))).rejects.toBeInstanceOf(SetupProblem);
     const before = setupProgress(steps).done;
     const row = await f.run((tx) => markStep(tx, principal.ctx, "messaging", "DONE"));

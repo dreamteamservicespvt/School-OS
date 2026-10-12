@@ -30,7 +30,7 @@ export const SETUP_STEPS: readonly SetupStep[] = [
   { key: "subjects", label: "Subjects", module: "academic-management", href: "/academic-management/subjects", sub: "The subjects taught, and which classes take them.", time: "5 minutes", button: "Add subjects" },
   { key: "staff", label: "Staff and their logins", module: "staff-hr-management", href: "/staff-hr-management", sub: "Add your staff, then invite them to sign in.", time: "20 minutes", button: "Add staff" },
   { key: "students", label: "Students and parents (import from Excel)", module: "student-management", href: "/student-management/import", sub: "Bring your students and their parents from Excel. Every row is checked first.", time: "15 minutes", button: "Import students" },
-  { key: "fees", label: "Fee structure", module: "fee-management", href: "/fee-management", sub: "Fee heads, amounts and due dates per class.", time: "20 minutes", button: "Set up fees" },
+  { key: "fees", label: "Fee structure", module: "fee-management", href: "/fee-management/structure", sub: "Fee heads, amounts and due dates per class.", time: "20 minutes", button: "Set up fees" },
   { key: "gateway", label: "Payment gateway", module: "settings", href: "/settings/payment-gateways", sub: "Connect Razorpay so parents can pay online. You need your Razorpay key ID and secret.", time: "10 minutes", button: "Connect Razorpay", optional: true },
   { key: "messaging", label: "SMS and WhatsApp", module: "settings", href: "/settings/messaging", sub: "Your DLT entity ID and sender header, and the WhatsApp Business number.", time: "15 minutes", button: "Connect" },
   { key: "holidays", label: "Holiday list", module: "events-calendar", href: "/events-calendar", sub: "The year's holidays, so attendance and the Time Table skip them.", time: "5 minutes", button: "Add holidays" },
@@ -44,7 +44,7 @@ export async function setupSteps(tx: Tx, ctx: SchoolContext, v: Pick<Viewer, "pe
   // Steps are for the School Admin and Principal; module visibility follows the school, not the person.
   const shown = SETUP_STEPS.filter((s) => moduleOpen({ permissions: v.permissions, modulesOn: v.modulesOn }, s.module));
   const year = await currentYear(tx, ctx);
-  const [school, terms, slots, classes, sections, subjects, staff, staffWithLogin, students, guardians, gateways, channels, links, marks] = await Promise.all([
+  const [school, terms, slots, classes, sections, subjects, staff, staffWithLogin, students, guardians, gateways, channels, links, marks, feeClasses] = await Promise.all([
     tx.school.findUnique({ where: { id: ctx.schoolId }, select: { name: true, address: true, logoUrl: true, logoFileId: true, board: true } }),
     year ? tx.term.count({ where: { academicYearId: year.id, archivedAt: null } }) : 0,
     tx.periodSlot.count({ where: { archivedAt: null } }),
@@ -59,6 +59,7 @@ export async function setupSteps(tx: Tx, ctx: SchoolContext, v: Pick<Viewer, "pe
     tx.messagingChannel.findMany({ where: { channel: { in: ["sms", "whatsapp"] }, isOn: true }, select: { channel: true } }),
     tx.parentLink.count({ where: { status: "ACTIVE" } }),
     tx.setupStepStatus.findMany({ where: { archivedAt: null } }),
+    year ? tx.feeStructure.findMany({ where: { academicYearId: year.id, status: "PUBLISHED", archivedAt: null }, select: { classId: true }, distinct: ["classId"] }) : [],
   ]);
   const signedIn = staffWithLogin.length
     ? await tx.userLogin.count({ where: { id: { in: staffWithLogin.map((s) => s.userLoginId!) }, lastSignInAt: { not: null } } })
@@ -71,7 +72,7 @@ export async function setupSteps(tx: Tx, ctx: SchoolContext, v: Pick<Viewer, "pe
     subjects: subjects > 0 ? plural(subjects, "subject") : null,
     staff: staffWithLogin.length > 0 ? `${plural(staff, "staff member")}, ${n(signedIn)} ${signedIn === 1 ? "has" : "have"} signed in` : null,
     students: students > 0 ? `${plural(students, "student")}, ${plural(guardians, "parent")}` : null,
-    fees: null,
+    fees: feeClasses.length ? `${plural(feeClasses.length, "class", "classes")} with a published fee structure` : null,
     gateway: gateways > 0 ? plural(gateways, "gateway") + " connected" : null,
     messaging: channels.length ? channels.map((c) => (c.channel === "sms" ? "SMS" : "WhatsApp")).join(" and ") + " connected" : null,
     holidays: null,

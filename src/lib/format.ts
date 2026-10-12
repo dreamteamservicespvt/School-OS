@@ -36,3 +36,14 @@ export function checkIndianMobile(input: string): string | null {
   if (!/^[6-9]/.test(digits)) return "Indian mobile numbers start with 6, 7, 8 or 9.";
   return null;
 }
+
+/** Big amounts in short words for tiles and charts: ₹2.33 Cr, ₹42.3 L, ₹8.4k (paise in). */
+export function formatRupeesShort(paise: bigint | number): string {
+  const n = Math.round(Number(paise) / 100);
+  const neg = n < 0 ? "-" : "";
+  const a = Math.abs(n);
+  if (a >= 1e7) return `${neg}₹${(a / 1e7).toFixed(2).replace(/\.?0+$/, "")} Cr`;
+  if (a >= 1e5) return `${neg}₹${(a / 1e5).toFixed(2).replace(/\.?0+$/, "")} L`;
+  if (a >= 1e3) return `${neg}₹${(a / 1e3).toFixed(1).replace(/\.0$/, "")}k`;
+  return `${neg}₹${a}`;
+}

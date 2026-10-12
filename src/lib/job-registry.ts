@@ -21,4 +21,5 @@ defineSchedule("approval-escalation", 60, (tx, ctx, now) => escalateOverdue(tx, 
 defineSchedule("prune-rate-limits", 24 * 60, () => pruneRateLimits());
 import "./students/jobs";
 import "./students/import";
+import "./fees/jobs";
 import "./dashboard/jobs";

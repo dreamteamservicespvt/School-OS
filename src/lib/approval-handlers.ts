@@ -10,3 +10,5 @@ import "./admission/handlers";
 import "./communication/handlers";
 import "./students/handlers";
 import "./attendance/handlers";
+import "./fees/handlers";
+import "./finance/handlers";

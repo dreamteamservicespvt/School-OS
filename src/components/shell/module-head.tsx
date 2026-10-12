@@ -23,9 +23,13 @@ function subscribe(onChange: () => void) {
  * context, the page's actions, then the module's pages as tabs. The pin adds this page (by its own
  * name) to Search's pinned pages (00-global.md §1.1).
  */
-export function ModuleHead({ title, page, href, userId, sub, access = "full", actions, tabs, tabsLabel }: {
-  title: string; page: string; href: string; userId: string; sub?: React.ReactNode; access?: "full" | "own" | "view"; actions?: React.ReactNode; tabs: Tab[]; tabsLabel: string;
+export function ModuleHead({ title, page: pageIn, pageName, href, userId, sub, access: accessIn, reach, actions, tabs, tabsLabel }: {
+  title: string; page?: string; /** Same as page. */ pageName?: string; href: string; userId: string; sub?: React.ReactNode;
+  access?: "full" | "own" | "view"; /** Same as access ("all" is full). */ reach?: "all" | "own" | "view";
+  actions?: React.ReactNode; tabs?: Tab[] | null; tabsLabel?: string;
 }) {
+  const page = pageIn ?? pageName ?? title;
+  const access = accessIn ?? (reach === "all" ? "full" : reach) ?? "full";
   const pinned = useSyncExternalStore(subscribe, () => isPinned(userId, href), () => false);
   const toggle = useCallback(() => {
     togglePinned(userId, { label: page, href });
@@ -51,7 +55,7 @@ export function ModuleHead({ title, page, href, userId, sub, access = "full", ac
         </div>
         {actions && <div className="flex gap-2 flex-wrap items-center">{actions}</div>}
       </div>
-      {tabs.length > 1 && <Tabs tabs={tabs} label={tabsLabel} />}
+      {tabs && tabs.length > 1 && <Tabs tabs={tabs} label={tabsLabel ?? `${title} pages`} />}
     </>
   );
 }

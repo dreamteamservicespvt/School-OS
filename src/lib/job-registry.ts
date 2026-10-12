@@ -10,6 +10,7 @@ import "./importer";
 import "./approval-handlers";
 import "./data-security/jobs";
 import "./staff/jobs";
+import "./attendance/jobs";
 import "./settings/jobs";
 import "./messaging/jobs";
 import "./communication/jobs";

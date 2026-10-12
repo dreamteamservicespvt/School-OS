@@ -12,6 +12,8 @@ import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardBody, CardHeader, Detail } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert } from "@/components/ui/alert";
+import { Avatar } from "@/components/ui/avatar";
+import * as I from "lucide-react";
 import { DecisionBar } from "./decision-bar";
 
 export const metadata: Metadata = { title: "Request" };
@@ -27,7 +29,9 @@ export default async function ApprovalPage({ params }: { params: Promise<{ id: s
   const data = await withSchool(current.ctx, async (tx) => {
     const a = await tx.approval.findUnique({ where: { id } });
     if (!a || !canSeeApproval(a, current.ctx, roleKeys)) return null;
-    const history = ((a.history as HistoryLine[]) ?? []);
+    const lines = ((a.history as HistoryLine[]) ?? []);
+    // Older requests may have no lines; the asking itself is always the first.
+    const history: HistoryLine[] = lines.length ? lines : [{ action: "asked", by: a.askedById, at: a.createdAt.toISOString(), note: null }];
     const ids = [...new Set([a.askedById, a.currentApproverId, a.decidedById, ...history.map((h) => h.by)].filter((x): x is string => Boolean(x)))];
     const [people, roles, mayDecide] = await Promise.all([
       tx.userLogin.findMany({ where: { id: { in: ids } }, select: { id: true, displayName: true } }),
@@ -49,8 +53,8 @@ export default async function ApprovalPage({ params }: { params: Promise<{ id: s
 
   return (
     <div className="pb-32 sm:pb-0">
-      <Link href="/approvals" className="mb-2 inline-flex min-h-11 items-center text-sm font-medium text-brand-text hover:underline">← Approvals</Link>
-      <PageHeader title={a.summary} href={`/approvals/${a.id}`} userId={current.user.id}>
+      <PageHeader title={a.summary} href={`/approvals/${a.id}`} userId={current.user.id}
+        crumbs={<><Link href="/approvals" className="font-semibold text-brand hover:underline">Approvals</Link><I.ChevronRight size={14} aria-hidden="true" /><span>{requestLabel(a.type)}</span></>}>
         <Badge tone={status.tone}>{status.label}</Badge>
       </PageHeader>
       <div className="space-y-5">
@@ -58,31 +62,40 @@ export default async function ApprovalPage({ params }: { params: Promise<{ id: s
         {open && !mine && !mayDecide && <Alert tone="info">This request is waiting for {waitingFor}. You can see it but not decide it.</Alert>}
         {!open && a.decisionReason && <Alert tone={a.status === "APPROVED" ? "success" : "warning"} title={status.label}>{a.decisionReason}</Alert>}
         <Card>
+          <div className="flex items-center gap-3 px-5 pt-5 pb-1">
+            <Avatar name={name(a.askedById)} size={44} />
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold text-[15px] truncate">{name(a.askedById)}</p>
+              <p className="text-[13px] text-ink3 tnum">Asked {formatDateTime(a.createdAt, tz)}</p>
+            </div>
+            {a.amountPaise !== null && <p className="font-display text-xl font-semibold tnum">{formatRupees(a.amountPaise)}</p>}
+          </div>
           <CardHeader title="The request" />
           <CardBody>
             <dl className="grid gap-4 sm:grid-cols-3">
               <Detail label="Kind">{requestLabel(a.type)}</Detail>
-              {a.amountPaise !== null && <Detail label="Amount">{formatRupees(a.amountPaise)}</Detail>}
-              <Detail label="Asked by">{name(a.askedById)}</Detail>
-              <Detail label="Asked">{formatDateTime(a.createdAt, tz)}</Detail>
               {open && <Detail label="Waiting for">{cap(waitingFor)}{a.status === "ESCALATED" ? " (moved on after nobody decided in time)" : ""}</Detail>}
               {!open && a.decidedById && <Detail label={a.status === "WITHDRAWN" ? "Withdrawn by" : "Decided by"}>{name(a.decidedById)}{a.decidedAt ? `, ${formatDateTime(a.decidedAt, tz)}` : ""}</Detail>}
-              <Detail label="Step">{a.step}</Detail>
+              <Detail label="Step">{Math.max(1, a.step + 1)}</Detail>
             </dl>
-            {a.reason && <div className="mt-4"><p className="text-sm text-ink-2">Reason given</p><p className="whitespace-pre-line">{a.reason}</p></div>}
-            {record && <p className="mt-4"><Link href={record.href} className="inline-flex min-h-11 items-center font-medium text-brand-text underline">{record.label}</Link></p>}
+            {a.reason && <div className="mt-4 rounded-xl bg-sunken/60 px-4 py-3"><p className="text-[12.5px] text-ink3">Reason given</p><p className="whitespace-pre-line text-[14.5px] mt-0.5">{a.reason}</p></div>}
+            {record && <p className="mt-4"><Link href={record.href} className="inline-flex min-h-11 items-center gap-1.5 font-semibold text-brand hover:underline"><I.ExternalLink size={16} aria-hidden="true" />{record.label}</Link></p>}
           </CardBody>
         </Card>
 
         <Card>
           <CardHeader title="History" />
           <CardBody>
-            <ol className="space-y-3">
+            <ol className="relative">
               {history.map((h, i) => (
-                <li key={i} className="border-l-2 border-line pl-3">
-                  <p className="font-medium">{ACTION_WORDS[h.action] ?? h.action}</p>
-                  <p className="text-sm text-ink-2">{name(h.by)} · {formatDateTime(new Date(h.at), tz)}</p>
-                  {h.note && <p className="text-sm">{h.note}</p>}
+                <li key={i} className="relative flex gap-3 pb-4 last:pb-0">
+                  {i < history.length - 1 && <span className="absolute left-[7px] top-5 bottom-0 w-px bg-line" aria-hidden="true" />}
+                  <span className={`mt-1.5 size-[15px] shrink-0 rounded-full border-[3px] border-surface ring-1 ${i === history.length - 1 ? "bg-brand ring-brand/40" : "bg-line ring-line"}`} aria-hidden="true" />
+                  <div className="min-w-0">
+                    <p className="font-semibold text-[14.5px]">{ACTION_WORDS[h.action] ?? h.action}</p>
+                    <p className="text-[13px] text-ink3 tnum">{name(h.by)} · {formatDateTime(new Date(h.at), tz)}</p>
+                    {h.note && <p className="text-[14px] text-ink2 mt-1">{h.note}</p>}
+                  </div>
                 </li>
               ))}
             </ol>

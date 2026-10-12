@@ -37,7 +37,7 @@ export function toCsv<Row>(columns: ExportColumn<Row>[], rows: Row[], meta: Expo
 export async function toXlsx<Row>(columns: ExportColumn<Row>[], rows: Row[], meta: ExportMeta) {
   const wb = new ExcelJS.Workbook();
   wb.creator = "School OS";
-  const ws = wb.addWorksheet(meta.title.slice(0, 31) || "Export");
+  const ws = wb.addWorksheet(meta.title.replace(/[*?:\\/[\]]/g, " ").replace(/\s+/g, " ").trim().slice(0, 31) || "Export");
   ws.addRow([`${meta.schoolName}: ${meta.title}`]).font = { bold: true, size: 13 };
   ws.addRow([`Filters: ${meta.filters || "none"}`]);
   ws.addRow([`Exported by ${meta.exportedBy} on ${formatDateTime(new Date(), meta.timeZone)}`]);

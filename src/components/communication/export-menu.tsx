@@ -1,12 +1,19 @@
-// Export a list as Excel, CSV or PDF with the filters on screen (P8).
-export function ExportMenu({ href, label = "Export" }: { href: string; label?: string }) {
+import { Download } from "lucide-react";
+import { buttonClass } from "@/components/ui/button";
+import { cx } from "@/components/ui/cx";
+
+// Export a list as Excel, CSV or PDF with the filters on screen (P8). The approved design's
+// secondary "Export" button, with the three formats in a small menu under it.
+export function ExportMenu({ href, label = "Export", className }: { href: string; label?: string; className?: string }) {
   const join = href.includes("?") ? "&" : "?";
   return (
-    <details className="relative">
-      <summary className="inline-flex min-h-11 cursor-pointer list-none items-center rounded-lg border border-line-strong bg-surface px-4 font-medium hover:bg-surface-2">{label}</summary>
-      <ul className="absolute right-0 z-20 mt-1 w-44 overflow-hidden rounded-xl border border-line bg-surface shadow-pop">
+    <details className={cx("relative hidden md:block shrink-0 group", className)}>
+      <summary className={buttonClass("secondary", "md", "list-none cursor-pointer [&::-webkit-details-marker]:hidden")}>
+        <Download size={17} strokeWidth={2.2} aria-hidden="true" />{label}
+      </summary>
+      <ul className="absolute right-0 z-30 mt-1.5 w-44 overflow-hidden rounded-2xl border border-line bg-surface p-1.5 shadow-pop animate-rise">
         {[["xlsx", "Excel"], ["csv", "CSV"], ["pdf", "PDF"]].map(([f, l]) => (
-          <li key={f}><a href={`${href}${join}format=${f}`} className="flex min-h-11 items-center px-4 hover:bg-surface-2" download>{l}</a></li>
+          <li key={f}><a href={`${href}${join}format=${f}`} className="flex h-10 items-center rounded-xl px-3 text-[14px] hover:bg-sunken" download>{l}</a></li>
         ))}
       </ul>
     </details>

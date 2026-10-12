@@ -57,7 +57,9 @@ export function listHref(path: string, params: ListParams, change: Record<string
 export function orderByFor<T extends string>(params: ListParams, allowed: Record<T, unknown>, fallback: unknown) {
   if (params.sort && params.sort in allowed) {
     const make = allowed[params.sort as T];
-    return typeof make === "function" ? (make as (d: "asc" | "desc") => unknown)(params.dir) : { [params.sort]: params.dir };
+    if (typeof make === "function") return (make as (d: "asc" | "desc") => unknown)(params.dir);
+    // An object or list is the order itself ({ name: { fullName: dir } }); a plain marker (1, true) sorts by the field of that name.
+    return make !== null && typeof make === "object" ? make : { [params.sort]: params.dir };
   }
   return fallback;
 }

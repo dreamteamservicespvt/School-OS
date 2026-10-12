@@ -7,7 +7,9 @@ import { useNav, useRole } from './shell.jsx';
 import {
   ModuleHead, useCanEdit, Stats, SearchBox, Toolbar, Select, Textarea, Chips, DataList, BulkBar, Row, SettingsCard, SettingRow,
   Banner, Suggestion, Progress, HBars, Bars, Legend, DL, Timeline, MoreMenu, FormSheet, ConfirmSheet, Split as KitSplit, Col, ExportButton,
+  DatePeriod, PERIODS, fmtRange, usePage,
 } from './kit.jsx';
+import { isoOf, inPeriod, ALL_DATES } from './mod-fees.jsx';
 
 // Same as the kit Split, but its direct children may shrink (no sideways overflow on phones)
 const Split = ({ className, ...p }) => <KitSplit {...p} className={cx('[&>*]:min-w-0', className)} />;
@@ -173,6 +175,8 @@ function Generate() {
   const { go } = useNav();
   const { role } = useRole();
   const canEdit = useCanEdit();
+  // HR has View: days, leave and loss of pay only, never the money
+  const seeMoney = usePage().access === 'full';
   const me = role.person.name;
   const [months, setMonths] = useState(() => MONTHS.map((m) => (m.id === 'oct' && role.id === 'principal' ? { ...m, status: 'waiting', sentBy: 'Suresh Babu', sentAt: 'Today, 10:15 AM' } : m)));
   const [cur, setCur] = useState('oct');
@@ -209,7 +213,7 @@ function Generate() {
   const editable = canEdit && isOct && (st === 'open' || st === 'calculated');
   const approver = m.sentBy === 'Lakshmi Rao' ? 'Anita Sharma (School Admin)' : 'Lakshmi Rao (Principal)';
   const canApprove = st === 'waiting' && m.sentBy !== me && ((role.id === 'principal') || (role.id === 'schooladmin' && m.sentBy === 'Lakshmi Rao'));
-  const flagsOf = (p) => (isOct ? [p.id === 'P02' && tdsDone ? null : p.flag, adj[p.id] && 'Adjustment added'] : [p.none ? p.flag : null]).filter(Boolean);
+  const flagsOf = (p) => (isOct ? [p.id === 'P02' && tdsDone ? null : p.flag, adj[p.id] && 'Adjustment added'] : [p.none ? p.flag : null]).filter((f) => f && (seeMoney || f !== 'No TDS amount'));
   const rowCalc = (p) => calc(isOct ? (p.id === 'P02' && tdsDone ? { ...p, tds: 2400 } : p) : { ...p, lop: 0 }, { adj: isOct ? adj[p.id] || [] : [], lop: isOct ? p.lop || 0 : 0 });
   const t = q.trim().toLowerCase();
   const rows = PAY.filter((p) => (!t || p.name.toLowerCase().includes(t) || p.code.toLowerCase().includes(t) || p.desig.toLowerCase().includes(t)) &&
@@ -232,12 +236,13 @@ function Generate() {
     <div className="flex flex-col gap-5 @lg:gap-6">
       <div>
         <ModuleHead sub="Kukatpally campus · one salary run a month · pay day is the last working day"
-          actions={<Button variant="secondary" icon={I.CalendarPlus} onClick={() => { setNm('November 2026'); setNewMonth(true); }}>Open a month</Button>} />
+          actions={canEdit && <Button variant="secondary" icon={I.CalendarPlus} onClick={() => { setNm('November 2026'); setNewMonth(true); }}>Open a month</Button>} />
         <Stats items={[
           { label: 'Salary structures', value: '85 of 86', sub: '1 missing · Rekha Nair', tone: 'warn', icon: 'FileSpreadsheet', onClick: canEdit ? () => go('salary', { page: 'structures' }) : undefined },
           { label: 'Runs this year', value: '7', sub: 'April to October 2026', icon: 'CalendarRange' },
           { label: 'Waiting for approval', value: String(months.filter((x) => x.status === 'waiting').length), sub: months.some((x) => x.status === 'waiting') ? 'October 2026' : 'Nothing waiting', tone: months.some((x) => x.status === 'waiting') ? 'warn' : undefined, icon: 'Hourglass' },
-          { label: 'October net pay', value: inrShort(MONTHS[0].net + addSum - cutSum), sub: `${amt(MONTHS[0].net + addSum - cutSum)} · 86 staff`, icon: 'Wallet' },
+          seeMoney ? { label: 'October net pay', value: inrShort(MONTHS[0].net + addSum - cutSum), sub: `${amt(MONTHS[0].net + addSum - cutSum)} · 86 staff`, icon: 'Wallet' }
+            : { label: 'Loss of pay in October', value: '3.5 days', sub: '3 staff · from attendance and leave', icon: 'CalendarX2' },
         ]} />
       </div>
 
@@ -272,7 +277,7 @@ function Generate() {
               {st === 'approved' && <Banner tone="ok" title="Approved.">86 salary slips are made and each staff member was told. Amounts are frozen. Pay the staff, then mark it paid.</Banner>}
               {st === 'paid' && <Banner tone="ok" title={`Paid ${m.paid}.`}>{isOct ? 'One salary entry is in the Day Book on the date paid. ' : 'In the Day Book. '}Corrections go in next month as an adjustment.</Banner>}
               {st === 'locked' && <Banner tone="info" icon={I.Lock} title="Locked for good.">This run never changes. A correction is an adjustment, with a reason, in a following month.</Banner>}
-              {!canEdit && <Banner tone="info" icon={I.Eye}>View only. Check that leave and attendance reach the salary; the Accountant runs it.</Banner>}
+              {!canEdit && <Banner tone="info" icon={I.Eye}>{seeMoney ? 'View only. This year is closed.' : 'View only. Check that leave and attendance reach the salary; the Accountant runs it. Pay amounts are not shown.'}</Banner>}
             </div>
             {canEdit && (
               <div className="px-5 pb-5 flex gap-2 flex-wrap">
@@ -318,7 +323,7 @@ function Generate() {
                   {role.access.attendance ? <Button size="sm" variant="secondary" onClick={() => go('attendance', { page: 'staff' })}>Open</Button>
                     : canEdit && <Button size="sm" variant="ghost" onClick={() => toast({ title: 'HR asked to complete it', body: 'Shalini Verma gets a notification', tone: 'info' })}>Ask HR</Button>}
                 </li>
-                {!tdsDone && (
+                {!tdsDone && seeMoney && (
                   <li className="flex items-center gap-3 px-5 py-3">
                     <span className="w-9 h-9 rounded-xl bg-warn/12 text-warn grid place-items-center shrink-0"><I.Receipt size={18} /></span>
                     <div className="min-w-0 flex-1"><p className="font-semibold text-[14px]">1 staff has no TDS amount</p><p className="text-[12.5px] text-ink3 truncate">Srinivas Murthy · yearly pay ₹12.24 L is above the ₹12 L limit set in Salary Settings</p></div>
@@ -337,7 +342,7 @@ function Generate() {
         </Col>
 
         <Col>
-          <Card>
+          {seeMoney && <Card>
             <CardHead title={`Totals · ${m.short} 2026`} sub={`All ${m.staff} staff`} />
             <ul className="px-5 pb-4 text-[14px] flex flex-col gap-1.5 tnum">
               <li className="flex justify-between"><span className="text-ink2">Gross pay</span><b className="font-semibold">{amt(tot.gross)}</b></li>
@@ -357,14 +362,14 @@ function Generate() {
               <p className="text-ink3 mt-0.5">Employer PF {amt(OCT.erPf)} · employer ESI {amt(OCT.erEsi)}. Not taken from net pay.</p>
             </div>}
             {isOct && adjList.length > 0 && <div className="px-5 pb-5"><p className="eyebrow text-ink3 mb-1.5">Adjustments</p>{adjList.map((a, i) => <p key={i} className="text-[13px] flex justify-between gap-2"><span className="truncate">{byId(a.id).name} · {a.type}</span><span className="tnum shrink-0">{a.type === 'Deduction' ? '−' : '+'}{amt(a.amount)}</span></p>)}</div>}
-          </Card>
+          </Card>}
           <Card>
             <CardHead title="Salary months" sub="2026–27 · tap one to open it" />
             <ul className="px-2 pb-2">
               {months.map((x) => (
                 <li key={x.id}>
                   <button onClick={() => setCur(x.id)} className={cx('w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition', cur === x.id ? 'bg-brand/8 ring-1 ring-brand/30' : 'hover:bg-sunken/70')}>
-                    <span className="min-w-0 flex-1"><span className="block font-semibold text-[14px]">{x.label}</span><span className="block text-[12.5px] text-ink3 tnum truncate">{x.staff} staff · net {inrShort(x.id === 'oct' ? x.net + addSum - cutSum : x.net)}{x.paid ? ` · paid ${x.paid}` : ''}</span></span>
+                    <span className="min-w-0 flex-1"><span className="block font-semibold text-[14px]">{x.label}</span><span className="block text-[12.5px] text-ink3 tnum truncate">{x.staff} staff{seeMoney ? ` · net ${inrShort(x.id === 'oct' ? x.net + addSum - cutSum : x.net)}` : ''}{x.paid ? ` · paid ${x.paid}` : ''}</span></span>
                     <StatusPill s={x.status} />
                   </button>
                 </li>
@@ -379,18 +384,18 @@ function Generate() {
         <Toolbar>
           <SearchBox id="sal-search" value={q} onChange={setQ} placeholder="Staff name, ID or designation" />
           <div className="overflow-x-auto no-scrollbar shrink-0"><Segmented value={filter} onChange={setFilter} options={[{ value: 'all', label: 'Everyone' }, { value: 'flag', label: 'Flagged' }, { value: 'lop', label: 'Loss of pay' }, { value: 'adj', label: 'Adjusted' }]} /></div>
-          <ExportButton what={`${m.label} salary`} />
+          {seeMoney && <ExportButton what={`${m.label} salary`} />}
         </Toolbar>
         {rows.length === 0 ? <Empty icon={I.SearchX} title="No staff match" body={filter === 'adj' ? 'No adjustments yet. Open a row to add a bonus, arrears or a deduction.' : 'Try a different search or filter.'} action={<Button variant="secondary" onClick={() => { setQ(''); setFilter('all'); }}>Show everyone</Button>} /> : (
           <>
             <div className="hidden @lg:block overflow-x-auto scroll-thin">
-              <table className="w-full text-[13.5px] min-w-[1040px]">
+              <table className={cx('w-full text-[13.5px]', seeMoney ? 'min-w-[1040px]' : 'min-w-[640px]')}>
                 <thead>
                   <tr className="text-[12px] text-ink3 font-semibold border-b border-line text-right">
                     <th className="sticky left-0 z-10 bg-surface text-left pl-5 pr-3 py-3 font-semibold">Staff member</th>
                     <th className="px-2 py-3 font-semibold">Paid days</th><th className="px-2 py-3 font-semibold">Leave</th><th className="px-2 py-3 font-semibold">Loss of pay</th>
-                    <th className="px-2 py-3 font-semibold">Gross</th><th className="px-2 py-3 font-semibold">PF</th><th className="px-2 py-3 font-semibold">ESI</th><th className="px-2 py-3 font-semibold">PT</th><th className="px-2 py-3 font-semibold">TDS</th><th className="px-2 py-3 font-semibold">Loans</th>
-                    <th className="px-2 py-3 font-semibold">Net</th><th className="pl-2 pr-5 py-3 font-semibold text-left">Flags</th>
+                    {seeMoney && <><th className="px-2 py-3 font-semibold">Gross</th><th className="px-2 py-3 font-semibold">PF</th><th className="px-2 py-3 font-semibold">ESI</th><th className="px-2 py-3 font-semibold">PT</th><th className="px-2 py-3 font-semibold">TDS</th><th className="px-2 py-3 font-semibold">Loans</th>
+                    <th className="px-2 py-3 font-semibold">Net</th></>}<th className="pl-2 pr-5 py-3 font-semibold text-left">Flags</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -398,12 +403,13 @@ function Generate() {
                     const c = p.none ? null : rowCalc(p);
                     const fl = flagsOf(p);
                     return (
-                      <tr key={p.id} onClick={() => !p.none && setOpen(p)} className={cx('border-b border-line/70 last:border-0 text-right tnum group', !p.none && 'cursor-pointer hover:bg-sunken/60')}>
+                      <tr key={p.id} onClick={() => seeMoney && !p.none && setOpen(p)} className={cx('border-b border-line/70 last:border-0 text-right tnum group', seeMoney && !p.none && 'cursor-pointer hover:bg-sunken/60')}>
                         <td className="sticky left-0 z-10 bg-surface group-hover:bg-sunken text-left pl-5 pr-3 py-2.5 whitespace-nowrap"><p className="font-semibold leading-tight font-sans">{p.name}</p><p className="text-[12px] text-ink3 font-sans">{p.desig}</p></td>
                         {c ? <>
                           <td className="px-2">{c.paid}</td>
                           <td className="px-2">{p.leave || '—'}</td>
                           <td className={cx('px-2', c.lop && 'text-bad font-semibold')}>{c.lop || '—'}</td>
+                          {seeMoney && <>
                           <td className="px-2">{amt(c.pay)}</td>
                           <td className="px-2">{amt(c.pf)}</td>
                           <td className="px-2">{c.esi ? amt(c.esi) : '—'}</td>
@@ -411,7 +417,8 @@ function Generate() {
                           <td className={cx('px-2', fl.includes('No TDS amount') && 'text-warn font-semibold')}>{c.tds ? amt(c.tds) : '0'}</td>
                           <td className="px-2">{c.rec || c.cut ? amt(c.rec + c.cut) : '—'}</td>
                           <td className="px-2 font-semibold">{amt(c.net)}</td>
-                        </> : <td colSpan={10} className="px-2 text-center text-ink3 font-sans">Not paid until a salary structure is added</td>}
+                          </>}
+                        </> : <td colSpan={seeMoney ? 10 : 3} className="px-2 text-center text-ink3 font-sans">Not paid until a salary structure is added</td>}
                         <td className="pl-2 pr-5 text-left"><div className="flex gap-1 flex-wrap">{fl.map((f) => <Pill key={f} tone={f === 'Adjustment added' ? 'brand' : f.startsWith('Leaving') ? 'neutral' : 'warn'} className="!h-5 !text-[11px]">{f}</Pill>)}</div></td>
                       </tr>
                     );
@@ -425,20 +432,20 @@ function Generate() {
                 const fl = flagsOf(p);
                 return (
                   <li key={p.id}>
-                    <button onClick={() => !p.none && setOpen(p)} className="w-full flex items-center gap-3 px-4 py-3 text-left active:bg-sunken">
+                    <button onClick={() => seeMoney && !p.none && setOpen(p)} className={cx('w-full flex items-center gap-3 px-4 py-3 text-left', seeMoney && 'active:bg-sunken')}>
                       <Avatar name={p.name} size={42} />
                       <div className="min-w-0 flex-1">
                         <p className="font-semibold text-[15px] truncate">{p.name}</p>
-                        <p className="text-[13px] text-ink3 truncate">{c ? `${c.paid} days paid · gross ${amt(c.pay)}` : 'No salary structure'}</p>
+                        <p className="text-[13px] text-ink3 truncate">{c ? `${c.paid} days paid${seeMoney ? ` · gross ${amt(c.pay)}` : p.leave ? ` · ${p.leave} on leave` : ''}` : 'No salary structure'}</p>
                         {(fl.length > 0 || (c && c.lop > 0)) && <div className="flex gap-1.5 mt-1.5 flex-wrap">{c && c.lop > 0 && <Pill tone="bad" className="!h-[22px] !text-[11.5px]">{c.lop} LOP</Pill>}{fl.map((f) => <Pill key={f} tone={f === 'Adjustment added' ? 'brand' : 'warn'} className="!h-[22px] !text-[11.5px]">{f}</Pill>)}</div>}
                       </div>
-                      {c && <span className="text-right shrink-0"><span className="block font-semibold tnum">{amt(c.net)}</span><span className="text-[12px] text-ink3">net</span></span>}
+                      {c && seeMoney && <span className="text-right shrink-0"><span className="block font-semibold tnum">{amt(c.net)}</span><span className="text-[12px] text-ink3">net</span></span>}
                     </button>
                   </li>
                 );
               })}
             </ul>
-            <div className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum">Showing {rows.length} of {m.staff} staff · totals above are for all {m.staff}</div>
+            <div className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum">Showing {rows.length} of {m.staff} staff{seeMoney ? ` · totals above are for all ${m.staff}` : ''}</div>
           </>
         )}
       </Card>
@@ -526,7 +533,7 @@ function Structures() {
     <div className="flex flex-col gap-5 @lg:gap-6">
       <div>
         <ModuleHead sub="Each staff member’s earnings and deductions, with every past version kept"
-          actions={<><Button variant="secondary" icon={I.Upload} className="hidden @md:inline-flex" onClick={() => setImp(true)}>Import</Button><Button variant="primary" icon={I.Plus} onClick={() => setAdd(true)}>Add structure</Button></>} />
+          actions={canEdit && <><Button variant="secondary" icon={I.Upload} className="hidden @md:inline-flex" onClick={() => setImp(true)}>Import</Button><Button variant="primary" icon={I.Plus} onClick={() => setAdd(true)}>Add structure</Button></>} />
         <Stats items={[
           { label: 'Active structures', value: '85', sub: 'of 86 staff', icon: 'FileSpreadsheet' },
           { label: 'Without a structure', value: '1', sub: 'Rekha Nair · joined 5 Oct', tone: 'warn', icon: 'FileWarning' },
@@ -667,6 +674,7 @@ function slipFor(p, sm) { return calc(p, { lop: 0, f: sm.f, days: sm.days }); }
 
 function SlipSheet({ p, sm, open, onClose, mine }) {
   const toast = useToast();
+  const canEdit = useCanEdit();
   if (!p || !sm) return null;
   const c = slipFor(p, sm);
   const h = hash(p.name);
@@ -675,7 +683,7 @@ function SlipSheet({ p, sm, open, onClose, mine }) {
     <Sheet open={open} onClose={onClose} wide title={`Salary slip · ${sm.label}`} sub={mine ? 'Only you can see this slip' : `${p.name} · ${p.code}`}
       footer={<>
         <Button variant="ghost" icon={I.Printer} onClick={() => toast({ title: 'Sent to the printer', body: `${sm.label} slip` })}>Print</Button>
-        {!mine && <Button variant="secondary" icon={I.MessageCircle} onClick={() => toast({ title: `Slip sent to ${p.name}`, body: 'WhatsApp, as a PDF only they can open' })}>Send</Button>}
+        {!mine && canEdit && <Button variant="secondary" icon={I.MessageCircle} onClick={() => toast({ title: `Slip sent to ${p.name}`, body: 'WhatsApp, as a PDF only they can open' })}>Send</Button>}
         <Button variant="primary" icon={I.Download} onClick={() => toast({ title: `Saved: Salary-slip-${sm.label.replace(' ', '-')}-${p.code}.pdf` })}>Download PDF</Button>
       </>}>
       <div className="rounded-2xl border border-line overflow-hidden text-[14px]">
@@ -719,7 +727,9 @@ function MySlips() {
   const toast = useToast();
   const p = usePerson();
   const [view, setView] = useState(null);
-  const [year, setYear] = useState('2026–27');
+  const [per, setPer] = useState(PERIODS.finyear);
+  const shown = SLIP_MONTHS.filter((sm) => inPeriod(isoOf(sm.paid), per));
+  const before = per.to < '2026-04-01';
   const latest = slipFor(p, SLIP_MONTHS[0]);
   const ytd = SLIP_MONTHS.reduce((a, sm) => { const c = slipFor(p, sm); return { pay: a.pay + c.pay, pf: a.pf + c.pf, pt: a.pt + c.pt, tds: a.tds + c.tds, net: a.net + c.net }; }, { pay: 0, pf: 0, pt: 0, tds: 0, net: 0 });
   const yearly = ytd.pay + latest.pay * 6;
@@ -743,10 +753,11 @@ function MySlips() {
             </div>
           </Card>
           <Card>
-            <CardHead title="My salary slips" sub="Newest first" action={<Select id="slip-year" className="w-36" value={year} onChange={setYear} options={['2026–27', '2025–26']} />} />
-            {year === '2026–27' ? (
+            <CardHead title="My salary slips" sub={`Paid in ${fmtRange(per)} · newest first`} />
+            <div className="px-5 pb-3"><DatePeriod id="slip-per" value={per} onChange={setPer} className="w-full @md:w-auto" /></div>
+            {shown.length > 0 ? (
               <ul className="divide-y divide-line/70 border-t border-line/70">
-                {SLIP_MONTHS.map((sm) => {
+                {shown.map((sm) => {
                   const c = slipFor(p, sm);
                   return (
                     <li key={sm.id} className="flex items-center gap-3 px-5 py-3">
@@ -761,7 +772,8 @@ function MySlips() {
                   );
                 })}
               </ul>
-            ) : <Empty icon={I.Archive} title="2025–26 slips are in the archive" body="All 12 slips from April 2025 to March 2026 download as one PDF." action={<Button variant="secondary" icon={I.Download} onClick={() => toast({ title: `Saved: Salary-slips-2025-26-${p.code}.pdf`, body: '12 slips' })}>Download all 12</Button>} />}
+            ) : before ? <Empty icon={I.Archive} title="Earlier slips are in the archive" body="School OS started on 1 Apr 2026. Slips from before then (April 2025 to March 2026) download as one PDF." action={<Button variant="secondary" icon={I.Download} onClick={() => toast({ title: `Saved: Salary-slips-2025-26-${p.code}.pdf`, body: '12 slips' })}>Download 2025–26 slips</Button>} />
+              : <Empty icon={I.CalendarX2} title="No slips paid in these dates" body="Salary is paid on the last working day of each month. October’s slip comes after approval." action={<Button variant="secondary" onClick={() => setPer(PERIODS.finyear)}>Show this financial year</Button>} />}
           </Card>
         </Col>
         <Col>
@@ -810,7 +822,7 @@ function AllSlips() {
     <div className="flex flex-col gap-5 @lg:gap-6">
       <div>
         <ModuleHead sub="Made only from the approved salary · each person can download only their own"
-          actions={month !== 'oct' && <Button variant="primary" icon={I.Send} onClick={() => setBulk({ how: 'WhatsApp', n: 2 })}>Send unsent slips</Button>} />
+          actions={canEdit && month !== 'oct' && <Button variant="primary" icon={I.Send} onClick={() => setBulk({ how: 'WhatsApp', n: 2 })}>Send unsent slips</Button>} />
         <Stats items={[
           { label: 'Slips made', value: month === 'oct' ? '0' : '86', sub: month === 'oct' ? 'after approval' : sm.label, icon: 'ReceiptText' },
           { label: 'Sent', value: month === 'oct' ? '0' : '84', sub: 'WhatsApp and email', icon: 'Send' },
@@ -867,14 +879,16 @@ function Advances() {
   const [pauseWhy, setPauseWhy] = useState('');
   const [close, setClose] = useState(null);
   const [paid, setPaid] = useState(null);
-  const rows = list.filter((a) => f === 'all' || (f === 'active' ? a.status !== 'Closed' : a.status === 'Closed'));
+  const [per, setPer] = useState(ALL_DATES);
+  // Rows not given yet have no date and always show
+  const rows = list.filter((a) => { const d = isoOf(a.given); return !d || inPeriod(d, per); }).filter((a) => f === 'all' || (f === 'active' ? a.status !== 'Closed' : a.status === 'Closed'));
   const n = Number(String(g.amount).replace(/[^\d]/g, '')) || 0;
   const defInst = g.type === 'Advance' ? n : Math.round(n / 10);
   return (
     <div className="flex flex-col gap-5 @lg:gap-6">
       <div>
         <ModuleHead sub="Salary advances and loans, recovered from monthly pay until the balance is zero"
-          actions={<Button variant="primary" icon={I.HandCoins} onClick={() => { setGive(true); setGErr({}); }}>Give advance or loan</Button>} />
+          actions={canEdit && <Button variant="primary" icon={I.HandCoins} onClick={() => { setGive(true); setGErr({}); }}>Give advance or loan</Button>} />
         <Stats items={[
           { label: 'Active', value: String(list.filter((a) => a.status === 'Active').length), sub: '1 approved, not paid yet', icon: 'HandCoins' },
           { label: 'Outstanding', value: amt(list.filter((a) => a.status === 'Active').reduce((x, a) => x + a.amount - a.rec, 0)), sub: 'before October recovery', icon: 'Wallet' },
@@ -884,11 +898,13 @@ function Advances() {
       </div>
       <Card className="overflow-hidden">
         <Toolbar>
-          <Segmented value={f} onChange={setF} options={[{ value: 'active', label: 'Active' }, { value: 'closed', label: 'Closed' }, { value: 'all', label: 'All' }]} />
+          <div className="overflow-x-auto no-scrollbar shrink-0"><Segmented value={f} onChange={setF} options={[{ value: 'active', label: 'Active' }, { value: 'closed', label: 'Closed' }, { value: 'all', label: 'All' }]} /></div>
+          <DatePeriod id="adv-per" value={per} onChange={setPer} className="w-full @md:w-auto" />
           <span className="flex-1" />
           <ExportButton what="advances and loans" />
         </Toolbar>
-        <DataList rows={rows} minWidth={920}
+        <DataList rows={rows} minWidth={920} footer={`Showing ${rows.length} · given in ${per.key === 'all' ? 'any month' : fmtRange(per)}`}
+          empty={<Empty icon={I.SearchX} title="No advances or loans here" body={`None given in ${fmtRange(per)} with this filter.`} action={<Button variant="secondary" onClick={() => { setF('all'); setPer(ALL_DATES); }}>Show all</Button>} />}
           columns={[
             { key: 'n', label: 'Staff member', render: (a) => { const p = byId(a.sid); return <div className="flex items-center gap-3"><Avatar name={p.name} size={34} /><div><p className="font-semibold leading-tight">{p.name}</p><p className="text-[12px] text-ink3">{a.reason}</p></div></div>; } },
             { key: 't', label: 'Type', render: (a) => <Pill tone={a.type === 'Loan' ? 'info' : 'brand'}>{a.type}</Pill> },
@@ -942,10 +958,19 @@ function Advances() {
 function History() {
   const toast = useToast();
   const { go } = useNav();
+  // HR has View: who was paid for how many days and the loss of pay, never the money
+  const seeMoney = usePage().access === 'full';
   const [tab, setTab] = useState('month');
-  const [year, setYear] = useState('2026–27');
+  const [per, setPer] = useState(PERIODS.finyear);
   const [who, setWho] = useState('T01');
-  const paidMonths = MONTHS.filter((m) => m.status !== 'calculated' && m.status !== 'waiting').slice().reverse();
+  const MI = { apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9 };
+  const inPer = (id) => { const m = String(MI[id] + 1).padStart(2, '0'); const last = new Date(2026, MI[id] + 1, 0).getDate(); return per.from <= `2026-${m}-${last}` && per.to >= `2026-${m}-01`; };
+  const SM = MONTHS.filter((m) => inPer(m.id));
+  const slipRows = SLIP_MONTHS.filter((sm) => inPer(sm.id));
+  const paidMonths = SM.filter((m) => m.status !== 'calculated' && m.status !== 'waiting').slice().reverse();
+  const before = per.to < '2026-04-01';
+  // Loss of pay days for the whole staff each month (from Staff Attendance and Staff Leave)
+  const LOP = { oct: 3.5, sep: 2, aug: 1, jul: 0, jun: 1.5, may: 0, apr: 0.5 };
   const p = byId(who);
   const DEPT = [['Teaching', 1984200], ['Office', 182400], ['Transport', 236800], ['Accounts', 60000], ['Hostel', 66000], ['Support', 41400], ['Library', 26000], ['Stores', 18000]];
   return (
@@ -953,17 +978,31 @@ function History() {
       <ModuleHead sub="Salary paid by month and by staff member, and the salary reports" />
       <div className="flex flex-col gap-5 @lg:gap-6">
       <div className="flex flex-col @md:flex-row gap-2.5 @md:items-center">
-        <Segmented value={tab} onChange={setTab} options={[{ value: 'month', label: 'By month' }, { value: 'staff', label: 'By staff member' }, { value: 'reports', label: 'Reports' }]} />
-        <Select id="hist-year" className="@md:w-40" value={year} onChange={setYear} options={['2026–27', '2025–26', '2024–25']} />
+        <div className="overflow-x-auto no-scrollbar"><Segmented className="w-max" value={tab} onChange={setTab} options={[{ value: 'month', label: 'By month' }, { value: 'staff', label: 'By staff member' }, ...(seeMoney ? [{ value: 'reports', label: 'Reports' }] : [])]} /></div>
+        {tab !== 'reports' && <DatePeriod id="hist-per" value={per} onChange={setPer} className="w-full @md:w-auto" />}
       </div>
-      {year !== '2026–27' ? (
-        <Card><Empty icon={I.Archive} title={`${year} is closed and read-only`} body="Its 12 salary runs, slips and statements are kept as they were paid." action={<Button variant="secondary" icon={I.Download} onClick={() => toast({ title: `Exported salary history ${year}`, body: 'Excel file with the school name and your name on top' })}>Export {year}</Button>} /></Card>
+      {tab !== 'reports' && before ? (
+        <Card><Empty icon={I.Archive} title="Before School OS, read-only" body="School OS started on 1 Apr 2026. Earlier salary runs, slips and statements are kept as they were paid." action={seeMoney ? <Button variant="secondary" icon={I.Download} onClick={() => toast({ title: 'Exported salary history 2025–26', body: 'Excel file with the school name and your name on top' })}>Export 2025–26</Button> : <Button variant="secondary" onClick={() => setPer(PERIODS.finyear)}>Show this financial year</Button>} /></Card>
+      ) : tab !== 'reports' && !SM.length ? (
+        <Card><Empty icon={I.CalendarX2} title="No salary months in these dates" body={`Nothing falls in ${fmtRange(per)}.`} action={<Button variant="secondary" onClick={() => setPer(PERIODS.finyear)}>Show this financial year</Button>} /></Card>
+      ) : tab === 'month' && !seeMoney ? (
+        <Card className="overflow-hidden animate-rise">
+          <CardHead title="Loss of pay by month" sub={`${per.label} · ${fmtRange(per)} · from Staff Attendance and Staff Leave`} />
+          <DataList rows={SM} minWidth={560}
+            columns={[
+              { key: 'm', label: 'Month', render: (m) => <span className="font-semibold">{m.label}</span> },
+              { key: 's', label: 'Staff', align: 'right', render: (m) => m.staff },
+              { key: 'l', label: 'Loss of pay days', align: 'right', render: (m) => LOP[m.id] || '—' },
+              { key: 'p', label: 'Paid on', nowrap: true, render: (m) => m.paid || <StatusPill s={m.status} /> },
+            ]}
+            mobile={(m) => ({ icon: 'CalendarDays', title: m.label, sub: `${m.staff} staff · ${LOP[m.id] ? `${LOP[m.id]} days loss of pay` : 'no loss of pay'}`, right: m.paid ? <span className="text-[12.5px] text-ink3">{m.paid}</span> : <StatusPill s={m.status} /> })} />
+        </Card>
       ) : tab === 'month' ? (
         <Split className="animate-rise">
           <Card className="overflow-hidden">
-            <CardHead title="Net pay by month" sub="2026–27 · ₹ lakh · October is not paid yet" action={<ExportButton what="salary by month" />} />
-            <div className="px-5 pb-2"><Bars data={MONTHS.slice().reverse().map((m) => ({ k: m.short, v: Math.round(m.net / 1000) / 100, tone: m.id === 'oct' ? 'info' : 'brand' }))} label={(v) => `${v}`} ticks={[0, 10, 20]} max={30} ariaLabel="Net salary by month" /></div>
-            <DataList rows={MONTHS} minWidth={640} onRow={(m) => { go('salary', { page: 'generate' }); toast({ title: `Opening ${m.label}`, body: 'Tap the month in Salary months to see its rows', tone: 'info' }); }}
+            <CardHead title="Net pay by month" sub={`${fmtRange(per)} · ₹ lakh${SM.some((m) => m.id === 'oct') ? ' · October is not paid yet' : ''}`} action={<ExportButton what="salary by month" />} />
+            <div className="px-5 pb-2"><Bars data={SM.slice().reverse().map((m) => ({ k: m.short, v: Math.round(m.net / 1000) / 100, tone: m.id === 'oct' ? 'info' : 'brand' }))} label={(v) => `${v}`} ticks={[0, 10, 20]} max={30} ariaLabel="Net salary by month" /></div>
+            <DataList rows={SM} minWidth={640} onRow={(m) => { go('salary', { page: 'generate' }); toast({ title: `Opening ${m.label}`, body: 'Tap the month in Salary months to see its rows', tone: 'info' }); }}
               columns={[
                 { key: 'm', label: 'Month', render: (m) => <span className="font-semibold">{m.label}</span> },
                 { key: 's', label: 'Staff', align: 'right', render: (m) => m.staff },
@@ -976,7 +1015,7 @@ function History() {
           </Card>
           <Col>
             <Card>
-              <CardHead title="Year so far" sub="April to September, paid" />
+              <CardHead title="Paid in these dates" sub={`${paidMonths.length} ${paidMonths.length === 1 ? 'month' : 'months'} · ${fmtRange(per)}`} />
               <ul className="px-5 pb-5 text-[14px] flex flex-col gap-1.5 tnum">
                 <li className="flex justify-between"><span className="text-ink2">Gross</span><b className="font-semibold">{amt(paidMonths.reduce((a, m) => a + m.gross, 0))}</b></li>
                 <li className="flex justify-between"><span className="text-ink2">Deductions</span><span>{amt(paidMonths.reduce((a, m) => a + m.ded, 0))}</span></li>
@@ -994,18 +1033,21 @@ function History() {
           <div className="p-3 border-b border-line flex flex-col @md:flex-row gap-2.5">
             <Select id="hist-who" className="@md:w-80" value={who} onChange={setWho} options={PAY.filter((x) => !x.none).map((x) => ({ value: x.id, label: `${x.name} · ${x.desig}` }))} />
             <span className="flex-1" />
-            <ExportButton what={`${p.name}’s salary history`} />
+            {seeMoney && <ExportButton what={`${p.name}’s salary history`} />}
           </div>
-          <DataList rows={SLIP_MONTHS.map((sm) => ({ id: sm.id, sm, c: slipFor(p, sm) }))} minWidth={640} onRow={(r) => toast({ title: `${p.name} · ${r.sm.label} slip`, body: `Net ${amt(r.c.net)} · open it from Salary Slips`, tone: 'info' })}
+          <DataList rows={slipRows.map((sm) => ({ id: sm.id, sm, c: slipFor(p, sm) }))} minWidth={seeMoney ? 640 : 480} onRow={seeMoney ? (r) => toast({ title: `${p.name} · ${r.sm.label} slip`, body: `Net ${amt(r.c.net)} · open it from Salary Slips`, tone: 'info' }) : undefined}
+            empty={<Empty icon={I.CalendarX2} title="No paid months in these dates" body="October is paid after approval." />}
             columns={[
               { key: 'm', label: 'Month', render: (r) => <span className="font-semibold">{r.sm.label}</span> },
-              { key: 'g', label: 'Gross', align: 'right', render: (r) => amt(r.c.pay) },
-              { key: 'd', label: 'Deductions', align: 'right', render: (r) => amt(r.c.ded) },
-              { key: 'n', label: 'Net', align: 'right', render: (r) => <b className="font-semibold">{amt(r.c.net)}</b> },
+              ...(seeMoney ? [
+                { key: 'g', label: 'Gross', align: 'right', render: (r) => amt(r.c.pay) },
+                { key: 'd', label: 'Deductions', align: 'right', render: (r) => amt(r.c.ded) },
+                { key: 'n', label: 'Net', align: 'right', render: (r) => <b className="font-semibold">{amt(r.c.net)}</b> },
+              ] : [{ key: 'dp', label: 'Days paid', align: 'right', render: (r) => `${r.c.paid} of ${r.sm.days}` }]),
               { key: 'p', label: 'Paid on', nowrap: true, render: (r) => r.sm.paid },
             ]}
-            mobile={(r) => ({ icon: 'ReceiptText', title: r.sm.label, sub: `Paid ${r.sm.paid}`, right: <b className="font-semibold tnum">{amt(r.c.net)}</b> })} />
-          <p className="px-5 py-3 border-t border-line text-[12.5px] text-ink3">April and May were paid on structure v2; the 6% increment started in June.</p>
+            mobile={(r) => ({ icon: 'ReceiptText', title: r.sm.label, sub: `Paid ${r.sm.paid}`, right: seeMoney ? <b className="font-semibold tnum">{amt(r.c.net)}</b> : <span className="text-[12.5px] text-ink3">{r.c.paid} of {r.sm.days} days</span> })} />
+          {seeMoney && <p className="px-5 py-3 border-t border-line text-[12.5px] text-ink3">April and May were paid on structure v2; the 6% increment started in June.</p>}
         </Card>
       ) : (
         <Split className="animate-rise">

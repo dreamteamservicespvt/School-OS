@@ -8,7 +8,9 @@ import { useNav, useRole } from './shell.jsx';
 import {
   ModuleHead, useCanEdit, Stats, Band, SearchBox, Toolbar, Select, Textarea, DataList, BulkBar, SettingRow, SettingsCard,
   Banner, Suggestion, Progress, HBars, Bars, Legend, Timeline, MoreMenu, FormSheet, ConfirmSheet, Split, Col, ExportButton, TONE_SOFT,
+  DatePeriod, PERIODS, fmtRange, fmtDay, periodDays, MONTH_NAMES,
 } from './kit.jsx';
+import { pagesFor, inMenu } from './config.js';
 
 /* =========================================================================================
    Sample data (Sunrise Public School, 2026–27). Today is Fri 9 Oct 2026, 10:42 AM.
@@ -24,6 +26,47 @@ const byId = (id) => STUDENTS.find((s) => s.id === id);
 const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
 const r50 = (n) => Math.round(n / 50) * 50;
 const GSTIN = '36AAACS4821K1Z5';
+
+/* ---------- Dates and who may open what (shared with Finance) ---------- */
+const MON_IDX = Object.fromEntries(MON.map((m, i) => [m, i]));
+const pad = (n) => String(n).padStart(2, '0');
+// '9 Oct', '9 Oct 2026', 'Thu 1 Oct 2026' or [month, day] -> '2026-10-09'
+export function isoOf(d, year = 2026) {
+  if (Array.isArray(d)) return `${year}-${pad(d[0] + 1)}-${pad(d[1])}`;
+  const m = /(\d{1,2}) ([A-Z][a-z]{2})(?:[a-z]*)?(?: (\d{4}))?/.exec(d || '');
+  if (!m) return '';
+  return `${m[3] || year}-${pad(MON_IDX[m[2]] + 1)}-${pad(m[1])}`;
+}
+export const inPeriod = (iso, v) => !!iso && iso >= v.from && iso <= v.to;
+// Everything since records began: the default for lists that are not about a time window
+export const ALL_DATES = { key: 'all', label: 'All dates', from: '2024-06-01', to: '2026-10-09' };
+// Share of a month (0 to 1) that a period covers, counting days up to today. y, m: m is 0-based.
+export function monthShare(v, y, m) {
+  const first = `${y}-${pad(m + 1)}-01`;
+  const lastDay = new Date(y, m + 1, 0).getDate();
+  const last = y === 2026 && m === 9 ? '2026-10-09' : `${y}-${pad(m + 1)}-${pad(lastDay)}`;
+  const a = v.from > first ? v.from : first, b = v.to < last ? v.to : last;
+  if (a > b) return 0;
+  const days = (x) => Number(x.slice(8, 10));
+  const span = days(last) - days(first) + 1;
+  return (days(b) - days(a) + 1) / span;
+}
+// Months of 2026–27 so far: [label, year, monthIndex]
+export const FY_MONTHS = [['Apr', 2026, 3], ['May', 2026, 4], ['Jun', 2026, 5], ['Jul', 2026, 6], ['Aug', 2026, 7], ['Sep', 2026, 8], ['Oct', 2026, 9]];
+// Share of this financial year (so far) that a period covers, weighted by each month's fee collection
+export function fyShare(v, weights = FEE_TREND.map((x) => x.c)) {
+  const tot = weights.reduce((a, b) => a + b, 0);
+  return FY_MONTHS.reduce((a, [, y, m], i) => a + monthShare(v, y, m) * weights[i], 0) / tot;
+}
+// Can this person open that page? Used before every link to another page or module.
+export function canOpen(role, mod, page) {
+  if (!inMenu(role, mod)) return false;
+  if (!page) return true;
+  return pagesFor(mod, role.access[mod], role.id).some((p) => p.id === page);
+}
+// Salary amounts are shown only to people with full Salary access (Accountant, Principal, School Admin)
+export const seesPay = (role) => role.access.salary === 'full';
+const scaleBy = (f) => (n) => Math.round(n * f);
 const ACCOUNTS = { 'School account': 'SBI Kukatpally · XXXX XXXX 2209', 'Trust account': 'HDFC KPHB · XXXX XXXX 7730' };
 
 // Tuition per year by class (Class 7: ₹78,000 = 4 × ₹19,500; Aarav pays ₹18,500 after the sibling discount)
@@ -73,15 +116,64 @@ export const FEE_PAYMENTS_TODAY = (() => {
   ];
   const early = EARLY.map(([t, sid, head, amt, pen, mode], i) => ({ t, ...fromS(sid), head, amt, pen, mode, ref: refFor(mode, i), rcpt: `R/26/0${5152 + i}`, kind: head.includes('(part)') ? 'Partial' : 'Full', by: mode === 'Online' ? 'Razorpay' : undefined })).reverse();
   return [...top, ...early].map((p, i) => ({
-    id: 'p' + i, date: 'Today', pen: 0, status: 'Posted', kind: 'Full', by: 'Suresh Babu', ...p,
+    id: 'p' + i, date: 'Today', iso: '2026-10-09', pen: 0, status: 'Posted', kind: 'Full', by: 'Suresh Babu', ...p,
     acct: p.head.startsWith('Transport') ? 'Trust account' : 'School account',
   }));
 })();
 const FAILED_EARLIER = [
-  { id: 'fx1', date: 'Yesterday', t: '7:12 PM', ...fromS('S1002'), head: 'Tuition fee · Q2 Jul–Sep', amt: 9000, mode: 'Online', ref: 'pay_PAz81LmXq0Tn2c', status: 'Failed', fail: 'Not confirmed by Razorpay within 30 minutes', kind: 'Full', by: 'Razorpay', acct: 'School account' },
-  { id: 'fx2', date: 'Yesterday', t: '6:05 PM', ...fromS('S1037'), head: 'Tuition fee · Q3 Oct–Dec', amt: 12500, mode: 'Online', ref: 'pay_PAy2c9RkVw7Hd1', status: 'Failed', fail: 'Parent closed the UPI app before paying', kind: 'Full', by: 'Razorpay', acct: 'School account' },
+  { id: 'fx1', date: 'Yesterday', iso: '2026-10-08', t: '7:12 PM', ...fromS('S1002'), head: 'Tuition fee · Q2 Jul–Sep', amt: 9000, mode: 'Online', ref: 'pay_PAz81LmXq0Tn2c', status: 'Failed', fail: 'Not confirmed by Razorpay within 30 minutes', kind: 'Full', by: 'Razorpay', acct: 'School account' },
+  { id: 'fx2', date: 'Yesterday', iso: '2026-10-08', t: '6:05 PM', ...fromS('S1037'), head: 'Tuition fee · Q3 Oct–Dec', amt: 12500, mode: 'Online', ref: 'pay_PAy2c9RkVw7Hd1', status: 'Failed', fail: 'Parent closed the UPI app before paying', kind: 'Full', by: 'Razorpay', acct: 'School account' },
 ];
-const MONTH_MODES = [['UPI', 812, 1320000], ['Online', 296, 810000], ['Cash', 241, 460000], ['Bank transfer', 63, 240000], ['Cheque', 41, 190000], ['Card', 37, 80000], ['Net banking', 0, 0]];
+// Earlier days' payments, made up from the month's collection (Fee Dashboard chart) so every date range has rows
+const PAST_KINDS = [[1200, 'Exam fee · Half-yearly'], [2200, 'Transport fee · monthly'], [4000, 'Tuition fee · (part)'], [9800, 'Tuition fee · quarter'], [12500, 'Tuition fee · quarter'], [19500, 'Tuition fee · quarter'], [5000, 'Tuition fee · (part)'], [23000, 'Tuition fee · quarter'], [2600, 'Uniform · set'], [7000, 'Hostel fee · (part)']];
+const PAST_MODES = ['UPI', 'UPI', 'Online', 'Cash', 'UPI', 'Cash', 'Card', 'UPI', 'Bank transfer', 'Online', 'Cheque', 'UPI'];
+const hashS = (str) => { let h = 7; for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0; return h; };
+const PAST_CACHE = {};
+function paymentsOn(iso) {
+  if (PAST_CACHE[iso]) return PAST_CACHE[iso];
+  const [y, mo, d] = iso.split('-').map(Number);
+  const dt = new Date(y, mo - 1, d);
+  if (iso >= '2026-10-09' || iso < '2026-04-01') return []; // School OS went live on 1 Apr 2026
+  const sun = dt.getDay() === 0;
+  const tr = y === 2026 && mo >= 4 ? FEE_TREND.find((x) => x.m === MON[mo - 1]) : null;
+  const lakh = tr ? tr.c : [2, 3].includes(mo) ? 18 : mo === 6 || mo === 7 || mo === 1 ? 52 : 21;
+  const dim = y === 2026 && mo === 10 ? 8 : new Date(y, mo, 0).getDate();
+  const daily = ((y === 2026 && mo === 10 ? 2957500 : lakh * 1e5) / dim) * (sun ? 0.3 : 1.12);
+  const n = Math.max(2, Math.round(daily / 7800));
+  const yy = String(y - (mo < 4 ? 1 : 0)).slice(2);
+  const doy = Math.round((dt - new Date(y - (mo < 4 ? 1 : 0), 3, 1)) / 864e5);
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const h = hashS(iso + '#' + i);
+    const s = STUDENTS[h % STUDENTS.length];
+    const [amt, head] = PAST_KINDS[(h >> 3) % PAST_KINDS.length];
+    const mode = PAST_MODES[(h >> 7) % PAST_MODES.length];
+    const mins = 6 * 60 + 50 + Math.round(((i + 0.5) / n) * 680);
+    const hh = Math.floor(mins / 60), mm = mins % 60;
+    const t = `${((hh + 11) % 12) + 1}:${pad(mm)} ${hh >= 12 ? 'PM' : 'AM'}`;
+    const cancelled = h % 97 === 0;
+    out.push({
+      id: `${iso}-${i}`, iso, date: `${d} ${MON[mo - 1]}${y !== 2026 ? ' ' + y : ''}`, t, sid: s.id, name: s.name, cls: clsOf(s), parent: s.father, phone: s.phone,
+      head, amt, pen: 0, mode, ref: refFor(mode, h % 900), rcpt: `R/${yy}/${String(100 + doy * 40 + i).padStart(5, '0')}`, kind: head.includes('(part)') ? 'Partial' : 'Full',
+      status: cancelled ? 'Cancelled' : 'Posted', by: mode === 'Online' ? 'Razorpay' : 'Suresh Babu', acct: head.startsWith('Transport') ? 'Trust account' : 'School account',
+      cancel: cancelled ? { reason: 'Wrong amount', note: 'Collected again the same day.', by: 'Suresh Babu', when: 'same day' } : null,
+    });
+  }
+  return (PAST_CACHE[iso] = out.reverse());
+}
+// Every payment in a date range, newest first. Today's live rows come from the page.
+function paymentsIn(v) {
+  const out = [];
+  const end = v.to > '2026-10-08' ? '2026-10-08' : v.to;
+  let d = new Date(Number(end.slice(0, 4)), Number(end.slice(5, 7)) - 1, Number(end.slice(8, 10)));
+  for (let k = 0; k < 800; k++) {
+    const iso = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    if (iso < v.from) break;
+    out.push(...paymentsOn(iso));
+    d = new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1);
+  }
+  return out;
+}
 
 /* ---------- Defaulters: 61 students, ₹8,40,000 overdue, 18 more than 30 days late ---------- */
 const BUCKETS = [
@@ -368,6 +460,7 @@ export function ReportActions({ name }) {
 function PaymentSheet({ p, onClose, onCancel, onVerify, onReject }) {
   const toast = useToast();
   const { go } = useNav();
+  const { role } = useRole();
   const canEdit = useCanEdit();
   const [rejecting, setRejecting] = useState(false);
   const [why, setWhy] = useState('');
@@ -402,7 +495,7 @@ function PaymentSheet({ p, onClose, onCancel, onVerify, onReject }) {
           <Mini k={p.by === 'Razorpay' ? 'Posted by' : 'Collected by'} v={p.by === 'Razorpay' ? 'Razorpay, by itself after the bank confirmed' : `${p.by} · Counter 1`} />
           <Mini k="Goes to" v={`${p.acct} · ${ACCOUNTS[p.acct]}`} />
           {p.parent && <Mini k="Parent" v={<span className="tnum">{p.parent} · {p.phone}</span>} />}
-          <Mini k="Day Book" v={posted ? `Entry on ${p.date === 'Today' ? '9 Oct' : p.date}` : p.status === 'Cancelled' ? 'Original kept, reversal added' : 'Not in the Day Book yet'} />
+          <Mini k="Day Book" v={posted ? `Entry on ${!p.date || p.date === 'Today' ? '9 Oct' : p.date}` : p.status === 'Cancelled' ? 'Original kept, reversal added' : 'Not in the Day Book yet'} />
         </div>
 
         {p.status === 'Cancelled' && p.cancel && (
@@ -436,7 +529,7 @@ function PaymentSheet({ p, onClose, onCancel, onVerify, onReject }) {
             <Button variant="secondary" icon={I.MessageCircle} onClick={() => toast({ title: `Sent on WhatsApp to ${p.parent || 'the parent'}`, body: p.status === 'Cancelled' ? 'Marked cancelled, with the reason' : 'Receipt with the school’s template' })}>WhatsApp</Button>
           </>}
           {p.status === 'Failed' && canEdit && <Button variant="primary" icon={I.Send} onClick={() => { onClose(); toast({ title: `New payment link sent to ${p.parent}`, body: `${inr(p.amt)} · WhatsApp, with SMS backup. Valid 7 days.` }); }}>Send new link</Button>}
-          {p.sid && <Button variant="ghost" icon={I.BookOpen} onClick={() => go('fees', { page: 'ledger', id: p.sid })}>Student fee ledger</Button>}
+          {p.sid && canOpen(role, 'fees', 'ledger') && <Button variant="ghost" icon={I.BookOpen} onClick={() => go('fees', { page: 'ledger', id: p.sid })}>Student fee ledger</Button>}
           {posted && canEdit && onCancel && <Button variant="dangerSoft" icon={I.Ban} className="@md:ml-auto" onClick={() => onCancel(p)}>Cancel with a reason</Button>}
         </div>
         {posted && canEdit && <p className="text-[12.5px] text-ink3 -mt-1">Payments are never deleted or edited. A wrong one is cancelled with a reason and stays on record.</p>}
@@ -477,13 +570,23 @@ function CancelSheet({ p, onClose, onDone }) {
 /* =========================================================================================
    Admission Counsellor: only application and admission fee status
    ========================================================================================= */
+const ADM_MONTHS = [['Jun', 5, 6, 4], ['Jul', 6, 5, 2], ['Aug', 7, 9, 1], ['Sep', 8, 21, 1], ['Oct', 9, 6, 1]];
 function AdmissionFees() {
   const { go } = useNav();
-  const appPaid = 47, apps = 52, offers = 14, admPaid = 9;
+  const { role } = useRole();
+  const [per, setPer] = useState(PERIODS.acyear);
+  const months = ADM_MONTHS.map(([m, i, a, d]) => { const sh = monthShare(per, 2026, i); return { m, a: Math.round(a * sh), d: Math.round(d * sh), sh }; }).filter((x) => x.sh > 0);
+  const appPaid = months.reduce((x, r) => x + r.a, 0), admPaid = months.reduce((x, r) => x + r.d, 0);
+  const apps = Math.round(appPaid * 52 / 47), offers = admPaid + Math.round(5 * Math.min(1, apps / 52));
+  const list = APPLICANTS.filter((r) => inPeriod(isoOf(r.appOn), per));
   return (
     <div>
       <ModuleHead title="Fees" tabs={false} sub="You see only application and admission fees. Other fee details stay with the accounts team." />
       <div className="flex flex-col gap-5 @lg:gap-6">
+        <div className="flex flex-col @md:flex-row @md:items-center gap-2.5">
+          <DatePeriod id="adm-fee-per" value={per} onChange={setPer} className="w-full @md:w-auto" />
+          <p className="text-[13px] text-ink3 tnum">Applications made in {fmtRange(per)}</p>
+        </div>
         <Stats items={[
           { label: 'Application fees paid', value: `${appPaid} of ${apps}`, sub: `${inr(appPaid * 500)} at ₹500 each`, icon: 'FileText' },
           { label: 'Application fee not paid', value: apps - appPaid, sub: 'Payment links sent', tone: 'warn', icon: 'Clock' },
@@ -492,8 +595,9 @@ function AdmissionFees() {
         ]} />
         <Split>
           <Card className="overflow-hidden">
-            <CardHead title="Application and admission fees" sub={`Latest ${APPLICANTS.length} applications`} icon={I.UserPlus} action={<Button size="sm" variant="secondary" icon={I.ArrowRight} onClick={() => go('admissions', { page: 'applications' })}>Applications</Button>} />
-            <DataList rows={APPLICANTS} rowKey={(r) => r.app} minWidth={720} footer={`Showing ${APPLICANTS.length} of ${apps}`}
+            <CardHead title="Application and admission fees" sub={`Latest ${list.length} applications`} icon={I.UserPlus} action={canOpen(role, 'admissions', 'applications') && <Button size="sm" variant="secondary" icon={I.ArrowRight} onClick={() => go('admissions', { page: 'applications' })}>Applications</Button>} />
+            <DataList rows={list} rowKey={(r) => r.app} minWidth={720} footer={`Showing the latest ${list.length} of ${apps}`}
+              empty={<Empty icon={I.SearchX} title="No applications in these dates" body={`Nothing was applied for in ${fmtRange(per)}.`} action={<Button variant="secondary" onClick={() => setPer(PERIODS.acyear)}>Show this academic year</Button>} />}
               columns={[
                 { key: 'app', label: 'Application', render: (r) => <span className="font-mono text-[12.5px]">{r.app}</span> },
                 { key: 'name', label: 'Child', render: (r) => <><p className="font-semibold leading-tight">{r.name}</p><p className="text-[12.5px] text-ink3">{r.parent}</p></> },
@@ -504,10 +608,10 @@ function AdmissionFees() {
               mobile={(r) => ({ title: r.name, sub: `${r.app} · ${r.cls} ${r.yr}`, avatar: r.name, pills: [<Pill key="a" tone={r.appFee === 'Paid' ? 'ok' : 'warn'} className="!h-[22px] !text-[11.5px]">Application {r.appFee.toLowerCase()}</Pill>, <Pill key="b" tone={r.adm === 'Paid' ? 'ok' : r.adm === 'Waiting' ? 'warn' : 'neutral'} className="!h-[22px] !text-[11.5px]">Admission: {r.adm.toLowerCase()}</Pill>] })} />
           </Card>
           <Card className="overflow-hidden">
-            <CardHead title="By month" sub="2026–27 so far" icon={I.CalendarDays} />
-            <SimpleTable minWidth={300} cols={[{ label: 'Month', key: 'm' }, { label: 'Applications', key: 'a', right: true }, { label: 'Admissions', key: 'd', right: true }]}
-              rows={[{ m: 'Jun', a: 6, d: 4 }, { m: 'Jul', a: 5, d: 2 }, { m: 'Aug', a: 9, d: 1 }, { m: 'Sep', a: 21, d: 1 }, { m: 'Oct', a: 6, d: 1 }]}
-              foot={['Paid', 47, 9]} />
+            <CardHead title="By month" sub={fmtRange(per)} icon={I.CalendarDays} />
+            {months.length === 0 ? <p className="px-5 pb-4 text-[13.5px] text-ink3">No fees in these dates. Admissions here start in June.</p> : <SimpleTable minWidth={300} cols={[{ label: 'Month', key: 'm' }, { label: 'Applications', key: 'a', right: true }, { label: 'Admissions', key: 'd', right: true }]}
+              rows={months} rowKey={(r) => r.m}
+              foot={['Paid', appPaid, admPaid]} />}
             <p className="px-5 py-3 text-[12.5px] text-ink3 border-t border-line">Application fee ₹500 · admission fee ₹15,000 · paid at the counter or by Razorpay link</p>
           </Card>
         </Split>
@@ -526,8 +630,10 @@ function FeeDashboard() {
 }
 function FeeDashboardFull() {
   const { go } = useNav();
+  const { role } = useRole();
   const toast = useToast();
   const canEdit = useCanEdit();
+  const can = (page) => canOpen(role, 'fees', page);
   const [pays, setPays] = useState(FEE_PAYMENTS_TODAY);
   const [tab, setTab] = useState('Full');
   const [status, setStatus] = useState('all');
@@ -535,23 +641,29 @@ function FeeDashboardFull() {
   const [q, setQ] = useState('');
   const [open, setOpen] = useState(null);
   const [cancel, setCancel] = useState(null);
-  const [period, setPeriod] = useState('today');
+  const [per, setPer] = useState(PERIODS.today);
   const [linked, setLinked] = useState({});
   const listRef = useRef(null);
 
-  const valid = pays.filter((p) => p.status === 'Posted' || p.status === 'Waiting');
-  const today = valid.reduce((a, p) => a + p.amt, 0);
+  // Every payment in the chosen dates: today's live rows plus earlier days
+  const past = useMemo(() => paymentsIn(per), [per.from, per.to]);
+  const all = useMemo(() => [...(inPeriod('2026-10-09', per) ? pays : []), ...(inPeriod('2026-10-08', per) ? FAILED_EARLIER : []), ...past], [pays, past, per.from, per.to]);
+  const isToday = per.from === '2026-10-09' && per.to === '2026-10-09';
+  const valid = all.filter((p) => p.status === 'Posted' || p.status === 'Waiting');
+  const collected = valid.reduce((a, p) => a + p.amt, 0);
   const upi = valid.filter((p) => p.mode === 'UPI').length;
   const waiting = pays.filter((p) => p.status === 'Waiting');
-  const failed = [...pays.filter((p) => p.status === 'Failed'), ...FAILED_EARLIER];
+  const failed = all.filter((p) => p.status === 'Failed');
   const t = q.trim().toLowerCase();
-  const rows = pays.filter((p) => p.kind === tab && (status === 'all' || p.status === status) && (mode === 'all' || p.mode === mode) &&
+  const rowsAll = all.filter((p) => p.kind === tab && (status === 'all' || p.status === status) && (mode === 'all' || p.mode === mode) &&
     (!t || p.name.toLowerCase().includes(t) || (p.rcpt || '').toLowerCase().includes(t) || p.cls.toLowerCase().includes(t)));
-  const methods = period === 'today'
-    ? ['UPI', 'Cash', 'Cheque', 'Online', 'Bank transfer', 'Card', 'Net banking'].map((m) => [m, valid.filter((p) => p.mode === m).length, valid.filter((p) => p.mode === m).reduce((a, p) => a + p.amt, 0)])
-    : MONTH_MODES;
-  const mMax = Math.max(...methods.map((m) => m[2]));
+  const LIMIT = 80;
+  const rows = rowsAll.slice(0, LIMIT);
+  const money = (n) => (isToday || n < 1e6 ? inr(n) : inrShort(n));
+  const methods = ['UPI', 'Cash', 'Cheque', 'Online', 'Bank transfer', 'Card', 'Net banking'].map((m) => { const l = valid.filter((p) => p.mode === m); return [m, l.length, l.reduce((a, p) => a + p.amt, 0)]; }).filter((m, i) => m[1] || i < 6);
+  const mMax = Math.max(1, ...methods.map((m) => m[2]));
   const mTotal = methods.reduce((a, m) => a + m[2], 0);
+  const range = isToday ? 'Today' : `${per.label} · ${fmtRange(per)}`;
 
   const update = (id, x) => setPays((ps) => ps.map((p) => (p.id === id ? { ...p, ...x } : p)));
   const verify = (p) => { update(p.id, { status: 'Posted' }); setOpen(null); toast({ title: `${p.rcpt} posted`, body: `${inr(p.amt)} from ${p.name} is in today’s Day Book. Receipt sent on WhatsApp.` }); };
@@ -566,13 +678,17 @@ function FeeDashboardFull() {
   return (
     <div>
       <ModuleHead title="Fees" sub="Friday, 9 October · live as money comes in · updated 10:42 AM"
-        actions={<><ExportButton what="today’s payments" /><Button variant="primary" icon={I.IndianRupee} onClick={() => go('fees', { page: 'collect' })}>Collect fee</Button></>} />
+        actions={<><ExportButton what={`payments, ${range}`} />{canEdit && can('collect') && <Button variant="primary" icon={I.IndianRupee} onClick={() => go('fees', { page: 'collect' })}>Collect fee</Button>}</>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
+        <div className="flex flex-col @md:flex-row @md:items-center gap-2.5">
+          <DatePeriod id="fee-per" value={per} onChange={setPer} className="w-full @md:w-auto" />
+          <p className="text-[13px] text-ink3 tnum">Showing payments for {range}</p>
+        </div>
         <Band items={[
-          { label: 'Collected today', big: inr(today), foot: `${valid.length} payments · ${upi} by UPI`, onClick: () => listRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }) },
-          { label: 'Collected this month', big: '₹31 L', foot: 'of ₹61 L due in October', onClick: () => go('fees', { page: 'reports' }) },
-          { label: 'Pending', big: '₹42.3 L', foot: 'Not late yet · Q3 tuition due 10 Oct', onClick: () => go('fees', { page: 'reports' }) },
-          { label: 'Overdue', big: inrShort(OVERDUE_TOTAL), foot: `${DEFAULTERS.length} students · ${DEFAULTERS.filter((d) => d.days > 30).length} over 30 days`, onClick: () => go('fees', { page: 'defaulters' }) },
+          { label: isToday ? 'Collected today' : `Collected · ${per.label}`, big: money(collected), foot: `${valid.length.toLocaleString('en-IN')} payments · ${upi.toLocaleString('en-IN')} by UPI`, onClick: () => listRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }) },
+          { label: 'Collected this financial year', big: '₹2.33 Cr', foot: 'of ₹2.84 Cr due so far · 82%', onClick: can('reports') ? () => go('fees', { page: 'reports' }) : undefined },
+          { label: 'Pending', big: '₹42.3 L', foot: 'Not late yet · Q3 tuition due 10 Oct', onClick: can('reports') ? () => go('fees', { page: 'reports' }) : undefined },
+          { label: 'Overdue', big: inrShort(OVERDUE_TOTAL), foot: `${DEFAULTERS.length} students · ${DEFAULTERS.filter((d) => d.days > 30).length} over 30 days`, onClick: can('defaulters') ? () => go('fees', { page: 'defaulters' }) : undefined },
         ]} />
 
         {waiting.length > 0 && (
@@ -593,16 +709,15 @@ function FeeDashboardFull() {
               <div className="px-5 pb-4 flex items-center gap-4 flex-wrap"><Legend items={[['bg-brand', 'Collected'], ['bg-ink3/25', 'Due']]} /><span className="ml-auto text-[12.5px] text-ink3">October is still open</span></div>
             </Card>
             <Card>
-              <CardHead title="How parents paid" sub={period === 'today' ? `Today · ${inr(mTotal)}` : `October so far · ${inrShort(mTotal)}`} icon={I.Wallet} />
-              <div className="px-5 pb-3"><Segmented size="sm" className="w-full" value={period} onChange={setPeriod} options={[{ value: 'today', label: 'Today' }, { value: 'month', label: 'This month' }]} /></div>
+              <CardHead title="How parents paid" sub={`${isToday ? 'Today' : per.label} · ${money(mTotal)}`} icon={I.Wallet} />
               <ul className="px-5 pb-5 flex flex-col gap-3">
                 {methods.map(([m, n, amt]) => (
                   <li key={m} className="text-[13.5px]">
                     <div className="flex items-center gap-2 mb-1">
                       <ModeIcon mode={m} />
                       <span className="font-medium flex-1 min-w-0 truncate">{MODE_LABEL[m] || m}</span>
-                      <span className="text-ink3 tnum text-[12.5px]">{n}</span>
-                      <span className="font-semibold tnum w-20 text-right">{period === 'today' ? inr(amt) : inrShort(amt)}</span>
+                      <span className="text-ink3 tnum text-[12.5px]">{n.toLocaleString('en-IN')}</span>
+                      <span className="font-semibold tnum w-20 text-right">{money(amt)}</span>
                     </div>
                     <Progress value={mMax ? (amt / mMax) * 100 : 0} />
                   </li>
@@ -611,7 +726,8 @@ function FeeDashboardFull() {
             </Card>
           <div className="grid @lg:grid-cols-2 @xl:grid-cols-1 gap-5 @lg:gap-6 @lg:col-span-2 @xl:col-span-1 items-start">
               <Card>
-                <CardHead title="Failed online payments" sub="No receipt was made for these" icon={I.CircleX} action={<Pill tone="bad">{failed.length}</Pill>} />
+                <CardHead title="Failed online payments" sub={`No receipt was made for these · ${isToday ? 'today' : per.label.toLowerCase()}`} icon={I.CircleX} action={<Pill tone={failed.length ? 'bad' : 'ok'}>{failed.length}</Pill>} />
+                {failed.length === 0 && <p className="px-5 pb-4 -mt-1 text-[13.5px] text-ink3">No online payment failed in these dates.</p>}
                 <ul className="px-2 pb-2">
                   {failed.map((p) => (
                     <li key={p.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sunken/70">
@@ -628,7 +744,7 @@ function FeeDashboardFull() {
               </Card>
               <Suggestion title="Collection forecast"
                 source="Installments due Oct–Dec (₹96 L), how families paid Q1 and Q2 this year, and Oct–Dec 2025"
-                actions={<Button size="sm" variant="secondary" icon={I.UserX} onClick={() => go('fees', { page: 'defaulters' })}>See who is overdue</Button>}>
+                actions={can('defaulters') && <Button size="sm" variant="secondary" icon={I.UserX} onClick={() => go('fees', { page: 'defaulters' })}>See who is overdue</Button>}>
                 Expect about <b className="text-ink">₹55–57 L</b> in October (₹61 L due), <b className="text-ink">₹19 L</b> in November and <b className="text-ink">₹16 L</b> in December. Most Q3 tuition comes in the week after 10 Oct; Classes 9 and 10 usually pay a week later than others.
               </Suggestion>
           </div>
@@ -636,8 +752,8 @@ function FeeDashboardFull() {
 
         <div ref={listRef} className="scroll-mt-4">
               <Card className="overflow-hidden">
-                <CardHead title="Recent payments" sub="Newest first. Online payments arrive by themselves from Razorpay." icon={I.ReceiptIndianRupee} />
-                <Tabs className="px-3" value={tab} onChange={setTab} tabs={[{ id: 'Full', label: 'Full payments', count: pays.filter((p) => p.kind === 'Full').length }, { id: 'Partial', label: 'Partial payments', count: pays.filter((p) => p.kind === 'Partial').length }]} />
+                <CardHead title="Payments" sub={`${range} · newest first. Online payments arrive by themselves from Razorpay.`} icon={I.ReceiptIndianRupee} />
+                <Tabs className="px-3" value={tab} onChange={setTab} tabs={[{ id: 'Full', label: 'Full payments', count: all.filter((p) => p.kind === 'Full').length }, { id: 'Partial', label: 'Partial payments', count: all.filter((p) => p.kind === 'Partial').length }]} />
                 <Toolbar>
                   <SearchBox id="pay-q" value={q} onChange={setQ} placeholder="Student, class or receipt no." />
                   <div className="grid grid-cols-2 gap-2.5 @md:flex">
@@ -645,9 +761,9 @@ function FeeDashboardFull() {
                     <Select id="pay-mode" className="@md:w-40" value={mode} onChange={setMode} options={[{ value: 'all', label: 'All modes' }, 'Cash', 'UPI', 'Card', 'Cheque', 'Bank transfer', { value: 'Online', label: 'Online (Razorpay)' }]} />
               </div>
                 </Toolbar>
-                <DataList rows={rows} onRow={setOpen} minWidth={760} footer={`Showing ${rows.length} of ${pays.length} today`}
+                <DataList rows={rows} onRow={setOpen} minWidth={760} footer={rowsAll.length > LIMIT ? `Showing the newest ${LIMIT} of ${rowsAll.length.toLocaleString('en-IN')} · search or pick fewer dates to see the rest` : `Showing ${rows.length} of ${all.length.toLocaleString('en-IN')} · ${range}`}
                   columns={[
-                    { key: 't', label: 'Time', nowrap: true, render: (p) => <span className="tnum text-ink2">{p.t}</span> },
+                    { key: 't', label: isToday ? 'Time' : 'Date and time', nowrap: true, render: (p) => <span className="tnum text-ink2">{p.iso === '2026-10-09' ? p.t : <>{p.date}<span className="block text-[12px] text-ink3">{p.t}</span></>}</span> },
                     { key: 'name', label: 'Student', render: (p) => <><p className="font-semibold leading-tight">{p.name}</p><p className="text-[12.5px] text-ink3">{p.cls}</p></> },
                     { key: 'head', label: 'Fee heads', render: (p) => <span className="text-[13px] text-ink2">{p.head}</span> },
                     { key: 'amt', label: 'Amount', align: 'right', render: (p) => <span className={cx('font-semibold', p.status === 'Cancelled' && 'line-through text-ink3')}>{inr(p.amt)}</span> },
@@ -655,8 +771,8 @@ function FeeDashboardFull() {
                     { key: 'rcpt', label: 'Receipt or reference', render: (p) => <span className="font-mono text-[12px] text-ink2">{p.rcpt || p.ref}</span> },
                     { key: 'status', label: 'Status', render: (p) => <PayPill status={p.status} /> },
                   ]}
-                  mobile={(p) => ({ title: p.name, sub: `${p.cls} · ${p.t} · ${p.mode}`, avatar: p.name, right: <><p className={cx('font-semibold tnum text-[14.5px]', p.status === 'Cancelled' && 'line-through text-ink3')}>{inr(p.amt)}</p><PayPill status={p.status} short /></> })}
-                  empty={<Empty icon={I.SearchX} title="No payments match" body="Try another status or mode." action={<Button variant="secondary" onClick={() => { setQ(''); setStatus('all'); setMode('all'); }}>Clear filters</Button>} />} />
+                  mobile={(p) => ({ title: p.name, sub: `${p.cls} · ${p.iso === '2026-10-09' ? p.t : p.date} · ${p.mode}`, avatar: p.name, right: <><p className={cx('font-semibold tnum text-[14.5px]', p.status === 'Cancelled' && 'line-through text-ink3')}>{inr(p.amt)}</p><PayPill status={p.status} short /></> })}
+                  empty={<Empty icon={I.SearchX} title="No payments match" body={all.length ? 'Try another status or mode.' : per.to < '2026-04-01' ? 'School OS started on 1 Apr 2026. Earlier payments are in the old software’s files.' : `Nothing was collected in ${range}.`} action={<Button variant="secondary" onClick={() => { setQ(''); setStatus('all'); setMode('all'); setPer(PERIODS.today); }}>Clear filters</Button>} />} />
               </Card>
         </div>
       </div>
@@ -688,13 +804,23 @@ function LedgerPage({ params }) {
   const [cancel, setCancel] = useState(null);
   const [cancelled, setCancelled] = useState({});
   const [opening, setOpening] = useState(false);
+  const [per, setPer] = useState(PERIODS.finyear);
   const { role } = useRole();
 
-  const receipts = L.filter((e) => e.kind === 'receipt');
-  const adjustments = L.filter((e) => ['concession', 'late', 'reversal'].includes(e.kind) || (e.kind === 'opening' && e.debit));
+  // The chosen dates: entries before them become one "brought forward" line
+  const inP = (e) => inPeriod(isoOf(e.d), per);
+  const before = L.filter((e) => isoOf(e.d) < per.from);
+  const bf = before.length ? before[before.length - 1].bal : 0;
+  const LP = L.filter(inP);
+  const balTo = LP.length ? LP[LP.length - 1].bal : bf;
+  const toLabel = per.to >= '2026-10-09' ? '9 Oct 2026' : fmtDay(per.to);
+  const allReceipts = L.filter((e) => e.kind === 'receipt');
+  const receipts = allReceipts.filter(inP);
+  const adjustments = L.filter((e) => (['concession', 'late', 'reversal'].includes(e.kind) || (e.kind === 'opening' && e.debit)) && inP(e));
   const balance = L.length ? L[L.length - 1].bal : 0;
   const yearTotal = inst.reduce((a, r) => a + r.amount, 0);
-  const paid = receipts.filter((e) => !e.cancelled && !cancelled[e.ref]).reduce((a, e) => a + e.credit, 0);
+  const paid = allReceipts.filter((e) => !e.cancelled && !cancelled[e.ref]).reduce((a, e) => a + e.credit, 0);
+  const paidP = receipts.filter((e) => !e.cancelled && !cancelled[e.ref]).reduce((a, e) => a + e.credit, 0);
   const heads = Object.values(inst.reduce((m, r) => { const k = r.head; m[k] = m[k] || { head: k, total: 0, paid: 0 }; m[k].total += r.amount; m[k].paid += r.paid; return m; }, {}));
   const d = DEF_BY_ID[s.id];
   const asPay = (e) => ({ id: e.ref, rcpt: e.ref, name: s.name, cls: clsOf(s), sid: null, parent: s.father, phone: s.phone, head: e.title.replace(/^(Part payment|Payment) · /, ''), amt: e.credit, pen: 0, mode: e.mode, ref: e.mode === 'Cash' ? '' : e.sub.includes('·') ? e.sub.split(' · ').slice(1).join(' · ') : '', date: dlong(e.d), t: '—', by: e.mode === 'Online' ? 'Razorpay' : 'Suresh Babu', acct: e.title.includes('Transport') ? 'Trust account' : 'School account',
@@ -704,8 +830,8 @@ function LedgerPage({ params }) {
     <div>
       <ModuleHead title="Fees" sub="Each student’s fees, payments, balance and receipts. Nothing here is ever deleted."
         actions={<>
-          <Button variant="secondary" icon={I.FileText} className="hidden @md:inline-flex" onClick={() => toast({ title: `Fee invoice ready for ${s.name}`, body: `Dues ${inr(balance)} · sent on WhatsApp with a Razorpay link` })}>Fee invoice</Button>
-          <Button variant="primary" icon={I.IndianRupee} onClick={() => go('fees', { student: s.id })}>Collect fee</Button>
+          {canEdit && <Button variant="secondary" icon={I.FileText} className="hidden @md:inline-flex" onClick={() => toast({ title: `Fee invoice ready for ${s.name}`, body: `Dues ${inr(balance)} · sent on WhatsApp with a Razorpay link` })}>Fee invoice</Button>}
+          {canEdit && canOpen(role, 'fees', 'collect') && <Button variant="primary" icon={I.IndianRupee} onClick={() => go('fees', { student: s.id })}>Collect fee</Button>}
         </>} />
 
       <div className="flex flex-col gap-5 @lg:gap-6">
@@ -715,7 +841,7 @@ function LedgerPage({ params }) {
             <Avatar name={s.name} size={56} />
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <button onClick={() => go('student', { id: s.id })} className="font-display font-semibold text-[19px] leading-tight hover:underline text-left">{s.name}</button>
+                <button onClick={() => role.access.students && go('student', { id: s.id })} className="font-display font-semibold text-[19px] leading-tight hover:underline text-left">{s.name}</button>
                 {d ? <Pill tone="bad">{inr(d.amount)} overdue</Pill> : balance > 0 ? <Pill tone="warn">{inr(balance)} due</Pill> : <Pill tone="ok">No dues</Pill>}
               </div>
               <p className="text-[13px] text-ink3 truncate">{s.cls} {s.sec} · Roll {s.roll} · <span className="font-mono text-[12.5px]">{s.adm}</span><span className="hidden @md:inline"> · {s.father} · <span className="tnum">{s.phone}</span></span></p>
@@ -745,6 +871,7 @@ function LedgerPage({ params }) {
             { id: 'statement', label: 'Statement' }, { id: 'fees', label: 'Fees', count: inst.length }, { id: 'payments', label: 'Payments', count: receipts.length },
             { id: 'partial', label: 'Partial payments', count: receipts.filter((e) => e.partial).length }, { id: 'invoices', label: 'Invoices' }, { id: 'adjust', label: 'Adjustments', count: adjustments.length },
           ]} />
+          {tab !== 'fees' && <DatePeriod id="led-per" value={per} onChange={setPer} className="w-full @md:w-auto" />}
           {canEdit && <MoreMenu items={[
             ['Award', 'Fee certificate', () => toast({ title: 'Fee certificate ready', body: `${s.name.replace(' ', '-')}-fees-2026-27.pdf · ${inr(paid)} paid from 1 Apr to 9 Oct 2026` })],
             ['History', 'Add opening balance (old dues)', () => setOpening(true)],
@@ -757,15 +884,17 @@ function LedgerPage({ params }) {
         <div key={tab + sid} className="animate-rise">
           {tab === 'statement' && (
             <Card className="overflow-hidden">
-              <CardHead title="Statement, 2026–27" sub="Every fee, payment, cancelled receipt, concession and late fee, with the running balance" action={<ExportButton what="ledger statement" />} />
-              <div className="hidden @lg:block overflow-x-auto scroll-thin">
+              <CardHead title={`Statement · ${per.label}`} sub={`${fmtRange(per)} · every fee, payment, cancelled receipt, concession and late fee, with the running balance`} action={<ExportButton what="ledger statement" />} />
+              {LP.length === 0 && <Empty icon={I.CalendarX2} title="Nothing in these dates" body={`No fee, payment or change for ${s.first} in ${fmtRange(per)}. Balance ${inr(bf)}.`} action={<Button variant="secondary" onClick={() => setPer(PERIODS.finyear)}>Show this financial year</Button>} />}
+              {LP.length > 0 && <div className="hidden @lg:block overflow-x-auto scroll-thin">
                 <table className="w-full text-[14px] min-w-[760px]">
                   <thead><tr className="text-[12px] text-ink3 text-left border-y border-line">
                     <th className="pl-5 pr-3 py-2.5 font-semibold">Date</th><th className="px-3 py-2.5 font-semibold">Entry</th><th className="px-3 py-2.5 font-semibold">Reference</th>
                     <th className="px-3 py-2.5 font-semibold text-right">Charged</th><th className="px-3 py-2.5 font-semibold text-right">Paid or reduced</th><th className="pl-3 pr-5 py-2.5 font-semibold text-right">Balance</th>
                   </tr></thead>
                   <tbody>
-                    {L.map((e, i) => {
+                    {before.length > 0 && <tr className="border-b border-line/70 bg-sunken/40"><td className="pl-5 pr-3 py-2.5 tnum whitespace-nowrap text-ink2">{fmtDay(per.from).replace(/ \d{4}$/, '')}</td><td className="px-3 py-2.5 font-semibold" colSpan={4}>Brought forward<span className="block text-[12.5px] text-ink3 font-normal">Balance before {fmtDay(per.from)}</span></td><td className="pl-3 pr-5 py-2.5 text-right tnum font-semibold">{inr(bf)}</td></tr>}
+                    {LP.map((e, i) => {
                       const [label, tone] = KIND[e.kind];
                       const isCx = e.cancelled || cancelled[e.ref];
                       return (
@@ -783,11 +912,12 @@ function LedgerPage({ params }) {
                       );
                     })}
                   </tbody>
-                  <tfoot><tr className="border-t-2 border-line font-semibold"><td className="pl-5 py-3" colSpan={3}>Balance on 9 Oct 2026</td><td className="px-3 text-right tnum">{inr(L.reduce((a, e) => a + (e.debit || 0), 0))}</td><td className="px-3 text-right tnum">{inr(L.reduce((a, e) => a + (e.credit || 0), 0))}</td><td className={cx('pl-3 pr-5 text-right tnum', balance && 'text-bad')}>{inr(balance)}</td></tr></tfoot>
+                  <tfoot><tr className="border-t-2 border-line font-semibold"><td className="pl-5 py-3" colSpan={3}>Balance on {toLabel}</td><td className="px-3 text-right tnum">{inr(LP.reduce((a, e) => a + (e.debit || 0), 0))}</td><td className="px-3 text-right tnum">{inr(LP.reduce((a, e) => a + (e.credit || 0), 0))}</td><td className={cx('pl-3 pr-5 text-right tnum', balTo && 'text-bad')}>{inr(balTo)}</td></tr></tfoot>
                 </table>
-              </div>
-              <ul className="@lg:hidden divide-y divide-line/70 border-t border-line">
-                {L.map((e, i) => {
+              </div>}
+              {LP.length > 0 && <ul className="@lg:hidden divide-y divide-line/70 border-t border-line">
+                {before.length > 0 && <li className="flex justify-between px-4 py-3 text-[14px] bg-sunken/40"><span><b className="font-semibold">Brought forward</b><span className="block text-[12.5px] text-ink3">Before {fmtDay(per.from)}</span></span><span className="tnum font-semibold">{inr(bf)}</span></li>}
+                {LP.map((e, i) => {
                   const [label, tone, ic] = KIND[e.kind];
                   const isCx = e.cancelled || cancelled[e.ref];
                   const Ic = I[ic];
@@ -806,8 +936,8 @@ function LedgerPage({ params }) {
                   );
                   return <li key={i}>{e.kind === 'receipt' ? <button onClick={() => setView(asPay(e))} className="w-full flex items-center gap-3 px-4 py-3 text-left active:bg-sunken">{body}</button> : <div className="flex items-center gap-3 px-4 py-3">{body}</div>}</li>;
                 })}
-                <li className="flex justify-between px-4 py-3 font-semibold text-[14.5px]"><span>Balance on 9 Oct</span><span className={cx('tnum', balance && 'text-bad')}>{inr(balance)}</span></li>
-              </ul>
+                <li className="flex justify-between px-4 py-3 font-semibold text-[14.5px]"><span>Balance on {toLabel.replace(' 2026', '')}</span><span className={cx('tnum', balTo && 'text-bad')}>{inr(balTo)}</span></li>
+              </ul>}
             </Card>
           )}
 
@@ -830,8 +960,9 @@ function LedgerPage({ params }) {
 
           {tab === 'payments' && (
             <Card className="overflow-hidden">
-              <CardHead title="Payments" sub="Cancelled payments stay here, struck through, with the reason" />
-              <DataList rows={receipts.map(asPay)} rowKey={(p) => p.rcpt} onRow={setView} minWidth={640} footer={`${receipts.length} payments · ${inr(paid)} posted`}
+              <CardHead title="Payments" sub={`${per.label} · ${fmtRange(per)} · cancelled payments stay here, struck through, with the reason`} />
+              <DataList rows={receipts.map(asPay)} rowKey={(p) => p.rcpt} onRow={setView} minWidth={640} footer={`${receipts.length} payments · ${inr(paidP)} posted`}
+                empty={<Empty icon={I.CalendarX2} title="No payments in these dates" body={`${s.first} paid nothing in ${fmtRange(per)}.`} />}
                 columns={[
                   { key: 'date', label: 'Date', nowrap: true, render: (p) => <span className="tnum text-ink2">{p.date}</span> },
                   { key: 'rcpt', label: 'Receipt', render: (p) => <span className="font-mono text-[12.5px]">{p.rcpt}</span> },
@@ -847,7 +978,7 @@ function LedgerPage({ params }) {
           {tab === 'partial' && (
             <Card className="overflow-hidden">
               <CardHead title="Partial payments" sub="Payments that did not clear their row fully" />
-              {receipts.filter((e) => e.partial).length === 0 ? <Empty icon={I.CircleCheck} title="No partial payments" body={`Every payment by ${s.first} cleared its row.`} /> : (
+              {receipts.filter((e) => e.partial).length === 0 ? <Empty icon={I.CircleCheck} title="No partial payments" body={`Every payment by ${s.first} in ${fmtRange(per)} cleared its row.`} /> : (
                 <DataList rows={receipts.filter((e) => e.partial)} rowKey={(e) => e.ref} minWidth={640}
                   columns={[
                     { key: 'ref', label: 'Receipt', render: (e) => <span className="font-mono text-[12.5px]">{e.ref}</span> },
@@ -866,7 +997,7 @@ function LedgerPage({ params }) {
             <Card>
               <CardHead title="Fee invoices" sub="Raised when each installment falls due. Sent with a Razorpay link." />
               <ul className="px-2 pb-2">
-                {Object.entries(L.filter((e) => e.kind === 'charge').reduce((m, e) => { const k = dshort(e.d); (m[k] = m[k] || []).push(e); return m; }, {})).map(([date, list], i) => {
+                {Object.entries(L.filter((e) => e.kind === 'charge' && inP(e)).reduce((m, e) => { const k = dshort(e.d); (m[k] = m[k] || []).push(e); return m; }, {})).map(([date, list], i) => {
                   const total = list.reduce((a, e) => a + e.debit, 0);
                   const st = dkey(list[0].d) < dkey([9, 1]) ? (s.id === FEATURED.id && date === '1 Jul' ? 'Part paid' : 'Paid') : balance ? 'Open' : 'Paid';
                   return (
@@ -877,7 +1008,7 @@ function LedgerPage({ params }) {
                         <p className="text-[12.5px] text-ink3 truncate">{list.map((e) => e.title).join(', ')}</p>
                       </div>
                       <span className="text-right shrink-0"><span className="block font-semibold tnum">{inr(total)}</span><Pill tone={st === 'Paid' ? 'ok' : st === 'Open' ? 'warn' : 'info'} className="!h-5 !text-[11px]">{st}</Pill></span>
-                      <button aria-label="Send again" title="Send again" onClick={() => toast({ title: 'Invoice sent again', body: `To ${s.father} on WhatsApp` })} className="w-9 h-9 rounded-lg grid place-items-center text-ink3 hover:bg-sunken shrink-0"><I.Send size={16} /></button>
+                      {canEdit && <button aria-label="Send again" title="Send again" onClick={() => toast({ title: 'Invoice sent again', body: `To ${s.father} on WhatsApp` })} className="w-9 h-9 rounded-lg grid place-items-center text-ink3 hover:bg-sunken shrink-0"><I.Send size={16} /></button>}
                     </li>
                   );
                 })}
@@ -888,6 +1019,7 @@ function LedgerPage({ params }) {
           {tab === 'adjust' && (
             <Card>
               <CardHead title="Adjustments" sub="Concessions, late fees, reversals and old dues, each with its reason and who approved it" />
+              {adjustments.length === 0 && <p className="px-5 pb-4 -mt-1 text-[13.5px] text-ink3">No adjustments in {fmtRange(per)}.</p>}
               <ul className="px-5 pb-3">
                 {adjustments.map((e, i) => {
                   const [label, tone, ic] = KIND[e.kind];
@@ -980,8 +1112,10 @@ function DefaultersPage() {
 }
 function Defaulters() {
   const { go } = useNav();
+  const { role } = useRole();
   const toast = useToast();
   const canEdit = useCanEdit();
+  const [per, setPer] = useState(ALL_DATES);
   const [cls, setCls] = useState('all');
   const [bucket, setBucket] = useState('all');
   const [above, setAbove] = useState('0');
@@ -994,7 +1128,7 @@ function Defaulters() {
   const remOf = (d) => (extra[d.id]?.sent ? [{ when: 'Today', channel: 'WhatsApp', template: 'Fee overdue', status: 'Sent' }, ...d.reminders] : d.reminders);
 
   const t = q.trim().toLowerCase();
-  const rows = DEFAULTERS.filter((d) => (cls === 'all' || d.s.clsId === cls) && (bucket === 'all' || d.bucket === bucket) && d.amount >= Number(above) &&
+  const rows = DEFAULTERS.filter((d) => inPeriod(isoOf(d.since), per) && (cls === 'all' || d.s.clsId === cls) && (bucket === 'all' || d.bucket === bucket) && d.amount >= Number(above) &&
     (rem === 'all' || (rem === 'yes' ? remOf(d).length > 0 : remOf(d).length === 0)) &&
     (!t || d.s.name.toLowerCase().includes(t) || d.s.father.toLowerCase().includes(t) || d.s.adm.toLowerCase().includes(t))).sort((a, b) => b.days - a.days || b.amount - a.amount);
   const total = rows.reduce((a, d) => a + d.amount, 0);
@@ -1007,7 +1141,7 @@ function Defaulters() {
   return (
     <div>
       <ModuleHead title="Fees" sub={`${DEFAULTERS.length} students owe ${inr(OVERDUE_TOTAL)} past the due date · ${DEFAULTERS.filter((d) => d.days > 30).length} more than 30 days late`}
-        actions={<><ExportButton what="defaulters list" /><Button variant="primary" icon={I.Send} onClick={() => setSend(rows)}>{filtered ? `Send reminder to ${rows.length}` : `Send reminder to all ${rows.length}`}</Button></>} />
+        actions={<><ExportButton what="defaulters list" />{canEdit && rows.length > 0 && <Button variant="primary" icon={I.Send} onClick={() => setSend(rows)}>{filtered ? `Send reminder to ${rows.length}` : `Send reminder to all ${rows.length}`}</Button>}</>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
         <Stats items={BUCKETS.map((b) => {
           const list = DEFAULTERS.filter((d) => d.bucket === b.id);
@@ -1036,6 +1170,9 @@ function Defaulters() {
         <Card className="overflow-hidden">
           <Toolbar className="@md:flex-wrap">
             <SearchBox id="def-q" className="@md:min-w-[220px]" value={q} onChange={setQ} placeholder="Student, parent or admission no." />
+            <div className="flex flex-col gap-1 w-full @md:w-auto">
+              <DatePeriod id="def-per" value={per} onChange={setPer} className="w-full @md:w-auto" />
+            </div>
             <div className="grid grid-cols-2 gap-2.5 @md:flex">
               <Select id="def-cls" className="@md:w-36" value={cls} onChange={setCls} options={[{ value: 'all', label: 'All classes' }, ...CLASSES.filter((c) => DEFAULTERS.some((d) => d.s.clsId === c.id)).map((c) => ({ value: c.id, label: c.name }))]} />
               <Select id="def-age" className="@md:w-40" value={bucket} onChange={setBucket} options={[{ value: 'all', label: 'Any days late' }, ...BUCKETS.map((b) => ({ value: b.id, label: b.label }))]} />
@@ -1050,16 +1187,16 @@ function Defaulters() {
             </BulkBar>
           )}
           <DataList rows={rows} rowKey={(d) => d.id} onRow={setHist} select={canEdit ? [sel, setSel] : undefined} minWidth={900}
-            footer={`Showing ${rows.length} of ${DEFAULTERS.length} · ${inr(total)} overdue`}
-            empty={<Empty icon={I.SearchX} title="Nobody on this list" body="No student matches these filters." action={<Button variant="secondary" onClick={() => { setCls('all'); setBucket('all'); setAbove('0'); setRem('all'); setQ(''); }}>Clear filters</Button>} />}
+            footer={`Showing ${rows.length} of ${DEFAULTERS.length} · ${inr(total)} overdue${per.key !== 'all' ? ` · overdue since ${fmtRange(per)}` : ''}`}
+            empty={<Empty icon={I.SearchX} title="Nobody on this list" body={per.key !== 'all' ? `No dues fell overdue in ${fmtRange(per)} with these filters.` : 'No student matches these filters.'} action={<Button variant="secondary" onClick={() => { setCls('all'); setBucket('all'); setAbove('0'); setRem('all'); setQ(''); setPer(ALL_DATES); }}>Clear filters</Button>} />}
             columns={[
               { key: 'name', label: 'Student', render: (d) => <div className="flex items-center gap-3"><Avatar name={d.s.name} size={34} /><div className="min-w-0"><p className="font-semibold leading-tight">{d.s.name}</p><p className="text-[12px] text-ink3 font-mono">{d.s.adm}</p></div></div> },
               { key: 'cls', label: 'Class', nowrap: true, render: (d) => clsOf(d.s) },
               { key: 'parent', label: 'Parent', render: (d) => <><p className="leading-tight">{d.s.father}</p><p className="text-[12.5px] text-ink3 tnum">{d.s.phone}</p></> },
               { key: 'amt', label: 'Overdue', align: 'right', render: (d) => <><p className="font-semibold">{inr(d.amount)}</p><p className="text-[12px] text-ink3 max-w-[180px] truncate ml-auto">{d.head}</p></> },
-              { key: 'since', label: 'Oldest due', render: (d) => <><p className="tnum">{dshort(d.since)}</p><Pill tone={ageTone(d)} className="!h-5 !text-[11px]">{d.days} days</Pill></> },
+              { key: 'since', label: 'Overdue since', render: (d) => <><p className="tnum">{dshort(d.since)}</p><Pill tone={ageTone(d)} className="!h-5 !text-[11px]">{d.days} days</Pill></> },
               { key: 'rem', label: 'Last reminder', render: (d) => { const r = remOf(d); return r.length ? <><p className="text-[13px]">{r[0].when} · {r[0].channel}</p><p className="text-[12px] text-ink3">{r.length} sent · {r[0].status}</p></> : <span className="text-[13px] text-ink3">Not reminded yet</span>; } },
-              { key: 'act', label: '', render: (d) => canEdit && <Button size="sm" variant="soft" onClick={(e) => { e.stopPropagation(); go('fees', { student: d.id }); }}>Collect</Button> },
+              { key: 'act', label: '', render: (d) => canEdit && canOpen(role, 'fees', 'collect') && <Button size="sm" variant="soft" onClick={(e) => { e.stopPropagation(); go('fees', { student: d.id }); }}>Collect</Button> },
             ]}
             mobile={(d) => ({ title: d.s.name, sub: `${clsOf(d.s)} · ${d.head}`, avatar: d.s.name, right: <><p className="font-semibold tnum">{inr(d.amount)}</p><Pill tone={ageTone(d)} className="!h-5 !text-[11px]">{d.days} days</Pill></> })} />
         </Card>
@@ -1125,6 +1262,7 @@ function ReminderSheet({ list, onClose, onSent }) {
 
 function HistorySheet({ d, rems, calls, onClose, onSend, onCall }) {
   const { go } = useNav();
+  const { role } = useRole();
   const canEdit = useCanEdit();
   const [note, setNote] = useState('');
   if (!d) return null;
@@ -1135,9 +1273,9 @@ function HistorySheet({ d, rems, calls, onClose, onSend, onCall }) {
           <div className="min-w-0 flex-1"><p className="font-display text-[22px] font-semibold tnum text-bad leading-tight">{inr(d.amount)}</p><p className="text-[13px] text-ink2">{d.head} · since {dlong(d.since)} · {d.days} days</p></div>
         </div>
         <div className="flex gap-2 flex-wrap">
-          {canEdit && <Button variant="primary" icon={I.IndianRupee} onClick={() => go('fees', { student: d.id })}>Collect fee</Button>}
+          {canEdit && canOpen(role, 'fees', 'collect') && <Button variant="primary" icon={I.IndianRupee} onClick={() => go('fees', { student: d.id })}>Collect fee</Button>}
           {canEdit && <Button variant="secondary" icon={I.Send} onClick={() => onSend(d)}>Send reminder</Button>}
-          <Button variant="ghost" icon={I.BookOpen} onClick={() => go('fees', { page: 'ledger', id: d.id })}>Ledger</Button>
+          {canOpen(role, 'fees', 'ledger') && <Button variant="ghost" icon={I.BookOpen} onClick={() => go('fees', { page: 'ledger', id: d.id })}>Ledger</Button>}
         </div>
         <div>
           <p className="eyebrow text-ink3 mb-2">Reminder history</p>
@@ -1194,7 +1332,7 @@ function Structure() {
   return (
     <div>
       <ModuleHead title="Fees" sub={draft ? '2027–28 · Version 4, a draft with tuition +5% · not published' : '2026–27 · Version 3, in use since 1 Apr 2026 · taxable heads include GST'}
-        actions={<><Button variant="secondary" icon={I.Plus} onClick={() => setAddHead(true)}>Add fee head</Button>{!draft && <Button variant="primary" icon={I.CopyPlus} onClick={() => { setYear('2027–28'); toast({ title: '2027–28 draft opened', body: 'Copied from 2026–27 with tuition +5%. Nothing changes for this year.', tone: 'info' }); }}>Prepare 2027–28</Button>}</>} />
+        actions={canEdit && <><Button variant="secondary" icon={I.Plus} onClick={() => setAddHead(true)}>Add fee head</Button>{!draft && <Button variant="primary" icon={I.CopyPlus} onClick={() => { setYear('2027–28'); toast({ title: '2027–28 draft opened', body: 'Copied from 2026–27 with tuition +5%. Nothing changes for this year.', tone: 'info' }); }}>Prepare 2027–28</Button>}</>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
         <div className="flex flex-col @md:flex-row @md:items-center gap-3">
           <Segmented value={year} onChange={setYear} options={[{ value: '2026–27', label: '2026–27 · in use' }, { value: '2027–28', label: '2027–28 · draft' }]} />
@@ -1443,28 +1581,33 @@ function Concessions() {
   const [markR, setMarkR] = useState(null);
   const [q, setQ] = useState('');
   const [st, setSt] = useState('all');
+  const [per, setPer] = useState(PERIODS.finyear);
   const approver = (role.id === 'principal' || role.id === 'schooladmin') && canEdit;
+  const inP = (c) => inPeriod(isoOf(c.date), per);
   const decide = (id, ok, setter) => {
     setter((x) => x.map((c) => (c.id === id ? { ...c, status: ok ? (setter === setList ? 'Applied' : 'Approved') : 'Rejected', appr: role.person.name } : c)));
     toast({ title: ok ? 'Approved' : 'Declined', body: ok ? 'Applied to the student’s dues now. Suresh Babu is told.' : 'Suresh Babu sees your reason.', undo: () => setter((x) => x.map((c) => (c.id === id ? { ...c, status: 'Waiting', appr: null } : c))) });
   };
   const t = q.trim().toLowerCase();
-  const cRows = list.filter((c) => (st === 'all' || c.status === st) && (!t || c.name.toLowerCase().includes(t) || c.type.toLowerCase().includes(t)));
+  const cRows = list.filter((c) => inP(c) && (st === 'all' || c.status === st) && (!t || c.name.toLowerCase().includes(t) || c.type.toLowerCase().includes(t)));
+  const rRows = refunds.filter((r) => inP(r) && (!t || r.name.toLowerCase().includes(t)));
+  const rDone = refunds.filter((r) => r.status === 'Refunded' && inP(r));
+  const share = fyShare(per);
   const waitingC = list.filter((c) => c.status === 'Waiting').length;
   const waitingR = refunds.filter((r) => r.status === 'Waiting').length;
-  const DecideBtns = ({ c, setter }) => c.status !== 'Waiting' ? null : (approver
+  const DecideBtns = ({ c, setter }) => c.status !== 'Waiting' ? null : (approver && c.by !== role.person.name
     ? <div className="flex gap-1.5"><Button size="sm" variant="soft" icon={I.Check} onClick={(e) => { e.stopPropagation(); decide(c.id, true, setter); }}>Approve</Button><Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); decide(c.id, false, setter); }}>Decline</Button></div>
     : <span className="text-[12.5px] text-ink3">Waiting for Lakshmi Rao</span>);
 
   return (
     <div>
       <ModuleHead title="Fees" sub="Discounts, scholarships and refunds, each with a reason and who approved it"
-        actions={<><Button variant="secondary" icon={I.Undo2} onClick={() => setNewR(true)}>New refund</Button><Button variant="primary" icon={I.BadgePercent} onClick={() => setNewC(true)}>New concession</Button></>} />
+        actions={canEdit && <><Button variant="secondary" icon={I.Undo2} onClick={() => setNewR(true)}>New refund</Button><Button variant="primary" icon={I.BadgePercent} onClick={() => setNewC(true)}>New concession</Button></>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
         <Stats items={[
-          { label: 'Concessions this year', value: '₹41.1 L', sub: '449 concessions, RTE included', icon: 'BadgePercent' },
+          { label: `Concessions · ${per.label}`, value: inrShort(Math.round(4107950 * Math.min(1, share))), sub: `${Math.round(449 * Math.min(1, share))} concessions, RTE included`, icon: 'BadgePercent' },
           { label: 'Waiting for approval', value: waitingC + waitingR, sub: `${waitingC} concessions · ${waitingR} refund`, tone: waitingC + waitingR ? 'warn' : 'ok', icon: 'Hourglass', onClick: () => { setTab('concessions'); setSt('Waiting'); } },
-          { label: 'Refunds this year', value: inr(refunds.filter((r) => r.status === 'Refunded').reduce((a, r) => a + r.amt, 0)), sub: `${refunds.filter((r) => r.status === 'Refunded').length} paid back`, icon: 'Undo2', onClick: () => setTab('refunds') },
+          { label: `Refunds · ${per.label}`, value: inr(rDone.reduce((a, r) => a + r.amt, 0)), sub: `${rDone.length} paid back`, icon: 'Undo2', onClick: () => setTab('refunds') },
           { label: 'RTE students', value: '38', sub: 'Fee ₹0 · claimed from the government', icon: 'Scale' },
         ]} />
         <Banner tone="info" icon={I.ShieldCheck} title="Limits from Forms & Approvals:">
@@ -1477,12 +1620,15 @@ function Concessions() {
             { id: 'scholarships', label: 'Scholarships', count: SCHOLAR_APPS.length }, { id: 'refunds', label: 'Refunds', count: refunds.length },
           ]} />
 
+          {(tab === 'concessions' || tab === 'refunds') && <p className="px-5 pt-3 text-[13px] text-ink3 tnum">Showing {per.label.toLowerCase()} · {fmtRange(per)}</p>}
           {tab === 'concessions' && <>
             <Toolbar>
               <SearchBox id="con-q" value={q} onChange={setQ} placeholder="Student or type" />
+              <DatePeriod id="con-per" value={per} onChange={setPer} className="w-full @md:w-auto" />
               <Segmented value={st} onChange={setSt} options={[{ value: 'all', label: 'All' }, 'Waiting', 'Applied', 'Rejected']} className="overflow-x-auto no-scrollbar" />
             </Toolbar>
             <DataList rows={cRows} minWidth={960} footer={`Showing ${cRows.length} of ${list.length}`}
+              empty={<Empty icon={I.SearchX} title="No concessions here" body={`None asked in ${fmtRange(per)} with these filters.`} action={<Button variant="secondary" onClick={() => { setQ(''); setSt('all'); setPer(PERIODS.finyear); }}>Clear filters</Button>} />}
               columns={[
                 { key: 'name', label: 'Student', render: (c) => <><p className="font-semibold leading-tight">{c.name}</p><p className="text-[12.5px] text-ink3">{c.cls} · {c.date}</p></> },
                 { key: 'type', label: 'Type', nowrap: true, render: (c) => c.type },
@@ -1506,7 +1652,7 @@ function Concessions() {
                       <p className="font-semibold text-[14.5px] leading-snug">{r.title}</p>
                       <p className="text-[12.5px] text-ink3">{r.sub} · {r.used}</p>
                     </div>
-                    <Switch on={r.on} label={r.title} onChange={(v) => { if (!canEdit) return; setRules(rules.map((x) => (x.id === r.id ? { ...x, on: v } : x))); toast({ title: `${r.title.split(':')[0]}: ${v ? 'on' : 'off'}`, body: 'Applies to payments from now. Logged in the audit log.', undo: () => setRules((rs) => rs.map((x) => (x.id === r.id ? { ...x, on: !v } : x))) }); }} />
+                    {!canEdit ? <Pill tone={r.on ? 'ok' : 'neutral'}>{r.on ? 'On' : 'Off'}</Pill> : <Switch on={r.on} label={r.title} onChange={(v) => { setRules(rules.map((x) => (x.id === r.id ? { ...x, on: v } : x))); toast({ title: `${r.title.split(':')[0]}: ${v ? 'on' : 'off'}`, body: 'Applies to payments from now. Logged in the audit log.', undo: () => setRules((rs) => rs.map((x) => (x.id === r.id ? { ...x, on: !v } : x))) }); }} />}
                   </li>
                 ))}
               </ul>
@@ -1546,8 +1692,13 @@ function Concessions() {
             </div>
           )}
 
-          {tab === 'refunds' && (
-            <DataList rows={refunds} minWidth={900} footer={`${refunds.length} refunds · never more than was paid`}
+          {tab === 'refunds' && <>
+            <Toolbar>
+              <SearchBox id="ref-q" value={q} onChange={setQ} placeholder="Student" />
+              <DatePeriod id="ref-per" value={per} onChange={setPer} className="w-full @md:w-auto" />
+            </Toolbar>
+            <DataList rows={rRows} minWidth={900} footer={`${rRows.length} of ${refunds.length} refunds · never more than was paid`}
+              empty={<Empty icon={I.SearchX} title="No refunds here" body={`None asked in ${fmtRange(per)}.`} action={<Button variant="secondary" onClick={() => { setQ(''); setPer(PERIODS.finyear); }}>Clear filters</Button>} />}
               columns={[
                 { key: 'name', label: 'Student', render: (r) => <><p className="font-semibold leading-tight">{r.name}</p><p className="text-[12.5px] text-ink3">{r.cls} · {r.date}</p></> },
                 { key: 'rcpt', label: 'Payment', render: (r) => <><p className="font-mono text-[12.5px]">{r.rcpt}</p><p className="text-[12px] text-ink3">{inr(r.paid)} paid</p></> },
@@ -1557,7 +1708,7 @@ function Concessions() {
                 { key: 'status', label: 'Status', render: (r) => <div className="flex flex-col items-start gap-1.5"><Pill tone={C_TONE[r.status]}>{r.status}</Pill><DecideBtns c={r} setter={setRefunds} />{r.status === 'Approved' && canEdit && <Button size="sm" variant="secondary" onClick={(e) => { e.stopPropagation(); setMarkR(r); }}>Mark refunded</Button>}</div> },
               ]}
               mobile={(r) => ({ title: r.name, sub: `${inr(r.amt)} of ${inr(r.paid)} · ${r.rcpt}`, icon: 'Undo2', iconTone: C_TONE[r.status], pills: [<Pill key="s" tone={C_TONE[r.status]} className="!h-[22px] !text-[11.5px]">{r.status}</Pill>, r.status === 'Approved' && canEdit && <Button key="m" size="sm" variant="secondary" onClick={() => setMarkR(r)}>Mark refunded</Button>, r.status === 'Waiting' && <DecideBtns key="d" c={r} setter={setRefunds} />] })} />
-          )}
+          </>}
         </Card>
       </div>
 
@@ -1574,6 +1725,7 @@ function Concessions() {
 
 function NewConcessionSheet({ open, onClose, onAdd }) {
   const toast = useToast();
+  const { role } = useRole();
   const [sid, setSid] = useState(FEATURED.id);
   const [type, setType] = useState('Discount');
   const [unit, setUnit] = useState('₹');
@@ -1593,8 +1745,8 @@ function NewConcessionSheet({ open, onClose, onAdd }) {
       onSubmit={() => {
         setTried(true);
         if (err.amt || err.reason || err.heads) return false;
-        onAdd({ id: 'n' + Date.now(), sid, name: s.name, cls: clsOf(s), type, amt: unit === '₹' ? inr(v) : `${v}%`, heads: [...heads].join(', '), reason: reason.trim(), by: 'Suresh Babu', appr: needsOk ? null : 'Within the accountant’s limit', status: needsOk ? 'Waiting' : 'Applied', date: '9 Oct' });
-        toast({ title: needsOk ? 'Sent to Lakshmi Rao for approval' : `Concession applied for ${s.name}`, body: needsOk ? `${unit === '₹' ? inr(v) : `${v}% (about ${inr(money)})`} is above ₹1,000` : 'The dues are lower from now. Shown on the next receipt.' });
+        onAdd({ id: 'n' + Date.now(), sid, name: s.name, cls: clsOf(s), type, amt: unit === '₹' ? inr(v) : `${v}%`, heads: [...heads].join(', '), reason: reason.trim(), by: role.person.name, appr: needsOk ? null : 'Within the accountant’s limit', status: needsOk ? 'Waiting' : 'Applied', date: '9 Oct' });
+        toast({ title: needsOk ? `Sent to ${role.id === 'principal' ? 'Anita Sharma (School Admin)' : 'Lakshmi Rao'} for approval` : `Concession applied for ${s.name}`, body: needsOk ? `${unit === '₹' ? inr(v) : `${v}% (about ${inr(money)})`} is above ₹1,000` : 'The dues are lower from now. Shown on the next receipt.' });
         setAmt(''); setReason(''); setTried(false);
       }}>
       <Field label="Student" required id="nc-s"><Select id="nc-s" value={sid} onChange={setSid} options={STUDENTS.map((x) => ({ value: x.id, label: `${x.name} · ${clsOf(x)}` }))} /></Field>
@@ -1620,6 +1772,7 @@ function NewConcessionSheet({ open, onClose, onAdd }) {
 
 function NewRefundSheet({ open, onClose, onAdd }) {
   const toast = useToast();
+  const { role } = useRole();
   const pays = AARAV_LEDGER.filter((e) => e.kind === 'receipt' && !e.cancelled);
   const [ref, setRef] = useState(pays[0].ref);
   const p = pays.find((x) => x.ref === ref);
@@ -1634,7 +1787,7 @@ function NewRefundSheet({ open, onClose, onAdd }) {
       onSubmit={() => {
         setTried(true);
         if (err.amt || err.reason) return false;
-        onAdd({ id: 'nr' + Date.now(), sid: FEATURED.id, name: FEATURED.name, cls: clsOf(FEATURED), rcpt: p.ref, paid: p.credit, amt: v, reason: reason.trim(), mode, by: 'Suresh Babu', status: 'Waiting', appr: null, date: '9 Oct' });
+        onAdd({ id: 'nr' + Date.now(), sid: FEATURED.id, name: FEATURED.name, cls: clsOf(FEATURED), rcpt: p.ref, paid: p.credit, amt: v, reason: reason.trim(), mode, by: role.person.name, status: 'Waiting', appr: null, date: '9 Oct' });
         toast({ title: 'Refund sent to Lakshmi Rao', body: `${inr(v)} from ${p.ref}. Once approved, mark it refunded with the date and reference.` });
         setReason(''); setTried(false);
       }}>
@@ -1687,50 +1840,77 @@ function FeeReports() {
 }
 function FeeReportsFull() {
   const { go } = useNav();
+  const { role } = useRole();
   const [active, setActive] = useState('collection');
   const [by, setBy] = useState('class');
-  const [gstPeriod, setGstPeriod] = useState('sep');
+  const [per, setPer] = useState(PERIODS.finyear);
   const r = FEE_REPORT_LIST.find((x) => x.id === active);
-  const head = (sub, extra) => <CardHead title={r.name} sub={sub} action={<div className="flex items-center gap-2">{extra}<ReportActions name={r.name} /></div>} />;
+  const range = `${per.label} · ${fmtRange(per)}`;
+  const head = (sub, extra) => <CardHead title={r.name} sub={sub} action={<div className="flex items-center gap-2">{extra}<ReportActions name={`${r.name}, ${fmtRange(per)}`} /></div>} />;
   const sumCol = (rows, i) => rows.reduce((a, x) => a + x[i], 0);
+  // Example totals are for 1 Apr to 9 Oct; a shorter period shows its share, month by month
+  const f = Math.min(1, fyShare(per));
+  const sc = scaleBy(f);
+  const byClass = BY_CLASS.map(([k, d, c]) => [k, sc(d), sc(c)]);
+  const collectors = [['Suresh Babu · Counter 1', 3912, 10964000], ['Razorpay (online, by itself)', 2210, 5131000], ['Anita Sharma · Counter 2', 1408, 4410000], ['Bank transfers and cheques (verified)', 591, 2825000]].map(([k, n, a]) => [k, sc(n), sc(a)]);
+  const modes = [['UPI', 9840000], ['Online', 5130000], ['Cash', 4480000], ['Bank transfer', 1860000], ['Cheque', 1420000], ['Card', 600000]].map(([k, a]) => [k, sc(a)]);
+  const modeTotal = sumCol(modes, 1);
+  const inOct = per.from >= '2026-10-01';
+  const ONLINE_DAYS = [['Fri 9 Oct', '2026-10-09', '2026-10-09', 4, 13600, 1, false], ['Thu 8 Oct', '2026-10-08', '2026-10-08', 29, 81200, 2, false], ['Wed 7 Oct', '2026-10-07', '2026-10-07', 41, 118400, 3, true], ['Tue 6 Oct', '2026-10-06', '2026-10-06', 52, 141900, 1, true], ['Mon 5 Oct', '2026-10-05', '2026-10-05', 63, 172300, 2, true], ['1–3 Oct', '2026-10-01', '2026-10-03', 107, 282600, 2, true]];
+  const online = inOct
+    ? ONLINE_DAYS.filter((x) => x[2] >= per.from && x[1] <= per.to).map(([k, , , n, a, fl, ok]) => [k, n, a, fl, ok])
+    : FY_MONTHS.map(([k, y, m], i) => { const sh = monthShare(per, y, m); const base = k === 'Oct' ? [296, 810000, 11] : [Math.round(FEE_TREND[i].c * 8.1), FEE_TREND[i].c * 22000, Math.round(FEE_TREND[i].c / 5)]; return [`${MONTH_NAMES[m]} 2026`, Math.round(base[0] * sh), Math.round(base[1] * sh), Math.round(base[2] * sh), k !== 'Oct', sh]; }).filter((x) => x[5] > 0);
+  const lateRows = [['Apr', 3, 64, 9, 13750], ['Jul', 6, 182, 18, 38500], ['Oct (so far)', 9, 0, 0, 1000]].filter((x) => monthShare(per, 2026, x[1]) > 0).map(([k, , a, w, c]) => [k, a, w, c]);
+  const refunds = REFUNDS.filter((x) => inPeriod(isoOf(x.date), per));
+  const cancelled = CANCELLED_LOG.filter((x) => inPeriod(isoOf(x.date), per));
+  const defs = [...DEFAULTERS].filter((d) => inPeriod(isoOf(d.since), per)).sort((a, b) => b.days - a.days);
+  const before = per.to < '2026-04-01';
 
   return (
     <div>
-      <ModuleHead title="Fees" sub="2026–27 so far (1 Apr to 9 Oct 2026) · every report also opens in Reports & Analytics" />
+      <ModuleHead title="Fees" sub={`${range} · every report also opens in Reports & Analytics`} />
+      <div className="flex flex-col @md:flex-row @md:items-center gap-2.5 mb-5">
+        <DatePeriod id="fr-per" value={per} onChange={setPer} className="w-full @md:w-auto" />
+        <p className="text-[13px] text-ink3">Dues and defaulters are as on today, 9 Oct 2026. Money reports follow the dates you pick.</p>
+      </div>
       <ReportsFrame reports={FEE_REPORT_LIST} active={active} onPick={setActive}>
+        {before && !['outstanding'].includes(active) ? (
+          <Card><Empty icon={I.Archive} title="Before School OS" body="School OS started on 1 Apr 2026. Fee records before that are in the old software’s files." action={<Button variant="secondary" onClick={() => setPer(PERIODS.finyear)}>Show this financial year</Button>} /></Card>
+        ) : <>
         {active === 'collection' && <>
-          <Stats items={[{ label: 'Due so far', value: '₹2.84 Cr' }, { label: 'Collected', value: '₹2.33 Cr', tone: 'ok', sub: '82%' }, { label: 'Not collected', value: '₹50.7 L', tone: 'warn', sub: '₹8.4 L of it overdue' }]} />
+          <Stats items={[{ label: 'Due', value: inrShort(sc(28400000)), sub: per.label }, { label: 'Collected', value: inrShort(sc(23330000)), tone: 'ok', sub: '82%' }, { label: 'Not collected', value: inrShort(sc(28400000) - sc(23330000)), tone: 'warn', sub: '₹8.4 L overdue today' }]} />
           <Card className="overflow-hidden">
-            {head('Due and collected, 1 Apr to 9 Oct 2026', <Segmented size="sm" value={by} onChange={setBy} options={[{ value: 'class', label: 'Class' }, { value: 'collector', label: 'Collector' }]} />)}
+            {head(`Due and collected · ${range}`, <Segmented size="sm" value={by} onChange={setBy} options={[{ value: 'class', label: 'Class' }, { value: 'collector', label: 'Collector' }]} />)}
             {by === 'class' ? (
               <SimpleTable cols={[{ label: 'Class', render: (x) => x[0] }, { label: 'Due', right: true, render: (x) => inr(x[1]) }, { label: 'Collected', right: true, render: (x) => inr(x[2]) }, { label: 'Not collected', right: true, render: (x) => inr(x[1] - x[2]) }, { label: '%', right: true, render: (x) => <span className={pct(x[2], x[1]) < 81 ? 'text-warn font-semibold' : ''}>{pct(x[2], x[1])}%</span> }]}
-                rows={BY_CLASS} foot={['All classes', inr(sumCol(BY_CLASS, 1)), inr(sumCol(BY_CLASS, 2)), inr(sumCol(BY_CLASS, 1) - sumCol(BY_CLASS, 2)), `${pct(sumCol(BY_CLASS, 2), sumCol(BY_CLASS, 1))}%`]} />
+                rows={byClass} foot={['All classes', inr(sumCol(byClass, 1)), inr(sumCol(byClass, 2)), inr(sumCol(byClass, 1) - sumCol(byClass, 2)), `${pct(sumCol(byClass, 2), sumCol(byClass, 1))}%`]} />
             ) : (
-              <SimpleTable cols={[{ label: 'Collected by', render: (x) => x[0] }, { label: 'Payments', right: true, render: (x) => x[1].toLocaleString('en-IN') }, { label: 'Amount', right: true, render: (x) => inr(x[2]) }, { label: 'Share', right: true, render: (x) => `${pct(x[2], 23330000)}%` }]}
-                rows={[['Suresh Babu · Counter 1', 3912, 10964000], ['Razorpay (online, by itself)', 2210, 5131000], ['Anita Sharma · Counter 2', 1408, 4410000], ['Bank transfers and cheques (verified)', 591, 2825000]]}
-                foot={['Total', '8,121', inr(23330000), '100%']} />
+              <SimpleTable cols={[{ label: 'Collected by', render: (x) => x[0] }, { label: 'Payments', right: true, render: (x) => x[1].toLocaleString('en-IN') }, { label: 'Amount', right: true, render: (x) => inr(x[2]) }, { label: 'Share', right: true, render: (x) => `${pct(x[2], sumCol(collectors, 2))}%` }]}
+                rows={collectors} foot={['Total', sumCol(collectors, 1).toLocaleString('en-IN'), inr(sumCol(collectors, 2)), '100%']} />
             )}
           </Card>
         </>}
 
         {active === 'modes' && (
           <Card className="overflow-hidden">
-            {head('2026–27 so far · ₹2.33 Cr')}
-            <SimpleTable cols={[{ label: 'Mode', render: (x) => <span className="inline-flex items-center gap-2"><ModeIcon mode={x[0]} />{MODE_LABEL[x[0]] || x[0]}</span> }, { label: 'Amount', right: true, render: (x) => inr(x[1]) }, { label: 'Share', right: true, render: (x) => `${pct(x[1], 23330000)}%` }, { label: '', render: (x) => <Progress value={pct(x[1], 9840000)} className="w-28" /> }]}
-              rows={[['UPI', 9840000], ['Online', 5130000], ['Cash', 4480000], ['Bank transfer', 1860000], ['Cheque', 1420000], ['Card', 600000]]} foot={['Total', inr(23330000), '100%', '']} />
+            {head(`${range} · ${inrShort(modeTotal)}`)}
+            <SimpleTable cols={[{ label: 'Mode', render: (x) => <span className="inline-flex items-center gap-2"><ModeIcon mode={x[0]} />{MODE_LABEL[x[0]] || x[0]}</span> }, { label: 'Amount', right: true, render: (x) => inr(x[1]) }, { label: 'Share', right: true, render: (x) => `${pct(x[1], modeTotal)}%` }, { label: '', render: (x) => <Progress value={pct(x[1], modes[0][1])} className="w-28" /> }]}
+              rows={modes} foot={['Total', inr(modeTotal), '100%', '']} />
           </Card>
         )}
 
         {active === 'online' && (
           <Card className="overflow-hidden">
-            {head('Razorpay, October so far · every payment matched by itself')}
-            <SimpleTable cols={[{ label: 'Day', render: (x) => x[0] }, { label: 'Successful', right: true, render: (x) => x[1] }, { label: 'Amount', right: true, render: (x) => inr(x[2]) }, { label: 'Failed', right: true, render: (x) => (x[3] ? <span className="text-bad font-semibold">{x[3]}</span> : 0) }, { label: 'Reconciled', render: (x) => <Pill tone={x[4] ? 'ok' : 'warn'}>{x[4] ? 'Matched with settlement' : 'Settles tomorrow'}</Pill> }]}
-              rows={[['Fri 9 Oct', 4, 13600, 1, false], ['Thu 8 Oct', 29, 81200, 2, false], ['Wed 7 Oct', 41, 118400, 3, true], ['Tue 6 Oct', 52, 141900, 1, true], ['Mon 5 Oct', 63, 172300, 2, true], ['1–3 Oct', 107, 282600, 2, true]]}
-              foot={['October', 296, inr(810000), 11, '']} />
+            {head(`Razorpay · ${range} · every payment matched by itself`)}
+            {online.length === 0 ? <Empty icon={I.Globe} title="No online payments in these dates" body="Pick other dates." /> : (
+            <SimpleTable cols={[{ label: inOct ? 'Day' : 'Month', render: (x) => x[0] }, { label: 'Successful', right: true, render: (x) => x[1].toLocaleString('en-IN') }, { label: 'Amount', right: true, render: (x) => inr(x[2]) }, { label: 'Failed', right: true, render: (x) => (x[3] ? <span className="text-bad font-semibold">{x[3]}</span> : 0) }, { label: 'Reconciled', render: (x) => <Pill tone={x[4] ? 'ok' : 'warn'}>{x[4] ? 'Matched with settlement' : 'Some settle tomorrow'}</Pill> }]}
+              rows={online} foot={['Total', sumCol(online, 1).toLocaleString('en-IN'), inr(sumCol(online, 2)), sumCol(online, 3), '']} />
+            )}
           </Card>
         )}
 
         {active === 'outstanding' && <>
+          <Banner tone="info" title="As on today, 9 Oct 2026.">Dues still unpaid today, grouped by how long they have been late. The dates above do not change this report.</Banner>
           <Stats items={BUCKETS.map((b) => ({ label: b.label, value: inrShort(DEFAULTERS.filter((d) => d.bucket === b.id).reduce((a, d) => a + d.amount, 0)), sub: `${DEFAULTERS.filter((d) => d.bucket === b.id).length} students`, tone: b.tone }))} />
           <Card className="overflow-hidden">
             {head('Overdue by class and ageing group · groups from Fee Settings')}
@@ -1742,73 +1922,81 @@ function FeeReportsFull() {
 
         {active === 'defaulter' && (
           <Card className="overflow-hidden">
-            {head(`${DEFAULTERS.length} students · the 12 oldest`, <Button size="sm" variant="ghost" onClick={() => go('fees', { page: 'defaulters' })}>Open Defaulters</Button>)}
-            <SimpleTable minWidth={620} cols={[{ label: 'Student', render: (d) => d.s.name }, { label: 'Class', render: (d) => clsOf(d.s) }, { label: 'Parent phone', render: (d) => <span className="tnum">{d.s.phone}</span> }, { label: 'Days late', right: true, render: (d) => d.days }, { label: 'Overdue', right: true, render: (d) => <b className="font-semibold">{inr(d.amount)}</b> }]}
-              rows={[...DEFAULTERS].sort((a, b) => b.days - a.days).slice(0, 12)} />
+            {head(`${defs.length} students overdue since ${fmtRange(per)} · the 12 oldest`, canOpen(role, 'fees', 'defaulters') && <Button size="sm" variant="ghost" onClick={() => go('fees', { page: 'defaulters' })}>Open Defaulters</Button>)}
+            {defs.length === 0 ? <Empty icon={I.CircleCheck} title="Nobody here" body="No dues fell overdue in these dates." /> : <SimpleTable minWidth={620} cols={[{ label: 'Student', render: (d) => d.s.name }, { label: 'Class', render: (d) => clsOf(d.s) }, { label: 'Parent phone', render: (d) => <span className="tnum">{d.s.phone}</span> }, { label: 'Days late', right: true, render: (d) => d.days }, { label: 'Overdue', right: true, render: (d) => <b className="font-semibold">{inr(d.amount)}</b> }]}
+              rows={defs.slice(0, 12)} />}
           </Card>
         )}
 
         {active === 'concession' && (
           <Card className="overflow-hidden">
-            {head('2026–27 · ₹41.1 L off fees in 449 concessions')}
-            <SimpleTable cols={[{ label: 'Type', render: (x) => x[0] }, { label: 'Students', right: true, render: (x) => x[1] }, { label: 'Amount', right: true, render: (x) => inr(x[2]) }, { label: 'Note', nowrap: false, render: (x) => <span className="text-[12.5px] text-ink3">{x[3]}</span> }]}
+            {head(`${range} · ${inrShort(sc(4107950))} off fees`)}
+            <SimpleTable cols={[{ label: 'Type', render: (x) => x[0] }, { label: 'Students', right: true, render: (x) => x[1] }, { label: 'Amount', right: true, render: (x) => inr(sc(x[2])) }, { label: 'Note', nowrap: false, render: (x) => <span className="text-[12.5px] text-ink3">{x[3]}</span> }]}
               rows={[['RTE seats', 38, 1976000, 'Claimed from the Telangana government'], ['Sibling discount', 176, 704000, 'Bulk rule'], ['Pay the full year by 30 Apr', 146, 491300, 'Bulk rule, 5% off'], ['Staff children', 14, 462000, '50% off tuition'], ['Scholarships', 21, 405400, 'Merit, sports and need-based'], ['One-off discounts', 23, 61500, '9 above ₹1,000 approved by the Principal'], ['Late fee waivers', 31, 7750, 'With a reason each']]}
-              foot={['Total', 449, inr(4107950), '']} />
+              foot={['Total', 449, inr(sc(4107950)), '']} />
           </Card>
         )}
 
         {active === 'latefee' && (
           <Card className="overflow-hidden">
-            {head('₹250 once, 15 days after the due date · tuition only')}
-            <SimpleTable cols={[{ label: 'Month', render: (x) => x[0] }, { label: 'Added', right: true, render: (x) => `${x[1]} · ${inr(x[1] * 250)}` }, { label: 'Waived', right: true, render: (x) => `${x[2]} · ${inr(x[2] * 250)}` }, { label: 'Collected', right: true, render: (x) => inr(x[3]) }, { label: 'Still due', right: true, render: (x) => inr(x[1] * 250 - x[2] * 250 - x[3]) }]}
-              rows={[['Apr', 64, 9, 13750], ['Jul', 182, 18, 38500], ['Oct (so far)', 0, 0, 1000]]} foot={['Total', '246 · ₹61,500', '27 · ₹6,750', inr(53250), inr(1500)]} />
+            {head(`${range} · ₹250 once, 15 days after the due date · tuition only`)}
+            {lateRows.length === 0 ? <Empty icon={I.Timer} title="No late fees in these dates" body="Late fees are added in the months a tuition installment falls due: April, July, October and January." /> : <SimpleTable cols={[{ label: 'Month', render: (x) => x[0] }, { label: 'Added', right: true, render: (x) => `${x[1]} · ${inr(x[1] * 250)}` }, { label: 'Waived', right: true, render: (x) => `${x[2]} · ${inr(x[2] * 250)}` }, { label: 'Collected', right: true, render: (x) => inr(x[3]) }, { label: 'Still due', right: true, render: (x) => inr(x[1] * 250 - x[2] * 250 - x[3]) }]}
+              rows={lateRows} foot={['Total', `${sumCol(lateRows, 1)} · ${inr(sumCol(lateRows, 1) * 250)}`, `${sumCol(lateRows, 2)} · ${inr(sumCol(lateRows, 2) * 250)}`, inr(sumCol(lateRows, 3)), inr(sumCol(lateRows, 1) * 250 - sumCol(lateRows, 2) * 250 - sumCol(lateRows, 3))]} />}
           </Card>
         )}
 
         {active === 'refunds' && (
           <Card className="overflow-hidden">
-            {head('2026–27 · never more than was paid')}
-            <SimpleTable minWidth={640} cols={[{ label: 'Student', render: (x) => x.name }, { label: 'Payment', render: (x) => <span className="font-mono text-[12.5px]">{x.rcpt}</span> }, { label: 'Refund', right: true, render: (x) => inr(x.amt) }, { label: 'Status', render: (x) => <Pill tone={C_TONE[x.status]}>{x.status}</Pill> }, { label: 'Approved by', render: (x) => x.appr || '—' }]}
-              rows={REFUNDS} foot={['5 refunds', '', inr(REFUNDS.reduce((a, x) => a + x.amt, 0)), '', '']} />
+            {head(`${range} · never more than was paid`)}
+            {refunds.length === 0 ? <Empty icon={I.Undo2} title="No refunds in these dates" body="Pick other dates." /> : <SimpleTable minWidth={640} cols={[{ label: 'Student', render: (x) => x.name }, { label: 'Asked on', render: (x) => x.date }, { label: 'Payment', render: (x) => <span className="font-mono text-[12.5px]">{x.rcpt}</span> }, { label: 'Refund', right: true, render: (x) => inr(x.amt) }, { label: 'Status', render: (x) => <Pill tone={C_TONE[x.status]}>{x.status}</Pill> }, { label: 'Approved by', render: (x) => x.appr || '—' }]}
+              rows={refunds} foot={[`${refunds.length} refunds`, '', '', inr(refunds.reduce((a, x) => a + x.amt, 0)), '', '']} />}
           </Card>
         )}
 
         {active === 'cancelled' && (
           <Card className="overflow-hidden">
-            {head('Replaces the old “deleted payments” log. Nothing is ever deleted.')}
-            <SimpleTable minWidth={760} cols={[{ label: 'Receipt', render: (x) => <span className="font-mono text-[12.5px]">{x.rcpt}</span> }, { label: 'Cancelled on', render: (x) => x.date }, { label: 'Student', render: (x) => `${x.name} · ${x.cls}` }, { label: 'Amount', right: true, render: (x) => inr(x.amt) }, { label: 'Reason', render: (x) => x.reason }, { label: 'By', render: (x) => x.by }, { label: 'Approved', render: (x) => <span className="text-[12.5px] text-ink3">{x.appr}</span> }]}
-              rows={CANCELLED_LOG} foot={['5 payments', '', '', inr(CANCELLED_LOG.reduce((a, x) => a + x.amt, 0)), '', '', '']} />
+            {head(`${range} · replaces the old “deleted payments” log. Nothing is ever deleted.`)}
+            {cancelled.length === 0 ? <Empty icon={I.Ban} title="No payments cancelled in these dates" body="Pick other dates." /> : <SimpleTable minWidth={760} cols={[{ label: 'Receipt', render: (x) => <span className="font-mono text-[12.5px]">{x.rcpt}</span> }, { label: 'Cancelled on', render: (x) => x.date }, { label: 'Student', render: (x) => `${x.name} · ${x.cls}` }, { label: 'Amount', right: true, render: (x) => inr(x.amt) }, { label: 'Reason', render: (x) => x.reason }, { label: 'By', render: (x) => x.by }, { label: 'Approved', render: (x) => <span className="text-[12.5px] text-ink3">{x.appr}</span> }]}
+              rows={cancelled} foot={[`${cancelled.length} payments`, '', '', inr(cancelled.reduce((a, x) => a + x.amt, 0)), '', '', '']} />}
           </Card>
         )}
 
         {active === 'audit' && (
           <Card className="overflow-hidden">
-            {head('Every installment raised so far, for the auditor')}
+            {head('Every installment raised so far this financial year, as on 9 Oct 2026, for the auditor')}
             <SimpleTable minWidth={640} cols={[{ label: 'Installment', render: (x) => x[0] }, { label: 'Raised', right: true, render: (x) => inr(x[1]) }, { label: 'Collected', right: true, render: (x) => inr(x[2]) }, { label: 'Balance', right: true, render: (x) => inr(x[1] - x[2]) }, { label: '%', right: true, render: (x) => `${pct(x[2], x[1])}%` }]}
               rows={AUDIT} foot={['Total', inr(sumCol(AUDIT, 1)), inr(sumCol(AUDIT, 2)), inr(sumCol(AUDIT, 1) - sumCol(AUDIT, 2)), `${pct(sumCol(AUDIT, 2), sumCol(AUDIT, 1))}%`]} />
           </Card>
         )}
 
-        {active === 'gst' && <GstReport period={gstPeriod} setPeriod={setGstPeriod} head={head} />}
+        {active === 'gst' && <GstReport per={per} range={range} head={head} />}
+        </>}
       </ReportsFrame>
     </div>
   );
 }
 
-function GstReport({ period, setPeriod, head }) {
-  const rows = period === 'sep'
-    ? [['Uniform', 5, 'HSN 6203', 194000, 112], ['Books & stationery kit', 12, 'HSN 4820', 295000, 186]]
-    : [['Uniform', 5, 'HSN 6203', 22400, 9], ['Books & stationery kit', 12, 'HSN 4820', 9600, 4]];
+// Store sales with GST by month (Sep and Oct are exact; other months follow the school year's pattern)
+const GST_MONTH = { 3: 1.9, 4: 0.6, 5: 1.5, 6: 0.5, 7: 0.4, 8: 1 };
+function GstReport({ per, range, head }) {
+  const SEP = [['Uniform', 5, 'HSN 6203', 194000, 112], ['Books & stationery kit', 12, 'HSN 4820', 295000, 186]];
+  const OCT = [['Uniform', 5, 'HSN 6203', 22400, 9], ['Books & stationery kit', 12, 'HSN 4820', 9600, 4]];
+  const rows = SEP.map((x, i) => {
+    let amt = 0, n = 0;
+    FY_MONTHS.forEach(([, y, m]) => { const sh = monthShare(per, y, m); if (!sh) return; const base = m === 9 ? OCT[i] : SEP[i]; const k = m === 9 ? 1 : GST_MONTH[m]; amt += base[3] * k * sh; n += base[4] * k * sh; });
+    return [x[0], x[1], x[2], Math.round(amt / 10) * 10, Math.round(n)];
+  });
+  const first = 201 + 0, last = first + rows.reduce((a, x) => a + x[4], 0) - 1;
   const tax = (x) => Math.round((x[3] * x[1]) / (100 + x[1]));
   const totalTax = rows.reduce((a, x) => a + tax(x), 0);
   return <>
     <Stats items={[
       { label: 'Taxable collection', value: inr(rows.reduce((a, x) => a + x[3], 0)), sub: 'GST included in the fee' },
       { label: 'GST', value: inr(totalTax), sub: 'CGST and SGST, half each', tone: 'brand' },
-      { label: 'Tax invoices', value: rows.reduce((a, x) => a + x[4], 0), sub: period === 'sep' ? 'TI/26/00201 to TI/26/00498' : 'TI/26/00499 to TI/26/00511' },
+      { label: 'Tax invoices', value: rows.reduce((a, x) => a + x[4], 0), sub: rows.reduce((a, x) => a + x[4], 0) ? `TI/26/00${first} to TI/26/00${last}` : 'None in these dates' },
     ]} />
     <Card className="overflow-hidden">
-      {head(`GSTIN ${GSTIN} · ready for the school’s GST filing`, <Segmented size="sm" value={period} onChange={setPeriod} options={[{ value: 'sep', label: 'Sep' }, { value: 'oct', label: 'Oct so far' }]} />)}
+      {head(`${range} · GSTIN ${GSTIN} · ready for the school’s GST filing`)}
       <SimpleTable minWidth={680} cols={[{ label: 'Fee head', render: (x) => x[0] }, { label: 'Code', render: (x) => <span className="text-ink3">{x[2]}</span> }, { label: 'Rate', right: true, render: (x) => `${x[1]}%` }, { label: 'Collected', right: true, render: (x) => inr(x[3]) }, { label: 'Taxable value', right: true, render: (x) => inr(x[3] - tax(x)) }, { label: 'CGST', right: true, render: (x) => inr(Math.round(tax(x) / 2)) }, { label: 'SGST', right: true, render: (x) => inr(tax(x) - Math.round(tax(x) / 2)) }]}
         rows={rows} foot={['Total', '', '', inr(rows.reduce((a, x) => a + x[3], 0)), inr(rows.reduce((a, x) => a + x[3] - tax(x), 0)), inr(rows.reduce((a, x) => a + Math.round(tax(x) / 2), 0)), inr(rows.reduce((a, x) => a + tax(x) - Math.round(tax(x) / 2), 0))]} />
       <p className="px-5 py-3 text-[12.5px] text-ink3 border-t border-line">Tuition, transport, hostel and exam fees are exempt and not in this report.</p>

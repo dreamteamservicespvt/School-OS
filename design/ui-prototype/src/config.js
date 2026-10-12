@@ -99,8 +99,8 @@ const VIEW = {
   reports: ['all', 'analytics'],
 };
 // A few roles have a narrower View slice (from the notes in 05-roles.md)
-const VIEW_BY_ROLE = { officestaff: { frontoffice: ['visitors', 'pickup'] }, accountant: { events: ['calendar', 'events'], inventory: ['purchases', 'reports'] }, vp: { reports: ['all', 'analytics', 'warnings'] }, academichead: { reports: ['all', 'analytics', 'warnings'] } };
-const LABELS_BY_ROLE = { accountant: { events: { events: 'Event Payments' } } };
+const VIEW_BY_ROLE = { officestaff: { frontoffice: ['visitors', 'pickup'] }, accountant: { events: ['calendar', 'events'], inventory: ['purchases', 'reports'] }, vp: { reports: ['all', 'analytics', 'warnings'] }, academichead: { reports: ['all', 'analytics', 'warnings'] }, admissioncounsellor: { fees: ['dashboard'] } };
+const LABELS_BY_ROLE = { accountant: { events: { events: 'Event Payments' } }, admissioncounsellor: { fees: { dashboard: 'Admission Fees' } } };
 const OWN = {
   admissions: ['enquiries'],
   students: ['list', 'behaviour'],

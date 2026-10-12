@@ -2,8 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as I from './icons.js';
 import { STUDENTS, FEATURED, FEE_ROWS, ME, inr } from './data.js';
 import { cx, Card, CardHead, Button, Pill, Avatar, Checkbox, Input, Field, Ring, Sheet, PageHead, useToast, feeTone, inputCls, Empty } from './ui.jsx';
-import { useNav } from './shell.jsx';
-import { ModuleHead } from './kit.jsx';
+import { useNav, useRole } from './shell.jsx';
+import { ModuleHead, useCanEdit, Banner } from './kit.jsx';
 
 export const FEES_BASE = { collect: ({ params }) => <CollectFee studentId={params?.student} /> };
 
@@ -73,6 +73,8 @@ function FindStudent({ onPick }) {
 function Collect({ id, onChange }) {
   const toast = useToast();
   const { go } = useNav();
+  const { role } = useRole();
+  const canEdit = useCanEdit();
   const base = STUDENTS.find((s) => s.id === id) || FEATURED;
   const [rows, setRows] = useState(() => FEE_ROWS.map((r) => ({ ...r })));
   const open = rows.filter((r) => r.status !== 'Paid');
@@ -135,7 +137,7 @@ function Collect({ id, onChange }) {
     <div>
       <div className="flex items-center justify-between gap-3 mb-4">
         <button onClick={onChange} className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-ink2 hover:text-ink h-8 px-1 -ml-1 rounded-lg"><I.ArrowLeft size={17} />Collect fee</button>
-        <span className="text-[13px] text-ink3 hidden @md:inline">Collecting as {ME.name} · Counter 1</span>
+        <span className="text-[13px] text-ink3 hidden @md:inline">{canEdit ? `Collecting as ${role.person?.name || ME.name} · Counter 1` : 'Past year · read only'}</span>
       </div>
 
       <div className="grid @xl:grid-cols-[minmax(0,1fr)_380px] gap-5 items-start">
@@ -144,7 +146,7 @@ function Collect({ id, onChange }) {
           <Card className="p-4 @md:p-5 flex items-center gap-4">
             <Avatar name={base.name} size={56} />
             <div className="min-w-0 flex-1">
-              <button onClick={() => go('student', { id: base.id })} className="font-display font-semibold text-[19px] leading-tight hover:underline text-left">{base.name}</button>
+              <button onClick={() => role.access.students && go('student', { id: base.id })} className="font-display font-semibold text-[19px] leading-tight hover:underline text-left">{base.name}</button>
               <p className="text-[13px] text-ink3 truncate">{base.cls} {base.sec} · Roll {base.roll}<span className="hidden @md:inline"> · {base.father} · <span className="tnum">{base.phone}</span></span></p>
               <div className="flex gap-x-4 gap-y-0.5 mt-2 text-[13px] tnum flex-wrap">
                 <span><span className="text-ink3">Year </span><b className="font-semibold">{inr(total)}</b></span>
@@ -187,7 +189,10 @@ function Collect({ id, onChange }) {
           </Card>
         </div>
 
-        {/* Payment panel */}
+        {/* Payment panel (hidden in a closed year: nothing can be collected there) */}
+        {!canEdit ? (
+          <Banner tone="info" icon={I.Lock} title="This year is closed.">Fees for a past year cannot be collected here. Switch to the current year to take a payment.</Banner>
+        ) : (
         <Card className="@xl:sticky @xl:top-0 overflow-hidden">
           <div className="p-5 flex flex-col gap-4">
             <div className="flex items-baseline justify-between">
@@ -240,6 +245,7 @@ function Collect({ id, onChange }) {
             <Button variant="ghost" className="w-full" icon={I.Send} disabled={selTotal === 0} onClick={() => toast({ title: `Payment link sent to ${base.father}`, body: `${inr(selTotal)} · WhatsApp, with SMS backup. Valid 7 days.` })}>Send payment link instead</Button>
           </div>
         </Card>
+        )}
       </div>
 
       {/* UPI QR */}

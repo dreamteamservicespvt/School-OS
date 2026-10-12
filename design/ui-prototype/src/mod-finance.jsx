@@ -9,8 +9,9 @@ import { useNav, useRole } from './shell.jsx';
 import {
   ModuleHead, useCanEdit, Stats, Band, SearchBox, Toolbar, Select, Textarea, DataList, SettingRow, SettingsCard,
   Banner, Suggestion, Progress, HBars, Bars, Legend, DL, Timeline, FormSheet, ConfirmSheet, Split as KitSplit, Col, TONE_SOFT,
+  DatePeriod, PERIODS as DP, fmtRange, fmtDay,
 } from './kit.jsx';
-import { FEE_PAYMENTS_TODAY, TUITION, MODE_ICON, PayPill, SimpleTable, ReportsFrame, ReportActions } from './mod-fees.jsx';
+import { FEE_PAYMENTS_TODAY, TUITION, MODE_ICON, PayPill, SimpleTable, ReportsFrame, ReportActions, isoOf, inPeriod, monthShare, FY_MONTHS, canOpen, seesPay, ALL_DATES } from './mod-fees.jsx';
 
 // Same as the kit Split, but its direct children may shrink (no sideways overflow on phones)
 const Split = ({ className, ...p }) => <KitSplit {...p} className={cx('[&>*]:min-w-0', className)} />;
@@ -342,25 +343,28 @@ function DaySection({ title, icon, kind, rows, empty, onOpen, showAcct, tone }) 
 
 function EntrySheet({ e, day, onClose }) {
   const { go } = useNav();
+  const { role } = useRole();
   if (!e) return null;
   const [label, icon, tone] = SRC_INFO[e.src];
+  // Each link only when this person may open the page it leads to
+  const feeLink = e.sid && canOpen(role, 'fees', 'ledger') ? [e.src === 'fee' ? 'Open the student’s fee ledger' : 'Open the cancelled receipt in Fees', () => go('fees', { page: 'ledger', id: e.sid })]
+    : canOpen(role, 'fees', 'dashboard') ? ['Open in Fees', () => go('fees', { page: 'dashboard' })] : null;
   const link = {
-    fee: [e.sid ? 'Open the student’s fee ledger' : 'Open in Fees', () => go('fees', e.sid ? { page: 'ledger', id: e.sid } : { page: 'dashboard' })],
-    reversal: ['Open the cancelled receipt in Fees', () => go('fees', e.sid ? { page: 'ledger', id: e.sid } : { page: 'dashboard' })],
-    income: ['Open in Income', () => go('finance', { page: 'income' })],
-    expense: ['Open the expense and bill', () => go('finance', { page: 'expenses' })],
-    salary: ['Open the payroll run', () => go('salary', { page: 'history' })],
+    fee: feeLink, reversal: feeLink,
+    income: canOpen(role, 'finance', 'income') ? ['Open in Income', () => go('finance', { page: 'income' })] : null,
+    expense: canOpen(role, 'finance', 'expenses') ? ['Open the expense and bill', () => go('finance', { page: 'expenses' })] : null,
+    salary: canOpen(role, 'salary', 'history') ? ['Open the payroll run', () => go('salary', { page: 'history' })] : null,
   }[e.src];
   return (
-    <Sheet open onClose={onClose} title={`${label} · ${signed(e.total)}`} sub={`${day.label} · ${e.t}`}
-      footer={<><Button variant="ghost" onClick={onClose}>Close</Button><Button variant="primary" icon={I.ExternalLink} onClick={link[1]}>{link[0]}</Button></>}>
+    <Sheet open onClose={onClose} title={`${label} · ${signed(e.total)}`} sub={`${e.dayLabel || day.label} · ${e.time || e.t}`}
+      footer={<><Button variant="ghost" onClick={onClose}>Close</Button>{link && <Button variant="primary" icon={I.ExternalLink} onClick={link[1]}>{link[0]}</Button>}</>}>
       <div className="flex items-center gap-3 mb-4">
         <span className={cx('w-11 h-11 rounded-xl grid place-items-center shrink-0', TONE_SOFT[tone])}>{React.createElement(I[icon], { size: 20 })}</span>
         <div className="min-w-0"><p className="font-semibold text-[15px] truncate">{e.who}</p><p className="text-[13px] text-ink3 truncate">{e.cls ? `${e.cls} · ` : ''}{e.head}</p></div>
       </div>
       <div className="grid grid-cols-2 gap-x-5 gap-y-3.5">
         <Mini k={e.src === 'fee' || e.src === 'reversal' ? 'Receipt' : 'Number'} v={<span className="font-mono text-[13px]">{e.no}</span>} />
-        <Mini k="Time" v={e.t} />
+        <Mini k="Time" v={e.time || e.t} />
         {e.src === 'fee' && <><Mini k="Amount" v={inr(e.amt)} /><Mini k="Penalty (late fee)" v={e.pen ? inr(e.pen) : 'None'} /></>}
         <Mini k="Total" v={<b className="font-semibold">{signed(e.total)}</b>} />
         <Mini k="Mode" v={<ModeCell mode={e.mode} />} />
@@ -377,18 +381,36 @@ function EntrySheet({ e, day, onClose }) {
   );
 }
 
+// One Day Book for a date range: the days inside it, put together (newest day first)
+function bookFor(per) {
+  const keys = Object.keys(DAYS).filter((k) => k >= per.from && k <= per.to).sort().reverse();
+  if (keys.length === 1) return { ...DAYS[keys[0]], keys };
+  const tag = (k) => (e) => ({ ...e, time: e.t, t: `${DAYS[k].short}, ${e.t}`, dayLabel: DAYS[k].label });
+  const pick = (f) => keys.flatMap((k) => DAYS[k][f].map(tag(k)));
+  return {
+    keys, label: per.from === per.to ? fmtDay(per.from) : fmtRange(per), short: fmtRange(per), today: keys.includes('2026-10-09') && keys.length === 1,
+    old: keys.some((k) => DAYS[k].old), holiday: keys.length > 0 && keys.every((k) => DAYS[k].holiday),
+    fees: pick('fees'), income: pick('income'), expenses: pick('expenses'), salary: pick('salary'), reversals: pick('reversals'),
+  };
+}
+
 function DayBookPage() {
   const toast = useToast();
   const canEdit = useCanEdit();
-  const blank = { fy: '2026-27', date: '2026-10-09', cls: 'all', acct: 'all' };
+  const { role } = useRole();
+  const pay = seesPay(role);
+  const blank = { cls: 'all', acct: 'all' };
   const [draft, setDraft] = useState(blank);
   const [f, setF] = useState(blank);
+  const [per, setPer] = useState(DP.today);
   const [waiting, setWaiting] = useState(false);
   const [open, setOpen] = useState(null);
   const [closed, setClosed] = useState(new Set(['2026-10-02', '2026-09-30', '2026-03-31']));
   const [closing, setClosing] = useState(null);
   const [exp, setExp] = useState(false);
-  const day = DAYS[f.date];
+  const day = bookFor(per);
+  const single = day.keys.length === 1 && per.from === per.to;
+  const on = single ? 'on this date' : 'in these dates';
   const dirty = JSON.stringify(draft) !== JSON.stringify(f);
   const clsLabel = f.cls === 'all' ? null : CLASSES.find((c) => c.id === f.cls).name.replace('Class ', '');
   const keepFee = (e) => (waiting || e.status !== 'Waiting') && (!clsLabel || e.cls.startsWith(clsLabel + ' ')) && (f.acct === 'all' || e.acct === f.acct);
@@ -399,7 +421,7 @@ function DayBookPage() {
   const reversals = day.reversals.filter((e) => (!clsLabel || e.cls.startsWith(clsLabel + ' ')) && (f.acct === 'all' || e.acct === f.acct));
   const income = filtered ? [] : day.income;
   const expenses = filtered ? [] : day.expenses;
-  const salary = filtered ? [] : day.salary;
+  const salary = filtered || !pay ? [] : day.salary;
   const sFull = sumBy(full, (e) => e.total), sPart = sumBy(part, (e) => e.total), sRev = sumBy(reversals, (e) => e.total), sInc = sumBy(income, (e) => e.total);
   const totalIn = sFull + sPart + sRev + sInc;
   const totalOut = sumBy(expenses, (e) => e.total) + sumBy(salary, (e) => e.total);
@@ -417,17 +439,17 @@ function DayBookPage() {
   ];
   const modes = ['Cash', 'UPI', 'Online', 'Card', 'Cheque', 'Bank transfer'].map((m) => [m, sumBy([...valid, ...income].filter((e) => e.mode === m), (e) => e.total)]).filter(([, v]) => v);
   const byAcct = ['School account', 'Trust account'].map((a) => [a, valid.filter((e) => e.acct === a)]);
-  const isClosed = closed.has(f.date);
+  const isClosed = day.keys.length > 0 && day.keys.every((k) => closed.has(k));
   const openDay = !closed.has('2026-10-08') ? '2026-10-08' : !closed.has('2026-10-09') ? '2026-10-09' : null;
   const allFeesToday = FEES_9.filter((e) => !e.cancelled);
-  const apply = () => { setF(draft); toast({ title: 'Day Book updated', body: `${DAYS[draft.date].label}${draft.cls !== 'all' ? ` · ${CLASSES.find((c) => c.id === draft.cls).name}` : ''}${draft.acct !== 'all' ? ` · ${draft.acct}` : ''}` }); };
-  const reset = () => { setDraft(blank); setF(blank); setWaiting(false); };
+  const apply = () => { setF(draft); toast({ title: 'Day Book updated', body: `${day.label}${draft.cls !== 'all' ? ` · ${CLASSES.find((c) => c.id === draft.cls).name}` : ''}${draft.acct !== 'all' ? ` · ${draft.acct}` : ''}` }); };
+  const reset = () => { setDraft(blank); setF(blank); setPer(DP.today); setWaiting(false); };
   const sectionProps = { onOpen: setOpen, showAcct: true };
 
   return (
     <div>
       <ModuleHead title="Day Book" sub={`Daily income and expense summary, ${day.label.replace(' · ', ', ')}`}
-        actions={openDay && <Button variant="primary" icon={I.Lock} onClick={() => setClosing(openDay)}>Close {DAYS[openDay].short}</Button>} />
+        actions={openDay && canEdit && <Button variant="primary" icon={I.Lock} onClick={() => setClosing(openDay)}>Close {DAYS[openDay].short}</Button>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
         {!closed.has('2026-10-08') && canEdit && (
           <Banner tone="bad" title="Thu 8 Oct is not closed yet." action={<Button size="sm" variant="secondary" onClick={() => setClosing('2026-10-08')}>Count and close</Button>}>
@@ -437,11 +459,10 @@ function DayBookPage() {
         {day.old && <Banner tone="warn" title="Finance year 2025–26 is closed.">Its books are read only. Put a mistake right with an adjustment in 2026–27.</Banner>}
 
         <Card>
-          <CardHead title="Show the Day Book for" sub="Financial year April to March, apart from the academic year (June to May)" icon={I.Filter}
+          <CardHead title="Show the Day Book for" sub="Any day or range of days · the financial year runs April to March, apart from the academic year (June to May)" icon={I.Filter}
             action={<div className="flex gap-1.5"><Button size="sm" variant="secondary" icon={I.Download} onClick={() => setExp(true)}>Export</Button><Button size="sm" variant="ghost" icon={I.Printer} className="hidden @sm:inline-flex" onClick={() => toast({ title: 'Sent to the office printer', body: `Day Book for ${day.label} · ${inr(totalIn)} in, ${inr(totalOut)} out` })}>Print</Button></div>} />
-          <div className="px-5 pb-4 grid grid-cols-1 @md:grid-cols-2 @xl:grid-cols-4 gap-3">
-            <Field label="Financial year" id="db-fy"><Select id="db-fy" value={draft.fy} onChange={(v) => setDraft({ ...draft, fy: v, date: DATE_OPTS[v][0].value })} options={FYS} /></Field>
-            <Field label="Date" id="db-date"><Select id="db-date" value={draft.date} onChange={(v) => setDraft({ ...draft, date: v })} options={DATE_OPTS[draft.fy]} /></Field>
+          <div className="px-5 pb-4 grid grid-cols-1 @md:grid-cols-2 @xl:grid-cols-3 gap-3">
+            <Field label="Dates" id="db-per"><DatePeriod id="db-per" value={per} onChange={setPer} className="w-full" /></Field>
             <Field label="Class" id="db-cls" hint="For fee entries"><Select id="db-cls" value={draft.cls} onChange={(v) => setDraft({ ...draft, cls: v })} options={[{ value: 'all', label: 'All classes' }, ...CLASSES.map((c) => ({ value: c.id, label: c.name }))]} /></Field>
             <Field label="Bank account" id="db-acct" hint="Fees go to the account of their fee head"><Select id="db-acct" value={draft.acct} onChange={(v) => setDraft({ ...draft, acct: v })} options={[{ value: 'all', label: 'All accounts' }, { value: 'School account', label: 'School account · SBI' }, { value: 'Trust account', label: 'Trust account · HDFC' }]} /></Field>
           </div>
@@ -457,21 +478,21 @@ function DayBookPage() {
 
         <Band items={[
           { label: 'Total income', big: inr(totalIn), foot: `${nIn} transactions · Fees ${inr(sFull)} + Partial ${inr(sPart)}${sRev ? ` · less ${inr(-sRev)} reversed` : ''}` },
-          { label: 'Total expense', big: inr(totalOut), foot: `${expenses.length + salary.length} transactions${salary.length ? ' · includes salary' : ''}` },
-          { label: 'Net balance', big: signed(totalIn - totalOut), foot: isClosed ? 'Day closed and locked' : day.today ? 'Live · updated 10:42 AM' : 'Not closed yet' },
+          { label: 'Total expense', big: inr(totalOut), foot: `${expenses.length + salary.length} transactions${salary.length ? ' · includes salary' : ''}${!pay && day.salary.length ? ' · staff pay not shown' : ''}` },
+          { label: 'Net balance', big: signed(totalIn - totalOut), foot: !day.keys.length ? fmtRange(per) : isClosed ? (single ? 'Day closed and locked' : 'All these days are closed') : day.today ? 'Live · updated 10:42 AM' : single ? 'Not closed yet' : 'Some days not closed yet' },
         ]} />
 
         <Stats items={groups.map((g) => ({ label: g.label, value: inr(g.v[0]), sub: g.v[1] ? `${g.v[1]} ${g.v[1] === 1 ? 'entry' : 'entries'}` : g.label === 'Daycare' ? 'No daycare at this school' : 'None', icon: g.icon }))} />
 
         <Split side={340}>
           <Col>
-            <DaySection title="Fee payments (full)" icon="ReceiptIndianRupee" kind="fee" rows={full} tone="ok" empty="No full fee payments on this date." {...sectionProps} />
-            <DaySection title="Partial payments" icon="CirclePause" kind="fee" rows={part} tone="ok" empty="No partial payments on this date." {...sectionProps} />
-            <DaySection title="Daycare payments" icon="Baby" kind="fee" rows={[]} empty="No daycare payments on this date. Sunrise Public School does not run a daycare." {...sectionProps} />
-            <DaySection title="Other income" icon="HandCoins" kind="income" rows={income} tone="ok" empty={filtered ? 'Hidden while a class or bank account filter is on.' : 'No other income on this date.'} {...sectionProps} />
-            <DaySection title="Expenses" icon="ReceiptText" kind="expense" rows={expenses} tone="warn" empty={filtered ? 'Hidden while a class or bank account filter is on.' : day.holiday ? 'No expenses paid on this date. The school was closed.' : 'No expenses paid on this date.'} {...sectionProps} />
-            <DaySection title="Salary" icon="Wallet" kind="salary" rows={salary} tone="warn" empty={filtered ? 'Hidden while a class or bank account filter is on.' : 'No salary or salary advance paid on this date. Salary is added on the day it is marked paid.'} {...sectionProps} />
-            <DaySection title="Refunds and reversals" icon="Undo2" kind="reversal" rows={reversals} tone="bad" empty="No refunds or reversals on this date." {...sectionProps} />
+            <DaySection title="Fee payments (full)" icon="ReceiptIndianRupee" kind="fee" rows={full} tone="ok" empty={`No full fee payments ${on}.`} {...sectionProps} />
+            <DaySection title="Partial payments" icon="CirclePause" kind="fee" rows={part} tone="ok" empty={`No partial payments ${on}.`} {...sectionProps} />
+            <DaySection title="Daycare payments" icon="Baby" kind="fee" rows={[]} empty={`No daycare payments ${on}. Sunrise Public School does not run a daycare.`} {...sectionProps} />
+            <DaySection title="Other income" icon="HandCoins" kind="income" rows={income} tone="ok" empty={filtered ? 'Hidden while a class or bank account filter is on.' : `No other income ${on}.`} {...sectionProps} />
+            <DaySection title="Expenses" icon="ReceiptText" kind="expense" rows={expenses} tone="warn" empty={filtered ? 'Hidden while a class or bank account filter is on.' : day.holiday ? `No expenses paid ${on}. The school was closed.` : `No expenses paid ${on}.`} {...sectionProps} />
+            <DaySection title="Salary" icon="Wallet" kind="salary" rows={salary} tone="warn" empty={!pay ? 'Staff pay is shown only to the Accountant, the Principal and the School Admin.' : filtered ? 'Hidden while a class or bank account filter is on.' : `No salary or salary advance paid ${on}. Salary is added on the day it is marked paid.`} {...sectionProps} />
+            <DaySection title="Refunds and reversals" icon="Undo2" kind="reversal" rows={reversals} tone="bad" empty={`No refunds or reversals ${on}.`} {...sectionProps} />
           </Col>
           <Col>
             {day.today && (
@@ -517,7 +538,7 @@ function DayBookPage() {
         setClosed((x) => new Set([...x, k]));
         toast({ title: `${DAYS[k].label} is closed`, body: 'Cash counted and the day locked. Corrections now go in as adjustments on an open day.', undo: () => setClosed((x) => { const n = new Set(x); n.delete(k); return n; }) });
       }} />
-      <ExportSheet open={exp} onClose={() => setExp(false)} title={`Day Book for ${day.label}`} lines={[['Total income', inr(totalIn)], ['Total expense', inr(totalOut)], ['Net balance', signed(totalIn - totalOut)], ['Entries', String(fees.length + income.length + expenses.length + salary.length + reversals.length)]]} />
+      <ExportSheet open={exp} onClose={() => setExp(false)} title={`Day Book for ${day.label}${!pay ? ' (without staff pay)' : ''}`} lines={[['Total income', inr(totalIn)], ['Total expense', inr(totalOut)], ['Net balance', signed(totalIn - totalOut)], ['Entries', String(fees.length + income.length + expenses.length + salary.length + reversals.length)]]} />
     </div>
   );
 }
@@ -565,15 +586,14 @@ function ExportSheet({ open, onClose, title, lines }) {
    Income (money other than fees)
    ========================================================================================= */
 const INC_TONE = { Posted: 'ok', Draft: 'neutral', Cancelled: 'bad' };
-const RANGES = [{ value: 'oct', label: 'This month (October)' }, { value: 'sep', label: 'September' }, { value: 'fy', label: 'This financial year' }];
-const inRange = (d, r) => r === 'fy' || (r === 'oct' ? d.endsWith('Oct') : d.endsWith('Sep'));
+const inRange = (d, per) => inPeriod(isoOf(d), per);
 
 function IncomePage() {
   const toast = useToast();
   const canEdit = useCanEdit();
   const [list, setList] = useState(INCOME0);
   const [q, setQ] = useState('');
-  const [range, setRange] = useState('fy');
+  const [range, setRange] = useState(DP.finyear);
   const [head, setHead] = useState('all');
   const [mode, setMode] = useState('all');
   const [status, setStatus] = useState('all');
@@ -595,21 +615,21 @@ function IncomePage() {
   return (
     <div>
       <ModuleHead sub="Money the school receives other than fees: rent, donations, scrap sale, interest"
-        actions={<Button variant="primary" icon={I.Plus} onClick={() => setAdding(true)}>Record income</Button>} />
+        actions={canEdit && <Button variant="primary" icon={I.Plus} onClick={() => setAdding(true)}>Record income</Button>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
         <Stats items={[
-          { label: 'This financial year', value: inr(OTHER_IN_FY + added), sub: '1 Apr to 9 Oct 2026', icon: 'HandCoins' },
+          { label: range.key === 'finyear' ? 'This financial year' : range.label, value: inr(range.key === 'finyear' ? OTHER_IN_FY + added : Math.round(MONTHLY.reduce((x, m, i) => x + m.otherIn * monthShare(range, 2026, FY_MONTHS[i][2]), 0))), sub: fmtRange(range), icon: 'HandCoins' },
           { label: 'This month', value: inr(sumBy(posted.filter((r) => r.d.endsWith('Oct')), (r) => r.amt)), sub: `${posted.filter((r) => r.d.endsWith('Oct')).length} entries posted`, icon: 'CalendarDays', tone: 'ok' },
           { label: 'Drafts', value: drafts.length, sub: drafts.length ? `${inr(sumBy(drafts, (r) => r.amt))} not in the Day Book` : 'Nothing waiting', icon: 'FilePen', tone: drafts.length ? 'warn' : undefined, onClick: () => setStatus('Draft') },
           { label: 'Cancelled', value: list.filter((r) => r.status === 'Cancelled').length, sub: 'Kept with the reason', icon: 'CircleX', onClick: () => setStatus('Cancelled') },
         ]} />
         <Split>
           <Card className="overflow-hidden">
-            <CardHead title="Income entries" sub="Newest first. Posted entries are in the Day Book." icon={I.HandCoins} />
+            <CardHead title="Income entries" sub={`${range.label} · ${fmtRange(range)} · newest first. Posted entries are in the Day Book.`} icon={I.HandCoins} />
             <Toolbar>
               <SearchBox id="inc-q" value={q} onChange={setQ} placeholder="Payer, head or number" />
-              <div className="grid grid-cols-2 gap-2.5 @md:flex">
-                <Select id="inc-range" className="@md:w-44" value={range} onChange={setRange} options={RANGES} />
+              <div className="grid grid-cols-1 gap-2.5 @md:flex">
+                <DatePeriod id="inc-range" value={range} onChange={setRange} className="w-full @md:w-auto" />
                 <Select id="inc-status" className="@md:w-36" value={status} onChange={setStatus} options={[{ value: 'all', label: 'All statuses' }, 'Posted', 'Draft', 'Cancelled']} />
               </div>
             </Toolbar>
@@ -630,7 +650,7 @@ function IncomePage() {
                   { key: 'by', label: 'Recorded by', nowrap: true, render: (r) => <span className="text-[13px] text-ink2">{r.by}</span> },
                 ]}
                 mobile={(r) => ({ title: r.from, sub: `${r.d} · ${r.head}`, icon: MODE_ICON[r.mode] || I.Wallet, right: <><p className={cx('font-semibold tnum text-[14.5px]', r.status === 'Cancelled' && 'line-through text-ink3')}>{inr(r.amt)}</p><Pill tone={INC_TONE[r.status]} className="!h-5 !text-[11px]">{r.status}</Pill></> })}
-                empty={<Empty icon={I.SearchX} title="No income matches" body="Try another month, head or status." action={<Button variant="secondary" onClick={() => { setQ(''); setRange('fy'); setHead('all'); setMode('all'); setStatus('all'); }}>Clear filters</Button>} />} />
+                empty={<Empty icon={I.SearchX} title="No income matches" body="Try other dates, head or status." action={<Button variant="secondary" onClick={() => { setQ(''); setRange(DP.finyear); setHead('all'); setMode('all'); setStatus('all'); }}>Clear filters</Button>} />} />
             </div>
           </Card>
           <Col>
@@ -656,7 +676,7 @@ function IncomePage() {
       </div>
 
       <RecordIncomeSheet open={adding} onClose={() => setAdding(false)} next={`INC/26/00${89 + list.length - INCOME0.length}`}
-        onAdd={(r) => { setList((l) => [r, ...l]); setStatus('all'); setRange('fy'); }} />
+        onAdd={(r) => { setList((l) => [r, ...l]); setStatus('all'); setRange(DP.finyear); }} />
 
       {open && (
         <Sheet open onClose={() => setOpen(null)} title={`${open.head} · ${inr(open.amt)}`} sub={`${open.id} · ${open.d} 2026, ${open.t}`}
@@ -767,7 +787,7 @@ function ExpensesPage({ params }) {
   const [status, setStatus] = useState('all');
   const [dept, setDept] = useState('all');
   const [above, setAbove] = useState('0');
-  const [range, setRange] = useState('fy');
+  const [range, setRange] = useState(DP.finyear);
   const [adding, setAdding] = useState(false);
   const [open, setOpen] = useState(null);
   const [pay, setPay] = useState(null);
@@ -785,6 +805,8 @@ function ExpensesPage({ params }) {
   const noBill = list.filter((r) => !r.bill && r.amt > BILL_ABOVE && ['Approved', 'Waiting', 'Paid'].includes(r.status));
   const unpaidBills = bills.filter((b) => b.paid < b.amt);
   const me = role.person?.name || 'Lakshmi Rao';
+  // Nobody approves their own request
+  const mayApprove = (r) => canApprove(role.id, r.amt) && r.by !== me;
 
   const approve = (r) => {
     const prev = { status: r.status, appr: r.appr };
@@ -804,14 +826,14 @@ function ExpensesPage({ params }) {
 
   const ApproveButtons = ({ r, size = 'sm' }) => {
     if (!canEdit) return null;
-    if (canApprove(role.id, r.amt)) return <div className="flex gap-1.5"><Button size={size} variant="ghost" onClick={(e) => { e.stopPropagation(); setReject(r); }}>Reject</Button><Button size={size} variant="primary" icon={I.Check} onClick={(e) => { e.stopPropagation(); approve(r); }}>Approve</Button></div>;
+    if (mayApprove(r)) return <div className="flex gap-1.5"><Button size={size} variant="ghost" onClick={(e) => { e.stopPropagation(); setReject(r); }}>Reject</Button><Button size={size} variant="primary" icon={I.Check} onClick={(e) => { e.stopPropagation(); approve(r); }}>Approve</Button></div>;
     return <Button size={size} variant="soft" icon={I.BellRing} onClick={(e) => { e.stopPropagation(); remind(r); }}>Remind</Button>;
   };
 
   return (
     <div>
       <ModuleHead sub="Bills and expenses with a photo of the bill. Bigger amounts wait for approval."
-        actions={<><Button variant="secondary" icon={I.FileText} onClick={() => setBillAdd(true)}>Record vendor bill</Button><Button variant="primary" icon={I.Plus} onClick={() => setAdding(true)}>Record expense</Button></>} />
+        actions={canEdit && <><Button variant="secondary" icon={I.FileText} onClick={() => setBillAdd(true)}>Record vendor bill</Button><Button variant="primary" icon={I.Plus} onClick={() => setAdding(true)}>Record expense</Button></>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
         <Stats items={[
           { label: 'Paid this month', value: inr(MONTHLY[6].otherOut + sumBy(paidOct.filter((r) => !PAID0.has(r.id)), (r) => r.amt) - sumBy(list.filter((r) => PAID0.has(r.id) && r.status !== 'Paid' && r.paidOn?.endsWith('Oct')), (r) => r.amt)), sub: 'October so far, in the Day Book', icon: 'ReceiptText' },
@@ -832,8 +854,8 @@ function ExpensesPage({ params }) {
           {tab === 'all' && <>
             <Toolbar>
               <SearchBox id="ex-q" value={q} onChange={setQ} placeholder="What, vendor or number" />
-              <div className="grid grid-cols-2 gap-2.5 @md:flex">
-                <Select id="ex-range" className="@md:w-44" value={range} onChange={setRange} options={RANGES} />
+              <div className="grid grid-cols-1 gap-2.5 @md:flex">
+                <DatePeriod id="ex-range" value={range} onChange={setRange} className="w-full @md:w-auto" />
                 <Select id="ex-status" className="@md:w-48" value={status} onChange={setStatus} options={[{ value: 'all', label: 'All statuses' }, 'Draft', { value: 'Waiting', label: 'Waiting for approval' }, 'Approved', 'Paid', 'Cancelled']} />
               </div>
             </Toolbar>
@@ -842,7 +864,7 @@ function ExpensesPage({ params }) {
               <Select id="ex-dept" className="@md:w-48" value={dept} onChange={setDept} options={[{ value: 'all', label: 'All departments' }, ...DEPTS]} />
               <Select id="ex-above" className="@md:w-40 col-span-2 @md:col-span-1" value={above} onChange={setAbove} options={AMT_ABOVE} />
             </div>
-            <DataList rows={rows} onRow={setOpen} minWidth={980} footer={`Showing ${rows.length} of ${list.length} · ${inr(sumBy(rows.filter((r) => r.status === 'Paid'), (r) => r.amt))} paid`}
+            <DataList rows={rows} onRow={setOpen} minWidth={980} footer={`Showing ${rows.length} of ${list.length} · ${inr(sumBy(rows.filter((r) => r.status === 'Paid'), (r) => r.amt))} paid · ${fmtRange(range)}`}
               columns={[
                 { key: 'd', label: 'Date', nowrap: true, render: (r) => <><p className="tnum">{r.d}</p><p className="text-[12px] text-ink3 font-mono">{r.id}</p></> },
                 { key: 'what', label: 'Expense', render: (r) => <><p className="font-semibold leading-tight">{r.what}</p><p className="text-[12.5px] text-ink3">{r.head} · {r.dept}</p></> },
@@ -854,14 +876,14 @@ function ExpensesPage({ params }) {
                 { key: 'by', label: 'Requested by', nowrap: true, render: (r) => <span className="text-[13px] text-ink2">{r.by}</span> },
               ]}
               mobile={(r) => ({ title: r.what, sub: `${r.d} · ${r.vendor || r.head}`, icon: 'ReceiptText', iconTone: EXP_TONE[r.status], right: <><p className={cx('font-semibold tnum text-[14.5px]', r.status === 'Cancelled' && 'line-through text-ink3')}>{inr(r.amt)}</p><ExpPill s={r.status} small /></> })}
-              empty={<Empty icon={I.SearchX} title="No expenses match" body="Try another status, head or amount." action={<Button variant="secondary" onClick={() => { setQ(''); setHead('all'); setStatus('all'); setDept('all'); setAbove('0'); setRange('fy'); }}>Clear filters</Button>} />} />
+              empty={<Empty icon={I.SearchX} title="No expenses match" body="Try other dates, status, head or amount." action={<Button variant="secondary" onClick={() => { setQ(''); setHead('all'); setStatus('all'); setDept('all'); setAbove('0'); setRange(DP.finyear); }}>Clear filters</Button>} />} />
           </>}
 
           {tab === 'waiting' && (waiting.length ? (
             <ul className="divide-y divide-line/70">
               {waiting.map((r) => {
                 const who = approverFor(r.amt);
-                const mine = canApprove(role.id, r.amt);
+                const mine = mayApprove(r);
                 return (
                   <li key={r.id} className="px-4 @md:px-5 py-4 flex flex-col @md:flex-row @md:items-center gap-3">
                     <button onClick={() => setOpen(r)} className="min-w-0 flex-1 text-left flex items-start gap-3">
@@ -918,7 +940,7 @@ function ExpensesPage({ params }) {
       </div>
 
       <RecordExpenseSheet open={adding} onClose={() => setAdding(false)} list={list} next={`EXP/26/0${450 + list.length - EXPENSES0.length}`}
-        onAdd={(r) => { setList((l) => [r, ...l]); setTab('all'); setStatus('all'); setRange('fy'); }} />
+        onAdd={(r) => { setList((l) => [r, ...l]); setTab('all'); setStatus('all'); setRange(DP.finyear); }} />
 
       {open && (
         <ExpenseSheet r={open} role={role} canEdit={canEdit} onClose={() => setOpen(null)}
@@ -950,7 +972,7 @@ function ExpenseSheet({ r, role, canEdit, onClose, onApprove, onReject, onRemind
     r.paidOn && { what: <>Paid by {r.mode}{r.ref ? ` · ${r.ref}` : ''} from {ACCT_NAME[r.acct]}</>, when: `${r.paidOn} 2026 · in the Day Book`, icon: 'CircleCheck', tone: 'ok' },
     r.cancel && { what: <>Cancelled by {r.cancel.by}: “{r.cancel.why}”</>, when: `${r.cancel.when} 2026`, icon: 'CircleX', tone: 'bad' },
   ].filter(Boolean);
-  const mine = canApprove(role.id, r.amt);
+  const mine = canApprove(role.id, r.amt) && r.by !== role.person?.name;
   let actions = null;
   if (canEdit) {
     if (r.status === 'Draft') actions = <><Button variant="dangerSoft" onClick={onCancel}>Cancel</Button><Button variant="primary" icon={I.Send} onClick={() => { onSendAgain(); onClose(); }}>{r.rejected ? 'Change and send again' : 'Send for approval'}</Button></>;
@@ -1134,14 +1156,18 @@ function CashBankPage() {
   const canEdit = useCanEdit();
   const [accts, setAccts] = useState(ACCTS0);
   const [book, setBook] = useState('cash');
-  const [day, setDay] = useState('2026-10-09');
+  const [per, setPer] = useState(DP.today);
   const [extra, setExtra] = useState([]); // money moved today
   const [move, setMove] = useState(false);
   const [addAcct, setAddAcct] = useState(false);
   const [opening, setOpening] = useState(false);
   const [exp, setExp] = useState(false);
-  const B = BOOK_DAYS[day];
-  const rowsFor = (a) => sortT([...B.rows, ...(day === '2026-10-09' ? extra : [])].filter((r) => r.acct === a));
+  // The days in the chosen dates, oldest first; the opening balance is the first day's
+  const keys = Object.keys(BOOK_DAYS).filter((k) => k >= per.from && k <= per.to).sort();
+  const many = keys.length > 1;
+  const B = keys.length === 1 && per.from === per.to ? BOOK_DAYS[keys[0]]
+    : { open: keys.length ? BOOK_DAYS[keys[0]].open : per.from > '2026-10-09' ? OPEN9 : OPEN8, label: fmtRange(per), next: null };
+  const rowsFor = (a) => keys.flatMap((k) => sortT([...BOOK_DAYS[k].rows, ...(k === '2026-10-09' ? extra : [])].filter((r) => r.acct === a)).map((r) => (many ? { ...r, t: `${fmtDay(k).replace(' 2026', '')}, ${r.t}` } : r)));
   const openOf = (a) => (B.open[a] ?? accts.find((x) => x.id === a)?.open ?? 0);
   const closeOf = (a) => openOf(a) + sumBy(rowsFor(a), (r) => r.inn - r.out);
   const nowOf = (a) => (OPEN9[a] ?? accts.find((x) => x.id === a)?.open ?? 0) + sumBy([...ROWS_9, ...extra].filter((r) => r.acct === a), (r) => r.inn - r.out);
@@ -1156,7 +1182,7 @@ function CashBankPage() {
   return (
     <div>
       <ModuleHead sub="Cash book and bank book, with opening and closing balance · financial year 2026–27"
-        actions={<><Button variant="secondary" icon={I.Plus} onClick={() => setAddAcct(true)}>Add bank account</Button><Button variant="primary" icon={I.ArrowRightLeft} onClick={() => setMove(true)}>Move money</Button></>} />
+        actions={canEdit && <><Button variant="secondary" icon={I.Plus} onClick={() => setAddAcct(true)}>Add bank account</Button><Button variant="primary" icon={I.ArrowRightLeft} onClick={() => setMove(true)}>Move money</Button></>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
         <Stats items={[
           ...accts.map((a) => ({ label: a.name, value: inr(nowOf(a.id)), sub: a.id === 'cash' ? 'Office cash box' : a.sub.replace(' · XXXX XXXX ', ' ••'), icon: a.icon, onClick: () => setBook(a.id), tone: book === a.id ? 'brand' : undefined })),
@@ -1175,14 +1201,14 @@ function CashBankPage() {
               action={<div className="flex gap-1.5"><Button size="sm" variant="secondary" icon={I.Download} onClick={() => setExp(true)}>Export</Button><Button size="sm" variant="ghost" icon={I.Printer} className="hidden @sm:inline-flex" onClick={() => toast({ title: 'Sent to the office printer', body: `${book === 'cash' ? 'Cash book' : 'Bank book'} for ${B.label}` })}>Print</Button></div>} />
             <div className="px-3 pb-3 flex flex-col @md:flex-row gap-2.5">
               <div className="overflow-x-auto no-scrollbar"><Segmented size="sm" className="w-max" value={book} onChange={setBook} options={accts.map((a) => ({ value: a.id, label: a.id === 'cash' ? 'Cash book' : a.name }))} /></div>
-              <Select id="cb-day" className="@md:w-56 @md:ml-auto" value={day} onChange={setDay} options={[{ value: '2026-10-09', label: 'Today · Fri 9 Oct' }, { value: '2026-10-08', label: 'Thu 8 Oct' }]} />
+              <DatePeriod id="cb-day" value={per} onChange={setPer} className="w-full @md:w-auto @md:ml-auto" />
             </div>
             <div className="grid grid-cols-2 @xl:grid-cols-4 gap-px bg-line/70 border-y border-line/70">
               {[['Opening balance', inr(openOf(book)), ''], ['Receipts', inr(rec), 'text-ok'], ['Payments', inr(pay), 'text-bad'], ['Closing balance', inr(closeOf(book)), 'text-brand']].map(([k, v, c]) => (
                 <div key={k} className="bg-surface px-4 @md:px-5 py-3"><p className="text-[12px] text-ink3 font-semibold">{k}</p><p className={cx('font-display font-semibold text-[19px] tnum', c)}>{v}</p></div>
               ))}
             </div>
-            <DataList rows={withBal} minWidth={760} footer={B.next ? `Closing ${inr(closeOf(book))} is the opening balance of ${B.next}` : `${rows.length} entries so far today · closing is live`}
+            <DataList rows={withBal} minWidth={760} footer={B.next ? `Closing ${inr(closeOf(book))} is the opening balance of ${B.next}` : per.to >= '2026-10-09' ? `${rows.length} entries · ${fmtRange(per)} · closing is live` : `${rows.length} entries · ${fmtRange(per)}`}
               columns={[
                 { key: 't', label: 'Time', nowrap: true, render: (r) => <span className="tnum text-ink2">{r.t}</span> },
                 { key: 'what', label: 'Details', render: (r) => <><p className="text-[13.5px] leading-snug">{r.what}</p><p className="text-[12px] text-ink3">{r.src}</p></> },
@@ -1192,7 +1218,7 @@ function CashBankPage() {
                 { key: 'bal', label: 'Balance', align: 'right', render: (r) => <b className="font-semibold">{inr(r.bal)}</b> },
               ]}
               mobile={(r) => ({ title: r.what, sub: `${r.t} · ${r.src}`, icon: r.inn ? 'ArrowDownToLine' : 'ArrowUpFromLine', iconTone: r.inn ? 'ok' : 'bad', right: <><p className={cx('font-semibold tnum text-[14.5px]', r.inn ? 'text-ok' : 'text-bad')}>{r.inn ? '+' : '−'}{inr(r.inn || r.out)}</p><p className="text-[12px] text-ink3 tnum">{inr(r.bal)}</p></> })}
-              empty={<Empty icon={I.Inbox} title="No entries in this book on this day" body={`Opening and closing are both ${inr(openOf(book))}.`} />} />
+              empty={<Empty icon={I.Inbox} title={per.from === per.to ? 'No entries in this book on this day' : 'No entries in this book in these dates'} body={`Opening and closing are both ${inr(openOf(book))}.`} />} />
           </Card>
           <Col>
             <Card>
@@ -1225,7 +1251,7 @@ function CashBankPage() {
         onDone={(x) => {
           const id = Date.now();
           const rowsX = [{ acct: x.from, t: 'Just now', what: `Moved to ${acctName(x.to)}`, ref: x.ref || 'Contra', inn: 0, out: x.amt, src: 'Move money', id }, { acct: x.to, t: 'Just now', what: `Moved from ${acctName(x.from)}`, ref: x.ref || 'Contra', inn: x.amt, out: 0, src: 'Move money', id }];
-          setExtra((e) => [...e, ...rowsX]); setDay('2026-10-09'); setBook(x.from);
+          setExtra((e) => [...e, ...rowsX]); setPer(DP.today); setBook(x.from);
           toast({ title: `${inr(x.amt)} moved to ${acctName(x.to)}`, body: `${x.from === 'cash' ? 'Cash book' : 'Bank book'} and bank book both updated for 9 Oct.`, undo: () => setExtra((e) => e.filter((r) => r.id !== id)) });
         }} />
       <AddAccountSheet open={addAcct} onClose={() => setAddAcct(false)} onAdd={(a) => setAccts((x) => [...x, a])} />
@@ -1333,8 +1359,10 @@ const YEAR_GONE = Math.round((191 / 365) * 100); // 1 Apr to 9 Oct
 function BudgetPage() {
   const toast = useToast();
   const canEdit = useCanEdit();
+  const { role } = useRole();
   const [on, setOn] = useState(false);
-  const [list, setList] = useState(BUDGET0);
+  // Staff pay heads only for people who may see salary amounts
+  const [list, setList] = useState(() => (seesPay(role) ? BUDGET0 : BUDGET0.filter((b) => HEAD[b.head].from !== 'Salary')));
   const [by, setBy] = useState('head');
   const [show, setShow] = useState('all');
   const [open, setOpen] = useState(null);
@@ -1365,10 +1393,10 @@ function BudgetPage() {
   return (
     <div>
       <ModuleHead sub={`Financial year 2026–27 · ${YEAR_GONE}% of the year has gone (1 Apr to 9 Oct)`}
-        actions={<><Button variant="secondary" icon={I.CopyPlus} onClick={() => setCopy(true)}>Plan 2027–28</Button><Button variant="primary" icon={I.Plus} onClick={() => setAdding(true)}>Set a budget</Button></>} />
+        actions={canEdit && <><Button variant="secondary" icon={I.CopyPlus} onClick={() => setCopy(true)}>Plan 2027–28</Button><Button variant="primary" icon={I.Plus} onClick={() => setAdding(true)}>Set a budget</Button></>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
         <Stats items={[
-          { label: 'Budget for the year', value: inrShort(total.budget), sub: `${list.length} expense heads`, icon: 'Calculator' },
+          { label: 'Budget for the year', value: inrShort(total.budget), sub: `${list.length} expense heads${seesPay(role) ? '' : ' · staff pay not shown'}`, icon: 'Calculator' },
           { label: 'Spent', value: inrShort(total.spent), sub: `${pct(total.spent, total.budget)}% used`, icon: 'ReceiptText' },
           { label: 'Committed', value: inr(total.committed), sub: 'Approved, not paid yet', icon: 'BadgeCheck', tone: 'info' },
           { label: 'Left', value: inrShort(total.budget - total.spent - total.committed), sub: `${over.length} over · ${near.length} above 80%`, icon: 'Wallet', tone: over.length ? 'bad' : 'ok' },
@@ -1546,8 +1574,9 @@ function AccountsPage() {
   const [rev, setRev] = useState(null);
   const [acc, setAcc] = useState('Electricity');
   const [q, setQ] = useState('');
+  const [per, setPer] = useState(DP.finyear);
   const t = q.trim().toLowerCase();
-  const shown = jvs.filter((j) => !t || j.no.toLowerCase().includes(t) || j.narr.toLowerCase().includes(t) || j.lines.some((l) => l[0].toLowerCase().includes(t)));
+  const shown = jvs.filter((j) => inPeriod(isoOf(j.d), per)).filter((j) => !t || j.no.toLowerCase().includes(t) || j.narr.toLowerCase().includes(t) || j.lines.some((l) => l[0].toLowerCase().includes(t)));
   const gl = GL[acc];
   let run = gl.open;
   const glRows = gl.rows.map((r, i) => { run += r[3] - r[4]; return { id: i, d: r[0], ref: r[1], narr: r[2], dr: r[3], cr: r[4], bal: run }; });
@@ -1562,7 +1591,7 @@ function AccountsPage() {
   return (
     <div>
       <ModuleHead sub="Journal entries, ledger, money to pay and money to receive · for full accounts"
-        actions={campus === 'kph' && <Button variant="primary" icon={I.Plus} onClick={() => setAdding(true)}>Journal entry</Button>} />
+        actions={campus === 'kph' && canEdit && <Button variant="primary" icon={I.Plus} onClick={() => setAdding(true)}>Journal entry</Button>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
         <div className="flex flex-col @md:flex-row gap-2.5 @md:items-center">
           <Select id="ac-campus" className="@md:w-72" value={campus} onChange={setCampus} options={[{ value: 'kph', label: 'Kukatpally (main campus)' }, { value: 'myp', label: 'Miyapur campus' }, { value: 'all', label: 'Sunrise Group · all campuses' }]} />
@@ -1586,8 +1615,9 @@ function AccountsPage() {
         ) : sec === 'journal' ? (
           <Card className="overflow-hidden">
             <CardHead title="Journal entries" sub="Fees, income, expenses and salary make their own entries. Posted entries are never edited, only reversed." icon={I.NotebookText} />
-            <Toolbar><SearchBox id="jv-q" value={q} onChange={setQ} placeholder="Number, narration or account" /></Toolbar>
-            <DataList rows={shown} rowKey={(j) => j.no} onRow={setOpen} minWidth={860} footer={`Showing ${shown.length} of ${jvs.length} · October has 218 entries so far`}
+            <Toolbar><SearchBox id="jv-q" value={q} onChange={setQ} placeholder="Number, narration or account" /><DatePeriod id="jv-per" value={per} onChange={setPer} className="w-full @md:w-auto" /></Toolbar>
+            <DataList rows={shown} rowKey={(j) => j.no} onRow={setOpen} minWidth={860} footer={`Showing ${shown.length} of ${jvs.length} · ${fmtRange(per)}`}
+              empty={<Empty icon={I.SearchX} title="No journal entries here" body={`None in ${fmtRange(per)} with this search.`} action={<Button variant="secondary" onClick={() => { setQ(''); setPer(DP.finyear); }}>Clear filters</Button>} />}
               columns={[
                 { key: 'd', label: 'Date', nowrap: true, render: (j) => <><p className="tnum">{j.d}</p><p className="font-mono text-[12px] text-ink3">{j.no}</p></> },
                 { key: 'dr', label: 'Debited', render: (j) => <span className="text-[13px]">{j.lines.filter((l) => l[1]).map((l) => l[0]).join(', ')}</span> },
@@ -1660,6 +1690,8 @@ function AccountsPage() {
 
 function PayableAction({ p }) {
   const { go } = useNav();
+  const { role } = useRole();
+  if (p.go === 'salary' && !canOpen(role, 'salary', 'history')) return null;
   return <Button size="sm" variant="ghost" icon={I.ArrowRight} onClick={() => go(p.go === 'salary' ? 'salary' : 'finance', { page: p.go === 'salary' ? 'history' : 'expenses' })}>{p.go === 'salary' ? 'Salary' : 'Pay'}</Button>;
 }
 
@@ -1733,23 +1765,26 @@ const PERIODS = { fy: { label: '1 Apr to 9 Oct 2026', months: ['Apr', 'May', 'Ju
 
 function ReportsPage() {
   const { go } = useNav();
+  const { role } = useRole();
+  const pay = seesPay(role);
   const [active, setActive] = useState('ie');
-  const [period, setPeriod] = useState('fy');
-  const [fy, setFy] = useState('2026-27');
+  const [per, setPer] = useState(DP.finyear);
   const [by, setBy] = useState('head');
   const [expBy, setExpBy] = useState('head');
   const r = FIN_REPORTS.find((x) => x.id === active);
-  const P = PERIODS[period];
-  const M = MONTHLY.filter((m) => P.months.includes(m.m));
+  const P = { label: `${per.label} · ${fmtRange(per)}` };
+  // Each month of 2026–27 counts for the share of it inside the chosen dates. Staff pay only for people who may see it.
+  const M = MONTHLY.map((m, i) => { const sh = monthShare(per, 2026, FY_MONTHS[i][2]); const sal = pay ? m.salary : 0, st = pay ? m.stat : 0; return { ...m, sh, fee: Math.round(m.fee * sh), otherIn: Math.round(m.otherIn * sh), salary: Math.round(sal * sh), stat: Math.round(st * sh), otherOut: Math.round(m.otherOut * sh), inc: Math.round(m.inc * sh), exp: Math.round((sal + st + m.otherOut) * sh) }; }).filter((m) => m.sh > 0);
   const s = (k) => sumBy(M, (m) => m[k]);
-  const share = (k) => (period === 'fy' ? 1 : s(k) / sumBy(MONTHLY, (m) => m[k]));
+  const share = (k) => (sumBy(MONTHLY, (m) => m[k]) ? s(k) / sumBy(MONTHLY, (m) => m[k]) : 0);
+  const fy = per.to < '2026-04-01' ? '2025-26' : '2026-27';
   const head = (sub, extra) => <CardHead title={r.name} sub={sub} action={<div className="flex items-center gap-2">{extra}<ReportActions name={`${r.name}, ${P.label}`} /></div>} />;
   const inc = s('inc'), exp = s('exp');
-  const deptRows = DEPTS.map((d) => { const hs = HEADS.filter((h) => h.dept === d); return [d, Math.round(sumBy(hs, (h) => h.fy) * share('otherOut'))]; }).concat([['All departments (salary and PF)', s('salary') + s('stat')]]).sort((a, b) => b[1] - a[1]);
+  const deptRows = DEPTS.map((d) => { const hs = HEADS.filter((h) => h.dept === d); return [d, Math.round(sumBy(hs, (h) => h.fy) * share('otherOut'))]; }).concat(pay ? [['All departments (salary and PF)', s('salary') + s('stat')]] : []).sort((a, b) => b[1] - a[1]);
   const otherOutHeads = HEADS.filter((h) => h.kind === 'out' && !h.from).map((h) => [h.name, Math.round(h.fy * share('otherOut'))]).sort((a, b) => b[1] - a[1]);
   const tbRows = (() => {
     const cash = OPEN9.cash + netOf(ROWS_9, 'cash'), sbi = OPEN9.sbi + netOf(ROWS_9, 'sbi'), hdfc = OPEN9.hdfc + netOf(ROWS_9, 'hdfc');
-    const dr = [['Cash in hand', cash], ['School account (SBI)', sbi], ['Trust account (HDFC)', hdfc], ['Razorpay and card money on the way', sumBy(ON_THE_WAY, (e) => e.total)], ['RTE reimbursement due', 988000], ['Prepaid insurance', 110000], ['Buildings, buses and equipment', 18640000], ...HEADS.filter((h) => h.kind === 'out').map((h) => [h.name, h.fy]), ['Depreciation', 388800]];
+    const dr = [['Cash in hand', cash], ['School account (SBI)', sbi], ['Trust account (HDFC)', hdfc], ['Razorpay and card money on the way', sumBy(ON_THE_WAY, (e) => e.total)], ['RTE reimbursement due', 988000], ['Prepaid insurance', 110000], ['Buildings, buses and equipment', 18640000], ...HEADS.filter((h) => h.kind === 'out').map((h) => [h.name, h.from === 'Salary' && !pay ? 0 : h.fy]), ['Depreciation', 388800]];
     const cr = [...HEADS.filter((h) => h.kind === 'in').map((h) => [h.name, h.fy]), ['Accumulated depreciation', 4126800], ['PF, ESI and TDS payable', 260700], ['Vendors to pay', 6860]];
     const fund = sumBy(dr, (x) => x[1]) - sumBy(cr, (x) => x[1]);
     return [...dr.map(([k, v]) => ({ k, dr: v, cr: 0 })), ...cr.map(([k, v]) => ({ k, dr: 0, cr: v })), { k: 'General fund (balances brought from 2025–26)', dr: 0, cr: fund }];
@@ -1757,13 +1792,13 @@ function ReportsPage() {
 
   return (
     <div>
-      <ModuleHead sub="Every report works by financial year (April to March), with a date range inside it · also in Reports & Analytics" />
-      <div className="flex flex-col @md:flex-row gap-2.5 mb-5">
-        <Select id="fr-fy" className="@md:w-72" value={fy} onChange={setFy} options={FYS} />
-        {fy === '2026-27' && <div className="overflow-x-auto no-scrollbar"><Segmented className="w-max" value={period} onChange={setPeriod} options={[{ value: 'fy', label: 'Year so far' }, { value: 'q2', label: 'Jul–Sep' }, { value: 'sep', label: 'September' }, { value: 'oct', label: 'October' }]} /></div>}
+      <ModuleHead sub="Every report works by financial year (April to March), with any dates inside it · also in Reports & Analytics" />
+      <div className="flex flex-col @md:flex-row @md:items-center gap-2.5 mb-5">
+        <DatePeriod id="fr-per" value={per} onChange={setPer} className="w-full @md:w-auto" />
+        {!pay && <p className="text-[13px] text-ink3">Staff pay is left out of these reports for your role.</p>}
       </div>
       {fy === '2025-26' ? (
-        <Card><Empty icon={I.Archive} title="2025–26 was kept in the old software" body="School OS started on 1 Apr 2026. Opening balances were brought in on that day; reports for earlier years stay in the old software’s files." action={<Button variant="secondary" onClick={() => setFy('2026-27')}>Back to 2026–27</Button>} /></Card>
+        <Card><Empty icon={I.Archive} title="2025–26 was kept in the old software" body="School OS started on 1 Apr 2026. Opening balances were brought in on that day; reports for earlier years stay in the old software’s files." action={<Button variant="secondary" onClick={() => setPer(DP.finyear)}>Show this financial year</Button>} /></Card>
       ) : (
       <ReportsFrame reports={FIN_REPORTS} active={active} onPick={setActive}>
         {active === 'ie' && <>
@@ -1776,14 +1811,14 @@ function ReportsPage() {
           <Card className="overflow-hidden">
             {head(P.label, <Segmented size="sm" value={by} onChange={setBy} options={[{ value: 'head', label: 'Head' }, { value: 'month', label: 'Month' }]} />)}
             {by === 'month' ? (
-              <SimpleTable minWidth={680} rowKey={(m) => m.m} cols={[{ label: 'Month', render: (m) => m.m }, { label: 'Fees', right: true, render: (m) => inr(m.fee) }, { label: 'Other income', right: true, render: (m) => inr(m.otherIn) }, { label: 'Salary and PF', right: true, render: (m) => inr(m.salary + m.stat) }, { label: 'Other expenses', right: true, render: (m) => inr(m.otherOut) }, { label: 'Net', right: true, render: (m) => <b className={cx('font-semibold', m.inc - m.exp < 0 && 'text-bad')}>{signed(m.inc - m.exp)}</b> }]}
-                rows={M} foot={['Total', inr(s('fee')), inr(s('otherIn')), inr(s('salary') + s('stat')), inr(s('otherOut')), signed(inc - exp)]} />
+              <SimpleTable minWidth={680} rowKey={(m) => m.m} cols={[{ label: 'Month', render: (m) => m.m }, { label: 'Fees', right: true, render: (m) => inr(m.fee) }, { label: 'Other income', right: true, render: (m) => inr(m.otherIn) }, ...(pay ? [{ label: 'Salary and PF', right: true, render: (m) => inr(m.salary + m.stat) }] : []), { label: 'Other expenses', right: true, render: (m) => inr(m.otherOut) }, { label: 'Net', right: true, render: (m) => <b className={cx('font-semibold', m.inc - m.exp < 0 && 'text-bad')}>{signed(m.inc - m.exp)}</b> }]}
+                rows={M} foot={['Total', inr(s('fee')), inr(s('otherIn')), ...(pay ? [inr(s('salary') + s('stat'))] : []), inr(s('otherOut')), signed(inc - exp)]} />
             ) : (
               <SimpleTable minWidth={520} rowKey={(x) => x.k} cols={[{ label: 'Head', render: (x) => x.bold ? <b className="font-semibold">{x.k}</b> : <span className="pl-3">{x.k}</span> }, { label: 'Code', render: (x) => <span className="font-mono text-[12px] text-ink3">{x.code || ''}</span> }, { label: 'Amount', right: true, render: (x) => (x.bold ? <b className="font-semibold">{inr(x.v)}</b> : inr(x.v)) }]}
                 rows={[
                   { k: 'Fee income (from Fees)', v: s('fee'), bold: true }, ...HEADS.filter((h) => h.group === 'Fee income').map((h) => ({ k: h.name, code: h.code, v: Math.round(h.fy * share('fee')) })),
                   { k: 'Other income', v: s('otherIn'), bold: true }, ...HEADS.filter((h) => h.group === 'Other income').map((h) => ({ k: h.name, code: h.code, v: Math.round(h.fy * share('otherIn')) })),
-                  { k: 'Staff costs (from Salary)', v: s('salary') + s('stat'), bold: true },
+                  ...(pay ? [{ k: 'Staff costs (from Salary)', v: s('salary') + s('stat'), bold: true }] : []),
                   { k: 'Other expenses', v: s('otherOut'), bold: true }, ...otherOutHeads.slice(0, 8).map(([k, v]) => ({ k, code: HEAD[k].code, v })),
                 ]} />
             )}
@@ -1796,9 +1831,9 @@ function ReportsPage() {
             <SimpleTable minWidth={460} rowKey={(x) => x[0]} cols={[{ label: 'Income', render: (x) => (x[2] ? <b className="font-semibold">{x[0]}</b> : <span className="pl-3">{x[0]}</span>) }, { label: 'Amount', right: true, render: (x) => (x[2] ? <b className="font-semibold">{signed(x[1])}</b> : inr(x[1])) }]}
               rows={[
                 ['Fees', s('fee')], ['Other income', s('otherIn')], ['Total income', inc, true],
-                ['Salaries', s('salary')], ['PF, ESI and professional tax', s('stat')], ...otherOutHeads.slice(0, 6), ['Everything else', s('otherOut') - sumBy(otherOutHeads.slice(0, 6), (x) => x[1])], ['Total expenses', exp, true],
+                ...(pay ? [['Salaries', s('salary')], ['PF, ESI and professional tax', s('stat')]] : []), ...otherOutHeads.slice(0, 6), ['Everything else', s('otherOut') - sumBy(otherOutHeads.slice(0, 6), (x) => x[1])], ['Total expenses', exp, true],
               ]}
-              foot={[inc >= exp ? 'Surplus for the period' : 'Shortfall for the period', signed(inc - exp)]} />
+              foot={[`${inc >= exp ? 'Surplus for the period' : 'Shortfall for the period'}${pay ? '' : ' (without staff pay)'}`, signed(inc - exp)]} />
             <p className="px-5 py-3 border-t border-line text-[12.5px] text-ink3">Depreciation of {inr(Math.round(388800 * share('otherOut')))} is shown in the full accounts version (Accounts on).</p>
           </Card>
         )}
@@ -1806,7 +1841,7 @@ function ReportsPage() {
         {active === 'dept' && <>
           <Card>
             <CardHead title="Where the money went" sub={P.label} icon={I.Building2} />
-            <div className="px-5 pb-5"><HBars rows={deptRows.map(([k, v]) => ({ k, v, label: inrShort(v) }))} max={deptRows[0][1]} labelWidth={150} /></div>
+            <div className="px-5 pb-5"><HBars rows={deptRows.map(([k, v]) => ({ k, v, label: inrShort(v) }))} max={Math.max(1, deptRows[0][1])} labelWidth={150} /></div>
           </Card>
           <Card className="overflow-hidden">
             {head(`${P.label} · cost centres from Finance Settings`)}
@@ -1827,7 +1862,7 @@ function ReportsPage() {
 
         {active === 'pending' && (
           <Card className="overflow-hidden">
-            {head('As on Fri 9 Oct 2026', <Button size="sm" variant="ghost" onClick={() => go('finance', { page: 'expenses' })}>Open Expenses</Button>)}
+            {head('As on Fri 9 Oct 2026', canOpen(role, 'finance', 'expenses') && <Button size="sm" variant="ghost" onClick={() => go('finance', { page: 'expenses' })}>Open Expenses</Button>)}
             <SimpleTable minWidth={620} rowKey={(x) => x.id} cols={[{ label: 'Expense', render: (x) => <>{x.what}<span className="block text-[12px] text-ink3 font-mono">{x.id}</span></>, nowrap: false }, { label: 'Status', render: (x) => <ExpPill s={x.status} /> }, { label: 'Waiting on', render: (x) => (x.status === 'Waiting' ? approverFor(x.amt).split(' (')[0] : 'Payment') }, { label: 'Since', render: (x) => x.d }, { label: 'Amount', right: true, render: (x) => inr(x.amt) }]}
               rows={EXPENSES0.filter((x) => x.status === 'Waiting' || x.status === 'Approved')} foot={['Total', '', '', '', inr(sumBy(EXPENSES0.filter((x) => x.status === 'Waiting' || x.status === 'Approved'), (x) => x.amt))]} />
           </Card>
@@ -1844,14 +1879,14 @@ function ReportsPage() {
 
         {active === 'daybook' && (
           <Card className="overflow-hidden">
-            {head('Daily totals · 30 Sep to 9 Oct 2026')}
+            {head(`Daily totals · ${P.label}${pay ? '' : ' · without staff pay'}`)}
             <SimpleTable minWidth={600} rowKey={(x) => x[0]} cols={[{ label: 'Date', render: (x) => x[0] }, { label: 'Income', right: true, render: (x) => inr(x[1]) }, { label: 'Expense', right: true, render: (x) => inr(x[2]) }, { label: 'Net', right: true, render: (x) => <b className={cx('font-semibold', x[1] - x[2] < 0 && 'text-bad')}>{signed(x[1] - x[2])}</b> }, { label: 'Day', render: (x) => <Pill tone={x[3] === 'Closed' ? 'neutral' : x[3] === 'Open' ? 'info' : 'bad'}>{x[3]}</Pill> }]}
-              rows={['2026-10-09', '2026-10-08', '2026-10-02', '2026-09-30'].map((k) => { const d = DAYS[k]; const i = sumBy(d.fees.filter((e) => e.status === 'Posted'), (e) => e.total) + sumBy(d.reversals, (e) => e.total) + sumBy(d.income, (e) => e.total); const o = sumBy(d.expenses, (e) => e.total) + sumBy(d.salary, (e) => e.total); return [d.label.split(' · ')[0], i, o, k === '2026-10-09' ? 'Open' : k === '2026-10-08' ? 'Not closed' : 'Closed']; })} />
+              rows={['2026-10-09', '2026-10-08', '2026-10-02', '2026-09-30'].filter((k) => inPeriod(k, per)).map((k) => { const d = DAYS[k]; const i = sumBy(d.fees.filter((e) => e.status === 'Posted'), (e) => e.total) + sumBy(d.reversals, (e) => e.total) + sumBy(d.income, (e) => e.total); const o = sumBy(d.expenses, (e) => e.total) + (pay ? sumBy(d.salary, (e) => e.total) : 0); return [d.label.split(' · ')[0], i, o, k === '2026-10-09' ? 'Open' : k === '2026-10-08' ? 'Not closed' : 'Closed']; })} />
             <p className="px-5 py-3 border-t border-line text-[12.5px] text-ink3">Pick any date or range in the export. The totals match the Day Book page.</p>
           </Card>
         )}
 
-        {active === 'budget' && <Card><Empty icon={I.Gauge} title="Budgets are switched off" body="Switch budgets on to see each head’s budget against what was spent, with alerts at 80% and 100%." action={<Button variant="secondary" onClick={() => go('finance', { page: 'budget' })}>Open Budget</Button>} /></Card>}
+        {active === 'budget' && <Card><Empty icon={I.Gauge} title="Budgets are switched off" body="Switch budgets on to see each head’s budget against what was spent, with alerts at 80% and 100%." action={canOpen(role, 'finance', 'budget') && <Button variant="secondary" onClick={() => go('finance', { page: 'budget' })}>Open Budget</Button>} /></Card>}
 
         {active === 'tb' && (
           <Card className="overflow-hidden">

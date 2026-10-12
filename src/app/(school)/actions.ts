@@ -125,7 +125,7 @@ export async function setAppearance(formData: FormData) {
   const jar = await cookies();
   const opts = { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax" as const };
   jar.set(THEME_COOKIE, theme, opts);
-  jar.set(ACCENT_COOKIE, accent, opts);
+  jar.set(ACCENT_COOKIE, current.school.accent ? cleanAccent(current.school.accent) : accent, opts);
   jar.set(SIZE_COOKIE, textSize, opts);
   revalidatePath("/", "layout");
 }

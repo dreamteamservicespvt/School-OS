@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { findInvite } from "@/lib/auth/invites";
+import { AuthFrame } from "@/components/auth/auth-frame";
+import { ButtonLink } from "@/components/ui/button";
 import { InviteForm } from "./form";
 
 export const metadata: Metadata = { title: "Set your password" };
@@ -8,27 +9,17 @@ export const metadata: Metadata = { title: "Set your password" };
 export default async function InvitePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const user = await findInvite(token);
+  if (!user) {
+    return (
+      <AuthFrame eyebrow="Invite link" title="This link has expired" sub="Invite links work once, for 7 days. Ask your School Admin to send you a new one.">
+        <ButtonLink href="/sign-in" variant="primary" size="lg" className="w-full">Go to sign in</ButtonLink>
+      </AuthFrame>
+    );
+  }
   return (
-    <main className="flex min-h-dvh items-center justify-center p-4">
-      <div className="w-full max-w-sm rounded-2xl border border-line bg-surface p-6 shadow-sm">
-        {user ? (
-          <>
-            <h1 className="text-xl font-semibold">Welcome, {user.displayName}</h1>
-            <p className="mb-5 mt-1 text-sm text-ink-2">
-              Choose your own password. Your username is <strong className="text-ink">{user.username}</strong>. Nobody else, including DREAM TEAM, can see your password.
-            </p>
-            <InviteForm token={token} />
-          </>
-        ) : (
-          <>
-            <h1 className="text-xl font-semibold">This link has expired</h1>
-            <p className="mt-2 text-sm text-ink-2">
-              Invite links work once, for 7 days. Ask your School Admin to send you a new one.
-            </p>
-            <Link href="/sign-in" className="mt-4 inline-block font-medium text-brand-text underline">Go to sign in</Link>
-          </>
-        )}
-      </div>
-    </main>
+    <AuthFrame eyebrow="Welcome to School OS" title={`Hello, ${user.displayName.split(" ")[0]}`}
+      sub={<>Choose your own password. Your username is <b className="font-semibold text-ink">{user.username}</b>. Nobody else, including DREAM TEAM, can see your password.</>}>
+      <InviteForm token={token} />
+    </AuthFrame>
   );
 }

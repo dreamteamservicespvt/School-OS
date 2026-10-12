@@ -130,11 +130,13 @@ model UserLogin {
   passwordChangedAt DateTime?       @map("password_changed_at")
   /// Two-step login: a one-time code at sign-in, for roles that need it.
   twoStepResetAt    DateTime?       @map("two_step_reset_at")
+  /// Two-step login the person switched on for themselves (roles may also require it).
+  twoStepChosen     Boolean         @default(false) @map("two_step_chosen")
   /// Per-person notification channel choices: { [type]: ["app","push","email","whatsapp"] }.
   notificationPrefs Json            @default("{}") @map("notification_prefs")
   /// Appearance chosen in Profile: light, dark or system; a school colour; and the text size.
-  theme             String          @default("system")
-  accent            String          @default("lagoon")
+  theme             String          @default("light")
+  accent            String          @default("royal")
   textSize          String          @default("normal") @map("text_size")
   createdAt         DateTime        @default(now()) @map("created_at")
   updatedAt         DateTime        @updatedAt @map("updated_at")

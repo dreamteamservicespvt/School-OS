@@ -10,13 +10,14 @@ import { markRefunded, requestRefund } from "@/lib/fees/refunds";
 import { MoneyProblem } from "@/lib/fees/problem";
 import { CONCESSION_TYPES, REFUND_MODES } from "@/lib/fees/words";
 import { dateOf, file, id, ids, needRupees, optionalDateOf, optionalId, optionalText, str, text } from "@/lib/fees/act";
+import { todayIn } from "@/lib/staff/dates";
 import { feeAction } from "../_lib/action";
 
 const GIVEN = CONCESSION_TYPES.filter((t) => t.value !== "BULK_DISCOUNT").map((t) => t.value) as string[];
 
 /** A concession for one student: applies at once up to the school's limit, else goes to Approvals. */
 export async function newConcessionAction(_prev: unknown, fd: FormData) {
-  return feeAction("create", fd, async (tx, ctx, viewer) => {
+  return feeAction("create", fd, async (tx, ctx, viewer, current) => {
     const studentId = id(fd, "studentId", "student");
     if (!(await canSeeStudent(tx, viewer, studentId))) throw new MoneyProblem("This student was not found.", "studentId");
     const type = str(fd, "type");
@@ -29,6 +30,8 @@ export async function newConcessionAction(_prev: unknown, fd: FormData) {
       if (!Number.isFinite(v) || v <= 0 || v > 100) throw new MoneyProblem("Percent must be more than 0 and at most 100.", "value");
       percentBp = Math.round(v * 100);
     } else amountPaise = needRupees(fd, "value", "Amount");
+    const heads = ids(fd, "feeHeadId");
+    if (!heads.length && type !== "LATE_FEE_WAIVER") throw new MoneyProblem("Pick at least one fee head.", "feeHeadId");
     const period = str(fd, "period");
     const from = period === "range" ? optionalDateOf(fd, "periodFrom", "From") : null;
     const to = period === "range" ? optionalDateOf(fd, "periodTo", "To") : null;
@@ -40,8 +43,8 @@ export async function newConcessionAction(_prev: unknown, fd: FormData) {
       mode,
       amountPaise,
       percentBp,
-      feeHeadIds: ids(fd, "feeHeadId"),
-      periodFrom: period === "rest" ? new Date(new Date().toISOString().slice(0, 10) + "T00:00:00Z") : from,
+      feeHeadIds: type === "LATE_FEE_WAIVER" ? [] : heads,
+      periodFrom: period === "rest" ? todayIn(current.school.timeZone) : from,
       periodTo: to,
       reason: text(fd, "reason", "Reason", { min: 5, max: 500 }),
       scholarshipType: type === "SCHOLARSHIP" ? optionalText(fd, "scholarshipType", "Scholarship", 80) : null,

@@ -8,7 +8,20 @@ import { useNav, useRole } from './shell.jsx';
 import {
   ModuleHead, useCanEdit, Stats, Band, SearchBox, Toolbar, Select, Textarea, Chips, DataList, BulkBar, SettingRow, SettingsCard,
   Banner, Suggestion, Progress, HBars, Bars, Legend, DL, Timeline, MoreMenu, FormSheet, ConfirmSheet, Split, Col, ExportButton, TONE_SOFT,
+  usePage, DatePeriod, PERIODS, fmtRange, fmtDay, periodDays, schoolDay,
 } from './kit.jsx';
+import { inMenu, pagesFor } from './config.js';
+
+// True when this person may open that module (and page). Links to anything else are hidden, not disabled.
+function useCanOpen() {
+  const { role } = useRole();
+  return (mod, page) => {
+    const a = role.access[mod];
+    if (!a || !inMenu(role, mod)) return false;
+    return !page || pagesFor(mod, a, role.id).some((x) => x.id === page);
+  };
+}
+const isoOf = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 /* ======================= Sample data ======================= */
 const T = (h, m) => h * 60 + m;
@@ -488,6 +501,7 @@ function RoutesPage({ params }) {
 function RoutesList() {
   const { go } = useNav();
   const toast = useToast();
+  const canEdit = useCanEdit();
   const [q, setQ] = useState('');
   const [f, setF] = useState('all');
   const [add, setAdd] = useState(false);
@@ -531,7 +545,7 @@ function RoutesList() {
               <li className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sunken/60">
                 <span className="w-10 h-10 rounded-xl bg-sunken text-ink3 grid place-items-center shrink-0"><I.Route size={19} /></span>
                 <div className="min-w-0 flex-1"><p className="font-semibold text-[14.5px] truncate">Route 7 · Hydernagar</p><p className="text-[12.5px] text-ink3 truncate">Archived 31 Mar 2026 by Venkatesh Goud · stops merged into Route 4</p></div>
-                <Button size="sm" variant="ghost" icon={I.Undo2} onClick={() => toast({ title: 'Route 7 restored', body: 'It shows in Routes & Stops again, with no students.' })}>Restore</Button>
+                {canEdit && <Button size="sm" variant="ghost" icon={I.Undo2} onClick={() => toast({ title: 'Route 7 restored', body: 'It shows in Routes & Stops again, with no students.' })}>Restore</Button>}
               </li>
             </ul>
           </Card>
@@ -557,6 +571,7 @@ function RouteDetail({ r }) {
   const toast = useToast();
   const { go } = useNav();
   const canEdit = useCanEdit();
+  const canOpen = useCanOpen();
   const [stops, setStops] = useState(r.stops);
   const [open, setOpen] = useState(r.id === 'R4' ? 'KPHB 6th Phase' : null);
   const [add, setAdd] = useState(false);
@@ -636,7 +651,7 @@ function RouteDetail({ r }) {
                           {kidsAt(s, i).map((k) => (
                             <li key={k.id} className="flex items-center gap-2.5 text-[13.5px]">
                               <Avatar name={k.name} size={26} />
-                              <button onClick={() => go('student', { id: k.id })} className="font-semibold hover:underline truncate">{k.name}</button>
+                              {canOpen('students') ? <button onClick={() => go('student', { id: k.id })} className="font-semibold hover:underline truncate">{k.name}</button> : <span className="font-semibold truncate">{k.name}</span>}
                               <span className="text-ink3 shrink-0">{k.cls.replace('Class ', '')} {k.sec}</span>
                             </li>
                           ))}
@@ -671,10 +686,10 @@ function RouteDetail({ r }) {
             <Card>
               <CardHead title="Transport fee" sub="Added to each student’s fees when they get a stop" icon={I.IndianRupee} />
               <div className="px-5 pb-5 flex flex-col gap-3">
-                <Segmented value={feeMode} onChange={(v) => { if (!canEdit) return; setFeeMode(v); toast({ title: v === 'stop' ? 'Fee set per stop' : 'One fee for the whole route: ₹2,200', body: 'Applies to new assignments from the next installment. Logged.' }); }}
-                  options={[{ value: 'stop', label: 'Per stop' }, { value: 'route', label: 'One fee for the route' }]} className="w-full" />
+                {canEdit && <Segmented value={feeMode} onChange={(v) => { setFeeMode(v); toast({ title: v === 'stop' ? 'Fee set per stop' : 'One fee for the whole route: ₹2,200', body: 'Applies to new assignments from the next installment. Logged.' }); }}
+                  options={[{ value: 'stop', label: 'Per stop' }, { value: 'route', label: 'One fee for the route' }]} className="w-full" />}
                 <DL rows={[['Fee head', 'Transport'], ['Installments', 'Monthly, from Fee Structure'], ['Two-way', feeMode === 'stop' ? feeRange(r) : inr(2200)], ['One-way', feeMode === 'stop' ? `${inr(Math.min(...r.stops.map((s) => s.fee1)))}–${inr(Math.max(...r.stops.map((s) => s.fee1)))}` : inr(1350)]]} />
-                <Button variant="secondary" icon={I.ArrowRight} className="-mt-3" onClick={() => go('fees', { page: 'structure' })}>Open Fee Structure</Button>
+                {canOpen('fees', 'structure') && <Button variant="secondary" icon={I.ArrowRight} className="-mt-3" onClick={() => go('fees', { page: 'structure' })}>Open Fee Structure</Button>}
               </div>
             </Card>
           </Col>
@@ -768,13 +783,21 @@ const COSTS = [
   { id: 'c5', date: '5 Oct 2026', veh: 'Bus 3', kind: 'Fuel', what: 'Diesel 95 L · Indian Oil, Bachupally', odo: '69,580 km', amt: 8930 },
   { id: 'c6', date: '3 Oct 2026', veh: 'Van 7', kind: 'Repair', what: 'Gearbox overhaul (in the garage) · advance paid', odo: '51,200 km', amt: 18500 },
   { id: 'c7', date: '1 Oct 2026', veh: 'Bus 1', kind: 'Fuel', what: 'Diesel 125 L · Indian Oil, Kukatpally', odo: '96,410 km', amt: 11750 },
-];
-const paperIssues = () => {
+  { id: 'c8', date: '28 Sep 2026', veh: 'Bus 5', kind: 'Repair', what: 'New tyres, all six · MRF dealer, Kukatpally', odo: '112,410 km', amt: 42000 },
+  { id: 'c9', date: '24 Sep 2026', veh: 'Bus 3', kind: 'Repair', what: 'Clutch plate · Sri Venkateshwara Motors', odo: '69,120 km', amt: 18500 },
+  { id: 'c10', date: '22 Sep 2026', veh: 'Bus 4', kind: 'Fuel', what: 'Diesel 118 L · Indian Oil, Kukatpally', odo: '83,640 km', amt: 11090 },
+  { id: 'c11', date: '15 Sep 2026', veh: 'Bus 2', kind: 'Fuel', what: 'Diesel 112 L · HP, Nizampet', odo: '87,560 km', amt: 10530 },
+  { id: 'c12', date: '28 Aug 2026', veh: 'Bus 1', kind: 'Repair', what: 'Wiper motor and headlamp', odo: '94,880 km', amt: 3200 },
+  { id: 'c13', date: '12 Aug 2026', veh: 'Van 7', kind: 'Fuel', what: 'Diesel 40 L · Indian Oil, Miyapur', odo: '50,940 km', amt: 3760 },
+].map((c) => { const [d, m, y] = c.date.split(' '); return { ...c, iso: `${y}-${String(MON.indexOf(m) + 1).padStart(2, '0')}-${d.padStart(2, '0')}` }; });
+const paperIssues = (within = 45) => {
   const out = [];
-  VEHICLES.forEach((v) => v.papers.forEach((p, i) => { const d = daysTo(p); if (d <= 45) out.push({ id: v.id + i, who: `${v.num} · ${v.reg}`, what: PAPERS[i], date: p, d }); }));
-  PEOPLE.filter((p) => p.exp && p.app !== 'Disabled').forEach((p) => { const d = daysTo(p.exp); if (d <= 45) out.push({ id: p.id, who: `${p.name} · driver of ${p.veh}`, what: 'Driving licence', date: p.exp, d }); });
+  VEHICLES.forEach((v) => v.papers.forEach((p, i) => { const d = daysTo(p); if (d <= within) out.push({ id: v.id + i, who: `${v.num} · ${v.reg}`, what: PAPERS[i], date: p, iso: isoOf(D(p)), d }); }));
+  PEOPLE.filter((p) => p.exp && p.app !== 'Disabled').forEach((p) => { const d = daysTo(p.exp); if (d <= within) out.push({ id: p.id, who: `${p.name} · driver of ${p.veh}`, what: 'Driving licence', date: p.exp, iso: isoOf(D(p.exp)), d }); });
   return out.sort((a, b) => a.d - b.d);
 };
+// Default for papers due: the next 45 days, when reminders start
+const NEXT45 = { key: 'next45', label: 'Next 45 days', from: '2026-10-09', to: '2026-11-22' };
 const appTone = { Active: 'ok', Invited: 'info', Disabled: 'neutral' };
 
 function VehiclesPage() {
@@ -789,8 +812,12 @@ function VehiclesPage() {
   const [upload, setUpload] = useState(null);
   const [people, setPeople] = useState(PEOPLE);
   const [disable, setDisable] = useState(null);
+  const [due, setDue] = useState(NEXT45);
+  const full = usePage().access === 'full';
   const issues = paperIssues();
   const expired = issues.filter((x) => x.d < 0).length;
+  // Expired papers always show while the range reaches today; others show when they end inside the range
+  const dueList = paperIssues(10000).filter((x) => (x.iso >= due.from && x.iso <= due.to) || (x.d < 0 && due.to >= '2026-10-09'));
   const vRows = VEHICLES.filter((v) => !q || (v.num + v.reg + v.model + (v.route ? RT[v.route].driver : '')).toLowerCase().includes(q.toLowerCase()));
   const pRows = people.filter((p) => !q || (p.name + p.phone + (p.lic || '') + p.veh).toLowerCase().includes(q.toLowerCase()));
   const vPaper = (v) => {
@@ -815,9 +842,14 @@ function VehiclesPage() {
         ]} />
 
         <Card>
-          <CardHead title="Papers needing attention" sub="Reminders go to you 30 days before expiry, and again 7 days before" icon={I.FileText} action={<Pill tone={expired ? 'bad' : 'warn'}>{issues.length}</Pill>} />
+          <CardHead title="Papers needing attention" sub="Reminders go to you 30 days before expiry, and again 7 days before" icon={I.FileText} action={<Pill tone={expired ? 'bad' : 'warn'}>{dueList.length}</Pill>} />
+          <div className="px-5 pb-3 flex flex-col @md:flex-row @md:items-center gap-2">
+            <DatePeriod id="tr-due" value={due} onChange={setDue} future className="w-full @md:w-auto" />
+            <span className="text-[12.5px] text-ink3">Ending {fmtRange(due)}{due.to >= '2026-10-09' ? ', and anything already expired' : ''}</span>
+          </div>
+          {dueList.length === 0 && <Empty icon={I.CircleCheck} title="Nothing ends in these dates" body="Pick a longer range to see later renewals." />}
           <ul className="px-2 pb-2">
-            {issues.map((x) => (
+            {dueList.map((x) => (
               <li key={x.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sunken/60">
                 <span className={cx('w-10 h-10 rounded-xl grid place-items-center shrink-0', TONE_SOFT[x.d < 0 ? 'bad' : x.d <= 30 ? 'warn' : 'info'])}>{x.what === 'Driving licence' ? <I.IdCard size={19} /> : <I.FileWarning size={19} />}</span>
                 <div className="min-w-0 flex-1">
@@ -923,7 +955,7 @@ function VehiclesPage() {
             <Card>
               <CardHead title="Sri Lakshmi Travels" sub="Hired bus with driver and attendant · contract till 31 Mar 2027" icon={I.Building2}
                 action={canEdit && <Button size="sm" variant="ghost" icon={I.Pencil} onClick={() => toast({ title: 'Editing Sri Lakshmi Travels', tone: 'info' })}>Edit</Button>} />
-              <DL rows={[['Contact person', 'K. Srinivas'], ['Phone', '98490 55621'], ['Address', 'Plot 14, Phase 2, KPHB Colony, Hyderabad 500072'], ['GSTIN', <span key="g" className="font-mono text-[13px]">36ABCFS1234K1Z5</span>], ['Bank account', <span key="b" className="tnum">HDFC Bank · XXXX XXXX 4821</span>], ['Monthly charge', <b key="m" className="font-semibold tnum">{inr(110000)}</b>]]} />
+              <DL rows={[['Contact person', 'K. Srinivas'], ['Phone', '98490 55621'], ['Address', 'Plot 14, Phase 2, KPHB Colony, Hyderabad 500072'], ['GSTIN', <span key="g" className="font-mono text-[13px]">36ABCFS1234K1Z5</span>], ...(full ? [['Bank account', <span key="b" className="tnum">HDFC Bank · XXXX XXXX 4821</span>]] : []), ['Monthly charge', <b key="m" className="font-semibold tnum">{inr(110000)}</b>]]} />
               <div className="px-5 pb-5">
                 <p className="eyebrow text-ink3 mb-2">Hired from this vendor</p>
                 <ul className="flex flex-col gap-2">
@@ -962,7 +994,8 @@ function CostsView({ onAdd }) {
   const toast = useToast();
   const canEdit = useCanEdit();
   const [k, setK] = useState('all');
-  const rows = COSTS.filter((c) => k === 'all' || c.kind === k);
+  const [per, setPer] = useState(PERIODS.thismonth);
+  const rows = COSTS.filter((c) => (k === 'all' || c.kind === k) && c.iso >= per.from && c.iso <= per.to);
   return (
     <div className="flex flex-col gap-5 @lg:gap-6 animate-rise">
       <div className="grid @xl:grid-cols-[minmax(0,1fr)_340px] gap-5 @lg:gap-6 items-start [&>*]:min-w-0">
@@ -970,10 +1003,12 @@ function CostsView({ onAdd }) {
           <CardHead title="Fuel and repairs" sub="Each entry goes to Finance as an expense. Entries are cancelled with a reason, never deleted." icon={I.Fuel}
             action={canEdit && <Button size="sm" variant="soft" icon={I.Plus} onClick={onAdd}>Record</Button>} />
           <Toolbar className="border-t">
+            <DatePeriod id="cost-per" value={per} onChange={setPer} className="w-full @md:w-auto" />
             <Segmented value={k} onChange={setK} options={[{ value: 'all', label: 'All' }, { value: 'Fuel', label: 'Fuel' }, { value: 'Repair', label: 'Repairs' }]} />
             <ExportButton what="fuel and repairs" className="@md:ml-auto" />
           </Toolbar>
           <DataList rows={rows} minWidth={720}
+            empty={<Empty icon={I.Fuel} title="No fuel or repairs in these dates" body={`Nothing recorded ${fmtRange(per)}. Try a longer range.`} action={<Button variant="secondary" onClick={() => setPer(PERIODS.last3m)}>Last 3 months</Button>} />}
             columns={[
               { key: 'd', label: 'Date', nowrap: true, render: (c) => c.date },
               { key: 'v', label: 'Vehicle', nowrap: true, render: (c) => c.veh },
@@ -983,7 +1018,7 @@ function CostsView({ onAdd }) {
               { key: 'm', label: '', render: (c) => canEdit && <MoreMenu size="sm" items={[[I.Eye, 'View bill photo', () => toast({ title: `Bill for ${c.veh}, ${c.date}`, tone: 'info' })], [I.CircleX, 'Cancel with a reason', () => toast({ title: 'Cancel this entry?', body: 'Give a reason. The original stays in Finance with a reversal.', tone: 'info' }), 'bad']]} /> },
             ]}
             mobile={(c) => ({ title: `${c.veh} · ${inr(c.amt)}`, sub: `${c.date} · ${c.what}`, icon: c.kind === 'Fuel' ? 'Fuel' : 'Wrench', iconTone: c.kind === 'Fuel' ? 'info' : 'warn' })}
-            footer={`Showing ${rows.length} entries from October`} />
+            footer={`Showing ${rows.length} ${rows.length === 1 ? 'entry' : 'entries'} · ${per.label} · ${fmtRange(per)} · ${inr(rows.reduce((a, c) => a + c.amt, 0))} in all`} />
         </Card>
         <Card>
           <CardHead title="Service schedule" sub="Every 10,000 km or 90 days, whichever comes first" icon={I.Wrench} />
@@ -1185,6 +1220,7 @@ function StudentsPage() {
   const [stopIt, setStopIt] = useState(null);
   const [pass, setPass] = useState(null);
   const [fixAll, setFixAll] = useState(false);
+  const canOpen = useCanOpen();
   const [changes, setChanges] = useState([
     { id: 'tc1', who: 'Diya Menon, UKG B', what: 'Change stop: Vasanth Nagar → KPHB 3rd Phase from 1 Nov', by: 'Anita Sharma' },
     { id: 'tc2', who: 'Rohan Gupta, 6 A', what: 'Stop transport from 1 Nov · family moving to Gachibowli', by: 'Venkatesh Goud' },
@@ -1285,7 +1321,7 @@ function StudentsPage() {
             <DataList rows={list} select={canEdit ? [sel, setSel] : undefined} minWidth={860}
               empty={<Empty icon={I.SearchX} title="No student matches" body="Try the admission number or another route." action={<Button variant="secondary" onClick={() => { setQ(''); setRoute('all'); setF('all'); }}>Clear filters</Button>} />}
               columns={[
-                { key: 'n', label: 'Student', render: (r) => <div className="flex items-center gap-3"><Avatar name={r.s.name} size={34} /><div className="min-w-0"><button onClick={(e) => { e.stopPropagation(); go('student', { id: r.s.id }); }} className="font-semibold leading-tight hover:underline text-left">{r.s.name}</button><p className="text-[12px] text-ink3 font-mono">{r.s.adm}</p></div></div> },
+                { key: 'n', label: 'Student', render: (r) => <div className="flex items-center gap-3"><Avatar name={r.s.name} size={34} /><div className="min-w-0">{canOpen('students') ? <button onClick={(e) => { e.stopPropagation(); go('student', { id: r.s.id }); }} className="font-semibold leading-tight hover:underline text-left">{r.s.name}</button> : <p className="font-semibold leading-tight">{r.s.name}</p>}<p className="text-[12px] text-ink3 font-mono">{r.s.adm}</p></div></div> },
                 { key: 'c', label: 'Class', nowrap: true, render: (r) => `${r.s.cls.replace('Class ', '')} ${r.s.sec}` },
                 { key: 'r', label: 'Route and stop', render: (r) => <><p className="whitespace-nowrap">Route {RT[r.route].num} · {RT[r.route].area}</p><p className="text-[12.5px] text-ink3">{r.stop}</p></> },
                 { key: 't', label: 'Type', nowrap: true, render: (r) => r.type },
@@ -1433,14 +1469,31 @@ const TRIPS = [
   { id: 'R5', start: T(7, 32), end: T(8, 13), reached: 6, boarded: 31, late: 1, notes: ['Emergency pressed by mistake at 7:41 AM'] },
   { id: 'R6', start: T(7, 16), end: T(8, 19), reached: 8, boarded: 39, late: 4, missed: 'Madhava Nagar', notes: ['Missed stop: Madhava Nagar · road closed for pipeline work', 'No location 7:51–8:04 AM'] },
 ];
-const HISTORY = [
-  { id: 'h1', date: 'Thu 8 Oct', trip: 'Evening drop', done: '6 of 6', late: 'Bus 3 by 9 min', stops: '49 of 49', note: '' },
-  { id: 'h2', date: 'Thu 8 Oct', trip: 'Morning pickup', done: '6 of 6', late: 'Bus 3 by 11 min, Bus 6 by 6 min', stops: '49 of 49', note: '' },
-  { id: 'h3', date: 'Wed 7 Oct', trip: 'Evening drop', done: '6 of 6', late: 'None', stops: '49 of 49', note: '' },
-  { id: 'h4', date: 'Wed 7 Oct', trip: 'Morning pickup', done: '6 of 6', late: 'Bus 5 by 32 min', stops: '48 of 49', note: 'Bus 5 breakdown at Y Junction. Bus 2 sent after its trip. Parents of Route 5 told at 8:01 AM.' },
-  { id: 'h5', date: 'Tue 6 Oct', trip: 'Evening drop', done: '6 of 6', late: 'None', stops: '49 of 49', note: '' },
-  { id: 'h6', date: 'Tue 6 Oct', trip: 'Morning pickup', done: '6 of 6', late: 'Bus 3 by 8 min', stops: '49 of 49', note: '' },
+const HISTORY_KNOWN = [
+  { id: 'h1', iso: '2026-10-08', date: 'Thu 8 Oct', trip: 'Evening drop', done: '6 of 6', late: 'Bus 3 by 9 min', stops: '49 of 49', note: '' },
+  { id: 'h2', iso: '2026-10-08', date: 'Thu 8 Oct', trip: 'Morning pickup', done: '6 of 6', late: 'Bus 3 by 11 min, Bus 6 by 6 min', stops: '49 of 49', note: '' },
+  { id: 'h3', iso: '2026-10-07', date: 'Wed 7 Oct', trip: 'Evening drop', done: '6 of 6', late: 'None', stops: '49 of 49', note: '' },
+  { id: 'h4', iso: '2026-10-07', date: 'Wed 7 Oct', trip: 'Morning pickup', done: '6 of 6', late: 'Bus 5 by 32 min', stops: '48 of 49', note: 'Bus 5 breakdown at Y Junction. Bus 2 sent after its trip. Parents of Route 5 told at 8:01 AM.' },
+  { id: 'h5', iso: '2026-10-06', date: 'Tue 6 Oct', trip: 'Evening drop', done: '6 of 6', late: 'None', stops: '49 of 49', note: '' },
+  { id: 'h6', iso: '2026-10-06', date: 'Tue 6 Oct', trip: 'Morning pickup', done: '6 of 6', late: 'Bus 3 by 8 min', stops: '49 of 49', note: '' },
 ];
+// Every earlier school day has a morning and an evening trip (example data, steady from a seed)
+const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const HISTORY = (() => {
+  const out = [...HISTORY_KNOWN];
+  for (let k = 1; k <= 500; k++) {
+    const dt = new Date(2026, 9, 9 - k);
+    if (dt < new Date(2025, 5, 1)) break;
+    const iso = isoOf(dt);
+    if (iso >= '2026-10-06' || schoolDay(dt.getFullYear(), dt.getMonth(), dt.getDate()).kind !== 'school') continue;
+    const day = `${DOW[dt.getDay()]} ${dt.getDate()} ${MON[dt.getMonth()]}${dt.getFullYear() !== 2026 ? ` ${dt.getFullYear()}` : ''}`;
+    ['Evening drop', 'Morning pickup'].forEach((trip, j) => {
+      const h = (dt.getDate() * 7 + dt.getMonth() * 13 + j * 5) % 11;
+      out.push({ id: `${iso}-${j}`, iso, date: day, trip, done: '6 of 6', late: h < 5 ? 'None' : h < 9 ? `Bus 3 by ${6 + h} min` : `Bus 6 by ${h - 2} min`, stops: h === 10 ? '48 of 49' : '49 of 49', note: h === 10 ? 'One stop missed: road closed. Parents of that stop were told.' : '' });
+    });
+  }
+  return out;
+})();
 
 function TripsPage() {
   const { go } = useNav();
@@ -1451,7 +1504,9 @@ function TripsPage() {
   const [sched, setSched] = useState(null);
   const [hist, setHist] = useState(false);
   const [swap, setSwap] = useState(false);
+  const [per, setPer] = useState(PERIODS.last7);
   const boarded = TRIPS.reduce((a, t) => a + t.boarded, 0);
+  const histRows = HISTORY.filter((h) => h.iso >= per.from && h.iso <= per.to);
   return (
     <div>
       <ModuleHead sub="Friday 9 Oct · morning pickup done · evening drop starts 3:50 PM"
@@ -1462,6 +1517,7 @@ function TripsPage() {
       <div className="flex flex-col gap-5 @lg:gap-6">
         <div className="flex flex-col @md:flex-row gap-3 @md:items-center">
           <Segmented value={view} onChange={setView} options={[{ value: 'today', label: 'Today' }, { value: 'schedule', label: 'Schedule' }, { value: 'history', label: 'History' }]} />
+          {view === 'history' && <DatePeriod id="trip-per" value={per} onChange={setPer} className="w-full @md:w-auto" />}
           <button onClick={() => go('driver')} className="@md:ml-auto inline-flex items-center gap-2 text-[13.5px] font-semibold text-brand hover:underline"><I.Smartphone size={16} />See the driver app (Android)</button>
         </div>
 
@@ -1536,8 +1592,9 @@ function TripsPage() {
 
         {view === 'history' && (
           <Card className="overflow-hidden animate-rise">
-            <CardHead title="Trip history" sub="Every trip with start, end, stops reached and delays" icon={I.History} action={<ExportButton what="trip history" />} />
-            <DataList rows={HISTORY} minWidth={780}
+            <CardHead title="Trip history" sub={`${per.label} · ${fmtRange(per)} · every trip with stops reached and delays`} icon={I.History} action={<ExportButton what="trip history" />} />
+            <DataList rows={histRows.slice(0, 60)} minWidth={780} footer={histRows.length > 60 ? `Showing the latest 60 of ${histRows.length} trips · export for all` : `${histRows.length} trips`}
+              empty={<Empty icon={I.History} title="No trips in these dates" body={`No school trips ran ${fmtRange(per)}. Holidays and Sundays have no trips.`} action={<Button variant="secondary" onClick={() => setPer(PERIODS.last30)}>Last 30 days</Button>} />}
               columns={[
                 { key: 'd', label: 'Date', nowrap: true, render: (h) => <b className="font-semibold">{h.date}</b> },
                 { key: 't', label: 'Trip', nowrap: true, render: (h) => h.trip },
@@ -1644,14 +1701,21 @@ function ScheduleSheet({ x, onClose }) {
 function ReportsPage() {
   const { go } = useNav();
   const toast = useToast();
-  const [period, setPeriod] = useState('oct');
-  const P = { oct: { label: 'October so far', trips: 96, ontime: '91%', missed: 1, cost: '₹1,174' }, sep: { label: 'September', trips: 288, ontime: '89%', missed: 3, cost: '₹1,229' }, year: { label: 'Jun to Oct 2026', trips: 1206, ontime: '90%', missed: 9, cost: '₹1,191' } }[period];
+  const [per, setPer] = useState(PERIODS.thismonth);
+  // Example numbers scale with the number of days picked (this month so far = 9 days)
+  const days = periodDays(per);
+  const seed = (per.from + per.to).split('').reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 997, 7);
+  const P = { label: `${per.label} · ${fmtRange(per)}`, trips: Math.round(days * 10.7), ontime: `${88 + (seed % 5)}%`, missed: Math.round(days * 0.11), cost: inr(1150 + (seed % 90)) };
+  const n = (perDay) => Math.round(days * perDay);
   const ex = (w) => () => toast({ title: `Exported ${w}`, body: `${P.label} · Excel, with the school name and your name on top. Logged.` });
   return (
     <div>
       <ModuleHead sub="Trips, timings, seats, costs, fees and papers" actions={<Button variant="secondary" icon={I.CalendarClock} onClick={() => toast({ title: 'Scheduled: Transport summary', body: 'Every Monday 8 AM to Lakshmi Rao and Venkatesh Goud' })}>Email every week</Button>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
-        <Segmented value={period} onChange={setPeriod} className="self-start" options={[{ value: 'oct', label: 'This month' }, { value: 'sep', label: 'Last month' }, { value: 'year', label: 'This year' }]} />
+        <div className="flex flex-col @md:flex-row @md:items-center gap-2">
+          <DatePeriod id="trr-per" value={per} onChange={setPer} className="w-full @md:w-auto" />
+          <span className="text-[13px] text-ink3">Showing: {per.label} · {fmtRange(per)}</span>
+        </div>
         <Stats items={[
           { label: 'Trips run', value: String(P.trips), sub: P.label, icon: I.Route },
           { label: 'On time', value: P.ontime, sub: 'Within 5 minutes', tone: 'ok', icon: I.Timer },
@@ -1668,7 +1732,7 @@ function ReportsPage() {
             <div className="px-5 pb-5"><HBars rows={[{ k: 'Route 1', v: 97 }, { k: 'Route 2', v: 94 }, { k: 'Route 3', v: 61 }, { k: 'Route 4', v: 93 }, { k: 'Route 5', v: 90 }, { k: 'Route 6', v: 86 }]} goal={90} lowBelow={88} labelWidth={64} /></div>
           </Card>
           <Card>
-            <CardHead title="Seats used" sub="Students per route against seats" icon={I.Armchair} action={<Button size="sm" variant="ghost" icon={I.Download} onClick={ex('seats used')}>Export</Button>} />
+            <CardHead title="Seats used" sub="Students per route against seats, today" icon={I.Armchair} action={<Button size="sm" variant="ghost" icon={I.Download} onClick={ex('seats used')}>Export</Button>} />
             <div className="px-5 pb-5"><HBars rows={TR.map((r) => ({ k: `Route ${r.num}`, v: Math.round((r.students / r.seats) * 100), label: `${r.students}/${r.seats}` }))} labelWidth={64} /></div>
           </Card>
           <Card>
@@ -1692,7 +1756,7 @@ function ReportsPage() {
           <Card>
             <CardHead title="Alerts history" sub={P.label} icon={I.BellRing} action={<Button size="sm" variant="ghost" icon={I.Download} onClick={ex('alerts history')}>Export</Button>} />
             <ul className="px-2 pb-2">
-              {[['Gauge', 'Over-speed', period === 'year' ? 41 : period === 'sep' ? 11 : 4, 'warn'], ['Route', 'Route deviation', period === 'year' ? 9 : 2, 'warn'], ['WifiOff', 'Vehicle offline', period === 'year' ? 27 : period === 'sep' ? 7 : 3, 'neutral'], ['Siren', 'Emergency button', period === 'year' ? 3 : 1, 'bad'], ['Wrench', 'Breakdown', period === 'year' ? 4 : 1, 'bad']].map(([ic, l, n, tone]) => (
+              {[['Gauge', 'Over-speed', n(0.4), 'warn'], ['Route', 'Route deviation', n(0.12), 'warn'], ['WifiOff', 'Vehicle offline', n(0.3), 'neutral'], ['Siren', 'Emergency button', n(0.03), 'bad'], ['Wrench', 'Breakdown', n(0.04), 'bad']].map(([ic, l, n, tone]) => (
                 <li key={l} className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-sunken/60">
                   <span className={cx('w-9 h-9 rounded-xl grid place-items-center shrink-0', TONE_SOFT[tone])}>{React.createElement(I[ic], { size: 17 })}</span>
                   <span className="flex-1 font-semibold text-[14px]">{l}</span>

@@ -98,6 +98,8 @@ const VIEW = {
   events: ['calendar', 'events', 'gallery'],
   reports: ['all', 'analytics'],
 };
+// A few roles have a narrower View slice (from the notes in 05-roles.md)
+const VIEW_BY_ROLE = { officestaff: { frontoffice: ['visitors', 'pickup'] } };
 const OWN = {
   admissions: ['enquiries'],
   students: ['list', 'behaviour'],
@@ -134,7 +136,7 @@ export function pagesFor(mod, access, roleId) {
   const m = MODULES[mod];
   if (!m || !access) return [];
   let ids = m.pages.map((p) => p[0]);
-  if (access === 'view') ids = VIEW[mod] || ids.filter((i) => i !== 'settings');
+  if (access === 'view') ids = VIEW_BY_ROLE[roleId]?.[mod] || VIEW[mod] || ids.filter((i) => i !== 'settings');
   if (access === 'own') ids = OWN_BY_ROLE[roleId]?.[mod] || OWN[mod] || ids.filter((i) => i !== 'settings');
   if (access === 'full' && mod === 'staff') ids = ids.filter((i) => i !== 'profile');
   return m.pages.filter((p) => ids.includes(p[0])).map(([id, label]) => ({ id, label: (access === 'own' && OWN_LABELS[mod]?.[id]) || label }));
@@ -310,7 +312,7 @@ export const NOTIFS_BY_ROLE = {
     { id: 3, when: 'Yesterday', title: 'Day Book for 8 Oct is not closed', body: 'Cash in hand ₹38,400 waiting to be counted', unread: false, to: 'finance.daybook' },
   ],
   teacher: [
-    { id: 1, when: '9:02 AM', title: 'Substitution: 8 A, period 5', body: 'Anitha Kumari is on leave. You take English.', unread: true, to: 'academic.substitutions' },
+    { id: 1, when: '9:02 AM', title: 'Substitution: 8 A, period 5', body: 'Anitha Kumari is on leave. You take English.', unread: true, to: 'academic.timetable' },
     { id: 2, when: '8:30 AM', title: '14 homework submissions to check', body: 'Maths 6 A · Exercise 4.1', unread: true, to: 'homework.submissions' },
     { id: 3, when: 'Yesterday', title: 'Half-yearly marks entry opens 17 Oct', body: 'Mathematics · 6 A, 6 B, 7 A, 7 B', unread: false, to: 'exams.marks' },
   ],

@@ -8,6 +8,7 @@ import { useNav, useRole } from './shell.jsx';
 import {
   ModuleHead, useCanEdit, Stats, SearchBox, Toolbar, Select, Textarea, Chips, DataList, BulkBar, SettingRow, SettingsCard,
   Banner, Suggestion, Progress, HBars, Bars, Legend, DL, MoreMenu, FormSheet, ConfirmSheet, Split, Col, ExportButton, TONE_SOFT,
+  usePage, DatePeriod, PERIODS, fmtRange, fmtDay, periodDays, schoolDay,
 } from './kit.jsx';
 
 /* ======================= Sample data ======================= */
@@ -124,6 +125,27 @@ const TODAY_DUE = [
   ['Mathematics Olympiad Workbook, Class 7', 'Tanvi Sharma', '6 A'], ['Swami and Friends', 'Arjun Sharma', '7 A'], ['Panchatantra Stories', 'Lasya Joshi', '5 A'],
   ['The Diary of a Young Girl', 'Ananya Pillai', '8 A'], ['Grandma’s Bag of Stories', 'Navya Das', '6 A'], ['Malgudi Days', 'Charan Joshi', '8 A'],
 ];
+const isoOff = (off) => { const d = dt(off); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+// Issue and return history: today's desk rows, then example rows for every earlier school day (steady from a seed)
+const HIST = (() => {
+  const out = [];
+  TODAY_ISSUED.forEach(([t, book, who, grp], i) => out.push({ id: `ti${i}`, iso: isoOff(0), when: `Today, ${t}`, what: 'Issued', book, who, grp, note: '' }));
+  TODAY_RETURNED.forEach(([t, book, who, grp, note], i) => out.push({ id: `tr${i}`, iso: isoOff(0), when: `Today, ${t}`, what: 'Returned', book, who, grp, note }));
+  const mins = (w) => { const [hm, ap] = w.replace('Today, ', '').split(' '); const [h, m] = hm.split(':').map(Number); return ((h % 12) + (ap === 'PM' ? 12 : 0)) * 60 + m; };
+  out.sort((x, y) => mins(y.when) - mins(x.when));
+  for (let k = 1; k <= 500; k++) {
+    const d = dt(-k);
+    if (d < new Date(2025, 5, 1)) break;
+    if (schoolDay(d.getFullYear(), d.getMonth(), d.getDate()).kind !== 'school') continue;
+    for (let j = 0; j < 4; j++) {
+      const h = (k * 7 + j * 11) % 97;
+      const b = BOOKS[h % 14]; const s = POOL[(k * 5 + j * 3) % POOL.length];
+      const ret = j % 2 === 1; const late = ret && h % 5 === 0 ? (h % 9) + 2 : 0;
+      out.push({ id: `h${k}-${j}`, iso: isoOff(-k), when: `${dday(-k)}${d.getFullYear() !== 2026 ? ` ${d.getFullYear()}` : ''}`, what: ret ? 'Returned' : 'Issued', book: b.title, who: s.name, grp: `${s.cls.replace('Class ', '')} ${s.sec}`, note: ret ? (late ? `Late ${late} days · ${inr(Math.min(FINE_MAX, late * FINE_DAY))} added to fees` : 'On time') : '' });
+    }
+  }
+  return out;
+})();
 const OVERDUE = [
   ['The Diary of a Young Girl', 'Charan Joshi', '8 A', 21], ['Ignited Minds', 'Swapna Reddy', 'Staff · Teaching', 15], ['Swami and Friends', 'Krishna Rao', '6 B', 9],
   ['Harry Potter and the Philosopher’s Stone', 'Navya Rao', '8 B', 7], ['The Adventures of Tom Sawyer', 'Nikhil Gupta', '5 B', 7], ['The Jungle Book', 'Harini Joshi', '7 A', 5],
@@ -198,6 +220,10 @@ function IssuePage() {
   const [list, setList] = useState('issued');
   const [reserveOpen, setReserveOpen] = useState(false);
   const [remind, setRemind] = useState(false);
+  const [per, setPer] = useState(PERIODS.last7);
+  const [hq, setHq] = useState('');
+  const [hk, setHk] = useState('all');
+  const hRows = HIST.filter((h) => h.iso >= per.from && h.iso <= per.to && (hk === 'all' || h.what === hk) && (!hq || (h.book + h.who + h.grp).toLowerCase().includes(hq.toLowerCase())));
   const counts = { issued: 34 + today.issued.length - TODAY_ISSUED.length, returned: 28 + today.returned.length - TODAY_RETURNED.length, due: 12, overdue: 23 };
   return (
     <div>
@@ -241,6 +267,27 @@ function IssuePage() {
             <div className="px-5 py-3 border-t border-line text-[12.5px] text-ink3">Showing the latest {list === 'overdue' ? OVERDUE.length : 6} of {counts[list]}</div>
           </Card>
         </Split>
+
+        <Card className="overflow-hidden">
+          <CardHead title="Issue and return history" sub={`${per.label} · ${fmtRange(per)}`} icon={I.History} />
+          <Toolbar className="border-t">
+            <SearchBox id="lh-q" value={hq} onChange={setHq} placeholder="Book, member or class" />
+            <DatePeriod id="lh-per" value={per} onChange={setPer} className="w-full @md:w-auto" />
+            <Segmented value={hk} onChange={setHk} options={[{ value: 'all', label: 'All' }, { value: 'Issued', label: 'Issued' }, { value: 'Returned', label: 'Returned' }]} />
+            <ExportButton what="issue and return history" />
+          </Toolbar>
+          <DataList rows={hRows.slice(0, 50)} minWidth={760}
+            empty={<Empty icon={I.History} title="Nothing issued or returned in these dates" body={`No desk records ${fmtRange(per)}. Sundays and holidays have none.`} action={<Button variant="secondary" onClick={() => { setPer(PERIODS.last30); setHq(''); setHk('all'); }}>Last 30 days</Button>} />}
+            columns={[
+              { key: 'w', label: 'When', nowrap: true, render: (h) => <span className="tnum text-[13.5px]">{h.when}</span> },
+              { key: 'b', label: 'Book', render: (h) => <span className="font-semibold">{h.book}</span> },
+              { key: 'm', label: 'Member', render: (h) => <div className="flex items-center gap-2.5"><Avatar name={h.who} size={28} /><div><p className="leading-tight">{h.who}</p><p className="text-[12px] text-ink3">{h.grp}</p></div></div> },
+              { key: 'k', label: 'What', render: (h) => <Pill tone={h.what === 'Issued' ? 'info' : 'ok'}>{h.what}</Pill> },
+              { key: 'n', label: 'Note', render: (h) => <span className={cx('text-[13px]', /Late|Damaged/.test(h.note) ? 'text-warn font-semibold' : 'text-ink3')}>{h.note || '—'}</span> },
+            ]}
+            mobile={(h) => ({ title: h.book, sub: `${h.who} · ${h.grp} · ${h.when}${h.note ? ` · ${h.note}` : ''}`, avatar: h.who, pills: [<Pill key="k" tone={h.what === 'Issued' ? 'info' : 'ok'} className="!h-[22px] !text-[11.5px]">{h.what}</Pill>] })}
+            footer={hRows.length > 50 ? `Showing the latest 50 of ${hRows.length.toLocaleString('en-IN')} · export for all` : `${hRows.length} records`} />
+        </Card>
       </div>
       <ReservationsSheet open={reserveOpen} onClose={() => setReserveOpen(false)} />
       <ConfirmSheet open={remind} onClose={() => setRemind(false)} title="Send overdue reminders to 23 members?"
@@ -841,7 +888,10 @@ const MEMBER_ROWS = (() => {
 function MembersPage() {
   const toast = useToast();
   const { go } = useNav();
+  const { role } = useRole();
   const canEdit = useCanEdit();
+  // The Librarian sees only name, photo and class from Student Management, so no link to the full profile
+  const canProfile = role.access.students === 'full';
   const [kind, setKind] = useState('Student');
   const [cls, setCls] = useState('all');
   const [q, setQ] = useState('');
@@ -878,7 +928,7 @@ function MembersPage() {
                 m.blocked ? [I.CircleCheck, 'Unblock', () => { setBlock({ m, un: true }); setBlockWhy(''); setBlockTried(false); }] : [I.Ban, 'Block', () => { setBlock({ m }); setBlockWhy(''); setBlockTried(false); }, 'bad'],
                 [I.SlidersHorizontal, 'Change limit', () => setLimit(m)],
                 [I.IdCard, 'Print library card', () => toast({ title: `Library card for ${m.name} sent to the printer`, body: m.card })],
-                ...(m.sid ? [[I.User, 'Open student profile', () => go('student', { id: m.sid })]] : []),
+                ...(m.sid && canProfile ? [[I.User, 'Open student profile', () => go('student', { id: m.sid })]] : []),
               ]} /> },
             ]}
             mobile={(m) => ({ title: m.name, sub: `${m.kind === 'Staff' ? m.group : `Class ${m.group}`} · ${m.card}`, avatar: m.name, pills: [<Pill key="o" tone={m.out >= m.limit ? 'warn' : 'neutral'} className="!h-[22px] !text-[11.5px]">{m.out} of {m.limit} books</Pill>, m.fine ? <Pill key="f" tone="warn" className="!h-[22px] !text-[11.5px]">{inr(m.fine)} fine</Pill> : null, m.blocked ? <Pill key="b" tone="bad" className="!h-[22px] !text-[11.5px]">Blocked</Pill> : null] })}
@@ -975,7 +1025,10 @@ const FINES0 = [
   { id: 'LF-0382', m: 'Imran Shaikh', g: 'Staff · Teaching', book: 'The Adventures of Tom Sawyer', acc: 10470, reason: 'Late · 5 days', amt: 10, status: 'Paid', staff: true, when: '28 Sep', paid: 'Paid at the desk 2 Oct · LIB/26/0042' },
   { id: 'LF-0379', m: 'Tanvi Sharma', g: '6 A', book: 'Panchatantra Stories', acc: 10302, reason: 'Damaged · pages loose', amt: 80, status: 'Paid', staff: false, when: '24 Sep', paid: 'Paid with fees 30 Sep · R/26/04977' },
   { id: 'LF-0374', m: 'Aadhya Shetty', g: '6 A', book: 'Malgudi Days', acc: 10116, reason: 'Late · 20 days', amt: 40, status: 'Waived', staff: false, when: '18 Sep', paid: 'Waived by Padma Iyer: in hospital, medical certificate seen' },
-];
+  { id: 'LF-0351', m: 'Rohan Gupta', g: '6 A', book: 'Tinkle Digest 312', acc: 10887, reason: 'Late · 8 days', amt: 16, status: 'Paid', staff: false, when: '21 Aug', paid: 'Paid with fees 1 Sep · R/26/04211' },
+  { id: 'LF-0322', m: 'Farhana Begum', g: 'Staff · Teaching', book: 'A Brief History of Time', acc: 10601, reason: 'Late · 4 days', amt: 8, status: 'Paid', staff: true, when: '30 Jul', paid: 'Paid at the desk 30 Jul · LIB/26/0019' },
+  { id: 'LF-0287', m: 'Sai Iyer', g: '5 B', book: 'Panchatantra Stories', acc: 10304, reason: 'Damaged · pages loose', amt: 70, status: 'Paid', staff: false, when: '9 Jul', paid: 'Paid with fees 15 Jul · R/26/03120' },
+].map((f) => { const [d, m] = f.when === 'Today' ? ['9', 'Oct'] : f.when.split(' '); return { ...f, iso: `2026-${String(MON.indexOf(m) + 1).padStart(2, '0')}-${d.padStart(2, '0')}` }; });
 const PICK_COPY = { pick: true };
 const fineTone = { Due: 'warn', Paid: 'ok', Waived: 'neutral', 'Waiting approval': 'info' };
 
@@ -993,10 +1046,12 @@ function FinesPage() {
   const [scan, setScan] = useState(false);
   const [closeIt, setCloseIt] = useState(false);
   const [markLost, setMarkLost] = useState(false);
+  const [per, setPer] = useState(PERIODS.last30);
+  const days = periodDays(per);
   const due = fines.filter((f) => f.status === 'Due');
   const dueSum = due.reduce((a, f) => a + f.amt, 0);
   const approver = role.id === 'principal' || role.id === 'schooladmin';
-  const rows = fines.filter((f) => (st === 'all' || f.status === st) && (!q || (f.m + f.book + f.acc).toLowerCase().includes(q.toLowerCase())));
+  const rows = fines.filter((f) => f.iso >= per.from && f.iso <= per.to && (st === 'all' || f.status === st) && (!q || (f.m + f.book + f.acc).toLowerCase().includes(q.toLowerCase())));
   const setStatus = (f, status, paid) => { const before = fines; setFines((x) => x.map((y) => (y.id === f.id ? { ...y, status, paid } : y))); return before; };
   return (
     <div>
@@ -1008,8 +1063,8 @@ function FinesPage() {
       <div className="flex flex-col gap-5 @lg:gap-6">
         <Stats items={[
           { label: 'Fines due', value: inr(dueSum), sub: `${due.length} members`, tone: 'warn', icon: I.IndianRupee },
-          { label: 'Collected in October', value: inr(620), sub: '41 fines', tone: 'ok', icon: I.CircleCheck },
-          { label: 'Waived in October', value: inr(40), sub: '1 fine, with a reason', icon: I.HandCoins },
+          { label: 'Collected', value: inr(Math.round((620 / 9) * days)), sub: `${Math.round((41 / 9) * days)} fines · ${per.label.toLowerCase()}`, tone: 'ok', icon: I.CircleCheck },
+          { label: 'Waived', value: inr(fines.filter((f) => f.status === 'Waived' && f.iso >= per.from && f.iso <= per.to).reduce((a, f) => a + f.amt, 0)), sub: `With a reason · ${per.label.toLowerCase()}`, icon: I.HandCoins },
           { label: 'Waiting approval', value: String(fines.filter((f) => f.status === 'Waiting approval').length), sub: 'Charges above ₹500', tone: 'info', icon: I.ListChecks },
         ]} />
         <Segmented value={view} onChange={setView} className="self-start" options={[{ value: 'fines', label: 'Fines' }, { value: 'stock', label: 'Stock check' }]} />
@@ -1018,11 +1073,12 @@ function FinesPage() {
           <Card className="overflow-hidden animate-rise">
             <Toolbar>
               <SearchBox id="fine-q" value={q} onChange={setQ} placeholder="Member, book or accession no." />
+              <DatePeriod id="fine-per" value={per} onChange={setPer} className="w-full @md:w-auto" />
               <Segmented value={st} onChange={setSt} options={[{ value: 'Due', label: 'Due' }, { value: 'Waiting approval', label: 'Approval' }, { value: 'Paid', label: 'Paid' }, { value: 'Waived', label: 'Waived' }, { value: 'all', label: 'All' }]} />
               <ExportButton what="library fines" />
             </Toolbar>
             <DataList rows={rows} minWidth={900}
-              empty={<Empty icon={I.CircleCheck} title="Nothing here" body="No fines with this status." />}
+              empty={<Empty icon={I.CircleCheck} title="Nothing here" body={`No fines with this status ${fmtRange(per)}.`} action={<Button variant="secondary" onClick={() => { setPer(PERIODS.acyear); setSt('all'); setQ(''); }}>Whole year, all fines</Button>} />}
               columns={[
                 { key: 'm', label: 'Member', render: (f) => <div className="flex items-center gap-3"><Avatar name={f.m} size={34} /><div><p className="font-semibold leading-tight">{f.m}</p><p className="text-[12.5px] text-ink3">{f.g}</p></div></div> },
                 { key: 'b', label: 'Book', render: (f) => <><p className="leading-tight">{f.book}</p><p className="text-[12px] text-ink3 font-mono">Acc. {f.acc}</p></> },
@@ -1037,7 +1093,7 @@ function FinesPage() {
                     ]} /> : null) },
               ]}
               mobile={(f) => ({ title: `${f.m} · ${inr(f.amt)}`, sub: `${f.book} · ${f.reason}`, avatar: f.m, pills: [<Pill key="s" tone={fineTone[f.status]} className="!h-[22px] !text-[11.5px]">{f.status}</Pill>] })}
-              footer={`Showing ${rows.length} · fines are never deleted, only paid or waived with a reason`} />
+              footer={`Showing ${rows.length} · ${per.label} · ${fmtRange(per)} · fines are never deleted, only paid or waived with a reason`} />
           </Card>
         )}
 
@@ -1149,18 +1205,24 @@ function ReportsPage() {
   const toast = useToast();
   const { go } = useNav();
   const canEdit = useCanEdit();
-  const [period, setPeriod] = useState('oct');
-  const P = { oct: { label: 'October so far', issued: 612, fines: 620 }, sep: { label: 'September', issued: 1734, fines: 1480 }, year: { label: 'Jun to Oct 2026', issued: 6918, fines: 5320 } }[period];
+  const { pages } = usePage();
+  const [per, setPer] = useState(PERIODS.thismonth);
+  // Example numbers scale with the days picked (this month so far = 9 days)
+  const days = periodDays(per);
+  const P = { label: `${per.label} · ${fmtRange(per)}`, issued: Math.round((612 / 9) * days), fines: Math.round((620 / 9) * days) };
   const ex = (w) => () => toast({ title: `Exported ${w}`, body: `${P.label} · Excel, with the school name and your name on top. Logged.` });
   const top = [...BOOKS].sort((a, b) => b.reads - a.reads).slice(0, 6);
   return (
     <div>
       <ModuleHead sub="Books issued, overdue, most read, fines and stock" actions={<Button variant="secondary" icon={I.CalendarClock} onClick={() => toast({ title: 'Scheduled: Library summary', body: 'First Monday of each month to Lakshmi Rao and Padma Iyer' })}>Email every month</Button>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
-        <Segmented value={period} onChange={setPeriod} className="self-start" options={[{ value: 'oct', label: 'This month' }, { value: 'sep', label: 'Last month' }, { value: 'year', label: 'This year' }]} />
+        <div className="flex flex-col @md:flex-row @md:items-center gap-2">
+          <DatePeriod id="lr-per" value={per} onChange={setPer} className="w-full @md:w-auto" />
+          <span className="text-[13px] text-ink3">Showing: {per.label} · {fmtRange(per)}</span>
+        </div>
         <Stats items={[
           { label: 'Books issued', value: P.issued.toLocaleString('en-IN'), sub: P.label, icon: I.ArrowRightLeft },
-          { label: 'Overdue now', value: '23', sub: 'Same as the desk', tone: 'bad', icon: I.TriangleAlert, onClick: () => go('library', { page: 'issue' }) },
+          { label: 'Overdue now', value: '23', sub: 'Same as the desk', tone: 'bad', icon: I.TriangleAlert, onClick: pages.some((x) => x.id === 'issue') ? () => go('library', { page: 'issue' }) : undefined },
           { label: 'Fines collected', value: inr(P.fines), sub: `${inr(529)} still due`, tone: 'ok', icon: I.IndianRupee },
           { label: 'Most read', value: 'Fiction', sub: '38% of all issues', icon: I.BookOpen },
         ]} />
@@ -1197,7 +1259,7 @@ function ReportsPage() {
           <Card>
             <CardHead title="Fines" sub={P.label} icon={I.IndianRupee} action={<Button size="sm" variant="ghost" icon={I.Download} onClick={ex('fines')}>Export</Button>} />
             <ul className="px-5 pb-5 divide-y divide-line/70 text-[14px]">
-              {[['Collected', inr(P.fines), 'text-ok'], ['Due', inr(529), 'text-warn'], ['Waived', inr(period === 'year' ? 260 : 40), ''], ['Waiting approval', inr(549), 'text-info']].map(([k, v, c]) => <li key={k} className="flex justify-between py-2.5"><span className="text-ink2">{k}</span><b className={cx('font-semibold tnum', c)}>{v}</b></li>)}
+              {[['Collected', inr(P.fines), 'text-ok'], ['Due', inr(529), 'text-warn'], ['Waived', inr(Math.round((40 / 9) * days)), ''], ['Waiting approval', inr(549), 'text-info']].map(([k, v, c]) => <li key={k} className="flex justify-between py-2.5"><span className="text-ink2">{k}</span><b className={cx('font-semibold tnum', c)}>{v}</b></li>)}
             </ul>
           </Card>
           <Card>

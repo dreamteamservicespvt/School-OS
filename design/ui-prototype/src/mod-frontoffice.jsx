@@ -4,9 +4,13 @@ import * as I from './icons.js';
 import { STUDENTS, FEATURED, STUDENT_PROFILE as SP } from './data.js';
 import { cx, Card, CardHead, Button, IconButton, Pill, Avatar, Field, Input, inputCls, Checkbox, Switch, Segmented, Sheet, Empty, useToast } from './ui.jsx';
 import { useNav, useRole } from './shell.jsx';
-import { ModuleHead, useCanEdit, usePage, Stats, Band, SearchBox, Toolbar, Select, Textarea, Chips, DataList, Row, Banner, MoreMenu, FormSheet, ConfirmSheet, Split, Col, ExportButton, HBars, Bars, TONE_SOFT } from './kit.jsx';
+import { ModuleHead, useCanEdit, usePage, Stats, Band, SearchBox, Toolbar, Select, Textarea, Chips, DataList, Row, Banner, MoreMenu, FormSheet, ConfirmSheet, Split, Col, ExportButton, HBars, Bars, TONE_SOFT, DatePeriod, PERIODS, fmtRange } from './kit.jsx';
 
 /* ======================= Sample data ======================= */
+// '9 Oct', 'Today' or 'Yesterday' to an ISO date in 2026 (today is Fri 9 Oct 2026)
+const MONS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const isoDay = (s) => { if (s === 'Today') return '2026-10-09'; if (s === 'Yesterday') return '2026-10-08'; const [d, m] = s.split(/[ ,]+/); return `2026-${String(MONS.indexOf(m) + 1).padStart(2, '0')}-${d.padStart(2, '0')}`; };
+const TODAY_ISO = '2026-10-09';
 const PASS_END = '4:00 PM';
 const MEET = [
   { name: 'Lakshmi Rao', role: 'Principal', now: 'In a meeting till 11:00 AM', tone: 'warn' },
@@ -34,7 +38,14 @@ const VISITORS = [
   { pass: 'V-0239', date: 'Today', name: 'Ganesh Patil', phone: '93470 61125', purpose: 'Delivery', meet: 'Anita Sharma', note: 'Blue Dart', vehicle: '', in: '8:35 AM', out: '8:41 AM', status: 'Out', people: 1 },
   { pass: 'V-0238', date: 'Today', name: 'Ramya Krishnan', phone: '98853 70214', purpose: 'Fee payment', meet: 'Suresh Babu', note: 'Arjun Krishnan, 2 A', vehicle: '', in: '8:20 AM', out: '8:38 AM', status: 'Out', people: 1 },
   { pass: 'V-0229', date: '8 Oct', name: 'Sanjay Verma', phone: '94403 21980', purpose: 'Meeting', meet: 'Venkat Rao', note: 'Parent, 8 A', vehicle: '', in: '2:40 PM', out: null, status: 'Expired', people: 1 },
-];
+  { pass: 'V-0228', date: '8 Oct', name: 'Lalitha Prasad', phone: '98490 66721', purpose: 'Fee payment', meet: 'Suresh Babu', note: 'Varun Prasad, 4 A', vehicle: '', in: '11:05 AM', out: '11:30 AM', status: 'Out', people: 1 },
+  { pass: 'V-0226', date: '8 Oct', name: 'Kiran Kumar', phone: '90009 11245', purpose: 'Delivery', meet: 'Ramu Yadav', note: 'Deccan Scientific Suppliers', vehicle: 'TS 09 UC 1120', in: '9:40 AM', out: '9:58 AM', status: 'Out', people: 2 },
+  { pass: 'V-0221', date: '7 Oct', name: 'Padmini Rao', phone: '97012 30098', purpose: 'Meeting', meet: 'Lakshmi Rao', note: 'Parent, 9 C', vehicle: '', in: '12:10 PM', out: '12:35 PM', status: 'Out', people: 2 },
+  { pass: 'V-0214', date: '6 Oct', name: 'Naresh Goud', phone: '96035 77410', purpose: 'Interview', meet: 'Lakshmi Rao', note: 'TGT Hindi', vehicle: '', in: '10:00 AM', out: '10:50 AM', status: 'Out', people: 1 },
+  { pass: 'V-0198', date: '1 Oct', name: 'Bhavani Shankar', phone: '98853 21907', purpose: 'Admission enquiry', meet: 'Divya Menon', note: 'Class 3 2027–28', vehicle: '', in: '9:15 AM', out: '9:45 AM', status: 'Out', people: 2 },
+  { pass: 'V-0171', date: '24 Sep', name: 'Vijaya Lakshmi', phone: '94405 18802', purpose: 'Meeting', meet: 'Ravi Teja', note: 'Parent, 7 B', vehicle: '', in: '1:30 PM', out: '1:55 PM', status: 'Out', people: 1 },
+  { pass: 'V-0122', date: '2 Sep', name: 'Ramesh Babu', phone: '99630 44871', purpose: 'Other', meet: 'Anita Sharma', note: 'Fire safety inspection', vehicle: 'TS 08 GA 2210', in: '11:00 AM', out: '12:15 PM', status: 'Out', people: 2 },
+].map((v) => ({ ...v, iso: isoDay(v.date) }));
 const RETURNING = { '9866321450': { name: 'Venu Gopal', last: '28 Sep 2026, met Lakshmi Rao', purpose: 'Meeting', meet: 'Lakshmi Rao' }, '9848055120': { name: 'Prakash Reddy', last: '12 Sep 2026, met Lakshmi Rao', purpose: 'Meeting', meet: 'Lakshmi Rao' } };
 const V_TONE = { In: 'ok', Out: 'neutral', Expired: 'bad' };
 const REPLY_TONE = { 'Send in': 'ok', Wait: 'warn', 'Not available': 'bad' };
@@ -48,7 +59,12 @@ const GATE = [
   { t: '8:12 AM', dir: 'In', who: 'School bus · Bus 4, Route 4 Miyapur', veh: 'TS 07 UB 2236', purpose: 'Morning trip, 49 students' },
   { t: '8:05 AM', dir: 'In', who: 'School bus · Bus 1, Route 1 KPHB', veh: 'TS 07 UA 1182', purpose: 'Morning trip, 46 students' },
   { t: '7:40 AM', dir: 'In', who: 'Milk and vegetable van, hostel mess', veh: 'TS 10 UB 3319', purpose: 'Hostel mess supply' },
-];
+].map((g) => ({ ...g, iso: TODAY_ISO, day: 'Today' })).concat([
+  { t: '4:12 PM', dir: 'Out', who: 'School bus · Bus 3, Route 3 Bachupally', veh: 'TS 07 UB 0917', purpose: 'Evening drop', iso: '2026-10-08', day: '8 Oct' },
+  { t: '11:02 AM', dir: 'In', who: 'Two-wheeler · Lalitha Prasad (visitor V-0228)', veh: 'TS 08 EK 7712', purpose: 'Fee payment', iso: '2026-10-08', day: '8 Oct' },
+  { t: '9:38 AM', dir: 'In', who: 'Delivery van · Deccan Scientific Suppliers', veh: 'TS 09 UC 1120', purpose: 'Delivery to the store', iso: '2026-10-08', day: '8 Oct' },
+  { t: '10:55 AM', dir: 'In', who: 'Car · Ramesh Babu (visitor V-0122)', veh: 'TS 08 GA 2210', purpose: 'Fire safety inspection', iso: '2026-09-02', day: '2 Sep' },
+]);
 
 const MOTHERS = ['Sunitha', 'Padmaja', 'Swathi', 'Radhika', 'Anuradha', 'Kavitha', 'Sirisha', 'Madhavi'];
 const RESTRICTED = STUDENTS.find((s) => s.clsId === '4' && s.sec === 'B') || STUDENTS[40];
@@ -66,6 +82,13 @@ const ctOf = (s) => CT[`${s.cls.replace('Class ', '')} ${s.sec}`] || 'Usha Rani'
 const PICKUPS = [
   { gp: 'GP-2026-0189', student: 'Diya Reddy', cls: '3 A', by: 'Sunitha Reddy', rel: 'Mother', time: '9:58 AM', reason: 'Doctor visit', released: 'Kavitha Nair', gate: 'Left at 10:21 AM · checked by Bhaskar Rao', left: true },
   { gp: 'GP-2026-0190', student: 'Rohan Gupta', cls: '6 A', by: 'Anil Gupta', rel: 'Father', time: '10:20 AM', reason: 'Family function', released: 'Kavitha Nair', gate: 'Waiting at the gate', left: false },
+].map((p) => ({ ...p, iso: TODAY_ISO, day: 'Today' }));
+// Earlier early pickups, for the history
+const PICKUPS_OLD = [
+  { gp: 'GP-2026-0186', student: 'Tanvi Rao', cls: '4 B', by: 'Padmaja Rao', rel: 'Mother', time: '12:40 PM', reason: 'Unwell', released: 'Kavitha Nair', gate: 'Left at 12:52 PM · checked by Bhaskar Rao', left: true, iso: '2026-10-08', day: '8 Oct' },
+  { gp: 'GP-2026-0181', student: 'Ishaan Reddy', cls: '5 A', by: 'Kiran Reddy', rel: 'Father', time: '11:15 AM', reason: 'Doctor visit', released: 'Kavitha Nair', gate: 'Left at 11:24 AM · checked by Bhaskar Rao', left: true, iso: '2026-10-06', day: '6 Oct' },
+  { gp: 'GP-2026-0174', student: 'Meera Pillai', cls: '3 B', by: 'Radhika Pillai', rel: 'Mother', time: '1:30 PM', reason: 'Family function', released: 'Anita Sharma', gate: 'Left at 1:41 PM · checked by Bhaskar Rao', left: true, iso: '2026-10-01', day: '1 Oct' },
+  { gp: 'GP-2026-0158', student: 'Arjun Krishnan', cls: '2 A', by: 'Ramya Krishnan', rel: 'Mother', time: '10:05 AM', reason: 'Exam or competition', released: 'Kavitha Nair', gate: 'Left at 10:12 AM · checked by Bhaskar Rao', left: true, iso: '2026-09-21', day: '21 Sep' },
 ];
 
 const ENQ = [
@@ -73,7 +96,10 @@ const ENQ = [
   { id: 'ENQ-2026-0411', t: '9:55 AM', child: 'Myra Varma', parent: 'Swathi Varma', phone: '97040 88213', cls: 'Nursery 2027–28', source: 'Walk-in', owner: 'Divya Menon', next: 'Sat 10 Oct, 10:00 AM school visit' },
   { id: 'ENQ-2026-0410', t: '9:12 AM', child: 'Rudra Goud', parent: 'Praveen Goud', phone: '90304 51127', cls: 'Class 6 2027–28', source: 'Phone', owner: 'Divya Menon', next: 'Today, 4:00 PM call back' },
   { id: 'ENQ-2026-0404', t: 'Yesterday', child: 'Saanvi Kulkarni', parent: 'Nitin Kulkarni', phone: '99665 30418', cls: 'Class 2 2026–27', source: 'Phone', owner: 'Divya Menon', next: 'Today, 12:30 PM' },
-];
+  { id: 'ENQ-2026-0398', t: '6 Oct', child: 'Vihaan Shetty', parent: 'Pooja Shetty', phone: '98480 71136', cls: 'UKG 2027–28', source: 'Walk-in', owner: 'Divya Menon', next: 'Done · school visit on 8 Oct' },
+  { id: 'ENQ-2026-0385', t: '1 Oct', child: 'Ananya Bhat', parent: 'Suresh Bhat', phone: '90300 88124', cls: 'Class 3 2027–28', source: 'Walk-in', owner: 'Divya Menon', next: 'Done · applied 5 Oct' },
+  { id: 'ENQ-2026-0361', t: '19 Sep', child: 'Kabir Ali', parent: 'Sana Ali', phone: '99490 12087', cls: 'Nursery 2027–28', source: 'Phone', owner: 'Divya Menon', next: 'Closed · chose another school' },
+].map((e) => ({ ...e, iso: /AM|PM/.test(e.t) ? TODAY_ISO : isoDay(e.t) }));
 const CALLS = [
   { id: 'C1', t: '10:36 AM', dir: 'In', name: 'Rajesh Sharma', who: 'Father of Aarav Sharma, 7 B', phone: '98490 31277', purpose: 'Fee', note: 'Asked for the Q3 tuition amount. Payment link sent.', follow: '', status: 'Closed', parent: true },
   { id: 'C2', t: '10:12 AM', dir: 'In', name: 'Praveen Goud', who: 'New enquiry', phone: '90304 51127', purpose: 'Admission enquiry', note: 'Class 6 next year. Enquiry ENQ-2026-0410 made.', follow: 'Today 4:00 PM · Divya Menon', status: 'Follow-up' },
@@ -81,7 +107,14 @@ const CALLS = [
   { id: 'C4', t: '9:20 AM', dir: 'In', name: 'Kumar Reddy', who: 'Father of Harini Reddy, 7 B', phone: '99851 40326', purpose: 'Transport', note: 'Bus 4 was 15 minutes late yesterday evening.', follow: 'Mon 12 Oct · Venkatesh Goud', status: 'Follow-up', parent: true },
   { id: 'C5', t: '8:58 AM', dir: 'In', name: 'Meenakshi Iyer', who: 'Mother of Kavya Iyer, 5 A', phone: '94405 63210', purpose: 'Complaint', note: 'Water cooler in the primary block is not cooling.', follow: '', status: 'Sent as query Q-2026-0087', parent: true },
   { id: 'C6', t: '8:40 AM', dir: 'Out', name: 'Sunitha Reddy', who: 'Mother of Diya Reddy, 3 A', phone: '98483 72105', purpose: 'Other', note: 'Confirmed early pickup at 10:00 AM.', follow: '', status: 'Closed', parent: true },
-];
+].map((c) => ({ ...c, iso: TODAY_ISO, day: 'Today' })).concat([
+  { id: 'C0a', t: '3:10 PM', dir: 'In', name: 'Nitin Kulkarni', who: 'New enquiry', phone: '99665 30418', purpose: 'Admission enquiry', note: 'Class 2 mid-year. Enquiry ENQ-2026-0404 made.', follow: 'Today 12:30 PM · Divya Menon', status: 'Follow-up', iso: '2026-10-08', day: '8 Oct' },
+  { id: 'C0b', t: '11:45 AM', dir: 'In', name: 'Kumar Reddy', who: 'Father of Harini Reddy, 7 B', phone: '99851 40326', purpose: 'Fee', note: 'Asked for a fee receipt copy. Sent on WhatsApp.', follow: '', status: 'Closed', parent: true, iso: '2026-10-08', day: '8 Oct' },
+  { id: 'C0c', t: '10:20 AM', dir: 'Out', name: 'Deccan Scientific Suppliers', who: 'Vendor', phone: '90009 11245', purpose: 'Other', note: 'Broken beakers sent back by DTDC.', follow: '', status: 'Closed', iso: '2026-10-07', day: '7 Oct' },
+  { id: 'C0d', t: '9:05 AM', dir: 'In', name: 'Pooja Shetty', who: 'Enquiry ENQ-2026-0398', phone: '98480 71136', purpose: 'Admission enquiry', note: 'Booked a school visit for Thursday.', follow: '', status: 'Closed', iso: '2026-10-06', day: '6 Oct' },
+  { id: 'C0e', t: '2:30 PM', dir: 'In', name: 'Meenakshi Iyer', who: 'Mother of Kavya Iyer, 5 A', phone: '94405 63210', purpose: 'Transport', note: 'Asked to change the bus stop. Sent to Transport.', follow: '', status: 'Closed', parent: true, iso: '2026-09-28', day: '28 Sep' },
+]);
+const CALLS_TODAY = CALLS.filter((c) => c.iso === TODAY_ISO);
 const KNOWN_PHONES = {
   '9849031277': { name: 'Rajesh Sharma', who: 'Father of Aarav Sharma, 7 B', kind: 'parent' },
   '9849560211': { name: 'Priya Sharma', who: 'Mother of Aarav Sharma, 7 B and Anaya Sharma, UKG A', kind: 'parent' },
@@ -104,7 +137,16 @@ const APPTS = [
   { id: 'AP4', t: '11:00 AM', len: 30, visitor: 'Deepika Rao', phone: '90001 77342', with: 'Lakshmi Rao', purpose: 'Interview: PGT Chemistry', status: 'Arrived' },
   { id: 'AP5', t: '12:15 PM', len: 15, visitor: 'Anjali Menon', phone: '96035 22870', with: 'Suresh Babu', purpose: 'Fee concession request', status: 'Booked' },
   { id: 'AP6', t: '2:30 PM', len: 15, visitor: 'Venu Gopal', phone: '98663 21450', with: 'Lakshmi Rao', purpose: 'Transport complaint follow-up', status: 'Booked' },
-];
+].map((a) => ({ ...a, iso: '2026-10-09', day: 'Today' })).concat([
+  { id: 'AP7', t: '9:00 AM', len: 30, visitor: 'Swathi Varma', phone: '97040 88213', with: 'Lakshmi Rao', purpose: 'School visit for Myra (Nursery)', status: 'Booked', iso: '2026-10-10', day: 'Sat 10 Oct' },
+  { id: 'AP8', t: '12:15 PM', len: 15, visitor: 'Nitin Kulkarni', phone: '99665 30418', with: 'Srinivas Murthy', purpose: 'Mid-year admission, Class 2', status: 'Booked', iso: '2026-10-12', day: 'Mon 12 Oct' },
+  { id: 'AP9', t: '11:00 AM', len: 15, visitor: 'Padmini Rao', phone: '97012 30098', with: 'Ravi Teja', purpose: 'Half-yearly exam preparation', status: 'Booked', iso: '2026-10-15', day: 'Thu 15 Oct' },
+  { id: 'AP10', t: '10:00 AM', len: 30, visitor: 'Ramesh Naidu', phone: '98482 11903', with: 'Lakshmi Rao', purpose: 'Fee concession review', status: 'Booked', iso: '2026-11-03', day: 'Tue 3 Nov' },
+  { id: 'AP11', t: '12:10 PM', len: 30, visitor: 'Padmini Rao', phone: '97012 30098', with: 'Lakshmi Rao', purpose: 'Son’s behaviour in class', status: 'Done', iso: '2026-10-07', day: 'Wed 7 Oct' },
+  { id: 'AP12', t: '10:00 AM', len: 45, visitor: 'Naresh Goud', phone: '96035 77410', with: 'Lakshmi Rao', purpose: 'Interview: TGT Hindi', status: 'Done', iso: '2026-10-06', day: 'Tue 6 Oct' },
+  { id: 'AP13', t: '2:00 PM', len: 15, visitor: 'Lalitha Prasad', phone: '98490 66721', with: 'Suresh Babu', purpose: 'Fee installment plan', status: 'Cancelled', iso: '2026-09-30', day: 'Wed 30 Sep' },
+]);
+const APPTS_TODAY = APPTS.filter((a) => a.iso === '2026-10-09');
 const AP_TONE = { Booked: 'info', Arrived: 'brand', Done: 'ok', Cancelled: 'neutral', 'No-show': 'bad' };
 
 const POSTAL = [
@@ -115,7 +157,10 @@ const POSTAL = [
   { id: 'PD-2026-0314', d: '7 Oct, 2:30 PM', dir: 'Received', type: 'Letter', party: 'Income Tax Department (TDS)', for: 'Accounts · Suresh Babu', courier: 'India Post', track: '', status: 'Handed over', who: 'Suresh Babu, 7 Oct 3:05 PM' },
   { id: 'PD-2026-0313', d: '7 Oct, 11:00 AM', dir: 'Sent', type: 'Courier', party: 'Deccan Scientific Suppliers (broken beakers)', for: 'Stores', courier: 'DTDC', track: 'D40018827731', status: 'Sent' },
   { id: 'PD-2026-0312', d: '6 Oct, 4:15 PM', dir: 'Received', type: 'Parcel', party: 'Telangana Book House', for: 'Stores · Ramu Yadav', courier: 'Professional Couriers', track: 'HYD22091187', status: 'At desk' },
-];
+  { id: 'PD-2026-0305', d: '29 Sep, 12:20 PM', dir: 'Received', type: 'Letter', party: 'CBSE Regional Office, Chennai', for: 'Lakshmi Rao (Principal)', courier: 'Speed Post', track: 'EK418004512IN', status: 'Handed over', who: 'Lakshmi Rao, 29 Sep 1:10 PM' },
+  { id: 'PD-2026-0297', d: '22 Sep, 10:40 AM', dir: 'Sent', type: 'Courier', party: 'Telangana Board of Secondary Education', for: 'Exams', courier: 'DTDC', track: 'D40017716290', status: 'Sent' },
+  { id: 'PD-2026-0261', d: '28 Aug, 3:00 PM', dir: 'Received', type: 'Parcel', party: 'Amazon (sports goods)', for: 'Stores · Ramu Yadav', courier: 'Delhivery', track: '5847 1102 3381', status: 'Handed over', who: 'Ramu Yadav, 28 Aug 3:20 PM' },
+].map((r) => ({ ...r, iso: isoDay(r.d.split(',')[0]) }));
 const PD_TONE = { 'At desk': 'warn', 'Handed over': 'ok', Sent: 'info' };
 
 const NOTES0 = [
@@ -192,6 +237,8 @@ function CameraBox({ taken, name, onTake, onRetake }) {
 function PassSheet({ v, onClose, onCheckOut }) {
   const toast = useToast();
   const canEdit = useCanEdit();
+  const { role } = useRole();
+  const seesV = ['principal', 'schooladmin', 'receptionist', 'vp'].includes(role.id);
   if (!v) return null;
   const expired = v.status === 'Expired';
   return (
@@ -215,10 +262,12 @@ function PassSheet({ v, onClose, onCheckOut }) {
             {expired && <span className="absolute top-1/2 -translate-y-1/2 px-4 py-1.5 rounded-xl bg-bad text-white font-display font-semibold text-[20px] -rotate-6 shadow-pop">Expired</span>}
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-2 w-full">
-          <Button variant="secondary" icon={I.Printer} onClick={() => toast({ title: 'Sent to the desk printer', body: `Pass ${v.pass} with photo and QR` })}>Print</Button>
-          <Button variant="secondary" icon={I.MessageCircle} onClick={() => toast({ title: 'Pass sent on WhatsApp', body: `To ${v.phone}. Shown at the gate on their phone.` })}>Send to phone</Button>
-        </div>
+        {canEdit && v.status === 'In' && (
+          <div className="grid grid-cols-2 gap-2 w-full">
+            <Button variant="secondary" icon={I.Printer} onClick={() => toast({ title: 'Sent to the desk printer', body: `Pass ${v.pass} with photo and QR` })}>Print</Button>
+            <Button variant="secondary" icon={I.MessageCircle} onClick={() => toast({ title: 'Pass sent on WhatsApp', body: `To ${seesV ? v.phone : mask(v.phone)}. Shown at the gate on their phone.` })}>Send to phone</Button>
+          </div>
+        )}
         {canEdit && v.status !== 'Out' && <Button variant={expired ? 'primary' : 'soft'} icon={I.LogOut} className="w-full" onClick={() => onCheckOut(v)}>{expired ? 'Close with the right time' : 'Check out now'}</Button>}
       </div>
     </Sheet>
@@ -226,7 +275,7 @@ function PassSheet({ v, onClose, onCheckOut }) {
 }
 
 /* Register a visitor in under a minute */
-function VisitorSheet({ open, onClose, onSaved, onEnquiry }) {
+function VisitorSheet({ open, onClose, onSaved, onEnquiry, gate }) {
   const toast = useToast();
   const blank = { phone: '', name: '', purpose: 'Meeting', meet: '', people: '1', idType: 'Aadhaar', idNo: '', vehicle: '' };
   const [f, setF] = useState(blank);
@@ -258,7 +307,9 @@ function VisitorSheet({ open, onClose, onSaved, onEnquiry }) {
           {found && <div className="rounded-xl bg-ok/10 px-3.5 py-2.5 text-[13.5px] flex items-center gap-2 -mt-2 animate-fade"><I.UserCheck size={16} className="text-ok shrink-0" /><span className="text-ink2"><b className="text-ink font-semibold">Returning visitor.</b> Last visit {found.last}.</span></div>}
           <Field label="Name" required id="vs-name" error={tried && err.name}><Input id="vs-name" value={f.name} onChange={set('name')} placeholder="Full name" error={tried && !!err.name} /></Field>
           <Field label="Purpose" required id="vs-purpose"><Select id="vs-purpose" value={f.purpose} onChange={set('purpose')} options={PURPOSES} /></Field>
-          {f.purpose === 'Admission enquiry' && <Banner tone="info" title="The enquiry form opens next,">so the details reach Admissions with an owner and a follow-up.</Banner>}
+          {f.purpose === 'Admission enquiry' && (gate
+        ? <Banner tone="info" title="Send them to the reception desk.">The desk takes the admission enquiry.</Banner>
+        : <Banner tone="info" title="The enquiry form opens next,">so the details reach Admissions with an owner and a follow-up.</Banner>)}
           <Field label="Person to meet" required={needMeet} id="vs-meet" error={tried && err.meet} hint={m ? <span className={cx('font-semibold', { ok: 'text-ok', warn: 'text-warn', bad: 'text-bad' }[m.tone])}>{m.now}</span> : 'Shows if they are on leave or teaching now'}>
             <Select id="vs-meet" value={f.meet} onChange={set('meet')} error={tried && !!err.meet} options={[{ value: '', label: 'Choose staff member' }, ...MEET.map((x) => ({ value: x.name, label: `${x.name} · ${x.role}` }))]} />
           </Field>
@@ -423,9 +474,13 @@ function DeskPage() {
   const [pass, setPass] = useState(null);
   const [out, setOut] = useState(null);
   const [enqFrom, setEnqFrom] = useState(null);
+  // Only link to Front Office pages this person has (Office Staff: visitors and pickups)
+  const { pages } = usePage();
+  // Office Staff may see only visitors and pickups here (05-roles.md), whatever tabs exist
+  const has = (pg) => pages.some((x) => x.id === pg) && (role.id !== 'officestaff' || ['visitors', 'pickup'].includes(pg));
   const inside = visitors.filter((v) => v.status === 'In');
   const expired = visitors.filter((v) => v.status === 'Expired');
-  const upcoming = APPTS.filter((a) => ['Booked', 'Arrived'].includes(a.status));
+  const upcoming = APPTS_TODAY.filter((a) => ['Booked', 'Arrived'].includes(a.status));
   const checkOut = (v, t) => {
     setVisitors((x) => x.map((y) => (y.pass === v.pass ? { ...y, status: 'Out', out: t } : y)));
     setPass(null);
@@ -433,7 +488,7 @@ function DeskPage() {
   };
   const BIG = [
     ['New visitor', 'Name, phone, whom to meet', I.IdCard, () => setSheet('visitor')],
-    ['Student pickup', 'Early pickup gate pass', I.DoorOpen, () => go('frontoffice', { page: 'pickup' })],
+    ...(has('pickup') ? [['Student pickup', 'Early pickup gate pass', I.DoorOpen, () => go('frontoffice', { page: 'pickup' })]] : []),
     ['New enquiry', 'Goes to Admissions', I.PhoneIncoming, () => setSheet('enquiry')],
     ['Log a call', 'Incoming or outgoing', I.PhoneCall, () => setSheet('call')],
   ];
@@ -443,10 +498,10 @@ function DeskPage() {
         actions={<Button variant="secondary" icon={I.ClipboardList} onClick={() => setSheet('walkin')}>Walk-in request</Button>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
         <Band items={[
-          { label: 'In the building now', big: String(inside.length), foot: `${inside.filter((v) => v.reply === 'Wait').length} waiting to be called in`, onClick: () => go('frontoffice', { page: 'visitors' }) },
-          { label: 'Visitors today', big: String(visitors.filter((v) => v.date === 'Today').length), foot: 'Average 26 minutes inside', onClick: () => go('frontoffice', { page: 'visitors' }) },
-          { label: 'Appointments today', big: String(APPTS.length), foot: `Next: ${upcoming[1]?.t || upcoming[0]?.t}, ${upcoming[1]?.visitor || ''}`, onClick: () => go('frontoffice', { page: 'appointments' }) },
-          { label: 'Calls and enquiries', big: <>{CALLS.length + 5}<span className="text-[0.55em] opacity-70 font-medium"> calls · {ENQ.length - 1} enq.</span></>, foot: '2 follow-ups due today', onClick: role.access.frontoffice === 'full' ? () => go('frontoffice', { page: 'enquiries' }) : undefined },
+          { label: 'In the building now', big: String(inside.length), foot: `${inside.filter((v) => v.reply === 'Wait').length} waiting to be called in`, onClick: has('visitors') ? () => go('frontoffice', { page: 'visitors' }) : undefined },
+          { label: 'Visitors today', big: String(visitors.filter((v) => v.date === 'Today').length), foot: 'Average 26 minutes inside', onClick: has('visitors') ? () => go('frontoffice', { page: 'visitors' }) : undefined },
+          ...(has('appointments') ? [{ label: 'Appointments today', big: String(APPTS_TODAY.length), foot: `Next: ${upcoming[1]?.t || upcoming[0]?.t}, ${upcoming[1]?.visitor || ''}`, onClick: () => go('frontoffice', { page: 'appointments' }) }] : []),
+          ...(has('enquiries') ? [{ label: 'Calls and enquiries', big: <>{CALLS_TODAY.length + 5}<span className="text-[0.55em] opacity-70 font-medium"> calls · {ENQ.filter((e) => e.iso === TODAY_ISO).length} enq.</span></>, foot: '2 follow-ups due today', onClick: () => go('frontoffice', { page: 'enquiries' }) }] : []),
         ]} />
 
         {canEdit && (
@@ -518,16 +573,18 @@ function DeskPage() {
               )}
               {!canEdit && <div className="h-4" />}
             </Card>
+            {has('appointments') && (
+              <Card>
+                <CardHead title="Appointments today" sub="Next one first" icon={I.CalendarClock} action={<button onClick={() => go('frontoffice', { page: 'appointments' })} className="text-[13px] font-semibold text-brand hover:underline">Open</button>} />
+                <ul className="px-2 pb-2">
+                  {[...upcoming, ...APPTS_TODAY.filter((a) => !['Booked', 'Arrived'].includes(a.status))].slice(0, 5).map((a) => (
+                    <li key={a.id}><Row avatar={a.visitor} title={`${a.t} · ${a.visitor}`} sub={`With ${a.with} · ${a.purpose}`} right={<Pill tone={AP_TONE[a.status]}>{a.status === 'Arrived' && a.id === 'AP3' ? 'In meeting' : a.status}</Pill>} /></li>
+                  ))}
+                </ul>
+              </Card>
+            )}
             <Card>
-              <CardHead title="Appointments today" sub="Next one first" icon={I.CalendarClock} action={<button onClick={() => go('frontoffice', { page: 'appointments' })} className="text-[13px] font-semibold text-brand hover:underline">Open</button>} />
-              <ul className="px-2 pb-2">
-                {[...upcoming, ...APPTS.filter((a) => !['Booked', 'Arrived'].includes(a.status))].slice(0, 5).map((a) => (
-                  <li key={a.id}><Row avatar={a.visitor} title={`${a.t} · ${a.visitor}`} sub={`With ${a.with} · ${a.purpose}`} right={<Pill tone={AP_TONE[a.status]}>{a.status === 'Arrived' && a.id === 'AP3' ? 'In meeting' : a.status}</Pill>} /></li>
-                ))}
-              </ul>
-            </Card>
-            <Card>
-              <CardHead title="Early pickups today" icon={I.DoorOpen} action={<button onClick={() => go('frontoffice', { page: 'pickup' })} className="text-[13px] font-semibold text-brand hover:underline">Open</button>} />
+              <CardHead title="Early pickups today" icon={I.DoorOpen} action={has('pickup') && <button onClick={() => go('frontoffice', { page: 'pickup' })} className="text-[13px] font-semibold text-brand hover:underline">Open</button>} />
               <ul className="px-2 pb-2">
                 {PICKUPS.map((p) => <li key={p.gp}><Row avatar={p.student} title={`${p.student}, ${p.cls}`} sub={`${p.time} · with ${p.by} (${p.rel.toLowerCase()}) · ${p.reason}`} right={<Pill tone={p.left ? 'ok' : 'warn'}>{p.left ? 'Left' : 'At gate'}</Pill>} /></li>)}
               </ul>
@@ -557,15 +614,21 @@ function VisitorsPage() {
   const [visitors, setVisitors] = useState(VISITORS);
   const [gateLog, setGateLog] = useState(GATE);
   const [f, setF] = useState('all');
-  const [day, setDay] = useState('Today');
+  const [per, setPer] = useState(PERIODS.today);
   const [q, setQ] = useState('');
   const [sheet, setSheet] = useState(null);
   const [pass, setPass] = useState(null);
   const [out, setOut] = useState(null);
+  // Office Staff and Gate Security see only the last 4 digits of a visitor's phone
+  const seesV = ['principal', 'schooladmin', 'receptionist', 'vp'].includes(role.id);
+  const vph = (p) => (seesV ? p : mask(p));
   const t = q.trim().toLowerCase();
+  const inPer = (iso) => iso >= per.from && iso <= per.to;
+  const gateRows = gateLog.filter((g) => inPer(g.iso || TODAY_ISO));
   const rows = visitors
-    .filter((v) => (day === 'Today' ? v.date === 'Today' || v.status === 'Expired' : day === 'Yesterday' ? v.date === '8 Oct' : true))
-    .filter((v) => (f === 'all' || v.status === f) && (!t || (v.name + v.phone.replace(' ', '') + v.vehicle + v.pass + v.meet).toLowerCase().includes(t.replace(/\s/g, ''))))
+    // A visitor never checked out stays on the list while the dates include today
+    .filter((v) => inPer(v.iso || TODAY_ISO) || (v.status === 'Expired' && per.to >= TODAY_ISO))
+    .filter((v) => (f === 'all' || v.status === f) && (!t || (v.name + (seesV ? v.phone.replace(' ', '') : '') + v.vehicle + v.pass + v.meet).toLowerCase().replace(/\s/g, '').includes(t.replace(/\s/g, ''))))
     .sort((a, b) => ({ In: 0, Expired: 1, Out: 2 }[a.status] - { In: 0, Expired: 1, Out: 2 }[b.status]));
   const expired = visitors.filter((v) => v.status === 'Expired');
   const checkOut = (v, tm) => {
@@ -584,7 +647,7 @@ function VisitorsPage() {
         <Stats items={[
           { label: 'In the building now', value: String(visitors.filter((v) => v.status === 'In').length), sub: 'Oldest since 8:50 AM', tone: 'ok', icon: 'Users', onClick: () => { setView('log'); setF('In'); } },
           { label: 'Visitors today', value: String(visitors.filter((v) => v.date === 'Today').length), sub: '13 people with companions', icon: 'IdCard', onClick: () => { setView('log'); setF('all'); } },
-          { label: 'Gate entries today', value: String(gateLog.length), sub: '3 school buses, 2 vans', icon: 'Car', onClick: () => setView('gate') },
+          { label: 'Gate entries today', value: String(gateLog.filter((g) => (g.iso || TODAY_ISO) === TODAY_ISO).length), sub: '3 school buses, 2 vans', icon: 'Car', onClick: () => setView('gate') },
           { label: 'Not checked out', value: String(expired.length), sub: 'Pass expired', tone: expired.length ? 'bad' : undefined, icon: 'TimerOff', onClick: () => { setView('log'); setF('Expired'); } },
         ]} />
         {expired.length > 0 && !gate && (
@@ -592,19 +655,21 @@ function VisitorsPage() {
             {expired[0].name}, pass {expired[0].pass}, expired at {PASS_END} on {expired[0].date}.
           </Alert>
         )}
-        <Segmented value={view} onChange={setView} className="self-start" options={[{ value: 'log', label: 'Visitor log', icon: I.IdCard }, { value: 'gate', label: 'Gate log', icon: I.Car }]} />
+        <div className="flex flex-col @md:flex-row @md:items-center gap-2.5">
+          <Segmented value={view} onChange={setView} className="self-start" options={[{ value: 'log', label: 'Visitor log', icon: I.IdCard }, { value: 'gate', label: 'Gate log', icon: I.Car }]} />
+          <DatePeriod id="vis-per" value={per} onChange={setPer} className="w-full @md:w-auto" />
+        </div>
         {view === 'log' ? (
           <Split>
             <Card className="overflow-hidden">
               <Toolbar>
-                <SearchBox id="vis-search" value={q} onChange={setQ} placeholder="Name, phone, vehicle or pass number" />
-                <Select value={day} onChange={setDay} options={['Today', 'Yesterday', 'This week']} className="@md:w-40" />
-                <ExportButton what="visitor log" />
+                <SearchBox id="vis-search" value={q} onChange={setQ} placeholder={seesV ? 'Name, phone, vehicle or pass number' : 'Name, vehicle or pass number'} />
+                {!gate && <ExportButton what="visitor log" />}
               </Toolbar>
               <div className="px-3 pt-3 pb-1"><Chips value={f} onChange={setF} options={[{ value: 'all', label: 'All' }, { value: 'In', label: 'In the building' }, { value: 'Out', label: 'Out' }, { value: 'Expired', label: 'Expired' }]} /></div>
-              <DataList rows={rows} rowKey={(v) => v.pass} minWidth={860} onRow={(v) => setPass(v)} footer={`Showing ${rows.length} visitors · ${day.toLowerCase()}`}
+              <DataList rows={rows} rowKey={(v) => v.pass} minWidth={860} onRow={(v) => setPass(v)} footer={`Showing ${rows.length} visitors · ${per.label} · ${fmtRange(per)}`}
                 columns={[
-                  { key: 'name', label: 'Visitor', render: (v) => <div className="flex items-center gap-3"><Avatar name={v.name} size={36} /><div className="min-w-0"><p className="font-semibold leading-tight">{v.name}</p><p className="text-[12px] text-ink3 tnum">{v.phone}{v.people > 1 ? ` · ${v.people} people` : ''}</p></div></div> },
+                  { key: 'name', label: 'Visitor', render: (v) => <div className="flex items-center gap-3"><Avatar name={v.name} size={36} /><div className="min-w-0"><p className="font-semibold leading-tight">{v.name}</p><p className="text-[12px] text-ink3 tnum">{vph(v.phone)}{v.people > 1 ? ` · ${v.people} people` : ''}</p></div></div> },
                   { key: 'purpose', label: 'Purpose', render: (v) => <div><p className="text-[13.5px]">{v.purpose}</p>{v.note && <p className="text-[12px] text-ink3">{v.note}</p>}</div> },
                   { key: 'meet', label: 'To meet', render: (v) => <div><p className="text-[13.5px]">{v.meet}</p>{v.reply && v.status === 'In' && <p className={cx('text-[12px] font-semibold', { ok: 'text-ok', warn: 'text-warn', bad: 'text-bad' }[REPLY_TONE[v.reply]])}>Replied: {v.reply}</p>}</div> },
                   { key: 'veh', label: 'Vehicle', nowrap: true, render: (v) => (v.vehicle ? <span className="font-mono text-[12.5px]">{v.vehicle}</span> : <span className="text-ink3">—</span>) },
@@ -613,7 +678,7 @@ function VisitorsPage() {
                   { key: 'act', label: '', render: (v) => (canEdit && v.status !== 'Out' ? <Button size="sm" variant="secondary" icon={I.LogOut} onClick={(e) => { e.stopPropagation(); setOut(v); }}>Check out</Button> : null) },
                 ]}
                 mobile={(v) => ({ title: v.name, sub: `${v.purpose} · ${v.meet} · in ${v.in}${v.out ? `, out ${v.out}` : ''}`, avatar: v.name, pills: [<Pill key="s" tone={V_TONE[v.status]} className="!h-[22px] !text-[11.5px]">{v.status}</Pill>, v.reply && v.status === 'In' && <Pill key="r" tone={REPLY_TONE[v.reply]} className="!h-[22px] !text-[11.5px]">{v.reply}</Pill>, v.vehicle && <Pill key="v" className="!h-[22px] !text-[11.5px] font-mono">{v.vehicle}</Pill>].filter(Boolean) })}
-                empty={<Empty icon={I.SearchX} title="No visitor matches" body="Try the phone number, the vehicle number or another day." action={<Button variant="secondary" onClick={() => { setQ(''); setF('all'); setDay('Today'); }}>Clear filters</Button>} />} />
+                empty={<Empty icon={I.SearchX} title="No visitor matches" body={`Nobody matches ${fmtRange(per)}. Try the vehicle number or other dates.`} action={<Button variant="secondary" onClick={() => { setQ(''); setF('all'); setPer(PERIODS.last30); }}>Clear filters, last 30 days</Button>} />} />
             </Card>
             <Col>
               <Card>
@@ -629,25 +694,26 @@ function VisitorsPage() {
           </Split>
         ) : (
           <Card className="overflow-hidden">
-            <CardHead title="Gate log" sub="Entries and exits at the main gate, with vehicle numbers and passes checked" action={<div className="flex gap-2">{canEdit && <Button size="sm" variant="soft" icon={I.Plus} onClick={() => setSheet('gate')}>Gate entry</Button>}<ExportButton what="gate log" /></div>} />
-            <DataList rows={gateLog} rowKey={(g) => g.t + g.who} minWidth={720} footer={`${gateLog.length} entries today · recorded by Bhaskar Rao`}
+            <CardHead title="Gate log" sub="Entries and exits at the main gate, with vehicle numbers and passes checked" action={<div className="flex gap-2">{canEdit && <Button size="sm" variant="soft" icon={I.Plus} onClick={() => setSheet('gate')}>Gate entry</Button>}{!gate && <ExportButton what="gate log" />}</div>} />
+            <DataList rows={gateRows} rowKey={(g) => g.iso + g.t + g.who} minWidth={720} footer={`${gateRows.length} entries · ${per.label} · ${fmtRange(per)} · recorded by Bhaskar Rao`}
+              empty={<Empty icon={I.Car} title="No gate entries in these dates" body={`Nothing was recorded at the gate ${fmtRange(per)}.`} action={<Button variant="secondary" onClick={() => setPer(PERIODS.last7)}>Last 7 days</Button>} />}
               columns={[
-                { key: 't', label: 'Time', nowrap: true, render: (g) => <span className="tnum font-semibold">{g.t}</span> },
+                { key: 't', label: 'Time', nowrap: true, render: (g) => <span className="tnum font-semibold">{g.day && g.day !== 'Today' ? `${g.day}, ` : ''}{g.t}</span> },
                 { key: 'dir', label: 'In / out', render: (g) => <Pill tone={g.dir === 'In' ? 'info' : 'neutral'}>{g.dir === 'In' ? <I.LogIn size={13} /> : <I.LogOut size={13} />}{g.dir}</Pill> },
                 { key: 'who', label: 'Person or vehicle', render: (g) => <span className="text-[13.5px] font-medium">{g.who}</span> },
                 { key: 'veh', label: 'Vehicle no.', nowrap: true, render: (g) => (g.veh ? <span className="font-mono text-[12.5px]">{g.veh}</span> : <span className="text-ink3">—</span>) },
                 { key: 'p', label: 'Purpose', render: (g) => <span className={cx('text-[13px]', g.pass ? 'text-ok font-semibold' : 'text-ink2')}>{g.purpose}</span> },
               ]}
-              mobile={(g) => ({ title: g.who, sub: `${g.t} · ${g.purpose}`, icon: g.dir === 'In' ? 'LogIn' : 'LogOut', iconTone: g.dir === 'In' ? 'info' : 'neutral', pills: g.veh ? [<Pill key="v" className="!h-[22px] !text-[11.5px] font-mono">{g.veh}</Pill>] : null })} />
+              mobile={(g) => ({ title: g.who, sub: `${g.day && g.day !== 'Today' ? `${g.day}, ` : ''}${g.t} · ${g.purpose}`, icon: g.dir === 'In' ? 'LogIn' : 'LogOut', iconTone: g.dir === 'In' ? 'info' : 'neutral', pills: g.veh ? [<Pill key="v" className="!h-[22px] !text-[11.5px] font-mono">{g.veh}</Pill>] : null })} />
           </Card>
         )}
       </div>
-      <VisitorSheet open={sheet === 'visitor'} onClose={() => setSheet(null)} onSaved={(v) => { setVisitors((x) => [v, ...x]); setPass(v); if (v.vehicle) setGateLog((x) => [{ t: '10:44 AM', dir: 'In', who: `Vehicle · ${v.name} (visitor ${v.pass})`, veh: v.vehicle, purpose: v.purpose }, ...x]); }}
-        onEnquiry={(v) => { setVisitors((x) => [v, ...x]); toast({ title: 'Open New enquiry from the Reception Desk', body: 'The enquiry goes to Admissions with an owner.', tone: 'info' }); }} />
+      <VisitorSheet open={sheet === 'visitor'} gate={gate} onClose={() => setSheet(null)} onSaved={(v) => { setVisitors((x) => [v, ...x]); setPass(v); if (v.vehicle) setGateLog((x) => [{ t: '10:44 AM', dir: 'In', who: `Vehicle · ${v.name} (visitor ${v.pass})`, veh: v.vehicle, purpose: v.purpose, iso: TODAY_ISO, day: 'Today' }, ...x]); }}
+        onEnquiry={(v) => { setVisitors((x) => [v, ...x]); setPass(v); toast({ title: gate ? 'Send them to the reception desk' : 'Open New enquiry from the Reception Desk', body: gate ? 'The desk takes admission enquiries.' : 'The enquiry goes to Admissions with an owner.', tone: 'info' }); }} />
       <PassSheet v={pass} onClose={() => setPass(null)} onCheckOut={(v) => { setPass(null); setOut(v); }} />
       <CheckOutSheet v={out} onClose={() => setOut(null)} onDone={checkOut} />
       <ScanSheet open={sheet === 'scan'} onClose={() => setSheet(null)} />
-      <GateEntrySheet open={sheet === 'gate'} onClose={() => setSheet(null)} onSaved={(g) => { setGateLog((x) => [g, ...x]); setView('gate'); }} />
+      <GateEntrySheet open={sheet === 'gate'} onClose={() => setSheet(null)} onSaved={(g) => { setGateLog((x) => [{ ...g, iso: TODAY_ISO, day: 'Today' }, ...x]); setView('gate'); }} />
     </div>
   );
 }
@@ -750,8 +816,10 @@ function PickupPage() {
   const seesPhones = useSeesPhones() || role.id === 'vp' || role.id === 'officestaff';
   const [q, setQ] = useState('');
   const [sid, setSid] = useState(FEATURED.id);
-  const [list, setList] = useState(PICKUPS);
+  const [list, setList] = useState([...PICKUPS, ...PICKUPS_OLD]);
   const [scan, setScan] = useState(false);
+  const [per, setPer] = useState(PERIODS.today);
+  const shown = list.filter((p) => (p.iso || TODAY_ISO) >= per.from && (p.iso || TODAY_ISO) <= per.to);
   const t = q.trim().toLowerCase();
   const res = t ? STUDENTS.filter((s) => s.name.toLowerCase().includes(t) || s.adm.toLowerCase().includes(t) || `${s.cls.replace('Class ', '')} ${s.sec}`.toLowerCase() === t).slice(0, 6) : [];
   const s = STUDENTS.find((x) => x.id === sid) || FEATURED;
@@ -774,7 +842,7 @@ function PickupPage() {
               <ul className="mt-2 divide-y divide-line/70 animate-fade">
                 {res.length === 0 && <li className="py-3 text-[13.5px] text-ink3">No student called “{q}”. Try the admission number.</li>}
                 {[...new Map([...(FEATURED.name.toLowerCase().includes(t) ? [FEATURED] : []), ...res].map((x) => [x.id, x])).values()].map((x) => (
-                  <li key={x.id}><button onClick={() => { setSid(x.id); setQ(''); }} className="w-full flex items-center gap-3 py-2.5 text-left hover:bg-sunken/60 rounded-xl px-2"><Avatar name={x.name} size={38} /><span className="min-w-0 flex-1"><b className="font-semibold text-[14.5px] block truncate">{x.name}</b><span className="text-[12.5px] text-ink3">{x.cls} {x.sec} · Roll {x.roll} · <span className="font-mono">{x.adm}</span></span></span><I.ChevronRight size={18} className="text-ink3" /></button></li>
+                  <li key={x.id}><button onClick={() => { setSid(x.id); setQ(''); }} className="w-full flex items-center gap-3 py-2.5 text-left hover:bg-sunken/60 rounded-xl px-2"><Avatar name={x.name} size={38} /><span className="min-w-0 flex-1"><b className="font-semibold text-[14.5px] block truncate">{x.name}</b><span className="text-[12.5px] text-ink3">{x.cls} {x.sec}{gate ? '' : <> · Roll {x.roll} · <span className="font-mono">{x.adm}</span></>}</span></span><I.ChevronRight size={18} className="text-ink3" /></button></li>
                 ))}
               </ul>
             )}
@@ -784,15 +852,17 @@ function PickupPage() {
         </Col>
         <Col>
           <Card>
-            <CardHead title="Today’s early pickups" sub={`${list.length} students · gate pass kind Pickup`} icon={I.DoorOpen} />
+            <CardHead title="Early pickups" sub={`${shown.length} ${shown.length === 1 ? 'student' : 'students'} · ${per.label} · ${fmtRange(per)}`} icon={I.DoorOpen} />
+            <div className="px-5 pb-3"><DatePeriod id="pk-per" value={per} onChange={setPer} className="w-full @md:w-auto" /></div>
+            {shown.length === 0 && <Empty icon={I.DoorOpen} title="No early pickups in these dates" body={`No child left early ${fmtRange(per)}.`} />}
             <ul className="px-2 pb-2">
-              {list.map((p) => (
+              {shown.map((p) => (
                 <li key={p.gp} className="px-3 py-2.5 rounded-xl hover:bg-sunken/60">
                   <div className="flex items-center gap-3">
                     <Avatar name={p.student} size={38} />
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-[14.5px] truncate">{p.student} <span className="text-ink3 font-normal">· {p.cls}</span></p>
-                      <p className="text-[12.5px] text-ink3 truncate">{p.time} · with {p.by} ({p.rel.toLowerCase()}) · {p.reason}</p>
+                      <p className="text-[12.5px] text-ink3 truncate">{p.day && p.day !== 'Today' ? `${p.day}, ` : ''}{p.time} · with {p.by} ({p.rel.toLowerCase()}) · {p.reason}</p>
                     </div>
                     <Pill tone={p.left ? 'ok' : 'warn'}>{p.left ? 'Left' : 'At gate'}</Pill>
                   </div>
@@ -851,7 +921,7 @@ function Release({ s, canRelease, gate, seesPhones, onReleased }) {
         <Avatar name={s.name} size={64} />
         <div className="min-w-0 flex-1">
           <p className="font-display font-semibold text-[20px] leading-tight">{s.name}</p>
-          <p className="text-[13px] text-ink3">{s.cls} {s.sec} · Roll {s.roll} · <span className="font-mono text-[12px]">{s.adm}</span></p>
+          <p className="text-[13px] text-ink3">{s.cls} {s.sec}{gate ? '' : <> · Roll {s.roll} · <span className="font-mono text-[12px]">{s.adm}</span></>}</p>
           <p className="text-[13px] text-ink3">Class teacher {ctOf(s)} · <span className="text-ok font-semibold">Present today</span></p>
         </div>
       </div>
@@ -878,7 +948,7 @@ function Release({ s, canRelease, gate, seesPhones, onReleased }) {
             })}
           </div>
           {restricted && <p className="mt-2 text-[13px] text-bad flex gap-1.5"><I.TriangleAlert size={15} className="shrink-0 mt-0.5" />{restricted.restricted}</p>}
-          <button type="button" onClick={() => setStop(true)} className="mt-3 inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-bad hover:underline"><I.UserX size={16} />Someone not on this list is here</button>
+          {(canRelease || gate) && <button type="button" onClick={() => setStop(true)} className="mt-3 inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-bad hover:underline"><I.UserX size={16} />Someone not on this list is here</button>}
         </div>
 
         {canRelease && g && (
@@ -990,11 +1060,14 @@ function EnquiriesPage() {
   const [pf, setPf] = useState('all');
   const [sheet, setSheet] = useState(null);
   const [fu, setFu] = useState(null);
+  const [per, setPer] = useState(PERIODS.last7);
+  const inPer = (iso) => iso >= per.from && iso <= per.to;
+  const erows = ENQ.filter((e) => inPer(e.iso));
   const t = q.trim().toLowerCase();
   const ph = (p) => (seesPhones ? p : mask(p));
   const canAdm = !!role.access.admissions;
   const td = t.replace(/\D/g, '');
-  const crows = calls.filter((c) => (pf === 'all' || c.purpose === pf) && (!t || (c.name + c.who + c.note).toLowerCase().includes(t) || (seesPhones && td.length > 2 && digitsOf(c.phone).includes(td))));
+  const crows = calls.filter((c) => inPer(c.iso || TODAY_ISO) && (pf === 'all' || c.purpose === pf) && (!t || (c.name + c.who + c.note).toLowerCase().includes(t) || (seesPhones && td.length > 2 && digitsOf(c.phone).includes(td))));
   return (
     <div>
       <ModuleHead sub="Walk-in and phone enquiries go straight to Admission Management. Every call is logged."
@@ -1004,16 +1077,20 @@ function EnquiriesPage() {
         </>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
         <Stats items={[
-          { label: 'Enquiries today', value: '3', sub: '2 walk-in, 1 phone', icon: 'UserPlus', onClick: () => setView('enq') },
-          { label: 'Calls today', value: String(calls.length + 5), sub: `${calls.filter((c) => c.dir === 'In').length + 4} incoming`, icon: 'Phone', onClick: () => setView('calls') },
+          { label: 'Enquiries today', value: '3', sub: '2 walk-in, 1 phone', icon: 'UserPlus', onClick: () => { setView('enq'); setPer(PERIODS.today); } },
+          { label: 'Calls today', value: String(calls.filter((c) => (c.iso || TODAY_ISO) === TODAY_ISO).length + 5), sub: `${calls.filter((c) => (c.iso || TODAY_ISO) === TODAY_ISO && c.dir === 'In').length + 4} incoming`, icon: 'Phone', onClick: () => { setView('calls'); setPer(PERIODS.today); } },
           { label: 'Follow-ups due today', value: '2', sub: 'Praveen Goud, Nitin Kulkarni', tone: 'warn', icon: 'BellRing' },
           { label: 'Complaints sent as queries', value: '1', sub: 'This week', icon: 'MessageSquare' },
         ]} />
-        <Segmented value={view} onChange={setView} className="self-start" options={[{ value: 'enq', label: 'Enquiry register', icon: I.UserPlus }, { value: 'calls', label: 'Call log', icon: I.Phone }]} />
+        <div className="flex flex-col @md:flex-row @md:items-center gap-2.5">
+          <Segmented value={view} onChange={setView} className="self-start" options={[{ value: 'enq', label: 'Enquiry register', icon: I.UserPlus }, { value: 'calls', label: 'Call log', icon: I.Phone }]} />
+          <DatePeriod id="enq-per" value={per} onChange={setPer} className="w-full @md:w-auto" />
+        </div>
         {view === 'enq' ? (
           <Card className="overflow-hidden">
             <CardHead title="Enquiries taken at the desk" sub="The same records as Admission Management, Enquiries" action={canAdm && <Button size="sm" variant="soft" icon={I.ExternalLink} onClick={() => go('admissions', { page: 'enquiries' })}>Open in Admissions</Button>} />
-            <DataList rows={ENQ} rowKey={(e) => e.id} minWidth={820} footer="Owner and follow-up are set by Admissions as soon as the enquiry is saved"
+            <DataList rows={erows} rowKey={(e) => e.id} minWidth={820} footer={`${erows.length} ${erows.length === 1 ? 'enquiry' : 'enquiries'} · ${per.label} · ${fmtRange(per)} · owner and follow-up are set by Admissions`}
+              empty={<Empty icon={I.UserPlus} title="No enquiries in these dates" body={`No enquiry was taken at the desk ${fmtRange(per)}.`} action={<Button variant="secondary" onClick={() => setPer(PERIODS.thismonth)}>This month</Button>} />}
               onRow={canAdm ? () => go('admissions', { page: 'enquiries' }) : undefined}
               columns={[
                 { key: 'child', label: 'Child', render: (e) => <div><p className="font-semibold leading-tight">{e.child}</p><p className="text-[12px] text-ink3"><span className="font-mono">{e.id}</span> · {e.t}</p></div> },
@@ -1032,9 +1109,10 @@ function EnquiriesPage() {
               <Select value={pf} onChange={setPf} options={[{ value: 'all', label: 'All purposes' }, 'Admission enquiry', 'Fee', 'Transport', 'Complaint', 'Other']} className="@md:w-48" />
               <ExportButton what="call log" />
             </Toolbar>
-            <DataList rows={crows} rowKey={(c) => c.id} minWidth={900} footer={seesPhones ? `${crows.length} calls today · roles without “see parent phone numbers” see only the last 4 digits` : `${crows.length} calls today · parents’ numbers show only the last 4 digits, also in the export`}
+            <DataList rows={crows} rowKey={(c) => c.id} minWidth={900} footer={`${crows.length} calls · ${per.label} · ${fmtRange(per)}${seesPhones ? '' : ' · parents’ numbers show only the last 4 digits, also in the export'}`}
+              empty={<Empty icon={I.Phone} title="No calls match" body={`Nothing logged ${fmtRange(per)} with these filters.`} action={<Button variant="secondary" onClick={() => { setQ(''); setPf('all'); setPer(PERIODS.last30); }}>Clear filters, last 30 days</Button>} />}
               columns={[
-                { key: 't', label: 'Time', nowrap: true, render: (c) => <span className="flex items-center gap-2 tnum text-[13.5px]"><span className={cx('w-7 h-7 rounded-lg grid place-items-center', c.dir === 'In' ? TONE_SOFT.info : TONE_SOFT.neutral)}>{c.dir === 'In' ? <I.PhoneIncoming size={14} /> : <I.PhoneOutgoing size={14} />}</span>{c.t}</span> },
+                { key: 't', label: 'Time', nowrap: true, render: (c) => <span className="flex items-center gap-2 tnum text-[13.5px]"><span className={cx('w-7 h-7 rounded-lg grid place-items-center', c.dir === 'In' ? TONE_SOFT.info : TONE_SOFT.neutral)}>{c.dir === 'In' ? <I.PhoneIncoming size={14} /> : <I.PhoneOutgoing size={14} />}</span>{c.day && c.day !== 'Today' ? `${c.day}, ` : ''}{c.t}</span> },
                 { key: 'name', label: 'Caller or person called', render: (c) => <div><p className="font-semibold leading-tight">{c.name}</p><p className="text-[12px] text-ink3">{c.who}</p></div> },
                 { key: 'phone', label: 'Phone', nowrap: true, render: (c) => <span className="tnum text-[13.5px]">{c.parent ? ph(c.phone) : c.phone}</span> },
                 { key: 'purpose', label: 'Purpose', render: (c) => <div className="max-w-[260px]"><p className="text-[13.5px] font-medium">{c.purpose}</p><p className="text-[12px] text-ink3">{c.note}</p></div> },
@@ -1047,7 +1125,7 @@ function EnquiriesPage() {
         )}
       </div>
       <EnquirySheet open={sheet === 'enquiry'} onClose={() => setSheet(null)} source="Walk-in" />
-      <CallSheet open={sheet === 'call'} onClose={() => setSheet(null)} onSaved={(c) => { setCalls((x) => [c, ...x]); setView('calls'); }} />
+      <CallSheet open={sheet === 'call'} onClose={() => setSheet(null)} onSaved={(c) => { setCalls((x) => [{ ...c, iso: TODAY_ISO, day: 'Today' }, ...x]); setView('calls'); }} />
       <FollowUpSheet c={fu} onClose={() => setFu(null)} onSaved={(c, txt) => setCalls((x) => x.map((y) => (y.id === c.id ? { ...y, follow: txt, status: 'Follow-up' } : y)))} />
     </div>
   );
@@ -1086,7 +1164,7 @@ function scheduleFor(name, day) {
     return name === 'Lakshmi Rao' ? [{ s: '9:00 AM', e: '9:30 AM', kind: 'booked', label: 'Swathi Varma · School visit for Myra (Nursery)', status: 'Booked' }, { s: '9:30 AM', e: '11:00 AM', kind: 'free' }, ...segs.slice(1)] : segs;
   }
   if (day === 'mon') return [{ s: '9:00 AM', e: '12:00 PM', kind: 'busy', label: 'Half-yearly exams: rounds of exam halls' }, { s: '12:00 PM', e: '1:00 PM', kind: 'free' }, { s: '2:00 PM', e: '3:30 PM', kind: 'free' }];
-  const mine = APPTS.filter((a) => a.with === name).map((a) => ({ s: a.t, e: fmt(toMin(a.t) + a.len), kind: a.id === 'AP3' ? 'now' : a.status === 'No-show' ? 'noshow' : a.status === 'Done' ? 'done' : 'booked', label: `${a.visitor} · ${a.purpose}`, status: a.status }));
+  const mine = APPTS_TODAY.filter((a) => a.with === name).map((a) => ({ s: a.t, e: fmt(toMin(a.t) + a.len), kind: a.id === 'AP3' ? 'now' : a.status === 'No-show' ? 'noshow' : a.status === 'Done' ? 'done' : 'booked', label: `${a.visitor} · ${a.purpose}`, status: a.status }));
   const fixed = {
     'Lakshmi Rao': [{ s: '9:00 AM', e: '9:45 AM', kind: 'busy', label: 'Assembly and school rounds' }, { s: '12:00 PM', e: '12:40 PM', kind: 'busy', label: 'Exam committee meeting' }, { s: '12:40 PM', e: '1:30 PM', kind: 'busy', label: 'Lunch' }],
     'Srinivas Murthy': [{ s: '9:45 AM', e: '10:30 AM', kind: 'busy', label: 'Substitution planning' }, { s: '12:40 PM', e: '1:30 PM', kind: 'busy', label: 'Lunch' }],
@@ -1113,12 +1191,14 @@ function AppointmentsPage() {
   const [day, setDay] = useState('today');
   const [list, setList] = useState(APPTS);
   const [book, setBook] = useState(null);
+  const [per, setPer] = useState(PERIODS.today);
+  const shown = list.filter((a) => (a.iso || '2026-10-09') >= per.from && (a.iso || '2026-10-09') <= per.to);
   const segs = scheduleFor(who, day);
   const setStatus = (a, st) => {
     setList((x) => x.map((y) => (y.id === a.id ? { ...y, status: st } : y)));
     toast({ title: `${a.visitor}: ${st.toLowerCase()}`, body: st === 'Arrived' ? `Visitor entry made with the details filled. ${a.with} told.` : st === 'Cancelled' ? 'A message went to the visitor.' : 'Saved.', undo: () => setList((x) => x.map((y) => (y.id === a.id ? a : y))) });
   };
-  const nowFirst = [...list].sort((a, b) => ({ Arrived: 0, Booked: 1, Done: 2, 'No-show': 3, Cancelled: 4 }[a.status] - { Arrived: 0, Booked: 1, Done: 2, 'No-show': 3, Cancelled: 4 }[b.status]) || toMin(a.t) - toMin(b.t));
+  const nowFirst = [...shown].sort((a, b) => (a.iso || '').localeCompare(b.iso || '') || ({ Arrived: 0, Booked: 1, Done: 2, 'No-show': 3, Cancelled: 4 }[a.status] - { Arrived: 0, Booked: 1, Done: 2, 'No-show': 3, Cancelled: 4 }[b.status]) || toMin(a.t) - toMin(b.t));
   return (
     <div>
       <ModuleHead sub="Meetings with the Principal and staff. Booked, leave and teaching times cannot be chosen."
@@ -1163,11 +1243,13 @@ function AppointmentsPage() {
         </Card>
         <Col>
           <Card>
-            <CardHead title="Today’s appointments" sub={`${list.length} booked · next one first`} icon={I.CalendarClock} action={<ExportButton what="appointments" />} />
+            <CardHead title="Appointments" sub={`${shown.length} · ${per.label} · ${fmtRange(per)}`} icon={I.CalendarClock} action={<ExportButton what="appointments" />} />
+            <div className="px-5 pb-3"><DatePeriod id="ap-per" value={per} onChange={setPer} future className="w-full @md:w-auto" /></div>
+            {shown.length === 0 && <Empty icon={I.CalendarClock} title="No appointments in these dates" body={`Nothing booked ${fmtRange(per)}.`} action={<Button variant="secondary" onClick={() => setPer(PERIODS.next30)}>Next 30 days</Button>} />}
             <ul className="px-2 pb-2">
               {nowFirst.map((a) => (
                 <li key={a.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sunken/60">
-                  <span className="w-14 shrink-0 text-[13px] font-semibold tnum">{a.t.replace(' AM', '').replace(' PM', '')}<span className="block text-[11px] text-ink3 font-medium">{a.t.slice(-2)} · {a.len}m</span></span>
+                  <span className="w-14 shrink-0 text-[13px] font-semibold tnum">{a.t.replace(' AM', '').replace(' PM', '')}<span className="block text-[11px] text-ink3 font-medium">{a.t.slice(-2)} · {a.len}m</span>{a.day && a.day !== 'Today' && <span className="block text-[11px] text-ink3 font-medium">{a.day}</span>}</span>
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold text-[14px] truncate">{a.visitor}</p>
                     <p className="text-[12.5px] text-ink3 truncate">With {a.with} · {a.purpose}</p>
@@ -1184,7 +1266,7 @@ function AppointmentsPage() {
           </Card>
         </Col>
       </Split>
-      <BookSheet b={book} onClose={() => setBook(null)} onBooked={(a) => setList((x) => (book?.re ? x.map((y) => (y.id === book.re.id ? { ...y, t: a.t } : y)) : [...x, a]))} />
+      <BookSheet b={book} onClose={() => setBook(null)} onBooked={(a) => setList((x) => (book?.re ? x.map((y) => (y.id === book.re.id ? { ...y, t: a.t, iso: a.iso, day: a.day } : y)) : [...x, a]))} />
     </div>
   );
 }
@@ -1213,7 +1295,7 @@ function BookSheet({ b, onClose, onBooked }) {
     <FormSheet open={!!b} onClose={onClose} title={b.re ? `Reschedule ${b.re.visitor}` : 'Book appointment'} sub="Only free slots can be picked. The server checks again before saving." submitLabel={b.re ? 'Reschedule' : 'Book'} wide
       onSubmit={() => {
         setTried(true); if (Object.values(err).some(Boolean)) return false;
-        onBooked({ id: 'AP' + Date.now(), t: slot, len: Number(len), visitor: name.trim(), phone, with: who, purpose: purpose.trim(), status: 'Booked' });
+        onBooked({ id: 'AP' + Date.now(), t: slot, len: Number(len), visitor: name.trim(), phone, with: who, purpose: purpose.trim(), status: 'Booked', iso: `2026-10-${date.slice(0, 2)}`, day: date === '09-10-2026' ? 'Today' : date === '10-10-2026' ? 'Sat 10 Oct' : 'Mon 12 Oct' });
         toast({ title: `${b.re ? 'Moved' : 'Booked'}: ${name.trim()} with ${who}`, body: `${date === '09-10-2026' ? 'Today' : date}, ${slot} for ${len} minutes.${confirm ? ' Confirmation sent on WhatsApp.' : ''}` });
       }}>
       <div className="grid @sm:grid-cols-2 gap-3">
@@ -1252,8 +1334,10 @@ function PostalPage() {
   const [q, setQ] = useState('');
   const [sheet, setSheet] = useState(null);
   const [hand, setHand] = useState(null);
+  const [per, setPer] = useState(PERIODS.last7);
   const t = q.trim().toLowerCase();
-  const rows = rows0.filter((r) => (f === 'all' || r.status === f) && (!t || (r.party + r.for + r.track + r.id + r.courier).toLowerCase().includes(t)));
+  // Items still at the desk show while the dates include today
+  const rows = rows0.filter((r) => ((r.iso || TODAY_ISO) >= per.from && (r.iso || TODAY_ISO) <= per.to || (r.status === 'At desk' && per.to >= TODAY_ISO)) && (f === 'all' || r.status === f) && (!t || (r.party + r.for + r.track + r.id + r.courier).toLowerCase().includes(t)));
   const atDesk = rows0.filter((r) => r.status === 'At desk');
   return (
     <div>
@@ -1272,10 +1356,12 @@ function PostalPage() {
         <Card className="overflow-hidden">
           <Toolbar>
             <SearchBox id="pd-search" value={q} onChange={setQ} placeholder="From, to, person or tracking number" />
+            <DatePeriod id="pd-per" value={per} onChange={setPer} className="w-full @md:w-auto" />
             <ExportButton what="postal register" />
           </Toolbar>
           <div className="px-3 pt-3 pb-1"><Chips value={f} onChange={setF} options={[{ value: 'all', label: 'All', count: rows0.length }, { value: 'At desk', label: 'At desk', count: atDesk.length }, { value: 'Handed over', label: 'Handed over' }, { value: 'Sent', label: 'Sent' }]} /></div>
-          <DataList rows={rows} rowKey={(r) => r.id} minWidth={900} footer={`Showing ${rows.length} of 214 entries this year`}
+          <DataList rows={rows} rowKey={(r) => r.id} minWidth={900} footer={`Showing ${rows.length} · ${per.label} · ${fmtRange(per)} · 214 entries this year`}
+            empty={<Empty icon={I.Inbox} title="Nothing in these dates" body={`No letters, couriers or parcels ${fmtRange(per)}.`} action={<Button variant="secondary" onClick={() => { setPer(PERIODS.last30); setF('all'); setQ(''); }}>Last 30 days</Button>} />}
             columns={[
               { key: 'd', label: 'Date', nowrap: true, render: (r) => <div><p className="text-[13px] tnum">{r.d}</p><p className="text-[11.5px] text-ink3 font-mono">{r.id}</p></div> },
               { key: 'dir', label: 'Received or sent', render: (r) => <span className="flex items-center gap-2"><span className={cx('w-8 h-8 rounded-lg grid place-items-center', r.dir === 'Received' ? TONE_SOFT.brand : TONE_SOFT.info)}>{r.dir === 'Received' ? <I.ArrowDownToLine size={15} /> : <I.ArrowUpFromLine size={15} />}</span><span className="text-[13.5px]">{r.dir}<span className="block text-[12px] text-ink3">{r.type}</span></span></span> },

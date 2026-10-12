@@ -43,7 +43,21 @@ export type ReportInput = {
   /** Student leave report: this month or the whole year. */
   period: "month" | "year";
   today: Date;
+  /** The shared date filter (Late arrivals, Student leave, Overtime, Date range, Device health); null keeps the month. */
+  dates?: { from: Date; to: Date; label: string } | null;
 };
+
+/** The reports that use the shared date filter rather than one month or one date. */
+export const DATED_REPORTS: ReportKey[] = ["late", "leave", "overtime", "range", "devices"];
+
+/** Applies the shared date filter (lib/periods) to a report's input. */
+export function withDates(input: ReportInput, range: { from: string; to: string; label: string } | null): ReportInput {
+  if (!range || !DATED_REPORTS.includes(input.report)) return input;
+  const from = new Date(`${range.from}T00:00:00Z`);
+  const to = new Date(`${range.to}T00:00:00Z`);
+  const cap = to > input.today ? input.today : to;
+  return { ...input, from, to: cap < from ? from : cap, dates: { from, to: cap < from ? from : cap, label: range.label } };
+}
 
 const pct = (n: number | null) => percentText(n);
 const dayText = (d: Date) => formatDate(d, "UTC");
@@ -230,8 +244,9 @@ export async function runReport(tx: Tx, ctx: SchoolContext, access: AttendanceAc
       };
     }
     case "late": {
-      const from = monthStart(input.month);
-      const to = monthEnd(input.month);
+      const from = input.dates?.from ?? monthStart(input.month);
+      const to = input.dates?.to ?? monthEnd(input.month);
+      const words = input.dates ? `${dayText(from)} to ${dayText(to)}` : monthLabel(from);
       const rows: ReportRow[] = [];
       if (students) {
         const sections = await sectionsInReach(tx, access);
@@ -245,16 +260,16 @@ export async function runReport(tx: Tx, ctx: SchoolContext, access: AttendanceAc
         for (const m of marks.sort((a, b) => b._count - a._count)) rows.push({ who: people.get(m.staffId!)?.fullName ?? "Staff", kind: "Staff", group: people.get(m.staffId!)?.designation ?? "", count: m._count, minutes: minutesText(m._sum.lateMinutes ?? 0) });
       }
       return {
-        title: `Late arrivals ${monthLabel(from)}`, filters: `Month ${monthLabel(from)}`,
+        title: `Late arrivals ${words}`, filters: input.dates ? `Dates ${words}` : `Month ${words}`,
         columns: [{ key: "who", label: "Name", phone: "title" }, { key: "kind", label: "Student or staff" }, { key: "group", label: "Class or designation", phone: "meta" }, { key: "count", label: "Late days", numeric: true, phone: "badge" }, { key: "minutes", label: "Minutes late in all" }],
-        rows, empty: "Nobody was late this month.",
+        rows, empty: input.dates ? "Nobody was late in these dates." : "Nobody was late this month.",
       };
     }
     case "leave": {
       const sections = await sectionsInReach(tx, access);
       const year = access.yearId ? await tx.academicYear.findUnique({ where: { id: access.yearId } }) : null;
-      const from = input.period === "year" && year ? year.startDate : monthStart(input.month);
-      const to = input.period === "year" && year ? year.endDate : monthEnd(input.month);
+      const from = input.dates?.from ?? (input.period === "year" && year ? year.startDate : monthStart(input.month));
+      const to = input.dates?.to ?? (input.period === "year" && year ? year.endDate : monthEnd(input.month));
       const enrol = await tx.enrolment.findMany({ where: { sectionId: { in: sections.map((s) => s.id) }, archivedAt: null }, select: { studentId: true, sectionId: true } });
       const sectionOf = new Map(enrol.map((e) => [e.studentId, e.sectionId]));
       const leave = await tx.leaveRequest.findMany({ where: { studentId: { in: enrol.map((e) => e.studentId) }, archivedAt: null, status: "APPROVED", fromDate: { lte: to }, toDate: { gte: from } }, select: { studentId: true, leaveTypeId: true, days: true } });
@@ -269,17 +284,18 @@ export async function runReport(tx: Tx, ctx: SchoolContext, access: AttendanceAc
         a.days += Number(l.days);
         agg.set(k, a);
       }
-      const label = input.period === "year" && year ? `Academic year ${year.name}` : `Month ${monthLabel(from)}`;
+      const label = input.dates ? `Dates ${dayText(from)} to ${dayText(to)}` : input.period === "year" && year ? `Academic year ${year.name}` : `Month ${monthLabel(from)}`;
       return {
-        title: `Student leave ${label.replace("Month ", "")}`, filters: `${label}; approved leave`,
+        title: `Student leave ${label.replace(/^(Month|Dates) /, "")}`, filters: `${label}; approved leave`,
         columns: [{ key: "cls", label: "Class and section", phone: "title" }, { key: "type", label: "Leave type", phone: "meta" }, { key: "requests", label: "Requests", numeric: true }, { key: "days", label: "Days", numeric: true, phone: "badge" }],
         rows: [...agg.values()].sort((a, b) => a.cls.localeCompare(b.cls) || a.type.localeCompare(b.type)), empty: "No approved student leave in this period.",
       };
     }
     case "overtime": {
       if (!staffAll) return { title: "Overtime and shifts", filters: "", columns: [], rows: [], empty: "Only HR, the School Admin or the Principal can see this report." };
-      const from = monthStart(input.month);
-      const to = monthEnd(input.month);
+      const from = input.dates?.from ?? monthStart(input.month);
+      const to = input.dates?.to ?? monthEnd(input.month);
+      const words = input.dates ? `${dayText(from)} to ${dayText(to)}` : monthLabel(from);
       const ot = await tx.overtimeEntry.groupBy({ by: ["staffId"], where: { archivedAt: null, date: { gte: from, lte: to } }, _sum: { minutes: true }, _count: true });
       const staff = await tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] } }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, staffCode: true } });
       const assignments = await tx.staffShiftAssignment.findMany({ where: { archivedAt: null, fromDate: { lte: to } }, orderBy: { fromDate: "desc" }, include: { shift: true } });
@@ -287,7 +303,7 @@ export async function runReport(tx: Tx, ctx: SchoolContext, access: AttendanceAc
       for (const a of assignments) if (!shiftOf.has(a.staffId) && !a.shift.archivedAt) shiftOf.set(a.staffId, a.shift.name);
       const sum = await attendanceSummary(tx, ctx, { staffIds: staff.map((s) => s.id), from, to, today: input.today, campusId: access.campusId });
       return {
-        title: `Overtime and shifts ${monthLabel(from)}`, filters: `Month ${monthLabel(from)}`,
+        title: `Overtime and shifts ${words}`, filters: input.dates ? `Dates ${words}` : `Month ${words}`,
         columns: [{ key: "who", label: "Staff member", phone: "title" }, { key: "shift", label: "Shift", phone: "meta" }, { key: "late", label: "Late days", numeric: true }, { key: "percent", label: "Attendance %", numeric: true }, { key: "entries", label: "Overtime entries", numeric: true }, { key: "hours", label: "Overtime hours", numeric: true, phone: "badge" }],
         rows: staff.map((s) => {
           const o = ot.find((x) => x.staffId === s.id);

@@ -5,7 +5,9 @@ import { buildExport, exportResponse, logExport, type ExportFormat } from "@/lib
 import { todayIn } from "@/lib/staff/dates";
 import { attendanceAccess } from "@/lib/attendance/access";
 import { attendanceFeatures, attendanceSettings } from "@/lib/attendance/settings";
-import { rangePeople, readReportInput, reportsFor, runReport, type ReportKey, type ReportRow } from "@/lib/attendance/reports";
+import { rangePeople, readReportInput, reportsFor, runReport, withDates, type ReportKey, type ReportRow } from "@/lib/attendance/reports";
+import { periodFromSearch } from "@/lib/periods";
+import { periodSetup } from "@/lib/period-setup";
 
 export async function GET(req: Request) {
   const { current } = await requireAction("attendance-management", "export");
@@ -18,7 +20,9 @@ export async function GET(req: Request) {
     const features = await attendanceFeatures(tx, current.ctx);
     const list = reportsFor(access, features as Set<string>);
     if (list.length === 0) return new Response("Your role has no attendance reports.", { status: 403 });
-    const input = readReportInput((k) => url.searchParams.get(k), todayIn(tz), list.map((r) => r.key as ReportKey));
+    // The same dates as on screen (the shared date filter, prefixed "d").
+    const range = periodFromSearch(Object.fromEntries(url.searchParams), { ...(await periodSetup(current)), prefix: "d", fallback: "thismonth" });
+    const input = withDates(readReportInput((k) => url.searchParams.get(k), todayIn(tz), list.map((r) => r.key as ReportKey)), range);
     if (input.report === "range" && !input.person) input.person = (await rangePeople(tx, access, input.sectionId))[0]?.value ?? null;
     const t = await runReport(tx, current.ctx, access, input);
     await logExport(tx, current.ctx, { title: t.title, format, filters: t.filters, rows: t.rows.length });

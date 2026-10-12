@@ -1,21 +1,19 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { commOfficePage } from "@/lib/communication/access";
-import { PageHeader } from "@/components/shell/page-header";
-import { Alert } from "@/components/ui/alert";
+import { BackLink, RecordHead } from "@/components/ui/split";
 import { TemplateForm } from "../template-form";
 import { templateFormData } from "../form-data";
 
-export const metadata: Metadata = { title: "Add template" };
+export const metadata: Metadata = { title: "New template" };
 
 export default async function NewTemplatePage() {
   const access = await commOfficePage("create");
-  const data = access.full ? await templateFormData(access.current.ctx, null, "en") : null;
+  const data = await templateFormData(access.current.ctx, null, "en");
   return (
     <>
-      <p className="mb-2 text-sm"><Link href="/communication/templates" className="text-brand-text hover:underline">← Message Templates</Link></p>
-      <PageHeader title="Add template" href="/communication/templates/new" userId={access.current.user.id} />
-      {data ? <TemplateForm data={data} /> : <Alert tone="info">Only the Principal and School Admin can add message templates. You can use the existing ones in Send Message.</Alert>}
+      <BackLink href="/communication/templates" label="Message Templates" />
+      <RecordHead title="New template" sub={<span className="text-[14px] text-ink3">A ready message format with blanks like {"{student_name}"}, in each language you use.</span>} />
+      {data && <TemplateForm data={data} />}
     </>
   );
 }

@@ -207,7 +207,8 @@ function BottomNav({ items, onMore }: { items: BarItem[]; onMore: () => void }) 
   const moreOn = !items.some((it) => exact(it.href));
   return (
     <nav className="md:hidden fixed inset-x-0 bottom-0 border-t border-line bg-surface/95 backdrop-blur-md px-2 pt-1.5 z-30 no-print" style={{ paddingBottom: "calc(6px + env(safe-area-inset-bottom, 0px))" }} aria-label="Quick menu">
-      <ul className="grid grid-cols-5">
+      {/* As many columns as there are items, so a short bar has no gaps. */}
+      <ul className="grid" style={{ gridTemplateColumns: `repeat(${Math.min(items.length, 4) + 1}, minmax(0, 1fr))` }}>
         {items.slice(0, 4).map((it) => {
           const on = exact(it.href);
           const Ic = icon(it.icon);
@@ -229,7 +230,7 @@ function BottomNav({ items, onMore }: { items: BarItem[]; onMore: () => void }) 
             </li>
           );
         })}
-        <li className="flex justify-center col-start-5">
+        <li className="flex justify-center">
           <button type="button" onClick={onMore} className={cx("flex flex-col items-center gap-1 w-full py-1 text-[11px] font-semibold", moreOn ? "text-brand" : "text-ink3")}>
             <span className={cx("w-14 h-8 rounded-full grid place-items-center", moreOn && "bg-brand/12")}><I.LayoutGrid size={21} aria-hidden="true" /></span>
             More

@@ -8,7 +8,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChevronDown, Search, X } from "lucide-react";
 import { inputCls } from "./field";
-import { Segmented, type SegOption } from "./controls";
+import { Segmented, Switch, type SegOption } from "./controls";
 import { Spinner } from "./button";
 import { cx } from "./cx";
 
@@ -97,6 +97,18 @@ export function UrlDates({ from, to, className }: { from: string; to: string; cl
         <span className="sr-only">To</span>
         <input type="date" defaultValue={to} onChange={(e) => e.target.value && set({ to: e.target.value })} className={cx(inputCls(false), "tnum")} aria-label="To" />
       </label>
+    </div>
+  );
+}
+
+/** A switch kept in the address as ?param=1 (for example "Show waiting entries"). */
+export function UrlSwitch({ param, label, sub, id }: { param: string; label: string; sub?: React.ReactNode; id: string }) {
+  const { set, params } = useSetParam();
+  const on = params.get(param) === "1";
+  return (
+    <div className="flex items-center gap-2.5 text-[14px] min-w-0">
+      <Switch id={id} on={on} label={label} onChange={(v) => set({ [param]: v ? "1" : null })} />
+      <label htmlFor={id} className="min-w-0"><b className="font-semibold">{label}</b>{sub && <span className="text-ink3"> · {sub}</span>}</label>
     </div>
   );
 }

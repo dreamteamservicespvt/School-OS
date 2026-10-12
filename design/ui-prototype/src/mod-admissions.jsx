@@ -8,7 +8,28 @@ import { useNav, useRole } from './shell.jsx';
 import {
   ModuleHead, useCanEdit, Icon, Stats, Band, SearchBox, Toolbar, Select, Textarea, Chips, DataList, BulkBar, Row, SettingRow, ToggleRow, SettingsCard,
   Banner, Suggestion, Progress, HBars, Bars, Legend, DL, Timeline, MoreMenu, FormSheet, ConfirmSheet, Split, Col, ExportButton,
+  usePage, PageCtx, DatePeriod, PERIODS, fmtRange, periodDays,
 } from './kit.jsx';
+import { inMenu } from './config.js';
+
+/* ======================= Who may do what (05-roles.md) ======================= */
+// Pages this person has in Admissions. Links and tiles to any other page are hidden.
+const useHas = () => { const { pages } = usePage(); return (id) => pages.some((p) => p.id === id); };
+// Office Staff is Full "for enquiries, applications and documents"; the Admission Counsellor runs everything up to sending decisions.
+// Neither changes Admission Settings, and Office Staff only reads tests and decisions.
+const LIMITED = { tests: ['officestaff'], decision: ['officestaff'], settings: ['officestaff', 'admissioncounsellor'] };
+// Those pages open read-only for them, with the usual "View only" mark
+const readOnlyFor = (page, Comp) => function ReadOnly(props) {
+  const pc = usePage(); const { role } = useRole();
+  if (!(LIMITED[page] || []).includes(role.id)) return <Comp {...props} />;
+  return <PageCtx.Provider value={{ ...pc, access: 'view' }}><Comp {...props} access="view" /></PageCtx.Provider>;
+};
+function useAdmEdit(page) { const canEdit = useCanEdit(); const { role } = useRole(); return canEdit && !(LIMITED[page] || []).includes(role.id); }
+// "9 Oct 2026" or "9 Oct" to "2026-10-09", for the date filter
+const MONS = { Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6, Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12 };
+const isoOf = (t) => { const m = /(\d{1,2}) (\w{3})(?: (\d{4}))?/.exec(t || ''); return m ? `${m[3] || 2026}-${String(MONS[m[2]]).padStart(2, '0')}-${m[1].padStart(2, '0')}` : ''; };
+const inPeriod = (t, per) => { const d = isoOf(t); return d >= per.from && d <= per.to; };
+const scale = (n, per, base = 7) => Math.max(0, Math.round((n * periodDays(per)) / base));
 
 /* ======================= Sample data ======================= */
 const OWNERS = ['Divya Menon', 'Naveen Kumar', 'Kavitha Nair', 'Anita Sharma'];
@@ -19,7 +40,6 @@ const LOSS = ['Chose another school', 'Fee too high', 'Too far from home', 'No s
 const CLASS_NAMES = CLASSES.filter((c) => c.id !== '10').map((c) => c.name);
 const PRE = ['Nursery', 'LKG', 'UKG'];
 const yl = (y) => (y === '2026–27' ? '2026–27 mid-year' : y);
-const WEEK = new Set(['5 Oct 2026', '6 Oct 2026', '7 Oct 2026', '8 Oct 2026', '9 Oct 2026']);
 const OPEN_DONE = ['Applied', 'Admitted', 'Lost'];
 // "Who gets new enquiries" is set to: by class wanted
 const ownerFor = (cls) => (!cls ? 'Divya Menon' : PRE.includes(cls) ? 'Divya Menon' : ['Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5'].includes(cls) ? 'Naveen Kumar' : 'Divya Menon');
@@ -184,6 +204,8 @@ function AdmDashboard() {
   const { role } = useRole();
   const toast = useToast();
   const canEdit = useCanEdit();
+  const has = useHas();
+  const [per, setPer] = useState(PERIODS.last7);
   const [year, setYear] = useState('2027–28');
   const [cls, setCls] = useState('all');
   const [src, setSrc] = useState('all');
@@ -229,6 +251,7 @@ function AdmDashboard() {
         <div className="flex flex-col @lg:flex-row gap-2.5 @lg:items-center">
           <Segmented value={year} onChange={setYear} options={[{ value: '2027–28', label: 'Admission year 2027–28' }, { value: '2026–27', label: '2026–27 mid-year' }]} />
           <div className="grid grid-cols-2 @lg:flex gap-2 @lg:ml-auto">
+            <DatePeriod id="ad-period" value={per} onChange={setPer} className="col-span-2 w-full @lg:w-auto" />
             <Select id="ad-cls" value={cls} onChange={setCls} options={[{ value: 'all', label: 'All classes' }, ...CLASS_NAMES]} className="@lg:w-40" />
             <Select id="ad-src" value={src} onChange={setSrc} options={[{ value: 'all', label: 'All sources' }, ...SOURCES]} className="@lg:w-40" />
             <Select id="ad-own" value={own} onChange={setOwn} options={[{ value: 'all', label: 'All owners' }, ...OWNERS.slice(0, 3)]} className={cx('@lg:w-44', !role.multiSchool && 'col-span-2 @lg:col-span-1')} />
@@ -236,16 +259,17 @@ function AdmDashboard() {
           </div>
         </div>
 
-        <Band items={BAND[year].map(([label, big, foot, page]) => ({ label, big, foot, onClick: () => go('admissions', { page }) }))} />
+        <Band items={BAND[year].map(([label, big, foot, page], i) => ({ label, big, foot: i === 0 ? `+${scale(year === '2027–28' ? 18 : 3, per)} new in ${per.label.toLowerCase()} · ${foot.split(' · ')[1]}` : foot, onClick: has(page) ? () => go('admissions', { page }) : undefined }))} />
+        <p className="text-[12.5px] text-ink3 -mt-2 @lg:-mt-3 tnum">New counts are for {per.label.toLowerCase()} · {fmtRange(per)}</p>
 
         <Split>
           <Col>
             <Card>
-              <CardHead title="Where everyone is now" sub={`${yl(year)} · tap a stage to open the list behind it`} icon={I.Filter} />
+              <CardHead title="Where everyone is now" sub={`${yl(year)} · new in ${per.label.toLowerCase()}`} icon={I.Filter} />
               <ul className="px-2 pb-3">
                 {fun.map((f) => (
                   <li key={f.k}>
-                    <button onClick={() => go('admissions', { page: f.page })} className="w-full grid grid-cols-[96px_1fr_64px] @md:grid-cols-[130px_1fr_150px] items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sunken/70 text-left transition">
+                    <button onClick={has(f.page) ? () => go('admissions', { page: f.page }) : undefined} className="w-full grid grid-cols-[96px_1fr_64px] @md:grid-cols-[130px_1fr_150px] items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sunken/70 text-left transition">
                       <span className="min-w-0">
                         <span className="block font-semibold text-[14px] truncate">{f.k}</span>
                         <span className="block text-[12px] text-ink3 truncate">{f.oldest === '—' ? 'This year' : `Oldest ${f.oldest}`}</span>
@@ -253,7 +277,7 @@ function AdmDashboard() {
                       <span className="relative h-3 rounded-full bg-sunken overflow-hidden"><span className={cx('absolute inset-y-0 left-0 rounded-full', f.k === 'Admitted' ? 'bg-ok' : 'bg-brand')} style={{ width: `${Math.max(4, (f.n / max) * 100)}%` }} /></span>
                       <span className="text-right">
                         <span className="font-display font-semibold text-[18px] tnum">{f.n}</span>
-                        <span className={cx('block @md:inline @md:ml-2 text-[12px] font-semibold tnum', f.d ? 'text-ok' : 'text-ink3')}>{f.d ? `+${f.d}` : '0'}<span className="hidden @md:inline font-normal text-ink3"> this week</span></span>
+                        <span className={cx('block @md:inline @md:ml-2 text-[12px] font-semibold tnum', scale(f.d, per) ? 'text-ok' : 'text-ink3')}>{scale(f.d, per) ? `+${scale(f.d, per)}` : '0'}<span className="hidden @md:inline font-normal text-ink3"> new</span></span>
                       </span>
                     </button>
                   </li>
@@ -287,7 +311,7 @@ function AdmDashboard() {
                           </div>
                         ))}
                         {!cards.length && <p className="text-[12.5px] text-ink3 px-1.5 py-3 text-center">Nobody here{cls !== 'all' ? ` for ${cls}` : ''}</p>}
-                        {year === '2027–28' && total > b[k].length && <button onClick={() => go('admissions', { page: FUNNEL[year][Math.min(ci, FUNNEL[year].length - 1)].page })} className="text-[12.5px] font-semibold text-brand h-8 rounded-lg hover:bg-brand/8">+{total - b[k].length} more</button>}
+                        {year === '2027–28' && total > b[k].length && has(FUNNEL[year][Math.min(ci, FUNNEL[year].length - 1)].page) && <button onClick={() => go('admissions', { page: FUNNEL[year][Math.min(ci, FUNNEL[year].length - 1)].page })} className="text-[12.5px] font-semibold text-brand h-8 rounded-lg hover:bg-brand/8">+{total - b[k].length} more</button>}
                       </div>
                     );
                   })}
@@ -381,21 +405,22 @@ function Enquiries({ params, access }) {
   const [camp, setCamp] = useState(false);
   const [assign, setAssign] = useState(false);
   const [convert, setConvert] = useState(null);
+  const [per, setPer] = useState(PERIODS.last30);
 
+  // A Receptionist (Own) sees only the enquiries they added or own
   const base = own ? list.filter((e) => e.owner === me || e.addedBy === me) : list;
-  const QF = { all: () => true, mine: (e) => e.owner === me, today: (e) => e.due === 'today', overdue: (e) => e.due === 'overdue', week: (e) => WEEK.has(e.created), lost: (e) => e.status === 'Lost' };
+  const QF = { all: () => true, mine: (e) => e.owner === me, today: (e) => e.due === 'today', overdue: (e) => e.due === 'overdue', lost: (e) => e.status === 'Lost' };
   const t = q.trim().toLowerCase();
   const digits = t.replace(/\D/g, '');
-  const rows = base.filter((e) => QF[quick](e) && (view === 'all' || e.source === 'WhatsApp') && (cls === 'all' || e.cls === cls) && (src === 'all' || e.source === src) &&
+  const rows = base.filter((e) => inPeriod(e.created, per) && QF[quick](e) && (view === 'all' || e.source === 'WhatsApp') && (cls === 'all' || e.cls === cls) && (src === 'all' || e.source === src) &&
     (!t || e.child.toLowerCase().includes(t) || e.parent.toLowerCase().includes(t) || e.id.toLowerCase().includes(t) || (digits.length >= 3 && e.phone.replace(/\D/g, '').includes(digits))));
-  const cur = list.find((e) => e.id === open);
+  const cur = base.find((e) => e.id === open);
   const update = (n) => setList((l) => l.map((x) => (x.id === n.id ? n : x)));
   const quickOpts = [
     { value: 'all', label: own ? 'All of mine' : 'All', count: base.length },
     ...(access === 'view' ? [] : [{ value: 'mine', label: 'My enquiries', count: base.filter(QF.mine).length }]),
     { value: 'today', label: 'Follow-up today', count: base.filter(QF.today).length },
     { value: 'overdue', label: 'Overdue', count: base.filter(QF.overdue).length },
-    { value: 'week', label: 'New this week', count: base.filter(QF.week).length },
     { value: 'lost', label: 'Lost', count: base.filter(QF.lost).length },
   ];
   const nextCell = (e) => e.next ? <span className={cx('text-[13px] tnum whitespace-nowrap', e.due === 'overdue' ? 'text-bad font-semibold' : e.due === 'today' ? 'text-warn font-semibold' : 'text-ink2')}>{e.due === 'overdue' && <I.CircleAlert size={13} className="inline -mt-0.5 mr-1" />}{e.next}</span> : <span className="text-ink3">—</span>;
@@ -424,6 +449,7 @@ function Enquiries({ params, access }) {
           <Card className="overflow-hidden">
             <Toolbar>
               <SearchBox id="enq-search" value={q} onChange={setQ} placeholder="Child, parent, phone or ENQ number" />
+              <DatePeriod id="enq-period" value={per} onChange={setPer} className="w-full @md:w-auto" />
               <Segmented value={view} onChange={setView} options={[{ value: 'all', label: 'All enquiries' }, { value: 'wa', label: 'WhatsApp', icon: I.MessageCircle }]} />
               {!cur && (
                 <div className="grid grid-cols-2 @md:flex gap-2">
@@ -431,7 +457,7 @@ function Enquiries({ params, access }) {
                   <Select id="enq-src" value={src} onChange={setSrc} options={[{ value: 'all', label: 'All sources' }, ...SOURCES]} className="@md:w-36" />
                 </div>
               )}
-              {!cur && <ExportButton what={`${rows.length} enquiries`} />}
+              {!cur && !own && <ExportButton what={`${rows.length} enquiries`} />}
             </Toolbar>
             {selectable && (
               <BulkBar count={sel.size} onClear={() => setSel(new Set())}>
@@ -441,8 +467,8 @@ function Enquiries({ params, access }) {
             )}
             <DataList columns={columns} rows={rows} onRow={(e) => setOpen(e.id)} minWidth={cur ? 600 : 980}
               select={selectable ? [sel, setSel] : undefined}
-              footer={`Showing ${rows.length} of ${base.length}`}
-              empty={<Empty icon={I.SearchX} title="No enquiries match" body={q ? `Nobody called “${q}”. Try the phone number.` : 'Try a different filter.'} action={<Button variant="secondary" onClick={() => { setQ(''); setQuick('all'); setCls('all'); setSrc('all'); setView('all'); }}>Clear filters</Button>} />}
+              footer={`Showing ${rows.length} of ${base.length} · added ${fmtRange(per)}`}
+              empty={<Empty icon={I.SearchX} title="No enquiries match" body={q ? `Nobody called “${q}” added ${fmtRange(per)}. Try the phone number or wider dates.` : `No enquiries added ${fmtRange(per)} for these filters.`} action={<Button variant="secondary" onClick={() => { setQ(''); setQuick('all'); setCls('all'); setSrc('all'); setView('all'); setPer(PERIODS.last30); }}>Clear filters</Button>} />}
               mobile={(e) => ({ title: e.child, sub: `${e.parent} · ${e.cls} · ${e.source}`, avatar: e.child,
                 pills: [<Pill key="s" tone={STATUS_TONE[e.status]} className="!h-[22px] !text-[11.5px]">{e.status}</Pill>, e.next && <Pill key="n" tone={e.due === 'overdue' ? 'bad' : e.due === 'today' ? 'warn' : 'neutral'} className="!h-[22px] !text-[11.5px]">{e.due === 'overdue' ? 'Overdue · ' : ''}{e.next}</Pill>] })} />
           </Card>
@@ -450,7 +476,7 @@ function Enquiries({ params, access }) {
         {cur && <EnquiryPanel key={cur.id} e={cur} own={own} canEdit={canEdit} onClose={() => setOpen(null)} onUpdate={update} onConvert={(e) => setConvert(e)} />}
       </div>
 
-      <AddEnquirySheet open={add} onClose={() => setAdd(false)} onOpenExisting={(id) => { setAdd(false); setOpen(id); }}
+      <AddEnquirySheet open={add} own={own} canOpen={(id) => base.some((e) => e.id === id)} onClose={() => setAdd(false)} onOpenExisting={(id) => { setAdd(false); setOpen(id); }}
         onAdd={(n) => { setList((l) => [{ ...n, log: logFor(n) }, ...l]); setQuick('all'); }} />
       <ImportSheet open={imp} onClose={() => setImp(false)} />
       <ConfirmSheet open={camp} onClose={() => setCamp(false)} title={`Run campaign for ${sel.size} enquiries`} sub="Sent through Communication. Each enquiry then shows the campaign name."
@@ -589,7 +615,7 @@ function EnquiryPanel({ e, onClose, onUpdate, own, canEdit, onConvert }) {
       {sheet === 'call' && <CallSheet e={e} onClose={close} onSave={(t) => { log(t, 'PhoneCall'); toast({ title: 'Call saved', body: t }); }} />}
       {sheet === 'note' && <NoteSheet e={e} onClose={close} onSave={(t) => { log(`Note: ${t}`, 'StickyNote'); toast({ title: 'Note added', body: 'Only staff can see notes.' }); }} />}
       {sheet === 'msg' && <MessageSheet e={e} onClose={close} onSend={(ch, tpl, text) => { setChat((c) => [...c, { from: 'school', text, time: 'Today, 10:44 AM', by: me }]); setTab('chat'); log(`${ch} sent: “${tpl}”.`, 'Send', 'brand'); toast({ title: `Sent to ${e.parent} on ${ch}`, body: 'Saved in this enquiry’s message history.' }); }} />}
-      {sheet === 'follow' && <FollowSheet e={e} onClose={close} onSave={(when, owner, action) => { log(`Next follow-up set: ${when} with ${owner}. ${action}`, 'AlarmClock', 'info', { next: when, due: 'later', action, owner }); toast({ title: 'Follow-up set', body: `${owner} gets a reminder on ${when}.` }); }} />}
+      {sheet === 'follow' && <FollowSheet e={e} own={own} onClose={close} onSave={(when, owner, action) => { log(`Next follow-up set: ${when} with ${owner}. ${action}`, 'AlarmClock', 'info', { next: when, due: 'later', action, owner }); toast({ title: 'Follow-up set', body: `${owner} gets a reminder on ${when}.` }); }} />}
       {sheet === 'reassign' && <AssignSheet current={e.owner} onClose={close} onSave={(o, why) => { log(`Reassigned from ${e.owner} to ${o}. Reason: ${why}`, 'UserCog', 'info', { owner: o }); toast({ title: `${e.child}’s enquiry now owned by ${o}`, body: `${o} got a notification.` }); }} />}
       {sheet === 'source' && <SourceSheet e={e} onClose={close} onSave={(s, why) => { log(`Source changed from ${e.source} to ${s}. Reason: ${why}. First recorded source stays ${e.firstSource || e.source} in reports.`, 'Tag', 'warn', { source: s, firstSource: e.firstSource || e.source }); toast({ title: `Source changed to ${s}`, body: `${e.firstSource || e.source} stays the first recorded source.` }); }} />}
       {sheet === 'status' && <StatusSheet e={e} onClose={close} onSave={(s) => { log(`Status changed from ${e.status} to ${s}.`, 'ListChecks', 'brand', { status: s }); toast({ title: `Status: ${s}`, undo: () => onUpdate(e) }); }} />}
@@ -638,7 +664,7 @@ function MessageSheet({ e, onClose, onSend }) {
     </FormSheet>
   );
 }
-function FollowSheet({ e, onClose, onSave }) {
+function FollowSheet({ e, own, onClose, onSave }) {
   const [d, setD] = useState('12-10-2026');
   const [tm, setTm] = useState('11:00 AM');
   const [o, setO] = useState(e.owner);
@@ -651,7 +677,8 @@ function FollowSheet({ e, onClose, onSave }) {
         <Field label="Date" required id="fu-d" error={err}><Input id="fu-d" value={d} onChange={(x) => { setD(x.target.value); setErr(''); }} placeholder="DD-MM-YYYY" error={err} className="tnum" /></Field>
         <Field label="Time" required id="fu-t"><Select id="fu-t" value={tm} onChange={setTm} options={TIMES} /></Field>
       </div>
-      <Field label="Owner" required id="fu-o"><Select id="fu-o" value={o} onChange={setO} options={OWNERS} /></Field>
+      {own ? <Field label="Owner" id="fu-o" hint="Only the admission team can change the owner"><Input id="fu-o" value={o} readOnly className="!bg-sunken/50" /></Field>
+        : <Field label="Owner" required id="fu-o"><Select id="fu-o" value={o} onChange={setO} options={OWNERS} /></Field>}
       <Field label="Next action" id="fu-a"><Input id="fu-a" value={a} onChange={(x) => setA(x.target.value)} /></Field>
     </FormSheet>
   );
@@ -702,7 +729,7 @@ function LostSheet({ e, onClose, onSave }) {
 
 /* ---------- Add enquiry ---------- */
 const PARENT_MATCH = { '9849031277': { text: 'This phone belongs to Rajesh Sharma, parent of Aarav Sharma, 7 B', student: true }, '9849560211': { text: 'This phone belongs to Priya Sharma, parent of Aarav Sharma, 7 B and Anaya Sharma, UKG A', student: true } };
-function AddEnquirySheet({ open, onClose, onAdd, onOpenExisting }) {
+function AddEnquirySheet({ open, onClose, onAdd, onOpenExisting, own, canOpen = () => true }) {
   const { role } = useRole();
   const { go } = useNav();
   const toast = useToast();
@@ -728,7 +755,7 @@ function AddEnquirySheet({ open, onClose, onAdd, onOpenExisting }) {
     const d = f.phone.replace(/\D/g, '');
     if (d.length !== 10) return setDup(null);
     const enq = ENQUIRIES.find((e) => e.phone.replace(' ', '') === d && !OPEN_DONE.includes(e.status));
-    if (enq) return setDup({ text: `This phone already has an open enquiry for ${enq.child} (${enq.cls}), owned by ${enq.owner}`, enq: enq.id });
+    if (enq) return setDup({ text: `This phone already has an open enquiry for ${enq.child} (${enq.cls}), owned by ${enq.owner}`, enq: enq.id, mine: canOpen(enq.id) });
     if (PARENT_MATCH[d]) return setDup(PARENT_MATCH[d]);
     setDup(null);
   };
@@ -752,7 +779,7 @@ function AddEnquirySheet({ open, onClose, onAdd, onOpenExisting }) {
           <p className="font-semibold text-[14px] flex gap-2"><I.TriangleAlert size={17} className="text-warn shrink-0 mt-0.5" />{dup.text}</p>
           {sib ? <p className="text-[13px] text-ink2 mt-2 flex items-center gap-1.5"><I.Check size={15} className="text-ok" />Will be added as a sibling enquiry, linked to the same family.</p> : (
             <div className="flex gap-2 mt-3 flex-wrap">
-              <Button type="button" size="sm" variant="secondary" icon={I.ExternalLink} onClick={() => (dup.enq ? onOpenExisting(dup.enq) : (onClose(), go('student', { id: FEATURED.id })))}>Open existing</Button>
+              {(dup.enq ? dup.mine : role.access.students) && <Button type="button" size="sm" variant="secondary" icon={I.ExternalLink} onClick={() => (dup.enq ? onOpenExisting(dup.enq) : (onClose(), go('student', { id: FEATURED.id })))}>Open existing</Button>}
               <Button type="button" size="sm" variant="soft" icon={I.Users} onClick={() => setSib(true)}>Add as sibling enquiry</Button>
               <Button type="button" size="sm" variant="ghost" onClick={() => { set('phone')(''); setDup(null); }}>Cancel</Button>
             </div>
@@ -766,9 +793,13 @@ function AddEnquirySheet({ open, onClose, onAdd, onOpenExisting }) {
       <Field label="Source" required id="ae-src" hint="Kept as first recorded. Changing it later needs a reason.">
         <Segmented value={f.source} onChange={set('source')} options={['Walk-in', 'Phone', 'Referral', 'Website']} className="w-full" size="sm" />
       </Field>
-      <Field label="Owner" required id="ae-owner" hint={!f.owner ? 'Set by “Who gets new enquiries”: by class wanted' : 'Changed by hand. The history keeps it.'}>
-        <Select id="ae-owner" value={owner} onChange={set('owner')} options={OWNERS} />
-      </Field>
+      {own ? (
+        <Field label="Owner" id="ae-owner" hint="Set by “Who gets new enquiries”. You keep seeing the enquiries you add."><Input id="ae-owner" value={owner} readOnly className="!bg-sunken/50" /></Field>
+      ) : (
+        <Field label="Owner" required id="ae-owner" hint={!f.owner ? 'Set by “Who gets new enquiries”: by class wanted' : 'Changed by hand. The history keeps it.'}>
+          <Select id="ae-owner" value={owner} onChange={set('owner')} options={OWNERS} />
+        </Field>
+      )}
       <div className="grid grid-cols-2 gap-3">
         <Field label="Next follow-up" required id="ae-date" error={show('date')}><Input id="ae-date" value={f.date} onChange={set('date')} error={show('date')} placeholder="DD-MM-YYYY" className="tnum" /></Field>
         <Field label="Time" required id="ae-time"><Select id="ae-time" value={f.time} onChange={set('time')} options={TIMES} /></Field>
@@ -936,6 +967,8 @@ function Applications({ params }) {
 function ApplicationList() {
   const { go } = useNav();
   const canEdit = useCanEdit();
+  const has = useHas();
+  const [per, setPer] = useState(PERIODS.last30);
   const [q, setQ] = useState('');
   const [stage, setStage] = useState('all');
   const [year, setYear] = useState('all');
@@ -945,7 +978,7 @@ function ApplicationList() {
   const [add, setAdd] = useState(false);
   const [link, setLink] = useState(false);
   const t = q.trim().toLowerCase();
-  const rows = APPS.filter((a) => (stage === 'all' || a.stage === stage) && (year === 'all' || a.year === year) && (cls === 'all' || a.cls === cls) &&
+  const rows = APPS.filter((a) => inPeriod(a.submitted, per) && (stage === 'all' || a.stage === stage) && (year === 'all' || a.year === year) && (cls === 'all' || a.cls === cls) &&
     (docs === 'all' || (docs === 'done' ? verified(a) === a.docs.length : verified(a) < a.docs.length)) && (fee === 'all' || feeWord(a) === fee) &&
     (!t || a.child.toLowerCase().includes(t) || a.id.toLowerCase().includes(t) || a.phone.replace(' ', '').includes(t.replace(/\s/g, ''))));
   const cnt = (s) => APPS.filter((a) => a.stage === s).length;
@@ -960,7 +993,7 @@ function ApplicationList() {
       <div className="flex flex-col gap-4">
         <Stats items={[
           { label: 'Applications this year', value: '96', sub: '2027–28 and mid-year', icon: 'FileText' },
-          { label: 'Waiting for a decision', value: String(cnt('Decision')), sub: 'Oldest 14 Sep', tone: 'warn', icon: 'Hourglass', onClick: () => go('admissions', { page: 'decision' }) },
+          { label: 'Waiting for a decision', value: String(cnt('Decision')), sub: 'Oldest 14 Sep', tone: 'warn', icon: 'Hourglass', onClick: has('decision') ? () => go('admissions', { page: 'decision' }) : () => setStage('Decision') },
           { label: 'Papers missing', value: String(APPS.filter((a) => verified(a) < a.docs.length && a.stage !== 'Withdrawn').length), sub: 'Not yet verified', icon: 'FileWarning', onClick: () => setDocs('missing') },
           { label: 'Application fee not paid', value: String(APPS.filter((a) => a.fee === 'Not paid').length), sub: 'Razorpay link sent', tone: 'bad', icon: 'IndianRupee', onClick: () => setFee('No') },
         ]} />
@@ -968,6 +1001,7 @@ function ApplicationList() {
         <Card className="overflow-hidden">
           <Toolbar>
             <SearchBox id="app-search" value={q} onChange={setQ} placeholder="Child, application number or phone" />
+            <DatePeriod id="app-period" value={per} onChange={setPer} className="w-full @md:w-auto" />
             <Segmented value={year} onChange={setYear} options={[{ value: 'all', label: 'All' }, { value: '2027–28', label: '2027–28' }, { value: '2026–27', label: 'Mid-year' }]} />
             <div className="grid grid-cols-3 @md:flex gap-2">
               <Select id="app-cls" value={cls} onChange={setCls} options={[{ value: 'all', label: 'Class' }, ...CLASS_NAMES]} className="@md:w-32" />
@@ -976,8 +1010,8 @@ function ApplicationList() {
             </div>
             <ExportButton what={`${rows.length} applications`} />
           </Toolbar>
-          <DataList rows={rows} onRow={open} minWidth={1000}
-            empty={<Empty icon={I.SearchX} title="No applications match" body="Try another stage, class or fee filter." action={<Button variant="secondary" onClick={() => { setQ(''); setStage('all'); setYear('all'); setCls('all'); setDocs('all'); setFee('all'); }}>Clear filters</Button>} />}
+          <DataList rows={rows} onRow={open} minWidth={1000} footer={`Showing ${rows.length} of ${APPS.length} · submitted ${fmtRange(per)}`}
+            empty={<Empty icon={I.SearchX} title="No applications match" body={`Nothing submitted ${fmtRange(per)} for these filters. Try wider dates or another stage.`} action={<Button variant="secondary" onClick={() => { setQ(''); setStage('all'); setYear('all'); setCls('all'); setDocs('all'); setFee('all'); setPer(PERIODS.last30); }}>Clear filters</Button>} />}
             columns={[
               { key: 'id', label: 'Application', render: (a) => <div className="flex items-center gap-3"><Avatar name={a.child} size={34} /><div className="min-w-0"><p className="font-semibold leading-tight">{a.child}</p><p className="text-[12px] text-ink3 font-mono">{a.id}</p></div></div> },
               { key: 'cls', label: 'Class', nowrap: true, render: (a) => <><p className="font-medium">{a.cls}</p><p className="text-[12px] text-ink3">{yl(a.year)}</p></> },
@@ -1030,6 +1064,7 @@ function ApplicationDetail({ id }) {
   const { role } = useRole();
   const toast = useToast();
   const canEdit = useCanEdit();
+  const has = useHas();
   const base = APPS.find((a) => a.id === id) || APPS[0];
   const [a, setA] = useState(base);
   const [review, setReview] = useState(false);
@@ -1063,7 +1098,7 @@ function ApplicationDetail({ id }) {
           </div>
           {canEdit && !done && (
             <div className="flex gap-2 flex-wrap">
-              {a.stage === 'Decision' || a.stage === 'Approved' ? <Button variant="primary" icon={I.Gavel} onClick={() => go('admissions', { page: 'decision' })}>Open in Admission Decision</Button>
+              {(a.stage === 'Decision' || a.stage === 'Approved') && has('decision') ? <Button variant="primary" icon={I.Gavel} onClick={() => go('admissions', { page: 'decision' })}>Open in Admission Decision</Button>
                 : <Button variant="primary" icon={I.CircleCheck} onClick={() => setReview(true)}>Review</Button>}
               {a.fee === 'Not paid' && <Button variant="secondary" icon={I.IndianRupee} onClick={() => setPay(true)}>Collect application fee</Button>}
               <MoreMenu items={[
@@ -1076,10 +1111,10 @@ function ApplicationDetail({ id }) {
             </div>
           )}
         </Card>
-        {a.stage === 'Admitted' && <Banner tone="ok" title={`Admitted as ${a.admNo}.`} action={<Button size="sm" variant="secondary" onClick={() => go('students')}>Student list</Button>}>The student record, parents, fee plan and ID card were created on 2 Oct.</Banner>}
+        {a.stage === 'Admitted' && <Banner tone="ok" title={`Admitted as ${a.admNo}.`} action={inMenu(role, 'students') ? <Button size="sm" variant="secondary" onClick={() => go('students')}>Student list</Button> : null}>The student record, parents, fee plan and ID card were created on 2 Oct.</Banner>}
         {a.stage === 'Withdrawn' && <Banner tone="info" title="Withdrawn.">{a.withdrawn}. The application number is never reused.</Banner>}
         <Stats items={[
-          { label: 'Papers verified', value: `${n} of ${docs.length}`, tone: n === docs.length ? 'ok' : 'warn', icon: 'FolderOpen', onClick: () => go('admissions', { page: 'documents' }) },
+          { label: 'Papers verified', value: `${n} of ${docs.length}`, tone: n === docs.length ? 'ok' : 'warn', icon: 'FolderOpen', onClick: has('documents') ? () => go('admissions', { page: 'documents' }) : undefined },
           { label: a.interview ? 'Interview' : 'Entrance test', value: a.test ? (a.test.score != null ? `${a.test.score} / ${a.test.max}` : 'Booked') : a.interview ? (a.interview.outcome || 'Booked') : 'Not needed', sub: a.test?.when || a.interview?.when, icon: 'ClipboardCheck' },
           { label: 'Application fee', value: a.fee === 'Paid' ? 'Paid' : a.fee === 'Not paid' ? 'Not paid' : 'Not needed', tone: a.fee === 'Not paid' ? 'bad' : a.fee === 'Paid' ? 'ok' : undefined, sub: a.fee === 'Not needed' ? 'Mid-year joining' : a.year, icon: 'IndianRupee' },
           { label: 'Seats left', value: String(seatTotal(a.year, a.cls)), sub: `${a.cls} · ${a.year}`, tone: seatTotal(a.year, a.cls) === 0 ? 'bad' : undefined, icon: 'School' },
@@ -1106,7 +1141,7 @@ function ApplicationDetail({ id }) {
               <DL rows={[['Previous school', a.prev ? a.prev[0] : 'First school'], ['Last class', a.prev ? a.prev[1] : '—'], ['Marks or %', a.prev ? a.prev[2] : '—'], ['Second language', 'Telugu'], ['Transport', a.stop || 'Not needed'], ['Hostel', 'Not needed'], ...(a.note ? [['Note', a.note]] : [])]} />
             </Card>
             <Card>
-              <CardHead title="Documents" sub={`${n} of ${docs.length} verified · list for ${a.cls}`} icon={I.FolderOpen} action={<Button size="sm" variant="soft" onClick={() => go('admissions', { page: 'documents' })}>Open</Button>} />
+              <CardHead title="Documents" sub={`${n} of ${docs.length} verified · list for ${a.cls}`} icon={I.FolderOpen} action={has('documents') ? <Button size="sm" variant="soft" onClick={() => go('admissions', { page: 'documents' })}>Open</Button> : null} />
               <ul className="px-3 pb-3">
                 {docs.map((d, i) => {
                   const c = a.docs[i];
@@ -1375,7 +1410,8 @@ const SLOTS = ['2:30 PM', '2:45 PM', '3:00 PM', '3:15 PM', '3:30 PM', '3:45 PM',
 
 function Tests() {
   const toast = useToast();
-  const canEdit = useCanEdit();
+  const canEdit = useAdmEdit('tests');
+  const [per, setPer] = useState(PERIODS.acyear);
   const [tab, setTab] = useState('tests');
   const [tests, setTests] = useState(TESTS);
   const [ints, setInts] = useState(INTERVIEWS);
@@ -1387,7 +1423,7 @@ function Tests() {
   return (
     <div>
       <ModuleHead sub="Entrance test and interview dates, scores and remarks. Switched on in Admission Settings."
-        actions={tab === 'tests' ? <Button variant="primary" icon={I.CalendarPlus} onClick={() => setNewTest(true)}>Schedule test</Button> : <Button variant="primary" icon={I.Plus} onClick={() => setNewInt(true)}>Schedule interview</Button>} />
+        actions={!canEdit ? null : tab === 'tests' ? <Button variant="primary" icon={I.CalendarPlus} onClick={() => setNewTest(true)}>Schedule test</Button> : <Button variant="primary" icon={I.Plus} onClick={() => setNewInt(true)}>Schedule interview</Button>} />
       <div className="flex flex-col gap-4">
         <Stats items={[
           { label: 'Next test', value: 'Sat 10 Oct', sub: '4 mid-year applicants · 9:30 AM', icon: 'CalendarDays', tone: 'brand' },
@@ -1395,11 +1431,16 @@ function Tests() {
           { label: 'Interviews this week', value: String(ints.filter((i) => !i.outcome).length), sub: 'Wed 14 Oct, 2:30–3:30 PM', icon: 'Users' },
           { label: 'Recommended', value: String(ints.filter((i) => i.outcome === 'Recommended').length + 6), sub: 'Tests and interviews, 2027–28', icon: 'ThumbsUp', tone: 'ok' },
         ]} />
-        <Tabs value={tab} onChange={setTab} tabs={[{ id: 'tests', label: 'Tests', count: tests.length }, { id: 'interviews', label: 'Interviews', count: ints.length }]} />
+        <div className="flex flex-col @md:flex-row @md:items-center gap-2.5">
+          <Tabs className="flex-1 min-w-0" value={tab} onChange={setTab} tabs={[{ id: 'tests', label: 'Tests', count: tests.filter((t) => inPeriod(t.date, per)).length }, { id: 'interviews', label: 'Interviews', count: ints.filter((i) => inPeriod(i.slot, per)).length }]} />
+          <DatePeriod id="tst-period" future value={per} onChange={setPer} className="w-full @md:w-auto" />
+        </div>
         {tab === 'tests' ? (
           <Card className="overflow-hidden">
             <CardHead title="Entrance tests" sub="Tap a test to enter scores and remarks" />
-            <DataList rows={tests} onRow={(t) => setScore(t)} minWidth={720} footer={`${tests.length} tests · parents get the date, time and venue on WhatsApp`}
+            <DataList rows={tests.filter((t) => inPeriod(t.date, per))} onRow={(t) => setScore(t)} minWidth={720}
+              empty={<Empty icon={I.CalendarX2} title="No tests in these dates" body={`Nothing booked ${fmtRange(per)}.`} action={<Button variant="secondary" onClick={() => setPer(PERIODS.acyear)}>Show this academic year</Button>} />}
+              footer={`${tests.filter((t) => inPeriod(t.date, per)).length} tests · ${fmtRange(per)} · parents get the date, time and venue on WhatsApp`}
               columns={[
                 { key: 'd', label: 'Date and time', render: (t) => <><p className="font-semibold">{t.date}</p><p className="text-[12.5px] text-ink3">{t.time}</p></> },
                 { key: 'v', label: 'Venue', render: (t) => <span className="text-[13.5px]">{t.venue}</span> },
@@ -1412,7 +1453,8 @@ function Tests() {
         ) : (
           <Card className="overflow-hidden">
             <CardHead title="Interviews" sub="15-minute slots. An interviewer is never booked twice for the same time." />
-            <DataList rows={ints} onRow={canEdit ? (i) => setOutcome(i) : undefined} minWidth={720}
+            <DataList rows={ints.filter((i) => inPeriod(i.slot, per))} onRow={canEdit ? (i) => setOutcome(i) : undefined} minWidth={720}
+              empty={<Empty icon={I.CalendarX2} title="No interviews in these dates" body={`Nothing booked ${fmtRange(per)}.`} action={<Button variant="secondary" onClick={() => setPer(PERIODS.acyear)}>Show this academic year</Button>} />}
               columns={[
                 { key: 's', label: 'Slot', nowrap: true, render: (i) => <span className="font-semibold tnum">{i.slot}</span> },
                 { key: 'a', label: 'Applicant', render: (i) => <div className="flex items-center gap-3"><Avatar name={i.app} size={32} /><div><p className="font-semibold leading-tight">{i.app}</p><p className="text-[12px] text-ink3">{i.cls} · 2027–28</p></div></div> },
@@ -1531,8 +1573,9 @@ function Decision() {
   const { go } = useNav();
   const { role } = useRole();
   const toast = useToast();
-  const canEdit = useCanEdit();
+  const canEdit = useAdmEdit('decision');
   const isP = role.id === 'principal';
+  const [per, setPer] = useState(PERIODS.last30);
   const [apps, setApps] = useState(() => APPS.filter((a) => ['Decision', 'Approved'].includes(a.stage)).map((a) => ({ ...a })));
   const [tab, setTab] = useState('ready');
   const [wait, setWait] = useState(WAIT0);
@@ -1606,7 +1649,7 @@ function Decision() {
             ) : (
               <Button variant="primary" icon={I.Send} onClick={() => setSend(a)}>Send for approval</Button>
             )}
-            {(isP || !a.withPrincipal) && <Button variant="dangerSoft" icon={I.X} onClick={() => setRej(a)}>Reject</Button>}
+            {isP && <Button variant="dangerSoft" icon={I.X} onClick={() => setRej(a)}>Reject</Button>}
             <Button variant="ghost" icon={I.Eye} onClick={() => go('admissions', { page: 'applications', id: a.id })}>Application</Button>
           </div>
         )}
@@ -1688,9 +1731,14 @@ function Decision() {
 
         {tab === 'done' && (
           <Card className="overflow-hidden">
-            <CardHead title="Decided" sub="This year, newest first" action={<ExportButton what="decisions" />} />
-            <ul className="divide-y divide-line/70 border-t border-line/70">
-              {decided.map((d, i) => (
+            <Toolbar>
+              <p className="flex-1 min-w-0 self-center text-[13.5px] text-ink2"><b className="font-semibold text-ink">Decided</b> · newest first · {fmtRange(per)}</p>
+              <DatePeriod id="dec-period" value={per} onChange={setPer} className="w-full @md:w-auto" />
+              <ExportButton what="decisions" />
+            </Toolbar>
+            {!decided.some((d) => inPeriod(d.when, per)) && <Empty icon={I.CalendarX2} title="No decisions in these dates" body={`Nothing was decided ${fmtRange(per)}.`} action={<Button variant="secondary" onClick={() => setPer(PERIODS.acyear)}>Show this academic year</Button>} />}
+            <ul className="divide-y divide-line/70">
+              {decided.filter((d) => inPeriod(d.when, per)).map((d, i) => (
                 <li key={i} className="flex items-start gap-3 px-4 @md:px-5 py-3">
                   <Avatar name={d.n} size={38} />
                   <div className="min-w-0 flex-1">
@@ -1858,21 +1906,27 @@ const REPORTS = [
 function Reports() {
   const toast = useToast();
   const [year, setYear] = useState('2027–28');
+  const [per, setPer] = useState(PERIODS.acyear);
   const [open, setOpen] = useState(null);
+  // Example numbers are for the whole year so far; a shorter period shows its share
+  const f = Math.min(1, periodDays(per) / periodDays(PERIODS.acyear));
+  const sc = (n) => Math.round(n * f);
+  const SRC = R_SOURCES.map(([k, e, a]) => [k, sc(e), Math.min(sc(e), sc(a))]);
+  const months = [['Aug', '2026-08-01', '2026-08-31', 18, 46], ['Sep', '2026-09-01', '2026-09-30', 52, 112], ['Oct', '2026-10-01', '2026-10-31', 26, 56]].filter(([, a, b]) => a <= per.to && b >= per.from);
   const body = (id) => {
-    if (id === 'pipe') return <HBars rows={[{ k: 'Nursery', v: 41 }, { k: 'LKG', v: 36 }, { k: 'UKG', v: 18 }, { k: 'Class 1', v: 28 }, { k: 'Class 2–5', v: 47 }, { k: 'Class 6–9', v: 44 }]} max={50} unit="" labelWidth={72} />;
+    if (id === 'pipe') return <HBars rows={[{ k: 'Nursery', v: sc(41) }, { k: 'LKG', v: sc(36) }, { k: 'UKG', v: sc(18) }, { k: 'Class 1', v: sc(28) }, { k: 'Class 2–5', v: sc(47) }, { k: 'Class 6–9', v: sc(44) }]} max={50} unit="" labelWidth={72} />;
     if (id === 'src') return (
       <ul className="flex flex-col gap-2">
-        {R_SOURCES.map(([k, e, a]) => (
+        {SRC.map(([k, e, a]) => (
           <li key={k} className="grid grid-cols-[76px_1fr_112px] items-center gap-3 text-[13px]">
             <span className="text-ink2 font-medium">{k}</span>
             <span className="relative h-3 rounded-full bg-sunken overflow-hidden"><span className="absolute inset-y-0 left-0 rounded-full bg-ink3/25" style={{ width: `${(e / 62) * 100}%` }} /><span className="absolute inset-y-0 left-0 rounded-full bg-brand" style={{ width: `${(a / 62) * 100}%` }} /></span>
-            <span className="text-right tnum"><b className="font-semibold">{a}</b><span className="text-ink3"> of {e} · {Math.round((a / e) * 100)}%</span></span>
+            <span className="text-right tnum"><b className="font-semibold">{a}</b><span className="text-ink3"> of {e} · {e ? Math.round((a / e) * 100) : 0}%</span></span>
           </li>
         ))}
       </ul>
     );
-    if (id === 'conv') return <><Bars data={[{ k: 'Aug', v: 18, v2: 46 }, { k: 'Sep', v: 52, v2: 112 }, { k: 'Oct', v: 26, v2: 56 }]} max={120} ariaLabel="Applications against enquiries by month" /><Legend items={[['bg-brand', 'Applications'], ['bg-ink3/25', 'Enquiries']]} /></>;
+    if (id === 'conv') return months.length ? <><Bars data={months.map(([k, , , v, v2]) => ({ k, v, v2 }))} max={120} ariaLabel="Applications against enquiries by month" /><Legend items={[['bg-brand', 'Applications'], ['bg-ink3/25', 'Enquiries']]} /></> : <p className="text-[13.5px] text-ink3 py-6 text-center">No months with admissions in these dates.</p>;
     if (id === 'time') return (
       <div className="grid grid-cols-2 gap-3">
         {[['23 days', 'Enquiry to admission', '3 days faster than Sep'], ['9 days', 'Application to decision', 'Goal: under 10'], ['4 days', 'Papers to verified', 'Median'], ['2 days', 'Approval by Principal', 'Median']].map(([v, k, s]) => (
@@ -1887,29 +1941,33 @@ function Reports() {
     );
     if (id === 'fu') return (
       <ul className="flex flex-col gap-2.5">
-        {[['Divya Menon', 46, 1], ['Naveen Kumar', 28, 1], ['Kavitha Nair', 19, 1]].map(([n, d, o]) => (
+        {[['Divya Menon', sc(46), 1], ['Naveen Kumar', sc(28), 1], ['Kavitha Nair', sc(19), 1]].map(([n, d, o]) => (
           <li key={n} className="flex items-center gap-3 text-[13.5px]"><Avatar name={n} size={30} /><span className="flex-1 font-semibold">{n}</span><span className="tnum"><b className="font-semibold">{d}</b> <span className="text-ink3">done</span></span><Pill tone="bad" className="!h-5 !text-[11px]">{o} overdue</Pill></li>
         ))}
       </ul>
     );
-    return <HBars rows={[{ k: 'Fee too high', v: 9 }, { k: 'Too far', v: 7 }, { k: 'Other school', v: 6 }, { k: 'No reply', v: 5 }, { k: 'Moving city', v: 2 }, { k: 'No seat', v: 2 }]} max={10} unit="" labelWidth={92} />;
+    return <HBars rows={[{ k: 'Fee too high', v: sc(9) }, { k: 'Too far', v: sc(7) }, { k: 'Other school', v: sc(6) }, { k: 'No reply', v: sc(5) }, { k: 'Moving city', v: sc(2) }, { k: 'No seat', v: sc(2) }]} max={10} unit="" labelWidth={92} />;
   };
   const cur = REPORTS.find((r) => r.id === open);
   return (
     <div>
       <ModuleHead sub="Where enquiries come from, how many join, and applications still pending" />
       <div className="flex flex-col gap-5 @lg:gap-6">
-        <div className="flex items-center gap-2 justify-between">
+        <div className="flex flex-col @lg:flex-row @lg:items-center gap-2.5">
           <Segmented value={year} onChange={setYear} options={[{ value: '2027–28', label: '2027–28' }, { value: '2026–27', label: '2026–27 mid-year' }]} />
-          <ExportButton what="admission reports" />
+          <div className="flex gap-2 @lg:ml-auto min-w-0">
+            <DatePeriod id="ar-period" value={per} onChange={setPer} className="flex-1 min-w-0 @lg:flex-none" />
+            <ExportButton what="admission reports" />
+          </div>
         </div>
+        <p className="text-[12.5px] text-ink3 -mt-2 tnum">Showing: {per.label} · {fmtRange(per)}</p>
         <Stats items={year === '2027–28' ? [
-          { label: 'Conversion', value: '12.6%', sub: '27 admitted of 214 enquiries', icon: 'TrendingUp', tone: 'brand' },
+          { label: 'Conversion', value: '12.6%', sub: `${sc(27)} admitted of ${sc(214)} enquiries`, icon: 'TrendingUp', tone: 'brand' },
           { label: 'Enquiry to admission', value: '23 days', sub: 'Average', icon: 'Timer' },
           { label: 'Application to decision', value: '9 days', sub: 'Average', icon: 'Hourglass' },
           { label: 'Pending applications', value: '31', sub: '6 older than 2 weeks', icon: 'FileClock', tone: 'warn' },
         ] : [
-          { label: 'Conversion', value: '23.7%', sub: '9 admitted of 38 enquiries', icon: 'TrendingUp', tone: 'brand' },
+          { label: 'Conversion', value: '23.7%', sub: `${sc(9)} admitted of ${sc(38)} enquiries`, icon: 'TrendingUp', tone: 'brand' },
           { label: 'Enquiry to admission', value: '12 days', sub: 'Average', icon: 'Timer' },
           { label: 'Application to decision', value: '6 days', sub: 'Average', icon: 'Hourglass' },
           { label: 'Pending applications', value: '4', sub: 'Mid-year', icon: 'FileClock' },
@@ -1923,13 +1981,13 @@ function Reports() {
           ))}
         </div>
       </div>
-      <Sheet open={!!cur} onClose={() => setOpen(null)} wide title={cur?.title} sub={cur ? `${cur.sub} · ${yl(year)}` : ''}
+      <Sheet open={!!cur} onClose={() => setOpen(null)} wide title={cur?.title} sub={cur ? `${cur.sub} · ${yl(year)} · ${fmtRange(per)}` : ''}
         footer={<><Button variant="secondary" icon={I.Download} onClick={() => toast({ title: `Exported ${cur?.title}`, body: 'Excel file with the school name, filters and your name on top. Logged in the export log.' })}>Export</Button><Button variant="primary" onClick={() => setOpen(null)}>Done</Button></>}>
         {cur && (cur.id === 'src' ? (
           <div className="overflow-x-auto scroll-thin">
             <table className="w-full text-[14px] min-w-[460px]">
               <thead><tr className="text-[12px] text-ink3 text-left border-b border-line"><th className="py-2 font-semibold">Source</th><th className="py-2 font-semibold text-right">Enquiries</th><th className="py-2 font-semibold text-right">Applications</th><th className="py-2 font-semibold text-right">Admitted</th><th className="py-2 font-semibold text-right">Conversion</th></tr></thead>
-              <tbody>{R_SOURCES.map(([k, e, a]) => <tr key={k} className="border-b border-line/70"><td className="py-2.5 font-medium">{k}</td><td className="text-right tnum">{e}</td><td className="text-right tnum">{Math.round(e * 0.45)}</td><td className="text-right tnum">{a}</td><td className="text-right tnum font-semibold">{Math.round((a / e) * 100)}%</td></tr>)}</tbody>
+              <tbody>{SRC.map(([k, e, a]) => <tr key={k} className="border-b border-line/70"><td className="py-2.5 font-medium">{k}</td><td className="text-right tnum">{e}</td><td className="text-right tnum">{Math.round(e * 0.45)}</td><td className="text-right tnum">{a}</td><td className="text-right tnum font-semibold">{e ? Math.round((a / e) * 100) : 0}%</td></tr>)}</tbody>
             </table>
           </div>
         ) : body(cur.id))}
@@ -1948,7 +2006,7 @@ const PAPER_COLS = ['Nursery–UKG', 'Class 1', 'Class 2–5', 'Class 6–9'];
 const PAPERS = [['Birth certificate', 'RRRR'], ['Transfer certificate', '-RRR'], ['Previous marksheet', '-RRR'], ['Address proof', 'RRRR'], ['Parent ID', 'RRRR'], ['Passport photos', 'RRRR'], ['Aadhaar card (student)', 'OOOO'], ['Caste certificate', 'OOOO']];
 function AdmSettings() {
   const toast = useToast();
-  const canEdit = useCanEdit();
+  const canEdit = useAdmEdit('settings');
   const { go } = useNav();
   const { role } = useRole();
   const [stages, setStages] = useState(STAGE_SET.map(([k, on, ap, s]) => ({ k, on, ap, s })));
@@ -2077,8 +2135,8 @@ export const ADMISSIONS_PAGES = {
   enquiries: Enquiries,
   applications: Applications,
   documents: Documents,
-  tests: Tests,
-  decision: Decision,
+  tests: readOnlyFor('tests', Tests),
+  decision: readOnlyFor('decision', Decision),
   reports: Reports,
-  settings: AdmSettings,
+  settings: readOnlyFor('settings', AdmSettings),
 };

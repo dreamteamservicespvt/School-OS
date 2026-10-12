@@ -8,7 +8,13 @@ import { useNav, useRole } from './shell.jsx';
 import {
   ModuleHead, useCanEdit, Icon, Stats, SearchBox, Toolbar, Select, Textarea, Chips, DataList, BulkBar, Row, SettingRow, ToggleRow, SettingsCard,
   Banner, Progress, HBars, DL, Timeline, MoreMenu, FormSheet, ConfirmSheet, Split, Col, ExportButton,
+  DatePeriod, PERIODS, fmtRange,
 } from './kit.jsx';
+import { inMenu } from './config.js';
+// "9 Oct 2026" or "9 Oct" to "2026-10-09", for the date filter
+const MONS = { Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6, Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12 };
+const isoOf = (t) => { const m = /(\d{1,2}) (\w{3})(?: (\d{4}))?/.exec(t || ''); return m ? `${m[3] || 2026}-${String(MONS[m[2]]).padStart(2, '0')}-${m[1].padStart(2, '0')}` : ''; };
+const inPeriod = (t, per) => { const d = isoOf(t); return d >= per.from && d <= per.to; };
 
 /* ======================= Helpers and sample data ======================= */
 const lab = (s) => (s.cls.startsWith('Class ') ? `${s.cls.slice(6)} ${s.sec}` : `${s.cls} ${s.sec}`);
@@ -172,6 +178,9 @@ function Parent360({ id }) {
   const featured = g.kids.some((k) => k.id === FEATURED.id);
   const kids = g.kids.map((k) => { const s = STUDENTS.find((x) => x.id === k.id); return { ...k, att: s ? s.att : 98, due: s ? s.due : 0, state: s ? s.feeState : 'Paid', teacher: k.label === '7 B' ? 'Ravi Teja' : k.label === 'UKG A' ? 'Sunitha Mohan' : 'Usha Rani' }; });
   const totalDue = kids.reduce((a, k) => a + k.due, 0);
+  // Fee figures only for roles with Fee Management; the custody flag only for the Principal and School Admin
+  const fees = !!role.access.fees;
+  const admin = ['principal', 'schooladmin'].includes(role.id);
   return (
     <div>
       <BackLink onClick={() => go('students', { page: 'parents' })} label="Parents & Guardians" sub={g.name} />
@@ -186,21 +195,21 @@ function Parent360({ id }) {
             </div>
           </div>
           <div className="flex gap-2 flex-wrap">
-            <Button variant="secondary" icon={I.MessageCircle} onClick={() => toast({ title: `Message to ${g.name}`, body: 'Opening WhatsApp message with the school template', tone: 'info' })}>Message</Button>
+            {role.access.communication && <Button variant="secondary" icon={I.MessageCircle} onClick={() => toast({ title: `Message to ${g.name}`, body: 'Opening WhatsApp message with the school template', tone: 'info' })}>Message</Button>}
             {canEdit && <Button variant="secondary" icon={I.RefreshCw} onClick={() => setSheet('resend')}>Resend Parent Link</Button>}
             {canEdit && <MoreMenu items={[
               ['ShieldCheck', 'Send consent request', () => setSheet('consent')],
               ['ShieldOff', 'Record consent withdrawal', () => setSheet('withdraw')],
               ['Link', 'Link another child', () => toast({ title: 'Link another child', body: 'Search a student and pick the relation.', tone: 'info' })],
               ['Merge', 'Merge with another record', () => toast({ title: 'Merge two records', body: 'Pick the duplicate. All links and history are kept.', tone: 'info' })],
-              ['ShieldX', g.custody ? 'Change custody flag' : 'Add custody flag', () => setSheet('custody')],
+              ...(admin ? [['ShieldX', g.custody ? 'Change custody flag' : 'Add custody flag', () => setSheet('custody')]] : []),
               ['Ban', 'Revoke Parent Link', () => setSheet('revoke'), 'bad'],
             ]} />}
           </div>
         </Card>
         <Stats items={[
           { label: 'Children here', value: String(kids.length), sub: kids.map((k) => k.label).join(' · '), icon: 'GraduationCap' },
-          { label: 'Fees due, all children', value: totalDue ? inr(totalDue) : 'Nothing due', tone: totalDue ? 'bad' : 'ok', sub: totalDue ? 'Overdue since 10 Jul' : 'All paid', icon: 'IndianRupee' },
+          ...(fees ? [{ label: 'Fees due, all children', value: totalDue ? inr(totalDue) : 'Nothing due', tone: totalDue ? 'bad' : 'ok', sub: totalDue ? 'Overdue since 10 Jul' : 'All paid', icon: 'IndianRupee' }] : []),
           { label: 'Parent Link', value: g.link, tone: LINK_TONE[g.link] === 'neutral' ? undefined : LINK_TONE[g.link], sub: g.opened ? `Last opened ${g.opened}` : 'Not opened yet', icon: 'Smartphone' },
           { label: 'Messages', value: g.optOut ? 'Opted out' : 'WhatsApp', sub: g.optOut ? 'Only urgent notices by SMS' : 'SMS if WhatsApp fails', icon: 'MessageCircle' },
         ]} />
@@ -216,9 +225,9 @@ function Parent360({ id }) {
                       <span className="min-w-0 flex-1"><b className="font-semibold text-[15px] block truncate">{k.name}</b><span className="text-[12.5px] text-ink3">{k.label} · class teacher {k.teacher}</span></span>
                       {k.id && <I.ChevronRight size={17} className="text-ink3" />}
                     </button>
-                    <div className="grid grid-cols-2 gap-2 text-[13px]">
+                    <div className={cx('grid gap-2 text-[13px]', fees ? 'grid-cols-2' : 'grid-cols-1')}>
                       <div className="rounded-lg bg-sunken/60 px-2.5 py-2"><p className="text-ink3 text-[12px] font-semibold">Attendance</p><p className={cx('font-semibold tnum', k.att < 85 && 'text-warn')}>{k.att}% this year</p></div>
-                      <div className="rounded-lg bg-sunken/60 px-2.5 py-2"><p className="text-ink3 text-[12px] font-semibold">Fees</p><p className={cx('font-semibold tnum', k.due && 'text-bad')}>{k.due ? `${inr(k.due)} ${k.state === 'Overdue' ? 'overdue' : 'due'}` : 'Paid'}</p></div>
+                      {fees && <div className="rounded-lg bg-sunken/60 px-2.5 py-2"><p className="text-ink3 text-[12px] font-semibold">Fees</p><p className={cx('font-semibold tnum', k.due && 'text-bad')}>{k.due ? `${inr(k.due)} ${k.state === 'Overdue' ? 'overdue' : 'due'}` : 'Paid'}</p></div>}
                     </div>
                     <label className="flex items-center gap-3 text-[13.5px]">
                       <Switch on={primary[k.name]} label={`Primary contact for ${k.name}`} onChange={(v) => { if (!canEdit) return; setPrimary((p) => ({ ...p, [k.name]: v })); toast({ title: v ? `${g.name} is now the primary contact for ${k.name.split(' ')[0]}` : `${g.name} is no longer the primary contact`, body: 'This number gets WhatsApp and SMS first.' }); }} />
@@ -229,7 +238,7 @@ function Parent360({ id }) {
                 ))}
               </div>
             </Card>
-            <Card>
+            {fees && <Card>
               <CardHead title="Fees and payments" sub="All children, newest first" icon={I.ReceiptIndianRupee} />
               <ul className="px-2 pb-2">
                 {(featured ? [['R/26/04412', '12 Jul', 'Aarav · Tuition fee Q2 (part)', 10000, 'UPI'], ['R/26/04398', '10 Jul', 'Anaya · Tuition fee Q1 and Q2', 21600, 'Razorpay'], ['R/26/04102', '5 Apr', 'Aarav · Transport fee Apr–Sep', 13200, 'Cash'], ['R/26/04011', '10 Apr', 'Aarav · Tuition fee Q1', 18500, 'Razorpay']]
@@ -237,13 +246,13 @@ function Parent360({ id }) {
                   <Row key={r} icon="ReceiptIndianRupee" title={w} sub={<><span className="font-mono text-[11.5px]">{r}</span> · {d} · {m}</>} right={<span className="font-semibold tnum text-[14px]">{inr(a)}</span>} />
                 ))}
               </ul>
-            </Card>
+            </Card>}
             <Card>
               <CardHead title="Messages, PTMs and requests" icon={I.MessagesSquare} />
               <div className="px-5"><Timeline items={[
                 { what: featured ? 'Leave request for Aarav, Mon 12 Oct (family function). Waiting for Ravi Teja.' : 'Asked for the bus route change to Route 2.', when: 'Today, 8:40 AM · through Parent Link', icon: 'CalendarDays', tone: 'info' },
                 { what: 'PTM booked: Sat 17 Oct, 10:20 AM with the class teacher.', when: '7 Oct 2026', icon: 'Users', tone: 'brand' },
-                { what: 'Fee reminder on WhatsApp. Seen by parent.', when: '6 Oct 2026, 10:00 AM', icon: 'MessageCircle' },
+                ...(fees ? [{ what: 'Fee reminder on WhatsApp. Seen by parent.', when: '6 Oct 2026, 10:00 AM', icon: 'MessageCircle' }] : []),
                 { what: 'Complaint: Bus 4 late twice last week. Resolved by Venkatesh Goud.', when: '5 Oct 2026', icon: 'Bus', tone: 'ok' },
                 { what: 'Notice: Dussehra holidays 19–25 Oct.', when: '3 Oct 2026', icon: 'Megaphone' },
               ]} /></div>
@@ -329,7 +338,7 @@ const TYPES = ['Incident', 'Warning', 'Suspension', 'Reward', 'Recognition'];
 const TYPE_TONE = { Incident: 'warn', Warning: 'bad', Suspension: 'bad', Reward: 'ok', Recognition: 'ok' };
 const TYPE_PTS = { Incident: -2, Warning: -3, Suspension: -10, Reward: 5, Recognition: 10 };
 const k7 = (i) => CLASS_7B[i];
-const INCIDENTS = [
+export const INCIDENTS = [
   { id: 'BH-0231', date: '9 Oct', kids: [k7(4)], type: 'Incident', what: 'Pushed a classmate in the bus queue. No one was hurt.', by: 'Ravi Teja', action: 'Spoke to both. Apology given.', status: 'Closed', pts: -2 },
   { id: 'BH-0230', date: '8 Oct', kids: [pickS('7', 'A', 1)], type: 'Reward', what: 'Helped a new student settle in and showed her around the school.', by: 'Imran Shaikh', action: 'Praised in assembly', status: 'Closed', pts: 5 },
   { id: 'BH-0229', date: '8 Oct', kids: [k7(17), k7(22)], type: 'Warning', what: 'Using phones in the Science lab during the practical.', by: 'Ravi Teja', action: 'Phones kept in the office till 3:30 PM. Parents informed.', status: 'Closed', pts: -3, informed: true },
@@ -341,7 +350,7 @@ const INCIDENTS = [
   { id: 'BH-0223', date: '29 Sep', kids: [pickS('8', 'A', 0)], type: 'Warning', what: 'Tore pages of a library book.', by: 'Padma Iyer', action: 'Book cost to be paid. Warning letter to parent.', status: 'Open', pts: -3 },
   { id: 'BH-0222', date: '26 Sep', kids: [pickS('6', 'A', 1)], type: 'Incident', what: 'Upset during Maths tests; cried twice this week.', by: 'Imran Shaikh', action: 'Referred to counselling', status: 'Closed', pts: 0, referred: true },
 ];
-const CASES = [
+export const CASES = [
   { id: 'CC/2026/014', s: pickS('6', 'B', 0), opened: '6 Oct 2026', from: 'Imran Shaikh (incident BH-0227)', status: 'Open', next: 'Mon 12 Oct, 12:40 PM', sessions: [['7 Oct, 12:40 PM', 'First session. Feels left out after friends moved to 6 A. Sleeping late because of phone games.']], plan: 'Weekly session for 4 weeks. Class teacher to change seating. Parent meeting after Dussehra.', notes: 'Parents separated in August. Lives with mother and grandmother. Not to be discussed with classmates.', referral: null },
   { id: 'CC/2026/012', s: pickS('9', 'C', 0), opened: '28 Sep 2026', from: 'Lakshmi Rao (Principal)', status: 'Follow-up', next: 'Fri 16 Oct, 2:20 PM', sessions: [['8 Oct, 11:15 AM', 'Calmer. Talked through what happens before he gets angry.'], ['1 Oct, 11:15 AM', 'Anger after cricket losses. Older cousin teases him at home.'], ['29 Sep, 12:40 PM', 'First session after the bus fight.']], plan: 'Anger log for 2 weeks. Captain role in PE to build trust.', notes: 'Father works away in Dubai. Mother asked that the father is not called.', referral: 'Dr. Kavya Rao, child psychologist, Rainbow Hospital (parent agreed 2 Oct)' },
   { id: 'CC/2026/011', s: pickS('6', 'A', 1), opened: '26 Sep 2026', from: 'Imran Shaikh (incident BH-0222)', status: 'Open', next: 'Tue 13 Oct, 11:15 AM', sessions: [['30 Sep, 11:15 AM', 'Exam worry before the half-yearlies. Practised slow breathing.']], plan: 'Two more sessions before exams. Extra time talk with the Exam In-charge if needed.', notes: 'Older sister scored 98% last year; feels compared at home.', referral: null },
@@ -372,7 +381,10 @@ function Behaviour({ access }) {
   const [cs, setCs] = useState(null);
   const [newCase, setNewCase] = useState(false);
   const [refer, setRefer] = useState(null);
-  const vis = list.filter((i) => (scope ? i.kids.some((k) => scope.includes(lab(k))) : counsellor ? i.referred : true));
+  const [per, setPer] = useState(PERIODS.last30);
+  // Teachers see only students they teach, the class teacher their section, the counsellor only incidents referred to counselling
+  const all = list.filter((i) => (scope ? i.kids.some((k) => scope.includes(lab(k))) : counsellor ? i.referred : true));
+  const vis = all.filter((i) => inPeriod(i.date, per));
   const t = q.trim().toLowerCase();
   const rows = vis.filter((i) => (type === 'all' || i.type === type) && (!t || i.kids.some((k) => k.name.toLowerCase().includes(t)) || i.what.toLowerCase().includes(t)));
   const visCases = cases.filter((c) => (scope ? scope.includes(lab(c.s)) : true));
@@ -382,7 +394,9 @@ function Behaviour({ access }) {
     const all = Object.entries(m).filter(([, p]) => p !== 0).sort((a, b) => b[1] - a[1]);
     return all.length > 6 ? [...all.slice(0, 3), ...all.slice(-3)] : all;
   }, [vis]);
-  const showCareer = !scope;
+  // Career guidance is for the whole of Class 10: not for teachers, and not for the counsellor, who sees only the cases given to them
+  const showCareer = !scope && !counsellor;
+  const canClose = (i) => !scope || rid === 'classteacher' || i.by === role.person.name;
   const sub = rid === 'teacher' ? 'Only students you teach: 6 A, 6 B, 7 A and 7 B' : rid === 'classteacher' ? 'Only your class, 7 B' : counsellor ? 'The counselling cases given to you. Only you can read the notes.' : 'Incidents, warnings and rewards. Counselling notes stay with the counsellor.';
   return (
     <div>
@@ -400,11 +414,12 @@ function Behaviour({ access }) {
             <Card className="overflow-hidden">
               <Toolbar>
                 <SearchBox id="bh-search" value={q} onChange={setQ} placeholder="Student or what happened" />
+                <DatePeriod id="bh-period" value={per} onChange={setPer} className="w-full @md:w-auto" />
                 <Select id="bh-type" value={type} onChange={setType} options={[{ value: 'all', label: 'All types' }, ...TYPES]} className="@md:w-40" />
                 <ExportButton what="behaviour records" />
               </Toolbar>
-              <DataList rows={rows} onRow={(i) => setOpen(i)} minWidth={760} footer={`Showing ${rows.length} of ${vis.length}`}
-                empty={<Empty icon={I.SearchX} title="Nothing matches" body="Try another type or student name." action={<Button variant="secondary" onClick={() => { setQ(''); setType('all'); }}>Clear filters</Button>} />}
+              <DataList rows={rows} onRow={(i) => setOpen(i)} minWidth={760} footer={`Showing ${rows.length} of ${vis.length} · ${fmtRange(per)}`}
+                empty={<Empty icon={I.SearchX} title="Nothing matches" body={`Nothing recorded ${fmtRange(per)} for these filters. Try wider dates, another type or a student name.`} action={<Button variant="secondary" onClick={() => { setQ(''); setType('all'); setPer(PERIODS.last30); }}>Clear filters</Button>} />}
                 columns={[
                   { key: 'd', label: 'Date', nowrap: true, render: (i) => <span className="text-[13px] tnum">{i.date}</span> },
                   { key: 's', label: 'Student', render: (i) => <div className="flex flex-col gap-0.5">{i.kids.map((k) => <span key={k.id} className="whitespace-nowrap"><b className="font-semibold">{k.name}</b> <span className="text-ink3 text-[12.5px]">· {lab(k)}</span></span>)}</div> },
@@ -418,8 +433,9 @@ function Behaviour({ access }) {
             </Card>
             <Col>
               <Card>
-                <CardHead title="Behaviour points" sub="Highest and lowest this term" icon={I.Medal} />
+                <CardHead title="Behaviour points" sub={`Highest and lowest · ${fmtRange(per)}`} icon={I.Medal} />
                 <ul className="px-5 pb-4 flex flex-col gap-2">
+                  {!pts.length && <li className="text-[13.5px] text-ink3 py-2">No points in these dates.</li>}
                   {pts.slice(0, 6).map(([n, p]) => (
                     <li key={n} className="flex items-center gap-3 text-[13.5px]"><Avatar name={n} size={28} /><span className="flex-1 truncate">{n}</span><span className={cx('font-semibold tnum', p > 0 ? 'text-ok' : p < 0 ? 'text-bad' : 'text-ink3')}>{p > 0 ? `+${p}` : p}</span></li>
                   ))}
@@ -427,7 +443,7 @@ function Behaviour({ access }) {
               </Card>
               {!counsellor && (
                 <Card>
-                  <CardHead title="This month" icon={I.ChartColumn} />
+                  <CardHead title={per.label} sub={fmtRange(per)} icon={I.ChartColumn} />
                   <div className="px-5 pb-5"><HBars rows={[{ k: 'Incidents', v: vis.filter((i) => i.type === 'Incident').length }, { k: 'Warnings', v: vis.filter((i) => i.type === 'Warning').length }, { k: 'Suspensions', v: vis.filter((i) => i.type === 'Suspension').length }, { k: 'Rewards', v: vis.filter((i) => i.pts > 0).length }]} max={Math.max(4, vis.length)} unit="" labelWidth={86} /></div>
                 </Card>
               )}
@@ -475,7 +491,7 @@ function Behaviour({ access }) {
       <Sheet open={!!open} onClose={() => setOpen(null)} title={open ? `${open.type} · ${open.date}` : ''} sub={open ? `${open.id} · reported by ${open.by}` : ''}
         footer={open && canEdit && !counsellor ? <>
           {!open.referred && <Button variant="secondary" icon={I.HeartHandshake} onClick={() => { setRefer(open); setOpen(null); }}>Refer to counselling</Button>}
-          {open.status === 'Open' && <Button variant="primary" icon={I.Check} onClick={() => { setList((l) => l.map((x) => (x.id === open.id ? { ...x, status: 'Closed' } : x))); toast({ title: `${open.id} closed`, undo: () => setList((l) => l.map((x) => (x.id === open.id ? { ...x, status: 'Open' } : x))) }); setOpen(null); }}>Close</Button>}
+          {open.status === 'Open' && canClose(open) && <Button variant="primary" icon={I.Check} onClick={() => { setList((l) => l.map((x) => (x.id === open.id ? { ...x, status: 'Closed' } : x))); toast({ title: `${open.id} closed`, undo: () => setList((l) => l.map((x) => (x.id === open.id ? { ...x, status: 'Open' } : x))) }); setOpen(null); }}>Close</Button>}
         </> : null}>
         {open && (
           <div className="flex flex-col gap-4">
@@ -502,10 +518,10 @@ function Behaviour({ access }) {
   );
 }
 
-function ReportSheet({ scope, onClose, onSave }) {
+export function ReportSheet({ scope, onClose, onSave, preset }) {
   const pool = scope ? STUDENTS.filter((s) => scope.includes(lab(s))) : STUDENTS;
   const [q, setQ] = useState('');
-  const [kids, setKids] = useState([]);
+  const [kids, setKids] = useState(preset ? [preset] : []);
   const [type, setType] = useState('Incident');
   const [what, setWhat] = useState('');
   const [date, setDate] = useState('09-10-2026');
@@ -559,6 +575,7 @@ function ReportSheet({ scope, onClose, onSave }) {
 
 function CaseSheet({ c, onClose, onUpdate }) {
   const toast = useToast();
+  const { go } = useNav();
   const [add, setAdd] = useState(false);
   const [note, setNote] = useState('');
   return (
@@ -566,6 +583,7 @@ function CaseSheet({ c, onClose, onUpdate }) {
       footer={c.status !== 'Closed' ? <><Button variant="ghost" onClick={() => { onUpdate({ ...c, status: 'Closed', next: null }); toast({ title: `${c.id} closed`, body: 'Notes stay private and kept.' }); }}>Close case</Button><Button variant="primary" icon={I.Plus} onClick={() => setAdd(true)}>Record session</Button></> : null}>
       <div className="flex flex-col gap-4">
         <div className="rounded-xl bg-brand/8 px-3.5 py-2.5 flex items-center gap-2.5 text-[13px]"><I.Lock size={15} className="text-brand shrink-0" /><span className="text-ink2"><b className="font-semibold text-ink">Highly restricted.</b> Only you (Sana Ali) can read this case. Others see “Private”.</span></div>
+        <Button variant="secondary" icon={I.User} className="self-start" onClick={() => { onClose(); go('student', { id: c.s.id }); }}>Open {c.s.name.split(' ')[0]}’s profile</Button>
         <div className="grid @md:grid-cols-2 gap-3">
           <div className="rounded-xl border border-line p-3.5"><p className="text-[12px] text-ink3 font-semibold">Next session</p><p className="font-semibold text-[15px] tnum">{c.next || 'None, case closed'}</p></div>
           <div className="rounded-xl border border-line p-3.5"><p className="text-[12px] text-ink3 font-semibold">Outside referral</p><p className="text-[14px]">{c.referral || 'None'}</p></div>
@@ -672,7 +690,7 @@ function Promotion({ access }) {
   const steps = [['Choose', 'Class and target'], ['Review the batch', `${students.length} students`], ['Confirm', 'Save the batch']];
   return (
     <div>
-      <ModuleHead sub={ct ? 'Check the year-end list for your class, 7 B. The Principal saves the batch.' : 'Move a whole class to the next class at year end, after checking results and the list.'} />
+      <ModuleHead sub={ct ? 'Check the year-end list for your class, 7 B. The Principal saves the batch.' : role.id === 'officestaff' ? 'Prepare the year-end list for a class. The Principal saves the batch.' : 'Move a whole class to the next class at year end, after checking results and the list.'} />
       <div className="flex flex-col gap-5 @lg:gap-6">
         <Banner tone="info" icon="CalendarRange" title="2027–28 is being prepared.">Final results publish on 31 Mar 2027. Until then the list uses Unit Tests 1 and 2 and updates by itself. Saved batches move students on 1 Jun 2027.</Banner>
         <Card className="p-3 @md:p-4">
@@ -789,7 +807,7 @@ function Promotion({ access }) {
               {saved ? <Banner tone="ok" title="Batch saved.">PB/2027/{cls}{sec} · {count('Promoted')} promoted. Undo from Promotion history while nothing is recorded in 2027–28.</Banner> : canEdit && (
                 <div className="flex gap-2 justify-end flex-wrap">
                   <Button variant="ghost" onClick={() => setStep(2)}>Back</Button>
-                  {ct ? <Button variant="primary" icon={I.Send} onClick={() => { setSaved(true); toast({ title: 'Sent to Lakshmi Rao for confirmation', body: `${short(cls, sec)} list · ${changed.length} changes with reasons.` }); }}>Send to Principal for confirmation</Button>
+                  {ct || role.id === 'officestaff' ? <Button variant="primary" icon={I.Send} onClick={() => { setSaved(true); toast({ title: 'Sent to Lakshmi Rao for confirmation', body: `${short(cls, sec)} list · ${changed.length} changes with reasons.` }); }}>Send to Principal for confirmation</Button>
                     : <Button variant="primary" icon={I.Check} onClick={() => setConfirm(true)}>Save batch</Button>}
                 </div>
               )}
@@ -843,6 +861,8 @@ function Leaving() {
   const [start, setStart] = useState(false);
   const [waive, setWaive] = useState(null);
   const [q, setQ] = useState('');
+  const [per, setPer] = useState(PERIODS.acyear);
+  const leftRows = LEFT.filter((r) => inPeriod(r[1], per));
   const checks = (l) => [
     ['Fees', l.fees ? `${inr(l.fees)} due` : 'Clear', !l.fees, 'IndianRupee'],
     ['Library', l.books.length ? `${l.books.length} ${l.books.length === 1 ? 'book' : 'books'} out` : 'Clear', !l.books.length, 'BookOpen'],
@@ -856,7 +876,7 @@ function Leaving() {
       <ModuleHead sub="Transfer or withdrawal with fee and library clearance, and records of past students"
         actions={<Button variant="primary" icon={I.LogOut} onClick={() => setStart(true)}>Start leaving</Button>} />
       <div className="flex flex-col gap-4">
-        <Tabs value={tab} onChange={setTab} tabs={[{ id: 'leaving', label: 'Leaving', count: list.length }, { id: 'left', label: 'Left', count: LEFT.length }, { id: 'alumni', label: 'Alumni', count: 2840 }]} />
+        <Tabs value={tab} onChange={setTab} tabs={[{ id: 'leaving', label: 'Leaving', count: list.length }, { id: 'left', label: 'Left', count: leftRows.length }, { id: 'alumni', label: 'Alumni', count: 2840 }]} />
         {tab === 'leaving' && (
           <Card className="overflow-hidden">
             <Toolbar><SearchBox id="lv-q" value={q} onChange={setQ} placeholder="Student name" /><ExportButton what="leaving list" /></Toolbar>
@@ -873,8 +893,13 @@ function Leaving() {
         )}
         {tab === 'left' && (
           <Card className="overflow-hidden">
-            <CardHead title="Left this year" sub="Status changed to Transferred or Withdrawn on the last date" action={<ExportButton what="students who left" />} />
-            <DataList rows={LEFT} rowKey={(r) => r[4]} minWidth={720}
+            <Toolbar>
+              <p className="flex-1 min-w-0 self-center text-[13.5px] text-ink2"><b className="font-semibold text-ink">Left</b> · status changed to Transferred or Withdrawn on the last date</p>
+              <DatePeriod id="lv-period" value={per} onChange={setPer} className="w-full @md:w-auto" />
+              <ExportButton what="students who left" />
+            </Toolbar>
+            <DataList rows={leftRows} rowKey={(r) => r[4]} minWidth={720} footer={`${leftRows.length} left · ${fmtRange(per)}`}
+              empty={<Empty icon={I.CalendarX2} title="Nobody left in these dates" body={`No transfers or withdrawals ${fmtRange(per)}.`} action={<Button variant="secondary" onClick={() => setPer(PERIODS.acyear)}>Show this academic year</Button>} />}
               columns={[
                 { key: 's', label: 'Student', render: (r) => <div className="flex items-center gap-3"><Avatar name={r[0].name} size={32} /><div><p className="font-semibold leading-tight">{r[0].name}</p><p className="text-[12px] text-ink3">{lab(r[0])}</p></div></div> },
                 { key: 'd', label: 'Left on', nowrap: true, render: (r) => <span className="tnum text-[13.5px]">{r[1]}</span> },
@@ -899,11 +924,11 @@ function Leaving() {
                 mobile={(r) => ({ title: r[0], sub: `Batch ${r[1]} · ${r[3]}`, avatar: r[0] })} />
             </Card>
             <Col>
-              <Card>
+              {role.access.finance && <Card>
                 <CardHead title="Donations this year" icon={I.HandHeart} />
                 <div className="px-5 pb-4"><p className="font-display text-[26px] font-semibold tnum">{inr(185000)}</p><p className="text-[12.5px] text-ink3">From 7 alumni · receipts through Finance, Income</p></div>
                 <ul className="px-2 pb-2">{[['Sneha Reddy', 'Library books', 50000], ['Batch 2010', 'Smart class, 9 C', 85000], ['Kiran Kumar', 'Scholarship fund', 50000]].map(([n, p, a]) => <Row key={n + p} avatar={n} title={n} sub={p} right={<span className="font-semibold tnum text-[13.5px]">{inr(a)}</span>} />)}</ul>
-              </Card>
+              </Card>}
               <Card>
                 <CardHead title="Mentorship and job board" icon={I.Briefcase} />
                 <ul className="px-5 pb-5 flex flex-col gap-2.5 text-[13.5px]">
@@ -1030,8 +1055,9 @@ function Certificates() {
   const [card, setCard] = useState(false);
   const [reprint, setReprint] = useState(false);
   const [printed, setPrinted] = useState({});
+  const [per, setPer] = useState(PERIODS.last30);
   const t = q.trim().toLowerCase();
-  const rows = certs.filter((c) => (st === 'all' || c.status === st) && (!t || c.s.name.toLowerCase().includes(t) || c.no.toLowerCase().includes(t)));
+  const rows = certs.filter((c) => inPeriod(c.date, per) && (st === 'all' || c.status === st) && (!t || c.s.name.toLowerCase().includes(t) || c.no.toLowerCase().includes(t)));
   const C = CLASSES.find((c) => c.id === cls);
   const secs = secCounts(C);
   const batches = batchesOf(secs);
@@ -1045,10 +1071,11 @@ function Certificates() {
         <Tabs value={tab} onChange={setTab} tabs={[{ id: 'certs', label: 'Certificates', count: certs.length }, { id: 'ids', label: 'ID cards' }]} />
         {tab === 'certs' ? (
           <>
-            <Chips value={st} onChange={setSt} options={[{ value: 'all', label: 'All', count: certs.length }, ...['Requested', 'Approved', 'Issued', 'Cancelled'].map((x) => ({ value: x, label: x, count: certs.filter((c) => c.status === x).length }))]} />
+            <Chips value={st} onChange={setSt} options={[{ value: 'all', label: 'All', count: certs.filter((c) => inPeriod(c.date, per)).length }, ...['Requested', 'Approved', 'Issued', 'Cancelled'].map((x) => ({ value: x, label: x, count: certs.filter((c) => c.status === x && inPeriod(c.date, per)).length }))]} />
             <Card className="overflow-hidden">
-              <Toolbar><SearchBox id="ce-q" value={q} onChange={setQ} placeholder="Student name or certificate number" /><ExportButton what="certificates" /></Toolbar>
-              <DataList rows={rows} rowKey={(c) => c.no} onRow={(c) => setView(c)} minWidth={880}
+              <Toolbar><SearchBox id="ce-q" value={q} onChange={setQ} placeholder="Student name or certificate number" /><DatePeriod id="ce-period" value={per} onChange={setPer} className="w-full @md:w-auto" /><ExportButton what="certificates" /></Toolbar>
+              <DataList rows={rows} rowKey={(c) => c.no} onRow={(c) => setView(c)} minWidth={880} footer={`Showing ${rows.length} of ${certs.length} · ${fmtRange(per)}`}
+                empty={<Empty icon={I.SearchX} title="No certificates match" body={`Nothing issued or asked for ${fmtRange(per)} for these filters.`} action={<Button variant="secondary" onClick={() => { setQ(''); setSt('all'); setPer(PERIODS.last30); }}>Clear filters</Button>} />}
                 columns={[
                   { key: 'n', label: 'Number', nowrap: true, render: (c) => <span className="font-mono text-[12.5px]">{c.no}</span> },
                   { key: 't', label: 'Type', render: (c) => <span className="text-[13.5px] whitespace-nowrap">{c.type}</span> },

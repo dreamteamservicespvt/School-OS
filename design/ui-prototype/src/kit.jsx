@@ -760,6 +760,7 @@ export function sampleMark(seed, y, m, d) {
   if (sd.kind !== 'school') return sd;
   let h = 0; const s = `${seed}|${y}-${m}-${d}`;
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  h ^= h >>> 13; h = Math.imul(h, 0x5bd1e995) >>> 0; h ^= h >>> 15;
   const r = h % 100;
   return r < 4 ? { kind: 'absent', title: 'Absent' } : r < 7 ? { kind: 'late', title: 'Late' } : r < 9 ? { kind: 'leave', title: 'On leave' } : { kind: 'present', title: 'Present' };
 }

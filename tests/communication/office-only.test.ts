@@ -108,6 +108,7 @@ describe("Communication office actions refuse a class teacher", () => {
     const p = await import("@/app/(school)/communication/parent-link/actions");
     await refused(() => p.sendFamiliesAction(new FormData()));
     await refused(() => p.consentRequestAction(null as never, new FormData()));
+    await refused(() => p.resendManyAction(["00000000-0000-4000-8000-000000000000"], "whatsapp"));
   });
 
   it("a teacher can still send to their own section", async () => {

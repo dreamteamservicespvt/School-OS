@@ -115,6 +115,30 @@ export async function resendAction(linkId: string, channel: string): Promise<str
   revalidatePath(`/communication/parent-link/${linkId}`);
 }
 
+/** Resend the same link to several guardians ticked in the list (active links only). */
+export async function resendManyAction(linkIds: string[], channel: string): Promise<{ ok: true; sent: number; failed: number } | { ok: false; message: string }> {
+  const ids = [...new Set(linkIds)].filter((id) => uuid.test(id));
+  if (!ids.length) return { ok: false, message: "Tick at least one link." };
+  if (ids.length > 200) return { ok: false, message: "Resend to at most 200 guardians at a time, or use Send to existing families." };
+  try {
+    const access = await manager("edit");
+    const ch = channel === "whatsapp" || channel === "sms" ? channel : null;
+    let sent = 0;
+    let failed = 0;
+    await withSchool(access.current.ctx, async (tx) => {
+      const active = await tx.parentLink.findMany({ where: { schoolId: access.current.ctx.schoolId, id: { in: ids }, status: "ACTIVE" }, select: { id: true } });
+      failed = ids.length - active.length;
+      for (const l of active) {
+        try { await resendLink(tx, access.current.ctx, l.id, ch); sent++; } catch (e) { if (e instanceof ParentLinkProblem || e instanceof MessagingProblem) failed++; else throw e; }
+      }
+    });
+    revalidatePath("/communication/parent-link");
+    return { ok: true, sent, failed };
+  } catch (e) {
+    return { ok: false, message: fail(e) };
+  }
+}
+
 export async function revokeAction(linkId: string, mode: "revoke" | "reissue", reasonKey: string, other: string, channel: string): Promise<string | { newId: string } | void> {
   if (!uuid.test(linkId)) return "This link was not found.";
   if (!(REVOKE_REASONS as readonly string[]).includes(reasonKey)) return "Choose a reason.";

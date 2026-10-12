@@ -5,11 +5,16 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { previewFamilies, sendFamiliesAction, type FamiliesPreview, type FamiliesResult } from "../actions";
+import { CircleCheck, Send } from "lucide-react";
 import { Button, ButtonLink } from "@/components/ui/button";
-import { Alert } from "@/components/ui/alert";
+import { Banner } from "@/components/ui/banner";
+import { Card, CardHeader } from "@/components/ui/card";
+import { Segmented } from "@/components/ui/controls";
+import { FieldShell, inputCls } from "@/components/ui/field";
+import { cx } from "@/components/ui/cx";
 
 type Opt = { value: string; label: string; group?: string };
-const field = "h-11 w-full rounded-lg border border-line-strong bg-surface px-3";
+const field = cx(inputCls(), "h-11 pr-9");
 
 export function FamiliesForm({ who: whoOpts, channels }: { who: Opt[]; channels: Opt[] }) {
   const [who, setWho] = useState("school");
@@ -44,68 +49,65 @@ export function FamiliesForm({ who: whoOpts, channels }: { who: Opt[]; channels:
 
   if (result) {
     return (
-      <div className="space-y-3 rounded-2xl border border-line bg-surface p-5 shadow-card">
-        <h3 className="text-lg font-semibold">Done</h3>
-        <ul className="list-disc space-y-1 pl-5">
-          <li>{result.made} new link{result.made === 1 ? "" : "s"} made and {sendAt ? "scheduled" : "queued to send"} ({result.queued} message{result.queued === 1 ? "" : "s"}).</li>
-          <li>{result.alreadyHad} guardian{result.alreadyHad === 1 ? "" : "s"} already had a link and were left out.</li>
-          {result.skipped.length > 0 && <li>Skipped: {result.skipped.join("; ")}.</li>}
+      <Card>
+        <CardHeader title="Sent" icon={CircleCheck} description={sendAt ? "Scheduled. The result summary is in Message History." : "The result summary is in Message History."} />
+        <ul className="px-5 pb-4 flex flex-col gap-1.5 text-[14px]">
+          <li><b className="font-semibold tnum">{result.made.toLocaleString("en-IN")}</b> new link{result.made === 1 ? "" : "s"} made and {sendAt ? "scheduled" : "queued to send"} ({result.queued.toLocaleString("en-IN")} message{result.queued === 1 ? "" : "s"}).</li>
+          <li><b className="font-semibold tnum">{result.alreadyHad.toLocaleString("en-IN")}</b> guardian{result.alreadyHad === 1 ? "" : "s"} already had a link and were left out.</li>
+          {result.skipped.length > 0 && <li className="text-warn">Skipped: {result.skipped.join("; ")}.</li>}
         </ul>
-        <div className="flex flex-wrap gap-2">
+        <div className="px-5 pb-5 flex flex-wrap gap-2">
           {result.messageId && <ButtonLink href={`/communication/history/${result.messageId}`} variant="primary">See delivery</ButtonLink>}
-          <ButtonLink href="/communication/parent-link">Back to links</ButtonLink>
+          <ButtonLink href="/communication/parent-link" variant="secondary">Back to links</ButtonLink>
           <Button variant="ghost" onClick={() => setResult(null)}>Send to more families</Button>
         </div>
-      </div>
+      </Card>
     );
   }
 
   const groups = [...new Set(whoOpts.map((o) => o.group ?? ""))];
+  const over = preview && preview.balance !== null && preview.credits > preview.balance;
   return (
-    <div className="space-y-4">
-      {msg && <Alert tone="danger">{msg}</Alert>}
-      <div className="grid gap-4 rounded-2xl border border-line bg-surface p-4 shadow-card sm:grid-cols-3 sm:p-5">
-        <div>
-          <label htmlFor="f-who" className="mb-1 block text-sm font-medium">Who <span className="text-danger" aria-hidden>*</span></label>
-          <select id="f-who" value={who} onChange={(e) => change(setWho)(e.target.value)} className={field}>
-            {groups.map((g) => g ? (
-              <optgroup key={g} label={g}>{whoOpts.filter((o) => o.group === g).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</optgroup>
-            ) : whoOpts.filter((o) => !o.group).map((o) => <option key={o.value} value={o.value}>{o.label}</option>))}
-          </select>
-          <p className="mt-1 text-sm text-ink-2">Guardians with no active link.</p>
+    <div className="flex flex-col gap-5 lg:gap-6 max-w-3xl">
+      {msg && <Banner tone="bad" title={msg} />}
+      <Card>
+        <CardHeader title="Who and how" icon={Send} description="New families get theirs automatically when the admission is approved" />
+        <div className="px-5 pb-5 flex flex-col gap-3">
+          <FieldShell label="Who" id="f-who" required help="Guardians who already have an active link are left out. Use Resend on their link instead.">
+            <select id="f-who" value={who} onChange={(e) => change(setWho)(e.target.value)} className={field}>
+              {groups.map((g) => g ? (
+                <optgroup key={g} label={g}>{whoOpts.filter((o) => o.group === g).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</optgroup>
+              ) : whoOpts.filter((o) => !o.group).map((o) => <option key={o.value} value={o.value}>{o.label}</option>))}
+            </select>
+          </FieldShell>
+          <FieldShell label="Channel" id="f-ch" required help="Uses the Parent Link template">
+            <Segmented value={channel} onChange={change(setChannel)} options={channels} className="w-full" label="Channel" />
+          </FieldShell>
+          <FieldShell label="Send at" id="f-at" help="Leave blank to send now">
+            <input id="f-at" type="datetime-local" value={sendAt} onChange={(e) => change(setSendAt)(e.target.value)} className={cx(inputCls(), "h-11 tnum")} />
+          </FieldShell>
         </div>
-        <div>
-          <label htmlFor="f-ch" className="mb-1 block text-sm font-medium">Channel <span className="text-danger" aria-hidden>*</span></label>
-          <select id="f-ch" value={channel} onChange={(e) => change(setChannel)(e.target.value)} className={field}>
-            {channels.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-          </select>
-          <p className="mt-1 text-sm text-ink-2">Uses the Parent Link template.</p>
-        </div>
-        <div>
-          <label htmlFor="f-at" className="mb-1 block text-sm font-medium">Send at</label>
-          <input id="f-at" type="datetime-local" value={sendAt} onChange={(e) => change(setSendAt)(e.target.value)} className={field} />
-          <p className="mt-1 text-sm text-ink-2">Leave blank to send now.</p>
-        </div>
-      </div>
+      </Card>
 
       {preview ? (
-        <div className="space-y-3 rounded-2xl border border-brand bg-brand-soft/40 p-5">
-          <h3 className="font-semibold">Check before sending</h3>
-          <ul className="space-y-1">
-            <li><strong>{preview.todo.toLocaleString("en-IN")}</strong> guardian{preview.todo === 1 ? "" : "s"} in {preview.label} will get a new link by {preview.channel === "sms" ? "SMS" : "WhatsApp"}{preview.scheduled ? ` at ${preview.scheduled.replace("T", " ")}` : ""}.</li>
-            <li>{preview.alreadyHave.toLocaleString("en-IN")} already have an active link and are left out.</li>
-            <li>Uses about {preview.credits.toLocaleString("en-IN")} {preview.channel === "sms" ? "SMS" : "WhatsApp"} credits{preview.balance !== null ? `; you have ${preview.balance.toLocaleString("en-IN")}` : ""}.</li>
+        <Card className="border-brand/40">
+          <CardHeader title="Check before sending" icon={CircleCheck} />
+          <ul className="px-5 pb-4 flex flex-col gap-1.5 text-[14px]">
+            <li><b className="font-semibold tnum">{preview.todo.toLocaleString("en-IN")}</b> guardian{preview.todo === 1 ? "" : "s"} in {preview.label} get a new link by {preview.channel === "sms" ? "SMS" : "WhatsApp"}{preview.scheduled ? ` at ${preview.scheduled.replace("T", " ")}` : ""}.</li>
+            <li className="text-ink2">{preview.alreadyHave.toLocaleString("en-IN")} already have an active link and are left out.</li>
           </ul>
-          {preview.balance !== null && preview.credits > preview.balance && <Alert tone="danger">Not enough credits. <Link href="/settings/messaging" className="underline">Add credits</Link> first.</Alert>}
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={send} loading={pending} loadingText="Sending" disabled={preview.todo === 0 || (preview.balance !== null && preview.credits > preview.balance)}>
-              {preview.todo === 0 ? "Nobody to send to" : `Send ${preview.todo.toLocaleString("en-IN")} link${preview.todo === 1 ? "" : "s"}`}
-            </Button>
+          <p className={cx("mx-5 mb-4 text-[13.5px] tnum rounded-xl px-3.5 py-2.5", over ? "bg-bad/10 text-bad" : "bg-sunken/70 text-ink2")}>
+            {preview.credits.toLocaleString("en-IN")} credits{preview.balance !== null ? ` of ${preview.balance.toLocaleString("en-IN")} available` : ""}.{over && <> Not enough. <Link href="/settings/messaging" className="underline font-semibold">Add credits</Link> first.</>}
+          </p>
+          <div className="px-5 pb-5 flex flex-wrap gap-2 justify-end">
             <Button variant="secondary" onClick={() => setPreview(null)}>Change</Button>
+            <Button icon={Send} onClick={send} loading={pending} loadingText="Sending" disabled={preview.todo === 0 || Boolean(over)}>
+              {preview.todo === 0 ? "Nobody to send to" : `Send to ${preview.todo.toLocaleString("en-IN")} guardian${preview.todo === 1 ? "" : "s"}`}
+            </Button>
           </div>
-        </div>
+        </Card>
       ) : (
-        <Button onClick={check} loading={pending} loadingText="Checking">Check and send</Button>
+        <Button onClick={check} loading={pending} loadingText="Checking" className="self-end">Check and send</Button>
       )}
     </div>
   );

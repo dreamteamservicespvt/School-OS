@@ -2,10 +2,9 @@ import type { Metadata } from "next";
 import { withSchool } from "@/lib/db";
 import { commOfficePage } from "@/lib/communication/access";
 import { channelSetups } from "@/lib/messaging/channels";
-import { PageHeader } from "@/components/shell/page-header";
-import { Alert } from "@/components/ui/alert";
+import { Banner } from "@/components/ui/banner";
 import { ButtonLink } from "@/components/ui/button";
-import { ParentLinkNav } from "../sub-nav";
+import { BackLink, RecordHead } from "@/components/ui/split";
 import { whoOptions } from "../who-options";
 import { FamiliesForm } from "./families-form";
 
@@ -18,12 +17,13 @@ export default async function SendFamiliesPage() {
   const channels = (["whatsapp", "sms"] as const).filter((c) => data.setups[c].isOn).map((c) => ({ value: c, label: c === "sms" ? "SMS" : "WhatsApp" }));
   return (
     <>
-      <PageHeader title="Parent Link" href="/communication/parent-link/send" userId={current.user.id} />
-      <ParentLinkNav on="send" />
-      <h2 className="mb-1 text-lg font-semibold">Send to existing families</h2>
-      <p className="mb-4 text-ink-2">Makes a personal link for each guardian who has no active link, and sends it to their registered mobile. Guardians who already have a link are left out; use Resend on their link instead.</p>
+      <BackLink href="/communication/parent-link" label="Parent Link" />
+      <RecordHead title="Send Parent Link to existing families"
+        sub={<span className="text-[14px] text-ink3">Makes a personal link for each guardian with no active link and sends it to their registered mobile.</span>} />
       {channels.length === 0 ? (
-        <Alert tone="warning" action={<ButtonLink href="/settings/messaging" size="sm">Open settings</ButtonLink>}>Neither WhatsApp nor SMS is switched on, so links cannot be sent. Switch one on in Settings, SMS, WhatsApp &amp; Email.</Alert>
+        <Banner tone="warn" title="Neither WhatsApp nor SMS is switched on." action={<ButtonLink href="/settings/messaging" size="sm" variant="secondary">Open settings</ButtonLink>}>
+          Links cannot be sent. Switch one on in Settings, SMS, WhatsApp &amp; Email.
+        </Banner>
       ) : (
         <FamiliesForm who={data.who} channels={channels} />
       )}

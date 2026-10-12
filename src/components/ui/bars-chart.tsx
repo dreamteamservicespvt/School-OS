@@ -14,7 +14,7 @@ export function BarsChart({ data, max, height = 170, ariaLabel, ticks }: { data:
   const mx = max || Math.max(1, ...data.map((d) => Math.max(d.v, d.v2 || 0))) * 1.1;
   const y = (v: number) => top + (H - padB - top) * (1 - v / mx);
   const bw = (W - padL - 8) / Math.max(1, data.length);
-  const tk = ticks || [0, mx / 3, (2 * mx) / 3].map((t) => Math.round(t));
+  const tk = [...new Set(ticks || [0, mx / 3, (2 * mx) / 3].map((t) => Math.round(t)))];
   return (
     <div className="relative">
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label={`${ariaLabel}: ${data.map((d) => `${d.k} ${fmt(d.v)}`).join(", ")}`}>

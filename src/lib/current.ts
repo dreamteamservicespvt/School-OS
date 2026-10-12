@@ -20,13 +20,14 @@ export async function deviceInfo() {
   };
 }
 
-export async function setSessionCookie(token: string) {
+/** Keeps the person signed in for 30 days, or (on a shared device) only until the browser closes. */
+export async function setSessionCookie(token: string, remember = true) {
   (await cookies()).set(SESSION_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: 60 * 60 * 24 * 30,
+    ...(remember ? { maxAge: 60 * 60 * 24 * 30 } : {}),
   });
 }
 

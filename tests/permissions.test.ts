@@ -92,17 +92,37 @@ describe("what each role may do", () => {
 });
 
 describe("the menu", () => {
+  const ALL = new Set(MODULES.map((m) => m.key));
+
   it("shows only modules the person's roles allow", () => {
-    const menu = menuModules(combineRoles([byKey("librarian")]), new Set(["library-management"]));
-    expect(menu.map((m) => m.name)).toEqual([
-      "Dashboard", "Student Management", "Staff & HR Management", "Salary Management", "Library Management", "Events & Calendar",
-    ]);
+    const menu = menuModules(combineRoles([byKey("librarian")]), new Set(["library-management"]), ALL);
+    expect(menu.map((m) => m.name)).toEqual(["Dashboard", "Student Management", "Library Management", "Events & Calendar"]);
+  });
+
+  it("leaves out modules that are only the person's own record (their leave and salary slips)", () => {
+    for (const key of ["teacher", "class-teacher", "accountant", "receptionist", "librarian", "store-keeper"]) {
+      const role = READY_ROLES.find((r) => r.key === key);
+      if (!role) continue;
+      const keys = menuModules(combineRoles([byKey(key)]), ALL, ALL).map((m) => m.key);
+      expect(keys, key).not.toContain("staff-hr-management");
+      if (key !== "accountant") expect(keys, key).not.toContain("salary-management");
+    }
+    const teacher = menuModules(combineRoles([byKey("teacher")]), ALL, ALL).map((m) => m.name);
+    expect(teacher).toEqual(["Dashboard", "Student Management", "Academic Management", "Attendance Management", "Examination & Results", "Communication", "Homework & Learning", "Events & Calendar", "Reports & Analytics"]);
+    // People who run HR and salary still see them.
+    expect(menuModules(combineRoles([byKey("principal")]), ALL, ALL).map((m) => m.key)).toEqual(expect.arrayContaining(["staff-hr-management", "salary-management"]));
+    expect(menuModules(combineRoles([byKey("accountant")]), ALL, ALL).map((m) => m.key)).toContain("salary-management");
+  });
+
+  it("leaves out modules that are not built yet, except the Dashboard", () => {
+    const keys = menuModules(combineRoles([byKey("principal")]), new Set(), new Set(["student-management"])).map((m) => m.key);
+    expect(keys).toEqual(["dashboard", "student-management"]);
   });
 
   it("hides optional modules until the school switches them on", () => {
     const p = combineRoles([byKey("principal")]);
-    expect(menuModules(p, new Set()).map((m) => m.key)).not.toContain("transport-management");
-    expect(menuModules(p, new Set()).length).toBe(16);
-    expect(menuModules(p, new Set(["transport-management"])).map((m) => m.key)).toContain("transport-management");
+    expect(menuModules(p, new Set(), ALL).map((m) => m.key)).not.toContain("transport-management");
+    expect(menuModules(p, new Set(), ALL).length).toBe(16);
+    expect(menuModules(p, new Set(["transport-management"]), ALL).map((m) => m.key)).toContain("transport-management");
   });
 });

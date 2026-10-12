@@ -4,7 +4,9 @@ import type { Prisma } from "@prisma/client";
 import { withSchool } from "@/lib/db";
 import { readListParams, skipTake } from "@/lib/list";
 import { formatRupees } from "@/lib/format";
-import { PageHeader } from "@/components/shell/page-header";
+import { StudentsHead } from "../../_lib/head";
+import { leavingTabs } from "../sub-tabs";
+import { Briefcase } from "lucide-react";
 import { DataTable, type Column } from "@/components/list/data-table";
 import { ListToolbar } from "@/components/list/list-toolbar";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
@@ -63,9 +65,9 @@ export default async function AlumniPage({ searchParams }: { searchParams: Promi
 
   return (
     <>
-      <PageHeader title="Alumni" href={path} userId={current.user.id}>
-        <ButtonLink href={`${path}/jobs`}>Job board</ButtonLink>
-      </PageHeader>
+      <StudentsHead page="Leaving & Alumni" href={path} sub="Records of past students, donations, mentors and the job board"
+        actions={<ButtonLink href={`${path}/jobs`} icon={Briefcase}>Job board</ButtonLink>}
+        subTabs={await leavingTabs()} subLabel="Leaving & Alumni" />
       <div className="grid gap-4 xl:grid-cols-[1fr_22rem]">
         <div>
           <ListToolbar placeholder="Search by name, career or college"

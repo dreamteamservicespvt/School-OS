@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import type { CertificateType } from "@prisma/client";
 import { withSchool } from "@/lib/db";
 import { formatDate, formatDateTime } from "@/lib/format";
-import { PageHeader } from "@/components/shell/page-header";
+import { StudentsHead } from "../_lib/head";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { ActionForm, FormArea, FormCheck, FormFieldError, FormSelect, FormText } from "@/components/students/action-form";
 import { previewAdmissionNo } from "@/lib/students/students";
@@ -68,14 +68,14 @@ export default async function StudentSettingsPage({ searchParams }: { searchPara
 
   return (
     <>
-      <PageHeader title="Student Settings" href={`${BASE}/settings`} userId={current.user.id} />
+      <StudentsHead page="Student Settings" href={`${BASE}/settings`} sub={`The rules for student records at ${current.school.name}. Every change is logged.`} />
       <div className="grid gap-4 lg:grid-cols-[14rem_1fr]">
         <nav aria-label="Student Settings sections" className="-mx-4 overflow-x-auto px-4 lg:mx-0 lg:px-0">
           <ul className="flex gap-1 lg:flex-col">
             {TABS.map((t) => (
               <li key={t.key}>
                 <Link href={`?tab=${t.key}`} aria-current={tab === t.key ? "page" : undefined}
-                  className={`inline-flex min-h-11 w-full items-center whitespace-nowrap rounded-lg px-3 text-[15px] ${tab === t.key ? "bg-brand-soft font-semibold text-brand-text" : "text-ink-2 hover:bg-surface-2 hover:text-ink"}`}>{t.label}</Link>
+                  className={`inline-flex h-10 w-full items-center whitespace-nowrap rounded-xl px-3 text-[14px] font-semibold transition ${tab === t.key ? "bg-brand/10 text-brand" : "text-ink2 hover:bg-sunken hover:text-ink"}`}>{t.label}</Link>
               </li>
             ))}
           </ul>

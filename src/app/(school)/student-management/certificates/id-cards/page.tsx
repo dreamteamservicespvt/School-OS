@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { withSchool } from "@/lib/db";
 import { formatDate, formatDateTime } from "@/lib/format";
-import { PageHeader } from "@/components/shell/page-header";
+import { StudentsHead } from "../../_lib/head";
+import { certificateTabs } from "../sub-tabs";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -50,7 +51,8 @@ export default async function IdCardsPage({ searchParams }: { searchParams: Prom
 
   return (
     <>
-      <PageHeader title="ID cards" href={path} userId={current.user.id} />
+      <StudentsHead page="Certificates & ID Cards" href={path} sub="Student ID cards class by class, printed in batches as a print-ready PDF"
+        subTabs={await certificateTabs()} subLabel="Certificates & ID Cards" />
       {data.problem && <Alert tone="warning" className="mb-4">{data.problem}</Alert>}
       {!c ? (
         data.sections.length === 0 ? <EmptyState title="No classes this year">Set up classes and sections in Academic Management, then print ID cards class by class.</EmptyState> : (

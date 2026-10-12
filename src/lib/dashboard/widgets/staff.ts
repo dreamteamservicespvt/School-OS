@@ -50,6 +50,8 @@ const staffAway: Widget<"panel"> = {
   allowed: isHr,
   async load(c) {
     const away = await onLeaveToday(c);
+    // The leader's band already says "No one on leave today"; HR keeps the card.
+    if (!away.length && c.homes[0] === "leader") return null;
     const rows: ListRow[] = away.slice(0, 8).map((s) => ({
       id: s.id, avatar: s.fullName, title: s.fullName, sub: `${s.designation} · ${s.type}${s.halfDay ? ", half day" : ""}`,
       href: `${BASE}/${s.id}`, right: s.until.getTime() === c.today.getTime() ? "Today" : `Until ${shortDate(s.until)}`, rightTone: "info",

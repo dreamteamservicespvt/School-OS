@@ -155,8 +155,8 @@ export function TasksCard({ mine, given, left, access, people, meId, today }: { 
     <Card>
       <CardHeader title="My tasks" description={left ? `${left} to do · overdue ones on top` : "All done for today"} icon={I.ListTodo}
         action={<Button size="sm" variant="soft" icon={I.Plus} onClick={() => { setRound((r) => r + 1); setOpen(true); }}>Add task</Button>} />
-      <div className="px-5 pb-2 flex items-center justify-between gap-2">
-        {tabs.length > 1 ? (
+      {tabs.length > 1 && (
+        <div className="px-5 pb-2 flex items-center justify-between gap-2">
           <div role="tablist" aria-label="Tasks" className="inline-flex p-1 rounded-xl bg-sunken gap-1">
             {tabs.map(([v, l, c]) => (
               <button key={v} type="button" role="tab" aria-selected={tab === v} onClick={() => setTab(v)}
@@ -165,9 +165,8 @@ export function TasksCard({ mine, given, left, access, people, meId, today }: { 
               </button>
             ))}
           </div>
-        ) : <span />}
-        <Link href={tab === "given" ? "/dashboard/tasks?view=given" : "/dashboard/tasks"} className="text-[13px] font-semibold text-brand hover:underline whitespace-nowrap">All tasks</Link>
-      </div>
+        </div>
+      )}
       {problem && <div className="px-5 pb-2"><Alert tone="danger">{problem}</Alert></div>}
       {rows.length === 0 ? (
         <p className="px-5 pb-5 pt-2 text-[13.5px] text-ink3">
@@ -192,6 +191,11 @@ export function TasksCard({ mine, given, left, access, people, meId, today }: { 
           })}
         </ul>
       )}
+      <div className="px-5 pb-4">
+        <Link href={tab === "given" ? "/dashboard/tasks?view=given" : "/dashboard/tasks"} className="text-[13px] font-semibold text-brand hover:underline">
+          {tab === "given" ? "All tasks given by me" : "All my tasks and the task report"}
+        </Link>
+      </div>
       {pending && <span className="sr-only" role="status">Saving</span>}
       <TaskDialog key={round} open={open} onClose={() => setOpen(false)} access={access} people={people} meId={meId} today={today} />
     </Card>

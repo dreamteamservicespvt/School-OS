@@ -123,7 +123,9 @@ const myAgenda: Widget<"agenda"> = {
   async load(c) {
     const day = await myDay(c);
     if (!day) return [];
-    return day.periods.filter((p) => minutesOf(p.endTime) > c.minuteNow).slice(0, 3).map((p): AgendaItem => ({
+    // The next class, and every substitution still to come (the full day is in "My classes today").
+    const ahead = day.periods.filter((p) => minutesOf(p.endTime) > c.minuteNow);
+    return ahead.filter((p, i) => i === 0 || p.isSubstitute).map((p): AgendaItem => ({
       id: `period:${p.id}`, time: clock(p.startTime),
       title: p.isSubstitute ? `Substitution: ${p.sectionLabel} ${p.subjectName ?? ""}`.trim() : `${p.sectionLabel} · ${p.subjectName ?? p.label ?? "Period"}`,
       where: [p.room ? (/^\d/.test(p.room) ? `Room ${p.room}` : p.room) : null, p.isSubstitute && p.substitution?.forStaffName ? `for ${p.substitution.forStaffName}` : null].filter(Boolean).join(" · ") || "From your Time Table",
@@ -257,7 +259,7 @@ const schoolSyllabus: Widget<"panel"> = {
       r.total += p.total; r.done += p.done;
       byClass.set(p.classId, r);
     }
-    const rows: BarRow[] = [...byClass.entries()].sort((a, b) => a[1].sort - b[1].sort).map(([id, r]) => ({ key: id, label: r.name.replace(/^Class /, ""), value: Math.round((r.done / r.total) * 100), href: `${SYLLABUS}?view=progress&class=${id}` }));
+    const rows: BarRow[] = [...byClass.entries()].sort((a, b) => a[1].sort - b[1].sort).map(([id, r]) => ({ key: id, label: r.name, value: Math.round((r.done / r.total) * 100), href: `${SYLLABUS}?view=progress&class=${id}` }));
     return { slot: "side", panel: { kind: "bars", title: "Syllabus progress", sub: "All subjects · share taught, by class", icon: "BookOpenCheck", rows, lowBelow: 25, href: `${SYLLABUS}?view=progress`, linkLabel: "Open", empty: "" } };
   },
 };

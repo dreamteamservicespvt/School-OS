@@ -14,6 +14,7 @@ import { formatRupees } from "../format";
 import { todayFor } from "../periods";
 import { homesFor, isLeader } from "./homes";
 import { WIDGETS } from "./registry";
+import { BUILT_MODULES, type ModuleKey } from "../modules";
 import { addDays, daysBetween, dayWord, longDay, minuteIn, moduleOpen, plural } from "./common";
 import { taskAccess, isOverdue, OPEN_TASK } from "./tasks";
 import type { AgendaItem, AttentionItem, BandItem, Birthday, DashContext, HomeKind, Panel, PanelSlot, Viewer, Widget, WidgetKind } from "./types";
@@ -29,10 +30,10 @@ const BAND_ORDER: Partial<Record<HomeKind, string[]>> = {
 const TONE_RANK: Record<AttentionItem["tone"], number> = { bad: 0, warn: 1, info: 2 };
 
 /** Widgets this person gets: on one of their homes, module built and switched on, allowed to them. */
-export function widgetsFor(viewer: Viewer, homes: readonly HomeKind[], widgets: readonly Widget[] = WIDGETS) {
+export function widgetsFor(viewer: Viewer, homes: readonly HomeKind[], widgets: readonly Widget[] = WIDGETS, built: ReadonlySet<ModuleKey> = BUILT_MODULES) {
   return widgets.filter((w) =>
     (w.homes === "any" || w.homes.some((h) => homes.includes(h))) &&
-    moduleOpen(viewer, w.module) &&
+    moduleOpen(viewer, w.module, "view", built) &&
     (!w.allowed || w.allowed(viewer)));
 }
 
@@ -101,12 +102,12 @@ async function schoolDayLine(tx: Tx, viewer: Viewer, today: Date, year: DashCont
   return `School day ${n} of ${total}`;
 }
 
-export async function buildHome(viewer: Viewer, opts: { now?: Date; widgets?: readonly Widget[] } = {}): Promise<Home> {
+export async function buildHome(viewer: Viewer, opts: { now?: Date; widgets?: readonly Widget[]; built?: ReadonlySet<ModuleKey> } = {}): Promise<Home> {
   const now = opts.now ?? new Date();
   const tz = viewer.school.timeZone;
   const today = todayFor(tz, now);
   const homes = homesFor(viewer);
-  const list = widgetsFor(viewer, homes, opts.widgets);
+  const list = widgetsFor(viewer, homes, opts.widgets, opts.built);
 
   return withSchool(viewer.ctx, async (tx) => {
     const y = await currentYear(tx, viewer.ctx, viewer.campusId);

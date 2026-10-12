@@ -539,3 +539,140 @@ model ConsentRequest {
   @@index([schoolId, consentType])
   @@map("consent_request")
 }
+
+/// WhatsApp Conversation: one chat with one phone number on the school's WhatsApp Business number
+/// (WhatsApp Inbox, an optional page). Matched to a parent or staff member when the number is known.
+model WhatsappChat {
+  id            String    @id @default(uuid()) @db.Uuid
+  schoolId      String    @map("school_id") @db.Uuid
+  /// 10-digit Indian mobile, or the full number for others.
+  phone         String
+  /// guardian, staff or unknown.
+  contactType   String    @default("unknown") @map("contact_type")
+  contactId     String?   @map("contact_id") @db.Uuid
+  /// The name shown: the matched person, the WhatsApp profile name, or the number.
+  displayName   String    @map("display_name")
+  assignedToId  String?   @map("assigned_to_id") @db.Uuid
+  lastMessageAt DateTime  @default(now()) @map("last_message_at")
+  /// WhatsApp allows free text only within 24 hours of the person's last message.
+  lastInboundAt DateTime? @map("last_inbound_at")
+  unreadCount   Int       @default(0) @map("unread_count")
+  resolvedAt    DateTime? @map("resolved_at")
+  queryId       String?   @map("query_id") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at")
+  archivedAt    DateTime? @map("archived_at")
+
+  messages WhatsappChatMessage[]
+
+  @@unique([schoolId, phone])
+  @@index([schoolId, assignedToId, lastMessageAt])
+  @@map("whatsapp_chat")
+}
+
+/// One message in a WhatsApp Conversation, in or out.
+model WhatsappChatMessage {
+  id                String   @id @default(uuid()) @db.Uuid
+  schoolId          String   @map("school_id") @db.Uuid
+  chatId            String   @map("chat_id") @db.Uuid
+  /// in or out.
+  direction         String
+  body              String
+  sentById          String?  @map("sent_by_id") @db.Uuid
+  providerMessageId String?  @map("provider_message_id")
+  /// out: SENT, DELIVERED, READ or FAILED.
+  status            String?
+  failReason        String?  @map("fail_reason")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  chat WhatsappChat @relation(fields: [chatId], references: [id])
+
+  @@index([schoolId, chatId, createdAt])
+  @@index([schoolId, providerMessageId])
+  @@map("whatsapp_chat_message")
+}
+
+/// Survey (an optional page): short questions for parents or staff, each person answering once.
+model Survey {
+  id            String    @id @default(uuid()) @db.Uuid
+  schoolId      String    @map("school_id") @db.Uuid
+  number        String
+  title         String
+  /// parents or staff.
+  audienceKind  String    @map("audience_kind")
+  /// school, class:<id> or section:<id> for parents; school for staff.
+  audienceValue String    @default("school") @map("audience_value")
+  audienceLabel String    @map("audience_label")
+  anonymous     Boolean   @default(false)
+  /// DRAFT, OPEN or CLOSED.
+  status        String    @default("DRAFT")
+  closesOn      DateTime? @map("closes_on") @db.Date
+  sentAt        DateTime? @map("sent_at")
+  closedAt      DateTime? @map("closed_at")
+  invitedCount  Int       @default(0) @map("invited_count")
+  messageId     String?   @map("message_id") @db.Uuid
+  createdById   String?   @map("created_by_id") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at")
+  archivedAt    DateTime? @map("archived_at")
+
+  questions SurveyQuestion[]
+  invites   SurveyInvite[]
+  responses SurveyResponse[]
+
+  @@unique([schoolId, number])
+  @@index([schoolId, status, createdAt])
+  @@map("survey")
+}
+
+/// Survey Question: choice, rating (1 to 5), text or date.
+model SurveyQuestion {
+  id        String   @id @default(uuid()) @db.Uuid
+  schoolId  String   @map("school_id") @db.Uuid
+  surveyId  String   @map("survey_id") @db.Uuid
+  sortOrder Int      @map("sort_order")
+  kind      String
+  text      String
+  options   String[] @default([])
+  required  Boolean  @default(true)
+
+  survey Survey @relation(fields: [surveyId], references: [id])
+
+  @@index([schoolId, surveyId])
+  @@map("survey_question")
+}
+
+/// One person asked to answer a survey, with their own link (only its hash is kept).
+model SurveyInvite {
+  id         String    @id @default(uuid()) @db.Uuid
+  schoolId   String    @map("school_id") @db.Uuid
+  surveyId   String    @map("survey_id") @db.Uuid
+  tokenHash  String    @map("token_hash")
+  /// guardian or staff.
+  personType String    @map("person_type")
+  personId   String    @map("person_id") @db.Uuid
+  answeredAt DateTime? @map("answered_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  survey Survey @relation(fields: [surveyId], references: [id])
+
+  @@unique([schoolId, tokenHash])
+  @@unique([surveyId, personType, personId])
+  @@map("survey_invite")
+}
+
+/// Survey Response: one person's answers. Anonymous surveys keep no link to the person.
+model SurveyResponse {
+  id          String   @id @default(uuid()) @db.Uuid
+  schoolId    String   @map("school_id") @db.Uuid
+  surveyId    String   @map("survey_id") @db.Uuid
+  /// Empty for anonymous surveys.
+  personType  String?  @map("person_type")
+  personId    String?  @map("person_id") @db.Uuid
+  /// { questionId: answer }
+  answers     Json
+  submittedAt DateTime @default(now()) @map("submitted_at")
+
+  survey Survey @relation(fields: [surveyId], references: [id])
+
+  @@index([schoolId, surveyId])
+  @@map("survey_response")
+}

@@ -11,6 +11,7 @@ import { setOptOut } from "../../src/lib/messaging/optout";
 import { saveNotice } from "../../src/lib/communication/notices";
 import { ensureTopics, logQuery, addInternalNote, replyToQuery, setQueryStatus } from "../../src/lib/communication/queries";
 import { createLink, sendLinks } from "../../src/lib/parent-link/links";
+import { assignChat, recordIncoming, replyToChat, setResolved } from "../../src/lib/communication/inbox";
 import type { SeedSchool } from "./types";
 
 const DLT = (n: number) => `11071600000${String(10000000 + n)}`;
@@ -135,4 +136,26 @@ export async function seedCommunication(school: SeedSchool) {
     }
     if (links.length) await sendLinks(tx, principalCtx, links, { trigger: "Parent Links sent to existing families", audienceLabel: "Parents of Class 5 A" });
   });
+
+  // WhatsApp Inbox (optional page, switched on for the full demo): a few chats from parents, one
+  // from staff and one unknown number, some answered and given to someone.
+  if (school.full) {
+    await withSchool(principalCtx, async (tx) => {
+      await tx.schoolFeature.upsert({ where: { schoolId_featureKey: { schoolId, featureKey: "whatsapp-inbox" } }, create: { schoolId, featureKey: "whatsapp-inbox", isOn: true }, update: {} });
+      if (await tx.whatsappChat.count({ where: { schoolId } })) return;
+      const people = await tx.guardian.findMany({ where: { id: { in: ids.guardians.slice(0, 4).map((g) => g.guardianId) } }, select: { id: true, phone: true } });
+      const phone = (i: number) => people.find((p) => p.id === ids.guardians[i]?.guardianId)?.phone;
+      const ago = (h: number) => new Date(Date.now() - h * 3600_000);
+      const say = (from: string | undefined, text: string, h: number, name?: string) => (from ? recordIncoming(tx, principalCtx, { from, text, at: ago(h), name }) : Promise.resolve(null));
+      const c1 = await say(phone(0), "Good morning sir. Is tomorrow a holiday for Dussehra?", 3);
+      if (c1) await replyToChat(tx, principalCtx, true, c1, "Good morning. Yes, the school is closed tomorrow and opens again on Monday.", ago(2.5));
+      await say(phone(0), "Thank you sir.", 2);
+      const c2 = await say(phone(1), "My son forgot his lunch box in the bus today.", 1);
+      if (c2 && school.users.admin) await assignChat(tx, principalCtx, c2, school.users.admin);
+      await say(phone(2), "Please share the fee receipt for the first term.", 30);
+      const c4 = await say(phone(3), "Sports day photos are lovely, thank you!", 52);
+      if (c4) await setResolved(tx, principalCtx, true, c4, true);
+      await say("919912345678", "Hello, are admissions open for Class 1?", 5, "Rahul Varma");
+    });
+  }
 }

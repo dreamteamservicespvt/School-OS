@@ -9,6 +9,8 @@ import { withSchool, type SchoolContext } from "../db";
 import { channelSecrets } from "./channels";
 import { applyStatus } from "./deliver";
 import { optOutByPhone } from "./optout";
+import { applyChatStatus, recordIncoming } from "../communication/inbox";
+import { COMM_FEATURES } from "../communication/features";
 import { msg91Status } from "./providers/msg91";
 import { parseMetaWebhook, verifyMetaSignature, whatsappReason } from "./providers/whatsapp";
 
@@ -57,8 +59,13 @@ export async function handleWhatsappWebhook(schoolId: string, rawBody: string, s
       if (!status) continue;
       const reason = status === "FAILED" ? whatsappReason(s.errors?.[0]?.code, s.errors?.[0]?.message ?? s.errors?.[0]?.title).reason : null;
       await applyStatus(tx, ctx, s.id, status, at, reason);
+      await applyChatStatus(tx, ctx, s.id, status, reason);
     }
+    // WhatsApp Inbox (switched on per school): every message that comes in is kept as a chat.
+    const inboxOn = Boolean((await tx.schoolFeature.findUnique({ where: { schoolId_featureKey: { schoolId, featureKey: COMM_FEATURES.inbox } } }))?.isOn);
     for (const m of incoming) {
+      const body = (m.text?.body ?? m.button?.text ?? "").trim();
+      if (inboxOn && body) await recordIncoming(tx, ctx, { from: m.from, name: m.name ?? null, text: body, providerMessageId: m.id, at: m.timestamp ? new Date(Number(m.timestamp) * 1000) : new Date() });
       const text = (m.text?.body ?? m.button?.text ?? "").trim().toUpperCase();
       const phone = m.from.replace(/^91(?=\d{10}$)/, "");
       if (text === "STOP" || text === "UNSUBSCRIBE") await optOutByPhone(tx, ctx, phone, true);

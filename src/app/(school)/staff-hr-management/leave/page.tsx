@@ -10,11 +10,14 @@ import { addDays, eachDay, isoDay, isoWeekday, monthEnd, monthLabel, monthStart 
 import { holidaySet } from "@/lib/staff/leave";
 import { StaffHead } from "../_components/head";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
-import { Badge, type BadgeTone } from "@/components/ui/badge";
-import { Alert } from "@/components/ui/alert";
+import { Badge, Pill, type BadgeTone } from "@/components/ui/badge";
+import { Avatar } from "../_components/bits";
+import { Banner, Col, Empty, SegLinks, Split, Toolbar } from "@/components/ui/blocks";
+import { ListToolbar } from "@/components/list/list-toolbar";
+import { dateWhere, periodFromSearch } from "@/lib/periods";
+import { CalendarDays, CalendarPlus, Inbox } from "lucide-react";
 import { ButtonLink, buttonClass } from "@/components/ui/button";
 import { EmptyState } from "@/components/empty-state";
-import { SubNav } from "../_components/bits";
 import { AdjustBalanceForm, ApplyLeaveForm, CancelLeaveForm, CarryForwardForm, DecideButtons } from "./leave-forms";
 import { adjustBalanceAction, applyLeaveAction, cancelLeaveAction, carryForwardAction, decideLeave, previewLeave } from "./actions";
 
@@ -52,9 +55,9 @@ export default async function StaffLeavePage({ searchParams }: Props) {
 
   const views = [
     ...(viewer.staffId ? [{ key: "mine", label: "My leave", href: `${BASE}/leave?view=mine` }] : []),
-    ...(base.waitingForMe > 0 || hr || viewer.headOf.length ? [{ key: "requests", label: "Requests to decide", href: `${BASE}/leave?view=requests`, count: base.waitingForMe }] : []),
+    ...(base.waitingForMe > 0 || hr || viewer.headOf.length ? [{ key: "requests", label: "Requests", href: `${BASE}/leave?view=requests`, count: base.waitingForMe }] : []),
     ...(hr ? [{ key: "all", label: "All leave", href: `${BASE}/leave?view=all` }] : []),
-    ...(calendarAllowed ? [{ key: "calendar", label: "Calendar", href: `${BASE}/leave?view=calendar` }] : []),
+    ...(calendarAllowed ? [{ key: "calendar", label: "Leave calendar", href: `${BASE}/leave?view=calendar` }] : []),
     ...(hr ? [{ key: "balances", label: "Balances", href: `${BASE}/leave?view=balances` }] : []),
   ];
   const wanted = one(sp.view);
@@ -81,8 +84,12 @@ export default async function StaffLeavePage({ searchParams }: Props) {
   return (
     <>
       <StaffHead page="Staff Leave" href={`${BASE}/leave`} sub={canHr ? "Leave requests, balances and the leave calendar for every staff member" : "Your leave requests and balances"} actions={apply} />
-      {base.types.length === 0 && <Alert tone="warning" className="mb-4">No staff leave types yet. {canHr ? <Link href={`${BASE}/settings?view=leave`} className="underline">Add them in HR Settings.</Link> : "Ask HR to add them."}</Alert>}
-      {views.length > 1 && <SubNav current={view} items={views} />}
+      {base.types.length === 0 && <Banner tone="warn" className="mb-4" title="No staff leave types yet.">{canHr ? <Link href={`${BASE}/settings?view=leave`} className="font-semibold underline">Add them in HR Settings.</Link> : "Ask HR to add them."}</Banner>}
+      {views.length > 1 && (
+        <div className="-mx-4 mb-4 overflow-x-auto px-4 no-scrollbar md:mx-0 md:px-0">
+          <SegLinks label="Staff Leave views" value={view} options={views.map((v) => ({ value: v.key, href: v.href, label: <>{v.label}{"count" in v && v.count ? <span className="tnum text-[11.5px] text-warn">{v.count}</span> : null}</> }))} />
+        </div>
+      )}
       {view === "mine" && <Mine />}
       {view === "requests" && <Requests />}
       {view === "all" && <All />}
@@ -106,16 +113,16 @@ export default async function StaffLeavePage({ searchParams }: Props) {
           <CardHeader title="My leave balance" description={data.year ? data.year.name : "No academic year is open."} />
           <CardBody>
             {data.balances.length === 0 ? <p className="text-ink-2">No balance yet.</p> : (
-              <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <ul className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                 {data.balances.map((b) => (
-                  <li key={b.type.id} className="rounded-xl border border-line p-3">
-                    <p className="text-sm text-ink-2">{b.type.name}</p>
+                  <li key={b.type.id} className="rounded-2xl border border-line px-4 py-3">
+                    <p className="text-[12px] font-semibold text-ink3">{b.type.name}</p>
                     {b.limited ? (
                       <>
-                        <p className="text-2xl font-semibold">{b.left}<span className="text-sm font-normal text-ink-2"> left</span></p>
-                        <p className="text-xs text-ink-2">{b.given + b.adjusted} allocated · {b.used} used{b.waiting ? ` · ${b.waiting} waiting` : ""}</p>
+                        <p className="mt-0.5 font-display text-[21px] font-semibold tracking-tight tnum">{b.left}<span className="text-[13px] font-normal text-ink3"> of {b.given + b.adjusted} left</span></p>
+                        <p className="text-[12px] text-ink3">{b.used} used{b.waiting ? ` · ${b.waiting} waiting` : ""}</p>
                       </>
-                    ) : <p className="font-medium">Unpaid, no limit</p>}
+                    ) : <p className="mt-1 font-semibold">Unpaid, no limit</p>}
                   </li>
                 ))}
               </ul>
@@ -134,9 +141,9 @@ export default async function StaffLeavePage({ searchParams }: Props) {
     const details = await withSchool(current.ctx, (tx) => tx.staffLeaveDetail.findMany({ where: { leaveRequestId: { in: rows.map((r) => r.id) } } }));
     return (
       <Card>
-        <CardHeader title={title} />
-        <CardBody>
-          {rows.length === 0 ? <p className="text-ink-2">{empty ?? "No leave yet."}</p> : (
+        <CardHeader title={title} description={cancellable ? "Approved leave can be cancelled before it ends; the balance comes back" : undefined} />
+        <CardBody className="!pt-0">
+          {rows.length === 0 ? <p className="text-ink3">{empty ?? "No leave yet."}</p> : (
             <ul className="divide-y divide-line">
               {rows.map((r) => {
                 const d = details.find((x) => x.leaveRequestId === r.id);
@@ -145,22 +152,23 @@ export default async function StaffLeavePage({ searchParams }: Props) {
                 const ended = r.toDate < today;
                 const canCancel = cancellable && (r.status === "WAITING" || (r.status === "APPROVED" && !ended)) && (canHr || r.staffId === viewer.staffId);
                 return (
-                  <li key={r.id} className="flex flex-wrap items-start justify-between gap-3 py-3">
-                    <div className="min-w-0">
-                      <p className="font-medium">
+                  <li key={r.id} className="flex items-start gap-3 py-3">
+                    {r.staffName && <Avatar name={r.staffName} photoFileId={null} size={38} />}
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold">
                         {r.staffName && r.staffId ? <><Link href={`${BASE}/${r.staffId}?tab=leave`} className="hover:underline">{r.staffName}</Link> · </> : null}
                         {type}
                       </p>
-                      <p className="text-sm text-ink-2">
+                      <p className="text-[13px] text-ink3">
                         {formatDate(r.fromDate, tz)}{isoDay(r.fromDate) !== isoDay(r.toDate) ? ` to ${formatDate(r.toDate, tz)}` : ""} · {daysText(Number(r.days))}
                         {r.halfDay && d?.halfDayPart ? ` (${d.halfDayPart} half)` : ""}
                         {d && Number(d.lopDays) > 0 ? ` · ${daysText(Number(d.lopDays))} loss of pay` : ""}
                         {d && d.periodsAffected > 0 ? ` · ${d.periodsAffected} periods` : ""}
                       </p>
-                      <p className="text-sm">{r.reason}</p>
-                      {r.decisionReason && r.status !== "APPROVED" && <p className="text-sm text-ink-2">Note: {r.decisionReason}</p>}
+                      <p className="text-[13.5px] text-ink2">“{r.reason}”</p>
+                      {r.decisionReason && r.status !== "APPROVED" && <p className="text-[13px] text-ink3">Note: {r.decisionReason}</p>}
                     </div>
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-center justify-end gap-2">
                       <Badge tone={s.tone}>{s.label}</Badge>
                       {r.documentFileId && <a href={`${BASE}/files/${r.documentFileId}`} target="_blank" rel="noopener" className="inline-flex min-h-11 items-center px-2 text-brand-text hover:underline">Document</a>}
                       {canCancel && <CancelLeaveForm requestId={r.id} action={cancelLeaveAction} started={r.status === "APPROVED" && r.fromDate <= today} />}
@@ -188,42 +196,95 @@ export default async function StaffLeavePage({ searchParams }: Props) {
       }
       return { approvals, requests, staff, details, balances };
     });
-    if (data.approvals.length === 0) return <EmptyState title="Nothing waiting for you">Leave requests that need your decision show here.</EmptyState>;
+    const away = await withSchool(current.ctx, async (tx) => {
+      const leaves = await tx.leaveRequest.findMany({ where: { staffId: { not: null }, status: "APPROVED", archivedAt: null, fromDate: { lte: today }, toDate: { gte: today }, ...(hr ? {} : { staff: { departmentId: { in: viewer.headOf } } }) }, orderBy: { toDate: "asc" }, take: 20 });
+      const people = await tx.staff.findMany({ where: { id: { in: leaves.map((l) => l.staffId!) } }, select: { id: true, fullName: true, photoFileId: true } });
+      return leaves.map((l) => ({ ...l, person: people.find((p) => p.id === l.staffId) }));
+    });
+    const side = (
+      <Col>
+        <Card>
+          <CardHeader title="Away today" icon={CalendarDays} description={`${formatDate(today, tz)} · ${away.length} staff`} />
+          {away.length === 0 ? <p className="px-5 pb-5 text-[14px] text-ink3">Nobody is on leave today.</p> : (
+            <ul className="space-y-3 px-5 pb-5">
+              {away.map((l) => (
+                <li key={l.id} className="flex items-center gap-3">
+                  <Avatar name={l.person?.fullName ?? "Staff"} photoFileId={l.person?.photoFileId ?? null} size={38} />
+                  <div className="min-w-0">
+                    <p className="font-semibold leading-tight">{l.person ? <Link href={`${BASE}/${l.person.id}?tab=leave`} className="hover:underline">{l.person.fullName}</Link> : "Staff"}</p>
+                    <p className="text-[12.5px] text-ink3">{base.types.find((t) => t.id === l.leaveTypeId)?.name ?? "Leave"} · back after {formatDate(l.toDate, tz)}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+        {canHr && base.types.length > 0 && (
+          <Card className="px-5 py-4">
+            <p className="font-semibold">Someone called in sick?</p>
+            <p className="mt-1 text-[13.5px] text-ink3">Apply on their behalf. It still goes to their approver, and they are told.</p>
+            <ButtonLink href={`${BASE}/leave?view=requests&apply=new`} icon={CalendarPlus} className="mt-3">Apply for someone</ButtonLink>
+          </Card>
+        )}
+      </Col>
+    );
+    if (data.approvals.length === 0) return (
+      <Split>
+        <Card><Empty icon={Inbox} title="Nothing waiting for you" body="Leave requests that need your decision show here." /></Card>
+        {side}
+      </Split>
+    );
     return (
-      <ul className="space-y-3">
+      <Split>
+      <Card>
+        <CardHeader title="Waiting for a decision" description="With the balance before this leave" action={<Pill tone="warn">{data.approvals.length} waiting</Pill>} divided />
+      <ul className="divide-y divide-line">
         {data.approvals.map((a) => {
           const r = data.requests.find((x) => x.approvalId === a.id);
           const s = r ? data.staff.find((x) => x.id === r.staffId) : undefined;
           const d = r ? data.details.find((x) => x.leaveRequestId === r.id) : undefined;
           const bal = s && r ? data.balances.get(s.id)?.find((b) => b.type.id === r.leaveTypeId) : undefined;
           return (
-            <li key={a.id}>
-              <Card>
-                <CardBody className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="font-medium">{s ? <Link href={`${BASE}/${s.id}?tab=leave`} className="hover:underline">{s.fullName}</Link> : "Staff"}{s ? <span className="font-normal text-ink-2"> · {s.designation}</span> : null}</p>
-                    <p>{a.summary}</p>
-                    {r && <p className="text-sm text-ink-2">Reason: {r.reason}</p>}
-                    {bal?.limited && <p className="text-sm text-ink-2">{bal.type.name} left before this: {daysText(bal.left)}</p>}
-                    {d?.onBehalf && <p className="text-sm text-ink-2">Applied by HR for them.</p>}
-                    <p className="text-xs text-ink-2">Asked {formatDate(a.createdAt, tz)}{a.status === "ESCALATED" ? " · Moved up because nobody decided in time" : ""}</p>
-                    {r?.documentFileId && <a href={`${BASE}/files/${r.documentFileId}`} target="_blank" rel="noopener" className="text-sm text-brand-text underline">Open document</a>}
-                  </div>
-                  <DecideButtons approvalId={a.id} approve={decideLeave} label={s?.fullName ?? "leave"} />
-                </CardBody>
-              </Card>
+            <li key={a.id} className="flex items-start gap-3 px-5 py-4">
+              <Avatar name={s?.fullName ?? "Staff"} photoFileId={null} size={40} />
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                  <p className="font-semibold">{s ? <Link href={`${BASE}/${s.id}?tab=leave`} className="hover:underline">{s.fullName}</Link> : "Staff"}{s ? <span className="text-[13px] font-normal text-ink3"> · {s.designation}</span> : null}</p>
+                  <p className="text-[12.5px] text-ink3">{formatDate(a.createdAt, tz)}</p>
+                </div>
+                <p className="text-[14px]">{a.summary}</p>
+                {r && <p className="text-[13.5px] text-ink2">“{r.reason}”{r.documentFileId && <> · <a href={`${BASE}/files/${r.documentFileId}`} target="_blank" rel="noopener" className="font-semibold text-brand hover:underline">document</a></>}</p>}
+                <div className="flex flex-wrap gap-1.5">
+                  {bal?.limited && <Pill>{bal.type.name}: {daysText(bal.left)} left before this</Pill>}
+                  {d && d.periodsAffected > 0 && <Pill tone="warn">{d.periodsAffected} periods need cover</Pill>}
+                  {d?.onBehalf && <Pill tone="info">Applied by HR for them</Pill>}
+                  {a.status === "ESCALATED" && <Pill tone="warn">Moved up: nobody decided in time</Pill>}
+                </div>
+                <div className="pt-1"><DecideButtons approvalId={a.id} approve={decideLeave} label={s?.fullName ?? "leave"} /></div>
+              </div>
             </li>
           );
         })}
       </ul>
+      </Card>
+      {side}
+      </Split>
     );
   }
 
   async function All() {
     const status = ["WAITING", "APPROVED", "REJECTED", "CANCELLED"].find((x) => x === one(sp.status));
+    const range = periodFromSearch(sp, { timeZone: tz });
+    const q = (one(sp.q) ?? "").trim().slice(0, 80);
     const data = await withSchool(current.ctx, async (tx) => {
+      const within = range ? dateWhere(range) : null;
       const rows = await tx.leaveRequest.findMany({
-        where: { staffId: { not: null }, archivedAt: null, ...(status ? { status: status as "WAITING" } : {}) },
+        where: {
+          staffId: { not: null }, archivedAt: null, ...(status ? { status: status as "WAITING" } : {}),
+          // Leave that touches the chosen dates.
+          ...(within ? { fromDate: { lte: within.lte }, toDate: { gte: within.gte } } : {}),
+          ...(q ? { staff: { OR: [{ fullName: { contains: q, mode: "insensitive" } }, { staffCode: { contains: q, mode: "insensitive" } }] } } : {}),
+        },
         orderBy: { fromDate: "desc" }, take: 100,
       });
       const staff = await tx.staff.findMany({ where: { id: { in: rows.map((r) => r.staffId!) } }, select: { id: true, fullName: true } });
@@ -231,12 +292,12 @@ export default async function StaffLeavePage({ searchParams }: Props) {
     });
     return (
       <div className="space-y-4">
-        <nav aria-label="Status" className="flex flex-wrap gap-2">
-          {[["", "All"], ["WAITING", "Waiting"], ["APPROVED", "Approved"], ["REJECTED", "Not approved"], ["CANCELLED", "Cancelled"]].map(([k, l]) => (
-            <Link key={k} href={`${BASE}/leave?view=all${k ? `&status=${k}` : ""}`} aria-current={(status ?? "") === k ? "page" : undefined}
-              className={`inline-flex min-h-11 items-center rounded-full border px-4 ${(status ?? "") === k ? "border-brand bg-brand-soft text-brand-text" : "border-line text-ink-2"}`}>{l}</Link>
-          ))}
-        </nav>
+        <Card className="overflow-hidden">
+          <Toolbar className="border-b-0">
+            <ListToolbar placeholder="Staff name or staff ID" showArchived={false} period={{ timeZone: tz, allLabel: "Dates: any" }}
+              filters={[{ key: "status", label: "Status", allLabel: "Every status", options: Object.entries(STATUS_WORDS).map(([k, v]) => ({ value: k, label: v.label })) }]} />
+          </Toolbar>
+        </Card>
         <RequestList title={status ? `${STATUS_WORDS[status].label} leave` : "All staff leave"} rows={data} cancellable empty="No leave matches." />
       </div>
     );

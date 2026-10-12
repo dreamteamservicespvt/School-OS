@@ -140,7 +140,7 @@ export default async function StaffListPage({ searchParams }: Search) {
           mobile={(r) => ({
             title: r.fullName, avatar: r.fullName, avatarSrc: r.photoFileId ? `/staff-hr-management/files/${r.photoFileId}` : null,
             sub: [r.designation, r.department?.name].filter(Boolean).join(" · "),
-            pills: [r.status !== "ACTIVE" || data.leaveToday.has(r.id) ? today$(r, cardPill) : null].filter(Boolean) as React.ReactNode[],
+            pills: [r.status !== "ACTIVE" || data.leaveToday.has(r.id) ? <span key="t" className="contents">{today$(r, cardPill)}</span> : null].filter(Boolean) as React.ReactNode[],
           })}
           footer={<ListFooter shown={data.rows.length} total={data.total} moreHref={moreHref} />}
           empty={anyFilter ? (

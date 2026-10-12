@@ -11,6 +11,7 @@ import "./approval-handlers";
 import "./data-security/jobs";
 import "./staff/jobs";
 import "./settings/jobs";
+import "./exams/jobs";
 import "./messaging/jobs";
 import "./communication/jobs";
 

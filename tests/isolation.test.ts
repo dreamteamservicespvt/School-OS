@@ -267,3 +267,51 @@ describe("Communication records stay in their school", () => {
     });
   });
 });
+
+describe("Examination & Results records stay in their school", () => {
+  it("school A sees none of school B's exams, marks, results, report cards or question papers, and cannot write into them", async () => {
+    const { randomUUID } = await import("node:crypto");
+    const { ensureExamDefaults } = await import("@/lib/exams/settings");
+    const ctxB = { schoolId: b.id, userId: userB.id };
+    const ids = { year: randomUUID(), term: randomUUID(), cls: randomUUID(), section: randomUUID(), subject: randomUUID(), student: randomUUID() };
+    const made = await withSchool(ctxB, async (tx) => {
+      await ensureExamDefaults(tx, ctxB);
+      const type = await tx.examType.findFirstOrThrow();
+      const area = await tx.coScholasticArea.findFirstOrThrow();
+      const exam = await tx.exam.create({ data: { schoolId: b.id, academicYearId: ids.year, termId: ids.term, examTypeId: type.id, title: "School B exam", classIds: [ids.cls], startDate: new Date("2026-10-12"), endDate: new Date("2026-10-20") } });
+      const entry = await tx.datesheetEntry.create({ data: { schoolId: b.id, examId: exam.id, classId: ids.cls, subjectId: ids.subject, date: new Date("2026-10-12"), startTime: "09:30", durationMin: 120, maxMarks: 80 } });
+      await tx.marksPaper.create({ data: { schoolId: b.id, entryId: entry.id, sectionId: ids.section } });
+      const marks = await tx.marks.create({ data: { schoolId: b.id, entryId: entry.id, sectionId: ids.section, studentId: ids.student, total: 70 } });
+      await tx.marksModeration.create({ data: { schoolId: b.id, marksId: marks.id, entryId: entry.id, studentId: ids.student, before: {}, after: {}, reason: "School B change", requestedById: userB.id } });
+      await tx.result.create({ data: { schoolId: b.id, academicYearId: ids.year, examId: exam.id, key: `exam:${exam.id}`, studentId: ids.student, classId: ids.cls, sectionId: ids.section } });
+      await tx.resultPublication.create({ data: { schoolId: b.id, academicYearId: ids.year, key: `exam:${exam.id}`, sectionIds: [ids.section], publishOn: new Date() } });
+      await tx.reportCard.create({ data: { schoolId: b.id, academicYearId: ids.year, studentId: ids.student, sectionId: ids.section, period: `exam:${exam.id}` } });
+      await tx.coScholasticGrade.create({ data: { schoolId: b.id, academicYearId: ids.year, period: "year", studentId: ids.student, areaId: area.id, grade: "A" } });
+      const comp = await tx.competency.create({ data: { schoolId: b.id, subjectId: ids.subject, name: "Reads with understanding" } });
+      await tx.competencyLevel.create({ data: { schoolId: b.id, academicYearId: ids.year, period: "year", studentId: ids.student, competencyId: comp.id, level: "Proficient" } });
+      await tx.seatAllocation.create({ data: { schoolId: b.id, examId: exam.id, date: new Date("2026-10-12"), startTime: "09:30", room: "Hall", seatNo: 1, studentId: ids.student, sectionId: ids.section } });
+      await tx.admitCardPrint.create({ data: { schoolId: b.id, examId: exam.id, sectionId: ids.section, count: 1 } });
+      const q = await tx.question.create({ data: { schoolId: b.id, classId: ids.cls, subjectId: ids.subject, text: "School B question" } });
+      await tx.questionPaper.create({ data: { schoolId: b.id, title: "School B paper", classId: ids.cls, subjectId: ids.subject, questionIds: [q.id] } });
+      return { examId: exam.id, marksId: marks.id };
+    });
+    await withSchool(ctxA(), async (tx) => {
+      const counts = await Promise.all([
+        tx.exam.count(), tx.datesheetEntry.count(), tx.marksPaper.count(), tx.marks.count(), tx.marksModeration.count(), tx.result.count(),
+        tx.resultPublication.count(), tx.reportCard.count(), tx.coScholasticGrade.count(), tx.competency.count(), tx.competencyLevel.count(),
+        tx.seatAllocation.count(), tx.admitCardPrint.count(), tx.question.count(), tx.questionPaper.count(),
+        tx.examSettings.count({ where: { schoolId: b.id } }), tx.examType.count({ where: { schoolId: b.id } }), tx.markCategory.count({ where: { schoolId: b.id } }),
+        tx.gradeScale.count({ where: { schoolId: b.id } }), tx.coScholasticArea.count({ where: { schoolId: b.id } }),
+      ]);
+      expect(counts).toEqual(counts.map(() => 0));
+      expect(await tx.exam.findUnique({ where: { id: made.examId } })).toBeNull();
+      const changed = await tx.marks.updateMany({ where: { id: made.marksId }, data: { total: 80 } });
+      expect(changed.count).toBe(0);
+    });
+    await expect(
+      withSchool(ctxA(), (tx) => tx.question.create({ data: { schoolId: b.id, classId: ids.cls, subjectId: ids.subject, text: "Sneaky question" } })),
+    ).rejects.toThrow();
+    const still = await withSchool(ctxB, (tx) => tx.marks.findUniqueOrThrow({ where: { id: made.marksId } }));
+    expect(still.total).toBe(70);
+  });
+});

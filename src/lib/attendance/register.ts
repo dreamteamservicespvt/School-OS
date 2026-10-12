@@ -68,7 +68,8 @@ export async function registerMonth(tx: Tx, ctx: SchoolContext, input: { section
   const to = monthEnd(input.month);
   const settings = await attendanceSettings(tx, ctx);
   const [students, days, sum, list] = await Promise.all([
-    roster(tx, section.id, section.academicYearId, settings.registerOrder),
+    tx.academicYear.findUnique({ where: { id: section.academicYearId }, select: { endDate: true } })
+      .then((y) => roster(tx, section.id, section.academicYearId, settings.registerOrder, { pastYear: Boolean(y && y.endDate < input.today) })),
     schoolDays(tx, ctx, from, to, section.campusId),
     attendanceSummary(tx, ctx, { sectionId: section.id, from, to, today: input.today, campusId: section.campusId }),
     statusList(tx, ctx),

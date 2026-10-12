@@ -29,9 +29,12 @@ export async function sectionInfo(tx: Tx, sectionId: string) {
 }
 
 /** Students studying in a section, in roll-number (or name) order. */
-export async function roster(tx: Tx, sectionId: string, academicYearId: string, order: string = "roll") {
+export async function roster(tx: Tx, sectionId: string, academicYearId: string, order: string = "roll", opts: { pastYear?: boolean } = {}) {
+  // A finished year keeps everyone who was in the class (promoted, passed out or left since).
   const rows = await tx.enrolment.findMany({
-    where: { sectionId, academicYearId, archivedAt: null, status: "STUDYING", student: { archivedAt: null, status: { in: ["ACTIVE", "ADMITTED"] } } },
+    where: opts.pastYear
+      ? { sectionId, academicYearId, archivedAt: null }
+      : { sectionId, academicYearId, archivedAt: null, status: "STUDYING", student: { archivedAt: null, status: { in: ["ACTIVE", "ADMITTED"] } } },
     include: { student: { select: { id: true, fullName: true, admissionNo: true, photoFileId: true } } },
   });
   rows.sort((a, b) => (order === "name" ? a.student.fullName.localeCompare(b.student.fullName) : (a.rollNo ?? 9999) - (b.rollNo ?? 9999) || a.student.fullName.localeCompare(b.student.fullName)));

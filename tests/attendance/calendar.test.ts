@@ -86,6 +86,8 @@ describe("the class register pages back to earlier years", () => {
     expect(r.bounds).toEqual({ min: "2025-04", max: "2026-10" });
     expect(r.sections.map((s) => s.id)).toContain(pastSectionA);
     expect(r.grid?.rows[0].days["2025-10-06"]).toBe("absent");
+    expect(r.grid?.rows[0].roll).toBe(1);
+    expect(r.grid?.rows[0].name).not.toContain("(left)");
     expect(r.grid?.dates.find((x) => x.iso === "2025-10-20")?.off).toBe("Diwali");
   });
 

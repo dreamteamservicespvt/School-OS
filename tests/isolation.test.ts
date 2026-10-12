@@ -333,3 +333,46 @@ describe("Dashboard records stay in their school", () => {
     });
   });
 });
+
+describe("Admission Management records stay in their school", () => {
+  it("school A cannot read, change or add to school B's enquiries, applications, papers, tests, fees, consents or codes", async () => {
+    const ctxB = { schoolId: b.id, userId: userB.id };
+    const day = (d: string) => new Date(`${d}T00:00:00Z`);
+    const ids = await withSchool(ctxB, async (tx) => {
+      const year = await tx.academicYear.create({ data: { schoolId: b.id, campusId: b.campus.id, name: "2031-32", startDate: day("2031-04-01"), endDate: day("2032-03-31"), status: "UPCOMING" } });
+      const cls = await tx.schoolClass.create({ data: { schoolId: b.id, campusId: b.campus.id, name: "Admission B Class" } });
+      const staff = await tx.staff.create({ data: { schoolId: b.id, campusId: b.campus.id, staffCode: "B-ADM", firstName: "B", lastName: "Counsellor", fullName: "B Counsellor", phone: "9000000077", designation: "Counsellor", joiningDate: day("2020-01-01") } });
+      await tx.admissionSetting.create({ data: { schoolId: b.id, onlineOn: true } });
+      await tx.admissionClassRule.create({ data: { schoolId: b.id, classId: cls.id } });
+      await tx.admissionCampaign.create({ data: { schoolId: b.id, name: "School B campaign", message: "Apply now" } });
+      const enquiry = await tx.enquiry.create({ data: { schoolId: b.id, campusId: b.campus.id, academicYearId: year.id, enquiryNo: "ENQ-B-1", childName: "Child In B", parentName: "Parent In B", phone: "9000000078", source: "walk-in", firstSource: "walk-in" } });
+      await tx.enquiryActivity.create({ data: { schoolId: b.id, enquiryId: enquiry.id, kind: "note", text: "Only in B" } });
+      const app = await tx.application.create({ data: { schoolId: b.id, campusId: b.campus.id, academicYearId: year.id, applicationNo: "APP-B-1", classId: cls.id, firstName: "Child", fullName: "Child In B", dateOfBirth: day("2026-01-01"), gender: "Female", phone: "9000000078", address: "B town" } });
+      await tx.applicationActivity.create({ data: { schoolId: b.id, applicationId: app.id, kind: "note", text: "Only in B" } });
+      await tx.applicationDocument.create({ data: { schoolId: b.id, applicationId: app.id, docType: "birth-certificate" } });
+      const test = await tx.admissionTest.create({ data: { schoolId: b.id, academicYearId: year.id, title: "School B test", startsAt: day("2031-02-01") } });
+      await tx.admissionTestBooking.create({ data: { schoolId: b.id, testId: test.id, applicationId: app.id } });
+      await tx.interviewSlot.create({ data: { schoolId: b.id, applicationId: app.id, interviewerStaffId: staff.id, startsAt: day("2031-02-02") } });
+      await tx.applicationFeePayment.create({ data: { schoolId: b.id, applicationId: app.id, amountPaise: BigInt(50000), mode: "cash" } });
+      await tx.admissionConsent.create({ data: { schoolId: b.id, applicationId: app.id, consentType: "data-processing", version: 1, givenByName: "Parent In B", phone: "9000000078", howGiven: "admission-form-counter" } });
+      await tx.admissionOtp.create({ data: { schoolId: b.id, phone: "9000000078", purpose: "online:9000000078", codeHash: "x", expiresAt: day("2031-01-01") } });
+      return { enquiry: enquiry.id, app: app.id, test: test.id, yearId: year.id, classId: cls.id };
+    });
+    await withSchool(ctxA(), async (tx) => {
+      const counts = await Promise.all([
+        tx.admissionSetting.count({ where: { schoolId: b.id } }), tx.admissionClassRule.count(), tx.admissionCampaign.count(), tx.enquiry.count(), tx.enquiryActivity.count(),
+        tx.application.count(), tx.applicationActivity.count(), tx.applicationDocument.count(), tx.admissionTest.count(), tx.admissionTestBooking.count(),
+        tx.interviewSlot.count(), tx.applicationFeePayment.count(), tx.admissionConsent.count(), tx.admissionOtp.count(),
+      ]);
+      expect(counts).toEqual(Array(14).fill(0));
+      expect(await tx.application.findUnique({ where: { id: ids.app } })).toBeNull();
+      expect(await tx.enquiry.findMany({ where: { phone: "9000000078" } })).toHaveLength(0);
+      expect((await tx.application.updateMany({ where: { id: ids.app }, data: { stage: "ADMITTED" } })).count).toBe(0);
+      expect((await tx.enquiry.updateMany({ where: { id: ids.enquiry }, data: { status: "lost" } })).count).toBe(0);
+      expect((await tx.admissionOtp.updateMany({ where: { phone: "9000000078" }, data: { attempts: 0 } })).count).toBe(0);
+    });
+    await expect(withSchool(ctxA(), (tx) => tx.applicationActivity.create({ data: { schoolId: b.id, applicationId: ids.app, kind: "note", text: "Sneaky" } }))).rejects.toThrow();
+    await expect(withSchool(ctxA(), (tx) => tx.enquiry.create({ data: { schoolId: b.id, campusId: b.campus.id, academicYearId: ids.yearId, enquiryNo: "ENQ-X", childName: "X", parentName: "X", phone: "9000000079", source: "walk-in", firstSource: "walk-in" } }))).rejects.toThrow();
+    await expect(withSchool(ctxA(), (tx) => tx.applicationFeePayment.create({ data: { schoolId: b.id, applicationId: ids.app, amountPaise: BigInt(1), mode: "cash" } }))).rejects.toThrow();
+  });
+});

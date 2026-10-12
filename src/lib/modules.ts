@@ -67,6 +67,7 @@ export function findModule(key: string): SchoolModuleInfo | undefined {
 /** Modules whose screens are built so far. Grows one module at a time. */
 export const BUILT_MODULES: ReadonlySet<ModuleKey> = new Set<ModuleKey>([
   "academic-management",
+  "examination-results",
   "communication",
   "settings",
   "staff-hr-management",

@@ -1,7 +1,8 @@
 "use client";
 
 // The "..." menu on a record (design/ui-prototype/src/kit.jsx MoreMenu). Each item
-// opens a page or a file; risky changes are confirmed on the page they open.
+// opens a page or a file, or (from a browser component) runs onClick, for example
+// to open a sheet; risky changes are confirmed on the page or sheet they open.
 
 import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
@@ -9,7 +10,7 @@ import { Ellipsis } from "lucide-react";
 import { cx } from "./cx";
 import { buttonClass, type ButtonSize } from "./button";
 
-export type MenuItem = { label: string; href: string; icon?: React.ReactNode; /** A file (PDF): opened directly. */ file?: boolean; tone?: "bad" };
+export type MenuItem = { label: string; href?: string; /** Runs instead of opening a page; only from a browser component. */ onClick?: () => void; icon?: React.ReactNode; /** A file (PDF): opened directly. */ file?: boolean; tone?: "bad" };
 
 export function MoreMenu({ items, label = "More actions", size = "md", className }: { items: MenuItem[]; label?: string; size?: ButtonSize; className?: string }) {
   const [open, setOpen] = useState(false);
@@ -35,9 +36,11 @@ export function MoreMenu({ items, label = "More actions", size = "md", className
       </button>
       {open && (
         <div id={id} role="menu" aria-label={label} className="absolute right-0 top-full mt-1.5 z-40 w-60 bg-surface border border-line rounded-2xl shadow-pop p-1.5 animate-rise">
-          {items.map((it) => it.file
-            ? <a key={it.label} role="menuitem" href={it.href} className={itemCls(it.tone)} onClick={() => setOpen(false)}>{it.icon}{it.label}</a>
-            : <Link key={it.label} role="menuitem" href={it.href} className={itemCls(it.tone)} onClick={() => setOpen(false)}>{it.icon}{it.label}</Link>)}
+          {items.map((it) => !it.href
+            ? <button key={it.label} type="button" role="menuitem" className={itemCls(it.tone)} onClick={() => { setOpen(false); it.onClick?.(); }}>{it.icon}{it.label}</button>
+            : it.file
+              ? <a key={it.label} role="menuitem" href={it.href} className={itemCls(it.tone)} onClick={() => setOpen(false)}>{it.icon}{it.label}</a>
+              : <Link key={it.label} role="menuitem" href={it.href} className={itemCls(it.tone)} onClick={() => setOpen(false)}>{it.icon}{it.label}</Link>)}
         </div>
       )}
     </div>

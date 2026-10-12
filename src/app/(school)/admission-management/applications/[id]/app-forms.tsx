@@ -9,7 +9,7 @@
 import { useState } from "react";
 import { Ban, Banknote, ChevronRight, CircleCheck, ClipboardCheck, FolderOpen, Gavel, Hourglass, IndianRupee, Pencil, Printer, Send, ShieldCheck } from "lucide-react";
 import { ButtonLink, Button } from "@/components/ui/button";
-import { MoreMenu, type MenuItem } from "@/app/(school)/admission-management/_components/more-menu";
+import { MoreMenu, type MenuItem } from "@/components/ui/more-menu";
 import { CheckboxField, SelectField, TextArea, TextField, type Option } from "@/components/ui/field";
 import { Segmented } from "@/components/ui/controls";
 import { ActionButton, FormSheet } from "../../_components/forms";
@@ -19,6 +19,8 @@ import {
 } from "../actions";
 
 const MOVE_ICON: Record<string, typeof FolderOpen> = { REVIEWED: CircleCheck, DOCUMENTS: FolderOpen, TEST_INTERVIEW: ClipboardCheck, DECISION: Hourglass };
+
+const menuIcon = (Ic: typeof FolderOpen) => <Ic size={17} aria-hidden="true" />;
 
 export function AppActions({ id, name, applicationNo, parent, moves, canReview, decisionHref, editHref, fee }: {
   id: string; name: string; applicationNo: string; parent: string;
@@ -30,10 +32,10 @@ export function AppActions({ id, name, applicationNo, parent, moves, canReview, 
   const [moveTo, setMoveTo] = useState<Option | null>(null);
   const close = () => setSheet(null);
   const items: MenuItem[] = [
-    ...moves.map((m) => ({ icon: MOVE_ICON[m.value] ?? ChevronRight, label: m.label, onClick: () => { setMoveTo(m); setSheet("move"); } })),
-    ...(editHref ? [{ icon: Pencil, label: "Edit form", href: editHref }] : []),
-    { icon: Printer, label: "Print application", onClick: () => window.print() },
-    { icon: Ban, label: "Withdraw", onClick: () => setSheet("withdraw"), tone: "bad" as const },
+    ...moves.map((m) => ({ icon: menuIcon(MOVE_ICON[m.value] ?? ChevronRight), label: m.label, onClick: () => { setMoveTo(m); setSheet("move"); } })),
+    ...(editHref ? [{ icon: <Pencil size={17} aria-hidden="true" />, label: "Edit form", href: editHref }] : []),
+    { icon: <Printer size={17} aria-hidden="true" />, label: "Print application", onClick: () => window.print() },
+    { icon: <Ban size={17} aria-hidden="true" />, label: "Withdraw", onClick: () => setSheet("withdraw"), tone: "bad" as const },
   ];
   const primaryMove = !canReview && !decisionHref ? moves[0] : null;
   return (

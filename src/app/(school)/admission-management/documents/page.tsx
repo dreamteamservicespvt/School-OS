@@ -17,7 +17,8 @@ import { Pill } from "@/components/ui/badge";
 import { Chips } from "@/components/ui/chips";
 import { Avatar } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/rows";
-import { DataList, Pager, type ListRow } from "@/app/(school)/admission-management/_components/data-list";
+import { DataList, Pager } from "@/components/ui/data-list";
+import { rowList, type ListRow } from "../_components/list-rows";
 import { UrlSearch, UrlSelect } from "@/components/ui/url-filters";
 import { PeriodFilter } from "@/components/list/period-filter";
 import { EmptyState } from "@/components/empty-state";
@@ -141,7 +142,7 @@ export default async function DocumentsPage({ searchParams }: Search) {
                 <UrlSelect param="class" label="Class" allLabel="All classes" options={classes} className="md:w-36" />
               </div>
             </div>
-            <DataList label="Applicants and their papers" columns={[{ key: "c", label: "Applicant" }, { key: "p", label: "Verified" }, { key: "m", label: "Missing papers" }]} rows={listRows} minWidth={560}
+            <DataList caption="Applicants and their papers" {...rowList([{ key: "c", label: "Applicant" }, { key: "p", label: "Verified" }, { key: "m", label: "Missing papers" }])} rows={listRows} minWidth={560}
               empty={filtered ? (
                 <EmptyState bare Icon={SearchX} title="No applicants match" action={<ButtonLink href={PATH} variant="secondary">Clear filters</ButtonLink>}>Try another filter or search.</EmptyState>
               ) : (

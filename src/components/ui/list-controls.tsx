@@ -80,18 +80,16 @@ export function UrlToggle({ param, label, value = "1" }: { param: string; label:
 export type BulkAction = { label: string; href: string; icon?: React.ReactNode; /** A file (PDF, CSV): opened directly. */ file?: boolean; variant?: "primary" | "secondary" };
 
 /**
- * The bulk bar inside a list card (kit.jsx BulkBar): "3 selected", the actions and Clear.
- * The rows' tick boxes carry form={form}; each action opens its own page with ?ids=,
- * where the change is previewed and confirmed. Nothing changes from this bar alone.
+ * The ticked rows of a list whose tick boxes carry form={form} (DataList select),
+ * including "select all". For bulk bars that open a sheet instead of a page.
  */
-export function InlineBulkBar({ form, actions }: { form: string; actions: BulkAction[] }) {
-  const [count, setCount] = useState(0);
-  const router = useRouter();
+export function useBulkTicks(form: string) {
+  const [ids, setIds] = useState<string[]>([]);
   useEffect(() => {
     const rows = () => [...document.querySelectorAll<HTMLInputElement>(`input[data-bulk-row][form="${form}"]`)];
     const visible = () => rows().filter((i) => i.offsetParent !== null);
     const recount = () => {
-      setCount(new Set(rows().filter((i) => i.checked).map((i) => i.value)).size);
+      setIds([...new Set(rows().filter((i) => i.checked).map((i) => i.value))]);
       const v = visible();
       document.querySelectorAll<HTMLInputElement>("input[data-bulk-all]").forEach((all) => {
         all.checked = v.length > 0 && v.every((i) => i.checked);
@@ -110,8 +108,20 @@ export function InlineBulkBar({ form, actions }: { form: string; actions: BulkAc
   }, [form]);
   const clear = () => {
     document.querySelectorAll<HTMLInputElement>(`input[data-bulk-row][form="${form}"], input[data-bulk-all]`).forEach((i) => { i.checked = false; i.indeterminate = false; });
-    setCount(0);
+    setIds([]);
   };
+  return { ids, clear };
+}
+
+/**
+ * The bulk bar inside a list card (kit.jsx BulkBar): "3 selected", the actions and Clear.
+ * The rows' tick boxes carry form={form}; each action opens its own page with ?ids=,
+ * where the change is previewed and confirmed. Nothing changes from this bar alone.
+ */
+export function InlineBulkBar({ form, actions }: { form: string; actions: BulkAction[] }) {
+  const { ids, clear } = useBulkTicks(form);
+  const count = ids.length;
+  const router = useRouter();
   return (
     <form id={form} method="get" aria-hidden={count ? undefined : true}
       onSubmit={(e) => {

@@ -17,7 +17,9 @@ import { Card } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
 import { Pill } from "@/components/ui/badge";
 import { Chips } from "@/components/ui/chips";
-import { DataList, Pager, SelectionProvider, type ListRow } from "@/app/(school)/admission-management/_components/data-list";
+import { DataList, Pager } from "@/components/ui/data-list";
+import { rowList, type ListRow } from "../_components/list-rows";
+import { BULK_FORM } from "./bulk-form";
 import { ExportMenu, UrlSearch, UrlSegmented, UrlSelect } from "@/components/ui/url-filters";
 import { Avatar } from "@/components/ui/avatar";
 import { EmptyState } from "@/components/empty-state";
@@ -192,7 +194,6 @@ export default async function EnquiriesPage({ searchParams }: Search) {
   return (
     <>
       <AdmissionHead href={PATH} sub={sub} actions={actions} />
-      <SelectionProvider>
         <div className={cx("grid gap-5 lg:gap-6 items-start", panel && "xl:grid-cols-[minmax(0,1fr)_420px]")}>
           <div className={cx("min-w-0 flex-col gap-4", panel ? "hidden xl:flex" : "flex")}>
             <Chips value={quick} options={quickOpts} />
@@ -211,7 +212,8 @@ export default async function EnquiriesPage({ searchParams }: Search) {
                 </div>
               </div>
               {selectable && <EnquiryBulk owners={choices.owners} campaigns={settings.campaignsOn} schoolName={current.school.name} />}
-              <DataList label="Enquiries" columns={columns} rows={listRows} minWidth={narrow ? 600 : 980} selectable={selectable} empty={empty}
+              <DataList caption="Enquiries" {...rowList(columns)} rows={listRows} minWidth={narrow ? 600 : 980} empty={empty} selectOnPhone
+                select={selectable ? { form: BULK_FORM, value: (r) => r.key, label: (r) => `Select ${r.mobile.avatar ?? "enquiry"}` } : undefined}
                 footer={<Pager page={params.page} pageSize={PAGE_SIZE} total={total} prevHref={listHref(PATH, params, { page: params.page - 1 })} nextHref={listHref(PATH, params, { page: params.page + 1 })} />} />
             </Card>
           </div>
@@ -226,7 +228,6 @@ export default async function EnquiriesPage({ searchParams }: Search) {
             <Card className="xl:col-start-2"><EmptyState Icon={SearchX} title="Enquiry not found" action={<ButtonLink href={PATH} variant="secondary">All enquiries</ButtonLink>}>It may have been archived, or it belongs to someone else.</EmptyState></Card>
           )}
         </div>
-      </SelectionProvider>
     </>
   );
 }

@@ -15,7 +15,7 @@ import { Card } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import { Pill, type PillTone } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
-import { MoreMenu, type MenuItem } from "@/app/(school)/admission-management/_components/more-menu";
+import { MoreMenu, type MenuItem } from "@/components/ui/more-menu";
 import { Banner } from "@/components/ui/chips";
 import { Timeline } from "@/components/ui/rows";
 import { SelectField, TextArea, TextField, type Option } from "@/components/ui/field";
@@ -70,9 +70,9 @@ export function EnquiryPanel({ e, closeHref, canWork, full, canArchive, c, statu
   const hidden = { id: e.id };
   const link = (label: string, s: Sheet) => <button type="button" onClick={() => setSheet(s)} className="text-brand hover:underline">{label}</button>;
   const menu: MenuItem[] = [
-    ...(full ? [{ icon: ListChecks, label: "Change status", onClick: () => setSheet("status") }, { icon: UserCog, label: "Reassign owner", onClick: () => setSheet("reassign") }, { icon: Tag, label: "Change source", onClick: () => setSheet("source") }] : []),
-    { icon: CircleX, label: "Close as lost", onClick: () => setSheet("lost"), tone: "bad" as const },
-    ...(canArchive ? [{ icon: Archive, label: "Archive enquiry", onClick: () => setSheet("archive"), tone: "bad" as const }] : []),
+    ...(full ? [{ icon: <ListChecks size={17} aria-hidden="true" />, label: "Change status", onClick: () => setSheet("status") }, { icon: <UserCog size={17} aria-hidden="true" />, label: "Reassign owner", onClick: () => setSheet("reassign") }, { icon: <Tag size={17} aria-hidden="true" />, label: "Change source", onClick: () => setSheet("source") }] : []),
+    { icon: <CircleX size={17} aria-hidden="true" />, label: "Close as lost", onClick: () => setSheet("lost"), tone: "bad" as const },
+    ...(canArchive ? [{ icon: <Archive size={17} aria-hidden="true" />, label: "Archive enquiry", onClick: () => setSheet("archive"), tone: "bad" as const }] : []),
   ];
   const [tpl, setTpl] = useState(templates[0]?.key ?? "");
   const [text, setText] = useState(templates[0]?.text ?? "");

@@ -39,7 +39,12 @@ async function main() {
     { username: "transport", name: "Ganesh Rao", phone: "9876500008", access: [[sunrise.school.id, "transport-in-charge"]] },
     { username: "warden", name: "Sunita Patil", phone: "9876500009", access: [[sunrise.school.id, "hostel-warden"]] },
     { username: "store", name: "Mahesh Yadav", phone: "9876500010", access: [[sunrise.school.id, "store-keeper"]] },
+    // A role template the school switched on (below), to try "View" reach: sees, never changes.
+    { username: "viceprincipal", name: "Meera Joshi", phone: "9876500011", access: [[sunrise.school.id, "vice-principal"]] },
   ] as const;
+
+  // Vice Principal is a template (05-roles.md); Sunrise has switched it on.
+  await withSchool({ schoolId: sunrise.school.id, userId: null }, (tx) => tx.role.updateMany({ where: { key: "vice-principal" }, data: { isEnabled: true } }));
 
   for (const p of people) {
     const user = await prisma.userLogin.create({

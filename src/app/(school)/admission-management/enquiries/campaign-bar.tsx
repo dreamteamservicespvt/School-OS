@@ -6,26 +6,31 @@
 import { useState } from "react";
 import { Megaphone, Send, UserCog } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { BulkBar, useSelection } from "@/app/(school)/admission-management/_components/data-list";
+import { useBulkTicks } from "@/components/ui/list-controls";
+import { BULK_FORM } from "./bulk-form";
 import { SelectField, TextArea, TextField, type Option } from "@/components/ui/field";
 import { FormSheet, SegField } from "../_components/forms";
 import { bulkAssignAction, campaignAction } from "./actions";
 
 export function EnquiryBulk({ owners, campaigns, schoolName }: { owners: Option[]; campaigns: boolean; schoolName: string }) {
-  const { ids, set } = useSelection();
+  const { ids, clear } = useBulkTicks(BULK_FORM);
   const [sheet, setSheet] = useState<"campaign" | "assign" | null>(null);
   const [text, setText] = useState("");
-  const n = ids.size;
-  const idInputs = [...ids].map((id) => <input key={id} type="hidden" name="ids" value={id} />);
+  const n = ids.length;
+  const idInputs = ids.map((id) => <input key={id} type="hidden" name="ids" value={id} />);
   const preview = text.replace(/\{parent\}/g, "Sunita Rao").replace(/\{child\}/g, "Arjun");
   return (
     <>
-      <BulkBar>
-        {campaigns && <Button size="sm" variant="secondary" icon={Megaphone} onClick={() => setSheet("campaign")}>Run campaign</Button>}
-        <Button size="sm" variant="secondary" icon={UserCog} onClick={() => setSheet("assign")}>Assign owner</Button>
-      </BulkBar>
+      {n > 0 && (
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-brand/8 border-b border-brand/20 animate-fade flex-wrap" role="region" aria-label="Actions for ticked enquiries">
+          <p className="text-[13.5px] font-semibold text-brand mr-2" aria-live="polite">{n} selected</p>
+          {campaigns && <Button size="sm" variant="secondary" icon={Megaphone} onClick={() => setSheet("campaign")}>Run campaign</Button>}
+          <Button size="sm" variant="secondary" icon={UserCog} onClick={() => setSheet("assign")}>Assign owner</Button>
+          <Button size="sm" variant="ghost" onClick={clear}>Clear</Button>
+        </div>
+      )}
       <FormSheet open={sheet === "campaign"} onClose={() => setSheet(null)} title={`Run campaign for ${n} ${n === 1 ? "enquiry" : "enquiries"}`} sub="Sent through Communication. Each enquiry then shows the campaign name."
-        action={campaignAction} submitLabel={`Send to ${n} ${n === 1 ? "family" : "families"}`} busyLabel="Sending…" submitIcon={Send} onSaved={() => { set(new Set()); setText(""); }}>
+        action={campaignAction} submitLabel={`Send to ${n} ${n === 1 ? "family" : "families"}`} busyLabel="Sending…" submitIcon={Send} onSaved={() => { clear(); setText(""); }}>
         {(f) => <>
           {idInputs}
           <TextField label="Campaign" name="name" required maxLength={80} placeholder="Open House on Saturday" defaultValue={f.val("name")} error={f.err("name")} help="Shown on each enquiry it reaches." />
@@ -36,7 +41,7 @@ export function EnquiryBulk({ owners, campaigns, schoolName }: { owners: Option[
           <p className="text-[13px] text-ink3 tnum">{n} {n === 1 ? "message" : "messages"} · closed enquiries are skipped</p>
         </>}
       </FormSheet>
-      <FormSheet open={sheet === "assign"} onClose={() => setSheet(null)} title={`Assign ${n} ${n === 1 ? "enquiry" : "enquiries"}`} sub="The history keeps the old and new owner." action={bulkAssignAction} submitLabel="Assign owner" onSaved={() => set(new Set())}>
+      <FormSheet open={sheet === "assign"} onClose={() => setSheet(null)} title={`Assign ${n} ${n === 1 ? "enquiry" : "enquiries"}`} sub="The history keeps the old and new owner." action={bulkAssignAction} submitLabel="Assign owner" onSaved={clear}>
         {(f) => <>
           {idInputs}
           <SelectField label="New owner" name="ownerStaffId" required options={owners} placeholder="Choose" defaultValue={f.val("ownerStaffId")} error={f.err("ownerStaffId")} />

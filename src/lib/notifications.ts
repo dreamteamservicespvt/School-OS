@@ -42,7 +42,7 @@ export async function notify(tx: Tx, ctx: SchoolContext, input: NotifyInput, now
     }
   }
 
-  return tx.notification.create({
+  const created = await tx.notification.create({
     data: {
       schoolId: ctx.schoolId,
       userLoginId: input.to,
@@ -52,4 +52,8 @@ export async function notify(tx: Tx, ctx: SchoolContext, input: NotifyInput, now
       groupKey: input.groupKey ?? null,
     },
   });
+  // Rule 6: also by WhatsApp, SMS or email when the person chose it and the school allows it.
+  const { sendNotificationCopies } = await import("./notification-channels");
+  await sendNotificationCopies(tx, ctx, { id: created.id, userLoginId: input.to, type: input.type, text: input.text });
+  return created;
 }

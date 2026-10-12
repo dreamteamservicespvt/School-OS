@@ -1,8 +1,8 @@
 // Two-step login (08-platform-security.md §2): after the right password, a
 // person in a role that needs it types a 6-digit one-time code. The code is
 // stored only as a hash, works for 10 minutes and for 5 tries, and is sent by
-// SMS through Communication when the school's SMS channel is on (with a DLT
-// template, rule 34), else by email. A person may
+// email when the person has one, else by SMS through Communication when the
+// school's SMS channel is on (with a DLT template, rule 34). A person may
 // trust their own device for 30 days. The school switches it on with the
 // School Feature "two-step-login" (Settings, Data Backup & Security).
 
@@ -86,31 +86,43 @@ export type CodeTo = {
 };
 type Deliver = (to: CodeTo, code: string) => Promise<{ channel: string; sentTo: string } | { problem: string }>;
 
+/** What a code is for: signing in, or confirming a new phone or email on My profile. */
+export type CodePurpose = "sign-in" | "change-phone" | "change-email" | (string & {});
+
+const PURPOSE_WORDS: Record<string, string> = { "sign-in": "sign-in code", "change-phone": "code to confirm your new mobile number", "change-email": "code to confirm your new email address" };
+
 /**
- * Sends the code by SMS when the school's SMS channel is on and its sign-in
- * code template has a DLT template ID; else by email. In development with
- * neither, writes it to the server log only.
+ * Sends a one-time code: by email first when the person has one and email is
+ * set up on the server; else by SMS through Communication when the school's
+ * SMS channel is on and its one-time-code template has a DLT template ID
+ * (rule 34). In development with neither, writes it to the server log only.
  */
-export const deliverCode: Deliver = async (to, code) => {
-  if (to.phone && to.schoolId && to.userLoginId) {
-    const sms = await sendCodeBySms({ schoolId: to.schoolId, userLoginId: to.userLoginId, phone: to.phone, code, key: to.key ?? null });
-    if (sms.sent) return { channel: "sms", sentTo: maskPhone(to.phone) };
-  }
+export async function deliverCodeTo(to: CodeTo, code: string, purpose: CodePurpose = "sign-in"): Promise<{ channel: string; sentTo: string } | { problem: string }> {
+  const what = PURPOSE_WORDS[purpose] ?? "confirmation code";
+  let mailProblem: string | null = null;
   if (to.email && mailIsSetUp()) {
     try {
-      await sendMail(to.email, `${code} is your School OS sign-in code`, `Hello ${to.name},\n\nYour School OS sign-in code is ${code}. It works for 10 minutes.\n\nIf you did not try to sign in, change your password and tell your School Admin.\n`);
+      await sendMail(to.email, `${code} is your School OS ${purpose === "sign-in" ? "sign-in code" : "confirmation code"}`, `Hello ${to.name},\n\nYour School OS ${what} is ${code}. It works for 10 minutes.\n\nIf you did not ask for this, change your password and tell your School Admin.\n`);
       return { channel: "email", sentTo: maskEmail(to.email) };
     } catch (e) {
       console.error(JSON.stringify({ level: "error", event: "two-step-mail-failed", error: e instanceof Error ? e.message : String(e) }));
-      return { problem: "The code could not be sent by email just now. Please try again in a minute." };
+      mailProblem = "The code could not be sent by email just now. Please try again in a minute.";
     }
   }
+  if (to.phone && to.schoolId && to.userLoginId) {
+    const sms = await sendCodeBySms({ schoolId: to.schoolId, userLoginId: to.userLoginId, phone: to.phone, code, key: to.key ?? null, purpose });
+    if (sms.sent) return { channel: "sms", sentTo: maskPhone(to.phone) };
+  }
+  if (mailProblem) return { problem: mailProblem };
   if (process.env.NODE_ENV !== "production") {
-    console.info(JSON.stringify({ level: "info", event: "two-step-code", note: "Email is not set up; development only", to: to.name, code }));
+    console.info(JSON.stringify({ level: "info", event: "two-step-code", purpose, note: "Email and SMS are not set up; development only", to: to.name, code }));
     return { channel: "log", sentTo: "the server log (email is not set up on this computer)" };
   }
-  return { problem: to.email ? "Email is not set up on this server, so the code cannot be sent. Ask DREAM TEAM support." : "Your login has no email address for the code. Ask your School Admin to add one in Users & Permissions." };
-};
+  return { problem: to.email || to.phone ? "Neither email nor SMS is set up to send the code just now. Ask your School Admin or DREAM TEAM support." : "Your login has no email address or mobile number for the code. Ask your School Admin to add one in Users & Permissions." };
+}
+
+/** The sign-in code (two-step login). */
+export const deliverCode: Deliver = (to, code) => deliverCodeTo(to, code, "sign-in");
 
 export type StartResult = { ok: true; token: string; sentTo: string; channel: string } | { ok: false; message: string };
 

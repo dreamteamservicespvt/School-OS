@@ -40,6 +40,8 @@ export type AudienceRule = {
   staffIds?: string[];
   /** School OS logins of this school, at the phone and email on the login (e.g. someone just invited, with no staff record). */
   loginIds?: string[];
+  /** A different phone or email for a login, e.g. a confirmation code to a new number being added. */
+  loginContact?: Record<string, { phone?: string | null; email?: string | null }>;
 };
 
 /** How far a sender may reach. "all" for the office; a teacher's own sections otherwise. */
@@ -275,7 +277,8 @@ export async function resolveAudience(tx: Tx, ctx: SchoolContext, rule: Audience
     const school = logins.length ? await tx.school.findUnique({ where: { id: ctx.schoolId }, select: { defaultLanguage: true } }) : null;
     for (const l of logins) {
       if (others.some((o) => o.userLoginId === l.id)) continue;
-      others.push({ key: `login:${l.id}`, type: "login", id: l.id, name: l.displayName, description: "School OS login", phone: l.phone, email: l.email, userLoginId: l.id, language: school?.defaultLanguage ?? "en", optedOut: false, students: [], inScope: scope.staff });
+      const alt = r.loginContact?.[l.id];
+      others.push({ key: `login:${l.id}`, type: "login", id: l.id, name: l.displayName, description: "School OS login", phone: alt?.phone !== undefined ? alt.phone : l.phone, email: alt?.email !== undefined ? alt.email : l.email, userLoginId: l.id, language: school?.defaultLanguage ?? "en", optedOut: false, students: [], inScope: scope.staff });
     }
   }
 

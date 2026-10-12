@@ -6,7 +6,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { prisma, withSchool } from "@/lib/db";
 import { findInvite } from "@/lib/auth/invites";
-import { deliverCode, startChallenge } from "@/lib/auth/two-step";
+import { deliverCode, deliverCodeTo, startChallenge } from "@/lib/auth/two-step";
 import { inviteUser, resendInvite } from "@/lib/settings/users";
 import { withHiddenLinks, withRealLinks } from "@/lib/parent-link/token";
 import { messageStaff } from "@/lib/staff/staff-message";
@@ -19,6 +19,7 @@ import { readAudienceForm } from "@/lib/communication/send-form";
 import { planMessage } from "@/lib/messaging";
 import { certificateHtml, printContext } from "@/lib/students/certificates";
 import { idCardsHtml, sectionCards } from "@/lib/students/id-cards";
+import { notify } from "@/lib/notifications";
 import { addDlt, makeCommSchool } from "../communication/fixture";
 
 let s: Awaited<ReturnType<typeof makeCommSchool>>;
@@ -85,6 +86,14 @@ describe("two-step sign-in codes", () => {
     expect(msg.recipients).toHaveLength(1);
     expect(msg.recipients[0]).toMatchObject({ channel: "sms", address: "9876543299" });
     expect(msg.recipients[0].text).toMatch(/^\d{6} is your School OS sign-in code/);
+  });
+
+  it("a code to confirm a new mobile number goes to that new number", async () => {
+    const r = await deliverCodeTo({ email: null, phone: "9876500001", name: "Principal Person", schoolId: s.school.id, userLoginId: s.principal.id, key: "k-new-phone" }, "246810", "change-phone");
+    expect(r).toMatchObject({ channel: "sms" });
+    const msg = await withSchool(s.ctx, (tx) => tx.message.findFirstOrThrow({ where: { idempotencyKey: "change-phone:k-new-phone" }, include: { recipients: true } }));
+    expect(msg.recipients[0]).toMatchObject({ channel: "sms", address: "9876500001" });
+    expect(msg.recipients[0].text).toContain("246810");
   });
 
   it("fall back to email (or the log in development) when SMS is off", async () => {
@@ -217,5 +226,19 @@ describe("Student Profile tabs from built modules", () => {
     const { accessIn } = await import("@/lib/auth/access");
     const principal = await accessIn(s.principal.id, s.school.id);
     expect(profileTabsFor({ permissions: principal!.permissions, modulesOn: new Set() }).map((t) => t.key)).toEqual(["timetable", "communication"]);
+  });
+});
+
+describe("notifications on the channels a person chose", () => {
+  it("sends a copy by WhatsApp and email when chosen in My profile, and nothing extra otherwise", async () => {
+    await prisma.userLogin.update({ where: { id: s.teacher.id }, data: { phone: "9876512111", email: "teacher.person@example.com", notificationPrefs: { "leave-decided": ["app", "whatsapp", "email"] } } });
+    const n = await withSchool(s.ctx, (tx) => notify(tx, s.ctx, { to: s.teacher.id, type: "leave-decided", text: "Your leave for 14-10-2026 was approved.", link: "/profile" }));
+    const msg = await withSchool(s.ctx, (tx) => tx.message.findFirstOrThrow({ where: { sourceType: "Notification", sourceId: n!.id }, include: { recipients: true } }));
+    expect(msg.recipients.map((r) => r.channel).sort()).toEqual(["email", "whatsapp"]);
+    expect(msg.recipients.find((r) => r.channel === "whatsapp")!.address).toBe("9876512111");
+    expect(msg.recipients.every((r) => r.text.includes("Your leave for 14-10-2026 was approved."))).toBe(true);
+
+    const other = await withSchool(s.ctx, (tx) => notify(tx, s.ctx, { to: s.teacher.id, type: "approval-waiting", text: "Something waits.", link: "/approvals" }));
+    expect(await withSchool(s.ctx, (tx) => tx.message.count({ where: { sourceType: "Notification", sourceId: other!.id } }))).toBe(0);
   });
 });

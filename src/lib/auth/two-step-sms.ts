@@ -27,23 +27,24 @@ export async function signInSmsTemplate(tx: Tx, ctx: SchoolContext): Promise<str
   return ready ? t.id : null;
 }
 
-export async function sendCodeBySms(input: { schoolId: string; userLoginId: string; phone: string; code: string; key: string | null }): Promise<{ sent: boolean; messageId?: string }> {
+export async function sendCodeBySms(input: { schoolId: string; userLoginId: string; phone: string; code: string; key: string | null; purpose?: string }): Promise<{ sent: boolean; messageId?: string }> {
   const ctx: SchoolContext = { schoolId: input.schoolId, userId: input.userLoginId };
   try {
     return await withSchool(ctx, async (tx) => {
       const templateId = await signInSmsTemplate(tx, ctx);
       if (!templateId) return { sent: false };
       const r = await sendMessage(tx, ctx, {
-        to: { loginIds: [input.userLoginId] },
+        // The code goes to the number given, which may be a new number being confirmed.
+        to: { loginIds: [input.userLoginId], loginContact: { [input.userLoginId]: { phone: input.phone, email: null } } },
         channels: ["sms"],
         templates: { sms: templateId },
         values: { code: input.code },
         single: true,
         emergency: true,
-        trigger: "Sign-in code (two-step login)",
+        trigger: input.purpose && input.purpose !== "sign-in" ? `Confirmation code (${input.purpose})` : "Sign-in code (two-step login)",
         source: { type: "User Login", id: input.userLoginId },
         audienceLabel: "Sign-in code",
-        idempotencyKey: input.key ? `two-step:${input.key}` : null,
+        idempotencyKey: input.key ? `${input.purpose && input.purpose !== "sign-in" ? input.purpose : "two-step"}:${input.key}` : null,
       });
       const setups = await channelSetups(tx, ctx);
       if (setups.sms.provider === "sandbox") {

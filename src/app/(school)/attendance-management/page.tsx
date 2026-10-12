@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { CalendarOff, CalendarX2, Users } from "lucide-react";
 import { withSchool } from "@/lib/db";
-import { formatDateTime } from "@/lib/format";
+import { formatTime } from "@/lib/format";
 import { attendancePage } from "@/lib/attendance/page";
 import { AttendanceProblem, BASE } from "@/lib/attendance/access";
 import { loadSheet, takeChoices, dayText } from "@/lib/attendance/marks";
@@ -10,14 +11,14 @@ import { dayInfo, offDayMessage } from "@/lib/attendance/calendar";
 import { clockHHMM } from "@/lib/attendance/time";
 import { day, isoDay } from "@/lib/staff/dates";
 import { UUID_RE } from "@/lib/staff/act";
-import { PageHeader } from "@/components/shell/page-header";
-import { Alert } from "@/components/ui/alert";
+import { Banner } from "@/components/ui/banner";
 import { buttonClass } from "@/components/ui/button";
 import { EmptyState } from "@/components/empty-state";
-import { CalendarIcon } from "@/components/icons";
+import { AttHead } from "./_components/att-head";
 import { SheetPicker } from "./_components/picker";
 import { TakeSheet } from "./_components/take-sheet";
 import { OfflinePanel } from "./_components/offline-panel";
+import { longDay } from "./_components/dates";
 
 export const metadata: Metadata = { title: "Take Attendance" };
 
@@ -51,54 +52,62 @@ export default async function TakeAttendancePage({ searchParams }: Props) {
     }
     if (!chosen) {
       const info = await dayInfo(tx, current.ctx, date, access.campusId);
-      return { choices, chosen: null, sheet: null, problem: section ? "You can only take attendance for your own classes. Choose one of them above." : null, info, year };
+      return { choices, chosen: null, sheet: null, problem: section ? "You can only take attendance for your own classes. Choose one of them above." : null, info, year, teacher: null };
     }
     try {
       const sheet = await loadSheet(tx, current.ctx, access, { sectionId: chosen.sectionId, date, periodNo: chosen.periodNo, now, timeZone: tz });
-      return { choices, chosen, sheet, problem: null, info: sheet.day, year };
+      const teacher = sheet.section.classTeacherId ? await tx.staff.findFirst({ where: { id: sheet.section.classTeacherId }, select: { fullName: true } }) : null;
+      return { choices, chosen, sheet, problem: null, info: sheet.day, year, teacher: teacher?.fullName ?? null };
     } catch (e) {
-      if (e instanceof AttendanceProblem) return { choices, chosen, sheet: null, problem: e.message, info: null, year };
+      if (e instanceof AttendanceProblem) return { choices, chosen, sheet: null, problem: e.message, info: null, year, teacher: null };
       throw e;
     }
   });
 
   const pickerChoices = data.choices.map((c) => ({
     value: `${c.sectionId}:${c.periodNo}`,
-    label: `${c.name}${c.periodLabel ? ` · ${c.periodLabel}` : ""}${c.done ? " (taken)" : ""}`,
+    label: `${c.name}${c.periodLabel ? ` · ${c.periodLabel}` : ""}${c.done ? " ✓" : ""}`,
   }));
   const sheet = data.sheet;
   const correctionHref = data.chosen ? `${BASE}/register/correction?section=${data.chosen.sectionId}&date=${isoDay(date)}${data.chosen.periodNo ? `&period=${data.chosen.periodNo}` : ""}` : `${BASE}/register`;
+  const sub = data.chosen
+    ? [`Class ${data.chosen.name}`, data.chosen.periodLabel, longDay(date), data.teacher ? `Class teacher ${data.teacher}` : null].filter(Boolean).join(" · ")
+    : longDay(date);
 
   return (
     <>
-      <PageHeader title="Take Attendance" href={BASE} userId={current.user.id}>
-        <Link href={`${BASE}/register`} className={buttonClass("secondary", "md")}>
-          <CalendarIcon className="size-5" /> Attendance Register
-        </Link>
-      </PageHeader>
+      <AttHead access={access} features={features} userId={current.user.id} href={BASE} sub={sub}
+        actions={<SheetPicker choices={pickerChoices} value={data.chosen ? `${data.chosen.sectionId}:${data.chosen.periodNo}` : ""}
+          date={isoDay(date)} maxDate={isoDay(today)} minDate={data.year ? isoDay(data.year.startDate) : undefined}
+          classLabel={periodWise ? "Class and period" : "Class and section"} />} />
 
       <OfflinePanel userId={current.user.id} offlineOn={offlineOn} />
 
-      <SheetPicker choices={pickerChoices} value={data.chosen ? `${data.chosen.sectionId}:${data.chosen.periodNo}` : ""}
-        date={isoDay(date)} maxDate={isoDay(today)} minDate={data.year ? isoDay(data.year.startDate) : undefined}
-        classLabel={periodWise ? "Class and period" : "Class and section"} />
-
       {future ? (
-        <Alert tone="warning">{dayText(date)} has not come yet. Attendance can be taken for today or earlier days. <Link href={BASE} className="font-medium underline">Go to today</Link></Alert>
+        <EmptyState title={`${dayText(date)} has not come yet`} Icon={CalendarX2} action={<Link href={BASE} className={buttonClass("secondary", "md")}>Go to today</Link>}>
+          Attendance can be taken for today or earlier days.
+        </EmptyState>
       ) : data.info && !data.info.on ? (
-        <Alert tone="warning" title={offDayMessage(data.info, date)}>
-          If the school opens that day, turn on &quot;allow attendance&quot; for the date in the School Calendar.
-        </Alert>
+        <>
+          <Banner tone="warn" icon={CalendarOff} className="mb-4" title={offDayMessage(data.info, date)}>
+            If the school opens that day, turn on &quot;allow attendance&quot; for the date in the School Calendar.
+          </Banner>
+          <EmptyState title="No attendance on this day" Icon={CalendarOff} action={<Link href={BASE} className={buttonClass("secondary", "md")}>Go to today</Link>}>
+            Holidays and Sundays are left out of every %, report and register total.
+          </EmptyState>
+        </>
       ) : data.problem ? (
-        <Alert tone="danger">{data.problem}</Alert>
+        <Banner tone="bad" role="alert">{data.problem}</Banner>
       ) : !sheet ? (
-        <EmptyState title={periodWise ? "No periods to take on this date" : "No class to take"}>
+        <EmptyState title={periodWise ? "No periods to take on this date" : "No class to take"} Icon={Users}
+          action={<Link href={`${BASE}/register`} className={buttonClass("secondary", "md")}>Open the register</Link>}>
           {periodWise
             ? "Your Time Table has no periods for you on this date. If you are covering a class, ask for the substitution to be arranged."
             : "Daily attendance is taken by the class teacher. You are not class teacher of any section this year. Ask the principal if you need a class."}
         </EmptyState>
       ) : sheet.students.length === 0 ? (
-        <EmptyState title={`No students in ${sheet.section.name}`}>
+        <EmptyState title={`No students in ${sheet.section.name}`} Icon={Users}
+          action={<Link href="/student-management" className={buttonClass("secondary", "md")}>Open Student Management</Link>}>
           Students appear here once they are placed in this section in Student Management.
         </EmptyState>
       ) : (
@@ -109,9 +118,9 @@ export default async function TakeAttendancePage({ searchParams }: Props) {
           periodNo={data.chosen!.periodNo} periodLabel={data.chosen!.periodLabel}
           statuses={sheet.statuses.map((s) => ({ key: s.key, name: s.name, letter: s.letter, tone: s.tone, counts: s.counts }))}
           defaultStatus={settings.defaultStatus === "none" ? "not-marked" : "present"}
-          students={sheet.students.map((s) => ({ id: s.studentId, roll: s.rollNo, name: s.name, admissionNo: s.admissionNo, photoUrl: s.photoUrl, statusKey: s.statusKey, note: s.note, leave: s.leave ? { typeName: s.leave.typeName, halfDay: s.leave.halfDay } : null }))}
+          students={sheet.students.map((s) => ({ id: s.studentId, roll: s.rollNo, name: s.name, admissionNo: s.admissionNo, photoUrl: s.photoUrl, statusKey: s.statusKey, note: s.note, leave: s.leave ? { typeName: s.leave.typeName, halfDay: s.leave.halfDay, reason: s.leave.reason } : null }))}
           saved={sheet.saved}
-          savedText={sheet.saved && sheet.savedAt ? `Saved ${formatDateTime(sheet.savedAt, tz)}${sheet.savedBy ? ` by ${sheet.savedBy}` : ""}` : null}
+          savedAtText={sheet.savedAt ? formatTime(sheet.savedAt, tz) : null} savedBy={sheet.savedBy}
           locked={sheet.lock.locked} lockText={sheet.lock.atText} canChangeAfterLock={sheet.canChangeAfterLock}
           correctionHref={correctionHref} offlineOn={offlineOn} />
       )}

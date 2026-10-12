@@ -2,3 +2,4 @@
 // the profile renders. Add one import line per module that adds a tab, e.g.
 //   import "@/lib/fees/profile-tab";
 import "server-only";
+import "@/lib/attendance/profile-tab";

@@ -58,10 +58,10 @@ export const SYSTEM_STATUSES: { key: string; name: string; letter: string; tone:
   { key: "present", name: "Present", letter: "P", tone: "success", counts: "present", forWhom: "both" },
   { key: "absent", name: "Absent", letter: "A", tone: "danger", counts: "absent", forWhom: "both" },
   { key: "late", name: "Late", letter: "L", tone: "warning", counts: "present", forWhom: "both" },
-  { key: "half-day", name: "Half-day", letter: "H", tone: "info", counts: "half", forWhom: "both" },
+  { key: "half-day", name: "Half-day", letter: "H", tone: "warning", counts: "half", forWhom: "both" },
   { key: "excused", name: "Excused", letter: "E", tone: "neutral", counts: "not-counted", forWhom: "students" },
-  { key: "leave", name: "Leave", letter: "LV", tone: "brand", counts: "not-counted", forWhom: "both" },
-  { key: "medical", name: "Medical", letter: "M", tone: "brand", counts: "not-counted", forWhom: "students" },
+  { key: "leave", name: "Leave", letter: "LV", tone: "info", counts: "not-counted", forWhom: "both" },
+  { key: "medical", name: "Medical", letter: "M", tone: "info", counts: "not-counted", forWhom: "students" },
 ];
 
 /** Student leave types every school starts with: Medical, Emergency, Holiday (05 §3). */

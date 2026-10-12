@@ -7,7 +7,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { CloudOff, CloudUpload } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Banner } from "@/components/ui/banner";
 import { ConfirmButton } from "@/components/ui/confirm";
 import { saveSheet } from "../actions";
 import { isNetworkError, QUEUE_EVENT, readQueue, writeQueue, type QueuedSave } from "./offline-queue";
@@ -111,45 +113,34 @@ export function OfflinePanel({ userId, offlineOn }: { userId: string; offlineOn:
   if (queue.length === 0 && !note && online) return null;
 
   return (
-    <div className="mb-4 space-y-2">
+    <div className="mb-4 flex flex-col gap-2">
       {!online && (
-        <div role="status" className="rounded-xl border border-warn/30 bg-warn-bg px-4 py-3 text-sm text-warn-text">
-          <p className="font-semibold">You are offline.</p>
-          <p>{offlineOn ? "You can still take attendance. It is saved on this phone and sent when you are online." : "Attendance cannot be saved until you are online. Your marks stay on the screen."}</p>
-        </div>
+        <Banner tone="warn" icon={CloudOff} role="status" title="You are offline.">
+          {offlineOn ? "You can still take attendance. It is saved on this phone and sent when you are online." : "Attendance cannot be saved until you are online. Your marks stay on the screen."}
+        </Banner>
       )}
       {note && (
-        <div role="status" className="flex items-start justify-between gap-3 rounded-xl border border-success/30 bg-success-soft px-4 py-3 text-sm text-success">
-          <p>{note}</p>
-          <button type="button" onClick={() => setNote(null)} className="min-h-11 shrink-0 px-2 font-medium underline">Close</button>
-        </div>
+        <Banner tone="ok" role="status" action={<Button size="sm" variant="ghost" onClick={() => setNote(null)}>Close</Button>}>{note}</Banner>
       )}
       {waiting.length > 0 && (
-        <section aria-label="Waiting on this phone" className="rounded-xl border border-line bg-info-soft px-4 py-3 text-sm">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="font-semibold">Saved on this phone, will send when online</p>
-            <Button size="sm" variant="secondary" onClick={() => void flush()} disabled={!online || sending} loading={sending} loadingText="Sending…">Send now</Button>
-          </div>
-          <ul className="mt-2 space-y-1">
-            {waiting.map((q) => (
-              <li key={q.clientId}>{q.sectionName}{q.periodLabel ? ` (${q.periodLabel})` : ""}, {q.dateText}: {q.summary}</li>
-            ))}
-          </ul>
-        </section>
+        <Banner tone="info" icon={CloudUpload} title="Waiting to send:"
+          action={<Button size="sm" variant="secondary" onClick={() => void flush()} disabled={!online || sending} loading={sending} loadingText="Sending…">Send now</Button>}>
+          {waiting.map((q) => `${q.sectionName}${q.periodLabel ? ` (${q.periodLabel})` : ""}, ${q.dateText}: ${q.summary}`).join(" · ")}. Saved on this phone; it goes to school when the phone is online.
+        </Banner>
       )}
       {stuck.map((q) => (
-        <section key={q.clientId} aria-label="Could not be saved" className="rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger">
-          <p className="font-semibold">{q.sectionName}{q.periodLabel ? ` (${q.periodLabel})` : ""}, {q.dateText} was not saved</p>
-          <p className="mt-0.5">{q.problem}</p>
-          <p className="mt-0.5 text-ink-2">On this phone: {q.summary}.</p>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            {q.link && <Link href={q.link.href} className="min-h-11 content-center font-medium underline">{q.link.label}</Link>}
-            <ConfirmButton trigger="Remove from this phone" triggerVariant="danger-outline" title="Remove this attendance from the phone?" confirmLabel="Remove" confirmVariant="danger"
-              onConfirm={async () => { writeQueue(userId, readQueue(userId).filter((x) => x.clientId !== q.clientId)); }}>
-              The marks for {q.sectionName} on {q.dateText} were never saved at school. After removing them, take the attendance again or request a correction.
-            </ConfirmButton>
-          </div>
-        </section>
+        <Banner key={q.clientId} tone="bad" role="alert" title={`${q.sectionName}${q.periodLabel ? ` (${q.periodLabel})` : ""}, ${q.dateText} was not saved.`}
+          action={
+            <div className="flex flex-wrap items-center gap-2">
+              {q.link && <Link href={q.link.href} className="text-[13.5px] font-semibold text-brand hover:underline">{q.link.label}</Link>}
+              <ConfirmButton trigger="Remove from this phone" triggerVariant="danger-soft" title="Remove this attendance from the phone?" confirmLabel="Remove from this phone" confirmVariant="danger"
+                onConfirm={async () => { writeQueue(userId, readQueue(userId).filter((x) => x.clientId !== q.clientId)); }}>
+                The marks for {q.sectionName} on {q.dateText} were never saved at school. After removing them, take the attendance again or request a correction.
+              </ConfirmButton>
+            </div>
+          }>
+          {q.problem} On this phone: {q.summary}.
+        </Banner>
       ))}
     </div>
   );

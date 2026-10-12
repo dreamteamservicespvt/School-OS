@@ -1,25 +1,31 @@
 "use client";
 
-// Take Attendance (05 §2): everyone starts Present, tap a name's button to
-// cycle Present, Absent, Late; "More" (or a long press) opens every status
-// and a note. One fixed Save button says what will be saved. Offline, the
-// save waits on this phone and is sent when the internet is back.
+// Take Attendance (05 §2, design/ui-prototype/src/attendance.jsx): everyone
+// starts Present; tap A or L for the exceptions; a long press (or "Add note")
+// opens every status and a note. One fixed Save button says what will be
+// saved. Offline, the save waits on this phone and is sent when online.
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { Check, CheckCheck, CircleCheck, Info, Lock, Save, Search, X } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
-import { Alert } from "@/components/ui/alert";
 import { Button, buttonClass } from "@/components/ui/button";
+import { Avatar } from "@/components/ui/avatar";
+import { Pill } from "@/components/ui/badge";
+import { Banner } from "@/components/ui/banner";
+import { cx } from "@/components/ui/cx";
+import { inputCls } from "@/components/ui/field";
 import { saveSheet } from "../actions";
-import { toneClass, type StatusView } from "./status";
 import { enqueueSave, isNetworkError, newClientId } from "./offline-queue";
+import { QuickChips } from "./sheet-form";
+import { STATUS_ON, STATUS_SOFT, type StatusView } from "./status";
 
 export type SheetStatus = StatusView & { counts: string };
 export type SheetRow = {
   id: string; roll: number | null; name: string; admissionNo: string; photoUrl: string | null;
   statusKey: string | null; note: string | null;
-  leave: { typeName: string; halfDay: boolean } | null;
+  leave: { typeName: string; halfDay: boolean; reason: string | null } | null;
 };
 
 type Props = {
@@ -30,35 +36,34 @@ type Props = {
   statuses: SheetStatus[];
   defaultStatus: "present" | "not-marked";
   students: SheetRow[];
-  saved: boolean; savedText: string | null;
+  saved: boolean; savedAtText: string | null; savedBy: string | null;
   locked: boolean; lockText: string; canChangeAfterLock: boolean; correctionHref: string;
   offlineOn: boolean;
 };
 
 type Mark = { statusKey: string | null; note: string };
-const CYCLE = ["present", "absent", "late"];
-
-function initials(name: string) {
-  return name.split(/\s+/).map((p) => p[0]).slice(0, 2).join("").toUpperCase();
-}
+const QUICK = ["present", "absent", "late"];
+const NOTE_CHIPS = ["Came at 9:20", "Doctor visit", "Left early, parent picked up", "No uniform"];
 
 export function TakeSheet(p: Props) {
   const router = useRouter();
   const byKey = useMemo(() => new Map(p.statuses.map((s) => [s.key, s])), [p.statuses]);
-  const cycle = useMemo(() => CYCLE.filter((k) => byKey.has(k)), [byKey]);
+  const quick = useMemo(() => QUICK.filter((k) => byKey.has(k)), [byKey]);
+  const fixed = useCallback((s: SheetRow) => Boolean(s.leave && !s.leave.halfDay), []);
   const start = useCallback((): Record<string, Mark> => {
     const out: Record<string, Mark> = {};
     for (const s of p.students) {
-      const onLeave = s.leave && !s.leave.halfDay;
-      out[s.id] = { statusKey: s.statusKey ?? (onLeave ? "leave" : p.defaultStatus === "present" ? "present" : null), note: s.note ?? "" };
+      out[s.id] = { statusKey: s.statusKey ?? (fixed(s) ? "leave" : p.defaultStatus === "present" ? "present" : null), note: s.note ?? "" };
     }
     return out;
-  }, [p.students, p.defaultStatus]);
+  }, [p.students, p.defaultStatus, fixed]);
   // The page gives this sheet a new key when the server's copy changes, so it starts fresh then.
   const [marks, setMarks] = useState<Record<string, Mark>>(start);
-  const [dirty, setDirty] = useState(!p.saved && p.defaultStatus === "present");
-  const [more, setMore] = useState<string | null>(null);
-  const [result, setResult] = useState<{ tone: "success" | "danger" | "info" | "warning"; text: string; link?: { href: string; label: string } } | null>(null);
+  const [dirty, setDirty] = useState(!p.saved);
+  const [q, setQ] = useState("");
+  const [confirmAll, setConfirmAll] = useState(false);
+  const [noteFor, setNoteFor] = useState<string | null>(null);
+  const [problem, setProblem] = useState<{ text: string; link?: { href: string; label: string } } | null>(null);
   const [pending, startTransition] = useTransition();
   const clientId = useRef<string>(newClientId());
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -73,27 +78,21 @@ export function TakeSheet(p: Props) {
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty, readOnly]);
 
-  const fixed = (s: SheetRow) => Boolean(s.leave && !s.leave.halfDay);
   const set = (id: string, change: Partial<Mark>) => {
     setMarks((m) => ({ ...m, [id]: { ...m[id], ...change } }));
     setDirty(true);
-    setResult(null);
+    setProblem(null);
   };
-  const tap = (s: SheetRow) => {
-    if (longPressed.current) { longPressed.current = false; return; }
-    if (readOnly || fixed(s)) return;
-    const now = marks[s.id]?.statusKey;
-    const i = now ? cycle.indexOf(now) : -1;
-    set(s.id, { statusKey: cycle[(i + 1) % cycle.length] ?? now });
-  };
-  const allPresent = () => {
+  const changed = p.students.some((s) => !fixed(s) && marks[s.id]?.statusKey !== (p.defaultStatus === "present" ? "present" : null));
+  const markAllPresent = () => {
     setMarks((m) => {
       const next = { ...m };
       for (const s of p.students) if (!fixed(s)) next[s.id] = { ...next[s.id], statusKey: "present" };
       return next;
     });
     setDirty(true);
-    setResult(null);
+    setProblem(null);
+    setConfirmAll(false);
   };
 
   const counts = useMemo(() => {
@@ -125,15 +124,15 @@ export function TakeSheet(p: Props) {
     if (ok) {
       clientId.current = newClientId();
       setDirty(false);
-      setResult({ tone: "info", text: "Saved on this phone, will send when online." });
     } else {
-      setResult({ tone: "danger", text: "This phone has no room to keep the attendance. Your marks are still on the screen; save again when online." });
+      setProblem({ text: "This phone has no room to keep the attendance. Your marks are still on the screen; save again when online." });
     }
   };
 
   const save = () => {
     const list = entries();
-    if (list.length === 0) { setResult({ tone: "danger", text: "Mark at least one student before saving." }); return; }
+    if (list.length === 0) { setProblem({ text: "Mark at least one student before saving." }); return; }
+    if (counts.notMarked > 0) { setProblem({ text: `${counts.notMarked} ${counts.notMarked === 1 ? "student is" : "students are"} not marked yet. Tap P, A or L for each one, then save.` }); return; }
     if (p.offlineOn && typeof navigator !== "undefined" && navigator.onLine === false) { keepOffline(list); return; }
     startTransition(async () => {
       try {
@@ -141,145 +140,188 @@ export function TakeSheet(p: Props) {
         if (r.ok) {
           clientId.current = newClientId();
           setDirty(false);
-          setResult({ tone: r.outcome === "correction" ? "warning" : "success", text: r.message, link: r.link });
           router.refresh();
         } else {
-          setResult({ tone: "danger", text: r.message, link: r.link });
+          setProblem({ text: r.message, link: r.link });
         }
       } catch (e) {
         if (isNetworkError(e) && p.offlineOn) keepOffline(list);
-        else setResult({ tone: "danger", text: isNetworkError(e) ? "No internet. Your marks are still on the screen. Save again when you are online." : "That did not save because of a problem on our side. Your marks are still on the screen. Please try again." });
+        else setProblem({ text: isNetworkError(e) ? "No internet. Your marks are still on the screen. Save again when you are online." : "That did not save because of a problem on our side. Your marks are still on the screen. Please try again." });
       }
     });
   };
 
-  const moreRow = p.students.find((s) => s.id === more) ?? null;
-  const mainCounts: { key: string; label: string; value: number; tone: string }[] = [
-    ...["present", "absent", "late", "leave"].filter((k) => byKey.has(k)).map((k) => ({ key: k, label: byKey.get(k)!.name, value: counts.c[k] ?? 0, tone: byKey.get(k)!.tone })),
-    ...p.statuses.filter((s) => !["present", "absent", "late", "leave"].includes(s.key) && counts.c[s.key]).map((s) => ({ key: s.key, label: s.name, value: counts.c[s.key], tone: s.tone })),
-    { key: "none", label: "Not marked", value: counts.notMarked, tone: "neutral" },
+  const needle = q.trim().toLowerCase();
+  const list = needle ? p.students.filter((s) => s.name.toLowerCase().includes(needle) || String(s.roll ?? "") === needle || s.admissionNo.toLowerCase().includes(needle)) : p.students;
+  const noteRow = p.students.find((s) => s.id === noteFor) ?? null;
+  const extraStatuses = p.statuses.filter((s) => !quick.includes(s.key));
+  const tiles = [
+    ...["present", "absent", "late", "leave"].filter((k) => byKey.has(k)).map((k) => ({ key: k, label: byKey.get(k)!.name, value: counts.c[k] ?? 0 })),
+    ...(counts.notMarked ? [{ key: "none", label: "Not marked", value: counts.notMarked }] : []),
   ];
+  const savedNow = p.saved && !dirty;
+  const lateCount = counts.c.late ?? 0;
+  const saveLabel = pending ? "Saving…" : savedNow ? "Saved" : `Save attendance: ${counts.c.present ?? 0} present, ${counts.c.absent ?? 0} absent${lateCount ? `, ${lateCount} late` : ""}${counts.notMarked ? `, ${counts.notMarked} not marked` : ""}`;
 
   return (
-    <div className="pb-28">
-      {readOnly && (
-        <Alert tone="warning" className="mb-4" title={`Attendance for ${p.dateText} locked at ${p.lockText}.`}
+    <div className="pb-4 relative">
+      {/* Status banner */}
+      {readOnly ? (
+        <Banner tone="warn" icon={Lock} className="mb-4" title={`Attendance for ${p.dateText} locked at ${p.lockText}.`}
           action={<Link href={p.correctionHref} className={buttonClass("secondary", "sm")}>Request a correction</Link>}>
           A change now needs a correction request. The principal approves it, and the original stays in the audit log.
-        </Alert>
-      )}
-      {p.locked && p.canChangeAfterLock && (
-        <Alert tone="info" className="mb-4">Attendance for {p.dateText} locked at {p.lockText}. You may still change it; the change is recorded in the audit log.</Alert>
+        </Banner>
+      ) : savedNow ? (
+        <Banner tone="ok" icon={CircleCheck} className="mb-4" role="status" title={`Saved at ${p.savedAtText}${p.savedBy ? ` by ${p.savedBy}` : ""}.`}>
+          {p.locked ? `It locked at ${p.lockText}; your changes are recorded in the audit log.` : `You can change it until ${p.lockText}.`}
+        </Banner>
+      ) : p.locked ? (
+        <Banner tone="info" icon={Info} className="mb-4" title={`Locked at ${p.lockText}.`}>You may still change it; every change is recorded in the audit log.</Banner>
+      ) : p.defaultStatus === "present" ? (
+        <Banner tone="info" icon={Info} className="mb-4" title="Everyone starts as present.">Tap only the students who are absent or late.</Banner>
+      ) : (
+        <Banner tone="info" icon={Info} className="mb-4" title="Nobody is marked yet.">Tap P, A or L for each student, or mark everyone present first.</Banner>
       )}
 
-      {/* Count bar */}
-      <div className="sticky top-0 z-10 -mx-4 mb-3 border-b border-line bg-bg/95 px-4 py-2 backdrop-blur sm:mx-0 sm:rounded-xl sm:border sm:px-3" aria-live="polite">
-        <ul className="flex flex-wrap gap-1.5 text-sm">
-          {mainCounts.map((c) => (
-            <li key={c.key} className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 ${toneClass(c.tone)}`}>
-              <span className="font-semibold tabular-nums">{c.value}</span> {c.label.toLowerCase()}
-            </li>
+      {/* Counts + tools */}
+      <div className="flex flex-col md:flex-row gap-3 md:items-center mb-4">
+        <div className={cx("grid gap-2 flex-1", tiles.length === 5 ? "grid-cols-5" : "grid-cols-4")} aria-live="polite">
+          {tiles.map((t) => (
+            <div key={t.key} className="rounded-xl bg-surface border border-line px-3 py-2.5 min-w-0">
+              <p className={cx("font-display text-[22px] font-semibold tnum leading-none", t.key === "none" ? "text-ink3" : STATUS_SOFT[byKey.get(t.key)?.tone ?? "neutral"])}>{t.value}</p>
+              <p className="text-[12px] text-ink3 font-semibold mt-1 truncate">{t.label}</p>
+            </div>
           ))}
-        </ul>
+        </div>
+        <div className="flex gap-2">
+          <div className="relative flex-1 md:w-56">
+            <Search size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink3 pointer-events-none" aria-hidden="true" />
+            <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name or roll no." aria-label="Find a student by name or roll number"
+              className="h-11 w-full rounded-xl bg-surface border border-line pl-9 pr-9 text-[14.5px] outline-none focus:border-brand focus:ring-4 focus:ring-brand/15 [&::-webkit-search-cancel-button]:hidden" />
+            {q && <button type="button" onClick={() => setQ("")} aria-label="Clear search" className="absolute right-1.5 top-1/2 -translate-y-1/2 size-8 grid place-items-center rounded-lg text-ink3 hover:bg-sunken"><X size={15} aria-hidden="true" /></button>}
+          </div>
+          {!readOnly && <Button variant="secondary" icon={CheckCheck} className="h-11" disabled={!changed} onClick={() => setConfirmAll(true)}>All present</Button>}
+        </div>
       </div>
 
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-ink-2">
-          {p.students.length} students{p.savedText ? ` · ${p.savedText}` : " · Not saved yet"}
-        </p>
-        {!readOnly && <Button variant="secondary" onClick={allPresent}>Mark all present</Button>}
-      </div>
-
-      {result && (
-        <Alert tone={result.tone === "warning" ? "warning" : result.tone} className="mb-3"
-          action={result.link ? <Link href={result.link.href} className="font-medium underline">{result.link.label}</Link> : undefined}>
-          {result.text}
-        </Alert>
+      {problem && (
+        <Banner tone="bad" role="alert" className="mb-4"
+          action={problem.link ? <Link href={problem.link.href} className={buttonClass("secondary", "sm")}>{problem.link.label}</Link> : undefined}>
+          {problem.text}
+        </Banner>
       )}
 
-      <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface" aria-label={`Students of ${p.sectionName}`}>
-        {p.students.map((s) => {
+      {/* Students */}
+      <ul className="grid grid-cols-1 md:grid-cols-2 gap-2" aria-label={`Students of ${p.sectionName}`}>
+        {list.map((s) => {
           const m = marks[s.id];
-          const st = m?.statusKey ? byKey.get(m.statusKey) : undefined;
+          const v = m?.statusKey ?? null;
+          const st = v ? byKey.get(v) : undefined;
           const isFixed = fixed(s);
+          const extra = v && !quick.includes(v) && !isFixed ? st : undefined;
           return (
-            <li key={s.id} className={`flex items-center gap-3 px-3 py-2 ${isFixed ? "bg-surface-2 text-ink-2" : ""}`}>
-              <span className="w-7 shrink-0 text-right text-sm tabular-nums text-ink-2" aria-label={s.roll ? `Roll ${s.roll}` : "No roll number"}>{s.roll ?? "–"}</span>
-              {s.photoUrl
-                // eslint-disable-next-line @next/next/no-img-element
-                ? <img src={s.photoUrl} alt="" className="size-10 shrink-0 rounded-full border border-line object-cover" loading="lazy" />
-                : <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-full bg-brand-soft text-sm font-semibold text-brand-text">{initials(s.name)}</span>}
+            <li key={s.id} className={cx("min-w-0 flex items-center gap-2.5 md:gap-3 rounded-2xl border bg-surface px-3 py-2.5 transition",
+              v === "absent" ? "border-bad/40 bg-bad/[.04]" : v === "late" ? "border-warn/40 bg-warn/[.04]" : isFixed ? "border-line bg-sunken/40" : "border-line")}>
+              <span className="w-6 text-center text-[13px] font-semibold text-ink3 tnum shrink-0">{s.roll ?? "–"}</span>
+              <Avatar name={s.name} src={s.photoUrl} size={36} className="hidden sm:inline-grid" />
               <div className="min-w-0 flex-1">
-                <p className="truncate font-medium">{s.name}</p>
-                <p className="truncate text-xs text-ink-2">
-                  {s.leave ? `On ${s.leave.typeName.toLowerCase()} leave${s.leave.halfDay ? " (half day)" : ""}` : s.admissionNo}
-                  {m?.note ? ` · Note: ${m.note}` : ""}
+                <p className={cx("font-semibold text-[14.5px] truncate", isFixed && "text-ink2")}>{s.name}</p>
+                <p className="text-[12px] text-ink3 truncate">
+                  {isFixed ? `On approved leave · ${(s.leave!.reason || s.leave!.typeName).toLowerCase()}`
+                    : readOnly ? (m?.note || s.admissionNo)
+                      : <button type="button" onClick={() => setNoteFor(s.id)} className="hover:text-brand text-left truncate max-w-full">{m?.note ? m.note : s.leave?.halfDay ? "Half-day leave approved · Add note" : "Add note"}</button>}
                 </p>
               </div>
-              <button type="button" disabled={readOnly || isFixed}
-                onClick={() => tap(s)}
-                onPointerDown={() => {
-                  if (readOnly || isFixed) return;
-                  longPressed.current = false;
-                  pressTimer.current = setTimeout(() => { longPressed.current = true; setMore(s.id); }, 550);
-                }}
-                onPointerUp={() => { if (pressTimer.current) clearTimeout(pressTimer.current); }}
-                onPointerLeave={() => { if (pressTimer.current) clearTimeout(pressTimer.current); }}
-                onContextMenu={(e) => e.preventDefault()}
-                aria-label={`${s.name}: ${st?.name ?? "not marked"}.${readOnly || isFixed ? "" : " Tap to change."}`}
-                className={`inline-flex min-h-11 w-28 shrink-0 select-none items-center justify-center gap-1.5 rounded-lg border px-2 text-sm font-medium transition-colors disabled:cursor-not-allowed ${st ? toneClass(st.tone) : "border-dashed border-line-strong text-ink-2"}`}>
-                {st ? <><span aria-hidden="true" className="font-bold">{st.letter}</span>{st.name}</> : "Not marked"}
-              </button>
-              {!readOnly && !isFixed && (
-                <button type="button" onClick={() => setMore(s.id)} aria-label={`More for ${s.name}: every status and a note`}
-                  className="grid size-11 shrink-0 place-items-center rounded-lg text-ink-2 hover:bg-surface-2 hover:text-ink">
-                  <span aria-hidden="true" className="text-xl leading-none">⋯</span>
-                </button>
+              {isFixed ? <Pill tone="info">Leave</Pill> : (
+                <div className="flex gap-1 shrink-0" role="radiogroup" aria-label={`Attendance for ${s.name}`}>
+                  {extra && (
+                    <button type="button" role="radio" aria-checked="true" aria-label={extra.name} title={`${extra.name}. Tap to choose another status.`} disabled={readOnly}
+                      onClick={() => setNoteFor(s.id)}
+                      className={cx("min-w-10 h-10 md:min-w-11 md:h-11 px-1.5 rounded-xl border text-[13px] font-bold transition", STATUS_ON[extra.tone] ?? STATUS_ON.neutral)}>
+                      {extra.letter}
+                    </button>
+                  )}
+                  {quick.map((k) => {
+                    const sk = byKey.get(k)!;
+                    const on = v === k;
+                    return (
+                      <button key={k} type="button" role="radio" aria-checked={on} aria-label={sk.name} disabled={readOnly}
+                        onClick={() => { if (longPressed.current) { longPressed.current = false; return; } set(s.id, { statusKey: k }); }}
+                        onPointerDown={() => { if (readOnly) return; longPressed.current = false; pressTimer.current = setTimeout(() => { longPressed.current = true; setNoteFor(s.id); }, 550); }}
+                        onPointerUp={() => { if (pressTimer.current) clearTimeout(pressTimer.current); }}
+                        onPointerLeave={() => { if (pressTimer.current) clearTimeout(pressTimer.current); }}
+                        onContextMenu={(e) => { e.preventDefault(); if (!readOnly) setNoteFor(s.id); }}
+                        className={cx("w-10 h-10 md:w-11 md:h-11 rounded-xl border text-[14px] font-bold transition select-none disabled:cursor-not-allowed",
+                          on ? STATUS_ON[sk.tone] ?? STATUS_ON.neutral : "border-line text-ink3 hover:border-ink3/60 hover:text-ink")}>
+                        {sk.letter}
+                      </button>
+                    );
+                  })}
+                </div>
               )}
             </li>
           );
         })}
       </ul>
+      {list.length === 0 && <p className="text-center text-ink3 py-10">No student called “{q}” in {p.sectionName}.</p>}
 
+      {/* Save bar */}
       {!readOnly && (
-        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface/95 px-4 py-3 backdrop-blur pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-          <div className="mx-auto flex max-w-3xl items-center gap-3">
-            <Button size="lg" className="w-full" onClick={save} loading={pending} loadingText="Saving…" disabled={pending}>
-              Save attendance: {summary}{counts.notMarked ? `, ${counts.notMarked} not marked` : ""}
-            </Button>
-          </div>
+        <div className="sticky bottom-[calc(68px+env(safe-area-inset-bottom))] md:bottom-0 z-20 mt-4 -mx-4 md:mx-0 px-4 md:px-0 pb-3 pt-3 bg-gradient-to-t from-bg via-bg to-bg/0">
+          <Button variant="primary" size="lg" className="w-full !h-14 !text-[16px] shadow-pop" icon={savedNow ? Check : Save} loading={pending} onClick={save} disabled={savedNow}>
+            {saveLabel}
+          </Button>
         </div>
       )}
 
-      <Dialog open={Boolean(moreRow)} onClose={() => setMore(null)} title={moreRow ? moreRow.name : "Student"}>
-        {moreRow && (
-          <div className="space-y-4">
-            <fieldset>
-              <legend className="mb-2 font-medium">Status</legend>
-              <div className="grid grid-cols-2 gap-2">
-                {p.statuses.map((s) => {
-                  const on = marks[moreRow.id]?.statusKey === s.key;
-                  return (
-                    <label key={s.key} className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-3 ${on ? toneClass(s.tone) + " ring-2 ring-brand" : "border-line-strong"}`}>
-                      <input type="radio" name="status" value={s.key} checked={on} onChange={() => set(moreRow.id, { statusKey: s.key })} className="size-4 accent-[var(--brand)]" />
-                      <span className="font-semibold" aria-hidden="true">{s.letter}</span> {s.name}
-                    </label>
-                  );
-                })}
-              </div>
-            </fieldset>
-            <label className="block">
-              <span className="mb-1 block font-medium">Note <span className="font-normal text-ink-2">(optional)</span></span>
-              <textarea rows={3} maxLength={300} value={marks[moreRow.id]?.note ?? ""} onChange={(e) => set(moreRow.id, { note: e.target.value })}
-                placeholder="For example: came at 10:15, doctor's visit"
-                className="w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-base" />
-            </label>
-            <div className="flex justify-end border-t border-line pt-4">
-              <Button onClick={() => setMore(null)}>Done</Button>
-            </div>
-          </div>
-        )}
+      <Dialog open={confirmAll} onClose={() => setConfirmAll(false)} title="Mark everyone present again?" sub="The absent and late marks you made will be cleared. Students on leave stay on leave."
+        footer={<><Button variant="ghost" onClick={() => setConfirmAll(false)}>Keep my marks</Button><Button variant="primary" onClick={markAllPresent}>Mark all present</Button></>}>
+        <div />
       </Dialog>
+
+      <NoteSheet row={noteRow} mark={noteRow ? marks[noteRow.id] : undefined} statuses={p.statuses} extra={extraStatuses}
+        onClose={() => setNoteFor(null)}
+        onSave={(statusKey, note) => { if (noteRow) set(noteRow.id, { statusKey, note }); setNoteFor(null); }} />
     </div>
+  );
+}
+
+function NoteSheet({ row, mark, statuses, extra, onClose, onSave }: {
+  row: SheetRow | null; mark: Mark | undefined; statuses: SheetStatus[]; extra: SheetStatus[];
+  onClose: () => void; onSave: (statusKey: string | null, note: string) => void;
+}) {
+  const [t, setT] = useState("");
+  const [st, setSt] = useState<string | null>(null);
+  const [forId, setForId] = useState<string | null>(null);
+  if (row && row.id !== forId) { setForId(row.id); setT(mark?.note ?? ""); setSt(mark?.statusKey ?? null); }
+  return (
+    <Dialog open={Boolean(row)} onClose={onClose} title={row ? `Note for ${row.name}` : "Note"} sub="Only staff can see this"
+      footer={<><Button variant="ghost" onClick={onClose}>Cancel</Button><Button variant="primary" onClick={() => onSave(st, t.trim().slice(0, 300))}>Save note</Button></>}>
+      {row && (
+        <div className="flex flex-col gap-4">
+          <div>
+            <p className="text-[13px] font-semibold text-ink2 mb-2">Status</p>
+            <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={`Status for ${row.name}`}>
+              {statuses.map((s) => {
+                const on = st === s.key;
+                return (
+                  <button key={s.key} type="button" role="radio" aria-checked={on} onClick={() => setSt(s.key)}
+                    className={cx("h-10 px-3 rounded-xl border text-[13.5px] font-semibold inline-flex items-center gap-2 transition", on ? STATUS_ON[s.tone] ?? STATUS_ON.neutral : "border-line text-ink2 hover:border-ink3/60")}>
+                    <span className="font-bold">{s.letter}</span>{s.name}
+                  </button>
+                );
+              })}
+            </div>
+            {extra.length > 0 && <p className="text-[12.5px] text-ink3 mt-2">P, A and L are on the list. The others are here.</p>}
+          </div>
+          <QuickChips items={NOTE_CHIPS} onPick={setT} />
+          <label className="flex flex-col gap-1.5">
+            <span className="sr-only">Note</span>
+            <textarea value={t} onChange={(e) => setT(e.target.value)} rows={3} maxLength={300} placeholder="Type a short note"
+              className={cx(inputCls(false), "p-3 text-[15px]")} />
+          </label>
+        </div>
+      )}
+    </Dialog>
   );
 }

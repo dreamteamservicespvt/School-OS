@@ -3,5 +3,6 @@
 import "server-only";
 
 import "./builtin-sections";
+import "../attendance/parent-link";
 
 export { allSections, shownSections, sectionSwitches } from "./sections";

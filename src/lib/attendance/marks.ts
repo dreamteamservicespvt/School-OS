@@ -40,13 +40,13 @@ export async function roster(tx: Tx, sectionId: string, academicYearId: string, 
 
 /** Approved student leave covering a date, by student. */
 export async function studentLeavesOn(tx: Tx, studentIds: string[], date: Date) {
-  if (studentIds.length === 0) return new Map<string, { id: string; typeName: string; halfDay: boolean }>();
+  if (studentIds.length === 0) return new Map<string, { id: string; typeName: string; halfDay: boolean; reason: string | null }>();
   const rows = await tx.leaveRequest.findMany({
     where: { studentId: { in: studentIds }, status: "APPROVED", archivedAt: null, fromDate: { lte: date }, toDate: { gte: date } },
-    select: { id: true, studentId: true, leaveTypeId: true, halfDay: true },
+    select: { id: true, studentId: true, leaveTypeId: true, halfDay: true, reason: true },
   });
   const types = await tx.leaveType.findMany({ where: { id: { in: rows.map((r) => r.leaveTypeId) } }, select: { id: true, name: true } });
-  return new Map(rows.map((r) => [r.studentId!, { id: r.id, typeName: types.find((t) => t.id === r.leaveTypeId)?.name ?? "Leave", halfDay: r.halfDay }]));
+  return new Map(rows.map((r) => [r.studentId!, { id: r.id, typeName: types.find((t) => t.id === r.leaveTypeId)?.name ?? "Leave", halfDay: r.halfDay, reason: r.reason || null }]));
 }
 
 export type LockState = { locked: boolean; at: Date; atText: string };
@@ -122,7 +122,7 @@ export async function canTake(tx: Tx, ctx: SchoolContext, access: AttendanceAcce
 export type SheetStudent = {
   studentId: string; rollNo: number | null; name: string; admissionNo: string; photoUrl: string | null;
   statusKey: string | null; note: string | null; method: string | null;
-  leave: { id: string; typeName: string; halfDay: boolean } | null;
+  leave: { id: string; typeName: string; halfDay: boolean; reason: string | null } | null;
 };
 
 export async function loadSheet(tx: Tx, ctx: SchoolContext, access: AttendanceAccess, input: { sectionId: string; date: Date; periodNo: number; now: Date; timeZone: string }) {

@@ -12,6 +12,7 @@ import { BASE } from "@/lib/attendance/access";
 import { problemState } from "@/lib/attendance/act";
 import { saveClassAttendance, type Entry } from "@/lib/attendance/marks";
 import { formatTime } from "@/lib/format";
+import { flash } from "@/lib/flash";
 
 export type SheetPayload = {
   sectionId: string;
@@ -75,13 +76,18 @@ export async function saveSheet(payload: SheetPayload): Promise<SheetResult> {
     }), { timeout: 30_000 });
     revalidatePath(BASE, "layout");
     if (result.outcome === "correction") {
+      if (!input.offline) await flash({ message: result.summary, tone: "info", link: result.correctionId ? { href: `${BASE}/register/corrections/${result.correctionId}`, label: "See the correction" } : undefined });
       return { ok: true, outcome: "correction", message: result.summary, link: result.correctionId ? { href: `${BASE}/register/corrections/${result.correctionId}`, label: "See the correction" } : undefined };
     }
     if (result.outcome === "unchanged") return { ok: true, outcome: "unchanged", message: result.summary === "Already received." ? "Already saved." : "Saved. Nothing had changed." };
     const parts = [result.summary];
-    if (result.messagesAt) parts.push(`Absence messages go at ${formatTime(result.messagesAt, tz)}.`);
+    const absent = result.counts.absent ?? 0;
+    if (result.messagesAt && absent) parts.push(`Parents of ${absent} absent ${absent === 1 ? "student" : "students"} get a message at ${formatTime(result.messagesAt, tz)}.`);
+    else if (!absent && !input.offline) parts.push("Everyone is in today.");
     if (result.clockFlagged) parts.push("The phone's clock was wrong, so the school's time was used.");
-    return { ok: true, outcome: "saved", message: parts.join(" ") };
+    const message = parts.join(" ");
+    if (!input.offline) await flash({ message });
+    return { ok: true, outcome: "saved", message };
   } catch (e) {
     const s = problemState(e);
     const link = (s.data as { link?: { href: string; label: string } } | undefined)?.link;

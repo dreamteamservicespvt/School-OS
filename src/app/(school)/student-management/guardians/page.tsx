@@ -47,7 +47,7 @@ export default async function GuardiansPage({ searchParams }: { searchParams: Pr
     }
     const consentFilter = (type: string, v: string): Prisma.GuardianWhereInput =>
       v === "withdrawn" ? { id: { in: idsBy.get(`${type}:WITHDRAWN`) ?? [] } } : { id: { notIn: idsBy.get(`${type}:GIVEN`) ?? [] } };
-    if (f.consent) and.push(consentFilter("data", f.consent));
+    if (f.consent) and.push(consentFilter("data-processing", f.consent));
     if (f.photo) and.push(consentFilter("photo", f.photo));
     if (params.q) {
       const digits = params.q.replace(/\D/g, "");

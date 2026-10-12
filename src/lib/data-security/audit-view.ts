@@ -2,12 +2,15 @@
 // when, from which device, with before and after values. The same filters
 // drive the screen and the export, and a person whose reach is "own" sees
 // only their own entries (00-global.md P14).
+import { momentWhere, periodRange } from "../periods";
 import "server-only";
 
 import type { Prisma } from "@prisma/client";
 import type { Reach } from "../permissions";
 
 export type AuditFilters = {
+  /** A quick period (lib/periods.ts); from and to are used when it is "custom" or missing. */
+  period?: string;
   person?: string;
   recordType?: string;
   action?: string;
@@ -37,8 +40,8 @@ export function auditWhere(f: AuditFilters, reach: Reach, me: string, timeZone: 
   if (f.recordType) and.push({ recordType: f.recordType });
   if (f.action) and.push({ action: f.action });
   if (f.record && f.record.length <= 100) and.push({ recordId: f.record });
-  if (f.from && DAY.test(f.from)) and.push({ at: { gte: dayStart(f.from, timeZone) } });
-  if (f.to && DAY.test(f.to)) and.push({ at: { lt: new Date(dayStart(f.to, timeZone).getTime() + 86_400_000) } });
+  const range = periodRange({ period: f.period, from: f.from && DAY.test(f.from) ? f.from : null, to: f.to && DAY.test(f.to) ? f.to : null }, { timeZone });
+  if (range) and.push({ at: momentWhere(range, timeZone) });
   if (f.q) and.push({ OR: [{ recordType: { contains: f.q, mode: "insensitive" } }, { action: { contains: f.q, mode: "insensitive" } }, { actorNote: { contains: f.q, mode: "insensitive" } }, { recordId: f.q }] });
   return { AND: and };
 }
@@ -126,7 +129,7 @@ export function readAuditFilters(sp: Record<string, string | string[] | undefine
     const v = sp[k];
     return ((Array.isArray(v) ? v[0] : v) ?? "").trim().slice(0, 100) || undefined;
   };
-  return { person: one("person"), recordType: one("recordType"), action: one("action"), record: one("record"), from: one("from"), to: one("to"), q: one("q") };
+  return { period: one("period"), person: one("person"), recordType: one("recordType"), action: one("action"), record: one("record"), from: one("from"), to: one("to"), q: one("q") };
 }
 
 /** The filters in words, for the top of an exported file. */

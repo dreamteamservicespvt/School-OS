@@ -89,6 +89,8 @@ export type Preferences = {
   compliance?: { udiseCode?: string | null; boardSchoolCode?: string | null; registrationNumber?: string | null; panNumber?: string | null };
   /** The school-type template last applied (Modules On/Off). */
   schoolTemplate?: string | null;
+  /** The school colour everyone sees, set by the School Admin in Colours and text size; null lets each person choose. */
+  schoolAccent?: string | null;
 };
 
 export function readPreferences(raw: unknown): Preferences {

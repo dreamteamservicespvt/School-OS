@@ -2,6 +2,7 @@ import { requireCurrent } from "@/lib/current";
 import { shellData } from "@/lib/shell-data";
 import { AppShell } from "@/components/shell/app-shell";
 import { RecentPages } from "@/components/shell/search-box";
+import { SchoolColour } from "@/components/shell/school-colour";
 import { Toast } from "@/components/ui/toast";
 import { readFlash } from "@/lib/flash";
 import { undoChange } from "./undo-action";
@@ -60,6 +61,7 @@ export default async function SchoolLayout({ children }: { children: React.React
       theme={cleanTheme(current.user.theme)}
     >
       <RecentPages userId={current.user.id} pages={shell.pages} />
+      <SchoolColour accent={current.school.accent} />
       {notices.map((n) => {
         const I = n.level === "problem" ? TriangleAlert : n.level === "info" ? Info : Lock;
         return (

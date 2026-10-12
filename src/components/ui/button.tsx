@@ -22,9 +22,12 @@ const SIZES: Record<ButtonSize, string> = {
   lg: "h-12 px-5 text-[15px] gap-2 rounded-xl",
 };
 
+/** "inline-flex" unless the caller hides it (e.g. "hidden md:inline-flex"); two display classes would fight. */
+const shown = (className?: string) => (/(^|\s)hidden(\s|$)/.test(className ?? "") ? "" : "inline-flex");
+
 export function buttonClass(variant: ButtonVariant = "primary", size: ButtonSize = "md", extra = "") {
   return cx(
-    "inline-flex items-center justify-center font-semibold whitespace-nowrap transition select-none disabled:opacity-50 disabled:pointer-events-none aria-disabled:opacity-50 aria-disabled:pointer-events-none",
+    shown(extra), "items-center justify-center font-semibold whitespace-nowrap transition select-none disabled:opacity-50 disabled:pointer-events-none aria-disabled:opacity-50 aria-disabled:pointer-events-none",
     VARIANTS[variant], SIZES[size], extra,
   );
 }
@@ -59,7 +62,7 @@ export function ButtonLink({ href, variant = "secondary", size = "md", icon: Ico
 export function IconButton({ icon: Icon, label, badge, className, size = 40, ...rest }: React.ButtonHTMLAttributes<HTMLButtonElement> & { icon: LucideIcon; label: string; badge?: number | null; size?: number }) {
   return (
     <button type="button" aria-label={badge ? `${label}, ${badge} new` : label} title={label} {...rest}
-      className={cx("relative inline-flex items-center justify-center rounded-xl text-ink2 hover:bg-sunken hover:text-ink transition shrink-0", className)}
+      className={cx("relative items-center justify-center rounded-xl text-ink2 hover:bg-sunken hover:text-ink transition shrink-0", shown(className), className)}
       style={{ width: size, height: size }}>
       <Icon size={19} strokeWidth={2} aria-hidden="true" />
       <CountDot count={badge} />
@@ -70,7 +73,7 @@ export function IconButton({ icon: Icon, label, badge, className, size = 40, ...
 export function IconLink({ icon: Icon, label, badge, className, size = 40, ...rest }: React.ComponentProps<typeof Link> & { icon: LucideIcon; label: string; badge?: number | null; size?: number }) {
   return (
     <Link aria-label={badge ? `${label}, ${badge} new` : label} title={label} {...rest}
-      className={cx("relative inline-flex items-center justify-center rounded-xl text-ink2 hover:bg-sunken hover:text-ink transition shrink-0", className)}
+      className={cx("relative items-center justify-center rounded-xl text-ink2 hover:bg-sunken hover:text-ink transition shrink-0", shown(className), className)}
       style={{ width: size, height: size }}>
       <Icon size={19} strokeWidth={2} aria-hidden="true" />
       <CountDot count={badge} />

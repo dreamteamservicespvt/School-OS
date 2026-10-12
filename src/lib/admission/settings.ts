@@ -5,6 +5,7 @@
 // The row is made with sensible defaults the first time a page needs it.
 import "server-only";
 
+import { randomUUID } from "node:crypto";
 import type { AdmissionClassRule, AdmissionSetting, Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { currentYear } from "../academic/years";
@@ -124,18 +125,16 @@ export function shape(row: AdmissionSetting): Settings {
 }
 
 export async function loadSettings(tx: Tx, ctx: SchoolContext): Promise<Settings> {
-  const row = await tx.admissionSetting.upsert({
-    where: { schoolId: ctx.schoolId },
-    create: {
-      schoolId: ctx.schoolId,
-      stages: DEFAULT_STAGES as unknown as Prisma.InputJsonValue,
-      enquiryStatuses: DEFAULT_STATUSES as unknown as Prisma.InputJsonValue,
-      sources: DEFAULT_SOURCES as unknown as Prisma.InputJsonValue,
-      lossReasons: DEFAULT_LOSS_REASONS as unknown as Prisma.InputJsonValue,
-    },
-    update: {},
-  });
-  return shape(row);
+  const found = await tx.admissionSetting.findUnique({ where: { schoolId: ctx.schoolId } });
+  if (found) return shape(found);
+  // First use: made with the defaults. Two first page loads at once must not
+  // fail on each other, so a row someone else just made is kept as it is.
+  await tx.$executeRaw`
+    INSERT INTO admission_setting (id, school_id, stages, enquiry_statuses, sources, loss_reasons, updated_at)
+    VALUES (${randomUUID()}::uuid, ${ctx.schoolId}::uuid, ${JSON.stringify(DEFAULT_STAGES)}::jsonb, ${JSON.stringify(DEFAULT_STATUSES)}::jsonb,
+            ${JSON.stringify(DEFAULT_SOURCES)}::jsonb, ${JSON.stringify(DEFAULT_LOSS_REASONS)}::jsonb, now())
+    ON CONFLICT (school_id) DO NOTHING`;
+  return shape(await tx.admissionSetting.findUniqueOrThrow({ where: { schoolId: ctx.schoolId } }));
 }
 
 export const stageOn = (s: Settings, key: StageKey) => s.stageList.find((x) => x.key === key)?.on ?? false;

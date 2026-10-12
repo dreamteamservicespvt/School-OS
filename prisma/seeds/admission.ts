@@ -6,7 +6,7 @@
 // tests, interviews, a waiting list for a full class, and two children
 // already admitted through the normal Confirm admission step.
 import type { Prisma } from "@prisma/client";
-import { prisma, withSchool, type SchoolContext, type Tx } from "../../src/lib/db";
+import { prisma, withSchool, type SchoolContext } from "../../src/lib/db";
 import { hashPassword } from "../../src/lib/auth/password";
 import { saveFile, DOCUMENT_TYPES } from "../../src/lib/files";
 import { defaultDocsFor, loadSettings } from "../../src/lib/admission/settings";

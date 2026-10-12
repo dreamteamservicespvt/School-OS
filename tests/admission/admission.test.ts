@@ -74,7 +74,7 @@ describe("enquiries", () => {
       await createEnquiry(tx, counsellor.ctx, counsellor.v, counsellor.s, enquiry({ phone: "9123400012", childName: "Diya" }), { yearId: t.nextYearId, campusId: t.campusId, today: "2026-10-12" }),
     ]);
     expect(a.enquiryNo).not.toBe(b.enquiryNo);
-    const num = (s: string) => Number(s.replace(/\D/g, "").slice(-4));
+    const num = (s: string | null) => Number((s ?? "").replace(/\D/g, "").slice(-4));
     expect(num(b.enquiryNo)).toBe(num(a.enquiryNo) + 1);
   });
 

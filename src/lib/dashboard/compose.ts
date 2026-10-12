@@ -66,11 +66,16 @@ async function run(c: DashContext, list: readonly Widget[]) {
   const out: Collected = { band: [], attention: [], agenda: [], birthdays: [], panel: [] };
   const failed: string[] = [];
   for (const w of list) {
+    // Each widget runs inside a savepoint: a failed query aborts only its own
+    // part of the transaction, so the widgets after it still load.
+    await c.tx.$executeRawUnsafe("SAVEPOINT widget");
     try {
       const r = await w.load(c);
       const items = r == null ? [] : Array.isArray(r) ? r : [r];
+      await c.tx.$executeRawUnsafe("RELEASE SAVEPOINT widget");
       for (const item of items) out[w.kind].push({ w, item });
     } catch (e) {
+      await c.tx.$executeRawUnsafe("ROLLBACK TO SAVEPOINT widget");
       failed.push(w.id);
       console.error(JSON.stringify({ level: "error", event: "dashboard-widget", widget: w.id, error: e instanceof Error ? e.message : String(e) }));
     }

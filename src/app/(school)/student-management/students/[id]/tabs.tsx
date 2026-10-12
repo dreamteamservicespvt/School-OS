@@ -32,7 +32,7 @@ type Base = { can: StudentAbilities; tz: string };
 
 /** The small "Edit" link on a card (students.jsx EditBtn). */
 export function EditLink({ href, label = "Edit", icon: Icon = Pencil }: { href: string; label?: string; icon?: LucideIcon }) {
-  return <Link href={href} className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-brand h-8 px-2 rounded-lg hover:bg-brand/8 shrink-0"><Icon size={14} aria-hidden="true" />{label}</Link>;
+  return <Link href={href} className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-brand h-8 px-2 rounded-xl hover:bg-brand/8 shrink-0"><Icon size={14} aria-hidden="true" />{label}</Link>;
 }
 const editLink = (href: string, section: string, can: StudentAbilities) => (can.manage ? <EditLink href={`${href}/edit/${section}`} /> : undefined);
 
@@ -46,33 +46,38 @@ const TODAY_TONE: Record<string, { icon: LucideIcon; cls: string }> = {
 export function OverviewTab({ p, can, settings, href, tz, today }: Base & { p: Profile; settings: ResolvedSettings; href: string; today: SummaryItem[] }) {
   const s = p.student;
   const address = [s.address, s.city, s.state, s.pinCode].filter(Boolean).join(", ") || null;
-  const showIds = !can.lookupOnly && (can.seeRestricted || p.identifiers.some((i) => i.value));
+  const v = can.view;
+  const showIds = v.personal && !can.lookupOnly && (can.seeRestricted || p.identifiers.some((i) => i.value));
   return (
     <Split side={340}>
       <Col>
-        <Card>
-          <CardHeader title="Personal details" action={editLink(href, "personal", can)} />
-          <DL rows={[
-            ["Date of birth", s.dateOfBirth ? `${longDate(s.dateOfBirth, tz)} (${ageOn(s.dateOfBirth)} years)` : null],
-            ["Gender", s.gender],
-            ["Blood group", s.bloodGroup],
-            ["Admitted on", s.joiningDate ? longDate(s.joiningDate, tz) : null],
-            ["Home address", address],
-            ...(!can.lookupOnly ? [["Category", s.category], ["Religion", s.religion], ["Mother tongue", s.motherTongue]] as [string, React.ReactNode][] : []),
-          ]} />
-        </Card>
+        {(v.personal || v.address) && (
+          <Card>
+            <CardHeader title="Personal details" action={editLink(href, "personal", can)} />
+            <DL rows={[
+              ...(v.personal ? [
+                ["Date of birth", s.dateOfBirth ? `${longDate(s.dateOfBirth, tz)} (${ageOn(s.dateOfBirth)} years)` : null],
+                ["Gender", s.gender],
+                ["Blood group", s.bloodGroup],
+              ] as [string, React.ReactNode][] : []),
+              ["Admitted on", s.joiningDate ? longDate(s.joiningDate, tz) : null],
+              ...(v.address ? [["Home address", address]] as [string, React.ReactNode][] : []),
+              ...(v.personal && !can.lookupOnly ? [["Category", s.category], ["Religion", s.religion], ["Mother tongue", s.motherTongue]] as [string, React.ReactNode][] : []),
+            ]} />
+          </Card>
+        )}
 
-        <ParentsCard p={p} can={can} href={href} />
-        <EmergencyCard p={p} can={can} />
+        {v.parents && <ParentsCard p={p} can={can} href={href} />}
+        {v.siblings && <SiblingsCard p={p} />}
+        {v.emergency && <EmergencyCard p={p} can={can} />}
 
         <Card>
           <CardHeader title="Contact and enrolment" action={editLink(href, "contact", can)} />
           <DL rows={[
             ["Admission number", <span key="a" className="font-mono text-[14px]">{s.admissionNo}</span>],
             ["Class and section", p.now?.section ? `${classShort(p.now.section.schoolClass.name, p.now.section.name)}${p.now.rollNo ? ` · Roll ${p.now.rollNo}` : ""}` : "No class this year"],
-            ["Permanent address", p.permanentAddress],
-            ["Student's phone", p.studentPhone ? phoneShow(p.studentPhone) : null],
-            ["Student's email", p.studentEmail],
+            ...(v.address ? [["Permanent address", p.permanentAddress]] as [string, React.ReactNode][] : []),
+            ...(v.personal && v.phones ? [["Student's phone", p.studentPhone ? phoneShow(p.studentPhone) : null], ["Student's email", p.studentEmail]] as [string, React.ReactNode][] : []),
           ]} />
           {can.manage && <div className="px-5 pb-4 -mt-2"><EditLink href={`${href}/edit/enrolment`} label="Edit enrolment" /></div>}
         </Card>
@@ -105,7 +110,7 @@ export function OverviewTab({ p, can, settings, href, tz, today }: Base & { p: P
           </ul>
         </Card>
 
-        {!can.lookupOnly && (
+        {v.pickup && !can.lookupOnly && (
           <Card>
             <CardHeader title="Pickup list" description="Who may collect the student. Front Office uses this list." icon={UserRoundCheck} />
             <ul className="px-5 pb-5 flex flex-col gap-2.5 text-[14px]">
@@ -183,7 +188,7 @@ function ParentsCard({ p, can, href }: { p: Profile; can: StudentAbilities; href
                 <div className="flex flex-wrap gap-1 border-t border-line/70 pt-2.5 -mb-1">
                   {!l.isPrimary && !l.restriction && <ActionButton action={setPrimaryAction} fields={{ linkId: l.id, studentId }} variant="ghost">Make primary</ActionButton>}
                   {!l.restriction && <ActionButton action={pickupAction} fields={{ linkId: l.id, studentId, on: l.canPickUp ? "0" : "1" }} variant="ghost">{l.canPickUp ? "Remove from pickup" : "May pick up"}</ActionButton>}
-                  <Link href={`${href}/parents/${l.id}`} className="inline-flex h-8 items-center rounded-lg px-3 text-[13px] font-semibold text-ink2 hover:bg-sunken hover:text-ink">Settings</Link>
+                  <Link href={`${href}/parents/${l.id}`} className="inline-flex h-8 items-center rounded-xl px-3 text-[13px] font-semibold text-ink2 hover:bg-sunken hover:text-ink">Settings</Link>
                   {p.links.length > 1 && (
                     <ConfirmAction action={unlinkGuardianAction} fields={{ linkId: l.id, studentId }} trigger="Unlink" triggerVariant="ghost"
                       title={`Unlink ${l.guardian.name}?`} confirmLabel={`Unlink ${l.guardian.name}`} confirmVariant="danger">
@@ -195,6 +200,29 @@ function ParentsCard({ p, can, href }: { p: Profile; can: StudentAbilities; href
             </div>
           ))}
         </div>
+      )}
+    </Card>
+  );
+}
+
+function SiblingsCard({ p }: { p: Profile }) {
+  return (
+    <Card>
+      <CardHeader title="Brothers and sisters" description="Students at the school who share a parent" icon={Users} />
+      {p.siblings.length === 0 ? <p className="px-5 pb-5 text-[14px] text-ink3">No brother or sister at the school.</p> : (
+        <ul className="px-2 pb-2">
+          {p.siblings.map((b) => (
+            <li key={b.id}>
+              <Link href={`${BASE}/students/${b.id}`} className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-sunken/70">
+                <Avatar name={b.name} src={b.photo} size={38} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[14.5px] font-semibold">{b.name}</span>
+                  <span className="block text-[12.5px] text-ink3">{b.className ? classShort(b.className, b.sectionName) : "No class this year"} · <span className="font-mono">{b.admissionNo}</span></span>
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
       )}
     </Card>
   );
@@ -232,7 +260,7 @@ function EmergencyCard({ p, can }: { p: Profile; can: StudentAbilities }) {
             </div>
           )}
           <details className="group">
-            <summary className="inline-flex h-8 cursor-pointer list-none items-center gap-1.5 rounded-lg px-2 -ml-2 text-[13px] font-semibold text-brand hover:bg-brand/8 [&::-webkit-details-marker]:hidden"><Plus size={14} aria-hidden="true" />Add another contact</summary>
+            <summary className="inline-flex h-8 cursor-pointer list-none items-center gap-1.5 rounded-xl px-2 -ml-2 text-[13px] font-semibold text-brand hover:bg-brand/8 [&::-webkit-details-marker]:hidden"><Plus size={14} aria-hidden="true" />Add another contact</summary>
             <ActionForm action={addEmergencyAction.bind(null, studentId)} submitLabel="Add contact" pendingText="Adding…" resetOnSuccess className="mt-3 grid gap-3 sm:grid-cols-3">
               <FormText name="name" label="Name" required />
               <FormSelect name="relation" label="Relation" required options={[...RELATIONS, "Grandparent", "Uncle", "Aunt", "Neighbour"].filter((r) => r !== "Other").concat("Other").map((r) => ({ value: r, label: r }))} defaultValue="Grandparent" />
@@ -432,7 +460,7 @@ export function DocumentsTab({ p, can, settings, tz }: Base & { p: Profile; sett
                   meta={`${d.file?.fileName ?? "File"} · added ${formatDate(d.createdAt, tz)}${d.note ? ` · ${d.note}` : ""}`}
                   actions={<>
                     <ButtonLink href={d.link} target="_blank" rel="noopener" size="sm" variant="ghost" icon={Eye}>View</ButtonLink>
-                    <a href={`${d.link}&download=1`} aria-label={`Download ${d.kind}`} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink2 hover:bg-sunken"><Download size={15} aria-hidden="true" /></a>
+                    <a href={`${d.link}&download=1`} aria-label={`Download ${d.kind}`} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-ink2 hover:bg-sunken"><Download size={15} aria-hidden="true" /></a>
                     {can.manage && (
                       <ConfirmAction action={archiveDocumentAction} fields={{ documentId: d.id, studentId: p.student.id }} trigger="Remove" triggerVariant="ghost" title={`Remove ${d.kind}?`} confirmLabel="Remove document" confirmVariant="danger">
                         The document is archived and kept in the history; it no longer shows here.
@@ -455,7 +483,7 @@ export function DocumentsTab({ p, can, settings, tz }: Base & { p: Profile; sett
               {p.links.length > 0 && <FormSelect name="guardianId" label="Belongs to" options={[{ value: "", label: "The student" }, ...p.links.map((l) => ({ value: l.guardianId, label: `${l.guardian.name} (${l.relationship})` }))]} />}
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="doc-file" className="text-[13px] font-semibold text-ink2">File<span className="text-bad" aria-hidden="true"> *</span></label>
-                <input id="doc-file" name="file" type="file" required accept="image/jpeg,image/png,image/webp,application/pdf" className="block w-full rounded-xl border border-line bg-surface p-2 text-[14px] file:mr-3 file:h-9 file:rounded-lg file:border-0 file:bg-brand/10 file:px-3 file:font-semibold file:text-brand" />
+                <input id="doc-file" name="file" type="file" required accept="image/jpeg,image/png,image/webp,application/pdf" className="block w-full rounded-xl border border-line bg-surface p-2 text-[14px] file:mr-3 file:h-9 file:rounded-xl file:border-0 file:bg-brand/10 file:px-3 file:font-semibold file:text-brand" />
               </div>
               <FormText name="note" label="Note" />
             </ActionForm>

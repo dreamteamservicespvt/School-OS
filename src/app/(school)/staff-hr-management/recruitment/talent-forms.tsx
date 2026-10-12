@@ -2,12 +2,13 @@
 
 import { CheckboxField, SelectField, TextArea, TextField } from "@/components/ui/field";
 import { ActionButton, FormDialog, type Action } from "../_components/forms";
+import { Plus } from "lucide-react";
 
 type Option = { value: string; label: string };
 
 export function VacancyForm({ action, designations, departments }: { action: Action; designations: Option[]; departments: Option[] }) {
   return (
-    <FormDialog trigger="Open vacancy" triggerVariant="primary" title="Open a vacancy" action={action} submitLabel="Open vacancy">
+    <FormDialog trigger={<><Plus size={17} aria-hidden="true" />Open a vacancy</>} triggerVariant="primary" title="Open a vacancy" action={action} submitLabel="Open vacancy">
       {(f) => (
         <>
           <SelectField label="Post" name="designation" required options={designations} placeholder="Choose" defaultValue={f.val("designation")} error={f.err("designation")} />
@@ -31,7 +32,7 @@ export function StatusSelectForm({ trigger, title, hidden, options, current, act
 
 export function ApplicationForm({ action, vacancyId, vacancy }: { action: Action; vacancyId: string; vacancy: string }) {
   return (
-    <FormDialog trigger="Add application" triggerSize="sm" title={`Application for ${vacancy}`} action={action} submitLabel="Add application" hidden={{ vacancyId }} multipart wide>
+    <FormDialog trigger={<><Plus size={15} aria-hidden="true" />Add application</>} triggerSize="sm" title={`Application for ${vacancy}`} action={action} submitLabel="Add application" hidden={{ vacancyId }} multipart wide>
       {(f) => (
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField label="Name" name="name" required defaultValue={f.val("name")} error={f.err("name")} />
@@ -103,7 +104,7 @@ export function OfferForm({ action, applicationId, name, designation, designatio
 
 export function CycleForm({ action, years, today }: { action: Action; years: Option[]; today: string }) {
   return (
-    <FormDialog trigger="Start appraisal" triggerVariant="primary" title="Start an appraisal cycle" action={action} submitLabel="Start" wide>
+    <FormDialog trigger={<><Plus size={17} aria-hidden="true" />Start appraisal</>} triggerVariant="primary" title="Start an appraisal cycle" action={action} submitLabel="Start" wide>
       {(f) => (
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField label="Name" name="name" required defaultValue={f.val("name")} error={f.err("name")} placeholder="Appraisal 2026-27" />
@@ -143,7 +144,7 @@ export function CloseCycleButton({ action, cycleId }: { action: Action; cycleId:
 
 export function TrainingForm({ action, staff, today }: { action: Action; staff: Option[]; today: string }) {
   return (
-    <FormDialog trigger="Add training" triggerVariant="primary" title="Add training" action={action} submitLabel="Add" multipart wide>
+    <FormDialog trigger={<><Plus size={17} aria-hidden="true" />Add training</>} triggerVariant="primary" title="Add training" action={action} submitLabel="Add" multipart wide>
       {(f) => (
         <div className="grid gap-4 sm:grid-cols-2">
           <SelectField label="Staff member" name="staffId" required options={staff} placeholder="Choose" defaultValue={f.val("staffId")} error={f.err("staffId")} className="sm:col-span-2" />
@@ -164,7 +165,7 @@ export function TrainingForm({ action, staff, today }: { action: Action; staff: 
 
 export function PromotionForm({ action, staff, designations, departments, today }: { action: Action; staff: Option[]; designations: Option[]; departments: Option[]; today: string }) {
   return (
-    <FormDialog trigger="Record promotion" triggerVariant="primary" title="Record promotion" action={action} submitLabel="Save">
+    <FormDialog trigger={<><Plus size={17} aria-hidden="true" />Record promotion</>} triggerVariant="primary" title="Record promotion" action={action} submitLabel="Save">
       {(f) => (
         <>
           <SelectField label="Staff member" name="staffId" required options={staff} placeholder="Choose" defaultValue={f.val("staffId")} error={f.err("staffId")} />

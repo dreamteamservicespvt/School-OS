@@ -5,7 +5,8 @@ import { formatDate } from "@/lib/format";
 import { PageHeader } from "@/components/shell/page-header";
 import { BackLink } from "@/components/ui/module-head";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
-import { EmptyState } from "@/components/empty-state";
+import { Briefcase, MapPin, Plus } from "lucide-react";
+import { Empty, Split } from "@/components/ui/blocks";
 import { ActionForm, FormArea, FormText } from "@/components/students/action-form";
 import { ConfirmAction } from "@/components/students/confirm-action";
 import { BASE, studentPage } from "../../../_lib/page";
@@ -20,20 +21,22 @@ export default async function JobBoardPage() {
   const jobs = await withSchool(current.ctx, (tx) => tx.jobPost.findMany({ where: { archivedAt: null }, orderBy: { createdAt: "desc" }, take: 100 }));
   return (
     <>
-      <BackLink href={`${BASE}/leaving/alumni`} label="Alumni" />
-      <PageHeader title="Alumni job board" href={`${BASE}/leaving/alumni/jobs`} userId={current.user.id} />
-      <div className="grid gap-4 xl:grid-cols-[1fr_24rem]">
-        <div>
-          {jobs.length === 0 ? <EmptyState title="No jobs posted">Jobs you post here are shared with alumni.</EmptyState> : (
-            <ul className="space-y-2">
+      <BackLink href={`${BASE}/leaving/alumni`} label="Alumni" sub="Job board" />
+      <PageHeader title="Alumni job board" sub="Jobs posted here are shared with alumni" href={`${BASE}/leaving/alumni/jobs`} userId={current.user.id} />
+      <Split side={380}>
+        <Card className="overflow-hidden">
+          <CardHeader title="Open job posts" icon={Briefcase} description={`${jobs.length} post${jobs.length === 1 ? "" : "s"}`} divided={jobs.length > 0} />
+          {jobs.length === 0 ? <Empty icon={Briefcase} title="No jobs posted" body="Jobs you post here are shared with alumni." /> : (
+            <ul className="divide-y divide-line">
               {jobs.map((j) => (
-                <li key={j.id} className="rounded-xl border border-line bg-surface p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="font-medium">{j.title}</p>
-                      <p className="text-sm text-ink-2">{j.organisation}{j.location ? ` · ${j.location}` : ""} · posted {formatDate(j.createdAt, tz)}{j.applyBy ? ` · apply by ${formatDate(j.applyBy, tz)}` : ""}</p>
-                      <p className="mt-2 whitespace-pre-line text-[15px]">{j.description}</p>
-                      <p className="mt-2 text-sm"><strong>How to apply:</strong> {j.contact}</p>
+                <li key={j.id} className="px-5 py-4">
+                  <div className="flex items-start gap-3">
+                    <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-brand/10 text-brand" aria-hidden="true"><Briefcase size={19} /></span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[14.5px] font-semibold">{j.title}</p>
+                      <p className="flex flex-wrap items-center gap-x-1.5 text-[12.5px] text-ink3">{j.organisation}{j.location && <><span aria-hidden="true">·</span><MapPin size={12} aria-hidden="true" />{j.location}</>}<span aria-hidden="true">·</span>posted {formatDate(j.createdAt, tz)}{j.applyBy ? ` · apply by ${formatDate(j.applyBy, tz)}` : ""}</p>
+                      <p className="mt-2 whitespace-pre-line text-[14px] text-ink2">{j.description}</p>
+                      <p className="mt-2 text-[13.5px]"><b className="font-semibold">How to apply:</b> {j.contact}</p>
                     </div>
                     {can.manage && (
                       <ConfirmAction action={archiveJobAction} fields={{ id: j.id }} trigger="Take down" triggerVariant="ghost" title={`Take down "${j.title}"?`} confirmLabel="Take down">
@@ -45,10 +48,10 @@ export default async function JobBoardPage() {
               ))}
             </ul>
           )}
-        </div>
+        </Card>
         {can.manage && (
-          <Card className="self-start">
-            <CardHeader title="Post a job" />
+          <Card>
+            <CardHeader title="Post a job" icon={Plus} />
             <CardBody>
               <ActionForm action={postJobAction} submitLabel="Post job" pendingText="Posting…" resetOnSuccess>
                 <FormText name="title" label="Job title" required maxLength={120} />
@@ -61,7 +64,7 @@ export default async function JobBoardPage() {
             </CardBody>
           </Card>
         )}
-      </div>
+      </Split>
     </>
   );
 }

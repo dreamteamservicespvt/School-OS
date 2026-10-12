@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import type { Prisma } from "@prisma/client";
 import { ShieldAlert, ShieldCheck, ShieldX, Smartphone, UserPlus, Users, SearchX, MessageCircleOff } from "lucide-react";
 import { withSchool } from "@/lib/db";
@@ -30,6 +31,7 @@ const STEP = 25;
 
 export default async function GuardiansPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { current, year, can, tz } = await studentPage();
+  if (!can.seeParents) redirect(BASE);
   const raw = await searchParams;
   const params = readListParams(raw, FILTERS);
   const take = Math.min(500, Math.max(STEP, Number.parseInt(String(raw.n ?? ""), 10) || STEP));

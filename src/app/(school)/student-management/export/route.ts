@@ -9,7 +9,7 @@ import { getStudentSettings } from "@/lib/students/settings";
 import { abilities } from "@/lib/students/access";
 import { STATUS_LABEL } from "@/lib/students/labels";
 import { LIST_FILTERS, mainGuardian, primaryPhone, sectionNames, studentListInclude, studentListWhere, type ListStudent } from "../_lib/queries";
-import { EXPORT_FIELDS } from "../_lib/export-fields";
+import { EXPORT_FIELDS, fieldAllowed } from "../_lib/export-fields";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +39,7 @@ export async function GET(req: Request) {
     const students = await tx.student.findMany({ where, include: studentListInclude(year?.id ?? null), orderBy: { fullName: "asc" }, take: 10000 });
     const names = await sectionNames(tx, students.flatMap((s) => s.enrolments.map((e) => e.sectionId)));
     const chosen = new Set(url.searchParams.getAll("f"));
-    const allowed = EXPORT_FIELDS.filter((f) => (!f.restricted || can.seeRestricted) && (chosen.size ? chosen.has(f.key) : f.default));
+    const allowed = EXPORT_FIELDS.filter((f) => (!f.restricted || can.seeRestricted) && fieldAllowed(f.key, can) && (chosen.size ? chosen.has(f.key) : f.default));
     const value: Record<string, (s: ListStudent) => string | number | null> = {
       admissionNo: (s) => s.admissionNo,
       name: (s) => s.fullName,

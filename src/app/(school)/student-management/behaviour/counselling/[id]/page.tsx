@@ -5,7 +5,9 @@ import { withSchool } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { PageHeader } from "@/components/shell/page-header";
 import { BackLink } from "@/components/ui/module-head";
-import { Card, CardBody, CardHeader, Detail } from "@/components/ui/card";
+import { CalendarClock, FolderHeart, Lock, NotebookPen } from "lucide-react";
+import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { Col, DL, Split, Timeline } from "@/components/ui/blocks";
 import { Badge } from "@/components/ui/badge";
 import { ActionForm, FormArea, FormSelect, FormText } from "@/components/students/action-form";
 import { counsellors, readConfidential } from "@/lib/students/behaviour";
@@ -34,12 +36,12 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
   const notes = can.seeCounsellingNotes;
   return (
     <>
-      <BackLink href={`${BASE}/behaviour/counselling`} label="Counselling" />
-      <PageHeader title={`Counselling: ${data.student?.fullName ?? ""}`} href={path} userId={current.user.id} />
-      <div className="grid max-w-6xl gap-4 lg:grid-cols-3">
-        <div className="space-y-4 lg:col-span-2">
+      <BackLink href={`${BASE}/behaviour/counselling`} label="Counselling" sub={data.student?.fullName} />
+      <PageHeader title={`Counselling: ${data.student?.fullName ?? ""}`} sub={`Opened ${formatDate(c.openedOn, tz)} · ${c.status === "OPEN" ? "open" : "closed"}${c.nextSessionOn ? ` · next session ${formatDate(c.nextSessionOn, tz)}` : ""}`} href={path} userId={current.user.id} />
+      <Split side={380}>
+        <Col>
           <Card>
-            <CardHeader title="Sessions" description={notes ? "Confidential notes are encrypted and seen only by the Counsellor." : "Confidential notes are seen only by the Counsellor."} />
+            <CardHeader title="Sessions" icon={NotebookPen} description={notes ? "Confidential notes are encrypted and seen only by the Counsellor." : "Confidential notes are seen only by the Counsellor."} />
             <CardBody className="space-y-4">
               {c.status === "OPEN" && (
                 <ActionForm action={addSessionAction.bind(null, id)} submitLabel="Record session" pendingText="Saving…" resetOnSuccess className="grid gap-3 sm:grid-cols-2">
@@ -49,35 +51,36 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
                   {notes && <FormArea name="confidential" label="Confidential notes" rows={4} className="sm:col-span-2" help="Highly restricted." />}
                 </ActionForm>
               )}
-              {c.sessions.length === 0 ? <p className="text-ink-2">No sessions yet.</p> : (
-                <ol className="divide-y divide-line">
-                  {c.sessions.map((s) => {
+              {c.sessions.length === 0 ? <p className="text-[14px] text-ink3">No sessions yet.</p> : (
+                <div className={c.status === "OPEN" ? "border-t border-line pt-4" : ""}>
+                  <Timeline items={c.sessions.map((s) => {
                     const secret = readConfidential(s.confidentialEnc, notes);
-                    return (
-                      <li key={s.id} className="py-3">
-                        <p className="text-sm text-ink-2">{formatDate(s.date, tz)}{s.followUpOn ? ` · follow-up ${formatDate(s.followUpOn, tz)}` : ""}</p>
-                        <p>{s.summary}</p>
-                        {secret && <p className="mt-2 whitespace-pre-line rounded-lg bg-surface-2 p-3 text-[15px]"><span className="sr-only">Confidential: </span>{secret}</p>}
-                        {!notes && s.confidentialEnc && <p className="mt-1 text-sm text-ink-2">Confidential notes recorded.</p>}
-                      </li>
-                    );
-                  })}
-                </ol>
+                    return {
+                      icon: CalendarClock, tone: "brand" as const,
+                      what: <>
+                        {s.summary}
+                        {secret && <span className="mt-2 block whitespace-pre-line rounded-xl bg-sunken/70 px-3 py-2 text-[14px]"><span className="sr-only">Confidential: </span>{secret}</span>}
+                        {!notes && s.confidentialEnc && <span className="mt-1 flex items-center gap-1.5 text-[13px] italic text-ink3"><Lock size={13} aria-hidden="true" />Private: confidential notes recorded (only the Counsellor can read them)</span>}
+                      </>,
+                      when: `${formatDate(s.date, tz)}${s.followUpOn ? ` · follow-up ${formatDate(s.followUpOn, tz)}` : ""}`,
+                    };
+                  })} />
+                </div>
               )}
             </CardBody>
           </Card>
-        </div>
-        <div className="space-y-4">
+        </Col>
+        <Col>
           <Card>
-            <CardHeader title="Case" description={<Badge tone={c.status === "OPEN" ? "warning" : "neutral"}>{c.status === "OPEN" ? "Open" : "Closed"}</Badge>} />
+            <CardHeader title="Case" icon={FolderHeart} action={<Badge tone={c.status === "OPEN" ? "warning" : "neutral"}>{c.status === "OPEN" ? "Open" : "Closed"}</Badge>} />
+            <DL cols={1} rows={[
+              ["Student", data.student ? <Link className="font-semibold text-brand hover:underline" href={`${BASE}/students/${data.student.id}`}>{data.student.fullName}</Link> : null],
+              ["Reason", c.reason],
+              ["Referred by", data.referredBy?.displayName ?? null],
+              ["Opened", formatDate(c.openedOn, tz)],
+              ...(c.incidentId ? [["From", <Link key="f" className="font-semibold text-brand hover:underline" href={`${BASE}/behaviour/${c.incidentId}`}>The behaviour record</Link>] as [string, React.ReactNode]] : []),
+            ]} />
             <CardBody className="space-y-4">
-              <dl className="grid gap-3">
-                <Detail label="Student">{data.student ? <Link className="text-brand-text hover:underline" href={`${BASE}/students/${data.student.id}`}>{data.student.fullName}</Link> : null}</Detail>
-                <Detail label="Reason">{c.reason}</Detail>
-                <Detail label="Referred by">{data.referredBy?.displayName ?? null}</Detail>
-                <Detail label="Opened">{formatDate(c.openedOn, tz)}</Detail>
-                {c.incidentId && <Detail label="From"><Link className="text-brand-text hover:underline" href={`${BASE}/behaviour/${c.incidentId}`}>The behaviour record</Link></Detail>}
-              </dl>
               <ActionForm action={saveCaseAction.bind(null, id)} submitLabel="Save case" pendingText="Saving…" className="space-y-3 border-t border-line pt-4">
                 <FormSelect name="status" label="Status" options={[{ value: "OPEN", label: "Open" }, { value: "CLOSED", label: "Closed" }]} defaultValue={c.status} />
                 {data.people.length > 0 && <FormSelect name="counsellorId" label="Counsellor" placeholder="Not given yet" options={data.people.map((p) => ({ value: p.id, label: p.displayName }))} defaultValue={c.counsellorId} />}
@@ -87,8 +90,8 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
               </ActionForm>
             </CardBody>
           </Card>
-        </div>
-      </div>
+        </Col>
+      </Split>
     </>
   );
 }

@@ -16,7 +16,7 @@ export function LoginsForm({ ids }: { ids: string[] }) {
       <FormMessage state={state} />
       {ids.map((id) => <input key={id} type="hidden" name="ids" value={id} />)}
       {href ? (
-        <a href={href} download="student-logins.csv" className="inline-flex min-h-11 items-center rounded-lg bg-brand px-4 font-medium text-brand-ink hover:bg-brand-hover">Download the logins (CSV)</a>
+        <a href={href} download="student-logins.csv" className="inline-flex min-h-11 items-center rounded-xl bg-brand px-4 font-medium text-brand-ink hover:bg-brand-hover">Download the logins (CSV)</a>
       ) : (
         <SubmitButton pendingText="Making logins…">{`Make logins for ${ids.length} ${ids.length === 1 ? "student" : "students"}`}</SubmitButton>
       )}

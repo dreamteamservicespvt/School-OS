@@ -57,14 +57,14 @@ export default async function IdCardsPage({ searchParams }: { searchParams: Prom
       {!c ? (
         data.sections.length === 0 ? <EmptyState title="No classes this year">Set up classes and sections in Academic Management, then print ID cards class by class.</EmptyState> : (
           <>
-            <p className="mb-3 text-ink-2">Pick a class. Cards print in batches of up to {ID_BATCH_SIZE} as a print-ready PDF.</p>
+            <p className="mb-3 text-ink2">Pick a class. Cards print in batches of up to {ID_BATCH_SIZE} as a print-ready PDF.</p>
             <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
               {data.sections.map((s) => (
                 <li key={s.value}>
                   <Link href={`?section=${s.value}`} className="block rounded-xl border border-line bg-surface p-4 hover:border-brand">
                     <span className="block text-lg font-semibold">{s.label}</span>
-                    <span className="block text-sm text-ink-2">{s.filled} students</span>
-                    <span className="block text-sm text-ink-2">{printed.get(s.value) ?? 0} cards printed</span>
+                    <span className="block text-[13.5px] text-ink2">{s.filled} students</span>
+                    <span className="block text-[13.5px] text-ink2">{printed.get(s.value) ?? 0} cards printed</span>
                   </Link>
                 </li>
               ))}
@@ -75,9 +75,9 @@ export default async function IdCardsPage({ searchParams }: { searchParams: Prom
         <div className="grid gap-4 lg:grid-cols-[1fr_24rem]">
           <Card>
             <CardHeader title={`${c.label} · ${c.section.academicYear.name}`} description={`${c.students.length} students · up to ${ID_BATCH_SIZE} per batch · ${c.batches} ${c.batches === 1 ? "batch" : "batches"} · valid until ${formatDate(settings.idCardValidUntil ?? c.section.academicYear.endDate, tz)}`}
-              action={<Link href={path} className="text-sm font-medium text-brand-text underline">All classes</Link>} />
+              action={<Link href={path} className="text-[13px] font-semibold text-ink2 font-semibold text-brand hover:underline">All classes</Link>} />
             <CardBody className="space-y-4">
-              {c.students.length === 0 ? <p className="text-ink-2">No students in this class yet.</p> : (
+              {c.students.length === 0 ? <p className="text-ink2">No students in this class yet.</p> : (
                 <>
                   {missing.length > 0 && (
                     <Alert tone="warning" title={`${missing.length} ${missing.length === 1 ? "student has" : "students have"} no photo`}
@@ -100,7 +100,7 @@ export default async function IdCardsPage({ searchParams }: { searchParams: Prom
                   <ul className="divide-y divide-line">
                     {c.students.map((s) => (
                       <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                        <span>{s.rollNo ? `${s.rollNo}. ` : ""}{s.fullName} <span className="text-sm text-ink-2">{s.admissionNo}</span></span>
+                        <span>{s.rollNo ? `${s.rollNo}. ` : ""}{s.fullName} <span className="text-[13.5px] text-ink2">{s.admissionNo}</span></span>
                         <span className="flex gap-1">{!s.photoFileId && <Badge tone="warning">No photo</Badge>}{s.printed ? <Badge tone="success">Printed</Badge> : <Badge>Not printed</Badge>}</span>
                       </li>
                     ))}
@@ -113,7 +113,7 @@ export default async function IdCardsPage({ searchParams }: { searchParams: Prom
             <Card className="self-start">
               <CardHeader title="Preview a card" description="The fields shown are set in Student Settings, ID cards." />
               <CardBody>
-                <iframe title="ID card preview" srcDoc={c.preview} sandbox="" className="h-[60mm] w-full rounded-lg border border-line bg-surface-2" />
+                <iframe title="ID card preview" srcDoc={c.preview} sandbox="" className="h-[60mm] w-full rounded-xl border border-line bg-sunken" />
               </CardBody>
             </Card>
           )}
@@ -137,7 +137,7 @@ export default async function IdCardsPage({ searchParams }: { searchParams: Prom
                     {data.replacements.map((r) => (
                       <li key={r.id} className="flex flex-wrap justify-between gap-2 py-2">
                         <span>{data.names.find((n) => n.id === r.studentId)?.fullName} · {r.reason}</span>
-                        <span className="text-sm text-ink-2">{formatDateTime(r.createdAt, tz)} · <a className="text-brand-text underline" href={`${path}/print?replacement=${r.id}`} target="_blank" rel="noreferrer">Print</a></span>
+                        <span className="text-[13.5px] text-ink2">{formatDateTime(r.createdAt, tz)} · <a className="font-semibold text-brand hover:underline" href={`${path}/print?replacement=${r.id}`} target="_blank" rel="noreferrer">Print</a></span>
                       </li>
                     ))}
                   </ul>

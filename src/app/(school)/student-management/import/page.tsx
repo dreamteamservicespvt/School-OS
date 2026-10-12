@@ -44,9 +44,9 @@ export default async function ImportPage({ searchParams }: { searchParams: Promi
                 options={sections.map((s) => ({ value: s.value, label: `${s.label} (${s.filled} of ${s.seats})` }))} help="Used for rows with no class in the file." />
               <FormCheck name="applyFeePlan" label="Apply the class fee plan" help="Each student gets the fee plan of their class (Fee Management)." defaultChecked />
               <div>
-                <label htmlFor="import-file" className="mb-1 block text-sm font-medium">File<span className="text-danger" aria-hidden="true"> *</span></label>
+                <label htmlFor="import-file" className="mb-1 block text-[13px] font-semibold text-ink2">File<span className="text-bad" aria-hidden="true"> *</span></label>
                 <input id="import-file" name="file" type="file" required accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                  className="block w-full rounded-lg border border-line-strong bg-surface p-2 text-base file:mr-3 file:min-h-10 file:rounded-md file:border-0 file:bg-brand-soft file:px-3 file:text-brand-text" />
+                  className="block w-full rounded-xl border border-line bg-surface p-2 text-base file:mr-3 file:min-h-10 file:rounded-md file:border-0 file:bg-brand/10 file:px-3 file:text-brand" />
                 <FormFieldError name="file" />
               </div>
             </ActionForm>

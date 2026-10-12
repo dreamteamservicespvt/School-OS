@@ -176,7 +176,7 @@ export default async function BehaviourPage({ searchParams }: { searchParams: Pr
             <div className="px-5 pb-5"><HBars rows={monthRows.map((r) => ({ ...r, label: String(r.v) }))} max={monthMax} labelWidth={88} /></div>
           </Card>
           {!settings.counsellingOn && can.manage && (
-            <p className="text-[13px] text-ink3 px-1">Counselling and career guidance are optional. Switch them on in <Link className="font-semibold text-brand underline" href={`${BASE}/settings?tab=behaviour`}>Student Settings</Link>.</p>
+            <p className="text-[13px] text-ink3 px-1">Counselling and career guidance are optional. Switch them on in <Link className="font-semibold text-brand underline" href={`${BASE}/settings#behaviour`}>Student Settings</Link>.</p>
           )}
         </Col>
       </Split>

@@ -24,7 +24,7 @@ export default async function EditGuardianPage({ params }: { params: Promise<{ i
       <Card className="max-w-3xl">
         <CardBody>
           <GuardianForm action={saveGuardianAction.bind(null, id, null)} g={g} studentId={null} canRestrict={false} cancelHref={`${BASE}/guardians/${id}`} />
-          <p className="mt-4 text-sm text-ink-2">Custody restrictions are set on each child&apos;s link, from the child&apos;s profile.</p>
+          <p className="mt-4 text-[13.5px] text-ink2">Custody restrictions are set on each child&apos;s link, from the child&apos;s profile.</p>
         </CardBody>
       </Card>
     </>

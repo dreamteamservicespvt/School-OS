@@ -31,7 +31,7 @@ export default async function ChangeSectionPage({ params }: { params: Promise<{ 
     throw e;
   }
   const back = `${BASE}/students/${id}`;
-  const cancel = <Link href={back} className="inline-flex min-h-11 items-center rounded-lg px-4 font-medium text-brand-text hover:bg-surface-2">Cancel</Link>;
+  const cancel = <Link href={back} className="inline-flex h-11 items-center rounded-xl px-4 text-[14px] font-semibold text-ink2 transition hover:bg-sunken hover:text-ink">Cancel</Link>;
   const current_ = data.now ? data.sections.find((s) => s.value === data.now!.sectionId) : null;
   const sameClass = data.now ? data.sections.filter((s) => s.classId === data.now!.classId && s.value !== data.now!.sectionId) : [];
   const label = (s: (typeof data.sections)[number]) => `${s.label} (${Math.max(0, s.seats - s.filled)} seats left)`;

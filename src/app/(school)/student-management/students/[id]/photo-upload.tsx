@@ -41,11 +41,11 @@ export function PhotoUpload({ action, remove, hasPhoto, name, children }: {
         <form action={formAction} className="space-y-4">
           <FormMessage state={state && !state.ok ? state : null} />
           <div>
-            <label htmlFor="student-photo" className="mb-1 block text-sm font-medium">Photo</label>
+            <label htmlFor="student-photo" className="mb-1 block text-[13px] font-semibold text-ink2">Photo</label>
             <input id="student-photo" name="photo" type="file" accept="image/jpeg,image/png,image/webp" required
               onChange={(e) => { const f = e.target.files?.[0]; setPreview(f ? URL.createObjectURL(f) : null); }}
-              className="block w-full rounded-lg border border-line-strong bg-surface p-2 text-base file:mr-3 file:min-h-10 file:rounded-md file:border-0 file:bg-brand-soft file:px-3 file:text-brand-text" />
-            <p className="mt-1 text-sm text-ink-2">On a phone you can take the photo with the camera. JPG or PNG, up to 10 MB; it is made smaller for phones.</p>
+              className="block w-full rounded-xl border border-line bg-surface p-2 text-base file:mr-3 file:min-h-10 file:rounded-md file:border-0 file:bg-brand/10 file:px-3 file:text-brand" />
+            <p className="mt-1 text-[13.5px] text-ink2">On a phone you can take the photo with the camera. JPG or PNG, up to 10 MB; it is made smaller for phones.</p>
           </div>
           {/* eslint-disable-next-line @next/next/no-img-element -- local preview before upload */}
           {preview && <img src={preview} alt="The chosen photo" className="mx-auto size-40 rounded-full border border-line object-cover" />}
@@ -61,7 +61,7 @@ export function PhotoUpload({ action, remove, hasPhoto, name, children }: {
               }}>Remove photo</Button>
             )}
           </div>
-          {removeError && <p role="alert" className="text-sm text-danger">{removeError}</p>}
+          {removeError && <p role="alert" className="text-[13.5px] text-bad">{removeError}</p>}
         </form>
       </Dialog>
     </>

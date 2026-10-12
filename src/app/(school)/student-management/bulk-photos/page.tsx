@@ -15,8 +15,7 @@ export default async function BulkPhotosPage() {
   return (
     <>
       <BackLink href={BASE} label="Students" />
-      <PageHeader title="Bulk profile photos" href={`${BASE}/bulk-photos`} userId={current.user.id} />
-      <p className="-mt-3 mb-5 max-w-prose text-ink-2">Photos are made smaller for phones. Students who already have a photo keep it unless you choose to replace it.</p>
+      <PageHeader title="Bulk profile photos" sub={<>Photos are made smaller for phones. Students who already have a photo keep it unless you choose to replace it.</>} href={`${BASE}/bulk-photos`} userId={current.user.id} />
       <Card className="max-w-3xl"><CardBody><PhotosForm /></CardBody></Card>
     </>
   );

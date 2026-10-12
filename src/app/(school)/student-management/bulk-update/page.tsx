@@ -50,7 +50,7 @@ export default async function BulkUpdatePage({ searchParams }: { searchParams: P
               <SelectField name="field" label="What to change" defaultValue={field ?? ""} placeholder="Choose…" options={[{ value: "section", label: "Section (same class)" }, ...fields.map((f) => ({ value: f.key, label: f.label }))]} />
               <Button type="submit" variant="secondary">Show</Button>
             </form>
-            {sp.ids && <p className="mt-2 text-sm"><Link className="text-brand-text underline" href={BASE}>Choose other students</Link></p>}
+            {sp.ids && <p className="mt-2 text-[13.5px]"><Link className="font-semibold text-brand hover:underline" href={BASE}>Choose other students</Link></p>}
           </CardBody>
         </Card>
 
@@ -62,7 +62,7 @@ export default async function BulkUpdatePage({ searchParams }: { searchParams: P
                 {data.students.map((s) => <input key={s.id} type="hidden" name="ids" value={s.id} />)}
                 <FormSelect name="toSectionId" label="New section" required placeholder="Choose…"
                   options={data.sections.filter((s) => classIds.size === 0 || classIds.has(s.classId)).map((s) => ({ value: s.value, label: `${s.label} (${s.filled} of ${s.seats})` }))} />
-                <p className="text-[15px] text-ink-2">{data.students.slice(0, 10).map((s) => s.name).join(", ")}{data.students.length > 10 ? ` and ${data.students.length - 10} more` : ""}.</p>
+                <p className="text-[15px] text-ink2">{data.students.slice(0, 10).map((s) => s.name).join(", ")}{data.students.length > 10 ? ` and ${data.students.length - 10} more` : ""}.</p>
               </ActionForm>
             </CardBody>
           </Card>

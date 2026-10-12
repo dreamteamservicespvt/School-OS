@@ -46,8 +46,8 @@ export default async function ImportBatchPage({ params }: { params: Promise<{ ba
           <CardBody className="space-y-3">
             {data.students.length > 0 && (
               <ul className="space-y-1 text-[15px]">
-                {data.students.map((s) => <li key={s.id}>{s.archivedAt ? <span className="text-ink-2 line-through">{s.fullName}</span> : <Link className="hover:underline" href={`${BASE}/students/${s.id}`}>{s.fullName}</Link>} <span className="text-sm text-ink-2">{s.admissionNo}</span></li>)}
-                {batch.added > data.students.length && <li className="text-ink-2">and {batch.added - data.students.length} more</li>}
+                {data.students.map((s) => <li key={s.id}>{s.archivedAt ? <span className="text-ink2 line-through">{s.fullName}</span> : <Link className="hover:underline" href={`${BASE}/students/${s.id}`}>{s.fullName}</Link>} <span className="text-[13.5px] text-ink2">{s.admissionNo}</span></li>)}
+                {batch.added > data.students.length && <li className="text-ink2">and {batch.added - data.students.length} more</li>}
               </ul>
             )}
             <div className="flex flex-wrap gap-2">
@@ -58,17 +58,17 @@ export default async function ImportBatchPage({ params }: { params: Promise<{ ba
                 </ConfirmAction>
               )}
             </div>
-            {batch.undoneAt && <p className="text-ink-2">Undone {formatDateTime(batch.undoneAt, tz)}.</p>}
+            {batch.undoneAt && <p className="text-ink2">Undone {formatDateTime(batch.undoneAt, tz)}.</p>}
           </CardBody>
         </Card>
         <Card>
           <CardHeader title="Skipped rows" description={bad.length ? "Download them with their problems, fix and import again." : undefined} />
           <CardBody>
-            {bad.length === 0 ? <p className="text-ink-2">Every row was imported.</p> : (
+            {bad.length === 0 ? <p className="text-ink2">Every row was imported.</p> : (
               <>
-                <a href={`${BASE}/import/${batch.id}/errors`} className="mb-3 inline-flex min-h-11 items-center rounded-lg border border-line-strong px-4 font-medium hover:bg-surface-2">Download skipped rows (CSV)</a>
+                <a href={`${BASE}/import/${batch.id}/errors`} className="mb-3 inline-flex min-h-11 items-center rounded-xl border border-line px-4 font-medium hover:bg-sunken">Download skipped rows (CSV)</a>
                 <ul className="max-h-96 divide-y divide-line overflow-y-auto text-[15px]">
-                  {bad.slice(0, 100).map((b) => <li key={b.line} className="py-2"><strong>Row {b.line}</strong>{b.row.fullName ? ` · ${b.row.fullName}` : ""}: <span className="text-danger">{b.problems.join(" ")}</span></li>)}
+                  {bad.slice(0, 100).map((b) => <li key={b.line} className="py-2"><strong>Row {b.line}</strong>{b.row.fullName ? ` · ${b.row.fullName}` : ""}: <span className="text-bad">{b.problems.join(" ")}</span></li>)}
                 </ul>
               </>
             )}

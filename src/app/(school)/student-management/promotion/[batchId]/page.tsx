@@ -56,7 +56,7 @@ export default async function PromotionBatchPage({ params }: { params: Promise<{
                 The {batch.decisions.length} students go back to {sec(batch.fromSectionId)} in {yearName(batch.fromYearId)} and their new-year class is removed. This works only while nothing is recorded for them in {yearName(batch.toYearId)}. The batch stays in the history.
               </ConfirmAction>
             )} />
-          {batch.undoneAt && <CardBody><p className="text-ink-2">Undone {formatDateTime(batch.undoneAt, tz)} by {who(batch.undoneById)}.</p></CardBody>}
+          {batch.undoneAt && <CardBody><p className="text-ink2">Undone {formatDateTime(batch.undoneAt, tz)} by {who(batch.undoneById)}.</p></CardBody>}
         </Card>
         <Card>
           <CardHeader title="Decisions" />
@@ -68,16 +68,16 @@ export default async function PromotionBatchPage({ params }: { params: Promise<{
                 return (
                   <li key={d.id} className="flex flex-wrap items-start justify-between gap-2 py-3">
                     <div className="min-w-0">
-                      <Link href={`${BASE}/students/${d.studentId}`} className="font-medium hover:underline">{s?.fullName ?? "Student"}</Link> <span className="text-sm text-ink-2">{s?.admissionNo}</span>
-                      <p className="text-sm text-ink-2">
+                      <Link href={`${BASE}/students/${d.studentId}`} className="font-medium hover:underline">{s?.fullName ?? "Student"}</Link> <span className="text-[13.5px] text-ink2">{s?.admissionNo}</span>
+                      <p className="text-[13.5px] text-ink2">
                         {[facts.resultText, facts.attendancePct != null ? `Attendance ${Math.round(facts.attendancePct)}%` : null, facts.feeDuePaise ? `Fees due ${formatRupees(BigInt(facts.feeDuePaise))}` : null].filter(Boolean).join(" · ")}
                       </p>
-                      {d.decision !== d.suggested && <p className="text-sm">Suggested {LABEL[d.suggested].toLowerCase()}; changed because: {d.reason}</p>}
+                      {d.decision !== d.suggested && <p className="text-[13.5px]">Suggested {LABEL[d.suggested].toLowerCase()}; changed because: {d.reason}</p>}
                     </div>
                     <span className="flex items-center gap-2">
                       <Badge tone={TONE[d.decision]}>{LABEL[d.decision]}</Badge>
-                      {d.toSectionId && <span className="text-sm">{sec(d.toSectionId)}</span>}
-                      {d.leavingRequestId && <Link className="text-sm underline" href={`${BASE}/leaving/${d.leavingRequestId}`}>Leaving</Link>}
+                      {d.toSectionId && <span className="text-[13.5px]">{sec(d.toSectionId)}</span>}
+                      {d.leavingRequestId && <Link className="text-[13.5px] underline" href={`${BASE}/leaving/${d.leavingRequestId}`}>Leaving</Link>}
                     </span>
                   </li>
                 );

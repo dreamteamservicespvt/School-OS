@@ -9,7 +9,7 @@ export async function studentTabs() {
   const { can } = await studentPage();
   return [
     { href: BASE, label: "Student List", exact: true, also: ["students", "new", "import", "bulk-update", "bulk-photos", "logins"].map((p) => `${BASE}/${p}`), show: true },
-    { href: `${BASE}/guardians`, label: "Parents & Guardians", show: true },
+    { href: `${BASE}/guardians`, label: "Parents & Guardians", show: can.seeParents },
     { href: `${BASE}/behaviour`, label: "Behaviour & Counselling", show: can.seeBehaviour || can.seeCounselling },
     { href: `${BASE}/promotion`, label: "Promotion", show: can.manage },
     { href: `${BASE}/leaving`, label: "Leaving & Alumni", show: can.reach === "all" },

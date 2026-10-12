@@ -37,7 +37,7 @@ export default async function EditStudentSection({ params }: { params: Promise<{
   }
   const s = p.student;
   const back = `${BASE}/students/${id}${section === "previous" ? "?tab=academics" : ""}`;
-  const cancel = <Link href={back} className="inline-flex min-h-11 items-center rounded-lg px-4 font-medium text-brand-text hover:bg-surface-2">Back to profile</Link>;
+  const cancel = <Link href={back} className="inline-flex h-11 items-center rounded-xl px-4 text-[14px] font-semibold text-ink2 transition hover:bg-sunken hover:text-ink">Back to profile</Link>;
   const iso = (d: Date | null | undefined) => (d ? d.toISOString().slice(0, 10) : "");
   const sectionTabs = Object.entries(TITLES).filter(([k]) => (k !== "identifiers" || can.seeRestricted) && (k !== "extra" || p.customFields.length > 0));
 
@@ -49,7 +49,7 @@ export default async function EditStudentSection({ params }: { params: Promise<{
         <ul className="flex gap-1">
           {sectionTabs.map(([k, label]) => (
             <li key={k}><Link href={`${BASE}/students/${id}/edit/${k}`} aria-current={k === section ? "page" : undefined}
-              className={`inline-flex min-h-11 items-center whitespace-nowrap rounded-lg px-3 text-[15px] ${k === section ? "bg-brand-soft font-semibold text-brand-text" : "text-ink-2 hover:bg-surface-2"}`}>{label}</Link></li>
+              className={`inline-flex min-h-11 items-center whitespace-nowrap rounded-xl px-3 text-[15px] ${k === section ? "bg-brand/8 font-semibold text-brand" : "text-ink2 hover:bg-sunken"}`}>{label}</Link></li>
           ))}
         </ul>
       </nav>
@@ -89,9 +89,9 @@ export default async function EditStudentSection({ params }: { params: Promise<{
               <FormText name="admissionNo" label="Admission number" required defaultValue={s.admissionNo} help="Must be unique in the school. The old number is kept in the history." />
               <FormText name="admissionDate" label="Admission date" type="date" defaultValue={iso(s.joiningDate)} />
               <FormText name="rollNo" label="Roll number" inputMode="numeric" defaultValue={p.now?.rollNo ?? ""} disabled={!p.now} help={p.now ? `In ${p.now.section?.schoolClass.name} ${p.now.section?.name}.` : "The student has no class this year."} />
-              <div className="text-sm text-ink-2 sm:col-span-2">
+              <div className="text-[13.5px] text-ink2 sm:col-span-2">
                 Class and section: {p.now?.section ? `${p.now.section.schoolClass.name} ${p.now.section.name}` : "none this year"}. To move within the class use{" "}
-                <Link className="font-medium text-brand-text underline" href={`${BASE}/students/${id}/section`}>Change section</Link>; to move class, use Promotion.
+                <Link className="font-semibold text-brand hover:underline" href={`${BASE}/students/${id}/section`}>Change section</Link>; to move class, use Promotion.
               </div>
             </ActionForm>
           )}
@@ -127,11 +127,11 @@ export default async function EditStudentSection({ params }: { params: Promise<{
                   </div>
                 );
               })}
-              <p className="text-sm text-ink-2 sm:col-span-2">Aadhaar is changed with the personal details. Identifier types are set in Student Settings.</p>
+              <p className="text-[13.5px] text-ink2 sm:col-span-2">Aadhaar is changed with the personal details. Identifier types are set in Student Settings.</p>
             </ActionForm>
           )}
           {section === "extra" && (
-            p.customFields.length === 0 ? <p className="text-ink-2">The school has no extra fields for students. They are added in <SettingsLink href="/settings/forms-approvals">Settings, Forms &amp; Approvals</SettingsLink>.</p> : (
+            p.customFields.length === 0 ? <p className="text-ink2">The school has no extra fields for students. They are added in <SettingsLink href="/settings/forms-approvals">Settings, Forms &amp; Approvals</SettingsLink>.</p> : (
               <ActionForm action={saveExtraFieldsAction.bind(null, id)} submitLabel="Save extra fields" pendingText="Saving…" footer={cancel} className="grid gap-4 sm:grid-cols-2">
                 {p.customFields.map((f) => {
                   const v = p.extra[f.key] ?? "";

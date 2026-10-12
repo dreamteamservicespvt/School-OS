@@ -43,30 +43,30 @@ export default async function ChangeStatusPage({ params }: { params: Promise<{ i
           <CardHeader title={data.student.fullName} description={<>Now: <Badge tone={STATUS_TONE[status]}>{STATUS_LABEL[status]}</Badge></>} />
           <CardBody>
             {data.waiting ? (
-              <p>A re-admission request is waiting in <Link className="font-medium text-brand-text underline" href="/approvals">Approvals</Link>. The status changes when it is approved.</p>
+              <p>A re-admission request is waiting in <Link className="font-semibold text-brand hover:underline" href="/approvals">Approvals</Link>. The status changes when it is approved.</p>
             ) : choices.length === 0 ? (
-              <p className="text-ink-2">No change can be made here. Promotion is done on the Promotion page, and leaving on Leaving &amp; Alumni.</p>
+              <p className="text-ink2">No change can be made here. Promotion is done on the Promotion page, and leaving on Leaving &amp; Alumni.</p>
             ) : (
               <ActionForm action={changeStatusAction.bind(null, id)} submitLabel="Change status" pendingText="Saving…"
-                footer={<Link href={back} className="inline-flex min-h-11 items-center rounded-lg px-4 font-medium text-brand-text hover:bg-surface-2">Cancel</Link>}>
+                footer={<Link href={back} className="inline-flex h-11 items-center rounded-xl px-4 text-[14px] font-semibold text-ink2 transition hover:bg-sunken hover:text-ink">Cancel</Link>}>
                 <FormChoice name="to" label="New status" defaultValue={choices.length === 1 ? choices[0].to : undefined}
                   options={choices.map((c) => ({ value: c.to, label: c.approval ? `${STATUS_LABEL[c.to]} (re-admission)` : STATUS_LABEL[c.to], help: c.approval ? "Needs approval in Approvals." : undefined }))} />
                 <FormText name="effectiveDate" label="Effective date" type="date" required defaultValue={todayIso(tz)} />
                 <FormArea name="reason" label="Reason" required rows={2} help="Kept in the student's history." />
               </ActionForm>
             )}
-            <p className="mt-4 text-sm text-ink-2">Only the allowed changes are offered. Promotion, transfer, withdrawal and graduation are done on their own pages.</p>
+            <p className="mt-4 text-[13.5px] text-ink2">Only the allowed changes are offered. Promotion, transfer, withdrawal and graduation are done on their own pages.</p>
           </CardBody>
         </Card>
         <Card>
           <CardHeader title="Status history" />
           <CardBody>
-            {data.history.length === 0 ? <p className="text-ink-2">No changes yet.</p> : (
+            {data.history.length === 0 ? <p className="text-ink2">No changes yet.</p> : (
               <ol className="space-y-3">
                 {data.history.map((h) => (
                   <li key={h.id}>
                     <p className="font-medium">{h.fromStatus === "NEW" ? "Added" : `${STATUS_LABEL[h.fromStatus as StudentStatusKey] ?? h.fromStatus} to ${STATUS_LABEL[h.toStatus as StudentStatusKey] ?? h.toStatus}`}</p>
-                    <p className="text-sm text-ink-2">From {formatDate(h.effectiveDate, tz)} · {h.reason}</p>
+                    <p className="text-[13.5px] text-ink2">From {formatDate(h.effectiveDate, tz)} · {h.reason}</p>
                   </li>
                 ))}
               </ol>

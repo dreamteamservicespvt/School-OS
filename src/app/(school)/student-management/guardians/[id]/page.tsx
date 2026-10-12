@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Ban, ChevronRight, Eye, FileText, FolderOpen, GraduationCap, IndianRupee, MessageCircle, Pencil, RefreshCw, Send, ShieldAlert, ShieldCheck, ShieldX, Smartphone, Merge } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { formatDate, formatDateTime, formatRupees } from "@/lib/format";
@@ -35,6 +35,7 @@ const stateWord = (s: keyof typeof TONE) => s === "NONE" ? "Not given" : CONSENT
 export default async function Parent360({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { current, year, can, tz } = await studentPage();
+  if (!can.seeParents) redirect(BASE);
   const provider = parentLinkProvider();
   const data = await withSchool(current.ctx, async (tx) => {
     const g = await visibleGuardianFor(tx, current, id);
@@ -142,11 +143,11 @@ export default async function Parent360({ params }: { params: Promise<{ id: stri
                           <ChevronRight size={17} className="text-ink3" aria-hidden="true" />
                         </Link>
                         <div className="grid grid-cols-2 gap-2 text-[13px]">
-                          <div className="rounded-lg bg-sunken/60 px-2.5 py-2">
+                          <div className="rounded-xl bg-sunken/60 px-2.5 py-2">
                             <p className="text-ink3 text-[12px] font-semibold">Attendance</p>
                             <p className={cx("font-semibold tnum", k.fact?.attendancePct != null && k.fact.attendancePct < 85 && "text-warn")}>{k.fact?.attendancePct != null ? `${Math.round(k.fact.attendancePct)}% this year` : "–"}</p>
                           </div>
-                          <div className="rounded-lg bg-sunken/60 px-2.5 py-2">
+                          <div className="rounded-xl bg-sunken/60 px-2.5 py-2">
                             <p className="text-ink3 text-[12px] font-semibold">Fees</p>
                             <p className={cx("font-semibold tnum", due > BigInt(0) && "text-bad")}>{!seeFees ? "–" : due > BigInt(0) ? `${formatRupees(due)} ${k.fact?.feeOverdue ? "overdue" : "due"}` : "Paid"}</p>
                           </div>

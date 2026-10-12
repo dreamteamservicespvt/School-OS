@@ -84,7 +84,7 @@ export default async function StaffLeavePage({ searchParams }: Props) {
   return (
     <>
       <StaffHead page="Staff Leave" href={`${BASE}/leave`} sub={canHr ? "Leave requests, balances and the leave calendar for every staff member" : "Your leave requests and balances"} actions={apply} />
-      {base.types.length === 0 && <Banner tone="warn" className="mb-4" title="No staff leave types yet.">{canHr ? <Link href={`${BASE}/settings?view=leave`} className="font-semibold underline">Add them in HR Settings.</Link> : "Ask HR to add them."}</Banner>}
+      {base.types.length === 0 && <Banner tone="warn" className="mb-4" title="No staff leave types yet.">{canHr ? <Link href={`${BASE}/settings`} className="font-semibold underline">Add them in HR Settings.</Link> : "Ask HR to add them."}</Banner>}
       {views.length > 1 && (
         <div className="-mx-4 mb-4 overflow-x-auto px-4 no-scrollbar md:mx-0 md:px-0">
           <SegLinks label="Staff Leave views" value={view} options={views.map((v) => ({ value: v.key, href: v.href, label: <>{v.label}{"count" in v && v.count ? <span className="tnum text-[11.5px] text-warn">{v.count}</span> : null}</> }))} />

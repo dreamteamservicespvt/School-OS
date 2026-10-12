@@ -95,7 +95,7 @@ export default async function AlumniPage({ searchParams }: { searchParams: Promi
             <CardHeader title="Donations" />
             <CardBody>
               <p className="text-2xl font-semibold">{formatRupees(data.donated._sum.amountPaise ?? BigInt(0))}</p>
-              <p className="text-sm text-ink-2">{data.donated._count} {data.donated._count === 1 ? "donation" : "donations"} recorded. Add one on an alumnus&apos;s record; the receipt is made in Finance, Income.</p>
+              <p className="text-[13.5px] text-ink2">{data.donated._count} {data.donated._count === 1 ? "donation" : "donations"} recorded. Add one on an alumnus&apos;s record; the receipt is made in Finance, Income.</p>
             </CardBody>
           </Card>
           {can.manage && data.all.length > 0 && (

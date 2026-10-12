@@ -8,6 +8,15 @@ import { approvalsFor } from "./approvals";
 import type { Current } from "./current";
 import { BOTTOM_BY_ROLE, QUICK_BY_ROLE, type BarItem, type Quick } from "@/components/shell/nav-config";
 
+/**
+ * Whether Approvals shows "Waiting for me" (00-global.md §1): anyone allowed to approve
+ * something (full access to a module, class teachers for student leave, by default),
+ * or anyone with a request already waiting for them.
+ */
+export function mayApprove(current: Current, waiting: number) {
+  return waiting > 0 || current.roles.some((r) => r.key === "class-teacher") || MODULES.some((m) => current.permissions[m.key].change === "all");
+}
+
 export async function shellData(current: Current) {
   const { unread, approvals, campus } = await withSchool(current.ctx, async (tx) => ({
     unread: await tx.notification.count({ where: { userLoginId: current.user.id, readAt: null } }),
@@ -30,10 +39,7 @@ export async function shellData(current: Current) {
   // Approvals shows for anyone allowed to approve something (00-global.md §1):
   // full access to a module, class teachers (student leave, by default), or
   // anyone with a request already waiting for them.
-  const canApprove =
-    approvals > 0 ||
-    current.roles.some((r) => r.key === "class-teacher") ||
-    MODULES.some((m) => current.permissions[m.key].change === "all");
+  const canApprove = mayApprove(current, approvals);
 
   // The phone bar and "New" follow the person's first role that has them, and only show what they may open or do.
   const roleKeys = current.roles.map((r) => r.key ?? "");

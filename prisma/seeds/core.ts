@@ -55,7 +55,7 @@ const STAFF: NewStaff[] = [
   { first: "Geetha", last: "Verma", designation: "PRT Hindi", dept: "Languages", type: "Teaching", subjects: ["HIN"], gender: "Female" },
   { first: "Venkatesh", last: "Naidu", designation: "TGT Telugu", dept: "Languages", type: "Teaching", subjects: ["TEL"], gender: "Male" },
   { first: "Madhavi", last: "Goud", designation: "PRT Telugu", dept: "Languages", type: "Teaching", subjects: ["TEL"], gender: "Female" },
-  { first: "Prakash", last: "Kulkarni", designation: "TGT Science", dept: "Science", type: "Teaching", subjects: ["SCI"], gender: "Male" },
+  { first: "Prakash", last: "Kulkarni", designation: "TGT Science", dept: "Science", type: "Teaching", subjects: ["SCI"], login: "subjectteacher", gender: "Male" },
   { first: "Divya", last: "Menon", designation: "TGT Science", dept: "Science", type: "Teaching", subjects: ["SCI"], gender: "Female" },
   { first: "Jyothi", last: "Pillai", designation: "PRT EVS", dept: "Science", type: "Teaching", subjects: ["EVS"], gender: "Female" },
   { first: "Latha", last: "Shetty", designation: "PRT EVS", dept: "Science", type: "Teaching", subjects: ["EVS"], gender: "Female" },
@@ -67,10 +67,12 @@ const STAFF: NewStaff[] = [
   { first: "Vani", last: "Singh", designation: "Art Teacher", dept: "Pre-primary", type: "Teaching", subjects: ["ART"], gender: "Female" },
   { first: "Mohan", last: "Yadav", designation: "Physical Education Teacher", dept: "Support", type: "Teaching", subjects: ["PE"], gender: "Male" },
   { first: "Satish", last: "Reddy", designation: "Physical Education Teacher", dept: "Support", type: "Teaching", subjects: ["PE"], gender: "Male" },
-  { first: "Naresh", last: "Kumar", designation: "Receptionist", dept: "Administration", type: "Non-teaching", gender: "Male" },
-  { first: "Ganesh", last: "Rao", designation: "Transport Supervisor", dept: "Transport", type: "Non-teaching", gender: "Male" },
+  { first: "Naresh", last: "Kumar", designation: "Receptionist", dept: "Administration", type: "Non-teaching", login: "reception", gender: "Male" },
+  { first: "Ganesh", last: "Rao", designation: "Transport Supervisor", dept: "Transport", type: "Non-teaching", login: "transport", gender: "Male" },
   { first: "Sarita", last: "Sharma", designation: "Office Assistant", dept: "Administration", type: "Non-teaching", gender: "Female" },
   { first: "Harish", last: "Naidu", designation: "Lab Assistant", dept: "Science", type: "Non-teaching", gender: "Male" },
+  { first: "Sunita", last: "Patil", designation: "Hostel Warden", dept: "Support", type: "Non-teaching", login: "warden", gender: "Female" },
+  { first: "Mahesh", last: "Yadav", designation: "Store Keeper", dept: "Support", type: "Non-teaching", login: "store", gender: "Male" },
 ];
 
 export async function seedCore(base: { schoolId: string; campusId: string; code: string; name: string; users: Record<string, string>; full: boolean }): Promise<SeedSchool> {

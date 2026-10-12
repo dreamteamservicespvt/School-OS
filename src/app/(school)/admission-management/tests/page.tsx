@@ -18,7 +18,8 @@ import { LinkTabs } from "@/components/ui/chips";
 import { Stats } from "@/components/ui/stats";
 import { Avatar } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/rows";
-import { DataList, type ListRow } from "@/app/(school)/admission-management/_components/data-list";
+import { DataList } from "@/components/ui/data-list";
+import { rowList, type ListRow } from "../_components/list-rows";
 import { PeriodFilter } from "@/components/list/period-filter";
 import { EmptyState } from "@/components/empty-state";
 import { AdmissionHead } from "../_components/head";
@@ -147,18 +148,19 @@ export default async function TestsPage({ searchParams }: Search) {
         {tab === "tests" ? (
           <Card className="overflow-hidden">
             <CardHeader title="Entrance tests" description="Tap a test to enter scores and remarks" icon={ClipboardCheck} />
-            <DataList label="Entrance tests" rows={testRows} minWidth={720}
-              columns={[{ key: "d", label: "Date and time" }, { key: "v", label: "Venue" }, { key: "c", label: "Class" }, { key: "b", label: "Booked", align: "right" }, { key: "s", label: "Scores entered" }]}
+            <DataList caption="Entrance tests" rows={testRows} minWidth={720}
+              {...rowList([{ key: "d", label: "Date and time" }, { key: "v", label: "Venue" }, { key: "c", label: "Class" }, { key: "b", label: "Booked", align: "right" }, { key: "s", label: "Scores entered" }])}
               empty={filtered
                 ? <EmptyState bare Icon={SearchX} title="No tests in these dates">Try another date range.</EmptyState>
                 : <EmptyState bare Icon={ClipboardCheck} title="No tests scheduled">Schedule an entrance test for one or many applicants. Parents get the date, time and venue.</EmptyState>}
-              footer={<span>{data.tests.length} {data.tests.length === 1 ? "test" : "tests"} · parents get the date, time and venue by WhatsApp or SMS</span>} />
+              footer={<p className="px-4 py-3 border-t border-line text-[13px] text-ink3">{data.tests.length} {data.tests.length === 1 ? "test" : "tests"} · parents get the date, time and venue by WhatsApp or SMS</p>} />
           </Card>
         ) : (
           <Card className="overflow-hidden">
             <CardHeader title="Interviews" description="15-minute slots. An interviewer is never booked twice for the same time." icon={Users} />
-            <DataList label="Interviews" rows={slotRows} minWidth={720}
-              columns={[{ key: "s", label: "Slot", nowrap: true }, { key: "a", label: "Applicant" }, { key: "w", label: "Interviewer" }, { key: "o", label: "Outcome" }]}
+            <DataList caption="Interviews" rows={slotRows} minWidth={720}
+              {...rowList([{ key: "s", label: "Slot", nowrap: true }, { key: "a", label: "Applicant" }, { key: "w", label: "Interviewer" }, { key: "o", label: "Outcome" }])}
+              footer={<p className="px-4 py-3 border-t border-line text-[13px] text-ink3">{slotRows.length} {slotRows.length === 1 ? "interview" : "interviews"}</p>}
               empty={filtered
                 ? <EmptyState bare Icon={SearchX} title="No interviews in these dates">Try another date range.</EmptyState>
                 : <EmptyState bare Icon={Users} title="No interviews booked">Book a 15-minute slot with an interviewer for each applicant.</EmptyState>} />

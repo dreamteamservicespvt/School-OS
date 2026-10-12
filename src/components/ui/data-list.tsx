@@ -5,7 +5,7 @@
 
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
-import { ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cx } from "./cx";
 import { Avatar } from "./avatar";
 import { TONE_SOFT, type Tone } from "./blocks";
@@ -38,7 +38,7 @@ export const tickCls = "peer size-5 shrink-0 cursor-pointer appearance-none roun
 
 export type ListSelect<Row> = { form: string; label: (row: Row) => string; value: (row: Row) => string; allLabel?: string };
 
-export function DataList<Row>({ rows, columns, rowKey, rowHref, rowLabel, mobile, empty, select, selectOnPhone, footer, minWidth = 640, bp = "lg", caption, rowClass }: {
+export function DataList<Row>({ rows, columns, rowKey, rowHref, rowLabel, mobile, empty, select, selectOnPhone, footer, minWidth = 640, bp = "lg", caption, rowClass, scroll }: {
   rows: Row[];
   columns: DataColumn<Row>[];
   rowKey: (row: Row) => string;
@@ -55,6 +55,8 @@ export function DataList<Row>({ rows, columns, rowKey, rowHref, rowLabel, mobile
   bp?: "md" | "lg";
   caption: string;
   rowClass?: (row: Row) => string | undefined;
+  /** false keeps the page where it is when a row opens (a side panel kept in the address, ?id=). */
+  scroll?: boolean;
 }) {
   if (!rows.length) return <>{empty}</>;
   const tick = (r: Row) => select ? (
@@ -90,7 +92,7 @@ export function DataList<Row>({ rows, columns, rowKey, rowHref, rowLabel, mobile
                   ))}
                   {href && (
                     <td className="pr-3 w-10">
-                      <Link href={href} aria-label={rowLabel?.(r) ?? "Open"} className="after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-brand">
+                      <Link href={href} scroll={scroll} aria-label={rowLabel?.(r) ?? "Open"} className="after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-brand">
                         <ChevronRight size={18} className="text-ink3 opacity-0 group-hover:opacity-100 transition" aria-hidden="true" />
                       </Link>
                     </td>
@@ -112,7 +114,7 @@ export function DataList<Row>({ rows, columns, rowKey, rowHref, rowLabel, mobile
               <div className="min-w-0 flex-1">
                 <p className="font-semibold text-[15px] truncate">{m.title}</p>
                 {m.sub && <p className="text-[13px] text-ink3 truncate">{m.sub}</p>}
-                {m.pills && m.pills.length > 0 && <div className="flex gap-1.5 mt-1.5 flex-wrap">{m.pills}</div>}
+                {m.pills && m.pills.filter(Boolean).length > 0 && <div className="flex gap-1.5 mt-1.5 flex-wrap">{m.pills}</div>}
               </div>
               {m.right && <div className="text-right shrink-0">{m.right}</div>}
               {href && <ChevronRight size={18} className="text-ink3 shrink-0" aria-hidden="true" />}
@@ -122,7 +124,7 @@ export function DataList<Row>({ rows, columns, rowKey, rowHref, rowLabel, mobile
             <li key={rowKey(r)} className="relative flex items-center has-[:checked]:bg-brand/5">
               {select && selectOnPhone && <span className="pl-4 grid place-items-center">{tick(r)}</span>}
               {href
-                ? <Link href={href} className="w-full min-w-0 flex items-center gap-3 px-4 py-3 text-left active:bg-sunken">{body}</Link>
+                ? <Link href={href} scroll={scroll} className="w-full min-w-0 flex items-center gap-3 px-4 py-3 text-left active:bg-sunken">{body}</Link>
                 : <div className="w-full min-w-0 flex items-center gap-3 px-4 py-3">{body}</div>}
             </li>
           );
@@ -135,3 +137,23 @@ export function DataList<Row>({ rows, columns, rowKey, rowHref, rowLabel, mobile
 
 /** A small pill size used on phone cards. */
 export const cardPill = "!h-[22px] !text-[11.5px]";
+
+/** A list footer with page links: "Showing 1 to 25 of 140", Previous and Next, kept in the page address (P1). */
+export function Pager({ page, pageSize, total, prevHref, nextHref, scroll }: { page: number; pageSize: number; total: number; prevHref: string; nextHref: string; scroll?: boolean }) {
+  const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const to = Math.min(total, page * pageSize);
+  const pages = Math.max(1, Math.ceil(total / pageSize));
+  const btn = "grid size-9 place-items-center rounded-lg border border-line text-ink2 hover:bg-sunken";
+  return (
+    <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-line text-[13px] text-ink3 flex-wrap">
+      <span className="tnum" aria-live="polite">Showing {from}{to > from ? ` to ${to}` : ""} of {total.toLocaleString("en-IN")}</span>
+      {pages > 1 && (
+        <nav aria-label="Pages" className="flex items-center gap-1.5">
+          {page > 1 && <Link href={prevHref} scroll={scroll} aria-label="Previous page" className={btn}><ChevronLeft size={17} aria-hidden="true" /></Link>}
+          <span className="tnum px-1">Page {page} of {pages}</span>
+          {page < pages && <Link href={nextHref} scroll={scroll} aria-label="Next page" className={btn}><ChevronRight size={17} aria-hidden="true" /></Link>}
+        </nav>
+      )}
+    </div>
+  );
+}

@@ -19,7 +19,8 @@ import { Pill } from "@/components/ui/badge";
 import { Chips } from "@/components/ui/chips";
 import { Stats } from "@/components/ui/stats";
 import { Avatar } from "@/components/ui/avatar";
-import { DataList, Pager, type ListRow } from "@/app/(school)/admission-management/_components/data-list";
+import { DataList, Pager } from "@/components/ui/data-list";
+import { rowList, type ListRow } from "../_components/list-rows";
 import { ExportMenu, UrlSearch, UrlSegmented, UrlSelect } from "@/components/ui/url-filters";
 import { PeriodFilter } from "@/components/list/period-filter";
 import { EmptyState } from "@/components/empty-state";
@@ -173,7 +174,7 @@ export default async function ApplicationsPage({ searchParams }: Search) {
               {settings.onlineOn && <UrlSelect param="channel" label="Filled" allLabel="Counter and online" options={[{ value: "counter", label: "At the counter" }, { value: "online", label: "Online" }]} className="md:w-44" />}
             </div>
           </div>
-          <DataList label="Applications" columns={columns} rows={listRows} minWidth={1000}
+          <DataList caption="Applications" {...rowList(columns)} rows={listRows} minWidth={1000}
             empty={filtered ? (
               <EmptyState bare Icon={SearchX} title="No applications match" action={<ButtonLink href={PATH} variant="secondary">Clear filters</ButtonLink>}>
                 {params.q ? `Nobody called “${params.q}”. Try the application number or phone.` : "Try another stage, class or fee filter."}

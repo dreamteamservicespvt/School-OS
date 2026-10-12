@@ -15,7 +15,7 @@ import { ParamSelect, ViewSwitch } from "../../academic-management/_components/p
 import { examPage, one, sectionOptions, withYear, type SearchParams } from "../_lib/page";
 import { NoYear, PageTop } from "../_components/page-top";
 import { CancelScheduleButton, PublishButton, UnpublishButton } from "./results-ui";
-import { LockExamButton } from "../marks-entry/marks-ui";
+import { LockExamButton } from "../marks/marks-ui";
 
 export const metadata: Metadata = { title: "Results" };
 const PATH = "/examination-results/results";
@@ -30,7 +30,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
   const raw = await searchParams;
   const page = await examPage(raw);
   if (!page.scope.results) redirect("/examination-results/datesheet");
-  if (!page.year) return (<><PageTop page={page} title="Results" href={PATH} /><NoYear /></>);
+  if (!page.year) return (<><PageTop page={page} href={PATH} /><NoYear /></>);
   const year = page.year;
   const view = one(raw.view) === "final" ? "final" : "exam";
   const tz = page.current.school.timeZone;
@@ -39,7 +39,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
   const views = [{ value: "exam", label: "Exam results" }, { value: "final", label: "Final result" }];
   const top = (extra?: React.ReactNode) => (
     <>
-      <PageTop page={page} title="Results" href={PATH}>
+      <PageTop page={page} href={PATH}>
         {page.scope.manage && <Link href={withYear(`${PATH}/moderation`, page)} className="inline-flex min-h-11 items-center px-2 font-medium text-brand-text hover:underline">Moderation report</Link>}
         {extra}
       </PageTop>

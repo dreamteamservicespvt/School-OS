@@ -15,13 +15,13 @@ import { NoYear, PageTop } from "../_components/page-top";
 import { LockExamButton } from "./marks-ui";
 
 export const metadata: Metadata = { title: "Marks Entry" };
-const PATH = "/examination-results/marks-entry";
+const PATH = "/examination-results/marks";
 
 export default async function MarksEntryPage({ searchParams }: { searchParams: SearchParams }) {
   const raw = await searchParams;
   const page = await examPage(raw);
   if (page.scope.office && !page.scope.manage) redirect("/examination-results/datesheet");
-  if (!page.year) return (<><PageTop page={page} title="Marks Entry" href={PATH} /><NoYear /></>);
+  if (!page.year) return (<><PageTop page={page} href={PATH} /><NoYear /></>);
   const year = page.year;
   const params = readListParams(raw, ["exam", "status", "year"]);
   const { rows, exams } = await withSchool(page.current.ctx, async (tx) => ({
@@ -49,7 +49,7 @@ export default async function MarksEntryPage({ searchParams }: { searchParams: S
 
   return (
     <>
-      <PageTop page={page} title="Marks Entry" href={PATH}>
+      <PageTop page={page} href={PATH}>
         {page.scope.manage && page.writable && params.filters.exam && <LockExamButton examId={params.filters.exam} title={exams.find((e) => e.id === params.filters.exam)?.title ?? "this exam"} />}
       </PageTop>
       {!page.scope.manage && <p className="-mt-3 mb-4 text-ink-2">Your papers: the subjects and sections given to you in Teacher Allocation.</p>}

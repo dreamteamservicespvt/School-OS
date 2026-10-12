@@ -48,8 +48,8 @@ export default async function PaperPage({ params, searchParams }: { params: Prom
 
   return (
     <>
-      <PageTop page={page} title={title} href={`/examination-results/marks-entry/${entryId}/${sectionId}`} showYear={false}>
-        <Link href={withYear("/examination-results/marks-entry", page)} className="inline-flex min-h-11 items-center px-2 font-medium text-brand-text hover:underline">All papers</Link>
+      <PageTop page={page} title={title} href={`/examination-results/marks/${entryId}/${sectionId}`} showYear={false} back={{ href: "/examination-results/marks", label: "Marks Entry" }}>
+        <Link href={withYear("/examination-results/marks", page)} className="inline-flex min-h-11 items-center px-2 font-medium text-brand-text hover:underline">All papers</Link>
         {page.scope.manage && page.writable && p.paper.status === "SUBMITTED" && <ReopenButton entryId={entryId} sectionId={sectionId} label={title} />}
         {page.scope.manage && page.writable && p.paper.status === "SUBMITTED" && <LockPaperButton entryId={entryId} sectionId={sectionId} label={title} />}
       </PageTop>

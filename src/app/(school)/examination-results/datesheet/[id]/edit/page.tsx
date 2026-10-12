@@ -16,7 +16,7 @@ export default async function EditDatesheetPage({ params, searchParams }: { para
   if (!data?.exam) notFound();
   return (
     <>
-      <PageTop page={page} title={`Change ${data.exam.title}`} href={`/examination-results/datesheet/${id}/edit`} showYear={false} />
+      <PageTop page={page} title={`Change ${data.exam.title}`} href={`/examination-results/datesheet/${id}/edit`} showYear={false} back={{ href: `/examination-results/datesheet/${id}`, label: data.exam.title }} />
       {data.exam.status !== "DRAFT" && !data.exam.locked && <p className="-mt-3 mb-5 text-ink-2">This datesheet is published. Changes show on the School Calendar, the Time Table and Parent Link straight away.</p>}
       <DatesheetForm data={data} />
     </>

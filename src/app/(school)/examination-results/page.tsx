@@ -8,5 +8,5 @@ import { examScope } from "@/lib/exams/scope";
 export default async function ExamHome() {
   const current = await requirePage("examination-results");
   const scope = await withSchool(current.ctx, async (tx) => examScope(tx, current, (await currentYear(tx, current.ctx, null))?.id ?? null));
-  redirect(!scope.manage && !scope.office && scope.teaches && scope.teaches.length > 0 ? "/examination-results/marks-entry" : "/examination-results/datesheet");
+  redirect(!scope.manage && !scope.office && scope.teaches && scope.teaches.length > 0 ? "/examination-results/marks" : "/examination-results/datesheet");
 }

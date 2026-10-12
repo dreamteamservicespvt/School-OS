@@ -87,7 +87,7 @@ export async function remindMarksDue(tx: Tx, ctx: SchoolContext, today: Date) {
         await notify(tx, ctx, {
           to: t.userLoginId!, type: "marks-due",
           text: `${e.exam.title}: ${subject.name} marks for ${s.schoolClass.name} ${s.name} are due today. ${done} of ${plural(sits.length, "student")} entered.`,
-          link: `/examination-results/marks-entry/${e.id}/${s.id}`,
+          link: `/examination-results/marks/${e.id}/${s.id}`,
           groupKey: `marks-due:${e.id}:${s.id}:${isoDay(today)}`,
         });
         told++;

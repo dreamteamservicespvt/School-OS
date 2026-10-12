@@ -21,7 +21,7 @@ export default async function AdmitCardsPage({ searchParams }: { searchParams: S
   const raw = await searchParams;
   const page = await examPage(raw);
   if (!page.scope.datesheets && !page.scope.manage) redirect("/examination-results");
-  if (!page.year) return (<><PageTop page={page} title="Admit Cards" href={PATH} /><NoYear /></>);
+  if (!page.year) return (<><PageTop page={page} href={PATH} /><NoYear /></>);
   const year = page.year;
   const examId = one(raw.exam);
   const data = await withSchool(page.current.ctx, async (tx) => {
@@ -46,7 +46,7 @@ export default async function AdmitCardsPage({ searchParams }: { searchParams: S
   if (!data.exam) {
     return (
       <>
-        <PageTop page={page} title="Admit Cards" href={PATH} />
+        <PageTop page={page} href={PATH} />
         {data.exams.length === 0 ? (
           <EmptyState title="No published datesheets">Admit cards are made from a published datesheet. Publish one on the Datesheet page first.</EmptyState>
         ) : (
@@ -79,7 +79,7 @@ export default async function AdmitCardsPage({ searchParams }: { searchParams: S
 
   return (
     <>
-      <PageTop page={page} title={`Admit Cards: ${exam.title}`} href={PATH} showYear={false}>
+      <PageTop page={page} href={PATH} sub={exam.title}>
         <Link href={withYear(PATH, page)} className="inline-flex min-h-11 items-center px-2 font-medium text-brand-text hover:underline">All exams</Link>
       </PageTop>
       <div className="mb-4 flex flex-wrap items-end gap-3">

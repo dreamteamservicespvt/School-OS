@@ -7,7 +7,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ChevronDown, Ellipsis, Search, X } from "lucide-react";
+import { ChevronDown, Download, Ellipsis, FileSpreadsheet, FileText, Search, Sheet, X } from "lucide-react";
 import { Button, Spinner } from "./button";
 import { inputCls } from "./field";
 import { cx } from "./cx";
@@ -152,5 +152,33 @@ export function SelectBar({ form, children }: { form: string; children: (ids: st
         </div>
       )}
     </form>
+  );
+}
+
+/** "Export": Excel, CSV or PDF of the list with the filters on screen (P8). `href` is the export address without a format. */
+export function ExportMenu({ href, className, label = "Export" }: { href: string; className?: string; label?: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent | KeyboardEvent) => {
+      if (e instanceof KeyboardEvent ? e.key === "Escape" : !ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", close);
+    return () => { document.removeEventListener("mousedown", close); document.removeEventListener("keydown", close); };
+  }, [open]);
+  const join = href.includes("?") ? "&" : "?";
+  return (
+    <div ref={ref} className={cx("relative shrink-0", className)}>
+      <Button variant="secondary" icon={Download} aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen(!open)} className="w-full">{label}</Button>
+      {open && (
+        <div role="menu" onClick={() => setOpen(false)} className="absolute right-0 top-11 z-40 w-56 bg-surface border border-line rounded-2xl shadow-pop p-1.5 animate-rise">
+          <a role="menuitem" download href={`${href}${join}format=xlsx`} className={itemCls()}><FileSpreadsheet size={17} className="text-ink3" aria-hidden="true" />Excel</a>
+          <a role="menuitem" download href={`${href}${join}format=csv`} className={itemCls()}><Sheet size={17} className="text-ink3" aria-hidden="true" />CSV</a>
+          <a role="menuitem" download href={`${href}${join}format=pdf`} className={itemCls()}><FileText size={17} className="text-ink3" aria-hidden="true" />PDF</a>
+        </div>
+      )}
+    </div>
   );
 }

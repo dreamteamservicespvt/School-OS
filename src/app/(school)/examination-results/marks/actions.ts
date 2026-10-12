@@ -40,14 +40,14 @@ export async function submitPaperAction(entryId: string, sectionId: string) {
   return actSimple("edit", async ({ tx, current, scope }) => {
     const p = await submitPaper(tx, current.ctx, scope, entryId, sectionId);
     return { flash: { message: `${p.subject.name} marks for ${p.section.label} submitted: ${plural(p.students.length, "student")}. A change now needs a moderation request.` } };
-  }, { needs: "any", revalidate: [`${BASE}/marks-entry`] });
+  }, { needs: "any", revalidate: [`${BASE}/marks`] });
 }
 
 export async function reopenPaperAction(_prev: FormState, fd: FormData): Promise<FormState> {
   return act("edit", async ({ tx, current, scope }) => {
     const p = await reopenPaper(tx, current.ctx, scope, str(fd, "entryId"), str(fd, "sectionId"), str(fd, "reason"));
     return { flash: { message: `${p.subject.name} marks for ${p.section.label} were sent back to the teacher.` } };
-  }, { formData: fd, needs: "manage", revalidate: [`${BASE}/marks-entry`] });
+  }, { formData: fd, needs: "manage", revalidate: [`${BASE}/marks`] });
 }
 
 export async function lockPaperAction(entryId: string, sectionId: string) {
@@ -60,7 +60,7 @@ export async function lockPaperAction(entryId: string, sectionId: string) {
     await tx.marksPaper.update({ where: { id: paper.id }, data: { status: "LOCKED", lockedAt: new Date(), lockedById: current.ctx.userId } });
     await writeAudit(tx, current.ctx, { action: "marks-locked", recordType: "Marks Paper", recordId: paper.id, before: { status: "SUBMITTED" }, after: { status: "LOCKED" } });
     return { flash: { message: "Marks locked. A change now needs a moderation request with approval." } };
-  }, { needs: "manage", revalidate: [`${BASE}/marks-entry`] });
+  }, { needs: "manage", revalidate: [`${BASE}/marks`] });
 }
 
 export async function lockExamAction(examId: string) {
@@ -78,7 +78,7 @@ export async function requestChangeAction(_prev: FormState, fd: FormData): Promi
     const r = await requestModeration(tx, current.ctx, scope, { entryId: str(fd, "entryId"), sectionId: str(fd, "sectionId"), studentId: str(fd, "studentId"), value, reason: str(fd, "reason") });
     void r;
     return { flash: { message: "Change requested. The marks change when it is approved; you will be told." } };
-  }, { formData: fd, needs: "any", revalidate: [`${BASE}/marks-entry`] });
+  }, { formData: fd, needs: "any", revalidate: [`${BASE}/marks`] });
 }
 
 export type ImportedRow = { studentId: string; name: string; parts: Record<string, number | null>; absent: boolean; grade: string | null };

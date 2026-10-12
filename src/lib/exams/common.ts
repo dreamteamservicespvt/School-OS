@@ -28,12 +28,12 @@ export function shownExamStatus(exam: { status: ExamStatus; startDate: Date; end
   return "Completed";
 }
 
-export const EXAM_STATUS_TONE: Record<ShownExamStatus, "neutral" | "brand" | "warning" | "success"> = {
+export const EXAM_STATUS_TONE: Record<ShownExamStatus, "neutral" | "brand" | "warn" | "info" | "ok"> = {
   Draft: "neutral",
   Published: "brand",
-  Ongoing: "warning",
-  Completed: "neutral",
-  "Results published": "success",
+  Ongoing: "warn",
+  Completed: "info",
+  "Results published": "ok",
 };
 
 export const PAPER_STATUS_WORDS: Record<MarksPaperStatus, string> = {
@@ -42,12 +42,27 @@ export const PAPER_STATUS_WORDS: Record<MarksPaperStatus, string> = {
   SUBMITTED: "Submitted",
   LOCKED: "Locked",
 };
-export const PAPER_STATUS_TONE: Record<MarksPaperStatus, "neutral" | "warning" | "brand" | "success"> = {
+export const PAPER_STATUS_TONE: Record<MarksPaperStatus, "neutral" | "warn" | "brand" | "ok"> = {
   NOT_STARTED: "neutral",
-  IN_PROGRESS: "warning",
+  IN_PROGRESS: "warn",
   SUBMITTED: "brand",
-  LOCKED: "success",
+  LOCKED: "ok",
 };
+
+/** "Mon 12-10-2026": the weekday with the date, for schedules. */
+export function dayDate(d: Date) {
+  const wd = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getUTCDay()];
+  return `${wd} ${String(d.getUTCDate()).padStart(2, "0")}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${d.getUTCFullYear()}`;
+}
+
+/** "Classes 6–10", "Class 10" or "Nursery, LKG" from class names in order. */
+export function classRange(names: string[]) {
+  if (names.length === 0) return "No classes";
+  if (names.length === 1) return names[0];
+  const nums = names.map((n) => /^Class (\d+)$/.exec(n)?.[1]).map((x) => (x ? Number(x) : null));
+  if (nums.every((x) => x !== null) && nums.every((x, i) => i === 0 || x === nums[i - 1]! + 1)) return `Classes ${nums[0]}–${nums.at(-1)}`;
+  return names.length > 3 ? `${names[0]} to ${names.at(-1)} (${names.length} classes)` : names.join(", ");
+}
 
 export const REPORT_STATUS_WORDS: Record<ReportCardStatus, string> = { NOT_READY: "Not ready", READY: "Ready", PRINTED: "Printed", SENT: "Sent" };
 

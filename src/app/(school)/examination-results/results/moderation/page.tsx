@@ -29,7 +29,7 @@ export default async function ModerationPage({ searchParams }: { searchParams: S
   const raw = await searchParams;
   const page = await examPage(raw);
   if (!page.scope.manage) redirect("/examination-results/results");
-  if (!page.year) return (<><PageTop page={page} title="Moderation report" href={PATH} /><NoYear /></>);
+  if (!page.year) return (<><PageTop page={page} title="Moderation report" back={{ href: "/examination-results/results", label: "Results" }} href={PATH} /><NoYear /></>);
   const year = page.year;
   const params = readListParams(raw, ["exam", "status", "year"]);
   const { all, exams } = await withSchool(page.current.ctx, async (tx) => ({
@@ -59,7 +59,7 @@ export default async function ModerationPage({ searchParams }: { searchParams: S
 
   return (
     <>
-      <PageTop page={page} title="Moderation report" href={PATH}>
+      <PageTop page={page} title="Moderation report" back={{ href: "/examination-results/results", label: "Results" }} href={PATH}>
         <Link href={withYear("/examination-results/results", page)} className="inline-flex min-h-11 items-center px-2 font-medium text-brand-text hover:underline">Back to Results</Link>
       </PageTop>
       <p className="-mt-3 mb-4 text-ink-2">Every change asked for after marks were submitted or locked, with the old and new marks, the reason and who decided. {waiting > 0 && <>{waiting} waiting: decide them in <Link href="/approvals" className="font-medium text-brand-text underline">Approvals</Link>.</>}</p>

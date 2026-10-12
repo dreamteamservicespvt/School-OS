@@ -162,7 +162,7 @@ export async function reopenPaper(tx: Tx, ctx: SchoolContext, scope: ExamScope, 
   const teachers = await tx.teacherAllocation.findMany({ where: { sectionId, subjectId: paper.subject.id, archivedAt: null }, select: { staffId: true } });
   const logins = await tx.staff.findMany({ where: { id: { in: teachers.map((t) => t.staffId) }, userLoginId: { not: null } }, select: { userLoginId: true } });
   for (const l of logins) {
-    await notify(tx, ctx, { to: l.userLoginId!, type: "marks-returned", text: `${paper.subject.name} marks for ${paper.section.label} (${paper.exam.title}) were sent back to you: ${reason.trim()}`, link: `/examination-results/marks-entry/${entryId}/${sectionId}` });
+    await notify(tx, ctx, { to: l.userLoginId!, type: "marks-returned", text: `${paper.subject.name} marks for ${paper.section.label} (${paper.exam.title}) were sent back to you: ${reason.trim()}`, link: `/examination-results/marks/${entryId}/${sectionId}` });
   }
   await writeAudit(tx, ctx, { action: "marks-returned", recordType: "Marks Paper", recordId: paper.paper.id, before: { status: "SUBMITTED" }, after: { status: "IN_PROGRESS", reason: reason.trim() } });
   return paper;

@@ -100,6 +100,18 @@ export async function saveCategoriesAction(_prev: FormState, fd: FormData): Prom
   }, { formData: fd, needs: "datesheets" });
 }
 
+/** For the categories sheet: returns a message when it failed. */
+export async function saveCategoriesForm(fd: FormData) {
+  const state = await saveCategoriesAction(null, fd);
+  return state?.ok ? undefined : state?.message ?? "That did not work. Please try again.";
+}
+
+/** For the seat plan sheet: returns a message when it failed. */
+export async function makeSeatingForm(fd: FormData) {
+  const state = await makeSeatingAction(null, fd);
+  return state?.ok ? undefined : state?.message ?? "That did not work. Please try again.";
+}
+
 export async function makeSeatingAction(_prev: FormState, fd: FormData): Promise<FormState> {
   return act("edit", async ({ tx, current }) => {
     const names = fd.getAll("roomName").map(String);

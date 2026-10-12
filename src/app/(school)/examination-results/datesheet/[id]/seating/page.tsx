@@ -33,7 +33,7 @@ export default async function SeatingPage({ params, searchParams }: { params: Pr
   const can = page.scope.datesheets && page.writable && d.exam.status !== "DRAFT";
   return (
     <>
-      <PageTop page={page} title={`Seating: ${d.exam.title}`} href={`/examination-results/datesheet/${id}/seating`} showYear={false}>
+      <PageTop page={page} title={`Seating: ${d.exam.title}`} href={`/examination-results/datesheet/${id}/seating`} showYear={false} back={{ href: `/examination-results/datesheet/${id}`, label: d.exam.title }}>
         <Link href={withYear(`/examination-results/datesheet/${id}`, page)} className="inline-flex min-h-11 items-center px-2 font-medium text-brand-text hover:underline">Back to datesheet</Link>
         {can && list.length > 0 && <SeatingButton examId={id} sittings={list.map((s) => ({ key: s.key, label: s.label, classes: s.classes }))} rooms={data.rooms} />}
       </PageTop>

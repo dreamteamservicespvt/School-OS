@@ -294,7 +294,7 @@ export async function runPublication(tx: Tx, ctx: SchoolContext, publicationId: 
       await tx.marksPaper.updateMany({ where: { entryId: { in: entries.map((e) => e.id) }, sectionId, status: { not: "LOCKED" } }, data: { status: "LOCKED", lockedAt: now, lockedById: pub.createdById } });
     }
   }
-  if (isExam) await refreshExamStatus(tx, pub.key.slice(5));
+  if (isExam) await refreshExamStatus(tx, pub.key.slice(5), now);
   await refreshReportCards(tx, ctx, pub.academicYearId, pub.sectionIds);
 
   let parents = 0;
@@ -312,14 +312,14 @@ export async function runPublication(tx: Tx, ctx: SchoolContext, publicationId: 
 }
 
 /** Exam status follows its results: Results published when every section is published. */
-export async function refreshExamStatus(tx: Tx, examId: string) {
+export async function refreshExamStatus(tx: Tx, examId: string, now = new Date()) {
   const exam = await tx.exam.findFirst({ where: { id: examId } });
   if (!exam || exam.status === "DRAFT") return;
   const sections = await tx.section.findMany({ where: { classId: { in: exam.classIds }, academicYearId: exam.academicYearId, archivedAt: null }, select: { id: true } });
   const published = await tx.result.groupBy({ by: ["sectionId"], where: { key: examKey(examId), status: "PUBLISHED" } });
   const all = sections.length > 0 && sections.every((s) => published.some((p) => p.sectionId === s.id));
   const status = all ? "RESULTS_PUBLISHED" : "PUBLISHED";
-  if (exam.status !== status) await tx.exam.update({ where: { id: examId }, data: { status, resultsPublishedAt: all ? new Date() : null } });
+  if (exam.status !== status) await tx.exam.update({ where: { id: examId }, data: { status, resultsPublishedAt: all ? now : null } });
 }
 
 /** Takes a result back to draft (permitted people, with a reason). Parents are not messaged again; the report card leaves Parent Link. */

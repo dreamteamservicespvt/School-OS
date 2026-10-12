@@ -4,8 +4,9 @@ import * as I from './icons.js';
 import { STUDENTS, inr } from './data.js';
 import { cx, Card, CardHead, Button, Pill, Avatar, Input, Field, Segmented, Empty, Sheet, Switch, useToast } from './ui.jsx';
 import { useNav, useRole } from './shell.jsx';
+import { inMenu, pagesFor } from './config.js';
 import {
-  ModuleHead, useCanEdit, Stats, Band, SearchBox, Toolbar, Select, Textarea, Chips, DataList, SettingRow, SettingsCard,
+  DatePeriod, PERIODS, fmtRange, periodDays, CalendarMonth, schoolDay, sampleMark, ModuleHead, useCanEdit, Stats, Band, SearchBox, Toolbar, Select, Textarea, Chips, DataList, SettingRow, SettingsCard,
   Banner, Suggestion, Progress, HBars, Bars, Legend, DL, MoreMenu, FormSheet, ConfirmSheet, Split, Col, ExportButton,
 } from './kit.jsx';
 
@@ -34,6 +35,9 @@ function parseT(s) {
   if (!m || +m[1] < 1 || +m[1] > 12 || +(m[2] || 0) > 59) return null;
   return ((+m[1] % 12) + (m[3].toUpperCase() === 'PM' ? 12 : 0)) * 60 + +(m[2] || 0);
 }
+// Day offsets as ISO dates, so lists can be filtered by a DatePeriod
+const isoOff = (off) => { const d = dt(off); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+const offIn = (per, off) => { const d = isoOff(off); return d >= per.from && d <= per.to; };
 const phoneOk = (s) => /^[6-9]\d{9}$/.test(String(s).replace(/\s/g, ''));
 const showPhone = (s) => String(s).replace(/\s/g, '').replace(/(\d{5})(\d{5})/, '$1 $2');
 
@@ -163,10 +167,10 @@ const VISITS0 = [
 const INC0 = [
   { id: 'HI/26/031', d: -1, t: 1312, type: 'Discipline', who: [rid('Yash Reddy')], what: 'Came back from an outing 2 hours 22 minutes after the return time (due 7:30 PM, back 9:52 PM).', action: 'Spoke to Yash and his father. Warning given. Added to the behaviour record.', by: 'Joseph Thomas', parent: true },
   { id: 'HI/26/030', d: -1, t: 1400, type: 'Medical', who: [rid('Rahul Verma')], what: 'Fever of 101°F at night, with a headache.', action: 'Nurse gave paracetamol. Moved to the sick room. Parents told at 7:10 AM.', by: 'Ravi Kumar', parent: true },
-  { id: 'HI/26/029', d: -1, t: 1120, type: 'Maintenance', who: [], where: 'Room B-21', what: 'Ceiling fan not working.', action: 'Maintenance request MR/26/0144 raised. Table fan given for tonight.', by: 'Joseph Thomas', parent: false },
+  { id: 'HI/26/029', d: -1, t: 1120, type: 'Maintenance', h: 'boys', who: [], where: 'Room B-21', what: 'Ceiling fan not working.', action: 'Maintenance request MR/26/0144 raised. Table fan given for tonight.', by: 'Joseph Thomas', parent: false },
   { id: 'HI/26/027', d: -4, t: 1350, type: 'Discipline', who: [], what: 'Mobile phone found under the pillow after lights-out.', action: 'Phone kept with the warden. Given to the parent on Sunday.', by: 'Joseph Thomas', parent: true },
   { id: 'HI/26/026', d: -6, t: 1090, type: 'Medical', who: [rid('Dhruv Patel')], what: 'Twisted ankle during evening football.', action: 'First aid. X-ray at Sai Clinic: no fracture. Rest for 3 days.', by: 'Ravi Kumar', parent: true },
-  { id: 'HI/26/025', d: -8, t: 450, type: 'Maintenance', who: [], where: 'First floor washroom, boys', what: 'Water leaking from the overhead tank pipe.', action: 'Plumber fixed it the next morning.', by: 'Ravi Kumar', parent: false },
+  { id: 'HI/26/025', d: -8, t: 450, type: 'Maintenance', h: 'boys', who: [], where: 'First floor washroom, boys', what: 'Water leaking from the overhead tank pipe.', action: 'Plumber fixed it the next morning.', by: 'Ravi Kumar', parent: false },
   { id: 'HI/26/024', d: -9, t: 1290, type: 'Medical', who: [rid('Diya Pillai')], what: 'Stomach ache after dinner.', action: 'Nurse checked her. ORS given. Fine by morning.', by: 'Mary Joseph', parent: false },
 ];
 // A resident with a phone incident needs a real name: use the first Class 9 boy in B-20
@@ -205,11 +209,23 @@ const lateBy = (min) => (min >= 60 ? `${Math.floor(min / 60)} h ${min % 60} min`
 const typeTone = { Discipline: 'warn', Medical: 'info', Maintenance: 'neutral' };
 const typeIcon = { Discipline: 'Gavel', Medical: 'Stethoscope', Maintenance: 'Wrench' };
 
+// Which hostels this person works in. A warden runs their own hostel only (05-roles.md: Student Management
+// Own = the boarders in their hostel); for the other hostel they see totals, never names. Principal, School Admin
+// and the Vice Principal see every hostel. Hostel fee dues are shown only to people who have Fee Management.
+function useScope(hostels = HOSTELS0) {
+  const { role } = useRole();
+  const mine = role.id === 'warden' ? (hostels.find((x) => x.wardens.includes(role.person?.name))?.id || 'boys') : null;
+  const sees = (h) => !mine || h === mine;
+  return { mine, sees, fees: !!role.access.fees, role, hostels: hostels.filter((x) => sees(x.id)) };
+}
+const incHostel = (x, R) => x.h || (x.who[0] && R[x.who[0]]?.h) || null;
+
 // Who decides a pass: the warden of the student's hostel, or the Principal and School Admin
 function useApprover() {
   const { role } = useRole();
   const canEdit = useCanEdit();
-  return (h) => canEdit && (role.id === 'principal' || role.id === 'schooladmin' || (role.id === 'warden' && h === 'boys'));
+  const { mine } = useScope(SHARED.hostels || HOSTELS0);
+  return (h) => canEdit && (role.id === 'principal' || role.id === 'schooladmin' || (role.id === 'warden' && h === mine));
 }
 const wardenOf = (h) => (h === 'girls' ? 'Mary Joseph' : 'Joseph Thomas');
 
@@ -258,6 +274,134 @@ function Summary({ icon = I.Info, children, tone = 'brand' }) {
   );
 }
 
+/* ======================= Month calendars (go back to earlier months) ======================= */
+const hsh = (k) => { let h = 0; for (let i = 0; i < k.length; i++) h = (h * 31 + k.charCodeAt(i)) >>> 0; return h % 100; };
+const isoYMD = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`;
+const longIso = (s) => { const m = /^(\d{1,2}) ([A-Z][a-z]{2}) (\d{4})$/.exec(String(s || '')); return m ? `${m[3]}-${pad(MON.indexOf(m[2]) + 1)}-${pad(+m[1])}` : isoOff(0); };
+// A hostel day: future, closed (summer holidays, before records) or a festival holiday when most boarders go home
+function hostelDay(y, m, d) {
+  const sd = schoolDay(y, m, d);
+  if (sd.kind === 'future') return { kind: 'future' };
+  if (sd.title === 'Summer holidays' || sd.title === 'Before records') return { kind: 'closed', title: sd.title === 'Summer holidays' ? 'Hostel closed for the summer' : 'Before records' };
+  if (sd.kind === 'holiday') return { kind: 'holiday', title: `${sd.title} · many boarders at home` };
+  return { kind: 'open' };
+}
+const CLOSED_CELL = { tone: 'muted' };
+
+// One boarder's roll call record: in at both roll calls, away on a pass, late back, or missing at a roll call
+function boarderDay(r, passes, y, m, d) {
+  const hd = hostelDay(y, m, d);
+  const iso = isoYMD(y, m, d);
+  if (hd.kind === 'future') return { kind: 'future' };
+  if (iso < longIso(r.checkin)) return { kind: 'closed', title: 'Not living in the hostel yet' };
+  if (r.left && iso > longIso(r.left.date)) return { kind: 'closed', title: 'Checked out' };
+  if (hd.kind !== 'open') return hd;
+  if (y === 2026 && m === 9) {
+    const off = d - 9;
+    const p = passes.find((x) => x.r === r.id && x.out && x.out.d <= off && (x.back ? x.back.d : 0) >= off);
+    if (p && p.late && p.back?.d === off) return { kind: 'late', title: `Back ${lateBy(p.late)} late from an outing with ${p.withName}` };
+    if (p) return { kind: 'away', title: `${p.type === 'Leave' ? 'On leave' : 'On an outing'} with ${p.withName}` };
+    return { kind: 'in', title: d === 9 ? 'In at morning roll call' : 'In at both roll calls' };
+  }
+  const h = hsh(`${r.id}|${iso}`);
+  return h < 6 ? { kind: 'away', title: 'Away on an approved pass' } : h < 8 ? { kind: 'late', title: 'Came back late from an outing' } : h === 8 ? { kind: 'missing', title: 'Missing at night roll call · incident written' } : { kind: 'in', title: 'In at both roll calls' };
+}
+const BOARDER_TONE = { in: 'ok', away: 'info', late: 'warn', missing: 'bad', holiday: 'info', closed: 'muted', future: 'muted' };
+function BoarderCalendar({ r, passes }) {
+  return (
+    <CalendarMonth id={`bc-${r.id}`} compact
+      cell={(y, m, d) => { const k = boarderDay(r, passes, y, m, d); return { tone: BOARDER_TONE[k.kind], title: k.title }; }}
+      footer={(y, m) => {
+        const t = { in: 0, away: 0, late: 0, missing: 0 };
+        for (let d = 1; d <= new Date(y, m + 1, 0).getDate(); d++) { const k = boarderDay(r, passes, y, m, d).kind; if (k in t) t[k]++; }
+        const nights = t.in + t.away + t.late + t.missing;
+        return nights === 0 ? <p className="text-[12.5px] text-ink3">Not living in the hostel in {MON[m]} {y}.</p> : (
+          <div className="flex flex-col gap-2">
+            <Legend items={[['bg-ok', `In ${t.in}`], ['bg-info', `Away on a pass ${t.away}`], ['bg-warn', `Late back ${t.late}`], ['bg-bad', `Missing ${t.missing}`]]} />
+            <p className="text-[12.5px] text-ink3 tnum">{MON[m]} {y}: {nights} hostel days · in at roll call on {Math.round(((t.in + t.late) / nights) * 100)}% of them</p>
+          </div>
+        );
+      }} />
+  );
+}
+
+// A boarder's details and roll call record, opened from the residents list or a bed
+function ResidentSheet({ r, onClose, hostels, passes }) {
+  if (!r) return null;
+  return (
+    <Sheet open={!!r} onClose={onClose} title={r.name} sub={`Class ${clsOf(r)} · Room ${r.room}, Bed ${r.bed} · ${hostelOf(hostels, r.h).name}`}>
+      <div className="flex flex-col gap-4">
+        <DL rows={[['Admission no.', r.adm], ['Checked in', r.checkin], ...(r.left ? [['Checked out', `${r.left.date} · ${r.left.reason}`]] : []), ['Can take the student out', r.auth.map((a) => `${a.name} (${a.rel.toLowerCase()})`).join(', ')]]} />
+        <div>
+          <p className="eyebrow text-ink3 mb-2">Roll call record</p>
+          <BoarderCalendar r={r} passes={passes} />
+        </div>
+      </div>
+    </Sheet>
+  );
+}
+
+// A hostel's roll calls by day: everyone in, a late return, or someone missing at night
+const RC_OCT = {
+  boys: { 3: ['bad', 'Night: 1 absent, found in the TV room at 9:45 PM · incident written'], 8: ['warn', 'Night: 2 late returns, Room B-12 and B-17, back 9:52 PM'] },
+  girls: {},
+};
+function rollDay(h, y, m, d) {
+  const hd = hostelDay(y, m, d);
+  if (hd.kind !== 'open') return hd;
+  if (y === 2026 && m === 9) {
+    const x = RC_OCT[h]?.[d];
+    if (x) return { kind: x[0] === 'bad' ? 'missing' : 'late', title: x[1] };
+    return { kind: 'in', title: d === 9 ? 'Morning: everyone in or on a pass · night roll call at 9:30 PM' : 'Both roll calls: everyone in or on a pass' };
+  }
+  const v = hsh(`rc-${h}|${isoYMD(y, m, d)}`);
+  return v < 3 ? { kind: 'missing', title: 'Night: 1 absent, found soon after · incident written' } : v < 9 ? { kind: 'late', title: 'Night: 1 late return from an outing' } : { kind: 'in', title: 'Both roll calls: everyone in or on a pass' };
+}
+function RollCallMonth({ h, name }) {
+  return (
+    <CalendarMonth id={`rcm-${h}`} key={h}
+      cell={(y, m, d) => { const k = rollDay(h, y, m, d); return { tone: BOARDER_TONE[k.kind], title: k.title }; }}
+      footer={(y, m) => {
+        const t = { in: 0, late: 0, missing: 0 }; let calls = 0;
+        for (let d = 1; d <= new Date(y, m + 1, 0).getDate(); d++) { const k = rollDay(h, y, m, d).kind; if (k in t) { t[k]++; calls += y === 2026 && m === 9 && d === 9 ? 1 : 2; } }
+        return calls === 0 ? <p className="text-[12.5px] text-ink3">The {name.toLowerCase()} was closed in {MON[m]} {y}.</p> : (
+          <div className="flex flex-col gap-2">
+            <Legend items={[['bg-ok', 'Everyone in'], ['bg-warn', 'Late return'], ['bg-bad', 'Missing at roll call'], ['bg-info', 'Holiday']]} />
+            <p className="text-[12.5px] text-ink3 tnum">{MON[m]} {y}: {calls} roll calls · {t.late} with a late return · {t.missing} with someone missing</p>
+          </div>
+        );
+      }} />
+  );
+}
+
+// Plates served in the mess each day, against the boarders expected
+const MESS_OCT = { 5: 488, 6: 490, 7: 486, 8: 479 };
+function messDay(y, m, d, perDay) {
+  const hd = hostelDay(y, m, d);
+  if (hd.kind === 'closed' || hd.kind === 'future') return hd;
+  const exp = hd.kind === 'holiday' ? Math.round(perDay * 0.4) : perDay;
+  if (y === 2026 && m === 9 && d === 9) return { kind: 'today', exp, n: 0, title: 'Today: counting through the day' };
+  const v = hsh(`mess|${isoYMD(y, m, d)}`);
+  const n = y === 2026 && m === 9 && MESS_OCT[d] ? MESS_OCT[d] : v < 8 ? exp - 12 - (v % 6) : exp - (v % 8);
+  return { kind: n < exp - 10 ? 'low' : 'ok', exp, n, title: `${n.toLocaleString('en-IN')} plates of ${exp.toLocaleString('en-IN')} expected${hd.kind === 'holiday' ? ` · ${hd.title}` : ''}` };
+}
+function MessMonth({ perDay }) {
+  return (
+    <CalendarMonth id="mess-cal" compact
+      cell={(y, m, d) => { const k = messDay(y, m, d, perDay); return { tone: k.kind === 'ok' ? 'ok' : k.kind === 'low' ? 'warn' : k.kind === 'today' ? 'brand' : 'muted', title: k.title }; }}
+      footer={(y, m) => {
+        let plates = 0, days = 0, low = 0;
+        for (let d = 1; d <= new Date(y, m + 1, 0).getDate(); d++) { const k = messDay(y, m, d, perDay); if (k.n) { plates += k.n; days++; if (k.kind === 'low') low++; } }
+        return days === 0 ? <p className="text-[12.5px] text-ink3">The mess was closed in {MON[m]} {y}.</p> : (
+          <div className="flex flex-col gap-2">
+            <Legend items={[['bg-ok', 'As expected'], ['bg-warn', '10 or more plates fewer']]} />
+            <p className="text-[12.5px] text-ink3 tnum">{MON[m]} {y}: {plates.toLocaleString('en-IN')} plates in {days} days · about {Math.round(plates / days)} a day{low ? ` · ${low} days with fewer plates` : ''}</p>
+          </div>
+        );
+      }} />
+  );
+}
+
 /* ======================= Rooms & Beds ======================= */
 function RoomsPage() {
   const toast = useToast();
@@ -267,10 +411,12 @@ function RoomsPage() {
   const [res, setRes] = useShared('res', RES0);
   const [blocked, setBlocked] = useShared('blocked', BLOCKED0);
   const [passes] = useShared('passes', PASSES0);
-  const [h, setH] = useState('boys');
+  const sc = useScope(hostels);
+  const [h, setH] = useState(sc.mine || 'boys');
   const [floor, setFloor] = useState('all');
   const [q, setQ] = useState('');
   const [bed, setBed] = useState(null);
+  const [rec, setRec] = useState(null);
   const [addRoom, setAddRoom] = useState(false);
   const [addHostel, setAddHostel] = useState(false);
   const [wardens, setWardens] = useState(false);
@@ -305,21 +451,22 @@ function RoomsPage() {
   };
   return (
     <div>
-      <ModuleHead sub="Every bed in both hostels. Tap a bed to give it, move a student or block it for repair."
+      <ModuleHead sub={sc.mine ? `Every bed in the ${H.name.toLowerCase()}. Tap a bed to give it, move a student or block it for repair.` : 'Every bed in both hostels. Tap a bed to give it, move a student or block it for repair.'}
         actions={<>
-          <MoreMenu items={[[I.Building2, 'Add a hostel', () => setAddHostel(true)], [I.Layers, `Add a floor to the ${H.name.toLowerCase()}`, addFloor], [I.UserCog, 'Wardens', () => setWardens(true)]]} />
+          {/* Adding a hostel and choosing wardens are for the Principal and School Admin, not a warden */}
+          <MoreMenu items={sc.mine ? [[I.Layers, `Add a floor to the ${H.name.toLowerCase()}`, addFloor]] : [[I.Building2, 'Add a hostel', () => setAddHostel(true)], [I.Layers, `Add a floor to the ${H.name.toLowerCase()}`, addFloor], [I.UserCog, 'Wardens', () => setWardens(true)]]} />
           <Button variant="primary" icon={I.Plus} onClick={() => setAddRoom(true)}>Add room</Button>
         </>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
         <Band items={[
           { label: 'Beds taken', big: <>{tot.taken}<span className="text-[0.55em] opacity-70 font-medium"> / {tot.beds}</span></>, foot: `${Math.round((tot.taken / tot.beds) * 100)}% full · both hostels` },
-          ...all.slice(0, 2).map((x) => ({ label: x.name, big: <>{x.c.taken}<span className="text-[0.55em] opacity-70 font-medium"> / {x.c.beds}</span></>, foot: `${x.c.free} free${x.c.blk ? ` · ${x.c.blk} blocked` : ''} · ${x.wardens.join(', ') || 'no warden yet'}`, onClick: () => { setH(x.id); setFloor('all'); } })),
+          ...all.slice(0, 2).map((x) => ({ label: x.name, big: <>{x.c.taken}<span className="text-[0.55em] opacity-70 font-medium"> / {x.c.beds}</span></>, foot: sc.sees(x.id) ? `${x.c.free} free${x.c.blk ? ` · ${x.c.blk} blocked` : ''} · ${x.wardens.join(', ') || 'no warden yet'}` : `${x.c.free} free · totals only`, onClick: sc.sees(x.id) ? () => { setH(x.id); setFloor('all'); } : undefined })),
           { label: 'Free beds', big: String(tot.free), foot: `${tot.blk} blocked for repair` },
         ]} />
 
         <Card className="overflow-hidden">
           <Toolbar className="@md:items-center">
-            <Segmented value={h} onChange={(v) => { setH(v); setFloor('all'); }} options={hostels.map((x) => ({ value: x.id, label: x.name }))} />
+            {sc.hostels.length > 1 && <Segmented value={h} onChange={(v) => { setH(v); setFloor('all'); }} options={sc.hostels.map((x) => ({ value: x.id, label: x.name }))} />}
             <SearchBox id="rb-q" value={q} onChange={setQ} placeholder="Find a room or a student" />
             <ExportButton what="bed list" />
           </Toolbar>
@@ -378,22 +525,24 @@ function RoomsPage() {
         </Card>
       </div>
 
-      <BedSheet x={bed} occ={occ} blocked={blocked} away={away} hostels={hostels} onClose={() => setBed(null)}
+      <BedSheet x={bed} occ={occ} blocked={blocked} away={away} hostels={hostels} onClose={() => setBed(null)} onRecord={(r) => { setBed(null); setRec(r); }}
         onAllocate={(k) => { setBed(null); setAlloc({ bed: k }); }} onMove={(r) => { setBed(null); setMove(r); }} onOut={(r) => { setBed(null); setOut(r); }}
         onBlock={(k, un) => { setBed(null); setBlockIt({ k, un }); }} />
       <AllocateSheet open={!!alloc} pre={alloc} onClose={() => setAlloc(null)} res={res} setRes={setRes} rooms={rooms} blocked={blocked} hostels={hostels} />
       <MoveSheet r={move} onClose={() => setMove(null)} res={res} setRes={setRes} rooms={rooms} blocked={blocked} />
       <CheckoutSheet r={out} onClose={() => setOut(null)} setRes={setRes} />
       <BlockSheet x={blockIt} onClose={() => setBlockIt(null)} blocked={blocked} setBlocked={setBlocked} />
-      <AddRoomSheet open={addRoom} onClose={() => setAddRoom(false)} hostels={hostels} rooms={rooms} setRooms={setRooms} h={h} />
+      <ResidentSheet r={rec} onClose={() => setRec(null)} hostels={hostels} passes={passes} />
+      <AddRoomSheet open={addRoom} onClose={() => setAddRoom(false)} hostels={sc.hostels} rooms={rooms} setRooms={setRooms} h={h} />
       <AddHostelSheet open={addHostel} onClose={() => setAddHostel(false)} hostels={hostels} setHostels={setHostels} onDone={(id) => setH(id)} />
       <WardensSheet open={wardens} onClose={() => setWardens(false)} hostels={hostels} setHostels={setHostels} />
     </div>
   );
 }
 
-function BedSheet({ x, occ, blocked, away, hostels, onClose, onAllocate, onMove, onOut, onBlock }) {
+function BedSheet({ x, occ, blocked, away, hostels, onClose, onAllocate, onMove, onOut, onBlock, onRecord }) {
   const canEdit = useCanEdit();
+  const sc = useScope(hostels);
   const toast = useToast();
   if (!x) return null;
   const k = `${x.rm.id}/${x.b}`; const r = occ[k]; const bl = blocked[k]; const aw = r && away[r.id];
@@ -409,11 +558,12 @@ function BedSheet({ x, occ, blocked, away, hostels, onClose, onAllocate, onMove,
               <p className="text-[13px] text-ink3">Class {clsOf(r)} · <span className="font-mono text-[12px]">{r.adm}</span></p>
               <div className="flex gap-1.5 mt-1.5 flex-wrap">
                 {aw ? <Pill tone={isLate(aw) ? 'bad' : 'info'} className="!h-[22px] !text-[11.5px]">{isLate(aw) ? `Not back · due ${fmtT(aw.to.t)}` : `${aw.type === 'Leave' ? 'On leave' : 'On outing'} till ${when(aw.to)}`}</Pill> : <Pill tone="ok" className="!h-[22px] !text-[11.5px]">In the hostel</Pill>}
-                {r.due > 0 && <Pill tone="warn" className="!h-[22px] !text-[11.5px]">{inr(r.due)} hostel fees due</Pill>}
+                {sc.fees && r.due > 0 && <Pill tone="warn" className="!h-[22px] !text-[11.5px]">{inr(r.due)} hostel fees due</Pill>}
               </div>
             </div>
           </div>
           <DL rows={[['Checked in', r.checkin], ['Fee plan', `${FEE_PLANS[r.plan].name} · ${inr(FEE_PLANS[r.plan].q)} a quarter`], ['Parents', r.auth.slice(0, 2).map((a) => a.name).join(', ')], ['Phone', r.auth[0].phone]]} />
+          <Button variant="secondary" icon={I.CalendarDays} className="self-start" onClick={() => onRecord(r)}>Roll call record</Button>
           {canEdit && (
             <div className="flex gap-2 flex-wrap">
               <Button variant="secondary" icon={I.ArrowRightLeft} onClick={() => onMove(r)}>Move to another bed</Button>
@@ -566,7 +716,11 @@ function AllocationPage() {
   const [res, setRes] = useShared('res', RES0);
   const [blocked] = useShared('blocked', BLOCKED0);
   const [passes] = useShared('passes', PASSES0);
-  const [waiting] = useShared('waiting', WAIT0);
+  const [waitAll] = useShared('waiting', WAIT0);
+  const sc = useScope(hostels);
+  const mineWho = sc.mine && hostelOf(hostels, sc.mine).who;
+  const waiting = mineWho ? waitAll.filter((w) => (w.girl ? 'Girls' : 'Boys') === mineWho) : waitAll;
+  const [rec, setRec] = useState(null);
   const [q, setQ] = useState('');
   const [h, setH] = useState('all');
   const [st, setSt] = useState('in');
@@ -577,34 +731,36 @@ function AllocationPage() {
   const away = awayMap(passes);
   const status = (r) => (r.left ? 'Checked out' : r.arriving ? 'Not arrived' : away[r.id] ? (away[r.id].type === 'Leave' ? 'On leave' : 'On outing') : 'Checked in');
   const stTone = { 'Checked in': 'ok', 'On outing': 'info', 'On leave': 'info', 'Checked out': 'neutral', 'Not arrived': 'warn' };
-  const live = res.filter((r) => !r.left);
+  const allLive = res.filter((r) => !r.left);
+  const mineRes = res.filter((r) => sc.sees(r.h));
+  const live = mineRes.filter((r) => !r.left);
   const occ = occupancy(res);
-  const freeBeds = rooms.reduce((a, rm) => a + Array.from({ length: rm.beds }, (_, i) => `${rm.id}/${i + 1}`).filter((k) => !occ[k] && !blocked[k]).length, 0);
+  const freeBeds = rooms.filter((rm) => sc.sees(rm.h)).reduce((a, rm) => a + Array.from({ length: rm.beds }, (_, i) => `${rm.id}/${i + 1}`).filter((k) => !occ[k] && !blocked[k]).length, 0);
   const t = q.trim().toLowerCase();
-  const rows = res.filter((r) => (h === 'all' || r.h === h) && (st === 'all' || (st === 'in' ? !r.left : st === 'away' ? !r.left && away[r.id] : r.left)) &&
+  const rows = mineRes.filter((r) => (h === 'all' || r.h === h) && (st === 'all' || (st === 'in' ? !r.left : st === 'away' ? !r.left && away[r.id] : r.left)) &&
     (!t || (r.name + r.adm + r.room).toLowerCase().includes(t))).sort(byRoom);
   const dueCount = live.filter((r) => r.due > 0).length;
   return (
     <div>
-      <ModuleHead sub="Who sleeps where. One bed per student; giving a bed adds the hostel fee."
+      <ModuleHead sub={sc.mine ? `Who sleeps where in the ${hostelOf(hostels, sc.mine).name.toLowerCase()}. One bed per student.` : 'Who sleeps where. One bed per student; giving a bed adds the hostel fee.'}
         actions={<Button variant="primary" icon={I.UserPlus} onClick={() => setAlloc({})}>Give a bed</Button>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
         <Stats items={[
-          { label: 'Residents', value: String(live.length), sub: hostels.slice(0, 2).map((x) => `${live.filter((r) => r.h === x.id).length} ${x.who.toLowerCase()}`).join(' · '), icon: I.Users, onClick: () => setSt('in') },
+          { label: sc.mine ? `Residents · ${hostelOf(hostels, sc.mine).who.toLowerCase()}` : 'Residents', value: String(live.length), sub: sc.mine ? `${allLive.length} in all hostels` : hostels.slice(0, 2).map((x) => `${live.filter((r) => r.h === x.id).length} ${x.who.toLowerCase()}`).join(' · '), icon: I.Users, onClick: () => setSt('in') },
           { label: 'Away now', value: String(live.filter((r) => away[r.id]).length), sub: 'On approved outing or leave', icon: I.DoorOpen, tone: 'info', onClick: () => setSt('away') },
-          { label: 'Free beds', value: String(freeBeds), sub: `${Object.keys(blocked).length} blocked for repair`, icon: I.BedDouble, tone: 'ok' },
-          { label: 'Hostel fees due', value: String(dueCount), sub: `${inr(live.reduce((a, r) => a + r.due, 0))} for Oct–Dec`, icon: I.IndianRupee, tone: 'warn' },
+          { label: 'Free beds', value: String(freeBeds), sub: `${Object.keys(blocked).filter((k) => sc.sees(rooms.find((rm) => rm.id === k.split('/')[0])?.h)).length} blocked for repair`, icon: I.BedDouble, tone: 'ok' },
+          ...(sc.fees ? [{ label: 'Hostel fees due', value: String(dueCount), sub: `${inr(live.reduce((a, r) => a + r.due, 0))} for Oct–Dec`, icon: I.IndianRupee, tone: 'warn' }] : []),
         ]} />
 
         <Split side={340} className="[&>*]:min-w-0">
           <Card className="overflow-hidden">
             <Toolbar>
               <SearchBox id="al-q" value={q} onChange={setQ} placeholder="Student, admission no. or room" />
-              <Select id="al-h" value={h} onChange={setH} className="@md:w-44" options={[{ value: 'all', label: 'Both hostels' }, ...hostels.map((x) => ({ value: x.id, label: x.name }))]} />
+              {sc.hostels.length > 1 && <Select id="al-h" value={h} onChange={setH} className="@md:w-44" options={[{ value: 'all', label: 'Both hostels' }, ...hostels.map((x) => ({ value: x.id, label: x.name }))]} />}
               <ExportButton what="residents list" />
             </Toolbar>
-            <div className="px-3 pt-3"><Segmented value={st} onChange={setSt} size="sm" options={[{ value: 'in', label: `Living here ${live.length}` }, { value: 'away', label: `Away ${live.filter((r) => away[r.id]).length}` }, { value: 'out', label: `Checked out ${res.length - live.length}` }, { value: 'all', label: 'All' }]} /></div>
-            <DataList rows={rows} minWidth={820}
+            <div className="px-3 pt-3"><Segmented value={st} onChange={setSt} size="sm" options={[{ value: 'in', label: `Living here ${live.length}` }, { value: 'away', label: `Away ${live.filter((r) => away[r.id]).length}` }, { value: 'out', label: `Checked out ${mineRes.length - live.length}` }, { value: 'all', label: 'All' }]} /></div>
+            <DataList rows={rows} minWidth={820} onRow={setRec}
               empty={<Empty icon={I.SearchX} title="No resident matches" body="Try the room number or admission number." action={<Button variant="secondary" onClick={() => { setQ(''); setH('all'); setSt('all'); }}>Clear filters</Button>} />}
               columns={[
                 { key: 'n', label: 'Student', render: (r) => <div className="flex items-center gap-3"><Avatar name={r.name} size={34} /><div className="min-w-0"><p className="font-semibold leading-tight">{r.name}</p><p className="text-[12px] text-ink3 font-mono">{r.adm}</p></div></div> },
@@ -612,16 +768,17 @@ function AllocationPage() {
                 { key: 'b', label: 'Room and bed', nowrap: true, render: (r) => <><p>Room {r.room} · Bed {r.bed}</p><p className="text-[12px] text-ink3">{hostelOf(hostels, r.h).name}</p></> },
                 { key: 'i', label: 'Check-in', nowrap: true, render: (r) => r.left ? <><p>{r.checkin}</p><p className="text-[12px] text-ink3">Out {r.left.date}</p></> : r.checkin },
                 { key: 's', label: 'Status', render: (r) => <><Pill tone={stTone[status(r)]}>{status(r)}</Pill>{away[r.id] && !r.left && <p className={cx('text-[12px] mt-0.5', isLate(away[r.id]) ? 'text-bad font-semibold' : 'text-ink3')}>{isLate(away[r.id]) ? `Not back · due ${fmtT(away[r.id].to.t)}` : `Back ${when(away[r.id].to)}`}</p>}{r.left && <p className="text-[12px] text-ink3 mt-0.5 max-w-[200px]">{r.left.reason}</p>}</> },
-                { key: 'f', label: 'Fees', nowrap: true, render: (r) => r.left ? <span className="text-ink3">Stopped</span> : r.due > 0 ? <Pill tone="warn">{inr(r.due)} due</Pill> : <Pill tone="ok" dot>Paid</Pill> },
-                { key: 'm', label: '', render: (r) => canEdit && !r.left && <MoreMenu size="sm" items={[
+                ...(sc.fees ? [{ key: 'f', label: 'Fees', nowrap: true, render: (r) => r.left ? <span className="text-ink3">Stopped</span> : r.due > 0 ? <Pill tone="warn">{inr(r.due)} due</Pill> : <Pill tone="ok" dot>Paid</Pill> }] : []),
+                { key: 'm', label: '', render: (r) => canEdit && !r.left && <div onClick={(e) => e.stopPropagation()}><MoreMenu size="sm" items={[
                   ...(r.arriving ? [[I.LogIn, 'Check in now', () => { setRes((x) => x.map((y) => (y.id === r.id ? { ...y, arriving: false, checkin: 'Today' } : y))); toast({ title: `${r.name} checked in`, body: `Room ${r.room}, Bed ${r.bed} · 10:42 AM`, undo: () => setRes((x) => x.map((y) => (y.id === r.id ? r : y))) }); }]] : []),
                   [I.ArrowRightLeft, 'Move to another bed', () => setMove(r)],
                   [I.History, 'Bed history', () => setHist(r)],
+                  [I.CalendarDays, 'Roll call record', () => setRec(r)],
                   [I.LogOut, 'Check out', () => setOut(r), 'bad'],
-                ]} /> },
+                ]} /></div> },
               ]}
-              mobile={(r) => ({ title: r.name, sub: `${clsOf(r)} · Room ${r.room}, Bed ${r.bed}`, avatar: r.name, pills: [<Pill key="s" tone={stTone[status(r)]} className="!h-[22px] !text-[11.5px]">{status(r)}</Pill>, ...(r.due > 0 && !r.left ? [<Pill key="f" tone="warn" className="!h-[22px] !text-[11.5px]">{inr(r.due)} due</Pill>] : [])], right: canEdit && !r.left ? <Button size="sm" variant="ghost" icon={I.ArrowRightLeft} aria-label="Move" onClick={() => setMove(r)} /> : null })}
-              footer={`Showing ${rows.length} · every move and check-out is kept in the bed history`} />
+              mobile={(r) => ({ title: r.name, sub: `${clsOf(r)} · Room ${r.room}, Bed ${r.bed}`, avatar: r.name, pills: [<Pill key="s" tone={stTone[status(r)]} className="!h-[22px] !text-[11.5px]">{status(r)}</Pill>, ...(sc.fees && r.due > 0 && !r.left ? [<Pill key="f" tone="warn" className="!h-[22px] !text-[11.5px]">{inr(r.due)} due</Pill>] : [])], right: canEdit && !r.left ? <span onClick={(e) => e.stopPropagation()}><Button size="sm" variant="ghost" icon={I.ArrowRightLeft} aria-label="Move" onClick={() => setMove(r)} /></span> : null })}
+              footer={`Showing ${rows.length} · tap a student for their roll call record · every move and check-out is kept`} />
           </Card>
 
           <Col>
@@ -652,6 +809,7 @@ function AllocationPage() {
       <AllocateSheet open={!!alloc} pre={alloc} onClose={() => setAlloc(null)} res={res} setRes={setRes} rooms={rooms} blocked={blocked} hostels={hostels} onMove={(r) => { setAlloc(null); setMove(r); }} />
       <MoveSheet r={move} onClose={() => setMove(null)} res={res} setRes={setRes} rooms={rooms} blocked={blocked} />
       <CheckoutSheet r={out} onClose={() => setOut(null)} setRes={setRes} />
+      <ResidentSheet r={rec} onClose={() => setRec(null)} hostels={hostels} passes={passes} />
       <Sheet open={!!hist} onClose={() => setHist(null)} title={hist ? `${hist.name} · bed history` : ''} sub="Kept for every resident, newest first">
         {hist && (
           <ol className="flex flex-col gap-2">
@@ -671,9 +829,16 @@ function AllocationPage() {
 }
 
 // Give a bed: student, hostel matched to gender, first free bed, check-in date, fee plan
-function AllocateSheet({ open, pre, onClose, res, setRes, rooms, blocked, hostels, onMove }) {
+function AllocateSheet({ open, pre, onClose, res, setRes, rooms, blocked, hostels: allHostels, onMove }) {
   const toast = useToast();
-  const [waiting, setWaiting] = useShared('waiting', WAIT0);
+  const [waitAll, setWaiting] = useShared('waiting', WAIT0);
+  // A warden gives beds only in their own hostel, to students on its waiting list or already living there.
+  // Day scholars come to the warden through the admission "hostel needed" waiting list, not a school-wide search.
+  const sc = useScope(allHostels);
+  const hostels = sc.hostels;
+  const mineWho = sc.mine && hostelOf(allHostels, sc.mine).who;
+  const okWho = (girl) => !mineWho || (girl ? 'Girls' : 'Boys') === mineWho;
+  const waiting = waitAll.filter((w) => okWho(w.girl));
   const [who, setWho] = useState(null);
   const [q, setQ] = useState('');
   const [h, setH] = useState('boys');
@@ -688,15 +853,15 @@ function AllocateSheet({ open, pre, onClose, res, setRes, rooms, blocked, hostel
     setQ(''); setTried(false); setDate(dinput(0)); setNow(true);
     const w = pre?.who || null; setWho(w);
     if (pre?.bed) { const rm = rooms.find((r) => r.id === pre.bed.split('/')[0]); setH(rm.h); setBed(pre.bed); }
-    else { const hid = w?.girl ? 'girls' : 'boys'; setH(hid); setBed(freeIn(hid)[0]?.k || ''); }
+    else { const hid = sc.mine || (w?.girl ? 'girls' : 'boys'); setH(hid); setBed(freeIn(hid)[0]?.k || ''); }
   }, [open]);
   const H = hostelOf(hostels, h);
   const free = freeIn(h);
   const t = q.trim().toLowerCase();
   const pool = [
     ...waiting.map((w) => ({ ...w, src: 'waiting' })),
-    ...res.filter((r) => !r.left).map((r) => ({ ...r, src: 'resident' })),
-    ...STUDENTS.filter((s) => ['5', '6', '7', '8', '9', '10'].includes(s.clsId) && !res.some((r) => r.name === s.name)).map((s) => ({ id: s.id, name: s.name, girl: s.girl, cls: s.clsId, sec: s.sec, adm: s.adm, src: 'day' })),
+    ...res.filter((r) => !r.left && sc.sees(r.h)).map((r) => ({ ...r, src: 'resident' })),
+    ...(sc.mine ? [] : STUDENTS.filter((s) => ['5', '6', '7', '8', '9', '10'].includes(s.clsId) && !res.some((r) => r.name === s.name)).map((s) => ({ id: s.id, name: s.name, girl: s.girl, cls: s.clsId, sec: s.sec, adm: s.adm, src: 'day' }))),
   ];
   const hits = t ? pool.filter((s) => (s.name + s.adm).toLowerCase().includes(t)).slice(0, 6) : [];
   const has = who && res.find((r) => !r.left && (r.id === who.id || r.name === who.name));
@@ -732,19 +897,19 @@ function AllocateSheet({ open, pre, onClose, res, setRes, rooms, blocked, hostel
           </div>
         ) : (
           <>
-            <SearchBox id="ga-q" value={q} onChange={setQ} placeholder="Name or admission no." />
+            <SearchBox id="ga-q" value={q} onChange={setQ} placeholder={sc.mine ? 'Name or admission no. of a student waiting for a bed' : 'Name or admission no.'} />
             {t && (
               <ul className="rounded-xl border border-line divide-y divide-line/70 overflow-hidden">
-                {hits.length === 0 && <li className="px-3.5 py-2.5 text-[13.5px] text-ink3">No student called “{q}” in Classes 5 to 10.</li>}
+                {hits.length === 0 && <li className="px-3.5 py-2.5 text-[13.5px] text-ink3">{sc.mine ? `No one called “${q}” on the waiting list or in the ${hostelOf(allHostels, sc.mine).name.toLowerCase()}.` : `No student called “${q}” in Classes 5 to 10.`}</li>}
                 {hits.map((s) => (
-                  <li key={s.src + s.id}><button type="button" onClick={() => { setWho(s); setQ(''); if (s.src !== 'resident') { const hid = s.girl ? 'girls' : 'boys'; if (!pre?.bed) { setH(hid); setBed(freeIn(hid)[0]?.k || ''); } } }} className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-sunken text-left">
+                  <li key={s.src + s.id}><button type="button" onClick={() => { setWho(s); setQ(''); if (s.src !== 'resident') { const hid = sc.mine || (s.girl ? 'girls' : 'boys'); if (!pre?.bed) { setH(hid); setBed(freeIn(hid)[0]?.k || ''); } } }} className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-sunken text-left">
                     <Avatar name={s.name} size={28} /><span className="font-semibold text-[14px] flex-1 truncate">{s.name}</span>
                     <span className="text-[12.5px] text-ink3 shrink-0">{s.cls} {s.sec} · {s.src === 'resident' ? `Room ${s.room}` : s.src === 'waiting' ? 'Waiting' : 'Day scholar'}</span>
                   </button></li>
                 ))}
               </ul>
             )}
-            {!t && waiting.length > 0 && <div className="flex flex-wrap gap-2">{waiting.map((w) => <button type="button" key={w.id} onClick={() => { setWho({ ...w, src: 'waiting' }); const hid = w.girl ? 'girls' : 'boys'; if (!pre?.bed) { setH(hid); setBed(freeIn(hid)[0]?.k || ''); } }} className="inline-flex items-center gap-2 h-9 pl-1 pr-3 rounded-full border border-line bg-surface hover:bg-sunken text-[13px] font-semibold"><Avatar name={w.name} size={26} />{w.name}<span className="text-ink3 font-normal">{w.cls} {w.sec}</span></button>)}</div>}
+            {!t && waiting.length > 0 && <div className="flex flex-wrap gap-2">{waiting.map((w) => <button type="button" key={w.id} onClick={() => { setWho({ ...w, src: 'waiting' }); const hid = sc.mine || (w.girl ? 'girls' : 'boys'); if (!pre?.bed) { setH(hid); setBed(freeIn(hid)[0]?.k || ''); } }} className="inline-flex items-center gap-2 h-9 pl-1 pr-3 rounded-full border border-line bg-surface hover:bg-sunken text-[13px] font-semibold"><Avatar name={w.name} size={26} />{w.name}<span className="text-ink3 font-normal">{w.cls} {w.sec}</span></button>)}</div>}
           </>
         )}
         {has && onMove && <Button type="button" size="sm" variant="secondary" icon={I.ArrowRightLeft} className="self-start" onClick={() => onMove(has)}>Move {has.first} instead</Button>}
@@ -800,6 +965,7 @@ function MoveSheet({ r, onClose, res, setRes, rooms, blocked }) {
 
 function CheckoutSheet({ r, onClose, setRes }) {
   const toast = useToast();
+  const sc = useScope();
   const [date, setDate] = useState(dinput(0));
   const [why, setWhy] = useState('');
   const [tried, setTried] = useState(false);
@@ -814,7 +980,7 @@ function CheckoutSheet({ r, onClose, setRes }) {
         toast({ title: `${r.name} checked out`, body: `Room ${r.room}, Bed ${r.bed} is free · fees stop from Jan–Mar`, undo: () => setRes((x) => x.map((y) => (y.id === r.id ? r : y))) });
         return true;
       }}>
-      {r?.due > 0 && <Banner tone="warn" title={`${inr(r.due)} hostel fees due.`}>You can still check out. The fees stay due and are cleared in Leaving & Alumni.</Banner>}
+      {sc.fees && r?.due > 0 && <Banner tone="warn" title={`${inr(r.due)} hostel fees due.`}>You can still check out. The fees stay due and are cleared in Leaving & Alumni.</Banner>}
       <Field label="Date" required id="co-date" error={err.date}><Input id="co-date" value={date} onChange={(e) => setDate(e.target.value)} error={!!err.date} className="tnum @md:w-48" /></Field>
       <Field label="Reason" required id="co-why" error={tried && err.why}><Textarea id="co-why" value={why} onChange={setWhy} rows={2} placeholder="Family moved closer to school; now a day scholar" /></Field>
     </FormSheet>
@@ -838,14 +1004,18 @@ function RollcallPage() {
   const [rooms] = useShared('rooms', ROOMS0);
   const [inc, setInc] = useShared('inc', INC0);
   const [form, setForm] = useState(null);
+  const sc = useScope(hostels);
+  const R = Object.fromEntries(res.map((r) => [r.id, r]));
+  const myInc = inc.filter((x) => { const h = incHostel(x, R); return !h || sc.sees(h); });
+  const myRes = res.filter((r) => sc.sees(r.h));
   return (
     <div>
       <ModuleHead sub="Morning and night roll call, and what happened in the hostel"
         actions={<Button variant={view === 'inc' ? 'primary' : 'secondary'} icon={I.NotebookPen} onClick={() => setForm({})}>Record incident</Button>} />
-      <Segmented value={view} onChange={setView} className="mb-5" options={[{ value: 'roll', label: 'Roll call', icon: I.ListChecks }, { value: 'inc', label: `Incidents ${inc.length}`, icon: I.NotebookPen }]} />
+      <Segmented value={view} onChange={setView} className="mb-5" options={[{ value: 'roll', label: 'Roll call', icon: I.ListChecks }, { value: 'inc', label: `Incidents ${myInc.length}`, icon: I.NotebookPen }]} />
       {view === 'roll' ? <RollCall res={res} passes={passes} hostels={hostels} rooms={rooms} onIncident={(pre) => setForm(pre)} />
-        : <Incidents inc={inc} setInc={setInc} res={res} onNew={(pre) => setForm(pre)} />}
-      <IncidentSheet pre={form} onClose={() => setForm(null)} res={res} onSave={(x) => { setInc((a) => [x, ...a]); setView('inc'); }} onUndo={(x) => setInc((a) => a.filter((y) => y !== x))} />
+        : <Incidents inc={myInc} setInc={setInc} res={res} onNew={(pre) => setForm(pre)} />}
+      <IncidentSheet pre={form} onClose={() => setForm(null)} res={myRes} mine={sc.mine} onSave={(x) => { setInc((a) => [x, ...a]); setView('inc'); }} onUndo={(x) => setInc((a) => a.filter((y) => y !== x))} />
     </div>
   );
 }
@@ -854,8 +1024,10 @@ function RollCall({ res, passes, hostels, rooms, onIncident }) {
   const toast = useToast();
   const canEdit = useCanEdit();
   const { role } = useRole();
-  const [h, setH] = useState('boys');
+  const sc = useScope(hostels);
+  const [h, setH] = useState(sc.mine || 'boys');
   const [ses, setSes] = useState('night');
+  const [per, setPer] = useState(PERIODS.last7);
   const [floor, setFloor] = useState('all');
   const [q, setQ] = useState('');
   const [book, setBook] = useShared('roll', {
@@ -890,7 +1062,7 @@ function RollCall({ res, passes, hostels, rooms, onIncident }) {
   return (
     <div className="pb-24 relative">
       <div className="flex flex-col @lg:flex-row gap-3 @lg:items-center mb-4">
-        <Segmented value={h} onChange={(v) => { setH(v); setFloor('all'); }} options={hostels.map((x) => ({ value: x.id, label: x.name }))} />
+        {sc.hostels.length > 1 && <Segmented value={h} onChange={(v) => { setH(v); setFloor('all'); }} options={sc.hostels.map((x) => ({ value: x.id, label: x.name }))} />}
         <Segmented value={ses} onChange={setSes} options={[{ value: 'morning', label: 'Morning · 6:30 AM', icon: I.Sunrise }, { value: 'night', label: 'Night · 9:30 PM', icon: I.Moon }]} />
       </div>
 
@@ -968,31 +1140,63 @@ function RollCall({ res, passes, hostels, rooms, onIncident }) {
         </div>
       )}
 
-      <Card className="mt-2">
-        <CardHead title="Recent roll calls" sub={H.name} icon={I.History} action={<ExportButton what="roll call register" />} />
-        <ul className="px-2 pb-2">
-          {(h === 'boys' ? [
-            ['Fri 9 Oct · Morning', '92 of 96 present', '4 away on approved leave or outing', 'ok'],
-            ['Thu 8 Oct · Night', '94 of 96 present', '2 late returns: Room B-12 and B-17, back 9:52 PM', 'warn'],
-            ['Thu 8 Oct · Morning', '96 of 96 present', 'Everyone in', 'ok'],
-            ['Wed 7 Oct · Night', '95 of 96 present', '1 on leave', 'ok'],
-            ['Sat 3 Oct · Night', '95 of 96 present', '1 absent, found in the TV room at 9:45 PM. Incident written.', 'bad'],
-          ] : [
-            ['Fri 9 Oct · Morning', '27 of 28 present', '1 on leave', 'ok'],
-            ['Thu 8 Oct · Night', '27 of 28 present', '1 on leave', 'ok'],
-            ['Wed 7 Oct · Night', '28 of 28 present', 'Everyone in', 'ok'],
-          ]).map(([k, a, b, tone]) => (
-            <li key={k} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sunken/60">
-              <span className={cx('w-9 h-9 rounded-xl grid place-items-center shrink-0', tone === 'ok' ? 'bg-ok/10 text-ok' : tone === 'warn' ? 'bg-warn/12 text-warn' : 'bg-bad/10 text-bad')}>{k.includes('Night') ? <I.Moon size={17} /> : <I.Sunrise size={17} />}</span>
-              <div className="min-w-0 flex-1"><p className="font-semibold text-[14px] truncate">{k} · {a}</p><p className="text-[12.5px] text-ink3 truncate">{b}</p></div>
-            </li>
-          ))}
-        </ul>
-      </Card>
+      <div className="mt-2 grid @xl:grid-cols-[minmax(0,1fr)_380px] gap-5 @lg:gap-6 items-start [&>*]:min-w-0">
+        <Card className="overflow-hidden">
+          <CardHead title="Roll call history" sub={H.name} icon={I.History} />
+          <Toolbar className="border-t">
+            <DatePeriod id="rc-per" value={per} onChange={setPer} className="w-full @md:w-auto" />
+            <ExportButton what="roll call register" />
+          </Toolbar>
+          <RollHistory h={h} per={per} n={people.length} awayNow={(counts.O || 0) + (counts.V || 0)} />
+        </Card>
+        <Card>
+          <CardHead title="Roll call by month" sub={`${H.name} · go back to earlier months`} icon={I.CalendarDays} />
+          <div className="px-5 pb-5"><RollCallMonth h={h} name={H.name} /></div>
+        </Card>
+      </div>
 
       <ConfirmSheet open={confirm} onClose={() => setConfirm(false)} title="Mark everyone present again?" sub="The absent marks you made will be cleared. Students on outings and leave stay as they are."
         confirmLabel="Mark all present" onConfirm={() => setBook((b) => ({ ...b, [key]: { abs: [], saved: null } }))} />
     </div>
+  );
+}
+
+// Every roll call in the chosen dates, newest first: night and morning for each day the hostel was open
+function RollHistory({ h, per, n, awayNow }) {
+  const [more, setMore] = useState(false);
+  const rows = [];
+  const start = new Date(Math.min(new Date(per.to + 'T00:00'), dt(0)));
+  for (let d = new Date(start); isoYMD(d.getFullYear(), d.getMonth(), d.getDate()) >= per.from && d >= new Date(2025, 5, 1); d.setDate(d.getDate() - 1)) {
+    const y = d.getFullYear(), m = d.getMonth(), day = d.getDate();
+    const k = rollDay(h, y, m, day);
+    if (k.kind === 'closed' || k.kind === 'future') continue;
+    const label = `${DAY[d.getDay()]} ${day} ${MON[m]}${y !== 2026 ? ` ${y}` : ''}`;
+    const away = k.kind === 'holiday' ? Math.round(n * 0.6) : hsh(`aw-${h}|${y}-${m}-${day}`) % 5;
+    const isToday = y === 2026 && m === 9 && day === 9;
+    const awayM = isToday ? awayNow : away;
+    if (!isToday) {
+      const tone = k.kind === 'missing' ? 'bad' : k.kind === 'late' ? 'warn' : 'ok';
+      rows.push({ key: `${y}-${m}-${day}-n`, night: true, tone, title: `${label} · Night`, a: `${n - away - (k.kind === 'missing' ? 1 : 0)} of ${n} present`, b: k.kind === 'in' || k.kind === 'holiday' ? (away ? `${away} away on approved passes${k.kind === 'holiday' ? ' for the holiday' : ''}` : 'Everyone in') : k.title.replace(/^Night: /, '') });
+    }
+    rows.push({ key: `${y}-${m}-${day}-m`, night: false, tone: 'ok', title: `${label} · Morning`, a: `${n - awayM} of ${n} present`, b: awayM ? `${awayM} away on approved passes` : 'Everyone in' });
+  }
+  if (!rows.length) return <Empty icon={I.CalendarX} title="No roll calls in these dates" body={`The hostel was closed between ${fmtRange(per)}, or the dates are in the future.`} />;
+  const shown = more ? rows.slice(0, 120) : rows.slice(0, 12);
+  return (
+    <>
+      <ul className="px-2 py-2">
+        {shown.map((x) => (
+          <li key={x.key} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sunken/60">
+            <span className={cx('w-9 h-9 rounded-xl grid place-items-center shrink-0', x.tone === 'ok' ? 'bg-ok/10 text-ok' : x.tone === 'warn' ? 'bg-warn/12 text-warn' : 'bg-bad/10 text-bad')}>{x.night ? <I.Moon size={17} /> : <I.Sunrise size={17} />}</span>
+            <div className="min-w-0 flex-1"><p className="font-semibold text-[14px] truncate">{x.title} · {x.a}</p><p className="text-[12.5px] text-ink3 truncate">{x.b}</p></div>
+          </li>
+        ))}
+      </ul>
+      <div className="px-5 py-3 border-t border-line flex items-center justify-between gap-3 text-[12.5px] text-ink3 tnum">
+        <span>{shown.length} of {rows.length} roll calls · {fmtRange(per)}</span>
+        {rows.length > 12 && <Button size="sm" variant="ghost" onClick={() => setMore(!more)}>{more ? 'Show fewer' : rows.length > 120 ? 'Show 120' : `Show all ${rows.length}`}</Button>}
+      </div>
+    </>
   );
 }
 
@@ -1002,9 +1206,14 @@ function Incidents({ inc, setInc, res, onNew }) {
   const [q, setQ] = useState('');
   const [type, setType] = useState('all');
   const [open, setOpen] = useState(null);
+  const [per, setPer] = useState(PERIODS.thismonth);
+  const { role } = useRole();
+  // The behaviour record lives in Student Management, Behaviour: only for people who have that page
+  const seesBehaviour = pagesFor('students', role.access.students, role.id).some((p) => p.id === 'behaviour');
   const R = Object.fromEntries(res.map((r) => [r.id, r]));
   const names = (x) => x.who.map((id) => R[id]?.name).filter(Boolean);
-  const rows = inc.filter((x) => (type === 'all' || x.type === type) && (!q || (names(x).join(' ') + x.what + (x.where || '')).toLowerCase().includes(q.toLowerCase())));
+  const inP = inc.filter((x) => offIn(per, x.d));
+  const rows = inP.filter((x) => (type === 'all' || x.type === type) && (!q || (names(x).join(' ') + x.what + (x.where || '')).toLowerCase().includes(q.toLowerCase())));
   const tejas = res.find((r) => r.name === 'Tejas Naidu');
   const hasTejas = inc.some((x) => x.who.includes(tejas?.id));
   return (
@@ -1016,19 +1225,20 @@ function Incidents({ inc, setInc, res, onNew }) {
         </Banner>
       )}
       <Stats items={[
-        { label: 'This month', value: String(inc.filter((x) => x.d >= -8).length), sub: 'Since 1 Oct', icon: I.NotebookPen },
-        { label: 'Discipline', value: String(inc.filter((x) => x.type === 'Discipline').length), sub: 'Added to behaviour records', icon: I.Gavel, tone: 'warn', onClick: () => setType('Discipline') },
-        { label: 'Medical', value: String(inc.filter((x) => x.type === 'Medical').length), sub: '1 in the sick room now', icon: I.Stethoscope, tone: 'info', onClick: () => setType('Medical') },
-        { label: 'Maintenance', value: String(inc.filter((x) => x.type === 'Maintenance').length), sub: '1 repair still open', icon: I.Wrench, onClick: () => setType('Maintenance') },
+        { label: per.label, value: String(inP.length), sub: fmtRange(per), icon: I.NotebookPen },
+        { label: 'Discipline', value: String(inP.filter((x) => x.type === 'Discipline').length), sub: 'Added to behaviour records', icon: I.Gavel, tone: 'warn', onClick: () => setType('Discipline') },
+        { label: 'Medical', value: String(inP.filter((x) => x.type === 'Medical').length), sub: '1 in the sick room now', icon: I.Stethoscope, tone: 'info', onClick: () => setType('Medical') },
+        { label: 'Maintenance', value: String(inP.filter((x) => x.type === 'Maintenance').length), sub: '1 repair still open', icon: I.Wrench, onClick: () => setType('Maintenance') },
       ]} />
       <Card className="overflow-hidden">
         <Toolbar>
           <SearchBox id="inc-q" value={q} onChange={setQ} placeholder="Student, room or what happened" />
-          <Segmented value={type} onChange={setType} options={[{ value: 'all', label: 'All' }, { value: 'Discipline', label: 'Discipline' }, { value: 'Medical', label: 'Medical' }, { value: 'Maintenance', label: 'Repair' }]} />
+          <DatePeriod id="inc-per" value={per} onChange={setPer} className="w-full @md:w-auto" />
           <ExportButton what="incident log" />
         </Toolbar>
+        <div className="px-3 pt-3"><Segmented value={type} onChange={setType} size="sm" options={[{ value: 'all', label: 'All' }, { value: 'Discipline', label: 'Discipline' }, { value: 'Medical', label: 'Medical' }, { value: 'Maintenance', label: 'Repair' }]} /></div>
         <DataList rows={rows} minWidth={900} onRow={setOpen}
-          empty={<Empty icon={I.CircleCheck} title="Nothing recorded" body="No incidents of this type. Good." />}
+          empty={<Empty icon={I.CircleCheck} title="Nothing recorded" body={`No incidents${type === 'all' ? '' : ' of this type'} between ${fmtRange(per)}.`} />}
           columns={[
             { key: 'd', label: 'When', nowrap: true, render: (x) => <><p>{dayWord(x.d)}</p><p className="text-[12px] text-ink3">{fmtT(x.t)}</p></> },
             { key: 'ty', label: 'Type', render: (x) => <Pill tone={typeTone[x.type]}>{x.type}</Pill> },
@@ -1038,17 +1248,17 @@ function Incidents({ inc, setInc, res, onNew }) {
             { key: 'b', label: 'Recorded by', nowrap: true, render: (x) => <><p>{x.by}</p>{x.parent && <p className="text-[12px] text-ink3">Parent told</p>}</> },
           ]}
           mobile={(x) => ({ title: names(x).join(', ') || x.where, sub: `${dayWord(x.d)}, ${fmtT(x.t)} · ${x.what}`, icon: typeIcon[x.type], iconTone: typeTone[x.type], pills: [<Pill key="t" tone={typeTone[x.type]} className="!h-[22px] !text-[11.5px]">{x.type}</Pill>] })}
-          footer={`Showing ${rows.length} of ${inc.length} · incidents are kept, never deleted`} />
+          footer={`Showing ${rows.length} · ${per.label.toLowerCase()} · ${fmtRange(per)} · incidents are kept, never deleted`} />
       </Card>
       <Sheet open={!!open} onClose={() => setOpen(null)} title={open ? `${open.type} · ${open.id}` : ''} sub={open ? `${dayWord(open.d)}, ${fmtT(open.t)} · recorded by ${open.by}` : ''}
-        footer={open && canEdit ? <><Button variant="ghost" icon={I.Printer} onClick={() => toast({ title: `Printing ${open.id}`, body: 'On the school letterhead' })}>Print</Button>{open.type === 'Discipline' && <Button variant="secondary" onClick={() => toast({ title: 'Opened in Student Management, Behaviour', tone: 'info' })}>Behaviour record</Button>}<Button variant="primary" onClick={() => setOpen(null)}>Done</Button></> : null}>
+        footer={open && canEdit ? <><Button variant="ghost" icon={I.Printer} onClick={() => toast({ title: `Printing ${open.id}`, body: 'On the school letterhead' })}>Print</Button>{open.type === 'Discipline' && seesBehaviour && <Button variant="secondary" onClick={() => toast({ title: 'Opened in Student Management, Behaviour', tone: 'info' })}>Behaviour record</Button>}<Button variant="primary" onClick={() => setOpen(null)}>Done</Button></> : null}>
         {open && <DL cols={1} rows={[['Who', names(open).join(', ') || 'No student'], ...(open.where ? [['Where', open.where]] : []), ['What happened', open.what], ['Action taken', open.action || 'Not written yet'], ['Parent told', open.parent ? 'Yes, on WhatsApp' : 'No']]} />}
       </Sheet>
     </div>
   );
 }
 
-function IncidentSheet({ pre, onClose, res, onSave, onUndo }) {
+function IncidentSheet({ pre, onClose, res, mine, onSave, onUndo }) {
   const toast = useToast();
   const { role } = useRole();
   const [f, setF] = useState({});
@@ -1074,7 +1284,7 @@ function IncidentSheet({ pre, onClose, res, onSave, onUndo }) {
     <FormSheet open={!!pre} onClose={onClose} title="Record an incident" sub="Kept in the hostel log. Staff only." submitLabel="Save incident" wide
       onSubmit={() => {
         setTried(true); if (bad) return false;
-        const x = { id: `HI/26/0${32 + Math.floor(Math.random() * 60)}`, d: dOff, t: tm, type: f.type, who: maint ? [] : f.who.map((s) => s.id), where: maint ? f.where.trim() : undefined, what: f.what.trim(), action: f.action.trim(), by: role.person?.name || 'Joseph Thomas', parent: !maint && f.parent };
+        const x = { id: `HI/26/0${32 + Math.floor(Math.random() * 60)}`, d: dOff, t: tm, type: f.type, who: maint ? [] : f.who.map((s) => s.id), where: maint ? f.where.trim() : undefined, h: maint ? mine || undefined : undefined, what: f.what.trim(), action: f.action.trim(), by: role.person?.name || 'Joseph Thomas', parent: !maint && f.parent };
         onSave(x);
         const bits = [];
         if (!maint && f.parent) bits.push(`${f.who.length === 1 ? 'parent' : 'parents'} told on WhatsApp`);
@@ -1111,8 +1321,18 @@ function OutingPage() {
   const approver = useApprover();
   const [view, setView] = useState('passes');
   const [res] = useShared('res', RES0);
-  const [passes, setPasses] = useShared('passes', PASSES0);
-  const [visits, setVisits] = useShared('visits', VISITS0);
+  const [hostels] = useShared('hostels', HOSTELS0);
+  const [allPasses, setPasses] = useShared('passes', PASSES0);
+  const [allVisits, setVisits] = useShared('visits', VISITS0);
+  const sc = useScope(hostels);
+  const RA = Object.fromEntries(res.map((r) => [r.id, r]));
+  // A warden sees passes and visitors of their own hostel only
+  const passes = allPasses.filter((p) => sc.sees(RA[p.r]?.h));
+  const myRes = res.filter((r) => sc.sees(r.h));
+  // Dates pick the pass history (returned and rejected). Passes that need attention always show.
+  const [per, setPer] = useState(PERIODS.last30);
+  const [vper, setVper] = useState(PERIODS.last30);
+  const visits = allVisits.filter((v) => sc.sees(RA[v.r]?.h) && offIn(vper, v.d));
   const [st, setSt] = useState('open');
   const [q, setQ] = useState('');
   const [newPass, setNewPass] = useState(false);
@@ -1133,7 +1353,8 @@ function OutingPage() {
     const b = upd(p, { status: 'Returned', back: { d: 0, t: NOW }, late: lateMin || undefined });
     toast({ title: `${R[p.r].first} is back at ${fmtT(NOW)}`, body: lateMin ? `${lateBy(lateMin)} late. Write an incident if needed.` : 'On time. Parent told.', undo: () => setPasses(b) });
   };
-  const rows = passes.filter((p) => { const s = shownStatus(p); return (st === 'all' || (st === 'open' ? ['Waiting', 'Approved', 'Out', 'Late'].includes(s) : st === 'Out' ? s === 'Out' || s === 'Late' : s === st)) && (!q || (R[p.r].name + p.withName + p.id + p.reason).toLowerCase().includes(q.toLowerCase())); })
+  const histIn = (p) => ['Waiting', 'Approved', 'Out', 'Late'].includes(shownStatus(p)) || offIn(per, p.from.d);
+  const rows = passes.filter((p) => { const s = shownStatus(p); return histIn(p) && (st === 'all' || (st === 'open' ? ['Waiting', 'Approved', 'Out', 'Late'].includes(s) : st === 'Out' ? s === 'Out' || s === 'Late' : s === st)) && (!q || (R[p.r].name + p.withName + p.id + p.reason).toLowerCase().includes(q.toLowerCase())); })
     .sort((a, b) => ['Late', 'Waiting', 'Out', 'Approved', 'Returned', 'Rejected'].indexOf(shownStatus(a)) - ['Late', 'Waiting', 'Out', 'Approved', 'Returned', 'Rejected'].indexOf(shownStatus(b)));
   const actions = (p) => {
     const s = shownStatus(p); const r = R[p.r];
@@ -1143,7 +1364,7 @@ function OutingPage() {
     if (s === 'Out' || s === 'Late') return <Button size="sm" variant={s === 'Late' ? 'primary' : 'secondary'} icon={I.LogIn} onClick={() => markBack(p)}>Returned</Button>;
     return null;
   };
-  const inNow = visits.filter((v) => v.d === 0 && v.out == null);
+  const inNow = allVisits.filter((v) => sc.sees(RA[v.r]?.h) && v.d === 0 && v.out == null);
   return (
     <div>
       <ModuleHead sub="Outing and leave passes, and who came to visit"
@@ -1165,16 +1386,18 @@ function OutingPage() {
               { label: 'Waiting for approval', value: String(by('Waiting').length), sub: 'Weekend requests', icon: I.Hourglass, tone: 'warn', onClick: () => setSt('Waiting') },
               { label: 'Out now', value: String(by('Out').length + late.length), sub: `${late.length} late`, icon: I.LogOut, tone: late.length ? 'bad' : 'info', onClick: () => setSt('Out') },
               { label: 'Approved, not gone', value: String(by('Approved').length), sub: 'Leaving soon', icon: I.CircleCheck, onClick: () => setSt('Approved') },
-              { label: 'Back this week', value: String(by('Returned').length), sub: `${passes.filter((p) => p.status === 'Returned' && p.late).length} came back late`, icon: I.LogIn, tone: 'ok', onClick: () => setSt('Returned') },
+              { label: `Back · ${per.label.toLowerCase()}`, value: String(by('Returned').filter(histIn).length), sub: `${passes.filter((p) => p.status === 'Returned' && p.late && histIn(p)).length} came back late`, icon: I.LogIn, tone: 'ok', onClick: () => setSt('Returned') },
             ]} />
             <Card className="overflow-hidden">
               <Toolbar>
                 <SearchBox id="op-q" value={q} onChange={setQ} placeholder="Student, going with, or pass no." />
+                <DatePeriod id="op-per" value={per} onChange={setPer} className="w-full @md:w-auto" />
                 <ExportButton what="outing passes" />
               </Toolbar>
-              <div className="px-3 pt-3"><Chips value={st} onChange={setSt} options={[{ value: 'open', label: 'Needs attention', count: by('Waiting').length + by('Approved').length + by('Out').length + late.length }, { value: 'Waiting', label: 'Waiting', count: by('Waiting').length }, { value: 'Out', label: 'Out now', count: by('Out').length + late.length }, { value: 'Returned', label: 'Returned', count: by('Returned').length }, { value: 'Rejected', label: 'Rejected', count: by('Rejected').length }, { value: 'all', label: 'All' }]} /></div>
+              <div className="px-3 pt-3"><Chips value={st} onChange={setSt} options={[{ value: 'open', label: 'Needs attention', count: by('Waiting').length + by('Approved').length + by('Out').length + late.length }, { value: 'Waiting', label: 'Waiting', count: by('Waiting').length }, { value: 'Out', label: 'Out now', count: by('Out').length + late.length }, { value: 'Returned', label: 'Returned', count: by('Returned').filter(histIn).length }, { value: 'Rejected', label: 'Rejected', count: by('Rejected').filter(histIn).length }, { value: 'all', label: 'All' }]} /></div>
+              <p className="px-4 pt-2 text-[12.5px] text-ink3">Returned and rejected passes from <b className="font-semibold text-ink2">{fmtRange(per)}</b>. Passes waiting or out always show.</p>
               <DataList rows={rows} minWidth={960} onRow={setOpen}
-                empty={<Empty icon={I.CircleCheck} title="Nothing here" body={st === 'Waiting' ? 'No outing requests waiting. You are up to date.' : 'No passes with this status.'} />}
+                empty={<Empty icon={I.CircleCheck} title="Nothing here" body={st === 'Waiting' ? 'No outing requests waiting. You are up to date.' : ['Returned', 'Rejected', 'all'].includes(st) ? `No passes with this status between ${fmtRange(per)}.` : 'No passes with this status.'} />}
                 columns={[
                   { key: 'n', label: 'Student', render: (p) => <div className="flex items-center gap-3"><Avatar name={R[p.r].name} size={34} /><div className="min-w-0"><p className="font-semibold leading-tight">{R[p.r].name}</p><p className="text-[12px] text-ink3">{clsOf(R[p.r])} · Room {R[p.r].room}</p></div></div> },
                   { key: 't', label: 'Type', nowrap: true, render: (p) => <><p>{p.type}</p><p className="text-[12px] text-ink3 font-mono">{p.id}</p></> },
@@ -1185,7 +1408,7 @@ function OutingPage() {
                   { key: 'x', label: '', render: (p) => <div onClick={(e) => e.stopPropagation()}>{actions(p)}</div> },
                 ]}
                 mobile={(p) => ({ title: R[p.r].name, sub: `${p.type} with ${p.withName} · ${when(p.from)}`, avatar: R[p.r].name, pills: [<Pill key="s" tone={passTone[shownStatus(p)]} className="!h-[22px] !text-[11.5px]">{shownStatus(p) === 'Out' ? 'Out now' : shownStatus(p)}</Pill>] })}
-                footer={`Showing ${rows.length} of ${passes.length} · every pass is a Gate Pass of kind Hostel Outing`} />
+                footer={`Showing ${rows.length} · every pass is a Gate Pass of kind Hostel Outing`} />
             </Card>
           </>
         )}
@@ -1193,9 +1416,13 @@ function OutingPage() {
           <>
             <Banner tone="info" icon={I.Clock} title="Visiting hours: Sundays, 10:00 AM to 1:00 PM.">Only people on the student’s list can meet without the warden’s approval. Every visitor meets one named student.</Banner>
             <Card className="overflow-hidden">
-              <CardHead title="Visitor log" sub={`${inNow.length} in the hostel now`} icon={I.IdCard} action={<ExportButton what="hostel visitor log" />} />
+              <CardHead title="Visitor log" sub={`${inNow.length} in the hostel now`} icon={I.IdCard} />
+              <Toolbar className="border-t">
+                <DatePeriod id="vis-per" value={vper} onChange={setVper} className="w-full @md:w-auto" />
+                <ExportButton what="hostel visitor log" />
+              </Toolbar>
               <DataList rows={visits} minWidth={860}
-                empty={<Empty icon={I.IdCard} title="No visitors recorded yet" body="Record each visitor when they come in." action={canEdit && <Button variant="primary" icon={I.Plus} onClick={() => setNewVisit(true)}>Record visitor</Button>} />}
+                empty={<Empty icon={I.IdCard} title="No visitors in these dates" body={`Nobody visited between ${fmtRange(vper)}. Pick a longer period, or record a visitor when they come in.`} action={canEdit && <Button variant="primary" icon={I.Plus} onClick={() => setNewVisit(true)}>Record visitor</Button>} />}
                 columns={[
                   { key: 'd', label: 'Date', nowrap: true, render: (v) => dayWord(v.d) },
                   { key: 's', label: 'Came to meet', render: (v) => <div className="flex items-center gap-3"><Avatar name={R[v.r].name} size={32} /><div><p className="font-semibold leading-tight">{R[v.r].name}</p><p className="text-[12px] text-ink3">{clsOf(R[v.r])} · Room {R[v.r].room}</p></div></div> },
@@ -1205,14 +1432,14 @@ function OutingPage() {
                   { key: 'x', label: '', render: (v) => canEdit && v.out == null && <Button size="sm" variant="secondary" icon={I.LogOut} onClick={() => { const b = visits; setVisits((x) => x.map((y) => (y.id === v.id ? { ...y, out: NOW } : y))); toast({ title: `${v.name} left at ${fmtT(NOW)}`, undo: () => setVisits(b) }); }}>Mark out</Button> },
                 ]}
                 mobile={(v) => ({ title: `${v.name} → ${R[v.r].name}`, sub: `${dayWord(v.d)} · ${fmtT(v.in)} to ${v.out != null ? fmtT(v.out) : 'inside now'}`, avatar: v.name, pills: [v.ok === 'list' ? <Pill key="o" tone="ok" className="!h-[22px] !text-[11.5px]">On the list</Pill> : <Pill key="o" tone="info" className="!h-[22px] !text-[11.5px]">Warden approved</Pill>], right: canEdit && v.out == null ? <Button size="sm" variant="secondary" onClick={() => { setVisits((x) => x.map((y) => (y.id === v.id ? { ...y, out: NOW } : y))); toast({ title: `${v.name} left at ${fmtT(NOW)}` }); }}>Out</Button> : null })}
-                footer={`Showing ${visits.length} · last two weeks`} />
+                footer={`${visits.length} visitor${visits.length === 1 ? '' : 's'} · ${vper.label.toLowerCase()} · ${fmtRange(vper)}`} />
             </Card>
           </>
         )}
       </div>
 
-      <PassSheet open={newPass} onClose={() => setNewPass(false)} res={res} passes={passes} onSave={(p) => { setPasses((x) => [p, ...x]); setSt('Waiting'); setView('passes'); }} onUndo={(p) => setPasses((x) => x.filter((y) => y !== p))} />
-      <VisitorSheet open={newVisit} onClose={() => setNewVisit(false)} res={res} onSave={(v) => setVisits((x) => [v, ...x])} onUndo={(v) => setVisits((x) => x.filter((y) => y !== v))} />
+      <PassSheet open={newPass} onClose={() => setNewPass(false)} res={myRes} passes={allPasses} onSave={(p) => { setPasses((x) => [p, ...x]); setSt('Waiting'); setView('passes'); }} onUndo={(p) => setPasses((x) => x.filter((y) => y !== p))} />
+      <VisitorSheet open={newVisit} onClose={() => setNewVisit(false)} res={myRes} onSave={(v) => setVisits((x) => [v, ...x])} onUndo={(v) => setVisits((x) => x.filter((y) => y !== v))} />
       <RejectSheet p={reject} name={reject ? R[reject.r].name : ''} onClose={() => setReject(null)} onReject={(p, why) => { const b = upd(p, { status: 'Rejected', why, by: 'you' }); toast({ title: `Rejected: ${R[p.r].name}`, body: `${why} · parent told on WhatsApp`, undo: () => setPasses(b) }); }} />
       <Sheet open={!!open} onClose={() => setOpen(null)} title={open ? `${R[open.r].name} · ${open.type}` : ''} sub={open ? `Gate Pass ${open.id} · Hostel Outing` : ''}
         footer={open ? <><Button variant="ghost" icon={I.Printer} onClick={() => toast({ title: `Printing pass ${open.id}`, body: 'Show it at the gate. Security scans the QR.' })}>Print pass</Button>{canEdit && shownStatus(open) !== 'Returned' && shownStatus(open) !== 'Rejected' && <Button variant="secondary" onClick={() => { const p = open; setOpen(null); if (shownStatus(p) === 'Out' || shownStatus(p) === 'Late') markBack(p); else markOut(p); }}>{shownStatus(open) === 'Out' || shownStatus(open) === 'Late' ? 'Mark returned' : 'Mark out'}</Button>}<Button variant="primary" onClick={() => setOpen(null)}>Done</Button></> : null}>
@@ -1385,12 +1612,24 @@ function MessPage() {
   const [count, setCount] = useState(null);
   const [addExp, setAddExp] = useState(false);
   const [copy, setCopy] = useState(false);
+  const [per, setPer] = useState(PERIODS.thismonth);
+  const { role } = useRole();
+  // Mess fee collection is fee information: only for people with Fee Management. The defaulters link needs that page.
+  const seesFees = !!role.access.fees;
+  const seesDefaulters = pagesFor('fees', role.access.fees, role.id).some((p) => p.id === 'defaulters');
   const live = res.filter((r) => !r.left && !r.arriving);
   const awayN = live.filter((r) => awayMap(passes)[r.id]).length;
   const expected = live.length - awayN;
   const menu = menus[week];
   const doCopy = () => { const before = menus; setMenus((m) => ({ ...m, next: JSON.parse(JSON.stringify(m.this)) })); setWeek('next'); toast({ title: 'This week’s menu copied to 12–18 Oct', body: 'Change any meal by tapping it. Boarders see it on Sunday evening.', undo: () => setMenus(before) }); };
   const octSpent = exp.filter((e) => e.d >= -8).reduce((a, e) => a + e.amt, 0) + 41860;
+  // Spent in the chosen dates: the bills listed, plus about ₹10,600 a day for older days not listed here
+  const expIn = exp.filter((e) => offIn(per, e.d));
+  const listedFrom = isoOff(-7);
+  const dayN = (iso) => Math.round(new Date(iso + 'T12:00') / 864e5);
+  const olderDays = Math.max(0, Math.min(dayN(per.to), dayN(listedFrom) - 1) - dayN(per.from) + 1);
+  const perSpent = expIn.reduce((a, e) => a + e.amt, 0) + olderDays * 10615;
+  const perDays = periodDays(per);
   return (
     <div>
       <ModuleHead sub="Weekly menu, meals eaten and what the mess spends"
@@ -1461,27 +1700,37 @@ function MessPage() {
               </ul>
               <p className="px-5 pb-4 text-[12.5px] text-ink3">1 plate goes to the sick room (Rahul Verma). Day scholars do not eat in the hostel mess.</p>
             </Card>
-            <Card>
-              <CardHead title="This week" sub="Plates served, all meals" icon={I.ChartColumn} />
-              <div className="px-3 pb-2"><Bars data={[{ k: 'Mon', v: 488, v2: 492 }, { k: 'Tue', v: 490, v2: 492 }, { k: 'Wed', v: 486, v2: 488 }, { k: 'Thu', v: 479, v2: 484 }, { k: 'Fri', v: Object.values(counts).reduce((a, c) => a + c.n, 0), v2: expected * 4 }]} max={520} ticks={[0, 250, 500]} ariaLabel="Plates served this week" /></div>
-              <div className="px-5 pb-4"><Legend items={[['bg-brand', 'Served'], ['bg-ink3/50', 'Expected']]} /></div>
-            </Card>
+            <Col>
+              <Card>
+                <CardHead title="This week" sub="Plates served, all meals" icon={I.ChartColumn} />
+                <div className="px-3 pb-2"><Bars data={[{ k: 'Mon', v: 488, v2: 492 }, { k: 'Tue', v: 490, v2: 492 }, { k: 'Wed', v: 486, v2: 488 }, { k: 'Thu', v: 479, v2: 484 }, { k: 'Fri', v: Object.values(counts).reduce((a, c) => a + c.n, 0), v2: expected * 4 }]} max={520} ticks={[0, 250, 500]} ariaLabel="Plates served this week" /></div>
+                <div className="px-5 pb-4"><Legend items={[['bg-brand', 'Served'], ['bg-ink3/50', 'Expected']]} /></div>
+              </Card>
+              <Card>
+                <CardHead title="Mess by month" sub="Plates served each day · go back to earlier months" icon={I.CalendarDays} />
+                <div className="px-5 pb-5"><MessMonth perDay={492} /></div>
+              </Card>
+            </Col>
           </Split>
         )}
 
         {view === 'money' && (
           <>
             <Stats items={[
-              { label: 'Spent in October', value: inr(octSpent), sub: 'So far, 9 days', icon: I.Wallet },
+              { label: `Spent · ${per.label.toLowerCase()}`, value: inr(perSpent), sub: `${fmtRange(per)} · ${perDays} day${perDays === 1 ? '' : 's'}`, icon: I.Wallet },
               { label: 'Spent in September', value: inr(318450), sub: '30 days', icon: I.History },
-              { label: 'Cost per boarder a day', value: inr(Math.round(octSpent / 9 / live.length)), sub: `${live.length} boarders`, icon: I.Utensils, tone: 'brand' },
+              { label: 'Cost per boarder a day', value: inr(Math.round(perSpent / perDays / live.length)), sub: `${live.length} boarders`, icon: I.Utensils, tone: 'brand' },
               { label: 'Mess part of hostel fees', value: inr(9000), sub: 'A quarter, per boarder', icon: I.ReceiptIndianRupee },
             ]} />
             <Split side={340} className="[&>*]:min-w-0">
               <Card className="overflow-hidden">
-                <CardHead title="Mess expenses" sub="Each one goes to Finance, Expenses (and the Day Book when paid)" icon={I.ReceiptText} action={<ExportButton what="mess expenses" />} />
-                <DataList rows={exp} minWidth={680}
-                  empty={<Empty icon={I.ReceiptText} title="No mess expenses yet" body="Add the first bill." />}
+                <CardHead title="Mess expenses" sub="Each one goes to Finance, Expenses (and the Day Book when paid)" icon={I.ReceiptText} />
+                <Toolbar className="border-t">
+                  <DatePeriod id="me-per" value={per} onChange={setPer} className="w-full @md:w-auto" />
+                  <ExportButton what="mess expenses" />
+                </Toolbar>
+                <DataList rows={expIn} minWidth={680}
+                  empty={<Empty icon={I.ReceiptText} title="No mess bills listed in these dates" body={olderDays ? `Bills before ${dlong(-7)} are in Finance, Expenses. The total above includes them.` : `No mess bills between ${fmtRange(per)}.`} />}
                   columns={[
                     { key: 'd', label: 'Date', nowrap: true, render: (e) => dayWord(e.d) },
                     { key: 'i', label: 'Item', render: (e) => <><p className="font-semibold leading-tight">{e.item}</p><p className="text-[12px] text-ink3">{e.vendor || 'No vendor'}</p></> },
@@ -1490,10 +1739,10 @@ function MessPage() {
                     { key: 's', label: 'In Finance', render: (e) => <Pill tone={e.st === 'Paid' ? 'ok' : 'info'}>{e.st === 'Paid' ? 'Paid · Day Book' : 'Expense, not paid'}</Pill> },
                   ]}
                   mobile={(e) => ({ title: `${e.item} · ${inr(e.amt)}`, sub: `${dayWord(e.d)} · ${e.vendor || 'No vendor'}`, icon: 'ReceiptText', pills: [<Pill key="s" tone={e.st === 'Paid' ? 'ok' : 'info'} className="!h-[22px] !text-[11.5px]">{e.st === 'Paid' ? 'Paid' : 'Not paid'}</Pill>] })}
-                  footer={`Showing the last ${exp.length} · ${inr(exp.reduce((a, e) => a + e.amt, 0))}`} />
+                  footer={`${expIn.length} bill${expIn.length === 1 ? '' : 's'} · ${inr(expIn.reduce((a, e) => a + e.amt, 0))} · ${fmtRange(per)}`} />
               </Card>
               <Col>
-                <Card>
+                {seesFees && <Card>
                   <CardHead title="Mess fees" sub="Inside the hostel fee, Oct–Dec quarter" icon={I.IndianRupee} />
                   <div className="px-5 pb-5 flex flex-col gap-3">
                     <div>
@@ -1503,9 +1752,9 @@ function MessPage() {
                     <ul className="divide-y divide-line/70 text-[14px]">
                       {[['Mess part collected', inr(live.filter((r) => !r.due).length * 9000)], ['Mess part still due', inr(live.filter((r) => r.due).length * 9000)], ['Spent this quarter so far', inr(octSpent)]].map(([k, v]) => <li key={k} className="flex justify-between py-2"><span className="text-ink2">{k}</span><b className="font-semibold tnum">{v}</b></li>)}
                     </ul>
-                    <Button variant="secondary" icon={I.UserX} onClick={() => go('fees', { page: 'defaulters' })}>See who has not paid</Button>
+                    {seesDefaulters && <Button variant="secondary" icon={I.UserX} onClick={() => go('fees', { page: 'defaulters' })}>See who has not paid</Button>}
                   </div>
-                </Card>
+                </Card>}
                 <Suggestion title="Vegetables cost more this month" source="Mess expenses, 1 Sep to 9 Oct 2026"
                   actions={canEdit ? <><Button size="sm" variant="primary" onClick={() => toast({ title: 'Noted for the next menu', body: 'Seasonal vegetables marked for 12–18 Oct', tone: 'info' })}>Use seasonal vegetables</Button><Button size="sm" variant="ghost" onClick={() => toast({ title: 'Thanks. We will improve these suggestions.', tone: 'info' })}>Not useful</Button></> : null}>
                   Vegetable bills are <b className="font-semibold text-ink">18% higher</b> than in September for the same number of plates. Beans and capsicum went up the most; dondakaya and cabbage are cheaper now.
@@ -1615,25 +1864,36 @@ function ReportsPage() {
   const toast = useToast();
   const { go } = useNav();
   const canEdit = useCanEdit();
-  const [period, setPeriod] = useState('oct');
+  const [per, setPer] = useState(PERIODS.thismonth);
   const [res] = useShared('res', RES0);
   const live = res.filter((r) => !r.left);
-  const P = {
-    oct: { label: 'October so far', outings: 14, late: 3, absent: 0, visitors: 7, inc: 7, mess: 105400 },
-    sep: { label: 'September', outings: 46, late: 4, absent: 1, visitors: 38, inc: 11, mess: 318450 },
-    year: { label: 'Jun to Oct 2026', outings: 171, late: 12, absent: 3, visitors: 162, inc: 44, mess: 1384600 },
-  }[period];
+  // Counted figures for this month, last month and this year; other dates are scaled from this year's daily rate
+  const YEAR = { outings: 171, late: 12, absent: 3, visitors: 162, inc: 44, mess: 1384600 };
+  const HAND = {
+    thismonth: { outings: 14, late: 3, absent: 0, visitors: 7, inc: 7, mess: 105400 },
+    lastmonth: { outings: 46, late: 4, absent: 1, visitors: 38, inc: 11, mess: 318450 },
+    acyear: YEAR,
+  };
+  const f = periodDays(per) / 131;
+  const P = { label: `${per.label} · ${fmtRange(per)}`, ...(HAND[per.key] || Object.fromEntries(Object.entries(YEAR).map(([k, v]) => [k, Math.round(v * f)]))) };
+  const MONTHS5 = [['Jun', '2026-06'], ['Jul', '2026-07'], ['Aug', '2026-08'], ['Sep', '2026-09'], ['Oct', '2026-10']];
+  const mIn = (ym) => { const [y, m] = ym.split('-').map(Number); return `${ym}-01` <= per.to && `${ym}-${new Date(y, m, 0).getDate()}` >= per.from; };
+  const byMonth = (data) => data.filter((x, i) => mIn(MONTHS5[i][1]));
+  const NoMonths = () => <p className="px-5 pb-5 text-[13px] text-ink3">No months from June to October 2026 fall between {fmtRange(per)}.</p>;
   const ex = (w) => () => toast({ title: `Exported ${w}`, body: `${P.label} · Excel, with the school name and your name on top. Logged.` });
   return (
     <div>
       <ModuleHead sub="Occupancy, roll call, outings, incidents, visitors and mess" actions={<Button variant="secondary" icon={I.CalendarClock} onClick={() => toast({ title: 'Scheduled: Hostel summary', body: 'First Monday of each month to Lakshmi Rao and Joseph Thomas' })}>Email every month</Button>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
-        <Segmented value={period} onChange={setPeriod} className="self-start" options={[{ value: 'oct', label: 'This month' }, { value: 'sep', label: 'Last month' }, { value: 'year', label: 'This year' }]} />
+        <div className="flex flex-col @md:flex-row @md:items-center gap-2.5">
+          <DatePeriod id="hr-per" value={per} onChange={setPer} className="w-full @md:w-auto" />
+          <p className="text-[12.5px] text-ink3">Showing: <b className="font-semibold text-ink2">{per.label}</b> · {fmtRange(per)}</p>
+        </div>
         <Stats items={[
           { label: 'Beds taken', value: `${live.length} / 132`, sub: `${Math.round((live.length / 132) * 100)}% full`, icon: I.BedDouble, onClick: () => go('hostel', { page: 'rooms' }) },
           { label: 'Outings and leave', value: String(P.outings), sub: `${P.late} came back late`, icon: I.DoorOpen, tone: P.late ? 'warn' : undefined, onClick: () => go('hostel', { page: 'outing' }) },
           { label: 'Absent at roll call', value: String(P.absent), sub: 'Not on any pass', icon: I.Moon, tone: P.absent ? 'bad' : 'ok' },
-          { label: 'Mess spent', value: inr(P.mess), sub: P.label, icon: I.Utensils },
+          { label: 'Mess spent', value: inr(P.mess), sub: fmtRange(per), icon: I.Utensils },
         ]} />
         <Suggestion title="Late returns are mostly on Thursdays" source="Outing passes, 1 Jun to 9 Oct 2026"
           actions={canEdit ? <><Button size="sm" variant="primary" onClick={() => go('hostel', { page: 'settings' })}>Open Hostel Settings</Button><Button size="sm" variant="ghost" onClick={() => toast({ title: 'Thanks. We will improve these suggestions.', tone: 'info' })}>Not useful</Button></> : null}>
@@ -1649,7 +1909,7 @@ function ReportsPage() {
           </Card>
           <Card>
             <CardHead title="Outings by month" sub="Passes used, with late returns" icon={I.ChartColumn} action={<Button size="sm" variant="ghost" icon={I.Download} onClick={ex('outings by month')}>Export</Button>} />
-            <div className="px-3 pb-2"><Bars data={[{ k: 'Jun', v: 22 }, { k: 'Jul', v: 41 }, { k: 'Aug', v: 48 }, { k: 'Sep', v: 46 }, { k: 'Oct', v: 14 }]} max={60} ticks={[0, 20, 40]} ariaLabel="Outings by month" /></div>
+            {byMonth([22, 41, 48, 46, 14]).length ? <div className="px-3 pb-2"><Bars data={MONTHS5.map(([k], i) => ({ k, v: [22, 41, 48, 46, 14][i] })).filter((x, i) => mIn(MONTHS5[i][1]))} max={60} ticks={[0, 20, 40]} ariaLabel="Outings by month" /></div> : <NoMonths />}
             <ul className="px-5 pb-4 text-[13px] divide-y divide-line/70">
               {[['Tejas Naidu, 7 A', '1 late return · 8 Oct, 2 h 22 min'], ['Yash Reddy, 9 A', '2 late returns · 8 Oct and 12 Sep'], ['Charan Rao, 8 B', 'Not back yet today · due 10:30 AM']].map(([a, b]) => <li key={a} className="flex justify-between gap-3 py-2"><span className="font-semibold truncate">{a}</span><span className="text-ink3 text-right">{b}</span></li>)}
             </ul>
@@ -1663,17 +1923,17 @@ function ReportsPage() {
             </ul>
           </Card>
           <Card>
-            <CardHead title="Incidents by type" sub="By month, this year" icon={I.NotebookPen} action={<Button size="sm" variant="ghost" icon={I.Download} onClick={ex('incidents by type')}>Export</Button>} />
+            <CardHead title="Incidents by type" sub={P.label} icon={I.NotebookPen} action={<Button size="sm" variant="ghost" icon={I.Download} onClick={ex('incidents by type')}>Export</Button>} />
             <div className="px-5 pb-5 flex flex-col gap-4">
-              <HBars unit="" max={20} labelWidth={96} rows={[{ k: 'Discipline', v: 14, label: '14' }, { k: 'Medical', v: 19, label: '19' }, { k: 'Repair', v: 11, label: '11' }]} />
+              <HBars unit="" max={Math.max(5, Math.ceil(P.inc * 0.45))} labelWidth={96} rows={[['Discipline', 14], ['Medical', 19], ['Repair', 11]].map(([k, v]) => { const x = Math.round((v / 44) * P.inc); return { k, v: x, label: String(x) }; })} />
               <ul className="grid grid-cols-5 gap-2 text-center">
-                {[['Jun', 6], ['Jul', 9], ['Aug', 11], ['Sep', 11], ['Oct', 7]].map(([m, n]) => <li key={m} className="rounded-xl bg-sunken/70 py-2"><p className="font-display font-semibold text-[18px] tnum">{n}</p><p className="text-[12px] text-ink3">{m}</p></li>)}
+                {byMonth([['Jun', 6], ['Jul', 9], ['Aug', 11], ['Sep', 11], ['Oct', 7]]).map(([m, n]) => <li key={m} className="rounded-xl bg-sunken/70 py-2"><p className="font-display font-semibold text-[18px] tnum">{n}</p><p className="text-[12px] text-ink3">{m}</p></li>)}
               </ul>
             </div>
           </Card>
           <Card>
             <CardHead title="Mess" sub="Plates served and money spent, by month" icon={I.Utensils} action={<Button size="sm" variant="ghost" icon={I.Download} onClick={ex('mess head counts and expenses')}>Export</Button>} />
-            <div className="px-3 pb-2"><Bars data={[{ k: 'Jun', v: 241200 }, { k: 'Jul', v: 302900 }, { k: 'Aug', v: 309050 }, { k: 'Sep', v: 318450 }, { k: 'Oct', v: 105400 }]} max={360000} ticks={[0, 150000, 300000]} label={(v) => (v >= 100000 ? `₹${(v / 100000).toFixed(1)}L` : v ? `₹${Math.round(v / 1000)}k` : '0')} ariaLabel="Mess spending by month" /></div>
+            {byMonth([1, 2, 3, 4, 5]).length ? <div className="px-3 pb-2"><Bars data={byMonth([{ k: 'Jun', v: 241200 }, { k: 'Jul', v: 302900 }, { k: 'Aug', v: 309050 }, { k: 'Sep', v: 318450 }, { k: 'Oct', v: 105400 }])} max={360000} ticks={[0, 150000, 300000]} label={(v) => (v >= 100000 ? `₹${(v / 100000).toFixed(1)}L` : v ? `₹${Math.round(v / 1000)}k` : '0')} ariaLabel="Mess spending by month" /></div> : <NoMonths />}
             <ul className="px-5 pb-4 text-[13.5px] divide-y divide-line/70">
               {[['Plates served in September', '14,620'], ['Average a day', '487 plates'], ['Cost per plate', inr(22)]].map(([k, v]) => <li key={k} className="flex justify-between py-2"><span className="text-ink2">{k}</span><b className="font-semibold tnum">{v}</b></li>)}
             </ul>
@@ -1699,6 +1959,10 @@ function SettingsPage() {
   const [rules, setRules] = useState('Lights out at 10:00 PM (Class 10: 10:30 PM during exams).\nNo mobile phones in rooms. Phones are kept with the warden and given on Sundays, 5 to 6 PM.\nStudy hour every day, 7:00 to 8:00 PM, in the study hall.\nOutside food only on visiting days.');
   const [meals, setMeals] = useState(MEALS.map((m) => m[0]));
   const [newMeal, setNewMeal] = useState('');
+  const { role } = useRole();
+  // Links to other modules only for people who have that page
+  const toForms = inMenu(role, 'settings');
+  const toFeePlans = pagesFor('fees', role.access.fees, role.id).some((p) => p.id === 'structure') && role.access.fees === 'full';
   return (
     <div>
       <ModuleHead sub="Rules, timings, wardens, fees and parent messages" />
@@ -1733,7 +1997,7 @@ function SettingsPage() {
         </Col>
         <Col>
           <Card>
-            <CardHead title="Wardens and outing approvers" sub="The warden of the student’s hostel approves outings" icon={I.UserCog} action={canEdit && <Button size="sm" variant="ghost" onClick={() => go('settings', { page: 'forms' })}>Forms & Approvals</Button>} />
+            <CardHead title="Wardens and outing approvers" sub="The warden of the student’s hostel approves outings" icon={I.UserCog} action={canEdit && toForms && <Button size="sm" variant="ghost" onClick={() => go('settings', { page: 'forms' })}>Forms & Approvals</Button>} />
             <ul className="px-5 pb-4 divide-y divide-line/70">
               {hostels.map((x) => (
                 <li key={x.id} className="flex items-center gap-3 py-3">
@@ -1746,7 +2010,7 @@ function SettingsPage() {
             <p className="px-5 pb-4 text-[12.5px] text-ink3">The Principal can approve any pass. More approvers can be added in Settings, Forms & Approvals.</p>
           </Card>
           <Card>
-            <CardHead title="Hostel fees" sub="Fee plans from Fee Management" icon={I.ReceiptIndianRupee} action={canEdit && <Button size="sm" variant="ghost" onClick={() => go('fees', { page: 'structure' })}>Open fee plans</Button>} />
+            <CardHead title="Hostel fees" sub="Fee plans from Fee Management" icon={I.ReceiptIndianRupee} action={canEdit && toFeePlans && <Button size="sm" variant="ghost" onClick={() => go('fees', { page: 'structure' })}>Open fee plans</Button>} />
             <div className="divide-y divide-line/70 border-t border-line/70">
               <SettingRow title="Non-AC rooms" sub="Both hostels · includes mess"><span className="text-[14px] font-semibold tnum">{inr(24000)} a quarter</span></SettingRow>
               <SettingRow title="AC rooms" sub="Boys’ hostel, B-25 and B-26 · includes mess"><span className="text-[14px] font-semibold tnum">{inr(32000)} a quarter</span></SettingRow>

@@ -5,8 +5,9 @@ import { STUDENTS, FEATURED, inr } from './data.js';
 import { STAFF } from './sample.js';
 import { cx, Card, CardHead, Button, IconButton, Pill, Avatar, Field, Input, Checkbox, Switch, Segmented, Sheet, Empty, useToast } from './ui.jsx';
 import { useNav, useRole } from './shell.jsx';
+import { inMenu } from './config.js';
 import {
-  ModuleHead, useCanEdit, Icon, Stats, Band, SearchBox, Toolbar, Select, Textarea, Chips, DataList, BulkBar, Row, SettingRow, SettingsCard,
+  DatePeriod, PERIODS, fmtRange, periodDays, ModuleHead, useCanEdit, Icon, Stats, Band, SearchBox, Toolbar, Select, Textarea, Chips, DataList, BulkBar, Row, SettingRow, SettingsCard,
   Banner, Suggestion, Progress, HBars, Bars, Legend, DL, Timeline, Checklist, MoreMenu, FormSheet, ConfirmSheet, Split, Col, ExportButton, TONE_SOFT,
 } from './kit.jsx';
 
@@ -54,6 +55,17 @@ const RANK = { 'Out of stock': 0, Low: 1, OK: 2 };
 const LOW = ITEMS.filter((it) => it.reorder > 0 && statusOf(it) !== 'OK');
 const catIcon = (k) => CATS.find((c) => c.k === k)?.icon || 'Package';
 const n = (v) => Number(v).toLocaleString('en-IN');
+// '9 Oct 2026', '9 Oct, 10:12 AM', 'Today, 8:55 AM' -> '2026-10-09', so rows can be filtered by a DatePeriod
+const MONS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const isoOf = (s) => {
+  if (/^Today/.test(s)) return '2026-10-09';
+  const m = /^(\d{1,2}) ([A-Z][a-z]{2})(?: (\d{4}))?/.exec(s);
+  if (!m) return '2026-10-09';
+  return `${m[3] || 2026}-${String(MONS.indexOf(m[2]) + 1).padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+};
+const inPer = (per, s) => { const d = isoOf(s); return d >= per.from && d <= per.to; };
+// "Showing: Last 7 days · 3 Oct – 9 Oct 2026"
+const PerLine = ({ per, children }) => <p className="px-5 py-2 text-[12.5px] text-ink3 border-b border-line/70">Showing: <b className="font-semibold text-ink2">{per.label}</b> · {fmtRange(per)}{children}</p>;
 
 const MOVES = [
   { d: '9 Oct 2026, 9:40 AM', type: 'Out', q: -2, ref: 'ISS-2026-0413', note: 'Issued to Exam cell (Prakash Joshi) for half-yearly papers', by: 'Ramu Yadav' },
@@ -668,7 +680,10 @@ function ItemDetail({ id }) {
   const st = statusOf(it);
   const [move, setMove] = useState(null);
   const [req, setReq] = useState(false);
+  const [per, setPer] = useState(PERIODS.acyear);
   const tot = inHand(it);
+  const moves = MOVES.filter((m) => inPer(per, m.d));
+  const usedDays = periodDays(per);
   return (
     <div>
       <Back onClick={() => go('inventory', { page: 'items' })} label="Items & Stock" sub={it.cat} />
@@ -709,13 +724,18 @@ function ItemDetail({ id }) {
           { label: 'In hand', value: `${n(tot)} ${plural(it.unit, tot)}`, sub: `${Object.keys(it.stock).length} location${Object.keys(it.stock).length > 1 ? 's' : ''}`, tone: st !== 'OK' ? 'bad' : undefined, icon: 'Boxes' },
           { label: 'Reorder level', value: it.reorder ? n(it.reorder) : 'No alert', sub: it.reorder ? 'Alert at this level' : 'Set in Inventory Settings', icon: 'BellRing' },
           { label: 'Stock value', value: inr(tot * it.price), sub: `${inr(it.price)} per ${it.unit.toLowerCase()}`, icon: 'IndianRupee' },
-          { label: 'Used last 30 days', value: n(Math.max(4, Math.round((it.reorder || 10) * 1.4))), sub: 'Issued and used up', icon: 'TrendingDown' },
+          { label: `Used · ${per.label.toLowerCase()}`, value: n(Math.round(Math.max(4, Math.round((it.reorder || 10) * 1.4)) * Math.min(usedDays, 365) / 30)), sub: `Issued and used up · ${fmtRange(per)}`, icon: 'TrendingDown' },
         ]} />
 
         <Split>
           <Card className="overflow-hidden">
-            <CardHead title="Stock movements" sub="Every change, newest first. Corrections are new movements; nothing is edited." action={<ExportButton what={`movements of ${it.id}`} />} />
-            <DataList rows={MOVES} rowKey={(m) => m.ref} minWidth={620} footer={`Showing ${MOVES.length} of 38 movements this year`}
+            <CardHead title="Stock movements" sub="Every change, newest first. Corrections are new movements; nothing is edited." />
+            <Toolbar className="border-t">
+              <DatePeriod id="mv-per" value={per} onChange={setPer} className="w-full @md:w-auto" />
+              <ExportButton what={`movements of ${it.id}`} />
+            </Toolbar>
+            <DataList rows={moves} rowKey={(m) => m.ref} minWidth={620} footer={`${moves.length} movement${moves.length === 1 ? '' : 's'} · ${per.label.toLowerCase()} · ${fmtRange(per)}`}
+              empty={<Empty icon={I.CalendarX} title="No stock movements in these dates" body={`Nothing came in or went out of ${it.name.toLowerCase()} between ${fmtRange(per)}. Pick a longer period.`} />}
               columns={[
                 { key: 'd', label: 'Date', nowrap: true, render: (m) => <span className="text-[13px] tnum">{m.d}</span> },
                 { key: 'type', label: 'Type', render: (m) => <Pill tone={MOVE_TONE[m.type]}>{m.type}</Pill> },
@@ -776,8 +796,9 @@ function IssuePage({ params }) {
   const [q, setQ] = useState('');
   const [sheet, setSheet] = useState(params?.set ? 'set' : null);
   const [ret, setRet] = useState(null);
+  const [per, setPer] = useState(PERIODS.thismonth);
   const t = q.trim().toLowerCase();
-  const rows = list.filter((r) => (f === 'all' || (f === 'students' ? r.kind === 'Student' : r.ret && !r.back)) && (!t || r.item.toLowerCase().includes(t) || r.to.toLowerCase().includes(t) || r.id.toLowerCase().includes(t)));
+  const rows = list.filter((r) => inPer(per, r.d) && (f === 'all' || (f === 'students' ? r.kind === 'Student' : r.ret && !r.back)) && (!t || r.item.toLowerCase().includes(t) || r.to.toLowerCase().includes(t) || r.id.toLowerCase().includes(t)));
   const out = list.filter((r) => r.ret && !r.back);
   const charged = list.filter((r) => r.charge).reduce((a, r) => a + r.charge, 0);
   return (
@@ -792,10 +813,12 @@ function IssuePage({ params }) {
         <Card className="overflow-hidden">
           <Toolbar>
             <SearchBox id="iss-search" value={q} onChange={setQ} placeholder="Item, person, class or issue number" />
-            <Segmented value={f} onChange={setF} options={[{ value: 'all', label: 'All' }, { value: 'students', label: 'To students' }, { value: 'out', label: `Not returned ${out.length}` }]} />
+            <DatePeriod id="iss-per" value={per} onChange={setPer} className="w-full @md:w-auto" />
             <ExportButton what="issues" />
           </Toolbar>
-          <DataList rows={rows} rowKey={(r) => r.id} minWidth={780} footer={`Showing ${rows.length} of 412 issues this year`}
+          <div className="px-3 pt-3"><Segmented value={f} onChange={setF} size="sm" options={[{ value: 'all', label: 'All' }, { value: 'students', label: 'To students' }, { value: 'out', label: `Not returned ${out.length}` }]} /></div>
+          <DataList rows={rows} rowKey={(r) => r.id} minWidth={780} footer={`${rows.length} issue${rows.length === 1 ? '' : 's'} · ${per.label.toLowerCase()} · ${fmtRange(per)}`}
+            empty={<Empty icon={I.CalendarX} title={t ? `Nothing matches “${q}” in these dates` : 'No issues in these dates'} body={`Nothing was issued between ${fmtRange(per)}${f !== 'all' ? ' with this filter' : ''}. Pick a longer period.`} />}
             columns={[
               { key: 'd', label: 'Date', nowrap: true, render: (r) => <div><p className="text-[13.5px] tnum">{r.d}</p><p className="text-[11.5px] text-ink3"><span className="font-mono">{r.id}</span> · by {r.by.split(' ')[0]}</p></div> },
               { key: 'item', label: 'Item', render: (r) => <div><p className="font-semibold leading-tight">{r.item}</p><p className="text-[12.5px] text-ink3 tnum">{n(r.q)} {r.unit}</p></div> },
@@ -893,6 +916,8 @@ function IssueSheet({ open, onClose, student, onDone }) {
 
 function SetIssueSheet({ open, onClose, presetSet, onDone }) {
   const toast = useToast();
+  const { role } = useRole();
+  const seesFees = inMenu(role, 'fees'); // fee dues only for people who work in Fee Management
   const [sid, setSid] = useState('');
   const [setId, setSetId] = useState('BS-05');
   const [without, setWithout] = useState(false);
@@ -926,7 +951,7 @@ function SetIssueSheet({ open, onClose, presetSet, onDone }) {
         <div className="flex items-center gap-3 rounded-xl border border-line p-3">
           <Avatar name={stu.name} size={40} />
           <div className="min-w-0 flex-1"><p className="font-semibold text-[14.5px]">{stu.name}</p><p className="text-[12.5px] text-ink3">{stu.cls} {stu.sec} · Roll {stu.roll} · <span className="font-mono">{stu.adm}</span></p></div>
-          {stu.due > 0 && <Pill tone={stu.feeState === 'Overdue' ? 'bad' : 'warn'}>{inr(stu.due)} {stu.feeState === 'Overdue' ? 'overdue' : 'due'}</Pill>}
+          {seesFees && stu.due > 0 && <Pill tone={stu.feeState === 'Overdue' ? 'bad' : 'warn'}>{inr(stu.due)} {stu.feeState === 'Overdue' ? 'overdue' : 'due'}</Pill>}
         </div>
         {missing.length > 0 && (
           <Banner tone="bad" title={`${missing.length} of ${set.items.length} items are out of stock:`}>{missing.map((m) => m[1]).join(' and ')}. Issue the rest now and the missing items later, or wait.</Banner>
@@ -954,10 +979,18 @@ function SetIssueSheet({ open, onClose, presetSet, onDone }) {
 /* ======================= Purchases & Vendors ======================= */
 function PurchasesPage({ params }) {
   const toast = useToast();
+  const { go } = useNav();
   const { role } = useRole();
   const canEdit = useCanEdit();
-  const approver = ['principal', 'schooladmin'].includes(role.id) && canEdit;
-  const [tab, setTab] = useState(params?.tab || (role.id === 'accountant' ? 'bills' : 'requests'));
+  // Purchase requests: up to ₹10,000 the School Admin approves, above it the Principal. Nobody approves their own request.
+  const mayApprove = (r) => canEdit && r.by !== role.person.name && (role.id === 'principal' || (role.id === 'schooladmin' && r.amt <= 10000));
+  // Paying a vendor is money going out of the school: only people who run Finance record it here
+  const canPay = canEdit && role.access.finance === 'full';
+  const seesBank = !!role.access.finance;
+  // The Accountant sees what reaches Finance: orders, goods received, bills and vendors. Not the internal requests.
+  const showReq = role.id !== 'accountant';
+  const [tab, setTab] = useState(params?.tab || (showReq ? 'requests' : 'bills'));
+  const [per, setPer] = useState(PERIODS.last30);
   const [q, setQ] = useState('');
   const [reqs, setReqs] = useState(REQUESTS);
   const [bills, setBills] = useState(BILLS);
@@ -965,6 +998,8 @@ function PurchasesPage({ params }) {
   const [cur, setCur] = useState(null);
   const t = q.trim().toLowerCase();
   const m = (s) => !t || s.toLowerCase().includes(t);
+  const dIn = (d) => inPer(per, d);
+  const none = <Empty icon={I.CalendarX} title={t ? `Nothing matches “${q}” in these dates` : 'Nothing in these dates'} body={`Nothing between ${fmtRange(per)}. Pick a longer period${t ? ' or clear the search' : ''}.`} />;
   const decide = (r, ok) => {
     setReqs((x) => x.map((y) => (y.id === r.id ? { ...y, status: ok ? 'Approved' : 'Rejected', note: ok ? `Approved by ${role.person.name}, 9 Oct` : `Rejected by ${role.person.name}, 9 Oct` } : y)));
     toast({ title: `${ok ? 'Approved' : 'Rejected'}: ${r.id}`, body: ok ? `${r.by} can now make the purchase order.` : `${r.by} sees your decision.`, undo: () => setReqs((x) => x.map((y) => (y.id === r.id ? r : y))) });
@@ -974,21 +1009,21 @@ function PurchasesPage({ params }) {
 
   const lists = {
     requests: (
-      <DataList rows={reqs.filter((r) => m(r.id + r.items + r.by))} rowKey={(r) => r.id} minWidth={820}
+      <DataList rows={reqs.filter((r) => dIn(r.d) && m(r.id + r.items + r.by))} rowKey={(r) => r.id} empty={none} minWidth={820}
         columns={[
           { key: 'id', label: 'Request', nowrap: true, render: (r) => <div><p className="font-mono text-[12.5px] font-semibold">{r.id}</p><p className="text-[12px] text-ink3">{r.d}</p></div> },
           { key: 'items', label: 'Items', render: (r) => <div className="max-w-[340px]"><p className="text-[13.5px] leading-snug">{r.items}</p><p className="text-[12px] text-ink3">{r.reason}</p></div> },
           { key: 'by', label: 'Raised by', render: (r) => <div><p className="leading-tight">{r.by}</p><p className="text-[12px] text-ink3">{r.dept}</p></div> },
           { key: 'amt', label: 'Estimate', align: 'right', render: (r) => inr(r.amt) },
           { key: 'st', label: 'Status', render: (r) => <div><Pill tone={PR_TONE[r.status]}>{r.status}</Pill><p className="text-[11.5px] text-ink3 mt-1 max-w-[200px]">{r.note}</p></div> },
-          { key: 'act', label: '', render: (r) => r.status === 'Waiting' && approver ? <div className="flex gap-1.5 justify-end"><Button size="sm" variant="soft" icon={I.Check} onClick={() => decide(r, true)}>Approve</Button><Button size="sm" variant="ghost" onClick={() => decide(r, false)}>Reject</Button></div>
+          { key: 'act', label: '', render: (r) => r.status === 'Waiting' && mayApprove(r) ? <div className="flex gap-1.5 justify-end"><Button size="sm" variant="soft" icon={I.Check} onClick={() => decide(r, true)}>Approve</Button><Button size="sm" variant="ghost" onClick={() => decide(r, false)}>Reject</Button></div>
             : r.status === 'Approved' && !/PO-/.test(r.note) && canEdit ? <Button size="sm" variant="secondary" onClick={() => { setCur(r); setSheet('po'); }}>Make PO</Button> : null },
         ]}
         mobile={(r) => ({ title: r.items, sub: `${r.id} · ${r.by} · ${inr(r.amt)}`, icon: 'ClipboardList', iconTone: PR_TONE[r.status], pills: [<Pill key="s" tone={PR_TONE[r.status]} className="!h-[22px] !text-[11.5px]">{r.status}</Pill>] })}
         footer={`${reqs.filter((r) => r.status === 'Waiting').length} waiting · above ₹10,000 the Principal approves, nobody approves their own request`} />
     ),
     orders: (
-      <DataList rows={ORDERS.filter((o) => m(o.id + o.vendor + o.items))} rowKey={(o) => o.id} minWidth={820}
+      <DataList rows={ORDERS.filter((o) => dIn(o.d) && m(o.id + o.vendor + o.items))} rowKey={(o) => o.id} empty={none} minWidth={820}
         columns={[
           { key: 'id', label: 'Order', nowrap: true, render: (o) => <div><p className="font-mono text-[12.5px] font-semibold">{o.id}</p><p className="text-[12px] text-ink3">{o.d}</p></div> },
           { key: 'vendor', label: 'Vendor', render: (o) => <span className="font-semibold">{o.vendor}</span> },
@@ -997,7 +1032,7 @@ function PurchasesPage({ params }) {
           { key: 'st', label: 'Status', render: (o) => <Pill tone={PO_TONE[o.status]}>{o.status}</Pill> },
           { key: 'act', label: '', render: (o) => <div className="flex gap-1.5 justify-end" onClick={(e) => e.stopPropagation()}>
             {canEdit && ['Sent', 'Part received'].includes(o.status) && <Button size="sm" variant="secondary" icon={I.PackageCheck} onClick={() => { setCur(o); setSheet('receive'); }}>Receive goods</Button>}
-            <MoreMenu size="sm" items={[['Mail', 'Email PO to vendor', () => toast({ title: `${o.id} emailed to ${o.vendor}` })], ['Printer', 'Print PO', () => toast({ title: `${o.id} sent to the office printer` })], ['Download', 'Save as PDF', () => toast({ title: `Saved: ${o.id}.pdf` })]]} />
+            <MoreMenu size="sm" items={[...(canEdit ? [['Mail', 'Email PO to vendor', () => toast({ title: `${o.id} emailed to ${o.vendor}` })]] : []), ['Printer', 'Print PO', () => toast({ title: `${o.id} sent to the office printer` })], ['Download', 'Save as PDF', () => toast({ title: `Saved: ${o.id}.pdf` })]]} />
           </div> },
         ]}
         mobile={(o) => ({ title: o.vendor, sub: `${o.id} · ${o.items}`, icon: 'ShoppingCart', iconTone: PO_TONE[o.status], right: <span className="font-semibold tnum text-[14px]">{inr(o.amt)}</span>, pills: [<Pill key="s" tone={PO_TONE[o.status]} className="!h-[22px] !text-[11.5px]">{o.status}</Pill>] })}
@@ -1005,7 +1040,7 @@ function PurchasesPage({ params }) {
         footer={`${ORDERS.filter((o) => ['Sent', 'Part received'].includes(o.status)).length} orders waiting for goods`} />
     ),
     grn: (
-      <DataList rows={GRNS.filter((g) => m(g.id + g.vendor + g.po))} rowKey={(g) => g.id} minWidth={760}
+      <DataList rows={GRNS.filter((g) => dIn(g.d) && m(g.id + g.vendor + g.po))} rowKey={(g) => g.id} empty={none} minWidth={760}
         columns={[
           { key: 'id', label: 'Goods received', nowrap: true, render: (g) => <div><p className="font-mono text-[12.5px] font-semibold">{g.id}</p><p className="text-[12px] text-ink3">{g.d}</p></div> },
           { key: 'po', label: 'Against', render: (g) => <div><p className="font-mono text-[12.5px]">{g.po}</p><p className="text-[12px] text-ink3">{g.vendor}</p></div> },
@@ -1016,7 +1051,7 @@ function PurchasesPage({ params }) {
         mobile={(g) => ({ title: g.items, sub: `${g.id} · ${g.po} · ${g.loc}`, icon: 'PackageCheck', iconTone: g.status === 'Complete' ? 'ok' : 'warn' })} footer="Stock goes up in the chosen location when goods are received" />
     ),
     bills: (
-      <DataList rows={bills.filter((b) => m(b.id + b.vendor + b.po))} rowKey={(b) => b.id} minWidth={860}
+      <DataList rows={bills.filter((b) => dIn(b.d) && m(b.id + b.vendor + b.po))} rowKey={(b) => b.id} empty={none} minWidth={860}
         columns={[
           { key: 'id', label: 'Vendor bill', nowrap: true, render: (b) => <div><p className="font-mono text-[12.5px] font-semibold">{b.id}</p><p className="text-[12px] text-ink3">{b.d}</p></div> },
           { key: 'vendor', label: 'Vendor', render: (b) => <div><p className="font-semibold leading-tight">{b.vendor}</p><p className="text-[12px] text-ink3 font-mono">{b.po}</p></div> },
@@ -1024,12 +1059,12 @@ function PurchasesPage({ params }) {
           { key: 'paid', label: 'Paid', align: 'right', render: (b) => (b.paid ? inr(b.paid) : '—') },
           { key: 'st', label: 'Status', render: (b) => <div><Pill tone={BILL_TONE[b.status]}>{b.status}</Pill><p className="text-[11.5px] text-ink3 mt-1">{b.fin ? `Finance: ${b.fin}` : `Due ${b.due}`}</p></div> },
           { key: 'act', label: '', render: (b) => <div className="flex gap-1.5 justify-end" onClick={(e) => e.stopPropagation()}>
-            {canEdit && b.status !== 'Paid' && <Button size="sm" variant="soft" icon={I.IndianRupee} onClick={() => { setCur(b); setSheet('pay'); }}>Pay</Button>}
-            <MoreMenu size="sm" items={[['Eye', 'View bill photo', () => toast({ title: `Opening ${b.id}`, tone: 'info' })], ...(canEdit && b.paid ? [['Ban', 'Cancel payment with a reason', () => { setCur(b); setSheet('cancel'); }, 'bad']] : [])]} />
+            {canPay && b.status !== 'Paid' && <Button size="sm" variant="soft" icon={I.IndianRupee} onClick={() => { setCur(b); setSheet('pay'); }}>Pay</Button>}
+            <MoreMenu size="sm" items={[['Eye', 'View bill photo', () => toast({ title: `Opening ${b.id}`, tone: 'info' })], ...(canPay && b.paid ? [['Ban', 'Cancel payment with a reason', () => { setCur(b); setSheet('cancel'); }, 'bad']] : [])]} />
           </div> },
         ]}
         mobile={(b) => ({ title: b.vendor, sub: `${b.id} · due ${b.due}`, icon: 'ReceiptText', iconTone: BILL_TONE[b.status], right: <span className="font-semibold tnum text-[14px]">{inr(b.amt - b.paid)}</span>, pills: [<Pill key="s" tone={BILL_TONE[b.status]} className="!h-[22px] !text-[11.5px]">{b.status}</Pill>] })}
-        onRow={canEdit ? (b) => (b.status !== 'Paid' ? (setCur(b), setSheet('pay')) : toast({ title: `${b.id} paid`, body: b.fin, tone: 'info' })) : undefined}
+        onRow={(b) => (canPay && b.status !== 'Paid' ? (setCur(b), setSheet('pay')) : toast({ title: `${b.id} · ${b.status}`, body: b.fin ? `Finance: ${b.fin}` : `${inr(b.amt - b.paid)} due by ${b.due}. The Accountant pays it in Finance, Expenses.`, tone: 'info' }))}
         footer={`${inr(unpaid)} unpaid · bills and payments reach Finance (Expenses and Day Book)`} />
     ),
     vendors: (
@@ -1042,7 +1077,7 @@ function PurchasesPage({ params }) {
           { key: 'open', label: 'Unpaid', align: 'right', render: (v) => (v.open ? <span className="text-bad font-semibold">{inr(v.open)}</span> : <span className="text-ink3">—</span>) },
         ]}
         mobile={(v) => ({ title: v.name, sub: `${v.items} · ${v.phone}`, avatar: v.name, right: v.open ? <span className="text-bad font-semibold tnum text-[13.5px]">{inr(v.open)}</span> : null })}
-        onRow={(v) => toast({ title: v.name, body: `${v.contact} · ${v.phone} · ${v.email} · ${v.bank} · ${v.orders} orders this year`, tone: 'info' })}
+        onRow={(v) => toast({ title: v.name, body: `${v.contact} · ${v.phone} · ${v.email}${seesBank ? ` · ${v.bank}` : ''} · ${v.orders} orders this year`, tone: 'info' })}
         footer="One vendor list, shared with Finance" />
     ),
   };
@@ -1057,19 +1092,21 @@ function PurchasesPage({ params }) {
         </>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
         <Stats items={[
-          { label: 'Waiting for approval', value: String(reqs.filter((r) => r.status === 'Waiting').length), sub: inr(reqs.filter((r) => r.status === 'Waiting').reduce((a, r) => a + r.amt, 0)), tone: 'warn', icon: 'Hourglass', onClick: () => setTab('requests') },
+          ...(showReq ? [{ label: 'Waiting for approval', value: String(reqs.filter((r) => r.status === 'Waiting').length), sub: inr(reqs.filter((r) => r.status === 'Waiting').reduce((a, r) => a + r.amt, 0)), tone: 'warn', icon: 'Hourglass', onClick: () => setTab('requests') }] : []),
           { label: 'Open orders', value: '2', sub: `${inr(29040)} ordered`, icon: 'ShoppingCart', onClick: () => setTab('orders') },
           { label: 'Bills unpaid', value: inr(unpaid), sub: `${bills.filter((b) => b.status !== 'Paid').length} bills`, tone: 'bad', icon: 'ReceiptText', onClick: () => setTab('bills') },
-          { label: 'Paid this year', value: inr(286420), sub: 'Since 1 Apr 2026', icon: 'CircleCheck' },
+          { label: `Paid · ${per.label.toLowerCase()}`, value: inr(Math.round((286420 * Math.min(periodDays(per), 192)) / 192)), sub: fmtRange(per), icon: 'CircleCheck' },
         ]} />
-        {role.id === 'accountant' && <Banner tone="info" title="View only.">You see purchase orders and vendor bills that reach Finance. Payments are recorded by the Store Keeper or School Admin.</Banner>}
+        {role.id === 'accountant' && <Banner tone="info" title="View only." action={inMenu(role, 'finance') ? <Button size="sm" variant="secondary" icon={I.IndianRupee} className="shrink-0" onClick={() => go('finance', { page: 'expenses' })}>Open Expenses</Button> : null}>You see purchase orders, goods received and vendor bills that reach Finance. You pay the bills in Finance, Expenses.</Banner>}
+        {canEdit && !canPay && <Banner tone="info" title="Bills are paid in Finance.">You record the vendor’s bill here. The Accountant pays it, and the payment shows on the bill.</Banner>}
         <Card className="overflow-hidden">
           <div className="px-3 pt-3"><Chips value={tab} onChange={setTab} options={[
-            { value: 'requests', label: 'Requests', count: reqs.length }, { value: 'orders', label: 'Purchase orders', count: ORDERS.length }, { value: 'grn', label: 'Goods received', count: GRNS.length },
-            { value: 'bills', label: 'Bills', count: bills.length }, { value: 'vendors', label: 'Vendors', count: VENDORS.length },
+            ...(showReq ? [{ value: 'requests', label: 'Requests', count: reqs.filter((r) => dIn(r.d)).length }] : []), { value: 'orders', label: 'Purchase orders', count: ORDERS.filter((o) => dIn(o.d)).length }, { value: 'grn', label: 'Goods received', count: GRNS.filter((g) => dIn(g.d)).length },
+            { value: 'bills', label: 'Bills', count: bills.filter((b) => dIn(b.d)).length }, { value: 'vendors', label: 'Vendors', count: VENDORS.length },
           ]} /></div>
           <Toolbar className="border-t-0">
             <SearchBox id="pur-search" value={q} onChange={setQ} placeholder={tab === 'vendors' ? 'Vendor name, phone or GSTIN' : 'Number, vendor or item'} />
+            {tab !== 'vendors' && <DatePeriod id="pur-per" value={per} onChange={setPer} className="w-full @md:w-auto" />}
             <ExportButton what={tab} />
           </Toolbar>
           {lists[tab]}
@@ -1369,10 +1406,14 @@ function AssetDetail({ tag }) {
     : a.tag === 'AT-0215' ? [{ d: '9 Oct 2026', p: 'Fan not working, burning smell from regulator', v: 'Shankar (electrician)', c: '—', s: 'Open' }]
       : [{ d: '12 Mar 2026', p: 'Yearly service', v: a.vendor, c: inr(1200), s: 'Done' }];
   const history = [
-    { icon: 'MapPin', tone: 'brand', what: `In ${loc}`, when: 'Since 1 Jun 2026 · assigned by Ramu Yadav' },
-    ...(a.type === 'IT' ? [{ icon: 'ArrowRightLeft', what: 'Moved from Room 9 B', when: '31 May 2026 · approved by Anita Sharma' }] : []),
-    { icon: 'PackageCheck', what: `Received from ${a.vendor} and tagged ${a.tag}`, when: a.bought },
+    { icon: 'MapPin', tone: 'brand', what: `In ${loc}`, when: 'Since 1 Jun 2026 · assigned by Ramu Yadav', on: '1 Jun 2026', now: true },
+    ...(a.type === 'IT' ? [{ icon: 'ArrowRightLeft', what: 'Moved from Room 9 B', when: '31 May 2026 · approved by Anita Sharma', on: '31 May 2026' }] : []),
+    { icon: 'PackageCheck', what: `Received from ${a.vendor} and tagged ${a.tag}`, when: a.bought, on: a.bought },
   ];
+  // Repair log and history open on everything since the asset was bought; any DatePeriod narrows them
+  const [per, setPer] = useState(() => ({ key: 'custom', label: 'Since bought', from: isoOf(a.bought), to: '2026-10-09' }));
+  const repairsIn = repairs.filter((r) => inPer(per, r.d));
+  const historyIn = history.filter((h) => h.now || inPer(per, h.on));
   const end = a.amc || a.warranty;
   return (
     <div>
@@ -1405,12 +1446,17 @@ function AssetDetail({ tag }) {
           { label: a.amc ? 'AMC ends' : 'Warranty ends', value: end || 'None', sub: end ? (ENDING.includes(a) ? 'Within 30 days' : a.warranty === '13 Jun 2026' ? 'Ended' : 'Reminder 30 days before') : 'No warranty on record', tone: ENDING.includes(a) ? 'warn' : undefined, icon: 'CalendarClock' },
           { label: 'Condition', value: a.cond, sub: `${repairs.length} repair${repairs.length > 1 ? 's' : ''} on record`, tone: COND_TONE[a.cond] === 'neutral' ? undefined : COND_TONE[a.cond], icon: 'Gauge' },
         ]} />
+        <div className="flex flex-col @md:flex-row @md:items-center gap-2.5">
+          <DatePeriod id="as-per" value={per} onChange={setPer} className="w-full @md:w-auto" />
+          <p className="text-[12.5px] text-ink3">Repair log and history between {fmtRange(per)}</p>
+        </div>
         <Split>
           <Col>
             <Card>
               <CardHead title="Maintenance and repair log" action={canEdit && status !== 'Disposed' && <Button size="sm" variant="soft" icon={I.Plus} onClick={() => setSheet('repair')}>Log repair</Button>} />
+              {repairsIn.length === 0 && <p className="px-5 pb-5 text-[13.5px] text-ink3">No repairs between {fmtRange(per)}.</p>}
               <ul className="px-2 pb-2">
-                {repairs.map((r) => (
+                {repairsIn.map((r) => (
                   <li key={r.d}><Row icon="Wrench" iconTone={MR_TONE[r.s] || 'neutral'} title={r.p} sub={`${r.d} · ${r.v} · ${r.c}`} right={<Pill tone={MR_TONE[r.s]}>{r.s}</Pill>} /></li>
                 ))}
               </ul>
@@ -1445,7 +1491,7 @@ function AssetDetail({ tag }) {
             )}
             <Card>
               <CardHead title="History" />
-              <div className="px-5 pb-1"><Timeline items={history} /></div>
+              <div className="px-5 pb-1"><Timeline items={historyIn} /></div>
             </Card>
           </Col>
         </Split>
@@ -1521,9 +1567,13 @@ function RoomsPage() {
   const [q, setQ] = useState('');
   const [sheet, setSheet] = useState(null);
   const [cur, setCur] = useState(null);
+  const [per, setPer] = useState(PERIODS.thismonth);
   const t = q.trim().toLowerCase();
-  const rows = list.filter((r) => (f === 'all' || (f === 'open' ? r.status !== 'Done' : r.status === 'Done')) && (!t || (r.what + r.place + r.by + r.id).toLowerCase().includes(t)));
-  const cost = list.filter((r) => r.cost).reduce((a, r) => a + r.cost, 0);
+  const inP = list.filter((r) => inPer(per, r.when));
+  const rows = inP.filter((r) => (f === 'all' || (f === 'open' ? r.status !== 'Done' : r.status === 'Done')) && (!t || (r.what + r.place + r.by + r.id).toLowerCase().includes(t)));
+  // Older requests are only examples: the totals grow with the length of the period
+  const days = periodDays(per);
+  const cost = inP.filter((r) => r.cost).reduce((a, r) => a + r.cost, 0) + Math.round(days * 780);
   return (
     <div>
       <ModuleHead sub="64 rooms, 4 labs, 2 halls and 2 grounds · any staff member can raise a request from their phone"
@@ -1538,16 +1588,18 @@ function RoomsPage() {
             <Stats items={[
               { label: 'Open', value: String(list.filter((r) => r.status === 'Open').length), sub: '1 high priority, no technician', tone: 'bad', icon: 'CircleAlert', onClick: () => setF('open') },
               { label: 'In progress', value: String(list.filter((r) => r.status === 'In progress').length), sub: 'With a technician', tone: 'warn', icon: 'Wrench', onClick: () => setF('open') },
-              { label: 'Done this month', value: String(list.filter((r) => r.status === 'Done').length + 9), sub: 'Average 2.1 days', tone: 'ok', icon: 'CircleCheck', onClick: () => setF('done') },
-              { label: 'Cost this month', value: inr(cost + 13050), sub: 'Sent to Finance as expenses', icon: 'IndianRupee' },
+              { label: `Done · ${per.label.toLowerCase()}`, value: String(inP.filter((r) => r.status === 'Done').length + Math.round(days * 0.75)), sub: 'Average 2.1 days', tone: 'ok', icon: 'CircleCheck', onClick: () => setF('done') },
+              { label: `Cost · ${per.label.toLowerCase()}`, value: inr(cost), sub: `${fmtRange(per)} · sent to Finance`, icon: 'IndianRupee' },
             ]} />
             <Card className="overflow-hidden">
               <Toolbar>
                 <SearchBox id="mr-search" value={q} onChange={setQ} placeholder="Problem, place or person" />
-                <Segmented value={f} onChange={setF} options={[{ value: 'open', label: 'Open' }, { value: 'done', label: 'Done' }, { value: 'all', label: 'All' }]} />
+                <DatePeriod id="mr-per" value={per} onChange={setPer} className="w-full @md:w-auto" />
                 <ExportButton what="maintenance requests" />
               </Toolbar>
-              <DataList rows={rows} rowKey={(r) => r.id} minWidth={860} onRow={(r) => setCur(r)} footer={`Showing ${rows.length} of ${list.length} requests this month`}
+              <div className="px-3 pt-3"><Segmented value={f} onChange={setF} size="sm" options={[{ value: 'open', label: 'Open' }, { value: 'done', label: 'Done' }, { value: 'all', label: 'All' }]} /></div>
+              <DataList rows={rows} rowKey={(r) => r.id} minWidth={860} onRow={(r) => setCur(r)} footer={`${rows.length} request${rows.length === 1 ? '' : 's'} · ${per.label.toLowerCase()} · ${fmtRange(per)}`}
+                empty={<Empty icon={I.CalendarX} title="No requests in these dates" body={`No ${f === 'all' ? '' : f === 'open' ? 'open ' : 'finished '}maintenance requests between ${fmtRange(per)}. Pick a longer period.`} />}
                 columns={[
                   { key: 'what', label: 'Request', render: (r) => <div className="max-w-[320px]"><p className="font-semibold leading-tight flex items-center gap-1.5">{r.what}{r.photo && <I.Camera size={14} className="text-ink3 shrink-0" />}</p><p className="text-[12px] text-ink3"><span className="font-mono">{r.id}</span> · {r.by} · {r.when}</p></div> },
                   { key: 'place', label: 'Place', render: (r) => <div><p className="text-[13.5px]">{r.place}</p>{r.asset && <p className="text-[12px] text-ink3 font-mono">{r.asset.split(' · ')[0]}</p>}</div> },
@@ -1756,26 +1808,39 @@ const INV_REPORTS = [
   { g: 'Maintenance', id: 'maint', name: 'Maintenance requests and costs', what: 'By place, technician and month' },
   { g: 'Audits', id: 'audit', name: 'Stock audit and asset audit variances', what: 'Differences found and approved' },
 ];
+// Reports that show the state today; the others cover a period
+const AS_ON = ['stock', 'low', 'register', 'amc', 'pending'];
+// The Accountant sees the money side only: stock and asset value, purchases, store charges and maintenance costs
+const ACCOUNTANT_REPORTS = ['stock', 'sets', 'vendor', 'pending', 'register', 'maint'];
+const MONTHS = [['2026-06', 'June'], ['2026-07', 'July'], ['2026-08', 'August'], ['2026-09', 'September'], ['2026-10', 'October (so far)']];
+const monthIn = (per, ym) => { const [y, m] = ym.split('-').map(Number); const last = new Date(y, m, 0).getDate(); return `${ym}-01` <= per.to && `${ym}-${last}` >= per.from; };
 function InvReportsPage() {
   const toast = useToast();
-  const [cur, setCur] = useState('stock');
+  const { role } = useRole();
+  const list = role.id === 'accountant' ? INV_REPORTS.filter((x) => ACCOUNTANT_REPORTS.includes(x.id)) : INV_REPORTS;
+  const [cur, setCur] = useState(list[0].id);
   const [loc, setLoc] = useState('All locations');
-  const [per, setPer] = useState('This term');
-  const r = INV_REPORTS.find((x) => x.id === cur);
+  const [per, setPer] = useState(PERIODS.acyear);
+  const r = list.find((x) => x.id === cur) || list[0];
+  const asOn = AS_ON.includes(r.id);
+  // Example numbers for a term (1 Jun to 9 Oct, 131 days), scaled to the chosen period
+  const f = Math.min(periodDays(per), 400) / 131;
+  const sc = (v) => Math.round(v * f);
+  const byMonth = (rows) => MONTHS.map(([ym, label], i) => [ym, [label, ...rows[i]]]).filter(([ym]) => monthIn(per, ym)).map(([, row]) => row);
   const preview = {
     stock: { cols: ['Category', 'Items', 'In hand (units)', 'Value'], rows: [['Stationery', 88, '9,842', inr(214600)], ['Lab', 74, '2,316', inr(168900)], ['Uniforms', 38, '1,904', inr(142300)], ['Books', 34, '1,218', inr(96450)], ['Sports', 31, '286', inr(38700)], ['Cleaning', 28, '412', inr(14800)], ['Computer spares', 8, '19', inr(5200)], ['Electrical', 11, '146', inr(3300)]], total: ['Total', 312, '16,143', inr(684250)] },
-    moves: { cols: ['Month', 'In', 'Out', 'Transfers', 'Losses'], rows: [['June', '8,420', '6,115', '312', '14'], ['July', '1,240', '2,036', '88', '6'], ['August', '960', '1,874', '64', '3'], ['September', '3,610', '2,258', '120', '9'], ['October (so far)', '160', '1,102', '42', '2']] },
+    moves: { cols: ['Month', 'In', 'Out', 'Transfers', 'Losses'], rows: byMonth([['8,420', '6,115', '312', '14'], ['1,240', '2,036', '88', '6'], ['960', '1,874', '64', '3'], ['3,610', '2,258', '120', '9'], ['160', '1,102', '42', '2']]) },
     low: { cols: ['Item', 'In hand', 'Reorder level', 'Suggested order'], rows: LOW.map((it) => [it.name, n(inHand(it)), n(it.reorder), n(it.reorder * 2 - inHand(it))]) },
-    issues: { cols: ['Issued to', 'Issues', 'Items', 'Value'], rows: [['Exam cell', 14, '3,640', inr(28400)], ['Primary wing (Classes 1–5)', 22, '486', inr(9100)], ['Science department', 9, '212', inr(18200)], ['Students (store counter)', 168, '1,512', inr(516420)], ['Housekeeping', 11, '58', inr(16900)]] },
-    sets: { cols: ['Class', 'Set', 'Issued', 'Charged to fees'], rows: [['Class 5', 'Class 5 book set 2026–27', 71, inr(244950)], ['Class 8', 'Class 8 book set 2026–27', 64, inr(273920)], ['Class 1', 'Class 1 uniform set (boys)', 38, inr(70680)]] },
-    vendor: { cols: ['Vendor', 'Orders', 'Amount', 'Unpaid'], rows: VENDORS.map((v) => [v.name, v.orders, inr([96420, 58300, 41800, 38900, 33200, 17800][VENDORS.indexOf(v)]), v.open ? inr(v.open) : '—']) },
+    issues: { cols: ['Issued to', 'Issues', 'Items', 'Value'], rows: [['Exam cell', 14, 3640, 28400], ['Primary wing (Classes 1–5)', 22, 486, 9100], ['Science department', 9, 212, 18200], ['Students (store counter)', 168, 1512, 516420], ['Housekeeping', 11, 58, 16900]].map(([k, a, b, c]) => [k, n(sc(a)), n(sc(b)), inr(sc(c))]) },
+    sets: { cols: ['Class', 'Set', 'Issued', 'Charged to fees'], rows: [['Class 5', 'Class 5 book set 2026–27', 71, 3450], ['Class 8', 'Class 8 book set 2026–27', 64, 4280], ['Class 1', 'Class 1 uniform set (boys)', 38, 1860]].map(([k, nm, q, p]) => [k, nm, n(sc(q)), inr(sc(q) * p)]) },
+    vendor: { cols: ['Vendor', 'Orders', 'Amount', 'Unpaid'], rows: VENDORS.map((v, i) => [v.name, n(sc(v.orders)), inr(sc([96420, 58300, 41800, 38900, 33200, 17800][i])), v.open ? inr(v.open) : '—']) },
     pending: { cols: ['Number', 'Vendor', 'What is pending', 'Amount'], rows: [['PO-2026-0058', 'Sri Sai Stationers', 'All goods', inr(18240)], ['PO-2026-0057', 'Deccan Scientific Suppliers', '20 beakers', inr(1900)], ['HSH/26-27/0471', 'Hyderabad Sports House', 'Bill unpaid', inr(14600)], ['DSS/2026/772', 'Deccan Scientific Suppliers', 'Bill part paid', inr(3400)]] },
     register: { cols: ['Type', 'Assets', 'Bought for', 'Value now'], rows: [['Vehicles', 9, '₹2.20 Cr', '₹1.31 Cr'], ['IT', 214, '₹48.6 L', '₹17.2 L'], ['Furniture', '1,124', '₹21.4 L', '₹12.9 L'], ['Lab', 286, '₹9.8 L', '₹6.1 L'], ['Sports', 96, '₹4.2 L', '₹2.8 L'], ['Other', 113, '₹8.4 L', '₹5.6 L']] },
     amc: { cols: ['Asset', 'Tag', 'Ends', 'With'], rows: [...ENDING.map((a) => [a.name, a.tag, a.amc || a.warranty, a.amc ? `AMC · ${a.vendor}` : 'Warranty']), ['Interactive flat panels ×6', 'AT-0725 to 0730', '2 Dec 2026', 'AMC · Sri Venkateswara Systems']] },
-    maint: { cols: ['Month', 'Requests', 'Done', 'Average days', 'Cost'], rows: [['June', 31, 31, '2.8', inr(42600)], ['July', 24, 24, '1.9', inr(18300)], ['August', 19, 19, '2.2', inr(12750)], ['September', 22, 21, '2.4', inr(26900)], ['October (so far)', 6, 2, '2.0', inr(1800)]] },
-    audit: { cols: ['Audit', 'Location', 'Differences', 'Status'], rows: [['AUD-2026-0004', 'Main store', '5 items · −₹612', 'Approved 30 Aug'], ['AUD-2026-0003', 'Lab store', '2 items · −₹190', 'Approved 2 Jul'], ['AA-2026-0002', 'Computer lab 1', '1 missing, 1 misplaced', 'Waiting for review']] },
-  }[cur];
-  const groups = [...new Set(INV_REPORTS.map((x) => x.g))];
+    maint: { cols: ['Month', 'Requests', 'Done', 'Average days', 'Cost'], rows: byMonth([[31, 31, '2.8', inr(42600)], [24, 24, '1.9', inr(18300)], [19, 19, '2.2', inr(12750)], [22, 21, '2.4', inr(26900)], [6, 2, '2.0', inr(1800)]]) },
+    audit: { cols: ['Audit', 'Location', 'Differences', 'Status'], rows: [['AUD-2026-0004', 'Main store', '5 items · −₹612', 'Approved 30 Aug', '2026-08-30'], ['AUD-2026-0003', 'Lab store', '2 items · −₹190', 'Approved 2 Jul', '2026-07-02'], ['AA-2026-0002', 'Computer lab 1', '1 missing, 1 misplaced', 'Waiting for review', '2026-10-08']].filter((x) => x[4] >= per.from && x[4] <= per.to).map((x) => x.slice(0, 4)) },
+  }[r.id];
+  const groups = [...new Set(list.map((x) => x.g))];
   return (
     <div>
       <ModuleHead sub="Stock, purchase and asset reports. Each one is also in Reports & Analytics." />
@@ -1785,11 +1850,11 @@ function InvReportsPage() {
             <div key={g} className="border-b border-line/70 last:border-0 pb-1">
               <p className="eyebrow text-ink3 px-5 pt-3.5 pb-1">{g}</p>
               <ul className="px-2">
-                {INV_REPORTS.filter((x) => x.g === g).map((x) => (
+                {list.filter((x) => x.g === g).map((x) => (
                   <li key={x.id}>
-                    <button onClick={() => setCur(x.id)} className={cx('w-full text-left px-3 py-2 rounded-xl transition', cur === x.id ? 'bg-brand/10 text-brand' : 'hover:bg-sunken/70')}>
+                    <button onClick={() => setCur(x.id)} className={cx('w-full text-left px-3 py-2 rounded-xl transition', r.id === x.id ? 'bg-brand/10 text-brand' : 'hover:bg-sunken/70')}>
                       <p className="font-semibold text-[14px] leading-snug">{x.name}</p>
-                      <p className={cx('text-[12.5px]', cur === x.id ? 'text-brand/80' : 'text-ink3')}>{x.what}</p>
+                      <p className={cx('text-[12.5px]', r.id === x.id ? 'text-brand/80' : 'text-ink3')}>{x.what}</p>
                     </button>
                   </li>
                 ))}
@@ -1799,18 +1864,18 @@ function InvReportsPage() {
         </Card>
         <Col>
           <Field label="Report" id="ir-pick" className="@xl:hidden">
-            <Select id="ir-pick" value={cur} onChange={setCur} options={INV_REPORTS.map((x) => ({ value: x.id, label: `${x.g}: ${x.name}` }))} />
+            <Select id="ir-pick" value={r.id} onChange={setCur} options={list.map((x) => ({ value: x.id, label: `${x.g}: ${x.name}` }))} />
           </Field>
           <Card className="overflow-hidden">
-            <CardHead title={r.name} sub={`Sunrise Public School · ${loc} · ${per} · 2026–27`} />
-            <Toolbar className="border-t border-line">
+            <CardHead title={r.name} sub={`Sunrise Public School · ${loc} · ${asOn ? 'as on 9 Oct 2026' : `${per.label} · ${fmtRange(per)}`}`} />
+            <Toolbar className="border-t border-line @md:flex-wrap">
               <Select value={loc} onChange={setLoc} options={['All locations', ...LOCS]} className="@md:w-52" />
-              <Select value={per} onChange={setPer} options={['This term', 'This month', 'Last month', 'This year (Apr 2026 to Mar 2027)']} className="@md:w-60" />
+              {!asOn && <DatePeriod id="ir-per" value={per} onChange={setPer} className="w-full @md:w-auto" />}
               <div className="flex gap-2 @md:ml-auto">
                 {['Excel', 'CSV', 'PDF'].map((f) => <Button key={f} variant="secondary" size="md" icon={f === 'PDF' ? I.FileText : I.FileSpreadsheet} onClick={() => toast({ title: `Saved: ${r.name.toLowerCase().replace(/[^a-z]+/g, '-')}.${f === 'Excel' ? 'xlsx' : f.toLowerCase()}`, body: 'School name, filters, your name and the time are on top. Logged in the export log.' })}>{f}</Button>)}
               </div>
             </Toolbar>
-            <div className="overflow-x-auto scroll-thin">
+            {preview.rows.length === 0 ? <Empty icon={I.CalendarX} title="Nothing in these dates" body={`${r.name} has no rows between ${fmtRange(per)}. Pick a longer period.`} /> : <div className="overflow-x-auto scroll-thin">
               <table className="w-full text-[14px] min-w-[520px]">
                 <thead><tr className="text-[12px] text-ink3 text-left border-b border-line">{preview.cols.map((c, i) => <th key={c} className={cx('py-2.5 font-semibold', i === 0 ? 'pl-5 pr-3' : 'px-3', i === preview.cols.length - 1 && 'pr-5', i > 0 && 'text-right')}>{c}</th>)}</tr></thead>
                 <tbody>
@@ -1818,18 +1883,18 @@ function InvReportsPage() {
                   {preview.total && <tr className="bg-sunken/60 font-semibold">{preview.total.map((v, i) => <td key={i} className={cx('py-2.5', i === 0 ? 'pl-5 pr-3' : 'px-3 text-right tnum', i === preview.total.length - 1 && 'pr-5')}>{v}</td>)}</tr>}
                 </tbody>
               </table>
-            </div>
+            </div>}
           </Card>
-          {cur === 'stock' && (
+          {r.id === 'stock' && (
             <Card>
               <CardHead title="Stock value by category" sub="₹ thousand" />
               <div className="px-5 pb-5"><HBars rows={[['Stationery', 215], ['Lab', 169], ['Uniforms', 142], ['Books', 96], ['Sports', 39], ['Cleaning', 15]].map(([k, v]) => ({ k, v, label: `₹${v}k` }))} max={220} labelWidth={84} /></div>
             </Card>
           )}
-          {cur === 'maint' && (
+          {r.id === 'maint' && preview.rows.length > 0 && (
             <Card>
               <CardHead title="Maintenance cost by month" sub="₹ thousand" />
-              <div className="px-3 pb-3"><Bars data={[['Jun', 42.6], ['Jul', 18.3], ['Aug', 12.8], ['Sep', 26.9], ['Oct', 1.8]].map(([k, v]) => ({ k, v }))} label={(v) => `${v}k`} max={50} ticks={[0, 20, 40]} ariaLabel="Maintenance cost by month" /></div>
+              <div className="px-3 pb-3"><Bars data={[['Jun', 42.6], ['Jul', 18.3], ['Aug', 12.8], ['Sep', 26.9], ['Oct', 1.8]].filter((x, i) => monthIn(per, MONTHS[i][0])).map(([k, v]) => ({ k, v }))} label={(v) => `${v}k`} max={50} ticks={[0, 20, 40]} ariaLabel="Maintenance cost by month" /></div>
             </Card>
           )}
         </Col>

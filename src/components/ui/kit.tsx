@@ -394,3 +394,24 @@ export function Col({ children, className }: { children: React.ReactNode; classN
 export function IconTile({ icon: Ic, tone = "neutral", size = 40 }: { icon: LucideIcon; tone?: Tone | "neutral"; size?: number }) {
   return <span className={cx("rounded-xl grid place-items-center shrink-0", TONE_SOFT[tone])} style={{ width: size, height: size }}><Ic size={Math.round(size * 0.48)} aria-hidden="true" /></span>;
 }
+
+/** A line across points (percent 0 to 100); a point with no value shows as an empty ring. */
+export function TrendLine({ points, ariaLabel = "Percentage across exams" }: { points: { k: string; v: number | null }[]; ariaLabel?: string }) {
+  const W = 320, H = 116, pad = 28;
+  const x = (i: number) => (points.length === 1 ? W / 2 : pad + (i * (W - pad * 2)) / (points.length - 1));
+  const y = (v: number) => 24 + (H - 48) * (1 - Math.max(0, Math.min(100, v)) / 100);
+  const shown = points.map((p, i) => ({ ...p, i })).filter((p): p is { k: string; v: number; i: number } => p.v !== null);
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label={`${ariaLabel}: ${shown.map((p) => `${p.k} ${Math.round(p.v)}%`).join(", ")}`}>
+      {[50, 100].map((t) => <line key={t} x1={pad} x2={W - pad} y1={y(t)} y2={y(t)} strokeDasharray="3 4" style={{ stroke: "rgb(var(--line))" }} />)}
+      {shown.length > 1 && <polyline fill="none" strokeWidth="2.5" points={shown.map((p) => `${x(p.i)},${y(p.v)}`).join(" ")} style={{ stroke: "rgb(var(--brand))" }} />}
+      {points.map((p, i) => (
+        <g key={`${p.k}${i}`}>
+          {p.v !== null ? <circle cx={x(i)} cy={y(p.v)} r="5" style={{ fill: "rgb(var(--brand))" }} /> : <circle cx={x(i)} cy={y(50)} r="4" fill="none" strokeDasharray="2 2" style={{ stroke: "rgb(var(--ink-3))" }} />}
+          {p.v !== null && <text x={x(i)} y={y(p.v) - 10} textAnchor="middle" fontSize="11" fontWeight="600" style={{ fill: "rgb(var(--ink))" }}>{Math.round(p.v)}%</text>}
+          <text x={x(i)} y={H - 6} textAnchor="middle" fontSize="10.5" style={{ fill: "rgb(var(--ink-3))" }}>{p.k.length > 14 ? `${p.k.slice(0, 13)}…` : p.k}</text>
+        </g>
+      ))}
+    </svg>
+  );
+}

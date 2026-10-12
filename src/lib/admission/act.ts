@@ -59,8 +59,9 @@ export function str(fd: FormData, key: string) {
 }
 
 export function file(fd: FormData, key: string): File | null {
-  const v = fd.get(key);
-  return v instanceof File && v.size > 0 ? v : null;
+  // A form may offer "Take photo" and "Choose file" under one name; the first one filled counts.
+  for (const v of fd.getAll(key)) if (v instanceof File && v.size > 0) return v;
+  return null;
 }
 
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

@@ -1,15 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { Check, ChevronRight, GraduationCap, IdCard, IndianRupee, MessageCircle, ShieldCheck, Smartphone, Users, type LucideIcon } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { workPage, BASE } from "@/lib/admission/page";
 import { UUID_RE } from "@/lib/admission/act";
 import { UNDO_ADMISSION_MS, type Conversion } from "@/lib/admission/convert";
 import { feePlanApplies } from "@/lib/students/hooks";
-import { PageHeader } from "@/components/shell/page-header";
-import { Card, CardBody, CardHeader } from "@/components/ui/card";
-import { Alert } from "@/components/ui/alert";
+import { Card } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
 import { UndoAdmission } from "../../decision-forms";
 
@@ -36,67 +35,56 @@ export default async function AdmittedPage({ params }: { params: Promise<{ id: s
   if (!data) notFound();
   if (!data.admitted) redirect(`${BASE}/applications/${id}`);
   const { app, c, student, section } = data;
-  const now = Date.now();
   const undoUntil = app.admittedAt ? app.admittedAt.getTime() + UNDO_ADMISSION_MS : 0;
-  const canUndo = viewer.change === "all" && undoUntil > now;
-  const welcome = c?.welcome === "queued" || c?.welcome === "sent" ? "Sent to the parent with the admission number." : c?.welcome ? `Not sent (${c.welcome}). Send it from Communication.` : "Not sent. Check the \"admission-welcome\" rule in Communication.";
+  // Server render time decides whether the undo button shows; the action checks again.
+  // eslint-disable-next-line react-hooks/purity
+  const canUndo = viewer.change === "all" && undoUntil > Date.now();
+  const admNo = student?.admissionNo ?? c?.admissionNo ?? "";
+  const place = section ? `${section.schoolClass.name} ${section.name}` : "";
+  const welcome = c?.welcome === "queued" || c?.welcome === "sent" ? "“Admission confirmed” message, with the admission number" : c?.welcome ? `Not sent (${c.welcome}). Send it from Communication.` : "Not sent. Check the “admission-welcome” rule in Communication.";
+  const parents = data.guardians.map((g) => `${g.name}${c?.linkedGuardianIds.includes(g.id) ? " (already a parent here)" : ""}`).join(" and ");
 
-  const items: { label: string; value: React.ReactNode; href?: string; link?: string }[] = [
-    { label: "Student record", value: `${student?.fullName ?? app.fullName}, admission no. ${student?.admissionNo ?? c?.admissionNo ?? ""}`, href: `/student-management/students/${app.studentId}`, link: "Open student" },
-    { label: "Class and section", value: section ? `${section.schoolClass.name} ${section.name}, roll no. ${c?.rollNo ?? ""}` : "" },
-    {
-      label: "Parent records",
-      value: (
-        <ul className="space-y-1">
-          {data.guardians.map((g) => (
-            <li key={g.id}>
-              <Link href={`/student-management/guardians/${g.id}`} className="text-brand-text hover:underline">{g.name}</Link> ({g.relationship}, {g.phone})
-              {c?.linkedGuardianIds.includes(g.id) ? " · existing parent, linked (sibling)" : " · new"}
-            </li>
-          ))}
-        </ul>
-      ),
-    },
-    { label: "Consent", value: data.consents > 0 ? `${data.consents} consent ${data.consents === 1 ? "record" : "records"} moved to the parents' Consent Records.` : "No consent records were moved." , href: "/student-management/guardians/consent", link: "Consent Records" },
-    { label: "Parent Link", value: data.links.length ? `${data.links.length} ${data.links.length === 1 ? "link" : "links"} made and sent, so the parent can see fees due, pay and download receipts.` : "Not made: Parent Link is off for this school, or the parent has no mobile number." },
-    { label: "Fee plan", value: feePlanApplies() ? "Set up from the class fee structure for the year." : "Set up in Fee Management, once its fee structures are ready." },
-    { label: "Welcome message", value: welcome },
-    { label: "ID card", value: "Ready to print in Certificates & ID Cards.", href: `/student-management/certificates/id-cards/print?ids=${app.studentId}`, link: "Print ID card" },
+  const rows: [LucideIcon, string, string, string | null][] = [
+    [GraduationCap, "Student record", `${admNo}${place ? ` · ${place}` : ""}${c?.rollNo ? ` · roll ${c.rollNo}` : ""}`, `/student-management/students/${app.studentId}`],
+    [Users, "Parents linked", parents || "No parent records made", data.guardians[0] ? `/student-management/guardians/${data.guardians[0].id}` : null],
+    [ShieldCheck, "Consent moved", data.consents > 0 ? `${data.consents} consent ${data.consents === 1 ? "record" : "records"} moved to the parents` : "No consent records were moved", "/student-management/guardians/consent"],
+    [Smartphone, data.links.length ? "Parent Link sent" : "Parent Link not made", data.links.length ? `${data.links.length} ${data.links.length === 1 ? "link" : "links"}, so the parent can see fees, pay and download receipts` : "Parent Link is off for this school, or the parent has no mobile number", null],
+    [IndianRupee, "Fee plan", feePlanApplies() ? "Set up from the class fee structure for the year" : "Set up in Fee Management once its fee structures are ready", null],
+    [IdCard, "ID card queued", "Certificates & ID Cards · next batch", `/student-management/certificates/id-cards/print?ids=${app.studentId}`],
+    [MessageCircle, "Welcome message", welcome, null],
   ];
 
   return (
-    <>
-      <PageHeader title="Admission confirmed" href={`${BASE}/decision/${id}/admitted`} userId={current.user.id} />
-      <Alert tone="success" title={`${student?.fullName ?? app.fullName} is admitted`} className="mb-6">
-        Admission no. {student?.admissionNo ?? c?.admissionNo}. Confirmed {app.admittedAt ? formatDateTime(app.admittedAt, tz) : ""} from application {app.applicationNo}.
-      </Alert>
-      <Card className="mb-6">
-        <CardHeader title="Everything made for this admission" />
-        <CardBody>
-          <ul className="divide-y divide-line">
-            {items.map((i) => (
-              <li key={i.label} className="flex flex-wrap items-start justify-between gap-2 py-3">
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm text-ink-2">{i.label}</p>
-                  <div className="mt-0.5 break-words">{i.value}</div>
-                </div>
-                {i.href && <Link href={i.href} className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-brand-text hover:bg-surface-2">{i.link}</Link>}
+    <div className="max-w-[640px] mx-auto w-full">
+      <Card className="p-5 md:p-7 flex flex-col items-center text-center">
+        <span className="w-16 h-16 rounded-full bg-ok text-surface grid place-items-center shadow-pop"><Check size={34} strokeWidth={3} aria-hidden="true" /></span>
+        <h1 className="font-display text-[24px] font-semibold mt-4">{student?.fullName ?? app.fullName} is now a student</h1>
+        <p className="text-ink3 text-[14px] mt-1">Admission number <b className="font-mono text-ink text-[13.5px]">{admNo}</b>{place ? ` · ${place}` : ""}{c?.rollNo ? ` · roll ${c.rollNo}` : ""}</p>
+        <p className="text-ink3 text-[12.5px] mt-0.5">Confirmed {app.admittedAt ? formatDateTime(app.admittedAt, tz) : ""} from application {app.applicationNo}</p>
+        <ul className="w-full mt-5 text-left rounded-2xl border border-line divide-y divide-line/70">
+          {rows.map(([Ic, t, s, href]) => {
+            const inner = (
+              <>
+                <span className="w-9 h-9 rounded-xl bg-ok/10 text-ok grid place-items-center shrink-0"><Ic size={17} aria-hidden="true" /></span>
+                <span className="min-w-0 flex-1"><b className="font-semibold text-[14px] block">{t}</b><span className="text-[12.5px] text-ink3 block">{s}</span></span>
+                {href && <ChevronRight size={17} className="text-ink3 shrink-0" aria-hidden="true" />}
+              </>
+            );
+            return (
+              <li key={t}>
+                {href ? <Link href={href} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-sunken/60">{inner}</Link> : <div className="w-full flex items-center gap-3 px-4 py-3">{inner}</div>}
               </li>
-            ))}
-          </ul>
-        </CardBody>
+            );
+          })}
+        </ul>
+        <div className="flex gap-2 w-full mt-4 flex-wrap">
+          <ButtonLink href={`${BASE}/decision?tab=approved`} variant="primary" className="flex-1">Done</ButtonLink>
+          {canUndo && <UndoAdmission id={id} />}
+        </div>
+        {canUndo
+          ? <p className="mt-3 text-[12.5px] text-ink3">Undo works until {formatDateTime(new Date(undoUntil), tz)}, if nothing else has happened to the student.</p>
+          : app.admittedAt && <p className="mt-3 text-[12.5px] text-ink3">Admitted on {formatDate(app.admittedAt, tz)}. To reverse it now, record the student leaving in Student Management.</p>}
       </Card>
-      <div className="flex flex-wrap items-center gap-3">
-        <ButtonLink href={`${BASE}/decision?tab=approved`} variant="primary">Next admission</ButtonLink>
-        <ButtonLink href={`${BASE}/applications/${id}`}>Open application</ButtonLink>
-        {canUndo && (
-          <>
-            <UndoAdmission id={id} />
-            <span className="text-sm text-ink-2">Undo works until {formatDateTime(new Date(undoUntil), tz)}, if nothing else has happened to the student.</span>
-          </>
-        )}
-      </div>
-      {!canUndo && app.admittedAt && <p className="mt-3 text-sm text-ink-2">Admitted on {formatDate(app.admittedAt, tz)}. To reverse it now, record the student leaving in Student Management.</p>}
-    </>
+    </div>
   );
 }

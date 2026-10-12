@@ -3,8 +3,9 @@
 import type { InterviewOutcome } from "@prisma/client";
 import type { FormState } from "@/lib/forms";
 import { AdmissionProblem, dateTimeOf, id, maybe, need, optionalId, str, UUID_RE, zonedToInstant } from "@/lib/admission/act";
-import { admissionAct } from "@/lib/admission/server";
-import { addToTest, cancelInterview, OUTCOMES, recordInterview, recordScores, scheduleInterview, scheduleTest } from "@/lib/admission/tests";
+import { admissionAct, inSchool } from "@/lib/admission/server";
+import { requireFull } from "@/lib/admission/access";
+import { addToTest, cancelInterview, freeSlots, OUTCOMES, recordInterview, recordScores, scheduleInterview, scheduleTest } from "@/lib/admission/tests";
 
 const BASE = "/admission-management/tests";
 
@@ -59,6 +60,15 @@ export async function outcomeAction(_: FormState<unknown>, fd: FormData) {
     if (!OUTCOMES.some((o) => o.value === outcome)) throw new AdmissionProblem("Choose the outcome.", "outcome");
     return recordInterview(w.tx, w.ctx, w.v, w.s, id(fd, "slotId", "interview"), outcome, maybe(fd, "notes", "Notes", 1000));
   }, () => "Interview outcome saved.");
+}
+
+/** Free 15-minute slots for one interviewer on one day, for the Schedule interview sheet. */
+export async function freeSlotsAction(interviewerStaffId: string, day: string): Promise<{ value: string; label: string }[]> {
+  if (!UUID_RE.test(interviewerStaffId) || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return [];
+  return inSchool("create", (w) => {
+    requireFull(w.v, "interviews");
+    return freeSlots(w.tx, interviewerStaffId, day, w.tz);
+  });
 }
 
 export async function cancelInterviewAction(_: FormState<unknown>, fd: FormData) {

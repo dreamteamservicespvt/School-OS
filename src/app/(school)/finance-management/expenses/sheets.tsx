@@ -8,6 +8,7 @@ import { Segmented, Switch } from "@/components/ui/controls";
 import { Alert } from "@/components/ui/alert";
 import type { Option } from "@/components/ui/field";
 import { cx } from "@/components/ui/cx";
+import { WarnCheck } from "../_components/forms";
 import { attachBillAction, payExpenseAction, recordBillAction, recordExpenseAction } from "./actions";
 
 const MODES = [{ value: "CASH", label: "Cash" }, { value: "UPI", label: "UPI" }, { value: "BANK_TRANSFER", label: "Bank transfer" }, { value: "CHEQUE", label: "Cheque" }];
@@ -28,12 +29,7 @@ function Warned() {
   return (
     <>
       {dup && <SArea name="duplicateReason" label="Why save it again?" required placeholder="Example: a second bill with the same number, confirmed with the vendor" />}
-      {cash && (
-        <label className="flex items-center gap-3 rounded-xl bg-sunken/70 px-3.5 py-3 text-[14px]">
-          <input type="checkbox" name="confirmLowCash" className="w-5 h-5 accent-[var(--color-brand)]" />
-          <span><b className="font-semibold">Pay from cash anyway</b><span className="block text-[12.5px] text-ink3">Cash in hand goes below zero until cash comes in.</span></span>
-        </label>
-      )}
+      {cash && <WarnCheck field="mode" name="confirmLowCash" title="Pay from cash anyway" sub="Cash in hand goes below zero until cash comes in." />}
     </>
   );
 }

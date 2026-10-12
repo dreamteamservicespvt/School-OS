@@ -17,7 +17,7 @@ export const TONE_SOFT: Record<Tone, string> = { ok: "bg-ok/10 text-ok", warn: "
 
 /* ---------- Numbers at the top of a page, with hairlines between tiles ---------- */
 export type StatItem = { label: string; value: React.ReactNode; sub?: React.ReactNode; tone?: Tone; icon?: LucideIcon; href?: string; active?: boolean };
-const STAT_GRID: Record<number, string> = { 1: "grid-cols-1", 2: "grid-cols-2", 3: "grid-cols-3", 4: "grid-cols-2 xl:grid-cols-4", 5: "grid-cols-2 xl:grid-cols-5", 6: "grid-cols-2 lg:grid-cols-3 xl:grid-cols-6" };
+const STAT_GRID: Record<number, string> = { 1: "grid-cols-1", 2: "grid-cols-2", 3: "grid-cols-1 sm:grid-cols-3", 4: "grid-cols-2 xl:grid-cols-4", 5: "grid-cols-2 xl:grid-cols-5", 6: "grid-cols-2 lg:grid-cols-3 xl:grid-cols-6" };
 
 export function Stats({ items, className }: { items: StatItem[]; className?: string }) {
   const n = Math.min(items.length, 6);

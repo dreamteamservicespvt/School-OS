@@ -9,13 +9,12 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import * as I from "lucide-react";
 import { cx } from "@/components/ui/cx";
 import { inputCls } from "@/components/ui/field";
-import { PeriodFilter } from "./period-filter";
-import type { PeriodKey } from "@/lib/periods";
+import { PeriodFilter, type PeriodFilterProps } from "./period-filter";
 
 export type FilterDef = { key: string; label: string; options: { value: string; label: string }[]; /** Words for the empty choice; default "{label}: all". */ allLabel?: string };
 
 /** A date filter on the list; the page reads it with periodRange(). */
-export type PeriodDef = { timeZone?: string; weekStart?: "monday" | "sunday"; fallback?: PeriodKey | null; allLabel?: string };
+export type PeriodDef = Omit<PeriodFilterProps, "className" | "size">;
 
 export function ListToolbar({ placeholder = "Search", filters = [], more = [], showArchived = true, period, children }: {
   placeholder?: string; filters?: FilterDef[]; /** Less used filters, behind "More filters". */ more?: FilterDef[]; showArchived?: boolean;
@@ -75,7 +74,7 @@ export function ListToolbar({ placeholder = "Search", filters = [], more = [], s
             )}
         </div>
         <div className={cx("grid gap-2.5 md:flex md:flex-wrap md:items-center", (filters.length + (period ? 1 : 0)) > 1 ? "grid-cols-2" : "grid-cols-1")}>
-          {period && <PeriodFilter {...period} className={filters.length % 2 === 0 ? "col-span-2 md:col-span-1" : undefined} />}
+          {period && <PeriodFilter {...period} className={cx("w-full md:w-auto", filters.length % 2 === 0 && "col-span-2 md:col-span-1")} />}
           {filters.map(select)}
         </div>
         {(more.length > 0 || showArchived || children) && (

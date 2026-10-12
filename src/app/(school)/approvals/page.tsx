@@ -13,6 +13,7 @@ import { OPEN_STATUSES, REQUEST_TYPES, requestLabel, workingDaysBetween } from "
 import { VIEWS, decidableIds, inboxWhere, isOverseer, statusWords, type HistoryLine, type InboxView } from "@/lib/approvals-inbox";
 import { rulesInUse } from "@/lib/settings/approval-rules";
 import { PageHeader } from "@/components/shell/page-header";
+import { periodSetup } from "@/lib/period-setup";
 import { ListToolbar } from "@/components/list/list-toolbar";
 import { EmptyState } from "@/components/empty-state";
 import { CheckCheck, Inbox, SearchX } from "lucide-react";
@@ -34,7 +35,8 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   const params = readListParams(sp, ["view", "type", "status", "period", "from", "to"]);
   const roleKeys = current.roles.map((r) => r.key);
   const tz = current.school.timeZone;
-  const range = periodFromSearch(sp, { timeZone: tz });
+  const dates = await periodSetup(current);
+  const range = periodFromSearch(sp, dates);
   const waitingForMe = await withSchool(current.ctx, async (tx) => tx.approval.count({ where: await approvalsFor(tx, current.ctx, roleKeys) }));
   // People who never approve anything see only the requests they asked for (role-specific screens).
   const approver = mayApprove(current, waitingForMe);
@@ -110,7 +112,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
           </ul>
         </nav>
       )}
-      <ListToolbar placeholder="Search requests" showArchived={false} period={{ timeZone: tz }} filters={[
+      <ListToolbar placeholder="Search requests" showArchived={false} period={dates} filters={[
         { key: "status", label: "Status", options: [{ value: "open", label: "Waiting" }, { value: "approved", label: "Approved" }, { value: "rejected", label: "Rejected or sent back" }, { value: "withdrawn", label: "Withdrawn" }] },
         { key: "type", label: "Kind", options: REQUEST_TYPES.map((t) => ({ value: t.key, label: t.label })) },
       ]} />

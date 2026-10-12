@@ -18,7 +18,7 @@ const PATH = "/academic-management/substitutions";
 
 export default async function SubstitutionsPage({ searchParams }: { searchParams: SearchParams }) {
   const raw = await searchParams;
-  const page = await academicPage(raw);
+  const page = await academicPage(raw, { notForOwn: "no-access" });
   const { scope } = page;
   const date = parseDay(one(raw.date)) ?? page.today;
   const views = [

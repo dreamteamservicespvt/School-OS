@@ -22,7 +22,7 @@ const PATH = "/academic-management/subjects";
 
 export default async function SubjectsPage({ searchParams }: { searchParams: SearchParams }) {
   const raw = await searchParams;
-  const page = await academicPage(raw);
+  const page = await academicPage(raw, { notForOwn: "no-access" });
   if (!page.year) return (<><PageTop page={page} title="Subjects" href={PATH} /><NoYear page={page} /></>);
   const electivesOn = featureOn(page.current, "academic-electives");
   const view = ["class", "electives"].includes(one(raw.view)) && (one(raw.view) !== "electives" || electivesOn) ? one(raw.view) : "list";

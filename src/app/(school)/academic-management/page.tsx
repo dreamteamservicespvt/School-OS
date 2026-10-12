@@ -14,7 +14,7 @@ export const metadata: Metadata = { title: "Classes & Sections" };
 
 export default async function ClassesPage({ searchParams }: { searchParams: SearchParams }) {
   const raw = await searchParams;
-  const page = await academicPage(raw);
+  const page = await academicPage(raw, { notForOwn: "home" });
   const { current, year, scope } = page;
   if (!year) return (<><PageTop page={page} title="Classes & Sections" href="/academic-management" /><NoYear page={page} /></>);
   const archived = one(raw.archived) === "1";

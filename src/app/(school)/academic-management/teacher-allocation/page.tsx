@@ -18,7 +18,7 @@ const PATH = "/academic-management/teacher-allocation";
 
 export default async function AllocationPage({ searchParams }: { searchParams: SearchParams }) {
   const raw = await searchParams;
-  const page = await academicPage(raw);
+  const page = await academicPage(raw, { notForOwn: "no-access" });
   if (!page.year) return (<><PageTop page={page} title="Teacher Allocation" href={PATH} /><NoYear page={page} /></>);
   const year = page.year;
   const view = one(raw.view) === "teachers" ? "teachers" : "grid";

@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useActionState, useState } from "react";
+import { Pencil, Plus } from "lucide-react";
+import { cx } from "@/components/ui/cx";
 import { CheckboxField, SelectField, TextArea, TextField } from "@/components/ui/field";
 import { ActionButton, ActionForm, FormDialog, type Action } from "../_components/forms";
 
@@ -8,7 +10,7 @@ type Option = { value: string; label: string };
 
 export function DepartmentForm({ action, staff, d }: { action: Action; staff: Option[]; d?: { id: string; name: string; headStaffId: string | null } }) {
   return (
-    <FormDialog trigger={d ? "Edit" : "Add department"} triggerSize="sm" triggerVariant={d ? "secondary" : "primary"} title={d ? `Edit ${d.name}` : "Add department"} action={action} submitLabel="Save" hidden={d ? { id: d.id } : undefined}>
+    <FormDialog trigger={d ? <><Pencil size={15} aria-hidden="true" />Edit</> : <><Plus size={16} aria-hidden="true" />Add<span className="sr-only"> department</span></>} triggerSize="sm" triggerVariant={d ? "ghost" : "secondary"} title={d ? `Edit ${d.name}` : "Add department"} action={action} submitLabel="Save" hidden={d ? { id: d.id } : undefined}>
       {(f) => (
         <>
           <TextField label="Name" name="name" required defaultValue={f.val("name", d?.name)} error={f.err("name")} />
@@ -22,7 +24,7 @@ export function DepartmentForm({ action, staff, d }: { action: Action; staff: Op
 
 export function DesignationForm({ action, departments, roles, d }: { action: Action; departments: Option[]; roles: Option[]; d?: { id: string; name: string; staffType: string; defaultDepartmentId: string | null; defaultRoleKey: string | null } }) {
   return (
-    <FormDialog trigger={d ? "Edit" : "Add designation"} triggerSize="sm" triggerVariant={d ? "secondary" : "primary"} title={d ? `Edit ${d.name}` : "Add designation"} action={action} submitLabel="Save" hidden={d ? { id: d.id } : undefined}>
+    <FormDialog trigger={d ? <><Pencil size={15} aria-hidden="true" />Edit</> : <><Plus size={16} aria-hidden="true" />Add<span className="sr-only"> designation</span></>} triggerSize="sm" triggerVariant={d ? "ghost" : "secondary"} title={d ? `Edit ${d.name}` : "Add designation"} action={action} submitLabel="Save" hidden={d ? { id: d.id } : undefined}>
       {(f) => (
         <>
           <TextField label="Name" name="name" required defaultValue={f.val("name", d?.name)} error={f.err("name")} help={d ? "Renaming changes it for every staff member with it." : undefined} />
@@ -45,7 +47,7 @@ export function LeaveTypeForm({ action, groups, t }: { action: Action; groups: s
   const [paid, setPaid] = useState(t?.paid ?? true);
   const [carry, setCarry] = useState(t?.carryForward ?? false);
   return (
-    <FormDialog trigger={t ? "Edit" : "Add leave type"} triggerSize="sm" triggerVariant={t ? "secondary" : "primary"} title={t ? `Edit ${t.name}` : "Add leave type"} action={action} submitLabel="Save" hidden={t ? { id: t.id } : undefined} wide>
+    <FormDialog trigger={t ? <><Pencil size={15} aria-hidden="true" />Edit</> : <><Plus size={16} aria-hidden="true" />Add<span className="sr-only"> leave type</span></>} triggerSize="sm" triggerVariant={t ? "ghost" : "secondary"} title={t ? `Edit ${t.name}` : "Add leave type"} action={action} submitLabel="Save" hidden={t ? { id: t.id } : undefined} wide>
       {(f) => (
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField label="Name" name="name" required defaultValue={f.val("name", t?.name)} error={f.err("name")} placeholder="Casual Leave" />
@@ -108,6 +110,18 @@ export function GeneralForm({ action, v, formats, fieldChoices }: {
   );
 }
 
+/** An on/off switch (the design's Toggle) that saves straight away. */
 export function FeatureSwitch({ action, k, on, label }: { action: Action; k: string; on: boolean; label: string }) {
-  return <ActionButton action={action} hidden={{ key: k, on: on ? "no" : "yes" }} variant={on ? "secondary" : "primary"}>{on ? "Switch off" : "Switch on"}<span className="sr-only"> {label}</span></ActionButton>;
+  const [state, formAction, pending] = useActionState(action, null);
+  return (
+    <form action={formAction} className="inline-flex flex-col items-end gap-1">
+      <input type="hidden" name="key" value={k} />
+      <input type="hidden" name="on" value={on ? "no" : "yes"} />
+      <button type="submit" role="switch" aria-checked={on} aria-label={label} disabled={pending}
+        className={cx("relative h-7 w-12 shrink-0 rounded-full transition disabled:opacity-60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20", on ? "bg-brand" : "bg-line")}>
+        <span className={cx("absolute top-0.5 size-6 rounded-full bg-white shadow-card transition-all", on ? "left-[22px]" : "left-0.5")} aria-hidden="true" />
+      </button>
+      {state && !state.ok && state.message && <span role="alert" className="max-w-xs text-right text-sm text-danger">{state.message}</span>}
+    </form>
+  );
 }

@@ -5,9 +5,9 @@ import { generalLedger, journalList, ledgerAccounts, payables, receivables } fro
 import { Card, CardHeader } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
 import { ButtonLink, buttonClass } from "@/components/ui/button";
-import { Banner, DataList, Empty, SimpleTable, Stack, Toolbar } from "@/components/ui/kit";
+import { Banner, DataList, Empty, SimpleTable, Stack, Toolbar } from "@/components/money/kit";
 import { LinkTabs } from "@/components/ui/link-tabs";
-import { UrlSearch, UrlSelect } from "@/components/ui/url-filters";
+import { UrlSearch, UrlSelect } from "@/components/money/url-filters";
 import { UrlSheet } from "@/components/ui/url-sheet";
 import { ExportButton } from "@/components/ui/export-button";
 import { PeriodFilter } from "@/components/list/period-filter";

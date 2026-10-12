@@ -9,7 +9,7 @@ import { ageingLabel, COUNTER_PERMISSIONS, FEE_FEATURES, PAYMENT_MODES, percentW
 import { Card, CardHeader } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
 import { buttonClass } from "@/components/ui/button";
-import { Col, SimpleTable } from "@/components/ui/kit";
+import { Col, SimpleTable } from "@/components/money/kit";
 import { cx } from "@/components/ui/cx";
 import { FeeHead } from "../_components/fee-head";
 import { BASE, feeManagerPage, one, type SearchParams } from "../_lib/page";

@@ -8,3 +8,4 @@ import "./staff/import";
 import "./fees/import";
 import "./finance/import";
 import "./students/import";
+import "./admission/import";

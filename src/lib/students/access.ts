@@ -68,7 +68,8 @@ export function abilities(who: Who, settings?: Pick<ResolvedSettings, "counselli
     seeDocuments: reach !== "none" && !lookupOnly,
     seeCounselling: counsellingAllowed,
     seeCounsellingNotes: Boolean(settings?.counsellingOn) && roleKeys.includes(COUNSELLOR_ROLE),
-    exportList: reach !== "none",
+    // Exporting the list is for people who see every student; "own" roles (teachers) do not export (05-roles).
+    exportList: reach === "all",
     roleKeys,
   };
 }

@@ -8,7 +8,7 @@ import { frequencyLabel, headKindLabel, type FrequencyValue } from "@/lib/fees/w
 import { Card, CardHeader } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
 import { ButtonLink, buttonClass } from "@/components/ui/button";
-import { Banner, Col, DataList, Empty, Split, Stack, Timeline } from "@/components/ui/kit";
+import { Banner, Col, DataList, Empty, Split, Stack, Timeline } from "@/components/money/kit";
 import { LinkTabs } from "@/components/ui/link-tabs";
 import { UrlSheet } from "@/components/ui/url-sheet";
 import { cx } from "@/components/ui/cx";

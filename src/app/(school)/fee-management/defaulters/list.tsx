@@ -13,7 +13,7 @@ import { Pill } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Checkbox, Segmented, Switch } from "@/components/ui/controls";
 import { Dialog } from "@/components/ui/dialog";
-import { Banner, SettingRow } from "@/components/ui/kit";
+import { Banner, SettingRow } from "@/components/money/kit";
 import { SelectField, TextArea } from "@/components/ui/field";
 import { Alert } from "@/components/ui/alert";
 import { cx } from "@/components/ui/cx";

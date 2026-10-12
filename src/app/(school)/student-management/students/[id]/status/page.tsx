@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { PageHeader } from "@/components/shell/page-header";
+import { BackLink } from "@/components/ui/module-head";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ActionForm, FormArea, FormChoice, FormText } from "@/components/students/action-form";
@@ -35,7 +36,7 @@ export default async function ChangeStatusPage({ params }: { params: Promise<{ i
   const back = `${BASE}/students/${id}`;
   return (
     <>
-      <nav aria-label="Breadcrumb" className="mb-2 text-sm text-ink-2"><Link href={back} className="hover:underline">{data.student.fullName}</Link> / Change status</nav>
+      <BackLink href={back} label={data.student.fullName} sub="Change status" />
       <PageHeader title="Change status" href={`${back}/status`} userId={current.user.id} />
       <div className="grid max-w-5xl gap-4 lg:grid-cols-2">
         <Card>

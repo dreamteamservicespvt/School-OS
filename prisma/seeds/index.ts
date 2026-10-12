@@ -6,6 +6,9 @@ import { seedSettingsSecurity } from "./settings-security";
 import { seedStaffHr } from "./staff-hr";
 import { seedStudents } from "./students";
 import { seedCommunication } from "./communication";
+import { seedExams } from "./exams";
+import { seedDashboard } from "./dashboard";
+import { seedAdmission } from "./admission";
 
 export const MODULE_SEEDS: { module: string; seed: ModuleSeed }[] = [
   { module: "academic-management", seed: seedAcademic },
@@ -14,4 +17,7 @@ export const MODULE_SEEDS: { module: string; seed: ModuleSeed }[] = [
   { module: "staff-hr-management", seed: seedStaffHr },
   { module: "student-management", seed: seedStudents },
   { module: "communication", seed: seedCommunication },
+  { module: "examination-results", seed: seedExams },
+  { module: "dashboard", seed: seedDashboard },
+  { module: "admission-management", seed: seedAdmission },
 ];

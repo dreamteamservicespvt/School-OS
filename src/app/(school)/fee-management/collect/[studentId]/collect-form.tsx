@@ -15,7 +15,7 @@ import { Pill } from "@/components/ui/badge";
 import { Dialog, SheetHead, sheetCls } from "@/components/ui/dialog";
 import { FieldShell, inputCls } from "@/components/ui/field";
 import { Alert } from "@/components/ui/alert";
-import { Empty } from "@/components/ui/kit";
+import { Empty } from "@/components/money/kit";
 import { cx } from "@/components/ui/cx";
 import type { FormState } from "@/lib/forms";
 import type { DueStatus } from "@/lib/fees/dues";

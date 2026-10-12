@@ -7,7 +7,7 @@ import { sectionLabel } from "@/lib/finance/words";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
 import { ButtonLink, buttonClass } from "@/components/ui/button";
-import { Banner, Col, DataList, Empty, Mini, Split, Stack, Stats } from "@/components/ui/kit";
+import { Banner, Col, DataList, Empty, Mini, Split, Stack, Stats } from "@/components/money/kit";
 import { UrlSheet } from "@/components/ui/url-sheet";
 import { ExportButton } from "@/components/ui/export-button";
 import { PeriodFilter } from "@/components/list/period-filter";

@@ -68,3 +68,48 @@ export async function yearActivity(tx: Tx, ctx: SchoolContext, studentIds: strin
   }
   return null;
 }
+
+// ---------------------------------------------------------------------------
+// The Student List's Attendance and Fees columns, the "Has dues" and "Overdue"
+// filter, and the same facts on Parents & Guardians (design: students.jsx).
+// Attendance Management and Fee Management each register one provider when they
+// are built; until then the columns show "–" and the fee filter is not offered.
+//
+//   registerListFacts({ attendance: true }, async (tx, ctx, q) => new Map([[id, { attendancePct: 94 }]]));
+//   registerListFacts({ fees: true }, async (tx, ctx, q) => new Map([[id, { feeDuePaise: 1095000n, feeOverdue: true }]]));
+//   registerFeeFilter(async (tx, ctx, { academicYearId, kind }) => studentIdsWithDues);
+export type ListFacts = {
+  /** Present days as a share of school days so far this year, 0 to 100. */
+  attendancePct?: number | null;
+  /** What is still to pay this year, in paise; 0n when everything is paid. */
+  feeDuePaise?: bigint | null;
+  /** True when some of the dues are past their due date. */
+  feeOverdue?: boolean;
+};
+type ListFactsFn = (tx: Tx, ctx: SchoolContext, q: { studentIds: string[]; academicYearId: string }) => Promise<Map<string, ListFacts>>;
+const listFactProviders: { covers: { attendance?: boolean; fees?: boolean }; fn: ListFactsFn }[] = [];
+export function registerListFacts(covers: { attendance?: boolean; fees?: boolean }, fn: ListFactsFn) {
+  listFactProviders.push({ covers, fn });
+}
+/** Facts for the students shown, and which columns have a source at all. */
+export async function listFacts(tx: Tx, ctx: SchoolContext, studentIds: string[], academicYearId: string | null) {
+  const out = new Map<string, ListFacts>();
+  const has = { attendance: listFactProviders.some((p) => p.covers.attendance), fees: listFactProviders.some((p) => p.covers.fees) };
+  if (!academicYearId || !studentIds.length) return { facts: out, has };
+  for (const p of listFactProviders) {
+    const part = await p.fn(tx, ctx, { studentIds, academicYearId });
+    for (const [id, f] of part) out.set(id, { ...out.get(id), ...f });
+  }
+  return { facts: out, has };
+}
+
+type FeeFilterFn = (tx: Tx, ctx: SchoolContext, q: { academicYearId: string; kind: "dues" | "overdue" }) => Promise<string[]>;
+let feeFilter: FeeFilterFn | null = null;
+export function registerFeeFilter(fn: FeeFilterFn) {
+  feeFilter = fn;
+}
+export const feeFilterAvailable = () => feeFilter !== null;
+/** Students with dues (or overdue dues) this year; null when no module can say. */
+export async function studentsWithDues(tx: Tx, ctx: SchoolContext, academicYearId: string, kind: "dues" | "overdue") {
+  return feeFilter ? feeFilter(tx, ctx, { academicYearId, kind }) : null;
+}

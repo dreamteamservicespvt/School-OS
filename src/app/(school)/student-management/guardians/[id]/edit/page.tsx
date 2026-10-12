@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { PageHeader } from "@/components/shell/page-header";
+import { BackLink } from "@/components/ui/module-head";
 import { Card, CardBody } from "@/components/ui/card";
 import { BASE, studentPage } from "../../../_lib/page";
 import { saveGuardianAction } from "../../../_actions/guardians";
@@ -18,6 +19,7 @@ export default async function EditGuardianPage({ params }: { params: Promise<{ i
   if (!g) notFound();
   return (
     <>
+      <BackLink href={`${BASE}/guardians/${id}`} label={g.name} />
       <PageHeader title={`Edit ${g.name}`} href={`${BASE}/guardians/${id}/edit`} userId={current.user.id} />
       <Card className="max-w-3xl">
         <CardBody>

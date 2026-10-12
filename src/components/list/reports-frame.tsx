@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ChartColumn, ChevronRight, FileText, type LucideIcon } from "lucide-react";
 import { Card, CardHeader } from "@/components/ui/card";
-import { Split } from "@/components/ui/kit";
+import { Split } from "@/components/money/kit";
 import { cx } from "@/components/ui/cx";
 
 export type ReportLink = { key: string; group: string; name: string; sub: string; icon?: LucideIcon; href: string };

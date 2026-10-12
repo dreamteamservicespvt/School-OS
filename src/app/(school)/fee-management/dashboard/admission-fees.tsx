@@ -6,7 +6,7 @@ import { classOfStudents } from "@/lib/fees/dues";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
 import { buttonClass } from "@/components/ui/button";
-import { DataList, Empty, SimpleTable, Split, Stack, Stats } from "@/components/ui/kit";
+import { DataList, Empty, SimpleTable, Split, Stack, Stats } from "@/components/money/kit";
 import { FeeHead } from "../_components/fee-head";
 import { BASE, feePage } from "../_lib/page";
 

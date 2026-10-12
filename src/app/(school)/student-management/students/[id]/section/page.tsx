@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { PageHeader } from "@/components/shell/page-header";
+import { BackLink } from "@/components/ui/module-head";
 import { Card, CardBody } from "@/components/ui/card";
 import { EmptyState } from "@/components/empty-state";
 import { ActionForm, FormArea, FormSelect } from "@/components/students/action-form";
@@ -37,7 +38,7 @@ export default async function ChangeSectionPage({ params }: { params: Promise<{ 
 
   return (
     <>
-      <nav aria-label="Breadcrumb" className="mb-2 text-sm text-ink-2"><Link href={back} className="hover:underline">{data.student.fullName}</Link> / {data.now ? "Change section" : "Place in a section"}</nav>
+      <BackLink href={back} label={data.student.fullName} sub={data.now ? "Change section" : "Place in a section"} />
       <PageHeader title={data.now ? "Change section" : "Place in a section"} href={`${back}/section`} userId={current.user.id} />
       <Card className="max-w-2xl">
         <CardBody>

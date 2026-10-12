@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { hrPage, BASE } from "@/lib/staff/page";
 import { EMPLOYMENT_TYPES, HR_FEATURES, hrSettings, USERNAME_FORMATS } from "@/lib/staff/settings";
-import { PageHeader } from "@/components/shell/page-header";
+import { StaffHead } from "../_components/head";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SubNav } from "../_components/bits";
@@ -55,7 +55,7 @@ export default async function HrSettingsPage({ searchParams }: Props) {
 
   return (
     <>
-      <PageHeader title="HR Settings" href={`${BASE}/settings`} userId={current.user.id} />
+      <StaffHead page="HR Settings" href={`${BASE}/settings`} sub={`The staff rules at ${current.school.name}. Every change is logged.`} />
       <SubNav current={view} items={VIEWS.map((v) => ({ ...v, href: `${BASE}/settings?view=${v.key}` }))} />
 
       {view === "departments" && (

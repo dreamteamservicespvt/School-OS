@@ -12,6 +12,8 @@ import { SHEET_TYPES, saveFile } from "@/lib/files";
 import { previewImport, runImport, undoImport } from "@/lib/importer";
 import { STUDENT_IMPORT, UDISE_IMPORT, studentImport } from "@/lib/students/import";
 import { StudentProblem } from "@/lib/students/students";
+import { getStudentSettings } from "@/lib/students/settings";
+import { acceptedFixes, applyFixes } from "@/lib/students/smart-import";
 import { BASE, attempt, attemptForm, studentAction } from "../_lib/page";
 import { loadSheet } from "../import/load";
 
@@ -60,7 +62,10 @@ export async function runImportAction(_prev: FormState, fd: FormData): Promise<F
     await withSchool(current.ctx, async (tx) => {
       const sheet = await loadSheet(tx, fileId);
       const kind = studentImport(kindKey, { sectionId: isId(sectionId) ? sectionId : null, applyFeePlan: fee });
-      const preview = await previewImport(tx, current.ctx, kind, sheet.rows, match);
+      // Smart Import: only the fixes the person ticked, and only when the school has it on.
+      const settings = await getStudentSettings(tx, current.ctx);
+      const rows = settings.smartImportOn ? applyFixes(sheet.rows, match, acceptedFixes(String(fd.get("fix") ?? ""))) : sheet.rows;
+      const preview = await previewImport(tx, current.ctx, kind, rows, match);
       if (preview.good.length === 0) throw new StudentProblem("No row is ready to import. Fix the problems shown, then upload the file again.");
       const batch = await runImport(tx, current.ctx, kind, sheet.file.fileName, preview);
       batchId = batch.id; added = batch.added; skipped = batch.skipped;

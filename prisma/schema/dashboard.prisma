@@ -1,0 +1,84 @@
+// 01 Dashboard: My Tasks, what a person marked "Seen" on Needs Attention,
+// and the setup checklist steps marked done or skipped by hand.
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+/// Task: work given to a staff member (or to oneself), with a due date and reminders.
+model Task {
+  id            String     @id @default(uuid()) @db.Uuid
+  schoolId      String     @map("school_id") @db.Uuid
+  title         String
+  details       String?
+  /// The User Login the task is given to.
+  assignedToId  String     @map("assigned_to_id") @db.Uuid
+  /// The User Login who gave it.
+  givenById     String     @map("given_by_id") @db.Uuid
+  dueAt         DateTime?  @map("due_at")
+  /// Reminder before the due date: 1 day before and on the due morning, or off.
+  remind        Boolean    @default(true)
+  /// Reminders already sent, by key ("day-before", "due-morning"), so each goes once.
+  remindersSent String[]   @default([]) @map("reminders_sent")
+  status        TaskStatus @default(TODO)
+  statusAt      DateTime   @default(now()) @map("status_at")
+  doneAt        DateTime?  @map("done_at")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+  archivedAt    DateTime?  @map("archived_at")
+
+  comments TaskComment[]
+
+  @@index([schoolId, assignedToId, status])
+  @@index([schoolId, givenById])
+  @@index([schoolId, dueAt])
+  @@map("task")
+}
+
+/// Task Comment: a short update on a task, kept with its history.
+model TaskComment {
+  id        String   @id @default(uuid()) @db.Uuid
+  schoolId  String   @map("school_id") @db.Uuid
+  taskId    String   @map("task_id") @db.Uuid
+  authorId  String   @map("author_id") @db.Uuid
+  text      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  task Task @relation(fields: [taskId], references: [id])
+
+  @@index([schoolId, taskId])
+  @@map("task_comment")
+}
+
+/// Dashboard Seen: a Needs Attention card one person hid. It comes back when its number changes.
+model DashboardSeen {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  userLoginId String    @map("user_login_id") @db.Uuid
+  itemKey     String    @map("item_key")
+  /// The number the card showed when it was marked seen.
+  value       String
+  seenAt      DateTime  @default(now()) @map("seen_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  @@unique([schoolId, userLoginId, itemKey])
+  @@map("dashboard_seen")
+}
+
+/// Setup Step Status: a setup checklist step marked done or skipped by hand (most steps are worked out from the records).
+model SetupStepStatus {
+  id         String    @id @default(uuid()) @db.Uuid
+  schoolId   String    @map("school_id") @db.Uuid
+  stepKey    String    @map("step_key")
+  /// "DONE" or "SKIPPED".
+  status     String
+  markedById String?   @map("marked_by_id") @db.Uuid
+  markedAt   DateTime  @default(now()) @map("marked_at")
+  archivedAt DateTime? @map("archived_at")
+
+  @@unique([schoolId, stepKey])
+  @@map("setup_step_status")
+}

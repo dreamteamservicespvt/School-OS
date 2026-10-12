@@ -9,6 +9,8 @@ import { readRazorpayEvent, runGatewayEvent } from "@/lib/payments/events";
 import { hitLimit } from "@/lib/rate-limit";
 // Fee Management's handler for confirmed and failed payments (A8).
 import "@/lib/fees/gateway-handler";
+// Modules register their gateway handlers (onGatewayEvent) next to their approval handlers.
+import "@/lib/approval-handlers";
 
 export const dynamic = "force-dynamic";
 

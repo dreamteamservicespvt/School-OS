@@ -1,17 +1,25 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { LucideIcon } from "lucide-react";
+import { ArrowRightLeft, Award, BookOpen, Bus, CalendarCheck2, CalendarClock, FileBadge, FileOutput, FolderOpen, IdCard, IndianRupee, LogOut, Medal, MessageCircle, Pencil, ShieldAlert, ShieldX, TriangleAlert, Info } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { formatDate } from "@/lib/format";
-import { PageHeader } from "@/components/shell/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Alert } from "@/components/ui/alert";
-import { ButtonLink, buttonClass } from "@/components/ui/button";
-import { Avatar } from "@/components/students/avatar";
-import { STATUS_LABEL, STATUS_TONE, STUDYING, PROFILE_CHANGES, type StudentStatusKey } from "@/lib/students/labels";
+import { BUILT_MODULES } from "@/lib/modules";
+import { can as allowed } from "@/lib/permissions";
+import { STATUS_LABEL, STUDYING, PROFILE_CHANGES, type StudentStatusKey } from "@/lib/students/labels";
 import { StudentNotFound } from "@/lib/students/access";
 import { profileTabsFor, type SummaryItem } from "@/lib/students/profile-tabs";
+import { classShort } from "@/lib/students/show";
 import "@/lib/students/profile-tab-modules";
+import { Card } from "@/components/ui/card";
+import { Pill } from "@/components/ui/badge";
+import { Avatar } from "@/components/ui/avatar";
+import { ButtonLink } from "@/components/ui/button";
+import { Banner } from "@/components/ui/blocks";
+import { BackLink, PinButton } from "@/components/ui/module-head";
+import { MoreMenu, type MenuItem } from "@/components/ui/more-menu";
+import { cx } from "@/components/ui/cx";
 import { BASE, studentPage } from "../../_lib/page";
 import { loadProfile } from "../../_lib/profile";
 import { removePhoto, uploadPhoto } from "../../_actions/students";
@@ -19,6 +27,10 @@ import { PhotoUpload } from "./photo-upload";
 import { AcademicsTab, BehaviourTab, DocumentsTab, HistoryTab, OverviewTab } from "./tabs";
 
 export const metadata: Metadata = { title: "Student Profile" };
+
+const ICONS: Record<string, LucideIcon> = { attendance: CalendarCheck2, exam: Award, result: Award, fee: IndianRupee, transport: Bus, bus: Bus, document: FolderOpen, library: BookOpen, behaviour: Medal, homework: CalendarClock };
+const iconFor = (label: string) => Object.entries(ICONS).find(([k]) => label.toLowerCase().includes(k))?.[1] ?? Info;
+const TONE = { success: "ok", warning: "warn", danger: "bad", neutral: undefined } as const;
 
 export default async function StudentProfilePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string }> }) {
   const { id } = await params;
@@ -56,11 +68,12 @@ export default async function StudentProfilePage({ params, searchParams }: { par
     Promise.all(registered.map((t) => (t.headerActions ? t.headerActions(args).catch(() => []) : Promise.resolve([])))).then((x) => x.flat()),
   ]);
 
+  const docsTotal = settings.requiredDocuments.length;
   const strip: SummaryItem[] = [
     ...summaries,
-    ...(can.seeBehaviour ? [{ label: "Behaviour", value: p.points !== null ? `${p.points} points` : `${p.incidentsCount} this year`, href: `${href}?tab=behaviour`, tone: (p.openSuspension ? "danger" : "neutral") as SummaryItem["tone"] }] : []),
-    ...(can.seeDocuments && settings.requiredDocuments.length ? [{ label: "Documents complete", value: `${p.documentsDone} of ${settings.requiredDocuments.length}`, href: `${href}?tab=documents`, tone: (p.documentsDone < settings.requiredDocuments.length ? "warning" : "success") as SummaryItem["tone"] }] : []),
-  ];
+    ...(can.seeDocuments && docsTotal ? [{ label: "Documents", value: `${p.documentsDone} of ${docsTotal}`, sub: p.documentsDone < docsTotal ? `${docsTotal - p.documentsDone} missing` : "All collected", href: `${href}?tab=documents`, tone: "neutral" as const }] : []),
+    ...(can.seeBehaviour ? [{ label: "Behaviour", value: p.points !== null ? `${p.points > 0 ? "+" : ""}${p.points} points` : `${p.incidentsCount} ${p.incidentsCount === 1 ? "record" : "records"}`, sub: p.openSuspension ? "Suspended now" : "This year", href: `${href}?tab=behaviour`, tone: (p.openSuspension ? "danger" : "neutral") as SummaryItem["tone"] }] : []),
+  ].slice(0, 6);
   const todayIso = new Date().toISOString().slice(5, 10);
   const today: SummaryItem[] = [
     ...todays,
@@ -70,109 +83,113 @@ export default async function StudentProfilePage({ params, searchParams }: { par
   ];
 
   const studying = (STUDYING as readonly string[]).includes(status);
-  const actions: { label: string; href: string; file?: boolean }[] = [
-    ...extraActions,
-    ...(can.manage && PROFILE_CHANGES[status]?.length ? [{ label: "Change status", href: `${href}/status` }] : []),
-    ...(can.manage && studying ? [{ label: p.now ? "Change section" : "Place in a section", href: `${href}/section` }] : []),
-    ...(can.contribute && can.seeBehaviour && studying ? [{ label: "Report incident", href: `${BASE}/behaviour/new?student=${id}` }] : []),
-    ...(can.manage && can.reach === "all" ? [{ label: "Issue certificate", href: `${BASE}/certificates/new?student=${id}` }] : []),
-    ...(can.manage && can.reach === "all" ? [{ label: "Print TC", href: `${BASE}/certificates/new?student=${id}&type=TC` }] : []),
-    ...(can.reach === "all" && !can.lookupOnly && p.now ? [{ label: "Print ID card", href: `${BASE}/certificates/id-cards/print?ids=${id}`, file: true }] : []),
-    ...(can.manage && studying && !p.leaving ? [{ label: "Start leaving", href: `${BASE}/leaving/new?student=${id}` }] : []),
+  const icon = (I: LucideIcon) => <I size={17} aria-hidden="true" />;
+  const collect = extraActions.find((a) => /collect/i.test(a.label));
+  const menu: MenuItem[] = [
+    ...extraActions.filter((a) => a !== collect).map((a) => ({ label: a.label, href: a.href })),
+    ...(can.reach === "all" && !can.lookupOnly && p.now ? [{ label: "Print ID card", href: `${BASE}/certificates/id-cards/print?ids=${id}`, file: true, icon: icon(IdCard) }] : []),
+    ...(can.manage && can.reach === "all" ? [{ label: "Issue certificate", href: `${BASE}/certificates/new?student=${id}`, icon: icon(FileBadge) }] : []),
+    ...(can.manage && can.reach === "all" ? [{ label: "Transfer certificate (TC)", href: `${BASE}/certificates/new?student=${id}&type=TC`, icon: icon(FileOutput) }] : []),
+    ...(can.manage && studying ? [{ label: p.now ? "Change section" : "Place in a section", href: `${href}/section`, icon: icon(ArrowRightLeft) }] : []),
+    ...(can.manage ? [{ label: "Edit details", href: `${href}/edit/personal`, icon: icon(Pencil) }] : []),
+    ...(can.manage && PROFILE_CHANGES[status]?.length ? [{ label: "Change status", href: `${href}/status`, icon: icon(ShieldAlert) }] : []),
+    ...(can.contribute && can.seeBehaviour && studying ? [{ label: "Report incident", href: `${BASE}/behaviour/new?student=${id}`, icon: icon(TriangleAlert) }] : []),
+    ...(can.manage && studying && !p.leaving ? [{ label: "Start leaving", href: `${BASE}/leaving/new?student=${id}`, icon: icon(LogOut), tone: "bad" as const }] : []),
   ];
+  const message = BUILT_MODULES.has("communication") && allowed(current.permissions, "communication", "create") && p.links.length > 0;
 
-  const sectionLabel = p.now?.section ? `${p.now.section.schoolClass.name} ${p.now.section.name}` : null;
+  const sectionLabel = p.now?.section ? classShort(p.now.section.schoolClass.name, p.now.section.name) : null;
   const restricted = p.links.filter((l) => l.restriction);
+  const n = strip.length;
+  const stripCols = n >= 6 ? "grid-cols-2 md:grid-cols-3 xl:grid-cols-6" : n === 5 ? "grid-cols-2 md:grid-cols-3 xl:grid-cols-5" : n === 4 ? "grid-cols-2 xl:grid-cols-4" : n === 3 ? "grid-cols-3" : n === 2 ? "grid-cols-2" : "grid-cols-1";
+  const statusTone = status === "ACTIVE" ? "ok" : status === "INACTIVE" ? "warn" : status === "ADMITTED" || status === "PROMOTED" ? "info" : "neutral";
 
   return (
     <>
-      <nav aria-label="Breadcrumb" className="mb-2 text-sm text-ink-2">
-        <Link href={BASE} className="hover:underline">Student List</Link>
-        {sectionLabel && p.now && <> / <Link className="hover:underline" href={`${BASE}?section=${p.now.sectionId}`}>{sectionLabel}</Link></>}
-      </nav>
-      <PageHeader title={s.fullName} href={href} userId={current.user.id}>
-        <div className="flex flex-wrap gap-2">
-          {actions.length > 0 && (
-            <details className="relative">
-              <summary className={buttonClass("secondary", "md", "list-none cursor-pointer")}>Actions</summary>
-              <div className="absolute right-0 z-20 mt-1 w-60 rounded-xl border border-line bg-surface p-1 shadow-pop">
-                {actions.map((a) => a.file
-                  ? <a key={a.label} href={a.href} className="block rounded-lg px-3 py-2.5 hover:bg-surface-2">{a.label}</a>
-                  : <Link key={a.label} href={a.href} className="block rounded-lg px-3 py-2.5 hover:bg-surface-2">{a.label}</Link>)}
-              </div>
-            </details>
-          )}
-          {can.manage && <ButtonLink href={`${href}/edit/personal`} variant="primary">Edit</ButtonLink>}
-        </div>
-      </PageHeader>
+      <BackLink href={p.now ? `${BASE}?class=${p.now.classId}&section=${p.now.sectionId}` : BASE} label="Students" sub={sectionLabel ?? undefined} />
 
       {restricted.length > 0 && (
-        <Alert tone="danger" title="Custody or access restriction" className="mb-4">
-          {restricted.map((l) => <p key={l.id}><strong>Do not release to {l.guardian.name} ({l.relationship}).</strong> {can.reach === "all" && !can.lookupOnly ? `Note: ${l.restriction}` : "See the note with the School Admin."}</p>)}
-        </Alert>
+        <Banner tone="bad" icon={ShieldX} className="mb-4" title="Custody restriction.">
+          {restricted.map((l) => <span key={l.id} className="block">Do not release to {l.guardian.name} ({l.relationship.toLowerCase()}). {can.reach === "all" && !can.lookupOnly ? l.restriction : "See the note with the School Admin."}</span>)}
+        </Banner>
       )}
 
-      <section aria-label="Student" className="mb-4 flex flex-col gap-4 rounded-2xl border border-line bg-surface p-4 shadow-card sm:flex-row sm:items-center sm:p-5">
-        {can.manage ? (
-          <PhotoUpload action={uploadPhoto.bind(null, id)} remove={removePhoto.bind(null, id)} hasPhoto={Boolean(p.photo)} name={s.fullName}>
-            <Avatar name={s.fullName} src={p.photo} size="lg" />
-          </PhotoUpload>
-        ) : <Avatar name={s.fullName} src={p.photo} size="lg" />}
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge tone={STATUS_TONE[status]}>{STATUS_LABEL[status]}</Badge>
-            {p.photoWithdrawn && <Badge tone="warning">Photo consent withdrawn</Badge>}
+      <Card className="overflow-hidden">
+        <div className="h-16 md:h-20 bg-gradient-to-r from-brand to-brand/60 relative" aria-hidden="true"><div className="absolute inset-0 dotgrid opacity-50" /></div>
+        <div className="relative px-4 md:px-6 pb-5 flex flex-col lg:flex-row lg:items-end gap-4">
+          <div className="flex items-end gap-4 min-w-0 flex-1">
+            <div className="rounded-full p-1 bg-surface shrink-0 -mt-10 md:-mt-12">
+              {can.manage ? (
+                <PhotoUpload action={uploadPhoto.bind(null, id)} remove={removePhoto.bind(null, id)} hasPhoto={Boolean(p.photo)} name={s.fullName}>
+                  <Avatar name={s.fullName} src={p.photo} size={88} />
+                </PhotoUpload>
+              ) : <Avatar name={s.fullName} src={p.photo} size={88} />}
+            </div>
+            <div className="min-w-0 pt-3">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="font-display text-[24px] md:text-[28px] font-semibold tracking-tight leading-tight">{s.fullName}</h1>
+                <Pill tone={statusTone} dot>{status === "ACTIVE" ? "Studying" : STATUS_LABEL[status]}</Pill>
+                {p.photoWithdrawn && <Pill tone="warn">Photo consent withdrawn</Pill>}
+                <PinButton label={s.fullName} href={href} userId={current.user.id} />
+              </div>
+              <p className="text-[13.5px] text-ink3 mt-0.5">
+                {sectionLabel ?? "No class this year"}{p.now?.rollNo ? ` · Roll ${p.now.rollNo}` : ""} · <span className="font-mono text-[12.5px]">{s.admissionNo}</span>
+              </p>
+            </div>
           </div>
-          <dl className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 text-[15px] sm:flex sm:flex-wrap">
-            <div><dt className="text-sm text-ink-2">Class</dt><dd className="font-medium">{sectionLabel ?? "No class this year"}</dd></div>
-            <div><dt className="text-sm text-ink-2">Roll number</dt><dd className="font-medium">{p.now?.rollNo ?? "None"}</dd></div>
-            <div><dt className="text-sm text-ink-2">Admission number</dt><dd className="font-medium">{s.admissionNo}</dd></div>
-            {s.dateOfBirth && <div><dt className="text-sm text-ink-2">Date of birth</dt><dd className="font-medium">{formatDate(s.dateOfBirth, tz)}</dd></div>}
-          </dl>
+          {(collect || message || menu.length > 0) && (
+            <div className="flex gap-2 relative">
+              {collect && <ButtonLink href={collect.href} variant="primary" icon={IndianRupee} className="flex-1 lg:flex-none">{collect.label}</ButtonLink>}
+              {message && <ButtonLink href={`/communication?for=students&ids=${id}`} variant={collect ? "secondary" : "primary"} icon={MessageCircle} className="flex-1 lg:flex-none"><span>Message<span className="hidden sm:inline"> parent</span></span></ButtonLink>}
+              <MoreMenu items={menu} label={`More actions for ${s.fullName}`} />
+            </div>
+          )}
         </div>
-      </section>
-
-      {strip.length > 0 && (
-        <ul aria-label="Summary" className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-          {strip.map((i) => {
-            const body = (<><span className="block text-sm text-ink-2">{i.label}</span><span className={`text-lg font-semibold ${i.tone === "danger" ? "text-danger" : i.tone === "warning" ? "text-warn-text" : i.tone === "success" ? "text-success" : ""}`}>{i.value}</span></>);
-            return <li key={i.label} className="rounded-xl border border-line bg-surface">{i.href ? <Link href={i.href} className="block p-3 hover:bg-surface-2">{body}</Link> : <div className="p-3">{body}</div>}</li>;
-          })}
-        </ul>
-      )}
-
-      {today.length > 0 && (
-        <section aria-labelledby="today" className="mb-4 rounded-2xl border border-line bg-surface p-4">
-          <h2 id="today" className="font-semibold">Today</h2>
-          <ul className="mt-2 flex flex-wrap gap-2">
-            {today.map((i) => {
-              const tone = i.tone === "danger" ? "bg-danger-soft text-danger" : i.tone === "warning" ? "bg-warn-bg text-warn-text" : i.tone === "success" ? "bg-success-soft text-success" : "bg-surface-2";
-              const body = <><strong>{i.label}:</strong> {i.value}</>;
-              return <li key={i.label} className={`rounded-lg px-3 py-2 text-[15px] ${tone}`}>{i.href ? <Link href={i.href} className="hover:underline">{body}</Link> : body}</li>;
+        {n > 0 && (
+          <div className={cx("grid border-t border-line gap-px bg-line/70", stripCols)}>
+            {strip.map((m) => {
+              const Ic = iconFor(m.label);
+              const tone = m.tone ? TONE[m.tone] : undefined;
+              const body = (
+                <>
+                  <p className="text-[12px] text-ink3 font-semibold flex items-center gap-1.5"><Ic size={14} aria-hidden="true" />{m.label}</p>
+                  <p className={cx("font-semibold text-[17px] tnum mt-0.5", tone === "bad" && "text-bad", tone === "warn" && "text-warn")}>{m.value}</p>
+                  {m.sub && <p className="text-[12px] text-ink3">{m.sub}</p>}
+                </>
+              );
+              return m.href
+                ? <Link key={m.label} href={m.href} scroll={false} className="bg-surface text-left px-4 md:px-5 py-3.5 hover:bg-sunken/60 transition">{body}</Link>
+                : <div key={m.label} className="bg-surface text-left px-4 md:px-5 py-3.5">{body}</div>;
             })}
-          </ul>
-        </section>
-      )}
+          </div>
+        )}
+      </Card>
 
-      <nav aria-label="Profile sections" className="-mx-4 mb-4 overflow-x-auto border-b border-line px-4 sm:mx-0 sm:px-0">
-        <ul className="flex gap-1">
-          {tabs.map((t) => (
-            <li key={t.key}>
-              <Link href={t.key === "overview" ? href : `${href}?tab=${t.key}`} aria-current={t.key === tab ? "page" : undefined} scroll={false}
-                className={`inline-flex min-h-11 items-center whitespace-nowrap border-b-2 px-3 text-[15px] ${t.key === tab ? "border-brand font-semibold text-ink" : "border-transparent text-ink-2 hover:text-ink"}`}>
-                {t.label}
-              </Link>
-            </li>
-          ))}
+      <nav aria-label="Profile sections" className="-mx-4 px-4 md:mx-0 md:px-0 mt-5">
+        <ul className="flex gap-1 overflow-x-auto no-scrollbar border-b border-line">
+          {tabs.map((t) => {
+            const on = t.key === tab;
+            return (
+              <li key={t.key} className="shrink-0">
+                <Link href={t.key === "overview" ? href : `${href}?tab=${t.key}`} aria-current={on ? "page" : undefined} scroll={false}
+                  className={cx("relative flex items-center h-11 px-3.5 text-sm font-semibold whitespace-nowrap transition", on ? "text-brand" : "text-ink2 hover:text-ink")}>
+                  {t.label}
+                  {on && <span className="absolute left-2 right-2 -bottom-px h-[3px] rounded-t bg-brand" aria-hidden="true" />}
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       </nav>
 
-      {tab === "overview" && <OverviewTab p={p} can={can} settings={settings} href={href} tz={tz} />}
-      {tab === "academics" && <AcademicsTab p={p} can={can} href={href} tz={tz} />}
-      {tab === "behaviour" && <BehaviourTab studentId={id} can={can} settings={settings} tz={tz} points={p.points} />}
-      {tab === "documents" && <DocumentsTab p={p} can={can} settings={settings} tz={tz} />}
-      {tab === "history" && <HistoryTab studentId={id} can={can} tz={tz} />}
-      {registered.filter((t) => t.key === tab).map((t) => <RegisteredTab key={t.key} load={() => t.load(args)} />)}
+      <div className="mt-5 animate-rise" key={tab}>
+        {tab === "overview" && <OverviewTab p={p} can={can} settings={settings} href={href} tz={tz} today={today} />}
+        {tab === "academics" && <AcademicsTab p={p} can={can} href={href} tz={tz} />}
+        {tab === "behaviour" && <BehaviourTab studentId={id} can={can} settings={settings} tz={tz} points={p.points} />}
+        {tab === "documents" && <DocumentsTab p={p} can={can} settings={settings} tz={tz} />}
+        {tab === "history" && <HistoryTab studentId={id} can={can} tz={tz} />}
+        {registered.filter((t) => t.key === tab).map((t) => <RegisteredTab key={t.key} load={() => t.load(args)} />)}
+      </div>
     </>
   );
 }
@@ -180,3 +197,4 @@ export default async function StudentProfilePage({ params, searchParams }: { par
 async function RegisteredTab({ load }: { load: () => Promise<React.ReactNode> }) {
   return <>{await load()}</>;
 }
+

@@ -11,6 +11,8 @@ import "./approval-handlers";
 import "./data-security/jobs";
 import "./staff/jobs";
 import "./settings/jobs";
+import "./exams/jobs";
+import "./admission/jobs";
 import "./messaging/jobs";
 import "./communication/jobs";
 
@@ -19,3 +21,4 @@ defineSchedule("prune-rate-limits", 24 * 60, () => pruneRateLimits());
 import "./students/jobs";
 import "./students/import";
 import "./fees/jobs";
+import "./dashboard/jobs";

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { PageHeader } from "@/components/shell/page-header";
+import { BackLink } from "@/components/ui/module-head";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/empty-state";
 import { buttonClass } from "@/components/ui/button";
@@ -39,7 +40,7 @@ export default async function ConsentRequestPage({ searchParams }: { searchParam
 
   return (
     <>
-      <nav aria-label="Breadcrumb" className="mb-2 text-sm text-ink-2"><Link href={`${BASE}/guardians`} className="hover:underline">Parents &amp; Guardians</Link></nav>
+      <BackLink href={`${BASE}/guardians`} label="Parents & Guardians" />
       <PageHeader title="Send consent request" href={`${BASE}/guardians/consent`} userId={current.user.id} />
       <p className="-mt-3 mb-5 max-w-prose text-ink-2">
         Each parent gets a request through Parent Link and agrees with a one-time code sent to their registered mobile. Staff never tick consent for a parent. Consents already given are left as they are.

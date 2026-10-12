@@ -8,7 +8,7 @@ import { barcodeSvg } from "./barcode";
 import { qrSvg } from "./qr";
 import { rupeesInWords } from "./words";
 import { CARD_SIZES, type DesignOptions } from "./designs-shared";
-import { allFields, type DocType } from "./types";
+import { allFields, type DocType, type TableColumn } from "./types";
 
 export type FieldValue = string | number | Date | null | undefined;
 
@@ -20,6 +20,12 @@ export type DocumentData = {
   lines?: { label: string; amountPaise: bigint | number; note?: string; kind?: "earning" | "deduction" }[];
   /** Rows of the exam or marks table (admit card, report card), keyed by the document's columns. */
   rows?: Record<string, FieldValue>[];
+  /** Columns for this record's table instead of the document's own (e.g. one column per exam on a term report card). */
+  columns?: TableColumn[];
+  /** More tables after the main one, e.g. co-scholastic grades on a report card. */
+  extraTables?: { title: string; columns: TableColumn[]; rows: Record<string, FieldValue>[] }[];
+  /** Blank signature lines before the signatories, e.g. "Student" and "Class teacher" on an admit card. */
+  signLines?: string[];
   /** Student or staff photo (a Stored File id). */
   photoFileId?: string | null;
   /** What the QR code holds, e.g. a link to check the certificate. Defaults to the document's number. */
@@ -248,22 +254,30 @@ function card(input: RenderInput, data: DocumentData, values: Record<string, str
   </div>`;
 }
 
+function tableHtml(cols: TableColumn[], rows: Record<string, FieldValue>[], tz: string) {
+  const cls = (c: TableColumn) => (c.align === "right" ? "r" : c.align === "center" ? "c" : "");
+  return `<table class="lines"><thead><tr>${cols.map((c) => `<th class="${cls(c)}">${esc(c.label)}</th>`).join("")}</tr></thead>
+      <tbody>${rows.map((r) => `<tr>${cols.map((c) => `<td class="${cls(c)}">${esc(show(r[c.key], tz))}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+}
+
 function tablePage(input: RenderInput, data: DocumentData, values: Record<string, string>) {
   const { type, options } = input;
-  const cols = type.columns ?? [];
+  const cols = data.columns ?? type.columns ?? [];
   const rows = data.rows ?? [];
   const tz = input.branding.timeZone;
+  const extra = (data.extraTables ?? []).filter((t) => t.rows.length).map((t) => `<h2 class="sub">${esc(t.title)}</h2>${tableHtml(t.columns, t.rows, tz)}`).join("");
+  const lines = (data.signLines ?? []).map((l) => `<div class="sig"><div class="sigimg"></div><div class="sigline">${esc(l)}</div></div>`).join("");
   const summary = type.family === "report"
     ? `<div class="chips">${["total_marks", "percentage", "overall_grade", "rank", "result", "attendance"].filter((k) => values[k] && !options.fields.includes(k)).map((k) => `<div><span>${esc(labelOf(type, k))}</span><strong>${esc(values[k])}</strong></div>`).join("")}</div>`
     : "";
   return `${header(input, values, true)}
     <h1 class="title">${mergeText(options.title, values)}</h1>
     <div class="withphoto">${infoGrid(input, values, options.fields)}${photoOf(input, data, values)}</div>
-    <table class="lines"><thead><tr>${cols.map((c) => `<th class="${c.align === "right" ? "r" : c.align === "center" ? "c" : ""}">${esc(c.label)}</th>`).join("")}</tr></thead>
-      <tbody>${rows.map((r) => `<tr>${cols.map((c) => `<td class="${c.align === "right" ? "r" : c.align === "center" ? "c" : ""}">${esc(show(r[c.key], tz))}</td>`).join("")}</tr>`).join("")}</tbody></table>
+    ${tableHtml(cols, rows, tz)}
     ${summary}
+    ${extra}
     ${options.body ? `<div class="body small">${paragraphs(mergeText(options.body, values))}</div>` : ""}
-    <div class="endrow">${codeBlock(input, values, data, "18mm")}${signatures(input.signatories)}</div>
+    <div class="endrow">${codeBlock(input, values, data, "18mm")}${lines ? `<div class="sigs">${lines}</div>` : ""}${signatures(input.signatories)}</div>
     ${options.footer ? `<footer class="foot">${mergeText(options.footer, values)}</footer>` : ""}`;
 }
 
@@ -316,6 +330,7 @@ export function renderHtml(input: RenderInput): string {
     .total{display:flex;justify-content:flex-end;gap:6mm;margin-top:2mm;font-size:12pt}.total strong{min-width:32mm;text-align:right}
     .words{font-style:italic;margin:2mm 0}
     .rows td{padding:1.6mm 2mm;border-bottom:1px dotted #999;vertical-align:top}.rows .n{width:8mm}.rows .lbl{width:62mm;color:#333}
+    h2.sub{font-size:11pt;margin:4mm 0 1.5mm;color:var(--accent)}
     .chips{display:flex;flex-wrap:wrap;gap:3mm;margin:4mm 0}.chips div{border:1px solid #ccc;border-radius:1.5mm;padding:2mm 3mm}.chips span{display:block;font-size:8.5pt;color:#555}
     .endrow{display:flex;justify-content:space-between;align-items:flex-end;gap:6mm;margin-top:10mm;break-inside:avoid}
     .sigs{display:flex;gap:10mm;margin-left:auto}.sig{text-align:center;min-width:38mm}

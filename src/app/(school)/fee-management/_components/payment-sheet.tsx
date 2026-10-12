@@ -8,7 +8,7 @@ import Link from "next/link";
 import { Ban, BookOpen, BookText, Check, Download, MessageCircle, Printer, Send, Stamp as StampIcon, Undo2, X } from "lucide-react";
 import { Button, buttonClass } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
-import { Banner, Mini } from "@/components/ui/kit";
+import { Banner, Mini } from "@/components/money/kit";
 import { UrlSheet, SheetForm } from "@/components/ui/url-sheet";
 import { SArea, SMoney, SSelect } from "@/components/ui/sheet-fields";
 import { inputCls } from "@/components/ui/field";

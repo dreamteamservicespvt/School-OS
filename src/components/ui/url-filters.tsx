@@ -1,75 +1,61 @@
 "use client";
 
-// Search boxes, selects and segmented choices that keep their value in the page
-// address (?q=, ?status=...), so a filtered list can be refreshed, shared and
-// exported with the same filters. The server reads the address and filters.
+// Search box, filter selects and segmented choices that live in the page address,
+// so a filtered list can be shared or bookmarked (00-global.md P2).
 
-import { useEffect, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ChevronDown, Search, X } from "lucide-react";
-import { inputCls } from "./field";
-import { Segmented, Switch, type SegOption } from "./controls";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { ChevronDown, Download, Search, X } from "lucide-react";
+import { Segmented, type SegOption } from "./controls";
 import { Spinner } from "./button";
 import { cx } from "./cx";
+import { inputCls } from "./field";
 
-function useSetParam() {
+function useGo() {
   const router = useRouter();
   const pathname = usePathname();
-  const params = useSearchParams();
+  const sp = useSearchParams();
   const [pending, start] = useTransition();
-  const set = (changes: Record<string, string | null>) => {
-    const next = new URLSearchParams(params.toString());
-    for (const [k, v] of Object.entries(changes)) {
-      if (v === null || v === "" || v === "all") next.delete(k);
-      else next.set(k, v);
-    }
+  const go = (change: Record<string, string | null>) => {
+    const next = new URLSearchParams(sp.toString());
+    for (const [k, v] of Object.entries(change)) { if (v) next.set(k, v); else next.delete(k); }
     next.delete("page");
-    const s = next.toString();
-    start(() => router.replace(s ? `${pathname}?${s}` : pathname, { scroll: false }));
+    start(() => router.replace(next.toString() ? `${pathname}?${next}` : pathname, { scroll: false }));
   };
-  return { set, pending, params };
+  return { go, sp, pending };
 }
 
-/** A search box that filters the list as you type. */
-export function UrlSearch({ param = "q", placeholder, id, className, big, autoFocus, label = "Search" }: { param?: string; placeholder: string; id: string; className?: string; big?: boolean; autoFocus?: boolean; label?: string }) {
-  const { set, pending, params } = useSetParam();
-  const [value, setValue] = useState(params.get(param) ?? "");
+/** The search box at the top of a list card. */
+export function UrlSearch({ placeholder, param = "q", className }: { placeholder: string; param?: string; className?: string }) {
+  const { go, sp, pending } = useGo();
+  const [q, setQ] = useState(sp.get(param) ?? "");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
-  const change = (v: string) => {
-    setValue(v);
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => set({ [param]: v.trim() || null }), 250);
-  };
   return (
     <div className={cx("relative flex-1 min-w-0", className)} role="search">
-      <label htmlFor={id} className="sr-only">{label}</label>
-      <Search size={big ? 22 : 18} className={cx("absolute top-1/2 -translate-y-1/2 text-ink3", big ? "left-4" : "left-3.5")} aria-hidden="true" />
-      <input id={id} type="search" value={value} onChange={(e) => change(e.target.value)} placeholder={placeholder} autoComplete="off" autoFocus={autoFocus}
-        className={big
-          ? "w-full h-14 rounded-2xl bg-surface border border-line pl-12 pr-12 text-[16px] outline-none focus:border-brand focus:ring-4 focus:ring-brand/15 shadow-card placeholder:text-ink3 [&::-webkit-search-cancel-button]:hidden"
-          : cx(inputCls(false), "h-11 pl-10 pr-10 [&::-webkit-search-cancel-button]:hidden")} />
-      {pending ? <Spinner className={cx("absolute top-1/2 -translate-y-1/2 size-4 text-ink3", big ? "right-5" : "right-3.5")} />
-        : value && (
-          <button type="button" onClick={() => change("")} aria-label="Clear search"
-            className={cx("absolute top-1/2 -translate-y-1/2 w-8 h-8 grid place-items-center rounded-lg text-ink3 hover:bg-sunken", big ? "right-3" : "right-2")}>
-            <X size={16} aria-hidden="true" />
-          </button>
-        )}
+      <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink3" aria-hidden="true" />
+      <input type="search" value={q} placeholder={placeholder} aria-label={placeholder}
+        onChange={(e) => {
+          const v = e.target.value;
+          setQ(v);
+          if (timer.current) clearTimeout(timer.current);
+          timer.current = setTimeout(() => go({ [param]: v.trim() || null }), 300);
+        }}
+        className={cx(inputCls(false), "h-11 pl-10 pr-10 [&::-webkit-search-cancel-button]:hidden")} />
+      {pending ? <Spinner className="absolute right-3.5 top-1/2 -translate-y-1/2 text-ink3" />
+        : q && <button type="button" onClick={() => { setQ(""); go({ [param]: null }); }} className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 grid place-items-center rounded-lg text-ink3 hover:bg-sunken" aria-label="Clear search"><X size={16} aria-hidden="true" /></button>}
     </div>
   );
 }
 
-export type UrlOption = { value: string; label: string };
-
-/** A filter select. The first option is usually "All ..." with the value "all". */
-export function UrlSelect({ param, options, id, className, label }: { param: string; options: readonly UrlOption[]; id: string; className?: string; label: string }) {
-  const { set, params } = useSetParam();
-  const value = params.get(param) ?? options[0]?.value ?? "";
+/** A filter select; the first option is "all". */
+export function UrlSelect({ param, label, allLabel, options, className, value: fixed }: { param: string; label: string; allLabel: string; options: { value: string; label: string }[]; className?: string; value?: string }) {
+  const { go, sp } = useGo();
   return (
     <div className={cx("relative", className)}>
-      <label htmlFor={id} className="sr-only">{label}</label>
-      <select id={id} value={value} onChange={(e) => set({ [param]: e.target.value })} className={cx(inputCls(false), "h-11 appearance-none pr-10 cursor-pointer")}>
+      <select aria-label={label} value={fixed ?? sp.get(param) ?? ""} onChange={(e) => go({ [param]: e.target.value || null })}
+        className={cx(inputCls(false), "h-11 appearance-none pr-10 cursor-pointer")}>
+        <option value="">{allLabel}</option>
         {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
       <ChevronDown size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-ink3 pointer-events-none" aria-hidden="true" />
@@ -77,38 +63,27 @@ export function UrlSelect({ param, options, id, className, label }: { param: str
   );
 }
 
-/** A segmented choice kept in the address. */
-export function UrlSegmented({ param, options, fallback, className, size, label }: { param: string; options: readonly SegOption[]; fallback: string; className?: string; size?: "sm" | "md"; label: string }) {
-  const { set, params } = useSetParam();
-  const value = params.get(param) ?? fallback;
-  return <Segmented value={value} onChange={(v) => set({ [param]: v === fallback ? null : v })} options={options} className={className} size={size} label={label} />;
+/** Segmented choice kept in the page address. The first option is the default (no value in the address). */
+export function UrlSegmented({ param, options, label, className, size, value: current }: { param: string; options: SegOption[]; label: string; className?: string; size?: "sm" | "md"; value?: string }) {
+  const { go, sp } = useGo();
+  const first = typeof options[0] === "string" ? options[0] : options[0].value;
+  const value = current ?? sp.get(param) ?? first;
+  return <Segmented label={label} className={className} size={size} value={value} options={options} onChange={(v) => go({ [param]: v === first ? null : v })} />;
 }
 
-/** A date range kept in the address as ?from=YYYY-MM-DD&to=YYYY-MM-DD. */
-export function UrlDates({ from, to, className }: { from: string; to: string; className?: string }) {
-  const { set } = useSetParam();
+/** Export menu (P8): Excel, CSV or PDF of what the list shows. */
+export function ExportMenu({ href, className }: { href: string; className?: string }) {
+  const join = href.includes("?") ? "&" : "?";
   return (
-    <div className={cx("grid grid-cols-2 gap-2.5", className)}>
-      <label className="relative">
-        <span className="sr-only">From</span>
-        <input type="date" defaultValue={from} onChange={(e) => e.target.value && set({ from: e.target.value })} className={cx(inputCls(false), "tnum")} aria-label="From" />
-      </label>
-      <label className="relative">
-        <span className="sr-only">To</span>
-        <input type="date" defaultValue={to} onChange={(e) => e.target.value && set({ to: e.target.value })} className={cx(inputCls(false), "tnum")} aria-label="To" />
-      </label>
-    </div>
-  );
-}
-
-/** A switch kept in the address as ?param=1 (for example "Show waiting entries"). */
-export function UrlSwitch({ param, label, sub, id }: { param: string; label: string; sub?: React.ReactNode; id: string }) {
-  const { set, params } = useSetParam();
-  const on = params.get(param) === "1";
-  return (
-    <div className="flex items-center gap-2.5 text-[14px] min-w-0">
-      <Switch id={id} on={on} label={label} onChange={(v) => set({ [param]: v ? "1" : null })} />
-      <label htmlFor={id} className="min-w-0"><b className="font-semibold">{label}</b>{sub && <span className="text-ink3"> · {sub}</span>}</label>
-    </div>
+    <details className={cx("relative hidden md:block", className)}>
+      <summary className="list-none inline-flex items-center justify-center gap-2 h-10 px-4 rounded-xl text-sm font-semibold bg-surface text-ink border border-line hover:bg-sunken cursor-pointer [&::-webkit-details-marker]:hidden">
+        <Download size={17} aria-hidden="true" />Export
+      </summary>
+      <div className="absolute right-0 top-11 z-40 w-48 bg-surface border border-line rounded-2xl shadow-pop p-1.5 animate-rise">
+        {[["xlsx", "Excel"], ["csv", "CSV"], ["pdf", "PDF"]].map(([f, l]) => (
+          <a key={f} href={`${href}${join}format=${f}`} download className="flex items-center gap-2.5 h-10 px-3 rounded-xl hover:bg-sunken text-[14px]">{l}</a>
+        ))}
+      </div>
+    </details>
   );
 }

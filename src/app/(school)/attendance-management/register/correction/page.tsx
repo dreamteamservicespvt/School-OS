@@ -9,10 +9,13 @@ import { statusList, statusesFor } from "@/lib/attendance/settings";
 import { dayInfo, offDayMessage } from "@/lib/attendance/calendar";
 import { day, isoDay } from "@/lib/staff/dates";
 import { UUID_RE } from "@/lib/staff/act";
-import { PageHeader } from "@/components/shell/page-header";
+import { ArrowLeft, CalendarX2, ClipboardPen as ClipboardIcon, Info, Lock, ShieldCheck, Users } from "lucide-react";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
-import { Alert } from "@/components/ui/alert";
+import { Banner } from "@/components/ui/banner";
+import { ButtonLink } from "@/components/ui/button";
+import { Timeline } from "@/components/ui/rows";
 import { EmptyState } from "@/components/empty-state";
+import { AttHead } from "../../_components/att-head";
 import { CorrectionForm } from "../../_components/correction-form";
 import { UrlFilters } from "../../_components/url-filters";
 import { requestCorrectionAction } from "../actions";
@@ -25,7 +28,7 @@ const many = (v: string | string[] | undefined) => (Array.isArray(v) ? v : v ? [
 
 export default async function CorrectionPage({ searchParams }: Props) {
   const sp = await searchParams;
-  const { current, access, settings, tz, today, now } = await attendancePage("edit");
+  const { current, access, features, settings, tz, today, now } = await attendancePage("edit");
   const forWhom = one(sp.for) === "staff" ? "staff" : "student";
   const wantedDate = one(sp.date);
   const date = wantedDate && /^\d{4}-\d{2}-\d{2}$/.test(wantedDate) && day(wantedDate) <= today ? day(wantedDate) : today;
@@ -62,14 +65,13 @@ export default async function CorrectionPage({ searchParams }: Props) {
 
   return (
     <>
-      <PageHeader title="Request a correction" href={`${BASE}/register/correction`} userId={current.user.id}>
-        <Link href={back} className="font-medium text-brand-text hover:underline">Back to the {forWhom === "staff" ? "staff attendance" : "register"}</Link>
-      </PageHeader>
+      <AttHead access={access} features={features} userId={current.user.id} href={`${BASE}/register/correction`} sub="Request a correction: the principal approves it, and the original stays in the audit log"
+        actions={<ButtonLink href={back} icon={ArrowLeft}>Back to the {forWhom === "staff" ? "staff attendance" : "register"}</ButtonLink>} />
 
       {forWhom === "staff" && access.staff !== "all" ? (
-        <Alert tone="danger">Only HR, the School Admin or the Principal can correct staff attendance. Ask them if your own attendance is wrong.</Alert>
+        <Banner tone="bad" title="Not for your role.">Only HR, the School Admin or the Principal can correct staff attendance. Ask them if your own attendance is wrong.</Banner>
       ) : forWhom === "student" && data.sections.length === 0 ? (
-        <EmptyState title="No classes to correct">You are not class teacher or subject teacher of any section this year.</EmptyState>
+        <EmptyState title="No classes to correct" Icon={Users}>You are not class teacher or subject teacher of any section this year.</EmptyState>
       ) : (
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
           <Card>
@@ -80,29 +82,31 @@ export default async function CorrectionPage({ searchParams }: Props) {
                 ...(forWhom === "student" ? [{ name: "section", label: "Class and section", type: "select" as const, value: data.section?.id ?? "", options: data.sections.map((s) => ({ value: s.id, label: s.name })) }] : []),
                 { name: "date", label: "Date", type: "date", value: isoDay(date), max: isoDay(today) },
               ]} reset={["student", "staff"]} />
-              {data.info && !data.info.on && <Alert tone="warning" className="mb-4">{offDayMessage(data.info, date)} Corrections are only for days attendance is taken.</Alert>}
+              {data.info && !data.info.on && <Banner tone="warn" icon={CalendarX2} className="mb-4">{offDayMessage(data.info, date)} Corrections are only for days attendance is taken.</Banner>}
               {!lock.locked && !(data.info && !data.info.on) && (
-                <Alert tone="info" className="mb-4">
+                <Banner tone="info" icon={Info} className="mb-4">
                   Attendance for {dayText(date)} is not locked yet (it locks at {lock.atText}). You can still change it directly in{" "}
                   <Link className="font-medium underline" href={forWhom === "staff" ? `${BASE}/staff?date=${isoDay(date)}` : `${BASE}?section=${data.section?.id ?? ""}&date=${isoDay(date)}${periodNo ? `&period=${periodNo}` : ""}`}>{forWhom === "staff" ? "Staff Attendance" : "Take Attendance"}</Link>.
-                </Alert>
+                </Banner>
               )}
               {data.people && data.people.length > 0 && !(data.info && !data.info.on) ? (
                 <CorrectionForm key={`${data.section?.id}:${isoDay(date)}`} action={requestCorrectionAction} forWhom={forWhom} people={data.people}
                   statuses={data.statuses.map((s) => ({ key: s.key, name: s.name, letter: s.letter, tone: s.tone }))}
                   hidden={{ forWhom, sectionId: data.section?.id ?? "", date: isoDay(date), periodNo: String(periodNo) }} />
               ) : data.people && data.people.length === 0 ? (
-                <EmptyState title="Nobody to correct">There are no {forWhom === "staff" ? "staff" : "students"} here.</EmptyState>
+                <EmptyState bare title="Nobody to correct" Icon={Users}>There are no {forWhom === "staff" ? "staff" : "students"} here.</EmptyState>
               ) : null}
             </CardBody>
           </Card>
-          <Card>
+          <Card className="self-start">
             <CardHeader title="How corrections work" />
-            <CardBody className="space-y-2 text-sm text-ink-2">
-              <p>Attendance locks at {lock.atText} each day (Attendance Settings).</p>
-              <p>After that, a change needs a correction request with a reason. The principal decides it in Approvals.</p>
-              <p>When it is approved, the register, the % and the reports change. The marks as they were before stay in the audit log.</p>
-              <p>A correction does not send a new absence message.</p>
+            <CardBody>
+              <Timeline items={[
+                { icon: Lock, tone: "warn", what: `Attendance locks at ${lock.atText} each day`, when: "Set in Attendance Settings" },
+                { icon: ClipboardIcon, tone: "brand", what: "You ask for the change with a reason", when: "It goes to Approvals" },
+                { icon: ShieldCheck, tone: "ok", what: "The principal approves it", when: "The register, % and reports change. The original stays in the audit log." },
+              ]} />
+              <p className="mt-4 text-[13px] text-ink3">A correction does not send a new absence message to parents.</p>
             </CardBody>
           </Card>
         </div>

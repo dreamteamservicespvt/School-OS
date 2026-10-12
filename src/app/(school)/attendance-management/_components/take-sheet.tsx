@@ -227,7 +227,7 @@ export function TakeSheet(p: Props) {
               <div className="min-w-0 flex-1">
                 <p className={cx("font-semibold text-[14.5px] truncate", isFixed && "text-ink2")}>{s.name}</p>
                 <p className="text-[12px] text-ink3 truncate">
-                  {isFixed ? `On approved leave · ${(s.leave!.reason || s.leave!.typeName).toLowerCase()}`
+                  {isFixed ? `On approved leave · ${s.leave!.reason || s.leave!.typeName}`
                     : readOnly ? (m?.note || s.admissionNo)
                       : <button type="button" onClick={() => setNoteFor(s.id)} className="hover:text-brand text-left truncate max-w-full">{m?.note ? m.note : s.leave?.halfDay ? "Half-day leave approved · Add note" : "Add note"}</button>}
                 </p>

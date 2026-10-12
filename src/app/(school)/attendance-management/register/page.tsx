@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { CalendarDays, CalendarX2, ClipboardPen, Users } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { attendancePage } from "@/lib/attendance/page";
 import { BASE } from "@/lib/attendance/access";
@@ -7,15 +8,18 @@ import { readMonth, registerChoices, registerMonth } from "@/lib/attendance/regi
 import { studentMonth } from "@/lib/attendance/integrations";
 import { attendanceSummary, percentText } from "@/lib/attendance/summary";
 import { lockState } from "@/lib/attendance/marks";
+import { time12 } from "@/lib/attendance/time";
 import { isoDay, monthStart } from "@/lib/staff/dates";
-import { PageHeader } from "@/components/shell/page-header";
-import { Card, CardBody } from "@/components/ui/card";
-import { Alert } from "@/components/ui/alert";
-import { buttonClass } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Chips } from "@/components/ui/chips";
+import { Stats } from "@/components/ui/stats";
+import { UrlSelect } from "@/components/ui/url-controls";
+import { cx } from "@/components/ui/cx";
 import { EmptyState } from "@/components/empty-state";
-import { ExportLinks, Stat, SubNav } from "../../staff-hr-management/_components/bits";
-import { Cell, Legend, toneClass, type StatusView } from "../_components/status";
-import { UrlFilters } from "../_components/url-filters";
+import { AttHead } from "../_components/att-head";
+import { MonthNav } from "../_components/month-nav";
+import { ExportMenu } from "../_components/export-menu";
+import { cellClass, Legend, type StatusView } from "../_components/status";
 
 export const metadata: Metadata = { title: "Attendance Register" };
 
@@ -23,10 +27,12 @@ type Props = { searchParams: Promise<Record<string, string | string[] | undefine
 const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : undefined);
 const shift = (m: Date, n: number) => new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth() + n, 1));
 const ym = (d: Date) => isoDay(d).slice(0, 7);
+const HOLIDAY_CELL = "bg-info/10 text-info";
+const CORE = ["present", "absent", "late", "leave"];
 
 export default async function RegisterPage({ searchParams }: Props) {
   const sp = await searchParams;
-  const { current, access, settings, tz, today, now } = await attendancePage();
+  const { current, access, features, settings, tz, today, now } = await attendancePage();
   const month = readMonth(one(sp.month)) ?? monthStart(today);
   const view = one(sp.view) === "student" ? "student" : "class";
   const statusFilter = one(sp.status) ?? "";
@@ -38,14 +44,11 @@ export default async function RegisterPage({ searchParams }: Props) {
     const waiting = await tx.attendanceCorrection.count({ where: { status: "WAITING", archivedAt: null, forWhom: "student", ...(access.students === "all" ? {} : { sectionId: { in: sections.map((s) => s.id) } }) } });
     const year = access.yearId ? await tx.academicYear.findUnique({ where: { id: access.yearId } }) : null;
     if (!section) return { sections, section: null, grid: null, student: null, waiting, year };
-    if (view === "class") {
-      const grid = await registerMonth(tx, current.ctx, { sectionId: section.id, month, today, status: statusFilter || null });
-      return { sections, section, grid, student: null, waiting, year };
-    }
-    const grid = await registerMonth(tx, current.ctx, { sectionId: section.id, month, today });
+    const grid = await registerMonth(tx, current.ctx, { sectionId: section.id, month, today, status: view === "class" ? statusFilter || null : null });
+    if (view === "class" || !grid) return { sections, section, grid, student: null, waiting, year };
     const sid = one(sp.student);
-    const pick = grid?.rows.find((r) => r.id === sid) ?? grid?.rows[0] ?? null;
-    if (!pick || !grid) return { sections, section, grid, student: null, waiting, year };
+    const pick = grid.rows.find((r) => r.id === sid) ?? grid.rows[0] ?? null;
+    if (!pick) return { sections, section, grid, student: null, waiting, year };
     const cal = await studentMonth(tx, current.ctx, pick.id, month, today);
     const yearSum = year ? (await attendanceSummary(tx, current.ctx, { studentId: pick.id, from: year.startDate, to: year.endDate, today })).people.get(pick.id) ?? null : null;
     return { sections, section, grid, student: { row: pick, cal, yearSum, options: grid.rows.map((r) => ({ value: r.id, label: `${r.roll ? `${r.roll}. ` : ""}${r.name}` })) }, waiting, year };
@@ -55,9 +58,9 @@ export default async function RegisterPage({ searchParams }: Props) {
   const byKey = new Map(statuses.map((s) => [s.key, s]));
   const qs = (change: Record<string, string | null>) => {
     const p = new URLSearchParams();
-    const base: Record<string, string | null> = { section: data.section?.id ?? null, month: ym(month), view: view === "student" ? "student" : null, student: one(sp.student) ?? null, status: statusFilter || null, ...change };
+    const base: Record<string, string | null> = { section: one(sp.section) ?? null, month: one(sp.month) ?? null, view: view === "student" ? "student" : null, student: one(sp.student) ?? null, status: statusFilter || null, ...change };
     for (const [k, v] of Object.entries(base)) if (v) p.set(k, v);
-    return `${BASE}/register?${p}`;
+    return p.size ? `${BASE}/register?${p}` : `${BASE}/register`;
   };
   const canChange = access.change !== "none";
   const cellHref = (studentId: string, iso: string) => {
@@ -68,57 +71,56 @@ export default async function RegisterPage({ searchParams }: Props) {
     if (!lock.locked || access.lockOverride) return `${BASE}?section=${data.section.id}&date=${iso}`;
     return `${BASE}/register/correction?section=${data.section.id}&date=${iso}&student=${studentId}`;
   };
-  const views = [
-    { key: "class", label: "Class register", href: qs({ view: null, student: null }) },
-    { key: "student", label: "Student calendar", href: qs({ view: "student", status: null }) },
-    { key: "corrections", label: "Corrections", href: `${BASE}/register/corrections`, count: data.waiting },
-  ];
+  const minMonth = data.year ? monthStart(data.year.startDate) : null;
+  const maxMonth = data.year ? monthStart(data.year.endDate) : null;
+  const prev = !minMonth || shift(month, -1) >= minMonth ? qs({ month: ym(shift(month, -1)) }) : null;
+  const next = !maxMonth || shift(month, 1) <= maxMonth ? qs({ month: ym(shift(month, 1)) === ym(today) ? null : ym(shift(month, 1)) }) : null;
   const exportHref = data.section ? `${BASE}/register/export?section=${data.section.id}&month=${ym(month)}${statusFilter ? `&status=${statusFilter}` : ""}` : null;
-  const monthNav = (
-    <div className="flex items-center gap-1">
-      <Link href={qs({ month: ym(shift(month, -1)) })} className={buttonClass("secondary", "sm")} aria-label="Previous month">‹</Link>
-      <Link href={qs({ month: ym(shift(month, 1)) })} className={buttonClass("secondary", "sm")} aria-label="Next month">›</Link>
-      {ym(month) !== ym(today) && <Link href={qs({ month: ym(today) })} className={buttonClass("ghost", "sm")}>This month</Link>}
-    </div>
-  );
+  const sub = data.section ? `${data.section.name} · ${data.grid?.label ?? ""}` : "No classes yet";
 
   return (
     <>
-      <PageHeader title="Attendance Register" href={`${BASE}/register`} userId={current.user.id}>
-        {exportHref && view === "class" && (
-          <div className="flex flex-wrap gap-2">
-            <a href={`${exportHref}&format=pdf&print=1`} className={buttonClass("secondary")} target="_blank" rel="noopener">Print</a>
-            <ExportLinks href={exportHref} />
-          </div>
-        )}
-      </PageHeader>
-      <SubNav items={views} current={view} />
+      <AttHead access={access} features={features} userId={current.user.id} href={`${BASE}/register`} sub={sub}
+        actions={exportHref && view === "class" ? <ExportMenu href={exportHref} print /> : undefined} />
 
       {data.sections.length === 0 ? (
-        <EmptyState title="No classes to show">
+        <EmptyState title="No classes to show" Icon={Users}>
           {access.students === "all" ? "No sections are set up for this academic year yet. Add them in Academic Setup." : "You are not class teacher or subject teacher of any section this year."}
         </EmptyState>
       ) : (
-        <>
-          <UrlFilters reset={view === "student" ? ["student"] : []} fields={[
-            { name: "section", label: "Class and section", type: "select", value: data.section?.id ?? "", options: data.sections.map((s) => ({ value: s.id, label: s.name })) },
-            { name: "month", label: "Month", type: "month", value: ym(month), min: data.year ? ym(data.year.startDate) : undefined, max: data.year ? ym(data.year.endDate) : undefined },
-            ...(view === "class"
-              ? [{ name: "status", label: "Status", type: "select" as const, value: statusFilter, allLabel: "Any status", options: statuses.map((s) => ({ value: s.key, label: `Has ${s.name.toLowerCase()}` })) }]
-              : data.student ? [{ name: "student", label: "Student", type: "select" as const, value: data.student.row.id, options: data.student.options }] : []),
-          ]}>
-            {monthNav}
-          </UrlFilters>
+        <div className="flex flex-col gap-4">
+          <Chips label="Register views" value={view} options={[
+            { value: "class", label: "Class register", href: qs({ view: null, student: null }) },
+            { value: "student", label: "Student calendar", href: qs({ view: "student", status: null }) },
+            { value: "corrections", label: "Corrections", count: data.waiting || null, href: `${BASE}/register/corrections` },
+          ]} />
+          <div className="flex flex-col sm:flex-row gap-2 sm:items-center flex-wrap">
+            {data.sections.length > 1 && (
+              <UrlSelect param="section" label="Class and section" value={data.section?.id ?? ""} className="sm:w-56"
+                options={data.sections.map((s) => ({ value: s.id, label: s.name }))} />
+            )}
+            <MonthNav label={data.grid?.label ?? ""} prev={prev} next={next} className="self-start" />
+            {view === "class" && (
+              <UrlSelect param="status" label="Status" value="" className="sm:w-48"
+                options={[{ value: "", label: "Any status" }, ...statuses.map((s) => ({ value: s.key, label: `Has ${s.name.toLowerCase()}` }))]} />
+            )}
+            {view === "student" && data.student && (
+              <UrlSelect param="student" label="Student" value={data.student.row.id} className="sm:w-64" options={data.student.options} />
+            )}
+          </div>
 
           {view === "class" && data.grid && (
-            <ClassGrid grid={data.grid} byKey={byKey} statuses={statuses} cellHref={cellHref} statusFilter={statusFilter} />
+            <ClassGrid grid={data.grid} byKey={byKey} statuses={statuses} cellHref={cellHref} statusFilter={statusFilter} threshold={settings.thresholdPercent} today={today} />
           )}
           {view === "student" && (data.student ? (
-            <StudentCalendar s={data.student} byKey={byKey} statuses={statuses} sectionName={data.section?.name ?? ""} yearName={data.year?.name ?? null} cellHref={cellHref} />
+            <StudentCalendar s={data.student} byKey={byKey} statuses={statuses} sectionName={data.section?.name ?? ""} yearName={data.year?.name ?? null} cellHref={cellHref} threshold={settings.thresholdPercent} />
           ) : (
-            <EmptyState title="No students in this section">Students appear here once they are placed in the section.</EmptyState>
+            <EmptyState title="No students in this section" Icon={Users}>Students appear here once they are placed in the section.</EmptyState>
           ))}
-        </>
+          {canChange && (
+            <p className="text-[13px] text-ink3">Tap a mark to change it. After the lock time ({time12(settings.lockTime)}) a change goes to Approvals as a correction request.</p>
+          )}
+        </div>
       )}
     </>
   );
@@ -126,125 +128,136 @@ export default async function RegisterPage({ searchParams }: Props) {
 
 type Grid = NonNullable<Awaited<ReturnType<typeof registerMonth>>>;
 
-function ClassGrid({ grid, byKey, statuses, cellHref, statusFilter }: {
-  grid: Grid; byKey: Map<string, StatusView>; statuses: StatusView[]; cellHref: (studentId: string, iso: string) => string | null; statusFilter: string;
+function ClassGrid({ grid, byKey, statuses, cellHref, statusFilter, threshold, today }: {
+  grid: Grid; byKey: Map<string, StatusView>; statuses: StatusView[]; cellHref: (studentId: string, iso: string) => string | null; statusFilter: string; threshold: number; today: Date;
 }) {
-  const future = grid.dates.some((d) => d.future);
+  // Like the approved register: school days so far, Sundays left out, holidays shown greyed.
+  const shown = grid.dates.filter((d) => !d.future && d.off !== "Sunday");
+  const anyPast = grid.dates.some((d) => !d.future);
+  const thisMonth = grid.month === isoDay(today).slice(0, 7);
+  const used = new Set(grid.rows.flatMap((r) => Object.values(r.days)));
+  const legend = statuses.filter((s) => CORE.includes(s.key) || used.has(s.key));
   return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="Working days" value={grid.workingDays} />
-        <Stat label="Class attendance" value={percentText(grid.overall.percent)} tone={grid.overall.percent !== null && grid.overall.percent < 75 ? "warning" : undefined} />
-        <Stat label="Absent days" value={grid.overall.absent} />
-        <Stat label="Late marks" value={grid.overall.late} />
+    <Card className="overflow-hidden">
+      <div className="flex items-center justify-between gap-3 px-5 py-4 flex-wrap">
+        <div>
+          <h2 className="font-semibold">{grid.label}</h2>
+          <p className="text-[13px] text-ink3">{grid.section.name} · {grid.rows.length} {grid.rows.length === 1 ? "student" : "students"} · {grid.workingDays} school {grid.workingDays === 1 ? "day" : "days"}{thisMonth ? " so far" : ""} · {percentText(grid.overall.percent)} present</p>
+        </div>
+        <Legend statuses={legend} extra={shown.some((d) => d.off) ? <li className="flex items-center gap-1.5"><span aria-hidden="true" className={cx("w-4 h-4 rounded grid place-items-center text-[9px] font-bold", HOLIDAY_CELL)}>H</span>Holiday</li> : undefined} />
       </div>
-      <Legend statuses={statuses} extra={<li className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="inline-block h-6 w-6 rounded border border-line bg-surface-3" />Holiday or Sunday (not counted)</li>} />
-      {grid.rows.length === 0 ? (
-        <EmptyState title={statusFilter ? "No student matches this status" : "No students in this section"}>
-          {statusFilter ? "Nobody in this section had that status this month. Choose another status or Any status." : "Students appear here once they are placed in the section."}
-        </EmptyState>
+      {!anyPast ? (
+        <div className="border-t border-line"><EmptyState bare title="This month has not started" Icon={CalendarDays}>Marks show here from the first school day of {grid.label}.</EmptyState></div>
+      ) : grid.rows.length === 0 ? (
+        <div className="border-t border-line">
+          <EmptyState bare title={statusFilter ? "No student matches this status" : "No students in this section"} Icon={Users}>
+            {statusFilter ? "Nobody in this section had that status this month. Choose Any status to see everyone." : "Students appear here once they are placed in the section."}
+          </EmptyState>
+        </div>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-line bg-surface" tabIndex={0} role="region" aria-label={`Register for ${grid.section.name}, ${grid.label}`}>
-          <table className="w-max min-w-full border-collapse text-sm">
-            <caption className="sr-only">{grid.section.name}, {grid.label}: students down the side, dates across</caption>
-            <thead className="bg-surface-2 text-ink-2">
-              <tr>
-                <th scope="col" className="sticky left-0 z-10 min-w-44 border-b border-r border-line bg-surface-2 px-3 py-2 text-left font-medium">Student</th>
-                {grid.dates.map((d) => (
-                  <th key={d.iso} scope="col" className={`w-8 border-b border-line px-0.5 py-1 text-center font-medium ${d.off ? "bg-surface-3" : ""}`} title={d.off ?? undefined}>
-                    <span className="block text-[11px] font-normal">{d.weekday.slice(0, 2)}</span>{d.day}
+        <div className="overflow-x-auto scroll-thin" tabIndex={0} role="region" aria-label={`Register for ${grid.section.name}, ${grid.label}`}>
+          <table className="text-[13px] min-w-full border-separate border-spacing-0">
+            <caption className="sr-only">{grid.section.name}, {grid.label}: students down the side, school days across</caption>
+            <thead>
+              <tr className="text-ink3">
+                <th scope="col" className="sticky left-0 z-10 bg-surface text-left font-semibold px-4 py-2 min-w-[180px] border-y border-line">Student</th>
+                {shown.map((d) => (
+                  <th key={d.iso} scope="col" title={d.off ?? undefined} className="font-semibold px-1 py-2 w-10 tnum border-y border-line">
+                    {d.day}<span className="block text-[10px] font-medium">{d.weekday.slice(0, 2)}</span>
                   </th>
                 ))}
-                <th scope="col" className="border-b border-l border-line px-2 py-2 text-right font-medium">Present</th>
-                <th scope="col" className="border-b border-line px-2 py-2 text-right font-medium">Counted</th>
-                <th scope="col" className="border-b border-line px-3 py-2 text-right font-medium">%</th>
+                <th scope="col" className="font-semibold px-4 py-2 text-right border-y border-line">%</th>
               </tr>
             </thead>
             <tbody>
-              {grid.rows.map((r) => (
-                <tr key={r.id} className="border-b border-line last:border-0">
-                  <th scope="row" className="sticky left-0 z-10 border-r border-line bg-surface px-3 py-1.5 text-left font-normal">
-                    <span className="mr-1 text-ink-2 tabular-nums">{r.roll ?? "–"}</span> <span className="font-medium">{r.name}</span>
-                  </th>
-                  {grid.dates.map((d) => {
-                    if (d.off) return <td key={d.iso} className="bg-surface-3 text-center" title={d.off}><span className="sr-only">{d.off}</span></td>;
-                    const st = r.days[d.iso] ? byKey.get(r.days[d.iso]) ?? { key: r.days[d.iso], name: r.days[d.iso], letter: "?", tone: "neutral" } : undefined;
-                    const href = cellHref(r.id, d.iso);
-                    const label = `${r.name}, ${d.day} ${grid.label}`;
-                    const inner = <Cell status={st} label={label} />;
-                    return (
-                      <td key={d.iso} className="px-0.5 py-0.5 text-center">
-                        {href ? <Link href={href} className="inline-grid min-h-7 min-w-7 place-items-center rounded hover:ring-2 hover:ring-brand" aria-label={`${label}: ${st?.name ?? "not marked"}. Change`}>{inner}</Link> : inner}
-                      </td>
-                    );
-                  })}
-                  <td className="border-l border-line px-2 text-right tabular-nums">{r.summary.present}</td>
-                  <td className="px-2 text-right tabular-nums">{r.summary.countedDays}</td>
-                  <td className={`px-3 text-right font-medium tabular-nums ${r.summary.percent !== null && r.summary.percent < 75 ? "text-danger" : ""}`}>{percentText(r.summary.percent)}</td>
-                </tr>
-              ))}
+              {grid.rows.map((r) => {
+                const p = r.summary.percent;
+                return (
+                  <tr key={r.id} className="group">
+                    <th scope="row" className="sticky left-0 z-10 bg-surface px-4 py-1.5 font-medium text-left whitespace-nowrap border-b border-line/60 group-last:border-0">
+                      <span className="text-ink3 tnum mr-2 inline-block w-5">{r.roll ?? "–"}</span>{r.name}
+                    </th>
+                    {shown.map((d) => {
+                      const label = `${r.name}, ${d.day} ${grid.label}`;
+                      if (d.off) return <td key={d.iso} className="px-1 py-1.5 text-center border-b border-line/60 group-last:border-0"><span title={d.off} className={cx("inline-grid place-items-center w-7 h-7 rounded-md text-[10.5px] font-bold", HOLIDAY_CELL)}><span aria-hidden="true">H</span><span className="sr-only">{label}: {d.off}</span></span></td>;
+                      const key = r.days[d.iso];
+                      const st = key ? byKey.get(key) ?? { key, name: key, letter: "?", tone: "neutral" } : undefined;
+                      const href = cellHref(r.id, d.iso);
+                      const box = st
+                        ? <span className={cx("inline-grid place-items-center min-w-7 h-7 px-0.5 rounded-md text-[10.5px] font-bold", cellClass(st))}><span aria-hidden="true">{st.letter}</span></span>
+                        : <span className="inline-grid place-items-center w-7 h-7 rounded-md border border-dashed border-line text-ink3/60" aria-hidden="true">·</span>;
+                      return (
+                        <td key={d.iso} className="px-1 py-1.5 text-center border-b border-line/60 group-last:border-0">
+                          {href
+                            ? <Link href={href} title={`${label}: ${st?.name ?? "Not marked"}`} aria-label={`${label}: ${st?.name ?? "not marked"}. Change`} className="inline-grid rounded-md outline-none hover:ring-2 hover:ring-brand/60 focus-visible:ring-2 focus-visible:ring-brand">{box}</Link>
+                            : <span title={`${label}: ${st?.name ?? "Not marked"}`}>{box}<span className="sr-only">{label}: {st?.name ?? "not marked"}</span></span>}
+                        </td>
+                      );
+                    })}
+                    <td className={cx("px-4 text-right font-semibold tnum border-b border-line/60 group-last:border-0", p !== null && p < threshold ? "text-bad" : p !== null && p < 85 && "text-warn")}>{percentText(p)}</td>
+                  </tr>
+                );
+              })}
             </tbody>
-            <tfoot>
-              <tr className="bg-surface-2">
-                <td colSpan={grid.dates.length + 4} className="px-3 py-2 text-ink-2">
-                  {grid.workingDays} working day{grid.workingDays === 1 ? "" : "s"}{future ? " so far" : ""}. Holidays, Sundays and unmarked days are not counted. A half day counts as half.
-                </td>
-              </tr>
-            </tfoot>
           </table>
         </div>
       )}
-      <p className="text-sm text-ink-2">Tap a mark to change it. After the lock time a change goes to Approvals as a correction request.</p>
-    </div>
+      {anyPast && grid.rows.length > 0 && (
+        <p className="px-5 py-3 border-t border-line text-[12.5px] text-ink3">Holidays, Sundays and days not marked are not counted. A half day counts as half. Below {threshold}% is shown in red.</p>
+      )}
+    </Card>
   );
 }
 
-function StudentCalendar({ s, byKey, statuses, sectionName, yearName, cellHref }: {
-  s: { row: Grid["rows"][number]; cal: Awaited<ReturnType<typeof studentMonth>>; yearSum: { percent: number | null; countedDays: number } | null };
-  byKey: Map<string, StatusView>; statuses: StatusView[]; sectionName: string; yearName: string | null; cellHref: (studentId: string, iso: string) => string | null;
+function StudentCalendar({ s, byKey, statuses, sectionName, yearName, cellHref, threshold }: {
+  s: { row: Grid["rows"][number]; cal: Awaited<ReturnType<typeof studentMonth>>; yearSum: { percent: number | null; countedDays: number; workingDays: number } | null };
+  byKey: Map<string, StatusView>; statuses: StatusView[]; sectionName: string; yearName: string | null; cellHref: (studentId: string, iso: string) => string | null; threshold: number;
 }) {
   const first = s.cal.cells[0];
   const lead = first ? (first.weekday + 6) % 7 : 0;
+  const m = s.cal.summary;
+  const tone = (p: number | null | undefined) => (p == null ? undefined : p < threshold ? "bad" as const : p < 85 ? "warn" as const : "ok" as const);
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label={`${s.cal.label}`} value={percentText(s.cal.summary.percent)} tone={s.cal.summary.percent !== null && s.cal.summary.percent < 75 ? "warning" : undefined} />
-        <Stat label={yearName ? `Year ${yearName}` : "This year"} value={s.yearSum ? percentText(s.yearSum.percent) : "Not marked yet"} tone={s.yearSum?.percent != null && s.yearSum.percent < 75 ? "danger" : undefined} />
-        <Stat label="Present days this month" value={s.cal.summary.present} />
-        <Stat label="Absent days this month" value={s.cal.summary.absent} />
-      </div>
-      <Card>
-        <CardBody>
-          <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="text-lg font-semibold">{s.row.name} <span className="font-normal text-ink-2">· {sectionName} · {s.cal.label}</span></h2>
-            <span className="text-sm text-ink-2">Admission no. {s.row.admissionNo}</span>
+    <div className="flex flex-col gap-4">
+      <Stats items={[
+        { label: s.cal.label, value: percentText(m.percent), sub: `${m.countedDays} of ${m.workingDays} school days counted`, tone: tone(m.percent), icon: CalendarDays },
+        { label: yearName ? `Year ${yearName}` : "This year", value: s.yearSum ? percentText(s.yearSum.percent) : "Not marked", sub: s.yearSum ? `${s.yearSum.workingDays} school days so far` : "No marks this year yet", tone: tone(s.yearSum?.percent), icon: ClipboardPen },
+        { label: "Absent this month", value: m.absent, sub: `${m.late} late`, tone: m.absent ? "bad" : undefined, icon: CalendarX2 },
+        { label: "Leave this month", value: m.leave, sub: "Not counted in the %", icon: CalendarDays },
+      ]} />
+      <Card className="overflow-hidden">
+        <div className="flex items-center justify-between gap-3 px-5 py-4 flex-wrap">
+          <div>
+            <h2 className="font-semibold">{s.row.name}</h2>
+            <p className="text-[13px] text-ink3">{sectionName} · {s.cal.label} · Admission no. {s.row.admissionNo}</p>
           </div>
-          <Legend statuses={statuses} />
-          <div className="mt-4 grid grid-cols-7 gap-1 text-center text-sm" role="grid" aria-label={`${s.row.name}, ${s.cal.label}`}>
-            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((w) => <div key={w} role="columnheader" className="py-1 text-xs font-medium text-ink-2">{w}</div>)}
+          <Legend statuses={statuses.filter((x) => CORE.includes(x.key) || s.cal.cells.some((c) => c.statusKey === x.key))}
+            extra={s.cal.cells.some((c) => c.off && c.off !== "Sunday") ? <li className="flex items-center gap-1.5"><span aria-hidden="true" className={cx("w-4 h-4 rounded grid place-items-center text-[9px] font-bold", HOLIDAY_CELL)}>H</span>Holiday</li> : undefined} />
+        </div>
+        <div className="px-3 sm:px-5 pb-5">
+          <div className="grid grid-cols-7 gap-1 sm:gap-1.5 text-center" role="grid" aria-label={`${s.row.name}, ${s.cal.label}`}>
+            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((w) => <div key={w} role="columnheader" className="py-1 text-[12px] font-semibold text-ink3">{w}</div>)}
             {Array.from({ length: lead }).map((_, i) => <div key={`x${i}`} aria-hidden="true" />)}
             {s.cal.cells.map((c) => {
               const st = c.statusKey ? byKey.get(c.statusKey) : undefined;
               const href = !c.off && !c.future ? cellHref(s.row.id, c.date) : null;
               const body = (
                 <>
-                  <span className="text-xs">{c.day}</span>
-                  <span className="text-sm font-semibold">{c.off ? "" : st ? st.letter : c.future ? "" : "–"}</span>
+                  <span className="text-[11.5px] opacity-80 tnum">{c.day}</span>
+                  <span className="text-[13px] font-bold">{c.off ? (c.off === "Sunday" ? "" : "H") : st ? st.letter : ""}</span>
                   <span className="sr-only">{c.off ? c.off : st ? st.name : c.future ? "Not yet" : "Not marked"}</span>
                 </>
               );
-              const cls = `flex min-h-14 flex-col items-center justify-center rounded-lg border ${c.off ? "border-line bg-surface-3 text-ink-2" : st ? toneClass(st.tone) : "border-line"}`;
+              const cls = cx("flex h-14 sm:h-16 flex-col items-center justify-center rounded-xl", c.off ? (c.off === "Sunday" ? "bg-sunken/60 text-ink3" : HOLIDAY_CELL) : st ? cellClass(st) : c.future ? "text-ink3" : "border border-dashed border-line text-ink3");
               return (
                 <div key={c.date} role="gridcell" title={c.off ?? st?.name}>
-                  {href ? <Link href={href} className={`${cls} hover:ring-2 hover:ring-brand`}>{body}</Link> : <div className={cls}>{body}</div>}
+                  {href ? <Link href={href} className={cx(cls, "hover:ring-2 hover:ring-brand/60")}>{body}</Link> : <div className={cls}>{body}</div>}
                 </div>
               );
             })}
           </div>
-          <p className="mt-3 text-sm text-ink-2">{s.cal.summary.workingDays} working days · {s.cal.summary.countedDays} counted · {s.cal.summary.late} late · {s.cal.summary.leave} on leave</p>
-        </CardBody>
+        </div>
       </Card>
-      {s.yearSum === null && <Alert tone="info">This student has no marks in the current academic year yet.</Alert>}
     </div>
   );
 }

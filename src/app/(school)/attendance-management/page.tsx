@@ -71,7 +71,7 @@ export default async function TakeAttendancePage({ searchParams }: Props) {
   const sheet = data.sheet;
   const correctionHref = data.chosen ? `${BASE}/register/correction?section=${data.chosen.sectionId}&date=${isoDay(date)}${data.chosen.periodNo ? `&period=${data.chosen.periodNo}` : ""}` : `${BASE}/register`;
   const sub = data.chosen
-    ? [`Class ${data.chosen.name}`, data.chosen.periodLabel, longDay(date), data.teacher ? `Class teacher ${data.teacher}` : null].filter(Boolean).join(" · ")
+    ? [data.chosen.name, data.chosen.periodLabel, longDay(date), data.teacher ? `Class teacher ${data.teacher}` : null].filter(Boolean).join(" · ")
     : longDay(date);
 
   return (

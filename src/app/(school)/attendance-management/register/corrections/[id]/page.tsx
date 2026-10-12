@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { formatDate, formatDateTime } from "@/lib/format";
@@ -10,10 +9,13 @@ import { registerChoices } from "@/lib/attendance/register";
 import { CORRECTION_WORDS, type CorrectionEntry } from "@/lib/attendance/corrections";
 import { statusList } from "@/lib/attendance/settings";
 import { UUID_RE } from "@/lib/staff/act";
-import { PageHeader } from "@/components/shell/page-header";
-import { Card, CardBody, CardHeader, Detail } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Alert } from "@/components/ui/alert";
+import { ArrowLeft, ExternalLink } from "lucide-react";
+import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { Pill } from "@/components/ui/badge";
+import { Banner } from "@/components/ui/banner";
+import { ButtonLink } from "@/components/ui/button";
+import { DL } from "@/components/ui/rows";
+import { AttHead } from "../../../_components/att-head";
 import { StatusChip, type StatusView } from "../../../_components/status";
 import { DecisionButtons } from "../../../_components/decision";
 import { CORRECTION_STATUS } from "../../../_components/words";
@@ -26,7 +28,7 @@ type Version = { id: string; name: string; status: string };
 export default async function CorrectionDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!UUID_RE.test(id)) notFound();
-  const { current, access, tz } = await attendancePage();
+  const { current, access, features, tz } = await attendancePage();
 
   const data = await withSchool(current.ctx, async (tx) => {
     const c = await tx.attendanceCorrection.findFirst({ where: { id, archivedAt: null } });
@@ -63,26 +65,25 @@ export default async function CorrectionDetail({ params }: { params: Promise<{ i
 
   return (
     <>
-      <PageHeader title="Attendance correction" href={`${BASE}/register/corrections/${c.id}`} userId={current.user.id}>
-        <Link href={`${BASE}/register/corrections`} className="font-medium text-brand-text hover:underline">All corrections</Link>
-      </PageHeader>
+      <AttHead access={access} features={features} userId={current.user.id} href={`${BASE}/register/corrections/${c.id}`} sub={`Correction · ${title}`}
+        actions={<ButtonLink href={`${BASE}/register/corrections`} icon={ArrowLeft}>All corrections</ButtonLink>} />
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="space-y-5">
           <Card>
             <CardHeader title={title} description={CORRECTION_WORDS[c.kind] ?? c.kind}
-              action={<Badge tone={CORRECTION_STATUS[c.status]?.tone ?? "neutral"}>{CORRECTION_STATUS[c.status]?.label ?? c.status}</Badge>} />
+              action={<Pill tone={CORRECTION_STATUS[c.status]?.tone ?? "neutral"}>{CORRECTION_STATUS[c.status]?.label ?? c.status}</Pill>} />
             <CardBody className="space-y-4">
-              <p className="rounded-lg bg-surface-2 px-3 py-2"><span className="font-medium">Reason: </span>{c.reason}</p>
+              <p className="rounded-xl bg-sunken px-4 py-3 text-[14.5px]"><span className="font-semibold">Reason: </span>{c.reason}</p>
               {waiting && (
                 <DecisionButtons hidden={hidden} canDecide={data.decider} canWithdraw={data.mine} what="correction"
                   approve={approveCorrectionAction} reject={rejectCorrectionAction} withdraw={withdrawCorrectionAction} />
               )}
-              {waiting && !data.decider && !data.mine && <Alert tone="info">This correction is waiting for the approver in Approvals.</Alert>}
+              {waiting && !data.decider && !data.mine && <Banner tone="info">This correction is waiting for the approver in Approvals.</Banner>}
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-[15px]">
                   <caption className="sr-only">Changes asked for</caption>
-                  <thead className="border-b border-line text-sm text-ink-2">
+                  <thead className="border-b border-line text-sm text-ink3">
                     <tr>
                       <th scope="col" className="py-2 pr-3 font-medium">{c.forWhom === "staff" ? "Staff member" : "Student"}</th>
                       <th scope="col" className="py-2 pr-3 font-medium">{waiting ? "Saved now" : "Was"}</th>
@@ -96,7 +97,7 @@ export default async function CorrectionDetail({ params }: { params: Promise<{ i
                         <td className="py-2 pr-3 font-medium">{e.name}</td>
                         <td className="py-2 pr-3"><StatusChip status={st(waiting ? data.nowMap.get(e.id) ?? null : e.from)} size="sm" /></td>
                         <td className="py-2 pr-3"><StatusChip status={st(e.to)} size="sm" /></td>
-                        <td className="py-2 text-sm text-ink-2">{e.note ?? ""}</td>
+                        <td className="py-2 text-sm text-ink3">{e.note ?? ""}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -112,7 +113,7 @@ export default async function CorrectionDetail({ params }: { params: Promise<{ i
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-[15px]">
                     <caption className="sr-only">The saved version and the second version side by side</caption>
-                    <thead className="border-b border-line text-sm text-ink-2">
+                    <thead className="border-b border-line text-sm text-ink3">
                       <tr><th scope="col" className="py-2 pr-3 font-medium">Student</th><th scope="col" className="py-2 pr-3 font-medium">Saved first</th><th scope="col" className="py-2 font-medium">Second version</th></tr>
                     </thead>
                     <tbody className="divide-y divide-line">
@@ -120,7 +121,7 @@ export default async function CorrectionDetail({ params }: { params: Promise<{ i
                         const first = versions.saved!.find((x) => x.id === v.id);
                         const differs = first?.status !== v.status;
                         return (
-                          <tr key={v.id} className={differs ? "bg-warn-bg/60" : ""}>
+                          <tr key={v.id} className={differs ? "bg-warn/10" : ""}>
                             <td className="py-2 pr-3">{v.name}{differs && <span className="sr-only"> (different)</span>}</td>
                             <td className="py-2 pr-3"><StatusChip status={st(first?.status ?? null)} size="sm" /></td>
                             <td className="py-2"><StatusChip status={st(v.status)} size="sm" /></td>
@@ -135,15 +136,17 @@ export default async function CorrectionDetail({ params }: { params: Promise<{ i
           )}
         </div>
 
-        <Card>
+        <Card className="self-start">
           <CardHeader title="Details" />
-          <CardBody className="space-y-3">
-            <Detail label="Asked by">{data.names.get(c.requestedById ?? "") ?? "The phone's offline queue"}</Detail>
-            <Detail label="Asked on">{formatDateTime(c.createdAt, tz)}</Detail>
-            {c.decidedAt && <Detail label={c.status === "WITHDRAWN" ? "Withdrawn on" : "Decided"}>{formatDateTime(c.decidedAt, tz)}{c.decidedById ? ` by ${data.names.get(c.decidedById) ?? "the approver"}` : ""}</Detail>}
-            {c.decisionNote && <Detail label="Decision note">{c.decisionNote}</Detail>}
-            {c.status === "APPROVED" && <p className="text-sm text-ink-2">The marks as they were before are kept in the audit log.</p>}
-            {data.approval && <Link href={`/approvals/${data.approval.id}`} className="inline-block font-medium text-brand-text hover:underline">Open in Approvals</Link>}
+          <CardBody className="space-y-4">
+            <DL cols={1} rows={[
+              ["Asked by", data.names.get(c.requestedById ?? "") ?? "The phone's offline queue"],
+              ["Asked on", formatDateTime(c.createdAt, tz)],
+              ...(c.decidedAt ? [[c.status === "WITHDRAWN" ? "Withdrawn on" : "Decided", `${formatDateTime(c.decidedAt, tz)}${c.decidedById ? ` by ${data.names.get(c.decidedById) ?? "the approver"}` : ""}`] as [string, React.ReactNode]] : []),
+              ...(c.decisionNote ? [["Decision note", c.decisionNote] as [string, React.ReactNode]] : []),
+            ]} />
+            {c.status === "APPROVED" && <p className="text-[13px] text-ink3">The marks as they were before are kept in the audit log.</p>}
+            {data.approval && <ButtonLink href={`/approvals/${data.approval.id}`} variant="ghost" size="sm" icon={ExternalLink}>Open in Approvals</ButtonLink>}
           </CardBody>
         </Card>
       </div>

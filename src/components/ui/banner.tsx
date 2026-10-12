@@ -14,10 +14,10 @@ export function Banner({ tone = "info", icon, title, children, action, className
 }) {
   const Ic = icon ?? ICON[tone];
   return (
-    <div role={role} className={cx("rounded-2xl px-4 py-3 flex items-start md:items-center gap-3 text-[14px]", BG[tone], className)}>
+    <div role={role} className={cx("rounded-2xl px-4 py-3 flex flex-wrap sm:flex-nowrap items-start md:items-center gap-x-3 gap-y-2 text-[14px]", BG[tone], className)}>
       <Ic size={19} className={cx("shrink-0 mt-0.5 md:mt-0", TEXT[tone])} aria-hidden="true" />
-      <p className="text-ink2 flex-1 min-w-0">{title && <b className="font-semibold text-ink">{title} </b>}{children}</p>
-      {action}
+      <p className="text-ink2 flex-1 min-w-0 basis-[calc(100%-2rem)] sm:basis-auto">{title && <b className="font-semibold text-ink">{title} </b>}{children}</p>
+      {action && <div className="shrink-0 pl-8 sm:pl-0">{action}</div>}
     </div>
   );
 }

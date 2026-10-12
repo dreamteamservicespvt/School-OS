@@ -27,7 +27,7 @@ const CHANNELS = [
   { key: "email", label: "Email" },
 ];
 
-const box = "size-5 accent-[var(--brand)]";
+const box = "size-5 accent-brand";
 
 export function NoticeForm({ data }: { data: NoticeFormData }) {
   const v = data.values;

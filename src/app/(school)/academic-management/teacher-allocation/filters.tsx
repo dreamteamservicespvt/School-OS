@@ -22,7 +22,7 @@ export function GapsToggle({ on }: { on: boolean }) {
   const { set, pending } = useSet();
   return (
     <label className="flex min-h-11 items-center gap-2 text-[15px]">
-      <input type="checkbox" className="size-5 accent-[var(--color-brand)]" checked={on} onChange={(e) => set("gaps", e.target.checked ? "1" : null)} />
+      <input type="checkbox" className="size-5 accent-brand" checked={on} onChange={(e) => set("gaps", e.target.checked ? "1" : null)} />
       Show only sections with gaps
       {pending && <Spinner className="size-4 text-ink-2" />}
     </label>

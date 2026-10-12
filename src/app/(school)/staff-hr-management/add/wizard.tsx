@@ -232,7 +232,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
                 {data.roles.map((r) => (
                   <li key={r.key} className={`rounded-xl border p-3 ${roleKeys.includes(r.key) ? "border-brand bg-brand-soft/40" : "border-line"}`}>
                     <label className="flex items-start gap-3">
-                      <input type="checkbox" name="roleKeys" value={r.key} className="mt-1 size-5 accent-[var(--brand)]" checked={roleKeys.includes(r.key)}
+                      <input type="checkbox" name="roleKeys" value={r.key} className="mt-1 size-5 accent-brand" checked={roleKeys.includes(r.key)}
                         onChange={(e) => { setRolesTouched(true); setRoleKeys((k) => (e.target.checked ? [...k, r.key] : k.filter((x) => x !== r.key))); }} />
                       <span className="flex-1">
                         <span className="font-medium">{r.name}</span>
@@ -296,7 +296,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
                     <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label={`${c.name} sections`}>
                       {c.sections.map((s) => (
                         <label key={s.id} className={`inline-flex min-h-11 items-center gap-2 rounded-full border px-3 ${sel.sections.includes(s.id) ? "border-brand bg-brand-soft" : "border-line"}`}>
-                          <input type="checkbox" className="size-4 accent-[var(--brand)]" checked={sel.sections.includes(s.id)} onChange={(e) => set({ ...sel, sections: toggle(sel.sections, s.id, e.target.checked) })} />
+                          <input type="checkbox" className="size-4 accent-brand" checked={sel.sections.includes(s.id)} onChange={(e) => set({ ...sel, sections: toggle(sel.sections, s.id, e.target.checked) })} />
                           {c.name} {s.name}
                         </label>
                       ))}
@@ -307,7 +307,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
                       <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label={`${c.name} subjects`}>
                         {c.subjects.map((s) => (
                           <label key={s.id} className={`inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 ${sel.subjects.includes(s.id) ? "border-brand bg-brand-soft" : "border-line"}`}>
-                            <input type="checkbox" className="size-4 accent-[var(--brand)]" checked={sel.subjects.includes(s.id)} onChange={(e) => set({ ...sel, subjects: toggle(sel.subjects, s.id, e.target.checked) })} />
+                            <input type="checkbox" className="size-4 accent-brand" checked={sel.subjects.includes(s.id)} onChange={(e) => set({ ...sel, subjects: toggle(sel.subjects, s.id, e.target.checked) })} />
                             {s.name}
                           </label>
                         ))}

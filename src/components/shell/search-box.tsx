@@ -1,15 +1,17 @@
 "use client";
 
-// The one Search box (00-global.md §1.1). This first version finds pages and
-// shows recent pages, pinned pages and shortcuts for the person's role.
-// Students, staff, parents and receipts join the results as each module is built.
+// The one Search box (00-global.md §1.1), as the approved design's command palette:
+// students, staff and pages, plus recent and pinned pages and the person's quick actions.
 
-import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { ClockIcon, CloseIcon, PinIcon, SearchIcon } from "@/components/icons";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import * as I from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { cx } from "@/components/ui/cx";
+import { Avatar } from "@/components/ui/avatar";
+import { Kbd } from "@/components/ui/display";
 import type { PageLink } from "./nav-data";
+import type { Quick } from "./nav-config";
 import { readList, recordRecent, storageKey } from "./local-lists";
 
 export const OPEN_SEARCH_EVENT = "sos:open-search";
@@ -39,139 +41,138 @@ export function matches(label: string, query: string) {
   return query.toLowerCase().split(/\s+/).filter(Boolean).every((t) => words.some((w) => nearlyStartsWith(w, t)));
 }
 
-type Props = { userId: string; pages: PageLink[]; shortcuts: PageLink[] };
+type Person = { id: string; name: string; sub: string; href: string };
+type Row = { sec: string; label: string; sub?: string; href: string; icon?: LucideIcon; avatar?: string };
 
-export function SearchBox(props: Props) {
-  // A new page starts with an empty, closed box.
-  return <SearchBoxInner key={usePathname()} {...props} />;
+/** Remembers the pages this person opens, for "Recent". */
+export function RecentPages({ userId, pages }: { userId: string; pages: PageLink[] }) {
+  const pathname = usePathname();
+  useEffect(() => {
+    const page = [...pages].sort((a, b) => b.href.length - a.href.length).find((p) => pathname === p.href || pathname.startsWith(`${p.href}/`));
+    if (page && pathname === page.href) recordRecent(userId, page);
+  }, [pathname, pages, userId]);
+  return null;
 }
 
-function SearchBoxInner({ userId, pages, shortcuts }: Props) {
-  const [query, setQuery] = useState("");
-  const [open, setOpen] = useState(false);
-  const [phone, setPhone] = useState(false);
-  const [recent, setRecent] = useState<PageLink[]>([]);
-  const [pinned, setPinned] = useState<PageLink[]>([]);
-  const [active, setActive] = useState(0);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const boxRef = useRef<HTMLDivElement>(null);
-  const pathname = usePathname();
+export function CommandPalette(props: { open: boolean; onClose: () => void; userId: string; pages: PageLink[]; shortcuts: PageLink[]; quick: Quick[] }) {
+  // Mounted fresh each time it opens, so it always starts empty.
+  return props.open ? <Palette {...props} /> : null;
+}
+
+function Palette({ onClose, userId, pages, shortcuts, quick }: { onClose: () => void; userId: string; pages: PageLink[]; shortcuts: PageLink[]; quick: Quick[] }) {
   const router = useRouter();
-  const listId = useId();
+  const [q, setQ] = useState("");
+  const [sel, setSel] = useState(0);
+  const [found, setFound] = useState<{ q: string; students: Person[]; staff: Person[]; problem: string | null }>({ q: "", students: [], staff: [], problem: null });
+  const [lists] = useState(() => ({ recent: readList(storageKey(userId, "recent")), pinned: readList(storageKey(userId, "pinned")) }));
+  const inp = useRef<HTMLInputElement>(null);
 
-  // Remember the pages this person opens.
   useEffect(() => {
-    const page = pages.find((p) => p.href === pathname);
-    if (page) recordRecent(userId, page);
-  }, [pathname, pages, userId]);
+    const t = setTimeout(() => inp.current?.focus(), 40);
+    const k = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", k);
+    return () => { clearTimeout(t); window.removeEventListener("keydown", k); };
+  }, [onClose]);
 
-  const refreshLists = useCallback(() => {
-    setRecent(readList(storageKey(userId, "recent")));
-    setPinned(readList(storageKey(userId, "pinned")));
-  }, [userId]);
-
-  // "/" puts the cursor in the box on computers (inferred).
+  // People come from the server, only those this person may open.
+  const typed = q.trim();
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const t = e.target as HTMLElement;
-      if (e.key === "/" && !["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName) && !t.isContentEditable) {
-        e.preventDefault();
-        inputRef.current?.focus();
+    if (typed.length < 2) return;
+    const ctrl = new AbortController();
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/v1/search?q=${encodeURIComponent(typed)}`, { signal: ctrl.signal });
+        const body = await res.json();
+        if (!res.ok) setFound({ q: typed, students: [], staff: [], problem: body.problem ?? "Search did not work. Try again." });
+        else setFound({ q: typed, students: body.students ?? [], staff: body.staff ?? [], problem: null });
+      } catch (e) {
+        if ((e as Error).name !== "AbortError") setFound({ q: typed, students: [], staff: [], problem: "Search needs the internet. Check the connection and try again." });
       }
-    };
-    const openPhone = () => { setPhone(true); setOpen(true); refreshLists(); };
-    window.addEventListener("keydown", onKey);
-    window.addEventListener(OPEN_SEARCH_EVENT, openPhone);
-    return () => { window.removeEventListener("keydown", onKey); window.removeEventListener(OPEN_SEARCH_EVENT, openPhone); };
-  }, [refreshLists]);
+    }, 180);
+    return () => { clearTimeout(t); ctrl.abort(); };
+  }, [typed]);
+  const loading = typed.length >= 2 && found.q !== typed;
+  const people = useMemo(() => (found.q === typed ? found : { students: [] as Person[], staff: [] as Person[] }), [found, typed]);
+  const problem = found.q === typed ? found.problem : null;
 
-  useEffect(() => {
-    if (!open || phone) return;
-    const onClick = (e: MouseEvent) => { if (!boxRef.current?.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
-  }, [open, phone]);
+  const results = useMemo<Row[]>(() => {
+    const out: Row[] = [];
+    if (typed.length < 2) {
+      quick.slice(0, 4).forEach((x) => out.push({ sec: "Quick actions", label: x.label, sub: x.sub, href: x.href, icon: (I as unknown as Record<string, LucideIcon>)[x.icon] }));
+      lists.pinned.forEach((p) => out.push({ sec: "Pinned", label: p.label, href: p.href, icon: I.Pin }));
+      lists.recent.filter((r) => !lists.pinned.some((p) => p.href === r.href)).slice(0, 5).forEach((p) => out.push({ sec: "Recent", label: p.label, href: p.href, icon: I.Clock }));
+      shortcuts.filter((s) => !quick.some((x) => x.label === s.label)).forEach((s) => out.push({ sec: "Shortcuts", label: s.label, href: s.href, icon: I.CornerDownRight }));
+      return out;
+    }
+    people.students.forEach((s) => out.push({ sec: "Students", label: s.name, sub: s.sub, href: s.href, avatar: s.name }));
+    people.staff.forEach((s) => out.push({ sec: "Staff", label: s.name, sub: s.sub, href: s.href, avatar: s.name }));
+    quick.filter((x) => matches(x.label, typed)).forEach((x) => out.push({ sec: "Do this", label: x.label, sub: x.sub, href: x.href, icon: (I as unknown as Record<string, LucideIcon>)[x.icon] }));
+    pages.filter((p) => matches(p.label, typed)).slice(0, 8).forEach((p) => out.push({ sec: "Pages", label: p.label, sub: p.hint ?? "Open", href: p.href, icon: I.FileText }));
+    return out;
+  }, [typed, people, pages, shortcuts, quick, lists]);
 
-  useEffect(() => { if (phone) inputRef.current?.focus(); }, [phone]);
+  const choose = useCallback((r: Row) => { onClose(); router.push(r.href); }, [onClose, router]);
+  const onKey = (e: React.KeyboardEvent) => {
+    if (e.key === "ArrowDown") { e.preventDefault(); setSel((s) => Math.min(s + 1, results.length - 1)); }
+    if (e.key === "ArrowUp") { e.preventDefault(); setSel((s) => Math.max(s - 1, 0)); }
+    if (e.key === "Enter" && results[sel]) { e.preventDefault(); choose(results[sel]); }
+  };
 
-  const typed = query.trim();
-  const results = useMemo(() => (typed.length >= 2 ? pages.filter((p) => matches(p.label, typed)) : []), [pages, typed]);
-  const groups: { title: string; icon?: React.ReactNode; items: PageLink[] }[] =
-    typed.length >= 2
-      ? [{ title: "Pages", items: results }]
-      : [
-          { title: "Pinned", icon: <PinIcon className="size-4" />, items: pinned },
-          { title: "Recent", icon: <ClockIcon className="size-4" />, items: recent.filter((r) => !pinned.some((p) => p.href === r.href)).slice(0, 5) },
-          { title: "Shortcuts", items: shortcuts },
-        ].filter((g) => g.items.length > 0);
-  const flat = groups.flatMap((g) => g.items);
-
-  function onKeyDown(e: React.KeyboardEvent) {
-    if (e.key === "ArrowDown") { e.preventDefault(); setActive((a) => Math.min(a + 1, flat.length - 1)); }
-    else if (e.key === "ArrowUp") { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)); }
-    else if (e.key === "Enter" && flat[active]) { e.preventDefault(); router.push(flat[active].href); }
-    else if (e.key === "Escape") { setOpen(false); setPhone(false); inputRef.current?.blur(); }
-  }
-
-  const panel = open && (
-    <div id={listId} role="listbox" aria-label="Search results"
-      className={phone ? "flex-1 overflow-y-auto p-3" : "absolute left-0 right-0 top-12 z-40 max-h-[70vh] overflow-y-auto rounded-xl border border-line bg-surface p-2 shadow-lg"}>
-      {typed.length > 0 && typed.length < 2 && <p className="px-3 py-2 text-sm text-ink-2">Keep typing…</p>}
-      {typed.length >= 2 && results.length === 0 && (
-        <p className="px-3 py-2 text-sm text-ink-2">Nothing matches “{typed}”. Try a page name, such as Fee Management.</p>
-      )}
-      {typed.length === 0 && groups.length === 0 && <p className="px-3 py-2 text-sm text-ink-2">Type a page name to find it.</p>}
-      {groups.map((g) => (
-        <div key={g.title} className="mb-1">
-          <p className="flex items-center gap-1.5 px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-ink-2">{g.icon}{g.title}</p>
-          {g.items.map((item) => {
-            const index = flat.indexOf(item);
+  let lastSec: string | null = null;
+  return (
+    <div className="fixed inset-0 z-50 flex justify-center items-start md:pt-[10vh]">
+      <div className="absolute inset-0 bg-shade/45 backdrop-blur-[2px] animate-fade" onClick={onClose} aria-hidden="true" />
+      <div role="dialog" aria-modal="true" aria-label="Search"
+        className="relative w-full h-full md:h-auto md:max-w-2xl bg-surface md:rounded-2xl shadow-pop animate-rise flex flex-col md:max-h-[70vh] md:mx-6">
+        <div className="flex items-center gap-3 px-4 h-16 border-b border-line shrink-0">
+          {loading ? <I.LoaderCircle size={20} className="text-ink3 animate-spin" aria-hidden="true" /> : <I.Search size={20} className="text-ink3" aria-hidden="true" />}
+          <input ref={inp} value={q} onChange={(e) => { setQ(e.target.value); setSel(0); }} onKeyDown={onKey} type="search"
+            role="combobox" aria-expanded="true" aria-controls="cmdk-list" aria-autocomplete="list" aria-label="Search"
+            aria-activedescendant={results[sel] ? `cmdk-${sel}` : undefined}
+            placeholder="Search a student, staff member or page"
+            className="flex-1 bg-transparent outline-none text-[16px] placeholder:text-ink3 min-w-0 [&::-webkit-search-cancel-button]:hidden" />
+          <button type="button" onClick={onClose} className="text-sm font-semibold text-ink2 px-2 h-8 rounded-lg hover:bg-sunken">
+            <span className="md:hidden">Cancel</span><span className="hidden md:inline"><Kbd>Esc</Kbd></span>
+          </button>
+        </div>
+        <div id="cmdk-list" role="listbox" aria-label="Search results" className="overflow-y-auto scroll-thin p-2 flex-1">
+          {problem && <p role="alert" className="mx-3 my-2 rounded-xl bg-bad/10 px-3.5 py-2.5 text-sm text-bad">{problem}</p>}
+          {typed.length >= 2 && !loading && results.length === 0 && !problem && (
+            <div className="text-center py-12 px-6">
+              <p className="font-semibold">Nothing found for “{typed}”</p>
+              <p className="text-sm text-ink3 mt-1">Check the spelling, or search by admission number or parent phone.</p>
+            </div>
+          )}
+          {typed.length < 2 && results.length === 0 && (
+            <p className="text-center py-12 px-6 text-sm text-ink3">Type at least two letters of a name, an admission number, a phone number or a page.</p>
+          )}
+          {results.map((r, i) => {
+            const head = r.sec !== lastSec ? (lastSec = r.sec) : null;
+            const Ic = r.icon ?? I.Circle;
             return (
-              <Link key={`${g.title}-${item.href}-${item.label}`} href={item.href} role="option" aria-selected={index === active}
-                className={`flex min-h-11 items-center justify-between gap-3 rounded-lg px-3 ${index === active ? "bg-brand-soft" : "hover:bg-surface-2"}`}
-                onMouseEnter={() => setActive(index)}>
-                <span>{item.label}</span>
-                {item.hint && <span className="text-sm text-ink-2">{item.hint}</span>}
-              </Link>
+              <Fragment key={`${r.sec}-${r.href}-${r.label}`}>
+                {head && <p className="eyebrow text-ink3 px-3 pt-3 pb-1.5">{head}</p>}
+                <button id={`cmdk-${i}`} type="button" role="option" aria-selected={sel === i} onMouseEnter={() => setSel(i)} onClick={() => choose(r)}
+                  className={cx("w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left", sel === i && "bg-sunken")}>
+                  {r.avatar ? <Avatar name={r.avatar} size={34} /> : (
+                    <span className={cx("w-[34px] h-[34px] rounded-lg grid place-items-center shrink-0", sel === i ? "bg-brand text-brandink" : "bg-sunken text-ink2")}><Ic size={17} aria-hidden="true" /></span>
+                  )}
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[14.5px] font-semibold truncate">{r.label}</span>
+                    {r.sub && <span className="block text-[12.5px] text-ink3 truncate">{r.sub}</span>}
+                  </span>
+                  {sel === i && <I.CornerDownLeft size={16} className="text-ink3 hidden md:block" aria-hidden="true" />}
+                </button>
+              </Fragment>
             );
           })}
         </div>
-      ))}
-    </div>
-  );
-
-  const input = (
-    <div className="relative flex items-center">
-      <SearchIcon className="pointer-events-none absolute left-3 size-5 text-ink-2" />
-      <input ref={inputRef} type="search" value={query} placeholder={phone ? "Search pages" : "Search pages, or press /"}
-        aria-label="Search" role="combobox" aria-expanded={open} aria-controls={listId} aria-autocomplete="list"
-        onFocus={() => { setOpen(true); refreshLists(); }}
-        onChange={(e) => { setQuery(e.target.value); setActive(0); setOpen(true); }}
-        onKeyDown={onKeyDown}
-        className="h-11 w-full rounded-xl border border-line bg-surface-2 pl-10 pr-3 text-base placeholder:text-ink-2 focus:bg-surface" />
-    </div>
-  );
-
-  if (phone) {
-    // Rendered on the page body, so the top bar's blur cannot shrink it.
-    return createPortal(
-      <div className="fixed inset-0 z-50 flex flex-col bg-surface" role="dialog" aria-modal="true" aria-label="Search">
-        <div className="flex items-center gap-2 border-b border-line p-3">
-          <div className="flex-1">{input}</div>
-          <button type="button" onClick={() => { setPhone(false); setOpen(false); }} className="grid size-11 place-items-center rounded-lg hover:bg-surface-2" aria-label="Close search">
-            <CloseIcon />
-          </button>
+        <div className="hidden md:flex items-center gap-4 px-4 h-11 border-t border-line text-xs text-ink3 shrink-0">
+          <span className="flex items-center gap-1.5"><Kbd>↑</Kbd><Kbd>↓</Kbd> move</span>
+          <span className="flex items-center gap-1.5"><Kbd>Enter</Kbd> open</span>
+          <span className="ml-auto">Only shows what your role is allowed to see</span>
         </div>
-        {panel}
-      </div>,
-      document.body,
-    );
-  }
-
-  return (
-    <div ref={boxRef} className="relative hidden w-full max-w-xl sm:block">
-      {input}
-      {panel}
+      </div>
     </div>
   );
 }

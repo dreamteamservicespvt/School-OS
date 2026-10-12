@@ -32,7 +32,7 @@ function Section({ title, children, help }: { title: string; children: React.Rea
 function Check({ label, checked, onChange, help }: { label: string; checked: boolean; onChange: (v: boolean) => void; help?: string }) {
   return (
     <label className="flex min-h-11 cursor-pointer items-start gap-3 py-1">
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="mt-0.5 size-5 shrink-0 accent-[var(--brand)]" />
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="mt-0.5 size-5 shrink-0 accent-brand" />
       <span><span className="font-medium">{label}</span>{help && <span className="block text-sm text-ink-2">{help}</span>}</span>
     </label>
   );
@@ -117,7 +117,7 @@ export function DesignEditor({ type, fields, initial, signatories, canEdit, reco
               <label key={b.key} className={`flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border p-3 ${base === b.key ? "border-brand bg-brand-soft" : "border-line-strong"}`}>
                 <input type="radio" name="base" checked={base === b.key} disabled={!canEdit}
                   onChange={() => { setBase(b.key); if (b.key === "cbse" && !o.headerNote) set("headerNote", defaultOptions(type, "cbse").headerNote); }}
-                  className="mt-1 size-5 accent-[var(--brand)]" />
+                  className="mt-1 size-5 accent-brand" />
                 <span><span className="font-medium">{b.label}</span><span className="block text-sm text-ink-2">{b.about}</span></span>
               </label>
             ))}

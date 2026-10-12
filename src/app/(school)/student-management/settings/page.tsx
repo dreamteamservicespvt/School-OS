@@ -33,7 +33,7 @@ function Choices({ name, label, options, chosen, help }: { name: string; label: 
       <div className="grid gap-1 sm:grid-cols-2">
         {options.map((o) => (
           <label key={o.key} className="flex min-h-11 items-center gap-3 rounded-lg px-2 hover:bg-surface-2">
-            <input type="checkbox" name={name} value={o.key} defaultChecked={chosen.includes(o.key)} className="size-5 accent-[var(--brand)]" />
+            <input type="checkbox" name={name} value={o.key} defaultChecked={chosen.includes(o.key)} className="size-5 accent-brand" />
             <span>{o.label}</span>
           </label>
         ))}

@@ -78,7 +78,7 @@ function DocForm({ doc, roles, onDone }: { doc: DocRow | null; roles: RoleChoice
         <div className="grid gap-2 sm:grid-cols-2">
           {roles.map((r) => (
             <label key={r.key} className="flex min-h-11 items-center gap-3 rounded-lg border border-line px-3">
-              <input type="checkbox" name="visibleTo" value={r.key} defaultChecked={chosen.includes(r.key)} className="size-5 accent-[var(--brand)]" />
+              <input type="checkbox" name="visibleTo" value={r.key} defaultChecked={chosen.includes(r.key)} className="size-5 accent-brand" />
               {r.name}
             </label>
           ))}

@@ -75,7 +75,7 @@ export function GatewayForm({ mode, id, providers, saved, webhookBase }: Props) 
         <div className="grid gap-2 sm:grid-cols-2">
           {(["test", "live"] as const).map((env) => (
             <label key={env} className={`flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border p-3 ${environment === env ? "border-brand bg-brand-soft" : "border-line-strong"}`}>
-              <input type="radio" name="environment" value={env} checked={environment === env} onChange={() => setEnvironment(env)} className="mt-1 size-5 accent-[var(--brand)]" />
+              <input type="radio" name="environment" value={env} checked={environment === env} onChange={() => setEnvironment(env)} className="mt-1 size-5 accent-brand" />
               <span>
                 <span className="font-medium">{env === "test" ? "Test (sandbox)" : "Live"}</span>
                 <span className="block text-sm text-ink-2">{env === "test" ? "No real money moves. Use this first." : "Parents pay real money through this gateway."}</span>

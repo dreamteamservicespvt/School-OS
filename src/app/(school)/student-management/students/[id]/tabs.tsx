@@ -231,7 +231,7 @@ function NotesCard({ p, can, tz }: { p: Profile; can: StudentAbilities; tz: stri
               <legend className="mb-1 text-sm font-medium">Private to (leave all unticked for everyone who opens the profile)</legend>
               <div className="flex flex-wrap gap-x-4 gap-y-1">
                 {p.roles.map((r) => (
-                  <label key={r.key} className="flex min-h-11 items-center gap-2"><input type="checkbox" name="roles" value={r.key} className="size-5 accent-[var(--brand)]" />{r.name}</label>
+                  <label key={r.key} className="flex min-h-11 items-center gap-2"><input type="checkbox" name="roles" value={r.key} className="size-5 accent-brand" />{r.name}</label>
                 ))}
               </div>
             </fieldset>

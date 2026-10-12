@@ -87,7 +87,7 @@ export function Campuses({ campuses, canEdit }: { campuses: CampusRow[]; canEdit
         {canEdit && <Button onClick={() => setEditing("new")}>Add a campus</Button>}
         {archived.length > 0 && (
           <label className="flex min-h-11 items-center gap-2 text-sm">
-            <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} className="size-5 accent-[var(--brand)]" />
+            <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} className="size-5 accent-brand" />
             Show {archived.length} archived
           </label>
         )}

@@ -1,6 +1,7 @@
 // What a signed-in person can open: their schools, and their roles and
 // permissions in the chosen school.
 
+import { readPreferences } from "../settings/profile-rules";
 import { withSchool, withUser } from "../db";
 import { applyExceptions, combineRoles, narrowToOwn, type PermissionMap } from "../permissions";
 import type { ModuleKey } from "../modules";
@@ -23,7 +24,7 @@ export async function schoolsFor(userLoginId: string): Promise<SchoolChoice[]> {
 }
 
 export type SchoolAccessView = {
-  school: { id: string; name: string; code: string; logoUrl: string | null; timeZone: string };
+  school: { id: string; name: string; code: string; logoUrl: string | null; timeZone: string; accent: string | null; weekStart: "monday" | "sunday" };
   roles: { key: string | null; name: string }[];
   permissions: PermissionMap;
   modulesOn: Set<ModuleKey>;
@@ -44,7 +45,7 @@ export async function accessIn(userLoginId: string, schoolId: string): Promise<S
     if (accesses.length === 0) return null;
     const school = await tx.school.findUnique({
       where: { id: schoolId },
-      select: { id: true, name: true, code: true, logoUrl: true, timeZone: true, archivedAt: true },
+      select: { id: true, name: true, code: true, logoUrl: true, timeZone: true, archivedAt: true, preferences: true },
     });
     if (!school || school.archivedAt) return null;
 
@@ -59,7 +60,7 @@ export async function accessIn(userLoginId: string, schoolId: string): Promise<S
     const scope = accesses.map((a) => a.scope).sort((x, y) => ORDER.indexOf(y) - ORDER.indexOf(x))[0];
     const combined = combineRoles(roles.map((r) => r.permissions as RolePermissions));
     return {
-      school: { id: school.id, name: school.name, code: school.code, logoUrl: school.logoUrl, timeZone: school.timeZone },
+      school: { id: school.id, name: school.name, code: school.code, logoUrl: school.logoUrl, timeZone: school.timeZone, accent: readPreferences(school.preferences).schoolAccent ?? null, weekStart: readPreferences(school.preferences).weekStart === "sunday" ? "sunday" : "monday" },
       roles: roles.map((r) => ({ key: r.key, name: r.name })),
       permissions: applyExceptions(
         scope === "OWN" ? narrowToOwn(combined) : combined,

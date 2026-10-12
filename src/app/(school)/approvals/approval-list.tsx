@@ -4,12 +4,16 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Alert } from "@/components/ui/alert";
-import { Badge, type BadgeTone } from "@/components/ui/badge";
+import { Check } from "lucide-react";
+import { Pill, type BadgeTone } from "@/components/ui/badge";
+import { Avatar } from "@/components/ui/avatar";
+import { Button, ButtonLink } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/controls";
 import { ConfirmButton } from "@/components/ui/confirm";
-import { bulkApproveAction } from "./actions";
+import { bulkApproveAction, decideAction } from "./actions";
 
 export type ApprovalRow = {
-  id: string; summary: string; typeLabel: string; amount: string | null; amountPaise: string | null; askedBy: string; asked: string;
+  id: string; summary: string; typeLabel: string; amount: string | null; amountPaise: string | null; askedBy: string; askedByName: string; asked: string;
   status: { label: string; tone: BadgeTone }; waitingFor: string | null; decidable: boolean; overdue: boolean;
 };
 
@@ -18,6 +22,14 @@ export function ApprovalList({ rows }: { rows: ApprovalRow[] }) {
   const [picked, setPicked] = useState<string[]>([]);
   const [result, setResult] = useState<{ tone: "success" | "warning" | "danger"; text: string; skipped: { summary: string; reason: string }[] } | null>(null);
   const decidable = rows.filter((r) => r.decidable);
+  const [busy, setBusy] = useState<string | null>(null);
+  const approve = async (r: ApprovalRow) => {
+    setBusy(r.id);
+    const problem = await decideAction(r.id, "approve", null);
+    setBusy(null);
+    if (problem) setResult({ tone: "danger", text: problem, skipped: [] });
+    router.refresh();
+  };
   const chosen = rows.filter((r) => picked.includes(r.id));
   const total = chosen.reduce((s, r) => s + (r.amountPaise ? BigInt(r.amountPaise) : BigInt(0)), BigInt(0));
   const totalWords = total > BigInt(0) ? new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(Number(total / BigInt(100))) : null;
@@ -30,10 +42,10 @@ export function ApprovalList({ rows }: { rows: ApprovalRow[] }) {
         </Alert>
       )}
       {decidable.length > 1 && (
-        <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface px-4 py-2">
-          <label className="flex min-h-11 items-center gap-3 text-sm">
-            <input type="checkbox" className="size-5 accent-[var(--brand)]" checked={picked.length === decidable.length}
-              onChange={(e) => setPicked(e.target.checked ? decidable.map((r) => r.id) : [])} />
+        <div className="sticky top-16 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line/70 bg-surface/95 backdrop-blur px-4 py-2 shadow-card">
+          <label className="flex min-h-11 items-center gap-3 text-[14px] font-medium">
+            <Checkbox checked={picked.length === decidable.length} indeterminate={picked.length > 0 && picked.length < decidable.length} label="Choose all"
+              onChange={(on) => setPicked(on ? decidable.map((r) => r.id) : [])} />
             {picked.length ? `${picked.length} chosen${totalWords ? `, ${totalWords} in all` : ""}` : `Choose all ${decidable.length} you can decide`}
           </label>
           {picked.length > 0 && (
@@ -55,28 +67,32 @@ export function ApprovalList({ rows }: { rows: ApprovalRow[] }) {
           )}
         </div>
       )}
-      <ul className="divide-y divide-line rounded-2xl border border-line bg-surface">
+      <ul className="divide-y divide-line/70 bg-surface rounded-2xl border border-line/70 shadow-card overflow-hidden">
         {rows.map((r) => (
-          <li key={r.id} className="flex items-start gap-3 p-4">
-            {decidable.length > 1 && (
-              <span className="flex min-h-11 w-6 items-start pt-0.5">
-                {r.decidable && (
-                  <input type="checkbox" aria-label={`Choose ${r.summary}`} className="size-5 accent-[var(--brand)]" checked={picked.includes(r.id)}
-                    onChange={(e) => setPicked(e.target.checked ? [...picked, r.id] : picked.filter((x) => x !== r.id))} />
-                )}
-              </span>
+          <li key={r.id} className="flex flex-col md:flex-row md:items-center gap-3 p-4 hover:bg-sunken/40 transition">
+            <div className="flex items-start gap-3 flex-1 min-w-0">
+              {decidable.length > 1 && (
+                <span className="flex h-[42px] w-6 items-center shrink-0">
+                  {r.decidable && <Checkbox checked={picked.includes(r.id)} label={`Choose ${r.summary}`} onChange={(on) => setPicked(on ? [...picked, r.id] : picked.filter((x) => x !== r.id))} />}
+                </span>
+              )}
+              <Avatar name={r.askedBy === "you" ? r.askedByName : r.askedBy} size={42} />
+              <Link href={`/approvals/${r.id}`} className="min-w-0 flex-1 group">
+                <p className="font-semibold text-[15px] group-hover:text-brand transition">{r.summary}</p>
+                <p className="text-[13px] text-ink3">{r.typeLabel} · asked by {r.askedBy} · {r.asked}{r.waitingFor ? ` · waiting for ${r.waitingFor}` : ""}</p>
+                <span className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                  {r.amount && <span className="font-display font-semibold text-[14px] tnum mr-1">{r.amount}</span>}
+                  {r.overdue && <Pill tone="bad">Overdue</Pill>}
+                  <Pill tone={r.status.tone}>{r.status.label}</Pill>
+                </span>
+              </Link>
+            </div>
+            {r.decidable && (
+              <div className="flex gap-2 md:shrink-0 pl-[54px] md:pl-0">
+                <Button variant="soft" icon={Check} loading={busy === r.id} onClick={() => approve(r)}>Approve</Button>
+                <ButtonLink href={`/approvals/${r.id}`} variant="ghost">Decline</ButtonLink>
+              </div>
             )}
-            <Link href={`/approvals/${r.id}`} className="flex min-w-0 flex-1 flex-wrap items-start justify-between gap-2 hover:opacity-90">
-              <span className="min-w-0">
-                <span className="block font-medium text-brand-text">{r.summary}</span>
-                <span className="block text-sm text-ink-2">{r.typeLabel} · asked by {r.askedBy} · {r.asked}{r.waitingFor ? ` · waiting for ${r.waitingFor}` : ""}</span>
-              </span>
-              <span className="flex flex-wrap items-center gap-2">
-                {r.amount && <span className="font-medium">{r.amount}</span>}
-                {r.overdue && <Badge tone="danger">Overdue</Badge>}
-                <Badge tone={r.status.tone}>{r.status.label}</Badge>
-              </span>
-            </Link>
           </li>
         ))}
       </ul>

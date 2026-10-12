@@ -15,6 +15,10 @@ model TwoStepChallenge {
   /// Where it was sent, masked, e.g. "pr•••@gmail.com".
   sentTo      String    @map("sent_to")
   attempts    Int       @default(0)
+  /// "sign-in", or "phone" / "email" when the code confirms a new mobile number or email.
+  purpose     String    @default("sign-in")
+  /// The new mobile number or email being confirmed (purpose "phone" or "email").
+  newValue    String?   @map("new_value")
   /// The school the person was signing in to (not a school record itself).
   schoolId    String?   @map("target_school_id") @db.Uuid
   userAgent   String?   @map("user_agent")

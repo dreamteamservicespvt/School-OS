@@ -66,7 +66,7 @@ export function LinkPanel({ id, channels, reasons }: { id: string; channels: Opt
           <legend className="mb-1 text-sm font-medium">Action <span className="text-danger" aria-hidden>*</span></legend>
           {([["reissue", "Revoke and send a new link"], ["revoke", "Revoke only"]] as const).map(([v, l]) => (
             <label key={v} className="flex min-h-11 items-center gap-2">
-              <input type="radio" name="mode" value={v} checked={mode === v} onChange={() => setMode(v)} className="size-5 accent-[var(--brand)]" /> {l}
+              <input type="radio" name="mode" value={v} checked={mode === v} onChange={() => setMode(v)} className="size-5 accent-brand" /> {l}
             </label>
           ))}
         </fieldset>

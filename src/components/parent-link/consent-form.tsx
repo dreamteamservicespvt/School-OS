@@ -54,7 +54,7 @@ export function ConsentForm({ token, consentTextId, title, kids: children, maske
             <legend className="text-sm font-medium">{action === "give" ? "Agree for" : "Withdraw for"}</legend>
             {(action === "give" ? notGiven : given).map((c) => (
               <label key={c.id} className="flex min-h-11 items-center gap-3">
-                <input type="checkbox" name="studentId" value={c.id} defaultChecked className="size-5 accent-[var(--brand)]" />
+                <input type="checkbox" name="studentId" value={c.id} defaultChecked className="size-5 accent-brand" />
                 {c.name}
               </label>
             ))}

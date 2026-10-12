@@ -7,6 +7,8 @@ import { listHref, readListParams } from "@/lib/list";
 import { can, reachFor } from "@/lib/permissions";
 import { actionWords, auditWhere, describeDevice, diff, readAuditFilters } from "@/lib/data-security/audit-view";
 import { Badge } from "@/components/ui/badge";
+import { periodSetup } from "@/lib/period-setup";
+import { ListToolbar } from "@/components/list/list-toolbar";
 import { EmptyState } from "@/components/empty-state";
 
 export const metadata: Metadata = { title: "Audit log · Data Backup & Security" };
@@ -18,10 +20,11 @@ export default async function AuditLogPage({ searchParams }: Search) {
   const current = await requirePage("settings");
   const sp = await searchParams;
   const f = readAuditFilters(sp);
-  const params = readListParams(sp, ["person", "recordType", "action", "record", "from", "to"]);
+  const params = readListParams(sp, ["person", "recordType", "action", "record", "period", "from", "to"]);
   const tz = current.school.timeZone;
   const reach = reachFor(current.permissions, "settings", "view");
-  const where = auditWhere(f, reach, current.user.id, tz);
+  const dates = await periodSetup(current);
+  const where = auditWhere(f, reach, current.user.id, dates);
   const data = await withSchool(current.ctx, async (tx) => {
     const [rows, total, types, actions, people] = await Promise.all([
       tx.auditLogEntry.findMany({ where, orderBy: { at: "desc" }, skip: (params.page - 1) * PAGE, take: PAGE }),
@@ -37,7 +40,6 @@ export default async function AuditLogPage({ searchParams }: Search) {
   const filtered = Object.values(f).some(Boolean);
   const exportQuery = new URLSearchParams(Object.entries(f).filter(([, v]) => v) as [string, string][]);
   const canExport = can(current.permissions, "settings", "export");
-  const field = "min-h-11 w-full rounded-lg border border-line-strong bg-surface px-3 text-base text-ink";
 
   return (
     <>
@@ -46,47 +48,12 @@ export default async function AuditLogPage({ searchParams }: Search) {
         Every change in School OS: who, what, when, from which device, with the values before and after. Nobody can change or remove these lines.
         {reach === "own" && " Your role shows only your own changes."}
       </p>
-      <form method="get" className="mb-4 grid gap-3 rounded-2xl border border-line bg-surface p-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="Filter the audit log">
-        <div>
-          <label htmlFor="f-person" className="mb-1 block text-sm font-medium">Person</label>
-          <select id="f-person" name="person" defaultValue={f.person ?? ""} className={field}>
-            <option value="">Anyone</option>
-            <option value="system">School OS (automatic)</option>
-            {data.people.map((p) => <option key={p.id} value={p.id}>{p.displayName}</option>)}
-          </select>
-        </div>
-        <div>
-          <label htmlFor="f-type" className="mb-1 block text-sm font-medium">Record type</label>
-          <select id="f-type" name="recordType" defaultValue={f.recordType ?? ""} className={field}>
-            <option value="">Any</option>
-            {data.types.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
-        </div>
-        <div>
-          <label htmlFor="f-action" className="mb-1 block text-sm font-medium">Action</label>
-          <select id="f-action" name="action" defaultValue={f.action ?? ""} className={field}>
-            <option value="">Any</option>
-            {data.actions.map((a) => <option key={a} value={a}>{actionWords(a)}</option>)}
-          </select>
-        </div>
-        <div>
-          <label htmlFor="f-q" className="mb-1 block text-sm font-medium">Search</label>
-          <input id="f-q" name="q" type="search" defaultValue={f.q ?? ""} placeholder="Record type, action or record ID" className={field} />
-        </div>
-        <div>
-          <label htmlFor="f-from" className="mb-1 block text-sm font-medium">From</label>
-          <input id="f-from" name="from" type="date" defaultValue={f.from ?? ""} className={field} />
-        </div>
-        <div>
-          <label htmlFor="f-to" className="mb-1 block text-sm font-medium">To</label>
-          <input id="f-to" name="to" type="date" defaultValue={f.to ?? ""} className={field} />
-        </div>
-        {f.record && <input type="hidden" name="record" value={f.record} />}
-        <div className="flex flex-wrap items-end gap-2 sm:col-span-2">
-          <button type="submit" className="inline-flex min-h-11 items-center rounded-lg bg-brand px-4 font-medium text-brand-ink hover:bg-brand-hover">Apply filters</button>
-          {filtered && <Link href="/settings/data-security/audit-log" className="inline-flex min-h-11 items-center rounded-lg px-3 font-medium text-brand-text hover:bg-surface-2">Reset</Link>}
-        </div>
-      </form>
+      <ListToolbar placeholder="Record type, action or record ID" showArchived={false} period={dates}
+        filters={[
+          { key: "person", label: "Person", allLabel: "Anyone", options: [{ value: "system", label: "School OS (automatic)" }, ...data.people.map((p) => ({ value: p.id, label: p.displayName }))] },
+          { key: "action", label: "Action", allLabel: "Any action", options: data.actions.map((a) => ({ value: a, label: actionWords(a) })) },
+        ]}
+        more={[{ key: "recordType", label: "Record type", allLabel: "Any record type", options: data.types.map((t) => ({ value: t, label: t })) }]} />
 
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <p className="text-ink-2" role="status">{data.total.toLocaleString("en-IN")} entr{data.total === 1 ? "y" : "ies"}{f.record ? ` for record ${f.record}` : ""}</p>

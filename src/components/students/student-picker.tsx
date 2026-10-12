@@ -75,7 +75,7 @@ export function StudentPicker({ name, label, multiple = false, sections = [], in
               {found.map((s) => (
                 <li key={s.id}>
                   <label className="flex min-h-11 cursor-pointer items-center gap-3 px-1">
-                    <input type={multiple ? "checkbox" : "radio"} checked={has(s)} onChange={() => toggle(s)} className="size-5 accent-[var(--brand)]" />
+                    <input type={multiple ? "checkbox" : "radio"} checked={has(s)} onChange={() => toggle(s)} className="size-5 accent-brand" />
                     <span>{s.name} <span className="text-sm text-ink-2">{s.cls} · {s.admissionNo}</span></span>
                   </label>
                 </li>

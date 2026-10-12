@@ -99,7 +99,7 @@ export function FormChoice({ name, label, options, defaultValue, help, columns =
       <div className={`grid grid-cols-2 gap-2 ${cols}`}>
         {options.map((o) => (
           <label key={o.value} className="flex min-h-11 cursor-pointer items-start gap-2 rounded-lg border border-line-strong bg-surface px-3 py-2.5 has-[:checked]:border-brand has-[:checked]:bg-brand-soft">
-            <input type="radio" name={name} value={o.value} defaultChecked={v.value === o.value} className="mt-1 size-4 accent-[var(--brand)]" />
+            <input type="radio" name={name} value={o.value} defaultChecked={v.value === o.value} className="mt-1 size-4 accent-brand" />
             <span><span className="font-medium">{o.label}</span>{o.help && <span className="block text-sm text-ink-2">{o.help}</span>}</span>
           </label>
         ))}

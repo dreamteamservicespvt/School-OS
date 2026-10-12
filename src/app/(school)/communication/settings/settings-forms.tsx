@@ -11,7 +11,7 @@ import {
 } from "./actions";
 
 type Opt = { value: string; label: string };
-const box = "size-5 accent-[var(--brand)]";
+const box = "size-5 accent-brand";
 const input = "h-11 rounded-lg border border-line-strong bg-surface px-3";
 
 function useSave() {

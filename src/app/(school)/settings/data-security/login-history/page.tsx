@@ -8,6 +8,7 @@ import { momentWhere, periodFromSearch } from "@/lib/periods";
 import { reachFor } from "@/lib/permissions";
 import { actionWords, auditWhere, describeDevice, FAILED_LOGIN_ACTIONS, LOGIN_ACTIONS, readAuditFilters } from "@/lib/data-security/audit-view";
 import { DataTable } from "@/components/list/data-table";
+import { periodSetup } from "@/lib/period-setup";
 import { ListToolbar } from "@/components/list/list-toolbar";
 import { EmptyState } from "@/components/empty-state";
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +26,8 @@ export default async function LoginHistoryPage({ searchParams }: Search) {
   const outcome = params.filters.outcome === "failed" ? "failed" : params.filters.outcome === "ok" ? "ok" : null;
   const actions = outcome === "failed" ? FAILED_LOGIN_ACTIONS : outcome === "ok" ? LOGIN_ACTIONS.filter((a) => !FAILED_LOGIN_ACTIONS.includes(a)) : LOGIN_ACTIONS;
   const f = readAuditFilters({ person: params.filters.person });
-  const range = periodFromSearch(sp, { timeZone: tz });
+  const dates = await periodSetup(current);
+  const range = periodFromSearch(sp, dates);
   const where = auditWhere(f, reach, current.user.id, tz, { action: { in: actions }, ...(params.q ? { ipAddress: { contains: params.q } } : {}), ...(range ? { at: momentWhere(range, tz) } : {}) });
   const data = await withSchool(current.ctx, async (tx) => {
     const [rows, total, people] = await Promise.all([
@@ -42,7 +44,7 @@ export default async function LoginHistoryPage({ searchParams }: Search) {
     <>
       <h2 className="sr-only">Login history</h2>
       <p className="mb-4 max-w-prose text-ink-2">Every sign-in, wrong password, one-time code and sign-out, with the device. A person can sign themselves out of other devices from My Profile.</p>
-      <ListToolbar placeholder="Search by IP address" showArchived={false} period={{ timeZone: tz }}
+      <ListToolbar placeholder="Search by IP address" showArchived={false} period={dates}
         filters={[
           { key: "outcome", label: "Result", options: [{ value: "failed", label: "Failed or locked" }, { value: "ok", label: "Signed in or out" }] },
           { key: "person", label: "Person", options: data.people.map((p) => ({ value: p.id, label: p.displayName })) },

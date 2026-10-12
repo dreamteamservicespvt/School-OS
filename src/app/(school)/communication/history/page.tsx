@@ -97,7 +97,7 @@ export default async function MessageHistoryPage({ searchParams }: { searchParam
             <UrlSegmented param="mode" label="Show" options={[{ value: "all", label: "All messages" }, { value: "person", label: "One person" }]} />
             {mode === "all" ? (
               <>
-                <UrlSearch placeholder="Title, message or sender" />
+                <UrlSearch placeholder="Title, message or sender" className="min-w-[14rem]" />
                 <UrlSelect param="channel" label="Channel" className="md:w-44" options={[{ value: "", label: "All channels" }, { value: "whatsapp", label: "WhatsApp" }, { value: "sms", label: "SMS" }, { value: "email", label: "Email" }, { value: "app", label: "App notice" }]} />
                 <UrlSelect param="status" label="Status" className="md:w-40" options={[{ value: "", label: "Any status" }, { value: "failed", label: "Has failed" }, { value: "SCHEDULED", label: "Scheduled" }, { value: "QUEUED", label: "Sending" }, { value: "SENT", label: "Sent" }, { value: "CANCELLED", label: "Cancelled" }]} />
                 {access.full && <UrlSelect param="sender" label="Sent by" className="md:w-44" options={[{ value: "", label: "Anyone" }, { value: "me", label: "Me" }, { value: "people", label: "People" }, { value: "rules", label: "Automatic rules" }, { value: "notices", label: "Notices" }]} />}

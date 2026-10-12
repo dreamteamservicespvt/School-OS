@@ -13,6 +13,8 @@ export function queryListWhere(base: Prisma.QueryWhereInput, ctx: SchoolContext,
   const and: Prisma.QueryWhereInput[] = [base];
   if (p.q) and.push({ OR: [{ number: { contains: p.q, mode: "insensitive" } }, { fromName: { contains: p.q, mode: "insensitive" } }, { details: { contains: p.q, mode: "insensitive" } }, { fromPhone: { contains: p.q } }] });
   if (!f.status || f.status === "active") and.push({ status: { in: ["OPEN", "IN_PROGRESS"] } });
+  else if (f.status === "overdue") and.push({ dueBy: { lt: now }, status: { in: ["OPEN", "IN_PROGRESS"] } });
+  else if (f.status === "done") and.push({ status: { in: ["RESOLVED", "CLOSED"] } });
   else if (f.status !== "all") and.push({ status: f.status as Prisma.EnumQueryStatusFilter["equals"] });
   if (f.type) and.push({ type: f.type });
   if (f.priority) and.push({ priority: f.priority });

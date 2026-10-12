@@ -71,7 +71,7 @@ export default async function NoticeBoardPage({ searchParams }: { searchParams: 
       <Split side={340}>
         <Card className="overflow-hidden min-w-0">
           <Toolbar className="flex-wrap">
-            <UrlSearch placeholder="Notice title or audience" />
+            <UrlSearch placeholder="Notice title or audience" className="min-w-[14rem]" />
             <UrlSegmented param="group" label="Show" options={[{ value: "current", label: `Current · ${groupCount("current")}` }, { value: "waiting", label: `Waiting · ${groupCount("waiting")}` }, { value: "archive", label: "Archive" }]} />
             <UrlSelect param="priority" label="Priority" className="md:w-40" options={[{ value: "", label: "Any priority" }, ...Object.entries(PRIORITY_LABEL).map(([value, label]) => ({ value, label }))]} />
             <PeriodFilter timeZone={tz} />

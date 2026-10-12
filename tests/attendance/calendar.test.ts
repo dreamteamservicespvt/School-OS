@@ -1,12 +1,14 @@
-// Every attendance calendar pages back to earlier months of the year, and to
-// earlier years for people who may see them, up to this month; earlier months
-// load their real marks, holidays and leave (owner's rule, 12 Oct 2026). Who
-// may open a student's calendar is checked on the server.
+// Every attendance calendar pages back to earlier months, from the first month
+// of the previous academic year (or the person's first record) up to this
+// month, as the approved CalendarMonth; earlier months load their real marks,
+// holidays and leave (owner's rule, 12 Oct 2026). Who may open a student's
+// calendar is checked on the server.
 import { beforeAll, describe, expect, it } from "vitest";
 import { withSchool } from "@/lib/db";
 import { NotYoursError } from "@/lib/attendance/access";
 import { clampMonth, parseMonth, studentCalendar, studentCalendarFor } from "@/lib/attendance/calendar-months";
 import { registerChoices, registerMonth, registerYears } from "@/lib/attendance/register";
+import { monthOptions } from "@/components/attendance/month-select";
 import { accessFor, as, d, makeAttendanceSchool, type Fixture } from "./fixture";
 
 let f: Fixture;
@@ -17,6 +19,7 @@ beforeAll(async () => {
   f = await makeAttendanceSchool("Attendance Calendar School");
   const sys = { schoolId: f.school.id, userId: null };
   await withSchool(sys, async (tx) => {
+    await tx.academicYear.create({ data: { schoolId: f.school.id, campusId: f.school.campus.id, name: "2024-25", startDate: d("2024-04-01"), endDate: d("2025-03-31"), status: "CLOSED" } });
     const past = await tx.academicYear.create({ data: { schoolId: f.school.id, campusId: f.school.campus.id, name: "2025-26", startDate: d("2025-04-01"), endDate: d("2026-03-31"), status: "CLOSED" } });
     const cls4 = await tx.schoolClass.create({ data: { schoolId: f.school.id, campusId: f.school.campus.id, name: "Class 4", sortOrder: 4 } });
     const sec = await tx.section.create({ data: { schoolId: f.school.id, classId: cls4.id, academicYearId: past.id, name: "A", classTeacherId: f.staffA.id } });
@@ -55,16 +58,35 @@ describe("a student's calendar pages through earlier months (owner's rule 4)", (
   });
 
   it("never pages past this month", async () => {
-    const cal = await withSchool(as(f, f.principal.id), (tx) => studentCalendar(tx, as(f, f.principal.id), f.studentsA[0].id, parseMonth("2027-01"), today, { allYears: true }));
+    const cal = await withSchool(as(f, f.principal.id), (tx) => studentCalendar(tx, as(f, f.principal.id), f.studentsA[0].id, parseMonth("2027-01"), today));
     expect(cal.view.month).toBe("2026-10");
     expect(clampMonth(d("2020-01-01"), cal.bounds).toISOString().slice(0, 7)).toBe("2025-04");
   });
 
-  it("a class teacher sees their own student's months of this year only", async () => {
+  it("a class teacher pages their own student back to last year, with that month's real marks", async () => {
     const access = await accessFor(f, f.teacherA.id);
     const cal = await withSchool(as(f, f.teacherA.id), (tx) => studentCalendarFor(tx, as(f, f.teacherA.id), access, f.studentsA[0].id, parseMonth("2025-10"), today));
-    expect(cal.bounds.min).toBe("2026-04");
-    expect(cal.view.month).toBe("2026-04");
+    expect(cal.bounds).toEqual({ min: "2025-04", max: "2026-10" });
+    expect(cal.view.month).toBe("2025-10");
+    expect(cal.view.cells.find((c) => c.date === "2025-10-06")?.statusKey).toBe("absent");
+  });
+
+  it("does not go back before the previous academic year, nor before the student's first record", async () => {
+    const access = await accessFor(f, f.principal.id);
+    const r = await withSchool(as(f, f.principal.id), async (tx) => ({
+      old: await studentCalendarFor(tx, as(f, f.principal.id), access, f.studentsA[0].id, parseMonth("2024-06"), today),
+      newer: await studentCalendarFor(tx, as(f, f.principal.id), access, f.studentsB[0].id, parseMonth("2025-10"), today),
+    }));
+    expect(r.old.bounds.min).toBe("2025-04");
+    expect(r.old.view.month).toBe("2025-04");
+    expect(r.newer.bounds.min).toBe("2026-04");
+  });
+
+  it("lists the months newest first, from the first month to this month", () => {
+    const list = monthOptions("2025-04", "2026-10");
+    expect(list[0]).toEqual({ value: "2026-10", label: "October 2026" });
+    expect(list.at(-1)).toEqual({ value: "2025-04", label: "April 2025" });
+    expect(list).toHaveLength(19);
   });
 
   it("refuses a teacher another class's student, on the server", async () => {

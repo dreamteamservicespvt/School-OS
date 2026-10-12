@@ -20,9 +20,9 @@ import { AcademicsTab, BehaviourTab, DocumentsTab, HistoryTab, OverviewTab } fro
 
 export const metadata: Metadata = { title: "Student Profile" };
 
-export default async function StudentProfilePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string }> }) {
+export default async function StudentProfilePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; month?: string }> }) {
   const { id } = await params;
-  const { tab: tabParam } = await searchParams;
+  const { tab: tabParam, month } = await searchParams;
   const { current, settings, year, can, tz } = await studentPage();
   const yearId = year?.id ?? null;
 
@@ -36,7 +36,7 @@ export default async function StudentProfilePage({ params, searchParams }: { par
   const s = p.student;
   const status = s.status as StudentStatusKey;
   const href = `${BASE}/students/${id}`;
-  const args = { current, studentId: id, academicYearId: yearId };
+  const args = { current, studentId: id, academicYearId: yearId, searchParams: { month: typeof month === "string" ? month : undefined } };
 
   // Tabs: this module's own, then those other modules registered, each by permission; never an empty tab.
   const registered = profileTabsFor(current);

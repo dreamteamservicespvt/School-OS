@@ -31,24 +31,41 @@ export function clampMonth(month: Date, b: MonthBounds): Date {
   return monthStart(month);
 }
 
-/**
- * A student's calendar bounds: from the first month of the earliest year they
- * were enrolled in (or only the current year, for someone who may see this
- * year's students only) to this month.
- */
-export async function studentBounds(tx: Tx, studentId: string, today: Date, opts: { allYears: boolean }): Promise<MonthBounds> {
-  const enrol = await tx.enrolment.findMany({ where: { studentId, archivedAt: null }, select: { academicYearId: true } });
-  const years = await tx.academicYear.findMany({ where: { id: { in: enrol.map((e) => e.academicYearId) } }, select: { startDate: true, endDate: true }, orderBy: { startDate: "asc" } });
-  const current = years.find((y) => y.startDate <= today && y.endDate >= today) ?? years.at(-1) ?? null;
-  const first = opts.allYears ? years[0] ?? current : current;
+/** The first day of the academic year before the current one (or of the current one when there is none before it). */
+export async function previousYearStart(tx: Tx, today: Date): Promise<Date | null> {
+  const years = await tx.academicYear.findMany({ where: { archivedAt: null, startDate: { lte: today } }, orderBy: { startDate: "desc" }, select: { startDate: true, endDate: true }, take: 3 });
+  const current = years.find((y) => y.endDate >= today) ?? years[0] ?? null;
+  if (!current) return null;
+  return years.find((y) => y.startDate < current.startDate)?.startDate ?? current.startDate;
+}
+
+/** From the later of the previous academic year's first month and the person's first record, to this month. */
+function bounds(prevStart: Date | null, firstRecord: Date | null, today: Date): MonthBounds {
   const max = monthKey(today);
-  const min = first ? monthKey(first.startDate) : max;
+  const starts = [prevStart, firstRecord].filter((d): d is Date => Boolean(d));
+  const min = starts.length ? monthKey(new Date(Math.max(...starts.map((d) => d.getTime())))) : max;
   return { min: min > max ? max : min, max };
 }
 
+/**
+ * A student's calendar bounds (approved CalendarMonth): from the first month
+ * of the previous academic year, or the student's first record when that is
+ * later (the first year they were enrolled in, or their first mark), to this month.
+ */
+export async function studentBounds(tx: Tx, studentId: string, today: Date): Promise<MonthBounds> {
+  const enrol = await tx.enrolment.findMany({ where: { studentId, archivedAt: null }, select: { academicYearId: true } });
+  const [firstYear, firstMark, prev] = await Promise.all([
+    tx.academicYear.findFirst({ where: { id: { in: enrol.map((e) => e.academicYearId) } }, select: { startDate: true }, orderBy: { startDate: "asc" } }),
+    tx.attendanceMark.findFirst({ where: { studentId, archivedAt: null }, orderBy: { date: "asc" }, select: { date: true } }),
+    previousYearStart(tx, today),
+  ]);
+  const first = [firstYear?.startDate, firstMark?.date].filter((d): d is Date => Boolean(d));
+  return bounds(prev, first.length ? new Date(Math.min(...first.map((d) => d.getTime()))) : null, today);
+}
+
 /** One month of a student's calendar, kept inside the bounds. */
-export async function studentCalendar(tx: Tx, ctx: SchoolContext, studentId: string, month: Date | null, today: Date, opts: { allYears: boolean }): Promise<CalendarData> {
-  const bounds = await studentBounds(tx, studentId, today, opts);
+export async function studentCalendar(tx: Tx, ctx: SchoolContext, studentId: string, month: Date | null, today: Date): Promise<CalendarData> {
+  const bounds = await studentBounds(tx, studentId, today);
   const m = clampMonth(month ?? today, bounds);
   const student = await tx.student.findFirst({ where: { id: studentId }, select: { campusId: true } });
   const [view, list] = await Promise.all([studentMonth(tx, ctx, studentId, m, today, student?.campusId), statusList(tx, ctx)]);
@@ -56,19 +73,24 @@ export async function studentCalendar(tx: Tx, ctx: SchoolContext, studentId: str
 }
 
 /**
- * Bounds for a staff member's own month view: from the first academic year
- * that started on or after their joining date (or the earliest year) to this month.
+ * Bounds for a staff member's month (attendance or leave): from the first
+ * month of the previous academic year, or their joining or first mark when
+ * that is later, to this month. Without a staff member: the school's range.
  */
-export async function staffBounds(tx: Tx, staffId: string, today: Date): Promise<MonthBounds> {
-  const staff = await tx.staff.findFirst({ where: { id: staffId }, select: { joiningDate: true } });
-  const first = await tx.attendanceMark.findFirst({ where: { staffId, archivedAt: null }, orderBy: { date: "asc" }, select: { date: true } });
-  const years = await tx.academicYear.findMany({ where: { archivedAt: null }, orderBy: { startDate: "asc" }, select: { startDate: true, endDate: true } });
-  const starts = [first?.date, staff?.joiningDate, years.find((y) => y.startDate <= today && y.endDate >= today)?.startDate].filter((d): d is Date => Boolean(d));
-  const from = starts.length ? new Date(Math.min(...starts.map((d) => d.getTime()))) : today;
-  const yearOf = years.find((y) => y.startDate <= from && y.endDate >= from);
-  const max = monthKey(today);
-  const min = monthKey(yearOf ? yearOf.startDate : from);
-  return { min: min > max ? max : min, max };
+export async function staffBounds(tx: Tx, staffId: string | null, today: Date): Promise<MonthBounds> {
+  const prev = await previousYearStart(tx, today);
+  if (!staffId) return bounds(prev, null, today);
+  const [staff, first] = await Promise.all([
+    tx.staff.findFirst({ where: { id: staffId }, select: { joiningDate: true } }),
+    tx.attendanceMark.findFirst({ where: { staffId, archivedAt: null }, orderBy: { date: "asc" }, select: { date: true } }),
+  ]);
+  const starts = [first?.date, staff?.joiningDate].filter((d): d is Date => Boolean(d));
+  return bounds(prev, starts.length ? new Date(Math.min(...starts.map((d) => d.getTime()))) : null, today);
+}
+
+/** The school's month range for class and register calendars: the previous academic year's first month to this month. */
+export async function schoolBounds(tx: Tx, today: Date): Promise<MonthBounds> {
+  return bounds(await previousYearStart(tx, today), null, today);
 }
 
 /** Whether this person may see the student's attendance: everyone's, or students of their own sections this year. */
@@ -82,5 +104,5 @@ export async function mayViewStudent(tx: Tx, access: AttendanceAccess, studentId
 /** A student's month for staff screens (Student Profile), checked against the person's reach. */
 export async function studentCalendarFor(tx: Tx, ctx: SchoolContext, access: AttendanceAccess, studentId: string, month: Date | null, today: Date) {
   if (!(await mayViewStudent(tx, access, studentId))) throw new NotYoursError("this student");
-  return studentCalendar(tx, ctx, studentId, month, today, { allYears: access.students === "all" });
+  return studentCalendar(tx, ctx, studentId, month, today);
 }

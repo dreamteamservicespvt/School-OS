@@ -9,15 +9,13 @@ import { MonthCalendar } from "@/components/attendance/month-calendar";
 import { schoolDateOf } from "./time";
 import { lockState } from "./marks";
 import { ensureAttendanceDefaults } from "./settings";
-import { studentCalendar, type CalendarData } from "./calendar-months";
-import { parentMonthAction } from "./parent-calendar-action";
+import { parseMonth, studentCalendar, type CalendarData } from "./calendar-months";
 
 type Data = CalendarData & { todayFinal: boolean; lockText: string; todayIso: string; threshold: number };
 
-function AttendanceSection({ data, view }: { data: Data; view: GuardianView }) {
+function AttendanceSection({ data }: { data: Data; view: GuardianView }) {
   return (
-    <MonthCalendar initial={data.view} statuses={data.statuses} min={data.bounds.min} max={data.bounds.max} threshold={data.threshold} todayIso={data.todayIso}
-      load={view.preview || !view.token ? undefined : parentMonthAction.bind(null, view.token, view.child.id)}
+    <MonthCalendar view={data.view} statuses={data.statuses} min={data.bounds.min} max={data.bounds.max} threshold={data.threshold} todayIso={data.todayIso}
       note={!data.todayFinal ? <p className="text-[13px] text-ink2">Today&apos;s attendance can still change until {data.lockText}.</p> : undefined} />
   );
 }
@@ -32,7 +30,7 @@ registerSection<Data>({
     const now = new Date();
     const today = schoolDateOf(now, view.timeZone);
     const lock = lockState(settings, today, now, view.timeZone);
-    const data = await studentCalendar(tx, ctx, view.child.id, null, today, { allYears: true });
+    const data = await studentCalendar(tx, ctx, view.child.id, parseMonth(view.month), today);
     const anyMarks = await tx.attendanceMark.findFirst({ where: { studentId: view.child.id, archivedAt: null }, select: { id: true } });
     if (!anyMarks) return null;
     return { ...data, todayFinal: lock.locked, lockText: lock.atText, todayIso: today.toISOString().slice(0, 10), threshold: settings.thresholdPercent };

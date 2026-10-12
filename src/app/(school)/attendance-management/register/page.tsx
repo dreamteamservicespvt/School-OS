@@ -18,7 +18,7 @@ import { UrlSelect } from "@/components/ui/url-controls";
 import { cx } from "@/components/ui/cx";
 import { EmptyState } from "@/components/empty-state";
 import { AttHead } from "../_components/att-head";
-import { MonthNav } from "../_components/month-nav";
+import { MonthSelect } from "@/components/attendance/month-select";
 import { ExportMenu } from "../_components/export-menu";
 import { cellClass, Legend, type StatusView } from "../_components/status";
 
@@ -26,7 +26,6 @@ export const metadata: Metadata = { title: "Attendance Register" };
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : undefined);
-const shift = (m: Date, n: number) => new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth() + n, 1));
 const ym = (d: Date) => isoDay(d).slice(0, 7);
 const HOLIDAY_CELL = "bg-info/10 text-info";
 const CORE = ["present", "absent", "late", "leave"];
@@ -79,8 +78,6 @@ export default async function RegisterPage({ searchParams }: Props) {
     if (!lock.locked || access.lockOverride) return `${BASE}?section=${data.section.id}&date=${iso}`;
     return `${BASE}/register/correction?section=${data.section.id}&date=${iso}&student=${studentId}`;
   };
-  const prev = ym(shift(month, -1)) >= data.bounds.min ? qs({ month: ym(shift(month, -1)) }) : null;
-  const next = ym(shift(month, 1)) <= data.bounds.max ? qs({ month: ym(shift(month, 1)) === ym(today) ? null : ym(shift(month, 1)) }) : null;
   const exportHref = data.section ? `${BASE}/register/export?section=${data.section.id}&month=${ym(month)}${statusFilter ? `&status=${statusFilter}` : ""}` : null;
   const sub = data.section ? `${data.section.name} · ${data.grid?.label ?? ""}` : "No classes yet";
 
@@ -105,7 +102,7 @@ export default async function RegisterPage({ searchParams }: Props) {
               <UrlSelect param="section" label="Class and section" value={data.section?.id ?? ""} className="sm:w-56"
                 options={data.sections.map((s) => ({ value: s.id, label: s.name }))} />
             )}
-            <MonthNav label={data.grid?.label ?? ""} prev={prev} next={next} className="self-start" />
+            <MonthSelect value={ym(month)} min={data.bounds.min} max={data.bounds.max} className="sm:w-64" />
             {view === "class" && (
               <UrlSelect param="status" label="Status" value="" className="sm:w-48"
                 options={[{ value: "", label: "Any status" }, ...statuses.map((s) => ({ value: s.key, label: `Has ${s.name.toLowerCase()}` }))]} />

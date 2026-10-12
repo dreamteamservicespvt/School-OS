@@ -6,6 +6,7 @@ import { formatDate, formatDateTime } from "@/lib/format";
 import { fileLink } from "@/lib/files";
 import { readListParams, skipTake, listHref, PAGE_SIZE } from "@/lib/list";
 import { periodFromSearch, dateWhere } from "@/lib/periods";
+import { periodSetup } from "@/lib/period-setup";
 import { daysText } from "@/lib/staff/leave";
 import { isoDay, monthStart } from "@/lib/staff/dates";
 import { attendancePage } from "@/lib/attendance/page";
@@ -43,7 +44,8 @@ export default async function StudentLeavePage({ searchParams }: Props) {
   if (access.studentLeave === "none") redirect("/no-access?m=attendance-management");
   const status = typeof raw.status === "string" && (raw.status === "all" || (LEAVE_STATUSES as readonly string[]).includes(raw.status)) ? raw.status : "WAITING";
   const openId = typeof raw.open === "string" ? raw.open : null;
-  const range = periodFromSearch(raw, { timeZone: tz });
+  const dates = await periodSetup(current);
+  const range = periodFromSearch(raw, dates);
   const path = `${BASE}/student-leave`;
   const canRecord = access.change !== "none";
   const ownOnly = access.studentLeave === "own";
@@ -123,7 +125,7 @@ export default async function StudentLeavePage({ searchParams }: Props) {
             <div className="grid grid-cols-2 sm:flex gap-2">
               {classes.length > 1 && <UrlSelect param="section" label="Class" className="sm:w-40" options={[{ value: "", label: "All classes" }, ...classes.map((s) => ({ value: s.id, label: s.name }))]} />}
               <UrlSelect param="type" label="Leave type" className="sm:w-40" options={[{ value: "", label: "All types" }, ...data.types.map((t) => ({ value: t.id, label: t.name }))]} />
-              <PeriodFilter timeZone={tz} allLabel="All dates" />
+              <PeriodFilter {...dates} allLabel="All dates" />
               <ExportMenu href={exportHref} />
             </div>
           </div>

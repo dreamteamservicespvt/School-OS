@@ -8,6 +8,7 @@ import { eachDay, isoDay, monthEnd, monthLabel, monthStart } from "../staff/date
 import { registerSections, type AttendanceAccess } from "./access";
 import { schoolDays } from "./calendar";
 import { roster, sectionInfo } from "./marks";
+import { previousYearStart } from "./calendar-months";
 import { attendanceSettings, statusList, statusesFor } from "./settings";
 import { attendanceSummary, type PersonSummary } from "./summary";
 
@@ -50,9 +51,13 @@ export async function registerYears(tx: Tx, access: AttendanceAccess, today: Dat
   const visible = [];
   for (const y of years) if (y.id === access.yearId || (await registerChoices(tx, access, y.id)).length) visible.push(y);
   const max = isoDay(today).slice(0, 7);
-  const first = visible[0];
-  const min = first ? isoDay(first.startDate).slice(0, 7) : max;
-  return { years: visible, bounds: { min: min > max ? max : min, max } };
+  // From the previous academic year's first month (approved CalendarMonth), or the first year this person may see.
+  const prev = await previousYearStart(tx, today);
+  const shown = visible.filter((y) => !prev || y.endDate >= prev);
+  const first = shown[0];
+  const from = first ? (prev && prev > first.startDate ? prev : first.startDate) : null;
+  const min = from ? isoDay(from).slice(0, 7) : max;
+  return { years: shown, bounds: { min: min > max ? max : min, max } };
 }
 
 /** "2026-10" → the first of that month, or null. */

@@ -13,8 +13,7 @@ import { can } from "../permissions";
 import { studentAttendanceTab } from "./integrations";
 import { attendanceSettings } from "./settings";
 import { attendanceAccess } from "./access";
-import { studentCalendarFor } from "./calendar-months";
-import { studentMonthAction } from "./student-calendar-action";
+import { parseMonth, studentCalendarFor } from "./calendar-months";
 import { percentText } from "./summary";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Stats } from "@/components/ui/stats";
@@ -48,7 +47,7 @@ registerProfileTab({
     const tone = mark.statusKey === "absent" ? "danger" : mark.statusKey === "late" ? "warning" : "success";
     return [{ label: "Attendance today", value: st?.name ?? mark.statusKey, tone }];
   }),
-  load: async ({ current, studentId }) => {
+  load: async ({ current, studentId, searchParams }) => {
     const today = todayIn(current.school.timeZone);
     const { tab, threshold, cal } = await withSchool(current.ctx, async (tx) => {
       const settings = await attendanceSettings(tx, current.ctx);
@@ -56,7 +55,7 @@ registerProfileTab({
       return {
         tab: await studentAttendanceTab(tx, current.ctx, studentId, today),
         threshold: settings.thresholdPercent,
-        cal: await studentCalendarFor(tx, current.ctx, access, studentId, null, today).catch(() => null),
+        cal: await studentCalendarFor(tx, current.ctx, access, studentId, parseMonth(searchParams?.month), today).catch(() => null),
       };
     });
     const y = tab.yearSummary;
@@ -83,8 +82,8 @@ registerProfileTab({
               action={canOpenRegister ? <Link href={tab.registerHref} className={buttonClass("ghost", "sm")}>Register</Link> : undefined} />
             <div className="px-5 pb-5">
               {cal ? (
-                <MonthCalendar initial={cal.view} statuses={cal.statuses} min={cal.bounds.min} max={cal.bounds.max} threshold={threshold}
-                  todayIso={today.toISOString().slice(0, 10)} load={studentMonthAction.bind(null, studentId)} />
+                <MonthCalendar view={cal.view} statuses={cal.statuses} min={cal.bounds.min} max={cal.bounds.max} threshold={threshold}
+                  todayIso={today.toISOString().slice(0, 10)} />
               ) : <p className="text-[14px] text-ink3">This student is not in one of your classes.</p>}
             </div>
           </Card>

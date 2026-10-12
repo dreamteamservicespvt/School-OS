@@ -12,9 +12,9 @@ import { Alert } from "@/components/ui/alert";
 export const metadata: Metadata = { title: "What guardians see" };
 
 /** "What guardians see": the page exactly as one real guardian sees it. Nothing on it acts, and opens are not counted. */
-export default async function PreviewPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ child?: string }> }) {
+export default async function PreviewPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ child?: string; month?: string }> }) {
   const { id } = await params;
-  const { child } = await searchParams;
+  const { child, month } = await searchParams;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const access = await commPage();
   const { current } = access;
@@ -23,7 +23,7 @@ export default async function PreviewPage({ params, searchParams }: { params: Pr
     if (!link) return null;
     const view = await loadGuardianView(tx, current.ctx, { linkId: link.id, guardianId: link.guardianId, childId: typeof child === "string" ? child : null, token: "", preview: true });
     const school = await tx.school.findUniqueOrThrow({ where: { id: current.ctx.schoolId }, select: { phone: true } });
-    return { link, view, sections: view ? await loadSections(tx, current.ctx, view) : [], phone: school.phone };
+    return { link, view, sections: view ? await loadSections(tx, current.ctx, { ...view, month: typeof month === "string" ? month : null }) : [], phone: school.phone };
   });
   if (!data) notFound();
 

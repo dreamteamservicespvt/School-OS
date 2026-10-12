@@ -5,6 +5,7 @@ import { withSchool } from "@/lib/db";
 import { buildExport, exportResponse, logExport, type ExportColumn, type ExportFormat } from "@/lib/exports";
 import { formatDate } from "@/lib/format";
 import { periodFromSearch } from "@/lib/periods";
+import { periodSetup } from "@/lib/period-setup";
 import { attendanceAccess } from "@/lib/attendance/access";
 import { attendanceSettings } from "@/lib/attendance/settings";
 import { STUDENT_LEAVE_STATUS } from "@/lib/attendance/student-leave";
@@ -17,7 +18,7 @@ export async function GET(req: Request) {
   const format = (["csv", "xlsx", "pdf"].includes(sp.format ?? "") ? sp.format : "xlsx") as ExportFormat;
   const tz = current.school.timeZone;
   const status = sp.status === "all" || (LEAVE_STATUSES as readonly string[]).includes(sp.status ?? "") ? sp.status! : "WAITING";
-  const range = periodFromSearch(sp, { timeZone: tz });
+  const range = periodFromSearch(sp, await periodSetup(current));
   return withSchool(current.ctx, async (tx) => {
     const settings = await attendanceSettings(tx, current.ctx);
     const access = await attendanceAccess(tx, current.ctx, current, settings.lockOverrideRoles);

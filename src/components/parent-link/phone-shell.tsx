@@ -12,13 +12,16 @@ function Mark() {
   );
 }
 
-export function PhoneShell({ schoolName, kind = "Parent Link", hello, name, schoolPhone, children, right }: {
+export function PhoneShell({ schoolName, kind = "Parent Link", hello, name, schoolPhone, children, right, framed }: {
   schoolName?: string; kind?: string; hello?: string; name?: React.ReactNode; schoolPhone?: string | null; children: React.ReactNode; right?: React.ReactNode;
+  /** Inside a phone frame on a staff screen (the preview), not the whole browser window. */
+  framed?: boolean;
 }) {
+  const Body = framed ? "div" : "main";
   return (
-    <div className="min-h-dvh bg-bg">
+    <div className={framed ? "bg-bg" : "min-h-dvh bg-bg"}>
       <div className="mx-auto max-w-xl pb-10">
-        <header className="bg-brand text-brandink px-5 pt-5 pb-16 relative overflow-hidden sm:rounded-b-[28px]">
+        <header className={`bg-brand text-brandink px-5 pt-5 pb-16 relative overflow-hidden ${framed ? "" : "sm:rounded-b-[28px]"}`}>
           <div className="absolute inset-0 dotgrid opacity-50" aria-hidden="true" />
           <div className="relative flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5 min-w-0">
@@ -31,13 +34,13 @@ export function PhoneShell({ schoolName, kind = "Parent Link", hello, name, scho
           {name && <h1 className="relative font-display text-[26px] font-semibold leading-tight">{name}</h1>}
           {!hello && !name && <div className="h-8" />}
         </header>
-        <main id="main" className="px-4 -mt-12 relative flex flex-col gap-4">
+        <Body id={framed ? undefined : "main"} className="px-4 -mt-12 relative flex flex-col gap-4">
           {children}
           <div className="text-center text-[12.5px] text-ink3 px-6 pt-2">
             {schoolPhone && <>Questions? Call the school office<br /><a href={`tel:${schoolPhone}`} className="font-semibold text-ink2 tnum">{schoolPhone}</a></>}
             <p className="mt-3 flex items-center justify-center gap-1.5"><Lock size={12} aria-hidden="true" />Only you can see this page</p>
           </div>
-        </main>
+        </Body>
       </div>
     </div>
   );

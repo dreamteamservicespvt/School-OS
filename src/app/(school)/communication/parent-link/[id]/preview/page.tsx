@@ -31,12 +31,12 @@ export default async function PreviewPage({ params, searchParams }: { params: Pr
       <BackLink href={`/communication/parent-link/${id}`} label="Parent Link" sub="What they see" />
       <RecordHead title="What guardians see" />
       <Banner tone="info" title="A preview of this guardian’s page." className="mb-5">Buttons do nothing here, and this visit is not counted as an open.</Banner>
-      <div className="mx-auto max-w-md overflow-hidden rounded-[2rem] border-8 border-ink/10 bg-bg shadow-pop">
-        <div className="p-4">
+      <div className="mx-auto w-full max-w-[400px] sm:rounded-[40px] sm:border-[10px] sm:border-ink/90 sm:shadow-pop overflow-hidden bg-bg">
+        <div className="sm:h-[780px] sm:overflow-y-auto scroll-thin">
           {data.view ? (
-            <GuardianPage view={data.view} sections={data.sections} schoolPhone={data.phone} basePath={`/communication/parent-link/${id}/preview`} />
+            <GuardianPage framed view={data.view} sections={data.sections} schoolPhone={data.phone} basePath={`/communication/parent-link/${id}/preview`} />
           ) : (
-            <p className="py-8 text-center text-ink-2">This guardian has no children studying in the school now, so the page shows &ldquo;Please contact the school&rdquo;.</p>
+            <p className="py-8 px-6 text-center text-ink3">This guardian has no children studying in the school now, so the page shows &ldquo;Please contact the school&rdquo;.</p>
           )}
         </div>
       </div>

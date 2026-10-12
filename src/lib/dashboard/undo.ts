@@ -12,7 +12,7 @@ import { restoreTask, setTaskStatus, taskAccess, TaskProblem } from "./tasks";
 import { unmarkStep } from "./setup";
 import type { Current } from "../current";
 
-const who = (current: Current) => ({ ctx: current.ctx, access: taskAccess(current.permissions) });
+const who = (current: Current) => ({ ctx: current.ctx, access: taskAccess(current) });
 
 registerUndo("task-status", async (current, key) => {
   requirePermission(current.permissions, "dashboard", "edit");

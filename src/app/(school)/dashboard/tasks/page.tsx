@@ -29,7 +29,7 @@ export default async function TasksPage({ searchParams }: Search) {
   const sp = await searchParams;
   const tz = current.school.timeZone;
   const now = new Date();
-  const access = taskAccess(current.permissions);
+  const access = taskAccess(current);
   const who = { ctx: current.ctx, access };
   const viewRaw = one(sp.view);
   const view: "mine" | "given" | "all" = viewRaw === "given" ? "given" : viewRaw === "all" && access === "full" ? "all" : "mine";

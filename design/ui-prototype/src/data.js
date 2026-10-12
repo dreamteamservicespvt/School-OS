@@ -156,7 +156,7 @@ export const NOTIFICATIONS = [
   { id: 2, when: '9:15 AM', title: 'Attendance done for 41 of 43 classes', body: 'Waiting on Class 8 A and Class 10 C', unread: true, to: 'attendance' },
   { id: 3, when: '8:40 AM', title: 'Anitha K. asked for sick leave', body: '13–14 Oct · 2 days', unread: true, to: 'approvals' },
   { id: 4, when: 'Yesterday', title: 'Unit Test 2 results published for Class 7', body: '186 report cards sent through Parent Link', unread: false, to: 'student' },
-  { id: 5, when: 'Yesterday', title: 'Bus KA-36 back in service', body: 'Route 4 · Miyapur', unread: false, to: 'dashboard' },
+  { id: 5, when: 'Yesterday', title: 'Bus KA-36 back in service', body: 'Route 4 · Miyapur', unread: false, to: 'transport.live' },
 ];
 
 // Attendance this week by class group, for the dashboard chart

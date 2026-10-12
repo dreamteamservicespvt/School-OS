@@ -1,17 +1,47 @@
-import React, { useEffect, useState } from 'react';
+// Home for the Principal, the School Admin and the Vice Principal. The Vice Principal sees fees, finance, admissions
+// and staff as View only, so the money actions (collect, reminders, expenses, enquiries) are hidden for that role.
+import React, { useEffect, useMemo, useState } from 'react';
 import * as I from './icons.js';
-import { ME, NEEDS_ATTENTION, TODAY_EVENTS, APPROVALS, RECENT_PAYMENTS, ATT_BY_CLASS, FEE_TREND, inr } from './data.js';
+import { ME, NEEDS_ATTENTION, TODAY_EVENTS, RECENT_PAYMENTS, ATT_BY_CLASS, FEE_TREND, inr } from './data.js';
 import { cx, Card, CardHead, Button, Pill, Ring, Avatar, Skel, useToast, Sheet } from './ui.jsx';
-import { useNav, QUICK } from './shell.jsx';
+import { useNav, useRole, quickFor, approvalsFor, canOpen, goTo } from './shell.jsx';
+import { DatePeriod, PERIODS, fmtRange } from './kit.jsx';
+
+// Fee collection by month (₹ lakh) with the dates each month covers, so the period filter can pick months
+const FEE_MONTHS = FEE_TREND.map((m, i) => {
+  const mo = i + 3; // April is month 3
+  const last = new Date(2026, mo + 1, 0).getDate();
+  const pad = (n) => String(n).padStart(2, '0');
+  return { ...m, from: `2026-${pad(mo + 1)}-01`, to: `2026-${pad(mo + 1)}-${pad(last)}` };
+});
+// A small, steady change per period so example percentages move when the period changes
+const wobble = (key, i) => { let h = 7; for (const c of key) h = (h * 31 + c.charCodeAt(0)) % 997; return ((h + i * 13) % 5) - 2; };
 
 const TONE_ICON = { bad: I.UserX, warn: I.TriangleAlert, info: I.ListChecks };
 const TONE_BG = { bad: 'bg-bad/10 text-bad', warn: 'bg-warn/12 text-warn', info: 'bg-info/10 text-info' };
 
 export function Dashboard({ onAddStudent }) {
   const { go } = useNav();
+  const { role, modulesOn } = useRole();
   const toast = useToast();
+  const can = (to) => canOpen(role, to, modulesOn);
+  const QUICK = quickFor(role, modulesOn);
+  const feesFull = role.access.fees === 'full';
   const [loading, setLoading] = useState(true);
-  const [approvals, setApprovals] = useState(APPROVALS);
+  const [approvals, setApprovals] = useState(() => approvalsFor(role));
+  const [feePer, setFeePer] = useState(PERIODS.finyear);
+  const [attPer, setAttPer] = useState(PERIODS.thisweek);
+  // Needs your attention: leave requests come from this person's own approvals; View-only roles get "See list", not "Send reminders"
+  const leaves = approvals.filter((a) => a.kind === 'Leave');
+  const attention = NEEDS_ATTENTION.map((n) => {
+    if (n.id === 'n2') return feesFull ? n : { ...n, action: 'See list', to: 'fees.defaulters' };
+    if (n.id === 'n3') return leaves.length ? { ...n, title: `${leaves.length} leave ${leaves.length === 1 ? 'request' : 'requests'} waiting for you`, detail: leaves.map((a) => `${a.who} (${a.what.split(' · ')[1]})`).join(', ') } : null;
+    return n;
+  }).filter((n) => n && can(n.to));
+  const feeRows = FEE_MONTHS.filter((m) => m.from <= feePer.to && m.to >= feePer.from);
+  const feeC = feeRows.reduce((a, m) => a + m.c, 0), feeD = feeRows.reduce((a, m) => a + m.d, 0);
+  const lakh = (v) => (v >= 100 ? `₹${(v / 100).toFixed(2)} Cr` : `₹${v} L`);
+  const attRows = attPer.key === 'thisweek' ? ATT_BY_CLASS : ATT_BY_CLASS.map((r, i) => ({ ...r, v: Math.min(99, r.v + wobble(attPer.key + attPer.from, i)) }));
   const [brief, setBrief] = useState(false);
   const [refreshed, setRefreshed] = useState('10:42 AM');
   useEffect(() => { const t = setTimeout(() => setLoading(false), 650); return () => clearTimeout(t); }, []);
@@ -43,11 +73,11 @@ export function Dashboard({ onAddStudent }) {
         <div className="absolute inset-0 dotgrid opacity-60 pointer-events-none" />
         <div className="absolute -right-16 -top-24 w-72 h-72 rounded-full bg-white/10 blur-2xl pointer-events-none" />
         <div className="relative grid grid-cols-2 @xl:grid-cols-4">
-          <HeroStat loading={loading} onClick={() => go('attendance')} label="Students present"
+          <HeroStat loading={loading} onClick={() => go('attendance', { page: 'register' })} label="Students present"
             big={<>1,184<span className="text-[0.55em] opacity-70 font-medium"> / 1,236</span></>}
             foot="95.8% · 52 absent, 9 late" ring={95.8} />
           <HeroStat loading={loading} onClick={() => go('staff')} label="Staff present" big={<>82<span className="text-[0.55em] opacity-70 font-medium"> / 86</span></>} foot="3 on leave · 1 not in yet" ring={95.3} />
-          <HeroStat loading={loading} onClick={() => go('fees')} label="Fees collected today" big="₹1,42,500" foot="38 payments · 21 by UPI" />
+          <HeroStat loading={loading} onClick={() => go('fees', { page: 'dashboard' })} label="Fees collected today" big="₹1,42,500" foot="38 payments · 21 by UPI" />
           <HeroStat loading={loading} onClick={() => go('admissions')} label="New enquiries" big="12" foot="5 visits booked this week" last />
         </div>
       </section>
@@ -56,7 +86,7 @@ export function Dashboard({ onAddStudent }) {
       <div className="@xl:hidden -mx-4 px-4 overflow-x-auto no-scrollbar">
         <div className="flex gap-2 w-max">
           {QUICK.map((q) => (
-            <button key={q.id} onClick={() => (q.id === 'add-student' ? onAddStudent() : go(q.id))}
+            <button key={q.id + q.label} onClick={() => (q.id === 'add-student' ? onAddStudent() : goTo(go, q.id))}
               className="flex items-center gap-2 h-11 pl-2 pr-4 rounded-full bg-surface border border-line text-[14px] font-semibold shadow-card">
               <span className="w-8 h-8 rounded-full bg-brand/10 text-brand grid place-items-center"><q.icon size={16} /></span>{q.label}
             </button>
@@ -69,9 +99,9 @@ export function Dashboard({ onAddStudent }) {
           {/* Needs attention */}
           <Card>
             <CardHead title="Needs your attention" sub="Most urgent first. Each one opens the exact list behind it." icon={I.Flag}
-              action={<Pill tone="bad">{NEEDS_ATTENTION.length} items</Pill>} />
+              action={<Pill tone="bad">{attention.length} items</Pill>} />
             <ul className="px-2 pb-2">
-              {NEEDS_ATTENTION.map((n) => {
+              {attention.map((n) => {
                 const Ic = TONE_ICON[n.tone] || I.TriangleAlert;
                 return (
                   <li key={n.id}>
@@ -81,8 +111,8 @@ export function Dashboard({ onAddStudent }) {
                         <p className="font-semibold text-[14.5px] leading-snug">{n.title}</p>
                         <p className="text-[13px] text-ink3 truncate">{n.detail}</p>
                       </div>
-                      <Button size="sm" variant="secondary" className="hidden @sm:inline-flex" onClick={() => go(n.to)}>{n.action}</Button>
-                      <button className="@sm:hidden w-9 h-9 grid place-items-center rounded-lg text-ink3" onClick={() => go(n.to)} aria-label={n.action}><I.ChevronRight size={20} /></button>
+                      <Button size="sm" variant="secondary" className="hidden @sm:inline-flex" onClick={() => goTo(go, n.to)}>{n.action}</Button>
+                      <button className="@sm:hidden w-9 h-9 grid place-items-center rounded-lg text-ink3" onClick={() => goTo(go, n.to)} aria-label={n.action}><I.ChevronRight size={20} /></button>
                     </div>
                   </li>
                 );
@@ -93,25 +123,35 @@ export function Dashboard({ onAddStudent }) {
           <div className="grid @lg:grid-cols-2 gap-5 @lg:gap-6">
             {/* Fee trend */}
             <Card>
-              <CardHead title="Fee collection" sub="Collected against due, this year (₹ lakh)" icon={I.IndianRupee}
-                action={<button onClick={() => go('fees')} className="text-[13px] font-semibold text-brand hover:underline">Open</button>} />
-              <div className="px-5 pb-1 flex items-baseline gap-3 flex-wrap">
-                <p className="font-display text-[28px] font-semibold tnum">₹2.33 Cr</p>
-                <p className="text-[13px] text-ink3">of ₹2.84 Cr due so far · <span className="text-ok font-semibold">82%</span></p>
-              </div>
-              {loading ? <div className="px-5 pb-5"><Skel className="h-[170px]" /></div> : <FeeChart />}
-              <div className="flex gap-4 px-5 pb-4 text-[12.5px] text-ink2">
-                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-brand" />Collected</span>
-                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-ink3/25" />Due</span>
-                <span className="ml-auto">October is still open</span>
-              </div>
+              <CardHead title="Fee collection" sub={`Collected against due, by month (₹ lakh) · ${fmtRange(feePer)}`} icon={I.IndianRupee}
+                action={<button onClick={() => go('fees', { page: 'dashboard' })} className="text-[13px] font-semibold text-brand hover:underline">Open</button>} />
+              <div className="px-5 pb-3"><DatePeriod id="dash-fee-period" size="sm" value={feePer} onChange={setFeePer} className="w-full @md:w-auto" /></div>
+              {feeRows.length === 0 ? (
+                <div className="px-5 pb-6 pt-2 text-center">
+                  <span className="mx-auto w-12 h-12 rounded-2xl bg-sunken text-ink3 grid place-items-center"><I.CalendarX size={22} /></span>
+                  <p className="font-semibold mt-2.5">No fee months in this period</p>
+                  <p className="text-[13px] text-ink3">This chart covers April to October 2026. Earlier years are in Fee Reports.</p>
+                </div>
+              ) : (<>
+                <div className="px-5 pb-1 flex items-baseline gap-3 flex-wrap">
+                  <p className="font-display text-[28px] font-semibold tnum">{lakh(feeC)}</p>
+                  <p className="text-[13px] text-ink3">of {lakh(feeD)} due · <span className={cx('font-semibold', feeC / feeD >= 0.8 ? 'text-ok' : 'text-warn')}>{Math.round((feeC / feeD) * 100)}%</span></p>
+                </div>
+                {loading ? <div className="px-5 pb-5"><Skel className="h-[170px]" /></div> : <FeeChart rows={feeRows} />}
+                <div className="flex gap-4 px-5 pb-4 text-[12.5px] text-ink2">
+                  <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-brand" />Collected</span>
+                  <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-ink3/25" />Due</span>
+                  <span className="ml-auto">{feeRows.some((m) => m.m === 'Oct') ? 'October is still open' : `${feeRows.length} ${feeRows.length === 1 ? 'month' : 'months'}`}</span>
+                </div>
+              </>)}
             </Card>
             {/* Attendance by class */}
             <Card>
-              <CardHead title="Attendance this week" sub="By class group. Goal is 90%." icon={I.CalendarCheck2}
-                action={<button onClick={() => go('attendance')} className="text-[13px] font-semibold text-brand hover:underline">Open</button>} />
+              <CardHead title="Attendance" sub={`By class group · ${attPer.label}, ${fmtRange(attPer)}. Goal is 90%.`} icon={I.CalendarCheck2}
+                action={<button onClick={() => go('attendance', { page: 'reports' })} className="text-[13px] font-semibold text-brand hover:underline">Open</button>} />
+              <div className="px-5 pb-3"><DatePeriod id="dash-att-period" size="sm" value={attPer} onChange={setAttPer} className="w-full @md:w-auto" /></div>
               <ul className="px-5 pb-5 flex flex-col gap-2.5">
-                {ATT_BY_CLASS.map((r) => (
+                {attRows.map((r) => (
                   <li key={r.k} className="grid grid-cols-[64px_1fr_44px] items-center gap-3 text-[13px]">
                     <span className="text-ink2 font-medium">{r.k}</span>
                     <span className="relative h-3 rounded-full bg-sunken overflow-hidden">
@@ -128,7 +168,8 @@ export function Dashboard({ onAddStudent }) {
           {/* Recent payments */}
           <Card>
             <CardHead title="Recent payments" sub="Live as money comes in" icon={I.ReceiptIndianRupee}
-              action={<Button size="sm" variant="soft" icon={I.Plus} onClick={() => go('fees')}>Collect fee</Button>} />
+              action={feesFull ? <Button size="sm" variant="soft" icon={I.Plus} onClick={() => go('fees', { page: 'collect' })}>Collect fee</Button>
+                : <button onClick={() => go('fees', { page: 'dashboard' })} className="text-[13px] font-semibold text-brand hover:underline">Open</button>} />
             <div className="px-2 pb-2">
               {RECENT_PAYMENTS.map((p) => (
                 <div key={p.rcpt} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sunken/70">
@@ -149,11 +190,11 @@ export function Dashboard({ onAddStudent }) {
 
         {/* Right column */}
         <div className="flex flex-col gap-5 @lg:gap-6 min-w-0">
-          <Card className="hidden @xl:block">
+          <Card className={cx('hidden', QUICK.length > 0 && '@xl:block')}>
             <CardHead title="Quick actions" />
             <div className="grid grid-cols-2 gap-2 px-4 pb-4">
               {QUICK.map((q) => (
-                <button key={q.id} onClick={() => (q.id === 'add-student' ? onAddStudent() : go(q.id))}
+                <button key={q.id + q.label} onClick={() => (q.id === 'add-student' ? onAddStudent() : goTo(go, q.id))}
                   className="flex flex-col items-start gap-2 p-3 rounded-xl bg-sunken/70 hover:bg-brand/8 hover:text-brand transition text-left">
                   <q.icon size={20} className="text-brand" />
                   <span className="text-[13.5px] font-semibold leading-tight">{q.label}</span>
@@ -163,7 +204,7 @@ export function Dashboard({ onAddStudent }) {
           </Card>
 
           <Card>
-            <CardHead title="Today and next" icon={I.CalendarDays} action={<button onClick={() => go('events')} className="text-[13px] font-semibold text-brand hover:underline">Calendar</button>} />
+            <CardHead title="Today and next" icon={I.CalendarDays} action={<button onClick={() => go('events', { page: 'calendar' })} className="text-[13px] font-semibold text-brand hover:underline">Calendar</button>} />
             <ol className="px-5 pb-4 flex flex-col">
               {TODAY_EVENTS.map((e, i) => (
                 <li key={i} className="grid grid-cols-[48px_14px_1fr] gap-2.5">
@@ -222,7 +263,7 @@ export function Dashboard({ onAddStudent }) {
             Attendance register 9 Oct (1,236 students) · Fee payments 9 Oct (38) · Defaulters list · Exam datesheet
           </div>
           <div className="flex gap-2 pt-1">
-            <Button variant="primary" icon={I.Send} onClick={() => { setBrief(false); toast({ title: 'Reminder sent to 61 families', body: 'WhatsApp, with SMS backup' }); }}>Send fee reminders</Button>
+            {feesFull && <Button variant="primary" icon={I.Send} onClick={() => { setBrief(false); toast({ title: 'Reminder sent to 61 families', body: 'WhatsApp, with SMS backup' }); }}>Send fee reminders</Button>}
             <Button variant="ghost" onClick={() => { setBrief(false); toast({ title: 'Thanks. We will improve these summaries.', tone: 'info' }); }}>Not useful</Button>
           </div>
         </div>
@@ -256,11 +297,11 @@ function HeroStat({ label, big, foot, ring, onClick, loading, last }) {
   );
 }
 
-function FeeChart() {
+function FeeChart({ rows: FEE_TREND }) {
   const W = 360, H = 170, padL = 30, padB = 22, top = 8;
   const max = 70;
   const y = (v) => top + (H - padB - top) * (1 - v / max);
-  const bw = (W - padL - 8) / FEE_TREND.length;
+  const bw = (W - padL - 8) / Math.max(FEE_TREND.length, 4);
   const [hover, setHover] = useState(null);
   return (
     <div className="px-3 pb-2 relative">

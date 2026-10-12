@@ -4,7 +4,7 @@ import * as I from './icons.js';
 import { NOTIFICATIONS, NAV, SCHOOL, ME } from './data.js';
 import { PERSONAL, MODULES, ROLES, ROLE, NOTIFS_BY_ROLE, NOTIFS_DEFAULT, SCHOOLS_IN_GROUP, pagesFor } from './config.js';
 import { cx, ToastHost, LayerCtx, Segmented, Sheet, Button, Pill, Empty, useToast } from './ui.jsx';
-import { NavCtx, ThemeCtx, RoleCtx, useRole, Sidebar, TopBar, BottomNav, MoreSheet, QuickSheet, CommandPalette, NotifPanel, ProfileMenu } from './shell.jsx';
+import { canOpen, NavCtx, ThemeCtx, RoleCtx, useRole, Sidebar, TopBar, BottomNav, MoreSheet, QuickSheet, CommandPalette, NotifPanel, ProfileMenu } from './shell.jsx';
 import { PageCtx } from './kit.jsx';
 import { REGISTRY } from './registry.js';
 import { Dashboard } from './dashboard.jsx';
@@ -168,7 +168,7 @@ function Shell({ route }) {
       <div className="flex flex-1 min-h-0">
         <Sidebar onQuick={() => setQuick(true)} onSwitch={() => setSwitchOpen(true)} />
         <div className="flex-1 flex flex-col min-w-0 h-full">
-          <TopBar title={title} unread={notes.filter((n) => n.unread).length} onYear={() => setYearOpen(true)}
+          <TopBar title={title} unread={notes.filter((n) => n.unread && (!n.to || canOpen(role, n.to, rs.modulesOn))).length} onYear={() => setYearOpen(true)}
             onSearch={() => setPalette(true)} onNotif={() => setNotif(true)} onProfile={() => setProfile(true)} onApprovals={() => go('approvals')} />
           <main ref={main} className="flex-1 overflow-y-auto overflow-x-hidden scroll-thin">
             {year.closed && (

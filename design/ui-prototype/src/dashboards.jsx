@@ -6,26 +6,19 @@ import * as I from './icons.js';
 import { RECENT_PAYMENTS, CLASS_7B, inr } from './data.js';
 import { STAFF, ROUTES } from './sample.js';
 import { ROLE, pagesFor, APPROVALS_BY_ROLE } from './config.js';
-import { cx, Card, CardHead, Button, Pill, Avatar, Checkbox, Field, Input, Switch, PageHead, Ring, Sheet, useToast } from './ui.jsx';
-import { useNav, useRole, quickFor, goTo } from './shell.jsx';
-import { Band, Banner, FormSheet, ConfirmSheet, Select, Textarea, Progress, HBars, Split, Col, DL, Icon, TONE_SOFT } from './kit.jsx';
+import { cx, Card, CardHead, Button, Pill, Avatar, Checkbox, Field, Input, Switch, PageHead, Ring, Sheet, Empty, useToast } from './ui.jsx';
+import { useNav, useRole, quickFor, goTo, canOpen } from './shell.jsx';
+import { Band, Banner, FormSheet, ConfirmSheet, Select, Textarea, Progress, HBars, Split, Col, DL, Icon, TONE_SOFT, DatePeriod, PERIODS, fmtRange, periodDays } from './kit.jsx';
 
 /* ---------- Who may open what ---------- */
 // 'fees.defaulters' is openable when the role has the module and that page, and the school has the module on
 function useOpen() {
   const { role, modulesOn } = useRole();
-  return (to) => {
-    if (!to) return false;
-    const [m, p] = to.split('.');
-    if (['approvals', 'profile', 'appearance', 'setup'].includes(m)) return true;
-    if (m === 'student') return !!role.access.students;
-    if (modulesOn[m] === false) return false;
-    const acc = role.access[m];
-    if (!acc) return false;
-    const pages = pagesFor(m, acc, role.id);
-    return p ? pages.some((x) => x.id === p) : pages.length > 0;
-  };
+  return (to) => canOpen(role, to, modulesOn);
 }
+// Who may give tasks to other people ("full task manager"). Everyone else gives tasks only to themselves.
+// 01-dashboard.md leaves the list to Settings; this is the least-exposure default.
+const TASK_FULL = ['principal', 'schooladmin', 'vp', 'academichead'];
 // Hidden when the module behind it is switched off; kept (without a link) when only the page is not theirs
 function useShown() {
   const { modulesOn } = useRole();
@@ -106,6 +99,7 @@ function Tasks({ items, given = [] }) {
   const toast = useToast();
   const open = useOpen();
   const { role } = useRole();
+  const full = TASK_FULL.includes(role.id);
   const [tab, setTab] = useState('mine');
   const [list, setList] = useState(items);
   const [mine, setMine] = useState(given);
@@ -122,7 +116,7 @@ function Tasks({ items, given = [] }) {
     <Card>
       <CardHead title="My tasks" sub={left ? `${left} to do · overdue ones on top` : 'All done for today'} icon={I.ListTodo}
         action={<Button size="sm" variant="soft" icon={I.Plus} onClick={() => setAdd(true)}>Add task</Button>} />
-      <div className="px-5 pb-2">
+      <div className={cx('px-5 pb-2', !full && 'hidden')}>
         <div role="tablist" className="inline-flex p-1 rounded-xl bg-sunken gap-1">
           {[['mine', 'My tasks', list.length], ['given', 'Given by me', mine.length]].map(([v, l, c]) => (
             <button key={v} role="tab" aria-selected={tab === v} onClick={() => setTab(v)}
@@ -156,7 +150,7 @@ function Tasks({ items, given = [] }) {
           toast({ title: 'Task added', body: 'Reminder on Sun 11 Oct and on Monday morning.' });
         }}>
         <Field label="Task" required id="task-title" error={err}><Input id="task-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="For example, check PTM slots for Saturday" maxLength={150} error={!!err} /></Field>
-        <Field label="Assign to" id="task-who" hint={role.id === 'principal' || role.id === 'schooladmin' || role.id === 'vp' ? 'You can give tasks to any staff member' : 'You can give tasks only to yourself'}>
+        <Field label="Assign to" id="task-who" hint={full ? 'You can give tasks to any staff member' : 'You can give tasks only to yourself'}>
           <Select id="task-who" value="me" onChange={() => {}} options={[{ value: 'me', label: `Me (${role.person.name})` }]} />
         </Field>
         <div className="grid grid-cols-2 gap-4">
@@ -210,9 +204,8 @@ function Today({ items, birthdays }) {
 /* ---------- Quick actions, as on the approved Dashboard ---------- */
 function QuickScroller() {
   const { go } = useNav();
-  const { role } = useRole();
-  const open = useOpen();
-  const q = quickFor(role).filter((x) => open(x.id));
+  const { role, modulesOn } = useRole();
+  const q = quickFor(role, modulesOn);
   if (!q.length) return null;
   return (
     <div className="@xl:hidden -mx-4 px-4 overflow-x-auto no-scrollbar">
@@ -228,9 +221,8 @@ function QuickScroller() {
 }
 function QuickCard() {
   const { go } = useNav();
-  const { role } = useRole();
-  const open = useOpen();
-  const q = quickFor(role).filter((x) => open(x.id));
+  const { role, modulesOn } = useRole();
+  const q = quickFor(role, modulesOn);
   if (!q.length) return null;
   return (
     <Card className="hidden @xl:block">
@@ -318,13 +310,43 @@ function ListCard({ title, sub, icon, action, rows, foot }) {
   );
 }
 
+/* ---------- "In this period": the person's own numbers over any dates ---------- */
+// rows: [label, perSchoolDay, kind] where kind is 'money', 'pct' (a rate that does not add up) or a plain count
+function PeriodCard({ title, sub, icon = 'CalendarRange', to, rows, def = 'thismonth' }) {
+  const { go } = useNav();
+  const open = useOpen();
+  const [per, setPer] = useState(PERIODS[def]);
+  const one = per.from === per.to;
+  const days = one ? 1 : Math.max(1, Math.round((periodDays(per) * 5.5) / 7));
+  const jit = (i) => { let h = 3; for (const c of per.from + per.to) h = (h * 31 + c.charCodeAt(0)) % 101; return ((h + i * 7) % 5) - 2; };
+  const val = ([, v, kind], i) => (kind === 'pct' ? `${Math.min(99, v + (one ? 0 : jit(i)))}%` : kind === 'money' ? inr(Math.round(v * days)) : Math.round(v * days).toLocaleString('en-IN'));
+  const Ic = I[icon] || I.CalendarRange;
+  return (
+    <Card>
+      <CardHead title={title} sub={sub} icon={Ic}
+        action={to && open(to) ? <button onClick={() => goTo(go, to)} className="text-[13px] font-semibold text-brand hover:underline whitespace-nowrap">Open</button> : null} />
+      <div className="px-5 pb-2"><DatePeriod id={'home-period'} size="sm" value={per} onChange={setPer} className="w-full" /></div>
+      <p className="px-5 pb-1 text-[12.5px] text-ink3 tnum">Showing: {per.label} · {fmtRange(per)}</p>
+      <div className="px-5 pb-4">
+        {rows.map((r, i) => (
+          <div key={r[0]} className="flex justify-between gap-3 py-1.5 text-[14px] border-b border-line/60 last:border-0">
+            <span className="text-ink3">{r[0]}</span><b className="font-semibold tnum">{val(r, i)}</b>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 /* ---------- Today's classes (teachers see these first on a phone) ---------- */
 function TodayClasses({ rows, taken, title = 'My classes today', sub }) {
   const { go } = useNav();
+  const open = useOpen();
+  const canTake = open('attendance.take');
   return (
     <Card>
       <CardHead title={title} sub={sub || `Friday · ${rows.length} periods from your Time Table`} icon={I.CalendarRange}
-        action={<button onClick={() => go('academic', { page: 'timetable' })} className="text-[13px] font-semibold text-brand hover:underline whitespace-nowrap">Time Table</button>} />
+        action={open('academic.timetable') ? <button onClick={() => go('academic', { page: 'timetable' })} className="text-[13px] font-semibold text-brand hover:underline whitespace-nowrap">Time Table</button> : null} />
       <ul className="px-2 pb-2 flex flex-col gap-0.5">
         {rows.map((r) => {
           const done = taken.has(r.id);
@@ -340,7 +362,7 @@ function TodayClasses({ rows, taken, title = 'My classes today', sub }) {
                 <p className={cx('text-[12.5px] truncate', r.subst ? 'text-warn font-semibold' : 'text-ink3')}>{r.now ? 'Now · ' : ''}{r.room}{r.subst ? ` · ${r.subst}` : ''}</p>
               </div>
               {done ? <Pill tone="ok" className="shrink-0"><I.Check size={13} strokeWidth={3} />Taken</Pill>
-                : <Button size="sm" variant={r.now || past ? 'primary' : 'secondary'} className="shrink-0" onClick={() => go('attendance', { page: 'take' })}><span className="@sm:hidden">Take</span><span className="hidden @sm:inline">Take attendance</span></Button>}
+                : canTake && <Button size="sm" variant={r.now || past ? 'primary' : 'secondary'} className="shrink-0" onClick={() => go('attendance', { page: 'take' })}><span className="@sm:hidden">Take</span><span className="hidden @sm:inline">Take attendance</span></Button>}
             </li>
           );
         })}
@@ -374,6 +396,7 @@ function HomeLayout({ cfg }) {
           <QuickCard />
           <ApprovalsCard />
           <Today items={cfg.today.filter(shown)} birthdays={cfg.birthdays} />
+          {cfg.period && (!cfg.period.to || shown({ to: cfg.period.to })) && <PeriodCard {...cfg.period} />}
           {cfg.side}
         </div>
       </div>
@@ -402,6 +425,7 @@ const RAVI_DAY = [
 
 const HOMES = {
   accountant: () => ({
+    period: { title: 'Money in this period', sub: 'Fees in, money out', icon: 'Wallet', to: 'fees.reports', rows: [['Fees collected', 118400, 'money'], ['Payments', 32], ['Expenses paid', 14500, 'money'], ['Concessions given', 2100, 'money']] },
     action: { label: 'Collect fee', icon: I.IndianRupee, to: 'fees.collect' },
     band: [
       { label: 'Collected today', big: '₹1,42,500', foot: '38 payments · 21 by UPI', to: 'fees.dashboard' },
@@ -435,6 +459,7 @@ const HOMES = {
   }),
 
   teacher: ({ taken }) => ({
+    period: { title: 'My teaching in this period', sub: 'Your classes and subjects only', icon: 'NotebookPen', to: 'homework.homework', rows: [['Periods taught', 6], ['Attendance taken', 5], ['Homework given', 2], ['Homework checked', 38]] },
     action: { label: 'Take attendance', icon: I.CalendarCheck2, to: 'attendance.take' },
     first: <TodayClasses rows={IMRAN_DAY} taken={taken} />,
     band: [
@@ -444,7 +469,7 @@ const HOMES = {
       { label: 'Parent messages', big: '3', foot: '2 about the half-yearly', to: 'communication.inbox' },
     ],
     attention: [
-      { tone: 'warn', icon: 'ArrowRightLeft', title: 'Substitution today: 8 A, period 5 (English)', detail: 'Anitha Kumari is on leave. Her lesson plan is attached.', action: 'See plan', to: 'academic.substitutions' },
+      { tone: 'warn', icon: 'ArrowRightLeft', title: 'Substitution today: 8 A, period 5 (English)', detail: 'Anitha Kumari is on leave. Her lesson plan is attached.', action: 'Time Table', to: 'academic.timetable' },
       { tone: 'info', icon: 'NotebookPen', title: '14 homework submissions to check', detail: 'Maths 6 A · Exercise 4.1 · due back tomorrow', action: 'Check', to: 'homework.submissions' },
       { tone: 'bad', icon: 'TrendingDown', title: '3 students in 7 A below 40% in Unit Test 2', detail: 'Rahul Verma, Sneha Das, Yash Kumar', action: 'See students', to: 'reports.warnings' },
       { tone: 'info', icon: 'ClipboardCheck', title: 'Half-yearly marks entry opens 17 Oct', detail: 'Mathematics · 6 A, 6 B, 7 A, 7 B · locks 24 Oct', action: 'Marks', to: 'exams.marks' },
@@ -454,11 +479,11 @@ const HOMES = {
       { title: 'Give homework for 7 B (Chapter 5: Lines and angles)', due: 'Today, after period 4', to: 'homework.homework', action: 'Give' },
       { title: 'Lesson plan: Chapter 6, Class 6', due: 'Sat 10 Oct', by: 'Meena Pillai', to: 'academic.syllabus', action: 'Plan' },
       { title: 'Reply to Priya Sharma about Aarav’s Maths', due: 'Today', to: 'communication.inbox', action: 'Reply' },
-      { title: 'Set PTM slots for Sat 17 Oct', due: 'Wed 14 Oct', by: 'Ravi Teja', to: 'events.ptm', action: 'PTM' },
+      { title: 'Set PTM slots for Sat 17 Oct', due: 'Wed 14 Oct', by: 'Srinivas Murthy', to: 'events.ptm', action: 'PTM' },
     ],
     today: [
       { time: '11:15', title: '7 B · Mathematics', where: 'Room 204 · Chapter 5', tone: 'brand', to: 'academic.timetable' },
-      { time: '12:40', title: 'Substitution: 8 A English', where: 'Room 205 · for Anitha Kumari', tone: 'warn', to: 'academic.substitutions' },
+      { time: '12:40', title: 'Substitution: 8 A English', where: 'Room 205 · for Anitha Kumari', tone: 'warn', to: 'academic.timetable' },
       { time: '3:00', title: 'Staff meeting', where: 'Principal’s room', tone: 'info' },
       { time: 'Mon', title: 'Invigilation: English, 6 B', where: 'Half-yearly · Room 107 · 9:00 AM', tone: 'bad', to: 'exams.datesheet' },
       { time: 'Sat 17', title: 'PTM', where: '9:30 AM–12:30 PM · your 4 classes', tone: 'brand', to: 'events.ptm' },
@@ -468,6 +493,7 @@ const HOMES = {
   }),
 
   classteacher: ({ taken }) => ({
+    period: { title: '7 B in this period', sub: 'Your class only', icon: 'GraduationCap', to: 'attendance.register', rows: [['Attendance', 95, 'pct'], ['Absences', 2], ['Late arrivals', 1], ['Leave days recorded', 0.6]] },
     action: { label: 'Take attendance', icon: I.CalendarCheck2, to: 'attendance.take' },
     first: <TodayClasses rows={RAVI_DAY} taken={taken} />,
     band: [
@@ -486,10 +512,9 @@ const HOMES = {
       { title: 'Take attendance for 7 B', due: 'Today, by 11:00 AM', to: 'attendance.take', action: 'Take' },
       { title: 'Decide 2 leave requests', due: 'Today', to: 'attendance.leave', action: 'Leave' },
       { title: 'Call Kabir Das’s parents', due: 'Today', to: 'students.list', action: 'Profile' },
-      { title: 'Write report card remarks for 7 B', due: 'Tue 20 Oct', by: 'Prakash Joshi', to: 'exams.reportcards', action: 'Remarks' },
+      { title: 'Write report card remarks for 7 B', due: 'Tue 20 Oct', by: 'Meena Pillai', to: 'exams.reportcards', action: 'Remarks' },
       { title: 'Science Unit Test 2 marks for 8 B', due: 'Was due 7 Oct', over: true, to: 'exams.marks', action: 'Marks' },
     ],
-    given: [{ title: 'Set PTM slots for Sat 17 Oct', due: 'Due Wed 14 Oct', to2: 'Imran Shaikh' }, { title: 'Collect photo consent forms in 7 B', due: 'Due Fri 16 Oct', to2: 'Naveen Kumar' }],
     today: [
       { time: '10:30', title: '7 A · Science', where: 'Room 203 · now', tone: 'brand', to: 'academic.timetable' },
       { time: '11:00', title: '7 B attendance locks', where: 'Mark it before then', tone: 'bad', to: 'attendance.take' },
@@ -502,6 +527,7 @@ const HOMES = {
   }),
 
   receptionist: () => ({
+    period: { title: 'Front desk in this period', icon: 'DoorOpen', to: 'frontoffice.visitors', rows: [['Visitors', 24], ['Admission enquiries', 4], ['Early pickups', 3], ['Post and deliveries', 6]] },
     action: { label: 'Add visitor', icon: I.IdCard, to: 'frontoffice.visitors' },
     band: [
       { label: 'Visitors in building', big: '6', foot: '1 waiting for the Principal', to: 'frontoffice.visitors' },
@@ -532,6 +558,7 @@ const HOMES = {
   }),
 
   transport: () => ({
+    period: { title: 'Trips in this period', icon: 'Bus', to: 'transport.reports', rows: [['Trips run', 36], ['Late trips', 0.6], ['On time', 98, 'pct'], ['Kilometres', 420]] },
     action: { label: 'See live buses', icon: I.Bus, to: 'transport.live' },
     band: [
       { label: 'Morning trips', big: <>18<span className="text-[0.55em] opacity-70 font-medium"> / 18</span></>, foot: 'Done · 1 late (Bus 3, 14 min)', to: 'transport.trips' },
@@ -561,6 +588,7 @@ const HOMES = {
   }),
 
   librarian: () => ({
+    period: { title: 'Library in this period', icon: 'BookOpen', to: 'library.reports', rows: [['Books issued', 42], ['Books returned', 38], ['New members', 1.2], ['Fines collected', 160, 'money']] },
     action: { label: 'Issue a book', icon: I.ArrowRightLeft, to: 'library.issue' },
     band: [
       { label: 'Due back today', big: '17', foot: '9 students, 8 classes', to: 'library.issue' },
@@ -590,6 +618,7 @@ const HOMES = {
   }),
 
   warden: () => ({
+    period: { title: 'Hostel in this period', sub: 'Boys’ hostel only', icon: 'BedDouble', to: 'hostel.reports', rows: [['Roll call present', 98, 'pct'], ['Outings', 1.5], ['Incidents', 0.4], ['Parent visits', 3]] },
     action: { label: 'Night roll call', icon: I.ListChecks, to: 'hostel.rollcall' },
     band: [
       { label: 'Boarders', big: <>96<span className="text-[0.55em] opacity-70 font-medium"> boys</span></>, foot: '92 in school · 4 away', to: 'hostel.rooms' },
@@ -618,6 +647,7 @@ const HOMES = {
   }),
 
   storekeeper: () => ({
+    period: { title: 'Store in this period', icon: 'Boxes', to: 'inventory.reports', rows: [['Items issued', 35], ['Deliveries received', 1.5], ['Purchase orders', 0.5], ['Repairs closed', 1.2]] },
     action: { label: 'Issue stock', icon: I.PackageMinus, to: 'inventory.issue' },
     band: [
       { label: 'Below reorder level', big: '4', foot: 'A4 paper, chalk, markers, sanitiser', to: 'inventory.items' },
@@ -632,7 +662,7 @@ const HOMES = {
       { tone: 'info', icon: 'Truck', title: 'PO-0231 arriving today', detail: 'Sri Lakshmi Stationers · 14 items', action: 'Receive', to: 'inventory.purchases' },
     ],
     tasks: [
-      { title: 'Issue exam stationery to the exam cell', due: 'Today, 2:00 PM', by: 'Prakash Joshi', to: 'inventory.issue', action: 'Issue' },
+      { title: 'Issue exam stationery to the exam cell', due: 'Today, 2:00 PM', by: 'Anita Sharma', to: 'inventory.issue', action: 'Issue' },
       { title: 'Raise purchase order for A4 paper (50 reams)', due: 'Today', to: 'inventory.purchases', action: 'PO' },
       { title: 'Yearly asset check, Block B', due: 'Fri 30 Oct', to: 'inventory.assets', action: 'Assets' },
     ],
@@ -646,6 +676,7 @@ const HOMES = {
   }),
 
   academichead: () => ({
+    period: { title: 'Teaching in this period', icon: 'BookOpenCheck', to: 'academic.substitutions', rows: [['Substitutions', 3.5], ['Periods covered', 99, 'pct'], ['Homework given', 37], ['Lesson plans checked', 5]] },
     action: { label: 'Arrange substitute', icon: I.ArrowRightLeft, to: 'academic.substitutions' },
     band: [
       { label: 'Periods covered today', big: <>342<span className="text-[0.55em] opacity-70 font-medium"> / 344</span></>, foot: '2 substitutions still open', to: 'academic.substitutions' },
@@ -676,6 +707,7 @@ const HOMES = {
   }),
 
   hr: () => ({
+    period: { title: 'Staff in this period', icon: 'Users', to: 'staff.leave', rows: [['Staff attendance', 95, 'pct'], ['Leave days taken', 3], ['Late arrivals', 1.5], ['Applications received', 2]] },
     action: { label: 'Staff leave', icon: I.CalendarDays, to: 'staff.leave' },
     band: [
       { label: 'Staff present', big: <>82<span className="text-[0.55em] opacity-70 font-medium"> / 86</span></>, foot: '3 on leave · 1 not in yet', to: 'attendance.staff' },
@@ -705,6 +737,7 @@ const HOMES = {
   }),
 
   officestaff: () => ({
+    period: { title: 'Office work in this period', icon: 'Briefcase', to: 'attendance.leave', rows: [['Student leave recorded', 3], ['Certificates given', 2], ['Applications received', 1.5], ['Admit cards printed', 40]] },
     action: { label: 'Record student leave', icon: I.CalendarDays, to: 'attendance.leave' },
     band: [
       { label: 'Admit cards printed', big: <>412<span className="text-[0.55em] opacity-70 font-medium"> / 486</span></>, foot: 'Classes 6–10 · 74 left', to: 'exams.admitcards' },
@@ -722,7 +755,7 @@ const HOMES = {
       { title: 'Record leave for Aarav Sharma (7 B), Mon 12 Oct', due: 'Today', by: 'Priya Sharma by phone', to: 'attendance.leave', action: 'Leave' },
       { title: 'Print bonafide for Sneha Rao (9 C)', due: 'Today', to: 'students.certificates', action: 'Print' },
       { title: 'Import the October new admissions', due: 'Sat 10 Oct', by: 'Anita Sharma', to: 'students.list', action: 'Students' },
-      { title: 'Seating plan into the datesheet', due: 'Sat 10 Oct', by: 'Prakash Joshi', to: 'exams.datesheet', action: 'Datesheet' },
+      { title: 'Seating plan into the datesheet', due: 'Sat 10 Oct', by: 'Anita Sharma', to: 'exams.datesheet', action: 'Datesheet' },
     ],
     today: [
       { time: '11:30', title: 'PTM for Classes 1–3', where: 'Hall arrangements', tone: 'brand' },
@@ -761,6 +794,7 @@ const HOMES = {
   }),
 
   admissioncounsellor: () => ({
+    period: { title: 'Admissions in this period', sub: 'Enquiries you own', icon: 'UserPlus', to: 'admissions.reports', rows: [['New enquiries', 5], ['School visits', 1.2], ['Applications', 1.5], ['Admissions confirmed', 0.6]] },
     action: { label: 'Add enquiry', icon: I.PhoneIncoming, to: 'admissions.enquiries' },
     band: [
       { label: 'New enquiries today', big: '5', foot: '2 walk-in · 3 website', to: 'admissions.enquiries' },
@@ -790,6 +824,7 @@ const HOMES = {
   }),
 
   counsellor: () => ({
+    period: { title: 'My counselling in this period', sub: 'Only cases given to you', icon: 'HeartHandshake', to: 'students.behaviour', rows: [['Sessions held', 4], ['Cases opened', 0.3], ['Cases closed', 0.2], ['Parent meetings', 0.5]] },
     action: { label: 'Open cases', icon: I.HeartHandshake, to: 'students.behaviour' },
     band: [
       { label: 'Sessions today', big: '4', foot: 'Next at 11:15', to: 'students.behaviour' },
@@ -816,6 +851,7 @@ const HOMES = {
   }),
 
   gatesecurity: () => ({
+    period: { title: 'Gate in this period', icon: 'IdCard', to: 'frontoffice.visitors', rows: [['Visitors', 24], ['Early pickups', 3], ['Deliveries at the gate', 6]] },
     action: { label: 'Add visitor', icon: I.IdCard, to: 'frontoffice.visitors' },
     band: [
       { label: 'Visitors inside', big: '6', foot: '2 not out from yesterday', to: 'frontoffice.visitors' },
@@ -828,8 +864,8 @@ const HOMES = {
       { tone: 'info', icon: 'Users', title: 'Early pickup at 12:15', detail: 'Diya Menon, UKG B · mother · pass GP-0912', action: 'See pass', to: 'frontoffice.pickup' },
     ],
     tasks: [
-      { title: 'Check visitor passes at PTM (Classes 1–3)', due: 'Today, 11:30 AM', by: 'Kavitha Nair', to: 'frontoffice.visitors', action: 'Visitors' },
-      { title: 'Keep the bus lane clear', due: 'Today, 3:40 PM', by: 'Venkatesh Goud' },
+      { title: 'Check visitor passes at PTM (Classes 1–3)', due: 'Today, 11:30 AM', by: 'Anita Sharma', to: 'frontoffice.visitors', action: 'Visitors' },
+      { title: 'Keep the bus lane clear', due: 'Today, 3:40 PM', by: 'Anita Sharma' },
     ],
     today: [
       { time: '11:30', title: 'PTM parents arrive', where: 'About 90 parents · Classes 1–3', tone: 'brand' },
@@ -999,18 +1035,19 @@ function BusesCard() {
 const STAFF_CODE = { 'Lakshmi Rao': 'SPS-A-001', 'Srinivas Murthy': 'SPS-T-002', 'Meena Pillai': 'SPS-T-004', 'Shalini Verma': 'SPS-A-008', 'Naveen Kumar': 'SPS-A-017', 'Prakash Joshi': 'SPS-T-012', 'Divya Menon': 'SPS-A-019', 'Sana Ali': 'SPS-A-021', 'Bhaskar Rao': 'SPS-S-030' };
 const NOTE_TYPES = [
   { k: 'Approvals waiting for me', locked: true, def: [1, 1, 0, 0], need: (r) => r.approves || r.id === 'principal' || r.id === 'schooladmin' },
-  { k: 'Tasks given to me', def: [1, 0, 0, 0] },
-  { k: 'Substitutions I must take', def: [1, 1, 1, 0], need: (r) => !!r.access.academic },
+  { k: 'Tasks given to me', def: [1, 0, 0, 0], need: (r) => r.id !== 'student' },
+  { k: 'Substitutions I must take', def: [1, 1, 1, 0], need: (r) => r.id === 'teacher' || r.id === 'classteacher' },
   { k: 'Fee payments received', def: [1, 0, 0, 0], need: (r) => r.access.fees === 'full' },
-  { k: 'My leave decided', def: [1, 1, 0, 0], need: (r) => !!r.access.staff },
-  { k: 'Salary slip ready', def: [1, 0, 0, 1], need: (r) => !!r.access.salary },
+  { k: 'My leave decided', def: [1, 1, 0, 0], need: (r) => r.access.staff === 'own' },
+  { k: 'Salary slip ready', def: [1, 0, 0, 1], need: (r) => r.access.salary === 'own' },
+  { k: 'Homework and quizzes due', def: [1, 0, 0, 0], need: (r) => r.id === 'student' },
   { k: 'Notices from the school', def: [1, 0, 0, 0] },
   { k: 'Security alerts (new sign-in, password changed)', locked: true, def: [1, 1, 1, 0] },
 ];
 const WHATS_NEW = [
   { when: '9 Oct 2026', mod: 'fees', text: 'Collect Fee: the Pay button is now at the bottom on phones.' },
   { when: '5 Oct 2026', mod: 'attendance', text: 'Take Attendance: “All present” now asks before it clears the marks you made.' },
-  { when: '1 Oct 2026', mod: null, text: 'Search: type “fee Aarav” or “absent today” to jump straight to the work.' },
+  { when: '1 Oct 2026', mod: 'fees', text: 'Search: type “fee Aarav” to jump straight to collecting a fee.' },
   { when: '24 Sep 2026', mod: 'homework', text: 'Homework: add photos straight from the phone camera.' },
   { when: '15 Sep 2026', mod: 'communication', text: 'Parent Link now shows report cards once they are published.' },
   { when: '2 Sep 2026', mod: null, text: 'My profile: sign out of a lost phone from “Signed-in devices”.' },
@@ -1039,8 +1076,10 @@ export function MyProfile() {
   const must = ['principal', 'schooladmin', 'accountant', 'vp', 'hr'].includes(roleId);
   const [twoOn, setTwoOn] = useState(false);
   const two = must || twoOn;
-  const isStaff = !!role.access.staff;
-  const news = WHATS_NEW.filter((w) => !w.mod || role.access[w.mod]);
+  const news = WHATS_NEW.filter((w) => !w.mod || (w.mod === 'fees' ? role.access.fees === 'full' : role.access[w.mod]));
+  // Personal pages under My profile: only the parts of Staff & HR and Salary that are this person's own
+  const work = [['staff', 'leave', I.CalendarDays, 'My leave', 'Casual 5 · sick 3 · earned 12 days left'], ['salary', 'slips', I.Wallet, 'My salary slips', 'September 2026 slip is ready'], ['staff', 'documents', I.FileText, 'My documents', 'ID card, joining letter, certificates']]
+    .filter(([m]) => role.access[m] === 'own');
   const signOut = (d) => { setDevices((x) => x.filter((y) => y.id !== d.id)); toast({ title: `Signed out on ${d.name.split(' · ')[0]}`, body: 'Your password is needed to sign in there again.', undo: () => setDevices((x) => [...x, d]) }); };
 
   return (
@@ -1062,7 +1101,7 @@ export function MyProfile() {
             </div>
           </div>
           <div className="flex gap-2">
-            <Button variant="secondary" icon={I.Camera} onClick={() => toast({ title: 'Photo updated', body: 'Shows on your ID card and in staff lists.' })}>Photo</Button>
+            <Button variant="secondary" icon={I.Camera} onClick={() => toast({ title: 'Photo updated', body: role.id === 'student' ? 'Shows on your ID card.' : 'Shows on your ID card and in staff lists.' })}>Photo</Button>
             <Button variant="primary" icon={I.Pencil} onClick={() => setEdit(true)}>Edit details</Button>
           </div>
         </div>
@@ -1135,7 +1174,7 @@ export function MyProfile() {
                 </tbody>
               </table>
             </div>
-            <p className="px-5 py-3 text-[12.5px] text-ink3 border-t border-line/70">WhatsApp and SMS go to {phone}. The school decides which channels are allowed.</p>
+            <p className="px-5 py-3 text-[12.5px] text-ink3 border-t border-line/70">{phone ? `WhatsApp and SMS go to ${phone}.` : 'Add a mobile number in Edit details to get WhatsApp and SMS.'} The school decides which channels are allowed.</p>
           </Card>
         </Col>
 
@@ -1154,14 +1193,13 @@ export function MyProfile() {
             </div>
           </Card>
 
-          {isStaff && (
+          {work.length > 0 && (
             <Card>
               <CardHead title="My work" icon={I.Briefcase} />
               <ul className="px-2 pb-2">
-                {[['staff', 'leave', I.CalendarDays, 'My leave', 'Casual 5 · sick 3 · earned 12 days left'], ['salary', 'slips', I.Wallet, 'My salary slips', 'September 2026 slip is ready'], ['staff', 'documents', I.FileText, 'My documents', 'ID card, joining letter, certificates']]
-                  .filter(([m]) => role.access[m]).map(([m, p, Ic, t, s]) => (
+                {work.map(([m, p, Ic, t, s]) => (
                     <li key={t}>
-                      <button onClick={() => go(m, pagesFor(m, role.access[m], role.id).some((x) => x.id === p) ? { page: p } : {})} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sunken/70 text-left">
+                      <button onClick={() => go(m, { page: p })} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sunken/70 text-left">
                         <span className="w-10 h-10 rounded-xl bg-brand/10 text-brand grid place-items-center shrink-0"><Ic size={19} /></span>
                         <span className="min-w-0 flex-1"><span className="block font-semibold text-[14.5px]">{t}</span><span className="block text-[12.5px] text-ink3 truncate">{s}</span></span>
                         <I.ChevronRight size={17} className="text-ink3" />
@@ -1308,9 +1346,15 @@ export function SetupHome() {
     if (!open(s.to)) { toast({ title: 'Only the School Admin opens this', body: `${s.label} is set up by the School Admin or the Principal.`, tone: 'info' }); return; }
     goTo(go, s.to);
   };
+  if (!admin) return (
+    <div className="max-w-xl mx-auto py-6">
+      <Empty icon={I.Lock} title="The setup checklist is for the School Admin"
+        body={`Only the School Admin and the Principal set up the school. Your role, ${role.label}, does not include this page.`}
+        action={<Button variant="secondary" icon={I.House} onClick={() => go(role.access.dashboard ? 'dashboard' : 'homework')}>Go to your home</Button>} />
+    </div>
+  );
   return (
     <div className="flex flex-col gap-5 @lg:gap-6">
-      {!admin && <Banner tone="info" title={`You are viewing as ${role.label}.`}>Only the School Admin and the Principal see this checklist. This is what {P.name} sees.</Banner>}
       <div className="flex flex-col @md:flex-row @md:items-end justify-between gap-3">
         <div>
           <p className="text-[13px] font-semibold text-ink3">Friday, 9 October · Day 8 of your trial</p>

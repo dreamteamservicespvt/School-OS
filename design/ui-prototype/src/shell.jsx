@@ -3,6 +3,8 @@ import * as I from './icons.js';
 import { NAV, SCHOOL, ME, STUDENTS, NOTIFICATIONS, APPROVALS, FEATURED } from './data.js';
 import { inMenu, MODULES, BOTTOM, QUICK_BY_ROLE, APPROVALS_BY_ROLE, SCHOOLS_IN_GROUP, pagesFor } from './config.js';
 import { cx, IconButton, Avatar, Kbd, Sheet, Button, Pill, useToast } from './ui.jsx';
+import { studentScope } from './students.jsx';
+import { STAFF } from './sample.js';
 
 export const NavCtx = createContext({ go: () => {}, screen: 'dashboard' });
 export const useNav = () => useContext(NavCtx);
@@ -113,10 +115,11 @@ export function TopBar({ onSearch, onNotif, onProfile, onApprovals, unread, titl
   const { role, year } = useRole();
   const ME = role.person;
   const appr = approvalsFor(role);
+  const home = role.access.dashboard ? 'dashboard' : 'homework';
   return (
     <header className="h-16 shrink-0 flex items-center gap-2 px-3 @md:px-5 border-b border-line bg-surface/85 backdrop-blur-md z-20">
       {/* Phone: logo + title */}
-      <button className="@md:hidden flex items-center gap-2.5 min-w-0 flex-1 text-left" onClick={() => go('dashboard')}>
+      <button className="@md:hidden flex items-center gap-2.5 min-w-0 flex-1 text-left" onClick={() => go(home)}>
         <Logo size={34} />
         <div className="min-w-0">
           <p className="font-display font-semibold text-[15px] leading-tight truncate">{title || SCHOOL.name}</p>
@@ -231,18 +234,35 @@ export const QUICK = [
   { id: 'admissions', label: 'Add enquiry', sub: 'A parent asked about admission', icon: I.PhoneIncoming },
   { id: 'finance', label: 'Record expense', sub: 'Bills, purchases, petty cash', icon: I.ReceiptText },
 ];
-const QUICK_BIG = ['principal', 'schooladmin', 'vp'];
-export function quickFor(role) {
-  if (QUICK_BIG.includes(role.id)) return QUICK;
-  return (QUICK_BY_ROLE[role.id] || []).map(([id, label, sub, icon]) => ({ id, label, sub, icon: I[icon] || I.Circle }));
+const QUICK_BIG = ['principal', 'schooladmin'];
+// Can this person open 'module.page' (or a special screen)? Checks their role, the page list for it and modules switched off.
+export function canOpen(role, to, modulesOn = {}) {
+  if (!to) return false;
+  if (to === 'add-student') return role.access.students === 'full';
+  const [m, p] = to.split('.');
+  if (m === 'approvals') return approvalsFor(role).length > 0;
+  if (['profile', 'appearance'].includes(m)) return true;
+  if (m === 'setup') return role.id === 'principal' || role.id === 'schooladmin';
+  if (m === 'student') return !!role.access.students && role.id !== 'counsellor';
+  if (m === 'dashboard') return !!role.access.dashboard;
+  if (modulesOn[m] === false) return false;
+  const acc = role.access[m];
+  if (!acc) return false;
+  const pages = pagesFor(m, acc, role.id);
+  return p ? pages.some((x) => x.id === p) : pages.length > 0;
+}
+// Quick actions ("New") for this person: only things their role can do
+export function quickFor(role, modulesOn) {
+  const list = QUICK_BIG.includes(role.id) ? QUICK : (QUICK_BY_ROLE[role.id] || []).map(([id, label, sub, icon]) => ({ id, label, sub, icon: I[icon] || I.Circle }));
+  return list.filter((q) => canOpen(role, q.id, modulesOn));
 }
 export function QuickSheet({ open, onClose, onAddStudent }) {
   const { go } = useNav();
-  const { role } = useRole();
+  const { role, modulesOn } = useRole();
   return (
     <Sheet open={open} onClose={onClose} title="What do you want to do?">
       <div className="grid @sm:grid-cols-2 gap-2">
-        {quickFor(role).map((q) => (
+        {quickFor(role, modulesOn).map((q) => (
           <button key={q.id + q.label} onClick={() => { onClose(); q.id === 'add-student' ? onAddStudent() : goTo(go, q.id); }}
             className="flex items-center gap-3 text-left p-3 rounded-2xl border border-line hover:border-brand/40 hover:bg-brand/5 transition">
             <span className="w-11 h-11 rounded-xl bg-brand/10 text-brand grid place-items-center shrink-0"><q.icon size={21} /></span>
@@ -260,10 +280,19 @@ export function QuickSheet({ open, onClose, onAddStudent }) {
 /* ---------- Search / Ask / Do ---------- */
 export function CommandPalette({ open, onClose, onAddStudent }) {
   const { go } = useNav();
-  const { role } = useRole();
+  const { role, modulesOn } = useRole();
   const menu = useMenu();
-  const canStudents = !!role.access.students;
+  // Students this person may find: Student Management roles, teachers only their own classes, the warden only boarders.
+  // The Counsellor finds cases inside Behaviour & Counselling, not through search.
+  const pool = useMemo(() => (role.access.students && role.id !== 'counsellor' ? studentScope(role.id).list : []), [role]);
+  const canStudents = pool.length > 0;
   const canFees = role.access.fees === 'full';
+  // Staff search: HR, Principal, School Admin and Vice Principal; the Librarian too, for issuing books (name and department only)
+  const staffTo = role.access.staff === 'full' || role.access.staff === 'view' ? 'staff.list' : role.id === 'librarian' && modulesOn.library !== false ? 'library.issue' : null;
+  // Student attendance only (HR has staff attendance, Office Staff only student leave)
+  const register = canOpen(role, 'attendance.register', modulesOn) || canOpen(role, 'attendance.take', modulesOn);
+  const attTo = canOpen(role, 'attendance.register', modulesOn) ? 'register' : 'take';
+  const own = role.access.attendance === 'own';
   const [q, setQ] = useState('');
   const [sel, setSel] = useState(0);
   const inp = useRef(null);
@@ -274,20 +303,33 @@ export function CommandPalette({ open, onClose, onAddStudent }) {
     const out = [];
     const feeMatch = canFees && t.match(/^(fee|fees|collect)\s+(.+)/);
     if (feeMatch) {
-      STUDENTS.filter((s) => s.name.toLowerCase().includes(feeMatch[2])).slice(0, 3).forEach((s) =>
+      pool.filter((s) => s.name.toLowerCase().includes(feeMatch[2])).slice(0, 3).forEach((s) =>
         out.push({ sec: 'Do this', icon: I.IndianRupee, label: `Collect fee from ${s.name}`, sub: `${s.cls} ${s.sec} · ${s.due ? '₹' + s.due.toLocaleString('en-IN') + ' due' : 'No dues'}`, run: () => go('fees', { student: s.id }) }));
     }
-    if (t.includes('absent') && role.access.attendance) out.push({ sec: 'Do this', icon: I.UserX, label: 'Show students absent today', sub: '52 students · Attendance register', run: () => go('attendance') });
+    if (t.includes('absent') && register) out.push({ sec: 'Do this', icon: I.UserX, label: own ? 'Show absent students in your classes' : 'Show students absent today', sub: own ? 'Your classes only · Attendance register' : '52 students · Attendance register', run: () => go('attendance', { page: attTo }) });
+    // Personal pages under My profile, and Approvals for people who decide requests
+    const mine = [
+      ['profile', 'My profile and password', 'Details, password, devices, alerts', I.UserCog, true],
+      ['staff.leave', 'My leave', 'Apply and see your leave', I.CalendarDays, role.access.staff === 'own'],
+      ['staff.documents', 'My documents', 'ID card, joining letter, certificates', I.FileText, role.access.staff === 'own'],
+      ['salary.slips', 'My salary slips', 'Download your slips', I.Wallet, role.access.salary === 'own'],
+      ['approvals', 'Approvals', 'Requests waiting for you', I.ListChecks, approvalsFor(role).length > 0],
+      ['appearance', 'Colours and text size', 'Light or dark, school colour', I.Palette, true],
+    ].filter((x) => x[4]);
     if (!t) {
-      quickFor(role).slice(0, 4).forEach((x) => out.push({ sec: 'Quick actions', icon: x.icon, label: x.label, sub: x.sub, run: () => (x.id === 'add-student' ? onAddStudent() : goTo(go, x.id)) }));
-      if (canStudents) out.push({ sec: 'Recent', icon: I.User, label: FEATURED.name, sub: `Class 7 B · Roll ${FEATURED.roll} · ${FEATURED.adm}`, run: () => go('student', { id: FEATURED.id }) });
+      quickFor(role, modulesOn).slice(0, 4).forEach((x) => out.push({ sec: 'Quick actions', icon: x.icon, label: x.label, sub: x.sub, run: () => (x.id === 'add-student' ? onAddStudent() : goTo(go, x.id)) }));
+      if (canStudents && (role.access.students !== 'view' || role.id === 'accountant') && pool.some((s) => s.id === FEATURED.id)) out.push({ sec: 'Recent', icon: I.User, label: FEATURED.name, sub: `Class 7 B · Roll ${FEATURED.roll} · ${FEATURED.adm}`, run: () => go('student', { id: FEATURED.id }) });
       if (canFees) out.push({ sec: 'Try asking', icon: I.Sparkles, label: 'fee Aarav', sub: 'Jumps straight to collecting a fee', fill: 'fee Aarav' });
-      if (role.access.attendance) out.push({ sec: 'Try asking', icon: I.Sparkles, label: 'absent today', sub: 'Lists who is absent right now', fill: 'absent today' });
+      if (register) out.push({ sec: 'Try asking', icon: I.Sparkles, label: 'absent today', sub: own ? 'Lists who is absent in your classes' : 'Lists who is absent right now', fill: 'absent today' });
       return out;
     }
     if (!feeMatch && canStudents) {
-      STUDENTS.filter((s) => s.name.toLowerCase().includes(t) || s.adm.toLowerCase().includes(t) || s.phone.replace(' ', '').includes(t.replace(' ', '')))
+      pool.filter((s) => s.name.toLowerCase().includes(t) || s.adm.toLowerCase().includes(t) || s.phone.replace(' ', '').includes(t.replace(' ', '')))
         .slice(0, 5).forEach((s) => out.push({ sec: 'Students', icon: I.User, avatar: s.name, label: s.name, sub: `${s.cls} ${s.sec} · Roll ${s.roll} · ${s.adm}`, run: () => go('student', { id: s.id }) }));
+    }
+    if (!feeMatch && staffTo) {
+      STAFF.filter((x) => x.name.toLowerCase().includes(t)).slice(0, 3)
+        .forEach((x) => out.push({ sec: 'Staff', icon: I.User, avatar: x.name, label: x.name, sub: staffTo === 'library.issue' ? `${x.dept || x.desig} · issue a book` : `${x.desig} · ${x.code}`, run: () => goTo(go, staffTo) }));
     }
     const items = menu.flatMap((g) => g.items);
     items.filter((it) => it.label.toLowerCase().includes(t)).slice(0, 4)
@@ -295,8 +337,9 @@ export function CommandPalette({ open, onClose, onAddStudent }) {
     items.flatMap((it) => pagesFor(it.id, role.access[it.id], role.id).map((p) => ({ it, p })))
       .filter(({ p }) => p.label.toLowerCase().includes(t)).slice(0, 6)
       .forEach(({ it, p }) => out.push({ sec: 'Pages', icon: I[it.icon], label: p.label, sub: it.label, run: () => go(it.id, { page: p.id }) }));
+    mine.filter((x) => x[1].toLowerCase().includes(t)).forEach(([to, label, sub, icon]) => out.push({ sec: 'Yours', icon, label, sub, run: () => goTo(go, to) }));
     return out;
-  }, [q, role]);
+  }, [q, role, pool, modulesOn]);
 
   useEffect(() => setSel(0), [q]);
   const choose = (r) => { if (r.fill) { setQ(r.fill); inp.current?.focus(); return; } onClose(); r.run(); };
@@ -360,9 +403,12 @@ export function CommandPalette({ open, onClose, onAddStudent }) {
 }
 
 /* ---------- Notifications ---------- */
-export function NotifPanel({ open, onClose, items, setItems }) {
+export function NotifPanel({ open, onClose, items: all, setItems }) {
   const { go } = useNav();
+  const { role, modulesOn } = useRole();
   if (!open) return null;
+  // Only alerts that open a screen this person can use (a module switched off hides its alerts)
+  const items = all.filter((n) => canOpen(role, n.to, modulesOn));
   const unread = items.filter((n) => n.unread).length;
   return (
     <div className="absolute inset-0 z-50">
@@ -374,12 +420,12 @@ export function NotifPanel({ open, onClose, items, setItems }) {
             <h2 className="font-display font-semibold text-lg">Notifications</h2>
             <p className="text-[13px] text-ink3">{unread ? `${unread} new` : 'You are all caught up'}</p>
           </div>
-          {unread > 0 && <Button size="sm" variant="ghost" icon={I.CheckCheck} onClick={() => setItems(items.map((n) => ({ ...n, unread: false })))}>Mark all read</Button>}
+          {unread > 0 && <Button size="sm" variant="ghost" icon={I.CheckCheck} onClick={() => setItems(all.map((n) => ({ ...n, unread: false })))}>Mark all read</Button>}
         </div>
         <ul className="overflow-y-auto scroll-thin px-2 pb-3">
           {items.map((n) => (
             <li key={n.id}>
-              <button onClick={() => { setItems(items.map((x) => (x.id === n.id ? { ...x, unread: false } : x))); onClose(); goTo(go, n.to); }}
+              <button onClick={() => { setItems(all.map((x) => (x.id === n.id ? { ...x, unread: false } : x))); onClose(); goTo(go, n.to); }}
                 className="w-full text-left flex gap-3 px-3 py-3 rounded-xl hover:bg-sunken">
                 <span className={cx('mt-1.5 w-2 h-2 rounded-full shrink-0', n.unread ? 'bg-brand' : 'bg-transparent')} />
                 <span className="min-w-0 flex-1">
@@ -428,6 +474,7 @@ export function ProfileMenu({ open, onClose, onSwitch }) {
         <div className="border-t border-line my-1" />
         <button className={row} onClick={() => { onClose(); go('appearance'); }}><I.Palette size={18} className="text-ink3" />Colours and text size</button>
         <button className={row} onClick={() => { onClose(); go('profile'); }}><I.UserCog size={18} className="text-ink3" />My profile and password</button>
+        {approvalsFor(role).length > 0 && <button className={cx(row, '@md:hidden')} onClick={() => { onClose(); go('approvals'); }}><I.ListChecks size={18} className="text-ink3" />Approvals<span className="ml-auto text-[12px] font-bold tnum px-1.5 h-5 rounded-md bg-sunken text-ink2 inline-flex items-center">{approvalsFor(role).length}</span></button>}
         {role.access.staff === 'own' && <button className={row} onClick={() => { onClose(); go('staff', { page: 'leave' }); }}><I.CalendarDays size={18} className="text-ink3" />My leave</button>}
         {role.access.salary === 'own' && <button className={row} onClick={() => { onClose(); go('salary', { page: 'slips' }); }}><I.Wallet size={18} className="text-ink3" />My salary slips</button>}
         {role.access.staff === 'own' && <button className={row} onClick={() => { onClose(); go('staff', { page: 'documents' }); }}><I.FileText size={18} className="text-ink3" />My documents</button>}

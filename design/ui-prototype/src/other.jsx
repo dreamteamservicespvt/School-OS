@@ -4,9 +4,11 @@ import { NAV, APPROVALS } from './data.js';
 import { cx, Card, CardHead, Button, Pill, Avatar, Switch, PageHead, useToast, Empty } from './ui.jsx';
 import { useNav, useTheme, useRole, approvalsFor } from './shell.jsx';
 
+// Royal blue is the school default (owner's choice, 12 Oct 2026), so it comes first
+export const DEFAULT_ACCENT = 'royal';
 export const ACCENTS = [
-  { id: 'lagoon', name: 'Lagoon', light: '12 112 100', dark: '52 196 174' },
   { id: 'royal', name: 'Royal blue', light: '37 88 216', dark: '118 158 255' },
+  { id: 'lagoon', name: 'Lagoon', light: '12 112 100', dark: '52 196 174' },
   { id: 'plum', name: 'Plum', light: '122 52 186', dark: '192 146 252' },
   { id: 'saffron', name: 'Saffron', light: '184 88 6', dark: '248 168 72' },
   { id: 'rose', name: 'Rose', light: '190 28 78', dark: '255 120 156' },
@@ -15,26 +17,30 @@ export const ACCENTS = [
 
 export function Appearance() {
   const { mode, setMode, accent, setAccent, size, setSize, resolved } = useTheme();
+  const { role } = useRole();
   const toast = useToast();
   const [everyone, setEveryone] = useState(false);
+  // Only the people who have Settings may set the colour for the whole school
+  const admin = role.access.settings === 'full';
+  const brand = ACCENTS.find((a) => a.id === accent) || ACCENTS[0];
   return (
     <div className="max-w-4xl">
-      <PageHead title="Colours and text size" sub="Make School OS comfortable for your eyes. Saved on this device." crumbs={<><span>Settings</span><I.ChevronRight size={13} /><span>Appearance</span></>} />
+      <PageHead title="Colours and text size" sub="Make School OS comfortable for your eyes. Saved on this device." crumbs={<><span>My profile</span><I.ChevronRight size={13} /><span>Appearance</span></>} />
       <div className="flex flex-col gap-5">
         <Card>
-          <CardHead title="Light or dark" sub="Auto follows your phone or computer setting" />
+          <CardHead title="Light or dark" sub="Light is the school default. Auto follows your phone or computer setting." />
           <div className="grid grid-cols-3 gap-3 px-5 pb-5">
             {[['light', 'Light', I.Sun], ['dark', 'Dark', I.Moon], ['system', 'Auto', I.MonitorSmartphone]].map(([v, l, Ic]) => (
               <button key={v} onClick={() => setMode(v)} aria-pressed={mode === v}
                 className={cx('rounded-2xl border-2 p-2 text-left transition', mode === v ? 'border-brand' : 'border-line hover:border-ink3/40')}>
-                <ThemeThumb kind={v} />
-                <span className="flex items-center gap-2 mt-2.5 px-1 pb-1 text-[14px] font-semibold"><Ic size={16} />{l}{mode === v && <I.CircleCheck size={16} className="ml-auto text-brand" />}</span>
+                <ThemeThumb kind={v} brand={brand} />
+                <span className="flex items-center gap-2 mt-2.5 px-1 pb-1 text-[14px] font-semibold min-w-0"><Ic size={16} className="shrink-0" /><span className="truncate">{l}{v === 'light' && <span className="text-ink3 font-medium hidden @md:inline"> · default</span>}</span>{mode === v && <I.CircleCheck size={16} className="ml-auto text-brand shrink-0" />}</span>
               </button>
             ))}
           </div>
         </Card>
         <Card>
-          <CardHead title="School colour" sub="Buttons, highlights and the top band use this colour" />
+          <CardHead title="School colour" sub="Buttons, highlights and the top band use this colour. The school default is Royal blue." />
           <div className="grid grid-cols-3 @md:grid-cols-6 gap-3 px-5 pb-4">
             {ACCENTS.map((a) => (
               <button key={a.id} onClick={() => setAccent(a.id)} aria-pressed={accent === a.id}
@@ -42,14 +48,18 @@ export function Appearance() {
                 <span className="w-11 h-11 rounded-full grid place-items-center text-white shadow-card" style={{ background: `rgb(${resolved === 'dark' ? a.dark : a.light})` }}>
                   {accent === a.id && <I.Check size={20} strokeWidth={3} style={{ color: resolved === 'dark' ? '#071412' : '#fff' }} />}
                 </span>
-                <span className="text-[13px] font-semibold">{a.name}</span>
+                <span className="text-[13px] font-semibold text-center leading-tight">{a.name}{a.id === DEFAULT_ACCENT && <span className="block text-[11.5px] text-ink3 font-medium">default</span>}</span>
               </button>
             ))}
           </div>
-          <div className="mx-5 mb-5 rounded-xl bg-sunken p-3.5 flex items-center gap-3">
-            <Switch id="acc-all" on={everyone} onChange={(v) => { setEveryone(v); toast({ title: v ? 'Everyone at Sunrise Public School will see this colour' : 'Only you will see this colour', tone: 'info' }); }} label="Use this colour for everyone" />
-            <label htmlFor="acc-all" className="text-[14px]"><b className="font-semibold">Use for everyone in the school</b><span className="block text-[12.5px] text-ink3">Only School Admin can change this. Each person can still pick light or dark.</span></label>
-          </div>
+          {admin ? (
+            <div className="mx-5 mb-5 rounded-xl bg-sunken p-3.5 flex items-center gap-3">
+              <Switch id="acc-all" on={everyone} onChange={(v) => { setEveryone(v); toast({ title: v ? 'Everyone at Sunrise Public School will see this colour' : 'Only you will see this colour', tone: 'info' }); }} label="Use this colour for everyone" />
+              <label htmlFor="acc-all" className="text-[14px]"><b className="font-semibold">Use for everyone in the school</b><span className="block text-[12.5px] text-ink3">Only the School Admin and the Principal can change this. Each person can still pick light or dark.</span></label>
+            </div>
+          ) : (
+            <p className="mx-5 mb-5 text-[12.5px] text-ink3">Your choice is only for you, on this device. The school's colour is set by the School Admin.</p>
+          )}
         </Card>
         <Card>
           <CardHead title="Text size" sub="Bigger text helps on small phones" />
@@ -77,16 +87,17 @@ export function Appearance() {
   );
 }
 
-function ThemeThumb({ kind }) {
-  const L = { bg: '#f3f6f5', s: '#fff', l: '#dee5e2', i: '#0f1715' };
-  const D = { bg: '#090d0d', s: '#171e1e', l: '#242e2d', i: '#e9efed' };
+// Small pictures of the light and dark looks, each drawn with the chosen school colour as it looks in that mode
+function ThemeThumb({ kind, brand }) {
+  const L = { bg: '#f3f6f5', s: '#fff', l: '#dee5e2', i: '#0f1715', b: `rgb(${brand.light})` };
+  const D = { bg: '#090d0d', s: '#171e1e', l: '#242e2d', i: '#e9efed', b: `rgb(${brand.dark})` };
   const one = (c) => (
     <svg viewBox="0 0 120 72" className="w-full h-auto block" aria-hidden="true">
       <rect width="120" height="72" fill={c.bg} />
       <rect x="0" y="0" width="28" height="72" fill={c.s} />
-      <rect x="6" y="8" width="16" height="4" rx="2" fill="rgb(var(--brand))" />
+      <rect x="6" y="8" width="16" height="4" rx="2" fill={c.b} />
       {[18, 26, 34, 42].map((y) => <rect key={y} x="6" y={y} width="14" height="3" rx="1.5" fill={c.l} />)}
-      <rect x="34" y="8" width="80" height="18" rx="4" fill="rgb(var(--brand))" />
+      <rect x="34" y="8" width="80" height="18" rx="4" fill={c.b} />
       <rect x="34" y="32" width="38" height="32" rx="4" fill={c.s} />
       <rect x="76" y="32" width="38" height="32" rx="4" fill={c.s} />
       <rect x="40" y="38" width="22" height="3" rx="1.5" fill={c.i} opacity=".7" />
@@ -102,6 +113,7 @@ function ThemeThumb({ kind }) {
 
 export function Approvals() {
   const toast = useToast();
+  const { go } = useNav();
   const { role } = useRole();
   const [list, setList] = useState(() => approvalsFor(role));
   const admin = role.id === 'principal' || role.id === 'schooladmin';
@@ -110,9 +122,17 @@ export function Approvals() {
     setList((x) => x.filter((y) => y !== a));
     toast({ title: `${ok ? 'Approved' : 'Declined'}: ${a.what}`, undo: () => setList((x) => [a, ...x]) });
   };
+  // Roles that decide nothing see the no-access screen, never an empty Approvals page
+  if (!admin && !approvalsFor(role).length) return (
+    <div className="max-w-xl mx-auto py-6">
+      <Empty icon={I.Lock} title="Approvals are not part of your role"
+        body={`Your role, ${role.label}, does not decide any requests. Requests you make yourself, like your leave, show their answer in your notifications.`}
+        action={<Button variant="secondary" icon={I.House} onClick={() => go(role.access.dashboard ? 'dashboard' : 'homework')}>Go to your home</Button>} />
+    </div>
+  );
   return (
     <div className="max-w-3xl">
-      <PageHead title="Approvals" sub="Requests only you can decide" />
+      <PageHead title="Approvals" sub={admin ? 'Requests only you can decide' : `Requests your role, ${role.label}, may decide`} />
       {support && (
         <Card className="mb-5 border-info/30">
           <div className="flex flex-col @md:flex-row @md:items-center gap-3 p-4">

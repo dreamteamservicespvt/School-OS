@@ -11,6 +11,7 @@ import { ACCENTS } from './other.jsx';
 import {
   ModuleHead, useCanEdit, Stats, SearchBox, Toolbar, Select, Textarea, Chips, DataList, BulkBar, SettingRow, ToggleRow, SettingsCard,
   Banner, Progress, DL, Timeline, MoreMenu, FormSheet, ConfirmSheet, Split, Col, ExportButton, Icon, TONE_SOFT,
+  DatePeriod, PERIODS, fmtRange,
 } from './kit.jsx';
 
 /* ---------- Shared helpers ---------- */
@@ -245,7 +246,7 @@ function ProfilePage() {
               <div className="flex items-center gap-3">
                 <span className="w-12 h-12 rounded-full bg-brand shadow-card grid place-items-center text-brandink"><I.Check size={20} strokeWidth={3} /></span>
                 <div>
-                  <p className="font-semibold text-[15px]">{acc.name}</p>
+                  <p className="font-semibold text-[15px]">{acc.name}{acc.id === 'royal' && <span className="text-ink3 font-medium"> · default</span>}</p>
                   <p className="text-[12.5px] text-ink3">Used on screens, receipts and certificates</p>
                 </div>
               </div>
@@ -2087,6 +2088,20 @@ const DELETIONS = [
   { id: 'DEL-0007', who: 'Ramesh K. (former driver)', what: 'All personal data except salary records', asked: 'By letter, 2 Sep', status: 'Done', note: 'Approved 5 Sep · salary kept 8 years by law' },
 ];
 
+// 'Today, 10:31 AM', 'Yesterday 9:40 PM', '7 Oct, 5:48 PM', '8 Oct 2026' -> ISO date, for the date filters below
+const MONS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+function isoOf(w) {
+  if (/^Today/.test(w)) return '2026-10-09';
+  if (/^Yesterday/.test(w)) return '2026-10-08';
+  const m = w.match(/^(\d{1,2}) ([A-Z][a-z]{2})(?: (\d{4}))?/);
+  if (!m) return '2026-10-09';
+  return `${m[3] || 2026}-${String(MONS.indexOf(m[2]) + 1).padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+}
+const inPer = (w, per) => { const d = isoOf(w); return d >= per.from && d <= per.to; };
+function PeriodEmpty({ per, onAll }) {
+  return <Empty icon={I.CalendarX} title="Nothing in these dates" body={`No entries from ${fmtRange(per)}. Pick a longer period.`} action={<Button variant="secondary" onClick={onAll}>Show this academic year</Button>} />;
+}
+
 function SecurityPage() {
   const canEdit = useCanEdit();
   const toast = useToast();
@@ -2097,6 +2112,9 @@ function SecurityPage() {
   const [audit, setAudit] = useState(null);
   const [aq, setAq] = useState('');
   const [aw, setAw] = useState('all');
+  const [aper, setAper] = useState(PERIODS.last7);
+  const [sper, setSper] = useState(PERIODS.last7);
+  const [iper, setIper] = useState(PERIODS.acyear);
   const [devices, setDevices] = useState(DEVICES);
   const [dsel, setDsel] = useState(new Set());
   const [dq, setDq] = useState('');
@@ -2108,7 +2126,7 @@ function SecurityPage() {
   const [ask, setAsk] = useState(null);
   const [consents, setConsents] = useState(CONSENTS);
   const [runImp, setRunImp] = useState(false);
-  const arows = AUDIT.filter((a) => (aw === 'all' || a.who === aw) && (!aq || `${a.rec} ${a.field} ${a.before} ${a.after}`.toLowerCase().includes(aq.toLowerCase())));
+  const arows = AUDIT.filter((a) => inPer(a.when, aper) && (aw === 'all' || a.who === aw) && (!aq || `${a.rec} ${a.field} ${a.before} ${a.after}`.toLowerCase().includes(aq.toLowerCase())));
   const drows = devices.filter((d) => !dq || d.who.toLowerCase().includes(dq.toLowerCase()) || d.device.toLowerCase().includes(dq.toLowerCase()));
   const signOutDev = (d) => { setDevices((x) => x.filter((y) => y.id !== d.id)); toast({ title: `${d.who} signed out on ${d.device.split(' · ')[0]}`, body: 'They need their password to sign in there again.', undo: () => setDevices((x) => [...x, d]) }); };
   return (
@@ -2191,9 +2209,11 @@ function SecurityPage() {
               <Toolbar>
                 <SearchBox id="audit-search" value={aq} onChange={setAq} placeholder="Record, field or value, like SPS/2021/0417" />
                 <Select id="audit-who" value={aw} onChange={setAw} className="@md:w-48" options={[{ value: 'all', label: 'Everyone' }, ...[...new Set(AUDIT.map((a) => a.who))].map((w) => ({ value: w, label: w }))]} />
+                <DatePeriod id="audit-period" value={aper} onChange={setAper} className="w-full @md:w-auto" />
                 <ExportButton what="audit log" />
               </Toolbar>
-              <DataList rows={arows} onRow={setAudit} minWidth={900} footer={`Showing ${arows.length} of 18,406 entries this year`}
+              <DataList rows={arows} onRow={setAudit} minWidth={900} footer={`Showing ${arows.length} entries · ${aper.label}, ${fmtRange(aper)} · 18,406 this year`}
+                empty={<PeriodEmpty per={aper} onAll={() => { setAper(PERIODS.acyear); setAq(''); setAw('all'); }} />}
                 columns={[
                   { key: 'when', label: 'When', nowrap: true, render: (a) => <span className="text-[13px] text-ink2">{a.when}</span> },
                   { key: 'who', label: 'Who', nowrap: true, render: (a) => <span className="flex items-center gap-2"><Avatar name={a.who} size={26} />{a.who}</span> },
@@ -2245,8 +2265,10 @@ function SecurityPage() {
                 mobile={(d) => ({ icon: d.kind, title: d.who, sub: `${d.device} · ${d.place}`, pills: d.isNew ? [<Pill key="n" tone="warn" className="!h-5 !text-[11px]">New device</Pill>] : null, right: canEdit ? <Button size="sm" variant="ghost" onClick={() => signOutDev(d)}>Sign out</Button> : <span className="text-[12px] text-ink3">{d.last}</span> })} />
             </Card>
             <Card className="overflow-hidden">
-              <CardHead title="Sign-in history" sub="Today and yesterday · failed tries are kept too" icon={I.History} action={<ExportButton what="sign-in history" />} />
-              <DataList rows={SIGNINS.map((s, i) => ({ id: i, when: s[0], who: s[1], res: s[2], dev: s[3], tone: s[4] }))} minWidth={760} footer="Showing 7 of 412 this week"
+              <CardHead title="Sign-in history" sub="Failed tries are kept too" icon={I.History} action={<ExportButton what="sign-in history" />} />
+              <Toolbar className="border-t"><DatePeriod id="signin-period" value={sper} onChange={setSper} className="w-full @md:w-auto" /></Toolbar>
+              <DataList rows={SIGNINS.filter((s) => inPer(/^\d{1,2}:\d{2}/.test(s[0]) ? 'Today' : s[0], sper)).map((s, i) => ({ id: i, when: s[0], who: s[1], res: s[2], dev: s[3], tone: s[4] }))} minWidth={760} footer={`${sper.label} · ${fmtRange(sper)}`}
+                empty={<PeriodEmpty per={sper} onAll={() => setSper(PERIODS.last30)} />}
                 columns={[
                   { key: 'when', label: 'When', nowrap: true }, { key: 'who', label: 'Person', nowrap: true, render: (s) => <b className="font-semibold">{s.who}</b> },
                   { key: 'res', label: 'Result', render: (s) => <span className={cx('inline-flex items-center gap-1.5', s.tone === 'bad' ? 'text-bad' : s.tone === 'warn' ? 'text-warn' : 'text-ink2')}>{s.tone === 'ok' ? <I.CircleCheck size={15} className="text-ok" /> : <I.TriangleAlert size={15} />}{s.res}</span> },
@@ -2262,7 +2284,9 @@ function SecurityPage() {
             <Card className="overflow-hidden">
               <CardHead title="Import history" sub="Every Import button in School OS uses this importer. A whole import can be undone while nothing depends on it." icon={I.FileUp}
                 action={canEdit && <Button size="sm" variant="soft" icon={I.Upload} onClick={() => setRunImp(true)}>Run an import</Button>} />
-              <DataList rows={imports} minWidth={820} footer={`${imports.length} imports this year`}
+              <Toolbar className="border-t"><DatePeriod id="import-period" value={iper} onChange={setIper} className="w-full @md:w-auto" /></Toolbar>
+              <DataList rows={imports.filter((m) => inPer(m.when, iper))} minWidth={820} footer={`${imports.filter((m) => inPer(m.when, iper)).length} imports · ${iper.label}, ${fmtRange(iper)}`}
+                empty={<PeriodEmpty per={iper} onAll={() => setIper(PERIODS.acyear)} />}
                 columns={[
                   { key: 'id', label: 'Import', nowrap: true, render: (m) => <span><b className="font-semibold">{m.what}</b><span className="block font-mono text-[12px] text-ink3">{m.id}</span></span> },
                   { key: 'by', label: 'By', nowrap: true, render: (m) => <span>{m.by}<span className="block text-[12px] text-ink3">{m.when}</span></span> },
@@ -2281,9 +2305,10 @@ function SecurityPage() {
                 </ul>
               </Card>
               <Card className="overflow-hidden">
-                <CardHead title="Export log" sub="Who downloaded what" icon={I.FileDown} />
+                <CardHead title="Export log" sub={`Who downloaded what · ${iper.label}, ${fmtRange(iper)}`} icon={I.FileDown} />
+                {!EXPORTS.some(([w]) => inPer(w, iper)) && <p className="px-5 py-4 text-[13.5px] text-ink3 border-t border-line/70">No downloads in these dates.</p>}
                 <ul className="divide-y divide-line/70 border-t border-line/70">
-                  {EXPORTS.map(([w, who, what, d]) => (
+                  {EXPORTS.filter(([w]) => inPer(w, iper)).map(([w, who, what, d]) => (
                     <li key={w + what} className="px-5 py-3">
                       <p className="text-[14px]"><b className="font-semibold">{who}</b> exported {what}</p>
                       <p className={cx('text-[12.5px]', d.includes('flagged') ? 'text-warn' : 'text-ink3')}>{w} · {d}</p>

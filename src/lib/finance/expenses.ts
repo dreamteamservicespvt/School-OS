@@ -237,6 +237,16 @@ function expenseAudit(e: Expense) {
   return { number: e.number, date: formatDate(e.date), amount: formatRupees(e.amountPaise), head: e.accountHeadId, vendor: e.vendorId, status: e.status };
 }
 
+/** Attaches the photo of the bill to an expense that has none (needed before paying above the bill limit). */
+export async function attachBill(tx: Tx, ctx: SchoolContext, expenseId: string, fileId: string) {
+  const e = await tx.expense.findFirst({ where: { id: expenseId } });
+  if (!e) throw new MoneyProblem("This expense was not found.");
+  if (e.status === "CANCELLED") throw new MoneyProblem("This expense is cancelled.");
+  if (e.billFileId) throw new MoneyProblem("A bill is already attached.");
+  await tx.expense.update({ where: { id: e.id }, data: { billFileId: fileId } });
+  await writeAudit(tx, ctx, { action: "bill-attached", recordType: "Expense", recordId: e.id, after: { file: fileId } });
+}
+
 /** The expense head this person used last (the form's default). */
 export async function lastHeadUsed(tx: Tx, ctx: SchoolContext) {
   const e = await tx.expense.findFirst({ where: { requestedById: ctx.userId, broughtIn: false }, orderBy: { createdAt: "desc" }, select: { accountHeadId: true } });

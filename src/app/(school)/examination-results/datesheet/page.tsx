@@ -174,10 +174,10 @@ export default async function DatesheetPage({ searchParams }: { searchParams: Se
                         </div>
                         <Pill tone={tone}>{d.archivedAt ? "Archived" : d.shown}</Pill>
                       </div>
-                      <div className="grid grid-cols-3 gap-2 text-[13px]">
-                        <div className="rounded-xl bg-sunken/60 px-3 py-2 min-w-0"><p className="text-[11.5px] text-ink3 font-semibold">From</p><p className="font-semibold tnum truncate">{formatDate(d.startDate)}</p></div>
-                        <div className="rounded-xl bg-sunken/60 px-3 py-2 min-w-0"><p className="text-[11.5px] text-ink3 font-semibold">To</p><p className="font-semibold tnum truncate">{formatDate(d.endDate)}</p></div>
-                        <div className="rounded-xl bg-sunken/60 px-3 py-2 min-w-0"><p className="text-[11.5px] text-ink3 font-semibold">Students</p><p className="font-semibold tnum">{d.students}</p></div>
+                      <div className="grid grid-cols-[1fr_1fr_0.8fr] gap-2 text-[13px]">
+                        <div className="rounded-xl bg-sunken/60 px-2.5 py-2 min-w-0"><p className="text-[11.5px] text-ink3 font-semibold">From</p><p className="font-semibold tnum truncate">{formatDate(d.startDate)}</p></div>
+                        <div className="rounded-xl bg-sunken/60 px-2.5 py-2 min-w-0"><p className="text-[11.5px] text-ink3 font-semibold">To</p><p className="font-semibold tnum truncate">{formatDate(d.endDate)}</p></div>
+                        <div className="rounded-xl bg-sunken/60 px-2.5 py-2 min-w-0"><p className="text-[11.5px] text-ink3 font-semibold">Students</p><p className="font-semibold tnum">{d.students}</p></div>
                       </div>
                       <p className="text-[12.5px] text-ink3">{plural(d.subjects, "subject")} · {d.note}<br />{d.extra}</p>
                       <div className="flex gap-2 mt-auto">

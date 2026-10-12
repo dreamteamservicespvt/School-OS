@@ -13,8 +13,8 @@ import { ListToolbar } from "@/components/list/list-toolbar";
 import { EmptyState } from "@/components/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { ExportLinks } from "../../../academic-management/_components/export-links";
-import { examPage, withYear, type SearchParams } from "../../_lib/page";
-import { NoYear, PageTop } from "../../_components/page-top";
+import { examPage, type SearchParams } from "../../_lib/page";
+import { BackLink, NoYear, PageTop } from "../../_components/page-top";
 
 export const metadata: Metadata = { title: "Moderation report" };
 const PATH = "/examination-results/results/moderation";
@@ -66,10 +66,9 @@ export default async function ModerationPage({ searchParams }: { searchParams: S
 
   return (
     <>
-      <PageTop page={page} title="Moderation report" back={{ href: "/examination-results/results", label: "Results" }} href={PATH}>
-        <Link href={withYear("/examination-results/results", page)} className="inline-flex min-h-11 items-center px-2 font-medium text-brand-text hover:underline">Back to Results</Link>
-      </PageTop>
-      <p className="-mt-3 mb-4 text-ink-2">Every change asked for after marks were submitted or locked, with the old and new marks, the reason and who decided. {waiting > 0 && <>{waiting} waiting: decide them in <Link href="/approvals" className="font-medium text-brand-text underline">Approvals</Link>.</>}</p>
+      <BackLink page={page} href="/examination-results/results" label="Results" sub="Moderation report" />
+      <h1 className="font-display text-[26px] md:text-[30px] font-semibold tracking-tight leading-tight">Moderation report</h1>
+      <p className="mt-1 mb-5 text-[14px] text-ink2">Every change asked for after marks were submitted or locked, with the old and new marks, the reason and who decided. {waiting > 0 && <>{waiting} waiting: decide them in <Link href="/approvals" className="font-semibold text-brand underline">Approvals</Link>.</>}</p>
       <ListToolbar placeholder="Search by student, subject or reason" showArchived={false} period={{ ...dates }}
         filters={[
           { key: "exam", label: "Exam", options: exams.map((e) => ({ value: e.id, label: e.title })) },

@@ -72,7 +72,7 @@ export default async function AdmitCardsPage({ searchParams }: { searchParams: S
     <div className="flex flex-col gap-3">
       <div><Suspense><PeriodFilter {...dates} ahead allLabel="All exam dates" /></Suspense></div>
       {data.exams.length > 0 && (
-        <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" aria-label="Exams">
+        <ul className="-mx-4 flex gap-3 overflow-x-auto no-scrollbar px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 sm:pb-0 xl:grid-cols-3" aria-label="Exams">
           {data.exams.map((e) => {
             const status = shownExamStatus(e, page.today);
             const ready = e.status !== "DRAFT";
@@ -87,7 +87,7 @@ export default async function AdmitCardsPage({ searchParams }: { searchParams: S
             );
             const cls = cx("block h-full w-full text-left rounded-2xl border-2 bg-surface p-4 shadow-card transition", on ? "border-brand" : "border-transparent hover:border-brand/30", !ready && "opacity-60");
             return (
-              <li key={e.id}>
+              <li key={e.id} className={cx("w-[78%] shrink-0 sm:w-auto", on && "order-first sm:order-none")}>
                 {ready ? <Link href={withYear(`${PATH}?exam=${e.id}`, page)} aria-current={on ? "true" : undefined} className={cls} scroll={false}>{inner}</Link> : <div className={cls}>{inner}</div>}
               </li>
             );

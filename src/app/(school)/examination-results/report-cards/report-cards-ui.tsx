@@ -79,7 +79,7 @@ export function StatusBoard({ rows, sectionId, period, periodLabel, canWrite, di
               <th scope="col" className="px-3 py-2 font-medium">Roll</th>
               <th scope="col" className="px-3 py-2 font-medium">Student</th>
               <th scope="col" className="px-3 py-2 font-medium">Status</th>
-              <th scope="col" className="px-3 py-2 font-medium">Still needed</th>
+              <th scope="col" className="px-3 py-2 font-medium">Not filled in</th>
               <th scope="col" className="px-3 py-2 font-medium"><span className="sr-only">Open</span></th>
             </tr>
           </thead>
@@ -90,7 +90,7 @@ export function StatusBoard({ rows, sectionId, period, periodLabel, canWrite, di
                 <td className="px-3 py-2 tabular-nums text-ink-2">{r.rollNo ?? ""}</td>
                 <th scope="row" className="px-3 py-2 font-medium">{r.name}<span className="block text-sm font-normal text-ink-2">{r.admissionNo}</span></th>
                 <td className="px-3 py-2"><Badge tone={STATUS_TONE[r.status] ?? "neutral"}>{STATUS_WORDS[r.status] ?? r.status}</Badge></td>
-                <td className="px-3 py-2 text-sm">{r.missing.length ? <span className="text-warn-text">{r.missing.join(", ")}</span> : <span className="text-success">Nothing</span>}</td>
+                <td className="px-3 py-2 text-sm">{r.missing.length ? <span className="text-warn-text">{r.missing.join(", ")}</span> : <span className="text-success">All filled in</span>}</td>
                 <td className="px-3 py-2 text-right">{r.status !== "NOT_READY" && <a href={pdf([r.studentId])} target="_blank" rel="noopener" className="inline-flex min-h-11 items-center font-medium text-brand-text hover:underline">View PDF</a>}</td>
               </tr>
             ))}
@@ -104,7 +104,7 @@ export function StatusBoard({ rows, sectionId, period, periodLabel, canWrite, di
               {canWrite && <input type="checkbox" aria-label={`Choose ${r.name}`} disabled={r.status === "NOT_READY"} checked={picked.includes(r.studentId)} onChange={(e) => setChosen((c) => (e.target.checked ? [...c, r.studentId] : c.filter((x) => x !== r.studentId)))} className="mt-1 size-5 accent-[var(--brand)]" />}
               <div className="flex-1">
                 <div className="flex items-start justify-between gap-2"><span className="font-medium">{r.rollNo ? `${r.rollNo}. ` : ""}{r.name}</span><Badge tone={STATUS_TONE[r.status] ?? "neutral"}>{STATUS_WORDS[r.status] ?? r.status}</Badge></div>
-                {r.missing.length > 0 && <p className="text-sm text-warn-text">Needs: {r.missing.join(", ")}</p>}
+                {r.missing.length > 0 && <p className="text-sm text-warn-text">Not filled in: {r.missing.join(", ")}</p>}
                 {r.status !== "NOT_READY" && <a href={pdf([r.studentId])} target="_blank" rel="noopener" className="inline-flex min-h-11 items-center font-medium text-brand-text">View PDF</a>}
               </div>
             </div>

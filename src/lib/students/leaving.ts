@@ -11,6 +11,8 @@ import { writeAudit } from "../audit";
 import { requestApproval } from "../approvals";
 import { formatRupees } from "../format";
 import { runClearanceChecks } from "./clearance";
+// Each module's clearance check registers itself when imported.
+import "../fees/clearance";
 import { applyStatus, StudentProblem } from "./students";
 import { STUDYING, type StudentStatusKey } from "./labels";
 

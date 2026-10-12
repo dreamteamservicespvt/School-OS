@@ -3,5 +3,6 @@
 import "server-only";
 
 import "./builtin-sections";
+import "../fees/parent-link-section";
 
 export { allSections, shownSections, sectionSwitches } from "./sections";

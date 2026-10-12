@@ -5,3 +5,5 @@ import "server-only";
 
 import "./data-security/import-kinds";
 import "./staff/import";
+import "./fees/import";
+import "./finance/import";

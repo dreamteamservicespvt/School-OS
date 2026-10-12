@@ -7,3 +7,5 @@ import "./data-security/privacy";
 import "./staff/handlers";
 import "./communication/handlers";
 import "./students/handlers";
+import "./fees/handlers";
+import "./finance/handlers";

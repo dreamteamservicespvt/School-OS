@@ -1,6 +1,6 @@
 // Parent Link, attendance (05 §4 Sends; 11 Communication owns the page).
 // Read-only: the chosen child's month as a calendar with the same colours and
-// % as the register, paging back to earlier months and years. Today's mark is
+// % as the register, paging back to earlier months of this school year. Today's mark is
 // not final until the lock time. Imported by src/lib/parent-link/section-list.ts.
 import "server-only";
 
@@ -30,7 +30,8 @@ registerSection<Data>({
     const now = new Date();
     const today = schoolDateOf(now, view.timeZone);
     const lock = lockState(settings, today, now, view.timeZone);
-    const data = await studentCalendar(tx, ctx, view.child.id, parseMonth(view.month), today);
+    // Parent Link pages back only to the start of the current school year (owner's rules, 12 Oct 2026).
+    const data = await studentCalendar(tx, ctx, view.child.id, parseMonth(view.month), today, "current-year");
     const anyMarks = await tx.attendanceMark.findFirst({ where: { studentId: view.child.id, archivedAt: null }, select: { id: true } });
     if (!anyMarks) return null;
     return { ...data, todayFinal: lock.locked, lockText: lock.atText, todayIso: today.toISOString().slice(0, 10), threshold: settings.thresholdPercent };

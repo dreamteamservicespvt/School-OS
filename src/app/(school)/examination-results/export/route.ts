@@ -15,6 +15,7 @@ import { papersFor, moderationList } from "@/lib/exams/marks";
 import { finalSheet, resultSheet } from "@/lib/exams/results";
 import { analyse } from "@/lib/exams/analysis";
 import { examOverlaps } from "../_lib/period";
+import { periodSetup, type PeriodSetup } from "@/lib/period-setup";
 
 type Row = Record<string, string | number | null>;
 type Built = { title: string; filters: string; labels: string[]; rows: Row[] };
@@ -30,11 +31,12 @@ export async function GET(req: Request) {
     if (e instanceof PermissionDeniedError) return new Response("Your role cannot export from Examination & Results.", { status: 403 });
     throw e;
   }
+  const dates = await periodSetup(current);
   const built = await withSchool(current.ctx, async (tx) => {
     const year = await chosenYear(tx, current.ctx, p.get("year"));
     if (!year) return null;
     const scope = await examScope(tx, current, year.id);
-    const out = await build(tx, current, scope, year.id, p);
+    const out = await build(tx, current, scope, year.id, p, dates);
     if (out && out !== "denied") await logExport(tx, current.ctx, { title: out.title, format, filters: out.filters, rows: out.rows.length });
     return out;
   }, { timeout: 60_000 });
@@ -45,11 +47,11 @@ export async function GET(req: Request) {
   return exportResponse(file);
 }
 
-async function build(tx: Tx, current: Current, scope: ExamScope, yearId: string, p: URLSearchParams): Promise<Built | "denied" | null> {
+async function build(tx: Tx, current: Current, scope: ExamScope, yearId: string, p: URLSearchParams, dates: PeriodSetup): Promise<Built | "denied" | null> {
   const tz = current.school.timeZone;
   const raw = Object.fromEntries(p.entries());
-  const range = periodFromSearch(raw, { timeZone: tz });
-  const dates = range ? `${range.label}` : "All dates";
+  const range = periodFromSearch(raw, dates);
+  const dateWords = range ? range.label : "All dates";
   const kind = p.get("kind") ?? "";
   const sectionOk = (id: string) => !scope.sectionIds || scope.sectionIds.includes(id);
 
@@ -79,7 +81,7 @@ async function build(tx: Tx, current: Current, scope: ExamScope, yearId: string,
         });
       }
     }
-    return { title: "Datesheets", filters: [dates, st, q && `"${q}"`].filter(Boolean).join(" · "), labels: ["Exam", "Status", "Pattern", "Class", "Subject", "Date", "Start", "Duration (min)", "Room", "Max marks"], rows };
+    return { title: "Datesheets", filters: [dateWords, st, q && `"${q}"`].filter(Boolean).join(" · "), labels: ["Exam", "Status", "Pattern", "Class", "Subject", "Date", "Start", "Duration (min)", "Room", "Max marks"], rows };
   }
 
   if (kind === "entry-status") {
@@ -90,7 +92,7 @@ async function build(tx: Tx, current: Current, scope: ExamScope, yearId: string,
     const rows = all.filter((r) => !w || (r.date >= w.gte && r.date <= w.lte)).map((r) => ({
       Exam: r.examTitle, Paper: `${r.subjectName} · ${r.sectionLabel}`, "Exam date": formatDate(r.date, tz), "Marks due": r.due ? formatDate(r.due, tz) : "", Entered: r.done, Students: r.of, Status: PAPER_STATUS_WORDS[r.status],
     }));
-    return { title: "Marks entry status", filters: dates, labels: ["Exam", "Paper", "Exam date", "Marks due", "Entered", "Students", "Status"], rows };
+    return { title: "Marks entry status", filters: dateWords, labels: ["Exam", "Paper", "Exam date", "Marks due", "Entered", "Students", "Status"], rows };
   }
 
   if (kind === "moderation") {
@@ -102,7 +104,7 @@ async function build(tx: Tx, current: Current, scope: ExamScope, yearId: string,
       Student: r.student, "Admission no": r.admissionNo, Section: r.section, Exam: r.exam, Subject: r.subject, Before: r.oldMarks, After: r.newMarks, Reason: r.reason,
       "Asked by": r.askedBy, "Asked on": formatDate(r.askedOn, tz), Status: r.status, "Decided by": r.decidedBy, "Decided on": r.decidedOn ? formatDate(r.decidedOn, tz) : "",
     }));
-    return { title: "Moderation report", filters: dates, labels: ["Student", "Admission no", "Section", "Exam", "Subject", "Before", "After", "Reason", "Asked by", "Asked on", "Status", "Decided by", "Decided on"], rows };
+    return { title: "Moderation report", filters: dateWords, labels: ["Student", "Admission no", "Section", "Exam", "Subject", "Before", "After", "Reason", "Asked by", "Asked on", "Status", "Decided by", "Decided on"], rows };
   }
 
   if (kind === "result-sheet" || kind === "final-sheet") {

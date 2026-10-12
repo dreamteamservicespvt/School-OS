@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { periodSetup } from "@/lib/period-setup";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
@@ -39,7 +40,8 @@ export default async function ModerationPage({ searchParams }: { searchParams: S
     exams: await tx.exam.findMany({ where: { academicYearId: year.id, archivedAt: null, status: { not: "DRAFT" } }, orderBy: { startDate: "desc" }, select: { id: true, title: true } }),
   }));
   const tz = page.current.school.timeZone;
-  const range = periodFromSearch(raw, { timeZone: tz });
+  const dates = await periodSetup(page.current);
+  const range = periodFromSearch(raw, dates);
   const span = range ? momentWhere(range, tz) : null;
   const q = params.q.toLowerCase();
   const dated = span ? all.filter((r) => r.askedOn >= span.gte && r.askedOn < span.lt) : all;
@@ -68,7 +70,7 @@ export default async function ModerationPage({ searchParams }: { searchParams: S
         <Link href={withYear("/examination-results/results", page)} className="inline-flex min-h-11 items-center px-2 font-medium text-brand-text hover:underline">Back to Results</Link>
       </PageTop>
       <p className="-mt-3 mb-4 text-ink-2">Every change asked for after marks were submitted or locked, with the old and new marks, the reason and who decided. {waiting > 0 && <>{waiting} waiting: decide them in <Link href="/approvals" className="font-medium text-brand-text underline">Approvals</Link>.</>}</p>
-      <ListToolbar placeholder="Search by student, subject or reason" showArchived={false} period={{ timeZone: tz }}
+      <ListToolbar placeholder="Search by student, subject or reason" showArchived={false} period={{ ...dates }}
         filters={[
           { key: "exam", label: "Exam", options: exams.map((e) => ({ value: e.id, label: e.title })) },
           { key: "status", label: "Status", options: Object.entries(STATUS).map(([value, s]) => ({ value, label: s.label })) },

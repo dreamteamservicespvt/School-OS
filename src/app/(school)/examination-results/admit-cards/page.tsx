@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { periodSetup } from "@/lib/period-setup";
 import Link from "next/link";
 import { Suspense } from "react";
 import { periodFromSearch } from "@/lib/periods";
@@ -28,8 +29,8 @@ export default async function AdmitCardsPage({ searchParams }: { searchParams: S
   if (!page.year) return (<><PageTop page={page} href={PATH} /><NoYear /></>);
   const year = page.year;
   const examId = one(raw.exam);
-  const tz = page.current.school.timeZone;
-  const range = examId ? null : periodFromSearch(raw, { timeZone: tz });
+  const dates = await periodSetup(page.current);
+  const range = examId ? null : periodFromSearch(raw, dates);
   const data = await withSchool(page.current.ctx, async (tx) => {
     const exams = await tx.exam.findMany({ where: { academicYearId: year.id, archivedAt: null, status: { not: "DRAFT" }, ...examOverlaps(range) }, include: { entries: { where: { archivedAt: null }, select: { subjectId: true, classId: true } } }, orderBy: { startDate: "desc" } });
     const classes = await tx.schoolClass.findMany({ where: { id: { in: [...new Set(exams.flatMap((e) => e.classIds))] } }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true } });
@@ -53,7 +54,7 @@ export default async function AdmitCardsPage({ searchParams }: { searchParams: S
     return (
       <>
         <PageTop page={page} href={PATH} />
-        <div className="mb-4"><Suspense><PeriodFilter timeZone={tz} allLabel="All exam dates" /></Suspense></div>
+        <div className="mb-4"><Suspense><PeriodFilter {...dates} ahead allLabel="All exam dates" /></Suspense></div>
         {data.exams.length === 0 && range ? (
           <EmptyState title="No exams in these dates">Choose other dates, or All exam dates.</EmptyState>
         ) : data.exams.length === 0 ? (

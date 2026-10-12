@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { periodSetup } from "@/lib/period-setup";
 import { Suspense } from "react";
 import { CalendarDays, CalendarPlus, CalendarX, Eye, Send } from "lucide-react";
 import { withSchool } from "@/lib/db";
@@ -42,7 +43,8 @@ export default async function DatesheetPage({ searchParams }: { searchParams: Se
   const canAdd = s.datesheets && page.writable;
   const teacherView = !s.manage && !s.office;
   const tz = page.current.school.timeZone;
-  const range = periodFromSearch(raw, { timeZone: tz });
+  const dates = await periodSetup(page.current);
+  const range = periodFromSearch(raw, dates);
 
   const data = await withSchool(page.current.ctx, async (tx) => {
     let onlyClassIds: string[] | null = null;
@@ -144,7 +146,7 @@ export default async function DatesheetPage({ searchParams }: { searchParams: Se
             <Toolbar>
               <Suspense><UrlSearch placeholder="Search exam title" /></Suspense>
               <Suspense><UrlSelect name="class" label="Class" className="md:w-44" options={[{ value: "", label: "All classes" }, ...data.classes.map((c) => ({ value: c.id, label: c.name }))]} /></Suspense>
-              <Suspense><PeriodFilter timeZone={tz} allLabel="All dates" /></Suspense>
+              <Suspense><PeriodFilter {...dates} ahead allLabel="All dates" /></Suspense>
               <ExportMenu href={exportHref} className="hidden md:block" />
             </Toolbar>
             <div className="px-3 pt-3">

@@ -20,7 +20,7 @@ import { academicSchool, d } from "../academic/fixture";
 import { addStudent } from "../students/fixtures";
 
 let s: Awaited<ReturnType<typeof academicSchool>>;
-let students: string[] = [];
+const students: string[] = [];
 let examId = "";
 let mat5a = "";
 let eng5a = "";

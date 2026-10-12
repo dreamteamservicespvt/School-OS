@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { periodSetup } from "@/lib/period-setup";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { CircleHelp, FileText, Lock } from "lucide-react";
@@ -35,7 +36,8 @@ export default async function QuestionPapersPage({ searchParams }: { searchParam
   const pairKey = one(raw.pair);
   const diff = DIFFICULTIES.some((d) => d.value === one(raw.difficulty)) ? one(raw.difficulty) : "";
   const tz = page.current.school.timeZone;
-  const range = tab === "papers" ? periodFromSearch(raw, { timeZone: tz }) : null;
+  const dates = await periodSetup(page.current);
+  const range = tab === "papers" ? periodFromSearch(raw, dates) : null;
   const pageNo = Math.max(1, Number(one(raw.page)) || 1);
 
   const data = await withSchool(page.current.ctx, async (tx) => {
@@ -97,7 +99,7 @@ export default async function QuestionPapersPage({ searchParams }: { searchParam
     <Toolbar>
       <Suspense><UrlSearch placeholder={tab === "papers" ? "Search papers" : "Search question text"} /></Suspense>
       {options.length > 1 && <Suspense><UrlSelect name="pair" label="Class and subject" className="md:w-64" reset={["page"]} options={[{ value: "", label: "All classes and subjects" }, ...options.map((o) => ({ value: o.value, label: o.label }))]} /></Suspense>}
-      {tab === "papers" && <Suspense><PeriodFilter timeZone={tz} allLabel="Made any time" /></Suspense>}
+      {tab === "papers" && <Suspense><PeriodFilter {...dates} allLabel="Made any time" /></Suspense>}
     </Toolbar>
   );
 

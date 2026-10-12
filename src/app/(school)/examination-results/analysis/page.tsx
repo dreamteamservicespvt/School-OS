@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { periodSetup } from "@/lib/period-setup";
 import Link from "next/link";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
@@ -32,8 +33,8 @@ export default async function AnalysisPage({ searchParams }: { searchParams: Sea
   if (!s.results) redirect("/no-access");
   if (!page.year) return (<><PageTop page={page} href={PATH} /><NoYear /></>);
   const year = page.year;
-  const tz = page.current.school.timeZone;
-  const range = periodFromSearch(raw, { timeZone: tz });
+  const dates = await periodSetup(page.current);
+  const range = periodFromSearch(raw, dates);
   const sections = await sectionOptions(page);
   const classIds = [...new Set(sections.map((x) => x.classId))];
 
@@ -78,7 +79,7 @@ export default async function AnalysisPage({ searchParams }: { searchParams: Sea
             options={[...exams.list.map((e) => ({ value: e.id, label: e.title })), ...(exams.hasFinal ? [{ value: "final", label: "Final result" }] : []), ...(exams.list.length || exams.hasFinal ? [] : [{ value: "", label: "No exam with results" }])]} />
         </Suspense>
         {scopeOptions.length > 1 && <Suspense><UrlSelect name="scope" label="Classes" className="md:w-48" options={scopeOptions} reset={["drill", "value", "student"]} /></Suspense>}
-        <Suspense><PeriodFilter timeZone={tz} allLabel="All exam dates" /></Suspense>
+        <Suspense><PeriodFilter {...dates} ahead allLabel="All exam dates" /></Suspense>
         <ExportMenu href={`/examination-results/export?kind=analysis&exam=${final ? "final" : exam?.id ?? ""}${scopeParam ? `&scope=${scopeParam}` : ""}${subjectId ? `&subject=${subjectId}` : ""}${page.yearQuery ? `&${page.yearQuery}` : ""}`} className="hidden md:block" />
       </Toolbar>
     </Card>

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { periodSetup } from "@/lib/period-setup";
 import { redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { readListParams, PAGE_SIZE } from "@/lib/list";
@@ -27,7 +28,8 @@ export default async function MarksEntryPage({ searchParams }: { searchParams: S
   const year = page.year;
   const params = readListParams(raw, ["exam", "status", "year"]);
   const tz = page.current.school.timeZone;
-  const range = periodFromSearch(raw, { timeZone: tz });
+  const dates = await periodSetup(page.current);
+  const range = periodFromSearch(raw, dates);
   const within = range ? dateWhere(range) : null;
   const { rows: all, exams } = await withSchool(page.current.ctx, async (tx) => ({
     rows: await papersFor(tx, page.current.ctx, page.scope, year.id, { examId: params.filters.exam, status: params.filters.status, q: params.q }),
@@ -58,7 +60,7 @@ export default async function MarksEntryPage({ searchParams }: { searchParams: S
         {page.scope.manage && page.writable && params.filters.exam && <LockExamButton examId={params.filters.exam} title={exams.find((e) => e.id === params.filters.exam)?.title ?? "this exam"} />}
       </PageTop>
       {!page.scope.manage && <p className="-mt-3 mb-4 text-ink-2">Your papers: the subjects and sections given to you in Teacher Allocation.</p>}
-      <ListToolbar placeholder="Search by subject, class or exam" showArchived={false} period={{ timeZone: tz }}
+      <ListToolbar placeholder="Search by subject, class or exam" showArchived={false} period={{ ...dates }}
         filters={[
           { key: "exam", label: "Exam", options: exams.map((e) => ({ value: e.id, label: e.title })) },
           { key: "status", label: "Status", options: Object.entries(PAPER_STATUS_WORDS).map(([value, label]) => ({ value, label })) },

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { periodSetup } from "@/lib/period-setup";
 import Link from "next/link";
 import { Suspense } from "react";
 import { periodFromSearch } from "@/lib/periods";
@@ -38,8 +39,9 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
   const year = page.year;
   const view = one(raw.view) === "final" ? "final" : "exam";
   const tz = page.current.school.timeZone;
+  const dates = await periodSetup(page.current);
   const sections = await sectionOptions(page);
-  const range = view === "exam" ? periodFromSearch(raw, { timeZone: tz }) : null;
+  const range = view === "exam" ? periodFromSearch(raw, dates) : null;
   const exams = await withSchool(page.current.ctx, (tx) => tx.exam.findMany({ where: { academicYearId: year.id, archivedAt: null, status: { not: "DRAFT" }, ...examOverlaps(range) }, orderBy: { startDate: "desc" } }));
   const views = [{ value: "exam", label: "Exam results" }, { value: "final", label: "Final result" }];
   const top = (extra?: React.ReactNode) => (
@@ -73,7 +75,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
   const pickers = (
     <div className="mb-4 flex flex-wrap items-end gap-3">
       <ParamSelect name="section" label="Class" current={sectionId} options={sections.map((s) => ({ value: s.id, label: s.label }))} clear={["exam"]} />
-      {view === "exam" && <Suspense><PeriodFilter timeZone={tz} allLabel="All exam dates" /></Suspense>}
+      {view === "exam" && <Suspense><PeriodFilter {...dates} ahead allLabel="All exam dates" /></Suspense>}
       {view === "exam" && classExams.length > 0 && <ParamSelect name="exam" label="Exam" current={exam?.id ?? ""} options={classExams.map((e) => ({ value: e.id, label: e.title }))} />}
     </div>
   );

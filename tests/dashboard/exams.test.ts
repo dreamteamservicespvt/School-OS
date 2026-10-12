@@ -1,7 +1,9 @@
 // Examination & Results widgets on the Dashboard: a teacher sees only the
 // papers, sections and students given to them (a class teacher also their own
 // class), the Principal sees the whole school, and another school's exams
-// never show (01-dashboard.md, 08-examination-results.md §1).
+// never show (01-dashboard.md, 08-examination-results.md §1). Overall
+// percentages show only for sections a teacher sees whole (their own class):
+// subject teachers see only their own subjects (owner's rules, 12 Oct 2026).
 import { beforeAll, describe, expect, it } from "vitest";
 import { buildHome } from "@/lib/dashboard/compose";
 import type { Panel } from "@/lib/dashboard/types";
@@ -84,16 +86,18 @@ describe("exams.marks-due", () => {
 });
 
 describe("exams.average", () => {
-  it("a teacher gets bars for their own sections only", async () => {
+  it("a teacher gets a bar for their own class only, not for sections where they teach one subject", async () => {
     const p = panel(await buildHome(teacher, { now: NOW }));
-    expect(p?.rows.map((r) => r.key).sort()).toEqual([f.s5a.id, f.s5b.id].sort());
-    expect(p?.rows.find((r) => r.key === f.s5a.id)?.value).toBe(80);
-    expect(p?.rows[0].href).toContain("scope=s:");
+    expect(p?.rows.map((r) => r.key)).toEqual([f.s5a.id]);
+    expect(p?.rows[0].value).toBe(80);
+    // Exam Analysis is not a teacher's page: the bar opens the class's results.
+    expect(p?.rows[0].href).toBe(`/examination-results/results?exam=${examId}&section=${f.s5a.id}`);
+    expect(p?.href).toBe(`/examination-results/results?exam=${examId}`);
   });
 
-  it("a class teacher also sees their own class", async () => {
+  it("a class teacher sees their own class, not the overall % of a section they teach one subject in", async () => {
     const p = panel(await buildHome(classTeacher, { now: NOW }));
-    expect(p?.rows.map((r) => r.key).sort()).toEqual([f.s5b.id, f.s6a.id].sort());
+    expect(p?.rows.map((r) => r.key)).toEqual([f.s5b.id]);
   });
 
   it("the Principal gets every class of this school, with this school's numbers only", async () => {
@@ -105,15 +109,16 @@ describe("exams.average", () => {
 });
 
 describe("exams.weak-students", () => {
-  it("a teacher hears only about students in their sections", async () => {
-    const a = att(await buildHome(teacher, { now: NOW }), "exams.weak-students");
-    expect(a?.title).toBe("1 student in Class 5 B below 50% or not passing in Half-yearly");
-    expect(a?.detail).toBe("Student S5B 2");
+  it("a teacher hears only about their own class, whose overall results they may see", async () => {
+    // Asha's own class (5 A) did well; 5 B, where she teaches only Maths, is not counted.
+    expect(att(await buildHome(teacher, { now: NOW }), "exams.weak-students")).toBeUndefined();
   });
 
-  it("a class teacher hears about their own class and the sections they teach", async () => {
+  it("a class teacher hears about their own class only", async () => {
     const a = att(await buildHome(classTeacher, { now: NOW }), "exams.weak-students");
-    expect(a?.value).toBe("2");
+    expect(a?.value).toBe("1");
+    expect(a?.title).toBe("1 student in Class 5 B below 50% or not passing in Half-yearly");
+    expect(a?.href).toBe(`/examination-results/results?exam=${examId}&section=${f.s5b.id}`);
   });
 
   it("the Principal counts this school's students only", async () => {

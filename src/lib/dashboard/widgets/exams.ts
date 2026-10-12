@@ -5,7 +5,7 @@
 // and a class teacher also their own class.
 import "server-only";
 
-import { examScope, type ExamScope } from "../../exams/scope";
+import { examScope, resultSubjects, type ExamScope } from "../../exams/scope";
 import { papersFor } from "../../exams/marks";
 import { classRange } from "../../exams/common";
 import { addDays, dayWord, n, plural, someNames } from "../common";
@@ -124,6 +124,18 @@ const marksDue: Widget<"attention"> = {
   },
 };
 
+/**
+ * The latest results this person sees whole: a subject teacher sees only their
+ * own subjects in sections they do not class-teach (owner's rules, 12 Oct 2026),
+ * so the overall percentages of those sections are left out.
+ */
+async function wholeResults(c: DashContext, v: View) {
+  const latest = await latestResults(c, v);
+  if (!latest) return null;
+  const results = latest.results.filter((r) => resultSubjects(v.scope, r.sectionId) === null);
+  return results.length ? { ...latest, results } : null;
+}
+
 /** Average in the latest exam with results: by class (full reach) or by the person's own sections. */
 const average: Widget<"panel"> = {
   id: "exams.average",
@@ -133,13 +145,13 @@ const average: Widget<"panel"> = {
   async load(c) {
     const v = await examView(c);
     if (!v || !v.scope.results) return null;
-    const latest = await latestResults(c, v);
+    const latest = await wholeResults(c, v);
     if (!latest) return null;
     const percent = (rs: typeof latest.results) => avg(rs.filter((r) => r.percent !== null).map((r) => r.percent!));
-    const href = (scope: string) => `${BASE}/analysis?exam=${latest.exam.id}&scope=${scope}`;
+    const href = (scope: string) => (v.scope.analysis ? `${BASE}/analysis?exam=${latest.exam.id}&scope=${scope}` : `${BASE}/results?exam=${latest.exam.id}&section=${scope.slice(2)}`);
     const rows: BarRow[] = v.scope.sectionIds === null
       ? [...new Map(v.sections.map((s) => [s.classId, s])).values()].map((s) => ({ key: s.classId, label: s.className, value: percent(latest.results.filter((r) => r.classId === s.classId)) ?? -1, href: href(`c:${s.classId}`) }))
-      : v.sections.map((s) => ({ key: s.id, label: s.label, value: percent(latest.results.filter((r) => r.sectionId === s.id)) ?? -1, href: href(`s:${s.id}`) }));
+      : v.sections.filter((s) => resultSubjects(v.scope, s.id) === null).map((s) => ({ key: s.id, label: s.label, value: percent(latest.results.filter((r) => r.sectionId === s.id)) ?? -1, href: href(`s:${s.id}`) }));
     const shown = rows.filter((r) => r.value >= 0);
     if (!shown.length) return null;
     const all = percent(latest.results);
@@ -148,7 +160,7 @@ const average: Widget<"panel"> = {
       panel: {
         kind: "bars", title: "Exam results", icon: "Award",
         sub: `${latest.exam.title} · average ${all ?? 0}% · ${plural(latest.results.length, "student")}`,
-        rows: shown, lowBelow: 50, href: `${BASE}/analysis?exam=${latest.exam.id}`, linkLabel: "Analysis", empty: "",
+        rows: shown, lowBelow: 50, href: v.scope.analysis ? `${BASE}/analysis?exam=${latest.exam.id}` : `${BASE}/results?exam=${latest.exam.id}`, linkLabel: v.scope.analysis ? "Analysis" : "Results", empty: "",
       },
     };
   },
@@ -163,7 +175,7 @@ const weakStudents: Widget<"attention"> = {
   async load(c) {
     const v = await examView(c);
     if (!v || !v.scope.results) return null;
-    const latest = await latestResults(c, v);
+    const latest = await wholeResults(c, v);
     if (!latest) return null;
     const weak = latest.results.filter((r) => r.outcome !== "Pass" || (r.percent ?? 0) < 50);
     if (!weak.length) return null;
@@ -175,7 +187,9 @@ const weakStudents: Widget<"attention"> = {
       title: `${plural(weak.length, "student")}${where} below 50% or not passing in ${latest.exam.title}`,
       detail: weak.length > 3 ? `${names.map((s) => s.fullName).join(", ")} and ${n(weak.length - 3)} more` : someNames(names.map((s) => s.fullName)),
       action: "See students",
-      href: `${BASE}/analysis?exam=${latest.exam.id}${sections.length === 1 && v.scope.sectionIds !== null ? `&scope=s:${sections[0]}` : ""}&drill=help`,
+      href: v.scope.analysis
+        ? `${BASE}/analysis?exam=${latest.exam.id}${sections.length === 1 && v.scope.sectionIds !== null ? `&scope=s:${sections[0]}` : ""}&drill=help`
+        : `${BASE}/results?exam=${latest.exam.id}${sections.length === 1 ? `&section=${sections[0]}` : ""}`,
       value: String(weak.length),
     } satisfies AttentionItem;
   },

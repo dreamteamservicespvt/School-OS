@@ -11,7 +11,7 @@ import { plural } from "@/lib/academic/common";
 import { examKey, finalKey, PAPER_STATUS_TONE, PAPER_STATUS_WORDS, showMarks, showPercent } from "@/lib/exams/common";
 import { examSettings } from "@/lib/exams/settings";
 import { bandsFor, finalSheet, readiness, resultSheet, type SheetRow } from "@/lib/exams/results";
-import { teachesPaper } from "@/lib/exams/scope";
+import { resultSubjects, teachesPaper } from "@/lib/exams/scope";
 import { sectionStudents } from "@/lib/exams/roster";
 import type { Band } from "@/lib/exams/grades";
 import { PeriodFilter } from "@/components/list/period-filter";
@@ -79,6 +79,9 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
   const fallback = withExams.find((x) => s.classTeacherOf.includes(x.id)) ?? withExams[0] ?? sections[0];
   const sectionId = sections.some((x) => x.id === one(raw.section)) ? one(raw.section) : fallback.id;
   const section = sections.find((x) => x.id === sectionId)!;
+  // A subject teacher sees only their own subjects here (owner's rules, 12 Oct 2026): no totals, ranks or final result.
+  const only = resultSubjects(s, sectionId);
+  if (only && final) redirect(withYear(`${PATH}?section=${sectionId}`, page));
   const classExams = exams.filter((e) => e.classIds.includes(section.classId));
   const exam = final ? null : classExams.find((e) => e.id === one(raw.exam)) ?? classExams[0] ?? null;
   const key = final ? finalKey(year.id) : exam ? examKey(exam.id) : null;
@@ -86,7 +89,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
 
   const data = key ? await withSchool(page.current.ctx, async (tx) => {
     const settings = await examSettings(tx, page.current.ctx);
-    const sheet = final ? null : await resultSheet(tx, page.current.ctx, exam!.id, sectionId);
+    const sheet = final ? null : await resultSheet(tx, page.current.ctx, exam!.id, sectionId, only);
     const fin = final ? await finalSheet(tx, page.current.ctx, year.id, sectionId) : null;
     const pickable = final ? sections : sections.filter((x) => exam!.classIds.includes(x.classId));
     const ready = await readiness(tx, page.current.ctx, key, s.publish ? pickable.map((x) => x.id) : [sectionId]);
@@ -97,7 +100,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
     return { settings, sheet, fin, ready, history, people, bands: scale.bands, roster: roster.map((r) => r.sectionId) };
   }, { timeout: 60_000 }) : null;
 
-  const examOptions = [...classExams.map((e) => ({ value: e.id, label: e.title })), { value: "final", label: "Final result (year)" }];
+  const examOptions = [...classExams.map((e) => ({ value: e.id, label: e.title })), ...(only ? [] : [{ value: "final", label: "Final result (year)" }])];
   const exportHref = `/examination-results/export?kind=${final ? "final-sheet" : "result-sheet"}&section=${sectionId}${exam ? `&exam=${exam.id}` : ""}${page.yearQuery ? `&${page.yearQuery}` : ""}`;
   const toolbar = (
     <Toolbar>
@@ -160,10 +163,13 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
           The results publish by themselves then, if every mark is still complete.
         </Banner>
       )}
-      {!published && !scheduled && mine && mine.problems.length > 0 && (
+      {only && missing.length > 0 && (
+        <Banner tone="warn" title={`Draft. ${missing.map((m) => m.c.name).join(", ")} marks are not all in for ${section.label}.`}>A draft with missing marks cannot be published.</Banner>
+      )}
+      {!only && !published && !scheduled && mine && mine.problems.length > 0 && (
         <Banner tone="warn" title={`Draft. ${mine.problems[0]}`}>{mine.problems.slice(1).join(" ")}{missing.length ? " A draft with missing marks cannot be published." : ""}</Banner>
       )}
-      {!published && !scheduled && mine?.ready && (
+      {!only && !published && !scheduled && mine?.ready && (
         <Banner tone="info" icon={BadgeCheck} title="Ready to publish."
           action={s.publish && page.writable ? <PublishFlow size="sm" label="Review and publish" keyName={key} title={final ? "final" : exam!.title} chosen={sectionId} today={today} sections={publishSections} /> : <Pill tone="info">Waiting for the Exam In-charge</Pill>}>
           All marks are in for {section.label}. Totals, percentages{ranks ? ", ranks" : ""} and grades are worked out.
@@ -205,6 +211,23 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
   });
   const canOpenPaper = (subjectId: string) => s.manage || teachesPaper(s, sectionId, subjectId);
 
+  // A subject teacher's numbers: their own subject(s) only, from the cells they may see.
+  const subjectStats = only && !final ? (() => {
+    const cols = data.sheet!.columns.filter((c) => !c.gradeOnly && c.max > 0);
+    const marked = rows.flatMap((r) => cols.map((c) => ({ name: r.name, x: r.cells[c.id], max: c.max }))).filter((m) => m.x && !m.x.missing && !m.x.absent && m.x.marks !== null);
+    const v = (m: (typeof marked)[number]) => Math.round(((m.x!.marks ?? 0) / m.max) * 1000) / 10;
+    const best = [...marked].sort((a, b) => v(b) - v(a))[0];
+    return {
+      name: cols.length === 1 ? cols[0].name : "Subject",
+      counted: marked.length,
+      average: marked.length ? Math.round((marked.reduce((t, m) => t + v(m), 0) / marked.length) * 10) / 10 : null,
+      passed: marked.filter((m) => m.x!.passed !== false).length,
+      failed: marked.filter((m) => m.x!.passed === false).length,
+      absent: rows.filter((r) => cols.some((c) => r.cells[c.id]?.absent && !r.cells[c.id]?.medical)).length,
+      best: best ? { name: best.name, v: v(best) } : null,
+    };
+  })() : null;
+
   return (
     <>
       {top}
@@ -238,7 +261,16 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
           </Card>
         )}
 
-        {complete.length > 0 && (
+        {only && subjectStats && (
+          <Stats items={[
+            { label: `${subjectStats.name} average`, value: subjectStats.average === null ? "—" : showPercent(subjectStats.average), sub: `${subjectStats.counted} of ${allRows.length} marked`, icon: Calculator },
+            { label: "Passed", value: `${subjectStats.passed} of ${subjectStats.counted}`, sub: `${data.settings.passPercentSubject}% to pass`, tone: subjectStats.counted && subjectStats.passed === subjectStats.counted ? "ok" : undefined, icon: CircleCheck },
+            { label: "Highest", value: subjectStats.best ? showPercent(subjectStats.best.v) : "—", sub: subjectStats.best?.name, tone: subjectStats.best ? "ok" : undefined, icon: Trophy },
+            { label: "Did not pass", value: subjectStats.failed, sub: `${plural(subjectStats.absent, "student")} absent`, tone: subjectStats.failed ? "warn" : undefined, icon: subjectStats.failed ? TriangleAlert : CircleX },
+          ]} />
+        )}
+
+        {!only && complete.length > 0 && (
           <Stats items={[
             { label: "Class average", value: pct.length ? showPercent(Math.round((pct.reduce((a, b) => a + b, 0) / pct.length) * 10) / 10) : "—", sub: `${complete.length} of ${allRows.length} complete`, icon: Calculator },
             { label: "Passed", value: `${passed} of ${complete.length}`, sub: `${data.settings.passPercentSubject}% in every subject`, tone: complete.length && passed === complete.length ? "ok" : undefined, icon: CircleCheck },
@@ -250,9 +282,9 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
         {allRows.length === 0 ? <EmptyState title="No students">There are no students in {section.label}.</EmptyState> : !final ? (
           <Card className="overflow-hidden">
             <CardHeader title={`${exam!.title} · ${section.label}`} icon={Table}
-              description={`${data.sheet!.columns.filter((c) => !c.gradeOnly).length ? `Total out of ${showMarks(Math.max(0, ...allRows.map((r) => r.maxTotal)))}` : "Graded subjects"}${ranks ? ` · ${data.settings.tieRule === "dense" ? "same rank for a tie, next rank follows" : "same rank for a tie, next rank skipped"}` : ""}`}
+              description={only ? `Only the subject${tableCols.length === 1 ? "" : "s"} you teach in ${section.label}: ${tableCols.map((c) => c.name).join(", ") || "none"}` : `${data.sheet!.columns.filter((c) => !c.gradeOnly).length ? `Total out of ${showMarks(Math.max(0, ...allRows.map((r) => r.maxTotal)))}` : "Graded subjects"}${ranks ? ` · ${data.settings.tieRule === "dense" ? "same rank for a tie, next rank follows" : "same rank for a tie, next rank skipped"}` : ""}`}
               action={<Pill tone={status.tone} dot>{status.words}</Pill>} />
-            {rows.length ? <ResultTable columns={tableCols} rows={tableRows} ranks={ranks} examTitle={exam!.title} section={section.label} passMark={data.settings.passPercentSubject} /> : <ListEmpty />}
+            {rows.length ? <ResultTable columns={tableCols} rows={tableRows} ranks={ranks} subjectOnly={Boolean(only)} examTitle={exam!.title} section={section.label} passMark={data.settings.passPercentSubject} /> : <ListEmpty />}
             <div className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum flex flex-wrap gap-x-4">Showing {rows.length} of {allRows.length}<span>AB = absent · ML = medical leave · red = below the pass mark{tableCols.some((c) => c.notIn) ? " · • = marks not submitted" : ""}</span></div>
           </Card>
         ) : (

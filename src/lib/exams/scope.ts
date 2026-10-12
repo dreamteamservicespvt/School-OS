@@ -34,6 +34,8 @@ export type ExamScope = {
   classTeacherOf: string[];
   /** Can see results and analysis at all (not Office Staff on their own). */
   results: boolean;
+  /** Exam Analysis: whole-school reach only (not teachers, whose results show only their own subjects). */
+  analysis: boolean;
   /** Writes principal remarks on report cards: the Principal (or the School Admin acting as head). */
   principal: boolean;
 };
@@ -83,6 +85,8 @@ export async function examScope(tx: Tx, who: Who, yearId: string | null): Promis
     teaches: office ? [] : teaches,
     classTeacherOf,
     results: !office || manage,
+    // Exam Analysis is for people who see whole classes; teachers (Own) see their results only (approved design: Own pages are Datesheet, Marks Entry, Results).
+    analysis: (!office || manage) && see === "all",
     principal: manage && roleKeys.some((k) => k === "principal" || k === "school-admin"),
   };
 }
@@ -92,6 +96,18 @@ export function teachesPaper(scope: ExamScope, sectionId: string, subjectId: str
   if (scope.office && !scope.manage) return false;
   if (scope.teaches === null) return true;
   return scope.teaches.some((t) => t.sectionId === sectionId && t.subjectId === subjectId);
+}
+
+/**
+ * The subjects whose marks this person sees in a section's results (owner's
+ * rules, 12 Oct 2026: subject teachers see only their own subjects). null =
+ * every subject: full reach, or the class teacher of the section. Otherwise
+ * only the subjects given to them there in Teacher Allocation, and no
+ * totals, ranks or overall results, which would show the other subjects.
+ */
+export function resultSubjects(scope: ExamScope, sectionId: string): string[] | null {
+  if (scope.manage || scope.teaches === null || scope.classTeacherOf.includes(sectionId)) return null;
+  return [...new Set(scope.teaches.filter((t) => t.sectionId === sectionId).map((t) => t.subjectId))];
 }
 
 export function seesSection(scope: ExamScope, sectionId: string) {

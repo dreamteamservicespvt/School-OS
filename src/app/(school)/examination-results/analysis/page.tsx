@@ -30,7 +30,7 @@ export default async function AnalysisPage({ searchParams }: { searchParams: Sea
   const raw = await searchParams;
   const page = await examPage(raw);
   const s = page.scope;
-  if (!s.results) redirect("/no-access");
+  if (!s.analysis) redirect("/no-access?m=examination-results");
   if (!page.year) return (<><PageTop page={page} href={PATH} /><NoYear /></>);
   const year = page.year;
   const dates = await periodSetup(page.current);

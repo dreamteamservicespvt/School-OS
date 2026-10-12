@@ -373,8 +373,27 @@ export type SheetRow = {
   status: "DRAFT" | "PUBLISHED"; publishedAt: Date | null;
 };
 
+/**
+ * Only these subjects of a result sheet (a subject teacher's view, scope.ts
+ * resultSubjects). The other subjects' marks are taken out, and so are the
+ * totals, percentages, grades, ranks and overall results, which are worked
+ * out from them. "complete" and "missing" then count only these subjects.
+ */
+export function limitSheet<T extends { columns: SheetColumn[]; rows: SheetRow[]; paperStatus: { entryId: string }[] }>(sheet: T, subjectIds: string[] | null): T {
+  if (subjectIds === null) return sheet;
+  const columns = sheet.columns.filter((c) => subjectIds.includes(c.id));
+  const entryIds = new Set(columns.map((c) => c.entryId));
+  const rows = sheet.rows.map((r) => {
+    const cells: SheetRow["cells"] = {};
+    for (const c of columns) if (r.cells[c.id]) cells[c.id] = r.cells[c.id];
+    const missing = columns.filter((c) => !cells[c.id] || cells[c.id].missing).length;
+    return { ...r, cells, total: 0, maxTotal: 0, percent: null, grade: null, points: null, rank: null, outcome: null, complete: missing === 0, missing };
+  });
+  return { ...sheet, columns, rows, paperStatus: sheet.paperStatus.filter((p) => entryIds.has(p.entryId)) };
+}
+
 /** The class result sheet for one exam and section: marks per subject, total, %, grade, rank, pass or fail. */
-export async function resultSheet(tx: Tx, ctx: SchoolContext, examId: string, sectionId: string) {
+export async function resultSheet(tx: Tx, ctx: SchoolContext, examId: string, sectionId: string, onlySubjects: string[] | null = null) {
   const exam = await tx.exam.findFirst({ where: { id: examId } });
   if (!exam) return null;
   const section = await sectionInfo(tx, sectionId);
@@ -388,7 +407,7 @@ export async function resultSheet(tx: Tx, ctx: SchoolContext, examId: string, se
   const columns: SheetColumn[] = papers.map((p) => ({ id: p.subject.id, name: p.subject.name, max: p.subject.gradeOnly ? 0 : p.entry.maxMarks, gradeOnly: p.subject.gradeOnly, entryId: p.entry.id }));
   const rows = buildRows(students, results);
   const paperStatus = await tx.marksPaper.findMany({ where: { entryId: { in: papers.map((p) => p.entry.id) }, sectionId } });
-  return { exam, section, columns, rows, paperStatus, scale: results.find((r) => r.scale)?.scale ?? null };
+  return limitSheet({ exam, section, columns, rows, paperStatus, scale: results.find((r) => r.scale)?.scale ?? null }, onlySubjects);
 }
 
 function buildRows(students: { studentId: string; name: string; rollNo: number | null; admissionNo: string }[], results: Result[]): SheetRow[] {

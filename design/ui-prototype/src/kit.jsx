@@ -3,6 +3,7 @@ import React, { useState, createContext, useContext } from 'react';
 import * as I from './icons.js';
 import { cx, Card, CardHead, Button, Pill, Avatar, Checkbox, Tabs, PageHead, Sheet, Empty, Switch, inputCls, useToast } from './ui.jsx';
 import { useNav, useRole } from './shell.jsx';
+import { PERSONAL } from './config.js';
 
 /* ---------- Module page header: title, one line of context, actions, and the module's page tabs ---------- */
 export const PageCtx = createContext({ module: null, page: null, access: 'full', pages: [] });
@@ -18,7 +19,10 @@ export function ModuleHead({ title, sub, actions, tabs = true }) {
   const { go } = useNav();
   const { module, page, access, pages, short } = usePage();
   const canEdit = useCanEdit();
-  const scope = access === 'view' ? <Pill tone="neutral" className="align-middle ml-2 !h-6"><I.Eye size={13} />View only</Pill>
+  // Own leave, documents and salary slips are personal pages under My profile, not a module
+  const personal = access === 'own' && PERSONAL.includes(module);
+  if (personal) title = module === 'salary' ? 'My salary slips' : 'My leave and documents';
+  const scope = personal ? null : access === 'view' ? <Pill tone="neutral" className="align-middle ml-2 !h-6"><I.Eye size={13} />View only</Pill>
     : access === 'own' ? <Pill tone="brand" className="align-middle ml-2 !h-6"><I.User size={13} />Only yours</Pill> : null;
   return (
     <>
@@ -571,4 +575,199 @@ export function PhoneFrame({ children, side }) {
 export function ExportButton({ what = 'list', className }) {
   const toast = useToast();
   return <Button variant="secondary" icon={I.Download} className={cx('hidden @md:inline-flex', className)} onClick={() => toast({ title: `Exported ${what}`, body: 'Excel file with the school name, filters and your name on top. Logged in the export log.' })}>Export</Button>;
+}
+
+/* ---------- Date period filter: every common range plus From–To, the same on every page ---------- */
+// Today in the preview is Fri 9 Oct 2026. Values are { key, label, from, to } with ISO dates.
+export const TODAY = new Date(2026, 9, 9);
+const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const addD = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+export const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const parse = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+export const fmtDay = (s) => { const d = typeof s === 'string' ? parse(s) : s; return `${d.getDate()} ${MON[d.getMonth()]} ${d.getFullYear()}`; };
+export function fmtRange(v) {
+  if (!v) return '';
+  const a = parse(v.from), b = parse(v.to);
+  if (v.from === v.to) return fmtDay(a);
+  const sameY = a.getFullYear() === b.getFullYear();
+  return `${a.getDate()} ${MON[a.getMonth()]}${sameY ? '' : ' ' + a.getFullYear()} – ${fmtDay(b)}`;
+}
+// Number of days in a period, up to today. Pages use it to scale their example numbers.
+export const periodDays = (v) => Math.max(1, Math.round((Math.min(parse(v.to), TODAY) - parse(v.from)) / 864e5) + 1);
+
+const T = TODAY;
+const weekStart = addD(T, -((T.getDay() + 6) % 7));
+const mk = (key, label, from, to) => ({ key, label, from: iso(from), to: iso(to) });
+export const PERIODS = {
+  today: mk('today', 'Today', T, T),
+  yesterday: mk('yesterday', 'Yesterday', addD(T, -1), addD(T, -1)),
+  last2: mk('last2', 'Last 2 days', addD(T, -1), T),
+  last3: mk('last3', 'Last 3 days', addD(T, -2), T),
+  last7: mk('last7', 'Last 7 days', addD(T, -6), T),
+  last15: mk('last15', 'Last 15 days', addD(T, -14), T),
+  last30: mk('last30', 'Last 30 days', addD(T, -29), T),
+  thisweek: mk('thisweek', 'This week', weekStart, T),
+  lastweek: mk('lastweek', 'Last week', addD(weekStart, -7), addD(weekStart, -1)),
+  thismonth: mk('thismonth', 'This month', new Date(2026, 9, 1), T),
+  lastmonth: mk('lastmonth', 'Last month', new Date(2026, 8, 1), new Date(2026, 8, 30)),
+  last3m: mk('last3m', 'Last 3 months', new Date(2026, 7, 1), T),
+  last6m: mk('last6m', 'Last 6 months', new Date(2026, 4, 1), T),
+  term: mk('term', 'This term', new Date(2026, 5, 1), new Date(2026, 8, 30)),
+  term2: mk('term2', 'Term 2', new Date(2026, 9, 1), new Date(2026, 11, 31)),
+  acyear: mk('acyear', 'This academic year', new Date(2026, 5, 1), new Date(2027, 2, 31)),
+  lastacyear: mk('lastacyear', 'Last academic year', new Date(2025, 5, 1), new Date(2026, 2, 31)),
+  finyear: mk('finyear', 'This financial year', new Date(2026, 3, 1), new Date(2027, 2, 31)),
+  lastfinyear: mk('lastfinyear', 'Last financial year', new Date(2025, 3, 1), new Date(2026, 2, 31)),
+  calyear: mk('calyear', 'This calendar year', new Date(2026, 0, 1), new Date(2026, 11, 31)),
+  // Looking ahead, for datesheets, events, appointments and due dates
+  tomorrow: mk('tomorrow', 'Tomorrow', addD(T, 1), addD(T, 1)),
+  next7: mk('next7', 'Next 7 days', T, addD(T, 6)),
+  next30: mk('next30', 'Next 30 days', T, addD(T, 29)),
+  nextmonth: mk('nextmonth', 'Next month', new Date(2026, 10, 1), new Date(2026, 10, 30)),
+};
+const GROUPS = [
+  ['Days', ['today', 'yesterday', 'last2', 'last3', 'last7', 'last15', 'last30']],
+  ['Weeks and months', ['thisweek', 'lastweek', 'thismonth', 'lastmonth', 'last3m', 'last6m']],
+  ['School and money years', ['term', 'term2', 'acyear', 'lastacyear', 'finyear', 'lastfinyear', 'calyear']],
+];
+const AHEAD = ['Coming up', ['tomorrow', 'next7', 'next30', 'nextmonth']];
+export const period = (key) => PERIODS[key] || PERIODS.today;
+
+export function DatePeriod({ value, onChange, future = false, id = 'period', className, size = 'md' }) {
+  const [open, setOpen] = useState(false);
+  const [from, setFrom] = useState(value.from);
+  const [to, setTo] = useState(value.to);
+  const [mo, setMo] = useState('');
+  const [tried, setTried] = useState(false);
+  const max = future ? '2027-03-31' : iso(TODAY);
+  const err = !from || !to ? 'Pick both dates.' : from > to ? 'The From date is after the To date.' : to > max ? 'You cannot pick a date after today.' : from < '2024-06-01' ? 'Records start from 1 Jun 2024.' : '';
+  const pick = (v) => { onChange(v); setOpen(false); };
+  const openIt = () => { setFrom(value.from); setTo(value.to); setTried(false); setMo(''); setOpen(true); };
+  const months = [];
+  for (let k = 2026 * 12 + 9 + (future ? 5 : 0); k >= 2024 * 12 + 5; k--) { const y = Math.floor(k / 12), m = k % 12; months.push({ value: `${y}-${m}`, label: `${MONTH_NAMES[m]} ${y}` }); }
+  const groups = future ? [AHEAD, ...GROUPS] : GROUPS;
+  return (
+    <>
+      <button id={id} type="button" onClick={openIt} aria-haspopup="dialog"
+        className={cx('inline-flex items-center gap-2 rounded-xl bg-surface border border-line hover:border-ink3/50 text-ink transition min-w-0 max-w-full', size === 'sm' ? 'h-9 px-3 text-[13.5px]' : 'h-11 px-3.5 text-[14.5px]', className)}>
+        <I.CalendarRange size={17} className="text-ink3 shrink-0" />
+        <span className="font-semibold shrink-0">{value.key === 'custom' || value.key?.startsWith('m-') ? '' : value.label}</span>
+        <span className={cx('text-ink3 truncate tnum', value.key === 'custom' || value.key?.startsWith('m-') ? 'text-ink font-semibold' : 'hidden @md:inline')}>{fmtRange(value)}</span>
+        <I.ChevronDown size={16} className="text-ink3 shrink-0 ml-auto" />
+      </button>
+      <Sheet open={open} onClose={() => setOpen(false)} title="Pick dates" sub="Choose a ready range, a month, or your own From and To dates." wide>
+        <div className="flex flex-col gap-5">
+          {groups.map(([g, keys]) => (
+            <div key={g}>
+              <p className="eyebrow text-ink3 mb-2">{g}</p>
+              <div className="flex flex-wrap gap-2">
+                {keys.map((k) => {
+                  const p = PERIODS[k]; const on = value.key === k;
+                  return (
+                    <button key={k} type="button" onClick={() => pick(p)} title={fmtRange(p)}
+                      className={cx('h-10 px-3.5 rounded-xl text-[13.5px] font-semibold border transition', on ? 'bg-ink text-bg border-ink' : 'bg-surface border-line text-ink2 hover:border-ink3/50 hover:text-ink')}>
+                      {p.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+          <div className="grid @md:grid-cols-2 gap-4">
+            <div>
+              <p className="eyebrow text-ink3 mb-2">One month</p>
+              <Select id={id + '-month'} value={mo} onChange={(v) => { setMo(v); const [y, m] = v.split('-').map(Number); const last = new Date(y, m + 1, 0); pick({ key: `m-${v}`, label: `${MONTH_NAMES[m]} ${y}`, from: iso(new Date(y, m, 1)), to: iso(last > TODAY && !future ? TODAY : last) }); }}
+                options={[{ value: '', label: 'Pick a month' }, ...months]} />
+            </div>
+            <div>
+              <p className="eyebrow text-ink3 mb-2">One year</p>
+              <Select id={id + '-year'} value="" onChange={(v) => v && pick(PERIODS[v])}
+                options={[{ value: '', label: 'Pick a year' }, { value: 'acyear', label: 'Academic year 2026–27' }, { value: 'lastacyear', label: 'Academic year 2025–26' }, { value: 'finyear', label: 'Financial year 2026–27' }, { value: 'lastfinyear', label: 'Financial year 2025–26' }, { value: 'calyear', label: 'Calendar year 2026' }]} />
+            </div>
+          </div>
+          <div className="rounded-2xl border border-line p-4">
+            <p className="eyebrow text-ink3 mb-3">From date to To date</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5"><label htmlFor={id + '-from'} className="text-[13px] font-semibold text-ink2">From</label>
+                <input id={id + '-from'} type="date" value={from} min="2024-06-01" max={max} onChange={(e) => setFrom(e.target.value)} className={inputCls(tried && err)} /></div>
+              <div className="flex flex-col gap-1.5"><label htmlFor={id + '-to'} className="text-[13px] font-semibold text-ink2">To</label>
+                <input id={id + '-to'} type="date" value={to} min="2024-06-01" max={max} onChange={(e) => setTo(e.target.value)} className={inputCls(tried && err)} /></div>
+            </div>
+            {tried && err && <p className="text-[13px] text-bad font-medium mt-2 flex items-center gap-1.5"><I.CircleAlert size={14} />{err}</p>}
+            <div className="flex items-center gap-3 mt-3">
+              <p className="text-[12.5px] text-ink3 flex-1 tnum">{!err && from && to ? `${fmtRange({ from, to })} · ${Math.round((parse(to) - parse(from)) / 864e5) + 1} days` : ''}</p>
+              <Button type="button" variant="primary" icon={I.Check} onClick={() => { setTried(true); if (!err) pick({ key: 'custom', label: 'Custom dates', from, to }); }}>Apply</Button>
+            </div>
+          </div>
+        </div>
+      </Sheet>
+    </>
+  );
+}
+
+/* ---------- Month calendar that can go back to earlier months (attendance, leave, roll call) ---------- */
+// cell(y, m, d) -> { tone, title, dot }. Months run from `from` (default June 2025, last school year) to this month.
+export function CalendarMonth({ cell, from = [2025, 5], to = [2026, 9], start = [2026, 9], compact, footer, id = 'cal' }) {
+  const [ym, setYm] = useState(start);
+  const [y, m] = ym;
+  const idx = (a) => a[0] * 12 + a[1];
+  const canBack = idx(ym) > idx(from), canNext = idx(ym) < idx(to);
+  const step = (n) => { const k = idx(ym) + n; setYm([Math.floor(k / 12), k % 12]); };
+  const opts = [];
+  for (let k = idx(to); k >= idx(from); k--) opts.push({ value: String(k), label: `${MONTH_NAMES[k % 12]} ${Math.floor(k / 12)}` });
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-3">
+        <Button variant="secondary" size="sm" icon={I.ChevronLeft} aria-label="Earlier month" disabled={!canBack} onClick={() => step(-1)} className="!px-2.5" />
+        <div className="relative flex-1 min-w-0">
+          <label htmlFor={id + '-m'} className="sr-only">Month</label>
+          <select id={id + '-m'} value={String(idx(ym))} onChange={(e) => { const k = Number(e.target.value); setYm([Math.floor(k / 12), k % 12]); }}
+            className="appearance-none w-full h-9 pl-3 pr-8 rounded-xl bg-sunken/70 hover:bg-sunken text-[14px] font-semibold text-center outline-none cursor-pointer">
+            {opts.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+          <I.ChevronDown size={15} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink3 pointer-events-none" />
+        </div>
+        <Button variant="secondary" size="sm" icon={I.ChevronRight} aria-label="Later month" disabled={!canNext} onClick={() => step(1)} className="!px-2.5" />
+      </div>
+      <MonthGrid year={y} month={m} compact={compact} today={y === 2026 && m === 9 ? 9 : 0} cell={(d) => cell(y, m, d)} />
+      {footer && <div className="mt-3">{footer(y, m)}</div>}
+    </div>
+  );
+}
+
+// School days and holidays for Sunrise Public School, used by every calendar's example data
+const HOLIDAYS = {
+  '2025-7-15': 'Independence Day', '2025-7-27': 'Ganesh Chaturthi', '2025-9-2': 'Gandhi Jayanti', '2025-9-20': 'Diwali', '2025-9-21': 'Diwali',
+  '2025-11-25': 'Christmas', '2026-0-26': 'Republic Day', '2026-2-4': 'Holi', '2026-7-15': 'Independence Day', '2026-8-14': 'Ganesh Chaturthi', '2026-9-2': 'Gandhi Jayanti',
+};
+export function schoolDay(y, m, d) {
+  const dt = new Date(y, m, d);
+  if (dt > TODAY) return { kind: 'future' };
+  if (dt.getDay() === 0) return { kind: 'off', title: 'Sunday' };
+  if (dt.getDay() === 6 && d > 7 && d <= 14) return { kind: 'off', title: 'Second Saturday' };
+  if ((m === 3 && d >= 15) || m === 4) return { kind: 'off', title: 'Summer holidays' };
+  if (m === 9 && y === 2025 && d >= 1 && d <= 3) return { kind: 'holiday', title: 'Dussehra holidays' };
+  if (m === 0 && d <= 3) return { kind: 'holiday', title: 'Winter break' };
+  const h = HOLIDAYS[`${y}-${m}-${d}`];
+  if (h) return { kind: 'holiday', title: h };
+  if (dt < new Date(2025, 5, 1)) return { kind: 'off', title: 'Before records' };
+  return { kind: 'school' };
+}
+// One person's example attendance on a day: present, absent, late, leave, holiday, off or future.
+export function sampleMark(seed, y, m, d) {
+  const sd = schoolDay(y, m, d);
+  if (sd.kind !== 'school') return sd;
+  let h = 0; const s = `${seed}|${y}-${m}-${d}`;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  const r = h % 100;
+  return r < 4 ? { kind: 'absent', title: 'Absent' } : r < 7 ? { kind: 'late', title: 'Late' } : r < 9 ? { kind: 'leave', title: 'On leave' } : { kind: 'present', title: 'Present' };
+}
+export const MARK_TONE = { present: { tone: 'ok' }, absent: { tone: 'bad' }, late: { tone: 'warn' }, leave: { tone: 'info' }, holiday: { tone: 'info' }, off: { tone: 'muted' }, future: { tone: 'muted' } };
+export const markCell = (seed) => (y, m, d) => { const k = sampleMark(seed, y, m, d); return { ...MARK_TONE[k.kind], title: k.title }; };
+export function monthTotals(seed, y, m) {
+  const days = new Date(y, m + 1, 0).getDate(); const t = { present: 0, absent: 0, late: 0, leave: 0, school: 0 };
+  for (let d = 1; d <= days; d++) { const k = sampleMark(seed, y, m, d).kind; if (k in t) { t[k]++; t.school++; } }
+  t.pct = t.school ? Math.round(((t.present + t.late) / t.school) * 1000) / 10 : 0;
+  return t;
 }

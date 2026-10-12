@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom';
 import * as I from './icons.js';
 import { NOTIFICATIONS, NAV, SCHOOL, ME } from './data.js';
-import { MODULES, ROLES, ROLE, NOTIFS_BY_ROLE, NOTIFS_DEFAULT, SCHOOLS_IN_GROUP, pagesFor } from './config.js';
+import { PERSONAL, MODULES, ROLES, ROLE, NOTIFS_BY_ROLE, NOTIFS_DEFAULT, SCHOOLS_IN_GROUP, pagesFor } from './config.js';
 import { cx, ToastHost, LayerCtx, Segmented, Sheet, Button, Pill, Empty, useToast } from './ui.jsx';
 import { NavCtx, ThemeCtx, RoleCtx, useRole, Sidebar, TopBar, BottomNav, MoreSheet, QuickSheet, CommandPalette, NotifPanel, ProfileMenu } from './shell.jsx';
 import { PageCtx } from './kit.jsx';
@@ -35,8 +35,9 @@ const hashOf = (screen, params) => screen + (params?.page ? '.' + params.page : 
 const hostTheme = document.documentElement.getAttribute('data-theme');
 
 function useThemeState() {
-  const [mode, setMode] = useState(() => store.get('mode', 'system'));
-  const [accent, setAccent] = useState(() => store.get('accent', 'lagoon'));
+  // Default look: Light with Royal blue (owner's choice, 12 Oct 2026). New keys so earlier saved choices do not override it.
+  const [mode, setMode] = useState(() => store.get('mode2', 'light'));
+  const [accent, setAccent] = useState(() => store.get('accent2', 'royal'));
   const [size, setSize] = useState(() => store.get('size', 'normal'));
   const [sysDark, setSysDark] = useState(() => window.matchMedia?.('(prefers-color-scheme: dark)').matches);
   useEffect(() => {
@@ -50,7 +51,7 @@ function useThemeState() {
     if (mode === 'system') { hostTheme ? r.setAttribute('data-theme', hostTheme) : r.removeAttribute('data-theme'); } else r.setAttribute('data-theme', mode);
     accent === 'lagoon' ? r.removeAttribute('data-accent') : r.setAttribute('data-accent', accent);
     size === 'large' ? r.setAttribute('data-size', 'large') : r.removeAttribute('data-size');
-    store.set('mode', mode); store.set('accent', accent); store.set('size', size);
+    store.set('mode2', mode); store.set('accent2', accent); store.set('size', size);
   }, [mode, accent, size]);
   const resolved = mode === 'system' ? hostTheme || (sysDark ? 'dark' : 'light') : mode;
   return { mode, setMode, accent, setAccent, size, setSize, resolved };
@@ -153,7 +154,7 @@ function Shell({ route }) {
     s === 'profile' ? <MyProfile /> :
     s === 'setup' ? <SetupHome /> :
     <ModuleScreen id={s} params={route.params} onAddStudent={() => setAdd(true)} />;
-  const title = s === 'dashboard' ? 'Dashboard' : s === 'student' ? 'Student profile' : s === 'appearance' ? 'Appearance' : s === 'approvals' ? 'Approvals' : s === 'profile' ? 'My profile' : s === 'setup' ? 'Setup checklist' : s === 'fees' && (route.params.page || 'collect') === 'collect' ? 'Collect fee' : MODULES[s]?.short;
+  const title = s === 'dashboard' ? 'Dashboard' : s === 'student' ? 'Student profile' : s === 'appearance' ? 'Appearance' : s === 'approvals' ? 'Approvals' : s === 'profile' ? 'My profile' : s === 'setup' ? 'Setup checklist' : PERSONAL.includes(s) && role.access[s] === 'own' ? 'My profile' : s === 'fees' && (route.params.page || 'collect') === 'collect' ? 'Collect fee' : MODULES[s]?.short;
 
   return (
     <div className="flex flex-col h-full">
@@ -216,13 +217,13 @@ function Shell({ route }) {
   );
 }
 
-function NoAccess({ what }) {
+function NoAccess({ what, page }) {
   const { go } = React.useContext(NavCtx);
   const { role } = useRole();
   return (
-    <div className="max-w-xl mx-auto">
-      <Empty icon={I.Lock} title={`${what} is not in your menu`}
-        body={`As ${role.label}, you do not have this module. The School Admin can change roles in Settings, Users & Permissions.`}
+    <div className="max-w-xl mx-auto py-6">
+      <Empty icon={I.Lock} title={`You don't have access to ${what}`}
+        body={`Your role, ${role.label}, does not include this ${page ? 'page' : 'part of School OS'}. If you need it for your work, ask the School Admin to change your role in Settings, Users & Permissions.`}
         action={<Button variant="secondary" icon={I.House} onClick={() => go(homeOf(role))}>Go to your home</Button>} />
     </div>
   );
@@ -235,6 +236,8 @@ function ModuleScreen({ id, params, onAddStudent }) {
   const pages = pagesFor(id, access, role.id);
   if (!m || !access || !pages.length) return <NoAccess what={NAV.flatMap((g) => g.items).find((x) => x.id === id)?.label || 'This page'} />;
   const detail = id === 'staff' && params.page === 'profile' && access !== 'own';
+  // A page outside this person's role, opened by a link or typed address, shows the lock screen, never the page
+  if (params.page && !detail && !pages.some((p) => p.id === params.page)) return <NoAccess what={m.pages.find((p) => p[0] === params.page)?.[1] || 'This page'} page />;
   const page = detail ? 'profile' : pages.some((p) => p.id === params.page) ? params.page : pages.some((p) => p.id === m.def) ? m.def : pages[0].id;
   const Comp = REGISTRY[id]?.[page];
   return (

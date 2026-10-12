@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState, createContext, useContext } from 'react';
 import * as I from './icons.js';
 import { NAV, SCHOOL, ME, STUDENTS, NOTIFICATIONS, APPROVALS, FEATURED } from './data.js';
-import { MODULES, BOTTOM, QUICK_BY_ROLE, APPROVALS_BY_ROLE, SCHOOLS_IN_GROUP, pagesFor } from './config.js';
+import { inMenu, MODULES, BOTTOM, QUICK_BY_ROLE, APPROVALS_BY_ROLE, SCHOOLS_IN_GROUP, pagesFor } from './config.js';
 import { cx, IconButton, Avatar, Kbd, Sheet, Button, Pill, useToast } from './ui.jsx';
 
 export const NavCtx = createContext({ go: () => {}, screen: 'dashboard' });
@@ -17,7 +17,7 @@ export const useRole = () => useContext(RoleCtx);
 // The menu for this person: only modules their roles allow and the school has switched on
 export function useMenu() {
   const { role, modulesOn } = useRole();
-  return NAV.map((g) => ({ ...g, items: g.items.filter((it) => role.access[it.id] && modulesOn[it.id] !== false) })).filter((g) => g.items.length);
+  return NAV.map((g) => ({ ...g, items: g.items.filter((it) => inMenu(role, it.id) && modulesOn[it.id] !== false) })).filter((g) => g.items.length);
 }
 export function approvalsFor(role) {
   if (role.id === 'principal' || role.id === 'schooladmin') return APPROVALS;
@@ -430,6 +430,7 @@ export function ProfileMenu({ open, onClose, onSwitch }) {
         <button className={row} onClick={() => { onClose(); go('profile'); }}><I.UserCog size={18} className="text-ink3" />My profile and password</button>
         {role.access.staff === 'own' && <button className={row} onClick={() => { onClose(); go('staff', { page: 'leave' }); }}><I.CalendarDays size={18} className="text-ink3" />My leave</button>}
         {role.access.salary === 'own' && <button className={row} onClick={() => { onClose(); go('salary', { page: 'slips' }); }}><I.Wallet size={18} className="text-ink3" />My salary slips</button>}
+        {role.access.staff === 'own' && <button className={row} onClick={() => { onClose(); go('staff', { page: 'documents' }); }}><I.FileText size={18} className="text-ink3" />My documents</button>}
         {role.multiSchool && <button className={row} onClick={() => { onClose(); onSwitch?.(); }}><I.ArrowRightLeft size={18} className="text-ink3" />Switch school or campus</button>}
         {(role.id === 'principal' || role.id === 'schooladmin') && <button className={row} onClick={() => { onClose(); go('parent'); }}><I.Smartphone size={18} className="text-ink3" />See what parents see</button>}
         <div className="border-t border-line my-1" />

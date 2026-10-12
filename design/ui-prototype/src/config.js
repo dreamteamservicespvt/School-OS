@@ -124,6 +124,11 @@ const OWN_BY_ROLE = {
 };
 const OWN_LABELS = { staff: { profile: 'My Profile', leave: 'My Leave', documents: 'My Documents' }, salary: { slips: 'My Salary Slips' } };
 
+// Staff & HR and Salary with Own access are only the person's own leave, documents and slips.
+// They live under My profile, not in the menu (owner's request, 12 Oct 2026).
+export const PERSONAL = ['staff', 'salary'];
+export const inMenu = (role, id) => { const a = role.access[id]; return !!a && !(a === 'own' && PERSONAL.includes(id)); };
+
 export function pagesFor(mod, access, roleId) {
   const m = MODULES[mod];
   if (!m || !access) return [];

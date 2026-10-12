@@ -15,6 +15,7 @@ import { BACKUP_TYPES, QUERY_TYPES, updateSettings, type MessageSettingsValue } 
 import { OPT_OUT_WAYS, setOptOut } from "@/lib/messaging/optout";
 import { MessagingProblem } from "@/lib/messaging/send";
 import { sectionSwitches } from "@/lib/parent-link/section-list";
+import { COMM_FEATURE_LIST } from "@/lib/communication/features";
 
 const uuid = /^[0-9a-f-]{36}$/;
 const PATH = "/communication/settings";
@@ -44,6 +45,26 @@ const int = (v: unknown, min: number, max: number, words: string) => {
   if (!Number.isInteger(n) || n < min || n > max) throw new SettingsProblem(words);
   return n;
 };
+
+// ── Optional pages (School Feature) ──────────────────────────────────────
+
+/** WhatsApp Inbox and Surveys are switched on school by school with the School Feature record. */
+export async function setCommFeatureAction(key: string, on: boolean): Promise<string | void> {
+  const f = COMM_FEATURE_LIST.find((x) => x.key === key);
+  if (!f) return "This page was not found.";
+  const r = await run(f.label, async (tx, ctx) => {
+    const row = await tx.schoolFeature.findUnique({ where: { schoolId_featureKey: { schoolId: ctx.schoolId, featureKey: f.key } } });
+    if ((row?.isOn ?? false) === Boolean(on)) return;
+    await tx.schoolFeature.upsert({
+      where: { schoolId_featureKey: { schoolId: ctx.schoolId, featureKey: f.key } },
+      create: { schoolId: ctx.schoolId, featureKey: f.key, isOn: Boolean(on) },
+      update: { isOn: Boolean(on) },
+    });
+    await writeAudit(tx, ctx, { action: on ? "switched-on" : "switched-off", recordType: "School Feature", recordId: null, before: { feature: f.label, on: !on }, after: { feature: f.label, on: Boolean(on) } });
+  });
+  revalidatePath("/communication", "layout");
+  return r;
+}
 
 // ── Automatic messages ────────────────────────────────────────────────────
 

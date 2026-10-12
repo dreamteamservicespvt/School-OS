@@ -5,14 +5,15 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ConfirmButton } from "@/components/ui/confirm";
+import { Switch } from "@/components/ui/controls";
 import {
   archiveGroupAction, archiveTopicAction, findGuardians, optOutAction, saveDeliveryAction, saveParentLinkAction,
-  saveQueryRulesAction, saveRuleAction, saveTopicAction,
+  saveQueryRulesAction, saveRuleAction, saveTopicAction, setCommFeatureAction,
 } from "./actions";
 
 type Opt = { value: string; label: string };
 const box = "size-5 accent-brand";
-const input = "h-11 rounded-lg border border-line-strong bg-surface px-3";
+const input = "h-11 rounded-xl border border-line bg-surface px-3.5 text-[15px] text-ink outline-none transition hover:border-ink3/50 focus:border-brand focus:ring-4 focus:ring-brand/15";
 
 function useSave() {
   const router = useRouter();
@@ -28,16 +29,11 @@ function useSave() {
 }
 
 function Problem({ msg }: { msg: string | null }) {
-  return msg ? <p role="alert" className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">{msg}</p> : null;
+  return msg ? <p role="alert" className="rounded-xl bg-bad/10 px-3 py-2 text-[13px] text-bad">{msg}</p> : null;
 }
 
 function Toggle({ on, onChange, label, disabled }: { on: boolean; onChange: (v: boolean) => void; label: string; disabled?: boolean }) {
-  return (
-    <button type="button" role="switch" aria-checked={on} aria-label={label} disabled={disabled} onClick={() => onChange(!on)}
-      className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${on ? "bg-brand" : "bg-surface-3"}`}>
-      <span className={`inline-block size-5 rounded-full bg-surface shadow transition-transform ${on ? "translate-x-6" : "translate-x-1"}`} />
-    </button>
-  );
+  return <Switch on={on} onChange={onChange} label={label} disabled={disabled} />;
 }
 
 // ── Automatic messages ────────────────────────────────────────────────────
@@ -59,20 +55,20 @@ export function RuleRow({ rule, channels }: { rule: RuleRowData; channels: Opt[]
   const doSave = (on = isOn) => save(() => saveRuleAction({ key: rule.key, isOn: on, channels: chs, sendTo, timing }), () => setOpen(false));
 
   return (
-    <li className="py-3">
-      <div className="flex items-start gap-3">
-        <Toggle on={isOn} label={`${rule.label} on or off`} disabled={pending} onChange={(v) => { setOn(v); if (!open) save(() => saveRuleAction({ key: rule.key, isOn: v, channels: chs, sendTo, timing })); }} />
+    <li className="px-5 py-3">
+      <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
           <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="text-left">
-            <span className="font-medium">{rule.label}</span>
-            <span className="block text-sm text-ink-2">When {rule.when.charAt(0).toLowerCase() + rule.when.slice(1)} · {chs.map((c) => channels.find((x) => x.value === c)?.label ?? c).join(", ") || "no channel"}{rule.timingFields.map((f) => ` · ${f.label.toLowerCase()} ${timing[f.key]}`).join("")} · from {rule.module}</span>
+            <span className="font-semibold text-[14px]">{rule.label}</span>
+            <span className="block text-[12.5px] text-ink3">When {rule.when.charAt(0).toLowerCase() + rule.when.slice(1)} · {chs.map((c) => channels.find((x) => x.value === c)?.label ?? c).join(", ") || "no channel"}{rule.timingFields.map((f) => ` · ${f.label.toLowerCase()} ${timing[f.key]}`).join("")} · from {rule.module}</span>
           </button>
-          {rule.templates.some((t) => t.problem) && isOn && <p className="mt-1 text-sm text-danger">{rule.templates.filter((t) => t.problem).map((t) => t.problem).join(" ")}</p>}
+          {rule.templates.some((t) => t.problem) && isOn && <p className="mt-1 text-sm text-bad">{rule.templates.filter((t) => t.problem).map((t) => t.problem).join(" ")}</p>}
         </div>
         <Button variant="ghost" size="sm" onClick={() => setOpen(!open)} aria-expanded={open}>{open ? "Close" : "Change"}</Button>
+        <Toggle on={isOn} label={`${rule.label} on or off`} disabled={pending} onChange={(v) => { setOn(v); if (!open) save(() => saveRuleAction({ key: rule.key, isOn: v, channels: chs, sendTo, timing })); }} />
       </div>
       {open && (
-        <div className="mt-3 space-y-3 rounded-xl bg-surface-2 p-3 sm:ml-15">
+        <div className="mt-3 space-y-3 rounded-xl bg-sunken/70 p-3">
           <fieldset>
             <legend className="mb-1 text-sm font-medium">Channels</legend>
             <div className="flex flex-wrap gap-x-4">
@@ -87,7 +83,7 @@ export function RuleRow({ rule, channels }: { rule: RuleRowData; channels: Opt[]
             <p className="mb-1 text-sm font-medium">Template</p>
             <ul className="text-sm">
               {rule.templates.filter((t) => chs.includes(t.channel)).map((t) => (
-                <li key={t.channel}>{channels.find((c) => c.value === t.channel)?.label}: {t.href ? <a href={t.href} className="text-brand-text underline">{t.label}</a> : <span className="text-danger">{t.label}</span>}</li>
+                <li key={t.channel}>{channels.find((c) => c.value === t.channel)?.label}: {t.href ? <a href={t.href} className="text-brand underline">{t.label}</a> : <span className="text-bad">{t.label}</span>}</li>
               ))}
             </ul>
           </div>
@@ -127,7 +123,7 @@ export function DeliveryForm({ retryLimit, backup, backupTypes, noticeApproval }
     <div className="space-y-4">
       <fieldset>
         <legend className="mb-1 font-medium">SMS backup</legend>
-        <p className="mb-2 text-sm text-ink-2">Anyone whose WhatsApp or app message fails, or is not read within the wait time, gets the same message by SMS. Backup SMS use the message type&rsquo;s SMS template with a DLT template ID and use credits.</p>
+        <p className="mb-2 text-sm text-ink3">Anyone whose WhatsApp or app message fails, or is not read within the wait time, gets the same message by SMS. Backup SMS use the message type&rsquo;s SMS template with a DLT template ID and use credits.</p>
         <ul className="space-y-2">
           {backupTypes.map((t) => (
             <li key={t.value} className="flex flex-wrap items-center gap-3">
@@ -147,7 +143,7 @@ export function DeliveryForm({ retryLimit, backup, backupTypes, noticeApproval }
           <select value={retry} onChange={(e) => setRetry(e.target.value)} className={`${input} mt-1 block w-full`}>
             {[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n} {n === 1 ? "try" : "tries"}</option>)}
           </select>
-          <span className="mt-1 block text-sm font-normal text-ink-2">How many times a failed message can be retried.</span>
+          <span className="mt-1 block text-sm font-normal text-ink3">How many times a failed message can be retried.</span>
         </label>
         <label className="block font-medium">Notice approval rule
           <select value={approval} onChange={(e) => setApproval(e.target.value)} className={`${input} mt-1 block w-full`}>
@@ -155,7 +151,7 @@ export function DeliveryForm({ retryLimit, backup, backupTypes, noticeApproval }
             <option value="all">Every notice needs approval</option>
             <option value="none">No approval needed</option>
           </select>
-          <span className="mt-1 block text-sm font-normal text-ink-2">The Principal and School Admin publish without approval.</span>
+          <span className="mt-1 block text-sm font-normal text-ink3">The Principal and School Admin publish without approval.</span>
         </label>
       </div>
       <Problem msg={msg} />
@@ -202,7 +198,7 @@ export function TopicList({ topics, owners }: { topics: { id: string; name: stri
   const { msg, pending, save } = useSave();
   const start = (t: { id: string; name: string; owner: string } | null) => { setEdit(t?.id ?? "new"); setName(t?.name ?? ""); setOwner(t?.owner ?? ""); };
   const form = (
-    <div className="flex flex-wrap items-end gap-2 rounded-xl bg-surface-2 p-3">
+    <div className="flex flex-wrap items-end gap-2 rounded-xl bg-sunken/70 p-3">
       <label className="text-sm font-medium">Topic<input value={name} maxLength={40} onChange={(e) => setName(e.target.value)} className={`${input} mt-1 block w-48`} /></label>
       <label className="text-sm font-medium">Default owner
         <select value={owner} onChange={(e) => setOwner(e.target.value)} className={`${input} mt-1 block w-64`}>
@@ -221,8 +217,8 @@ export function TopicList({ topics, owners }: { topics: { id: string; name: stri
           <li key={t.id} className="py-2">
             {edit === t.id ? form : (
               <div className="flex flex-wrap items-center gap-2">
-                <span className={`min-w-32 font-medium ${t.archived ? "text-ink-2 line-through" : ""}`}>{t.name}</span>
-                <span className="flex-1 text-sm text-ink-2">{owners.find((o) => o.value === t.owner)?.label ?? "No default owner"}</span>
+                <span className={`min-w-32 font-medium ${t.archived ? "text-ink3 line-through" : ""}`}>{t.name}</span>
+                <span className="flex-1 text-sm text-ink3">{owners.find((o) => o.value === t.owner)?.label ?? "No default owner"}</span>
                 {!t.archived && <Button size="sm" variant="ghost" onClick={() => start(t)}>Change</Button>}
                 <Button size="sm" variant="ghost" onClick={() => save(() => archiveTopicAction(t.id, !t.archived))}>{t.archived ? "Restore" : "Archive"}</Button>
               </div>
@@ -263,7 +259,7 @@ export function OptOutPanel({ ways, rows }: { ways: string[]; rows: { id: string
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl bg-surface-2 p-3">
+      <div className="rounded-xl bg-sunken/70 p-3">
         <p className="mb-2 font-medium">Record a change</p>
         {!pick ? (
           <div className="relative">
@@ -272,8 +268,8 @@ export function OptOutPanel({ ways, rows }: { ways: string[]; rows: { id: string
             {found.length > 0 && (
               <ul className="absolute z-10 mt-1 w-full overflow-hidden rounded-xl border border-line bg-surface shadow-pop">
                 {found.map((g) => (
-                  <li key={g.id}><button type="button" onClick={() => { setPick(g); setFound([]); }} className="flex min-h-11 w-full items-center justify-between gap-2 px-3 text-left hover:bg-surface-2">
-                    <span>{g.name} <span className="text-sm text-ink-2">{g.detail}</span></span>{g.optedOut && <span className="text-sm text-danger">Opted out</span>}
+                  <li key={g.id}><button type="button" onClick={() => { setPick(g); setFound([]); }} className="flex min-h-11 w-full items-center justify-between gap-2 px-3 text-left hover:bg-sunken/70">
+                    <span>{g.name} <span className="text-sm text-ink3">{g.detail}</span></span>{g.optedOut && <span className="text-sm text-bad">Opted out</span>}
                   </button></li>
                 ))}
               </ul>
@@ -281,7 +277,7 @@ export function OptOutPanel({ ways, rows }: { ways: string[]; rows: { id: string
           </div>
         ) : (
           <div className="space-y-2">
-            <p><span className="font-medium">{pick.name}</span> {pick.optedOut ? "has opted out. Restart messages?" : "gets messages now. Stop non-emergency messages?"} <button type="button" className="text-sm text-brand-text underline" onClick={() => setPick(null)}>Choose another</button></p>
+            <p><span className="font-medium">{pick.name}</span> {pick.optedOut ? "has opted out. Restart messages?" : "gets messages now. Stop non-emergency messages?"} <button type="button" className="text-sm text-brand underline" onClick={() => setPick(null)}>Choose another</button></p>
             <div className="flex flex-wrap items-end gap-2">
               <label className="text-sm font-medium">How the parent told the school
                 <select value={how} onChange={(e) => setHow(e.target.value)} className={`${input} mt-1 block w-52`}>
@@ -298,11 +294,11 @@ export function OptOutPanel({ ways, rows }: { ways: string[]; rows: { id: string
         )}
         {(err || msg) && <div className="mt-2"><Problem msg={err ?? msg} /></div>}
       </div>
-      {rows.length === 0 ? <p className="text-ink-2">No parent has opted out. Emergency messages always reach everyone.</p> : (
+      {rows.length === 0 ? <p className="text-ink3">No parent has opted out. Emergency messages always reach everyone.</p> : (
         <ul className="divide-y divide-line">
           {rows.map((r) => (
             <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-              <span><span className="font-medium">{r.name}</span> <span className="text-sm text-ink-2">{r.detail} · since {r.since} · {r.how}{r.note ? ` · ${r.note}` : ""}</span></span>
+              <span><span className="font-medium">{r.name}</span> <span className="text-sm text-ink3">{r.detail} · since {r.since} · {r.how}{r.note ? ` · ${r.note}` : ""}</span></span>
               <ConfirmButton trigger="Restart messages" title={`Restart messages to ${r.name}?`} confirmLabel="Restart messages"
                 onConfirm={async () => { const m = await optOutAction({ guardianId: r.id, optOut: false, how: "Phone call", note: "Restarted from Message Settings" }); return m; }}>
                 They will get normal messages again, recorded as a phone call. To record another way, find the parent above.
@@ -345,13 +341,13 @@ export function ParentLinkForm({ on, shows, switches, autoSend, codeMinutes, dev
           {switches.map((w) => (
             <li key={w.key}><label className="flex min-h-11 items-start gap-3 py-1">
               <input type="checkbox" className={`${box} mt-0.5`} checked={s[w.key] !== false} onChange={(e) => setS({ ...s, [w.key]: e.target.checked })} />
-              <span><span className="font-medium">{w.label}</span> <span className="block text-sm text-ink-2">{w.description}</span></span>
+              <span><span className="font-medium">{w.label}</span> <span className="block text-sm text-ink3">{w.description}</span></span>
             </label></li>
           ))}
         </ul>
-        <p className="mt-1 text-sm text-ink-2">Fees and Pay, receipts, attendance this month, the datesheet and report cards are added here as their modules are switched on.</p>
+        <p className="mt-1 text-sm text-ink3">Fees and Pay, receipts, attendance this month, the datesheet and report cards are added here as their modules are switched on.</p>
       </fieldset>
-      <label className="flex items-center gap-3"><Toggle on={auto} onChange={setAuto} label="Send links on admission" /> <span>Send links automatically when an admission is approved{templateHref && <> (<a href={templateHref} className="text-brand-text underline">template</a>)</>}</span></label>
+      <label className="flex items-center gap-3"><Toggle on={auto} onChange={setAuto} label="Send links on admission" /> <span>Send links automatically when an admission is approved{templateHref && <> (<a href={templateHref} className="text-brand underline">template</a>)</>}</span></label>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block text-sm font-medium">One-time code valid for
           <span className="mt-1 flex items-center gap-2"><input type="number" min={5} max={30} value={code} onChange={(e) => setCode(e.target.value)} className={`${input} w-24`} /> minutes</span>
@@ -368,5 +364,30 @@ export function ParentLinkForm({ on, shows, switches, autoSend, codeMinutes, dev
         save(() => saveParentLinkAction({ on: isOn, shows: s, autoSendOnAdmission: auto, codeMinutes: c, deviceDays: d }));
       }}>Save Parent Link settings</Button>
     </div>
+  );
+}
+
+// ── Optional pages ────────────────────────────────────────────────────────
+
+/** WhatsApp Inbox and Surveys, switched on for this school only (School Feature). */
+export function FeatureSwitches({ features }: { features: { key: string; label: string; description: string; on: boolean }[] }) {
+  const [on, setOn] = useState(Object.fromEntries(features.map((f) => [f.key, f.on])));
+  const { msg, pending, save } = useSave();
+  return (
+    <>
+      <ul className="divide-y divide-line/70 border-t border-line/70">
+        {features.map((f) => (
+          <li key={f.key} className="flex items-center gap-3 px-5 py-3.5">
+            <label htmlFor={`feat-${f.key}`} className="min-w-0 flex-1 text-[14px]">
+              <b className="font-semibold block">{f.label}</b>
+              <span className="text-[12.5px] text-ink3">{f.description}</span>
+            </label>
+            <Switch id={`feat-${f.key}`} on={on[f.key]} label={f.label} disabled={pending}
+              onChange={(v) => { setOn({ ...on, [f.key]: v }); save(() => setCommFeatureAction(f.key, v)); }} />
+          </li>
+        ))}
+      </ul>
+      {msg && <div className="px-5 pb-4"><Problem msg={msg} /></div>}
+    </>
   );
 }

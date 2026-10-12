@@ -239,7 +239,7 @@ function ModuleScreen({ id, params, onAddStudent }) {
   const Comp = REGISTRY[id]?.[page];
   return (
     <PageCtx.Provider value={{ module: id, page, access, pages, short: m.short }}>
-      {Comp ? <Comp params={params} access={access} onAddStudent={onAddStudent} /> : <Empty icon={I.LayoutGrid} title={pages.find((p) => p.id === page)?.label || page} body="This page is being drawn." />}
+      {Comp ? <Comp params={params} access={access} onAddStudent={onAddStudent} /> : <Empty icon={I.LayoutGrid} title={pages.find((p) => p.id === page)?.label || page} body="Pick a page from the tabs above." />}
     </PageCtx.Provider>
   );
 }

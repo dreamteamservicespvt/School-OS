@@ -425,7 +425,7 @@ const HOMES = {
     ],
     today: [
       { time: '11:00', title: 'Bank deposit: cash ₹38,400', where: 'HDFC Bank, Kukatpally branch', tone: 'brand', to: 'finance.cashbank' },
-      { time: '1:00', title: 'Razorpay settlement ₹1,12,400', where: 'Into HDFC ••4471', tone: 'info', to: 'finance.cashbank' },
+      { time: '1:00', title: 'Razorpay settlement ₹1,12,400', where: 'Into HDFC ••7730', tone: 'info', to: 'finance.cashbank' },
       { time: '3:00', title: 'Staff meeting', where: 'Principal’s room', tone: 'info' },
       { time: 'Sat', title: 'Q3 tuition due date', where: 'All classes · late fee from 11 Oct', tone: 'warn', to: 'fees.defaulters' },
       { time: 'Thu', title: 'Exam fee due (half-yearly)', where: 'Classes 6–10 · ₹1,200 each', tone: 'bad', to: 'fees.dashboard' },

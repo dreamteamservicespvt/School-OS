@@ -46,33 +46,38 @@ const TODAY_TONE: Record<string, { icon: LucideIcon; cls: string }> = {
 export function OverviewTab({ p, can, settings, href, tz, today }: Base & { p: Profile; settings: ResolvedSettings; href: string; today: SummaryItem[] }) {
   const s = p.student;
   const address = [s.address, s.city, s.state, s.pinCode].filter(Boolean).join(", ") || null;
-  const showIds = !can.lookupOnly && (can.seeRestricted || p.identifiers.some((i) => i.value));
+  const v = can.view;
+  const showIds = v.personal && !can.lookupOnly && (can.seeRestricted || p.identifiers.some((i) => i.value));
   return (
     <Split side={340}>
       <Col>
-        <Card>
-          <CardHeader title="Personal details" action={editLink(href, "personal", can)} />
-          <DL rows={[
-            ["Date of birth", s.dateOfBirth ? `${longDate(s.dateOfBirth, tz)} (${ageOn(s.dateOfBirth)} years)` : null],
-            ["Gender", s.gender],
-            ["Blood group", s.bloodGroup],
-            ["Admitted on", s.joiningDate ? longDate(s.joiningDate, tz) : null],
-            ["Home address", address],
-            ...(!can.lookupOnly ? [["Category", s.category], ["Religion", s.religion], ["Mother tongue", s.motherTongue]] as [string, React.ReactNode][] : []),
-          ]} />
-        </Card>
+        {(v.personal || v.address) && (
+          <Card>
+            <CardHeader title="Personal details" action={editLink(href, "personal", can)} />
+            <DL rows={[
+              ...(v.personal ? [
+                ["Date of birth", s.dateOfBirth ? `${longDate(s.dateOfBirth, tz)} (${ageOn(s.dateOfBirth)} years)` : null],
+                ["Gender", s.gender],
+                ["Blood group", s.bloodGroup],
+              ] as [string, React.ReactNode][] : []),
+              ["Admitted on", s.joiningDate ? longDate(s.joiningDate, tz) : null],
+              ...(v.address ? [["Home address", address]] as [string, React.ReactNode][] : []),
+              ...(v.personal && !can.lookupOnly ? [["Category", s.category], ["Religion", s.religion], ["Mother tongue", s.motherTongue]] as [string, React.ReactNode][] : []),
+            ]} />
+          </Card>
+        )}
 
-        <ParentsCard p={p} can={can} href={href} />
-        <EmergencyCard p={p} can={can} />
+        {v.parents && <ParentsCard p={p} can={can} href={href} />}
+        {v.siblings && <SiblingsCard p={p} />}
+        {v.emergency && <EmergencyCard p={p} can={can} />}
 
         <Card>
           <CardHeader title="Contact and enrolment" action={editLink(href, "contact", can)} />
           <DL rows={[
             ["Admission number", <span key="a" className="font-mono text-[14px]">{s.admissionNo}</span>],
             ["Class and section", p.now?.section ? `${classShort(p.now.section.schoolClass.name, p.now.section.name)}${p.now.rollNo ? ` · Roll ${p.now.rollNo}` : ""}` : "No class this year"],
-            ["Permanent address", p.permanentAddress],
-            ["Student's phone", p.studentPhone ? phoneShow(p.studentPhone) : null],
-            ["Student's email", p.studentEmail],
+            ...(v.address ? [["Permanent address", p.permanentAddress]] as [string, React.ReactNode][] : []),
+            ...(v.personal && v.phones ? [["Student's phone", p.studentPhone ? phoneShow(p.studentPhone) : null], ["Student's email", p.studentEmail]] as [string, React.ReactNode][] : []),
           ]} />
           {can.manage && <div className="px-5 pb-4 -mt-2"><EditLink href={`${href}/edit/enrolment`} label="Edit enrolment" /></div>}
         </Card>
@@ -105,7 +110,7 @@ export function OverviewTab({ p, can, settings, href, tz, today }: Base & { p: P
           </ul>
         </Card>
 
-        {!can.lookupOnly && (
+        {v.pickup && !can.lookupOnly && (
           <Card>
             <CardHeader title="Pickup list" description="Who may collect the student. Front Office uses this list." icon={UserRoundCheck} />
             <ul className="px-5 pb-5 flex flex-col gap-2.5 text-[14px]">
@@ -195,6 +200,29 @@ function ParentsCard({ p, can, href }: { p: Profile; can: StudentAbilities; href
             </div>
           ))}
         </div>
+      )}
+    </Card>
+  );
+}
+
+function SiblingsCard({ p }: { p: Profile }) {
+  return (
+    <Card>
+      <CardHeader title="Brothers and sisters" description="Students at the school who share a parent" icon={Users} />
+      {p.siblings.length === 0 ? <p className="px-5 pb-5 text-[14px] text-ink3">No brother or sister at the school.</p> : (
+        <ul className="px-2 pb-2">
+          {p.siblings.map((b) => (
+            <li key={b.id}>
+              <Link href={`${BASE}/students/${b.id}`} className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-sunken/70">
+                <Avatar name={b.name} src={b.photo} size={38} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[14.5px] font-semibold">{b.name}</span>
+                  <span className="block text-[12.5px] text-ink3">{b.className ? classShort(b.className, b.sectionName) : "No class this year"} · <span className="font-mono">{b.admissionNo}</span></span>
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
       )}
     </Card>
   );

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Ban, ChevronRight, Eye, FileText, FolderOpen, GraduationCap, IndianRupee, MessageCircle, Pencil, RefreshCw, Send, ShieldAlert, ShieldCheck, ShieldX, Smartphone, Merge } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { formatDate, formatDateTime, formatRupees } from "@/lib/format";
@@ -35,6 +35,7 @@ const stateWord = (s: keyof typeof TONE) => s === "NONE" ? "Not given" : CONSENT
 export default async function Parent360({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { current, year, can, tz } = await studentPage();
+  if (!can.seeParents) redirect(BASE);
   const provider = parentLinkProvider();
   const data = await withSchool(current.ctx, async (tx) => {
     const g = await visibleGuardianFor(tx, current, id);

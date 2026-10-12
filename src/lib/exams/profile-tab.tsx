@@ -23,6 +23,7 @@ registerProfileTab({
   load: async ({ current, studentId, academicYearId }) => <ExamsTab data={await load(current, studentId, academicYearId)} studentId={studentId} />,
   summary: async ({ current, studentId, academicYearId }) => {
     const data = await load(current, studentId, academicYearId);
+    if (data?.years[0]?.onlySubjects) return [];
     const latest = data?.years[0]?.exams.filter((e) => e.complete).at(-1);
     if (!latest) return [];
     return [{ label: `${latest.title}${latest.status === "DRAFT" ? " (draft)" : ""}`, value: `${showPercent(latest.percent)}${latest.grade ? ` · ${latest.grade}` : ""}`, href: `/examination-results/analysis?view=student&student=${studentId}`, tone: latest.outcome === "Pass" ? "success" : latest.outcome ? "danger" : "neutral" }];
@@ -39,13 +40,14 @@ function ExamsTab({ data, studentId }: { data: StudentExamsTab | null; studentId
       {data.years.map((y) => (
         <section key={y.yearId} className="rounded-2xl border border-line bg-surface p-4 sm:p-5">
           <h3 className="text-lg font-semibold">{y.year} <span className="font-normal text-ink-2">· {y.section}</span></h3>
+          {y.onlySubjects && <p className="mt-1 text-sm text-ink-2">Only the subject{y.onlySubjects.length === 1 ? "" : "s"} you teach{y.onlySubjects.length ? `: ${y.onlySubjects.join(", ")}` : ""}.</p>}
           {y.exams.length === 0 && <p className="mt-2 text-ink-2">No exam results in this year yet.</p>}
           {y.exams.map((e) => (
             <details key={e.examId} className="mt-3 rounded-xl border border-line">
               <summary className="flex min-h-11 cursor-pointer flex-wrap items-center justify-between gap-2 px-3 py-2">
                 <span className="font-medium">{e.title} <span className="text-sm font-normal text-ink-2">{formatDate(e.from)}</span></span>
                 <span className="text-sm">
-                  {e.complete ? `${showPercent(e.percent)}${e.grade ? ` · ${e.grade}` : ""}${e.rank ? ` · Rank ${e.rank}` : ""}${e.outcome ? ` · ${e.outcome}` : ""}` : "Marks still being entered"}
+                  {y.onlySubjects ? (e.complete ? "" : "Marks still being entered") : e.complete ? `${showPercent(e.percent)}${e.grade ? ` · ${e.grade}` : ""}${e.rank ? ` · Rank ${e.rank}` : ""}${e.outcome ? ` · ${e.outcome}` : ""}` : "Marks still being entered"}
                   {e.status === "DRAFT" && <span className="ml-2 rounded-full bg-surface-2 px-2 py-0.5 text-xs text-ink-2">Draft</span>}
                 </span>
               </summary>

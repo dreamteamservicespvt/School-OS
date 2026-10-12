@@ -20,7 +20,7 @@ import { ListToolbar } from "@/components/list/list-toolbar";
 import { MoreMenu } from "@/components/ui/more-menu";
 import { BASE, studentPage } from "./_lib/page";
 import { StudentsHead } from "./_lib/head";
-import { EXPORT_FIELDS } from "./_lib/export-fields";
+import { EXPORT_FIELDS, fieldAllowed } from "./_lib/export-fields";
 import { classTiles, LIST_FILTERS, mainGuardian, photoSrc, sectionNames, studentListInclude, studentListWhere, type ListStudent } from "./_lib/queries";
 
 export const metadata: Metadata = { title: "Student List" };
@@ -69,7 +69,7 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
     const rows: Row[] = students.map((s) => {
       const f = facts.facts.get(s.id);
       const e = s.enrolments[0];
-      return { ...s, sectionLabel: e ? classShort(names.get(e.sectionId)?.className ?? "", names.get(e.sectionId)?.sectionName) : "", photo: photoSrc(s.photoFileId, current.ctx.schoolId), att: f?.attendancePct ?? null, due: f?.feeDuePaise ?? null, overdue: Boolean(f?.feeOverdue) };
+      return { ...s, guardians: ab.seeParents ? s.guardians : [], sectionLabel: e ? classShort(names.get(e.sectionId)?.className ?? "", names.get(e.sectionId)?.sectionName) : "", photo: photoSrc(s.photoFileId, current.ctx.schoolId), att: f?.attendancePct ?? null, due: f?.feeDuePaise ?? null, overdue: Boolean(f?.feeOverdue) };
     });
     return { total, rows, tiles, has: facts.has };
   });
@@ -77,7 +77,7 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
   const f = params.filters;
   const curClass = data.tiles.find((t) => t.id === f.class) ?? null;
   const studying = data.tiles.reduce((n, t) => n + t.total, 0);
-  const show = new Set(settings.listColumns.length ? settings.listColumns : LIST_COLUMNS.map((c) => c.key));
+  const show = new Set((settings.listColumns.length ? settings.listColumns : LIST_COLUMNS.map((c) => c.key)).filter((k) => fieldAllowed(k, ab)));
   const feeCol = can(current.permissions, "fee-management", "view");
   const seeFees = data.has.fees && feeCol;
   const href = (change: Record<string, string | null>) => listHref(BASE, { ...params, page: 1 }, { ...change, page: null });
@@ -145,7 +145,7 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
                 <fieldset>
                   <legend className="mb-1.5 text-[13px] font-semibold text-ink2">Fields</legend>
                   <div className="grid gap-1">
-                    {EXPORT_FIELDS.filter((x) => !x.restricted || ab.seeRestricted).map((x) => (
+                    {EXPORT_FIELDS.filter((x) => (!x.restricted || ab.seeRestricted) && fieldAllowed(x.key, ab)).map((x) => (
                       <label key={x.key} className="flex min-h-9 items-center gap-2.5 text-[14px]"><input type="checkbox" name="f" value={x.key} defaultChecked={x.default} className="size-[18px] accent-[rgb(var(--brand))]" />{x.label}</label>
                     ))}
                   </div>

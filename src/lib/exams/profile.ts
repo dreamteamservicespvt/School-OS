@@ -2,7 +2,9 @@
 // cards on the profile; results for promotion"). The Student Profile's Exams
 // tab calls studentExamsTab(); the lead wires it in. It shows only what the
 // viewer may see: full reach sees every result, a teacher sees students of
-// their own sections, and draft results are marked as drafts.
+// their own sections, and draft results are marked as drafts. A subject
+// teacher who is not the section's class teacher sees only the marks of the
+// subjects they teach there: no totals, rank, final result or report cards.
 import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
@@ -14,6 +16,8 @@ import { seesSection, type ExamScope } from "./scope";
 export type StudentExamsTab = {
   years: {
     yearId: string; year: string; section: string; sectionId: string;
+    /** Set when the viewer sees only the subjects they teach: their names. */
+    onlySubjects: string[] | null;
     exams: { examId: string; title: string; from: Date; percent: number | null; grade: string | null; rank: number | null; outcome: string | null; status: "DRAFT" | "PUBLISHED"; complete: boolean; subjects: SubjectResult[] }[];
     final: { percent: number | null; grade: string | null; outcome: string | null; status: "DRAFT" | "PUBLISHED" } | null;
     reportCards: { period: string; label: string; status: string; ready: boolean }[];
@@ -41,7 +45,11 @@ export async function studentExamsTab(tx: Tx, ctx: SchoolContext, scope: ExamSco
   for (const e of visible) {
     const mine = results.filter((r) => r.academicYearId === e.academicYearId);
     const final = mine.find((r) => r.key === finalKey(e.academicYearId));
-    const options = await periodsForClass(tx, e.academicYearId, e.section.classId);
+    // Subject teachers (not the class teacher): only their own subjects' marks.
+    const own = scope.teaches !== null && !scope.classTeacherOf.includes(e.sectionId)
+      ? new Set(scope.teaches.filter((t) => t.sectionId === e.sectionId).map((t) => t.subjectId))
+      : null;
+    const options = own ? [] : await periodsForClass(tx, e.academicYearId, e.section.classId);
     years.push({
       yearId: e.academicYearId, year: e.academicYear.name, section: `${e.section.schoolClass.name} ${e.section.name}`, sectionId: e.sectionId,
       exams: exams
@@ -49,9 +57,13 @@ export async function studentExamsTab(tx: Tx, ctx: SchoolContext, scope: ExamSco
         .sort((a, b) => a.startDate.getTime() - b.startDate.getTime())
         .map((x) => {
           const r = mine.find((m) => m.key === examKey(x.id))!;
-          return { examId: x.id, title: x.title, from: x.startDate, percent: r.percent, grade: r.grade, rank: r.rank, outcome: r.outcome, status: r.status, complete: r.complete, subjects: (r.subjects as unknown as SubjectResult[]) ?? [] };
-        }),
-      final: final && final.complete ? { percent: final.percent, grade: final.grade, outcome: final.outcome, status: final.status } : null,
+          const subjects = ((r.subjects as unknown as SubjectResult[]) ?? []).filter((s) => !own || own.has(s.subjectId));
+          if (own) return { examId: x.id, title: x.title, from: x.startDate, percent: null, grade: null, rank: null, outcome: null, status: r.status, complete: r.complete, subjects };
+          return { examId: x.id, title: x.title, from: x.startDate, percent: r.percent, grade: r.grade, rank: r.rank, outcome: r.outcome, status: r.status, complete: r.complete, subjects };
+        })
+        .filter((x) => !own || x.subjects.length > 0),
+      onlySubjects: own ? [...new Set(exams.flatMap((x) => ((mine.find((m) => m.key === examKey(x.id))?.subjects as unknown as SubjectResult[]) ?? []).filter((s) => own.has(s.subjectId)).map((s) => s.name)))] : null,
+      final: !own && final && final.complete ? { percent: final.percent, grade: final.grade, outcome: final.outcome, status: final.status } : null,
       reportCards: options.map((o) => {
         const c = cards.find((x) => x.period === o.key && x.academicYearId === e.academicYearId);
         const status = c?.status ?? "NOT_READY";

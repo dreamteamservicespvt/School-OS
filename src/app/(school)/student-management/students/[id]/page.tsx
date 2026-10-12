@@ -25,6 +25,7 @@ import { loadProfile } from "../../_lib/profile";
 import { removePhoto, uploadPhoto } from "../../_actions/students";
 import { PhotoUpload } from "./photo-upload";
 import { AcademicsTab, BehaviourTab, DocumentsTab, HistoryTab, OverviewTab } from "./tabs";
+import { LibraryView, PickupView } from "./lookup-views";
 
 export const metadata: Metadata = { title: "Student Profile" };
 
@@ -50,15 +51,22 @@ export default async function StudentProfilePage({ params, searchParams }: { par
   const href = `${BASE}/students/${id}`;
   const args = { current, studentId: id, academicYearId: yearId };
 
-  // Tabs: this module's own, then those other modules registered, each by permission; never an empty tab.
-  const registered = profileTabsFor(current);
+  const view = can.view;
+  const back = <BackLink href={p.now ? `${BASE}?class=${p.now.classId}&section=${p.now.sectionId}` : BASE} label="Students" sub={p.now?.section ? classShort(p.now.section.schoolClass.name, p.now.section.name) : undefined} />;
+  // Front Office and Gate Security: the photo and the approved pickup list. The Librarian: name, photo and class.
+  if (view.mode === "pickup") return <PickupView p={p} back={back} showPhones={view.phones} pickupHref={BUILT_MODULES.has("front-office") && allowed(current.permissions, "front-office", "create") ? "/front-office" : null} />;
+  if (view.mode === "library") return <LibraryView p={p} back={back} />;
+
+  // Tabs: this module's own, then those other modules registered, each by permission and by what this role sees; never an empty tab.
+  const tabAllowed = (key: string) => view.tabs === null || view.tabs.includes(key);
+  const registered = profileTabsFor(current).filter((t) => tabAllowed(t.key));
   const tabs = [
     { key: "overview", label: "Overview", order: 10 },
-    { key: "academics", label: "Academics", order: 20 },
+    ...(tabAllowed("academics") ? [{ key: "academics", label: "Academics", order: 20 }] : []),
     ...registered.map((t) => ({ key: t.key, label: t.label, order: t.order })),
     ...(can.seeBehaviour ? [{ key: "behaviour", label: "Behaviour", order: 100 }] : []),
     ...(can.seeDocuments ? [{ key: "documents", label: "Documents", order: 110 }] : []),
-    { key: "history", label: "Timeline", order: 130 },
+    ...(tabAllowed("history") ? [{ key: "history", label: "Timeline", order: 130 }] : []),
   ].sort((a, b) => a.order - b.order);
   const tab = tabs.find((t) => t.key === tabParam)?.key ?? "overview";
 
@@ -96,7 +104,7 @@ export default async function StudentProfilePage({ params, searchParams }: { par
     ...(can.contribute && can.seeBehaviour && studying ? [{ label: "Report incident", href: `${BASE}/behaviour/new?student=${id}`, icon: icon(TriangleAlert) }] : []),
     ...(can.manage && studying && !p.leaving ? [{ label: "Start leaving", href: `${BASE}/leaving/new?student=${id}`, icon: icon(LogOut), tone: "bad" as const }] : []),
   ];
-  const message = BUILT_MODULES.has("communication") && allowed(current.permissions, "communication", "create") && p.links.length > 0;
+  const message = BUILT_MODULES.has("communication") && allowed(current.permissions, "communication", "create") && view.parents && p.links.length > 0;
 
   const sectionLabel = p.now?.section ? classShort(p.now.section.schoolClass.name, p.now.section.name) : null;
   const restricted = p.links.filter((l) => l.restriction);
@@ -184,10 +192,10 @@ export default async function StudentProfilePage({ params, searchParams }: { par
 
       <div className="mt-5 animate-rise" key={tab}>
         {tab === "overview" && <OverviewTab p={p} can={can} settings={settings} href={href} tz={tz} today={today} />}
-        {tab === "academics" && <AcademicsTab p={p} can={can} href={href} tz={tz} />}
+        {tab === "academics" && tabAllowed("academics") && <AcademicsTab p={p} can={can} href={href} tz={tz} />}
         {tab === "behaviour" && <BehaviourTab studentId={id} can={can} settings={settings} tz={tz} points={p.points} />}
         {tab === "documents" && <DocumentsTab p={p} can={can} settings={settings} tz={tz} />}
-        {tab === "history" && <HistoryTab studentId={id} can={can} tz={tz} />}
+        {tab === "history" && tabAllowed("history") && <HistoryTab studentId={id} can={can} tz={tz} />}
         {registered.filter((t) => t.key === tab).map((t) => <RegisteredTab key={t.key} load={() => t.load(args)} />)}
       </div>
     </>

@@ -25,7 +25,7 @@ export async function GET(req: Request) {
   const tz = current.school.timeZone;
   const now = new Date();
   const data = await withSchool(current.ctx, async (tx) => {
-    const links = await tx.parentLink.findMany({ where: await linkListWhere(tx, current.ctx, params, now), orderBy: { createdAt: "desc" }, take: 10000, include: { devices: { where: { revokedAt: null, expiresAt: { gt: now } }, select: { id: true } } } });
+    const links = await tx.parentLink.findMany({ where: await linkListWhere(tx, current.ctx, params, now, tz), orderBy: { createdAt: "desc" }, take: 10000, include: { devices: { where: { revokedAt: null, expiresAt: { gt: now } }, select: { id: true } } } });
     const guardians = await tx.guardian.findMany({ where: { id: { in: links.map((l) => l.guardianId) } }, select: { id: true, name: true, phone: true } });
     const kids = await childrenByGuardian(tx, current.ctx, links.map((l) => l.guardianId));
     const filters = [params.q && `search "${params.q}"`, ...Object.entries(params.filters).map(([k, v]) => `${k}: ${v}`)].filter(Boolean).join(", ") || "All links";

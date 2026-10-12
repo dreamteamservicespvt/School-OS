@@ -4,10 +4,11 @@ import type { Prisma, Query } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import type { ListParams } from "../list";
 
-export const QUERY_FILTERS = ["status", "type", "priority", "owner", "overdue", "topic"] as const;
+import { inPeriod, PERIOD_FILTERS } from "./period";
+export const QUERY_FILTERS = ["status", "type", "priority", "owner", "overdue", "topic", ...PERIOD_FILTERS] as const;
 
 /** Default status filter: Open and In progress. */
-export function queryListWhere(base: Prisma.QueryWhereInput, ctx: SchoolContext, p: ListParams, now = new Date()): Prisma.QueryWhereInput {
+export function queryListWhere(base: Prisma.QueryWhereInput, ctx: SchoolContext, p: ListParams, now = new Date(), timeZone = "Asia/Kolkata"): Prisma.QueryWhereInput {
   const f = p.filters;
   const and: Prisma.QueryWhereInput[] = [base];
   if (p.q) and.push({ OR: [{ number: { contains: p.q, mode: "insensitive" } }, { fromName: { contains: p.q, mode: "insensitive" } }, { details: { contains: p.q, mode: "insensitive" } }, { fromPhone: { contains: p.q } }] });
@@ -16,6 +17,8 @@ export function queryListWhere(base: Prisma.QueryWhereInput, ctx: SchoolContext,
   if (f.type) and.push({ type: f.type });
   if (f.priority) and.push({ priority: f.priority });
   if (f.topic) and.push({ topicId: f.topic });
+  const when = inPeriod(f, timeZone);
+  if (when) and.push({ createdAt: when });
   if (f.owner === "me") and.push({ ownerId: ctx.userId });
   else if (f.owner === "unassigned") and.push({ ownerId: null });
   else if (f.owner && /^[0-9a-f-]{36}$/.test(f.owner)) and.push({ OR: [{ ownerId: f.owner }, { departmentId: f.owner }] });

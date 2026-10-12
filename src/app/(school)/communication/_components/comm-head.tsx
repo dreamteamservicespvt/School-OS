@@ -11,7 +11,7 @@ export function CommHead({ access, page, href, sub, actions }: { access: CommAcc
   const { current, full } = access;
   const on = (k: string) => current.features.has(k);
   const tabs = [
-    { href: "/communication", label: "Send Message", exact: true },
+    ...(access.canChange ? [{ href: "/communication", label: "Send Message", exact: true }] : []),
     { href: "/communication/notices", label: "Notice Board" },
     ...(on(COMM_FEATURES.inbox) ? [{ href: "/communication/inbox", label: "WhatsApp Inbox" }] : []),
     { href: "/communication/history", label: "Message History" },

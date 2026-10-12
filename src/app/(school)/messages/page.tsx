@@ -6,6 +6,7 @@ import { withSchool } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { readListParams, skipTake, listHref, PAGE_SIZE } from "@/lib/list";
 import { formatDateTime } from "@/lib/format";
+import { inPeriod, PERIOD_FILTERS } from "@/lib/communication/period";
 import { PageHeader } from "@/components/shell/page-header";
 import { ListToolbar } from "@/components/list/list-toolbar";
 import { EmptyState } from "@/components/empty-state";
@@ -21,12 +22,14 @@ type Search = Promise<Record<string, string | string[] | undefined>>;
 export default async function MessagesPage({ searchParams }: { searchParams: Search }) {
   const current = await requireCurrent();
   const tz = current.school.timeZone;
-  const params = readListParams(await searchParams, ["show"]);
+  const params = readListParams(await searchParams, ["show", ...PERIOD_FILTERS]);
+  const when = inPeriod(params.filters, tz);
   const me = current.user.id;
   const data = await withSchool(current.ctx, async (tx) => {
     const where: Prisma.MessageRecipientWhereInput = {
       schoolId: current.ctx.schoolId, userLoginId: me, channel: "app", status: { in: ["SENT", "DELIVERED", "READ"] },
       ...(params.filters.show === "unread" ? { readAt: null } : {}),
+      ...(when ? { sentAt: when } : {}),
       ...(params.q ? { OR: [{ text: { contains: params.q, mode: "insensitive" } }, { message: { title: { contains: params.q, mode: "insensitive" } } }] } : {}),
     };
     const [rows, total, unread] = await Promise.all([
@@ -49,7 +52,7 @@ export default async function MessagesPage({ searchParams }: { searchParams: Sea
         {can(current.permissions, "communication", "create") && <ButtonLink href="/communication" variant="primary">Send a message</ButtonLink>}
       </PageHeader>
       <p className="-mt-3 mb-4 text-ink-2">{data.unread ? `${data.unread} new.` : "Messages sent to you in the app."} Notices for you are on the <Link href="/communication/notices?view=board" className="text-brand-text underline">Notice Board</Link>.</p>
-      <ListToolbar placeholder="Search messages" showArchived={false} filters={[{ key: "show", label: "Show", options: [{ value: "unread", label: "New only" }] }]} />
+      <ListToolbar period={{ timeZone: tz }} placeholder="Search messages" showArchived={false} filters={[{ key: "show", label: "Show", options: [{ value: "unread", label: "New only" }] }]} />
       {data.rows.length === 0 ? (
         <EmptyState title={filtered ? "No messages match" : "No messages yet"} icon={<MessageIcon className="size-6" />}>
           {filtered ? "Change the search or filter." : "Messages the school sends you in the app, such as salary slips ready or staff announcements, appear here."}

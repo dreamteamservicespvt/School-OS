@@ -30,7 +30,7 @@ export default async function QueriesPage({ searchParams }: { searchParams: Sear
   const now = new Date();
   const data = await withSchool(current.ctx, async (tx) => {
     await ensureTopics(tx, current.ctx);
-    const where = queryListWhere(await queryWhere(tx, current.ctx, access.full ? "all" : "own"), current.ctx, params, now);
+    const where = queryListWhere(await queryWhere(tx, current.ctx, access.full ? "all" : "own"), current.ctx, params, now, current.school.timeZone);
     const [rows, total, topics, depts] = await Promise.all([
       tx.query.findMany({ where, orderBy: params.sort === "due" ? { dueBy: params.dir } : { createdAt: params.sort === "age" && params.dir === "asc" ? "desc" : params.sort === "age" ? "asc" : "desc" }, ...skipTake(params) }),
       tx.query.count({ where }),
@@ -50,7 +50,7 @@ export default async function QueriesPage({ searchParams }: { searchParams: Sear
           {access.canChange && <ButtonLink href="/communication/queries/new" variant="primary">Log a query</ButtonLink>}
         </div>
       </PageHeader>
-      <ListToolbar placeholder="Search ticket, name or details" showArchived={false} filters={[
+      <ListToolbar period={{ timeZone: current.school.timeZone }} placeholder="Search ticket, name or details" showArchived={false} filters={[
         { key: "status", label: "Status", options: [{ value: "active", label: "Open and In progress" }, ...Object.entries(QUERY_STATUS_LABEL).map(([value, label]) => ({ value, label })), { value: "all", label: "Any status" }] },
         { key: "type", label: "Type", options: Object.entries(QUERY_TYPE_LABEL).map(([value, label]) => ({ value, label })) },
         { key: "priority", label: "Priority", options: QUERY_PRIORITIES.map((p) => ({ value: p.key, label: p.label })) },

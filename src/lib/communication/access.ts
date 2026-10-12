@@ -23,7 +23,7 @@ async function build(current: Current): Promise<CommAccess> {
     scope,
     roleKeys,
     // Open question 1: assumed Principal and School Admin only.
-    canEmergency: roleKeys.some((k) => EMERGENCY_ROLES.includes(k)),
+    canEmergency: change !== "none" && roleKeys.some((k) => EMERGENCY_ROLES.includes(k)),
   };
 }
 

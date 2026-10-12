@@ -31,7 +31,7 @@ export default async function ParentLinkPage({ searchParams }: { searchParams: S
   const now = new Date();
   const data = await withSchool(current.ctx, async (tx) => {
     const ctx = current.ctx;
-    const where = await linkListWhere(tx, ctx, params, now);
+    const where = await linkListWhere(tx, ctx, params, now, current.school.timeZone);
     const [rows, total, summary, settings, classes, sections] = await Promise.all([
       tx.parentLink.findMany({ where, orderBy: params.sort === "opened" ? { lastOpenedAt: { sort: params.dir, nulls: "last" } } : { createdAt: params.sort === "created" ? params.dir : "desc" }, ...skipTake(params), include: { devices: { where: { revokedAt: null, expiresAt: { gt: now } }, select: { id: true } } } }),
       tx.parentLink.count({ where }),
@@ -103,7 +103,7 @@ export default async function ParentLinkPage({ searchParams }: { searchParams: S
         </div>
       </details>
 
-      <ListToolbar placeholder="Search parent name or mobile" showArchived={false} filters={[
+      <ListToolbar period={{ timeZone: current.school.timeZone }} placeholder="Search parent name or mobile" showArchived={false} filters={[
         { key: "status", label: "Status", options: [{ value: "ACTIVE", label: "Active" }, { value: "REVOKED", label: "Revoked" }] },
         { key: "class", label: "Class", options: data.classes.map((c) => ({ value: c.id, label: c.name })) },
         { key: "section", label: "Section", options: data.sections.filter((x) => !params.filters.class || x.classId === params.filters.class).map((x) => ({ value: x.id, label: `${className(x.classId)} ${x.name}` })) },

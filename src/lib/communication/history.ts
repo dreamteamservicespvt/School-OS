@@ -4,9 +4,9 @@ import "server-only";
 import type { Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import type { ListParams } from "../list";
-import { localToUtc } from "./time";
+import { inPeriod, PERIOD_FILTERS } from "./period";
 
-export const HISTORY_FILTERS = ["channel", "status", "sender", "rule", "from", "to", "person"] as const;
+export const HISTORY_FILTERS = ["channel", "status", "sender", "rule", "person", ...PERIOD_FILTERS] as const;
 
 export const MESSAGE_STATUS_LABEL: Record<string, string> = { SCHEDULED: "Scheduled", QUEUED: "Sending", SENT: "Sent", CANCELLED: "Cancelled" };
 export const DELIVERY_LABEL: Record<string, string> = { QUEUED: "Queued", SENDING: "Queued", SENT: "Sent", DELIVERED: "Delivered", READ: "Read", FAILED: "Failed" };
@@ -25,10 +25,8 @@ export function historyWhere(ctx: SchoolContext, full: boolean, p: ListParams, t
   if (f.sender === "people") and.push({ ruleKey: null, sourceType: null });
   if (f.sender === "notices") and.push({ sourceType: "Notice" });
   if (f.rule) and.push({ ruleKey: f.rule });
-  const from = f.from ? localToUtc(`${f.from}T00:00`, timeZone) : null;
-  const to = f.to ? localToUtc(`${f.to}T23:59`, timeZone) : null;
-  if (from) and.push({ createdAt: { gte: from } });
-  if (to) and.push({ createdAt: { lte: to } });
+  const when = inPeriod(f, timeZone);
+  if (when) and.push({ createdAt: when });
   if (f.person && /^(guardian|student|staff):[0-9a-f-]{36}$/.test(f.person)) {
     const [type, id] = f.person.split(":");
     and.push({ recipients: { some: type === "guardian" ? { guardianId: id } : type === "student" ? { studentId: id } : { staffId: id } } });

@@ -6,7 +6,8 @@ import type { Prisma } from "@prisma/client";
 import type { SchoolContext } from "../db";
 import type { ListParams } from "../list";
 
-export const LOG_FILTERS = ["rule", "outcome"] as const;
+import { inPeriod, PERIOD_FILTERS } from "./period";
+export const LOG_FILTERS = ["rule", "outcome", ...PERIOD_FILTERS] as const;
 
 export const OUTCOME_LABEL: Record<string, string> = {
   sent: "Sent",
@@ -17,10 +18,12 @@ export const OUTCOME_LABEL: Record<string, string> = {
   duplicate: "Already sent",
 };
 
-export function logWhere(ctx: SchoolContext, params: ListParams): Prisma.AutomationLogWhereInput {
+export function logWhere(ctx: SchoolContext, params: ListParams, timeZone = "Asia/Kolkata"): Prisma.AutomationLogWhereInput {
   const and: Prisma.AutomationLogWhereInput[] = [{ schoolId: ctx.schoolId }];
   if (params.filters.rule) and.push({ ruleKey: params.filters.rule });
   if (params.filters.outcome) and.push({ outcome: params.filters.outcome });
+  const when = inPeriod(params.filters, timeZone);
+  if (when) and.push({ createdAt: when });
   if (params.q) and.push({ OR: [{ recipientName: { contains: params.q, mode: "insensitive" } }, { eventLabel: { contains: params.q, mode: "insensitive" } }] });
   return { AND: and };
 }

@@ -24,7 +24,7 @@ export default async function AutomationLogPage({ searchParams }: { searchParams
   const tz = current.school.timeZone;
   const params = readListParams(await searchParams, LOG_FILTERS);
   const data = await withSchool(current.ctx, async (tx) => {
-    const where = logWhere(current.ctx, params);
+    const where = logWhere(current.ctx, params, current.school.timeZone);
     const [rows, total] = await Promise.all([
       tx.automationLog.findMany({ where, orderBy: { createdAt: params.sort === "at" && params.dir === "asc" ? "asc" : "desc" }, ...skipTake(params) }),
       tx.automationLog.count({ where }),
@@ -40,7 +40,7 @@ export default async function AutomationLogPage({ searchParams }: { searchParams
         {data.total > 0 && <ExportMenu href={listHref("/communication/settings/log/export", { ...params, page: 1 }, {})} />}
       </PageHeader>
       <p className="-mt-3 mb-4 text-ink-2">What each automatic message sent, to whom, and why.</p>
-      <ListToolbar placeholder="Search person or event" showArchived={false} filters={[
+      <ListToolbar period={{ timeZone: current.school.timeZone }} placeholder="Search person or event" showArchived={false} filters={[
         { key: "rule", label: "Rule", options: RULES.map((r) => ({ value: r.key, label: r.label })) },
         { key: "outcome", label: "Outcome", options: Object.entries(OUTCOME_LABEL).map(([value, label]) => ({ value, label })) },
       ]} />

@@ -19,7 +19,7 @@ import { Timeline, type TimelineItem } from "@/components/ui/timeline";
 import { UrlSearch, UrlSegmented, UrlSelect } from "@/components/ui/url-filters";
 import { EmptyState } from "@/components/empty-state";
 import { ExportMenu } from "@/components/communication/export-menu";
-import { DateRange } from "@/components/communication/date-range";
+import { PeriodFilter } from "@/components/list/period-filter";
 import { CommHead } from "../_components/comm-head";
 import { ChannelPills, CHANNEL_ICON, CHANNEL_NAME } from "../_components/channel-pills";
 
@@ -101,7 +101,7 @@ export default async function MessageHistoryPage({ searchParams }: { searchParam
                 <UrlSelect param="channel" label="Channel" className="md:w-44" options={[{ value: "", label: "All channels" }, { value: "whatsapp", label: "WhatsApp" }, { value: "sms", label: "SMS" }, { value: "email", label: "Email" }, { value: "app", label: "App notice" }]} />
                 <UrlSelect param="status" label="Status" className="md:w-40" options={[{ value: "", label: "Any status" }, { value: "failed", label: "Has failed" }, { value: "SCHEDULED", label: "Scheduled" }, { value: "QUEUED", label: "Sending" }, { value: "SENT", label: "Sent" }, { value: "CANCELLED", label: "Cancelled" }]} />
                 {access.full && <UrlSelect param="sender" label="Sent by" className="md:w-44" options={[{ value: "", label: "Anyone" }, { value: "me", label: "Me" }, { value: "people", label: "People" }, { value: "rules", label: "Automatic rules" }, { value: "notices", label: "Notices" }]} />}
-                <DateRange />
+                <PeriodFilter timeZone={tz} />
                 {data.total > 0 && <ExportMenu href={exportHref} />}
               </>
             ) : (

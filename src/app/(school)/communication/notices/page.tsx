@@ -74,7 +74,7 @@ export default async function NoticeBoardPage({ searchParams }: { searchParams: 
     );
   }
 
-  const where = noticeWhere(current.ctx, access.full, params);
+  const where = noticeWhere(current.ctx, access.full, params, current.school.timeZone);
   const { rows, total, counts } = await withSchool(current.ctx, async (tx) => {
     const [rows, total] = await Promise.all([tx.notice.findMany({ where, orderBy: { createdAt: "desc" }, ...skipTake(params) }), tx.notice.count({ where })]);
     return { rows, total, counts: await noticeCounts(tx, rows.map((r) => r.id)) };
@@ -84,7 +84,7 @@ export default async function NoticeBoardPage({ searchParams }: { searchParams: 
     <>
       {header}
       {tabs}
-      <ListToolbar placeholder="Search notices" filters={[
+      <ListToolbar period={{ timeZone: current.school.timeZone }} placeholder="Search notices" filters={[
         { key: "status", label: "Status", options: Object.entries(STATUS_LABEL).map(([value, label]) => ({ value, label })) },
         { key: "priority", label: "Priority", options: Object.entries(PRIORITY_LABEL).map(([value, label]) => ({ value, label })) },
       ]} />

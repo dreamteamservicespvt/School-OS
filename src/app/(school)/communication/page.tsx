@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { randomUUID } from "node:crypto";
 import { withSchool } from "@/lib/db";
 import { commPage } from "@/lib/communication/access";
@@ -21,6 +22,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export default async function SendMessagePage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const access = await commPage();
   const { current, scope } = access;
+  // Someone who may only read messages starts on Message History; Send Message is not offered (05-roles.md).
+  if (!access.canChange) redirect("/communication/history");
   // Students chosen on the Student List ("Send message"): their parents are added as recipients.
   const sp = await searchParams;
   const rawIds = typeof sp.ids === "string" && sp.for === "students" ? sp.ids.split(",").filter((x) => UUID.test(x)) : [];

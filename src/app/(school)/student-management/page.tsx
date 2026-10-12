@@ -1,209 +1,257 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Info, Download, IdCard, FileBadge, ArrowRightLeft, PenLine, KeyRound, Send, SlidersHorizontal, Upload, UserPlus, Images, History, SearchX, Users } from "lucide-react";
 import { withSchool } from "@/lib/db";
-import { readListParams, skipTake, orderByFor, listHref } from "@/lib/list";
-import { formatDate } from "@/lib/format";
+import { readListParams, listHref, orderByFor } from "@/lib/list";
+import { formatDate, formatRupees } from "@/lib/format";
 import { BUILT_MODULES } from "@/lib/modules";
-import { PageHeader } from "@/components/shell/page-header";
-import { DataTable, type Column } from "@/components/list/data-table";
-import { ListToolbar } from "@/components/list/list-toolbar";
+import { can } from "@/lib/permissions";
+import { listFacts, feeFilterAvailable } from "@/lib/students/hooks";
+import { phoneShow, classShort } from "@/lib/students/show";
+import { CATEGORIES, GENDERS, LIST_COLUMNS, STATUS_LABEL, STUDENT_STATUSES, type StudentStatusKey } from "@/lib/students/labels";
+import { Card } from "@/components/ui/card";
+import { Pill } from "@/components/ui/badge";
+import { Avatar } from "@/components/ui/avatar";
 import { ButtonLink, buttonClass } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { EmptyState } from "@/components/empty-state";
-import { UserIcon } from "@/components/icons";
-import { Avatar } from "@/components/students/avatar";
-import { BulkBar, type BulkAction } from "@/components/students/bulk-bar";
-import { CATEGORIES, GENDERS, LIST_COLUMNS, STATUS_LABEL, STATUS_TONE, STUDENT_STATUSES } from "@/lib/students/labels";
+import { Banner, Chips, Empty, ListFooter, SegLinks, Toolbar } from "@/components/ui/blocks";
+import { DataList, cardPill, type DataColumn } from "@/components/ui/data-list";
+import { InlineBulkBar, UrlSearch, UrlSelect, UrlToggle, type BulkAction } from "@/components/ui/list-controls";
+import { MoreMenu } from "@/components/ui/more-menu";
 import { BASE, studentPage } from "./_lib/page";
+import { StudentsHead } from "./_lib/head";
 import { EXPORT_FIELDS } from "./_lib/export-fields";
-import { classOptions, classTiles, LIST_FILTERS, mainGuardian, photoSrc, primaryPhone, sectionNames, sectionOptions, studentListInclude, studentListWhere, type ListStudent } from "./_lib/queries";
+import { classTiles, LIST_FILTERS, mainGuardian, photoSrc, sectionNames, studentListInclude, studentListWhere, type ListStudent } from "./_lib/queries";
 
 export const metadata: Metadata = { title: "Student List" };
 
-type Row = ListStudent & { sectionLabel: string; photo: string | null };
+type Row = ListStudent & { sectionLabel: string; photo: string | null; att: number | null; due: bigint | null; overdue: boolean };
+
+const STEP = 25;
 
 export default async function StudentListPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const { current, settings, year, can, tz } = await studentPage();
-  const params = readListParams(await searchParams, LIST_FILTERS);
+  const { current, settings, year, can: ab, tz } = await studentPage();
+  const raw = await searchParams;
+  const params = readListParams(raw, LIST_FILTERS);
+  const shownCount = Math.min(500, Math.max(STEP, Number.parseInt(String(raw.n ?? ""), 10) || STEP));
   const yearId = year?.id ?? null;
+  const feesOn = feeFilterAvailable();
+  if (!feesOn) delete params.filters.fee;
 
   const data = await withSchool(current.ctx, async (tx) => {
     const where = await studentListWhere(tx, current, params, yearId, year?.startDate ?? null, settings);
     const orderBy = orderByFor(params, { name: { fullName: params.dir }, admissionNo: { admissionNo: params.dir }, dateOfBirth: { dateOfBirth: params.dir } }, [{ fullName: "asc" }]);
-    const [total, students, tiles, classes, sections] = await Promise.all([
-      tx.student.count({ where }),
-      tx.student.findMany({ where, include: studentListInclude(yearId), orderBy: orderBy as object, ...skipTake(params) }),
-      classTiles(tx, current, yearId),
-      classOptions(tx),
-      sectionOptions(tx, current, yearId, { own: can.reach === "own" }),
-    ]);
+    const [total, tiles] = await Promise.all([tx.student.count({ where }), classTiles(tx, current, yearId)]);
+    let students;
+    if (params.sort) {
+      students = await tx.student.findMany({ where, include: studentListInclude(yearId), orderBy: orderBy as object, take: shownCount });
+    } else {
+      // Class, section and roll order, as on the class register (design: students.jsx).
+      const keys = await tx.student.findMany({ where, select: { id: true, fullName: true, enrolments: { where: { archivedAt: null, ...(yearId ? { academicYearId: yearId } : {}) }, take: 1, select: { classId: true, sectionId: true, rollNo: true } } } });
+      const classOrder = new Map(tiles.map((t, i) => [t.id, i]));
+      const secNames = await sectionNames(tx, keys.flatMap((k) => k.enrolments.map((e) => e.sectionId)));
+      const rank = (k: (typeof keys)[number]) => {
+        const e = k.enrolments[0];
+        return [e ? classOrder.get(e.classId) ?? 999 : 1000, e ? secNames.get(e.sectionId)?.sectionName ?? "" : "", e?.rollNo ?? 99999] as const;
+      };
+      keys.sort((a, b) => {
+        const x = rank(a), y = rank(b);
+        return x[0] - y[0] || x[1].localeCompare(y[1]) || x[2] - y[2] || a.fullName.localeCompare(b.fullName);
+      });
+      const ids = keys.slice(0, shownCount).map((k) => k.id);
+      const found = await tx.student.findMany({ where: { id: { in: ids } }, include: studentListInclude(yearId) });
+      const byId = new Map(found.map((x) => [x.id, x]));
+      students = ids.map((id) => byId.get(id)!).filter(Boolean);
+    }
     const names = await sectionNames(tx, students.flatMap((s) => s.enrolments.map((e) => e.sectionId)));
-    const rows: Row[] = students.map((s) => ({ ...s, sectionLabel: s.enrolments[0] ? names.get(s.enrolments[0].sectionId)?.label ?? "" : "", photo: photoSrc(s.photoFileId, current.ctx.schoolId) }));
-    return { total, rows, tiles, classes, sections };
+    const facts = await listFacts(tx, current.ctx, students.map((s) => s.id), yearId);
+    // Class, section and roll order, as on the class register; sorting by a column keeps that column's order.
+    const rows: Row[] = students.map((s) => {
+      const f = facts.facts.get(s.id);
+      const e = s.enrolments[0];
+      return { ...s, sectionLabel: e ? classShort(names.get(e.sectionId)?.className ?? "", names.get(e.sectionId)?.sectionName) : "", photo: photoSrc(s.photoFileId, current.ctx.schoolId), att: f?.attendancePct ?? null, due: f?.feeDuePaise ?? null, overdue: Boolean(f?.feeOverdue) };
+    });
+    return { total, rows, tiles, has: facts.has };
   });
 
+  const f = params.filters;
+  const curClass = data.tiles.find((t) => t.id === f.class) ?? null;
+  const studying = data.tiles.reduce((n, t) => n + t.total, 0);
   const show = new Set(settings.listColumns.length ? settings.listColumns : LIST_COLUMNS.map((c) => c.key));
-  const columns: Column<Row>[] = [
-    { key: "name", label: "Name", sortable: true, phone: "title", cell: (s) => (
-      <span className="inline-flex items-center gap-3">
-        {show.has("photo") && <Avatar name={s.fullName} src={s.photo} />}
-        <span>{s.fullName}</span>
-      </span>
+  const feeCol = can(current.permissions, "fee-management", "view");
+  const seeFees = data.has.fees && feeCol;
+  const href = (change: Record<string, string | null>) => listHref(BASE, { ...params, page: 1 }, { ...change, page: null });
+
+  const feePill = (s: Row, cls = "") => s.due === null ? null
+    : s.due > 0n ? <Pill tone={s.overdue ? "bad" : "warn"} className={cls}>{formatRupees(s.due)} {s.overdue ? "overdue" : "due"}</Pill>
+      : <Pill tone="ok" dot={!cls} className={cls}>{cls ? "Fees paid" : "Paid"}</Pill>;
+
+  const columns: DataColumn<Row>[] = [
+    { key: "name", label: "Student", sortHref: listHref(BASE, params, { sort: "name", dir: params.sort === "name" && params.dir === "asc" ? "desc" : "asc", page: null }), sorted: params.sort === "name" ? params.dir : null, render: (s) => (
+      <div className="flex items-center gap-3">
+        {show.has("photo") && <Avatar name={s.fullName} src={s.photo} size={38} />}
+        <div className="min-w-0">
+          <p className="font-semibold leading-tight flex items-center gap-2">{s.fullName}{s.status !== "ACTIVE" && <Pill tone={s.status === "ADMITTED" ? "info" : "neutral"} className="!h-5 !text-[11px]">{s.status === "ADMITTED" ? "New" : STATUS_LABEL[s.status as StudentStatusKey]}</Pill>}</p>
+          {show.has("admissionNo") && <p className="text-[12.5px] text-ink3 font-mono">{s.admissionNo}</p>}
+        </div>
+      </div>
     ) },
-    ...(show.has("admissionNo") ? [{ key: "admissionNo", label: "Admission number", sortable: true, phone: "meta" as const, cell: (s: Row) => s.admissionNo }] : []),
-    ...(show.has("classSection") ? [{ key: "class", label: "Class and section", phone: "meta" as const, cell: (s: Row) => s.sectionLabel ? `${s.sectionLabel}${show.has("rollNo") && s.enrolments[0]?.rollNo ? ` · Roll ${s.enrolments[0].rollNo}` : ""}` : <span className="text-ink-2">No class this year</span> }] : []),
-    ...(show.has("rollNo") && !show.has("classSection") ? [{ key: "rollNo", label: "Roll number", cell: (s: Row) => s.enrolments[0]?.rollNo ?? "" }] : []),
-    ...(show.has("guardian") ? [{ key: "guardian", label: "Father's or guardian's name", cell: (s: Row) => mainGuardian(s)?.guardian.name ?? <span className="text-ink-2">Not added</span> }] : []),
-    ...(show.has("phone") ? [{ key: "phone", label: "Phone", phone: "meta" as const, cell: (s: Row) => <span className="whitespace-nowrap">{primaryPhone(s) ?? ""}</span> }] : []),
-    ...(show.has("gender") ? [{ key: "gender", label: "Gender", cell: (s: Row) => s.gender ?? "" }] : []),
-    ...(show.has("category") ? [{ key: "category", label: "Category", cell: (s: Row) => s.category ?? "" }] : []),
-    ...(show.has("dateOfBirth") ? [{ key: "dateOfBirth", label: "Date of birth", sortable: true, cell: (s: Row) => (s.dateOfBirth ? formatDate(s.dateOfBirth, tz) : "") }] : []),
-    ...(show.has("status") ? [{ key: "status", label: "Status", phone: "badge" as const, cell: (s: Row) => <Badge tone={STATUS_TONE[s.status]}>{STATUS_LABEL[s.status]}</Badge> }] : []),
+    ...(show.has("classSection") || show.has("rollNo") ? [{ key: "class", label: "Class", nowrap: true, render: (s: Row) => s.sectionLabel
+      ? <><span className="font-medium">{s.sectionLabel}</span>{show.has("rollNo") && s.enrolments[0]?.rollNo ? <span className="text-ink3 text-[12.5px]"> · Roll {s.enrolments[0].rollNo}</span> : null}</>
+      : <span className="text-ink3 text-[13px]">No class this year</span> }] : []),
+    ...(show.has("guardian") || show.has("phone") ? [{ key: "parent", label: "Parent", render: (s: Row) => {
+      const g = mainGuardian(s);
+      return g ? <><p className="leading-tight">{show.has("guardian") ? g.guardian.name : g.relationship}</p>{show.has("phone") && <p className="text-[12.5px] text-ink3 tnum">{phoneShow(g.guardian.phone)}</p>}</> : <span className="text-ink3 text-[13px]">Not added</span>;
+    } }] : []),
+    ...(show.has("gender") ? [{ key: "gender", label: "Gender", render: (s: Row) => <span className="text-[13.5px]">{s.gender ?? "–"}</span> }] : []),
+    ...(show.has("category") ? [{ key: "category", label: "Category", render: (s: Row) => <span className="text-[13.5px]">{s.category ?? "–"}</span> }] : []),
+    ...(show.has("dateOfBirth") ? [{ key: "dob", label: "Date of birth", nowrap: true, render: (s: Row) => <span className="text-[13.5px] tnum">{s.dateOfBirth ? formatDate(s.dateOfBirth, tz) : "–"}</span> }] : []),
+    { key: "att", label: "Attendance", render: (s) => s.att === null ? <span className="text-ink3" title="Shown once Attendance Management records attendance">–</span> : (
+      <div className="flex items-center gap-2.5 w-28">
+        <span className="flex-1 h-1.5 rounded-full bg-sunken overflow-hidden" aria-hidden="true"><span className={`block h-full rounded-full ${s.att < 85 ? "bg-warn" : "bg-ok"}`} style={{ width: `${s.att}%` }} /></span>
+        <span className={`text-[13px] font-semibold tnum ${s.att < 85 ? "text-warn" : ""}`}>{s.att}%</span>
+      </div>
+    ) },
+    ...(feeCol ? [{ key: "fees", label: "Fees", render: (s: Row) => feePill(s) ?? <span className="text-ink3" title="Shown once Fee Management has this student's fees">–</span> }] : []),
   ];
-  if (show.has("rollNo") && show.has("classSection")) {
-    // Roll number shows with the class on phones; on computers it has its own column.
-    const i = columns.findIndex((c) => c.key === "class");
-    columns.splice(i, 1,
-      { key: "class", label: "Class and section", phone: "meta", cell: (s) => s.sectionLabel ? (<><span className="md:hidden">{s.sectionLabel}{s.enrolments[0]?.rollNo ? ` · Roll ${s.enrolments[0].rollNo}` : ""}</span><span className="hidden md:inline">{s.sectionLabel}</span></>) : <span className="text-ink-2">No class this year</span> },
-      { key: "rollNo", label: "Roll number", cell: (s) => s.enrolments[0]?.rollNo ?? "" });
-  }
+
+  const bulk: BulkAction[] = [
+    ...(BUILT_MODULES.has("communication") && can(current.permissions, "communication", "create") ? [{ label: "Message parents", href: "/communication?for=students", icon: <Send size={15} aria-hidden="true" /> }] : []),
+    ...(ab.reach === "all" && !ab.lookupOnly ? [{ label: "ID cards", href: `${BASE}/certificates/id-cards/print`, file: true, icon: <IdCard size={15} aria-hidden="true" /> }, { label: "Certificates", href: `${BASE}/certificates/new`, icon: <FileBadge size={15} aria-hidden="true" /> }] : []),
+    ...(ab.manage ? [{ label: "Change section", href: `${BASE}/bulk-update?field=section`, icon: <ArrowRightLeft size={15} aria-hidden="true" /> }, { label: "Update a field", href: `${BASE}/bulk-update`, icon: <PenLine size={15} aria-hidden="true" /> }] : []),
+    ...(ab.manage && settings.studentLoginsOn ? [{ label: "Student logins", href: `${BASE}/logins`, icon: <KeyRound size={15} aria-hidden="true" /> }] : []),
+    { label: "Export", href: `${BASE}/export?format=xlsx`, file: true, icon: <Download size={15} aria-hidden="true" /> },
+  ];
 
   const filtersInUrl = new URLSearchParams();
   if (params.q) filtersInUrl.set("q", params.q);
-  for (const [k, v] of Object.entries(params.filters)) filtersInUrl.set(k, v);
+  for (const [k, v] of Object.entries(f)) filtersInUrl.set(k, v);
   if (params.archived) filtersInUrl.set("archived", "1");
-
-  const sectionFilter = data.sections.filter((s) => !params.filters.class || s.classId === params.filters.class);
-  const bulk: BulkAction[] = [
-    ...(can.reach === "all" && !can.lookupOnly ? [{ label: "Print ID cards", href: `${BASE}/certificates/id-cards/print`, file: true }, { label: "Print certificates", href: `${BASE}/certificates/new` }] : []),
-    ...(can.manage ? [{ label: "Change section", href: `${BASE}/bulk-update?field=section` }, { label: "Update a field", href: `${BASE}/bulk-update` }] : []),
-    ...(can.manage && settings.studentLoginsOn ? [{ label: "Student logins", href: `${BASE}/logins` }] : []),
-    // messaging: "Send message" joins this bar when Communication is built (it owns sending).
-    ...(BUILT_MODULES.has("communication") ? [{ label: "Send message", href: `/communication/new` }] : []),
-    { label: "Export", href: `${BASE}/export?format=xlsx`, file: true },
-  ];
+  const moreOn = ["status", "gender", "category", "new", "docs", "photo"].filter((k) => f[k]).length + (params.archived ? 1 : 0);
+  const anyFilter = Boolean(params.q || Object.keys(f).length || params.archived);
+  const ownNote = ab.reach === "own" ? `Your classes: ${data.tiles.flatMap((t) => t.sections.map((s) => classShort(t.name, s.name))).join(", ") || "none yet"}` : null;
+  const moreHref = data.rows.length < data.total ? listHref(BASE, params, { n: shownCount + STEP, page: null }) : null;
 
   return (
     <>
-      <PageHeader title="Student List" href={BASE} userId={current.user.id}>
-        <div className="flex flex-wrap gap-2">
-          {can.manage && (
-            <details className="relative">
-              <summary className={buttonClass("secondary", "md", "list-none cursor-pointer")}>More</summary>
-              <div className="absolute right-0 z-20 mt-1 w-60 rounded-xl border border-line bg-surface p-1 shadow-pop">
-                <Link href={`${BASE}/bulk-update`} className="block rounded-lg px-3 py-2.5 hover:bg-surface-2">Bulk field update</Link>
-                <Link href={`${BASE}/bulk-photos`} className="block rounded-lg px-3 py-2.5 hover:bg-surface-2">Bulk profile photos</Link>
-                {settings.studentLoginsOn && <Link href={`${BASE}/logins`} className="block rounded-lg px-3 py-2.5 hover:bg-surface-2">Student logins</Link>}
-                <Link href={`${BASE}/import/history`} className="block rounded-lg px-3 py-2.5 hover:bg-surface-2">Import history</Link>
-              </div>
-            </details>
-          )}
-          {can.manage && <ButtonLink href={`${BASE}/import`}>Import</ButtonLink>}
-          {can.manage && <ButtonLink href={`${BASE}/new${params.filters.section ? `?section=${params.filters.section}` : ""}`} variant="primary">Add student</ButtonLink>}
-        </div>
-      </PageHeader>
-
-      {data.tiles.length > 0 && (
-        <section aria-label="Students by class" className="-mx-4 mb-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-          <ul className="flex gap-2 pb-1 sm:flex-wrap">
-            {data.tiles.map((t) => {
-              const on = params.filters.class === t.id;
-              return (
-                <li key={t.id} className={`min-w-[9.5rem] shrink-0 rounded-xl border bg-surface p-3 sm:min-w-[10.5rem] ${on ? "border-brand ring-1 ring-brand" : "border-line"}`}>
-                  <Link href={listHref(BASE, params, { class: on ? null : t.id, section: null, page: null })} className="block" aria-current={on ? "true" : undefined}>
-                    <span className="block text-sm text-ink-2">{t.name}</span>
-                    <span className="text-xl font-semibold">{t.total}</span>
-                  </Link>
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {t.sections.map((s) => (
-                      <Link key={s.id} href={listHref(BASE, params, { class: t.id, section: s.id, page: null })}
-                        className={`rounded-md px-1.5 py-0.5 text-xs ${params.filters.section === s.id ? "bg-brand text-brand-ink" : "bg-surface-2 text-ink-2 hover:text-ink"}`}>
-                        {s.name} · {s.count}
-                      </Link>
+      <StudentsHead page="Student List" href={BASE}
+        sub={ownNote ? `${ownNote} · ${studying.toLocaleString("en-IN")} students` : year ? `${studying.toLocaleString("en-IN")} studying in ${year.name}` : "No academic year is open"}
+        actions={<>
+          {ab.manage && <ButtonLink href={`${BASE}/import`} icon={Upload} className="max-md:hidden">Import</ButtonLink>}
+          {ab.exportList && (
+            <details className="relative hidden md:block">
+              <summary className={buttonClass("secondary", "md", "list-none cursor-pointer [&::-webkit-details-marker]:hidden")}><Download size={17} aria-hidden="true" />Export</summary>
+              <form method="get" action={`${BASE}/export`} className="absolute right-0 z-30 mt-1.5 w-[min(20rem,calc(100vw-2rem))] space-y-3 rounded-2xl border border-line bg-surface p-4 shadow-pop animate-rise">
+                {[...filtersInUrl.entries()].map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
+                <fieldset>
+                  <legend className="mb-1.5 text-[13px] font-semibold text-ink2">Fields</legend>
+                  <div className="grid gap-1">
+                    {EXPORT_FIELDS.filter((x) => !x.restricted || ab.seeRestricted).map((x) => (
+                      <label key={x.key} className="flex min-h-9 items-center gap-2.5 text-[14px]"><input type="checkbox" name="f" value={x.key} defaultChecked={x.default} className="size-[18px] accent-[rgb(var(--brand))]" />{x.label}</label>
                     ))}
                   </div>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
+                </fieldset>
+                <fieldset>
+                  <legend className="mb-1.5 text-[13px] font-semibold text-ink2">File type</legend>
+                  <div className="flex flex-wrap gap-4">
+                    {[["xlsx", "Excel"], ["csv", "CSV"], ["pdf", "PDF"]].map(([v, l]) => (
+                      <label key={v} className="flex min-h-9 items-center gap-2 text-[14px]"><input type="radio" name="format" value={v} defaultChecked={v === "xlsx"} className="size-4 accent-[rgb(var(--brand))]" />{l}</label>
+                    ))}
+                  </div>
+                </fieldset>
+                <p className="text-[12.5px] text-ink3">Exports the {data.total.toLocaleString("en-IN")} students in this list, with the filters shown. Logged in the export log.</p>
+                <button type="submit" className={buttonClass("primary", "md", "w-full")}><Download size={17} aria-hidden="true" />Export {data.total.toLocaleString("en-IN")} students</button>
+              </form>
+            </details>
+          )}
+          {ab.manage && <ButtonLink href={`${BASE}/new${f.section ? `?section=${f.section}` : ""}`} variant="primary" icon={UserPlus}>Add student</ButtonLink>}
+          {ab.manage && <MoreMenu label="More student tools" items={[
+            { label: "Import students", href: `${BASE}/import`, icon: <Upload size={17} aria-hidden="true" /> },
+            { label: "Bulk field update", href: `${BASE}/bulk-update`, icon: <PenLine size={17} aria-hidden="true" /> },
+            { label: "Bulk profile photos", href: `${BASE}/bulk-photos`, icon: <Images size={17} aria-hidden="true" /> },
+            ...(settings.studentLoginsOn ? [{ label: "Student logins", href: `${BASE}/logins`, icon: <KeyRound size={17} aria-hidden="true" /> }] : []),
+            { label: "Import history", href: `${BASE}/import/history`, icon: <History size={17} aria-hidden="true" /> },
+          ]} />}
+        </>} />
+
+      {!year && <Banner tone="warn" className="mb-4" title="No academic year is open.">Students have no class until the year is opened in <Link className="font-semibold underline" href="/academic-management">Academic Management</Link>.</Banner>}
+
+      {data.tiles.length > 0 && (
+        <Chips label="Students by class" value={f.class ?? "all"} options={[
+          { value: "all", label: data.tiles.length === 1 ? "My class" : "All classes", count: studying, href: href({ class: null, section: null }) },
+          ...data.tiles.map((t) => ({ value: t.id, label: t.name, count: t.total, href: href({ class: t.id, section: null }) })),
+        ]} />
+      )}
+      {curClass && curClass.sections.length > 0 && (
+        <div className="flex gap-2 mt-3 items-center flex-wrap animate-rise">
+          <span className="text-[13px] text-ink3 font-medium mr-1">Section</span>
+          <SegLinks size="sm" label="Section" value={f.section ?? "all"} options={[
+            { value: "all", label: "All", href: href({ section: null }) },
+            ...curClass.sections.map((s) => ({ value: s.id, label: s.name, href: href({ section: s.id }) })),
+          ]} />
+        </div>
       )}
 
-      <ListToolbar placeholder="Search by name, admission number or parent's phone"
-        showArchived={can.manage}
-        filters={[
-          { key: "class", label: "Class", options: data.classes.filter((c) => can.reach === "all" || data.sections.some((s) => s.classId === c.value)) },
-          { key: "section", label: "Section", options: sectionFilter.map((s) => ({ value: s.value, label: s.label })) },
-          { key: "status", label: "Status", allLabel: "Status: studying", options: [...STUDENT_STATUSES.map((s) => ({ value: s, label: STATUS_LABEL[s] })), { value: "all", label: "Every status" }] },
-        ]}
-        more={[
-          { key: "gender", label: "Gender", options: GENDERS.map((g) => ({ value: g, label: g })) },
-          { key: "category", label: "Category", options: CATEGORIES.map((c) => ({ value: c, label: c })) },
-          { key: "new", label: "New this year", allLabel: "New this year: all", options: [{ value: "1", label: "Joined this year" }] },
-          ...(can.seeDocuments ? [{ key: "docs", label: "Documents", options: [{ value: "missing", label: "Missing documents" }] }] : []),
-          { key: "photo", label: "Photo", options: [{ value: "missing", label: "Missing photo" }] },
-        ]}>
-        {can.exportList && (
-          <details className="relative">
-            <summary className={buttonClass("secondary", "md", "list-none cursor-pointer")}>Export</summary>
-            <form method="get" action={`${BASE}/export`} className="absolute right-0 z-20 mt-1 w-[min(20rem,calc(100vw-2rem))] space-y-3 rounded-xl border border-line bg-surface p-4 shadow-pop">
-              {[...filtersInUrl.entries()].map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
-              <fieldset>
-                <legend className="mb-1 text-sm font-medium">Fields</legend>
-                <div className="grid gap-1.5">
-                  {EXPORT_FIELDS.filter((f) => !f.restricted || can.seeRestricted).map((f) => (
-                    <label key={f.key} className="flex min-h-9 items-center gap-2 text-[15px]"><input type="checkbox" name="f" value={f.key} defaultChecked={f.default} className="size-5 accent-brand" />{f.label}</label>
-                  ))}
-                </div>
-              </fieldset>
-              <fieldset>
-                <legend className="mb-1 text-sm font-medium">File type</legend>
-                <div className="flex flex-wrap gap-3">
-                  {[["xlsx", "Excel"], ["csv", "CSV"], ["pdf", "PDF"]].map(([v, l]) => (
-                    <label key={v} className="flex min-h-9 items-center gap-2"><input type="radio" name="format" value={v} defaultChecked={v === "xlsx"} className="size-4 accent-brand" />{l}</label>
-                  ))}
-                </div>
-              </fieldset>
-              <p className="text-sm text-ink-2">Exports the {data.total.toLocaleString("en-IN")} students in this list, with the filters shown.</p>
-              <button type="submit" className={buttonClass("primary", "md", "w-full")}>Export</button>
-            </form>
-          </details>
-        )}
-      </ListToolbar>
+      <Card className="mt-4 overflow-hidden">
+        <Toolbar>
+          <UrlSearch id="student-search" placeholder="Name, admission no., parent name or phone" />
+          <div className="flex gap-2.5 items-center">
+            {feesOn && seeFees && (
+              <SegLinks label="Fees" value={f.fee ?? "all"} className="flex-1 md:flex-none" options={[
+                { value: "all", label: "Everyone", href: href({ fee: null }) },
+                { value: "dues", label: "Has dues", href: href({ fee: "dues" }) },
+                { value: "overdue", label: "Overdue", href: href({ fee: "overdue" }) },
+              ]} />
+            )}
+            <details className="relative">
+              <summary className={buttonClass("secondary", "md", "list-none cursor-pointer h-11 [&::-webkit-details-marker]:hidden")}>
+                <SlidersHorizontal size={17} aria-hidden="true" />Filters{moreOn ? <span className="ml-0.5 grid h-5 min-w-5 place-items-center rounded-full bg-brand px-1 text-[11px] text-brandink tnum">{moreOn}</span> : null}
+              </summary>
+              <div className="absolute right-0 z-30 mt-1.5 w-[min(19rem,calc(100vw-2rem))] rounded-2xl border border-line bg-surface p-3 shadow-pop animate-rise flex flex-col gap-2">
+                <UrlSelect id="f-status" param="status" label="Status" allLabel="Status: studying" options={[...STUDENT_STATUSES.map((s) => ({ value: s, label: STATUS_LABEL[s] })), { value: "all", label: "Every status" }]} />
+                <UrlSelect id="f-gender" param="gender" label="Gender" allLabel="Gender: all" options={GENDERS.map((g) => ({ value: g, label: g }))} />
+                <UrlSelect id="f-category" param="category" label="Category" allLabel="Category: all" options={CATEGORIES.map((c) => ({ value: c, label: c }))} />
+                <UrlSelect id="f-new" param="new" label="New this year" allLabel="New this year: all" options={[{ value: "1", label: "Joined this year" }]} />
+                {ab.seeDocuments && <UrlSelect id="f-docs" param="docs" label="Documents" allLabel="Documents: all" options={[{ value: "missing", label: "Missing documents" }]} />}
+                <UrlSelect id="f-photo" param="photo" label="Photo" allLabel="Photo: all" options={[{ value: "missing", label: "Missing photo" }]} />
+                {ab.manage && <UrlToggle param="archived" label="Show archived students" />}
+                {anyFilter && <Link href={BASE} className={buttonClass("ghost", "sm", "self-start")}>Clear filters</Link>}
+              </div>
+            </details>
+          </div>
+        </Toolbar>
 
-      {!year && (
-        <p className="mb-4 rounded-xl border border-line bg-warn-bg px-4 py-3 text-sm text-warn-text">
-          No academic year is open, so students have no class yet. Open the year in <Link className="font-medium underline" href="/academic-management">Academic Management</Link>.
-        </p>
-      )}
+        {bulk.length > 0 && <InlineBulkBar form="student-bulk" actions={bulk} />}
 
-      <DataTable rows={data.rows} columns={columns} rowKey={(s) => s.id} rowHref={(s) => `${BASE}/students/${s.id}`}
-        total={data.total} params={params} path={BASE} caption="Students"
-        select={bulk.length ? { form: "student-bulk", label: (s) => `Choose ${s.fullName}`, value: (s) => s.id } : undefined}
-        empty={
-          Object.keys(params.filters).length || params.q || params.archived ? (
-            <EmptyState title="No students match these filters" icon={<UserIcon />}>
-              <p>Try fewer filters, or search by admission number or parent&apos;s phone.</p>
-              <p className="mt-3"><Link className="font-medium text-brand-text underline" href={BASE}>Show all studying students</Link></p>
-            </EmptyState>
-          ) : can.reach === "own" ? (
-            <EmptyState title="No students in your classes yet" icon={<UserIcon />}>
-              <p>You see the students of the sections you teach. Your sections are set in Academic Management, Teacher Allocation.</p>
-            </EmptyState>
+        <DataList caption="Students" rows={data.rows} columns={columns} rowKey={(s) => s.id} minWidth={860}
+          rowHref={(s) => `${BASE}/students/${s.id}`} rowLabel={(s) => `Open ${s.fullName}`}
+          select={bulk.length ? { form: "student-bulk", label: (s) => `Select ${s.fullName}`, value: (s) => s.id, allLabel: "Select every student shown" } : undefined}
+          mobile={(s) => {
+            const g = mainGuardian(s);
+            return {
+              title: s.fullName, avatar: s.fullName, avatarSrc: show.has("photo") ? s.photo : null,
+              sub: [s.sectionLabel || "No class", s.enrolments[0]?.rollNo ? `Roll ${s.enrolments[0].rollNo}` : null, g?.guardian.name].filter(Boolean).join(" · "),
+              pills: [
+                feePill(s, cardPill),
+                s.att !== null ? <Pill key="a" tone={s.att < 85 ? "warn" : "neutral"} className={cardPill}>{s.att}% present</Pill> : null,
+                s.status !== "ACTIVE" ? <Pill key="s" tone={s.status === "ADMITTED" ? "info" : "neutral"} className={cardPill}>{s.status === "ADMITTED" ? "New" : STATUS_LABEL[s.status as StudentStatusKey]}</Pill> : null,
+              ].filter(Boolean) as React.ReactNode[],
+            };
+          }}
+          footer={<ListFooter shown={data.rows.length} total={data.total} moreHref={moreHref} />}
+          empty={anyFilter ? (
+            <Empty icon={SearchX} title="No students match"
+              body={params.q ? <>Nobody called “{params.q}” in {curClass ? curClass.name : "any class"}. Try the admission number or the parent&apos;s phone.</> : "Try a different class or filter."}
+              action={<ButtonLink href={BASE}>Clear filters</ButtonLink>} />
+          ) : ab.reach === "own" ? (
+            <Empty icon={Users} title="No students in your classes yet" body="You see the students of the sections you teach. Your sections are set in Academic Management, Teacher Allocation." />
           ) : (
-            <EmptyState title="No students yet" icon={<UserIcon />}>
-              <p>Students come from Admission Management, or you can add them here or import your old list.</p>
-              {can.manage && (
-                <div className="mt-4 flex flex-wrap justify-center gap-2">
-                  <ButtonLink href={`${BASE}/import`}>Import students</ButtonLink>
-                  <ButtonLink href={`${BASE}/new`} variant="primary">Add student</ButtonLink>
-                </div>
-              )}
-            </EmptyState>
-          )
-        } />
-
-      {bulk.length > 0 && <BulkBar form="student-bulk" actions={bulk} />}
+            <Empty icon={Users} title="No students yet" body="Students come from Admission Management, or you can add them here or import your old list."
+              action={ab.manage ? <div className="flex flex-wrap justify-center gap-2"><ButtonLink href={`${BASE}/import`} icon={Upload}>Import students</ButtonLink><ButtonLink href={`${BASE}/new`} variant="primary" icon={UserPlus}>Add student</ButtonLink></div> : undefined} />
+          )} />
+      </Card>
+      {!data.has.attendance && data.rows.length > 0 && (
+        <p className="mt-3 text-[12.5px] text-ink3 flex items-center gap-1.5"><Info size={14} aria-hidden="true" />Attendance shows here once Attendance Management records it{feeCol && !data.has.fees ? ", and fees once Fee Management has them" : ""}.</p>
+      )}
     </>
   );
 }

@@ -98,6 +98,7 @@ export default async function StudentSettingsPage({ searchParams }: { searchPara
                     <Choices name="listColumns" label="Columns on the Student List" options={LIST_COLUMNS} chosen={settings.listColumns} />
                     <FormArea name="requiredDocuments" label="Documents expected for every student" rows={5} defaultValue={settings.requiredDocuments.join("\n")} help="One per line. Shown as &quot;documents complete (5 of 6)&quot; on each student." />
                     <FormCheck name="studentLoginsOn" label="Student logins (optional)" help="Older students can sign in to see their own records." defaultChecked={settings.studentLoginsOn} />
+                    <FormCheck name="smartImportOn" label="Smart Import (optional)" help="On Import students, matches your file's columns to the student fields and suggests fixes for dates, phone numbers and class names. Suggestions only: you check every one before anything is saved." defaultChecked={settings.smartImportOn} />
                   </ActionForm>
                 </CardBody>
               </Card>
@@ -190,6 +191,7 @@ export default async function StudentSettingsPage({ searchParams }: { searchPara
                   )}
                   <FormCheck name="qrOn" label="QR code to check a certificate (optional)" help="The code holds no personal data; the check shows only number, type, date and Valid." defaultChecked={settings.qrOn} />
                   <FormCheck name="migrationOn" label="Migration certificates (optional)" help="For students moving between boards or states." defaultChecked={settings.migrationOn} />
+                  <FormCheck name="digiLockerOn" label="DigiLocker-ready file (optional)" help="Adds a DigiLocker file on Certificates: the issued certificates with their numbers, student details and APAAR ID, in the columns DigiLocker asks for, to upload in the school's DigiLocker Issuer account." defaultChecked={settings.digiLockerOn} />
                 </ActionForm>
               </CardBody>
             </Card>

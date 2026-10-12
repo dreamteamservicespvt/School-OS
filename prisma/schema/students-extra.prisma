@@ -76,6 +76,10 @@ model StudentSettings {
   rfidOn               Boolean   @default(false) @map("rfid_on")
   migrationOn          Boolean   @default(false) @map("migration_on")
   studentLoginsOn      Boolean   @default(false) @map("student_logins_on")
+  /// DigiLocker-ready file of issued certificates (03 §2), switched on per school.
+  digiLockerOn         Boolean   @default(false) @map("digilocker_on")
+  /// Smart Import: column matching and fix suggestions on the import (03 §2), switched on per school.
+  smartImportOn        Boolean   @default(false) @map("smart_import_on")
   /// ID card: valid until (date) and cards per A4 page.
   idCardValidUntil     DateTime? @map("id_card_valid_until") @db.Date
   idCardsPerPage       Int       @default(8) @map("id_cards_per_page")

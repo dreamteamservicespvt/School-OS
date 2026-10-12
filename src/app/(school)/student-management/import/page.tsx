@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { Download, History } from "lucide-react";
+import { ButtonLink } from "@/components/ui/button";
 import { redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { PageHeader } from "@/components/shell/page-header";
@@ -10,6 +11,7 @@ import { BASE, studentPage } from "../_lib/page";
 import { sectionOptions } from "../_lib/queries";
 import { uploadImportAction } from "../_actions/import";
 import { IMPORT_KINDS, MAX_IMPORT_ROWS } from "./load";
+import { ImportSteps } from "./steps";
 
 export const metadata: Metadata = { title: "Import students" };
 
@@ -23,22 +25,18 @@ export default async function ImportPage({ searchParams }: { searchParams: Promi
     <>
       <BackLink href={BASE} label="Students" />
       <PageHeader title="Import students" href={`${BASE}/import`} userId={current.user.id}>
-        <Link href={`${BASE}/import/history`} className="inline-flex min-h-11 items-center rounded-lg px-3 font-medium text-brand-text hover:bg-surface-2">Import history</Link>
+        <ButtonLink href={`${BASE}/import/history`} variant="ghost" icon={History}>Import history</ButtonLink>
       </PageHeader>
-      <ol className="mb-5 flex flex-wrap gap-2 text-sm" aria-label="Steps">
-        {["Template", "Upload", "Match columns", "Check", "Import"].map((s, i) => (
-          <li key={s} className={`rounded-full px-3 py-1 ${i < 2 ? "bg-brand-soft font-semibold text-brand-text" : "bg-surface-2 text-ink-2"}`}>{i + 1}. {s}</li>
-        ))}
-      </ol>
+      <ImportSteps at={2} />
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <CardHeader title="1. Download the template" description="Fill one row per student. Columns marked * are required." />
+          <CardHeader title="Download the template" description="Fill one row per student. Columns marked * are required." />
           <CardBody className="flex flex-wrap gap-2">
-            {IMPORT_KINDS.map((k) => <a key={k.key} href={`${BASE}/import/template?kind=${k.key}`} className="inline-flex min-h-11 items-center rounded-lg border border-line-strong px-4 font-medium hover:bg-surface-2">Template: {k.label}</a>)}
+            {IMPORT_KINDS.map((k) => <ButtonLink key={k.key} href={`${BASE}/import/template?kind=${k.key}`} icon={Download}>Template: {k.label}</ButtonLink>)}
           </CardBody>
         </Card>
         <Card>
-          <CardHeader title="2. Upload the file" description={`CSV or Excel, up to ${MAX_IMPORT_ROWS} rows and 10 MB.`} />
+          <CardHeader title="Upload the file" description={`CSV or Excel, up to ${MAX_IMPORT_ROWS} rows and 10 MB.`} />
           <CardBody>
             <ActionForm action={uploadImportAction} submitLabel="Upload and continue" pendingText="Reading the file…">
               <FormChoice name="kind" label="What are you importing?" defaultValue={IMPORT_KINDS[0].key} options={IMPORT_KINDS.map((k) => ({ value: k.key, label: k.label, help: k.help }))} />

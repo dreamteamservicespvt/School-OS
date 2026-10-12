@@ -77,6 +77,8 @@ const DEFAULTS = (schoolId: string): ResolvedSettings => ({
   rfidOn: false,
   migrationOn: false,
   studentLoginsOn: false,
+  digiLockerOn: false,
+  smartImportOn: false,
   idCardValidUntil: null,
   idCardsPerPage: 8,
   idCardFields: ["admissionNo", "dateOfBirth", "bloodGroup", "guardianPhone", "address"],

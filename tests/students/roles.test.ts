@@ -43,3 +43,28 @@ describe("own-reach roles", () => {
     expect(allowed.status).toBe(200);
   });
 });
+
+describe("DigiLocker-ready file", () => {
+  it("is refused to a teacher, and is off until the school switches it on", async () => {
+    const { GET } = await import("@/app/(school)/student-management/certificates/digilocker/route");
+    signedIn = await s.who(s.teacherUser.id);
+    expect((await GET(new Request("http://localhost/student-management/certificates/digilocker"))).status).toBe(403);
+    signedIn = await s.who(s.admin.id);
+    expect((await GET(new Request("http://localhost/student-management/certificates/digilocker"))).status).toBe(404);
+  });
+
+  it("lists only numbered certificates, one header row, safe from spreadsheet formulas", async () => {
+    const { digiLockerCsv } = await import("@/lib/students/digilocker");
+    const base = { type: "Bonafide certificate", issueDate: new Date("2026-10-09T00:00:00Z"), admissionNo: "SPS/2026/0001", dateOfBirth: new Date("2014-03-02T00:00:00Z"), gender: "Male", apaarId: null, className: "Class 7 B", purpose: "Bank account" };
+    const csv = digiLockerCsv([
+      { ...base, number: "BON/2026/0142", studentName: "Aarav Sharma" },
+      { ...base, number: null, studentName: "Not issued" },
+      { ...base, number: "BON/2026/0143", studentName: "=HYPERLINK(1)" },
+    ], "Asia/Kolkata");
+    const lines = csv.trim().split("\r\n");
+    expect(lines).toHaveLength(3);
+    expect(lines[0]).toMatch(/^Document number,Document type,Issue date/);
+    expect(lines[1]).toContain("BON/2026/0142,Bonafide certificate,09-10-2026,Aarav Sharma,02-03-2014");
+    expect(lines[2]).toContain("'=HYPERLINK(1)");
+  });
+});

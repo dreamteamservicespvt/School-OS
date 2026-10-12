@@ -31,6 +31,22 @@ export async function studentMonth(tx: Tx, ctx: SchoolContext, studentId: string
   return { label: monthLabel(from), month: isoDay(from).slice(0, 7), summary: sum.people.get(studentId)!, cells };
 }
 
+/** One staff member's month as calendar cells (Staff Attendance month view; also for Staff & HR). */
+export async function staffMonth(tx: Tx, ctx: SchoolContext, staffId: string, month: Date, today: Date, campusId?: string | null): Promise<MonthView> {
+  const from = monthStart(month);
+  const to = monthEnd(month);
+  const [sum, days] = await Promise.all([
+    attendanceSummary(tx, ctx, { staffIds: [staffId], from, to, today, campusId }),
+    schoolDays(tx, ctx, from, to, campusId ?? null),
+  ]);
+  const byDay = sum.days.get(staffId) ?? new Map<string, string>();
+  const cells = eachDay(from, to).map((d) => {
+    const info = days.info(d);
+    return { date: isoDay(d), day: d.getUTCDate(), weekday: d.getUTCDay(), statusKey: byDay.get(isoDay(d)) ?? null, off: info.on ? null : info.title, future: d > today };
+  });
+  return { label: monthLabel(from), month: isoDay(from).slice(0, 7), summary: sum.people.get(staffId)!, cells };
+}
+
 export type StudentAttendanceTab = {
   year: { id: string; name: string } | null;
   yearSummary: PersonSummary | null;

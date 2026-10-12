@@ -11,6 +11,8 @@ import { staffDay } from "@/lib/attendance/staff";
 import { readMonth } from "@/lib/attendance/register";
 import { schoolDays } from "@/lib/attendance/calendar";
 import { attendanceSummary } from "@/lib/attendance/summary";
+import { dateWhere, periodFromSearch } from "@/lib/periods";
+import { periodSetup } from "@/lib/period-setup";
 
 export async function GET(req: Request) {
   const { current } = await requireAction("attendance-management", "export");
@@ -29,18 +31,20 @@ export async function GET(req: Request) {
     const monthParam = url.searchParams.get("month");
     if (url.searchParams.get("view") === "overtime") {
       if (access.staff !== "all") return new Response("Only HR, the School Admin or the Principal can export overtime.", { status: 403 });
-      const m = readMonth(monthParam) ?? monthStart(today);
-      const rows = await tx.overtimeEntry.findMany({ where: { archivedAt: null, date: { gte: m, lte: monthEnd(m) } }, orderBy: { date: "asc" } });
+      // The same dates as the Overtime list (This month when none is chosen).
+      const range = periodFromSearch(Object.fromEntries(url.searchParams), { ...(await periodSetup(current)), fallback: "thismonth" });
+      const rows = await tx.overtimeEntry.findMany({ where: { archivedAt: null, ...(range ? { date: dateWhere(range) } : {}) }, orderBy: { date: "asc" } });
       const staff = new Map((await tx.staff.findMany({ where: { id: { in: rows.map((r) => r.staffId) } }, select: { id: true, fullName: true, staffCode: true } })).map((s) => [s.id, s]));
-      const title = `Staff overtime ${monthLabel(m)}`;
-      await logExport(tx, current.ctx, { title, format, filters: `Month ${monthLabel(m)}`, rows: rows.length });
+      const words = range ? `Dates ${range.label}` : "All dates";
+      const title = `Staff overtime${range ? ` ${range.label}` : ""}`;
+      await logExport(tx, current.ctx, { title, format, filters: words, rows: rows.length });
       return exportResponse(await buildExport(format, [
         { label: "Date", value: (r: (typeof rows)[number]) => formatDate(r.date, "UTC") },
         { label: "Staff ID", value: (r) => staff.get(r.staffId)?.staffCode ?? "" },
         { label: "Name", value: (r) => staff.get(r.staffId)?.fullName ?? "" },
         { label: "Hours", value: (r) => Math.round((r.minutes / 60) * 100) / 100 },
         { label: "Note", value: (r) => r.note ?? "" },
-      ], rows, meta(title, `Month ${monthLabel(m)}`)));
+      ], rows, meta(title, words)));
     }
 
     if (monthParam) {
@@ -75,9 +79,14 @@ export async function GET(req: Request) {
 
     const v = url.searchParams.get("date");
     const date = v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? day(v) : today;
-    const rows = await staffDay(tx, current.ctx, access, date);
+    // The same search, department and status as the list on screen.
+    const q = url.searchParams.get("q")?.slice(0, 80) || undefined;
+    const department = url.searchParams.get("department") || undefined;
+    const status = url.searchParams.get("status") || undefined;
+    const rows = await staffDay(tx, current.ctx, access, date, { q, departmentId: access.staff === "all" && department && /^[0-9a-f-]{36}$/.test(department) ? department : undefined, status });
     const title = `Staff attendance ${formatDate(date, "UTC")}`;
-    await logExport(tx, current.ctx, { title, format, filters: `Date ${formatDate(date, "UTC")}`, rows: rows.length });
+    const words = [`Date ${formatDate(date, "UTC")}`, q ? `Search "${q}"` : null, status ? `Status ${status}` : null].filter(Boolean).join(", ");
+    await logExport(tx, current.ctx, { title, format, filters: words, rows: rows.length });
     return exportResponse(await buildExport(format, [
       { label: "Staff ID", value: (r: (typeof rows)[number]) => r.staffCode },
       { label: "Name", value: (r) => r.name },
@@ -90,6 +99,6 @@ export async function GET(req: Request) {
       { label: "Minutes late", value: (r) => r.mark?.lateMinutes ?? "" },
       { label: "Source", value: (r) => (r.mark ? METHOD_WORDS[r.mark.method] ?? r.mark.method : "") },
       { label: "Note", value: (r) => r.mark?.note ?? "" },
-    ], rows, meta(title, `Date ${formatDate(date, "UTC")}`)));
+    ], rows, meta(title, words)));
   }, { timeout: 60_000 });
 }

@@ -69,7 +69,7 @@ export async function seedAttendance(s: SeedSchool) {
     const sections = await tx.section.findMany({ where: { academicYearId: year.id, archivedAt: null }, include: { schoolClass: { select: { name: true } } } });
     sections.sort((a, b) => a.schoolClass.name.localeCompare(b.schoolClass.name, "en", { numeric: true }) || a.name.localeCompare(b.name));
     const enrol = await tx.enrolment.findMany({ where: { academicYearId: year.id, archivedAt: null, student: { status: "ACTIVE", archivedAt: null } }, select: { studentId: true, sectionId: true, rollNo: true }, orderBy: [{ sectionId: "asc" }, { rollNo: "asc" }] });
-    const staff = await tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] } }, select: { id: true, staffCode: true, userLoginId: true, fullName: true }, orderBy: { staffCode: "asc" } });
+    const staff = await tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] } }, select: { id: true, staffCode: true, userLoginId: true, fullName: true, joiningDate: true }, orderBy: { staffCode: "asc" } });
     const days = await schoolDays(tx, sys, year.startDate, addDays(today, -1), s.campusId);
     const staffLeave = await tx.leaveRequest.findMany({ where: { staffId: { not: null }, status: "APPROVED", archivedAt: null }, select: { staffId: true, fromDate: true, toDate: true, id: true } });
     const types = await tx.leaveType.findMany({ where: { forWhom: "student", archivedAt: null } });
@@ -192,6 +192,15 @@ export async function seedAttendance(s: SeedSchool) {
         const r = rnd(i, di, 77);
         const statusKey = r < 0.04 ? "absent" : r < 0.08 ? "late" : r > 0.997 ? "half-day" : "present";
         old.push({ schoolId: s.schoolId, academicYearId: pastYear.id, studentId: e.studentId, sectionId: e.sectionId, date: d, periodNo: 0, statusKey, lateMinutes: statusKey === "late" ? 15 : null, method: "register", markedById: principalId, markedAt: at(d, "08:55"), takenAt: at(d, "08:55"), locked: true });
+      }
+      // Staff who had joined by then: their punches, so a staff month pages back too.
+      for (const [i, p] of staff.entries()) {
+        if (p.joiningDate > d) continue;
+        const r = rnd(i, di, 91);
+        const statusKey = r < 0.02 ? "absent" : r < 0.06 ? "late" : "present";
+        const mins = statusKey === "late" ? 45 + Math.floor(rnd(i, di, 6) * 20) : 15 + Math.floor(rnd(i, di, 3) * 20);
+        const inTime = statusKey === "absent" ? null : new Date(at(d, "08:00").getTime() + mins * 60000);
+        old.push({ schoolId: s.schoolId, academicYearId: pastYear.id, staffId: p.id, date: d, periodNo: 0, statusKey, inTime, outTime: inTime ? at(d, "16:10") : null, lateMinutes: statusKey === "late" ? mins - 30 : inTime ? 0 : null, method: inTime && deviceStaff.has(p.id) ? "fingerprint" : "register", markedById: inTime && deviceStaff.has(p.id) ? null : principalId, markedAt: inTime ?? at(d, "09:30"), locked: true });
       }
     }
     return old;

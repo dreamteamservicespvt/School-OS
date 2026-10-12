@@ -47,6 +47,18 @@ export function UrlSearch({ param = "q", placeholder, label, className, id }: { 
   );
 }
 
+/** One day kept in the page address (?date=2026-10-12), for day views such as staff attendance. */
+export function UrlDate({ param = "date", label, value, max, className }: { param?: string; label: string; value: string; max?: string; className?: string }) {
+  const { go, pending } = useUrl();
+  return (
+    <div className={cx("relative", className)}>
+      <input type="date" value={value} max={max} aria-label={label} disabled={pending}
+        onChange={(e) => { if (/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)) go({ [param]: e.target.value }); }}
+        className={cx(inputCls(false), "h-11 tnum")} />
+    </div>
+  );
+}
+
 export function UrlSelect({ param, options, label, className, value: fallback = "" }: { param: string; options: { value: string; label: string }[]; label: string; className?: string; value?: string }) {
   const { sp, go } = useUrl();
   return (

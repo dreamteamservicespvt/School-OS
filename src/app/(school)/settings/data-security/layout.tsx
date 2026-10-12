@@ -4,6 +4,7 @@ import { Tabs } from "@/components/ui/tabs";
 
 const DATA_SECURITY_TABS = [
   { href: "/settings/data-security", label: "Overview", exact: true },
+  { href: "/settings/data-security/switching", label: "Switching to School OS" },
   { href: "/settings/data-security/imports", label: "Imports" },
   { href: "/settings/data-security/audit-log", label: "Audit log" },
   { href: "/settings/data-security/login-history", label: "Login history" },

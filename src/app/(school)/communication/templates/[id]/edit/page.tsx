@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { commPage } from "@/lib/communication/access";
+import { commOfficePage } from "@/lib/communication/access";
 import { PageHeader } from "@/components/shell/page-header";
 import { Alert } from "@/components/ui/alert";
 import { TemplateForm } from "../../template-form";
@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: "Edit template" };
 export default async function EditTemplatePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
-  const access = await commPage("edit");
+  const access = await commOfficePage("edit");
   const data = await templateFormData(access.current.ctx, id, "en");
   if (!data) notFound();
   return (

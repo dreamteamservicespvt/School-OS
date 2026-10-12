@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { withSchool } from "@/lib/db";
-import { commPage } from "@/lib/communication/access";
+import { commOfficePage } from "@/lib/communication/access";
 import { channelSetups } from "@/lib/messaging/channels";
 import { PageHeader } from "@/components/shell/page-header";
 import { Alert } from "@/components/ui/alert";
@@ -12,7 +12,7 @@ import { FamiliesForm } from "./families-form";
 export const metadata: Metadata = { title: "Send to existing families" };
 
 export default async function SendFamiliesPage() {
-  const access = await commPage("create");
+  const access = await commOfficePage("create");
   const { current } = access;
   const data = await withSchool(current.ctx, async (tx) => ({ who: await whoOptions(tx, current.ctx), setups: await channelSetups(tx, current.ctx) }));
   const channels = (["whatsapp", "sms"] as const).filter((c) => data.setups[c].isOn).map((c) => ({ value: c, label: c === "sms" ? "SMS" : "WhatsApp" }));

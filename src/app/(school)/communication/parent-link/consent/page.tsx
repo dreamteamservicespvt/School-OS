@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { withSchool } from "@/lib/db";
-import { commPage } from "@/lib/communication/access";
+import { commOfficePage } from "@/lib/communication/access";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { currentConsentTexts, requestStatus } from "@/lib/parent-link/consent";
 import { schoolToday } from "@/lib/communication/time";
@@ -15,7 +15,7 @@ import { ConsentRequestForm, RemindButton } from "./consent-forms";
 export const metadata: Metadata = { title: "Consent forms" };
 
 export default async function ConsentPage() {
-  const access = await commPage();
+  const access = await commOfficePage();
   const { current } = access;
   const tz = current.school.timeZone;
   const today = schoolToday(tz).toISOString().slice(0, 10);

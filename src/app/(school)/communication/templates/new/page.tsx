@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { commPage } from "@/lib/communication/access";
+import { commOfficePage } from "@/lib/communication/access";
 import { PageHeader } from "@/components/shell/page-header";
 import { Alert } from "@/components/ui/alert";
 import { TemplateForm } from "../template-form";
@@ -9,7 +9,7 @@ import { templateFormData } from "../form-data";
 export const metadata: Metadata = { title: "Add template" };
 
 export default async function NewTemplatePage() {
-  const access = await commPage("create");
+  const access = await commOfficePage("create");
   const data = access.full ? await templateFormData(access.current.ctx, null, "en") : null;
   return (
     <>

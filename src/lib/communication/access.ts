@@ -3,6 +3,8 @@
 // the Receptionist have their own scope (05-roles.md).
 import "server-only";
 
+import { redirect } from "next/navigation";
+
 import { requireAction, requirePage, type Current } from "../current";
 import { reachFor, type Action } from "../permissions";
 import { withSchool } from "../db";
@@ -36,4 +38,27 @@ export async function commPage(action: Action = "view") {
 export async function commAction(action: Action = "create") {
   const { current } = await requireAction("communication", action);
   return build(current);
+}
+
+/** The refusal for office-only Communication work done by someone with their own scope only. */
+export class OfficeOnly extends Error {
+  constructor() { super("Only the Principal and School Admin can do this in Communication."); }
+}
+
+/**
+ * Office work in Communication (11-communication.md): templates, notices, Parent Link, consent requests
+ * and Message Settings need school-wide reach. Someone with their own scope only (a teacher, the
+ * accountant, the receptionist) is sent to the no-access page.
+ */
+export async function commOfficePage(action: Action = "view") {
+  const access = await commPage(action);
+  if (!access.full) redirect("/no-access?m=communication");
+  return access;
+}
+
+/** The same rule for a server action: refused unless the person has school-wide reach. */
+export async function commOfficeAction(action: Action = "create") {
+  const access = await commAction(action);
+  if (!access.full) throw new OfficeOnly();
+  return access;
 }

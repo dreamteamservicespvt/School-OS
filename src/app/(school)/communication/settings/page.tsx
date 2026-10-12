@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { withSchool } from "@/lib/db";
-import { commPage } from "@/lib/communication/access";
+import { commOfficePage } from "@/lib/communication/access";
 import { formatDate } from "@/lib/format";
 import { CHANNELS, CHANNEL_LABEL, type Channel } from "@/lib/messaging/channels";
 import { ruleStates } from "@/lib/messaging/automatic";
@@ -29,7 +29,7 @@ const PARTS = [
 ] as const;
 
 export default async function MessageSettingsPage() {
-  const access = await commPage("edit");
+  const access = await commOfficePage("edit");
   const { current } = access;
   const tz = current.school.timeZone;
   if (!access.full) return <Alert tone="info">Only the Principal and School Admin can change Message Settings.</Alert>;

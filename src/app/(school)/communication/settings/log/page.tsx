@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { withSchool } from "@/lib/db";
-import { commPage } from "@/lib/communication/access";
+import { commOfficePage } from "@/lib/communication/access";
 import { readListParams, skipTake, listHref } from "@/lib/list";
 import { formatDateTime } from "@/lib/format";
 import { RULES, ruleDef } from "@/lib/messaging/automatic";
@@ -19,7 +19,7 @@ export const metadata: Metadata = { title: "Automation log" };
 type Search = Promise<Record<string, string | string[] | undefined>>;
 
 export default async function AutomationLogPage({ searchParams }: { searchParams: Search }) {
-  const access = await commPage();
+  const access = await commOfficePage();
   const { current } = access;
   const tz = current.school.timeZone;
   const params = readListParams(await searchParams, LOG_FILTERS);

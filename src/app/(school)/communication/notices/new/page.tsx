@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { commPage } from "@/lib/communication/access";
+import { commOfficePage } from "@/lib/communication/access";
 import { PageHeader } from "@/components/shell/page-header";
 import { NoticeForm } from "../notice-form";
 import { noticeFormData } from "../form-data";
@@ -8,7 +8,7 @@ import { noticeFormData } from "../form-data";
 export const metadata: Metadata = { title: "New notice" };
 
 export default async function NewNoticePage() {
-  const access = await commPage("create");
+  const access = await commOfficePage("create");
   const data = await noticeFormData(access, null);
   return (
     <>

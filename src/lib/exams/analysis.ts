@@ -10,7 +10,7 @@ import { examKey, finalKey } from "./common";
 import { round2, type SubjectResult } from "./compute";
 import { isDone } from "./marks";
 import { sectionStudents, sitters } from "./roster";
-import type { ExamScope } from "./scope";
+import { resultSubjects, type ExamScope } from "./scope";
 
 export type AnalysisFilters = { examId?: string | null; final?: boolean; classId?: string | null; sectionId?: string | null; subjectId?: string | null };
 
@@ -43,8 +43,12 @@ export async function analyse(tx: Tx, ctx: SchoolContext, scope: ExamScope, year
   const sections = await sectionsInScope(tx, scope, yearId, f);
   const key = f.final ? finalKey(yearId) : f.examId ? examKey(f.examId) : null;
   if (!key || sections.length === 0) return null;
-  const results = await tx.result.findMany({ where: { key, sectionId: { in: sections.map((s) => s.id) }, complete: true } });
-  const students = await tx.student.findMany({ where: { id: { in: results.map((r) => r.studentId) } }, select: { id: true, fullName: true, admissionNo: true } });
+  const all = await tx.result.findMany({ where: { key, sectionId: { in: sections.map((s) => s.id) }, complete: true } });
+  // A subject teacher sees only their own subjects (owner's rules, 12 Oct 2026): overall numbers come only from
+  // sections they see whole (their own class), and subject numbers only from the subjects they teach.
+  const results = all.filter((r) => resultSubjects(scope, r.sectionId) === null);
+  const subjectOk = (sectionId: string, subjectId: string) => { const only = resultSubjects(scope, sectionId); return only === null || only.includes(subjectId); };
+  const students = await tx.student.findMany({ where: { id: { in: all.map((r) => r.studentId) } }, select: { id: true, fullName: true, admissionNo: true } });
   const nameOf = (id: string) => students.find((s) => s.id === id)?.fullName ?? "";
   const labelOf = (id: string) => sections.find((s) => s.id === id)?.label ?? "";
 
@@ -73,8 +77,9 @@ export async function analyse(tx: Tx, ctx: SchoolContext, scope: ExamScope, year
   const allocs = await allocations(tx, yearId, sections.map((s) => s.id));
   type Acc = { subjectId: string; name: string; sectionId: string; percents: number[]; passed: number; counted: number; absent: number };
   const acc = new Map<string, Acc>();
-  for (const r of results) for (const s of subjectsOf(r)) {
+  for (const r of all) for (const s of subjectsOf(r)) {
     if (f.subjectId && s.subjectId !== f.subjectId) continue;
+    if (!subjectOk(r.sectionId, s.subjectId)) continue;
     if (s.gradeOnly) continue;
     const k = `${s.subjectId}|${r.sectionId}`;
     const a = acc.get(k) ?? { subjectId: s.subjectId, name: s.name, sectionId: r.sectionId, percents: [], passed: 0, counted: 0, absent: 0 };
@@ -114,8 +119,14 @@ export async function studentsBehind(tx: Tx, scope: ExamScope, yearId: string, f
   const sections = await sectionsInScope(tx, scope, yearId, f);
   const key = f.final ? finalKey(yearId) : f.examId ? examKey(f.examId) : null;
   if (!key) return [];
-  let results = await tx.result.findMany({ where: { key, sectionId: { in: sections.map((s) => s.id) }, complete: true }, orderBy: [{ percent: "desc" }] });
+  const all = await tx.result.findMany({ where: { key, sectionId: { in: sections.map((s) => s.id) }, complete: true }, orderBy: [{ percent: "desc" }] });
   const subjectCell = (r: Result) => subjectsOf(r).find((s) => s.subjectId === drill.value);
+  const bySubject = drill.kind.startsWith("subject");
+  // Subject teachers: subject lists only for their own subjects; overall lists only for sections they see whole.
+  let results = all.filter((r) => {
+    const only = resultSubjects(scope, r.sectionId);
+    return only === null || (bySubject && Boolean(drill.value) && only.includes(drill.value!));
+  });
   switch (drill.kind) {
     case "pass": results = results.filter((r) => r.outcome === "Pass"); break;
     case "fail": results = results.filter((r) => r.outcome !== "Pass"); break;
@@ -133,7 +144,9 @@ export async function studentsBehind(tx: Tx, scope: ExamScope, yearId: string, f
     const cell = drill.value && drill.kind.startsWith("subject") ? subjectCell(r) : null;
     return {
       studentId: r.studentId, name: st?.fullName ?? "", admissionNo: st?.admissionNo ?? "", section: sections.find((s) => s.id === r.sectionId)?.label ?? "",
-      percent: cell ? cell.percent : r.percent, grade: cell ? cell.grade : r.grade, rank: r.rank, outcome: r.outcome,
+      percent: cell ? cell.percent : r.percent, grade: cell ? cell.grade : r.grade,
+      // The overall rank and result are made from every subject: not shown where only some subjects may be seen.
+      ...(resultSubjects(scope, r.sectionId) === null ? { rank: r.rank, outcome: r.outcome } : { rank: null, outcome: null }),
     };
   });
 }

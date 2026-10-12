@@ -23,7 +23,7 @@ export function examTabs(page: ExamPage): ExamTab[] {
     ["results", "Results", s.results],
     ["report-cards", "Report Cards", s.manage || s.classTeacherOf.length > 0],
     ["question-papers", "Question Papers", page.current.features.has("exam-question-papers") && (s.manage || teaches) && !s.office],
-    ["analysis", "Exam Analysis", s.results],
+    ["analysis", "Exam Analysis", s.analysis],
     ["settings", "Exam Settings", s.manage],
   ];
   return list.filter(([, , ok]) => ok).map(([path, label]) => ({ path: `${BASE}/${path}`, href: withYear(`${BASE}/${path}`, page), label }));

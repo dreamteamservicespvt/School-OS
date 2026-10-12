@@ -30,7 +30,14 @@ export async function createCorrection(tx: Tx, ctx: SchoolContext, input: {
   const who = input.entries.length === 1 ? input.entries[0].name : `${input.entries.length} ${input.forWhom === "staff" ? "staff" : "students"}`;
   const where = input.sectionName ? `${input.sectionName}, ` : "";
   const summary = `Attendance correction: ${where}${dayText(input.date)}${input.periodNo ? ` period ${input.periodNo}` : ""} (${who})${input.kind === "offline-conflict" ? ", two versions" : ""}`;
-  const approval = await requestApproval(tx, ctx, { type: "attendance-correction", recordType: "Attendance Correction", recordId: correction.id, summary, reason: input.reason });
+  // Staff attendance: HR decides first (owner's rules, 12 Oct 2026), and nobody decides a change to their own attendance.
+  const staffLogins = input.forWhom === "staff"
+    ? (await tx.staff.findMany({ where: { id: { in: input.entries.map((e) => e.id) } }, select: { userLoginId: true } })).map((s) => s.userLoginId)
+    : [];
+  const approval = await requestApproval(tx, ctx, {
+    type: "attendance-correction", recordType: "Attendance Correction", recordId: correction.id, summary, reason: input.reason,
+    firstApproverRole: input.forWhom === "staff" ? "hr" : null, aboutUserIds: staffLogins,
+  });
   const saved = await tx.attendanceCorrection.update({ where: { id: correction.id }, data: { approvalId: approval.id } });
   await writeAudit(tx, ctx, { action: "attendance-correction-asked", recordType: "Attendance Correction", recordId: correction.id, after: { summary, kind: input.kind, entries: input.entries } as unknown as Prisma.InputJsonValue });
   return saved;

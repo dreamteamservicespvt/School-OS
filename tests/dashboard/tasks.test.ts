@@ -5,10 +5,11 @@ import { addTask, editTask, isOverdue, sendTaskReminders, setTaskStatus, taskAcc
 import { markStep, setupProgress, setupSteps, SetupProblem, unmarkStep } from "@/lib/dashboard/setup";
 import type { Current } from "@/lib/current";
 import { academicSchool } from "../academic/fixture";
+import { makeUser } from "../helpers";
 
 let f: Awaited<ReturnType<typeof academicSchool>>;
 let principal: Current, teacher: Current;
-const who = (c: Current) => ({ ctx: c.ctx, access: taskAccess(c.permissions) });
+const who = (c: Current) => ({ ctx: c.ctx, access: taskAccess(c) });
 
 beforeAll(async () => {
   f = await academicSchool();
@@ -19,8 +20,27 @@ beforeAll(async () => {
 
 describe("task access", () => {
   it("full Dashboard access is a full task manager; others manage their own tasks", () => {
-    expect(taskAccess(principal.permissions)).toBe("full");
-    expect(taskAccess(teacher.permissions)).toBe("own");
+    expect(taskAccess(principal)).toBe("full");
+    expect(taskAccess(teacher)).toBe("own");
+  });
+
+  it("only the Principal, School Admin, Vice Principal and Academic Head give tasks to others (owner's rules, 12 Oct)", async () => {
+    await f.run((tx) => tx.role.updateMany({ where: { key: { in: ["academic-head", "vice-principal", "hr", "exam-in-charge"] } }, data: { isEnabled: true } }));
+    const people = await Promise.all(["academic-head", "vice-principal", "hr", "exam-in-charge"].map(async (key) => {
+      const u = await makeUser({ schools: [{ id: f.school.id, roleKeys: [key] }] });
+      return [key, await f.currentFor(u.id)] as const;
+    }));
+    const of = Object.fromEntries(people);
+    expect(taskAccess(of["academic-head"])).toBe("full");
+    expect(taskAccess(of["vice-principal"])).toBe("full");
+    expect(taskAccess(of.hr)).toBe("own");
+    expect(taskAccess(of["exam-in-charge"])).toBe("own");
+    const head = of["academic-head"];
+    const given = await withSchool(head.ctx, (tx) => addTask(tx, who(head), { title: "Check the Class 5 syllabus", assignedToId: f.teacherUser.id, dueAt: null, details: null, remind: false }));
+    expect(given.assignedToId).toBe(f.teacherUser.id);
+    const hr = of.hr;
+    await expect(withSchool(hr.ctx, (tx) => addTask(tx, who(hr), { title: "Collect forms", assignedToId: f.teacherUser.id, dueAt: null, details: null, remind: false })))
+      .rejects.toThrow(/only to yourself/);
   });
 
   it("a teacher can give tasks only to themselves", async () => {

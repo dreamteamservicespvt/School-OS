@@ -176,7 +176,7 @@ export async function buildHome(viewer: Viewer, opts: { now?: Date; widgets?: re
     const mayApprove = approvalCount > 0 || leader || homes.includes("class-teacher") || viewer.roles.some((r) => r.key === "hostel-warden");
 
     // My tasks: open ones (overdue first), and those finished today so they can be undone.
-    const access = taskAccess(viewer.permissions);
+    const access = taskAccess(viewer);
     const me = viewer.user.id;
     const since = new Date(now.getTime() - 12 * 3_600_000);
     const [mine, given, mineTotal, givenTotal] = await Promise.all([

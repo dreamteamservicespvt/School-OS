@@ -93,7 +93,7 @@ export async function bulkApprove(ctx: SchoolContext, ids: string[]): Promise<Bu
 }
 
 /** Which of these requests may this person decide now? */
-export async function decidableIds(tx: Tx, ctx: SchoolContext, rows: { id: string; askedById: string; currentApproverId: string | null; currentApproverRole: string | null; status: ApprovalStatus }[]) {
+export async function decidableIds(tx: Tx, ctx: SchoolContext, rows: { id: string; type: string; askedById: string; aboutUserIds?: string[] | null; currentApproverId: string | null; currentApproverRole: string | null; status: ApprovalStatus }[]) {
   const out = new Set<string>();
   for (const r of rows) if (await canDecide(tx, ctx, r)) out.add(r.id);
   return out;

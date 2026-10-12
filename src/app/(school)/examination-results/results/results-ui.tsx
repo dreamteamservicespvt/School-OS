@@ -160,7 +160,8 @@ export type TableRow = {
 };
 
 /** The class result sheet (design ResultsPage table): tap a student for their marks by subject. */
-export function ResultTable({ columns, rows, ranks, examTitle, section, passMark }: { columns: TableCol[]; rows: TableRow[]; ranks: boolean; examTitle: string; section: string; passMark: number }) {
+/** subjectOnly: a subject teacher's view. Only their subjects show, with no total, %, grade, rank or result. */
+export function ResultTable({ columns, rows, ranks, examTitle, section, passMark, subjectOnly = false }: { columns: TableCol[]; rows: TableRow[]; ranks: boolean; examTitle: string; section: string; passMark: number; subjectOnly?: boolean }) {
   const [one, setOne] = useState<TableRow | null>(null);
   const RES = { ok: "text-ok", bad: "text-bad", warn: "text-warn", info: "text-info", neutral: "text-ink3" };
   return (
@@ -172,8 +173,12 @@ export function ResultTable({ columns, rows, ranks, examTitle, section, passMark
             <tr className="border-b border-line text-ink3 text-[12px]">
               <th scope="col" className="sticky left-0 z-10 bg-surface text-left font-semibold px-4 py-2.5 min-w-[180px]">Student</th>
               {columns.map((c) => <th key={c.id} scope="col" className="font-semibold px-2 py-2.5 text-center whitespace-nowrap" title={`${c.name}${c.gradeOnly ? ", graded" : ` out of ${c.max}`}${c.notIn ? ", marks not submitted" : ""}`}>{c.short}{c.notIn && <span className="text-warn"> •</span>}</th>)}
-              <th scope="col" className="font-semibold px-3 py-2.5 text-right">Total</th><th scope="col" className="font-semibold px-3 py-2.5 text-right">%</th>
-              <th scope="col" className="font-semibold px-3 py-2.5 text-center">Grade</th>{ranks && <th scope="col" className="font-semibold px-3 py-2.5 text-center">Rank</th>}<th scope="col" className="font-semibold px-4 py-2.5 text-left">Result</th>
+              {!subjectOnly && (
+                <>
+                  <th scope="col" className="font-semibold px-3 py-2.5 text-right">Total</th><th scope="col" className="font-semibold px-3 py-2.5 text-right">%</th>
+                  <th scope="col" className="font-semibold px-3 py-2.5 text-center">Grade</th>{ranks && <th scope="col" className="font-semibold px-3 py-2.5 text-center">Rank</th>}<th scope="col" className="font-semibold px-4 py-2.5 text-left">Result</th>
+                </>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -188,11 +193,15 @@ export function ResultTable({ columns, rows, ranks, examTitle, section, passMark
                   const x = r.cells[c.id];
                   return <td key={c.id} className={cx("px-2 py-2 text-center tnum", x?.tone === "bad" && "text-bad font-semibold", x?.tone === "info" && "text-info font-semibold", x?.tone === "warn" && "text-warn")}>{x?.text ?? "—"}</td>;
                 })}
-                <td className="px-3 text-right font-semibold tnum whitespace-nowrap">{r.total}</td>
-                <td className="px-3 text-right tnum">{r.percent}</td>
-                <td className="px-3 text-center">{r.grade ? <Pill tone={r.gradeTone} className="!h-5 !text-[11px]">{r.grade}</Pill> : <span className="text-ink3">—</span>}</td>
-                {ranks && <td className="px-3 text-center tnum">{r.rank ?? "—"}</td>}
-                <td className={cx("px-4 whitespace-nowrap font-semibold text-[13px]", RES[r.result.tone])}>{r.result.text}</td>
+                {!subjectOnly && (
+                  <>
+                    <td className="px-3 text-right font-semibold tnum whitespace-nowrap">{r.total}</td>
+                    <td className="px-3 text-right tnum">{r.percent}</td>
+                    <td className="px-3 text-center">{r.grade ? <Pill tone={r.gradeTone} className="!h-5 !text-[11px]">{r.grade}</Pill> : <span className="text-ink3">—</span>}</td>
+                    {ranks && <td className="px-3 text-center tnum">{r.rank ?? "—"}</td>}
+                    <td className={cx("px-4 whitespace-nowrap font-semibold text-[13px]", RES[r.result.tone])}>{r.result.text}</td>
+                  </>
+                )}
               </tr>
             ))}
           </tbody>
@@ -202,11 +211,11 @@ export function ResultTable({ columns, rows, ranks, examTitle, section, passMark
         footer={one?.profile ? <ButtonLink href={one.profile} variant="ghost" icon={UserRound}>Open profile</ButtonLink> : undefined}>
         {one && (
           <div className="flex flex-col gap-4">
-            <div className="grid grid-cols-3 gap-2 text-center">
+            {!subjectOnly && <div className="grid grid-cols-3 gap-2 text-center">
               <div className="rounded-xl bg-sunken/70 py-2.5"><p className="text-[12px] text-ink3 font-semibold">Total</p><p className="font-display text-[20px] font-semibold tnum">{one.total}</p></div>
               <div className="rounded-xl bg-sunken/70 py-2.5"><p className="text-[12px] text-ink3 font-semibold">Percent</p><p className="font-display text-[20px] font-semibold tnum">{one.percent}</p></div>
               <div className="rounded-xl bg-sunken/70 py-2.5"><p className="text-[12px] text-ink3 font-semibold">Grade{ranks ? " · rank" : ""}</p><p className="font-display text-[20px] font-semibold tnum">{one.grade ?? "—"}{ranks && one.rank ? ` · ${one.rank}` : ""}</p></div>
-            </div>
+            </div>}
             <HBars labelWidth={110} lowBelow={passMark} unit="%"
               rows={columns.filter((c) => !c.gradeOnly).map((c) => ({ k: c.name, v: one.cells[c.id]?.v ?? 0, label: one.cells[c.id]?.text ? `${one.cells[c.id].text}${/^\d/.test(one.cells[c.id].text) ? `/${c.max}` : ""}` : "—" }))} />
             {columns.some((c) => c.gradeOnly) && <p className="text-[13.5px] text-ink2">{columns.filter((c) => c.gradeOnly).map((c) => `${c.name}: ${one.cells[c.id]?.text || "—"}`).join(" · ")}</p>}

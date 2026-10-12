@@ -40,7 +40,7 @@ export default async function DashboardPage({ searchParams }: Search) {
     if (!p.complete && p.done * 2 < p.total) redirect("/dashboard/setup");
   }
 
-  const access = taskAccess(current.permissions);
+  const access = taskAccess(current);
   const [home, people] = await Promise.all([
     buildHome(current, { now }),
     withSchool(current.ctx, (tx) => assignable(tx, { ctx: current.ctx, access })),

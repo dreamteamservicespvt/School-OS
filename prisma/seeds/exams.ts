@@ -24,7 +24,7 @@ import type { ExamScope } from "../../src/lib/exams/scope";
 import type { SeedSchool } from "./types";
 import { day, rng } from "./names";
 
-const FULL: ExamScope = { see: "all", manage: true, office: false, datesheets: true, publish: true, staffId: null, sectionIds: null, teaches: null, classTeacherOf: [], results: true, principal: true };
+const FULL: ExamScope = { see: "all", manage: true, office: false, datesheets: true, publish: true, staffId: null, sectionIds: null, teaches: null, classTeacherOf: [], results: true, analysis: true, principal: true };
 
 const SENIOR = ["English", "Mathematics", "Science", "Telugu", "Social Studies", "Hindi"];
 const PRIMARY = ["English", "Mathematics", "Environmental Studies", "Telugu", "Hindi"];

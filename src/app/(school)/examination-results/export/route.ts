@@ -10,7 +10,7 @@ import { dateWhere, momentWhere, periodFromSearch } from "@/lib/periods";
 import { time12 } from "@/lib/academic/common";
 import { chosenYear } from "@/lib/academic/years";
 import { PAPER_STATUS_WORDS, classRange, patternLabel, shownExamStatus, showMarks } from "@/lib/exams/common";
-import { examScope, type ExamScope } from "@/lib/exams/scope";
+import { examScope, resultSubjects, type ExamScope } from "@/lib/exams/scope";
 import { papersFor, moderationList } from "@/lib/exams/marks";
 import { finalSheet, resultSheet } from "@/lib/exams/results";
 import { analyse } from "@/lib/exams/analysis";
@@ -111,14 +111,19 @@ async function build(tx: Tx, current: Current, scope: ExamScope, yearId: string,
     if (!scope.results) return "denied";
     const sectionId = p.get("section") ?? "";
     if (!UUID.test(sectionId) || !sectionOk(sectionId)) return "denied";
+    // A subject teacher sees only their own subjects: no totals, and no final result (it is made from every subject).
+    const only = resultSubjects(scope, sectionId);
     if (kind === "result-sheet") {
       const examId = p.get("exam") ?? "";
       if (!UUID.test(examId)) return null;
-      const sheet = await resultSheet(tx, current.ctx, examId, sectionId);
+      const sheet = await resultSheet(tx, current.ctx, examId, sectionId, only);
       if (!sheet) return null;
-      const labels = ["Roll", "Student", "Admission no", ...sheet.columns.map((c) => c.gradeOnly ? c.name : `${c.name} (${c.max})`), "Total", "%", "Grade", "Rank", "Result", "Status"];
+      const overall = only === null ? ["Total", "%", "Grade", "Rank", "Result"] : [];
+      const labels = ["Roll", "Student", "Admission no", ...sheet.columns.map((c) => c.gradeOnly ? c.name : `${c.name} (${c.max})`), ...overall, "Status"];
       const rows = sheet.rows.map((r) => {
-        const row: Row = { Roll: r.rollNo, Student: r.name, "Admission no": r.admissionNo, Total: `${showMarks(r.total)} / ${r.maxTotal}`, "%": r.percent, Grade: r.grade ?? "", Rank: r.rank, Result: r.outcome ?? "", Status: r.status === "PUBLISHED" ? "Published" : "Draft" };
+        const row: Row = only === null
+          ? { Roll: r.rollNo, Student: r.name, "Admission no": r.admissionNo, Total: `${showMarks(r.total)} / ${r.maxTotal}`, "%": r.percent, Grade: r.grade ?? "", Rank: r.rank, Result: r.outcome ?? "", Status: r.status === "PUBLISHED" ? "Published" : "Draft" }
+          : { Roll: r.rollNo, Student: r.name, "Admission no": r.admissionNo, Status: r.status === "PUBLISHED" ? "Published" : "Draft" };
         for (const c of sheet.columns) {
           const cell = r.cells[c.id];
           row[c.gradeOnly ? c.name : `${c.name} (${c.max})`] = !cell ? "" : cell.absent ? (cell.medical ? "ML" : "AB") : c.gradeOnly ? cell.grade ?? "" : cell.marks === null ? "" : showMarks(cell.marks);
@@ -127,6 +132,7 @@ async function build(tx: Tx, current: Current, scope: ExamScope, yearId: string,
       });
       return { title: `${sheet.exam.title} · ${sheet.section.label}`, filters: "Class result sheet", labels, rows };
     }
+    if (only !== null) return "denied";
     const f = await finalSheet(tx, current.ctx, yearId, sectionId);
     const labels = ["Roll", "Student", "Admission no", ...f.exams.map((e) => `${e.title} %`), "Final %", "Grade", "Rank", "Result"];
     const rows = f.rows.map((r) => {
@@ -138,7 +144,7 @@ async function build(tx: Tx, current: Current, scope: ExamScope, yearId: string,
   }
 
   if (kind === "analysis") {
-    if (!scope.results) return "denied";
+    if (!scope.analysis) return "denied";
     const exam = p.get("exam") ?? "";
     const sc = p.get("scope") ?? "";
     const subjectId = p.get("subject") ?? "";

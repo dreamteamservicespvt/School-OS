@@ -46,6 +46,8 @@ export default async function DecisionPage({ searchParams }: Search) {
   const range = periodFromSearch(raw, { timeZone: tz });
   const canChange = viewer.change === "all";
   const mayApprove = can(current.permissions, "admission-management", "approve");
+  // Only the Principal rejects an admission (owner's rules, 12 Oct 2026); the server checks it again.
+  const mayRejectAdmission = current.roles.some((r) => r.key === "principal");
 
   const data = await withSchool(current.ctx, async (tx) => {
     const years = await openYears(tx);
@@ -162,7 +164,7 @@ export default async function DecisionPage({ searchParams }: Search) {
                   {canChange && (
                     <div className="flex gap-2 flex-wrap pt-1">
                       {approval && !canDecide && <ButtonLink variant="soft" icon={ShieldCheck} href="/approvals">Open in Approvals</ButtonLink>}
-                      <DecideButtons id={a.id} name={a.fullName} sub={`${n.classes.get(a.classId) ?? ""} · ${yl(a.academicYearId)} · ${a.applicationNo}`} canDecide={canDecide} full={isFull} waitingList={settings.waitingListOn} seatsNote={seatText(a)} />
+                      <DecideButtons id={a.id} name={a.fullName} sub={`${n.classes.get(a.classId) ?? ""} · ${yl(a.academicYearId)} · ${a.applicationNo}`} canDecide={canDecide} canReject={mayRejectAdmission} full={isFull} waitingList={settings.waitingListOn} seatsNote={seatText(a)} />
                       <ButtonLink variant="ghost" icon={Eye} href={`${BASE}/applications/${a.id}`}>Application</ButtonLink>
                     </div>
                   )}

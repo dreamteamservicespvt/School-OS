@@ -14,7 +14,15 @@ import { formatDateTime } from "../format";
 import type { PermissionMap } from "../permissions";
 
 export type TaskAccess = "full" | "own";
-export const taskAccess = (permissions: PermissionMap): TaskAccess => (permissions.dashboard.see === "all" ? "full" : "own");
+/**
+ * Roles that give tasks to other people (owner's rules, 12 Oct 2026: the
+ * Principal, School Admin, Vice Principal and Academic Head). The Academic
+ * Head has only Own on the Dashboard, so the role is named here; anyone else
+ * with full Dashboard access (a role the school made) keeps it too.
+ */
+export const TASK_MANAGER_ROLES: readonly string[] = ["principal", "school-admin", "vice-principal", "academic-head"];
+export const taskAccess = (who: { permissions: PermissionMap; roles: { key: string | null }[] }): TaskAccess =>
+  who.permissions.dashboard.see === "all" || who.roles.some((r) => r.key !== null && TASK_MANAGER_ROLES.includes(r.key)) ? "full" : "own";
 
 export const TASK_STATUSES: { value: TaskStatus; label: string; tone: "neutral" | "brand" | "success" | "warning" }[] = [
   { value: "TODO", label: "To do", tone: "neutral" },

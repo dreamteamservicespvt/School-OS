@@ -43,7 +43,7 @@ export async function saveTaskAction(_prev: FormState, fd: FormData): Promise<Fo
   const values = formValues(fd);
   const input = readTask(fd, current.school.timeZone);
   if (typeof input === "string") return { ok: false, message: "Choose a due date, or leave both date and time empty.", errors: { dueDate: "Choose a due date, or leave both date and time empty." }, values };
-  const who = { ctx: current.ctx, access: taskAccess(current.permissions) };
+  const who = { ctx: current.ctx, access: taskAccess(current) };
   const id = values.id?.trim();
   try {
     const task = await withSchool(current.ctx, (tx) => (id ? editTask(tx, who, id, input) : addTask(tx, who, input, { timeZone: current.school.timeZone })));
@@ -65,7 +65,7 @@ export async function saveTaskAction(_prev: FormState, fd: FormData): Promise<Fo
 export async function setTaskStatusAction(id: string, status: TaskStatus): Promise<string | void> {
   const { current } = await requireAction("dashboard", "edit");
   try {
-    const before = await withSchool(current.ctx, (tx) => setTaskStatus(tx, { ctx: current.ctx, access: taskAccess(current.permissions) }, String(id), status));
+    const before = await withSchool(current.ctx, (tx) => setTaskStatus(tx, { ctx: current.ctx, access: taskAccess(current) }, String(id), status));
     if (before !== status) {
       await flash({ message: status === "DONE" ? "Task marked done." : `Task moved to ${statusLabel(status)}.`, undo: { kind: "task-status", id: `${id}~${before}` } });
     }
@@ -79,7 +79,7 @@ export async function commentAction(_prev: FormState, fd: FormData): Promise<For
   const { current } = await requireAction("dashboard", "edit");
   const values = formValues(fd);
   try {
-    await withSchool(current.ctx, (tx) => addComment(tx, { ctx: current.ctx, access: taskAccess(current.permissions) }, values.id ?? "", values.text ?? ""));
+    await withSchool(current.ctx, (tx) => addComment(tx, { ctx: current.ctx, access: taskAccess(current) }, values.id ?? "", values.text ?? ""));
   } catch (e) {
     return fail(e, values);
   }
@@ -90,7 +90,7 @@ export async function commentAction(_prev: FormState, fd: FormData): Promise<For
 export async function archiveTaskAction(id: string): Promise<string | void> {
   const { current } = await requireAction("dashboard", "archive");
   try {
-    await withSchool(current.ctx, (tx) => archiveTask(tx, { ctx: current.ctx, access: taskAccess(current.permissions) }, String(id)));
+    await withSchool(current.ctx, (tx) => archiveTask(tx, { ctx: current.ctx, access: taskAccess(current) }, String(id)));
   } catch (e) {
     return fail(e)!.message;
   }

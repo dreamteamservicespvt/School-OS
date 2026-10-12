@@ -6,7 +6,7 @@ import "server-only";
 import type { Application } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
-import { decide as decideApproval, DecisionProblem, type Decision } from "../approvals";
+import { decide as decideApproval, DecisionProblem, mayReject, rejectRefusal, type Decision } from "../approvals";
 import { nextNumber, formatNumber } from "../sequences";
 import { formatDate } from "../format";
 import { AdmissionProblem } from "./act";
@@ -52,6 +52,8 @@ export async function applyDecision(tx: Tx, ctx: SchoolContext, app: Application
     await activity(tx, ctx, app.id, "decision", `Approved.${note ? ` Remarks: ${note}` : ""}`, { decision: "approved" });
     await messageParent(tx, ctx, { to: { name: parent, phone: app.phone, email: app.email }, template: "admission-approved", text: `Dear ${parent}, we are happy to tell you that ${app.fullName}'s admission at ${name} is approved (application ${app.applicationNo}). The school office will contact you to complete the admission.`, about: { recordType: "Application", recordId: app.id } });
   } else if (decision === "reject") {
+    // Only the Principal rejects an admission (owner's rules, 12 Oct 2026), here or through Approvals.
+    if (!(await mayReject(tx, ctx, "admission"))) throw new DecisionProblem(rejectRefusal("admission"));
     if (!note || note.trim().length < 5) throw new DecisionProblem("Give remarks of at least 5 characters, so the family knows why.");
     await tx.application.update({ where: { id: app.id }, data: { stage: "REJECTED", decisionRemarks: note, decidedById: ctx.userId, decidedAt: new Date() } });
     await activity(tx, ctx, app.id, "decision", `Not approved. Remarks: ${note}`, { decision: "rejected" });
@@ -80,6 +82,7 @@ export async function onAdmissionDecision(tx: Tx, ctx: SchoolContext, approval: 
  */
 export async function decideApplication(tx: Tx, ctx: SchoolContext, v: Viewer, id: string, decision: "approve" | "reject", remarks: string | null) {
   requireFull(v, "admission decisions");
+  if (decision === "reject" && !(await mayReject(tx, ctx, "admission"))) throw new AdmissionProblem(rejectRefusal("admission"));
   const app = await loadApplication(tx, id);
   if (decision === "reject" && (!remarks || remarks.trim().length < 5)) throw new AdmissionProblem("Write the remarks: a rejection is never made without them.", "remarks");
   if (app.stage !== "DECISION") throw new AdmissionProblem(`This application is ${stageLabel(app.stage).toLowerCase()}, not waiting for a decision. Send it for a decision first.`);

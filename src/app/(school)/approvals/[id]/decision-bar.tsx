@@ -11,7 +11,7 @@ import { TextArea } from "@/components/ui/field";
 import type { Decision } from "@/lib/approvals";
 import { decideAction } from "../actions";
 
-export function DecisionBar({ id, summary, canDecide, canWithdraw }: { id: string; summary: string; canDecide: boolean; canWithdraw: boolean }) {
+export function DecisionBar({ id, summary, canDecide, canReject = true, canWithdraw }: { id: string; summary: string; canDecide: boolean; canReject?: boolean; canWithdraw: boolean }) {
   const [asking, setAsking] = useState<null | "reject" | "ask-change">(null);
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +38,7 @@ export function DecisionBar({ id, summary, canDecide, canWithdraw }: { id: strin
             <>
               <Button icon={I.Check} className="flex-1 sm:flex-none" loading={pending && !asking} loadingText="Approving…" onClick={() => run("approve", null)}>Approve</Button>
               <Button variant="secondary" icon={I.MessageSquareReply} className="flex-1 sm:flex-none" onClick={() => { setNote(""); setNoteError(null); setError(null); setAsking("ask-change"); }}>Ask for a change</Button>
-              <Button variant="danger-outline" icon={I.X} className="flex-1 sm:flex-none" onClick={() => { setNote(""); setNoteError(null); setError(null); setAsking("reject"); }}>Reject</Button>
+              {canReject && <Button variant="danger-outline" icon={I.X} className="flex-1 sm:flex-none" onClick={() => { setNote(""); setNoteError(null); setError(null); setAsking("reject"); }}>Reject</Button>}
             </>
           )}
           {canWithdraw && (

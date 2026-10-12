@@ -5,5 +5,6 @@ import "server-only";
 
 import "./data-security/privacy";
 import "./staff/handlers";
+import "./admission/handlers";
 import "./communication/handlers";
 import "./students/handlers";

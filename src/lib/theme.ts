@@ -27,20 +27,24 @@ export type ThemeKey = (typeof THEMES)[number]["key"];
 export type AccentKey = (typeof ACCENTS)[number]["key"];
 export type TextSizeKey = (typeof TEXT_SIZES)[number]["key"];
 
+/** The look a new person starts with: light, with Royal blue (decided by the school owner, 12 October 2026). */
+export const DEFAULT_THEME: ThemeKey = "light";
+export const DEFAULT_ACCENT: AccentKey = "royal";
+
 export const THEME_COOKIE = "sos_theme";
 export const ACCENT_COOKIE = "sos_accent";
 export const SIZE_COOKIE = "sos_size";
 
 // Colours from the first design, kept working for anyone who chose one.
-const OLD_ACCENTS: Record<string, AccentKey> = { blue: "lagoon", teal: "lagoon", violet: "plum", amber: "saffron", green: "lagoon" };
+const OLD_ACCENTS: Record<string, AccentKey> = { blue: "royal", teal: "lagoon", violet: "plum", amber: "saffron", green: "lagoon" };
 
 export function cleanTheme(value: string | undefined | null): ThemeKey {
-  return THEMES.some((t) => t.key === value) ? (value as ThemeKey) : "system";
+  return THEMES.some((t) => t.key === value) ? (value as ThemeKey) : DEFAULT_THEME;
 }
 
 export function cleanAccent(value: string | undefined | null): AccentKey {
   if (ACCENTS.some((a) => a.key === value)) return value as AccentKey;
-  return (value && OLD_ACCENTS[value]) || "lagoon";
+  return (value && OLD_ACCENTS[value]) || DEFAULT_ACCENT;
 }
 
 export function cleanTextSize(value: string | undefined | null): TextSizeKey {

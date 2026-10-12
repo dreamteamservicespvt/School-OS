@@ -39,36 +39,23 @@ export function ExportLinks({ href, label = "Export", className }: { href: strin
   );
 }
 
-/** The views inside one page (?view=), drawn like the design's second row of tabs. */
+/** The views inside one page (?view=), drawn as the design's segmented control. */
 export function SubNav({ items, current }: { items: { key: string; label: string; href: string; count?: number }[]; current: string }) {
   return (
-    <nav aria-label="Views" className="-mx-4 mb-4 overflow-x-auto px-4 no-scrollbar md:mx-0 md:px-0">
-      <ul className="flex w-max gap-2 pb-1">
+    <div className="-mx-4 mb-4 overflow-x-auto px-4 no-scrollbar md:mx-0 md:px-0">
+      <nav aria-label="Views" className="inline-flex gap-1 rounded-xl bg-sunken p-1">
         {items.map((i) => {
           const on = i.key === current;
           return (
-            <li key={i.key}>
-              <Link href={i.href} scroll={false} aria-current={on ? "page" : undefined}
-                className={cx("inline-flex h-10 items-center gap-2 rounded-xl border px-3.5 text-[13.5px] font-semibold transition",
-                  on ? "border-ink bg-ink text-bg" : "border-line bg-surface text-ink2 hover:border-ink3/50 hover:text-ink")}>
-                {i.label}
-                {i.count !== undefined && i.count > 0 && <span className={cx("text-[11.5px] tnum", on ? "opacity-70" : "text-ink3")}>{i.count.toLocaleString("en-IN")}</span>}
-              </Link>
-            </li>
+            <Link key={i.key} href={i.href} scroll={false} aria-current={on ? "page" : undefined}
+              className={cx("inline-flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3.5 text-[13px] font-semibold transition",
+                on ? "bg-surface text-ink shadow-card" : "text-ink2 hover:text-ink")}>
+              {i.label}
+              {i.count !== undefined && i.count > 0 && <span className="text-[11.5px] tnum text-warn">{i.count.toLocaleString("en-IN")}</span>}
+            </Link>
           );
         })}
-      </ul>
-    </nav>
+      </nav>
+    </div>
   );
-}
-
-export function Stat({ label, value, href, tone }: { label: string; value: React.ReactNode; href?: string; tone?: "warning" | "danger" }) {
-  const body = (
-    <>
-      <p className="text-[12px] font-semibold text-ink3">{label}</p>
-      <p className={cx("mt-0.5 font-display text-[21px] font-semibold tracking-tight tnum", tone === "danger" ? "text-bad" : tone === "warning" ? "text-warn" : "")}>{value}</p>
-    </>
-  );
-  const cls = "block rounded-2xl border border-line bg-surface px-4 py-3 shadow-card";
-  return href ? <Link href={href} className={cx(cls, "hover:border-ink3/50")}>{body}</Link> : <div className={cls}>{body}</div>;
 }

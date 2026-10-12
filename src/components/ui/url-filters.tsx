@@ -48,7 +48,7 @@ export function UrlSearch({ param = "q", placeholder, id, className, big, autoFo
       <input id={id} type="search" value={value} onChange={(e) => change(e.target.value)} placeholder={placeholder} autoComplete="off" autoFocus={autoFocus}
         className={big
           ? "w-full h-14 rounded-2xl bg-surface border border-line pl-12 pr-12 text-[16px] outline-none focus:border-brand focus:ring-4 focus:ring-brand/15 shadow-card placeholder:text-ink3 [&::-webkit-search-cancel-button]:hidden"
-          : cx(inputCls(false), "pl-10 pr-10 [&::-webkit-search-cancel-button]:hidden")} />
+          : cx(inputCls(false), "h-11 pl-10 pr-10 [&::-webkit-search-cancel-button]:hidden")} />
       {pending ? <Spinner className={cx("absolute top-1/2 -translate-y-1/2 size-4 text-ink3", big ? "right-5" : "right-3.5")} />
         : value && (
           <button type="button" onClick={() => change("")} aria-label="Clear search"
@@ -69,7 +69,7 @@ export function UrlSelect({ param, options, id, className, label }: { param: str
   return (
     <div className={cx("relative", className)}>
       <label htmlFor={id} className="sr-only">{label}</label>
-      <select id={id} value={value} onChange={(e) => set({ [param]: e.target.value })} className={cx(inputCls(false), "appearance-none pr-10 cursor-pointer")}>
+      <select id={id} value={value} onChange={(e) => set({ [param]: e.target.value })} className={cx(inputCls(false), "h-11 appearance-none pr-10 cursor-pointer")}>
         {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
       <ChevronDown size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-ink3 pointer-events-none" aria-hidden="true" />

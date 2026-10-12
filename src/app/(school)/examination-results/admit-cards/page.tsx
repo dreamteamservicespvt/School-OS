@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
+import { periodFromSearch } from "@/lib/periods";
+import { PeriodFilter } from "@/components/list/period-filter";
+import { examOverlaps } from "../_lib/period";
 import { redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { formatDate, formatDateTime } from "@/lib/format";
@@ -20,12 +24,14 @@ const PATH = "/examination-results/admit-cards";
 export default async function AdmitCardsPage({ searchParams }: { searchParams: SearchParams }) {
   const raw = await searchParams;
   const page = await examPage(raw);
-  if (!page.scope.datesheets && !page.scope.manage) redirect("/examination-results");
+  if (!page.scope.datesheets && !page.scope.manage) redirect("/no-access");
   if (!page.year) return (<><PageTop page={page} href={PATH} /><NoYear /></>);
   const year = page.year;
   const examId = one(raw.exam);
+  const tz = page.current.school.timeZone;
+  const range = examId ? null : periodFromSearch(raw, { timeZone: tz });
   const data = await withSchool(page.current.ctx, async (tx) => {
-    const exams = await tx.exam.findMany({ where: { academicYearId: year.id, archivedAt: null, status: { not: "DRAFT" } }, include: { entries: { where: { archivedAt: null }, select: { subjectId: true, classId: true } } }, orderBy: { startDate: "desc" } });
+    const exams = await tx.exam.findMany({ where: { academicYearId: year.id, archivedAt: null, status: { not: "DRAFT" }, ...examOverlaps(range) }, include: { entries: { where: { archivedAt: null }, select: { subjectId: true, classId: true } } }, orderBy: { startDate: "desc" } });
     const classes = await tx.schoolClass.findMany({ where: { id: { in: [...new Set(exams.flatMap((e) => e.classIds))] } }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true } });
     const exam = exams.find((e) => e.id === examId) ?? null;
     if (!exam) return { exams, classes, exam: null };
@@ -47,7 +53,10 @@ export default async function AdmitCardsPage({ searchParams }: { searchParams: S
     return (
       <>
         <PageTop page={page} href={PATH} />
-        {data.exams.length === 0 ? (
+        <div className="mb-4"><Suspense><PeriodFilter timeZone={tz} allLabel="All exam dates" /></Suspense></div>
+        {data.exams.length === 0 && range ? (
+          <EmptyState title="No exams in these dates">Choose other dates, or All exam dates.</EmptyState>
+        ) : data.exams.length === 0 ? (
           <EmptyState title="No published datesheets">Admit cards are made from a published datesheet. Publish one on the Datesheet page first.</EmptyState>
         ) : (
           <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" aria-label="Exams with a published schedule">

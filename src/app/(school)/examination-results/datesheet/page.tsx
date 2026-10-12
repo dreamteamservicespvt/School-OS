@@ -13,6 +13,9 @@ import { EmptyState } from "@/components/empty-state";
 import { Band, Chips, ListEmpty, Toolbar, TONE_SOFT, type BandItem } from "@/components/ui/kit";
 import { ExportMenu, UrlSearch, UrlSelect } from "@/components/ui/kit-client";
 import { cx } from "@/components/ui/cx";
+import { PeriodFilter } from "@/components/list/period-filter";
+import { periodFromSearch } from "@/lib/periods";
+import { examOverlaps, periodQuery } from "../_lib/period";
 import { examPage, one, withYear, type SearchParams } from "../_lib/page";
 import { NoYear, PageTop } from "../_components/page-top";
 import { DatesheetMenu } from "./datesheet-ui";
@@ -39,13 +42,14 @@ export default async function DatesheetPage({ searchParams }: { searchParams: Se
   const canAdd = s.datesheets && page.writable;
   const teacherView = !s.manage && !s.office;
   const tz = page.current.school.timeZone;
+  const range = periodFromSearch(raw, { timeZone: tz });
 
   const data = await withSchool(page.current.ctx, async (tx) => {
     let onlyClassIds: string[] | null = null;
     if (s.sectionIds) onlyClassIds = (await tx.section.findMany({ where: { id: { in: s.sectionIds } }, select: { classId: true } })).map((x) => x.classId);
     const [exams, classes, terms] = await Promise.all([
       tx.exam.findMany({
-        where: { academicYearId: year.id, archivedAt: archived ? { not: null } : null, ...(onlyClassIds ? { classIds: { hasSome: onlyClassIds } } : {}) },
+        where: { academicYearId: year.id, archivedAt: archived ? { not: null } : null, ...examOverlaps(range), ...(onlyClassIds ? { classIds: { hasSome: onlyClassIds } } : {}) },
         orderBy: [{ startDate: "desc" }, { title: "asc" }],
         include: { entries: { where: { archivedAt: null }, select: { subjectId: true } } },
       }),
@@ -72,7 +76,7 @@ export default async function DatesheetPage({ searchParams }: { searchParams: Se
   const byClass = base.filter((c) => !cls || c.classIds.includes(cls));
   const counts = Object.fromEntries(STATUSES.map((k) => [k, byClass.filter((c) => c.shown === k).length]));
   const rows = byClass.filter((c) => !st || c.shown === st);
-  const filtered = Boolean(q || cls || st);
+  const filtered = Boolean(q || cls || st || range);
 
   const href = (change: Record<string, string | null>) => {
     const sp = new URLSearchParams();
@@ -80,6 +84,7 @@ export default async function DatesheetPage({ searchParams }: { searchParams: Se
     if (cls) sp.set("class", cls);
     if (st) sp.set("status", st);
     if (archived) sp.set("archived", "1");
+    for (const [k, v] of periodQuery(raw)) sp.set(k, v);
     if (page.yearQuery) sp.set("year", year.id);
     for (const [k, v] of Object.entries(change)) { if (v) sp.set(k, v); else sp.delete(k); }
     const x = sp.toString();
@@ -120,7 +125,7 @@ export default async function DatesheetPage({ searchParams }: { searchParams: Se
   }
 
   const mineSub = s.sectionIds && !s.office ? `Datesheets for your classes. View only.` : s.office ? "Prepare datesheets and publish them. Admit cards follow." : `${year.name} · creating a datesheet creates the exam`;
-  const exportHref = `/examination-results/export?kind=datesheets${q ? `&q=${encodeURIComponent(q)}` : ""}${cls ? `&class=${cls}` : ""}${st ? `&status=${encodeURIComponent(st)}` : ""}${page.yearQuery ? `&${page.yearQuery}` : ""}`;
+  const exportHref = `/examination-results/export?kind=datesheets${q ? `&q=${encodeURIComponent(q)}` : ""}${cls ? `&class=${cls}` : ""}${st ? `&status=${encodeURIComponent(st)}` : ""}${periodQuery(raw).map(([k, v]) => `&${k}=${encodeURIComponent(v)}`).join("")}${page.yearQuery ? `&${page.yearQuery}` : ""}`;
 
   return (
     <div>
@@ -130,7 +135,7 @@ export default async function DatesheetPage({ searchParams }: { searchParams: Se
       <div className="flex flex-col gap-5 lg:gap-6">
         {band.length > 0 && <Band items={band} label="The next exam" />}
 
-        {cards.length === 0 && !archived ? (
+        {cards.length === 0 && !archived && !range ? (
           <EmptyState title="No datesheets yet" Icon={CalendarDays} action={canAdd ? <ButtonLink href={withYear(`${PATH}/new`, page)} variant="primary" icon={CalendarPlus}>Add datesheet</ButtonLink> : undefined}>
             <p>A datesheet sets each subject&apos;s exam date, time, room and maximum marks. Creating one creates the exam.</p>
           </EmptyState>
@@ -139,6 +144,7 @@ export default async function DatesheetPage({ searchParams }: { searchParams: Se
             <Toolbar>
               <Suspense><UrlSearch placeholder="Search exam title" /></Suspense>
               <Suspense><UrlSelect name="class" label="Class" className="md:w-44" options={[{ value: "", label: "All classes" }, ...data.classes.map((c) => ({ value: c.id, label: c.name }))]} /></Suspense>
+              <Suspense><PeriodFilter timeZone={tz} allLabel="All dates" /></Suspense>
               <ExportMenu href={exportHref} className="hidden md:block" />
             </Toolbar>
             <div className="px-3 pt-3">

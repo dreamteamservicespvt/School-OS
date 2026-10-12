@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: "Add datesheet" };
 
 export default async function NewDatesheetPage({ searchParams }: { searchParams: SearchParams }) {
   const page = await examPage(await searchParams);
-  if (!page.scope.datesheets) redirect("/examination-results/datesheet");
+  if (!page.scope.datesheets) redirect("/no-access");
   if (!page.year) return (<><PageTop page={page} title="Add datesheet" back={{ href: "/examination-results/datesheet", label: "Datesheet" }} href="/examination-results/datesheet/new" showYear={false} /><NoYear /></>);
   if (!page.writable) return (<><PageTop page={page} title="Add datesheet" back={{ href: "/examination-results/datesheet", label: "Datesheet" }} href="/examination-results/datesheet/new" /><EmptyState title="This year is closed">Exams can be added only to an open year.</EmptyState></>);
   const data = await datesheetFormData(page, null);

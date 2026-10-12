@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
+import { periodFromSearch } from "@/lib/periods";
+import { PeriodFilter } from "@/components/list/period-filter";
+import { examOverlaps } from "../_lib/period";
 import { redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { formatDateTime } from "@/lib/format";
@@ -29,13 +33,14 @@ function localNow(tz: string) {
 export default async function ResultsPage({ searchParams }: { searchParams: SearchParams }) {
   const raw = await searchParams;
   const page = await examPage(raw);
-  if (!page.scope.results) redirect("/examination-results/datesheet");
+  if (!page.scope.results) redirect("/no-access");
   if (!page.year) return (<><PageTop page={page} href={PATH} /><NoYear /></>);
   const year = page.year;
   const view = one(raw.view) === "final" ? "final" : "exam";
   const tz = page.current.school.timeZone;
   const sections = await sectionOptions(page);
-  const exams = await withSchool(page.current.ctx, (tx) => tx.exam.findMany({ where: { academicYearId: year.id, archivedAt: null, status: { not: "DRAFT" } }, orderBy: { startDate: "desc" } }));
+  const range = view === "exam" ? periodFromSearch(raw, { timeZone: tz }) : null;
+  const exams = await withSchool(page.current.ctx, (tx) => tx.exam.findMany({ where: { academicYearId: year.id, archivedAt: null, status: { not: "DRAFT" }, ...examOverlaps(range) }, orderBy: { startDate: "desc" } }));
   const views = [{ value: "exam", label: "Exam results" }, { value: "final", label: "Final result" }];
   const top = (extra?: React.ReactNode) => (
     <>
@@ -68,10 +73,11 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
   const pickers = (
     <div className="mb-4 flex flex-wrap items-end gap-3">
       <ParamSelect name="section" label="Class" current={sectionId} options={sections.map((s) => ({ value: s.id, label: s.label }))} clear={["exam"]} />
+      {view === "exam" && <Suspense><PeriodFilter timeZone={tz} allLabel="All exam dates" /></Suspense>}
       {view === "exam" && classExams.length > 0 && <ParamSelect name="exam" label="Exam" current={exam?.id ?? ""} options={classExams.map((e) => ({ value: e.id, label: e.title }))} />}
     </div>
   );
-  if (!data || !key) return (<>{top()}{pickers}<EmptyState title={view === "final" ? "No exams yet" : "No published exams"}>{view === "final" ? "The final result combines the year's exams once they have marks." : `Results appear once a datesheet for ${section.className} is published and marks are entered.`}</EmptyState></>);
+  if (!data || !key) return (<>{top()}{pickers}<EmptyState title={view === "final" ? "No exams yet" : range ? "No exams in these dates" : "No published exams"}>{view === "final" ? "The final result combines the year's exams once they have marks." : `Results appear once a datesheet for ${section.className} is published and marks are entered.`}</EmptyState></>);
 
   const mine = data.ready.find((r) => r.sectionId === sectionId);
   const published = Boolean(mine?.published);

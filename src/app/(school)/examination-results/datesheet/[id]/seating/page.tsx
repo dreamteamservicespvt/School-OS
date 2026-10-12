@@ -18,7 +18,8 @@ export default async function SeatingPage({ params, searchParams }: { params: Pr
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const raw = await searchParams;
   const page = await examPage(raw);
-  if (!page.current.features.has("exam-seating") || !(page.scope.datesheets || page.scope.manage)) redirect(`/examination-results/datesheet/${id}`);
+  if (!(page.scope.datesheets || page.scope.manage)) redirect("/no-access");
+  if (!page.current.features.has("exam-seating")) redirect(`/examination-results/datesheet/${id}`);
   const data = await withSchool(page.current.ctx, async (tx) => {
     const d = await examDetail(tx, id);
     if (!d) return null;

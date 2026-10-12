@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { Award, ClipboardCheck, MessageSquareText, Palette, PenLine, Users } from "lucide-react";
 import { withSchool, type Tx } from "@/lib/db";
 import { formatDate } from "@/lib/format";
@@ -32,6 +33,7 @@ export default async function ReportCardsPage({ searchParams }: { searchParams: 
   if (!page.year) return (<><PageTop page={page} href={PATH} /><NoYear /></>);
   const year = page.year;
   const s = page.scope;
+  if (!s.manage && s.classTeacherOf.length === 0) redirect("/no-access");
 
   const all = await sectionOptions(page);
   const sections = s.manage ? all : all.filter((x) => s.classTeacherOf.includes(x.id));

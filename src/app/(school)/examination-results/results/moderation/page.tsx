@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { readListParams, PAGE_SIZE } from "@/lib/list";
 import { formatDate } from "@/lib/format";
+import { momentWhere, periodFromSearch } from "@/lib/periods";
+import { periodQuery } from "../../_lib/period";
 import { moderationList } from "@/lib/exams/marks";
 import { DataTable, type Column } from "@/components/list/data-table";
 import { ListToolbar } from "@/components/list/list-toolbar";
@@ -28,7 +30,7 @@ type Row = Awaited<ReturnType<typeof moderationList>>[number];
 export default async function ModerationPage({ searchParams }: { searchParams: SearchParams }) {
   const raw = await searchParams;
   const page = await examPage(raw);
-  if (!page.scope.manage) redirect("/examination-results/results");
+  if (!page.scope.manage) redirect("/no-access");
   if (!page.year) return (<><PageTop page={page} title="Moderation report" back={{ href: "/examination-results/results", label: "Results" }} href={PATH} /><NoYear /></>);
   const year = page.year;
   const params = readListParams(raw, ["exam", "status", "year"]);
@@ -36,10 +38,13 @@ export default async function ModerationPage({ searchParams }: { searchParams: S
     all: await moderationList(tx, { yearId: year.id, examId: params.filters.exam, status: params.filters.status }),
     exams: await tx.exam.findMany({ where: { academicYearId: year.id, archivedAt: null, status: { not: "DRAFT" } }, orderBy: { startDate: "desc" }, select: { id: true, title: true } }),
   }));
-  const q = params.q.toLowerCase();
-  const rows = q ? all.filter((r) => `${r.student} ${r.admissionNo} ${r.subject} ${r.section} ${r.reason}`.toLowerCase().includes(q)) : all;
-  const shown = rows.slice((params.page - 1) * PAGE_SIZE, params.page * PAGE_SIZE);
   const tz = page.current.school.timeZone;
+  const range = periodFromSearch(raw, { timeZone: tz });
+  const span = range ? momentWhere(range, tz) : null;
+  const q = params.q.toLowerCase();
+  const dated = span ? all.filter((r) => r.askedOn >= span.gte && r.askedOn < span.lt) : all;
+  const rows = q ? all.filter((r) => `${r.student} ${r.admissionNo} ${r.subject} ${r.section} ${r.reason}`.toLowerCase().includes(q)) : dated;
+  const shown = rows.slice((params.page - 1) * PAGE_SIZE, params.page * PAGE_SIZE);
   const columns: Column<Row>[] = [
     { key: "student", label: "Student", phone: "title", cell: (r) => <>{r.student}<span className="block text-sm text-ink-2">{r.section} · {r.admissionNo}</span></> },
     { key: "paper", label: "Paper", phone: "meta", cell: (r) => <>{r.subject}<span className="text-ink-2"> · {r.exam}</span></> },
@@ -53,8 +58,8 @@ export default async function ModerationPage({ searchParams }: { searchParams: S
       </span>
     ) },
   ];
-  const filtered = Boolean(params.q || params.filters.exam || params.filters.status);
-  const exportHref = `/examination-results/export?${new URLSearchParams({ kind: "moderation", ...(params.filters.exam ? { exam: params.filters.exam } : {}), ...(params.filters.status ? { status: params.filters.status } : {}), ...(params.filters.year ? { year: params.filters.year } : {}) })}`;
+  const filtered = Boolean(params.q || params.filters.exam || params.filters.status || range);
+  const exportHref = `/examination-results/export?${new URLSearchParams({ kind: "moderation", ...(params.filters.exam ? { exam: params.filters.exam } : {}), ...(params.filters.status ? { status: params.filters.status } : {}), ...(params.filters.year ? { year: params.filters.year } : {}), ...Object.fromEntries(periodQuery(raw)) })}`;
   const waiting = all.filter((r) => r.status === "waiting").length;
 
   return (
@@ -63,7 +68,7 @@ export default async function ModerationPage({ searchParams }: { searchParams: S
         <Link href={withYear("/examination-results/results", page)} className="inline-flex min-h-11 items-center px-2 font-medium text-brand-text hover:underline">Back to Results</Link>
       </PageTop>
       <p className="-mt-3 mb-4 text-ink-2">Every change asked for after marks were submitted or locked, with the old and new marks, the reason and who decided. {waiting > 0 && <>{waiting} waiting: decide them in <Link href="/approvals" className="font-medium text-brand-text underline">Approvals</Link>.</>}</p>
-      <ListToolbar placeholder="Search by student, subject or reason" showArchived={false}
+      <ListToolbar placeholder="Search by student, subject or reason" showArchived={false} period={{ timeZone: tz }}
         filters={[
           { key: "exam", label: "Exam", options: exams.map((e) => ({ value: e.id, label: e.title })) },
           { key: "status", label: "Status", options: Object.entries(STATUS).map(([value, s]) => ({ value, label: s.label })) },

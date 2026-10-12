@@ -11,7 +11,8 @@ export default async function EditDatesheetPage({ params, searchParams }: { para
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const page = await examPage(await searchParams);
-  if (!page.scope.datesheets || !page.writable || !page.year) redirect(`/examination-results/datesheet/${id}`);
+  if (!page.scope.datesheets) redirect("/no-access");
+  if (!page.writable || !page.year) redirect(`/examination-results/datesheet/${id}`);
   const data = await datesheetFormData(page, id);
   if (!data?.exam) notFound();
   return (

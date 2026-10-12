@@ -121,7 +121,7 @@ export function DataList<Row>({ columns, rows, rowKey, href, mobile, empty, foot
   if (!rows.length) return <>{empty ?? <ListEmpty />}</>;
   const tick = (r: Row) => select && (
     <input type="checkbox" form={select.form} name={select.name ?? "id"} value={rowKey(r)} aria-label={select.label(r)} disabled={select.disabled?.(r)}
-      data-bulk-row onClick={(e) => e.stopPropagation()} className="relative z-[1] size-5 rounded-md accent-brand cursor-pointer disabled:opacity-40" />
+      data-bulk-row className="relative z-[1] size-5 rounded-md accent-brand cursor-pointer disabled:opacity-40" />
   );
   return (
     <>

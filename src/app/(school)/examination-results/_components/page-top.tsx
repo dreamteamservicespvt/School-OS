@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { CalendarX2, ChevronRight, Eye, User } from "lucide-react";
+import { ArrowLeft, CalendarX2, ChevronRight, Eye, User } from "lucide-react";
 import { PageHeader } from "@/components/shell/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { ButtonLink } from "@/components/ui/button";
@@ -65,6 +65,15 @@ export function PageTop({ page, href, sub, children, title, back, showYear = tru
       )}
       {tabs && <ExamTabs tabs={examTabs(page)} />}
     </>
+  );
+}
+
+/** The small way back above a page opened from a list (design BackLink): "← Marks Entry / Half Yearly · Maths · 5 A". */
+export function BackLink({ page, href, label, sub }: { page: Pick<ExamPage, "yearQuery">; href: string; label: string; sub?: React.ReactNode }) {
+  return (
+    <Link href={withYear(href, page)} className="inline-flex max-w-full items-center gap-1.5 text-[13.5px] font-semibold text-ink2 hover:text-ink mb-3 -ml-1 min-h-8 px-1 rounded-lg">
+      <ArrowLeft size={17} aria-hidden="true" className="shrink-0" /><span className="shrink-0">{label}</span>{sub && <span className="text-ink3 font-normal truncate">/ {sub}</span>}
+    </Link>
   );
 }
 

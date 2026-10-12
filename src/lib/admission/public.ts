@@ -89,6 +89,7 @@ export type OnlineSubmission =ApplicationInput & { consentTypes: string[]; given
 export async function submitOnline(schoolId: string, input: OnlineSubmission, ip: string | null) {
   await limited(`apply-submit:ip:${ip ?? "unknown"}`, 5, 3600);
   const ctx = systemCtx(schoolId);
+  if (!input.consentTypes.includes(DATA_CONSENT)) throw new AdmissionProblem("Please agree to the use of your child's data. The school needs it to process the admission.", `consent_${DATA_CONSENT}`);
   // The code is checked first in its own transaction, so a wrong try is counted.
   const pre = await withSchool(ctx, (tx) => tryOtp(tx, { purpose: `online:${input.phone}`, phone: input.phone, code: input.code }, new Date(), false));
   if (!pre.ok) throw new AdmissionProblem(pre.message, "code");

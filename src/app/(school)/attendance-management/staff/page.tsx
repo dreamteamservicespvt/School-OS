@@ -34,7 +34,7 @@ const ym = (d: Date) => isoDay(d).slice(0, 7);
 export default async function StaffAttendancePage({ searchParams }: Props) {
   const sp = await searchParams;
   const { current, access, settings, features, tz, today, now } = await attendancePage();
-  if (access.staff === "none") redirect(BASE);
+  if (access.staff === "none") redirect("/no-access?m=attendance-management");
   const all = access.staff === "all";
   const canEdit = all && access.change !== "none";
   const overtimeOn = features.has("attendance-overtime");

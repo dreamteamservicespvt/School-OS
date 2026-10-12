@@ -8,7 +8,7 @@ import { requireAction } from "@/lib/current";
 import { withSchool } from "@/lib/db";
 import type { FormState } from "@/lib/forms";
 import { DOCUMENT_TYPES, saveFile } from "@/lib/files";
-import { dateOf, FieldProblem, file, id, str } from "@/lib/staff/act";
+import { dateOf, FieldProblem, file, id, str, UUID_RE } from "@/lib/staff/act";
 import { daysText } from "@/lib/staff/leave";
 import { act } from "@/lib/attendance/act";
 import { actionContext } from "@/lib/attendance/page";
@@ -112,4 +112,19 @@ export async function cancelStudentLeaveAction(_: FormState<unknown>, fd: FormDa
     await withSchool(current.ctx, (tx) => cancelStudentLeave(tx, current.ctx, access, requestId, str(fd, "reason").slice(0, 500)));
     return { id: requestId };
   }, () => "Leave cancelled. Take Attendance no longer shows Leave for the days still to come.");
+}
+
+/** Approves several waiting requests at once; each is checked as if approved alone. */
+export async function approveManyStudentLeaveAction(_: FormState<unknown>, fd: FormData) {
+  return act(fd, async () => {
+    const { current } = await requireAction("attendance-management", "approve");
+    const { access } = await actionContext(current);
+    const ids = str(fd, "ids").split(",").map((x) => x.trim()).filter((x) => UUID_RE.test(x)).slice(0, 100);
+    if (!ids.length) throw new AttendanceProblem("Choose at least one leave request.");
+    let done = 0;
+    await withSchool(current.ctx, async (tx) => {
+      for (const requestId of ids) { await decideStudentLeave(tx, current.ctx, access, requestId, "approve", null); done++; }
+    }, { timeout: 60_000 });
+    return { done };
+  }, (r) => `Approved ${r.done} leave ${r.done === 1 ? "request" : "requests"}. Those days show as Leave in Take Attendance, and no absence message goes for them.`);
 }

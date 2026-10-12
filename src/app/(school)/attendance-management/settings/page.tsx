@@ -32,7 +32,7 @@ const ROLES = [
 export default async function SettingsPage({ searchParams }: Props) {
   const sp = await searchParams;
   const { current, access, settings: s, features } = await attendancePage();
-  if (!access.admin) redirect(BASE);
+  if (!access.admin) redirect("/no-access?m=attendance-management");
   const tab = TABS.find((t) => t.key === sp.tab)?.key ?? "methods";
   const v: SettingsValues = {
     studentMethods: s.studentMethods, staffMethods: s.staffMethods, periodWise: features.has("attendance-period-wise"), offline: features.has("attendance-offline"),

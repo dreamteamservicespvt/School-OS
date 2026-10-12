@@ -27,7 +27,7 @@ type Props = { searchParams: Promise<Record<string, string | string[] | undefine
 export default async function DevicesPage({ searchParams }: Props) {
   const sp = await searchParams;
   const { current, access, features, settings, tz, today, now } = await attendancePage();
-  if (!access.admin) redirect(BASE);
+  if (!access.admin) redirect("/no-access?m=attendance-management");
   const devicesOn = features.has("attendance-devices");
   const qrOn = features.has("attendance-qr");
   const mobileOn = features.has("attendance-mobile");

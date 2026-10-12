@@ -43,11 +43,11 @@ function SubjectFields({ state, classes, today }: { state: Parameters<typeof v>[
       {classes.length > 0 && (
         <fieldset>
           <legend className="mb-1 text-sm font-medium">Classes <span className="font-normal text-ink-2">(can be mapped later)</span></legend>
-          <label className="mb-2 flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" className="size-5 accent-[var(--brand)]" checked={all} onChange={(e) => setAll(e.target.checked)} /> All classes</label>
+          <label className="mb-2 flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" className="size-5 accent-brand" checked={all} onChange={(e) => setAll(e.target.checked)} /> All classes</label>
           <div className="grid max-h-48 grid-cols-2 gap-1 overflow-y-auto rounded-lg border border-line p-2 sm:grid-cols-3">
             {classes.map((c) => (
               <label key={c.id} className="flex min-h-10 items-center gap-2 text-sm">
-                <input type="checkbox" name="classIds" value={c.id} className="size-5 accent-[var(--brand)]" {...(all ? { checked: true, readOnly: true } : {})} /> {c.name}
+                <input type="checkbox" name="classIds" value={c.id} className="size-5 accent-brand" {...(all ? { checked: true, readOnly: true } : {})} /> {c.name}
               </label>
             ))}
           </div>
@@ -135,7 +135,7 @@ export function CopyMapButton({ fromClassId, fromName, classes }: { fromClassId:
           {err(state, "toClassIds") && <p className="mb-2 text-sm text-danger">{err(state, "toClassIds")}</p>}
           <div className="grid max-h-64 grid-cols-2 gap-1 overflow-y-auto rounded-lg border border-line p-2">
             {classes.filter((c) => c.id !== fromClassId).map((c) => (
-              <label key={c.id} className="flex min-h-10 items-center gap-2 text-sm"><input type="checkbox" name="toClassIds" value={c.id} className="size-5 accent-[var(--brand)]" /> {c.name}</label>
+              <label key={c.id} className="flex min-h-10 items-center gap-2 text-sm"><input type="checkbox" name="toClassIds" value={c.id} className="size-5 accent-brand" /> {c.name}</label>
             ))}
           </div>
         </fieldset>
@@ -175,7 +175,7 @@ export function RecordChoicesButton({ options, students }: { options: { id: stri
             {students.length === 0 ? <p className="text-ink-2">Everyone has chosen.</p> : (
               <div className="grid max-h-72 gap-1 overflow-y-auto rounded-lg border border-line p-2 sm:grid-cols-2">
                 {students.map((s) => (
-                  <label key={s.id} className="flex min-h-10 items-center gap-2 text-sm"><input type="checkbox" name="studentIds" value={s.id} className="size-5 accent-[var(--brand)]" /> {s.name} <span className="text-ink-2">{s.section}{s.rollNo ? `, roll ${s.rollNo}` : ""}</span></label>
+                  <label key={s.id} className="flex min-h-10 items-center gap-2 text-sm"><input type="checkbox" name="studentIds" value={s.id} className="size-5 accent-brand" /> {s.name} <span className="text-ink-2">{s.section}{s.rollNo ? `, roll ${s.rollNo}` : ""}</span></label>
                 ))}
               </div>
             )}

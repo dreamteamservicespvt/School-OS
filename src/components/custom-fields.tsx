@@ -71,7 +71,7 @@ export function CustomFieldInputs({ fields, values, errors = {}, fileLinks = {},
               {(["yes", "no"] as const).map((v) => (
                 <label key={v} className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-4 ${typed[f.key] === v ? "border-brand bg-brand-soft text-brand-text" : "border-line-strong"}`}>
                   <input type="radio" name={name} value={v} checked={typed[f.key] === v} disabled={disabled} required={f.required}
-                    onChange={() => { set(f.key, v); setLocal((l) => ({ ...l, [f.key]: "" })); }} className="size-4 accent-[var(--brand)]" />
+                    onChange={() => { set(f.key, v); setLocal((l) => ({ ...l, [f.key]: "" })); }} className="size-4 accent-brand" />
                   {v === "yes" ? "Yes" : "No"}
                 </label>
               ))}

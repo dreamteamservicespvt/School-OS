@@ -1,83 +1,77 @@
-import Link from "next/link";
 import { requireCurrent } from "@/lib/current";
 import { shellData } from "@/lib/shell-data";
-import { ApprovalIcon, BellIcon, CalendarIcon, MessageIcon } from "@/components/icons";
-import { SideMenu, MenuButton } from "@/components/shell/side-menu";
-import { SearchBox } from "@/components/shell/search-box";
-import { ProfileMenu } from "@/components/shell/profile-menu";
-import { SchoolSwitcher } from "@/components/shell/school-switcher";
-import { BottomBar, Badge } from "@/components/shell/bottom-bar";
+import { AppShell } from "@/components/shell/app-shell";
+import { RecentPages } from "@/components/shell/search-box";
 import { Toast } from "@/components/ui/toast";
 import { readFlash } from "@/lib/flash";
 import { undoChange } from "./undo-action";
 import { activeSystemNotices } from "@/lib/errors";
 import { withSchool } from "@/lib/db";
 import { currentYear } from "@/lib/academic/years";
+import { cleanTheme } from "@/lib/theme";
+import { cx } from "@/components/ui/cx";
+import { Info, Lock, TriangleAlert } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
-function YearChip({ year }: { year: { name: string; status: string } | null }) {
-  // The academic year every screen works in (03-school-year-and-day.md).
-  return (
-    <Link href="/academic-management/settings" className="flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-sm text-ink-2 hover:bg-surface-2"
-      title={year ? `Academic year ${year.name}` : "Open an academic year in Academic Settings"}>
-      <CalendarIcon className="size-5" />
-      <span>{year ? `Year ${year.name}` : "No academic year yet"}</span>
-    </Link>
-  );
-}
-
-function TopIcon({ href, label, count, children }: { href: string; label: string; count?: number; children: React.ReactNode }) {
-  const text = count ? `${label}, ${count} new` : label;
-  return (
-    <Link href={href} aria-label={text} title={label} className="relative grid size-11 place-items-center rounded-lg text-ink-2 hover:bg-surface-2 hover:text-ink">
-      <span className="relative">{children}<Badge count={count ?? 0} /></span>
-    </Link>
-  );
+/** "5 min", "2 h", "3 d": how long ago, for the notifications panel. */
+function ago(d: Date) {
+  const m = Math.max(0, Math.round((Date.now() - d.getTime()) / 60000));
+  if (m < 1) return "Now";
+  if (m < 60) return `${m} min`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h} h`;
+  return `${Math.round(h / 24)} d`;
 }
 
 export default async function SchoolLayout({ children }: { children: React.ReactNode }) {
   const current = await requireCurrent();
-  const [shell, flashed, notices, year] = await Promise.all([
+  const [shell, flashed, notices, { year, notes }] = await Promise.all([
     shellData(current),
     readFlash(),
     activeSystemNotices(),
-    withSchool(current.ctx, (tx) => currentYear(tx, current.ctx)),
+    withSchool(current.ctx, async (tx) => ({
+      year: await currentYear(tx, current.ctx),
+      notes: await tx.notification.findMany({
+        where: { userLoginId: current.user.id },
+        orderBy: [{ readAt: { sort: "desc", nulls: "first" } }, { createdAt: "desc" }],
+        take: 8,
+        select: { id: true, text: true, createdAt: true, readAt: true },
+      }),
+    })),
   ]);
-  const school = { id: current.school.id, name: current.school.name };
 
   return (
-    <div className="min-h-dvh lg:pl-64">
-      <a href="#main" className="skip-link">Skip to the page</a>
-      <SideMenu items={shell.menu} schoolName={current.school.name} footer={<YearChip year={year} />} />
-
-      <header className="sticky top-0 z-20 flex h-16 items-center gap-2 border-b border-line bg-surface/95 px-2 backdrop-blur sm:px-4">
-        <MenuButton />
-        {current.schools.length > 1 ? (
-          <SchoolSwitcher current={school} schools={current.schools.map((s) => ({ id: s.id, name: s.name }))} />
-        ) : (
-          <span className="max-w-[14rem] truncate px-2 font-medium lg:hidden">{current.school.name}</span>
-        )}
-        <div className="flex flex-1 justify-center px-2">
-          <SearchBox userId={current.user.id} pages={shell.pages} shortcuts={shell.shortcuts} />
-        </div>
-        <div className="hidden md:block"><YearChip year={year} /></div>
-        <nav aria-label="Your work" className="hidden items-center sm:flex">
-          {shell.canApprove && <TopIcon href="/approvals" label="Approvals" count={shell.approvals}><ApprovalIcon /></TopIcon>}
-          <TopIcon href="/notifications" label="Notifications" count={shell.unread}><BellIcon /></TopIcon>
-          <TopIcon href="/messages" label="Messages"><MessageIcon /></TopIcon>
-        </nav>
-        <ProfileMenu name={current.user.displayName} roles={shell.roleNames} />
-      </header>
-
-      {notices.map((n) => (
-        <div key={n.id} role="status" className={`border-b border-line px-4 py-2 text-center text-sm ${n.level === "problem" ? "bg-danger-soft" : n.level === "info" ? "bg-info-soft" : "bg-warn-bg text-warn-text"}`}>
-          {n.message}
-        </div>
-      ))}
-      <main id="main" className="mx-auto max-w-6xl p-4 pb-24 sm:p-6">{children}</main>
+    <AppShell
+      school={{ id: current.school.id, name: current.school.name, place: shell.place }}
+      schools={current.schools.map((s) => ({ id: s.id, name: s.name }))}
+      year={year ? { name: year.name, closed: year.status === "CLOSED" } : null}
+      person={{ id: current.user.id, name: current.user.displayName, role: current.roles[0]?.name ?? "" }}
+      menu={shell.menu.map((m) => m.key)}
+      bottom={shell.bottom}
+      quick={shell.quick}
+      pages={shell.pages}
+      shortcuts={shell.shortcuts}
+      approvals={shell.approvals}
+      canApprove={shell.canApprove}
+      canMessage
+      unread={shell.unread}
+      notes={notes.map((n) => ({ id: n.id, text: n.text, when: ago(n.createdAt), unread: !n.readAt }))}
+      theme={cleanTheme(current.user.theme)}
+    >
+      <RecentPages userId={current.user.id} pages={shell.pages} />
+      {notices.map((n) => {
+        const I = n.level === "problem" ? TriangleAlert : n.level === "info" ? Info : Lock;
+        return (
+          <div key={n.id} role="status" className={cx("border-b px-4 md:px-6 py-2.5 flex items-center gap-3 text-[13.5px]",
+            n.level === "problem" ? "bg-bad/10 border-bad/25" : n.level === "info" ? "bg-info/10 border-info/25" : "bg-warn/15 border-warn/30")}>
+            <I size={16} className={cx("shrink-0", n.level === "problem" ? "text-bad" : n.level === "info" ? "text-info" : "text-warn")} aria-hidden="true" />
+            <p className="flex-1 min-w-0">{n.message}</p>
+          </div>
+        );
+      })}
+      <main id="main" className="w-full max-w-[1400px] mx-auto px-4 md:px-6 xl:px-8 py-5 md:py-7 pb-28 md:pb-10 animate-rise">{children}</main>
       <Toast key={flashed ? JSON.stringify(flashed) : "none"} flash={flashed} undoAction={undoChange} />
-      <BottomBar approvals={shell.approvals} unread={shell.unread} showApprovals={shell.canApprove} />
-    </div>
+    </AppShell>
   );
 }

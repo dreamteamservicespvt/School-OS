@@ -45,14 +45,14 @@ export function PhotosForm() {
                 {m.problem ? <span className="text-sm text-danger">{m.problem}</span> : (
                   <span className="flex items-center gap-2">
                     {m.hasPhoto && <Badge tone="warning">Has a photo</Badge>}
-                    <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" name="skip" value={m.fileName} className="size-5 accent-[var(--brand)]" /> Skip</label>
+                    <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" name="skip" value={m.fileName} className="size-5 accent-brand" /> Skip</label>
                   </span>
                 )}
               </li>
             ))}
           </ul>
           <label className="flex min-h-11 items-center gap-3">
-            <input type="checkbox" name="replaceExisting" className="size-5 accent-[var(--brand)]" />
+            <input type="checkbox" name="replaceExisting" className="size-5 accent-brand" />
             <span>Replace photos students already have</span>
           </label>
           <Button type="submit" loading={pending} loadingText="Saving photos…" name="step" value="save">Save photos</Button>

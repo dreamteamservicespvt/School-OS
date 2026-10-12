@@ -75,7 +75,7 @@ export function AddStudentForm({ sections, defaultSection, today, nextAdmissionN
           <div className="flex flex-wrap gap-2">
             {GENDERS.map((g) => (
               <label key={g} className="flex min-h-11 items-center gap-2 rounded-lg border border-line-strong px-3 has-[:checked]:border-brand has-[:checked]:bg-brand-soft">
-                <input type="radio" name="gender" value={g} defaultChecked={v("gender") === g} required className="size-4 accent-[var(--brand)]" />{g}
+                <input type="radio" name="gender" value={g} defaultChecked={v("gender") === g} required className="size-4 accent-brand" />{g}
               </label>
             ))}
           </div>
@@ -97,12 +97,12 @@ export function AddStudentForm({ sections, defaultSection, today, nextAdmissionN
             <div className="mt-2 space-y-2">
               {parents.map((p) => (
                 <label key={p.id} className="flex min-h-11 items-start gap-2">
-                  <input type="radio" name="linkChoice" checked={linkId === p.id} onChange={() => setLinkId(p.id)} className="mt-1 size-4 accent-[var(--brand)]" />
+                  <input type="radio" name="linkChoice" checked={linkId === p.id} onChange={() => setLinkId(p.id)} className="mt-1 size-4 accent-brand" />
                   <span>Link <strong>{p.name}</strong> ({p.relationship}{p.children.length ? `, parent of ${p.children.join(", ")}` : ""})</span>
                 </label>
               ))}
               <label className="flex min-h-11 items-center gap-2">
-                <input type="radio" name="linkChoice" checked={!linkId} onChange={() => setLinkId("")} className="size-4 accent-[var(--brand)]" />
+                <input type="radio" name="linkChoice" checked={!linkId} onChange={() => setLinkId("")} className="size-4 accent-brand" />
                 <span>Add as a new parent</span>
               </label>
             </div>

@@ -65,7 +65,7 @@ export function BoardForm({ board, secondBoard }: { board: string; secondBoard: 
         </Alert>
       )}
       <label className="flex min-h-11 items-center gap-3">
-        <input type="checkbox" name="twoBoards" checked={two} onChange={(e) => setTwo(e.target.checked)} className="size-5 accent-[var(--brand)]" />
+        <input type="checkbox" name="twoBoards" checked={two} onChange={(e) => setTwo(e.target.checked)} className="size-5 accent-brand" />
         <span className="font-medium">This school runs two boards</span>
       </label>
       {two && (
@@ -93,7 +93,7 @@ export function RegionForm({ languages, defaultLanguage, timeZone }: { languages
                   const next = e.target.checked ? [...on, l.value] : on.filter((x) => x !== l.value);
                   setOn(next);
                   if (!next.includes(def) && next[0]) setDef(next[0]);
-                }} className="size-5 accent-[var(--brand)]" />
+                }} className="size-5 accent-brand" />
               {l.label}
             </label>
           ))}

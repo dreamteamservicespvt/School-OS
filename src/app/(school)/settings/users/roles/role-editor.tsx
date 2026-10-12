@@ -50,7 +50,7 @@ export function RoleEditor({ id, name, kind, permissions, requiresTwoStep, copyF
             error={nameError ?? state?.errors?.name} help={nameLocked ? "Ready roles and role templates keep their names. Copy the role to make one with another name." : "For example: Fee Clerk, Exam Cell, Lab Assistant."} />
           {nameLocked && <input type="hidden" name="name" value={roleName} />}
           <label className="flex min-h-11 items-start gap-3 self-end rounded-lg border border-line px-3 py-2">
-            <input type="checkbox" name="requiresTwoStep" checked={twoStep} disabled={readOnly} onChange={(e) => setTwoStep(e.target.checked)} className="mt-0.5 size-5 accent-[var(--brand)]" />
+            <input type="checkbox" name="requiresTwoStep" checked={twoStep} disabled={readOnly} onChange={(e) => setTwoStep(e.target.checked)} className="mt-0.5 size-5 accent-brand" />
             <span><span className="font-medium">Needs two-step login</span><span className="block text-sm text-ink-2">A one-time code at every sign-in. Turn on for roles that handle money or every record.</span></span>
           </label>
         </div>
@@ -89,7 +89,7 @@ export function RoleEditor({ id, name, kind, permissions, requiresTwoStep, copyF
                           <label className="grid min-h-11 cursor-pointer place-items-center">
                             <span className="sr-only">{m.name}: {l.label}</span>
                             <input type="radio" name={`p_${m.key}`} value={l.value} checked={grid[m.key] === l.value} disabled={readOnly}
-                              onChange={() => setGrid({ ...grid, [m.key]: l.value })} className="size-5 accent-[var(--brand)]" />
+                              onChange={() => setGrid({ ...grid, [m.key]: l.value })} className="size-5 accent-brand" />
                           </label>
                         </td>
                       ))}

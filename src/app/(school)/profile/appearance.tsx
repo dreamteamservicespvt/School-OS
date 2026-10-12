@@ -29,7 +29,7 @@ export function Appearance({ theme, accent }: { theme: string; accent: string })
         <div className="grid gap-2 sm:grid-cols-3">
           {THEMES.map((t) => (
             <label key={t.key} className={`flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border px-3 ${state.theme === t.key ? "border-brand bg-brand-soft" : "border-line hover:bg-surface-2"}`}>
-              <input type="radio" name="theme" value={t.key} checked={state.theme === t.key} onChange={() => choose({ theme: t.key })} className="size-5 accent-[var(--brand)]" />
+              <input type="radio" name="theme" value={t.key} checked={state.theme === t.key} onChange={() => choose({ theme: t.key })} className="size-5 accent-brand" />
               <span className={`grid size-8 place-items-center rounded-lg border border-line ${t.key === "dark" ? "bg-[#161b22]" : t.key === "light" ? "bg-white" : "bg-gradient-to-br from-white to-[#161b22]"}`} aria-hidden="true" />
               {t.label}
             </label>

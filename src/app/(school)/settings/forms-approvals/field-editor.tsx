@@ -66,7 +66,7 @@ function FieldForm({ mode, owner, others, field, onDone }: Omit<Props, "trigger"
         <TextArea label="Choices" name="choices" required rows={4} value={choices} onChange={(e) => setChoices(e.target.value)} error={errors.choices} help="One per line. At least 2." />
       )}
       <label className="flex min-h-11 items-center gap-3">
-        <input type="checkbox" name="required" defaultChecked={v("required", field?.required ? "on" : "") === "on"} className="size-5 accent-[var(--brand)]" />
+        <input type="checkbox" name="required" defaultChecked={v("required", field?.required ? "on" : "") === "on"} className="size-5 accent-brand" />
         <span>Required <span className="text-sm text-ink-2">(only when the field is shown)</span></span>
       </label>
       {mode === "record" ? (

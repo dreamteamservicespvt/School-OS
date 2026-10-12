@@ -9,7 +9,7 @@ import { revokeAllSessions, revokeSession, setSessionSchool } from "@/lib/auth/s
 import { schoolsFor } from "@/lib/auth/access";
 import { clearSessionCookie, deviceInfo, requireCurrent } from "@/lib/current";
 import { cookies } from "next/headers";
-import { ACCENT_COOKIE, THEME_COOKIE, cleanAccent, cleanTheme } from "@/lib/theme";
+import { ACCENT_COOKIE, SIZE_COOKIE, THEME_COOKIE, cleanAccent, cleanTextSize, cleanTheme } from "@/lib/theme";
 
 async function audit(action: string, extra: { recordId?: string; after?: object } = {}) {
   const current = await requireCurrent();
@@ -70,6 +70,22 @@ export async function markAllNotificationsRead() {
   revalidatePath("/", "layout");
 }
 
+/** Opening a notification marks it read and goes to the screen it is about. */
+export async function openNotification(formData: FormData) {
+  const current = await requireCurrent();
+  const id = String(formData.get("id") ?? "");
+  const note = /^[0-9a-f-]{36}$/i.test(id)
+    ? await withSchool(current.ctx, async (tx) => {
+        const n = await tx.notification.findFirst({ where: { id, userLoginId: current.user.id } });
+        if (n && !n.readAt) await tx.notification.update({ where: { id: n.id }, data: { readAt: new Date() } });
+        return n;
+      })
+    : null;
+  revalidatePath("/", "layout");
+  // Only addresses inside School OS.
+  redirect(note?.link && note.link.startsWith("/") && !note.link.startsWith("//") ? note.link : "/notifications");
+}
+
 export type PasswordState = { ok: boolean; message: string } | null;
 
 export async function changePassword(_prev: PasswordState, formData: FormData): Promise<PasswordState> {
@@ -99,15 +115,17 @@ export async function changePassword(_prev: PasswordState, formData: FormData): 
   };
 }
 
-/** Appearance: light, dark or the device's choice, and an accent colour. */
+/** Appearance: light, dark or the device's choice, a school colour and the text size. */
 export async function setAppearance(formData: FormData) {
   const current = await requireCurrent();
   const theme = cleanTheme(String(formData.get("theme") ?? current.user.theme));
   const accent = cleanAccent(String(formData.get("accent") ?? current.user.accent));
-  await prisma.userLogin.update({ where: { id: current.user.id }, data: { theme, accent } });
+  const textSize = cleanTextSize(String(formData.get("textSize") ?? current.user.textSize));
+  await prisma.userLogin.update({ where: { id: current.user.id }, data: { theme, accent, textSize } });
   const jar = await cookies();
   const opts = { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax" as const };
   jar.set(THEME_COOKIE, theme, opts);
   jar.set(ACCENT_COOKIE, accent, opts);
+  jar.set(SIZE_COOKIE, textSize, opts);
   revalidatePath("/", "layout");
 }

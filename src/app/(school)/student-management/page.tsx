@@ -152,7 +152,7 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
                 <legend className="mb-1 text-sm font-medium">Fields</legend>
                 <div className="grid gap-1.5">
                   {EXPORT_FIELDS.filter((f) => !f.restricted || can.seeRestricted).map((f) => (
-                    <label key={f.key} className="flex min-h-9 items-center gap-2 text-[15px]"><input type="checkbox" name="f" value={f.key} defaultChecked={f.default} className="size-5 accent-[var(--brand)]" />{f.label}</label>
+                    <label key={f.key} className="flex min-h-9 items-center gap-2 text-[15px]"><input type="checkbox" name="f" value={f.key} defaultChecked={f.default} className="size-5 accent-brand" />{f.label}</label>
                   ))}
                 </div>
               </fieldset>
@@ -160,7 +160,7 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
                 <legend className="mb-1 text-sm font-medium">File type</legend>
                 <div className="flex flex-wrap gap-3">
                   {[["xlsx", "Excel"], ["csv", "CSV"], ["pdf", "PDF"]].map(([v, l]) => (
-                    <label key={v} className="flex min-h-9 items-center gap-2"><input type="radio" name="format" value={v} defaultChecked={v === "xlsx"} className="size-4 accent-[var(--brand)]" />{l}</label>
+                    <label key={v} className="flex min-h-9 items-center gap-2"><input type="radio" name="format" value={v} defaultChecked={v === "xlsx"} className="size-4 accent-brand" />{l}</label>
                   ))}
                 </div>
               </fieldset>

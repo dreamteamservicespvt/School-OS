@@ -127,7 +127,7 @@ export function ClassesBoard(props: {
         </div>
         {props.showArchivedToggle && (
           <label className="flex min-h-11 items-center gap-2 text-[15px]">
-            <input type="checkbox" className="size-5 accent-[var(--brand)]" checked={sp.get("archived") === "1"}
+            <input type="checkbox" className="size-5 accent-brand" checked={sp.get("archived") === "1"}
               onChange={(e) => { const n = new URLSearchParams(sp.toString()); if (e.target.checked) n.set("archived", "1"); else n.delete("archived"); router.replace(`${pathname}?${n}`); }} />
             Archived
           </label>

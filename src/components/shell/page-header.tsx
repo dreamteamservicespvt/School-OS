@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useSyncExternalStore } from "react";
-import { PinIcon } from "@/components/icons";
+import { Pin } from "lucide-react";
+import { cx } from "@/components/ui/cx";
 import { isPinned, togglePinned } from "./local-lists";
 
 const PINS_CHANGED = "sos:pins-changed";
@@ -15,24 +16,31 @@ function subscribe(onChange: () => void) {
   };
 }
 
-/** Every page's title bar, with the pin icon that adds it to Search's pinned pages (00-global.md §1.1). */
-export function PageHeader({ title, href, userId, children }: { title: string; href: string; userId: string; children?: React.ReactNode }) {
+/**
+ * Every page's title block in the approved design, with the pin that adds the page
+ * to Search's pinned pages (00-global.md §1.1). Actions go in `children`.
+ */
+export function PageHeader({ title, href, userId, sub, crumbs, children }: { title: string; href: string; userId: string; sub?: React.ReactNode; crumbs?: React.ReactNode; children?: React.ReactNode }) {
   const pinned = useSyncExternalStore(subscribe, () => isPinned(userId, href), () => false);
   const toggle = useCallback(() => {
     togglePinned(userId, { label: title, href });
     window.dispatchEvent(new Event(PINS_CHANGED));
   }, [userId, title, href]);
   return (
-    <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-      <div className="flex items-center gap-2">
-        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-        <button type="button" onClick={toggle}
-          aria-pressed={pinned} aria-label={pinned ? `Unpin ${title}` : `Pin ${title} to Search`} title={pinned ? "Pinned to Search" : "Pin to Search"}
-          className={`grid size-11 place-items-center rounded-lg hover:bg-surface-2 ${pinned ? "text-brand-text" : "text-ink-2"}`}>
-          <PinIcon className={`size-5 ${pinned ? "fill-current" : ""}`} />
-        </button>
+    <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between mb-5">
+      <div className="min-w-0">
+        {crumbs && <div className="text-[13px] text-ink3 mb-1 flex items-center gap-1.5 flex-wrap">{crumbs}</div>}
+        <div className="flex items-center gap-1.5">
+          <h1 className="font-display text-[26px] md:text-[30px] font-semibold tracking-tight leading-tight">{title}</h1>
+          <button type="button" onClick={toggle}
+            aria-pressed={pinned} aria-label={pinned ? `Unpin ${title}` : `Pin ${title} to Search`} title={pinned ? "Pinned to Search" : "Pin to Search"}
+            className={cx("grid size-9 place-items-center rounded-xl transition hover:bg-sunken", pinned ? "text-brand" : "text-ink3")}>
+            <Pin size={17} className={pinned ? "fill-current" : ""} aria-hidden="true" />
+          </button>
+        </div>
+        {sub && <p className="text-ink3 text-[15px] mt-1">{sub}</p>}
       </div>
-      {children}
+      {children && <div className="flex gap-2 flex-wrap items-center">{children}</div>}
     </div>
   );
 }

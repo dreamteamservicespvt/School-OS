@@ -39,7 +39,7 @@ export function DataTable<Row>({ rows, columns, rowKey, rowHref, total, params, 
   const titleCol = columns.find((c) => c.phone === "title") ?? columns[0];
   const tick = (row: Row) => select ? (
     <input type="checkbox" form={select.form} name={select.name ?? "id"} value={select.value(row)} aria-label={select.label(row)} data-bulk-row
-      className="size-5 accent-[var(--brand)]" />
+      className="size-5 accent-brand" />
   ) : null;
 
   return (
@@ -50,7 +50,7 @@ export function DataTable<Row>({ rows, columns, rowKey, rowHref, total, params, 
           <caption className="sr-only">{caption}</caption>
           <thead className="border-b border-line bg-surface-2 text-sm text-ink-2">
             <tr>
-              {select && <th scope="col" className="w-12 px-4 py-3"><input type="checkbox" data-bulk-all aria-label="Choose every student on this page" className="size-5 accent-[var(--brand)]" /></th>}
+              {select && <th scope="col" className="w-12 px-4 py-3"><input type="checkbox" data-bulk-all aria-label="Choose every student on this page" className="size-5 accent-brand" /></th>}
               {columns.map((c) => (
                 <th key={c.key} scope="col" className={`px-4 py-3 font-medium ${c.className ?? ""}`}
                   aria-sort={params.sort === c.key ? (params.dir === "asc" ? "ascending" : "descending") : undefined}>

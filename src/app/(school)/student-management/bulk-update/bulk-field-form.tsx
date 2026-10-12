@@ -33,7 +33,7 @@ export function BulkFieldForm({ field, label, help, students }: { field: string;
       <input type="hidden" name="field" value={field} />
       {students.map((s) => <input key={s.id} type="hidden" name="ids" value={s.id} />)}
       <label className="flex min-h-11 items-center gap-3">
-        <input type="checkbox" name="useSame" checked={useSame} onChange={(e) => setUseSame(e.target.checked)} className="size-5 accent-[var(--brand)]" />
+        <input type="checkbox" name="useSame" checked={useSame} onChange={(e) => setUseSame(e.target.checked)} className="size-5 accent-brand" />
         <span>Give everyone the same {label.toLowerCase()}</span>
       </label>
       {useSame && (

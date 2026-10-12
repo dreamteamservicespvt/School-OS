@@ -72,7 +72,7 @@ export function ListToolbar({ placeholder = "Search", filters = [], more = [], s
         )}
         {showArchived && (
           <label className="flex min-h-11 items-center gap-2 rounded-lg px-2 text-[15px]">
-            <input type="checkbox" className="size-5 accent-[var(--brand)]" checked={sp.get("archived") === "1"} onChange={(e) => go({ archived: e.target.checked ? "1" : null })} />
+            <input type="checkbox" className="size-5 accent-brand" checked={sp.get("archived") === "1"} onChange={(e) => go({ archived: e.target.checked ? "1" : null })} />
             Archived
           </label>
         )}

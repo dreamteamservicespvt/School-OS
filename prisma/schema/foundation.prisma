@@ -132,9 +132,10 @@ model UserLogin {
   twoStepResetAt    DateTime?       @map("two_step_reset_at")
   /// Per-person notification channel choices: { [type]: ["app","push","email","whatsapp"] }.
   notificationPrefs Json            @default("{}") @map("notification_prefs")
-  /// Appearance chosen in Profile: light, dark or system; and an accent colour.
+  /// Appearance chosen in Profile: light, dark or system; a school colour; and the text size.
   theme             String          @default("system")
-  accent            String          @default("blue")
+  accent            String          @default("lagoon")
+  textSize          String          @default("normal") @map("text_size")
   createdAt         DateTime        @default(now()) @map("created_at")
   updatedAt         DateTime        @updatedAt @map("updated_at")
   archivedAt        DateTime?       @map("archived_at")

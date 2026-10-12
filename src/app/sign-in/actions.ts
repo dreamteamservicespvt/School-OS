@@ -1,5 +1,6 @@
 "use server";
 
+import { cleanAccent } from "@/lib/theme";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { completeSignIn, signIn } from "@/lib/auth/sign-in";
@@ -14,8 +15,8 @@ const secure = process.env.NODE_ENV === "production";
 
 async function finish(userLoginId: string, token: string) {
   await setSessionCookie(token);
-  const user = await prisma.userLogin.findUnique({ where: { id: userLoginId }, select: { theme: true, accent: true } });
-  if (user) await setAppearanceCookies(user.theme, user.accent);
+  const user = await prisma.userLogin.findUnique({ where: { id: userLoginId }, select: { theme: true, accent: true, textSize: true } });
+  if (user) await setAppearanceCookies(user.theme, cleanAccent(user.accent), user.textSize);
 }
 
 export async function signInAction(_prev: SignInState, formData: FormData): Promise<SignInState> {

@@ -32,7 +32,7 @@ export function ApprovalList({ rows }: { rows: ApprovalRow[] }) {
       {decidable.length > 1 && (
         <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface px-4 py-2">
           <label className="flex min-h-11 items-center gap-3 text-sm">
-            <input type="checkbox" className="size-5 accent-[var(--brand)]" checked={picked.length === decidable.length}
+            <input type="checkbox" className="size-5 accent-brand" checked={picked.length === decidable.length}
               onChange={(e) => setPicked(e.target.checked ? decidable.map((r) => r.id) : [])} />
             {picked.length ? `${picked.length} chosen${totalWords ? `, ${totalWords} in all` : ""}` : `Choose all ${decidable.length} you can decide`}
           </label>
@@ -61,7 +61,7 @@ export function ApprovalList({ rows }: { rows: ApprovalRow[] }) {
             {decidable.length > 1 && (
               <span className="flex min-h-11 w-6 items-start pt-0.5">
                 {r.decidable && (
-                  <input type="checkbox" aria-label={`Choose ${r.summary}`} className="size-5 accent-[var(--brand)]" checked={picked.includes(r.id)}
+                  <input type="checkbox" aria-label={`Choose ${r.summary}`} className="size-5 accent-brand" checked={picked.includes(r.id)}
                     onChange={(e) => setPicked(e.target.checked ? [...picked, r.id] : picked.filter((x) => x !== r.id))} />
                 )}
               </span>

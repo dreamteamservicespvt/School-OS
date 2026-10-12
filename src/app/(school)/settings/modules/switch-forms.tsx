@@ -86,7 +86,7 @@ export function TemplatePicker({ templates, current, mayEdit }: { templates: { k
             {preview.later!.length > 0 && <p className="text-sm text-ink-2">Not ready yet, so not switched on: {preview.later!.join(", ")}.</p>}
             {changes === 0 && <Alert tone="info">Nothing to change: your school already matches this template{replace ? "" : " for the settings not yet chosen"}.</Alert>}
             <label className="flex min-h-11 items-center gap-3">
-              <input type="checkbox" checked={replace} onChange={(e) => { setReplace(e.target.checked); open(chosen!, e.target.checked); }} className="size-5 accent-[var(--brand)]" />
+              <input type="checkbox" checked={replace} onChange={(e) => { setReplace(e.target.checked); open(chosen!, e.target.checked); }} className="size-5 accent-brand" />
               <span className="text-sm">Also replace settings I have already chosen</span>
             </label>
             {error && <Alert tone="danger">{error}</Alert>}
@@ -133,7 +133,7 @@ export function AssistantForm({ on, roles, chosen, mayEdit }: { on: boolean; rol
     <form action={action} className="space-y-4">
       <FormMessage state={state} />
       <label className="flex min-h-11 items-center gap-3">
-        <input type="checkbox" name="on" checked={isOn} disabled={!mayEdit} onChange={(e) => setIsOn(e.target.checked)} className="size-5 accent-[var(--brand)]" />
+        <input type="checkbox" name="on" checked={isOn} disabled={!mayEdit} onChange={(e) => setIsOn(e.target.checked)} className="size-5 accent-brand" />
         <span><span className="font-medium">AI assistant is on</span><span className="block text-sm text-ink-2">The AI only prepares and suggests. A person always checks before anything is saved or sent.</span></span>
       </label>
       {isOn && (
@@ -143,7 +143,7 @@ export function AssistantForm({ on, roles, chosen, mayEdit }: { on: boolean; rol
             {roles.map((r) => (
               <label key={r.key} className="flex min-h-11 items-center gap-3 rounded-lg border border-line px-3">
                 <input type="checkbox" name="aiRoles" value={r.key} checked={picked.includes(r.key)} disabled={!mayEdit}
-                  onChange={(e) => setPicked(e.target.checked ? [...picked, r.key] : picked.filter((x) => x !== r.key))} className="size-5 accent-[var(--brand)]" />
+                  onChange={(e) => setPicked(e.target.checked ? [...picked, r.key] : picked.filter((x) => x !== r.key))} className="size-5 accent-brand" />
                 <span className="text-sm">{r.name}</span>
               </label>
             ))}

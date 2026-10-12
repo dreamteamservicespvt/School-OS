@@ -33,7 +33,7 @@ export function AccessFields({ roles, campuses, roleIds, scope, campusId, errors
             <div className="grid gap-2 sm:grid-cols-2">
               {g.list.map((r) => (
                 <label key={r.id} className={`flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border px-3 py-2 ${chosen.includes(r.id) ? "border-brand bg-brand-soft" : "border-line"}`}>
-                  <input type="checkbox" name="roleIds" value={r.id} checked={chosen.includes(r.id)} className="mt-0.5 size-5 shrink-0 accent-[var(--brand)]"
+                  <input type="checkbox" name="roleIds" value={r.id} checked={chosen.includes(r.id)} className="mt-0.5 size-5 shrink-0 accent-brand"
                     onChange={(e) => setChosen(e.target.checked ? [...chosen, r.id] : chosen.filter((x) => x !== r.id))} />
                   <span>
                     <span className="font-medium">{r.name}</span>
@@ -52,7 +52,7 @@ export function AccessFields({ roles, campuses, roleIds, scope, campusId, errors
         <div className="grid gap-2 sm:grid-cols-3">
           {SCOPES.filter((s) => s.value !== "CAMPUS" || campuses.length > 1).map((s) => (
             <label key={s.value} className={`flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border px-3 py-2 ${sc === s.value ? "border-brand bg-brand-soft" : "border-line"}`}>
-              <input type="radio" name="scope" value={s.value} checked={sc === s.value} onChange={() => setSc(s.value)} className="mt-0.5 size-5 accent-[var(--brand)]" />
+              <input type="radio" name="scope" value={s.value} checked={sc === s.value} onChange={() => setSc(s.value)} className="mt-0.5 size-5 accent-brand" />
               <span><span className="font-medium">{s.label}</span><span className="block text-sm text-ink-2">{s.help}</span></span>
             </label>
           ))}

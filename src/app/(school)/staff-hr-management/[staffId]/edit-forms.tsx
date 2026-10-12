@@ -185,7 +185,7 @@ export function GiveLoginForm({ staffId, roles, defaultRole, modules, action, su
         <div className="grid gap-2 sm:grid-cols-2">
           {roles.map((r) => (
             <label key={r.key} className="flex items-start gap-3 rounded-lg border border-line p-3">
-              <input type="checkbox" name="roleKeys" value={r.key} defaultChecked={r.key === defaultRole} className="mt-1 size-5 accent-[var(--brand)]" />
+              <input type="checkbox" name="roleKeys" value={r.key} defaultChecked={r.key === defaultRole} className="mt-1 size-5 accent-brand" />
               <span><span className="font-medium">{r.name}</span><span className="block text-xs text-ink-2">{r.lines.slice(0, 3).join(" · ")}{r.lines.length > 3 ? " …" : ""}</span></span>
             </label>
           ))}

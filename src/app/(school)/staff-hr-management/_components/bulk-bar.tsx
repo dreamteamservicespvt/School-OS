@@ -15,12 +15,12 @@ function selected(): string[] {
 }
 
 export function RowCheck({ id, label }: { id: string; label: string }) {
-  return <input type="checkbox" form={FORM} name="ids" value={id} aria-label={`Select ${label}`} className="size-5 accent-[var(--brand)]" />;
+  return <input type="checkbox" form={FORM} name="ids" value={id} aria-label={`Select ${label}`} className="size-5 accent-brand" />;
 }
 
 export function SelectAll() {
   return (
-    <input type="checkbox" aria-label="Select all on this page" className="size-5 accent-[var(--brand)]"
+    <input type="checkbox" aria-label="Select all on this page" className="size-5 accent-brand"
       onChange={(e) => {
         document.querySelectorAll<HTMLInputElement>(`input[type=checkbox][form=${FORM}][name=ids]`).forEach((i) => { i.checked = e.target.checked; });
         document.dispatchEvent(new Event("staff-bulk-change"));

@@ -31,11 +31,12 @@ export async function setSessionCookie(token: string) {
 }
 
 /** The person's appearance follows them to a new device at sign-in. */
-export async function setAppearanceCookies(theme: string, accent: string) {
+export async function setAppearanceCookies(theme: string, accent: string, textSize = "normal") {
   const jar = await cookies();
   const opts = { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax" as const };
   jar.set("sos_theme", theme, opts);
   jar.set("sos_accent", accent, opts);
+  jar.set("sos_size", textSize, opts);
 }
 
 export async function clearSessionCookie() {

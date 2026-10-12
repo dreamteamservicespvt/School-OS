@@ -6,6 +6,8 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { Button, type ButtonVariant } from "./button";
+import { SheetHead, sheetCls } from "./dialog";
+import { inputCls } from "./field";
 
 type Props = {
   /** The button that opens the confirmation. */
@@ -57,21 +59,20 @@ export function ConfirmButton({ trigger, triggerVariant = "secondary", triggerCl
   return (
     <>
       <Button variant={triggerVariant} className={triggerClassName} onClick={() => ref.current?.showModal()}>{trigger}</Button>
-      <dialog ref={ref} aria-labelledby={titleId}
-        className="m-auto w-[min(28rem,calc(100vw-2rem))] rounded-2xl border border-line bg-surface p-0 text-ink shadow-pop backdrop:bg-overlay">
-        <div className="p-5">
-          <h2 id={titleId} className="text-lg font-semibold">{title}</h2>
-          <div className="mt-2 text-ink-2">{children}</div>
+      <dialog ref={ref} aria-labelledby={titleId} className={sheetCls()}
+        onClick={(e) => { if (e.target === e.currentTarget && !busy) ref.current?.close(); }}>
+        <SheetHead titleId={titleId} title={title} onClose={() => ref.current?.close()} />
+        <div className="px-5 pb-5">
+          <div className="text-[14.5px] text-ink2">{children}</div>
           {typeToConfirm && (
-            <label className="mt-4 block text-sm">
-              Type <strong className="text-ink">{typeToConfirm}</strong> to confirm
-              <input value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off"
-                className="mt-1 h-11 w-full rounded-lg border border-line-strong bg-surface px-3 text-base" />
+            <label className="mt-4 flex flex-col gap-1.5 text-[13px] font-semibold text-ink2">
+              <span>Type <strong className="text-ink">{typeToConfirm}</strong> to confirm</span>
+              <input value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" className={`${inputCls()} h-11`} />
             </label>
           )}
-          {error && <p role="alert" className="mt-3 rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">{error}</p>}
+          {error && <p role="alert" className="mt-3 rounded-xl bg-bad/10 px-3.5 py-2.5 text-sm text-bad">{error}</p>}
         </div>
-        <div className="flex flex-col-reverse gap-2 border-t border-line p-4 sm:flex-row sm:justify-end">
+        <div className="border-t border-line px-5 py-3.5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <Button variant="secondary" onClick={() => ref.current?.close()} disabled={busy}>Cancel</Button>
           <Button variant={confirmVariant} onClick={confirm} loading={busy} disabled={!ready}>{confirmLabel}</Button>
         </div>

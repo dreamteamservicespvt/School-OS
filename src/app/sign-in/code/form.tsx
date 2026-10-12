@@ -33,7 +33,7 @@ export function CodeForm({ sentTo, trustDays }: { sentTo: string; trustDays: num
           className="h-12 w-full rounded-lg border border-line bg-surface px-3 text-center font-mono text-2xl tracking-[0.4em]" />
       </div>
       <label className="flex min-h-11 items-start gap-3 text-sm">
-        <input type="checkbox" name="trust" className="mt-0.5 size-5 shrink-0 accent-[var(--brand)]" />
+        <input type="checkbox" name="trust" className="mt-0.5 size-5 shrink-0 accent-brand" />
         <span>Trust this device for {trustDays} days. Only on your own phone or computer, never a shared one.</span>
       </label>
       <button type="submit" disabled={pending} className="h-11 w-full rounded-lg bg-brand font-medium text-brand-ink disabled:opacity-60">

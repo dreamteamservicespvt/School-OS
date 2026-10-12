@@ -50,7 +50,7 @@ const TYPES = [
 type Person = { type: "guardian" | "student" | "staff"; id: string; name: string; detail: string };
 
 const chip = (on: boolean) =>
-  `inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border px-4 text-[15px] has-[:focus-visible]:outline has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-[var(--focus)] ${on ? "border-brand bg-brand-soft font-medium text-brand-text" : "border-line-strong bg-surface hover:bg-surface-2"}`;
+  `inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border px-4 text-[15px] has-[:focus-visible]:outline has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-brand ${on ? "border-brand bg-brand-soft font-medium text-brand-text" : "border-line-strong bg-surface hover:bg-surface-2"}`;
 
 function FieldError({ id, text }: { id: string; text?: string }) {
   return text ? <p id={id} className="mt-1 text-sm text-danger">{text}</p> : null;
@@ -178,7 +178,7 @@ export function SendForm({ data }: { data: SendFormData }) {
                 <div key={c.id} className="rounded-xl border border-line p-3">
                   {data.wholeSchool ? (
                     <label className="flex min-h-11 items-center gap-2 font-medium">
-                      <input type="checkbox" name="classIds" value={c.id} checked={classes.includes(c.id)} onChange={() => toggle(classes, c.id, setClasses)} className="size-5 accent-[var(--brand)]" />
+                      <input type="checkbox" name="classIds" value={c.id} checked={classes.includes(c.id)} onChange={() => toggle(classes, c.id, setClasses)} className="size-5 accent-brand" />
                       {c.name} (all sections)
                     </label>
                   ) : <p className="font-medium">{c.name}</p>}
@@ -186,7 +186,7 @@ export function SendForm({ data }: { data: SendFormData }) {
                     {c.sections.map((s) => (
                       <label key={s.id} className="flex min-h-11 items-center gap-2">
                         <input type="checkbox" name="sectionIds" value={s.id} checked={sections.includes(s.id) || classes.includes(c.id)} disabled={classes.includes(c.id)}
-                          onChange={() => toggle(sections, s.id, setSections)} className="size-5 accent-[var(--brand)]" />
+                          onChange={() => toggle(sections, s.id, setSections)} className="size-5 accent-brand" />
                         {s.label.replace(`${c.name} `, "")}
                       </label>
                     ))}
@@ -199,7 +199,7 @@ export function SendForm({ data }: { data: SendFormData }) {
 
         {kinds.includes("parents") && (
           <label className="mt-3 flex min-h-11 items-center gap-2">
-            <input type="checkbox" name="allGuardians" onChange={touch} className="size-5 accent-[var(--brand)]" />
+            <input type="checkbox" name="allGuardians" onChange={touch} className="size-5 accent-brand" />
             Both parents, not only the main contact
           </label>
         )}
@@ -210,7 +210,7 @@ export function SendForm({ data }: { data: SendFormData }) {
             <div className="flex flex-wrap gap-x-4">
               {data.roles.map((r) => (
                 <label key={r.key} className="flex min-h-11 items-center gap-2">
-                  <input type="checkbox" name="roleKeys" value={r.key} onChange={touch} className="size-5 accent-[var(--brand)]" />{r.name}
+                  <input type="checkbox" name="roleKeys" value={r.key} onChange={touch} className="size-5 accent-brand" />{r.name}
                 </label>
               ))}
             </div>
@@ -219,7 +219,7 @@ export function SendForm({ data }: { data: SendFormData }) {
                 <span className="w-full text-sm font-medium">Department (optional)</span>
                 {data.departments.map((d) => (
                   <label key={d.id} className="flex min-h-11 items-center gap-2">
-                    <input type="checkbox" name="departmentIds" value={d.id} onChange={touch} className="size-5 accent-[var(--brand)]" />{d.name}
+                    <input type="checkbox" name="departmentIds" value={d.id} onChange={touch} className="size-5 accent-brand" />{d.name}
                   </label>
                 ))}
               </div>
@@ -350,7 +350,7 @@ export function SendForm({ data }: { data: SendFormData }) {
           {backupAllowed && (
             <div>
               <label className="flex min-h-11 items-center gap-2">
-                <input type="checkbox" name="smsBackup" checked={backup} onChange={(e) => { setBackup(e.target.checked); touch(); }} className="size-5 accent-[var(--brand)]" id="f-smsBackup" />
+                <input type="checkbox" name="smsBackup" checked={backup} onChange={(e) => { setBackup(e.target.checked); touch(); }} className="size-5 accent-brand" id="f-smsBackup" />
                 If not delivered or read, also send by SMS
               </label>
               {backup && (
@@ -385,7 +385,7 @@ export function SendForm({ data }: { data: SendFormData }) {
 
         {data.canEmergency && (
           <label className="mt-4 flex min-h-11 items-start gap-2 rounded-xl border border-danger/40 bg-danger-soft p-3 text-danger">
-            <input type="checkbox" name="emergency" checked={emergency} onChange={(e) => { setEmergency(e.target.checked); touch(); }} className="mt-0.5 size-5 accent-[var(--danger)]" />
+            <input type="checkbox" name="emergency" checked={emergency} onChange={(e) => { setEmergency(e.target.checked); touch(); }} className="mt-0.5 size-5 accent-bad" />
             <span><span className="font-semibold">Emergency broadcast.</span> Goes to everyone chosen, including parents who opted out. Use only when truly urgent.</span>
           </label>
         )}

@@ -6,10 +6,12 @@ import { BUILT_MODULES, MODULES } from "./modules";
 import { shortcutsFor } from "./shortcuts";
 import { approvalsFor } from "./approvals";
 import type { Current } from "./current";
+import { BOTTOM_BY_ROLE, QUICK_BY_ROLE, type BarItem, type Quick } from "@/components/shell/nav-config";
 
 export async function shellData(current: Current) {
-  const { unread, approvals } = await withSchool(current.ctx, async (tx) => ({
+  const { unread, approvals, campus } = await withSchool(current.ctx, async (tx) => ({
     unread: await tx.notification.count({ where: { userLoginId: current.user.id, readAt: null } }),
+    campus: await tx.campus.findFirst({ where: { archivedAt: null }, orderBy: [{ isMain: "desc" }, { createdAt: "asc" }], select: { name: true, address: true } }),
     // Only requests this person may decide: named to them, or to one of their roles (00-global.md §3.2).
     approvals: await tx.approval.count({ where: await approvalsFor(tx, current.ctx, current.roles.map((r) => r.key)) }),
   }));
@@ -33,8 +35,24 @@ export async function shellData(current: Current) {
     current.roles.some((r) => r.key === "class-teacher") ||
     MODULES.some((m) => current.permissions[m.key].change === "all");
 
+  // The phone bar and "New" follow the person's first role that has them, and only show what they may open or do.
+  const roleKeys = current.roles.map((r) => r.key ?? "");
+  const bottomFor = roleKeys.map((k) => BOTTOM_BY_ROLE[k]).find(Boolean) ?? BOTTOM_BY_ROLE.principal;
+  const bottom: BarItem[] = bottomFor.filter((i) => visible.has(i.module));
+  const seenQuick = new Set<string>();
+  const quick: Quick[] = roleKeys
+    .flatMap((k) => QUICK_BY_ROLE[k] ?? [])
+    .filter((i) => visible.has(i.module) && current.permissions[i.module].change !== "none" && !seenQuick.has(i.label) && seenQuick.add(i.label))
+    .slice(0, 6);
+  // Where the school is, for the menu: the town from the main campus address.
+  const parts = campus?.address?.split(",").map((x) => x.trim()).filter(Boolean) ?? [];
+  const place = parts.length >= 3 ? parts.slice(-3, -1).join(", ") : parts[0] ?? campus?.name ?? "";
+
   return {
     menu,
+    bottom,
+    quick,
+    place,
     pages,
     shortcuts: shortcutsFor(current.roles.map((r) => r.key), current.permissions, visible).map((s) => ({ label: s.label, href: s.href })),
     unread,

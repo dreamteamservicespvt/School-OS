@@ -67,11 +67,11 @@ export function DeletionForm({ personType, personId, personName, parts }: { pers
       <fieldset className="space-y-2">
         <legend className="mb-1 text-sm font-medium">What to remove<span className="text-danger" aria-hidden="true"> *</span></legend>
         <label className="flex min-h-11 items-center gap-3">
-          <input type="radio" name="scopeAll" value="all" checked={all} onChange={() => setAll(true)} className="size-5 accent-[var(--brand)]" />
+          <input type="radio" name="scopeAll" value="all" checked={all} onChange={() => setAll(true)} className="size-5 accent-brand" />
           All personal details
         </label>
         <label className="flex min-h-11 items-center gap-3">
-          <input type="radio" name="scopeAll" value="some" checked={!all} onChange={() => setAll(false)} className="size-5 accent-[var(--brand)]" />
+          <input type="radio" name="scopeAll" value="some" checked={!all} onChange={() => setAll(false)} className="size-5 accent-brand" />
           Only some details
         </label>
         {!all && (

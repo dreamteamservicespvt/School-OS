@@ -79,19 +79,33 @@ export async function forecast(tx: Tx, today: Date) {
   return { rate, basis: { from: pastFrom, to: pastTo, due: dueTotal, paid: paidTotal }, months: out };
 }
 
-export type RecentFilter = { from: Date; to: Date; classId?: string | null; feeHeadId?: string | null; mode?: string | null; status?: string | null; collectorId?: string | null; partial?: boolean | null };
+export type RecentFilter = { from: Date; to: Date; classId?: string | null; feeHeadId?: string | null; mode?: string | null; status?: string | null; collectorId?: string | null; partial?: boolean | null; q?: string | null };
 
 /** Recent Payments, newest first, with the filters of 06 §2. */
 export async function recentPayments(tx: Tx, viewer: FeeViewer, f: RecentFilter, take = 25, skip = 0) {
   const classStudents = f.classId ? (await tx.enrolment.findMany({ where: { classId: f.classId, archivedAt: null, ...(viewer.yearId ? { academicYearId: viewer.yearId } : {}) }, select: { studentId: true } })).map((e) => e.studentId) : null;
   const scoped = viewer.see === "all" ? null : await scopedStudentIds(tx, viewer);
   const ids = classStudents && scoped ? classStudents.filter((x) => scoped.includes(x)) : classStudents ?? scoped;
+  // Search: student name or admission number, class name, or receipt number.
+  let search: Prisma.PaymentWhereInput = {};
+  const q = f.q?.trim();
+  if (q) {
+    const [byName, byClass, byReceipt] = await Promise.all([
+      tx.student.findMany({ where: { OR: [{ fullName: { contains: q, mode: "insensitive" } }, { admissionNo: { contains: q, mode: "insensitive" } }] }, select: { id: true }, take: 500 }),
+      tx.schoolClass.findMany({ where: { name: { equals: q, mode: "insensitive" } }, select: { id: true } }).then((cls) => cls.length
+        ? tx.enrolment.findMany({ where: { archivedAt: null, classId: { in: cls.map((c) => c.id) }, ...(viewer.yearId ? { academicYearId: viewer.yearId } : {}) }, select: { studentId: true }, take: 3000 })
+        : []),
+      tx.receipt.findMany({ where: { number: { contains: q, mode: "insensitive" } }, select: { paymentId: true }, take: 200 }),
+    ]);
+    search = { OR: [{ studentId: { in: [...byName.map((s) => s.id), ...byClass.map((e) => e.studentId)] } }, { id: { in: byReceipt.map((r) => r.paymentId) } }, { reference: { contains: q, mode: "insensitive" } }] };
+  }
   const where: Prisma.PaymentWhereInput = {
+    ...search,
     broughtIn: false,
     paymentDate: { gte: f.from, lte: f.to },
     ...(ids ? { studentId: { in: ids } } : {}),
     ...(f.mode ? { mode: f.mode as never } : {}),
-    ...(f.status ? { status: f.status as never } : { status: { in: ["POSTED", "WAITING", "CANCELLED"] } }),
+    ...(f.status ? { status: f.status as never } : { status: { in: ["POSTED", "WAITING", "CANCELLED", "FAILED"] } }),
     ...(f.collectorId ? { collectedById: f.collectorId } : {}),
     ...(f.feeHeadId ? { allocations: { some: { feeHeadId: f.feeHeadId } } } : {}),
     ...(f.partial === true ? { isPartial: true } : f.partial === false ? { isPartial: false } : {}),

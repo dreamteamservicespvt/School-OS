@@ -79,7 +79,7 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Se
             href={(t) => `/communication/templates/${t.id}`}
             minWidth={900}
             paging={{ page: params.page, pageSize: PAGE_SIZE, total: data.total, href: (p) => listHref("/communication/templates", params, { page: p }) }}
-            footer={<>{data.total.toLocaleString("en-IN")} {params.archived ? "archived " : ""}{data.total === 1 ? "template" : "templates"} · <Link href={listHref("/communication/templates", { ...params, archived: !params.archived }, { page: null })} className="text-brand font-semibold hover:underline">{params.archived ? "Show templates in use" : "Show archived"}</Link></>}
+            footer={<div className="px-4 py-3 border-t border-line text-[13px] text-ink3">{data.total.toLocaleString("en-IN")} {params.archived ? "archived " : ""}{data.total === 1 ? "template" : "templates"} · <Link href={listHref("/communication/templates", { ...params, archived: !params.archived }, { page: null })} className="text-brand font-semibold hover:underline">{params.archived ? "Show templates in use" : "Show archived"}</Link></div>}
             empty={
               <EmptyState bare Icon={FileText} title={filtered ? "No templates here" : "No templates yet"}
                 action={canEdit && !filtered ? <ButtonLink href="/communication/templates/new" icon={Plus}>New template</ButtonLink> : undefined}>

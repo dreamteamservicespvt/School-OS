@@ -220,12 +220,12 @@ describe("certificates and ID cards use Settings, Document Designs", () => {
 });
 
 describe("Student Profile tabs from built modules", () => {
-  it("adds Time Table (Academic Management) and Communication for people who may view them", async () => {
+  it("adds Time Table (Academic Management), Exams and Communication for people who may view them", async () => {
     await import("@/lib/students/profile-tab-modules");
     const { profileTabsFor } = await import("@/lib/students/profile-tabs");
     const { accessIn } = await import("@/lib/auth/access");
     const principal = await accessIn(s.principal.id, s.school.id);
-    expect(profileTabsFor({ permissions: principal!.permissions, modulesOn: new Set() }).map((t) => t.key)).toEqual(["timetable", "communication"]);
+    expect(profileTabsFor({ permissions: principal!.permissions, modulesOn: new Set() }).map((t) => t.key)).toEqual(["timetable", "exams", "communication"]);
   });
 });
 

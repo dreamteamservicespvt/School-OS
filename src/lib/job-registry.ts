@@ -11,6 +11,8 @@ import "./approval-handlers";
 import "./data-security/jobs";
 import "./staff/jobs";
 import "./settings/jobs";
+import "./exams/jobs";
+import "./admission/jobs";
 import "./messaging/jobs";
 import "./communication/jobs";
 
@@ -18,3 +20,4 @@ defineSchedule("approval-escalation", 60, (tx, ctx, now) => escalateOverdue(tx, 
 defineSchedule("prune-rate-limits", 24 * 60, () => pruneRateLimits());
 import "./students/jobs";
 import "./students/import";
+import "./dashboard/jobs";

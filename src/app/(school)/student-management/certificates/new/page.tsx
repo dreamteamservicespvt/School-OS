@@ -6,6 +6,7 @@ import type { CertificateType } from "@prisma/client";
 import { withSchool } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { PageHeader } from "@/components/shell/page-header";
+import { BackLink } from "@/components/ui/module-head";
 import { Card, CardBody } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
 import { ActionForm, FormSelect, FormText } from "@/components/students/action-form";
@@ -56,6 +57,7 @@ export default async function IssueCertificatePage({ searchParams }: { searchPar
 
   return (
     <>
+      <BackLink href={back} label={sp.student ? "Student profile" : "Certificates & ID Cards"} />
       <PageHeader title="Issue certificate" href={`${BASE}/certificates/new`} userId={current.user.id} />
       <p className="-mt-3 mb-5 max-w-prose text-ink-2">The certificate fills from the student&apos;s record. Preview it, then issue. A TC always goes for approval first{settings.approvalCertificates.length ? `, and so do ${settings.approvalCertificates.map((t) => CERTIFICATE_LABEL[t as CertificateType]?.toLowerCase()).filter(Boolean).join(", ")}` : ""}.</p>
       <Card className="max-w-2xl">

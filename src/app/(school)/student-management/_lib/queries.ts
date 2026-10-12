@@ -10,6 +10,7 @@ import { STUDENT_STATUSES, STUDYING, type StudentStatusKey } from "@/lib/student
 import { fileLink } from "@/lib/files";
 import { ownSectionIds } from "@/lib/people";
 import type { ResolvedSettings } from "@/lib/students/settings";
+import { studentsWithDues } from "@/lib/students/hooks";
 
 export type SectionOption = { value: string; label: string; classId: string; className: string; sectionName: string; seats: number; filled: number };
 
@@ -35,7 +36,7 @@ export async function classOptions(tx: Tx) {
   return classes.map((c) => ({ value: c.id, label: c.name }));
 }
 
-export const LIST_FILTERS = ["class", "section", "status", "gender", "category", "new", "photo", "docs", "ids"] as const;
+export const LIST_FILTERS = ["class", "section", "status", "gender", "category", "new", "photo", "docs", "ids", "fee"] as const;
 
 /** Builds the Student List's where-clause from the filters in the page address. */
 export async function studentListWhere(tx: Tx, who: Who, params: ListParams, yearId: string | null, yearStart: Date | null, settings: ResolvedSettings): Promise<Prisma.StudentWhereInput> {
@@ -59,6 +60,11 @@ export async function studentListWhere(tx: Tx, who: Who, params: ListParams, yea
       WHERE archived_at IS NULL AND guardian_id IS NULL AND kind = ANY(${settings.requiredDocuments})
       GROUP BY student_id HAVING count(DISTINCT kind) >= ${settings.requiredDocuments.length}`;
     and.push({ id: { notIn: complete.map((c) => c.student_id) } });
+  }
+  if ((f.fee === "dues" || f.fee === "overdue") && yearId) {
+    // Fee Management says which students owe fees; without it the filter is not offered.
+    const owing = await studentsWithDues(tx, who.ctx, yearId, f.fee);
+    if (owing) and.push({ id: { in: owing } });
   }
   if (f.ids) {
     const ids = f.ids.split(",").filter((x) => /^[0-9a-f-]{36}$/i.test(x));

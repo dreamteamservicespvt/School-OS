@@ -7,6 +7,7 @@ import { listHref, readListParams } from "@/lib/list";
 import { can, reachFor } from "@/lib/permissions";
 import { actionWords, auditWhere, describeDevice, diff, readAuditFilters } from "@/lib/data-security/audit-view";
 import { Badge } from "@/components/ui/badge";
+import { periodSetup } from "@/lib/period-setup";
 import { ListToolbar } from "@/components/list/list-toolbar";
 import { EmptyState } from "@/components/empty-state";
 
@@ -22,7 +23,8 @@ export default async function AuditLogPage({ searchParams }: Search) {
   const params = readListParams(sp, ["person", "recordType", "action", "record", "period", "from", "to"]);
   const tz = current.school.timeZone;
   const reach = reachFor(current.permissions, "settings", "view");
-  const where = auditWhere(f, reach, current.user.id, tz);
+  const dates = await periodSetup(current);
+  const where = auditWhere(f, reach, current.user.id, dates);
   const data = await withSchool(current.ctx, async (tx) => {
     const [rows, total, types, actions, people] = await Promise.all([
       tx.auditLogEntry.findMany({ where, orderBy: { at: "desc" }, skip: (params.page - 1) * PAGE, take: PAGE }),
@@ -46,7 +48,7 @@ export default async function AuditLogPage({ searchParams }: Search) {
         Every change in School OS: who, what, when, from which device, with the values before and after. Nobody can change or remove these lines.
         {reach === "own" && " Your role shows only your own changes."}
       </p>
-      <ListToolbar placeholder="Record type, action or record ID" showArchived={false} period={{ timeZone: tz }}
+      <ListToolbar placeholder="Record type, action or record ID" showArchived={false} period={dates}
         filters={[
           { key: "person", label: "Person", allLabel: "Anyone", options: [{ value: "system", label: "School OS (automatic)" }, ...data.people.map((p) => ({ value: p.id, label: p.displayName }))] },
           { key: "action", label: "Action", allLabel: "Any action", options: data.actions.map((a) => ({ value: a, label: actionWords(a) })) },

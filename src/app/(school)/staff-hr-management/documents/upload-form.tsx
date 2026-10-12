@@ -2,6 +2,7 @@
 
 import { SelectField, TextField } from "@/components/ui/field";
 import { FormDialog, type Action } from "../_components/forms";
+import { Upload } from "lucide-react";
 
 type Option = { value: string; label: string };
 
@@ -13,7 +14,7 @@ export function UploadDocumentForm({ staffOptions, types, action, fixedStaffId, 
   if (fixedStaffId) hidden.staffId = fixedStaffId;
   if (replace) { hidden.replaceId = replace.id; hidden.kind = replace.kind; }
   return (
-    <FormDialog trigger={replace ? "Renew" : "Upload document"} triggerSize="sm" triggerVariant={replace ? "secondary" : "primary"}
+    <FormDialog trigger={<><Upload size={replace ? 15 : 17} aria-hidden="true" />{replace ? "Renew" : "Upload document"}</>} triggerSize={replace ? "sm" : "md"} triggerVariant={replace ? "secondary" : "primary"}
       title={replace ? `Renew ${replace.kind}` : "Upload document"} action={action} submitLabel="Save document" pendingText="Uploading…" hidden={hidden} multipart>
       {(f) => (
         <div className="grid gap-4 sm:grid-cols-2">

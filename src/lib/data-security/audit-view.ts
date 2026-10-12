@@ -2,7 +2,7 @@
 // when, from which device, with before and after values. The same filters
 // drive the screen and the export, and a person whose reach is "own" sees
 // only their own entries (00-global.md P14).
-import { momentWhere, periodRange } from "../periods";
+import { momentWhere, periodRange, type PeriodOptions } from "../periods";
 import "server-only";
 
 import type { Prisma } from "@prisma/client";
@@ -21,7 +21,6 @@ export type AuditFilters = {
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Turns a date typed as YYYY-MM-DD in the school's time zone into the start of that day. */
 export function dayStart(day: string, timeZone = "Asia/Kolkata"): Date {
@@ -31,7 +30,10 @@ export function dayStart(day: string, timeZone = "Asia/Kolkata"): Date {
   return new Date(utc.getTime() - (local.getTime() - asUtc.getTime()));
 }
 
-export function auditWhere(f: AuditFilters, reach: Reach, me: string, timeZone: string, extra: Prisma.AuditLogEntryWhereInput = {}): Prisma.AuditLogEntryWhereInput {
+/** `zone` is the school's time zone, or the whole periodSetup() so terms and the week start count. */
+export function auditWhere(f: AuditFilters, reach: Reach, me: string, zone: string | Omit<PeriodOptions, "fallback">, extra: Prisma.AuditLogEntryWhereInput = {}): Prisma.AuditLogEntryWhereInput {
+  const opts = typeof zone === "string" ? { timeZone: zone } : zone;
+  const timeZone = opts.timeZone;
   if (reach === "none") return { id: "00000000-0000-0000-0000-000000000000" };
   const and: Prisma.AuditLogEntryWhereInput[] = [extra];
   if (reach === "own") and.push({ userLoginId: me });
@@ -40,7 +42,7 @@ export function auditWhere(f: AuditFilters, reach: Reach, me: string, timeZone: 
   if (f.recordType) and.push({ recordType: f.recordType });
   if (f.action) and.push({ action: f.action });
   if (f.record && f.record.length <= 100) and.push({ recordId: f.record });
-  const range = periodRange({ period: f.period, from: f.from && DAY.test(f.from) ? f.from : null, to: f.to && DAY.test(f.to) ? f.to : null }, { timeZone });
+  const range = periodRange({ period: f.period, from: f.from && f.from.length <= 10 ? f.from : null, to: f.to && f.to.length <= 10 ? f.to : null }, opts);
   if (range) and.push({ at: momentWhere(range, timeZone) });
   if (f.q) and.push({ OR: [{ recordType: { contains: f.q, mode: "insensitive" } }, { action: { contains: f.q, mode: "insensitive" } }, { actorNote: { contains: f.q, mode: "insensitive" } }, { recordId: f.q }] });
   return { AND: and };

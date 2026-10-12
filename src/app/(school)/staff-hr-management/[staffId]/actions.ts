@@ -37,7 +37,8 @@ async function run<T>(fd: FormData, hrOnly: boolean, work: (w: Who, tx: Tx) => P
 export async function savePersonal(_: FormState<unknown>, fd: FormData) {
   const parsed = parseForm(personalSchema, fd);
   if (!parsed.ok) return parsed.state;
-  return run(fd, false, (w, tx) => updateStaffSection(tx, w.current.ctx, w.staffId, "personal", parsed.data), (r) => (r.changed ? "Personal details saved." : "Nothing changed."));
+  // The HR record (name, date of birth, qualifications) is changed by HR only (05-roles: "own" is view).
+  return run(fd, true, (w, tx) => updateStaffSection(tx, w.current.ctx, w.staffId, "personal", parsed.data), (r) => (r.changed ? "Personal details saved." : "Nothing changed."));
 }
 
 export async function saveContact(_: FormState<unknown>, fd: FormData) {
@@ -100,8 +101,19 @@ export async function saveExtraFields(_: FormState<unknown>, fd: FormData) {
   }, () => "Extra fields saved.");
 }
 
+/** HR changes anyone's photo. */
 export async function uploadPhoto(_: FormState<unknown>, fd: FormData) {
-  return run(fd, false, async (w, tx) => {
+  return savePhoto(fd, true);
+}
+
+/** A staff member's own photo: changes only the photo, and only on their own record. */
+export async function uploadOwnPhoto(_: FormState<unknown>, fd: FormData) {
+  return savePhoto(fd, false);
+}
+
+async function savePhoto(fd: FormData, hrOnly: boolean) {
+  return run(fd, hrOnly, async (w, tx) => {
+    if (!hrOnly && w.viewer.staffId !== w.staffId) throw new HrOnlyError("changes to another person's photo");
     const photo = file(fd, "photo");
     if (!photo) throw new FieldProblem("Choose a photo.", "photo");
     if (photo.size > 2 * 1024 * 1024) throw new FieldProblem(`The photo is ${(photo.size / 1024 / 1024).toFixed(1)} MB. Photos can be at most 2 MB.`, "photo");

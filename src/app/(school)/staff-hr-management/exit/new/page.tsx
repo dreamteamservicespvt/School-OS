@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { hrPage, BASE } from "@/lib/staff/page";
 import { isoDay } from "@/lib/staff/dates";
+import { BackLink } from "@/components/ui/module-head";
 import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardBody } from "@/components/ui/card";
 import { NewExitForm } from "../exit-forms";
@@ -26,6 +27,7 @@ export default async function NewExitPage({ searchParams }: Props) {
   const fixed = typeof sp.staff === "string" && staff.some((s) => s.id === sp.staff) ? sp.staff : undefined;
   return (
     <>
+      <BackLink href={`${BASE}/exit`} label="Staff Exit" />
       <PageHeader title="Record exit" href={`${BASE}/exit/new`} userId={current.user.id} />
       <Card className="max-w-2xl">
         <CardBody>

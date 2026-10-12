@@ -3,6 +3,7 @@
 // Upload or replace the student's photo, from the camera or a file (03 §2).
 
 import { useActionState, useEffect, useState } from "react";
+import { Camera } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Dialog } from "@/components/ui/dialog";
 import { FormMessage } from "@/components/ui/alert";
@@ -34,7 +35,7 @@ export function PhotoUpload({ action, remove, hasPhoto, name, children }: {
     <>
       <button type="button" onClick={() => setOpen(true)} className="group relative rounded-full" aria-label={hasPhoto ? `Change ${name}'s photo` : `Add a photo of ${name}`}>
         {children}
-        <span className="absolute -bottom-1 -right-1 grid size-8 place-items-center rounded-full border border-line bg-surface text-sm shadow-card group-hover:bg-surface-2" aria-hidden="true">✎</span>
+        <span className="absolute bottom-0 right-0 grid size-8 place-items-center rounded-full border border-line bg-surface text-ink2 shadow-card group-hover:bg-sunken group-hover:text-ink" aria-hidden="true"><Camera size={15} /></span>
       </button>
       <Dialog open={open} onClose={() => setOpen(false)} title={hasPhoto ? "Replace photo" : "Add photo"}>
         <form action={formAction} className="space-y-4">

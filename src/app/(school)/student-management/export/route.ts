@@ -3,7 +3,7 @@ import { withSchool } from "@/lib/db";
 import { buildExport, exportResponse, logExport, type ExportColumn, type ExportFormat } from "@/lib/exports";
 import { readListParams } from "@/lib/list";
 import { formatDate } from "@/lib/format";
-import { PermissionDeniedError } from "@/lib/permissions";
+import { PermissionDeniedError, reachFor } from "@/lib/permissions";
 import { currentYear } from "@/lib/academic/years";
 import { getStudentSettings } from "@/lib/students/settings";
 import { abilities } from "@/lib/students/access";
@@ -22,6 +22,8 @@ export async function GET(req: Request) {
     if (e instanceof PermissionDeniedError) return new Response("You do not have permission to export students.", { status: 403 });
     throw e;
   }
+  // Only people who see every student may export the list (abilities().exportList).
+  if (reachFor(current.permissions, "student-management", "export") !== "all") return new Response("You do not have permission to export students.", { status: 403 });
   const url = new URL(req.url);
   const raw: Record<string, string> = {};
   for (const k of [...LIST_FILTERS, "q", "archived"]) { const v = url.searchParams.get(k); if (v) raw[k] = v; }

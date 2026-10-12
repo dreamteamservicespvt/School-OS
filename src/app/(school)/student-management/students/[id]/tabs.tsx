@@ -1,19 +1,25 @@
 // The Student Profile tabs this module owns: Overview, Academics, Behaviour,
-// Documents and the timeline (03 §2). Each shows only what the person may see.
+// Documents and the timeline (03 §2), in the approved design (students.jsx).
+// Each shows only what the person may see.
 
 import Link from "next/link";
-import { SettingsLink } from "@/components/settings-link";
+import type { LucideIcon } from "lucide-react";
+import { ArrowUpRight, Award, CalendarCheck2, CircleCheck, Cake, Clock, Download, Eye, FileBadge, FileText, FolderOpen, Fingerprint, HeartHandshake, IdCard, ListChecks, LogOut, Medal, NotebookPen, Pencil, Plus, ShieldX, StickyNote, Sun, Trophy, TriangleAlert, Upload, UserRoundCheck, Users } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { getCurrent } from "@/lib/current";
 import { formatDate, formatDateTime } from "@/lib/format";
-import { languageLabel, BEHAVIOUR_KIND_LABEL, isPositive, type BehaviourKind } from "@/lib/students/labels";
+import { languageLabel, BEHAVIOUR_KIND_LABEL, isPositive, RELATIONS, type BehaviourKind } from "@/lib/students/labels";
 import type { StudentAbilities } from "@/lib/students/access";
 import type { ResolvedSettings } from "@/lib/students/settings";
-import { studentTimeline } from "@/lib/students/timeline";
-import { Card, CardBody, CardHeader, Detail } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import type { SummaryItem } from "@/lib/students/profile-tabs";
+import { studentTimeline, type TimelineItem as StudentEvent } from "@/lib/students/timeline";
+import { ageOn, longDate, phoneShow, classShort } from "@/lib/students/show";
+import { Card, CardHeader } from "@/components/ui/card";
+import { Pill } from "@/components/ui/badge";
+import { Avatar } from "@/components/ui/avatar";
 import { ButtonLink } from "@/components/ui/button";
-import { EmptyState } from "@/components/empty-state";
+import { DL, Empty, FileRow, Split, Col, Timeline, TONE_SOFT, type Tone } from "@/components/ui/blocks";
+import { cx } from "@/components/ui/cx";
 import { ActionForm, FormArea, FormSelect, FormText } from "@/components/students/action-form";
 import { ActionButton, ConfirmAction } from "@/components/students/confirm-action";
 import type { Profile } from "../../_lib/profile";
@@ -21,158 +27,175 @@ import { BASE } from "../../_lib/page";
 import { addEmergencyAction, addNoteAction, archiveDocumentAction, archiveNoteAction, emergencyAction, uploadDocument } from "../../_actions/students";
 import { pickupAction, setPrimaryAction, unlinkGuardianAction } from "../../_actions/guardians";
 import { adjustPointsAction } from "../../_actions/behaviour";
-import { RELATIONS } from "@/lib/students/labels";
 
 type Base = { can: StudentAbilities; tz: string };
 
-const editLink = (href: string, section: string, can: StudentAbilities) =>
-  can.manage ? <Link href={`${href}/edit/${section}`} className="inline-flex min-h-11 items-center rounded-lg px-3 font-medium text-brand-text hover:bg-surface-2">Edit</Link> : undefined;
+/** The small "Edit" link on a card (students.jsx EditBtn). */
+export function EditLink({ href, label = "Edit", icon: Icon = Pencil }: { href: string; label?: string; icon?: LucideIcon }) {
+  return <Link href={href} className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-brand h-8 px-2 rounded-lg hover:bg-brand/8 shrink-0"><Icon size={14} aria-hidden="true" />{label}</Link>;
+}
+const editLink = (href: string, section: string, can: StudentAbilities) => (can.manage ? <EditLink href={`${href}/edit/${section}`} /> : undefined);
 
-export function OverviewTab({ p, can, settings, href, tz }: Base & { p: Profile; settings: ResolvedSettings; href: string }) {
+const TODAY_TONE: Record<string, { icon: LucideIcon; cls: string }> = {
+  success: { icon: CircleCheck, cls: "text-ok" },
+  warning: { icon: TriangleAlert, cls: "text-warn" },
+  danger: { icon: TriangleAlert, cls: "text-bad" },
+  neutral: { icon: Clock, cls: "text-ink3" },
+};
+
+export function OverviewTab({ p, can, settings, href, tz, today }: Base & { p: Profile; settings: ResolvedSettings; href: string; today: SummaryItem[] }) {
   const s = p.student;
-  const restrictedIds = p.identifiers.filter((i) => i.value || can.seeRestricted);
+  const address = [s.address, s.city, s.state, s.pinCode].filter(Boolean).join(", ") || null;
+  const showIds = !can.lookupOnly && (can.seeRestricted || p.identifiers.some((i) => i.value));
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      <Card>
-        <CardHeader title="Personal" action={editLink(href, "personal", can)} />
-        <CardBody>
-          <dl className="grid gap-3 sm:grid-cols-2">
-            <Detail label="Full name">{s.fullName}</Detail>
-            <Detail label="Date of birth">{s.dateOfBirth ? formatDate(s.dateOfBirth, tz) : null}</Detail>
-            <Detail label="Gender">{s.gender}</Detail>
-            <Detail label="Blood group">{s.bloodGroup}</Detail>
-            {!can.lookupOnly && <Detail label="Category">{s.category}</Detail>}
-            {!can.lookupOnly && <Detail label="Religion">{s.religion}</Detail>}
-            {!can.lookupOnly && <Detail label="Mother tongue">{s.motherTongue}</Detail>}
-          </dl>
-        </CardBody>
-      </Card>
-
-      <Card>
-        <CardHeader title="Contact" action={editLink(href, "contact", can)} />
-        <CardBody>
-          <dl className="grid gap-3 sm:grid-cols-2">
-            <Detail label="Address">{[s.address, s.city, s.state, s.pinCode].filter(Boolean).join(", ") || null}</Detail>
-            <Detail label="Permanent address">{p.permanentAddress}</Detail>
-            <Detail label="Student's phone">{p.studentPhone}</Detail>
-            <Detail label="Student's email">{p.studentEmail}</Detail>
-          </dl>
-        </CardBody>
-      </Card>
-
-      <Card>
-        <CardHeader title="Enrolment" action={editLink(href, "enrolment", can)} />
-        <CardBody>
-          <dl className="grid gap-3 sm:grid-cols-2">
-            <Detail label="Admission number">{s.admissionNo}</Detail>
-            <Detail label="Admission date">{s.joiningDate ? formatDate(s.joiningDate, tz) : null}</Detail>
-            <Detail label="Class and section">{p.now?.section ? `${p.now.section.schoolClass.name} ${p.now.section.name}` : "No class this year"}</Detail>
-            <Detail label="Roll number">{p.now?.rollNo ?? null}</Detail>
-          </dl>
-        </CardBody>
-      </Card>
-
-      <ParentsCard p={p} can={can} href={href} />
-
-      <EmergencyCard p={p} can={can} />
-
-      {!can.lookupOnly && (
+    <Split side={340}>
+      <Col>
         <Card>
-          <CardHeader title="Pickup list" description="Who may collect the student. Front Office, Student Pickup uses this list." />
-          <CardBody>
-            {p.pickups.allowed.length ? (
-              <ul className="space-y-1">{p.pickups.allowed.map((g) => <li key={g.guardianId}>{g.name} <span className="text-ink-2">({g.relationship}, {g.phone})</span></li>)}</ul>
-            ) : <p className="text-ink-2">No one is on the pickup list. Tick &quot;May pick up&quot; on a parent.</p>}
-            {p.pickups.restricted.map((g) => (
-              <p key={g.guardianId} className="mt-2 rounded-lg bg-danger-soft px-3 py-2 text-danger"><strong>Do not release to {g.name}</strong> ({g.relationship}). See note.</p>
-            ))}
-          </CardBody>
+          <CardHeader title="Personal details" action={editLink(href, "personal", can)} />
+          <DL rows={[
+            ["Date of birth", s.dateOfBirth ? `${longDate(s.dateOfBirth, tz)} (${ageOn(s.dateOfBirth)} years)` : null],
+            ["Gender", s.gender],
+            ["Blood group", s.bloodGroup],
+            ["Admitted on", s.joiningDate ? longDate(s.joiningDate, tz) : null],
+            ["Home address", address],
+            ...(!can.lookupOnly ? [["Category", s.category], ["Religion", s.religion], ["Mother tongue", s.motherTongue]] as [string, React.ReactNode][] : []),
+          ]} />
         </Card>
-      )}
 
-      {(restrictedIds.length > 0 || can.seeRestricted) && !can.lookupOnly && (
+        <ParentsCard p={p} can={can} href={href} />
+        <EmergencyCard p={p} can={can} />
+
         <Card>
-          <CardHeader title="Identifiers" description={can.seeRestricted ? "Restricted. You can see these in full." : "Restricted. Shown masked."} action={can.seeRestricted ? editLink(href, "identifiers", can) : undefined} />
-          <CardBody>
-            <dl className="grid gap-3 sm:grid-cols-2">
-              {p.identifiers.map((i) => <Detail key={i.key} label={i.label}>{i.value}</Detail>)}
-            </dl>
-            <p className="mt-3 text-sm text-ink-2">APAAR and PEN are exported from Reports &amp; Analytics, Government Reports.</p>
-          </CardBody>
+          <CardHeader title="Contact and enrolment" action={editLink(href, "contact", can)} />
+          <DL rows={[
+            ["Admission number", <span key="a" className="font-mono text-[14px]">{s.admissionNo}</span>],
+            ["Class and section", p.now?.section ? `${classShort(p.now.section.schoolClass.name, p.now.section.name)}${p.now.rollNo ? ` · Roll ${p.now.rollNo}` : ""}` : "No class this year"],
+            ["Permanent address", p.permanentAddress],
+            ["Student's phone", p.studentPhone ? phoneShow(p.studentPhone) : null],
+            ["Student's email", p.studentEmail],
+          ]} />
+          {can.manage && <div className="px-5 pb-4 -mt-2"><EditLink href={`${href}/edit/enrolment`} label="Edit enrolment" /></div>}
         </Card>
-      )}
 
-      {p.customFields.length > 0 && (
+        {p.customFields.length > 0 && (
+          <Card>
+            <CardHeader title="Extra fields" description="Added by the school in Settings, Forms & Approvals" action={editLink(href, "extra", can)} />
+            <DL rows={p.customFields.map((f) => [f.label, f.fieldType === "date" && p.extra[f.key] ? formatDate(new Date(`${p.extra[f.key]}T00:00:00Z`), tz) : p.extra[f.key] ?? null])} />
+          </Card>
+        )}
+
+        {!can.lookupOnly && <NotesCard p={p} can={can} tz={tz} />}
+      </Col>
+
+      <Col>
         <Card>
-          <CardHeader title="Extra fields" description={<>Added by the school in <SettingsLink href="/settings/forms-approvals">Settings, Forms &amp; Approvals</SettingsLink>.</>} action={editLink(href, "extra", can)} />
-          <CardBody>
-            <dl className="grid gap-3 sm:grid-cols-2">
-              {p.customFields.map((f) => <Detail key={f.id} label={f.label}>{f.fieldType === "date" && p.extra[f.key] ? formatDate(new Date(`${p.extra[f.key]}T00:00:00Z`), tz) : p.extra[f.key] ?? null}</Detail>)}
-            </dl>
-          </CardBody>
+          <CardHeader title="Today" icon={Sun} />
+          <ul className="px-5 pb-5 flex flex-col gap-3 text-[14px]">
+            {today.length === 0 && <li className="flex gap-3 text-ink3"><CircleCheck size={18} className="text-ok shrink-0 mt-0.5" aria-hidden="true" /><span>Nothing needs attention today.</span></li>}
+            {today.map((t) => {
+              const look = t.label === "Birthday" ? { icon: Cake, cls: "text-brand" } : TODAY_TONE[t.tone ?? "neutral"];
+              const body = <><b className="font-semibold">{t.label}</b> · {t.value}</>;
+              return (
+                <li key={t.label} className="flex gap-3">
+                  <look.icon size={18} className={cx("shrink-0 mt-0.5", look.cls)} aria-hidden="true" />
+                  <span>{t.href ? <Link href={t.href} className="hover:underline">{body}</Link> : body}</span>
+                </li>
+              );
+            })}
+          </ul>
         </Card>
-      )}
 
-      {!can.lookupOnly && <NotesCard p={p} can={can} tz={tz} />}
+        {!can.lookupOnly && (
+          <Card>
+            <CardHeader title="Pickup list" description="Who may collect the student. Front Office uses this list." icon={UserRoundCheck} />
+            <ul className="px-5 pb-5 flex flex-col gap-2.5 text-[14px]">
+              {p.pickups.allowed.length === 0 && <li className="text-ink3">No one yet. Turn on “May pick up” for a parent below.</li>}
+              {p.pickups.allowed.map((g) => (
+                <li key={g.guardianId} className="flex items-center gap-3"><Avatar name={g.name} size={30} /><span className="min-w-0 flex-1"><b className="font-semibold">{g.name}</b> <span className="text-ink3">· {g.relationship}</span></span><span className="tnum text-[13px] text-ink2">{phoneShow(g.phone)}</span></li>
+              ))}
+              {p.pickups.restricted.map((g) => (
+                <li key={g.guardianId} className="rounded-xl bg-bad/10 px-3 py-2 text-bad flex items-center gap-2"><ShieldX size={16} aria-hidden="true" /><span><b className="font-semibold">Do not release to {g.name}</b> ({g.relationship})</span></li>
+              ))}
+            </ul>
+          </Card>
+        )}
 
-      {settings.rfidOn && can.reach === "all" && !can.lookupOnly && (
-        <Card>
-          <CardHeader title="RFID card" description="For attendance devices." />
-          <CardBody><p className="text-ink-2">The card number is recorded when the ID card is printed, on Certificates &amp; ID Cards.</p></CardBody>
-        </Card>
-      )}
-    </div>
+        {showIds && (
+          <Card>
+            <CardHeader title="Identifiers" description={can.seeRestricted ? "Restricted. You can see these in full." : "Restricted. Shown masked."} icon={Fingerprint} action={can.seeRestricted ? editLink(href, "identifiers", can) : undefined} />
+            <ul className="px-5 pb-5 flex flex-col gap-2.5 text-[14px]">
+              {p.identifiers.map((i) => (
+                <li key={i.key} className="flex items-center justify-between gap-3">
+                  <span className="min-w-0"><span className="block">{i.label}</span><span className="block text-[13px] text-ink3 font-mono">{i.value ?? "Not added"}</span></span>
+                  <Pill tone={i.level === "highly" ? "bad" : "warn"}>{i.level === "highly" ? "Highly restricted" : "Restricted"}</Pill>
+                </li>
+              ))}
+            </ul>
+            <p className="px-5 pb-4 -mt-1 text-[12.5px] text-ink3">APAAR and PEN are exported from Reports &amp; Analytics, Government Reports.</p>
+          </Card>
+        )}
+
+        {settings.rfidOn && can.reach === "all" && !can.lookupOnly && (
+          <Card>
+            <CardHeader title="RFID card" description="For attendance devices" icon={IdCard} />
+            <p className="px-5 pb-5 text-[14px] text-ink2">The card number is recorded when the ID card is printed, on Certificates &amp; ID Cards.</p>
+          </Card>
+        )}
+      </Col>
+    </Split>
   );
 }
 
 function ParentsCard({ p, can, href }: { p: Profile; can: StudentAbilities; href: string }) {
   const studentId = p.student.id;
+  const primary = p.links.find((l) => l.isPrimary);
   return (
     <Card>
-      <CardHeader title="Parents and guardians" action={can.manage ? (
-        <div className="flex flex-wrap gap-1">
-          <Link href={`${BASE}/guardians/new?student=${studentId}`} className="inline-flex min-h-11 items-center rounded-lg px-3 font-medium text-brand-text hover:bg-surface-2">Add</Link>
-          <Link href={`${BASE}/guardians/link?student=${studentId}`} className="inline-flex min-h-11 items-center rounded-lg px-3 font-medium text-brand-text hover:bg-surface-2">Link existing</Link>
-        </div>
-      ) : undefined} />
-      <CardBody>
-        {p.links.length === 0 ? <p className="text-ink-2">No parent or guardian is linked yet.</p> : (
-          <ul className="divide-y divide-line">
-            {p.links.map((l) => (
-              <li key={l.id} className={`py-3 first:pt-0 last:pb-0 ${l.restriction ? "rounded-lg border-l-4 border-danger pl-3" : ""}`}>
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div>
-                    <Link href={`${BASE}/guardians/${l.guardianId}`} className="font-medium text-brand-text hover:underline">{l.guardian.name}</Link>
-                    <span className="text-ink-2"> · {l.relationship}</span>
-                    <p className="text-[15px]"><a href={`tel:+91${l.guardian.phone}`} className="hover:underline">{l.guardian.phone}</a>{l.guardian.email ? ` · ${l.guardian.email}` : ""}</p>
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {l.isPrimary && <Badge tone="brand">Primary contact</Badge>}
-                      {l.canPickUp && !l.restriction && <Badge tone="success">May pick up</Badge>}
-                      {l.restriction && <Badge tone="danger">Custody restriction</Badge>}
-                      {l.guardian.optedOut && <Badge tone="warning">Opted out of messages</Badge>}
-                      <Badge>Messages in {languageLabel(l.guardian.language)}</Badge>
-                    </div>
-                    {l.restriction && !can.lookupOnly && <p className="mt-1 text-sm text-danger">Do not release to this person. Note: {l.restriction}</p>}
-                  </div>
-                  {can.manage && (
-                    <div className="flex flex-wrap gap-1">
-                      {!l.isPrimary && !l.restriction && <ActionButton action={setPrimaryAction} fields={{ linkId: l.id, studentId }}>Make primary</ActionButton>}
-                      {!l.restriction && <ActionButton action={pickupAction} fields={{ linkId: l.id, studentId, on: l.canPickUp ? "0" : "1" }}>{l.canPickUp ? "Remove from pickup" : "May pick up"}</ActionButton>}
-                      <Link href={`${href}/parents/${l.id}`} className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-brand-text hover:bg-surface-2">Settings</Link>
-                      {p.links.length > 1 && (
-                        <ConfirmAction action={unlinkGuardianAction} fields={{ linkId: l.id, studentId }} trigger="Unlink" triggerVariant="ghost"
-                          title={`Unlink ${l.guardian.name}?`} confirmLabel={`Unlink ${l.guardian.name}`} confirmVariant="danger">
-                          {l.guardian.name} will no longer be linked to {p.student.fullName}. Their record and other children stay as they are.
-                        </ConfirmAction>
-                      )}
-                    </div>
+      <CardHeader title="Parents" description={primary ? `Fee receipts and Parent Link go to ${primary.guardian.name}'s number` : "Choose a primary contact for messages"}
+        action={can.manage ? (
+          <div className="flex flex-wrap gap-0.5">
+            <EditLink href={`${BASE}/guardians/new?student=${studentId}`} label="Add" icon={Plus} />
+            <EditLink href={`${BASE}/guardians/link?student=${studentId}`} label="Link existing" icon={Users} />
+          </div>
+        ) : undefined} />
+      {p.links.length === 0 ? <p className="px-5 pb-5 text-[14px] text-ink3">No parent or guardian is linked yet.</p> : (
+        <div className="grid sm:grid-cols-2 gap-3 px-5 pb-5">
+          {p.links.map((l) => (
+            <div key={l.id} className={cx("rounded-xl border p-3.5 flex flex-col gap-3", l.restriction ? "border-bad/40 bg-bad/[.04]" : "border-line")}>
+              <div className="flex items-start gap-3">
+                <Avatar name={l.guardian.name} size={40} />
+                <div className="min-w-0 flex-1">
+                  <Link href={`${BASE}/guardians/${l.guardianId}`} className="font-semibold text-[14.5px] leading-tight hover:underline">{l.guardian.name}</Link>
+                  <p className="text-[12.5px] text-ink3">{l.relationship}{l.isPrimary ? " · Parent Link" : ""}{l.guardian.occupation ? ` · ${l.guardian.occupation}` : ""}</p>
+                  <a href={`tel:+91${l.guardian.phone}`} className="block text-[14px] tnum mt-1.5 hover:underline">+91 {phoneShow(l.guardian.phone)}</a>
+                  {l.guardian.email && <p className="text-[12.5px] text-ink3 truncate">{l.guardian.email}</p>}
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {l.isPrimary && <Pill tone="brand" className="!h-[22px] !text-[11.5px]">Primary contact</Pill>}
+                {l.canPickUp && !l.restriction && <Pill tone="ok" className="!h-[22px] !text-[11.5px]">May pick up</Pill>}
+                {l.restriction && <Pill tone="bad" className="!h-[22px] !text-[11.5px]">Custody restriction</Pill>}
+                {l.guardian.optedOut && <Pill tone="warn" className="!h-[22px] !text-[11.5px]">Opted out of messages</Pill>}
+                <Pill className="!h-[22px] !text-[11.5px]">{languageLabel(l.guardian.language)}</Pill>
+              </div>
+              {l.restriction && !can.lookupOnly && <p className="text-[12.5px] text-bad">Do not release to this person. {l.restriction}</p>}
+              {can.manage && (
+                <div className="flex flex-wrap gap-1 border-t border-line/70 pt-2.5 -mb-1">
+                  {!l.isPrimary && !l.restriction && <ActionButton action={setPrimaryAction} fields={{ linkId: l.id, studentId }} variant="ghost">Make primary</ActionButton>}
+                  {!l.restriction && <ActionButton action={pickupAction} fields={{ linkId: l.id, studentId, on: l.canPickUp ? "0" : "1" }} variant="ghost">{l.canPickUp ? "Remove from pickup" : "May pick up"}</ActionButton>}
+                  <Link href={`${href}/parents/${l.id}`} className="inline-flex h-8 items-center rounded-lg px-3 text-[13px] font-semibold text-ink2 hover:bg-sunken hover:text-ink">Settings</Link>
+                  {p.links.length > 1 && (
+                    <ConfirmAction action={unlinkGuardianAction} fields={{ linkId: l.id, studentId }} trigger="Unlink" triggerVariant="ghost"
+                      title={`Unlink ${l.guardian.name}?`} confirmLabel={`Unlink ${l.guardian.name}`} confirmVariant="danger">
+                      {l.guardian.name} will no longer be linked to {p.student.fullName}. Their record and other children stay as they are.
+                    </ConfirmAction>
                   )}
                 </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </CardBody>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </Card>
   );
 }
@@ -182,81 +205,86 @@ function EmergencyCard({ p, can }: { p: Profile; can: StudentAbilities }) {
   const notListed = p.links.filter((l) => !l.emergencyOrder && !l.restriction);
   return (
     <Card>
-      <CardHeader title="Emergency contacts" description="Called in this order." />
-      <CardBody className="space-y-4">
-        {p.emergency.length === 0 ? <p className="text-ink-2">No emergency contacts yet.</p> : (
-          <ol className="space-y-2">
-            {p.emergency.map((e, i) => (
-              <li key={`${e.kind}-${e.id}`} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line px-3 py-2">
-                <span><strong>{i + 1}.</strong> {e.name} <span className="text-ink-2">({e.relation})</span> · <a className="hover:underline" href={`tel:+91${e.phone}`}>{e.phone}</a>{e.restricted && <Badge tone="danger" className="ml-1">Restricted</Badge>}</span>
-                {can.manage && (
-                  <span className="flex gap-1">
-                    {i > 0 && <ActionButton action={emergencyAction} fields={{ studentId, op: "up", kind: e.kind, itemId: e.id }}><span aria-hidden="true">↑</span><span className="sr-only">Move {e.name} up</span></ActionButton>}
-                    {i < p.emergency.length - 1 && <ActionButton action={emergencyAction} fields={{ studentId, op: "down", kind: e.kind, itemId: e.id }}><span aria-hidden="true">↓</span><span className="sr-only">Move {e.name} down</span></ActionButton>}
-                    <ActionButton action={emergencyAction} fields={{ studentId, op: "remove", kind: e.kind, itemId: e.id }} variant="ghost">Remove</ActionButton>
-                  </span>
-                )}
-              </li>
-            ))}
-          </ol>
-        )}
-        {can.manage && notListed.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {notListed.map((l) => <ActionButton key={l.id} action={emergencyAction} fields={{ studentId, op: "add-guardian", kind: "guardian", itemId: l.id }}>Add {l.guardian.name}</ActionButton>)}
-          </div>
-        )}
-        {can.manage && (
-          <details>
-            <summary className="inline-flex min-h-11 cursor-pointer items-center font-medium text-brand-text">Add another contact</summary>
-            <ActionForm action={addEmergencyAction.bind(null, studentId)} submitLabel="Add contact" pendingText="Adding…" resetOnSuccess className="mt-2 grid gap-3 sm:grid-cols-3">
+      <CardHeader title="Emergency contacts" description="Called in this order" />
+      {p.emergency.length === 0 ? <p className="px-5 pb-4 text-[14px] text-ink3">No emergency contacts yet.</p> : (
+        <ol className="px-5 pb-3">
+          {p.emergency.map((e, i) => (
+            <li key={`${e.kind}-${e.id}`} className="flex items-center gap-3 py-2 border-b border-line/70 last:border-0 flex-wrap">
+              <span className="w-6 h-6 rounded-full bg-sunken text-[12px] font-bold grid place-items-center tnum shrink-0">{i + 1}</span>
+              <span className="flex-1 min-w-0 text-[14px]"><b className="font-semibold">{e.name}</b> <span className="text-ink3">· {e.relation}</span>{e.restricted && <Pill tone="bad" className="ml-1.5 !h-5 !text-[11px]">Restricted</Pill>}</span>
+              <a className="text-[14px] tnum hover:underline" href={`tel:+91${e.phone}`}>{phoneShow(e.phone)}</a>
+              {can.manage && (
+                <span className="flex gap-0.5">
+                  {i > 0 && <ActionButton action={emergencyAction} fields={{ studentId, op: "up", kind: e.kind, itemId: e.id }} variant="ghost"><span aria-hidden="true">↑</span><span className="sr-only">Move {e.name} up</span></ActionButton>}
+                  {i < p.emergency.length - 1 && <ActionButton action={emergencyAction} fields={{ studentId, op: "down", kind: e.kind, itemId: e.id }} variant="ghost"><span aria-hidden="true">↓</span><span className="sr-only">Move {e.name} down</span></ActionButton>}
+                  <ActionButton action={emergencyAction} fields={{ studentId, op: "remove", kind: e.kind, itemId: e.id }} variant="ghost">Remove</ActionButton>
+                </span>
+              )}
+            </li>
+          ))}
+        </ol>
+      )}
+      {can.manage && (
+        <div className="px-5 pb-4 flex flex-col gap-3">
+          {notListed.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {notListed.map((l) => <ActionButton key={l.id} action={emergencyAction} fields={{ studentId, op: "add-guardian", kind: "guardian", itemId: l.id }} variant="soft">Add {l.guardian.name}</ActionButton>)}
+            </div>
+          )}
+          <details className="group">
+            <summary className="inline-flex h-8 cursor-pointer list-none items-center gap-1.5 rounded-lg px-2 -ml-2 text-[13px] font-semibold text-brand hover:bg-brand/8 [&::-webkit-details-marker]:hidden"><Plus size={14} aria-hidden="true" />Add another contact</summary>
+            <ActionForm action={addEmergencyAction.bind(null, studentId)} submitLabel="Add contact" pendingText="Adding…" resetOnSuccess className="mt-3 grid gap-3 sm:grid-cols-3">
               <FormText name="name" label="Name" required />
               <FormSelect name="relation" label="Relation" required options={[...RELATIONS, "Grandparent", "Uncle", "Aunt", "Neighbour"].filter((r) => r !== "Other").concat("Other").map((r) => ({ value: r, label: r }))} defaultValue="Grandparent" />
               <FormText name="phone" label="Phone" required type="tel" inputMode="numeric" />
             </ActionForm>
           </details>
-        )}
-      </CardBody>
+        </div>
+      )}
     </Card>
   );
 }
 
 function NotesCard({ p, can, tz }: { p: Profile; can: StudentAbilities; tz: string }) {
   return (
-    <Card className="lg:col-span-2">
-      <CardHeader title="Notes" description="Private notes are seen only by the roles chosen and the person who wrote them." />
-      <CardBody className="space-y-4">
+    <Card>
+      <CardHeader title="Notes" description="Private notes are seen only by the roles chosen and the person who wrote them" icon={StickyNote} />
+      <div className="px-5 pb-5 flex flex-col gap-4">
         {can.contribute && (
-          <ActionForm action={addNoteAction.bind(null, p.student.id)} submitLabel="Add note" pendingText="Adding…" resetOnSuccess>
-            <FormArea name="text" label="Note" required rows={2} />
-            <fieldset>
-              <legend className="mb-1 text-sm font-medium">Private to (leave all unticked for everyone who opens the profile)</legend>
-              <div className="flex flex-wrap gap-x-4 gap-y-1">
-                {p.roles.map((r) => (
-                  <label key={r.key} className="flex min-h-11 items-center gap-2"><input type="checkbox" name="roles" value={r.key} className="size-5 accent-brand" />{r.name}</label>
-                ))}
-              </div>
-            </fieldset>
-          </ActionForm>
+          <details className="rounded-xl border border-line p-3.5 open:pb-4">
+            <summary className="cursor-pointer list-none text-[14px] font-semibold text-brand flex items-center gap-1.5 [&::-webkit-details-marker]:hidden"><Plus size={15} aria-hidden="true" />Add a note</summary>
+            <ActionForm action={addNoteAction.bind(null, p.student.id)} submitLabel="Add note" pendingText="Adding…" resetOnSuccess className="mt-3 space-y-3">
+              <FormArea name="text" label="Note" required rows={2} />
+              <fieldset>
+                <legend className="mb-1 text-[13px] font-semibold text-ink2">Private to (leave all off for everyone who opens the profile)</legend>
+                <div className="flex flex-wrap gap-x-4 gap-y-1">
+                  {p.roles.map((r) => (
+                    <label key={r.key} className="flex min-h-10 items-center gap-2 text-[14px]"><input type="checkbox" name="roles" value={r.key} className="size-[18px] accent-[rgb(var(--brand))]" />{r.name}</label>
+                  ))}
+                </div>
+              </fieldset>
+            </ActionForm>
+          </details>
         )}
-        {p.notes.length === 0 ? <p className="text-ink-2">No notes yet.</p> : (
-          <ul className="divide-y divide-line">
+        {p.notes.length === 0 ? <p className="text-[14px] text-ink3">No notes yet.</p> : (
+          <ul className="divide-y divide-line/70">
             {p.notes.map((n) => (
-              <li key={n.id} className="py-3">
-                <p className="whitespace-pre-line">{n.text}</p>
-                <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-ink-2">
+              <li key={n.id} className="py-3 first:pt-0">
+                <p className="whitespace-pre-line text-[14.5px]">{n.text}</p>
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-[12.5px] text-ink3">
                   {formatDateTime(n.createdAt, tz)}
-                  {n.visibleToRoles.length > 0 && <Badge tone="warning">Private: {n.visibleToRoles.map((k) => p.roles.find((r) => r.key === k)?.name ?? k).join(", ")}</Badge>}
-                  {(can.manage) && (
+                  {n.visibleToRoles.length > 0 && <Pill tone="warn" className="!h-5 !text-[11px]">Private: {n.visibleToRoles.map((k) => p.roles.find((r) => r.key === k)?.name ?? k).join(", ")}</Pill>}
+                  {can.manage && (
                     <ConfirmAction action={archiveNoteAction} fields={{ noteId: n.id, studentId: p.student.id }} trigger="Remove" triggerVariant="ghost" title="Remove this note?" confirmLabel="Remove note" confirmVariant="danger">
                       The note is archived and kept in the history; it no longer shows on the profile.
                     </ConfirmAction>
                   )}
-                </p>
+                </div>
               </li>
             ))}
           </ul>
         )}
-      </CardBody>
+      </div>
     </Card>
   );
 }
@@ -265,57 +293,55 @@ export async function AcademicsTab({ p, can, href, tz }: Base & { p: Profile; hr
   const current = await getCurrent();
   const subjects = p.now && current ? await withSchool(current.ctx, (tx) => tx.subjectClass.findMany({ where: { classId: p.now!.classId, archivedAt: null }, include: { subject: true } })) : [];
   const optional = new Set(p.now?.optionalSubjects ?? []);
+  const shown = subjects.filter((x) => x.subject.type === "CORE" || optional.has(x.subjectId));
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      <Card className="lg:col-span-2">
-        <CardHeader title="Class history" description="One row for every year. Past years are never changed." />
-        <CardBody>
-          {p.history.length === 0 ? <p className="text-ink-2">No class on record yet.</p> : (
-            <table className="w-full text-left text-[15px]">
+    <Split side={340}>
+      <Card className="overflow-hidden">
+        <CardHeader title="Class history" description="One row for every year. Past years are never changed." icon={ListChecks} />
+        {p.history.length === 0 ? <p className="px-5 pb-5 text-[14px] text-ink3">No class on record yet.</p> : (
+          <div className="overflow-x-auto scroll-thin">
+            <table className="w-full text-[14px] min-w-[480px]">
               <caption className="sr-only">Class history</caption>
-              <thead className="text-sm text-ink-2"><tr><th className="py-2 pr-3 font-medium">Year</th><th className="py-2 pr-3 font-medium">Class</th><th className="py-2 pr-3 font-medium">Roll</th><th className="py-2 font-medium">Result</th></tr></thead>
-              <tbody className="divide-y divide-line">
-                {p.history.map((e) => (
-                  <tr key={e.id} className={e.archivedAt ? "text-ink-2 line-through" : ""}>
-                    <td className="py-2 pr-3">{e.section?.academicYear.name ?? ""}</td>
-                    <td className="py-2 pr-3">{e.section ? `${e.section.schoolClass.name} ${e.section.name}` : ""}</td>
-                    <td className="py-2 pr-3">{e.rollNo ?? ""}</td>
-                    <td className="py-2">{e.archivedAt ? "Undone" : { STUDYING: "Studying", PROMOTED: "Promoted", HELD_BACK: "Detained", LEFT: "Left" }[e.status]}</td>
-                  </tr>
-                ))}
+              <thead><tr className="text-[12px] text-ink3 text-left border-y border-line"><th className="px-5 py-2.5 font-semibold">Year</th><th className="px-3 py-2.5 font-semibold">Class</th><th className="px-3 py-2.5 font-semibold">Roll</th><th className="px-5 py-2.5 font-semibold text-right">Result</th></tr></thead>
+              <tbody>
+                {p.history.map((e) => {
+                  const r = e.archivedAt ? "Undone" : { STUDYING: "Studying", PROMOTED: "Promoted", HELD_BACK: "Detained", LEFT: "Left" }[e.status];
+                  return (
+                    <tr key={e.id} className={cx("border-b border-line/70 last:border-0", e.archivedAt && "text-ink3 line-through")}>
+                      <td className="px-5 py-3 tnum">{e.section?.academicYear.name ?? ""}</td>
+                      <td className="px-3 py-3 font-semibold">{e.section ? classShort(e.section.schoolClass.name, e.section.name) : ""}</td>
+                      <td className="px-3 py-3 tnum">{e.rollNo ?? "–"}</td>
+                      <td className="px-5 py-3 text-right"><Pill tone={r === "Promoted" ? "ok" : r === "Detained" ? "warn" : r === "Studying" ? "info" : "neutral"}>{r}</Pill></td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
-          )}
-        </CardBody>
+          </div>
+        )}
       </Card>
-      <Card>
-        <CardHeader title="Subjects this year" />
-        <CardBody>
-          {subjects.length === 0 ? <p className="text-ink-2">{p.now ? "No subjects are set for this class yet (Academic Management, Subjects)." : "No class this year."}</p> : (
-            <ul className="flex flex-wrap gap-2">
-              {subjects.filter((x) => x.subject.type === "CORE" || optional.has(x.subjectId)).map((x) => <li key={x.id}><Badge tone={optional.has(x.subjectId) ? "brand" : "neutral"}>{x.subject.name}</Badge></li>)}
-            </ul>
-          )}
-        </CardBody>
-      </Card>
-      <Card>
-        <CardHeader title="Previous school" description={p.previousLocked ? `Locked: ${p.previousLocked} is closed.` : undefined} action={editLink(href, "previous", can)} />
-        <CardBody>
+      <Col>
+        <Card>
+          <CardHeader title="Subjects this year" icon={NotebookPen} />
+          <div className="px-5 pb-5">
+            {shown.length === 0 ? <p className="text-[14px] text-ink3">{p.now ? "No subjects are set for this class yet (Academic Management, Subjects)." : "No class this year."}</p> : (
+              <ul className="flex flex-wrap gap-1.5">{shown.map((x) => <li key={x.id}><Pill tone={optional.has(x.subjectId) ? "brand" : "neutral"}>{x.subject.name}</Pill></li>)}</ul>
+            )}
+          </div>
+        </Card>
+        <Card>
+          <CardHeader title="Previous school" description={p.previousLocked ? `Locked: ${p.previousLocked} is closed.` : undefined} icon={Award} action={editLink(href, "previous", can)} />
           {p.previous ? (
-            <dl className="grid gap-3 sm:grid-cols-2">
-              <Detail label="School">{p.previous.schoolName}</Detail>
-              <Detail label="Board">{p.previous.board}</Detail>
-              <Detail label="Last class">{p.previous.lastClass}</Detail>
-              <Detail label="Year">{p.previous.year}</Detail>
-              <Detail label="Marks or %">{p.previous.marks}</Detail>
-              <Detail label="Last changed">{formatDate(p.previous.updatedAt, tz)}</Detail>
-            </dl>
-          ) : <p className="text-ink-2">{p.student.previousSchool ?? "Not added."}</p>}
-        </CardBody>
-      </Card>
-    </div>
+            <DL cols={1} rows={[["School", p.previous.schoolName], ["Board", p.previous.board], ["Last class", p.previous.lastClass], ["Year", p.previous.year], ["Marks or %", p.previous.marks], ["Last changed", formatDate(p.previous.updatedAt, tz)]]} />
+          ) : <p className="px-5 pb-5 text-[14px] text-ink3">{p.student.previousSchool ?? "Not added."}</p>}
+        </Card>
+      </Col>
+    </Split>
   );
 }
+
+const KIND_ICON = (kind: string): { icon: LucideIcon; tone: Tone } =>
+  isPositive(kind) ? { icon: Trophy, tone: "ok" } : kind === "suspension" ? { icon: TriangleAlert, tone: "bad" } : { icon: TriangleAlert, tone: "warn" };
 
 export async function BehaviourTab({ studentId, can, settings, tz, points }: Base & { studentId: string; settings: ResolvedSettings; points: number | null }) {
   const current = (await getCurrent())!;
@@ -326,147 +352,139 @@ export async function BehaviourTab({ studentId, can, settings, tz, points }: Bas
     return { incidents, entries, cases };
   });
   return (
-    <div className="grid gap-4 lg:grid-cols-3">
-      <Card className="lg:col-span-2">
-        <CardHeader title="Behaviour timeline" action={can.contribute ? <ButtonLink href={`${BASE}/behaviour/new?student=${studentId}`} size="sm">Report incident</ButtonLink> : undefined} />
-        <CardBody>
-          {data.incidents.length === 0 ? <p className="text-ink-2">Nothing recorded. Incidents, warnings, rewards and recognition show here.</p> : (
-            <ol className="space-y-3">
-              {data.incidents.map(({ incident: i }) => (
-                <li key={i.id} className={`rounded-lg border-l-4 bg-surface-2 px-3 py-2 ${isPositive(i.kind) ? "border-success" : i.kind === "suspension" ? "border-danger" : "border-warn"}`}>
-                  <p className="flex flex-wrap items-center gap-2">
-                    <Badge tone={isPositive(i.kind) ? "success" : i.kind === "suspension" ? "danger" : "warning"}>{BEHAVIOUR_KIND_LABEL[i.kind as BehaviourKind] ?? i.kind}</Badge>
-                    <span className="text-sm text-ink-2">{formatDate(i.date, tz)}</span>
-                    {i.status === "CLOSED" && <Badge>Closed</Badge>}
-                  </p>
-                  <Link href={`${BASE}/behaviour/${i.id}`} className="mt-1 block hover:underline">{i.description}</Link>
-                  {i.actionTaken && <p className="text-sm text-ink-2">Action taken: {i.actionTaken}</p>}
-                </li>
-              ))}
-            </ol>
-          )}
-        </CardBody>
+    <Split side={340}>
+      <Card>
+        <CardHeader title="Incidents and rewards" description="Newest first" icon={Medal} action={can.contribute ? <ButtonLink href={`${BASE}/behaviour/new?student=${studentId}`} size="sm" variant="soft" icon={Plus}>Report incident</ButtonLink> : undefined} />
+        {data.incidents.length === 0 ? <Empty icon={Medal} title="Nothing recorded" body="Incidents, warnings, rewards and recognition show here." /> : (
+          <div className="px-5">
+            <Timeline items={data.incidents.map(({ incident: i }) => {
+              const k = KIND_ICON(i.kind);
+              return {
+                icon: k.icon, tone: k.tone, href: `${BASE}/behaviour/${i.id}`,
+                what: <><b className="font-semibold">{BEHAVIOUR_KIND_LABEL[i.kind as BehaviourKind] ?? i.kind}:</b> {i.description}</>,
+                when: `${formatDate(i.date, tz)}${i.actionTaken ? ` · ${i.actionTaken}` : ""}${i.status === "CLOSED" ? " · Closed" : ""}`,
+              };
+            })} />
+          </div>
+        )}
       </Card>
-      <div className="space-y-4">
+      <Col>
         {settings.pointsOn && (
           <Card>
-            <CardHeader title="Behaviour points" description={`Total: ${points ?? 0}`} />
-            <CardBody className="space-y-3">
+            <CardHeader title="Behaviour points" description="Added up this term" icon={Award} />
+            <div className="px-5 pb-5 flex flex-col gap-4">
+              <p className={cx("font-display text-[30px] font-semibold tnum leading-none", (points ?? 0) > 0 ? "text-ok" : (points ?? 0) < 0 ? "text-bad" : "")}>{(points ?? 0) > 0 ? "+" : ""}{points ?? 0}</p>
               {can.contribute && (
-                <ActionForm action={adjustPointsAction.bind(null, studentId)} submitLabel="Save points" pendingText="Saving…" resetOnSuccess className="space-y-3">
-                  <FormText name="points" label="Points" required inputMode="numeric" help="Use a minus sign to remove, for example -2." />
-                  <FormText name="reason" label="Reason" required />
-                </ActionForm>
+                <details className="rounded-xl border border-line p-3.5">
+                  <summary className="cursor-pointer list-none text-[14px] font-semibold text-brand flex items-center gap-1.5 [&::-webkit-details-marker]:hidden"><Plus size={15} aria-hidden="true" />Add or remove points</summary>
+                  <ActionForm action={adjustPointsAction.bind(null, studentId)} submitLabel="Save points" pendingText="Saving…" resetOnSuccess className="mt-3 space-y-3">
+                    <FormText name="points" label="Points" required inputMode="numeric" help="Use a minus sign to remove, for example -2." />
+                    <FormText name="reason" label="Reason" required />
+                  </ActionForm>
+                </details>
               )}
-              <ul className="divide-y divide-line text-[15px]">
-                {data.entries.map((e) => <li key={e.id} className="flex justify-between gap-2 py-1.5"><span>{e.reason}</span><strong className={e.points > 0 ? "text-success" : "text-danger"}>{e.points > 0 ? `+${e.points}` : e.points}</strong></li>)}
-              </ul>
-            </CardBody>
+              {data.entries.length > 0 && (
+                <ul className="divide-y divide-line/70 text-[14px]">
+                  {data.entries.map((e) => <li key={e.id} className="flex justify-between gap-2 py-2"><span className="min-w-0 truncate">{e.reason}</span><b className={cx("font-semibold tnum", e.points > 0 ? "text-ok" : "text-bad")}>{e.points > 0 ? `+${e.points}` : e.points}</b></li>)}
+                </ul>
+              )}
+            </div>
           </Card>
         )}
         {can.seeCounselling && (
           <Card>
-            <CardHeader title="Counselling" />
-            <CardBody>
-              {data.cases.length === 0 ? <p className="text-ink-2">No counselling case.</p> : (
-                <ul className="space-y-2">
-                  {data.cases.map((c) => <li key={c.id}><Link className="font-medium text-brand-text hover:underline" href={`${BASE}/behaviour/counselling/${c.id}`}>{c.reason}</Link> <Badge tone={c.status === "OPEN" ? "warning" : "neutral"}>{c.status === "OPEN" ? "Open" : "Closed"}</Badge></li>)}
-                </ul>
-              )}
-            </CardBody>
+            <CardHeader title="Counselling" icon={HeartHandshake} />
+            {data.cases.length === 0 ? <p className="px-5 pb-5 text-[14px] text-ink3">No counselling case.</p> : (
+              <ul className="px-2 pb-2">
+                {data.cases.map((c) => (
+                  <li key={c.id}>
+                    <Link href={`${BASE}/behaviour/counselling/${c.id}`} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sunken/70">
+                      <span className={cx("w-10 h-10 rounded-xl grid place-items-center shrink-0", TONE_SOFT.brand)}><HeartHandshake size={19} aria-hidden="true" /></span>
+                      <span className="min-w-0 flex-1"><b className="block font-semibold text-[14.5px] truncate">{c.reason}</b><span className="text-[12.5px] text-ink3">Opened {formatDate(c.openedOn, tz)}</span></span>
+                      <Pill tone={c.status === "OPEN" ? "info" : "neutral"}>{c.status === "OPEN" ? "Open" : "Closed"}</Pill>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
           </Card>
         )}
-      </div>
-    </div>
+      </Col>
+    </Split>
   );
 }
 
 export function DocumentsTab({ p, can, settings, tz }: Base & { p: Profile; settings: ResolvedSettings }) {
   const have = new Set(p.documents.filter((d) => !d.guardianId).map((d) => d.kind));
+  const missing = settings.requiredDocuments.filter((k) => !have.has(k));
+  const total = settings.requiredDocuments.length;
   return (
-    <div className="grid gap-4 lg:grid-cols-3">
-      <Card className="lg:col-span-2">
-        <CardHeader title="Documents" description="Student and parent documents. Links open for 15 minutes." />
-        <CardBody>
-          {p.documents.length === 0 ? <EmptyState title="No documents yet">Upload the birth certificate, transfer certificate and other papers here.</EmptyState> : (
-            <ul className="divide-y divide-line">
-              {p.documents.map((d) => {
-                const parent = d.guardianId ? p.links.find((l) => l.guardianId === d.guardianId)?.guardian.name : null;
-                return (
-                  <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
-                    <div>
-                      <p className="font-medium">{d.kind}{parent ? <span className="font-normal text-ink-2"> · {parent}</span> : null}</p>
-                      <p className="text-sm text-ink-2">{d.file?.fileName ?? "File"} · {formatDate(d.createdAt, tz)}{d.note ? ` · ${d.note}` : ""}</p>
-                    </div>
-                    <div className="flex flex-wrap gap-1">
-                      <a href={d.link} target="_blank" rel="noopener" className="inline-flex min-h-11 items-center rounded-lg px-3 font-medium text-brand-text hover:bg-surface-2">Preview</a>
-                      <a href={`${d.link}&download=1`} className="inline-flex min-h-11 items-center rounded-lg px-3 font-medium text-brand-text hover:bg-surface-2">Download</a>
-                      {can.manage && (
-                        <ConfirmAction action={archiveDocumentAction} fields={{ documentId: d.id, studentId: p.student.id }} trigger="Remove" triggerVariant="ghost" title={`Remove ${d.kind}?`} confirmLabel="Remove document" confirmVariant="danger">
-                          The document is archived and kept in the history; it no longer shows here.
-                        </ConfirmAction>
-                      )}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </CardBody>
+    <Split side={340}>
+      <Card>
+        <CardHeader title="Documents" description={total ? `${p.documentsDone} of ${total} collected · links open for 15 minutes` : "Student and parent documents · links open for 15 minutes"} icon={FolderOpen}
+          action={can.contribute ? <ButtonLink href="#upload-document" size="sm" variant="soft" icon={Upload}>Upload</ButtonLink> : undefined} />
+        {p.documents.length === 0 && missing.length === 0 ? <Empty icon={FileText} title="No documents yet" body="Upload the birth certificate, transfer certificate and other papers here." /> : (
+          <ul className="px-3 pb-3">
+            {p.documents.map((d) => {
+              const parent = d.guardianId ? p.links.find((l) => l.guardianId === d.guardianId)?.guardian.name : null;
+              return (
+                <FileRow key={d.id} name={<>{d.kind}{parent ? <span className="font-normal text-ink3"> · {parent}</span> : null}</>}
+                  meta={`${d.file?.fileName ?? "File"} · added ${formatDate(d.createdAt, tz)}${d.note ? ` · ${d.note}` : ""}`}
+                  actions={<>
+                    <ButtonLink href={d.link} target="_blank" rel="noopener" size="sm" variant="ghost" icon={Eye}>View</ButtonLink>
+                    <a href={`${d.link}&download=1`} aria-label={`Download ${d.kind}`} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink2 hover:bg-sunken"><Download size={15} aria-hidden="true" /></a>
+                    {can.manage && (
+                      <ConfirmAction action={archiveDocumentAction} fields={{ documentId: d.id, studentId: p.student.id }} trigger="Remove" triggerVariant="ghost" title={`Remove ${d.kind}?`} confirmLabel="Remove document" confirmVariant="danger">
+                        The document is archived and kept in the history; it no longer shows here.
+                      </ConfirmAction>
+                    )}
+                  </>} />
+              );
+            })}
+            {missing.map((k) => <FileRow key={k} name={k} missing actions={can.contribute ? <ButtonLink href="#upload-document" size="sm" icon={Upload}>Add</ButtonLink> : undefined} />)}
+          </ul>
+        )}
       </Card>
-      <div className="space-y-4">
-        {settings.requiredDocuments.length > 0 && (
-          <Card>
-            <CardHeader title="Checklist" description={`${p.documentsDone} of ${settings.requiredDocuments.length} complete`} />
-            <CardBody>
-              <ul className="space-y-1">
-                {settings.requiredDocuments.map((k) => <li key={k} className="flex items-center gap-2"><span aria-hidden="true" className={have.has(k) ? "text-success" : "text-ink-2"}>{have.has(k) ? "✓" : "○"}</span>{k}<span className="sr-only">{have.has(k) ? " (uploaded)" : " (missing)"}</span></li>)}
-              </ul>
-            </CardBody>
-          </Card>
-        )}
-        {can.contribute && (
-          <Card>
-            <CardHeader title="Upload a document" />
-            <CardBody>
-              <ActionForm action={uploadDocument.bind(null, p.student.id)} submitLabel="Upload" pendingText="Uploading…" resetOnSuccess>
-                <FormSelect name="kind" label="Document" required placeholder="Choose" options={[...settings.requiredDocuments, "Other"].map((k) => ({ value: k, label: k }))} />
-                <FormText name="kindOther" label="If other, what is it?" />
-                {p.links.length > 0 && <FormSelect name="guardianId" label="Belongs to" options={[{ value: "", label: "The student" }, ...p.links.map((l) => ({ value: l.guardianId, label: `${l.guardian.name} (${l.relationship})` }))]} />}
-                <div>
-                  <label htmlFor="doc-file" className="mb-1 block text-sm font-medium">File<span className="text-danger" aria-hidden="true"> *</span></label>
-                  <input id="doc-file" name="file" type="file" required accept="image/jpeg,image/png,image/webp,application/pdf" className="block w-full rounded-lg border border-line-strong bg-surface p-2 text-base file:mr-3 file:min-h-10 file:rounded-md file:border-0 file:bg-brand-soft file:px-3 file:text-brand-text" />
-                  <p className="mt-1 text-sm text-ink-2">Photo or PDF, up to 10 MB.</p>
-                </div>
-                <FormText name="note" label="Note" />
-              </ActionForm>
-            </CardBody>
-          </Card>
-        )}
-      </div>
-    </div>
+      {can.contribute && (
+        <Card id="upload-document" className="scroll-mt-24">
+          <CardHeader title="Upload a document" description="Photo or PDF, up to 10 MB" icon={Upload} />
+          <div className="px-5 pb-5">
+            <ActionForm action={uploadDocument.bind(null, p.student.id)} submitLabel="Upload" pendingText="Uploading…" resetOnSuccess className="space-y-3.5">
+              <FormSelect name="kind" label="Document" required placeholder="Choose" options={[...settings.requiredDocuments, "Other"].map((k) => ({ value: k, label: k }))} defaultValue={missing[0] ?? ""} />
+              <FormText name="kindOther" label="If other, what is it?" />
+              {p.links.length > 0 && <FormSelect name="guardianId" label="Belongs to" options={[{ value: "", label: "The student" }, ...p.links.map((l) => ({ value: l.guardianId, label: `${l.guardian.name} (${l.relationship})` }))]} />}
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="doc-file" className="text-[13px] font-semibold text-ink2">File<span className="text-bad" aria-hidden="true"> *</span></label>
+                <input id="doc-file" name="file" type="file" required accept="image/jpeg,image/png,image/webp,application/pdf" className="block w-full rounded-xl border border-line bg-surface p-2 text-[14px] file:mr-3 file:h-9 file:rounded-lg file:border-0 file:bg-brand/10 file:px-3 file:font-semibold file:text-brand" />
+              </div>
+              <FormText name="note" label="Note" />
+            </ActionForm>
+          </div>
+        </Card>
+      )}
+    </Split>
   );
 }
+
+const EVENT_ICON: Record<StudentEvent["kind"], { icon: LucideIcon; tone: Tone }> = {
+  admission: { icon: UserRoundCheck, tone: "brand" },
+  status: { icon: CalendarCheck2, tone: "neutral" },
+  class: { icon: ArrowUpRight, tone: "ok" },
+  behaviour: { icon: Medal, tone: "neutral" },
+  certificate: { icon: FileBadge, tone: "info" },
+  leaving: { icon: LogOut, tone: "warn" },
+  document: { icon: FileText, tone: "neutral" },
+  card: { icon: IdCard, tone: "neutral" },
+};
 
 export async function HistoryTab({ studentId, can, tz }: Base & { studentId: string }) {
   const current = (await getCurrent())!;
   const items = await withSchool(current.ctx, (tx) => studentTimeline(tx, studentId, { behaviour: can.seeBehaviour, documents: can.seeDocuments }));
   return (
-    <Card>
-      <CardHeader title="Timeline" description="Everything that happened to the student, newest first." />
-      <CardBody>
-        {items.length === 0 ? <p className="text-ink-2">Nothing yet.</p> : (
-          <ol className="relative space-y-4 border-l border-line pl-5">
-            {items.map((i, n) => (
-              <li key={n} className="relative">
-                <span aria-hidden="true" className="absolute -left-[1.6rem] top-1.5 size-3 rounded-full border-2 border-surface bg-brand" />
-                <p className="font-medium">{i.title}</p>
-                <p className="text-sm text-ink-2">{formatDateTime(i.at, tz)}{i.detail ? ` · ${i.detail}` : ""}</p>
-              </li>
-            ))}
-          </ol>
-        )}
-      </CardBody>
+    <Card className="p-5">
+      {items.length === 0 ? <Empty icon={Clock} title="Nothing yet" body="Admission, class changes, certificates and more show here, newest first." /> : (
+        <Timeline items={items.map((i) => ({ ...EVENT_ICON[i.kind], what: i.title, when: `${formatDateTime(i.at, tz)}${i.detail ? ` · ${i.detail}` : ""}` }))} />
+      )}
     </Card>
   );
 }

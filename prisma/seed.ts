@@ -33,6 +33,12 @@ async function main() {
     { username: "accountant", name: "Priya Sharma", phone: "9876500003", access: [[sunrise.school.id, "accountant"]] },
     { username: "teacher", name: "Ravi Teja", phone: "9876500004", access: [[sunrise.school.id, "class-teacher"]] },
     { username: "librarian", name: "Anitha Reddy", phone: "9876500005", access: [[sunrise.school.id, "librarian"]] },
+    // One login for each of the other ready roles (05-roles.md), so every role can be tried.
+    { username: "subjectteacher", name: "Prakash Kulkarni", phone: "9876500006", access: [[sunrise.school.id, "teacher"]] },
+    { username: "reception", name: "Naresh Kumar", phone: "9876500007", access: [[sunrise.school.id, "receptionist"]] },
+    { username: "transport", name: "Ganesh Rao", phone: "9876500008", access: [[sunrise.school.id, "transport-in-charge"]] },
+    { username: "warden", name: "Sunita Patil", phone: "9876500009", access: [[sunrise.school.id, "hostel-warden"]] },
+    { username: "store", name: "Mahesh Yadav", phone: "9876500010", access: [[sunrise.school.id, "store-keeper"]] },
   ] as const;
 
   for (const p of people) {

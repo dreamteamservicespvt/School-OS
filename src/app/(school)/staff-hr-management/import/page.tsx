@@ -4,6 +4,7 @@ import { withSchool } from "@/lib/db";
 import { formatDateTime } from "@/lib/format";
 import { importKind } from "@/lib/importer";
 import { hrPage, BASE } from "@/lib/staff/page";
+import { BackLink } from "@/components/ui/module-head";
 import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,11 +16,12 @@ export const metadata: Metadata = { title: "Import staff" };
 
 export default async function ImportStaffPage() {
   const { current, viewer, tz } = await hrPage("create");
-  if (viewer.change !== "all") redirect(BASE);
+  if (viewer.change !== "all") redirect("/no-access?m=staff-hr-management");
   const kind = importKind("staff")!;
   const history = await withSchool(current.ctx, (tx) => tx.importBatch.findMany({ where: { kind: "staff" }, orderBy: { createdAt: "desc" }, take: 10 }));
   return (
     <>
+      <BackLink href={BASE} label="Staff List" />
       <PageHeader title="Import staff" href={`${BASE}/import`} userId={current.user.id} />
       <ImportSteps columns={kind.columns.map((c) => ({ key: c.key, label: c.label, required: c.required, help: c.help }))} upload={uploadStaffFile} check={checkStaffFile} run={importStaffFile} undo={undoStaffImport} />
       {history.length > 0 && (

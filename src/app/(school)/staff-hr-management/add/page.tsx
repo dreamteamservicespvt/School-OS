@@ -8,6 +8,7 @@ import { roleLines } from "@/lib/staff/role-words";
 import { UUID_RE } from "@/lib/staff/act";
 import type { AccessLevel, RolePermissions } from "@/lib/roles";
 import { MODULES } from "@/lib/modules";
+import { BackLink } from "@/components/ui/module-head";
 import { PageHeader } from "@/components/shell/page-header";
 import { Wizard, type WizardData } from "./wizard";
 import { checkDetails, createStaffAction } from "./actions";
@@ -71,6 +72,7 @@ export default async function AddStaffPage({ searchParams }: Search) {
 
   return (
     <>
+      <BackLink href={BASE} label="Staff List" />
       <PageHeader title="Add Staff" href={`${BASE}/add`} userId={current.user.id} />
       <Wizard
         data={{ ...data, today: isoDay(today), employmentTypes: [...EMPLOYMENT_TYPES], modules: MODULES.map((m) => ({ key: m.key, name: m.name })) }}

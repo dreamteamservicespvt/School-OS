@@ -68,7 +68,8 @@ export async function ensureHrDefaults(tx: Tx, ctx: SchoolContext) {
   const setting = await tx.hrSetting.findUnique({ where: { schoolId: ctx.schoolId } });
   if (!setting) {
     const school = await tx.school.findUnique({ where: { id: ctx.schoolId }, select: { code: true } });
-    await tx.hrSetting.create({ data: { schoolId: ctx.schoolId, staffIdPrefix: `${school?.code ?? "ST"}-ST-` } });
+    // Two first page loads at once may both get here; the second one does nothing.
+    await tx.hrSetting.createMany({ data: { schoolId: ctx.schoolId, staffIdPrefix: `${school?.code ?? "ST"}-ST-` }, skipDuplicates: true });
   }
   if ((await tx.designation.count({ where: { schoolId: ctx.schoolId } })) === 0) {
     const depts = await tx.department.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null } });

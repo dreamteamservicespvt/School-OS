@@ -73,3 +73,10 @@ export const BUILT_MODULES: ReadonlySet<ModuleKey> = new Set<ModuleKey>([
   "student-management",
   "attendance-management",
 ]);
+
+/**
+ * Modules where "Own" means only the person's own record (their leave, profile
+ * and salary slips). For them these are not a module to work in, so they are
+ * left out of the menu and reached from My profile, "My work" (00-global.md §1.4).
+ */
+export const SELF_SERVICE_MODULES: ReadonlySet<ModuleKey> = new Set<ModuleKey>(["staff-hr-management", "salary-management"]);

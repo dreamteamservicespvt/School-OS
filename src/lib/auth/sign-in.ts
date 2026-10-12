@@ -22,7 +22,31 @@ export type SignInResult =
   /** The password is right, but a one-time code is needed first (two-step login). */
   | { ok: false; message: string; twoStep: { userLoginId: string; schoolId: string } };
 
-const WRONG = "The username or password is wrong. Check both and try again.";
+const WRONG = "The login or password is wrong. Check both and try again.";
+
+/**
+ * A login typed as a username, an email or a mobile number. Email and mobile
+ * only count when exactly one login has them, so nobody signs in as someone else.
+ */
+export async function findLogin(input: string) {
+  const typed = input.trim().toLowerCase();
+  if (!typed) return null;
+  const byName = await prisma.userLogin.findUnique({ where: { username: typed } });
+  if (byName) return byName;
+  if (typed.includes("@")) {
+    const list = await prisma.userLogin.findMany({ where: { email: { equals: typed, mode: "insensitive" }, archivedAt: null }, take: 2 });
+    return list.length === 1 ? list[0] : null;
+  }
+  const digits = typed.replace(/\D/g, "");
+  if (digits.length >= 10 && digits.length <= 13 && /^[+\d\s()-]+$/.test(typed)) {
+    const last10 = digits.slice(-10);
+    // Numbers are stored as typed ("+91 98480 12345"), so compare digits only.
+    const near = await prisma.userLogin.findMany({ where: { phone: { endsWith: last10.slice(-4) }, archivedAt: null }, take: 200 });
+    const list = near.filter((u) => (u.phone ?? "").replace(/\D/g, "").endsWith(last10));
+    return list.length === 1 ? list[0] : null;
+  }
+  return null;
+}
 
 type Options = { now?: Date; sleep?: (ms: number) => Promise<void>; /** The browser's trusted-device token, if any. */ trustedDevice?: string | null };
 const realSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -30,9 +54,7 @@ const realSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 export async function signIn(usernameInput: string, password: string, device: DeviceInfo, opts: Options = {}): Promise<SignInResult> {
   const now = opts.now ?? new Date();
   const sleep = opts.sleep ?? realSleep;
-  const username = usernameInput.trim().toLowerCase();
-
-  const user = await prisma.userLogin.findUnique({ where: { username } });
+  const user = await findLogin(usernameInput);
   if (!user || user.archivedAt || !user.passwordHash) {
     await burnPasswordCheck(password);
     if (user?.status === "INVITED") {

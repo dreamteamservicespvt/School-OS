@@ -115,7 +115,8 @@ const OWN = {
 };
 // A few roles have their own "Own" slice (from the notes in 05-roles.md)
 const OWN_BY_ROLE = {
-  classteacher: { students: ['list', 'behaviour', 'promotion'], attendance: ['take', 'register', 'leave'], exams: ['datesheet', 'marks', 'results', 'reportcards'] },
+  teacher: { academic: ['timetable', 'syllabus'] },
+  classteacher: { academic: ['timetable', 'syllabus'], students: ['list', 'behaviour', 'promotion'], attendance: ['take', 'register', 'leave'], exams: ['datesheet', 'marks', 'results', 'reportcards'] },
   warden: { students: ['list'] },
   counsellor: { students: ['behaviour'] },
   hr: { attendance: ['staff'] },
@@ -243,6 +244,37 @@ export const QUICK_BY_ROLE = {
     ['inventory.issue', 'Issue stock', 'To a class, lab or staff member', 'PackageMinus'], ['inventory.purchases', 'Receive goods', 'Against a purchase order', 'PackagePlus'],
     ['inventory.purchases', 'New purchase order', '4 items are below reorder level', 'ShoppingCart'], ['inventory.rooms', 'Maintenance request', 'Something is broken', 'Wrench'],
   ],
+  vp: [
+    ['attendance', 'Take attendance', 'Class 7 B is waiting for today', 'CalendarCheck2'], ['add-student', 'Add student', 'Name, class and parent phone is enough', 'UserPlus'],
+    ['communication', 'Send message', 'WhatsApp, SMS or notice to parents', 'Send'], ['academic.substitutions', 'Arrange substitute', '2 periods have no teacher today', 'ArrowRightLeft'],
+    ['exams.marks', 'Marks progress', 'Half-yearly marks open on 17 Oct', 'ClipboardCheck'], ['events.events', 'Add event', 'Function, trip or competition', 'CalendarPlus'],
+  ],
+  academichead: [
+    ['academic.substitutions', 'Arrange substitute', '2 periods have no teacher today', 'ArrowRightLeft'], ['academic.timetable', 'Change the Time Table', 'Exam-week time table is due Sat', 'CalendarRange'],
+    ['exams.papers', 'Check question papers', '6 papers are not in yet', 'FileText'], ['homework.progress', 'Homework load', 'Homework given across classes', 'NotebookPen'],
+  ],
+  hr: [
+    ['staff.add', 'Add staff', 'Name, role and phone to start', 'UserPlus'], ['staff.leave', 'Record staff leave', 'Someone called in sick', 'CalendarDays'],
+    ['attendance.staff', 'Staff attendance', '82 of 86 are in today', 'CalendarCheck2'], ['staff.documents', 'Add a staff document', 'Licence, police check, certificate', 'FileText'],
+  ],
+  officestaff: [
+    ['attendance.leave', 'Record student leave', 'A parent called or wrote', 'CalendarDays'], ['admissions.enquiries', 'Add enquiry', 'A parent asked about admission', 'PhoneIncoming'],
+    ['students.certificates', 'Give a certificate', 'Bonafide, TC or character', 'Award'], ['students.list', 'Add student', 'From the Student List', 'UserPlus'],
+  ],
+  examincharge: [
+    ['exams.datesheet', 'Datesheet and seating', 'Half-yearly starts Mon 12 Oct', 'CalendarDays'], ['exams.admitcards', 'Admit cards', '74 are not printed yet', 'IdCard'],
+    ['exams.marks', 'Marks progress', 'Who has not entered marks', 'ClipboardCheck'], ['exams.results', 'Publish results', 'Class 8 Unit Test 2 is ready', 'Award'],
+  ],
+  admissioncounsellor: [
+    ['admissions.enquiries', 'Add enquiry', 'A parent asked about admission', 'PhoneIncoming'], ['admissions.applications', 'New application', 'Form, documents and fee', 'FileText'],
+    ['admissions.tests', 'Book a test slot', 'Class 6 test on Sat 17 Oct', 'ClipboardCheck'], ['admissions.decision', 'Send for decision', '7 applications are ready', 'BadgeCheck'],
+  ],
+  counsellor: [
+    ['students.behaviour', 'Record a session', 'For a case given to you', 'HeartHandshake'], ['communication.send', 'Message a parent', 'Only parents of your cases', 'Send'],
+  ],
+  gatesecurity: [
+    ['frontoffice.visitors', 'Add visitor', 'Name, phone, whom to meet', 'IdCard'], ['frontoffice.pickup', 'Check a pickup pass', 'Early pickup by a parent', 'DoorOpen'],
+  ],
   student: [
     ['homework', 'Submit homework', 'Maths exercise 4.2 is due today', 'Upload'], ['homework.quizzes', 'Take a quiz', 'Science quiz closes at 6 PM', 'ListChecks'],
   ],
@@ -308,12 +340,54 @@ export const NOTIFS_BY_ROLE = {
     { id: 1, when: '9:30 AM', title: '4 items below reorder level', body: 'A4 paper, chalk, whiteboard markers, sanitiser', unread: true, to: 'inventory.items' },
     { id: 2, when: 'Yesterday', title: 'Maintenance request: Physics lab fan', body: 'From Farhana Begum', unread: true, to: 'inventory.rooms' },
   ],
+  vp: [
+    { id: 1, when: '8:40 AM', title: 'Anitha K. asked for sick leave', body: '13–14 Oct · 2 days · waiting for you', unread: true, to: 'approvals' },
+    { id: 2, when: '9:15 AM', title: 'Attendance done for 41 of 43 classes', body: 'Waiting on Class 8 A and Class 10 C', unread: true, to: 'attendance.register' },
+    { id: 3, when: '7:52 AM', title: 'Bus 3 was 14 minutes late', body: 'Route 3 · Bachupally · parents were told', unread: false, to: 'transport.live' },
+    { id: 4, when: 'Yesterday', title: 'Half-yearly datesheet published', body: 'Classes 6–10 · starts Mon 12 Oct', unread: false, to: 'exams.datesheet' },
+  ],
+  academichead: [
+    { id: 1, when: '8:50 AM', title: '2 periods have no teacher today', body: '9 C period 6 (Hindi) · 10 A period 7 (English)', unread: true, to: 'academic.substitutions' },
+    { id: 2, when: '8:30 AM', title: '6 question papers not in yet', body: 'Hindi 9, Telugu 10 and 4 more · due today', unread: true, to: 'exams.papers' },
+    { id: 3, when: 'Yesterday', title: 'Exam-week time table asked for', body: 'From Lakshmi Rao · by Sat 10 Oct', unread: false, to: 'academic.timetable' },
+  ],
+  hr: [
+    { id: 1, when: '9:20 AM', title: 'Swapna Reddy is not in yet', body: 'No leave applied · first period missed', unread: true, to: 'attendance.staff' },
+    { id: 2, when: '8:10 AM', title: '5 staff documents expire this month', body: 'Driving licences (2), police verification (3)', unread: true, to: 'staff.documents' },
+    { id: 3, when: 'Yesterday', title: '6 new applicants for PGT Chemistry', body: 'Interview today at 11:30 AM', unread: false, to: 'staff.recruitment' },
+  ],
+  officestaff: [
+    { id: 1, when: '8:45 AM', title: 'Priya Sharma called about Aarav (7 B)', body: 'Leave for Mon 12 Oct · to record', unread: true, to: 'attendance.leave' },
+    { id: 2, when: '8:30 AM', title: '74 admit cards not printed', body: 'Classes 9 and 10 · exams start Monday', unread: true, to: 'exams.admitcards' },
+    { id: 3, when: 'Yesterday', title: 'Bonafide certificate asked for', body: 'Sneha Rao, 9 C · for a passport', unread: false, to: 'students.certificates' },
+    { id: 4, when: '2 Oct', title: 'Your leave for 2 Oct was approved', body: 'Casual leave · 1 day', unread: false, to: 'staff.leave' },
+  ],
+  examincharge: [
+    { id: 1, when: '9:05 AM', title: 'No seating plan for 9 C and 10 C', body: 'Rooms 301 and 302 · exams start Monday', unread: true, to: 'exams.datesheet' },
+    { id: 2, when: '8:30 AM', title: '6 question papers not submitted', body: 'Hindi 9, Telugu 10, Science 8 and 3 more', unread: true, to: 'exams.papers' },
+    { id: 3, when: 'Yesterday', title: 'Unit Test 2 marks not locked', body: 'Class 8 · Social, Hindi, Computers', unread: false, to: 'exams.marks' },
+  ],
+  admissioncounsellor: [
+    { id: 1, when: '9:55 AM', title: 'New enquiry from the website form', body: 'Nursery 2027–28 · Swathi Varma', unread: true, to: 'admissions.enquiries' },
+    { id: 2, when: '9:10 AM', title: 'Rao family uploaded 2 documents', body: 'Birth certificate and photo · to check', unread: true, to: 'admissions.documents' },
+    { id: 3, when: 'Yesterday', title: 'Class 6 entrance test on Sat 17 Oct', body: '12 registered · 4 have no slot yet', unread: false, to: 'admissions.tests' },
+  ],
+  counsellor: [
+    { id: 1, when: '8:35 AM', title: 'New referral from Ravi Teja', body: 'A Class 7 student · given to you', unread: true, to: 'students.behaviour' },
+    { id: 2, when: '8:00 AM', title: 'Session at 11:15 today', body: 'Counselling room · Class 9 student', unread: true, to: 'students.behaviour' },
+    { id: 3, when: 'Yesterday', title: 'Exam stress workshop is on the calendar', body: 'Class 10 · Sat 10 Oct', unread: false, to: 'events.events' },
+  ],
+  gatesecurity: [
+    { id: 1, when: '10:05 AM', title: 'Early pickup at 12:15', body: 'Diya Menon, UKG B · mother · pass GP-0912', unread: true, to: 'frontoffice.pickup' },
+    { id: 2, when: '10:20 AM', title: 'Visitor expected: Mr. Prakash Reddy', body: 'To meet the Principal · 10:30 appointment', unread: true, to: 'frontoffice.visitors' },
+  ],
   student: [
     { id: 1, when: '8:00 AM', title: 'Maths homework due today', body: 'Exercise 4.2 · Imran Shaikh', unread: true, to: 'homework' },
     { id: 2, when: 'Yesterday', title: 'New quiz: Light and shadows', body: 'Science · closes 6 PM today', unread: true, to: 'homework.quizzes' },
   ],
 };
+// Anyone without a list of their own: school notices and their own profile only
 export const NOTIFS_DEFAULT = [
-  { id: 1, when: '9:00 AM', title: 'Half-yearly exams start Monday', body: 'Classes 6–10 · datesheet published', unread: true, to: 'events' },
-  { id: 2, when: 'Yesterday', title: 'Your leave for 2 Oct was approved', body: 'Casual leave · 1 day', unread: false, to: 'staff.leave' },
+  { id: 1, when: '9:00 AM', title: 'Half-yearly exams start Monday', body: 'Classes 6–10 · datesheet published', unread: true, to: 'events.calendar' },
+  { id: 2, when: 'Yesterday', title: 'Your password was changed', body: 'From Chrome on Windows · it was you', unread: false, to: 'profile' },
 ];

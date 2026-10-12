@@ -6,9 +6,28 @@ import { STUDENTS, CLASS_7B, FEATURED, ATT_BY_CLASS } from './data.js';
 import { STAFF, DEPARTMENTS } from './sample.js';
 import { cx, Card, CardHead, Button, Pill, Avatar, Checkbox, Input, Field, Segmented, Switch, Sheet, Empty, useToast } from './ui.jsx';
 import { useNav, useRole } from './shell.jsx';
-import { ModuleHead, useCanEdit, Stats, SearchBox, Toolbar, Select, Textarea, Chips, DataList, BulkBar, Row, SettingRow, ToggleRow, SettingsCard, Banner, Suggestion, Progress, HBars, Bars, Legend, DL, Timeline, MoreMenu, FormSheet, ConfirmSheet, MonthGrid, FileRow, Split, Col, ExportButton } from './kit.jsx';
+import { ModuleHead, useCanEdit, usePage, PageCtx, Stats, SearchBox, Toolbar, Select, Textarea, Chips, DataList, BulkBar, Row, SettingRow, ToggleRow, SettingsCard, Banner, Suggestion, Progress, HBars, Bars, Legend, DL, Timeline, MoreMenu, FormSheet, ConfirmSheet, FileRow, Split, Col, ExportButton,
+  DatePeriod, PERIODS, fmtRange, CalendarMonth, markCell, monthTotals, sampleMark, schoolDay, MARK_TONE, MONTH_NAMES } from './kit.jsx';
 
 const AttHead = (p) => <ModuleHead title="Attendance" {...p} />;
+// HR's "Own" here is the whole of staff attendance, and Office Staff's is recording leave for every student,
+// so the "Only yours" mark would be wrong on those pages. This keeps the page's tabs and only drops that mark.
+function WholePart({ children }) {
+  const pg = usePage();
+  return <PageCtx.Provider value={{ ...pg, access: pg.access === 'own' ? 'full' : pg.access }}>{children}</PageCtx.Provider>;
+}
+const isoOf = (v) => v.split('-').reverse().join('-'); // DD-MM-YYYY -> YYYY-MM-DD
+const isoD = (y, m, d) => `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+const OCT_ALL = { key: 'm-2026-9', label: 'October 2026', from: '2026-10-01', to: '2026-10-31' };
+// School days in a period, up to today (Fri 9 Oct 2026)
+function schoolDaysIn(v) {
+  const out = []; const end = v.to < '2026-10-09' ? v.to : '2026-10-09';
+  const [y, m, d] = v.from.split('-').map(Number);
+  for (let dt = new Date(y, m - 1, d); isoD(dt.getFullYear(), dt.getMonth(), dt.getDate()) <= end; dt.setDate(dt.getDate() + 1)) {
+    if (schoolDay(dt.getFullYear(), dt.getMonth(), dt.getDate()).kind === 'school') out.push(isoD(dt.getFullYear(), dt.getMonth(), dt.getDate()));
+  }
+  return out;
+}
 const okDate = (v) => /^\d{2}-\d{2}-\d{4}$/.test((v || '').trim());
 const toDate = (v) => { const [d, m, y] = v.split('-').map(Number); return new Date(y, m - 1, d); };
 // Not school days in Oct 2026: Sundays, Gandhi Jayanti (2 Oct), Dussehra holidays (19–25 Oct)
@@ -58,7 +77,10 @@ const QUOTA = { Medical: [6, 'term'], Emergency: [3, 'term'], Holiday: [5, 'year
 const clsOf = (s) => (['NUR', 'LKG', 'UKG'].includes(s.clsId) ? `${s.cls} ${s.sec}` : `${s.clsId} ${s.sec}`);
 const studentId = (name) => (name === FEATURED.name ? FEATURED.id : STUDENTS.find((s) => s.name === name)?.id);
 
-function LeavePage({ access }) {
+function LeavePage(p) {
+  return <WholePart><LeaveInner {...p} /></WholePart>;
+}
+function LeaveInner({ access }) {
   const toast = useToast();
   const { go } = useNav();
   const { role } = useRole();
@@ -71,7 +93,7 @@ function LeavePage({ access }) {
   const [q, setQ] = useState('');
   const [cls, setCls] = useState('all');
   const [type, setType] = useState('all');
-  const [mon, setMon] = useState('Oct');
+  const [per, setPer] = useState(OCT_ALL);
   const [sel, setSel] = useState(new Set());
   const [open, setOpen] = useState(null);
   const [rec, setRec] = useState(false);
@@ -80,7 +102,7 @@ function LeavePage({ access }) {
   const [bulk, setBulk] = useState(false);
   const mayDecide = (l) => canEdit && !office && l.st === 'Waiting' && (full || (ct && l.cls === '7 B' && l.days <= 3));
   const counts = rows.reduce((a, l) => ((a[l.st] = (a[l.st] || 0) + 1), a), {});
-  const list = rows.filter((l) => (st === 'all' || l.st === st) && (cls === 'all' || l.cls === cls) && (type === 'all' || l.type === type) && (mon === 'all' || l.mon === mon || l.st === 'Waiting')
+  const list = rows.filter((l) => (st === 'all' || l.st === st) && (cls === 'all' || l.cls === cls) && (type === 'all' || l.type === type) && (l.st === 'Waiting' || (isoOf(l.from) <= per.to && isoOf(l.to) >= per.from))
     && (!q || l.name.toLowerCase().includes(q.toLowerCase()) || l.cls.toLowerCase().includes(q.toLowerCase())));
   const decide = (ids, status, reason) => {
     const before = rows;
@@ -94,6 +116,7 @@ function LeavePage({ access }) {
     });
   };
   const waiting = rows.filter((l) => l.st === 'Waiting');
+  const inPer = rows.filter((l) => l.st === 'Approved' && isoOf(l.from) <= per.to && isoOf(l.to) >= per.from);
   const selectable = list.filter((l) => mayDecide(l));
   const sub = ct ? 'Class 7 B only · you decide up to 3 days; longer leave goes to the Principal'
     : office ? 'You record leave for parents, who have no login. Class teachers and the Principal decide.'
@@ -105,7 +128,7 @@ function LeavePage({ access }) {
         <Stats items={[
           { label: 'Waiting', value: waiting.length, sub: ct ? 'For you to decide' : 'Oldest from yesterday', tone: waiting.length ? 'warn' : 'ok', icon: 'Hourglass', onClick: () => setSt('Waiting') },
           { label: 'On leave today', value: ct ? 1 : 11, sub: ct ? KRISHNA.name : 'Students, all approved', icon: 'CalendarCheck2' },
-          { label: 'Approved in October', value: ct ? 2 : 41, sub: ct ? '5 school days' : '63 school days', icon: 'CircleCheck', onClick: () => setSt('Approved') },
+          { label: 'Approved', value: inPer.length, sub: `${per.label} · ${inPer.reduce((a, l) => a + l.days, 0)} school days`, icon: 'CircleCheck', onClick: () => setSt('Approved') },
           { label: 'Absence messages held', value: ct ? 1 : 11, sub: 'Not sent for approved leave', icon: 'BellOff' },
         ]} />
 
@@ -113,10 +136,12 @@ function LeavePage({ access }) {
           <div className="px-3 pt-3"><Chips value={st} onChange={(v) => { setSt(v); setSel(new Set()); }} options={[{ value: 'Waiting', label: 'Waiting', count: counts.Waiting || 0 }, { value: 'Approved', label: 'Approved', count: counts.Approved || 0 }, { value: 'Rejected', label: 'Rejected', count: counts.Rejected || 0 }, { value: 'Cancelled', label: 'Cancelled', count: counts.Cancelled || 0 }, { value: 'all', label: 'All', count: rows.length }]} /></div>
           <Toolbar className="border-b">
             <SearchBox id="lv-search" value={q} onChange={setQ} placeholder="Student or class" />
-            <div className={cx('grid gap-2', ct ? 'grid-cols-2' : 'grid-cols-3', '@md:flex')}>
+            <div className={cx('grid gap-2', ct ? 'grid-cols-1' : 'grid-cols-2', '@md:flex')}>
               {!ct && <Select id="lv-cls" value={cls} onChange={setCls} className="@md:w-36" options={[{ value: 'all', label: 'All classes' }, ...[...new Set(LEAVES0.map((l) => l.cls))].sort().map((c) => ({ value: c, label: c }))]} />}
               <Select id="lv-type" value={type} onChange={setType} className="@md:w-36" options={[{ value: 'all', label: 'All types' }, ...TYPES]} />
-              <Select id="lv-mon" value={mon} onChange={setMon} className="@md:w-36" options={[{ value: 'Oct', label: 'October' }, { value: 'Sep', label: 'September' }, { value: 'all', label: 'This year' }]} />
+            </div>
+            <div className="flex gap-2 min-w-0">
+              <DatePeriod id="lv-per" future value={per} onChange={setPer} className="w-full @md:w-auto" />
               <ExportButton what="student leave" />
             </div>
           </Toolbar>
@@ -134,9 +159,10 @@ function LeavePage({ access }) {
               { key: 'st', label: 'Status', render: (l) => <div><Pill tone={ST_TONE[l.st]}>{l.st}</Pill>{l.dec && l.st !== 'Waiting' && <p className="text-[11.5px] text-ink3 mt-0.5 whitespace-nowrap">{l.dec}</p>}</div> },
             ]}
             mobile={(l) => ({ avatar: l.name, title: `${l.name} · ${l.cls}`, sub: `${l.type} · ${l.when}`, pills: [<Pill key="s" tone={ST_TONE[l.st]} className="!h-[22px] !text-[11.5px]">{l.st}</Pill>, l.exam && l.st === 'Waiting' ? <Pill key="e" tone="info" className="!h-[22px] !text-[11.5px]">Exam day</Pill> : null] })}
-            empty={<Empty icon={I.CalendarCheck2} title={st === 'Waiting' ? 'No leave waiting' : 'No leave matches'} body={st === 'Waiting' ? 'When a parent asks for leave, record it here.' : 'Try another status, class or month.'} action={<Button variant="secondary" icon={I.Plus} onClick={() => setRec(true)}>Record leave</Button>} />}
-            footer={`Showing ${list.length} of ${rows.length}`} />
+            empty={<Empty icon={I.CalendarCheck2} title={st === 'Waiting' ? 'No leave waiting' : 'No leave matches'} body={st === 'Waiting' ? 'When a parent asks for leave, record it here.' : `Nothing in ${fmtRange(per)}. Try other dates, a status or a class.`} action={<Button variant="secondary" icon={I.Plus} onClick={() => setRec(true)}>Record leave</Button>} />}
+            footer={`Showing ${list.length} of ${rows.length} · ${per.label}: ${fmtRange(per)} · waiting requests always show`} />
         </Card>
+        <LeaveCalendar rows={rows} ct={ct} />
         {!ct && <Banner tone="info" title="Who decides:">class teachers decide for their own section up to 3 days. Longer leave, and leave over the quota, goes to the Principal. Set in Settings, Forms & Approvals.</Banner>}
       </div>
 
@@ -153,6 +179,42 @@ function LeavePage({ access }) {
       <RecordLeave open={rec} onClose={() => setRec(false)} ct={ct} rows={rows}
         onSave={(l) => { setRows((x) => [l, ...x]); setSt('Waiting'); toast({ title: `Leave recorded for ${l.name}`, body: `Waiting for ${CT_OF[l.cls] || 'the class teacher'}${l.days > 3 ? ' and the Principal' : ''}.` }); }} />
     </div>
+  );
+}
+
+// Students on leave each day. September and October come from the requests above; earlier months from the example helper.
+function LeaveCalendar({ rows, ct }) {
+  const on = (y, m, d) => {
+    const iso = isoD(y, m, d);
+    const hit = rows.filter((l) => (l.st === 'Approved' || l.st === 'Waiting') && isoOf(l.from) <= iso && isoOf(l.to) >= iso);
+    let ap = hit.filter((l) => l.st === 'Approved').length; const wt = hit.length - ap;
+    if (y * 12 + m < 2026 * 12 + 8 && schoolDay(y, m, d).kind === 'school') {
+      const k = sampleMark(ct ? 'leave-7B' : 'leave-school', y, m, d).kind;
+      ap += ct ? (k === 'leave' || k === 'absent' ? 1 : 0) : ({ leave: 4, absent: 3, late: 2 }[k] || 1);
+    }
+    return { ap, wt };
+  };
+  const cell = (y, m, d) => {
+    const sd = schoolDay(y, m, d);
+    if (sd.kind === 'off' || sd.kind === 'holiday') return { ...MARK_TONE[sd.kind], title: sd.title };
+    if (new Date(y, m, d).getDay() === 0) return { tone: 'muted', title: 'Sunday' };
+    const { ap, wt } = on(y, m, d);
+    const t = [ap ? `${ap} on leave` : '', wt ? `${wt} waiting` : ''].filter(Boolean).join(' · ') || 'Nobody on leave';
+    return { tone: ap ? 'info' : 'none', dot: wt ? 'warn' : undefined, title: t };
+  };
+  const footer = (y, m) => {
+    let a = 0, w = 0; const n = new Date(y, m + 1, 0).getDate();
+    for (let d = 1; d <= n; d++) { const k = schoolDay(y, m, d).kind; if (k === 'school' || (k === 'future' && new Date(y, m, d).getDay() !== 0)) { const x = on(y, m, d); a += x.ap; w += x.wt; } }
+    return <p className="text-[13px] text-ink2"><b className="font-semibold text-ink tnum">{a}</b> student-days of approved leave in {MONTH_NAMES[m]} {y}{w ? <> · <b className="font-semibold text-ink tnum">{w}</b> waiting</> : ''}</p>;
+  };
+  return (
+    <Card className="max-w-xl">
+      <CardHead title={ct ? 'Leave calendar · 7 B' : 'Leave calendar'} sub="Blue days have students on approved leave. A dot means a request is waiting." icon={I.CalendarDays} />
+      <div className="px-5 pb-5 flex flex-col gap-3">
+        <CalendarMonth id="lv-cal" compact cell={cell} footer={footer} />
+        <Legend items={[['bg-info/10', 'On leave, or a holiday'], ['bg-warn', 'Waiting']]} />
+      </div>
+    </Card>
   );
 }
 
@@ -337,8 +399,14 @@ const CORRECTIONS0 = [
   { id: 'c3', name: 'Usha Rani', what: '5 Oct · out time 3:50 PM added', why: 'Forgot to punch out after PTM duty', st: 'Approved', by: 'Approved by Shalini Verma' },
 ];
 
-function StaffPage({ access }) {
+function StaffPage(p) {
+  return <WholePart><StaffInner {...p} /></WholePart>;
+}
+function StaffInner({ access }) {
   const toast = useToast();
+  const { role } = useRole();
+  // HR's Own access to Attendance is all of staff attendance, so HR decides corrections too. Nobody decides their own.
+  const mayApprove = access === 'full' || role.id === 'hr';
   const canEdit = useCanEdit();
   const [rows, setRows] = useState(STAFF86);
   const [st, setSt] = useState('all');
@@ -360,7 +428,7 @@ function StaffPage({ access }) {
   const menu = (r) => [['PencilLine', 'Correct this entry', () => setFix(r)], ['CalendarDays', 'Month view', () => setMonth(r)], ['Timer', 'Record overtime', () => setOt(r)]].filter((x, i) => canEdit || i === 1);
   return (
     <div>
-      <AttHead sub="Today, Fri 9 Oct · 86 staff · in times from the devices, QR and the app"
+      <AttHead sub={`Today, Fri 9 Oct · ${rows.length} staff · tap a name for the month calendar`}
         actions={<>
           <Button variant="secondary" icon={I.PencilLine} onClick={() => setHand(true)}>Mark by hand</Button>
         </>} />
@@ -409,7 +477,7 @@ function StaffPage({ access }) {
                       <p className="text-[12.5px] text-ink3">{x.why}</p>
                       <p className="text-[12px] mt-1 flex items-center gap-2"><Pill tone={x.st === 'Waiting' ? 'warn' : x.st === 'Approved' ? 'ok' : 'bad'} className="!h-5 !text-[11px]">{x.st}</Pill><span className="text-ink3">{x.by}</span></p>
                     </div>
-                    {x.st === 'Waiting' && access === 'full' && canEdit && <Button size="sm" variant="soft" onClick={() => { setCorr(corr.map((y) => (y.id === x.id ? { ...y, st: 'Approved', by: 'Approved by you just now' } : y))); toast({ title: `Correction approved for ${x.name}`, body: 'The original stays in the audit log.', undo: () => setCorr(corr) }); }}>Approve</Button>}
+                    {x.st === 'Waiting' && mayApprove && canEdit && x.name !== role.person.name && <Button size="sm" variant="soft" onClick={() => { setCorr(corr.map((y) => (y.id === x.id ? { ...y, st: 'Approved', by: 'Approved by you just now' } : y))); toast({ title: `Correction approved for ${x.name}`, body: 'The original stays in the audit log.', undo: () => setCorr(corr) }); }}>Approve</Button>}
                   </li>
                 ))}
               </ul>
@@ -477,7 +545,8 @@ function StaffMonth({ r, onClose, onCorrect }) {
   const h = hsh(r.name);
   const late = r.name === 'Deepak Verma' ? [5, 7, 9] : r.st === 'Late' ? [9, 3 + (h % 4)] : h % 3 === 0 ? [6] : [];
   const leave = r.leave ? (r.name === 'Sravanthi Rao' ? [8, 9] : [9]) : [];
-  const cell = (d) => {
+  // October 2026 keeps today's real entries; earlier months come from the example helper
+  const octCell = (d) => {
     const dt = new Date(2026, 9, d);
     if (d > 9 || dt.getDay() === 0) return { tone: 'muted' };
     if (d === 2) return { tone: 'info', title: 'Holiday: Gandhi Jayanti' };
@@ -486,20 +555,36 @@ function StaffMonth({ r, onClose, onCorrect }) {
     if (late.includes(d)) return { tone: 'warn', title: 'Late' };
     return { tone: 'ok', title: 'Present' };
   };
-  const days = [1, 3, 5, 6, 7, 8, 9];
-  const pres = days.filter((d) => !leave.includes(d) && !(r.st === 'Not in yet' && d === 9)).length;
-  return (
-    <Sheet open onClose={onClose} title={r.name} sub={`${r.desig} · ${r.code} · October 2026`}
-      footer={<>{onCorrect && <Button variant="secondary" icon={I.PencilLine} onClick={() => onCorrect(r)}>Correct today</Button>}<Button variant="ghost" onClick={onClose}>Close</Button></>}>
-      <div className="flex flex-col gap-4">
-        <MonthGrid cell={cell} compact />
-        <Legend items={[['bg-ok/15', 'Present'], ['bg-warn/15', 'Late'], ['bg-info/10', 'Leave or holiday']]} />
-        <div className="grid grid-cols-3 gap-2">
-          {[['Present', pres], ['Late', late.filter((d) => d <= 9).length], ['Leave', leave.length]].map(([k, v]) => (
+  const other = markCell(r.code);
+  const cell = (y, m, d) => (y === 2026 && m === 9 ? octCell(d) : other(y, m, d));
+  const octDays = [1, 3, 5, 6, 7, 8, 9];
+  const footer = (y, m) => {
+    let t;
+    if (y === 2026 && m === 9) {
+      const lt = late.filter((d) => d <= 9).length;
+      const pres = octDays.filter((d) => !leave.includes(d) && !(r.st === 'Not in yet' && d === 9)).length;
+      t = { present: pres, late: lt, leave: leave.length, absent: 0, note: '7 working days so far. Sundays and Gandhi Jayanti are not counted.' };
+    } else {
+      const x = monthTotals(r.code, y, m);
+      t = { present: x.present + x.late, late: x.late, leave: x.leave, absent: x.absent, note: x.school ? `${x.school} working days · ${x.pct}% present. Sundays, second Saturdays and holidays are not counted.` : 'No working days this month.' };
+    }
+    return (
+      <div className="flex flex-col gap-3">
+        <div className="grid grid-cols-4 gap-2">
+          {[['Present', t.present], ['Late', t.late], ['Leave', t.leave], ['Absent', t.absent]].map(([k, v]) => (
             <div key={k} className="rounded-xl bg-sunken/70 px-3 py-2.5"><p className="font-display text-[22px] font-semibold tnum leading-none">{v}</p><p className="text-[12px] text-ink3 font-semibold mt-1">{k}</p></div>
           ))}
         </div>
-        <p className="text-[12.5px] text-ink3">7 working days so far. Sundays and Gandhi Jayanti are not counted.</p>
+        <p className="text-[12.5px] text-ink3">{t.note}</p>
+      </div>
+    );
+  };
+  return (
+    <Sheet open onClose={onClose} title={r.name} sub={`${r.desig} · ${r.code}`}
+      footer={<>{onCorrect && <Button variant="secondary" icon={I.PencilLine} onClick={() => onCorrect(r)}>Correct today</Button>}<Button variant="ghost" onClick={onClose}>Close</Button></>}>
+      <div className="flex flex-col gap-4">
+        <CalendarMonth id="sa-month" compact cell={cell} footer={footer} />
+        <Legend items={[['bg-ok/15', 'Present'], ['bg-warn/15', 'Late'], ['bg-bad/15', 'Absent'], ['bg-info/10', 'Leave or holiday']]} />
       </div>
     </Sheet>
   );
@@ -566,59 +651,98 @@ const REPORTS = [
   [null, 'Device health', 'Punches received and rejected by device', 'ScanFace'],
 ];
 
+// Example numbers for a day other than today, or a run of days: each section moves a little, the same way every time
+const wob = (key) => 0.6 + (hsh(key) % 80) / 100;
+const OCT_DAY = { '2026-10-01': 96.1, '2026-10-03': 95.2, '2026-10-05': 94.8, '2026-10-06': 95.9, '2026-10-07': 96.3, '2026-10-08': 95.1, '2026-10-09': 95.6 };
+
 function ReportsPage() {
   const toast = useToast();
   const { go } = useNav();
+  const { role } = useRole();
+  const canEdit = useCanEdit();
+  // Staff numbers belong to people who run staff attendance (Full). Academic Head (View) follows students only.
+  const staffOk = role.access.attendance === 'full';
   const [tab, setTab] = useState('today');
+  const [per, setPer] = useState(PERIODS.today);
   const [q, setQ] = useState('');
   const [make, setMake] = useState(null);
-  const rows = DAILY.filter((r) => !q || r.label.toLowerCase().includes(q.toLowerCase()) || r.by.toLowerCase().includes(q.toLowerCase()));
+  const sdays = schoolDaysIn(per);
+  const n = sdays.length;
+  const one = n === 1;
+  const isToday = per.from === '2026-10-09' && per.to >= '2026-10-09' && one;
+  const all = DAILY.map((r) => {
+    if (isToday) return { ...r, absD: r.ab, lateD: r.late, lvD: r.lv };
+    const f = wob(r.label + per.from + per.to);
+    const absD = Math.round(r.ab * f * n), lateD = Math.round(r.late * f * n), lvD = Math.min(absD, Math.round(r.lv * f * n));
+    return { ...r, absD, lateD, lvD, pct: Math.round((1 - absD / (r.n * n)) * 1000) / 10, slow: one ? r.slow && f > 1 : false };
+  });
+  const rows = all.filter((r) => !q || r.label.toLowerCase().includes(q.toLowerCase()) || r.by.toLowerCase().includes(q.toLowerCase()));
+  const T = all.reduce((a, r) => ({ n: a.n + r.n, ab: a.ab + r.absD, late: a.late + r.lateD, lv: a.lv + r.lvD }), { n: 0, ab: 0, late: 0, lv: 0 });
+  const avgPresent = n ? Math.round(T.n - T.ab / n) : 0;
+  const pctAll = n ? (((T.n * n - T.ab) / (T.n * n)) * 100).toFixed(1) : '0';
+  const dayBars = n <= 31
+    ? sdays.map((d) => ({ k: `${Number(d.slice(8))} ${MONTH_NAMES[Number(d.slice(5, 7)) - 1].slice(0, 3)}`, v: OCT_DAY[d] || Math.round((93.5 + (hsh(d) % 30) / 10) * 10) / 10 }))
+    : [];
+  const monthBars = [['Jun', 96.4], ['Jul', 94.9], ['Aug', 95.6], ['Sep', 95.2], ['Oct', 95.6]].map(([k, v]) => ({ k, v }));
+  const scale = (v) => Math.max(0, Math.round((v * n) / 7));
+  const reports = REPORTS.filter((x) => staffOk || !['Staff overtime', 'Device health'].includes(x[1]))
+    .map((x) => (staffOk ? x : [x[0], x[1].replace(', section or staff member', ' or section').replace(' or staff member', ''), x[2].replace('Students and staff, ', '').replace(' or staff member', '').replace('Students and staff', 'Students'), x[3]]));
   return (
     <div>
-      <AttHead sub="Sundays and holidays are left out of every number · 2026–27, school day 86 of 220" />
+      <AttHead sub={staffOk ? 'Students and staff · Sundays and holidays are left out of every number · 2026–27, school day 86 of 220' : 'Student attendance across classes · Sundays and holidays are left out · 2026–27, school day 86 of 220'} />
       <div className="flex flex-col gap-5 @lg:gap-6">
-        <div className="overflow-x-auto no-scrollbar -mx-1 px-1"><Segmented value={tab} onChange={setTab} options={[{ value: 'today', label: 'Today' }, { value: 'month', label: 'Trends' }, { value: 'chronic', label: 'Chronic absence' }, { value: 'staff', label: 'Late arrivals' }]} /></div>
+        <div className="flex flex-col @lg:flex-row @lg:items-center gap-3">
+          <div className="overflow-x-auto no-scrollbar -mx-1 px-1 min-w-0"><Segmented value={tab} onChange={setTab} options={[{ value: 'today', label: 'By section' }, { value: 'month', label: 'Trends' }, { value: 'chronic', label: 'Chronic absence' }, { value: 'staff', label: 'Late arrivals' }]} /></div>
+          {tab !== 'chronic' && <div className="@lg:ml-auto min-w-0"><DatePeriod id="rp-per" value={per} onChange={setPer} className="w-full @lg:w-auto" /></div>}
+        </div>
+        {tab !== 'chronic' && <p className="text-[13px] text-ink3 -mt-2">Showing: <b className="font-semibold text-ink2">{per.label}</b> · {fmtRange(per)} · {n} school {n === 1 ? 'day' : 'days'}</p>}
 
-        {tab === 'today' && (
+        {tab !== 'chronic' && n === 0 && (
+          <Card><Empty icon={I.CalendarX2} title="No school days in these dates" body="Sundays, second Saturdays, holidays and the summer break are left out. Pick other dates." /></Card>
+        )}
+
+        {tab === 'today' && n > 0 && (
           <>
             <Stats items={[
-              { label: 'Students present', value: `${(TOT.n - TOT.ab).toLocaleString('en-IN')} of ${TOT.n.toLocaleString('en-IN')}`, sub: `${(((TOT.n - TOT.ab) / TOT.n) * 100).toFixed(1)}% · ${TOT.late} came late`, tone: 'ok', icon: 'UserCheck' },
-              { label: 'Absent', value: TOT.ab, sub: `${TOT.lv} of them on approved leave`, icon: 'UserX' },
-              { label: 'Classes marked', value: '43 of 43', sub: '2 marked after 9:15 AM', icon: 'ListChecks' },
-              { label: 'Staff present', value: '82 of 86', sub: '3 on leave · 1 not in yet', icon: 'Users', onClick: () => go('attendance', { page: 'staff' }) },
+              one ? { label: 'Students present', value: `${(T.n - T.ab).toLocaleString('en-IN')} of ${T.n.toLocaleString('en-IN')}`, sub: `${pctAll}% · ${T.late} came late`, tone: 'ok', icon: 'UserCheck' }
+                : { label: 'Present on average', value: `${avgPresent.toLocaleString('en-IN')} of ${T.n.toLocaleString('en-IN')}`, sub: `${pctAll}% · ${T.late} late marks`, tone: 'ok', icon: 'UserCheck' },
+              { label: one ? 'Absent' : 'Days absent', value: T.ab.toLocaleString('en-IN'), sub: `${T.lv} of them on approved leave`, icon: 'UserX' },
+              one ? { label: 'Classes marked', value: '43 of 43', sub: isToday ? '2 marked after 9:15 AM' : 'All marked on time', icon: 'ListChecks' }
+                : { label: 'School days', value: n, sub: '43 sections marked every day', icon: 'ListChecks' },
+              ...(staffOk ? [{ label: one ? 'Staff present' : 'Staff present on average', value: isToday ? '82 of 86' : `${one ? 83 : 82} of 86`, sub: isToday ? '3 on leave · 1 not in yet' : 'Approved leave left out', icon: 'Users', onClick: () => go('attendance', { page: 'staff' }) }] : []),
             ]} />
             <Card className="overflow-hidden">
               <Toolbar>
                 <SearchBox id="rp-search" value={q} onChange={setQ} placeholder="Section or teacher" />
-                <ExportButton what="daily attendance" />
+                <ExportButton what="attendance by section" />
               </Toolbar>
               <DataList rows={rows} rowKey={(r) => r.label} minWidth={760}
                 columns={[
                   { key: 'label', label: 'Section', render: (r) => <span className="font-semibold">{r.label}</span> },
-                  { key: 'by', label: 'Marked by', render: (r) => <div><p className="text-ink2 leading-tight">{r.by}</p><p className={cx('text-[12px] tnum', r.slow ? 'text-warn font-semibold' : 'text-ink3')}>{r.at} AM{r.slow ? ' · late marking' : ''}</p></div> },
-                  { key: 'p', label: 'Present', align: 'right', render: (r) => r.n - r.ab },
-                  { key: 'ab', label: 'Absent', align: 'right', render: (r) => <span>{r.ab}{r.lv ? <span className="text-ink3 text-[12px]"> ({r.lv} leave)</span> : ''}</span> },
-                  { key: 'late', label: 'Late', align: 'right' },
+                  { key: 'by', label: one ? 'Marked by' : 'Class teacher', render: (r) => <div><p className="text-ink2 leading-tight">{r.by}</p>{one && <p className={cx('text-[12px] tnum', r.slow ? 'text-warn font-semibold' : 'text-ink3')}>{isToday ? r.at : '8:5' + (hsh(r.label + per.from) % 9)} AM{r.slow ? ' · late marking' : ''}</p>}</div> },
+                  { key: 'p', label: one ? 'Present' : 'Present on average', align: 'right', render: (r) => (one ? r.n - r.absD : Math.round(r.n - r.absD / n)) },
+                  { key: 'ab', label: one ? 'Absent' : 'Days absent', align: 'right', render: (r) => <span>{r.absD}{r.lvD ? <span className="text-ink3 text-[12px]"> ({r.lvD} leave)</span> : ''}</span> },
+                  { key: 'late', label: one ? 'Late' : 'Late marks', align: 'right', render: (r) => r.lateD },
                   { key: 'pct', label: '%', align: 'right', render: (r) => <span className={cx('font-semibold', r.pct < 90 && 'text-warn')}>{r.pct}%</span> },
                 ]}
-                mobile={(r) => ({ title: r.label, sub: `${r.n - r.ab} of ${r.n} present${r.late ? ` · ${r.late} late` : ''} · ${r.at} AM`, icon: r.pct < 90 ? 'TriangleAlert' : 'CalendarCheck2', iconTone: r.pct < 90 ? 'warn' : 'ok', right: <span className={cx('font-semibold tnum text-[14px]', r.pct < 90 && 'text-warn')}>{r.pct}%</span> })}
-                footer={`${rows.length} of 43 sections · total ${TOT.n - TOT.ab} present, ${TOT.ab} absent`} />
+                mobile={(r) => ({ title: r.label, sub: one ? `${r.n - r.absD} of ${r.n} present${r.lateD ? ` · ${r.lateD} late` : ''}` : `${r.absD} days absent · ${r.lateD} late marks`, icon: r.pct < 90 ? 'TriangleAlert' : 'CalendarCheck2', iconTone: r.pct < 90 ? 'warn' : 'ok', right: <span className={cx('font-semibold tnum text-[14px]', r.pct < 90 && 'text-warn')}>{r.pct}%</span> })}
+                footer={`${rows.length} of 43 sections · ${one ? `total ${T.n - T.ab} present, ${T.ab} absent` : `${T.ab} days absent over ${n} school days`}`} />
             </Card>
           </>
         )}
 
-        {tab === 'month' && (
+        {tab === 'month' && n > 0 && (
           <div className="grid @xl:grid-cols-2 gap-5 @lg:gap-6">
             <Card>
-              <CardHead title="October, day by day" sub="7 school days · 2 Oct and Sundays left out" icon={I.ChartColumn} />
-              <div className="px-5 pb-4"><Bars data={[['1', 96.1], ['3', 95.2], ['5', 94.8], ['6', 95.9], ['7', 96.3], ['8', 95.1], ['9', 95.6]].map(([k, v]) => ({ k: `${k} Oct`, v }))} max={100} ticks={[0, 50, 90]} label={(v) => `${v}%`} ariaLabel="Attendance in October by day" /></div>
+              <CardHead title={dayBars.length ? 'Day by day' : 'Month by month'} sub={dayBars.length ? `${n} school ${n === 1 ? 'day' : 'days'} · ${fmtRange(per)}` : 'These dates are longer than a month'} icon={I.ChartColumn} />
+              <div className="px-5 pb-4"><Bars data={dayBars.length ? dayBars : monthBars} max={100} ticks={[0, 50, 90]} label={(v) => `${v}%`} ariaLabel="Attendance by day" /></div>
             </Card>
             <Card>
               <CardHead title="Month by month" sub="School average, this year" icon={I.ChartLine} />
-              <div className="px-5 pb-4"><Bars data={[['Jun', 96.4], ['Jul', 94.9], ['Aug', 95.6], ['Sep', 95.2], ['Oct', 95.6]].map(([k, v]) => ({ k, v }))} max={100} ticks={[0, 50, 90]} label={(v) => `${v}%`} ariaLabel="Attendance by month" /></div>
+              <div className="px-5 pb-4"><Bars data={monthBars} max={100} ticks={[0, 50, 90]} label={(v) => `${v}%`} ariaLabel="Attendance by month" /></div>
             </Card>
             <Card>
-              <CardHead title="This week by class group" sub="Goal is 90%" icon={I.CalendarCheck2} />
+              <CardHead title="By class group" sub={`${per.label} · goal is 90%`} icon={I.CalendarCheck2} />
               <div className="px-5 pb-5"><HBars rows={ATT_BY_CLASS} goal={90} lowBelow={90} /></div>
             </Card>
             <Suggestion title="Class 9 fell this week" source="attendance marks for 5 to 9 Oct and the same week last year">
@@ -636,7 +760,10 @@ function ReportsPage() {
                   <li key={c.name} className="flex items-center gap-3 px-3 py-2.5 rounded-xl">
                     <Avatar name={c.name} size={38} />
                     <div className="min-w-0 flex-1"><p className="font-semibold text-[14.5px] truncate">{c.name} <span className="text-ink3 font-normal">· {c.cls}</span></p><p className="text-[12.5px] text-ink3 truncate">{c.pct}% this year · {c.last}</p></div>
-                    <MoreMenu size="sm" label={`Actions for ${c.name}`} items={[['Phone', 'Call the parent', () => toast({ title: `Calling the parent of ${c.name}`, body: 'From the school phone', tone: 'info' })], ['HeartHandshake', 'Tell the counsellor', () => toast({ title: `Sana Ali told about ${c.name}`, body: 'She sees it in Behaviour & Counselling.' })], ['User', 'Open profile', () => { const id = STUDENTS.find((s) => s.name === c.name)?.id; if (id) go('student', { id }); }]]} />
+                    <MoreMenu size="sm" label={`Actions for ${c.name}`} items={[
+                      ...(canEdit ? [['Phone', 'Call the parent', () => toast({ title: `Calling the parent of ${c.name}`, body: 'From the school phone', tone: 'info' })], ['HeartHandshake', 'Tell the counsellor', () => toast({ title: `Sana Ali told about ${c.name}`, body: 'She sees it in Behaviour & Counselling.' })]] : []),
+                      ...(role.access.students ? [['User', 'Open profile', () => { const id = STUDENTS.find((s) => s.name === c.name)?.id; if (id) go('student', { id }); }]] : []),
+                    ]} />
                   </li>
                 ))}
               </ul>
@@ -645,21 +772,23 @@ function ReportsPage() {
               <CardHead title="Below 75% this year" sub="Parent, class teacher and Principal are told once when a student drops below" icon={I.TrendingDown} />
               <div className="px-5 pb-2"><Banner tone="ok" title="Nobody is below 75% right now.">The watch list below is students under 80%.</Banner></div>
               <ul className="px-2 pb-2">
-                {WATCH.map((s) => <li key={s.id}><Row avatar={s.name} title={s.name} sub={`${s.cls} ${s.sec} · Roll ${s.roll}`} right={<span className="font-semibold tnum text-warn">{s.att}%</span>} onClick={() => go('student', { id: s.id })} /></li>)}
+                {WATCH.map((s) => <li key={s.id}><Row avatar={s.name} title={s.name} sub={`${s.cls} ${s.sec} · Roll ${s.roll}`} right={<span className="font-semibold tnum text-warn">{s.att}%</span>} onClick={role.access.students ? () => go('student', { id: s.id }) : undefined} /></li>)}
               </ul>
             </Card>
           </div>
         )}
 
-        {tab === 'staff' && (
+        {tab === 'staff' && n > 0 && (
           <div className="grid @xl:grid-cols-2 gap-5 @lg:gap-6 items-start">
+            {staffOk && (
+              <Card>
+                <CardHead title="Staff late" sub={`Times late · ${per.label} · late after 8:25 AM`} icon={I.Clock} />
+                <div className="px-5 pb-5"><HBars rows={[{ k: 'Deepak Verma', v: 3 }, { k: 'Ramya Krishna', v: 3 }, { k: 'Kavya Sree', v: 2 }, { k: 'Neelima Rao', v: 2 }, { k: 'Vasudha Iyer', v: 2 }, { k: 'Sunil Kumar', v: 1 }].map((x) => ({ ...x, v: scale(x.v) }))} max={Math.max(5, scale(5))} unit="" labelWidth={118} /></div>
+              </Card>
+            )}
             <Card>
-              <CardHead title="Staff late this month" sub="Times late in October · late after 8:25 AM" icon={I.Clock} />
-              <div className="px-5 pb-5"><HBars rows={[{ k: 'Deepak Verma', v: 3 }, { k: 'Ramya Krishna', v: 3 }, { k: 'Kavya Sree', v: 2 }, { k: 'Neelima Rao', v: 2 }, { k: 'Vasudha Iyer', v: 2 }, { k: 'Sunil Kumar', v: 1 }]} max={5} unit="" labelWidth={118} /></div>
-            </Card>
-            <Card>
-              <CardHead title="Students late this month" sub="By class group · late after 8:40 AM" icon={I.Clock} />
-              <div className="px-5 pb-5"><HBars rows={[{ k: 'Nur–UKG', v: 6 }, { k: '1–2', v: 9 }, { k: '3–4', v: 11 }, { k: '5–6', v: 14 }, { k: '7–8', v: 18 }, { k: '9', v: 12 }, { k: '10', v: 8 }]} max={20} unit="" /></div>
+              <CardHead title="Students late" sub={`By class group · ${per.label} · late after 8:40 AM`} icon={I.Clock} />
+              <div className="px-5 pb-5"><HBars rows={[{ k: 'Nur–UKG', v: 6 }, { k: '1–2', v: 9 }, { k: '3–4', v: 11 }, { k: '5–6', v: 14 }, { k: '7–8', v: 18 }, { k: '9', v: 12 }, { k: '10', v: 8 }].map((x) => ({ ...x, v: scale(x.v) }))} max={Math.max(20, scale(20))} unit="" /></div>
             </Card>
           </div>
         )}
@@ -667,32 +796,28 @@ function ReportsPage() {
         <Card>
           <CardHead title="All attendance reports" sub="Each one exports to Excel or PDF with the school name and filters on top" icon={I.FileText} />
           <ul className="px-2 pb-2 grid @lg:grid-cols-2 gap-x-2">
-            {REPORTS.map(([id, t, s, ic]) => (
-              <li key={t}><Row icon={ic} title={t} sub={s} onClick={() => (id ? setTab(id) : setMake(t))} right={<I.ChevronRight size={18} className="text-ink3" />} /></li>
+            {reports.map(([id, t, s2, ic]) => (
+              <li key={t}><Row icon={ic} title={t} sub={s2} onClick={() => (id ? setTab(id) : setMake(t))} right={<I.ChevronRight size={18} className="text-ink3" />} /></li>
             ))}
           </ul>
         </Card>
       </div>
       <FormSheet open={!!make} onClose={() => setMake(null)} title={make || ''} sub="Holidays and Sundays are left out." submitLabel="Make report" busyLabel="Making…"
         onSubmit={() => toast({ title: `Ready: ${make}`, body: 'attendance-report.xlsx · logged in the export log' })}>
-        <MakeReportFields />
+        <MakeReportFields staffOk={staffOk} />
       </FormSheet>
     </div>
   );
 }
 
-function MakeReportFields() {
+function MakeReportFields({ staffOk }) {
   const [who, setWho] = useState('7 B');
-  const [from, setFrom] = useState('01-10-2026');
-  const [to, setTo] = useState('09-10-2026');
+  const [per, setPer] = useState(PERIODS.thismonth);
   const [fmtx, setFmt] = useState('Excel');
   return (
     <>
-      <Field label="Class, section or staff member" id="mr-who" required><Select id="mr-who" value={who} onChange={setWho} options={['Whole school', '7 B', 'Class 7', 'All staff', 'Teaching staff']} /></Field>
-      <div className="grid grid-cols-2 gap-3">
-        <DateField id="mr-from" label="From" required value={from} onChange={setFrom} error={!okDate(from) ? 'Use DD-MM-YYYY' : ''} />
-        <DateField id="mr-to" label="To" required value={to} onChange={setTo} error={!okDate(to) ? 'Use DD-MM-YYYY' : ''} />
-      </div>
+      <Field label={staffOk ? 'Class, section or staff member' : 'Class or section'} id="mr-who" required><Select id="mr-who" value={who} onChange={setWho} options={['Whole school', '7 B', 'Class 7', ...(staffOk ? ['All staff', 'Teaching staff'] : [])]} /></Field>
+      <Field label="Dates" id="mr-per" required hint={`${fmtRange(per)} · ${schoolDaysIn(per).length} school days`}><DatePeriod id="mr-per" value={per} onChange={setPer} className="w-full" /></Field>
       <Field label="Format" id="mr-fmt"><Segmented value={fmtx} onChange={setFmt} options={['Excel', 'CSV', 'PDF']} className="w-full" /></Field>
     </>
   );

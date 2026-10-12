@@ -6,7 +6,7 @@ import { CLASSES, STUDENTS } from './data.js';
 import { STAFF, SUBJECTS, PERIODS } from './sample.js';
 import { cx, Card, CardHead, Button, Pill, Avatar, Checkbox, Input, Field, Segmented, Switch, Sheet, Empty, useToast } from './ui.jsx';
 import { useNav, useRole } from './shell.jsx';
-import { ModuleHead, useCanEdit, Stats, SearchBox, Toolbar, Select, Textarea, Chips, DataList, Row, SettingRow, SettingsCard, Banner, Suggestion, Progress, Legend, DL, Timeline, MoreMenu, FormSheet, ConfirmSheet, Split, Col, ExportButton, TONE_SOFT } from './kit.jsx';
+import { ModuleHead, useCanEdit, usePage, Stats, SearchBox, Toolbar, Select, Textarea, Chips, DataList, Row, SettingRow, SettingsCard, Banner, Suggestion, Progress, Legend, DL, Timeline, MoreMenu, FormSheet, ConfirmSheet, Split, Col, ExportButton, TONE_SOFT } from './kit.jsx';
 
 /* =====================================================================================
    Sample data
@@ -1033,6 +1033,8 @@ function MyWeek() {
   const { role } = useRole();
   const { go } = useNav();
   const toast = useToast();
+  const { pages } = usePage();
+  const hasSubs = pages.some((x) => x.id === 'substitutions');
   const me = ME_T(role.id);
   const t = T_BY[me];
   const wk = weekFor(me);
@@ -1049,8 +1051,8 @@ function MyWeek() {
         </>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
         <Banner tone="brand" icon={I.Repeat} title={`Today you also take ${duty.cls} in period ${duty.p + 1} (${PT(duty.p)}).`}
-          action={<Button size="sm" variant="secondary" onClick={() => go('academic', { page: 'substitutions' })}>See details</Button>}>
-          {duty.subj}, for {duty.away} ({duty.why}).
+          action={hasSubs && <Button size="sm" variant="secondary" onClick={() => go('academic', { page: 'substitutions' })}>See details</Button>}>
+          {duty.subj}, for {duty.away} ({duty.why}).{!hasSubs && ` ${duty.room}. Note from ${duty.away.split(' ')[0]}: ${duty.note}`}
         </Banner>
         <Stats items={[
           { label: 'Now', value: now ? `${now.cls} · ${short(now.subj)}` : 'Free', sub: `Period ${NOW_P + 1} · until 11:15`, icon: 'Clock', tone: 'brand' },
@@ -1096,6 +1098,8 @@ function SchoolTimeTable({ access }) {
   const canEdit = useCanEdit();
   const full = access === 'full' && canEdit;
   const office = role.id === 'officestaff';
+  // Office Staff keep the time table (change a period, print) but do not make or publish a new one
+  const keep = full || (office && canEdit);
   const [view, setView] = useState('class');
   const [sec, setSec] = useState('7 B');
   const [teacher, setTeacher] = useState('Imran Shaikh');
@@ -1125,9 +1129,9 @@ function SchoolTimeTable({ access }) {
   const classCell = (d, p) => {
     const code = codeAt(sec, d, p);
     const now = !isDraft && d === TODAY_D && p === NOW_P;
-    const open = full ? () => setEdit({ d, p, code }) : undefined;
+    const open = keep ? () => setEdit({ d, p, code }) : undefined;
     if (code === 'OFF') return <Cell free title="Home time" />;
-    if (code === 'X') return <Cell free title={full ? 'Empty · add' : 'Empty'} onClick={open} label={`${DAYS_FULL[d]} period ${p + 1}: empty`} />;
+    if (code === 'X') return <Cell free title={keep ? 'Empty · add' : 'Empty'} onClick={open} label={`${DAYS_FULL[d]} period ${p + 1}: empty`} />;
     if (code === 'BRK') return <Cell title="Break" sub="Marked as a break" tone="neutral" onClick={open} />;
     const s = subjName(code);
     const tn = teacherOf(sec, s);
@@ -1163,9 +1167,9 @@ function SchoolTimeTable({ access }) {
 
   return (
     <div>
-      <ModuleHead sub={office ? 'Read-only. Use it to arrange substitutions for the school.' : access === 'view' ? 'View only · published time tables, Monday to Saturday, 8 periods a day' : 'Published from 15 Jun 2026 · Monday to Saturday · 8 periods a day'}
-        actions={full && <>
-          <Button variant="secondary" icon={I.Upload} className="hidden @md:inline-flex" onClick={() => toast({ title: 'Import a time table from Excel', body: 'Pick the filled weekly grids. Teacher and subject names are matched and clashes listed before anything is replaced.', tone: 'info' })}>Import</Button>
+      <ModuleHead sub={office ? 'You keep the time table: tap a period to change it. A new term’s time table is made and published by the Academic Head.' : access === 'view' ? 'View only · published time tables, Monday to Saturday, 8 periods a day' : 'Published from 15 Jun 2026 · Monday to Saturday · 8 periods a day'}
+        actions={keep && <>
+          {full && <Button variant="secondary" icon={I.Upload} className="hidden @md:inline-flex" onClick={() => toast({ title: 'Import a time table from Excel', body: 'Pick the filled weekly grids. Teacher and subject names are matched and clashes listed before anything is replaced.', tone: 'info' })}>Import</Button>}
           <Button variant="secondary" icon={I.Printer} onClick={() => toast({ title: `Sent to the office printer: ${view === 'teacher' ? teacher : sec}`, body: 'One page per time table, with the legend and the date printed.', tone: 'info' })}>Print</Button>
         </>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
@@ -1212,7 +1216,7 @@ function SchoolTimeTable({ access }) {
             <>
               <div className="px-4 @md:px-5 pb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-ink3">
                 <span>Class teacher <b className="font-semibold text-ink2">{SEC[sec].ct || 'not set'}</b></span><span>·</span><span>{SEC[sec].room}</span><span>·</span><span>{SEC[sec].students} students</span>
-                {full && !isDraft && <span className="@md:ml-auto">Tap a period to change it</span>}
+                {keep && !isDraft && <span className="@md:ml-auto">Tap a period to change it</span>}
               </div>
               <WeekGrid cell={classCell} showToday={!isDraft} />
             </>
@@ -1464,7 +1468,8 @@ function ArrangeSubs({ access }) {
   const toast = useToast();
   const { role } = useRole();
   const canEdit = useCanEdit();
-  const can = canEdit && (access === 'full' || role.id === 'officestaff');
+  const office = role.id === 'officestaff';
+  const can = canEdit && (access === 'full' || office);
   const [rows, setRows] = useState(SUB0);
   const [swapna, setSwapna] = useState(false);
   const [day, setDay] = useState('fri');
@@ -1508,7 +1513,7 @@ function ArrangeSubs({ access }) {
         )}
         {day === 'fri' && !swapna && swFirst && (
           <Banner tone="warn" icon={I.Clock} title="Swapna Reddy has not come in yet."
-            action={can && <div className="flex gap-2 shrink-0"><Button size="sm" variant="ghost" onClick={() => toast({ title: 'Calling Swapna Reddy', body: '93470 55826', tone: 'info' })}>Call</Button><Button size="sm" variant="secondary" onClick={() => setMarkOpen(true)}>Mark absent</Button></div>}>
+            action={can && <div className="flex gap-2 shrink-0"><Button size="sm" variant="ghost" onClick={() => toast({ title: 'Calling Swapna Reddy', body: '93470 55826', tone: 'info' })}>Call</Button><Button size="sm" variant="secondary" onClick={() => setMarkOpen(true)}>{office ? 'Cover her periods' : 'Mark absent'}</Button></div>}>
             No punch by 10:42 AM. Her first period today is {swFirst.cls} at {PT(swFirst.p).split('–')[0]} (period {swFirst.p + 1}).
           </Banner>
         )}
@@ -1557,7 +1562,7 @@ function ArrangeSubs({ access }) {
               <CardHead title="Away today" icon={I.UserX} />
               <ul className="px-2 pb-2">
                 {Object.entries(AWAY).map(([n, a]) => <li key={n}><Row avatar={n} title={n} sub={`${a.why} · ${a.note}`} /></li>)}
-                {swapna && <li><Row avatar="Swapna Reddy" title="Swapna Reddy" sub={`Marked absent at 10:44 AM by ${role.person.name}`} /></li>}
+                {swapna && <li><Row avatar="Swapna Reddy" title="Swapna Reddy" sub={office ? `Not in · periods raised at 10:44 AM by ${role.person.name}` : `Marked absent at 10:44 AM by ${role.person.name}`} /></li>}
               </ul>
             </Card>
             <Card>
@@ -1576,9 +1581,9 @@ function ArrangeSubs({ access }) {
 
       <AssignSubSheet a={assign} rows={day === 'fri' ? rows : future[day]} away={away} onClose={() => setAssign(null)}
         onSave={(ids, sub, label) => { update(ids, sub); setAssign(null); toast({ title: `${sub} takes ${label}`, body: `${sub} and the class teacher are told on the app. It shows on ${sub.split(' ')[0]}’s home screen.` }); }} />
-      <ConfirmSheet open={markOpen} onClose={() => setMarkOpen(false)} title="Mark Swapna Reddy absent today?" confirmLabel={`Mark absent and raise ${swRows.length} periods`}
-        onConfirm={() => { setSwapna(true); setRows((r) => [...r, ...swRows]); toast({ title: `Swapna Reddy marked absent · ${swRows.length} periods to cover`, body: 'Recorded in Staff Attendance. HR can change it with a reason.' }); }}>
-        <p className="text-[14px] text-ink2">Her periods from now on are added to the list: {swRows.map((r) => `${r.cls} at ${PT(r.p).split('–')[0]}`).join(' and ')}. If she comes in, HR can correct it in Staff Attendance.</p>
+      <ConfirmSheet open={markOpen} onClose={() => setMarkOpen(false)} title={office ? 'Cover Swapna Reddy’s periods today?' : 'Mark Swapna Reddy absent today?'} confirmLabel={office ? `Raise ${swRows.length} periods` : `Mark absent and raise ${swRows.length} periods`}
+        onConfirm={() => { setSwapna(true); setRows((r) => [...r, ...swRows]); toast(office ? { title: `${swRows.length} periods to cover for Swapna Reddy`, body: 'HR is told she has not come in. Her attendance is theirs to mark.' } : { title: `Swapna Reddy marked absent · ${swRows.length} periods to cover`, body: 'Recorded in Staff Attendance. HR can change it with a reason.' }); }}>
+        <p className="text-[14px] text-ink2">Her periods from now on are added to the list: {swRows.map((r) => `${r.cls} at ${PT(r.p).split('–')[0]}`).join(' and ')}. {office ? 'Her attendance is not changed here; HR marks it in Staff Attendance.' : 'If she comes in, HR can correct it in Staff Attendance.'}</p>
       </ConfirmSheet>
       <TempTeacherSheet open={temp} onClose={() => setTemp(false)} />
     </div>

@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import * as I from './icons.js';
 import { CLASS_7B } from './data.js';
-import { cx, Card, Button, Pill, Avatar, Tabs, Sheet, PageHead, useToast } from './ui.jsx';
-import { ModuleHead } from './kit.jsx';
+import { cx, Card, CardHead, Button, Pill, Avatar, Sheet, Empty, useToast } from './ui.jsx';
+import { ModuleHead, Legend, CalendarMonth, MONTH_NAMES, MARK_TONE, schoolDay, sampleMark } from './kit.jsx';
 import { useRole } from './shell.jsx';
 
 const ST = {
@@ -142,49 +142,148 @@ function NoteSheet({ s, onClose, onSave }) {
   );
 }
 
-function Register() {
-  const days = Array.from({ length: 9 }, (_, i) => i + 1).filter((d) => new Date(2026, 9, d).getDay() !== 0);
-  const mark = (s, d) => {
-    if (d === 2) return 'H';
-    const h = (s.roll * 7 + d * 13) % 41;
-    if (s.roll === 23 && d >= 8) return 'V';
-    return h === 3 ? 'A' : h === 11 ? 'L' : 'P';
-  };
-  const C = { P: 'bg-ok/15 text-ok', A: 'bg-bad text-surface', L: 'bg-warn/20 text-warn', H: 'bg-info/10 text-info', V: 'bg-info/15 text-info' };
+// Months the register can show: June 2025 (last school year) to this month
+const REG_MONTHS = [];
+for (let k = 2026 * 12 + 9; k >= 2025 * 12 + 5; k--) REG_MONTHS.push({ value: String(k), label: `${MONTH_NAMES[k % 12]} ${Math.floor(k / 12)}` });
+const KIND_CODE = { present: 'P', absent: 'A', late: 'L', leave: 'V', holiday: 'H' };
+const CODE_KIND = { P: 'present', A: 'absent', L: 'late', V: 'leave', H: 'holiday' };
+// October 2026 keeps the hand-made marks; other months come from the shared example helper
+const octMark = (s, d) => {
+  if (d === 2) return 'H';
+  const h = (s.roll * 7 + d * 13) % 41;
+  if (s.roll === 23 && d >= 8) return 'V';
+  return h === 3 ? 'A' : h === 11 ? 'L' : 'P';
+};
+const regMark = (s, y, m, d) => {
+  if (y === 2026 && m === 9) { const k = schoolDay(y, m, d).kind; return k === 'school' || k === 'holiday' ? octMark(s, d) : null; }
+  return KIND_CODE[sampleMark(s.id, y, m, d).kind] || null;
+};
+const regDays = (y, m) => {
+  const last = new Date(y, m + 1, 0).getDate();
+  return Array.from({ length: last }, (_, i) => i + 1).filter((d) => ['school', 'holiday'].includes(schoolDay(y, m, d).kind));
+};
+const studentCell = (s) => (y, m, d) => {
+  const sd = schoolDay(y, m, d);
+  if (sd.kind !== 'school' && sd.kind !== 'holiday') return { ...MARK_TONE[sd.kind], title: sd.title };
+  const k = CODE_KIND[regMark(s, y, m, d)];
+  return { ...MARK_TONE[k], title: k === 'holiday' ? sd.title : { present: 'Present', absent: 'Absent', late: 'Late', leave: 'On leave' }[k] };
+};
+const studentTotals = (s, y, m) => {
+  const t = { present: 0, absent: 0, late: 0, leave: 0, school: 0 };
+  regDays(y, m).forEach((d) => { const k = CODE_KIND[regMark(s, y, m, d)]; if (k in t) { t[k]++; t.school++; } });
+  t.pct = t.school ? Math.round(((t.present + t.late) / t.school) * 1000) / 10 : 0;
+  return t;
+};
+const MarkLegend = () => <Legend items={[['bg-ok/15', 'Present'], ['bg-bad/15', 'Absent'], ['bg-warn/15', 'Late'], ['bg-info/10', 'Leave or holiday']]} />;
+function Totals({ t }) {
   return (
-    <Card className="overflow-hidden">
-      <div className="flex items-center justify-between gap-3 px-5 py-4 flex-wrap">
-        <div><h3 className="font-semibold">October 2026</h3><p className="text-[13px] text-ink3">Class 7 B · 38 students · 7 school days so far</p></div>
-        <div className="flex gap-3 text-[12px] text-ink2 flex-wrap">
-          {[['P', 'Present'], ['A', 'Absent'], ['L', 'Late'], ['V', 'Leave'], ['H', 'Holiday']].map(([k, l]) => <span key={k} className="flex items-center gap-1.5"><span className={cx('w-4 h-4 rounded grid place-items-center text-[9px] font-bold', C[k])}>{k === 'V' ? 'Lv' : k}</span>{l}</span>)}
+    <div className="grid grid-cols-4 gap-2">
+      {[['Present', t.present + t.late], ['Absent', t.absent], ['Late', t.late], ['Leave', t.leave]].map(([k, v]) => (
+        <div key={k} className="rounded-xl bg-sunken/70 px-3 py-2.5"><p className="font-display text-[20px] font-semibold tnum leading-none">{v}</p><p className="text-[12px] text-ink3 font-semibold mt-1">{k}</p></div>
+      ))}
+    </div>
+  );
+}
+
+function Register() {
+  const [k, setK] = useState(String(2026 * 12 + 9));
+  const [stu, setStu] = useState(null);
+  const y = Math.floor(Number(k) / 12), m = Number(k) % 12;
+  const isOct = y === 2026 && m === 9;
+  const days = regDays(y, m);
+  const school = days.filter((d) => schoolDay(y, m, d).kind === 'school').length;
+  const step = (n) => setK(String(Math.min(2026 * 12 + 9, Math.max(2025 * 12 + 5, Number(k) + n))));
+  const C = { P: 'bg-ok/15 text-ok', A: 'bg-bad text-surface', L: 'bg-warn/20 text-warn', H: 'bg-info/10 text-info', V: 'bg-info/15 text-info' };
+  const dayCell = (yy, mm, d) => {
+    const sd = schoolDay(yy, mm, d);
+    if (sd.kind !== 'school') return { ...MARK_TONE[sd.kind], title: sd.title };
+    const ms = CLASS_7B.map((s) => regMark(s, yy, mm, d));
+    const pr = ms.filter((x) => x === 'P' || x === 'L').length;
+    const pct = Math.round((pr / CLASS_7B.length) * 1000) / 10;
+    return { tone: pct >= 92 ? 'ok' : pct >= 85 ? 'warn' : 'bad', title: `${pr} of ${CLASS_7B.length} present · ${pct}%` };
+  };
+  const monthPct = (yy, mm) => {
+    const ds = regDays(yy, mm).filter((d) => schoolDay(yy, mm, d).kind === 'school');
+    if (!ds.length) return null;
+    let pr = 0; ds.forEach((d) => CLASS_7B.forEach((s) => { const x = regMark(s, yy, mm, d); if (x === 'P' || x === 'L') pr++; }));
+    return { n: ds.length, pct: Math.round((pr / (ds.length * CLASS_7B.length)) * 1000) / 10 };
+  };
+  return (
+    <div className="flex flex-col gap-5 @lg:gap-6">
+      <Card className="overflow-hidden">
+        <div className="flex flex-col @lg:flex-row @lg:items-center justify-between gap-3 px-5 py-4">
+          <div className="min-w-0">
+            <h3 className="font-semibold">{MONTH_NAMES[m]} {y}</h3>
+            <p className="text-[13px] text-ink3">Class 7 B · 38 students · {school} school {school === 1 ? 'day' : 'days'}{isOct ? ' so far' : ''} · tap a name for the month calendar</p>
+          </div>
+          <div className="flex items-center gap-2 w-full @lg:w-72">
+            <Button variant="secondary" size="sm" icon={I.ChevronLeft} aria-label="Earlier month" disabled={Number(k) <= 2025 * 12 + 5} onClick={() => step(-1)} className="!px-2.5 shrink-0" />
+            <label htmlFor="reg-month" className="sr-only">Month</label>
+            <div className="relative flex-1 min-w-0">
+              <select id="reg-month" value={k} onChange={(e) => setK(e.target.value)} className="appearance-none w-full h-9 pl-3 pr-8 rounded-xl bg-sunken/70 hover:bg-sunken text-[14px] font-semibold text-center outline-none cursor-pointer">
+                {REG_MONTHS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+              <I.ChevronDown size={15} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink3 pointer-events-none" />
+            </div>
+            <Button variant="secondary" size="sm" icon={I.ChevronRight} aria-label="Later month" disabled={isOct} onClick={() => step(1)} className="!px-2.5 shrink-0" />
+          </div>
         </div>
-      </div>
-      <div className="overflow-x-auto scroll-thin">
-        <table className="text-[13px] min-w-full">
-          <thead>
-            <tr className="border-y border-line text-ink3">
-              <th className="sticky left-0 bg-surface text-left font-semibold px-4 py-2 min-w-[180px]">Student</th>
-              {days.map((d) => <th key={d} className="font-semibold px-1 py-2 w-10 tnum">{d}<span className="block text-[10px] font-medium">{['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'][new Date(2026, 9, d).getDay()]}</span></th>)}
-              <th className="font-semibold px-4 py-2 text-right">%</th>
-            </tr>
-          </thead>
-          <tbody>
-            {CLASS_7B.map((s) => {
-              const m = days.map((d) => mark(s, d));
-              const sch = m.filter((x) => x !== 'H').length;
-              const pr = m.filter((x) => x === 'P' || x === 'L').length;
-              const pct = Math.round((pr / sch) * 100);
-              return (
-                <tr key={s.id} className="border-b border-line/60 last:border-0">
-                  <td className="sticky left-0 bg-surface px-4 py-1.5 font-medium whitespace-nowrap"><span className="text-ink3 tnum mr-2 inline-block w-5">{s.roll}</span>{s.name}</td>
-                  {m.map((x, i) => <td key={i} className="px-1 py-1.5 text-center"><span className={cx('inline-grid place-items-center w-7 h-7 rounded-md text-[10.5px] font-bold', C[x])}>{x === 'V' ? 'Lv' : x}</span></td>)}
-                  <td className={cx('px-4 text-right font-semibold tnum', pct < 85 && 'text-warn')}>{pct}%</td>
+        <div className="flex gap-3 text-[12px] text-ink2 flex-wrap px-5 pb-3">
+          {[['P', 'Present'], ['A', 'Absent'], ['L', 'Late'], ['V', 'Leave'], ['H', 'Holiday']].map(([x, l]) => <span key={x} className="flex items-center gap-1.5"><span className={cx('w-4 h-4 rounded grid place-items-center text-[9px] font-bold', C[x])}>{x === 'V' ? 'Lv' : x}</span>{l}</span>)}
+        </div>
+        {days.length === 0 ? (
+          <Empty icon={I.CalendarX2} title={`No school days in ${MONTH_NAMES[m]} ${y}`} body={m === 4 || m === 3 ? 'Summer holidays. Pick another month.' : 'Pick another month.'} />
+        ) : (
+          <div className="overflow-x-auto scroll-thin">
+            <table className="text-[13px] min-w-full">
+              <thead>
+                <tr className="border-y border-line text-ink3">
+                  <th className="sticky left-0 bg-surface text-left font-semibold px-4 py-2 min-w-[180px]">Student</th>
+                  {days.map((d) => <th key={d} className="font-semibold px-1 py-2 w-10 tnum">{d}<span className="block text-[10px] font-medium">{['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'][new Date(y, m, d).getDay()]}</span></th>)}
+                  <th className="font-semibold px-4 py-2 text-right">%</th>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </Card>
+              </thead>
+              <tbody>
+                {CLASS_7B.map((s) => {
+                  const ms = days.map((d) => regMark(s, y, m, d));
+                  const sch = ms.filter((x) => x !== 'H').length;
+                  const pr = ms.filter((x) => x === 'P' || x === 'L').length;
+                  const pct = sch ? Math.round((pr / sch) * 100) : 0;
+                  return (
+                    <tr key={s.id} className="border-b border-line/60 last:border-0">
+                      <td className="sticky left-0 bg-surface px-4 py-1.5 font-medium whitespace-nowrap">
+                        <button type="button" onClick={() => setStu(s)} className="hover:text-brand text-left"><span className="text-ink3 tnum mr-2 inline-block w-5">{s.roll}</span>{s.name}</button>
+                      </td>
+                      {ms.map((x, i) => <td key={i} className="px-1 py-1.5 text-center"><span className={cx('inline-grid place-items-center w-7 h-7 rounded-md text-[10.5px] font-bold', C[x])}>{x === 'V' ? 'Lv' : x}</span></td>)}
+                      <td className={cx('px-4 text-right font-semibold tnum', sch && pct < 85 && 'text-warn')}>{sch ? `${pct}%` : '—'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      <Card className="max-w-xl">
+        <CardHead title="Class 7 B, day by day" sub="Share of the class present each school day" icon={I.CalendarDays} />
+        <div className="px-5 pb-5 flex flex-col gap-3">
+          <CalendarMonth id="reg-sec-cal" compact cell={dayCell}
+            footer={(yy, mm) => { const t = monthPct(yy, mm); return <p className="text-[13px] text-ink2">{t ? <><b className="font-semibold text-ink tnum">{t.pct}%</b> present on average · {t.n} school days</> : 'No school days this month.'}</p>; }} />
+          <Legend items={[['bg-ok/15', '92% or more'], ['bg-warn/15', '85% to 92%'], ['bg-bad/15', 'Below 85%'], ['bg-info/10', 'Holiday']]} />
+        </div>
+      </Card>
+
+      <Sheet open={!!stu} onClose={() => setStu(null)} title={stu?.name || ''} sub={stu ? `Class 7 B · Roll ${stu.roll}` : ''}
+        footer={<Button variant="ghost" onClick={() => setStu(null)}>Close</Button>}>
+        {stu && (
+          <div className="flex flex-col gap-4">
+            <CalendarMonth key={stu.id + k} id="reg-stu-cal" compact start={[y, m]} cell={studentCell(stu)}
+              footer={(yy, mm) => { const t = studentTotals(stu, yy, mm); return <div className="flex flex-col gap-3"><Totals t={t} /><p className="text-[12.5px] text-ink3">{t.school ? `${t.pct}% in ${MONTH_NAMES[mm]} · ${t.school} school days. Sundays and holidays are not counted.` : 'No school days this month.'}</p></div>; }} />
+            <MarkLegend />
+          </div>
+        )}
+      </Sheet>
+    </div>
   );
 }

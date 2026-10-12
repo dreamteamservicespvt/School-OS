@@ -4,6 +4,7 @@ import { PARENT, SCHOOL, OCT_ATT, FEE_ROWS, inr } from './data.js';
 import { cx, Button, Pill, Avatar, Sheet, useToast, Spinner } from './ui.jsx';
 import { useNav } from './shell.jsx';
 import { ConsentCard } from './apps.jsx';
+import { CalendarMonth, markCell, monthTotals, MONTH_NAMES } from './kit.jsx';
 
 export function ParentLink() {
   const { go } = useNav();
@@ -15,7 +16,7 @@ export function ParentLink() {
           <h1 className="font-display text-[30px] font-semibold leading-tight tracking-tight">What a parent sees on their phone</h1>
           <p className="text-[15px] text-ink2 leading-relaxed">Each parent gets one personal link on WhatsApp. No app and no password. The first time, a one-time code confirms it is really them.</p>
           <ul className="text-[14px] text-ink2 flex flex-col gap-2">
-            {['Fees due, with a Pay button', 'Receipts to download', 'Attendance this month', 'Notices, datesheet and report cards'].map((x) => <li key={x} className="flex gap-2"><I.Check size={17} className="text-brand shrink-0 mt-0.5" />{x}</li>)}
+            {['Fees due, with a Pay button', 'Receipts to download', 'Attendance this month, and earlier months this school year', 'Notices, datesheet and report cards'].map((x) => <li key={x} className="flex gap-2"><I.Check size={17} className="text-brand shrink-0 mt-0.5" />{x}</li>)}
           </ul>
           <Button variant="secondary" icon={I.ArrowLeft} className="self-start mt-2" onClick={() => go('dashboard')}>Back to School OS</Button>
         </aside>
@@ -38,7 +39,6 @@ function ParentPage() {
   const c = PARENT.children.find((x) => x.id === child);
   const due = paid && c.id === 'c1' ? 0 : c.due;
   const rows = FEE_ROWS.filter((r) => r.status === 'Overdue' || r.status === 'Due');
-  const lead = (new Date(2026, 9, 1).getDay() + 6) % 7;
   const crit = PARENT.notices.find((n) => n.critical);
 
   return (
@@ -107,21 +107,18 @@ function ParentPage() {
           )}
         </section>
 
-        {/* Attendance */}
+        {/* Attendance: this month, and earlier months of this school year */}
         <section className="rounded-3xl bg-surface border border-line shadow-card p-5">
-          <div className="flex items-center justify-between">
-            <div><p className="font-semibold text-[15px]">Attendance in October</p><p className="text-[13px] text-ink3">{c.present} of {c.days} school days present</p></div>
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <p className="font-semibold text-[15px]">Attendance</p>
             <Pill tone="ok">{c.att}% this year</Pill>
           </div>
-          <div className="grid grid-cols-7 gap-1 mt-4 text-center">
-            {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => <span key={i} className="text-[11px] font-semibold text-ink3">{d}</span>)}
-            {Array.from({ length: lead }).map((_, i) => <span key={'b' + i} />)}
-            {OCT_ATT.map((d) => (
-              <span key={d.d} className={cx('aspect-square rounded-lg grid place-items-center text-[12px] font-semibold tnum',
-                { P: 'bg-ok/15 text-ok', L: 'bg-warn/15 text-warn', H: 'bg-info/10 text-info', W: 'text-ink3/50', F: 'text-ink3/50', A: 'bg-bad/15 text-bad' }[c.id === 'c2' && d.s === 'L' ? 'P' : d.s])}>{d.d}</span>
-            ))}
-          </div>
-          <p className="text-[12px] text-ink3 mt-3">2 Oct: Gandhi Jayanti holiday{c.id === 'c1' ? ' · 6 Oct: late by 10 minutes' : ''}</p>
+          <CalendarMonth key={child} id={`pl-att-${child}`} compact from={[2026, 5]} cell={attCell(c)} footer={(y, m) => {
+            if (y === 2026 && m === 9) return <><p className="text-[13px] text-ink2"><b className="font-semibold text-ink">{c.present} of {c.days}</b> school days present so far</p><p className="text-[12px] text-ink3 mt-1">2 Oct: Gandhi Jayanti holiday{c.id === 'c1' ? ' · 6 Oct: late by 10 minutes' : ''}</p></>;
+            const t = monthTotals(c.id, y, m);
+            if (!t.school) return <p className="text-[13px] text-ink3">No school days in {MONTH_NAMES[m]}.</p>;
+            return <><p className="text-[13px] text-ink2"><b className="font-semibold text-ink">{t.present + t.late} of {t.school}</b> school days present in {MONTH_NAMES[m]}</p><p className="text-[12px] text-ink3 mt-1">{[t.absent && `${t.absent} absent`, t.late && `${t.late} late`, t.leave && `${t.leave} on leave`].filter(Boolean).join(' · ') || 'Present every school day'}</p></>;
+          }} />
         </section>
 
         {/* Datesheet */}
@@ -178,6 +175,14 @@ function ParentPage() {
     </div>
   );
 }
+
+// October 2026 keeps the school's real marks; earlier months come from the example helper
+const OCT_TONE = { P: { tone: 'ok', title: 'Present' }, L: { tone: 'warn', title: 'Late' }, H: { tone: 'info', title: 'Holiday' }, W: { tone: 'muted', title: 'Sunday' }, F: { tone: 'muted' }, A: { tone: 'bad', title: 'Absent' } };
+const attCell = (c) => { const other = markCell(c.id); return (y, m, d) => {
+  if (y !== 2026 || m !== 9) return other(y, m, d);
+  const x = OCT_ATT[d - 1];
+  return OCT_TONE[c.id === 'c2' && x.s === 'L' ? 'P' : x.s];
+}; };
 
 function PaySheet({ open, amount, onClose, onPaid }) {
   const [m, setM] = useState('upi');

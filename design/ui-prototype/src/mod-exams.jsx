@@ -7,7 +7,8 @@ import { cx, Card, CardHead, Button, Pill, Avatar, Field, Input, inputCls, Segme
 import { useNav, useRole, Logo } from './shell.jsx';
 import {
   ModuleHead, useCanEdit, Stats, Band, SearchBox, Toolbar, Select, Textarea, Chips, DataList, BulkBar, SettingsCard, Banner,
-  Suggestion, Progress, HBars, Bars, Legend, DL, Timeline, MoreMenu, FormSheet, ConfirmSheet, MonthGrid, Split, Col, ExportButton, TONE_SOFT,
+  Suggestion, Progress, HBars, Bars, Legend, DL, Timeline, MoreMenu, FormSheet, ConfirmSheet, Split, Col, ExportButton, TONE_SOFT,
+  DatePeriod, PERIODS, fmtRange, CalendarMonth,
 } from './kit.jsx';
 
 /* =====================================================================
@@ -63,14 +64,14 @@ const INVIG = ['Rekha Nair', 'Harish Goud', 'Usha Rani', 'Pavan Kumar', 'Madhavi
 const invigOf = (sec, dayIdx) => INVIG[(ALL_SECS.indexOf(sec) * 5 + dayIdx * 3) % INVIG.length];
 
 const DATESHEETS = [
-  { id: 'hy-610', title: 'Half Yearly', type: 'Half Yearly', classes: 'Classes 6–10', lv: [6, 7, 8, 9, 10], secs: ALL_SECS, from: 'Mon 12 Oct', to: 'Tue 27 Oct', students: HY_STUDENTS, subjects: 6, status: 'Published', term: 'Term 1', pattern: 'Percentage', note: 'Published 2 Oct by Prakash Joshi', extra: '418 of 454 admit cards printed' },
-  { id: 'cp-10', title: 'Computer Practical', type: 'Practical', classes: 'Class 10', lv: [10], secs: ['10 A', '10 B', '10 C'], from: 'Thu 8 Oct', to: 'Fri 9 Oct', students: 108, subjects: 1, status: 'Ongoing', term: 'Term 1', pattern: 'Percentage', note: 'Batch 3 of 4 in the computer lab now', extra: 'Karthik Menon is the examiner' },
-  { id: 'hy-15', title: 'Half Yearly', type: 'Half Yearly', classes: 'Classes 1–5', lv: [1, 2, 3, 4, 5], secs: [], from: 'Tue 27 Oct', to: 'Fri 30 Oct', students: 412, subjects: 5, status: 'Draft', term: 'Term 1', pattern: 'Grading', note: 'Saved 6 Oct by Naveen Kumar', extra: 'Rooms and invigilators not set yet' },
-  { id: 'pb1-10', title: 'Pre-board 1', type: 'Pre-final', classes: 'Class 10', lv: [10], secs: [], from: 'Mon 7 Dec', to: 'Fri 18 Dec', students: 108, subjects: 6, status: 'Draft', term: 'Term 2', pattern: 'Percentage', note: 'Saved 30 Sep by Prakash Joshi', extra: '2 subjects have no date yet' },
-  { id: 'ut2-610', title: 'Unit Test 2', type: 'Unit Test 2', classes: 'Classes 6–10', lv: [6, 7, 8, 9, 10], secs: ALL_SECS, from: 'Mon 21 Sep', to: 'Fri 25 Sep', students: 452, subjects: 6, status: 'Completed', term: 'Term 1', pattern: 'Percentage', note: 'Classes 6–8 results published 28 Sep', extra: 'Classes 9–10 waiting for the Principal' },
-  { id: 'ut2-15', title: 'Unit Test 2', type: 'Unit Test 2', classes: 'Classes 1–5', lv: [1, 2, 3, 4, 5], secs: [], from: 'Tue 22 Sep', to: 'Thu 24 Sep', students: 410, subjects: 5, status: 'Results published', term: 'Term 1', pattern: 'Grading', note: 'Results published 29 Sep', extra: 'Report cards on Parent Link' },
-  { id: 'ut1-610', title: 'Unit Test 1', type: 'Unit Test 1', classes: 'Classes 6–10', lv: [6, 7, 8, 9, 10], secs: ALL_SECS, from: 'Mon 20 Jul', to: 'Fri 24 Jul', students: 451, subjects: 6, status: 'Results published', term: 'Term 1', pattern: 'Percentage', note: 'Results published 31 Jul', extra: 'Report cards on Parent Link' },
-  { id: 'ut1-15', title: 'Unit Test 1', type: 'Unit Test 1', classes: 'Classes 1–5', lv: [1, 2, 3, 4, 5], secs: [], from: 'Tue 21 Jul', to: 'Thu 23 Jul', students: 408, subjects: 5, status: 'Results published', term: 'Term 1', pattern: 'Grading', note: 'Results published 30 Jul', extra: 'Report cards on Parent Link' },
+  { id: 'hy-610', f: '2026-10-12', t: '2026-10-27', title: 'Half Yearly', type: 'Half Yearly', classes: 'Classes 6–10', lv: [6, 7, 8, 9, 10], secs: ALL_SECS, from: 'Mon 12 Oct', to: 'Tue 27 Oct', students: HY_STUDENTS, subjects: 6, status: 'Published', term: 'Term 1', pattern: 'Percentage', note: 'Published 2 Oct by Prakash Joshi', extra: '418 of 454 admit cards printed' },
+  { id: 'cp-10', f: '2026-10-08', t: '2026-10-09', title: 'Computer Practical', type: 'Practical', classes: 'Class 10', lv: [10], secs: ['10 A', '10 B', '10 C'], from: 'Thu 8 Oct', to: 'Fri 9 Oct', students: 108, subjects: 1, status: 'Ongoing', term: 'Term 1', pattern: 'Percentage', note: 'Batch 3 of 4 in the computer lab now', extra: 'Karthik Menon is the examiner' },
+  { id: 'hy-15', f: '2026-10-27', t: '2026-10-30', title: 'Half Yearly', type: 'Half Yearly', classes: 'Classes 1–5', lv: [1, 2, 3, 4, 5], secs: [], from: 'Tue 27 Oct', to: 'Fri 30 Oct', students: 412, subjects: 5, status: 'Draft', term: 'Term 1', pattern: 'Grading', note: 'Saved 6 Oct by Naveen Kumar', extra: 'Rooms and invigilators not set yet' },
+  { id: 'pb1-10', f: '2026-12-07', t: '2026-12-18', title: 'Pre-board 1', type: 'Pre-final', classes: 'Class 10', lv: [10], secs: [], from: 'Mon 7 Dec', to: 'Fri 18 Dec', students: 108, subjects: 6, status: 'Draft', term: 'Term 2', pattern: 'Percentage', note: 'Saved 30 Sep by Prakash Joshi', extra: '2 subjects have no date yet' },
+  { id: 'ut2-610', f: '2026-09-21', t: '2026-09-25', title: 'Unit Test 2', type: 'Unit Test 2', classes: 'Classes 6–10', lv: [6, 7, 8, 9, 10], secs: ALL_SECS, from: 'Mon 21 Sep', to: 'Fri 25 Sep', students: 452, subjects: 6, status: 'Completed', term: 'Term 1', pattern: 'Percentage', note: 'Classes 6–8 results published 28 Sep', extra: 'Classes 9–10 waiting for the Principal' },
+  { id: 'ut2-15', f: '2026-09-22', t: '2026-09-24', title: 'Unit Test 2', type: 'Unit Test 2', classes: 'Classes 1–5', lv: [1, 2, 3, 4, 5], secs: [], from: 'Tue 22 Sep', to: 'Thu 24 Sep', students: 410, subjects: 5, status: 'Results published', term: 'Term 1', pattern: 'Grading', note: 'Results published 29 Sep', extra: 'Report cards on Parent Link' },
+  { id: 'ut1-610', f: '2026-07-20', t: '2026-07-24', title: 'Unit Test 1', type: 'Unit Test 1', classes: 'Classes 6–10', lv: [6, 7, 8, 9, 10], secs: ALL_SECS, from: 'Mon 20 Jul', to: 'Fri 24 Jul', students: 451, subjects: 6, status: 'Results published', term: 'Term 1', pattern: 'Percentage', note: 'Results published 31 Jul', extra: 'Report cards on Parent Link' },
+  { id: 'ut1-15', f: '2026-07-21', t: '2026-07-23', title: 'Unit Test 1', type: 'Unit Test 1', classes: 'Classes 1–5', lv: [1, 2, 3, 4, 5], secs: [], from: 'Tue 21 Jul', to: 'Thu 23 Jul', students: 408, subjects: 5, status: 'Results published', term: 'Term 1', pattern: 'Grading', note: 'Results published 30 Jul', extra: 'Report cards on Parent Link' },
 ];
 const PRIMARY5 = ['English', 'Mathematics', 'EVS', 'Telugu', 'Hindi'];
 const UT_DAYS = {
@@ -97,6 +98,9 @@ function schedOf(d, sec) {
   const subs = d.lv.includes(1) ? PRIMARY5 : SUBJECTS6;
   return subs.map((sub, i) => { const late = i > 0 && UT_DAYS[d.id][i] === UT_DAYS[d.id][i - 1]; return row(UT_DAYS[d.id][i], sub, late ? '11:00 AM' : '9:00 AM', '1 h', late ? '12:00 PM' : '10:00 AM', 25, 'Written 25'); });
 }
+// 'Mon 12 Oct' (2026–27 school year) -> '2026-10-12'
+const MON3 = { Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6, Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12 };
+const dayIso = (day) => { const [, dd, mm] = day.split(' '); const mo = MON3[mm]; return `${mo >= 6 ? 2026 : 2027}-${String(mo).padStart(2, '0')}-${String(Number(dd)).padStart(2, '0')}`; };
 const DS_TONE = { Draft: 'neutral', Published: 'brand', Ongoing: 'warn', Completed: 'info', 'Results published': 'ok' };
 
 // CBSE 9-point grade scale (Classes 6–10)
@@ -242,12 +246,13 @@ function DatesheetPage({ params, access }) {
   const [q, setQ] = useState('');
   const [st, setSt] = useState('all');
   const [cls, setCls] = useState('all');
+  const [per, setPer] = useState(PERIODS.acyear);
   const [add, setAdd] = useState(false);
   const [list, setList] = useState(DATESHEETS);
   if (params?.id) return <DatesheetDetail id={params.id} w={w} />;
 
   const mine = (d) => !(w.teacher || w.ct) || d.secs.some((s) => w.myClasses.includes(s));
-  const base = list.filter(mine);
+  const base = list.filter((d) => mine(d) && d.t >= per.from && d.f <= per.to);
   const rows = base.filter((d) => (st === 'all' || d.status === st) && (cls === 'all' || d.lv.includes(Number(cls))) && (!q.trim() || `${d.title} ${d.classes} ${d.type}`.toLowerCase().includes(q.trim().toLowerCase())));
   const counts = base.reduce((a, d) => ((a[d.status] = (a[d.status] || 0) + 1), a), {});
   const duties = w.teacher || w.ct ? w.myClasses.length : 0;
@@ -274,12 +279,13 @@ function DatesheetPage({ params, access }) {
         <Card>
           <Toolbar>
             <SearchBox id="ds-search" value={q} onChange={setQ} placeholder="Search exam title" />
+            <DatePeriod id="ds-per" future value={per} onChange={setPer} className="w-full @md:w-auto" />
             <Select id="ds-class" value={cls} onChange={setCls} className="@md:w-44" options={[{ value: 'all', label: 'All classes' }, ...Array.from({ length: 10 }, (_, i) => ({ value: String(i + 1), label: `Class ${i + 1}` }))]} />
             <ExportButton what="datesheets" />
           </Toolbar>
           <div className="px-3 pt-3"><Chips value={st} onChange={setSt} options={[{ value: 'all', label: 'All', count: base.length }, ...['Draft', 'Published', 'Ongoing', 'Completed', 'Results published'].filter((k) => counts[k]).map((k) => ({ value: k, label: k, count: counts[k] }))]} /></div>
           {rows.length === 0 ? (
-            <Empty icon={I.CalendarX} title="No datesheet matches" body="Try another class or status." action={<Button variant="secondary" onClick={() => { setQ(''); setSt('all'); setCls('all'); }}>Clear filters</Button>} />
+            <Empty icon={I.CalendarX} title="No datesheet matches" body="Try other dates, another class or status." action={<Button variant="secondary" onClick={() => { setQ(''); setSt('all'); setCls('all'); setPer(PERIODS.acyear); }}>Clear filters</Button>} />
           ) : (
             <ul className="grid @md:grid-cols-2 @xl:grid-cols-3 gap-3 p-3">
               {rows.map((d) => (
@@ -313,7 +319,7 @@ function DatesheetPage({ params, access }) {
               ))}
             </ul>
           )}
-          <div className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum">Showing 1 to {rows.length} of {rows.length}</div>
+          <div className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum">Showing: {per.label} · {fmtRange(per)} · {rows.length} {rows.length === 1 ? 'datesheet' : 'datesheets'}</div>
         </Card>
       </div>
       <AddDatesheetSheet open={add} onClose={() => setAdd(false)} />
@@ -335,8 +341,16 @@ function DatesheetDetail({ id, w }) {
   const [pub, setPub] = useState(false);
   const isHy = d.id === 'hy-610';
   const sched = schedOf(d, sec);
-  const [month, monthName] = DS_MONTH[d.id] || [9, 'October 2026'];
-  const examDays = new Set(isHy ? HY_MID.map((x) => x.d) : schedOf(d, secs[0]).concat(secs.length > 2 ? schedOf(d, secs[2]) : []).map((x) => x.d));
+  const [month] = DS_MONTH[d.id] || [9, 'October 2026'];
+  const examIso = new Set((isHy ? HY_MID.map((x) => x.day) : schedOf(d, secs[0]).concat(secs.length > 2 ? schedOf(d, secs[2]) : []).map((x) => x.day)).map(dayIso));
+  const calCell = (y, m, n) => {
+    const iso = `${y}-${String(m + 1).padStart(2, '0')}-${String(n).padStart(2, '0')}`;
+    if (examIso.has(iso)) return { tone: 'brand', title: 'Exam day' };
+    if (y === 2026 && m === 9 && n >= 19 && n <= 25) return { tone: 'muted', title: 'Dussehra holidays' };
+    if (y === 2026 && m === 9 && n === 17) return { dot: 'warn', title: 'PTM' };
+    if (new Date(y, m, n).getDay() === 0) return { tone: 'muted', title: 'Sunday' };
+    return {};
+  };
 
   return (
     <div>
@@ -401,20 +415,20 @@ function DatesheetDetail({ id, w }) {
           </Col>
           <Col>
             <Card>
-              <CardHead title={monthName} sub={month === 9 ? 'Exam days, holidays and the PTM' : 'Exam days'} icon={I.CalendarDays} />
+              <CardHead title="Exam days" sub="Go to earlier or later months with the arrows" icon={I.CalendarDays} />
               <div className="px-5 pb-5">
-                <MonthGrid compact month={month} cell={(n) => (examDays.has(n) ? { tone: 'brand', title: 'Exam day' } : month === 9 && n >= 19 && n <= 25 ? { tone: 'muted', title: 'Dussehra holidays' } : month === 9 && n === 17 ? { dot: 'warn', title: 'PTM' } : {})} />
-                <div className="mt-4"><Legend items={month === 9 ? [['bg-brand/30', 'Exam day'], ['bg-sunken', 'Dussehra holidays 19–25 Oct'], ['bg-warn', 'PTM Sat 17 Oct']] : [['bg-brand/30', 'Exam day']]} /></div>
+                <CalendarMonth key={d.id} id={`ds-cal-${d.id}`} compact cell={calCell} from={[2026, 5]} to={[2027, 2]} start={[month >= 5 ? 2026 : 2027, month]}
+                  footer={(y, m) => { const n = [...examIso].filter((x) => x.startsWith(`${y}-${String(m + 1).padStart(2, '0')}`)).length; return <div className="flex flex-col gap-2"><p className="text-[12.5px] text-ink3">{n ? `${n} exam ${n === 1 ? 'day' : 'days'} this month` : 'No exam days in this month'}</p><Legend items={y === 2026 && m === 9 ? [['bg-brand/30', 'Exam day'], ['bg-sunken', 'Dussehra holidays 19–25 Oct'], ['bg-warn', 'PTM Sat 17 Oct']] : [['bg-brand/30', 'Exam day']]} /></div>; }} />
               </div>
             </Card>
-            <Card>
+            {w.manage && <Card>
               <CardHead title="Before you save" icon={I.Info} />
               <ul className="px-5 pb-5 flex flex-col gap-2 text-[13.5px] text-ink2">
                 {['Subjects are listed by date and time.', 'A subject with no exam date is left out of the datesheet.', 'The pattern can be changed for one subject only.', 'Mark categories are set after saving.', 'Once results are uploaded, changes are restricted.'].map((t) => (
                   <li key={t} className="flex gap-2"><I.Check size={16} className="text-brand shrink-0 mt-0.5" />{t}</li>
                 ))}
               </ul>
-            </Card>
+            </Card>}
           </Col>
         </Split>
       </div>
@@ -875,7 +889,7 @@ function MarksPage({ params, access }) {
     return (
       <div>
         <ModuleHead sub={`${w.mySubject} · ${w.myClasses.join(', ')} · only your subject and classes`}
-          actions={<Button variant="secondary" icon={I.FileSpreadsheet} onClick={() => toast({ title: 'Import marks from Excel', body: 'Download the template for your class, fill it and upload. Each row is checked before anything is saved.', tone: 'info' })}>Import from Excel</Button>} />
+          actions={w.canEdit && <Button variant="secondary" icon={I.FileSpreadsheet} onClick={() => toast({ title: 'Import marks from Excel', body: 'Download the template for your class, fill it and upload. Each row is checked before anything is saved.', tone: 'info' })}>Import from Excel</Button>} />
         <div className="flex flex-col gap-5 @lg:gap-6">
           <Banner tone="info" title={`${comp.split(' ')[0]} marks are open now.`}>Theory marks open after each paper, from Sat 17 Oct. All marks are due on Fri 30 Oct.</Banner>
           <Card>
@@ -924,7 +938,7 @@ function MarksPage({ params, access }) {
   return (
     <div>
       <ModuleHead sub="Half Yearly 2026–27 · marks entry status for every paper"
-        actions={<Button variant="primary" icon={I.BellRing} onClick={() => setRemind({ n: teachersBehind.length, papers: behind.length })}>Remind teachers</Button>} />
+        actions={w.canEdit && <Button variant="primary" icon={I.BellRing} onClick={() => setRemind({ n: teachersBehind.length, papers: behind.length })}>Remind teachers</Button>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
         <Stats items={[
           { label: 'Papers', value: HY_PAPERS.length, sub: '12 sections × 6 subjects', icon: 'ClipboardCheck' },
@@ -943,7 +957,7 @@ function MarksPage({ params, access }) {
           <BulkBar count={sel.size} onClear={() => setSel(new Set())}>
             <Button size="sm" variant="secondary" icon={I.BellRing} onClick={() => setRemind({ n: new Set(list.filter((p) => sel.has(p.id)).map((p) => p.teacher)).size, papers: sel.size, sel: true })}>Remind their teachers</Button>
           </BulkBar>
-          <DataList select={[sel, setSel]} onRow={open} minWidth={760}
+          <DataList select={w.canEdit ? [sel, setSel] : null} onRow={open} minWidth={760}
             footer={`Showing 1 to ${list.length} of ${list.length}`}
             columns={[
               { key: 'p', label: 'Paper', render: (p) => <><p className="font-semibold">{p.sub} · {p.sec}</p><p className="text-[12.5px] text-ink3">{paperDay(p.sec, p.sub).day}</p></> },
@@ -1008,7 +1022,7 @@ function MarksGrid({ id, w }) {
   const [history, setHistory] = useState(HISTORY[id] || []);
   const refs = useRef({});
   const isOpen = (c) => p.exam === 'ut2' || c.k !== 'th';
-  const editable = (c) => isOpen(c) && !locked.has(c.k);
+  const editable = (c) => w.canEdit && isOpen(c) && !locked.has(c.k);
   const openComps = p.comps.filter(editable);
   const onBehalf = w.full && w.name !== p.teacher;
   const setVal = (sid, k, v) => { setVals((x) => ({ ...x, [sid]: { ...x[sid], [k]: v } })); setDirty(true); };
@@ -1052,7 +1066,7 @@ function MarksGrid({ id, w }) {
           </div>
           <div className="flex gap-2 items-center">
             <Segmented size="sm" value={view} onChange={setView} options={[{ value: 'grid', label: 'Grid', icon: I.Table }, { value: 'one', label: 'One at a time', icon: I.Smartphone }]} />
-            <Button variant="secondary" icon={I.FileSpreadsheet} className="hidden @lg:inline-flex" onClick={() => toast({ title: 'Import marks from Excel', body: `Template for ${p.sub}, ${p.sec} downloaded. Upload it when filled.`, tone: 'info' })}>Import</Button>
+            {w.canEdit && <Button variant="secondary" icon={I.FileSpreadsheet} className="hidden @lg:inline-flex" onClick={() => toast({ title: 'Import marks from Excel', body: `Template for ${p.sub}, ${p.sec} downloaded. Upload it when filled.`, tone: 'info' })}>Import</Button>}
           </div>
         </Card>
 
@@ -1118,7 +1132,7 @@ function MarksGrid({ id, w }) {
                                   onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === 'ArrowDown') { ev.preventDefault(); setVal(s.id, c.k, norm(ev.target.value)); move(i, c.k, 1); } if (ev.key === 'ArrowUp') { ev.preventDefault(); move(i, c.k, -1); } }}
                                   className={cx('w-[72px] h-10 rounded-lg border text-center text-[15px] font-semibold tnum bg-surface outline-none transition',
                                     e ? 'border-bad ring-4 ring-bad/10 text-bad' : CODES.includes(v) ? 'border-line text-info' : 'border-line focus:border-brand focus:ring-4 focus:ring-brand/15', tried && v === '' && 'border-warn bg-warn/[.06]')} />
-                              ) : isOpen(c) ? (
+                              ) : isOpen(c) && !w.canEdit ? <span className="inline-grid place-items-center w-[72px] h-10 rounded-lg bg-sunken/50 font-semibold tnum">{v || '—'}</span> : isOpen(c) ? (
                                 <button onClick={() => setReq({ s, c, v })} title="Locked. Tap to ask for a change."
                                   className={cx('w-[72px] h-10 rounded-lg inline-flex items-center justify-center gap-1 font-semibold tnum transition', pend ? 'bg-warn/12 text-warn' : 'bg-sunken/70 hover:bg-sunken', CODES.includes(v) && !pend && 'text-info')}>
                                   {pend ? <><I.Hourglass size={12} />{pend}</> : <><I.Lock size={11} className="text-ink3" />{v}</>}
@@ -1143,7 +1157,7 @@ function MarksGrid({ id, w }) {
             </div>
           </Card>
         ) : (
-          <OneAtATime rows={rows} comps={p.comps} vals={vals} setVal={setVal} editable={editable} isOpen={isOpen} opens={theoryOpens(p.sec, p.sub)} onLocked={(s, c, v) => setReq({ s, c, v })} />
+          <OneAtATime rows={rows} comps={p.comps} vals={vals} setVal={setVal} editable={editable} isOpen={isOpen} opens={theoryOpens(p.sec, p.sub)} onLocked={(s, c, v) => w.canEdit && setReq({ s, c, v })} />
         )}
 
         {history.length > 0 && (
@@ -1282,15 +1296,21 @@ function ResultsPage({ access }) {
   const [publish, setPublish] = useState(false);
   const [unpub, setUnpub] = useState(false);
   const [statusOver, setStatusOver] = useState({});
-  const st = statusOver[exam + sec] || resultStatus(exam, sec);
-  const res = exam === 'ut1' ? classResults(sec, 1) : classResults(sec, 2);
+  // A subject teacher sees only their own subject. A class teacher sees every subject of their own section (7 B) only.
+  const subjOnly = w.teacher || (w.ct && sec !== '7 B');
+  const si = SUBJECTS6.indexOf(w.mySubject);
+  const ex = subjOnly && exam === 'final' ? 'ut2' : exam;
+  const st = statusOver[ex + sec] || resultStatus(ex, sec);
+  const res0 = ex === 'ut1' ? classResults(sec, 1) : classResults(sec, 2);
+  const res = subjOnly ? res0.map((r) => { const m = r.marks[si]; const pct = Math.round((num(m) / 25) * 1000) / 10; return { ...r, m, pct, grade: gradeOf(pct), fails: typeof m === 'number' && m < 8.25 ? [w.mySubject] : [], absent: m === 'AB' ? [w.mySubject] : [] }; }) : res0;
   const shown = res.filter((r) => !q.trim() || r.s.name.toLowerCase().includes(q.trim().toLowerCase()) || String(r.s.roll) === q.trim());
   const groupSecs = classNo(sec) >= 9 ? ALL_SECS.filter((s) => classNo(s) >= 9) : [sec];
   const groupN = groupSecs.reduce((a, s) => a + SEC[s].n, 0);
   const canPublish = w.full && w.canEdit;
   const pass = res.filter((r) => !r.fails.length && !r.absent.length).length;
-  const top = [...res].sort((a, b) => b.total - a.total)[0];
-  const sub = w.teacher || w.ct ? `Results of your classes: ${secs.join(', ')}. Only the Principal publishes results.` : 'Worked out as marks come in · publishing needs the Principal’s approval';
+  const top = [...res].sort((a, b) => b.pct - a.pct)[0];
+  const sub = w.teacher ? `${w.mySubject} results of your classes: ${secs.join(', ')}. Only the Principal publishes results.` : w.ct ? `All subjects for 7 B, your class; ${w.mySubject} only for ${secs.filter((x) => x !== '7 B').join(', ')}. Only the Principal publishes results.` : 'Worked out as marks come in · publishing needs the Principal’s approval';
+  const examOpts = [{ value: 'ut2', label: 'Unit Test 2' }, { value: 'ut1', label: 'Unit Test 1' }, { value: 'hy', label: 'Half Yearly' }, ...(subjOnly ? [] : [{ value: 'final', label: 'Final result (year)' }])];
 
   return (
     <div>
@@ -1298,7 +1318,7 @@ function ResultsPage({ access }) {
       <div className="flex flex-col gap-5 @lg:gap-6">
         <Card>
           <Toolbar>
-            <Select id="rs-exam" value={exam} onChange={setExam} className="@md:w-56" options={[{ value: 'ut2', label: 'Unit Test 2' }, { value: 'ut1', label: 'Unit Test 1' }, { value: 'hy', label: 'Half Yearly' }, { value: 'final', label: 'Final result (year)' }]} />
+            <Select id="rs-exam" value={ex} onChange={setExam} className="@md:w-56" options={examOpts} />
             <Select id="rs-sec" value={sec} onChange={setSec} className="@md:w-40" options={secOptions(secs)} />
             <SearchBox id="rs-search" value={q} onChange={setQ} placeholder="Student name or roll" />
             <ExportButton what="result sheet" />
@@ -1311,12 +1331,33 @@ function ResultsPage({ access }) {
                 Classes 9–10 · {groupN} students · to publish on {st.on}.
               </Banner>
             )}
-            {exam === 'hy' && <Banner tone="warn" title={`Draft. 6 subjects have missing marks in ${sec}.`}>The papers run from Mon 12 Oct to Tue 27 Oct. A draft with missing marks cannot be published. Planned result date: {st.on}.</Banner>}
-            {exam === 'final' && <Banner tone="info" title="Final result for the year.">Combines all exams with the weights in Exam Settings: Unit Test 1 10%, Unit Test 2 10%, Half Yearly 30%, Annual 50%. It is final after the Annual exam in March 2027.</Banner>}
+            {ex === 'hy' && <Banner tone="warn" title={subjOnly ? `Draft. ${w.mySubject} marks are not all in for ${sec}.` : `Draft. 6 subjects have missing marks in ${sec}.`}>The papers run from Mon 12 Oct to Tue 27 Oct. A draft with missing marks cannot be published. Planned result date: {st.on}.</Banner>}
+            {ex === 'final' && <Banner tone="info" title="Final result for the year.">Combines all exams with the weights in Exam Settings: Unit Test 1 10%, Unit Test 2 10%, Half Yearly 30%, Annual 50%. It is final after the Annual exam in March 2027.</Banner>}
           </div>
         </Card>
 
-        {exam === 'hy' ? <HyMissing sec={sec} /> : exam === 'final' ? <FinalResult sec={sec} q={q} /> : (
+        {ex === 'hy' ? <HyMissing sec={sec} only={subjOnly ? w.mySubject : null} /> : ex === 'final' ? <FinalResult sec={sec} q={q} /> : subjOnly ? (
+          <>
+            <Stats items={[
+              { label: `${w.mySubject} average`, value: pctTxt(avg(res.map((r) => r.pct))), icon: 'Calculator' },
+              { label: 'Passed', value: `${pass} of ${res.length}`, sub: '33% or more', tone: pass === res.length ? 'ok' : undefined, icon: 'CircleCheck' },
+              { label: 'Highest', value: pctTxt(top.pct), sub: top.s.name, tone: 'ok', icon: 'Trophy' },
+              { label: 'Below 33%', value: res.filter((r) => r.fails.length).length, sub: `${res.filter((r) => r.absent.length).length} absent`, tone: res.some((r) => r.fails.length) ? 'warn' : undefined, icon: 'TriangleAlert' },
+            ]} />
+            <Card className="overflow-hidden">
+              <CardHead title={`${ex === 'ut1' ? 'Unit Test 1' : 'Unit Test 2'} · ${w.mySubject} · Class ${sec}`} sub="Out of 25 · only your subject is shown" icon={I.Table} action={<Pill tone={RS_TONE[st.st]} dot>{st.st}</Pill>} />
+              <DataList bp="md" minWidth={560} rows={shown} rowKey={(r) => r.s.id} onRow={(r) => setOne(r)} footer={`Showing ${shown.length} of ${res.length} · AB = absent, counted as zero`}
+                columns={[
+                  { key: 'n', label: 'Student', render: (r) => <span className="whitespace-nowrap"><span className="text-ink3 tnum inline-block w-6">{r.s.roll}</span><span className="font-medium">{r.s.name}</span></span> },
+                  { key: 'm', label: `${SHORT[w.mySubject]} / 25`, align: 'right', render: (r) => <span className={cx('tnum', r.m === 'AB' ? 'text-info font-semibold' : num(r.m) < 8.25 ? 'text-bad font-semibold' : '')}>{r.m}</span> },
+                  { key: 'p', label: '%', align: 'right', render: (r) => pctTxt(r.pct) },
+                  { key: 'g', label: 'Grade', render: (r) => <Pill tone={gradeTone(r.grade)} className="!h-5 !text-[11px]">{r.grade}</Pill> },
+                  { key: 'r', label: 'Result', render: (r) => (r.absent.length ? <span className="text-warn font-semibold text-[13px]">Absent</span> : r.fails.length ? <span className="text-bad font-semibold text-[13px]">Below 33%</span> : <span className="text-ok font-semibold text-[13px]">Pass</span>) },
+                ]}
+                mobile={(r) => ({ avatar: r.s.name, title: `${r.s.roll}. ${r.s.name}`, sub: `${w.mySubject} · ${pctTxt(r.pct)}`, right: <b className="font-semibold tnum">{r.m}/25</b>, pills: [<Pill key="g" tone={gradeTone(r.grade)} className="!h-[22px] !text-[11.5px]">{r.grade}</Pill>] })} />
+            </Card>
+          </>
+        ) : (
           <>
             <Stats items={[
               { label: 'Class average', value: pctTxt(avg(res.map((r) => r.pct))), icon: 'Calculator' },
@@ -1358,16 +1399,16 @@ function ResultsPage({ access }) {
         )}
       </div>
 
-      <Sheet open={!!one} onClose={() => setOne(null)} title={one ? one.s.name : ''} sub={one ? `Class ${sec} · roll ${one.s.roll} · ${exam === 'ut1' ? 'Unit Test 1' : 'Unit Test 2'}` : ''}
+      <Sheet open={!!one} onClose={() => setOne(null)} title={one ? one.s.name : ''} sub={one ? `Class ${sec} · roll ${one.s.roll} · ${ex === 'ut1' ? 'Unit Test 1' : 'Unit Test 2'}${subjOnly ? ` · ${w.mySubject}` : ''}` : ''}
         footer={one && <>{one.s.real && <Button variant="ghost" icon={I.User} onClick={() => go('student', { id: one.s.id })}>Open profile</Button>}<Button variant="secondary" icon={I.Printer} onClick={() => toast({ title: `Result for ${one.s.name} sent to the printer` })}>Print</Button></>}>
         {one && (
           <div className="flex flex-col gap-4">
-            <div className="grid grid-cols-3 gap-2 text-center">
+            {!subjOnly && <div className="grid grid-cols-3 gap-2 text-center">
               <div className="rounded-xl bg-sunken/70 py-2.5"><p className="text-[12px] text-ink3 font-semibold">Total</p><p className="font-display text-[20px] font-semibold tnum">{one.total}/150</p></div>
               <div className="rounded-xl bg-sunken/70 py-2.5"><p className="text-[12px] text-ink3 font-semibold">Percent</p><p className="font-display text-[20px] font-semibold tnum">{pctTxt(one.pct)}</p></div>
               <div className="rounded-xl bg-sunken/70 py-2.5"><p className="text-[12px] text-ink3 font-semibold">Grade · rank</p><p className="font-display text-[20px] font-semibold tnum">{one.grade} · {one.rank}</p></div>
-            </div>
-            <HBars rows={SUBJECTS6.map((s, i) => ({ k: s, v: num(one.marks[i]), label: one.marks[i] === 'AB' ? 'AB' : `${one.marks[i]}/25` }))} max={25} lowBelow={8.25} labelWidth={104} />
+            </div>}
+            <HBars rows={SUBJECTS6.map((s, i) => ({ k: s, v: num(one.marks[i]), label: one.marks[i] === 'AB' ? 'AB' : `${one.marks[i]}/25` })).filter((r) => !subjOnly || r.k === w.mySubject)} max={25} lowBelow={8.25} labelWidth={104} />
           </div>
         )}
       </Sheet>
@@ -1378,9 +1419,9 @@ function ResultsPage({ access }) {
   );
 }
 
-function HyMissing({ sec }) {
+function HyMissing({ sec, only }) {
   const { go } = useNav();
-  const sched = scheduleFor(sec);
+  const sched = scheduleFor(sec).filter((x) => !only || x.sub === only);
   return (
     <Card>
       <CardHead title={`Missing marks · Class ${sec}`} sub="Results stay in draft until every mark is in" icon={I.ListTodo} />
@@ -1532,7 +1573,7 @@ function ReportCardsPage({ access }) {
       <ModuleHead sub={w.ct ? 'Class 7 B · you are the class teacher · remarks due Tue 20 Oct' : 'CBSE format for Classes 6–10 · remarks, co-scholastic grades and printing'}
         actions={<>
           {!w.ct && <Button variant="secondary" icon={I.Printer} onClick={() => setPrint({ n: HY_STUDENTS, label: 'Classes 6–10' })}>Print all classes</Button>}
-          <Button variant="primary" icon={I.Sparkles} onClick={startDrafts} disabled={sent}>Draft remarks</Button>
+          {w.canEdit && !sent && <Button variant="primary" icon={I.Sparkles} onClick={startDrafts}>Draft remarks</Button>}
         </>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
         <Card className="overflow-hidden">
@@ -1590,13 +1631,13 @@ function ReportCardsPage({ access }) {
               { key: 'st', label: 'Status', render: (s) => sent ? (notSeen.includes(s) ? <Pill tone="warn">Sent · not seen</Pill> : <Pill tone="ok">Sent · seen</Pill>) : <Pill tone="neutral">Not ready</Pill> },
               { key: 'a', label: '', align: 'right', render: (s) => (
                 <div className="flex justify-end gap-1">
-                  {!sent && (w.ct || w.full) && <Button size="sm" variant="ghost" icon={I.Pencil} onClick={() => setEdit({ s, text: remarkOf(s) })}>{remarkOf(s) ? 'Edit' : 'Write'}</Button>}
+                  {!sent && w.canEdit && (w.ct || w.full) && <Button size="sm" variant="ghost" icon={I.Pencil} onClick={() => setEdit({ s, text: remarkOf(s) })}>{remarkOf(s) ? 'Edit' : 'Write'}</Button>}
                   <Button size="sm" variant="ghost" icon={I.Eye} onClick={() => setPreview(s)}>Preview</Button>
                 </div>
               ) },
             ]}
             mobile={(s) => ({ avatar: s.name, title: `${s.roll}. ${s.name}`, sub: remarkOf(s) || 'Remark not written',
-              right: <div className="flex flex-col gap-1">{!sent && <Button size="sm" variant="ghost" onClick={() => setEdit({ s, text: remarkOf(s) })}>{remarkOf(s) ? 'Edit' : 'Write'}</Button>}<Button size="sm" variant="ghost" onClick={() => setPreview(s)}>View</Button></div> })} />
+              right: <div className="flex flex-col gap-1">{!sent && w.canEdit && <Button size="sm" variant="ghost" onClick={() => setEdit({ s, text: remarkOf(s) })}>{remarkOf(s) ? 'Edit' : 'Write'}</Button>}<Button size="sm" variant="ghost" onClick={() => setPreview(s)}>View</Button></div> })} />
         </Card>
       </div>
 
@@ -1756,7 +1797,7 @@ function PapersPage({ access }) {
   return (
     <div>
       <ModuleHead sub="Question bank by chapter and difficulty, and papers made from it · final papers stay locked until the exam"
-        actions={<><Button variant="secondary" icon={I.Plus} onClick={() => setAdd(true)}>Add question</Button><Button variant="primary" icon={I.Sparkles} onClick={() => { setTab('blueprint'); setAi(true); }}>Draft a paper</Button></>} />
+        actions={w.canEdit && <><Button variant="secondary" icon={I.Plus} onClick={() => setAdd(true)}>Add question</Button><Button variant="primary" icon={I.Sparkles} onClick={() => { setTab('blueprint'); setAi(true); }}>Draft a paper</Button></>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
         <Segmented value={tab} onChange={(v) => { setTab(v); setQ(''); }} className="self-start" options={[{ value: 'papers', label: 'Papers' }, { value: 'bank', label: 'Question bank' }, { value: 'blueprint', label: 'Blueprint' }]} />
 
@@ -1779,7 +1820,7 @@ function PapersPage({ access }) {
             <Toolbar>
               <SearchBox id="qb-search" value={q} onChange={setQ} placeholder="Search question text" />
               <Select id="qb-ch" value={ch} onChange={setCh} className="@md:w-60" options={[{ value: 'all', label: 'All chapters' }, ...chapters]} />
-              <Button variant="secondary" icon={I.Upload} className="hidden @md:inline-flex" onClick={() => toast({ title: 'Import questions', body: 'Download the template, fill it and upload. Each row is checked first.', tone: 'info' })}>Import</Button>
+              {w.canEdit && <Button variant="secondary" icon={I.Upload} className="hidden @md:inline-flex" onClick={() => toast({ title: 'Import questions', body: 'Download the template, fill it and upload. Each row is checked first.', tone: 'info' })}>Import</Button>}
             </Toolbar>
             <div className="px-3 pt-3"><Chips value={diff} onChange={setDiff} options={[{ value: 'all', label: 'All levels', count: bank.length }, ...['Easy', 'Medium', 'Hard'].map((d) => ({ value: d, label: d, count: bank.filter((x) => x.diff === d).length }))]} /></div>
             <DataList rows={qs} minWidth={760} footer={`Showing ${qs.length} of ${bank.length} · Class 7 · Mathematics`}
@@ -1800,7 +1841,7 @@ function PapersPage({ access }) {
             <Col>
               <Card className="overflow-hidden">
                 <CardHead title="Blueprint · Half Yearly · Mathematics · Class 7" sub="Number of questions per chapter and type · 80 marks" icon={I.Grid3x3}
-                  action={<Button size="sm" variant="soft" icon={I.Sparkles} onClick={() => setAi(true)}>Draft from blueprint</Button>} />
+                  action={w.canEdit && <Button size="sm" variant="soft" icon={I.Sparkles} onClick={() => setAi(true)}>Draft from blueprint</Button>} />
                 <div className="overflow-x-auto scroll-thin border-t border-line">
                   <table className="text-[13px] min-w-full">
                     <thead><tr className="border-b border-line text-ink3 text-[12px]">
@@ -1868,7 +1909,7 @@ function PapersPage({ access }) {
       <AddQuestionSheet open={add} onClose={() => setAdd(false)} chapters={chapters} onAdd={(x) => { setBank((b) => [x, ...b]); setTab('bank'); toast({ title: 'Question added to the bank', body: `${x.ch} · ${x.diff} · ${x.marks} ${x.marks === 1 ? 'mark' : 'marks'}` }); }} />
       <Sheet open={!!open} onClose={() => setOpen(null)} title={open?.title} sub={open ? `${open.marks} marks · set by ${open.setter}` : ''}
         footer={open && <><Button variant="ghost" onClick={() => setOpen(null)}>Close</Button>
-          {open.status === 'Draft' && <Button variant="primary" icon={I.Lock} onClick={() => { setPapers((x) => x.map((p) => (p.id === open.id ? { ...p, status: 'Final', locked: open.sub === 'Mathematics' ? 'Wed 14 Oct, 7:30 AM' : 'Mon 26 Oct, 7:30 AM' } : p))); setOpen(null); toast({ title: 'Paper marked final and locked', body: 'It opens for printing on the morning of the exam.' }); }}>Mark final and lock</Button>}
+          {open.status === 'Draft' && w.canEdit && <Button variant="primary" icon={I.Lock} onClick={() => { setPapers((x) => x.map((p) => (p.id === open.id ? { ...p, status: 'Final', locked: open.sub === 'Mathematics' ? 'Wed 14 Oct, 7:30 AM' : 'Mon 26 Oct, 7:30 AM' } : p))); setOpen(null); toast({ title: 'Paper marked final and locked', body: 'It opens for printing on the morning of the exam.' }); }}>Mark final and lock</Button>}
           {open.status !== 'Draft' && !open.locked && <Button variant="secondary" icon={I.Printer} onClick={() => toast({ title: 'Paper sent to the exam office printer', body: 'With answers, for the teacher' })}>Print with answers</Button>}</>}>
         {open && (open.locked ? (
           <div className="flex flex-col items-center text-center gap-3 py-6">
@@ -1919,9 +1960,13 @@ function AddQuestionSheet({ open, onClose, chapters, onAdd }) {
 /* =====================================================================
    7. Exam Analysis
    ===================================================================== */
+const AN_EXAMS = [{ value: '2', label: 'Unit Test 2', f: '2026-09-21', t: '2026-09-25' }, { value: '1', label: 'Unit Test 1', f: '2026-07-20', t: '2026-07-24' }];
 function AnalysisPage() {
   const { go } = useNav();
-  const [t, setT] = useState('2');
+  const [per, setPer] = useState(PERIODS.acyear);
+  const [t0, setT] = useState('2');
+  const exOpts = AN_EXAMS.filter((x) => x.t >= per.from && x.f <= per.to);
+  const t = exOpts.some((x) => x.value === t0) ? t0 : exOpts[0]?.value || '2';
   const [scope, setScope] = useState('all');
   const [sub, setSub] = useState('all');
   const [stu, setStu] = useState(FEATURED.id);
@@ -1948,11 +1993,14 @@ function AnalysisPage() {
       <div className="flex flex-col gap-5 @lg:gap-6">
         <Card className="overflow-hidden">
           <Toolbar>
-            <Select id="an-exam" value={t} onChange={setT} className="@md:w-48" options={[{ value: '2', label: 'Unit Test 2' }, { value: '1', label: 'Unit Test 1' }]} />
+            <DatePeriod id="an-per" value={per} onChange={setPer} className="w-full @md:w-auto" />
+            {exOpts.length > 0 && <Select id="an-exam" value={t} onChange={setT} className="@md:w-48" options={exOpts.map(({ value, label }) => ({ value, label }))} />}
             <Select id="an-scope" value={scope} onChange={setScope} className="@md:w-48" options={[{ value: 'all', label: 'Classes 6–10' }, ...[6, 7, 8, 9, 10].map((n) => ({ value: String(n), label: `Class ${n}` })), ...secOptions(ALL_SECS)]} />
             <Select id="an-sub" value={sub} onChange={setSub} className="@md:w-48" options={[{ value: 'all', label: 'All subjects' }, ...SUBJECTS6]} />
           </Toolbar>
+          <p className="px-4 py-2.5 text-[12.5px] text-ink3 tnum">Showing: {per.label} · {fmtRange(per)} · {exOpts.length ? `${exOpts.length} ${exOpts.length === 1 ? 'exam' : 'exams'} with results` : 'no exam results'}</p>
         </Card>
+        {!exOpts.length ? <Card><Empty icon={I.ChartBar} title="No exam results in these dates" body="Results show here once an exam in these dates is marked. Unit Test 1 was in July and Unit Test 2 in September." action={<Button variant="secondary" onClick={() => setPer(PERIODS.acyear)}>This academic year</Button>} /></Card> : <>
         <Stats items={[
           { label: 'Students', value: data.now.length, sub: secs.length === 1 ? `Class ${secs[0]}` : `${secs.length} sections`, icon: 'Users' },
           { label: 'Average', value: pctTxt(data.avg), sub: sub === 'all' ? 'All subjects' : sub, icon: 'Calculator' },
@@ -2024,6 +2072,7 @@ function AnalysisPage() {
             </div>
           </Card>
         </Split>
+        </>}
       </div>
     </div>
   );

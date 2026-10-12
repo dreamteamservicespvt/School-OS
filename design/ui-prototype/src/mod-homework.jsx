@@ -5,8 +5,9 @@ import * as I from './icons.js';
 import { CLASS_7B, FEATURED } from './data.js';
 import { cx, Card, CardHead, Button, Pill, Avatar, Field, Input, Segmented, Switch, Empty, Sheet, useToast, Ring } from './ui.jsx';
 import { useNav, useRole } from './shell.jsx';
+import { pagesFor } from './config.js';
 import {
-  ModuleHead, Stats, Band, SearchBox, Toolbar, Select, Textarea, Chips, DataList, BulkBar, SettingsCard, Banner, Suggestion,
+  ModuleHead, useCanEdit, DatePeriod, PERIODS, fmtRange, periodDays, Stats, Band, SearchBox, Toolbar, Select, Textarea, Chips, DataList, BulkBar, SettingsCard, Banner, Suggestion,
   Progress, HBars, Legend, DL, MoreMenu, FormSheet, ConfirmSheet, FileRow, Split, Col, ExportButton, Icon, TONE_SOFT,
 } from './kit.jsx';
 
@@ -40,6 +41,10 @@ const HW = [
   { id: 'HW-2022', title: 'Lab record: acids, bases and salts', sub: 'Science', cls: '7 A', by: 'Ravi Teja', given: 'Tue 6 Oct', due: 'Thu 8 Oct', max: 10, submitted: 37, graded: 37, seen: 38, status: 'Past due', instr: 'Write up the indicator experiment.', files: [] },
   { id: 'HW-2019', title: 'Telugu poem: learn and write the meaning', sub: 'Telugu', cls: '6 A', by: 'Lalitha Devi', given: 'Fri 2 Oct', due: 'Mon 5 Oct', max: 10, submitted: 40, graded: 40, seen: 40, status: 'Closed', instr: 'Learn the poem by heart and write its meaning.', files: [] },
 ];
+// 'Thu 8 Oct' (2026–27 school year) -> '2026-10-08'
+const MON3 = { Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6, Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12 };
+const isoOf = (str) => { const m = /(\d{1,2}) ([A-Z][a-z]{2})/.exec(str || ''); if (!m) return '2026-10-09'; const mo = MON3[m[2]]; return `${mo >= 6 ? 2026 : 2027}-${String(mo).padStart(2, '0')}-${m[1].padStart(2, '0')}`; };
+const inPer = (iso, per) => iso >= per.from && iso <= per.to;
 const HW_TONE = { Current: 'brand', 'Past due': 'warn', Closed: 'neutral' };
 const hwGrade = (score, max) => { const p = (score / max) * 100; return p >= 80 ? 'A' : p >= 60 ? 'B' : p >= 40 ? 'C' : 'D'; };
 
@@ -92,7 +97,8 @@ function useScope(access) {
   const classes = teacher ? ['6 A', '6 B', '7 A', '7 B'] : ct ? ['7 A', '7 B', '8 B'] : ALL_SECS;
   const subs = teacher ? ['Mathematics'] : ct ? ['Science'] : SUBJECTS;
   const mine = (hw) => !own || hw.by === role.person.name;
-  return { role, id, name: role.person.name, teacher, ct, student, own, full: access === 'full', classes, subs, mine };
+  const canEdit = useCanEdit();
+  return { role, id, name: role.person.name, teacher, ct, student, own, full: access === 'full', classes, subs, mine, canEdit };
 }
 function BackLink({ label, sub, onClick }) {
   return (
@@ -129,9 +135,11 @@ function StaffHomework({ sc }) {
   const [cls, setCls] = useState('all');
   const [sub, setSub] = useState('all');
   const [view, setView] = useState('cards');
+  const [per, setPer] = useState(PERIODS.thismonth);
   const [give, setGive] = useState(false);
-  const rows = list.filter((h) => (tab === 'current' ? h.status === 'Current' : h.status !== 'Current') && (cls === 'all' || h.cls === cls) && (sub === 'all' || h.sub === sub) && (!q.trim() || h.title.toLowerCase().includes(q.trim().toLowerCase())));
-  const cur = list.filter((h) => h.status === 'Current');
+  const inP = list.filter((h) => inPer(isoOf(h.given), per));
+  const rows = inP.filter((h) => (tab === 'current' ? h.status === 'Current' : h.status !== 'Current') && (cls === 'all' || h.cls === cls) && (sub === 'all' || h.sub === sub) && (!q.trim() || h.title.toLowerCase().includes(q.trim().toLowerCase())));
+  const cur = inP.filter((h) => h.status === 'Current');
   const toCheck = cur.reduce((a, h) => a + h.submitted - h.graded, 0);
   const assigned = cur.reduce((a, h) => a + STRENGTH[h.cls], 0);
   const seenPct = Math.round((cur.reduce((a, h) => a + h.seen, 0) / Math.max(1, assigned)) * 100);
@@ -141,10 +149,10 @@ function StaffHomework({ sc }) {
   return (
     <div>
       <ModuleHead sub={sc.own ? `${sc.subs[0]} · ${sc.classes.join(', ')} · only your classes and subjects` : 'Homework given across the school this week'}
-        actions={<Button variant="primary" icon={I.NotebookPen} onClick={() => setGive(true)}>Give homework</Button>} />
+        actions={sc.canEdit && <Button variant="primary" icon={I.NotebookPen} onClick={() => setGive(true)}>Give homework</Button>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
         <Band items={[
-          { label: 'Given this week', big: cur.length, foot: `${assigned} students in ${new Set(cur.map((h) => h.cls)).size} classes` },
+          { label: `Current · ${per.label.toLowerCase()}`, big: cur.length, foot: `${assigned} students in ${new Set(cur.map((h) => h.cls)).size} classes` },
           { label: 'Handed in', big: `${Math.round((cur.reduce((a, h) => a + h.submitted, 0) / Math.max(1, assigned)) * 100)}%`, foot: `${cur.reduce((a, h) => a + h.submitted, 0)} of ${assigned}` },
           { label: sc.own ? 'Waiting for you to check' : 'Waiting to be checked', big: toCheck, foot: 'Open Submissions & Grading', onClick: () => go('homework', { page: 'submissions' }) },
           { label: 'Seen by parents', big: `${seenPct}%`, foot: 'From WhatsApp read receipts' },
@@ -152,16 +160,17 @@ function StaffHomework({ sc }) {
         <Card>
           <Toolbar>
             <SearchBox id="hw-search" value={q} onChange={setQ} placeholder="Search homework title" />
+            <DatePeriod id="hw-per" value={per} onChange={setPer} className="w-full @md:w-auto" />
             {classOpts.length > 1 && <Select id="hw-class" value={cls} onChange={setCls} className="@md:w-36" options={[{ value: 'all', label: 'All classes' }, ...classOpts.map((c) => ({ value: c, label: `Class ${c}` }))]} />}
             {!sc.own && <Select id="hw-sub" value={sub} onChange={setSub} className="@md:w-44" options={[{ value: 'all', label: 'All subjects' }, ...SUBJECTS]} />}
             <Segmented value={view} onChange={setView} className="hidden @md:inline-flex" options={[{ value: 'cards', label: 'Cards', icon: I.LayoutGrid }, { value: 'list', label: 'List', icon: I.Rows3 }]} />
           </Toolbar>
           <div className="flex items-center justify-between gap-3 px-3 pt-3">
-            <Segmented value={tab} onChange={setTab} options={[{ value: 'current', label: `Current · ${list.filter((h) => h.status === 'Current').length}` }, { value: 'history', label: `History · ${list.filter((h) => h.status !== 'Current').length}` }]} />
+            <Segmented value={tab} onChange={setTab} options={[{ value: 'current', label: `Current · ${inP.filter((h) => h.status === 'Current').length}` }, { value: 'history', label: `History · ${inP.filter((h) => h.status !== 'Current').length}` }]} />
             <ExportButton what="homework list" />
           </div>
           {rows.length === 0 ? (
-            <Empty icon={I.NotebookPen} title={tab === 'current' ? 'No current homework here' : 'Nothing in history yet'} body="Homework you give shows here with who handed it in." action={<Button variant="primary" icon={I.NotebookPen} onClick={() => setGive(true)}>Give homework</Button>} />
+            <Empty icon={I.NotebookPen} title={tab === 'current' ? 'No current homework here' : 'Nothing in history yet'} body={`Nothing given in ${per.label.toLowerCase()} (${fmtRange(per)}). Pick other dates, or give homework.`} action={sc.canEdit && <Button variant="primary" icon={I.NotebookPen} onClick={() => setGive(true)}>Give homework</Button>} />
           ) : view === 'cards' ? (
             <ul className="grid @md:grid-cols-2 @xl:grid-cols-3 gap-3 p-3">
               {rows.map((h) => (
@@ -186,8 +195,8 @@ function StaffHomework({ sc }) {
                     <Button size="sm" variant="secondary" className="flex-1" icon={I.ListChecks} onClick={() => go('homework', { page: 'submissions', hw: h.id })}>Check work</Button>
                     <MoreMenu size="sm" items={[
                       ['Eye', 'Open details', () => go('homework', { page: 'homework', id: h.id })],
-                      ['Pencil', 'Edit', () => toast({ title: `Editing: ${h.title}`, body: 'Students and parents see the change. It is logged.', tone: 'info' })],
-                      ['Archive', 'Archive', () => archive(h)],
+                      ...(sc.canEdit ? [['Pencil', 'Edit', () => toast({ title: `Editing: ${h.title}`, body: 'Students and parents see the change. It is logged.', tone: 'info' })],
+                        ['Archive', 'Archive', () => archive(h)]] : []),
                     ]} />
                   </div>
                 </li>
@@ -195,7 +204,7 @@ function StaffHomework({ sc }) {
             </ul>
           ) : (
             <div className="mt-3 border-t border-line">
-              <DataList rows={rows} onRow={(h) => go('homework', { page: 'homework', id: h.id })} minWidth={760} footer={`Showing 1 to ${rows.length} of ${rows.length}`}
+              <DataList rows={rows} onRow={(h) => go('homework', { page: 'homework', id: h.id })} minWidth={760} footer={`Showing: ${per.label} · ${fmtRange(per)} · ${rows.length} homework`}
                 columns={[
                   { key: 't', label: 'Homework', render: (h) => <div className="flex items-center gap-3"><SubIcon sub={h.sub} size={34} /><div><p className="font-semibold leading-tight">{h.title}</p><p className="text-[12.5px] text-ink3">{h.sub} · {h.cls}</p></div></div> },
                   { key: 'd', label: 'Due', nowrap: true, render: (h) => <span className="tnum">{h.due}</span> },
@@ -206,7 +215,7 @@ function StaffHomework({ sc }) {
                 mobile={(h) => ({ icon: SUB_ICON[h.sub], iconTone: SUB_TONE[h.sub], title: h.title, sub: `${h.cls} · due ${h.due} · ${h.submitted} of ${STRENGTH[h.cls]} in` })} />
             </div>
           )}
-          {view === 'cards' && rows.length > 0 && <div className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum">Showing 1 to {rows.length} of {rows.length}</div>}
+          {view === 'cards' && rows.length > 0 && <div className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum">Showing: {per.label} · {fmtRange(per)} · {rows.length} homework</div>}
         </Card>
       </div>
       <GiveHomeworkSheet open={give} onClose={() => setGive(false)} sc={sc}
@@ -218,7 +227,8 @@ function StaffHomework({ sc }) {
 function HomeworkDetail({ id, sc }) {
   const { go } = useNav();
   const toast = useToast();
-  const h = HW.find((x) => x.id === id) || HW[0];
+  const h0 = HW.find((x) => x.id === id);
+  const h = h0 && sc.mine(h0) ? h0 : HW.filter(sc.mine)[0];
   const n = STRENGTH[h.cls];
   const rows = subsFor(h);
   const notSeenAll = [...roster(h.cls)].sort((a, b) => hash(a.name + h.id) - hash(b.name + h.id)).slice(0, n - h.seen);
@@ -240,11 +250,11 @@ function HomeworkDetail({ id, sc }) {
           </div>
           <div className="flex gap-2">
             <Button variant="primary" icon={I.ListChecks} onClick={() => go('homework', { page: 'submissions', hw: h.id })}>Check work</Button>
-            <MoreMenu items={[
+            {sc.canEdit && <MoreMenu items={[
               ['Pencil', 'Edit', () => toast({ title: `Editing: ${h.title}`, tone: 'info' })],
               ['Copy', 'Give to another section', () => toast({ title: 'Copied as a new homework', body: 'Choose the section and due date, then send.', tone: 'info' })],
               ['Archive', 'Archive', () => { go('homework'); toast({ title: `Archived: ${h.title}`, undo: () => go('homework', { page: 'homework', id: h.id }) }); }],
-            ]} />
+            ]} />}
           </div>
         </Card>
         <Stats items={[
@@ -265,7 +275,7 @@ function HomeworkDetail({ id, sc }) {
           <Col>
             <Card className="overflow-hidden">
               <CardHead title="Seen by parent" sub={`${h.seen} of ${n} · from WhatsApp read receipts and Parent Link`} icon={I.Eye}
-                action={notSeenAll.length > 0 && !sent && <Button size="sm" variant="soft" icon={I.Send} onClick={() => setResend(true)}>Resend to {notSeenAll.length}</Button>} />
+                action={sc.canEdit && notSeenAll.length > 0 && !sent && <Button size="sm" variant="soft" icon={I.Send} onClick={() => setResend(true)}>Resend to {notSeenAll.length}</Button>} />
               <div className="px-3 pb-2"><SearchBox id="seen-search" value={q} onChange={setQ} placeholder="Student name" /></div>
               <ul className="px-2 pb-2 max-h-[420px] overflow-y-auto scroll-thin">
                 {[...seenRows].sort((a, b) => a.seen - b.seen).map((r) => (
@@ -422,10 +432,11 @@ function StudentHomework() {
   const toast = useToast();
   const [items, setItems] = useState(MY_HW);
   const [tab, setTab] = useState('todo');
+  const [per, setPer] = useState(PERIODS.acyear);
   const [open, setOpen] = useState(null);
   const [submit, setSubmit] = useState(null);
   const todo = items.filter((x) => x.state === 'todo');
-  const shown = items.filter((x) => x.state === tab);
+  const shown = items.filter((x) => x.state === tab && inPer(isoOf(x.due), per));
   const checked = items.filter((x) => x.state === 'checked');
   const avgPct = Math.round(checked.reduce((a, x) => a + (x.score / x.max) * 100, 0) / Math.max(1, checked.length));
   return (
@@ -440,8 +451,8 @@ function StudentHomework() {
         ]} />
         <Card>
           <CardHead title="My homework" sub="Hand it in here before the due date. After that it is marked late." icon={I.NotebookPen} />
-          <div className="px-3"><Segmented value={tab} onChange={setTab} className="w-full @md:w-auto" options={[{ value: 'todo', label: `To do · ${todo.length}` }, { value: 'submitted', label: `Handed in · ${items.filter((x) => x.state === 'submitted').length}` }, { value: 'checked', label: `Checked · ${checked.length}` }]} /></div>
-          {shown.length === 0 ? <Empty icon={I.PartyPopper} title="All done" body="Nothing left to hand in. New homework shows here as soon as a teacher gives it." /> : (
+          <div className="px-3 flex flex-col @md:flex-row gap-2.5 @md:items-center"><DatePeriod id="my-hw-per" future value={per} onChange={setPer} className="w-full @md:w-auto" /><Segmented value={tab} onChange={setTab} className="w-full @md:w-auto" options={[{ value: 'todo', label: `To do · ${todo.length}` }, { value: 'submitted', label: `Handed in · ${items.filter((x) => x.state === 'submitted').length}` }, { value: 'checked', label: `Checked · ${checked.length}` }]} /></div>
+          {shown.length === 0 ? <Empty icon={I.PartyPopper} title={tab === 'todo' ? 'All done' : 'Nothing here'} body={`Nothing due in ${per.label.toLowerCase()} (${fmtRange(per)}). New homework shows here as soon as a teacher gives it.`} /> : (
             <ul className="p-2">
               {shown.map((x) => (
                 <li key={x.id} className="flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-sunken/60">
@@ -536,19 +547,22 @@ function SubmitSheet({ hw, onClose, onDone }) {
    ===================================================================== */
 function SubmissionsPage({ params, access }) {
   const sc = useScope(access);
-  const list = HW.filter(sc.mine);
+  const [per, setPer] = useState(PERIODS.thismonth);
+  const all = HW.filter(sc.mine);
+  const list = all.filter((h) => inPer(isoOf(h.given), per) || h.id === params?.hw);
   const def = list.find((h) => h.id === params?.hw) || list.find((h) => h.cls === '7 B' && h.submitted > 0) || list[0];
-  const [hwId, setHwId] = useState(def.id);
+  const [hwId, setHwId] = useState(def?.id);
   const hw = list.find((h) => h.id === hwId) || def;
   return (
     <div>
       <ModuleHead sub={sc.own ? `${sc.subs[0]} · ${sc.classes.join(', ')} · only your homework` : 'Who handed in, and the marks and feedback'} />
       <div className="flex flex-col gap-5 @lg:gap-6">
         <Card className="p-3 flex flex-col @md:flex-row gap-2.5 @md:items-center">
-          <Select id="sg-hw" value={hwId} onChange={setHwId} className="flex-1" options={list.map((h) => ({ value: h.id, label: `${h.cls} · ${h.title} · due ${h.due}` }))} />
-          <p className="text-[13px] text-ink3 px-1">Out of {hw.max} · {hw.sub} · {hw.by}</p>
+          <DatePeriod id="sg-per" value={per} onChange={setPer} className="w-full @md:w-auto" />
+          {hw && <Select id="sg-hw" value={hw.id} onChange={setHwId} className="flex-1 min-w-0" options={list.map((h) => ({ value: h.id, label: `${h.cls} · ${h.title} · due ${h.due}` }))} />}
+          {hw && <p className="text-[13px] text-ink3 px-1">Out of {hw.max} · {hw.sub} · {hw.by}</p>}
         </Card>
-        <SubsTable key={hw.id} hw={hw} sc={sc} />
+        {hw ? <SubsTable key={hw.id} hw={hw} sc={sc} /> : <Card><Empty icon={I.NotebookPen} title="No homework given in these dates" body={`${per.label} · ${fmtRange(per)}. Pick other dates to check work.`} action={<Button variant="secondary" onClick={() => setPer(PERIODS.thismonth)}>This month</Button>} /></Card>}
       </div>
     </div>
   );
@@ -589,11 +603,11 @@ function SubsTable({ hw, sc }) {
           <ExportButton what="submissions" />
         </Toolbar>
         <div className="px-3 pt-3"><Chips value={f} onChange={setF} options={[{ value: 'all', label: 'Everyone', count: rows.length }, { value: 'check', label: 'To check', count: count(toCheck) }, { value: 'graded', label: 'Checked', count: count((r) => r.st === 'Graded') }, { value: 'not', label: 'Not handed in', count: count(notIn) }]} /></div>
-        <BulkBar count={sel.size} onClear={() => setSel(new Set())}>
+        {sc.canEdit && <BulkBar count={sel.size} onClear={() => setSel(new Set())}>
           <Button size="sm" variant="secondary" icon={I.CheckCheck} onClick={() => setBulk('complete')}>Mark Complete</Button>
           {selected.some(notIn) && <Button size="sm" variant="secondary" icon={I.Send} onClick={() => setBulk('remind')}>Remind parents</Button>}
-        </BulkBar>
-        <DataList select={[sel, setSel]} rowKey={(r) => r.s.id} rows={shown} onRow={(r) => setOne(r)} minWidth={780} footer={`Showing ${shown.length} of ${rows.length} · ${sel.size} selected`}
+        </BulkBar>}
+        <DataList select={sc.canEdit ? [sel, setSel] : null} rowKey={(r) => r.s.id} rows={shown} onRow={(r) => setOne(r)} minWidth={780} footer={`Showing ${shown.length} of ${rows.length} · ${sel.size} selected`}
           columns={[
             { key: 'n', label: 'Student', render: (r) => <div className="flex items-center gap-2.5"><span className="text-ink3 tnum w-5 text-[13px]">{r.s.roll}</span><Avatar name={r.s.name} size={32} /><span className="font-semibold">{r.s.name}</span></div> },
             { key: 'a', label: 'Admission no.', render: (r) => <span className="font-mono text-[12.5px]">{r.s.adm}</span> },
@@ -615,13 +629,13 @@ function SubsTable({ hw, sc }) {
         onConfirm={() => { setSel(new Set()); toast({ title: `Reminder sent to ${selected.filter(notIn).length} parents`, body: 'WhatsApp, with SMS backup. Sent once per homework.' }); }}>
         <p className="text-[14px] text-ink2">Parents of {selected.filter(notIn).map((r) => r.s.name).join(', ')} get one message saying “{hw.title}” is not handed in. Cost: {selected.filter(notIn).length} credits. A message cannot be unsent.</p>
       </ConfirmSheet>
-      <GradeSheet r={one} hw={hw} onClose={() => setOne(null)} onOpenProfile={(s) => go('student', { id: s.id })}
+      <GradeSheet r={one} hw={hw} canEdit={sc.canEdit} onClose={() => setOne(null)} onOpenProfile={(s) => go('student', { id: s.id })}
         onSave={(upd) => { setRows((x) => x.map((r) => (r.s.id === upd.s.id ? upd : r))); toast({ title: `Saved for ${upd.s.name}`, body: upd.score != null ? `${upd.score} of ${hw.max} · ${upd.mark}. The student sees the feedback now.` : `${upd.mark}. The student sees it now.` }); }} />
     </>
   );
 }
 
-function GradeSheet({ r, hw, onClose, onSave, onOpenProfile }) {
+function GradeSheet({ r, hw, canEdit, onClose, onSave, onOpenProfile }) {
   const [key, setKey] = useState(null);
   const [mark, setMark] = useState('Complete');
   const [score, setScore] = useState('');
@@ -644,7 +658,7 @@ function GradeSheet({ r, hw, onClose, onSave, onOpenProfile }) {
   return (
     <Sheet open={!!r} onClose={close} wide title={r.s.name} sub={`Roll ${r.s.roll} · ${hw.title}`}
       footer={<>{real && <Button variant="ghost" icon={I.User} onClick={() => { close(); onOpenProfile(r.s); }}>Profile</Button>}<Button variant="ghost" onClick={close}>Cancel</Button>
-        <Button variant="primary" icon={I.Check} disabled={!!errScore || (!r.when && mark === 'Incorrect')} onClick={() => { onSave({ ...r, st: 'Graded', mark, score: score === '' ? null : n, fb: fb.trim(), when: r.when || 'Checked in class' }); close(); }}>Save</Button></>}>
+        {canEdit && <Button variant="primary" icon={I.Check} disabled={!!errScore || (!r.when && mark === 'Incorrect')} onClick={() => { onSave({ ...r, st: 'Graded', mark, score: score === '' ? null : n, fb: fb.trim(), when: r.when || 'Checked in class' }); close(); }}>Save</Button>}</>}>
       <div className="grid @md:grid-cols-[1fr_1fr] gap-5">
         <div className="flex flex-col gap-3">
           <p className="text-[13px] font-semibold text-ink2">What {r.s.name.split(' ')[0]} handed in</p>
@@ -762,7 +776,7 @@ function StaffMaterial({ sc }) {
   return (
     <div>
       <ModuleHead sub={sc.own ? `Your courses: ${sc.subs[0]} for ${sc.classes.join(', ')}` : 'A course workspace for each class and subject'}
-        actions={<><Button variant="secondary" icon={I.Copy} onClick={() => setCopy(true)}>Copy course</Button><Button variant="primary" icon={I.Plus} onClick={() => setAdd(true)}>Add lesson</Button></>} />
+        actions={sc.canEdit && <><Button variant="secondary" icon={I.Copy} onClick={() => setCopy(true)}>Copy course</Button><Button variant="primary" icon={I.Plus} onClick={() => setAdd(true)}>Add lesson</Button></>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
         <Chips value={ck} onChange={setCk} options={courses.map((c) => ({ value: `${c.sub}|${c.cls}`, label: `${c.sub} · ${c.cls}` }))} />
         <Split side={340}>
@@ -777,11 +791,11 @@ function StaffMaterial({ sc }) {
                       <p className="font-semibold text-[14.5px]">{l.title} <span className="text-ink3 font-normal text-[13px]">· {l.ch}</span></p>
                       <button onClick={() => setWho({ l, i })} className="text-[12.5px] text-ink3 hover:text-brand">{l.vis ? `Opened by ${opened(l, i)} of ${n}` : 'Hidden from students'}</button>
                     </div>
-                    <div className="flex items-center gap-0.5 shrink-0">
+                    {sc.canEdit && <div className="flex items-center gap-0.5 shrink-0">
                       <button aria-label="Move up" disabled={i === 0} onClick={() => move(i, -1)} className="w-8 h-8 grid place-items-center rounded-lg text-ink3 hover:bg-sunken disabled:opacity-30"><I.ArrowUp size={16} /></button>
                       <button aria-label="Move down" disabled={i === cur.length - 1} onClick={() => move(i, 1)} className="w-8 h-8 grid place-items-center rounded-lg text-ink3 hover:bg-sunken disabled:opacity-30"><I.ArrowDown size={16} /></button>
                       <Switch on={l.vis} label={`Visible: ${l.title}`} onChange={(v) => { setCur((x) => x.map((y) => (y.id === l.id ? { ...y, vis: v } : y))); toast({ title: v ? `${l.title} is visible to ${cls}` : `${l.title} is hidden`, undo: () => setCur((x) => x.map((y) => (y.id === l.id ? { ...y, vis: !v } : y))) }); }} />
-                    </div>
+                    </div>}
                   </div>
                   <ul className="mt-2.5 flex flex-col gap-1 pl-11">
                     {l.items.map(([k, name, meta]) => (
@@ -887,14 +901,14 @@ function StudentMaterial() {
    4. Quizzes
    ===================================================================== */
 const QUIZZES = [
-  { id: 'QZ-31', title: 'Light and shadows', sub: 'Science', cls: '7 B', by: 'Ravi Teja', qs: 10, time: '15 min', tries: 1, taken: 27, avg: 7.4, status: 'Open', closes: 'today, 6:00 PM' },
-  { id: 'QZ-30', title: 'Simple equations: quick check', sub: 'Mathematics', cls: '7 B', by: 'Imran Shaikh', qs: 8, time: '10 min', tries: 2, taken: 19, avg: 6.1, status: 'Open', closes: 'Sun 11 Oct, 8:00 PM' },
-  { id: 'QZ-29', title: 'Half Yearly revision: algebra', sub: 'Mathematics', cls: '7 A', by: 'Imran Shaikh', qs: 15, time: '20 min', tries: 1, taken: 0, avg: null, status: 'Draft', closes: 'Not set' },
-  { id: 'QZ-27', title: 'Integers', sub: 'Mathematics', cls: '7 A', by: 'Imran Shaikh', qs: 10, time: '10 min', tries: 1, taken: 40, avg: 8.2, status: 'Closed', closes: 'Closed 2 Oct' },
-  { id: 'QZ-26', title: 'Fractions and decimals', sub: 'Mathematics', cls: '6 B', by: 'Imran Shaikh', qs: 10, time: '12 min', tries: 1, taken: 37, avg: 7.0, status: 'Closed', closes: 'Closed 30 Sep' },
-  { id: 'QZ-25', title: 'Acids, bases and salts', sub: 'Science', cls: '7 A', by: 'Ravi Teja', qs: 10, time: '15 min', tries: 1, taken: 39, avg: 7.8, status: 'Closed', closes: 'Closed 29 Sep' },
-  { id: 'QZ-24', title: 'Microorganisms', sub: 'Science', cls: '8 B', by: 'Ravi Teja', qs: 12, time: '15 min', tries: 1, taken: 38, avg: 8.9, status: 'Closed', closes: 'Closed 26 Sep' },
-  { id: 'QZ-22', title: 'Tenses', sub: 'English', cls: '9 A', by: 'Sridevi Kulkarni', qs: 20, time: '20 min', tries: 2, taken: 34, avg: 15.2, status: 'Closed', closes: 'Closed 25 Sep' },
+  { id: 'QZ-31', date: '2026-10-08', title: 'Light and shadows', sub: 'Science', cls: '7 B', by: 'Ravi Teja', qs: 10, time: '15 min', tries: 1, taken: 27, avg: 7.4, status: 'Open', closes: 'today, 6:00 PM' },
+  { id: 'QZ-30', date: '2026-10-07', title: 'Simple equations: quick check', sub: 'Mathematics', cls: '7 B', by: 'Imran Shaikh', qs: 8, time: '10 min', tries: 2, taken: 19, avg: 6.1, status: 'Open', closes: 'Sun 11 Oct, 8:00 PM' },
+  { id: 'QZ-29', date: '2026-10-09', title: 'Half Yearly revision: algebra', sub: 'Mathematics', cls: '7 A', by: 'Imran Shaikh', qs: 15, time: '20 min', tries: 1, taken: 0, avg: null, status: 'Draft', closes: 'Not set' },
+  { id: 'QZ-27', date: '2026-09-28', title: 'Integers', sub: 'Mathematics', cls: '7 A', by: 'Imran Shaikh', qs: 10, time: '10 min', tries: 1, taken: 40, avg: 8.2, status: 'Closed', closes: 'Closed 2 Oct' },
+  { id: 'QZ-26', date: '2026-09-25', title: 'Fractions and decimals', sub: 'Mathematics', cls: '6 B', by: 'Imran Shaikh', qs: 10, time: '12 min', tries: 1, taken: 37, avg: 7.0, status: 'Closed', closes: 'Closed 30 Sep' },
+  { id: 'QZ-25', date: '2026-09-24', title: 'Acids, bases and salts', sub: 'Science', cls: '7 A', by: 'Ravi Teja', qs: 10, time: '15 min', tries: 1, taken: 39, avg: 7.8, status: 'Closed', closes: 'Closed 29 Sep' },
+  { id: 'QZ-24', date: '2026-09-21', title: 'Microorganisms', sub: 'Science', cls: '8 B', by: 'Ravi Teja', qs: 12, time: '15 min', tries: 1, taken: 38, avg: 8.9, status: 'Closed', closes: 'Closed 26 Sep' },
+  { id: 'QZ-22', date: '2026-09-20', title: 'Tenses', sub: 'English', cls: '9 A', by: 'Sridevi Kulkarni', qs: 20, time: '20 min', tries: 2, taken: 34, avg: 15.2, status: 'Closed', closes: 'Closed 25 Sep' },
 ];
 const QZ_TONE = { Open: 'ok', Draft: 'neutral', Closed: 'info' };
 const LIGHT_QS = [
@@ -932,16 +946,19 @@ function StaffQuizzes({ sc }) {
   const [list, setList] = useState(() => QUIZZES.filter((z) => !sc.own || z.by === sc.name));
   const [f, setF] = useState('all');
   const [q, setQ] = useState('');
+  const [per, setPer] = useState(PERIODS.last30);
   const [add, setAdd] = useState(false);
   const [open, setOpen] = useState(null);
-  const rows = list.filter((z) => (f === 'all' || z.status === f) && (!q.trim() || z.title.toLowerCase().includes(q.trim().toLowerCase())));
+  const inP = list.filter((z) => inPer(z.date || '2026-10-09', per));
+  const rows = inP.filter((z) => (f === 'all' || z.status === f) && (!q.trim() || z.title.toLowerCase().includes(q.trim().toLowerCase())));
   return (
     <div>
-      <ModuleHead sub={sc.own ? `Quizzes for your classes · they mark themselves` : 'Quizzes that mark themselves, for practice and class tests'} actions={<Button variant="primary" icon={I.Plus} onClick={() => setAdd(true)}>Create quiz</Button>} />
+      <ModuleHead sub={sc.own ? `Quizzes for your classes · they mark themselves` : 'Quizzes that mark themselves, for practice and class tests'} actions={sc.canEdit && <Button variant="primary" icon={I.Plus} onClick={() => setAdd(true)}>Create quiz</Button>} />
       <Card className="overflow-hidden">
-        <Toolbar><SearchBox id="qz-search" value={q} onChange={setQ} placeholder="Search quizzes" /><ExportButton what="quiz results" /></Toolbar>
-        <div className="px-3 pt-3"><Chips value={f} onChange={setF} options={[{ value: 'all', label: 'All', count: list.length }, ...['Open', 'Draft', 'Closed'].map((s) => ({ value: s, label: s, count: list.filter((z) => z.status === s).length }))]} /></div>
-        <DataList rows={rows} onRow={(z) => setOpen(z)} minWidth={820} footer={`Showing 1 to ${rows.length} of ${rows.length}`}
+        <Toolbar><SearchBox id="qz-search" value={q} onChange={setQ} placeholder="Search quizzes" /><DatePeriod id="qz-per" value={per} onChange={setPer} className="w-full @md:w-auto" /><ExportButton what="quiz results" /></Toolbar>
+        <div className="px-3 pt-3"><Chips value={f} onChange={setF} options={[{ value: 'all', label: 'All', count: inP.length }, ...['Open', 'Draft', 'Closed'].map((s) => ({ value: s, label: s, count: inP.filter((z) => z.status === s).length }))]} /></div>
+        <DataList rows={rows} onRow={(z) => setOpen(z)} minWidth={820} footer={`Showing: ${per.label} · ${fmtRange(per)} · ${rows.length} quizzes`}
+          empty={<Empty icon={I.ListChecks} title="No quizzes in these dates" body="Pick other dates or another filter." />}
           columns={[
             { key: 't', label: 'Quiz', render: (z) => <div className="flex items-center gap-3"><SubIcon sub={z.sub} size={34} /><div><p className="font-semibold leading-tight">{z.title}</p><p className="text-[12.5px] text-ink3">{z.sub} · {z.cls}</p></div></div> },
             { key: 'q', label: 'Questions', align: 'right', render: (z) => z.qs },
@@ -953,19 +970,19 @@ function StaffQuizzes({ sc }) {
           ]}
           mobile={(z) => ({ icon: SUB_ICON[z.sub], iconTone: SUB_TONE[z.sub], title: z.title, sub: `${z.cls} · ${z.qs} questions · ${z.taken} taken`, pills: [<Pill key="s" tone={QZ_TONE[z.status]} className="!h-[22px] !text-[11.5px]">{z.status}</Pill>] })} />
       </Card>
-      <QuizResults z={open} onClose={() => setOpen(null)} onClose2={(z) => { setList((x) => x.map((y) => (y.id === z.id ? { ...y, status: 'Closed', closes: 'Closed today' } : y))); toast({ title: `${z.title} closed`, body: 'Students who did not take it can no longer start it.' }); }} />
+      <QuizResults z={open} canEdit={sc.canEdit} onClose={() => setOpen(null)} onClose2={(z) => { setList((x) => x.map((y) => (y.id === z.id ? { ...y, status: 'Closed', closes: 'Closed today' } : y))); toast({ title: `${z.title} closed`, body: 'Students who did not take it can no longer start it.' }); }} />
       <CreateQuizSheet open={add} onClose={() => setAdd(false)} sc={sc} onSave={(z) => { setList((x) => [z, ...x]); toast({ title: z.status === 'Open' ? `${z.title} is open for ${z.cls}` : `${z.title} saved as a draft`, body: z.status === 'Open' ? `${STRENGTH[z.cls]} students notified. Closes ${z.closes}.` : 'Open it when you are ready.' }); }} />
     </div>
   );
 }
 
-function QuizResults({ z, onClose, onClose2 }) {
+function QuizResults({ z, canEdit, onClose, onClose2 }) {
   if (!z) return null;
   const r = roster(z.cls).slice(0, z.taken).map((s) => ({ s, sc: Math.max(2, Math.min(z.qs, Math.round(z.qs * (0.45 + (hash(s.name + z.id) % 55) / 100)))) }));
   const qPct = Array.from({ length: Math.min(z.qs, 10) }, (_, i) => ({ k: `Q${i + 1}`, v: z.id === 'QZ-31' && i === 6 ? 41 : 52 + (hash(z.id + i) % 46) }));
   return (
     <Sheet open={!!z} onClose={onClose} wide title={z.title} sub={`${z.sub} · ${z.cls} · ${z.qs} questions · ${z.time} · ${z.status === 'Open' ? `closes ${z.closes}` : z.closes}`}
-      footer={<><Button variant="ghost" onClick={onClose}>Close</Button>{z.status === 'Open' && <Button variant="secondary" icon={I.Lock} onClick={() => { onClose2(z); onClose(); }}>Close quiz now</Button>}</>}>
+      footer={<><Button variant="ghost" onClick={onClose}>Close</Button>{z.status === 'Open' && canEdit && <Button variant="secondary" icon={I.Lock} onClick={() => { onClose2(z); onClose(); }}>Close quiz now</Button>}</>}>
       {z.taken === 0 ? <Empty icon={I.ListChecks} title="Nobody has taken it yet" body="This quiz is a draft. Open it to let students start." /> : (
         <div className="grid @md:grid-cols-2 gap-5">
           <div>
@@ -995,7 +1012,7 @@ function CreateQuizSheet({ open, onClose, sc, onSave }) {
   const [show, setShow] = useState(true);
   const [tried, setTried] = useState(false);
   const err = !title.trim() ? 'Give the quiz a title.' : '';
-  const save = (status) => { setTried(true); if (err) return; onSave({ id: 'QZ-' + (32 + qs.length), title: title.trim(), sub, cls, by: sc.name, qs: qs.length, time, tries: Number(tries), taken: 0, avg: null, status, closes: status === 'Open' ? 'Fri 16 Oct, 8:00 PM' : 'Not set' }); setTitle(''); setTried(false); onClose(); };
+  const save = (status) => { setTried(true); if (err) return; onSave({ id: 'QZ-' + (32 + qs.length), date: '2026-10-09', title: title.trim(), sub, cls, by: sc.name, qs: qs.length, time, tries: Number(tries), taken: 0, avg: null, status, closes: status === 'Open' ? 'Fri 16 Oct, 8:00 PM' : 'Not set' }); setTitle(''); setTried(false); onClose(); };
   return (
     <Sheet open={open} onClose={onClose} wide title="Create quiz" sub="Multiple choice and true or false questions mark themselves"
       footer={<><Button variant="ghost" onClick={onClose}>Cancel</Button><Button variant="secondary" onClick={() => save('Draft')}>Save draft</Button><Button variant="primary" icon={I.Send} onClick={() => save('Open')}>Open for {cls}</Button></>}>
@@ -1031,7 +1048,9 @@ function CreateQuizSheet({ open, onClose, sc, onSave }) {
 function StudentQuizzes() {
   const [taking, setTaking] = useState(null);
   const [done, setDone] = useState({ 'QZ-20': { score: 9, of: 10, title: 'Integers practice', sub: 'Mathematics', when: '2 Oct' }, 'QZ-18': { score: 8, of: 10, title: 'Nutrition in plants', sub: 'Science', when: '24 Sep' } });
+  const [per, setPer] = useState(PERIODS.last30);
   const open = QUIZZES.filter((z) => z.cls === '7 B' && z.status === 'Open' && !done[z.id]);
+  const doneRows = Object.entries(done).filter(([, d]) => inPer(d.when === 'Today' ? '2026-10-09' : isoOf(d.when), per));
   if (taking) return <TakeQuiz z={taking} onExit={() => setTaking(null)} onDone={(res) => { setDone((x) => ({ ...x, [taking.id]: res })); }} />;
   return (
     <div>
@@ -1056,9 +1075,11 @@ function StudentQuizzes() {
           ) : <Empty icon={I.PartyPopper} title="All quizzes done" body="New quizzes show here when a teacher opens one." />}
         </Card>
         <Card>
-          <CardHead title="Done" sub="Your scores" icon={I.Medal} />
+          <CardHead title="Done" sub={`Your scores · ${per.label} · ${fmtRange(per)}`} icon={I.Medal} />
+          <div className="px-3 pb-2"><DatePeriod id="my-qz-per" value={per} onChange={setPer} className="w-full @md:w-auto" /></div>
+          {!doneRows.length && <Empty icon={I.ListChecks} title="No quizzes done in these dates" body="Pick other dates to see earlier scores." />}
           <ul className="px-2 pb-2">
-            {Object.entries(done).map(([id, d]) => (
+            {doneRows.map(([id, d]) => (
               <li key={id} className="flex items-center gap-3 px-3 py-3 rounded-xl">
                 <SubIcon sub={d.sub || 'Science'} />
                 <div className="min-w-0 flex-1"><p className="font-semibold text-[14.5px]">{d.title}</p><p className="text-[12.5px] text-ink3">{d.sub} · {d.when}</p></div>
@@ -1192,13 +1213,13 @@ function DiscussionsPage({ access }) {
   const [nt, setNt] = useState({ title: '', body: '' });
   const topic = list.find((t) => t.id === tid);
   const me = sc.student ? FEATURED.name : sc.name;
-  const canMod = !sc.student;
+  const canMod = !sc.student && sc.canEdit && (sc.full || board.owner === sc.name);
   const update = (id, fn) => setList((x) => x.map((t) => (t.id === id ? fn(t) : t)));
   const sorted = [...list].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
   return (
     <div>
       <ModuleHead sub={sc.student ? 'Class 7 B boards · ask and answer questions with your class' : sc.own ? 'Boards for your classes · pin, lock or hide posts' : 'Class discussion boards for questions and answers'}
-        actions={sc.student ? <Button variant="primary" icon={I.MessageSquarePlus} onClick={() => setNewTopic(true)}>Ask a question</Button> : <><Button variant="secondary" icon={I.Plus} onClick={() => setNewBoard(true)}>New board</Button><Button variant="primary" icon={I.MessageSquarePlus} onClick={() => setNewTopic(true)}>New topic</Button></>} />
+        actions={!sc.canEdit ? null : sc.student ? <Button variant="primary" icon={I.MessageSquarePlus} onClick={() => setNewTopic(true)}>Ask a question</Button> : <><Button variant="secondary" icon={I.Plus} onClick={() => setNewBoard(true)}>New board</Button><Button variant="primary" icon={I.MessageSquarePlus} onClick={() => setNewTopic(true)}>New topic</Button></>} />
       <div className="grid @xl:grid-cols-[300px_minmax(0,1fr)] gap-5 @lg:gap-6 items-start">
         <Card>
           <CardHead title="Boards" icon={I.MessagesSquare} />
@@ -1261,7 +1282,7 @@ function DiscussionsPage({ access }) {
                 ))}
                 {topic.replies.length === 0 && <li className="text-[13.5px] text-ink3">No replies yet.</li>}
               </ul>
-              {topic.locked ? <Banner tone="info" icon="Lock" className="mt-4">Replies are locked on this topic.</Banner> : (
+              {topic.locked ? <Banner tone="info" icon="Lock" className="mt-4">Replies are locked on this topic.</Banner> : sc.canEdit && (
                 <div className="flex gap-2 mt-4">
                   <Input value={reply} onChange={(e) => setReply(e.target.value)} placeholder={sc.student ? 'Write a reply to your class' : 'Write a reply'} aria-label="Write a reply" />
                   <Button variant="primary" icon={I.Send} disabled={!reply.trim()} onClick={() => { update(topic.id, (x) => ({ ...x, replies: [...x.replies, { by: me, teacher: !sc.student, when: 'just now', text: reply.trim() }] })); setReply(''); }}>Post</Button>
@@ -1324,16 +1345,17 @@ function StaffOnline({ sc }) {
   const toast = useToast();
   const [list, setList] = useState(() => SESSIONS.filter((x) => !sc.own || x.by === sc.name));
   const [f, setF] = useState('upcoming');
+  const [per, setPer] = useState(PERIODS.acyear);
   const [add, setAdd] = useState(false);
   const [open, setOpen] = useState(null);
-  const rows = list.filter((x) => (f === 'upcoming' ? x.status === 'Scheduled' || x.status === 'Live' : x.status === 'Done' || x.status === 'Cancelled'));
+  const rows = list.filter((x) => inPer(isoOf(x.when), per) && (f === 'upcoming' ? x.status === 'Scheduled' || x.status === 'Live' : x.status === 'Done' || x.status === 'Cancelled'));
   return (
     <div>
-      <ModuleHead sub={sc.own ? 'Your online classes · Google Meet is connected' : 'Online class schedule, attendance and recordings · Google Meet is connected'} actions={<Button variant="primary" icon={I.CalendarPlus} onClick={() => setAdd(true)}>Schedule a class</Button>} />
+      <ModuleHead sub={sc.own ? 'Your online classes · Google Meet is connected' : 'Online class schedule, attendance and recordings · Google Meet is connected'} actions={sc.canEdit && <Button variant="primary" icon={I.CalendarPlus} onClick={() => setAdd(true)}>Schedule a class</Button>} />
       <Card className="overflow-hidden">
-        <div className="p-3 border-b border-line flex items-center justify-between gap-3"><Segmented value={f} onChange={setF} options={[{ value: 'upcoming', label: 'Upcoming' }, { value: 'past', label: 'Past' }]} /><ExportButton what="online class attendance" /></div>
-        <DataList rows={rows} onRow={(x) => setOpen(x)} minWidth={760} footer={`Showing ${rows.length} of ${rows.length}`}
-          empty={<Empty icon={I.Video} title="No online classes here" body="Schedule one for doubt-clearing or the holidays." action={<Button variant="primary" icon={I.CalendarPlus} onClick={() => setAdd(true)}>Schedule a class</Button>} />}
+        <div className="p-3 border-b border-line flex flex-col @md:flex-row @md:items-center gap-2.5"><Segmented value={f} onChange={setF} options={[{ value: 'upcoming', label: 'Upcoming' }, { value: 'past', label: 'Past' }]} /><DatePeriod id="oc-per" future value={per} onChange={setPer} className="w-full @md:w-auto" /><span className="flex-1" /><ExportButton what="online class attendance" /></div>
+        <DataList rows={rows} onRow={(x) => setOpen(x)} minWidth={760} footer={`Showing: ${per.label} · ${fmtRange(per)} · ${rows.length} online classes`}
+          empty={<Empty icon={I.Video} title="No online classes here" body="Nothing in these dates. Pick other dates, or schedule one for doubt-clearing or the holidays." action={sc.canEdit && <Button variant="primary" icon={I.CalendarPlus} onClick={() => setAdd(true)}>Schedule a class</Button>} />}
           columns={[
             { key: 't', label: 'Class', render: (x) => <div className="flex items-center gap-3"><SubIcon sub={x.sub} size={34} /><div><p className="font-semibold leading-tight">{x.title}</p><p className="text-[12.5px] text-ink3">{x.sub} · {x.cls}{!sc.own && ` · ${x.by}`}</p></div></div> },
             { key: 'w', label: 'Date and time', nowrap: true, render: (x) => <span className="tnum">{x.when}<span className="block text-[12.5px] text-ink3">{x.len}{x.repeat ? ` · ${x.repeat}` : ''}</span></span> },
@@ -1342,7 +1364,7 @@ function StaffOnline({ sc }) {
           ]}
           mobile={(x) => ({ icon: 'Video', iconTone: OC_TONE[x.status], title: x.title, sub: `${x.cls} · ${x.when}`, pills: [<Pill key="s" tone={OC_TONE[x.status]} className="!h-[22px] !text-[11.5px]">{x.status}</Pill>] })} />
       </Card>
-      <SessionSheet x={open} onClose={() => setOpen(null)} onCancel={(x) => { setList((l) => l.map((y) => (y.id === x.id ? { ...y, status: 'Cancelled', note: 'Cancelled by the teacher' } : y))); toast({ title: `Cancelled: ${x.title}`, body: 'Students and parents are told.', undo: () => setList((l) => l.map((y) => (y.id === x.id ? x : y))) }); }} />
+      <SessionSheet x={open} canEdit={sc.canEdit} onClose={() => setOpen(null)} onCancel={(x) => { setList((l) => l.map((y) => (y.id === x.id ? { ...y, status: 'Cancelled', note: 'Cancelled by the teacher' } : y))); toast({ title: `Cancelled: ${x.title}`, body: 'Students and parents are told.', undo: () => setList((l) => l.map((y) => (y.id === x.id ? x : y))) }); }} />
       <FormSheet open={add} onClose={() => setAdd(false)} title="Schedule an online class" sub="The meeting link is made in Google Meet" submitLabel="Schedule"
         onSubmit={() => { setList((l) => [{ id: 'OC-64', title: 'Half Yearly revision: geometry', sub: sc.subs[0], cls: sc.classes.includes('7 B') ? '7 B' : sc.classes[0], by: sc.name, when: 'Sun 11 Oct, 5:00 PM', len: '40 min', status: 'Scheduled', link: 'meet.google.com/qzm-wrnv-pob' }, ...l]); setF('upcoming'); toast({ title: 'Online class scheduled for Sun 11 Oct, 5:00 PM', body: 'Students get a reminder 15 minutes before.' }); }}>
         <div className="grid grid-cols-2 gap-3">
@@ -1361,7 +1383,7 @@ function StaffOnline({ sc }) {
   );
 }
 
-function SessionSheet({ x, onClose, onCancel }) {
+function SessionSheet({ x, canEdit, onClose, onCancel }) {
   const toast = useToast();
   const [rec, setRec] = useState('');
   if (!x) return null;
@@ -1369,7 +1391,7 @@ function SessionSheet({ x, onClose, onCancel }) {
   const people = roster(cls).slice(0, x.of || 0);
   return (
     <Sheet open={!!x} onClose={onClose} wide title={x.title} sub={`${x.sub} · ${x.cls} · ${x.by} · ${x.when} · ${x.len}`}
-      footer={<><Button variant="ghost" onClick={onClose}>Close</Button>{x.status === 'Scheduled' && <><Button variant="dangerSoft" onClick={() => { onCancel(x); onClose(); }}>Cancel class</Button><Button variant="primary" icon={I.Video} onClick={() => toast({ title: 'Opening Google Meet', body: x.link, tone: 'info' })}>Start</Button></>}</>}>
+      footer={<><Button variant="ghost" onClick={onClose}>Close</Button>{x.status === 'Scheduled' && canEdit && <><Button variant="dangerSoft" onClick={() => { onCancel(x); onClose(); }}>Cancel class</Button><Button variant="primary" icon={I.Video} onClick={() => toast({ title: 'Opening Google Meet', body: x.link, tone: 'info' })}>Start</Button></>}</>}>
       {x.status === 'Scheduled' && (
         <div className="flex flex-col gap-4">
           <div className="rounded-2xl border border-line p-3.5 flex items-center gap-3">
@@ -1392,7 +1414,7 @@ function SessionSheet({ x, onClose, onCancel }) {
           <div className="flex flex-col gap-3">
             <p className="text-[13px] font-semibold text-ink2">Recording and materials</p>
             <ul><FileRow name={x.rec} meta="Google Drive · visible to the class" onView={() => toast({ title: 'Opening the recording', tone: 'info' })} /><FileRow name="Simple equations: notes.pdf" meta="Shared in the class" onView={() => toast({ title: 'Opening the notes', tone: 'info' })} /></ul>
-            <Field label="Add another recording link" id="rec-link"><div className="flex gap-2"><Input id="rec-link" value={rec} onChange={(e) => setRec(e.target.value)} placeholder="Paste a link" className="!h-10" /><Button variant="secondary" disabled={!rec.trim()} className="!h-10" onClick={() => { setRec(''); toast({ title: 'Recording link added', body: 'Students can watch it in Online Classes.' }); }}>Add</Button></div></Field>
+            {canEdit && <Field label="Add another recording link" id="rec-link"><div className="flex gap-2"><Input id="rec-link" value={rec} onChange={(e) => setRec(e.target.value)} placeholder="Paste a link" className="!h-10" /><Button variant="secondary" disabled={!rec.trim()} className="!h-10" onClick={() => { setRec(''); toast({ title: 'Recording link added', body: 'Students can watch it in Online Classes.' }); }}>Add</Button></div></Field>}
           </div>
         </div>
       )}
@@ -1402,7 +1424,8 @@ function SessionSheet({ x, onClose, onCancel }) {
 
 function StudentOnline() {
   const toast = useToast();
-  const mine = SESSIONS.filter((x) => x.cls.includes('7 B'));
+  const [per, setPer] = useState(PERIODS.acyear);
+  const mine = SESSIONS.filter((x) => x.cls.includes('7 B') && inPer(isoOf(x.when), per));
   const up = mine.filter((x) => x.status === 'Scheduled');
   const past = mine.filter((x) => x.status === 'Done');
   const [rem, setRem] = useState(new Set());
@@ -1410,8 +1433,10 @@ function StudentOnline() {
     <div>
       <ModuleHead sub="Class 7 B · online classes from your teachers" />
       <div className="flex flex-col gap-5 @lg:gap-6">
+        <div className="flex flex-col @md:flex-row @md:items-center gap-2.5"><DatePeriod id="my-oc-per" future value={per} onChange={setPer} className="w-full @md:w-auto" /><p className="text-[12.5px] text-ink3 tnum">{fmtRange(per)} · {up.length} coming up · {past.length} recordings</p></div>
         <Card>
           <CardHead title="Coming up" sub="Join opens 10 minutes before the start" icon={I.CalendarClock} />
+          {!up.length && <Empty icon={I.Video} title="No online classes coming up in these dates" body="Pick other dates." />}
           <ul className="px-2 pb-2">
             {up.map((x) => (
               <li key={x.id} className="flex flex-col @md:flex-row @md:items-center gap-3 px-3 py-3 rounded-xl">
@@ -1429,6 +1454,7 @@ function StudentOnline() {
         </Card>
         <Card>
           <CardHead title="Recordings" sub="Watch a class again" icon={I.CirclePlay} />
+          {!past.length && <Empty icon={I.CirclePlay} title="No recordings in these dates" body="Pick other dates." />}
           <ul className="px-2 pb-2">
             {past.map((x) => (
               <li key={x.id} className="flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-sunken/60">
@@ -1453,11 +1479,13 @@ function ProgressPage({ access }) {
   const { go } = useNav();
   const [cls, setCls] = useState(sc.classes.includes('7 B') ? '7 B' : sc.classes[0]);
   const [sub, setSub] = useState(sc.own ? sc.subs[0] : 'all');
-  const [range, setRange] = useState('month');
+  const [per, setPer] = useState(PERIODS.thismonth);
+  const range = per.key + per.from;
   const [q, setQ] = useState('');
   const [cert, setCert] = useState(false);
   const [issued, setIssued] = useState(false);
-  const hwTotal = range === 'month' ? 12 : 31;
+  const pd = periodDays(per);
+  const hwTotal = Math.max(1, Math.round(Math.min(pd, 30) * 1.33 + Math.max(0, pd - 30) * 0.15));
   const rows = roster(cls).map((s) => {
     const h = hash(s.name + cls + sub + range);
     const isA = s.id === FEATURED.id;
@@ -1476,7 +1504,7 @@ function ProgressPage({ access }) {
           <Toolbar>
             <Select id="lp-cls" value={cls} onChange={setCls} className="@md:w-40" options={sc.classes.map((c) => ({ value: c, label: `Class ${c}` }))} />
             <Select id="lp-sub" value={sub} onChange={setSub} className="@md:w-60" options={subOpts} />
-            <Segmented value={range} onChange={setRange} options={[{ value: 'month', label: 'October' }, { value: 'term', label: 'Term 1' }]} />
+            <DatePeriod id="lp-per" value={per} onChange={setPer} className="w-full @md:w-auto" />
           </Toolbar>
         </Card>
         <Stats items={[
@@ -1501,7 +1529,7 @@ function ProgressPage({ access }) {
           </Card>
           <Col>
             <Card>
-              <CardHead title="Where students struggle" sub="Lowest correct answers this month" icon={I.Lightbulb} />
+              <CardHead title="Where students struggle" sub={`Lowest correct answers · ${fmtRange(per)}`} icon={I.Lightbulb} />
               <div className="px-5 pb-5"><HBars rows={[{ k: 'Word problems (equations)', v: 48 }, { k: 'Plane mirror image', v: 52 }, { k: 'Median of data', v: 58 }, { k: 'Dividing fractions', v: 63 }, { k: 'Integer properties', v: 79 }]} lowBelow={60} labelWidth={150} /></div>
             </Card>
             <Card>
@@ -1510,7 +1538,7 @@ function ProgressPage({ access }) {
                 <div className="rounded-2xl border border-line p-3.5">
                   <p className="font-semibold text-[14.5px]">Integers · Class {cls} {sc.subs[0] === 'Science' ? 'Science' : 'Maths'}</p>
                   <p className="text-[12.5px] text-ink3">{issued ? `Issued to 31 students today` : '31 students finished every lesson and quiz'}</p>
-                  <Button size="sm" variant={issued ? 'ghost' : 'soft'} icon={issued ? I.Check : I.Award} className="mt-2" disabled={issued} onClick={() => setCert(true)}>{issued ? 'Issued' : 'Issue 31 certificates'}</Button>
+                  {sc.canEdit && !issued && <Button size="sm" variant="soft" icon={I.Award} className="mt-2" onClick={() => setCert(true)}>Issue 31 certificates</Button>}
                 </div>
                 <p className="text-[12.5px] text-ink3">Design from Settings, Document Designs. Students and parents can download them.</p>
               </div>
@@ -1532,6 +1560,8 @@ function ProgressPage({ access }) {
 function SettingsPage() {
   const toast = useToast();
   const { go } = useNav();
+  const { role } = useRole();
+  const canMsgSettings = pagesFor('communication', role.access.communication, role.id).some((p) => p.id === 'settings');
   return (
     <div className="max-w-4xl">
       <ModuleHead sub="Submission rules, late marking, grading and who can see which course" />
@@ -1567,7 +1597,7 @@ function SettingsPage() {
           { title: 'Show attachments count on cards', on: false },
         ]} />
         <Card>
-          <CardHead title="Homework messages to parents" sub="Set in Communication, Message Settings" icon={I.MessageCircle} action={<Button size="sm" variant="ghost" iconRight={I.ArrowRight} onClick={() => go('communication', { page: 'settings' })}>Change</Button>} />
+          <CardHead title="Homework messages to parents" sub="Set in Communication, Message Settings" icon={I.MessageCircle} action={canMsgSettings && <Button size="sm" variant="ghost" iconRight={I.ArrowRight} onClick={() => go('communication', { page: 'settings' })}>Change</Button>} />
           <ul className="divide-y divide-line/70 border-t border-line/70">
             {[['When homework is given', 'On · WhatsApp'], ['Homework not handed in', 'On · 7:00 PM on the due date, once'], ['Teacher feedback', 'Off']].map(([k, v]) => (
               <li key={k} className="flex items-center gap-3 px-5 py-3.5 text-[14px]"><span className="flex-1">{k}</span><span className="text-ink2 font-semibold">{v}</span></li>

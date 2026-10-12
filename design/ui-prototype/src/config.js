@@ -95,11 +95,12 @@ const VIEW = {
   inventory: ['items', 'purchases', 'assets', 'reports'],
   hostel: ['rooms', 'allocation', 'rollcall', 'outing', 'mess', 'reports'],
   frontoffice: ['desk', 'visitors', 'pickup', 'appointments'],
-  events: ['calendar', 'events', 'gallery'],
+  events: ['calendar'],
   reports: ['all', 'analytics'],
 };
 // A few roles have a narrower View slice (from the notes in 05-roles.md)
-const VIEW_BY_ROLE = { officestaff: { frontoffice: ['visitors', 'pickup'] } };
+const VIEW_BY_ROLE = { officestaff: { frontoffice: ['visitors', 'pickup'] }, accountant: { events: ['calendar', 'events'] } };
+const LABELS_BY_ROLE = { accountant: { events: { events: 'Event Payments' } } };
 const OWN = {
   admissions: ['enquiries'],
   students: ['list', 'behaviour'],
@@ -112,7 +113,7 @@ const OWN = {
   transport: ['trips'],
   frontoffice: ['visitors', 'pickup'],
   homework: ['homework', 'submissions', 'material', 'quizzes', 'discussions', 'online', 'progress'],
-  events: ['calendar', 'events', 'ptm', 'daily'],
+  events: ['calendar', 'ptm'],
   reports: ['all', 'warnings'],
 };
 // A few roles have their own "Own" slice (from the notes in 05-roles.md)
@@ -139,7 +140,7 @@ export function pagesFor(mod, access, roleId) {
   if (access === 'view') ids = VIEW_BY_ROLE[roleId]?.[mod] || VIEW[mod] || ids.filter((i) => i !== 'settings');
   if (access === 'own') ids = OWN_BY_ROLE[roleId]?.[mod] || OWN[mod] || ids.filter((i) => i !== 'settings');
   if (access === 'full' && mod === 'staff') ids = ids.filter((i) => i !== 'profile');
-  return m.pages.filter((p) => ids.includes(p[0])).map(([id, label]) => ({ id, label: (access === 'own' && OWN_LABELS[mod]?.[id]) || label }));
+  return m.pages.filter((p) => ids.includes(p[0])).map(([id, label]) => ({ id, label: LABELS_BY_ROLE[roleId]?.[mod]?.[id] || (access === 'own' && OWN_LABELS[mod]?.[id]) || label }));
 }
 
 const F = 'full', V = 'view', O = 'own';

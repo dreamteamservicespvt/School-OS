@@ -9,6 +9,7 @@ import { useNav, useRole } from './shell.jsx';
 import {
   ModuleHead, useCanEdit, Icon, Stats, Band, SearchBox, Toolbar, Select, Textarea, Chips, DataList, BulkBar, Row, SettingRow,
   SettingsCard, Banner, Suggestion, Progress, HBars, Legend, DL, Timeline, MoreMenu, FormSheet, ConfirmSheet, Split, Col, ExportButton, TONE_SOFT,
+  DatePeriod, PERIODS, fmtRange, periodDays, schoolDay,
 } from './kit.jsx';
 
 const fmt = (n) => Number(n).toLocaleString('en-IN');
@@ -21,6 +22,22 @@ const nice = (iso) => { const [y, m, d] = iso.split('-').map(Number); return `${
 const niceY = (iso) => { const [y, m, d] = iso.split('-').map(Number); return `${d} ${MONTHS[m - 1].slice(0, 3)} ${y}`; };
 const dmy = (iso) => iso.split('-').reverse().join('-');
 const firstL = (s) => `${s.first} ${s.last[0]}.`;
+// '9 Oct 2026', 'Fri 9 Oct 2026' or 'Sat 17 Oct' (2026–27) -> '2026-10-09'
+const MON3 = { Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6, Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12 };
+const isoOf = (str) => { const m = /(\d{1,2}) ([A-Z][a-z]{2})(?: (\d{4}))?/.exec(str || ''); if (!m) return TODAY; const mo = MON3[m[2]]; const y = m[3] ? Number(m[3]) : mo >= 6 ? 2026 : 2027; return `${y}-${pad(mo)}-${pad(Number(m[1]))}`; };
+const inPer = (iso, per) => iso >= per.from && iso <= per.to;
+const showing = (per, n, what) => <p className="text-[12.5px] text-ink3 tnum px-1">Showing: {per.label} · {fmtRange(per)} · {n} {what}</p>;
+
+// A page this person does not use in Events & Calendar: say where their part is, without any data.
+function NotForRole({ title, body }) {
+  const { go } = useNav();
+  return (
+    <div>
+      <ModuleHead sub="Events & Calendar" />
+      <Card><Empty icon={I.CalendarDays} title={title} body={body} action={<Button variant="secondary" icon={I.CalendarDays} onClick={() => go('events', { page: 'calendar' })}>Open the School Calendar</Button>} /></Card>
+    </div>
+  );
+}
 
 /* ======================= Calendar entries ======================= */
 // Types are the Calendar Entry types (decided 9 Oct 2026); weekends come from Events Settings
@@ -63,6 +80,28 @@ const CAL = [
   { id: 'e26', from: '2027-01-26', name: 'Republic Day', type: 'holiday', note: 'Flag hoisting at 8:00 AM' },
   { id: 'e27', from: '2027-03-01', to: '2027-03-12', name: 'Annual exams', type: 'exam', src: 'Datesheet', note: 'Classes 1–9' },
 ];
+// Last school year (2025–26), so people can look back at earlier months
+const PREV = [
+  { id: 'p01', from: '2025-06-02', name: 'School reopens', type: 'event', note: 'Academic year 2025–26 began' },
+  { id: 'p02', from: '2025-07-21', to: '2025-07-25', name: 'Unit Test 1', type: 'exam', src: 'Datesheet', note: 'Classes 1–10' },
+  { id: 'p03', from: '2025-08-15', name: 'Independence Day', type: 'holiday' },
+  { id: 'p04', from: '2025-08-27', name: 'Ganesh Chaturthi', type: 'holiday' },
+  { id: 'p05', from: '2025-09-13', name: 'PTM: all classes', type: 'ptm', time: '9:30 AM' },
+  { id: 'p06', from: '2025-10-01', to: '2025-10-03', short: 'Dussehra', name: 'Dussehra holidays', type: 'vacation' },
+  { id: 'p07', from: '2025-10-13', to: '2025-10-24', short: 'Half-yearly', name: 'Half-yearly exams', type: 'exam', src: 'Datesheet', note: 'Classes 6–10' },
+  { id: 'p08', from: '2025-10-20', to: '2025-10-21', name: 'Diwali', type: 'vacation' },
+  { id: 'p09', from: '2025-11-14', name: 'Children’s Day', type: 'event', time: '9:00 AM', where: 'Assembly hall' },
+  { id: 'p10', from: '2025-11-22', short: 'Sports Day', name: 'Annual Sports Day', type: 'event', time: '8:00 AM', where: 'School ground' },
+  { id: 'p11', from: '2025-12-25', name: 'Christmas', type: 'holiday' },
+  { id: 'p12', from: '2026-01-01', to: '2026-01-03', short: 'Winter break', name: 'Winter break', type: 'vacation' },
+  { id: 'p13', from: '2026-01-26', name: 'Republic Day', type: 'holiday' },
+  { id: 'p14', from: '2026-02-14', short: 'Annual Day', name: 'Annual Day 2025–26', type: 'event', time: '5:00 PM', where: 'Auditorium' },
+  { id: 'p15', from: '2026-03-02', to: '2026-03-13', name: 'Annual exams', type: 'exam', src: 'Datesheet', note: 'Classes 1–9' },
+  { id: 'p16', from: '2026-03-04', name: 'Holi', type: 'holiday' },
+  { id: 'p17', from: '2026-04-15', to: '2026-05-31', short: 'Summer', name: 'Summer holidays', type: 'vacation', note: 'School reopens 1 June' },
+];
+const CAL_FROM = new Date(2025, 5, 1), CAL_TO = new Date(2027, 2, 1);
+const CAL_MONTHS = Array.from({ length: 22 }, (_, i) => { const d = new Date(2025, 5 + i, 1); return { value: `${d.getFullYear()}-${d.getMonth()}`, label: `${MONTHS[d.getMonth()]} ${d.getFullYear()}` }; }).reverse();
 const weekendOf = (y, m, d) => { const dow = new Date(y, m, d).getDay(); return dow === 0 ? 'Sunday' : dow === 6 && Math.ceil(d / 7) === 2 ? 'Second Saturday' : null; };
 const onDay = (list, iso) => list.filter((e) => iso >= e.from && iso <= (e.to || e.from));
 const span = (e) => (e.to ? `${niceY(e.from).replace(/ \d{4}$/, '')} – ${niceY(e.to)}` : niceY(e.from));
@@ -72,8 +111,9 @@ function SchoolCalendar({ access }) {
   const toast = useToast();
   const canEdit = useCanEdit();
   const full = access === 'full' && canEdit;
-  const [list, setList] = useState(CAL);
+  const [list, setList] = useState(() => [...PREV, ...CAL]);
   const [ym, setYm] = useState([2026, 9]);
+  const [per, setPer] = useState(PERIODS.acyear);
   const [sel, setSel] = useState(TODAY);
   const [type, setType] = useState('all');
   const [cls, setCls] = useState('all');
@@ -84,18 +124,21 @@ function SchoolCalendar({ access }) {
   const shown = list.filter((e) => (type === 'all' || e.type === type || (type === 'holiday' && e.type === 'vacation')) && (cls === 'all' || !e.cls || e.cls.includes(cls)));
   const days = new Date(y, m + 1, 0).getDate();
   const lead = (new Date(y, m, 1).getDay() + 6) % 7;
-  const step = (k) => { const n = new Date(y, m + k, 1); if (n < new Date(2026, 5, 1) || n > new Date(2027, 2, 1)) return; setYm([n.getFullYear(), n.getMonth()]); setSel(ds(n.getFullYear(), n.getMonth(), 1)); };
+  const step = (k) => { const n = new Date(y, m + k, 1); if (n < CAL_FROM || n > CAL_TO) return; setYm([n.getFullYear(), n.getMonth()]); setSel(ds(n.getFullYear(), n.getMonth(), 1)); };
+  const ay = m >= 5 ? y : y - 1; // academic year of the month on screen
+  const ayLabel = `${ay}–${String(ay + 1).slice(2)}`;
+  const listed = [...shown].filter((e) => (e.to || e.from) >= per.from && e.from <= per.to).sort((a, b) => a.from.localeCompare(b.from));
   const selDay = (() => { const [a, b, c] = sel.split('-').map(Number); return { y: a, m: b - 1, d: c }; })();
   const selEntries = onDay(shown, sel);
   const selWeekend = weekendOf(selDay.y, selDay.m, selDay.d);
   const coming = shown.filter((e) => (e.to || e.from) >= TODAY).sort((a, b) => a.from.localeCompare(b.from)).slice(0, 7);
-  const holidays = list.filter((e) => e.type === 'holiday' || e.type === 'vacation').sort((a, b) => a.from.localeCompare(b.from));
+  const holidays = list.filter((e) => (e.type === 'holiday' || e.type === 'vacation') && e.from >= `${ay}-06-01` && e.from <= `${ay + 1}-05-31`).sort((a, b) => a.from.localeCompare(b.from));
   const own = access === 'own';
   const remove = (e) => { setList((x) => x.filter((z) => z.id !== e.id)); toast({ title: `${e.name} removed`, body: e.type === 'holiday' || e.type === 'vacation' ? `Attendance is needed again on ${dmy(e.from)}.` : 'Taken off the calendar.', undo: () => setList((x) => [...x, e]) }); };
 
   return (
     <div>
-      <ModuleHead sub={own ? 'The whole school’s calendar. Your PTM slots are on the PTM page.' : access === 'view' ? 'Holidays, exams, events and PTMs for 2026–27. Read only.' : 'Holidays, vacations, exams, events and PTMs for 2026–27 in one place.'}
+      <ModuleHead sub={own ? 'The whole school’s calendar. Your PTM slots are on the PTM page.' : access === 'view' ? 'Holidays, exams, events and PTMs. Go back to last year or ahead to March. Read only.' : 'Holidays, vacations, exams, events and PTMs in one place, from last year to March 2027.'}
         actions={full && <>
           <Button variant="secondary" icon={I.Upload} className="hidden @md:inline-flex" onClick={() => toast({ title: 'Import holiday list', body: 'Pick an Excel file, or copy last year’s list with dates to check.', tone: 'info' })}>Import</Button>
           <Button variant="primary" icon={I.Plus} onClick={() => setAdd(true)}>Add to calendar</Button>
@@ -103,10 +146,9 @@ function SchoolCalendar({ access }) {
       <div className="flex flex-col gap-5 @lg:gap-6">
         <div className="flex flex-col @lg:flex-row gap-2.5 @lg:items-center">
           <div className="flex items-center gap-1">
-            <button onClick={() => step(-1)} aria-label="Previous month" className="w-10 h-10 grid place-items-center rounded-xl border border-line bg-surface text-ink2 hover:bg-sunken"><I.ChevronLeft size={18} /></button>
-            <Select id="cal-jump" value={`${y}-${m}`} onChange={(v) => { const [a, b] = v.split('-').map(Number); setYm([a, b]); setSel(a === 2026 && b === 9 ? TODAY : ds(a, b, 1)); }} className="w-44"
-              options={Array.from({ length: 10 }, (_, i) => { const d = new Date(2026, 5 + i, 1); return { value: `${d.getFullYear()}-${d.getMonth()}`, label: `${MONTHS[d.getMonth()]} ${d.getFullYear()}` }; })} />
-            <button onClick={() => step(1)} aria-label="Next month" className="w-10 h-10 grid place-items-center rounded-xl border border-line bg-surface text-ink2 hover:bg-sunken"><I.ChevronRight size={18} /></button>
+            <button onClick={() => step(-1)} disabled={new Date(y, m - 1, 1) < CAL_FROM} aria-label="Earlier month" className="w-10 h-10 grid place-items-center rounded-xl border border-line bg-surface text-ink2 hover:bg-sunken disabled:opacity-40"><I.ChevronLeft size={18} /></button>
+            <Select id="cal-jump" value={`${y}-${m}`} onChange={(v) => { const [a, b] = v.split('-').map(Number); setYm([a, b]); setSel(a === 2026 && b === 9 ? TODAY : ds(a, b, 1)); }} className="w-44 min-w-0" options={CAL_MONTHS} />
+            <button onClick={() => step(1)} disabled={new Date(y, m + 1, 1) > CAL_TO} aria-label="Later month" className="w-10 h-10 grid place-items-center rounded-xl border border-line bg-surface text-ink2 hover:bg-sunken disabled:opacity-40"><I.ChevronRight size={18} /></button>
             <Button variant="ghost" className="ml-1" onClick={() => { setYm([2026, 9]); setSel(TODAY); }}>Today</Button>
           </div>
           <div className="flex-1" />
@@ -170,7 +212,7 @@ function SchoolCalendar({ access }) {
                           {e.note && <p className="text-[12.5px] text-ink2 mt-0.5">{e.note}</p>}
                           <div className="flex gap-1.5 mt-1.5 flex-wrap"><Pill tone={TYPE[e.type].tone} className="!h-[22px] !text-[11.5px]">{TYPE[e.type].label}</Pill>{e.src && <Pill tone="neutral" className="!h-[22px] !text-[11.5px]">From the datesheet</Pill>}</div>
                         </div>
-                        {full && !e.src && <button onClick={() => (e.type === 'holiday' || e.type === 'vacation' ? setRm(e) : remove(e))} aria-label={`Remove ${e.name}`} className="w-9 h-9 grid place-items-center rounded-lg text-ink3 hover:bg-sunken hover:text-bad shrink-0"><I.Trash2 size={16} /></button>}
+                        {full && !e.src && e.from >= '2026-06-01' && <button onClick={() => (e.type === 'holiday' || e.type === 'vacation' ? setRm(e) : remove(e))} aria-label={`Remove ${e.name}`} className="w-9 h-9 grid place-items-center rounded-lg text-ink3 hover:bg-sunken hover:text-bad shrink-0"><I.Trash2 size={16} /></button>}
                       </li>
                     ))}
                   </ul>
@@ -194,8 +236,10 @@ function SchoolCalendar({ access }) {
           </Split>
         ) : (
           <Card className="overflow-hidden">
-            <CardHead title="2026–27, month by month" sub="Exams come from published datesheets; events and PTMs from their pages" action={<ExportButton what="calendar" />} />
-            <DataList rows={[...shown].sort((a, b) => a.from.localeCompare(b.from))} minWidth={720} footer={`${shown.length} entries`}
+            <CardHead title="Calendar list" sub="Exams come from published datesheets; events and PTMs from their pages" action={<ExportButton what="calendar" />} />
+            <Toolbar><DatePeriod id="cal-per" future value={per} onChange={setPer} className="w-full @md:w-auto" /></Toolbar>
+            <DataList rows={listed} minWidth={720} footer={`Showing: ${per.label} · ${fmtRange(per)} · ${listed.length} entries`}
+              empty={<Empty icon={I.CalendarX2} title="Nothing on the calendar in these dates" body="Pick other dates." action={<Button variant="secondary" onClick={() => setPer(PERIODS.acyear)}>This academic year</Button>} />}
               columns={[
                 { key: 'from', label: 'Date', nowrap: true, render: (e) => <span className="tnum">{span(e)}</span> },
                 { key: 'name', label: 'Name', render: (e) => <span className="font-semibold">{e.name}</span> },
@@ -208,7 +252,7 @@ function SchoolCalendar({ access }) {
         )}
 
         <Card className="overflow-hidden">
-          <CardHead title="Holiday list 2026–27" sub={`${holidays.length} holidays and vacations · attendance is off on these days`} icon={I.Sun} action={<ExportButton what="holiday list" />} />
+          <CardHead title={`Holiday list ${ayLabel}`} sub={`${holidays.length} holidays and vacations · attendance is off on these days`} icon={I.Sun} action={<ExportButton what="holiday list" />} />
           <div className="overflow-x-auto scroll-thin border-t border-line">
             <table className="w-full text-[14px] min-w-[520px]">
               <thead><tr className="text-[12px] text-ink3 text-left border-b border-line"><th className="px-5 py-2.5 font-semibold">Date</th><th className="px-3 py-2.5 font-semibold">Name</th><th className="px-3 py-2.5 font-semibold">Type</th><th className="px-5 py-2.5 font-semibold text-right">Days</th></tr></thead>
@@ -302,50 +346,62 @@ function Events({ access, params }) {
   const toast = useToast();
   const canEdit = useCanEdit();
   const full = access === 'full' && canEdit;
+  const acc = role.id === 'accountant';
   const [items, setItems] = useState(EVENTS);
-  const [f, setF] = useState('up');
+  const [f, setF] = useState('all');
   const [q, setQ] = useState('');
+  const [per, setPer] = useState(PERIODS.acyear);
   const [add, setAdd] = useState(false);
-  const mine = myClasses(role.id);
+  // Events is for the people who run events, and for the Accountant (event payments). Everyone else has the School Calendar.
+  if (access !== 'full' && !acc) return <NotForRole title="Events are on the School Calendar" body="Your part of Events & Calendar is the School Calendar. Every event, holiday, exam and PTM shows there." />;
   if (params?.id) {
     const ev = items.find((e) => e.id === params.id) || items[0];
+    if (acc && !ev.fee) return <NotForRole title="No payments for this event" body="Only events with a fee show here." />;
     return <EventDetail ev={ev} access={access} onBack={() => go('events', { page: 'events' })} onChange={(n) => setItems((x) => x.map((e) => (e.id === n.id ? n : e)))} />;
   }
-  const scoped = items.filter((e) => !mine || !e.cls || e.cls.some((c) => mine.includes(c)));
-  const rows = scoped.filter((e) => (f === 'up' ? ['Planned', 'Open for registration'].includes(e.status) : f === 'done' ? e.status === 'Done' : f === 'cancel' ? e.status === 'Cancelled' : true) && (!q || (e.name + e.type + e.venue + e.aud).toLowerCase().includes(q.toLowerCase())));
+  const scoped = acc ? items.filter((e) => e.fee) : items;
+  const rows = scoped.filter((e) => inPer(isoOf(e.date), per) && (f === 'up' ? ['Planned', 'Open for registration'].includes(e.status) : f === 'done' ? e.status === 'Done' : f === 'cancel' ? e.status === 'Cancelled' : true) && (!q || (e.name + e.type + e.venue + e.aud).toLowerCase().includes(q.toLowerCase())));
+  const inP = scoped.filter((e) => inPer(isoOf(e.date), per));
+  const paid = inP.filter((e) => e.fee && e.status !== 'Cancelled').reduce((a, e) => a + (e.reg - 21) * e.fee, 0);
+  const due = inP.filter((e) => e.fee && e.status !== 'Cancelled').reduce((a, e) => a + 21 * e.fee, 0);
+  const refunded = inP.filter((e) => e.fee && e.status === 'Cancelled').reduce((a, e) => a + e.reg * e.fee, 0);
   return (
     <div>
-      <ModuleHead sub={mine ? `Events for the whole school and for your classes (${role.id === 'classteacher' ? '7 B, 7 A, 8 B' : '6 A, 6 B, 7 A, 7 B'}). You can mark attendance for your class.` : access === 'view' ? 'Coming events, with date, venue and audience. Read only.' : 'Plan events with date, venue and audience; registrations, payments and reminders where needed.'}
+      <ModuleHead sub={acc ? 'Events with a fee: what is collected, what is due and what was refunded. Read only.' : 'Plan events with date, venue and audience; registrations, payments and reminders where needed.'}
         actions={full && <Button variant="primary" icon={I.Plus} onClick={() => setAdd(true)}>Create event</Button>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
-        {!mine && (
-          <Stats items={[
-            { label: 'Coming up', value: String(items.filter((e) => ['Planned', 'Open for registration'].includes(e.status)).length), icon: 'CalendarDays', sub: 'Next: Fire drill, today 1:15 PM' },
-            { label: 'Open for registration', value: String(items.filter((e) => e.status === 'Open for registration').length), icon: 'ClipboardList', tone: 'ok' },
-            { label: 'Event fees collected', value: inr(177600), icon: 'IndianRupee', sub: 'Wonderla picnic · 148 paid' },
-            { label: 'Consent waiting', value: '96', icon: 'FileSignature', tone: 'warn', sub: 'Wonderla · reply by 20 Oct' },
-          ]} />
-        )}
+        <Stats items={acc ? [
+          { label: 'Events with a fee', value: String(inP.length), icon: 'CalendarDays', sub: fmtRange(per) },
+          { label: 'Event fees collected', value: inr(paid), icon: 'IndianRupee', tone: 'ok', sub: 'Through Fee Management' },
+          { label: 'Event fees due', value: inr(due), icon: 'Hourglass', tone: due ? 'warn' : undefined, sub: '21 students · Wonderla picnic' },
+          { label: 'Refunded', value: inr(refunded), icon: 'Undo2', sub: refunded ? 'Cancelled events' : 'None in these dates' },
+        ] : [
+          { label: 'Coming up', value: String(inP.filter((e) => ['Planned', 'Open for registration'].includes(e.status)).length), icon: 'CalendarDays', sub: 'Next: Fire drill, today 1:15 PM' },
+          { label: 'Open for registration', value: String(inP.filter((e) => e.status === 'Open for registration').length), icon: 'ClipboardList', tone: 'ok' },
+          { label: 'Event fees collected', value: inr(paid), icon: 'IndianRupee', sub: 'Wonderla picnic · 148 paid' },
+          { label: 'Consent waiting', value: '96', icon: 'FileSignature', tone: 'warn', sub: 'Wonderla · reply by 20 Oct' },
+        ]} />
         <Card className="overflow-hidden">
           <Toolbar>
             <SearchBox value={q} onChange={setQ} placeholder="Event, venue or class" id="ev-search" />
-            <Segmented value={f} onChange={setF} options={[{ value: 'up', label: 'Coming up' }, { value: 'done', label: 'Done' }, { value: 'cancel', label: 'Cancelled' }, { value: 'all', label: 'All' }]} />
-            <ExportButton what="events" />
+            <DatePeriod id="ev-per" future value={per} onChange={setPer} className="w-full @md:w-auto" />
+            <Segmented value={f} onChange={setF} options={[{ value: 'all', label: 'All' }, { value: 'up', label: 'Coming up' }, { value: 'done', label: 'Done' }, { value: 'cancel', label: 'Cancelled' }]} />
+            <ExportButton what={acc ? 'event payments' : 'events'} />
           </Toolbar>
-          <DataList rows={rows} onRow={(e) => go('events', { page: 'events', id: e.id })} minWidth={820} footer={`${rows.length} events`}
-            empty={<Empty icon={I.CalendarX2} title="No events here" body="Try another filter." action={<Button variant="secondary" onClick={() => { setF('all'); setQ(''); }}>Show all events</Button>} />}
+          <DataList rows={rows} onRow={(e) => go('events', { page: 'events', id: e.id })} minWidth={820} footer={`Showing: ${per.label} · ${fmtRange(per)} · ${rows.length} events`}
+            empty={<Empty icon={I.CalendarX2} title="No events here" body="Try other dates or another filter." action={<Button variant="secondary" onClick={() => { setF('all'); setQ(''); setPer(PERIODS.acyear); }}>Show all events</Button>} />}
             columns={[
               { key: 'name', label: 'Event', render: (e) => <div className="flex items-center gap-3"><span className="w-9 h-9 rounded-xl bg-brand/10 text-brand grid place-items-center shrink-0"><Icon name={e.icon} size={17} /></span><div><p className="font-semibold leading-tight">{e.name}</p><p className="text-[12.5px] text-ink3">{e.type}</p></div></div> },
               { key: 'date', label: 'Date and time', nowrap: true, render: (e) => <span className="text-[13px] tnum">{e.today ? <b className="font-semibold text-brand">Today</b> : e.date.replace(/ 2026$/, '')}<span className="block text-ink3 text-[12px]">{e.time}</span></span> },
-              { key: 'venue', label: 'Venue', render: (e) => <span className="text-[13px]">{e.venue}</span> },
+              ...(acc ? [] : [{ key: 'venue', label: 'Venue', render: (e) => <span className="text-[13px]">{e.venue}</span> }]),
               { key: 'aud', label: 'Audience', render: (e) => <span className="text-[13px] text-ink2">{e.aud}</span> },
-              { key: 'reg', label: 'Registered', align: 'right', render: (e) => (e.reg != null ? <span className="text-[13px]"><b className="font-semibold">{e.reg}</b>{e.seats ? <span className="text-ink3"> of {e.seats}</span> : ''}{e.fee ? <span className="block text-[12px] text-ink3">{inr(e.fee)} each</span> : ''}</span> : <span className="text-ink3">—</span>) },
+              { key: 'reg', label: acc ? 'Fee' : 'Registered', align: 'right', render: (e) => (e.reg != null ? <span className="text-[13px]"><b className="font-semibold">{e.reg}</b>{e.seats ? <span className="text-ink3"> of {e.seats}</span> : ''}{e.fee ? <span className="block text-[12px] text-ink3">{inr(e.fee)} each</span> : ''}</span> : <span className="text-ink3">—</span>) },
               { key: 'status', label: 'Status', render: (e) => <Pill tone={EV_TONE[e.status]} dot>{e.status}</Pill> },
             ]}
-            mobile={(e) => ({ title: e.name, sub: `${e.today ? 'Today' : e.date.replace(/ 2026$/, '')} · ${e.time} · ${e.venue}`, icon: e.icon, iconTone: 'brand', pills: [<Pill key="s" tone={EV_TONE[e.status]} className="!h-[22px] !text-[11.5px]">{e.status}</Pill>, e.reg != null && <Pill key="r" tone="neutral" className="!h-[22px] !text-[11.5px]">{e.reg}{e.seats ? ` of ${e.seats}` : ''} registered</Pill>] })} />
+            mobile={(e) => ({ title: e.name, sub: `${e.today ? 'Today' : e.date.replace(/ 2026$/, '')} · ${e.time}${acc ? '' : ` · ${e.venue}`}`, icon: e.icon, iconTone: 'brand', pills: [<Pill key="s" tone={EV_TONE[e.status]} className="!h-[22px] !text-[11.5px]">{e.status}</Pill>, e.reg != null && <Pill key="r" tone="neutral" className="!h-[22px] !text-[11.5px]">{e.reg}{e.seats ? ` of ${e.seats}` : ''} registered</Pill>] })} />
         </Card>
       </div>
-      <EventForm open={add} onClose={() => setAdd(false)} onSaved={(e) => { setItems((x) => [e, ...x]); toast({ title: `Event created: ${e.name}`, body: 'It is on the School Calendar. A reminder goes 1 day before.' }); }} />
+      {full && <EventForm open={add} onClose={() => setAdd(false)} onSaved={(e) => { setItems((x) => [e, ...x]); toast({ title: `Event created: ${e.name}`, body: 'It is on the School Calendar. A reminder goes 1 day before.' }); }} />}
     </div>
   );
 }
@@ -396,7 +452,8 @@ function EventDetail({ ev, access, onBack, onChange }) {
   const canEdit = useCanEdit();
   const full = access === 'full' && canEdit;
   const own = access === 'own';
-  const [tab, setTab] = useState('reg');
+  const acc = role.id === 'accountant';
+  const [tab, setTab] = useState(acc ? 'pay' : 'reg');
   const [rem, setRem] = useState(false);
   const [cancel, setCancel] = useState(false);
   const [why, setWhy] = useState('');
@@ -416,7 +473,7 @@ function EventDetail({ ev, access, onBack, onChange }) {
         </div>
         {canEdit && !cancelled && !done && (
           <div className="flex gap-2 flex-wrap">
-            {(full || own) && ev.reg != null && <Button variant="secondary" icon={I.ListChecks} onClick={() => setTab('att')}>{own ? 'Mark 7 B attendance' : 'Mark attendance'}</Button>}
+            {(full || own) && !acc && ev.reg != null && <Button variant="secondary" icon={I.ListChecks} onClick={() => setTab('att')}>{own ? 'Mark 7 B attendance' : 'Mark attendance'}</Button>}
             {full && <Button variant="primary" icon={I.BellRing} onClick={() => setRem(true)}>Send reminder</Button>}
             {full && <MoreMenu items={[['Pencil', 'Edit event', () => toast({ title: 'Editing the event', body: 'Changes to date or venue are sent to the audience.', tone: 'info' })], ['Users', 'Add volunteers', () => setTab('vol')], ['X', 'Cancel the event', () => setCancel(true), 'bad']]} />}
           </div>
@@ -427,24 +484,24 @@ function EventDetail({ ev, access, onBack, onChange }) {
         {ev.reg != null && (
           <Stats items={[
             { label: 'Registered', value: ev.seats ? `${ev.reg} of ${ev.seats}` : String(ev.reg), icon: 'Users', sub: ev.seats ? `${ev.seats - ev.reg} seats left` : 'No seat limit' },
-            ev.consent ? { label: 'Parent consent', value: `${ev.consent.given} given`, icon: 'FileSignature', tone: 'ok', sub: `${ev.consent.wait} waiting · ${ev.consent.no} declined` } : { label: 'Attended', value: ev.attended ? String(ev.attended) : '—', icon: 'CheckCheck', sub: done ? 'Marked on the day' : 'Marked on the day' },
+            !acc && (ev.consent ? { label: 'Parent consent', value: `${ev.consent.given} given`, icon: 'FileSignature', tone: 'ok', sub: `${ev.consent.wait} waiting · ${ev.consent.no} declined` } : { label: 'Attended', value: ev.attended ? String(ev.attended) : '—', icon: 'CheckCheck', sub: done ? 'Marked on the day' : 'Marked on the day' }),
             showAcc && ev.fee ? { label: 'Fees', value: inr(ev.fee * ev.reg), icon: 'IndianRupee', tone: cancelled ? undefined : 'ok', sub: cancelled ? 'Refunded' : `${ev.reg} × ${inr(ev.fee)} · fee row added` } : { label: 'Volunteers', value: String(ev.vols || 6), icon: 'HandHeart', sub: 'Staff and parents' },
-            { label: 'Reminders sent', value: done ? '2' : '1', icon: 'BellRing', sub: 'Last: 6 Oct, WhatsApp' },
-          ]} />
+            acc ? { label: 'Fees due', value: cancelled ? '—' : inr(21 * ev.fee), icon: 'Hourglass', tone: cancelled ? undefined : 'warn', sub: cancelled ? 'All refunded' : '21 students' } : { label: 'Reminders sent', value: done ? '2' : '1', icon: 'BellRing', sub: 'Last: 6 Oct, WhatsApp' },
+          ].filter(Boolean)} />
         )}
         <Split side={340}>
           <Card className="overflow-hidden min-w-0">
-            <Tabs className="px-3" value={tab} onChange={setTab} tabs={[{ id: 'reg', label: 'Registrations' }, { id: 'att', label: 'Attendance' }, ...(showAcc && ev.fee ? [{ id: 'pay', label: 'Payments' }] : []), { id: 'vol', label: 'Volunteers' }, { id: 'rem', label: 'Reminders' }]} />
+            <Tabs className="px-3" value={tab} onChange={setTab} tabs={acc ? [{ id: 'pay', label: 'Payments' }, { id: 'reg', label: 'Fee by student' }] : [{ id: 'reg', label: 'Registrations' }, { id: 'att', label: 'Attendance' }, ...(showAcc && ev.fee ? [{ id: 'pay', label: 'Payments' }] : []), { id: 'vol', label: 'Volunteers' }, { id: 'rem', label: 'Reminders' }]} />
             {tab === 'reg' && (
               ev.reg != null ? (
                 <DataList rows={kids} rowKey={(k) => k.s.id} minWidth={560} footer={own ? '7 B · 38 students' : `Showing 7 B · ${ev.reg} registered across ${ev.aud}`}
                   columns={[
                     { key: 's', label: 'Student', render: (k) => <div className="flex items-center gap-2.5"><Avatar name={k.s.name} size={30} /><span className="font-semibold">{k.s.name}</span></div> },
                     { key: 'cls', label: 'Class', render: (k) => k.cls },
-                    ...(ev.consent ? [{ key: 'c', label: 'Consent on Parent Link', render: (k) => <Pill tone={k.consent === 'Given' ? 'ok' : k.consent === 'Waiting' ? 'warn' : 'bad'} dot>{k.consent}</Pill> }] : []),
+                    ...(ev.consent && !acc ? [{ key: 'c', label: 'Consent on Parent Link', render: (k) => <Pill tone={k.consent === 'Given' ? 'ok' : k.consent === 'Waiting' ? 'warn' : 'bad'} dot>{k.consent}</Pill> }] : []),
                     ...(ev.fee ? [{ key: 'p', label: 'Fee', render: (k) => (k.consent === 'Declined' ? <span className="text-ink3">Not going</span> : <Pill tone={k.paid ? 'ok' : 'warn'}>{k.paid ? 'Paid' : 'Due'}</Pill>) }] : []),
                   ]}
-                  mobile={(k) => ({ title: k.s.name, sub: k.cls, avatar: k.s.name, pills: ev.consent ? [<Pill key="c" tone={k.consent === 'Given' ? 'ok' : k.consent === 'Waiting' ? 'warn' : 'bad'} className="!h-[22px] !text-[11.5px]">Consent {k.consent.toLowerCase()}</Pill>] : null })} />
+                  mobile={(k) => ({ title: k.s.name, sub: k.cls, avatar: k.s.name, pills: acc && ev.fee ? [<Pill key="p" tone={k.consent === 'Declined' ? 'neutral' : k.paid ? 'ok' : 'warn'} className="!h-[22px] !text-[11.5px]">{k.consent === 'Declined' ? 'Not going' : k.paid ? 'Paid' : 'Due'}</Pill>] : ev.consent ? [<Pill key="c" tone={k.consent === 'Given' ? 'ok' : k.consent === 'Waiting' ? 'warn' : 'bad'} className="!h-[22px] !text-[11.5px]">Consent {k.consent.toLowerCase()}</Pill>] : null })} />
               ) : <Empty icon={I.ClipboardList} title="No registration for this event" body="Everyone in the audience takes part. Switch registration on to limit seats." />
             )}
             {tab === 'att' && <EventAttendance kids={kids.filter((k) => k.consent !== 'Declined')} done={done} canMark={(full || own) && !cancelled} onSaved={(n) => { setAtt(n); toast({ title: `Attendance saved: ${n} present`, body: `${ev.name} · 7 B` }); }} saved={att} />}
@@ -473,7 +530,7 @@ function EventDetail({ ev, access, onBack, onChange }) {
               <CardHead title="Details" />
               <DL cols={1} rows={[['Date and time', `${ev.date} · ${ev.time}`], ['Venue', ev.venue], ['Audience', ev.aud], ['Registration', ev.reg != null ? (ev.seats ? `On · ${ev.seats} seats` : 'On · no seat limit') : 'Off'], ['Fee', ev.fee ? `${inr(ev.fee)} per student, added to fees` : 'None'], ['Reminder', '1 day before, by WhatsApp']]} />
             </Card>
-            {ev.consent && (
+            {ev.consent && !acc && (
               <Card>
                 <CardHead title="Parent consent" sub="Given on Parent Link with a one-time code" icon={I.FileSignature} />
                 <div className="px-5 pb-5 flex items-center gap-4">
@@ -562,28 +619,50 @@ function PTMPage({ access }) {
   const full = access === 'full' && canEdit;
   const own = access === 'own';
   const [day, setDay] = useState('p17');
+  const [per, setPer] = useState(PERIODS.acyear);
   const [book, setBook] = useState(null);
   const [meet, setMeet] = useState(null);
   const [plan, setPlan] = useState(false);
   const [extra, setExtra] = useState({});
   const [notes, setNotes] = useState({});
-  const D = PTM_DAYS.find((d) => d.id === day);
+  const days = PTM_DAYS.filter((d) => inPer(d.iso, per));
+  const D = days.find((d) => d.id === day) || days[0];
   const myIdx = own ? PTM_TEACHERS.findIndex((t) => t.name === role.person.name) : -1;
   const cell = (ti, si) => extra[`${ti}-${si}`] || slotOf(ti, si);
+  if (!D) {
+    return (
+      <div>
+        <ModuleHead sub={own ? 'Only your own PTM slots and notes.' : 'Parent–teacher meetings: slots per teacher, booked by parents on Parent Link or by the office, with notes.'} />
+        <div className="flex flex-col gap-3">
+          <div className="flex"><DatePeriod id="ptm-per" future value={per} onChange={setPer} className="w-full @md:w-auto" /></div>
+          <Card><Empty icon={I.CalendarX2} title="No PTM in these dates" body="Pick other dates to see earlier or later PTMs." action={<Button variant="secondary" onClick={() => setPer(PERIODS.acyear)}>This academic year</Button>} /></Card>
+        </div>
+      </div>
+    );
+  }
   const dayOk = D.id === 'p17' || D.id === 'p09';
   return (
     <div>
       <ModuleHead sub={own ? `Only your own PTM slots and notes. Parents book a slot on Parent Link; the office can book for them.` : 'Parent–teacher meetings: slots per teacher, booked by parents on Parent Link or by the office, with notes.'}
         actions={full && <Button variant="primary" icon={I.Plus} onClick={() => setPlan(true)}>Plan a PTM</Button>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
+        <div className="flex flex-col @md:flex-row @md:items-center gap-2.5">
+          <DatePeriod id="ptm-per" future value={per} onChange={setPer} className="w-full @md:w-auto" />
+          {showing(per, days.length, days.length === 1 ? 'PTM day' : 'PTM days')}
+        </div>
         <div className="grid grid-cols-2 @xl:grid-cols-4 gap-3">
-          {PTM_DAYS.map((d) => (
+          {days.map((d) => (
             <button key={d.id} onClick={() => setDay(d.id)} aria-pressed={day === d.id}
               className={cx('rounded-2xl border bg-surface shadow-card p-3.5 @md:p-4 text-left transition', day === d.id ? 'border-brand ring-1 ring-brand' : 'border-line/70 hover:border-ink3/40')}>
               <div className="flex items-center justify-between gap-2"><p className="font-display font-semibold text-[16px] @md:text-[18px] leading-tight">{d.date}</p><Pill tone={PTM_STATUS_TONE[d.status]} className="!h-[22px] !text-[11px]">{d.status}</Pill></div>
               <p className="text-[12.5px] text-ink3 mt-1">{d.classes} · {d.window}</p>
-              <p className="text-[13px] mt-2 tnum"><b className="font-semibold">{fmt(d.booked)}</b><span className="text-ink3"> of {fmt(d.slots)} slots {d.status === 'Done' ? `· ${fmt(d.attended)} met` : 'booked'}</span></p>
-              <Progress value={(d.booked / d.slots) * 100} className="mt-1.5" tone={d.status === 'Done' ? 'ok' : 'brand'} />
+              {own ? (() => {
+                const mine = myIdx >= 0 && d.id === 'p17' ? SLOT_TIMES.filter((_, si) => cell(myIdx, si).s).length : 0;
+                return mine ? <><p className="text-[13px] mt-2 tnum"><b className="font-semibold">{mine}</b><span className="text-ink3"> of {SLOT_TIMES.length - 1} of your slots booked</span></p><Progress value={(mine / (SLOT_TIMES.length - 1)) * 100} className="mt-1.5" /></> : <p className="text-[13px] mt-2 text-ink3">No slots for you</p>;
+              })() : <>
+                <p className="text-[13px] mt-2 tnum"><b className="font-semibold">{fmt(d.booked)}</b><span className="text-ink3"> of {fmt(d.slots)} slots {d.status === 'Done' ? `· ${fmt(d.attended)} met` : 'booked'}</span></p>
+                <Progress value={(d.booked / d.slots) * 100} className="mt-1.5" tone={d.status === 'Done' ? 'ok' : 'brand'} />
+              </>}
             </button>
           ))}
         </div>
@@ -593,8 +672,8 @@ function PTMPage({ access }) {
             4 parents have checked in early. The waiting queue opens at 11:30 AM.
           </Banner>
         )}
-        {D.status === 'Done' && <Banner tone="info" title="Held on 18 July: 748 of 812 booked parents came." action={full && <Button size="sm" variant="secondary" icon={I.Send} onClick={() => toast({ title: 'PTM summary sent to 64 parents', body: 'Only those who did not come. WhatsApp · 64 credits.' })}>Send summary to 64 absent</Button>}>Notes are on each student’s profile.</Banner>}
-        {D.status === 'Planned' && <Banner tone="info" title="Slots open for booking on 1 December.">5 pre-primary class teachers, 10-minute slots. Parents get a link on WhatsApp.</Banner>}
+        {D.status === 'Done' && !own && <Banner tone="info" title="Held on 18 July: 748 of 812 booked parents came." action={full && <Button size="sm" variant="secondary" icon={I.Send} onClick={() => toast({ title: 'PTM summary sent to 64 parents', body: 'Only those who did not come. WhatsApp · 64 credits.' })}>Send summary to 64 absent</Button>}>Notes are on each student’s profile.</Banner>}
+        {D.status === 'Planned' && !own && <Banner tone="info" title="Slots open for booking on 1 December.">5 pre-primary class teachers, 10-minute slots. Parents get a link on WhatsApp.</Banner>}
 
         {dayOk && !own && (
           <Card className="overflow-hidden">
@@ -617,8 +696,8 @@ function PTMPage({ access }) {
                         if (c.brk) return <td key={si} className="px-1 py-1.5"><span className="block h-11 rounded-lg bg-sunken/50" /></td>;
                         return (
                           <td key={si} className="px-1 py-1.5">
-                            {c.free ? (
-                              <button disabled={!canEdit} onClick={() => setBook({ ti, si })} aria-label={`Book ${t.name} at ${SLOT_TIMES[si]}`} className="w-full h-11 rounded-lg border border-dashed border-line text-ink3 hover:border-brand hover:text-brand grid place-items-center transition disabled:pointer-events-none"><I.Plus size={15} /></button>
+                            {c.free && !canEdit ? <span className="block h-11 rounded-lg border border-dashed border-line" /> : c.free ? (
+                              <button onClick={() => setBook({ ti, si })} aria-label={`Book ${t.name} at ${SLOT_TIMES[si]}`} className="w-full h-11 rounded-lg border border-dashed border-line text-ink3 hover:border-brand hover:text-brand grid place-items-center transition disabled:pointer-events-none"><I.Plus size={15} /></button>
                             ) : (
                               <button onClick={() => setMeet({ ti, si, s: c.s })} className={cx('w-full h-11 rounded-lg px-1.5 text-left transition', notes[`${ti}-${si}`] ? 'bg-ok/12 text-ok' : 'bg-brand/12 text-brand', 'hover:brightness-95')}>
                                 <span className="block font-semibold truncate leading-tight">{firstL(c.s)}</span>
@@ -637,7 +716,7 @@ function PTMPage({ access }) {
           </Card>
         )}
 
-        {dayOk && own && (
+        {own && (
           myIdx >= 0 && D.id === 'p17' ? (
             <Card>
               <CardHead title={`Your slots · ${D.date}`} sub={`${PTM_TEACHERS[myIdx].role} · ${D.window}`} icon={I.CalendarClock} />
@@ -656,7 +735,7 @@ function PTMPage({ access }) {
                             {notes[`${myIdx}-${si}`] ? <Pill tone="ok">Notes saved</Pill> : null}
                           </>
                         )}
-                        {c.free ? <Button size="sm" variant="ghost" icon={I.Plus} onClick={() => setBook({ ti: myIdx, si })}>Book</Button> : <Button size="sm" variant="secondary" onClick={() => setMeet({ ti: myIdx, si, s: c.s })}>Open</Button>}
+                        {c.free ? (canEdit ? <Button size="sm" variant="ghost" icon={I.Plus} onClick={() => setBook({ ti: myIdx, si })}>Book</Button> : null) : <Button size="sm" variant="secondary" onClick={() => setMeet({ ti: myIdx, si, s: c.s })}>Open</Button>}
                       </div>
                     </li>
                   );
@@ -664,7 +743,7 @@ function PTMPage({ access }) {
               </ul>
             </Card>
           ) : (
-            <Card><Empty icon={I.CalendarCheck2} title={D.id === 'p09' ? 'You have no slots today' : 'No slots for you on this day'} body={D.id === 'p09' ? 'Today’s PTM is for Classes 1–3. Your slots are on Saturday 17 October.' : 'Only class and subject teachers of these classes get slots.'} action={<Button variant="secondary" onClick={() => setDay('p17')}>See Sat 17 Oct</Button>} /></Card>
+            <Card><Empty icon={I.CalendarCheck2} title={D.id === 'p09' ? 'You have no slots today' : 'No slots for you on this day'} body={D.id === 'p09' ? 'Today’s PTM is for Classes 1–3. Your slots are on Saturday 17 October.' : 'Only class and subject teachers of these classes get slots.'} action={days.some((d) => d.id === 'p17') && <Button variant="secondary" onClick={() => setDay('p17')}>See Sat 17 Oct</Button>} /></Card>
           )
         )}
 
@@ -686,21 +765,21 @@ function PTMPage({ access }) {
         )}
       </div>
 
-      <BookSlot b={book} day={D} onClose={() => setBook(null)} onBooked={(b, s) => { setExtra((x) => ({ ...x, [`${b.ti}-${b.si}`]: { s, via: 'office' } })); toast({ title: `Booked: ${PTM_TEACHERS[b.ti].name} at ${SLOT_TIMES[b.si]}`, body: `${s.id === FEATURED.id ? 'Priya Sharma' : s.father} gets a confirmation now and a reminder on Friday evening.` }); }} cell={cell} />
+      <BookSlot b={book} day={D} own={own} onClose={() => setBook(null)} onBooked={(b, s) => { setExtra((x) => ({ ...x, [`${b.ti}-${b.si}`]: { s, via: 'office' } })); toast({ title: `Booked: ${PTM_TEACHERS[b.ti].name} at ${SLOT_TIMES[b.si]}`, body: `${s.id === FEATURED.id ? 'Priya Sharma' : s.father} gets a confirmation now and a reminder on Friday evening.` }); }} cell={cell} />
       <MeetingSheet m={meet} onClose={() => setMeet(null)} canEdit={canEdit} saved={meet && notes[`${meet.ti}-${meet.si}`]} onSave={(k) => { setNotes((x) => ({ ...x, [k]: true })); }} />
       <PlanPTM open={plan} onClose={() => setPlan(false)} />
     </div>
   );
 }
 
-function BookSlot({ b, day, onClose, onBooked, cell }) {
+function BookSlot({ b, day, own, onClose, onBooked, cell }) {
   const [q, setQ] = useState('');
   const [pick, setPick] = useState(null);
   const [err, setErr] = useState('');
   if (!b) return null;
   const t = PTM_TEACHERS[b.ti];
   const already = (s) => SLOT_TIMES.some((_, si) => { const c = cell(b.ti, si); return c.s && c.s.id === s.id; });
-  const list = (q ? [...t.kids, ...STUDENTS].filter((s) => s.name.toLowerCase().includes(q.toLowerCase())) : t.kids.filter((s) => !already(s))).slice(0, 6);
+  const list = (q ? [...t.kids, ...(own ? [] : STUDENTS)].filter((s) => s.name.toLowerCase().includes(q.toLowerCase())) : t.kids.filter((s) => !already(s))).slice(0, 6);
   return (
     <Sheet open={!!b} onClose={() => { onClose(); setPick(null); setErr(''); setQ(''); }} title={`Book ${t.name} · ${SLOT_TIMES[b.si]}`} sub={`${day.date} · ${day.slot} minutes · for a parent who called or came to the office`}
       footer={<><Button variant="ghost" onClick={onClose}>Cancel</Button><Button variant="primary" icon={I.Check} disabled={!pick} onClick={() => { if (already(pick)) { setErr(`${pick.first}'s parent already has a slot with ${t.name}. Pick another student or slot.`); return; } onBooked(b, pick); onClose(); setPick(null); setErr(''); setQ(''); }}>Book this slot</Button></>}>
@@ -822,6 +901,7 @@ function Cocurricular() {
   const [items, setItems] = useState(ACH);
   const [q, setQ] = useState('');
   const [lvl, setLvl] = useState('all');
+  const [per, setPer] = useState(PERIODS.acyear);
   const [sel, setSel] = useState(new Set());
   const [add, setAdd] = useState(false);
   const [pts, setPts] = useState(null);
@@ -830,32 +910,35 @@ function Cocurricular() {
     ['+50', HOUSES[0], 'Inter-house quiz, winners', 'Venkat Rao', '8 Oct'], ['+20', HOUSES[1], 'Cleanest classrooms, week 14', 'Srinivas Murthy', '7 Oct'],
     ['−10', HOUSES[2], 'Late to assembly, 3 students', 'Mohammed Asif', '6 Oct'], ['+30', HOUSES[3], 'Science exhibition, best stall', 'Ravi Teja', '15 Sep'],
   ]);
-  const rows = items.filter((a) => (lvl === 'all' || a.level === lvl) && (!q || (a.s + a.act + a.cls).toLowerCase().includes(q.toLowerCase())));
+  const inP = items.filter((a) => inPer(isoOf(a.date), per));
+  const rows = inP.filter((a) => (lvl === 'all' || a.level === lvl) && (!q || (a.s + a.act + a.cls).toLowerCase().includes(q.toLowerCase())));
   const sorted = [...houses].sort((a, b) => b.pts - a.pts);
   return (
     <div>
       <ModuleHead sub="Activities, achievements and certificates, houses, clubs and sports teams. Achievements also show on the student’s profile."
-        actions={<Button variant="primary" icon={I.Plus} onClick={() => setAdd(true)}>Record achievement</Button>} />
+        actions={canEdit && <Button variant="primary" icon={I.Plus} onClick={() => setAdd(true)}>Record achievement</Button>} />
       <Chips className="mb-5" value={tab} onChange={setTab} options={[{ value: 'ach', label: 'Activities and achievements' }, { value: 'houses', label: 'Houses' }, { value: 'clubs', label: 'Clubs' }, { value: 'sports', label: 'Sports' }]} />
       {tab === 'ach' && (
         <div className="flex flex-col gap-5 @lg:gap-6">
           <Stats items={[
-            { label: 'Achievements this year', value: '146', icon: 'Award' },
-            { label: 'District level or above', value: '18', icon: 'Medal', tone: 'ok' },
-            { label: 'Certificates issued', value: '212', icon: 'FileBadge' },
-            { label: 'Activity credits given', value: '3,940', icon: 'Star', sub: 'Shown on each profile' },
+            { label: 'Achievements', value: String(inP.length), icon: 'Award', sub: fmtRange(per) },
+            { label: 'District level or above', value: String(inP.filter((a) => a.level !== 'School').length), icon: 'Medal', tone: 'ok' },
+            { label: 'Certificates issued', value: String(inP.filter((a) => a.cert).length), icon: 'FileBadge' },
+            { label: 'Activity credits given', value: fmt(inP.reduce((x, a) => x + a.cr, 0)), icon: 'Star', sub: 'Shown on each profile' },
           ]} />
           <Split side={300}>
             <Card className="overflow-hidden min-w-0">
               <Toolbar>
                 <SearchBox value={q} onChange={setQ} placeholder="Student, activity or class" id="ach-search" />
+                <DatePeriod id="ach-per" value={per} onChange={setPer} className="w-full @md:w-auto" />
                 <Select id="ach-lvl" value={lvl} onChange={setLvl} options={[{ value: 'all', label: 'All levels' }, 'School', 'District', 'State', 'National']} className="@md:w-40" />
                 <ExportButton what="achievements" />
               </Toolbar>
               {canEdit && <BulkBar count={sel.size} onClear={() => setSel(new Set())}>
                 <Button size="sm" variant="secondary" icon={I.FileBadge} onClick={() => { setItems((x) => x.map((a) => (sel.has(a.id) ? { ...a, cert: true } : a))); toast({ title: `${sel.size} certificates issued`, body: 'Sent to parents on WhatsApp. Print copies are in the queue.' }); setSel(new Set()); }}>Issue certificates</Button>
               </BulkBar>}
-              <DataList rows={rows} select={canEdit ? [sel, setSel] : null} minWidth={760} footer={`${rows.length} achievements`}
+              <DataList rows={rows} select={canEdit ? [sel, setSel] : null} minWidth={760} footer={`Showing: ${per.label} · ${fmtRange(per)} · ${rows.length} achievements`}
+                empty={<Empty icon={I.Award} title="No achievements in these dates" body="Pick other dates or another level." />}
                 columns={[
                   { key: 's', label: 'Student', render: (a) => <div className="flex items-center gap-2.5"><Avatar name={a.s} size={32} /><div><p className="font-semibold leading-tight">{a.s}</p><p className="text-[12.5px] text-ink3">{a.cls}</p></div></div> },
                   { key: 'act', label: 'Activity or competition', render: (a) => <div className="max-w-[240px]"><p className="leading-snug">{a.act}</p><p className="text-[12.5px] text-ink3">{a.pos} · {a.date}</p></div> },
@@ -1007,23 +1090,26 @@ function Gallery({ access, params }) {
   const canEdit = useCanEdit();
   const full = access === 'full' && canEdit;
   const [albums, setAlbums] = useState(ALBUMS);
-  const [f, setF] = useState(access === 'view' ? 'Published' : 'all');
+  const [f, setF] = useState('all');
+  const [per, setPer] = useState(PERIODS.acyear);
   const [add, setAdd] = useState(false);
+  // Gallery is run by the people with full Events access. Others have the School Calendar only.
+  if (access !== 'full') return <NotForRole title="The Gallery is kept by the events team" body="Your part of Events & Calendar is the School Calendar." />;
   if (params?.id) {
     const al = albums.find((a) => a.id === params.id) || albums[0];
     return <AlbumDetail al={al} full={full} onBack={() => go('events', { page: 'gallery' })} onChange={(n) => setAlbums((x) => x.map((a) => (a.id === n.id ? n : a)))} />;
   }
-  const visible = albums.filter((a) => access !== 'view' || a.status === 'Published');
-  const rows = visible.filter((a) => f === 'all' || a.status === f);
+  const rows = albums.filter((a) => inPer(isoOf(a.date), per) && (f === 'all' || a.status === f));
   return (
     <div>
-      <ModuleHead sub={access === 'view' ? 'Published photo and video albums of school events. Read only.' : 'Photo and video albums by event. Students without photo consent are blurred or left out.'}
+      <ModuleHead sub="Photo and video albums by event. Students without photo consent are blurred or left out." 
         actions={full && <Button variant="primary" icon={I.FolderPlus} onClick={() => setAdd(true)}>New album</Button>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
-        {access !== 'view' && <Banner tone="warn" title="4 students in published albums have no photo consent.">They are left out of shared photos. Ask their guardians on Parent Link.</Banner>}
+        {<Banner tone="warn" title="4 students in published albums have no photo consent.">They are left out of shared photos. Ask their guardians on Parent Link.</Banner>}
         <div className="flex items-center gap-3 flex-wrap">
-          {access !== 'view' && <Segmented value={f} onChange={setF} options={[{ value: 'all', label: 'All' }, { value: 'Published', label: 'Published' }, { value: 'Draft', label: 'Drafts' }, { value: 'Archived', label: 'Archived' }]} />}
-          <span className="text-[13px] text-ink3 tnum">{rows.length} albums · {fmt(rows.reduce((a, x) => a + x.photos, 0))} photos</span>
+          <DatePeriod id="gal-per" value={per} onChange={setPer} className="w-full @md:w-auto" />
+          <Segmented value={f} onChange={setF} options={[{ value: 'all', label: 'All' }, { value: 'Published', label: 'Published' }, { value: 'Draft', label: 'Drafts' }, { value: 'Archived', label: 'Archived' }]} />
+          <span className="text-[13px] text-ink3 tnum">{per.label} · {fmtRange(per)} · {rows.length} albums · {fmt(rows.reduce((a, x) => a + x.photos, 0))} photos</span>
         </div>
         {rows.length ? (
           <ul className="grid grid-cols-2 @md:grid-cols-3 @xl:grid-cols-4 gap-3 @md:gap-4">
@@ -1040,13 +1126,13 @@ function Gallery({ access, params }) {
                   <span className="block p-3">
                     <span className="block font-semibold text-[14px] truncate">{a.name}</span>
                     <span className="block text-[12px] text-ink3 truncate">{a.date} · {a.aud}</span>
-                    {access !== 'view' && <span className="mt-1.5 flex"><Pill tone={CONSENT[a.consent][1]} className="!h-[22px] !text-[11px]">{a.consent === 'some' ? `${a.missing} without consent` : CONSENT[a.consent][0]}</Pill></span>}
+                    {<span className="mt-1.5 flex"><Pill tone={CONSENT[a.consent][1]} className="!h-[22px] !text-[11px]">{a.consent === 'some' ? `${a.missing} without consent` : CONSENT[a.consent][0]}</Pill></span>}
                   </span>
                 </button>
               </li>
             ))}
           </ul>
-        ) : <Card><Empty icon={I.Images} title="No albums here" body="Albums of school events show here once they are made." action={full && <Button variant="secondary" icon={I.FolderPlus} onClick={() => setAdd(true)}>New album</Button>} /></Card>}
+        ) : <Card><Empty icon={I.Images} title="No albums here" body="No albums in these dates. Pick other dates or another filter." action={full && <Button variant="secondary" icon={I.FolderPlus} onClick={() => setAdd(true)}>New album</Button>} /></Card>}
       </div>
       <AlbumForm open={add} onClose={() => setAdd(false)} onSaved={(a) => { setAlbums((x) => [a, ...x]); toast({ title: `Album “${a.name}” made`, body: 'Visible to staff only until you publish it.' }); }} />
     </div>
@@ -1205,29 +1291,26 @@ function DailyActivities({ access }) {
   const [plan, setPlan] = useState(false);
   const A = ACTS.find((a) => a.id === act);
   const done = (id) => present.filter((k) => log[k] && log[k][id]).length;
-  if (own) {
-    return (
-      <div>
-        <ModuleHead sub="The daily diary for Nursery, LKG and UKG. Only teachers of a pre-primary class fill it in." />
-        <div className="flex flex-col gap-5 @lg:gap-6">
-          <Card><Empty icon={I.Baby} title="You have no pre-primary class" body="Daily Activities is kept for Nursery to UKG. Your classes are 6 to 8, so there is nothing for you to fill in here." /></Card>
-          <Card>
-            <CardHead title="Today in pre-primary" sub="Filled in by these class teachers · read only" icon={I.ListChecks} />
-            <ul className="px-2 pb-2">{PRE.map((p, i) => <li key={p.id}><Row avatar={p.teacher} title={`${p.id} · ${p.teacher}`} sub={`${p.n} children · ${[3, 3, 2, 3, 2][i]} of 7 activities logged so far`} right={<Pill tone={i % 2 ? 'warn' : 'ok'}>{i % 2 ? 'In progress' : 'On track'}</Pill>} /></li>)}</ul>
-          </Card>
-        </div>
-      </div>
-    );
+  const [per, setPer] = useState(PERIODS.last7);
+  if (own) return <NotForRole title="Daily Activities is for pre-primary classes" body="The daily diary is kept by Nursery to UKG class teachers. Your part of Events & Calendar is the School Calendar and your PTM slots." />;
+  // School days in the chosen dates, newest first, for the diary history
+  const histDays = [];
+  for (let d = new Date(per.to.slice(0, 4), Number(per.to.slice(5, 7)) - 1, Number(per.to.slice(8))); histDays.length < 400 && ds(d.getFullYear(), d.getMonth(), d.getDate()) >= per.from; d = new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1)) {
+    const sd = schoolDay(d.getFullYear(), d.getMonth(), d.getDate());
+    if (sd.kind === 'school') histDays.push(d);
   }
+  const pctOf = (i) => Math.max(80, 98 - ((i * 7 + histDays.length) % 12));
   return (
     <div>
       <ModuleHead sub="The pre-primary daily diary: meals, nap, water and activities for each child. Parents get it on WhatsApp in the afternoon."
-        actions={<>
+        actions={canEdit && <>
           <Button variant="secondary" icon={I.CalendarPlus} className="hidden @md:inline-flex" onClick={() => setPlan(true)}>Assign activities</Button>
           <Button variant="primary" icon={I.Send} onClick={() => setSend(true)}>Send today’s diary</Button>
         </>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
-        <Chips value={cls} onChange={setCls} options={PRE.map((p) => ({ value: p.id, label: p.id, count: p.n }))} />
+        <div className="flex flex-col @lg:flex-row gap-2.5 @lg:items-center">
+          <Chips className="flex-1 min-w-0" value={cls} onChange={setCls} options={PRE.map((p) => ({ value: p.id, label: p.id, count: p.n }))} />
+        </div>
         <p className="text-[13.5px] text-ink3 -mt-2">{cls} · class teacher {PRE.find((p) => p.id === cls).teacher} · Fri, 9 Oct · <b className="font-semibold text-ink2">{present.length} present</b>, 1 absent (Ayaan Khan)</p>
         <Split side={340}>
           <Card className="overflow-hidden min-w-0">
@@ -1277,8 +1360,22 @@ function DailyActivities({ access }) {
               </div>
             </Card>
             <Card>
-              <CardHead title="This month" sub="Days with the full diary filled in" icon={I.ChartColumn} />
-              <div className="px-5 pb-5"><HBars rows={PRE.map((p, i) => ({ k: p.id.replace('Nursery', 'Nur'), v: [97, 90, 92, 88, 96][i] }))} lowBelow={90} labelWidth={64} /></div>
+              <CardHead title="Diaries sent" sub={`${cls} · ${per.label} · ${fmtRange(per)}`} icon={I.History} />
+              <div className="px-5 pb-3"><DatePeriod id="da-per" size="sm" value={per} onChange={setPer} className="w-full" /></div>
+              {histDays.length ? (
+                <ul className="px-2 pb-2 max-h-72 overflow-y-auto scroll-thin">
+                  {histDays.slice(0, 40).map((d, i) => {
+                    const iso = ds(d.getFullYear(), d.getMonth(), d.getDate());
+                    const isToday = iso === TODAY;
+                    return <li key={iso}><Row icon={isToday ? 'NotebookPen' : 'Send'} iconTone={isToday ? 'brand' : 'ok'} title={nice(iso) + (d.getFullYear() !== 2026 ? ` ${d.getFullYear()}` : '')} sub={isToday ? 'Being filled in now · usually sent at 3:30 PM' : `Sent ${3 + (i % 2)}:${pad((i * 7) % 60)} PM · ${PRE.find((p) => p.id === cls).n - (i % 3)} parents · ${pctOf(i)}% of activities logged`} /></li>;
+                  })}
+                  {histDays.length > 40 && <li className="px-3 py-2 text-[12.5px] text-ink3">And {histDays.length - 40} earlier school days. Pick shorter dates to see them.</li>}
+                </ul>
+              ) : <Empty icon={I.CalendarX2} title="No school days in these dates" body="Holidays, Sundays and second Saturdays have no diary." />}
+            </Card>
+            <Card>
+              <CardHead title="Diary filled in" sub={`Days with the full diary · ${fmtRange(per)}`} icon={I.ChartColumn} />
+              <div className="px-5 pb-5"><HBars rows={PRE.map((p, i) => ({ k: p.id.replace('Nursery', 'Nur'), v: Math.min(100, [97, 90, 92, 88, 96][i] - (histDays.length > 30 ? 2 : 0)) }))} lowBelow={90} labelWidth={64} /></div>
             </Card>
           </Col>
         </Split>

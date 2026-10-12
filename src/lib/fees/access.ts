@@ -56,3 +56,18 @@ export async function canSeeStudent(tx: Tx, v: FeeViewer, studentId: string) {
 export function requireFeeStaff(v: Pick<FeeViewer, "change">, what = "this") {
   if (v.change !== "all") throw new MoneyProblem(`Your role can see fee status but cannot do ${what}. Ask the accountant.`);
 }
+
+const FULL_VIEW_ROLES = ["principal", "school-admin", "accountant", "vice-principal"];
+
+/**
+ * The Admission Counsellor sees only the application and admission fee status
+ * (05-roles.md): no ledgers, payments, defaulters or reports.
+ */
+export function admissionOnly(v: Pick<FeeViewer, "roleKeys" | "change">) {
+  return v.roleKeys.includes("admission-counsellor") && !v.roleKeys.some((k) => FULL_VIEW_ROLES.includes(k)) && v.change !== "all";
+}
+
+/** Refuses fee details to a viewer who may see only admission fees. */
+export function requireFeeDetails(v: Pick<FeeViewer, "roleKeys" | "change">) {
+  if (admissionOnly(v)) throw new MoneyProblem("Your role sees only admission fee status. Ask the accountant for other fee details.");
+}

@@ -3,8 +3,9 @@ import { withSchool } from "@/lib/db";
 import { buildExport, exportResponse, logExport, type ExportColumn, type ExportFormat } from "@/lib/exports";
 import { formatDate, formatRupees, formatTime } from "@/lib/format";
 import { PermissionDeniedError } from "@/lib/permissions";
-import { addDays, monthStart, todayIn } from "@/lib/staff/dates";
-import { feeViewer } from "@/lib/fees/access";
+import { todayIn } from "@/lib/staff/dates";
+import { periodFromSearch } from "@/lib/periods";
+import { admissionOnly, feeViewer } from "@/lib/fees/access";
 import { recentPayments } from "@/lib/fees/dashboard";
 import { modeWord } from "../../_components/bits";
 
@@ -26,10 +27,11 @@ export async function GET(req: Request) {
   const format = (["csv", "xlsx", "pdf"].includes(g("format")) ? g("format") : "xlsx") as ExportFormat;
   const tz = current.school.timeZone;
   const today = todayIn(tz);
-  const when = g("when") || "today";
-  const from = when === "week" ? addDays(today, -6) : when === "month" ? monthStart(today) : today;
+  const range = periodFromSearch(Object.fromEntries(url.searchParams), { timeZone: tz, fallback: "today" });
+  const from = range ? new Date(`${range.from}T00:00:00Z`) : new Date("2000-01-01T00:00:00Z");
+  const to = range ? new Date(`${range.to}T00:00:00Z`) : today;
   const filter = {
-    from, to: today,
+    from, to,
     status: ["POSTED", "WAITING", "CANCELLED", "FAILED"].includes(g("status")) ? g("status") : null,
     mode: g("mode") || null,
     partial: g("kind") === "partial" ? true : g("kind") === "full" ? false : null,
@@ -37,11 +39,13 @@ export async function GET(req: Request) {
   };
   const data = await withSchool(current.ctx, async (tx) => {
     const viewer = await feeViewer(tx, current.ctx, current);
+    if (admissionOnly(viewer) || viewer.see !== "all") return null;
     const list = await recentPayments(tx, viewer, filter, 10000, 0);
-    const filters = [`${formatDate(from)} to ${formatDate(today)}`, filter.status && `status: ${STATUS[filter.status]}`, filter.mode && `mode: ${modeWord(filter.mode)}`, filter.partial && "partial payments", filter.q && `search "${filter.q}"`].filter(Boolean).join(", ");
+    const filters = [range ? `${formatDate(from)} to ${formatDate(to)}` : "All dates", filter.status && `status: ${STATUS[filter.status]}`, filter.mode && `mode: ${modeWord(filter.mode)}`, filter.partial && "partial payments", filter.q && `search "${filter.q}"`].filter(Boolean).join(", ");
     await logExport(tx, current.ctx, { title: "Fee payments", format, filters, rows: list.rows.length });
     return { list, filters };
   });
+  if (!data) return new Response("Your role cannot export fee payments.", { status: 403 });
   type Row = (typeof data.list.rows)[number];
   const columns: ExportColumn<Row>[] = [
     { label: "Date", value: (r) => formatDate(r.paymentDate) },

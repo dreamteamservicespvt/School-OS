@@ -48,7 +48,7 @@ export function AdjustSheet({ studentId, closeHref, rows, start }: Common & { ro
             ]} />
           </div>
           {how !== "remove" ? <SMoney name="amount" label={how === "add" ? "Amount to add" : "Amount to reduce"} required />
-            : <Alert tone="warn">The row comes off the student’s fees. It stays on the ledger, struck through, with your reason.</Alert>}
+            : <Alert tone="warning">The row comes off the student’s fees. It stays on the ledger, struck through, with your reason.</Alert>}
           <SArea name="reason" label="Reason" required placeholder="Example: fee for the hostel was charged twice in June" />
         </>
       )}

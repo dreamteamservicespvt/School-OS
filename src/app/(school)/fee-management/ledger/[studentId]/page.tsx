@@ -30,7 +30,8 @@ import { FeeHead } from "../../_components/fee-head";
 import { ModeIcon, PayPill, modeWord, pct } from "../../_components/bits";
 import { CancelSheet, PaymentSheet } from "../../_components/payment-sheet";
 import { toSheet } from "../../_lib/pay-sheet";
-import { BASE, feePage, one, qs, type SearchParams } from "../../_lib/page";
+import { BASE, feeDetailsPage, feePeriod, one, qs, type SearchParams } from "../../_lib/page";
+import { PeriodFilter } from "@/components/list/period-filter";
 import { AdjustSheet, AssignSheet, CertificateSheet, ChargeSheet, InvoiceSheet, OldDuesSheet, ResendInvoice } from "./sheets";
 
 export const metadata = { title: "Student Fee Ledger" };
@@ -57,7 +58,7 @@ const dshort = (d: Date) => new Intl.DateTimeFormat("en-IN", { day: "numeric", m
 export default async function LedgerPage({ params, searchParams }: { params: Promise<{ studentId: string }>; searchParams: SearchParams }) {
   const { studentId } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(studentId)) notFound();
-  const p = await feePage();
+  const p = await feeDetailsPage();
   const sp = await searchParams;
   const tab = TABS.some(([k]) => k === one(sp.tab)) ? one(sp.tab) : "statement";
   const doing = (DO as readonly string[]).includes(one(sp.do)) ? one(sp.do) : "";
@@ -84,33 +85,47 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
     if (what === "opening" || what === "charge") {
       const heads = await tx.feeHead.findMany({ where: { archivedAt: null }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true, systemKey: true } });
       const sorted = what === "opening" ? [...heads.filter((h) => h.systemKey === "old-dues"), ...heads.filter((h) => h.systemKey !== "old-dues" && h.systemKey !== "late-fee")] : heads.filter((h) => h.systemKey !== "old-dues");
-      return { heads: sorted.map((h) => ({ value: h.id, label: h.name })) };
+      return { kind: "heads" as const, heads: sorted.map((h) => ({ value: h.id, label: h.name })) };
     }
     if (what === "assign") {
       const plans = p.year ? await tx.feeStructure.findMany({ where: { academicYearId: p.year.id, status: "PUBLISHED", archivedAt: null }, orderBy: { createdAt: "asc" } }) : [];
       const classes = await tx.schoolClass.findMany({ where: { id: { in: plans.map((s) => s.classId) } }, select: { id: true, name: true, sortOrder: true } });
-      const own = p.year && card.classId ? await structureForStudent(tx, p.year.id, card.classId, null, p.features.has("fee-category")) : null;
+      const own = p.year && card.classId ? await structureForStudent(tx, p.year.id, card.classId, null, p.features.has("fee-category-fees")) : null;
       const opts = plans
         .map((s) => { const c = classes.find((x) => x.id === s.classId); return { value: s.id, label: `${c?.name ?? "Class"}${s.category ? ` · ${s.category}` : ""}${s.id === own?.id ? " (own class)" : ""}`, order: c?.sortOrder ?? 0 }; })
         .sort((a, b) => (a.value === own?.id ? -1 : b.value === own?.id ? 1 : a.order - b.order));
-      return { plans: opts.map(({ value, label }) => ({ value, label })), own: own?.id ?? null };
+      return { kind: "plans" as const, plans: opts.map(({ value, label }) => ({ value, label })), own: own?.id ?? null };
     }
     if (what === "certificate") {
       const years = await tx.financialYear.findMany({ where: { archivedAt: null }, orderBy: { startDate: "desc" }, take: 8 });
       const cur = years.find((y) => y.startDate <= p.today && y.endDate >= p.today);
-      return { years: years.map((y) => ({ value: y.id, label: y.name })), start: cur?.id ?? years[0]?.id ?? "" };
+      return { kind: "years" as const, years: years.map((y) => ({ value: y.id, label: y.name })), start: cur?.id ?? years[0]?.id ?? "" };
     }
     void sid;
     return null;
   }
 
   const { card, ledger: L } = data;
-  const here = (extra: Record<string, string | null> = {}) => qs(`${BASE}/ledger/${studentId}`, { tab: tab === "statement" ? null : tab, ...extra });
+  const per = feePeriod(sp, p.tz, null);
+  const here = (extra: Record<string, string | null> = {}) => qs(`${BASE}/ledger/${studentId}`, { tab: tab === "statement" ? null : tab, ...per.keep, ...extra });
   const close = here();
   const first = card.name.split(" ")[0];
   const balance = L.balanceNow;
-  const receipts = L.payments;
+  const inRange = (d: Date) => !per.from || !per.to || (d >= per.from && d <= per.to);
+  const entries = L.entries.filter((e) => inRange(e.date));
+  const forward = per.from ? L.entries.filter((e) => e.date < per.from!).at(-1)?.balance ?? ZERO : null;
+  const endBalance = entries.at(-1)?.balance ?? forward ?? ZERO;
+  const counted = entries.filter((e) => !e.cancelled && !e.waiting);
+  const sumDebit = counted.reduce((a, e) => a + e.debit, ZERO);
+  const sumCredit = counted.reduce((a, e) => a + e.credit, ZERO);
+  const endDay = per.to && per.to < p.today ? per.to : p.today;
+  const installments = L.installments.filter((r) => inRange(r.dueDate));
+  const receipts = L.payments.filter((r) => inRange(r.date));
   const partial = receipts.filter((r) => r.partial && r.status === "POSTED");
+  const invoices = L.invoices.filter((r) => inRange(r.date));
+  const certificates = L.certificates.filter((r) => inRange(r.date));
+  const adjustments = L.adjustments.filter((r) => inRange(r.date));
+  const filtered = Boolean(per.range);
   const father = card.fatherName ?? card.primaryGuardian?.name ?? "the parent";
   const heads = [...L.heads].sort((a, b) => Number(b.total - a.total));
   const today = p.today;
@@ -170,11 +185,12 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
 
         <div className="flex items-center gap-2 flex-wrap">
           <LinkTabs className="flex-1 min-w-0" label="Ledger views" tabs={TABS.map(([k, label]) => ({
-            href: qs(`${BASE}/ledger/${studentId}`, { tab: k === "statement" ? null : k }),
+            href: qs(`${BASE}/ledger/${studentId}`, { tab: k === "statement" ? null : k, ...per.keep }),
             label,
             on: tab === k,
-            count: k === "fees" ? L.installments.length : k === "payments" ? receipts.length : k === "partial" ? partial.length : k === "adjust" ? L.adjustments.length : null,
+            count: k === "fees" ? installments.length : k === "payments" ? receipts.length : k === "partial" ? partial.length : k === "adjust" ? adjustments.length : null,
           }))} />
+          <PeriodFilter timeZone={p.tz} />
           <MoreMenu items={menu} />
         </div>
 
@@ -182,8 +198,8 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
           {tab === "statement" && (
             <Card className="overflow-hidden">
               <CardHeader title={`Statement${yearName ? `, ${yearName}` : ""}`} description="Every fee, payment, cancelled receipt, concession and late fee, with the running balance"
-                action={<ExportButton size="sm" href={`${BASE}/ledger/${studentId}/export`} />} />
-              {L.entries.length === 0 ? <Empty icon={ReceiptIndianRupee} title="Nothing on the ledger yet" body={`No fees are raised for ${first} yet. Assign the class fee plan in the Fees view, or add old dues.`} /> : (
+                action={<ExportButton size="sm" href={qs(`${BASE}/ledger/${studentId}/export`, per.keep)} />} />
+              {entries.length === 0 && forward === null ? <Empty icon={ReceiptIndianRupee} title="Nothing on the ledger yet" body={`No fees are raised for ${first} yet. Assign the class fee plan in the Fees view, or add old dues.`} /> : (
                 <>
                   <div className="hidden lg:block overflow-x-auto scroll-thin">
                     <table className="w-full text-[14px] min-w-[760px]">
@@ -193,18 +209,26 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
                         <th scope="col" className="px-3 py-2.5 font-semibold text-right">Charged</th><th scope="col" className="px-3 py-2.5 font-semibold text-right">Paid or reduced</th><th scope="col" className="pl-3 pr-5 py-2.5 font-semibold text-right">Balance</th>
                       </tr></thead>
                       <tbody>
-                        {L.entries.map((e) => <StatementRow key={e.key} e={e} href={e.paymentId ? payHref(e.paymentId) : null} tz={p.tz} />)}
+                        {forward !== null && (
+                          <tr className="border-b border-line/70 bg-sunken/40">
+                            <td className="pl-5 pr-3 py-2.5 tnum whitespace-nowrap text-ink2">{dshort(per.from!)}</td>
+                            <td className="px-3 py-2.5 font-semibold" colSpan={4}>Balance brought forward</td>
+                            <td className="pl-3 pr-5 py-2.5 text-right tnum font-semibold">{formatRupees(forward)}</td>
+                          </tr>
+                        )}
+                        {entries.map((e) => <StatementRow key={e.key} e={e} href={e.paymentId ? payHref(e.paymentId) : null} tz={p.tz} />)}
                       </tbody>
                       <tfoot><tr className="border-t-2 border-line font-semibold">
-                        <td className="pl-5 py-3" colSpan={3}>Balance on {formatDate(today)}</td>
-                        <td className="px-3 text-right tnum">{formatRupees(L.totalDebit)}</td><td className="px-3 text-right tnum">{formatRupees(L.totalCredit)}</td>
-                        <td className={cx("pl-3 pr-5 text-right tnum", balance > ZERO && "text-bad")}>{formatRupees(balance)}</td>
+                        <td className="pl-5 py-3" colSpan={3}>Balance on {formatDate(endDay)}</td>
+                        <td className="px-3 text-right tnum">{formatRupees(sumDebit)}</td><td className="px-3 text-right tnum">{formatRupees(sumCredit)}</td>
+                        <td className={cx("pl-3 pr-5 text-right tnum", endBalance > ZERO && "text-bad")}>{formatRupees(endBalance)}</td>
                       </tr></tfoot>
                     </table>
                   </div>
                   <ul className="lg:hidden divide-y divide-line/70 border-t border-line">
-                    {L.entries.map((e) => <StatementItem key={e.key} e={e} href={e.paymentId ? payHref(e.paymentId) : null} />)}
-                    <li className="flex justify-between px-4 py-3 font-semibold text-[14.5px]"><span>Balance on {dshort(today)}</span><span className={cx("tnum", balance > ZERO && "text-bad")}>{formatRupees(balance)}</span></li>
+                    {forward !== null && <li className="flex justify-between px-4 py-3 text-[14px] bg-sunken/40"><span className="font-semibold">Brought forward · {dshort(per.from!)}</span><span className="tnum font-semibold">{formatRupees(forward)}</span></li>}
+                    {entries.map((e) => <StatementItem key={e.key} e={e} href={e.paymentId ? payHref(e.paymentId) : null} />)}
+                    <li className="flex justify-between px-4 py-3 font-semibold text-[14.5px]"><span>Balance on {dshort(endDay)}</span><span className={cx("tnum", endBalance > ZERO && "text-bad")}>{formatRupees(endBalance)}</span></li>
                   </ul>
                 </>
               )}
@@ -215,9 +239,9 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
             <Card className="overflow-hidden">
               <CardHeader title={`Fees${yearName ? ` for ${yearName}` : ""}`} description="Each fee head with its installments, oldest first"
                 action={canEdit ? <ButtonLink size="sm" variant="ghost" icon={Plus} scroll={false} href={here({ do: L.installments.some((r) => r.kind === "FEE") ? "charge" : "assign" })}>{L.installments.some((r) => r.kind === "FEE") ? "Add a charge" : "Assign fee"}</ButtonLink> : null} />
-              <DataList rows={L.installments} rowKey={(r) => r.id} minWidth={640} caption="Fees and installments"
+              <DataList rows={installments} rowKey={(r) => r.id} minWidth={640} caption="Fees and installments"
                 rowClass={(r) => r.status === "Removed" && "opacity-60"}
-                footer={`${L.installments.filter((r) => r.status === "Paid").length} of ${L.installments.filter((r) => r.status !== "Removed").length} installments paid · Year total ${formatRupees(L.yearTotal)}`}
+                footer={`${installments.filter((r) => r.status === "Paid").length} of ${installments.filter((r) => r.status !== "Removed").length} installments paid · Year total ${formatRupees(L.yearTotal)}`}
                 empty={<Empty icon={FileText} title="No fees yet" body={`${first} has no fee plan for this year.`} action={canEdit ? <ButtonLink href={here({ do: "assign" })} scroll={false} variant="primary" icon={Plus}>Assign fee plan</ButtonLink> : undefined} />}
                 columns={[
                   { key: "head", label: "Fee head", render: (r) => <><p className="font-semibold leading-tight">{r.head}{r.broughtIn && <Pill tone="neutral" className="ml-2 !h-5 !text-[11px]">Brought in</Pill>}</p><p className="text-[12.5px] text-ink3">{r.label}</p></> },
@@ -282,11 +306,11 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
             <Card>
               <CardHeader title="Fee invoices" description="Made for what is due, each with its own number. Sent with a Razorpay link."
                 action={canEdit ? <ButtonLink size="sm" variant="ghost" icon={Plus} scroll={false} href={here({ do: "invoice" })}>New invoice</ButtonLink> : null} />
-              {L.invoices.length === 0 && L.certificates.length === 0 ? (
+              {invoices.length === 0 && certificates.length === 0 ? (
                 <Empty icon={FileText} title="No invoices yet" body={`Make a fee invoice for what ${first} owes now. It goes to the parent with a link to pay.`} />
               ) : (
                 <ul className="px-2 pb-2">
-                  {L.invoices.map((inv) => (
+                  {invoices.map((inv) => (
                     <li key={inv.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sunken/70">
                       <span className="w-10 h-10 rounded-xl bg-sunken text-ink2 grid place-items-center shrink-0"><FileText size={18} aria-hidden="true" /></span>
                       <a href={`${BASE}/documents/${inv.id}`} target="_blank" rel="noreferrer" className="min-w-0 flex-1">
@@ -297,7 +321,7 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
                       {canEdit && inv.status !== "Paid" && <ResendInvoice studentId={studentId} invoiceId={inv.id} />}
                     </li>
                   ))}
-                  {L.certificates.map((c) => (
+                  {certificates.map((c) => (
                     <li key={c.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sunken/70">
                       <span className="w-10 h-10 rounded-xl bg-brand/10 text-brand grid place-items-center shrink-0"><Award size={18} aria-hidden="true" /></span>
                       <a href={`${BASE}/documents/${c.id}`} target="_blank" rel="noreferrer" className="min-w-0 flex-1">
@@ -316,9 +340,9 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
             <Card>
               <CardHeader title="Adjustments" description="Concessions, late fees, reversals and old dues, each with its reason and who approved it"
                 action={canEdit ? <ButtonLink size="sm" variant="ghost" icon={Scale} scroll={false} href={here({ do: "adjust" })}>Adjust an amount</ButtonLink> : null} />
-              {L.adjustments.length === 0 ? <Empty icon={Scale} title="No adjustments" body={`${first} has no concessions, late fees or corrections.`} /> : (
+              {adjustments.length === 0 ? <Empty icon={Scale} title="No adjustments" body={`${first} has no concessions, late fees or corrections.`} /> : (
                 <ul className="px-5 pb-3">
-                  {L.adjustments.map((e) => {
+                  {adjustments.map((e) => {
                     const [label, tone, Ic] = KIND[e.kind];
                     return (
                       <li key={e.key} className="flex items-start gap-3 py-3 border-t border-line/70 first:border-0">
@@ -375,16 +399,16 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
         </UrlSheet>
       )}
 
-      {canEdit && doing === "opening" && data.extra && "heads" in data.extra && (
+      {canEdit && doing === "opening" && data.extra?.kind === "heads" && (
         <OldDuesSheet studentId={studentId} closeHref={close} name={card.name} heads={data.extra.heads} start={p.year ? new Date(p.year.startDate.getTime() - 86400000).toISOString().slice(0, 10) : today.toISOString().slice(0, 10)} />
       )}
-      {canEdit && doing === "charge" && data.extra && "heads" in data.extra && (
+      {canEdit && doing === "charge" && data.extra?.kind === "heads" && (
         <ChargeSheet studentId={studentId} closeHref={close} heads={data.extra.heads} start={today.toISOString().slice(0, 10)} />
       )}
-      {canEdit && doing === "assign" && data.extra && "plans" in data.extra && (
+      {canEdit && doing === "assign" && data.extra?.kind === "plans" && (
         <AssignSheet studentId={studentId} closeHref={close} plans={data.extra.plans} own={data.extra.own} />
       )}
-      {canEdit && doing === "certificate" && data.extra && "years" in data.extra && (
+      {canEdit && doing === "certificate" && data.extra?.kind === "years" && (
         <CertificateSheet studentId={studentId} closeHref={close} years={data.extra.years} start={data.extra.start} />
       )}
       {canEdit && doing === "adjust" && (

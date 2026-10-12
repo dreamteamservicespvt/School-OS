@@ -22,7 +22,8 @@ import { CancelSheet, PaymentSheet } from "../_components/payment-sheet";
 import { FailedLinkButton } from "./failed-link";
 import { AdmissionFees } from "./admission-fees";
 import { toSheet } from "../_lib/pay-sheet";
-import { BASE, feeStaffPage, one, qs, type SearchParams } from "../_lib/page";
+import { BASE, feePage, feePeriod, feeStaffPage, one, qs, type SearchParams } from "../_lib/page";
+import { PeriodFilter } from "@/components/list/period-filter";
 
 export const metadata = { title: "Fee Dashboard" };
 
@@ -35,29 +36,30 @@ const MODES = [
   { value: "all", label: "All modes" }, { value: "CASH", label: "Cash" }, { value: "UPI", label: "UPI" }, { value: "CARD", label: "Card" },
   { value: "CHEQUE", label: "Cheque" }, { value: "BANK_TRANSFER", label: "Bank transfer" }, { value: "NET_BANKING", label: "Net banking" }, { value: "GATEWAY", label: "Online (Razorpay)" },
 ];
-const WHEN = [{ value: "today", label: "Today" }, { value: "week", label: "Last 7 days" }, { value: "month", label: "This month" }];
 const MODE_ORDER = ["UPI", "CASH", "CHEQUE", "GATEWAY", "BANK_TRANSFER", "CARD", "NET_BANKING"];
 
 /** Fee Dashboard (06 §2, mod-fees.jsx): money as it comes in today, what is pending and overdue. */
 export default async function FeeDashboardPage({ searchParams }: { searchParams: SearchParams }) {
+  if ((await feePage()).admissionOnly) return <AdmissionFees />;
   const p = await feeStaffPage();
   const sp = await searchParams;
-  if (p.admissionOnly) return <AdmissionFees />;
   const tab = one(sp.kind) === "partial" ? "partial" : "full";
   const status = STATUS.some((s) => s.value === one(sp.status)) ? one(sp.status) : "all";
   const mode = MODES.some((s) => s.value === one(sp.mode)) ? one(sp.mode) : "all";
-  const when = WHEN.some((w) => w.value === one(sp.when)) ? one(sp.when) : "today";
+  const per = feePeriod(sp, p.tz, "today");
+  const when = per.range && per.range.from === per.range.to && per.from!.getTime() === p.today.getTime() ? "today" : "range";
   const period = one(sp.how) === "month" ? "month" : "today";
   const q = one(sp.q).trim().slice(0, 80);
   const page = Math.max(1, Number(one(sp.page)) || 1);
   const payId = one(sp.pay);
   const cancelId = one(sp.cancel);
   const today = p.today;
-  const from = when === "today" ? today : when === "week" ? addDays(today, -6) : monthStart(today);
+  const from = per.from ?? new Date("2000-01-01T00:00:00Z");
+  const to = per.to ?? today;
   const take = 25;
 
   const data = await withSchool(p.current.ctx, async (tx) => {
-    const base = { from, to: today, status: status === "all" ? null : status, mode: mode === "all" ? null : mode, q: q || null };
+    const base = { from, to, status: status === "all" ? null : status, mode: mode === "all" ? null : mode, q: q || null };
     const [tiles, trend, modes, failed, waiting, list, counts, nextDue, over30, fc] = await Promise.all([
       feeTiles(tx, p.viewer, today),
       p.year ? monthlyTrend(tx, p.year.startDate, p.year.endDate) : Promise.resolve([]),
@@ -96,12 +98,12 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
   const mMax = methods.reduce((a, m) => (m.amount > a ? m.amount : a), BigInt(0));
   const mTotal = methods.reduce((a, m) => a + m.amount, BigInt(0));
   const waitingSum = data.waiting.reduce((a, w) => a + w.amountPaise, BigInt(0));
-  const keep = { kind: tab === "partial" ? "partial" : null, status: status === "all" ? null : status, mode: mode === "all" ? null : mode, when: when === "today" ? null : when, how: period === "month" ? "month" : null, q: q || null };
+  const keep = { kind: tab === "partial" ? "partial" : null, status: status === "all" ? null : status, mode: mode === "all" ? null : mode, ...per.keep, how: period === "month" ? "month" : null, q: q || null };
   const here = qs(HREF, keep);
   const payHref = (id: string) => qs(HREF, { ...keep, page: page > 1 ? String(page) : null, pay: id });
   const fullCount = data.counts[0].total;
   const partCount = data.counts[1].total;
-  const whenWord = when === "today" ? "today" : when === "week" ? "in the last 7 days" : "this month";
+  const whenWord = per.words;
   const failedRows = [
     ...data.failed.failed.map((f) => ({ id: f.id, kind: "payment" as const, studentId: f.studentId, amount: f.amountPaise, at: f.createdAt, why: f.failureReason ?? "Declined by the bank" })),
     ...data.failed.stuck.map((s) => ({ id: s.id, kind: "link" as const, studentId: s.studentId, amount: s.amountPaise, at: s.lastAttemptAt ?? s.updatedAt, why: "Not confirmed by Razorpay within 30 minutes" })),
@@ -210,7 +212,7 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
             <Toolbar>
               <UrlSearch id="pay-q" placeholder="Student, class or receipt no." />
               <div className="grid grid-cols-2 gap-2.5 md:flex">
-                <UrlSelect id="pay-when" param="when" label="When" className="md:w-36" options={WHEN} />
+                <PeriodFilter timeZone={p.tz} fallback="today" />
                 <UrlSelect id="pay-status" param="status" label="Status" className="md:w-48" options={STATUS} />
                 <UrlSelect id="pay-mode" param="mode" label="Mode" className="md:w-44 col-span-2 md:col-span-1" options={MODES} />
               </div>
@@ -223,7 +225,7 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
                 </span></>}
               empty={<Empty icon={SearchX} title={q || status !== "all" || mode !== "all" ? "No payments match" : `No ${tab === "partial" ? "partial " : ""}payments ${whenWord} yet`}
                 body={q || status !== "all" || mode !== "all" ? "Try another status or mode." : "Payments show here the moment they are collected or arrive online."}
-                action={q || status !== "all" || mode !== "all" ? <Link href={qs(HREF, { kind: keep.kind, when: keep.when })} className={buttonClass("secondary")}>Clear filters</Link> : undefined} />}
+                action={q || status !== "all" || mode !== "all" ? <Link href={qs(HREF, { kind: keep.kind, ...per.keep })} className={buttonClass("secondary")}>Clear filters</Link> : undefined} />}
               rowClass={(r) => r.status === "CANCELLED" && "bg-bad/[.03]"}
               columns={[
                 { key: "t", label: "Time", nowrap: true, render: (r) => <span className="tnum text-ink2">{when === "today" ? formatTime(r.paidAt, p.tz) : `${formatDate(r.paymentDate)} ${formatTime(r.paidAt, p.tz)}`}</span> },

@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { withSchool } from "@/lib/db";
 import { commPage } from "@/lib/communication/access";
 import { CAME_BY, ensureTopics, QUERY_PRIORITIES, QUERY_TYPE_LABEL } from "@/lib/communication/queries";
-import { PageHeader } from "@/components/shell/page-header";
+import { BackLink, RecordHead } from "@/components/ui/split";
 import { QueryForm, type QueryFormData } from "./query-form";
 import { ownerOptions } from "../owners";
 
@@ -25,8 +24,8 @@ export default async function NewQueryPage() {
   });
   return (
     <>
-      <p className="mb-2 text-sm"><Link href="/communication/queries" className="text-brand-text hover:underline">← Feedback &amp; Queries</Link></p>
-      <PageHeader title="Log a query" href="/communication/queries/new" userId={current.user.id} />
+      <BackLink href="/communication/queries" label="Feedback & Queries" />
+      <RecordHead title="Log a query" sub={<span className="text-[14px] text-ink3">From a call, a visit, a letter or WhatsApp. It gets a ticket number, an owner and a status.</span>} />
       <QueryForm data={data} />
     </>
   );

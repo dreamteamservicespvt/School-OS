@@ -72,50 +72,50 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
       {keep.map((f) => <input key={f.id} type="hidden" name="keepFiles" value={f.id} />)}
       {state && !state.ok && state.message && <Alert tone="danger">{state.message}</Alert>}
 
-      <section className="space-y-4 rounded-2xl border border-line bg-surface p-4 shadow-card sm:p-5">
+      <section className="space-y-4 rounded-2xl border border-line/70 bg-surface p-5 shadow-card">
         <div>
-          <label htmlFor="n-title" className="mb-1 block text-sm font-medium">Title <span className="text-danger" aria-hidden>*</span></label>
+          <label htmlFor="n-title" className="mb-1.5 block text-[13px] font-semibold text-ink2">Title <span className="text-bad" aria-hidden>*</span></label>
           <input id="n-title" name="title" defaultValue={v.title} maxLength={150} required aria-invalid={err("title") ? true : undefined} aria-describedby="ne-title"
-            className={`h-11 w-full rounded-lg border bg-surface px-3 ${err("title") ? "border-danger" : "border-line-strong"}`} />
-          {err("title") && <p id="ne-title" className="mt-1 text-sm text-danger">{err("title")}</p>}
+            className={`h-11 w-full rounded-xl border bg-surface px-3.5 text-[15px] ${err("title") ? "border-bad ring-4 ring-bad/10" : "border-line hover:border-ink3/50 focus:border-brand focus:ring-4 focus:ring-brand/15 outline-none"}`} />
+          {err("title") && <p id="ne-title" className="mt-1.5 text-[12.5px] text-bad">{err("title")}</p>}
         </div>
         <div>
-          <label htmlFor="n-body" className="mb-1 block text-sm font-medium">Notice <span className="text-danger" aria-hidden>*</span></label>
+          <label htmlFor="n-body" className="mb-1.5 block text-[13px] font-semibold text-ink2">Notice <span className="text-bad" aria-hidden>*</span></label>
           <textarea id="n-body" name="body" rows={8} defaultValue={v.body} maxLength={5000} required aria-invalid={err("body") ? true : undefined} aria-describedby="ne-body"
-            className={`w-full rounded-lg border bg-surface px-3 py-2 ${err("body") ? "border-danger" : "border-line-strong"}`} />
-          {err("body") ? <p id="ne-body" className="mt-1 text-sm text-danger">{err("body")}</p> : <p className="mt-1 text-sm text-ink-2">Line breaks are kept. Up to 5000 characters.</p>}
+            className={`w-full rounded-xl border bg-surface px-3.5 text-[15px] py-2 ${err("body") ? "border-bad ring-4 ring-bad/10" : "border-line hover:border-ink3/50 focus:border-brand focus:ring-4 focus:ring-brand/15 outline-none"}`} />
+          {err("body") ? <p id="ne-body" className="mt-1.5 text-[12.5px] text-bad">{err("body")}</p> : <p className="mt-1.5 text-[12.5px] text-ink3">Line breaks are kept. Up to 5000 characters.</p>}
         </div>
         <div>
-          <label htmlFor="n-files" className="mb-1 block text-sm font-medium">Attachments</label>
+          <label htmlFor="n-files" className="mb-1.5 block text-[13px] font-semibold text-ink2">Attachments</label>
           {keep.length > 0 && (
             <ul className="mb-2 flex flex-wrap gap-2">
               {keep.map((f) => (
-                <li key={f.id} className="inline-flex items-center gap-1 rounded-full bg-surface-2 py-1 pl-3 pr-1 text-sm">{f.name}
-                  <button type="button" aria-label={`Remove ${f.name}`} onClick={() => setKeep(keep.filter((x) => x.id !== f.id))} className="grid size-8 place-items-center rounded-full hover:bg-surface-3">×</button>
+                <li key={f.id} className="inline-flex items-center gap-1 rounded-full bg-sunken/70 py-1 pl-3 pr-1 text-sm">{f.name}
+                  <button type="button" aria-label={`Remove ${f.name}`} onClick={() => setKeep(keep.filter((x) => x.id !== f.id))} className="grid size-8 place-items-center rounded-full hover:bg-sunken">×</button>
                 </li>
               ))}
             </ul>
           )}
-          <input id="n-files" name="files" type="file" multiple accept="application/pdf,image/jpeg,image/png,image/webp" className="block w-full text-sm file:mr-3 file:min-h-11 file:rounded-lg file:border file:border-line-strong file:bg-surface file:px-4" />
-          {err("files") ? <p className="mt-1 text-sm text-danger">{err("files")}</p> : <p className="mt-1 text-sm text-ink-2">PDF or photos, up to 5 files of 10 MB each.</p>}
+          <input id="n-files" name="files" type="file" multiple accept="application/pdf,image/jpeg,image/png,image/webp" className="block w-full text-sm file:mr-3 file:min-h-11 file:rounded-lg file:border file:border-line hover:border-ink3/50 focus:border-brand focus:ring-4 focus:ring-brand/15 outline-none file:bg-surface file:px-4" />
+          {err("files") ? <p className="mt-1.5 text-[12.5px] text-bad">{err("files")}</p> : <p className="mt-1.5 text-[12.5px] text-ink3">PDF or photos, up to 5 files of 10 MB each.</p>}
         </div>
       </section>
 
-      <section className="space-y-4 rounded-2xl border border-line bg-surface p-4 shadow-card sm:p-5">
+      <section className="space-y-4 rounded-2xl border border-line/70 bg-surface p-5 shadow-card">
         <fieldset id="n-audience" tabIndex={-1}>
-          <legend className="mb-2 font-semibold">Audience <span className="text-danger" aria-hidden>*</span></legend>
+          <legend className="mb-2 font-semibold">Audience <span className="text-bad" aria-hidden>*</span></legend>
           <div className="flex flex-wrap gap-x-6">
             <label className="flex min-h-11 items-center gap-2"><input type="checkbox" name="parents" checked={parents} onChange={(e) => setParents(e.target.checked)} className={box} />Parents</label>
             <label className="flex min-h-11 items-center gap-2"><input type="checkbox" name="students" checked={students} onChange={(e) => setStudents(e.target.checked)} className={box} />Students</label>
             {data.staffAllowed && <label className="flex min-h-11 items-center gap-2"><input type="checkbox" name="staff" checked={staff} onChange={(e) => setStaff(e.target.checked)} className={box} />Staff</label>}
           </div>
-          {err("audience") && <p className="mt-1 text-sm text-danger">{err("audience")}</p>}
-          {parents && <p className="text-sm text-ink-2">Parents see it on their Parent Link, and by message on the channels chosen below.</p>}
+          {err("audience") && <p className="mt-1.5 text-[12.5px] text-bad">{err("audience")}</p>}
+          {parents && <p className="text-sm text-ink3">Parents see it on their Parent Link, and by message on the channels chosen below.</p>}
         </fieldset>
         {(parents || students) && data.classes.length > 0 && (
           <fieldset>
-            <legend className="mb-1 text-sm font-medium">Classes and sections</legend>
-            <p className="mb-2 text-sm text-ink-2">{data.wholeSchool ? "Nothing ticked: the whole school." : "Choose your own sections."}</p>
+            <legend className="mb-1 text-[13px] font-semibold text-ink2">Classes and sections</legend>
+            <p className="mb-2 text-sm text-ink3">{data.wholeSchool ? "Nothing ticked: the whole school." : "Choose your own sections."}</p>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {data.classes.map((c) => (
                 <div key={c.id} className="rounded-xl border border-line p-3">
@@ -134,7 +134,7 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
         )}
         {staff && data.roles.length > 0 && (
           <fieldset>
-            <legend className="mb-1 text-sm font-medium">Staff roles (nothing ticked: all staff)</legend>
+            <legend className="mb-1 text-[13px] font-semibold text-ink2">Staff roles (nothing ticked: all staff)</legend>
             <div className="flex flex-wrap gap-x-5">
               {data.roles.map((r) => <label key={r.key} className="flex min-h-11 items-center gap-2"><input type="checkbox" name="roleKeys" value={r.key} defaultChecked={v.roleKeys.includes(r.key)} className={box} />{r.name}</label>)}
             </div>
@@ -142,7 +142,7 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
         )}
         {data.campuses.length > 1 && (
           <fieldset>
-            <legend className="mb-1 text-sm font-medium">Campuses (nothing ticked: all)</legend>
+            <legend className="mb-1 text-[13px] font-semibold text-ink2">Campuses (nothing ticked: all)</legend>
             <div className="flex flex-wrap gap-x-5">
               {data.campuses.map((c) => <label key={c.id} className="flex min-h-11 items-center gap-2"><input type="checkbox" name="campusIds" value={c.id} defaultChecked={v.campusIds.includes(c.id)} className={box} />{c.name}</label>)}
             </div>
@@ -150,17 +150,17 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
         )}
       </section>
 
-      <section className="space-y-4 rounded-2xl border border-line bg-surface p-4 shadow-card sm:p-5">
+      <section className="space-y-4 rounded-2xl border border-line/70 bg-surface p-5 shadow-card">
         <fieldset>
           <legend className="mb-2 font-semibold">Priority</legend>
           <div className="flex flex-wrap gap-2">
             {[["NORMAL", "Normal"], ["HIGH", "High"], ["CRITICAL", "Critical"]].map(([k, l]) => (
-              <label key={k} className={`inline-flex min-h-11 cursor-pointer items-center rounded-full border px-4 ${priority === k ? (k === "CRITICAL" ? "border-danger bg-danger-soft font-medium text-danger" : k === "HIGH" ? "border-warn bg-warn-bg font-medium text-warn-text" : "border-brand bg-brand-soft font-medium text-brand-text") : "border-line-strong"}`}>
+              <label key={k} className={`inline-flex min-h-11 cursor-pointer items-center rounded-full border px-4 ${priority === k ? (k === "CRITICAL" ? "border-bad ring-4 ring-bad/10 bg-bad/10 font-medium text-bad" : k === "HIGH" ? "border-warn bg-warn/10 font-medium text-warn" : "border-brand bg-brand/10 font-medium text-brand") : "border-line hover:border-ink3/50 focus:border-brand focus:ring-4 focus:ring-brand/15 outline-none"}`}>
                 <input type="radio" name="priority" value={k} checked={priority === k} onChange={() => setPriority(k)} className="sr-only" />{l}
               </label>
             ))}
           </div>
-          {priority === "CRITICAL" && <p className="mt-2 text-sm text-danger">A Critical notice is pinned at the top of every chosen parent&rsquo;s Parent Link until it expires, and goes even to parents who opted out of messages.</p>}
+          {priority === "CRITICAL" && <p className="mt-2 text-sm text-bad">A Critical notice is pinned at the top of every chosen parent&rsquo;s Parent Link until it expires, and goes even to parents who opted out of messages.</p>}
         </fieldset>
         <fieldset>
           <legend className="mb-2 font-semibold">Channels</legend>
@@ -172,28 +172,28 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
               </label>
             ))}
           </div>
-          <p className="text-sm text-ink-2">WhatsApp, SMS and email go to parents, using the notice template and your credits.</p>
+          <p className="text-sm text-ink3">WhatsApp, SMS and email go to parents, using the notice template and your credits.</p>
         </fieldset>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label htmlFor="n-publishAt" className="mb-1 block text-sm font-medium">Publish at</label>
-            <input id="n-publishAt" type="datetime-local" name="publishAt" defaultValue={v.publishAt} className="h-11 w-full rounded-lg border border-line-strong bg-surface px-3" />
-            <p className="mt-1 text-sm text-ink-2">Blank: now.</p>
-            {err("publishAt") && <p className="text-sm text-danger">{err("publishAt")}</p>}
+            <label htmlFor="n-publishAt" className="mb-1.5 block text-[13px] font-semibold text-ink2">Publish at</label>
+            <input id="n-publishAt" type="datetime-local" name="publishAt" defaultValue={v.publishAt} className="h-11 w-full rounded-lg border border-line hover:border-ink3/50 focus:border-brand focus:ring-4 focus:ring-brand/15 outline-none bg-surface px-3" />
+            <p className="mt-1.5 text-[12.5px] text-ink3">Blank: now.</p>
+            {err("publishAt") && <p className="text-sm text-bad">{err("publishAt")}</p>}
           </div>
           <div>
-            <label htmlFor="n-expiresOn" className="mb-1 block text-sm font-medium">Expires on</label>
-            <input id="n-expiresOn" type="date" name="expiresOn" defaultValue={v.expiresOn} className="h-11 w-full rounded-lg border border-line-strong bg-surface px-3" />
-            <p className="mt-1 text-sm text-ink-2">Blank: 30 days after publishing ({data.defaultExpiry} if published today).</p>
-            {err("expiresOn") && <p className="text-sm text-danger">{err("expiresOn")}</p>}
+            <label htmlFor="n-expiresOn" className="mb-1.5 block text-[13px] font-semibold text-ink2">Expires on</label>
+            <input id="n-expiresOn" type="date" name="expiresOn" defaultValue={v.expiresOn} className="h-11 w-full rounded-lg border border-line hover:border-ink3/50 focus:border-brand focus:ring-4 focus:ring-brand/15 outline-none bg-surface px-3" />
+            <p className="mt-1.5 text-[12.5px] text-ink3">Blank: 30 days after publishing ({data.defaultExpiry} if published today).</p>
+            {err("expiresOn") && <p className="text-sm text-bad">{err("expiresOn")}</p>}
           </div>
         </div>
         <label className="flex min-h-11 items-center gap-2"><input type="checkbox" name="askAck" defaultChecked={v.askAck} className={box} />Ask staff and students to tap &ldquo;I have read this&rdquo;</label>
         {priority === "CRITICAL" && (
           <div className="max-w-sm">
-            <label htmlFor="n-criticalWord" className="mb-1 block text-sm font-medium">Type CRITICAL to pin this on every chosen parent&rsquo;s Parent Link</label>
-            <input id="n-criticalWord" name="criticalWord" value={word} onChange={(e) => setWord(e.target.value)} autoComplete="off" className={`h-11 w-full rounded-lg border bg-surface px-3 ${err("criticalWord") ? "border-danger" : "border-line-strong"}`} />
-            {err("criticalWord") && <p className="mt-1 text-sm text-danger">{err("criticalWord")}</p>}
+            <label htmlFor="n-criticalWord" className="mb-1.5 block text-[13px] font-semibold text-ink2">Type CRITICAL to pin this on every chosen parent&rsquo;s Parent Link</label>
+            <input id="n-criticalWord" name="criticalWord" value={word} onChange={(e) => setWord(e.target.value)} autoComplete="off" className={`h-11 w-full rounded-xl border bg-surface px-3.5 text-[15px] ${err("criticalWord") ? "border-bad ring-4 ring-bad/10" : "border-line hover:border-ink3/50 focus:border-brand focus:ring-4 focus:ring-brand/15 outline-none"}`} />
+            {err("criticalWord") && <p className="mt-1.5 text-[12.5px] text-bad">{err("criticalWord")}</p>}
           </div>
         )}
         {approval && <Alert tone="info">This notice goes to the principal for approval first. It is published once approved.</Alert>}

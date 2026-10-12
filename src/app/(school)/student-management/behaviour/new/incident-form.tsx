@@ -60,7 +60,7 @@ export function IncidentForm({ types, sections, initial, today, pointsOn, back }
         <summary className="inline-flex min-h-11 cursor-pointer items-center font-medium text-brand-text">Add a photo</summary>
         <input name="photo" type="file" accept="image/jpeg,image/png,image/webp" aria-label="Photo" className="mt-1 block w-full rounded-lg border border-line-strong bg-surface p-2 text-base file:mr-3 file:min-h-10 file:rounded-md file:border-0 file:bg-brand-soft file:px-3 file:text-brand-text" />
       </details>
-      <FormCheck name="informParent" label="Inform parent" help="Sends a message to the primary contact using the school's template (when messaging is set up in Communication)." />
+      <FormCheck name="informParent" label="Inform parent" help="Sends the primary contact the school's Behaviour note by WhatsApp (or SMS). The message names the type and date, not the details." />
     </ActionForm>
   );
 }

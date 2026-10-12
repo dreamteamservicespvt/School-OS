@@ -4,9 +4,11 @@
 // the usual preview of count and cost before it goes.
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { MessageSquareText, RotateCcw, Send, X } from "lucide-react";
 import { ConfirmButton } from "@/components/ui/confirm";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
+import { Segmented } from "@/components/ui/controls";
 import { cancelMessage, doResend, previewResend, retryMessage, type ResendPreview } from "./actions";
 
 type Channel = "whatsapp" | "sms" | "email" | "app";
@@ -16,7 +18,7 @@ export function MessageActions({ id, scheduledWords, canCancel, retryable, overL
 }) {
   const router = useRouter();
   const [open, setOpen] = useState<null | "unread" | "failed">(null);
-  const [channel, setChannel] = useState<Channel>(channels[0] ?? "app");
+  const [channel, setChannel] = useState<Channel>(channels.includes("sms") ? "sms" : channels[0] ?? "app");
   const [preview, setPreview] = useState<ResendPreview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [checking, startCheck] = useTransition();
@@ -30,57 +32,49 @@ export function MessageActions({ id, scheduledWords, canCancel, retryable, overL
   const openResend = (who: "unread" | "failed") => { setOpen(who); check(who, channel); };
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <>
       {canCancel && (
-        <ConfirmButton trigger="Cancel message" triggerVariant="danger-outline" title="Cancel this scheduled message?" confirmLabel="Cancel message" confirmVariant="danger"
+        <ConfirmButton trigger={<><X size={17} aria-hidden="true" />Cancel scheduled message</>} triggerVariant="danger-soft" title="Cancel this scheduled message?" confirmLabel="Cancel the message" confirmVariant="danger"
           onConfirm={async () => { const m = await cancelMessage(id); if (!m) router.refresh(); return m; }}>
-          {scheduledWords} Nobody will get it, and the credits come back.
+          {scheduledWords} Nobody will receive it, and the credits come back.
         </ConfirmButton>
       )}
       {retryable > 0 && (
-        <ConfirmButton trigger={`Retry failed (${retryable})`} title={`Retry ${retryable} failed?`} confirmLabel={`Retry ${retryable}`}
+        <ConfirmButton trigger={<><RotateCcw size={17} aria-hidden="true" />Retry failed ({retryable})</>} title={`Retry ${retryable} failed?`} confirmLabel={`Retry ${retryable}`}
           onConfirm={async () => { const m = await retryMessage(id); if (!m) router.refresh(); return m; }}>
           They are sent again on the same channel. Each message can be retried up to {retryLimit} times.{overLimit > 0 && ` ${overLimit} reached the limit; resend them by another channel instead.`}
         </ConfirmButton>
       )}
-      {unread > 0 && <Button variant="secondary" onClick={() => openResend("unread")}>Resend to unread ({unread})</Button>}
-      {failed > 0 && <Button variant="secondary" onClick={() => openResend("failed")}>Resend failed by another channel</Button>}
+      {failed > 0 && <Button variant="secondary" icon={MessageSquareText} onClick={() => openResend("failed")}>Resend failed by another channel</Button>}
+      {unread > 0 && <Button variant="primary" icon={Send} onClick={() => openResend("unread")}>Resend to {unread.toLocaleString("en-IN")} unread</Button>}
 
-      <Dialog open={open !== null} onClose={() => setOpen(null)} title={open === "failed" ? "Resend to failed" : "Resend to unread"}>
-        <div className="space-y-4">
-          <p className="text-ink-2">{open === "failed" ? `Sends again to the ${failed} who failed.` : `Sends again to the ${unread} not yet at Read.`} Choose the channel; you see the count and cost before it goes.</p>
-          <fieldset>
-            <legend className="mb-2 text-sm font-medium">Channel</legend>
-            <div className="flex flex-wrap gap-2">
-              {channels.map((c) => (
-                <label key={c} className={`inline-flex min-h-11 cursor-pointer items-center rounded-full border px-4 ${channel === c ? "border-brand bg-brand-soft font-medium text-brand-text" : "border-line-strong"}`}>
-                  <input type="radio" name="resend-channel" className="sr-only" checked={channel === c} onChange={() => { setChannel(c); if (open) check(open, c); }} />
-                  {labels[c]}
-                </label>
-              ))}
-            </div>
-          </fieldset>
-          <div aria-live="polite" className="min-h-16 rounded-xl bg-surface-2 p-3">
-            {checking && <p className="text-ink-2">Checking count and cost…</p>}
-            {!checking && preview && !preview.ok && <p className="text-danger">{preview.message}</p>}
+      <Dialog open={open !== null} onClose={() => setOpen(null)}
+        title={open === "failed" ? `Resend to ${failed} failed?` : `Resend to ${unread.toLocaleString("en-IN")} who have not read it?`}
+        sub={open === "failed" ? "Only the people whose message failed." : "Everyone not yet at Read. Those who read it are left out."}
+        footer={<>
+          <Button variant="secondary" onClick={() => setOpen(null)}>Close</Button>
+          <Button loading={sending} loadingText="Sending" disabled={!preview?.ok || Boolean(preview.problem) || preview.people === 0}
+            onClick={() => startSend(async () => { const m = await doResend(id, open!, channel); if (m) setError(m); })}>
+            {preview?.ok ? `Resend to ${preview.people} by ${labels[channel]}` : "Resend"}
+          </Button>
+        </>}>
+        <div className="flex flex-col gap-3">
+          <Segmented label="Channel" value={channel} onChange={(v) => { setChannel(v as Channel); if (open) check(open, v as Channel); }} className="self-start"
+            options={channels.map((c) => ({ value: c, label: labels[c] }))} />
+          <div aria-live="polite" className="text-[13.5px] text-ink2 tnum">
+            {checking && <p className="text-ink3">Checking count and cost…</p>}
+            {!checking && preview && !preview.ok && <p className="text-bad">{preview.message}</p>}
             {!checking && preview?.ok && (
               <>
-                <p className="font-semibold">Users to notify: {preview.people} · {preview.cost}</p>
-                {preview.skipped.length > 0 && <p className="text-sm text-ink-2">Left out: {preview.skipped.join("; ")}</p>}
-                {preview.problem && <p className="mt-1 text-danger">{preview.problem}</p>}
+                <p>{preview.people} {preview.people === 1 ? "person" : "people"} · {preview.cost}.{channel === "sms" ? " Uses the approved SMS template with its DLT template ID." : ""}</p>
+                {preview.skipped.length > 0 && <p className="text-ink3">Left out: {preview.skipped.join("; ")}</p>}
+                {preview.problem && <p className="mt-1 text-bad">{preview.problem}</p>}
               </>
             )}
           </div>
-          {error && <p role="alert" className="text-danger">{error}</p>}
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button variant="secondary" onClick={() => setOpen(null)}>Close</Button>
-            <Button loading={sending} loadingText="Sending" disabled={!preview?.ok || Boolean(preview.problem) || preview.people === 0}
-              onClick={() => startSend(async () => { const m = await doResend(id, open!, channel); if (m) setError(m); })}>
-              {preview?.ok ? `Resend to ${preview.people}` : "Resend"}
-            </Button>
-          </div>
+          {error && <p role="alert" className="text-[13.5px] text-bad">{error}</p>}
         </div>
       </Dialog>
-    </div>
+    </>
   );
 }

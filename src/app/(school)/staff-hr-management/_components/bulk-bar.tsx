@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ArrowRightLeft, IdCard, Send } from "lucide-react";
 import { FormDialog, type Action } from "./forms";
-import { SelectField, TextArea } from "@/components/ui/field";
+import { CheckboxField, SelectField, TextArea } from "@/components/ui/field";
 import { buttonClass } from "@/components/ui/button";
 
 export const STAFF_BULK_FORM = "staff-bulk";
@@ -18,7 +18,13 @@ const rows = () => [...document.querySelectorAll<HTMLInputElement>(ROWS)];
 const visible = () => rows().filter((i) => i.offsetParent !== null);
 const selected = () => [...new Set(rows().filter((i) => i.checked).map((i) => i.value))];
 
-export function BulkBar({ departments, changeDepartment, message }: { departments: { value: string; label: string }[]; changeDepartment: Action; message: Action }) {
+/** A new key each time the message dialog opens, so a double press never sends twice. */
+function SendKey() {
+  const [key] = useState(() => crypto.randomUUID());
+  return <input type="hidden" name="key" value={key} />;
+}
+
+export function BulkBar({ departments, changeDepartment, message, copyChannels = [] }: { departments: { value: string; label: string }[]; changeDepartment: Action; message: Action; copyChannels?: { value: string; label: string }[] }) {
   const [ids, setIds] = useState<string[]>([]);
   const refresh = useCallback(() => {
     setIds(selected());
@@ -53,8 +59,20 @@ export function BulkBar({ departments, changeDepartment, message }: { department
       <p className="mr-2 text-[13.5px] font-semibold text-brand" aria-live="polite">{n} selected</p>
       <FormDialog trigger={<><Send size={15} aria-hidden="true" />Send message</>} triggerSize="sm" title={`Send a message to ${n} staff`} action={wrap(message)} submitLabel={`Send to ${n} staff`} onSaved={clear}>
         {(f) => (
-          <TextArea label="Message" name="text" required maxLength={500} rows={4} error={f.err("text")} defaultValue={f.val("text")}
-            help="Staff with a login get it in School OS straight away. Messages cannot be unsent." />
+          <>
+            <SendKey />
+            <TextArea label="Message" name="text" required maxLength={500} rows={4} error={f.err("text")} defaultValue={f.val("text")}
+              help="Staff with a login get it in School OS straight away. Messages cannot be unsent." />
+            {copyChannels.length > 0 && (
+              <fieldset className="flex flex-col gap-1">
+                <legend className="text-[13px] font-semibold text-ink2">Also send to their phones</legend>
+                {copyChannels.map((c) => (
+                  <CheckboxField key={c.value} label={`By ${c.label}`} name="channels" value={c.value} defaultChecked={f.state?.values?.channels === c.value} />
+                ))}
+                <p className={`text-[12.5px] ${f.err("channels") ? "text-bad" : "text-ink3"}`}>{f.err("channels") ?? "Uses message credits. Staff with no mobile number are left out; you see how many after sending."}</p>
+              </fieldset>
+            )}
+          </>
         )}
       </FormDialog>
       <a className={buttonClass("secondary", "sm")} href={`/staff-hr-management/id-cards?ids=${ids.join(",")}`} target="_blank" rel="noopener"><IdCard size={15} aria-hidden="true" />Print ID cards</a>

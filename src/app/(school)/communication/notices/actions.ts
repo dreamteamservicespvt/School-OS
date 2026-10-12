@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { flash } from "@/lib/flash";
-import { commAction } from "@/lib/communication/access";
+import { commOfficeAction } from "@/lib/communication/access";
 import { localToUtc } from "@/lib/communication/time";
 import { archiveNotice, checkNoticeScope, markRead, NoticeProblem, NOTICE_CHANNELS, noticeResendInput, remindUnacknowledged, saveNotice, CRITICAL_WORD, type NoticeChannel, type NoticeInput } from "@/lib/communication/notices";
 import { DOCUMENT_TYPES, FileProblem, saveFile } from "@/lib/files";
@@ -51,7 +51,7 @@ function readNotice(form: FormData, timeZone: string): { input: NoticeInput; err
 }
 
 export async function saveNoticeAction(_prev: NoticeState, form: FormData): Promise<NoticeState> {
-  const access = await commAction(form.get("id") ? "edit" : "create");
+  const access = await commOfficeAction(form.get("id") ? "edit" : "create");
   const { current } = access;
   const { input, errors } = readNotice(form, current.school.timeZone);
   const files = form.getAll("files").filter((f): f is File => f instanceof File && f.size > 0);
@@ -81,7 +81,7 @@ export async function saveNoticeAction(_prev: NoticeState, form: FormData): Prom
 }
 
 export async function archiveNoticeAction(id: string): Promise<string | void> {
-  const { current } = await commAction("archive");
+  const { current } = await commOfficeAction("archive");
   try {
     const n = await withSchool(current.ctx, async (tx) => {
       const own = await tx.notice.findFirst({ where: { id, schoolId: current.ctx.schoolId } });
@@ -105,7 +105,7 @@ export async function acknowledgeNotice(id: string) {
 }
 
 export async function remindAction(id: string): Promise<string | void> {
-  const { current } = await commAction("create");
+  const { current } = await commOfficeAction("create");
   try {
     const n = await withSchool(current.ctx, (tx) => remindUnacknowledged(tx, current.ctx, id));
     await flash({ message: `Reminded ${n} ${n === 1 ? "person" : "people"}.`, tone: "success" });
@@ -119,7 +119,7 @@ export async function remindAction(id: string): Promise<string | void> {
 export type NoticeResendPreview = { ok: true; people: number; cost: string; skipped: string[]; problem: string | null } | { ok: false; message: string };
 
 export async function previewNoticeResend(id: string, channel: "whatsapp" | "sms" | "email"): Promise<NoticeResendPreview> {
-  const { current, scope } = await commAction("create");
+  const { current, scope } = await commOfficeAction("create");
   try {
     const plan = await withSchool(current.ctx, async (tx) => planMessage(tx, current.ctx, { ...(await noticeResendInput(tx, current.ctx, id, channel)), scope }));
     const credits = Object.values(plan.cost).reduce((a, b) => a + (b ?? 0), 0);
@@ -131,7 +131,7 @@ export async function previewNoticeResend(id: string, channel: "whatsapp" | "sms
 }
 
 export async function resendNotice(id: string, channel: "whatsapp" | "sms" | "email"): Promise<string | void> {
-  const { current, scope } = await commAction("create");
+  const { current, scope } = await commOfficeAction("create");
   let messageId: string;
   try {
     const r = await withSchool(current.ctx, async (tx) => sendMessage(tx, current.ctx, { ...(await noticeResendInput(tx, current.ctx, id, channel)), scope }));

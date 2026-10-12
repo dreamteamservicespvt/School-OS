@@ -1,7 +1,8 @@
 // Two-step login (08-platform-security.md §2): after the right password, a
 // person in a role that needs it types a 6-digit one-time code. The code is
 // stored only as a hash, works for 10 minutes and for 5 tries, and is sent by
-// email (or SMS once Communication's messaging is connected). A person may
+// email when the person has one, else by SMS through Communication when the
+// school's SMS channel is on (with a DLT template, rule 34). A person may
 // trust their own device for 30 days. The school switches it on with the
 // School Feature "two-step-login" (Settings, Data Backup & Security).
 
@@ -11,6 +12,7 @@ import { writeAudit } from "../audit";
 import { hitLimit, limitMessage } from "../rate-limit";
 import { hashToken, newToken } from "./tokens";
 import { mailIsSetUp, sendMail } from "./mail";
+import { sendCodeBySms } from "./two-step-sms";
 import type { DeviceInfo } from "./sessions";
 
 export const TWO_STEP_FEATURE = "two-step-login";
@@ -80,28 +82,58 @@ export function maskPhone(phone: string) {
   return `•••••${digits.slice(-4)}`;
 }
 
-type Deliver = (to: { email: string | null; phone: string | null; name: string }, code: string, purpose?: "sign-in" | ContactKind) => Promise<{ channel: string; sentTo: string } | { problem: string }>;
+export type CodeTo = {
+  email: string | null;
+  phone: string | null;
+  name: string;
+  /** The school being opened, and the person: the SMS goes through that school's channel. */
+  schoolId?: string | null;
+  userLoginId?: string | null;
+  /** The same key never sends twice (one per challenge). */
+  key?: string | null;
+};
+type Deliver = (to: CodeTo, code: string, purpose?: "sign-in" | ContactKind) => Promise<{ channel: string; sentTo: string } | { problem: string }>;
 
-/** Sends the code by email; in development with no email set up, writes it to the server log only. */
-export const deliverCode: Deliver = async (to, code, purpose = "sign-in") => {
+/** What a code is for: signing in, or confirming a new phone or email on My profile. */
+export type CodePurpose = "sign-in" | "change-phone" | "change-email" | (string & {});
+
+const PURPOSE_WORDS: Record<string, string> = { "sign-in": "sign-in code", "change-phone": "code to confirm your new mobile number", "change-email": "code to confirm your new email address" };
+
+/**
+ * Sends a one-time code: by email first when the person has one and email is
+ * set up on the server; else by SMS through Communication when the school's
+ * SMS channel is on and its one-time-code template has a DLT template ID
+ * (rule 34). In development with neither, writes it to the server log only.
+ */
+export async function deliverCodeTo(to: CodeTo, code: string, purpose: CodePurpose = "sign-in"): Promise<{ channel: string; sentTo: string } | { problem: string }> {
+  const what = PURPOSE_WORDS[purpose] ?? "confirmation code";
+  let mailProblem: string | null = null;
   if (to.email && mailIsSetUp()) {
     try {
-      if (purpose === "sign-in") await sendMail(to.email, `${code} is your School OS sign-in code`, `Hello ${to.name},\n\nYour School OS sign-in code is ${code}. It works for 10 minutes.\n\nIf you did not try to sign in, change your password and tell your School Admin.\n`);
-      else await sendMail(to.email, `${code} confirms your new email for School OS`, `Hello ${to.name},\n\nType ${code} in My profile to confirm this email address. It works for 10 minutes.\n\nIf you did not ask for this, you can ignore this email.\n`);
+      if (purpose === "change-email") await sendMail(to.email, `${code} confirms your new email for School OS`, `Hello ${to.name},\n\nType ${code} in My profile to confirm this email address. It works for 10 minutes.\n\nIf you did not ask for this, you can ignore this email.\n`);
+      else await sendMail(to.email, `${code} is your School OS ${purpose === "sign-in" ? "sign-in code" : "confirmation code"}`, `Hello ${to.name},\n\nYour School OS ${what} is ${code}. It works for 10 minutes.\n\nIf you did not ask for this, change your password and tell your School Admin.\n`);
       return { channel: "email", sentTo: maskEmail(to.email) };
     } catch (e) {
       console.error(JSON.stringify({ level: "error", event: "two-step-mail-failed", error: e instanceof Error ? e.message : String(e) }));
-      return { problem: "The code could not be sent by email just now. Please try again in a minute." };
+      mailProblem = "The code could not be sent by email just now. Please try again in a minute.";
     }
   }
-  // messaging: when Communication's SMS channel is connected, send the code to `to.phone` here
-  // with the DLT-approved one-time code template, and return { channel: "sms", sentTo: maskPhone(to.phone) }.
+  if (to.phone && to.schoolId && to.userLoginId) {
+    const sms = await sendCodeBySms({ schoolId: to.schoolId, userLoginId: to.userLoginId, phone: to.phone, code, key: to.key ?? null, purpose });
+    if (sms.sent) return { channel: "sms", sentTo: maskPhone(to.phone) };
+  }
+  if (mailProblem) return { problem: mailProblem };
   if (process.env.NODE_ENV !== "production") {
-    console.info(JSON.stringify({ level: "info", event: "two-step-code", note: "Email is not set up; development only", to: to.name, code }));
+    console.info(JSON.stringify({ level: "info", event: "two-step-code", purpose, note: "Email and SMS are not set up; development only", to: to.name, code }));
     return { channel: "log", sentTo: "the server log (email is not set up on this computer)" };
   }
-  return { problem: to.email ? "Email is not set up on this server, so the code cannot be sent. Ask DREAM TEAM support." : "Your login has no email address for the code. Ask your School Admin to add one in Users & Permissions." };
-};
+  return { problem: to.email || to.phone ? "Neither email nor SMS is set up to send the code just now. Ask your School Admin or DREAM TEAM support." : "Your login has no email address or mobile number for the code. Ask your School Admin to add one in Users & Permissions." };
+}
+
+/** The sign-in code (two-step login). */
+/** Sign-in codes, and codes confirming a new phone ("phone") or email ("email") on My profile. */
+export const deliverCode: Deliver = (to, code, purpose = "sign-in") =>
+  deliverCodeTo(to, code, purpose === "phone" ? "change-phone" : purpose === "email" ? "change-email" : "sign-in");
 
 export type StartResult = { ok: true; token: string; sentTo: string; channel: string } | { ok: false; message: string };
 
@@ -114,7 +146,7 @@ export async function startChallenge(userLoginId: string, schoolId: string, devi
   if (!user) return { ok: false, message: "This login was not found. Sign in again." };
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
   const token = newToken();
-  const sent = await (opts.deliver ?? deliverCode)({ email: user.email, phone: user.phone, name: user.displayName }, code);
+  const sent = await (opts.deliver ?? deliverCode)({ email: user.email, phone: user.phone, name: user.displayName, schoolId, userLoginId, key: hashToken(token).slice(0, 40) }, code);
   if ("problem" in sent) return { ok: false, message: sent.problem };
   await prisma.twoStepChallenge.updateMany({ where: { userLoginId, purpose: "sign-in", usedAt: null }, data: { usedAt: now } });
   await prisma.twoStepChallenge.create({
@@ -217,7 +249,7 @@ export async function startContactChange(
 
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
   const token = newToken();
-  const sent = await (opts.deliver ?? deliverCode)(kind === "phone" ? { email: null, phone: value, name: user.displayName } : { email: value, phone: null, name: user.displayName }, code, kind);
+  const sent = await (opts.deliver ?? deliverCode)(kind === "phone" ? { email: null, phone: value, name: user.displayName, schoolId, userLoginId } : { email: value, phone: null, name: user.displayName }, code, kind);
   if ("problem" in sent) return { ok: false, message: sent.problem };
   await prisma.twoStepChallenge.updateMany({ where: { userLoginId, purpose: kind, usedAt: null }, data: { usedAt: now } });
   await prisma.twoStepChallenge.create({

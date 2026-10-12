@@ -36,21 +36,32 @@ export type MobileCard = {
 /** The look of a tick box in a list (the prototype's Checkbox), as a real form input. */
 export const tickCls = "peer size-5 shrink-0 cursor-pointer appearance-none rounded-md border-2 border-line bg-surface transition hover:border-ink3 checked:border-brand checked:bg-brand indeterminate:border-brand indeterminate:bg-brand bg-center bg-no-repeat checked:bg-[url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E\")] checked:bg-[length:13px] indeterminate:bg-[url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='4' stroke-linecap='round'%3E%3Cpath d='M6 12h12'/%3E%3C/svg%3E\")] indeterminate:bg-[length:12px] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20";
 
-export type ListSelect<Row> = { form: string; label: (row: Row) => string; value: (row: Row) => string; allLabel?: string };
+/** Tick boxes for bulk actions. `value` defaults to the row key; `name` to "id". */
+export type ListSelect<Row> = { form: string; label: (row: Row) => string; value?: (row: Row) => string; allLabel?: string; name?: string };
+/** Page links under the list ("Showing 1–25 of 140", Previous and Next). */
+export type Paging = { page: number; pageSize: number; total: number; href: (page: number) => string };
+/** Older names, kept for pages written before this file was shared. */
+export type ListColumn<Row> = DataColumn<Row>;
+export type ListCard = MobileCard;
 
-export function DataList<Row>({ rows, columns, rowKey, rowHref, rowLabel, mobile, empty, select, selectOnPhone, footer, minWidth = 640, bp = "lg", caption, rowClass, scroll }: {
+export function DataList<Row>({ rows, columns, rowKey, rowHref: rowHrefIn, href: hrefIn, rowLabel, mobile, empty, select, selectOnPhone, footer, paging, minWidth = 640, bp = "lg", caption, rowClass, scroll }: {
   rows: Row[];
   columns: DataColumn<Row>[];
   rowKey: (row: Row) => string;
   rowHref?: (row: Row) => string | null;
+  /** The same as rowHref (an empty string means no link). */
+  href?: (row: Row) => string | null;
   /** Words for the row link, for screen readers (e.g. "Open Aarav Sharma"). */
   rowLabel?: (row: Row) => string;
   mobile: (row: Row) => MobileCard;
-  empty: React.ReactNode;
+  empty?: React.ReactNode;
   select?: ListSelect<Row>;
   /** Tick boxes on the phone cards too (the design leaves them out of most lists). */
   selectOnPhone?: boolean;
-  footer?: React.ReactNode;
+  /** false: no footer, even with paging. */
+  footer?: React.ReactNode | false;
+  /** Page links; shown as the footer when no footer is given. */
+  paging?: Paging;
   minWidth?: number;
   bp?: "md" | "lg";
   caption: string;
@@ -58,9 +69,11 @@ export function DataList<Row>({ rows, columns, rowKey, rowHref, rowLabel, mobile
   /** false keeps the page where it is when a row opens (a side panel kept in the address, ?id=). */
   scroll?: boolean;
 }) {
-  if (!rows.length) return <>{empty}</>;
+  const pick = rowHrefIn ?? hrefIn;
+  const rowHref = pick ? (r: Row) => pick(r) || null : undefined;
+  if (!rows.length) return <>{empty ?? <p className="px-5 py-10 text-center text-[14px] text-ink3">Nothing matches. Try a different search or filter.</p>}</>;
   const tick = (r: Row) => select ? (
-    <input type="checkbox" form={select.form} name="id" value={select.value(r)} aria-label={select.label(r)} data-bulk-row className={cx(tickCls, "relative z-[1]")} />
+    <input type="checkbox" form={select.form} name={select.name ?? "id"} value={select.value ? select.value(r) : rowKey(r)} aria-label={select.label(r)} data-bulk-row className={cx(tickCls, "relative z-[1]")} />
   ) : null;
   return (
     <>
@@ -130,8 +143,27 @@ export function DataList<Row>({ rows, columns, rowKey, rowHref, rowLabel, mobile
           );
         })}
       </ul>
-      {footer}
+      {footer === false ? null : footer ?? (paging ? <PagingFooter paging={paging} /> : null)}
     </>
+  );
+}
+
+function PagingFooter({ paging }: { paging: Paging }) {
+  const from = (paging.page - 1) * paging.pageSize + 1;
+  const to = Math.min(paging.total, paging.page * paging.pageSize);
+  const pages = Math.max(1, Math.ceil(paging.total / paging.pageSize));
+  const btn = "h-8 px-3 rounded-lg border border-line bg-surface text-ink2 font-semibold grid place-items-center hover:bg-sunken";
+  return (
+    <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-line text-[13px] text-ink3 flex-wrap">
+      <span className="tnum" aria-live="polite">Showing {from.toLocaleString("en-IN")}–{to.toLocaleString("en-IN")} of {paging.total.toLocaleString("en-IN")}</span>
+      {pages > 1 && (
+        <nav aria-label="Pages" className="flex items-center gap-1.5">
+          {paging.page > 1 ? <Link className={btn} href={paging.href(paging.page - 1)}>Previous</Link> : null}
+          <span className="px-2 tnum">Page {paging.page} of {pages}</span>
+          {paging.page < pages ? <Link className={btn} href={paging.href(paging.page + 1)}>Next</Link> : null}
+        </nav>
+      )}
+    </div>
   );
 }
 

@@ -130,3 +130,16 @@ export function Legend({ items }: { items: [string, string][] }) {
 export function OpenLink({ href, children = "Open" }: { href: string; children?: React.ReactNode }) {
   return <Link href={href} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[13px] font-semibold text-ink2 hover:bg-sunken hover:text-ink transition shrink-0">{children}<ChevronRight size={16} aria-hidden="true" /></Link>;
 }
+
+/** A settings row: words on the left, a switch or button on the right (kit.jsx SettingRow). */
+export function SettingRow({ title, sub, children, id }: { title: React.ReactNode; sub?: React.ReactNode; children?: React.ReactNode; id?: string }) {
+  return (
+    <div className="flex items-center gap-3 px-5 py-3.5">
+      <label htmlFor={id} className="min-w-0 flex-1 text-[14px]">
+        <b className="font-semibold block">{title}</b>
+        {sub && <span className="block text-[12.5px] text-ink3 mt-0.5">{sub}</span>}
+      </label>
+      <div className="shrink-0">{children}</div>
+    </div>
+  );
+}

@@ -11,6 +11,9 @@ import { formatDate } from "../format";
 import { CriticalNotices, NoticeList, type NoticeRow } from "@/components/parent-link/notices-section";
 import { ConsentForm } from "@/components/parent-link/consent-form";
 import type { SchoolContext, Tx } from "../db";
+import { Check, FileSignature, ShieldCheck, X } from "lucide-react";
+import { Pill } from "@/components/ui/badge";
+import { cx } from "@/components/ui/cx";
 
 async function noticesFor(tx: Tx, ctx: SchoolContext, view: GuardianView, children: GuardianView["children"]) {
   const rows = await noticesForGuardian(tx, ctx, children);
@@ -86,34 +89,39 @@ registerSection<ConsentData>({
 
 function ConsentSection({ data, view }: { data: ConsentData; view: GuardianView }) {
   return (
-    <div className="space-y-4">
-      {data.forms.map((f) => (
-        <article key={f.text.id} className="rounded-xl border border-line p-4">
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <h3 className="font-semibold">{f.text.title}</h3>
-            {f.waitingSince ? (
-              <span className="rounded-full bg-warn-bg px-2.5 py-0.5 text-xs font-medium text-warn-text">Waiting for your answer</span>
-            ) : f.children.every((c) => c.given) ? (
-              <span className="rounded-full bg-success-soft px-2.5 py-0.5 text-xs font-medium text-success">Given</span>
-            ) : null}
-          </div>
-          {f.replyBy && f.waitingSince && <p className="text-sm text-ink-2">Please answer by {formatDate(f.replyBy, view.timeZone)}</p>}
-          <details className="mt-2">
-            <summary className="min-h-11 cursor-pointer py-2 font-medium text-brand-text">Read the form (version {f.text.version})</summary>
-            <p className="whitespace-pre-line text-sm">{f.wording}</p>
-          </details>
-          <ul className="my-2 space-y-1 text-sm">
-            {f.children.map((c) => (
-              <li key={c.id}>
-                <span className="font-medium">{c.name}:</span>{" "}
-                {c.given && c.givenAt ? <span className="text-success">Given on {formatDate(c.givenAt, view.timeZone)}</span> : <span className="text-ink-2">Not given</span>}
-              </li>
-            ))}
-          </ul>
-          <ConsentForm token={view.token} consentTextId={f.text.id} title={f.text.title} maskedPhone={data.maskedPhone} preview={view.preview}
-            kids={f.children.map((c) => ({ id: c.id, name: c.name, given: c.given }))} />
-        </article>
-      ))}
+    <div className="flex flex-col divide-y divide-line/70 -mt-1">
+      {data.forms.map((f) => {
+        const all = f.children.every((c) => c.given);
+        return (
+          <article key={f.text.id} className="py-4 first:pt-2 last:pb-0">
+            <div className="flex items-start gap-3.5">
+              <span className={cx("w-11 h-11 rounded-2xl grid place-items-center shrink-0", all ? "bg-ok/10 text-ok" : f.waitingSince ? "bg-brand/10 text-brand" : "bg-sunken text-ink3")}>
+                {all ? <ShieldCheck size={21} aria-hidden="true" /> : <FileSignature size={21} aria-hidden="true" />}
+              </span>
+              <div className="min-w-0 flex-1">
+                {f.waitingSince ? <Pill tone="warn" dot>Consent needed</Pill> : all ? <Pill tone="ok">Consent given</Pill> : null}
+                <h3 className="font-semibold text-[15px] mt-1.5">{f.text.title}</h3>
+                {f.replyBy && f.waitingSince && <p className="text-[13px] text-ink3">Please reply by {formatDate(f.replyBy, view.timeZone)}</p>}
+              </div>
+            </div>
+            <details className="mt-2 group">
+              <summary className="min-h-11 flex items-center cursor-pointer text-[13.5px] font-semibold text-brand list-none [&::-webkit-details-marker]:hidden">Read the form (version {f.text.version})</summary>
+              <p className="whitespace-pre-line text-[13.5px] text-ink2 rounded-2xl bg-sunken/60 p-3.5">{f.wording}</p>
+            </details>
+            <ul className="mt-2 flex flex-col gap-1.5 text-[14px]">
+              {f.children.map((c) => (
+                <li key={c.id} className="flex items-center gap-2.5">
+                  <span className={cx("w-6 h-6 rounded-full grid place-items-center shrink-0", c.given ? "bg-ok/15 text-ok" : "bg-sunken text-ink3")}>{c.given ? <Check size={14} strokeWidth={2.6} aria-hidden="true" /> : <X size={14} strokeWidth={2.6} aria-hidden="true" />}</span>
+                  <span className="min-w-0"><span className="font-semibold">{c.name}</span>{" "}
+                    {c.given && c.givenAt ? <span className="text-ink3 text-[13px]">· given {formatDate(c.givenAt, view.timeZone)}</span> : <span className="text-ink3 text-[13px]">· not given</span>}</span>
+                </li>
+              ))}
+            </ul>
+            <ConsentForm token={view.token} consentTextId={f.text.id} title={f.text.title} maskedPhone={data.maskedPhone} preview={view.preview}
+              kids={f.children.map((c) => ({ id: c.id, name: c.name, given: c.given }))} />
+          </article>
+        );
+      })}
     </div>
   );
 }

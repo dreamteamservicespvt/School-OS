@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { RefreshCw, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmButton } from "@/components/ui/confirm";
 import { archiveTemplateAction, refreshApprovalAction, submitApprovalAction } from "../actions";
@@ -23,8 +24,8 @@ export function ApprovalButton({ versionId }: { versionId: string }) {
   const { msg, pending, run } = useRun();
   return (
     <div>
-      <Button variant="secondary" loading={pending} loadingText="Sending" onClick={() => run(() => submitApprovalAction(versionId))}>Send for WhatsApp approval</Button>
-      {msg && <p role="alert" className="mt-1 text-sm text-danger">{msg}</p>}
+      <Button variant="soft" icon={Send} loading={pending} loadingText="Sending" onClick={() => run(() => submitApprovalAction(versionId))}>Send for WhatsApp approval</Button>
+      {msg && <p role="alert" className="mt-1 text-[13px] text-bad">{msg}</p>}
     </div>
   );
 }
@@ -33,8 +34,8 @@ export function RefreshApproval({ id }: { id: string }) {
   const { msg, pending, run } = useRun();
   return (
     <div>
-      <Button variant="secondary" loading={pending} loadingText="Checking" onClick={() => run(() => refreshApprovalAction(id))}>Check approval status</Button>
-      {msg && <p role="alert" className="mt-1 text-sm text-danger">{msg}</p>}
+      <Button variant="secondary" icon={RefreshCw} loading={pending} loadingText="Checking" onClick={() => run(() => refreshApprovalAction(id))}>Check approval status</Button>
+      {msg && <p role="alert" className="mt-1 text-[13px] text-bad">{msg}</p>}
     </div>
   );
 }

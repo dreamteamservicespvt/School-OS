@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { withSchool } from "@/lib/db";
-import { commPage } from "@/lib/communication/access";
-import { PageHeader } from "@/components/shell/page-header";
+import { commOfficePage } from "@/lib/communication/access";
+import { BackLink, RecordHead } from "@/components/ui/split";
 import { EmptyState } from "@/components/empty-state";
 import { ButtonLink } from "@/components/ui/button";
 import { NoticeForm } from "../../notice-form";
@@ -14,10 +13,10 @@ export const metadata: Metadata = { title: "Change notice" };
 export default async function EditNoticePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
-  const access = await commPage("edit");
+  const access = await commOfficePage("edit");
   const n = await withSchool(access.current.ctx, (tx) => tx.notice.findFirst({ where: { id, schoolId: access.current.ctx.schoolId, ...(access.full ? {} : { createdById: access.current.user.id }) } }));
   if (!n) notFound();
-  const back = <p className="mb-2 text-sm"><Link href={`/communication/notices/${id}`} className="text-brand-text hover:underline">← {n.title}</Link></p>;
+  const back = <BackLink href={`/communication/notices/${id}`} label={n.title} sub="Change" />;
   if (n.status !== "DRAFT") {
     return (
       <>
@@ -33,7 +32,7 @@ export default async function EditNoticePage({ params }: { params: Promise<{ id:
   return (
     <>
       {back}
-      <PageHeader title="Change notice" href={`/communication/notices/${id}/edit`} userId={access.current.user.id} />
+      <RecordHead title="Change notice" />
       <NoticeForm data={data} />
     </>
   );

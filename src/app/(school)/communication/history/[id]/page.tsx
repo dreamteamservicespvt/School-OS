@@ -2,27 +2,32 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Prisma } from "@prisma/client";
+import { CheckCheck, CircleAlert, Coins, Eye, Info, MessageSquareText, Users } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { commPage } from "@/lib/communication/access";
-import { readListParams, skipTake } from "@/lib/list";
+import { readListParams, skipTake, listHref } from "@/lib/list";
 import { formatDateTime } from "@/lib/format";
 import { CHANNEL_LABEL, onChannels, type Channel } from "@/lib/messaging/channels";
 import { retryableFailures } from "@/lib/messaging/deliver";
 import { RULES } from "@/lib/messaging/automatic";
 import { withHiddenLinks } from "@/lib/parent-link/token";
 import { countsFor, DELIVERY_LABEL, MESSAGE_STATUS_LABEL, senderNames } from "@/lib/communication/history";
-import { PageHeader } from "@/components/shell/page-header";
-import { ListToolbar } from "@/components/list/list-toolbar";
-import { DataTable } from "@/components/list/data-table";
 import { EmptyState } from "@/components/empty-state";
-import { Badge, type BadgeTone } from "@/components/ui/badge";
-import { Card, CardBody, Detail } from "@/components/ui/card";
-import { Alert } from "@/components/ui/alert";
+import { Pill, type PillTone } from "@/components/ui/badge";
+import { Card, CardHeader } from "@/components/ui/card";
+import { Avatar } from "@/components/ui/avatar";
+import { Banner } from "@/components/ui/banner";
+import { Stats } from "@/components/ui/stats";
+import { Toolbar } from "@/components/ui/toolbar";
+import { DataList } from "@/components/ui/data-list";
+import { BackLink, Col, DL, RecordHead, Split } from "@/components/ui/split";
+import { UrlSearch, UrlSelect } from "@/components/ui/url-filters";
+import { ChannelPills } from "../../_components/channel-pills";
 import { MessageActions } from "./message-actions";
 
 export const metadata: Metadata = { title: "Message" };
 
-const TONE: Record<string, BadgeTone> = { QUEUED: "neutral", SENDING: "neutral", SENT: "brand", DELIVERED: "success", READ: "success", FAILED: "danger" };
+const TONE: Record<string, PillTone> = { QUEUED: "neutral", SENDING: "neutral", SENT: "neutral", DELIVERED: "info", READ: "ok", FAILED: "bad" };
 const PAGE = 50;
 
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
@@ -69,97 +74,92 @@ export default async function MessagePage({ params, searchParams }: Props) {
   const skipped = (Array.isArray(m.skipped) ? m.skipped : []) as { reason: string; count: number; names?: string[] }[];
   const sent = m.status === "SENT" || m.status === "QUEUED";
 
+  const pct = (a: number) => (counts.total ? `${Math.round((a / counts.total) * 100)}%` : "");
+  const sample = data.rows.find((r) => !r.isBackup) ?? data.rows[0];
+  const statusCount = (st: string) => st === "backup" ? counts.backup : st === "FAILED" ? counts.failed : st === "READ" ? counts.read : st === "QUEUED" ? counts.queued : 0;
+  type R = (typeof data.rows)[number];
+  const personKey = (r: R) => r.guardianId ? `guardian:${r.guardianId}` : r.studentId && r.recipientType === "student" ? `student:${r.studentId}` : r.staffId ? `staff:${r.staffId}` : null;
+  const when = (r: R) => r.readAt ? formatDateTime(r.readAt, tz) : r.deliveredAt ? formatDateTime(r.deliveredAt, tz) : r.sentAt ? formatDateTime(r.sentAt, tz) : r.failedAt ? formatDateTime(r.failedAt, tz) : "Waiting to go";
+  const why = (r: R) => r.status === "FAILED" ? r.failReason ?? "Failed" : r.isBackup && r.backupReason ? r.backupReason : r.provider === "sandbox" ? "Test mode: not really sent" : null;
+  const senderName = sender.replace(/^Rule: /, "");
+  const details: [string, React.ReactNode][] = [["To", m.audienceLabel], ["Status", MESSAGE_STATUS_LABEL[m.status]]];
+  if (m.trigger) details.push(["Why", m.trigger]);
+  if (data.resendOf) details.push(["Resend of", <Link key="r" className="text-brand font-semibold hover:underline" href={`/communication/history/${data.resendOf.id}`}>{data.resendOf.title ?? data.resendOf.audienceLabel}</Link>]);
+  if (m.smsBackup) details.push(["SMS backup", counts.backup ? `${counts.backup} also sent by SMS (${data.backupWhy.map((b) => `${b.backupReason ?? "not delivered"}: ${b._count._all}`).join("; ")})` : "On; none needed yet"]);
+  const filtered = Boolean(list.q || Object.keys(list.filters).length);
+
   return (
     <>
-      <p className="mb-2 text-sm"><Link href="/communication/history" className="text-brand-text hover:underline">← Message History</Link></p>
-      <PageHeader title={m.title ?? m.trigger ?? "Message"} href={`/communication/history/${m.id}`} userId={current.user.id}>
-        {access.canChange && (
+      <BackLink href="/communication/history" label="Message History" sub={formatDateTime(m.createdAt, tz)} />
+      <RecordHead title={m.title ?? m.trigger ?? "Message"}
+        sub={<>{formatDateTime(m.sentAt ?? m.scheduledAt ?? m.createdAt, tz)} · {m.ruleKey ? "Automatic rule" : "Sent by"} {senderName} <ChannelPills channels={m.channels} backup={m.smsBackup} /></>}
+        actions={access.canChange ? (
           <MessageActions id={m.id} canCancel={m.status === "SCHEDULED"}
-            scheduledWords={m.scheduledAt ? `Scheduled for ${formatDateTime(m.scheduledAt, tz)}.` : null}
+            scheduledWords={m.scheduledAt ? `It was going to ${m.recipientCount} people on ${formatDateTime(m.scheduledAt, tz)}.` : null}
             retryable={m.status === "CANCELLED" ? 0 : data.retry.rows.length} overLimit={data.retry.overLimit} retryLimit={data.retry.retryLimit}
             unread={sent ? data.unread : 0} failed={sent ? counts.failed : 0}
             channels={(["whatsapp", "sms", "email", "app"] as Channel[]).filter((c) => data.on.includes(c))} labels={CHANNEL_LABEL} />
+        ) : m.status === "CANCELLED" ? <Pill tone="neutral">Cancelled · not sent</Pill> : null} />
+
+      <div className="flex flex-col gap-5 lg:gap-6">
+        {m.status === "SCHEDULED" && m.scheduledAt && <Banner tone="info" title={`Scheduled for ${formatDateTime(m.scheduledAt, tz)}.`}>Nobody has received it yet. You can cancel it until it goes.</Banner>}
+        {m.status === "CANCELLED" && <Banner tone="warn" title="Cancelled.">{m.cancelledAt ? `On ${formatDateTime(m.cancelledAt, tz)}` : ""}{m.cancelledById ? ` by ${data.names.get(m.cancelledById) ?? "staff"}` : ""}. Nobody got it, and no credits were used.</Banner>}
+        {m.isEmergency && <Banner tone="bad" title="Emergency broadcast.">Sent also to parents who opted out.</Banner>}
+        {skipped.length > 0 && (
+          <Banner tone="warn" title={`${skipped.reduce((n, x) => n + x.count, 0)} left out when it was sent:`}>
+            {skipped.map((x) => `${x.reason} ${x.count}${x.names?.length ? ` (${x.names.slice(0, 4).join(", ")}${x.count > 4 ? " and others" : ""})` : ""}`).join("; ")}.
+          </Banner>
         )}
-      </PageHeader>
-
-      {m.status === "SCHEDULED" && m.scheduledAt && <Alert tone="info" className="mb-4">Scheduled for {formatDateTime(m.scheduledAt, tz)}. You can cancel it until then.</Alert>}
-      {m.status === "CANCELLED" && <Alert tone="warning" className="mb-4">Cancelled{m.cancelledAt ? ` on ${formatDateTime(m.cancelledAt, tz)}` : ""}{m.cancelledById ? ` by ${data.names.get(m.cancelledById) ?? "staff"}` : ""}. Nobody got it.</Alert>}
-      {m.isEmergency && <Alert tone="danger" className="mb-4">Emergency broadcast: sent also to parents who opted out.</Alert>}
-
-      <div className="mb-5 grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardBody>
-            <dl className="grid gap-4 sm:grid-cols-2">
-              <Detail label="Sent by">{sender}</Detail>
-              <Detail label="When">{formatDateTime(m.sentAt ?? m.scheduledAt ?? m.createdAt, tz)}</Detail>
-              <Detail label="To">{m.audienceLabel}</Detail>
-              <Detail label="Channel">{m.channels.map((c) => CHANNEL_LABEL[c as Channel] ?? c).join(", ")}</Detail>
-              <Detail label="Cost">{m.creditCost ? `${m.creditCost} credits` : "Free"}</Detail>
-              <Detail label="Status">{MESSAGE_STATUS_LABEL[m.status]}</Detail>
-              {m.trigger && <Detail label="Why">{m.trigger}</Detail>}
-              {data.resendOf && <Detail label="Resend of"><Link className="text-brand-text underline" href={`/communication/history/${data.resendOf.id}`}>{data.resendOf.title ?? data.resendOf.audienceLabel}</Link></Detail>}
-              {m.smsBackup && <Detail label="SMS backup">{counts.backup ? `${counts.backup} also sent by SMS (${data.backupWhy.map((b) => `${b.backupReason ?? "not delivered"}: ${b._count._all}`).join("; ")})` : "On; none needed yet"}</Detail>}
-            </dl>
-          </CardBody>
-        </Card>
-        <Card>
-          <CardBody>
-            <dl className="grid grid-cols-2 gap-3">
-              <Detail label="Recipients">{counts.total}</Detail>
-              <Detail label="Queued">{counts.queued}</Detail>
-              <Detail label="Delivered">{counts.delivered}</Detail>
-              <Detail label="Read">{counts.read}</Detail>
-              <Detail label="Failed"><span className={counts.failed ? "text-danger" : ""}>{counts.failed}</span></Detail>
-            </dl>
-          </CardBody>
-        </Card>
+        <Stats items={[
+          { label: "Recipients", value: counts.total.toLocaleString("en-IN"), icon: Users },
+          { label: "Delivered", value: counts.delivered.toLocaleString("en-IN"), tone: "ok", icon: CheckCheck, sub: pct(counts.delivered) },
+          { label: "Read", value: counts.read.toLocaleString("en-IN"), icon: Eye, sub: pct(counts.read) },
+          { label: "Failed", value: counts.failed.toLocaleString("en-IN"), tone: counts.failed ? "bad" : undefined, icon: CircleAlert, sub: counts.backup ? `${counts.backup} also sent by SMS backup` : counts.failed ? "Retry or resend by another channel" : "None" },
+          { label: "Credits", value: m.creditCost ? m.creditCost.toLocaleString("en-IN") : "Free", icon: Coins, sub: m.smsBackup ? "Includes SMS backup" : undefined },
+        ]} />
+        <Split side={340}>
+          <Card className="overflow-hidden min-w-0">
+            <Toolbar>
+              <UrlSearch placeholder="Name or number" />
+              <UrlSelect param="status" label="Status" className="md:w-52" options={[
+                { value: "", label: `Everyone · ${counts.total}` },
+                ...[["READ", "Read"], ["DELIVERED", "Delivered"], ["SENT", "Sent"], ["backup", "Sent by SMS backup"], ["FAILED", "Failed"], ["QUEUED", "Queued"]]
+                  .filter(([v]) => v === "DELIVERED" || v === "SENT" || statusCount(v) > 0).map(([v, l]) => ({ value: v, label: statusCount(v) ? `${l} · ${statusCount(v)}` : l })),
+              ]} />
+              {m.channels.length > 1 && <UrlSelect param="channel" label="Channel" className="md:w-40" options={[{ value: "", label: "All channels" }, ...m.channels.map((c) => ({ value: c, label: CHANNEL_LABEL[c as Channel] ?? c }))]} />}
+            </Toolbar>
+            <DataList
+              caption="Delivery status of each person"
+              rows={data.rows}
+              rowKey={(r) => r.id}
+              href={(r) => { const k = personKey(r); return k ? `/communication/history?mode=person&person=${k}` : `/communication/history/${m.id}`; }}
+              minWidth={600}
+              paging={{ page: list.page, pageSize: PAGE, total: data.total, href: (p) => listHref(`/communication/history/${m.id}`, list, { page: p }) }}
+              empty={<EmptyState bare title={filtered ? "Nobody matches" : "Nobody was sent this message"}>{filtered ? "Try another name or status." : "Everyone chosen was left out; see the reasons above."}</EmptyState>}
+              columns={[
+                { key: "name", label: "Recipient", render: (r) => <div className="flex items-center gap-2.5"><Avatar name={r.name} size={32} /><div className="min-w-0"><p className="font-semibold leading-tight truncate">{r.name}</p><p className="text-[12.5px] text-ink3 truncate">{r.description ?? r.address}</p></div></div> },
+                { key: "ch", label: "Channel", render: (r) => <span className="text-[13px]">{CHANNEL_LABEL[r.channel as Channel] ?? r.channel}</span> },
+                { key: "st", label: "Status", render: (r) => <div><Pill tone={TONE[r.status]} dot>{r.isBackup ? "Sent by SMS backup" : DELIVERY_LABEL[r.status]}</Pill>{why(r) && <p className="text-[12px] text-ink3 mt-0.5">{why(r)}</p>}</div> },
+                { key: "t", label: "Time", align: "right", nowrap: true, render: (r) => <span className="text-[13px]">{when(r)}</span> },
+              ]}
+              mobile={(r) => ({ title: r.name, sub: why(r) ?? r.description ?? r.address, avatar: r.name, right: <Pill tone={TONE[r.status]} className="!h-[22px] !text-[11.5px]">{r.isBackup ? "SMS backup" : DELIVERY_LABEL[r.status]}</Pill> })}
+            />
+          </Card>
+          <Col>
+            <Card>
+              <CardHeader title="The message" description={m.ruleKey ? `Automatic: ${senderName}` : `By ${senderName}`} icon={MessageSquareText} />
+              <div className="px-5 pb-5">
+                <div className="rounded-2xl rounded-tl-md bg-sunken/70 p-3.5 text-[14px] leading-relaxed whitespace-pre-line break-words">{sample ? shownText(sample.text, m.sourceType, sample.provider) : withHiddenLinks(m.body)}</div>
+                {sample && <p className="text-[12.5px] text-ink3 mt-2">Shown as {sample.name} received it. Each person’s copy fills in their own details.</p>}
+              </div>
+            </Card>
+            <Card>
+              <CardHeader title="Details" icon={Info} />
+              <DL cols={1} rows={details} />
+            </Card>
+          </Col>
+        </Split>
       </div>
-
-      {skipped.length > 0 && (
-        <Alert tone="warning" className="mb-5" title={`${skipped.reduce((n, s) => n + s.count, 0)} left out when it was sent`}>
-          <ul className="list-disc pl-5">{skipped.map((s) => <li key={s.reason}>{s.reason}: {s.count}{s.names?.length ? ` (${s.names.slice(0, 6).join(", ")}${s.count > 6 ? " and others" : ""})` : ""}</li>)}</ul>
-        </Alert>
-      )}
-
-      <h2 className="mb-3 text-lg font-semibold">Each person</h2>
-      <ListToolbar placeholder="Search name or number" showArchived={false} filters={[
-        { key: "status", label: "Status", options: [{ value: "QUEUED", label: "Queued" }, { value: "SENT", label: "Sent" }, { value: "DELIVERED", label: "Delivered" }, { value: "READ", label: "Read" }, { value: "FAILED", label: "Failed" }, { value: "backup", label: "Sent by SMS backup" }] },
-        { key: "channel", label: "Channel", options: m.channels.concat(m.smsBackup && !m.channels.includes("sms") ? ["sms"] : []).map((c) => ({ value: c, label: CHANNEL_LABEL[c as Channel] ?? c })) },
-      ]} />
-      <DataTable
-        caption="Delivery status of each person"
-        rows={data.rows}
-        total={data.total}
-        params={list}
-        pageSize={PAGE}
-        path={`/communication/history/${m.id}`}
-        rowKey={(r) => r.id}
-        empty={<EmptyState title={list.q || Object.keys(list.filters).length ? "Nobody matches these filters" : "Nobody was sent this message"}>{list.q || Object.keys(list.filters).length ? "Change the search or filters." : "Everyone chosen was left out; see the reasons above."}</EmptyState>}
-        columns={[
-          { key: "name", label: "Name", phone: "title", cell: (r) => (
-            <div>
-              <p className="font-medium">{r.name}</p>
-              <p className="text-sm text-ink-2">{r.description}</p>
-              <details className="mt-1 text-sm">
-                <summary className="cursor-pointer text-brand-text">Message text</summary>
-                <p className="mt-1 max-w-prose whitespace-pre-line rounded-lg bg-surface-2 p-2">{shownText(r.text, m.sourceType, r.provider)}</p>
-              </details>
-            </div>
-          ) },
-          { key: "channel", label: "Channel", phone: "meta", cell: (r) => `${CHANNEL_LABEL[r.channel as Channel] ?? r.channel}${r.isBackup ? " (SMS backup)" : ""}` },
-          { key: "to", label: "Sent to", phone: "meta", cell: (r) => r.address },
-          { key: "status", label: "Status", phone: "badge", cell: (r) => <Badge tone={TONE[r.status]}>{r.isBackup ? `Sent by SMS backup: ${DELIVERY_LABEL[r.status]}` : DELIVERY_LABEL[r.status]}</Badge> },
-          { key: "detail", label: "Detail", phone: "meta", cell: (r) => (
-            r.status === "FAILED" ? <span className="text-danger">{r.failReason ?? "Failed"}</span>
-              : r.isBackup && r.backupReason ? <span className="text-ink-2">{r.backupReason}</span>
-              : <span className="text-ink-2">{r.readAt ? `Read ${formatDateTime(r.readAt, tz)}` : r.deliveredAt ? `Delivered ${formatDateTime(r.deliveredAt, tz)}` : r.sentAt ? `Sent ${formatDateTime(r.sentAt, tz)}` : "Waiting to go"}{r.provider === "sandbox" ? " · test mode" : ""}</span>
-          ) },
-          { key: "history", label: "Person", cell: (r) => {
-            const key = r.guardianId ? `guardian:${r.guardianId}` : r.studentId && r.recipientType === "student" ? `student:${r.studentId}` : r.staffId ? `staff:${r.staffId}` : null;
-            return key ? <Link className="text-sm text-brand-text hover:underline" href={`/communication/history?person=${key}`}>All messages</Link> : null;
-          } },
-        ]}
-      />
     </>
   );
 }

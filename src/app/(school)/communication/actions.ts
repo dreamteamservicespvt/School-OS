@@ -7,9 +7,12 @@ import { flash } from "@/lib/flash";
 import { writeAudit } from "@/lib/audit";
 import { commAction } from "@/lib/communication/access";
 import { previewOf, readAudienceForm, readSendForm, type SendPreview } from "@/lib/communication/send-form";
-import { planMessage, recordSend, MessagingProblem, skippedWords } from "@/lib/messaging/send";
+import { planMessage, recordSend, MessagingProblem, skippedWords, type SendInput } from "@/lib/messaging/send";
 import { describeAudience } from "@/lib/messaging/recipients";
 import { formatDateTime } from "@/lib/format";
+import { DOCUMENT_TYPES, FileProblem, saveFile } from "@/lib/files";
+import { isChannel } from "@/lib/messaging/channels";
+import { BACKUP_TYPES, type BackupType } from "@/lib/messaging/settings";
 
 export type SendState = { ok: boolean; message?: string; errors?: Record<string, string>; preview?: SendPreview } | null;
 
@@ -32,7 +35,13 @@ export async function checkOrSend(_prev: SendState, form: FormData): Promise<Sen
       const preview = previewOf(plan, input);
       if (intent === "check") return { preview };
       if (form.get("fingerprint") !== preview.fingerprint) return { preview, changed: true };
-      const sent = await recordSend(tx, current.ctx, { ...input, idempotencyKey: String(form.get("sendKey") ?? "") || null }, plan);
+      // Attachment: email and WhatsApp only (11-communication.md, Send Message, Attachment).
+      const files = form.getAll("file").filter((f): f is File => f instanceof File && f.size > 0).slice(0, 1);
+      const attachmentFileIds: string[] = [];
+      if (files.length && input.channels !== "preferred" && input.channels.some((c) => c === "email" || c === "whatsapp")) {
+        for (const f of files) attachmentFileIds.push((await saveFile(tx, current.ctx, { file: f, purpose: "message", allowed: DOCUMENT_TYPES, maxImageWidth: 1600 })).id);
+      }
+      const sent = await recordSend(tx, current.ctx, { ...input, attachmentFileIds, idempotencyKey: String(form.get("sendKey") ?? "") || null }, plan);
       return { preview, sent };
     });
     if (!("sent" in result) || !result.sent) {
@@ -50,7 +59,51 @@ export async function checkOrSend(_prev: SendState, form: FormData): Promise<Sen
     });
     redirect(`/communication/history/${s.messageId}`);
   } catch (e) {
-    if (e instanceof MessagingProblem) return { ok: false, message: e.message };
+    if (e instanceof MessagingProblem || e instanceof FileProblem) return { ok: false, message: e.message };
+    throw e;
+  }
+}
+
+export type LivePreview = { preview: SendPreview | null; errors: Record<string, string> };
+
+/**
+ * The "Check and send" card while the form is filled in: who, how many, the cost and a real preview,
+ * worked out on the server from what is chosen so far. Nothing is sent or saved.
+ */
+export async function livePreview(form: FormData): Promise<LivePreview> {
+  const access = await commAction("create");
+  const { current, scope } = access;
+  const to = readAudienceForm(form);
+  const read = readSendForm(form, current.school.timeZone);
+  if (!to) return { preview: null, errors: read.ok ? {} : read.errors };
+  const channels = form.getAll("channels").map(String).filter(isChannel);
+  const templates = Object.fromEntries(channels.map((ch) => [ch, /^[0-9a-f-]{36}$/.test(String(form.get(`template_${ch}`) ?? "")) ? String(form.get(`template_${ch}`)) : null]));
+  const typeRaw = String(form.get("messageType") ?? "general");
+  const messageType: BackupType | "general" = (BACKUP_TYPES as readonly string[]).includes(typeRaw) ? (typeRaw as BackupType) : "general";
+  const input: SendInput = read.ok
+    ? { ...read.input, scope }
+    : {
+        to, channels, templates, scope, messageType,
+        text: String(form.get("text") ?? "").trim() || null,
+        title: String(form.get("title") ?? "").trim() || null,
+        smsBackup: form.get("smsBackup") === "on" && messageType !== "general",
+        backupTemplateId: /^[0-9a-f-]{36}$/.test(String(form.get("backupTemplateId") ?? "")) ? String(form.get("backupTemplateId")) : null,
+        emergency: form.get("emergency") === "on" && access.canEmergency,
+      };
+  // Until the message is typed, a stand-in text lets the count and cost be worked out; the preview then shows no text.
+  const TYPE_HERE = "\u2060";
+  const stood = !read.ok && !input.text;
+  if (stood) input.text = TYPE_HERE;
+  if (!read.ok && !input.title) input.title = TYPE_HERE;
+  try {
+    const preview = await withSchool(current.ctx, async (tx) => previewOf(await planMessage(tx, current.ctx, input), input));
+    for (const row of preview.samples) {
+      if (row.title === TYPE_HERE) row.title = null;
+      if (stood && row.text.includes(TYPE_HERE)) row.text = "";
+    }
+    return { preview, errors: read.ok ? {} : read.errors };
+  } catch (e) {
+    if (e instanceof MessagingProblem) return { preview: null, errors: { kinds: e.message } };
     throw e;
   }
 }

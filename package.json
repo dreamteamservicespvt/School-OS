@@ -19,7 +19,8 @@
     "postinstall": "prisma generate",
     "db:new-migration": "bash scripts/new-migration.sh",
     "db:reset": "bash scripts/reset-dev-db.sh",
-    "worker": "tsx --conditions=react-server --env-file-if-exists=.env scripts/worker.ts"
+    "worker": "tsx --conditions=react-server --env-file-if-exists=.env scripts/worker.ts",
+    "check:links": "node scripts/check-links.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1148.0",

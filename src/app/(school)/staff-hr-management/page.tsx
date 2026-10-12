@@ -16,6 +16,8 @@ import { ListToolbar } from "@/components/list/list-toolbar";
 import { StaffHead } from "./_components/head";
 import { Avatar, ExportLinks, StatusBadge } from "./_components/bits";
 import { BulkBar, STAFF_BULK_FORM } from "./_components/bulk-bar";
+import { copyChannelsOn } from "@/lib/staff/staff-message";
+import { CHANNEL_LABEL } from "@/lib/messaging/channels";
 import { bulkChangeDepartment, bulkMessage } from "./actions";
 
 export const metadata: Metadata = { title: "Staff List" };
@@ -52,7 +54,8 @@ export default async function StaffListPage({ searchParams }: Search) {
     ]);
     const leaveToday = await onLeaveOn(tx, current.ctx, today, rollIds.map((r) => r.id));
     const names = rollIds.filter((r) => leaveToday.has(r.id)).map((r) => r.fullName.split(/\s+/)[0]);
-    return { rows, total, designations, departments, campuses, byDept, roll, teaching, leaveToday, leaveNames: names };
+    const copyChannels = viewer.change === "all" ? await copyChannelsOn(tx, current.ctx) : [];
+    return { rows, total, designations, departments, campuses, byDept, roll, teaching, leaveToday, leaveNames: names, copyChannels };
   });
   type Row = (typeof data.rows)[number];
   const canChange = viewer.change === "all";
@@ -132,7 +135,7 @@ export default async function StaffListPage({ searchParams }: Search) {
             ]} />
         </Toolbar>
 
-        {canChange && <BulkBar departments={data.departments.map((d) => ({ value: d.id, label: d.name }))} changeDepartment={bulkChangeDepartment} message={bulkMessage} />}
+        {canChange && <BulkBar departments={data.departments.map((d) => ({ value: d.id, label: d.name }))} changeDepartment={bulkChangeDepartment} message={bulkMessage} copyChannels={data.copyChannels.map((c) => ({ value: c, label: CHANNEL_LABEL[c] }))} />}
 
         <DataList caption="Staff" rows={data.rows} columns={columns} rowKey={(r) => r.id} minWidth={860}
           rowHref={(r) => `${BASE}/${r.id}`} rowLabel={(r) => `Open ${r.fullName}`}

@@ -251,11 +251,17 @@ describe("every school table has its walls", () => {
 });
 
 describe("Communication records stay in their school", () => {
-  it("cannot read school B's messages, notices, queries or Parent Links", async () => {
+  it("cannot read school B's messages, notices, queries, Parent Links, WhatsApp chats or surveys", async () => {
     const ctxB = { schoolId: b.id, userId: userB.id };
     await withSchool(ctxB, async (tx) => {
       await tx.message.create({ data: { schoolId: b.id, body: "School B only", channels: ["app"], audienceLabel: "B", status: "SENT" } });
       await tx.notice.create({ data: { schoolId: b.id, title: "School B notice", body: "x", audience: {}, audienceLabel: "B" } });
+      const chat = await tx.whatsappChat.create({ data: { schoolId: b.id, phone: "9000000001", displayName: "B parent" } });
+      await tx.whatsappChatMessage.create({ data: { schoolId: b.id, chatId: chat.id, direction: "in", body: "School B chat" } });
+      const survey = await tx.survey.create({ data: { schoolId: b.id, number: "SV-B-1", title: "B survey", audienceKind: "parents", audienceLabel: "B" } });
+      await tx.surveyQuestion.create({ data: { schoolId: b.id, surveyId: survey.id, sortOrder: 1, kind: "text", text: "Q" } });
+      await tx.surveyInvite.create({ data: { schoolId: b.id, surveyId: survey.id, tokenHash: "b-hash", personType: "guardian", personId: chat.id } });
+      await tx.surveyResponse.create({ data: { schoolId: b.id, surveyId: survey.id, answers: {} } });
     });
     await withSchool(ctxA(), async (tx) => {
       expect(await tx.message.count()).toBe(0);
@@ -264,6 +270,12 @@ describe("Communication records stay in their school", () => {
       expect(await tx.query.count()).toBe(0);
       expect(await tx.parentLink.count()).toBe(0);
       expect(await tx.consentRecord.count()).toBe(0);
+      expect(await tx.whatsappChat.count()).toBe(0);
+      expect(await tx.whatsappChatMessage.count()).toBe(0);
+      expect(await tx.survey.count()).toBe(0);
+      expect(await tx.surveyQuestion.count()).toBe(0);
+      expect(await tx.surveyInvite.count()).toBe(0);
+      expect(await tx.surveyResponse.count()).toBe(0);
     });
   });
 });

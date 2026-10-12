@@ -8,7 +8,8 @@ import type { SchoolContext, Tx } from "../db";
 import type { ListParams } from "../list";
 import { currentYear } from "../academic/years";
 
-export const LINK_FILTERS = ["status", "class", "section", "opened"] as const;
+import { inPeriod, PERIOD_FILTERS } from "./period";
+export const LINK_FILTERS = ["status", "class", "section", "opened", ...PERIOD_FILTERS] as const;
 const DAY = 86400_000;
 
 /** Guardians of students studying now, optionally only in some classes or sections. */
@@ -31,10 +32,12 @@ export async function guardianIdsIn(tx: Tx, ctx: SchoolContext, pick: { classIds
   return [...new Set(links.map((l) => l.guardianId))];
 }
 
-export async function linkListWhere(tx: Tx, ctx: SchoolContext, params: ListParams, now = new Date()): Promise<Prisma.ParentLinkWhereInput> {
+export async function linkListWhere(tx: Tx, ctx: SchoolContext, params: ListParams, now = new Date(), timeZone = "Asia/Kolkata"): Promise<Prisma.ParentLinkWhereInput> {
   const f = params.filters;
   const and: Prisma.ParentLinkWhereInput[] = [{ schoolId: ctx.schoolId }];
   if (f.status === "ACTIVE" || f.status === "REVOKED") and.push({ status: f.status });
+  const when = inPeriod(f, timeZone);
+  if (when) and.push({ createdAt: when });
   if (f.opened === "never") and.push({ lastOpenedAt: null });
   else if (f.opened === "30") and.push({ lastOpenedAt: { gte: new Date(now.getTime() - 30 * DAY) } });
   else if (f.opened === "not30") and.push({ OR: [{ lastOpenedAt: null }, { lastOpenedAt: { lt: new Date(now.getTime() - 30 * DAY) } }] });

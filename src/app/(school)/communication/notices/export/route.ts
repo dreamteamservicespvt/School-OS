@@ -25,7 +25,7 @@ export async function GET(req: Request) {
   const tz = current.school.timeZone;
   const full = reachFor(current.permissions, "communication", "view") === "all";
   const data = await withSchool(current.ctx, async (tx) => {
-    const rows = await tx.notice.findMany({ where: noticeWhere(current.ctx, full, params), orderBy: { createdAt: "desc" }, take: 10000 });
+    const rows = await tx.notice.findMany({ where: noticeWhere(current.ctx, full, params, tz), orderBy: { createdAt: "desc" }, take: 10000 });
     const counts = await noticeCounts(tx, rows.map((r) => r.id));
     const filters = [params.q && `search "${params.q}"`, ...Object.entries(params.filters).map(([k, v]) => `${k}: ${v}`)].filter(Boolean).join(", ");
     await logExport(tx, current.ctx, { title: "Notices", format, filters, rows: rows.length });

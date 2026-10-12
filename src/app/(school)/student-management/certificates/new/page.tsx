@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { SettingsLink } from "@/components/settings-link";
 import { redirect } from "next/navigation";
 import type { CertificateType } from "@prisma/client";
 import { withSchool } from "@/lib/db";
@@ -65,7 +66,7 @@ export default async function IssueCertificatePage({ searchParams }: { searchPar
             <Alert tone="warning" className="mb-4" title="TC blocked" action={firstStudent ? <Link className="font-medium underline" href={`${BASE}/leaving${data.tc.block.includes("Start leaving") ? `/new?student=${firstStudent.id}` : ""}`}>{data.tc.block.includes("Start leaving") ? "Start leaving" : "Open Leaving & Alumni"}</Link> : undefined}>{data.tc.block}</Alert>
           )}
           {data.tc?.original && <Alert tone="info" className="mb-4">An original TC was issued ({data.tc.original}). A new one prints as Duplicate and needs a reason.</Alert>}
-          {data.signatories.length === 0 && <Alert tone="warning" className="mb-4">No signatories are set up. Add the Principal&apos;s name and signature in Settings, Document Designs. A character certificate needs a signatory.</Alert>}
+          {data.signatories.length === 0 && <Alert tone="warning" className="mb-4">No signatories are set up. Add the Principal&apos;s name and signature in <SettingsLink href="/settings/document-designs">Settings, Document Designs</SettingsLink>. A character certificate needs a signatory.</Alert>}
           <ActionForm action={requestCertificateAction}
             footer={<>
               <SubmitButton pendingText="Saving…">Issue</SubmitButton>

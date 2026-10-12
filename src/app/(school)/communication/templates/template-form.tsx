@@ -4,8 +4,13 @@
 // a list, the DLT template ID for SMS, and a live preview with sample data.
 import { useRef, useState, useTransition } from "react";
 import { saveTemplateAction, type TemplateState } from "./actions";
+import { Check, FileText, Languages, Lock, Plus } from "lucide-react";
 import { Button, ButtonLink } from "@/components/ui/button";
-import { Alert } from "@/components/ui/alert";
+import { Banner } from "@/components/ui/banner";
+import { Card, CardHeader } from "@/components/ui/card";
+import { Segmented } from "@/components/ui/controls";
+import { FieldShell, inputCls } from "@/components/ui/field";
+import { cx } from "@/components/ui/cx";
 
 type Text = { language: string; subject: string; body: string; dltTemplateId: string; locked: boolean; saved: boolean };
 export type TemplateFormData = {
@@ -21,7 +26,6 @@ export type TemplateFormData = {
 };
 
 const BLANK = /\{([a-z_]+)\}/g;
-const field = "w-full rounded-lg border bg-surface px-3";
 
 function smsParts(text: string) {
   const unicode = /[^\x00-\x7F₹]/.test(text);
@@ -107,116 +111,99 @@ export function TemplateForm({ data }: { data: TemplateFormData }) {
   const unused = data.languages.filter((l) => !texts.some((t) => t.language === l.code));
 
   return (
-    <form onSubmit={submit} noValidate className="space-y-5">
-      {state && !state.ok && state.message && <Alert tone="danger">{state.message}</Alert>}
-      <section className="grid gap-4 rounded-2xl border border-line bg-surface p-4 shadow-card sm:grid-cols-3 sm:p-5">
-        <div>
-          <label htmlFor="t-name" className="mb-1 block text-sm font-medium">Name <span className="text-danger" aria-hidden>*</span></label>
-          <input id="t-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} aria-invalid={err("name") ? true : undefined}
-            className={`${field} h-11 ${err("name") ? "border-danger" : "border-line-strong"}`} />
-          {err("name") && <p className="mt-1 text-sm text-danger">{err("name")}</p>}
+    <form onSubmit={submit} noValidate className="flex flex-col gap-5 lg:gap-6">
+      {state && !state.ok && state.message && <Banner tone="bad" title={state.message} />}
+      <Card>
+        <CardHeader title="About the template" icon={FileText} description={data.id ? "A saved template keeps its channel" : "SMS templates need the DLT template ID registered on the telecom DLT portal"} />
+        <div className="px-5 pb-5 grid grid-cols-1 md:grid-cols-3 gap-3">
+          <FieldShell label="Name" id="t-name" required error={err("name")}>
+            <input id="t-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} aria-invalid={err("name") ? true : undefined}
+              placeholder="For example: Exam fee reminder" className={cx(inputCls(err("name")), "h-11")} />
+          </FieldShell>
+          <FieldShell label="Category" id="t-category" required error={err("category")}>
+            <select id="t-category" value={category} onChange={(e) => setCategory(e.target.value)} className={cx(inputCls(err("category")), "h-11 pr-9")}>
+              <option value="">Choose…</option>
+              {data.categories.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
+            </select>
+          </FieldShell>
+          <FieldShell label="Channel" id="t-channel" required error={err("channel")}
+            help={data.id ? undefined : channel === "sms" ? "Needs a DLT template ID before it can be used." : channel === "whatsapp" ? "Send it for WhatsApp approval after saving." : undefined}>
+            <select id="t-channel" value={channel} disabled={Boolean(data.id)} onChange={(e) => setChannel(e.target.value)} className={cx(inputCls(), "h-11 pr-9 disabled:bg-sunken")}>
+              {data.channels.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
+            </select>
+          </FieldShell>
         </div>
-        <div>
-          <label htmlFor="t-category" className="mb-1 block text-sm font-medium">Category <span className="text-danger" aria-hidden>*</span></label>
-          <select id="t-category" value={category} onChange={(e) => setCategory(e.target.value)} className={`${field} h-11 ${err("category") ? "border-danger" : "border-line-strong"}`}>
-            <option value="">Choose…</option>
-            {data.categories.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
-          </select>
-          {err("category") && <p className="mt-1 text-sm text-danger">{err("category")}</p>}
-        </div>
-        <div>
-          <label htmlFor="t-channel" className="mb-1 block text-sm font-medium">Channel <span className="text-danger" aria-hidden>*</span></label>
-          <select id="t-channel" value={channel} disabled={Boolean(data.id)} onChange={(e) => setChannel(e.target.value)} className={`${field} h-11 border-line-strong disabled:bg-surface-2`}>
-            {data.channels.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
-          </select>
-          <p className="mt-1 text-sm text-ink-2">{data.id ? "A saved template keeps its channel." : channel === "sms" ? "SMS needs a DLT template ID before it can be used." : channel === "whatsapp" ? "Send it for WhatsApp approval after saving." : " "}</p>
-        </div>
-      </section>
+      </Card>
 
-      <section className="rounded-2xl border border-line bg-surface p-4 shadow-card sm:p-5">
-        <div className="mb-3 flex flex-wrap items-end gap-2">
-          <div role="tablist" aria-label="Languages" className="flex flex-wrap gap-1">
-            {texts.map((t) => (
-              <button key={t.language} type="button" role="tab" aria-selected={t.language === cur?.language} onClick={() => setActive(t.language)}
-                className={`min-h-11 rounded-lg px-4 ${t.language === cur?.language ? "bg-brand-soft font-medium text-brand-text" : "text-ink-2 hover:bg-surface-2"} ${Object.keys(errors).some((k) => k.endsWith(`:${t.language}`)) ? "ring-2 ring-danger" : ""}`}>
-                {langLabel(t.language)}{t.locked ? " 🔒" : ""}
-              </button>
-            ))}
-          </div>
-          {unused.length > 0 && (
-            <div className="ml-auto flex gap-2">
+      <Card className="min-w-0">
+        <CardHeader title="The text" icon={Languages} description="One version in each language. Tap a blank to add it where the cursor is."
+          action={unused.length > 0 ? (
+            <div className="flex gap-2">
               <label htmlFor="t-addlang" className="sr-only">Add a language</label>
-              <select id="t-addlang" value={addLang} onChange={(e) => setAddLang(e.target.value)} className={`${field} h-11 border-line-strong`}>
+              <select id="t-addlang" value={addLang} onChange={(e) => setAddLang(e.target.value)} className={cx(inputCls(), "h-9 w-auto pr-9 text-[13.5px]")}>
                 <option value="">Add a language…</option>
                 {unused.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
               </select>
-              <Button variant="secondary" disabled={!addLang} onClick={addLanguage}>Add</Button>
+              <Button size="sm" variant="secondary" icon={Plus} disabled={!addLang} onClick={addLanguage}>Add</Button>
+            </div>
+          ) : undefined} />
+        <div className="px-5 pb-5 flex flex-col gap-4">
+          {texts.length > 1 && (
+            <Segmented size="sm" label="Language" value={cur?.language ?? ""} onChange={setActive} className="self-start flex-wrap"
+              options={texts.map((t) => ({ value: t.language, label: `${langLabel(t.language)}${Object.keys(errors).some((k) => k.endsWith(`:${t.language}`)) ? " (fix)" : ""}`, icon: t.locked ? Lock : undefined }))} />
+          )}
+          {cur && (
+            <div className="grid grid-cols-1 gap-5 *:min-w-0 lg:grid-cols-2">
+              <div className="flex flex-col gap-4">
+                {cur.locked && <Banner tone="info" icon={Lock} title="Approved by WhatsApp and locked.">Make a new template to change the wording.</Banner>}
+                {hasSubject && (
+                  <FieldShell label={channel === "email" ? "Subject" : "Title"} id="t-subject" required={channel === "email"} error={err(`subject:${cur.language}`)}>
+                    <input id="t-subject" value={cur.subject} disabled={cur.locked} onChange={(e) => patch(cur.language, { subject: e.target.value })} maxLength={150} className={cx(inputCls(err(`subject:${cur.language}`)), "h-11")} />
+                  </FieldShell>
+                )}
+                <FieldShell label={`Text in ${langLabel(cur.language)}`} id="t-body" required error={err(`body:${cur.language}`)}
+                  help={`${[...cur.body].length} of 1000 characters${channel === "sms" ? ` · ${smsParts(cur.body)} SMS part${smsParts(cur.body) > 1 ? "s" : ""} before blanks are filled` : ""}`}>
+                  <textarea id="t-body" ref={bodyRef} rows={6} value={cur.body} disabled={cur.locked} maxLength={1000} onChange={(e) => patch(cur.language, { body: e.target.value })}
+                    aria-invalid={err(`body:${cur.language}`) ? true : undefined} placeholder="Dear {parent_name}, …" className={cx(inputCls(err(`body:${cur.language}`)), "py-2.5")} />
+                </FieldShell>
+                {!cur.locked && (
+                  <div>
+                    <p className="text-[12.5px] text-ink3 mb-1.5">Tap a blank to add it</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {data.variables.map((v) => (
+                        <button key={v.key} type="button" onClick={() => insert(v.key)} title={v.label}
+                          className="font-mono text-[12px] px-2 h-7 rounded-lg bg-brand/10 text-brand hover:bg-brand/15">{`{${v.key}}`}</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {channel === "sms" && (
+                  <FieldShell label="DLT template ID" id="t-dlt" error={err(`dlt:${cur.language}`)} help="From the telecom DLT portal, for this exact text. Without it the template is saved as a draft and cannot send SMS.">
+                    <input id="t-dlt" value={cur.dltTemplateId} onChange={(e) => patch(cur.language, { dltTemplateId: e.target.value.trim() })} maxLength={40} autoComplete="off"
+                      placeholder="1107161765432109876" className={cx(inputCls(err(`dlt:${cur.language}`)), "h-11 font-mono")} />
+                  </FieldShell>
+                )}
+              </div>
+              <div>
+                <p className="eyebrow text-ink3 mb-1.5">Preview with sample details</p>
+                <div className="rounded-2xl bg-sunken/70 p-4">
+                  <div className="max-w-sm rounded-2xl rounded-tl-md bg-surface border border-line p-3.5 shadow-card text-[14px] leading-relaxed">
+                    {hasSubject && cur.subject && <p className="font-semibold">{cur.subject}</p>}
+                    <p className="whitespace-pre-line break-words">{preview || <span className="text-ink3">The text appears here as a parent would see it.</span>}</p>
+                  </div>
+                </div>
+                {cur.body && [...cur.body.matchAll(BLANK)].length > 0 && (
+                  <p className="mt-2 text-[12.5px] text-ink3">A person with no value for a blank is skipped and listed before sending.</p>
+                )}
+              </div>
             </div>
           )}
         </div>
+      </Card>
 
-        {cur && (
-          <div className="grid grid-cols-1 gap-5 *:min-w-0 lg:grid-cols-2">
-            <div className="space-y-4">
-              {cur.locked && <Alert tone="info">This text is approved by WhatsApp and locked. Make a new template to change the wording.</Alert>}
-              {hasSubject && (
-                <div>
-                  <label htmlFor="t-subject" className="mb-1 block text-sm font-medium">{channel === "email" ? "Subject" : "Title"}{channel === "email" && <span className="text-danger" aria-hidden> *</span>}</label>
-                  <input id="t-subject" value={cur.subject} disabled={cur.locked} onChange={(e) => patch(cur.language, { subject: e.target.value })} maxLength={150}
-                    className={`${field} h-11 ${err(`subject:${cur.language}`) ? "border-danger" : "border-line-strong"}`} />
-                  {err(`subject:${cur.language}`) && <p className="mt-1 text-sm text-danger">{err(`subject:${cur.language}`)}</p>}
-                </div>
-              )}
-              <div>
-                <label htmlFor="t-body" className="mb-1 block text-sm font-medium">Text in {langLabel(cur.language)} <span className="text-danger" aria-hidden>*</span></label>
-                <textarea id="t-body" ref={bodyRef} rows={7} value={cur.body} disabled={cur.locked} maxLength={1000} onChange={(e) => patch(cur.language, { body: e.target.value })}
-                  aria-invalid={err(`body:${cur.language}`) ? true : undefined} aria-describedby="t-body-help"
-                  className={`${field} py-2 ${err(`body:${cur.language}`) ? "border-danger" : "border-line-strong"}`} />
-                {err(`body:${cur.language}`) ? <p className="mt-1 text-sm text-danger">{err(`body:${cur.language}`)}</p> : (
-                  <p id="t-body-help" className="mt-1 text-sm text-ink-2">{[...cur.body].length} of 1000 characters{channel === "sms" ? ` · ${smsParts(cur.body)} SMS part${smsParts(cur.body) > 1 ? "s" : ""} before blanks are filled` : ""}</p>
-                )}
-              </div>
-              {!cur.locked && (
-                <div>
-                  <p className="mb-1 text-sm font-medium">Insert a blank</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {data.variables.map((v) => (
-                      <button key={v.key} type="button" onClick={() => insert(v.key)} title={`{${v.key}}`}
-                        className="min-h-9 rounded-full border border-line-strong px-3 text-sm hover:border-brand hover:bg-brand-soft">{v.label}</button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {channel === "sms" && (
-                <div>
-                  <label htmlFor="t-dlt" className="mb-1 block text-sm font-medium">DLT template ID</label>
-                  <input id="t-dlt" value={cur.dltTemplateId} onChange={(e) => patch(cur.language, { dltTemplateId: e.target.value.trim() })} maxLength={40} inputMode="text" autoComplete="off"
-                    className={`${field} h-11 font-mono ${err(`dlt:${cur.language}`) ? "border-danger" : "border-line-strong"}`} />
-                  {err(`dlt:${cur.language}`) ? <p className="mt-1 text-sm text-danger">{err(`dlt:${cur.language}`)}</p> : (
-                    <p className="mt-1 text-sm text-ink-2">From the telecom DLT portal, for this exact text. Without it the template is saved as a draft and cannot be used.</p>
-                  )}
-                </div>
-              )}
-            </div>
-            <div>
-              <p className="mb-1 text-sm font-medium">Preview with sample data</p>
-              <div className="rounded-2xl bg-surface-2 p-4">
-                <div className="max-w-sm rounded-xl rounded-tl-none bg-surface p-3 shadow-card">
-                  {hasSubject && cur.subject && <p className="font-semibold">{cur.subject}</p>}
-                  <p className="whitespace-pre-line break-words">{preview || <span className="text-ink-2">The text appears here as a parent would see it.</span>}</p>
-                </div>
-              </div>
-              {cur.body && [...cur.body.matchAll(BLANK)].length > 0 && (
-                <p className="mt-2 text-sm text-ink-2">Blanks used: {[...new Set([...cur.body.matchAll(BLANK)].map((m) => m[1]))].map((k) => `{${k}}`).join(", ")}. A person with no value for a blank is skipped and listed before sending.</p>
-              )}
-            </div>
-          </div>
-        )}
-      </section>
-
-      <div className="flex flex-wrap gap-2">
-        <Button type="submit" loading={pending} loadingText="Saving">{data.id ? "Save new version" : "Save template"}</Button>
-        <ButtonLink href={data.id ? `/communication/templates/${data.id}` : "/communication/templates"}>Cancel</ButtonLink>
+      <div className="flex flex-wrap gap-2 justify-end">
+        <ButtonLink href={data.id ? `/communication/templates/${data.id}` : "/communication/templates"} variant="secondary">Cancel</ButtonLink>
+        <Button type="submit" icon={Check} loading={pending} loadingText="Saving">{data.id ? "Save new version" : "Save template"}</Button>
       </div>
     </form>
   );

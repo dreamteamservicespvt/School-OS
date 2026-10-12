@@ -1,103 +1,185 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { CalendarClock, CheckCheck, CircleAlert, Eye, History as HistoryIcon, Megaphone, Send, Users, Zap } from "lucide-react";
+import type { Prisma } from "@prisma/client";
 import { withSchool } from "@/lib/db";
 import { commPage } from "@/lib/communication/access";
-import { readListParams, skipTake, listHref } from "@/lib/list";
-import { formatDateTime } from "@/lib/format";
-import { CHANNEL_LABEL, type Channel } from "@/lib/messaging/channels";
+import { readListParams, skipTake, listHref, PAGE_SIZE } from "@/lib/list";
+import { formatDate, formatDateTime } from "@/lib/format";
 import { RULES } from "@/lib/messaging/automatic";
-import { countsFor, HISTORY_FILTERS, historyWhere, MESSAGE_STATUS_LABEL, senderNames } from "@/lib/communication/history";
-import { PageHeader } from "@/components/shell/page-header";
-import { ListToolbar } from "@/components/list/list-toolbar";
-import { DataTable } from "@/components/list/data-table";
-import { EmptyState } from "@/components/empty-state";
-import { Badge } from "@/components/ui/badge";
+import { countsFor, DELIVERY_LABEL, HISTORY_FILTERS, historyWhere, senderNames } from "@/lib/communication/history";
+import { Card } from "@/components/ui/card";
+import { Stats } from "@/components/ui/stats";
+import { Toolbar } from "@/components/ui/toolbar";
+import { DataList } from "@/components/ui/data-list";
+import { Pill } from "@/components/ui/badge";
+import { Avatar } from "@/components/ui/avatar";
 import { ButtonLink } from "@/components/ui/button";
-import { MessageIcon } from "@/components/icons";
+import { Timeline, type TimelineItem } from "@/components/ui/timeline";
+import { UrlSearch, UrlSegmented, UrlSelect } from "@/components/ui/url-filters";
+import { EmptyState } from "@/components/empty-state";
 import { ExportMenu } from "@/components/communication/export-menu";
-import { DateRange } from "@/components/communication/date-range";
+import { PeriodFilter } from "@/components/list/period-filter";
+import { CommHead } from "../_components/comm-head";
+import { ChannelPills, CHANNEL_ICON, CHANNEL_NAME } from "../_components/channel-pills";
 
 export const metadata: Metadata = { title: "Message History" };
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
+const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 1000) / 10}%` : "–");
 
 export default async function MessageHistoryPage({ searchParams }: { searchParams: Search }) {
   const access = await commPage();
   const { current } = access;
-  const params = readListParams(await searchParams, HISTORY_FILTERS);
+  const sp = await searchParams;
+  const mode = sp.mode === "person" ? "person" : "all";
+  const params = readListParams(sp, HISTORY_FILTERS);
   const tz = current.school.timeZone;
   const where = historyWhere(current.ctx, access.full, params, tz);
-  const { rows, total, counts, names, person } = await withSchool(current.ctx, async (tx) => {
-    const [rows, total] = await Promise.all([
+  const mineOnly: Prisma.MessageWhereInput = { schoolId: current.ctx.schoolId, ...(access.full ? {} : { sentById: current.ctx.userId }) };
+
+  const data = await withSchool(current.ctx, async (tx) => {
+    const [rows, total, sentCount, reach, firstSent] = await Promise.all([
       tx.message.findMany({ where, orderBy: { createdAt: params.sort === "date" && params.dir === "asc" ? "asc" : "desc" }, ...skipTake(params) }),
       tx.message.count({ where }),
+      tx.message.count({ where: { ...mineOnly, status: { in: ["SENT", "QUEUED"] } } }),
+      tx.messageRecipient.groupBy({ by: ["status"], where: { schoolId: current.ctx.schoolId, isBackup: false, message: mineOnly }, _count: { _all: true } }),
+      tx.message.findFirst({ where: mineOnly, orderBy: { createdAt: "asc" }, select: { createdAt: true } }),
     ]);
-    let person: string | null = null;
-    if (params.filters.person) {
-      const [type, id] = params.filters.person.split(":");
-      const r = await tx.messageRecipient.findFirst({ where: type === "guardian" ? { guardianId: id } : type === "student" ? { studentId: id } : { staffId: id }, select: { name: true } });
-      person = r?.name ?? null;
+    // "One person": everyone this sender has messaged, found by name; then their messages, newest first.
+    const who = typeof sp.who === "string" ? sp.who.trim().slice(0, 60) : "";
+    const people = mode === "person" && who.length >= 2
+      ? await tx.messageRecipient.findMany({
+          where: { schoolId: current.ctx.schoolId, name: { contains: who, mode: "insensitive" }, message: mineOnly },
+          distinct: ["recipientType", "guardianId", "studentId", "staffId"], take: 8, orderBy: { queuedAt: "desc" },
+          select: { recipientType: true, guardianId: true, studentId: true, staffId: true, name: true, description: true },
+        })
+      : [];
+    const person = params.filters.person ?? null;
+    let timeline: { name: string; description: string | null; items: Prisma.MessageRecipientGetPayload<{ include: { message: { select: { id: true; title: true; trigger: true; sourceType: true } } } }>[] } | null = null;
+    if (mode === "person" && person && /^(guardian|student|staff):[0-9a-f-]{36}$/.test(person)) {
+      const [type, id] = person.split(":");
+      const items = await tx.messageRecipient.findMany({
+        where: { schoolId: current.ctx.schoolId, message: mineOnly, ...(type === "guardian" ? { guardianId: id } : type === "student" ? { studentId: id } : { staffId: id }) },
+        include: { message: { select: { id: true, title: true, trigger: true, sourceType: true } } },
+        orderBy: { queuedAt: "desc" }, take: 60,
+      });
+      timeline = { name: items[0]?.name ?? "", description: items[0]?.description ?? null, items };
     }
-    return { rows, total, counts: await countsFor(tx, current.ctx, rows.map((r) => r.id)), names: await senderNames(tx, rows.map((r) => r.sentById)), person };
+    return { rows, total, sentCount, reach, firstSent, people, timeline, counts: await countsFor(tx, current.ctx, rows.map((r) => r.id)), names: await senderNames(tx, rows.map((r) => r.sentById)) };
   });
+
+  const by = (s: string) => data.reach.find((r) => r.status === s)?._count._all ?? 0;
+  const reached = data.reach.reduce((a, r) => a + r._count._all, 0);
+  const delivered = by("DELIVERED") + by("READ");
+  const read = by("READ");
+  const failed = by("FAILED");
+  const retryLimit = 3;
   const exportHref = listHref("/communication/history/export", { ...params, page: 1 }, {});
   const anyFilter = Boolean(params.q || Object.keys(params.filters).length);
+  const sender = (m: (typeof data.rows)[number]) => (m.ruleKey ? RULES.find((r) => r.key === m.ruleKey)?.label ?? m.ruleKey : m.sourceType === "Notice" ? "Notice" : data.names.get(m.sentById ?? "") ?? "School");
 
   return (
     <>
-      <PageHeader title="Message History" href="/communication/history" userId={current.user.id}>
-        <div className="flex gap-2">
-          {total > 0 && <ExportMenu href={exportHref} />}
-          {access.canChange && <ButtonLink href="/communication" variant="primary">Send Message</ButtonLink>}
-        </div>
-      </PageHeader>
-      {person && (
-        <p className="mb-3 rounded-xl bg-brand-soft px-4 py-2 text-brand-text">
-          Every message to {person}. <Link className="font-medium underline" href={listHref("/communication/history", params, { person: null })}>Show all messages</Link>
-        </p>
-      )}
-      <ListToolbar
-        placeholder="Search title, message or audience"
-        showArchived={false}
-        filters={[
-          { key: "channel", label: "Channel", options: (Object.keys(CHANNEL_LABEL) as Channel[]).map((c) => ({ value: c, label: CHANNEL_LABEL[c] })) },
-          { key: "status", label: "Status", options: [...Object.entries(MESSAGE_STATUS_LABEL).map(([value, label]) => ({ value, label })), { value: "failed", label: "Has failed" }] },
-          { key: "sender", label: "Sent by", options: [{ value: "me", label: "Me" }, ...(access.full ? [{ value: "people", label: "People" }, { value: "rules", label: "Automatic rules" }, { value: "notices", label: "Notices" }] : [])] },
-          ...(access.full ? [{ key: "rule", label: "Rule", options: RULES.map((r) => ({ value: r.key, label: r.label })) }] : []),
-        ]}
-      >
-        <DateRange />
-      </ListToolbar>
-      <DataTable
-        caption="Messages sent"
-        rows={rows}
-        total={total}
-        params={params}
-        path="/communication/history"
-        rowKey={(m) => m.id}
-        rowHref={(m) => `/communication/history/${m.id}`}
-        empty={
-          <EmptyState title={anyFilter ? "No messages match these filters" : "No messages sent yet"} icon={<MessageIcon className="size-6" />}>
-            {anyFilter ? "Change the search or filters, or reset them." : access.full ? "Messages sent by people, automatic rules and notices will be listed here with each person's delivery status." : "Messages you send will be listed here with each person's delivery status."}
-            {!anyFilter && access.canChange && <div className="mt-4"><ButtonLink href="/communication" variant="primary">Send Message</ButtonLink></div>}
-          </EmptyState>
-        }
-        columns={[
-          { key: "date", label: "Date and time", sortable: true, phone: "meta", cell: (m) => formatDateTime(m.scheduledAt && m.status === "SCHEDULED" ? m.scheduledAt : m.createdAt, tz) },
-          { key: "title", label: "Title or template", phone: "title", cell: (m) => <span className="font-medium">{m.title ?? m.trigger ?? m.body.slice(0, 60)}</span> },
-          { key: "sender", label: "Sent by", phone: "meta", cell: (m) => (m.ruleKey ? `Rule: ${RULES.find((r) => r.key === m.ruleKey)?.label ?? m.ruleKey}` : m.sourceType === "Notice" ? "Notice" : names.get(m.sentById ?? "") ?? "School") },
-          { key: "channel", label: "Channel", phone: "meta", cell: (m) => m.channels.map((c) => CHANNEL_LABEL[c as Channel] ?? c).join(", ") },
-          { key: "recipients", label: "Recipients", className: "text-right", cell: (m) => m.recipientCount },
-          { key: "delivered", label: "Delivered", className: "text-right", cell: (m) => counts.get(m.id)?.delivered ?? 0 },
-          { key: "read", label: "Read", className: "text-right", cell: (m) => counts.get(m.id)?.read ?? 0 },
-          { key: "failed", label: "Failed", className: "text-right", cell: (m) => { const f = counts.get(m.id)?.failed ?? 0; return f ? <span className="font-medium text-danger">{f}</span> : 0; } },
-          { key: "cost", label: "Cost", className: "text-right", cell: (m) => (m.creditCost ? `${m.creditCost} credits` : "Free") },
-          { key: "status", label: "Status", phone: "badge", cell: (m) => {
-            const f = counts.get(m.id)?.failed ?? 0;
-            return <Badge tone={m.status === "CANCELLED" ? "neutral" : m.status === "SCHEDULED" ? "brand" : f ? "danger" : m.status === "SENT" ? "success" : "warning"}>{f && m.status === "SENT" ? `${f} failed` : MESSAGE_STATUS_LABEL[m.status]}</Badge>;
-          } },
-        ]}
-      />
+      <CommHead access={access} page="Message History" href="/communication/history"
+        sub={access.full ? "Everything sent: by people, by automatic rules and with notices. Open one to see each person’s status." : "Only messages you sent. Open one to see each person’s status."}
+        actions={<ButtonLink href="/communication" variant="primary" icon={Send}>Send message</ButtonLink>} />
+      <div className="flex flex-col gap-5 lg:gap-6">
+        <Stats items={[
+          { label: "Messages sent", value: data.sentCount.toLocaleString("en-IN"), sub: data.firstSent ? `Since ${formatDate(data.firstSent.createdAt, tz)}` : "None yet", icon: Send },
+          { label: "People reached", value: reached.toLocaleString("en-IN"), sub: "One line per person", icon: Users },
+          { label: "Delivered", value: pct(delivered, reached), sub: `${delivered.toLocaleString("en-IN")} people`, tone: "ok", icon: CheckCheck },
+          { label: "Read", value: reached ? `${Math.round((read / reached) * 100)}%` : "–", sub: `${read.toLocaleString("en-IN")} people`, icon: Eye },
+          { label: "Failed", value: failed.toLocaleString("en-IN"), sub: `Retry up to ${retryLimit} times`, tone: failed ? "bad" : undefined, icon: CircleAlert, href: failed ? "/communication/history?status=failed" : undefined },
+        ]} />
+        <Card className="overflow-hidden">
+          <Toolbar className="flex-wrap">
+            <UrlSegmented param="mode" label="Show" options={[{ value: "all", label: "All messages" }, { value: "person", label: "One person" }]} />
+            {mode === "all" ? (
+              <>
+                <UrlSearch placeholder="Title, message or sender" className="min-w-[14rem]" />
+                <UrlSelect param="channel" label="Channel" className="md:w-44" options={[{ value: "", label: "All channels" }, { value: "whatsapp", label: "WhatsApp" }, { value: "sms", label: "SMS" }, { value: "email", label: "Email" }, { value: "app", label: "App notice" }]} />
+                <UrlSelect param="status" label="Status" className="md:w-40" options={[{ value: "", label: "Any status" }, { value: "failed", label: "Has failed" }, { value: "SCHEDULED", label: "Scheduled" }, { value: "QUEUED", label: "Sending" }, { value: "SENT", label: "Sent" }, { value: "CANCELLED", label: "Cancelled" }]} />
+                {access.full && <UrlSelect param="sender" label="Sent by" className="md:w-44" options={[{ value: "", label: "Anyone" }, { value: "me", label: "Me" }, { value: "people", label: "People" }, { value: "rules", label: "Automatic rules" }, { value: "notices", label: "Notices" }]} />}
+                <PeriodFilter timeZone={tz} />
+                {data.total > 0 && <ExportMenu href={exportHref} />}
+              </>
+            ) : (
+              <UrlSearch param="who" placeholder="Parent, student or staff" />
+            )}
+          </Toolbar>
+          {mode === "person" ? (
+            <div className="p-4 md:p-5 grid lg:grid-cols-[280px_minmax(0,1fr)] gap-5 items-start">
+              <div className="flex flex-col gap-2">
+                {data.people.map((p) => {
+                  const key = `${p.recipientType}:${p.guardianId ?? p.studentId ?? p.staffId}`;
+                  return (
+                    <Link key={key} href={`/communication/history?mode=person&person=${key}`} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left hover:bg-sunken/70">
+                      <Avatar name={p.name} size={38} />
+                      <span className="min-w-0 flex-1"><span className="block font-semibold text-[14.5px] truncate">{p.name}</span><span className="block text-[12.5px] text-ink3 truncate">{p.description}</span></span>
+                    </Link>
+                  );
+                })}
+                {typeof sp.who === "string" && sp.who.trim().length >= 2 && data.people.length === 0 && <p className="text-[13.5px] text-ink3 px-1">Nobody by that name has been sent a message.</p>}
+                {data.timeline?.name && (
+                  <div className="rounded-xl border border-line p-3 flex items-center gap-3 mt-1">
+                    <Avatar name={data.timeline.name} size={40} />
+                    <div className="min-w-0"><p className="font-semibold text-[14.5px]">{data.timeline.name}</p><p className="text-[12.5px] text-ink3">{data.timeline.description}</p></div>
+                  </div>
+                )}
+                <p className="text-[12.5px] text-ink3">All channels, newest first. Also on the student’s profile.</p>
+              </div>
+              {data.timeline && data.timeline.items.length ? (
+                <Timeline items={data.timeline.items.map((r): TimelineItem => ({
+                  icon: r.message.sourceType === "Notice" ? Megaphone : CHANNEL_ICON[r.channel] ?? Send,
+                  tone: r.status === "FAILED" ? "bad" : r.isBackup ? "warn" : r.status === "READ" || r.status === "DELIVERED" ? "ok" : "neutral",
+                  what: <Link href={`/communication/history/${r.message.id}`} className="hover:underline">{CHANNEL_NAME[r.channel] ?? r.channel}{r.isBackup ? " by SMS backup" : ""}: {r.message.title ?? r.message.trigger ?? r.text.slice(0, 80)} · {(DELIVERY_LABEL[r.status] ?? r.status).toLowerCase()}{r.failReason ? ` (${r.failReason})` : ""}</Link>,
+                  when: `${formatDateTime(r.queuedAt, tz)}${r.readAt ? ` · read ${formatDateTime(r.readAt, tz)}` : ""}`,
+                }))} />
+              ) : (
+                <EmptyState bare Icon={HistoryIcon} title="Find a person">Search for a parent, student or staff member to see every message they were sent.</EmptyState>
+              )}
+            </div>
+          ) : (
+            <DataList
+              caption="Messages sent"
+              rows={data.rows}
+              rowKey={(m) => m.id}
+              href={(m) => `/communication/history/${m.id}`}
+              minWidth={880}
+              paging={{ page: params.page, pageSize: PAGE_SIZE, total: data.total, href: (p) => listHref("/communication/history", params, { page: p }) }}
+              empty={
+                <EmptyState bare Icon={HistoryIcon} title={anyFilter ? "Nothing matches" : "You have not sent any messages yet"}
+                  action={!anyFilter && access.canChange ? <ButtonLink href="/communication" icon={Send}>Send a message</ButtonLink> : undefined}>
+                  {anyFilter ? "Try another channel or status." : "Messages you send show up here with each person’s status."}
+                </EmptyState>
+              }
+              columns={[
+                { key: "at", label: "When", nowrap: true, render: (m) => <span className="tnum text-[13px]">{formatDateTime(m.scheduledAt && m.status === "SCHEDULED" ? m.scheduledAt : m.createdAt, tz)}</span> },
+                { key: "title", label: "Message", render: (m) => <div className="max-w-[260px]"><p className="font-semibold leading-snug truncate">{m.title ?? m.trigger ?? m.body.slice(0, 60)}</p><p className="text-[12.5px] text-ink3 flex items-center gap-1 truncate">{m.ruleKey && <Zap size={12} aria-hidden="true" />}{sender(m)}</p></div> },
+                { key: "ch", label: "Channel", render: (m) => <ChannelPills channels={m.channels} backup={m.smsBackup} /> },
+                { key: "n", label: "To", align: "right", render: (m) => m.recipientCount.toLocaleString("en-IN") },
+                { key: "del", label: "Delivered", align: "right", render: (m) => m.status === "SCHEDULED" ? <Pill tone="info">Scheduled</Pill> : m.status === "CANCELLED" ? <Pill tone="neutral">Cancelled</Pill> : <span className="text-ok font-semibold">{(data.counts.get(m.id)?.delivered ?? 0).toLocaleString("en-IN")}</span> },
+                { key: "read", label: "Read", align: "right", render: (m) => (m.status === "SCHEDULED" || m.status === "CANCELLED" ? "–" : (data.counts.get(m.id)?.read ?? 0).toLocaleString("en-IN")) },
+                { key: "fail", label: "Failed", align: "right", render: (m) => { const f = data.counts.get(m.id)?.failed ?? 0; return f ? <span className="text-bad font-semibold">{f}</span> : <span className="text-ink3">0</span>; } },
+                { key: "cost", label: "Credits", align: "right", render: (m) => (m.creditCost ? m.creditCost.toLocaleString("en-IN") : "Free") },
+              ]}
+              mobile={(m) => {
+                const c = data.counts.get(m.id);
+                const Ic = m.channels.includes("whatsapp") ? CHANNEL_ICON.whatsapp : m.channels.includes("email") ? CHANNEL_ICON.email : m.status === "SCHEDULED" ? CalendarClock : CHANNEL_ICON.app;
+                return {
+                  title: m.title ?? m.trigger ?? m.body.slice(0, 60),
+                  sub: `${formatDateTime(m.scheduledAt && m.status === "SCHEDULED" ? m.scheduledAt : m.createdAt, tz)} · ${sender(m)}`,
+                  icon: Ic, iconTone: c?.failed ? "bad" : "ok",
+                  pills: m.status === "SCHEDULED"
+                    ? [<Pill key="s" tone="info" className="!h-[22px] !text-[11.5px]">Scheduled · {m.recipientCount}</Pill>]
+                    : [<Pill key="d" tone="ok" className="!h-[22px] !text-[11.5px]">{c?.delivered ?? 0} of {m.recipientCount} delivered</Pill>, c?.failed ? <Pill key="f" tone="bad" className="!h-[22px] !text-[11.5px]">{c.failed} failed</Pill> : null],
+                };
+              }}
+            />
+          )}
+        </Card>
+      </div>
     </>
   );
 }

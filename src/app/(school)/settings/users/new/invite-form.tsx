@@ -46,7 +46,11 @@ export function InviteForm({ roles, campuses, staff, defaultRoleId, defaultStaff
     return (
       <div className="max-w-2xl space-y-4">
         <Alert tone="success" title={`${state.data.name} is invited`}>
-          Send this link to {state.data.name} by WhatsApp, SMS or email. They open it to choose their own password; nobody else ever sees it. The link works once, for 7 days.
+          {state.data.sentBy.length
+            ? <>The invite link was sent to {state.data.name} by {state.data.sentBy.join(" and ")}. You can also copy it below and give it to them yourself. </>
+            : <>Send this link to {state.data.name} by WhatsApp, SMS or email. </>}
+          They open it to choose their own password; nobody else ever sees it. The link works once, for 7 days.
+          {state.data.sentNote && <span className="mt-1 block">{state.data.sentNote}</span>}
         </Alert>
         <CopyLink path={state.data.link} />
         <div className="flex flex-wrap gap-2">

@@ -1,24 +1,30 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Megaphone, Plus } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { commPage } from "@/lib/communication/access";
-import { readListParams, skipTake, listHref } from "@/lib/list";
+import { readListParams, skipTake, listHref, PAGE_SIZE } from "@/lib/list";
 import { formatDate } from "@/lib/format";
 import { boardFor, PRIORITY_LABEL, STATUS_LABEL } from "@/lib/communication/notices";
-import { NOTICE_FILTERS, noticeCounts, noticeWhere } from "@/lib/communication/notice-list";
-import { PageHeader } from "@/components/shell/page-header";
-import { ListToolbar } from "@/components/list/list-toolbar";
-import { DataTable } from "@/components/list/data-table";
-import { EmptyState } from "@/components/empty-state";
-import { Badge, type BadgeTone } from "@/components/ui/badge";
+import { NOTICE_FILTERS, NOTICE_GROUPS, noticeCounts, noticeWhere, type NoticeGroup } from "@/lib/communication/notice-list";
+import { Card, CardHeader } from "@/components/ui/card";
+import { Toolbar } from "@/components/ui/toolbar";
+import { DataList } from "@/components/ui/data-list";
+import { Pill, type PillTone } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
-import { PinIcon } from "@/components/icons";
+import { Progress } from "@/components/ui/charts";
+import { Split } from "@/components/ui/split";
+import { cx } from "@/components/ui/cx";
+import { UrlSearch, UrlSegmented, UrlSelect } from "@/components/ui/url-filters";
+import { PeriodFilter } from "@/components/list/period-filter";
+import { EmptyState } from "@/components/empty-state";
 import { ExportMenu } from "@/components/communication/export-menu";
+import { CommHead } from "../_components/comm-head";
 
 export const metadata: Metadata = { title: "Notice Board" };
 
-const STATUS_TONE: Record<string, BadgeTone> = { DRAFT: "neutral", WAITING_APPROVAL: "warning", SCHEDULED: "brand", PUBLISHED: "success", EXPIRED: "neutral", ARCHIVED: "neutral" };
-const PRIORITY_TONE: Record<string, BadgeTone> = { NORMAL: "neutral", HIGH: "warning", CRITICAL: "danger" };
+const STATUS_TONE: Record<string, PillTone> = { DRAFT: "neutral", WAITING_APPROVAL: "warn", SCHEDULED: "info", PUBLISHED: "ok", EXPIRED: "neutral", ARCHIVED: "neutral" };
+const PRIORITY_TONE: Record<string, PillTone> = { NORMAL: "neutral", HIGH: "warn", CRITICAL: "bad" };
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 
@@ -26,93 +32,96 @@ export default async function NoticeBoardPage({ searchParams }: { searchParams: 
   const access = await commPage();
   const { current } = access;
   const raw = await searchParams;
-  const view = raw.view === "board" ? "board" : raw.view === "manage" ? "manage" : access.full ? "manage" : "board";
   const tz = current.school.timeZone;
   const params = readListParams(raw, NOTICE_FILTERS);
-  const tabs = (
-    <nav aria-label="Notice views" className="mb-4 inline-flex rounded-xl border border-line bg-surface p-1">
-      {[["board", "Notice board"], ["manage", access.full ? "All notices" : "My notices"]].map(([k, l]) => (
-        <Link key={k} href={`/communication/notices?view=${k}`} aria-current={view === k ? "page" : undefined}
-          className={`inline-flex min-h-10 items-center rounded-lg px-4 text-[15px] ${view === k ? "bg-brand-soft font-medium text-brand-text" : "text-ink-2 hover:text-ink"}`}>{l}</Link>
-      ))}
-    </nav>
-  );
-  const header = (
-    <PageHeader title="Notice Board" href="/communication/notices" userId={current.user.id}>
-      <div className="flex gap-2">
-        {view === "manage" && <ExportMenu href={listHref("/communication/notices/export", { ...params, page: 1 }, {})} />}
-        {access.canChange && <ButtonLink href="/communication/notices/new" variant="primary">New notice</ButtonLink>}
-      </div>
-    </PageHeader>
-  );
+  const group: NoticeGroup = params.filters.group === "waiting" || params.filters.group === "archive" ? params.filters.group : "current";
+  const listParams = { ...params, filters: { ...params.filters, group } };
+  const where = noticeWhere(current.ctx, access.full, listParams, tz);
+  const mineWhere = noticeWhere(current.ctx, access.full, { ...params, q: "", filters: {} }, tz);
 
-  if (view === "board") {
-    const notices = await withSchool(current.ctx, (tx) => boardFor(tx, current.ctx, current.user.id, access.roleKeys));
-    return (
-      <>
-        {header}
-        {tabs}
-        {notices.length === 0 ? (
-          <EmptyState title="No notices on the board" icon={<PinIcon className="size-6" />}>Notices for you appear here, Critical first, then High, then Normal.</EmptyState>
-        ) : (
-          <ul className="space-y-3">
-            {notices.map((n) => (
+  const data = await withSchool(current.ctx, async (tx) => {
+    const [rows, total, byStatus, board] = await Promise.all([
+      tx.notice.findMany({ where, orderBy: { createdAt: "desc" }, ...skipTake(params) }),
+      tx.notice.count({ where }),
+      tx.notice.groupBy({ by: ["status"], where: { AND: [mineWhere, { status: { not: "ARCHIVED" } }] }, _count: { _all: true } }),
+      boardFor(tx, current.ctx, current.user.id, access.roleKeys),
+    ]);
+    return { rows, total, byStatus, board, counts: await noticeCounts(tx, rows.map((r) => r.id)) };
+  });
+  const groupCount = (g: NoticeGroup) => data.byStatus.filter((s) => (NOTICE_GROUPS[g] as readonly string[]).includes(s.status)).reduce((a, s) => a + s._count._all, 0);
+  const rank = { CRITICAL: 0, HIGH: 1, NORMAL: 2 } as const;
+  const board = [...data.board].sort((a, b) => rank[a.priority] - rank[b.priority]);
+  const filtered = Boolean(params.q || params.filters.priority || params.filters.period || params.filters.from || params.filters.to);
+  const seenCell = (n: (typeof data.rows)[number]) => {
+    const c = data.counts.get(n.id);
+    if (n.guardianCount) {
+      const seen = c?.seen ?? 0;
+      return <span className="tnum text-[13px]"><b className="font-semibold">{seen.toLocaleString("en-IN")}</b><span className="text-ink3"> of {n.guardianCount.toLocaleString("en-IN")}</span><Progress value={(seen / n.guardianCount) * 100} className="mt-1 w-20 ml-auto" /></span>;
+    }
+    if (n.staffCount) return <span className="tnum text-[13px]"><b className="font-semibold">{c?.read ?? 0}</b><span className="text-ink3"> of {n.staffCount}</span></span>;
+    return <span className="text-ink3">–</span>;
+  };
+  const published = (n: (typeof data.rows)[number]) => (n.publishedAt ? formatDate(n.publishedAt, tz) : n.publishAt ? `Due ${formatDate(n.publishAt, tz)}` : "Not yet");
+
+  return (
+    <>
+      <CommHead access={access} page="Notice Board" href="/communication/notices"
+        sub={access.full ? "Circulars and notices with read tracking. Notices to parents go to the Principal for approval first." : "Notices for you are on the board. The office writes and publishes notices."}
+        actions={access.full ? <ButtonLink href="/communication/notices/new" variant="primary" icon={Plus}>New notice</ButtonLink> : undefined} />
+      <Split side={340}>
+        <Card className="overflow-hidden min-w-0">
+          <Toolbar className="flex-wrap">
+            <UrlSearch placeholder="Notice title or audience" className="min-w-[14rem]" />
+            <UrlSegmented param="group" label="Show" options={[{ value: "current", label: `Current · ${groupCount("current")}` }, { value: "waiting", label: `Waiting · ${groupCount("waiting")}` }, { value: "archive", label: "Archive" }]} />
+            <UrlSelect param="priority" label="Priority" className="md:w-40" options={[{ value: "", label: "Any priority" }, ...Object.entries(PRIORITY_LABEL).map(([value, label]) => ({ value, label }))]} />
+            <PeriodFilter timeZone={tz} />
+            {data.total > 0 && <ExportMenu href={listHref("/communication/notices/export", { ...listParams, page: 1 }, {})} />}
+          </Toolbar>
+          <DataList
+            caption="Notices"
+            rows={data.rows}
+            rowKey={(n) => n.id}
+            href={(n) => `/communication/notices/${n.id}`}
+            minWidth={620}
+            paging={{ page: params.page, pageSize: PAGE_SIZE, total: data.total, href: (p) => listHref("/communication/notices", listParams, { page: p }) }}
+            empty={
+              <EmptyState bare Icon={Megaphone} title={filtered ? "No notices here" : group === "waiting" ? "Nothing waiting" : "No notices here"}
+                action={access.full ? <ButtonLink href="/communication/notices/new" icon={Plus}>New notice</ButtonLink> : undefined}>
+                {group === "waiting" ? "Drafts, scheduled notices and those waiting for approval show here." : "Try another search, or write a new notice."}
+              </EmptyState>
+            }
+            columns={[
+              { key: "title", label: "Notice", render: (n) => <div className="min-w-[230px]"><p className="font-semibold leading-snug">{n.title}</p><p className="text-[12.5px] text-ink3 mt-0.5 flex items-center gap-1.5 flex-wrap">{n.priority !== "NORMAL" && <Pill tone={PRIORITY_TONE[n.priority]} className="!h-5 !text-[11px]">{PRIORITY_LABEL[n.priority]}</Pill>}{n.audienceLabel}</p></div> },
+              { key: "pub", label: "Published", nowrap: true, render: (n) => <span className="tnum text-[13px]">{published(n)}{n.expiresOn && <span className="block text-[12px] text-ink3">until {formatDate(n.expiresOn, "UTC")}</span>}</span> },
+              { key: "status", label: "Status", nowrap: true, render: (n) => <Pill tone={STATUS_TONE[n.status]} dot>{STATUS_LABEL[n.status]}</Pill> },
+              { key: "seen", label: "Seen / read", align: "right", nowrap: true, render: seenCell },
+            ]}
+            mobile={(n) => ({
+              title: n.title, sub: `${n.audienceLabel} · ${published(n)}`, icon: Megaphone, iconTone: n.priority === "NORMAL" ? "brand" : PRIORITY_TONE[n.priority] as "warn" | "bad",
+              pills: [
+                <Pill key="s" tone={STATUS_TONE[n.status]} className="!h-[22px] !text-[11.5px]">{STATUS_LABEL[n.status]}</Pill>,
+                n.priority !== "NORMAL" ? <Pill key="p" tone={PRIORITY_TONE[n.priority]} className="!h-[22px] !text-[11.5px]">{PRIORITY_LABEL[n.priority]}</Pill> : null,
+                n.guardianCount ? <Pill key="seen" tone="neutral" className="!h-[22px] !text-[11.5px]">Seen {data.counts.get(n.id)?.seen ?? 0} of {n.guardianCount}</Pill> : null,
+              ],
+            })}
+          />
+        </Card>
+        <Card>
+          <CardHeader title="On the board now" description="As you see it: Critical first" icon={Megaphone} />
+          <ul className="px-3 pb-3 flex flex-col gap-1.5">
+            {board.slice(0, 6).map((n) => (
               <li key={n.id}>
-                <Link href={`/communication/notices/${n.id}`} className={`block rounded-2xl border bg-surface p-4 shadow-card hover:bg-surface-2 ${n.priority === "CRITICAL" ? "border-2 border-danger" : n.priority === "HIGH" ? "border-warn" : "border-line"}`}>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {n.priority !== "NORMAL" && <Badge tone={PRIORITY_TONE[n.priority]}>{PRIORITY_LABEL[n.priority]}</Badge>}
-                    <h2 className="font-semibold">{n.title}</h2>
-                  </div>
-                  <p className="mt-1 line-clamp-2 text-ink-2">{n.body}</p>
-                  <p className="mt-1 text-sm text-ink-2">{n.publishedAt ? formatDate(n.publishedAt, tz) : ""}{n.askAck ? " · Please acknowledge" : ""}</p>
+                <Link href={`/communication/notices/${n.id}`} className={cx("block w-full text-left rounded-xl px-3 py-2.5 hover:bg-sunken/70 transition border-l-[3px]", n.priority === "CRITICAL" ? "border-bad bg-bad/[.04]" : n.priority === "HIGH" ? "border-warn bg-warn/[.05]" : "border-line")}>
+                  <p className="font-semibold text-[14px] leading-snug">{n.title}</p>
+                  <p className="text-[12.5px] text-ink3 mt-0.5">{n.audienceLabel}{n.publishedAt ? ` · ${formatDate(n.publishedAt, tz)}` : ""}{n.askAck ? " · Please acknowledge" : ""}</p>
                 </Link>
               </li>
             ))}
+            {!board.length && <li className="text-[13.5px] text-ink3 px-3 py-4">Nothing published for you yet.</li>}
+            {board.length > 6 && <li className="px-3 pt-1 text-[12.5px] text-ink3">and {board.length - 6} more</li>}
           </ul>
-        )}
-      </>
-    );
-  }
-
-  const where = noticeWhere(current.ctx, access.full, params);
-  const { rows, total, counts } = await withSchool(current.ctx, async (tx) => {
-    const [rows, total] = await Promise.all([tx.notice.findMany({ where, orderBy: { createdAt: "desc" }, ...skipTake(params) }), tx.notice.count({ where })]);
-    return { rows, total, counts: await noticeCounts(tx, rows.map((r) => r.id)) };
-  });
-  const filtered = Boolean(params.q || Object.keys(params.filters).length);
-  return (
-    <>
-      {header}
-      {tabs}
-      <ListToolbar placeholder="Search notices" filters={[
-        { key: "status", label: "Status", options: Object.entries(STATUS_LABEL).map(([value, label]) => ({ value, label })) },
-        { key: "priority", label: "Priority", options: Object.entries(PRIORITY_LABEL).map(([value, label]) => ({ value, label })) },
-      ]} />
-      <DataTable
-        caption="Notices"
-        rows={rows}
-        total={total}
-        params={params}
-        path="/communication/notices"
-        rowKey={(n) => n.id}
-        rowHref={(n) => `/communication/notices/${n.id}`}
-        empty={
-          <EmptyState title={filtered ? "No notices match these filters" : "No notices yet"} icon={<PinIcon className="size-6" />}>
-            {filtered ? "Change the search or filters." : "Write a circular or notice for parents, students or staff, with attachments, a priority and an expiry date."}
-            {!filtered && access.canChange && <div className="mt-4"><ButtonLink href="/communication/notices/new" variant="primary">New notice</ButtonLink></div>}
-          </EmptyState>
-        }
-        columns={[
-          { key: "title", label: "Title", phone: "title", cell: (n) => <span className="font-medium">{n.title}</span> },
-          { key: "audience", label: "Audience", phone: "meta", cell: (n) => n.audienceLabel },
-          { key: "priority", label: "Priority", cell: (n) => <Badge tone={PRIORITY_TONE[n.priority]}>{PRIORITY_LABEL[n.priority]}</Badge> },
-          { key: "published", label: "Published", phone: "meta", cell: (n) => (n.publishedAt ? formatDate(n.publishedAt, tz) : n.publishAt ? `Due ${formatDate(n.publishAt, tz)}` : "Not yet") },
-          { key: "expires", label: "Expires", cell: (n) => (n.expiresOn ? formatDate(n.expiresOn, "UTC") : "") },
-          { key: "read", label: "Read", cell: (n) => (n.staffCount ? `${counts.get(n.id)?.read ?? 0} of ${n.staffCount} read` : "") },
-          { key: "seen", label: "Seen by parent", phone: "meta", cell: (n) => (n.guardianCount ? `Seen by ${counts.get(n.id)?.seen ?? 0} of ${n.guardianCount}` : "") },
-          { key: "status", label: "Status", phone: "badge", cell: (n) => <Badge tone={STATUS_TONE[n.status]}>{STATUS_LABEL[n.status]}</Badge> },
-        ]}
-      />
+        </Card>
+      </Split>
     </>
   );
 }

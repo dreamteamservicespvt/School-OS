@@ -1,13 +1,12 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { commPage } from "@/lib/communication/access";
 import { loadGuardianView } from "@/lib/parent-link/view";
 import { loadSections } from "@/lib/parent-link/render";
 import { GuardianPage } from "@/components/parent-link/guardian-page";
-import { PageHeader } from "@/components/shell/page-header";
-import { Alert } from "@/components/ui/alert";
+import { Banner } from "@/components/ui/banner";
+import { BackLink, RecordHead } from "@/components/ui/split";
 
 export const metadata: Metadata = { title: "What guardians see" };
 
@@ -29,16 +28,15 @@ export default async function PreviewPage({ params, searchParams }: { params: Pr
 
   return (
     <>
-      <p className="mb-2 text-sm"><Link href={`/communication/parent-link/${id}`} className="text-brand-text hover:underline">← Back to the link</Link></p>
-      <PageHeader title="What guardians see" href={`/communication/parent-link/${id}/preview`} userId={current.user.id} />
-      <Alert tone="info" className="mb-4">A preview of this guardian&rsquo;s page. Buttons do nothing here, and this visit is not counted as an open.</Alert>
-      <div className="mx-auto max-w-md overflow-hidden rounded-[2rem] border-8 border-surface-3 bg-bg shadow-pop">
-        <div className="border-b border-line bg-surface px-4 py-3 text-center font-semibold">{data.view?.schoolName ?? current.school.name}</div>
-        <div className="p-4">
+      <BackLink href={`/communication/parent-link/${id}`} label="Parent Link" sub="What they see" />
+      <RecordHead title="What guardians see" />
+      <Banner tone="info" title="A preview of this guardian’s page." className="mb-5">Buttons do nothing here, and this visit is not counted as an open.</Banner>
+      <div className="mx-auto w-full max-w-[400px] sm:rounded-[40px] sm:border-[10px] sm:border-ink/90 sm:shadow-pop overflow-hidden bg-bg">
+        <div className="sm:h-[780px] sm:overflow-y-auto scroll-thin">
           {data.view ? (
-            <GuardianPage view={data.view} sections={data.sections} schoolPhone={data.phone} basePath={`/communication/parent-link/${id}/preview`} />
+            <GuardianPage framed view={data.view} sections={data.sections} schoolPhone={data.phone} basePath={`/communication/parent-link/${id}/preview`} />
           ) : (
-            <p className="py-8 text-center text-ink-2">This guardian has no children studying in the school now, so the page shows &ldquo;Please contact the school&rdquo;.</p>
+            <p className="py-8 px-6 text-center text-ink3">This guardian has no children studying in the school now, so the page shows &ldquo;Please contact the school&rdquo;.</p>
           )}
         </div>
       </div>

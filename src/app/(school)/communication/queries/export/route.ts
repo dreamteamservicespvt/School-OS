@@ -26,7 +26,7 @@ export async function GET(req: Request) {
   const tz = current.school.timeZone;
   const full = reachFor(current.permissions, "communication", "view") === "all";
   const data = await withSchool(current.ctx, async (tx) => {
-    const rows = await tx.query.findMany({ where: queryListWhere(await queryWhere(tx, current.ctx, full ? "all" : "own"), current.ctx, params), orderBy: { createdAt: "desc" }, take: 10000 });
+    const rows = await tx.query.findMany({ where: queryListWhere(await queryWhere(tx, current.ctx, full ? "all" : "own"), current.ctx, params, new Date(), tz), orderBy: { createdAt: "desc" }, take: 10000 });
     const labels = await queryLabels(tx, rows);
     const filters = [params.q && `search "${params.q}"`, ...Object.entries(params.filters).map(([k, v]) => `${k}: ${v}`)].filter(Boolean).join(", ") || "Open and In progress";
     await logExport(tx, current.ctx, { title: "Queries", format, filters, rows: rows.length });

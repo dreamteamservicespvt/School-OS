@@ -11,6 +11,9 @@ import { setOptOut } from "../../src/lib/messaging/optout";
 import { saveNotice } from "../../src/lib/communication/notices";
 import { ensureTopics, logQuery, addInternalNote, replyToQuery, setQueryStatus } from "../../src/lib/communication/queries";
 import { createLink, sendLinks } from "../../src/lib/parent-link/links";
+import { assignChat, recordIncoming, replyToChat, setResolved } from "../../src/lib/communication/inbox";
+import { audienceOptions, closeSurvey, saveSurvey, sendSurvey, submitAnswers, SURVEY_EXAMPLES } from "../../src/lib/communication/surveys";
+import { surveyTokenFor } from "../../src/lib/parent-link/token";
 import type { SeedSchool } from "./types";
 
 const DLT = (n: number) => `11071600000${String(10000000 + n)}`;
@@ -135,4 +138,70 @@ export async function seedCommunication(school: SeedSchool) {
     }
     if (links.length) await sendLinks(tx, principalCtx, links, { trigger: "Parent Links sent to existing families", audienceLabel: "Parents of Class 5 A" });
   });
+
+  // WhatsApp Inbox (optional page, switched on for the full demo): a few chats from parents, one
+  // from staff and one unknown number, some answered and given to someone.
+  if (school.full) {
+    await withSchool(principalCtx, async (tx) => {
+      await tx.schoolFeature.upsert({ where: { schoolId_featureKey: { schoolId, featureKey: "whatsapp-inbox" } }, create: { schoolId, featureKey: "whatsapp-inbox", isOn: true }, update: {} });
+      if (await tx.whatsappChat.count({ where: { schoolId } })) return;
+      const people = await tx.guardian.findMany({ where: { id: { in: ids.guardians.slice(0, 4).map((g) => g.guardianId) } }, select: { id: true, phone: true } });
+      const phone = (i: number) => people.find((p) => p.id === ids.guardians[i]?.guardianId)?.phone;
+      const ago = (h: number) => new Date(Date.now() - h * 3600_000);
+      const say = (from: string | undefined, text: string, h: number, name?: string) => (from ? recordIncoming(tx, principalCtx, { from, text, at: ago(h), name }) : Promise.resolve(null));
+      const c1 = await say(phone(0), "Good morning sir. Is tomorrow a holiday for Dussehra?", 3);
+      if (c1) await replyToChat(tx, principalCtx, true, c1, "Good morning. Yes, the school is closed tomorrow and opens again on Monday.", ago(2.5));
+      await say(phone(0), "Thank you sir.", 2);
+      const c2 = await say(phone(1), "My son forgot his lunch box in the bus today.", 1);
+      if (c2 && school.users.admin) await assignChat(tx, principalCtx, c2, school.users.admin);
+      await say(phone(2), "Please share the fee receipt for the first term.", 30);
+      const c4 = await say(phone(3), "Sports day photos are lovely, thank you!", 52);
+      if (c4) await setResolved(tx, principalCtx, true, c4, true);
+      await say("919912345678", "Hello, are admissions open for Class 1?", 5, "Rahul Varma");
+    });
+  }
+
+  // Surveys (optional page, switched on for the full demo): a parent survey open with answers,
+  // an event survey closed, and a staff survey still a draft.
+  if (school.full) {
+    await withSchool(principalCtx, async (tx) => {
+      await tx.schoolFeature.upsert({ where: { schoolId_featureKey: { schoolId, featureKey: "surveys" } }, create: { schoolId, featureKey: "surveys", isOn: true }, update: {} });
+      if (await tx.survey.count({ where: { schoolId } })) return;
+      const sch = await tx.school.findUniqueOrThrow({ where: { id: schoolId }, select: { timeZone: true } });
+      const tz = sch.timeZone;
+      const labels = new Map((await audienceOptions(tx, principalCtx)).map((o) => [o.value, o.label]));
+      const day = (d: number) => new Date(Date.now() + d * 86400_000);
+      const iso = (d: Date) => d.toISOString().slice(0, 10);
+      const today = new Date(`${iso(new Date())}T00:00:00Z`);
+      const ex = (k: string) => SURVEY_EXAMPLES.find((e) => e.key === k)!;
+      const comments = ["More notice before events that cost money.", "The evening bus is often late.", "Please share homework on Parent Link as well.", "Very happy with the class teacher. Thank you.", "Canteen food could have more fruit.", ""];
+      const answer = async (surveyId: string, share: number, at: (i: number) => Date, seed: number) => {
+        const qs = await tx.surveyQuestion.findMany({ where: { surveyId, sortOrder: { gt: 0 } }, orderBy: { sortOrder: "asc" } });
+        const invites = await tx.surveyInvite.findMany({ where: { surveyId }, orderBy: { createdAt: "asc" } });
+        const n = Math.floor(invites.length * share);
+        for (let i = 0; i < n; i++) {
+          const r = (k: number) => (i * 7 + k * 3 + seed) % 10;
+          const a: Record<string, string> = {};
+          qs.forEach((q, k) => {
+            if (q.kind === "rating") a[q.id] = String([5, 4, 5, 4, 3, 5, 4, 2, 4, 5][r(k)]);
+            else if (q.kind === "choice") a[q.id] = q.options[[0, 0, 1, 0, 2, 1, 0, 3, 0, 1][r(k)] % q.options.length];
+            else if (q.kind === "text") { const c = comments[(i + seed) % comments.length]; if (c) a[q.id] = c; }
+          });
+          await submitAnswers(tx, principalCtx, surveyTokenFor(invites[i].id), a, tz, at(i));
+        }
+      };
+      const p = ex("parents");
+      const open = await saveSurvey(tx, principalCtx, null, { title: "Parent satisfaction · Term 1", audience: "parents", anonymous: true, closesOn: iso(day(5)), questions: p.questions }, labels, today);
+      await sendSurvey(tx, principalCtx, open.id, tz, day(-4));
+      await answer(open.id, 0.6, (i) => day(-3 + (i % 4)), 1);
+      const ev = ex("event");
+      const cls = [...labels.keys()].find((k) => k.startsWith("class:")) ?? "parents";
+      const closed = await saveSurvey(tx, principalCtx, null, { title: "Sports day feedback", audience: cls, anonymous: false, closesOn: iso(day(2)), questions: ev.questions }, labels, today);
+      await sendSurvey(tx, principalCtx, closed.id, tz, day(-12));
+      await answer(closed.id, 0.7, (i) => day(-11 + (i % 5)), 4);
+      await closeSurvey(tx, principalCtx, closed.id);
+      const st = ex("staff");
+      await saveSurvey(tx, principalCtx, null, { title: "Staff feedback · Term 1", audience: "staff", anonymous: true, closesOn: null, questions: st.questions }, labels, today);
+    });
+  }
 }

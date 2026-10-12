@@ -1,19 +1,18 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { commPage } from "@/lib/communication/access";
-import { PageHeader } from "@/components/shell/page-header";
+import { commOfficePage } from "@/lib/communication/access";
+import { BackLink, RecordHead } from "@/components/ui/split";
 import { NoticeForm } from "../notice-form";
 import { noticeFormData } from "../form-data";
 
 export const metadata: Metadata = { title: "New notice" };
 
 export default async function NewNoticePage() {
-  const access = await commPage("create");
+  const access = await commOfficePage("create");
   const data = await noticeFormData(access, null);
   return (
     <>
-      <p className="mb-2 text-sm"><Link href="/communication/notices" className="text-brand-text hover:underline">← Notice Board</Link></p>
-      <PageHeader title="New notice" href="/communication/notices/new" userId={access.current.user.id} />
+      <BackLink href="/communication/notices" label="Notice Board" />
+      <RecordHead title="New notice" sub={<span className="text-[14px] text-ink3">Notices to parents go to the Principal for approval first.</span>} />
       <NoticeForm data={data} />
     </>
   );

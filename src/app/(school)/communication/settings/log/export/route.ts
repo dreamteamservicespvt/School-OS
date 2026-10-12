@@ -24,7 +24,7 @@ export async function GET(req: Request) {
   const format = (["csv", "xlsx", "pdf"].includes(url.searchParams.get("format") ?? "") ? url.searchParams.get("format") : "xlsx") as ExportFormat;
   const tz = current.school.timeZone;
   const data = await withSchool(current.ctx, async (tx) => {
-    const rows = await tx.automationLog.findMany({ where: logWhere(current.ctx, params), orderBy: { createdAt: "desc" }, take: 20000 });
+    const rows = await tx.automationLog.findMany({ where: logWhere(current.ctx, params, tz), orderBy: { createdAt: "desc" }, take: 20000 });
     const filters = [params.q && `search "${params.q}"`, ...Object.entries(params.filters).map(([k, v]) => `${k}: ${v}`)].filter(Boolean).join(", ") || "Everything";
     await logExport(tx, current.ctx, { title: "Automation log", format, filters, rows: rows.length });
     return { rows, filters };

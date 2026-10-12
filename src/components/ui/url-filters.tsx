@@ -26,7 +26,7 @@ function useGo() {
 }
 
 /** The search box at the top of a list card. */
-export function UrlSearch({ placeholder, param = "q", className }: { placeholder: string; param?: string; className?: string }) {
+export function UrlSearch({ placeholder, param = "q", className, label }: { placeholder: string; param?: string; className?: string; label?: string }) {
   const { go, sp, pending } = useGo();
   const [q, setQ] = useState(sp.get(param) ?? "");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -34,7 +34,7 @@ export function UrlSearch({ placeholder, param = "q", className }: { placeholder
   return (
     <div className={cx("relative flex-1 min-w-0", className)} role="search">
       <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink3" aria-hidden="true" />
-      <input type="search" value={q} placeholder={placeholder} aria-label={placeholder}
+      <input type="search" value={q} placeholder={placeholder} aria-label={label ?? placeholder}
         onChange={(e) => {
           const v = e.target.value;
           setQ(v);
@@ -48,14 +48,14 @@ export function UrlSearch({ placeholder, param = "q", className }: { placeholder
   );
 }
 
-/** A filter select; the first option is "all". */
-export function UrlSelect({ param, label, allLabel, options, className, value: fixed }: { param: string; label: string; allLabel: string; options: { value: string; label: string }[]; className?: string; value?: string }) {
+/** A filter select; the first option is "all" (allLabel, or an option with an empty value in `options`). */
+export function UrlSelect({ param, label, allLabel, options, className, value: fixed }: { param: string; label: string; allLabel?: string; options: { value: string; label: string }[]; className?: string; value?: string }) {
   const { go, sp } = useGo();
   return (
     <div className={cx("relative", className)}>
       <select aria-label={label} value={fixed ?? sp.get(param) ?? ""} onChange={(e) => go({ [param]: e.target.value || null })}
         className={cx(inputCls(false), "h-11 appearance-none pr-10 cursor-pointer")}>
-        <option value="">{allLabel}</option>
+        {allLabel !== undefined && <option value="">{allLabel}</option>}
         {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
       <ChevronDown size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-ink3 pointer-events-none" aria-hidden="true" />
@@ -85,5 +85,20 @@ export function ExportMenu({ href, className }: { href: string; className?: stri
         ))}
       </div>
     </details>
+  );
+}
+
+/** Small filter buttons in a row, like "Type: All, Query, Complaint". The first option is the default. */
+export function UrlChips({ param, options, label }: { param: string; options: { value: string; label: string }[]; label: string }) {
+  const { sp, go } = useGo();
+  const value = sp.get(param) ?? options[0]?.value;
+  return (
+    <>
+      <span className="text-[12.5px] text-ink3 font-semibold mr-1">{label}</span>
+      {options.map((o, i) => (
+        <button key={o.value} type="button" aria-pressed={o.value === value} onClick={() => go({ [param]: i === 0 ? null : o.value })}
+          className={cx("h-8 px-3 rounded-lg text-[13px] font-semibold transition", o.value === value ? "bg-ink text-bg" : "text-ink2 hover:bg-sunken")}>{o.label}</button>
+      ))}
+    </>
   );
 }

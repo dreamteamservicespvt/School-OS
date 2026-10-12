@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { PageHeader } from "@/components/shell/page-header";
+import { BackLink } from "@/components/ui/module-head";
 import { Card, CardBody } from "@/components/ui/card";
 import { EmptyState } from "@/components/empty-state";
 import { previewAdmissionNo, nextRollNo } from "@/lib/students/students";
@@ -26,6 +27,7 @@ export default async function AddStudentPage({ searchParams }: { searchParams: P
 
   return (
     <>
+      <BackLink href={BASE} label="Students" />
       <PageHeader title="Add student" href={`${BASE}/new`} userId={current.user.id} />
       <p className="-mt-3 mb-5 max-w-prose text-ink-2">
         For students who did not come through Admission Management, for example when moving from your old software. Only the main details are needed now; the rest is filled on the profile.

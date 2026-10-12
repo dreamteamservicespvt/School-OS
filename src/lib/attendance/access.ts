@@ -39,7 +39,7 @@ export type AttendanceAccess = {
   admin: boolean;
 };
 
-export type AccessSource = Pick<Current, "permissions" | "roles" | "user" | "campusId">;
+export type AccessSource = Pick<Current, "permissions" | "roles" | "campusId"> & { user: { id: string } };
 
 export async function attendanceAccess(tx: Tx, ctx: SchoolContext, current: AccessSource, lockOverrideRoles: string[] = ["principal", "school-admin"]): Promise<AttendanceAccess> {
   const p = current.permissions[MODULE];

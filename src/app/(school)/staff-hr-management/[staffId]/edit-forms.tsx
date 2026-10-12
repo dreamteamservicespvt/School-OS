@@ -10,6 +10,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { FormDialog, type Action } from "../_components/forms";
 import type { AccessLevel } from "@/lib/roles";
 import { LEVEL_OPTIONS } from "@/lib/staff/role-words";
+import { Pencil } from "lucide-react";
 
 type Option = { value: string; label: string };
 const BLOOD = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map((b) => ({ value: b, label: b }));
@@ -25,7 +26,7 @@ export type ProfileValues = {
 
 export function PersonalForm({ v, action, defaultOpen }: { v: ProfileValues; action: Action; defaultOpen?: boolean }) {
   return (
-    <FormDialog trigger="Edit" triggerSize="sm" title="Personal details" action={action} submitLabel="Save personal details" hidden={{ staffId: v.staffId }} defaultOpen={defaultOpen} wide>
+    <FormDialog trigger={<><Pencil size={15} aria-hidden="true" />Edit</>} triggerSize="sm" triggerVariant="ghost" title="Personal details" action={action} submitLabel="Save personal details" hidden={{ staffId: v.staffId }} defaultOpen={defaultOpen} wide>
       {(f) => (
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField label="Full name" name="fullName" required defaultValue={f.val("fullName", v.fullName)} error={f.err("fullName")} className="sm:col-span-2" />
@@ -44,7 +45,7 @@ export function PersonalForm({ v, action, defaultOpen }: { v: ProfileValues; act
 
 export function ContactForm({ v, action }: { v: ProfileValues; action: Action }) {
   return (
-    <FormDialog trigger="Edit" triggerSize="sm" title="Contact" action={action} submitLabel="Save contact" hidden={{ staffId: v.staffId }}>
+    <FormDialog trigger={<><Pencil size={15} aria-hidden="true" />Edit</>} triggerSize="sm" triggerVariant="ghost" title="Contact" action={action} submitLabel="Save contact" hidden={{ staffId: v.staffId }}>
       {(f) => (
         <>
           <TextField label="Phone" name="phone" required inputMode="numeric" defaultValue={f.val("phone", v.phone)} error={f.err("phone")} help="10-digit mobile. Changing it clears the verified mark unless you tick it again." />
@@ -60,7 +61,7 @@ export function ContactForm({ v, action }: { v: ProfileValues; action: Action })
 
 export function EmploymentForm({ v, action, designations, departments, staff, campuses, types }: { v: ProfileValues; action: Action; designations: Option[]; departments: Option[]; staff: Option[]; campuses: Option[]; types: string[] }) {
   return (
-    <FormDialog trigger="Edit" triggerSize="sm" title="Employment" action={action} submitLabel="Save employment" hidden={{ staffId: v.staffId }} wide>
+    <FormDialog trigger={<><Pencil size={15} aria-hidden="true" />Edit</>} triggerSize="sm" triggerVariant="ghost" title="Employment" action={action} submitLabel="Save employment" hidden={{ staffId: v.staffId }} wide>
       {(f) => (
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField label="Staff ID" name="staffCode" required defaultValue={f.val("staffCode", v.staffCode)} error={f.err("staffCode")} help="Unique in the school. It is checked before saving." />
@@ -79,7 +80,7 @@ export function EmploymentForm({ v, action, designations, departments, staff, ca
 export function EmergencyForm({ v, action }: { v: ProfileValues; action: Action }) {
   const rows = [0, 1, 2];
   return (
-    <FormDialog trigger={v.emergency.length ? "Edit" : "Add"} triggerSize="sm" title="Emergency contacts" action={action} submitLabel="Save contacts" hidden={{ staffId: v.staffId }} wide>
+    <FormDialog trigger={<><Pencil size={15} aria-hidden="true" />{v.emergency.length ? "Edit" : "Add"}</>} triggerSize="sm" triggerVariant="ghost" title="Emergency contacts" action={action} submitLabel="Save contacts" hidden={{ staffId: v.staffId }} wide>
       {(f) => (
         <>
           <p className="text-ink-2">In the order to call them. Leave a row empty to remove it.</p>
@@ -99,7 +100,7 @@ export function EmergencyForm({ v, action }: { v: ProfileValues; action: Action 
 
 export function RestrictedForm({ v, action }: { v: ProfileValues; action: Action }) {
   return (
-    <FormDialog trigger="Edit" triggerSize="sm" title="Restricted details" action={action} submitLabel="Save restricted details" hidden={{ staffId: v.staffId }} wide>
+    <FormDialog trigger={<><Pencil size={15} aria-hidden="true" />Edit</>} triggerSize="sm" triggerVariant="ghost" title="Restricted details" action={action} submitLabel="Save restricted details" hidden={{ staffId: v.staffId }} wide>
       {(f) => (
         <>
           <Alert tone="info">Numbers are stored encrypted. Leave a number empty to keep the one on file. Only the last 4 characters go into the history.</Alert>
@@ -122,7 +123,7 @@ export type ExtraField = { key: string; label: string; fieldType: string; requir
 
 export function ExtraFieldsForm({ staffId, fields, action }: { staffId: string; fields: ExtraField[]; action: Action }) {
   return (
-    <FormDialog trigger="Edit" triggerSize="sm" title="Extra fields" action={action} submitLabel="Save extra fields" hidden={{ staffId }}>
+    <FormDialog trigger={<><Pencil size={15} aria-hidden="true" />Edit</>} triggerSize="sm" triggerVariant="ghost" title="Extra fields" action={action} submitLabel="Save extra fields" hidden={{ staffId }}>
       {(f) => (
         <>
           {fields.map((x) => x.fieldType === "yesno" ? (
@@ -154,7 +155,7 @@ export function PhotoForm({ staffId, action, has }: { staffId: string; action: A
 
 export function StatusForm({ staffId, current, action, today }: { staffId: string; current: string; action: Action; today: string }) {
   return (
-    <FormDialog trigger="Change status" triggerSize="sm" title="Change status" action={action} submitLabel="Change status" hidden={{ staffId }}>
+    <FormDialog trigger="Change status" triggerSize="md" title="Change status" action={action} submitLabel="Change status" hidden={{ staffId }}>
       {(f) => (
         <>
           <SelectField label="New status" name="status" required defaultValue={f.val("status", current === "ACTIVE" ? "ON_LEAVE" : "ACTIVE")} error={f.err("status")}

@@ -3,6 +3,7 @@
 // Approve, reject, ask for a change or withdraw. On phones the buttons sit in
 // a bar at the bottom of the screen, within reach of the thumb.
 import { useState, useTransition } from "react";
+import * as I from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmButton } from "@/components/ui/confirm";
 import { Dialog } from "@/components/ui/dialog";
@@ -35,9 +36,9 @@ export function DecisionBar({ id, summary, canDecide, canWithdraw }: { id: strin
         <div className="flex flex-wrap gap-2">
           {canDecide && (
             <>
-              <Button className="flex-1 sm:flex-none" loading={pending && !asking} loadingText="Approving…" onClick={() => run("approve", null)}>Approve</Button>
-              <Button variant="secondary" className="flex-1 sm:flex-none" onClick={() => { setNote(""); setNoteError(null); setError(null); setAsking("ask-change"); }}>Ask for a change</Button>
-              <Button variant="danger-outline" className="flex-1 sm:flex-none" onClick={() => { setNote(""); setNoteError(null); setError(null); setAsking("reject"); }}>Reject</Button>
+              <Button icon={I.Check} className="flex-1 sm:flex-none" loading={pending && !asking} loadingText="Approving…" onClick={() => run("approve", null)}>Approve</Button>
+              <Button variant="secondary" icon={I.MessageSquareReply} className="flex-1 sm:flex-none" onClick={() => { setNote(""); setNoteError(null); setError(null); setAsking("ask-change"); }}>Ask for a change</Button>
+              <Button variant="danger-outline" icon={I.X} className="flex-1 sm:flex-none" onClick={() => { setNote(""); setNoteError(null); setError(null); setAsking("reject"); }}>Reject</Button>
             </>
           )}
           {canWithdraw && (

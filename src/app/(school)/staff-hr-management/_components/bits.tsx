@@ -1,61 +1,61 @@
-// Small display pieces for Staff & HR screens. Colours only through tokens.
+// Small display pieces for Staff & HR screens, in the approved design
+// (design/ui-prototype/src/kit.jsx). Colours only through tokens.
 import Link from "next/link";
-import { Badge, type BadgeTone } from "@/components/ui/badge";
+import { Download } from "lucide-react";
+import { Pill, type BadgeTone } from "@/components/ui/badge";
+import { Avatar as Face } from "@/components/ui/avatar";
+import { buttonClass } from "@/components/ui/button";
+import { cx } from "@/components/ui/cx";
 import { statusLabel } from "@/lib/staff/settings";
 
-export function Avatar({ name, photoFileId, size = "md" }: { name: string; photoFileId: string | null; size?: "sm" | "md" | "lg" }) {
-  const cls = size === "lg" ? "size-20 text-2xl" : size === "sm" ? "size-8 text-xs" : "size-10 text-sm";
-  const initials = name.split(/\s+/).map((p) => p[0]).slice(0, 2).join("").toUpperCase();
-  if (photoFileId) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={`/staff-hr-management/files/${photoFileId}`} alt="" className={`${cls} shrink-0 rounded-full border border-line object-cover`} />;
-  }
-  return <span aria-hidden="true" className={`${cls} grid shrink-0 place-items-center rounded-full bg-brand-soft font-semibold text-brand-text`}>{initials}</span>;
+/** The staff photo address; photos are served only to people who may open the record. */
+export const staffPhoto = (photoFileId: string | null) => (photoFileId ? `/staff-hr-management/files/${photoFileId}` : null);
+
+const SIZE = { sm: 38, md: 44, lg: 88 } as const;
+
+export function Avatar({ name, photoFileId, size = "md" }: { name: string; photoFileId: string | null; size?: keyof typeof SIZE | number }) {
+  return <Face name={name} src={staffPhoto(photoFileId)} size={typeof size === "number" ? size : SIZE[size]} />;
 }
 
-const STATUS_TONE: Record<string, BadgeTone> = { ACTIVE: "success", ON_LEAVE: "warning", SUSPENDED: "danger", RESIGNED: "neutral", RETIRED: "neutral", TERMINATED: "neutral" };
+const STATUS_TONE: Record<string, BadgeTone> = { ACTIVE: "ok", ON_LEAVE: "warn", SUSPENDED: "bad", RESIGNED: "neutral", RETIRED: "neutral", TERMINATED: "neutral" };
 
-export function StatusBadge({ status }: { status: string }) {
-  return <Badge tone={STATUS_TONE[status] ?? "neutral"}>{statusLabel(status)}</Badge>;
+export function StatusBadge({ status, className }: { status: string; className?: string }) {
+  return <Pill tone={STATUS_TONE[status] ?? "neutral"} dot className={className}>{statusLabel(status)}</Pill>;
 }
 
-export function ExportLinks({ href, label = "Export" }: { href: string; label?: string }) {
+export function ExportLinks({ href, label = "Export", className }: { href: string; label?: string; className?: string }) {
   const join = href.includes("?") ? "&" : "?";
   return (
-    <details className="relative">
-      <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1 rounded-lg border border-line-strong bg-surface px-4 font-medium hover:bg-surface-2">
-        {label} <span aria-hidden="true">▾</span>
+    <details className={cx("relative", className)}>
+      <summary className={buttonClass("secondary", "md", "list-none cursor-pointer [&::-webkit-details-marker]:hidden")}>
+        <Download size={17} aria-hidden="true" />{label}
       </summary>
-      <div className="absolute right-0 z-20 mt-1 w-44 overflow-hidden rounded-xl border border-line bg-surface shadow-pop">
+      <div className="absolute right-0 z-30 mt-1.5 w-48 overflow-hidden rounded-2xl border border-line bg-surface p-1.5 shadow-pop animate-rise">
         {[["xlsx", "Excel"], ["csv", "CSV"], ["pdf", "PDF"]].map(([f, l]) => (
-          <a key={f} href={`${href}${join}format=${f}`} className="block min-h-11 px-4 py-2.5 hover:bg-surface-2" download>{l}</a>
+          <a key={f} href={`${href}${join}format=${f}`} className="flex h-10 items-center rounded-xl px-3 text-[14px] font-medium hover:bg-sunken" download>{l}</a>
         ))}
       </div>
     </details>
   );
 }
 
+/** The views inside one page (?view=), drawn as the design's segmented control. */
 export function SubNav({ items, current }: { items: { key: string; label: string; href: string; count?: number }[]; current: string }) {
   return (
-    <nav aria-label="Views" className="mb-4 flex flex-wrap gap-2">
-      {items.map((i) => (
-        <Link key={i.key} href={i.href} aria-current={i.key === current ? "page" : undefined}
-          className={`inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-[15px] ${i.key === current ? "border-brand bg-brand-soft font-medium text-brand-text" : "border-line bg-surface text-ink-2 hover:text-ink"}`}>
-          {i.label}
-          {i.count !== undefined && i.count > 0 && <span className="rounded-full bg-surface-3 px-2 text-xs text-ink">{i.count}</span>}
-        </Link>
-      ))}
-    </nav>
+    <div className="-mx-4 mb-4 overflow-x-auto px-4 no-scrollbar md:mx-0 md:px-0">
+      <nav aria-label="Views" className="inline-flex gap-1 rounded-xl bg-sunken p-1">
+        {items.map((i) => {
+          const on = i.key === current;
+          return (
+            <Link key={i.key} href={i.href} scroll={false} aria-current={on ? "page" : undefined}
+              className={cx("inline-flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3.5 text-[13px] font-semibold transition",
+                on ? "bg-surface text-ink shadow-card" : "text-ink2 hover:text-ink")}>
+              {i.label}
+              {i.count !== undefined && i.count > 0 && <span className="text-[11.5px] tnum text-warn">{i.count.toLocaleString("en-IN")}</span>}
+            </Link>
+          );
+        })}
+      </nav>
+    </div>
   );
-}
-
-export function Stat({ label, value, href, tone }: { label: string; value: React.ReactNode; href?: string; tone?: "warning" | "danger" }) {
-  const body = (
-    <>
-      <p className="text-sm text-ink-2">{label}</p>
-      <p className={`mt-1 text-2xl font-semibold ${tone === "danger" ? "text-danger" : tone === "warning" ? "text-warn-text" : ""}`}>{value}</p>
-    </>
-  );
-  const cls = "block rounded-2xl border border-line bg-surface p-4 shadow-card";
-  return href ? <Link href={href} className={`${cls} hover:border-brand`}>{body}</Link> : <div className={cls}>{body}</div>;
 }

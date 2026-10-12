@@ -25,7 +25,14 @@ export type ProfileTabArgs = {
   searchParams?: Record<string, string | undefined>;
 };
 
-export type SummaryItem = { label: string; value: string; href?: string; tone?: "success" | "warning" | "danger" | "neutral" };
+export type SummaryItem = {
+  label: string;
+  value: string;
+  /** One small line under the value, e.g. "This year" or "Overdue". */
+  sub?: string;
+  href?: string;
+  tone?: "success" | "warning" | "danger" | "neutral";
+};
 
 export type ProfileTab = {
   key: string;

@@ -20,7 +20,7 @@ import { Stats } from "@/components/ui/stats";
 import { Chips } from "@/components/ui/chips";
 import { Row } from "@/components/ui/rows";
 import { HBars, Bars } from "@/components/ui/charts";
-import { DataList } from "@/components/ui/data-list";
+import { DataList } from "@/app/(school)/attendance-management/_components/data-list";
 import { UrlDate, UrlSelect } from "@/components/ui/url-controls";
 import { PeriodFilter } from "@/components/list/period-filter";
 import { MonthSelect } from "@/components/attendance/month-select";

@@ -17,7 +17,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { Stats } from "@/components/ui/stats";
 import { Chips } from "@/components/ui/chips";
 import { DL, Split, Col } from "@/components/ui/rows";
-import { DataList, Pager } from "@/components/ui/data-list";
+import { DataList, Pager } from "@/app/(school)/attendance-management/_components/data-list";
 import { PeriodFilter } from "@/components/list/period-filter";
 import { EmptyState } from "@/components/empty-state";
 import { ActionButton } from "../../../staff-hr-management/_components/forms";

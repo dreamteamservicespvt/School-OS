@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { formatDate, formatRupees } from "@/lib/format";
 import { PageHeader } from "@/components/shell/page-header";
+import { BackLink } from "@/components/ui/module-head";
 import { Card, CardBody, CardHeader, Detail } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
 import { ActionForm, FormArea, FormCheck, FormText } from "@/components/students/action-form";
@@ -31,6 +32,7 @@ export default async function AlumniRecordPage({ params }: { params: Promise<{ i
 
   return (
     <>
+      <BackLink href={`${BASE}/leaving/alumni`} label="Alumni" />
       <PageHeader title={me?.fullName ?? "Alumni record"} href={`${BASE}/leaving/alumni/${id}`} userId={current.user.id}>
         <ButtonLink href={`${BASE}/students/${a.studentId}`} size="sm">Student Profile</ButtonLink>
       </PageHeader>

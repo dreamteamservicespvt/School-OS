@@ -6,6 +6,7 @@ import { formatDate, formatDateTime } from "@/lib/format";
 import { hrPage, BASE } from "@/lib/staff/page";
 import { exitTypeLabel } from "@/lib/staff/exit";
 import { UUID_RE } from "@/lib/staff/act";
+import { BackLink } from "@/components/ui/module-head";
 import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardBody, CardHeader, Detail } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -46,6 +47,7 @@ export default async function ExitPage({ params }: Props) {
 
   return (
     <>
+      <BackLink href={`${BASE}/exit`} label="Staff Exit" />
       <PageHeader title={`${exitTypeLabel(exit.type)}: ${staff.fullName}`} href={`${BASE}/exit/${exit.id}`} userId={current.user.id} />
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <Badge tone={EXIT_STATUS[exit.status].tone}>{EXIT_STATUS[exit.status].label}</Badge>

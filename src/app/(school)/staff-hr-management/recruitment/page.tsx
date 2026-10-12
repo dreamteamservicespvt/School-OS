@@ -6,7 +6,7 @@ import { formatDate, formatDateTime, formatRupees } from "@/lib/format";
 import { staffPage, BASE } from "@/lib/staff/page";
 import { APPLICATION_STATUSES, INTERVIEW_OUTCOMES, label, OFFER_STATUSES, VACANCY_STATUSES } from "@/lib/staff/talent";
 import { isoDay } from "@/lib/staff/dates";
-import { PageHeader } from "@/components/shell/page-header";
+import { StaffHead } from "../_components/head";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
 import { ButtonLink, buttonClass } from "@/components/ui/button";
@@ -52,7 +52,7 @@ export default async function RecruitmentPage({ searchParams }: Props) {
 
   return (
     <>
-      <PageHeader title="Recruitment & Appraisal" href={`${BASE}/recruitment`} userId={current.user.id} />
+      <StaffHead page="Recruitment & Appraisal" href={`${BASE}/recruitment`} sub="Vacancies, interviews, appraisals and training" />
       {views.length > 1 && <SubNav current={view} items={views} />}
       {view === "vacancies" && <Vacancies />}
       {view === "interviews" && <Interviews />}

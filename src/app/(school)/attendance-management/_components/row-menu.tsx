@@ -10,5 +10,5 @@ const ICONS = { calendar: CalendarDays, edit: PencilLine, timer: Timer, view: Ey
 export type RowMenuItem = { icon: keyof typeof ICONS; label: string; href: string };
 
 export function RowMenu({ label, items }: { label: string; items: RowMenuItem[] }) {
-  return <MoreMenu size="sm" label={label} items={items.map((i) => ({ icon: ICONS[i.icon], label: i.label, href: i.href }))} />;
+  return <MoreMenu size="sm" label={label} items={items.map((i) => { const Ic = ICONS[i.icon]; return { icon: <Ic size={17} aria-hidden="true" />, label: i.label, href: i.href }; })} />;
 }

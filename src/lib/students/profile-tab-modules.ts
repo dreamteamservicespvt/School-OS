@@ -3,3 +3,4 @@
 //   import "@/lib/fees/profile-tab";
 import "server-only";
 import "@/lib/attendance/profile-tab";
+import "@/lib/exams/profile-tab";

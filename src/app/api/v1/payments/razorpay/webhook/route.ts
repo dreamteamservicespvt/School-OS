@@ -7,6 +7,8 @@ import { gatewayCredentials } from "@/lib/payments/gateways";
 import { verifyWebhookSignature } from "@/lib/payments/razorpay";
 import { readRazorpayEvent, runGatewayEvent } from "@/lib/payments/events";
 import { hitLimit } from "@/lib/rate-limit";
+// Modules register their gateway handlers (onGatewayEvent) next to their approval handlers.
+import "@/lib/approval-handlers";
 
 export const dynamic = "force-dynamic";
 

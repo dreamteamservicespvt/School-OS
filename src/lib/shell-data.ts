@@ -17,6 +17,16 @@ export function mayApprove(current: Current, waiting: number) {
   return waiting > 0 || current.roles.some((r) => r.key === "class-teacher") || MODULES.some((m) => current.permissions[m.key].change === "all");
 }
 
+/** "New" and the Dashboard's Quick actions: the person's roles' actions they may open and do, at most 6. */
+export function quickActionsFor(current: Pick<Current, "roles" | "menu" | "permissions">): Quick[] {
+  const visible = new Set<string>(current.menu.map((m) => m.key));
+  const seen = new Set<string>();
+  return current.roles
+    .flatMap((r) => QUICK_BY_ROLE[r.key ?? ""] ?? [])
+    .filter((i) => visible.has(i.module) && current.permissions[i.module].change !== "none" && !seen.has(i.label) && seen.add(i.label))
+    .slice(0, 6);
+}
+
 export async function shellData(current: Current) {
   const { unread, approvals, campus } = await withSchool(current.ctx, async (tx) => ({
     unread: await tx.notification.count({ where: { userLoginId: current.user.id, readAt: null } }),
@@ -45,11 +55,7 @@ export async function shellData(current: Current) {
   const roleKeys = current.roles.map((r) => r.key ?? "");
   const bottomFor = roleKeys.map((k) => BOTTOM_BY_ROLE[k]).find(Boolean) ?? BOTTOM_BY_ROLE.principal;
   const bottom: BarItem[] = bottomFor.filter((i) => visible.has(i.module));
-  const seenQuick = new Set<string>();
-  const quick: Quick[] = roleKeys
-    .flatMap((k) => QUICK_BY_ROLE[k] ?? [])
-    .filter((i) => visible.has(i.module) && current.permissions[i.module].change !== "none" && !seenQuick.has(i.label) && seenQuick.add(i.label))
-    .slice(0, 6);
+  const quick = quickActionsFor(current);
   // Where the school is, for the menu: the town from the main campus address.
   const parts = campus?.address?.split(",").map((x) => x.trim()).filter(Boolean) ?? [];
   const place = parts.length >= 3 ? parts.slice(-3, -1).join(", ") : parts[0] ?? campus?.name ?? "";

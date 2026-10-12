@@ -13,7 +13,7 @@ import { Card } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Chips } from "@/components/ui/chips";
-import { DataList, Pager } from "@/components/ui/data-list";
+import { DataList, Pager } from "@/app/(school)/attendance-management/_components/data-list";
 import { UrlSearch, UrlSelect } from "@/components/ui/url-controls";
 import { EmptyState } from "@/components/empty-state";
 import { AttHead } from "../../_components/att-head";

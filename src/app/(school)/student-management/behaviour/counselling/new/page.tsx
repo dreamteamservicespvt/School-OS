@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { PageHeader } from "@/components/shell/page-header";
+import { BackLink } from "@/components/ui/module-head";
 import { Card, CardBody } from "@/components/ui/card";
 import { ActionForm, FormArea, FormSelect } from "@/components/students/action-form";
 import { StudentPicker } from "@/components/students/student-picker";
@@ -25,6 +26,7 @@ export default async function ReferPage({ searchParams }: { searchParams: Promis
   });
   return (
     <>
+      <BackLink href={`${BASE}/behaviour/counselling`} label="Counselling" />
       <PageHeader title="Refer to counselling" href={`${BASE}/behaviour/counselling/new`} userId={current.user.id} />
       <p className="-mt-3 mb-5 max-w-prose text-ink-2">Opens a counselling case and tells the counsellor. What the counsellor writes stays private to them.</p>
       <Card className="max-w-2xl">

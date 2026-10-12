@@ -21,7 +21,7 @@ import { Banner } from "@/components/ui/banner";
 import { Stats } from "@/components/ui/stats";
 import { Chips } from "@/components/ui/chips";
 import { DL, Timeline } from "@/components/ui/rows";
-import { DataList, Pager } from "@/components/ui/data-list";
+import { DataList, Pager } from "@/app/(school)/attendance-management/_components/data-list";
 import { CloseSheetButton, UrlSearch, UrlSelect, UrlSheet } from "@/components/ui/url-controls";
 import { PeriodFilter } from "@/components/list/period-filter";
 import { EmptyState } from "@/components/empty-state";

@@ -37,7 +37,7 @@ export async function saveSettingsAction(section: string, _prev: FormState, fd: 
     const columns = fd.getAll("listColumns").map(String).filter((k) => LIST_COLUMNS.some((c) => c.key === k));
     if (columns.length === 0) errors.listColumns = "Choose at least one column for the Student List.";
     const docs = lines(fd.get("requiredDocuments"), 30);
-    change = { admissionPrefix: prefix, admissionUseYear: on(fd, "admissionUseYear"), admissionPadding: padding, admissionRestartYear: on(fd, "admissionRestartYear"), requiredFields: required, listColumns: columns, requiredDocuments: docs, studentLoginsOn: on(fd, "studentLoginsOn") };
+    change = { admissionPrefix: prefix, admissionUseYear: on(fd, "admissionUseYear"), admissionPadding: padding, admissionRestartYear: on(fd, "admissionRestartYear"), requiredFields: required, listColumns: columns, requiredDocuments: docs, studentLoginsOn: on(fd, "studentLoginsOn"), smartImportOn: on(fd, "smartImportOn") };
   } else if (section === "identifiers") {
     const types: IdentifierType[] = [];
     const count = Math.min(40, Number(fd.get("rows") ?? 0) || 0);
@@ -69,7 +69,7 @@ export async function saveSettingsAction(section: string, _prev: FormState, fd: 
     const approval = fd.getAll("approvalCertificates").map(String).filter((t) => types.includes(t as CertificateType) && t !== "TC");
     const sigs: Record<string, string> = {};
     for (const t of types) { const v = String(fd.get(`sig_${t}`) ?? ""); if (isId(v)) sigs[t] = v; }
-    change = { approvalCertificates: approval, defaultSignatories: sigs, qrOn: on(fd, "qrOn"), migrationOn: on(fd, "migrationOn") };
+    change = { approvalCertificates: approval, defaultSignatories: sigs, qrOn: on(fd, "qrOn"), migrationOn: on(fd, "migrationOn"), digiLockerOn: on(fd, "digiLockerOn") };
   } else if (section === "id-cards") {
     const fields = fd.getAll("idCardFields").map(String).filter((k) => ID_CARD_FIELDS.some((f) => f.key === k));
     const per = Number(fd.get("idCardsPerPage"));

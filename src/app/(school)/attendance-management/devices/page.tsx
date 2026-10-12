@@ -18,7 +18,7 @@ import { Banner } from "@/components/ui/banner";
 import { ButtonLink } from "@/components/ui/button";
 import { Stats } from "@/components/ui/stats";
 import { Chips } from "@/components/ui/chips";
-import { DataList } from "@/components/ui/data-list";
+import { DataList } from "@/app/(school)/attendance-management/_components/data-list";
 import { CloseSheetButton, UrlSearch, UrlSheet } from "@/components/ui/url-controls";
 import { EmptyState } from "@/components/empty-state";
 import { ActionButton } from "../../staff-hr-management/_components/forms";

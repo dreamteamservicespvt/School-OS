@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { PageHeader } from "@/components/shell/page-header";
+import { BackLink } from "@/components/ui/module-head";
 import { Card, CardBody } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
 import { ActionForm, FormArea, FormCheck, FormSelect } from "@/components/students/action-form";
@@ -33,7 +34,7 @@ export default async function LinkSettingsPage({ params }: { params: Promise<{ i
   const back = `${BASE}/students/${id}`;
   return (
     <>
-      <nav aria-label="Breadcrumb" className="mb-2 text-sm text-ink-2"><Link href={back} className="hover:underline">{data.student.fullName}</Link> / {l.guardian.name}</nav>
+      <BackLink href={back} label={data.student.fullName} sub={l.guardian.name} />
       <PageHeader title={`${l.guardian.name} and ${data.student.fullName}`} href={`${back}/parents/${linkId}`} userId={current.user.id} />
       <Card className="max-w-2xl">
         <CardBody>

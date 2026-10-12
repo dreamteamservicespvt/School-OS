@@ -5,6 +5,7 @@ import { withSchool } from "@/lib/db";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { canDecide } from "@/lib/approvals";
 import { PageHeader } from "@/components/shell/page-header";
+import { BackLink } from "@/components/ui/module-head";
 import { Card, CardBody, CardHeader, Detail } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -47,6 +48,7 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
 
   return (
     <>
+      <BackLink href={`${BASE}/certificates`} label="Certificates & ID Cards" />
       <PageHeader title={`${label}${cert.number ? ` ${cert.number}` : ""}`} href={`${BASE}/certificates/${id}`} userId={current.user.id}>
         {printable && <ButtonLink href={pdf} target="_blank" variant="primary" prefetch={false}>{cert.status === "ISSUED" ? "Print / download PDF" : "View PDF"}</ButtonLink>}
       </PageHeader>

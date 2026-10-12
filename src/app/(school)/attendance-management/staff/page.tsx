@@ -26,7 +26,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { Stats } from "@/components/ui/stats";
 import { Chips } from "@/components/ui/chips";
 import { DL, Split, Col } from "@/components/ui/rows";
-import { DataList } from "@/components/ui/data-list";
+import { DataList } from "@/app/(school)/attendance-management/_components/data-list";
 import { RowMenu, type RowMenuItem } from "../_components/row-menu";
 import { CloseSheetButton, UrlDate, UrlSearch, UrlSelect, UrlSheet } from "@/components/ui/url-controls";
 import { PeriodFilter } from "@/components/list/period-filter";

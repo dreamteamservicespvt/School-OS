@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { PageHeader } from "@/components/shell/page-header";
+import { BackLink } from "@/components/ui/module-head";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/empty-state";
 import { buttonClass } from "@/components/ui/button";
@@ -44,7 +45,7 @@ export default async function LinkGuardianPage({ searchParams }: { searchParams:
   const back = `${BASE}/students/${data.student.id}`;
   return (
     <>
-      <nav aria-label="Breadcrumb" className="mb-2 text-sm text-ink-2"><Link href={back} className="hover:underline">{data.student.fullName}</Link> / Link existing parent</nav>
+      <BackLink href={back} label={data.student.fullName} sub="Link existing parent" />
       <PageHeader title="Link existing parent" href={`${BASE}/guardians/link`} userId={current.user.id} />
       <div className="grid max-w-4xl gap-4">
         <Card>

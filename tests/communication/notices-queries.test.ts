@@ -58,8 +58,15 @@ describe("notices", () => {
     expect(saved.outcome).toBe("scheduled");
     await withSchool(s.ctx, (tx) => tx.backgroundJob.updateMany({ where: { schoolId: s.school.id, kind: "notice:publish" }, data: { runAfter: new Date(Date.now() - 1000) } }));
     await withSchool(s.ctx, (tx) => tx.notice.update({ where: { id: saved.notice.id }, data: { publishAt: new Date(Date.now() - 1000) } }));
-    await runDueJobs(20);
-    const n = await withSchool(s.ctx, (tx) => tx.notice.findUniqueOrThrow({ where: { id: saved.notice.id } }));
+    // Run every due job, not just the oldest few: other tests' due jobs share the queue.
+    // Another test file may have claimed this one, so wait until it has finished.
+    for (let i = 0; i < 100; i++) {
+      const ran = await runDueJobs(50);
+      const job = await withSchool(s.ctx, (tx) => tx.backgroundJob.findFirst({ where: { schoolId: s.school.id, kind: "notice:publish" }, select: { status: true } }));
+      if (job?.status === "done") break;
+      if (ran === 0) await new Promise((r) => setTimeout(r, 100));
+    }
+    const n =await withSchool(s.ctx, (tx) => tx.notice.findUniqueOrThrow({ where: { id: saved.notice.id } }));
     expect(n.status).toBe("PUBLISHED");
   });
 

@@ -97,7 +97,9 @@ function genderOf(v: string) {
 const CATEGORY_WORDS: Record<string, string> = { general: "General", gen: "General", obc: "OBC", sc: "SC", st: "ST", ews: "EWS" };
 
 function makeKind(key: string, label: string, columns: ImportColumn[], opts: ImportOptions): ImportKind<Value> {
-  const sectionCache = new Map<string, string | null>();
+  // Class lookups are remembered for one check of one file only (`seen` is new
+  // each time), so a class added since, or another school, never gets a stale answer.
+  const caches = new WeakMap<Set<string>, Map<string, string | null>>();
   return {
     key,
     label,
@@ -124,7 +126,9 @@ function makeKind(key: string, label: string, columns: ImportColumn[], opts: Imp
       // Class and section: the row's own, or the one chosen on the screen.
       let sectionId = opts.sectionId;
       if (row.className) {
-        const k = `${row.className}|${row.sectionName}`;
+        let sectionCache = caches.get(seen);
+        if (!sectionCache) caches.set(seen, (sectionCache = new Map()));
+        const k = `${ctx.schoolId}|${row.className}|${row.sectionName}`;
         if (!sectionCache.has(k)) {
           const year = await currentYear(tx, ctx);
           const cls = row.className.trim();

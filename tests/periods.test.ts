@@ -27,19 +27,59 @@ describe("date periods", () => {
     expect(r("month")).toMatchObject({ from: "2026-10-01", to: "2026-10-12" });
     expect(r("lastmonth")).toMatchObject({ from: "2026-09-01", to: "2026-09-30" });
     expect(r("quarter")).toMatchObject({ from: "2026-10-01" });
-    expect(r("year")).toMatchObject({ from: "2026-01-01" });
+    expect(r("year")).toMatchObject({ period: "calyear", from: "2026-01-01", to: "2026-12-31" });
     expect(r("lastyear")).toMatchObject({ from: "2025-01-01", to: "2025-12-31" });
-    expect(r("fy")).toMatchObject({ from: "2026-04-01", to: "2026-10-12" });
+    expect(r("fy")).toMatchObject({ period: "finyear", from: "2026-04-01", to: "2027-03-31" });
     expect(r("lastfy")).toMatchObject({ from: "2025-04-01", to: "2026-03-31" });
     expect(periodRange({ period: "lastmonth" }, { timeZone: "Asia/Kolkata", now: new Date("2026-01-15T06:00:00Z") })).toMatchObject({ from: "2025-12-01", to: "2025-12-31" });
   });
 
   it("take any From and To dates, swapped if typed backwards, and ignore bad ones", () => {
-    expect(periodRange({ from: "2026-09-01", to: "2026-09-15" }, opts)).toMatchObject({ period: "custom", from: "2026-09-01", to: "2026-09-15", label: "1 – 15 Sep 2026" });
+    expect(periodRange({ from: "2026-09-01", to: "2026-09-15" }, opts)).toMatchObject({ period: "custom", from: "2026-09-01", to: "2026-09-15", label: "Custom dates" });
     expect(periodRange({ period: "custom", from: "2026-09-15", to: "2026-09-01" }, opts)).toMatchObject({ from: "2026-09-01", to: "2026-09-15" });
     expect(periodRange({ period: "custom", from: "2026-02-30" }, opts)).toBeNull();
     expect(periodRange({ period: "nonsense" }, opts)).toBeNull();
-    expect(periodRange({}, { ...opts, fallback: "month" })).toMatchObject({ period: "month" });
+    expect(periodRange({}, { ...opts, fallback: "thismonth" })).toMatchObject({ period: "thismonth" });
+    expect(periodRange({ period: "nonsense" }, { ...opts, fallback: "today" })).toMatchObject({ period: "today" });
+  });
+
+  it("read the old words for the same periods", () => {
+    expect(r("2d")).toMatchObject({ period: "last2" });
+    expect(r("week")).toMatchObject({ period: "thisweek" });
+    expect(r("month")).toMatchObject({ period: "thismonth" });
+    expect(r("lastfy")).toMatchObject({ period: "lastfinyear" });
+  });
+
+  it("know the approved design's ranges: 15 days, 3 and 6 months, coming up", () => {
+    expect(r("last15")).toMatchObject({ from: "2026-09-28", to: "2026-10-12", label: "Last 15 days" });
+    expect(r("last3m")).toMatchObject({ from: "2026-08-01", to: "2026-10-12" });
+    expect(r("last6m")).toMatchObject({ from: "2026-05-01", to: "2026-10-12" });
+    expect(r("tomorrow")).toMatchObject({ from: "2026-10-13", to: "2026-10-13" });
+    expect(r("next7")).toMatchObject({ from: "2026-10-12", to: "2026-10-18" });
+    expect(r("nextmonth")).toMatchObject({ from: "2026-11-01", to: "2026-11-30" });
+  });
+
+  it("show one whole month", () => {
+    expect(r("month", { from: "2025-06" })).toMatchObject({ period: "month", from: "2025-06-01", to: "2025-06-30", label: "June 2025", month: "2025-06" });
+    expect(r("m-2024-02")).toMatchObject({ from: "2024-02-01", to: "2024-02-29" });
+    expect(r("month", { from: "2025-13" })).toBeNull();
+  });
+
+  it("use the school's own terms and academic years", () => {
+    expect(r("acyear")).toMatchObject({ from: "2026-06-01", to: "2027-03-31" });
+    expect(r("lastacyear")).toMatchObject({ from: "2025-06-01", to: "2026-03-31" });
+    expect(r("term")).toBeNull();
+    const calendar = {
+      year: { name: "2026–27", from: "2026-04-01", to: "2027-03-31" },
+      lastYear: { name: "2025–26", from: "2025-04-01", to: "2026-03-31" },
+      term: { name: "Term 1", from: "2026-04-01", to: "2026-10-15" },
+      nextTerm: { name: "Term 2", from: "2026-10-16", to: "2027-03-31" },
+    };
+    const c = (period: string) => periodRange({ period }, { ...opts, calendar });
+    expect(c("acyear")).toMatchObject({ from: "2026-04-01" });
+    expect(c("lastacyear")).toMatchObject({ to: "2026-03-31" });
+    expect(c("term")).toMatchObject({ from: "2026-04-01", to: "2026-10-15", label: "This term" });
+    expect(c("nextterm")).toMatchObject({ from: "2026-10-16", label: "Term 2" });
   });
 
   it("turn days into moments in the school's zone", () => {

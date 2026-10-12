@@ -277,7 +277,8 @@ export async function seedAttendance(s: SeedSchool) {
     await autoMatch(tx, actx, aAccess, device.id);
     await reprocessRejected(tx, actx, aAccess, device.id, at(firstDay, "18:05"), TZ);
     if (dayOn) {
-      const t = now < at(today, "08:20") ? at(today, "08:20") : now;
+      // Received after the morning punches, even when the seed runs before school.
+      const t = now < at(today, "09:30") ? at(today, "09:30") : now;
       const list = [...deviceStaff].filter((_, i) => i % 9 !== 4).map((id, i) => ({ punchNo: `P${isoDay(today)}-${i}`, userNo: staff.find((x) => x.id === id)!.staffCode, time: new Date(at(today, "08:12").getTime() + i * 53000 + (i % 7 === 3 ? 40 * 60000 : 0)).toISOString() }));
       list.push({ punchNo: `P${isoDay(today)}-u1`, userNo: "1043", time: at(today, "08:24").toISOString() }, { punchNo: `P${isoDay(today)}-r1`, userNo: list[0]?.userNo ?? "1", time: new Date(new Date(list[0]?.time ?? t).getTime() + 60000).toISOString() });
       await receivePunches(tx, actx, device, list, t, TZ);

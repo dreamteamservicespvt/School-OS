@@ -45,16 +45,16 @@ describe("Attendance Settings on the server", () => {
     for (const user of [f.teacherA, f.officeLogin, f.hrLogin]) {
       who.userId = user.id;
       who.schoolId = f.school.id;
-      const r = await saveLateRulesAction(undefined, lateRules("12:30"));
+      const r = await saveLateRulesAction(null, lateRules("12:30"));
       expect(r?.ok).toBe(false);
       expect(r?.message).toMatch(/Only the School Admin or the Principal|not allowed|permission/i);
       const feature = new FormData();
       feature.set("key", "attendance-overtime");
       feature.set("on", "1");
-      expect((await saveFeatureAction(undefined, feature))?.ok).toBe(false);
+      expect((await saveFeatureAction(null, feature))?.ok).toBe(false);
       const device = new FormData();
       for (const [k, v] of Object.entries({ name: "Mine", serialNo: "X-9", campusId: f.school.campus.id, deviceType: "face", allowedUsers: "both" })) device.set(k, v);
-      expect((await addDeviceAction(undefined, device))?.ok).toBe(false);
+      expect((await addDeviceAction(null, device))?.ok).toBe(false);
     }
     expect(await lockNow()).toBe(before);
     const devices = await withSchool({ schoolId: f.school.id, userId: null }, (tx) => tx.attendanceDevice.count());
@@ -64,7 +64,7 @@ describe("Attendance Settings on the server", () => {
   it("lets the Principal change the lock time", async () => {
     who.userId = f.principal.id;
     who.schoolId = f.school.id;
-    const r = await saveLateRulesAction(undefined, lateRules("11:30"));
+    const r = await saveLateRulesAction(null, lateRules("11:30"));
     expect(r?.message).toBeTruthy();
     expect(await lockNow()).toBe("11:30");
   });

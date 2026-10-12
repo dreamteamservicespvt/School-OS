@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { requireCurrent } from "@/lib/current";
 import { withSchool } from "@/lib/db";
 import { attendanceFeatures, attendanceSettings } from "@/lib/attendance/settings";
+import { ScanFace } from "lucide-react";
+import { formatDate } from "@/lib/format";
+import { Card } from "@/components/ui/card";
 import { CheckInPanel } from "./check-in-panel";
 
 export const metadata: Metadata = { title: "Check-in" };
@@ -22,9 +25,10 @@ export default async function CheckInPage({ searchParams }: Props) {
     return Boolean(staff) && settings.staffMethods.includes("mobile");
   });
   return (
-    <div className="mx-auto max-w-md py-6">
-      <h1 className="mb-1 text-center text-2xl font-semibold">Check-in</h1>
-      <p className="mb-6 text-center text-ink-2">{current.school.name}</p>
+    <Card className="mx-auto mt-4 max-w-md px-5 py-7 sm:px-8">
+      <span aria-hidden className="mx-auto mb-3 grid size-14 place-items-center rounded-2xl bg-brand-soft text-brand"><ScanFace size={28} /></span>
+      <h1 className="mb-1 text-center font-display text-[24px] font-semibold">Check-in</h1>
+      <p className="mb-6 text-center text-[14px] text-ink3">{current.school.name} · {formatDate(new Date(), current.school.timeZone ?? "Asia/Kolkata")}</p>
       {typeof sp.q === "string" && !code ? (
         <div role="alert" className="rounded-2xl border border-danger/30 bg-danger-soft px-5 py-8 text-center text-danger">
           <p className="text-xl font-semibold">This QR is not valid</p>
@@ -33,6 +37,6 @@ export default async function CheckInPage({ searchParams }: Props) {
       ) : (
         <CheckInPanel code={code} schoolId={schoolId} mobile={mobile} />
       )}
-    </div>
+    </Card>
   );
 }

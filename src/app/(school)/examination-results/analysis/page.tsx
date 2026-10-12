@@ -144,7 +144,7 @@ export default async function AnalysisPage({ searchParams }: { searchParams: Sea
   const subjectName = data.subjects.find((x) => x.subjectId === subjectId)?.subject;
   const topGrades = o.grades.filter((g) => /^(A1|A2|A\+|A|1|2)$/.test(g.grade)).reduce((n, g) => n + g.count, 0);
   const stats: StatItem[] = [
-    { label: "Students", value: o.students, sub: a.sections.length === 1 ? a.sections[0].label : `${a.sections.length} sections`, icon: Users, href: link({ drill: "all" }) },
+    { label: "Students", value: o.students, sub: a.classRows.length === 1 ? a.classRows[0].section : `${a.classRows.length} sections`, icon: Users, href: link({ drill: "all" }) },
     { label: "Average", value: pctTxt(o.average), sub: subjectName ?? "All subjects", icon: Calculator },
     { label: "Pass", value: pctTxt(o.passPercent), sub: `${o.passed} of ${o.students}`, tone: "ok", icon: CircleCheck, href: link({ drill: "pass" }) },
     { label: "Top grades", value: topGrades, sub: "A1, A2 or the best grades", tone: "brand", icon: Award, href: link({ drill: "top" }) },

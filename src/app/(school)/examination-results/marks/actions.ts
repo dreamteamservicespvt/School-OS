@@ -3,7 +3,7 @@
 import type { FormState } from "@/lib/forms";
 import { plural } from "@/lib/academic/common";
 import { ExamRuleError } from "@/lib/exams/common";
-import { loadPaper, reopenPaper, requestModeration, saveMarks, submitPaper, lockPapers, type MarkValue } from "@/lib/exams/marks";
+import { loadPaper, remindTeachers, reopenPaper, requestModeration, saveMarks, submitPaper, lockPapers, type MarkValue } from "@/lib/exams/marks";
 import { teachesPaper } from "@/lib/exams/scope";
 import { readSheet } from "@/lib/importer";
 import { writeAudit } from "@/lib/audit";
@@ -74,7 +74,8 @@ export async function requestChangeAction(_prev: FormState, fd: FormData): Promi
   return act("edit", async ({ tx, current, scope }) => {
     const parts: Record<string, number | null> = {};
     for (const [k, v] of fd.entries()) if (k.startsWith("part:") && typeof v === "string") parts[k.slice(5)] = v.trim() === "" ? null : Number(v);
-    const value: MarkValue = { parts, absent: fd.get("absent") === "on", grade: str(fd, "grade") || null, remark: null };
+    const medical = fd.get("medical") === "on";
+    const value: MarkValue = { parts, absent: medical || fd.get("absent") === "on", medical, grade: str(fd, "grade") || null, remark: null };
     const r = await requestModeration(tx, current.ctx, scope, { entryId: str(fd, "entryId"), sectionId: str(fd, "sectionId"), studentId: str(fd, "studentId"), value, reason: str(fd, "reason") });
     void r;
     return { flash: { message: "Change requested. The marks change when it is approved; you will be told." } };
@@ -130,4 +131,15 @@ export async function readMarksSheet(fd: FormData): Promise<ImportResult> {
   }, { needs: "any", revalidate: [] });
   if (!state?.ok) return { ok: false, message: state?.message ?? "The file could not be read." };
   return result;
+}
+
+/** Reminds the teachers of the chosen papers ("entryId|sectionId") that are not submitted. */
+export async function remindTeachersAction(keys: string[]) {
+  return actSimple("edit", async ({ tx, current, scope, yearId }) => {
+    if (!yearId) throw new ExamRuleError("There is no academic year.");
+    const list = (Array.isArray(keys) ? keys : []).map(String).filter((k) => /^[0-9a-f-]{36}\|[0-9a-f-]{36}$/i.test(k)).slice(0, 1000);
+    if (!list.length) throw new ExamRuleError("Choose the papers first.");
+    const r = await remindTeachers(tx, current.ctx, scope, yearId, list);
+    return { flash: { message: `Reminder sent to ${plural(r.teachers, "teacher")} about ${plural(r.papers, "paper")}.${r.noLogin ? ` ${plural(r.noLogin, "paper")} ${r.noLogin === 1 ? "has" : "have"} no teacher who can sign in; tell them in person.` : ""}` } };
+  }, { needs: "manage", revalidate: [`${BASE}/marks`] });
 }

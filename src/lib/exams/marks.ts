@@ -253,6 +253,8 @@ export async function decideModeration(tx: Tx, ctx: SchoolContext, moderationId:
 export type PaperRow = {
   entryId: string; sectionId: string; examId: string; examTitle: string; sectionLabel: string; subjectName: string; date: Date; due: Date | null;
   status: MarksPaperStatus; done: number; of: number; gradeOnly: boolean; waiting: number;
+  /** Subject teachers from Teacher Allocation. */
+  teachers: { name: string; userId: string | null }[];
 };
 
 /** The papers a person enters marks for (their own allocations), or every paper for full reach. */
@@ -267,12 +269,14 @@ export async function papersFor(tx: Tx, ctx: SchoolContext, scope: ExamScope, ye
     pairs.push({ exam, entry, section });
   }
   if (pairs.length === 0) return [];
-  const [papers, marks, roster, waiting] = await Promise.all([
+  const [papers, marks, roster, waiting, allocs] = await Promise.all([
     tx.marksPaper.findMany({ where: { entryId: { in: pairs.map((p) => p.entry.id) } } }),
     tx.marks.findMany({ where: { entryId: { in: pairs.map((p) => p.entry.id) } }, select: { entryId: true, sectionId: true, studentId: true, absent: true, total: true, grade: true } }),
     sectionStudents(tx, [...new Set(pairs.map((p) => p.section.id))], yearId),
     tx.marksModeration.groupBy({ by: ["entryId"], where: { status: "waiting", entryId: { in: pairs.map((p) => p.entry.id) } }, _count: true }),
+    tx.teacherAllocation.findMany({ where: { academicYearId: yearId, archivedAt: null, sectionId: { in: [...new Set(pairs.map((p) => p.section.id))] } }, select: { sectionId: true, subjectId: true, staffId: true } }),
   ]);
+  const staff = await tx.staff.findMany({ where: { id: { in: [...new Set(allocs.map((a) => a.staffId))] } }, select: { id: true, fullName: true, userLoginId: true } });
   const rows: PaperRow[] = pairs.map(({ exam, entry, section }) => {
     const subject = subjects.find((s) => s.id === entry.subjectId)!;
     const students = sitters(roster.filter((r) => r.sectionId === section.id), subject);
@@ -282,12 +286,44 @@ export async function papersFor(tx: Tx, ctx: SchoolContext, scope: ExamScope, ye
       entryId: entry.id, sectionId: section.id, examId: exam.id, examTitle: exam.title, sectionLabel: `${section.schoolClass.name} ${section.name}`, subjectName: subject.name,
       date: entry.date, due: entry.marksDueDate, status: papers.find((p) => p.entryId === entry.id && p.sectionId === section.id)?.status ?? "NOT_STARTED", done, of: students.length, gradeOnly: subject.gradeOnly,
       waiting: waiting.find((w) => w.entryId === entry.id)?._count ?? 0,
+      teachers: allocs.filter((a) => a.sectionId === section.id && a.subjectId === entry.subjectId).flatMap((a) => staff.filter((x) => x.id === a.staffId).map((x) => ({ name: x.fullName, userId: x.userLoginId }))),
     };
   });
   const q = f.q?.toLowerCase();
   return rows
     .filter((r) => (!f.status || r.status === f.status) && (!q || `${r.subjectName} ${r.sectionLabel} ${r.examTitle}`.toLowerCase().includes(q)))
     .sort((a, b) => a.date.getTime() - b.date.getTime() || a.sectionLabel.localeCompare(b.sectionLabel, undefined, { numeric: true }));
+}
+
+/**
+ * Reminds subject teachers of the papers they have not submitted (08 §5). One
+ * message per teacher listing their own papers. Full reach only; logged.
+ */
+export async function remindTeachers(tx: Tx, ctx: SchoolContext, scope: ExamScope, yearId: string, keys: string[]) {
+  if (!scope.manage) throw new ExamRuleError("Only the Exam In-charge or the Principal can remind teachers.");
+  const want = new Set(keys);
+  const rows = (await papersFor(tx, ctx, scope, yearId, {})).filter((r) => want.has(`${r.entryId}|${r.sectionId}`) && (r.status === "NOT_STARTED" || r.status === "IN_PROGRESS"));
+  if (rows.length === 0) throw new ExamRuleError("Every chosen paper is already submitted. Nobody needs a reminder.");
+  const byTeacher = new Map<string, PaperRow[]>();
+  let noLogin = 0;
+  for (const r of rows) {
+    const ids = r.teachers.map((t) => t.userId).filter((x): x is string => Boolean(x));
+    if (ids.length === 0) noLogin++;
+    for (const id of ids) byTeacher.set(id, [...(byTeacher.get(id) ?? []), r]);
+  }
+  const day = new Date().toISOString().slice(0, 10);
+  for (const [to, list] of byTeacher) {
+    const first = list[0];
+    const due = list.map((r) => r.due).filter((d): d is Date => Boolean(d)).sort((a, b) => a.getTime() - b.getTime())[0];
+    await notify(tx, ctx, {
+      to, type: "marks-due",
+      text: `Marks pending: ${list.map((r) => `${r.subjectName} ${r.sectionLabel} (${r.done} of ${r.of})`).join(", ")}.${due ? ` Due ${formatDate(due)}.` : ""}`,
+      link: list.length === 1 ? `/examination-results/marks/${first.entryId}/${first.sectionId}` : "/examination-results/marks",
+      groupKey: `marks-remind:${to}:${day}`,
+    });
+  }
+  await writeAudit(tx, ctx, { action: "reminded", recordType: "Marks Paper", recordId: rows[0].entryId, after: { papers: rows.length, teachers: byTeacher.size } });
+  return { teachers: byTeacher.size, papers: rows.length, noLogin };
 }
 
 /** Moderation requests with the old and new marks, for the moderation report (08 §7). */

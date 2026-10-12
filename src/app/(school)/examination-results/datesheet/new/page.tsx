@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { EmptyState } from "@/components/empty-state";
 import { ButtonLink } from "@/components/ui/button";
 import { examPage, type SearchParams } from "../../_lib/page";
-import { NoYear, PageTop } from "../../_components/page-top";
+import { BackLink, NoYear, PageTop } from "../../_components/page-top";
 import { datesheetFormData } from "../form-data";
 import { DatesheetForm } from "../datesheet-form";
 
@@ -28,8 +28,11 @@ export default async function NewDatesheetPage({ searchParams }: { searchParams:
   }
   return (
     <>
-      <PageTop page={page} title="Add datesheet" back={{ href: "/examination-results/datesheet", label: "Datesheet" }} href="/examination-results/datesheet/new" showYear={false} />
-      <p className="-mt-3 mb-5 text-ink-2">For {data.yearName}. Creating the datesheet creates the exam. It is saved as a draft until you publish it.</p>
+      <BackLink page={page} href="/examination-results/datesheet" label="Datesheet" sub="Add datesheet" />
+      <div className="mb-5">
+        <h1 className="font-display text-[26px] md:text-[30px] font-semibold tracking-tight leading-tight">Add datesheet</h1>
+        <p className="text-[14px] text-ink2 mt-1">For {data.yearName}. Creating the datesheet creates the exam. It stays a draft until you publish it.</p>
+      </div>
       <DatesheetForm data={data} />
     </>
   );

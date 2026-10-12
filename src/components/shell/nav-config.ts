@@ -52,10 +52,10 @@ const b = (href: string, module: ModuleKey, label: string, icon: IconName, big?:
 const HOME = b("/dashboard", "dashboard", "Home", "House");
 
 export const BOTTOM_BY_ROLE: Record<string, BarItem[]> = {
-  principal: [HOME, b("/student-management", "student-management", "Students", "GraduationCap"), b("/fee-management", "fee-management", "Collect", "IndianRupee", true), b("/attendance-management", "attendance-management", "Attendance", "CalendarCheck2")],
-  "school-admin": [HOME, b("/student-management", "student-management", "Students", "GraduationCap"), b("/fee-management", "fee-management", "Collect", "IndianRupee", true), b("/attendance-management", "attendance-management", "Attendance", "CalendarCheck2")],
+  principal: [HOME, b("/student-management", "student-management", "Students", "GraduationCap"), b("/fee-management/collect", "fee-management", "Collect", "IndianRupee", true), b("/attendance-management", "attendance-management", "Attendance", "CalendarCheck2")],
+  "school-admin": [HOME, b("/student-management", "student-management", "Students", "GraduationCap"), b("/fee-management/collect", "fee-management", "Collect", "IndianRupee", true), b("/attendance-management", "attendance-management", "Attendance", "CalendarCheck2")],
   "vice-principal": [HOME, b("/student-management", "student-management", "Students", "GraduationCap"), b("/attendance-management", "attendance-management", "Attendance", "CalendarCheck2", true), b("/examination-results", "examination-results", "Exams", "ClipboardCheck")],
-  accountant: [HOME, b("/fee-management/defaulters", "fee-management", "Defaulters", "UserX"), b("/fee-management", "fee-management", "Collect", "IndianRupee", true), b("/finance-management", "finance-management", "Day Book", "BookOpen")],
+  accountant: [HOME, b("/fee-management/defaulters", "fee-management", "Defaulters", "UserX"), b("/fee-management/collect", "fee-management", "Collect", "IndianRupee", true), b("/finance-management", "finance-management", "Day Book", "BookOpen")],
   teacher: [HOME, b("/academic-management/time-table", "academic-management", "Time Table", "CalendarRange"), b("/attendance-management", "attendance-management", "Attendance", "CalendarCheck2", true), b("/homework-learning", "homework-learning", "Homework", "NotebookPen")],
   "class-teacher": [HOME, b("/student-management", "student-management", "My class", "GraduationCap"), b("/attendance-management", "attendance-management", "Attendance", "CalendarCheck2", true), b("/examination-results/marks", "examination-results", "Marks", "ClipboardCheck")],
   receptionist: [HOME, b("/front-office/visitors", "front-office", "Visitors", "IdCard"), b("/front-office", "front-office", "Desk", "DoorOpen", true), b("/front-office/pickup", "front-office", "Pickup", "Users")],
@@ -77,12 +77,12 @@ export type Quick = { href: string; module: ModuleKey; label: string; sub: strin
 const q = (href: string, module: ModuleKey, label: string, sub: string, icon: IconName): Quick => ({ href, module, label, sub, icon });
 
 const LEADER: Quick[] = [
-  q("/fee-management", "fee-management", "Collect fee", "Find a student and take payment", "IndianRupee"),
+  q("/fee-management/collect", "fee-management", "Collect fee", "Find a student and take payment", "IndianRupee"),
   q("/attendance-management", "attendance-management", "Take attendance", "Mark today's register for a section", "CalendarCheck2"),
   q("/student-management/new", "student-management", "Add student", "Name, class and parent phone is enough", "UserPlus"),
   q("/communication/send", "communication", "Send message", "WhatsApp, SMS or notice to parents", "Send"),
   q("/admission-management", "admission-management", "Add enquiry", "A parent asked about admission", "PhoneIncoming"),
-  q("/finance-management/expenses", "finance-management", "Record expense", "Bills, purchases, petty cash", "ReceiptText"),
+  q("/finance-management/expenses?do=new", "finance-management", "Record expense", "Bills, purchases, petty cash", "ReceiptText"),
 ];
 
 export const QUICK_BY_ROLE: Record<string, Quick[]> = {
@@ -90,10 +90,10 @@ export const QUICK_BY_ROLE: Record<string, Quick[]> = {
   "school-admin": LEADER,
   "vice-principal": LEADER,
   accountant: [
-    q("/fee-management", "fee-management", "Collect fee", "Find a student and take payment", "IndianRupee"),
-    q("/finance-management/expenses", "finance-management", "Record expense", "Bills, purchases, petty cash", "ReceiptText"),
+    q("/fee-management/collect", "fee-management", "Collect fee", "Find a student and take payment", "IndianRupee"),
+    q("/finance-management/expenses?do=new", "finance-management", "Record expense", "Bills, purchases, petty cash", "ReceiptText"),
     q("/fee-management/defaulters", "fee-management", "Send fee reminders", "Families with overdue fees", "Send"),
-    q("/finance-management", "finance-management", "Close the day", "Count cash and lock the Day Book", "BookOpen"),
+    q("/finance-management/day-book", "finance-management", "Day Book", "Today's money in and out", "BookOpen"),
   ],
   teacher: [
     q("/attendance-management", "attendance-management", "Take attendance", "Your classes today", "CalendarCheck2"),
@@ -111,7 +111,7 @@ export const QUICK_BY_ROLE: Record<string, Quick[]> = {
     q("/front-office/visitors", "front-office", "Add visitor", "Name, phone and who they meet", "IdCard"),
     q("/admission-management", "admission-management", "Add enquiry", "A parent asked about admission", "PhoneIncoming"),
     q("/front-office/pickup", "front-office", "Early pickup", "A parent is taking a child home", "Users"),
-    q("/fee-management", "fee-management", "Collect fee", "Find a student and take payment", "IndianRupee"),
+    q("/fee-management/collect", "fee-management", "Collect fee", "Find a student and take payment", "IndianRupee"),
   ],
   hr: [
     q("/staff-hr-management/add", "staff-hr-management", "Add staff", "Name, phone and role to begin", "UserPlus"),

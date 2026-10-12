@@ -7,6 +7,17 @@ import { shortcutsFor } from "./shortcuts";
 import { approvalsFor } from "./approvals";
 import type { Current } from "./current";
 import { BOTTOM_BY_ROLE, QUICK_BY_ROLE, type BarItem, type Quick } from "@/components/shell/nav-config";
+import { FEE_PAGES, feePageAllowedFor, type FeePageKey } from "./fees/access";
+import { FINANCE_PAGES, financePageAllowed, type FinancePageKey } from "./finance/access";
+
+/** A Fee or Finance page the person's role cannot use is hidden, not shown and refused (new-rules: hide what a role cannot do). */
+export function moneyPageOpen(current: Pick<Current, "roles" | "permissions">, href: string) {
+  const [, mod, page] = href.split("?")[0].split("/");
+  const key = page || (mod === "fee-management" ? "dashboard" : "day-book");
+  if (mod === "fee-management" && key in FEE_PAGES) return feePageAllowedFor(current, key as FeePageKey);
+  if (mod === "finance-management" && key in FINANCE_PAGES) return financePageAllowed(current.permissions, key as FinancePageKey);
+  return true;
+}
 
 /**
  * Whether Approvals shows "Waiting for me" (00-global.md §1): anyone allowed to approve
@@ -23,7 +34,7 @@ export function quickActionsFor(current: Pick<Current, "roles" | "menu" | "permi
   const seen = new Set<string>();
   return current.roles
     .flatMap((r) => QUICK_BY_ROLE[r.key ?? ""] ?? [])
-    .filter((i) => visible.has(i.module) && current.permissions[i.module].change !== "none" && !seen.has(i.label) && seen.add(i.label))
+    .filter((i) => visible.has(i.module) && current.permissions[i.module].change !== "none" && moneyPageOpen(current, i.href) && !seen.has(i.label) && seen.add(i.label))
     .slice(0, 6);
 }
 
@@ -54,7 +65,7 @@ export async function shellData(current: Current) {
   // The phone bar and "New" follow the person's first role that has them, and only show what they may open or do.
   const roleKeys = current.roles.map((r) => r.key ?? "");
   const bottomFor = roleKeys.map((k) => BOTTOM_BY_ROLE[k]).find(Boolean) ?? BOTTOM_BY_ROLE.principal;
-  const bottom: BarItem[] = bottomFor.filter((i) => visible.has(i.module));
+  const bottom: BarItem[] = bottomFor.filter((i) => visible.has(i.module) && moneyPageOpen(current, i.href));
   const quick = quickActionsFor(current);
   // Where the school is, for the menu: the town from the main campus address.
   const parts = campus?.address?.split(",").map((x) => x.trim()).filter(Boolean) ?? [];
@@ -66,7 +77,7 @@ export async function shellData(current: Current) {
     quick,
     place,
     pages,
-    shortcuts: shortcutsFor(current.roles.map((r) => r.key), current.permissions, visible).map((s) => ({ label: s.label, href: s.href })),
+    shortcuts: shortcutsFor(current.roles.map((r) => r.key), current.permissions, visible).filter((s) => moneyPageOpen(current, s.href)).map((s) => ({ label: s.label, href: s.href })),
     unread,
     approvals,
     canApprove,

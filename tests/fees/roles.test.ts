@@ -18,6 +18,11 @@ import { systemHead } from "@/lib/finance/settings";
 import { decide } from "@/lib/approvals";
 import "@/lib/approval-handlers";
 import { makeFeeSchool, R } from "./fixture";
+import { widgetsFor } from "@/lib/dashboard/compose";
+import { homesFor } from "@/lib/dashboard/homes";
+import { MONEY_WIDGETS } from "@/lib/dashboard/widgets/money";
+import type { Viewer } from "@/lib/dashboard/types";
+import { MODULES } from "@/lib/modules";
 import { makeUser } from "../helpers";
 
 const role = (key: string) => {
@@ -157,5 +162,27 @@ describe("go-live", () => {
     expect(goLiveOverlap(goLive, d("2026-03-01"), d("2026-04-30"))).toBe("partly");
     expect(goLiveOverlap(goLive, d("2026-04-01"), d("2026-04-30"))).toBe("after");
     expect(goLiveOverlap(goLive, null, null)).toBe("partly");
+  });
+});
+
+describe("Fee and Finance cards on the Dashboard", () => {
+  const dash = (key: string) => {
+    const v = { permissions: perms(key), roles: [{ key }], modulesOn: new Set(MODULES.map((m) => m.key)) } as unknown as Viewer;
+    return widgetsFor(v, homesFor(v), MONEY_WIDGETS).map((w) => w.id);
+  };
+
+  it("shows fee amounts only to roles with Fee Management, never to the Admission Counsellor", () => {
+    expect(dash("accountant")).toEqual(expect.arrayContaining(["fees.collected-today", "fees.cheques-to-verify", "fees.defaulters", "fees.recent-payments", "finance.money-today", "finance.day-book"]));
+    expect(dash("principal")).toEqual(expect.arrayContaining(["fees.collected-today", "fees.overdue", "fees.collection-chart", "finance.expenses"]));
+    for (const k of ["admission-counsellor", "hostel-warden", "office-staff", "teacher", "store-keeper"]) {
+      expect(dash(k).filter((id) => id.startsWith("fees.")), k).toEqual([]);
+    }
+  });
+
+  it("gives the Vice Principal no card that opens a page their role cannot use", () => {
+    const ids = dash("vice-principal");
+    expect(ids).toContain("fees.collected-today");
+    expect(ids).not.toContain("fees.recent-payments"); // each row opens the payment page
+    expect(ids).not.toContain("fees.cheques-to-verify");
   });
 });

@@ -10,6 +10,7 @@ import { useNav, useRole } from './shell.jsx';
 import {
   ModuleHead, usePage, useCanEdit, Stats, SearchBox, Toolbar, Select, Textarea, Chips, DataList, Banner, Suggestion, Progress,
   HBars, Bars, Legend, Timeline, MoreMenu, FormSheet, ConfirmSheet, Split, Col, TONE_SOFT,
+  DatePeriod, PERIODS as DP, fmtRange, periodDays,
 } from './kit.jsx';
 import { DEFAULTERS, SimpleTable, clsOf } from './mod-fees.jsx';
 
@@ -28,15 +29,32 @@ const MONEY = ['Fees', 'Finance', 'Salary'];
 const CATS = ['Students', 'Admissions', 'Attendance', 'Fees', 'Finance', 'Exams', 'Staff and HR', 'Salary', 'Communication', 'Transport', 'Library', 'Inventory', 'Hostel', 'Front Office', 'Homework', 'Events', 'Tasks'];
 const CAT_ICON = { Students: 'GraduationCap', Admissions: 'UserPlus', Attendance: 'CalendarCheck2', Fees: 'IndianRupee', Finance: 'Landmark', Exams: 'ClipboardCheck', 'Staff and HR': 'Users', Salary: 'Wallet', Communication: 'MessagesSquare', Transport: 'Bus', Library: 'Library', Inventory: 'Boxes', Hostel: 'BedDouble', 'Front Office': 'DoorOpen', Homework: 'NotebookPen', Events: 'CalendarDays', Tasks: 'ListTodo' };
 const CAT_MOD = { Students: 'students', Admissions: 'admissions', Attendance: 'attendance', Fees: 'fees', Finance: 'finance', Exams: 'exams', 'Staff and HR': 'staff', Salary: 'salary', Communication: 'communication', Transport: 'transport', Library: 'library', Inventory: 'inventory', Hostel: 'hostel', 'Front Office': 'frontoffice', Homework: 'homework', Events: 'events', Tasks: 'dashboard' };
+// 05-roles.md: Accountant money reports only; Teacher and Class Teacher their own classes; Academic Head academic only;
+// HR staff only; Exam In-charge exam only; Admission Counsellor admission only; Vice Principal sees everything but salary.
 const ROLE_CATS = {
   accountant: MONEY,
   teacher: ['Students', 'Attendance', 'Exams', 'Homework', 'Events'],
   classteacher: ['Students', 'Attendance', 'Exams', 'Homework', 'Events'],
-  hr: ['Staff and HR', 'Salary', 'Attendance'],
-  academichead: ['Students', 'Attendance', 'Exams', 'Homework', 'Events', 'Tasks'],
-  examincharge: ['Students', 'Attendance', 'Exams'],
+  hr: ['Staff and HR', 'Attendance'],
+  academichead: ['Attendance', 'Exams', 'Homework', 'Events'],
+  examincharge: ['Exams'],
   admissioncounsellor: ['Admissions'],
   vp: CATS.filter((c) => c !== 'Salary'),
+};
+// Reports inside an allowed category that are still not for the role
+const ROLE_ONLY = { hr: { Attendance: ['at-staff'] } };
+const ROLE_NOT = {
+  teacher: ['st-life', 'st-docs', 'st-demo', 'at-staff'],
+  classteacher: ['st-life', 'st-docs', 'st-demo', 'at-staff'],
+  academichead: ['at-staff'],
+};
+const ROLE_NOTE = {
+  accountant: ['Money reports only.', 'Fees, Finance and Salary, filtered by financial year (April to March).'],
+  hr: ['Staff reports only.', 'Staff list, leave, joiners and leavers, and staff attendance. Salary figures stay in Salary Management.'],
+  academichead: ['Academic reports only.', 'Attendance, exams, homework and PTM, for every class.'],
+  examincharge: ['Exam reports only.', 'Results, toppers and students below 33%, for every class.'],
+  admissioncounsellor: ['Admission reports only.', 'Enquiries to admissions, and seats by class.'],
+  vp: ['Everything except salary.', 'Salary reports stay with the Principal, School Admin and Accountant.'],
 };
 const TEACHER_CLASSES = { teacher: ['6 A', '6 B', '7 A', '7 B'], classteacher: ['7 B'] };
 function useScope() {
@@ -44,7 +62,8 @@ function useScope() {
   const cats = (ROLE_CATS[role.id] || CATS).filter((c) => modulesOn[CAT_MOD[c]] !== false);
   const classes = TEACHER_CLASSES[role.id] || null;
   const inScope = (v) => !classes || classes.some((sc) => sc === v || sc.startsWith(String(v).replace('Class ', '') + ' '));
-  return { role, cats, classes, inScope, money: cats.some((c) => MONEY.includes(c)) };
+  const allowed = (r) => cats.includes(r.cat) && !(ROLE_NOT[role.id] || []).includes(r.id) && (!ROLE_ONLY[role.id]?.[r.cat] || ROLE_ONLY[role.id][r.cat].includes(r.id));
+  return { role, cats, classes, inScope, allowed, money: cats.some((c) => MONEY.includes(c)) };
 }
 
 // The catalogue. dated: has a date range. heavy: all classes runs in the background. cls: column index holding the class.
@@ -274,8 +293,38 @@ const matchCls = (v, id) => { const s = id === 'NUR' ? 'Nursery' : id; return v 
 const AY = [{ value: '2026–27', label: '2026–27 (this year)' }, { value: '2025–26', label: '2025–26 (closed)' }];
 const FY = [{ value: '2026–27', label: 'FY 2026–27' }, { value: '2025–26', label: 'FY 2025–26 (closed)' }];
 const FY_RANGE = { '2026–27': '01-04-2026 to 31-03-2027', '2025–26': '01-04-2025 to 31-03-2026' };
-const PERIODS = [{ value: 'today', label: 'Today, 9 Oct' }, { value: 'month', label: 'This month' }, { value: 'last', label: 'Last month' }, { value: 'term', label: 'Term 1 so far' }, { value: 'year', label: 'This year so far' }];
-const PERIOD_RANGE = { today: '09-10-2026', month: '01-10-2026 to 09-10-2026', last: '01-09-2026 to 30-09-2026', term: '01-06-2026 to 09-10-2026', year: '01-06-2026 to 09-10-2026' };
+// How each dated report answers the date filter: rows with a date column are filtered; month rows are kept when the month
+// overlaps; totals over a stretch of days are worked out for the days picked (base = the days the example numbers cover).
+const DATED = {
+  'st-transfer': { dcol: 3 }, 'st-withdraw': { dcol: 2 }, 'fi-daybook': { dcol: 0 }, 'fo-visitors': { dcol: 0 },
+  'co-delivery': { mcol: 0 },
+  'ad-funnel': { base: 131, cols: [1, 2, 3, 4] },
+  'at-monthly': { base: 9, cols: [2, 3, 4] },
+  'fe-modes': { base: 192, cols: [1] },
+  'fi-cash': { base: 9, cols: [2, 3], post: (r) => [r[0], r[1], r[2], r[3], r[1] + r[2] - r[3]] },
+  'hr-leave': { base: 131, cols: [1, 2, 3, 4] },
+  'tr-delay': { base: 7, cols: [1, 2] },
+  'hw-submit': { base: 30, cols: [1] },
+};
+const MON3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+// "9 Oct", "Fri 9 Oct", "Wed 30 Sep", "Today, 9:15 AM" -> ISO date in 2026
+function isoOf(t) {
+  if (!t) return '';
+  if (/^(Today|Just now)/.test(t)) return '2026-10-09';
+  const m = /(\d{1,2}) ([A-Z][a-z]{2})/.exec(t);
+  if (!m || MON3.indexOf(m[2]) < 0) return '';
+  return `2026-${String(MON3.indexOf(m[2]) + 1).padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+}
+function applyDates(id, rows, per) {
+  const d = DATED[id];
+  if (!d) return rows;
+  if (d.dcol != null) return rows.filter((r) => { const iso = isoOf(r[d.dcol]); return iso >= per.from && iso <= per.to; });
+  if (d.mcol != null) return rows.filter((r) => { const mi = MON3.indexOf(String(r[d.mcol]).slice(0, 3)); const a = `2026-${String(mi + 1).padStart(2, '0')}-01`, b = `2026-${String(mi + 1).padStart(2, '0')}-31`; return a <= per.to && b >= per.from; });
+  const f = periodDays(per) / d.base;
+  return rows.map((r) => { const x = r.map((v, i) => (d.cols.includes(i) ? Math.round(v * f) : v)); return d.post ? d.post(x) : x; })
+    .filter((x) => d.cols.some((i) => x[i] > 0)); // a row with nothing in these dates is left out
+
+}
 const CLASS_OPTS = [{ value: 'all', label: 'All classes' }, ...CLS_IDS.map((id) => ({ value: id, label: CLS_NAME(id) }))];
 const CAMPUS = [{ value: 'kph', label: 'Kukatpally (main)' }];
 
@@ -318,8 +367,8 @@ function DrillSheet({ drill, onClose }) {
    ========================================================================================= */
 function AllReports({ params }) {
   const r = params?.id && REPORT[params.id];
-  const { cats } = useScope();
-  if (r && cats.includes(r.cat)) return <ReportView r={r} />;
+  const { allowed } = useScope();
+  if (r && allowed(r)) return <ReportView r={r} />;
   if (r) return (
     <div>
       <Back to="all" label="All reports" />
@@ -332,15 +381,16 @@ function AllReports({ params }) {
 function Catalogue() {
   const { go } = useNav();
   const toast = useToast();
-  const { cats, classes, role } = useScope();
+  const { cats: allCats, classes, role, allowed } = useScope();
   const [q, setQ] = useState('');
   const [cat, setCat] = useState('all');
   const [pins, setPins] = useState(() => new Set(role.id === 'accountant' ? ['fe-defaulter', 'fe-gst'] : ['at-daily', 'fe-defaulter', 'st-master']));
-  const mine = CATALOGUE.filter((r) => cats.includes(r.cat));
+  const mine = CATALOGUE.filter(allowed);
+  const cats = allCats.filter((c) => mine.some((r) => r.cat === c));
   const t = q.trim().toLowerCase();
   const found = mine.filter((r) => (cat === 'all' || r.cat === cat) && (!t || (r.name + ' ' + r.sub + ' ' + r.cat).toLowerCase().includes(t)));
   const groups = cats.filter((c) => found.some((r) => r.cat === c));
-  const recent = ['ex-results', 'fe-collection', 'st-docs', 'at-low', 'sa-pfesi', 'hr-leave'].filter((id) => cats.includes(REPORT[id].cat)).slice(0, 3);
+  const recent = ['ex-results', 'fe-collection', 'st-docs', 'at-low', 'sa-pfesi', 'hr-leave', 'ad-funnel', 'at-staff', 'ex-below'].filter((id) => allowed(REPORT[id])).slice(0, 3);
   const pinned = mine.filter((r) => pins.has(r.id));
   const open = (r) => go('reports', { page: 'all', id: r.id });
   const pin = (r) => {
@@ -369,7 +419,7 @@ function Catalogue() {
       <ModuleHead sub={`${mine.length} ready reports from ${cats.length} ${cats.length === 1 ? 'module' : 'modules'} · filter, see on screen, export to Excel, CSV or PDF`} />
       <div className="flex flex-col gap-5 @lg:gap-6">
         {classes && <Banner tone="info" title="Showing your classes only.">Reports open with {classes.length === 1 ? `Class ${classes[0]}` : classes.join(', ')}. Fee and staff reports are not part of your role.</Banner>}
-        {role.id === 'accountant' && <Banner tone="info" title="Money reports only.">Fees, Finance and Salary, filtered by financial year (April to March).</Banner>}
+        {ROLE_NOTE[role.id] && <Banner tone="info" title={ROLE_NOTE[role.id][0]}>{ROLE_NOTE[role.id][1]}</Banner>}
         <Card className="overflow-hidden">
           <Toolbar>
             <SearchBox id="rep-q" value={q} onChange={setQ} placeholder="Find a report, like “defaulter”, “attendance” or “GST”" />
@@ -419,12 +469,12 @@ function ReportView({ r }) {
   const spec = useMemo(() => previewOf(r.id), [r.id]);
   const [year, setYear] = useState('2026–27');
   const [cls, setCls] = useState(classes ? 'mine' : 'all');
-  const [period, setPeriod] = useState(r.id === 'at-daily' ? 'today' : 'month');
+  const [per, setPer] = useState(DP.thismonth);
   const [sort, setSort] = useState({ i: -1, dir: 1 });
   const [run, setRun] = useState('idle'); // background job: idle | preparing | ready
   const [pinned, setPinned] = useState(false);
   const [more, setMore] = useState(false);
-  useEffect(() => { setRun('idle'); }, [cls, year, period]);
+  useEffect(() => { setRun('idle'); }, [cls, year, per]);
   useEffect(() => {
     if (run !== 'preparing') return undefined;
     const t = setTimeout(() => { setRun('ready'); toast({ title: `Report ready: ${r.name}`, body: 'The download link is in your notifications', tone: 'info' }); }, 2600);
@@ -432,7 +482,7 @@ function ReportView({ r }) {
   }, [run]);
 
   const clsOpts = classes ? [{ value: 'mine', label: classes.length === 1 ? `My class (${classes[0]})` : 'My classes' }, ...classes.map((c) => ({ value: c, label: c }))] : CLASS_OPTS;
-  let rows = spec.rows;
+  let rows = r.dated ? applyDates(r.id, spec.rows, per) : spec.rows;
   if (r.cls != null) {
     if (classes) rows = rows.filter((x) => inScope(x[r.cls]) && (cls === 'mine' || x[r.cls] === cls || String(cls).startsWith(String(x[r.cls]).replace('Class ', '') + ' ')));
     else if (cls !== 'all') rows = rows.filter((x) => (spec.clsId != null ? x[spec.clsId] === cls : matchCls(x[r.cls], cls)));
@@ -445,7 +495,8 @@ function ReportView({ r }) {
   const total = spec.total ? (classes ? rows.length : spec.total(cls)) : rows.length;
   const heavyNow = r.heavy && cls === 'all';
   const clsLabel = r.cls == null ? 'Whole school' : classes ? (cls === 'mine' ? (classes.length === 1 ? `Class ${classes[0]}` : `Classes ${classes.join(', ')}`) : `Class ${cls}`) : cls === 'all' ? 'All classes' : CLS_NAME(cls);
-  const when = r.money ? `Financial year ${year} (${FY_RANGE[year]})` : r.dated ? `${year} · ${PERIOD_RANGE[period]}` : `${year}`;
+  const when = r.dated ? `${per.label} (${fmtRange(per)})` : r.money ? `Financial year ${year} (${FY_RANGE[year]})` : `${year}`;
+  const closed = r.dated ? per.to < (r.money ? '2026-04-01' : '2026-06-01') : year === '2025–26';
   const context = `${clsLabel} · ${when} · Kukatpally campus`;
   const exp = (what) => toast({ title: `Exported: ${r.name} (${what})`, body: `${context}. School name, filters, your name and the time on top. Logged in the export log.` });
 
@@ -456,13 +507,13 @@ function ReportView({ r }) {
       <div className="flex flex-col gap-5 @lg:gap-6">
         <Card>
           <div className="grid grid-cols-2 @lg:grid-cols-4 gap-3 p-4">
-            <Field label={r.money ? 'Financial year' : 'Academic year'} id="rf-year"><Select id="rf-year" value={year} onChange={setYear} options={r.money ? FY : AY} /></Field>
+            {r.dated
+              ? <Field label="Dates" id="rf-dates" className="col-span-2 min-w-0"><DatePeriod id="rf-dates" value={per} onChange={setPer} className="w-full" /></Field>
+              : <Field label={r.money ? 'Financial year' : 'Academic year'} id="rf-year"><Select id="rf-year" value={year} onChange={setYear} options={r.money ? FY : AY} /></Field>}
             {r.cls != null
               ? <Field label="Class" id="rf-cls"><Select id="rf-cls" value={cls} onChange={setCls} options={clsOpts} /></Field>
               : <Field label="Class" id="rf-cls-x"><Select id="rf-cls-x" value="all" onChange={() => {}} options={[{ value: 'all', label: 'Whole school' }]} /></Field>}
-            {r.dated
-              ? <Field label="Dates" id="rf-dates"><Select id="rf-dates" value={period} onChange={setPeriod} options={PERIODS} /></Field>
-              : <Field label="Dates" id="rf-dates-x"><Select id="rf-dates-x" value="asof" onChange={() => {}} options={[{ value: 'asof', label: 'As on today' }]} /></Field>}
+            {!r.dated && <Field label="Dates" id="rf-dates-x"><Select id="rf-dates-x" value="asof" onChange={() => {}} options={[{ value: 'asof', label: 'As on today' }]} /></Field>}
             <Field label="Campus" id="rf-campus"><Select id="rf-campus" value="kph" onChange={() => {}} options={CAMPUS} /></Field>
           </div>
           <div className="px-5 pb-4 -mt-1 flex items-start gap-2 text-[13px] text-ink2">
@@ -471,7 +522,7 @@ function ReportView({ r }) {
           </div>
         </Card>
 
-        {year === '2025–26' && <Banner tone="info" title="2025–26 is closed.">Figures are final and cannot change. Shown with this year’s layout.</Banner>}
+        {closed && <Banner tone="info" title={r.dated ? 'These dates are in a closed year.' : '2025–26 is closed.'}>Figures are final and cannot change. Shown with this year’s layout.</Banner>}
 
         {heavyNow && run !== 'ready' ? (
           <Card>
@@ -508,7 +559,7 @@ function ReportView({ r }) {
             </div>
             {rows.length === 0 ? (
               <Empty icon={I.Inbox} title="Nothing for these filters" body={`No rows for ${clsLabel.toLowerCase()} in this period. That is good news for this report, or try another class or dates.`}
-                action={<Button variant="secondary" onClick={() => { setCls(classes ? 'mine' : 'all'); setPeriod('year'); }}>Show all classes, whole year</Button>} />
+                action={<Button variant="secondary" onClick={() => { setCls(classes ? 'mine' : 'all'); setPer(r.money ? DP.finyear : DP.acyear); }}>{classes ? 'Show my classes, whole year' : 'Show all classes, whole year'}</Button>} />
             ) : (
               <SimpleTable minWidth={Math.max(520, spec.cols.length * 120)} cols={spec.cols.map(([label, k], i) => ({ label, right: NUMERIC.includes(k), nowrap: i !== spec.cols.length - 1 || NUMERIC.includes(k), render: (x) => fmt(x[i], k) }))}
                 rows={shown} foot={spec.foot && (cls === 'all' || r.cls == null) && !classes ? spec.foot(rows).map((v, i) => (i === 0 || v === '' ? v : fmt(v, spec.cols[i][1]))) : null} />
@@ -534,8 +585,23 @@ function ReportView({ r }) {
 const AREAS = [
   { value: 'students', label: 'Students' }, { value: 'results', label: 'Results' }, { value: 'finance', label: 'Finance' },
   { value: 'hr', label: 'Staff' }, { value: 'workload', label: 'Teacher workload' }, { value: 'teachers', label: 'Syllabus & teachers' },
+  { value: 'admissions', label: 'Admissions' },
 ];
-const AREAS_BY_ROLE = { accountant: ['finance'], hr: ['hr'], academichead: ['students', 'results', 'workload', 'teachers'], examincharge: ['students', 'results'], admissioncounsellor: ['students'] };
+// What each View role sees in Analytics. Results by teacher stay with the Principal and Academic Head.
+const AREAS_BY_ROLE = {
+  accountant: ['finance'], hr: ['hr'], academichead: ['students', 'results', 'workload', 'teachers'], examincharge: ['results'], admissioncounsellor: ['admissions'],
+  vp: ['students', 'results', 'admissions', 'finance', 'hr', 'workload'],
+  principal: ['students', 'results', 'admissions', 'finance', 'hr', 'workload', 'teachers'],
+};
+// Months in the example data (April to October 2026) that fall inside the picked dates.
+const MONTHS_26 = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct'];
+function monthsIn(per) {
+  return MONTHS_26.filter((m) => { const n = String(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].indexOf(m) + 1).padStart(2, '0'); return `2026-${n}-01` <= per.to && `2026-${n}-31` >= per.from; });
+}
+const ADM_MONTHS = [{ k: 'Apr', v: 38, v2: 40 }, { k: 'May', v: 51, v2: 53 }, { k: 'Jun', v: 36, v2: 44 }, { k: 'Jul', v: 9, v2: 15 }, { k: 'Aug', v: 5, v2: 9 }, { k: 'Sep', v: 3, v2: 6 }, { k: 'Oct', v: 0, v2: 1 }];
+const LEAVE_MONTHS = [{ k: 'Jun', v: 31 }, { k: 'Jul', v: 48 }, { k: 'Aug', v: 52 }, { k: 'Sep', v: 61 }, { k: 'Oct', v: 22 }];
+const EXP_MONTHS = [3410000, 3320000, 3580000, 3640000, 3510000, 3490000, 620000];
+const crore = (l) => (l >= 100 ? `₹${(l / 100).toFixed(2)} Cr` : `₹${Math.round(l * 10) / 10} L`);
 const WORKLOAD = [
   ['Anitha Kumari', 31, 4], ['Lalitha Devi', 30, 2], ['Mahesh Goud', 30, 1], ['Shobha Rani', 30, 3], ['Deepak Verma', 30, 2], ['Farhana Begum', 30, 1],
   ['Bhargavi Kulkarni', 29, 2], ['Imran Shaikh', 28, 3], ['Rajeshwari Nair', 28, 1], ['Pallavi Reddy', 28, 0], ['Swapna Reddy', 27, 1], ['Arvind Rao', 27, 0], ['Srinivas Chary', 26, 2], ['Sneha Mathew', 26, 1], ['Ravi Teja', 22, 5],
@@ -559,15 +625,29 @@ const CLASS9_ABSENT = [
 function Analytics() {
   const toast = useToast();
   const { role } = useRole();
-  const allowed = AREAS_BY_ROLE[role.id] || AREAS.map((a) => a.value);
+  const allowed = AREAS_BY_ROLE[role.id] || AREAS.map((a) => a.value).filter((a) => a !== 'teachers');
   const areas = AREAS.filter((a) => allowed.includes(a.value));
   const [area, setArea] = useState(areas[0].value);
-  const [year, setYear] = useState('2026–27');
+  const [per, setPer] = useState(role.id === 'accountant' ? DP.finyear : role.id === 'admissioncounsellor' ? DP.last6m : DP.acyear);
   const [compare, setCompare] = useState(false);
   const [campus, setCampus] = useState('kph');
+  const ms = monthsIn(per);
+  const f = periodDays(per);
+  const adm = ADM_MONTHS.filter((m) => ms.includes(m.k));
+  const admitted = adm.reduce((a, m) => a + m.v, 0), left = adm.reduce((a, m) => a + (m.v2 - m.v), 0);
+  const fee = FEE_TREND.filter((m) => ms.includes(m.m));
+  const due = fee.reduce((a, m) => a + m.d, 0), got = fee.reduce((a, m) => a + m.c, 0);
+  const expShare = MONTHS_26.reduce((a, m, i) => a + (ms.includes(m) ? EXP_MONTHS[i] : 0), 0) / EXP_MONTHS.reduce((a, b) => a + b, 0);
+  const spent = 206 * expShare;
+  const lv = LEAVE_MONTHS.filter((m) => ms.includes(m.k));
+  const leaveDays = lv.reduce((a, m) => a + m.v, 0);
+  const subsF = Math.min(1, f / 9) + Math.max(0, f - 9) / 26; // October so far had 28 in 9 days; earlier months were quieter
+  const subs = (n) => Math.round(n * subsF);
+  const range = fmtRange(per);
+  const noMonths = ms.length === 0 && ['finance', 'hr', 'admissions'].includes(area);
   const [drill, setDrill] = useState(null);
   const pinChart = (name) => toast({ title: `Pinned to your Dashboard: ${name}`, body: 'It shows under your numbers on the Dashboard', undo: () => toast({ title: 'Removed from the Dashboard', tone: 'info' }) });
-  const exp = (name) => () => toast({ title: `Exported chart data: ${name}`, body: `${year}${compare ? ', with 2025–26' : ''} · Excel with the filters on top. Logged.` });
+  const exp = (name) => () => toast({ title: `Exported chart data: ${name}`, body: `${range}${compare ? ', with the same dates last year' : ''} · Excel with the filters on top. Logged.` });
   const ChartHead = ({ title, sub, icon }) => (
     <CardHead title={title} sub={sub} icon={icon} action={<MoreMenu size="sm" label={`${title}: more`} items={[['Download', 'Export the chart data', exp(title)], ['Pin', 'Pin to my Dashboard', () => pinChart(title)]]} />} />
   );
@@ -578,21 +658,46 @@ function Analytics() {
       <div className="flex flex-col gap-5 @lg:gap-6">
         <Card>
           <div className="flex flex-col @lg:flex-row @lg:items-end gap-3 p-4">
-            <Field label="Academic year" id="an-year" className="@lg:w-56"><Select id="an-year" value={year} onChange={setYear} options={AY} /></Field>
+            <Field label="Dates" id="an-dates" className="min-w-0 @lg:w-72"><DatePeriod id="an-dates" value={per} onChange={setPer} className="w-full" /></Field>
             <Field label="Campus" id="an-campus" className="@lg:w-64"><Select id="an-campus" value={campus} onChange={setCampus} options={role.multiSchool ? [...CAMPUS, { value: 'myp', label: 'Miyapur campus' }, { value: 'both', label: 'Both, side by side' }] : CAMPUS} /></Field>
             <label htmlFor="an-cmp" className="flex items-center gap-2.5 h-11 text-[14px] font-semibold text-ink2 cursor-pointer @lg:ml-2">
-              <Switch id="an-cmp" on={compare} onChange={setCompare} label="Compare with last year" />Compare with 2025–26
+              <Switch id="an-cmp" on={compare} onChange={setCompare} label="Compare with last year" />Compare with last year
             </label>
           </div>
+          <p className="px-4 pb-3 -mt-1 text-[12.5px] text-ink3">Showing: {per.label} · {range}. Numbers marked “today” or “this week” are as on Fri 9 Oct.</p>
         </Card>
         {areas.length > 1 && <Chips value={area} onChange={setArea} options={areas} />}
         {campus === 'myp' && <Banner tone="info" title="Miyapur campus.">Showing Kukatpally’s layout with Miyapur’s data when you open it from the Miyapur school. Use “Both, side by side” to compare.</Banner>}
         {campus === 'both' && <CompareCampuses />}
+        {noMonths && <Card><Empty icon={I.CalendarDays} title="No figures for these dates" body={`This example has figures from April to October 2026. ${range} is outside that.`}
+          action={<Button variant="secondary" onClick={() => setPer(area === 'finance' ? DP.finyear : DP.acyear)}>Show this year</Button>} /></Card>}
+
+        {area === 'admissions' && !noMonths && <>
+          <Stats items={[
+            { label: 'Enquiries', value: String(Math.round(321 * Math.min(1, f / 131))), sub: range, icon: I.Inbox },
+            { label: 'Admitted', value: String(admitted), sub: `${left} left in the same dates`, icon: I.UserPlus, tone: 'ok' },
+            { label: 'Seats free, 2027–28', value: '40', sub: 'As on today, 7 classes open', icon: I.Users },
+          ]} />
+          <div className="grid @xl:grid-cols-2 gap-5 @lg:gap-6 items-start [&>*]:min-w-0">
+            <Card>
+              <ChartHead title="Enquiries to admissions" sub={`By where they came from · ${range}`} icon={I.UserPlus} />
+              <div className="px-5 pb-5"><HBars rows={previewOf('ad-funnel').rows.map((r) => ({ k: r[0], v: r[5], label: `${r[5]}%` }))} max={100} labelWidth={104} /></div>
+            </Card>
+            <Card>
+              <ChartHead title="Admitted by month" sub={range} icon={I.CalendarDays} />
+              <div className="px-3 pb-2"><Bars data={adm.map((m) => ({ k: m.k, v: m.v }))} max={60} ticks={[0, 20, 40]} ariaLabel="Admitted by month" /></div>
+            </Card>
+            <Card>
+              <ChartHead title="Seats by class, 2027–28" sub="Admitted out of seats, as on today" icon={I.Users} />
+              <div className="px-5 pb-5"><HBars rows={previewOf('ad-seats').rows.map((r) => ({ k: r[0], v: Math.round((r[2] / r[1]) * 100), label: `${r[2]} of ${r[1]}` }))} max={100} labelWidth={72} /></div>
+            </Card>
+          </div>
+        </>}
 
         {area === 'students' && <>
           <Stats items={[
             { label: 'Students', value: '1,236', sub: compare ? '+48 on last year' : 'On the rolls today', icon: I.GraduationCap, onClick: () => setDrill({ title: 'Students by class', sub: '1,236 on the rolls today', cols: [['Class'], ['Students', 'n']], rows: CLS_IDS.map((id) => [CLS_NAME(id), STRENGTH[id]]), basis: 'Student Management, 9 Oct 2026' }) },
-            { label: 'Admitted this year', value: '142', sub: '31 left', icon: I.UserPlus, tone: 'ok' },
+            { label: 'Admitted', value: String(admitted), sub: `${left} left · ${range}`, icon: I.UserPlus, tone: 'ok' },
             { label: 'Attendance today', value: '95.8%', sub: '52 absent, 9 late', icon: I.CalendarCheck2, onClick: () => setDrill({ title: 'Absent today by class', sub: '52 students · Fri 9 Oct', cols: [['Class'], ['Absent', 'n']], rows: CLS_IDS.map((id) => [CLS_NAME(id), ABSENT_TODAY[id]]), basis: 'Attendance register, 9 Oct 2026' }) },
             { label: 'Girls', value: '48%', sub: '593 of 1,236', icon: I.Users },
           ]} />
@@ -612,9 +717,11 @@ function Analytics() {
               </div>
             </Card>
             <Card>
-              <ChartHead title="Admissions and leavers" sub="This year, by month" icon={I.UserPlus} />
-              <div className="px-3 pb-2"><Bars data={[{ k: 'Apr', v: 38, v2: 40 }, { k: 'May', v: 51, v2: 53 }, { k: 'Jun', v: 36, v2: 44 }, { k: 'Jul', v: 9, v2: 15 }, { k: 'Aug', v: 5, v2: 9 }, { k: 'Sep', v: 3, v2: 6 }, { k: 'Oct', v: 0, v2: 1 }]} max={60} ticks={[0, 20, 40]} ariaLabel="Admissions and leavers by month" /></div>
-              <div className="px-5 pb-4"><Legend items={[['bg-brand', 'Admitted, 142'], ['bg-ink3/30', 'Admitted plus left (31 left in all)']]} /></div>
+              <ChartHead title="Admissions and leavers" sub={`By month · ${range}`} icon={I.UserPlus} />
+              {adm.length ? <>
+                <div className="px-3 pb-2"><Bars data={adm} max={60} ticks={[0, 20, 40]} ariaLabel="Admissions and leavers by month" /></div>
+                <div className="px-5 pb-4"><Legend items={[['bg-brand', `Admitted, ${admitted}`], ['bg-ink3/30', `Admitted plus left (${left} left)`]]} /></div>
+              </> : <Empty icon={I.UserPlus} title="No admissions in these dates" body="This example has months from April to October 2026." />}
             </Card>
             <Card>
               <ChartHead title="Social category" sub="All 1,236 students" icon={I.Users} />
@@ -646,37 +753,37 @@ function Analytics() {
           </div>
         </>}
 
-        {area === 'finance' && <>
+        {area === 'finance' && !noMonths && <>
           <Stats items={[
-            { label: 'Due so far', value: '₹2.84 Cr', sub: 'FY 2026–27, 1 Apr to 9 Oct', icon: I.IndianRupee },
-            { label: 'Collected', value: '₹2.33 Cr', sub: '82%', tone: 'ok', icon: I.CircleCheck, onClick: () => setDrill({ title: 'Collected by class', sub: '₹2.33 Cr of ₹2.84 Cr', cols: [['Class'], ['Due', 'inr'], ['Collected', 'inr'], ['%', 'pct']], rows: FEE_BY_CLASS.map((r) => [r[0], r[1], r[2], r[4]]), basis: 'Fee payments, 1 Apr to 9 Oct 2026' }) },
-            { label: 'Overdue', value: '₹8.4 L', sub: '61 students', tone: 'bad', icon: I.TriangleAlert, onClick: () => setDrill({ title: 'Overdue fees', sub: '61 students · ₹8,40,000', cols: [['Student'], ['Class'], ['Overdue', 'inr'], ['Days late', 'n']], rows: [...DEFAULTERS].sort((a, b) => b.days - a.days).map((d) => [d.s.name, clsOf(d.s), d.amount, d.days]), basis: 'Fee Defaulters, 9 Oct 2026' }) },
-            { label: 'Spent so far', value: '₹2.06 Cr', sub: 'Salaries are 79%', icon: I.Wallet },
+            { label: 'Due', value: crore(due), sub: `Months in ${range}`, icon: I.IndianRupee },
+            { label: 'Collected', value: crore(got), sub: `${due ? Math.round((got / due) * 100) : 0}%`, tone: 'ok', icon: I.CircleCheck, onClick: () => setDrill({ title: 'Collected by class', sub: '₹2.33 Cr of ₹2.84 Cr · 1 Apr to 9 Oct', cols: [['Class'], ['Due', 'inr'], ['Collected', 'inr'], ['%', 'pct']], rows: FEE_BY_CLASS.map((r) => [r[0], r[1], r[2], r[4]]), basis: 'Fee payments, 1 Apr to 9 Oct 2026 (the whole year so far)' }) },
+            { label: 'Overdue today', value: '₹8.4 L', sub: '61 students', tone: 'bad', icon: I.TriangleAlert, onClick: () => setDrill({ title: 'Overdue fees', sub: '61 students · ₹8,40,000', cols: [['Student'], ['Class'], ['Overdue', 'inr'], ['Days late', 'n']], rows: [...DEFAULTERS].sort((a, b) => b.days - a.days).map((d) => [d.s.name, clsOf(d.s), d.amount, d.days]), basis: 'Fee Defaulters, 9 Oct 2026' }) },
+            { label: 'Spent', value: crore(spent), sub: 'Salaries are 79%', icon: I.Wallet },
           ]} />
           <div className="grid @xl:grid-cols-2 gap-5 @lg:gap-6 items-start [&>*]:min-w-0">
             <Card>
-              <ChartHead title="Collected against due" sub="By month, in lakhs · financial year 2026–27" icon={I.IndianRupee} />
-              <div className="px-3 pb-2"><Bars data={FEE_TREND.map((m) => ({ k: m.m, v: m.c, v2: m.d }))} max={70} ticks={[0, 30, 60]} label={(v) => `₹${v}L`} ariaLabel="Fee collected against due by month" /></div>
+              <ChartHead title="Collected against due" sub={`By month, in lakhs · ${range}`} icon={I.IndianRupee} />
+              <div className="px-3 pb-2"><Bars data={fee.map((m) => ({ k: m.m, v: m.c, v2: m.d }))} max={70} ticks={[0, 30, 60]} label={(v) => `₹${v}L`} ariaLabel="Fee collected against due by month" /></div>
               <div className="px-5 pb-4"><Legend items={[['bg-brand', 'Collected'], ['bg-ink3/30', 'Due']]} /></div>
             </Card>
             <Card>
-              <ChartHead title="Income and expense" sub="By month, in lakhs" icon={I.ChartLine} />
-              <div className="px-3 pb-2"><Bars data={previewOf('fi-ie').rows.map((r) => ({ k: r[0].slice(0, 3), v: Math.round(r[1] / 1e5), v2: Math.round(r[2] / 1e5) }))} max={70} ticks={[0, 30, 60]} label={(v) => `₹${v}L`} ariaLabel="Income and expense by month" /></div>
+              <ChartHead title="Income and expense" sub={`By month, in lakhs · ${range}`} icon={I.ChartLine} />
+              <div className="px-3 pb-2"><Bars data={previewOf('fi-ie').rows.filter((r) => ms.includes(r[0].slice(0, 3))).map((r) => ({ k: r[0].slice(0, 3), v: Math.round(r[1] / 1e5), v2: Math.round(r[2] / 1e5) }))} max={70} ticks={[0, 30, 60]} label={(v) => `₹${v}L`} ariaLabel="Income and expense by month" /></div>
               <div className="px-5 pb-4"><Legend items={[['bg-brand', 'Income'], ['bg-ink3/30', 'Expense']]} /></div>
             </Card>
             <Card>
-              <ChartHead title="Expenses by head" sub="1 Apr to 9 Oct · ₹2.06 Cr" icon={I.Wallet} />
-              <div className="px-5 pb-5"><HBars rows={[{ k: 'Salaries', v: 79, label: '₹1.62 Cr' }, { k: 'Transport', v: 7, label: '₹14.6 L' }, { k: 'Electricity', v: 4, label: '₹8.1 L' }, { k: 'Upkeep', v: 4, label: '₹7.9 L' }, { k: 'Lab & books', v: 3, label: '₹6.2 L' }, { k: 'Other', v: 3, label: '₹6.5 L' }]} max={100} labelWidth={84} /></div>
+              <ChartHead title="Expenses by head" sub={`${range} · ${crore(spent)}`} icon={I.Wallet} />
+              <div className="px-5 pb-5"><HBars rows={[['Salaries', 79, 162], ['Transport', 7, 14.6], ['Electricity', 4, 8.1], ['Upkeep', 4, 7.9], ['Lab & books', 3, 6.2], ['Other', 3, 6.5]].map(([k, v, l]) => ({ k, v, label: crore(l * expShare) }))} max={100} labelWidth={84} /></div>
             </Card>
           </div>
         </>}
 
-        {area === 'hr' && <>
+        {area === 'hr' && !noMonths && <>
           <Stats items={[
             { label: 'Staff', value: '86', sub: '58 teaching', icon: I.Users },
             { label: 'Joined this year', value: '3', sub: '2 left', icon: I.UserPlus, onClick: () => setDrill({ title: 'Joiners and leavers, 2026–27', sub: '3 joined, 2 left', cols: previewOf('hr-moves').cols, rows: previewOf('hr-moves').rows, basis: 'Staff & HR, joining and exit dates' }) },
             { label: 'Present today', value: '82', sub: '1 late, 3 on leave', icon: I.CalendarCheck2, tone: 'ok' },
-            { label: 'Leave taken', value: '214 days', sub: 'Since 1 Jun, all staff', icon: I.CalendarDays },
+            { label: 'Leave taken', value: `${leaveDays} days`, sub: `All staff · ${range}`, icon: I.CalendarDays },
           ]} />
           <div className="grid @xl:grid-cols-2 gap-5 @lg:gap-6 items-start [&>*]:min-w-0">
             <Card>
@@ -684,9 +791,11 @@ function Analytics() {
               <div className="px-5 pb-5"><HBars rows={[{ k: 'Teaching', v: 58, label: '58' }, { k: 'Transport', v: 12, label: '12' }, { k: 'Office', v: 6, label: '6' }, { k: 'Hostel', v: 3, label: '3' }, { k: 'Support', v: 3, label: '3' }, { k: 'Accounts', v: 2, label: '2' }, { k: 'Library', v: 1, label: '1' }, { k: 'Stores', v: 1, label: '1' }]} max={60} labelWidth={78} /></div>
             </Card>
             <Card>
-              <ChartHead title="Leave taken by month" sub="Days, all staff" icon={I.CalendarDays} />
-              <div className="px-3 pb-2"><Bars data={[{ k: 'Jun', v: 31 }, { k: 'Jul', v: 48 }, { k: 'Aug', v: 52 }, { k: 'Sep', v: 61 }, { k: 'Oct', v: 22 }]} max={70} ticks={[0, 30, 60]} ariaLabel="Leave days by month" /></div>
-              <p className="px-5 pb-4 text-[12.5px] text-ink3">September was high: 14 days of sick leave during the viral fever weeks.</p>
+              <ChartHead title="Leave taken by month" sub={`Days, all staff · ${range}`} icon={I.CalendarDays} />
+              {lv.length ? <>
+                <div className="px-3 pb-2"><Bars data={lv} max={70} ticks={[0, 30, 60]} ariaLabel="Leave days by month" /></div>
+                {ms.includes('Sep') && <p className="px-5 pb-4 text-[12.5px] text-ink3">September was high: 14 days of sick leave during the viral fever weeks.</p>}
+              </> : <Empty icon={I.CalendarDays} title="No leave in these dates" body="School was closed, or nobody was on leave." />}
             </Card>
           </div>
         </>}
@@ -695,14 +804,16 @@ function Analytics() {
           <Stats items={[
             { label: 'Average load', value: '28', sub: 'Periods a week, limit 32', icon: I.Clock },
             { label: 'Near the limit', value: '6', sub: '30 or more periods', tone: 'warn', icon: I.TriangleAlert },
-            { label: 'Substitutions in October', value: '28', sub: 'Most taken: Ravi Teja, 5', icon: I.RefreshCw },
+            { label: 'Substitutions', value: String(subs(28)), sub: `Most taken: Ravi Teja, ${subs(5)} · ${range}`, icon: I.RefreshCw },
           ]} />
           <Card>
             <ChartHead title="Periods a week, by teacher" sub="Line at the 32-period limit · Classes 6–10" icon={I.Clock} />
             <div className="px-5 pb-4"><HBars rows={WORKLOAD.map(([n, p]) => ({ k: n, v: p, label: String(p) }))} max={36} goal={32} labelWidth={132} /></div>
             <div className="px-5 pb-4 border-t border-line/70 pt-3">
-              <p className="text-[12.5px] text-ink3 font-semibold mb-2">Substitutions taken in October</p>
-              <div className="flex gap-1.5 flex-wrap">{WORKLOAD.filter((w) => w[2]).sort((a, b) => b[2] - a[2]).map(([n, , s]) => <SmallBtn key={n} onClick={() => toast({ title: `${n}: ${s} substitutions in October`, body: 'Opens the substitution list in Academics', tone: 'info' })}>{n.split(' ')[0]} · {s}</SmallBtn>)}</div>
+              <p className="text-[12.5px] text-ink3 font-semibold mb-2">Substitutions taken · {range}</p>
+              {WORKLOAD.some((w) => subs(w[2]))
+                ? <div className="flex gap-1.5 flex-wrap">{WORKLOAD.filter((w) => subs(w[2])).sort((a, b) => b[2] - a[2]).map(([n, , s]) => <SmallBtn key={n} onClick={() => toast({ title: `${n}: ${subs(s)} substitutions`, body: `${range} · the list is in Academics, Timetable`, tone: 'info' })}>{n.split(' ')[0]} · {subs(s)}</SmallBtn>)}</div>
+                : <p className="text-[13px] text-ink3">No substitutions in these dates.</p>}
             </div>
           </Card>
         </>}
@@ -806,8 +917,9 @@ function EarlyWarnings() {
   const [ruleOpen, setRuleOpen] = useState(false);
   const [drop, setDrop] = useState(RULES.drop);
   const [aiDone, setAiDone] = useState(new Set());
+  const [per, setPer] = useState(DP.last30);
 
-  const mine = flags.filter((f) => inScope(f.cls) && (seeFees || !f.fee));
+  const mine = flags.filter((f) => inScope(f.cls) && (seeFees || !f.fee)).filter((f) => { const d = isoOf(f.raised); return d >= per.from && d <= per.to; });
   const t = q.trim().toLowerCase();
   const list = mine.filter((f) => (status === 'open' ? f.status !== 'Closed' : f.status === status) && (kind === 'all' || f.signals.some((s) => s.k === kind)) && (!t || (f.name + f.cls).toLowerCase().includes(t)))
     .sort((a, b) => (a.strength === b.strength ? 0 : a.strength === 'act' ? -1 : 1));
@@ -831,20 +943,22 @@ function EarlyWarnings() {
           { label: 'Act now', value: String(count((f) => f.strength === 'act' && f.status !== 'Closed')), sub: 'Open flags', tone: 'bad', icon: I.TriangleAlert, onClick: () => { setStatus('open'); setKind('all'); } },
           { label: 'Watch', value: String(count((f) => f.strength === 'watch' && f.status !== 'Closed')), sub: 'Open flags', tone: 'warn', icon: I.Eye },
           { label: 'Not reviewed yet', value: String(count((f) => f.status === 'New')), sub: 'Review before any action', tone: 'brand', icon: I.Inbox, onClick: () => setStatus('New') },
-          { label: 'Closed this month', value: String(count((f) => f.status === 'Closed')), sub: 'With a reason each', icon: I.CircleCheck, onClick: () => setStatus('Closed') },
+          { label: 'Closed', value: String(count((f) => f.status === 'Closed')), sub: 'With a reason each', icon: I.CircleCheck, onClick: () => setStatus('Closed') },
         ]} />
         <Split side={340}>
           <Card className="overflow-hidden">
             <Toolbar>
               <SearchBox id="ew-q" value={q} onChange={setQ} placeholder="Student name or class" />
+              <DatePeriod id="ew-dates" value={per} onChange={setPer} className="w-full @md:w-auto" />
               <Segmented value={kind} onChange={setKind} options={[{ value: 'all', label: 'All' }, { value: 'att', label: 'Attendance' }, { value: 'marks', label: 'Marks' }, ...(seeFees ? [{ value: 'fees', label: 'Fees' }] : [])]} />
             </Toolbar>
-            <div className="px-3 pt-3">
+            <p className="px-4 pt-3 text-[12.5px] text-ink3">Showing flags raised: {per.label} · {fmtRange(per)}</p>
+            <div className="px-3 pt-2">
               <Chips value={status} onChange={setStatus} options={[{ value: 'open', label: 'Open', count: count((f) => f.status !== 'Closed') }, ...['New', 'Reviewed', 'Action planned', 'Closed'].map((s) => ({ value: s, label: s, count: count((f) => f.status === s) }))]} />
             </div>
             <DataList rows={list} onRow={(f) => setOpenId(f.id)} minWidth={720}
               empty={status === 'New' && !t ? <Empty icon={I.CircleCheck} title="Every flag has been reviewed" body="New flags appear here each morning after attendance is taken, and when marks or fees cross a rule." />
-                : <Empty icon={I.SearchX} title="No flag matches" body="Try another status or signal." action={<Button variant="secondary" onClick={() => { setQ(''); setKind('all'); setStatus('open'); }}>Show all open flags</Button>} />}
+                : <Empty icon={I.SearchX} title="No flag matches" body="Try another status, signal or dates." action={<Button variant="secondary" onClick={() => { setQ(''); setKind('all'); setStatus('open'); setPer(DP.acyear); }}>Show all open flags this year</Button>} />}
               columns={[
                 { key: 'n', label: 'Student', render: (f) => <span className="flex items-center gap-3"><Avatar name={f.name} size={34} /><span className="min-w-0"><b className="font-semibold block leading-tight">{f.name}</b><span className="text-[12.5px] text-ink3">{f.cls}</span></span></span> },
                 { key: 'r', label: 'Why', className: 'max-w-[340px]', render: (f) => <span className="block text-[13px] text-ink2 leading-snug">{f.signals[0].text}{f.signals.length > 1 && <span className="text-ink3"> · +{f.signals.length - 1} more</span>}</span> },
@@ -1000,6 +1114,9 @@ function GovernmentReports() {
   const [recs, setRecs] = useState(null);
   const [anyway, setAnyway] = useState(false);
   const [past, setPast] = useState(PAST);
+  const [per, setPer] = useState(DP.last6m);
+  const isoY = (w) => { const m = /(\d{1,2}) ([A-Z][a-z]{2}) (\d{4})/.exec(w); return m ? `${m[3]}-${String(MON3.indexOf(m[2]) + 1).padStart(2, '0')}-${m[1].padStart(2, '0')}` : isoOf(w); };
+  const shown = past.filter((p) => { const d = isoY(p.when); return d >= per.from && d <= per.to; });
   const g = GOV.find((x) => x.id === sel);
   const v = ver[g.id] || g.vers[0];
   const st = state[g.id];
@@ -1068,7 +1185,12 @@ function GovernmentReports() {
 
             <Card className="overflow-hidden">
               <CardHead title="Past exports" sub="Also in the export log, Settings" icon={I.History} />
-              <DataList rows={past} minWidth={680}
+              <Toolbar>
+                <DatePeriod id="gv-dates" value={per} onChange={setPer} className="w-full @md:w-auto" />
+                <span className="text-[12.5px] text-ink3">Showing: {per.label} · {fmtRange(per)}</span>
+              </Toolbar>
+              <DataList rows={shown} minWidth={680}
+                empty={<Empty icon={I.History} title="No exports in these dates" body="Try a longer stretch of dates." action={<Button variant="secondary" onClick={() => setPer({ key: 'custom', label: 'Custom dates', from: DP.lastacyear.from, to: DP.acyear.to })}>Show the last two school years</Button>} />}
                 columns={[
                   { key: 'w', label: 'Date', nowrap: true, render: (p) => p.when },
                   { key: 'e', label: 'Export', render: (p) => <><b className="font-semibold block leading-tight">{p.what}</b><span className="text-[12.5px] text-ink3">{p.note}</span></> },
@@ -1077,7 +1199,7 @@ function GovernmentReports() {
                   { key: 'f', label: '', render: (p) => <Button size="sm" variant="ghost" icon={I.Download} onClick={() => toast({ title: `Downloaded again: ${p.file}`, body: 'The same file as exported on ' + p.when })}>File</Button> },
                 ]}
                 mobile={(p) => ({ title: p.what, sub: `${p.when} · ${p.ver} · ${p.by}`, icon: 'FileDown' })}
-                footer={`${past.length} exports this year and last`} />
+                footer={`${shown.length} ${shown.length === 1 ? 'export' : 'exports'} in these dates`} />
             </Card>
           </Col>
 

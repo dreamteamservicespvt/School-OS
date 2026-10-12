@@ -7,7 +7,32 @@ import { useNav, useRole } from './shell.jsx';
 import {
   ModuleHead, useCanEdit, Stats, Band, SearchBox, Toolbar, Select, Textarea, Chips, DataList, BulkBar, Row, SettingsCard, SettingRow,
   Banner, Suggestion, Progress, HBars, DL, Timeline, Checklist, MoreMenu, FormSheet, ConfirmSheet, MonthGrid, Split as KitSplit, Col, ExportButton, TONE_SOFT,
+  DatePeriod, PERIODS as DP, fmtRange, CalendarMonth, markCell, monthTotals, schoolDay, MONTH_NAMES,
 } from './kit.jsx';
+import { pagesFor, inMenu } from './config.js';
+
+// Can the signed-in person open this module (and page)? Used to hide links they may not follow.
+function useCan() {
+  const { role } = useRole();
+  return (mod, page) => {
+    const a = role.access[mod];
+    if (!a) return false;
+    if (!page) return inMenu(role, mod);
+    return pagesFor(mod, a, role.id).some((p) => p.id === page);
+  };
+}
+// "9 Oct" or "Fri 9 Oct" or "12-10-2026" -> "2026-10-09" (sample dates are in 2026 unless a year is given)
+const MON3 = { Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6, Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12 };
+function isoOf(t) {
+  if (!t) return '';
+  const m1 = /^(\d{1,2})-(\d{1,2})-(\d{4})$/.exec(t);
+  if (m1) return `${m1[3]}-${m1[2].padStart(2, '0')}-${m1[1].padStart(2, '0')}`;
+  const m2 = /(\d{1,2}) ([A-Z][a-z]{2})(?:[a-z]*)?(?: (\d{4}))?/.exec(t);
+  if (m2) return `${m2[3] || 2026}-${String(MON3[m2[2]]).padStart(2, '0')}-${m2[1].padStart(2, '0')}`;
+  return '';
+}
+const inPer = (iso, per) => !!iso && iso >= per.from && iso <= per.to;
+const Showing = ({ per, n, what }) => <p className="text-[12.5px] text-ink3 tnum">Showing: {per.label} · {fmtRange(per)}{n != null ? ` · ${n} ${what}` : ''}</p>;
 
 // Same as the kit Split, but its direct children may shrink (no sideways overflow on phones)
 const Split = ({ className, ...p }) => <KitSplit {...p} className={cx('[&>*]:min-w-0', className)} />;
@@ -130,18 +155,23 @@ const dmy = (d) => `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth(
 
 // Leave requests waiting for a decision (match the Dashboard and Approvals)
 const PENDING = [
-  { id: 'LR-2611', sid: 'T01', type: 'CL', when: 'Mon 12 Oct', from: '12-10-2026', to: '12-10-2026', days: 1, reason: 'Sister’s engagement in Warangal', after: '8 of 12 casual left', cover: 'Invigilation, Room 7 (8:30–11:30) needs cover', applied: 'Today, 8:12 AM' },
-  { id: 'LR-2612', sid: 'T03', type: 'SL', when: 'Tue 13 – Wed 14 Oct', from: '13-10-2026', to: '14-10-2026', days: 2, reason: 'Viral fever. Doctor advised rest; certificate attached.', after: '4 of 10 sick left', cover: '2 invigilation duties need cover', applied: 'Today, 8:40 AM', doc: true },
-  { id: 'LR-2613', sid: 'T02', type: 'CL', when: 'Fri 16 Oct', from: '16-10-2026', to: '16-10-2026', days: 1, reason: 'Home loan paperwork at the bank', after: '9 of 12 casual left', cover: '1 invigilation duty needs cover', applied: 'Yesterday, 6:05 PM' },
-  { id: 'LR-2614', sid: 'A08', type: 'EL', when: 'Mon 26 – Wed 28 Oct', from: '26-10-2026', to: '28-10-2026', days: 3, reason: 'Family trip to Lucknow after Dussehra', after: '12 of 15 earned left', cover: null, applied: 'Wed 7 Oct' },
+  { id: 'LR-2611', ap: '2026-10-09', sid: 'T01', type: 'CL', when: 'Mon 12 Oct', from: '12-10-2026', to: '12-10-2026', days: 1, reason: 'Sister’s engagement in Warangal', after: '8 of 12 casual left', cover: 'Invigilation, Room 7 (8:30–11:30) needs cover', applied: 'Today, 8:12 AM' },
+  { id: 'LR-2612', ap: '2026-10-09', sid: 'T03', type: 'SL', when: 'Tue 13 – Wed 14 Oct', from: '13-10-2026', to: '14-10-2026', days: 2, reason: 'Viral fever. Doctor advised rest; certificate attached.', after: '4 of 10 sick left', cover: '2 invigilation duties need cover', applied: 'Today, 8:40 AM', doc: true },
+  { id: 'LR-2613', ap: '2026-10-08', sid: 'T02', type: 'CL', when: 'Fri 16 Oct', from: '16-10-2026', to: '16-10-2026', days: 1, reason: 'Home loan paperwork at the bank', after: '9 of 12 casual left', cover: '1 invigilation duty needs cover', applied: 'Yesterday, 6:05 PM' },
+  { id: 'LR-2614', ap: '2026-10-07', sid: 'A08', type: 'EL', when: 'Mon 26 – Wed 28 Oct', from: '26-10-2026', to: '28-10-2026', days: 3, reason: 'Family trip to Lucknow after Dussehra', after: '12 of 15 earned left', cover: null, applied: 'Wed 7 Oct' },
 ];
 const DECIDED = [
-  { id: 'LR-2610', sid: 'S01', type: 'CL', when: 'Thu 29 – Fri 30 Oct', days: 2, status: 'Approved', by: 'Venkatesh Goud, then Lakshmi Rao', future: true },
-  { id: 'LR-2608', sid: 'T03', type: 'SL', when: 'Thu 8 – Fri 9 Oct', days: 2, status: 'Approved', by: 'Lakshmi Rao' },
-  { id: 'LR-2607', sid: 'A07', type: 'CL', when: 'Fri 9 Oct', days: 1, status: 'Approved', by: 'Anita Sharma' },
-  { id: 'LR-2605', sid: 'T11', type: 'CL', when: 'Sat 17 Oct', days: 1, status: 'Declined', by: 'Srinivas Murthy', note: 'PTM day. Every teacher is needed at school.' },
-  { id: 'LR-2603', sid: 'T07', type: 'CL', when: 'Tue 6 Oct', days: 1, status: 'Approved', by: 'Srinivas Murthy' },
-  { id: 'LR-2601', sid: 'T05', type: 'SL', when: 'Mon 5 Oct', days: 1, status: 'Approved', by: 'Srinivas Murthy' },
+  { id: 'LR-2610', on: '2026-10-06', sid: 'S01', type: 'CL', when: 'Thu 29 – Fri 30 Oct', days: 2, status: 'Approved', by: 'Venkatesh Goud, then Lakshmi Rao', future: true },
+  { id: 'LR-2608', on: '2026-10-08', sid: 'T03', type: 'SL', when: 'Thu 8 – Fri 9 Oct', days: 2, status: 'Approved', by: 'Lakshmi Rao' },
+  { id: 'LR-2607', on: '2026-10-08', sid: 'A07', type: 'CL', when: 'Fri 9 Oct', days: 1, status: 'Approved', by: 'Anita Sharma' },
+  { id: 'LR-2605', on: '2026-10-05', sid: 'T11', type: 'CL', when: 'Sat 17 Oct', days: 1, status: 'Declined', by: 'Srinivas Murthy', note: 'PTM day. Every teacher is needed at school.' },
+  { id: 'LR-2603', on: '2026-10-02', sid: 'T07', type: 'CL', when: 'Tue 6 Oct', days: 1, status: 'Approved', by: 'Srinivas Murthy' },
+  { id: 'LR-2601', on: '2026-09-30', sid: 'T05', type: 'SL', when: 'Mon 5 Oct', days: 1, status: 'Approved', by: 'Srinivas Murthy' },
+  { id: 'LR-2594', on: '2026-09-21', sid: 'T08', type: 'CL', when: 'Thu 24 Sep', days: 1, status: 'Approved', by: 'Srinivas Murthy' },
+  { id: 'LR-2588', on: '2026-09-14', sid: 'A03', type: 'SL', when: 'Mon 14 – Tue 15 Sep', days: 2, status: 'Approved', by: 'Anita Sharma' },
+  { id: 'LR-2571', on: '2026-08-26', sid: 'T04', type: 'EL', when: 'Mon 31 Aug – Wed 2 Sep', days: 3, status: 'Declined', by: 'Srinivas Murthy', note: 'Unit Test 2 papers are due that week.' },
+  { id: 'LR-2555', on: '2026-08-10', sid: 'S01', type: 'CL', when: 'Thu 13 Aug', days: 1, status: 'Approved', by: 'Venkatesh Goud, then Lakshmi Rao' },
+  { id: 'LR-2502', on: '2026-07-06', sid: 'T06', type: 'CL', when: 'Fri 10 Jul', days: 1, status: 'Approved', by: 'Srinivas Murthy' },
 ];
 // Who is away in October: [sid, type, from day, to day, waiting?]
 const AWAY = [
@@ -161,7 +191,7 @@ function myHistory(s) {
   if (s.id === 'T03') past.unshift({ id: 'LR-2608', type: 'SL', when: 'Thu 8 – Fri 9 Oct', days: 2, reason: 'Viral fever', status: 'Approved' });
   if (s.id === 'A07') past.unshift({ id: 'LR-2607', type: 'CL', when: 'Fri 9 Oct', days: 1, reason: 'Daughter’s school admission', status: 'Approved' });
   if (s.id === 'T13') past.unshift({ id: 'LR-2402', type: 'ML', when: '1 Sep 2026 – 1 Mar 2027', days: 182, reason: 'Maternity leave', status: 'Approved' });
-  return [...own, ...past];
+  return [...own, ...past].map((r) => ({ ...r, on: r.on || isoOf(r.from || r.when) }));
 }
 
 // Documents
@@ -198,9 +228,11 @@ function myDocs(s) {
 
 // Recruitment, appraisal, training, promotions
 const VACANCIES = [
-  { id: 'V-26-07', post: 'TGT Computer Science', dept: 'Teaching', openings: 1, closes: 'Tue 20 Oct', status: 'Interviews', apps: 14, note: 'Replaces Karthik Menon (leaving 31 Oct)' },
-  { id: 'V-26-06', post: 'PRT', dept: 'Teaching', openings: 2, closes: 'Sat 31 Oct', status: 'Open', apps: 22, note: 'Primary wing, from November' },
-  { id: 'V-26-05', post: 'Driver', dept: 'Transport', openings: 1, closes: 'Fri 16 Oct', status: 'Offer made', apps: 5, note: 'Bus 7 (new Route 7 · Hydernagar)' },
+  { id: 'V-26-07', opened: '2026-10-01', shut: '2026-10-20', post: 'TGT Computer Science', dept: 'Teaching', openings: 1, closes: 'Tue 20 Oct', status: 'Interviews', apps: 14, note: 'Replaces Karthik Menon (leaving 31 Oct)' },
+  { id: 'V-26-06', opened: '2026-10-05', shut: '2026-10-31', post: 'PRT', dept: 'Teaching', openings: 2, closes: 'Sat 31 Oct', status: 'Open', apps: 22, note: 'Primary wing, from November' },
+  { id: 'V-26-05', opened: '2026-09-24', shut: '2026-10-16', post: 'Driver', dept: 'Transport', openings: 1, closes: 'Fri 16 Oct', status: 'Offer made', apps: 5, note: 'Bus 7 (new Route 7 · Hydernagar)' },
+  { id: 'V-26-03', opened: '2026-06-15', shut: '2026-07-10', post: 'PGT Mathematics', dept: 'Teaching', openings: 1, closes: 'Fri 10 Jul', status: 'Filled', apps: 19, note: 'Arvind Rao joined on 15 Jun' },
+  { id: 'V-26-01', opened: '2026-04-20', shut: '2026-05-25', post: 'TGT Science and TGT English', dept: 'Teaching', openings: 2, closes: 'Mon 25 May', status: 'Filled', apps: 37, note: 'Pallavi Reddy and Sneha Mathew joined on 1 Jun' },
 ];
 const APPLICANTS = {
   'V-26-07': [
@@ -216,6 +248,8 @@ const APPLICANTS = {
     { name: 'Farah Siddiqui', from: 'St. Andrews, Bowenpally', exp: '8 years', stage: 'Interview', when: 'Wed 14 Oct, 11:00 AM', panel: 'Meena Pillai, Usha Rani' },
     { name: 'Keerthi Naidu', from: 'D.El.Ed. 2025 batch', exp: 'Fresher', stage: 'Applied', when: '', panel: '' },
   ],
+  'V-26-03': [{ name: 'Arvind Rao', from: 'Kendriya Vidyalaya, Golconda', exp: '9 years', stage: 'Joined', when: 'Joined 15 Jun', panel: 'Srinivas Murthy' }],
+  'V-26-01': [{ name: 'Pallavi Reddy', from: 'Sri Chaitanya, Miyapur', exp: '4 years', stage: 'Joined', when: 'Joined 1 Jun', panel: 'Meena Pillai' }, { name: 'Sneha Mathew', from: 'St. Ann’s, Secunderabad', exp: '6 years', stage: 'Joined', when: 'Joined 1 Jun', panel: 'Meena Pillai' }],
   'V-26-05': [
     { name: 'Yadagiri Pasham', from: 'APSRTC (retired)', exp: '22 years', stage: 'Offer made', when: 'Offer sent Thu 8 Oct', panel: 'Venkatesh Goud' },
     { name: 'Ramesh Banoth', from: 'Private cab driver', exp: '9 years', stage: 'Interview', when: 'Done Tue 6 Oct', panel: 'Venkatesh Goud' },
@@ -229,18 +263,18 @@ const APPRAISALS = [
 ];
 const APP_TONE = { 'Not started': 'neutral', 'Self review': 'info', 'Manager review': 'warn', Done: 'ok' };
 const TRAINING = [
-  { sid: 'T01', course: 'Experiential learning in Science (CBSE COE Hyderabad)', dates: '22–23 Aug 2026', hours: 12, cert: true },
-  { sid: 'T02', course: 'Competency-based questions in Mathematics', dates: '18 Jul 2026', hours: 6, cert: true },
-  { sid: 'T04', course: 'Foundational literacy and numeracy (NIPUN)', dates: '4–6 Jun 2026', hours: 18, cert: true },
-  { sid: 'T03', course: 'Classroom assessment: CBSE online module', dates: 'Jun–Sep 2026', hours: 10, cert: false },
-  { sid: 'S01', course: 'Defensive driving and child safety (RTA)', dates: '12 Sep 2026', hours: 4, cert: true },
-  { sid: 'T12', course: 'POCSO awareness for teachers', dates: '30 Jul 2026', hours: 3, cert: true },
+  { sid: 'T01', on: '2026-08-22', course: 'Experiential learning in Science (CBSE COE Hyderabad)', dates: '22–23 Aug 2026', hours: 12, cert: true },
+  { sid: 'T02', on: '2026-07-18', course: 'Competency-based questions in Mathematics', dates: '18 Jul 2026', hours: 6, cert: true },
+  { sid: 'T04', on: '2026-06-04', course: 'Foundational literacy and numeracy (NIPUN)', dates: '4–6 Jun 2026', hours: 18, cert: true },
+  { sid: 'T03', on: '2026-06-15', course: 'Classroom assessment: CBSE online module', dates: 'Jun–Sep 2026', hours: 10, cert: false },
+  { sid: 'S01', on: '2026-09-12', course: 'Defensive driving and child safety (RTA)', dates: '12 Sep 2026', hours: 4, cert: true },
+  { sid: 'T12', on: '2026-07-30', course: 'POCSO awareness for teachers', dates: '30 Jul 2026', hours: 3, cert: true },
 ];
 const PROMOTIONS = [
-  { sid: 'P02', from: 'PGT Mathematics', to: 'Vice Principal', date: '1 Jun 2024', reason: 'Selected by the management committee' },
-  { sid: 'T08', from: 'TGT Physics', to: 'PGT Physics', date: '1 Jun 2025', reason: 'M.Sc. completed; Class 11–12 opening' },
-  { sid: 'A12', from: 'Office Assistant', to: 'Cashier-cum-Accountant', date: '1 Apr 2025', reason: 'Took over the fee counter' },
-  { sid: 'T06', from: 'PRT', to: 'TGT Telugu', date: '1 Jun 2023', reason: 'Telugu teacher for Classes 6–10' },
+  { sid: 'P02', on: '2024-06-01', from: 'PGT Mathematics', to: 'Vice Principal', date: '1 Jun 2024', reason: 'Selected by the management committee' },
+  { sid: 'T08', on: '2025-06-01', from: 'TGT Physics', to: 'PGT Physics', date: '1 Jun 2025', reason: 'M.Sc. completed; Class 11–12 opening' },
+  { sid: 'A12', on: '2025-04-01', from: 'Office Assistant', to: 'Cashier-cum-Accountant', date: '1 Apr 2025', reason: 'Took over the fee counter' },
+  { sid: 'T06', on: '2023-06-01', from: 'PRT', to: 'TGT Telugu', date: '1 Jun 2023', reason: 'Telugu teacher for Classes 6–10' },
 ];
 
 // Exits
@@ -604,11 +638,12 @@ function ProfileOverview({ s, mode }) {
 
 function ProfileClasses({ s }) {
   const { go } = useNav();
+  const can = useCan();
   const cls = classesFor(s);
   return (
     <Split>
       <Card className="overflow-hidden">
-        <CardHead title="Classes and subjects" sub="From Academic Management, Teacher Allocation" action={<Button size="sm" variant="ghost" icon={I.ArrowUpRight} onClick={() => go('academic', { page: 'allocation' })}>Open</Button>} />
+        <CardHead title="Classes and subjects" sub="From Academic Management, Teacher Allocation" action={can('academic', 'allocation') ? <Button size="sm" variant="ghost" icon={I.ArrowUpRight} onClick={() => go('academic', { page: 'allocation' })}>Open</Button> : null} />
         <ul className="px-2 pb-2">
           {cls.map(([sub, c, n]) => <li key={c + sub}><Row icon={I.BookOpen} iconTone="brand" title={`${sub} · Class ${c}`} sub={`${n} periods a week`} right={c === s.classTeacher ? <Pill tone="brand">Class teacher</Pill> : null} /></li>)}
         </ul>
@@ -619,7 +654,7 @@ function ProfileClasses({ s }) {
           <div className="px-5 pb-5 text-[14px] flex flex-col gap-2">
             <p className="font-display text-[26px] font-semibold">Class {s.classTeacher}</p>
             <p className="text-ink3">{s.classTeacher === '7 B' ? '38 students · Godavari, Krishna, Kaveri and Narmada houses' : 'Takes daily attendance and writes report card remarks'}</p>
-            <Button className="self-start mt-1" size="sm" variant="secondary" icon={I.Users} onClick={() => go('students')}>See the class</Button>
+            {can('students') && <Button className="self-start mt-1" size="sm" variant="secondary" icon={I.Users} onClick={() => go('students')}>See the class</Button>}
           </div>
         ) : <p className="px-5 pb-5 text-[14px] text-ink3">Not a class teacher this year.</p>}
       </Card>
@@ -661,7 +696,8 @@ function ProfileTimetable({ s }) {
 function ProfileAttendance({ s }) {
   const h = hash(s.name);
   const lateDay = 3 + (h % 5);
-  const cell = (d) => {
+  // October 2026 is drawn by hand from the day's records; earlier months come from the attendance history
+  const oct = (d) => {
     if (d > 9) return HOLIDAYS.has(d) ? { tone: 'info', title: 'Dussehra holidays' } : { tone: 'muted' };
     const dow = new Date(2026, 9, d).getDay();
     if (dow === 0) return { tone: 'muted', title: 'Sunday' };
@@ -672,25 +708,47 @@ function ProfileAttendance({ s }) {
     if (d === lateDay || (s.id === 'T07' && d === 9)) return { tone: 'warn', title: 'Late' };
     return { tone: 'ok', title: 'Present' };
   };
+  const past = markCell(s.name);
+  const cell = (y, m, d) => {
+    if (y === 2026 && m === 9) return oct(d);
+    if (s.id === 'T13' && y === 2026 && m === 8 && schoolDay(y, m, d).kind === 'school') return { tone: 'brand', title: 'On leave' };
+    const c = past(y, m, d);
+    return c.title === 'On leave' ? { ...c, tone: 'brand' } : c;
+  };
   const leaveDays = s.id === 'T13' ? 7 : s.id === 'T03' ? 2 : s.id === 'A07' ? 1 : 0;
+  const totals = (y, m) => {
+    if (y === 2026 && m === 9) return { school: 7, present: 7 - leaveDays - (s.id === 'T12' ? 1 : 0), late: s.id === 'T13' ? 0 : s.id === 'T07' ? 2 : 1, leave: leaveDays, absent: 0 };
+    if (s.id === 'T13' && (y > 2026 || (y === 2026 && m >= 8))) { const t = monthTotals(s.name, y, m); return { school: t.school, present: 0, late: 0, leave: t.school, absent: 0 }; }
+    return monthTotals(s.name, y, m);
+  };
+  const year = [5, 6, 7, 8, 9].map((m) => totals(2026, m)).reduce((x, t) => ({ school: x.school + t.school, present: x.present + t.present, late: x.late + t.late, leave: x.leave + t.leave, absent: x.absent + (t.absent || 0) }), { school: 0, present: 0, late: 0, leave: 0, absent: 0 });
+  const Line = ({ k, v, tone }) => <li className="flex justify-between"><span className="text-ink3">{k}</span><b className={cx('font-semibold', tone)}>{v}</b></li>;
   return (
     <Split side={300}>
       <Card>
-        <CardHead title="October 2026" sub="From Staff Attendance · face scan at the gate" />
+        <CardHead title="Attendance by month" sub="From Staff Attendance · face scan at the gate · go back to earlier months" />
         <div className="px-5 pb-5">
-          <MonthGrid cell={cell} />
-          <div className="flex flex-wrap gap-x-4 gap-y-2 mt-4 text-[12.5px] text-ink2">
-            {[['bg-ok/15', 'Present'], ['bg-warn/15', 'Late'], ['bg-brand/12', 'Leave'], ['bg-info/10', 'Holiday']].map(([c, l]) => <span key={l} className="flex items-center gap-1.5"><span className={cx('w-3 h-3 rounded', c)} />{l}</span>)}
-          </div>
+          <CalendarMonth id={`sa-${s.id}`} cell={cell} footer={(y, m) => {
+            const t = totals(y, m);
+            return (
+              <>
+                <p className="text-[13px] text-ink2 tnum"><b className="font-semibold">{y === 2026 && m === 9 ? 'This month so far' : `${MONTH_NAMES[m]} ${y}`}:</b> {t.school} school days · <span className="text-ok font-semibold">{t.present} present</span> · <span className="text-warn font-semibold">{t.late} late</span>{t.absent ? <> · <span className="text-bad font-semibold">{t.absent} absent</span></> : null} · {t.leave} on leave</p>
+                <div className="flex flex-wrap gap-x-4 gap-y-2 mt-3 text-[12.5px] text-ink2">
+                  {[['bg-ok/15', 'Present'], ['bg-warn/15', 'Late'], ['bg-bad/15', 'Absent'], ['bg-brand/12', 'Leave'], ['bg-info/10', 'Holiday']].map(([c, l]) => <span key={l} className="flex items-center gap-1.5"><span className={cx('w-3 h-3 rounded', c)} />{l}</span>)}
+                </div>
+              </>
+            );
+          }} />
         </div>
       </Card>
       <Card>
-        <CardHead title="This month so far" />
+        <CardHead title="This school year so far" sub="1 Jun to 9 Oct 2026" />
         <ul className="px-5 pb-5 text-[14px] flex flex-col gap-2 tnum">
-          <li className="flex justify-between"><span className="text-ink3">School days</span><b className="font-semibold">7</b></li>
-          <li className="flex justify-between"><span className="text-ink3">Present</span><b className="font-semibold text-ok">{7 - leaveDays - (s.id === 'T12' ? 1 : 0)}</b></li>
-          <li className="flex justify-between"><span className="text-ink3">Late marks</span><b className="font-semibold text-warn">{s.id === 'T13' ? 0 : s.id === 'T07' ? 2 : 1}</b></li>
-          <li className="flex justify-between"><span className="text-ink3">On leave</span><b className="font-semibold">{leaveDays}</b></li>
+          <Line k="School days" v={year.school} />
+          <Line k="Present" v={year.present} tone="text-ok" />
+          <Line k="Late marks" v={year.late} tone="text-warn" />
+          <Line k="Absent" v={year.absent} tone="text-bad" />
+          <Line k="On leave" v={year.leave} />
           <li className="pt-2 mt-1 border-t border-line text-[12.5px] text-ink3 font-sans">3 late marks count as half a day’s pay (Salary Settings).</li>
         </ul>
       </Card>
@@ -820,6 +878,7 @@ function DocList({ docs, onAdd }) {
 
 function ProfileSalary({ s, mode }) {
   const { go } = useNav();
+  const can = useCan();
   const h = hash(s.name);
   const gross = s.desig === 'Principal' ? 125000 : s.desig === 'Vice Principal' ? 102000 : s.dept === 'Teaching' ? (s.desig.startsWith('PGT') ? 52000 : s.desig === 'PRT' ? 26500 : 38000) : s.dept === 'Transport' ? 18500 : s.dept === 'Support' ? 12500 : s.dept === 'Accounts' ? 36000 : 24000 + (h % 6) * 1000;
   const pf = Math.round(Math.min(gross * 0.58, 15000) * 0.12);
@@ -844,7 +903,7 @@ function ProfileSalary({ s, mode }) {
           <div><p className="text-[12px] text-ink3 font-semibold">Deductions</p><p className="text-[18px] font-semibold tnum">₹{(gross - net).toLocaleString('en-IN')}</p></div>
           <div><p className="text-[12px] text-ink3 font-semibold">Net</p><p className="text-[18px] font-semibold tnum text-ok">₹{net.toLocaleString('en-IN')}</p></div>
         </div>
-        <div className="px-5 pb-5"><Button variant="secondary" icon={I.ArrowUpRight} onClick={() => go('salary', { page: 'structures' })}>Open in Salary Management</Button></div>
+        {can('salary', 'structures') && <div className="px-5 pb-5"><Button variant="secondary" icon={I.ArrowUpRight} onClick={() => go('salary', { page: 'structures' })}>Open in Salary Management</Button></div>}
       </Card>
       <Card>
         <CardHead title="Last 3 months" />
@@ -1141,26 +1200,33 @@ function AddStaff() {
 function StaffLeave({ access }) {
   const { role } = useRole();
   const [tab, setTab] = useState('requests');
-  if (access === 'own') return <div><ModuleHead sub="Your own leave. Nobody approves their own leave; your request goes to your approver." /><MyLeave /></div>;
+  const [per, setPer] = useState(DP.thismonth);
+  const [myPer, setMyPer] = useState(DP.acyear);
+  if (access === 'own') return <div><ModuleHead sub="Your own leave. Nobody approves their own leave; your request goes to your approver." /><MyLeave per={myPer} setPer={setMyPer} /></div>;
   return (
     <div>
       <ModuleHead sub="Requests, the leave calendar and every staff member’s balance · leave year Jun 2026 to May 2027" />
-      <ScrollSeg className="mb-5" value={tab} onChange={setTab} options={[{ value: 'requests', label: 'Requests' }, { value: 'calendar', label: 'Leave calendar' }, { value: 'balances', label: 'Balances' }, { value: 'mine', label: 'My leave' }]} />
+      <div className="flex flex-col @lg:flex-row @lg:items-center gap-2.5 mb-5">
+        <ScrollSeg className="min-w-0" value={tab} onChange={setTab} options={[{ value: 'requests', label: 'Requests' }, { value: 'calendar', label: 'Leave calendar' }, { value: 'balances', label: 'Balances' }, { value: 'mine', label: 'My leave' }]} />
+        {tab === 'requests' && <DatePeriod id="lv-per" value={per} onChange={setPer} className="w-full @lg:w-auto @lg:ml-auto" />}
+      </div>
       <div key={tab} className="animate-rise">
-        {tab === 'requests' && <LeaveRequests />}
+        {tab === 'requests' && <LeaveRequests per={per} />}
         {tab === 'calendar' && <LeaveCalendar hide={!SENSITIVE.includes(role.id)} />}
         {tab === 'balances' && <LeaveBalances />}
-        {tab === 'mine' && <MyLeave />}
+        {tab === 'mine' && <MyLeave per={myPer} setPer={setMyPer} />}
       </div>
     </div>
   );
 }
 
-function LeaveRequests() {
+function LeaveRequests({ per }) {
   const toast = useToast();
   const { go } = useNav();
   const { role } = useRole();
   const canEdit = useCanEdit();
+  // Only the head of department and the Principal decide leave (HR Settings and Forms & Approvals). HR manages, but does not decide.
+  const canDecide = canEdit && ['principal', 'schooladmin'].includes(role.id);
   const [list, setList] = useState(PENDING);
   const [done, setDone] = useState(DECIDED);
   const [decline, setDecline] = useState(null);
@@ -1168,21 +1234,25 @@ function LeaveRequests() {
   const [whyErr, setWhyErr] = useState('');
   const [cancel, setCancel] = useState(null);
   const [apply, setApply] = useState(false);
+  const wait = list.filter((r) => inPer(r.ap, per));
+  const dec = done.filter((r) => inPer(r.on, per));
   const approve = (r) => {
     const s = byId(r.sid);
     setList((x) => x.filter((y) => y.id !== r.id));
-    setDone((x) => [{ ...r, status: 'Approved', by: role.person.name, future: true }, ...x]);
+    setDone((x) => [{ ...r, on: '2026-10-09', status: 'Approved', by: role.person.name, future: true }, ...x]);
     toast({ title: `Approved: ${s.name}, ${LT[r.type].name.toLowerCase()} ${r.when}`, body: `Balance now ${r.after}. ${r.cover ? 'Cover sent to Academic Management, Substitutions.' : 'Shows in Staff Attendance and the October salary.'}`, undo: () => { setList((x) => [r, ...x]); setDone((x) => x.filter((y) => y.id !== r.id)); } });
   };
   return (
     <Split>
       <Col>
-        {!canEdit && <Banner tone="info" action={<Button size="sm" variant="secondary" onClick={() => go('approvals')}>Open Approvals</Button>}>You can see these requests here. Decide the ones sent to you in Approvals.</Banner>}
+        {!canEdit && role.approves && <Banner tone="info" action={<Button size="sm" variant="secondary" onClick={() => go('approvals')}>Open Approvals</Button>}>You can see these requests here. Decide the ones sent to you in Approvals.</Banner>}
+        {canEdit && !canDecide && <Banner tone="info">Leave is decided by the head of department, then the Principal. You can apply for someone, cancel approved leave and adjust balances.</Banner>}
+        <Showing per={per} n={wait.length + dec.length} what={wait.length + dec.length === 1 ? 'request asked or decided' : 'requests asked or decided'} />
         <Card>
-          <CardHead title="Waiting for a decision" sub="With the balance after and the cover needed" action={<Pill tone={list.length ? 'warn' : 'ok'}>{list.length} waiting</Pill>} />
-          {list.length === 0 ? <Empty icon={I.CheckCheck} title="Nothing waiting" body="New leave requests show up here, in Approvals and in your notifications." /> : (
+          <CardHead title="Waiting for a decision" sub="Asked in these dates · with the balance after and the cover needed" action={<Pill tone={wait.length ? 'warn' : 'ok'}>{wait.length} waiting</Pill>} />
+          {wait.length === 0 ? <Empty icon={I.CheckCheck} title="Nothing waiting" body={list.length ? 'No request was asked in these dates. Pick a longer period to see the others.' : 'New leave requests show up here, in Approvals and in your notifications.'} /> : (
             <ul className="divide-y divide-line/70 border-t border-line/70">
-              {list.map((r) => {
+              {wait.map((r) => {
                 const s = byId(r.sid);
                 const mine = s.name === role.person.name;
                 return (
@@ -1201,7 +1271,7 @@ function LeaveRequests() {
                       {r.cover && <Pill tone="warn" className="!whitespace-normal !h-auto py-1"><I.Repeat size={12} className="shrink-0" />{r.cover}</Pill>}
                       <Pill tone="info" className="!whitespace-normal !h-auto py-1">{approversFor(s).join(', then ')}</Pill>
                     </div>
-                    {canEdit && (mine ? <p className="text-[13px] text-ink3 @md:pl-[54px] flex items-center gap-1.5"><I.Info size={14} className="shrink-0" />Your own request. It goes to {approversFor(s).join(', then ')}.</p> : (
+                    {canDecide && (mine ? <p className="text-[13px] text-ink3 @md:pl-[54px] flex items-center gap-1.5"><I.Info size={14} className="shrink-0" />Your own request. It goes to {approversFor(s).join(', then ')}.</p> : (
                       <div className="flex gap-2 @md:pl-[54px]">
                         <Button variant="soft" icon={I.Check} onClick={() => approve(r)}>Approve</Button>
                         <Button variant="ghost" onClick={() => { setDecline(r); setWhy(''); setWhyErr(''); }}>Decline</Button>
@@ -1214,9 +1284,10 @@ function LeaveRequests() {
           )}
         </Card>
         <Card>
-          <CardHead title="Decided recently" sub="Approved leave can be cancelled before it ends; the balance comes back" />
+          <CardHead title="Decided in these dates" sub="Approved leave can be cancelled before it ends; the balance comes back" />
+          {dec.length === 0 && <Empty icon={I.CalendarDays} title="Nothing decided in these dates" body="Pick a longer period, like Last 3 months." />}
           <ul className="px-2 pb-2">
-            {done.map((r) => {
+            {dec.map((r) => {
               const s = byId(r.sid);
               return (
                 <li key={r.id}>
@@ -1256,7 +1327,7 @@ function LeaveRequests() {
       <Sheet open={!!decline} onClose={() => setDecline(null)} title={decline ? `Decline ${byId(decline.sid).first}’s leave?` : ''} sub="They see your reason on their phone."
         footer={<><Button variant="ghost" onClick={() => setDecline(null)}>Keep it waiting</Button><Button variant="danger" onClick={() => {
           if (!why.trim()) { setWhyErr('Give a reason. They see it with the decision.'); return; }
-          const r = decline; setList((x) => x.filter((y) => y.id !== r.id)); setDone((x) => [{ ...r, status: 'Declined', note: why.trim(), by: role.person.name }, ...x]); setDecline(null);
+          const r = decline; setList((x) => x.filter((y) => y.id !== r.id)); setDone((x) => [{ ...r, on: '2026-10-09', status: 'Declined', note: why.trim(), by: role.person.name }, ...x]); setDecline(null);
           toast({ title: `Declined: ${byId(r.sid).name}, ${r.when}`, body: 'They have been told with your reason.', undo: () => { setList((x) => [r, ...x]); setDone((x) => x.filter((y) => y.id !== r.id)); } });
         }}>Decline leave</Button></>}>
         <Field label="Reason" required id="lv-why" error={whyErr}>
@@ -1303,25 +1374,58 @@ function ApplySheet({ open, onClose, who, pick }) {
   );
 }
 
+// Who was away in another month: [sid, type, from day, to day]. October 2026 uses AWAY; other months come from the leave history.
+const AWAY_POOL = ['T01', 'T02', 'T03', 'T04', 'T05', 'T06', 'T07', 'T08', 'A03', 'A07', 'S01', 'T11'];
+function awayIn(y, m) {
+  if (y === 2026 && m === 9) return AWAY;
+  const days = new Date(y, m + 1, 0).getDate();
+  const out = [];
+  AWAY_POOL.forEach((sid, i) => {
+    const h = hash(`${sid}|${y}-${m}`);
+    if (h % 3 === 0 || (m === 4 || (m === 3 && h % 2))) return; // summer holidays and quiet months
+    const start = 1 + (h % (days - 3)); const len = 1 + ((h >>> 5) % 3);
+    const type = ['CL', 'CL', 'SL', 'EL'][(h >>> 3) % 4];
+    if (new Date(y, m, start) > TODAY_D) return;
+    out.push([sid, type, start, Math.min(days, start + len - 1)]);
+  });
+  if (y === 2026 && m === 8) out.push(['T13', 'ML', 1, 30]);
+  return out;
+}
+const TODAY_D = new Date(2026, 9, 9);
+const CAL_FROM = 2025 * 12 + 5, CAL_TO = 2026 * 12 + 9;
+
 function LeaveCalendar({ hide }) {
   const [grp, setGrp] = useState('all');
-  const days = Array.from({ length: 31 }, (_, i) => i + 1);
-  const people = [...new Set(AWAY.map((a) => a[0]))].map(byId).filter((s) => grp === 'all' || (grp === 'teaching' ? s.dept === 'Teaching' : s.dept !== 'Teaching'));
+  const [k, setK] = useState(CAL_TO);
+  const y = Math.floor(k / 12), m = k % 12;
+  const isOct = y === 2026 && m === 9;
+  const away = awayIn(y, m);
+  const days = Array.from({ length: new Date(y, m + 1, 0).getDate() }, (_, i) => i + 1);
+  const people = [...new Set(away.map((a) => a[0]))].map(byId).filter((s) => grp === 'all' || (grp === 'teaching' ? s.dept === 'Teaching' : s.dept !== 'Teaching'));
+  const offDay = (d) => (isOct ? new Date(2026, 9, d).getDay() === 0 || HOLIDAYS.has(d) : (() => { const sd = schoolDay(y, m, d); return sd.kind === 'off' || sd.kind === 'holiday'; })());
   const ABBR = { CL: 'CL', SL: 'SL', EL: 'EL', ML: 'ML' };
+  const months = [];
+  for (let i = CAL_TO; i >= CAL_FROM; i--) months.push({ value: String(i), label: `${MONTH_NAMES[i % 12]} ${Math.floor(i / 12)}` });
   return (
     <div className="flex flex-col gap-5">
       {hide && <Banner tone="info">Sick and maternity leave show only as “On leave” to you. The staff member, HR and the Principal see the type.</Banner>}
       <Card className="overflow-hidden">
         <div className="flex items-center justify-between gap-3 px-5 py-4 flex-wrap">
-          <div><h3 className="font-semibold text-[15px]">October 2026</h3><p className="text-[13px] text-ink3">Who is away, by day · dashed means still waiting</p></div>
+          <div className="flex items-center gap-2 min-w-0">
+            <Button variant="secondary" size="sm" icon={I.ChevronLeft} aria-label="Earlier month" disabled={k <= CAL_FROM} onClick={() => setK(k - 1)} className="!px-2.5" />
+            <Select id="lv-cal-m" className="w-44" value={String(k)} onChange={(v) => setK(Number(v))} options={months} />
+            <Button variant="secondary" size="sm" icon={I.ChevronRight} aria-label="Later month" disabled={k >= CAL_TO} onClick={() => setK(k + 1)} className="!px-2.5" />
+          </div>
           <Segmented size="sm" value={grp} onChange={setGrp} options={[{ value: 'all', label: 'Everyone' }, { value: 'teaching', label: 'Teaching' }, { value: 'other', label: 'Non-teaching' }]} />
+          <p className="text-[13px] text-ink3 w-full">Who is away, by day{isOct ? ' · dashed means still waiting' : ''} · {people.length} {people.length === 1 ? 'person' : 'people'} on leave in {MONTH_NAMES[m]} {y}</p>
         </div>
+        {people.length === 0 ? <Empty icon={I.CalendarDays} title={`Nobody was on leave in ${MONTH_NAMES[m]} ${y}`} body={m === 4 ? 'Summer holidays.' : 'Try another month or group.'} /> : (
         <div className="overflow-x-auto scroll-thin">
           <table className="text-[12px] min-w-full">
             <thead>
               <tr className="border-y border-line text-ink3">
                 <th className="sticky left-0 z-10 bg-surface text-left font-semibold px-4 py-2 min-w-[170px]">Staff member</th>
-                {days.map((d) => { const dow = new Date(2026, 9, d).getDay(); return <th key={d} className={cx('font-semibold px-0.5 py-2 w-8 tnum', d === 9 && 'text-brand')}>{d}<span className="block text-[10px] font-medium">{['S', 'M', 'T', 'W', 'T', 'F', 'S'][dow]}</span></th>; })}
+                {days.map((d) => { const dow = new Date(y, m, d).getDay(); return <th key={d} className={cx('font-semibold px-0.5 py-2 w-8 tnum', isOct && d === 9 && 'text-brand')}>{d}<span className="block text-[10px] font-medium">{['S', 'M', 'T', 'W', 'T', 'F', 'S'][dow]}</span></th>; })}
               </tr>
             </thead>
             <tbody>
@@ -1329,11 +1433,11 @@ function LeaveCalendar({ hide }) {
                 <tr key={s.id} className="border-b border-line/60 last:border-0">
                   <td className="sticky left-0 z-10 bg-surface px-4 py-1.5 whitespace-nowrap"><span className="font-medium">{s.name}</span><span className="block text-[11.5px] text-ink3">{s.desig}</span></td>
                   {days.map((d) => {
-                    const a = AWAY.find((x) => x[0] === s.id && d >= x[2] && d <= x[3]);
-                    const off = new Date(2026, 9, d).getDay() === 0 || HOLIDAYS.has(d);
+                    const a = away.find((x) => x[0] === s.id && d >= x[2] && d <= x[3]);
+                    const off = offDay(d);
                     return (
                       <td key={d} className={cx('px-0.5 py-1 text-center', off && 'bg-sunken/70')}>
-                        {a && !off ? <span title={`${s.name}: ${leaveLabel(a[1], hide)}${a[4] ? ' (waiting)' : ''}`} className={cx('inline-grid place-items-center w-7 h-7 rounded-md text-[10px] font-bold', a[4] ? 'border border-dashed border-warn text-warn bg-warn/8' : 'bg-info/15 text-info', d === 9 && 'ring-2 ring-brand')}>{hide && LT[a[1]].sensitive ? 'Lv' : ABBR[a[1]]}</span> : null}
+                        {a && !off ? <span title={`${s.name}: ${leaveLabel(a[1], hide)}${a[4] ? ' (waiting)' : ''}`} className={cx('inline-grid place-items-center w-7 h-7 rounded-md text-[10px] font-bold', a[4] ? 'border border-dashed border-warn text-warn bg-warn/8' : 'bg-info/15 text-info', isOct && d === 9 && 'ring-2 ring-brand')}>{hide && LT[a[1]].sensitive ? 'Lv' : ABBR[a[1]]}</span> : null}
                       </td>
                     );
                   })}
@@ -1342,10 +1446,11 @@ function LeaveCalendar({ hide }) {
             </tbody>
           </table>
         </div>
+        )}
         <div className="flex flex-wrap gap-x-4 gap-y-2 px-5 py-3 border-t border-line text-[12.5px] text-ink2">
           <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded bg-info/15" />Approved</span>
-          <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded border border-dashed border-warn" />Waiting</span>
-          <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded bg-sunken" />Sunday or holiday (Dussehra 19–25 Oct)</span>
+          {isOct && <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded border border-dashed border-warn" />Waiting</span>}
+          <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded bg-sunken" />Sunday or holiday{isOct ? ' (Dussehra 19–25 Oct)' : ''}</span>
         </div>
       </Card>
     </div>
@@ -1392,7 +1497,7 @@ function LeaveBalances() {
   );
 }
 
-function MyLeave() {
+function MyLeave({ per = DP.acyear, setPer = () => {} }) {
   const toast = useToast();
   const me = useMe();
   const used = usedFor(me);
@@ -1432,12 +1537,13 @@ function MyLeave() {
     setTimeout(() => {
       setBusy(false);
       const id = `LR-26${20 + reqs.length}`;
-      const r = { id, type, when: a.getTime() === b.getTime() ? fmt(a) : `${fmt(a)} – ${fmt(b)}`, from, to, days: n, reason: reason.trim(), status: 'Waiting' };
+      const r = { id, type, when: a.getTime() === b.getTime() ? fmt(a) : `${fmt(a)} – ${fmt(b)}`, from, to, on: isoOf(from), days: n, reason: reason.trim(), status: 'Waiting' };
       setReqs((x) => [r, ...x]);
       setReason('');
       toast({ title: `Leave request sent to ${approvers[0]}`, body: `${LT[type].name}, ${n} ${n === 1 ? 'day' : 'days'}. You are told when it is decided.` });
     }, 700);
   };
+  const shownReqs = reqs.filter((r) => inPer(r.on, per));
   const withdraw = (r) => {
     setReqs((x) => x.map((y) => (y.id === r.id ? { ...y, status: 'Withdrawn' } : y)));
     toast({ title: `Withdrawn: ${LT[r.type].name.toLowerCase()} ${r.when}`, body: 'Your approver is told.', undo: () => setReqs((x) => x.map((y) => (y.id === r.id ? { ...y, status: 'Waiting' } : y))) });
@@ -1459,9 +1565,11 @@ function MyLeave() {
       </div>
       <Split side={380}>
         <Card>
-          <CardHead title="My requests" sub="Newest first" />
+          <CardHead title="My requests" sub={`Leave dates in ${per.label.toLowerCase()} · ${fmtRange(per)}`} />
+          <div className="px-5 pb-3"><DatePeriod id="my-lv-per" value={per} onChange={setPer} future className="w-full @md:w-auto" /></div>
+          {shownReqs.length === 0 && <Empty icon={I.CalendarDays} title="No leave in these dates" body="Pick another period, like This academic year." />}
           <ul className="divide-y divide-line/70 border-t border-line/70">
-            {reqs.map((r) => (
+            {shownReqs.map((r) => (
               <li key={r.id} className="flex items-center gap-3 px-5 py-3">
                 <span className={cx('w-10 h-10 rounded-xl grid place-items-center shrink-0', TONE_SOFT[r.status === 'Approved' ? 'ok' : r.status === 'Waiting' ? 'warn' : 'neutral'])}><I.CalendarDays size={19} /></span>
                 <div className="min-w-0 flex-1">
@@ -1702,21 +1810,25 @@ function StaffDocuments() {
 /* ======================= Recruitment & Appraisal ======================= */
 function Recruitment() {
   const [part, setPart] = useState('recruitment');
+  const [per, setPer] = useState(DP.acyear);
   return (
     <div>
       <ModuleHead sub="Vacancies and interviews, the yearly appraisal, training hours and promotions. Each part can be switched off in HR Settings." />
-      <ScrollSeg className="mb-5" value={part} onChange={setPart} options={[{ value: 'recruitment', label: 'Recruitment' }, { value: 'appraisal', label: 'Appraisal' }, { value: 'training', label: 'Training' }, { value: 'promotions', label: 'Promotions' }]} />
+      <div className="flex flex-col @lg:flex-row @lg:items-center gap-2.5 mb-5">
+        <ScrollSeg className="min-w-0" value={part} onChange={setPart} options={[{ value: 'recruitment', label: 'Recruitment' }, { value: 'appraisal', label: 'Appraisal' }, { value: 'training', label: 'Training' }, { value: 'promotions', label: 'Promotions' }]} />
+        {part !== 'appraisal' && <DatePeriod id="rc-per" value={per} onChange={setPer} className="w-full @lg:w-auto @lg:ml-auto" />}
+      </div>
       <div key={part} className="animate-rise">
-        {part === 'recruitment' && <Hiring />}
+        {part === 'recruitment' && <Hiring per={per} />}
         {part === 'appraisal' && <Appraisal />}
-        {part === 'training' && <Training />}
-        {part === 'promotions' && <Promotions />}
+        {part === 'training' && <Training per={per} />}
+        {part === 'promotions' && <Promotions per={per} />}
       </div>
     </div>
   );
 }
 
-function Hiring() {
+function Hiring({ per }) {
   const toast = useToast();
   const { go } = useNav();
   const canEdit = useCanEdit();
@@ -1728,15 +1840,17 @@ function Hiring() {
   const [sched, setSched] = useState(null);
   const [slot, setSlot] = useState('Mon 12 Oct, 4:00 PM');
   const [offer, setOffer] = useState(null);
-  const v = vac.find((x) => x.id === cur);
-  const list = apps[cur] || [];
-  const setStage = (name, stage, extra = {}) => setApps((x) => ({ ...x, [cur]: x[cur].map((a) => (a.name === name ? { ...a, stage, ...extra } : a)) }));
+  const shownVac = vac.filter((x) => x.opened <= per.to && (x.shut || '2099-12-31') >= per.from);
+  const v = shownVac.find((x) => x.id === cur) || shownVac[0];
+  const list = v ? apps[v.id] || [] : [];
+  const setStage = (name, stage, extra = {}) => setApps((x) => ({ ...x, [v.id]: x[v.id].map((a) => (a.name === name ? { ...a, stage, ...extra } : a)) }));
   const clash = slot === 'Mon 12 Oct, 2:30 PM' && sched?.name !== 'Harika Chowdary';
   return (
     <div className="flex flex-col gap-5 @lg:gap-6">
+      <Showing per={per} n={shownVac.length} what={shownVac.length === 1 ? 'vacancy open in these dates' : 'vacancies open in these dates'} />
       <Stats items={[
-        { label: 'Open vacancies', value: String(vac.length), sub: `${vac.reduce((a, x) => a + x.openings, 0)} posts`, icon: 'Megaphone' },
-        { label: 'Applications', value: '41', sub: '12 this week', icon: 'Inbox' },
+        { label: 'Open vacancies', value: String(shownVac.filter((x) => x.status !== 'Filled').length), sub: `${shownVac.filter((x) => x.status !== 'Filled').reduce((a, x) => a + x.openings, 0)} posts`, icon: 'Megaphone' },
+        { label: 'Applications', value: String(shownVac.reduce((a, x) => a + x.apps, 0)), sub: 'For the vacancies shown', icon: 'Inbox' },
         { label: 'Interviews this week', value: '3', sub: 'Mon 12 and Wed 14 Oct', icon: 'CalendarClock' },
         { label: 'Offers out', value: '1', sub: 'Driver · reply by Sat 10 Oct', tone: 'warn', icon: 'Handshake' },
       ]} />
@@ -1744,19 +1858,20 @@ function Hiring() {
         <Col>
           <Card>
             <CardHead title="Vacancies" action={canEdit && <Button size="sm" variant="soft" icon={I.Plus} onClick={() => setOpen(true)}>Open a vacancy</Button>} />
+            {shownVac.length === 0 && <Empty icon={I.Briefcase} title="No vacancy in these dates" body="Pick a longer period, like This academic year." />}
             <ul className="px-2 pb-2">
-              {vac.map((x) => (
+              {shownVac.map((x) => (
                 <li key={x.id}>
                   <button onClick={() => setCur(x.id)} className={cx('w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition', cur === x.id ? 'bg-brand/8 ring-1 ring-brand/30' : 'hover:bg-sunken/70')}>
                     <span className="w-10 h-10 rounded-xl bg-brand/10 text-brand grid place-items-center shrink-0"><I.Briefcase size={19} /></span>
                     <span className="min-w-0 flex-1"><span className="block font-semibold text-[14.5px] truncate">{x.post} · {x.openings} {x.openings === 1 ? 'post' : 'posts'}</span><span className="block text-[12.5px] text-ink3 truncate">{x.note} · closes {x.closes}</span></span>
-                    <span className="text-right shrink-0"><Pill tone={x.status === 'Offer made' ? 'warn' : x.status === 'Interviews' ? 'brand' : 'info'}>{x.status}</Pill><span className="block text-[12px] text-ink3 tnum mt-1">{x.apps} applied</span></span>
+                    <span className="text-right shrink-0"><Pill tone={x.status === 'Offer made' ? 'warn' : x.status === 'Interviews' ? 'brand' : x.status === 'Filled' ? 'ok' : 'info'}>{x.status}</Pill><span className="block text-[12px] text-ink3 tnum mt-1">{x.apps} applied</span></span>
                   </button>
                 </li>
               ))}
             </ul>
           </Card>
-          <Card className="overflow-hidden">
+          {v && <Card className="overflow-hidden">
             <CardHead title={`Applications · ${v.post}`} sub={`${v.apps} received · showing the latest ${list.length}`} action={<ExportButton what="applications" />} />
             <ul className="divide-y divide-line/70 border-t border-line/70">
               {list.map((a) => (
@@ -1778,7 +1893,7 @@ function Hiring() {
                 </li>
               ))}
             </ul>
-          </Card>
+          </Card>}
         </Col>
         <Card>
           <CardHead title="Interview schedule" sub="Panels are never double-booked" icon={I.CalendarClock} />
@@ -1791,7 +1906,7 @@ function Hiring() {
         </Card>
       </Split>
       <FormSheet open={open} onClose={() => setOpen(false)} title="Open a vacancy" submitLabel="Open vacancy"
-        onSubmit={() => { const id = `V-26-0${vac.length + 5}`; setVac((x) => [{ id, post: nv.post, dept: DESIG_DEPT.Teacher, openings: Number(nv.openings) || 1, closes: nv.closes || 'Not set', status: 'Open', apps: 0, note: nv.details || 'New post' }, ...x]); setApps((x) => ({ ...x, [id]: [] })); setCur(id); toast({ title: `Vacancy open: ${nv.post}`, body: 'Share the link on the school website and WhatsApp.' }); }}>
+        onSubmit={() => { const id = `V-26-0${vac.length + 5}`; setVac((x) => [{ id, opened: '2026-10-09', shut: '', post: nv.post, dept: DESIG_DEPT.Teacher, openings: Number(nv.openings) || 1, closes: nv.closes || 'Not set', status: 'Open', apps: 0, note: nv.details || 'New post' }, ...x]); setApps((x) => ({ ...x, [id]: [] })); setCur(id); toast({ title: `Vacancy open: ${nv.post}`, body: 'Share the link on the school website and WhatsApp.' }); }}>
         <Field label="Post (designation)" required id="nv-post"><Select id="nv-post" value={nv.post} onChange={(p) => setNv({ ...nv, post: p })} options={['TGT Hindi', 'TGT Computer Science', 'PGT Physics', 'PRT', 'Driver', 'Attender', 'Lab Assistant', 'Security']} /></Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Openings" required id="nv-open"><Input id="nv-open" value={nv.openings} onChange={(e) => setNv({ ...nv, openings: e.target.value.replace(/\D/g, '') })} inputMode="numeric" /></Field>
@@ -1807,7 +1922,7 @@ function Hiring() {
       </Sheet>
       <ConfirmSheet open={!!offer} onClose={() => setOffer(null)} title={offer ? `Make an offer to ${offer.name}?` : ''} confirmLabel="Send offer letter"
         onConfirm={() => { setStage(offer.name, 'Offer made', { when: 'Offer sent today' }); toast({ title: `Offer letter sent to ${offer.name}`, body: 'Email and WhatsApp, from the template in Document Designs.' }); }}>
-        {offer && <p className="text-[14px] text-ink2">The offer letter for {v.post} goes to {offer.name} by email and WhatsApp. When they accept, Add Staff opens with their details filled in.</p>}
+        {offer && v && <p className="text-[14px] text-ink2">The offer letter for {v.post} goes to {offer.name} by email and WhatsApp. When they accept, Add Staff opens with their details filled in.</p>}
       </ConfirmSheet>
     </div>
   );
@@ -1846,7 +1961,7 @@ function Appraisal() {
   );
 }
 
-function Training() {
+function Training({ per }) {
   const toast = useToast();
   const canEdit = useCanEdit();
   const [add, setAdd] = useState(false);
@@ -1857,7 +1972,9 @@ function Training() {
     <Split>
       <Card className="overflow-hidden">
         <CardHead title="Training records" sub="2026–27 · CBSE asks for 50 hours a year for each teacher" action={canEdit && <Button size="sm" variant="soft" icon={I.Plus} onClick={() => setAdd(true)}>Record training</Button>} />
-        <DataList rows={rows.map((t, i) => ({ ...t, id: i }))} minWidth={640}
+        <div className="px-5 pb-3"><Showing per={per} n={rows.filter((t) => inPer(t.on, per)).length} what="records" /></div>
+        <DataList rows={rows.map((t, i) => ({ ...t, id: i })).filter((t) => inPer(t.on, per))} minWidth={640}
+          empty={<Empty icon={I.GraduationCap} title="No training in these dates" body="Pick a longer period, like This academic year." />}
           columns={[
             { key: 'n', label: 'Staff member', render: (t) => <span className="font-semibold">{byId(t.sid).name}</span> },
             { key: 'c', label: 'Course', render: (t) => t.course },
@@ -1872,7 +1989,7 @@ function Training() {
         <div className="px-5 pb-5"><HBars rows={[['Venkat Rao', 0], ['Deepak Verma', 3], ['Swapna Reddy', 3], ['Anitha Kumari', 10], ['Ravi Teja', 12], ['Sunitha Mohan', 18]].map(([k, v]) => ({ k: k.split(' ')[0], v, label: `${v} h` }))} max={50} goal={50} lowBelow={10} /></div>
       </Card>
       <FormSheet open={add} onClose={() => setAdd(false)} title="Record training" submitLabel="Save training"
-        onSubmit={() => { setRows((x) => [{ sid: who, course, dates: '9 Oct 2026', hours: 6, cert: false }, ...x]); toast({ title: `Training saved for ${byId(who).name}`, body: '6 hours added to this year.' }); }}>
+        onSubmit={() => { setRows((x) => [{ sid: who, on: '2026-10-09', course, dates: '9 Oct 2026', hours: 6, cert: false }, ...x]); toast({ title: `Training saved for ${byId(who).name}`, body: '6 hours added to this year.' }); }}>
         <Field label="Staff member" required id="tr-who"><StaffPicker id="tr-who" value={who} onChange={setWho} filter={isTeacher} /></Field>
         <Field label="Course" required id="tr-course"><Input id="tr-course" value={course} onChange={(e) => setCourse(e.target.value)} /></Field>
         <div className="grid grid-cols-2 gap-3">
@@ -1884,7 +2001,7 @@ function Training() {
   );
 }
 
-function Promotions() {
+function Promotions({ per }) {
   const toast = useToast();
   const canEdit = useCanEdit();
   const [rows, setRows] = useState(PROMOTIONS);
@@ -1894,7 +2011,9 @@ function Promotions() {
   return (
     <Card className="overflow-hidden">
       <CardHead title="Promotions" sub="Every change of designation, newest first" action={canEdit && <Button size="sm" variant="soft" icon={I.Plus} onClick={() => setAdd(true)}>Record promotion</Button>} />
-      <DataList rows={rows.map((p, i) => ({ ...p, id: i }))} minWidth={700}
+      <div className="px-5 pb-3"><Showing per={per} n={rows.filter((p) => inPer(p.on, per)).length} what="promotions" /></div>
+      <DataList rows={rows.map((p, i) => ({ ...p, id: i })).filter((p) => inPer(p.on, per))} minWidth={700}
+        empty={<Empty icon={I.TrendingUp} title="No promotion in these dates" body="Promotions usually start on 1 June. Pick Last academic year or your own dates." />}
         columns={[
           { key: 'n', label: 'Staff member', render: (p) => <div className="flex items-center gap-3"><Avatar name={byId(p.sid).name} size={34} /><span className="font-semibold">{byId(p.sid).name}</span></div> },
           { key: 'f', label: 'From', render: (p) => p.from },
@@ -1904,7 +2023,7 @@ function Promotions() {
         ]}
         mobile={(p) => ({ avatar: byId(p.sid).name, title: byId(p.sid).name, sub: `${p.from} → ${p.to} · ${p.date}` })} />
       <FormSheet open={add} onClose={() => setAdd(false)} title="Record promotion" sub="The salary change goes to Salary Structures as a new version." submitLabel="Save promotion"
-        onSubmit={() => { const s = byId(who); setRows((x) => [{ sid: who, from: s.desig, to, date: '1 Nov 2026', reason: 'Approved by the Principal' }, ...x]); toast({ title: `${s.name} promoted to ${to} from 1 Nov`, body: 'Salary Structures asks the Accountant for the new version.' }); }}>
+        onSubmit={() => { const s = byId(who); setRows((x) => [{ sid: who, on: '2026-11-01', from: s.desig, to, date: '1 Nov 2026', reason: 'Approved by the Principal' }, ...x]); toast({ title: `${s.name} promoted to ${to} from 1 Nov`, body: 'Salary Structures asks the Accountant for the new version.' }); }}>
         <Field label="Staff member" required id="pr-who"><StaffPicker id="pr-who" value={who} onChange={setWho} /></Field>
         <Field label="New designation" required id="pr-to"><Select id="pr-to" value={to} onChange={setTo} options={['PGT Mathematics', 'PGT English', 'Coordinator', 'Vice Principal', 'Senior Accountant', 'Head Driver']} /></Field>
         <div className="grid grid-cols-2 gap-3">

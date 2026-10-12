@@ -9,7 +9,32 @@ import { useNav, useRole } from './shell.jsx';
 import {
   ModuleHead, useCanEdit, Icon, Stats, SearchBox, Toolbar, Select, Textarea, DataList, BulkBar, Row, SettingRow, ToggleRow,
   SettingsCard, Banner, Suggestion, Progress, HBars, Bars, Legend, DL, Timeline, MoreMenu, FormSheet, ConfirmSheet, Split, Col, ExportButton,
+  DatePeriod, PERIODS as DP, fmtRange, periodDays,
 } from './kit.jsx';
+import { pagesFor, inMenu } from './config.js';
+
+// Can the signed-in person open this module (and page)? Hides links they may not follow.
+function useCan() {
+  const { role } = useRole();
+  return (mod, page) => {
+    const a = role.access[mod];
+    if (!a) return false;
+    if (!page) return inMenu(role, mod);
+    return pagesFor(mod, a, role.id).some((p) => p.id === page);
+  };
+}
+// "Today, 10:05 AM", "Yesterday", "8 Oct, 9:00 AM", "Sat 10 Oct", "22 Sep 2026" -> ISO date (today is Fri 9 Oct 2026)
+const MON3 = { Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6, Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12 };
+function isoOf(t) {
+  if (!t) return '';
+  if (/^(Today|Just now)/.test(t)) return '2026-10-09';
+  if (/^Yesterday/.test(t)) return '2026-10-08';
+  const m = /(\d{1,2}) ([A-Z][a-z]{2})[a-z]*(?:,? (\d{4}))?/.exec(t);
+  if (!m || !MON3[m[2]]) return '';
+  return `${m[3] || 2026}-${String(MON3[m[2]]).padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+}
+const inPer = (iso, per) => !!iso && iso >= per.from && iso <= per.to;
+const Showing = ({ per, n, what, className }) => <p className={cx('text-[12.5px] text-ink3 tnum', className)}>Showing: {per.label} · {fmtRange(per)}{n != null ? ` · ${n} ${what}` : ''}</p>;
 
 const fmt = (n) => Number(n).toLocaleString('en-IN');
 const BALANCE = 18640; // message credits left
@@ -132,7 +157,7 @@ const AUD = {
 const FULL = { aud: ['school', 'classes', 'sections', 'route', 'defaulters', 'staff', 'single'], def: 'classes', msg: 'exam', classes: ['6', '7', '8', '9', '10'] };
 // Own access: what each role may reach (05-roles.md). Only these audiences are offered.
 const SCOPE = {
-  accountant: { sub: 'Only fee reminders, receipts and payment links to parents', aud: ['defaulters', 'classes', 'single'], def: 'defaulters', tpl: 'TP01', types: ['Fees'], ch: ['WhatsApp'] },
+  accountant: { sub: 'Only fee reminders, receipts and payment links to parents', aud: ['defaulters', 'classes', 'single'], def: 'defaulters', tpl: 'TP01', types: ['Fees'], ch: ['WhatsApp'], tplOnly: true },
   teacher: { sub: 'Only parents of the students you teach: 6 A, 6 B, 7 A and 7 B', aud: ['sections', 'single'], def: 'sections', secs: ['6 A', '6 B', '7 A', '7 B'], defSecs: ['6 A', '6 B', '7 A', '7 B'], msg: 'exam' },
   classteacher: { sub: 'Only parents of 7 B, and of the students you teach Science in 7 A and 8 B', aud: ['sections', 'single'], def: 'sections', secs: ['7 B', '7 A', '8 B'], defSecs: ['7 B'], msg: 'exam' },
   receptionist: { sub: 'Messages to parents: one parent, or the parents of a section', aud: ['single', 'sections'], def: 'single', msg: 'lunch' },
@@ -259,7 +284,7 @@ function SendMessage({ access }) {
     const t = TEMPLATES.find((x) => x.id === id);
     if (t) setTitle(t.name); else { setTitle(m0?.title || ''); }
   };
-  const tplOpts = [{ value: 'none', label: 'None, type my own message' }, ...TEMPLATES.filter((t) => (sc.types ? sc.types.includes(t.cat) : t.cat === type || type === 'General') && (!ch.includes('SMS') || t.dlt)).map((t) => ({ value: t.id, label: `${t.name}${t.dlt ? ` · DLT ${t.dlt.slice(-6)}` : ''}` }))];
+  const tplOpts = [...(sc.tplOnly ? [] : [{ value: 'none', label: 'None, type my own message' }]), ...TEMPLATES.filter((t) => (sc.types ? sc.types.includes(t.cat) : t.cat === type || type === 'General') && (!ch.includes('SMS') || t.dlt)).map((t) => ({ value: t.id, label: `${t.name}${t.dlt ? ` · DLT ${t.dlt.slice(-6)}` : ''}` }))];
   const trySend = () => { setTried(true); if (valid) setConfirm(true); };
   const doSend = () => {
     if (when === 'now') { setSent({ n: n - missing, noun, at: '10:44 AM' }); toast({ title: `Sending to ${fmt(n - missing)} ${noun}`, body: 'Delivered and read counts update in Message History.' }); }
@@ -396,9 +421,9 @@ function SendMessage({ access }) {
               )}
               <div className="grid grid-cols-1 @md:grid-cols-2 gap-3">
                 <Field label="Message type" id="send-type" hint={backupOk ? 'SMS backup is on for this type in Message Settings' : 'Sets which templates are offered'}>
-                  <Select id="send-type" value={type} onChange={(v) => { setType(v); setTpl('none'); setTitle(m0?.title || ''); }} options={sc.types || TYPES} />
+                  <Select id="send-type" value={type} onChange={(v) => { setType(v); if (!sc.tplOnly) { setTpl('none'); setTitle(m0?.title || ''); } }} options={sc.types || TYPES} />
                 </Field>
-                <Field label="Template" id="send-tpl" required={ch.includes('SMS')} hint={ch.includes('SMS') ? 'Only templates with a DLT template ID are offered for SMS' : 'Optional for WhatsApp, email and app'}>
+                <Field label="Template" id="send-tpl" required={ch.includes('SMS') || sc.tplOnly} hint={sc.tplOnly ? 'Fee reminder, fee receipt or payment link' : ch.includes('SMS') ? 'Only templates with a DLT template ID are offered for SMS' : 'Optional for WhatsApp, email and app'}>
                   <Select id="send-tpl" value={tpl} onChange={pickTpl} options={tplOpts} error={tried && !!err.sms} />
                 </Field>
               </div>
@@ -653,11 +678,14 @@ function NoticeBoard({ access }) {
   const [q, setQ] = useState('');
   const [open, setOpen] = useState(null);
   const [add, setAdd] = useState(false);
+  const [per, setPer] = useState(DP.last30);
   const mine = items.filter((n) => full || n.by === me);
   const groups = { current: ['Published'], waiting: ['Waiting for approval', 'Scheduled', 'Draft'], archive: ['Expired', 'Archived'] };
-  const rows = mine.filter((n) => groups[view].includes(n.status) && (!q || n.title.toLowerCase().includes(q.toLowerCase()) || n.aud.toLowerCase().includes(q.toLowerCase())));
+  // Published notices go by their publish date; drafts and notices waiting or scheduled always show
+  const inDates = (n) => !isoOf(n.pub) || n.status === 'Scheduled' || inPer(isoOf(n.pub), per);
+  const rows = mine.filter((n) => groups[view].includes(n.status) && inDates(n) && (!q || n.title.toLowerCase().includes(q.toLowerCase()) || n.aud.toLowerCase().includes(q.toLowerCase())));
   const board = mine.filter((n) => n.status === 'Published').sort((a, b) => ['Critical', 'High', 'Normal'].indexOf(a.pri) - ['Critical', 'High', 'Normal'].indexOf(b.pri));
-  const cnt = (g) => mine.filter((n) => groups[g].includes(n.status)).length;
+  const cnt = (g) => mine.filter((n) => groups[g].includes(n.status) && inDates(n)).length;
   const approve = (nt) => { setItems((x) => x.map((y) => (y.id === nt.id ? { ...y, status: 'Published', pub: '9 Oct 2026' } : y))); setOpen(null); toast({ title: `Approved and published: ${nt.title}`, undo: () => setItems((x) => x.map((y) => (y.id === nt.id ? nt : y))) }); };
   const archive = (nt) => { setItems((x) => x.map((y) => (y.id === nt.id ? { ...y, status: 'Archived' } : y))); setOpen(null); toast({ title: 'Notice archived', body: 'It left the board and Parent Link at once.', undo: () => setItems((x) => x.map((y) => (y.id === nt.id ? nt : y))) }); };
 
@@ -670,10 +698,12 @@ function NoticeBoard({ access }) {
           <Toolbar>
             <SearchBox value={q} onChange={setQ} placeholder="Notice title or audience" id="notice-search" />
             <Segmented value={view} onChange={setView} options={[{ value: 'current', label: `Current · ${cnt('current')}` }, { value: 'waiting', label: `Waiting · ${cnt('waiting')}` }, { value: 'archive', label: 'Archive' }]} />
+            <DatePeriod id="notice-per" value={per} onChange={setPer} className="w-full @md:w-auto" />
             <ExportButton what="notices" />
           </Toolbar>
+          <Showing per={per} className="px-4 pt-2.5" n={rows.length} what={`${rows.length === 1 ? 'notice' : 'notices'} published in these dates`} />
           <DataList rows={rows} onRow={setOpen} minWidth={620}
-            empty={<Empty icon={I.Megaphone} title={view === 'waiting' ? 'Nothing waiting' : 'No notices here'} body={view === 'waiting' ? 'Drafts, scheduled notices and those waiting for approval show here.' : 'Try another search, or write a new notice.'} action={canEdit && <Button variant="secondary" icon={I.Plus} onClick={() => setAdd(true)}>New notice</Button>} />}
+            empty={<Empty icon={I.Megaphone} title={view === 'waiting' ? 'Nothing waiting' : 'No notices here'} body={view === 'waiting' ? 'Drafts, scheduled notices and those waiting for approval show here.' : 'Try other dates or another search, or write a new notice.'} action={canEdit && <Button variant="secondary" icon={I.Plus} onClick={() => setAdd(true)}>New notice</Button>} />}
             footer={`${rows.length} ${rows.length === 1 ? 'notice' : 'notices'}`}
             columns={[
               { key: 'title', label: 'Notice', render: (n) => <div className="min-w-[230px]"><p className="font-semibold leading-snug">{n.title}</p><p className="text-[12.5px] text-ink3 mt-0.5 flex items-center gap-1.5 flex-wrap">{n.pri !== 'Normal' && <Pill tone={PRI_TONE[n.pri]} className="!h-5 !text-[11px]">{n.pri}</Pill>}{n.by} · {n.aud}</p></div> },
@@ -873,7 +903,11 @@ function Inbox({ access }) {
   const { role } = useRole();
   const { go } = useNav();
   const toast = useToast();
+  const can = useCan();
   const full = access === 'full';
+  // Own: reply and mark resolved only. Passing chats around, queries and enquiries are office work.
+  const canQuery = can('communication', 'feedback');
+  const canEnquiry = can('admissions', 'enquiries');
   const me = role.person.name;
   const [chats, setChats] = useState(CHATS);
   const [tab, setTab] = useState(full ? 'all' : 'mine');
@@ -892,7 +926,8 @@ function Inbox({ access }) {
   };
   const setAssigned = (who) => { setChats((x) => x.map((c) => (c.id === cur.id ? { ...c, assigned: who } : c))); toast({ title: `Chat given to ${who}`, body: `${cur.name} · they see it under Assigned to me.` }); };
   const resolve = () => { const prev = cur; setChats((x) => x.map((c) => (c.id === prev.id ? { ...c, resolved: true, unread: 0 } : c))); toast({ title: 'Marked resolved', undo: () => setChats((x) => x.map((c) => (c.id === prev.id ? prev : c))) }); };
-  const kids = cur && cur.sid ? [FEATURED, STUDENTS.find((s) => s.first === 'Anaya') || null].filter(Boolean) : [];
+  const mySecs = SCOPE[role.id]?.secs;
+  const kids = cur && cur.sid && role.access.students ? [FEATURED, STUDENTS.find((s) => s.first === 'Anaya') || null].filter(Boolean).filter((k) => full || !mySecs || mySecs.includes(secOf(k))) : [];
   const counts = { mine: chats.filter((c) => c.assigned === me).length, all: chats.length, none: chats.filter((c) => !c.assigned).length };
 
   return (
@@ -935,13 +970,13 @@ function Inbox({ access }) {
                 <button onClick={() => setThread(false)} className="@xl:hidden w-9 h-9 grid place-items-center rounded-lg text-ink2 hover:bg-sunken" aria-label="Back to chats"><I.ArrowLeft size={18} /></button>
                 {cur.kind === 'Unknown' ? <span className="w-9 h-9 rounded-full bg-sunken text-ink3 grid place-items-center shrink-0"><I.Phone size={16} /></span> : <Avatar name={cur.name} size={36} />}
                 <div className="min-w-0 flex-1"><p className="font-semibold text-[14.5px] truncate">{cur.name}</p><p className="text-[12px] text-ink3 truncate">{cur.who}</p></div>
-                <Button size="sm" variant="secondary" icon={I.UserCheck} onClick={() => setAssign(true)} className="hidden @sm:inline-flex">{cur.assigned ? 'Reassign' : 'Assign'}</Button>
+                {full && <Button size="sm" variant="secondary" icon={I.UserCheck} onClick={() => setAssign(true)} className="hidden @sm:inline-flex">{cur.assigned ? 'Reassign' : 'Assign'}</Button>}
                 <MoreMenu size="sm" items={[
-                  ['UserCheck', cur.assigned ? 'Reassign' : 'Assign to staff', () => setAssign(true)],
-                  ['ClipboardList', 'Make it a query', () => toast({ title: 'Query Q-26-0149 created', body: `From ${cur.name}'s chat. Owner: ${cur.assigned || 'Office'}.` })],
-                  ['UserPlus', 'Make it an enquiry', () => toast({ title: 'Enquiry ENQ-27-0213 created', body: 'In Admissions, Enquiries, with this chat attached.' })],
+                  full && ['UserCheck', cur.assigned ? 'Reassign' : 'Assign to staff', () => setAssign(true)],
+                  canQuery && ['ClipboardList', 'Make it a query', () => toast({ title: 'Query Q-26-0149 created', body: `From ${cur.name}'s chat. Owner: ${cur.assigned || 'Office'}.` })],
+                  canEnquiry && ['UserPlus', 'Make it an enquiry', () => toast({ title: 'Enquiry ENQ-27-0213 created', body: 'In Admissions, Enquiries, with this chat attached.' })],
                   ['CircleCheck', 'Mark resolved', resolve],
-                ]} />
+                ].filter(Boolean)} />
               </div>
               <div className="flex-1 min-h-0 overflow-y-auto scroll-thin px-3 @md:px-5 py-4 flex flex-col gap-2.5 bg-sunken/30">
                 <p className="text-center text-[11.5px] text-ink3 font-semibold">{/Oct/.test(cur.msgs[0].t) ? cur.msgs[0].t.split(',')[0].replace(/^(\d+) Oct$/, '$1 October') : /^Yesterday/.test(cur.msgs[0].t) ? 'Yesterday' : 'Today'}</p>
@@ -955,7 +990,7 @@ function Inbox({ access }) {
               </div>
               {cur.closed ? (
                 <div className="p-3 border-t border-line">
-                  <Banner tone="warn" title="The 24-hour reply window has closed." action={<Button size="sm" variant="secondary" onClick={() => go('communication', { page: 'templates' })}>Pick a template</Button>}>WhatsApp allows only an approved template now.</Banner>
+                  <Banner tone="warn" title="The 24-hour reply window has closed." action={<Button size="sm" variant="secondary" onClick={() => go('communication', { page: can('communication', 'templates') ? 'templates' : 'send' })}>Pick a template</Button>}>WhatsApp allows only an approved template now.</Banner>
                 </div>
               ) : (
                 <div className="border-t border-line p-3 flex flex-col gap-2">
@@ -988,10 +1023,10 @@ function Inbox({ access }) {
                     {kids.map((k) => <Row key={k.id} avatar={k.name} title={k.name} sub={`${k.cls} ${k.sec}`} onClick={() => go('student', { id: k.id })} className="!px-1.5" />)}
                   </div>
                 )}
-                <div><p className="eyebrow text-ink3 mb-1.5">Assigned to</p><p className="font-semibold">{cur.assigned || 'Nobody yet'}</p></div>
+                {full && <div><p className="eyebrow text-ink3 mb-1.5">Assigned to</p><p className="font-semibold">{cur.assigned || 'Nobody yet'}</p></div>}
                 <div className="flex flex-col gap-2">
-                  <Button size="sm" variant="secondary" icon={I.ClipboardList} onClick={() => toast({ title: 'Query Q-26-0149 created', body: `From ${cur.name}'s chat.` })}>Make it a query</Button>
-                  {cur.kind === 'Unknown' && <Button size="sm" variant="secondary" icon={I.UserPlus} onClick={() => toast({ title: 'Enquiry ENQ-27-0213 created', body: 'In Admissions, Enquiries.' })}>Make it an enquiry</Button>}
+                  {canQuery && <Button size="sm" variant="secondary" icon={I.ClipboardList} onClick={() => toast({ title: 'Query Q-26-0149 created', body: `From ${cur.name}'s chat.` })}>Make it a query</Button>}
+                  {cur.kind === 'Unknown' && canEnquiry && <Button size="sm" variant="secondary" icon={I.UserPlus} onClick={() => toast({ title: 'Enquiry ENQ-27-0213 created', body: 'In Admissions, Enquiries.' })}>Make it an enquiry</Button>}
                   <Button size="sm" variant="ghost" icon={I.CircleCheck} onClick={resolve}>Mark resolved</Button>
                 </div>
               </div>
@@ -1032,7 +1067,15 @@ const HISTORY = [
   { id: 'M-26-1173', at: '5 Oct, 11:00 AM', by: 'Sana Ali', ch: ['WhatsApp'], title: 'Meeting request', n: 1, del: 1, read: 1, fail: 0, cost: 1 },
   { id: 'M-26-1172', at: '3 Oct, 10:00 AM', by: 'Lakshmi Rao', ch: ['WhatsApp', 'App'], title: 'Dussehra holidays 19–25 October', n: 1104, del: 1079, read: 968, fail: 25, cost: 1018 },
   { id: 'M-26-1171', at: '2 Oct, 9:30 AM', by: 'Meena Pillai', ch: ['App'], title: 'Half-yearly question papers due 5 Oct', n: 58, del: 58, read: 55, fail: 0, cost: 0 },
-];
+  { id: 'M-26-1158', at: '28 Sep, 5:00 PM', by: 'Prakash Joshi', ch: ['WhatsApp'], title: 'Unit Test 2 report cards on Parent Link', n: 1018, del: 996, read: 948, fail: 22, cost: 1018 },
+  { id: 'M-26-1150', at: '25 Sep, 4:15 PM', by: 'Imran Shaikh', ch: ['WhatsApp'], title: 'Maths Unit Test 2 marks are out', n: 155, del: 153, read: 140, fail: 2, cost: 155 },
+  { id: 'M-26-1142', at: '21 Sep, 6:30 PM', by: 'Fee due reminder', rule: true, ch: ['WhatsApp'], backup: true, title: 'Fee reminder · Tuition Q2 late fee', n: 88, del: 85, read: 71, fail: 3, sms: 14, cost: 105 },
+  { id: 'M-26-1131', at: '18 Sep, 7:45 AM', by: 'Venkatesh Goud', ch: ['WhatsApp', 'SMS'], title: 'Route 4 stop change from Monday', n: 49, del: 49, read: 46, fail: 0, cost: 98 },
+  { id: 'M-26-1120', at: '15 Sep, 3:30 PM', by: 'Ravi Teja', ch: ['WhatsApp'], title: '7 B: Science field trip consent', n: 38, del: 38, read: 36, fail: 0, cost: 38 },
+  { id: 'M-26-1104', at: '10 Sep, 11:00 AM', by: 'Suresh Babu', ch: ['WhatsApp'], title: 'Fee receipt · Tuition Q2', n: 212, del: 210, read: 184, fail: 2, cost: 212 },
+  { id: 'M-26-1077', at: '28 Aug, 9:00 AM', by: 'Lakshmi Rao', ch: ['WhatsApp', 'App'], title: 'Ganesh Chaturthi holiday on 14 September', n: 1104, del: 1082, read: 977, fail: 22, cost: 1018 },
+  { id: 'M-26-1032', at: '12 Aug, 10:30 AM', by: 'Anita Sharma', ch: ['WhatsApp'], title: 'Independence Day programme', n: 1018, del: 1001, read: 902, fail: 17, cost: 1018 },
+].map((m) => ({ ...m, on: isoOf(m.at) }));
 const FAIL_WHY = ['Number not on WhatsApp', 'Phone switched off for 24 hours', 'Invalid number'];
 function recipientsOf(m) {
   if (m.n === 1) return [{ id: 'r0', name: m.by === 'Sana Ali' ? 'Farida Khan' : 'Priya Sharma', sub: m.by === 'Sana Ali' ? 'Mother of Kabir Khan, 8 A' : 'Mother of Aarav Sharma, 7 B', st: 'Read', t: '11:52 AM', ch: 'WhatsApp' }];
@@ -1057,14 +1100,18 @@ function History({ access, params }) {
   const { go } = useNav();
   const full = access === 'full';
   const me = role.person.name;
+  const [per, setPer] = useState(DP.thismonth);
   const [mode, setMode] = useState('all');
   const [chF, setChF] = useState('all');
   const [stF, setStF] = useState('all');
   const [q, setQ] = useState('');
-  const mine = HISTORY.filter((m) => full || m.by === me);
+  const own = HISTORY.filter((m) => full || m.by === me);
+  // Scheduled messages always show until they go; the rest by the date they were sent
+  const mine = own.filter((m) => m.status === 'Scheduled' || inPer(m.on, per));
   const rows = mine.filter((m) => (chF === 'all' || m.ch.includes(chF)) && (stF === 'all' || (stF === 'fail' ? m.fail > 0 : stF === 'sched' ? m.status === 'Scheduled' : m.rule)) && (!q || (m.title + m.by).toLowerCase().includes(q.toLowerCase())));
   if (params?.id) {
     const m = HISTORY.find((x) => x.id === params.id) || { ...HISTORY[2], id: params.id, at: 'Today, 10:44 AM', by: me, title: 'Half-yearly exams start Monday', n: 412, del: 389, read: 251, fail: 6, cost: 824, backup: true };
+    if (!full && m.by !== me) return <div><BackLink label="Message History" onClick={() => go('communication', { page: 'history' })} /><Empty icon={I.Lock} title="This message was sent by someone else" body="You can open only the messages you sent." /></div>;
     return <MessageDetail m={m} onBack={() => go('communication', { page: 'history' })} />;
   }
   const sent = mine.filter((m) => m.status !== 'Scheduled');
@@ -1075,7 +1122,7 @@ function History({ access, params }) {
         actions={<Button variant="primary" icon={I.Send} onClick={() => go('communication', { page: 'send' })}>Send message</Button>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
         <Stats items={[
-          { label: 'Messages sent', value: fmt(sent.length), sub: 'Since 2 October', icon: 'Send' },
+          { label: 'Messages sent', value: fmt(sent.length), sub: fmtRange(per), icon: 'Send' },
           { label: 'People reached', value: fmt(tot.n), sub: 'One line per person', icon: 'Users' },
           { label: 'Delivered', value: tot.n ? `${Math.round((tot.del / tot.n) * 1000) / 10}%` : '—', sub: `${fmt(tot.del)} people`, tone: 'ok', icon: 'CheckCheck' },
           { label: 'Read', value: tot.n ? `${Math.round((tot.read / tot.n) * 100)}%` : '—', sub: `${fmt(tot.read)} people`, icon: 'Eye' },
@@ -1083,17 +1130,19 @@ function History({ access, params }) {
         ]} />
         <Card className="overflow-hidden">
           <Toolbar>
-            <Segmented value={mode} onChange={setMode} options={[{ value: 'all', label: 'All messages' }, { value: 'person', label: 'One person' }]} />
+            {full && <Segmented value={mode} onChange={setMode} options={[{ value: 'all', label: 'All messages' }, { value: 'person', label: 'One person' }]} />}
+            <DatePeriod id="hist-per" value={per} onChange={setPer} className="w-full @md:w-auto" />
             {mode === 'all' && <>
-              <SearchBox value={q} onChange={setQ} placeholder="Title or sender" id="hist-search" />
+              <SearchBox value={q} onChange={setQ} placeholder={full ? 'Title or sender' : 'Title'} id="hist-search" />
               <Select id="hist-ch" value={chF} onChange={setChF} options={[{ value: 'all', label: 'All channels' }, { value: 'WhatsApp', label: 'WhatsApp' }, { value: 'SMS', label: 'SMS' }, { value: 'Email', label: 'Email' }, { value: 'App', label: 'App notice' }]} className="@md:w-44" />
               <Select id="hist-st" value={stF} onChange={setStF} options={[{ value: 'all', label: 'Any status' }, { value: 'fail', label: 'Has failed' }, { value: 'sched', label: 'Scheduled' }, ...(full ? [{ value: 'rule', label: 'Automatic' }] : [])]} className="@md:w-40" />
               <ExportButton what="message history" />
             </>}
           </Toolbar>
-          {mode === 'person' ? <PersonView /> : (
+          <Showing per={per} className="px-4 pt-2.5" />
+          {mode === 'person' && full ? <PersonView per={per} /> : (
             <DataList rows={rows} onRow={(m) => go('communication', { page: 'history', id: m.id })} minWidth={880}
-              empty={<Empty icon={I.History} title={mine.length ? 'Nothing matches' : 'You have not sent any messages yet'} body={mine.length ? 'Try another channel or status.' : 'Messages you send show up here with each person’s status.'} action={<Button variant="secondary" icon={I.Send} onClick={() => go('communication', { page: 'send' })}>Send a message</Button>} />}
+              empty={<Empty icon={I.History} title={mine.length ? 'Nothing matches' : own.length ? 'No messages in these dates' : 'You have not sent any messages yet'} body={mine.length ? 'Try another channel or status.' : own.length ? 'Pick a longer period, like Last 3 months.' : 'Messages you send show up here with each person’s status.'} action={<Button variant="secondary" icon={I.Send} onClick={() => go('communication', { page: 'send' })}>Send a message</Button>} />}
               footer={`${rows.length} messages`}
               columns={[
                 { key: 'at', label: 'When', nowrap: true, render: (m) => <span className="tnum text-[13px]">{m.at}</span> },
@@ -1114,7 +1163,7 @@ function History({ access, params }) {
   );
 }
 
-function PersonView() {
+function PersonView({ per }) {
   const [q, setQ] = useState('');
   const [who, setWho] = useState('Priya Sharma');
   const people = ['Priya Sharma', 'Kumar Reddy', 'Mahesh Gupta', 'Ravi Teja'];
@@ -1130,7 +1179,12 @@ function PersonView() {
         </div>
         <p className="text-[12.5px] text-ink3">All channels, newest first. Also on the student’s profile.</p>
       </div>
-      <Timeline items={[
+      <PersonTimeline per={per} who={who} />
+    </div>
+  );
+}
+function PersonTimeline({ per, who }) {
+  const items = [
         { icon: 'MessageCircle', tone: 'brand', what: <>WhatsApp from {who.split(' ')[0]}: “Can Aarav leave early on Monday after the exam?” <span className="text-ink3">· answered by Ravi Teja</span></>, when: 'Today, 10:30 AM' },
         { icon: 'MessageCircle', tone: 'ok', what: 'Fee reminder · Tuition Q3 · read', when: 'Yesterday, 6:30 PM · read 6:52 PM' },
         { icon: 'Megaphone', tone: 'ok', what: 'Notice: Parent–teacher meeting on Saturday, 17 October · seen on Parent Link', when: '8 Oct, 9:00 AM · seen 8:14 PM' },
@@ -1138,9 +1192,8 @@ function PersonView() {
         { icon: 'Megaphone', tone: 'ok', what: 'Dussehra holidays 19–25 October · read', when: '3 Oct, 10:00 AM' },
         { icon: 'Award', tone: 'ok', what: 'Unit Test 2 report card on Parent Link · opened', when: '28 Sep, 5:10 PM' },
         { icon: 'ReceiptText', tone: 'ok', what: 'Receipt R/26/04412 · ₹10,000 · read', when: '12 Jul, 11:02 AM' },
-      ]} />
-    </div>
-  );
+  ].filter((x) => inPer(isoOf(x.when), per));
+  return items.length ? <Timeline items={items} /> : <Empty icon={I.History} title="Nothing in these dates" body="Pick a longer period to see older messages." />;
 }
 
 function MessageDetail({ m, onBack }) {
@@ -1234,7 +1287,10 @@ const QUERIES = [
   { id: 'Q-26-0141', from: 'Sunita Das', fromKind: 'Parent', about: 'Rahul Das, 5 B', type: 'Query', topic: 'Certificates', pri: 'Normal', owner: 'Office', ownerP: 'Naveen Kumar', status: 'Resolved', age: '5 days', due: '—', came: 'WhatsApp', text: 'Need a bonafide certificate for the passport office.', rating: 5 },
   { id: 'Q-26-0139', from: 'Gopal Rao', fromKind: 'Parent', about: 'Pranav Rao, 10 B', type: 'Complaint', topic: 'Discipline', pri: 'High', owner: 'Vice Principal', ownerP: 'Srinivas Murthy', status: 'Closed', age: '8 days', due: '—', came: 'Visit', text: 'A senior student was rude to Pranav at the bus bay.', rating: 4 },
   { id: 'Q-26-0137', from: 'Deepak Verma', fromKind: 'Staff', about: 'Leave balance', type: 'Staff ticket', topic: 'HR', pri: 'Low', owner: 'HR', ownerP: 'Shalini Verma', status: 'Resolved', age: '9 days', due: '—', came: 'App', text: 'My casual leave balance looks wrong after the August correction.', rating: 4 },
-];
+  { id: 'Q-26-0121', from: 'Anil Chowdary', fromKind: 'Parent', about: 'Ishaan Chowdary, 7 A', type: 'Complaint', topic: 'Transport', pri: 'Normal', owner: 'Transport', ownerP: 'Venkatesh Goud', status: 'Closed', age: '22 days', due: '—', came: 'Phone', text: 'The bus attender was not on Bus 6 for two days.', rating: 4 },
+  { id: 'Q-26-0109', from: 'Lavanya Iyer', fromKind: 'Parent', about: 'Kavya Iyer, 9 A', type: 'Query', topic: 'Fees', pri: 'Normal', owner: 'Accounts', ownerP: 'Suresh Babu', status: 'Closed', age: '31 days', due: '—', came: 'WhatsApp', text: 'Can we pay Q2 tuition in two parts?', rating: 5 },
+  { id: 'Q-26-0088', from: 'Ramesh Patel', fromKind: 'Parent', about: 'Diya Patel, 9 C', type: 'Suggestion', topic: 'Food', pri: 'Low', owner: 'Office', ownerP: 'Anita Sharma', status: 'Closed', age: '55 days', due: '—', came: 'Email', text: 'Please put the canteen menu on Parent Link every week.', rating: 4 },
+].map((t) => { const n = /hour|Just/.test(t.age) ? 0 : parseInt(t.age, 10) || 0; const d = new Date(2026, 9, 9 - n); return { ...t, on: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }; });
 
 function Feedback({ params }) {
   const { go } = useNav();
@@ -1244,11 +1300,14 @@ function Feedback({ params }) {
   const [type, setType] = useState('all');
   const [q, setQ] = useState('');
   const [add, setAdd] = useState(false);
+  const [per, setPer] = useState(DP.thismonth);
   if (params?.id) {
     const t = items.find((x) => x.id === params.id) || items[0];
     return <QueryDetail t={t} onBack={() => go('communication', { page: 'feedback' })} onChange={(n) => setItems((x) => x.map((y) => (y.id === n.id ? n : y)))} />;
   }
-  const rows = items.filter((t) => (st === 'active' ? ['Open', 'In progress'].includes(t.status) : st === 'overdue' ? t.overdue : st === 'done' ? ['Resolved', 'Closed'].includes(t.status) : true)
+  const k = periodDays(per) / 9; // the example numbers are for 1 to 9 October
+  const sc = (n) => Math.max(0, Math.round(n * k));
+  const rows = items.filter((t) => inPer(t.on, per) && (st === 'active' ? ['Open', 'In progress'].includes(t.status) : st === 'overdue' ? t.overdue : st === 'done' ? ['Resolved', 'Closed'].includes(t.status) : true)
     && (type === 'all' || t.type === type) && (!q || (t.id + t.from + t.about + t.topic).toLowerCase().includes(q.toLowerCase())));
   return (
     <div>
@@ -1256,10 +1315,10 @@ function Feedback({ params }) {
         actions={<Button variant="primary" icon={I.Plus} onClick={() => setAdd(true)}>Log a query</Button>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
         <Stats items={[
-          { label: 'Open', value: '11', icon: 'Inbox', tone: 'warn', onClick: () => setSt('active') },
-          { label: 'In progress', value: '6', icon: 'LoaderCircle', tone: 'info', onClick: () => setSt('active') },
-          { label: 'Overdue', value: '2', icon: 'Clock', tone: 'bad', sub: 'Sent up the line', onClick: () => setSt('overdue') },
-          { label: 'Resolved in October', value: '38', icon: 'CircleCheck', tone: 'ok', onClick: () => setSt('done') },
+          { label: 'Open now', value: '11', icon: 'Inbox', tone: 'warn', onClick: () => setSt('active') },
+          { label: 'In progress now', value: '6', icon: 'LoaderCircle', tone: 'info', onClick: () => setSt('active') },
+          { label: 'Overdue now', value: '2', icon: 'Clock', tone: 'bad', sub: 'Sent up the line', onClick: () => setSt('overdue') },
+          { label: 'Resolved', value: String(sc(38)), sub: fmtRange(per), icon: 'CircleCheck', tone: 'ok', onClick: () => setSt('done') },
           { label: 'Time to resolve', value: '1.6 days', icon: 'Timer', sub: 'Average' },
           { label: 'Satisfaction', value: '4.3 of 5', icon: 'Star', sub: '29 ratings' },
         ]} />
@@ -1267,7 +1326,9 @@ function Feedback({ params }) {
             <Toolbar>
               <SearchBox value={q} onChange={setQ} placeholder="Ticket no., name or topic" id="q-search" />
               <Segmented value={st} onChange={setSt} options={[{ value: 'active', label: 'Open' }, { value: 'overdue', label: 'Overdue' }, { value: 'done', label: 'Resolved' }, { value: 'all', label: 'All' }]} />
+              <DatePeriod id="q-per" value={per} onChange={setPer} className="w-full @md:w-auto" />
             </Toolbar>
+            <Showing per={per} className="px-4 pt-2.5" n={rows.length} what={`${rows.length === 1 ? 'query' : 'queries'} logged in these dates`} />
             <div className="px-3 py-2.5 border-b border-line flex items-center gap-2 flex-wrap">
               <span className="text-[12.5px] text-ink3 font-semibold mr-1">Type</span>
               {['all', 'Query', 'Complaint', 'Suggestion', 'Staff ticket'].map((x) => (
@@ -1276,7 +1337,7 @@ function Feedback({ params }) {
               <ExportButton what="queries" className="ml-auto !h-8" />
             </div>
             <DataList rows={rows} onRow={(t) => go('communication', { page: 'feedback', id: t.id })} minWidth={880} footer={`${rows.length} ${rows.length === 1 ? 'query' : 'queries'}`}
-              empty={<Empty icon={I.Inbox} title="No queries here" body="Nothing matches this filter." action={<Button variant="secondary" onClick={() => { setSt('all'); setType('all'); setQ(''); }}>Show all</Button>} />}
+              empty={<Empty icon={I.Inbox} title="No queries here" body="Nothing matches these dates and filters." action={<Button variant="secondary" onClick={() => { setSt('all'); setType('all'); setQ(''); setPer(DP.last3m); }}>Show the last 3 months</Button>} />}
               columns={[
                 { key: 'id', label: 'Ticket', nowrap: true, render: (t) => <span className="font-mono text-[12.5px]">{t.id}</span> },
                 { key: 'from', label: 'From', render: (t) => <div><p className="font-semibold leading-tight">{t.from}</p><p className="text-[12.5px] text-ink3">{t.fromKind} · {t.about}</p></div> },
@@ -1291,8 +1352,8 @@ function Feedback({ params }) {
           </Card>
           <div className="grid grid-cols-1 @xl:grid-cols-2 gap-5 @lg:gap-6 items-start">
             <Card>
-              <CardHead title="Feedback by topic" sub="All queries and feedback this term" icon={I.ChartColumn} />
-              <div className="px-5 pb-5"><HBars rows={[{ k: 'Transport', v: 14 }, { k: 'Fees', v: 11 }, { k: 'Teaching', v: 9 }, { k: 'Food', v: 7 }, { k: 'Facility', v: 5 }, { k: 'Admission', v: 4 }]} max={16} unit="" labelWidth={78} /></div>
+              <CardHead title="Feedback by topic" sub={`All queries and feedback · ${fmtRange(per)}`} icon={I.ChartColumn} />
+              <div className="px-5 pb-5"><HBars rows={[['Transport', 14], ['Fees', 11], ['Teaching', 9], ['Food', 7], ['Facility', 5], ['Admission', 4]].map(([t, v]) => ({ k: t, v: Math.max(0, Math.round((v * periodDays(per)) / 131)) }))} max={Math.max(4, Math.round((16 * periodDays(per)) / 131))} unit="" labelWidth={78} /></div>
             </Card>
             <Card>
               <CardHead title="Reply time targets" sub="Overdue queries go to the next person" icon={I.Timer} />
@@ -1302,7 +1363,7 @@ function Feedback({ params }) {
             </Card>
           </div>
       </div>
-      <QueryForm open={add} onClose={() => setAdd(false)} onSaved={(t) => { setItems((x) => [t, ...x]); toast({ title: `Query ${t.id} logged`, body: `Owner: ${t.ownerP}. ${t.from} was sent the ticket number.` }); }} />
+      <QueryForm open={add} onClose={() => setAdd(false)} onSaved={(t) => { setItems((x) => [{ ...t, on: '2026-10-09' }, ...x]); toast({ title: `Query ${t.id} logged`, body: `Owner: ${t.ownerP}. ${t.from} was sent the ticket number.` }); }} />
     </div>
   );
 }
@@ -1426,7 +1487,9 @@ function Surveys({ params }) {
   const toast = useToast();
   const [items, setItems] = useState(SURVEYS);
   const [build, setBuild] = useState(null);
+  const [per, setPer] = useState(DP.last3m);
   if (params?.id) return <SurveyResults sv={items.find((s) => s.id === params.id) || items[0]} onBack={() => go('communication', { page: 'surveys' })} />;
+  const shown = items.filter((s) => s.status === 'Draft' || inPer(isoOf(s.sent), per));
   return (
     <div>
       <ModuleHead sub="Short surveys for parents, staff and students. Parents answer through a link in a message."
@@ -1444,8 +1507,9 @@ function Surveys({ params }) {
           </div>
         </div>
         <Card className="overflow-hidden">
-          <CardHead title="Surveys" sub="Each person answers once" action={<ExportButton what="surveys" />} />
-          <DataList rows={items} onRow={(s) => (s.status === 'Draft' ? setBuild(s.title) : go('communication', { page: 'surveys', id: s.id }))} minWidth={720}
+          <CardHead title="Surveys" sub="Each person answers once · drafts always show" action={<ExportButton what="surveys" />} />
+          <div className="px-4 pb-3 flex flex-col @md:flex-row @md:items-center gap-2.5"><DatePeriod id="sv-per" value={per} onChange={setPer} className="w-full @md:w-auto" /><Showing per={per} n={shown.length} what={shown.length === 1 ? 'survey' : 'surveys'} /></div>
+          <DataList rows={shown} empty={<Empty icon={I.ClipboardList} title="No survey sent in these dates" body="Pick a longer period, like This academic year." />} onRow={(s) => (s.status === 'Draft' ? setBuild(s.title) : go('communication', { page: 'surveys', id: s.id }))} minWidth={720}
             columns={[
               { key: 'title', label: 'Survey', render: (s) => <div><p className="font-semibold">{s.title}</p><p className="text-[12.5px] text-ink3">{s.aud}{s.anon ? ' · anonymous' : ''}</p></div> },
               { key: 'sent', label: 'Sent', nowrap: true, render: (s) => <span className="tnum text-[13px]">{s.sent}<span className="block text-ink3 text-[12px]">{s.status === 'Open' ? `closes ${s.closes}` : s.status === 'Closed' ? `closed ${s.closes}` : 'not sent'}</span></span> },
@@ -1890,6 +1954,7 @@ function MessageSettings() {
   const toast = useToast();
   const canEdit = useCanEdit();
   const { go } = useNav();
+  const can = useCan();
   const [rules, setRules] = useState(RULES);
   const [quiet, setQuiet] = useState(true);
   const [topup, setTopup] = useState(false);
@@ -1917,7 +1982,7 @@ function MessageSettings() {
           </Card>
           <Card>
             <CardHead title="Sender IDs and DLT" sub="What parents see as the sender" icon={I.BadgeCheck}
-              action={<Button size="sm" variant="ghost" onClick={() => go('settings', { page: 'messaging' })}>Connections</Button>} />
+              action={can('settings', 'messaging') ? <Button size="sm" variant="ghost" onClick={() => go('settings', { page: 'messaging' })}>Connections</Button> : null} />
             <div className="divide-y divide-line/70 border-t border-line/70">
               {[['WhatsApp Business number', '+91 90300 66100', 'Verified · shows “Sunrise Public School”'], ['SMS sender header', 'SUNSPS', 'Approved on the DLT portal'], ['DLT entity ID', '1101456789012345678', 'Registered with Jio DLT'], ['Email sender', 'office@sunriseps.in', 'Verified domain'], ['Reply-to phone', '040 2305 6678', 'Shown at the end of Parent Link']].map(([t, v, s]) => (
                 <SettingRow key={t} title={t} sub={s}><span className="flex items-center gap-2"><span className={cx('text-[13.5px] font-semibold', /\d{10,}|SUNSPS/.test(v) && 'font-mono text-[12.5px]')}>{v}</span>{canEdit && <Button size="sm" variant="ghost" onClick={() => toast({ title: `Change: ${t}`, body: 'Needs the provider to confirm. Every change is logged.', tone: 'info' })}>Change</Button>}</span></SettingRow>

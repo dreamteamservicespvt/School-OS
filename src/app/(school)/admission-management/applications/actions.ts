@@ -10,7 +10,7 @@ import { readApplicationForm } from "@/lib/admission/application-form";
 import { createApplication, editApplication, moveStage, review, sendBack, STAGES, withdraw } from "@/lib/admission/applications";
 import { DuplicateProblem, type Match } from "@/lib/admission/enquiries";
 import { markOriginalSeen, recordPapersException, rejectDocument, remindMissing, uploadDocument, verifyDocument } from "@/lib/admission/documents";
-import { admissionConsentTexts, confirmConsentAtCounter, counterFormPurpose, DATA_CONSENT, PHOTO_CONSENT, recordConsents, sendConsentCode, startOtp, verifyOtp } from "@/lib/admission/consent";
+import { admissionConsentTexts, confirmConsentAtCounter, counterFormPurpose, DATA_CONSENT, PHOTO_CONSENT, recordConsents, sendConsentCode, startOtp, tryOtp, verifyOtp } from "@/lib/admission/consent";
 import { requireFull } from "@/lib/admission/access";
 import { cancelPayment, recordCounterPayment } from "@/lib/admission/fee";
 import { sendFeeLink } from "@/lib/admission/public";
@@ -22,6 +22,11 @@ type DupState = FormState<{ id?: string; matches?: Match[] }>;
 export async function saveApplicationAction(_: DupState, fd: FormData): Promise<DupState> {
   try {
     const existingId = optionalId(fd, "id");
+    if (!existingId && str(fd, `consent_${DATA_CONSENT}`) === "on") {
+      const phone = str(fd, "phone").replace(/\D/g, "").slice(-10);
+      const pre = await inSchool("create", (w) => tryOtp(w.tx, { purpose: counterFormPurpose(w.ctx.userId), phone, code: str(fd, "code") }, new Date(), false));
+      if (!pre.ok) return { ok: false, message: pre.message, errors: { code: pre.message }, values: formValues(fd) };
+    }
     const app = await inSchool(existingId ? "edit" : "create", async (w) => {
       const input = readApplicationForm(fd, { restricted: w.v.restricted });
       if (existingId) {
@@ -66,11 +71,11 @@ export async function sendFormCodeAction(phone: string): Promise<{ ok: boolean; 
 export async function checkFormCodeAction(phone: string, code: string): Promise<{ ok: boolean; message: string }> {
   try {
     const to = checkMobile(phone.replace(/\s/g, ""), "phone", "Parent's phone");
-    await inSchool("create", async (w) => {
+    const r = await inSchool("create", async (w) => {
       requireFull(w.v, "new applications");
-      return verifyOtp(w.tx, { purpose: counterFormPurpose(w.ctx.userId), phone: to, code }, new Date(), false);
+      return tryOtp(w.tx, { purpose: counterFormPurpose(w.ctx.userId), phone: to, code }, new Date(), false);
     });
-    return { ok: true, message: "Code is right." };
+    return r.ok ? { ok: true, message: "Code is right." } : { ok: false, message: r.message };
   } catch (err) {
     return { ok: false, message: problemState(err)?.message ?? "The code could not be checked." };
   }
@@ -129,6 +134,18 @@ export async function sendCodeAction(_: FormState<unknown>, fd: FormData) {
 }
 
 export async function confirmConsentAction(_: FormState<unknown>, fd: FormData) {
+  // The code is checked first in its own transaction, so a wrong try is counted.
+  try {
+    const appId = id(fd, "id", "application");
+    const pre = await inSchool("edit", async (w) => {
+      requireFull(w.v, "consent");
+      const app = await w.tx.application.findFirst({ where: { id: appId, archivedAt: null }, select: { phone: true } });
+      return app ? tryOtp(w.tx, { purpose: `consent:${appId}`, phone: app.phone, code: str(fd, "code") }, new Date(), false) : ({ ok: false, message: "This application was not found." } as const);
+    });
+    if (!pre.ok) return { ok: false, message: pre.message, errors: { code: pre.message }, values: formValues(fd) };
+  } catch (e) {
+    return problemState(e, fd);
+  }
   return admissionAct("edit", fd, (w) => {
     const types = [DATA_CONSENT, PHOTO_CONSENT].filter((t) => str(fd, `consent_${t}`) === "on");
     if (!types.includes(DATA_CONSENT)) throw new AdmissionProblem("Data consent is needed for the admission. Tick it once the guardian agrees.", `consent_${DATA_CONSENT}`);

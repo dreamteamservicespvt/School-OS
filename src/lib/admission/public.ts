@@ -16,7 +16,7 @@ import { AdmissionProblem, todayIn } from "./act";
 import { admissionYear, classList, classRules, live, loadSettings } from "./settings";
 import { pickOwner } from "./enquiries";
 import { createApplication, type ApplicationInput } from "./applications";
-import { admissionConsentTexts, recordConsents, startOtp, verifyOtp, DATA_CONSENT } from "./consent";
+import { admissionConsentTexts, recordConsents, startOtp, tryOtp, verifyOtp, DATA_CONSENT } from "./consent";
 import { activeRazorpay, feeStatus } from "./fee";
 import { requireFull, type Viewer } from "./access";
 import { messageParent } from "./notify-parents";
@@ -77,12 +77,21 @@ export async function sendOnlineCode(schoolId: string, phone: string, ip: string
   });
 }
 
-export type OnlineSubmission = ApplicationInput & { consentTypes: string[]; givenByName: string; code: string; heardFrom: string | null };
+/** Checks the consent code without using it up, so the parent knows before sending. Wrong tries count. */
+export async function checkOnlineCode(schoolId: string, phone: string, code: string, ip: string | null) {
+  await limited(`apply-check:ip:${ip ?? "unknown"}`, 20, 3600);
+  return withSchool(systemCtx(schoolId), (tx) => tryOtp(tx, { purpose: `online:${phone}`, phone, code }, new Date(), false));
+}
+
+export type OnlineSubmission =ApplicationInput & { consentTypes: string[]; givenByName: string; code: string; heardFrom: string | null };
 
 /** Saves an online application after checking the code. At most 5 per address per hour. */
 export async function submitOnline(schoolId: string, input: OnlineSubmission, ip: string | null) {
   await limited(`apply-submit:ip:${ip ?? "unknown"}`, 5, 3600);
   const ctx = systemCtx(schoolId);
+  // The code is checked first in its own transaction, so a wrong try is counted.
+  const pre = await withSchool(ctx, (tx) => tryOtp(tx, { purpose: `online:${input.phone}`, phone: input.phone, code: input.code }, new Date(), false));
+  if (!pre.ok) throw new AdmissionProblem(pre.message, "code");
   return withSchool(ctx, async (tx) => {
     const s = await loadSettings(tx, ctx);
     if (!s.onlineOn) throw new AdmissionProblem("Online applications are closed at this school just now. Please contact the school office.");

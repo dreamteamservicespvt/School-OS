@@ -71,21 +71,34 @@ export async function startOtp(tx: Tx, ctx: SchoolContext, input: { phone: strin
   return { sentTo: `•••••${input.phone.slice(-4)}` };
 }
 
-/** Checks a typed code. A wrong code counts a try; after 5 tries or 10 minutes a new code is needed. */
-/** Checks the code. With consume off it only checks (wrong tries still count), so a form can confirm the code before it is saved. */
-export async function verifyOtp(tx: Tx, input: { purpose: string; phone: string; code: string }, now = new Date(), consume = true) {
+export type OtpResult = { ok: true } | { ok: false; message: string };
+
+/**
+ * Checks a typed code without throwing, so a wrong try is saved when the
+ * caller's transaction commits (a thrown error would roll the count back).
+ * With consume off it only checks, so a form can confirm the code before it
+ * is saved. After 5 wrong tries or 10 minutes a new code is needed.
+ */
+export async function tryOtp(tx: Tx, input: { purpose: string; phone: string; code: string }, now = new Date(), consume = true): Promise<OtpResult> {
   const code = input.code.replace(/\D/g, "");
-  if (code.length !== 6) throw new AdmissionProblem("Type the 6-digit code sent to the parent's mobile.", "code");
+  if (code.length !== 6) return { ok: false, message: "Type the 6-digit code sent to the parent's mobile." };
   const row = await tx.admissionOtp.findFirst({ where: { purpose: input.purpose, phone: input.phone, usedAt: null }, orderBy: { createdAt: "desc" } });
-  if (!row) throw new AdmissionProblem("No code is waiting for this number. Send a new code.", "code");
-  if (row.expiresAt <= now) throw new AdmissionProblem("This code has expired (codes work for 10 minutes). Send a new code.", "code");
-  if (row.attempts >= OTP_MAX_TRIES) throw new AdmissionProblem("Too many wrong codes. Send a new code.", "code");
+  if (!row) return { ok: false, message: "No code is waiting for this number. Send a new code." };
+  if (row.expiresAt <= now) return { ok: false, message: "This code has expired (codes work for 10 minutes). Send a new code." };
+  if (row.attempts >= OTP_MAX_TRIES) return { ok: false, message: "Too many wrong codes. Send a new code." };
   if (row.codeHash !== hashCode(row.id, code)) {
     await tx.admissionOtp.update({ where: { id: row.id }, data: { attempts: { increment: 1 } } });
     const left = OTP_MAX_TRIES - row.attempts - 1;
-    throw new AdmissionProblem(left > 0 ? `That code is not right. ${left} ${left === 1 ? "try" : "tries"} left.` : "That code is not right. Send a new code.", "code");
+    return { ok: false, message: left > 0 ? `That code is not right. ${left} ${left === 1 ? "try" : "tries"} left.` : "That code is not right. Send a new code." };
   }
   if (consume) await tx.admissionOtp.update({ where: { id: row.id }, data: { usedAt: now } });
+  return { ok: true };
+}
+
+/** Like tryOtp, but throws on a wrong code (so the wrong try is not kept). Check with tryOtp first in its own transaction. */
+export async function verifyOtp(tx: Tx, input: { purpose: string; phone: string; code: string }, now = new Date(), consume = true) {
+  const r = await tryOtp(tx, input, now, consume);
+  if (!r.ok) throw new AdmissionProblem(r.message, "code");
   return true;
 }
 

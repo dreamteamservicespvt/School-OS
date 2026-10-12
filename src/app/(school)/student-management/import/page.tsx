@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { PageHeader } from "@/components/shell/page-header";
+import { BackLink } from "@/components/ui/module-head";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { ActionForm, FormCheck, FormChoice, FormFieldError, FormSelect } from "@/components/students/action-form";
 import { BASE, studentPage } from "../_lib/page";
@@ -20,6 +21,7 @@ export default async function ImportPage({ searchParams }: { searchParams: Promi
   const sections = await withSchool(current.ctx, (tx) => sectionOptions(tx, current, year?.id));
   return (
     <>
+      <BackLink href={BASE} label="Students" />
       <PageHeader title="Import students" href={`${BASE}/import`} userId={current.user.id}>
         <Link href={`${BASE}/import/history`} className="inline-flex min-h-11 items-center rounded-lg px-3 font-medium text-brand-text hover:bg-surface-2">Import history</Link>
       </PageHeader>

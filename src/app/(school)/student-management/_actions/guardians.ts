@@ -44,7 +44,7 @@ export async function setPrimaryAction(fd: FormData) {
     const link = await visibleLink(tx, current, String(fd.get("linkId")));
     await setPrimary(tx, current.ctx, link.id);
   }));
-  if (!r) revalidatePath(profile(String(fd.get("studentId"))));
+  if (!r) { revalidatePath(profile(String(fd.get("studentId")))); revalidatePath(`${BASE}/guardians`, "layout"); }
   return r;
 }
 

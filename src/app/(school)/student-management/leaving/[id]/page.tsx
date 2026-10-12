@@ -5,6 +5,7 @@ import { withSchool } from "@/lib/db";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { fileLink } from "@/lib/files";
 import { PageHeader } from "@/components/shell/page-header";
+import { BackLink } from "@/components/ui/module-head";
 import { Card, CardBody, CardHeader, Detail } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -44,6 +45,7 @@ export default async function LeavingRequestPage({ params }: { params: Promise<{
 
   return (
     <>
+      <BackLink href={`${BASE}/leaving`} label="Leaving & Alumni" />
       <PageHeader title={`${student.name} is ${open ? "leaving" : req.status === "LEFT" ? "left" : "not leaving (cancelled)"}`} href={`${BASE}/leaving/${id}`} userId={current.user.id}>
         <ButtonLink href={`${BASE}/students/${req.studentId}`} size="sm">Student Profile</ButtonLink>
       </PageHeader>

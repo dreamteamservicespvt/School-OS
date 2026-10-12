@@ -3,10 +3,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { formatDate } from "@/lib/format";
-import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { EmptyState } from "@/components/empty-state";
+import { Avatar } from "@/components/ui/avatar";
+import { Chips, Empty, Split, Col } from "@/components/ui/blocks";
+import { GraduationCap, Plus, School, Users } from "lucide-react";
 import { ActionForm, FormArea, FormSelect, FormText } from "@/components/students/action-form";
 import { ActionSelect } from "@/components/students/confirm-action";
 import { StudentPicker } from "@/components/students/student-picker";
@@ -14,6 +15,8 @@ import { studentScope } from "@/lib/students/access";
 import { APPLICATION_STATUSES, CAREER_KINDS } from "@/lib/students/labels";
 import { BASE, studentPage } from "../../_lib/page";
 import { sectionOptions } from "../../_lib/queries";
+import { StudentsHead } from "../../_lib/head";
+import { behaviourTabs } from "../sub-tabs";
 import { careerAction, careerStatusAction } from "../../_actions/behaviour";
 
 export const metadata: Metadata = { title: "Career guidance" };
@@ -41,41 +44,40 @@ export default async function CareerPage({ searchParams }: { searchParams: Promi
 
   return (
     <>
-      <PageHeader title="Career guidance" href={`${BASE}/behaviour/career`} userId={current.user.id} />
-      <div className="grid gap-4 xl:grid-cols-[1fr_24rem]">
-        <div className="space-y-4">
-          <nav aria-label="Kind" className="flex flex-wrap gap-2">
-            <Link href={`${BASE}/behaviour/career`} className={`min-h-11 rounded-full px-4 py-2.5 text-[15px] ${!kind ? "bg-brand-soft font-semibold text-brand-text" : "bg-surface-2"}`}>All</Link>
-            {CAREER_KINDS.map((k) => <Link key={k.key} href={`?kind=${k.key}`} className={`min-h-11 rounded-full px-4 py-2.5 text-[15px] ${kind === k.key ? "bg-brand-soft font-semibold text-brand-text" : "bg-surface-2"}`}>{k.label}</Link>)}
-          </nav>
-          {data.records.length === 0 ? <EmptyState title="No career records yet">Career notes, entrance exams, college applications, scholarships and interests show here.</EmptyState> : (
-            <ul className="space-y-2">
-              {data.records.map((r) => (
-                <li key={r.id} className="rounded-xl border border-line bg-surface p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div>
-                      <p className="font-medium">{r.title}</p>
-                      <p className="text-sm text-ink-2"><Link className="hover:underline" href={`${BASE}/students/${r.studentId}`}>{name(r.studentId)}</Link> · <Badge>{kindLabel(r.kind)}</Badge>{r.college ? ` · ${r.college}` : ""}{r.course ? `, ${r.course}` : ""}{r.deadline ? ` · deadline ${formatDate(r.deadline, tz)}` : ""}</p>
-                      {r.details && <p className="mt-1 text-[15px]">{r.details}</p>}
+      <StudentsHead page="Behaviour & Counselling" href={`${BASE}/behaviour/career`} sub="Career notes, entrance exams, college applications, scholarships and alumni mentors."
+        subTabs={await behaviourTabs()} subLabel="Behaviour & Counselling" />
+      <Split side={380}>
+        <Col>
+          <Chips label="Kind" value={kind ?? "all"} options={[{ value: "all", label: "All", href: `${BASE}/behaviour/career` }, ...CAREER_KINDS.map((k) => ({ value: k.key, label: k.label, href: `${BASE}/behaviour/career?kind=${k.key}` }))]} />
+          {data.records.length === 0 ? <Card><Empty icon={GraduationCap} title="No career records yet" body="Career notes, entrance exams, college applications, scholarships and interests show here." /></Card> : (
+            <Card className="overflow-hidden">
+              <ul className="divide-y divide-line/70">
+                {data.records.map((r) => (
+                  <li key={r.id} className="flex flex-wrap items-start gap-3 px-4 md:px-5 py-3.5">
+                    <Avatar name={name(r.studentId)} size={38} />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-[14.5px] leading-tight flex items-center gap-1.5 flex-wrap">{r.kind === "college-application" && <School size={15} className="text-ink3" aria-hidden="true" />}{r.title}</p>
+                      <p className="text-[12.5px] text-ink3 mt-0.5"><Link className="font-semibold text-ink2 hover:underline" href={`${BASE}/students/${r.studentId}`}>{name(r.studentId)}</Link> · {kindLabel(r.kind)}{r.college ? ` · ${r.college}` : ""}{r.course ? `, ${r.course}` : ""}{r.deadline ? ` · deadline ${formatDate(r.deadline, tz)}` : ""}</p>
+                      {r.details && <p className="mt-1 text-[13.5px] text-ink2">{r.details}</p>}
                     </div>
                     {r.kind === "college-application" && (can.contribute
                       ? <ActionSelect action={careerStatusAction} fields={{ id: r.id }} name="status" label={`Status of ${r.title}`} value={r.status ?? "Planned"} options={APPLICATION_STATUSES} />
-                      : <Badge>{r.status ?? "Planned"}</Badge>)}
-                  </div>
-                </li>
-              ))}
-            </ul>
+                      : <Badge tone={r.status === "Offer received" ? "ok" : r.status === "Applied" ? "info" : "neutral"}>{r.status ?? "Planned"}</Badge>)}
+                  </li>
+                ))}
+              </ul>
+            </Card>
           )}
           {data.mentorships.length > 0 && (
             <Card>
-              <CardHeader title="Alumni mentors" />
-              <CardBody><ul className="space-y-1">{data.mentorships.map((m) => <li key={m.id}>{name(m.studentId)} is mentored by <strong>{name(m.alumni.studentId)}</strong>{m.note ? ` · ${m.note}` : ""}</li>)}</ul></CardBody>
+              <CardHeader title="Alumni mentors" icon={Users} />
+              <ul className="px-5 pb-4 flex flex-col gap-2 text-[14px]">{data.mentorships.map((m) => <li key={m.id}>{name(m.studentId)} is mentored by <b className="font-semibold">{name(m.alumni.studentId)}</b>{m.note ? <span className="text-ink3"> · {m.note}</span> : null}</li>)}</ul>
             </Card>
           )}
-        </div>
+        </Col>
         {can.contribute && (
           <Card className="self-start">
-            <CardHeader title="Add a record" />
+            <CardHeader title="Add a record" icon={Plus} />
             <CardBody>
               <ActionForm action={careerAction} submitLabel="Add" pendingText="Adding…" resetOnSuccess>
                 <StudentPicker name="studentId" label="Student" sections={data.sections.map((s) => ({ value: s.value, label: s.label }))} />
@@ -90,7 +92,7 @@ export default async function CareerPage({ searchParams }: { searchParams: Promi
             </CardBody>
           </Card>
         )}
-      </div>
+      </Split>
     </>
   );
 }

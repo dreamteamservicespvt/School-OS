@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { PageHeader } from "@/components/shell/page-header";
+import { BackLink } from "@/components/ui/module-head";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SelectField } from "@/components/ui/field";
@@ -37,6 +38,7 @@ export default async function BulkUpdatePage({ searchParams }: { searchParams: P
 
   return (
     <>
+      <BackLink href={BASE} label="Students" />
       <PageHeader title={field === "section" ? "Change section" : "Bulk field update"} href={`${BASE}/bulk-update`} userId={current.user.id} />
       <div className="space-y-4">
         <Card>

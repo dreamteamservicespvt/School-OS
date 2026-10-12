@@ -6,6 +6,7 @@ import { autoMatch, previewImport } from "@/lib/importer";
 import { STUDENT_IMPORT, UDISE_IMPORT, studentImport } from "@/lib/students/import";
 import { StudentProblem } from "@/lib/students/students";
 import { PageHeader } from "@/components/shell/page-header";
+import { BackLink } from "@/components/ui/module-head";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,7 @@ export default async function ImportMatchPage({ searchParams }: { searchParams: 
   if (!result.ok) {
     return (
       <>
+        <BackLink href={`${BASE}/import`} label="Import students" />
         <PageHeader title="Check the import" href={`${BASE}/import/match`} userId={current.user.id} />
         <Alert tone="danger" action={<Link className="font-medium underline" href={`${BASE}/import`}>Upload again</Link>}>{result.message}</Alert>
       </>
@@ -56,6 +58,7 @@ export default async function ImportMatchPage({ searchParams }: { searchParams: 
 
   return (
     <>
+      <BackLink href={`${BASE}/import`} label="Import students" />
       <PageHeader title="Check the import" href={`${BASE}/import/match`} userId={current.user.id} />
       <ol className="mb-5 flex flex-wrap gap-2 text-sm" aria-label="Steps">
         {["Template", "Upload", "Match columns", "Check", "Import"].map((s, i) => (

@@ -4,7 +4,8 @@
 
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
-import { ChevronRight, CircleCheck, FileText, FileWarning, Info, SearchX, Sparkles, TriangleAlert } from "lucide-react";
+import { ChevronRight, CircleCheck, FileText, FileWarning, Info, SearchX, SlidersHorizontal, Sparkles, TriangleAlert } from "lucide-react";
+import { buttonClass } from "./button";
 import { cx } from "./cx";
 import { Card } from "./card";
 import { Pill } from "./badge";
@@ -16,7 +17,7 @@ export const TONE_SOFT: Record<Tone, string> = { ok: "bg-ok/10 text-ok", warn: "
 
 /* ---------- Numbers at the top of a page, with hairlines between tiles ---------- */
 export type StatItem = { label: string; value: React.ReactNode; sub?: React.ReactNode; tone?: Tone; icon?: LucideIcon; href?: string };
-const STAT_GRID: Record<number, string> = { 1: "grid-cols-1", 2: "grid-cols-2", 3: "grid-cols-3", 4: "grid-cols-2 xl:grid-cols-4", 5: "grid-cols-2 xl:grid-cols-5", 6: "grid-cols-2 lg:grid-cols-3 xl:grid-cols-6" };
+const STAT_GRID: Record<number, string> = { 1: "grid-cols-1", 2: "grid-cols-2", 3: "grid-cols-2 md:grid-cols-3", 4: "grid-cols-2 xl:grid-cols-4", 5: "grid-cols-2 xl:grid-cols-5", 6: "grid-cols-2 lg:grid-cols-3 xl:grid-cols-6" };
 export function Stats({ items, className, label = "Summary" }: { items: StatItem[]; className?: string; label?: string }) {
   const n = Math.min(items.length, 6);
   return (
@@ -31,7 +32,7 @@ export function Stats({ items, className, label = "Summary" }: { items: StatItem
               {m.sub && <p className="text-[12px] text-ink3 truncate">{m.sub}</p>}
             </>
           );
-          const cls = cx("bg-surface text-left px-4 md:px-5 py-3.5 min-w-0 block", n === 5 && i === 4 && "col-span-2 xl:col-span-1");
+          const cls = cx("bg-surface text-left px-4 md:px-5 py-3.5 min-w-0 block", n === 5 && i === 4 && "col-span-2 xl:col-span-1", n === 3 && i === 2 && "col-span-2 md:col-span-1");
           return m.href
             ? <Link key={m.label} href={m.href} className={cx(cls, "hover:bg-sunken/60 transition")}>{body}</Link>
             : <div key={m.label} className={cls}>{body}</div>;
@@ -265,3 +266,18 @@ export function ListFooter({ shown, total, moreHref, children }: { shown: number
 
 /** A chevron that shows when a row is hovered. */
 export const RowChevron = () => <ChevronRight size={18} className="text-ink3 opacity-0 group-hover:opacity-100 transition" aria-hidden="true" />;
+
+/** "Filters": the less used filters of a list, in a small menu next to the search. */
+export function FilterMenu({ on = 0, clearHref, children }: { on?: number; clearHref?: string | null; children: React.ReactNode }) {
+  return (
+    <details className="relative">
+      <summary className={buttonClass("secondary", "md", "list-none cursor-pointer h-11 [&::-webkit-details-marker]:hidden")}>
+        <SlidersHorizontal size={17} aria-hidden="true" />Filters{on ? <span className="ml-0.5 grid h-5 min-w-5 place-items-center rounded-full bg-brand px-1 text-[11px] text-brandink tnum">{on}</span> : null}
+      </summary>
+      <div className="absolute right-0 z-30 mt-1.5 w-[min(19rem,calc(100vw-2rem))] rounded-2xl border border-line bg-surface p-3 shadow-pop animate-rise flex flex-col gap-2">
+        {children}
+        {on > 0 && clearHref && <Link href={clearHref} className={buttonClass("ghost", "sm", "self-start")}>Clear filters</Link>}
+      </div>
+    </details>
+  );
+}

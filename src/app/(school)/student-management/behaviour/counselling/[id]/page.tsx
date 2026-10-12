@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { PageHeader } from "@/components/shell/page-header";
+import { BackLink } from "@/components/ui/module-head";
 import { Card, CardBody, CardHeader, Detail } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ActionForm, FormArea, FormSelect, FormText } from "@/components/students/action-form";
@@ -33,7 +34,7 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
   const notes = can.seeCounsellingNotes;
   return (
     <>
-      <nav aria-label="Breadcrumb" className="mb-2 text-sm text-ink-2"><Link className="hover:underline" href={`${BASE}/behaviour/counselling`}>Counselling</Link></nav>
+      <BackLink href={`${BASE}/behaviour/counselling`} label="Counselling" />
       <PageHeader title={`Counselling: ${data.student?.fullName ?? ""}`} href={path} userId={current.user.id} />
       <div className="grid max-w-6xl gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">

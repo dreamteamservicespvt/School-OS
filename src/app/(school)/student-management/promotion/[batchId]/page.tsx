@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { formatDateTime, formatRupees } from "@/lib/format";
 import { PageHeader } from "@/components/shell/page-header";
+import { BackLink } from "@/components/ui/module-head";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -42,6 +43,7 @@ export default async function PromotionBatchPage({ params }: { params: Promise<{
 
   return (
     <>
+      <BackLink href={`${BASE}/promotion`} label="Promotion" />
       <PageHeader title={`Promotion of ${sec(batch.fromSectionId)} (${yearName(batch.fromYearId)})`} href={`${BASE}/promotion/${batch.id}`} userId={current.user.id}>
         <ButtonLink href={`${BASE}/promotion`} size="sm">Back to Promotion</ButtonLink>
       </PageHeader>

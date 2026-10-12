@@ -32,3 +32,9 @@ export function ageOn(dob: Date, today = new Date()): number {
   if (m < 0 || (m === 0 && today.getUTCDate() < dob.getUTCDate())) a -= 1;
   return a;
 }
+
+/** How many rows a list shows: 25 more each time "Show more" is pressed, at most 500. */
+export function shownCount(raw: Record<string, string | string[] | undefined>, step = 25) {
+  const v = Array.isArray(raw.n) ? raw.n[0] : raw.n;
+  return Math.min(500, Math.max(step, Number.parseInt(String(v ?? ""), 10) || step));
+}

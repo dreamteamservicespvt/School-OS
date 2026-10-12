@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { PageHeader } from "@/components/shell/page-header";
+import { BackLink } from "@/components/ui/module-head";
 import { Card, CardBody } from "@/components/ui/card";
 import { BASE, studentPage, todayIso } from "../../_lib/page";
 import { sectionOptions } from "../../_lib/queries";
@@ -28,6 +29,7 @@ export default async function ReportIncidentPage({ searchParams }: { searchParam
   });
   return (
     <>
+      <BackLink href={`${BASE}/behaviour`} label="Behaviour & Counselling" />
       <PageHeader title="Report incident" href={`${BASE}/behaviour/new`} userId={current.user.id} />
       <p className="-mt-3 mb-5 text-ink-2">Also for a warning, a suspension, a reward or recognition.</p>
       <Card className="max-w-3xl">

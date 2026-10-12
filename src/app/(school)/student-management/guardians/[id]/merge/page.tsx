@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { PageHeader } from "@/components/shell/page-header";
+import { BackLink } from "@/components/ui/module-head";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/empty-state";
 import { buttonClass } from "@/components/ui/button";
@@ -38,7 +39,7 @@ export default async function MergeGuardianPage({ params, searchParams }: { para
   const back = `${BASE}/guardians/${id}`;
   return (
     <>
-      <nav aria-label="Breadcrumb" className="mb-2 text-sm text-ink-2"><Link href={back} className="hover:underline">{data.keep.name}</Link> / Merge</nav>
+      <BackLink href={back} label={data.keep.name} sub="Merge" />
       <PageHeader title="Merge parent records" href={`${back}/merge`} userId={current.user.id} />
       <p className="-mt-3 mb-5 max-w-prose text-ink-2">
         Keep <strong>{data.keep.name}</strong> ({data.keep.phone}) and move another record&apos;s children, consent records and documents to it. The other record is archived, not deleted.

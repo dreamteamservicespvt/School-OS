@@ -1,6 +1,6 @@
 // Registry slots for the modules being built at the same time as the
-// Dashboard (Fee Management, Attendance Management, Admission Management,
-// Examination & Results, Finance Management). Their records do not exist yet
+// Dashboard (Fee Management, Attendance Management, Finance Management).
+// Their records do not exist yet
 // in this branch, so these slots have no loader and draw nothing. When a
 // module is merged, its loaders are written against its own records, added to
 // src/lib/dashboard/registry.ts, and the slot below is removed.
@@ -33,15 +33,6 @@ export const SLOTS: readonly WidgetSlot[] = [
   { id: "finance.day-book", module: "finance-management", kind: "band", homes: ["accountant"], shows: "Day Book: 'Not closed' with the date and cash to count, or 'Closed'. Opens the Day Book." },
   { id: "finance.day-book-open", module: "finance-management", kind: "attention", homes: ["accountant"], shows: "'Day Book for 8 Oct is not closed'. Opens the Day Book for that date." },
   { id: "finance.expenses", module: "finance-management", kind: "attention", homes: ["leader"], shows: "Expenses today, this month and pending approval; income vs expense this month. Opens Expenses with the same filters." },
-  // ------------------------------------------------ 02 Admission Management
-  { id: "admissions.new-enquiries", module: "admission-management", kind: "band", homes: ["leader", "receptionist", "admission"], shows: "New enquiries (today, or this week for the leader), foot 'N visits booked this week'. Opens Enquiries filtered to new." },
-  { id: "admissions.pending-applications", module: "admission-management", kind: "attention", homes: ["leader", "admission", "office"], shows: "'N applications waiting for a decision'. Opens Applications filtered to waiting." },
-  { id: "admissions.follow-ups", module: "admission-management", kind: "attention", homes: ["receptionist", "admission"], shows: "Enquiry follow-up calls due or overdue. Opens Enquiries filtered to follow-up due." },
-  // ------------------------------------------------ 08 Examination & Results
-  { id: "exams.average", module: "examination-results", kind: "panel", homes: ["leader", "academic-head", "exam"], shows: "Exam average of the latest published exam, by class. Each bar opens the result analysis." },
-  { id: "exams.upcoming", module: "examination-results", kind: "agenda", homes: "any", shows: "Exams today and in the next 7 days from published datesheets (own classes for teachers). Opens the Datesheet." },
-  { id: "exams.marks-due", module: "examination-results", kind: "attention", homes: ["teacher", "class-teacher", "exam"], shows: "Marks entry open or overdue for my subjects. Opens Marks Entry for that exam and section." },
-  { id: "exams.weak-students", module: "examination-results", kind: "attention", homes: ["teacher", "class-teacher", "academic-head"], shows: "'3 students in 7 A below 40% in Unit Test 2'. Opens the students behind it." },
 ];
 
 /**

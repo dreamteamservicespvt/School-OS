@@ -32,7 +32,7 @@ export const ACCENT_COOKIE = "sos_accent";
 export const SIZE_COOKIE = "sos_size";
 
 // Colours from the first design, kept working for anyone who chose one.
-const OLD_ACCENTS: Record<string, AccentKey> = { blue: "royal", teal: "lagoon", violet: "plum", amber: "saffron", green: "lagoon" };
+const OLD_ACCENTS: Record<string, AccentKey> = { blue: "lagoon", teal: "lagoon", violet: "plum", amber: "saffron", green: "lagoon" };
 
 export function cleanTheme(value: string | undefined | null): ThemeKey {
   return THEMES.some((t) => t.key === value) ? (value as ThemeKey) : "system";

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { PageHeader } from "@/components/shell/page-header";
+import { BackLink } from "@/components/ui/module-head";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SelectField } from "@/components/ui/field";
@@ -24,6 +25,7 @@ export default async function StudentLoginsPage({ searchParams }: { searchParams
   }));
   return (
     <>
+      <BackLink href={BASE} label="Students" />
       <PageHeader title="Student logins" href={`${BASE}/logins`} userId={current.user.id} />
       {!settings.studentLoginsOn ? (
         <Card className="max-w-2xl"><CardBody><p>Student logins are switched off. Switch them on in <Link className="font-medium text-brand-text underline" href={`${BASE}/settings`}>Student Settings</Link>.</p></CardBody></Card>

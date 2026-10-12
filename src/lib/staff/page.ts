@@ -24,9 +24,14 @@ export const staffPage = cache(async (action: Action = "view") => {
   return { current, viewer, features, tz, today: todayIn(tz) };
 });
 
-/** Pages only HR (full reach) may open. Others go to their own profile. */
+/**
+ * Pages only HR (full reach) may open: lists of everyone, and every page that changes
+ * staff records (add, import, settings, exit). People with "own" reach are told why
+ * on No access; their own record and leave stay open to them (05-roles).
+ */
 export async function hrPage(action: Action = "view") {
   const p = await staffPage(action);
-  if (p.viewer.see !== "all") redirect(p.viewer.staffId ? `${BASE}/${p.viewer.staffId}` : `/no-access?m=${MODULE}`);
+  const needed = action === "view" || action === "export" || action === "print" ? p.viewer.see : p.viewer.change;
+  if (needed !== "all") redirect(`/no-access?m=${MODULE}`);
   return p;
 }

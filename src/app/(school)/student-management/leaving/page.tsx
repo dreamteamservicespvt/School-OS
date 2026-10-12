@@ -1,32 +1,42 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import type { Prisma } from "@prisma/client";
+import { DoorOpen, LogOut, SearchX } from "lucide-react";
 import { withSchool } from "@/lib/db";
-import { readListParams, skipTake, orderByFor } from "@/lib/list";
-import { formatDate } from "@/lib/format";
-import { PageHeader } from "@/components/shell/page-header";
-import { DataTable, type Column } from "@/components/list/data-table";
-import { ListToolbar } from "@/components/list/list-toolbar";
+import { dateWhere, periodFromSearch } from "@/lib/periods";
+import { readListParams, orderByFor, listHref } from "@/lib/list";
 import { ButtonLink } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { EmptyState } from "@/components/empty-state";
+import { Pill } from "@/components/ui/badge";
+import { Avatar } from "@/components/ui/avatar";
+import { Card } from "@/components/ui/card";
+import { Empty, ListFooter, Toolbar } from "@/components/ui/blocks";
+import { ListToolbar } from "@/components/list/list-toolbar";
+import { DataList, cardPill, type DataColumn } from "@/components/ui/data-list";
 import { isCleared } from "@/lib/students/leaving";
+import { shortDate, shownCount } from "@/lib/students/show";
 import { BASE, studentPage } from "../_lib/page";
-import { CERT_LABEL, CHECK_LABEL, CHECK_TONE, LEAVING_TYPE_LABEL, studentFacts, tcFor } from "./load";
+import { StudentsHead } from "../_lib/head";
+import { CERT_LABEL, CHECK_LABEL, LEAVING_TYPE_LABEL, studentFacts, tcFor } from "./load";
+import { leavingTabs } from "./sub-tabs";
 
 export const metadata: Metadata = { title: "Leaving & Alumni" };
 
 const FILTERS = ["type", "clearance"] as const;
+const STEP = 25;
+const CHECK_PILL = { CLEAR: "ok", PENDING: "bad", WAIVER_ASKED: "warn", WAIVED: "neutral" } as const;
 
 /** Students in the leaving process: reason, last date, clearance per check, TC status. */
 export default async function LeavingPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { current, can, tz } = await studentPage();
-  const params = readListParams(await searchParams, FILTERS);
+  const raw = await searchParams;
+  const params = readListParams(raw, FILTERS);
+  const take = shownCount(raw, STEP);
+  const range = periodFromSearch(raw, { timeZone: tz });
   const path = `${BASE}/leaving`;
   const data = await withSchool(current.ctx, async (tx) => {
     const f = params.filters;
     const where: Prisma.LeavingRequestWhereInput = {
       status: "IN_PROGRESS",
+      ...(range ? { lastDate: dateWhere(range) } : {}),
       ...(f.type ? { type: f.type as "TRANSFER" } : {}),
       ...(f.clearance === "pending" ? { checks: { some: { status: { in: ["PENDING", "WAIVER_ASKED"] } } } } : f.clearance === "clear" ? { checks: { none: { status: { in: ["PENDING", "WAIVER_ASKED"] } } } } : {}),
       ...(params.q ? { OR: [{ reason: { contains: params.q, mode: "insensitive" as const } }, { studentId: { in: (await tx.student.findMany({ where: { OR: [{ fullName: { contains: params.q, mode: "insensitive" } }, { admissionNo: { contains: params.q, mode: "insensitive" } }] }, select: { id: true } })).map((s) => s.id) } }] } : {}),
@@ -34,47 +44,69 @@ export default async function LeavingPage({ searchParams }: { searchParams: Prom
     const orderBy = orderByFor(params, { lastDate: { lastDate: params.dir } }, [{ lastDate: "asc" }]);
     const [total, rows] = await Promise.all([
       tx.leavingRequest.count({ where }),
-      tx.leavingRequest.findMany({ where, orderBy: orderBy as object, ...skipTake(params), include: { checks: { orderBy: { name: "asc" } } } }),
+      tx.leavingRequest.findMany({ where, orderBy: orderBy as object, take, include: { checks: { orderBy: { name: "asc" } } } }),
     ]);
     const facts = await studentFacts(tx, rows.map((r) => r.studentId));
     const tcs = await tcFor(tx, rows.map((r) => r.id));
     return { total, rows, facts, tcs };
   });
   type Row = (typeof data.rows)[number];
-  const checkNames = [...new Set(data.rows.flatMap((r) => r.checks.map((c) => c.name)))].sort();
+  const tcState = (r: Row) => {
+    const tc = data.tcs.get(r.id);
+    if (tc) return { label: `${CERT_LABEL[tc.status]}${tc.number ? ` · ${tc.number}` : ""}`, tone: tc.status === "ISSUED" ? "ok" as const : tc.status === "REQUESTED" ? "info" as const : "neutral" as const };
+    if (r.checks.some((c) => c.status === "WAIVER_ASKED")) return { label: "Waiver asked", tone: "warn" as const };
+    if (!isCleared(r.checks)) return { label: "Blocked", tone: "bad" as const };
+    return { label: "Ready to issue", tone: "ok" as const };
+  };
+  const checkPill = (c: Row["checks"][number], cls?: string) => (
+    <Pill key={c.id} tone={CHECK_PILL[c.status as keyof typeof CHECK_PILL] ?? "neutral"} className={cls}>{c.status === "PENDING" && c.detail ? `${c.name}: ${c.detail}` : c.status === "CLEAR" ? c.name : `${c.name}: ${CHECK_LABEL[c.status].toLowerCase()}`}</Pill>
+  );
 
-  const columns: Column<Row>[] = [
-    { key: "student", label: "Student", phone: "title", cell: (r) => { const s = data.facts.get(r.studentId); return s ? `${s.name} (${s.cls || s.admissionNo})` : ""; } },
-    { key: "type", label: "Type", cell: (r) => LEAVING_TYPE_LABEL[r.type] },
-    { key: "reason", label: "Reason", phone: "meta", cell: (r) => r.reason },
-    { key: "lastDate", label: "Last date", sortable: true, phone: "meta", cell: (r) => formatDate(r.lastDate, tz) },
-    ...checkNames.map((n): Column<Row> => ({
-      key: `check-${n}`, label: n, cell: (r) => { const c = r.checks.find((x) => x.name === n); return c ? <Badge tone={CHECK_TONE[c.status]}>{c.status === "PENDING" ? c.detail : CHECK_LABEL[c.status]}</Badge> : ""; },
-    })),
-    { key: "clearance", label: "Clearance", phone: "badge", cell: (r) => isCleared(r.checks) ? <Badge tone="success">Clear</Badge> : <Badge tone="danger">Pending</Badge> },
-    { key: "tc", label: "TC", cell: (r) => { const tc = data.tcs.get(r.id); return tc ? `${CERT_LABEL[tc.status]}${tc.number ? ` · ${tc.number}` : ""}` : "Not yet"; } },
+  const columns: DataColumn<Row>[] = [
+    { key: "student", label: "Student", render: (r) => {
+      const s = data.facts.get(r.studentId);
+      return (
+        <div className="flex items-center gap-3">
+          <Avatar name={s?.name ?? "?"} size={34} />
+          <div className="min-w-0"><p className="font-semibold leading-tight whitespace-nowrap">{s?.name}</p><p className="text-[12px] text-ink3 whitespace-nowrap">{s?.short ? `${s.short} · ` : ""}<span className="font-mono">{s?.admissionNo}</span></p></div>
+        </div>
+      );
+    } },
+    { key: "reason", label: "Reason", className: "max-w-[240px]", render: (r) => <div><p className="text-[13.5px]">{LEAVING_TYPE_LABEL[r.type]}</p><p className="text-[12px] text-ink3 line-clamp-1">{r.reason}</p></div> },
+    { key: "lastDate", label: "Last date", nowrap: true, sortHref: listHref(path, params, { sort: "lastDate", dir: params.sort === "lastDate" && params.dir === "asc" ? "desc" : "asc" }), sorted: params.sort === "lastDate" ? params.dir : null, render: (r) => <span className="tnum text-[13.5px]">{shortDate(r.lastDate, tz)}</span> },
+    { key: "clearance", label: "Clearance", render: (r) => r.checks.length ? <div className="flex flex-wrap gap-1.5">{r.checks.map((c) => checkPill(c))}</div> : <span className="text-[12.5px] text-ink3">No checks yet</span> },
+    { key: "tc", label: "TC", render: (r) => { const t = tcState(r); return <Pill tone={t.tone}>{t.label}</Pill>; } },
   ];
+  const filtered = Boolean(params.q || Object.keys(params.filters).length || range);
 
   return (
     <>
-      <PageHeader title="Leaving & Alumni" href={path} userId={current.user.id}>
-        {can.manage && <ButtonLink href={`${path}/new`} variant="primary">Start leaving</ButtonLink>}
-      </PageHeader>
-      <ListToolbar placeholder="Search by student's name, admission number or reason"
-        filters={[
-          { key: "type", label: "Type", options: [{ value: "TRANSFER", label: "Transfer" }, { value: "WITHDRAWAL", label: "Withdrawal" }, { value: "GRADUATION", label: "Graduation" }] },
-          { key: "clearance", label: "Clearance", options: [{ value: "pending", label: "Pending" }, { value: "clear", label: "Clear" }] },
-        ]} />
-      <DataTable rows={data.rows} columns={columns} rowKey={(r) => r.id} rowHref={(r) => `${path}/${r.id}`} total={data.total} params={params} path={path} caption="Students leaving"
-        empty={
-          <EmptyState title={Object.keys(params.filters).length || params.q ? "Nothing matches these filters" : "Nobody is leaving right now"}>
-            <p>Students in the leaving process show here with their clearance and TC.</p>
-            {can.manage && <p className="mt-3"><Link className="font-medium text-brand-text underline" href={`${path}/new`}>Start leaving</Link> for a student who is transferring or withdrawing.</p>}
-          </EmptyState>
-        } />
-      {checkNames.length === 0 && data.rows.length > 0 && (
-        <p className="mt-4 text-sm text-ink-2">No clearance checks run yet: fee dues and library books are checked here once Fee Management and Library Management are in use.</p>
-      )}
+      <StudentsHead page="Leaving & Alumni" href={path} sub="Transfer or withdrawal with fee and library clearance, and records of past students"
+        actions={can.manage ? <ButtonLink href={`${path}/new`} variant="primary" icon={LogOut}>Start leaving</ButtonLink> : undefined}
+        subTabs={await leavingTabs()} subLabel="Leaving & Alumni" />
+      <Card className="overflow-hidden">
+        <Toolbar>
+          <ListToolbar placeholder="Student name, admission number or reason" showArchived={false} period={{ timeZone: tz, allLabel: "Last date: any" }}
+            filters={[{ key: "clearance", label: "Clearance", allLabel: "Any clearance", options: [{ value: "pending", label: "Clearance pending" }, { value: "clear", label: "Cleared" }] }]}
+            more={[{ key: "type", label: "Type", allLabel: "Every type", options: [{ value: "TRANSFER", label: "Transfer" }, { value: "WITHDRAWAL", label: "Withdrawal" }, { value: "GRADUATION", label: "Graduation" }] }]} />
+        </Toolbar>
+        <DataList caption="Students leaving" rows={data.rows} columns={columns} rowKey={(r) => r.id} minWidth={900}
+          rowHref={(r) => `${path}/${r.id}`} rowLabel={(r) => `Open the leaving of ${data.facts.get(r.studentId)?.name ?? ""}`}
+          mobile={(r) => {
+            const s = data.facts.get(r.studentId);
+            const t = tcState(r);
+            return { title: s?.name ?? "", sub: `${s?.short ? `${s.short} · ` : ""}${LEAVING_TYPE_LABEL[r.type]} · last day ${shortDate(r.lastDate, tz)}`, avatar: s?.name ?? "?",
+              pills: [...r.checks.filter((c) => c.status !== "CLEAR").map((c) => checkPill(c, cardPill)), <Pill key="tc" tone={t.tone} className={cardPill}>TC: {t.label.toLowerCase()}</Pill>] };
+          }}
+          footer={<ListFooter shown={data.rows.length} total={data.total} moreHref={data.rows.length < data.total ? listHref(path, params, { n: take + STEP }) : null} />}
+          empty={filtered
+            ? <Empty icon={SearchX} title="Nothing matches these filters" action={<ButtonLink href={path}>Clear filters</ButtonLink>} />
+            : <Empty icon={DoorOpen} title="Nobody is leaving right now" body="Students in the leaving process show here with their clearance and TC."
+              action={can.manage ? <ButtonLink href={`${path}/new`} variant="primary" icon={LogOut}>Start leaving</ButtonLink> : undefined} />} />
+        {data.rows.length > 0 && data.rows.every((r) => r.checks.length === 0) && (
+          <p className="px-5 py-3 text-[12.5px] text-ink3 border-t border-line/70">No clearance checks run yet: fee dues and library books are checked here once Fee Management and Library Management are in use.</p>
+        )}
+      </Card>
     </>
   );
 }

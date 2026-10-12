@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { formatDateTime } from "@/lib/format";
 import { PageHeader } from "@/components/shell/page-header";
+import { BackLink } from "@/components/ui/module-head";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -34,6 +35,7 @@ export default async function ImportBatchPage({ params }: { params: Promise<{ ba
 
   return (
     <>
+      <BackLink href={`${BASE}/import/history`} label="Import history" />
       <PageHeader title={`Import of ${batch.fileName}`} href={`${BASE}/import/${batch.id}`} userId={current.user.id}>
         <ButtonLink href={`${BASE}/import/history`} size="sm">Import history</ButtonLink>
       </PageHeader>

@@ -1,66 +1,112 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
+import { HeartHandshake, Lock, SearchX, UserPlus } from "lucide-react";
 import { withSchool } from "@/lib/db";
-import { formatDate } from "@/lib/format";
-import { readListParams, skipTake } from "@/lib/list";
-import { PageHeader } from "@/components/shell/page-header";
-import { DataTable, type Column } from "@/components/list/data-table";
-import { ListToolbar } from "@/components/list/list-toolbar";
+import { dateWhere, periodFromSearch } from "@/lib/periods";
+import { readListParams, listHref } from "@/lib/list";
 import { ButtonLink } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { EmptyState } from "@/components/empty-state";
+import { Pill } from "@/components/ui/badge";
+import { Avatar } from "@/components/ui/avatar";
+import { Card, CardHeader } from "@/components/ui/card";
+import { Empty, ListFooter, Toolbar } from "@/components/ui/blocks";
+import { ListToolbar } from "@/components/list/list-toolbar";
+import { DataList, cardPill, type DataColumn } from "@/components/ui/data-list";
+import { classShort, shortDate, shownCount } from "@/lib/students/show";
 import { BASE, studentPage } from "../../_lib/page";
+import { StudentsHead } from "../../_lib/head";
+import { sectionNames } from "../../_lib/queries";
+import { behaviourTabs } from "../sub-tabs";
 
 export const metadata: Metadata = { title: "Counselling" };
+const STEP = 25;
 
 /** Counselling cases: only for the roles set in Student Settings, and each counsellor's own cases. */
 export default async function CounsellingPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const { current, can, settings, tz } = await studentPage();
+  const { current, can, settings, year, tz } = await studentPage();
   if (!settings.counsellingOn) redirect(`${BASE}/behaviour`);
-  const params = readListParams(await searchParams, ["status"]);
+  const raw = await searchParams;
+  const params = readListParams(raw, ["status"]);
+  const take = shownCount(raw, STEP);
+  const range = periodFromSearch(raw, { timeZone: tz });
   const path = `${BASE}/behaviour/counselling`;
   const data = await withSchool(current.ctx, async (tx) => {
     const where = {
       archivedAt: null,
       ...(can.seeCounselling ? {} : { counsellorId: current.ctx.userId ?? "" }),
       ...(params.filters.status ? { status: params.filters.status } : {}),
+      ...(range ? { openedOn: dateWhere(range) } : {}),
     };
     const ids = params.q ? (await tx.student.findMany({ where: { fullName: { contains: params.q, mode: "insensitive" } }, select: { id: true }, take: 200 })).map((s) => s.id) : null;
     const full = ids ? { ...where, studentId: { in: ids } } : where;
-    const [total, rows] = await Promise.all([
+    const [total, rows, open] = await Promise.all([
       tx.counsellingCase.count({ where: full }),
-      tx.counsellingCase.findMany({ where: full, orderBy: [{ status: "desc" }, { nextSessionOn: "asc" }, { openedOn: "desc" }], ...skipTake(params) }),
+      tx.counsellingCase.findMany({ where: full, orderBy: [{ status: "desc" }, { nextSessionOn: "asc" }, { openedOn: "desc" }], take, include: { _count: { select: { sessions: true } } } }),
+      tx.counsellingCase.count({ where: { ...where, status: "OPEN" } }),
     ]);
-    const students = await tx.student.findMany({ where: { id: { in: rows.map((r) => r.studentId) } }, select: { id: true, fullName: true } });
-    const people = await tx.userLogin.findMany({ where: { id: { in: rows.map((r) => r.counsellorId).filter((x): x is string => Boolean(x)) } }, select: { id: true, displayName: true } });
-    return { total, rows, students, people };
+    const studentIds = rows.map((r) => r.studentId);
+    const [students, people, enrol] = await Promise.all([
+      tx.student.findMany({ where: { id: { in: studentIds } }, select: { id: true, fullName: true } }),
+      tx.userLogin.findMany({ where: { id: { in: rows.flatMap((r) => [r.counsellorId, r.referredById]).filter((x): x is string => Boolean(x)) } }, select: { id: true, displayName: true } }),
+      year ? tx.enrolment.findMany({ where: { studentId: { in: studentIds }, academicYearId: year.id, archivedAt: null }, select: { studentId: true, sectionId: true } }) : [],
+    ]);
+    const names = await sectionNames(tx, enrol.map((e) => e.sectionId));
+    const cls = new Map(enrol.map((e) => { const n = names.get(e.sectionId); return [e.studentId, n ? classShort(n.className, n.sectionName) : ""]; }));
+    return { total, rows, students, people, cls, open };
   });
   type Row = (typeof data.rows)[number];
-  const columns: Column<Row>[] = [
-    { key: "case", label: "Case", phone: "meta", cell: (r) => <span className="line-clamp-2">{r.reason}</span> },
-    { key: "student", label: "Student", phone: "title", cell: (r) => data.students.find((s) => s.id === r.studentId)?.fullName ?? "" },
-    { key: "counsellor", label: "Counsellor", cell: (r) => data.people.find((p) => p.id === r.counsellorId)?.displayName ?? <span className="text-ink-2">Not given yet</span> },
-    { key: "status", label: "Status", phone: "badge", cell: (r) => <Badge tone={r.status === "OPEN" ? "warning" : "neutral"}>{r.status === "OPEN" ? "Open" : "Closed"}</Badge> },
-    { key: "next", label: "Next session", phone: "meta", cell: (r) => (r.nextSessionOn ? formatDate(r.nextSessionOn, tz) : "") },
+  const name = (id: string) => data.students.find((s) => s.id === id)?.fullName ?? "";
+  const person = (id: string | null) => data.people.find((p) => p.id === id)?.displayName ?? null;
+  const filtered = Boolean(params.q || params.filters.status || range);
+
+  const columns: DataColumn<Row>[] = [
+    { key: "student", label: "Student", render: (r) => (
+      <div className="flex items-center gap-3">
+        <Avatar name={name(r.studentId)} size={32} />
+        <div className="min-w-0">
+          <p className="font-semibold leading-tight whitespace-nowrap">{name(r.studentId)}</p>
+          <p className="text-[12px] text-ink3">{[data.cls.get(r.studentId), person(r.referredById) && `from ${person(r.referredById)}`].filter(Boolean).join(" · ")}</p>
+        </div>
+      </div>
+    ) },
+    { key: "case", label: "Reason", className: "max-w-[280px]", render: (r) => <span className="line-clamp-2 text-[13.5px]">{r.reason}</span> },
+    { key: "counsellor", label: "Counsellor", nowrap: true, render: (r) => person(r.counsellorId) ?? <span className="text-ink3">Not given yet</span> },
+    { key: "status", label: "Status", render: (r) => <Pill tone={r.status === "OPEN" ? "info" : "neutral"}>{r.status === "OPEN" ? "Open" : "Closed"}</Pill> },
+    { key: "next", label: "Next session", nowrap: true, render: (r) => <span className="text-[13.5px] tnum">{r.nextSessionOn ? shortDate(r.nextSessionOn, tz) : "–"}</span> },
+    { key: "sessions", label: "Sessions", align: "right", render: (r) => r._count.sessions },
   ];
+
   return (
     <>
-      <PageHeader title="Counselling" href={path} userId={current.user.id}>
-        {can.contribute && <ButtonLink href={`${path}/new`} variant="primary">Refer to counselling</ButtonLink>}
-      </PageHeader>
-      <p className="-mt-3 mb-5 max-w-prose text-ink-2">Highly restricted. Confidential notes are seen only by the Counsellor.</p>
-      {(can.seeCounselling || data.total > 0) ? (
-        <>
-          <ListToolbar placeholder="Search by student's name" showArchived={false} filters={[{ key: "status", label: "Status", options: [{ value: "OPEN", label: "Open" }, { value: "CLOSED", label: "Closed" }] }]} />
-          <DataTable rows={data.rows} columns={columns} rowKey={(r) => r.id} rowHref={(r) => `${path}/${r.id}`} total={data.total} params={params} path={path} caption="Counselling cases"
-            empty={<EmptyState title="No counselling cases">Students referred to counselling show here.</EmptyState>} />
-        </>
+      <StudentsHead page="Behaviour & Counselling" href={path}
+        sub={can.seeCounselling ? "Highly restricted. Confidential notes are seen only by the Counsellor." : "The counselling cases given to you. Only you can read the notes."}
+        actions={can.contribute ? <ButtonLink href={`${path}/new`} variant="primary" icon={UserPlus}>Refer to counselling</ButtonLink> : undefined}
+        subTabs={await behaviourTabs()} subLabel="Behaviour & Counselling" />
+      {(can.seeCounselling || data.total > 0 || filtered) ? (
+        <Card className="overflow-hidden">
+          <CardHeader title={can.seeCounselling ? "Counselling cases" : "My cases"} description={`${data.open} open · nobody else can read sessions or notes`} icon={Lock} />
+          <Toolbar>
+            <ListToolbar placeholder="Search by student’s name" showArchived={false} period={{ timeZone: tz, allLabel: "Opened: any date" }}
+              filters={[{ key: "status", label: "Status", allLabel: "Open and closed", options: [{ value: "OPEN", label: "Open" }, { value: "CLOSED", label: "Closed" }] }]} />
+          </Toolbar>
+          <DataList caption="Counselling cases" rows={data.rows} columns={columns} rowKey={(r) => r.id} minWidth={820}
+            rowHref={(r) => `${path}/${r.id}`} rowLabel={(r) => `Open the case of ${name(r.studentId)}`}
+            mobile={(r) => ({
+              title: name(r.studentId),
+              sub: `${data.cls.get(r.studentId) ?? ""}${r.nextSessionOn ? ` · Next ${shortDate(r.nextSessionOn, tz)}` : ""}`,
+              avatar: name(r.studentId),
+              pills: [<Pill key="s" tone={r.status === "OPEN" ? "info" : "neutral"} className={cardPill}>{r.status === "OPEN" ? "Open" : "Closed"}</Pill>],
+            })}
+            footer={<ListFooter shown={data.rows.length} total={data.total} moreHref={data.rows.length < data.total ? listHref(path, params, { n: take + STEP }) : null} />}
+            empty={filtered
+              ? <Empty icon={SearchX} title="No cases match" action={<ButtonLink href={path}>Clear filters</ButtonLink>} />
+              : <Empty icon={HeartHandshake} title="No counselling cases" body="Students referred to counselling show here." />} />
+        </Card>
       ) : (
-        <EmptyState title="Counselling cases are private">
-          <p>You can refer a student; the counsellor is told at once. The case is then seen only by the counsellor and the roles the school allows.</p>
-          {can.contribute && <p className="mt-3"><Link className="font-medium text-brand-text underline" href={`${path}/new`}>Refer a student</Link></p>}
-        </EmptyState>
+        <Card>
+          <Empty icon={Lock} title="Counselling cases are private"
+            body="You can refer a student; the counsellor is told at once. The case is then seen only by the counsellor and the roles the school allows."
+            action={can.contribute ? <ButtonLink href={`${path}/new`} variant="primary" icon={UserPlus}>Refer a student</ButtonLink> : undefined} />
+        </Card>
       )}
     </>
   );

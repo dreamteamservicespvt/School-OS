@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { PageHeader } from "@/components/shell/page-header";
+import { BackLink } from "@/components/ui/module-head";
 import { Card, CardBody } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
 import { ActionForm, FormArea, FormCheck, FormSelect, FormText } from "@/components/students/action-form";
@@ -41,7 +42,7 @@ export default async function EditStudentSection({ params }: { params: Promise<{
 
   return (
     <>
-      <nav aria-label="Breadcrumb" className="mb-2 text-sm text-ink-2"><Link href={back} className="hover:underline">{s.fullName}</Link> / Edit</nav>
+      <BackLink href={back} label={s.fullName} sub="Edit" />
       <PageHeader title={`${TITLES[section]}: ${s.fullName}`} href={`${BASE}/students/${id}/edit/${section}`} userId={current.user.id} />
       <nav aria-label="Sections" className="-mx-4 mb-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
         <ul className="flex gap-1">

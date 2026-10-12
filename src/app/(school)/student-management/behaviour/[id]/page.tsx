@@ -5,6 +5,7 @@ import { withSchool } from "@/lib/db";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { fileLink } from "@/lib/files";
 import { PageHeader } from "@/components/shell/page-header";
+import { BackLink } from "@/components/ui/module-head";
 import { Card, CardBody, CardHeader, Detail } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -37,7 +38,7 @@ export default async function IncidentPage({ params }: { params: Promise<{ id: s
   const path = `${BASE}/behaviour/${id}`;
   return (
     <>
-      <nav aria-label="Breadcrumb" className="mb-2 text-sm text-ink-2"><Link className="hover:underline" href={`${BASE}/behaviour`}>Incidents &amp; rewards</Link></nav>
+      <BackLink href={`${BASE}/behaviour`} label="Incidents & rewards" />
       <PageHeader title={typeLabel} href={path} userId={current.user.id}>
         <div className="flex flex-wrap gap-2">
           {settings.counsellingOn && can.contribute && !inc.archivedAt && !isPositive(inc.kind) && data.students.length === 1 && (

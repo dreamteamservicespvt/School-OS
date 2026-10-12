@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { PageHeader } from "@/components/shell/page-header";
+import { BackLink } from "@/components/ui/module-head";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/empty-state";
 import { ActionForm, FormArea, FormText } from "@/components/students/action-form";
@@ -19,6 +20,7 @@ export default async function JobBoardPage() {
   const jobs = await withSchool(current.ctx, (tx) => tx.jobPost.findMany({ where: { archivedAt: null }, orderBy: { createdAt: "desc" }, take: 100 }));
   return (
     <>
+      <BackLink href={`${BASE}/leaving/alumni`} label="Alumni" />
       <PageHeader title="Alumni job board" href={`${BASE}/leaving/alumni/jobs`} userId={current.user.id} />
       <div className="grid gap-4 xl:grid-cols-[1fr_24rem]">
         <div>

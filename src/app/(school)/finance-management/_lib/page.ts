@@ -52,7 +52,7 @@ export type FinancePage = Awaited<ReturnType<typeof financePage>>;
 export async function financeTabs() {
   const p = await financePage();
   return [
-    { href: `${BASE}/day-book`, label: "Day Book", also: [BASE] },
+    { href: `${BASE}/day-book`, label: "Day Book" },
     { href: `${BASE}/income`, label: "Income" },
     { href: `${BASE}/expenses`, label: "Expenses" },
     { href: `${BASE}/cash-bank`, label: "Cash & Bank" },

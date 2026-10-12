@@ -47,7 +47,9 @@ export default async function ReportCardsPage({ searchParams }: { searchParams: 
       </>
     );
   }
-  const section = sections.find((x) => x.id === one(raw.section)) ?? sections.find((x) => s.classTeacherOf.includes(x.id)) ?? sections[0];
+  const examined = await withSchool(page.current.ctx, (tx) => tx.exam.findMany({ where: { academicYearId: year.id, archivedAt: null, status: { not: "DRAFT" } }, select: { classIds: true } }));
+  const hasExam = (x: { classId: string }) => examined.some((e) => e.classIds.includes(x.classId));
+  const section = sections.find((x) => x.id === one(raw.section)) ?? sections.find((x) => s.classTeacherOf.includes(x.id)) ?? sections.find(hasExam) ?? sections[0];
   const q = one(raw.q).trim().toLowerCase().slice(0, 60);
   const view: View = (VIEWS as readonly string[]).includes(one(raw.view)) ? (one(raw.view) as View) : "status";
 
@@ -88,7 +90,7 @@ export default async function ReportCardsPage({ searchParams }: { searchParams: 
           <UrlSelect name="period" label="Report card" value={data.period?.key} className="md:w-80"
             options={data.periods.map((p) => ({ value: p.key, label: p.period.kind === "exam" ? `${p.label} report card` : p.label }))} />
         )}
-        {sections.length > 1 && <UrlSelect name="section" label="Section" value={section.id} className="md:w-40" reset={["period", "q"]} options={sections.map((x) => ({ value: x.id, label: `Class ${x.label}` }))} />}
+        {sections.length > 1 && <UrlSelect name="section" label="Section" value={section.id} className="md:w-40" reset={["period", "q"]} options={sections.map((x) => ({ value: x.id, label: x.label }))} />}
         <UrlSearch placeholder="Student name" />
       </Toolbar>
     </Card>

@@ -5,7 +5,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { FormDialog, type Action } from "./forms";
-import { SelectField, TextArea } from "@/components/ui/field";
+import { CheckboxField, SelectField, TextArea } from "@/components/ui/field";
 import { buttonClass } from "@/components/ui/button";
 
 const FORM = "staff-bulk";
@@ -28,7 +28,13 @@ export function SelectAll() {
   );
 }
 
-export function BulkBar({ departments, changeDepartment, message }: { departments: { value: string; label: string }[]; changeDepartment: Action; message: Action }) {
+/** A new key each time the message dialog opens, so a double press never sends twice. */
+function SendKey() {
+  const [key] = useState(() => crypto.randomUUID());
+  return <input type="hidden" name="key" value={key} />;
+}
+
+export function BulkBar({ departments, changeDepartment, message, copyChannels = [] }: { departments: { value: string; label: string }[]; changeDepartment: Action; message: Action; copyChannels?: { value: string; label: string }[] }) {
   const [ids, setIds] = useState<string[]>([]);
   const refresh = useCallback(() => setIds(selected()), []);
   useEffect(() => {
@@ -59,8 +65,18 @@ export function BulkBar({ departments, changeDepartment, message }: { department
       <FormDialog trigger="Send message" triggerSize="sm" title={`Message ${ids.length} staff`} action={wrap(message)} submitLabel={`Send to ${ids.length} staff`} onSaved={() => clear()}>
         {(f) => (
           <>
+            <SendKey />
             <TextArea label="Message" name="text" required maxLength={500} rows={4} error={f.err("text")} defaultValue={f.val("text")}
               help="Staff with a login get it in School OS straight away. It cannot be unsent." />
+            {copyChannels.length > 0 && (
+              <fieldset className="space-y-1">
+                <legend className="text-sm font-medium">Also send to their phones</legend>
+                {copyChannels.map((c) => (
+                  <CheckboxField key={c.value} label={`By ${c.label}`} name="channels" value={c.value} defaultChecked={f.state?.values?.channels === c.value} />
+                ))}
+                <p className={`text-sm ${f.err("channels") ? "text-danger" : "text-ink-2"}`}>{f.err("channels") ?? "Uses message credits. Staff with no mobile number are left out; you see how many after sending."}</p>
+              </fieldset>
+            )}
           </>
         )}
       </FormDialog>

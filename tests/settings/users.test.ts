@@ -64,7 +64,7 @@ describe("inviting a user", () => {
     // Resending makes a new link; the old one stops working.
     const again = await withSchool(ctx(admin.id), (tx) => resendInvite(tx, ctx(admin.id), login.id));
     expect(await findInvite(token)).toBeNull();
-    const accepted = await acceptInvite(again, "Strong-pass-42");
+    const accepted = await acceptInvite(again.token, "Strong-pass-42");
     expect(accepted.ok).toBe(true);
     expect((await prisma.userLogin.findUniqueOrThrow({ where: { id: login.id } })).status).toBe("ACTIVE");
     await expect(withSchool(ctx(admin.id), (tx) => resendInvite(tx, ctx(admin.id), login.id))).rejects.toThrow(/already set a password/);

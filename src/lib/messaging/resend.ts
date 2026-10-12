@@ -15,22 +15,22 @@ export type ResendWho = "unread" | "failed";
 async function targets(tx: Tx, ctx: SchoolContext, messageId: string, who: ResendWho) {
   const rows = await tx.messageRecipient.findMany({
     where: { schoolId: ctx.schoolId, messageId, isBackup: false, ...(who === "failed" ? { status: "FAILED" } : { status: { not: "READ" } }) },
-    select: { recipientType: true, guardianId: true, studentId: true, staffId: true, values: true, status: true },
+    select: { recipientType: true, guardianId: true, studentId: true, staffId: true, userLoginId: true, values: true, status: true },
   });
   // Someone who read it on any channel has read it.
   const readBy = new Set(
-    (await tx.messageRecipient.findMany({ where: { schoolId: ctx.schoolId, messageId, status: "READ" }, select: { guardianId: true, studentId: true, staffId: true, recipientType: true } })).map((r) => r.guardianId ?? r.staffId ?? r.studentId),
+    (await tx.messageRecipient.findMany({ where: { schoolId: ctx.schoolId, messageId, status: "READ" }, select: { guardianId: true, studentId: true, staffId: true, userLoginId: true, recipientType: true } })).map((r) => (r.recipientType === "login" ? r.userLoginId : r.guardianId ?? r.staffId ?? r.studentId)),
   );
-  const to: Required<Pick<AudienceRule, "guardianIds" | "studentIds" | "staffIds">> = { guardianIds: [], studentIds: [], staffIds: [] };
+  const to: Required<Pick<AudienceRule, "guardianIds" | "studentIds" | "staffIds" | "loginIds">> = { guardianIds: [], studentIds: [], staffIds: [], loginIds: [] };
   const perPerson: Record<string, Record<string, string>> = {};
   for (const r of rows) {
-    const id = r.recipientType === "guardian" ? r.guardianId : r.recipientType === "staff" ? r.staffId : r.studentId;
+    const id = r.recipientType === "guardian" ? r.guardianId : r.recipientType === "staff" ? r.staffId : r.recipientType === "login" ? r.userLoginId : r.studentId;
     if (!id || (who === "unread" && readBy.has(id))) continue;
-    const list = r.recipientType === "guardian" ? to.guardianIds : r.recipientType === "staff" ? to.staffIds : to.studentIds;
+    const list = r.recipientType === "guardian" ? to.guardianIds : r.recipientType === "staff" ? to.staffIds : r.recipientType === "login" ? to.loginIds : to.studentIds;
     if (!list.includes(id)) list.push(id);
     perPerson[id] ??= (r.values ?? {}) as Record<string, string>;
   }
-  return { to, perPerson, count: to.guardianIds.length + to.studentIds.length + to.staffIds.length };
+  return { to, perPerson, count: to.guardianIds.length + to.studentIds.length + to.staffIds.length + to.loginIds.length };
 }
 
 /** The send input for a resend; throws a MessagingProblem when there is nobody or no template for the channel. */

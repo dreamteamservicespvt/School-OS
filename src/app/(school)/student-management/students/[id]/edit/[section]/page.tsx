@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { SettingsLink } from "@/components/settings-link";
 import { notFound, redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { PageHeader } from "@/components/shell/page-header";
@@ -129,7 +130,7 @@ export default async function EditStudentSection({ params }: { params: Promise<{
             </ActionForm>
           )}
           {section === "extra" && (
-            p.customFields.length === 0 ? <p className="text-ink-2">The school has no extra fields for students. They are added in Settings, Forms &amp; Approvals.</p> : (
+            p.customFields.length === 0 ? <p className="text-ink-2">The school has no extra fields for students. They are added in <SettingsLink href="/settings/forms-approvals">Settings, Forms &amp; Approvals</SettingsLink>.</p> : (
               <ActionForm action={saveExtraFieldsAction.bind(null, id)} submitLabel="Save extra fields" pendingText="Saving…" footer={cancel} className="grid gap-4 sm:grid-cols-2">
                 {p.customFields.map((f) => {
                   const v = p.extra[f.key] ?? "";

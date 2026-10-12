@@ -6,12 +6,14 @@ import "server-only";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { formatDate } from "../format";
-import { esc } from "../pdf";
 import { getStudentSettings } from "./settings";
 import { StudentProblem } from "./students";
 import { STUDYING } from "./labels";
-import { barcodeSvg, qrSvg } from "./codes";
-import { fileDataUri } from "./certificates";
+import { renderDocument } from "../documents";
+import { currentDesign } from "../documents/designs";
+
+/** The Settings, Document Designs type student ID cards print with. */
+export const ID_CARD_DOC = "student-id-card";
 
 export const ID_BATCH_SIZE = 50;
 
@@ -27,12 +29,12 @@ export async function sectionCards(tx: Tx, sectionId: string) {
   return {
     section,
     label: `${section.schoolClass.name} ${section.name}`,
-    students: enrolments.map((e) => ({ ...e.student, rollNo: e.rollNo, guardianPhone: e.student.guardians[0]?.guardian.phone ?? null, printed: printed.some((p) => p.studentId === e.studentId) })),
+    students: enrolments.map((e) => ({ ...e.student, rollNo: e.rollNo, guardianPhone: e.student.guardians[0]?.guardian.phone ?? null, guardianName: e.student.guardians[0]?.guardian.name ?? null, printed: printed.some((p) => p.studentId === e.studentId) })),
     batches: Math.max(1, Math.ceil(enrolments.length / ID_BATCH_SIZE)),
   };
 }
 
-type CardStudent = { id: string; fullName: string; admissionNo: string; dateOfBirth: Date | null; bloodGroup: string | null; address: string | null; photoFileId: string | null; guardianPhone: string | null; rollNo: number | null };
+type CardStudent = { id: string; fullName: string; admissionNo: string; dateOfBirth: Date | null; bloodGroup: string | null; address: string | null; photoFileId: string | null; guardianPhone: string | null; guardianName?: string | null; rollNo: number | null };
 
 /** Records one batch as printed (a student already holding a card this year is not counted twice). */
 export async function recordBatch(tx: Tx, ctx: SchoolContext, sectionId: string, batch: number) {
@@ -69,62 +71,42 @@ export async function replaceCard(tx: Tx, ctx: SchoolContext, studentId: string,
   return card;
 }
 
-/** A sheet of ID cards (CR80 size, 85.6 × 54 mm) for an A4 page. */
+/**
+ * Sheets of ID cards for A4 pages, in the school's Student ID card design
+ * (Settings, Document Designs: layout, colours, card size, logo, QR and
+ * barcode). Student Settings still decide which details may be printed and
+ * how many cards go on a page.
+ */
 export async function idCardsHtml(tx: Tx, ctx: SchoolContext, students: CardStudent[], q: { classLabel: string; yearName: string; validUntil: Date; replacement?: boolean }) {
   const settings = await getStudentSettings(tx, ctx);
-  const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId } });
-  const logo = await fileDataUri(tx, school.logoFileId);
+  const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { code: true } });
   const show = new Set(settings.idCardFields);
-  const cards: string[] = [];
-  for (const s of students) {
-    const photo = await fileDataUri(tx, s.photoFileId);
-    const qr = await qrSvg(`${school.code}:${s.admissionNo}`, 64);
-    const lines: [string, string | null][] = [
-      ["Adm. no", show.has("admissionNo") ? s.admissionNo : null],
-      ["Roll no", s.rollNo ? String(s.rollNo) : null],
-      ["Date of birth", show.has("dateOfBirth") && s.dateOfBirth ? formatDate(s.dateOfBirth) : null],
-      ["Blood group", show.has("bloodGroup") ? s.bloodGroup : null],
-      ["Parent", show.has("guardianPhone") ? s.guardianPhone : null],
-    ];
-    cards.push(`<div class="card">
-      <div class="top">${logo ? `<img class="logo" src="${logo}" alt="">` : ""}<div><div class="school">${esc(school.name)}</div><div class="year">Academic year ${esc(q.yearName)}</div></div></div>
-      <div class="mid">
-        <div class="photo">${photo ? `<img src="${photo}" alt="">` : "<span>No photo</span>"}</div>
-        <div class="info"><div class="name">${esc(s.fullName)}</div><div class="cls">${esc(q.classLabel)}</div>
-          ${lines.filter(([, v]) => v).map(([k, v]) => `<div class="row"><span>${esc(k)}</span> ${esc(v)}</div>`).join("")}
-          ${show.has("address") && s.address ? `<div class="addr">${esc(s.address)}</div>` : ""}
-        </div>
-        <div class="qr">${qr}</div>
-      </div>
-      <div class="bottom"><div class="bar">${barcodeSvg(s.admissionNo, 22, 0.9)}</div><div class="valid">Valid until ${esc(formatDate(q.validUntil))}${q.replacement ? " · Replacement" : ""}</div></div>
-    </div>`);
+  const design = await currentDesign(tx, ID_CARD_DOC);
+  const options = { ...design.options, card: { ...design.options.card, validUntil: `${formatDate(q.validUntil)}${q.replacement ? " · Replacement" : ""}` } };
+  const records = students.map((s) => ({
+    fields: {
+      student_name: s.fullName,
+      admission_no: show.has("admissionNo") ? s.admissionNo : null,
+      class_section: q.classLabel,
+      roll_no: s.rollNo ? String(s.rollNo) : null,
+      date_of_birth: show.has("dateOfBirth") ? s.dateOfBirth : null,
+      blood_group: show.has("bloodGroup") ? s.bloodGroup : null,
+      guardian_phone: show.has("guardianPhone") ? s.guardianPhone : null,
+      father_name: s.guardianName ?? null,
+      guardian_name: s.guardianName ?? null,
+      address: show.has("address") ? s.address : null,
+      academic_year: q.yearName,
+    },
+    photoFileId: s.photoFileId,
+    verifyText: `${school.code}:${s.admissionNo}`,
+  }));
+  const perPage = Math.min(8, Math.max(1, settings.idCardsPerPage));
+  const pages: string[] = [];
+  for (let i = 0; i < records.length; i += perPage) {
+    pages.push((await renderDocument(tx, ctx, ID_CARD_DOC, records.slice(i, i + perPage), { design: { base: design.base, options } })).html);
   }
-  return `<!doctype html><html><head><meta charset="utf-8"><style>
-    @page { size: A4; margin: 10mm; }
-    html { background: #fff; }
-    body { margin: 0; font-family: Arial, "Noto Sans", sans-serif; color: #111; }
-    .sheet { display: grid; grid-template-columns: repeat(2, 85.6mm); gap: 6mm 8mm; justify-content: center; }
-    .card { width: 85.6mm; height: 54mm; border: 0.3mm solid #888; border-radius: 3mm; overflow: hidden; display: flex; flex-direction: column; break-inside: avoid; page-break-inside: avoid; }
-    .top { background: #1d3a8a; color: #fff; display: flex; align-items: center; gap: 2mm; padding: 1.5mm 2.5mm; height: 10mm; }
-    .logo { height: 7mm; width: 7mm; object-fit: contain; background: #fff; border-radius: 1mm; }
-    .school { font-weight: bold; font-size: 8.5pt; line-height: 1.1; } .year { font-size: 6.5pt; opacity: .9; }
-    .mid { flex: 1; display: flex; gap: 2mm; padding: 1.5mm 2.5mm; }
-    .photo { width: 19mm; height: 23mm; border: 0.2mm solid #aaa; display: grid; place-items: center; font-size: 6pt; color: #888; flex-shrink: 0; overflow: hidden; }
-    .photo img { width: 100%; height: 100%; object-fit: cover; }
-    .info { flex: 1; font-size: 6.6pt; line-height: 1.3; min-width: 0; }
-    .name { font-weight: bold; font-size: 8.6pt; } .cls { font-weight: bold; color: #1d3a8a; margin-bottom: .5mm; }
-    .row span { color: #555; } .addr { color: #333; font-size: 6pt; max-height: 6mm; overflow: hidden; }
-    .qr { width: 16mm; flex-shrink: 0; } .qr svg { width: 16mm; height: 16mm; }
-    .bottom { display: flex; justify-content: space-between; align-items: center; padding: 0 2.5mm 1.2mm; }
-    .bar svg { height: 5.5mm; width: auto; } .valid { font-size: 6pt; color: #333; }
-    .sheet + .sheet { break-before: page; page-break-before: always; }
-    @media screen { body { padding: 8px; } .sheet { grid-template-columns: repeat(auto-fill, 85.6mm); justify-content: start; } }
-  </style></head><body>${sheets(cards, Math.min(8, Math.max(1, settings.idCardsPerPage)))}</body></html>`;
-}
-
-/** Cards per page from the ID card settings (at most 8 fit on A4). */
-function sheets(cards: string[], perPage: number) {
-  const out: string[] = [];
-  for (let i = 0; i < cards.length; i += perPage) out.push(`<div class="sheet">${cards.slice(i, i + perPage).join("")}</div>`);
-  return out.join("");
+  if (pages.length <= 1) return pages[0] ?? "";
+  const head = pages[0].slice(0, pages[0].indexOf("<body>"));
+  const bodies = pages.map((p) => p.slice(p.indexOf("<body>") + 6, p.lastIndexOf("</body>")));
+  return `${head}<body>${bodies.join('<div style="break-before:page;page-break-before:always"></div>')}</body></html>`;
 }

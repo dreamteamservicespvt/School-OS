@@ -2,6 +2,7 @@
 // Documents and the timeline (03 §2). Each shows only what the person may see.
 
 import Link from "next/link";
+import { SettingsLink } from "@/components/settings-link";
 import { withSchool } from "@/lib/db";
 import { getCurrent } from "@/lib/current";
 import { formatDate, formatDateTime } from "@/lib/format";
@@ -103,7 +104,7 @@ export function OverviewTab({ p, can, settings, href, tz }: Base & { p: Profile;
 
       {p.customFields.length > 0 && (
         <Card>
-          <CardHeader title="Extra fields" description="Added by the school in Settings, Forms & Approvals." action={editLink(href, "extra", can)} />
+          <CardHeader title="Extra fields" description={<>Added by the school in <SettingsLink href="/settings/forms-approvals">Settings, Forms &amp; Approvals</SettingsLink>.</>} action={editLink(href, "extra", can)} />
           <CardBody>
             <dl className="grid gap-3 sm:grid-cols-2">
               {p.customFields.map((f) => <Detail key={f.id} label={f.label}>{f.fieldType === "date" && p.extra[f.key] ? formatDate(new Date(`${p.extra[f.key]}T00:00:00Z`), tz) : p.extra[f.key] ?? null}</Detail>)}

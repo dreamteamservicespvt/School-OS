@@ -114,7 +114,7 @@ function baseValues(school: { name: string; phone: string | null; timeZone: stri
   };
   if (school.phone) v.school_phone = school.phone;
   if (c.type === "guardian") v.guardian_name = c.name;
-  if (c.type === "staff") v.staff_name = c.name;
+  if (c.type === "staff" || c.type === "login") v.staff_name = c.name;
   if (students.length) {
     v.student_name = join(students.map((s) => s.name));
     v.class = join([...new Set(students.map((s) => s.classLabel))]);

@@ -29,8 +29,9 @@ export function readAudienceForm(form: FormData): AudienceRule | null {
     guardianIds: ids(form, "guardianIds"),
     studentIds: ids(form, "studentIds"),
     staffIds: ids(form, "staffIds"),
+    guardiansOf: ids(form, "guardiansOf"),
   };
-  if (!kinds.length && !to.groupId && !to.guardianIds!.length && !to.studentIds!.length && !to.staffIds!.length) return null;
+  if (!kinds.length && !to.groupId && !to.guardianIds!.length && !to.studentIds!.length && !to.staffIds!.length && !to.guardiansOf!.length) return null;
   return to;
 }
 

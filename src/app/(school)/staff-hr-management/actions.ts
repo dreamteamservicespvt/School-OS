@@ -3,7 +3,7 @@
 import { requireAction } from "@/lib/current";
 import { withSchool } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
-import { notify } from "@/lib/notifications";
+import { COPY_CHANNELS, messageStaff, StaffMessageProblem, staffMessageWords, type CopyChannel } from "@/lib/staff/staff-message";
 import { act, FieldProblem, optionalId, str, UUID_RE } from "@/lib/staff/act";
 import { HrOnlyError } from "@/lib/staff/access";
 import type { FormState } from "@/lib/forms";
@@ -50,17 +50,14 @@ export async function bulkMessage(_: FormState<unknown>, fd: FormData) {
     const text = str(fd, "text");
     if (text.length < 3) throw new FieldProblem("Type the message.", "text");
     if (text.length > 500) throw new FieldProblem("A message can be at most 500 characters.", "text");
-    return withSchool(current.ctx, async (tx) => {
-      const staff = await tx.staff.findMany({ where: { id: { in: list }, archivedAt: null }, select: { id: true, userLoginId: true } });
-      let sent = 0;
-      for (const s of staff) {
-        if (!s.userLoginId) continue;
-        await notify(tx, current.ctx, { to: s.userLoginId, type: "staff-message", text: `${current.user.displayName}: ${text}`, link: `/staff-hr-management/${s.id}` });
-        sent++;
-      }
-      // messaging: SMS / WhatsApp copies to staff phones go through Communication's sendMessage once it exists.
-      await writeAudit(tx, current.ctx, { action: "messaged", recordType: "Staff", recordId: null, after: { staff: staff.length, sent, text } });
-      return { sent, skipped: staff.length - sent };
-    });
-  }, (r) => `Message sent to ${r.sent} staff in School OS${r.skipped ? `, ${r.skipped} skipped: no login yet` : ""}.`);
+    const channels = fd.getAll("channels").map(String).filter((c): c is CopyChannel => (COPY_CHANNELS as string[]).includes(c));
+    // One key per opening of the dialog: pressing Send twice never sends twice.
+    const key = UUID_RE.test(str(fd, "key")) ? str(fd, "key") : crypto.randomUUID();
+    try {
+      return await withSchool(current.ctx, (tx) => messageStaff(tx, current.ctx, { staffIds: list, text, channels, senderName: current.user.displayName, key }));
+    } catch (e) {
+      if (e instanceof StaffMessageProblem) throw new FieldProblem(e.message, e.field);
+      throw e;
+    }
+  }, (r) => staffMessageWords(r));
 }

@@ -1,7 +1,8 @@
 // Two-step login (08-platform-security.md §2): after the right password, a
 // person in a role that needs it types a 6-digit one-time code. The code is
 // stored only as a hash, works for 10 minutes and for 5 tries, and is sent by
-// email (or SMS once Communication's messaging is connected). A person may
+// SMS through Communication when the school's SMS channel is on (with a DLT
+// template, rule 34), else by email. A person may
 // trust their own device for 30 days. The school switches it on with the
 // School Feature "two-step-login" (Settings, Data Backup & Security).
 
@@ -11,6 +12,7 @@ import { writeAudit } from "../audit";
 import { hitLimit, limitMessage } from "../rate-limit";
 import { hashToken, newToken } from "./tokens";
 import { mailIsSetUp, sendMail } from "./mail";
+import { sendCodeBySms } from "./two-step-sms";
 import type { DeviceInfo } from "./sessions";
 
 export const TWO_STEP_FEATURE = "two-step-login";
@@ -72,10 +74,28 @@ export function maskPhone(phone: string) {
   return `•••••${digits.slice(-4)}`;
 }
 
-type Deliver = (to: { email: string | null; phone: string | null; name: string }, code: string) => Promise<{ channel: string; sentTo: string } | { problem: string }>;
+export type CodeTo = {
+  email: string | null;
+  phone: string | null;
+  name: string;
+  /** The school being opened, and the person: the SMS goes through that school's channel. */
+  schoolId?: string | null;
+  userLoginId?: string | null;
+  /** The same key never sends twice (one per challenge). */
+  key?: string | null;
+};
+type Deliver = (to: CodeTo, code: string) => Promise<{ channel: string; sentTo: string } | { problem: string }>;
 
-/** Sends the code by email; in development with no email set up, writes it to the server log only. */
+/**
+ * Sends the code by SMS when the school's SMS channel is on and its sign-in
+ * code template has a DLT template ID; else by email. In development with
+ * neither, writes it to the server log only.
+ */
 export const deliverCode: Deliver = async (to, code) => {
+  if (to.phone && to.schoolId && to.userLoginId) {
+    const sms = await sendCodeBySms({ schoolId: to.schoolId, userLoginId: to.userLoginId, phone: to.phone, code, key: to.key ?? null });
+    if (sms.sent) return { channel: "sms", sentTo: maskPhone(to.phone) };
+  }
   if (to.email && mailIsSetUp()) {
     try {
       await sendMail(to.email, `${code} is your School OS sign-in code`, `Hello ${to.name},\n\nYour School OS sign-in code is ${code}. It works for 10 minutes.\n\nIf you did not try to sign in, change your password and tell your School Admin.\n`);
@@ -85,8 +105,6 @@ export const deliverCode: Deliver = async (to, code) => {
       return { problem: "The code could not be sent by email just now. Please try again in a minute." };
     }
   }
-  // messaging: when Communication's SMS channel is connected, send the code to `to.phone` here
-  // with the DLT-approved one-time code template, and return { channel: "sms", sentTo: maskPhone(to.phone) }.
   if (process.env.NODE_ENV !== "production") {
     console.info(JSON.stringify({ level: "info", event: "two-step-code", note: "Email is not set up; development only", to: to.name, code }));
     return { channel: "log", sentTo: "the server log (email is not set up on this computer)" };
@@ -105,7 +123,7 @@ export async function startChallenge(userLoginId: string, schoolId: string, devi
   if (!user) return { ok: false, message: "This login was not found. Sign in again." };
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
   const token = newToken();
-  const sent = await (opts.deliver ?? deliverCode)({ email: user.email, phone: user.phone, name: user.displayName }, code);
+  const sent = await (opts.deliver ?? deliverCode)({ email: user.email, phone: user.phone, name: user.displayName, schoolId, userLoginId, key: hashToken(token).slice(0, 40) }, code);
   if ("problem" in sent) return { ok: false, message: sent.problem };
   await prisma.twoStepChallenge.updateMany({ where: { userLoginId, usedAt: null }, data: { usedAt: now } });
   await prisma.twoStepChallenge.create({

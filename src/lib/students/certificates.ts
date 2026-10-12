@@ -19,6 +19,8 @@ import { StudentProblem } from "./students";
 import { blockMessage, isCleared, refreshClearance } from "./leaving";
 import { newVerifyCode, qrSvg } from "./codes";
 import { CERTIFICATE_LABEL, CERTIFICATE_SHORT } from "./labels";
+import { renderDocument } from "../documents";
+import { currentDesign } from "../documents/designs";
 
 export type NewCertificate = {
   studentId: string;
@@ -203,6 +205,7 @@ export async function certificateData(tx: Tx, studentId: string, leavingRequestI
     category: s.category, religion: s.religion, nationality: "Indian",
     joinedOn: s.joiningDate?.toISOString().slice(0, 10) ?? null,
     firstClass: first?.schoolClass.name ?? null, lastClass: last ? `${last.schoolClass.name} ${last.name}` : null, lastClassName: last?.schoolClass.name ?? null,
+    firstYear: first?.academicYear.name ?? null,
     lastYear: last?.academicYear.name ?? null, lastYearEnd: last?.academicYear.endDate.toISOString().slice(0, 10) ?? null,
     promotion: lastEnr?.status === "PROMOTED" ? "Yes, promoted" : lastEnr?.status === "HELD_BACK" ? "No" : "Studying at the time of leaving",
     leavingDate: leaving?.lastDate.toISOString().slice(0, 10) ?? null, leavingReason: leaving?.reason ?? null, destination: leaving?.destinationSchool ?? null,
@@ -240,6 +243,16 @@ export type PrintContext = {
   logo: string | null;
   signatory: { title: string; name: string; image: string | null } | null;
   verifyUrl: string | null;
+  /** The transaction and school, to print with the school's design from Settings, Document Designs. */
+  design?: { tx: Tx; ctx: SchoolContext; signatoryId: string | null } | null;
+};
+
+/** The Document Designs type each certificate prints with. Migration has none yet and keeps its own layout. */
+export const CERTIFICATE_DOC_TYPE: Partial<Record<CertificateType, string>> = {
+  TC: "transfer-certificate",
+  BONAFIDE: "bonafide-certificate",
+  STUDY: "study-certificate",
+  CHARACTER: "character-certificate",
 };
 
 /** Loads a stored file as a data: link for a PDF (PDFs make no outside requests). */
@@ -260,11 +273,76 @@ export async function printContext(tx: Tx, ctx: SchoolContext, cert: { signatory
     logo: await fileDataUri(tx, school.logoFileId),
     signatory: sig ? { title: sig.title, name: sig.name, image: await fileDataUri(tx, sig.imageFileId) } : null,
     verifyUrl: settings.qrOn && origin ? `${origin}/verify/${cert.verifyCode}` : null,
+    design: { tx, ctx, signatoryId: cert.signatoryId },
   };
 }
 
+type PrintableCertificate = { type: CertificateType; number: string | null; issueDate: Date; purpose: string | null; isDuplicate: boolean; duplicateReason: string | null; status: string; data: unknown };
+
+/** The merge fields of the school's certificate design, from the certificate's saved details. */
+function certificateFields(cert: PrintableCertificate) {
+  const d = cert.data as Record<string, string | null>;
+  const year = (iso: string | null | undefined) => (iso ? iso.slice(0, 4) : "");
+  const number = cert.number ?? "Not yet given";
+  return {
+    tc_no: number,
+    certificate_no: number,
+    // The date printed on a certificate is its issue date.
+    today: formatDate(cert.issueDate),
+    student_name: d.name ?? "",
+    admission_no: d.admissionNo ?? "",
+    class_section: d.lastClass ?? "",
+    academic_year: d.lastYear ?? "",
+    gender: d.gender ?? "",
+    father_name: d.father || "Not on record",
+    mother_name: d.mother || "Not on record",
+    guardian_name: d.father || d.mother || "",
+    date_of_birth: dmy(d.dateOfBirth),
+    dob_in_words: dateInWords(d.dateOfBirth) || "Not on record",
+    admission_date: `${dmy(d.joinedOn)}${d.firstClass ? `, ${d.firstClass}` : ""}`,
+    nationality: d.nationality ?? "Indian",
+    category: d.category || "Not on record",
+    class_last_studied: d.lastClass ? `${d.lastClass}${d.lastYear ? ` (${d.lastYear})` : ""}` : "Not on record",
+    last_exam_result: d.promotion ?? "",
+    promoted_to: d.promotion ?? "",
+    fees_paid_upto: "All dues paid (clearance complete)",
+    leaving_date: dmy(d.leavingDate),
+    reason: d.leavingReason ?? "",
+    conduct: cert.type === "CHARACTER" ? (d.conduct ?? "Good").toLowerCase() : d.conduct ?? "Good",
+    remarks: [d.destination ? `Going to ${d.destination}` : "", cert.isDuplicate ? `Duplicate issued because: ${cert.duplicateReason ?? ""}` : ""].filter(Boolean).join(". ") || "None",
+    pen: d.pen || "Not on record",
+    apaar_id: d.apaarId || "Not on record",
+    purpose: cert.purpose ?? "",
+    from_class: d.firstClass ?? "",
+    to_class: d.lastClassName ?? d.lastClass ?? "",
+    from_year: d.firstYear ?? year(d.joinedOn),
+    to_year: d.lastYear ?? "",
+  };
+}
+
+/** Prints with the school's design, adding the marks a design cannot know about (Duplicate, Cancelled, Preview). */
+async function designedCertificate(cert: PrintableCertificate, kind: string, p: PrintContext & { design: NonNullable<PrintContext["design"]> }) {
+  const { tx, ctx, signatoryId } = p.design;
+  const design = await currentDesign(tx, kind);
+  const options = {
+    ...design.options,
+    // The signatory chosen on the certificate signs it; otherwise the design's own.
+    signatoryIds: signatoryId ? [signatoryId] : design.options.signatoryIds,
+    // The check-this-certificate QR is switched on in Student Settings.
+    showQr: Boolean(p.verifyUrl),
+  };
+  const doc = await renderDocument(tx, ctx, kind, { fields: certificateFields(cert), verifyText: p.verifyUrl }, { design: { base: design.base, options } });
+  const marks = [
+    cert.isDuplicate ? '<p style="text-align:center;color:#b42318;font-weight:bold;letter-spacing:3px;font-size:13pt;margin:0 0 2mm">DUPLICATE</p>' : "",
+    cert.status === "CANCELLED" ? '<div style="position:absolute;top:45%;left:0;right:0;text-align:center;font-size:48pt;color:rgba(180,35,24,.25);transform:rotate(-20deg);font-weight:bold;pointer-events:none">CANCELLED</div>' : "",
+  ].join("");
+  return marks ? doc.html.replace('<section class="page">', `<section class="page">${marks}`) : doc.html;
+}
+
 /** The certificate as a printable A4 page. Every merge field is escaped. */
-export async function certificateHtml(cert: { type: CertificateType; number: string | null; issueDate: Date; purpose: string | null; isDuplicate: boolean; duplicateReason: string | null; status: string; data: unknown }, p: PrintContext) {
+export async function certificateHtml(cert: PrintableCertificate, p: PrintContext) {
+  const kind = CERTIFICATE_DOC_TYPE[cert.type];
+  if (kind && p.design) return designedCertificate(cert, kind, { ...p, design: p.design });
   const d = cert.data as Record<string, string | null>;
   const w = GENDER_WORDS(d.gender ?? null);
   const parent = d.father || d.mother || "";
@@ -309,27 +387,28 @@ export async function certificateHtml(cert: { type: CertificateType; number: str
   }
   const qr = p.verifyUrl ? await qrSvg(p.verifyUrl, 88) : "";
   const cancelled = cert.status === "CANCELLED";
+  // Scoped under .legacy-cert, so it can share one printed file with designed certificates.
   return `<!doctype html><html><head><meta charset="utf-8"><style>
     @page { size: A4; margin: 14mm; }
     html { background: #fff; }
-    body { font-family: "Noto Serif", Georgia, "Times New Roman", serif; color: #111; font-size: 12.5pt; line-height: 1.6; }
-    .frame { border: 3px double #1d3a8a; padding: 18mm 14mm 14mm; min-height: 240mm; position: relative; box-sizing: border-box; }
-    header { text-align: center; border-bottom: 1px solid #999; padding-bottom: 8px; margin-bottom: 18px; }
-    header img { height: 64px; }
-    header h1 { margin: 4px 0 0; font-size: 20pt; letter-spacing: .5px; color: #1d3a8a; }
-    header p { margin: 2px 0; font-size: 10pt; color: #333; }
-    h2 { text-align: center; text-transform: uppercase; letter-spacing: 2px; font-size: 15pt; margin: 6px 0 4px; text-decoration: underline; }
-    .meta { display: flex; justify-content: space-between; font-size: 10.5pt; margin-bottom: 16px; }
-    .dup { text-align: center; color: #b42318; font-weight: bold; letter-spacing: 3px; font-size: 13pt; }
-    .cancelled { position: absolute; top: 45%; left: 0; right: 0; text-align: center; font-size: 48pt; color: rgba(180,35,24,.25); transform: rotate(-20deg); font-weight: bold; }
-    p { text-align: justify; margin: 0 0 12px; }
-    table.tc { width: 100%; border-collapse: collapse; font-size: 11pt; }
-    table.tc td { border: 1px solid #bbb; padding: 4px 6px; vertical-align: top; }
-    td.n { width: 24px; text-align: right; } td.k { width: 45%; } td.v { font-weight: bold; }
-    footer { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 36px; }
-    .sign { text-align: center; min-width: 180px; } .sign img { height: 48px; display: block; margin: 0 auto 2px; }
-    .qr { text-align: center; font-size: 8pt; color: #444; } .qr svg { display: block; margin: 0 auto 2px; }
-  </style></head><body><div class="frame">
+    .legacy-cert { font-family: "Noto Serif", Georgia, "Times New Roman", serif; color: #111; font-size: 12.5pt; line-height: 1.6; }
+    .legacy-cert .frame { border: 3px double #1d3a8a; padding: 18mm 14mm 14mm; min-height: 240mm; position: relative; box-sizing: border-box; }
+    .legacy-cert header { text-align: center; border-bottom: 1px solid #999; padding-bottom: 8px; margin-bottom: 18px; }
+    .legacy-cert header img { height: 64px; }
+    .legacy-cert header h1 { margin: 4px 0 0; font-size: 20pt; letter-spacing: .5px; color: #1d3a8a; }
+    .legacy-cert header p { margin: 2px 0; font-size: 10pt; color: #333; }
+    .legacy-cert h2 { text-align: center; text-transform: uppercase; letter-spacing: 2px; font-size: 15pt; margin: 6px 0 4px; text-decoration: underline; }
+    .legacy-cert .meta { display: flex; justify-content: space-between; font-size: 10.5pt; margin-bottom: 16px; }
+    .legacy-cert .dup { text-align: center; color: #b42318; font-weight: bold; letter-spacing: 3px; font-size: 13pt; }
+    .legacy-cert .cancelled { position: absolute; top: 45%; left: 0; right: 0; text-align: center; font-size: 48pt; color: rgba(180,35,24,.25); transform: rotate(-20deg); font-weight: bold; }
+    .legacy-cert p { text-align: justify; margin: 0 0 12px; }
+    .legacy-cert table.tc { width: 100%; border-collapse: collapse; font-size: 11pt; }
+    .legacy-cert table.tc td { border: 1px solid #bbb; padding: 4px 6px; vertical-align: top; }
+    .legacy-cert td.n { width: 24px; text-align: right; } .legacy-cert td.k { width: 45%; } .legacy-cert td.v { font-weight: bold; }
+    .legacy-cert footer { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 36px; }
+    .legacy-cert .sign { text-align: center; min-width: 180px; } .legacy-cert .sign img { height: 48px; display: block; margin: 0 auto 2px; }
+    .legacy-cert .qr { text-align: center; font-size: 8pt; color: #444; } .legacy-cert .qr svg { display: block; margin: 0 auto 2px; }
+  </style></head><body><div class="legacy-cert"><div class="frame">
     ${cancelled ? '<div class="cancelled">CANCELLED</div>' : ""}
     <header>
       ${p.logo ? `<img src="${p.logo}" alt="">` : ""}
@@ -346,5 +425,5 @@ export async function certificateHtml(cert: { type: CertificateType; number: str
       <div class="qr">${qr ? `${qr}Scan to check this certificate` : ""}</div>
       <div class="sign">${p.signatory?.image ? `<img src="${p.signatory.image}" alt="">` : '<div style="height:48px"></div>'}<strong>${esc(p.signatory?.name ?? "")}</strong><br>${esc(p.signatory?.title ?? "Principal")}</div>
     </footer>
-  </div></body></html>`;
+  </div></div></body></html>`;
 }

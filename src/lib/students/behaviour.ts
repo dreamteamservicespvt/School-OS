@@ -11,6 +11,7 @@ import { decryptField, encryptField } from "../crypto";
 import { getStudentSettings } from "./settings";
 import { StudentProblem } from "./students";
 import { BEHAVIOUR_KIND_LABEL, type BehaviourKind } from "./labels";
+import { tellParentsAboutIncident, type ParentMessage } from "./notify-parents";
 
 export type NewIncident = {
   studentIds: string[];
@@ -57,7 +58,7 @@ export async function reportIncident(tx: Tx, ctx: SchoolContext, input: NewIncid
       suspensionTo: type.kind === "suspension" ? input.suspensionTo : null,
       approvedBy: type.kind === "suspension" ? input.approvedBy?.trim() : null,
       photoFileId: input.photoFileId ?? null,
-      parentInformed: Boolean(input.informParent),
+      parentInformed: false,
       status: type.kind === "reward" || type.kind === "recognition" ? "CLOSED" : "OPEN",
       reportedById: ctx.userId,
       students: { create: ids.map((studentId) => ({ schoolId: ctx.schoolId, studentId })) },
@@ -69,17 +70,18 @@ export async function reportIncident(tx: Tx, ctx: SchoolContext, input: NewIncid
       await tx.behaviourPointEntry.create({ data: { schoolId: ctx.schoolId, studentId, points, reason: type.label, incidentId: incident.id, createdById: ctx.userId } });
     }
   }
+  let parentMessage: ParentMessage | null = null;
   if (input.informParent) {
-    // messaging: tell the primary contact of each student in `ids` about this
-    // incident with the school's "behaviour-incident" template (11 Communication's sendMessage).
+    parentMessage = await tellParentsAboutIncident(tx, ctx, { id: incident.id, studentIds: ids, typeLabel: type.label, date: input.date });
+    if (parentMessage.sent) await tx.behaviourIncident.update({ where: { id: incident.id }, data: { parentInformed: true } });
   }
   await writeAudit(tx, ctx, {
     action: "created",
     recordType: "Behaviour Incident",
     recordId: incident.id,
-    after: { kind: type.kind, type: type.label, students: ids.length, points, informParent: Boolean(input.informParent) },
+    after: { kind: type.kind, type: type.label, students: ids.length, points, informParent: Boolean(input.informParent), parentMessage: parentMessage?.messageId ?? null },
   });
-  return incident;
+  return { ...incident, parentInformed: Boolean(parentMessage?.sent), parentMessage };
 }
 
 export async function closeIncident(tx: Tx, ctx: SchoolContext, incidentId: string, actionTaken: string | null) {

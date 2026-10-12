@@ -54,7 +54,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
       </PageHeader>
       <UsersNav active="users" />
       <p className="mb-4 text-sm text-ink-2">
-        {counts.ACTIVE} active · {counts.INVITED} invited · {counts.DISABLED} disabled. Most staff get their login from Add Staff; drivers from Transport. Everyone else is invited here.
+        {counts.ACTIVE} active · {counts.INVITED} invited · {counts.DISABLED} disabled. Most staff get their login from <Link href="/staff-hr-management/add" className="font-medium text-brand-text underline">Add Staff</Link> in Staff &amp; HR. Everyone else is invited here.
       </p>
       <ListToolbar placeholder="Search name, username, phone or email" filters={[
         { key: "status", label: "Status", options: [{ value: "ACTIVE", label: "Active" }, { value: "INVITED", label: "Invited" }, { value: "DISABLED", label: "Disabled" }] },

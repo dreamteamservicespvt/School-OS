@@ -10,13 +10,20 @@ import { messageSettings } from "@/lib/messaging/settings";
 import { ensureReadyTemplates, categoryLabel } from "@/lib/messaging/templates";
 import { PageHeader } from "@/components/shell/page-header";
 import { Alert } from "@/components/ui/alert";
-import { SendForm, type SendFormData } from "./send-form";
+import { SendForm, type Person, type SendFormData } from "./send-form";
+import { sectionLabel } from "@/lib/people";
 
 export const metadata: Metadata = { title: "Send Message" };
 
-export default async function SendMessagePage() {
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export default async function SendMessagePage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const access = await commPage();
   const { current, scope } = access;
+  // Students chosen on the Student List ("Send message"): their parents are added as recipients.
+  const sp = await searchParams;
+  const rawIds = typeof sp.ids === "string" && sp.for === "students" ? sp.ids.split(",").filter((x) => UUID.test(x)) : [];
+  const chosenIds = [...new Set(rawIds)].slice(0, 500);
   const data = await withSchool(current.ctx, async (tx) => {
     await ensureReadyTemplates(tx, current.ctx);
     const year = await currentYear(tx, current.ctx);
@@ -40,14 +47,31 @@ export default async function SendMessagePage() {
     const groups = await tx.recipientGroup.findMany({ where: { schoolId: current.ctx.schoolId, archivedAt: null }, select: { id: true, name: true }, orderBy: { name: "asc" } });
     const settings = await messageSettings(tx, current.ctx);
     const school = await tx.school.findUniqueOrThrow({ where: { id: current.ctx.schoolId }, select: { smsDltEntityId: true, smsSenderHeader: true } });
+    let initialPeople: Person[] = [];
+    let initialNote: string | null = null;
+    if (chosenIds.length && year) {
+      const enrolled = await tx.enrolment.findMany({
+        where: { schoolId: current.ctx.schoolId, academicYearId: year.id, archivedAt: null, status: "STUDYING", studentId: { in: chosenIds }, student: { archivedAt: null } },
+        select: { sectionId: true, student: { select: { id: true, fullName: true } } },
+      });
+      const names = new Map(sections.map((s) => [s.id, sectionLabel(s.schoolClass.name, s.name)]));
+      const reachable = enrolled.filter((e) => scope.sectionIds === "all" || scope.sectionIds.includes(e.sectionId));
+      reachable.sort((a, b) => a.student.fullName.localeCompare(b.student.fullName));
+      initialPeople = reachable.map((e) => ({ type: "parentsOf" as const, id: e.student.id, name: `Parents of ${e.student.fullName}`, detail: names.get(e.sectionId) ?? "" }));
+      const left = chosenIds.length - reachable.length;
+      if (left > 0) initialNote = `${left} chosen student${left === 1 ? " is" : "s are"} left out: not studying this year${scope.sectionIds === "all" ? "" : ", or not in your classes"}.`;
+    }
     return {
+      initialPeople,
+      initialNote,
       year: year?.name ?? null,
       classes,
       sections: sections.map((s) => ({ id: s.id, classId: s.classId, label: `${s.schoolClass.name} ${s.name}` })),
       on,
       preferred: on.includes(await preferredChannel(tx, current.ctx)) ? await preferredChannel(tx, current.ctx) : "app",
       templates: templates
-        .filter((t) => t.versions.length && t.key !== "parent-link" && t.key !== "parent-link-code")
+        // Templates whose blanks only the software can fill (personal links and codes) are not offered here.
+        .filter((t) => t.versions.length && !["parent-link", "parent-link-code", "staff-invite", "sign-in-code"].includes(t.key ?? ""))
         .map((t) => {
           const en = t.versions.find((v) => v.language === "en") ?? t.versions[0];
           return {

@@ -81,7 +81,7 @@ export function missingWords(missing: string[]) {
 /** SMS parts: 160 characters (153 per part when longer), or 70 (67) with Indian scripts. */
 export function smsParts(raw: string): number {
   // A Parent Link placeholder is counted as the real link it becomes.
-  const text = raw.replace(/⟦parent-link:[^⟧]+⟧/g, `${appUrl()}/p/${"x".repeat(43)}`);
+  const text = raw.replace(/⟦parent-link:[^⟧]+⟧/g, `${appUrl()}/p/${"x".repeat(43)}`).replace(/⟦invite:[^⟧]+⟧/g, `${appUrl()}/invite/${"x".repeat(43)}`);
   const unicode = /[^\x00-\x7F₹]/.test(text);
   const len = [...text].length;
   const single = unicode ? 70 : 160;
@@ -223,6 +223,30 @@ export const READY_TEMPLATES: ReadyTemplate[] = [
   } },
   { key: "query-rating", name: "Query rating request", category: "queries", channel: "whatsapp", texts: {
     en: "Dear {guardian_name}, your ticket {ticket_number} is closed. How happy are you with our help? Reply with a number from 1 (not happy) to 5 (very happy). - {school_name}",
+  } },
+  { key: "staff-invite", name: "Staff invite", category: "staff", channel: "whatsapp", texts: {
+    en: "Dear {staff_name}, you are invited to School OS at {school_name}. Open this link to choose your password: {link} It works once, for 7 days. Please do not share it.",
+  } },
+  { key: "staff-invite", name: "Staff invite (SMS)", category: "staff", channel: "sms", texts: {
+    en: "Dear {staff_name}, set your School OS password for {school_name}: {link} Works once, for 7 days. Do not share it.",
+  } },
+  { key: "staff-invite", name: "Staff invite (email)", category: "staff", channel: "email", subject: "Your School OS invite from {school_name}", texts: {
+    en: "Dear {staff_name},\n\n{school_name} has invited you to School OS. Open this link to choose your own password:\n\n{link}\n\nThe link works once, for 7 days. Please do not share it with anyone.",
+  } },
+  { key: "sign-in-code", name: "Sign-in code (SMS)", category: "staff", channel: "sms", texts: {
+    en: "{code} is your School OS sign-in code for {school_name}. It works for 10 minutes. Do not share it.",
+  } },
+  { key: "staff-message", name: "Message to staff", category: "staff", channel: "whatsapp", texts: {
+    en: "Dear {staff_name}, {message} - {school_name}",
+  } },
+  { key: "staff-message", name: "Message to staff (SMS)", category: "staff", channel: "sms", texts: {
+    en: "Dear {staff_name}, {message} - {school_name}",
+  } },
+  { key: "behaviour-note", name: "Behaviour note", category: "general", channel: "whatsapp", texts: {
+    en: "Dear {guardian_name}, this is to let you know about {student_name} ({class}): {title} on {date}. Please contact the class teacher if you would like to know more. - {school_name}",
+  } },
+  { key: "behaviour-note", name: "Behaviour note (SMS)", category: "general", channel: "sms", texts: {
+    en: "Dear Parent, about {student_name} ({class}): {title} on {date}. Please contact the class teacher. - {school_name}",
   } },
   { key: "notice", name: "New notice", category: "general", channel: "whatsapp", texts: {
     en: "{school_name}: {title}. {message}",

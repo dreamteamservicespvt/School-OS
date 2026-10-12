@@ -8,14 +8,14 @@ export const THEMES = [
   { key: "system", label: "Auto" },
 ] as const;
 
-// The six colours of the approved design. `swatch` is the light-mode colour.
+// The six colours of the approved design. `swatch` is the light-mode colour, `dark` the dark-mode one.
 export const ACCENTS = [
-  { key: "lagoon", label: "Lagoon", swatch: "rgb(12 112 100)" },
-  { key: "royal", label: "Royal", swatch: "rgb(37 88 216)" },
-  { key: "plum", label: "Plum", swatch: "rgb(122 52 186)" },
-  { key: "saffron", label: "Saffron", swatch: "rgb(184 88 6)" },
-  { key: "rose", label: "Rose", swatch: "rgb(190 28 78)" },
-  { key: "graphite", label: "Graphite", swatch: "rgb(46 60 78)" },
+  { key: "lagoon", label: "Lagoon", swatch: "rgb(12 112 100)", dark: "rgb(52 196 174)" },
+  { key: "royal", label: "Royal", swatch: "rgb(37 88 216)", dark: "rgb(118 158 255)" },
+  { key: "plum", label: "Plum", swatch: "rgb(122 52 186)", dark: "rgb(192 146 252)" },
+  { key: "saffron", label: "Saffron", swatch: "rgb(184 88 6)", dark: "rgb(248 168 72)" },
+  { key: "rose", label: "Rose", swatch: "rgb(190 28 78)", dark: "rgb(255 120 156)" },
+  { key: "graphite", label: "Graphite", swatch: "rgb(46 60 78)", dark: "rgb(190 204 222)" },
 ] as const;
 
 export const TEXT_SIZES = [

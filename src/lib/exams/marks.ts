@@ -21,7 +21,8 @@ import { sectionStudents, sitters, type RosterStudent } from "./roster";
 import { bandsFor, recomputeFinal, recomputeSection, sectionInfo } from "./results";
 import { teachesPaper, type ExamScope } from "./scope";
 
-export type MarkValue = { parts: Record<string, number | null>; absent: boolean; grade: string | null; remark: string | null };
+/** `medical` is medical leave (ML): absent, and the paper is left out of the total. */
+export type MarkValue = { parts: Record<string, number | null>; absent: boolean; medical?: boolean; grade: string | null; remark: string | null };
 
 /** Loads one paper (datesheet entry in one section) with everything the marks grid needs. */
 export async function loadPaper(tx: Tx, ctx: SchoolContext, entryId: string, sectionId: string) {
@@ -53,6 +54,7 @@ export function isDone(m: { absent: boolean; total: number | null; grade: string
 /** Checks one student's marks; returns the problem in plain words (08 §5), or null. */
 export function checkValue(student: { name: string }, v: MarkValue, cats: Category[], gradeOnly: boolean, gradeList: string[]): string | null {
   const entered = Object.values(v.parts).some((x) => x !== null && x !== undefined);
+  if (v.medical && (entered || v.grade)) return `${student.name} is marked on medical leave (ML). Remove ML to enter marks.`;
   if (v.absent && (entered || v.grade)) return `${student.name} is marked absent. Remove absent to enter marks.`;
   if (gradeOnly) {
     if (v.grade && !gradeList.includes(v.grade)) return `${student.name}: choose a grade from ${wordList(gradeList)}.`;
@@ -108,16 +110,17 @@ export async function saveMarks(tx: Tx, ctx: SchoolContext, scope: ExamScope, in
     const problem = checkValue(st, row, paper.categories, paper.subject.gradeOnly, paper.gradeList);
     if (problem) throw new ExamRuleError(problem);
     const prev = paper.marks.find((m) => m.studentId === row.studentId);
-    const parts = paper.subject.gradeOnly || row.absent ? {} : cleanParts(row.parts, paper.categories);
+    const absent = row.absent || Boolean(row.medical);
+    const parts = paper.subject.gradeOnly || absent ? {} : cleanParts(row.parts, paper.categories);
     const data = {
-      parts, absent: row.absent, total: paper.subject.gradeOnly || row.absent ? null : totalOf(row.parts, paper.categories),
-      grade: paper.subject.gradeOnly && !row.absent ? row.grade : null, remark: row.remark?.trim() || null, updatedById: ctx.userId,
+      parts, absent, medical: Boolean(row.medical), total: paper.subject.gradeOnly || absent ? null : totalOf(row.parts, paper.categories),
+      grade: paper.subject.gradeOnly && !absent ? row.grade : null, remark: row.remark?.trim() || null, updatedById: ctx.userId,
     };
-    const same = prev && JSON.stringify(prev.parts) === JSON.stringify(data.parts) && prev.absent === data.absent && prev.grade === data.grade && (prev.remark ?? null) === data.remark;
+    const same = prev && JSON.stringify(prev.parts) === JSON.stringify(data.parts) && prev.absent === data.absent && prev.medical === data.medical && prev.grade === data.grade && (prev.remark ?? null) === data.remark;
     if (same) continue;
     if (prev) await tx.marks.update({ where: { id: prev.id }, data });
     else await tx.marks.create({ data: { schoolId: ctx.schoolId, entryId: input.entryId, sectionId: input.sectionId, studentId: row.studentId, enteredById: ctx.userId, ...data } });
-    changes.push({ student: st.name, before: prev ? { parts: prev.parts, absent: prev.absent, grade: prev.grade } : null, after: { parts: data.parts, absent: data.absent, grade: data.grade } });
+    changes.push({ student: st.name, before: prev ? { parts: prev.parts, absent: prev.absent, medical: prev.medical, grade: prev.grade } : null, after: { parts: data.parts, absent: data.absent, medical: data.medical, grade: data.grade } });
   }
   if (changes.length) {
     if (paper.paper.status === "NOT_STARTED") await tx.marksPaper.update({ where: { id: paper.paper.id }, data: { status: "IN_PROGRESS" } });
@@ -198,21 +201,22 @@ export async function requestModeration(tx: Tx, ctx: SchoolContext, scope: ExamS
   if (problem) throw new ExamRuleError(problem, "value");
   const marks = paper.marks.find((m) => m.studentId === input.studentId);
   if (!marks) throw new ExamRuleError("This student has no marks to change.");
+  const absent = input.value.absent || Boolean(input.value.medical);
   const after = {
-    parts: paper.subject.gradeOnly || input.value.absent ? {} : cleanParts(input.value.parts, paper.categories),
-    absent: input.value.absent, grade: paper.subject.gradeOnly && !input.value.absent ? input.value.grade : null,
-    total: paper.subject.gradeOnly || input.value.absent ? null : totalOf(input.value.parts, paper.categories),
+    parts: paper.subject.gradeOnly || absent ? {} : cleanParts(input.value.parts, paper.categories),
+    absent, medical: Boolean(input.value.medical), grade: paper.subject.gradeOnly && !absent ? input.value.grade : null,
+    total: paper.subject.gradeOnly || absent ? null : totalOf(input.value.parts, paper.categories),
   };
   if (!paper.subject.gradeOnly && !after.absent && after.total === null) throw new ExamRuleError("Enter every mark category for the new marks.", "value");
   if (paper.subject.gradeOnly && !after.absent && !after.grade) throw new ExamRuleError("Choose the new grade.", "value");
-  const before = { parts: marks.parts, absent: marks.absent, grade: marks.grade, total: marks.total };
-  if (JSON.stringify(before.parts) === JSON.stringify(after.parts) && before.absent === after.absent && before.grade === after.grade) throw new ExamRuleError("The new marks are the same as the old ones.", "value");
+  const before = { parts: marks.parts, absent: marks.absent, medical: marks.medical, grade: marks.grade, total: marks.total };
+  if (JSON.stringify(before.parts) === JSON.stringify(after.parts) && before.absent === after.absent && before.medical === after.medical && before.grade === after.grade) throw new ExamRuleError("The new marks are the same as the old ones.", "value");
   const waiting = await tx.marksModeration.findFirst({ where: { marksId: marks.id, status: "waiting" } });
   if (waiting) throw new ExamRuleError(`A change for ${st.name} is already waiting for approval.`);
   const mod = await tx.marksModeration.create({
     data: { schoolId: ctx.schoolId, marksId: marks.id, entryId: input.entryId, studentId: input.studentId, before: before as unknown as Prisma.InputJsonValue, after: after as unknown as Prisma.InputJsonValue, reason, requestedById: ctx.userId! },
   });
-  const words = (v: { absent: boolean; grade: string | null; total: number | null }) => (v.absent ? "absent" : paper.subject.gradeOnly ? v.grade ?? "no grade" : showMarks(v.total));
+  const words = (v: { absent: boolean; medical?: boolean; grade: string | null; total: number | null }) => (v.medical ? "medical leave" : v.absent ? "absent" : paper.subject.gradeOnly ? v.grade ?? "no grade" : showMarks(v.total));
   const approval = await requestApproval(tx, ctx, {
     type: "marks-moderation", recordType: "Marks Moderation", recordId: mod.id,
     summary: `${st.name}, ${paper.section.label}: ${paper.subject.name} (${paper.exam.title}) from ${words(before)} to ${words(after)}`,
@@ -233,9 +237,9 @@ export async function decideModeration(tx: Tx, ctx: SchoolContext, moderationId:
     return;
   }
   const marks = await tx.marks.findFirstOrThrow({ where: { id: mod.marksId } });
-  const after = mod.after as { parts: Record<string, number>; absent: boolean; grade: string | null; total: number | null };
+  const after = mod.after as { parts: Record<string, number>; absent: boolean; medical?: boolean; grade: string | null; total: number | null };
   const history = [...((marks.history as unknown[]) ?? []), { at: now.toISOString(), by: mod.requestedById, approvedBy: ctx.userId, before: mod.before, after: mod.after, reason: mod.reason, approvalId }];
-  await tx.marks.update({ where: { id: marks.id }, data: { parts: after.parts, absent: after.absent, grade: after.grade, total: after.total, updatedById: mod.requestedById, history: history as unknown as Prisma.InputJsonValue } });
+  await tx.marks.update({ where: { id: marks.id }, data: { parts: after.parts, absent: after.absent, medical: Boolean(after.medical), grade: after.grade, total: after.total, updatedById: mod.requestedById, history: history as unknown as Prisma.InputJsonValue } });
   await tx.marksModeration.update({ where: { id: mod.id }, data: { status: "approved", decidedById: ctx.userId, decidedAt: now } });
   await writeAudit(tx, ctx, { action: "marks-changed-after-lock", recordType: "Marks", recordId: marks.id, before: mod.before as Prisma.InputJsonValue, after: { ...(mod.after as object), reason: mod.reason, approvalId } as unknown as Prisma.InputJsonValue });
   const entry = await tx.datesheetEntry.findFirstOrThrow({ where: { id: mod.entryId } });

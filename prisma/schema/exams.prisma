@@ -221,6 +221,8 @@ model Marks {
   /// For grade-only subjects.
   grade       String?
   absent      Boolean  @default(false)
+  /// Medical leave (ML): absent with a reason; the paper is left out of the total.
+  medical     Boolean  @default(false)
   remark      String?
   enteredById String?  @map("entered_by_id") @db.Uuid
   updatedById String?  @map("updated_by_id") @db.Uuid

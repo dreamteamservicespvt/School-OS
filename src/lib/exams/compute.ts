@@ -21,7 +21,7 @@ export type PaperInput = {
   max: number;
   gradeOnly: boolean;
   /** null when no marks are entered yet. */
-  marks: { total: number | null; absent: boolean; grade: string | null; parts?: Record<string, number> } | null;
+  marks: { total: number | null; absent: boolean; medical?: boolean; grade: string | null; parts?: Record<string, number> } | null;
 };
 
 export type SubjectResult = {
@@ -30,6 +30,8 @@ export type SubjectResult = {
   max: number;
   marks: number | null;
   absent: boolean;
+  /** Medical leave (ML): absent, and left out of the total whatever the absent rule. */
+  medical?: boolean;
   gradeOnly: boolean;
   grade: string | null;
   points: number | null;
@@ -75,10 +77,14 @@ export function subjectResult(p: PaperInput, bands: Band[], rules: PassRules): S
   const base = { subjectId: p.subjectId, name: p.name, max: p.max, gradeOnly: p.gradeOnly, grace: 0, parts: p.marks?.parts };
   if (p.gradeOnly) {
     const missing = !p.marks || (!p.marks.absent && !p.marks.grade);
-    return { ...base, marks: null, absent: Boolean(p.marks?.absent), grade: p.marks?.absent ? "AB" : p.marks?.grade ?? null, points: null, percent: null, passed: null, missing };
+    const medical = Boolean(p.marks?.absent && p.marks.medical);
+    return { ...base, marks: null, absent: Boolean(p.marks?.absent), medical, grade: p.marks?.absent ? (medical ? "ML" : "AB") : p.marks?.grade ?? null, points: null, percent: null, passed: null, missing };
   }
   if (!p.marks || (!p.marks.absent && p.marks.total === null)) {
     return { ...base, marks: null, absent: false, grade: null, points: null, percent: null, passed: null, missing: true };
+  }
+  if (p.marks.absent && p.marks.medical) {
+    return { ...base, marks: null, absent: true, medical: true, grade: "ML", points: null, percent: null, passed: null, missing: false };
   }
   if (p.marks.absent) {
     const counts = rules.absentRule !== "leave-out";

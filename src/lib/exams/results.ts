@@ -107,7 +107,7 @@ export async function recomputeSection(tx: Tx, ctx: SchoolContext, examId: strin
         const m = marks.find((x) => x.entryId === p.entry.id && x.studentId === st.studentId);
         return {
           subjectId: p.subject.id, name: p.subject.name, max: p.subject.gradeOnly ? 0 : p.entry.maxMarks, gradeOnly: p.subject.gradeOnly,
-          marks: m ? { total: m.total, absent: m.absent, grade: m.grade, parts: (m.parts ?? {}) as Record<string, number> } : null,
+          marks: m ? { total: m.total, absent: m.absent, medical: m.medical, grade: m.grade, parts: (m.parts ?? {}) as Record<string, number> } : null,
         };
       });
     return { studentId: st.studentId, result: examResult(inputs, bands, settings.rules), keepPublished: prior?.status === "PUBLISHED" };
@@ -368,7 +368,7 @@ export function resultsLink(key: string, sectionId?: string) {
 export type SheetColumn = { id: string; name: string; max: number; gradeOnly: boolean; entryId: string | null };
 export type SheetRow = {
   studentId: string; name: string; rollNo: number | null; admissionNo: string;
-  cells: Record<string, { marks: number | null; grade: string | null; absent: boolean; missing: boolean; passed: boolean | null; grace: number }>;
+  cells: Record<string, { marks: number | null; grade: string | null; absent: boolean; medical: boolean; missing: boolean; passed: boolean | null; grace: number }>;
   total: number; maxTotal: number; percent: number | null; grade: string | null; points: number | null; rank: number | null; outcome: string | null; complete: boolean; missing: number;
   status: "DRAFT" | "PUBLISHED"; publishedAt: Date | null;
 };
@@ -396,7 +396,7 @@ function buildRows(students: { studentId: string; name: string; rollNo: number |
     const r = results.find((x) => x.studentId === st.studentId);
     const subjects = ((r?.subjects ?? []) as unknown as SubjectResult[]);
     const cells: SheetRow["cells"] = {};
-    for (const s of subjects) cells[s.subjectId] = { marks: s.marks, grade: s.grade, absent: s.absent, missing: s.missing, passed: s.passed, grace: s.grace };
+    for (const s of subjects) cells[s.subjectId] = { marks: s.marks, grade: s.grade, absent: s.absent, medical: Boolean(s.medical), missing: s.missing, passed: s.passed, grace: s.grace };
     return {
       studentId: st.studentId, name: st.name, rollNo: st.rollNo, admissionNo: st.admissionNo, cells,
       total: r?.total ?? 0, maxTotal: r?.maxTotal ?? 0, percent: r?.percent ?? null, grade: r?.grade ?? null, points: r?.points ?? null, rank: r?.rank ?? null,

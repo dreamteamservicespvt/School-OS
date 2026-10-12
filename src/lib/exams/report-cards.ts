@@ -290,7 +290,7 @@ export async function reportCardData(tx: Tx, ctx: SchoolContext, studentId: stri
     columns = [{ key: "subject", label: "Subject" }, ...(showMarksCol ? [{ key: "max", label: "Max marks", align: "right" as const }, { key: "marks", label: "Marks", align: "right" as const }] : []), { key: "grade", label: "Grade", align: "center" }, ...(pattern === "CGPA" ? [{ key: "points", label: "Points", align: "right" as const }] : [])];
     rows = subjects.map((s) => ({
       subject: s.parts && Object.keys(s.parts).length > 1 ? `${s.name} (${Object.entries(s.parts).map(([k, v]) => `${k} ${showMarks(v)}`).join(", ")})` : s.name,
-      max: s.gradeOnly ? "" : String(s.max), marks: s.absent ? "AB" : s.gradeOnly ? "" : showMarks(s.marks), grade: s.grade ?? "", points: s.points === null ? "" : String(s.points),
+      max: s.gradeOnly ? "" : String(s.max), marks: s.absent ? (s.medical ? "ML" : "AB") : s.gradeOnly ? "" : showMarks(s.marks), grade: s.grade ?? "", points: s.points === null ? "" : String(s.points),
     }));
   } else {
     columns = [{ key: "subject", label: "Subject" }, ...exams.map((e) => ({ key: e.id, label: e.title, align: "right" as const })), ...(option.period.kind === "year" ? [{ key: "final", label: "Final %", align: "right" as const }] : []), { key: "grade", label: "Grade", align: "center" }];
@@ -301,7 +301,7 @@ export async function reportCardData(tx: Tx, ctx: SchoolContext, studentId: stri
       let last: SubjectResult | undefined;
       for (const e of exams) {
         const s = ((resultOf(e.id)?.subjects ?? []) as unknown as SubjectResult[]).find((x) => x.subjectId === subjectId);
-        row[e.id] = !s ? "" : s.absent ? "AB" : s.gradeOnly ? s.grade ?? "" : pattern === "GRADING" ? s.grade ?? "" : `${showMarks(s.marks)}/${s.max}`;
+        row[e.id] = !s ? "" : s.absent ? (s.medical ? "ML" : "AB") : s.gradeOnly ? s.grade ?? "" : pattern === "GRADING" ? s.grade ?? "" : `${showMarks(s.marks)}/${s.max}`;
         if (s) last = s;
       }
       const fs = ((final?.subjects ?? []) as unknown as SubjectResult[]).find((x) => x.subjectId === subjectId);

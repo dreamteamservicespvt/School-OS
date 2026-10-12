@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
+import { LogOut } from "lucide-react";
 import Link from "next/link";
 import { withSchool } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { hrPage, BASE } from "@/lib/staff/page";
 import { exitTypeLabel } from "@/lib/staff/exit";
-import { PageHeader } from "@/components/shell/page-header";
+import { StaffHead } from "../_components/head";
 import { Card, CardBody } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EXIT_STATUS } from "./exit-status";
@@ -48,9 +49,8 @@ export default async function StaffExitPage() {
   );
   return (
     <>
-      <PageHeader title="Staff Exit" href={`${BASE}/exit`} userId={current.user.id}>
-        {viewer.change === "all" && <ButtonLink href={`${BASE}/exit/new`} variant="primary">Record exit</ButtonLink>}
-      </PageHeader>
+      <StaffHead page="Staff Exit" href={`${BASE}/exit`} sub="Resignations, retirements and terminations, with the handover checklist and final settlement"
+        actions={viewer.change === "all" ? <ButtonLink href={`${BASE}/exit/new`} variant="primary" icon={LogOut}>Record exit</ButtonLink> : undefined} />
       {data.exits.length === 0 ? (
         <EmptyState title="No staff exits">Record a resignation, retirement or termination here. The classes are handed over, checks cleared, and the login is switched off on the last working day.</EmptyState>
       ) : (

@@ -25,6 +25,8 @@ export async function GET(req: Request) {
   const reason = (sp.get("reason") ?? "").trim().slice(0, 200);
   return withSchool(current.ctx, async (tx) => {
     const viewer = await viewerFor(tx, current.ctx, current);
+    // Printing ID cards is HR work (05-roles); "own" reach only views its own record.
+    if (viewer.see !== "all" || viewer.change !== "all") return problem("Only HR, the School Admin or the Principal can print staff ID cards.", 403);
     let where;
     if (sp.get("ids")) {
       const ids = sp.get("ids")!.split(",").filter((v) => UUID_RE.test(v)).slice(0, 500);
@@ -34,8 +36,6 @@ export async function GET(req: Request) {
     } else {
       where = staffWhere(readListParams(Object.fromEntries(sp.entries()), STAFF_FILTERS), viewer);
     }
-    // Own reach prints only their own card.
-    if (viewer.see !== "all") where = { AND: [where, { id: viewer.staffId ?? "00000000-0000-0000-0000-000000000000" }] };
     const all = await tx.staff.findMany({ where, orderBy: [{ designation: "asc" }, { fullName: "asc" }], select: { id: true }, take: 2000 });
     if (all.length === 0) return problem("No staff to print. Go back and choose staff or change the filters.", 404);
     const pageIds = all.slice((batch - 1) * BATCH, batch * BATCH).map((s) => s.id);

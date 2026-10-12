@@ -6,7 +6,7 @@ import { hrPage, BASE } from "@/lib/staff/page";
 import { docStatus, DOC_TONE, showDocNumber, type DocStatus } from "@/lib/staff/documents";
 import { hrSettings } from "@/lib/staff/settings";
 import { monthEnd } from "@/lib/staff/dates";
-import { PageHeader } from "@/components/shell/page-header";
+import { StaffHead } from "../_components/head";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonClass } from "@/components/ui/button";
@@ -63,9 +63,8 @@ export default async function DocumentsPage({ searchParams }: Props) {
 
   return (
     <>
-      <PageHeader title="Documents & ID Cards" href={`${BASE}/documents`} userId={current.user.id}>
-        {hr && view === "documents" && <UploadDocumentForm staffOptions={staffOptions} types={data.settings.documentTypes} action={uploadDocument} />}
-      </PageHeader>
+      <StaffHead page="Documents & ID Cards" href={`${BASE}/documents`} sub="Staff documents, expiry reminders and ID cards"
+        actions={hr && view === "documents" ? <UploadDocumentForm staffOptions={staffOptions} types={data.settings.documentTypes} action={uploadDocument} /> : undefined} />
       <SubNav current={view} items={[
         { key: "documents", label: "Documents", href: `${BASE}/documents`, count: counts.Expired + counts["Expiring soon"] },
         { key: "id-cards", label: "ID cards", href: `${BASE}/documents?view=id-cards` },

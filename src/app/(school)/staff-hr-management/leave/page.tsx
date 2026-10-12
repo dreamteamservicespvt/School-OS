@@ -8,7 +8,7 @@ import { staffPage, BASE } from "@/lib/staff/page";
 import { balancesFor, calendarLabel, daysText, leaveYearFor } from "@/lib/staff/leave";
 import { addDays, eachDay, isoDay, isoWeekday, monthEnd, monthLabel, monthStart } from "@/lib/staff/dates";
 import { holidaySet } from "@/lib/staff/leave";
-import { PageHeader } from "@/components/shell/page-header";
+import { StaffHead } from "../_components/head";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
 import { Alert } from "@/components/ui/alert";
@@ -80,7 +80,7 @@ export default async function StaffLeavePage({ searchParams }: Props) {
 
   return (
     <>
-      <PageHeader title="Staff Leave" href={`${BASE}/leave`} userId={current.user.id}>{apply}</PageHeader>
+      <StaffHead page="Staff Leave" href={`${BASE}/leave`} sub={canHr ? "Leave requests, balances and the leave calendar for every staff member" : "Your leave requests and balances"} actions={apply} />
       {base.types.length === 0 && <Alert tone="warning" className="mb-4">No staff leave types yet. {canHr ? <Link href={`${BASE}/settings?view=leave`} className="underline">Add them in HR Settings.</Link> : "Ask HR to add them."}</Alert>}
       {views.length > 1 && <SubNav current={view} items={views} />}
       {view === "mine" && <Mine />}

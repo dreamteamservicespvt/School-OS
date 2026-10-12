@@ -23,6 +23,9 @@ export type DefaulterFilter = {
   amountAbove?: bigint | null;
   reminded?: "yes" | "no" | null;
   q?: string | null;
+  /** Only students whose oldest overdue row fell due in these days (the shared date filter). */
+  oldestFrom?: Date | null;
+  oldestTo?: Date | null;
 };
 
 export type DefaulterRow = {
@@ -44,6 +47,8 @@ export type DefaulterRow = {
   lastReminder: Date | null;
   reminders: number;
   promisedOn: Date | null;
+  /** The fee heads overdue, like "Tuition fee, Late fee". */
+  heads: string;
 };
 
 export async function defaulters(tx: Tx, ctx: SchoolContext, viewer: FeeViewer, today: Date, f: DefaulterFilter = {}) {
@@ -59,18 +64,25 @@ export async function defaulters(tx: Tx, ctx: SchoolContext, viewer: FeeViewer, 
   const studentWhere: Prisma.StudentWhereInput = {
     archivedAt: null,
     ...scope,
-    ...(f.q ? { OR: [{ fullName: { contains: f.q, mode: "insensitive" } }, { admissionNo: { contains: f.q, mode: "insensitive" } }] } : {}),
+    ...(f.q ? { OR: [
+      { fullName: { contains: f.q, mode: "insensitive" } },
+      { admissionNo: { contains: f.q, mode: "insensitive" } },
+      { guardians: { some: { archivedAt: null, guardian: { name: { contains: f.q, mode: "insensitive" } } } } },
+    ] } : {}),
   };
   const students = await tx.student.findMany({ where: studentWhere, select: { id: true, fullName: true, admissionNo: true } });
   const sIds = students.map((s) => s.id);
-  const dues = await tx.studentFeeDue.findMany({ where: { ...where, studentId: { in: sIds } }, select: { studentId: true, balancePaise: true, dueDate: true } });
-  const byStudent = new Map<string, { overdue: bigint; oldest: Date }>();
+  const dues = await tx.studentFeeDue.findMany({ where: { ...where, studentId: { in: sIds } }, select: { studentId: true, balancePaise: true, dueDate: true, feeHeadId: true, kind: true } });
+  const headNames = new Map((await tx.feeHead.findMany({ where: { id: { in: [...new Set(dues.map((d) => d.feeHeadId))] } }, select: { id: true, name: true } })).map((h) => [h.id, h.name]));
+  const headOf = (d: { kind: string; feeHeadId: string }) => (d.kind === "LATE_FEE" ? "Late fee" : headNames.get(d.feeHeadId) ?? "Fees");
+  const byStudent = new Map<string, { overdue: bigint; oldest: Date; heads: Set<string> }>();
   for (const d of dues) {
     const cur = byStudent.get(d.studentId);
     if (cur) {
       cur.overdue += d.balancePaise;
       if (d.dueDate < cur.oldest) cur.oldest = d.dueDate;
-    } else byStudent.set(d.studentId, { overdue: d.balancePaise, oldest: d.dueDate });
+      cur.heads.add(headOf(d));
+    } else byStudent.set(d.studentId, { overdue: d.balancePaise, oldest: d.dueDate, heads: new Set([headOf(d)]) });
   }
   const ids = [...byStudent.keys()];
   const classes = await classOfStudents(tx, ids, viewer.yearId);
@@ -84,7 +96,9 @@ export async function defaulters(tx: Tx, ctx: SchoolContext, viewer: FeeViewer, 
     const c = classes.get(s.id);
     if (f.classId && c?.classId !== f.classId) continue;
     if (f.sectionId && c?.sectionId !== f.sectionId) continue;
-    if (f.amountAbove && info.overdue <= f.amountAbove) continue;
+    if (f.amountAbove && info.overdue < f.amountAbove) continue;
+    if (f.oldestFrom && info.oldest < f.oldestFrom) continue;
+    if (f.oldestTo && info.oldest > f.oldestTo) continue;
     const days = Math.floor((today.getTime() - info.oldest.getTime()) / DAY_MS);
     const group = ageingGroupOf(settings.ageing, days);
     const index = group ? settings.ageing.indexOf(group) : -1;
@@ -112,6 +126,7 @@ export async function defaulters(tx: Tx, ctx: SchoolContext, viewer: FeeViewer, 
       lastReminder: r?._max.sentAt ?? null,
       reminders: r?._count._all ?? 0,
       promisedOn: notes.find((n) => n.studentId === s.id)?.promisedOn ?? null,
+      heads: [...info.heads].join(", "),
     });
   }
   rows.sort((a, b) => b.daysOverdue - a.daysOverdue || Number(b.overduePaise - a.overduePaise));

@@ -2,7 +2,7 @@
 
 // The online application link for parents (02 §2 "Online application"):
 // copy it, or share it by WhatsApp, SMS or email (design: OnlineLinkSheet).
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Copy, IndianRupee, Link as LinkIcon, Mail, MessageCircle, ShieldCheck, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -13,9 +13,9 @@ import { cx } from "@/components/ui/cx";
 export function OnlineLinkButton({ code, classes, schoolName, feeOn, yearName }: { code: string; classes: { value: string; label: string }[]; schoolName: string; feeOn: boolean; yearName: string }) {
   const [open, setOpen] = useState(false);
   const [cls, setCls] = useState("");
-  const [origin, setOrigin] = useState("");
   const notice = useNotice();
-  useEffect(() => setOrigin(window.location.origin), []);
+  // Only read in the open dialog, which never renders on the server.
+  const origin = open && typeof window !== "undefined" ? window.location.origin : "";
   const url = `${origin}/apply/${encodeURIComponent(code)}${cls ? `?class=${cls}` : ""}`;
   const text = `${schoolName}: apply for admission ${yearName} online here: ${url}`;
   const copy = async () => {

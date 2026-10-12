@@ -75,7 +75,10 @@ export function ApplicationForm(p: Props) {
   const digits = phone.replace(/\D/g, "").slice(-10);
   const phoneOk = /^[6-9]\d{9}$/.test(digits);
   // A new phone number needs a new code.
-  useEffect(() => { setSent(null); setChecked(false); setCode(""); setCodeMsg(null); }, [digits]);
+  const onPhone = (v: string) => {
+    setPhone(v);
+    if (v.replace(/\D/g, "").slice(-10) !== digits) { setSent(null); setChecked(false); setCode(""); setCodeMsg(null); }
+  };
 
   const sendCode = () => start(async () => {
     const r = await sendFormCodeAction(digits);
@@ -149,7 +152,7 @@ export function ApplicationForm(p: Props) {
         </div>
         <div className="grid md:grid-cols-2 gap-3">
           <PhoneField name="phone" label="Parent’s phone" required defaultValue={val("phone") ?? undefined} error={err("phone")} help="Brothers and sisters already in the school are found from this number."
-            onValue={setPhone} />
+            onValue={onPhone} />
           <PhoneField name="altPhone" label="Other phone" defaultValue={val("altPhone") ?? undefined} error={err("altPhone")} />
         </div>
         <TextArea label="Home address" name="address" required rows={2} maxLength={400} placeholder="House number, street, area, PIN code" defaultValue={val("address")} error={err("address")} />

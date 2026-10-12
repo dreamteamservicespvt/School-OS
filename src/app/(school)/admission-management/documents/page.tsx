@@ -31,7 +31,6 @@ type Search = { searchParams: Promise<Record<string, string | string[] | undefin
 const PATH = `${BASE}/documents`;
 const NONE = "00000000-0000-0000-0000-000000000000";
 const WORKING: Prisma.ApplicationWhereInput["stage"] = { in: ["SUBMITTED", "SUBMITTED_ONLINE", "REVIEWED", "DOCUMENTS", "TEST_INTERVIEW", "DECISION", "APPROVED", "WAITING_LIST"] };
-const notVerified: Prisma.ApplicationWhereInput = { documents: { some: { required: true, status: { not: "VERIFIED" } } } };
 
 export default async function DocumentsPage({ searchParams }: Search) {
   const { current, viewer, year, tz } = await workPage();

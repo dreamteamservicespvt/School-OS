@@ -23,12 +23,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ key: str
     if (v.see !== "all") return new Response("Only the admission team can export admission reports.", { status: 403 });
     const s = await loadSettings(tx, current.ctx);
     const year = await admissionYear(tx, current.ctx, s);
-    const f = readFilters(Object.fromEntries(url.searchParams.entries()), s, year?.id ?? null);
-    if (!f) return new Response("No academic year is set up yet.", { status: 400 });
+    const read = readFilters(Object.fromEntries(url.searchParams.entries()), s, year?.id ?? null, current.school.timeZone);
+    if (!read) return new Response("No academic year is set up yet.", { status: 400 });
     const n = await names(tx);
-    const r = await report(tx, s, v, key as ReportKey, f, n);
+    const r = await report(tx, s, v, key as ReportKey, read.f, n);
     const years = new Map((await tx.academicYear.findMany({ select: { id: true, name: true } })).map((y) => [y.id, y.name]));
-    const filters = describeFilters(f, { ...n, years, sources: new Map(s.sourceList.map((x) => [x.key, x.label])) });
+    const filters = describeFilters(read.f, read.range, { ...n, years, sources: new Map(s.sourceList.map((x) => [x.key, x.label])) });
     const file = await buildExport<Row>(format, r.columns.map((c) => ({ label: c.label, value: (row: Row) => row[c.key] })), r.rows, { title: meta.title, schoolName: current.school.name, filters, exportedBy: current.user.displayName, timeZone: current.school.timeZone });
     await logExport(tx, current.ctx, { title: `Admission report: ${meta.title}`, format, filters, rows: r.rows.length });
     return exportResponse(file);

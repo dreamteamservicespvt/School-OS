@@ -16,7 +16,7 @@ export function GuardianForm({ action, g, studentId, canRestrict, cancelHref }: 
   const iso = (d: Date | null | undefined) => (d ? d.toISOString().slice(0, 10) : "");
   return (
     <ActionForm action={action} submitLabel={g ? "Save parent" : "Add parent"} pendingText="Saving…"
-      footer={<Link href={cancelHref} className="inline-flex min-h-11 items-center rounded-lg px-4 font-medium text-brand-text hover:bg-surface-2">Cancel</Link>}>
+      footer={<Link href={cancelHref} className="inline-flex h-11 items-center rounded-xl px-4 text-[14px] font-semibold text-ink2 transition hover:bg-sunken hover:text-ink">Cancel</Link>}>
       <PhoneMatches studentId={studentId} />
       <div className="grid gap-4 sm:grid-cols-2">
         <FormSelect name="relationship" label="Relation" required options={RELATIONS.map((r) => ({ value: r, label: r }))} defaultValue={g?.relationship ?? "Father"} />

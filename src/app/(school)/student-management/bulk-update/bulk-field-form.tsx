@@ -38,26 +38,26 @@ export function BulkFieldForm({ field, label, help, students }: { field: string;
       </label>
       {useSame && (
         <label className="block">
-          <span className="mb-1 block text-sm font-medium">{label} for all {students.length}</span>
-          <input name="same" required className="h-11 w-full max-w-sm rounded-lg border border-line-strong bg-surface px-3 text-base" />
+          <span className="mb-1 block text-[13px] font-semibold text-ink2">{label} for all {students.length}</span>
+          <input name="same" required className="h-11 w-full max-w-sm rounded-xl border border-line bg-surface px-3 text-base" />
         </label>
       )}
-      <p className="text-sm text-ink-2">{help}</p>
+      <p className="text-[13.5px] text-ink2">{help}</p>
       <ul className="divide-y divide-line rounded-xl border border-line bg-surface">
         {students.map((s) => {
           const p = (preview ?? done)?.find((r) => r.studentId === s.id);
           return (
             <li key={s.id} className="grid gap-2 px-3 py-2 sm:grid-cols-[1fr_14rem_14rem] sm:items-center">
-              <span><span className="font-medium">{s.name}</span> <span className="text-sm text-ink-2">{s.admissionNo}{s.cls ? ` · ${s.cls}` : ""}</span></span>
-              <span className="text-sm text-ink-2">Now: {s.current ?? "empty"}</span>
-              {useSame ? <span className="text-sm">{p ? `New: ${p.after ?? "empty"}` : ""}</span> : (
+              <span><span className="font-medium">{s.name}</span> <span className="text-[13.5px] text-ink2">{s.admissionNo}{s.cls ? ` · ${s.cls}` : ""}</span></span>
+              <span className="text-[13.5px] text-ink2">Now: {s.current ?? "empty"}</span>
+              {useSame ? <span className="text-[13.5px]">{p ? `New: ${p.after ?? "empty"}` : ""}</span> : (
                 <label><span className="sr-only">New {label.toLowerCase()} for {s.name}</span>
-                  <input name={`v_${s.id}`} defaultValue={s.current ?? ""} className="h-11 w-full rounded-lg border border-line-strong bg-surface px-3 text-base" />
+                  <input name={`v_${s.id}`} defaultValue={s.current ?? ""} className="h-11 w-full rounded-xl border border-line bg-surface px-3 text-base" />
                 </label>
               )}
-              {p && (p.problem ? <span className="text-sm text-danger sm:col-span-3">{p.problem}</span>
+              {p && (p.problem ? <span className="text-[13.5px] text-bad sm:col-span-3">{p.problem}</span>
                 : p.before === p.after ? <span className="sm:col-span-3"><Badge>No change</Badge></span>
-                : <span className="text-sm sm:col-span-3"><Badge tone={done ? "success" : "brand"}>{done ? "Saved" : "Will change"}</Badge> {p.before ?? "empty"} to {p.after ?? "empty"}</span>)}
+                : <span className="text-[13.5px] sm:col-span-3"><Badge tone={done ? "success" : "brand"}>{done ? "Saved" : "Will change"}</Badge> {p.before ?? "empty"} to {p.after ?? "empty"}</span>)}
             </li>
           );
         })}

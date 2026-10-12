@@ -172,7 +172,7 @@ export default async function StudentProfilePage({ params, searchParams }: { par
             return (
               <li key={t.key} className="shrink-0">
                 <Link href={t.key === "overview" ? href : `${href}?tab=${t.key}`} aria-current={on ? "page" : undefined} scroll={false}
-                  className={cx("relative flex items-center h-11 px-3.5 text-sm font-semibold whitespace-nowrap transition", on ? "text-brand" : "text-ink2 hover:text-ink")}>
+                  className={cx("relative flex items-center h-11 px-3.5 text-[13.5px] font-semibold whitespace-nowrap transition", on ? "text-brand" : "text-ink2 hover:text-ink")}>
                   {t.label}
                   {on && <span className="absolute left-2 right-2 -bottom-px h-[3px] rounded-t bg-brand" aria-hidden="true" />}
                 </Link>

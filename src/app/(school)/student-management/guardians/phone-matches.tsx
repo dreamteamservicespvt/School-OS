@@ -12,15 +12,15 @@ export function PhoneMatches({ studentId }: { studentId: string | null }) {
   const matches = (state?.data as GuardianFormData | undefined)?.matches;
   if (!matches?.length) return null;
   return (
-    <div className="rounded-xl border border-brand/40 bg-brand-soft p-4" role="status">
+    <div className="rounded-xl border border-brand/40 bg-brand/8 p-4" role="status">
       <p className="font-semibold">A parent with this phone is already on record</p>
       <ul className="mt-2 space-y-2">
         {matches.map((m) => (
           <li key={m.id} className="flex flex-wrap items-center justify-between gap-2">
             <span><strong>{m.name}</strong>{m.children.length ? `, parent of ${m.children.join(", ")}` : ""}</span>
             {studentId
-              ? <Link href={`/student-management/guardians/link?student=${studentId}&guardian=${m.id}`} className="inline-flex min-h-11 items-center rounded-lg bg-brand px-3 font-medium text-brand-ink">Link this parent</Link>
-              : <Link href={`/student-management/guardians/${m.id}`} className="inline-flex min-h-11 items-center rounded-lg px-3 font-medium text-brand-text hover:bg-surface">Open</Link>}
+              ? <Link href={`/student-management/guardians/link?student=${studentId}&guardian=${m.id}`} className="inline-flex min-h-11 items-center rounded-xl bg-brand px-3 font-medium text-brand-ink">Link this parent</Link>
+              : <Link href={`/student-management/guardians/${m.id}`} className="inline-flex min-h-11 items-center rounded-xl px-3 font-medium text-brand hover:bg-surface">Open</Link>}
           </li>
         ))}
       </ul>

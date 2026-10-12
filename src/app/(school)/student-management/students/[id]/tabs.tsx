@@ -32,7 +32,7 @@ type Base = { can: StudentAbilities; tz: string };
 
 /** The small "Edit" link on a card (students.jsx EditBtn). */
 export function EditLink({ href, label = "Edit", icon: Icon = Pencil }: { href: string; label?: string; icon?: LucideIcon }) {
-  return <Link href={href} className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-brand h-8 px-2 rounded-lg hover:bg-brand/8 shrink-0"><Icon size={14} aria-hidden="true" />{label}</Link>;
+  return <Link href={href} className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-brand h-8 px-2 rounded-xl hover:bg-brand/8 shrink-0"><Icon size={14} aria-hidden="true" />{label}</Link>;
 }
 const editLink = (href: string, section: string, can: StudentAbilities) => (can.manage ? <EditLink href={`${href}/edit/${section}`} /> : undefined);
 
@@ -183,7 +183,7 @@ function ParentsCard({ p, can, href }: { p: Profile; can: StudentAbilities; href
                 <div className="flex flex-wrap gap-1 border-t border-line/70 pt-2.5 -mb-1">
                   {!l.isPrimary && !l.restriction && <ActionButton action={setPrimaryAction} fields={{ linkId: l.id, studentId }} variant="ghost">Make primary</ActionButton>}
                   {!l.restriction && <ActionButton action={pickupAction} fields={{ linkId: l.id, studentId, on: l.canPickUp ? "0" : "1" }} variant="ghost">{l.canPickUp ? "Remove from pickup" : "May pick up"}</ActionButton>}
-                  <Link href={`${href}/parents/${l.id}`} className="inline-flex h-8 items-center rounded-lg px-3 text-[13px] font-semibold text-ink2 hover:bg-sunken hover:text-ink">Settings</Link>
+                  <Link href={`${href}/parents/${l.id}`} className="inline-flex h-8 items-center rounded-xl px-3 text-[13px] font-semibold text-ink2 hover:bg-sunken hover:text-ink">Settings</Link>
                   {p.links.length > 1 && (
                     <ConfirmAction action={unlinkGuardianAction} fields={{ linkId: l.id, studentId }} trigger="Unlink" triggerVariant="ghost"
                       title={`Unlink ${l.guardian.name}?`} confirmLabel={`Unlink ${l.guardian.name}`} confirmVariant="danger">
@@ -232,7 +232,7 @@ function EmergencyCard({ p, can }: { p: Profile; can: StudentAbilities }) {
             </div>
           )}
           <details className="group">
-            <summary className="inline-flex h-8 cursor-pointer list-none items-center gap-1.5 rounded-lg px-2 -ml-2 text-[13px] font-semibold text-brand hover:bg-brand/8 [&::-webkit-details-marker]:hidden"><Plus size={14} aria-hidden="true" />Add another contact</summary>
+            <summary className="inline-flex h-8 cursor-pointer list-none items-center gap-1.5 rounded-xl px-2 -ml-2 text-[13px] font-semibold text-brand hover:bg-brand/8 [&::-webkit-details-marker]:hidden"><Plus size={14} aria-hidden="true" />Add another contact</summary>
             <ActionForm action={addEmergencyAction.bind(null, studentId)} submitLabel="Add contact" pendingText="Adding…" resetOnSuccess className="mt-3 grid gap-3 sm:grid-cols-3">
               <FormText name="name" label="Name" required />
               <FormSelect name="relation" label="Relation" required options={[...RELATIONS, "Grandparent", "Uncle", "Aunt", "Neighbour"].filter((r) => r !== "Other").concat("Other").map((r) => ({ value: r, label: r }))} defaultValue="Grandparent" />
@@ -432,7 +432,7 @@ export function DocumentsTab({ p, can, settings, tz }: Base & { p: Profile; sett
                   meta={`${d.file?.fileName ?? "File"} · added ${formatDate(d.createdAt, tz)}${d.note ? ` · ${d.note}` : ""}`}
                   actions={<>
                     <ButtonLink href={d.link} target="_blank" rel="noopener" size="sm" variant="ghost" icon={Eye}>View</ButtonLink>
-                    <a href={`${d.link}&download=1`} aria-label={`Download ${d.kind}`} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink2 hover:bg-sunken"><Download size={15} aria-hidden="true" /></a>
+                    <a href={`${d.link}&download=1`} aria-label={`Download ${d.kind}`} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-ink2 hover:bg-sunken"><Download size={15} aria-hidden="true" /></a>
                     {can.manage && (
                       <ConfirmAction action={archiveDocumentAction} fields={{ documentId: d.id, studentId: p.student.id }} trigger="Remove" triggerVariant="ghost" title={`Remove ${d.kind}?`} confirmLabel="Remove document" confirmVariant="danger">
                         The document is archived and kept in the history; it no longer shows here.
@@ -455,7 +455,7 @@ export function DocumentsTab({ p, can, settings, tz }: Base & { p: Profile; sett
               {p.links.length > 0 && <FormSelect name="guardianId" label="Belongs to" options={[{ value: "", label: "The student" }, ...p.links.map((l) => ({ value: l.guardianId, label: `${l.guardian.name} (${l.relationship})` }))]} />}
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="doc-file" className="text-[13px] font-semibold text-ink2">File<span className="text-bad" aria-hidden="true"> *</span></label>
-                <input id="doc-file" name="file" type="file" required accept="image/jpeg,image/png,image/webp,application/pdf" className="block w-full rounded-xl border border-line bg-surface p-2 text-[14px] file:mr-3 file:h-9 file:rounded-lg file:border-0 file:bg-brand/10 file:px-3 file:font-semibold file:text-brand" />
+                <input id="doc-file" name="file" type="file" required accept="image/jpeg,image/png,image/webp,application/pdf" className="block w-full rounded-xl border border-line bg-surface p-2 text-[14px] file:mr-3 file:h-9 file:rounded-xl file:border-0 file:bg-brand/10 file:px-3 file:font-semibold file:text-brand" />
               </div>
               <FormText name="note" label="Note" />
             </ActionForm>

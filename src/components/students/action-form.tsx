@@ -84,7 +84,7 @@ export function FormCheck({ name, label, help, className, defaultChecked }: { na
   return (
     <div className={className}>
       <CheckboxField key={state ? String(checked) + String(state.ok) : "first"} name={name} label={label} help={help} defaultChecked={checked} />
-      {error && <p className="mt-1 pl-8 text-sm text-danger">{error}</p>}
+      {error && <p className="mt-1 pl-8 text-[13.5px] text-bad">{error}</p>}
     </div>
   );
 }
@@ -95,16 +95,16 @@ export function FormChoice({ name, label, options, defaultValue, help, columns =
   const cols = columns === 5 ? "sm:grid-cols-5" : columns === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2";
   return (
     <fieldset key={v.key}>
-      <legend className="mb-1 text-sm font-medium">{label}</legend>
+      <legend className="mb-1 text-[13px] font-semibold text-ink2">{label}</legend>
       <div className={`grid grid-cols-2 gap-2 ${cols}`}>
         {options.map((o) => (
-          <label key={o.value} className="flex min-h-11 cursor-pointer items-start gap-2 rounded-lg border border-line-strong bg-surface px-3 py-2.5 has-[:checked]:border-brand has-[:checked]:bg-brand-soft">
+          <label key={o.value} className="flex min-h-11 cursor-pointer items-start gap-2 rounded-xl border border-line bg-surface px-3 py-2.5 has-[:checked]:border-brand has-[:checked]:bg-brand/8">
             <input type="radio" name={name} value={o.value} defaultChecked={v.value === o.value} className="mt-1 size-4 accent-brand" />
-            <span><span className="font-medium">{o.label}</span>{o.help && <span className="block text-sm text-ink-2">{o.help}</span>}</span>
+            <span><span className="font-medium">{o.label}</span>{o.help && <span className="block text-[13.5px] text-ink2">{o.help}</span>}</span>
           </label>
         ))}
       </div>
-      {v.error ? <p className="mt-1 text-sm text-danger">{v.error}</p> : help ? <p className="mt-1 text-sm text-ink-2">{help}</p> : null}
+      {v.error ? <p className="mt-1 text-[13.5px] text-bad">{v.error}</p> : help ? <p className="mt-1 text-[13.5px] text-ink2">{help}</p> : null}
     </fieldset>
   );
 }
@@ -113,7 +113,7 @@ export function FormChoice({ name, label, options, defaultValue, help, columns =
 export function FormFieldError({ name }: { name: string }) {
   const state = useFormResult();
   const e = state?.errors?.[name];
-  return e ? <p className="text-sm text-danger">{e}</p> : null;
+  return e ? <p className="text-[13.5px] text-bad">{e}</p> : null;
 }
 
 /** Shows its children only after the form saved, for example a "Saved" link. */
@@ -126,7 +126,7 @@ export function WhenSaved({ children }: { children: React.ReactNode }) {
 export function ResultLink({ label }: { label: string }) {
   const state = useFormResult();
   const href = state?.ok ? (state.data as { href?: string } | undefined)?.href : undefined;
-  return href ? <a href={href} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center font-medium text-brand-text underline">{label}</a> : null;
+  return href ? <a href={href} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center font-semibold text-brand hover:underline">{label}</a> : null;
 }
 
 export { useFormResult };

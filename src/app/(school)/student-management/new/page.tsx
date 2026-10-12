@@ -28,13 +28,10 @@ export default async function AddStudentPage({ searchParams }: { searchParams: P
   return (
     <>
       <BackLink href={BASE} label="Students" />
-      <PageHeader title="Add student" href={`${BASE}/new`} userId={current.user.id} />
-      <p className="-mt-3 mb-5 max-w-prose text-ink-2">
-        For students who did not come through Admission Management, for example when moving from your old software. Only the main details are needed now; the rest is filled on the profile.
-      </p>
+      <PageHeader title="Add student" sub={<span className="block max-w-prose">For students who did not come through Admission Management, for example when moving from your old software. Only the main details are needed now; the rest is filled on the profile.</span>} href={`${BASE}/new`} userId={current.user.id} />
       {!year || data.sections.length === 0 ? (
         <EmptyState title="No class sections to add students to">
-          <p>Open the academic year and add classes and sections in <Link href="/academic-management" className="font-medium text-brand-text underline">Academic Management</Link>, then come back.</p>
+          <p>Open the academic year and add classes and sections in <Link href="/academic-management" className="font-semibold text-brand hover:underline">Academic Management</Link>, then come back.</p>
         </EmptyState>
       ) : (
         <Card className="max-w-3xl">

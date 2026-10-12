@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { fileLink } from "@/lib/files";
 import { PageHeader } from "@/components/shell/page-header";
 import { BackLink } from "@/components/ui/module-head";
-import { Card, CardBody, CardHeader, Detail } from "@/components/ui/card";
+import { HeartHandshake, Medal, MessageSquareText, Users } from "lucide-react";
+import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { Col, DL, Row, Split } from "@/components/ui/blocks";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { ActionForm, FormText } from "@/components/students/action-form";
@@ -38,11 +39,11 @@ export default async function IncidentPage({ params }: { params: Promise<{ id: s
   const path = `${BASE}/behaviour/${id}`;
   return (
     <>
-      <BackLink href={`${BASE}/behaviour`} label="Incidents & rewards" />
-      <PageHeader title={typeLabel} href={path} userId={current.user.id}>
+      <BackLink href={`${BASE}/behaviour`} label="Behaviour & Counselling" sub={data.students.length === 1 ? data.students[0].fullName : `${data.students.length} students`} />
+      <PageHeader title={typeLabel} sub={`${formatDate(inc.date, tz)} · ${data.students.map((s) => s.fullName).join(", ")}`} href={path} userId={current.user.id}>
         <div className="flex flex-wrap gap-2">
           {settings.counsellingOn && can.contribute && !inc.archivedAt && !isPositive(inc.kind) && data.students.length === 1 && (
-            <ButtonLink href={`${BASE}/behaviour/counselling/new?student=${data.students[0].id}&incident=${id}`}>Refer to counselling</ButtonLink>
+            <ButtonLink href={`${BASE}/behaviour/counselling/new?student=${data.students[0].id}&incident=${id}`} icon={HeartHandshake}>Refer to counselling</ButtonLink>
           )}
           {can.manage && !inc.archivedAt && (
             <ConfirmAction action={archiveIncidentAction} fields={{ id }} trigger="Archive" triggerVariant="danger-outline" title="Archive this record?" confirmLabel="Archive record" confirmVariant="danger">
@@ -51,20 +52,22 @@ export default async function IncidentPage({ params }: { params: Promise<{ id: s
           )}
         </div>
       </PageHeader>
-      <div className="grid max-w-5xl gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader title="What happened" description={<span className="flex flex-wrap gap-1"><Badge tone={isPositive(inc.kind) ? "success" : inc.kind === "suspension" ? "danger" : "warning"}>{BEHAVIOUR_KIND_LABEL[inc.kind as BehaviourKind]}</Badge><Badge tone={inc.status === "OPEN" ? "warning" : "neutral"}>{inc.status === "OPEN" ? "Open" : "Closed"}</Badge>{inc.archivedAt && <Badge tone="danger">Archived</Badge>}</span>} />
+      <Split side={320}>
+        <Card>
+          <CardHeader title="What happened" icon={MessageSquareText} description={<span className="flex flex-wrap gap-1"><Badge tone={isPositive(inc.kind) ? "success" : inc.kind === "suspension" ? "danger" : "warning"}>{BEHAVIOUR_KIND_LABEL[inc.kind as BehaviourKind]}</Badge><Badge tone={inc.status === "OPEN" ? "warning" : "neutral"}>{inc.status === "OPEN" ? "Open" : "Closed"}</Badge>{inc.archivedAt && <Badge tone="danger">Archived</Badge>}</span>} />
+          <p className="mx-5 mb-4 whitespace-pre-line rounded-2xl bg-sunken/60 px-4 py-3 text-[14.5px]">{inc.description}</p>
+          <DL rows={[
+            ["Date", formatDate(inc.date, tz)],
+            ["Reported by", data.reporter?.displayName ?? null],
+            ["Recorded", formatDateTime(inc.createdAt, tz)],
+            ["Parent informed", inc.parentInformed ? "Yes" : "No"],
+            ...(inc.kind === "suspension" ? [
+              ["Suspended", inc.suspensionFrom && inc.suspensionTo ? `${formatDate(inc.suspensionFrom, tz)} to ${formatDate(inc.suspensionTo, tz)}` : null],
+              ["Approved by", inc.approvedBy],
+            ] as [string, React.ReactNode][] : []),
+            ["Action taken", inc.actionTaken],
+          ]} />
           <CardBody className="space-y-4">
-            <p className="whitespace-pre-line">{inc.description}</p>
-            <dl className="grid gap-3 sm:grid-cols-2">
-              <Detail label="Date">{formatDate(inc.date, tz)}</Detail>
-              <Detail label="Reported by">{data.reporter?.displayName ?? null}</Detail>
-              <Detail label="Recorded">{formatDateTime(inc.createdAt, tz)}</Detail>
-              <Detail label="Parent informed">{inc.parentInformed ? "Yes" : "No"}</Detail>
-              {inc.kind === "suspension" && <Detail label="Suspended">{inc.suspensionFrom && inc.suspensionTo ? `${formatDate(inc.suspensionFrom, tz)} to ${formatDate(inc.suspensionTo, tz)}` : null}</Detail>}
-              {inc.kind === "suspension" && <Detail label="Approved by">{inc.approvedBy}</Detail>}
-              <Detail label="Action taken">{inc.actionTaken}</Detail>
-            </dl>
             {/* eslint-disable-next-line @next/next/no-img-element -- private signed link */}
             {inc.photoFileId && <img src={fileLink(inc.photoFileId, current.ctx.schoolId)} alt="Photo with the record" className="max-h-80 rounded-xl border border-line" />}
             {can.contribute && !inc.archivedAt && (
@@ -74,21 +77,19 @@ export default async function IncidentPage({ params }: { params: Promise<{ id: s
             )}
           </CardBody>
         </Card>
-        <div className="space-y-4">
+        <Col>
           <Card>
-            <CardHeader title={data.students.length === 1 ? "Student" : `${data.students.length} students`} />
-            <CardBody>
-              <ul className="space-y-1">{data.students.map((s) => <li key={s.id}><Link className="font-medium text-brand-text hover:underline" href={`${BASE}/students/${s.id}?tab=behaviour`}>{s.fullName}</Link> <span className="text-sm text-ink-2">{s.admissionNo}</span></li>)}</ul>
-            </CardBody>
+            <CardHeader title={data.students.length === 1 ? "Student" : `${data.students.length} students`} icon={Users} />
+            <ul className="px-2 pb-2">{data.students.map((s) => <Row key={s.id} avatar={s.fullName} title={s.fullName} sub={<span className="font-mono">{s.admissionNo}</span>} href={`${BASE}/students/${s.id}?tab=behaviour`} />)}</ul>
           </Card>
           {data.points.length > 0 && (
             <Card>
-              <CardHeader title="Points" />
-              <CardBody><ul className="space-y-1 text-[15px]">{data.points.map((p) => <li key={p.id} className="flex justify-between gap-2"><span>{data.students.find((s) => s.id === p.studentId)?.fullName}</span><strong>{p.points > 0 ? `+${p.points}` : p.points}</strong></li>)}</ul></CardBody>
+              <CardHeader title="Points" icon={Medal} />
+              <ul className="space-y-2 px-5 pb-5 text-[14px]">{data.points.map((p) => <li key={p.id} className="flex justify-between gap-2"><span>{data.students.find((s) => s.id === p.studentId)?.fullName}</span><b className={`font-semibold tnum ${p.points > 0 ? "text-ok" : p.points < 0 ? "text-bad" : ""}`}>{p.points > 0 ? `+${p.points}` : p.points}</b></li>)}</ul>
             </Card>
           )}
-        </div>
-      </div>
+        </Col>
+      </Split>
     </>
   );
 }

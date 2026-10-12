@@ -27,8 +27,7 @@ export default async function NewGuardianPage({ searchParams }: { searchParams: 
   return (
     <>
       <BackLink href={`${BASE}/guardians`} label="Parents & Guardians" />
-      <PageHeader title={student ? `Add parent for ${student.fullName}` : "Add parent"} href={`${BASE}/guardians/new`} userId={current.user.id} />
-      {student && <p className="-mt-3 mb-5 text-ink-2">A brother&apos;s or sister&apos;s parent already on record? Use <a className="font-medium text-brand-text underline" href={`${BASE}/guardians/link?student=${student.id}`}>Link existing parent</a> instead.</p>}
+      <PageHeader title={student ? `Add parent for ${student.fullName}` : "Add parent"} sub={student ? <>A brother&apos;s or sister&apos;s parent already on record? Use <a className="font-semibold text-brand hover:underline" href={`${BASE}/guardians/link?student=${student.id}`}>Link existing parent</a> instead.</> : undefined} href={`${BASE}/guardians/new`} userId={current.user.id} />
       <Card className="max-w-3xl">
         <CardBody>
           <GuardianForm action={saveGuardianAction.bind(null, null, student?.id ?? null)} studentId={student?.id ?? null} canRestrict={can.seeRestricted}

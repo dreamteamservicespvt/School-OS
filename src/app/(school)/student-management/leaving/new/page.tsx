@@ -28,12 +28,11 @@ export default async function StartLeavingPage({ searchParams }: { searchParams:
   return (
     <>
       <BackLink href={back} label={sp.student ? "Student profile" : "Leaving & Alumni"} />
-      <PageHeader title="Start leaving" href={`${BASE}/leaving/new`} userId={current.user.id} />
-      <p className="-mt-3 mb-5 max-w-prose text-ink-2">Fee dues, library books and other items are checked first. The TC can be issued when every check is clear. The student&apos;s status changes on the last date.</p>
+      <PageHeader title="Start leaving" sub={<>Fee dues, library books and other items are checked first. The TC can be issued when every check is clear. The student&apos;s status changes on the last date.</>} href={`${BASE}/leaving/new`} userId={current.user.id} />
       <Card className="max-w-2xl">
         <CardBody>
           <ActionForm action={startLeavingAction} submitLabel="Start leaving" pendingText="Checking clearance…"
-            footer={<Link href={back} className="inline-flex min-h-11 items-center rounded-lg px-4 font-medium text-brand-text hover:bg-surface-2">Cancel</Link>}>
+            footer={<Link href={back} className="inline-flex h-11 items-center rounded-xl px-4 text-[14px] font-semibold text-ink2 transition hover:bg-sunken hover:text-ink">Cancel</Link>}>
             <StudentPicker name="studentId" label="Student" sections={data.sections.map((s) => ({ value: s.value, label: s.label }))} initial={data.initial} />
             <FormChoice name="type" label="Type" defaultValue="TRANSFER" options={[
               { value: "TRANSFER", label: "Transfer", help: "Going to another school" },
@@ -44,10 +43,10 @@ export default async function StartLeavingPage({ searchParams }: { searchParams:
             <FormText name="lastDate" label="Last date" type="date" required defaultValue={todayIso(tz)} />
             <FormText name="destinationSchool" label="Destination school" help="Needed for a transfer." maxLength={200} />
             <div>
-              <label htmlFor="leaving-docs" className="mb-1 block text-sm font-medium">Documents</label>
+              <label htmlFor="leaving-docs" className="mb-1 block text-[13px] font-semibold text-ink2">Documents</label>
               <input id="leaving-docs" name="documents" type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf"
-                className="block w-full rounded-lg border border-line-strong bg-surface p-2 text-base file:mr-3 file:min-h-10 file:rounded-md file:border-0 file:bg-brand-soft file:px-3 file:text-brand-text" />
-              <p className="mt-1 text-sm text-ink-2">For example the parent&apos;s letter. PDF or photo, up to 5 files of 10 MB.</p>
+                className="block w-full rounded-xl border border-line bg-surface p-2 text-base file:mr-3 file:min-h-10 file:rounded-md file:border-0 file:bg-brand/10 file:px-3 file:text-brand" />
+              <p className="mt-1 text-[13.5px] text-ink2">For example the parent&apos;s letter. PDF or photo, up to 5 files of 10 MB.</p>
               <FormFieldError name="documents" />
             </div>
           </ActionForm>

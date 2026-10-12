@@ -142,11 +142,11 @@ export default async function Parent360({ params }: { params: Promise<{ id: stri
                           <ChevronRight size={17} className="text-ink3" aria-hidden="true" />
                         </Link>
                         <div className="grid grid-cols-2 gap-2 text-[13px]">
-                          <div className="rounded-lg bg-sunken/60 px-2.5 py-2">
+                          <div className="rounded-xl bg-sunken/60 px-2.5 py-2">
                             <p className="text-ink3 text-[12px] font-semibold">Attendance</p>
                             <p className={cx("font-semibold tnum", k.fact?.attendancePct != null && k.fact.attendancePct < 85 && "text-warn")}>{k.fact?.attendancePct != null ? `${Math.round(k.fact.attendancePct)}% this year` : "–"}</p>
                           </div>
-                          <div className="rounded-lg bg-sunken/60 px-2.5 py-2">
+                          <div className="rounded-xl bg-sunken/60 px-2.5 py-2">
                             <p className="text-ink3 text-[12px] font-semibold">Fees</p>
                             <p className={cx("font-semibold tnum", due > BigInt(0) && "text-bad")}>{!seeFees ? "–" : due > BigInt(0) ? `${formatRupees(due)} ${k.fact?.feeOverdue ? "overdue" : "due"}` : "Paid"}</p>
                           </div>

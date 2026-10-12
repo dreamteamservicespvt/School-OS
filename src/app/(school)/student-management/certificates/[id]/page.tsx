@@ -6,10 +6,11 @@ import { formatDate, formatDateTime } from "@/lib/format";
 import { canDecide } from "@/lib/approvals";
 import { PageHeader } from "@/components/shell/page-header";
 import { BackLink } from "@/components/ui/module-head";
-import { Card, CardBody, CardHeader, Detail } from "@/components/ui/card";
+import { Copy, FileBadge, FileText, Printer, QrCode } from "lucide-react";
+import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { Banner, Col, DL } from "@/components/ui/blocks";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
-import { Alert } from "@/components/ui/alert";
 import { ActionButton, ConfirmAction } from "@/components/students/confirm-action";
 import { CERTIFICATE_LABEL, CERT_STATUS_LABEL, CERT_STATUS_TONE } from "@/lib/students/labels";
 import { certificateData, certificateHtml, printContext } from "@/lib/students/certificates";
@@ -48,31 +49,31 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
 
   return (
     <>
-      <BackLink href={`${BASE}/certificates`} label="Certificates & ID Cards" />
-      <PageHeader title={`${label}${cert.number ? ` ${cert.number}` : ""}`} href={`${BASE}/certificates/${id}`} userId={current.user.id}>
-        {printable && <ButtonLink href={pdf} target="_blank" variant="primary" prefetch={false}>{cert.status === "ISSUED" ? "Print / download PDF" : "View PDF"}</ButtonLink>}
+      <BackLink href={`${BASE}/certificates`} label="Certificates & ID Cards" sub={student.fullName} />
+      <PageHeader title={label} sub={<>{student.fullName} · <span className="font-mono">{cert.number ?? "number given when approved"}</span></>} href={`${BASE}/certificates/${id}`} userId={current.user.id}>
+        {printable && <ButtonLink href={pdf} target="_blank" variant="primary" prefetch={false} icon={Printer}>{cert.status === "ISSUED" ? "Print / download PDF" : "View PDF"}</ButtonLink>}
       </PageHeader>
-      <div className="grid gap-4 lg:grid-cols-[22rem_1fr]">
-        <div className="space-y-4">
+      <div className="grid items-start gap-5 lg:gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
+        <Col>
           <Card>
-            <CardHeader title="Details" action={<Badge tone={CERT_STATUS_TONE[cert.status]}>{CERT_STATUS_LABEL[cert.status]}</Badge>} />
-            <CardBody className="space-y-3">
-              <Detail label="Student"><Link className="text-brand-text underline" href={`${BASE}/students/${student.id}`}>{student.fullName}</Link> · {student.admissionNo}</Detail>
-              <Detail label="Number">{cert.number ?? "Given when approved"}</Detail>
-              <Detail label="Date of issue">{formatDate(cert.issueDate, tz)}</Detail>
-              {cert.purpose && <Detail label="Purpose">{cert.purpose}</Detail>}
-              <Detail label="Signatory">{data.signatory ? `${data.signatory.name}, ${data.signatory.title}` : "Not chosen"}</Detail>
-              {cert.duplicateReason && <Detail label="Why a duplicate">{cert.duplicateReason}</Detail>}
-              <Detail label="Asked">{formatDateTime(cert.createdAt, tz)} by {person(cert.requestedById)}</Detail>
-              {cert.approvedById && <Detail label="Approved by">{person(cert.approvedById)}</Detail>}
-              {cert.issuedAt && <Detail label="Issued">{formatDateTime(cert.issuedAt, tz)} by {person(cert.issuedById)}</Detail>}
-              {cert.cancelReason && <Detail label="Why cancelled">{cert.cancelReason}</Detail>}
-              {settings.qrOn && cert.status === "ISSUED" && <Detail label="QR check"><Link className="text-brand-text underline" href={`/verify/${cert.verifyCode}`} target="_blank">Open the public check</Link></Detail>}
-            </CardBody>
+            <CardHeader title="Details" icon={FileBadge} action={<Badge tone={CERT_STATUS_TONE[cert.status]}>{CERT_STATUS_LABEL[cert.status]}</Badge>} />
+            <DL cols={1} rows={([
+              ["Student", <><Link className="font-semibold text-brand hover:underline" href={`${BASE}/students/${student.id}`}>{student.fullName}</Link> · <span className="font-mono text-[13px]">{student.admissionNo}</span></>],
+              ["Number", cert.number ? <span className="font-mono text-[13.5px]">{cert.number}</span> : "Given when approved"],
+              ["Date of issue", formatDate(cert.issueDate, tz)],
+              cert.purpose ? ["Purpose", cert.purpose] : null,
+              ["Signatory", data.signatory ? `${data.signatory.name}, ${data.signatory.title}` : "Not chosen"],
+              cert.duplicateReason ? ["Why a duplicate", cert.duplicateReason] : null,
+              ["Asked", `${formatDateTime(cert.createdAt, tz)} by ${person(cert.requestedById)}`],
+              cert.approvedById ? ["Approved by", person(cert.approvedById)] : null,
+              cert.issuedAt ? ["Issued", `${formatDateTime(cert.issuedAt, tz)} by ${person(cert.issuedById)}`] : null,
+              cert.cancelReason ? ["Why cancelled", cert.cancelReason] : null,
+              settings.qrOn && cert.status === "ISSUED" ? ["QR check", <Link key="q" className="inline-flex items-center gap-1.5 font-semibold text-brand hover:underline" href={`/verify/${cert.verifyCode}`} target="_blank"><QrCode size={15} aria-hidden="true" />Open the public check</Link>] : null,
+            ] as ([string, React.ReactNode] | null)[]).filter((r): r is [string, React.ReactNode] => r !== null)} />
           </Card>
           {can.manage && cert.status !== "CANCELLED" && (
             <Card>
-              <CardBody className="flex flex-wrap gap-2">
+              <CardBody className="flex flex-wrap gap-2 !pt-5">
                 {cert.status === "REQUESTED" && (data.mayDecide ? (
                   <>
                     <ConfirmAction action={decideCertificateAction} fields={{ id, decision: "approve" }} trigger="Approve" triggerVariant="primary" title={`Approve this ${CERTIFICATE_LABEL[cert.type].toLowerCase()}?`} confirmLabel="Approve">
@@ -82,21 +83,21 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
                       The person who asked is told, with your reason.
                     </ConfirmAction>
                   </>
-                ) : <p className="w-full text-sm text-ink-2">Waiting for approval{data.approval?.currentApproverRole ? ` by the ${data.approval.currentApproverRole.replace(/-/g, " ")}` : ""}. It shows in Approvals.</p>)}
+                ) : <p className="w-full text-[13.5px] text-ink2">Waiting for approval{data.approval?.currentApproverRole ? ` by the ${data.approval.currentApproverRole.replace(/-/g, " ")}` : ""}. It shows in Approvals.</p>)}
                 {cert.status === "APPROVED" && <ActionButton action={issueCertificateAction} fields={{ id }} variant="primary" size="md">Issue</ActionButton>}
-                {cert.status === "ISSUED" && cert.type === "TC" && <ButtonLink href={`${BASE}/certificates/new?student=${cert.studentId}&type=TC`} size="sm">Print a duplicate</ButtonLink>}
+                {cert.status === "ISSUED" && cert.type === "TC" && <ButtonLink href={`${BASE}/certificates/new?student=${cert.studentId}&type=TC`} icon={Copy}>Print a duplicate</ButtonLink>}
                 <ConfirmAction action={cancelCertificateAction} fields={{ id }} trigger="Cancel certificate" triggerVariant="danger-outline" title="Cancel this certificate?" confirmLabel="Cancel certificate" confirmVariant="danger" reason={{ label: "Reason", min: 5 }}>
                   {cert.number ? `Number ${cert.number} is not used again. ` : ""}The QR check will say Cancelled. The record stays.
                 </ConfirmAction>
               </CardBody>
             </Card>
           )}
-        </div>
-        <Card>
-          <CardHeader title={printable ? "The certificate" : "Preview"} description={printable ? undefined : "How it will look. The number and QR code are added when it is issued."} />
+        </Col>
+        <Card className="min-w-0">
+          <CardHeader icon={FileText} title={printable ? "The certificate" : "Preview"} description={printable ? undefined : "How it will look. The number and QR code are added when it is issued."} />
           <CardBody>
-            {cert.status === "APPROVED" && <Alert tone="info" className="mb-3">Approved. Press Issue to print it.</Alert>}
-            <iframe title={label} srcDoc={data.html} sandbox="" className="h-[70vh] w-full rounded-lg border border-line bg-surface-2" />
+            {cert.status === "APPROVED" && <Banner tone="info" className="mb-3">Approved. Press Issue to print it.</Banner>}
+            <iframe title={label} srcDoc={data.html} sandbox="" className="h-[70vh] w-full rounded-xl border border-line bg-surface" />
           </CardBody>
         </Card>
       </div>

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { CertificateType } from "@prisma/client";
-import { ArrowRight, ArrowUpRight, FileBadge, Fingerprint, Hash, IdCard, ListChecks, LogOut, Medal, Workflow } from "lucide-react";
+import { ArrowRight, ArrowUpRight, FileBadge, Fingerprint, Hash, IdCard, LogOut, Medal, Workflow } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { StudentsHead } from "../_lib/head";

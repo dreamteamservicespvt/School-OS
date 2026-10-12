@@ -30,8 +30,7 @@ export default async function ReportIncidentPage({ searchParams }: { searchParam
   return (
     <>
       <BackLink href={`${BASE}/behaviour`} label="Behaviour & Counselling" />
-      <PageHeader title="Report incident" href={`${BASE}/behaviour/new`} userId={current.user.id} />
-      <p className="-mt-3 mb-5 text-ink-2">Also for a warning, a suspension, a reward or recognition.</p>
+      <PageHeader title="Report incident" sub={<>Also for a warning, a suspension, a reward or recognition.</>} href={`${BASE}/behaviour/new`} userId={current.user.id} />
       <Card className="max-w-3xl">
         <CardBody>
           <IncidentForm types={settings.incidentTypes} sections={data.sections.map((s) => ({ value: s.value, label: s.label }))} initial={data.initial}

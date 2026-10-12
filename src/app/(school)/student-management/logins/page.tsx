@@ -28,7 +28,7 @@ export default async function StudentLoginsPage({ searchParams }: { searchParams
       <BackLink href={BASE} label="Students" />
       <PageHeader title="Student logins" href={`${BASE}/logins`} userId={current.user.id} />
       {!settings.studentLoginsOn ? (
-        <Card className="max-w-2xl"><CardBody><p>Student logins are switched off. Switch them on in <Link className="font-medium text-brand-text underline" href={`${BASE}/settings`}>Student Settings</Link>.</p></CardBody></Card>
+        <Card className="max-w-2xl"><CardBody><p>Student logins are switched off. Switch them on in <Link className="font-semibold text-brand hover:underline" href={`${BASE}/settings`}>Student Settings</Link>.</p></CardBody></Card>
       ) : (
         <div className="max-w-3xl space-y-4">
           <Card>
@@ -42,7 +42,7 @@ export default async function StudentLoginsPage({ searchParams }: { searchParams
               )}
               {data.students.length > 0 && (
                 <>
-                  <p className="text-[15px] text-ink-2">{data.students.slice(0, 12).map((s) => s.name).join(", ")}{data.students.length > 12 ? ` and ${data.students.length - 12} more` : ""}.</p>
+                  <p className="text-[15px] text-ink2">{data.students.slice(0, 12).map((s) => s.name).join(", ")}{data.students.length > 12 ? ` and ${data.students.length - 12} more` : ""}.</p>
                   <LoginsForm ids={data.students.map((s) => s.id)} />
                 </>
               )}

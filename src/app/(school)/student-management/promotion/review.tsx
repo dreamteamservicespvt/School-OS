@@ -65,7 +65,7 @@ export function PromotionReview({ rows, fromSectionId, fromLabel, fromYear, toYe
       <FormMessage state={state} />
       {step === "review" ? (
         <>
-          {!hasFacts && <p className="rounded-xl bg-info-soft px-4 py-3 text-sm">Results, attendance and fee dues show here once Examination &amp; Results, Attendance and Fee Management are in use. Until then every student is suggested for promotion.</p>}
+          {!hasFacts && <p className="rounded-xl bg-info-soft px-4 py-3 text-[13.5px]">Results, attendance and fee dues show here once Examination &amp; Results, Attendance and Fee Management are in use. Until then every student is suggested for promotion.</p>}
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="secondary" onClick={() => setDec((d) => Object.fromEntries(Object.entries(d).map(([k, v]) => [k, { ...v, decision: open.find((r) => r.studentId === k)!.suggested, reason: "" }])))}>Use every suggestion</Button>
             {!finalClass && <Button size="sm" variant="secondary" onClick={() => setDec((d) => Object.fromEntries(Object.entries(d).map(([k, v]) => [k, { ...v, decision: "PROMOTE" as Kind }])))}>Promote everyone</Button>}
@@ -78,24 +78,24 @@ export function PromotionReview({ rows, fromSectionId, fromLabel, fromYear, toYe
                 <li key={r.studentId} className={`rounded-xl border bg-surface p-3 ${r.alreadyIn ? "border-line opacity-70" : changed ? "border-warn" : "border-line"}`}>
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="font-medium">{r.rollNo ? `${r.rollNo}. ` : ""}{r.fullName} <span className="text-sm font-normal text-ink-2">{r.admissionNo}</span></p>
-                      <p className="mt-0.5 flex flex-wrap gap-x-3 text-sm text-ink-2">
+                      <p className="font-medium">{r.rollNo ? `${r.rollNo}. ` : ""}{r.fullName} <span className="text-[13.5px] font-normal text-ink2">{r.admissionNo}</span></p>
+                      <p className="mt-0.5 flex flex-wrap gap-x-3 text-[13.5px] text-ink2">
                         {r.result && <span>Result: <strong className="text-ink">{r.result}</strong></span>}
                         {r.attendance && <span>Attendance: <strong className="text-ink">{r.attendance}</strong></span>}
-                        {r.feeDue && <span className="text-warn-text">Fees due: {r.feeDue}</span>}
+                        {r.feeDue && <span className="text-ink">Fees due: {r.feeDue}</span>}
                       </p>
-                      <p className="mt-1 text-sm">Suggested: <Badge tone={TONE[r.suggested]}>{LABEL[r.suggested]}</Badge> <span className="text-ink-2">({r.why})</span></p>
+                      <p className="mt-1 text-[13.5px]">Suggested: <Badge tone={TONE[r.suggested]}>{LABEL[r.suggested]}</Badge> <span className="text-ink2">({r.why})</span></p>
                     </div>
                     {r.alreadyIn ? <Badge>Already in {r.alreadyIn}</Badge> : (
                       <div className="flex flex-wrap gap-2">
                         <label><span className="sr-only">Decision for {r.fullName}</span>
-                          <select value={d.decision} onChange={(e) => set(r.studentId, { decision: e.target.value as Kind, toSectionId: "" })} className="h-11 rounded-lg border border-line-strong bg-surface px-2">
+                          <select value={d.decision} onChange={(e) => set(r.studentId, { decision: e.target.value as Kind, toSectionId: "" })} className="h-11 rounded-xl border border-line bg-surface px-2">
                             {(["PROMOTE", "DETAIN", "LEAVING"] as Kind[]).filter((k) => k !== "PROMOTE" || !finalClass).map((k) => <option key={k} value={k}>{LABEL[k]}</option>)}
                           </select>
                         </label>
                         {d.decision !== "LEAVING" && (
                           <label><span className="sr-only">Section for {r.fullName}</span>
-                            <select value={d.toSectionId} onChange={(e) => set(r.studentId, { toSectionId: e.target.value })} className="h-11 rounded-lg border border-line-strong bg-surface px-2">
+                            <select value={d.toSectionId} onChange={(e) => set(r.studentId, { toSectionId: e.target.value })} className="h-11 rounded-xl border border-line bg-surface px-2">
                               <option value="">{d.decision === "PROMOTE" ? toClassName : fromLabel.split(" ").slice(0, -1).join(" ")} {defaultName(d.decision)}</option>
                               {(d.decision === "PROMOTE" ? targetSections : detainSections).filter((s) => s.name !== defaultSectionName).map((s) => <option key={s.id} value={s.id}>{d.decision === "PROMOTE" ? toClassName : ""} {s.name}</option>)}
                             </select>
@@ -106,15 +106,15 @@ export function PromotionReview({ rows, fromSectionId, fromLabel, fromYear, toYe
                   </div>
                   {changed && (
                     <label className="mt-2 block">
-                      <span className="mb-1 block text-sm font-medium">Reason for the change<span className="text-danger" aria-hidden="true"> *</span></span>
-                      <input value={d.reason} onChange={(e) => set(r.studentId, { reason: e.target.value })} className="h-11 w-full rounded-lg border border-line-strong bg-surface px-3 text-base" />
+                      <span className="mb-1 block text-[13px] font-semibold text-ink2">Reason for the change<span className="text-bad" aria-hidden="true"> *</span></span>
+                      <input value={d.reason} onChange={(e) => set(r.studentId, { reason: e.target.value })} className="h-11 w-full rounded-xl border border-line bg-surface px-3 text-base" />
                     </label>
                   )}
                 </li>
               );
             })}
           </ul>
-          {missingReason.length > 0 && <p className="text-sm text-danger" role="alert">Give a reason for {missingReason.length} changed {missingReason.length === 1 ? "decision" : "decisions"} ({missingReason.slice(0, 3).map((r) => r.fullName).join(", ")}{missingReason.length > 3 ? "…" : ""}).</p>}
+          {missingReason.length > 0 && <p className="text-[13.5px] text-bad" role="alert">Give a reason for {missingReason.length} changed {missingReason.length === 1 ? "decision" : "decisions"} ({missingReason.slice(0, 3).map((r) => r.fullName).join(", ")}{missingReason.length > 3 ? "…" : ""}).</p>}
           <div className="sticky bottom-20 z-10 flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-surface p-3 shadow-pop sm:bottom-4">
             <p className="flex-1 font-medium">{summary}</p>
             <Button disabled={missingReason.length > 0} onClick={() => { setStep("confirm"); top.current?.scrollIntoView({ behavior: "smooth" }); }}>Review and confirm</Button>
@@ -124,7 +124,7 @@ export function PromotionReview({ rows, fromSectionId, fromLabel, fromYear, toYe
         <form action={action} className="space-y-4 rounded-2xl border border-line bg-surface p-5 shadow-card">
           <h2 className="text-lg font-semibold">Promote {open.length} students from {fromLabel} ({fromYear}) to {toYearName}?</h2>
           <p className="text-lg">{summary}</p>
-          <ul className="list-disc space-y-1 pl-5 text-ink-2">
+          <ul className="list-disc space-y-1 pl-5 text-ink2">
             <li>Each student gets a new class for {toYearName} with the new year&apos;s fee plan.</li>
             <li>{fromLabel} in {fromYear} keeps the same students, roll numbers and marks.</li>
             <li>Students marked Leaving go to the Leaving &amp; Alumni list.</li>

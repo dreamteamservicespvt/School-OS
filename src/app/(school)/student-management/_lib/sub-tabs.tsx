@@ -14,7 +14,7 @@ export function SubTabs({ tabs, label }: { tabs: { href: string; label: string; 
           return (
             <li key={t.href}>
               <Link href={t.href} aria-current={on ? "page" : undefined}
-                className={`inline-flex min-h-11 items-center whitespace-nowrap rounded-full px-4 text-[15px] ${on ? "bg-brand-soft font-semibold text-brand-text" : "text-ink-2 hover:bg-surface-2 hover:text-ink"}`}>{t.label}</Link>
+                className={`inline-flex min-h-11 items-center whitespace-nowrap rounded-full px-4 text-[15px] ${on ? "bg-brand/8 font-semibold text-brand" : "text-ink2 hover:bg-sunken hover:text-ink"}`}>{t.label}</Link>
             </li>
           );
         })}

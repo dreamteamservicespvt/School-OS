@@ -6,9 +6,12 @@ import { formatDate, formatDateTime } from "@/lib/format";
 import { fileLink } from "@/lib/files";
 import { PageHeader } from "@/components/shell/page-header";
 import { BackLink } from "@/components/ui/module-head";
-import { Card, CardBody, CardHeader, Detail } from "@/components/ui/card";
-import { Alert } from "@/components/ui/alert";
+import { BookOpen, Boxes, CircleCheck, ClipboardCheck, FileOutput, IndianRupee, Info, ListChecks, ShieldCheck, UserRound } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { Card, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Banner, Col, DL, Split } from "@/components/ui/blocks";
+import { cx } from "@/components/ui/cx";
 import { ButtonLink } from "@/components/ui/button";
 import { ActionButton, ConfirmAction } from "@/components/students/confirm-action";
 import { blockMessage, isCleared } from "@/lib/students/leaving";
@@ -17,6 +20,8 @@ import { askWaiverAction, cancelLeavingAction, completeLeavingAction, refreshCle
 import { CERT_LABEL, CHECK_LABEL, CHECK_TONE, LEAVING_TYPE_LABEL, studentFacts } from "../load";
 
 export const metadata: Metadata = { title: "Leaving" };
+
+const CHECK_ICON: Record<string, LucideIcon> = { Fees: IndianRupee, Library: BookOpen, Inventory: Boxes };
 
 const STATUS = { IN_PROGRESS: { label: "In progress", tone: "warning" }, LEFT: { label: "Left", tone: "neutral" }, CANCELLED: { label: "Cancelled", tone: "neutral" } } as const;
 
@@ -45,102 +50,105 @@ export default async function LeavingRequestPage({ params }: { params: Promise<{
 
   return (
     <>
-      <BackLink href={`${BASE}/leaving`} label="Leaving & Alumni" />
-      <PageHeader title={`${student.name} is ${open ? "leaving" : req.status === "LEFT" ? "left" : "not leaving (cancelled)"}`} href={`${BASE}/leaving/${id}`} userId={current.user.id}>
-        <ButtonLink href={`${BASE}/students/${req.studentId}`} size="sm">Student Profile</ButtonLink>
+      <BackLink href={`${BASE}/leaving`} label="Leaving & Alumni" sub={student.name} />
+      <PageHeader title={`${student.name} is ${open ? "leaving" : req.status === "LEFT" ? "left" : "not leaving (cancelled)"}`} href={`${BASE}/leaving/${id}`} userId={current.user.id}
+        sub={`${LEAVING_TYPE_LABEL[req.type]} · ${req.reason} · last day ${formatDate(req.lastDate, tz)}${req.destinationSchool ? ` · to ${req.destinationSchool}` : ""}`}>
+        <ButtonLink href={`${BASE}/students/${req.studentId}`} icon={UserRound}>Student Profile</ButtonLink>
       </PageHeader>
-      <div className="grid gap-4 lg:grid-cols-[1fr_22rem]">
-        <div className="space-y-4">
+      <Split side={340}>
+        <Col>
           {open && (cleared
-            ? <Alert tone="success" title="Clearance passed">{tc ? `The TC is ${CERT_LABEL[tc.status].toLowerCase()}${tc.number ? ` (${tc.number})` : ""}.` : "The TC can be issued now."}</Alert>
-            : <Alert tone="warning" title="Clearance pending">{block}. Settle each one below, or ask for a waiver with a reason.</Alert>)}
+            ? <Banner tone="ok" title="Clearance passed.">{tc ? `The TC is ${CERT_LABEL[tc.status].toLowerCase()}${tc.number ? ` (${tc.number})` : ""}.` : "The TC can be issued now."}</Banner>
+            : <Banner tone="warn" title="Clearance pending.">{block}. Settle each one below, or ask for a waiver with a reason.</Banner>)}
           <Card>
-            <CardHeader title="Clearance" description="Checked when leaving started and each time you check again. Only modules that are switched on are checked."
+            <CardHeader title="Clearance" icon={ListChecks} description="Checked when leaving started and each time you check again. Only modules that are switched on are checked."
               action={open && can.manage ? <ActionButton action={refreshClearanceAction} fields={{ id }}>Check again</ActionButton> : undefined} />
-            <CardBody>
+            <div className="px-5 pb-5">
               {req.checks.length === 0 ? (
-                <p className="text-ink-2">Nothing to check yet: fee dues and library books are checked here once Fee Management and Library Management are in use. Clearance passes.</p>
+                <div className="flex items-start gap-3 rounded-2xl bg-sunken/60 px-4 py-3 text-[14px] text-ink2"><Info size={18} className="mt-0.5 shrink-0 text-ink3" aria-hidden="true" />Nothing to check yet: fee dues and library books are checked here once Fee Management and Library Management are in use. Clearance passes.</div>
               ) : (
-                <ul className="divide-y divide-line">
-                  {req.checks.map((c) => (
-                    <li key={c.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
-                      <div className="min-w-0">
-                        <p className="font-medium">{c.name} <Badge tone={CHECK_TONE[c.status]}>{CHECK_LABEL[c.status]}</Badge></p>
-                        <p className="text-sm text-ink-2">{c.detail}{c.waiverReason ? ` · Waiver reason: ${c.waiverReason}` : ""} · checked {formatDateTime(c.checkedAt, tz)}</p>
-                      </div>
-                      {open && can.manage && c.status === "PENDING" && (
-                        <div className="flex flex-wrap gap-2">
-                          {c.actionHref && <ButtonLink href={c.actionHref} size="sm" variant="primary">{c.actionLabel ?? "Settle"}</ButtonLink>}
-                          <ConfirmAction action={askWaiverAction} fields={{ checkId: c.id }} trigger="Ask for waiver" triggerVariant="secondary"
-                            title={`Waive ${c.name} for ${student.name}?`} confirmLabel="Send for approval" reason={{ label: "Reason", min: 5 }}>
-                            {c.detail}. The waiver goes to Approvals; someone allowed to approve it decides. The check stays pending until then.
-                          </ConfirmAction>
+                <ul className="divide-y divide-line/70 rounded-2xl border border-line">
+                  {req.checks.map((c) => {
+                    const ok = c.status === "CLEAR" || c.status === "WAIVED";
+                    const Ic = CHECK_ICON[c.name] ?? ClipboardCheck;
+                    return (
+                      <li key={c.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
+                        <span className={cx("grid size-9 shrink-0 place-items-center rounded-xl", ok ? "bg-ok/10 text-ok" : c.status === "WAIVER_ASKED" ? "bg-warn/12 text-warn" : "bg-bad/10 text-bad")}><Ic size={17} aria-hidden="true" /></span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[14px] font-semibold">{c.name} <Badge tone={CHECK_TONE[c.status]} className="!h-[22px] !text-[11.5px] align-middle">{CHECK_LABEL[c.status]}</Badge></p>
+                          <p className={cx("text-[12.5px]", ok ? "text-ink3" : "text-ink2")}>{c.detail}{c.waiverReason ? ` · Waiver reason: ${c.waiverReason}` : ""} · checked {formatDateTime(c.checkedAt, tz)}</p>
                         </div>
-                      )}
-                      {c.status === "WAIVER_ASKED" && c.approvalId && <Link href="/approvals" className="text-sm font-medium text-brand-text underline">See in Approvals</Link>}
-                    </li>
-                  ))}
+                        {ok && <CircleCheck size={18} className="text-ok" aria-hidden="true" />}
+                        {open && can.manage && c.status === "PENDING" && (
+                          <div className="flex flex-wrap gap-2">
+                            {c.actionHref && <ButtonLink href={c.actionHref} size="sm" variant="soft">{c.actionLabel ?? "Settle"}</ButtonLink>}
+                            <ConfirmAction action={askWaiverAction} fields={{ checkId: c.id }} trigger="Ask for waiver" triggerVariant="secondary"
+                              title={`Waive ${c.name} for ${student.name}?`} confirmLabel="Send for approval" reason={{ label: "Reason", min: 5 }}>
+                              {c.detail}. The waiver goes to Approvals; someone allowed to approve it decides. The check stays pending until then.
+                            </ConfirmAction>
+                          </div>
+                        )}
+                        {c.status === "WAIVER_ASKED" && c.approvalId && <Link href="/approvals" className="text-[13px] font-semibold text-brand hover:underline">See in Approvals</Link>}
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
-            </CardBody>
+            </div>
           </Card>
-          <Card>
-            <CardHeader title="Certificates" />
-            <CardBody>
-              {data.certs.length === 0 ? <p className="text-ink-2">No TC yet.</p> : (
-                <ul className="divide-y divide-line">
-                  {data.certs.map((c) => (
-                    <li key={c.id} className="flex flex-wrap justify-between gap-2 py-2">
-                      <Link className="font-medium hover:underline" href={`${BASE}/certificates/${c.id}`}>{c.type === "TC" ? "Transfer certificate" : c.type}{c.number ? ` ${c.number}` : ""}{c.isDuplicate ? " (duplicate)" : ""}</Link>
+          <Card className="overflow-hidden">
+            <CardHeader title="Certificates" icon={FileOutput} divided={data.certs.length > 0}
+              action={open && can.manage && !tc && cleared ? <ButtonLink href={`${BASE}/certificates/new?student=${req.studentId}&type=TC`} variant="primary" size="sm" icon={FileOutput}>Issue TC</ButtonLink> : undefined} />
+            {data.certs.length === 0 ? (
+              <p className="px-5 pb-5 text-[14px] text-ink3">{open && can.manage && !tc && !cleared ? "No TC yet. It can be issued when every check is clear or waived." : "No TC yet."}</p>
+            ) : (
+              <ul className="divide-y divide-line">
+                {data.certs.map((c) => (
+                  <li key={c.id}>
+                    <Link className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 transition hover:bg-sunken/60" href={`${BASE}/certificates/${c.id}`}>
+                      <span className="min-w-0"><span className="block text-[14px] font-semibold">{c.type === "TC" ? "Transfer certificate" : c.type}{c.isDuplicate ? " (duplicate)" : ""}</span>{c.number && <span className="block font-mono text-[12.5px] text-ink3">{c.number}</span>}</span>
                       <Badge tone={c.status === "ISSUED" ? "success" : c.status === "CANCELLED" ? "neutral" : "warning"}>{CERT_LABEL[c.status]}</Badge>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {open && can.manage && !tc && (
-                cleared
-                  ? <ButtonLink href={`${BASE}/certificates/new?student=${req.studentId}&type=TC`} variant="primary" className="mt-3">Issue TC</ButtonLink>
-                  : <p className="mt-3 text-sm text-ink-2">The TC can be issued when every check is clear or waived.</p>
-              )}
-            </CardBody>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
           </Card>
-        </div>
-        <div className="space-y-4">
+        </Col>
+        <Col>
           <Card>
-            <CardHeader title="Details" action={<Badge tone={STATUS[req.status].tone}>{STATUS[req.status].label}</Badge>} />
-            <CardBody className="space-y-3">
-              <Detail label="Student">{student.name} · {student.admissionNo}{student.cls ? ` · ${student.cls}` : ""}</Detail>
-              <Detail label="Type">{LEAVING_TYPE_LABEL[req.type]}</Detail>
-              <Detail label="Reason">{req.reason}</Detail>
-              <Detail label="Last date">{formatDate(req.lastDate, tz)}</Detail>
-              {req.destinationSchool && <Detail label="Destination school">{req.destinationSchool}</Detail>}
-              {req.cancelReason && <Detail label="Why cancelled">{req.cancelReason}</Detail>}
-              <Detail label="Started">{formatDateTime(req.createdAt, tz)} by {data.people[0]?.displayName ?? "someone"}</Detail>
-              {req.documentFileIds.length > 0 && (
-                <Detail label="Documents">
-                  <ul>{req.documentFileIds.map((f, i) => <li key={f}><a className="text-brand-text underline" href={fileLink(f, current.ctx.schoolId)} target="_blank" rel="noreferrer">Document {i + 1}</a></li>)}</ul>
-                </Detail>
-              )}
-            </CardBody>
+            <CardHeader title="Details" icon={ShieldCheck} action={<Badge tone={STATUS[req.status].tone}>{STATUS[req.status].label}</Badge>} />
+            <DL cols={1} rows={[
+              ["Student", <>{student.name} · <span className="font-mono text-[13px]">{student.admissionNo}</span>{student.cls ? ` · ${student.cls}` : ""}</>],
+              ["Type", LEAVING_TYPE_LABEL[req.type]],
+              ["Reason", req.reason],
+              ["Last date", formatDate(req.lastDate, tz)],
+              ...(req.destinationSchool ? [["Destination school", req.destinationSchool] as [string, React.ReactNode]] : []),
+              ...(req.cancelReason ? [["Why cancelled", req.cancelReason] as [string, React.ReactNode]] : []),
+              ["Started", `${formatDateTime(req.createdAt, tz)} by ${data.people[0]?.displayName ?? "someone"}`],
+              ...(req.documentFileIds.length > 0 ? [["Documents", <ul key="d">{req.documentFileIds.map((f, i) => <li key={f}><a className="font-semibold text-brand hover:underline" href={fileLink(f, current.ctx.schoolId)} target="_blank" rel="noreferrer">Document {i + 1}</a></li>)}</ul>] as [string, React.ReactNode]] : []),
+            ]} />
           </Card>
           {open && can.manage && (
             <Card>
-              <CardBody className="flex flex-wrap gap-2">
+              <div className="flex flex-col gap-3 p-5">
                 {due ? (
                   <ConfirmAction action={completeLeavingAction} fields={{ id }} trigger="Mark as left" triggerVariant="primary"
                     title={`Mark ${student.name} as left?`} confirmLabel="Mark as left">
                     The status changes to {req.type === "TRANSFER" ? "Transferred" : req.type === "GRADUATION" ? "Graduated" : "Withdrawn"} from {formatDate(req.lastDate, tz)}. The record stays, and the student no longer shows in class lists.
                   </ConfirmAction>
-                ) : <p className="w-full text-sm text-ink-2">The status changes by itself on {formatDate(req.lastDate, tz)}.</p>}
-                <ConfirmAction action={cancelLeavingAction} fields={{ id }} trigger="Cancel leaving" triggerVariant="danger-outline"
-                  title="Cancel this leaving request?" confirmLabel="Cancel leaving" confirmVariant="danger" reason={{ label: "Reason", min: 5, placeholder: "For example: the family decided to stay." }}>
-                  {student.name} stays in the class. A TC that is waiting for approval is cancelled too.
-                </ConfirmAction>
-              </CardBody>
+                ) : <p className="text-[13.5px] text-ink2">The status changes by itself on {formatDate(req.lastDate, tz)}.</p>}
+                <div>
+                  <ConfirmAction action={cancelLeavingAction} fields={{ id }} trigger="Cancel leaving" triggerVariant="danger-outline"
+                    title="Cancel this leaving request?" confirmLabel="Cancel leaving" confirmVariant="danger" reason={{ label: "Reason", min: 5, placeholder: "For example: the family decided to stay." }}>
+                    {student.name} stays in the class. A TC that is waiting for approval is cancelled too.
+                  </ConfirmAction>
+                </div>
+              </div>
             </Card>
           )}
-        </div>
-      </div>
+        </Col>
+      </Split>
     </>
   );
 }

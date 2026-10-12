@@ -40,16 +40,13 @@ export default async function MergeGuardianPage({ params, searchParams }: { para
   return (
     <>
       <BackLink href={back} label={data.keep.name} sub="Merge" />
-      <PageHeader title="Merge parent records" href={`${back}/merge`} userId={current.user.id} />
-      <p className="-mt-3 mb-5 max-w-prose text-ink-2">
-        Keep <strong>{data.keep.name}</strong> ({data.keep.phone}) and move another record&apos;s children, consent records and documents to it. The other record is archived, not deleted.
-      </p>
+      <PageHeader title="Merge parent records" sub={<span className="block max-w-prose">Keep <strong>{data.keep.name}</strong> ({data.keep.phone}) and move another record&apos;s children, consent records and documents to it. The other record is archived, not deleted.</span>} href={`${back}/merge`} userId={current.user.id} />
       <div className="grid max-w-4xl gap-4">
         <Card>
           <CardBody>
             <form method="get" className="flex flex-wrap gap-2">
               <label className="min-w-0 flex-1 basis-60"><span className="sr-only">Phone or name</span>
-                <input name="q" type="search" defaultValue={q} placeholder="Search another record by phone or name" className="h-11 w-full rounded-lg border border-line-strong bg-surface px-3 text-base" />
+                <input name="q" type="search" defaultValue={q} placeholder="Search another record by phone or name" className="h-11 w-full rounded-xl border border-line bg-surface px-3 text-base" />
               </label>
               <button type="submit" className={buttonClass("secondary")}>Find</button>
             </form>
@@ -62,7 +59,7 @@ export default async function MergeGuardianPage({ params, searchParams }: { para
             <CardHeader title={q ? "Records found" : "Likely the same person"} />
             <CardBody>
               <ActionForm action={mergeAction.bind(null, id)} submitLabel={`Merge into ${data.keep.name}`} pendingText="Merging…"
-                footer={<Link href={back} className="inline-flex min-h-11 items-center rounded-lg px-4 font-medium text-brand-text hover:bg-surface-2">Cancel</Link>}>
+                footer={<Link href={back} className="inline-flex h-11 items-center rounded-xl px-4 text-[14px] font-semibold text-ink2 transition hover:bg-sunken hover:text-ink">Cancel</Link>}>
                 <FormChoice name="mergeId" label="Record to merge in" columns={2}
                   options={data.found.map((g) => ({ value: g.id, label: `${g.name} (${g.relationship})`, help: `${g.phone}${g.students.length ? ` · ${g.students.map((s) => s.student.fullName).join(", ")}` : " · no children"}` }))} />
               </ActionForm>

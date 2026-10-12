@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { formatDate, formatRupees } from "@/lib/format";
 import { PageHeader } from "@/components/shell/page-header";
 import { BackLink } from "@/components/ui/module-head";
-import { Card, CardBody, CardHeader, Detail } from "@/components/ui/card";
+import { GraduationCap, HandHeart, Plus, UserRound, Users } from "lucide-react";
+import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { Col, DL, Row, Split } from "@/components/ui/blocks";
 import { ButtonLink } from "@/components/ui/button";
 import { ActionForm, FormArea, FormCheck, FormText } from "@/components/students/action-form";
 import { BASE, studentPage, todayIso } from "../../../_lib/page";
@@ -32,13 +33,13 @@ export default async function AlumniRecordPage({ params }: { params: Promise<{ i
 
   return (
     <>
-      <BackLink href={`${BASE}/leaving/alumni`} label="Alumni" />
-      <PageHeader title={me?.fullName ?? "Alumni record"} href={`${BASE}/leaving/alumni/${id}`} userId={current.user.id}>
-        <ButtonLink href={`${BASE}/students/${a.studentId}`} size="sm">Student Profile</ButtonLink>
+      <BackLink href={`${BASE}/leaving/alumni`} label="Alumni" sub={me?.fullName} />
+      <PageHeader title={me?.fullName ?? "Alumni record"} sub={<>Batch {a.graduationYear}{me?.admissionNo ? <> · <span className="font-mono">{me.admissionNo}</span></> : null}{a.career ? ` · ${a.career}` : ""}</>} href={`${BASE}/leaving/alumni/${id}`} userId={current.user.id}>
+        <ButtonLink href={`${BASE}/students/${a.studentId}`} icon={UserRound}>Student Profile</ButtonLink>
       </PageHeader>
-      <div className="grid gap-4 lg:grid-cols-2">
+      <Split side={380}>
         <Card>
-          <CardHeader title="Alumni details" description={`Graduated ${a.graduationYear} · ${me?.admissionNo ?? ""}`} />
+          <CardHeader title="Alumni details" icon={GraduationCap} description={`Graduated ${a.graduationYear} · ${me?.admissionNo ?? ""}`} />
           <CardBody>
             {can.manage ? (
               <ActionForm action={saveAlumniAction.bind(null, id)} submitLabel="Save" pendingText="Saving…">
@@ -50,33 +51,29 @@ export default async function AlumniRecordPage({ params }: { params: Promise<{ i
                 <FormCheck name="isMentor" label="Willing to mentor current students" defaultChecked={a.isMentor} />
               </ActionForm>
             ) : (
-              <div className="space-y-3">
-                <Detail label="Phone">{a.phone ?? "Not given"}</Detail>
-                <Detail label="Email">{a.email ?? "Not given"}</Detail>
-                <Detail label="Career">{a.career ?? "Not given"}</Detail>
-                <Detail label="Higher education">{a.higherEducation ?? "Not given"}</Detail>
-                <Detail label="Achievements">{a.achievements ?? "Not given"}</Detail>
-              </div>
+              <DL className="!px-0 !pb-0" rows={[
+                ["Phone", a.phone ?? "Not given"], ["Email", a.email ?? "Not given"], ["Career", a.career ?? "Not given"],
+                ["Higher education", a.higherEducation ?? "Not given"], ["Achievements", a.achievements ?? "Not given"],
+              ]} />
             )}
           </CardBody>
         </Card>
-        <div className="space-y-4">
+        <Col>
           <Card>
-            <CardHeader title="Donations" description={a.donations.length ? `${formatRupees(total)} in all` : undefined} />
+            <CardHeader title="Donations" icon={HandHeart} />
+            {a.donations.length > 0 && <div className="px-5 pb-3"><p className="font-display text-[26px] font-semibold tnum">{formatRupees(total)}</p><p className="text-[12.5px] text-ink3">{a.donations.length} donation{a.donations.length === 1 ? "" : "s"} · receipts through Finance, Income</p></div>}
             <CardBody>
-              {a.donations.length === 0 ? <p className="text-ink-2">No donations recorded.</p> : (
-                <ul className="mb-4 divide-y divide-line">
+              {a.donations.length === 0 ? <p className="text-[14px] text-ink3">No donations recorded.</p> : (
+                <ul className="-mx-3 mb-4">
                   {a.donations.map((d) => (
-                    <li key={d.id} className="flex flex-wrap justify-between gap-2 py-2">
-                      <span>{d.purpose} · {formatDate(d.date, tz)}{d.receiptRef ? ` · receipt ${d.receiptRef}` : ""}</span>
-                      <strong>{formatRupees(d.amountPaise)}</strong>
-                    </li>
+                    <Row key={d.id} icon={HandHeart} iconTone="ok" title={d.purpose} sub={`${formatDate(d.date, tz)}${d.receiptRef ? ` · receipt ${d.receiptRef}` : ""}`}
+                      right={<span className="text-[13.5px] font-semibold tnum">{formatRupees(d.amountPaise)}</span>} />
                   ))}
                 </ul>
               )}
               {can.manage && (
-                <details className="rounded-lg border border-line p-3">
-                  <summary className="cursor-pointer font-medium">Record a donation</summary>
+                <details className="rounded-2xl border border-line px-4 py-3">
+                  <summary className="flex cursor-pointer items-center gap-1.5 text-[14px] font-semibold text-brand"><Plus size={16} aria-hidden="true" />Record a donation</summary>
                   <ActionForm action={addDonationAction} submitLabel="Record donation" pendingText="Saving…" resetOnSuccess className="mt-3 space-y-4">
                     <input type="hidden" name="alumniId" value={id} />
                     <FormText name="amount" label="Amount (₹)" required inputMode="decimal" />
@@ -89,17 +86,15 @@ export default async function AlumniRecordPage({ params }: { params: Promise<{ i
             </CardBody>
           </Card>
           <Card>
-            <CardHeader title="Mentoring" />
-            <CardBody>
-              {a.mentorings.length === 0 ? <p className="text-ink-2">Not mentoring anyone yet. Link a student on the Alumni page.</p> : (
-                <ul className="space-y-1">
-                  {a.mentorings.map((m) => <li key={m.id}><Link className="hover:underline" href={`${BASE}/students/${m.studentId}`}>{data.students.find((s) => s.id === m.studentId)?.fullName}</Link>{m.note ? ` · ${m.note}` : ""}</li>)}
-                </ul>
-              )}
-            </CardBody>
+            <CardHeader title="Mentoring" icon={Users} />
+            {a.mentorings.length === 0 ? <p className="px-5 pb-5 text-[14px] text-ink3">Not mentoring anyone yet. Link a student on the Alumni page.</p> : (
+              <ul className="px-2 pb-2">
+                {a.mentorings.map((m) => { const n = data.students.find((s) => s.id === m.studentId)?.fullName ?? "Student"; return <Row key={m.id} avatar={n} title={n} sub={m.note ?? undefined} href={`${BASE}/students/${m.studentId}`} />; })}
+              </ul>
+            )}
           </Card>
-        </div>
-      </div>
+        </Col>
+      </Split>
     </>
   );
 }

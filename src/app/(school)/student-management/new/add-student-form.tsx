@@ -71,15 +71,15 @@ export function AddStudentForm({ sections, defaultSection, today, nextAdmissionN
           help={left === null ? undefined : left > 0 ? `${left} of ${section!.seats} seats left.` : `${section!.label} is full. Choose another section, or add seats in Academic Management.`} />
         <TextField name="dateOfBirth" label="Date of birth" type="date" required max={today} defaultValue={v("dateOfBirth")} error={err("dateOfBirth")} />
         <fieldset>
-          <legend className="mb-1 text-sm font-medium">Gender<span className="text-danger" aria-hidden="true"> *</span></legend>
+          <legend className="mb-1 text-[13px] font-semibold text-ink2">Gender<span className="text-bad" aria-hidden="true"> *</span></legend>
           <div className="flex flex-wrap gap-2">
             {GENDERS.map((g) => (
-              <label key={g} className="flex min-h-11 items-center gap-2 rounded-lg border border-line-strong px-3 has-[:checked]:border-brand has-[:checked]:bg-brand-soft">
+              <label key={g} className="flex min-h-11 items-center gap-2 rounded-xl border border-line px-3 has-[:checked]:border-brand has-[:checked]:bg-brand/8">
                 <input type="radio" name="gender" value={g} defaultChecked={v("gender") === g} required className="size-4 accent-brand" />{g}
               </label>
             ))}
           </div>
-          {err("gender") && <p className="mt-1 text-sm text-danger">{err("gender")}</p>}
+          {err("gender") && <p className="mt-1 text-[13.5px] text-bad">{err("gender")}</p>}
         </fieldset>
         <TextField name="admissionDate" label="Admission date" type="date" required defaultValue={v("admissionDate", today)} error={err("admissionDate")} />
       </fieldset>
@@ -92,7 +92,7 @@ export function AddStudentForm({ sections, defaultSection, today, nextAdmissionN
           onChange={(e) => { if (e.target.value.replace(/\D/g, "").length >= 10) void lookPhone(e.target.value); }}
           help="+91. A parent already on record with this phone can be linked (brother or sister)." />
         {parents.length > 0 && (
-          <div className="rounded-lg border border-brand/40 bg-brand-soft p-3 sm:col-span-2" role="status">
+          <div className="rounded-xl border border-brand/40 bg-brand/8 p-3 sm:col-span-2" role="status">
             <p className="font-medium">This phone belongs to a parent already on record.</p>
             <div className="mt-2 space-y-2">
               {parents.map((p) => (
@@ -136,13 +136,13 @@ export function AddStudentForm({ sections, defaultSection, today, nextAdmissionN
           <TextArea name="address" label="Address" required={req("address")} rows={2} className="sm:col-span-2" defaultValue={v("address")} error={err("address")} />
           {showAadhaar && <TextField name="aadhaar" label="Aadhaar number" required={req("aadhaar")} inputMode="numeric" autoComplete="off" defaultValue={v("aadhaar")} error={err("aadhaar")} help="Restricted. Stored encrypted and shown masked." />}
           <TextField name="previousSchool" label="Previous school" required={req("previousSchool")} className="sm:col-span-2" defaultValue={v("previousSchool")} error={err("previousSchool")} />
-          <p className="text-sm text-ink-2 sm:col-span-2">Photo, identifiers, emergency contacts and the school&apos;s extra fields are added on the Student Profile after saving.</p>
+          <p className="text-[13.5px] text-ink2 sm:col-span-2">Photo, identifiers, emergency contacts and the school&apos;s extra fields are added on the Student Profile after saving.</p>
         </div>
       </details>
 
       <div className="flex flex-wrap gap-2">
         {!duplicates.length && <SubmitButton pendingText="Adding…">Add student</SubmitButton>}
-        <Link href="/student-management" className="inline-flex min-h-11 items-center rounded-lg px-4 font-medium text-brand-text hover:bg-surface-2">Cancel</Link>
+        <Link href="/student-management" className="inline-flex h-11 items-center rounded-xl px-4 text-[14px] font-semibold text-ink2 transition hover:bg-sunken hover:text-ink">Cancel</Link>
       </div>
     </form>
   );

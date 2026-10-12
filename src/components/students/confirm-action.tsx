@@ -44,9 +44,9 @@ export function ConfirmAction({ action, fields = {}, trigger, triggerVariant, ti
       {children}
       {reason && (
         <div className="mt-3">
-          <label htmlFor={id} className="mb-1 block text-sm font-medium text-ink">{reason.label}<span className="text-danger" aria-hidden="true"> *</span></label>
+          <label htmlFor={id} className="mb-1 block text-[13px] font-semibold text-ink2 text-ink">{reason.label}<span className="text-bad" aria-hidden="true"> *</span></label>
           <textarea id={id} rows={2} value={text} placeholder={reason.placeholder} onChange={(e) => setText(e.target.value)}
-            className="w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-base text-ink" />
+            className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-base text-ink" />
         </div>
       )}
     </ConfirmButton>
@@ -73,7 +73,7 @@ export function ActionButton({ action, fields = {}, children, variant = "seconda
           setError("That did not work. Nothing was changed. Please try again.");
         } finally { setBusy(false); }
       }}>{children}</Button>
-      {error && <span role="alert" className="mt-1 max-w-xs text-sm text-danger">{error}</span>}
+      {error && <span role="alert" className="mt-1 max-w-xs text-[13.5px] text-bad">{error}</span>}
     </span>
   );
 }
@@ -98,10 +98,10 @@ export function ActionSelect({ action, fields = {}, name, label, value, options 
           setBusy(false);
           if (problem) setError(problem); else router.refresh();
         }}
-        className="h-11 rounded-lg border border-line-strong bg-surface px-2 text-[15px]">
+        className="h-11 rounded-xl border border-line bg-surface px-2 text-[15px]">
         {options.map((o) => <option key={o} value={o}>{o}</option>)}
       </select>
-      {error && <span role="alert" className="mt-1 text-sm text-danger">{error}</span>}
+      {error && <span role="alert" className="mt-1 text-[13.5px] text-bad">{error}</span>}
     </span>
   );
 }

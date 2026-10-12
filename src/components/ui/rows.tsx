@@ -34,9 +34,9 @@ export function Col({ children, className }: { children: React.ReactNode; classN
 }
 
 /** Label above value, in two or three columns. */
-export function DL({ rows, cols = 2 }: { rows: [string, React.ReactNode][]; cols?: 2 | 3 }) {
+export function DL({ rows, cols = 2, className }: { rows: [string, React.ReactNode][]; cols?: 1 | 2 | 3; className?: string }) {
   return (
-    <dl className={cx("grid gap-x-6 gap-y-3.5 px-5 pb-5", cols === 2 && "sm:grid-cols-2", cols === 3 && "sm:grid-cols-2 xl:grid-cols-3")}>
+    <dl className={cx("grid gap-x-6 gap-y-3.5 px-5 pb-5", cols === 2 && "sm:grid-cols-2", cols === 3 && "sm:grid-cols-2 xl:grid-cols-3", className)}>
       {rows.map(([k, v]) => (
         <div key={k} className="min-w-0">
           <dt className="text-[12px] text-ink3 font-semibold">{k}</dt>
@@ -131,7 +131,7 @@ export function OpenLink({ href, children = "Open" }: { href: string; children?:
   return <Link href={href} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[13px] font-semibold text-ink2 hover:bg-sunken hover:text-ink transition shrink-0">{children}<ChevronRight size={16} aria-hidden="true" /></Link>;
 }
 
-/** A settings row: words on the left, a switch or button on the right (kit.jsx SettingRow). */
+/** A settings row: title and help on the left, a control on the right (kit.jsx SettingRow). */
 export function SettingRow({ title, sub, children, id }: { title: React.ReactNode; sub?: React.ReactNode; children?: React.ReactNode; id?: string }) {
   return (
     <div className="flex items-center gap-3 px-5 py-3.5">
@@ -139,7 +139,7 @@ export function SettingRow({ title, sub, children, id }: { title: React.ReactNod
         <b className="font-semibold block">{title}</b>
         {sub && <span className="block text-[12.5px] text-ink3 mt-0.5">{sub}</span>}
       </label>
-      <div className="shrink-0">{children}</div>
+      {children && <div className="shrink-0">{children}</div>}
     </div>
   );
 }

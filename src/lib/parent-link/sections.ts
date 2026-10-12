@@ -38,6 +38,8 @@ export type GuardianView = {
   /** Shown to staff on the school's Parent Link page: nothing can be changed. */
   preview: boolean;
   academicYearId: string | null;
+  /** The month a calendar section shows (?month=2026-08 in the page address); null for this month. */
+  month?: string | null;
 };
 
 export type SectionDef<T = unknown> = {

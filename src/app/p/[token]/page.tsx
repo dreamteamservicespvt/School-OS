@@ -24,9 +24,9 @@ function Shell({ schoolName, children, hello, name }: { schoolName?: string; chi
   return <PhoneShell schoolName={schoolName} hello={hello} name={name}>{children}</PhoneShell>;
 }
 
-export default async function ParentLinkPage({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ child?: string }> }) {
+export default async function ParentLinkPage({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ child?: string; month?: string }> }) {
   const { token } = await params;
-  const { child } = await searchParams;
+  const { child, month } = await searchParams;
   const device = await deviceInfo();
 
   const limited = await hitLimit(`pl-open:ip:${device.ipAddress ?? "unknown"}`, 60, 600);
@@ -72,7 +72,7 @@ export default async function ParentLinkPage({ params, searchParams }: { params:
     const view = await loadGuardianView(tx, ctx, { linkId: state.linkId, guardianId: state.guardianId, childId: child ?? null, token, preview: false });
     if (!view) return null;
     const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { phone: true } });
-    return { view, sections: await loadSections(tx, ctx, view), phone: school.phone };
+    return { view, sections: await loadSections(tx, ctx, { ...view, month: typeof month === "string" ? month : null }), phone: school.phone };
   });
   if (!result) {
     return <Shell schoolName={state.schoolName}><Notice title="No children to show" icon={<UserX size={24} />}>None of your children is studying in the school right now. Please call the school if this is wrong.</Notice></Shell>;

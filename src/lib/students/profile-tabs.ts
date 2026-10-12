@@ -21,6 +21,8 @@ export type ProfileTabArgs = {
   studentId: string;
   /** The academic year shown on the profile. */
   academicYearId: string | null;
+  /** The page address's own values (for example ?month=2026-08 on a calendar), so a tab's view can be shared. */
+  searchParams?: Record<string, string | undefined>;
 };
 
 export type SummaryItem = {

@@ -9,3 +9,4 @@ import "./exams/handlers";
 import "./admission/handlers";
 import "./communication/handlers";
 import "./students/handlers";
+import "./attendance/handlers";

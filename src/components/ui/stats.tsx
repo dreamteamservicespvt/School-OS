@@ -69,3 +69,7 @@ export function Band({ items, className }: { items: BandItem[]; className?: stri
     </section>
   );
 }
+
+/** Older names for the tones, kept so existing screens keep working. */
+export type StatTone = Exclude<Tone, "neutral">;
+export type SoftTone = Tone;

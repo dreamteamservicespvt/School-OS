@@ -63,9 +63,11 @@ describe("what each role's home loads", () => {
   it("the Principal sees the whole school's numbers, and only this school's", async () => {
     const home = await buildHome(principal, { now: NOW });
     expect(home.leader).toBe(true);
-    const staff = home.band.find((b) => b.id === "staff.head-count");
-    expect(staff?.big).toBe("4");
-    expect(staff?.href).toBe("/staff-hr-management");
+    // With Attendance built, the leader's band leads with students and staff present today (BAND_ORDER).
+    const staff = home.band.find((b) => b.id === "attendance.staff-present");
+    expect(staff?.of).toBe("/ 4");
+    expect(staff?.href).toBe("/attendance-management/staff");
+    expect(home.band.find((b) => b.id === "attendance.students-present")?.href).toBe("/attendance-management/reports?report=daily");
     expect(home.tasks.mine.every((t) => t.title !== "Other school task")).toBe(true);
     expect(home.approvals).not.toBeNull();
   });

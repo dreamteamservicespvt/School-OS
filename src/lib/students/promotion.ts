@@ -12,6 +12,8 @@ import { currentPolicy } from "./settings";
 import { promotionFacts, runEnrolled, yearActivity, type PromotionFacts } from "./hooks";
 import { applyStatus, StudentProblem } from "./students";
 import { STUDYING } from "./labels";
+// Modules that give promotion facts and year activity (./hooks.ts).
+import "../attendance/student-hooks";
 
 export type PreviewRow = {
   studentId: string;

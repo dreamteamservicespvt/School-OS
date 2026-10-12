@@ -56,17 +56,17 @@ describe("notices", () => {
     const at = new Date(Date.now() + 60 * 60_000);
     const saved = await withSchool(s.ctx, (tx) => saveNotice(tx, s.ctx, notice({ title: "Later notice", channels: ["board"], publishAt: at }), { action: "publish", fullAccess: true, criticalConfirmed: false }));
     expect(saved.outcome).toBe("scheduled");
-    // The notice's time moves first, so a job runner in another test file that claims the job sees it due.
-    await withSchool(s.ctx, (tx) => tx.notice.update({ where: { id: saved.notice.id }, data: { publishAt: new Date(Date.now() - 1000) } }));
     await withSchool(s.ctx, (tx) => tx.backgroundJob.updateMany({ where: { schoolId: s.school.id, kind: "notice:publish" }, data: { runAfter: new Date(Date.now() - 1000) } }));
-    await runDueJobs(20);
-    // Another test file's runner may still be finishing the job it claimed.
-    let n = await withSchool(s.ctx, (tx) => tx.notice.findUniqueOrThrow({ where: { id: saved.notice.id } }));
-    for (let i = 0; i < 50 && n.status !== "PUBLISHED"; i++) {
-      await new Promise((r) => setTimeout(r, 100));
-      await runDueJobs(20);
-      n = await withSchool(s.ctx, (tx) => tx.notice.findUniqueOrThrow({ where: { id: saved.notice.id } }));
+    await withSchool(s.ctx, (tx) => tx.notice.update({ where: { id: saved.notice.id }, data: { publishAt: new Date(Date.now() - 1000) } }));
+    // Run every due job, not just the oldest few: other tests' due jobs share the queue.
+    // Another test file may have claimed this one, so wait until it has finished.
+    for (let i = 0; i < 100; i++) {
+      const ran = await runDueJobs(50);
+      const job = await withSchool(s.ctx, (tx) => tx.backgroundJob.findFirst({ where: { schoolId: s.school.id, kind: "notice:publish" }, select: { status: true } }));
+      if (job?.status === "done") break;
+      if (ran === 0) await new Promise((r) => setTimeout(r, 100));
     }
+    const n = await withSchool(s.ctx, (tx) => tx.notice.findUniqueOrThrow({ where: { id: saved.notice.id } }));
     expect(n.status).toBe("PUBLISHED");
   });
 

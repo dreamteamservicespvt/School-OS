@@ -10,9 +10,9 @@ import { allocationActiveOn } from "../../academic/allocation";
 import { mainCampusId } from "../../academic/settings";
 import { CLOSED_TYPES } from "../../academic/calendar";
 import { weekday } from "../../academic/common";
-import { addDays, clock, dayWord, hasRole, minutesOf, myStaff, plural, reach, shortDate, someNames } from "../common";
+import { addDays, clock, dayWord, hasRole, minutesOf, moduleOpen, myStaff, plural, reach, shortDate, someNames } from "../common";
 import type { AgendaItem, AttentionItem, BarRow, ClassToday, DashContext, Widget } from "../types";
-import { attendanceTakeHref } from "../slots";
+import { attendanceTakeHref, choices as attendanceChoices } from "./attendance";
 
 const TT = "/academic-management/time-table/mine";
 const SUBS = "/academic-management/substitutions";
@@ -34,7 +34,15 @@ const arranges = (v: DashContext["viewer"]) => reach(v, "academic-management", "
 async function classesToday(c: DashContext): Promise<ClassToday[]> {
   const day = await myDay(c);
   if (!day) return [];
+  // Take Attendance for the periods this person may take (Attendance Management, when open to them).
+  const take = moduleOpen(c.viewer, "attendance-management", "edit") ? await attendanceChoices(c) : [];
+  const firstOf = (sectionId: string) => Math.min(...day.periods.filter((x) => x.sectionId === sectionId).map((x) => x.periodNo));
+  const takeFor = (sectionId: string, periodNo: number) =>
+    take.find((t) => t.sectionId === sectionId && t.periodNo === periodNo)
+    // Once-a-day attendance shows on the section's first period of the day.
+    ?? (periodNo === firstOf(sectionId) ? take.find((t) => t.sectionId === sectionId && t.periodNo === 0) : undefined);
   return day.periods.map((p) => {
+    const t = takeFor(p.sectionId, p.periodNo);
     const start = minutesOf(p.startTime), end = minutesOf(p.endTime);
     const covered = p.substitution && !p.isSubstitute;
     const note = p.isSubstitute
@@ -52,8 +60,8 @@ async function classesToday(c: DashContext): Promise<ClassToday[]> {
       note,
       noteTone: p.isSubstitute ? "warn" : "neutral",
       sectionId: p.sectionId,
-      takeHref: covered ? null : attendanceTakeHref({ sectionId: p.sectionId, periodNo: p.periodNo, date: c.today }),
-      taken: false,
+      takeHref: covered || !t ? null : attendanceTakeHref({ sectionId: p.sectionId, periodNo: t.periodNo, date: c.today }),
+      taken: Boolean(t?.done),
     };
   });
 }

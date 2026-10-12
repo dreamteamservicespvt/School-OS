@@ -13,18 +13,20 @@ export function Progress({ value, tone = "brand", className }: { value: number; 
   );
 }
 
-/** Horizontal bars with labels. rows: { k, v, label? }; values below lowBelow show in amber. */
-export function HBars({ rows, max, unit = "%", lowBelow, labelWidth = 64, ariaLabel }: { rows: { k: string; v: number; label?: string }[]; max?: number; unit?: string; lowBelow?: number; labelWidth?: number; ariaLabel?: string }) {
-  const top = max ?? Math.max(1, ...rows.map((r) => r.v));
+/** Horizontal bars with labels. rows: { k, v, label? }. goal shows a tick; values below lowBelow show in amber.
+ *  Percentages scale to 100 unless max is given; other units scale to the largest value. */
+export function HBars({ rows, max, goal, unit = "%", lowBelow, labelWidth = 64, ariaLabel }: { rows: { k: string; v: number; label?: string }[]; max?: number; goal?: number; unit?: string; lowBelow?: number; labelWidth?: number; ariaLabel?: string }) {
+  const top = max ?? (unit === "%" ? 100 : Math.max(1, ...rows.map((r) => r.v)));
   return (
     <ul className="flex flex-col gap-2.5" aria-label={ariaLabel}>
       {rows.map((r) => {
         const low = lowBelow != null && r.v < lowBelow;
         return (
           <li key={r.k} className="grid items-center gap-3 text-[13px]" style={{ gridTemplateColumns: `${labelWidth}px 1fr 52px` }}>
-            <span className="text-ink2 font-medium truncate">{r.k}</span>
+            <span className="text-ink2 font-medium truncate" title={r.k}>{r.k}</span>
             <span className="relative h-3 rounded-full bg-sunken overflow-hidden" aria-hidden="true">
-              <span className={cx("absolute inset-y-0 left-0 rounded-full", low ? "bg-warn" : "bg-brand")} style={{ width: `${Math.min(100, (r.v / top) * 100)}%` }} />
+              <span className={cx("absolute inset-y-0 left-0 rounded-full", low ? "bg-warn" : "bg-brand")} style={{ width: `${Math.max(0, Math.min(100, (r.v / (top || 1)) * 100))}%` }} />
+              {goal != null && <span className="absolute inset-y-0 w-px bg-ink3/50" style={{ left: `${Math.min(100, (goal / (top || 1)) * 100)}%` }} />}
             </span>
             <span className={cx("text-right font-semibold tnum", low && "text-warn")}>{r.label ?? `${r.v}${unit}`}</span>
           </li>
@@ -34,6 +36,6 @@ export function HBars({ rows, max, unit = "%", lowBelow, labelWidth = 64, ariaLa
   );
 }
 
-export function Bars(props: { data: BarDatum[]; max?: number; height?: number; ariaLabel: string; ticks?: number[] }) {
+export function Bars(props: { data: BarDatum[]; max?: number; height?: number; ariaLabel: string; ticks?: number[]; unit?: string }) {
   return <BarsChart {...props} />;
 }

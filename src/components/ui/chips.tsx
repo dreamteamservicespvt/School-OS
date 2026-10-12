@@ -6,7 +6,13 @@ import { TONE_TEXT } from "./stats";
 
 // Filter chips, in-page tabs and banners of the approved design (design/ui-prototype/src/kit.jsx, ui.jsx).
 
-export type ChipOption = { value: string; label: string; count?: number; href: string };
+export type ChipOption = { value: string; label: React.ReactNode; count?: number | null; href: string };
+
+/** One chip's look, for chip-like controls that are not links. */
+export const chipCls = (on: boolean) => cx(
+  "h-10 px-3.5 rounded-xl text-[13.5px] font-semibold border transition inline-flex items-center gap-2 whitespace-nowrap",
+  on ? "bg-ink text-bg border-ink" : "bg-surface border-line text-ink2 hover:border-ink3/50 hover:text-ink",
+);
 
 /** Quick filter chips that scroll sideways on phones. Each chip is a link that keeps the other filters. */
 export function Chips({ value, options, className, label = "Quick filters" }: { value: string; options: ChipOption[]; className?: string; label?: string }) {
@@ -17,8 +23,7 @@ export function Chips({ value, options, className, label = "Quick filters" }: { 
           const on = value === o.value;
           return (
             <Link key={o.value} href={o.href} scroll={false} aria-current={on ? "page" : undefined}
-              className={cx("h-10 px-3.5 rounded-xl text-[13.5px] font-semibold border transition inline-flex items-center gap-2",
-                on ? "bg-ink text-bg border-ink" : "bg-surface border-line text-ink2 hover:border-ink3/50 hover:text-ink")}>
+              className={chipCls(on)}>
               {o.label}{o.count != null && <span className={cx("text-[11.5px] tnum", on ? "opacity-70" : "text-ink3")}>{o.count}</span>}
             </Link>
           );

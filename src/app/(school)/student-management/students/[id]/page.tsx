@@ -33,9 +33,9 @@ const ICONS: Record<string, LucideIcon> = { attendance: CalendarCheck2, exam: Aw
 const iconFor = (label: string) => Object.entries(ICONS).find(([k]) => label.toLowerCase().includes(k))?.[1] ?? Info;
 const TONE = { success: "ok", warning: "warn", danger: "bad", neutral: undefined } as const;
 
-export default async function StudentProfilePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string }> }) {
+export default async function StudentProfilePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; month?: string }> }) {
   const { id } = await params;
-  const { tab: tabParam } = await searchParams;
+  const { tab: tabParam, month } = await searchParams;
   const { current, settings, year, can, tz } = await studentPage();
   const yearId = year?.id ?? null;
 
@@ -49,7 +49,7 @@ export default async function StudentProfilePage({ params, searchParams }: { par
   const s = p.student;
   const status = s.status as StudentStatusKey;
   const href = `${BASE}/students/${id}`;
-  const args = { current, studentId: id, academicYearId: yearId };
+  const args = { current, studentId: id, academicYearId: yearId, searchParams: { month: typeof month === "string" ? month : undefined } };
 
   const view = can.view;
   const back = <BackLink href={p.now ? `${BASE}?class=${p.now.classId}&section=${p.now.sectionId}` : BASE} label="Students" sub={p.now?.section ? classShort(p.now.section.schoolClass.name, p.now.section.name) : undefined} />;

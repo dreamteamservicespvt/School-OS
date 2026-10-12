@@ -18,6 +18,8 @@ import { FRONTOFFICE_PAGES } from './mod-frontoffice.jsx';
 import { HOMEWORK_PAGES } from './mod-homework.jsx';
 import { EVENTS_PAGES } from './mod-events.jsx';
 import { SETTINGS_PAGES } from './mod-settings.jsx';
+import { HOSTEL_PAGES } from './mod-hostel.jsx';
+import { REPORTS_PAGES } from './mod-reports.jsx';
 
 export const REGISTRY = {
   admissions: ADMISSIONS_PAGES,
@@ -34,6 +36,6 @@ export const REGISTRY = {
   inventory: INVENTORY_PAGES,
   frontoffice: FRONTOFFICE_PAGES,
   homework: HOMEWORK_PAGES,
-  events: EVENTS_PAGES,
+  events: EVENTS_PAGES, hostel: HOSTEL_PAGES, reports: REPORTS_PAGES,
   settings: SETTINGS_PAGES,
 };

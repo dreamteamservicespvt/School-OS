@@ -11,19 +11,20 @@ import { registerProfileTab } from "../students/profile-tabs";
 import { todayIn } from "../staff/dates";
 import { can } from "../permissions";
 import { studentAttendanceTab } from "./integrations";
-import { attendanceSettings, statusMap } from "./settings";
+import { attendanceSettings } from "./settings";
+import { attendanceAccess } from "./access";
+import { studentCalendarFor } from "./calendar-months";
+import { studentMonthAction } from "./student-calendar-action";
 import { percentText } from "./summary";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Stats } from "@/components/ui/stats";
 import { Banner } from "@/components/ui/banner";
 import { Pill } from "@/components/ui/badge";
-import { MonthGrid, type MonthCellTone } from "@/components/ui/month-grid";
+import { MonthCalendar } from "@/components/attendance/month-calendar";
 import { HBars } from "@/components/ui/charts";
-import { Legend } from "@/components/ui/rows";
 import { buttonClass } from "@/components/ui/button";
 import { EmptyState } from "@/components/empty-state";
 
-const CELL_TONE: Record<string, MonthCellTone> = { present: "ok", late: "warn", absent: "bad", "half-day": "warn", leave: "info", medical: "info", excused: "muted" };
 const LEAVE_TONE: Record<string, "ok" | "warn" | "bad" | "neutral"> = { APPROVED: "ok", WAITING: "warn", REJECTED: "bad", CANCELLED: "neutral", WITHDRAWN: "neutral" };
 const LEAVE_WORD: Record<string, string> = { APPROVED: "Approved", WAITING: "Waiting", REJECTED: "Rejected", CANCELLED: "Cancelled", WITHDRAWN: "Cancelled" };
 
@@ -49,17 +50,19 @@ registerProfileTab({
   }),
   load: async ({ current, studentId }) => {
     const today = todayIn(current.school.timeZone);
-    const { tab, threshold } = await withSchool(current.ctx, async (tx) => ({
-      tab: await studentAttendanceTab(tx, current.ctx, studentId, today),
-      threshold: (await attendanceSettings(tx, current.ctx)).thresholdPercent,
-    }));
+    const { tab, threshold, cal } = await withSchool(current.ctx, async (tx) => {
+      const settings = await attendanceSettings(tx, current.ctx);
+      const access = await attendanceAccess(tx, current.ctx, current, settings.lockOverrideRoles);
+      return {
+        tab: await studentAttendanceTab(tx, current.ctx, studentId, today),
+        threshold: settings.thresholdPercent,
+        cal: await studentCalendarFor(tx, current.ctx, access, studentId, null, today).catch(() => null),
+      };
+    });
     const y = tab.yearSummary;
     if (!y || y.workingDays === 0) {
       return <EmptyState title="No attendance yet" Icon={CalendarCheck2}>Attendance shows here once the class teacher takes it in Attendance.</EmptyState>;
     }
-    const statuses = statusMap(tab.statuses);
-    const cells = new Map(tab.thisMonth.cells.map((c) => [c.day, c]));
-    const [yy, mm] = tab.thisMonth.month.split("-").map(Number);
     const canOpenRegister = can(current.permissions, "attendance-management", "view");
     return (
       <div className="flex flex-col gap-5">
@@ -76,19 +79,13 @@ registerProfileTab({
         ]} />
         <div className="grid xl:grid-cols-2 gap-5 items-start">
           <Card>
-            <CardHeader icon={CalendarDays} title={tab.thisMonth.label} description={`${percentText(tab.thisMonth.summary.percent)} · ${tab.thisMonth.summary.workingDays} school days so far`}
+            <CardHeader icon={CalendarDays} title="Month by month calendar" description="Go back to earlier months to see their marks, holidays and leave"
               action={canOpenRegister ? <Link href={tab.registerHref} className={buttonClass("ghost", "sm")}>Register</Link> : undefined} />
-            <div className="px-5 pb-5 flex flex-col gap-4">
-              <MonthGrid year={yy} month0={mm - 1} compact today={today.getUTCMonth() === mm - 1 ? today.getUTCDate() : null}
-                cell={(d) => {
-                  const c = cells.get(d);
-                  if (!c) return {};
-                  if (c.off) return { tone: "muted", title: c.off };
-                  if (c.future) return { tone: "none" };
-                  if (!c.statusKey) return { tone: "none", title: "Not marked" };
-                  return { tone: CELL_TONE[c.statusKey] ?? "brand", title: statuses.get(c.statusKey)?.name ?? c.statusKey };
-                }} />
-              <Legend items={[["bg-ok/15", "Present"], ["bg-warn/15", "Late or half-day"], ["bg-bad/15", "Absent"], ["bg-info/10", "Leave"]]} />
+            <div className="px-5 pb-5">
+              {cal ? (
+                <MonthCalendar initial={cal.view} statuses={cal.statuses} min={cal.bounds.min} max={cal.bounds.max} threshold={threshold}
+                  todayIso={today.toISOString().slice(0, 10)} load={studentMonthAction.bind(null, studentId)} />
+              ) : <p className="text-[14px] text-ink3">This student is not in one of your classes.</p>}
             </div>
           </Card>
           <Card>

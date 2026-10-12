@@ -4,7 +4,8 @@ import { CalendarDays, CalendarX2, ClipboardPen, Users } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { attendancePage } from "@/lib/attendance/page";
 import { BASE } from "@/lib/attendance/access";
-import { readMonth, registerChoices, registerMonth } from "@/lib/attendance/register";
+import { readMonth, registerChoices, registerMonth, registerYears } from "@/lib/attendance/register";
+import { clampMonth } from "@/lib/attendance/calendar-months";
 import { studentMonth } from "@/lib/attendance/integrations";
 import { attendanceSummary, percentText } from "@/lib/attendance/summary";
 import { lockState } from "@/lib/attendance/marks";
@@ -33,26 +34,33 @@ const CORE = ["present", "absent", "late", "leave"];
 export default async function RegisterPage({ searchParams }: Props) {
   const sp = await searchParams;
   const { current, access, features, settings, tz, today, now } = await attendancePage();
-  const month = readMonth(one(sp.month)) ?? monthStart(today);
+  const asked = readMonth(one(sp.month)) ?? monthStart(today);
   const view = one(sp.view) === "student" ? "student" : "class";
   const statusFilter = one(sp.status) ?? "";
 
   const data = await withSchool(current.ctx, async (tx) => {
-    const sections = await registerChoices(tx, access);
+    // Any month from the first year this person may see up to this month (owner's rule, 12 Oct).
+    const { years, bounds } = await registerYears(tx, access, today);
+    const month = clampMonth(asked, bounds);
+    const year = years.find((y) => y.startDate <= month && y.endDate >= month) ?? years.find((y) => y.id === access.yearId) ?? null;
+    const sections = await registerChoices(tx, access, year?.id ?? access.yearId);
     const wanted = one(sp.section);
-    const section = sections.find((s) => s.id === wanted) ?? sections.find((s) => access.classSections.includes(s.id)) ?? sections[0] ?? null;
-    const waiting = await tx.attendanceCorrection.count({ where: { status: "WAITING", archivedAt: null, forWhom: "student", ...(access.students === "all" ? {} : { sectionId: { in: sections.map((s) => s.id) } }) } });
-    const year = access.yearId ? await tx.academicYear.findUnique({ where: { id: access.yearId } }) : null;
-    if (!section) return { sections, section: null, grid: null, student: null, waiting, year };
+    const wantedName = wanted ? (await registerChoices(tx, access)).find((s) => s.id === wanted)?.name ?? null : null;
+    const section = sections.find((s) => s.id === wanted) ?? sections.find((s) => s.name === wantedName) ?? sections.find((s) => access.classSections.includes(s.id)) ?? sections[0] ?? null;
+    const current_ = await registerChoices(tx, access);
+    const waiting = await tx.attendanceCorrection.count({ where: { status: "WAITING", archivedAt: null, forWhom: "student", ...(access.students === "all" ? {} : { sectionId: { in: current_.map((s) => s.id) } }) } });
+    const base = { month, bounds, year, waiting };
+    if (!section) return { ...base, sections, section: null, grid: null, student: null };
     const grid = await registerMonth(tx, current.ctx, { sectionId: section.id, month, today, status: view === "class" ? statusFilter || null : null });
-    if (view === "class" || !grid) return { sections, section, grid, student: null, waiting, year };
+    if (view === "class" || !grid) return { ...base, sections, section, grid, student: null };
     const sid = one(sp.student);
     const pick = grid.rows.find((r) => r.id === sid) ?? grid.rows[0] ?? null;
-    if (!pick) return { sections, section, grid, student: null, waiting, year };
+    if (!pick) return { ...base, sections, section, grid, student: null };
     const cal = await studentMonth(tx, current.ctx, pick.id, month, today);
     const yearSum = year ? (await attendanceSummary(tx, current.ctx, { studentId: pick.id, from: year.startDate, to: year.endDate, today })).people.get(pick.id) ?? null : null;
-    return { sections, section, grid, student: { row: pick, cal, yearSum, options: grid.rows.map((r) => ({ value: r.id, label: `${r.roll ? `${r.roll}. ` : ""}${r.name}` })) }, waiting, year };
+    return { ...base, sections, section, grid, student: { row: pick, cal, yearSum, options: grid.rows.map((r) => ({ value: r.id, label: `${r.roll ? `${r.roll}. ` : ""}${r.name}` })) }};
   });
+  const month = data.month;
 
   const statuses: StatusView[] = (data.grid?.statuses ?? []).map((s) => ({ key: s.key, name: s.name, letter: s.letter, tone: s.tone }));
   const byKey = new Map(statuses.map((s) => [s.key, s]));
@@ -64,17 +72,15 @@ export default async function RegisterPage({ searchParams }: Props) {
   };
   const canChange = access.change !== "none";
   const cellHref = (studentId: string, iso: string) => {
-    if (!canChange || !data.section) return null;
+    if (!canChange || !data.section || data.year?.id !== access.yearId) return null;
     const d = new Date(`${iso}T00:00:00Z`);
     if (d > today) return null;
     const lock = lockState(settings, d, now, tz);
     if (!lock.locked || access.lockOverride) return `${BASE}?section=${data.section.id}&date=${iso}`;
     return `${BASE}/register/correction?section=${data.section.id}&date=${iso}&student=${studentId}`;
   };
-  const minMonth = data.year ? monthStart(data.year.startDate) : null;
-  const maxMonth = data.year ? monthStart(data.year.endDate) : null;
-  const prev = !minMonth || shift(month, -1) >= minMonth ? qs({ month: ym(shift(month, -1)) }) : null;
-  const next = !maxMonth || shift(month, 1) <= maxMonth ? qs({ month: ym(shift(month, 1)) === ym(today) ? null : ym(shift(month, 1)) }) : null;
+  const prev = ym(shift(month, -1)) >= data.bounds.min ? qs({ month: ym(shift(month, -1)) }) : null;
+  const next = ym(shift(month, 1)) <= data.bounds.max ? qs({ month: ym(shift(month, 1)) === ym(today) ? null : ym(shift(month, 1)) }) : null;
   const exportHref = data.section ? `${BASE}/register/export?section=${data.section.id}&month=${ym(month)}${statusFilter ? `&status=${statusFilter}` : ""}` : null;
   const sub = data.section ? `${data.section.name} · ${data.grid?.label ?? ""}` : "No classes yet";
 

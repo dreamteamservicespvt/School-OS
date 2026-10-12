@@ -178,6 +178,25 @@ export async function seedAttendance(s: SeedSchool) {
   await chunks(rows, 4000, (part) => withSchool(sys, (tx) => tx.attendanceMark.createMany({ data: part }), { timeout: 60_000 }));
   await chunks(subs, 4000, (part) => withSchool(sys, (tx) => tx.attendanceSubmission.createMany({ data: part }), { timeout: 60_000 }));
 
+  // 3b. Last year (from the reopening in June to March), so earlier months and
+  //     years show real marks when a calendar pages back.
+  await withSchool(sys, async (tx) => {
+    const pastYear = await tx.academicYear.findUnique({ where: { id: s.pastYearId } });
+    if (!pastYear) return;
+    const from = new Date(Math.max(pastYear.startDate.getTime(), Date.UTC(pastYear.startDate.getUTCFullYear(), 5, 10)));
+    const days = (await schoolDays(tx, sys, from, pastYear.endDate, s.campusId)).working;
+    const pastEnrol = await tx.enrolment.findMany({ where: { academicYearId: pastYear.id, archivedAt: null }, select: { studentId: true, sectionId: true } });
+    const old: Prisma.AttendanceMarkCreateManyInput[] = [];
+    for (const [di, d] of days.entries()) {
+      for (const [i, e] of pastEnrol.entries()) {
+        const r = rnd(i, di, 77);
+        const statusKey = r < 0.04 ? "absent" : r < 0.08 ? "late" : r > 0.997 ? "half-day" : "present";
+        old.push({ schoolId: s.schoolId, academicYearId: pastYear.id, studentId: e.studentId, sectionId: e.sectionId, date: d, periodNo: 0, statusKey, lateMinutes: statusKey === "late" ? 15 : null, method: "register", markedById: principalId, markedAt: at(d, "08:55"), takenAt: at(d, "08:55"), locked: true });
+      }
+    }
+    return old;
+  }, { timeout: 60_000 }).then((old) => old && chunks(old, 4000, (part) => withSchool(sys, (tx) => tx.attendanceMark.createMany({ data: part }), { timeout: 60_000 })));
+
   // 4. Alerts and flags for the last few days (threshold, absent streak).
   for (const d of past.slice(-3)) {
     for (const sec of sections) await withSchool(sys, (tx) => afterAttendanceSaved(tx, sys, { sectionId: sec.id, date: isoDay(d) }), { timeout: 60_000 });

@@ -2,6 +2,7 @@
 // on screen, in the export and in the printed register (Done when 9).
 import "server-only";
 
+import type { Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { eachDay, isoDay, monthEnd, monthLabel, monthStart } from "../staff/dates";
 import { registerSections, type AttendanceAccess } from "./access";
@@ -15,16 +16,43 @@ export type RegisterRow = { id: string; roll: number | null; name: string; admis
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-/** The sections this person may open in the register, in class order, for the current year. */
-export async function registerChoices(tx: Tx, access: AttendanceAccess) {
-  const allowed = registerSections(access);
-  if (!access.yearId || (allowed !== "all" && allowed.length === 0)) return [];
-  const rows = await tx.section.findMany({
-    where: { academicYearId: access.yearId, archivedAt: null, ...(allowed === "all" ? {} : { id: { in: allowed } }) },
-    include: { schoolClass: { select: { name: true, sortOrder: true } } },
-  });
+/**
+ * The sections this person may open in the register, in class order: for the
+ * current year, or for an earlier year (everyone's for whole-school roles;
+ * for teachers, the sections they had in that year).
+ */
+export async function registerChoices(tx: Tx, access: AttendanceAccess, yearId: string | null = access.yearId) {
+  if (!yearId) return [];
+  let where: Prisma.SectionWhereInput;
+  if (yearId === access.yearId) {
+    const allowed = registerSections(access);
+    if (allowed !== "all" && allowed.length === 0) return [];
+    where = { academicYearId: yearId, ...(allowed === "all" ? {} : { id: { in: allowed } }) };
+  } else if (access.students === "all") {
+    where = { academicYearId: yearId };
+  } else {
+    if (access.students === "none" || !access.staffId) return [];
+    const taught = await tx.teacherAllocation.findMany({ where: { academicYearId: yearId, staffId: access.staffId, archivedAt: null }, select: { sectionId: true } });
+    where = { academicYearId: yearId, OR: [{ classTeacherId: access.staffId }, { id: { in: taught.map((t) => t.sectionId).filter((x): x is string => Boolean(x)) } }] };
+  }
+  const rows = await tx.section.findMany({ where: { ...where, archivedAt: null }, include: { schoolClass: { select: { name: true, sortOrder: true } } } });
   rows.sort((a, b) => a.schoolClass.sortOrder - b.schoolClass.sortOrder || a.name.localeCompare(b.name));
   return rows.map((s) => ({ id: s.id, name: `${s.schoolClass.name} ${s.name}` }));
+}
+
+/**
+ * The academic years the register may page through, oldest first, and the
+ * month bounds: from the first month of the earliest year with sections this
+ * person may see, to this month.
+ */
+export async function registerYears(tx: Tx, access: AttendanceAccess, today: Date) {
+  const years = await tx.academicYear.findMany({ where: { archivedAt: null, startDate: { lte: today } }, orderBy: { startDate: "asc" }, select: { id: true, name: true, startDate: true, endDate: true } });
+  const visible = [];
+  for (const y of years) if (y.id === access.yearId || (await registerChoices(tx, access, y.id)).length) visible.push(y);
+  const max = isoDay(today).slice(0, 7);
+  const first = visible[0];
+  const min = first ? isoDay(first.startDate).slice(0, 7) : max;
+  return { years: visible, bounds: { min: min > max ? max : min, max } };
 }
 
 /** "2026-10" → the first of that month, or null. */

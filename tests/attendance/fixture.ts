@@ -6,6 +6,8 @@ import { withSchool, type SchoolContext } from "@/lib/db";
 import { accessIn } from "@/lib/auth/access";
 import { attendanceAccess, type AccessSource } from "@/lib/attendance/access";
 import { ensureAttendanceDefaults } from "@/lib/attendance/settings";
+import { encryptSecrets } from "@/lib/messaging/channels";
+import { ensureReadyTemplates } from "@/lib/messaging/templates";
 import { makeSchool, makeUser } from "../helpers";
 
 export const d = (iso: string) => new Date(`${iso}T00:00:00Z`);
@@ -57,6 +59,12 @@ export async function makeAttendanceSchool(name = "Attendance Test School") {
       }
     }
     await ensureAttendanceDefaults(tx, { schoolId: sid, userId: null });
+    // Communication's channels in test mode, so absence messages really go out (sandbox).
+    await tx.school.update({ where: { id: sid }, data: { phone: "04023456789" } });
+    await tx.messagingChannel.create({ data: { schoolId: sid, channel: "whatsapp", provider: "sandbox", isOn: true, environment: "test", ...encryptSecrets({ appSecret: "app-secret-1234", verifyToken: "verify-me", accessToken: "x" }) } });
+    await tx.creditLedgerEntry.create({ data: { schoolId: sid, channel: "whatsapp", amount: 1000, note: "Test top-up" } });
+    await ensureReadyTemplates(tx, { schoolId: sid, userId: null });
+    await tx.templateVersion.updateMany({ where: { schoolId: sid, template: { channel: "whatsapp", key: { in: ["absence", "late"] } } }, data: { whatsappStatus: "APPROVED" } });
     const medical = await tx.leaveType.findFirstOrThrow({ where: { forWhom: "student", code: "MED" } });
     return { year, cls, sectionA, sectionB, studentsA, studentsB, staffA, staffB, staffPrincipal, staffHr, staffOther, medical };
   });

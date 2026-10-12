@@ -24,7 +24,8 @@ export async function GET(req: Request) {
   return withSchool(current.ctx, async (tx) => {
     const settings = await attendanceSettings(tx, current.ctx);
     const access = await attendanceAccess(tx, current.ctx, current, settings.lockOverrideRoles);
-    const sections = await registerChoices(tx, access);
+    const year = await tx.academicYear.findFirst({ where: { archivedAt: null, startDate: { lte: month }, endDate: { gte: month } }, select: { id: true } });
+    const sections = await registerChoices(tx, access, year?.id ?? access.yearId);
     const section = sections.find((s) => s.id === url.searchParams.get("section"));
     if (!section) return new Response("This class was not found, or it is not one of yours.", { status: 404 });
     const grid = await registerMonth(tx, current.ctx, { sectionId: section.id, month, today, status });

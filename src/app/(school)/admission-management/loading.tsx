@@ -1,5 +1,5 @@
-import { PageSkeleton } from "@/components/ui/skeleton";
+import { CardsSkeleton } from "./_components/skeletons";
 
 export default function Loading() {
-  return <PageSkeleton />;
+  return <CardsSkeleton stats />;
 }

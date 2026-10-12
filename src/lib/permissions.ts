@@ -2,7 +2,7 @@
 // (00-global.md §5, 05-roles.md). Every server action checks these; hiding a
 // button is never the only check.
 
-import { MODULES, MODULE_KEYS, type ModuleKey } from "./modules";
+import { BUILT_MODULES, MODULES, MODULE_KEYS, SELF_SERVICE_MODULES, type ModuleKey } from "./modules";
 import type { AccessLevel, RolePermissions } from "./roles";
 
 /** "all" = every record the scope allows, "own" = only their own classes or records. */
@@ -75,9 +75,16 @@ export function can(permissions: PermissionMap, module: ModuleKey, action: Actio
   return reachFor(permissions, module, action) !== "none";
 }
 
-/** The menu shows only modules the person may open and the school has switched on (P19). */
-export function menuModules(permissions: PermissionMap, modulesOn: ReadonlySet<ModuleKey>) {
-  return MODULES.filter((m) => permissions[m.key].see !== "none" && (!m.optional || modulesOn.has(m.key)));
+/**
+ * The menu shows only modules the person may open and the school has switched on (P19),
+ * that are built, and that are more than their own record (SELF_SERVICE_MODULES).
+ */
+export function menuModules(permissions: PermissionMap, modulesOn: ReadonlySet<ModuleKey>, built: ReadonlySet<ModuleKey> = BUILT_MODULES) {
+  return MODULES.filter((m) =>
+    permissions[m.key].see !== "none" &&
+    (!m.optional || modulesOn.has(m.key)) &&
+    !(SELF_SERVICE_MODULES.has(m.key) && permissions[m.key].see === "own") &&
+    (built.has(m.key) || m.key === "dashboard"));
 }
 
 export class PermissionDeniedError extends Error {

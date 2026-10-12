@@ -49,8 +49,8 @@ describe("signing in", () => {
   it("gives the same answer for a wrong username and a wrong password", async () => {
     const wrongUser = await signIn("nobody-here", PASSWORD, device, { sleep: noSleep });
     const wrongPassword = await signIn(admin.username, "Wrong-password-1", device, { sleep: noSleep });
-    expect(wrongUser).toEqual({ ok: false, message: expect.stringContaining("username or password is wrong") });
-    expect(wrongPassword).toEqual({ ok: false, message: expect.stringContaining("username or password is wrong") });
+    expect(wrongUser).toEqual({ ok: false, message: expect.stringContaining("login or password is wrong") });
+    expect(wrongPassword).toEqual({ ok: false, message: expect.stringContaining("login or password is wrong") });
     await prisma.userLogin.update({ where: { id: admin.id }, data: { failedAttempts: 0 } });
   });
 

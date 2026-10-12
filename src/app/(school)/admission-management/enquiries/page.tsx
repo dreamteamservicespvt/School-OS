@@ -27,6 +27,8 @@ import { AddEnquiryButton } from "./enquiry-forms";
 import { EnquiryBulk } from "./campaign-bar";
 import { EnquiryPanel, type PanelEnquiry } from "./panel";
 import { STATUS_TONE } from "@/lib/admission/tones";
+import { periodFromSearch } from "@/lib/periods";
+import { PeriodFilter } from "@/components/list/period-filter";
 
 export const metadata: Metadata = { title: "Enquiries" };
 
@@ -42,11 +44,12 @@ export default async function EnquiriesPage({ searchParams }: Search) {
   const own = viewer.see !== "all";
   const dayStart = zonedToInstant(`${today}T00:00`, tz);
   const dayEnd = new Date(dayStart.getTime() + 86_400_000);
+  const range = periodFromSearch(raw, { timeZone: tz });
 
   const data = await withSchool(current.ctx, async (tx) => {
     const years = await openYears(tx);
     const yearIds = years.map((y) => y.id);
-    const where = enquiryWhere(params, viewer, { yearId: yearIds.length ? yearIds : ["00000000-0000-0000-0000-000000000000"], timeZone: tz, now });
+    const where = enquiryWhere(params, viewer, { yearId: yearIds.length ? yearIds : ["00000000-0000-0000-0000-000000000000"], timeZone: tz, now, range });
     const base = { AND: [enquiryScope(viewer)], archivedAt: null, academicYearId: { in: yearIds } };
     const open = { ...base, status: { notIn: [...CLOSED_STATUSES] } };
     const [rows, total, choices, n, all, mine, dueToday, overdue, week, lost, openCount] = await Promise.all([
@@ -194,16 +197,18 @@ export default async function EnquiriesPage({ searchParams }: Search) {
           <div className={cx("min-w-0 flex-col gap-4", panel ? "hidden xl:flex" : "flex")}>
             <Chips value={quick} options={quickOpts} />
             <Card className="overflow-hidden">
-              <div className="flex flex-col md:flex-row gap-2.5 p-3 md:p-4 border-b border-line/70 md:items-center flex-wrap">
-                <UrlSearch placeholder="Child, parent, phone or ENQ number" />
-                <UrlSegmented param="view" label="Show" options={[{ value: "all", label: "All enquiries" }, { value: "whatsapp", label: <><MessageCircle size={15} aria-hidden="true" />WhatsApp</> }]} />
-                {!narrow && (
-                  <div className="grid grid-cols-2 md:flex gap-2">
-                    <UrlSelect param="class" label="Class" allLabel="All classes" options={choices.classes} className="md:w-36" />
-                    <UrlSelect param="source" label="Source" allLabel="All sources" options={live(settings.sourceList).map((s) => ({ value: s.key, label: s.label }))} className="md:w-36" />
-                  </div>
-                )}
-                {!narrow && <ExportMenu href={listHref(`${PATH}/export`, params, { page: null, id: null })} />}
+              <div className="flex flex-col gap-2.5 p-3 md:p-4 border-b border-line/70">
+                <div className="flex flex-col md:flex-row gap-2.5 md:items-center">
+                  <UrlSearch placeholder="Child, parent, phone or ENQ number" />
+                  <UrlSegmented param="view" label="Show" options={[{ value: "all", label: "All enquiries" }, { value: "whatsapp", label: <><MessageCircle size={15} aria-hidden="true" />WhatsApp</> }]} />
+                  {!narrow && <ExportMenu href={listHref(`${PATH}/export`, params, { page: null, id: null })} />}
+                </div>
+                <div className="grid grid-cols-2 md:flex md:flex-wrap gap-2">
+                  <PeriodFilter timeZone={tz} allLabel="Any date added" className="col-span-2 md:col-span-1" />
+                  <UrlSelect param="class" label="Class" allLabel="All classes" options={choices.classes} className="md:w-36" />
+                  <UrlSelect param="source" label="Source" allLabel="All sources" options={live(settings.sourceList).map((s) => ({ value: s.key, label: s.label }))} className="md:w-36" />
+                  {!own && <UrlSelect param="owner" label="Owner" allLabel="All owners" options={[...choices.owners.map((o) => ({ value: o.value, label: o.label.replace(/ \(.*\)$/, "") })), { value: "none", label: "No owner" }]} className="col-span-2 md:col-span-1 md:w-44" />}
+                </div>
               </div>
               {selectable && <EnquiryBulk owners={choices.owners} campaigns={settings.campaignsOn} schoolName={current.school.name} />}
               <DataList label="Enquiries" columns={columns} rows={listRows} minWidth={narrow ? 600 : 980} selectable={selectable} empty={empty}

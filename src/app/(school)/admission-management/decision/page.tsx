@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { withSchool } from "@/lib/db";
 import { formatDate } from "@/lib/format";
-import { fullPage, BASE } from "@/lib/admission/page";
+import { workPage, BASE } from "@/lib/admission/page";
 import { UUID_RE } from "@/lib/admission/act";
 import { progressOf } from "@/lib/admission/documents";
 import { classRules, stageOn } from "@/lib/admission/settings";
@@ -23,7 +23,7 @@ type Search = { searchParams: Promise<Record<string, string | string[] | undefin
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
 
 export default async function DecisionPage({ searchParams }: Search) {
-  const { current, viewer, settings, year, tz } = await fullPage();
+  const { current, viewer, settings, year, tz } = await workPage();
   const raw = await searchParams;
   const tabs = ["ready", "approved", ...(settings.waitingListOn ? ["waiting"] : [])];
   const tab = tabs.includes(one(raw.tab)) ? one(raw.tab) : "ready";

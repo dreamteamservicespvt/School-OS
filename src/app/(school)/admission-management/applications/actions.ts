@@ -4,14 +4,16 @@ import { revalidatePath } from "next/cache";
 import type { ApplicationStage } from "@prisma/client";
 import { flash } from "@/lib/flash";
 import { formValues, type FormState } from "@/lib/forms";
-import { AdmissionProblem, file, id, maybe, need, optionalId, problemState, rupeesOf, str, UUID_RE } from "@/lib/admission/act";
+import { AdmissionProblem, checkMobile, file, id, maybe, need, optionalId, problemState, rupeesOf, str } from "@/lib/admission/act";
 import { admissionAct, customFrom, inSchool } from "@/lib/admission/server";
 import { readApplicationForm } from "@/lib/admission/application-form";
 import { createApplication, editApplication, moveStage, review, sendBack, STAGES, withdraw } from "@/lib/admission/applications";
 import { DuplicateProblem, type Match } from "@/lib/admission/enquiries";
 import { markOriginalSeen, recordPapersException, rejectDocument, remindMissing, uploadDocument, verifyDocument } from "@/lib/admission/documents";
-import { confirmConsentAtCounter, DATA_CONSENT, PHOTO_CONSENT, sendConsentCode } from "@/lib/admission/consent";
+import { admissionConsentTexts, confirmConsentAtCounter, counterFormPurpose, DATA_CONSENT, PHOTO_CONSENT, recordConsents, sendConsentCode, startOtp, verifyOtp } from "@/lib/admission/consent";
+import { requireFull } from "@/lib/admission/access";
 import { cancelPayment, recordCounterPayment } from "@/lib/admission/fee";
+import { sendFeeLink } from "@/lib/admission/public";
 
 const BASE = "/admission-management/applications";
 
@@ -26,9 +28,16 @@ export async function saveApplicationAction(_: DupState, fd: FormData): Promise<
         const before = await w.tx.application.findFirst({ where: { id: existingId }, select: { customFields: true } });
         return editApplication(w.tx, w.ctx, w.v, w.s, existingId, { ...input, customFields: await customFrom(w, "application", fd, before?.customFields ?? {}) });
       }
+      // Consent is given on the form, confirmed by a one-time code to the parent's phone (D8a).
+      const types = [DATA_CONSENT, PHOTO_CONSENT].filter((t) => str(fd, `consent_${t}`) === "on");
+      if (!types.includes(DATA_CONSENT)) throw new AdmissionProblem("The guardian must agree to the data consent, confirmed with the one-time code, before the form is saved.", "code");
+      await verifyOtp(w.tx, { purpose: counterFormPurpose(w.ctx.userId), phone: input.phone, code: str(fd, "code") });
       const campus = await w.tx.campus.findFirst({ where: { archivedAt: null }, orderBy: [{ isMain: "desc" }, { createdAt: "asc" }], select: { id: true } });
       if (!campus) throw new AdmissionProblem("Add a campus in Settings first.");
-      return createApplication(w.tx, w.ctx, w.v, w.s, { ...input, customFields: await customFrom(w, "application", fd, {}) }, { campusId: campus.id, channel: "counter", enquiryId: optionalId(fd, "enquiryId"), force: str(fd, "force") === "1" });
+      const app = await createApplication(w.tx, w.ctx, w.v, w.s, { ...input, customFields: await customFrom(w, "application", fd, {}) }, { campusId: campus.id, channel: "counter", enquiryId: optionalId(fd, "enquiryId"), force: str(fd, "force") === "1" });
+      const texts = await admissionConsentTexts(w.tx, w.current.school.name);
+      await recordConsents(w.tx, w.ctx, app, { types, givenByName: input.fatherName ?? input.motherName ?? input.guardianName ?? "Guardian", howGiven: "admission-form-counter", texts, verifiedAt: new Date() });
+      return app;
     });
     await flash({ message: existingId ? `Application ${app.applicationNo} saved.` : `Application ${app.applicationNo} made for ${app.fullName}.`, link: { href: `${BASE}/${app.id}`, label: "Open application" } });
     revalidatePath("/", "layout");
@@ -36,6 +45,34 @@ export async function saveApplicationAction(_: DupState, fd: FormData): Promise<
   } catch (err) {
     if (err instanceof DuplicateProblem) return { ok: false, message: err.message, values: formValues(fd), data: { matches: err.matches } };
     return problemState(err, fd) as DupState;
+  }
+}
+
+/** New application at the counter: send the consent code to the parent's phone. */
+export async function sendFormCodeAction(phone: string): Promise<{ ok: boolean; message: string }> {
+  try {
+    const to = checkMobile(phone.replace(/\s/g, ""), "phone", "Parent's phone");
+    await inSchool("create", async (w) => {
+      requireFull(w.v, "new applications");
+      return startOtp(w.tx, w.ctx, { phone: to, purpose: counterFormPurpose(w.ctx.userId), schoolName: w.current.school.name, about: null });
+    });
+    return { ok: true, message: `Code sent to +91 ${to} by SMS. It works for 10 minutes.` };
+  } catch (err) {
+    return { ok: false, message: problemState(err)?.message ?? "The code could not be sent." };
+  }
+}
+
+/** Checks the code the guardian reads out, without using it up; saving the form uses it. */
+export async function checkFormCodeAction(phone: string, code: string): Promise<{ ok: boolean; message: string }> {
+  try {
+    const to = checkMobile(phone.replace(/\s/g, ""), "phone", "Parent's phone");
+    await inSchool("create", async (w) => {
+      requireFull(w.v, "new applications");
+      return verifyOtp(w.tx, { purpose: counterFormPurpose(w.ctx.userId), phone: to, code }, new Date(), false);
+    });
+    return { ok: true, message: "Code is right." };
+  } catch (err) {
+    return { ok: false, message: problemState(err)?.message ?? "The code could not be checked." };
   }
 }
 
@@ -111,13 +148,7 @@ export async function cancelPaymentAction(_: FormState<unknown>, fd: FormData) {
   return admissionAct("approve", fd, (w) => cancelPayment(w.tx, w.ctx, w.v, id(fd, "paymentId", "payment"), str(fd, "reason")), () => "Payment cancelled. The record and its receipt number are kept.");
 }
 
-/** Pipeline board on the dashboard: a card dragged to the next column. */
-export async function moveBoardCard(cardId: string, from: string, to: string): Promise<string | null> {
-  if (!UUID_RE.test(cardId)) return "This card was not found.";
-  const target: Record<string, ApplicationStage> = { documents: "DOCUMENTS", tests: "TEST_INTERVIEW", approvals: "DECISION" };
-  if (from === "enquiry" && to === "application") return "Open the enquiry and use Convert to application, so the form can be filled.";
-  const stage = target[to];
-  if (!stage) return "Cards cannot be moved to that column by dragging. Use the buttons on the application.";
-  const r = await admissionAct("edit", undefined, (w) => moveStage(w.tx, w.ctx, w.v, w.s, cardId, stage), () => "Application moved.");
-  return r?.ok ? null : r?.message ?? "That did not work.";
+export async function sendFeeLinkAction(_: FormState<unknown>, fd: FormData) {
+  return admissionAct("edit", fd, (w) => sendFeeLink(w.tx, w.ctx, w.v, id(fd, "id", "application")),
+    (r) => `Payment link sent to +91 ${r.phone} by ${r.channel === "sms" ? "SMS" : r.channel === "email" ? "email" : "WhatsApp"}. The receipt is made only after Razorpay confirms the payment.`);
 }

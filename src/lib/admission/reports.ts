@@ -13,16 +13,20 @@ import { progressOf } from "./documents";
 import { stageLabel, OPEN_STAGES } from "./applications";
 import { enquiryScope, type Viewer } from "./access";
 
-export type Filters = { yearId: string; classId?: string | null; source?: string | null; ownerStaffId?: string | null; campusId?: string | null };
+export type Filters = {
+  yearId: string; classId?: string | null; source?: string | null; ownerStaffId?: string | null; campusId?: string | null;
+  /** The date filter (P2): enquiries added, or applications submitted, in this window. */
+  created?: { gte: Date; lt: Date } | null;
+};
 
 const DAY = 86_400_000;
 
 function enquiryBase(f: Filters, v: Viewer): Prisma.EnquiryWhereInput {
-  return { AND: [enquiryScope(v)], archivedAt: null, academicYearId: f.yearId, ...(f.classId ? { classId: f.classId } : {}), ...(f.source ? { firstSource: f.source } : {}), ...(f.ownerStaffId ? { ownerStaffId: f.ownerStaffId } : {}), ...(f.campusId ? { campusId: f.campusId } : {}) };
+  return { AND: [enquiryScope(v)], archivedAt: null, academicYearId: f.yearId, ...(f.classId ? { classId: f.classId } : {}), ...(f.source ? { firstSource: f.source } : {}), ...(f.ownerStaffId ? { ownerStaffId: f.ownerStaffId } : {}), ...(f.campusId ? { campusId: f.campusId } : {}), ...(f.created ? { createdAt: f.created } : {}) };
 }
 
 function appBase(f: Filters): Prisma.ApplicationWhereInput {
-  return { archivedAt: null, academicYearId: f.yearId, ...(f.classId ? { classId: f.classId } : {}), ...(f.source ? { enquiry: { firstSource: f.source } } : {}), ...(f.ownerStaffId ? { enquiry: { ownerStaffId: f.ownerStaffId } } : {}), ...(f.campusId ? { campusId: f.campusId } : {}) };
+  return { archivedAt: null, academicYearId: f.yearId, ...(f.classId ? { classId: f.classId } : {}), ...(f.source ? { enquiry: { firstSource: f.source } } : {}), ...(f.ownerStaffId ? { enquiry: { ownerStaffId: f.ownerStaffId } } : {}), ...(f.campusId ? { campusId: f.campusId } : {}), ...(f.created ? { createdAt: f.created } : {}) };
 }
 
 export type FunnelStage = { key: string; label: string; count: number; lastWeek: number; oldest: Date | null; href: string };

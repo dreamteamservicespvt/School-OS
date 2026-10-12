@@ -31,11 +31,11 @@ export function boardColumns(s: Settings) {
 }
 
 function enquiryWhere(f: Filters, v: Viewer): Prisma.EnquiryWhereInput {
-  return { AND: [enquiryScope(v)], archivedAt: null, academicYearId: f.yearId, ...(f.classId ? { classId: f.classId } : {}), ...(f.source ? { firstSource: f.source } : {}), ...(f.ownerStaffId ? { ownerStaffId: f.ownerStaffId } : {}), ...(f.campusId ? { campusId: f.campusId } : {}) };
+  return { AND: [enquiryScope(v)], archivedAt: null, academicYearId: f.yearId, ...(f.classId ? { classId: f.classId } : {}), ...(f.source ? { firstSource: f.source } : {}), ...(f.ownerStaffId ? { ownerStaffId: f.ownerStaffId } : {}), ...(f.campusId ? { campusId: f.campusId } : {}), ...(f.created ? { createdAt: f.created } : {}) };
 }
 function appWhere(f: Filters): Prisma.ApplicationWhereInput {
   const enquiry: Prisma.EnquiryWhereInput = { ...(f.source ? { firstSource: f.source } : {}), ...(f.ownerStaffId ? { ownerStaffId: f.ownerStaffId } : {}) };
-  return { archivedAt: null, academicYearId: f.yearId, ...(f.classId ? { classId: f.classId } : {}), ...(f.campusId ? { campusId: f.campusId } : {}), ...(Object.keys(enquiry).length ? { enquiry } : {}) };
+  return { archivedAt: null, academicYearId: f.yearId, ...(f.classId ? { classId: f.classId } : {}), ...(f.campusId ? { campusId: f.campusId } : {}), ...(f.created ? { createdAt: f.created } : {}), ...(Object.keys(enquiry).length ? { enquiry } : {}) };
 }
 
 /** Applications in Test & Interview with an interview booked and no outcome yet are "at the interview"; the rest are at the test. */

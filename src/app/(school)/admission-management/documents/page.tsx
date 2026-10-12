@@ -3,7 +3,7 @@ import Link from "next/link";
 import { withSchool } from "@/lib/db";
 import { readListParams, skipTake, listHref } from "@/lib/list";
 import { formatDate } from "@/lib/format";
-import { fullPage, BASE } from "@/lib/admission/page";
+import { workPage, BASE } from "@/lib/admission/page";
 import { progressOf } from "@/lib/admission/documents";
 import { classRules } from "@/lib/admission/settings";
 import { names } from "@/lib/admission/choices";
@@ -19,7 +19,7 @@ export const metadata: Metadata = { title: "Documents & Verification" };
 type Search = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
 export default async function DocumentsPage({ searchParams }: Search) {
-  const { current, year, tz } = await fullPage();
+  const { current, year, tz } = await workPage();
   const params = readListParams(await searchParams, ["docs", "class"]);
   const yearId = year?.id ?? "00000000-0000-0000-0000-000000000000";
   const f = params.filters;

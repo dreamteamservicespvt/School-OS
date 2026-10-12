@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { formatDate, formatDateTime } from "@/lib/format";
-import { fullPage, BASE } from "@/lib/admission/page";
+import { workPage, BASE } from "@/lib/admission/page";
 import { UUID_RE } from "@/lib/admission/act";
 import { OPEN_STAGES } from "@/lib/admission/applications";
 import { admissionStaff, stageOn } from "@/lib/admission/settings";
@@ -23,7 +23,7 @@ type Search = { searchParams: Promise<Record<string, string | string[] | undefin
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
 
 export default async function TestsPage({ searchParams }: Search) {
-  const { current, viewer, settings, year, tz, today } = await fullPage();
+  const { current, viewer, settings, year, tz, today } = await workPage();
   const testsOn = stageOn(settings, "test") && settings.testsOn;
   const interviewsOn = stageOn(settings, "interview") && settings.interviewsOn;
   if (!testsOn && !interviewsOn) redirect(BASE);

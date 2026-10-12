@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { formatDateTime } from "@/lib/format";
-import { fullPage, BASE } from "@/lib/admission/page";
+import { workPage, BASE } from "@/lib/admission/page";
 import { UUID_RE } from "@/lib/admission/act";
 import { OPEN_STAGES } from "@/lib/admission/applications";
 import { names } from "@/lib/admission/choices";
@@ -17,7 +17,7 @@ export const metadata: Metadata = { title: "Admission test" };
 export default async function TestPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!UUID_RE.test(id)) notFound();
-  const { current, viewer, tz } = await fullPage();
+  const { current, viewer, tz } = await workPage();
   const data = await withSchool(current.ctx, async (tx) => {
     const test = await tx.admissionTest.findFirst({
       where: { id, archivedAt: null },

@@ -25,9 +25,16 @@ export const admissionPage = cache(async (action: Action = "view") => {
   return { current, viewer, settings, year, tz, today: todayIn(tz) };
 });
 
-/** Pages only the admission team (full reach) may open. Others go to their enquiries. */
+/** Pages for people who see every admission (the team, and View reach). People with Own reach get the "no access" page (05-roles.md). */
 export async function fullPage(action: Action = "view") {
   const p = await admissionPage(action);
-  if (p.viewer.see !== "all") redirect(`${BASE}/enquiries`);
+  if (p.viewer.see !== "all") redirect(`/no-access?m=${MODULE}`);
+  return p;
+}
+
+/** Pages where the work is done (documents, tests, decisions, settings, new applications): Full reach only. */
+export async function workPage(action: Action = "view") {
+  const p = await admissionPage(action);
+  if (p.viewer.see !== "all" || p.viewer.change !== "all") redirect(`/no-access?m=${MODULE}`);
   return p;
 }

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { formatDate, formatDateTime } from "@/lib/format";
-import { fullPage, BASE } from "@/lib/admission/page";
+import { workPage, BASE } from "@/lib/admission/page";
 import { UUID_RE } from "@/lib/admission/act";
 import { UNDO_ADMISSION_MS, type Conversion } from "@/lib/admission/convert";
 import { feePlanApplies } from "@/lib/students/hooks";
@@ -18,7 +18,7 @@ export const metadata: Metadata = { title: "Admission confirmed" };
 export default async function AdmittedPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!UUID_RE.test(id)) notFound();
-  const { current, viewer, tz } = await fullPage();
+  const { current, viewer, tz } = await workPage();
   const data = await withSchool(current.ctx, async (tx) => {
     const app = await tx.application.findFirst({ where: { id, archivedAt: null } });
     if (!app) return null;

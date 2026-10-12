@@ -144,7 +144,7 @@ export function SegField({ name, label, options, defaultValue, help, size, onCha
 }
 
 /** Indian mobile number with +91 in front (design: PhoneInput). */
-export function PhoneField({ name, label, defaultValue, error, help, required, onBlur }: { name: string; label: string; defaultValue?: string; error?: string; help?: React.ReactNode; required?: boolean; onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void }) {
+export function PhoneField({ name, label, defaultValue, error, help, required, onBlur, onValue }: { name: string; label: string; defaultValue?: string; error?: string; help?: React.ReactNode; required?: boolean; onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void; onValue?: (v: string) => void }) {
   const id = `${useId()}-${name}`;
   return (
     <FieldShell label={label} id={id} error={error} help={help} required={required}>
@@ -152,7 +152,7 @@ export function PhoneField({ name, label, defaultValue, error, help, required, o
         <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink3 text-[15px]" aria-hidden="true">+91</span>
         <input id={id} name={name} inputMode="numeric" autoComplete="tel-national" placeholder="98480 12345" defaultValue={defaultValue} onBlur={onBlur}
           aria-invalid={error ? true : undefined} aria-describedby={error ? `${id}-error` : help ? `${id}-help` : undefined}
-          onInput={(e) => { const t = e.currentTarget; t.value = t.value.replace(/[^\d ]/g, "").slice(0, 11); }}
+          onInput={(e) => { const t = e.currentTarget; t.value = t.value.replace(/[^\d ]/g, "").slice(0, 11); onValue?.(t.value); }}
           className={cx(inputCls(error), "h-11 pl-12 tnum")} />
       </div>
     </FieldShell>

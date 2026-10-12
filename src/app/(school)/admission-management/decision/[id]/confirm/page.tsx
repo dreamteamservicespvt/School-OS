@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { formatDate } from "@/lib/format";
-import { fullPage, BASE } from "@/lib/admission/page";
+import { workPage, BASE } from "@/lib/admission/page";
 import { UUID_RE } from "@/lib/admission/act";
 import { blockers } from "@/lib/admission/convert";
 import { bestSection, seatsFor } from "@/lib/admission/seats";
@@ -18,7 +18,7 @@ export const metadata: Metadata = { title: "Confirm admission" };
 export default async function ConfirmPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!UUID_RE.test(id)) notFound();
-  const { current, viewer, today } = await fullPage("create");
+  const { current, viewer, today } = await workPage("create");
   if (viewer.change !== "all") redirect(`${BASE}/decision`);
   const data = await withSchool(current.ctx, async (tx) => {
     const app = await tx.application.findFirst({ where: { id, archivedAt: null } });

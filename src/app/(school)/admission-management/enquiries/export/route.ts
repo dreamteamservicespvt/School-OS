@@ -7,8 +7,9 @@ import { buildExport, exportResponse, logExport } from "@/lib/exports";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { viewerFor } from "@/lib/admission/access";
 import { describeEnquiryFilters, ENQUIRY_FILTERS, enquiryOrder, enquiryWhere, exportFormatOf } from "@/lib/admission/list";
-import { admissionYear, label, loadSettings } from "@/lib/admission/settings";
+import { label, loadSettings, openYears } from "@/lib/admission/settings";
 import { names } from "@/lib/admission/choices";
+import { periodFromSearch } from "@/lib/periods";
 
 export async function GET(req: Request) {
   const { current } = await requireAction("admission-management", "export");
@@ -16,15 +17,16 @@ export async function GET(req: Request) {
   const format = exportFormatOf(url);
   const params = readListParams(Object.fromEntries(url.searchParams.entries()), ENQUIRY_FILTERS);
   const tz = current.school.timeZone;
+  const range = periodFromSearch(Object.fromEntries(url.searchParams.entries()), { timeZone: tz });
   return withSchool(current.ctx, async (tx) => {
     const v = await viewerFor(tx, current.ctx, current);
     const s = await loadSettings(tx, current.ctx);
-    const year = await admissionYear(tx, current.ctx, s);
-    const where = enquiryWhere(params, v, { yearId: year?.id ?? "00000000-0000-0000-0000-000000000000", timeZone: tz });
+    const yearIds = (await openYears(tx)).map((y) => y.id);
+    const where = enquiryWhere(params, v, { yearId: yearIds.length ? yearIds : ["00000000-0000-0000-0000-000000000000"], timeZone: tz, range });
     const rows = await tx.enquiry.findMany({ where, orderBy: enquiryOrder(params), take: 5000, include: { campaign: { select: { name: true } } } });
     const n = await names(tx);
     const years = new Map((await tx.academicYear.findMany({ select: { id: true, name: true } })).map((y) => [y.id, y.name]));
-    const filters = describeEnquiryFilters(params, s, { ...n, years });
+    const filters = describeEnquiryFilters(params, s, { ...n, years }, range);
     type Row = (typeof rows)[number];
     const file = await buildExport<Row>(format, [
       { label: "Child's name", value: (r) => r.childName },

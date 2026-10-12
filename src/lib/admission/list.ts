@@ -9,8 +9,9 @@ import { enquiryScope, type Viewer } from "./access";
 import { CLOSED_STATUSES } from "./settings";
 import { STAGES } from "./applications";
 import { instantToLocal, zonedToInstant } from "./act";
+import { momentWhere, type DayRange } from "../periods";
 
-export const ENQUIRY_FILTERS = ["quick", "source", "status", "class", "owner", "campaign", "from", "to", "year", "view"] as const;
+export const ENQUIRY_FILTERS = ["quick", "source", "status", "class", "owner", "campaign", "year", "view", "period", "from", "to"] as const;
 export const QUICK = [
   { value: "mine", label: "My enquiries" },
   { value: "today", label: "Follow-up today" },
@@ -21,7 +22,7 @@ export const QUICK = [
 
 const UUID = /^[0-9a-f-]{36}$/i;
 
-export function enquiryWhere(params: ListParams, v: Viewer, opts: { yearId: string | string[]; timeZone: string; now?: Date }): Prisma.EnquiryWhereInput {
+export function enquiryWhere(params: ListParams, v: Viewer, opts: { yearId: string | string[]; timeZone: string; now?: Date; range?: DayRange | null }): Prisma.EnquiryWhereInput {
   const f = params.filters;
   const now = opts.now ?? new Date();
   const and: Prisma.EnquiryWhereInput[] = [enquiryScope(v)];
@@ -45,8 +46,8 @@ export function enquiryWhere(params: ListParams, v: Viewer, opts: { yearId: stri
   if (f.quick === "new-week") and.push({ createdAt: { gte: new Date(now.getTime() - 7 * 86_400_000) } });
   if (f.quick === "lost") and.push({ status: "lost" });
   if (f.view === "whatsapp") and.push({ OR: [{ source: "whatsapp" }, { firstSource: "whatsapp" }, { activities: { some: { kind: "message", data: { path: ["channel"], equals: "whatsapp" } } } }] });
-  if (f.from && /^\d{4}-\d{2}-\d{2}$/.test(f.from)) and.push({ createdAt: { gte: zonedToInstant(`${f.from}T00:00`, opts.timeZone) } });
-  if (f.to && /^\d{4}-\d{2}-\d{2}$/.test(f.to)) and.push({ createdAt: { lt: new Date(zonedToInstant(`${f.to}T00:00`, opts.timeZone).getTime() + 86_400_000) } });
+  // The date filter (period, from, to) is on the day the enquiry was added.
+  if (opts.range) and.push({ createdAt: momentWhere(opts.range, opts.timeZone) });
   return {
     AND: and,
     archivedAt: params.archived ? { not: null } : null,
@@ -69,11 +70,13 @@ export function enquiryOrder(params: ListParams) {
   }, [{ nextFollowUpAt: { sort: "asc", nulls: "last" } }, { createdAt: "desc" }]) as Prisma.EnquiryOrderByWithRelationInput | Prisma.EnquiryOrderByWithRelationInput[];
 }
 
-export const APPLICATION_FILTERS = ["stage", "class", "year", "docs", "fee", "channel"] as const;
+export const APPLICATION_FILTERS = ["stage", "class", "year", "docs", "fee", "channel", "period", "from", "to"] as const;
 
-export function applicationWhere(params: ListParams, opts: { yearId: string | string[] }): Prisma.ApplicationWhereInput {
+export function applicationWhere(params: ListParams, opts: { yearId: string | string[]; range?: DayRange | null; timeZone?: string }): Prisma.ApplicationWhereInput {
   const f = params.filters;
   const and: Prisma.ApplicationWhereInput[] = [];
+  // The date filter is on the day the application was submitted.
+  if (opts.range) and.push({ createdAt: momentWhere(opts.range, opts.timeZone ?? "Asia/Kolkata") });
   if (params.q) {
     const q = params.q;
     const digits = q.replace(/\D/g, "");
@@ -104,7 +107,7 @@ export function applicationWhere(params: ListParams, opts: { yearId: string | st
 type Names = { classes: Map<string, string>; staff: Map<string, string>; years?: Map<string, string> };
 
 /** The filters in words, printed on every export (P8). */
-export function describeEnquiryFilters(params: ListParams, s: { statusList: { key: string; label: string }[]; sourceList: { key: string; label: string }[] }, n: Names) {
+export function describeEnquiryFilters(params: ListParams, s: { statusList: { key: string; label: string }[]; sourceList: { key: string; label: string }[] }, n: Names, range?: DayRange | null) {
   const f = params.filters;
   const parts: string[] = [];
   if (params.q) parts.push(`Search "${params.q}"`);
@@ -114,12 +117,12 @@ export function describeEnquiryFilters(params: ListParams, s: { statusList: { ke
   if (f.class) parts.push(`Class: ${n.classes.get(f.class) ?? "?"}`);
   if (f.owner) parts.push(`Owner: ${f.owner === "none" ? "No owner" : n.staff.get(f.owner) ?? "?"}`);
   if (f.year) parts.push(`Year: ${f.year === "all" ? "All" : n.years?.get(f.year) ?? "?"}`);
-  if (f.from || f.to) parts.push(`Added ${f.from ?? "…"} to ${f.to ?? "…"}`);
+  if (range) parts.push(`Added: ${range.label}${range.period === "custom" ? "" : ` (${range.from} to ${range.to})`}`);
   if (params.archived) parts.push("Archived");
   return parts.join(", ") || "All enquiries this admission year";
 }
 
-export function describeApplicationFilters(params: ListParams, n: Names) {
+export function describeApplicationFilters(params: ListParams, n: Names, range?: DayRange | null) {
   const f = params.filters;
   const parts: string[] = [];
   if (params.q) parts.push(`Search "${params.q}"`);
@@ -129,6 +132,7 @@ export function describeApplicationFilters(params: ListParams, n: Names) {
   if (f.docs) parts.push(f.docs === "complete" ? "Documents complete" : "Documents missing");
   if (f.fee) parts.push(f.fee === "paid" ? "Fee paid" : f.fee === "unpaid" ? "Fee not paid" : "No fee");
   if (f.channel) parts.push(f.channel === "online" ? "Online" : "At the counter");
+  if (range) parts.push(`Submitted: ${range.label}${range.period === "custom" ? "" : ` (${range.from} to ${range.to})`}`);
   if (params.archived) parts.push("Archived");
   return parts.join(", ") || "All applications this admission year";
 }

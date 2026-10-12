@@ -18,6 +18,8 @@ import { Col, Row, Split } from "@/components/ui/rows";
 import { UrlSegmented, UrlSelect } from "@/components/ui/url-filters";
 import { EmptyState } from "@/components/empty-state";
 import { cx } from "@/components/ui/cx";
+import { periodFromSearch, momentWhere } from "@/lib/periods";
+import { PeriodFilter } from "@/components/list/period-filter";
 import { AdmissionHead } from "./_components/head";
 import { Pipeline } from "./_components/pipeline";
 import { AddEnquiryButton } from "./enquiries/enquiry-forms";
@@ -35,6 +37,7 @@ export default async function AdmissionDashboard({ searchParams }: Search) {
   const raw = await searchParams;
   const now = new Date();
   const dayStart = zonedToInstant(`${today}T00:00`, tz);
+  const range = periodFromSearch(raw, { timeZone: tz });
 
   const data = await withSchool(current.ctx, async (tx) => {
     const years = await openYears(tx);
@@ -51,6 +54,7 @@ export default async function AdmissionDashboard({ searchParams }: Search) {
       source: settings.sourceList.some((s) => s.key === source) ? source : null,
       ownerStaffId: idOr(one(raw.owner)),
       campusId: idOr(one(raw.campus)),
+      created: range ? momentWhere(range, tz) : null,
     };
     const [band, stages, cols, fu, seats] = await Promise.all([
       headline(tx, viewer, f, dayStart, now),
@@ -87,7 +91,7 @@ export default async function AdmissionDashboard({ searchParams }: Search) {
     return (
       <>
         <AdmissionHead href={BASE} sub={sub} />
-        <Card><EmptyState Icon={CalendarX2} title="No academic year yet" action={<ButtonLink href="/academic-management" variant="primary">Open Academic Management</ButtonLink>}>Add the academic year and its classes and sections in Academic Management. Admissions open for it straight away.</EmptyState></Card>
+        <Card><EmptyState bare Icon={CalendarX2} title="No academic year yet" action={<ButtonLink href="/academic-management" variant="primary">Open Academic Management</ButtonLink>}>Add the academic year and its classes and sections in Academic Management. Admissions open for it straight away.</EmptyState></Card>
       </>
     );
   }
@@ -110,6 +114,7 @@ export default async function AdmissionDashboard({ searchParams }: Search) {
         <div className="flex flex-col lg:flex-row gap-2.5 lg:items-center">
           {yearOptions.length > 1 ? <UrlSegmented param="year" label="Admission year" options={yearOptions} value={data.yearId} /> : <p className="text-[14px] font-semibold text-ink2">Admission year {thisYear?.name}</p>}
           <div className="grid grid-cols-2 lg:flex gap-2 lg:ml-auto">
+            <PeriodFilter timeZone={tz} allLabel="Any date" className="col-span-2 lg:col-span-1" />
             <UrlSelect param="class" label="Class" allLabel="All classes" options={data.choices.classes} className="lg:w-40" />
             <UrlSelect param="source" label="Source" allLabel="All sources" options={data.choices.sources} className="lg:w-40" />
             <UrlSelect param="owner" label="Owner" allLabel="All owners" options={data.choices.owners.map((o) => ({ value: o.value, label: o.label.replace(/ \(.*\)$/, "") }))} className={cx("lg:w-44", data.campuses.length <= 1 && "col-span-2 lg:col-span-1")} />

@@ -18,6 +18,9 @@ import { pickOwner } from "./enquiries";
 import { createApplication, type ApplicationInput } from "./applications";
 import { admissionConsentTexts, recordConsents, startOtp, verifyOtp, DATA_CONSENT } from "./consent";
 import { activeRazorpay, feeStatus } from "./fee";
+import { requireFull, type Viewer } from "./access";
+import { messageParent } from "./notify-parents";
+import { appUrl } from "../parent-link/token";
 
 const CODE_RE = /^[A-Za-z0-9-]{2,24}$/;
 
@@ -148,4 +151,30 @@ export async function applicationStatus(schoolId: string, applicationId: string)
     const online = app.feeDuePaise ? Boolean(await activeRazorpay(tx)) : false;
     return { applicationNo: app.applicationNo, fullName: app.fullName, className: cls?.name ?? "", stage: app.stage, fee, feeDue: app.feeDuePaise ? formatRupees(fee.duePaise - fee.paidPaise) : null, receipts, onlinePayment: online, createdAt: app.createdAt };
   });
+}
+
+/** The parent's own page for this application: its stage, and the fee to pay online. */
+export function statusPath(schoolCode: string, schoolId: string, applicationId: string) {
+  return `/apply/${encodeURIComponent(schoolCode)}/status/${applicationId}?t=${statusToken(schoolId, applicationId)}`;
+}
+
+/** Sends the parent the link to pay the application fee online (Razorpay). The receipt is made only once Razorpay confirms. */
+export async function sendFeeLink(tx: Tx, ctx: SchoolContext, v: Viewer, applicationId: string) {
+  requireFull(v, "fee links");
+  const app = await tx.application.findFirst({ where: { id: applicationId, archivedAt: null }, include: { payments: true } });
+  if (!app) throw new AdmissionProblem("This application was not found.");
+  const st = feeStatus(app, app.payments);
+  if (st.key === "not-needed" || st.key === "paid") throw new AdmissionProblem("Nothing is due on this application.");
+  if (!(await activeRazorpay(tx))) throw new AdmissionProblem("Online payment is not set up yet. Connect Razorpay in Settings, Payment Gateways, or collect the fee at the counter.");
+  const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { name: true, code: true } });
+  const name = app.fatherName ?? app.motherName ?? app.guardianName ?? "Parent";
+  const link = `${appUrl()}${statusPath(school.code, ctx.schoolId, app.id)}`;
+  const r = await messageParent(tx, ctx, {
+    to: { name, phone: app.phone, email: app.email }, template: "admission-fee-link",
+    text: `Dear ${name}, please pay the application fee of ${formatRupees(st.duePaise - st.paidPaise)} for ${app.fullName} (application ${app.applicationNo}) at ${school.name}: ${link}`,
+    about: { recordType: "Application", recordId: app.id },
+  });
+  if (r.status === "skipped") throw new AdmissionProblem("The link was not sent: the application has no valid mobile number.");
+  await tx.applicationActivity.create({ data: { schoolId: ctx.schoolId, applicationId: app.id, kind: "fee", text: `Payment link for ${formatRupees(st.duePaise - st.paidPaise)} sent to the parent by ${r.channel === "sms" ? "SMS" : r.channel === "email" ? "email" : "WhatsApp"}.`, byId: ctx.userId } });
+  return { channel: r.channel, phone: app.phone };
 }

@@ -37,6 +37,7 @@ const TRIGGERS: Record<string, string> = {
   "admission-documents-missing": "Missing admission papers",
   "admission-document-rejected": "Admission paper rejected",
   "admission-details-missing": "Application details missing",
+  "admission-fee-link": "Application fee payment link",
 };
 
 export async function messageParent(tx: Tx, ctx: SchoolContext, msg: ParentMessage): Promise<SendResult> {

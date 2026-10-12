@@ -72,7 +72,8 @@ export async function startOtp(tx: Tx, ctx: SchoolContext, input: { phone: strin
 }
 
 /** Checks a typed code. A wrong code counts a try; after 5 tries or 10 minutes a new code is needed. */
-export async function verifyOtp(tx: Tx, input: { purpose: string; phone: string; code: string }, now = new Date()) {
+/** Checks the code. With consume off it only checks (wrong tries still count), so a form can confirm the code before it is saved. */
+export async function verifyOtp(tx: Tx, input: { purpose: string; phone: string; code: string }, now = new Date(), consume = true) {
   const code = input.code.replace(/\D/g, "");
   if (code.length !== 6) throw new AdmissionProblem("Type the 6-digit code sent to the parent's mobile.", "code");
   const row = await tx.admissionOtp.findFirst({ where: { purpose: input.purpose, phone: input.phone, usedAt: null }, orderBy: { createdAt: "desc" } });
@@ -84,7 +85,7 @@ export async function verifyOtp(tx: Tx, input: { purpose: string; phone: string;
     const left = OTP_MAX_TRIES - row.attempts - 1;
     throw new AdmissionProblem(left > 0 ? `That code is not right. ${left} ${left === 1 ? "try" : "tries"} left.` : "That code is not right. Send a new code.", "code");
   }
-  await tx.admissionOtp.update({ where: { id: row.id }, data: { usedAt: now } });
+  if (consume) await tx.admissionOtp.update({ where: { id: row.id }, data: { usedAt: now } });
   return true;
 }
 
@@ -125,6 +126,9 @@ export async function confirmConsentAtCounter(tx: Tx, ctx: SchoolContext, v: Vie
   const texts = await admissionConsentTexts(tx, schoolName);
   return recordConsents(tx, ctx, app, { types: input.types, givenByName: input.givenByName, howGiven: "admission-form-counter", texts, verifiedAt: new Date() });
 }
+
+/** The purpose of the code for a new application at the counter: one per staff member, so two desks never mix codes. */
+export const counterFormPurpose = (userId: string | null) => `counter-form:${userId ?? "none"}`;
 
 export async function hasDataConsent(tx: Tx, applicationId: string) {
   return Boolean(await tx.admissionConsent.findFirst({ where: { applicationId, consentType: DATA_CONSENT, withdrawnAt: null, otpVerifiedAt: { not: null } } }));

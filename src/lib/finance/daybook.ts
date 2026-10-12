@@ -106,7 +106,8 @@ export async function reverseSource(tx: Tx, ctx: SchoolContext, input: { sourceT
       amountPaise: o.amountPaise,
       penaltyPaise: o.penaltyPaise,
       mode: o.mode,
-      section: "reversal",
+      // Money moved and opening balances are not income or expense, so cancelling them stays out of both.
+      section: NEUTRAL.has(o.section) ? (o.section as DayBookSection) : "reversal",
       headName: o.headName,
       feeHeadIds: o.feeHeadIds,
       accountHeadId: o.accountHeadId,
@@ -167,7 +168,7 @@ export function dayBookWhere(f: DayBookFilter): Prisma.DayBookEntryWhereInput {
 
 /** The Day Book for a date or range, with the income groups and mode pills of 07 §2. */
 export async function dayBook(tx: Tx, f: DayBookFilter) {
-  const entries = await tx.dayBookEntry.findMany({ where: { ...dayBookWhere(f), section: { notIn: ["opening", "transfer"] } }, orderBy: [{ date: "asc" }, { postedAt: "asc" }] });
+  const entries = await tx.dayBookEntry.findMany({ where: { ...dayBookWhere(f), section: { notIn: ["opening", "transfer"] }, sourceType: { notIn: ["transfer", "transfer-cancel"] } }, orderBy: [{ date: "asc" }, { postedAt: "asc" }] });
   const totals = dayBookTotals(entries);
   const fees = entries.filter((e) => e.direction === "IN" && ["fees-full", "fees-partial", "other-fees"].includes(e.section));
   const sum = (list: DayBookEntry[]) => list.reduce((s, e) => s + e.amountPaise, BigInt(0));

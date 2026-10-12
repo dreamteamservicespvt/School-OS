@@ -103,7 +103,7 @@ export function headSide(e: Pick<DayBookEntry, "section" | "accountHeadId" | "st
   if (e.section === "opening") return "opening";
   if (e.section === "transfer") return "contra";
   if (e.accountHeadId) return `head:${e.accountHeadId}`;
-  const sys = ["fees-full", "fees-partial", "other-fees"].includes(e.section) ? "fees" : e.section === "refund" ? "refunds" : e.section.startsWith("salary") ? "salary" : null;
+  const sys = ["fees-full", "fees-partial", "other-fees", "online-fees", "daycare"].includes(e.section) ? "fees" : e.section === "refund" ? "refunds" : e.section.startsWith("salary") ? "salary" : null;
   // Reversals carry the original's head; fee reversals have none, so they go back to Fees.
   const fallback = sys ?? (e.section === "reversal" && e.studentId ? "fees" : null);
   return fallback && bySystem.get(fallback) ? `head:${bySystem.get(fallback)}` : "unassigned";
@@ -207,7 +207,7 @@ export async function payables(tx: Tx, today: Date) {
   const vendors = await tx.vendor.findMany({ where: { id: { in: rows.map((r) => r.vendorId).filter((x): x is string => Boolean(x)) } } });
   return rows
     .map((e) => ({
-      id: e.id, number: e.number, date: e.date, dueDate: e.billDueDate, billNo: e.billNo, status: e.status,
+      id: e.id, number: e.number, date: e.date, dueDate: e.billDueDate, billNo: e.billNo, status: e.status, accountHeadId: e.accountHeadId,
       vendor: vendors.find((v) => v.id === e.vendorId)?.name ?? "No vendor",
       amount: e.amountPaise, paid: e.paidPaise, balance: e.amountPaise - e.paidPaise,
       overdue: Boolean(e.billDueDate && e.billDueDate < today),

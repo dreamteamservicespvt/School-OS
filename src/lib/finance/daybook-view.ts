@@ -54,6 +54,8 @@ export async function dayBookView(tx: Tx, f: DayBookFilter) {
   const where: Prisma.DayBookEntryWhereInput = {
     date: { gte: f.from, lte: f.to },
     section: { notIn: ["opening", "transfer"] },
+    // Money moved between accounts, and its cancelling, is not income or expense.
+    sourceType: { notIn: ["transfer", "transfer-cancel"] },
     ...(filtered ? { studentId: { not: null } } : {}),
     ...(f.classId ? { classId: f.classId } : {}),
     ...(f.depositAccountId ? { OR: [{ depositAccountId: f.depositAccountId }, { depositAccountId: null, accountId: f.depositAccountId }] } : {}),

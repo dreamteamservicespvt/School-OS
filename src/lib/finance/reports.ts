@@ -12,13 +12,25 @@ import type { Cell, ReportColumn, ReportResult } from "../fees/reports";
 import { budgetsWithUse } from "./budgets";
 import { chart, headSide, payables, trialBalance } from "./journals";
 import { EXPENSE_STATUS_WORDS } from "./words";
+import { dayBookWithoutPay } from "./access";
+import { accountBook } from "./daybook";
 import type { FinanceFeature } from "./words";
 
 const ZERO = BigInt(0);
+/** Money moved between accounts (and its cancelling) is neither income nor expense. */
+const MOVES = ["transfer", "transfer-cancel"];
 
-export type FinanceFilter = { financialYearId: string; yearStart: Date; from: Date; to: Date; group: "day" | "month"; by: "head" | "vendor" | "month" | "approver"; today: Date };
+export type FinanceFilter = {
+  financialYearId: string; yearStart: Date; from: Date; to: Date; group: "day" | "month"; by: "head" | "vendor" | "month" | "approver"; today: Date;
+  /** Staff pay heads to leave out (src/lib/finance/access.ts); null shows staff pay. */
+  hidePay?: string[] | null;
+};
 export type FinanceFilterKey = "dates" | "group" | "by";
-export type FinanceReportDef = { key: string; label: string; about: string; filters: FinanceFilterKey[]; feature?: FinanceFeature; run: (tx: Tx, ctx: SchoolContext, f: FinanceFilter) => Promise<ReportResult> };
+export type FinanceReportDef = {
+  key: string; label: string; about: string; filters: FinanceFilterKey[]; feature?: FinanceFeature;
+  /** Only for full Finance Management (the Vice Principal's Finance View has no Accounts). */
+  fullOnly?: boolean;
+  run: (tx: Tx, ctx: SchoolContext, f: FinanceFilter) => Promise<ReportResult> };
 
 const sum = <T>(list: T[], f: (x: T) => bigint) => list.reduce((s, x) => s + f(x), ZERO);
 const monthKey = (d: Date) => d.toISOString().slice(0, 7);
@@ -29,7 +41,7 @@ const periodName = (k: string, g: FinanceFilter["group"]) => (g === "month" ? mo
 /** Money in and out by head for the period: Day Book (reversals net off) plus brought-in records, which are kept apart. */
 async function byHead(tx: Tx, ctx: SchoolContext, f: FinanceFilter) {
   const { accounts, bySystem } = await chart(tx, ctx);
-  const entries = await tx.dayBookEntry.findMany({ where: { financialYearId: f.financialYearId, date: { gte: f.from, lte: f.to }, section: { notIn: ["opening", "transfer"] } } });
+  const entries = await tx.dayBookEntry.findMany({ where: { financialYearId: f.financialYearId, date: { gte: f.from, lte: f.to }, section: { notIn: ["opening", "transfer"] }, sourceType: { notIn: MOVES }, ...(f.hidePay ? dayBookWithoutPay(f.hidePay) : {}) } });
   const lines: { key: string; kind: "INCOME" | "EXPENSE"; date: Date; amount: bigint }[] = [];
   for (const e of entries) {
     const key = headSide(e, bySystem);
@@ -42,7 +54,7 @@ async function byHead(tx: Tx, ctx: SchoolContext, f: FinanceFilter) {
   // Brought-in fee receipts and past expenses (workflow 15) count in reports, never in the Day Book.
   const feeHead = bySystem.get("fees");
   const oldFees = await tx.payment.findMany({ where: { broughtIn: true, status: "POSTED", paymentDate: { gte: f.from, lte: f.to } }, select: { paymentDate: true, amountPaise: true } });
-  const oldExpenses = await tx.expense.findMany({ where: { broughtIn: true, status: "PAID", date: { gte: f.from, lte: f.to } }, select: { date: true, amountPaise: true, accountHeadId: true } });
+  const oldExpenses = await tx.expense.findMany({ where: { broughtIn: true, status: "PAID", date: { gte: f.from, lte: f.to }, ...(f.hidePay?.length ? { accountHeadId: { notIn: f.hidePay } } : {}) }, select: { date: true, amountPaise: true, accountHeadId: true } });
   let broughtIn = ZERO;
   for (const p of oldFees) { lines.push({ key: feeHead ? `head:${feeHead}` : "unassigned", kind: "INCOME", date: p.paymentDate, amount: p.amountPaise }); broughtIn += p.amountPaise; }
   for (const e of oldExpenses) { lines.push({ key: `head:${e.accountHeadId}`, kind: "EXPENSE", date: e.date, amount: e.amountPaise }); broughtIn += e.amountPaise; }
@@ -59,8 +71,8 @@ const BROUGHT_IN_NOTE = "Includes records brought in from old software (they are
 export const FINANCE_REPORTS: FinanceReportDef[] = [
   {
     key: "income-expense",
-    label: "Income and expense by head",
-    about: "Each income and expense head for the period, by day or month.",
+    label: "Income and expense",
+    about: "By head and by month",
     filters: ["dates", "group"],
     run: async (tx, ctx, f) => {
       const { accounts, lines, broughtIn } = await byHead(tx, ctx, f);
@@ -89,7 +101,7 @@ export const FINANCE_REPORTS: FinanceReportDef[] = [
   {
     key: "profit-loss",
     label: "Profit and loss",
-    about: "Income and expense by head and group, and the surplus or deficit for the period.",
+    about: "Income less expenses for the period",
     filters: ["dates"],
     run: async (tx, ctx, f) => {
       const { accounts, lines, broughtIn } = await byHead(tx, ctx, f);
@@ -124,8 +136,8 @@ export const FINANCE_REPORTS: FinanceReportDef[] = [
   },
   {
     key: "expense-analysis",
-    label: "Expense analysis",
-    about: "Paid expenses by head, vendor, month or approver.",
+    label: "Expense report",
+    about: "By head, vendor, month or approver",
     filters: ["dates", "by"],
     run: async (tx, ctx, f) => {
       const paid = await paidExpenses(tx, f);
@@ -164,7 +176,7 @@ export const FINANCE_REPORTS: FinanceReportDef[] = [
   {
     key: "department",
     label: "Department-wise expenses",
-    about: "Paid expenses by department or cost centre, and by head inside each.",
+    about: "By department (cost centre)",
     filters: ["dates"],
     run: async (tx, ctx, f) => {
       const paid = await paidExpenses(tx, f);
@@ -188,10 +200,10 @@ export const FINANCE_REPORTS: FinanceReportDef[] = [
   {
     key: "pending-expenses",
     label: "Pending expenses",
-    about: "Expenses waiting for approval, and approved ones not yet paid, oldest first.",
+    about: "Waiting for approval or payment",
     filters: [],
     run: async (tx, ctx, f) => {
-      const rows = await payables(tx, f.today);
+      const rows = (await payables(tx, f.today)).filter((r) => !f.hidePay?.includes(r.accountHeadId));
       return {
         columns: [{ key: "number", label: "Number" }, { key: "date", label: "Date", kind: "date" }, { key: "vendor", label: "Vendor" }, { key: "status", label: "Status" }, { key: "dueDate", label: "Bill due", kind: "date" }, { key: "balance", label: "To pay", kind: "money" }],
         rows: rows.map((r) => ({ number: r.number, date: r.date, vendor: r.vendor, status: EXPENSE_STATUS_WORDS[r.status]?.label ?? r.status, dueDate: r.dueDate, balance: r.balance })),
@@ -200,13 +212,34 @@ export const FINANCE_REPORTS: FinanceReportDef[] = [
     },
   },
   {
+    key: "books",
+    label: "Cash book and bank book",
+    about: "Opening, receipts, payments, closing",
+    filters: ["dates"],
+    run: async (tx, ctx, f) => {
+      const accounts = await tx.bankAccount.findMany({ where: { archivedAt: null }, orderBy: [{ kind: "asc" }, { isMain: "desc" }, { name: "asc" }] });
+      const rows: Record<string, Cell>[] = [];
+      for (const a of accounts) {
+        const b = await accountBook(tx, a.id, f.from, f.to);
+        rows.push({ account: a.kind === "CASH" ? a.name : `${a.name}${a.accountLast4 ? ` ··${a.accountLast4}` : ""}`, opening: b.opening, receipts: b.receipts, payments: b.payments, closing: b.closing });
+      }
+      const t = (k: string) => sum(rows, (r) => r[k] as bigint);
+      return {
+        columns: [{ key: "account", label: "Account" }, { key: "opening", label: `Opening ${formatDate(f.from)}`, kind: "money" }, { key: "receipts", label: "Receipts", kind: "money" }, { key: "payments", label: "Payments", kind: "money" }, { key: "closing", label: "Closing", kind: "money" }],
+        rows,
+        totals: { account: "All accounts", opening: t("opening"), receipts: t("receipts"), payments: t("payments"), closing: t("closing") },
+        note: "Payments include money moved between accounts, such as cash deposited in the bank. Day by day detail is on Cash & Bank.",
+      };
+    },
+  },
+  {
     key: "budget-actual",
     label: "Budget against actual",
-    about: "Each budget with spent, committed, remaining and % used. Heads at 80% and over 100% are marked.",
+    about: "Needs budgets switched on",
     filters: [],
     feature: "finance-budget",
     run: async (tx, ctx, f) => {
-      const rows = await budgetsWithUse(tx, f.financialYearId);
+      const rows = await budgetsWithUse(tx, f.financialYearId, f.hidePay ?? null);
       const [heads, centres] = await Promise.all([tx.accountHead.findMany({ select: { id: true, name: true } }), tx.costCentre.findMany({ select: { id: true, name: true } })]);
       return {
         columns: [{ key: "head", label: "Expense head" }, { key: "department", label: "Department" }, { key: "budget", label: "Budget", kind: "money" }, { key: "spent", label: "Spent", kind: "money" }, { key: "committed", label: "Committed", kind: "money" }, { key: "remaining", label: "Remaining", kind: "money" }, { key: "used", label: "% used" }, { key: "alert", label: "Alert" }],
@@ -221,9 +254,10 @@ export const FINANCE_REPORTS: FinanceReportDef[] = [
   {
     key: "trial-balance",
     label: "Trial balance",
-    about: "Each account's debit or credit balance at the end of the period.",
+    about: "Every account’s balance (full accounts)",
     filters: ["dates"],
     feature: "finance-accounts",
+    fullOnly: true,
     run: async (tx, ctx, f) => {
       const tb = await trialBalance(tx, ctx, f.yearStart, f.to);
       return {
@@ -236,11 +270,11 @@ export const FINANCE_REPORTS: FinanceReportDef[] = [
   },
   {
     key: "day-book-summary",
-    label: "Day Book summary",
-    about: "Income, expense and net for each day or month of the period.",
+    label: "Day Book for a range",
+    about: "Every day’s totals",
     filters: ["dates", "group"],
     run: async (tx, ctx, f) => {
-      const entries = await tx.dayBookEntry.findMany({ where: { financialYearId: f.financialYearId, date: { gte: f.from, lte: f.to }, section: { notIn: ["opening", "transfer"] } } });
+      const entries = await tx.dayBookEntry.findMany({ where: { financialYearId: f.financialYearId, date: { gte: f.from, lte: f.to }, section: { notIn: ["opening", "transfer"] }, sourceType: { notIn: MOVES }, ...(f.hidePay ? dayBookWithoutPay(f.hidePay) : {}) } });
       const map = new Map<string, { income: bigint; expense: bigint }>();
       for (const e of entries) {
         const p = periodOf(e.date, f.group);
@@ -264,15 +298,19 @@ export const FINANCE_REPORTS: FinanceReportDef[] = [
 /** Paid expense amounts in the period: each payment on its date, and brought-in expenses on theirs. */
 async function paidExpenses(tx: Tx, f: FinanceFilter) {
   const pays = await tx.expensePayment.findMany({
-    where: { cancelledAt: null, date: { gte: f.from, lte: f.to }, expense: { status: { not: "CANCELLED" } } },
+    where: { cancelledAt: null, date: { gte: f.from, lte: f.to }, expense: { status: { not: "CANCELLED" }, ...(f.hidePay?.length ? { accountHeadId: { notIn: f.hidePay } } : {}) } },
     include: { expense: { select: { accountHeadId: true, vendorId: true, costCentreId: true, approvedById: true } } },
   });
-  const old = await tx.expense.findMany({ where: { broughtIn: true, status: "PAID", date: { gte: f.from, lte: f.to } } });
+  const old = await tx.expense.findMany({ where: { broughtIn: true, status: "PAID", date: { gte: f.from, lte: f.to }, ...(f.hidePay?.length ? { accountHeadId: { notIn: f.hidePay } } : {}) } });
   return [
     ...pays.map((p) => ({ date: p.date, amount: p.amountPaise, accountHeadId: p.expense.accountHeadId, vendorId: p.expense.vendorId, costCentreId: p.expense.costCentreId, approvedById: p.expense.approvedById, broughtIn: false })),
     ...old.map((e) => ({ date: e.date, amount: e.amountPaise, accountHeadId: e.accountHeadId, vendorId: e.vendorId, costCentreId: e.costCentreId, approvedById: null as string | null, broughtIn: true })),
   ];
 }
+
+/** In the order of the approved design (mod-finance.jsx FIN_REPORTS). */
+const ORDER = ["income-expense", "profit-loss", "department", "expense-analysis", "pending-expenses", "books", "day-book-summary", "budget-actual", "trial-balance"];
+FINANCE_REPORTS.sort((a, b) => ORDER.indexOf(a.key) - ORDER.indexOf(b.key));
 
 export const findFinanceReport = (key: string) => FINANCE_REPORTS.find((r) => r.key === key) ?? null;
 export type { Cell, ReportColumn, ReportResult };

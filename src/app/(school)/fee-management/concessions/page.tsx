@@ -67,7 +67,7 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
   const tab: TabKey = (TABS as readonly string[]).includes(one(sp.tab)) ? (one(sp.tab) as TabKey) : "concessions";
   const q = one(sp.q).trim().slice(0, 80);
   const stRaw = one(sp.st);
-  const per = feePeriod(sp, p.tz, null);
+  const per = feePeriod(sp, p.dates, null);
   const doing = canEdit ? one(sp.do) : "";
   const student = one(sp.student);
   const sq = one(sp.sq).trim().slice(0, 80);
@@ -236,7 +236,7 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
                 <UrlSegmented param="st" fallback="" label="Status" className="overflow-x-auto no-scrollbar" options={isRefunds
                   ? [{ value: "", label: "All" }, { value: "WAITING", label: "Waiting" }, { value: "APPROVED", label: "To pay" }, { value: "REFUNDED", label: "Refunded" }, { value: "REJECTED", label: "Rejected" }]
                   : [{ value: "", label: "All" }, { value: "WAITING", label: "Waiting" }, { value: "APPLIED", label: "Applied" }, { value: "REJECTED", label: "Rejected" }]} />
-                <PeriodFilter timeZone={p.tz} allLabel="Any date" />
+                <PeriodFilter {...p.dates} allLabel="Any date" />
               </div>
             </Toolbar>
           )}
@@ -315,7 +315,7 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
                     ))}
                   </ul>
                 )}
-                <div className="px-5 pb-4"><PeriodFilter timeZone={p.tz} allLabel="Any date" /></div>
+                <div className="px-5 pb-4"><PeriodFilter {...p.dates} allLabel="Any date" /></div>
               </div>
             </div>
           )}

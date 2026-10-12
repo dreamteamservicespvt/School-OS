@@ -4,6 +4,7 @@ import { buildExport, exportResponse, logExport, type ExportColumn, type ExportF
 import { formatDate, formatRupees } from "@/lib/format";
 import { PermissionDeniedError } from "@/lib/permissions";
 import { periodFromSearch } from "@/lib/periods";
+import { periodSetup } from "@/lib/period-setup";
 import { todayIn } from "@/lib/staff/dates";
 import { admissionOnly, canSeeStudent, feeViewer } from "@/lib/fees/access";
 import { studentLedger, type LedgerEntry } from "@/lib/fees/ledger";
@@ -30,7 +31,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ studentI
   const format = (["csv", "xlsx", "pdf"].includes(f) ? f : "xlsx") as ExportFormat;
   const tz = current.school.timeZone;
   const today = todayIn(tz);
-  const range = periodFromSearch(Object.fromEntries(url.searchParams), { timeZone: tz });
+  const range = periodFromSearch(Object.fromEntries(url.searchParams), await periodSetup(current));
   const data = await withSchool(current.ctx, async (tx) => {
     const viewer = await feeViewer(tx, current.ctx, current);
     if (admissionOnly(viewer) || !(await canSeeStudent(tx, viewer, studentId))) return null;

@@ -8,6 +8,7 @@ import { todayIn } from "@/lib/staff/dates";
 import { feeViewer } from "@/lib/fees/access";
 import { cellText, FEE_REPORTS, findFeeReport, type Cell } from "@/lib/fees/reports";
 import { reportFilter } from "@/lib/fees/report-params";
+import { periodSetup } from "@/lib/period-setup";
 
 export const dynamic = "force-dynamic";
 
@@ -26,11 +27,12 @@ export async function GET(req: Request) {
   const def = findFeeReport(sp.r ?? "") ?? FEE_REPORTS[0];
   const tz = current.school.timeZone;
   const today = todayIn(tz);
+  const dates = await periodSetup(current);
   const data = await withSchool(current.ctx, async (tx) => {
     const viewer = await feeViewer(tx, current.ctx, current);
     if (viewer.see !== "all") return null;
     const year = await currentYear(tx, current.ctx);
-    const { f, range } = reportFilter(sp, { timeZone: tz, today, yearStart: year?.startDate ?? null });
+    const { f, range } = reportFilter(sp, { ...dates, today, yearStart: year?.startDate ?? null });
     const result = await def.run(tx, current.ctx, f, viewer);
     const words = [
       def.filters.includes("dates") ? (range ? range.label : `${formatDate(f.from)} to ${formatDate(f.to)}`) : `As on ${formatDate(today)}`,

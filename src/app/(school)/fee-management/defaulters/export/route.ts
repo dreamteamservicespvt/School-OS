@@ -4,6 +4,7 @@ import { buildExport, exportResponse, logExport, type ExportColumn, type ExportF
 import { formatDate, formatDateTime, formatRupees } from "@/lib/format";
 import { PermissionDeniedError } from "@/lib/permissions";
 import { periodFromSearch } from "@/lib/periods";
+import { periodSetup } from "@/lib/period-setup";
 import { todayIn } from "@/lib/staff/dates";
 import { admissionOnly, feeViewer } from "@/lib/fees/access";
 import { defaulters, type DefaulterRow } from "@/lib/fees/defaulters";
@@ -28,7 +29,7 @@ export async function GET(req: Request) {
   const format = (["csv", "xlsx", "pdf"].includes(g("format")) ? g("format") : "xlsx") as ExportFormat;
   const tz = current.school.timeZone;
   const today = todayIn(tz);
-  const range = periodFromSearch(Object.fromEntries(url.searchParams), { timeZone: tz });
+  const range = periodFromSearch(Object.fromEntries(url.searchParams), await periodSetup(current));
   const calls = g("calls") === "1";
   const chosen = url.searchParams.getAll("id").filter((x) => UUID_RE.test(x));
   let above: bigint | null = null;

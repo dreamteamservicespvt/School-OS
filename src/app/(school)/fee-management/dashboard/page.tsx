@@ -46,7 +46,7 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
   const tab = one(sp.kind) === "partial" ? "partial" : "full";
   const status = STATUS.some((s) => s.value === one(sp.status)) ? one(sp.status) : "all";
   const mode = MODES.some((s) => s.value === one(sp.mode)) ? one(sp.mode) : "all";
-  const per = feePeriod(sp, p.tz, "today");
+  const per = feePeriod(sp, p.dates, "today");
   const when = per.range && per.range.from === per.range.to && per.from!.getTime() === p.today.getTime() ? "today" : "range";
   const period = one(sp.how) === "month" ? "month" : "today";
   const q = one(sp.q).trim().slice(0, 80);
@@ -212,7 +212,7 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
             <Toolbar>
               <UrlSearch id="pay-q" placeholder="Student, class or receipt no." />
               <div className="grid grid-cols-2 gap-2.5 md:flex">
-                <PeriodFilter timeZone={p.tz} fallback="today" />
+                <PeriodFilter {...p.dates} fallback="today" />
                 <UrlSelect id="pay-status" param="status" label="Status" className="md:w-48" options={STATUS} />
                 <UrlSelect id="pay-mode" param="mode" label="Mode" className="md:w-44 col-span-2 md:col-span-1" options={MODES} />
               </div>

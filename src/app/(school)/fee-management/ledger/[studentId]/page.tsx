@@ -106,7 +106,7 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
   }
 
   const { card, ledger: L } = data;
-  const per = feePeriod(sp, p.tz, null);
+  const per = feePeriod(sp, p.dates, null);
   const here = (extra: Record<string, string | null> = {}) => qs(`${BASE}/ledger/${studentId}`, { tab: tab === "statement" ? null : tab, ...per.keep, ...extra });
   const close = here();
   const first = card.name.split(" ")[0];
@@ -190,7 +190,7 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
             on: tab === k,
             count: k === "fees" ? installments.length : k === "payments" ? receipts.length : k === "partial" ? partial.length : k === "adjust" ? adjustments.length : null,
           }))} />
-          <PeriodFilter timeZone={p.tz} />
+          <PeriodFilter {...p.dates} />
           <MoreMenu items={menu} />
         </div>
 

@@ -4,6 +4,7 @@ import { buildExport, exportResponse, logExport, type ExportColumn, type ExportF
 import { formatDate, formatRupees } from "@/lib/format";
 import { PermissionDeniedError } from "@/lib/permissions";
 import { periodFromSearch } from "@/lib/periods";
+import { periodSetup } from "@/lib/period-setup";
 import { feeViewer } from "@/lib/fees/access";
 import { concessionRows, refundRows, type ConcessionRow, type RefundRow } from "@/lib/fees/concession-list";
 import { modeLabel } from "@/lib/fees/words";
@@ -25,7 +26,7 @@ export async function GET(req: Request) {
   const g = (k: string) => url.searchParams.get(k) ?? "";
   const format = (["csv", "xlsx", "pdf"].includes(g("format")) ? g("format") : "xlsx") as ExportFormat;
   const tz = current.school.timeZone;
-  const range = periodFromSearch(Object.fromEntries(url.searchParams), { timeZone: tz });
+  const range = periodFromSearch(Object.fromEntries(url.searchParams), await periodSetup(current));
   const tab = g("tab") === "refunds" ? "refunds" : g("tab") === "scholarships" ? "scholarships" : "concessions";
   const filter = { q: g("q").slice(0, 80) || null, status: g("st") || null, range, timeZone: tz, scholarship: tab === "scholarships" };
   const data = await withSchool(current.ctx, async (tx) => {

@@ -5,6 +5,7 @@ import { formatDate, formatRupees, formatTime } from "@/lib/format";
 import { PermissionDeniedError } from "@/lib/permissions";
 import { todayIn } from "@/lib/staff/dates";
 import { periodFromSearch } from "@/lib/periods";
+import { periodSetup } from "@/lib/period-setup";
 import { admissionOnly, feeViewer } from "@/lib/fees/access";
 import { recentPayments } from "@/lib/fees/dashboard";
 import { modeWord } from "../../_components/bits";
@@ -27,7 +28,7 @@ export async function GET(req: Request) {
   const format = (["csv", "xlsx", "pdf"].includes(g("format")) ? g("format") : "xlsx") as ExportFormat;
   const tz = current.school.timeZone;
   const today = todayIn(tz);
-  const range = periodFromSearch(Object.fromEntries(url.searchParams), { timeZone: tz, fallback: "today" });
+  const range = periodFromSearch(Object.fromEntries(url.searchParams), { ...(await periodSetup(current)), fallback: "today" });
   const from = range ? new Date(`${range.from}T00:00:00Z`) : new Date("2000-01-01T00:00:00Z");
   const to = range ? new Date(`${range.to}T00:00:00Z`) : today;
   const filter = {

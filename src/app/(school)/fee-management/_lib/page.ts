@@ -13,12 +13,14 @@ import { admissionOnly as isAdmissionOnly, feeViewer } from "@/lib/fees/access";
 import { counterAllowed, feeFeaturesOn, feeSettings } from "@/lib/fees/settings";
 import { ensureFinanceDefaults } from "@/lib/finance/settings";
 import { periodFromSearch, type PeriodKey } from "@/lib/periods";
+import { periodSetup, type PeriodSetup } from "@/lib/period-setup";
 
 export const MODULE = "fee-management" as const;
 export const BASE = "/fee-management";
 
 export const feePage = cache(async () => {
   const current = await requirePage(MODULE);
+  const dates = await periodSetup(current);
   const data = await withSchool(current.ctx, async (tx) => {
     await ensureFinanceDefaults(tx, current.ctx);
     const [viewer, settings, features, year, school] = await Promise.all([
@@ -38,7 +40,7 @@ export const feePage = cache(async () => {
   /** Admission Counsellor: only application and admission fee status (05-roles.md). */
   const admissionOnly = isAdmissionOnly(data.viewer);
   const reach: "all" | "view" | "own" = data.viewer.change === "all" ? "all" : data.viewer.see === "own" ? "own" : "view";
-  return { current, ...data, tz, today: todayIn(tz), can, admissionOnly, reach };
+  return { current, dates, ...data, tz, today: todayIn(tz), can, admissionOnly, reach };
 });
 
 /** Fee Management's pages, in the order of the approved design (mod-fees.jsx). */
@@ -98,8 +100,8 @@ export const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0
  * The shared date filter (PeriodFilter) read on the server: the chosen days as
  * dates (null = all dates), the words for it, and the params to keep in links.
  */
-export function feePeriod(sp: Record<string, string | string[] | undefined>, timeZone: string, fallback: PeriodKey | null = null, prefix = "") {
-  const range = periodFromSearch(sp, { timeZone, fallback, prefix });
+export function feePeriod(sp: Record<string, string | string[] | undefined>, dates: PeriodSetup, fallback: PeriodKey | null = null, prefix = "") {
+  const range = periodFromSearch(sp, { ...dates, fallback, prefix });
   const keep: Record<string, string | null> = { [`${prefix}period`]: one(sp[`${prefix}period`]) || null, [`${prefix}from`]: one(sp[`${prefix}from`]) || null, [`${prefix}to`]: one(sp[`${prefix}to`]) || null };
   if (!range) return { range: null, from: null, to: null, words: "on any date", keep };
   const from = new Date(`${range.from}T00:00:00Z`);

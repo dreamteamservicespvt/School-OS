@@ -46,7 +46,7 @@ export default async function FeeReportsPage({ searchParams }: { searchParams: S
   const p = await feeStaffPage();
   const sp = await searchParams;
   const def = findFeeReport(one(sp.r)) ?? FEE_REPORTS[0];
-  const { f, range } = reportFilter(sp, { timeZone: p.tz, today: p.today, yearStart: p.year?.startDate ?? null });
+  const { f, range } = reportFilter(sp, { ...p.dates, today: p.today, yearStart: p.year?.startDate ?? null });
   const has = (k: ReportFilterKey) => def.filters.includes(k);
 
   const data = await withSchool(p.current.ctx, async (tx) => {
@@ -93,7 +93,7 @@ export default async function FeeReportsPage({ searchParams }: { searchParams: S
           {filtersOn && (
             <Toolbar className="md:flex-wrap border-t border-line">
               <div className="grid grid-cols-2 gap-2.5 md:flex md:flex-wrap w-full">
-                {has("dates") && <PeriodFilter timeZone={p.tz} allLabel={`${p.year?.name ?? "This year"} so far`} />}
+                {has("dates") && <PeriodFilter {...p.dates} allLabel={`${p.year?.name ?? "This year"} so far`} />}
                 {has("group") && <UrlSegmented param="group" fallback="month" label="Group by" size="sm" options={[{ value: "day", label: "Daily" }, { value: "month", label: "Monthly" }, { value: "year", label: "Yearly" }]} />}
                 {has("class") && <UrlSelect id="rep-class" param="class" label="Class" className="md:w-36" options={[{ value: "", label: "All classes" }, ...data.classes.map((c) => ({ value: c.id, label: c.name }))]} />}
                 {has("head") && <UrlSelect id="rep-head" param="head" label="Fee head" className="md:w-44" options={[{ value: "", label: "All fee heads" }, ...data.heads.map((h) => ({ value: h.id, label: h.name }))]} />}

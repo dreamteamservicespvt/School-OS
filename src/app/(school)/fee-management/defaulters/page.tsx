@@ -37,7 +37,7 @@ export default async function DefaultersPage({ searchParams }: { searchParams: S
   const age = one(sp.age);
   const above = AMOUNTS.some((a) => a.value === one(sp.above)) ? one(sp.above) : "";
   const rem = one(sp.rem) === "yes" || one(sp.rem) === "no" ? one(sp.rem) : "";
-  const per = feePeriod(sp, p.tz, null);
+  const per = feePeriod(sp, p.dates, null);
   const who = one(sp.who);
   const filter: DefaulterFilter = {
     q: q || null,
@@ -121,7 +121,7 @@ export default async function DefaultersPage({ searchParams }: { searchParams: S
               <UrlSelect id="def-age" param="age" label="Days late" className="md:w-40" options={[{ value: "", label: "Any days late" }, ...all.ageingTotals.map((g) => ({ value: String(g.index), label: g.label }))]} />
               <UrlSelect id="def-amt" param="above" label="Amount" className="md:w-40" options={AMOUNTS} />
               <UrlSelect id="def-rem" param="rem" label="Reminders" className="md:w-40" options={REMINDED} />
-              <PeriodFilter timeZone={p.tz} allLabel="Any due date" />
+              <PeriodFilter {...p.dates} allLabel="Any due date" />
             </div>
           </Toolbar>
           <DefaulterList rows={items} canEdit={canEdit} openAll={canEdit && one(sp.send) === "all"} templates={tpl} gateway={data.gateway} csvHref={qs(`${HREF}/export`, keep)} whoHref={whoHref}

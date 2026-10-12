@@ -5,7 +5,7 @@ import "@/lib/approval-handlers";
 import { requireCurrent } from "@/lib/current";
 import { withSchool } from "@/lib/db";
 import { formatDateTime, formatRupees } from "@/lib/format";
-import { OPEN_STATUSES, canDecide, requestLabel } from "@/lib/approvals";
+import { OPEN_STATUSES, canDecide, mayReject, requestLabel } from "@/lib/approvals";
 import { ACTION_WORDS, canSeeApproval, statusWords, type HistoryLine } from "@/lib/approvals-inbox";
 import { approvalRecordLink } from "@/lib/approval-links";
 import { PageHeader } from "@/components/shell/page-header";
@@ -33,16 +33,17 @@ export default async function ApprovalPage({ params }: { params: Promise<{ id: s
     // Older requests may have no lines; the asking itself is always the first.
     const history: HistoryLine[] = lines.length ? lines : [{ action: "asked", by: a.askedById, at: a.createdAt.toISOString(), note: null }];
     const ids = [...new Set([a.askedById, a.currentApproverId, a.decidedById, ...history.map((h) => h.by)].filter((x): x is string => Boolean(x)))];
-    const [people, roles, mayDecide] = await Promise.all([
+    const [people, roles, mayDecide, mayRejectIt] = await Promise.all([
       tx.userLogin.findMany({ where: { id: { in: ids } }, select: { id: true, displayName: true } }),
       tx.role.findMany({ select: { key: true, name: true } }),
       canDecide(tx, current.ctx, a),
+      mayReject(tx, current.ctx, a.type),
     ]);
-    return { a, history, mayDecide, people: new Map(people.map((p) => [p.id, p.displayName])), roles: new Map(roles.map((r) => [r.key, r.name])) };
+    return { a, history, mayDecide, mayRejectIt, people: new Map(people.map((p) => [p.id, p.displayName])), roles: new Map(roles.map((r) => [r.key, r.name])) };
   });
   // Not found and not allowed look the same, so nobody learns what exists.
   if (!data) notFound();
-  const { a, history, mayDecide, people, roles } = data;
+  const { a, history, mayDecide, mayRejectIt, people, roles } = data;
   const open = OPEN_STATUSES.includes(a.status);
   const status = statusWords(a.status, a.history);
   const name = (uid: string | null) => (uid ? (uid === current.user.id ? "You" : people.get(uid) ?? "Someone no longer here") : "School OS");
@@ -102,7 +103,7 @@ export default async function ApprovalPage({ params }: { params: Promise<{ id: s
           </CardBody>
         </Card>
 
-        <DecisionBar id={a.id} summary={a.summary} canDecide={mayDecide} canWithdraw={open && mine} />
+        <DecisionBar id={a.id} summary={a.summary} canDecide={mayDecide} canReject={mayRejectIt} canWithdraw={open && mine} />
       </div>
     </div>
   );

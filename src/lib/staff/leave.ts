@@ -319,6 +319,7 @@ export async function applyLeave(tx: Tx, ctx: SchoolContext, input: ApplyInput) 
   const approval = await requestApproval(tx, ctx, {
     type: "staff-leave", recordType: "Leave Request", recordId: request.id, summary, reason: input.reason.trim(),
     firstApproverId: head && head.staffId !== c.staff.id ? head.userLoginId : null,
+    aboutUserIds: [c.staff.userLoginId],
   });
   await tx.leaveRequest.update({ where: { id: request.id }, data: { approvalId: approval.id } });
   await writeAudit(tx, ctx, {

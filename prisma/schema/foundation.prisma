@@ -288,6 +288,8 @@ model Approval {
   amountPaise         BigInt?        @map("amount_paise")
   reason              String?
   askedById           String         @map("asked_by_id") @db.Uuid
+  /// The people the request is about (e.g. the staff member on leave). They never decide it, even when someone else asked.
+  aboutUserIds        String[]       @default([]) @map("about_user_ids") @db.Uuid
   currentApproverId   String?        @map("current_approver_id") @db.Uuid
   currentApproverRole String?        @map("current_approver_role")
   step                Int            @default(1)

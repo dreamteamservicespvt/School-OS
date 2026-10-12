@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requirePage } from "@/lib/current";
 import { withSchool } from "@/lib/db";
-import { REQUEST_TYPES } from "@/lib/approvals";
+import { REQUEST_TYPES, barredFrom } from "@/lib/approvals";
 import { roleKeyOf, rulesInUse } from "@/lib/settings/approval-rules";
 import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardBody } from "@/components/ui/card";
@@ -46,7 +46,7 @@ export default async function RulePage({ params }: { params: Promise<{ type: str
         <CardBody>
           <RuleEditor type={type} label={t.label} escalateAfterDays={rule.escalateAfterDays}
             steps={rule.steps.map((s) => ({ approver: s.approverUserId ? `user:${s.approverUserId}` : s.approverRole ? `role:${s.approverRole}` : "", upTo: rupees(s.upToPaise) }))}
-            roles={roles.map((r) => ({ value: `role:${roleKeyOf(r)}`, label: r.name }))}
+            roles={roles.filter((r) => !barredFrom(type, r.key)).map((r) => ({ value: `role:${roleKeyOf(r)}`, label: r.name }))}
             people={people.map(([id, name]) => ({ value: `user:${id}`, label: name }))} />
         </CardBody>
       </Card>

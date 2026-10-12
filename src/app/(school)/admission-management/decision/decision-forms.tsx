@@ -11,14 +11,14 @@ import { SelectField, TextArea, TextField, type Option } from "@/components/ui/f
 import { ActionButton, FormSheet, SubHead } from "../_components/forms";
 import { confirmAction, decideAction, moveWaitAction, offerAcceptedAction, offerSeatAction, offerSentAction, rerankAction, undoAction, waitAction } from "./actions";
 
-export function DecideButtons({ id, name, sub, canDecide, full, waitingList, seatsNote }: { id: string; name: string; sub: string; canDecide: boolean; full: boolean; waitingList: boolean; seatsNote: string }) {
+export function DecideButtons({ id, name, sub, canDecide, canReject, full, waitingList, seatsNote }: { id: string; name: string; sub: string; canDecide: boolean; canReject: boolean; full: boolean; waitingList: boolean; seatsNote: string }) {
   const [open, setOpen] = useState<null | "approve" | "reject" | "wait">(null);
   const close = () => setOpen(null);
   return (
     <>
       {full && waitingList ? <Button variant="primary" icon={ListOrdered} onClick={() => setOpen("wait")}>Add to waiting list</Button>
         : canDecide ? <Button variant="primary" icon={CircleCheck} onClick={() => setOpen("approve")}>Approve</Button> : null}
-      {canDecide && <Button variant="danger-soft" icon={X} onClick={() => setOpen("reject")}>Reject</Button>}
+      {canDecide && canReject && <Button variant="danger-soft" icon={X} onClick={() => setOpen("reject")}>Reject</Button>}
       {!full && waitingList && <Button variant="ghost" icon={ListOrdered} onClick={() => setOpen("wait")}>Waiting list</Button>}
 
       <FormSheet open={open === "approve"} onClose={close} title={`Approve ${name}`} sub={sub} action={decideAction} hidden={{ id, decision: "approve" }} submitLabel="Approve" submitIcon={CircleCheck}>

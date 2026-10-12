@@ -5,7 +5,7 @@ import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
-import { REQUEST_TYPES, defaultSteps, requestLabel, type RuleStep } from "../approvals";
+import { REQUEST_TYPES, barredFrom, defaultSteps, requestLabel, type RuleStep } from "../approvals";
 import { SettingsProblem } from "./common";
 import { ruleSummary, type Namer, type StepDraft } from "./approval-rule-words";
 
@@ -69,6 +69,7 @@ export async function saveRule(tx: Tx, ctx: SchoolContext, requestType: string, 
       const role = roles.find((r) => roleKeyOf(r) === s.approverRole);
       if (!role) throw new SettingsProblem(`Step ${n}: that role was not found.`, `step${i}`);
       if (!role.isEnabled) throw new SettingsProblem(`Step ${n}: the ${role.name} role is switched off. Switch it on in Roles, or pick another approver.`, `step${i}`);
+      if (barredFrom(requestType, role.key)) throw new SettingsProblem(`Step ${n}: the ${role.name} role does not approve ${requestLabel(requestType).toLowerCase()}. Staff leave goes to the head of department, then the Principal.`, `step${i}`);
       const holders = await tx.schoolAccess.count({ where: { schoolId: ctx.schoolId, archivedAt: null, userLogin: { status: "ACTIVE" }, roles: { some: { roleId: role.id } } } });
       if (holders === 0) throw new SettingsProblem(`Step ${n}: no active user has the ${role.name} role. Pick another approver.`, `step${i}`);
     } else {

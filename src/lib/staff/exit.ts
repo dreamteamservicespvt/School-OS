@@ -70,6 +70,7 @@ export async function startExit(tx: Tx, ctx: SchoolContext, input: NewExit) {
       type: "staff-exit", recordType: "Exit Case", recordId: exit.id,
       summary: `${exitTypeLabel(input.type)}: ${staff.fullName} (${staff.designation}), last working day ${formatDate(input.lastWorkingDay)}`,
       reason: input.reason.trim(),
+      aboutUserIds: [staff.userLoginId],
     });
     await tx.exitCase.update({ where: { id: exit.id }, data: { approvalId: approval.id } });
   }

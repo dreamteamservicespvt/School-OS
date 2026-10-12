@@ -6,7 +6,7 @@ import { PermissionDeniedError } from "@/lib/permissions";
 import { periodFromSearch } from "@/lib/periods";
 import { periodSetup } from "@/lib/period-setup";
 import { todayIn } from "@/lib/staff/dates";
-import { admissionOnly, feeViewer } from "@/lib/fees/access";
+import { feePageAllowed, feeViewer } from "@/lib/fees/access";
 import { defaulters, type DefaulterRow } from "@/lib/fees/defaulters";
 import { parseRupees, UUID_RE } from "@/lib/fees/act";
 
@@ -36,7 +36,7 @@ export async function GET(req: Request) {
   try { above = parseRupees(g("above"), "Amount"); } catch { above = null; }
   const data = await withSchool(current.ctx, async (tx) => {
     const viewer = await feeViewer(tx, current.ctx, current);
-    if (admissionOnly(viewer)) return null;
+    if (!feePageAllowed(viewer, "defaulters")) return null;
     const list = await defaulters(tx, current.ctx, viewer, today, {
       q: g("q").slice(0, 80) || null,
       classId: UUID_RE.test(g("class")) ? g("class") : null,

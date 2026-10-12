@@ -12,13 +12,13 @@ import { Empty } from "@/components/money/kit";
 import { UrlSearch } from "@/components/money/url-filters";
 import { cx } from "@/components/ui/cx";
 import { FeeHead } from "../_components/fee-head";
-import { BASE, feeDetailsPage, one, type SearchParams } from "../_lib/page";
+import { BASE, feeGuard, one, type SearchParams } from "../_lib/page";
 
 export const metadata = { title: "Student Fee Ledger" };
 
 /** Student Fee Ledger without a student chosen: find one (mod-fees.jsx StudentPicker). */
 export default async function LedgerIndexPage({ searchParams }: { searchParams: SearchParams }) {
-  const p = await feeDetailsPage();
+  const p = await feeGuard("ledger");
   const sp = await searchParams;
   const student = one(sp.student);
   if (/^[0-9a-f-]{36}$/i.test(student)) {

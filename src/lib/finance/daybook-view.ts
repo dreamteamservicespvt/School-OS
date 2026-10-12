@@ -8,10 +8,15 @@ import type { DayBookEntry, Prisma } from "@prisma/client";
 import type { Tx } from "../db";
 import { classOfStudents } from "../fees/dues";
 import { dayBookTotals } from "./daybook";
+import { dayBookWithoutPay } from "./access";
 
 const ZERO = BigInt(0);
 
-export type DayBookFilter = { from: Date; to: Date; classId: string | null; depositAccountId: string | null; waiting: boolean };
+export type DayBookFilter = {
+  from: Date; to: Date; classId: string | null; depositAccountId: string | null; waiting: boolean;
+  /** Staff pay heads to leave out (src/lib/finance/access.ts); null or missing shows staff pay. */
+  hidePay?: string[] | null;
+};
 
 export type DayRow = {
   id: string;
@@ -52,6 +57,7 @@ export async function dayBookView(tx: Tx, f: DayBookFilter) {
     ...(filtered ? { studentId: { not: null } } : {}),
     ...(f.classId ? { classId: f.classId } : {}),
     ...(f.depositAccountId ? { OR: [{ depositAccountId: f.depositAccountId }, { depositAccountId: null, accountId: f.depositAccountId }] } : {}),
+    ...(f.hidePay ? dayBookWithoutPay(f.hidePay) : {}),
   };
   const entries = await tx.dayBookEntry.findMany({ where, orderBy: [{ date: "asc" }, { postedAt: "asc" }] });
   const waitingPays = f.waiting

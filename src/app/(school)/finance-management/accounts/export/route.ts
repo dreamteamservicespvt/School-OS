@@ -9,6 +9,7 @@ import { todayIn } from "@/lib/staff/dates";
 import { generalLedger, journalList } from "@/lib/finance/journals";
 import { financeFeaturesOn } from "@/lib/finance/settings";
 import { financialYearOf } from "@/lib/finance/years";
+import { financePageAllowed } from "@/lib/finance/access";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,7 @@ export async function GET(req: Request) {
     if (e instanceof PermissionDeniedError) return new Response("You do not have permission to export accounts.", { status: 403 });
     throw e;
   }
+  if (!financePageAllowed(current.permissions, "accounts")) return new Response("Your role does not see Accounts.", { status: 403 });
   const url = new URL(req.url);
   const g = (k: string) => url.searchParams.get(k) ?? "";
   const format = (["csv", "xlsx", "pdf"].includes(g("format")) ? g("format") : "xlsx") as ExportFormat;

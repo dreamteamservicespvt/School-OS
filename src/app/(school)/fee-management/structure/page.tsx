@@ -13,7 +13,7 @@ import { LinkTabs } from "@/components/ui/link-tabs";
 import { UrlSheet } from "@/components/ui/url-sheet";
 import { cx } from "@/components/ui/cx";
 import { FeeHead } from "../_components/fee-head";
-import { BASE, feeStaffPage, one, qs, type SearchParams } from "../_lib/page";
+import { BASE, feeGuard, one, qs, type SearchParams } from "../_lib/page";
 import { AssignClass, CopySheet, DiscardDraft, HeadSheet, PrepareSheet, PublishSheet, RemoveRow, RestoreSheet, RowSheet, type HeadData } from "./sheets";
 
 export const metadata = { title: "Fee Structure" };
@@ -24,7 +24,7 @@ const iso = (d: Date) => d.toISOString().slice(0, 10);
 
 /** Fee Structure (06 §2, mod-fees.jsx Structure): fee heads, class-wise versioned structures and installments. */
 export default async function StructurePage({ searchParams }: { searchParams: SearchParams }) {
-  const p = await feeStaffPage();
+  const p = await feeGuard("structure");
   const sp = await searchParams;
   const canManage = p.can.change && p.can.counter("manage-structure");
   const canAssign = p.can.change && p.can.counter("assign-fees");

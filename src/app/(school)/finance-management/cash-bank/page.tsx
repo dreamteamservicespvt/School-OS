@@ -18,6 +18,7 @@ import { ReasonSheet } from "../_components/forms";
 import { BASE, financePage, financePeriod, one, qs, type SearchParams } from "../_lib/page";
 import { cancelTransferAction } from "./actions";
 import { AddAccountSheet, MoveMoneySheet, OpeningSheet } from "./sheets";
+import { OldSoftwareBanner, OldSoftwareEmpty, allBeforeGoLive } from "@/components/money/go-live";
 
 export const metadata = { title: "Cash & Bank" };
 
@@ -49,8 +50,8 @@ export default async function CashBankPage({ searchParams }: { searchParams: Sea
     const bookId = accounts.some((a) => a.id === one(sp.book)) ? one(sp.book) : cash?.id;
     const [balances, book, cashToday, depositedToday, onWay, waiting, openings, years, transfer] = await Promise.all([
       accountBalances(tx, ctx),
-      bookId ? accountBook(tx, bookId, from, to) : null,
-      cash ? accountBook(tx, cash.id, p.today, p.today) : null,
+      bookId ? accountBook(tx, bookId, from, to, p.payHeads) : null,
+      cash ? accountBook(tx, cash.id, p.today, p.today, p.payHeads) : null,
       cash ? tx.cashTransfer.count({ where: { fromAccountId: cash.id, date: p.today, cancelledAt: null } }) : 0,
       tx.payment.groupBy({ by: ["mode"], where: { status: "POSTED", paymentDate: p.today, mode: { in: ["GATEWAY", "CARD"] } }, _sum: { amountPaise: true }, _count: { _all: true } }),
       tx.payment.aggregate({ where: { status: "WAITING" }, _sum: { amountPaise: true }, _count: { _all: true } }),
@@ -128,6 +129,8 @@ export default async function CashBankPage({ searchParams }: { searchParams: Sea
                 <div key={k} className="bg-surface px-4 md:px-5 py-3"><p className="text-[12px] text-ink3 font-semibold">{k}</p><p className={cx("font-display font-semibold text-[19px] tnum", c)}>{v < ZERO ? `−${formatRupees(-v)}` : formatRupees(v)}</p></div>
               ))}
             </div>
+            <OldSoftwareBanner goLive={p.goLive} from={from} to={to} what="cash and bank entries" className="mx-4 mb-3" />
+            {data.book && data.book.payHidden > 0 && <p className="px-5 pb-2 text-[12.5px] text-ink3">{data.book.payHidden} staff pay {data.book.payHidden === 1 ? "entry is" : "entries are"} not shown to your role. The balances count them.</p>}
             <DataList rows={lines} rowKey={(r) => r.id} minWidth={760} caption={isCash ? "Cash book" : "Bank book"}
               rowHref={(r) => (r.sourceType === "transfer" ? here({ t: r.sourceId }) : dayBookHref(r.id, r.date))}
               footer={to.getTime() < p.today.getTime() ? `Closing ${formatRupees(data.book?.closing ?? ZERO)} is the opening balance of the next day` : `${lines.length} ${lines.length === 1 ? "entry" : "entries"} · closing is live`}
@@ -143,7 +146,7 @@ export default async function CashBankPage({ searchParams }: { searchParams: Sea
                 title: r.partyName, sub: `${oneDay ? formatTime(r.postedAt, p.tz) : formatDate(r.date)} · ${sectionLabel(r.section)}`, icon: r.direction === "IN" ? ArrowDownToLine : ArrowUpFromLine, iconTone: r.direction === "IN" ? "ok" : "bad",
                 right: <><p className={cx("font-semibold tnum text-[14.5px]", r.direction === "IN" ? "text-ok" : "text-bad")}>{r.direction === "IN" ? "+" : "−"}{formatRupees(r.amountPaise)}</p><p className="text-[12px] text-ink3 tnum">{formatRupees(r.balance < ZERO ? -r.balance : r.balance)}</p></>,
               })}
-              empty={<Empty icon={Inbox} title={`No entries in this book ${oneDay ? "on this day" : "in these dates"}`} body={`Opening and closing are both ${formatRupees(data.book?.opening ?? ZERO)}.`} />} />
+              empty={allBeforeGoLive(p.goLive, from, to) ? <OldSoftwareEmpty goLive={p.goLive} what="cash and bank entries" /> : <Empty icon={Inbox} title={`No entries in this book ${oneDay ? "on this day" : "in these dates"}`} body={`Opening and closing are both ${formatRupees(data.book?.opening ?? ZERO)}.`} />} />
           </Card>
           <Col>
             <Card>

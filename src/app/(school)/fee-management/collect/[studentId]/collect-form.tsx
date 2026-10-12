@@ -91,7 +91,10 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
   const serverErr = (k: string) => server?.errors?.[k];
   const problem = server?.data as Problem | undefined;
 
-  useEffect(() => {
+  // A new result from the server: reset the form after a payment is saved (state adjusted while rendering, not in an effect).
+  const [seenState, setSeenState] = useState(state);
+  if (state !== seenState) {
+    setSeenState(state);
     if (state?.ok && state.data) {
       setReceipt(state.data as Collected);
       setTicked(new Set());
@@ -100,10 +103,14 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
       setDiscount("");
       setWaive(new Set());
       setTried(false);
-      if (dupRef.current) dupRef.current.value = "";
     }
-  }, [state]);
-  useEffect(() => { if (qrState?.ok) setQrOpen(true); }, [qrState]);
+  }
+  useEffect(() => { if (state?.ok && dupRef.current) dupRef.current.value = ""; }, [state]);
+  const [seenQr, setSeenQr] = useState(qrState);
+  if (qrState !== seenQr) {
+    setSeenQr(qrState);
+    if (qrState?.ok) setQrOpen(true);
+  }
 
   const toggle = (id: string) => { setEdited(null); setTicked((x) => { const n = new Set(x); if (n.has(id)) n.delete(id); else n.add(id); return n; }); };
   const visible = rows.filter((r) => showPaid || r.status !== "PAID");

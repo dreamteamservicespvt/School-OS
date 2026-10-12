@@ -6,7 +6,7 @@ import { PermissionDeniedError } from "@/lib/permissions";
 import { todayIn } from "@/lib/staff/dates";
 import { periodFromSearch } from "@/lib/periods";
 import { periodSetup } from "@/lib/period-setup";
-import { admissionOnly, feeViewer } from "@/lib/fees/access";
+import { feeLevel, feePageAllowed, feeViewer } from "@/lib/fees/access";
 import { recentPayments } from "@/lib/fees/dashboard";
 import { modeWord } from "../../_components/bits";
 
@@ -40,7 +40,7 @@ export async function GET(req: Request) {
   };
   const data = await withSchool(current.ctx, async (tx) => {
     const viewer = await feeViewer(tx, current.ctx, current);
-    if (admissionOnly(viewer) || viewer.see !== "all") return null;
+    if (!feePageAllowed(viewer, "dashboard") || feeLevel(viewer) === "admission") return null;
     const list = await recentPayments(tx, viewer, filter, 10000, 0);
     const filters = [range ? `${formatDate(from)} to ${formatDate(to)}` : "All dates", filter.status && `status: ${STATUS[filter.status]}`, filter.mode && `mode: ${modeWord(filter.mode)}`, filter.partial && "partial payments", filter.q && `search "${filter.q}"`].filter(Boolean).join(", ");
     await logExport(tx, current.ctx, { title: "Fee payments", format, filters, rows: list.rows.length });

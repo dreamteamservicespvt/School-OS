@@ -7,6 +7,7 @@ import { todayIn } from "@/lib/staff/dates";
 import { budgetsWithUse } from "@/lib/finance/budgets";
 import { financeFeaturesOn } from "@/lib/finance/settings";
 import { chosenFinancialYear } from "@/lib/finance/years";
+import { hiddenPayHeads } from "@/lib/finance/access";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +28,7 @@ export async function GET(req: Request) {
   const result = await withSchool(current.ctx, async (tx) => {
     if (!(await financeFeaturesOn(tx, current.ctx)).has("finance-budget")) return null;
     const fy = await chosenFinancialYear(tx, current.ctx, url.searchParams.get("fy"), todayIn(current.school.timeZone));
-    const [budgets, heads, centres] = await Promise.all([budgetsWithUse(tx, fy.id), tx.accountHead.findMany({ select: { id: true, name: true, code: true } }), tx.costCentre.findMany({ select: { id: true, name: true } })]);
+    const [budgets, heads, centres] = await Promise.all([budgetsWithUse(tx, fy.id, await hiddenPayHeads(tx, current.permissions)), tx.accountHead.findMany({ select: { id: true, name: true, code: true } }), tx.costCentre.findMany({ select: { id: true, name: true } })]);
     const rows = budgets.map((b) => ({
       head: heads.find((h) => h.id === b.accountHeadId)?.name ?? "", code: heads.find((h) => h.id === b.accountHeadId)?.code ?? "",
       dept: b.costCentreId ? centres.find((c) => c.id === b.costCentreId)?.name ?? "" : "All departments",

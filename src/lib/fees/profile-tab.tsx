@@ -9,7 +9,7 @@ import { withSchool } from "../db";
 import { can } from "../permissions";
 import { formatDate, formatRupees } from "../format";
 import { registerProfileTab, type ProfileTabArgs } from "../students/profile-tabs";
-import { canSeeStudent, feeViewer } from "./access";
+import { admissionOnly, admissionOnlyFor, canSeeStudent, feeViewer } from "./access";
 import { studentFeeTab } from "./profile";
 import { DUE_STATUS_WORDS, PAYMENT_STATUS_WORDS, modeLabel } from "./words";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +20,7 @@ const ZERO = BigInt(0);
 async function load({ current, studentId }: ProfileTabArgs) {
   return withSchool(current.ctx, async (tx) => {
     const viewer = await feeViewer(tx, current.ctx, current);
-    if (!(await canSeeStudent(tx, viewer, studentId))) return null;
+    if (admissionOnly(viewer) || !(await canSeeStudent(tx, viewer, studentId))) return null;
     return { tab: await studentFeeTab(tx, current.ctx, studentId), canCollect: viewer.change === "all" && can(current.permissions, "fee-management", "create") };
   });
 }
@@ -30,6 +30,8 @@ registerProfileTab({
   label: "Fees",
   module: "fee-management",
   order: 40,
+  // The Admission Counsellor sees only admission fee status, never a student's fees.
+  allowed: (current) => !admissionOnlyFor(current),
   load: async (args) => {
     const data = await load(args);
     if (!data) return <p className="text-ink-2">You can see fees only for students in your own sections.</p>;

@@ -8,6 +8,7 @@ import { periodSetup } from "@/lib/period-setup";
 import { todayIn } from "@/lib/staff/dates";
 import { dayBookView, type DayRow } from "@/lib/finance/daybook-view";
 import { financeModeLabel } from "@/lib/finance/words";
+import { hiddenPayHeads } from "@/lib/finance/access";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +39,7 @@ export async function GET(req: Request) {
   const acct = UUID.test(g("acct")) ? g("acct") : null;
   const waiting = g("waiting") === "1";
   const data = await withSchool(current.ctx, async (tx) => {
-    const view = await dayBookView(tx, { from, to, classId, depositAccountId: acct, waiting });
+    const view = await dayBookView(tx, { from, to, classId, depositAccountId: acct, waiting, hidePay: await hiddenPayHeads(tx, current.permissions) });
     const words = [from.getTime() === to.getTime() ? formatDate(from) : `${formatDate(from)} to ${formatDate(to)}`, classId && "one class", acct && "one bank account", waiting && "with waiting entries"].filter(Boolean).join(", ");
     await logExport(tx, current.ctx, { title: "Day Book", format, filters: words, rows: view.rows.length });
     return { view, words };

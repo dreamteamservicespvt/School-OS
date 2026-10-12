@@ -6,7 +6,7 @@ import { PermissionDeniedError } from "@/lib/permissions";
 import { periodFromSearch } from "@/lib/periods";
 import { periodSetup } from "@/lib/period-setup";
 import { todayIn } from "@/lib/staff/dates";
-import { admissionOnly, canSeeStudent, feeViewer } from "@/lib/fees/access";
+import { canSeeStudent, feePageAllowed, feeViewer } from "@/lib/fees/access";
 import { studentLedger, type LedgerEntry } from "@/lib/fees/ledger";
 
 export const dynamic = "force-dynamic";
@@ -34,7 +34,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ studentI
   const range = periodFromSearch(Object.fromEntries(url.searchParams), await periodSetup(current));
   const data = await withSchool(current.ctx, async (tx) => {
     const viewer = await feeViewer(tx, current.ctx, current);
-    if (admissionOnly(viewer) || !(await canSeeStudent(tx, viewer, studentId))) return null;
+    if (!feePageAllowed(viewer, "ledger") || !(await canSeeStudent(tx, viewer, studentId))) return null;
     const student = await tx.student.findFirst({ where: { id: studentId }, select: { fullName: true, admissionNo: true } });
     if (!student) return null;
     const L = await studentLedger(tx, studentId, today, tz);

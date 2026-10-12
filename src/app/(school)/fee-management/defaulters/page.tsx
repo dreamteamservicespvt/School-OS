@@ -16,7 +16,7 @@ import { UrlSheet } from "@/components/ui/url-sheet";
 import { ExportButton } from "@/components/ui/export-button";
 import { PeriodFilter } from "@/components/list/period-filter";
 import { FeeHead } from "../_components/fee-head";
-import { BASE, feeDetailsPage, feePeriod, one, qs, type SearchParams } from "../_lib/page";
+import { BASE, feeGuard, feePeriod, one, qs, type SearchParams } from "../_lib/page";
 import { DefaulterList, type DefaulterItem } from "./list";
 import { CallNoteForm } from "./call-note";
 
@@ -29,7 +29,7 @@ const STAT_TONES: Tone[] = ["neutral", "warn", "bad", "bad"];
 
 /** Defaulters (06 §2, mod-fees.jsx): who owes past the due date, how long, and the reminders already sent. */
 export default async function DefaultersPage({ searchParams }: { searchParams: SearchParams }) {
-  const p = await feeDetailsPage();
+  const p = await feeGuard("defaulters");
   const sp = await searchParams;
   const canEdit = p.can.change;
   const q = one(sp.q).trim().slice(0, 80);
@@ -144,7 +144,7 @@ export default async function DefaultersPage({ searchParams }: { searchParams: S
             <div className="flex gap-2 flex-wrap">
               {canEdit && <ButtonLink href={`${BASE}/collect/${h.student.id}`} variant="primary" icon={IndianRupee}>Collect fee</ButtonLink>}
               {canEdit && h.row && <ButtonLink href={qs(HREF, { ...keep, send: "all", q: h.row.admissionNo, class: null, age: null, above: null, rem: null })} scroll={false} variant="secondary" icon={Send}>Send reminder</ButtonLink>}
-              <ButtonLink href={`${BASE}/ledger/${h.student.id}`} variant="ghost" icon={BookOpen}>Ledger</ButtonLink>
+              {p.may("ledger") && <ButtonLink href={`${BASE}/ledger/${h.student.id}`} variant="ghost" icon={BookOpen}>Ledger</ButtonLink>}
             </div>
             <div>
               <p className="eyebrow text-ink3 mb-2">Reminder history</p>

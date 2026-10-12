@@ -5,7 +5,7 @@ import { formatDate, formatRupees } from "@/lib/format";
 import { PermissionDeniedError } from "@/lib/permissions";
 import { periodFromSearch } from "@/lib/periods";
 import { periodSetup } from "@/lib/period-setup";
-import { feeViewer } from "@/lib/fees/access";
+import { feePageAllowed, feeViewer } from "@/lib/fees/access";
 import { concessionRows, refundRows, type ConcessionRow, type RefundRow } from "@/lib/fees/concession-list";
 import { modeLabel } from "@/lib/fees/words";
 
@@ -31,7 +31,7 @@ export async function GET(req: Request) {
   const filter = { q: g("q").slice(0, 80) || null, status: g("st") || null, range, timeZone: tz, scholarship: tab === "scholarships" };
   const data = await withSchool(current.ctx, async (tx) => {
     const viewer = await feeViewer(tx, current.ctx, current);
-    if (viewer.see !== "all") return null;
+    if (!feePageAllowed(viewer, "concessions")) return null;
     const words = [range ? `asked ${range.label}` : null, filter.q && `search "${filter.q}"`, filter.status && C_WORDS[filter.status]].filter(Boolean).join(", ") || "All";
     if (tab === "refunds") {
       const r = await refundRows(tx, filter, 10000);

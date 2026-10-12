@@ -22,7 +22,7 @@ import { UrlSheet } from "@/components/ui/url-sheet";
 import { ExportButton } from "@/components/ui/export-button";
 import { PeriodFilter } from "@/components/list/period-filter";
 import { FeeHead } from "../_components/fee-head";
-import { BASE, feePeriod, feeStaffPage, one, qs, type SearchParams } from "../_lib/page";
+import { BASE, feePeriod, feeGuard, one, qs, type SearchParams } from "../_lib/page";
 import { ApproveButton, ArchiveRule, ConcessionSheet, DeclineSheet, MarkRefundedSheet, RefundSheet, RevokeSheet, RuleSheet, RuleSwitch } from "./sheets";
 
 export const metadata = { title: "Concessions & Refunds" };
@@ -61,7 +61,7 @@ async function decisions(tx: Tx, ctx: SchoolContext, approvalIds: string[]) {
 
 /** Concessions & Refunds (06 §2, mod-fees.jsx Concessions): discounts, scholarships and refunds, each with a reason and who approved it. */
 export default async function ConcessionsPage({ searchParams }: { searchParams: SearchParams }) {
-  const p = await feeStaffPage();
+  const p = await feeGuard("concessions");
   const sp = await searchParams;
   const canEdit = p.can.change;
   const tab: TabKey = (TABS as readonly string[]).includes(one(sp.tab)) ? (one(sp.tab) as TabKey) : "concessions";
@@ -131,7 +131,7 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
     // New concession or refund: the student first, then the form.
     let pick = null;
     let chosen = null;
-    let payments: { value: string; label: string; max: string; maxRupees: string; mode: string }[] = [];
+    const payments: { value: string; label: string; max: string; maxRupees: string; mode: string }[] = [];
     if (doing === "new" || doing === "refund") {
       if (UUID.test(student) && (await canSeeStudent(tx, p.viewer, student))) {
         const card = await studentCard(tx, ctx, student);

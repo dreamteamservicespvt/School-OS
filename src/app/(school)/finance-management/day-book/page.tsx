@@ -3,7 +3,6 @@ import {
   Baby, CircleCheck, CirclePause, ExternalLink, Filter, Globe, HandCoins, Landmark, Lock, Printer, ReceiptIndianRupee, ReceiptText, ShieldCheck, Shirt, ShoppingCart, Undo2, Wallet, Workflow, type LucideIcon,
 } from "lucide-react";
 import { withSchool } from "@/lib/db";
-import { can } from "@/lib/permissions";
 import { formatDate, formatRupees, formatTime } from "@/lib/format";
 import { featureOn } from "@/lib/fees/settings";
 import { dayBookView, feeDashboardMatch, type DayRow } from "@/lib/finance/daybook-view";
@@ -21,6 +20,8 @@ import { MODE_ICON, PayPill } from "../../fee-management/_components/bits";
 import { FinanceHead } from "../_components/finance-head";
 import { Line, ModeCell, Ref, signed } from "../_components/bits";
 import { BASE, financePage, financePeriod, one, qs, type SearchParams } from "../_lib/page";
+import { OldSoftwareBanner, OldSoftwareEmpty, allBeforeGoLive } from "@/components/money/go-live";
+import { feePageAllowedFor } from "@/lib/fees/access";
 
 export const metadata = { title: "Day Book" };
 
@@ -44,11 +45,12 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
   const openId = one(sp.e);
   const isToday = from.getTime() === p.today.getTime() && to.getTime() === p.today.getTime();
   const oneDay = from.getTime() === to.getTime();
-  const seesFees = can(p.current.permissions, "fee-management", "view");
+  const seesPayments = feePageAllowedFor(p.current, "payments");
+  const seesRefunds = feePageAllowedFor(p.current, "concessions");
 
   const data = await withSchool(p.current.ctx, async (tx) => {
     const [view, classes, accounts, split, match, closedYear] = await Promise.all([
-      dayBookView(tx, { from, to, classId, depositAccountId: acct, waiting }),
+      dayBookView(tx, { from, to, classId, depositAccountId: acct, waiting, hidePay: p.payHeads }),
       tx.schoolClass.findMany({ where: { archivedAt: null }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true } }),
       tx.bankAccount.findMany({ where: { archivedAt: null, kind: "BANK" }, orderBy: [{ isMain: "desc" }, { name: "asc" }], select: { id: true, name: true, bankName: true, accountLast4: true } }),
       featureOn(tx, p.current.ctx, "fee-bank-accounts"),
@@ -108,8 +110,8 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
   };
 
   const sourceLink = (r: DayRow): [string, string] | null => {
-    if (r.sourceType.startsWith("payment") && seesFees) return [r.sourceType === "payment-cancel" ? "Open the cancelled receipt in Fees" : "Open the payment in Fees", `/fee-management/payments/${r.sourceId}`];
-    if (r.sourceType === "refund" && seesFees) return ["Open the refund in Fees", `/fee-management/concessions?tab=refunds&open=${r.sourceId}`];
+    if (r.sourceType.startsWith("payment") && seesPayments) return [r.sourceType === "payment-cancel" ? "Open the cancelled receipt in Fees" : "Open the payment in Fees", `/fee-management/payments/${r.sourceId}`];
+    if (r.sourceType === "refund" && seesRefunds) return ["Open the refund in Fees", `/fee-management/concessions?tab=refunds&open=${r.sourceId}`];
     if (r.sourceType.startsWith("income")) return ["Open in Income", `${BASE}/income?open=${r.sourceId}`];
     if (r.sourceType.startsWith("expense")) return ["Open the expense and bill", `${BASE}/expenses?pay=${r.sourceId}`];
     return null;
@@ -138,9 +140,11 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
           </div>
         </Card>
 
+        <OldSoftwareBanner goLive={p.goLive} from={from} to={to} what="Day Book entries" />
+        {allBeforeGoLive(p.goLive, from, to) ? <Card><OldSoftwareEmpty goLive={p.goLive} what="Day Book entries" /></Card> : <>
         <Band items={[
           { label: "Total income", big: formatRupees(v.totals.income), foot: `${nIn} transactions · Fees ${formatRupees(v.feesFull)} + Partial ${formatRupees(v.feesPartial)}${v.reversed < ZERO ? ` · less ${formatRupees(-v.reversed)} reversed` : ""}` },
-          { label: "Total expense", big: formatRupees(v.totals.expense), foot: `${v.sections.expense.length + v.sections.salary.length} transactions${v.sections.salary.length ? " · includes salary" : ""}` },
+          { label: "Total expense", big: formatRupees(v.totals.expense), foot: `${v.sections.expense.length + v.sections.salary.length} transactions${p.payHeads ? " · staff pay not shown" : v.sections.salary.length ? " · includes salary" : ""}` },
           { label: "Net balance", big: signed(v.totals.net), foot: isToday ? `Live · updated ${formatTime(new Date(), p.tz)}` : per.label },
         ]} />
 
@@ -157,7 +161,7 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
             {section("Daycare payments", Baby, v.sections.daycare, "ok", `No daycare payments ${oneDay ? "on this date" : "in these dates"}.`, "fee")}
             {section("Other income", HandCoins, v.sections.income, "ok", v.filtered ? hidden : `No other income ${oneDay ? "on this date" : "in these dates"}.`, "other")}
             {section("Expenses", ReceiptText, v.sections.expense, "warn", v.filtered ? hidden : `No expenses paid ${oneDay ? "on this date" : "in these dates"}.`, "other")}
-            {section("Salary", Wallet, v.sections.salary, "warn", v.filtered ? hidden : "No salary or salary advance paid. Salary is added on the day it is marked paid.", "other")}
+            {!p.payHeads && section("Salary", Wallet, v.sections.salary, "warn", v.filtered ? hidden : "No salary or salary advance paid. Salary is added on the day it is marked paid.", "other")}
             {section("Refunds and reversals", Undo2, v.sections.refunds, "bad", `No refunds or reversals ${oneDay ? "on this date" : "in these dates"}.`, "reversal")}
           </Col>
           <Col>
@@ -198,13 +202,14 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
             <Card>
               <CardHeader title="Where entries come from" icon={Workflow} />
               <ul className="px-5 pb-4 text-[13.5px] text-ink2 flex flex-col gap-2">
-                {([[ReceiptIndianRupee, "Fees", "when a payment is posted, a reversal when it is cancelled"], [HandCoins, "Income", "when other income is posted"], [ReceiptText, "Expenses", "only when marked Paid, on the date paid"], [Wallet, "Salary", "when a month’s salary or an advance is marked Paid"], [ShoppingCart, "Inventory", "vendor bill payments, as expenses"]] as [LucideIcon, string, string][]).map(([Ic, k, w]) => (
+                {([[ReceiptIndianRupee, "Fees", "when a payment is posted, a reversal when it is cancelled"], [HandCoins, "Income", "when other income is posted"], [ReceiptText, "Expenses", "only when marked Paid, on the date paid"], ...(p.payHeads ? [] : [[Wallet, "Salary", "when a month’s salary or an advance is marked Paid"]]), [ShoppingCart, "Inventory", "vendor bill payments, as expenses"]] as [LucideIcon, string, string][]).map(([Ic, k, w]) => (
                   <li key={k} className="flex gap-2.5"><span className="w-7 h-7 rounded-lg bg-sunken text-ink2 grid place-items-center shrink-0"><Ic size={15} aria-hidden="true" /></span><span><b className="font-semibold text-ink">{k}</b> · {w}</span></li>
                 ))}
               </ul>
             </Card>
           </Col>
         </Split>
+        </>}
       </Stack>
 
       {opened && (() => {

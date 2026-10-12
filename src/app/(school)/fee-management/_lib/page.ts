@@ -9,7 +9,7 @@ import { requirePage } from "@/lib/current";
 import { withSchool } from "@/lib/db";
 import { currentYear } from "@/lib/academic/years";
 import { todayIn } from "@/lib/staff/dates";
-import { admissionOnly as isAdmissionOnly, feeViewer } from "@/lib/fees/access";
+import { admissionOnly as isAdmissionOnly, feeLevel, feePageAllowed, feeViewer, type FeePageKey } from "@/lib/fees/access";
 import { counterAllowed, feeFeaturesOn, feeSettings } from "@/lib/fees/settings";
 import { ensureFinanceDefaults } from "@/lib/finance/settings";
 import { periodFromSearch, type PeriodKey } from "@/lib/periods";
@@ -23,14 +23,16 @@ export const feePage = cache(async () => {
   const dates = await periodSetup(current);
   const data = await withSchool(current.ctx, async (tx) => {
     await ensureFinanceDefaults(tx, current.ctx);
-    const [viewer, settings, features, year, school] = await Promise.all([
+    const [viewer, settings, features, year, school, money] = await Promise.all([
       feeViewer(tx, current.ctx, current),
       feeSettings(tx, current.ctx),
       feeFeaturesOn(tx, current.ctx),
       currentYear(tx, current.ctx),
       tx.school.findUniqueOrThrow({ where: { id: current.ctx.schoolId }, select: { name: true, gstin: true, timeZone: true } }),
+      tx.financeSetting.findUniqueOrThrow({ where: { schoolId: current.ctx.schoolId }, select: { goLiveDate: true } }),
     ]);
-    return { viewer, settings, features, year, school };
+    /** First day of fee records in School OS (Finance Settings); earlier ones stay in the old software. */
+    return { viewer, settings, features, year, school, goLive: money.goLiveDate };
   });
   const tz = data.school.timeZone;
   const can = {
@@ -40,51 +42,38 @@ export const feePage = cache(async () => {
   /** Admission Counsellor: only application and admission fee status (05-roles.md). */
   const admissionOnly = isAdmissionOnly(data.viewer);
   const reach: "all" | "view" | "own" = data.viewer.change === "all" ? "all" : data.viewer.see === "own" ? "own" : "view";
-  return { current, dates, ...data, tz, today: todayIn(tz), can, admissionOnly, reach };
+  const level = feeLevel(data.viewer);
+  /** May this person open that Fee Management page? (hidden, not disabled, when not) */
+  const may = (page: FeePageKey) => feePageAllowed(data.viewer, page);
+  return { current, dates, ...data, tz, today: todayIn(tz), can, admissionOnly, reach, level, may };
 });
 
-/** Fee Management's pages, in the order of the approved design (mod-fees.jsx). */
+/** Fee Management's pages, in the order of the approved design (mod-fees.jsx), for this person's level. */
 export async function feeTabs() {
   const p = await feePage();
-  if (p.admissionOnly) return [];
-  if (p.viewer.see === "own") {
-    return [
-      { href: `${BASE}/ledger`, label: "Student Fee Ledger" },
-      { href: `${BASE}/defaulters`, label: "Defaulters" },
-    ];
-  }
-  return [
-    { href: `${BASE}/dashboard`, label: "Fee Dashboard", also: [`${BASE}/payments`] },
-    ...(p.can.change ? [{ href: BASE, label: "Collect Fee", exact: true, also: [`${BASE}/collect`] }] : []),
-    { href: `${BASE}/ledger`, label: "Student Fee Ledger" },
-    { href: `${BASE}/defaulters`, label: "Defaulters" },
-    { href: `${BASE}/structure`, label: "Fee Structure" },
-    { href: `${BASE}/concessions`, label: "Concessions & Refunds" },
-    { href: `${BASE}/reports`, label: "Fee Reports" },
-    ...(p.can.change ? [{ href: `${BASE}/settings`, label: "Fee Settings" }] : []),
+  if (p.level === "admission") return [{ href: `${BASE}/dashboard`, label: "Admission Fees" }];
+  const all: { key: FeePageKey; href: string; label: string; exact?: boolean; also?: string[] }[] = [
+    { key: "dashboard", href: `${BASE}/dashboard`, label: "Fee Dashboard", also: [`${BASE}/payments`] },
+    { key: "collect", href: BASE, label: "Collect Fee", exact: true, also: [`${BASE}/collect`] },
+    { key: "ledger", href: `${BASE}/ledger`, label: "Student Fee Ledger" },
+    { key: "defaulters", href: `${BASE}/defaulters`, label: "Defaulters" },
+    { key: "structure", href: `${BASE}/structure`, label: "Fee Structure" },
+    { key: "concessions", href: `${BASE}/concessions`, label: "Concessions & Refunds" },
+    { key: "reports", href: `${BASE}/reports`, label: "Fee Reports" },
+    { key: "settings", href: `${BASE}/settings`, label: "Fee Settings" },
   ];
+  return all.filter((t) => p.may(t.key)).map(({ key, ...t }) => (void key, t));
 }
 
-/** Pages with fee details (ledgers): not for the Admission Counsellor, who sees admission fees on the Fee Dashboard. */
-export async function feeDetailsPage() {
+/** A Fee Management page this person's level may open; anything else is a plain "no access" page. */
+export async function feeGuard(page: FeePageKey) {
   const p = await feePage();
-  if (p.admissionOnly) redirect(`${BASE}/dashboard`);
+  if (!p.may(page)) redirect(`/no-access?m=${MODULE}`);
   return p;
 }
 
-/** Pages for people with full Fee Management (not the "own" class-teacher view). */
-export async function feeStaffPage() {
-  const p = await feeDetailsPage();
-  if (p.viewer.see !== "all") redirect(`${BASE}/ledger`);
-  return p;
-}
-
-/** Pages that change things: Fee Settings. View-only people go to the Fee Dashboard. */
-export async function feeManagerPage() {
-  const p = await feeStaffPage();
-  if (!p.can.change) redirect(`${BASE}/dashboard`);
-  return p;
-}
+/** Fee Settings: full Fee Management only. */
+export const feeManagerPage = () => feeGuard("settings");
 
 export function qs(base: string, params: Record<string, string | null | undefined>) {
   const u = new URLSearchParams();

@@ -7,6 +7,7 @@ import { periodFromSearch } from "@/lib/periods";
 import { periodSetup } from "@/lib/period-setup";
 import { expenseRows, NO_FILTER, type ExpenseRow } from "@/lib/finance/expense-list";
 import { EXPENSE_STATUS_WORDS, financeModeLabel } from "@/lib/finance/words";
+import { hiddenPayHeads } from "@/lib/finance/access";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +33,7 @@ export async function GET(req: Request) {
     : { q: g("q").trim().slice(0, 80) || null, range, status: g("status") || null, headId: UUID.test(g("head")) ? g("head") : null, costCentreId: UUID.test(g("dept")) ? g("dept") : null, abovePaise: above ? BigInt(above) * BigInt(100) : null };
   const title = tab === "bills" ? "Vendor bills" : tab === "waiting" ? "Expenses waiting for approval" : "Expenses";
   const data = await withSchool(current.ctx, async (tx) => {
-    const list = await expenseRows(tx, filter, 20000);
+    const list = await expenseRows(tx, { ...filter, hidePay: await hiddenPayHeads(tx, current.permissions) }, 20000);
     const words = [
       range ? `${formatDate(new Date(`${range.from}T00:00:00Z`))} to ${formatDate(new Date(`${range.to}T00:00:00Z`))}` : "Any date",
       "q" in filter && filter.q && `search "${filter.q}"`, filter.status && EXPENSE_STATUS_WORDS[filter.status]?.label,

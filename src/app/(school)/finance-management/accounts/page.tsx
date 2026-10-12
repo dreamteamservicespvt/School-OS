@@ -18,6 +18,7 @@ import { ReasonSheet } from "../_components/forms";
 import { BASE, financeFeaturePage, financePeriod, one, qs, type SearchParams } from "../_lib/page";
 import { reverseJournalAction } from "./actions";
 import { JournalSheet } from "./sheets";
+import { OldSoftwareBanner, OldSoftwareEmpty, allBeforeGoLive } from "@/components/money/go-live";
 
 export const metadata = { title: "Accounts" };
 
@@ -90,9 +91,10 @@ export default async function AccountsPage({ searchParams }: { searchParams: Sea
               <UrlSearch id="jv-q" placeholder="Number, narration or account" label="Search journal entries" />
               <PeriodFilter {...p.dates} fallback="finyear" />
             </Toolbar>
+            <OldSoftwareBanner goLive={p.goLive} from={per.from} to={per.to} what="journal entries" className="mx-4 mb-3" />
             <DataList rows={journals} rowKey={(j) => j.id} rowHref={(j) => here({ open: j.id })} minWidth={860} caption="Journal entries"
               footer={`Showing ${journals.length} of ${data.journals?.length ?? 0}`}
-              empty={(data.journals?.length ?? 0) === 0
+              empty={allBeforeGoLive(p.goLive, per.from, per.to) ? <OldSoftwareEmpty goLive={p.goLive} what="journal entries" /> : (data.journals?.length ?? 0) === 0
                 ? <Empty icon={NotebookText} title="No journal entries in these dates" body="Use a journal entry to move an amount between heads, for example depreciation or a head corrected." action={p.can.create ? <ButtonLink href={here({ do: "new" })} scroll={false} variant="secondary" icon={Plus}>Journal entry</ButtonLink> : undefined} />
                 : <Empty icon={SearchX} title="No entries match" body="Try another number, narration or account." />}
               columns={[
@@ -116,7 +118,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Sea
               <>
                 <DataList rows={g.rows.map((r, i) => ({ ...r, i }))} rowKey={(r) => String(r.i)} rowHref={(r) => r.href} minWidth={720} caption="General ledger"
                   footer={`Opening ${drcr(g.opening, g.debitNature)} · debits ${formatRupees(g.debit)} · credits ${formatRupees(g.credit)} · closing ${drcr(g.closing, g.debitNature)}`}
-                  empty={<Empty icon={BookOpen} title="No entries for this account in these dates" body={`Balance ${drcr(g.opening, g.debitNature)}.`} />}
+                  empty={allBeforeGoLive(p.goLive, per.from, per.to) ? <OldSoftwareEmpty goLive={p.goLive} what="ledger entries" /> : <Empty icon={BookOpen} title="No entries for this account in these dates" body={`Balance ${drcr(g.opening, g.debitNature)}.`} />}
                   columns={[
                     { key: "d", label: "Date", nowrap: true, render: (r) => <span className="tnum">{formatDate(r.date)}</span> },
                     { key: "ref", label: "Entry", render: (r) => <Ref v={r.ref} /> },

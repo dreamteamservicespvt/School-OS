@@ -20,6 +20,7 @@ import { ActButton, ReasonSheet } from "../_components/forms";
 import { BASE, financePage, financePeriod, one, qs, type SearchParams } from "../_lib/page";
 import { cancelIncomeAction, postIncomeAction } from "./actions";
 import { RecordIncomeSheet } from "./sheets";
+import { OldSoftwareBanner, OldSoftwareEmpty, allBeforeGoLive } from "@/components/money/go-live";
 
 export const metadata = { title: "Income" };
 
@@ -95,9 +96,10 @@ export default async function IncomePage({ searchParams }: { searchParams: Searc
                 <UrlSelect id="inc-mode" param="mode" label="Mode" className="md:w-40" options={[{ value: "", label: "All modes" }, ...INCOME_MODES]} />
               </div>
             </Toolbar>
+            <OldSoftwareBanner goLive={p.goLive} from={per.from} to={per.to} what="income entries" className="mx-4 mb-3" />
             <DataList rows={data.list.rows} rowKey={(r) => r.id} rowHref={(r) => here({ open: r.id })} minWidth={860} caption="Income entries"
               footer={`Showing ${data.list.rows.length} of ${data.list.count} · ${formatRupees(data.list.posted)} posted`}
-              empty={data.total === 0
+              empty={allBeforeGoLive(p.goLive, per.from, per.to) ? <OldSoftwareEmpty goLive={p.goLive} what="income entries" /> : data.total === 0
                 ? <Empty icon={HandCoins} title="No income recorded yet" body="Hall rent, donations, scrap sale or bank interest go here. Fees reach the Day Book from Fees by themselves." action={p.can.create ? <ButtonLink href={here({ do: "new" })} scroll={false} variant="secondary" icon={Plus}>Record income</ButtonLink> : undefined} />
                 : <Empty icon={SearchX} title="No income matches" body="Try another date, head or status." action={filtered ? <Link href={HREF} scroll={false} className={buttonClass("secondary")}>Clear filters</Link> : undefined} />}
               columns={[

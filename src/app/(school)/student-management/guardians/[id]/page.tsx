@@ -25,6 +25,7 @@ import { classShort, phoneShow } from "@/lib/students/show";
 import { BASE, studentPage } from "../../_lib/page";
 import { sectionNames } from "../../_lib/queries";
 import { consentRequestAction, parentLinkAction, setPrimaryAction, withdrawConsentAction } from "../../_actions/guardians";
+import { admissionOnlyFor } from "@/lib/fees/access";
 import { visibleGuardianFor } from "../load";
 
 export const metadata: Metadata = { title: "Parent" };
@@ -55,7 +56,7 @@ export default async function Parent360({ params }: { params: Promise<{ id: stri
   const childName = (sid: string) => data.links.find((l) => l.studentId === sid)?.student.fullName ?? "A former child";
   const live = !g.archivedAt;
   const manage = can.manage && live;
-  const seeFees = facts.has.fees && allowed(current.permissions, "fee-management", "view");
+  const seeFees = facts.has.fees && allowed(current.permissions, "fee-management", "view") && !admissionOnlyFor(current);
   const message = live && BUILT_MODULES.has("communication") && allowed(current.permissions, "communication", "create") && data.links.length > 0;
   const restricted = data.links.filter((l) => l.restriction);
   const kids = data.links.map((l) => {

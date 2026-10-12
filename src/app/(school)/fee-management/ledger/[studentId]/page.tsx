@@ -30,7 +30,7 @@ import { FeeHead } from "../../_components/fee-head";
 import { ModeIcon, PayPill, modeWord, pct } from "../../_components/bits";
 import { CancelSheet, PaymentSheet } from "../../_components/payment-sheet";
 import { toSheet } from "../../_lib/pay-sheet";
-import { BASE, feeDetailsPage, feePeriod, one, qs, type SearchParams } from "../../_lib/page";
+import { BASE, feeGuard, feePeriod, one, qs, type SearchParams } from "../../_lib/page";
 import { PeriodFilter } from "@/components/list/period-filter";
 import { AdjustSheet, AssignSheet, CertificateSheet, ChargeSheet, InvoiceSheet, OldDuesSheet, ResendInvoice } from "./sheets";
 
@@ -58,7 +58,7 @@ const dshort = (d: Date) => new Intl.DateTimeFormat("en-IN", { day: "numeric", m
 export default async function LedgerPage({ params, searchParams }: { params: Promise<{ studentId: string }>; searchParams: SearchParams }) {
   const { studentId } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(studentId)) notFound();
-  const p = await feeDetailsPage();
+  const p = await feeGuard("ledger");
   const sp = await searchParams;
   const tab = TABS.some(([k]) => k === one(sp.tab)) ? one(sp.tab) : "statement";
   const doing = (DO as readonly string[]).includes(one(sp.do)) ? one(sp.do) : "";
@@ -125,7 +125,6 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
   const invoices = L.invoices.filter((r) => inRange(r.date));
   const certificates = L.certificates.filter((r) => inRange(r.date));
   const adjustments = L.adjustments.filter((r) => inRange(r.date));
-  const filtered = Boolean(per.range);
   const father = card.fatherName ?? card.primaryGuardian?.name ?? "the parent";
   const heads = [...L.heads].sort((a, b) => Number(b.total - a.total));
   const today = p.today;

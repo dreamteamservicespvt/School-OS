@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { fileLink } from "@/lib/files";
@@ -11,7 +11,7 @@ import { Card } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import { Ring } from "@/components/ui/display";
 import { pct } from "../../_components/bits";
-import { BASE, feePage } from "../../_lib/page";
+import { BASE, feeGuard } from "../../_lib/page";
 import { CollectForm, type DueRow } from "./collect-form";
 
 export const metadata = { title: "Collect Fee" };
@@ -19,9 +19,7 @@ export const metadata = { title: "Collect Fee" };
 /** Collect Fee, step 2: the student's dues, ticked for you, and the payment (fees.jsx). */
 export default async function CollectPage({ params }: { params: Promise<{ studentId: string }> }) {
   const { studentId } = await params;
-  const p = await feePage();
-  if (p.viewer.see === "own") redirect(`${BASE}/ledger?student=${studentId}`);
-  if (!p.can.change) redirect(`${BASE}/ledger?student=${studentId}`);
+  const p = await feeGuard("collect");
   if (!/^[0-9a-f-]{36}$/i.test(studentId)) notFound();
   const data = await withSchool(p.current.ctx, async (tx) => {
     if (!(await canSeeStudent(tx, p.viewer, studentId))) return null;

@@ -59,7 +59,11 @@ export function DefaulterList({ rows, canEdit, footer, empty, openAll, templates
   const sp = useSearchParams();
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [send, setSend] = useState<DefaulterItem[] | null>(openAll ? rows : null);
-  useEffect(() => { if (openAll) setSend(rows); }, [openAll, rows]);
+  const [seen, setSeen] = useState({ openAll, rows });
+  if (seen.openAll !== openAll || seen.rows !== rows) {
+    setSeen({ openAll, rows });
+    if (openAll) setSend(rows);
+  }
   const closeSend = () => {
     setSend(null);
     if (sp.get("send")) {
@@ -158,10 +162,12 @@ function ReminderSheet({ list, onClose, onSent, templates, gateway }: { list: De
   const totalShort = list.length === 1 ? list[0].amountShort : formatRupeesShort(total);
   const ownWording = tpl === OWN;
 
-  useEffect(() => {
-    const first = templates[channel][0]?.value ?? OWN;
-    setTpl(channel === "sms" ? first : (templates[channel].some((t) => t.value === tpl) || tpl === OWN ? tpl : first));
-  }, [channel]); // eslint-disable-line react-hooks/exhaustive-deps
+  /** A new channel: SMS needs an approved template; the others keep the wording when it exists there. */
+  const pickChannel = (c: typeof channel) => {
+    const first = templates[c][0]?.value ?? OWN;
+    setChannel(c);
+    setTpl(c === "sms" ? first : (templates[c].some((t) => t.value === tpl) || tpl === OWN ? tpl : first));
+  };
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -195,7 +201,7 @@ function ReminderSheet({ list, onClose, onSent, templates, gateway }: { list: De
           ))}
         </div>
         <div className="grid md:grid-cols-2 gap-4">
-          <div className="flex flex-col gap-1.5"><span className="text-[13px] font-semibold text-ink2">Channel</span><Segmented label="Channel" value={channel} onChange={(v) => setChannel(v as typeof channel)} options={CHANNELS} className="w-full" /></div>
+          <div className="flex flex-col gap-1.5"><span className="text-[13px] font-semibold text-ink2">Channel</span><Segmented label="Channel" value={channel} onChange={(v) => pickChannel(v as typeof channel)} options={CHANNELS} className="w-full" /></div>
           <SelectField name="_tpl" label="Template" value={tpl} onChange={(e) => setTpl(e.target.value)}
             options={[...opts, ...(channel === "sms" ? [] : [{ value: OWN, label: "Own wording" }])]} placeholder={opts.length || channel !== "sms" ? undefined : "No approved SMS template"} />
         </div>

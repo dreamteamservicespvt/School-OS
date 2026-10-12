@@ -16,6 +16,7 @@ import "server-only";
 import type { DayBookEntry, Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { assertBooksOpen, financialYearOf } from "./years";
+import { PAY_SECTIONS, PAY_SOURCES } from "./access";
 
 export type DayBookSection = "fees-full" | "fees-partial" | "other-fees" | "other-income" | "expense" | "salary" | "salary-advance" | "refund" | "reversal" | "opening" | "transfer";
 
@@ -198,7 +199,8 @@ export function displaySection(e: Pick<DayBookEntry, "section">): string {
  * (everything before, in every year, so a new year opens with the last
  * year's closing), receipts, payments, closing, and each entry in time order.
  */
-export async function accountBook(tx: Tx, accountId: string, from: Date, to: Date) {
+/** hidePay: staff pay heads to leave out of the lines (balances still count them, so they stay right). */
+export async function accountBook(tx: Tx, accountId: string, from: Date, to: Date, hidePay: string[] | null = null) {
   // A go-live opening balance dated on the first day shown is the opening, not a receipt (07 §9, 12).
   const openingWhere = { accountId, OR: [{ date: { lt: from } }, { date: from, section: "opening" }] };
   const before = await tx.dayBookEntry.groupBy({ by: ["direction"], where: openingWhere, _sum: { amountPaise: true } });
@@ -211,7 +213,8 @@ export async function accountBook(tx: Tx, accountId: string, from: Date, to: Dat
     else { payments += e.amountPaise; running -= e.amountPaise; }
     return { ...e, balance: running };
   });
-  return { opening, receipts, payments, closing: opening + receipts - payments, lines };
+  const isPay = (e: (typeof lines)[number]) => Boolean(hidePay) && (PAY_SECTIONS.includes(e.section) || PAY_SOURCES.includes(e.sourceType) || (e.accountHeadId !== null && hidePay!.includes(e.accountHeadId)));
+  return { opening, receipts, payments, closing: opening + receipts - payments, lines: hidePay ? lines.filter((e) => !isPay(e)) : lines, payHidden: hidePay ? lines.filter(isPay).length : 0 };
 }
 
 /** Current balance of each cash and bank account. */

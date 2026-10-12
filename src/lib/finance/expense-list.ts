@@ -6,6 +6,7 @@ import type { ExpenseStatus, Prisma } from "@prisma/client";
 import type { Tx } from "../db";
 import type { DayRange } from "../periods";
 import { dateWhere } from "../periods";
+import { expensesWithoutPay } from "./access";
 
 const STATUSES = ["DRAFT", "WAITING", "APPROVED", "PAID", "CANCELLED"] as const;
 
@@ -19,6 +20,8 @@ export type ExpenseFilter = {
   abovePaise: bigint | null;
   vendorBills?: boolean;
   id?: string | null;
+  /** Staff pay heads to leave out (src/lib/finance/access.ts); null or missing shows staff pay. */
+  hidePay?: string[] | null;
 };
 
 export const NO_FILTER: ExpenseFilter = { q: null, range: null, status: null, headId: null, costCentreId: null, abovePaise: null };
@@ -33,6 +36,7 @@ export function expenseWhere(f: ExpenseFilter): Prisma.ExpenseWhereInput {
     ...(f.costCentreId ? { costCentreId: f.costCentreId } : {}),
     ...(f.abovePaise ? { amountPaise: { gt: f.abovePaise } } : {}),
     ...(f.vendorBills ? { isVendorBill: true } : {}),
+    ...(f.hidePay?.length ? { AND: [expensesWithoutPay(f.hidePay)] } : {}),
     ...(q ? { OR: [{ note: { contains: q, mode: "insensitive" } }, { number: { contains: q, mode: "insensitive" } }, { billNo: { contains: q, mode: "insensitive" } }] } : {}),
   };
 }

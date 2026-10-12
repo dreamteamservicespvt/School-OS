@@ -6,7 +6,7 @@ import { requireAction } from "@/lib/current";
 import { withSchool, type SchoolContext, type Tx } from "@/lib/db";
 import { logExport } from "@/lib/exports";
 import { PermissionDeniedError } from "@/lib/permissions";
-import { admissionOnly, canSeeStudent, feeViewer } from "@/lib/fees/access";
+import { canSeeStudent, feePageAllowed, feeViewer } from "@/lib/fees/access";
 import { MoneyProblem } from "@/lib/fees/problem";
 import { UUID_RE } from "@/lib/fees/act";
 
@@ -27,7 +27,7 @@ export async function feePdf(req: Request, id: string, render: (tx: Tx, ctx: Sch
   try {
     return await withSchool(current.ctx, async (tx) => {
       const viewer = await feeViewer(tx, current.ctx, current);
-      if (admissionOnly(viewer)) return text("Your role sees only admission fee status, not fee documents.", 403);
+      if (!feePageAllowed(viewer, "documents")) return text("Your role cannot see fee documents.", 403);
       const doc = await render(tx, current.ctx);
       if (!(await canSeeStudent(tx, viewer, doc.studentId))) return text("This document was not found.", 404);
       const pdf = await doc.pdf();

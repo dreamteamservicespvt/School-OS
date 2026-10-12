@@ -35,8 +35,9 @@ function usedFor(u: Awaited<ReturnType<typeof usage>>, headId: string, costCentr
   return { spent, committed };
 }
 
-export async function budgetsWithUse(tx: Tx, financialYearId: string) {
-  const budgets = await tx.budget.findMany({ where: { financialYearId, archivedAt: null }, include: { revisions: { orderBy: { createdAt: "asc" } } }, orderBy: { createdAt: "asc" } });
+/** hidePay: staff pay heads whose budget lines are left out (src/lib/finance/access.ts). */
+export async function budgetsWithUse(tx: Tx, financialYearId: string, hidePay: string[] | null = null) {
+  const budgets = await tx.budget.findMany({ where: { financialYearId, archivedAt: null, ...(hidePay?.length ? { accountHeadId: { notIn: hidePay } } : {}) }, include: { revisions: { orderBy: { createdAt: "asc" } } }, orderBy: { createdAt: "asc" } });
   const u = await usage(tx, financialYearId);
   return budgets.map((b) => {
     const { spent, committed } = usedFor(u, b.accountHeadId, b.costCentreId);

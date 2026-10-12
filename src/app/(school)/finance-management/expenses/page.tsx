@@ -25,6 +25,7 @@ import { ActButton, ReasonSheet } from "../_components/forms";
 import { BASE, financePage, financePeriod, one, qs, type SearchParams } from "../_lib/page";
 import { cancelExpenseAction, decideExpenseAction, submitExpenseAction } from "./actions";
 import { AttachBillSheet, PaySheet, RecordExpenseSheet, VendorBillSheet, type ApproverStep } from "./sheets";
+import { OldSoftwareBanner, OldSoftwareEmpty, allBeforeGoLive } from "@/components/money/go-live";
 
 export const metadata = { title: "Expenses" };
 
@@ -87,18 +88,18 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Sea
   const data = await withSchool(ctx, async (tx) => {
     const filter = { q: q || null, range: per.range, status: status || null, headId, costCentreId: deptId, abovePaise: above ? BigInt(above) * BigInt(100) : null };
     const [list, total, waiting, approved, bills, noBill, paidMonth, heads, centres, rule, namer, focus] = await Promise.all([
-      tab === "all" ? expenseRows(tx, filter) : null,
+      tab === "all" ? expenseRows(tx, { ...filter, hidePay: p.payHeads }) : null,
       tx.expense.count(),
-      expenseRows(tx, { ...NO_FILTER, status: "WAITING" }, 100),
+      expenseRows(tx, { ...NO_FILTER, hidePay: p.payHeads, status: "WAITING" }, 100),
       tx.expense.aggregate({ where: { status: "APPROVED" }, _sum: { amountPaise: true, paidPaise: true }, _count: { _all: true } }),
-      billsOn ? expenseRows(tx, { ...NO_FILTER, vendorBills: true }, tab === "bills" ? 300 : 1) : null,
+      billsOn ? expenseRows(tx, { ...NO_FILTER, hidePay: p.payHeads, vendorBills: true }, tab === "bills" ? 300 : 1) : null,
       tx.expense.findMany({ where: { billFileId: null, broughtIn: false, amountPaise: { gt: billAbove }, status: { in: ["WAITING", "APPROVED", "PAID"] } }, orderBy: { date: "asc" }, take: 50 }),
       tx.expensePayment.findMany({ where: { cancelledAt: null, date: { gte: monthStart, lte: p.today } }, select: { amountPaise: true, expense: { select: { accountHeadId: true } } } }),
       tx.accountHead.findMany({ where: { kind: "EXPENSE", archivedAt: null }, orderBy: { code: "asc" }, select: { id: true, name: true, code: true, systemKey: true } }),
       centresOn ? tx.costCentre.findMany({ where: { archivedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } }) : [],
       tx.approvalRule.findFirst({ where: { requestType: "expense", archivedAt: null } }),
       ruleNamer(tx, ctx.schoolId),
-      focusId ? expenseRows(tx, { ...NO_FILTER, id: focusId }, 1).then((r) => r.rows[0] ?? null) : null,
+      focusId ? expenseRows(tx, { ...NO_FILTER, hidePay: p.payHeads, id: focusId }, 1).then((r) => r.rows[0] ?? null) : null,
     ]);
     const steps = (rule?.steps as RuleStep[] | undefined) ?? defaultSteps("expense");
     const waitIds = [...waiting.rows.map((r) => r.approvalId), focus?.status === "WAITING" ? focus.approvalId : null].filter((x): x is string => Boolean(x));
@@ -211,9 +212,10 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Sea
                 <UrlSelect id="ex-above" param="above" label="Amount" className={cx("md:w-40", !centresOn && "col-span-2 md:col-span-1")} options={ABOVE} />
               </div>
             </Toolbar>
+            <OldSoftwareBanner goLive={p.goLive} from={per.from} to={per.to} what="expenses" className="mx-4 mb-3" />
             <DataList rows={data.list.rows} rowKey={(r) => r.id} rowHref={(r) => here({ open: r.id })} minWidth={980} caption="Expenses"
               footer={`Showing ${data.list.rows.length} of ${data.list.count} · ${formatRupees(data.list.paid)} paid`}
-              empty={data.total === 0
+              empty={allBeforeGoLive(p.goLive, per.from, per.to) ? <OldSoftwareEmpty goLive={p.goLive} what="expenses" /> : data.total === 0
                 ? <Empty icon={ReceiptText} title="No expenses recorded yet" body="Take a photo of the bill, enter the amount and the head. Small ones are approved at once." action={p.can.create ? <ButtonLink href={here({ do: "new" })} scroll={false} variant="secondary" icon={Plus}>Record expense</ButtonLink> : undefined} />
                 : <Empty icon={SearchX} title="No expenses match" body="Try another status, head or amount." action={filtered ? <Link href={HREF} scroll={false} className={buttonClass("secondary")}>Clear filters</Link> : undefined} />}
               columns={[

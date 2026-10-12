@@ -15,8 +15,8 @@ import { ExportButton } from "@/components/ui/export-button";
 import { PeriodFilter } from "@/components/list/period-filter";
 import { ReportsFrame } from "@/components/list/reports-frame";
 import { FeeHead } from "../_components/fee-head";
-import { AdmissionFees } from "../dashboard/admission-fees";
-import { BASE, feePage, feeStaffPage, one, qs, type SearchParams } from "../_lib/page";
+import { BASE, feeGuard, one, qs, type SearchParams } from "../_lib/page";
+import { OldSoftwareBanner, OldSoftwareEmpty, allBeforeGoLive } from "@/components/money/go-live";
 
 export const metadata = { title: "Fee Reports" };
 
@@ -42,8 +42,7 @@ const LOOK: Record<string, { group: string; sub: string; icon: LucideIcon }> = {
 
 /** Fee Reports (06 §7, mod-fees.jsx FeeReports): each report with its filters, a total line, export and print. */
 export default async function FeeReportsPage({ searchParams }: { searchParams: SearchParams }) {
-  if ((await feePage()).admissionOnly) return <AdmissionFees />;
-  const p = await feeStaffPage();
+  const p = await feeGuard("reports");
   const sp = await searchParams;
   const def = findFeeReport(one(sp.r)) ?? FEE_REPORTS[0];
   const { f, range } = reportFilter(sp, { ...p.dates, today: p.today, yearStart: p.year?.startDate ?? null });
@@ -102,7 +101,8 @@ export default async function FeeReportsPage({ searchParams }: { searchParams: S
               </div>
             </Toolbar>
           )}
-          {r.rows.length === 0 ? (
+          {has("dates") && <OldSoftwareBanner goLive={p.goLive} from={f.from} to={f.to} what="fee records" className="mx-5 mb-3" />}
+          {has("dates") && allBeforeGoLive(p.goLive, f.from, f.to) ? <OldSoftwareEmpty goLive={p.goLive} what="fee records" /> : r.rows.length === 0 ? (
             <Empty icon={FileSpreadsheet} title="Nothing in this report" body={has("dates") ? "Nothing matches these dates and filters. Try a longer period." : "Nothing matches these filters."}
               action={<Link href={qs(HREF, { r: def.key })} scroll={false} className={buttonClass("secondary")}>Clear filters</Link>} />
           ) : (

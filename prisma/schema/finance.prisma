@@ -39,6 +39,8 @@ model FinanceSetting {
   billRequiredAbove   BigInt   @default(200000) @map("bill_required_above")
   incomeReceiptPrefix String   @default("INC/") @map("income_receipt_prefix")
   journalPrefix       String   @default("JV/") @map("journal_prefix")
+  /// First day of records in School OS. Older money stays in the old software.
+  goLiveDate          DateTime @default(dbgenerated("'2026-04-01'::date")) @map("go_live_date") @db.Date
   updatedById         String?  @map("updated_by_id") @db.Uuid
   createdAt           DateTime @default(now()) @map("created_at")
   updatedAt           DateTime @updatedAt @map("updated_at")

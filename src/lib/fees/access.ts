@@ -71,3 +71,52 @@ export function admissionOnly(v: Pick<FeeViewer, "roleKeys" | "change">) {
 export function requireFeeDetails(v: Pick<FeeViewer, "roleKeys" | "change">) {
   if (admissionOnly(v)) throw new MoneyProblem("Your role sees only admission fee status. Ask the accountant for other fee details.");
 }
+
+/**
+ * How much of Fee Management a person sees (the approved prototype's role
+ * audit): the Admission Counsellor only "Admission Fees"; View (Vice Principal)
+ * the Fee Dashboard, Defaulters and Fee Reports; Own the ledgers and defaulters
+ * of their own sections; Full everything.
+ */
+export type FeeLevel = "admission" | "own" | "view" | "full";
+
+export function feeLevel(v: Pick<FeeViewer, "roleKeys" | "change" | "see">): FeeLevel | null {
+  if (v.see === "none") return null;
+  if (admissionOnly(v)) return "admission";
+  if (v.change === "all") return "full";
+  if (v.see === "own") return "own";
+  return "view";
+}
+
+export const FEE_PAGES = {
+  dashboard: ["admission", "view", "full"],
+  collect: ["full"],
+  payments: ["full"],
+  ledger: ["own", "full"],
+  documents: ["own", "view", "full"],
+  defaulters: ["own", "view", "full"],
+  structure: ["full"],
+  concessions: ["full"],
+  reports: ["view", "full"],
+  settings: ["full"],
+} as const satisfies Record<string, readonly FeeLevel[]>;
+
+export type FeePageKey = keyof typeof FEE_PAGES;
+
+export function feePageAllowed(v: Pick<FeeViewer, "roleKeys" | "change" | "see">, page: FeePageKey) {
+  const level = feeLevel(v);
+  return level !== null && (FEE_PAGES[page] as readonly FeeLevel[]).includes(level);
+}
+
+/** The same Admission Counsellor rule from the signed-in person alone (no database), for menus and profile tabs. */
+export function admissionOnlyFor(current: { permissions: Record<string, { change: Reach }>; roles?: { key: string | null }[] }) {
+  const roleKeys = (current.roles ?? []).map((r) => r.key).filter((k): k is string => Boolean(k));
+  return admissionOnly({ roleKeys, change: current.permissions["fee-management"]?.change ?? "none" });
+}
+
+/** feePageAllowed from the signed-in person alone (no database), for links from other modules. */
+export function feePageAllowedFor(current: { permissions: Record<string, { see: Reach; change: Reach }>; roles?: { key: string | null }[] }, page: FeePageKey) {
+  const roleKeys = (current.roles ?? []).map((r) => r.key).filter((k): k is string => Boolean(k));
+  const a = current.permissions["fee-management"] ?? { see: "none", change: "none" };
+  return feePageAllowed({ roleKeys, see: a.see, change: a.change }, page);
+}

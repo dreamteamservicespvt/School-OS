@@ -22,8 +22,9 @@ import { CancelSheet, PaymentSheet } from "../_components/payment-sheet";
 import { FailedLinkButton } from "./failed-link";
 import { AdmissionFees } from "./admission-fees";
 import { toSheet } from "../_lib/pay-sheet";
-import { BASE, feePage, feePeriod, feeStaffPage, one, qs, type SearchParams } from "../_lib/page";
+import { BASE, feeGuard, feePeriod, one, qs, type SearchParams } from "../_lib/page";
 import { PeriodFilter } from "@/components/list/period-filter";
+import { OldSoftwareBanner, OldSoftwareEmpty, allBeforeGoLive } from "@/components/money/go-live";
 
 export const metadata = { title: "Fee Dashboard" };
 
@@ -40,8 +41,8 @@ const MODE_ORDER = ["UPI", "CASH", "CHEQUE", "GATEWAY", "BANK_TRANSFER", "CARD",
 
 /** Fee Dashboard (06 §2, mod-fees.jsx): money as it comes in today, what is pending and overdue. */
 export default async function FeeDashboardPage({ searchParams }: { searchParams: SearchParams }) {
-  if ((await feePage()).admissionOnly) return <AdmissionFees />;
-  const p = await feeStaffPage();
+  const p = await feeGuard("dashboard");
+  if (p.level === "admission") return <AdmissionFees searchParams={searchParams} />;
   const sp = await searchParams;
   const tab = one(sp.kind) === "partial" ? "partial" : "full";
   const status = STATUS.some((s) => s.value === one(sp.status)) ? one(sp.status) : "all";
@@ -217,13 +218,14 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
                 <UrlSelect id="pay-mode" param="mode" label="Mode" className="md:w-44 col-span-2 md:col-span-1" options={MODES} />
               </div>
             </Toolbar>
+            <OldSoftwareBanner goLive={p.goLive} from={per.from} to={per.to} what="fee payments" className="mx-4 mb-3" />
             <DataList rows={list.rows} rowKey={(r) => r.id} rowHref={(r) => payHref(r.id)} minWidth={760} caption="Recent payments"
               footer={<><span className="tnum">Showing {list.rows.length ? (page - 1) * take + 1 : 0}–{(page - 1) * take + list.rows.length} of {list.total} {whenWord} · {formatRupees(list.sum)} posted</span>
                 <span className="flex gap-2">
                   {page > 1 && <Link className={buttonClass("ghost", "sm")} href={qs(HREF, { ...keep, page: String(page - 1) })} scroll={false}>Newer</Link>}
                   {page * take < list.total && <Link className={buttonClass("ghost", "sm")} href={qs(HREF, { ...keep, page: String(page + 1) })} scroll={false}>Older</Link>}
                 </span></>}
-              empty={<Empty icon={SearchX} title={q || status !== "all" || mode !== "all" ? "No payments match" : `No ${tab === "partial" ? "partial " : ""}payments ${whenWord} yet`}
+              empty={allBeforeGoLive(p.goLive, per.from, per.to) ? <OldSoftwareEmpty goLive={p.goLive} what="fee payments" /> : <Empty icon={SearchX} title={q || status !== "all" || mode !== "all" ? "No payments match" : `No ${tab === "partial" ? "partial " : ""}payments ${whenWord} yet`}
                 body={q || status !== "all" || mode !== "all" ? "Try another status or mode." : "Payments show here the moment they are collected or arrive online."}
                 action={q || status !== "all" || mode !== "all" ? <Link href={qs(HREF, { kind: keep.kind, ...per.keep })} className={buttonClass("secondary")}>Clear filters</Link> : undefined} />}
               rowClass={(r) => r.status === "CANCELLED" && "bg-bad/[.03]"}
@@ -246,7 +248,7 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
         </div>
       </Stack>
 
-      {data.sheet && <PaymentSheet p={toSheet(data.sheet, today)} closeHref={here} cancelHref={qs(HREF, { ...keep, cancel: data.sheet.id })} canEdit={p.can.change} ledgerHref={`${BASE}/ledger?student=${data.sheet.studentId}`} />}
+      {data.sheet && <PaymentSheet p={toSheet(data.sheet, today)} closeHref={here} cancelHref={qs(HREF, { ...keep, cancel: data.sheet.id })} canEdit={p.can.change} ledgerHref={p.may("ledger") ? `${BASE}/ledger?student=${data.sheet.studentId}` : null} />}
       {data.cancel && data.cancel.status === "POSTED" && p.can.change && (
         <CancelSheet p={toSheet(data.cancel, today)} closeHref={qs(HREF, { ...keep, pay: data.cancel.id })} doneHref={here}
           needsOk={p.settings.cancelPastApproval && data.cancel.date < today} approver="the principal" />

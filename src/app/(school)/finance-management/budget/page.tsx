@@ -44,7 +44,7 @@ export default async function BudgetPage({ searchParams }: { searchParams: Searc
   const data = await withSchool(ctx, async (tx) => {
     const fy = await chosenFinancialYear(tx, ctx, one(sp.fy), p.today);
     const [budgets, heads, centres, years, waiting] = await Promise.all([
-      budgetsWithUse(tx, fy.id),
+      budgetsWithUse(tx, fy.id, p.payHeads),
       tx.accountHead.findMany({ where: { kind: "EXPENSE" }, orderBy: { code: "asc" }, select: { id: true, name: true, code: true, archivedAt: true, groupName: true } }),
       tx.costCentre.findMany({ where: { archivedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
       tx.financialYear.findMany({ where: { archivedAt: null }, orderBy: { startDate: "desc" }, take: 6 }),

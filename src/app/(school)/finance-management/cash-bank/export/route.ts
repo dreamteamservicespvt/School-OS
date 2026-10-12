@@ -8,6 +8,7 @@ import { periodSetup } from "@/lib/period-setup";
 import { todayIn } from "@/lib/staff/dates";
 import { accountBook } from "@/lib/finance/daybook";
 import { financeModeLabel, sectionLabel } from "@/lib/finance/words";
+import { hiddenPayHeads } from "@/lib/finance/access";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +38,7 @@ export async function GET(req: Request) {
       ? await tx.bankAccount.findFirst({ where: { id: g("book"), archivedAt: null } })
       : await tx.bankAccount.findFirst({ where: { kind: "CASH", archivedAt: null }, orderBy: { createdAt: "asc" } });
     if (!account) return null;
-    const book = await accountBook(tx, account.id, from, to);
+    const book = await accountBook(tx, account.id, from, to, await hiddenPayHeads(tx, current.permissions));
     const title = account.kind === "CASH" ? "Cash book" : `Bank book, ${account.name}`;
     const words = from.getTime() === to.getTime() ? formatDate(from) : `${formatDate(from)} to ${formatDate(to)}`;
     await logExport(tx, current.ctx, { title, format, filters: words, rows: book.lines.length });

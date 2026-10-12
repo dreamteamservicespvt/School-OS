@@ -37,11 +37,6 @@ export const SLOTS: readonly WidgetSlot[] = [
   { id: "admissions.new-enquiries", module: "admission-management", kind: "band", homes: ["leader", "receptionist", "admission"], shows: "New enquiries (today, or this week for the leader), foot 'N visits booked this week'. Opens Enquiries filtered to new." },
   { id: "admissions.pending-applications", module: "admission-management", kind: "attention", homes: ["leader", "admission", "office"], shows: "'N applications waiting for a decision'. Opens Applications filtered to waiting." },
   { id: "admissions.follow-ups", module: "admission-management", kind: "attention", homes: ["receptionist", "admission"], shows: "Enquiry follow-up calls due or overdue. Opens Enquiries filtered to follow-up due." },
-  // ------------------------------------------------ 08 Examination & Results
-  { id: "exams.average", module: "examination-results", kind: "panel", homes: ["leader", "academic-head", "exam"], shows: "Exam average of the latest published exam, by class. Each bar opens the result analysis." },
-  { id: "exams.upcoming", module: "examination-results", kind: "agenda", homes: "any", shows: "Exams today and in the next 7 days from published datesheets (own classes for teachers). Opens the Datesheet." },
-  { id: "exams.marks-due", module: "examination-results", kind: "attention", homes: ["teacher", "class-teacher", "exam"], shows: "Marks entry open or overdue for my subjects. Opens Marks Entry for that exam and section." },
-  { id: "exams.weak-students", module: "examination-results", kind: "attention", homes: ["teacher", "class-teacher", "academic-head"], shows: "'3 students in 7 A below 40% in Unit Test 2'. Opens the students behind it." },
 ];
 
 /**

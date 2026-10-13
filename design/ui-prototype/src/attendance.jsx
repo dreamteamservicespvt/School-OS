@@ -30,14 +30,14 @@ export const NOT_MARKED = [
 ];
 
 // Every section in the school (43), with its class teacher and size, for the class-wise view of the whole school
-const hsh = (str) => { let h = 7; for (const ch of str) h = (h * 31 + ch.charCodeAt(0)) % 100003; return h; };
+export const hsh = (str) => { let h = 7; for (const ch of str) h = (h * 31 + ch.charCodeAt(0)) % 100003; return h; };
 const CT_POOL = ['Swathi Reddy', 'Madhavi Latha', 'Usha Rani', 'Kalpana Devi', 'Sujatha Rao', 'Anjali Nair', 'Rekha Sharma', 'Vani Prasad',
   'Lalitha Kumari', 'Sarita Joshi', 'Deepa Menon', 'Hema Latha', 'Prasanna Kumar', 'Jyothi Varma', 'Ramya Krishna', 'Bhavani Shankar',
   'Sunitha Das', 'Gopal Krishna', 'Neelima Rao', 'Arun Kumar', 'Pallavi Singh', 'Mohan Babu', 'Shailaja Iyer', 'Kiran Kumar', 'Sravya Reddy',
   'Naresh Goud', 'Vasantha Lakshmi', 'Suresh Varma', 'Aruna Kumari', 'Raghu Ram', 'Divya Teja', 'Pavan Kalyan', 'Sirisha Naidu', 'Harish Rao',
   'Manjula Devi', 'Ramesh Chandra', 'Keerthi Reddy', 'Sandeep Joshi', 'Uma Maheswari', 'Vijay Bhaskar', 'Lavanya Pillai', 'Chandra Sekhar', 'Geetha Rani'];
 const CT_FIXED = { '7 B': 'Ravi Teja', '8 A': 'Venkat Rao', '10 C': 'Farhana Begum', '3 A': 'Kalyani Sastry', '6 A': 'Imran Shaikh' };
-const GROUPS = [['pre', 'Nursery to UKG'], ['pri', 'Classes 1 to 5'], ['mid', 'Classes 6 to 8'], ['high', 'Classes 9 and 10']];
+export const GROUPS = [['pre', 'Nursery to UKG'], ['pri', 'Classes 1 to 5'], ['mid', 'Classes 6 to 8'], ['high', 'Classes 9 and 10']];
 export const SECTIONS = (() => {
   const out = [];
   const add = (cls, secs, grp) => secs.forEach((x) => out.push({ id: `${cls} ${x}`, cls, grp }));
@@ -69,14 +69,15 @@ const toneOf = (pct) => (pct >= 92 ? 'ok' : pct >= 85 ? 'warn' : 'bad');
 const TONE_TXT = { ok: 'text-ok', warn: 'text-warn', bad: 'text-bad' };
 const TONE_BG = { ok: 'bg-ok/12 text-ok', warn: 'bg-warn/12 text-warn', bad: 'bg-bad/10 text-bad' };
 // A roster for any section: Class 7 B is the full sample class; other sections get example names
-const rosterOf = (sec) => {
+export const rosterOf = (sec) => {
   if (sec.id === '7 B') return CLASS_7B;
   const { BOYS, GIRLS, SURN } = NAME_PARTS;
   const h = hsh(sec.id);
   const list = Array.from({ length: sec.n }, (_, i) => {
     const girl = (h + i * 7) % 2 === 0;
     const pool = girl ? GIRLS : BOYS;
-    return { id: `R-${sec.id}-${i}`, off: h % 37, name: `${pool[(h + i * 13) % pool.length]} ${SURN[(h * 3 + i * 5) % SURN.length]}` };
+    const last = SURN[(h * 3 + i * 5) % SURN.length];
+    return { id: `R-${sec.id}-${i}`, off: h % 37, name: `${pool[(h + i * 13) % pool.length]} ${last}`, father: `${NAME_PARTS.FATHERS[(h + i * 3) % NAME_PARTS.FATHERS.length]} ${last}`, phone: `9${(h + i * 7919) % 10}${String((h * 977 + i * 104729) % 1e8).padStart(8, '0')}`.replace(/(\d{5})(\d{5})/, '$1 $2') };
   });
   return list.sort((a, b) => a.name.localeCompare(b.name)).map((s, i) => ({ ...s, roll: i + 1 }));
 };

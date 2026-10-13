@@ -11,6 +11,7 @@ import {
   DatePeriod, PERIODS, fmtRange, fmtDay, periodDays, MONTH_NAMES, usePage,
 } from './kit.jsx';
 import { pagesFor, inMenu, pageAccess } from './config.js';
+import { ClassFees } from './fees-classwise.jsx';
 
 /* =========================================================================================
    Sample data (Sunrise Public School, 2026–27). Today is Fri 9 Oct 2026, 10:42 AM.
@@ -700,6 +701,8 @@ function FeeDashboardFull() {
             Cheques and bank transfers post to the Day Book only after the accountant checks them.
           </Banner>
         )}
+
+        <ClassFees />
 
         <div className="grid @lg:grid-cols-2 @xl:grid-cols-3 gap-5 @lg:gap-6 items-start">
             <Card>

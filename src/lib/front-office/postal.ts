@@ -3,6 +3,7 @@
 // hand-over records who collected it.
 import "server-only";
 
+import type { Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { notify } from "../notifications";
@@ -85,4 +86,16 @@ export async function undoHandOver(tx: Tx, ctx: SchoolContext, id: string) {
   if (!e || e.status !== "HANDED_OVER") throw new FrontOfficeProblem("This item is not handed over.");
   await tx.postalEntry.update({ where: { id }, data: { status: "AT_DESK", handedToName: null, handedAt: null, handedById: null } });
   await writeAudit(tx, ctx, { action: "hand-over-undone", recordType: "Postal Entry", recordId: id, before: { status: "HANDED_OVER", to: e.handedToName }, after: { status: "AT_DESK" } });
+}
+
+/** The postal register's filter, shared with its export. */
+export const POSTAL_STATUS_KEYS = ["AT_DESK", "HANDED_OVER", "SENT"];
+
+export function postalWhere(opts: { from: Date; to: Date; status: string; q: string; atDeskAlways: boolean }): Prisma.PostalEntryWhereInput {
+  const q = opts.q.trim().slice(0, 60);
+  const day: Prisma.PostalEntryWhereInput = opts.atDeskAlways ? { OR: [{ at: { gte: opts.from, lt: opts.to } }, { status: "AT_DESK" }] } : { at: { gte: opts.from, lt: opts.to } };
+  return {
+    AND: [{ archivedAt: null }, day, POSTAL_STATUS_KEYS.includes(opts.status) ? { status: opts.status } : {},
+      q ? { OR: [{ party: { contains: q, mode: "insensitive" } }, { forText: { contains: q, mode: "insensitive" } }, { trackingNo: { contains: q.replace(/\s+/g, ""), mode: "insensitive" } }, { entryNo: { contains: q, mode: "insensitive" } }, { courier: { contains: q, mode: "insensitive" } }, { handedToName: { contains: q, mode: "insensitive" } }] } : {}],
+  };
 }

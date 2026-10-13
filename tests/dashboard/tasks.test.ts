@@ -81,7 +81,9 @@ describe("task access", () => {
     const now = new Date("2026-10-12T04:00:00Z"); // 9:30 AM India
     const due = new Date("2026-10-13T06:30:00Z"); // tomorrow 12:00 PM India
     const t = await withSchool(principal.ctx, (tx) => addTask(tx, who(principal), { title: "Reminder test", assignedToId: f.teacherUser.id, dueAt: due, details: null, remind: true }, { now }));
-    expect(await withSchool(principal.ctx, (tx) => sendTaskReminders(tx, principal.ctx, new Date("2026-10-12T03:00:00Z")))).toBe(0);
+    // Too early for this task (other tasks in the fixture are due near the real today, so count only this one).
+    await withSchool(principal.ctx, (tx) => sendTaskReminders(tx, principal.ctx, new Date("2026-10-12T03:00:00Z")));
+    expect((await withSchool(principal.ctx, (tx) => tx.task.findUniqueOrThrow({ where: { id: t.id } }))).remindersSent).toEqual([]);
     await withSchool(principal.ctx, (tx) => sendTaskReminders(tx, principal.ctx, new Date("2026-10-12T07:00:00Z")));
     await withSchool(principal.ctx, (tx) => sendTaskReminders(tx, principal.ctx, new Date("2026-10-12T08:00:00Z")));
     let row = await withSchool(principal.ctx, (tx) => tx.task.findUniqueOrThrow({ where: { id: t.id } }));

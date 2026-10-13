@@ -87,6 +87,7 @@ export async function changeTeamRole(actor: ConsoleActor, userId: string, role: 
 export async function disableTeamMember(actor: ConsoleActor, userId: string, reason: string, now = new Date()) {
   const r = reason.trim();
   if (r.length < 5) throw new ConsoleProblem("Give the reason in a few words.", "reason");
+  if (actor.id === userId) throw new ConsoleProblem("You cannot disable your own login. Ask another Owner.");
   return withConsole(async (tx) => {
     const u = await tx.superAdminUser.findUnique({ where: { id: userId } });
     if (!u || u.archivedAt) throw new ConsoleProblem("This team member was not found.");

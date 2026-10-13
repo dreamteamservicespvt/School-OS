@@ -19,6 +19,7 @@ import { EXAM_WIDGETS } from "./widgets/exams";
 import { ADMISSION_WIDGETS } from "./widgets/admissions";
 import { ATTENDANCE_WIDGETS } from "./widgets/attendance";
 import { MONEY_WIDGETS } from "./widgets/money";
+import { SALARY_WIDGETS } from "./widgets/salary";
 
 /** Approvals waiting for this person, as the top bar and Approvals count them. */
 const approvalsBand: Widget<"band"> = {
@@ -68,6 +69,7 @@ export const WIDGETS: readonly Widget[] = [
   ...EXAM_WIDGETS,
   ...ADMISSION_WIDGETS,
   ...MONEY_WIDGETS,
+  ...SALARY_WIDGETS,
 ];
 
 export { SLOTS } from "./slots";

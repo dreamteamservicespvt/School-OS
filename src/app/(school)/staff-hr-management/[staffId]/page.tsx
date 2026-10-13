@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { withSchool } from "@/lib/db";
-import { formatDate, formatDateTime } from "@/lib/format";
+import { formatDate, formatDateTime, formatRupees } from "@/lib/format";
+import { salaryLevel } from "@/lib/salary/access";
 import { staffPage, BASE } from "@/lib/staff/page";
 import { canChangeStaff, canOpenStaff, canSeeSalary } from "@/lib/staff/access";
 import { showRestricted } from "@/lib/staff/staff";
@@ -19,7 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink, buttonClass } from "@/components/ui/button";
 import { EmptyState } from "@/components/empty-state";
 import type { LucideIcon } from "lucide-react";
-import { CalendarCheck, CalendarDays, CalendarPlus, CircleCheck, Clock, FileText, FolderOpen, IdCard, Info, KeyRound, LogOut, Mail, MessageCircle, Phone, School } from "lucide-react";
+import { ArrowUpRight, CalendarCheck, CalendarDays, CalendarPlus, CircleCheck, Clock, FileText, FolderOpen, IdCard, Info, KeyRound, Lock, LogOut, Mail, MessageCircle, Phone, ReceiptText, School, Wallet } from "lucide-react";
 import { BackLink, PinButton } from "@/components/ui/module-head";
 import { Pill } from "@/components/ui/badge";
 import { Banner, Col, DL, Split } from "@/components/ui/blocks";
@@ -667,10 +668,65 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
   }
 
   async function Salary() {
+    // Salary tab (mod-staff.jsx ProfileSalary). Amounts only with full Salary Management;
+    // HR's View sees days, leave and loss of pay; a person sees a link to their own slips.
+    const level = salaryLevel(current.permissions);
+    const money = level === "full";
+    const data = await withSchool(current.ctx, async (tx) => {
+      const structure = money ? await tx.salaryStructure.findFirst({ where: { staffId: s!.id, archivedAt: null, effectiveFrom: { lte: today } }, orderBy: [{ effectiveFrom: "desc" }, { version: "desc" }] }) : null;
+      const lines = await tx.payrollLine.findMany({ where: { staffId: s!.id, included: true, run: { status: { in: ["APPROVED", "PAID", "LOCKED"] } } }, include: { run: { select: { month: true, paidOn: true } } }, orderBy: { run: { month: "desc" } }, take: 3 });
+      return { structure, lines };
+    });
+    const last = data.lines[0];
+    const monthWord = (d: Date) => d.toLocaleDateString("en-IN", { month: "long", year: "numeric", timeZone: "UTC" });
+    if (mine && level === "own") {
+      return (
+        <Card className="p-5 flex flex-col md:flex-row md:items-center gap-4">
+          <span className="w-12 h-12 rounded-2xl bg-brand/10 text-brand grid place-items-center shrink-0"><Wallet size={22} aria-hidden="true" /></span>
+          <div className="flex-1"><p className="font-semibold text-[15px]">Your salary slips are in Salary, My Salary Slips</p><p className="text-[13.5px] text-ink3">{last ? `${monthWord(last.run.month)} ${last.run.paidOn ? `was paid on ${formatDate(last.run.paidOn)}` : "is approved"}. ` : ""}Only you can see your slips.</p></div>
+          <ButtonLink variant="primary" icon={ArrowUpRight} href="/salary-management/slips?mine=1">My salary slips</ButtonLink>
+        </Card>
+      );
+    }
+    const st = data.structure;
     return (
       <div className="space-y-5">
+        <Split>
+          {money ? (
+            <Card>
+              <CardHeader title="Monthly salary" description={st ? `Structure v${st.version} · from ${formatDate(st.effectiveFrom)} · shown only to people with Salary Management` : "No salary structure yet"} icon={Lock} />
+              {st ? (
+                <div className="grid grid-cols-3 gap-4 px-5 pb-5">
+                  <div><p className="text-[12px] text-ink3 font-semibold">Gross</p><p className="text-[18px] font-semibold tnum">{formatRupees(st.grossPaise)}</p></div>
+                  <div><p className="text-[12px] text-ink3 font-semibold">Deductions</p><p className="text-[18px] font-semibold tnum">{last ? formatRupees(last.deductionsPaise) : "—"}</p></div>
+                  <div><p className="text-[12px] text-ink3 font-semibold">Net</p><p className="text-[18px] font-semibold tnum text-ok">{last ? formatRupees(last.netPaise) : "—"}</p></div>
+                </div>
+              ) : <p className="px-5 pb-4 text-[14px] text-ink3">Left out of the monthly salary until one is added.</p>}
+              <div className="px-5 pb-5"><ButtonLink variant="secondary" icon={ArrowUpRight} href={`/salary-management/structures?open=${s!.id}`}>Open in Salary Management</ButtonLink></div>
+            </Card>
+          ) : (
+            <Card>
+              <CardHeader title="Salary days" description="Days, leave and loss of pay that reached the salary. Amounts are not shown here." icon={Lock} />
+              <div className="px-5 pb-5"><ButtonLink variant="secondary" icon={ArrowUpRight} href={`/salary-management/history?tab=staff&who=${s!.id}`}>Open Salary History</ButtonLink></div>
+            </Card>
+          )}
+          <Card>
+            <CardHeader title="Last 3 months" />
+            {data.lines.length ? (
+              <ul className="px-2 pb-2">
+                {data.lines.map((l) => (
+                  <li key={l.id} className="flex items-center gap-3 rounded-xl px-3 py-2.5">
+                    <span className="w-10 h-10 rounded-xl grid place-items-center shrink-0 bg-sunken text-ink2"><ReceiptText size={19} aria-hidden="true" /></span>
+                    <div className="min-w-0 flex-1"><p className="font-semibold text-[14.5px]">{monthWord(l.run.month)}</p><p className="text-[12.5px] text-ink3">{l.run.paidOn ? `paid ${formatDate(l.run.paidOn)}` : "approved"}{!money ? ` · ${Number(l.paidDays)} paid days` : ""}</p></div>
+                    {money ? <b className="font-semibold tnum">{formatRupees(l.netPaise)}</b> : <span className="tnum text-[13px] text-ink2">{Number(l.lopDays)} days loss of pay</span>}
+                  </li>
+                ))}
+              </ul>
+            ) : <p className="px-5 pb-5 text-[14px] text-ink3">No approved salary yet.</p>}
+          </Card>
+        </Split>
         <Card>
-          <CardHeader title="Salary" description="Salary structures, salary slips and advances are kept in Salary Management." action={<ButtonLink size="sm" href="/salary-management">Salary Management</ButtonLink>} />
+          <CardHeader title="Bank and statutory numbers" description="Used for the salary bank file and the PF and ESI statements" />
           <CardBody>
             <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
               <Detail label="Bank account">{showRestricted(s!.bankAccountEnc, viewer.restricted)}</Detail>

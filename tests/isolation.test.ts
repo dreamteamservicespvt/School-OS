@@ -428,3 +428,43 @@ describe("Admission Management records stay in their school", () => {
     await expect(withSchool(ctxA(), (tx) => tx.applicationFeePayment.create({ data: { schoolId: b.id, applicationId: ids.app, amountPaise: BigInt(1), mode: "cash" } }))).rejects.toThrow();
   });
 });
+
+describe("Salary Management records stay in their school", () => {
+  it("school A cannot read, change or add to school B's salary settings, structures, salary months, slips, advances or statements", async () => {
+    const ctxB = { schoolId: b.id, userId: userB.id };
+    const day = (d: string) => new Date(`${d}T00:00:00Z`);
+    const ids = await withSchool(ctxB, async (tx) => {
+      const staff = await tx.staff.create({ data: { schoolId: b.id, campusId: b.campus.id, staffCode: "B-SAL", firstName: "B", lastName: "Payee", fullName: "B Payee", phone: "9000000081", designation: "Teacher", joiningDate: day("2020-01-01") } });
+      await tx.salarySetting.create({ data: { schoolId: b.id } });
+      await tx.statutorySetting.create({ data: { schoolId: b.id, validFrom: day("2031-04-01") } });
+      await tx.professionalTaxSlab.create({ data: { schoolId: b.id, state: "Telangana", fromPaise: BigInt(0), taxPaise: BigInt(20000) } });
+      await tx.salaryComponent.create({ data: { schoolId: b.id, name: "B allowance", kind: "EARNING" } });
+      await tx.salaryTemplate.create({ data: { schoolId: b.id, name: "B template" } });
+      await tx.salaryStructure.create({ data: { schoolId: b.id, staffId: staff.id, version: 1, effectiveFrom: day("2031-04-01"), lines: [], grossPaise: BigInt(3000000) } });
+      const run = await tx.payrollRun.create({ data: { schoolId: b.id, campusId: b.campus.id, month: day("2031-04-01"), number: "PAY-B-1", netPaise: BigInt(2800000) } });
+      const line = await tx.payrollLine.create({ data: { schoolId: b.id, runId: run.id, staffId: staff.id, daysInMonth: 30, paidDays: 30, netPaise: BigInt(2800000) } });
+      await tx.payrollAdjustment.create({ data: { schoolId: b.id, runId: run.id, staffId: staff.id, type: "BONUS", amountPaise: BigInt(100000), reason: "Only in B" } });
+      const slip = await tx.payslip.create({ data: { schoolId: b.id, runId: run.id, lineId: line.id, staffId: staff.id, month: day("2031-04-01"), netPaise: BigInt(2800000) } });
+      const adv = await tx.salaryAdvance.create({ data: { schoolId: b.id, number: "ADV-B-1", staffId: staff.id, type: "LOAN", amountPaise: BigInt(1000000), installmentPaise: BigInt(100000), startMonth: day("2031-05-01"), reason: "Only in B" } });
+      await tx.salaryRecovery.create({ data: { schoolId: b.id, advanceId: adv.id, kind: "CASH", date: day("2031-05-02"), amountPaise: BigInt(100000) } });
+      await tx.statutoryStatement.create({ data: { schoolId: b.id, runId: run.id, campusId: b.campus.id, month: day("2031-04-01"), kind: "PF", staffCount: 1, wagesPaise: BigInt(1500000), employeePaise: BigInt(180000), employerPaise: BigInt(180000), lines: [] } });
+      return { staff: staff.id, run: run.id, line: line.id, slip: slip.id, adv: adv.id };
+    });
+    await withSchool(ctxA(), async (tx) => {
+      const counts = await Promise.all([
+        tx.salarySetting.count({ where: { schoolId: b.id } }), tx.statutorySetting.count({ where: { schoolId: b.id } }), tx.professionalTaxSlab.count({ where: { schoolId: b.id } }),
+        tx.salaryComponent.count({ where: { schoolId: b.id } }), tx.salaryTemplate.count({ where: { schoolId: b.id } }), tx.salaryStructure.count(), tx.payrollRun.count(),
+        tx.payrollLine.count(), tx.payrollAdjustment.count(), tx.payslip.count(), tx.salaryAdvance.count(), tx.salaryRecovery.count(), tx.statutoryStatement.count(),
+      ]);
+      expect(counts).toEqual(Array(13).fill(0));
+      expect(await tx.payslip.findUnique({ where: { id: ids.slip } })).toBeNull();
+      expect(await tx.payrollLine.findMany({ where: { staffId: ids.staff } })).toHaveLength(0);
+      expect((await tx.payrollRun.updateMany({ where: { id: ids.run }, data: { status: "PAID" } })).count).toBe(0);
+      expect((await tx.payrollLine.updateMany({ where: { id: ids.line }, data: { netPaise: BigInt(1) } })).count).toBe(0);
+      expect((await tx.salaryAdvance.updateMany({ where: { id: ids.adv }, data: { status: "CLOSED" } })).count).toBe(0);
+    });
+    await expect(withSchool(ctxA(), (tx) => tx.payrollAdjustment.create({ data: { schoolId: b.id, runId: ids.run, staffId: ids.staff, type: "BONUS", amountPaise: BigInt(1), reason: "Sneaky" } }))).rejects.toThrow();
+    await expect(withSchool(ctxA(), (tx) => tx.salaryRecovery.create({ data: { schoolId: b.id, advanceId: ids.adv, kind: "CASH", date: day("2031-05-03"), amountPaise: BigInt(1) } }))).rejects.toThrow();
+    await expect(withSchool(ctxA(), (tx) => tx.salaryStructure.create({ data: { schoolId: b.id, staffId: ids.staff, version: 2, effectiveFrom: day("2031-06-01"), lines: [], grossPaise: BigInt(1) } }))).rejects.toThrow();
+  });
+});

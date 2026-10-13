@@ -77,6 +77,7 @@ export const BUILT_MODULES: ReadonlySet<ModuleKey> = new Set<ModuleKey>([
   "attendance-management",
   "fee-management",
   "finance-management",
+  "salary-management",
 ]);
 
 /**

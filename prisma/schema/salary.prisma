@@ -1,0 +1,385 @@
+// 10 Salary Management: salary structures (versioned), the monthly Payroll Run
+// with one Payroll Line per staff member, adjustments with reasons, Payslips
+// made on approval, salary advances and loans with their recoveries, the PF,
+// ESI and Professional Tax rules, and the monthly PF and ESI statements.
+// Money is whole paise. Payroll Runs, Payslips and advances are never deleted.
+
+enum PayrollStatus {
+  OPEN
+  CALCULATED
+  WAITING
+  APPROVED
+  PAID
+  LOCKED
+}
+
+enum PayslipStatus {
+  MADE
+  SENT
+  DOWNLOADED
+}
+
+enum SalaryAdvanceStatus {
+  /// Asked, waiting for approval.
+  WAITING
+  /// Approved, not paid out yet.
+  APPROVED
+  ACTIVE
+  CLOSED
+  REJECTED
+  CANCELLED
+}
+
+/// Salary Settings: payroll preferences and salary slip options, one per school.
+model SalarySetting {
+  id                    String   @id @default(uuid()) @db.Uuid
+  schoolId              String   @unique @map("school_id") @db.Uuid
+  /// "last-working" or a day of the month ("1" to "28").
+  payDay                String   @default("last-working") @map("pay_day")
+  /// "calendar" (the month's own days) or "thirty".
+  lopDays               String   @default("calendar") @map("lop_days")
+  /// This many late marks count as half a day of loss of pay; 0 is off.
+  lateMarksPerHalfDay   Int      @default(3) @map("late_marks_per_half_day")
+  overtimeOn            Boolean  @default(false) @map("overtime_on")
+  overtimeHourPaise     BigInt   @default(0) @map("overtime_hour_paise")
+  /// Staff with no TDS amount whose yearly pay is above this are flagged.
+  tdsReminderAbovePaise BigInt   @default(120000000) @map("tds_reminder_above_paise")
+  slipWhatsapp          Boolean  @default(true) @map("slip_whatsapp")
+  slipEmail             Boolean  @default(false) @map("slip_email")
+  slipShowEmployer      Boolean  @default(true) @map("slip_show_employer")
+  slipShowLeave         Boolean  @default(false) @map("slip_show_leave")
+  advancesOn            Boolean  @default(true) @map("advances_on")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@map("salary_setting")
+}
+
+/// Statutory Setting: PF, ESI and Professional Tax rules from a month. A change is a new row; approved payrolls never change.
+model StatutorySetting {
+  id             String    @id @default(uuid()) @db.Uuid
+  schoolId       String    @map("school_id") @db.Uuid
+  /// First day of the month these rules start.
+  validFrom      DateTime  @map("valid_from") @db.Date
+  pfOn           Boolean   @default(true) @map("pf_on")
+  /// Rates in hundredths of a percent: 1200 is 12%.
+  pfEmployeeBp   Int       @default(1200) @map("pf_employee_bp")
+  pfEmployerBp   Int       @default(1200) @map("pf_employer_bp")
+  pfCeilingPaise BigInt    @default(1500000) @map("pf_ceiling_paise")
+  esiOn          Boolean   @default(true) @map("esi_on")
+  esiEmployeeBp  Int       @default(75) @map("esi_employee_bp")
+  esiEmployerBp  Int       @default(325) @map("esi_employer_bp")
+  esiLimitPaise  BigInt    @default(2100000) @map("esi_limit_paise")
+  ptOn           Boolean   @default(false) @map("pt_on")
+  ptState        String    @default("Telangana") @map("pt_state")
+  createdById    String?   @map("created_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  archivedAt     DateTime? @map("archived_at")
+
+  @@index([schoolId, validFrom])
+  @@map("statutory_setting")
+}
+
+/// Professional Tax Slab: one band of the state's monthly table.
+model ProfessionalTaxSlab {
+  id           String    @id @default(uuid()) @db.Uuid
+  schoolId     String    @map("school_id") @db.Uuid
+  state        String
+  fromPaise    BigInt    @map("from_paise")
+  /// Null: no upper end.
+  toPaise      BigInt?   @map("to_paise")
+  taxPaise     BigInt    @map("tax_paise")
+  /// A month (1 to 12) with a different amount, as some states have for February.
+  specialMonth Int?      @map("special_month")
+  specialPaise BigInt?   @map("special_paise")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  archivedAt   DateTime? @map("archived_at")
+
+  @@index([schoolId, state])
+  @@map("professional_tax_slab")
+}
+
+/// Salary Component: an earning or deduction used in structures.
+model SalaryComponent {
+  id         String    @id @default(uuid()) @db.Uuid
+  schoolId   String    @map("school_id") @db.Uuid
+  name       String
+  /// EARNING or DEDUCTION.
+  kind       String
+  /// FIXED (an amount), PERCENT (of basic pay) or ATTENDANCE (loss of pay).
+  calc       String    @default("FIXED")
+  percentBp  Int?      @map("percent_bp")
+  taxable    Boolean   @default(true)
+  /// "basic" or "lop" for the components the software relies on.
+  systemKey  String?   @map("system_key")
+  sortOrder  Int       @default(0) @map("sort_order")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  archivedAt DateTime? @map("archived_at")
+
+  @@unique([schoolId, name])
+  @@map("salary_component")
+}
+
+/// Salary Template: the starting amounts of a structure for a designation.
+model SalaryTemplate {
+  id         String    @id @default(uuid()) @db.Uuid
+  schoolId   String    @map("school_id") @db.Uuid
+  name       String
+  /// [{ componentId, amountPaise }] for fixed components.
+  lines      Json      @default("[]")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  archivedAt DateTime? @map("archived_at")
+
+  @@unique([schoolId, name])
+  @@map("salary_template")
+}
+
+/// Salary Structure: one version of a staff member's earnings and deductions. A revision is a new version.
+model SalaryStructure {
+  id            String    @id @default(uuid()) @db.Uuid
+  schoolId      String    @map("school_id") @db.Uuid
+  staffId       String    @map("staff_id") @db.Uuid
+  version       Int
+  effectiveFrom DateTime  @map("effective_from") @db.Date
+  /// [{ componentId, name, kind, calc, percentBp, amountPaise, taxable, systemKey }] as they were when saved.
+  lines         Json
+  pfApplies     Boolean   @default(true) @map("pf_applies")
+  esiApplies    Boolean   @default(true) @map("esi_applies")
+  tdsPaise      BigInt    @default(0) @map("tds_paise")
+  /// Monthly gross before loss of pay, kept for lists.
+  grossPaise    BigInt    @map("gross_paise")
+  reason        String?
+  createdById   String?   @map("created_by_id") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at")
+  archivedAt    DateTime? @map("archived_at")
+
+  @@unique([schoolId, staffId, version])
+  @@index([schoolId, staffId, effectiveFrom])
+  @@map("salary_structure")
+}
+
+/// Payroll Run: the salary of one month for the staff of one campus. One per month per campus.
+model PayrollRun {
+  id               String        @id @default(uuid()) @db.Uuid
+  schoolId         String        @map("school_id") @db.Uuid
+  campusId         String        @map("campus_id") @db.Uuid
+  /// First day of the month.
+  month            DateTime      @db.Date
+  number           String
+  status           PayrollStatus @default(OPEN)
+  staffCount       Int           @default(0) @map("staff_count")
+  grossPaise       BigInt        @default(0) @map("gross_paise")
+  deductionsPaise  BigInt        @default(0) @map("deductions_paise")
+  netPaise         BigInt        @default(0) @map("net_paise")
+  employerPfPaise  BigInt        @default(0) @map("employer_pf_paise")
+  employerEsiPaise BigInt        @default(0) @map("employer_esi_paise")
+  statutoryId      String?       @map("statutory_id") @db.Uuid
+  calculatedAt     DateTime?     @map("calculated_at")
+  sentById         String?       @map("sent_by_id") @db.Uuid
+  sentAt           DateTime?     @map("sent_at")
+  approvalId       String?       @map("approval_id") @db.Uuid
+  sentBackReason   String?       @map("sent_back_reason")
+  approvedById     String?       @map("approved_by_id") @db.Uuid
+  approvedAt       DateTime?     @map("approved_at")
+  paidOn           DateTime?     @map("paid_on") @db.Date
+  payMode          String?       @map("pay_mode")
+  payReference     String?       @map("pay_reference")
+  payAccountId     String?       @map("pay_account_id") @db.Uuid
+  paidById         String?       @map("paid_by_id") @db.Uuid
+  /// [{ at, by, reason, paidOn }] payments that were reversed.
+  reversals        Json          @default("[]")
+  lockedAt         DateTime?     @map("locked_at")
+  lockedById       String?       @map("locked_by_id") @db.Uuid
+  createdById      String?       @map("created_by_id") @db.Uuid
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+
+  lines       PayrollLine[]
+  adjustments PayrollAdjustment[]
+  payslips    Payslip[]
+
+  @@unique([schoolId, campusId, month])
+  @@index([schoolId, month])
+  @@map("payroll_run")
+}
+
+/// Payroll Line: one staff member in one Payroll Run, with how each amount was worked out.
+model PayrollLine {
+  id               String   @id @default(uuid()) @db.Uuid
+  schoolId         String   @map("school_id") @db.Uuid
+  runId            String   @map("run_id") @db.Uuid
+  staffId          String   @map("staff_id") @db.Uuid
+  /// The structure version used; null when the person has none (left out).
+  structureId      String?  @map("structure_id") @db.Uuid
+  included         Boolean  @default(true)
+  daysInMonth      Int      @map("days_in_month")
+  paidDays         Decimal  @map("paid_days") @db.Decimal(5, 1)
+  workingDays      Int      @default(0) @map("working_days")
+  presentDays      Decimal  @default(0) @map("present_days") @db.Decimal(5, 1)
+  leaveDays        Decimal  @default(0) @map("leave_days") @db.Decimal(5, 1)
+  unpaidLeaveDays  Decimal  @default(0) @map("unpaid_leave_days") @db.Decimal(5, 1)
+  absentDays       Decimal  @default(0) @map("absent_days") @db.Decimal(5, 1)
+  lateMarks        Int      @default(0) @map("late_marks")
+  notMarkedDays    Int      @default(0) @map("not_marked_days")
+  lopDays          Decimal  @default(0) @map("lop_days") @db.Decimal(5, 1)
+  overtimeMinutes  Int      @default(0) @map("overtime_minutes")
+  /// [{ name, amountPaise, how }] for the full month.
+  earnings         Json     @default("[]")
+  /// [{ name, amountPaise }] fixed deductions from the structure.
+  otherDeductions  Json     @default("[]") @map("other_deductions")
+  fullGrossPaise   BigInt   @default(0) @map("full_gross_paise")
+  lopPaise         BigInt   @default(0) @map("lop_paise")
+  overtimePaise    BigInt   @default(0) @map("overtime_paise")
+  addPaise         BigInt   @default(0) @map("add_paise")
+  cutPaise         BigInt   @default(0) @map("cut_paise")
+  grossPaise       BigInt   @default(0) @map("gross_paise")
+  basicEarnedPaise BigInt   @default(0) @map("basic_earned_paise")
+  pfWagePaise      BigInt   @default(0) @map("pf_wage_paise")
+  pfPaise          BigInt   @default(0) @map("pf_paise")
+  esiApplies       Boolean  @default(false) @map("esi_applies")
+  esiWagePaise     BigInt   @default(0) @map("esi_wage_paise")
+  esiPaise         BigInt   @default(0) @map("esi_paise")
+  ptPaise          BigInt   @default(0) @map("pt_paise")
+  tdsPaise         BigInt   @default(0) @map("tds_paise")
+  recoveryPaise    BigInt   @default(0) @map("recovery_paise")
+  /// [{ advanceId, amountPaise, planned }] recoveries this month.
+  recoveries       Json     @default("[]")
+  deductionsPaise  BigInt   @default(0) @map("deductions_paise")
+  netPaise         BigInt   @default(0) @map("net_paise")
+  erPfPaise        BigInt   @default(0) @map("er_pf_paise")
+  erEsiPaise       BigInt   @default(0) @map("er_esi_paise")
+  flags            String[] @default([])
+  /// Plain-words notes on how amounts were worked out (loss of pay, capped recovery...).
+  notes            String[] @default([])
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  run PayrollRun @relation(fields: [runId], references: [id])
+
+  @@unique([runId, staffId])
+  @@index([schoolId, staffId])
+  @@map("payroll_line")
+}
+
+/// Payroll Adjustment: a bonus, arrears or one-time deduction for one person in one run, with its reason.
+model PayrollAdjustment {
+  id           String    @id @default(uuid()) @db.Uuid
+  schoolId     String    @map("school_id") @db.Uuid
+  runId        String    @map("run_id") @db.Uuid
+  staffId      String    @map("staff_id") @db.Uuid
+  /// BONUS, ARREARS, DEDUCTION or OTHER.
+  type         String
+  amountPaise  BigInt    @map("amount_paise")
+  reason       String
+  createdById  String?   @map("created_by_id") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at")
+  archivedAt   DateTime? @map("archived_at")
+  archivedById String?   @map("archived_by_id") @db.Uuid
+
+  run PayrollRun @relation(fields: [runId], references: [id])
+
+  @@index([schoolId, runId])
+  @@map("payroll_adjustment")
+}
+
+/// Payslip: one staff member's salary slip for one month, made only when the run is approved.
+model Payslip {
+  id           String        @id @default(uuid()) @db.Uuid
+  schoolId     String        @map("school_id") @db.Uuid
+  runId        String        @map("run_id") @db.Uuid
+  lineId       String        @unique @map("line_id") @db.Uuid
+  staffId      String        @map("staff_id") @db.Uuid
+  month        DateTime      @db.Date
+  netPaise     BigInt        @map("net_paise")
+  status       PayslipStatus @default(MADE)
+  sentVia      String[]      @default([]) @map("sent_via")
+  sentAt       DateTime?     @map("sent_at")
+  downloadedAt DateTime?     @map("downloaded_at")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  run PayrollRun @relation(fields: [runId], references: [id])
+
+  @@unique([runId, staffId])
+  @@index([schoolId, staffId, month])
+  @@map("payslip")
+}
+
+/// Salary Advance: an advance or loan, recovered from later salaries.
+model SalaryAdvance {
+  id               String              @id @default(uuid()) @db.Uuid
+  schoolId         String              @map("school_id") @db.Uuid
+  number           String
+  staffId          String              @map("staff_id") @db.Uuid
+  /// ADVANCE or LOAN.
+  type             String
+  amountPaise      BigInt              @map("amount_paise")
+  installmentPaise BigInt              @map("installment_paise")
+  /// First day of the month recovery starts.
+  startMonth       DateTime            @map("start_month") @db.Date
+  reason           String
+  status           SalaryAdvanceStatus @default(WAITING)
+  approvalId       String?             @map("approval_id") @db.Uuid
+  decidedReason    String?             @map("decided_reason")
+  paidOn           DateTime?           @map("paid_on") @db.Date
+  payMode          String?             @map("pay_mode")
+  payReference     String?             @map("pay_reference")
+  payAccountId     String?             @map("pay_account_id") @db.Uuid
+  recoveredPaise   BigInt              @default(0) @map("recovered_paise")
+  paused           Boolean             @default(false)
+  /// [{ at, by, what, reason }] pauses, installment changes, closing.
+  history          Json                @default("[]")
+  closedAt         DateTime?           @map("closed_at")
+  createdById      String?             @map("created_by_id") @db.Uuid
+  createdAt        DateTime            @default(now()) @map("created_at")
+  updatedAt        DateTime            @updatedAt @map("updated_at")
+
+  recoveries SalaryRecovery[]
+
+  @@unique([schoolId, number])
+  @@index([schoolId, staffId])
+  @@map("salary_advance")
+}
+
+/// Recovery: an amount of an advance or loan taken back, from a payroll or repaid in cash.
+model SalaryRecovery {
+  id          String   @id @default(uuid()) @db.Uuid
+  schoolId    String   @map("school_id") @db.Uuid
+  advanceId   String   @map("advance_id") @db.Uuid
+  /// PAYROLL or CASH.
+  kind        String
+  runId       String?  @map("run_id") @db.Uuid
+  date        DateTime @db.Date
+  amountPaise BigInt   @map("amount_paise")
+  createdById String?  @map("created_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  advance SalaryAdvance @relation(fields: [advanceId], references: [id])
+
+  @@unique([advanceId, runId])
+  @@index([schoolId, advanceId])
+  @@map("salary_recovery")
+}
+
+/// Statutory Statement: a PF or ESI statement made for a month's run, for the government portals.
+model StatutoryStatement {
+  id            String   @id @default(uuid()) @db.Uuid
+  schoolId      String   @map("school_id") @db.Uuid
+  runId         String   @map("run_id") @db.Uuid
+  campusId      String   @map("campus_id") @db.Uuid
+  month         DateTime @db.Date
+  /// PF or ESI.
+  kind          String
+  staffCount    Int      @map("staff_count")
+  wagesPaise    BigInt   @map("wages_paise")
+  employeePaise BigInt   @map("employee_paise")
+  employerPaise BigInt   @map("employer_paise")
+  lines         Json
+  madeById      String?  @map("made_by_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([schoolId, runId])
+  @@map("statutory_statement")
+}

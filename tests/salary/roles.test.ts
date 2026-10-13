@@ -155,7 +155,7 @@ describe("Salary on the server", () => {
     const status = await withSchool(as(f, null), (tx) => tx.payslip.findMany({ where: { id: { in: [slipA, slipB] } }, select: { id: true, status: true } }));
     expect(status.find((s) => s.id === slipA)!.status).toBe("DOWNLOADED");
     expect(status.find((s) => s.id === slipB)!.status).toBe("MADE");
-  });
+  }, 60_000); // Two PDFs are drawn; the first loads the fonts, which is slow on CI runners.
 
   it("exports days, leave and loss of pay to HR, never amounts", async () => {
     asUser(f, f.hrLogin.id);

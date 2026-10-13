@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Crown, Headset, Lock, Rocket, Send, UserCog, UserPlus, UserX } from "lucide-react";
+import { Crown, LifeBuoy, Lock, Send, UserCog, UserPlus, UserX } from "lucide-react";
 import type { ConsoleRole, ConsoleUserStatus, Prisma } from "@prisma/client";
 import { requireConsolePage } from "@/lib/console/current";
 import { CONSOLE_ROLES, ROLE_ORDER } from "@/lib/console/roles";
@@ -26,7 +26,7 @@ export const metadata: Metadata = { title: "Team" };
 type SP = Record<string, string | undefined>;
 const STATUS_WORD: Record<ConsoleUserStatus, string> = { ACTIVE: "Active", INVITED: "Invited", DISABLED: "Disabled" };
 const STATUS_TONE = { ACTIVE: "ok", INVITED: "info", DISABLED: "neutral" } as const;
-const ROLE_ICON: Record<ConsoleRole, typeof Crown> = { OWNER: Crown, ONBOARDING: Rocket, SUPPORT: Headset };
+const ROLE_ICON: Record<ConsoleRole, typeof Crown> = { OWNER: Crown, ONBOARDING: UserPlus, SUPPORT: LifeBuoy };
 const FILTERS: Record<string, ConsoleUserStatus> = { active: "ACTIVE", invited: "INVITED", disabled: "DISABLED" };
 
 export default async function TeamPage({ searchParams }: { searchParams: Promise<SP> }) {

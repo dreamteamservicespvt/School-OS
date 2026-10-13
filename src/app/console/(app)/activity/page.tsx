@@ -5,7 +5,7 @@ import { requireConsole } from "@/lib/console/current";
 import { listLog, logChoices, readLogFilters, LOG_PAGE } from "@/lib/console/activity-log";
 import { ACTIVITY_TYPES, type ActivityType } from "@/lib/console/activity";
 import { CONSOLE_TZ } from "@/lib/console/list";
-import { formatTime } from "@/lib/format";
+import { formatDate, formatTime } from "@/lib/format";
 import { Card } from "@/components/ui/card";
 import { PageHead } from "@/components/ui/display";
 import { Empty, TONE_SOFT, type Tone } from "@/components/ui/blocks";
@@ -72,7 +72,7 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
                   <li key={l.id} className="flex gap-3 px-4 sm:px-5 py-3 border-t border-line/70">
                     <span className={cx("w-9 h-9 rounded-xl grid place-items-center shrink-0", TONE_SOFT[tone])}><Ic size={17} aria-hidden="true" /></span>
                     <div className="min-w-0 flex-1">
-                      <p className="text-[14px] leading-snug break-words"><span className="font-semibold tnum">{formatTime(l.at)}.</span> {l.actorName}{l.actorRole ? ` (${l.actorRole})` : ":"} {l.text}</p>
+                      <p className="text-[14px] leading-snug break-words"><span className="font-semibold tnum">{formatDate(l.at)}, {formatTime(l.at)}.</span> {l.actorName}{l.actorRole ? ` (${l.actorRole})` : ":"} {l.text}</p>
                       {(l.fromValue || l.toValue) && (
                         <p className="mt-1.5 flex items-center gap-1.5 flex-wrap text-[12.5px]">
                           <span className="px-2 h-6 rounded-md bg-sunken text-ink2 inline-flex items-center">{l.fromValue ?? "None"}</span>

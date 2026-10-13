@@ -60,7 +60,7 @@ export async function seedConsole(password: string, schools: { sunrise: DemoScho
   await withConsoleSchool(schools.sunrise.id, (tx) => logActivity(tx, kiran, { type: "status", school: { id: schools.sunrise.id, name: sunriseName }, text: `activated ${sunriseName}. Reason: The school chose the Complete plan.`, from: "Trial", to: "Active" }));
   const first = await startSubscription(kiran, schools.sunrise.id, { planKey: "complete", hostel: false, buses: 0, students: schools.sunrise.approxStudents, payIn: "YEARLY" }, days(-170));
   const inv = await withConsole((tx) => tx.platformInvoice.findUniqueOrThrow({ where: { number: first.number } }));
-  await markPaid(kiran, inv.id, { via: "BANK", ref: "UTR SBIN0261045512", receivedOn: days(-165) }, days(-165));
+  await markPaid(kiran, inv.id, { via: "BANK", ref: "SBIN0261045512", receivedOn: days(-165) }, days(-165));
   await addNote(kiran, schools.sunrise.id, "Principal asked about Parent Link for the new year. Showed her the settings page.");
   await addNote(ravi, schools.valley.id, "Setup call done. The admin will add classes and subjects this week.");
 }

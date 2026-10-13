@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { CircleCheck, CirclePause, CirclePlay, History, SlidersHorizontal } from "lucide-react";
+import { MoreMenu } from "@/components/money/more-menu";
 import { SheetForm, useTyped } from "@/components/ui/url-sheet";
 import { SArea, SDate, SMoney, SSelect, SText } from "@/components/ui/sheet-fields";
 import { Segmented } from "@/components/ui/controls";
@@ -71,5 +73,17 @@ export function CloseCashSheet({ closeHref, advanceId, title, label, today, chil
       <SDate name="date" label="Received on" required start={today} max={today} />
       <SArea name="reason" label="Reason" required rows={2} placeholder="Like: repaid from the Diwali bonus" help="Kept with the record and in the audit log." />
     </SheetForm>
+  );
+}
+
+/** The ... menu on an active advance (mod-salary.jsx Advances). Icons live here, on the client side. */
+export function AdvanceMenu({ paused, pause, restart, installment, close, history, label, size = "sm" }: { paused: boolean; pause: string; restart: string; installment: string; close: string; history?: string; label?: string; size?: "sm" | "md" }) {
+  return (
+    <MoreMenu size={size} label={label} items={[
+      paused ? { icon: CirclePlay, label: "Restart recovery", href: restart } : { icon: CirclePause, label: "Pause recovery", href: pause },
+      { icon: SlidersHorizontal, label: "Change installment", href: installment },
+      { icon: CircleCheck, label: "Close: repaid in cash", href: close },
+      ...(history ? [{ icon: History, label: "See history", href: history }] : []),
+    ]} />
   );
 }

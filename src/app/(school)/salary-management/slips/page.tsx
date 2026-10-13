@@ -178,6 +178,7 @@ async function AllSlips({ sp }: { sp: Record<string, string | string[] | undefin
     return { settings, runs, run, slips, staff, campus, view, viewLine };
   });
   const run = data.run;
+  const done = data.runs.filter((r) => DONE.includes(r.status as (typeof DONE)[number]));
   const staffOf = new Map(data.staff.map((s) => [s.id, s]));
   const rows = data.slips.filter((s) => {
     const x = staffOf.get(s.staffId);
@@ -207,7 +208,7 @@ async function AllSlips({ sp }: { sp: Record<string, string | string[] | undefin
         ]} />
         <Card className="overflow-hidden">
           <Toolbar>
-            {data.runs.length > 0 && <UrlSelect id="slip-month" param="run" label="Month" className="md:w-52" options={data.runs.map((r) => ({ value: r.id, label: `${monthName(r.month)}${p.campuses.length > 1 ? ` · ${p.campuses.find((c) => c.id === r.campusId)?.name ?? ""}` : ""}` }))} />}
+            {done.length > 0 && <UrlSelect id="slip-month" param="run" label="Month" className="md:w-64" options={done.map((r) => ({ value: r.id, label: `${monthName(r.month)}${p.campuses.length > 1 ? ` · ${p.campuses.find((c) => c.id === r.campusId)?.name ?? ""}` : ""}` }))} />}
             <UrlSearch id="slip-search" placeholder="Staff name" label="Search staff" />
             <div className="overflow-x-auto no-scrollbar shrink-0"><UrlSegmented param="status" options={STATUS} fallback="all" label="Slip status" /></div>
           </Toolbar>

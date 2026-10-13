@@ -1,4 +1,4 @@
-import { CircleCheck, CirclePause, CirclePlay, HandCoins, History, Landmark, Repeat, SearchX, SlidersHorizontal, Wallet } from "lucide-react";
+import { HandCoins, History, Landmark, Repeat, SearchX, Wallet } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { formatDate, formatRupees } from "@/lib/format";
 import { balanceOf } from "@/lib/salary/advances";
@@ -9,7 +9,6 @@ import { Avatar } from "@/components/ui/avatar";
 import { Pill } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Banner, DL, DataList, Empty, Progress, Stack, Stats, Timeline, Toolbar } from "@/components/money/kit";
-import { MoreMenu } from "@/components/money/more-menu";
 import { UrlSearch, UrlSegmented } from "@/components/money/url-filters";
 import { UrlSheet } from "@/components/ui/url-sheet";
 import { ExportButton } from "@/components/ui/export-button";
@@ -18,7 +17,7 @@ import { ReasonSheet } from "../../finance-management/_components/forms";
 import { SalaryHead } from "../_components/salary-head";
 import { BASE, one, qs, salaryGuard, salaryPeriod, type SearchParams } from "../_lib/page";
 import { pauseAdvanceAction } from "./actions";
-import { CloseCashSheet, GiveSheet, InstallmentSheet, PaySheet } from "./sheets";
+import { AdvanceMenu, CloseCashSheet, GiveSheet, InstallmentSheet, PaySheet } from "./sheets";
 
 export const metadata = { title: "Advances & Loans" };
 
@@ -73,18 +72,14 @@ export default async function AdvancesPage({ searchParams }: { searchParams: Sea
   const target = (openId || UUID.test(one(sp.id))) ? data.all.find((a) => a.id === (openId || one(sp.id))) ?? null : null;
   const months = [1, 2, 3].map((n) => addMonths(monthNow, n)).map((m) => ({ value: monthKey(m), label: monthName(m) }));
   const pct = (a: (typeof data.all)[number]) => (a.amountPaise > ZERO ? Number((a.recoveredPaise * BigInt(1000)) / a.amountPaise) / 10 : 0);
-  const menu = (a: (typeof data.all)[number]) => [
-    a.paused
-      ? { icon: CirclePlay, label: "Restart recovery", href: here({ do: "restart", id: a.id }) }
-      : { icon: CirclePause, label: "Pause recovery", href: here({ do: "pause", id: a.id }) },
-    { icon: SlidersHorizontal, label: "Change installment", href: here({ do: "installment", id: a.id }) },
-    { icon: CircleCheck, label: "Close: repaid in cash", href: here({ do: "close", id: a.id }) },
-    { icon: History, label: "See history", href: here({ open: a.id }) },
-  ];
+  const menu = (a: (typeof data.all)[number], withHistory = true) => ({
+    paused: a.paused, pause: here({ do: "pause", id: a.id }), restart: here({ do: "restart", id: a.id }),
+    installment: here({ do: "installment", id: a.id }), close: here({ do: "close", id: a.id }), history: withHistory ? here({ open: a.id }) : undefined,
+  });
   const action = (a: (typeof data.all)[number]) => {
     if (!p.change) return null;
     if (a.status === "APPROVED") return <div className="relative z-10 flex justify-end"><ButtonLink href={here({ do: "pay", id: a.id })} scroll={false} size="sm" variant="soft">Mark paid</ButtonLink></div>;
-    if (a.status === "ACTIVE") return <div className="relative z-10 flex justify-end"><MoreMenu size="sm" items={menu(a)} label={`More for ${name(a)}`} /></div>;
+    if (a.status === "ACTIVE") return <div className="relative z-10 flex justify-end"><AdvanceMenu {...menu(a)} label={`More for ${name(a)}`} /></div>;
     return null;
   };
 
@@ -121,7 +116,7 @@ export default async function AdvancesPage({ searchParams }: { searchParams: Sea
               { key: "s", label: "Status", render: (a) => <Pill tone={a.paused && a.status === "ACTIVE" ? "warn" : ADVANCE_STATUS_TONE[a.status]}>{statusWord(a)}</Pill> },
               { key: "x", label: "", render: action },
             ]}
-            phone={(a) => ({ avatar: name(a), title: `${name(a)} · ${kind(a)}`, sub: `${formatRupees(balanceOf(a))} left of ${formatRupees(a.amountPaise)} · ${formatRupees(a.installmentPaise)} a month`, pills: <Pill tone={a.paused && a.status === "ACTIVE" ? "warn" : ADVANCE_STATUS_TONE[a.status]} className="!h-[22px] !text-[11.5px]">{statusWord(a)}</Pill>, right: p.change && a.status === "APPROVED" ? <ButtonLink href={here({ do: "pay", id: a.id })} scroll={false} size="sm" variant="soft" className="relative z-10">Mark paid</ButtonLink> : null })} />
+            phone={(a) => ({ avatar: name(a), title: `${name(a)} · ${kind(a)}`, sub: `${formatRupees(balanceOf(a))} left of ${formatRupees(a.amountPaise)} · ${formatRupees(a.installmentPaise)} a month`, pills: <Pill tone={a.paused && a.status === "ACTIVE" ? "warn" : ADVANCE_STATUS_TONE[a.status]} className="!h-[22px] !text-[11.5px]">{statusWord(a)}</Pill>, right: p.change && a.status === "APPROVED" ? <span className="text-[12.5px] font-semibold text-brand">Mark paid</span> : null })} />
         </Card>
       </Stack>
 
@@ -131,7 +126,7 @@ export default async function AdvancesPage({ searchParams }: { searchParams: Sea
         const hist = target.history as Hist[];
         return (
           <UrlSheet closeHref={here({ open: null })} title={`${kind(target)} ${target.number}`} sub={`${s?.fullName ?? ""} · ${s?.designation ?? ""}`}
-            footer={p.change && target.status === "APPROVED" ? <div className="flex justify-end"><ButtonLink href={here({ open: null, do: "pay", id: target.id })} scroll={false} variant="primary">Mark paid</ButtonLink></div> : p.change && target.status === "ACTIVE" ? <div className="flex justify-end"><MoreMenu items={menu(target).slice(0, 3)} /></div> : null}>
+            footer={p.change && target.status === "APPROVED" ? <div className="flex justify-end"><ButtonLink href={here({ open: null, do: "pay", id: target.id })} scroll={false} variant="primary">Mark paid</ButtonLink></div> : p.change && target.status === "ACTIVE" ? <div className="flex justify-end"><AdvanceMenu {...menu(target, false)} size="md" /></div> : null}>
             <div className="flex flex-col gap-5">
               <div className="flex items-center justify-between gap-3"><Pill tone={ADVANCE_STATUS_TONE[target.status]}>{statusWord(target)}</Pill><span className="font-display text-[22px] font-semibold tnum">{formatRupees(balanceOf(target))} <span className="text-[13px] text-ink3 font-sans font-normal">left</span></span></div>
               <Progress value={pct(target)} tone={target.status === "CLOSED" ? "ok" : "brand"} />

@@ -68,7 +68,7 @@ export default async function HistoryPage({ searchParams }: { searchParams: Sear
       const v = byDept.get(d) ?? { money: ZERO, lop: 0 };
       v.money += l.grossPaise; v.lop += Number(l.lopDays); byDept.set(d, v);
     }
-    const dept = [...byDept.entries()].sort((a, b) => (money ? (b[1].money > a[1].money ? 1 : -1) : b[1].lop - a[1].lop));
+    const dept = [...byDept.entries()].filter(([, v]) => money || v.lop > 0).sort((a, b) => (money ? (b[1].money > a[1].money ? 1 : -1) : b[1].lop - a[1].lop));
     const pending = data.runs.filter((r) => !DONE.includes(r.status)).map((r) => monthName(r.month).split(" ")[0]);
     body = data.runs.length === 0 ? (
       <Card><Empty icon={ReceiptText} title={`No salary in ${per.label.toLowerCase()}`} body="Pick another period, or open a month in Generate Salary." action={<ButtonLink href={`${BASE}/generate`} variant="secondary" icon={ArrowUpRight}>Open Generate Salary</ButtonLink>} /></Card>
@@ -78,7 +78,7 @@ export default async function HistoryPage({ searchParams }: { searchParams: Sear
           <CardHeader title={money ? "Net pay by month" : "Loss of pay by month"} description={`${per.label} · ${money ? "₹ lakh" : "days"}${pending.length ? ` · ${pending.join(", ")} not paid yet` : ""}`}
             action={p.can.export ? <ExportButton href={qs(`${HREF}/report`, { ...per.keep, kind: money ? "summary" : "days" })} size="sm" /> : null} />
           <div className="px-5 pb-2">
-            <Bars ariaLabel={money ? "Net salary by month" : "Loss of pay days by month"} tickLabel={(v) => String(v)}
+            <Bars ariaLabel={money ? "Net salary by month" : "Loss of pay days by month"}
               data={data.runs.map((r) => ({ k: monthShort(r.month), v: money ? lakh(r.netPaise) : lop(r.id), tone: DONE.includes(r.status) ? "brand" as const : "info" as const, tip: money ? `${monthName(r.month)}: ${formatRupees(r.netPaise)}` : `${monthName(r.month)}: ${dayNum(lop(r.id))} days` }))} />
           </div>
           <DataList rows={months} rowKey={(r) => r.id} rowHref={(r) => qs(`${BASE}/generate`, { run: r.id })} minWidth={640} caption="Salary by month"

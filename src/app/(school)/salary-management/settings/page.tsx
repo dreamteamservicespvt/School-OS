@@ -42,9 +42,12 @@ export default async function SalarySettingsPage({ searchParams }: { searchParam
     const next = await tx.statutorySetting.findFirst({ where: { archivedAt: null, validFrom: { gt: now } }, orderBy: [{ validFrom: "desc" }, { createdAt: "desc" }] });
     const shown = next ?? current;
     const slabs = await tx.professionalTaxSlab.findMany({ where: { state: shown.ptState, archivedAt: null }, orderBy: { fromPaise: "asc" } });
-    return { settings, comps, temps, frozen, openFrom, current, next, shown, slabs };
+    const first = await tx.payrollRun.findFirst({ orderBy: { month: "asc" }, select: { month: true } });
+    return { settings, comps, temps, frozen, openFrom, current, next, shown, slabs, first: first?.month ?? null };
   });
   const s = data.shown;
+  // Rules made on first use start long ago; show them from the first salary month.
+  const fromShown = data.first && s.validFrom < data.first ? data.first : s.validFrom;
   const settingsEdit = can(p.current.permissions, "settings", "edit");
   const here = (extra: Record<string, string | null> = {}) => qs(HREF, extra);
   const compName = new Map(data.comps.map((c) => [c.id, c]));
@@ -83,7 +86,10 @@ export default async function SalarySettingsPage({ searchParams }: { searchParam
                 const b = basic ? t.lines.find((l) => l.componentId === basic.id)?.amountPaise ?? BigInt(0) : BigInt(0);
                 const pctParts = data.comps.filter((c) => c.calc === "PERCENT" && c.kind === "EARNING");
                 const gross = fixed + pctParts.reduce((a, c) => a + (b * BigInt(c.percentBp ?? 0)) / BigInt(10000), BigInt(0));
-                const parts = [...t.lines.filter((l) => l.amountPaise > BigInt(0)).map((l) => compName.get(l.componentId)?.name).filter(Boolean), ...pctParts.map((c) => `${c.name.split(" ")[0]} ${pct(c.percentBp ?? 0)}`)];
+                const word = (c: { name: string; systemKey: string | null }) => (c.systemKey === "basic" ? "Basic" : c.name.split(" ")[0].toLowerCase());
+                const initials = (n: string) => n.split(" ").map((w) => w[0]?.toUpperCase()).join("");
+                const fixedParts = t.lines.filter((l) => l.amountPaise > BigInt(0)).map((l) => compName.get(l.componentId)).filter((c): c is NonNullable<typeof c> => Boolean(c));
+                const parts = [...fixedParts.filter((c) => c.systemKey === "basic").map(word), ...pctParts.map((c) => `${initials(c.name)} ${pct(c.percentBp ?? 0)}`), ...fixedParts.filter((c) => c.systemKey !== "basic").map(word)];
                 return (
                   <li key={t.id} className="flex items-center gap-3 rounded-xl px-3 py-2.5">
                     <span className="w-10 h-10 rounded-xl grid place-items-center shrink-0 bg-sunken text-ink2"><FileSpreadsheet size={19} aria-hidden="true" /></span>
@@ -95,7 +101,7 @@ export default async function SalarySettingsPage({ searchParams }: { searchParam
             </ul>
           </Card>
           <Card>
-            <CardHeader title="Payroll preferences" icon={SlidersHorizontal} action={p.change ? <ButtonLink href={here({ do: "prefs" })} scroll={false} size="sm" variant="ghost" icon={Pencil}>Change</ButtonLink> : null} />
+            <CardHeader title="Payroll preferences" icon={SlidersHorizontal} />
             <div className="divide-y divide-line/70 border-t border-line/70">
               {([
                 ["Pay day", "Salary is due on this day", payDayWord],
@@ -103,7 +109,7 @@ export default async function SalarySettingsPage({ searchParams }: { searchParam
                 ["Late marks", "From Staff Attendance", prefs.lateMarksPerHalfDay ? `${prefs.lateMarksPerHalfDay} late = ½ day` : "Off"],
                 ["Overtime", "Paid extra periods or hours", prefs.overtimeOn ? `${formatRupees(prefs.overtimeHourPaise)} an hour` : "Off"],
                 ["TDS reminder above", "Flags staff with no TDS whose yearly pay is above this", formatRupees(prefs.tdsReminderAbovePaise)],
-              ] as const).map(([t, sub, v]) => <SettingRow key={t} title={t} sub={sub}><span className="text-[14px] font-semibold text-ink2">{v}</span></SettingRow>)}
+              ] as const).map(([t, sub, v]) => <SettingRow key={t} title={t} sub={sub}><span className="flex items-center gap-2"><span className="text-[14px] font-semibold text-ink2">{v}</span>{p.change && <ButtonLink href={here({ do: "prefs" })} scroll={false} size="sm" variant="ghost">Change</ButtonLink>}</span></SettingRow>)}
             </div>
           </Card>
         </Col>
@@ -114,7 +120,7 @@ export default async function SalarySettingsPage({ searchParams }: { searchParam
               <SettingRow title="Provident Fund (PF)" sub={`${pct(s.pfEmployeeBp)} employee + ${pct(s.pfEmployerBp)} employer on basic pay, up to a ${formatRupees(s.pfCeilingPaise)} wage ceiling`}>{p.change ? <StatutorySwitch field="pfOn" on={s.pfOn} label="PF" /> : <Pill tone={s.pfOn ? "ok" : "neutral"}>{s.pfOn ? "On" : "Off"}</Pill>}</SettingRow>
               <SettingRow title="Employees’ State Insurance (ESI)" sub={`${pct(s.esiEmployeeBp)} employee + ${pct(s.esiEmployerBp)} employer, for wages up to ${formatRupees(s.esiLimitPaise)} a month`}>{p.change ? <StatutorySwitch field="esiOn" on={s.esiOn} label="ESI" /> : <Pill tone={s.esiOn ? "ok" : "neutral"}>{s.esiOn ? "On" : "Off"}</Pill>}</SettingRow>
               <div className="px-5 py-3.5 grid grid-cols-2 sm:grid-cols-4 gap-3 text-[13px]">
-                {([["PF employee", pct(s.pfEmployeeBp)], ["PF employer", pct(s.pfEmployerBp)], ["PF wage ceiling", formatRupees(s.pfCeilingPaise)], ["PF wages", "Basic pay"], ["ESI employee", pct(s.esiEmployeeBp)], ["ESI employer", pct(s.esiEmployerBp)], ["ESI wage limit", formatRupees(s.esiLimitPaise)], ["From", `${monthShort(s.validFrom)} ${s.validFrom.getUTCFullYear()}`]] as const).map(([k, v]) => <div key={k}><p className="text-[11.5px] text-ink3 font-semibold">{k}</p><p className="font-semibold tnum">{v}</p></div>)}
+                {([["PF employee", pct(s.pfEmployeeBp)], ["PF employer", pct(s.pfEmployerBp)], ["PF wage ceiling", formatRupees(s.pfCeilingPaise)], ["PF wages", "Basic pay"], ["ESI employee", pct(s.esiEmployeeBp)], ["ESI employer", pct(s.esiEmployerBp)], ["ESI wage limit", formatRupees(s.esiLimitPaise)], ["From", `${monthShort(fromShown)} ${fromShown.getUTCFullYear()}`]] as const).map(([k, v]) => <div key={k}><p className="text-[11.5px] text-ink3 font-semibold">{k}</p><p className="font-semibold tnum">{v}</p></div>)}
               </div>
               {p.change && <div className="px-5 py-3"><ButtonLink href={here({ do: "rates" })} scroll={false} size="sm" variant="secondary" icon={Pencil}>Change rates</ButtonLink></div>}
             </div>

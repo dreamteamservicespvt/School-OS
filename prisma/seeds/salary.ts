@@ -4,7 +4,9 @@
 // waiting for the Principal and one approved but not paid; salary months
 // from April (go-live) to last month approved, paid into the Day Book and
 // locked; this month calculated with a bonus, ready to send for approval.
-import { withSchool, type SchoolContext } from "../../src/lib/db";
+// An HR login to try HR's View of Salary (days, leave and loss of pay, no money).
+import { prisma, withSchool, type SchoolContext } from "../../src/lib/db";
+import { hashPassword } from "../../src/lib/auth/password";
 import { decide } from "../../src/lib/approvals";
 import "../../src/lib/salary/handlers";
 import { ensureSalaryDefaults, components, linesFrom } from "../../src/lib/salary/settings";
@@ -15,6 +17,21 @@ import { addMonths, firstOfMonth, lastOfMonth } from "../../src/lib/salary/words
 import type { SeedSchool } from "./types";
 
 const R = (rupees: number) => BigInt(Math.round(rupees * 100));
+
+/** An "hr" demo login with the HR role (from DEMO_PASSWORD; none without it). */
+async function hrLogin(school: SeedSchool) {
+  const password = process.env.DEMO_PASSWORD;
+  if (!password) return;
+  let u = await prisma.userLogin.findUnique({ where: { username: "hr" } });
+  if (!u) u = await prisma.userLogin.create({ data: { username: "hr", displayName: "Kavitha Reddy", phone: "9876500033", status: "ACTIVE", passwordHash: await hashPassword(password), passwordChangedAt: new Date() } });
+  const userId = u.id;
+  await withSchool({ schoolId: school.schoolId, userId: null }, async (tx) => {
+    await tx.role.updateMany({ where: { key: "hr" }, data: { isEnabled: true } });
+    if (await tx.schoolAccess.findFirst({ where: { userLoginId: userId } })) return;
+    const role = await tx.role.findFirstOrThrow({ where: { key: "hr" } });
+    await tx.schoolAccess.create({ data: { schoolId: school.schoolId, userLoginId: userId, roles: { create: [{ roleId: role.id, schoolId: school.schoolId }] } } });
+  });
+}
 
 /** Monthly basic, conveyance and special allowance by designation. */
 function payFor(designation: string): [number, number, number, number] {
@@ -35,6 +52,7 @@ export async function seedSalary(school: SeedSchool) {
   const pri: SchoolContext = { schoolId: school.schoolId, userId: school.users.principal ?? null };
   await withSchool(acc, (tx) => ensureSalaryDefaults(tx, acc));
   if (!school.full || !acc.userId || !pri.userId) return;
+  await hrLogin(school);
   const today = new Date(new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10) + "T00:00:00Z");
   const goLive = new Date("2026-04-01T00:00:00Z");
   const thisMonth = firstOfMonth(today);

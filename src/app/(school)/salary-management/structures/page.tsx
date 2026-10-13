@@ -67,7 +67,6 @@ export default async function StructuresPage({ searchParams }: { searchParams: S
     lines: fromStored(st.lines), pfApplies: st.pfApplies, esiApplies: st.esiApplies, tdsPaise: st.tdsPaise, daysInMonth: 30, notEmployedDays: 0, lopDays: 0,
     statutory: asStatutory(data.stat), ptSlabs: data.slabs, month: thisMonth.getUTCMonth() + 1,
   });
-  const deptName = new Map(data.depts.map((d) => [d.id, d.name]));
   const without = data.staff.filter((s) => !versions.has(s.id));
   const withS = data.staff.filter((s) => versions.has(s.id));
   const revised = data.all.filter((s) => s.version > 1 && (!per.from || s.effectiveFrom >= per.from) && (!per.to || s.effectiveFrom <= per.to));

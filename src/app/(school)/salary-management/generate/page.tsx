@@ -1,7 +1,7 @@
 import Link from "next/link";
 import {
   Banknote, CalendarPlus, CalendarRange, CalendarX2, Check, Eye, FileDown, FileSpreadsheet, FileWarning, Hourglass, Info, ListChecks, Lock, Plus, Receipt,
-  ReceiptText, RefreshCw, SearchX, Send, Undo2, Wallet,
+  ReceiptText, SearchX, Send, Undo2, Wallet,
 } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { canDecide } from "@/lib/approvals";

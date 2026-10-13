@@ -1,0 +1,479 @@
+// 17 Homework & Learning: homework given to a section, a whole class or chosen
+// students, with attachments; one Submission per student (handed in online or
+// marked by the teacher); the homework discussion between teacher and student;
+// study material as a course per section and subject with lessons in order;
+// quizzes that mark themselves; class discussion boards; online classes with
+// attendance and recordings; course certificates; and the module's settings.
+// Nothing here is deleted: records are archived, posts are hidden with a reason.
+
+enum HomeworkGivenTo {
+  SECTION
+  CLASS
+  STUDENTS
+}
+
+enum SubmissionStatus {
+  ASSIGNED
+  SUBMITTED
+  LATE
+  GRADED
+  MISSING
+  /// A student let off this homework (the old "Cancelled"); not counted as missing.
+  EXCUSED
+}
+
+enum CheckResult {
+  COMPLETE
+  INCORRECT
+}
+
+enum LessonItemKind {
+  NOTES
+  DOCUMENT
+  VIDEO
+  LINK
+}
+
+enum QuizStatus {
+  DRAFT
+  OPEN
+  CLOSED
+}
+
+enum QuizQuestionKind {
+  CHOICE
+  TRUE_FALSE
+  SHORT
+}
+
+enum OnlineClassStatus {
+  SCHEDULED
+  CANCELLED
+}
+
+/// Homework: work given to a section, a whole class (one per section) or chosen students.
+model Homework {
+  id               String          @id @default(uuid()) @db.Uuid
+  schoolId         String          @map("school_id") @db.Uuid
+  academicYearId   String          @map("academic_year_id") @db.Uuid
+  sectionId        String          @map("section_id") @db.Uuid
+  classId          String          @map("class_id") @db.Uuid
+  subjectId        String          @map("subject_id") @db.Uuid
+  /// Staff id of the teacher who gives it (empty when an office login with no staff record sets it).
+  teacherId        String?         @map("teacher_id") @db.Uuid
+  /// Homework sent together to every section of a class shares one group id.
+  groupId          String?         @map("group_id") @db.Uuid
+  title            String
+  instructions     String?
+  givenTo          HomeworkGivenTo @default(SECTION) @map("given_to")
+  startDate        DateTime        @map("start_date") @db.Date
+  dueDate          DateTime        @map("due_date") @db.Date
+  maxMarks         Int             @default(100) @map("max_marks")
+  onlineSubmission Boolean         @default(true) @map("online_submission")
+  /// Made from a teacher-assistant suggestion the teacher accepted.
+  fromSuggestion   Boolean         @default(false) @map("from_suggestion")
+  /// Set when the due date has passed and the not-handed-in were marked Missing.
+  missingMarkedAt  DateTime?       @map("missing_marked_at")
+  closedAt         DateTime?       @map("closed_at")
+  createdById      String?         @map("created_by_id") @db.Uuid
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedById      String?         @map("updated_by_id") @db.Uuid
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+  archivedAt       DateTime?       @map("archived_at")
+  archivedById     String?         @map("archived_by_id") @db.Uuid
+
+  attachments HomeworkAttachment[]
+  submissions Submission[]
+  comments    HomeworkComment[]
+
+  @@index([schoolId, academicYearId, dueDate])
+  @@index([schoolId, sectionId, subjectId])
+  @@index([schoolId, teacherId])
+  @@map("homework")
+}
+
+/// Homework Attachment: a file, a photo of the board or a link on one homework.
+model HomeworkAttachment {
+  id         String    @id @default(uuid()) @db.Uuid
+  schoolId   String    @map("school_id") @db.Uuid
+  homeworkId String    @map("homework_id") @db.Uuid
+  /// "photo", "file" or "link".
+  kind       String
+  name       String
+  fileId     String?   @map("file_id") @db.Uuid
+  url        String?
+  sizeBytes  Int?      @map("size_bytes")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  archivedAt DateTime? @map("archived_at")
+
+  homework Homework @relation(fields: [homeworkId], references: [id])
+
+  @@index([schoolId, homeworkId])
+  @@map("homework_attachment")
+}
+
+/// Submission: one student's work for one homework, handed in online or checked in class.
+model Submission {
+  id              String           @id @default(uuid()) @db.Uuid
+  schoolId        String           @map("school_id") @db.Uuid
+  homeworkId      String           @map("homework_id") @db.Uuid
+  studentId       String           @map("student_id") @db.Uuid
+  status          SubmissionStatus @default(ASSIGNED)
+  submittedAt     DateTime?        @map("submitted_at")
+  /// The student's note to the teacher.
+  note            String?
+  /// Stored File ids of what the student handed in.
+  fileIds         String[]         @default([]) @map("file_ids") @db.Uuid
+  checkResult     CheckResult?     @map("check_result")
+  score           Int?
+  grade           String?
+  feedback        String?
+  resubmitAllowed Boolean          @default(false) @map("resubmit_allowed")
+  resubmitUntil   DateTime?        @map("resubmit_until") @db.Date
+  handIns         Int              @default(0) @map("hand_ins")
+  gradedById      String?          @map("graded_by_id") @db.Uuid
+  gradedAt        DateTime?        @map("graded_at")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  archivedAt      DateTime?        @map("archived_at")
+
+  homework Homework @relation(fields: [homeworkId], references: [id])
+
+  @@unique([homeworkId, studentId])
+  @@index([schoolId, studentId])
+  @@index([schoolId, homeworkId, status])
+  @@map("submission")
+}
+
+/// Homework Comment: the discussion between the teacher and one student on a homework.
+model HomeworkComment {
+  id           String    @id @default(uuid()) @db.Uuid
+  schoolId     String    @map("school_id") @db.Uuid
+  homeworkId   String    @map("homework_id") @db.Uuid
+  studentId    String    @map("student_id") @db.Uuid
+  authorId     String?   @map("author_id") @db.Uuid
+  authorName   String    @map("author_name")
+  fromStudent  Boolean   @default(false) @map("from_student")
+  body         String
+  createdAt    DateTime  @default(now()) @map("created_at")
+  hiddenAt     DateTime? @map("hidden_at")
+  hiddenReason String?   @map("hidden_reason")
+
+  homework Homework @relation(fields: [homeworkId], references: [id])
+
+  @@index([schoolId, homeworkId, studentId])
+  @@map("homework_comment")
+}
+
+/// Homework Settings: submission rules, late marking, grading, course access and display, one per school.
+model HomeworkSetting {
+  id                       String   @id @default(uuid()) @db.Uuid
+  schoolId                 String   @unique @map("school_id") @db.Uuid
+  onlineSubmission         Boolean  @default(true) @map("online_submission")
+  /// Largest file a student may hand in, in MB.
+  maxFileMb                Int      @default(10) @map("max_file_mb")
+  /// "per-student" (the teacher allows it for one student) or "always".
+  resubmit                 String   @default("per-student")
+  discussionOn             Boolean  @default(true) @map("discussion_on")
+  /// Minutes after 11:59 PM on the due date before a hand-in counts as late.
+  graceMinutes             Int      @default(0) @map("grace_minutes")
+  missingOn                Boolean  @default(true) @map("missing_on")
+  /// "score", "grade" or "both".
+  gradingShow              String   @default("both") @map("grading_show")
+  defaultMaxMarks          Int      @default(100) @map("default_max_marks")
+  /// [{ grade, from }] whole-number percentages, highest first.
+  gradeBands               Json     @default("[{\"grade\":\"A\",\"from\":80},{\"grade\":\"B\",\"from\":60},{\"grade\":\"C\",\"from\":40},{\"grade\":\"D\",\"from\":0}]") @map("grade_bands")
+  feedbackVisible          Boolean  @default(true) @map("feedback_visible")
+  /// "cards" or "list".
+  listView                 String   @default("cards") @map("list_view")
+  cardShowsSeen            Boolean  @default(true) @map("card_shows_seen")
+  cardShowsFiles           Boolean  @default(false) @map("card_shows_files")
+  /// Class teachers may read every course of their class.
+  classTeacherReadsCourses Boolean  @default(true) @map("class_teacher_reads_courses")
+  /// "section" (only their own section's courses) or "class" (every section of their class).
+  studentCourses           String   @default("section") @map("student_courses")
+  updatedById              String?  @map("updated_by_id") @db.Uuid
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+
+  @@map("homework_setting")
+}
+
+/// Course: the study-material workspace of one section and one subject for a year.
+model Course {
+  id             String    @id @default(uuid()) @db.Uuid
+  schoolId       String    @map("school_id") @db.Uuid
+  academicYearId String    @map("academic_year_id") @db.Uuid
+  sectionId      String    @map("section_id") @db.Uuid
+  classId        String    @map("class_id") @db.Uuid
+  subjectId      String    @map("subject_id") @db.Uuid
+  teacherId      String?   @map("teacher_id") @db.Uuid
+  createdById    String?   @map("created_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  archivedAt     DateTime? @map("archived_at")
+
+  lessons      Lesson[]
+  certificates CourseCertificate[]
+
+  @@unique([academicYearId, sectionId, subjectId])
+  @@index([schoolId, sectionId])
+  @@map("course")
+}
+
+/// Lesson: one step of a course's learning path, with notes, files, videos and links.
+model Lesson {
+  id           String    @id @default(uuid()) @db.Uuid
+  schoolId     String    @map("school_id") @db.Uuid
+  courseId     String    @map("course_id") @db.Uuid
+  title        String
+  /// Syllabus chapter it follows, when chosen.
+  chapterId    String?   @map("chapter_id") @db.Uuid
+  chapterTitle String?   @map("chapter_title")
+  notes        String?
+  sortOrder    Int       @default(0) @map("sort_order")
+  visible      Boolean   @default(true)
+  createdById  String?   @map("created_by_id") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  archivedAt   DateTime? @map("archived_at")
+
+  course Course       @relation(fields: [courseId], references: [id])
+  items  LessonItem[]
+  views  LessonView[]
+
+  @@index([schoolId, courseId, sortOrder])
+  @@map("lesson")
+}
+
+/// Lesson Item: one note, document, video or link in a lesson.
+model LessonItem {
+  id         String         @id @default(uuid()) @db.Uuid
+  schoolId   String         @map("school_id") @db.Uuid
+  lessonId   String         @map("lesson_id") @db.Uuid
+  kind       LessonItemKind
+  name       String
+  fileId     String?        @map("file_id") @db.Uuid
+  url        String?
+  sizeBytes  Int?           @map("size_bytes")
+  sortOrder  Int            @default(0) @map("sort_order")
+  createdAt  DateTime       @default(now()) @map("created_at")
+  archivedAt DateTime?      @map("archived_at")
+
+  lesson Lesson @relation(fields: [lessonId], references: [id])
+
+  @@index([schoolId, lessonId])
+  @@map("lesson_item")
+}
+
+/// Lesson View: when a student first opened a lesson, and marked it done.
+model LessonView {
+  id            String    @id @default(uuid()) @db.Uuid
+  schoolId      String    @map("school_id") @db.Uuid
+  lessonId      String    @map("lesson_id") @db.Uuid
+  studentId     String    @map("student_id") @db.Uuid
+  firstOpenedAt DateTime  @default(now()) @map("first_opened_at")
+  doneAt        DateTime? @map("done_at")
+
+  lesson Lesson @relation(fields: [lessonId], references: [id])
+
+  @@unique([lessonId, studentId])
+  @@index([schoolId, studentId])
+  @@map("lesson_view")
+}
+
+/// Course Certificate: issued to a student for finishing a course's learning path.
+model CourseCertificate {
+  id         String   @id @default(uuid()) @db.Uuid
+  schoolId   String   @map("school_id") @db.Uuid
+  courseId   String   @map("course_id") @db.Uuid
+  studentId  String   @map("student_id") @db.Uuid
+  number     String
+  issuedAt   DateTime @default(now()) @map("issued_at")
+  issuedById String?  @map("issued_by_id") @db.Uuid
+
+  course Course @relation(fields: [courseId], references: [id])
+
+  @@unique([courseId, studentId])
+  @@unique([schoolId, number])
+  @@map("course_certificate")
+}
+
+/// Quiz: a quiz that marks itself, for one section and subject.
+model Quiz {
+  id              String     @id @default(uuid()) @db.Uuid
+  schoolId        String     @map("school_id") @db.Uuid
+  academicYearId  String     @map("academic_year_id") @db.Uuid
+  sectionId       String     @map("section_id") @db.Uuid
+  classId         String     @map("class_id") @db.Uuid
+  subjectId       String     @map("subject_id") @db.Uuid
+  teacherId       String?    @map("teacher_id") @db.Uuid
+  title           String
+  status          QuizStatus @default(DRAFT)
+  opensAt         DateTime?  @map("opens_at")
+  closesAt        DateTime?  @map("closes_at")
+  /// Minutes; empty for no limit.
+  timeLimitMin    Int?       @map("time_limit_min")
+  attemptsAllowed Int        @default(1) @map("attempts_allowed")
+  showAnswers     Boolean    @default(true) @map("show_answers")
+  closedAt        DateTime?  @map("closed_at")
+  createdById     String?    @map("created_by_id") @db.Uuid
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+  archivedAt      DateTime?  @map("archived_at")
+
+  questions QuizQuestion[]
+  attempts  QuizAttempt[]
+
+  @@index([schoolId, sectionId, status])
+  @@index([schoolId, teacherId])
+  @@map("quiz")
+}
+
+/// Quiz Question: multiple choice and true or false mark themselves; short answers are marked by the teacher.
+model QuizQuestion {
+  id           String           @id @default(uuid()) @db.Uuid
+  schoolId     String           @map("school_id") @db.Uuid
+  quizId       String           @map("quiz_id") @db.Uuid
+  sortOrder    Int              @default(0) @map("sort_order")
+  kind         QuizQuestionKind @default(CHOICE)
+  text         String
+  options      String[]         @default([])
+  correctIndex Int?             @map("correct_index")
+  marks        Int              @default(1)
+  createdAt    DateTime         @default(now()) @map("created_at")
+  archivedAt   DateTime?        @map("archived_at")
+
+  quiz Quiz @relation(fields: [quizId], references: [id])
+
+  @@index([schoolId, quizId])
+  @@map("quiz_question")
+}
+
+/// Quiz Attempt: one student's go at a quiz; the score is worked out on submit.
+model QuizAttempt {
+  id           String    @id @default(uuid()) @db.Uuid
+  schoolId     String    @map("school_id") @db.Uuid
+  quizId       String    @map("quiz_id") @db.Uuid
+  studentId    String    @map("student_id") @db.Uuid
+  attemptNo    Int       @default(1) @map("attempt_no")
+  startedAt    DateTime  @default(now()) @map("started_at")
+  submittedAt  DateTime? @map("submitted_at")
+  /// { questionId: chosen option index, or the typed answer }.
+  answers      Json      @default("{}")
+  /// { questionId: marks } given by the teacher to short answers.
+  manualMarks  Json      @default("{}") @map("manual_marks")
+  score        Int?
+  maxScore     Int       @default(0) @map("max_score")
+  needsMarking Boolean   @default(false) @map("needs_marking")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  quiz Quiz @relation(fields: [quizId], references: [id])
+
+  @@unique([quizId, studentId, attemptNo])
+  @@index([schoolId, studentId])
+  @@map("quiz_attempt")
+}
+
+/// Discussion Board: a class board for questions and answers.
+model DiscussionBoard {
+  id             String    @id @default(uuid()) @db.Uuid
+  schoolId       String    @map("school_id") @db.Uuid
+  academicYearId String?   @map("academic_year_id") @db.Uuid
+  title          String
+  sectionId      String?   @map("section_id") @db.Uuid
+  subjectId      String?   @map("subject_id") @db.Uuid
+  description    String?
+  /// "all" (staff and students) or "staff".
+  audience       String    @default("all")
+  active         Boolean   @default(true)
+  visible        Boolean   @default(true)
+  /// The login that made it and moderates it.
+  ownerId        String?   @map("owner_id") @db.Uuid
+  ownerName      String    @map("owner_name")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  archivedAt     DateTime? @map("archived_at")
+
+  posts DiscussionPost[]
+
+  @@index([schoolId, sectionId])
+  @@map("discussion_board")
+}
+
+/// Discussion Post: a topic (no topic id) or a reply in a topic. Hidden with a reason, never deleted.
+model DiscussionPost {
+  id            String    @id @default(uuid()) @db.Uuid
+  schoolId      String    @map("school_id") @db.Uuid
+  boardId       String    @map("board_id") @db.Uuid
+  topicId       String?   @map("topic_id") @db.Uuid
+  title         String?
+  body          String    @default("")
+  authorId      String?   @map("author_id") @db.Uuid
+  authorName    String    @map("author_name")
+  authorIsStaff Boolean   @default(false) @map("author_is_staff")
+  pinned        Boolean   @default(false)
+  locked        Boolean   @default(false)
+  hiddenAt      DateTime? @map("hidden_at")
+  hiddenReason  String?   @map("hidden_reason")
+  hiddenById    String?   @map("hidden_by_id") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  board DiscussionBoard @relation(fields: [boardId], references: [id])
+
+  @@index([schoolId, boardId, topicId])
+  @@map("discussion_post")
+}
+
+/// Online Class Session: one online class with its meeting link, materials and recording.
+model OnlineClassSession {
+  id              String            @id @default(uuid()) @db.Uuid
+  schoolId        String            @map("school_id") @db.Uuid
+  academicYearId  String            @map("academic_year_id") @db.Uuid
+  sectionId       String            @map("section_id") @db.Uuid
+  classId         String            @map("class_id") @db.Uuid
+  subjectId       String            @map("subject_id") @db.Uuid
+  teacherId       String?           @map("teacher_id") @db.Uuid
+  title           String
+  startsAt        DateTime          @map("starts_at")
+  lengthMin       Int               @default(40) @map("length_min")
+  meetingLink     String            @map("meeting_link")
+  /// Weekly repeats share one series id.
+  seriesId        String?           @map("series_id") @db.Uuid
+  status          OnlineClassStatus @default(SCHEDULED)
+  cancelNote      String?           @map("cancel_note")
+  recordingLinks  String[]          @default([]) @map("recording_links")
+  /// [{ name, url?, fileId? }] shared in the class.
+  materials       Json              @default("[]")
+  /// Logins that asked for a reminder.
+  reminderUserIds String[]          @default([]) @map("reminder_user_ids") @db.Uuid
+  remindedAt      DateTime?         @map("reminded_at")
+  createdById     String?           @map("created_by_id") @db.Uuid
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+  archivedAt      DateTime?         @map("archived_at")
+
+  attendance OnlineClassAttendance[]
+
+  @@index([schoolId, startsAt])
+  @@index([schoolId, sectionId])
+  @@map("online_class_session")
+}
+
+/// Online Class Attendance: whether one student joined one online class.
+model OnlineClassAttendance {
+  id         String   @id @default(uuid()) @db.Uuid
+  schoolId   String   @map("school_id") @db.Uuid
+  sessionId  String   @map("session_id") @db.Uuid
+  studentId  String   @map("student_id") @db.Uuid
+  joined     Boolean  @default(false)
+  minutes    Int?
+  markedById String?  @map("marked_by_id") @db.Uuid
+  markedAt   DateTime @default(now()) @map("marked_at")
+
+  session OnlineClassSession @relation(fields: [sessionId], references: [id])
+
+  @@unique([sessionId, studentId])
+  @@map("online_class_attendance")
+}

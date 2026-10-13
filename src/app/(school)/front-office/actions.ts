@@ -146,6 +146,25 @@ export async function letOutAction(_: S, fd: FormData): Promise<S> {
   }, (r) => `${r.student} left with ${r.pass.collectorName}. Gate log updated.`);
 }
 
+export async function sendGatePassAction(_: S, fd: FormData): Promise<S> {
+  return foAction("edit", fd, async (w) => {
+    need(w.can.release, "send gate passes");
+    const g = await w.tx.gatePass.findFirst({ where: { id: id(fd, "gatePassId", "gate pass"), kind: "PICKUP", archivedAt: null } });
+    if (!g) throw new FrontOfficeProblem("This gate pass was not found.");
+    if (g.status === "LEFT") throw new FrontOfficeProblem(`Gate pass ${g.passNo} was already used at the gate.`);
+    const guardian = g.guardianId ? await w.tx.guardian.findFirst({ where: { id: g.guardianId }, select: { name: true, phone: true } }) : null;
+    if (!guardian?.phone) throw new FrontOfficeProblem("There is no mobile number for this guardian. Print the pass instead.");
+    const student = await w.tx.student.findFirst({ where: { id: g.studentId }, select: { firstName: true } });
+    const r = await messageVisitor(w.tx, w.ctx, {
+      to: { name: guardian.name, phone: guardian.phone }, trigger: "Pickup gate pass",
+      text: `Gate pass ${g.passNo}: ${student?.firstName ?? "Your child"} leaves with ${guardian.name} at ${clockAt(g.timeOut, w.tz)}. Show this number at the gate.`,
+      about: { recordType: "Gate Pass", recordId: g.id },
+    });
+    if (r.status !== "queued") throw new FrontOfficeProblem(`The pass was not sent: ${r.note ?? "messages are not set up"}. Print it instead.`);
+    return { g, to: guardian.name, how: sentWords(r) };
+  }, (r) => `Gate pass ${r.g.passNo} sent to ${r.to} ${r.how}`);
+}
+
 export async function refusedAction(_: S, fd: FormData): Promise<S> {
   return foAction("edit", fd, async (w) => {
     need(w.can.release || w.can.gateWork, "record this");

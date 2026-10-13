@@ -2,7 +2,7 @@
 // ?pass=<id>, ?out=<id> and so on), so the four desk jobs work from any page
 // and a link to a sheet can be shared or refreshed. Only sheets the person's
 // role may use are ever shown; the server checks again on save.
-import { LogOut, MessageCircle, Printer } from "lucide-react";
+import { LogOut, Printer } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { appOrigin } from "@/lib/origin";
 import { qrSvg } from "@/lib/students/codes";
@@ -140,7 +140,7 @@ async function PassSheet({ close, v, met, canCheckOut, canSend, masked, tz, scho
         {!out && (
           <div className="grid grid-cols-2 gap-2 w-full">
             <a href={`${BASE}/visitors/${v.id}/pass`} target="_blank" rel="noopener" className={buttonClass("secondary")}><Printer size={17} aria-hidden="true" />Print</a>
-            {canSend && !expired ? <ActButton action={sendPassAction} fields={{ visitorId: v.id }} label="Send to phone" icon={MessageCircle} variant="secondary" size="md" className="w-full" pendingText="Sending…" />
+            {canSend && !expired ? <ActButton action={sendPassAction} fields={{ visitorId: v.id }} label="Send to phone" icon="message" variant="secondary" size="md" className="w-full" pendingText="Sending…" />
               : <span />}
           </div>
         )}

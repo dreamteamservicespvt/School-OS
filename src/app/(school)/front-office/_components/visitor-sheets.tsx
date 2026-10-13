@@ -16,7 +16,7 @@ import { cx } from "@/components/ui/cx";
 import { ID_PROOF_TYPES, PEOPLE_COUNTS, mobileDigits, vehicleProblem } from "@/lib/front-office/words";
 import type { ReturningVisitor } from "@/lib/front-office/visitors";
 import { checkOutAction, gateEntryAction, lookupVisitor, registerVisitorAction } from "../actions";
-import { CameraBox, PhoneBox, SegField } from "./fields";
+import { CameraBox, PhoneBox, SegField, useCanScanQr } from "./fields";
 
 export type MeetChoice = { id: string; name: string; role: string; now: string; tone: "ok" | "warn" | "bad" };
 const TONE = { ok: "text-ok", warn: "text-warn", bad: "text-bad" } as const;
@@ -186,9 +186,8 @@ export function PassCheckForm({ base, code }: { base: string; code: string }) {
   const router = useRouter();
   const video = useRef<HTMLVideoElement>(null);
   const [scanning, setScanning] = useState(false);
-  const [canScan, setCanScan] = useState(false);
+  const canScan = useCanScanQr();
   const [busy, start] = useTransition();
-  useEffect(() => { setCanScan(typeof window !== "undefined" && "BarcodeDetector" in window && Boolean(navigator.mediaDevices?.getUserMedia)); }, []);
   const go = (c: string) => {
     const m = /check=([A-Z0-9-]+)/i.exec(c);
     const k = (m ? m[1] : c).trim().toUpperCase();

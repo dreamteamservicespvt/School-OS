@@ -222,7 +222,11 @@ export function NoteAdd() {
   const [state, run, pending] = useActionState<FormState<unknown>, FormData>(addNoteAction, null);
   const ref = useRef<HTMLFormElement>(null);
   const [text, setText] = useState("");
-  useEffect(() => { if (state?.ok) { ref.current?.reset(); setText(""); } }, [state]);
+  const [seen, setSeen] = useState(state);
+  if (state !== seen) {
+    setSeen(state);
+    if (state?.ok) setText("");
+  }
   return (
     <form ref={ref} action={run} className="flex flex-col gap-1.5 p-5 pt-3">
       <div className="flex gap-2">

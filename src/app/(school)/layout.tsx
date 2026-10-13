@@ -1,4 +1,6 @@
-import { requireCurrent } from "@/lib/current";
+import Link from "next/link";
+import { isPaused, pausedAdmin, requireCurrent } from "@/lib/current";
+import { planBanner, schoolPlanState } from "@/lib/console/school-billing";
 import { shellData } from "@/lib/shell-data";
 import { AppShell } from "@/components/shell/app-shell";
 import { RecentPages } from "@/components/shell/search-box";
@@ -26,8 +28,10 @@ function ago(d: Date) {
 }
 
 export default async function SchoolLayout({ children }: { children: React.ReactNode }) {
-  const current = await requireCurrent();
-  const [shell, flashed, notices, { year, notes }] = await Promise.all([
+  // A paused school: only its School Admin or Principal gets this far, for Settings (the data download).
+  const current = await requireCurrent({ paused: "admin" });
+  const admin = pausedAdmin(current);
+  const [shell, flashed, notices, { year, notes }, plan] = await Promise.all([
     shellData(current),
     readFlash(),
     activeSystemNotices(),
@@ -40,7 +44,11 @@ export default async function SchoolLayout({ children }: { children: React.React
         select: { id: true, text: true, createdAt: true, readAt: true },
       }),
     })),
+    admin ? schoolPlanState(current.school.id).catch(() => null) : Promise.resolve(null),
   ]);
+  const banner = isPaused(current)
+    ? { tone: "problem" as const, text: "School OS for this school is paused. You can still pay or download the school's data.", payUrl: null, href: "/paused" }
+    : planBanner(plan);
 
   return (
     <AppShell
@@ -72,6 +80,15 @@ export default async function SchoolLayout({ children }: { children: React.React
           </div>
         );
       })}
+      {banner && (
+        <div role="status" className={cx("border-b px-4 md:px-6 py-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[13.5px]",
+          banner.tone === "problem" ? "bg-bad/10 border-bad/25" : banner.tone === "info" ? "bg-info/10 border-info/25" : "bg-warn/15 border-warn/30")}>
+          <Info size={16} className={cx("shrink-0", banner.tone === "problem" ? "text-bad" : banner.tone === "info" ? "text-info" : "text-warn")} aria-hidden="true" />
+          <p className="flex-1 min-w-0">{banner.text}</p>
+          {"href" in banner ? <Link href={banner.href} className="font-semibold text-brand hover:underline">See what to do</Link>
+            : banner.payUrl ? <a href={banner.payUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand hover:underline">Pay now</a> : null}
+        </div>
+      )}
       <main id="main" className="w-full max-w-[1400px] mx-auto px-4 md:px-6 xl:px-8 py-5 md:py-7 pb-28 md:pb-10 animate-rise">{children}</main>
       <Toast key={flashed ? JSON.stringify(flashed) : "none"} flash={flashed} undoAction={undoChange} />
     </AppShell>

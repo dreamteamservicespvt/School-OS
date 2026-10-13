@@ -25,6 +25,8 @@ export async function schoolsFor(userLoginId: string): Promise<SchoolChoice[]> {
 
 export type SchoolAccessView = {
   school: { id: string; name: string; code: string; logoUrl: string | null; timeZone: string; accent: string | null; weekStart: "monday" | "sunday" };
+  /** Set by DREAM TEAM in the console. Suspended or Closed: the school is paused (see /paused). */
+  schoolStatus: "TRIAL" | "ACTIVE" | "SUSPENDED" | "CLOSED";
   roles: { key: string | null; name: string }[];
   permissions: PermissionMap;
   modulesOn: Set<ModuleKey>;
@@ -45,7 +47,7 @@ export async function accessIn(userLoginId: string, schoolId: string): Promise<S
     if (accesses.length === 0) return null;
     const school = await tx.school.findUnique({
       where: { id: schoolId },
-      select: { id: true, name: true, code: true, logoUrl: true, timeZone: true, archivedAt: true, preferences: true },
+      select: { id: true, name: true, code: true, logoUrl: true, timeZone: true, archivedAt: true, preferences: true, status: true },
     });
     if (!school || school.archivedAt) return null;
 
@@ -61,6 +63,7 @@ export async function accessIn(userLoginId: string, schoolId: string): Promise<S
     const combined = combineRoles(roles.map((r) => r.permissions as RolePermissions));
     return {
       school: { id: school.id, name: school.name, code: school.code, logoUrl: school.logoUrl, timeZone: school.timeZone, accent: readPreferences(school.preferences).schoolAccent ?? null, weekStart: readPreferences(school.preferences).weekStart === "sunday" ? "sunday" : "monday" },
+      schoolStatus: school.status,
       roles: roles.map((r) => ({ key: r.key, name: r.name })),
       permissions: applyExceptions(
         scope === "OWN" ? narrowToOwn(combined) : combined,

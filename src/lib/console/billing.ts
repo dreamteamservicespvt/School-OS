@@ -20,6 +20,7 @@ import { cancelPaymentLink, createPaymentLink, platformRazorpay, RazorpayProblem
 import { logActivity, SYSTEM_ACTOR, tenDigits, type ConsoleActor } from "./activity";
 import { deliver, type ConsoleOutgoing, type Delivered } from "./outbox";
 import { schoolAdmins } from "./measure";
+import { notifyTeam } from "./notify";
 import { ConsoleProblem, STATUS_LABEL, changeStatus, getCard } from "./schools";
 
 export const PLAN_KEYS = ["essential", "complete"] as const;
@@ -307,7 +308,11 @@ export async function paidByRazorpay(linkId: string, paymentId: string | null, a
   if (inv.status === "PAID") return { ok: true as const, already: true };
   if (inv.status !== "UNPAID") return { ok: false as const, reason: `invoice ${inv.status.toLowerCase()}` };
   if (BigInt(amountPaise) !== inv.totalPaise) return { ok: false as const, reason: "amount differs" };
-  await withConsoleSchool(inv.forSchoolId, (tx) => applyPayment(tx, SYSTEM_ACTOR, inv, { via: "RAZORPAY", ref: paymentId, at: now }));
+  await withConsoleSchool(inv.forSchoolId, async (tx) => {
+    await applyPayment(tx, SYSTEM_ACTOR, inv, { via: "RAZORPAY", ref: paymentId, at: now });
+    const card = await tx.consoleSchool.findUnique({ where: { id: inv.forSchoolId }, select: { name: true } });
+    await notifyTeam(tx, { roles: ["OWNER"], text: `${card?.name ?? "A school"} paid invoice ${inv.number}, ${formatRupees(inv.totalPaise)}, by Razorpay.`, link: "/console/billing", tone: "ok" });
+  });
   return { ok: true as const, already: false };
 }
 
@@ -629,7 +634,8 @@ export async function runBillingDay(now = new Date()) {
       }
       // More than 10% above what was paid for: a top-up invoice that waits for the Owner's OK.
       if (card.activeStudents * 10 > sub.studentsPaidFor * 11) {
-        await topupInvoice(SYSTEM_ACTOR, sub.forSchoolId, { waitForOk: true, now }).catch(() => null);
+        const made = await topupInvoice(SYSTEM_ACTOR, sub.forSchoolId, { waitForOk: true, now }).catch(() => null);
+        if (made) await withConsole((tx) => notifyTeam(tx, { roles: ["OWNER"], text: `A top-up invoice for ${card.name} waits for your OK: ${card.activeStudents} students, ${sub.studentsPaidFor} paid for.`, link: "/console/billing", tone: "warn" }));
         done.push(`topup:${card.name}`);
       }
       await withConsole((tx) => tx.subscription.update({ where: { id: sub.id }, data: { sixMonthCheckedAt: now } }));
@@ -639,7 +645,8 @@ export async function runBillingDay(now = new Date()) {
     if (status === "OVERDUE" && card.status === "ACTIVE") {
       const overdue = await withConsole((tx) => tx.platformInvoice.findFirst({ where: { forSchoolId: sub.forSchoolId, status: "UNPAID", kind: { in: ["NEW", "RENEWAL", "SECOND_HALF"] }, dueOn: { lt: addDays(today, -GRACE_DAYS) } } }));
       if (overdue) {
-        await changeStatus(null, sub.forSchoolId, "suspend", { reason: `Invoice ${overdue.number} unpaid ${GRACE_DAYS} days after its date` }, now, { system: true }).catch(() => null);
+        const moved = await changeStatus(null, sub.forSchoolId, "suspend", { reason: `Invoice ${overdue.number} unpaid ${GRACE_DAYS} days after its date` }, now, { system: true }).catch(() => null);
+        if (moved) await withConsole((tx) => notifyTeam(tx, { roles: ["OWNER", "SUPPORT"], text: `${card.name} was suspended: invoice ${overdue.number} is unpaid ${GRACE_DAYS} days after its due date.`, link: `/console/schools/${sub.forSchoolId}`, tone: "bad" }));
         done.push(`suspended:${card.name}`);
       }
     }

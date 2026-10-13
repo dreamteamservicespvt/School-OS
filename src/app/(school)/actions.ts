@@ -12,7 +12,7 @@ import { cookies } from "next/headers";
 import { ACCENT_COOKIE, SIZE_COOKIE, THEME_COOKIE, cleanAccent, cleanTextSize, cleanTheme } from "@/lib/theme";
 
 async function audit(action: string, extra: { recordId?: string; after?: object } = {}) {
-  const current = await requireCurrent();
+  const current = await requireCurrent({ paused: "any" });
   const device = await deviceInfo();
   await withSchool(current.ctx, (tx) =>
     writeAudit(tx, current.ctx, {
@@ -27,7 +27,7 @@ async function audit(action: string, extra: { recordId?: string; after?: object 
 }
 
 export async function signOut() {
-  const current = await requireCurrent();
+  const current = await requireCurrent({ paused: "any" });
   await audit("signed-out");
   await revokeSession(current.session.id, current.user.id, "Signed out");
   await clearSessionCookie();

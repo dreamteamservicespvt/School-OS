@@ -48,7 +48,7 @@ export default async function ConsoleDashboard({ searchParams }: { searchParams:
     return `/console?fix=${encodeURIComponent(a.id)}`;
   };
   const fixing = sp.fix ? items.find((a) => a.id === sp.fix && a.kind !== "alert" && a.kind !== "trial" && allowed(a)) : undefined;
-  const sheet = fixing ? await FixSheet({ a: fixing, canApprove: c.can("approve") }) : null;
+  const sheet = fixing ? await FixSheet({ a: fixing, canApprove: c.can("approve"), now }) : null;
   const dateLine = now.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Kolkata" });
   const nextTrial = g.nextTrial?.trialEndsOn ? Math.round((g.nextTrial.trialEndsOn.getTime() - istDay(now).getTime()) / 86_400_000) : null;
 
@@ -162,7 +162,7 @@ export default async function ConsoleDashboard({ searchParams }: { searchParams:
 }
 
 /** The confirm sheet for one Needs attention line. */
-async function FixSheet({ a, canApprove }: { a: Attention; canApprove: boolean }) {
+async function FixSheet({ a, canApprove, now }: { a: Attention; canApprove: boolean; now: Date }) {
   const close = "/console";
   const schoolId = a.schoolId!;
   if (a.kind === "never" || a.kind === "expired") {
@@ -185,7 +185,7 @@ async function FixSheet({ a, canApprove }: { a: Attention; canApprove: boolean }
     const admin = admins.find((x) => x.status === "ACTIVE" && x.roleKey === "school-admin") ?? admins.find((x) => x.status === "ACTIVE") ?? admins[0];
     const d = tenDigits(admin?.phone);
     const step = nextStep(card.setupSteps);
-    const days = card.setupChangedAt ? Math.round((Date.now() - card.setupChangedAt.getTime()) / 86_400_000) : null;
+    const days = card.setupChangedAt ? Math.round((now.getTime() - card.setupChangedAt.getTime()) / 86_400_000) : null;
     return (
       <CallSheet closeHref={close} schoolId={schoolId} schoolName={card.name} adminName={admin?.name ?? "the admin"} phone={d ? showMobile(d) : null} action={noteAction}
         lines={[
@@ -220,7 +220,7 @@ async function FixSheet({ a, canApprove }: { a: Attention; canApprove: boolean }
       <ActSheet title="Make a top-up invoice?" sub={`${card.name} · ${extra.toLocaleString("en-IN")} students above the ${sub.studentsPaidFor.toLocaleString("en-IN")} paid for`} closeHref={close} action={topupAction} hidden={{ schoolId }}
         submitLabel={canApprove ? `Make and send ${formatRupees(base - disc + gst)} invoice` : "Make top-up invoice"}>
         <p>{extra.toLocaleString("en-IN")} students for the rest of the year at half the yearly rate ({formatRupees(rate)} each): <b className="text-ink">{formatRupees(base - disc)} + GST {formatRupees(gst)} = {formatRupees(base - disc + gst)}</b>{sub.discountPercent ? `, after the ${sub.discountPercent}% discount` : ""}.</p>
-        <p>{canApprove ? "It goes to the School Admins and the Principal with a Razorpay payment link." : "It waits for the Owner to OK it before it is sent."} Due {formatDate(new Date(Date.now() + 14 * 86_400_000))}.</p>
+        <p>{canApprove ? "It goes to the School Admins and the Principal with a Razorpay payment link." : "It waits for the Owner to OK it before it is sent."} Due {formatDate(new Date(now.getTime() + 14 * 86_400_000))}.</p>
       </ActSheet>
     );
   }

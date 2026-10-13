@@ -337,9 +337,14 @@ function SearchPalette({ open, onClose, can, schoolCount }: { open: boolean; onC
   const [busy, start] = useTransition();
   const inp = useRef<HTMLInputElement>(null);
   useEscape(open, onClose);
+  // Each time it opens: an empty search, the first row chosen.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) { setQ(""); setSel(0); }
+  }
   useEffect(() => {
     if (!open) return;
-    setQ(""); setSel(0);
     setTimeout(() => inp.current?.focus(), 40);
     start(async () => setSchools(await searchSchools("")));
   }, [open]);

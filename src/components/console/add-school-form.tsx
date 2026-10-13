@@ -70,7 +70,12 @@ export function AddSchoolForm(p: AddSchoolProps) {
     }, 400);
     return () => clearTimeout(t);
   }, [check, f.name, f.city, f.phone, f.adminMobile, f.group]);
-  useEffect(() => { if (state && !state.ok) setConfirm(false); }, [state]);
+  // A refused save closes the confirm box so the problems show next to their fields.
+  const [seen, setSeen] = useState(state);
+  if (state !== seen) {
+    setSeen(state);
+    if (state && !state.ok) setConfirm(false);
+  }
 
   const pd = digits(f.phone);
   const md = digits(f.adminMobile);

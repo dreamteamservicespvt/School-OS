@@ -15,8 +15,14 @@ export function NoteForm({ schoolId, action }: { schoolId: string; action: Actio
   const [state, run] = useActionState<FormState, FormData>(action, null);
   const [text, setText] = useState("");
   const router = useRouter();
+  // After a save: an empty box, and the new note in the list.
+  const [seen, setSeen] = useState(state);
+  if (state !== seen) {
+    setSeen(state);
+    if (state?.ok) setText("");
+  }
   useEffect(() => {
-    if (state?.ok) { setText(""); router.refresh(); }
+    if (state?.ok) router.refresh();
   }, [state, router]);
   return (
     <form action={run} className="flex flex-col gap-2">

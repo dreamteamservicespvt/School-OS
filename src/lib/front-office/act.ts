@@ -30,7 +30,8 @@ export function problemState(e: unknown, fd?: FormData): NonNullable<FormState<{
   const values = fd ? formValues(fd) : undefined;
   if (known.some((K) => e instanceof K)) {
     const err = e as Known;
-    return { ok: false, message: err.message, errors: err.field ? { [err.field]: err.message } : undefined, values, data: err.link ? { link: err.link } : undefined };
+    const matches = (err as { matches?: unknown }).matches;
+    return { ok: false, message: err.message, errors: err.field ? { [err.field]: err.message } : undefined, values, data: err.link ? { link: err.link } : matches ? ({ matches } as never) : undefined };
   }
   if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
     return { ok: false, message: "Someone else saved the same thing a moment ago. Refresh the page to see it, then try again if still needed.", values };

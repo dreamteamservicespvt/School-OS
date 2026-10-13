@@ -240,3 +240,33 @@ export async function addGateEntry(tx: Tx, ctx: SchoolContext, input: GateInput,
 export function expiredWhere(now = new Date()): Prisma.VisitorEntryWhereInput {
   return { archivedAt: null, timeOut: null, passExpiresAt: { lte: now } };
 }
+
+/**
+ * The visitor log's search: name, pass number, vehicle number or the staff
+ * member met, and the phone number only for people who may see phones (a
+ * masked number cannot be searched, so it cannot be guessed digit by digit).
+ */
+export async function visitorSearch(tx: Tx, rawQ: string, phones: boolean): Promise<Prisma.VisitorEntryWhereInput | null> {
+  const q = rawQ.trim().slice(0, 60);
+  if (!q) return null;
+  const tight = q.replace(/\s+/g, "").toUpperCase();
+  const spaced = tight.replace(/^([A-Z]{2})(\d{1,2})([A-Z]{0,3})(\d{1,4})$/, "$1 $2 $3 $4").replace(/\s+/g, " ");
+  const staffHits = await tx.staff.findMany({ where: { fullName: { contains: q, mode: "insensitive" } }, select: { id: true }, take: 20 });
+  const or: Prisma.VisitorEntryWhereInput[] = [
+    { name: { contains: q, mode: "insensitive" } },
+    { passNo: { contains: tight, mode: "insensitive" } },
+    { vehicleNo: { contains: q, mode: "insensitive" } },
+    { vehicleNo: { contains: spaced, mode: "insensitive" } },
+  ];
+  if (staffHits.length) or.push({ meetStaffId: { in: staffHits.map((s) => s.id) } });
+  const digits = q.replace(/\D/g, "");
+  if (phones && digits.length >= 4) or.push({ phone: { contains: digits } });
+  return { OR: or };
+}
+
+/** The visitor log's rows for a day range (and, when the range is today, older passes never closed). */
+export function visitorLogWhere(opts: { scope: Prisma.VisitorEntryWhereInput; from: Date; to: Date; withOpenExpired: boolean; status: string; search: Prisma.VisitorEntryWhereInput | null; now?: Date }): Prisma.VisitorEntryWhereInput {
+  const now = opts.now ?? new Date();
+  const day: Prisma.VisitorEntryWhereInput = opts.withOpenExpired ? { OR: [{ visitDate: { gte: opts.from, lte: opts.to } }, expiredWhere(now)] } : { visitDate: { gte: opts.from, lte: opts.to } };
+  return { AND: [{ archivedAt: null }, opts.scope, day, statusWhere(opts.status, now), ...(opts.search ? [opts.search] : [])] };
+}

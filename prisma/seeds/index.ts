@@ -11,6 +11,7 @@ import { seedExams } from "./exams";
 import { seedDashboard } from "./dashboard";
 import { seedAdmission } from "./admission";
 import { seedFeesFinance } from "./fees-finance";
+import { seedFrontOffice } from "./front-office";
 
 export const MODULE_SEEDS: { module: string; seed: ModuleSeed }[] = [
   { module: "academic-management", seed: seedAcademic },
@@ -24,4 +25,5 @@ export const MODULE_SEEDS: { module: string; seed: ModuleSeed }[] = [
   { module: "dashboard", seed: seedDashboard },
   { module: "admission-management", seed: seedAdmission },
   { module: "fee-management and finance-management", seed: seedFeesFinance },
+  { module: "front-office", seed: seedFrontOffice },
 ];

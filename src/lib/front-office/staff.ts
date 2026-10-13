@@ -14,6 +14,8 @@ export type MeetOption = { id: string; name: string; role: string; now: string; 
 
 const LEAVE_WORDS: Record<string, string> = { leave: "On leave today", absent: "Absent today", temporary: "Away (temporary teacher in place)" };
 
+const DAY_WORDS: Record<string, string> = { leave: "On leave", absent: "Absent", temporary: "Away" };
+
 const rank = (designation: string) => (/^principal$/i.test(designation) ? 0 : /principal/i.test(designation) ? 1 : /admin|accountant|counsellor|office/i.test(designation) ? 2 : 3);
 
 /** Every working staff member, each with where they are now: on leave, teaching, in a meeting, or free. */
@@ -73,7 +75,7 @@ export async function staffDay(tx: Tx, ctx: SchoolContext, staffId: string, date
   if (!staff) return null;
   const off = await dayOff(tx, ctx, date, staff.campusId);
   const away = (await absentStaffOn(tx, ctx, date)).get(staffId);
-  const leave = off ? off.title : away ? LEAVE_WORDS[away.reason] ?? "Away" : null;
+  const leave = off ? off.title : away ? DAY_WORDS[away.reason] ?? "Away" : null;
   const segments: Segment[] = [];
   if (!leave) {
     const { periods } = await periodsForStaffOnDate(tx, ctx, staffId, date);

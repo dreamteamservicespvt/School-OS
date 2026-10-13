@@ -22,6 +22,13 @@ import { as, d, lines, makeSalarySchool, R, type SalaryFixture } from "./fixture
 const who = vi.hoisted(() => ({ userId: "", schoolId: "" }));
 
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
+// Drawing a PDF needs Chromium (CHROMIUM_PATH). Without it, as on CI, the slips are drawn as a stand-in
+// so the access checks around them still run.
+vi.mock("@/lib/documents", async (original) => {
+  const real = await original<typeof import("@/lib/documents")>();
+  if (process.env.CHROMIUM_PATH) return real;
+  return { ...real, renderDocument: async (...args: Parameters<typeof real.renderDocument>) => ({ ...(await real.renderDocument(...args)), pdf: async () => Buffer.from("%PDF-stand-in") }) };
+});
 vi.mock("@/lib/flash", async (original) => ({ ...(await original<typeof import("@/lib/flash")>()), flash: async () => {} }));
 vi.mock("@/lib/current", () => ({
   requireAction: async (module: string, action: string) => {
@@ -155,7 +162,7 @@ describe("Salary on the server", () => {
     const status = await withSchool(as(f, null), (tx) => tx.payslip.findMany({ where: { id: { in: [slipA, slipB] } }, select: { id: true, status: true } }));
     expect(status.find((s) => s.id === slipA)!.status).toBe("DOWNLOADED");
     expect(status.find((s) => s.id === slipB)!.status).toBe("MADE");
-  }, 60_000); // Two PDFs are drawn; the first loads the fonts, which is slow on CI runners.
+  }, 60_000); // Two PDFs are drawn; the first starts Chromium.
 
   it("exports days, leave and loss of pay to HR, never amounts", async () => {
     asUser(f, f.hrLogin.id);

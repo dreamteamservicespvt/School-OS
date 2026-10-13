@@ -20,7 +20,7 @@ const BY_ROLE: Record<string, Shortcut[]> = {
     { label: "Add staff", href: "/staff-hr-management/add", module: "staff-hr-management" },
   ],
   accountant: [
-    { label: "Collect Fee", href: "/fee-management/collect", module: "fee-management" },
+    { label: "Collect Fee", href: "/fee-management", module: "fee-management" },
     { label: "Defaulters", href: "/fee-management/defaulters", module: "fee-management" },
     { label: "Day Book", href: "/finance-management/day-book", module: "finance-management" },
     { label: "Add expense", href: "/finance-management/expenses?do=new", module: "finance-management" },

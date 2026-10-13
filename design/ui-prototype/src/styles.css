@@ -87,3 +87,6 @@ button:not([class*="h-"]):not([class*="absolute"]):not([class*="fixed"]):not([cl
 button:not([class*="h-"]):not([class*="absolute"]):not([class*="fixed"]):not([class*="sticky"]):not([class*="relative"]):not(:has([class*="absolute"]))::after { content: ''; position: absolute; inset: -10px -2px; }
 /* Grid cells may shrink below their content width, so long text wraps instead of pushing out of its card */
 .grid > * { min-width: 0; }
+
+/* Frozen first columns of wide tables stay above the scrolled cells (buttons in cells are position: relative) */
+.sticky.left-0 { z-index: 10; }

@@ -136,7 +136,8 @@ export const inMenu = (role, id) => { const a = role.access[id]; return !!a && !
 // Who actually does what (owner's request, 13 Oct 2026). Oversight roles see summaries, gaps and approvals,
 // not the desk work: the Principal does not take a class register or sit at the fee counter.
 // hide: pages this role never uses. view: pages they look at and approve from, but do not fill in.
-const OV = ['take'];
+// Student leave is the class teacher's (approves) and the office's (records a parent's call); big cases reach Approvals
+const OV = ['take', 'leave'];
 const DUTY = {
   principal: {
     admissions: { view: ['enquiries', 'applications', 'documents', 'tests', 'settings'] },
@@ -148,11 +149,12 @@ const DUTY = {
     exams: { view: ['datesheet', 'admitcards', 'marks', 'reportcards', 'papers', 'settings'] },
     staff: { hide: ['add'], view: ['list', 'documents', 'exit', 'settings'] },
     salary: { view: ['generate', 'structures', 'slips', 'advances', 'history', 'settings'] },
-    communication: { view: ['inbox', 'templates', 'settings'] },
-    transport: { view: 'all' }, library: { view: 'all' }, hostel: { view: 'all' }, homework: { view: 'all' },
+    communication: { view: ['inbox', 'templates', 'parentlink', 'settings'] },
+    transport: { view: 'all' }, library: { hide: ['members'], view: 'all' }, hostel: { view: 'all' },
+    homework: { hide: ['submissions', 'material', 'quizzes', 'discussions', 'online'], view: 'all' },
     inventory: { view: ['items', 'issue', 'assets', 'rooms', 'reports', 'settings'] },
-    frontoffice: { hide: ['desk'], view: ['visitors', 'pickup', 'enquiries', 'postal'] },
-    settings: { view: ['profile', 'users', 'gateways', 'messaging', 'designs', 'modules', 'security'] },
+    frontoffice: { hide: ['desk', 'pickup', 'postal'], view: ['visitors', 'enquiries'] },
+    settings: { hide: ['gateways', 'messaging', 'security'], view: ['profile', 'users', 'designs', 'modules'] },
   },
   schooladmin: {
     admissions: { view: ['decision'] },
@@ -162,13 +164,13 @@ const DUTY = {
     finance: { view: 'all' }, salary: { view: 'all' },
     exams: { view: ['marks', 'results', 'reportcards', 'papers', 'analysis'] },
     transport: { view: 'notsettings' }, library: { view: 'notsettings' }, inventory: { view: 'notsettings' },
-    hostel: { view: 'notsettings' }, homework: { view: 'notsettings' },
+    hostel: { view: 'notsettings' }, homework: { hide: ['submissions', 'material', 'quizzes', 'discussions', 'online'], view: 'notsettings' },
     frontoffice: { hide: ['desk'], view: 'all' },
   },
   vp: {
     attendance: { hide: OV, view: ['staff', 'devices'] },
     students: { view: ['list', 'parents', 'leaving', 'certificates', 'settings'] },
-    frontoffice: { hide: ['desk'] },
+    frontoffice: { hide: ['desk', 'pickup'] },
     exams: { view: ['marks', 'results'] },
     homework: { view: ['homework', 'submissions', 'material', 'quizzes', 'discussions', 'online'] },
   },

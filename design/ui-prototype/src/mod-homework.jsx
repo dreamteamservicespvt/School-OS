@@ -154,7 +154,7 @@ function StaffHomework({ sc }) {
         <Band items={[
           { label: `Current · ${per.label.toLowerCase()}`, big: cur.length, foot: `${assigned} students in ${new Set(cur.map((h) => h.cls)).size} classes` },
           { label: 'Handed in', big: `${Math.round((cur.reduce((a, h) => a + h.submitted, 0) / Math.max(1, assigned)) * 100)}%`, foot: `${cur.reduce((a, h) => a + h.submitted, 0)} of ${assigned}` },
-          { label: sc.own ? 'Waiting for you to check' : 'Waiting to be checked', big: toCheck, foot: 'Open Submissions & Grading', onClick: () => go('homework', { page: 'submissions' }) },
+          { label: sc.own ? 'Waiting for you to check' : 'Waiting to be checked', big: toCheck, ...(canOpen(sc.role, 'homework.submissions') ? { foot: 'Open Submissions & Grading', onClick: () => go('homework', { page: 'submissions' }) } : { foot: 'Teachers check these in their classes' }) },
           { label: 'Seen by parents', big: `${seenPct}%`, foot: 'From WhatsApp read receipts' },
         ]} />
         {!sc.own && <HomeworkOverview list={inP} per={per} />}

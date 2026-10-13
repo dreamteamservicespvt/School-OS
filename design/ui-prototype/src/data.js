@@ -28,6 +28,7 @@ const pick = (a) => a[Math.floor(rnd() * a.length)];
 const BOYS = ['Aarav', 'Vihaan', 'Arjun', 'Reyansh', 'Sai', 'Krishna', 'Ishaan', 'Rohan', 'Aditya', 'Kabir', 'Dhruv', 'Harsha', 'Manish', 'Nikhil', 'Pranav', 'Rahul', 'Tejas', 'Varun', 'Yash', 'Karthik', 'Abhiram', 'Charan'];
 const GIRLS = ['Ananya', 'Diya', 'Saanvi', 'Aadhya', 'Ira', 'Kavya', 'Meera', 'Navya', 'Pooja', 'Riya', 'Sneha', 'Tanvi', 'Vaishnavi', 'Harini', 'Lasya', 'Sahithi', 'Keerthana', 'Bhavya', 'Nithya', 'Shreya'];
 const SURN = ['Sharma', 'Reddy', 'Rao', 'Naidu', 'Patel', 'Kumar', 'Iyer', 'Gupta', 'Verma', 'Chowdary', 'Varma', 'Menon', 'Das', 'Singh', 'Joshi', 'Pillai', 'Goud', 'Shetty'];
+export const NAME_PARTS = { get BOYS() { return BOYS; }, get GIRLS() { return GIRLS; }, get SURN() { return SURN; } };
 const FATHERS = ['Ramesh', 'Srinivas', 'Venkat', 'Prakash', 'Mahesh', 'Suresh', 'Rajesh', 'Anil', 'Kiran', 'Ravi', 'Naresh', 'Vijay', 'Sanjay', 'Ashok'];
 
 export const CLASSES = [

@@ -5,11 +5,11 @@
 // closed, Mark done). The server checks the role again on every action.
 
 import { useState, useTransition } from "react";
-import { BellPlus, CalendarClock, CircleCheck, CircleX, LogIn, PhoneOutgoing, UserX, type LucideIcon } from "lucide-react";
+import { BellPlus, CalendarClock, CircleCheck, CircleX, LogIn, MessageCircle, PhoneOutgoing, UserX, type LucideIcon } from "lucide-react";
 import type { FormState } from "@/lib/forms";
 import { MoreMenu } from "@/components/ui/more-menu";
 
-const ICONS = { bell: BellPlus, call: PhoneOutgoing, done: CircleCheck, cancel: CircleX, arrive: LogIn, noshow: UserX, move: CalendarClock } satisfies Record<string, LucideIcon>;
+const ICONS = { bell: BellPlus, call: PhoneOutgoing, done: CircleCheck, cancel: CircleX, arrive: LogIn, noshow: UserX, move: CalendarClock, message: MessageCircle } satisfies Record<string, LucideIcon>;
 export type RowIcon = keyof typeof ICONS;
 
 type Act = (prev: FormState<unknown>, fd: FormData) => Promise<FormState<unknown>>;

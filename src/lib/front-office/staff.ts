@@ -16,7 +16,7 @@ const LEAVE_WORDS: Record<string, string> = { leave: "On leave today", absent: "
 
 const DAY_WORDS: Record<string, string> = { leave: "On leave", absent: "Absent", temporary: "Away" };
 
-const rank = (designation: string) => (/^principal$/i.test(designation) ? 0 : /principal/i.test(designation) ? 1 : /admin|accountant|counsellor|office/i.test(designation) ? 2 : 3);
+export const rank = (designation: string) => (/^principal$/i.test(designation) ? 0 : /principal/i.test(designation) ? 1 : /admin|accountant|counsellor|office/i.test(designation) ? 2 : 3);
 
 /** Every working staff member, each with where they are now: on leave, teaching, in a meeting, or free. */
 export async function staffToMeet(tx: Tx, ctx: SchoolContext, today: Date, minute: number): Promise<MeetOption[]> {

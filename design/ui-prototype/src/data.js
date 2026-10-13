@@ -154,7 +154,7 @@ export const APPROVALS = [
 
 export const NOTIFICATIONS = [
   { id: 1, when: '10:38 AM', title: '₹12,500 received from Saanvi Reddy (4 A)', body: 'UPI · Receipt R/26/05190', unread: true, to: 'fees' },
-  { id: 2, when: '9:15 AM', title: 'Attendance done for 41 of 43 classes', body: 'Waiting on Class 8 A and Class 10 C', unread: true, to: 'attendance' },
+  { id: 2, when: '9:15 AM', title: 'Attendance done for 40 of 43 classes', body: 'Waiting on Class 8 A, Class 10 C and Class 3 A', unread: true, to: 'attendance' },
   { id: 3, when: '8:40 AM', title: 'Anitha K. asked for sick leave', body: '13–14 Oct · 2 days', unread: true, to: 'approvals' },
   { id: 4, when: 'Yesterday', title: 'Unit Test 2 results published for Class 7', body: '186 report cards sent through Parent Link', unread: false, to: 'student' },
   { id: 5, when: 'Yesterday', title: 'Bus KA-36 back in service', body: 'Route 4 · Miyapur', unread: false, to: 'transport.live' },

@@ -8,53 +8,82 @@ import { cx, Card, CardHead, Button, Pill, Empty, useToast } from './ui.jsx';
 import { useNav, useRole, canDo, canOpen } from './shell.jsx';
 import { Toolbar, Chips, Select, Progress, Stats, DatePeriod, PERIODS, fmtRange, DataList, SearchBox } from './kit.jsx';
 import { SECTIONS, GROUPS, rosterOf, hsh } from './attendance.jsx';
+import { DEFAULTERS } from './mod-fees.jsx';
 
-// Yearly fee by class group, and the four instalments (share of the year, due date)
+// Yearly tuition by class group (scaled below so the school adds up to the Fee Dashboard), and the four instalments
 const YEARLY = { pre: 21500, pri: 25000, mid: 30000, high: 35500 };
 const INST = [
   { k: 'Q1', label: 'Q1 tuition', billed: '2026-04-01', due: '2026-04-10', share: 0.3 },
   { k: 'Q2', label: 'Q2 tuition', billed: '2026-07-01', due: '2026-07-10', share: 0.25 },
   { k: 'Q3', label: 'Q3 tuition', billed: '2026-10-01', due: '2026-10-10', share: 0.25 },
-  { k: 'Q4', label: 'Q4 tuition', billed: '2027-01-01', due: '2027-01-10', share: 0.2 },
 ];
+// The school's money so far this year: ₹2.84 Cr due, ₹2.33 Cr collected, ₹42.3 L of Q3 not paid yet (not late),
+// and the Defaulters list (61 students, ₹8.4 L past the due date). Every screen reads these same numbers.
+const TARGET_DUE = 28370000, Q3_PENDING = 4230000;
 const TODAY_ISO = '2026-10-09';
-const addDays = (iso, n) => { const d = new Date(iso); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
-const daysLate = (iso) => Math.round((new Date(TODAY_ISO) - new Date(iso)) / 864e5);
+const iso = (y, m, d) => `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+const addDays = (s, n) => { const d = new Date(s); d.setDate(d.getDate() + n); return iso(d.getFullYear(), d.getMonth(), d.getDate()); };
+const daysLate = (s) => Math.round((new Date(TODAY_ISO) - new Date(s)) / 864e5);
 const label = (s) => (s.cls.length > 2 ? s.id : `Class ${s.id}`);
+const r50 = (n) => Math.round(n / 50) * 50;
 
-// One student's instalments: what was due, what was paid and when (example data, the same every time)
-function feeOf(st, sec) {
-  const yearly = YEARLY[sec.grp];
-  const h = hsh(st.id) % 100, h3 = hsh(st.id + 'q3') % 100;
-  const weak = sec.id === '9 B' ? 1.8 : 0.6 + (hsh(sec.id) % 9) / 10; // some classes pay later than others
-  let behind = false; // a family behind on an earlier term has not paid the later ones either
-  return INST.filter((x) => x.billed <= TODAY_ISO).map((x, i) => {
-    const amt = Math.round((yearly * x.share) / 50) * 50;
-    // Q3 is billed and due tomorrow, so many have not paid yet; a few families are behind on Q1 or Q2
-    const unpaid = i === 0 ? h < 2.5 * weak : i === 1 ? h < 4.4 * weak : h3 < 60 * Math.min(1.25, weak);
-    const was = behind, no = unpaid || was;
-    if (no) behind = true;
-    const part = no && !was && i === 2 && h3 % 3 === 0;
-    const paid = no ? (part ? Math.round(amt / 2 / 50) * 50 : 0) : amt;
-    return { ...x, amt, paid, on: paid ? (i === 2 ? addDays(x.billed, (h3 * 7) % 9) : addDays(x.due, (h * 7 + i * 11) % 38 - 6)) : null };
+let MODEL = null;
+function model() {
+  if (MODEL) return MODEL;
+  const DEF = Object.fromEntries(DEFAULTERS.map((d) => [d.id, d]));
+  const overdueTotal = DEFAULTERS.reduce((a, d) => a + d.amount, 0);
+  const all = SECTIONS.flatMap((sec) => rosterOf(sec).map((st) => ({ st, sec })));
+  const k = (TARGET_DUE - overdueTotal) / all.reduce((a, x) => a + YEARLY[x.sec.grp] * 0.8, 0);
+  const rows = all.map(({ st, sec }) => {
+    const h = hsh(st.id);
+    const ins = INST.map((x, i) => {
+      const amt = r50(YEARLY[sec.grp] * k * x.share);
+      return { ...x, amt, paid: amt, on: i === 2 ? addDays(x.billed, h % 8) : addDays(x.due, ((h * 7 + i * 11) % 38) - 6) };
+    });
+    const d = DEF[st.id];
+    if (d) ins.push({ k: 'Other', label: d.head, amt: d.amount, paid: 0, due: iso(2026, d.since[0], d.since[1]), on: null });
+    return { st, sec, ins };
+  });
+  // Q3 tuition is due tomorrow: some families have not paid it yet, more in classes that usually pay late
+  const weak = (sec) => (sec.id === '9 B' ? 2 : 0.6 + (hsh(sec.id) % 9) / 10);
+  const order = [...rows].sort((a, b) => (hsh(a.st.id + 'q3') % 1000) / weak(a.sec) - (hsh(b.st.id + 'q3') % 1000) / weak(b.sec));
+  let left = Q3_PENDING;
+  for (const r of order) {
+    if (left <= 0) break;
+    const q = r.ins[2];
+    const owe = Math.min(q.amt, left);
+    q.paid = q.amt - owe; if (!q.paid) q.on = null;
+    left -= owe;
+  }
+  MODEL = Object.fromEntries(SECTIONS.map((sec) => [sec.id, rows.filter((r) => r.sec === sec)]));
+  return MODEL;
+}
+function studentRows(sec, per) {
+  return model()[sec.id].map(({ st, ins }) => {
+    const due = ins.reduce((a, x) => a + x.amt, 0), paid = ins.reduce((a, x) => a + x.paid, 0);
+    const inPer = ins.reduce((a, x) => a + (x.on && x.on >= per.from && x.on <= per.to ? x.paid : 0), 0);
+    const open = ins.filter((x) => x.paid < x.amt);
+    const late = open.filter((x) => x.due < TODAY_ISO);
+    const oldest = late.sort((a, b) => (a.due < b.due ? -1 : 1))[0] || open[0];
+    const overdue = late.reduce((a, x) => a + x.amt - x.paid, 0);
+    return { ...st, ins, due, paid, inPer, overdue, pending: due - paid, late: late.length ? daysLate(oldest.due) : 0, oldest };
   });
 }
 function sumUp(rows) {
-  const t = { due: 0, paid: 0, inPer: 0, owe: 0, late30: 0, overdue: 0 };
-  rows.forEach((r) => { t.due += r.due; t.paid += r.paid; t.inPer += r.inPer; t.overdue += r.overdue; if (r.pending > 0) t.owe++; if (r.late > 30) t.late30++; });
+  const t = { due: 0, paid: 0, inPer: 0, owe: 0, late30: 0, overdue: 0, overdueN: 0 };
+  rows.forEach((r) => { t.due += r.due; t.paid += r.paid; t.inPer += r.inPer; t.overdue += r.overdue; if (r.pending > 0) t.owe++; if (r.overdue > 0) t.overdueN++; if (r.late > 30) t.late30++; });
   t.pending = t.due - t.paid;
+  t.notLate = t.pending - t.overdue;
   t.pct = t.due ? Math.round((t.paid / t.due) * 1000) / 10 : 100;
   return t;
 }
-function studentRows(sec, per) {
-  return rosterOf(sec).map((st) => {
-    const ins = feeOf(st, sec);
-    const due = ins.reduce((a, x) => a + x.amt, 0), paid = ins.reduce((a, x) => a + x.paid, 0);
-    const inPer = ins.reduce((a, x) => a + (x.on && x.on >= per.from && x.on <= per.to ? x.paid : 0), 0);
-    const oldest = ins.find((x) => x.paid < x.amt);
-    const overdue = ins.reduce((a, x) => a + (daysLate(x.due) > 30 ? x.amt - x.paid : 0), 0);
-    return { ...st, ins, due, paid, inPer, overdue, pending: due - paid, late: oldest ? daysLate(oldest.due) : 0, oldest };
-  });
+const FY = PERIODS.finyear;
+// Whole-school and class totals for this financial year, for the Fee Dashboard, home screens and reports
+export function feeTotals() { return sumUp(SECTIONS.flatMap((s) => studentRows(s, FY))); }
+export function feeByClass() {
+  const out = {};
+  SECTIONS.forEach((s) => { const t = sumUp(studentRows(s, FY)); const o = (out[s.cls] ||= { due: 0, paid: 0 }); o.due += t.due; o.paid += t.paid; });
+  return out;
 }
 const toneOf = (pct) => (pct >= 90 ? 'ok' : pct >= 80 ? 'warn' : 'bad');
 const TXT = { ok: 'text-ok', warn: 'text-warn', bad: 'text-bad' };
@@ -64,34 +93,30 @@ const money = (n) => (n >= 1e5 ? inrShort(n) : inr(n));
 export function ClassFees() {
   const { role } = useRole();
   const toast = useToast();
-  const [per, setPer] = useState(PERIODS.finyear);
   const [grp, setGrp] = useState('all');
   const [sort, setSort] = useState('overdue');
   const [open, setOpen] = useState(null);
-  const data = useMemo(() => SECTIONS.map((s) => { const rows = studentRows(s, per); return { s, rows, t: sumUp(rows) }; }), [per.from, per.to]);
+  const data = useMemo(() => SECTIONS.map((s) => { const rows = studentRows(s, FY); return { s, rows, t: sumUp(rows) }; }), []);
   const shown = data.filter((d) => grp === 'all' || d.s.grp === grp);
   const list = sort === 'class' ? shown : [...shown].sort((a, b) => (sort === 'pct' ? a.t.pct - b.t.pct : sort === 'overdue' ? b.t.overdue - a.t.overdue || b.t.pending - a.t.pending : b.t.pending - a.t.pending));
   const all = sumUp(shown.flatMap((d) => d.rows));
-  const wholeYear = per.key === 'finyear';
   const ask = (d) => toast({ title: `Sent to ${d.s.ct}`, body: `Names of the ${d.t.owe} families in ${label(d.s)} who still owe, to remind at pickup or the PTM. Teachers do not see amounts.` });
 
   if (open) {
     const d = data.find((x) => x.s.id === open);
-    return <ClassFeeDetail d={d} per={per} onBack={() => setOpen(null)} onPick={setOpen} onAsk={() => ask(d)} />;
+    return <ClassFeeDetail d={d} onBack={() => setOpen(null)} onPick={setOpen} onAsk={() => ask(d)} />;
   }
   return (
     <div className="flex flex-col gap-4">
       <Stats items={[
-        { label: 'Due so far', value: money(all.due), sub: `Q1 to Q3 tuition · ${shown.reduce((a, d) => a + d.rows.length, 0).toLocaleString('en-IN')} students`, icon: 'FileText' },
+        { label: 'Due so far', value: money(all.due), sub: `Tuition Q1 to Q3 and other fees · ${shown.reduce((a, d) => a + d.rows.length, 0).toLocaleString('en-IN')} students`, icon: 'FileText' },
         { label: 'Collected', value: money(all.paid), sub: `${all.pct}% of what is due`, icon: 'IndianRupee', tone: 'ok' },
-        { label: 'Pending, not late', value: money(all.pending - all.overdue), sub: 'Q3 tuition · due 10 Oct', icon: 'Hourglass', tone: 'warn' },
-        { label: 'Overdue', value: money(all.overdue), sub: `${all.late30} students · over 30 days`, icon: 'TriangleAlert', tone: all.overdue ? 'bad' : undefined },
-        ...(wholeYear ? [] : [{ label: `Collected · ${per.label}`, value: money(all.inPer), sub: fmtRange(per), icon: 'CalendarDays' }]),
+        { label: 'Pending, not late', value: money(all.notLate), sub: 'Q3 tuition · due 10 Oct', icon: 'Hourglass', tone: 'warn' },
+        { label: 'Overdue', value: money(all.overdue), sub: `${all.overdueN} students · ${all.late30} over 30 days`, icon: 'TriangleAlert', tone: all.overdue ? 'bad' : undefined },
       ]} />
       <Card className="overflow-hidden">
-        <CardHead title="Fees by class" sub={`Due and pending as of today · collected ${wholeYear ? 'this financial year' : `in ${per.label.toLowerCase()} (${fmtRange(per)})`} · tap a class for its students`} icon={I.LayoutGrid} />
+        <CardHead title="Fees by class" sub="This financial year, as of today, Fri 9 Oct · tap a class for its students" icon={I.LayoutGrid} />
         <Toolbar>
-          <DatePeriod id="cf-per" value={per} onChange={setPer} className="w-full @md:w-auto" />
           <Select id="cf-sort" value={sort} onChange={setSort} className="w-full @md:w-52" options={[{ value: 'overdue', label: 'Most overdue first' }, { value: 'pending', label: 'Most pending first' }, { value: 'pct', label: 'Lowest collected first' }, { value: 'class', label: 'Class order' }]} />
           <Chips value={grp} onChange={setGrp} className="@md:basis-full" options={[{ value: 'all', label: 'All classes' }, ...GROUPS.map(([value, l]) => ({ value, label: l }))]} />
         </Toolbar>
@@ -115,8 +140,7 @@ export function ClassFees() {
                   <span className="min-w-0 text-right"><span className="block text-ink3">Pending</span><span className={cx('block font-semibold tnum truncate', t.pending ? 'text-bad' : 'text-ok')}>{t.pending ? money(t.pending) : 'Nil'}</span></span>
                 </span>
                 <span className="text-[12.5px] text-ink2 truncate">
-                  {t.owe ? `${t.owe} of ${s.n} owe${t.late30 ? ` · ${t.late30} overdue (${money(t.overdue)})` : ' · none overdue'}` : `All ${s.n} students paid`}
-                  {!wholeYear && ` · ${money(t.inPer)} in ${per.label.toLowerCase()}`}
+                  {t.owe ? `${t.owe} of ${s.n} owe${t.overdueN ? ` · ${t.overdueN} overdue (${money(t.overdue)})` : ' · none overdue'}` : `All ${s.n} students paid`}
                 </span>
               </button>
             );
@@ -128,7 +152,7 @@ export function ClassFees() {
   );
 }
 
-function ClassFeeDetail({ d, per, onBack, onPick, onAsk }) {
+function ClassFeeDetail({ d, onBack, onPick, onAsk }) {
   const { go } = useNav();
   const { role, modulesOn } = useRole();
   const toast = useToast();
@@ -142,7 +166,7 @@ function ClassFeeDetail({ d, per, onBack, onPick, onAsk }) {
   const rows = d.rows.filter((r) => (show === 'all' || (show === 'owe' ? r.pending > 0 : r.pending === 0)) && (!q.trim() || r.name.toLowerCase().includes(q.trim().toLowerCase())))
     .sort((a, b) => (show === 'owe' ? b.late - a.late || b.pending - a.pending : a.roll - b.roll));
   const real = (r) => !String(r.id).startsWith('R-');
-  const status = (r) => (r.pending === 0 ? <Pill tone="ok">Paid</Pill> : r.late > 30 ? <Pill tone="bad">{r.oldest.k} overdue · {r.late} days</Pill> : <Pill tone="warn">{r.oldest.paid ? 'Part paid' : 'Not paid'} · due 10 Oct</Pill>);
+  const status = (r) => (r.pending === 0 ? <Pill tone="ok">Paid</Pill> : r.overdue > 0 ? <span className="inline-flex flex-col items-start gap-0.5"><Pill tone={r.late > 30 ? 'bad' : 'warn'}>Overdue · {r.late} {r.late === 1 ? 'day' : 'days'}</Pill><span className="text-[12px] text-ink3 max-w-[220px] truncate">{r.oldest.label}</span></span> : <Pill tone="warn">{r.ins[2].paid ? 'Part paid' : 'Not paid'} · due 10 Oct</Pill>);
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col @md:flex-row @md:items-center gap-2.5">
@@ -150,7 +174,7 @@ function ClassFeeDetail({ d, per, onBack, onPick, onAsk }) {
         <Select id="cf-sec" value={s.id} onChange={onPick} className="w-full @md:w-64" options={SECTIONS.map((x) => ({ value: x.id, label: `${label(x)} · ${x.ct}` }))} />
       </div>
       <Stats items={[
-        { label: 'Due so far', value: money(t.due), sub: `${s.n} students · Q1 to Q3`, icon: 'FileText' },
+        { label: 'Due so far', value: money(t.due), sub: `${s.n} students · tuition and other fees`, icon: 'FileText' },
         { label: 'Collected', value: money(t.paid), sub: `${t.pct}% of what is due`, icon: 'IndianRupee', tone: 'ok' },
         { label: 'Pending', value: t.pending ? money(t.pending) : 'Nil', sub: t.owe ? `${t.owe} students · ${money(t.overdue)} overdue` : 'Everyone has paid', icon: 'Hourglass', tone: t.overdue ? 'bad' : t.pending ? 'warn' : 'ok' },
         { label: 'Class teacher', value: s.ct, sub: `Manages ${label(s)}`, icon: 'UserRound' },
@@ -185,8 +209,8 @@ function ClassFeeDetail({ d, per, onBack, onPick, onAsk }) {
             ) }] : []),
           ]}
           mobile={(r) => ({ title: r.name, sub: `Roll ${r.roll} · ${r.father} · ${r.phone}`, avatar: r.name,
-            right: <><p className={cx('font-semibold tnum text-[14.5px]', r.pending ? 'text-bad' : 'text-ok')}>{r.pending ? inr(r.pending) : 'Paid'}</p>{r.pending > 0 && <p className={cx('text-[12px] tnum', r.late > 30 ? 'text-bad' : 'text-ink3')}>{r.late > 30 ? `${r.oldest.k} · ${r.late} days late` : 'Q3 · due 10 Oct'}</p>}</> })}
-          empty={<Empty icon={show === 'owe' ? I.PartyPopper : I.SearchX} title={show === 'owe' && !q ? `Everyone in ${label(s)} has paid` : 'No student matches'} body={show === 'owe' && !q ? 'Nothing is pending for Q1 to Q3.' : 'Try another name or filter.'} />} />
+            right: <><p className={cx('font-semibold tnum text-[14.5px]', r.pending ? 'text-bad' : 'text-ok')}>{r.pending ? inr(r.pending) : 'Paid'}</p>{r.pending > 0 && <p className={cx('text-[12px] tnum', r.overdue ? 'text-bad' : 'text-ink3')}>{r.overdue ? `Overdue · ${r.late} days` : 'Q3 · due 10 Oct'}</p>}</> })}
+          empty={<Empty icon={show === 'owe' ? I.PartyPopper : I.SearchX} title={show === 'owe' && !q ? `Everyone in ${label(s)} has paid` : 'No student matches'} body={show === 'owe' && !q ? 'Nothing is pending.' : 'Try another name or filter.'} />} />
       </Card>
     </div>
   );

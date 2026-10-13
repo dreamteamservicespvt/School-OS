@@ -2,7 +2,7 @@
 // Spec: blueprint/modules/19-reports-analytics.md. Example data only (Sunrise Public School, 2026–27, today Fri 9 Oct 2026).
 import React, { useEffect, useMemo, useState } from 'react';
 import * as I from './icons.js';
-import { STUDENTS, CLASSES, FEATURED, ATT_BY_CLASS, FEE_TREND, inr } from './data.js';
+import { STUDENTS, CLASSES, FEATURED, ATT_BY_CLASS, FEE_TREND, inr, inrShort } from './data.js';
 import { STAFF } from './sample.js';
 import { SCHOOLS_IN_GROUP } from './config.js';
 import { cx, Card, CardHead, Button, Pill, Avatar, Input, Field, Segmented, Empty, Sheet, Switch, Spinner, Checkbox, useToast } from './ui.jsx';
@@ -13,6 +13,8 @@ import {
   DatePeriod, PERIODS as DP, fmtRange, periodDays,
 } from './kit.jsx';
 import { DEFAULTERS, SimpleTable, clsOf } from './mod-fees.jsx';
+import { feeByClass, feeTotals } from './fees-classwise.jsx';
+import { ATT_TODAY, attByClass } from './attendance.jsx';
 
 /* =========================================================================================
    Sample data
@@ -116,22 +118,15 @@ const PILL_TONE = { Issued: 'ok', 'Not yet': 'warn', Applied: 'info', OK: 'ok', 
 const fmt = (v, k) => (k === 'inr' ? inr(v) : k === 'pct' ? `${v}%` : k === 'n' ? Number(v).toLocaleString('en-IN') : k === 'pill' ? <Pill tone={PILL_TONE[v] || 'neutral'}>{v}</Pill> : v);
 const NUMERIC = ['inr', 'pct', 'n'];
 
-// Deterministic class-wise fee figures that add up to the Dashboard: ₹2.84 Cr due, ₹2.33 Cr collected
-const TUI = { NUR: 36000, LKG: 38000, UKG: 38000, 1: 39200, 2: 39200, 3: 50000, 4: 50000, 5: 50000, 6: 78000, 7: 78000, 8: 82000, 9: 92000, 10: 92000 };
-const FEE_BY_CLASS = (() => {
-  const w = CLS_IDS.map((id) => STRENGTH[id] * TUI[id]); const W = w.reduce((a, b) => a + b, 0);
-  const rate = [0.86, 0.85, 0.85, 0.84, 0.84, 0.83, 0.83, 0.82, 0.81, 0.82, 0.8, 0.79, 0.8];
-  let d = 0, c = 0;
-  return CLS_IDS.map((id, i) => {
-    const last = i === CLS_IDS.length - 1;
-    const due = last ? 28400000 - d : Math.round((28400000 * w[i]) / W / 100) * 100;
-    const col = last ? 23330000 - c : Math.round((due * rate[i]) / 100) * 100;
-    d += due; c += col;
-    return [CLS_NAME(id), due, col, due - col, pct(col, due)];
-  });
-})();
-const ABSENT_TODAY = { NUR: 4, LKG: 5, UKG: 4, 1: 3, 2: 2, 3: 3, 4: 3, 5: 4, 6: 4, 7: 4, 8: 3, 9: 10, 10: 3 }; // 52 in all
-const LATE_TODAY = { NUR: 0, LKG: 1, UKG: 0, 1: 1, 2: 0, 3: 1, 4: 0, 5: 1, 6: 1, 7: 1, 8: 1, 9: 2, 10: 0 }; // 9 in all
+// Class-wise fee figures from the same sections as Fees by class, so they add up to the Fee Dashboard
+let FEE_ROWS_CACHE = null;
+const FEE_BY_CLASS_ROWS = () => (FEE_ROWS_CACHE ||= (() => {
+  const by = feeByClass();
+  return CLS_IDS.map((id) => { const o = by[id === 'NUR' ? 'Nursery' : id]; return [CLS_NAME(id), o.due, o.paid, o.due - o.paid, pct(o.paid, o.due)]; });
+})());
+// Today's attendance per class, from the same sections as the Attendance register
+let ATT_CLS_CACHE = null;
+const ATT_CLS = (id) => (ATT_CLS_CACHE ||= attByClass())[id === 'NUR' ? 'Nursery' : id];
 const gst = (amt, rate) => Math.round((amt * rate) / (100 + rate));
 
 // 33 students below 33% in at least one subject, Unit Test 2 (Classes 6–10)
@@ -175,9 +170,9 @@ function previewOf(id) {
       cols: [['Class'], ['Seats', 'n'], ['Admitted', 'n'], ['Waiting list', 'n'], ['Free', 'n']],
       rows: [['Nursery', 64, 38, 0, 26], ['LKG', 24, 19, 6, 5], ['UKG', 8, 5, 0, 3], ['Class 1', 10, 10, 9, 0], ['Class 2', 4, 3, 0, 1], ['Class 6', 6, 4, 2, 2], ['Class 9', 4, 1, 0, 3]] };
     case 'at-daily': return {
-      cols: [['Class'], ['On roll', 'n'], ['Present', 'n'], ['Absent', 'n'], ['Late', 'n'], ['Present %', 'pct']],
-      rows: CLS_IDS.map((id) => [CLS_NAME(id), STRENGTH[id], STRENGTH[id] - ABSENT_TODAY[id], ABSENT_TODAY[id], LATE_TODAY[id], pct(STRENGTH[id] - ABSENT_TODAY[id], STRENGTH[id])]),
-      foot: (rows) => ['All classes', sum(rows, 1), sum(rows, 2), sum(rows, 3), sum(rows, 4), pct(sum(rows, 2), sum(rows, 1))] };
+      cols: [['Class'], ['On roll', 'n'], ['Not marked yet', 'n'], ['Present', 'n'], ['Absent', 'n'], ['Late', 'n'], ['On leave', 'n'], ['Present %', 'pct']],
+      get rows() { return CLS_IDS.map((id) => { const o = ATT_CLS(id); return [CLS_NAME(id), o.n, o.notMarked, o.present, o.absent, o.late, o.leave, pct(o.present, o.marked)]; }); },
+      foot: (rows) => ['All classes', sum(rows, 1), sum(rows, 2), sum(rows, 3), sum(rows, 4), sum(rows, 5), sum(rows, 6), pct(sum(rows, 3), sum(rows, 1) - sum(rows, 2))] };
     case 'at-monthly': return {
       cols: [['Student'], ['Class'], ['School days', 'n'], ['Present', 'n'], ['Absent', 'n'], ['Present %', 'pct']],
       rows: STUDENTS.map((s) => { const p = Math.round((7 * s.att) / 100); return [s.name, clsOf(s), 7, p, 7 - p, pct(p, 7), s.clsId]; }), clsId: 6 };
@@ -190,7 +185,7 @@ function previewOf(id) {
       foot: (rows) => ['All staff', sum(rows, 1), sum(rows, 2), sum(rows, 3), sum(rows, 4), pct(sum(rows, 2), sum(rows, 1))] };
     case 'fe-collection': return {
       cols: [['Class'], ['Due', 'inr'], ['Collected', 'inr'], ['Not collected', 'inr'], ['Collected %', 'pct']],
-      rows: FEE_BY_CLASS, foot: (rows) => ['All classes', sum(rows, 1), sum(rows, 2), sum(rows, 3), pct(sum(rows, 2), sum(rows, 1))] };
+      get rows() { return FEE_BY_CLASS_ROWS(); }, foot: (rows) => ['All classes', sum(rows, 1), sum(rows, 2), sum(rows, 3), pct(sum(rows, 2), sum(rows, 1))] };
     case 'fe-defaulter': return {
       cols: [['Student'], ['Class'], ['Overdue', 'inr'], ['Days late', 'n'], ['For']],
       rows: [...DEFAULTERS].sort((a, b) => b.days - a.days).map((d) => [d.s.name, clsOf(d.s), d.amount, d.days, d.head]),
@@ -698,7 +693,7 @@ function Analytics() {
           <Stats items={[
             { label: 'Students', value: '1,236', sub: compare ? '+48 on last year' : 'On the rolls today', icon: I.GraduationCap, onClick: () => setDrill({ title: 'Students by class', sub: '1,236 on the rolls today', cols: [['Class'], ['Students', 'n']], rows: CLS_IDS.map((id) => [CLS_NAME(id), STRENGTH[id]]), basis: 'Student Management, 9 Oct 2026' }) },
             { label: 'Admitted', value: String(admitted), sub: `${left} left · ${range}`, icon: I.UserPlus, tone: 'ok' },
-            { label: 'Attendance today', value: '95.8%', sub: '52 absent, 9 late', icon: I.CalendarCheck2, onClick: () => setDrill({ title: 'Absent today by class', sub: '52 students · Fri 9 Oct', cols: [['Class'], ['Absent', 'n']], rows: CLS_IDS.map((id) => [CLS_NAME(id), ABSENT_TODAY[id]]), basis: 'Attendance register, 9 Oct 2026' }) },
+            { label: 'Attendance today', value: `${ATT_TODAY.pct}%`, sub: `${ATT_TODAY.absent} absent, ${ATT_TODAY.late} late`, icon: I.CalendarCheck2, onClick: () => setDrill({ title: 'Absent today by class', sub: `${ATT_TODAY.absent} students · Fri 9 Oct`, cols: [['Class'], ['Absent', 'n']], rows: CLS_IDS.map((id) => [CLS_NAME(id), ATT_CLS(id).absent]), basis: 'Attendance register, 9 Oct 2026' }) },
             { label: 'Girls', value: '48%', sub: '593 of 1,236', icon: I.Users },
           ]} />
           <div className="grid @xl:grid-cols-2 gap-5 @lg:gap-6 items-start [&>*]:min-w-0">
@@ -756,7 +751,7 @@ function Analytics() {
         {area === 'finance' && !noMonths && <>
           <Stats items={[
             { label: 'Due', value: crore(due), sub: `Months in ${range}`, icon: I.IndianRupee },
-            { label: 'Collected', value: crore(got), sub: `${due ? Math.round((got / due) * 100) : 0}%`, tone: 'ok', icon: I.CircleCheck, onClick: () => setDrill({ title: 'Collected by class', sub: '₹2.33 Cr of ₹2.84 Cr · 1 Apr to 9 Oct', cols: [['Class'], ['Due', 'inr'], ['Collected', 'inr'], ['%', 'pct']], rows: FEE_BY_CLASS.map((r) => [r[0], r[1], r[2], r[4]]), basis: 'Fee payments, 1 Apr to 9 Oct 2026 (the whole year so far)' }) },
+            { label: 'Collected', value: crore(got), sub: `${due ? Math.round((got / due) * 100) : 0}%`, tone: 'ok', icon: I.CircleCheck, onClick: () => setDrill({ title: 'Collected by class', sub: `${inrShort(feeTotals().paid)} of ${inrShort(feeTotals().due)} · 1 Apr to 9 Oct`, cols: [['Class'], ['Due', 'inr'], ['Collected', 'inr'], ['%', 'pct']], rows: FEE_BY_CLASS_ROWS().map((r) => [r[0], r[1], r[2], r[4]]), basis: 'Fee payments, 1 Apr to 9 Oct 2026 (the whole year so far)' }) },
             { label: 'Overdue today', value: '₹8.4 L', sub: '61 students', tone: 'bad', icon: I.TriangleAlert, onClick: () => setDrill({ title: 'Overdue fees', sub: '61 students · ₹8,40,000', cols: [['Student'], ['Class'], ['Overdue', 'inr'], ['Days late', 'n']], rows: [...DEFAULTERS].sort((a, b) => b.days - a.days).map((d) => [d.s.name, clsOf(d.s), d.amount, d.days]), basis: 'Fee Defaulters, 9 Oct 2026' }) },
             { label: 'Spent', value: crore(spent), sub: 'Salaries are 79%', icon: I.Wallet },
           ]} />

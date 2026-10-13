@@ -10,6 +10,8 @@ import { cx, Card, CardHead, Button, Pill, Avatar, Skel, useToast, Sheet } from 
 import { useNav, useRole, quickFor, canOpen, goTo } from './shell.jsx';
 import { DatePeriod, PERIODS, fmtRange } from './kit.jsx';
 import { pageAccess } from './config.js';
+import { ATT_TODAY, NOT_MARKED } from './attendance.jsx';
+const NM_NAMES = NOT_MARKED.map((c) => c.cls).join(', ').replace(/, ([^,]*)$/, ' and $1');
 import { myApprovals } from './other.jsx';
 
 // Fee collection by month (₹ lakh) with the dates each month covers, so the period filter can pick months
@@ -26,7 +28,6 @@ const TONE_ICON = { bad: I.UserX, warn: I.TriangleAlert, info: I.ListChecks };
 const TONE_BG = { bad: 'bg-bad/10 text-bad', warn: 'bg-warn/12 text-warn', info: 'bg-info/10 text-info', ok: 'bg-ok/10 text-ok', brand: 'bg-brand/10 text-brand' };
 
 // Classes whose attendance is not taken yet today, with the class teacher (Staff List)
-const NOT_MARKED = [{ cls: '8 A', who: 'Venkat Rao' }, { cls: '10 C', who: 'Farhana Begum' }];
 // Periods with the teacher away today (Substitutions)
 const SUBS = [
   { p: 'P5', t: '12:40', cls: '8 A', sub: 'English', away: 'Anitha Kumari', by: 'Imran Shaikh' },
@@ -36,7 +37,7 @@ const SUBS = [
 ];
 // Work across the school that is late: the Principal follows up, the person does it
 const NOT_DONE = [
-  { k: 'att', icon: I.CalendarCheck2, title: 'Attendance not marked', sub: '8 A (Venkat Rao) · 10 C (Farhana Begum) · locks 11:00 AM', who: '2 class teachers', to: 'attendance.register', tone: 'bad' },
+  { k: 'att', icon: I.CalendarCheck2, title: 'Attendance not marked', sub: NOT_MARKED.map((c) => `${c.cls} (${c.ct})`).join(' · ') + ' · locks 11:00 AM', who: `${NOT_MARKED.length} class teachers`, to: 'attendance.register', tone: 'bad' },
   { k: 'marks', icon: I.ClipboardCheck, title: 'Unit Test 2 marks not entered', sub: 'Class 8 · Social, Hindi, Computers · 3 teachers', who: '3 teachers', to: 'exams.marks', tone: 'warn' },
   { k: 'papers', icon: I.FileText, title: '6 question papers not in', sub: 'Hindi 9, Telugu 10 and 4 more · due today', who: '6 paper setters', to: 'exams.papers', tone: 'warn' },
   { k: 'seat', icon: I.LayoutGrid, title: 'Seating plans missing', sub: '9 C and 10 C · exams start Monday', who: 'the Exam In-charge', to: 'exams.datesheet', tone: 'warn' },
@@ -65,7 +66,7 @@ export function Dashboard({ onAddStudent }) {
   const [attPer, setAttPer] = useState(PERIODS.thisweek);
   const leaves = approvals.filter((a) => a.kind === 'Leave');
   const leaveItem = leaves.length ? { id: 'n3', tone: 'info', title: `${leaves.length} leave ${leaves.length === 1 ? 'request' : 'requests'} waiting for you`, detail: leaves.map((a) => `${a.who} (${a.what.split(' · ')[1]})`).join(', '), action: 'Review', to: 'approvals' } : null;
-  const notMarked = { id: 'nm', tone: 'bad', icon: I.CalendarCheck2, title: `${NOT_MARKED.length} classes have not marked attendance`, detail: NOT_MARKED.map((c) => `${c.cls} (${c.who})`).join(' · ') + ' · locks 11:00 AM', remind: ['2 class teachers', 'Classes 8 A and 10 C · on the app and WhatsApp'] };
+  const notMarked = { id: 'nm', tone: 'bad', icon: I.CalendarCheck2, title: `${NOT_MARKED.length} classes have not marked attendance`, detail: NOT_MARKED.map((c) => `${c.cls} (${c.ct})`).join(' · ') + ' · locks 11:00 AM', remind: [`${NOT_MARKED.length} class teachers`, `Classes ${NM_NAMES} · on the app and WhatsApp`] };
   const base = Object.fromEntries(NEEDS_ATTENTION.map((n) => [n.id, n]));
   const absent3 = { ...base.n1, to: 'attendance.register' };
   const drop9b = { ...base.n4, action: 'Open register', to: 'attendance.register' };
@@ -105,7 +106,7 @@ export function Dashboard({ onAddStudent }) {
 
   const HERO = {
     principal: [
-      { label: 'Students present', big: <>1,184<span className="text-[0.55em] opacity-90 font-medium"> / 1,236</span></>, foot: '95.8% · 52 absent, 9 late', ring: 95.8, to: 'attendance.register' },
+      { label: 'Students present', big: <>{ATT_TODAY.present.toLocaleString('en-IN')}<span className="text-[0.55em] opacity-90 font-medium"> / {ATT_TODAY.students.toLocaleString('en-IN')}</span></>, foot: `${ATT_TODAY.pct}% of marked · ${ATT_TODAY.absent} absent · ${ATT_TODAY.sections - ATT_TODAY.markedSections} classes not marked`, ring: ATT_TODAY.pct, to: 'attendance.register' },
       { label: 'Staff present', big: <>82<span className="text-[0.55em] opacity-90 font-medium"> / 86</span></>, foot: '3 on leave · 1 not in yet', ring: 95.3, to: 'attendance.staff' },
       { label: 'Fees collected today', big: '₹1,42,500', foot: '38 payments · 21 by UPI', to: 'fees.dashboard' },
       { label: 'New enquiries', big: '12', foot: '5 visits booked this week', to: 'admissions.enquiries' },
@@ -117,8 +118,8 @@ export function Dashboard({ onAddStudent }) {
       { label: 'Staff present', big: <>82<span className="text-[0.55em] opacity-90 font-medium"> / 86</span></>, foot: '3 on leave · 1 not in yet', ring: 95.3, to: 'attendance.staff' },
     ],
     vp: [
-      { label: 'Students present', big: <>1,184<span className="text-[0.55em] opacity-90 font-medium"> / 1,236</span></>, foot: '95.8% · 52 absent, 9 late', ring: 95.8, to: 'attendance.register' },
-      { label: 'Not marked yet', big: <>2<span className="text-[0.55em] opacity-90 font-medium"> classes</span></>, foot: '8 A and 10 C · locks 11:00 AM', to: 'attendance.register' },
+      { label: 'Students present', big: <>{ATT_TODAY.present.toLocaleString('en-IN')}<span className="text-[0.55em] opacity-90 font-medium"> / {ATT_TODAY.students.toLocaleString('en-IN')}</span></>, foot: `${ATT_TODAY.pct}% of marked · ${ATT_TODAY.absent} absent · ${ATT_TODAY.sections - ATT_TODAY.markedSections} classes not marked`, ring: ATT_TODAY.pct, to: 'attendance.register' },
+      { label: 'Not marked yet', big: <>{NOT_MARKED.length}<span className="text-[0.55em] opacity-90 font-medium"> classes</span></>, foot: `${NM_NAMES} · locks 11:00 AM`, to: 'attendance.register' },
       { label: 'Periods with no teacher', big: '2', foot: '9 C period 6 · 10 A period 7', to: 'academic.substitutions' },
       { label: 'Half-yearly exams', big: 'Mon 12 Oct', foot: '2 seating plans missing', to: 'exams.datesheet' },
     ],
@@ -126,17 +127,17 @@ export function Dashboard({ onAddStudent }) {
 
   const BRIEF = {
     principal: [
-      <>Attendance is normal at <b>95.8%</b>, except <b>Class 9</b>, which is at <b>86%</b> this week. Nine of its 14 absences are on Wednesday, the day after the cricket trials. <b>8 A</b> and <b>10 C</b> have not marked attendance yet.</>,
+      <>Attendance is normal at <b>{ATT_TODAY.pct}%</b>, except <b>Class 9</b>, which is at <b>86%</b> this week. Nine of its 14 absences are on Wednesday, the day after the cricket trials. <b>8 A</b>, <b>10 C</b> and <b>3 A</b> have not marked attendance yet.</>,
       <><b>₹1,42,500</b> came in today from 38 payments. 61 families are overdue by <b>₹8.4 lakh</b> in total; the Accountant sends the reminders.</>,
       <>Before Monday's half-yearly exams, 2 classes still have no seating plan and 6 question papers are not in. <b>{approvals.length}</b> {approvals.length === 1 ? 'request is' : 'requests are'} waiting for your approval.</>,
     ],
     office: [
       <><b>12</b> new admission enquiries this week and <b>5</b> school visits booked. <b>3</b> applications are missing documents and <b>7</b> are ready for a decision.</>,
       <><b>4</b> certificate requests are waiting (1 TC, 3 bonafide). <b>18</b> messages were not delivered yesterday, mostly wrong numbers.</>,
-      <>Staff: <b>82 of 86</b> are in. <b>3</b> new staff have not signed in yet. Attendance is not marked in <b>8 A</b> and <b>10 C</b>.</>,
+      <>Staff: <b>82 of 86</b> are in. <b>3</b> new staff have not signed in yet. Attendance is not marked in <b>8 A</b>, <b>10 C</b> and <b>3 A</b>.</>,
     ],
     vp: [
-      <>Attendance is <b>95.8%</b>. <b>8 A</b> and <b>10 C</b> have not marked it yet; it locks at 11:00 AM. <b>Class 9</b> is at <b>86%</b> this week.</>,
+      <>Attendance is <b>{ATT_TODAY.pct}%</b>. <b>8 A</b>, <b>10 C</b> and <b>3 A</b> have not marked it yet; it locks at 11:00 AM. <b>Class 9</b> is at <b>86%</b> this week.</>,
       <><b>2</b> periods have no teacher today: 9 C period 6 (Hindi) and 10 A period 7 (English).</>,
       <>Half-yearly exams start <b>Monday</b>. Seating plans are missing for 9 C and 10 C, and 3 teachers have not entered Unit Test 2 marks.</>,
     ],
@@ -479,7 +480,7 @@ export function Dashboard({ onAddStudent }) {
           </div>
           <div className="flex gap-2 pt-1 flex-wrap">
             {sendsReminders && <Button variant="primary" icon={I.Send} onClick={() => { setBrief(false); toast({ title: 'Reminder sent to 61 families', body: 'WhatsApp, with SMS backup' }); }}>Send fee reminders</Button>}
-            {kind !== 'office' && !reminded.has('nm') && <Button variant="secondary" icon={I.Bell} onClick={() => { setBrief(false); nudge('nm', ...notMarked.remind); }}>Remind 8 A and 10 C</Button>}
+            {kind !== 'office' && !reminded.has('nm') && <Button variant="secondary" icon={I.Bell} onClick={() => { setBrief(false); nudge('nm', ...notMarked.remind); }}>Remind {NM_NAMES}</Button>}
             <Button variant="ghost" onClick={() => { setBrief(false); toast({ title: 'Thanks. We will improve these summaries.', tone: 'info' }); }}>Not useful</Button>
           </div>
         </div>

@@ -4,6 +4,7 @@ import { SCHOOL } from './data.js';
 import { cx, Button, Field, Input, Checkbox } from './ui.jsx';
 import { useNav, useRole, Logo } from './shell.jsx';
 import { ROLES } from './config.js';
+import { ATT_TODAY } from './attendance.jsx';
 
 export function SignIn() {
   const { go } = useNav();
@@ -66,7 +67,7 @@ export function SignIn() {
         {/* Floating previews */}
         <div className="relative mt-10 flex flex-col gap-3 max-w-sm">
           <div className="self-start rounded-2xl bg-white/12 backdrop-blur px-4 py-3 flex items-center gap-3 animate-rise" style={{ animationDelay: '.1s' }}>
-            <I.CalendarCheck2 size={20} /><span className="text-[14px]"><b>1,184 of 1,236</b> students present</span>
+            <I.CalendarCheck2 size={20} /><span className="text-[14px]"><b>{ATT_TODAY.present.toLocaleString('en-IN')} of {ATT_TODAY.students.toLocaleString('en-IN')}</b> students present</span>
           </div>
           <div className="self-end rounded-2xl bg-white/12 backdrop-blur px-4 py-3 flex items-center gap-3 animate-rise" style={{ animationDelay: '.25s' }}>
             <I.IndianRupee size={20} /><span className="text-[14px]"><b>₹1,42,500</b> collected today</span>

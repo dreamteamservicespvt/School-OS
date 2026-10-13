@@ -11,7 +11,7 @@ import {
   DatePeriod, PERIODS, fmtRange, fmtDay, periodDays, MONTH_NAMES, usePage,
 } from './kit.jsx';
 import { pagesFor, inMenu, pageAccess } from './config.js';
-import { ClassFees } from './fees-classwise.jsx';
+import { ClassFees, feeTotals } from './fees-classwise.jsx';
 
 /* =========================================================================================
    Sample data (Sunrise Public School, 2026–27). Today is Fri 9 Oct 2026, 10:42 AM.
@@ -648,6 +648,7 @@ function FeeDashboardFull() {
   const [per, setPer] = useState(PERIODS.today);
   const [linked, setLinked] = useState({});
   const listRef = useRef(null);
+  const FT = useMemo(feeTotals, []);
 
   // Every payment in the chosen dates: today's live rows plus earlier days
   const past = useMemo(() => paymentsIn(per), [per.from, per.to]);
@@ -690,8 +691,8 @@ function FeeDashboardFull() {
         </div>
         <Band items={[
           { label: isToday ? 'Collected today' : `Collected · ${per.label}`, big: money(collected), foot: `${valid.length.toLocaleString('en-IN')} payments · ${upi.toLocaleString('en-IN')} by UPI`, onClick: () => listRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }) },
-          { label: 'Collected this financial year', big: '₹2.33 Cr', foot: 'of ₹2.84 Cr due so far · 82%', onClick: can('reports') ? () => go('fees', { page: 'reports' }) : undefined },
-          { label: 'Pending', big: '₹42.3 L', foot: 'Not late yet · Q3 tuition due 10 Oct', onClick: can('reports') ? () => go('fees', { page: 'reports' }) : undefined },
+          { label: 'Collected this financial year', big: inrShort(FT.paid), foot: `of ${inrShort(FT.due)} due so far · ${Math.round(FT.pct)}%`, onClick: can('reports') ? () => go('fees', { page: 'reports' }) : undefined },
+          { label: 'Pending', big: inrShort(FT.notLate), foot: 'Not late yet · Q3 tuition due 10 Oct', onClick: can('reports') ? () => go('fees', { page: 'reports' }) : undefined },
           { label: 'Overdue', big: inrShort(OVERDUE_TOTAL), foot: `${DEFAULTERS.length} students · ${DEFAULTERS.filter((d) => d.days > 30).length} over 30 days`, onClick: can('defaulters') ? () => go('fees', { page: 'defaulters' }) : undefined },
         ]} />
 
@@ -708,8 +709,8 @@ function FeeDashboardFull() {
             <Card>
               <CardHead title="Monthly collection" sub="Collected against due, 2026–27 (₹ lakh)" icon={I.ChartColumn} />
               <div className="px-5 pb-1 flex items-baseline gap-3 flex-wrap">
-                <p className="font-display text-[28px] font-semibold tnum">₹2.33 Cr</p>
-                <p className="text-[13px] text-ink3">of ₹2.84 Cr due so far · <span className="text-ok font-semibold">82%</span></p>
+                <p className="font-display text-[28px] font-semibold tnum">{inrShort(FT.paid)}</p>
+                <p className="text-[13px] text-ink3">of {inrShort(FT.due)} due so far · <span className="text-ok font-semibold">{Math.round(FT.pct)}%</span></p>
               </div>
               <div className="px-3 pb-2"><Bars data={FEE_TREND.map((m) => ({ k: m.m, v: m.c, v2: m.d }))} max={70} ticks={[0, 20, 40, 60]} ariaLabel="Fee collected each month against fees due" /></div>
               <div className="px-5 pb-4 flex items-center gap-4 flex-wrap"><Legend items={[['bg-brand', 'Collected'], ['bg-ink3/25', 'Due']]} /><span className="ml-auto text-[12.5px] text-ink3">October is still open</span></div>

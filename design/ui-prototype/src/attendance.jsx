@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import * as I from './icons.js';
-import { CLASS_7B, NAME_PARTS } from './data.js';
+import { CLASS_7B, NAME_PARTS, STUDENTS } from './data.js';
 import { cx, Card, CardHead, Button, Pill, Avatar, Sheet, Empty, Field, Segmented, useToast } from './ui.jsx';
 import { Toolbar, Chips, Select, Progress, Stats, DatePeriod, PERIODS, fmtRange, periodDays } from './kit.jsx';
 import { ModuleHead, Legend, CalendarMonth, MONTH_NAMES, MARK_TONE, schoolDay, sampleMark, usePage, Textarea, Banner } from './kit.jsx';
@@ -19,7 +19,7 @@ const AttHead = () => {
   const { role } = useRole();
   const over = useOversight();
   const sub = role.id === 'teacher' ? 'Class 7 B · Period 2, Mathematics · Friday, 9 October · Imran Shaikh'
-    : over ? `Whole school · Friday, 9 October · ${43 - NOT_MARKED.length} of 43 sections marked by 10:44 AM` : 'Class 7 B · Friday, 9 October · Class teacher Ravi Teja';
+    : over ? `Whole school · Friday, 9 October · ${ATT_TODAY.markedSections} of ${ATT_TODAY.sections} sections marked by 10:44 AM` : 'Class 7 B · Friday, 9 October · Class teacher Ravi Teja';
   return <ModuleHead title="Attendance" sub={sub} />;
 };
 // Sections whose attendance is not taken yet today (Fri 9 Oct, 10:44 AM). The same three show on Attendance Reports.
@@ -38,24 +38,66 @@ const CT_POOL = ['Swathi Reddy', 'Madhavi Latha', 'Usha Rani', 'Kalpana Devi', '
   'Manjula Devi', 'Ramesh Chandra', 'Keerthi Reddy', 'Sandeep Joshi', 'Uma Maheswari', 'Vijay Bhaskar', 'Lavanya Pillai', 'Chandra Sekhar', 'Geetha Rani'];
 const CT_FIXED = { '7 B': 'Ravi Teja', '8 A': 'Venkat Rao', '10 C': 'Farhana Begum', '3 A': 'Kalyani Sastry', '6 A': 'Imran Shaikh' };
 export const GROUPS = [['pre', 'Nursery to UKG'], ['pri', 'Classes 1 to 5'], ['mid', 'Classes 6 to 8'], ['high', 'Classes 9 and 10']];
+// Class strength on the rolls (adds up to 1,236), split into sections. 8 A, 10 C, 3 A and 7 B have known sizes.
+const STRENGTH = { Nursery: 62, LKG: 84, UKG: 88, 1: 96, 2: 98, 3: 94, 4: 96, 5: 92, 6: 98, 7: 102, 8: 96, 9: 118, 10: 112 };
+const SEC_LETTERS = { Nursery: 'AB', LKG: 'ABC', UKG: 'ABC', 1: 'ABCD', 2: 'ABCD', 3: 'ABCD', 4: 'ABC', 5: 'ABC', 6: 'ABC', 7: 'ABC', 8: 'ABC', 9: 'ABCD', 10: 'ABCD' };
+const FIXED_N = { '7 B': 38, ...Object.fromEntries(NOT_MARKED.map((x) => [x.cls, x.n])) };
 export const SECTIONS = (() => {
   const out = [];
-  const add = (cls, secs, grp) => secs.forEach((x) => out.push({ id: `${cls} ${x}`, cls, grp }));
-  add('Nursery', ['A', 'B', 'C'], 'pre'); add('LKG', ['A', 'B', 'C'], 'pre'); add('UKG', ['A', 'B'], 'pre');
-  for (let c = 1; c <= 10; c++) add(String(c), c <= 5 ? ['A', 'B', 'C'] : ['A', 'B', 'C', 'D'], c <= 5 ? 'pri' : c <= 8 ? 'mid' : 'high');
-  return out.map((s, i) => {
-    const h = hsh(s.id);
-    const n = s.id === '7 B' ? 38 : (NOT_MARKED.find((x) => x.cls === s.id)?.n) || (s.grp === 'pre' ? 20 + (h % 7) : 26 + (h % 10));
-    return { ...s, n, ct: CT_FIXED[s.id] || CT_POOL[i % CT_POOL.length], notMarked: NOT_MARKED.some((x) => x.cls === s.id) };
+  Object.keys(STRENGTH).forEach((cls) => {
+    const grp = ['Nursery', 'LKG', 'UKG'].includes(cls) ? 'pre' : +cls <= 5 ? 'pri' : +cls <= 8 ? 'mid' : 'high';
+    const ids = [...SEC_LETTERS[cls]].map((x) => `${cls} ${x}`);
+    const fixed = ids.filter((id) => FIXED_N[id]);
+    const left = STRENGTH[cls] - fixed.reduce((a, id) => a + FIXED_N[id], 0);
+    const free = ids.length - fixed.length;
+    let k = 0;
+    ids.forEach((id) => {
+      const n = FIXED_N[id] || Math.floor(left / free) + (k++ < left % free ? 1 : 0);
+      out.push({ id, cls, grp, n });
+    });
   });
+  return out.map((s, i) => ({ ...s, ct: CT_FIXED[s.id] || CT_POOL[i % CT_POOL.length], notMarked: NOT_MARKED.some((x) => x.cls === s.id) }));
 })();
-// Today's numbers for one section, and its average over a longer period (example data, the same every time)
+// Today, Fri 9 Oct: 52 absent, 9 late and 5 on leave across the sections that are marked. Class 7 B's own marks give its numbers.
+const TODAY_SPLIT = (() => {
+  const marked = SECTIONS.filter((s) => !s.notMarked);
+  const fixed = { '7 B': { absent: 1, late: 1, leave: 1 }, '9 B': { absent: 6, late: 1, leave: 0 }, '9 C': { absent: 4, late: 0, leave: 0 } };
+  const free = marked.filter((s) => !fixed[s.id]);
+  const share = (total, key, salt) => {
+    const left = total - Object.values(fixed).reduce((a, f) => a + f[key], 0);
+    const w = free.map((s) => 1 + (hsh(s.id + salt) % 3)); const W = w.reduce((a, b) => a + b, 0);
+    const got = w.map((x) => Math.floor((left * x) / W));
+    let rest = left - got.reduce((a, b) => a + b, 0);
+    [...free.keys()].sort((a, b) => hsh(free[b].id + salt) - hsh(free[a].id + salt)).forEach((i) => { if (rest > 0) { got[i]++; rest--; } });
+    return Object.fromEntries(free.map((s, i) => [s.id, got[i]]));
+  };
+  const ab = share(52, 'absent', 'ab'), la = share(9, 'late', 'la'), lv = share(5, 'leave', 'lv');
+  return Object.fromEntries(marked.map((s) => [s.id, fixed[s.id] || { absent: ab[s.id], late: la[s.id], leave: lv[s.id] }]));
+})();
 const secToday = (s) => {
   if (s.notMarked) return null;
-  const h = hsh(s.id + 'today');
-  const absent = s.id === '9 B' ? 6 : s.id === '9 C' ? 4 : h % 3, late = (h >> 2) % 3, leave = s.id === '7 B' ? 1 : (h >> 4) % 2;
+  const { absent, late, leave } = TODAY_SPLIT[s.id];
   const present = s.n - absent - leave;
   return { present, absent, late, leave, pct: Math.round((present / s.n) * 1000) / 10 };
+};
+// Whole-school numbers for today, used by every home screen and report so they all agree
+export const ATT_TODAY = (() => {
+  const t = { present: 0, absent: 0, late: 0, leave: 0, marked: 0, students: 0, notMarkedStudents: 0 };
+  SECTIONS.forEach((s) => { t.students += s.n; const v = secToday(s); if (!v) { t.notMarkedStudents += s.n; return; } t.marked += s.n; t.present += v.present; t.absent += v.absent; t.late += v.late; t.leave += v.leave; });
+  t.pct = Math.round((t.present / t.marked) * 1000) / 10;
+  t.sections = SECTIONS.length; t.markedSections = SECTIONS.filter((s) => !s.notMarked).length;
+  return t;
+})();
+// Today's numbers per class (Nursery, LKG, UKG, 1 to 10), from the same sections, for Reports
+export const attByClass = () => {
+  const by = {};
+  SECTIONS.forEach((s) => {
+    const o = (by[s.cls] ||= { n: 0, marked: 0, present: 0, absent: 0, late: 0, leave: 0, notMarked: 0 });
+    o.n += s.n; const v = secToday(s);
+    if (!v) { o.notMarked += s.n; return; }
+    o.marked += s.n; o.present += v.present; o.absent += v.absent; o.late += v.late; o.leave += v.leave;
+  });
+  return by;
 };
 const secAvg = (s, per) => {
   if (per.key === 'today') return secToday(s);
@@ -69,17 +111,21 @@ const toneOf = (pct) => (pct >= 92 ? 'ok' : pct >= 85 ? 'warn' : 'bad');
 const TONE_TXT = { ok: 'text-ok', warn: 'text-warn', bad: 'text-bad' };
 const TONE_BG = { ok: 'bg-ok/12 text-ok', warn: 'bg-warn/12 text-warn', bad: 'bg-bad/10 text-bad' };
 // A roster for any section: Class 7 B is the full sample class; other sections get example names
+const ROSTERS = {};
 export const rosterOf = (sec) => {
   if (sec.id === '7 B') return CLASS_7B;
+  if (ROSTERS[sec.id]) return ROSTERS[sec.id];
   const { BOYS, GIRLS, SURN } = NAME_PARTS;
   const h = hsh(sec.id);
-  const list = Array.from({ length: sec.n }, (_, i) => {
+  // Students already on the Student List for this section come first, then example names up to the class strength
+  const real = STUDENTS.filter((x) => x.sec && `${x.cls.replace('Class ', '')} ${x.sec}` === sec.id && !CLASS_7B.includes(x));
+  const list = [...real, ...Array.from({ length: Math.max(0, sec.n - real.length) }, (_, i) => {
     const girl = (h + i * 7) % 2 === 0;
     const pool = girl ? GIRLS : BOYS;
     const last = SURN[(h * 3 + i * 5) % SURN.length];
     return { id: `R-${sec.id}-${i}`, off: h % 37, name: `${pool[(h + i * 13) % pool.length]} ${last}`, father: `${NAME_PARTS.FATHERS[(h + i * 3) % NAME_PARTS.FATHERS.length]} ${last}`, phone: `9${(h + i * 7919) % 10}${String((h * 977 + i * 104729) % 1e8).padStart(8, '0')}`.replace(/(\d{5})(\d{5})/, '$1 $2') };
-  });
-  return list.sort((a, b) => a.name.localeCompare(b.name)).map((s, i) => ({ ...s, roll: i + 1 }));
+  })];
+  return (ROSTERS[sec.id] = list.sort((a, b) => a.name.localeCompare(b.name)).map((s, i) => ({ ...s, off: s.off ?? h % 37, roll: i + 1 })));
 };
 
 function ClassWise({ onOpen }) {

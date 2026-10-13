@@ -413,7 +413,7 @@ export const NOTIFS_BY_ROLE = {
   ],
   vp: [
     { id: 1, when: '8:40 AM', title: 'Anitha K. asked for sick leave', body: '13–14 Oct · 2 days · waiting for you', unread: true, to: 'approvals' },
-    { id: 2, when: '9:15 AM', title: 'Attendance done for 41 of 43 classes', body: 'Waiting on Class 8 A and Class 10 C', unread: true, to: 'attendance.register' },
+    { id: 2, when: '9:15 AM', title: 'Attendance done for 40 of 43 classes', body: 'Waiting on Class 8 A, Class 10 C and Class 3 A', unread: true, to: 'attendance.register' },
     { id: 3, when: '7:52 AM', title: 'Bus 3 was 14 minutes late', body: 'Route 3 · Bachupally · parents were told', unread: false, to: 'transport.live' },
     { id: 4, when: 'Yesterday', title: 'Half-yearly datesheet published', body: 'Classes 6–10 · starts Mon 12 Oct', unread: false, to: 'exams.datesheet' },
   ],

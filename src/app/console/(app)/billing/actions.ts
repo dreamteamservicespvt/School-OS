@@ -8,6 +8,7 @@ import { changeStatus, ConsoleProblem } from "@/lib/console/schools";
 import { getCard } from "@/lib/console/schools";
 import { deliveredWords } from "@/lib/console/outbox";
 import { formatDate } from "@/lib/format";
+import { withConsole } from "@/lib/db";
 import type { FormState } from "@/lib/forms";
 import { consoleAct, str, uuid } from "../_lib/act";
 
@@ -91,4 +92,23 @@ export async function changePricesAction(_p: FormState, fd: FormData) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(from)) throw new ConsoleProblem("Choose the day the new prices start.", "validFrom");
     return changePrices(c.actor, { essential: rupees("essential", "Essential price"), complete: rupees("complete", "Complete price"), hostel: rupees("hostel", "Hostel add-on price"), validFrom: new Date(`${from}T00:00:00Z`) });
   }, () => "New prices saved. Schools pay them from their next renewal.");
+}
+
+/** The group discount for every school in a Group that has a plan (founding schools keep their locked price). */
+export async function groupDiscountAllAction(_p: FormState, fd: FormData) {
+  return consoleAct("discount", fd, async (c) => {
+    const groupId = uuid(fd, "groupId");
+    const ids = await withConsole(async (tx) => {
+      const cards = await tx.consoleSchool.findMany({ where: { groupId, status: { not: "CLOSED" } }, select: { id: true } });
+      const subs = await tx.subscription.findMany({ where: { forSchoolId: { in: cards.map((x) => x.id) }, OR: [{ discountReason: null }, { discountReason: { not: "founding" } }] }, select: { forSchoolId: true } });
+      return subs.map((x) => x.forSchoolId);
+    });
+    if (ids.length === 0) throw new ConsoleProblem("No school in this group has a plan yet.");
+    let done = 0;
+    for (const id of ids) {
+      try { await applyGroupDiscount(c.actor, id); done += 1; } catch (e) { if (!(e instanceof ConsoleProblem)) throw e; }
+    }
+    if (done === 0) throw new ConsoleProblem("Every school in this group already has its group discount.");
+    return done;
+  }, (n) => `Group discount saved for ${n} ${n === 1 ? "school" : "schools"}. It applies from each school’s next invoice.`);
 }

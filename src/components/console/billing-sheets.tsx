@@ -7,7 +7,7 @@
 import { useState } from "react";
 import { Award, CircleCheck } from "lucide-react";
 import { SheetForm } from "@/components/ui/url-sheet";
-import { SArea, SDate, SSelect, SText } from "@/components/ui/sheet-fields";
+import { SArea, SDate, SMoney, SSelect, SText } from "@/components/ui/sheet-fields";
 import { Segmented } from "@/components/ui/controls";
 import { FieldShell, type Option } from "@/components/ui/field";
 import { Banner } from "@/components/ui/blocks";
@@ -135,6 +135,28 @@ export function NewInvoiceSheet({ closeHref, schools, schoolId, packs, action }:
         <div className="flex justify-between gap-3 px-3.5 py-2.5 font-semibold"><span>Total</span><span className="tnum">{inr(base + gst(base))}</span></div>
       </div>
       <p className="text-[13px] text-ink3">Goes to {s?.admin ?? "the School Admin"} and the Principal on WhatsApp and email. It marks itself paid when the Razorpay payment arrives.</p>
+    </SheetForm>
+  );
+}
+
+export function PricesSheet({ closeHref, now, minDate, action }: { closeHref: string; now: { essential: number; complete: number; hostel: number }; minDate: string; action: Action }) {
+  return (
+    <SheetForm title="Edit price list" sub="Owner only · affects renewals after the date below" closeHref={closeHref} action={action} submitLabel="Save prices" pendingText="Saving…">
+      <div className="grid grid-cols-2 gap-3">
+        <SMoney name="essential" label="Essential, per student" required start={now.essential} />
+        <SMoney name="complete" label="Complete, per student" required start={now.complete} />
+        <SMoney name="hostel" label="Hostel, per school" required start={now.hostel} className="col-span-2 sm:col-span-1" />
+      </div>
+      <SDate name="validFrom" label="Valid for renewals from" required start={minDate} min={minDate} help="Schools mid-year keep their price." />
+    </SheetForm>
+  );
+}
+
+export function FoundingPickSheet({ closeHref, used, limit, schools, action }: { closeHref: string; used: number; limit: number; schools: Option[]; action: Action }) {
+  return (
+    <SheetForm title="Mark a founding school" sub={`${used} of ${limit} places used · Owner only`} closeHref={closeHref} action={action} submitLabel="Mark as founding school" pendingText="Saving…" submitDisabled={schools.length === 0}>
+      {schools.length === 0 ? <p className="text-[14px] text-ink2">Every paying school is already a founding school.</p> : <SSelect name="schoolId" label="School" required options={schools} start={schools[0]?.value} />}
+      <p className="text-[13px] text-ink3">Its Essential price is locked for 3 years from its start date, and every new module is switched on free as it is built.</p>
     </SheetForm>
   );
 }

@@ -715,7 +715,7 @@ function Promotion({ access }) {
             <div className="px-5 pb-5 grid @lg:grid-cols-[1fr_auto_1fr] gap-4 items-start">
               <div className="rounded-xl border border-line p-4 flex flex-col gap-3">
                 <p className="eyebrow text-ink3">From · 2026–27</p>
-                <Field label="Class" id="pr-cls"><Select id="pr-cls" value={cls} onChange={pick} options={CLASSES.map((c) => ({ value: c.id, label: c.name }))} className={cx(ct && 'pointer-events-none opacity-70')} /></Field>
+                <Field label="Class" id="pr-cls"><Select id="pr-cls" value={cls} onChange={pick} options={CLASSES.map((c) => ({ value: c.id, label: c.name }))} className={cx(ct && 'pointer-events-none opacity-90')} /></Field>
                 <Field label="Section" id="pr-sec"><Segmented value={sec} onChange={(v) => { if (!ct) { setSec(v); setDec({}); } }} options={CLASSES.find((c) => c.id === cls).sections} className="w-full" /></Field>
                 {ct && <p className="text-[12.5px] text-ink3 flex gap-1.5"><I.Lock size={13} className="mt-0.5" />Your class only</p>}
               </div>
@@ -1205,7 +1205,7 @@ function IdCardPreview() {
   return (
     <div className="flex flex-col items-center gap-3 pb-2">
       <div className="w-[260px] rounded-2xl border border-line overflow-hidden bg-surface shadow-card">
-        <div className="bg-brand text-brandink px-4 py-3 text-center"><p className="font-display font-semibold text-[15px] leading-tight">Sunrise Public School</p><p className="text-[11px] opacity-80">Kukatpally, Hyderabad · 040 2305 1180</p></div>
+        <div className="bg-brand text-brandink px-4 py-3 text-center"><p className="font-display font-semibold text-[15px] leading-tight">Sunrise Public School</p><p className="text-[11px] opacity-90">Kukatpally, Hyderabad · 040 2305 1180</p></div>
         <div className="px-4 pt-4 pb-3 flex flex-col items-center text-center gap-1">
           <Avatar name={FEATURED.name} size={76} />
           <p className="font-semibold text-[16px] mt-1.5">{FEATURED.name}</p>

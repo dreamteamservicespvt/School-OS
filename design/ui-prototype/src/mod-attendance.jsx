@@ -1133,7 +1133,7 @@ function GeoCard({ canEdit }) {
    ===================================================================================== */
 
 const STATUSES = [
-  { k: 'P', n: 'Present', c: 'bg-ok/15 text-ok', counts: 'Present' }, { k: 'A', n: 'Absent', c: 'bg-bad text-white', counts: 'Absent' },
+  { k: 'P', n: 'Present', c: 'bg-ok/15 text-ok', counts: 'Present' }, { k: 'A', n: 'Absent', c: 'bg-bad text-surface', counts: 'Absent' },
   { k: 'L', n: 'Late', c: 'bg-warn/20 text-warn', counts: 'Present' }, { k: 'H', n: 'Half-day', c: 'bg-warn/12 text-warn', counts: 'Half' },
   { k: 'E', n: 'Excused', c: 'bg-sunken text-ink2', counts: 'Not counted' }, { k: 'Lv', n: 'Leave', c: 'bg-info/15 text-info', counts: 'Not counted' },
   { k: 'M', n: 'Medical', c: 'bg-info/10 text-info', counts: 'Not counted' }, { k: 'SD', n: 'Sports duty (school’s own)', c: 'bg-brand/12 text-brand', counts: 'Present' },

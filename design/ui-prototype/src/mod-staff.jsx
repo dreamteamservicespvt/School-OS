@@ -371,7 +371,7 @@ function StaffList() {
           </>} />
         <Band items={[
           { label: 'Staff on roll', big: '86', foot: '58 teaching, 28 others' },
-          { label: 'Present today', big: <>82<span className="text-[0.55em] opacity-70 font-medium"> / 86</span></>, foot: '1 came late today', onClick: () => go('attendance', { page: 'staff' }) },
+          { label: 'Present today', big: <>82<span className="text-[0.55em] opacity-90 font-medium"> / 86</span></>, foot: '1 came late today', onClick: () => go('attendance', { page: 'staff' }) },
           { label: 'On leave today', big: '3', foot: 'Anitha, Ramu, Shobha', onClick: () => go('staff', { page: 'leave' }) },
           { label: 'Not in yet', big: '1', foot: 'Swapna Reddy' },
         ]} />
@@ -501,7 +501,7 @@ function Profile({ s, mode }) {
               <p className="text-[13.5px] text-ink3 mt-0.5">{s.desig} · {s.dept} · <span className="font-mono text-[12.5px]">{s.code}</span> · <span className="tnum">{s.phone}</span></p>
             </div>
           </div>
-          <div className="flex gap-2 relative">
+          <div className="flex flex-wrap gap-2 relative">
             {mode === 'own' ? (
               <>
                 <Button variant="primary" icon={I.CalendarPlus} className="flex-1 @lg:flex-none" onClick={() => go('staff', { page: 'leave' })}>Apply for leave</Button>
@@ -682,7 +682,7 @@ function ProfileTimetable({ s }) {
                 <td className={cx('sticky left-0 bg-surface px-4 py-1.5 font-semibold', di === 4 && 'text-brand')}>{d}</td>
                 {PERIODS.map((p, pi) => {
                   const c = cells[di * 8 + pi];
-                  return <td key={pi} className="px-1 py-1">{c ? <span className={cx('block rounded-lg px-2 py-1.5 leading-tight', di === 4 && pi === 2 ? 'bg-brand text-brandink' : 'bg-brand/10 text-brand')}><b className="font-semibold block">{c[1]}</b><span className="text-[11px] opacity-80 truncate block">{c[0] === 'All subjects' ? 'Class' : c[0]}</span></span> : <span className="block rounded-lg px-2 py-1.5 text-ink3/70 bg-sunken/60">Free</span>}</td>;
+                  return <td key={pi} className="px-1 py-1">{c ? <span className={cx('block rounded-lg px-2 py-1.5 leading-tight', di === 4 && pi === 2 ? 'bg-brand text-brandink' : 'bg-brand/10 text-brand')}><b className="font-semibold block">{c[1]}</b><span className="text-[11px] opacity-90 truncate block">{c[0] === 'All subjects' ? 'Class' : c[0]}</span></span> : <span className="block rounded-lg px-2 py-1.5 text-ink3 bg-sunken/60">Free</span>}</td>;
                 })}
               </tr>
             ))}
@@ -1015,7 +1015,7 @@ function AddStaff() {
               const n = i + 1, on = n === step, past = n < step;
               return (
                 <li key={t}>
-                  <button onClick={() => past && setStep(n)} disabled={!past} className={cx('w-full text-left rounded-2xl border px-3 py-2.5 transition', on ? 'border-brand bg-brand/5 ring-1 ring-brand' : past ? 'border-line bg-surface hover:bg-sunken' : 'border-line bg-surface opacity-70')}>
+                  <button onClick={() => past && setStep(n)} disabled={!past} className={cx('w-full text-left rounded-2xl border px-3 py-2.5 transition', on ? 'border-brand bg-brand/5 ring-1 ring-brand' : past ? 'border-line bg-surface hover:bg-sunken' : 'border-line bg-surface opacity-90')}>
                     <span className={cx('inline-grid place-items-center w-6 h-6 rounded-full text-[12px] font-bold tnum mb-1', past ? 'bg-ok/15 text-ok' : on ? 'bg-brand text-brandink' : 'bg-sunken text-ink3')}>{past ? <I.Check size={13} strokeWidth={3} /> : n}</span>
                     <span className="block text-[13px] font-semibold leading-tight">{t}</span>
                   </button>
@@ -1669,7 +1669,7 @@ function MyDocuments() {
 function IdCardPreview({ s }) {
   return (
     <div className="w-[230px] rounded-2xl border border-line bg-surface shadow-card overflow-hidden text-center" aria-label={`ID card for ${s.name}`}>
-      <div className="bg-brand text-brandink px-3 py-2.5"><p className="font-display font-semibold text-[13px] leading-tight">Sunrise Public School</p><p className="text-[10.5px] opacity-80">Kukatpally, Hyderabad · CBSE</p></div>
+      <div className="bg-brand text-brandink px-3 py-2.5"><p className="font-display font-semibold text-[13px] leading-tight">Sunrise Public School</p><p className="text-[10.5px] opacity-90">Kukatpally, Hyderabad · CBSE</p></div>
       <div className="px-3 pt-4 pb-3 flex flex-col items-center gap-1.5">
         <Avatar name={s.name} size={64} />
         <p className="font-semibold text-[14px] leading-tight mt-1">{s.name}</p>

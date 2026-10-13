@@ -89,9 +89,9 @@ export function Band({ items, className }) {
           return (
             <B key={m.label} onClick={m.onClick}
               className={cx('text-left p-4 @md:p-6 min-w-0 border-white/15', m.onClick && 'hover:bg-white/[.07] transition', BAND_CELL[n][i])}>
-              <p className="text-[12.5px] @md:text-[13px] font-semibold opacity-80 flex items-center gap-1">{m.label}{m.onClick && <I.ChevronRight size={14} className="opacity-60" />}</p>
+              <p className="text-[12.5px] @md:text-[13px] font-semibold opacity-90 flex items-center gap-1">{m.label}{m.onClick && <I.ChevronRight size={14} className="opacity-60" />}</p>
               <p className="font-display text-[26px] @md:text-[32px] font-semibold tracking-tight leading-tight tnum mt-1 truncate">{m.big}</p>
-              {m.foot && <p className="text-[12px] @md:text-[13px] opacity-75 mt-0.5 truncate">{m.foot}</p>}
+              {m.foot && <p className="text-[12px] @md:text-[13px] opacity-90 mt-0.5 truncate">{m.foot}</p>}
             </B>
           );
         })}
@@ -111,7 +111,7 @@ export function SearchBox({ value, onChange, placeholder, id, className }) {
   );
 }
 export function Toolbar({ children, className }) {
-  return <div className={cx('flex flex-col @md:flex-row gap-2.5 p-3 border-b border-line', className)}>{children}</div>;
+  return <div className={cx('flex flex-col @md:flex-row @md:flex-wrap gap-2.5 p-3 border-b border-line [&>.flex]:flex-wrap', className)}>{children}</div>;
 }
 export function Select({ id, value, onChange, options, className, error }) {
   return (
@@ -139,7 +139,7 @@ export function Chips({ value, onChange, options, className }) {
             <button key={v} onClick={() => onChange(v)}
               className={cx('h-10 px-3.5 rounded-xl text-[13.5px] font-semibold border transition inline-flex items-center gap-2',
                 on ? 'bg-ink text-bg border-ink' : 'bg-surface border-line text-ink2 hover:border-ink3/50 hover:text-ink')}>
-              {l}{o.count != null && <span className={cx('text-[11.5px] tnum', on ? 'opacity-70' : 'text-ink3')}>{o.count}</span>}
+              {l}{o.count != null && <span className={cx('text-[11.5px] tnum', on ? 'opacity-90' : 'text-ink3')}>{o.count}</span>}
             </button>
           );
         })}
@@ -515,7 +515,7 @@ export function ConfirmSheet({ open, onClose, title, sub, confirmLabel, onConfir
 export function MonthGrid({ year = 2026, month = 9, cell, today = 9, compact }) {
   const days = new Date(year, month + 1, 0).getDate();
   const lead = (new Date(year, month, 1).getDay() + 6) % 7;
-  const C = { ok: 'bg-ok/15 text-ok', bad: 'bg-bad/15 text-bad', warn: 'bg-warn/15 text-warn', info: 'bg-info/10 text-info', brand: 'bg-brand/12 text-brand', muted: 'text-ink3/60', none: 'text-ink2' };
+  const C = { ok: 'bg-ok/15 text-ok', bad: 'bg-bad/15 text-bad', warn: 'bg-warn/15 text-warn', info: 'bg-info/10 text-info', brand: 'bg-brand/12 text-brand', muted: 'text-ink3', none: 'text-ink2' };
   return (
     <div>
       <div className="grid grid-cols-7 gap-1.5 text-center text-[11.5px] font-semibold text-ink3 mb-1.5">{(compact ? ['M', 'T', 'W', 'T', 'F', 'S', 'S'] : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']).map((d, i) => <span key={i}>{d}</span>)}</div>

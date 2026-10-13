@@ -74,9 +74,9 @@ export function Dashboard({ onAddStudent }) {
         <div className="absolute -right-16 -top-24 w-72 h-72 rounded-full bg-white/10 blur-2xl pointer-events-none" />
         <div className="relative grid grid-cols-2 @xl:grid-cols-4">
           <HeroStat loading={loading} onClick={() => go('attendance', { page: 'register' })} label="Students present"
-            big={<>1,184<span className="text-[0.55em] opacity-70 font-medium"> / 1,236</span></>}
+            big={<>1,184<span className="text-[0.55em] opacity-90 font-medium"> / 1,236</span></>}
             foot="95.8% · 52 absent, 9 late" ring={95.8} />
-          <HeroStat loading={loading} onClick={() => go('staff')} label="Staff present" big={<>82<span className="text-[0.55em] opacity-70 font-medium"> / 86</span></>} foot="3 on leave · 1 not in yet" ring={95.3} />
+          <HeroStat loading={loading} onClick={() => go('staff')} label="Staff present" big={<>82<span className="text-[0.55em] opacity-90 font-medium"> / 86</span></>} foot="3 on leave · 1 not in yet" ring={95.3} />
           <HeroStat loading={loading} onClick={() => go('fees', { page: 'dashboard' })} label="Fees collected today" big="₹1,42,500" foot="38 payments · 21 by UPI" />
           <HeroStat loading={loading} onClick={() => go('admissions')} label="New enquiries" big="12" foot="5 visits booked this week" last />
         </div>
@@ -278,11 +278,11 @@ function HeroStat({ label, big, foot, ring, onClick, loading, last }) {
       className={cx('text-left p-4 @md:p-6 flex items-center gap-4 hover:bg-white/[.07] transition border-white/15 min-w-0',
         'border-b @xl:border-b-0 @xl:border-r [&:nth-child(odd)]:border-r', last && '@xl:border-r-0', '[&:nth-child(n+3)]:border-b-0')}>
       <div className="min-w-0 flex-1">
-        <p className="text-[12.5px] @md:text-[13px] font-semibold opacity-80 flex items-center gap-1">{label}<I.ChevronRight size={14} className="opacity-60" /></p>
+        <p className="text-[12.5px] @md:text-[13px] font-semibold opacity-90 flex items-center gap-1">{label}<I.ChevronRight size={14} className="opacity-60" /></p>
         {loading ? <div className="h-9 w-28 rounded-lg bg-white/15 my-1.5" /> : (
           <p className="font-display text-[26px] @md:text-[34px] font-semibold tracking-tight leading-tight tnum mt-1 animate-rise">{big}</p>
         )}
-        <p className="text-[12px] @md:text-[13px] opacity-75 mt-0.5 truncate">{foot}</p>
+        <p className="text-[12px] @md:text-[13px] opacity-90 mt-0.5 truncate">{foot}</p>
       </div>
       {ring != null && (
         <div className="hidden @lg:block">

@@ -7,18 +7,18 @@
 :root {
   /* Neutrals, light. Slight teal bias so greys feel chosen, not default. */
   --bg: 243 246 245; --surface: 255 255 255; --sunken: 236 241 239; --line: 222 229 226;
-  --ink: 15 23 21; --ink-2: 66 80 76; --ink-3: 112 127 122; --shadow: 16 32 28;
+  --ink: 15 23 21; --ink-2: 62 75 71; --ink-3: 92 106 101; --shadow: 16 32 28;
   /* Accent (default: Lagoon) */
-  --brand: 12 112 100; --brand-ink: 255 255 255;
+  --brand: 12 108 96; --brand-ink: 255 255 255;
   /* Meaning colours */
-  --ok: 21 128 72; --warn: 180 110 0; --bad: 200 40 48; --info: 28 100 200;
+  --ok: 17 112 62; --warn: 140 82 0; --bad: 192 34 42; --info: 26 92 190;
   --av-l: 38%;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: 9 13 13; --surface: 17 23 23; --sunken: 23 30 30; --line: 36 46 45;
-    --ink: 233 239 237; --ink-2: 166 180 176; --ink-3: 118 133 129; --shadow: 0 0 0;
+    --ink: 233 239 237; --ink-2: 176 189 185; --ink-3: 138 153 149; --shadow: 0 0 0;
     --brand: 52 196 174; --brand-ink: 4 20 18;
     --ok: 72 205 135; --warn: 240 178 70; --bad: 255 110 112; --info: 112 168 255; --av-l: 74%;
     color-scheme: dark;
@@ -26,14 +26,14 @@
 }
 :root[data-theme="dark"] {
   --bg: 9 13 13; --surface: 17 23 23; --sunken: 23 30 30; --line: 36 46 45;
-  --ink: 233 239 237; --ink-2: 166 180 176; --ink-3: 118 133 129; --shadow: 0 0 0;
+  --ink: 233 239 237; --ink-2: 176 189 185; --ink-3: 138 153 149; --shadow: 0 0 0;
   --brand: 52 196 174; --brand-ink: 4 20 18;
   --ok: 72 205 135; --warn: 240 178 70; --bad: 255 110 112; --info: 112 168 255; --av-l: 74%;
   color-scheme: dark;
 }
 
 /* Accent themes the school can pick. Light value first, dark value repeated in both dark blocks. */
-:root[data-accent="royal"]   { --brand: 37 88 216; }
+:root[data-accent="royal"]   { --brand: 32 80 205; }
 :root[data-accent="plum"]    { --brand: 122 52 186; }
 :root[data-accent="saffron"] { --brand: 184 88 6; }
 :root[data-accent="rose"]    { --brand: 190 28 78; }
@@ -81,3 +81,9 @@ input:focus-visible, textarea:focus-visible { outline: none; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
 }
+
+/* Bigger tap area for small text buttons (links like "Open", "Forgot password?") without changing how they look */
+button:not([class*="h-"]):not([class*="absolute"]):not([class*="fixed"]):not([class*="sticky"]):not([class*="relative"]):not(:has([class*="absolute"])) { position: relative; }
+button:not([class*="h-"]):not([class*="absolute"]):not([class*="fixed"]):not([class*="sticky"]):not([class*="relative"]):not(:has([class*="absolute"]))::after { content: ''; position: absolute; inset: -10px -2px; }
+/* Grid cells may shrink below their content width, so long text wraps instead of pushing out of its card */
+.grid > * { min-width: 0; }

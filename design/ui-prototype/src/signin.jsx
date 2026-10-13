@@ -61,7 +61,7 @@ export function SignIn() {
         </div>
         <div className="relative mt-auto max-w-md">
           <h1 className="font-display text-[44px] font-semibold leading-[1.05] tracking-tight">Your whole school, in one calm place.</h1>
-          <p className="mt-4 text-[16px] opacity-80 leading-relaxed">Attendance, fees, students and parents. Everything you need today is on the first screen.</p>
+          <p className="mt-4 text-[16px] opacity-90 leading-relaxed">Attendance, fees, students and parents. Everything you need today is on the first screen.</p>
         </div>
         {/* Floating previews */}
         <div className="relative mt-10 flex flex-col gap-3 max-w-sm">

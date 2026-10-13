@@ -730,7 +730,7 @@ function AdmitCardsPage({ access }) {
               <li key={x.id}>
                 <button onClick={() => (ready ? setExam(x.id) : toast({ title: 'Publish the datesheet first', body: `${x.title} · ${x.classes} is still a draft. Admit cards come from the published schedule.`, tone: 'info' }))}
                   aria-pressed={exam === x.id}
-                  className={cx('w-full text-left rounded-2xl border-2 bg-surface p-4 shadow-card transition', exam === x.id ? 'border-brand' : 'border-transparent', !ready && 'opacity-60')}>
+                  className={cx('w-full text-left rounded-2xl border-2 bg-surface p-4 shadow-card transition', exam === x.id ? 'border-brand' : 'border-transparent', !ready && 'opacity-90')}>
                   <div className="flex items-center gap-2"><Pill tone={DS_TONE[x.status]}>{x.status}</Pill>{!ready && <I.Lock size={14} className="text-ink3" />}</div>
                   <p className="font-semibold text-[15px] mt-2">{x.title} · {x.classes}</p>
                   <p className="text-[12.5px] text-ink3">{x.from} to {x.to} · {x.subjects} {x.subjects === 1 ? 'subject' : 'subjects'} · {x.students} students</p>
@@ -1226,7 +1226,7 @@ function OneAtATime({ rows, comps, vals, setVal, editable, isOpen, opens, onLock
           const xv = vals[s.id][x.k];
           return (
             <button key={x.k} onClick={() => (editable(x) ? setK(x.k) : isOpen(x) ? onLocked(s, x, xv) : null)} aria-pressed={k === x.k}
-              className={cx('rounded-2xl border-2 p-3 text-left transition', k === x.k && editable(x) ? 'border-brand bg-brand/5' : 'border-line', !isOpen(x) && 'opacity-60')}>
+              className={cx('rounded-2xl border-2 p-3 text-left transition', k === x.k && editable(x) ? 'border-brand bg-brand/5' : 'border-line', !isOpen(x) && 'opacity-90')}>
               <span className="text-[12px] text-ink3 font-semibold flex items-center gap-1">{!editable(x) && <I.Lock size={11} />}{x.label} / {x.max}</span>
               <span className={cx('block font-display text-[28px] font-semibold tnum leading-tight', cellError(xv || '', x) && editable(x) && 'text-bad', CODES.includes(xv) && 'text-info')}>{isOpen(x) ? xv || '—' : '—'}</span>
               {!isOpen(x) && <span className="text-[11.5px] text-ink3">Opens {opens}</span>}

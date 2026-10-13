@@ -790,11 +790,11 @@ export function SuperAdminSignIn() {
           <span className="w-11 h-11 rounded-xl bg-white/15 grid place-items-center">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M5 14a7 7 0 0 1 14 0" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" /><path d="M12 3.5v2M4.6 6.6l1.4 1.4M19.4 6.6 18 8" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /><path d="M3 17.5h18M6 21h12" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" /></svg>
           </span>
-          <span className="leading-tight"><span className="block font-display font-semibold text-lg">School OS Console</span><span className="block text-[13px] opacity-75">DREAM TEAM SERVICES</span></span>
+          <span className="leading-tight"><span className="block font-display font-semibold text-lg">School OS Console</span><span className="block text-[13px] opacity-90">DREAM TEAM SERVICES</span></span>
         </div>
         <div className="relative mt-auto max-w-md">
           <h1 className="font-display text-[44px] font-semibold leading-[1.05] tracking-tight">Every school, from one calm console.</h1>
-          <p className="mt-4 text-[16px] opacity-80 leading-relaxed">Add a school, hand over its first login, and help when a school asks. Student, fee and staff details stay inside each school.</p>
+          <p className="mt-4 text-[16px] opacity-90 leading-relaxed">Add a school, hand over its first login, and help when a school asks. Student, fee and staff details stay inside each school.</p>
         </div>
         <div className="relative mt-10 flex flex-col gap-3 max-w-sm">
           <div className="self-start rounded-2xl bg-white/12 backdrop-blur px-4 py-3 flex items-center gap-3 animate-rise" style={{ animationDelay: '.1s' }}>

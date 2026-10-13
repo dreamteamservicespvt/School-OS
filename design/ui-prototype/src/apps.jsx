@@ -31,7 +31,7 @@ function AppHead({ title, sub, right, children, pb = 'pb-16' }) {
       <div className="relative flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5 min-w-0">
           <span className="w-9 h-9 rounded-xl bg-white/15 grid place-items-center shrink-0"><Mark /></span>
-          <div className="min-w-0"><p className="font-display font-semibold text-[15px] leading-tight truncate">{title}</p><p className="text-[11.5px] opacity-75 truncate">{sub}</p></div>
+          <div className="min-w-0"><p className="font-display font-semibold text-[15px] leading-tight truncate">{title}</p><p className="text-[11.5px] opacity-90 truncate">{sub}</p></div>
         </div>
         {right}
       </div>
@@ -41,7 +41,7 @@ function AppHead({ title, sub, right, children, pb = 'pb-16' }) {
 }
 function ExitPreview() {
   const { go } = useNav();
-  return <button onClick={() => go('dashboard')} className="@lg:hidden shrink-0 text-[12px] font-semibold opacity-80 h-8 px-2.5 rounded-lg bg-white/10">Exit preview</button>;
+  return <button onClick={() => go('dashboard')} className="@lg:hidden shrink-0 text-[12px] font-semibold opacity-90 h-8 px-2.5 rounded-lg bg-white/10">Exit preview</button>;
 }
 
 // Explanation next to the phone on computers (same as Parent Link)
@@ -247,7 +247,7 @@ function DriverSignIn({ onDone }) {
   return (
     <div className="pb-10">
       <AppHead title="School OS Driver" sub={SCHOOL.name} right={<ExitPreview />}>
-        <p className="relative mt-5 text-[14px] opacity-80">Namaste,</p>
+        <p className="relative mt-5 text-[14px] opacity-90">Namaste,</p>
         <h1 className="relative font-display text-[26px] font-semibold leading-tight">Sign in to see your trips</h1>
       </AppHead>
       <div className="px-4 -mt-12 relative flex flex-col gap-4">
@@ -313,10 +313,10 @@ function DriverHome({ done, onStart, onSignOut }) {
   return (
     <div className="pb-10">
       <AppHead title="School OS Driver" sub={SCHOOL.name}
-        right={<button onClick={onSignOut} className="shrink-0 text-[12px] font-semibold opacity-80 h-8 px-2.5 rounded-lg bg-white/10 inline-flex items-center gap-1.5"><I.LogOut size={14} />Sign out</button>}>
-        <p className="relative mt-5 text-[14px] opacity-80">Namaste,</p>
+        right={<button onClick={onSignOut} className="shrink-0 text-[12px] font-semibold opacity-90 h-8 px-2.5 rounded-lg bg-white/10 inline-flex items-center gap-1.5"><I.LogOut size={14} />Sign out</button>}>
+        <p className="relative mt-5 text-[14px] opacity-90">Namaste,</p>
         <h1 className="relative font-display text-[26px] font-semibold leading-tight">{DRIVER.name}</h1>
-        <p className="relative text-[13px] opacity-80 mt-0.5">{DRIVER.bus} · <span className="tnum">{DRIVER.reg}</span> · {DRIVER.route}</p>
+        <p className="relative text-[13px] opacity-90 mt-0.5">{DRIVER.bus} · <span className="tnum">{DRIVER.reg}</span> · {DRIVER.route}</p>
       </AppHead>
       <div className="px-4 -mt-12 relative flex flex-col gap-4">
         <section className={CARD}>
@@ -447,9 +447,9 @@ function DriverTrip({ offline, waiting, setNet, bump, onEnd }) {
         right={
           <button onClick={() => setNet(!offline)} title="Design preview: tap to switch the phone’s internet off or on" aria-label={offline ? 'Offline. Design preview: tap to go back online' : 'Live. Design preview: tap to go offline'}
             className={cx('shrink-0 inline-flex items-center gap-2 h-7 px-2.5 rounded-full text-[12px] font-semibold', offline ? 'bg-warn text-surface' : 'bg-white/15')}>
-            {offline ? <><I.WifiOff size={13} />Offline</> : <><span className="relative flex w-2 h-2"><span className="absolute inset-0 rounded-full bg-current animate-ping opacity-75" /><span className="relative w-2 h-2 rounded-full bg-current" /></span>Live</>}
+            {offline ? <><I.WifiOff size={13} />Offline</> : <><span className="relative flex w-2 h-2"><span className="absolute inset-0 rounded-full bg-current animate-ping opacity-90" /><span className="relative w-2 h-2 rounded-full bg-current" /></span>Live</>}
           </button>}>
-        <p className="relative mt-5 text-[14px] opacity-80 tnum">Started 3:50 PM</p>
+        <p className="relative mt-5 text-[14px] opacity-90 tnum">Started 3:50 PM</p>
         <h1 className="relative font-display text-[26px] font-semibold leading-tight">Afternoon drop</h1>
         <p className="relative mt-1 text-[13px] opacity-85 flex items-center gap-1.5">
           {offline ? <><I.CloudOff size={14} />Offline: location saved on this phone</> : <><I.Navigation size={14} />Sending bus location · every 30 sec</>}
@@ -467,7 +467,7 @@ function DriverTrip({ offline, waiting, setNet, bump, onEnd }) {
         {sent && (
           <div className="rounded-3xl bg-surface border-2 border-bad shadow-card p-5" role="alert">
             <div className="flex gap-3">
-              <span className="w-11 h-11 rounded-2xl bg-bad text-white grid place-items-center shrink-0"><I.Siren size={21} /></span>
+              <span className="w-11 h-11 rounded-2xl bg-bad text-surface grid place-items-center shrink-0"><I.Siren size={21} /></span>
               <div className="min-w-0"><p className="font-semibold text-[15px] text-bad">Emergency alert sent at {sent}</p><p className="text-[13.5px] text-ink2 mt-0.5">{INCHARGE.name} and the school office have your location. Stay with the children and keep this phone on.</p></div>
             </div>
             <div className="flex flex-col gap-2 mt-4">
@@ -684,7 +684,7 @@ function DriverSummary({ sum, offline, waiting, onBack }) {
   return (
     <div className="pb-10">
       <AppHead title="School OS Driver" sub={SCHOOL.name} right={<ExitPreview />}>
-        <p className="relative mt-5 text-[14px] opacity-80">Afternoon drop</p>
+        <p className="relative mt-5 text-[14px] opacity-90">Afternoon drop</p>
         <h1 className="relative font-display text-[26px] font-semibold leading-tight">Trip ended</h1>
       </AppHead>
       <div className="px-4 -mt-12 relative flex flex-col gap-4">
@@ -778,7 +778,7 @@ function ParentFirst() {
   return (
     <div className="pb-10">
       <AppHead title={SCHOOL.name} sub="Parent Link" right={<ExitPreview />}>
-        <p className="relative mt-5 text-[14px] opacity-80">{step === 'code' ? 'Welcome to' : 'Namaste,'}</p>
+        <p className="relative mt-5 text-[14px] opacity-90">{step === 'code' ? 'Welcome to' : 'Namaste,'}</p>
         <h1 className="relative font-display text-[26px] font-semibold leading-tight">{step === 'code' ? 'Your Parent Link' : PARENT.name}</h1>
         {step !== 'done' && (
           <div className="relative mt-3 flex items-center gap-2.5 text-[12px] font-semibold opacity-90">
@@ -954,15 +954,15 @@ export function AdminInvite() {
       <BrandSide>
         <div className="relative mt-auto max-w-md">
           <h1 className="font-display text-[44px] font-semibold leading-[1.05] tracking-tight">Welcome, Anita. Let’s get your school ready.</h1>
-          <p className="mt-4 text-[16px] opacity-80 leading-relaxed">You are the first School Admin of {SCHOOL.name}. Three short steps, about two minutes. Only you will know your password.</p>
+          <p className="mt-4 text-[16px] opacity-90 leading-relaxed">You are the first School Admin of {SCHOOL.name}. Three short steps, about two minutes. Only you will know your password.</p>
         </div>
         <ol className="relative mt-10 flex flex-col gap-3 max-w-sm">
           {INVITE_STEPS.map(([id, l], i) => {
             const st = step === 'expired' ? (i === 0 ? 'now' : 'next') : i < at ? 'done' : i === at ? 'now' : 'next';
             return (
-              <li key={id} className={cx('rounded-2xl bg-white/12 backdrop-blur px-4 py-3 flex items-center gap-3 text-[14px] transition', st === 'next' && 'opacity-60', st === 'now' && 'font-semibold')}>
+              <li key={id} className={cx('rounded-2xl bg-white/12 backdrop-blur px-4 py-3 flex items-center gap-3 text-[14px] transition', st === 'next' && 'opacity-90', st === 'now' && 'font-semibold')}>
                 <span className="w-7 h-7 rounded-full bg-white/15 grid place-items-center text-[13px] font-bold tnum shrink-0">{st === 'done' ? <I.Check size={15} strokeWidth={3} /> : i + 1}</span>
-                {l}{st === 'now' && <I.ChevronRight size={16} className="ml-auto opacity-70" />}
+                {l}{st === 'now' && <I.ChevronRight size={16} className="ml-auto opacity-90" />}
               </li>
             );
           })}
@@ -1143,7 +1143,7 @@ function PausedSignIn({ onAdmin }) {
       <BrandSide>
         <div className="relative mt-auto max-w-md">
           <h1 className="font-display text-[44px] font-semibold leading-[1.05] tracking-tight">Your whole school, in one calm place.</h1>
-          <p className="mt-4 text-[16px] opacity-80 leading-relaxed">Attendance, fees, students and parents. Everything you need today is on the first screen.</p>
+          <p className="mt-4 text-[16px] opacity-90 leading-relaxed">Attendance, fees, students and parents. Everything you need today is on the first screen.</p>
         </div>
       </BrandSide>
       <div className="flex flex-col px-5 py-8 @md:px-12 min-h-full">

@@ -459,8 +459,8 @@ function RoomsPage() {
         </>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
         <Band items={[
-          { label: 'Beds taken', big: <>{tot.taken}<span className="text-[0.55em] opacity-70 font-medium"> / {tot.beds}</span></>, foot: `${Math.round((tot.taken / tot.beds) * 100)}% full · both hostels` },
-          ...all.slice(0, 2).map((x) => ({ label: x.name, big: <>{x.c.taken}<span className="text-[0.55em] opacity-70 font-medium"> / {x.c.beds}</span></>, foot: sc.sees(x.id) ? `${x.c.free} free${x.c.blk ? ` · ${x.c.blk} blocked` : ''} · ${x.wardens.join(', ') || 'no warden yet'}` : `${x.c.free} free · totals only`, onClick: sc.sees(x.id) ? () => { setH(x.id); setFloor('all'); } : undefined })),
+          { label: 'Beds taken', big: <>{tot.taken}<span className="text-[0.55em] opacity-90 font-medium"> / {tot.beds}</span></>, foot: `${Math.round((tot.taken / tot.beds) * 100)}% full · both hostels` },
+          ...all.slice(0, 2).map((x) => ({ label: x.name, big: <>{x.c.taken}<span className="text-[0.55em] opacity-90 font-medium"> / {x.c.beds}</span></>, foot: sc.sees(x.id) ? `${x.c.free} free${x.c.blk ? ` · ${x.c.blk} blocked` : ''} · ${x.wardens.join(', ') || 'no warden yet'}` : `${x.c.free} free · totals only`, onClick: sc.sees(x.id) ? () => { setH(x.id); setFloor('all'); } : undefined })),
           { label: 'Free beds', big: String(tot.free), foot: `${tot.blk} blocked for repair` },
         ]} />
 
@@ -1516,7 +1516,7 @@ function PassSheet({ open, onClose, res, passes, onSave, onUndo }) {
         {who ? (
           <div className="flex flex-wrap gap-2">
             {who.auth.map((a, i) => (
-              <button type="button" key={i} onClick={() => setGw(String(i))} className={cx('h-10 px-3.5 rounded-xl text-[13.5px] font-semibold border transition inline-flex items-center gap-2', gw === String(i) ? 'bg-ink text-bg border-ink' : 'bg-surface border-line text-ink2 hover:border-ink3/50')}>{a.name}<span className={cx('text-[11.5px]', gw === String(i) ? 'opacity-70' : 'text-ink3')}>{a.rel}</span></button>
+              <button type="button" key={i} onClick={() => setGw(String(i))} className={cx('h-10 px-3.5 rounded-xl text-[13.5px] font-semibold border transition inline-flex items-center gap-2', gw === String(i) ? 'bg-ink text-bg border-ink' : 'bg-surface border-line text-ink2 hover:border-ink3/50')}>{a.name}<span className={cx('text-[11.5px]', gw === String(i) ? 'opacity-90' : 'text-ink3')}>{a.rel}</span></button>
             ))}
             <button type="button" onClick={() => setGw('other')} className={cx('h-10 px-3.5 rounded-xl text-[13.5px] font-semibold border transition', gw === 'other' ? 'bg-ink text-bg border-ink' : 'bg-surface border-line text-ink2 hover:border-ink3/50')}>Someone else</button>
           </div>

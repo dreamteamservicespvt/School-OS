@@ -189,7 +189,7 @@ function ProfilePage() {
                     <button key={l} onClick={() => toggleLang(l)} aria-pressed={on}
                       className={cx('h-10 px-3 rounded-xl border text-[13.5px] font-semibold inline-flex items-center gap-2 transition',
                         on ? 'bg-brand/10 border-brand/30 text-brand' : 'bg-surface border-line text-ink2 hover:border-ink3/50')}>
-                      {on ? <I.Check size={15} strokeWidth={2.6} /> : <I.Plus size={15} />}{l}{script !== l && <span className="font-normal opacity-75">{script}</span>}
+                      {on ? <I.Check size={15} strokeWidth={2.6} /> : <I.Plus size={15} />}{l}{script !== l && <span className="font-normal opacity-90">{script}</span>}
                     </button>
                   );
                 })}
@@ -882,7 +882,7 @@ function MatrixView({ canEdit }) {
               <p className="eyebrow text-ink3 mb-2">Allowed actions</p>
               <div className="flex flex-wrap gap-1.5">
                 {['View', 'Create', 'Edit', 'Archive', 'Approve', 'Export', 'Print'].map((a) => (
-                  <Pill key={a} tone={ACTS[pick].includes(a) ? 'ok' : 'neutral'} className={ACTS[pick].includes(a) ? '' : 'line-through opacity-70'}>{a}</Pill>
+                  <Pill key={a} tone={ACTS[pick].includes(a) ? 'ok' : 'neutral'} className={ACTS[pick].includes(a) ? '' : 'line-through opacity-90'}>{a}</Pill>
                 ))}
               </div>
             </div>
@@ -1347,7 +1347,7 @@ function DocHeader({ title, variant = 'Classic', className, style, right }) {
           <MiniLogo inverse className="!w-[2.8em] !h-[2.8em]" />
           <div className="min-w-0 flex-1">
             <p className="font-display font-semibold text-[1.35em] leading-tight">Sunrise Public School</p>
-            <p className="text-[0.85em] opacity-80">Kukatpally, Hyderabad 500072 · 040 2305 4410</p>
+            <p className="text-[0.85em] opacity-90">Kukatpally, Hyderabad 500072 · 040 2305 4410</p>
           </div>
           {right}
         </div>
@@ -1461,7 +1461,7 @@ function IDCardDoc({ style, qr = true, variant }) {
       <div className="w-[20em] bg-surface border border-line rounded-[1em] overflow-hidden shadow-card text-ink leading-snug">
         <div className={cx('px-[1em] py-[0.8em] flex items-center gap-[0.6em]', variant === 'Classic' ? 'border-b-[0.2em] border-brand' : 'bg-brand text-brandink')}>
           <MiniLogo inverse={variant !== 'Classic'} className="!w-[2.6em] !h-[2.6em]" />
-          <div className="min-w-0"><p className="font-display font-semibold text-[1.15em] leading-tight">Sunrise Public School</p><p className="text-[0.75em] opacity-80">Kukatpally, Hyderabad · 040 2305 4410</p></div>
+          <div className="min-w-0"><p className="font-display font-semibold text-[1.15em] leading-tight">Sunrise Public School</p><p className="text-[0.75em] opacity-90">Kukatpally, Hyderabad · 040 2305 4410</p></div>
         </div>
         <div className="px-[1em] pt-[1em] pb-[0.8em] flex flex-col items-center text-center">
           <span className="rounded-[0.6em] bg-brand/10 text-brand grid place-items-center font-display font-bold text-[1.8em] border border-brand/20" style={{ width: '3.6em', height: '4.2em' }}>AS</span>

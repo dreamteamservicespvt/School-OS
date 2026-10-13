@@ -99,7 +99,7 @@ export function Students({ onAddStudent }) {
                 className={cx('h-10 px-3.5 rounded-xl text-[13.5px] font-semibold border transition inline-flex items-center gap-2',
                   on ? 'bg-ink text-bg border-ink' : 'bg-surface border-line text-ink2 hover:border-ink3/50 hover:text-ink')}>
                 {c.name}
-                <span className={cx('text-[11.5px] tnum', on ? 'opacity-70' : 'text-ink3')}>{c.id === 'all' ? POOL.length : counts[c.id] || 0}</span>
+                <span className={cx('text-[11.5px] tnum', on ? 'opacity-90' : 'text-ink3')}>{c.id === 'all' ? POOL.length : counts[c.id] || 0}</span>
               </button>
             );
           })}
@@ -411,7 +411,7 @@ export function StudentProfile({ id }) {
             </div>
           </div>
           {(collect || message || (reportOn && !R.full) || canEdit) && (
-            <div className="flex gap-2 relative">
+            <div className="flex flex-wrap gap-2 relative">
               {collect && <Button variant="primary" icon={I.IndianRupee} className="flex-1 @lg:flex-none" onClick={() => go('fees', { student: s.id })}>Collect fee</Button>}
               {reportOn && !R.full && <Button variant="secondary" icon={I.TriangleAlert} className="flex-1 @lg:flex-none" onClick={() => setReport(true)}>Report incident</Button>}
               {message && <Button variant={collect || (reportOn && !R.full) ? 'secondary' : 'primary'} icon={I.MessageCircle} className="flex-1 @lg:flex-none" onClick={() => toast({ title: `Message to ${s.father}`, body: 'Opening WhatsApp message with the school template', tone: 'info' })}>Message<span className="hidden @sm:inline">&nbsp;parent</span></Button>}

@@ -1410,7 +1410,7 @@ function ScheduleSheet({ open, onClose, onSave, name, edit, customNames }) {
             return (
               <button key={p.id} type="button" onClick={() => toggle(p.id)} aria-pressed={on}
                 className={cx('inline-flex items-center gap-2 h-10 pl-1.5 pr-3 rounded-full border text-[13.5px] font-semibold transition', no ? 'border-bad bg-bad/10 text-bad' : on ? 'border-brand bg-brand/10 text-brand' : 'border-line bg-surface text-ink2 hover:bg-sunken')}>
-                <Avatar name={p.name} size={28} />{p.id === 'me' ? 'Me' : p.name.split(' ')[0]}<span className="font-normal text-[12px] opacity-80 hidden @sm:inline">{p.role}</span>{on && <I.Check size={14} />}
+                <Avatar name={p.name} size={28} />{p.id === 'me' ? 'Me' : p.name.split(' ')[0]}<span className="font-normal text-[12px] opacity-90 hidden @sm:inline">{p.role}</span>{on && <I.Check size={14} />}
               </button>
             );
           })}
@@ -1479,7 +1479,7 @@ function Builder({ preset, canEdit, onSaved, onSchedule, names = [] }) {
           <ul className="px-3 pb-3">
             {fields.map((fl) => (
               <li key={fl[0]}>
-                <label className={cx('flex items-center gap-3 px-2 py-2 rounded-xl', locked(fl) ? 'opacity-60' : 'hover:bg-sunken/60 cursor-pointer')}>
+                <label className={cx('flex items-center gap-3 px-2 py-2 rounded-xl', locked(fl) ? 'opacity-90' : 'hover:bg-sunken/60 cursor-pointer')}>
                   {locked(fl) ? <I.Lock size={18} className="text-ink3" /> : <Checkbox label={fl[1]} checked={cols.has(fl[0])} onChange={() => setCols((x) => { const n = new Set(x); n.has(fl[0]) ? n.delete(fl[0]) : n.add(fl[0]); return n; })} />}
                   <span className="text-[14px] flex-1">{fl[1]}</span>
                   {locked(fl) && <span className="text-[12px] text-ink3">Not for your role</span>}

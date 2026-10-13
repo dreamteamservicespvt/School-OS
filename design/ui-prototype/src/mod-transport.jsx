@@ -301,12 +301,12 @@ function LivePage() {
   const bandItems = evening ? [
     { label: 'Evening drop', big: '3:50 PM', foot: 'All 6 buses leave together' },
     { label: 'Students to drop', big: '239', foot: '12 going home with parents' },
-    { label: 'Drivers ready', big: <>6<span className="text-[0.55em] opacity-70 font-medium"> / 6</span></>, foot: 'Bus 5: Bhikshapathi drives today' },
+    { label: 'Drivers ready', big: <>6<span className="text-[0.55em] opacity-90 font-medium"> / 6</span></>, foot: 'Bus 5: Bhikshapathi drives today' },
     { label: 'Alerts now', big: '0', foot: 'Nothing running yet' },
   ] : [
-    { label: 'Buses on a trip', big: <>5<span className="text-[0.55em] opacity-70 font-medium"> / 6</span></>, foot: 'Bus 1 reached school at 7:52 AM', onClick: () => setSel('R1') },
+    { label: 'Buses on a trip', big: <>5<span className="text-[0.55em] opacity-90 font-medium"> / 6</span></>, foot: 'Bus 1 reached school at 7:52 AM', onClick: () => setSel('R1') },
     { label: 'Students on board', big: '145', foot: '46 already at school' },
-    { label: 'On time', big: <>3<span className="text-[0.55em] opacity-70 font-medium"> of 5</span></>, foot: 'Bus 3 is 14 min late', onClick: () => setSel('R3') },
+    { label: 'On time', big: <>3<span className="text-[0.55em] opacity-90 font-medium"> of 5</span></>, foot: 'Bus 3 is 14 min late', onClick: () => setSel('R3') },
     { label: 'Alerts now', big: String(openAlerts.length), foot: openAlerts.length ? 'Bus 6 offline · Bus 3 late' : 'All clear', onClick: () => document.getElementById('tr-alerts')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) },
   ];
   const callDriver = (r) => toast({ title: `Calling ${r.driver}`, body: `${r.phone} · Bus ${r.num}`, tone: 'info' });
@@ -320,7 +320,7 @@ function LivePage() {
                 return (
                   <li key={r.id}>
                     <button onClick={() => setSel(r.id)} aria-pressed={on}
-                      className={cx('w-full text-left flex gap-3 px-3 py-3 rounded-xl transition', on ? 'bg-brand/8 ring-1 ring-brand/30' : 'hover:bg-sunken/70', !evening && l.state === 'offline' && 'opacity-70')}>
+                      className={cx('w-full text-left flex gap-3 px-3 py-3 rounded-xl transition', on ? 'bg-brand/8 ring-1 ring-brand/30' : 'hover:bg-sunken/70', !evening && l.state === 'offline' && 'opacity-90')}>
                       <BusBadge r={r} tone={s.tone} />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 justify-between">
@@ -1443,7 +1443,7 @@ function BusPassSheet({ list, onClose }) {
     <Sheet open={!!list} onClose={onClose} title={list.length > 1 ? `${list.length} bus passes` : 'Bus pass'} sub="Design from Settings, Document Designs · ID card size"
       footer={<><Button variant="ghost" onClick={onClose}>Cancel</Button><Button variant="primary" icon={I.Printer} onClick={() => { onClose(); toast({ title: `${list.length} bus ${list.length === 1 ? 'pass' : 'passes'} sent to the office printer`, body: 'Also saved as bus-passes.pdf' }); }}>Print {list.length} {list.length === 1 ? 'pass' : 'passes'}</Button></>}>
       <div className="mx-auto max-w-[320px] rounded-2xl border border-line overflow-hidden shadow-card">
-        <div className="bg-brand text-brandink px-4 py-3 relative overflow-hidden"><div className="absolute inset-0 dotgrid opacity-50" /><p className="relative font-display font-semibold text-[15px] leading-tight">Sunrise Public School</p><p className="relative text-[11.5px] opacity-80">Bus pass · 2026–27</p></div>
+        <div className="bg-brand text-brandink px-4 py-3 relative overflow-hidden"><div className="absolute inset-0 dotgrid opacity-50" /><p className="relative font-display font-semibold text-[15px] leading-tight">Sunrise Public School</p><p className="relative text-[11.5px] opacity-90">Bus pass · 2026–27</p></div>
         <div className="p-4 flex gap-3.5 bg-surface">
           <Avatar name={r0.s.name} size={64} />
           <div className="min-w-0 text-[13px]">

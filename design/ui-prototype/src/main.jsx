@@ -159,7 +159,7 @@ function Shell({ route }) {
   return (
     <div className="flex flex-col h-full">
       {support && (
-        <div className="shrink-0 bg-warn text-white px-4 py-2 flex items-center gap-3 text-[13px] font-semibold z-30">
+        <div className="shrink-0 bg-warn text-surface px-4 py-2 flex items-center gap-3 text-[13px] font-semibold z-30">
           <I.LifeBuoy size={16} className="shrink-0" />
           <span className="flex-1 min-w-0 truncate">Support access for {support.school}, ends {support.ends} · DREAM TEAM support ({support.by})</span>
           <button onClick={() => { rs.endSupport(); go('sa', { page: 'support' }); }} className="h-7 px-2.5 rounded-lg bg-white/20 hover:bg-white/30 shrink-0">End now</button>
@@ -303,9 +303,9 @@ function Review() {
                 {!JUMP_IDS.includes(screen) && <option value="">Jump to a screen</option>}
                 {JUMP.map(([g, items]) => <optgroup key={g} label={g}>{items.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</optgroup>)}
               </select>
-              <I.ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none opacity-70" />
+              <I.ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none opacity-90" />
             </div>
-            <label htmlFor="as" className="hidden md:inline opacity-70 font-semibold ml-1">View as</label>
+            <label htmlFor="as" className="hidden md:inline opacity-90 font-semibold ml-1">View as</label>
             <div className="relative min-w-0">
               <select id="as" value={who} onChange={(e) => pickRole(e.target.value)} className={sel} aria-label="View as">
                 <optgroup label="Ready roles">{ROLES.filter((r) => r.group === 'ready').map((r) => <option key={r.id} value={r.id}>{r.label} · {r.person.name}</option>)}</optgroup>
@@ -316,7 +316,7 @@ function Review() {
                   <option value="sa">DREAM TEAM · Super Admin console</option>
                 </optgroup>
               </select>
-              <I.ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none opacity-70" />
+              <I.ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none opacity-90" />
             </div>
             <span className="flex-1" />
             <button onClick={() => theme.setMode(theme.resolved === 'dark' ? 'light' : 'dark')} className="h-8 px-2.5 rounded-lg hover:bg-bg/10 inline-flex items-center gap-1.5 font-semibold shrink-0" aria-label="Switch light or dark">
@@ -326,7 +326,7 @@ function Review() {
               <div className="inline-flex p-0.5 rounded-lg bg-bg/10 shrink-0" role="radiogroup" aria-label="Preview size">
                 {[['computer', 'Computer', I.Monitor], ['phone', 'Phone', I.Smartphone]].map(([v, l, Ic]) => (
                   <button key={v} role="radio" aria-checked={device === v} onClick={() => setDevice(v)}
-                    className={cx('h-7 px-2.5 rounded-md inline-flex items-center gap-1.5 font-semibold transition', device === v ? 'bg-bg text-ink' : 'opacity-80 hover:opacity-100')}>
+                    className={cx('h-7 px-2.5 rounded-md inline-flex items-center gap-1.5 font-semibold transition', device === v ? 'bg-bg text-ink' : 'opacity-90 hover:opacity-100')}>
                     <Ic size={14} />{l}
                   </button>
                 ))}

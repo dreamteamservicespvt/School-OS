@@ -7,7 +7,7 @@ import { useNav, useTheme, useRole, approvalsFor } from './shell.jsx';
 // Royal blue is the school default (owner's choice, 12 Oct 2026), so it comes first
 export const DEFAULT_ACCENT = 'royal';
 export const ACCENTS = [
-  { id: 'royal', name: 'Royal blue', light: '37 88 216', dark: '118 158 255' },
+  { id: 'royal', name: 'Royal blue', light: '32 80 205', dark: '118 158 255' },
   { id: 'lagoon', name: 'Lagoon', light: '12 112 100', dark: '52 196 174' },
   { id: 'plum', name: 'Plum', light: '122 52 186', dark: '192 146 252' },
   { id: 'saffron', name: 'Saffron', light: '184 88 6', dark: '248 168 72' },

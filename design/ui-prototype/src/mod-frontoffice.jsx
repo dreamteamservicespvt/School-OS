@@ -214,7 +214,7 @@ function CameraBox({ taken, name, onTake, onRetake }) {
   if (taken) {
     return (
       <div className="rounded-xl border border-line p-3 flex items-center gap-3">
-        <span className="relative rounded-xl overflow-hidden bg-sunken p-1.5"><Avatar name={name || 'Visitor'} size={56} className="!rounded-lg" /><span className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-ok text-white grid place-items-center"><I.Check size={10} strokeWidth={3} /></span></span>
+        <span className="relative rounded-xl overflow-hidden bg-sunken p-1.5"><Avatar name={name || 'Visitor'} size={56} className="!rounded-lg" /><span className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-ok text-surface grid place-items-center"><I.Check size={10} strokeWidth={3} /></span></span>
         <div className="min-w-0 flex-1"><p className="font-semibold text-[14px]">Photo taken at 10:44 AM</p><p className="text-[12.5px] text-ink3">Printed on the pass and kept with the visit</p></div>
         <Button type="button" size="sm" variant="ghost" icon={I.RotateCcw} onClick={onRetake}>Retake</Button>
       </div>
@@ -259,7 +259,7 @@ function PassSheet({ v, onClose, onCheckOut }) {
           </div>
           <div className="relative flex justify-center pb-4">
             <FakeQR size={140} faded={expired} />
-            {expired && <span className="absolute top-1/2 -translate-y-1/2 px-4 py-1.5 rounded-xl bg-bad text-white font-display font-semibold text-[20px] -rotate-6 shadow-pop">Expired</span>}
+            {expired && <span className="absolute top-1/2 -translate-y-1/2 px-4 py-1.5 rounded-xl bg-bad text-surface font-display font-semibold text-[20px] -rotate-6 shadow-pop">Expired</span>}
           </div>
         </div>
         {canEdit && v.status === 'In' && (
@@ -501,7 +501,7 @@ function DeskPage() {
           { label: 'In the building now', big: String(inside.length), foot: `${inside.filter((v) => v.reply === 'Wait').length} waiting to be called in`, onClick: has('visitors') ? () => go('frontoffice', { page: 'visitors' }) : undefined },
           { label: 'Visitors today', big: String(visitors.filter((v) => v.date === 'Today').length), foot: 'Average 26 minutes inside', onClick: has('visitors') ? () => go('frontoffice', { page: 'visitors' }) : undefined },
           ...(has('appointments') ? [{ label: 'Appointments today', big: String(APPTS_TODAY.length), foot: `Next: ${upcoming[1]?.t || upcoming[0]?.t}, ${upcoming[1]?.visitor || ''}`, onClick: () => go('frontoffice', { page: 'appointments' }) }] : []),
-          ...(has('enquiries') ? [{ label: 'Calls and enquiries', big: <>{CALLS_TODAY.length + 5}<span className="text-[0.55em] opacity-70 font-medium"> calls · {ENQ.filter((e) => e.iso === TODAY_ISO).length} enq.</span></>, foot: '2 follow-ups due today', onClick: () => go('frontoffice', { page: 'enquiries' }) }] : []),
+          ...(has('enquiries') ? [{ label: 'Calls and enquiries', big: <>{CALLS_TODAY.length + 5}<span className="text-[0.55em] opacity-90 font-medium"> calls · {ENQ.filter((e) => e.iso === TODAY_ISO).length} enq.</span></>, foot: '2 follow-ups due today', onClick: () => go('frontoffice', { page: 'enquiries' }) }] : []),
         ]} />
 
         {canEdit && (
@@ -936,7 +936,7 @@ function Release({ s, canRelease, gate, seesPhones, onReleased }) {
                 <C key={x.name} {...(C === 'button' ? { type: 'button', role: 'radio', 'aria-checked': on, onClick: () => { setWho(x.name); setPhoto(false); setCodeSent(false); setCode(''); } } : {})}
                   className={cx('text-left rounded-2xl border p-3 flex items-center gap-3 transition',
                     x.restricted ? 'border-bad/40 bg-bad/[.06]' : on ? 'border-brand ring-1 ring-brand bg-brand/[.05]' : 'border-line', C === 'button' && !on && 'hover:border-ink3/50')}>
-                  <span className="relative"><Avatar name={x.name} size={48} />{x.restricted && <span className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-bad text-white grid place-items-center ring-2 ring-surface"><I.Ban size={13} /></span>}</span>
+                  <span className="relative"><Avatar name={x.name} size={48} />{x.restricted && <span className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-bad text-surface grid place-items-center ring-2 ring-surface"><I.Ban size={13} /></span>}</span>
                   <span className="min-w-0 flex-1">
                     <span className={cx('block font-semibold text-[14.5px] truncate', x.restricted && 'text-bad')}>{x.name}</span>
                     <span className="block text-[12.5px] text-ink3">{x.rel} · <span className="tnum">{seesPhones ? x.phone : mask(x.phone)}</span></span>
@@ -1001,7 +1001,7 @@ function StopSheet({ open, onClose, s, list, gate, seesPhones }) {
   return (
     <Sheet open={open} onClose={onClose} title="" >
       <div className="flex flex-col items-center text-center pt-4 gap-3">
-        <span className="w-16 h-16 rounded-full bg-bad text-white grid place-items-center shadow-pop animate-pop"><I.Hand size={30} /></span>
+        <span className="w-16 h-16 rounded-full bg-bad text-surface grid place-items-center shadow-pop animate-pop"><I.Hand size={30} /></span>
         <h2 className="font-display text-[22px] font-semibold leading-tight">Do not release {s.first}</h2>
         <p className="text-[14.5px] text-ink2 max-w-sm">Not on {s.first}’s pickup list. Call a registered guardian, and tell the class teacher.</p>
       </div>
@@ -1230,7 +1230,7 @@ function AppointmentsPage() {
                     <div className={cx('rounded-xl px-3.5 py-2.5 flex items-center gap-2', SEG[x.kind], x.kind === 'teach' && 'bg-[repeating-linear-gradient(135deg,transparent,transparent_6px,rgb(var(--line)/.6)_6px,rgb(var(--line)/.6)_8px)]')}>
                       <div className="min-w-0 flex-1">
                         <p className="text-[13.5px] font-semibold leading-snug">{x.label}</p>
-                        <p className="text-[12px] opacity-80 tnum">{x.s} – {x.e}{x.kind === 'teach' ? ' · from the Time Table' : ''}</p>
+                        <p className="text-[12px] opacity-90 tnum">{x.s} – {x.e}{x.kind === 'teach' ? ' · from the Time Table' : ''}</p>
                       </div>
                       {x.kind === 'now' && <Pill tone="brand" dot>In progress</Pill>}
                       {x.status && x.kind !== 'now' && <Pill tone={AP_TONE[x.status]}>{x.status}</Pill>}

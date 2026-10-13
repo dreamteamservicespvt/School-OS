@@ -413,7 +413,7 @@ function SendMessage({ access }) {
               {ch.includes('WhatsApp') && (
                 <div className={cx('rounded-xl p-3.5 flex items-start gap-3', backupOk ? 'bg-sunken/70' : 'bg-sunken/40')}>
                   <div className="pt-0.5"><Checkbox id="send-backup" checked={backup && backupOk} onChange={(v) => backupOk && setBackup(v)} label="If not delivered or read, also send by SMS" /></div>
-                  <label htmlFor="send-backup" className={cx('text-[14px]', !backupOk && 'opacity-60')}>
+                  <label htmlFor="send-backup" className={cx('text-[14px]', !backupOk && 'opacity-90')}>
                     <b className="font-semibold">If not delivered or read, also send by SMS</b>
                     <span className="block text-[12.5px] text-ink3 mt-0.5">{backupOk ? 'After 2 hours, anyone whose WhatsApp failed or is unread gets the approved SMS version (DLT 1107161987654321098). Counted in the cost.' : 'SMS backup is for fee, attendance and result messages only.'}</span>
                   </label>
@@ -557,7 +557,7 @@ function SendMessage({ access }) {
             <div className="border-t border-line p-4 flex flex-col gap-2">
               <Button variant="primary" size="lg" className="w-full !h-14 !text-[16px]" icon={when === 'now' ? I.Send : I.CalendarClock} onClick={trySend}>{sendLabel}</Button>
               {tried && !valid && <p className="text-[12.5px] text-bad text-center">Fix the marked fields above first.</p>}
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button variant="ghost" className="flex-1" icon={I.Bookmark} onClick={() => { setGroupName(aud === 'classes' ? `${classLabel(classes)} parents` : aud === 'sections' ? `${secs.join(', ')} parents` : count.label); setGroup(true); }}>Save as group</Button>
                 <Button variant="ghost" className="flex-1" icon={I.Eye} onClick={() => setPi((pi + 1) % people.length)}>Next person</Button>
               </div>
@@ -623,7 +623,7 @@ function Toggles({ options, value, onToggle }) {
           <button key={o.value} aria-pressed={on} onClick={() => onToggle(o.value)}
             className={cx('h-10 px-3.5 rounded-xl text-[13.5px] font-semibold border transition inline-flex items-center gap-2', on ? 'bg-ink text-bg border-ink' : 'bg-surface border-line text-ink2 hover:border-ink3/50 hover:text-ink')}>
             {on && <I.Check size={14} strokeWidth={3} />}{o.label}
-            {o.count != null && <span className={cx('text-[11.5px] tnum', on ? 'opacity-70' : 'text-ink3')}>{o.count}</span>}
+            {o.count != null && <span className={cx('text-[11.5px] tnum', on ? 'opacity-90' : 'text-ink3')}>{o.count}</span>}
           </button>
         );
       })}
@@ -953,7 +953,7 @@ function Inbox({ access }) {
                       <span className="block text-[12.5px] text-ink3 truncate">{c.msgs[c.msgs.length - 1].text}</span>
                       <span className="flex items-center gap-1.5 mt-1">
                         <span className="text-[11.5px] text-ink3 truncate flex-1">{c.assigned ? `To ${c.assigned}` : 'Not assigned'}{c.resolved ? ' · resolved' : ''}</span>
-                        {c.unread > 0 && <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-ok text-white text-[11px] font-bold grid place-items-center tnum">{c.unread}</span>}
+                        {c.unread > 0 && <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-ok text-surface text-[11px] font-bold grid place-items-center tnum">{c.unread}</span>}
                       </span>
                     </span>
                   </button>
@@ -1778,7 +1778,7 @@ function ParentLinkPage() {
             <Card>
               <CardHead title="What parents see" sub="Switch parts on or off for the whole school" icon={I.Smartphone}
                 action={<Switch id="pl-on" on={on} onChange={(v) => { if (!canEdit) return; setOn(v); toast({ title: v ? 'Parent Link switched on' : 'Parent Link switched off', body: v ? 'Links work again.' : 'Parents see “Parent Link is paused by the school”.', tone: v ? 'ok' : 'info' }); }} label="Parent Link on" />} />
-              <ul className={cx('border-t border-line/70 divide-y divide-line/70', !on && 'opacity-50')}>
+              <ul className={cx('border-t border-line/70 divide-y divide-line/70', !on && 'opacity-90')}>
                 {SHOWS.map(([k, t, s]) => (
                   <li key={k}><SettingRow title={t} sub={s} id={`pl-${k}`}><Switch id={`pl-${k}`} on={shows[k] && on} label={t} onChange={(v) => { if (!canEdit || !on) return; setShows({ ...shows, [k]: v }); toast({ title: `${t}: ${v ? 'shown' : 'hidden'} on Parent Link`, body: 'Saved. Recorded in the audit log.' }); }} /></SettingRow></li>
                 ))}
@@ -1995,7 +1995,7 @@ function MessageSettings() {
           <Card>
             <CardHead title="Quiet hours" sub="No ordinary messages to parents at night" icon={I.Moon}
               action={<Switch id="qh-on" on={quiet} onChange={(v) => { if (!canEdit) return; setQuiet(v); toast({ title: `Quiet hours ${v ? 'on' : 'off'}`, body: 'Saved. Recorded in the audit log.' }); }} label="Quiet hours" />} />
-            <div className={cx('px-5 pb-5 flex flex-col gap-3', !quiet && 'opacity-50')}>
+            <div className={cx('px-5 pb-5 flex flex-col gap-3', !quiet && 'opacity-90')}>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="From" id="qh-from"><Select id="qh-from" value={qFrom} onChange={(v) => { setQFrom(v); toast({ title: `Quiet hours now ${v} to ${qTo}`, body: 'Saved. Recorded in the audit log.' }); }} options={['8:00 PM', '9:00 PM', '10:00 PM']} /></Field>
                 <Field label="Until" id="qh-to"><Select id="qh-to" value={qTo} onChange={(v) => { setQTo(v); toast({ title: `Quiet hours now ${qFrom} to ${v}`, body: 'Saved. Recorded in the audit log.' }); }} options={['6:00 AM', '7:00 AM', '8:00 AM']} /></Field>

@@ -701,7 +701,7 @@ function PTMPage({ access }) {
                             ) : (
                               <button onClick={() => setMeet({ ti, si, s: c.s })} className={cx('w-full h-11 rounded-lg px-1.5 text-left transition', notes[`${ti}-${si}`] ? 'bg-ok/12 text-ok' : 'bg-brand/12 text-brand', 'hover:brightness-95')}>
                                 <span className="block font-semibold truncate leading-tight">{firstL(c.s)}</span>
-                                <span className="flex items-center gap-1 text-[10.5px] opacity-80">{c.via === 'office' ? <I.Building2 size={10} /> : <I.Link size={10} />}{notes[`${ti}-${si}`] ? 'Notes saved' : c.via === 'office' ? 'Office' : 'Parent Link'}</span>
+                                <span className="flex items-center gap-1 text-[10.5px] opacity-90">{c.via === 'office' ? <I.Building2 size={10} /> : <I.Link size={10} />}{notes[`${ti}-${si}`] ? 'Notes saved' : c.via === 'office' ? 'Office' : 'Parent Link'}</span>
                               </button>
                             )}
                           </td>
@@ -1324,7 +1324,7 @@ function DailyActivities({ access }) {
                       <th key={a.id} className="px-1.5 py-2 font-semibold min-w-[96px]">
                         <button onClick={() => { setAct(a.id); setVal(a.opts[0]); }} className={cx('w-full rounded-lg px-1.5 py-1 text-left transition', act === a.id ? 'bg-brand/10 text-brand' : 'hover:bg-sunken')}>
                           <span className="flex items-center gap-1 whitespace-nowrap"><Icon name={a.icon} size={13} />{a.label.split(':')[0]}</span>
-                          <span className="block text-[11px] font-medium opacity-80 tnum">{a.time} · {done(a.id)}/{present.length}</span>
+                          <span className="block text-[11px] font-medium opacity-90 tnum">{a.time} · {done(a.id)}/{present.length}</span>
                         </button>
                       </th>
                     ))}
@@ -1332,11 +1332,11 @@ function DailyActivities({ access }) {
                 </thead>
                 <tbody>
                   {KIDS.map((k) => (
-                    <tr key={k} className={cx('border-b border-line/60 last:border-0', absent.has(k) && 'opacity-50')}>
+                    <tr key={k} className={cx('border-b border-line/60 last:border-0', absent.has(k) && 'opacity-90')}>
                       <td className="sticky left-0 z-10 bg-surface px-4 py-2 font-medium whitespace-nowrap">{k}{absent.has(k) && <span className="text-bad text-[11.5px] font-semibold"> · absent</span>}</td>
                       {ACTS.map((a) => {
                         const v = log[k] && log[k][a.id];
-                        return <td key={a.id} className="px-1.5 py-1.5">{v ? <span className={cx('inline-block rounded-md px-1.5 py-0.5 text-[11.5px] font-semibold whitespace-nowrap', /not|Did not|Few|little|Stayed|Rested|Watched/i.test(v) ? 'bg-warn/12 text-warn' : 'bg-ok/12 text-ok')}>{v}</span> : <span className="text-ink3/60">—</span>}</td>;
+                        return <td key={a.id} className="px-1.5 py-1.5">{v ? <span className={cx('inline-block rounded-md px-1.5 py-0.5 text-[11.5px] font-semibold whitespace-nowrap', /not|Did not|Few|little|Stayed|Rested|Watched/i.test(v) ? 'bg-warn/12 text-warn' : 'bg-ok/12 text-ok')}>{v}</span> : <span className="text-ink3">—</span>}</td>;
                       })}
                     </tr>
                   ))}

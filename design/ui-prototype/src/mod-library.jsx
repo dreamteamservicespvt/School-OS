@@ -451,7 +451,7 @@ function IssueDesk({ onIssued }) {
       </section>
 
       {/* Step 2: book */}
-      <section className={cx(!member && 'opacity-50 pointer-events-none')} aria-disabled={!member}>
+      <section className={cx(!member && 'opacity-90 pointer-events-none')} aria-disabled={!member}>
         <p className="text-[13px] font-semibold text-ink2 mb-1.5 flex items-center gap-2"><span className="w-5 h-5 rounded-full bg-brand text-brandink text-[11px] font-bold grid place-items-center">2</span>Book</p>
         <ScanBox id="desk-book" value={bq} onChange={(v) => { setBq(v); if (!v) { setHit(null); setMiss(''); } }} placeholder="Scan the book, or type accession no. or ISBN" onCamera={() => setScan('book')} onEnter={() => findBook(bq)} big={false} />
         <div className="flex items-center gap-2 mt-2 flex-wrap text-[12.5px] text-ink3">
@@ -493,7 +493,7 @@ function IssueDesk({ onIssued }) {
       </section>
 
       {/* Step 3: due date and issue */}
-      <section className={cx(!canIssue && 'opacity-60')}>
+      <section className={cx(!canIssue && 'opacity-90')}>
         <Field label="Due date" id="desk-due" hint={member ? (dueInfo.moved ? `${loanDays} days for ${member.kind === 'Staff' ? 'staff' : 'students'} ends on ${dday(dueInfo.first)}, a holiday, so it moved to ${dday(dueInfo.off)}.` : `${loanDays} days for ${member.kind === 'Staff' ? 'staff' : 'students'} (Library Settings).`) : 'Fills in from the loan days in Library Settings'}>
           <Input id="desk-due" value={due} onChange={(e) => setDue(e.target.value)} className="tnum @md:w-56" disabled={!member} />
         </Field>
@@ -940,7 +940,7 @@ function MembersPage() {
             <CardHead title="Library card" sub="Design from Settings, Document Designs · ID card size" icon={I.IdCard} />
             <div className="px-5 pb-5 flex flex-col gap-4">
               <div className="mx-auto w-full max-w-[340px] rounded-2xl border border-line overflow-hidden shadow-card">
-                <div className="bg-brand text-brandink px-4 py-3 relative overflow-hidden"><div className="absolute inset-0 dotgrid opacity-50" /><p className="relative font-display font-semibold text-[15px] leading-tight">Sunrise Public School</p><p className="relative text-[11.5px] opacity-80">Library card · 2026–27</p></div>
+                <div className="bg-brand text-brandink px-4 py-3 relative overflow-hidden"><div className="absolute inset-0 dotgrid opacity-50" /><p className="relative font-display font-semibold text-[15px] leading-tight">Sunrise Public School</p><p className="relative text-[11.5px] opacity-90">Library card · 2026–27</p></div>
                 <div className="p-4 flex gap-3.5 bg-surface">
                   <Avatar name="Aarav Sharma" size={60} />
                   <div className="min-w-0 text-[13px] flex-1">

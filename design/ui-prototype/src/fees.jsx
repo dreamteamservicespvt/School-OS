@@ -172,7 +172,7 @@ function Collect({ id, onChange }) {
                   return (
                     <li key={r.id}>
                       <div onClick={() => !isPaid && toggle(r.id)} role={isPaid ? undefined : 'button'}
-                        className={cx('flex items-center gap-3.5 px-4 @md:px-5 py-3 border-b border-line/70 transition', isPaid ? 'opacity-60' : 'cursor-pointer hover:bg-sunken/60', on && 'bg-brand/5', r.status === 'Overdue' && 'shadow-[inset_3px_0_0_rgb(var(--bad))]')}>
+                        className={cx('flex items-center gap-3.5 px-4 @md:px-5 py-3 border-b border-line/70 transition', isPaid ? 'opacity-90' : 'cursor-pointer hover:bg-sunken/60', on && 'bg-brand/5', r.status === 'Overdue' && 'shadow-[inset_3px_0_0_rgb(var(--bad))]')}>
                         {isPaid ? <span className="w-5 h-5 rounded-md bg-ok/15 text-ok grid place-items-center"><I.Check size={13} strokeWidth={3} /></span> : <Checkbox checked={on} onChange={() => toggle(r.id)} label={`${r.head} ${r.inst}`} />}
                         <div className="min-w-0 flex-1">
                           <p className="font-semibold text-[14.5px]">{r.head} <span className="text-ink3 font-normal">· {r.inst}</span></p>

@@ -340,7 +340,7 @@ function GiveHomeworkSheet({ open, onClose, sc, onSent }) {
             <div className="flex flex-wrap gap-1.5">
               {sc.classes.map((c) => (
                 <button key={c} onClick={() => setCls(c)} aria-pressed={cls === c} className={cx('h-10 px-3.5 rounded-xl text-[13.5px] font-semibold border transition inline-flex items-center gap-2', cls === c ? 'bg-ink text-bg border-ink' : 'bg-surface border-line text-ink2 hover:border-ink3/50')}>
-                  {c}<span className={cx('text-[11.5px] tnum', cls === c ? 'opacity-70' : 'text-ink3')}>{STRENGTH[c]}</span>
+                  {c}<span className={cx('text-[11.5px] tnum', cls === c ? 'opacity-90' : 'text-ink3')}>{STRENGTH[c]}</span>
                 </button>
               ))}
             </div>
@@ -508,7 +508,7 @@ function SubmitSheet({ hw, onClose, onDone }) {
     <Sheet open={!!hw} onClose={close} title={done ? '' : `Hand in: ${hw.title}`} sub={done ? '' : `${hw.sub} · due ${hw.due}`}>
       {done ? (
         <div className="flex flex-col items-center text-center pt-6 pb-2">
-          <span className="w-16 h-16 rounded-full bg-ok text-white grid place-items-center animate-pop shadow-pop"><I.Check size={34} strokeWidth={3} /></span>
+          <span className="w-16 h-16 rounded-full bg-ok text-surface grid place-items-center animate-pop shadow-pop"><I.Check size={34} strokeWidth={3} /></span>
           <h2 className="font-display text-[24px] font-semibold mt-4">Handed in</h2>
           <p className="text-ink3 text-[14px] mt-1">Today at 10:45 AM · on time · {files.length} {files.length === 1 ? 'file' : 'files'}</p>
           <p className="text-ink2 text-[14px] mt-3 max-w-xs">{hw.by} will check it. You will see the score and feedback in My homework.</p>
@@ -1241,7 +1241,7 @@ function DiscussionsPage({ access }) {
               <ul className="px-2 pb-2">
                 {sorted.map((t) => (
                   <li key={t.id}>
-                    <div className={cx('flex items-center gap-3 px-3 py-3 rounded-xl', t.hidden ? 'opacity-60' : 'hover:bg-sunken/70')}>
+                    <div className={cx('flex items-center gap-3 px-3 py-3 rounded-xl', t.hidden ? 'opacity-90' : 'hover:bg-sunken/70')}>
                       <Avatar name={t.by} size={36} />
                       <button disabled={!!t.hidden} onClick={() => setTid(t.id)} className="min-w-0 flex-1 text-left">
                         <p className="font-semibold text-[14.5px] leading-snug flex items-center gap-1.5 flex-wrap">{t.pinned && <I.Pin size={14} className="text-brand" />}{t.locked && <I.Lock size={13} className="text-ink3" />}{t.hidden ? <span className="italic font-normal text-ink3">Hidden by the teacher · {t.hidden}</span> : t.title}</p>

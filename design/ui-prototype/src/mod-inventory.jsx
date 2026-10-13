@@ -242,7 +242,7 @@ function CameraBox({ taken, onTake, onRetake, what = 'photo' }) {
       <div className="rounded-xl border border-line p-3 flex items-center gap-3">
         <span className="w-16 h-16 rounded-xl bg-sunken text-ink3 grid place-items-center shrink-0 relative overflow-hidden">
           <I.Image size={24} />
-          <span className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-ok text-white grid place-items-center"><I.Check size={10} strokeWidth={3} /></span>
+          <span className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-ok text-surface grid place-items-center"><I.Check size={10} strokeWidth={3} /></span>
         </span>
         <div className="min-w-0 flex-1"><p className="font-semibold text-[14px]">Photo added</p><p className="text-[12.5px] text-ink3">IMG_20261009_1044.jpg · 1.2 MB</p></div>
         <Button type="button" size="sm" variant="ghost" icon={I.RotateCcw} onClick={onRetake}>Retake</Button>
@@ -1854,7 +1854,7 @@ function InvReportsPage() {
                   <li key={x.id}>
                     <button onClick={() => setCur(x.id)} className={cx('w-full text-left px-3 py-2 rounded-xl transition', r.id === x.id ? 'bg-brand/10 text-brand' : 'hover:bg-sunken/70')}>
                       <p className="font-semibold text-[14px] leading-snug">{x.name}</p>
-                      <p className={cx('text-[12.5px]', r.id === x.id ? 'text-brand/80' : 'text-ink3')}>{x.what}</p>
+                      <p className={cx('text-[12.5px]', r.id === x.id ? 'text-brand' : 'text-ink3')}>{x.what}</p>
                     </button>
                   </li>
                 ))}

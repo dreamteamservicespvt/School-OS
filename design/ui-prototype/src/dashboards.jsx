@@ -464,7 +464,7 @@ const HOMES = {
     first: <TodayClasses rows={IMRAN_DAY} taken={taken} />,
     band: [
       { label: 'Classes today', big: '6', foot: 'Next: 7 B at 11:15', to: 'academic.timetable' },
-      { label: 'Attendance taken', big: <>2<span className="text-[0.55em] opacity-70 font-medium"> / 6</span></>, foot: '6 B is waiting now', to: 'attendance.take' },
+      { label: 'Attendance taken', big: <>2<span className="text-[0.55em] opacity-90 font-medium"> / 6</span></>, foot: '6 B is waiting now', to: 'attendance.take' },
       { label: 'Homework to check', big: '14', foot: 'Maths 6 A · Exercise 4.1', to: 'homework.submissions' },
       { label: 'Parent messages', big: '3', foot: '2 about the half-yearly', to: 'communication.inbox' },
     ],
@@ -500,7 +500,7 @@ const HOMES = {
       { label: '7 B today', big: 'Not taken', foot: '38 students · locks 11:00 AM', to: 'attendance.take' },
       { label: 'Leave requests', big: '2', foot: 'Aarav Sharma, Harini Reddy', to: 'attendance.leave' },
       { label: 'Homework to check', big: '22', foot: 'Science 8 B · Worksheet 3', to: 'homework.submissions' },
-      { label: 'Report card remarks', big: <>0<span className="text-[0.55em] opacity-70 font-medium"> / 38</span></>, foot: 'Due 20 Oct', to: 'exams.reportcards' },
+      { label: 'Report card remarks', big: <>0<span className="text-[0.55em] opacity-90 font-medium"> / 38</span></>, foot: 'Due 20 Oct', to: 'exams.reportcards' },
     ],
     attention: [
       { tone: 'bad', icon: 'CalendarCheck2', title: 'Take attendance for 7 B', detail: 'Locks at 11:00 AM · 1 student on approved leave', action: 'Take now', to: 'attendance.take' },
@@ -561,7 +561,7 @@ const HOMES = {
     period: { title: 'Trips in this period', icon: 'Bus', to: 'transport.reports', rows: [['Trips run', 36], ['Late trips', 0.6], ['On time', 98, 'pct'], ['Kilometres', 420]] },
     action: { label: 'See live buses', icon: I.Bus, to: 'transport.live' },
     band: [
-      { label: 'Morning trips', big: <>18<span className="text-[0.55em] opacity-70 font-medium"> / 18</span></>, foot: 'Done · 1 late (Bus 3, 14 min)', to: 'transport.trips' },
+      { label: 'Morning trips', big: <>18<span className="text-[0.55em] opacity-90 font-medium"> / 18</span></>, foot: 'Done · 1 late (Bus 3, 14 min)', to: 'transport.trips' },
       { label: 'On buses today', big: '251', foot: '6 routes · 9 buses', to: 'transport.students' },
       { label: 'Afternoon trips', big: '3:50 PM', foot: '9 buses · drivers checked in', to: 'transport.live' },
       { label: 'Papers expiring', big: '2', foot: 'Bus 5 insurance on 21 Oct', to: 'transport.vehicles' },
@@ -621,9 +621,9 @@ const HOMES = {
     period: { title: 'Hostel in this period', sub: 'Boys’ hostel only', icon: 'BedDouble', to: 'hostel.reports', rows: [['Roll call present', 98, 'pct'], ['Outings', 1.5], ['Incidents', 0.4], ['Parent visits', 3]] },
     action: { label: 'Night roll call', icon: I.ListChecks, to: 'hostel.rollcall' },
     band: [
-      { label: 'Boarders', big: <>96<span className="text-[0.55em] opacity-70 font-medium"> boys</span></>, foot: '92 in school · 4 away', to: 'hostel.rooms' },
+      { label: 'Boarders', big: <>96<span className="text-[0.55em] opacity-90 font-medium"> boys</span></>, foot: '92 in school · 4 away', to: 'hostel.rooms' },
       { label: 'Outing requests', big: '3', foot: 'Weekend · waiting for you', to: 'hostel.outing' },
-      { label: 'Last roll call', big: <>94<span className="text-[0.55em] opacity-70 font-medium"> / 96</span></>, foot: '2 late returns (B-12, B-17)', to: 'hostel.rollcall' },
+      { label: 'Last roll call', big: <>94<span className="text-[0.55em] opacity-90 font-medium"> / 96</span></>, foot: '2 late returns (B-12, B-17)', to: 'hostel.rollcall' },
       { label: 'Mess today', big: '96 meals', foot: 'Lunch: veg pulao, dal, curd', to: 'hostel.mess' },
     ],
     attention: [
@@ -679,9 +679,9 @@ const HOMES = {
     period: { title: 'Teaching in this period', icon: 'BookOpenCheck', to: 'academic.substitutions', rows: [['Substitutions', 3.5], ['Periods covered', 99, 'pct'], ['Homework given', 37], ['Lesson plans checked', 5]] },
     action: { label: 'Arrange substitute', icon: I.ArrowRightLeft, to: 'academic.substitutions' },
     band: [
-      { label: 'Periods covered today', big: <>342<span className="text-[0.55em] opacity-70 font-medium"> / 344</span></>, foot: '2 substitutions still open', to: 'academic.substitutions' },
+      { label: 'Periods covered today', big: <>342<span className="text-[0.55em] opacity-90 font-medium"> / 344</span></>, foot: '2 substitutions still open', to: 'academic.substitutions' },
       { label: 'Syllabus done', big: '61%', foot: 'Before the half-yearly: 64% planned', to: 'academic.syllabus' },
-      { label: 'Question papers', big: <>34<span className="text-[0.55em] opacity-70 font-medium"> / 40</span></>, foot: '6 not in yet', to: 'exams.papers' },
+      { label: 'Question papers', big: <>34<span className="text-[0.55em] opacity-90 font-medium"> / 40</span></>, foot: '6 not in yet', to: 'exams.papers' },
       { label: 'Homework this week', big: '186', foot: 'Across 43 sections', to: 'homework.homework' },
     ],
     attention: [
@@ -710,7 +710,7 @@ const HOMES = {
     period: { title: 'Staff in this period', icon: 'Users', to: 'staff.leave', rows: [['Staff attendance', 95, 'pct'], ['Leave days taken', 3], ['Late arrivals', 1.5], ['Applications received', 2]] },
     action: { label: 'Staff leave', icon: I.CalendarDays, to: 'staff.leave' },
     band: [
-      { label: 'Staff present', big: <>82<span className="text-[0.55em] opacity-70 font-medium"> / 86</span></>, foot: '3 on leave · 1 not in yet', to: 'attendance.staff' },
+      { label: 'Staff present', big: <>82<span className="text-[0.55em] opacity-90 font-medium"> / 86</span></>, foot: '3 on leave · 1 not in yet', to: 'attendance.staff' },
       { label: 'Leave requests', big: '4', foot: 'Waiting with approvers', to: 'staff.leave' },
       { label: 'Documents expiring', big: '5', foot: 'This month', to: 'staff.documents' },
       { label: 'Open positions', big: '3', foot: '41 applicants', to: 'staff.recruitment' },
@@ -740,7 +740,7 @@ const HOMES = {
     period: { title: 'Office work in this period', icon: 'Briefcase', to: 'attendance.leave', rows: [['Student leave recorded', 3], ['Certificates given', 2], ['Applications received', 1.5], ['Admit cards printed', 40]] },
     action: { label: 'Record student leave', icon: I.CalendarDays, to: 'attendance.leave' },
     band: [
-      { label: 'Admit cards printed', big: <>412<span className="text-[0.55em] opacity-70 font-medium"> / 486</span></>, foot: 'Classes 6–10 · 74 left', to: 'exams.admitcards' },
+      { label: 'Admit cards printed', big: <>412<span className="text-[0.55em] opacity-90 font-medium"> / 486</span></>, foot: 'Classes 6–10 · 74 left', to: 'exams.admitcards' },
       { label: 'Leave to record', big: '3', foot: 'Parents called this morning', to: 'attendance.leave' },
       { label: 'Applications', big: '7', foot: '3 missing documents', to: 'admissions.applications' },
       { label: 'Certificates asked', big: '4', foot: '1 TC · 3 bonafide', to: 'students.certificates' },
@@ -768,9 +768,9 @@ const HOMES = {
     action: { label: 'Datesheet', icon: I.CalendarDays, to: 'exams.datesheet' },
     band: [
       { label: 'Half-yearly starts', big: 'Mon 12 Oct', foot: '3 days · Classes 6–10', to: 'exams.datesheet' },
-      { label: 'Question papers', big: <>34<span className="text-[0.55em] opacity-70 font-medium"> / 40</span></>, foot: '6 not in yet', to: 'exams.papers' },
-      { label: 'Admit cards', big: <>412<span className="text-[0.55em] opacity-70 font-medium"> / 486</span></>, foot: '74 held or not printed', to: 'exams.admitcards' },
-      { label: 'Seating plans', big: <>10<span className="text-[0.55em] opacity-70 font-medium"> / 12</span></>, foot: '9 C and 10 C missing', to: 'exams.datesheet' },
+      { label: 'Question papers', big: <>34<span className="text-[0.55em] opacity-90 font-medium"> / 40</span></>, foot: '6 not in yet', to: 'exams.papers' },
+      { label: 'Admit cards', big: <>412<span className="text-[0.55em] opacity-90 font-medium"> / 486</span></>, foot: '74 held or not printed', to: 'exams.admitcards' },
+      { label: 'Seating plans', big: <>10<span className="text-[0.55em] opacity-90 font-medium"> / 12</span></>, foot: '9 C and 10 C missing', to: 'exams.datesheet' },
     ],
     attention: [
       { tone: 'bad', icon: 'LayoutGrid', title: 'No seating plan for 9 C and 10 C', detail: 'Rooms 301 and 302 · 78 students', action: 'Make plan', to: 'exams.datesheet' },
@@ -1368,7 +1368,7 @@ export function SetupHome() {
       </div>
 
       <Band items={[
-        { label: 'Setup', big: <>{n}<span className="text-[0.55em] opacity-70 font-medium"> of {steps.length} done</span></>, foot: next ? `Next: ${next.label}` : 'All steps done' },
+        { label: 'Setup', big: <>{n}<span className="text-[0.55em] opacity-90 font-medium"> of {steps.length} done</span></>, foot: next ? `Next: ${next.label}` : 'All steps done' },
         { label: 'Trial', big: '23 days left', foot: 'Ends Sun 1 Nov 2026', onClick: () => setPlan(true) },
         { label: 'Staff logins', big: '84', foot: '61 have signed in', onClick: open('settings.users') ? () => go('settings', { page: 'users' }) : undefined },
         { label: 'Students', big: '1,236', foot: 'Imported from Excel on 8 Oct', onClick: open('students.list') ? () => go('students', { page: 'list' }) : undefined },

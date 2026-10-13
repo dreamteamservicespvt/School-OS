@@ -13,7 +13,7 @@ const BTN = {
   secondary: 'bg-surface text-ink border border-line hover:bg-sunken active:bg-line/60',
   soft: 'bg-brand/10 text-brand hover:bg-brand/15 active:bg-brand/20',
   ghost: 'text-ink2 hover:bg-sunken hover:text-ink active:bg-line/60',
-  danger: 'bg-bad text-white hover:brightness-110',
+  danger: 'bg-bad text-surface hover:brightness-110',
   dangerSoft: 'bg-bad/10 text-bad hover:bg-bad/15',
 };
 const SIZE = { sm: 'h-8 px-3 text-[13px] gap-1.5 rounded-lg', md: 'h-10 px-4 text-sm gap-2 rounded-xl', lg: 'h-12 px-5 text-[15px] gap-2 rounded-xl' };
@@ -39,7 +39,7 @@ export function IconButton({ icon: Icon, label, badge, className, size = 40, ...
       style={{ width: size, height: size }}>
       <Icon size={19} strokeWidth={2} />
       {badge ? (
-        <span className="absolute top-1 right-1 min-w-[17px] h-[17px] px-1 rounded-full bg-bad text-white text-[10px] font-bold grid place-items-center ring-2 ring-surface tnum">{badge}</span>
+        <span className="absolute top-1 right-1 min-w-[17px] h-[17px] px-1 rounded-full bg-bad text-surface text-[10px] font-bold grid place-items-center ring-2 ring-surface tnum">{badge}</span>
       ) : null}
     </button>
   );
@@ -150,7 +150,7 @@ export function Switch({ on, onChange, label, id }) {
 
 export function Segmented({ value, onChange, options, className, size = 'md' }) {
   return (
-    <div role="radiogroup" className={cx('inline-flex p-1 rounded-xl bg-sunken gap-1', className)}>
+    <div role="radiogroup" className={cx('inline-flex max-w-full p-1 rounded-xl bg-sunken gap-1', className)}>
       {options.map((o) => {
         const v = typeof o === 'string' ? o : o.value;
         const l = typeof o === 'string' ? o : o.label;
@@ -158,8 +158,8 @@ export function Segmented({ value, onChange, options, className, size = 'md' }) 
         const on = v === value;
         return (
           <button key={v} type="button" role="radio" aria-checked={on} onClick={() => onChange(v)}
-            className={cx('inline-flex items-center justify-center gap-1.5 rounded-lg font-semibold transition whitespace-nowrap flex-1',
-              size === 'sm' ? 'h-7 px-2.5 text-xs' : 'h-9 px-3.5 text-[13px]',
+            className={cx('inline-flex items-center justify-center gap-1.5 rounded-lg font-semibold transition text-center leading-tight flex-1 min-w-0',
+              size === 'sm' ? 'min-h-7 py-0.5 px-2.5 text-xs' : 'min-h-9 py-1 px-3.5 text-[13px]',
               on ? 'bg-surface text-ink shadow-card' : 'text-ink2 hover:text-ink')}>
             {Ic && <Ic size={15} />}{l}
           </button>
@@ -277,7 +277,7 @@ export function ToastHost({ children }) {
               <I size={19} className={cx('shrink-0', t.tone === 'ok' ? 'text-ok' : t.tone === 'bad' ? 'text-bad' : 'text-info')} style={{ filter: 'brightness(1.4)' }} />
               <div className="text-sm min-w-0 flex-1">
                 <p className="font-semibold">{t.title}</p>
-                {t.body && <p className="opacity-75 text-[13px]">{t.body}</p>}
+                {t.body && <p className="opacity-90 text-[13px]">{t.body}</p>}
               </div>
               {t.undo && (
                 <button onClick={() => { t.undo(); setItems((x) => x.filter((i) => i.id !== t.id)); }}

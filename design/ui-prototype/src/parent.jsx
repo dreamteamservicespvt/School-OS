@@ -49,11 +49,11 @@ function ParentPage() {
         <div className="relative flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <span className="w-9 h-9 rounded-xl bg-white/15 grid place-items-center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M5 14a7 7 0 0 1 14 0" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" /><path d="M12 3.5v2M4.6 6.6l1.4 1.4M19.4 6.6 18 8" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /><path d="M3 17.5h18M6 21h12" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" /></svg></span>
-            <div><p className="font-display font-semibold text-[15px] leading-tight">{SCHOOL.name}</p><p className="text-[11.5px] opacity-75">Parent Link</p></div>
+            <div><p className="font-display font-semibold text-[15px] leading-tight">{SCHOOL.name}</p><p className="text-[11.5px] opacity-90">Parent Link</p></div>
           </div>
-          <button onClick={() => go('dashboard')} className="@lg:hidden text-[12px] font-semibold opacity-80 h-8 px-2.5 rounded-lg bg-white/10">Exit preview</button>
+          <button onClick={() => go('dashboard')} className="@lg:hidden text-[12px] font-semibold opacity-90 h-8 px-2.5 rounded-lg bg-white/10">Exit preview</button>
         </div>
-        <p className="relative mt-5 text-[14px] opacity-80">Namaste,</p>
+        <p className="relative mt-5 text-[14px] opacity-90">Namaste,</p>
         <h1 className="relative font-display text-[26px] font-semibold leading-tight">{PARENT.name}</h1>
       </div>
 

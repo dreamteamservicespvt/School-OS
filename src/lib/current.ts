@@ -68,23 +68,33 @@ export const getCurrent = cache(async () => {
 
 export type Current = NonNullable<Awaited<ReturnType<typeof getCurrent>>>;
 
-/** For pages: the signed-in person, or a trip to the sign-in page. */
-export async function requireCurrent(): Promise<Current> {
+/** A school DREAM TEAM suspended or closed is paused: nobody works in it. */
+export const isPaused = (c: Pick<Current, "schoolStatus">) => c.schoolStatus === "SUSPENDED" || c.schoolStatus === "CLOSED";
+/** While paused, only a School Admin or Principal may still sign in, to pay or to download the school's data. */
+export const pausedAdmin = (c: Pick<Current, "roles">) => c.roles.some((r) => r.key === "school-admin" || r.key === "principal");
+
+/**
+ * For pages: the signed-in person, or a trip to the sign-in page. In a paused
+ * school everyone goes to /paused, except where `paused` lets them through:
+ * "admin" (Settings, for the data download) or "any" (signing out).
+ */
+export async function requireCurrent(opts: { paused?: "admin" | "any" } = {}): Promise<Current> {
   const current = await getCurrent();
   if (!current) redirect("/sign-in");
+  if (isPaused(current) && opts.paused !== "any" && !(opts.paused === "admin" && pausedAdmin(current))) redirect("/paused");
   return current;
 }
 
 /** For server actions that change something: checks the role on the server first. */
 export async function requireAction(module: ModuleKey, action: Action) {
-  const current = await requireCurrent();
+  const current = await requireCurrent({ paused: module === "settings" ? "admin" : undefined });
   const reach = requirePermission(current.permissions, module, action);
   return { current, reach };
 }
 
 /** For pages: the signed-in person, if their roles let them open this module; otherwise a plain-words "no access" page. */
 export async function requirePage(module: ModuleKey, action: Action = "view"): Promise<Current> {
-  const current = await requireCurrent();
+  const current = await requireCurrent({ paused: module === "settings" ? "admin" : undefined });
   if (reachFor(current.permissions, module, action) === "none") redirect(`/no-access?m=${module}`);
   const info = MODULES.find((m) => m.key === module);
   if (info?.optional && !current.modulesOn.has(module)) redirect(`/no-access?m=${module}&off=1`);

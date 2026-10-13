@@ -56,3 +56,37 @@ export async function withUser<T>(userId: string, work: (tx: Tx) => Promise<T>):
     return work(tx);
   });
 }
+
+// ---------------------------------------------------------------------------
+// Super Admin console (07-super-admin.md §8). The console's own records are
+// visible only while app.console is on. No school is chosen, so every school
+// record is invisible: the console never reads students, fees or staff.
+// ---------------------------------------------------------------------------
+
+/** The console's own records, with every school's records hidden. */
+export async function withConsole<T>(work: (tx: Tx) => Promise<T>, opts: WorkOptions = {}): Promise<T> {
+  return prisma.$transaction(
+    async (tx) => {
+      await tx.$executeRaw`SELECT set_config('app.console', 'on', true), set_config('app.school_id', '', true), set_config('app.user_id', '', true)`;
+      return work(tx);
+    },
+    { timeout: opts.timeout ?? 15_000, maxWait: 10_000 },
+  );
+}
+
+/**
+ * A console action on one school's own records: creating it, its School Admin
+ * logins and School Access, its status and details. Only that school's rows are
+ * visible. Callers touch only the records 07-super-admin.md lets the console
+ * change, never students, fees or staff.
+ */
+export async function withConsoleSchool<T>(schoolId: string, work: (tx: Tx) => Promise<T>, opts: WorkOptions = {}): Promise<T> {
+  const id = checkId(schoolId, "School");
+  return prisma.$transaction(
+    async (tx) => {
+      await tx.$executeRaw`SELECT set_config('app.console', 'on', true), set_config('app.school_id', ${id}, true), set_config('app.user_id', '', true)`;
+      return work(tx);
+    },
+    { timeout: opts.timeout ?? 15_000, maxWait: 10_000 },
+  );
+}

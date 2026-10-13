@@ -1,0 +1,415 @@
+// Super Admin console: DREAM TEAM SERVICES' own records (07-super-admin.md §10).
+//
+// None of these tables belongs to a school, and none has a school_id column.
+// Row-level security makes them visible only inside withConsole() and
+// withConsoleSchool() (src/lib/db.ts), so school pages can never read them,
+// and the console can never read a school's own records through them.
+// A school is referred to by `for_school_id`.
+
+enum ConsoleRole {
+  OWNER
+  ONBOARDING
+  SUPPORT
+}
+
+enum ConsoleUserStatus {
+  INVITED
+  ACTIVE
+  DISABLED
+}
+
+enum SchoolInviteKind {
+  INVITE
+  RESET
+}
+
+enum SubscriptionStatus {
+  PAID
+  DUE
+  GRACE
+  OVERDUE
+}
+
+enum PlatformInvoiceStatus {
+  /// Made by the software (six-month top-up); waits for the Owner's OK before it is sent.
+  WAITING
+  UNPAID
+  PAID
+  CANCELLED
+}
+
+/// Super Admin User: a DREAM TEAM person who uses the console.
+model SuperAdminUser {
+  id                String            @id @default(uuid()) @db.Uuid
+  name              String
+  /// 10-digit Indian mobile. The username at sign-in.
+  phone             String            @unique
+  email             String?
+  role              ConsoleRole
+  status            ConsoleUserStatus @default(INVITED)
+  passwordHash      String?           @map("password_hash")
+  inviteTokenHash   String?           @unique @map("invite_token_hash")
+  inviteExpiresAt   DateTime?         @map("invite_expires_at")
+  invitedById       String?           @map("invited_by_id") @db.Uuid
+  failedAttempts    Int               @default(0) @map("failed_attempts")
+  lockedUntil       DateTime?         @map("locked_until")
+  lastSignInAt      DateTime?         @map("last_sign_in_at")
+  passwordChangedAt DateTime?         @map("password_changed_at")
+  disabledAt        DateTime?         @map("disabled_at")
+  disabledReason    String?           @map("disabled_reason")
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+  archivedAt        DateTime?         @map("archived_at")
+
+  sessions ConsoleSession[]
+  codes    ConsoleCode[]
+  devices  ConsoleDevice[]
+
+  @@map("super_admin_user")
+}
+
+/// One signed-in console device. Only the token's hash is kept.
+model ConsoleSession {
+  id            String    @id @default(uuid()) @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  tokenHash     String    @unique @map("token_hash")
+  userAgent     String?   @map("user_agent")
+  ipAddress     String?   @map("ip_address")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  lastUsedAt    DateTime  @default(now()) @map("last_used_at")
+  /// 30 minutes after the last use.
+  expiresAt     DateTime  @map("expires_at")
+  revokedAt     DateTime? @map("revoked_at")
+  revokedReason String?   @map("revoked_reason")
+
+  user SuperAdminUser @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("console_session")
+}
+
+/// A one-time code for the console's two-step sign-in or a team welcome link.
+model ConsoleCode {
+  id             String    @id @default(uuid()) @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  /// "sign-in" or "welcome".
+  purpose        String
+  /// The browser holds this challenge token between the two steps; only its hash is kept.
+  challengeHash  String    @unique @map("challenge_hash")
+  codeHash       String    @map("code_hash")
+  sentTo         String    @map("sent_to")
+  attempts       Int       @default(0)
+  expiresAt      DateTime  @map("expires_at")
+  usedAt         DateTime? @map("used_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  user SuperAdminUser @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@map("console_code")
+}
+
+/// A device that passed the one-time code; it skips the code for 30 days.
+model ConsoleDevice {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  tokenHash  String    @unique @map("token_hash")
+  userAgent  String?   @map("user_agent")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  expiresAt  DateTime  @map("expires_at")
+  revokedAt  DateTime? @map("revoked_at")
+
+  user SuperAdminUser @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("console_device")
+}
+
+/// The console's own card for one school: what DREAM TEAM recorded when adding it,
+/// and a snapshot of counts only (never names, marks, fees or salaries).
+/// The id is the School's id.
+model ConsoleSchool {
+  id                 String       @id @db.Uuid
+  code               String       @unique
+  name               String
+  city               String?
+  state              String?
+  board              String?
+  schoolType         String?      @map("school_type")
+  phone              String?
+  /// The phone's last 10 digits, to find duplicates and search.
+  phoneDigits        String?      @map("phone_digits")
+  email              String?
+  address            String?
+  approxStudents     Int?         @map("approx_students")
+  groupId            String?      @map("group_id") @db.Uuid
+  groupName          String?      @map("group_name")
+  status             SchoolStatus @default(TRIAL)
+  statusSince        DateTime     @default(now()) @map("status_since")
+  /// A Closed or unpaid-trial school's data is kept until this day (90 days).
+  keepUntil          DateTime?    @map("keep_until") @db.Date
+  trialEndsOn        DateTime?    @map("trial_ends_on") @db.Date
+  startedAs          SchoolStatus @default(TRIAL) @map("started_as")
+  addedById          String?      @map("added_by_id") @db.Uuid
+  addedByName        String?      @map("added_by_name")
+  /// When any of its School Admins first signed in. Details are read-only after this.
+  firstAdminSignInAt DateTime?    @map("first_admin_sign_in_at")
+
+  // Counts only, measured from the school (src/lib/console/measure.ts).
+  activeStudents     Int          @default(0) @map("active_students")
+  staffLogins        Int          @default(0) @map("staff_logins")
+  lastActivityAt     DateTime?    @map("last_activity_at")
+  messagesThisMonth  Int          @default(0) @map("messages_this_month")
+  creditsWhatsapp    Int          @default(0) @map("credits_whatsapp")
+  creditsSms         Int          @default(0) @map("credits_sms")
+  modulesOn          String[]     @default([]) @map("modules_on")
+  campuses           Int          @default(1)
+  setupDone          Int          @default(0) @map("setup_done")
+  setupTotal         Int          @default(10) @map("setup_total")
+  /// [{ key, label, done }]
+  setupSteps         Json         @default("[]") @map("setup_steps")
+  setupChangedAt     DateTime?    @map("setup_changed_at")
+  /// Messages waiting more than 10 minutes, and failed in the last day (System alerts).
+  messagesStuck      Int          @default(0) @map("messages_stuck")
+  messagesFailed     Int          @default(0) @map("messages_failed")
+  jobsFailed         Int          @default(0) @map("jobs_failed")
+  /// { whatsapp: { sentToday, stuck, failed }, sms: {...}, email: {...} }
+  channelStats       Json         @default("{}") @map("channel_stats")
+  /// First active School Admin, for the Schools list.
+  adminName          String?      @map("admin_name")
+  adminPhone         String?      @map("admin_phone")
+  adminSignedIn      Boolean      @default(false) @map("admin_signed_in")
+  measuredAt         DateTime?    @map("measured_at")
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([phoneDigits])
+  @@map("console_school")
+}
+
+/// School Invite: a login invite (or a login reset) for a school's admin.
+/// The link is stored hashed; it also needs a one-time code sent to the admin's mobile.
+model SchoolInvite {
+  id            String           @id @default(uuid()) @db.Uuid
+  forSchoolId   String           @map("for_school_id") @db.Uuid
+  userLoginId   String           @map("user_login_id") @db.Uuid
+  kind          SchoolInviteKind @default(INVITE)
+  name          String
+  phone         String
+  email         String?
+  /// "school-admin" or "principal".
+  roleKey       String           @map("role_key")
+  channels      String[]
+  tokenHash     String           @unique @map("token_hash")
+  sentAt        DateTime         @default(now()) @map("sent_at")
+  expiresAt     DateTime         @map("expires_at")
+  openedAt      DateTime?        @map("opened_at")
+  codeHash      String?          @map("code_hash")
+  codeSentAt    DateTime?        @map("code_sent_at")
+  codeAttempts  Int              @default(0) @map("code_attempts")
+  codeOkAt      DateTime?        @map("code_ok_at")
+  usedAt        DateTime?        @map("used_at")
+  cancelledAt   DateTime?        @map("cancelled_at")
+  cancelReason  String?          @map("cancel_reason")
+  /// A newer link replaced this one (Resend).
+  replacedAt    DateTime?        @map("replaced_at")
+  sentById      String?          @map("sent_by_id") @db.Uuid
+  sentByName    String?          @map("sent_by_name")
+  createdAt     DateTime         @default(now()) @map("created_at")
+
+  @@index([forSchoolId, createdAt])
+  @@index([userLoginId])
+  @@map("school_invite")
+}
+
+/// School Status Change: one change of a school's status.
+model SchoolStatusChange {
+  id          String        @id @default(uuid()) @db.Uuid
+  forSchoolId String        @map("for_school_id") @db.Uuid
+  fromStatus  SchoolStatus? @map("from_status")
+  toStatus    SchoolStatus  @map("to_status")
+  reason      String
+  byId        String?       @map("by_id") @db.Uuid
+  byName      String        @map("by_name")
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  @@index([forSchoolId, createdAt])
+  @@map("school_status_change")
+}
+
+/// School Note: a short note the team writes about a school. Only DREAM TEAM sees it.
+model SchoolNote {
+  id          String    @id @default(uuid()) @db.Uuid
+  forSchoolId String    @map("for_school_id") @db.Uuid
+  text        String
+  byId        String?   @map("by_id") @db.Uuid
+  byName      String    @map("by_name")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  @@index([forSchoolId, createdAt])
+  @@map("school_note")
+}
+
+/// Plan: one price on the price list. A changed price is a new row with a later
+/// "valid from"; renewals use the price valid on their date, never a school mid-year.
+model Plan {
+  id                   String    @id @default(uuid()) @db.Uuid
+  /// essential, complete, hostel, transport
+  key                  String
+  name                 String
+  isAddOn              Boolean   @default(false) @map("is_add_on")
+  /// per-student (plans), per-school (Hostel), per-bus (Transport)
+  unit                 String
+  pricePaise           BigInt    @map("price_paise")
+  minStudents          Int       @default(0) @map("min_students")
+  /// Price per student above 1,000 students.
+  priceAbove1000Paise  BigInt?   @map("price_above_1000_paise")
+  creditsPerStudent    Int       @default(0) @map("credits_per_student")
+  storageGb            Int?      @map("storage_gb")
+  modules              String[]  @default([])
+  validFrom            DateTime  @map("valid_from") @db.Date
+  createdById          String?   @map("created_by_id") @db.Uuid
+  createdAt            DateTime  @default(now()) @map("created_at")
+
+  @@unique([key, validFrom])
+  @@map("plan")
+}
+
+/// Subscription: what one school pays for.
+model Subscription {
+  id                    String             @id @default(uuid()) @db.Uuid
+  forSchoolId           String             @unique @map("for_school_id") @db.Uuid
+  planKey               String             @map("plan_key")
+  hostel                Boolean            @default(false)
+  buses                 Int                @default(0)
+  studentsPaidFor       Int                @map("students_paid_for")
+  pricePerStudentPaise  BigInt             @map("price_per_student_paise")
+  discountPercent       Int                @default(0) @map("discount_percent")
+  /// "group" or "founding".
+  discountReason        String?            @map("discount_reason")
+  foundingNumber        Int?               @unique @map("founding_number")
+  priceLockedUntil      DateTime?          @map("price_locked_until") @db.Date
+  startOn               DateTime           @map("start_on") @db.Date
+  renewOn               DateTime           @map("renew_on") @db.Date
+  /// YEARLY or HALVES.
+  payIn                 String             @default("YEARLY") @map("pay_in")
+  status                SubscriptionStatus @default(DUE)
+  /// A downgrade waits for the renewal date.
+  nextPlanKey           String?            @map("next_plan_key")
+  nextHostel            Boolean?           @map("next_hostel")
+  sixMonthCheckedAt     DateTime?          @map("six_month_checked_at")
+  remindersSent         String[]           @default([]) @map("reminders_sent")
+  createdAt             DateTime           @default(now()) @map("created_at")
+  updatedAt             DateTime           @updatedAt @map("updated_at")
+
+  @@map("subscription")
+}
+
+/// Platform Invoice: one GST invoice from DREAM TEAM to a school. Never deleted;
+/// a wrong one is cancelled with a reason.
+model PlatformInvoice {
+  id               String                @id @default(uuid()) @db.Uuid
+  number           String                @unique
+  forSchoolId      String                @map("for_school_id") @db.Uuid
+  subscriptionId   String?               @map("subscription_id") @db.Uuid
+  /// NEW, RENEWAL, UPGRADE, TOPUP, SECOND_HALF, CREDITS
+  kind             String
+  /// [{ label, qty, ratePaise, amountPaise }] (paise as strings)
+  items            Json
+  subtotalPaise    BigInt                @map("subtotal_paise")
+  discountPaise    BigInt                @default(0) @map("discount_paise")
+  gstPaise         BigInt                @map("gst_paise")
+  totalPaise       BigInt                @map("total_paise")
+  students         Int?
+  periodFrom       DateTime?             @map("period_from") @db.Date
+  periodTo         DateTime?             @map("period_to") @db.Date
+  issuedOn         DateTime              @map("issued_on") @db.Date
+  dueOn            DateTime              @map("due_on") @db.Date
+  status           PlatformInvoiceStatus @default(UNPAID)
+  sentAt           DateTime?             @map("sent_at")
+  razorpayLinkId   String?               @unique @map("razorpay_link_id")
+  razorpayLinkUrl  String?               @map("razorpay_link_url")
+  paidAt           DateTime?             @map("paid_at")
+  /// RAZORPAY, BANK, CHEQUE
+  paidVia          String?               @map("paid_via")
+  paidRef          String?               @map("paid_ref")
+  markedPaidById   String?               @map("marked_paid_by_id") @db.Uuid
+  cancelledAt      DateTime?             @map("cancelled_at")
+  cancelReason     String?               @map("cancel_reason")
+  cancelledById    String?               @map("cancelled_by_id") @db.Uuid
+  createdById      String?               @map("created_by_id") @db.Uuid
+  createdAt        DateTime              @default(now()) @map("created_at")
+  updatedAt        DateTime              @updatedAt @map("updated_at")
+
+  @@index([forSchoolId, issuedOn])
+  @@index([status])
+  @@map("platform_invoice")
+}
+
+/// Running numbers for the console (invoice numbers), never reused.
+model ConsoleSequence {
+  key       String   @id
+  nextValue Int      @default(1) @map("next_value")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("console_sequence")
+}
+
+/// Console Activity Entry: one line of the Activity Log. Never edited or deleted.
+model ConsoleActivityEntry {
+  id          String   @id @default(uuid()) @db.Uuid
+  at          DateTime @default(now())
+  /// The Super Admin User, or null for the software itself.
+  actorId     String?  @map("actor_id") @db.Uuid
+  actorName   String   @map("actor_name")
+  actorRole   String?  @map("actor_role")
+  /// school, invite, login, status, billing, note, team, details, system
+  type        String
+  text        String
+  forSchoolId String?  @map("for_school_id") @db.Uuid
+  schoolName  String?  @map("school_name")
+  fromValue   String?  @map("from_value")
+  toValue     String?  @map("to_value")
+  before      Json?
+  after       Json?
+  ipAddress   String?  @map("ip_address")
+
+  @@index([at])
+  @@index([forSchoolId, at])
+  @@map("console_activity_entry")
+}
+
+/// A message the console sent (invites, codes, invoices, status notices).
+/// Links and codes are never stored.
+model ConsoleMessage {
+  id                String    @id @default(uuid()) @db.Uuid
+  forSchoolId       String?   @map("for_school_id") @db.Uuid
+  channel           String
+  to                String
+  purpose           String
+  text              String
+  /// SENT, TEST (no provider set up), FAILED
+  status            String
+  providerMessageId String?   @map("provider_message_id")
+  failReason        String?   @map("fail_reason")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  @@index([forSchoolId, createdAt])
+  @@map("console_message")
+}
+
+/// A bell notice for one console user.
+model ConsoleNotification {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  text      String
+  link      String?
+  tone      String    @default("info")
+  createdAt DateTime  @default(now()) @map("created_at")
+  readAt    DateTime? @map("read_at")
+
+  @@index([userId, readAt])
+  @@map("console_notification")
+}

@@ -62,8 +62,14 @@ model School {
   /// Settings, Modules On/Off: system preferences such as the week start day.
   preferences       Json         @default("{}")
   trialEndsOn       DateTime?    @map("trial_ends_on") @db.Date
+  /// Set by the Super Admin console while DREAM TEAM's invoice to the school is unpaid:
+  /// { invoiceNo, amountPaise, dueOn, payUrl, graceEndsOn }. Shown to the School Admin and Principal only.
+  billingNotice     Json?        @map("billing_notice")
   logoUrl           String?      @map("logo_url")
   address           String?
+  /// City and state, recorded by Add School in the console (07-super-admin.md §4).
+  city              String?
+  state             String?
   board             String?
   affiliationNumber String?      @map("affiliation_number")
   languages         String[]     @default(["en"])

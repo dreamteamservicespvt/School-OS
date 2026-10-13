@@ -5,7 +5,7 @@
 // action button that shows its problem in place.
 
 import { useActionState, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { BellRing, Camera, Check, CircleAlert, DoorOpen, LogOut, MessageCircle, RotateCcw, ScanFace, Send, type LucideIcon } from "lucide-react";
+import { BellRing, Camera, Check, CircleAlert, CircleX, Clock, DoorOpen, LogOut, MessageCircle, RotateCcw, ScanFace, Send, type LucideIcon } from "lucide-react";
 import { useTyped } from "@/components/ui/url-sheet";
 import { FieldShell, inputCls } from "@/components/ui/field";
 import { Segmented, type SegOption } from "@/components/ui/controls";
@@ -137,7 +137,7 @@ export function CameraBox({ name, who, required, error }: { name: string; who: s
 }
 
 type Act = (prev: FormState<unknown>, fd: FormData) => Promise<FormState<unknown>>;
-const ACT_ICONS = { door: DoorOpen, logout: LogOut, message: MessageCircle, send: Send, bell: BellRing, check: Check } satisfies Record<string, LucideIcon>;
+const ACT_ICONS = { door: DoorOpen, logout: LogOut, message: MessageCircle, send: Send, bell: BellRing, check: Check, clock: Clock, cancel: CircleX } satisfies Record<string, LucideIcon>;
 export type ActIcon = keyof typeof ACT_ICONS;
 
 /** A button that runs one server action (Check out, Let them out, Send code...). */

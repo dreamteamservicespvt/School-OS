@@ -428,3 +428,38 @@ describe("Admission Management records stay in their school", () => {
     await expect(withSchool(ctxA(), (tx) => tx.applicationFeePayment.create({ data: { schoolId: b.id, applicationId: ids.app, amountPaise: BigInt(1), mode: "cash" } }))).rejects.toThrow();
   });
 });
+
+describe("Front Office records stay in their school", () => {
+  it("school A cannot read, change or add to school B's visitors, gate log, gate passes, codes, notes, requests, calls, appointments, postal or settings", async () => {
+    const ctxB = { schoolId: b.id, userId: userB.id };
+    const day = new Date("2031-05-05T00:00:00Z");
+    const at = new Date("2031-05-05T05:00:00Z");
+    const someone = "00000000-0000-4000-8000-000000000001";
+    const ids = await withSchool(ctxB, async (tx) => {
+      await tx.frontOfficeSetting.create({ data: { schoolId: b.id } });
+      const visitor = await tx.visitorEntry.create({ data: { schoolId: b.id, passNo: "V-B-1", visitDate: day, name: "Visitor In B", phone: "9000000081", purpose: "Meeting", timeIn: at, passExpiresAt: at } });
+      await tx.gateEntry.create({ data: { schoolId: b.id, at, direction: "IN", kind: "person", who: "Only in B" } });
+      const pass = await tx.gatePass.create({ data: { schoolId: b.id, passNo: "GP-B-1", kind: "PICKUP", studentId: someone, reason: "Unwell", timeOut: at } });
+      await tx.pickupCode.create({ data: { schoolId: b.id, studentId: someone, guardianId: someone, codeHash: "x", expiresAt: at } });
+      await tx.frontOfficeNote.create({ data: { schoolId: b.id, text: "Only in B" } });
+      await tx.walkInRequest.create({ data: { schoolId: b.id, requestNo: "WR-B-1", fromName: "Parent In B", request: "TC copy", department: "Office", givenBy: "Desk" } });
+      await tx.callLogEntry.create({ data: { schoolId: b.id, at, direction: "IN", phone: "9000000081", name: "Caller In B", purpose: "Other" } });
+      await tx.appointment.create({ data: { schoolId: b.id, staffId: someone, date: day, startMin: 600, lengthMin: 15, visitorName: "Visitor In B", visitorPhone: "9000000081", purpose: "Meeting" } });
+      await tx.postalEntry.create({ data: { schoolId: b.id, entryNo: "PD-B-1", at, direction: "RECEIVED", itemType: "LETTER", party: "Sender In B", forText: "Office", status: "AT_DESK" } });
+      return { visitor: visitor.id, pass: pass.id };
+    });
+    await withSchool(ctxA(), async (tx) => {
+      const counts = await Promise.all([
+        tx.frontOfficeSetting.count({ where: { schoolId: b.id } }), tx.visitorEntry.count(), tx.gateEntry.count(), tx.gatePass.count(), tx.pickupCode.count(),
+        tx.frontOfficeNote.count(), tx.walkInRequest.count(), tx.callLogEntry.count(), tx.appointment.count(), tx.postalEntry.count(),
+      ]);
+      expect(counts).toEqual(Array(10).fill(0));
+      expect(await tx.visitorEntry.findUnique({ where: { id: ids.visitor } })).toBeNull();
+      expect(await tx.visitorEntry.findMany({ where: { phone: "9000000081" } })).toHaveLength(0);
+      expect((await tx.visitorEntry.updateMany({ where: { id: ids.visitor }, data: { timeOut: at } })).count).toBe(0);
+      expect((await tx.gatePass.updateMany({ where: { id: ids.pass }, data: { leftAt: at } })).count).toBe(0);
+    });
+    await expect(withSchool(ctxA(), (tx) => tx.visitorEntry.create({ data: { schoolId: b.id, passNo: "V-X", visitDate: day, name: "X", phone: "9000000082", purpose: "Meeting", timeIn: at, passExpiresAt: at } }))).rejects.toThrow();
+    await expect(withSchool(ctxA(), (tx) => tx.postalEntry.create({ data: { schoolId: b.id, entryNo: "PD-X", at, direction: "RECEIVED", itemType: "LETTER", party: "X", forText: "X", status: "AT_DESK" } }))).rejects.toThrow();
+  });
+});

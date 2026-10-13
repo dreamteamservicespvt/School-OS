@@ -227,7 +227,7 @@ function IssuePage() {
   const counts = { issued: 34 + today.issued.length - TODAY_ISSUED.length, returned: 28 + today.returned.length - TODAY_RETURNED.length, due: 12, overdue: 23 };
   return (
     <div>
-      <ModuleHead sub="Friday 9 Oct · scan the member’s card, then the book"
+      <ModuleHead sub={canEdit ? 'Friday 9 Oct · scan the member’s card, then the book' : 'Friday 9 Oct · what the library desk did today and what is overdue'}
         actions={<Button variant="secondary" icon={I.BookmarkPlus} onClick={() => setReserveOpen(true)}>Reservations · 6</Button>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
         <Stats items={[
@@ -237,18 +237,18 @@ function IssuePage() {
           { label: 'Overdue', value: String(counts.overdue), sub: '₹529 fines due in all', icon: I.TriangleAlert, tone: 'bad', onClick: () => setList('overdue') },
         ]} />
         <Split side={380} className="[&>*]:min-w-0">
-          <Card className="overflow-visible">
-            <div className="p-4 @md:p-5 pb-0 @md:pb-0">
-              <Segmented value={mode} onChange={setMode} className="w-full @md:w-auto" options={[{ value: 'issue', label: 'Issue a book', icon: I.ArrowRightLeft }, { value: 'return', label: 'Return a book', icon: I.CornerDownLeft }]} />
-            </div>
-            {!canEdit ? (
-              <Empty icon={I.Lock} title="The desk is for the Librarian" body="You can see today’s lists on the right." />
-            ) : mode === 'issue' ? (
-              <IssueDesk onIssued={(row) => { setToday((t) => ({ ...t, issued: [row, ...t.issued] })); setList('issued'); }} />
-            ) : (
-              <ReturnDesk onReturned={(row) => { setToday((t) => ({ ...t, returned: [row, ...t.returned] })); setList('returned'); }} />
-            )}
-          </Card>
+          {canEdit ? (
+            <Card className="overflow-visible">
+              <div className="p-4 @md:p-5 pb-0 @md:pb-0">
+                <Segmented value={mode} onChange={setMode} className="w-full @md:w-auto" options={[{ value: 'issue', label: 'Issue a book', icon: I.ArrowRightLeft }, { value: 'return', label: 'Return a book', icon: I.CornerDownLeft }]} />
+              </div>
+              {mode === 'issue' ? (
+                <IssueDesk onIssued={(row) => { setToday((t) => ({ ...t, issued: [row, ...t.issued] })); setList('issued'); }} />
+              ) : (
+                <ReturnDesk onReturned={(row) => { setToday((t) => ({ ...t, returned: [row, ...t.returned] })); setList('returned'); }} />
+              )}
+            </Card>
+          ) : <OverdueWatch />}
 
           <Card className="overflow-hidden">
             <CardHead title="Today at the desk" icon={I.ClipboardList} action={list === 'overdue' && canEdit && <Button size="sm" variant="soft" icon={I.Send} onClick={() => setRemind(true)}>Remind all</Button>} />
@@ -294,6 +294,29 @@ function IssuePage() {
         sub="19 parents get a WhatsApp message (SMS if not delivered). 4 staff members get it in the app. Sent messages cannot be taken back."
         confirmLabel="Send to 23 members" onConfirm={() => toast({ title: 'Overdue reminders sent to 23 members', body: '19 parents on WhatsApp · 4 staff in the app' })} />
     </div>
+  );
+}
+
+// For the Principal, School Admin and VP: what is overdue, without the issue and return desk
+function OverdueWatch() {
+  const toast = useToast();
+  const long = OVERDUE.filter((o) => o[3] > 7);
+  return (
+    <Card className="overflow-hidden">
+      <CardHead title="Overdue books" sub="23 books are late · the Librarian sends the reminders" icon={I.TriangleAlert}
+        action={<Button size="sm" variant="soft" icon={I.Send} onClick={() => toast({ title: 'Reminder sent to Padma Iyer', body: 'To follow up on the 23 overdue books, longest first' })}>Remind</Button>} />
+      <div className="px-5 pb-4"><HBars rows={[{ k: '1–7 days', v: 13, label: '13' }, { k: '8–14 days', v: 6, label: '6' }, { k: '15–30 days', v: 3, label: '3' }, { k: 'Over 30', v: 1, label: '1' }]} max={15} labelWidth={78} /></div>
+      <div className="border-t border-line/70">
+        <p className="eyebrow text-ink3 px-5 pt-3 pb-1">Late more than a week</p>
+        <ul className="px-2 pb-2">
+          {long.map(([book, who, grp, d]) => <DeskRow key={book + who} who={who} title={book} sub={`${who} · ${grp}`} note={`${d} days late · ${inr(Math.min(FINE_MAX, d * FINE_DAY))} so far`} tone="bad" />)}
+        </ul>
+      </div>
+      <dl className="grid grid-cols-2 border-t border-line/70 text-[13px]">
+        <div className="px-5 py-3 border-r border-line/70"><dt className="text-[11.5px] text-ink3 font-semibold">Fines still due</dt><dd className="font-semibold tnum text-warn">{inr(529)}</dd></div>
+        <div className="px-5 py-3"><dt className="text-[11.5px] text-ink3 font-semibold">Members waiting for a book</dt><dd className="font-semibold tnum">6</dd></div>
+      </dl>
+    </Card>
   );
 }
 
@@ -610,6 +633,7 @@ function ReturnDesk({ onReturned }) {
 
 function ReservationsSheet({ open, onClose }) {
   const toast = useToast();
+  const canEdit = useCanEdit();
   const rows = BOOKS.filter((b) => b.reserve?.length);
   return (
     <Sheet open={open} onClose={onClose} title="Reservations" sub="First come, first served (Library Settings). The first in the queue gets the next returned copy." wide>
@@ -623,7 +647,7 @@ function ReservationsSheet({ open, onClose }) {
                   <span className="w-6 h-6 rounded-full bg-sunken text-[12px] font-bold grid place-items-center tnum">{i + 1}</span>
                   <Avatar name={m.name} size={28} />
                   <span className="flex-1 min-w-0 text-[14px] truncate"><b className="font-semibold">{m.name}</b> <span className="text-ink3">· {m.kind === 'Staff' ? 'Staff' : m.group} · since {dshort(-(i * 3 + 2))}</span></span>
-                  <button onClick={() => toast({ title: `Reservation cancelled for ${m.name}`, body: b.title, undo: () => {} })} className="text-[12.5px] font-semibold text-ink3 hover:text-bad h-8 px-2 rounded-lg">Cancel</button>
+                  {canEdit && <button onClick={() => toast({ title: `Reservation cancelled for ${m.name}`, body: b.title, undo: () => {} })} className="text-[12.5px] font-semibold text-ink3 hover:text-bad h-8 px-2 rounded-lg">Cancel</button>}
                 </li>
               ); })}
             </ol>
@@ -643,6 +667,7 @@ function BooksPage({ params }) {
 function BookList() {
   const { go } = useNav();
   const toast = useToast();
+  const canEdit = useCanEdit();
   const [cat, setCat] = useState('all');
   const [q, setQ] = useState('');
   const [only, setOnly] = useState('all');
@@ -653,7 +678,7 @@ function BookList() {
   return (
     <div>
       <ModuleHead sub="3,215 titles · 6,842 copies · 412 out now"
-        actions={<>
+        actions={canEdit && <>
           <Button variant="secondary" icon={I.Upload} className="hidden @md:inline-flex" onClick={() => toast({ title: 'Import the catalogue from Excel', body: 'Download the template, upload, check every row, then import.', tone: 'info' })}>Import</Button>
           <Button variant="secondary" icon={I.Barcode} onClick={() => setLabels(true)}>Print labels</Button>
           <Button variant="primary" icon={I.BookPlus} onClick={() => setAdd(true)}>Add book</Button>
@@ -906,7 +931,7 @@ function MembersPage() {
   return (
     <div>
       <ModuleHead sub="Every student and staff member is a member. Limits come from Library Settings."
-        actions={<Button variant="primary" icon={I.IdCard} onClick={() => setPrint(true)}>Print library cards</Button>} />
+        actions={canEdit && <Button variant="primary" icon={I.IdCard} onClick={() => setPrint(true)}>Print library cards</Button>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
         <Card className="overflow-hidden">
           <Toolbar>
@@ -952,8 +977,9 @@ function MembersPage() {
                 </div>
               </div>
               <div className="rounded-xl bg-sunken p-3.5 flex items-center gap-3">
-                <Switch id="lib-onid" on={barcodeOnId} label="Library barcode on the ID card" onChange={(v) => { if (!canEdit) return; setBarcodeOnId(v); toast({ title: v ? 'Library barcode will print on student ID cards' : 'Separate library cards will be printed' }); }} />
-                <label htmlFor="lib-onid" className="text-[14px]"><b className="font-semibold">Put the barcode on the student ID card</b><span className="block text-[12.5px] text-ink3">Then students need no separate library card</span></label>
+                {canEdit && <Switch id="lib-onid" on={barcodeOnId} label="Library barcode on the ID card" onChange={(v) => { setBarcodeOnId(v); toast({ title: v ? 'Library barcode will print on student ID cards' : 'Separate library cards will be printed' }); }} />}
+                <label htmlFor="lib-onid" className="text-[14px] flex-1"><b className="font-semibold">Put the barcode on the student ID card</b><span className="block text-[12.5px] text-ink3">Then students need no separate library card</span></label>
+                {!canEdit && <Pill tone={barcodeOnId ? 'ok' : 'neutral'}>{barcodeOnId ? 'On' : 'Off'}</Pill>}
               </div>
             </div>
           </Card>
@@ -1050,13 +1076,14 @@ function FinesPage() {
   const days = periodDays(per);
   const due = fines.filter((f) => f.status === 'Due');
   const dueSum = due.reduce((a, f) => a + f.amt, 0);
-  const approver = role.id === 'principal' || role.id === 'schooladmin';
+  // Charges above ₹500 are approved by the Principal (Settings, Forms & Approvals), even though the page is View for them
+  const approver = role.id === 'principal';
   const rows = fines.filter((f) => f.iso >= per.from && f.iso <= per.to && (st === 'all' || f.status === st) && (!q || (f.m + f.book + f.acc).toLowerCase().includes(q.toLowerCase())));
   const setStatus = (f, status, paid) => { const before = fines; setFines((x) => x.map((y) => (y.id === f.id ? { ...y, status, paid } : y))); return before; };
   return (
     <div>
       <ModuleHead sub="Late fines are worked out by themselves on return. Students pay theirs with their fees."
-        actions={<>
+        actions={canEdit && <>
           <Button variant="secondary" icon={I.ScanLine} onClick={() => { setView('stock'); setScan(true); }}>Continue stock check</Button>
           <Button variant="primary" icon={I.BookX} onClick={() => setLost(true)}>Mark lost or damaged</Button>
         </>} />
@@ -1085,9 +1112,9 @@ function FinesPage() {
                 { key: 'r', label: 'Reason', nowrap: true, render: (f) => <><p>{f.reason}</p><p className="text-[12px] text-ink3">{f.when}</p></> },
                 { key: 'a', label: 'Amount', align: 'right', render: (f) => <b className="font-semibold">{inr(f.amt)}</b> },
                 { key: 's', label: 'Status', render: (f) => <><Pill tone={fineTone[f.status]}>{f.status}</Pill>{f.paid && <p className="text-[12px] text-ink3 mt-0.5 max-w-[220px]">{f.paid}</p>}{f.status === 'Due' && <p className="text-[12px] text-ink3 mt-0.5">{f.staff ? 'Collect here or from salary' : 'Added to fees'}</p>}</> },
-                { key: 'x', label: '', render: (f) => canEdit && (
+                { key: 'x', label: '', render: (f) => (
                   f.status === 'Waiting approval' ? (approver ? <div className="flex gap-1.5"><Button size="sm" variant="soft" onClick={() => { const b = setStatus(f, 'Due'); toast({ title: `Approved: ${inr(f.amt)} for ${f.m}`, body: 'Added to the student’s fees', undo: () => setFines(b) }); }}>Approve</Button><Button size="sm" variant="ghost" onClick={() => { const b = setStatus(f, 'Waived', 'Rejected by Lakshmi Rao'); toast({ title: `Rejected: ${f.m}’s charge`, undo: () => setFines(b) }); }}>Reject</Button></div> : <span className="text-[12px] text-ink3">With Lakshmi Rao</span>)
-                    : f.status === 'Due' ? <MoreMenu size="sm" items={[
+                    : f.status === 'Due' && canEdit ? <MoreMenu size="sm" items={[
                       ...(f.staff ? [[I.IndianRupee, 'Collect at the desk', () => { const b = setStatus(f, 'Paid', 'Paid at the desk today · LIB/26/0057'); toast({ title: `${inr(f.amt)} collected from ${f.m}`, body: 'Receipt LIB/26/0057', undo: () => setFines(b) }); }]] : []),
                       [I.HandCoins, 'Waive with a reason', () => { setWaive(f); setWhy(''); }],
                     ]} /> : null) },

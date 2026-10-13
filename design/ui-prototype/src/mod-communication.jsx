@@ -905,16 +905,19 @@ function Inbox({ access }) {
   const toast = useToast();
   const can = useCan();
   const full = access === 'full';
+  // View (the Principal): reads every chat to follow up, but the office and the staff given a chat do the replying
+  const view = access === 'view';
+  const seeAll = full || view;
   // Own: reply and mark resolved only. Passing chats around, queries and enquiries are office work.
-  const canQuery = can('communication', 'feedback');
-  const canEnquiry = can('admissions', 'enquiries');
+  const canQuery = !view && can('communication', 'feedback');
+  const canEnquiry = !view && can('admissions', 'enquiries');
   const me = role.person.name;
   const [chats, setChats] = useState(CHATS);
-  const [tab, setTab] = useState(full ? 'all' : 'mine');
+  const [tab, setTab] = useState(seeAll ? 'all' : 'mine');
   const [q, setQ] = useState('');
   const visible = chats.filter((c) => (tab === 'mine' ? c.assigned === me : tab === 'none' ? !c.assigned : true));
   const list = visible.filter((c) => !q || (c.name + c.who + c.phone).toLowerCase().includes(q.toLowerCase()));
-  const [openId, setOpenId] = useState(() => (full ? CHATS[0] : CHATS.find((c) => c.assigned === me) || CHATS[0]).id);
+  const [openId, setOpenId] = useState(() => (seeAll ? CHATS[0] : CHATS.find((c) => c.assigned === me) || CHATS[0]).id);
   const [thread, setThread] = useState(false);
   const [draft, setDraft] = useState('');
   const [assign, setAssign] = useState(false);
@@ -927,18 +930,18 @@ function Inbox({ access }) {
   const setAssigned = (who) => { setChats((x) => x.map((c) => (c.id === cur.id ? { ...c, assigned: who } : c))); toast({ title: `Chat given to ${who}`, body: `${cur.name} · they see it under Assigned to me.` }); };
   const resolve = () => { const prev = cur; setChats((x) => x.map((c) => (c.id === prev.id ? { ...c, resolved: true, unread: 0 } : c))); toast({ title: 'Marked resolved', undo: () => setChats((x) => x.map((c) => (c.id === prev.id ? prev : c))) }); };
   const mySecs = SCOPE[role.id]?.secs;
-  const kids = cur && cur.sid && role.access.students ? [FEATURED, STUDENTS.find((s) => s.first === 'Anaya') || null].filter(Boolean).filter((k) => full || !mySecs || mySecs.includes(secOf(k))) : [];
+  const kids = cur && cur.sid && role.access.students ? [FEATURED, STUDENTS.find((s) => s.first === 'Anaya') || null].filter(Boolean).filter((k) => seeAll || !mySecs || mySecs.includes(secOf(k))) : [];
   const counts = { mine: chats.filter((c) => c.assigned === me).length, all: chats.length, none: chats.filter((c) => !c.assigned).length };
 
   return (
     <div>
-      <ModuleHead sub={full ? 'All school WhatsApp chats on 90300 66100. Each staff member sees the chats given to them.' : 'Only chats given to you. The office can pass a chat to you.'} />
+      <ModuleHead sub={view ? 'All school WhatsApp chats on 90300 66100, to read. The office and the staff given a chat reply.' : full ? 'All school WhatsApp chats on 90300 66100. Each staff member sees the chats given to them.' : 'Only chats given to you. The office can pass a chat to you.'} />
       <Card className="overflow-hidden">
         <div className="grid grid-cols-1 @xl:grid-cols-[300px_minmax(0,1fr)_260px] @xl:h-[660px]">
           {/* Chat list */}
           <div className={cx('flex-col min-h-0 @xl:border-r border-line', thread ? 'hidden @xl:flex' : 'flex')}>
             <div className="p-3 flex flex-col gap-2.5 border-b border-line">
-              {full ? <Segmented size="sm" value={tab} onChange={setTab} options={[{ value: 'mine', label: `Mine · ${counts.mine}` }, { value: 'all', label: `All · ${counts.all}` }, { value: 'none', label: `Unassigned · ${counts.none}` }]} className="w-full" />
+              {seeAll ? <Segmented size="sm" value={tab} onChange={setTab} options={[{ value: 'mine', label: `Mine · ${counts.mine}` }, { value: 'all', label: `All · ${counts.all}` }, { value: 'none', label: `Unassigned · ${counts.none}` }]} className="w-full" />
                 : <p className="text-[13px] font-semibold text-ink2 px-1">Assigned to me · {counts.mine}</p>}
               <SearchBox value={q} onChange={setQ} placeholder="Name or phone" id="inbox-search" />
             </div>
@@ -971,12 +974,13 @@ function Inbox({ access }) {
                 {cur.kind === 'Unknown' ? <span className="w-9 h-9 rounded-full bg-sunken text-ink3 grid place-items-center shrink-0"><I.Phone size={16} /></span> : <Avatar name={cur.name} size={36} />}
                 <div className="min-w-0 flex-1"><p className="font-semibold text-[14.5px] truncate">{cur.name}</p><p className="text-[12px] text-ink3 truncate">{cur.who}</p></div>
                 {full && <Button size="sm" variant="secondary" icon={I.UserCheck} onClick={() => setAssign(true)} className="hidden @sm:inline-flex">{cur.assigned ? 'Reassign' : 'Assign'}</Button>}
-                <MoreMenu size="sm" items={[
+                {!view && <MoreMenu size="sm" items={[
                   full && ['UserCheck', cur.assigned ? 'Reassign' : 'Assign to staff', () => setAssign(true)],
                   canQuery && ['ClipboardList', 'Make it a query', () => toast({ title: 'Query Q-26-0149 created', body: `From ${cur.name}'s chat. Owner: ${cur.assigned || 'Office'}.` })],
                   canEnquiry && ['UserPlus', 'Make it an enquiry', () => toast({ title: 'Enquiry ENQ-27-0213 created', body: 'In Admissions, Enquiries, with this chat attached.' })],
                   ['CircleCheck', 'Mark resolved', resolve],
-                ].filter(Boolean)} />
+                ].filter(Boolean)} />}
+                {view && <Pill tone={cur.resolved ? 'ok' : 'neutral'} className="shrink-0">{cur.resolved ? 'Resolved' : cur.assigned ? `With ${cur.assigned.split(' ')[0]}` : 'Not assigned'}</Pill>}
               </div>
               <div className="flex-1 min-h-0 overflow-y-auto scroll-thin px-3 @md:px-5 py-4 flex flex-col gap-2.5 bg-sunken/30">
                 <p className="text-center text-[11.5px] text-ink3 font-semibold">{/Oct/.test(cur.msgs[0].t) ? cur.msgs[0].t.split(',')[0].replace(/^(\d+) Oct$/, '$1 October') : /^Yesterday/.test(cur.msgs[0].t) ? 'Yesterday' : 'Today'}</p>
@@ -988,7 +992,9 @@ function Inbox({ access }) {
                   </div>
                 ))}
               </div>
-              {cur.closed ? (
+              {view ? (
+                <p className="p-3 border-t border-line text-[13px] text-ink3 flex items-center gap-2"><I.Eye size={15} className="shrink-0" />You can read this chat. {cur.assigned ? `${cur.assigned} replies to it.` : 'The office gives it to someone to reply.'}</p>
+              ) : cur.closed ? (
                 <div className="p-3 border-t border-line">
                   <Banner tone="warn" title="The 24-hour reply window has closed." action={<Button size="sm" variant="secondary" onClick={() => go('communication', { page: can('communication', 'templates') ? 'templates' : 'send' })}>Pick a template</Button>}>WhatsApp allows only an approved template now.</Banner>
                 </div>
@@ -1023,11 +1029,11 @@ function Inbox({ access }) {
                     {kids.map((k) => <Row key={k.id} avatar={k.name} title={k.name} sub={`${k.cls} ${k.sec}`} onClick={() => go('student', { id: k.id })} className="!px-1.5" />)}
                   </div>
                 )}
-                {full && <div><p className="eyebrow text-ink3 mb-1.5">Assigned to</p><p className="font-semibold">{cur.assigned || 'Nobody yet'}</p></div>}
+                {seeAll && <div><p className="eyebrow text-ink3 mb-1.5">Assigned to</p><p className="font-semibold">{cur.assigned || 'Nobody yet'}</p></div>}
                 <div className="flex flex-col gap-2">
                   {canQuery && <Button size="sm" variant="secondary" icon={I.ClipboardList} onClick={() => toast({ title: 'Query Q-26-0149 created', body: `From ${cur.name}'s chat.` })}>Make it a query</Button>}
                   {cur.kind === 'Unknown' && canEnquiry && <Button size="sm" variant="secondary" icon={I.UserPlus} onClick={() => toast({ title: 'Enquiry ENQ-27-0213 created', body: 'In Admissions, Enquiries.' })}>Make it an enquiry</Button>}
-                  <Button size="sm" variant="ghost" icon={I.CircleCheck} onClick={resolve}>Mark resolved</Button>
+                  {!view && <Button size="sm" variant="ghost" icon={I.CircleCheck} onClick={resolve}>Mark resolved</Button>}
                 </div>
               </div>
             </aside>
@@ -1658,6 +1664,7 @@ function Templates() {
 
 function TemplateSheet({ t, onClose }) {
   const toast = useToast();
+  const canEdit = useCanEdit();
   const [lang, setLang] = useState('English');
   if (!t) return null;
   const vars = [...new Set(t.text.match(/\{\w+\}/g) || [])];
@@ -1668,8 +1675,8 @@ function TemplateSheet({ t, onClose }) {
     <Sheet open={!!t} onClose={onClose} title={t.name} sub={`${t.cat} · version ${t.ver} · ${t.used}`} wide>
       <div className="flex flex-col gap-4">
         <div className="flex gap-1.5 flex-wrap"><Pill tone={WA_TONE[t.wa]} dot>WhatsApp {t.wa.toLowerCase()}</Pill>{t.dlt ? <Pill tone="ok">DLT {t.dlt}</Pill> : t.dlt === '' ? <Pill tone="bad">DLT template ID missing</Pill> : <Pill tone="neutral">WhatsApp only</Pill>}</div>
-        {t.dlt === '' && <Banner tone="bad" title="No DLT template ID.">This SMS template cannot be used to send SMS. Add the ID from the DLT portal.</Banner>}
-        {t.wa === 'Rejected' && <Banner tone="warn" title="WhatsApp rejected this template on 2 Oct:">“Promotional wording in a utility template.” Edit the text and submit again.</Banner>}
+        {t.dlt === '' && <Banner tone="bad" title="No DLT template ID.">This SMS template cannot be used to send SMS.{canEdit ? ' Add the ID from the DLT portal.' : ''}</Banner>}
+        {t.wa === 'Rejected' && <Banner tone="warn" title="WhatsApp rejected this template on 2 Oct:">“Promotional wording in a utility template.”{canEdit ? ' Edit the text and submit again.' : ''}</Banner>}
         <Segmented size="sm" value={lang} onChange={setLang} options={t.langs} className="self-start" />
         <div className="rounded-xl bg-sunken/70 border border-line p-3.5 text-[14.5px] leading-relaxed"><VarText text={text} /></div>
         <div><p className="eyebrow text-ink3 mb-1.5">Blanks in this template</p><div className="flex gap-1.5 flex-wrap">{vars.map((v) => <span key={v} className="font-mono text-[12px] px-2 py-1 rounded-lg bg-brand/10 text-brand">{v}</span>)}</div></div>
@@ -1684,11 +1691,11 @@ function TemplateSheet({ t, onClose }) {
           </ul>
           <p className="text-[12.5px] text-ink3 mt-1.5">Messages already sent keep the version they used.</p>
         </div>
-        <div className="flex gap-2 flex-wrap">
+        {canEdit && <div className="flex gap-2 flex-wrap">
           <Button variant="secondary" icon={I.Pencil} onClick={() => toast({ title: `Editing makes version ${t.ver + 1}`, body: t.wa === 'Approved' ? 'Approved WhatsApp text goes for approval again.' : '', tone: 'info' })}>Edit</Button>
           <Button variant="secondary" icon={I.Languages} onClick={() => toast({ title: 'Add a language version', body: 'Kannada, Urdu, Tamil or Marathi', tone: 'info' })}>Add language</Button>
           {t.wa !== 'Approved' && <Button variant="soft" icon={I.Send} onClick={() => toast({ title: 'Submitted to WhatsApp for approval', body: 'Usually 1 to 2 days. You will be told here.' })}>{t.wa === 'Rejected' ? 'Submit again' : 'Check status'}</Button>}
-        </div>
+        </div>}
       </div>
     </Sheet>
   );

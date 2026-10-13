@@ -2,7 +2,19 @@ import React, { useState } from 'react';
 import * as I from './icons.js';
 import { NAV, APPROVALS } from './data.js';
 import { cx, Card, CardHead, Button, Pill, Avatar, Switch, PageHead, useToast, Empty } from './ui.jsx';
-import { useNav, useTheme, useRole, approvalsFor } from './shell.jsx';
+import { useNav, useTheme, useRole, approvalsFor, canOpen } from './shell.jsx';
+import { pageAccess } from './config.js';
+
+// What this person may decide. Nobody approves their own request (the School Admin runs the office, so office
+// requests go to the Principal), and money requests stay with whoever decides on that page, not someone who only views it.
+const MONEY_PAGE = { Concession: ['fees', 'concessions'], Expense: ['finance', 'expenses'] };
+export function myApprovals(role, modulesOn) {
+  return approvalsFor(role).filter((a) => {
+    if (role.id === 'schooladmin' && a.who === 'Office') return false;
+    const mp = MONEY_PAGE[a.kind];
+    return !mp || (canOpen(role, mp.join('.'), modulesOn) && pageAccess(role.id, mp[0], mp[1], role.access[mp[0]]) !== 'view');
+  });
+}
 
 // Royal blue is the school default (owner's choice, 12 Oct 2026), so it comes first
 export const DEFAULT_ACCENT = 'royal';
@@ -20,8 +32,8 @@ export function Appearance() {
   const { role } = useRole();
   const toast = useToast();
   const [everyone, setEveryone] = useState(false);
-  // Only the people who have Settings may set the colour for the whole school
-  const admin = role.access.settings === 'full';
+  // Only the person who keeps the School Profile (the School Admin) sets the colour for the whole school
+  const admin = role.access.settings === 'full' && pageAccess(role.id, 'settings', 'profile', 'full') === 'full';
   const brand = ACCENTS.find((a) => a.id === accent) || ACCENTS[0];
   return (
     <div className="max-w-4xl">
@@ -55,7 +67,7 @@ export function Appearance() {
           {admin ? (
             <div className="mx-5 mb-5 rounded-xl bg-sunken p-3.5 flex items-center gap-3">
               <Switch id="acc-all" on={everyone} onChange={(v) => { setEveryone(v); toast({ title: v ? 'Everyone at Sunrise Public School will see this colour' : 'Only you will see this colour', tone: 'info' }); }} label="Use this colour for everyone" />
-              <label htmlFor="acc-all" className="text-[14px]"><b className="font-semibold">Use for everyone in the school</b><span className="block text-[12.5px] text-ink3">Only the School Admin and the Principal can change this. Each person can still pick light or dark.</span></label>
+              <label htmlFor="acc-all" className="text-[14px]"><b className="font-semibold">Use for everyone in the school</b><span className="block text-[12.5px] text-ink3">Only the School Admin can change this. Each person can still pick light or dark.</span></label>
             </div>
           ) : (
             <p className="mx-5 mb-5 text-[12.5px] text-ink3">Your choice is only for you, on this device. The school's colour is set by the School Admin.</p>
@@ -114,8 +126,8 @@ function ThemeThumb({ kind, brand }) {
 export function Approvals() {
   const toast = useToast();
   const { go } = useNav();
-  const { role } = useRole();
-  const [list, setList] = useState(() => approvalsFor(role));
+  const { role, modulesOn } = useRole();
+  const [list, setList] = useState(() => myApprovals(role, modulesOn));
   const admin = role.id === 'principal' || role.id === 'schooladmin';
   const [support, setSupport] = useState(admin ? 'waiting' : null);
   const decide = (a, ok) => {
@@ -123,7 +135,7 @@ export function Approvals() {
     toast({ title: `${ok ? 'Approved' : 'Declined'}: ${a.what}`, undo: () => setList((x) => [a, ...x]) });
   };
   // Roles that decide nothing see the no-access screen, never an empty Approvals page
-  if (!admin && !approvalsFor(role).length) return (
+  if (!admin && !myApprovals(role, modulesOn).length) return (
     <div className="max-w-xl mx-auto py-6">
       <Empty icon={I.Lock} title="Approvals are not part of your role"
         body={`Your role, ${role.label}, does not decide any requests. Requests you make yourself, like your leave, show their answer in your notifications.`}

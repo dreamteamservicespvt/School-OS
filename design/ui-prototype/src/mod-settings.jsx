@@ -253,7 +253,7 @@ function ProfilePage() {
               <div className="flex gap-1.5">
                 {ACCENTS.map((a) => <span key={a.id} title={a.name} className={cx('h-2 flex-1 rounded-full', a.id === acc.id ? 'bg-brand' : 'bg-line')} />)}
               </div>
-              <Button variant="secondary" icon={I.Palette} onClick={() => go('appearance')}>Change school colour</Button>
+              {canEdit && <Button variant="secondary" icon={I.Palette} onClick={() => go('appearance')}>Change school colour</Button>}
             </div>
           </Card>
 

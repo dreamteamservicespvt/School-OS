@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom';
 import * as I from './icons.js';
 import { NOTIFICATIONS, NAV, SCHOOL, ME } from './data.js';
-import { PERSONAL, MODULES, ROLES, ROLE, NOTIFS_BY_ROLE, NOTIFS_DEFAULT, SCHOOLS_IN_GROUP, pagesFor } from './config.js';
+import { PERSONAL, MODULES, ROLES, ROLE, NOTIFS_BY_ROLE, NOTIFS_DEFAULT, SCHOOLS_IN_GROUP, pagesFor, pageAccess } from './config.js';
 import { cx, ToastHost, LayerCtx, Segmented, Sheet, Button, Pill, Empty, useToast } from './ui.jsx';
 import { canOpen, NavCtx, ThemeCtx, RoleCtx, useRole, Sidebar, TopBar, BottomNav, MoreSheet, QuickSheet, CommandPalette, NotifPanel, ProfileMenu } from './shell.jsx';
 import { PageCtx } from './kit.jsx';
@@ -154,7 +154,7 @@ function Shell({ route }) {
     s === 'profile' ? <MyProfile /> :
     s === 'setup' ? <SetupHome /> :
     <ModuleScreen id={s} params={route.params} onAddStudent={() => setAdd(true)} />;
-  const title = s === 'dashboard' ? 'Dashboard' : s === 'student' ? 'Student profile' : s === 'appearance' ? 'Appearance' : s === 'approvals' ? 'Approvals' : s === 'profile' ? 'My profile' : s === 'setup' ? 'Setup checklist' : PERSONAL.includes(s) && role.access[s] === 'own' ? 'My profile' : s === 'fees' && (route.params.page || 'collect') === 'collect' ? 'Collect fee' : MODULES[s]?.short;
+  const title = s === 'dashboard' ? 'Dashboard' : s === 'student' ? 'Student profile' : s === 'appearance' ? 'Appearance' : s === 'approvals' ? 'Approvals' : s === 'profile' ? 'My profile' : s === 'setup' ? 'Setup checklist' : PERSONAL.includes(s) && role.access[s] === 'own' ? 'My profile' : s === 'fees' && (route.params.page || 'collect') === 'collect' && pagesFor('fees', role.access.fees, role.id).some((p) => p.id === 'collect') ? 'Collect fee' : MODULES[s]?.short;
 
   return (
     <div className="flex flex-col h-full">
@@ -240,9 +240,10 @@ function ModuleScreen({ id, params, onAddStudent }) {
   if (params.page && !detail && !pages.some((p) => p.id === params.page)) return <NoAccess what={m.pages.find((p) => p[0] === params.page)?.[1] || 'This page'} page />;
   const page = detail ? 'profile' : pages.some((p) => p.id === params.page) ? params.page : pages.some((p) => p.id === m.def) ? m.def : pages[0].id;
   const Comp = REGISTRY[id]?.[page];
+  const pa = pageAccess(role.id, id, page, access);
   return (
-    <PageCtx.Provider value={{ module: id, page, access, pages, short: m.short }}>
-      {Comp ? <Comp params={params} access={access} onAddStudent={onAddStudent} /> : <Empty icon={I.LayoutGrid} title={pages.find((p) => p.id === page)?.label || page} body="Pick a page from the tabs above." />}
+    <PageCtx.Provider value={{ module: id, page, access: pa, moduleAccess: access, pages, short: m.short }}>
+      {Comp ? <Comp params={params} access={pa} onAddStudent={onAddStudent} /> : <Empty icon={I.LayoutGrid} title={pages.find((p) => p.id === page)?.label || page} body="Pick a page from the tabs above." />}
     </PageCtx.Provider>
   );
 }

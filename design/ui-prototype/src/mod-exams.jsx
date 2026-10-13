@@ -4,7 +4,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import * as I from './icons.js';
 import { CLASS_7B, FEATURED, STUDENT_PROFILE as PROFILE } from './data.js';
 import { cx, Card, CardHead, Button, Pill, Avatar, Field, Input, inputCls, Segmented, Switch, Empty, Sheet, useToast, Kbd } from './ui.jsx';
-import { useNav, useRole, Logo } from './shell.jsx';
+import { useNav, useRole, Logo, canOpen } from './shell.jsx';
 import {
   ModuleHead, useCanEdit, Stats, Band, SearchBox, Toolbar, Select, Textarea, Chips, DataList, BulkBar, SettingsCard, Banner,
   Suggestion, Progress, HBars, Bars, Legend, DL, Timeline, MoreMenu, FormSheet, ConfirmSheet, Split, Col, ExportButton, TONE_SOFT,
@@ -751,14 +751,14 @@ function AdmitCardsPage({ access }) {
               </div>
               {noPhoto.length > 0 && (
                 <div className="p-3 border-b border-line">
-                  <Banner tone="warn" title={`${noPhoto.length} ${noPhoto.length === 1 ? 'student has' : 'students have'} no photo:`} action={<Button size="sm" variant="secondary" onClick={() => toast({ title: 'Photo request sent to 2 parents', body: 'They can add a photo through Parent Link.' })}>Ask parents</Button>}>
+                  <Banner tone="warn" title={`${noPhoto.length} ${noPhoto.length === 1 ? 'student has' : 'students have'} no photo:`} action={w.canEdit ? <Button size="sm" variant="secondary" onClick={() => toast({ title: 'Photo request sent to 2 parents', body: 'They can add a photo through Parent Link.' })}>Ask parents</Button> : null}>
                     {noPhoto.map((s) => `${s.name} (roll ${s.roll})`).join(', ')}. You can still print; the photo box stays empty.
                   </Banner>
                 </div>
               )}
               <Toolbar>
                 <SearchBox id="ac-search" value={q} onChange={setQ} placeholder="Find one student: name, roll or admission no." />
-                <Button variant="primary" icon={I.Printer} onClick={() => setPrint({ scope: 'class', n: list.length, label: `${d.title} · Class ${cur}`, photo: noPhoto.length })}>Print {list.length} cards</Button>
+                {w.canEdit && <Button variant="primary" icon={I.Printer} onClick={() => setPrint({ scope: 'class', n: list.length, label: `${d.title} · Class ${cur}`, photo: noPhoto.length })}>Print {list.length} cards</Button>}
               </Toolbar>
               <DataList bp="md" minWidth={560} footer={`Showing ${rows.length} of ${list.length} · ${printed.has(cur) ? 'printed for this class on 7 Oct' : 'not printed yet'}`}
                 columns={[
@@ -795,7 +795,7 @@ function AdmitCardsPage({ access }) {
       </div>
 
       <Sheet open={!!one} onClose={() => setOne(null)} wide title={one ? `Admit card · ${one.name}` : ''} sub={one ? `Class ${cur} · roll ${one.roll}` : ''}
-        footer={<><Button variant="ghost" onClick={() => setOne(null)}>Close</Button><Button variant="secondary" icon={I.Download} onClick={() => toast({ title: `Saved: Admit-card-${one?.name.replace(' ', '-')}.pdf` })}>PDF</Button><Button variant="primary" icon={I.Printer} onClick={() => { setOne(null); toast({ title: `Admit card for ${one.name} sent to the office printer` }); }}>Print</Button></>}>
+        footer={<><Button variant="ghost" onClick={() => setOne(null)}>Close</Button><Button variant="secondary" icon={I.Download} onClick={() => toast({ title: `Saved: Admit-card-${one?.name.replace(' ', '-')}.pdf` })}>PDF</Button>{w.canEdit && <Button variant="primary" icon={I.Printer} onClick={() => { setOne(null); toast({ title: `Admit card for ${one.name} sent to the office printer` }); }}>Print</Button>}</>}>
         {one && <AdmitCard s={one} sec={cur} />}
       </Sheet>
       <ConfirmSheet open={!!print} onClose={() => setPrint(null)} title={print ? `Print ${print.n} admit cards?` : ''} confirmLabel={print ? `Print ${print.n} cards` : ''} onConfirm={doPrint}>
@@ -878,10 +878,14 @@ function MarksPage({ params, access }) {
   const [cls, setCls] = useState('all');
   const [sel, setSel] = useState(new Set());
   const [remind, setRemind] = useState(null);
-  if (params?.id) return <MarksGrid id={params.id} w={w} />;
+  // Only the teacher of a paper types its marks. Everyone else here (Principal, VP, School Admin, Academic Head, Exam In-charge) follows progress.
+  const doer = w.teacher || w.ct;
+  const [paper, setPaper] = useState(() => (!doer && params?.id ? paperOf(params.id) : null));
+  const [reminded, setReminded] = useState({});
+  if (params?.id && doer) return <MarksGrid id={params.id} w={w} />;
   const open = (p) => go('exams', { page: 'marks', id: p.id });
 
-  if (w.teacher || w.ct) {
+  if (doer) {
     const ORDER = { 'In progress': 0, 'Not started': 1, Locked: 2 };
     const hy = w.myClasses.map((s) => paperOf(`hy|${s}|${w.mySubject}`)).sort((a, b) => ORDER[a.status] - ORDER[b.status] || b.done / b.n - a.done / a.n);
     const ut = w.myClasses.map((s) => paperOf(`ut2|${s}|${w.mySubject}`));
@@ -934,45 +938,91 @@ function MarksPage({ params, access }) {
   const list = HY_PAPERS.filter((p) => (st === 'all' || p.status === st) && (cls === 'all' || p.sec === cls) && (!q.trim() || `${p.sub} ${p.teacher} ${p.sec}`.toLowerCase().includes(q.trim().toLowerCase())));
   const cnt = HY_PAPERS.reduce((a, p) => ((a[p.status] = (a[p.status] || 0) + 1), a), {});
   const behind = HY_PAPERS.filter((p) => p.status === 'Not started');
-  const teachersBehind = [...new Set(behind.map((p) => p.teacher))];
+  // Teachers with at least one paper not started, most papers first
+  const byTeacher = Object.values(behind.reduce((a, p) => { (a[p.teacher] = a[p.teacher] || { t: p.teacher, papers: [] }).papers.push(p); return a; }, {}))
+    .sort((a, b) => b.papers.length - a.papers.length || a.t.localeCompare(b.t));
+  const notYet = byTeacher.filter((x) => !reminded[x.t]);
+  const sendRemind = (names, papers) => {
+    setReminded((x) => ({ ...x, ...Object.fromEntries(names.map((n) => [n, '10:44 AM'])) }));
+    setSel(new Set());
+    toast({ title: names.length === 1 ? `Reminded ${names[0]}` : `Reminder sent to ${names.length} teachers`, body: `In the app and on WhatsApp, with ${papers === 1 ? 'the paper' : `their ${papers} papers`} and the due date, Fri 30 Oct.` });
+  };
+  const dueLeft = (p) => p.n - p.done;
   return (
     <div>
-      <ModuleHead sub="Half Yearly 2026–27 · marks entry status for every paper"
-        actions={w.canEdit && <Button variant="primary" icon={I.BellRing} onClick={() => setRemind({ n: teachersBehind.length, papers: behind.length })}>Remind teachers</Button>} />
+      <ModuleHead sub="Half Yearly 2026–27 · who has entered marks, paper by paper · each teacher enters their own" />
       <div className="flex flex-col gap-5 @lg:gap-6">
         <Stats items={[
-          { label: 'Papers', value: HY_PAPERS.length, sub: '12 sections × 6 subjects', icon: 'ClipboardCheck' },
+          { label: 'Papers', value: HY_PAPERS.length, sub: '12 sections × 6 subjects', icon: 'ClipboardCheck', onClick: () => setSt('all') },
           { label: 'Internal locked', value: cnt.Locked || 0, sub: 'Submitted by the teacher', tone: 'ok', icon: 'Lock', onClick: () => setSt('Locked') },
           { label: 'In progress', value: cnt['In progress'] || 0, sub: 'Being entered now', tone: 'warn', icon: 'PencilLine', onClick: () => setSt('In progress') },
-          { label: 'Not started', value: cnt['Not started'] || 0, sub: `${teachersBehind.length} teachers`, tone: 'bad', icon: 'CircleDashed', onClick: () => setSt('Not started') },
+          { label: 'Not started', value: cnt['Not started'] || 0, sub: `${byTeacher.length} teachers`, tone: 'bad', icon: 'CircleDashed', onClick: () => setSt('Not started') },
         ]} />
         <Banner tone="info" title="Theory marks open after each paper,">from Sat 17 Oct for the first week. Internal and practical marks can be entered now. Everything is due on Fri 30 Oct.</Banner>
-        <Card className="overflow-hidden">
-          <Toolbar>
-            <SearchBox id="mk-search" value={q} onChange={setQ} placeholder="Subject, teacher or class" />
-            <Select id="mk-class" value={cls} onChange={setCls} className="@md:w-40" options={[{ value: 'all', label: 'All classes' }, ...secOptions(ALL_SECS)]} />
-            <ExportButton what="marks entry status" />
-          </Toolbar>
-          <div className="px-3 pt-3"><Chips value={st} onChange={setSt} options={[{ value: 'all', label: 'All', count: HY_PAPERS.length }, { value: 'Not started', label: 'Not started', count: cnt['Not started'] }, { value: 'In progress', label: 'In progress', count: cnt['In progress'] }, { value: 'Locked', label: 'Locked', count: cnt.Locked }]} /></div>
-          <BulkBar count={sel.size} onClear={() => setSel(new Set())}>
-            <Button size="sm" variant="secondary" icon={I.BellRing} onClick={() => setRemind({ n: new Set(list.filter((p) => sel.has(p.id)).map((p) => p.teacher)).size, papers: sel.size, sel: true })}>Remind their teachers</Button>
-          </BulkBar>
-          <DataList select={w.canEdit ? [sel, setSel] : null} onRow={open} minWidth={760}
-            footer={`Showing 1 to ${list.length} of ${list.length}`}
-            columns={[
-              { key: 'p', label: 'Paper', render: (p) => <><p className="font-semibold">{p.sub} · {p.sec}</p><p className="text-[12.5px] text-ink3">{paperDay(p.sec, p.sub).day}</p></> },
-              { key: 't', label: 'Teacher', render: (p) => <div className="flex items-center gap-2"><Avatar name={p.teacher} size={28} /><span>{p.teacher}</span></div> },
-              { key: 'i', label: 'Internal or practical', render: (p) => <div className="w-40"><Progress value={(p.done / p.n) * 100} tone={p.locked ? 'ok' : 'brand'} /><p className="text-[12.5px] text-ink3 mt-1 tnum">{p.done} of {p.n} entered</p></div> },
-              { key: 'th', label: 'Theory', nowrap: true, render: (p) => <span className="text-ink3 text-[13px]">Opens {theoryOpens(p.sec, p.sub)}</span> },
-              { key: 's', label: 'Status', nowrap: true, render: (p) => <><Pill tone={P_TONE[p.status]}>{p.status}</Pill>{p.locked && <span className="block text-[12px] text-ink3 mt-0.5">{p.locked}</span>}</> },
-            ]}
-            rows={list}
-            mobile={(p) => ({ icon: 'ClipboardCheck', iconTone: P_TONE[p.status], title: `${p.sub} · ${p.sec}`, sub: `${p.teacher} · ${p.done} of ${p.n}`, pills: [<Pill key="s" tone={P_TONE[p.status]} className="!h-[22px] !text-[11.5px]">{p.status}</Pill>] })} />
-        </Card>
+        <div className="grid @xl:grid-cols-2 gap-5 @lg:gap-6 items-start">
+            <Card>
+              <CardHead title="Not entered yet" sub="Teachers with a paper not started · due Fri 30 Oct" icon={I.UserX}
+                action={notYet.length > 1 ? <Button size="sm" variant="soft" icon={I.BellRing} onClick={() => setRemind({ names: notYet.map((x) => x.t), papers: notYet.reduce((a, x) => a + x.papers.length, 0) })}>Remind all</Button> : null} />
+              {byTeacher.length === 0 ? <Empty icon={I.CircleCheck} title="Every paper has started" body="All teachers have begun entering marks." /> : (
+                <ul className="px-2 pb-2">
+                  {byTeacher.map((x) => (
+                    <li key={x.t} className="flex items-center gap-3 px-3 py-2.5 rounded-xl">
+                      <Avatar name={x.t} size={34} />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-[14px] leading-snug truncate">{x.t}</p>
+                        <p className="text-[12.5px] text-ink3 truncate">{reminded[x.t] ? `Reminded at ${reminded[x.t]} · ` : ''}{x.papers.map((p) => `${SHORT[p.sub] || p.sub} ${p.sec}`).join(', ')}</p>
+                      </div>
+                      {reminded[x.t] ? <Pill tone="ok" className="shrink-0">Reminded</Pill> : <Button size="sm" variant="secondary" icon={I.Bell} className="shrink-0" onClick={() => sendRemind([x.t], x.papers.length)}>Remind</Button>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+            <Card>
+              <CardHead title="By class" sub="Internal and practical marks entered" icon={I.ChartBar} />
+              <div className="px-5 pb-5"><HBars rows={ALL_SECS.map((sec) => { const ps = HY_PAPERS.filter((p) => p.sec === sec); return { k: sec, v: Math.round((ps.reduce((a, p) => a + p.done, 0) / ps.reduce((a, p) => a + p.n, 0)) * 100) }; })} lowBelow={50} labelWidth={48} /></div>
+            </Card>
+        </div>
+          <Card className="overflow-hidden">
+            <Toolbar>
+              <SearchBox id="mk-search" value={q} onChange={setQ} placeholder="Subject, teacher or class" />
+              <Select id="mk-class" value={cls} onChange={setCls} className="@md:w-40" options={[{ value: 'all', label: 'All classes' }, ...secOptions(ALL_SECS)]} />
+              <ExportButton what="marks entry progress" />
+            </Toolbar>
+            <div className="px-3 pt-3"><Chips value={st} onChange={setSt} options={[{ value: 'all', label: 'All', count: HY_PAPERS.length }, { value: 'Not started', label: 'Not started', count: cnt['Not started'] }, { value: 'In progress', label: 'In progress', count: cnt['In progress'] }, { value: 'Locked', label: 'Locked', count: cnt.Locked }]} /></div>
+            <BulkBar count={sel.size} onClear={() => setSel(new Set())}>
+              <Button size="sm" variant="secondary" icon={I.BellRing} onClick={() => setRemind({ names: [...new Set(list.filter((p) => sel.has(p.id)).map((p) => p.teacher))], papers: sel.size })}>Remind their teachers</Button>
+            </BulkBar>
+            <DataList select={[sel, (fn) => setSel((x) => { const n = typeof fn === 'function' ? fn(x) : fn; return new Set([...n].filter((id) => HY_PAPERS.find((p) => p.id === id)?.status !== 'Locked')); })]} onRow={(p) => setPaper(p)} minWidth={760}
+              footer={`Showing ${list.length} of ${HY_PAPERS.length} papers · tap a paper for its progress`}
+              columns={[
+                { key: 'p', label: 'Paper', render: (p) => <><p className="font-semibold">{p.sub} · {p.sec}</p><p className="text-[12.5px] text-ink3">{paperDay(p.sec, p.sub).day}</p></> },
+                { key: 't', label: 'Teacher', render: (p) => <div className="flex items-center gap-2"><Avatar name={p.teacher} size={28} /><span>{p.teacher}</span></div> },
+                { key: 'i', label: 'Internal or practical', render: (p) => <div className="w-40"><Progress value={(p.done / p.n) * 100} tone={p.locked ? 'ok' : 'brand'} /><p className="text-[12.5px] text-ink3 mt-1 tnum">{p.done} of {p.n} entered</p></div> },
+                { key: 'th', label: 'Theory', nowrap: true, render: (p) => <span className="text-ink3 text-[13px]">Opens {theoryOpens(p.sec, p.sub)}</span> },
+                { key: 's', label: 'Status', nowrap: true, render: (p) => <><Pill tone={P_TONE[p.status]}>{p.status}</Pill>{p.locked ? <span className="block text-[12px] text-ink3 mt-0.5">{p.locked}</span> : reminded[p.teacher] ? <span className="block text-[12px] text-ink3 mt-0.5">Reminded {reminded[p.teacher]}</span> : null}</> },
+              ]}
+              rows={list}
+              mobile={(p) => ({ icon: 'ClipboardCheck', iconTone: P_TONE[p.status], title: `${p.sub} · ${p.sec}`, sub: `${p.teacher} · ${p.done} of ${p.n}`, pills: [<Pill key="s" tone={P_TONE[p.status]} className="!h-[22px] !text-[11.5px]">{p.status}</Pill>] })} />
+          </Card>
       </div>
-      <ConfirmSheet open={!!remind} onClose={() => setRemind(null)} title="Remind teachers about marks?" confirmLabel={remind ? `Remind ${remind.n} teachers` : ''}
-        onConfirm={() => { setSel(new Set()); toast({ title: `Reminder sent to ${remind.n} teachers`, body: 'In the app and on WhatsApp. They see which papers are pending.' }); }}>
-        {remind && <p className="text-[14px] text-ink2">{remind.papers} papers have marks not started. Each teacher gets one message listing their own papers and the due date, Fri 30 Oct.</p>}
+      <Sheet open={!!paper} onClose={() => setPaper(null)} title={paper ? `${paper.sub} · Class ${paper.sec}` : ''} sub={paper ? `Half Yearly · paper ${paperDay(paper.sec, paper.sub).day} · ${paper.teacher}` : ''}
+        footer={paper && <><Button variant="ghost" onClick={() => setPaper(null)}>Close</Button>{!paper.locked && !reminded[paper.teacher] && <Button variant="primary" icon={I.Bell} onClick={() => { sendRemind([paper.teacher], 1); setPaper(null); }}>Remind {paper.teacher.split(' ')[0]}</Button>}</>}>
+        {paper && (
+          <div className="flex flex-col gap-4">
+            <div>
+              <div className="flex items-center justify-between gap-3 mb-1.5"><p className="text-[13.5px] font-semibold">{paper.comps.find((c) => c.k !== 'th')?.label || 'Marks'} entered</p><Pill tone={P_TONE[paper.status]}>{paper.status}</Pill></div>
+              <Progress value={(paper.done / paper.n) * 100} tone={paper.locked ? 'ok' : 'brand'} />
+              <p className="text-[12.5px] text-ink3 mt-1.5 tnum">{paper.done} of {paper.n} students{paper.locked ? ` · submitted and locked ${paper.locked}` : dueLeft(paper) ? ` · ${dueLeft(paper)} still to enter` : ''}</p>
+            </div>
+            <div className="rounded-xl border border-line pt-4"><DL cols={1} rows={[['Teacher', paper.teacher], ['Marks', paper.comps.map((c) => `${c.label} / ${c.max}`).join(' · ')], ['Theory marks', `Open ${theoryOpens(paper.sec, paper.sub)}, after the paper`], ['Due', 'Fri 30 Oct'], ...(reminded[paper.teacher] ? [['Reminded', `Today, ${reminded[paper.teacher]}`]] : [])]} /></div>
+            <p className="text-[12.5px] text-ink3">Marks are typed by the subject teacher. A change after locking needs a reason and approval, and the old mark is kept.</p>
+          </div>
+        )}
+      </Sheet>
+      <ConfirmSheet open={!!remind} onClose={() => setRemind(null)} title="Remind teachers about marks?" confirmLabel={remind ? `Remind ${remind.names.length} ${remind.names.length === 1 ? 'teacher' : 'teachers'}` : ''}
+        onConfirm={() => sendRemind(remind.names, remind.papers)}>
+        {remind && <p className="text-[14px] text-ink2">{remind.papers} {remind.papers === 1 ? 'paper' : 'papers'} with marks still to enter. Each teacher gets one message listing their own papers and the due date, Fri 30 Oct: {remind.names.join(', ')}.</p>}
       </ConfirmSheet>
     </div>
   );
@@ -1286,6 +1336,7 @@ function ChangeRequestSheet({ req, approver, onClose, onSend }) {
    ===================================================================== */
 function ResultsPage({ access }) {
   const w = useWho(access);
+  const { modulesOn } = useRole();
   const { go } = useNav();
   const toast = useToast();
   const secs = w.myClasses;
@@ -1400,7 +1451,7 @@ function ResultsPage({ access }) {
       </div>
 
       <Sheet open={!!one} onClose={() => setOne(null)} title={one ? one.s.name : ''} sub={one ? `Class ${sec} · roll ${one.s.roll} · ${ex === 'ut1' ? 'Unit Test 1' : 'Unit Test 2'}${subjOnly ? ` · ${w.mySubject}` : ''}` : ''}
-        footer={one && <>{one.s.real && <Button variant="ghost" icon={I.User} onClick={() => go('student', { id: one.s.id })}>Open profile</Button>}<Button variant="secondary" icon={I.Printer} onClick={() => toast({ title: `Result for ${one.s.name} sent to the printer` })}>Print</Button></>}>
+        footer={one && <>{one.s.real && canOpen(w.role, 'student', modulesOn) && <Button variant="ghost" icon={I.User} onClick={() => go('student', { id: one.s.id })}>Open profile</Button>}<Button variant="secondary" icon={I.Printer} onClick={() => toast({ title: `Result for ${one.s.name} sent to the printer` })}>Print</Button></>}>
         {one && (
           <div className="flex flex-col gap-4">
             {!subjOnly && <div className="grid grid-cols-3 gap-2 text-center">
@@ -1619,10 +1670,10 @@ function ReportCardsPage({ access }) {
 
         <Card className="overflow-hidden">
           <CardHead title={sent ? `Unit Test 2 progress report · ${sec}` : `Term 1 report cards · ${sec}`} sub={`${list.length} students · class teacher ${SEC[sec].ct}`} icon={I.Award}
-            action={<div className="flex gap-2">
+            action={w.canEdit ? <div className="flex gap-2">
               {sent ? <Button size="sm" variant="secondary" icon={I.Send} onClick={() => setSend(true)}>Resend to {notSeen.length}</Button>
                 : <Button size="sm" variant="secondary" icon={I.Printer} onClick={() => setPrint({ n: list.length, label: `Class ${sec}` })}>Print {list.length}</Button>}
-            </div>} />
+            </div> : !sent && written < list.length ? <Button size="sm" variant="secondary" icon={I.Bell} onClick={() => toast({ title: `Reminded ${SEC[sec].ct}`, body: `${list.length - written} remarks for Class ${sec} are still to write. Due Tue 20 Oct.` })}>Remind {SEC[sec].ct.split(' ')[0]}</Button> : null} />
           <DataList bp="lg" minWidth={820} rows={rows} footer={`Showing ${rows.length} of ${list.length}`}
             columns={[
               { key: 'n', label: 'Student', render: (s) => <span className="whitespace-nowrap"><span className="text-ink3 tnum inline-block w-6">{s.roll}</span><span className="font-semibold">{s.name}</span></span> },
@@ -1910,7 +1961,7 @@ function PapersPage({ access }) {
       <Sheet open={!!open} onClose={() => setOpen(null)} title={open?.title} sub={open ? `${open.marks} marks · set by ${open.setter}` : ''}
         footer={open && <><Button variant="ghost" onClick={() => setOpen(null)}>Close</Button>
           {open.status === 'Draft' && w.canEdit && <Button variant="primary" icon={I.Lock} onClick={() => { setPapers((x) => x.map((p) => (p.id === open.id ? { ...p, status: 'Final', locked: open.sub === 'Mathematics' ? 'Wed 14 Oct, 7:30 AM' : 'Mon 26 Oct, 7:30 AM' } : p))); setOpen(null); toast({ title: 'Paper marked final and locked', body: 'It opens for printing on the morning of the exam.' }); }}>Mark final and lock</Button>}
-          {open.status !== 'Draft' && !open.locked && <Button variant="secondary" icon={I.Printer} onClick={() => toast({ title: 'Paper sent to the exam office printer', body: 'With answers, for the teacher' })}>Print with answers</Button>}</>}>
+          {open.status !== 'Draft' && !open.locked && w.canEdit && <Button variant="secondary" icon={I.Printer} onClick={() => toast({ title: 'Paper sent to the exam office printer', body: 'With answers, for the teacher' })}>Print with answers</Button>}</>}>
         {open && (open.locked ? (
           <div className="flex flex-col items-center text-center gap-3 py-6">
             <span className="w-14 h-14 rounded-2xl bg-warn/12 text-warn grid place-items-center"><I.Lock size={26} /></span>
@@ -1963,6 +2014,7 @@ function AddQuestionSheet({ open, onClose, chapters, onAdd }) {
 const AN_EXAMS = [{ value: '2', label: 'Unit Test 2', f: '2026-09-21', t: '2026-09-25' }, { value: '1', label: 'Unit Test 1', f: '2026-07-20', t: '2026-07-24' }];
 function AnalysisPage() {
   const { go } = useNav();
+  const { role, modulesOn } = useRole();
   const [per, setPer] = useState(PERIODS.acyear);
   const [t0, setT] = useState('2');
   const exOpts = AN_EXAMS.filter((x) => x.t >= per.from && x.f <= per.to);
@@ -1985,7 +2037,7 @@ function AnalysisPage() {
     return { now, pass, grades, subjects, sections, toppers, drops, avg: avg(now.map(pctOf)), pctOf };
   }, [t, scope, sub]);
   const sr1 = classResults('7 B', 1).find((r) => r.s.id === stu), sr2 = classResults('7 B', 2).find((r) => r.s.id === stu);
-  const openS = (s) => (s.real ? go('student', { id: s.id }) : null);
+  const openS = (s) => (s.real && canOpen(role, 'student', modulesOn) ? go('student', { id: s.id }) : null);
   return (
     <div>
       <ModuleHead sub="Subject-wise and class-wise results, toppers and students who need help"

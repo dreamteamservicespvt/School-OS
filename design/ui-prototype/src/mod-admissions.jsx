@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import * as I from './icons.js';
 import { CLASSES, FEATURED, inr } from './data.js';
 import { cx, Card, CardHead, Button, IconButton, Pill, Avatar, Input, Field, Segmented, Tabs, Empty, Sheet, Switch, Checkbox, useToast } from './ui.jsx';
-import { useNav, useRole } from './shell.jsx';
+import { useNav, useRole, canDo } from './shell.jsx';
 import {
   ModuleHead, useCanEdit, Icon, Stats, Band, SearchBox, Toolbar, Select, Textarea, Chips, DataList, BulkBar, Row, SettingRow, ToggleRow, SettingsCard,
   Banner, Suggestion, Progress, HBars, Bars, Legend, DL, Timeline, MoreMenu, FormSheet, ConfirmSheet, Split, Col, ExportButton,
@@ -201,9 +201,11 @@ const BOARD = {
 
 function AdmDashboard() {
   const { go } = useNav();
-  const { role } = useRole();
+  const { role, modulesOn } = useRole();
   const toast = useToast();
-  const canEdit = useCanEdit();
+  // The Principal reads the pipeline here and decides on Admission Decision; the office moves applications
+  const canEdit = useCanEdit() && canDo(role, 'admissions.applications', modulesOn);
+  const canEnq = useCanEdit() && canDo(role, 'admissions.enquiries', modulesOn);
   const has = useHas();
   const [per, setPer] = useState(PERIODS.last7);
   const [year, setYear] = useState('2027–28');
@@ -243,10 +245,10 @@ function AdmDashboard() {
   return (
     <div>
       <ModuleHead sub="Admissions are open for 2027–28. Mid-year joining for 2026–27 runs alongside."
-        actions={<>
-          <Button variant="secondary" icon={I.PhoneIncoming} onClick={() => setAdd(true)}>Add enquiry</Button>
-          <Button variant="primary" icon={I.FilePlus2} onClick={() => setApp(true)}>New application</Button>
-        </>} />
+        actions={canEdit || canEnq ? <>
+          {canEnq && <Button variant={canEdit ? 'secondary' : 'primary'} icon={I.PhoneIncoming} onClick={() => setAdd(true)}>Add enquiry</Button>}
+          {canEdit && <Button variant="primary" icon={I.FilePlus2} onClick={() => setApp(true)}>New application</Button>}
+        </> : canDo(role, 'admissions.decision', modulesOn) ? <Button variant="primary" icon={I.Gavel} onClick={() => go('admissions', { page: 'decision' })}>Open Admission Decision</Button> : null} />
       <div className="flex flex-col gap-5 @lg:gap-6">
         <div className="flex flex-col @lg:flex-row gap-2.5 @lg:items-center">
           <Segmented value={year} onChange={setYear} options={[{ value: '2027–28', label: 'Admission year 2027–28' }, { value: '2026–27', label: '2026–27 mid-year' }]} />
@@ -286,7 +288,7 @@ function AdmDashboard() {
             </Card>
 
             <Card>
-              <CardHead title="Pipeline" sub={canEdit ? 'Drag a card to the next column, or use its arrow. The same checks as the buttons apply.' : 'Cards in each step. View only.'} icon={I.SquareKanban} />
+              <CardHead title="Pipeline" sub={canEdit ? 'Drag a card to the next column, or use its arrow. The same checks as the buttons apply.' : 'Where each application is now. The office moves them on.'} icon={I.SquareKanban} />
               <div className="overflow-x-auto scroll-thin px-4 pb-4">
                 <div className="flex gap-3 w-max">
                   {cols.map(([k, label, total], ci) => {
@@ -1110,6 +1112,7 @@ function ApplicationDetail({ id }) {
               ]} />
             </div>
           )}
+          {!canEdit && (a.stage === 'Decision' || a.stage === 'Approved') && canDo(role, 'admissions.decision') && <Button variant="primary" icon={I.Gavel} onClick={() => go('admissions', { page: 'decision' })}>Open in Admission Decision</Button>}
         </Card>
         {a.stage === 'Admitted' && <Banner tone="ok" title={`Admitted as ${a.admNo}.`} action={inMenu(role, 'students') ? <Button size="sm" variant="secondary" onClick={() => go('students')}>Student list</Button> : null}>The student record, parents, fee plan and ID card were created on 2 Oct.</Banner>}
         {a.stage === 'Withdrawn' && <Banner tone="info" title="Withdrawn.">{a.withdrawn}. The application number is never reused.</Banner>}
@@ -1198,7 +1201,7 @@ function ApplicationDetail({ id }) {
             <span className="w-10 h-10 rounded-xl bg-brand/10 text-brand grid place-items-center"><I.Send size={18} /></span>
             <span className="flex-1"><b className="font-semibold text-[14px] block">Send a Razorpay payment link</b><span className="text-[12.5px] text-ink3">UPI, card or net banking · valid 7 days</span></span><I.ChevronRight size={18} className="text-ink3" />
           </button>
-          <button onClick={() => { setPay(false); role.access.fees === 'full' ? go('fees', { page: 'collect' }) : toast({ title: 'Ask the accounts counter', body: 'Suresh Babu collects counter payments in Fee Management.', tone: 'info' }); }} className="flex items-center gap-3 rounded-xl border border-line p-3.5 text-left hover:bg-sunken/60">
+          <button onClick={() => { setPay(false); canDo(role, 'fees.collect') ? go('fees', { page: 'collect' }) : toast({ title: 'Ask the accounts counter', body: 'Suresh Babu collects counter payments in Fee Management.', tone: 'info' }); }} className="flex items-center gap-3 rounded-xl border border-line p-3.5 text-left hover:bg-sunken/60">
             <span className="w-10 h-10 rounded-xl bg-sunken grid place-items-center"><I.Banknote size={18} /></span>
             <span className="flex-1"><b className="font-semibold text-[14px] block">Collect at the counter</b><span className="text-[12.5px] text-ink3">Opens Collect Fee with the application fee head</span></span><I.ChevronRight size={18} className="text-ink3" />
           </button>
@@ -1301,13 +1304,13 @@ function Documents() {
                       <p className="text-[12.5px] text-ink3 mt-0.5">
                         {d.status === 'Verified' ? `By ${d.by}, ${d.when}${d.original ? ' · original seen at counter' : ''}` : d.status === 'Received' ? `${d.file} · uploaded ${d.when}` : d.status === 'Rejected' ? <span className="text-bad">Rejected: {d.reason}. A new copy is needed.</span> : 'Not collected yet'}
                       </p>
-                      {canEdit && (
+                      {(canEdit || d.file) && (
                         <div className="flex gap-1.5 mt-2 flex-wrap">
                           {d.file && <Button size="sm" variant="ghost" icon={I.Eye} onClick={() => setView({ a: cur, d })}>View</Button>}
-                          {d.status === 'Received' && <Button size="sm" variant="soft" icon={I.Check} onClick={() => { patch(cur.id, d.name, { status: 'Verified', by: me, when: '9 Oct, 10:44 AM' }); toast({ title: `${d.name} verified`, body: `By ${me} at 10:44 AM`, undo: () => patch(cur.id, d.name, { status: 'Received' }) }); }}>Verify</Button>}
-                          {d.status === 'Received' && <Button size="sm" variant="ghost" icon={I.X} onClick={() => setRej({ a: cur, d })}>Reject</Button>}
-                          {(d.status === 'Not received' || d.status === 'Rejected') && <Button size="sm" variant="secondary" icon={I.Upload} onClick={() => setUp({ a: cur, type: d.name })}>Upload</Button>}
-                          {d.status === 'Verified' && !d.original && <Button size="sm" variant="ghost" icon={I.Stamp} onClick={() => { patch(cur.id, d.name, { original: true }); toast({ title: 'Marked: original seen at counter', body: d.name }); }}>Original seen</Button>}
+                          {canEdit && d.status === 'Received' && <Button size="sm" variant="soft" icon={I.Check} onClick={() => { patch(cur.id, d.name, { status: 'Verified', by: me, when: '9 Oct, 10:44 AM' }); toast({ title: `${d.name} verified`, body: `By ${me} at 10:44 AM`, undo: () => patch(cur.id, d.name, { status: 'Received' }) }); }}>Verify</Button>}
+                          {canEdit && d.status === 'Received' && <Button size="sm" variant="ghost" icon={I.X} onClick={() => setRej({ a: cur, d })}>Reject</Button>}
+                          {canEdit && (d.status === 'Not received' || d.status === 'Rejected') && <Button size="sm" variant="secondary" icon={I.Upload} onClick={() => setUp({ a: cur, type: d.name })}>Upload</Button>}
+                          {canEdit && d.status === 'Verified' && !d.original && <Button size="sm" variant="ghost" icon={I.Stamp} onClick={() => { patch(cur.id, d.name, { original: true }); toast({ title: 'Marked: original seen at counter', body: d.name }); }}>Original seen</Button>}
                         </div>
                       )}
                     </div>

@@ -266,7 +266,8 @@ export function ToggleRow({ title, sub, on: start = false, id }) {
   const canEdit = useCanEdit();
   return (
     <SettingRow title={title} sub={sub} id={id}>
-      <Switch id={id} on={on} label={title} onChange={(v) => { if (!canEdit) return; setOn(v); toast({ title: `${title}: ${v ? 'on' : 'off'}`, body: 'Saved. Recorded in the audit log.' }); }} />
+      {canEdit ? <Switch id={id} on={on} label={title} onChange={(v) => { setOn(v); toast({ title: `${title}: ${v ? 'on' : 'off'}`, body: 'Saved. Recorded in the audit log.' }); }} />
+        : <Pill tone={on ? 'ok' : 'neutral'} className="shrink-0">{on ? 'On' : 'Off'}</Pill>}
     </SettingRow>
   );
 }

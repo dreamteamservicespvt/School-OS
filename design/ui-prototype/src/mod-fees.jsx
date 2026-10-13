@@ -8,9 +8,9 @@ import { useNav, useRole } from './shell.jsx';
 import {
   ModuleHead, useCanEdit, Stats, Band, SearchBox, Toolbar, Select, Textarea, DataList, BulkBar, SettingRow, SettingsCard,
   Banner, Suggestion, Progress, HBars, Bars, Legend, Timeline, MoreMenu, FormSheet, ConfirmSheet, Split, Col, ExportButton, TONE_SOFT,
-  DatePeriod, PERIODS, fmtRange, fmtDay, periodDays, MONTH_NAMES,
+  DatePeriod, PERIODS, fmtRange, fmtDay, periodDays, MONTH_NAMES, usePage,
 } from './kit.jsx';
-import { pagesFor, inMenu } from './config.js';
+import { pagesFor, inMenu, pageAccess } from './config.js';
 
 /* =========================================================================================
    Sample data (Sunrise Public School, 2026–27). Today is Fri 9 Oct 2026, 10:42 AM.
@@ -64,6 +64,9 @@ export function canOpen(role, mod, page) {
   if (!page) return true;
   return pagesFor(mod, role.access[mod], role.id).some((p) => p.id === page);
 }
+// Does this person do the work on that page (open it AND it is Full for them)? The Principal can read the
+// fee pages but never sits at the counter, so links to Collect Fee use this, not canOpen.
+export const canDoPage = (role, mod, page) => canOpen(role, mod, page) && pageAccess(role.id, mod, page, role.access[mod]) === 'full';
 // Salary amounts are shown only to people with full Salary access (Accountant, Principal, School Admin)
 export const seesPay = (role) => role.access.salary === 'full';
 const scaleBy = (f) => (n) => Math.round(n * f);
@@ -524,9 +527,9 @@ function PaymentSheet({ p, onClose, onCancel, onVerify, onReject }) {
 
         <div className="flex gap-2 flex-wrap">
           {p.status !== 'Failed' && <>
-            <Button variant="secondary" icon={I.Printer} onClick={() => toast({ title: 'Sent to the counter printer', body: `${p.rcpt} · office copy and parent copy` })}>Print</Button>
+            {canEdit && <Button variant="secondary" icon={I.Printer} onClick={() => toast({ title: 'Sent to the counter printer', body: `${p.rcpt} · office copy and parent copy` })}>Print</Button>}
             <Button variant="secondary" icon={I.Download} onClick={() => toast({ title: 'Receipt saved', body: `${p.rcpt.replace(/\//g, '-')}.pdf${p.tax ? ` and ${p.tax.replace(/\//g, '-')}.pdf` : ''}` })}>PDF</Button>
-            <Button variant="secondary" icon={I.MessageCircle} onClick={() => toast({ title: `Sent on WhatsApp to ${p.parent || 'the parent'}`, body: p.status === 'Cancelled' ? 'Marked cancelled, with the reason' : 'Receipt with the school’s template' })}>WhatsApp</Button>
+            {canEdit && <Button variant="secondary" icon={I.MessageCircle} onClick={() => toast({ title: `Sent on WhatsApp to ${p.parent || 'the parent'}`, body: p.status === 'Cancelled' ? 'Marked cancelled, with the reason' : 'Receipt with the school’s template' })}>WhatsApp</Button>}
           </>}
           {p.status === 'Failed' && canEdit && <Button variant="primary" icon={I.Send} onClick={() => { onClose(); toast({ title: `New payment link sent to ${p.parent}`, body: `${inr(p.amt)} · WhatsApp, with SMS backup. Valid 7 days.` }); }}>Send new link</Button>}
           {p.sid && canOpen(role, 'fees', 'ledger') && <Button variant="ghost" icon={I.BookOpen} onClick={() => go('fees', { page: 'ledger', id: p.sid })}>Student fee ledger</Button>}
@@ -678,7 +681,7 @@ function FeeDashboardFull() {
   return (
     <div>
       <ModuleHead title="Fees" sub="Friday, 9 October · live as money comes in · updated 10:42 AM"
-        actions={<><ExportButton what={`payments, ${range}`} />{canEdit && can('collect') && <Button variant="primary" icon={I.IndianRupee} onClick={() => go('fees', { page: 'collect' })}>Collect fee</Button>}</>} />
+        actions={<><ExportButton what={`payments, ${range}`} />{canEdit && canDoPage(role, 'fees', 'collect') && <Button variant="primary" icon={I.IndianRupee} onClick={() => go('fees', { page: 'collect' })}>Collect fee</Button>}</>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
         <div className="flex flex-col @md:flex-row @md:items-center gap-2.5">
           <DatePeriod id="fee-per" value={per} onChange={setPer} className="w-full @md:w-auto" />
@@ -831,7 +834,7 @@ function LedgerPage({ params }) {
       <ModuleHead title="Fees" sub="Each student’s fees, payments, balance and receipts. Nothing here is ever deleted."
         actions={<>
           {canEdit && <Button variant="secondary" icon={I.FileText} className="hidden @md:inline-flex" onClick={() => toast({ title: `Fee invoice ready for ${s.name}`, body: `Dues ${inr(balance)} · sent on WhatsApp with a Razorpay link` })}>Fee invoice</Button>}
-          {canEdit && canOpen(role, 'fees', 'collect') && <Button variant="primary" icon={I.IndianRupee} onClick={() => go('fees', { student: s.id })}>Collect fee</Button>}
+          {canEdit && canDoPage(role, 'fees', 'collect') && <Button variant="primary" icon={I.IndianRupee} onClick={() => go('fees', { student: s.id })}>Collect fee</Button>}
         </>} />
 
       <div className="flex flex-col gap-5 @lg:gap-6">
@@ -1137,6 +1140,9 @@ function Defaulters() {
   const cMax = Math.max(...byClass.map((r) => r.v));
   const half = Math.ceil(byClass.length / 2);
   const ageTone = (d) => (d.days > 60 ? 'bad' : d.days > 30 ? 'warn' : 'neutral');
+  // Principal and School Admin read this page: show them where follow-up is missing, not the reminder tools
+  const oversight = usePage().access === 'view';
+  const noCall = DEFAULTERS.filter((d) => d.days > 60 && !d.calls.length && !extra[d.id]?.calls);
 
   return (
     <div>
@@ -1147,6 +1153,13 @@ function Defaulters() {
           const list = DEFAULTERS.filter((d) => d.bucket === b.id);
           return { label: b.label, value: inr(list.reduce((a, d) => a + d.amount, 0)), sub: `${list.length} students${bucket === b.id ? ' · showing' : ''}`, tone: b.tone, icon: 'Hourglass', onClick: () => setBucket(bucket === b.id ? 'all' : b.id) };
         })} />
+
+        {oversight && noCall.length > 0 && (
+          <Banner tone="warn" title={`${noCall.length} ${noCall.length === 1 ? 'family is' : 'families are'} more than 60 days late and nobody has called them yet.`}
+            action={<Button size="sm" variant="secondary" icon={I.BellRing} onClick={() => toast({ title: 'Suresh Babu is asked to call them', body: `${noCall.length} families, oldest dues first, with phone numbers. He sees it on his Home page.` })}>Remind Suresh Babu</Button>}>
+            WhatsApp reminders went out by themselves. {noCall.slice(0, 3).map((d) => d.s.name).join(', ')}{noCall.length > 3 ? ` and ${noCall.length - 3} more` : ''}.
+          </Banner>
+        )}
 
         <Card>
           <CardHead title="Overdue by class" sub="Tap a class to see its students" icon={I.ChartColumn} />
@@ -1196,7 +1209,7 @@ function Defaulters() {
               { key: 'amt', label: 'Overdue', align: 'right', render: (d) => <><p className="font-semibold">{inr(d.amount)}</p><p className="text-[12px] text-ink3 max-w-[180px] truncate ml-auto">{d.head}</p></> },
               { key: 'since', label: 'Overdue since', render: (d) => <><p className="tnum">{dshort(d.since)}</p><Pill tone={ageTone(d)} className="!h-5 !text-[11px]">{d.days} days</Pill></> },
               { key: 'rem', label: 'Last reminder', render: (d) => { const r = remOf(d); return r.length ? <><p className="text-[13px]">{r[0].when} · {r[0].channel}</p><p className="text-[12px] text-ink3">{r.length} sent · {r[0].status}</p></> : <span className="text-[13px] text-ink3">Not reminded yet</span>; } },
-              { key: 'act', label: '', render: (d) => canEdit && canOpen(role, 'fees', 'collect') && <Button size="sm" variant="soft" onClick={(e) => { e.stopPropagation(); go('fees', { student: d.id }); }}>Collect</Button> },
+              { key: 'act', label: '', render: (d) => canEdit && canDoPage(role, 'fees', 'collect') && <Button size="sm" variant="soft" onClick={(e) => { e.stopPropagation(); go('fees', { student: d.id }); }}>Collect</Button> },
             ]}
             mobile={(d) => ({ title: d.s.name, sub: `${clsOf(d.s)} · ${d.head}`, avatar: d.s.name, right: <><p className="font-semibold tnum">{inr(d.amount)}</p><Pill tone={ageTone(d)} className="!h-5 !text-[11px]">{d.days} days</Pill></> })} />
         </Card>
@@ -1273,7 +1286,7 @@ function HistorySheet({ d, rems, calls, onClose, onSend, onCall }) {
           <div className="min-w-0 flex-1"><p className="font-display text-[22px] font-semibold tnum text-bad leading-tight">{inr(d.amount)}</p><p className="text-[13px] text-ink2">{d.head} · since {dlong(d.since)} · {d.days} days</p></div>
         </div>
         <div className="flex gap-2 flex-wrap">
-          {canEdit && canOpen(role, 'fees', 'collect') && <Button variant="primary" icon={I.IndianRupee} onClick={() => go('fees', { student: d.id })}>Collect fee</Button>}
+          {canEdit && canDoPage(role, 'fees', 'collect') && <Button variant="primary" icon={I.IndianRupee} onClick={() => go('fees', { student: d.id })}>Collect fee</Button>}
           {canEdit && <Button variant="secondary" icon={I.Send} onClick={() => onSend(d)}>Send reminder</Button>}
           {canOpen(role, 'fees', 'ledger') && <Button variant="ghost" icon={I.BookOpen} onClick={() => go('fees', { page: 'ledger', id: d.id })}>Ledger</Button>}
         </div>
@@ -1327,7 +1340,10 @@ function Structure() {
   const [pending, setPending] = useState('waiting');
   const draft = year === '2027–28';
   const cur = open ? CLASSES.find((c) => c.id === open) : null;
-  const approver = role.id === 'principal' || role.id === 'schooladmin';
+  // Mid-year changes are the Principal's decision. Their Fee Structure page is View (they do not build it),
+  // but the approval stays with them. Nobody approves their own change.
+  const { year: acYear } = useRole();
+  const approver = role.id === 'principal' && !acYear?.closed;
 
   return (
     <div>
@@ -1393,7 +1409,7 @@ function Structure() {
                 <p className="font-semibold text-[14.5px]">Lab fee ₹3,000 for Classes 9 and 10</p>
                 <p className="text-[13px] text-ink3 mt-0.5">From Nov 2026 · 230 students’ unpaid installments · raised by Suresh Babu on 7 Oct</p>
                 {pending === 'waiting' ? (
-                  approver && canEdit ? (
+                  approver ? (
                     <div className="flex gap-2 mt-3">
                       <Button size="sm" variant="soft" icon={I.Check} onClick={() => { setPending('approved'); toast({ title: 'Lab fee approved', body: 'Version 3.1 published. 230 students get the new row from Nov 2026. Paid rows unchanged.', undo: () => setPending('waiting') }); }}>Approve</Button>
                       <Button size="sm" variant="ghost" onClick={() => { setPending('declined'); toast({ title: 'Lab fee declined', body: 'Suresh Babu sees your reason. You can add it for 2027–28 instead.', undo: () => setPending('waiting') }); }}>Decline</Button>
@@ -1583,6 +1599,9 @@ function Concessions() {
   const [st, setSt] = useState('all');
   const [per, setPer] = useState(PERIODS.finyear);
   const approver = (role.id === 'principal' || role.id === 'schooladmin') && canEdit;
+  // The accounts desk (Accountant) raises concessions and refunds and pays refunds back. The Principal decides:
+  // they may give a concession themselves, but refunds start at the desk.
+  const desk = canEdit && canDoPage(role, 'fees', 'collect');
   const inP = (c) => inPeriod(isoOf(c.date), per);
   const decide = (id, ok, setter) => {
     setter((x) => x.map((c) => (c.id === id ? { ...c, status: ok ? (setter === setList ? 'Applied' : 'Approved') : 'Rejected', appr: role.person.name } : c)));
@@ -1602,7 +1621,7 @@ function Concessions() {
   return (
     <div>
       <ModuleHead title="Fees" sub="Discounts, scholarships and refunds, each with a reason and who approved it"
-        actions={canEdit && <><Button variant="secondary" icon={I.Undo2} onClick={() => setNewR(true)}>New refund</Button><Button variant="primary" icon={I.BadgePercent} onClick={() => setNewC(true)}>New concession</Button></>} />
+        actions={canEdit && <>{desk && <Button variant="secondary" icon={I.Undo2} onClick={() => setNewR(true)}>New refund</Button>}<Button variant="primary" icon={I.BadgePercent} onClick={() => setNewC(true)}>{desk ? 'New concession' : 'Give a concession'}</Button></>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
         <Stats items={[
           { label: `Concessions · ${per.label}`, value: inrShort(Math.round(4107950 * Math.min(1, share))), sub: `${Math.round(449 * Math.min(1, share))} concessions, RTE included`, icon: 'BadgePercent' },
@@ -1705,9 +1724,9 @@ function Concessions() {
                 { key: 'amt', label: 'Refund', align: 'right', render: (r) => <b className="font-semibold">{inr(r.amt)}</b> },
                 { key: 'reason', label: 'Reason', render: (r) => <span className="text-[13px] text-ink2 block max-w-[240px]">{r.reason}{r.note && <span className="block text-ink3">{r.note}</span>}</span> },
                 { key: 'mode', label: 'Mode', render: (r) => <span className="text-[13px]">{r.mode}{r.ref && <span className="block text-[12px] text-ink3 font-mono">{r.ref}</span>}</span> },
-                { key: 'status', label: 'Status', render: (r) => <div className="flex flex-col items-start gap-1.5"><Pill tone={C_TONE[r.status]}>{r.status}</Pill><DecideBtns c={r} setter={setRefunds} />{r.status === 'Approved' && canEdit && <Button size="sm" variant="secondary" onClick={(e) => { e.stopPropagation(); setMarkR(r); }}>Mark refunded</Button>}</div> },
+                { key: 'status', label: 'Status', render: (r) => <div className="flex flex-col items-start gap-1.5"><Pill tone={C_TONE[r.status]}>{r.status}</Pill><DecideBtns c={r} setter={setRefunds} />{r.status === 'Approved' && desk && <Button size="sm" variant="secondary" onClick={(e) => { e.stopPropagation(); setMarkR(r); }}>Mark refunded</Button>}</div> },
               ]}
-              mobile={(r) => ({ title: r.name, sub: `${inr(r.amt)} of ${inr(r.paid)} · ${r.rcpt}`, icon: 'Undo2', iconTone: C_TONE[r.status], pills: [<Pill key="s" tone={C_TONE[r.status]} className="!h-[22px] !text-[11.5px]">{r.status}</Pill>, r.status === 'Approved' && canEdit && <Button key="m" size="sm" variant="secondary" onClick={() => setMarkR(r)}>Mark refunded</Button>, r.status === 'Waiting' && <DecideBtns key="d" c={r} setter={setRefunds} />] })} />
+              mobile={(r) => ({ title: r.name, sub: `${inr(r.amt)} of ${inr(r.paid)} · ${r.rcpt}`, icon: 'Undo2', iconTone: C_TONE[r.status], pills: [<Pill key="s" tone={C_TONE[r.status]} className="!h-[22px] !text-[11.5px]">{r.status}</Pill>, r.status === 'Approved' && desk && <Button key="m" size="sm" variant="secondary" onClick={() => setMarkR(r)}>Mark refunded</Button>, r.status === 'Waiting' && <DecideBtns key="d" c={r} setter={setRefunds} />] })} />
           </>}
         </Card>
       </div>
@@ -1737,16 +1756,18 @@ function NewConcessionSheet({ open, onClose, onAdd }) {
   const s = byId(sid);
   const v = Number(amt.replace(/\D/g, '')) || 0;
   const money = unit === '₹' ? v : Math.round((TUITION[s.clsId] * v) / 100);
-  const needsOk = money > 1000;
+  // The Principal is the one who decides concessions above ₹1,000, so theirs applies at once, logged with their name
+  const decider = role.id === 'principal';
+  const needsOk = money > 1000 && !decider;
   const err = { amt: !v ? 'Enter the amount or %' : unit === '%' && v > 100 ? 'Cannot be more than 100%' : '', reason: !reason.trim() ? 'Say why. It is printed on the approval and kept in the audit log.' : '', heads: heads.size ? '' : 'Pick at least one fee head' };
   const toggle = (h) => setHeads((x) => { const n = new Set(x); n.has(h) ? n.delete(h) : n.add(h); return n; });
   return (
-    <FormSheet open={open} onClose={() => { onClose(); setTried(false); setAmt(''); setReason(''); }} title="New concession" sub="Amount or percentage off one student’s fees" submitLabel={needsOk ? 'Send for approval' : 'Apply concession'}
+    <FormSheet open={open} onClose={() => { onClose(); setTried(false); setAmt(''); setReason(''); }} title={decider ? 'Give a concession' : 'New concession'} sub={decider ? 'Amount or percentage off one student’s fees. You decide it, so it applies at once.' : 'Amount or percentage off one student’s fees'} submitLabel={needsOk ? 'Send for approval' : 'Apply concession'}
       onSubmit={() => {
         setTried(true);
         if (err.amt || err.reason || err.heads) return false;
-        onAdd({ id: 'n' + Date.now(), sid, name: s.name, cls: clsOf(s), type, amt: unit === '₹' ? inr(v) : `${v}%`, heads: [...heads].join(', '), reason: reason.trim(), by: role.person.name, appr: needsOk ? null : 'Within the accountant’s limit', status: needsOk ? 'Waiting' : 'Applied', date: '9 Oct' });
-        toast({ title: needsOk ? `Sent to ${role.id === 'principal' ? 'Anita Sharma (School Admin)' : 'Lakshmi Rao'} for approval` : `Concession applied for ${s.name}`, body: needsOk ? `${unit === '₹' ? inr(v) : `${v}% (about ${inr(money)})`} is above ₹1,000` : 'The dues are lower from now. Shown on the next receipt.' });
+        onAdd({ id: 'n' + Date.now(), sid, name: s.name, cls: clsOf(s), type, amt: unit === '₹' ? inr(v) : `${v}%`, heads: [...heads].join(', '), reason: reason.trim(), by: role.person.name, appr: decider ? `${role.person.name}, Principal` : needsOk ? null : 'Within the accountant’s limit', status: needsOk ? 'Waiting' : 'Applied', date: '9 Oct' });
+        toast({ title: needsOk ? 'Sent to Lakshmi Rao for approval' : `Concession applied for ${s.name}`, body: needsOk ? `${unit === '₹' ? inr(v) : `${v}% (about ${inr(money)})`} is above ₹1,000` : decider ? 'The dues are lower from now. Suresh Babu sees it on the next receipt.' : 'The dues are lower from now. Shown on the next receipt.' });
         setAmt(''); setReason(''); setTried(false);
       }}>
       <Field label="Student" required id="nc-s"><Select id="nc-s" value={sid} onChange={setSid} options={STUDENTS.map((x) => ({ value: x.id, label: `${x.name} · ${clsOf(x)}` }))} /></Field>
@@ -1754,7 +1775,7 @@ function NewConcessionSheet({ open, onClose, onAdd }) {
         <Field label="Type" required id="nc-type"><Select id="nc-type" value={type} onChange={setType} options={['Discount', 'Scholarship', 'Sibling', 'Staff child', 'Late fee waiver', 'RTE']} /></Field>
         <Field label="Period" required id="nc-per"><Select id="nc-per" value={period} onChange={setPeriod} options={['Rest of this year', 'Q3 only', 'Whole year']} /></Field>
       </div>
-      <Field label="Amount or %" required id="nc-amt" error={tried && err.amt} hint={v ? (needsOk ? `About ${inr(money)}: above ₹1,000, so the Principal decides` : 'Up to ₹1,000 applies at once') : undefined}>
+      <Field label="Amount or %" required id="nc-amt" error={tried && err.amt} hint={v ? (decider ? `About ${inr(money)} · applies at once with your name on it` : needsOk ? `About ${inr(money)}: above ₹1,000, so the Principal decides` : 'Up to ₹1,000 applies at once') : undefined}>
         <div className="flex gap-2"><Segmented value={unit} onChange={setUnit} options={['₹', '%']} /><Input id="nc-amt" inputMode="numeric" value={amt} onChange={(e) => setAmt(e.target.value)} error={tried && err.amt} className="tnum" placeholder={unit === '₹' ? '2,000' : '10'} /></div>
       </Field>
       <Field label="Fee heads" required error={tried && err.heads}>

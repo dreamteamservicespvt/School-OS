@@ -9,9 +9,9 @@ import { useNav, useRole } from './shell.jsx';
 import {
   ModuleHead, useCanEdit, Stats, Band, SearchBox, Toolbar, Select, Textarea, DataList, SettingRow, SettingsCard,
   Banner, Suggestion, Progress, HBars, Bars, Legend, DL, Timeline, FormSheet, ConfirmSheet, Split as KitSplit, Col, TONE_SOFT,
-  DatePeriod, PERIODS as DP, fmtRange, fmtDay,
+  DatePeriod, PERIODS as DP, fmtRange, fmtDay, usePage,
 } from './kit.jsx';
-import { FEE_PAYMENTS_TODAY, TUITION, MODE_ICON, PayPill, SimpleTable, ReportsFrame, ReportActions, isoOf, inPeriod, monthShare, FY_MONTHS, canOpen, seesPay, ALL_DATES } from './mod-fees.jsx';
+import { FEE_PAYMENTS_TODAY, TUITION, MODE_ICON, PayPill, SimpleTable, ReportsFrame, ReportActions, isoOf, inPeriod, monthShare, FY_MONTHS, canOpen, canDoPage, seesPay, ALL_DATES } from './mod-fees.jsx';
 
 // Same as the kit Split, but its direct children may shrink (no sideways overflow on phones)
 const Split = ({ className, ...p }) => <KitSplit {...p} className={cx('[&>*]:min-w-0', className)} />;
@@ -399,6 +399,8 @@ function DayBookPage() {
   const canEdit = useCanEdit();
   const { role } = useRole();
   const pay = seesPay(role);
+  // Principal and School Admin read the Day Book: they see a day left open, not the Close button
+  const oversight = usePage().access === 'view';
   const blank = { cls: 'all', acct: 'all' };
   const [draft, setDraft] = useState(blank);
   const [f, setF] = useState(blank);
@@ -454,6 +456,11 @@ function DayBookPage() {
         {!closed.has('2026-10-08') && canEdit && (
           <Banner tone="bad" title="Thu 8 Oct is not closed yet." action={<Button size="sm" variant="secondary" onClick={() => setClosing('2026-10-08')}>Count and close</Button>}>
             Cash in hand of {inr(38400)} is waiting to be counted and locked.
+          </Banner>
+        )}
+        {!closed.has('2026-10-08') && oversight && (
+          <Banner tone="warn" title="Thu 8 Oct is not closed yet." action={<Button size="sm" variant="secondary" icon={I.BellRing} onClick={() => toast({ title: 'Suresh Babu is reminded', body: 'Count the cash for Thu 8 Oct and close the day. He gets it on WhatsApp and his Home page.' })}>Remind Suresh Babu</Button>}>
+            Cash in hand of {inr(38400)} has not been counted and locked by the accountant.
           </Banner>
         )}
         {day.old && <Banner tone="warn" title="Finance year 2025–26 is closed.">Its books are read only. Put a mistake right with an adjustment in 2026–27.</Banner>}
@@ -778,7 +785,7 @@ const AMT_ABOVE = [{ value: '0', label: 'Any amount' }, { value: '2000', label: 
 function ExpensesPage({ params }) {
   const toast = useToast();
   const canEdit = useCanEdit();
-  const { role } = useRole();
+  const { role, year } = useRole();
   const [list, setList] = useState(EXPENSES0);
   const [bills, setBills] = useState(BILLS0);
   const [tab, setTab] = useState(params?.tab || 'all');
@@ -805,8 +812,11 @@ function ExpensesPage({ params }) {
   const noBill = list.filter((r) => !r.bill && r.amt > BILL_ABOVE && ['Approved', 'Waiting', 'Paid'].includes(r.status));
   const unpaidBills = bills.filter((b) => b.paid < b.amt);
   const me = role.person?.name || 'Lakshmi Rao';
-  // Nobody approves their own request
-  const mayApprove = (r) => canApprove(role.id, r.amt) && r.by !== me;
+  // Nobody approves their own request. Approving stays with the approvers even where the page is View
+  // (the School Admin approves ₹2,001 to ₹10,000), but never in a closed year.
+  const mayApprove = (r) => canApprove(role.id, r.amt) && r.by !== me && !year?.closed;
+  // The person who keeps the books records, pays and cancels. The Principal's Expenses page is Full only to approve.
+  const desk = canEdit && canDoPage(role, 'finance', 'daybook');
 
   const approve = (r) => {
     const prev = { status: r.status, appr: r.appr };
@@ -825,15 +835,15 @@ function ExpensesPage({ params }) {
   const remind = (r) => toast({ title: `Reminder sent to ${approverFor(r.amt).split(' (')[0]}`, body: `${r.what} · ${inr(r.amt)} · waiting since ${r.d}` });
 
   const ApproveButtons = ({ r, size = 'sm' }) => {
-    if (!canEdit) return null;
     if (mayApprove(r)) return <div className="flex gap-1.5"><Button size={size} variant="ghost" onClick={(e) => { e.stopPropagation(); setReject(r); }}>Reject</Button><Button size={size} variant="primary" icon={I.Check} onClick={(e) => { e.stopPropagation(); approve(r); }}>Approve</Button></div>;
+    if (!desk) return null;
     return <Button size={size} variant="soft" icon={I.BellRing} onClick={(e) => { e.stopPropagation(); remind(r); }}>Remind</Button>;
   };
 
   return (
     <div>
       <ModuleHead sub="Bills and expenses with a photo of the bill. Bigger amounts wait for approval."
-        actions={canEdit && <><Button variant="secondary" icon={I.FileText} onClick={() => setBillAdd(true)}>Record vendor bill</Button><Button variant="primary" icon={I.Plus} onClick={() => setAdding(true)}>Record expense</Button></>} />
+        actions={desk && <><Button variant="secondary" icon={I.FileText} onClick={() => setBillAdd(true)}>Record vendor bill</Button><Button variant="primary" icon={I.Plus} onClick={() => setAdding(true)}>Record expense</Button></>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
         <Stats items={[
           { label: 'Paid this month', value: inr(MONTHLY[6].otherOut + sumBy(paidOct.filter((r) => !PAID0.has(r.id)), (r) => r.amt) - sumBy(list.filter((r) => PAID0.has(r.id) && r.status !== 'Paid' && r.paidOn?.endsWith('Oct')), (r) => r.amt)), sub: 'October so far, in the Day Book', icon: 'ReceiptText' },
@@ -843,7 +853,7 @@ function ExpensesPage({ params }) {
         ]} />
 
         {noBill.length > 0 && (
-          <Banner tone="warn" title={`Bill missing: ${noBill[0].what}, ${inr(noBill[0].amt)}.`} action={<Button size="sm" variant="secondary" icon={I.Camera} onClick={() => setOpen(noBill[0])}>Add bill</Button>}>
+          <Banner tone="warn" title={`Bill missing: ${noBill[0].what}, ${inr(noBill[0].amt)}.`} action={desk ? <Button size="sm" variant="secondary" icon={I.Camera} onClick={() => setOpen(noBill[0])}>Add bill</Button> : <Button size="sm" variant="secondary" icon={I.BellRing} onClick={() => toast({ title: `${noBill[0].by} is asked for the bill`, body: `${noBill[0].what} · ${inr(noBill[0].amt)}. A photo of the bill is needed before it is paid.` })}>Remind {noBill[0].by.split(' ')[0]}</Button>}>
             Approved by {noBill[0].appr}. It cannot be marked paid until the bill is attached.
           </Banner>
         )}
@@ -907,7 +917,7 @@ function ExpensesPage({ params }) {
 
           {tab === 'bills' && (
             <DataList rows={bills} rowKey={(b) => b.no} minWidth={900} footer={`${inr(sumBy(unpaidBills, (b) => b.amt - b.paid))} still to pay on ${unpaidBills.length} bills · bills from Inventory arrive here by themselves`}
-              onRow={(b) => (b.paid < b.amt && !b.hold && canEdit ? setBillPay(b) : toast({ title: `Bill ${b.no}`, body: b.hold ? 'Waiting for approval. It can be paid once approved.' : b.paid >= b.amt ? `Paid in full · ${inr(b.amt)}` : 'View only', tone: 'info' }))}
+              onRow={(b) => (b.paid < b.amt && !b.hold && desk ? setBillPay(b) : toast({ title: `Bill ${b.no}`, body: b.hold ? 'Waiting for approval. It can be paid once approved.' : b.paid >= b.amt ? `Paid in full · ${inr(b.amt)}` : 'View only', tone: 'info' }))}
               columns={[
                 { key: 'no', label: 'Bill number', render: (b) => <><p className="font-mono text-[12.5px]">{b.no}</p><p className="text-[12px] text-ink3">{b.d}</p></> },
                 { key: 'vendor', label: 'Vendor', render: (b) => <><p className="font-semibold leading-tight">{b.vendor}</p>{b.from && <p className="text-[12px] text-ink3">{b.from}</p>}</> },
@@ -943,7 +953,7 @@ function ExpensesPage({ params }) {
         onAdd={(r) => { setList((l) => [r, ...l]); setTab('all'); setStatus('all'); setRange(DP.finyear); }} />
 
       {open && (
-        <ExpenseSheet r={open} role={role} canEdit={canEdit} onClose={() => setOpen(null)}
+        <ExpenseSheet r={open} role={role} desk={desk} mine={mayApprove(open)} onClose={() => setOpen(null)}
           onApprove={() => approve(open)} onReject={() => setReject(open)} onRemind={() => remind(open)} onSendAgain={() => sendAgain(open)}
           onPay={() => { if (open.amt > BILL_ABOVE && !open.bill) { toast({ title: 'Attach the bill first', body: `Attach the bill for amounts over ${inr(BILL_ABOVE)}.`, tone: 'bad' }); return; } setPay(open); setOpen(null); }}
           onBill={() => { upd(open.id, { bill: true }); toast({ title: 'Bill attached', body: `Photo of the bill added to ${open.id}`, undo: () => upd(open.id, { bill: false }) }); }}
@@ -961,7 +971,7 @@ function ExpensesPage({ params }) {
   );
 }
 
-function ExpenseSheet({ r, role, canEdit, onClose, onApprove, onReject, onRemind, onSendAgain, onPay, onBill, onCancel }) {
+function ExpenseSheet({ r, role, desk, mine, onClose, onApprove, onReject, onRemind, onSendAgain, onPay, onBill, onCancel }) {
   const toast = useToast();
   const who = approverFor(r.amt);
   const steps = [
@@ -972,9 +982,9 @@ function ExpenseSheet({ r, role, canEdit, onClose, onApprove, onReject, onRemind
     r.paidOn && { what: <>Paid by {r.mode}{r.ref ? ` · ${r.ref}` : ''} from {ACCT_NAME[r.acct]}</>, when: `${r.paidOn} 2026 · in the Day Book`, icon: 'CircleCheck', tone: 'ok' },
     r.cancel && { what: <>Cancelled by {r.cancel.by}: “{r.cancel.why}”</>, when: `${r.cancel.when} 2026`, icon: 'CircleX', tone: 'bad' },
   ].filter(Boolean);
-  const mine = canApprove(role.id, r.amt) && r.by !== role.person?.name;
   let actions = null;
-  if (canEdit) {
+  if (r.status === 'Waiting' && mine) actions = <><Button variant="ghost" onClick={() => { onReject(); onClose(); }}>Reject</Button><Button variant="primary" icon={I.Check} onClick={() => { onApprove(); onClose(); }}>Approve {inr(r.amt)}</Button></>;
+  else if (desk) {
     if (r.status === 'Draft') actions = <><Button variant="dangerSoft" onClick={onCancel}>Cancel</Button><Button variant="primary" icon={I.Send} onClick={() => { onSendAgain(); onClose(); }}>{r.rejected ? 'Change and send again' : 'Send for approval'}</Button></>;
     if (r.status === 'Waiting') actions = mine ? <><Button variant="ghost" onClick={() => { onReject(); onClose(); }}>Reject</Button><Button variant="primary" icon={I.Check} onClick={() => { onApprove(); onClose(); }}>Approve {inr(r.amt)}</Button></> : <><Button variant="dangerSoft" onClick={onCancel}>Cancel</Button><Button variant="secondary" icon={I.BellRing} onClick={onRemind}>Remind {who.split(' (')[0]}</Button></>;
     if (r.status === 'Approved') actions = <>{!r.bill && <Button variant="secondary" icon={I.Camera} onClick={onBill}>Add bill</Button>}<Button variant="primary" icon={I.IndianRupee} onClick={() => { onPay(); }}>Mark paid</Button></>;
@@ -1910,6 +1920,7 @@ function SettingsPage() {
   const toast = useToast();
   const canEdit = useCanEdit();
   const { go } = useNav();
+  const { role } = useRole();
   const [start, setStart] = useState('April');
   const [heads, setHeads] = useState(HEADS);
   const [hidden, setHidden] = useState(new Set(['Staff welfare']));
@@ -1950,7 +1961,7 @@ function SettingsPage() {
                 </li>
               ))}
             </ul>
-            <div className="border-t border-line/70"><SettingRow title="Close each day after counting cash" sub="The Day Book locks a day once the cash is counted"><Switch on label="Close each day" onChange={() => save('Daily close stays on', 'The Principal can switch it off in Settings, Forms & Approvals')} /></SettingRow></div>
+            <div className="border-t border-line/70"><SettingRow title="Close each day after counting cash" sub="The Day Book locks a day once the cash is counted">{canEdit ? <Switch on label="Close each day" onChange={() => save('Daily close stays on', 'The Principal can switch it off in Settings, Forms & Approvals')} /> : <Pill tone="ok">On</Pill>}</SettingRow></div>
           </Card>
 
           <Card className="overflow-hidden">
@@ -1984,7 +1995,7 @@ function SettingsPage() {
           </Card>
 
           <Card>
-            <CardHead title="Approval limits" sub="Stored in Settings, Forms & Approvals" icon={I.ShieldCheck} action={canEdit && <Button size="sm" variant="ghost" icon={I.ExternalLink} onClick={() => go('settings', { page: 'forms' })}>Change</Button>} />
+            <CardHead title="Approval limits" sub="Stored in Settings, Forms & Approvals" icon={I.ShieldCheck} action={canEdit && canDoPage(role, 'settings', 'forms') && <Button size="sm" variant="ghost" icon={I.ExternalLink} onClick={() => go('settings', { page: 'forms' })}>Change</Button>} />
             <ul className="px-5 pb-4">
               <Line k="Expenses up to ₹2,000" v={<Pill tone="ok">Approved at once</Pill>} />
               <Line k="Expenses up to ₹10,000" v={<Pill tone="info">School Admin</Pill>} />
@@ -2010,7 +2021,7 @@ function SettingsPage() {
           </Card>
 
           <Card>
-            <CardHead title="Cash and bank accounts" icon={I.Landmark} action={<Button size="sm" variant="ghost" icon={I.ArrowRight} onClick={() => go('finance', { page: 'cashbank' })}>Cash & Bank</Button>} />
+             <CardHead title="Cash and bank accounts" icon={I.Landmark} action={canOpen(role, 'finance', 'cashbank') && <Button size="sm" variant="ghost" icon={I.ArrowRight} onClick={() => go('finance', { page: 'cashbank' })}>Cash & Bank</Button>} />
             <ul className="px-5 pb-4">{ACCTS0.map((a) => <Line key={a.id} k={<><b className="font-semibold text-ink">{a.name}</b><span className="block text-[12px] text-ink3">{a.sub}</span></>} v={a.main ? <Pill tone="brand">Main</Pill> : ''} />)}</ul>
           </Card>
 

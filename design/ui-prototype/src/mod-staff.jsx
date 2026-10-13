@@ -5,11 +5,11 @@ import { STAFF, DEPARTMENTS, SUBJECTS, PERIODS } from './sample.js';
 import { cx, Card, CardHead, Button, IconButton, Pill, Avatar, Checkbox, Input, Field, Segmented, Tabs, Sheet, Switch, Empty, useToast } from './ui.jsx';
 import { useNav, useRole } from './shell.jsx';
 import {
-  ModuleHead, useCanEdit, Stats, Band, SearchBox, Toolbar, Select, Textarea, Chips, DataList, BulkBar, Row, SettingsCard, SettingRow,
+  ModuleHead, useCanEdit, usePage, Stats, Band, SearchBox, Toolbar, Select, Textarea, Chips, DataList, BulkBar, Row, SettingsCard, SettingRow,
   Banner, Suggestion, Progress, HBars, DL, Timeline, Checklist, MoreMenu, FormSheet, ConfirmSheet, MonthGrid, Split as KitSplit, Col, ExportButton, TONE_SOFT,
   DatePeriod, PERIODS as DP, fmtRange, CalendarMonth, markCell, monthTotals, schoolDay, MONTH_NAMES,
 } from './kit.jsx';
-import { pagesFor, inMenu } from './config.js';
+import { pagesFor, inMenu, pageAccess } from './config.js';
 
 // Can the signed-in person open this module (and page)? Used to hide links they may not follow.
 function useCan() {
@@ -447,6 +447,9 @@ function ImportSheet({ open, onClose }) {
 function StaffProfile({ params, access }) {
   const own = access === 'own';
   const me = useMe();
+  const { role } = useRole();
+  // A staff record is changed by the people whose Staff List is Full (HR, office); the Principal reads it
+  if (access === 'full' && pageAccess(role.id, 'staff', 'list', role.access.staff) !== 'full') access = 'view';
   const s = own ? me : byId(params?.id) || byId('T01');
   return own ? <div><ModuleHead sub="Your own record. Ask HR to change your details; you can edit your emergency contacts." /><Profile s={s} mode="own" /></div>
     : <div><BackLink crumb={s.dept} /><Profile s={s} mode={access} /></div>;
@@ -849,7 +852,7 @@ function ProfileDocs({ s, mode }) {
   return (
     <Card>
       <CardHead title="Documents" sub={`${docs.filter((d) => d.status === 'Valid').length} of ${docs.length} valid · ID numbers are masked`} action={canEdit && <Button size="sm" variant="soft" icon={I.Upload} onClick={() => toast({ title: 'Choose a file or take a photo', body: 'JPG, PNG or PDF up to 5 MB', tone: 'info' })}>Upload</Button>} />
-      <DocList docs={docs} onAdd={(d) => toast({ title: `Upload ${d.type}`, body: 'HR is told when it arrives', tone: 'info' })} />
+      <DocList docs={docs} onAdd={canEdit ? (d) => toast({ title: `Upload ${d.type}`, body: 'HR is told when it arrives', tone: 'info' }) : null} />
     </Card>
   );
 }
@@ -867,8 +870,8 @@ function DocList({ docs, onAdd }) {
               <p className="text-[12.5px] text-ink3 truncate">{missing ? 'Not collected yet' : `${d.kind === 'ID proof' ? `XXXX ${d.num} · ` : ''}${d.expires ? `Expires ${d.expires}` : `Added ${d.issued}`} · ${d.size}`}</p>
             </div>
             <Pill tone={DOC_STATUS[d.status]} className="hidden @sm:inline-flex">{d.status}</Pill>
-            {missing || d.status !== 'Valid' ? <Button size="sm" variant="secondary" icon={I.Upload} onClick={() => onAdd(d)}>{missing ? 'Add' : 'Renew'}</Button>
-              : <Button size="sm" variant="ghost" icon={I.Eye} onClick={() => toast({ title: `Opening ${d.type}`, tone: 'info' })}>View</Button>}
+            {(missing || d.status !== 'Valid') && onAdd ? <Button size="sm" variant="secondary" icon={I.Upload} onClick={() => onAdd(d)}>{missing ? 'Add' : 'Renew'}</Button>
+              : missing ? null : <Button size="sm" variant="ghost" icon={I.Eye} onClick={() => toast({ title: `Opening ${d.type}`, tone: 'info' })}>View</Button>}
           </li>
         );
       })}
@@ -2040,6 +2043,9 @@ function StaffExit() {
   const toast = useToast();
   const { go } = useNav();
   const canEdit = useCanEdit();
+  // The Principal follows exits here; HR does the handover. A gentle reminder instead of doing it.
+  const { moduleAccess } = usePage();
+  const remind = !canEdit && moduleAccess === 'full';
   const [cases, setCases] = useState(EXITS);
   const [cur, setCur] = useState('EX-26-04');
   const [hand, setHand] = useState(HANDOVER);
@@ -2090,7 +2096,8 @@ function StaffExit() {
           </Card>
           {c.sid && (
             <Card>
-              <CardHead title="Handover" sub={`${handDone} of ${items.length} handed over · pulled from Academics, Inventory and Library`} />
+              <CardHead title="Handover" sub={`${handDone} of ${items.length} handed over · pulled from Academics, Inventory and Library`}
+                action={remind && handDone < items.length && <Button size="sm" variant="soft" icon={I.Bell} onClick={() => toast({ title: 'Reminder sent to Shalini Verma (HR)', body: `${items.length - handDone} handover ${items.length - handDone === 1 ? 'item is' : 'items are'} still open.` })}>Remind HR</Button>} />
               <ul className="divide-y divide-line/70 border-t border-line/70">
                 {items.map((x, i) => (
                   <li key={x.what} className="px-4 @md:px-5 py-3 flex flex-col @md:flex-row @md:items-center gap-2">

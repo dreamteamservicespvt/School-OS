@@ -133,6 +133,60 @@ const OWN_LABELS = { staff: { profile: 'My Profile', leave: 'My Leave', document
 export const PERSONAL = ['staff', 'salary'];
 export const inMenu = (role, id) => { const a = role.access[id]; return !!a && !(a === 'own' && PERSONAL.includes(id)); };
 
+// Who actually does what (owner's request, 13 Oct 2026). Oversight roles see summaries, gaps and approvals,
+// not the desk work: the Principal does not take a class register or sit at the fee counter.
+// hide: pages this role never uses. view: pages they look at and approve from, but do not fill in.
+const OV = ['take'];
+const DUTY = {
+  principal: {
+    admissions: { view: ['enquiries', 'applications', 'documents', 'tests', 'settings'] },
+    students: { view: ['list', 'parents', 'leaving', 'certificates', 'settings'] },
+    academic: { view: ['classes', 'subjects', 'allocation', 'timetable', 'syllabus', 'settings'] },
+    attendance: { hide: OV, view: ['staff', 'devices', 'settings'] },
+    fees: { hide: ['collect'], view: ['dashboard', 'ledger', 'defaulters', 'structure', 'reports', 'settings'] },
+    finance: { view: ['daybook', 'income', 'cashbank', 'accounts', 'reports', 'settings'] },
+    exams: { view: ['datesheet', 'admitcards', 'marks', 'reportcards', 'papers', 'settings'] },
+    staff: { hide: ['add'], view: ['list', 'documents', 'exit', 'settings'] },
+    salary: { view: ['generate', 'structures', 'slips', 'advances', 'history', 'settings'] },
+    communication: { view: ['inbox', 'templates', 'settings'] },
+    transport: { view: 'all' }, library: { view: 'all' }, hostel: { view: 'all' }, homework: { view: 'all' },
+    inventory: { view: ['items', 'issue', 'assets', 'rooms', 'reports', 'settings'] },
+    frontoffice: { hide: ['desk'], view: ['visitors', 'pickup', 'enquiries', 'postal'] },
+    settings: { view: ['profile', 'users', 'gateways', 'messaging', 'designs', 'modules', 'security'] },
+  },
+  schooladmin: {
+    admissions: { view: ['decision'] },
+    students: { view: ['behaviour'] },
+    attendance: { hide: OV, view: ['register'] },
+    fees: { hide: ['collect'], view: ['dashboard', 'ledger', 'defaulters', 'concessions', 'reports'] },
+    finance: { view: 'all' }, salary: { view: 'all' },
+    exams: { view: ['marks', 'results', 'reportcards', 'papers', 'analysis'] },
+    transport: { view: 'notsettings' }, library: { view: 'notsettings' }, inventory: { view: 'notsettings' },
+    hostel: { view: 'notsettings' }, homework: { view: 'notsettings' },
+    frontoffice: { hide: ['desk'], view: 'all' },
+  },
+  vp: {
+    attendance: { hide: OV, view: ['staff', 'devices'] },
+    students: { view: ['list', 'parents', 'leaving', 'certificates', 'settings'] },
+    frontoffice: { hide: ['desk'] },
+    exams: { view: ['marks', 'results'] },
+    homework: { view: ['homework', 'submissions', 'material', 'quizzes', 'discussions', 'online'] },
+  },
+  academichead: {
+    exams: { view: ['marks'] },
+    homework: { view: ['homework', 'submissions', 'material', 'quizzes', 'discussions', 'online'] },
+  },
+  examincharge: { exams: { view: ['marks'] } },
+  officestaff: { admissions: { view: ['decision'] } },
+  admissioncounsellor: { frontoffice: { hide: ['desk'] } },
+};
+const listHas = (l, page) => l === 'all' || (l === 'notsettings' ? page !== 'settings' : !!l?.includes(page));
+// The access this person has on one page of a module: a Full module can still be View on some pages.
+export function pageAccess(roleId, mod, page, access) {
+  if (access !== 'full') return access;
+  return listHas(DUTY[roleId]?.[mod]?.view, page) ? 'view' : access;
+}
+
 export function pagesFor(mod, access, roleId) {
   const m = MODULES[mod];
   if (!m || !access) return [];
@@ -140,6 +194,8 @@ export function pagesFor(mod, access, roleId) {
   if (access === 'view') ids = VIEW_BY_ROLE[roleId]?.[mod] || VIEW[mod] || ids.filter((i) => i !== 'settings');
   if (access === 'own') ids = OWN_BY_ROLE[roleId]?.[mod] || OWN[mod] || ids.filter((i) => i !== 'settings');
   if (access === 'full' && mod === 'staff') ids = ids.filter((i) => i !== 'profile');
+  const hide = DUTY[roleId]?.[mod]?.hide;
+  if (hide) ids = ids.filter((i) => !hide.includes(i));
   return m.pages.filter((p) => ids.includes(p[0])).map(([id, label]) => ({ id, label: LABELS_BY_ROLE[roleId]?.[mod]?.[id] || (access === 'own' && OWN_LABELS[mod]?.[id]) || label }));
 }
 
@@ -192,9 +248,9 @@ export const ROLE = Object.fromEntries(ROLES.map((r) => [r.id, r]));
 
 // Phone bottom bar per role: the 4 things each person does most. The big one is the role's main action.
 export const BOTTOM = {
-  principal: [['dashboard', 'Home', 'House'], ['students', 'Students', 'GraduationCap'], ['fees', 'Collect', 'IndianRupee', 1], ['attendance', 'Attendance', 'CalendarCheck2']],
-  schooladmin: [['dashboard', 'Home', 'House'], ['students', 'Students', 'GraduationCap'], ['fees', 'Collect', 'IndianRupee', 1], ['attendance', 'Attendance', 'CalendarCheck2']],
-  vp: [['dashboard', 'Home', 'House'], ['students', 'Students', 'GraduationCap'], ['attendance', 'Attendance', 'CalendarCheck2', 1], ['exams', 'Exams', 'ClipboardCheck']],
+  principal: [['dashboard', 'Home', 'House'], ['attendance.register', 'Attendance', 'CalendarCheck2'], ['approvals', 'Approve', 'BadgeCheck', 1], ['reports', 'Reports', 'ChartColumn']],
+  schooladmin: [['dashboard', 'Home', 'House'], ['students', 'Students', 'GraduationCap'], ['approvals', 'Approve', 'BadgeCheck', 1], ['communication', 'Messages', 'Send']],
+  vp: [['dashboard', 'Home', 'House'], ['attendance.register', 'Attendance', 'CalendarCheck2'], ['approvals', 'Approve', 'BadgeCheck', 1], ['academic.substitutions', 'Substitutes', 'ArrowRightLeft']],
   accountant: [['dashboard', 'Home', 'House'], ['fees.defaulters', 'Defaulters', 'UserX'], ['fees', 'Collect', 'IndianRupee', 1], ['finance', 'Day Book', 'BookOpen']],
   teacher: [['dashboard', 'Home', 'House'], ['academic', 'Time Table', 'CalendarRange'], ['attendance', 'Attendance', 'CalendarCheck2', 1], ['homework', 'Homework', 'NotebookPen']],
   classteacher: [['dashboard', 'Home', 'House'], ['students', 'My class', 'GraduationCap'], ['attendance', 'Attendance', 'CalendarCheck2', 1], ['exams.marks', 'Marks', 'ClipboardCheck']],
@@ -248,9 +304,19 @@ export const QUICK_BY_ROLE = {
     ['inventory.purchases', 'New purchase order', '4 items are below reorder level', 'ShoppingCart'], ['inventory.rooms', 'Maintenance request', 'Something is broken', 'Wrench'],
   ],
   vp: [
-    ['attendance', 'Take attendance', 'Class 7 B is waiting for today', 'CalendarCheck2'], ['add-student', 'Add student', 'Name, class and parent phone is enough', 'UserPlus'],
+    ['attendance.register', 'Who has not marked attendance', '2 classes are not marked yet', 'CalendarCheck2'], ['approvals', 'Approve leave', 'Student and staff leave waiting', 'BadgeCheck'],
     ['communication', 'Send message', 'WhatsApp, SMS or notice to parents', 'Send'], ['academic.substitutions', 'Arrange substitute', '2 periods have no teacher today', 'ArrowRightLeft'],
     ['exams.marks', 'Marks progress', 'Half-yearly marks open on 17 Oct', 'ClipboardCheck'], ['events.events', 'Add event', 'Function, trip or competition', 'CalendarPlus'],
+  ],
+  principal: [
+    ['approvals', 'Approvals', 'Leave, discounts and expenses waiting', 'BadgeCheck'], ['communication.send', 'Send a notice', 'To parents, staff or a class', 'Send'],
+    ['attendance.register', 'Who is absent today', 'And which classes are not marked yet', 'UserX'], ['fees.defaulters', 'Fee defaulters', 'Who owes fees and for how long', 'IndianRupee'],
+    ['exams.marks', 'Marks progress', 'Which teachers have not entered marks', 'ClipboardCheck'], ['reports.all', 'Reports', 'Fees, attendance, results and more', 'ChartColumn'],
+  ],
+  schooladmin: [
+    ['add-student', 'Add student', 'Name, class and parent phone is enough', 'UserPlus'], ['admissions.enquiries', 'Add enquiry', 'A parent asked about admission', 'PhoneIncoming'],
+    ['communication.send', 'Send a notice', 'To parents, staff or a class', 'Send'], ['staff.add', 'Add staff', 'Name, role and phone to start', 'UserPlus'],
+    ['attendance.register', 'Who has not marked attendance', 'Remind the class teacher', 'CalendarCheck2'], ['settings.users', 'Users & permissions', 'Who can sign in and what they see', 'Users'],
   ],
   academichead: [
     ['academic.substitutions', 'Arrange substitute', '2 periods have no teacher today', 'ArrowRightLeft'], ['academic.timetable', 'Change the Time Table', 'Exam-week time table is due Sat', 'CalendarRange'],

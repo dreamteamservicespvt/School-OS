@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState, createContext, useContext } from 'react';
 import * as I from './icons.js';
 import { NAV, SCHOOL, ME, STUDENTS, NOTIFICATIONS, APPROVALS, FEATURED } from './data.js';
-import { inMenu, MODULES, BOTTOM, QUICK_BY_ROLE, APPROVALS_BY_ROLE, SCHOOLS_IN_GROUP, pagesFor } from './config.js';
+import { inMenu, MODULES, BOTTOM, QUICK_BY_ROLE, APPROVALS_BY_ROLE, SCHOOLS_IN_GROUP, pagesFor, pageAccess } from './config.js';
 import { cx, IconButton, Avatar, Kbd, Sheet, Button, Pill, useToast } from './ui.jsx';
 import { studentScope } from './students.jsx';
 import { STAFF } from './sample.js';
@@ -21,9 +21,15 @@ export function useMenu() {
   const { role, modulesOn } = useRole();
   return NAV.map((g) => ({ ...g, items: g.items.filter((it) => inMenu(role, it.id) && modulesOn[it.id] !== false) })).filter((g) => g.items.length);
 }
+// Money requests go to whoever decides on that page, not someone who only views it; nobody decides their own office's request
+const MONEY_PAGE = { Concession: ['fees', 'concessions'], Expense: ['finance', 'expenses'] };
 export function approvalsFor(role) {
-  if (role.id === 'principal' || role.id === 'schooladmin') return APPROVALS;
-  return APPROVALS_BY_ROLE[role.id] || [];
+  if (role.id !== 'principal' && role.id !== 'schooladmin') return APPROVALS_BY_ROLE[role.id] || [];
+  return APPROVALS.filter((a) => {
+    if (role.id === 'schooladmin' && a.who === 'Office') return false;
+    const mp = MONEY_PAGE[a.kind];
+    return !mp || (canOpen(role, mp.join('.')) && pageAccess(role.id, mp[0], mp[1], role.access[mp[0]]) !== 'view');
+  });
 }
 // 'fees.defaulters' -> go('fees', { page: 'defaulters' })
 export const goTo = (go, id, extra = {}) => { const [m, p] = id.split('.'); go(m, p ? { page: p, ...extra } : extra); };
@@ -159,7 +165,7 @@ export function BottomNav({ onMore }) {
   const { go, screen, params } = useNav();
   const { role } = useRole();
   const active = activeFor(screen);
-  const items = (BOTTOM[role.id] || BOTTOM.principal).map(([id, label, icon, big]) => ({ id, label, icon: I[icon] || I.Circle, big: !!big }));
+  const items = (BOTTOM[role.id] || BOTTOM.principal).filter(([id]) => canOpen(role, id)).map(([id, label, icon, big]) => ({ id, label, icon: I[icon] || I.Circle, big: !!big }));
   const isOn = (id) => { const [m, p] = id.split('.'); return m === active && (!p || p === params?.page); };
   const moreOn = !items.some((it) => isOn(it.id));
   return (
@@ -234,11 +240,10 @@ export const QUICK = [
   { id: 'admissions', label: 'Add enquiry', sub: 'A parent asked about admission', icon: I.PhoneIncoming },
   { id: 'finance', label: 'Record expense', sub: 'Bills, purchases, petty cash', icon: I.ReceiptText },
 ];
-const QUICK_BIG = ['principal', 'schooladmin'];
 // Can this person open 'module.page' (or a special screen)? Checks their role, the page list for it and modules switched off.
 export function canOpen(role, to, modulesOn = {}) {
   if (!to) return false;
-  if (to === 'add-student') return role.access.students === 'full';
+  if (to === 'add-student') return role.access.students === 'full' && pageAccess(role.id, 'students', 'list', 'full') === 'full';
   const [m, p] = to.split('.');
   if (m === 'approvals') return approvalsFor(role).length > 0;
   if (['profile', 'appearance'].includes(m)) return true;
@@ -251,9 +256,11 @@ export function canOpen(role, to, modulesOn = {}) {
   const pages = pagesFor(m, acc, role.id);
   return p ? pages.some((x) => x.id === p) : pages.length > 0;
 }
+// Can this person DO the work on 'module.page' (not just look at it)? The Principal can open the register but not take attendance.
+export const canDo = (role, to, modulesOn) => canOpen(role, to, modulesOn) && (to.includes('.') ? pageAccess(role.id, to.split('.')[0], to.split('.')[1], role.access[to.split('.')[0]]) === 'full' : true);
 // Quick actions ("New") for this person: only things their role can do
 export function quickFor(role, modulesOn) {
-  const list = QUICK_BIG.includes(role.id) ? QUICK : (QUICK_BY_ROLE[role.id] || []).map(([id, label, sub, icon]) => ({ id, label, sub, icon: I[icon] || I.Circle }));
+  const list = (QUICK_BY_ROLE[role.id] || []).map(([id, label, sub, icon]) => ({ id, label, sub, icon: I[icon] || I.Circle }));
   return list.filter((q) => canOpen(role, q.id, modulesOn));
 }
 export function QuickSheet({ open, onClose, onAddStudent }) {
@@ -286,7 +293,7 @@ export function CommandPalette({ open, onClose, onAddStudent }) {
   // The Counsellor finds cases inside Behaviour & Counselling, not through search.
   const pool = useMemo(() => (role.access.students && role.id !== 'counsellor' ? studentScope(role.id).list : []), [role]);
   const canStudents = pool.length > 0;
-  const canFees = role.access.fees === 'full';
+  const canFees = canOpen(role, 'fees.collect', modulesOn);
   // Staff search: HR, Principal, School Admin and Vice Principal; the Librarian too, for issuing books (name and department only)
   const staffTo = role.access.staff === 'full' || role.access.staff === 'view' ? 'staff.list' : role.id === 'librarian' && modulesOn.library !== false ? 'library.issue' : null;
   // Student attendance only (HR has staff attendance, Office Staff only student leave)

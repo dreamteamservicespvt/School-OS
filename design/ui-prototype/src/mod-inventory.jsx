@@ -450,20 +450,21 @@ function ItemsPage() {
     ...(view === 'lab' ? [{ key: 'exp', label: 'Expiry', nowrap: true, render: (it) => it.expired ? <Pill tone="bad">Batch expired {it.expiry}</Pill> : it.soon ? <Pill tone="warn">Expires {it.expiry}</Pill> : it.expiry ? <span className="tnum text-[13px]">{it.expiry}</span> : <span className="text-ink3">Not tracked</span> }]
       : [{ key: 'val', label: 'Value', align: 'right', render: (it) => inr(inHand(it) * it.price) }]),
     { key: 'st', label: 'Status', render: (it) => <Pill tone={STATUS_TONE[statusOf(it)]} dot={statusOf(it) !== 'OK'}>{statusOf(it)}</Pill> },
-    { key: 'act', label: '', render: (it) => <div className="flex justify-end" onClick={(e) => e.stopPropagation()}><MoreMenu size="sm" items={act(it)} label={`Actions for ${it.name}`} /></div> },
+    ...(canEdit ? [{ key: 'act', label: '', render: (it) => <div className="flex justify-end" onClick={(e) => e.stopPropagation()}><MoreMenu size="sm" items={act(it)} label={`Actions for ${it.name}`} /></div> }] : []),
   ];
 
   return (
     <div>
       <ModuleHead sub="312 items in 4 store locations · stock checked against reorder levels every morning"
-        actions={<>
+        actions={canEdit && <>
           <Button variant="secondary" icon={I.Upload} className="hidden @md:inline-flex" onClick={() => setSheet('import')}>Import</Button>
           <Button variant="secondary" icon={I.ClipboardCheck} onClick={() => setSheet('audit')}>Stock audit</Button>
           <Button variant="primary" icon={I.Plus} onClick={() => setSheet('add')}>Add item</Button>
         </>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
         {LOW.length > 0 && (
-          <Alert tone="bad" title={`${LOW.length} items are at or below reorder level:`} act={canEdit && 'Raise purchase request'} icon={I.ShoppingCart} onAct={() => request(LOW.map((x) => x.id))}>
+          <Alert tone="bad" title={`${LOW.length} items are at or below reorder level:`} act={canEdit ? 'Raise purchase request' : 'Remind Store Keeper'} icon={canEdit ? I.ShoppingCart : I.Send}
+            onAct={() => (canEdit ? request(LOW.map((x) => x.id)) : toast({ title: 'Reminder sent to Ramu Yadav', body: `Raise a purchase request for the ${LOW.length} items below reorder level` }))}>
             A4 paper, white chalk, whiteboard markers and hand sanitiser. Half-yearly exams start Monday.
           </Alert>
         )}
@@ -479,7 +480,8 @@ function ItemsPage() {
         {view === 'sets' ? <BookSets onMake={() => setSheet('set')} /> : (
           <>
             {view === 'lab' && (
-              <Alert tone="warn" title="Copper sulphate: 2 packets expired on 01-09-2026." act={canEdit && 'Record as expired'} icon={I.PackageX} onAct={() => setMove({ kind: 'loss', item: itemById('LB-0046') })}>
+              <Alert tone="warn" title="Copper sulphate: 2 packets expired on 01-09-2026." act={canEdit ? 'Record as expired' : 'Remind Store Keeper'} icon={canEdit ? I.PackageX : I.Send}
+                onAct={() => (canEdit ? setMove({ kind: 'loss', item: itemById('LB-0046') }) : toast({ title: 'Reminder sent to Ramu Yadav', body: 'Record the expired copper sulphate and take it off the lab shelf' }))}>
                 Expired stock cannot be issued.
               </Alert>
             )}
@@ -803,8 +805,8 @@ function IssuePage({ params }) {
   const charged = list.filter((r) => r.charge).reduce((a, r) => a + r.charge, 0);
   return (
     <div>
-      <ModuleHead sub="Give items to staff, departments and classes, and books and uniforms to students at the store counter"
-        actions={<>
+      <ModuleHead sub={canEdit ? 'Give items to staff, departments and classes, and books and uniforms to students at the store counter' : 'What the store gave out, to whom, and what is not back yet'}
+        actions={canEdit && <>
           <Button variant="secondary" icon={I.BookCopy} onClick={() => setSheet('set')}>Issue book set</Button>
           <Button variant="secondary" icon={I.User} className="hidden @md:inline-flex" onClick={() => setSheet('student')}>Issue to student</Button>
           <Button variant="primary" icon={I.PackageMinus} onClick={() => setSheet('issue')}>Issue stock</Button>
@@ -832,14 +834,15 @@ function IssuePage({ params }) {
         </Card>
         <Col>
           <Card>
-            <CardHead title="Store counter today" icon={I.Store} />
+            <CardHead title={canEdit ? 'Store counter today' : 'Store counter today · Ramu Yadav'} icon={I.Store} />
             <div className="grid grid-cols-2 gap-px bg-line/70 border-y border-line/70">
               {[['Issues', '3'], ['Charged to fees', inr(3450)], ['Return due', String(out.length)], ['Book sets left', '12 + 0']].map(([k, v]) => <div key={k} className="bg-surface px-5 py-3"><p className="text-[12px] text-ink3 font-semibold">{k}</p><p className="font-display font-semibold text-[19px] tnum">{v}</p></div>)}
             </div>
             <p className="px-5 py-3 text-[12.5px] text-ink3">Book set charges this year: <b className="text-ink2 tnum">{inr(charged + 512650)}</b>, sent to Fee Management as Store charges.</p>
           </Card>
           <Card>
-            <CardHead title="Still out" sub="Returnable items not back yet" />
+            <CardHead title="Still out" sub="Returnable items not back yet"
+              action={!canEdit && out.length > 0 && <Button size="sm" variant="soft" icon={I.Send} onClick={() => toast({ title: 'Reminder sent to Ramu Yadav', body: `Follow up on ${out.length} returnable ${out.length === 1 ? 'item' : 'items'} not back yet` })}>Remind</Button>} />
             <ul className="px-2 pb-2">
               {out.map((r) => <li key={r.id}><Row avatar={r.to} title={`${r.item} × ${r.q}`} sub={`${r.to} · due ${r.due}`} onClick={canEdit ? () => setRet(r) : undefined} right={canEdit ? <span className="text-[13px] font-semibold text-brand">Return</span> : null} /></li>)}
             </ul>
@@ -983,9 +986,13 @@ function PurchasesPage({ params }) {
   const { role } = useRole();
   const canEdit = useCanEdit();
   // Purchase requests: up to ₹10,000 the School Admin approves, above it the Principal. Nobody approves their own request.
-  const mayApprove = (r) => canEdit && r.by !== role.person.name && (role.id === 'principal' || (role.id === 'schooladmin' && r.amt <= 10000));
+  // Approving stays with the approvers even where the page is View for them (School Admin).
+  const { year } = useRole();
+  const mayApprove = (r) => !year?.closed && r.by !== role.person.name && (role.id === 'principal' || (role.id === 'schooladmin' && r.amt <= 10000));
+  // The Principal approves here but does not run the store: requests, orders, goods received and bills are the Store Keeper's
+  const desk = canEdit && role.id !== 'principal';
   // Paying a vendor is money going out of the school: only people who run Finance record it here
-  const canPay = canEdit && role.access.finance === 'full';
+  const canPay = desk && role.access.finance === 'full';
   const seesBank = !!role.access.finance;
   // The Accountant sees what reaches Finance: orders, goods received, bills and vendors. Not the internal requests.
   const showReq = role.id !== 'accountant';
@@ -1017,7 +1024,7 @@ function PurchasesPage({ params }) {
           { key: 'amt', label: 'Estimate', align: 'right', render: (r) => inr(r.amt) },
           { key: 'st', label: 'Status', render: (r) => <div><Pill tone={PR_TONE[r.status]}>{r.status}</Pill><p className="text-[11.5px] text-ink3 mt-1 max-w-[200px]">{r.note}</p></div> },
           { key: 'act', label: '', render: (r) => r.status === 'Waiting' && mayApprove(r) ? <div className="flex gap-1.5 justify-end"><Button size="sm" variant="soft" icon={I.Check} onClick={() => decide(r, true)}>Approve</Button><Button size="sm" variant="ghost" onClick={() => decide(r, false)}>Reject</Button></div>
-            : r.status === 'Approved' && !/PO-/.test(r.note) && canEdit ? <Button size="sm" variant="secondary" onClick={() => { setCur(r); setSheet('po'); }}>Make PO</Button> : null },
+            : r.status === 'Approved' && !/PO-/.test(r.note) && desk ? <Button size="sm" variant="secondary" onClick={() => { setCur(r); setSheet('po'); }}>Make PO</Button> : null },
         ]}
         mobile={(r) => ({ title: r.items, sub: `${r.id} · ${r.by} · ${inr(r.amt)}`, icon: 'ClipboardList', iconTone: PR_TONE[r.status], pills: [<Pill key="s" tone={PR_TONE[r.status]} className="!h-[22px] !text-[11.5px]">{r.status}</Pill>] })}
         footer={`${reqs.filter((r) => r.status === 'Waiting').length} waiting · above ₹10,000 the Principal approves, nobody approves their own request`} />
@@ -1031,12 +1038,12 @@ function PurchasesPage({ params }) {
           { key: 'amt', label: 'Amount', align: 'right', render: (o) => inr(o.amt) },
           { key: 'st', label: 'Status', render: (o) => <Pill tone={PO_TONE[o.status]}>{o.status}</Pill> },
           { key: 'act', label: '', render: (o) => <div className="flex gap-1.5 justify-end" onClick={(e) => e.stopPropagation()}>
-            {canEdit && ['Sent', 'Part received'].includes(o.status) && <Button size="sm" variant="secondary" icon={I.PackageCheck} onClick={() => { setCur(o); setSheet('receive'); }}>Receive goods</Button>}
-            <MoreMenu size="sm" items={[...(canEdit ? [['Mail', 'Email PO to vendor', () => toast({ title: `${o.id} emailed to ${o.vendor}` })]] : []), ['Printer', 'Print PO', () => toast({ title: `${o.id} sent to the office printer` })], ['Download', 'Save as PDF', () => toast({ title: `Saved: ${o.id}.pdf` })]]} />
+            {desk && ['Sent', 'Part received'].includes(o.status) && <Button size="sm" variant="secondary" icon={I.PackageCheck} onClick={() => { setCur(o); setSheet('receive'); }}>Receive goods</Button>}
+            <MoreMenu size="sm" items={[...(desk ? [['Mail', 'Email PO to vendor', () => toast({ title: `${o.id} emailed to ${o.vendor}` })]] : []), ['Printer', 'Print PO', () => toast({ title: `${o.id} sent to the office printer` })], ['Download', 'Save as PDF', () => toast({ title: `Saved: ${o.id}.pdf` })]]} />
           </div> },
         ]}
         mobile={(o) => ({ title: o.vendor, sub: `${o.id} · ${o.items}`, icon: 'ShoppingCart', iconTone: PO_TONE[o.status], right: <span className="font-semibold tnum text-[14px]">{inr(o.amt)}</span>, pills: [<Pill key="s" tone={PO_TONE[o.status]} className="!h-[22px] !text-[11.5px]">{o.status}</Pill>] })}
-        onRow={canEdit ? (o) => (['Sent', 'Part received'].includes(o.status) ? (setCur(o), setSheet('receive')) : toast({ title: `${o.id} · ${o.status}`, body: o.note, tone: 'info' })) : undefined}
+        onRow={desk ? (o) => (['Sent', 'Part received'].includes(o.status) ? (setCur(o), setSheet('receive')) : toast({ title: `${o.id} · ${o.status}`, body: o.note, tone: 'info' })) : undefined}
         footer={`${ORDERS.filter((o) => ['Sent', 'Part received'].includes(o.status)).length} orders waiting for goods`} />
     ),
     grn: (
@@ -1084,8 +1091,8 @@ function PurchasesPage({ params }) {
 
   return (
     <div>
-      <ModuleHead sub="Request, order, goods received, bill. Bills and payments reach Finance as expenses."
-        actions={<>
+      <ModuleHead sub={desk || role.id === 'accountant' ? 'Request, order, goods received, bill. Bills and payments reach Finance as expenses.' : 'Purchase requests to approve, and what was ordered, received and billed'}
+        actions={desk && <>
           <Button variant="secondary" icon={I.UserPlus} onClick={() => setSheet('vendor')}>Add vendor</Button>
           <Button variant="secondary" icon={I.ReceiptText} className="hidden @md:inline-flex" onClick={() => setSheet('bill')}>Record bill</Button>
           <Button variant="primary" icon={I.Plus} onClick={() => setSheet('request')}>Purchase request</Button>
@@ -1098,7 +1105,7 @@ function PurchasesPage({ params }) {
           { label: `Paid · ${per.label.toLowerCase()}`, value: inr(Math.round((286420 * Math.min(periodDays(per), 192)) / 192)), sub: fmtRange(per), icon: 'CircleCheck' },
         ]} />
         {role.id === 'accountant' && <Banner tone="info" title="View only." action={inMenu(role, 'finance') ? <Button size="sm" variant="secondary" icon={I.IndianRupee} className="shrink-0" onClick={() => go('finance', { page: 'expenses' })}>Open Expenses</Button> : null}>You see purchase orders, goods received and vendor bills that reach Finance. You pay the bills in Finance, Expenses.</Banner>}
-        {canEdit && !canPay && <Banner tone="info" title="Bills are paid in Finance.">You record the vendor’s bill here. The Accountant pays it, and the payment shows on the bill.</Banner>}
+        {desk && !canPay && <Banner tone="info" title="Bills are paid in Finance.">You record the vendor’s bill here. The Accountant pays it, and the payment shows on the bill.</Banner>}
         <Card className="overflow-hidden">
           <div className="px-3 pt-3"><Chips value={tab} onChange={setTab} options={[
             ...(showReq ? [{ value: 'requests', label: 'Requests', count: reqs.filter((r) => dIn(r.d)).length }] : []), { value: 'orders', label: 'Purchase orders', count: ORDERS.filter((o) => dIn(o.d)).length }, { value: 'grn', label: 'Goods received', count: GRNS.filter((g) => dIn(g.d)).length },
@@ -1286,7 +1293,7 @@ function AssetsPage() {
   return (
     <div>
       <ModuleHead sub="1,842 assets with tags in 64 rooms · warranty and AMC reminders 30 days before the end date"
-        actions={<>
+        actions={canEdit && <>
           <Button variant="secondary" icon={I.Upload} className="hidden @md:inline-flex" onClick={() => setSheet('import')}>Import</Button>
           <Button variant="secondary" icon={I.ScanLine} onClick={() => setSheet('audit')}>Asset audit</Button>
           <Button variant="primary" icon={I.Plus} onClick={() => setSheet('add')}>Add asset</Button>
@@ -1577,7 +1584,7 @@ function RoomsPage() {
   return (
     <div>
       <ModuleHead sub="64 rooms, 4 labs, 2 halls and 2 grounds · any staff member can raise a request from their phone"
-        actions={<>
+        actions={canEdit && <>
           <Button variant="secondary" icon={I.Plus} className="hidden @md:inline-flex" onClick={() => setSheet('room')}>Add room</Button>
           <Button variant="primary" icon={I.Wrench} onClick={() => setSheet('raise')}>Raise maintenance request</Button>
         </>} />
@@ -1585,6 +1592,12 @@ function RoomsPage() {
         <Segmented value={view} onChange={setView} className="self-start" options={[{ value: 'requests', label: 'Maintenance', icon: I.Wrench }, { value: 'rooms', label: 'Facility register', icon: I.Building2 }, { value: 'labs', label: 'Labs', icon: I.FlaskConical }]} />
         {view === 'requests' && (
           <>
+            {!canEdit && list.some((r) => r.status === 'Open' && !r.tech) && (
+              <Alert tone="bad" title={list.filter((r) => r.status === 'Open' && !r.tech).length === 1 ? '1 open request has no technician yet:' : `${list.filter((r) => r.status === 'Open' && !r.tech).length} open requests have no technician yet:`} act="Remind Store Keeper" icon={I.Send}
+                onAct={() => toast({ title: 'Reminder sent to Ramu Yadav', body: 'Give the open maintenance requests a technician' })}>
+                {list.filter((r) => r.status === 'Open' && !r.tech).map((r) => `${r.what} (${r.place}, ${r.pri.toLowerCase()} priority)`).join(', ')}.
+              </Alert>
+            )}
             <Stats items={[
               { label: 'Open', value: String(list.filter((r) => r.status === 'Open').length), sub: '1 high priority, no technician', tone: 'bad', icon: 'CircleAlert', onClick: () => setF('open') },
               { label: 'In progress', value: String(list.filter((r) => r.status === 'In progress').length), sub: 'With a technician', tone: 'warn', icon: 'Wrench', onClick: () => setF('open') },

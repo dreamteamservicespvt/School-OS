@@ -5,7 +5,8 @@ import * as I from './icons.js';
 import { STUDENTS, CLASS_7B, FEATURED, ATT_BY_CLASS } from './data.js';
 import { STAFF, DEPARTMENTS } from './sample.js';
 import { cx, Card, CardHead, Button, Pill, Avatar, Checkbox, Input, Field, Segmented, Switch, Sheet, Empty, useToast } from './ui.jsx';
-import { useNav, useRole } from './shell.jsx';
+import { useNav, useRole, canOpen, canDo } from './shell.jsx';
+import { NOT_MARKED } from './attendance.jsx';
 import { ModuleHead, useCanEdit, usePage, PageCtx, Stats, SearchBox, Toolbar, Select, Textarea, Chips, DataList, BulkBar, Row, SettingRow, ToggleRow, SettingsCard, Banner, Suggestion, Progress, HBars, Bars, Legend, DL, Timeline, MoreMenu, FormSheet, ConfirmSheet, FileRow, Split, Col, ExportButton,
   DatePeriod, PERIODS, fmtRange, CalendarMonth, markCell, monthTotals, sampleMark, schoolDay, MARK_TONE, MONTH_NAMES } from './kit.jsx';
 
@@ -159,7 +160,7 @@ function LeaveInner({ access }) {
               { key: 'st', label: 'Status', render: (l) => <div><Pill tone={ST_TONE[l.st]}>{l.st}</Pill>{l.dec && l.st !== 'Waiting' && <p className="text-[11.5px] text-ink3 mt-0.5 whitespace-nowrap">{l.dec}</p>}</div> },
             ]}
             mobile={(l) => ({ avatar: l.name, title: `${l.name} · ${l.cls}`, sub: `${l.type} · ${l.when}`, pills: [<Pill key="s" tone={ST_TONE[l.st]} className="!h-[22px] !text-[11.5px]">{l.st}</Pill>, l.exam && l.st === 'Waiting' ? <Pill key="e" tone="info" className="!h-[22px] !text-[11.5px]">Exam day</Pill> : null] })}
-            empty={<Empty icon={I.CalendarCheck2} title={st === 'Waiting' ? 'No leave waiting' : 'No leave matches'} body={st === 'Waiting' ? 'When a parent asks for leave, record it here.' : `Nothing in ${fmtRange(per)}. Try other dates, a status or a class.`} action={<Button variant="secondary" icon={I.Plus} onClick={() => setRec(true)}>Record leave</Button>} />}
+            empty={<Empty icon={I.CalendarCheck2} title={st === 'Waiting' ? 'No leave waiting' : 'No leave matches'} body={st === 'Waiting' ? (canEdit ? 'When a parent asks for leave, record it here.' : 'Nothing is waiting for a decision.') : `Nothing in ${fmtRange(per)}. Try other dates, a status or a class.`} action={canEdit ? <Button variant="secondary" icon={I.Plus} onClick={() => setRec(true)}>Record leave</Button> : null} />}
             footer={`Showing ${list.length} of ${rows.length} · ${per.label}: ${fmtRange(per)} · waiting requests always show`} />
         </Card>
         <LeaveCalendar rows={rows} ct={ct} />
@@ -658,7 +659,7 @@ const OCT_DAY = { '2026-10-01': 96.1, '2026-10-03': 95.2, '2026-10-05': 94.8, '2
 function ReportsPage() {
   const toast = useToast();
   const { go } = useNav();
-  const { role } = useRole();
+  const { role, modulesOn } = useRole();
   const canEdit = useCanEdit();
   // Staff numbers belong to people who run staff attendance (Full). Academic Head (View) follows students only.
   const staffOk = role.access.attendance === 'full';
@@ -671,13 +672,13 @@ function ReportsPage() {
   const one = n === 1;
   const isToday = per.from === '2026-10-09' && per.to >= '2026-10-09' && one;
   const all = DAILY.map((r) => {
-    if (isToday) return { ...r, absD: r.ab, lateD: r.late, lvD: r.lv };
+    if (isToday) return NOT_MARKED.some((x) => x.cls === r.label) ? { ...r, nm: true, absD: 0, lateD: 0, lvD: 0, pct: null } : { ...r, absD: r.ab, lateD: r.late, lvD: r.lv };
     const f = wob(r.label + per.from + per.to);
     const absD = Math.round(r.ab * f * n), lateD = Math.round(r.late * f * n), lvD = Math.min(absD, Math.round(r.lv * f * n));
     return { ...r, absD, lateD, lvD, pct: Math.round((1 - absD / (r.n * n)) * 1000) / 10, slow: one ? r.slow && f > 1 : false };
   });
   const rows = all.filter((r) => !q || r.label.toLowerCase().includes(q.toLowerCase()) || r.by.toLowerCase().includes(q.toLowerCase()));
-  const T = all.reduce((a, r) => ({ n: a.n + r.n, ab: a.ab + r.absD, late: a.late + r.lateD, lv: a.lv + r.lvD }), { n: 0, ab: 0, late: 0, lv: 0 });
+  const T = all.filter((r) => !r.nm).reduce((a, r) => ({ n: a.n + r.n, ab: a.ab + r.absD, late: a.late + r.lateD, lv: a.lv + r.lvD }), { n: 0, ab: 0, late: 0, lv: 0 });
   const avgPresent = n ? Math.round(T.n - T.ab / n) : 0;
   const pctAll = n ? (((T.n * n - T.ab) / (T.n * n)) * 100).toFixed(1) : '0';
   const dayBars = n <= 31
@@ -707,9 +708,9 @@ function ReportsPage() {
               one ? { label: 'Students present', value: `${(T.n - T.ab).toLocaleString('en-IN')} of ${T.n.toLocaleString('en-IN')}`, sub: `${pctAll}% · ${T.late} came late`, tone: 'ok', icon: 'UserCheck' }
                 : { label: 'Present on average', value: `${avgPresent.toLocaleString('en-IN')} of ${T.n.toLocaleString('en-IN')}`, sub: `${pctAll}% · ${T.late} late marks`, tone: 'ok', icon: 'UserCheck' },
               { label: one ? 'Absent' : 'Days absent', value: T.ab.toLocaleString('en-IN'), sub: `${T.lv} of them on approved leave`, icon: 'UserX' },
-              one ? { label: 'Classes marked', value: '43 of 43', sub: isToday ? '2 marked after 9:15 AM' : 'All marked on time', icon: 'ListChecks' }
+              one ? { label: 'Classes marked', value: isToday ? `${43 - NOT_MARKED.length} of 43` : '43 of 43', sub: isToday ? `${NOT_MARKED.length} not marked yet · 2 after 9:15 AM` : 'All marked on time', tone: isToday ? 'warn' : undefined, icon: 'ListChecks', onClick: isToday && canOpen(role, 'attendance.register', modulesOn) && role.access.attendance !== 'own' ? () => go('attendance', { page: 'register' }) : undefined }
                 : { label: 'School days', value: n, sub: '43 sections marked every day', icon: 'ListChecks' },
-              ...(staffOk ? [{ label: one ? 'Staff present' : 'Staff present on average', value: isToday ? '82 of 86' : `${one ? 83 : 82} of 86`, sub: isToday ? '3 on leave · 1 not in yet' : 'Approved leave left out', icon: 'Users', onClick: () => go('attendance', { page: 'staff' }) }] : []),
+              ...(staffOk ? [{ label: one ? 'Staff present' : 'Staff present on average', value: isToday ? '82 of 86' : `${one ? 83 : 82} of 86`, sub: isToday ? '3 on leave · 1 not in yet' : 'Approved leave left out', icon: 'Users', onClick: canOpen(role, 'attendance.staff', modulesOn) ? () => go('attendance', { page: 'staff' }) : undefined }] : []),
             ]} />
             <Card className="overflow-hidden">
               <Toolbar>
@@ -719,14 +720,14 @@ function ReportsPage() {
               <DataList rows={rows} rowKey={(r) => r.label} minWidth={760}
                 columns={[
                   { key: 'label', label: 'Section', render: (r) => <span className="font-semibold">{r.label}</span> },
-                  { key: 'by', label: one ? 'Marked by' : 'Class teacher', render: (r) => <div><p className="text-ink2 leading-tight">{r.by}</p>{one && <p className={cx('text-[12px] tnum', r.slow ? 'text-warn font-semibold' : 'text-ink3')}>{isToday ? r.at : '8:5' + (hsh(r.label + per.from) % 9)} AM{r.slow ? ' · late marking' : ''}</p>}</div> },
-                  { key: 'p', label: one ? 'Present' : 'Present on average', align: 'right', render: (r) => (one ? r.n - r.absD : Math.round(r.n - r.absD / n)) },
-                  { key: 'ab', label: one ? 'Absent' : 'Days absent', align: 'right', render: (r) => <span>{r.absD}{r.lvD ? <span className="text-ink3 text-[12px]"> ({r.lvD} leave)</span> : ''}</span> },
-                  { key: 'late', label: one ? 'Late' : 'Late marks', align: 'right', render: (r) => r.lateD },
-                  { key: 'pct', label: '%', align: 'right', render: (r) => <span className={cx('font-semibold', r.pct < 90 && 'text-warn')}>{r.pct}%</span> },
+                  { key: 'by', label: one ? 'Marked by' : 'Class teacher', render: (r) => <div><p className="text-ink2 leading-tight">{r.by}</p>{r.nm ? <p className="text-[12px] text-warn font-semibold">Not marked yet</p> : one && <p className={cx('text-[12px] tnum', r.slow ? 'text-warn font-semibold' : 'text-ink3')}>{isToday ? r.at : '8:5' + (hsh(r.label + per.from) % 9)} AM{r.slow ? ' · late marking' : ''}</p>}</div> },
+                  { key: 'p', label: one ? 'Present' : 'Present on average', align: 'right', render: (r) => (r.nm ? <span className="text-ink3">—</span> : one ? r.n - r.absD : Math.round(r.n - r.absD / n)) },
+                  { key: 'ab', label: one ? 'Absent' : 'Days absent', align: 'right', render: (r) => r.nm ? <span className="text-ink3">—</span> : <span>{r.absD}{r.lvD ? <span className="text-ink3 text-[12px]"> ({r.lvD} leave)</span> : ''}</span> },
+                  { key: 'late', label: one ? 'Late' : 'Late marks', align: 'right', render: (r) => (r.nm ? <span className="text-ink3">—</span> : r.lateD) },
+                  { key: 'pct', label: '%', align: 'right', render: (r) => (r.nm ? <span className="text-ink3">—</span> : <span className={cx('font-semibold', r.pct < 90 && 'text-warn')}>{r.pct}%</span>) },
                 ]}
-                mobile={(r) => ({ title: r.label, sub: one ? `${r.n - r.absD} of ${r.n} present${r.lateD ? ` · ${r.lateD} late` : ''}` : `${r.absD} days absent · ${r.lateD} late marks`, icon: r.pct < 90 ? 'TriangleAlert' : 'CalendarCheck2', iconTone: r.pct < 90 ? 'warn' : 'ok', right: <span className={cx('font-semibold tnum text-[14px]', r.pct < 90 && 'text-warn')}>{r.pct}%</span> })}
-                footer={`${rows.length} of 43 sections · ${one ? `total ${T.n - T.ab} present, ${T.ab} absent` : `${T.ab} days absent over ${n} school days`}`} />
+                mobile={(r) => r.nm ? { title: r.label, sub: `${r.by} · not marked yet`, icon: 'Hourglass', iconTone: 'warn', right: <span className="text-ink3">—</span> } : ({ title: r.label, sub: one ? `${r.n - r.absD} of ${r.n} present${r.lateD ? ` · ${r.lateD} late` : ''}` : `${r.absD} days absent · ${r.lateD} late marks`, icon: r.pct < 90 ? 'TriangleAlert' : 'CalendarCheck2', iconTone: r.pct < 90 ? 'warn' : 'ok', right: <span className={cx('font-semibold tnum text-[14px]', r.pct < 90 && 'text-warn')}>{r.pct}%</span> })}
+                footer={`${rows.length} of 43 sections${isToday ? ` · ${NOT_MARKED.length} not marked yet` : ''} · ${one ? `total ${T.n - T.ab} present, ${T.ab} absent` : `${T.ab} days absent over ${n} school days`}`} />
             </Card>
           </>
         )}
@@ -762,7 +763,7 @@ function ReportsPage() {
                     <div className="min-w-0 flex-1"><p className="font-semibold text-[14.5px] truncate">{c.name} <span className="text-ink3 font-normal">· {c.cls}</span></p><p className="text-[12.5px] text-ink3 truncate">{c.pct}% this year · {c.last}</p></div>
                     <MoreMenu size="sm" label={`Actions for ${c.name}`} items={[
                       ...(canEdit ? [['Phone', 'Call the parent', () => toast({ title: `Calling the parent of ${c.name}`, body: 'From the school phone', tone: 'info' })], ['HeartHandshake', 'Tell the counsellor', () => toast({ title: `Sana Ali told about ${c.name}`, body: 'She sees it in Behaviour & Counselling.' })]] : []),
-                      ...(role.access.students ? [['User', 'Open profile', () => { const id = STUDENTS.find((s) => s.name === c.name)?.id; if (id) go('student', { id }); }]] : []),
+                      ...(canOpen(role, 'student', modulesOn) ? [['User', 'Open profile', () => { const id = STUDENTS.find((s) => s.name === c.name)?.id; if (id) go('student', { id }); }]] : []),
                     ]} />
                   </li>
                 ))}
@@ -772,7 +773,7 @@ function ReportsPage() {
               <CardHead title="Below 75% this year" sub="Parent, class teacher and Principal are told once when a student drops below" icon={I.TrendingDown} />
               <div className="px-5 pb-2"><Banner tone="ok" title="Nobody is below 75% right now.">The watch list below is students under 80%.</Banner></div>
               <ul className="px-2 pb-2">
-                {WATCH.map((s) => <li key={s.id}><Row avatar={s.name} title={s.name} sub={`${s.cls} ${s.sec} · Roll ${s.roll}`} right={<span className="font-semibold tnum text-warn">{s.att}%</span>} onClick={role.access.students ? () => go('student', { id: s.id }) : undefined} /></li>)}
+                {WATCH.map((s) => <li key={s.id}><Row avatar={s.name} title={s.name} sub={`${s.cls} ${s.sec} · Roll ${s.roll}`} right={<span className="font-semibold tnum text-warn">{s.att}%</span>} onClick={canOpen(role, 'student', modulesOn) ? () => go('student', { id: s.id }) : undefined} /></li>)}
               </ul>
             </Card>
           </div>
@@ -927,7 +928,7 @@ function DevicesPage({ access }) {
         onConfirm={() => setKey({ d: regen, k: 'sos_live_Hq8wE2pL5zN9rY3dJ7tA' })}>
         <p className="text-[14px] text-ink2">The old key stops working now. The device sends no punches until the new key is typed into it.</p>
       </ConfirmSheet>
-      <HealthSheet d={health} mapped={mapped} onClose={() => setHealth(null)} onMap={canEdit && !mapped ? () => { setHealth(null); setMapOpen(true); } : null} />
+      <HealthSheet d={health} mapped={mapped} canSync={canEdit} onClose={() => setHealth(null)} onMap={canEdit && !mapped ? () => { setHealth(null); setMapOpen(true); } : null} />
       <MapUsersSheet open={mapOpen} onClose={() => setMapOpen(false)} onSave={() => { setMapped(true); setMapOpen(false); toast({ title: 'Mapped 9 users and re-ran today’s sync', body: '9 punches accepted. Those students are now present.' }); }} />
       <Sheet open={!!guide} onClose={() => setGuide(null)} title="Setup guides" sub="For the devices the school uses"
         footer={<Button variant="ghost" onClick={() => setGuide(null)}>Close</Button>}>
@@ -967,14 +968,14 @@ function AddDeviceSheet({ open, onClose, onSaved }) {
   );
 }
 
-function HealthSheet({ d, mapped, onClose, onMap }) {
+function HealthSheet({ d, mapped, canSync, onClose, onMap }) {
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   if (!d) return null;
   const main = d.id === 'D1';
   return (
     <Sheet open onClose={onClose} title={d.name} sub={`${d.type} · ${d.loc} · ${d.serial}`}
-      footer={<><Button variant="ghost" onClick={onClose}>Close</Button><Button variant="secondary" icon={I.RefreshCw} loading={busy} onClick={() => { setBusy(true); setTimeout(() => { setBusy(false); toast({ title: d.st === 'Active' ? 'Synced. Nothing new since 10:39 AM.' : `${d.name} did not answer`, body: d.st === 'Active' ? undefined : 'Check its power and network cable. The warden has been told.', tone: d.st === 'Active' ? 'ok' : 'bad' }); }, 900); }}>Sync now</Button></>}>
+      footer={<><Button variant="ghost" onClick={onClose}>Close</Button>{canSync && <Button variant="secondary" icon={I.RefreshCw} loading={busy} onClick={() => { setBusy(true); setTimeout(() => { setBusy(false); toast({ title: d.st === 'Active' ? 'Synced. Nothing new since 10:39 AM.' : `${d.name} did not answer`, body: d.st === 'Active' ? undefined : 'Check its power and network cable. The warden has been told.', tone: d.st === 'Active' ? 'ok' : 'bad' }); }, 900); }}>Sync now</Button>}</>}>
       <div className="flex flex-col gap-4">
         <div className="grid grid-cols-3 gap-2">
           {[['Status', d.st], ['Accepted today', d.got], ['Rejected', main && mapped ? 0 : d.rej]].map(([k, v]) => (
@@ -1143,6 +1144,7 @@ const METHODS = [['Register (by hand)', true, true], ['Mobile app', false, true]
 function AttSettingsPage({ access }) {
   const toast = useToast();
   const { go } = useNav();
+  const { role, modulesOn } = useRole();
   const canEdit = useCanEdit() && access === 'full';
   const [tab, setTab] = useState('punch');
   const [method, setMethod] = useState('day');
@@ -1172,7 +1174,7 @@ function AttSettingsPage({ access }) {
             </Card>
             <Card className="overflow-hidden">
               <CardHead title="Which methods are on" sub="Details for devices, QR and the campus area are on Devices & QR" icon={I.ScanFace}
-                action={<Button size="sm" variant="ghost" onClick={() => go('attendance', { page: 'devices' })}>Devices & QR</Button>} />
+                action={canOpen(role, 'attendance.devices', modulesOn) ? <Button size="sm" variant="ghost" onClick={() => go('attendance', { page: 'devices' })}>Devices & QR</Button> : null} />
               <table className="w-full text-[14px]">
                 <thead><tr className="text-[12px] text-ink3 border-y border-line"><th className="text-left font-semibold px-5 py-2.5">Method</th><th className="font-semibold px-3 py-2.5 w-24">Students</th><th className="font-semibold px-5 py-2.5 w-24">Staff</th></tr></thead>
                 <tbody>
@@ -1258,7 +1260,7 @@ function AttSettingsPage({ access }) {
                     Dear Parent, <b className="font-semibold">{FEATURED.name}</b> of Class 7 B is absent today, Fri 9 Oct. If this is unexpected, please call the school on 040 2305 6789. — Sunrise Public School
                     <p className="text-[11px] text-ink3 text-right mt-1">WhatsApp · Absence template</p>
                   </div>
-                  {canEdit && <Button className="mt-3" size="sm" variant="ghost" icon={I.Pencil} onClick={() => go('communication', { page: 'templates' })}>Edit in Message Templates</Button>}
+                  {canEdit && canDo(role, 'communication.templates', modulesOn) && <Button className="mt-3" size="sm" variant="ghost" icon={I.Pencil} onClick={() => go('communication', { page: 'templates' })}>Edit in Message Templates</Button>}
                 </div>
               </div>
             </Card>
@@ -1278,7 +1280,7 @@ function AttSettingsPage({ access }) {
               <CardHead title="Student leave types" sub="Who approves is set in Settings, Forms & Approvals" icon={I.CalendarDays}
                 action={canEdit && <Button size="sm" variant="soft" icon={I.Plus} onClick={() => toast({ title: 'Add a leave type', body: 'For example Religious festival', tone: 'info' })}>Add type</Button>} />
               <ul className="px-2 pb-2">{TYPES.map((t) => <li key={t}><Row icon="CalendarDays" title={t} sub={t === 'Family event' ? 'School’s own type' : 'Standard type'} /></li>)}</ul>
-              <div className="px-5 pb-4"><Button size="sm" variant="ghost" icon={I.ArrowRight} onClick={() => go('settings', { page: 'forms' })}>Forms & Approvals</Button></div>
+              {canOpen(role, 'settings.forms', modulesOn) && <div className="px-5 pb-4"><Button size="sm" variant="ghost" icon={I.ArrowRight} onClick={() => go('settings', { page: 'forms' })}>Forms & Approvals</Button></div>}
             </Card>
             <Card className="overflow-hidden">
               <CardHead title="Leave quotas" sub="A limit per leave type, as in the old software" icon={I.Scale} />

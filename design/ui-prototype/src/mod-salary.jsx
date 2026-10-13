@@ -9,7 +9,7 @@ import {
   Banner, Suggestion, Progress, HBars, Bars, Legend, DL, Timeline, MoreMenu, FormSheet, ConfirmSheet, Split as KitSplit, Col, ExportButton,
   DatePeriod, PERIODS, fmtRange, usePage,
 } from './kit.jsx';
-import { isoOf, inPeriod, ALL_DATES } from './mod-fees.jsx';
+import { isoOf, inPeriod, ALL_DATES, canOpen } from './mod-fees.jsx';
 
 // Same as the kit Split, but its direct children may shrink (no sideways overflow on phones)
 const Split = ({ className, ...p }) => <KitSplit {...p} className={cx('[&>*]:min-w-0', className)} />;
@@ -173,10 +173,13 @@ function Breakdown({ p, open, onClose, adj = [], canAdjust, onAdjust }) {
 function Generate() {
   const toast = useToast();
   const { go } = useNav();
-  const { role } = useRole();
+  const { role, year } = useRole();
   const canEdit = useCanEdit();
-  // HR has View: days, leave and loss of pay only, never the money
-  const seeMoney = usePage().access === 'full';
+  // HR has View of Salary: days, leave and loss of pay only, never the money. The Principal and School Admin have
+  // Full Salary but this page is View for them: they see every amount, check it and approve; the Accountant runs it.
+  const { access: pageAcc, moduleAccess } = usePage();
+  const seeMoney = moduleAccess === 'full';
+  const oversight = pageAcc === 'view' && seeMoney && !year?.closed;
   const me = role.person.name;
   const [months, setMonths] = useState(() => MONTHS.map((m) => (m.id === 'oct' && role.id === 'principal' ? { ...m, status: 'waiting', sentBy: 'Suresh Babu', sentAt: 'Today, 10:15 AM' } : m)));
   const [cur, setCur] = useState('oct');
@@ -212,7 +215,8 @@ function Generate() {
   const tot = isOct ? { gross: m.gross + addSum, ded: m.ded + cutSum, net: m.net + addSum - cutSum } : m;
   const editable = canEdit && isOct && (st === 'open' || st === 'calculated');
   const approver = m.sentBy === 'Lakshmi Rao' ? 'Anita Sharma (School Admin)' : 'Lakshmi Rao (Principal)';
-  const canApprove = st === 'waiting' && m.sentBy !== me && ((role.id === 'principal') || (role.id === 'schooladmin' && m.sentBy === 'Lakshmi Rao'));
+  // Approving stays with the approvers although the page is View for them. Nobody approves a run they sent.
+  const canApprove = !year?.closed && st === 'waiting' && m.sentBy !== me && ((role.id === 'principal') || (role.id === 'schooladmin' && m.sentBy === 'Lakshmi Rao'));
   const flagsOf = (p) => (isOct ? [p.id === 'P02' && tdsDone ? null : p.flag, adj[p.id] && 'Adjustment added'] : [p.none ? p.flag : null]).filter((f) => f && (seeMoney || f !== 'No TDS amount'));
   const rowCalc = (p) => calc(isOct ? (p.id === 'P02' && tdsDone ? { ...p, tds: 2400 } : p) : { ...p, lop: 0 }, { adj: isOct ? adj[p.id] || [] : [], lop: isOct ? p.lop || 0 : 0 });
   const t = q.trim().toLowerCase();
@@ -238,7 +242,7 @@ function Generate() {
         <ModuleHead sub="Kukatpally campus · one salary run a month · pay day is the last working day"
           actions={canEdit && <Button variant="secondary" icon={I.CalendarPlus} onClick={() => { setNm('November 2026'); setNewMonth(true); }}>Open a month</Button>} />
         <Stats items={[
-          { label: 'Salary structures', value: '85 of 86', sub: '1 missing · Rekha Nair', tone: 'warn', icon: 'FileSpreadsheet', onClick: canEdit ? () => go('salary', { page: 'structures' }) : undefined },
+          { label: 'Salary structures', value: '85 of 86', sub: '1 missing · Rekha Nair', tone: 'warn', icon: 'FileSpreadsheet', onClick: canOpen(role, 'salary', 'structures') ? () => go('salary', { page: 'structures' }) : undefined },
           { label: 'Runs this year', value: '7', sub: 'April to October 2026', icon: 'CalendarRange' },
           { label: 'Waiting for approval', value: String(months.filter((x) => x.status === 'waiting').length), sub: months.some((x) => x.status === 'waiting') ? 'October 2026' : 'Nothing waiting', tone: months.some((x) => x.status === 'waiting') ? 'warn' : undefined, icon: 'Hourglass' },
           seeMoney ? { label: 'October net pay', value: inrShort(MONTHS[0].net + addSum - cutSum), sub: `${amt(MONTHS[0].net + addSum - cutSum)} · 86 staff`, icon: 'Wallet' }
@@ -277,9 +281,9 @@ function Generate() {
               {st === 'approved' && <Banner tone="ok" title="Approved.">86 salary slips are made and each staff member was told. Amounts are frozen. Pay the staff, then mark it paid.</Banner>}
               {st === 'paid' && <Banner tone="ok" title={`Paid ${m.paid}.`}>{isOct ? 'One salary entry is in the Day Book on the date paid. ' : 'In the Day Book. '}Corrections go in next month as an adjustment.</Banner>}
               {st === 'locked' && <Banner tone="info" icon={I.Lock} title="Locked for good.">This run never changes. A correction is an adjustment, with a reason, in a following month.</Banner>}
-              {!canEdit && <Banner tone="info" icon={I.Eye}>{seeMoney ? 'View only. This year is closed.' : 'View only. Check that leave and attendance reach the salary; the Accountant runs it. Pay amounts are not shown.'}</Banner>}
+              {!canEdit && !canApprove && <Banner tone="info" icon={I.Eye}>{oversight ? `Suresh Babu prepares the salary and pays it. ${st === 'open' || st === 'calculated' ? (role.id === 'principal' ? 'It comes to you for approval when he sends it.' : 'The Principal approves it when he sends it.') : 'You see every amount here.'}` : seeMoney ? 'View only. This year is closed.' : 'View only. Check that leave and attendance reach the salary; the Accountant runs it. Pay amounts are not shown.'}</Banner>}
             </div>
-            {canEdit && (
+            {(canEdit || canApprove) && (
               <div className="px-5 pb-5 flex gap-2 flex-wrap">
                 {editable && <>
                   <Button variant="primary" icon={I.Send} onClick={() => setSend(true)}>Send for approval</Button>
@@ -289,16 +293,16 @@ function Generate() {
                 {st === 'waiting' && (canApprove ? <>
                   <Button variant="primary" icon={I.Check} onClick={() => setApprove(true)}>Approve salary</Button>
                   <Button variant="secondary" onClick={() => { setBack(true); setBackWhy(''); setBackErr(''); }}>Send back</Button>
-                </> : <>
+                </> : canEdit && <>
                   <Button variant="secondary" icon={I.Bell} onClick={() => toast({ title: `Reminder sent to ${approver.split(' (')[0]}`, body: 'In Approvals and on WhatsApp' })}>Remind {approver.split(' ')[0]}</Button>
                   {m.sentBy === me && <Button variant="ghost" icon={I.Undo2} onClick={() => { setSt('calculated', { sentBy: null }); toast({ title: 'Taken back from approval', body: 'You can change it and send it again.' }); }}>Take back to change</Button>}
                 </>)}
-                {st === 'approved' && <>
+                {canEdit && st === 'approved' && <>
                   <Button variant="primary" icon={I.Banknote} onClick={() => { setPay(true); setRef(''); setRefErr(''); }}>Mark paid</Button>
                   <Button variant="secondary" icon={I.FileDown} onClick={() => toast({ title: 'Saved: SPS-salary-Oct-2026-HDFC.xlsx', body: '82 staff by bank transfer · 4 by cheque · upload it in HDFC net banking' })}>Bank transfer file</Button>
                   <Button variant="ghost" icon={I.ReceiptText} onClick={() => go('salary', { page: 'slips' })}>See slips</Button>
                 </>}
-                {(st === 'paid' || st === 'locked') && <>
+                {canEdit && (st === 'paid' || st === 'locked') && <>
                   <Button variant="secondary" icon={I.FileDown} onClick={() => toast({ title: `Saved: PF-ECR-${m.short}-2026.txt`, body: `${amt(isOct ? OCT.pf : 106200)} employee + same employer share · upload on the EPFO portal` })}>PF statement</Button>
                   <Button variant="secondary" icon={I.FileDown} onClick={() => toast({ title: `Saved: ESI-${m.short}-2026.xlsx`, body: '21 staff within the ESI limit · upload on the ESIC portal' })}>ESI statement</Button>
                   {st === 'paid' && <Button variant="ghost" icon={I.Lock} onClick={() => setLock(true)}>Lock now</Button>}
@@ -320,7 +324,7 @@ function Generate() {
                 <li className="flex items-center gap-3 px-5 py-3">
                   <span className="w-9 h-9 rounded-xl bg-warn/12 text-warn grid place-items-center shrink-0"><I.CalendarX2 size={18} /></span>
                   <div className="min-w-0 flex-1"><p className="font-semibold text-[14px]">Attendance missing for 1 staff on 1 day</p><p className="text-[12.5px] text-ink3 truncate">Swapna Reddy, today. Not in yet and no leave asked.</p></div>
-                  {role.access.attendance ? <Button size="sm" variant="secondary" onClick={() => go('attendance', { page: 'staff' })}>Open</Button>
+                  {canOpen(role, 'attendance', 'staff') ? <Button size="sm" variant="secondary" onClick={() => go('attendance', { page: 'staff' })}>Open</Button>
                     : canEdit && <Button size="sm" variant="ghost" onClick={() => toast({ title: 'HR asked to complete it', body: 'Shalini Verma gets a notification', tone: 'info' })}>Ask HR</Button>}
                 </li>
                 {!tdsDone && seeMoney && (
@@ -958,8 +962,9 @@ function Advances() {
 function History() {
   const toast = useToast();
   const { go } = useNav();
-  // HR has View: who was paid for how many days and the loss of pay, never the money
-  const seeMoney = usePage().access === 'full';
+  // HR has View of Salary: who was paid for how many days and the loss of pay, never the money.
+  // The Principal and School Admin read this page (View) but have Full Salary, so they see the amounts.
+  const seeMoney = usePage().moduleAccess === 'full';
   const [tab, setTab] = useState('month');
   const [per, setPer] = useState(PERIODS.finyear);
   const [who, setWho] = useState('T01');
@@ -1150,7 +1155,7 @@ function SalarySettings() {
             <div className="px-5 pb-5 flex flex-col gap-3">
               <div className="flex items-center gap-2 flex-wrap"><Pill tone="brand">Accountant prepares</Pill><I.ChevronRight size={16} className="text-ink3" /><Pill tone="brand">Principal approves</Pill><I.ChevronRight size={16} className="text-ink3" /><Pill tone="brand">Accountant marks paid</Pill></div>
               <p className="text-[13px] text-ink3">Advances and loans: Principal approves. Nobody approves a run they sent; it goes to the School Admin instead.</p>
-              {role.access.settings && <Button className="self-start" size="sm" variant="secondary" icon={I.ArrowUpRight} onClick={() => go('settings', { page: 'forms' })}>Change in Forms & Approvals</Button>}
+              {canOpen(role, 'settings', 'forms') && <Button className="self-start" size="sm" variant="secondary" icon={I.ArrowUpRight} onClick={() => go('settings', { page: 'forms' })}>Change in Forms & Approvals</Button>}
             </div>
           </Card>
           <SettingsCard title="Salary slip options" sub="The slip design is in Settings, Document Designs" icon={I.ReceiptText} rows={[

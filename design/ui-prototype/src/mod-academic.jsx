@@ -1792,6 +1792,9 @@ function MyProgress({ me, onOpen }) {
 }
 
 function SchoolProgress() {
+  const toast = useToast();
+  const { moduleAccess } = usePage();
+  const remind = moduleAccess === 'full';
   const [g, setG] = useState('all');
   const [q, setQ] = useState('');
   const rows = SCHOOL_PROGRESS.filter((r) => (g === 'all' || r.sec.startsWith(g + ' ')) && (!q || r.sec.toLowerCase().includes(q.toLowerCase()) || r.subj.toLowerCase().includes(q.toLowerCase()) || (r.teacher || '').toLowerCase().includes(q.toLowerCase())));
@@ -1823,7 +1826,8 @@ function SchoolProgress() {
             footer={`Showing ${rows.length} of ${SCHOOL_PROGRESS.length}`} />
         </Card>
         <Card>
-          <CardHead title="Chapters running late" sub="Planned dates have passed" icon={I.TriangleAlert} />
+          <CardHead title="Chapters running late" sub="Planned dates have passed" icon={I.TriangleAlert}
+            action={remind && <Button size="sm" variant="soft" icon={I.Bell} onClick={() => toast({ title: 'Reminder sent to the subject teachers', body: 'On the app: “Your chapter is past its planned date. Please update the plan or catch up.”' })}>Remind</Button>} />
           <ul className="px-2 pb-2">
             {[{ t: 'Lines and Angles', s: '7 B, 7 A Maths · Imran Shaikh · from 28 Sep' }, { t: 'Simple Equations', s: '7 B Maths · Imran Shaikh · due 25 Sep' }, { t: 'Conservation of Plants and Animals', s: '8 B Science · Ravi Teja · from 5 Oct' }, ...late.filter((r) => !MY_PROGRESS['Imran Shaikh'].concat(MY_PROGRESS['Ravi Teja']).some((m) => m.sec === r.sec && m.subj === r.subj)).slice(0, 3).map((r) => ({ t: `${r.subj} · ${r.plan - r.done}% behind`, s: `${r.sec} · ${r.teacher}` }))].map((x) => (
               <li key={x.t + x.s}><Row icon="CalendarX2" iconTone="bad" title={x.t} sub={x.s} /></li>
@@ -2002,7 +2006,9 @@ function DailyLog({ me }) {
 function SchoolLog() {
   const [confirm, setConfirm] = useState(false);
   const toast = useToast();
-  const canEdit = useCanEdit();
+  // Reminding is oversight: the heads who run the module may remind, even where this page is view only
+  const { moduleAccess } = usePage();
+  const canEdit = useCanEdit() || moduleAccess === 'full';
   return (
     <div className="grid @xl:grid-cols-2 gap-5 @lg:gap-6 items-start">
       <Card>

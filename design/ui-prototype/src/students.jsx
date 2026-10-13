@@ -2,9 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import * as I from './icons.js';
 import { STUDENTS, CLASSES, FEATURED, STUDENT_PROFILE as P, FEE_ROWS, OCT_ATT, inr } from './data.js';
 import { cx, Card, CardHead, Button, Pill, Avatar, Checkbox, Input, Field, Segmented, Tabs, Ring, Empty, Skel, Sheet, PageHead, useToast, feeTone, inputCls } from './ui.jsx';
-import { useNav, useRole } from './shell.jsx';
+import { useNav, useRole, canDo } from './shell.jsx';
 import { ModuleHead, useCanEdit, usePage, CalendarMonth, sampleMark, monthTotals, MONTH_NAMES } from './kit.jsx';
-import { inMenu, pagesFor } from './config.js';
+import { inMenu, pagesFor, pageAccess } from './config.js';
 import { INCIDENTS, CASES, ReportSheet } from './mod-students.jsx';
 
 const labOf = (s) => (s.cls.startsWith('Class ') ? `${s.cls.slice(6)} ${s.sec}` : `${s.cls} ${s.sec}`);
@@ -43,7 +43,7 @@ export function Students({ onAddStudent }) {
   const { go } = useNav();
   const toast = useToast();
   const { role } = useRole();
-  const { access } = usePage();
+  const { access, moduleAccess } = usePage();
   const canEdit = useCanEdit();
   const R = listRules(role, access);
   const scope = useMemo(() => studentScope(role.id), [role.id]);
@@ -83,11 +83,11 @@ export function Students({ onAddStudent }) {
   return (
     <div>
       <ModuleHead title="Students" sub={sub}
-        actions={access === 'full' && <>
+        actions={access === 'full' ? <>
           <Button variant="secondary" icon={I.Upload} className="hidden @md:inline-flex" onClick={() => toast({ title: 'Import from Excel', body: 'Pick a file. We check every row before adding anything.', tone: 'info' })}>Import</Button>
           <Button variant="secondary" icon={I.Download} className="hidden @md:inline-flex" onClick={() => toast({ title: `Exported ${rows.length} students`, body: 'students-2026-27.xlsx is ready in Downloads' })}>Export</Button>
           <Button variant="primary" icon={I.UserPlus} onClick={onAddStudent}>Add student</Button>
-        </>} />
+        </> : moduleAccess === 'full' && <Button variant="secondary" icon={I.Download} onClick={() => toast({ title: `Exported ${rows.length} students`, body: 'students-2026-27.xlsx is ready in Downloads' })}>Export</Button>} />
 
       {/* Class picker */}
       <div className="-mx-4 px-4 @md:mx-0 @md:px-0 overflow-x-auto no-scrollbar">
@@ -345,7 +345,10 @@ export function StudentProfile({ id }) {
   const featured = s.id === FEATURED.id;
   const R = profileRules(role);
   const yearOpen = useCanEdit();
-  const canEdit = yearOpen && R.full;
+  // The record is changed only by people whose Student List page is Full (the office); the Principal reads it
+  const listFull = pageAccess(role.id, 'students', 'list', acc.students) === 'full';
+  const behFull = pageAccess(role.id, 'students', 'behaviour', acc.students) !== 'view';
+  const canEdit = yearOpen && R.full && listFull;
   const [tab, setTab] = useState('overview');
   const [more, setMore] = useState(false);
   const [report, setReport] = useState(false);
@@ -387,9 +390,9 @@ export function StudentProfile({ id }) {
   const XL = ['', '@xl:grid-cols-1', '@xl:grid-cols-2', '@xl:grid-cols-3', '@xl:grid-cols-4', '@xl:grid-cols-5', '@xl:grid-cols-6', '@xl:grid-cols-7'][strip.length];
   const MD = strip.length >= 3 ? '@md:grid-cols-3' : strip.length === 2 ? '@md:grid-cols-2' : '@md:grid-cols-1';
   const TAB_LABEL = { overview: 'Overview', attendance: 'Attendance', fees: 'Fees', exams: R.oneSubject ? 'Marks' : 'Exams', behaviour: 'Behaviour', counselling: 'Counselling', documents: 'Documents', timeline: 'Timeline' };
-  const collect = acc.fees === 'full';
+  const collect = canDo(role, 'fees.collect');
   const message = !!acc.communication && R.parents;
-  const reportOn = R.report && tabs.includes('behaviour') && yearOpen;
+  const reportOn = R.report && tabs.includes('behaviour') && yearOpen && behFull;
 
   return (
     <div>
@@ -405,22 +408,22 @@ export function StudentProfile({ id }) {
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="font-display text-[24px] @md:text-[28px] font-semibold tracking-tight leading-tight">{s.name}</h1>
                 <Pill tone="ok" dot>{s.status === 'Active' ? 'Studying' : s.status}</Pill>
-                {!R.full && <Pill tone="neutral"><I.Eye size={13} />View only</Pill>}
+                {!canEdit && <Pill tone="neutral"><I.Eye size={13} />View only</Pill>}
               </div>
               <p className="text-[13.5px] text-ink3 mt-0.5">{s.cls} {s.sec} · Roll {s.roll} · <span className="font-mono text-[12.5px]">{s.adm}</span>{featured && R.personal && ` · ${P.house}`}</p>
             </div>
           </div>
-          {(collect || message || (reportOn && !R.full) || canEdit) && (
+          {(collect || message || (reportOn && !canEdit) || canEdit) && (
             <div className="flex flex-wrap gap-2 relative">
               {collect && <Button variant="primary" icon={I.IndianRupee} className="flex-1 @lg:flex-none" onClick={() => go('fees', { student: s.id })}>Collect fee</Button>}
-              {reportOn && !R.full && <Button variant="secondary" icon={I.TriangleAlert} className="flex-1 @lg:flex-none" onClick={() => setReport(true)}>Report incident</Button>}
-              {message && <Button variant={collect || (reportOn && !R.full) ? 'secondary' : 'primary'} icon={I.MessageCircle} className="flex-1 @lg:flex-none" onClick={() => toast({ title: `Message to ${s.father}`, body: 'Opening WhatsApp message with the school template', tone: 'info' })}>Message<span className="hidden @sm:inline">&nbsp;parent</span></Button>}
+              {reportOn && !canEdit && <Button variant="secondary" icon={I.TriangleAlert} className="flex-1 @lg:flex-none" onClick={() => setReport(true)}>Report incident</Button>}
+              {message && <Button variant={collect || (reportOn && !canEdit) ? 'secondary' : 'primary'} icon={I.MessageCircle} className="flex-1 @lg:flex-none" onClick={() => toast({ title: `Message to ${s.father}`, body: 'Opening WhatsApp message with the school template', tone: 'info' })}>Message<span className="hidden @sm:inline">&nbsp;parent</span></Button>}
               {canEdit && <Button variant="secondary" icon={I.Ellipsis} aria-label="More actions" onClick={() => setMore(!more)} className="!px-3" />}
               {more && (
                 <>
                   <div className="fixed inset-0 z-30" onClick={() => setMore(false)} />
                   <div className="absolute right-0 top-12 z-40 w-56 bg-surface border border-line rounded-2xl shadow-pop p-1.5 animate-rise">
-                    {[[I.TriangleAlert, 'Report incident', () => setReport(true)], [I.IdCard, 'Print ID card'], [I.FileText, 'Bonafide certificate'], [I.FileOutput, 'Transfer certificate (TC)'], [I.ArrowRightLeft, 'Change section'], [I.Pencil, 'Edit details']].map(([Ic, l, run]) => (
+                    {[...(reportOn ? [[I.TriangleAlert, 'Report incident', () => setReport(true)]] : []), [I.IdCard, 'Print ID card'], [I.FileText, 'Bonafide certificate'], [I.FileOutput, 'Transfer certificate (TC)'], [I.ArrowRightLeft, 'Change section'], [I.Pencil, 'Edit details']].map(([Ic, l, run]) => (
                       <button key={l} onClick={() => { setMore(false); run ? run() : toast({ title: l, body: `For ${s.name}`, tone: 'info' }); }} className="w-full flex items-center gap-2.5 h-10 px-3 rounded-xl hover:bg-sunken text-[14px] text-left"><Ic size={17} className="text-ink3" />{l}</button>
                     ))}
                   </div>
@@ -715,7 +718,7 @@ function FeesTab({ s }) {
           <div><p className="text-[12px] text-ink3 font-semibold">Paid</p><p className="text-[18px] font-semibold tnum text-ok">{inr(paid)}</p></div>
           <div><p className="text-[12px] text-ink3 font-semibold">Balance</p><p className="text-[18px] font-semibold tnum text-bad">{inr(total - paid)}</p></div>
         </div>
-        {role.access.fees === 'full' && <Button variant="primary" icon={I.IndianRupee} onClick={() => go('fees', { student: s.id })}>Collect fee</Button>}
+        {canDo(role, 'fees.collect') && <Button variant="primary" icon={I.IndianRupee} onClick={() => go('fees', { student: s.id })}>Collect fee</Button>}
       </Card>
       <Card className="overflow-hidden">
         <CardHead title="Installments" sub="Oldest first" />

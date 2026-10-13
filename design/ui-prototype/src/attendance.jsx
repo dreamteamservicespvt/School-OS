@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import * as I from './icons.js';
 import { CLASS_7B } from './data.js';
-import { cx, Card, CardHead, Button, Pill, Avatar, Sheet, Empty, useToast } from './ui.jsx';
-import { ModuleHead, Legend, CalendarMonth, MONTH_NAMES, MARK_TONE, schoolDay, sampleMark } from './kit.jsx';
+import { cx, Card, CardHead, Button, Pill, Avatar, Sheet, Empty, Field, Segmented, useToast } from './ui.jsx';
+import { ModuleHead, Legend, CalendarMonth, MONTH_NAMES, MARK_TONE, schoolDay, sampleMark, usePage, Textarea, Banner } from './kit.jsx';
 import { useRole } from './shell.jsx';
 
 const ST = {
@@ -12,11 +12,21 @@ const ST = {
   V: { label: 'Leave', short: 'Leave', on: 'bg-info/15 text-info border-info/30', soft: 'text-info' },
 };
 
+// People who look after the whole school (Principal, Vice Principal, School Admin, Academic Head) rather than one class
+const useOversight = () => usePage().moduleAccess !== 'own';
 const AttHead = () => {
   const { role } = useRole();
-  const sub = role.id === 'teacher' ? 'Class 7 B · Period 2, Mathematics · Friday, 9 October · Imran Shaikh' : 'Class 7 B · Friday, 9 October · Class teacher Ravi Teja';
+  const over = useOversight();
+  const sub = role.id === 'teacher' ? 'Class 7 B · Period 2, Mathematics · Friday, 9 October · Imran Shaikh'
+    : over ? `Whole school · Friday, 9 October · ${43 - NOT_MARKED.length} of 43 sections marked by 10:44 AM` : 'Class 7 B · Friday, 9 October · Class teacher Ravi Teja';
   return <ModuleHead title="Attendance" sub={sub} />;
 };
+// Sections whose attendance is not taken yet today (Fri 9 Oct, 10:44 AM). The same three show on Attendance Reports.
+export const NOT_MARKED = [
+  { cls: '8 A', n: 36, ct: 'Venkat Rao', note: 'Class teacher · Period 3 now, in 8 A' },
+  { cls: '10 C', n: 30, ct: 'Farhana Begum', note: 'Class teacher · on exam duty in the hall' },
+  { cls: '3 A', n: 28, ct: 'Kalyani Sastry', note: 'Covering for Sravanthi Rao, on medical leave' },
+];
 export const ATTENDANCE_BASE = {
   take: () => <div><AttHead /><Take /></div>,
   register: () => <div><AttHead /><Register /></div>,
@@ -185,7 +195,67 @@ function Totals({ t }) {
   );
 }
 
+function NotMarked() {
+  const toast = useToast();
+  const [sent, setSent] = useState({});
+  const left = NOT_MARKED.filter((c) => !sent[c.cls]);
+  const remind = (list) => {
+    setSent((x) => ({ ...x, ...Object.fromEntries(list.map((c) => [c.cls, '10:44 AM'])) }));
+    toast({ title: list.length > 1 ? `Reminded ${list.length} class teachers` : `Reminded ${list[0].ct}`, body: list.length > 1 ? 'On the app and WhatsApp: please take today’s attendance before the 11:00 AM lock.' : `On the app and WhatsApp: please take today’s attendance for ${list[0].cls} before the 11:00 AM lock.` });
+  };
+  return (
+    <Card>
+      <CardHead title="Not marked yet" sub="Today, Fri 9 Oct · the app reminded these class teachers at 9:15 AM" icon={I.Hourglass}
+        action={left.length > 1 ? <Button size="sm" variant="soft" icon={I.BellRing} onClick={() => remind(left)}>Remind all</Button> : <Pill tone="warn">{NOT_MARKED.length}</Pill>} />
+      <ul className="px-2 pb-2">
+        {NOT_MARKED.map((c) => (
+          <li key={c.cls} className="flex items-center gap-3 px-3 py-2.5 rounded-xl">
+            <span className="w-10 h-10 rounded-xl bg-warn/12 text-warn grid place-items-center shrink-0 text-[13px] font-bold">{c.cls}</span>
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold text-[14.5px] leading-snug truncate">{c.ct}</p>
+              <p className="text-[12.5px] text-ink3 truncate">{sent[c.cls] ? `Reminded again at ${sent[c.cls]}` : `${c.n} students · ${c.note}`}</p>
+            </div>
+            {sent[c.cls] ? <Pill tone="ok" className="shrink-0">Reminded</Pill> : <Button size="sm" variant="secondary" icon={I.Bell} onClick={() => remind([c])} className="shrink-0">Remind</Button>}
+          </li>
+        ))}
+      </ul>
+      <p className="px-5 pb-4 text-[12.5px] text-ink3">Marks lock at 11:00 AM. A class not marked by then shows as not taken, and no absence message goes to parents.</p>
+    </Card>
+  );
+}
+
+const MARK_OPTS = [{ value: 'P', label: 'Present' }, { value: 'A', label: 'Absent' }, { value: 'L', label: 'Late' }, { value: 'V', label: 'Leave' }];
+const MARK_WORD = { P: 'Present', A: 'Absent', L: 'Late', V: 'Leave', H: 'Holiday' };
+function CorrectMark({ c, onClose, onSave }) {
+  const [to, setTo] = useState(null);
+  const [why, setWhy] = useState('');
+  const [tried, setTried] = useState(false);
+  if (!c) return null;
+  const v = to || c.was;
+  const close = () => { onClose(); setTo(null); setWhy(''); setTried(false); };
+  const err = !why.trim() ? 'A reason is needed for every change' : v === c.was ? 'Pick a different mark' : '';
+  return (
+    <Sheet open onClose={close} title={`Correct a mark · ${c.s.name}`} sub={`Class 7 B · Roll ${c.s.roll} · ${c.d} ${MONTH_NAMES[c.m]} ${c.y} · now ${MARK_WORD[c.was]}`}
+      footer={<><Button variant="ghost" onClick={close}>Cancel</Button><Button variant="primary" icon={I.Check} onClick={() => { setTried(true); if (err) return; onSave(v, why.trim()); close(); }}>Save change</Button></>}>
+      <div className="flex flex-col gap-4">
+        <Field label="Change the mark to" id="cm-to"><Segmented value={v} onChange={setTo} options={MARK_OPTS} className="w-full" /></Field>
+        <div className="flex flex-wrap gap-2 -mb-1">{['Came late, marked absent by mistake', 'Parent sent a leave note', 'Was on school duty'].map((x) => <button key={x} type="button" onClick={() => setWhy(x)} className="h-8 px-3 rounded-full bg-sunken text-[13px] font-medium hover:bg-line">{x}</button>)}</div>
+        <Field label="Reason" id="cm-why" required error={tried && err}><Textarea id="cm-why" value={why} onChange={setWhy} rows={2} placeholder="Why the mark changes" /></Field>
+        <Banner tone="info" title="Kept on record:">the original mark, your name and the reason stay in the audit log. Ravi Teja, the class teacher, is told.</Banner>
+      </div>
+    </Sheet>
+  );
+}
+
 function Register() {
+  const { access } = usePage();
+  const over = useOversight();
+  const toast = useToast();
+  // The Principal and Vice Principal may correct a mark after the lock (Register is Full for them). School Admin and Academic Head only read it.
+  const canCorrect = over && access === 'full';
+  const [fixes, setFixes] = useState({});
+  const [fix, setFix] = useState(null);
+  const markOf = (s, yy, mm, d) => fixes[`${s.id}-${yy}-${mm}-${d}`] || regMark(s, yy, mm, d);
   const [k, setK] = useState(String(2026 * 12 + 9));
   const [stu, setStu] = useState(null);
   const y = Math.floor(Number(k) / 12), m = Number(k) % 12;
@@ -210,11 +280,12 @@ function Register() {
   };
   return (
     <div className="flex flex-col gap-5 @lg:gap-6">
+      {over && <NotMarked />}
       <Card className="overflow-hidden">
         <div className="flex flex-col @lg:flex-row @lg:items-center justify-between gap-3 px-5 py-4">
           <div className="min-w-0">
             <h3 className="font-semibold">{MONTH_NAMES[m]} {y}</h3>
-            <p className="text-[13px] text-ink3">Class 7 B · 38 students · {school} school {school === 1 ? 'day' : 'days'}{isOct ? ' so far' : ''} · tap a name for the month calendar</p>
+            <p className="text-[13px] text-ink3">Class 7 B · 38 students · {school} school {school === 1 ? 'day' : 'days'}{isOct ? ' so far' : ''} · tap a name for the month calendar{canCorrect ? ', or a mark to correct it' : ''}</p>
           </div>
           <div className="flex items-center gap-2 w-full @lg:w-72">
             <Button variant="secondary" size="sm" icon={I.ChevronLeft} aria-label="Earlier month" disabled={Number(k) <= 2025 * 12 + 5} onClick={() => step(-1)} className="!px-2.5 shrink-0" />
@@ -245,7 +316,7 @@ function Register() {
               </thead>
               <tbody>
                 {CLASS_7B.map((s) => {
-                  const ms = days.map((d) => regMark(s, y, m, d));
+                  const ms = days.map((d) => markOf(s, y, m, d));
                   const sch = ms.filter((x) => x !== 'H').length;
                   const pr = ms.filter((x) => x === 'P' || x === 'L').length;
                   const pct = sch ? Math.round((pr / sch) * 100) : 0;
@@ -254,7 +325,11 @@ function Register() {
                       <td className="sticky left-0 bg-surface px-4 py-1.5 font-medium whitespace-nowrap">
                         <button type="button" onClick={() => setStu(s)} className="hover:text-brand text-left"><span className="text-ink3 tnum mr-2 inline-block w-5">{s.roll}</span>{s.name}</button>
                       </td>
-                      {ms.map((x, i) => <td key={i} className="px-1 py-1.5 text-center"><span className={cx('inline-grid place-items-center w-7 h-7 rounded-md text-[10.5px] font-bold', C[x])}>{x === 'V' ? 'Lv' : x}</span></td>)}
+                      {ms.map((x, i) => {
+                        const cell = <span className={cx('inline-grid place-items-center w-7 h-7 rounded-md text-[10.5px] font-bold', C[x], fixes[`${s.id}-${y}-${m}-${days[i]}`] && 'ring-2 ring-brand/50')}>{x === 'V' ? 'Lv' : x}</span>;
+                        return <td key={i} className="px-1 py-1.5 text-center">{canCorrect && x && x !== 'H'
+                          ? <button type="button" aria-label={`Correct ${s.name}, ${days[i]} ${MONTH_NAMES[m]}: ${MARK_WORD[x]}`} title="Correct this mark" onClick={() => setFix({ s, y, m, d: days[i], was: x })} className="rounded-md hover:ring-2 hover:ring-brand/40">{cell}</button> : cell}</td>;
+                      })}
                       <td className={cx('px-4 text-right font-semibold tnum', sch && pct < 85 && 'text-warn')}>{sch ? `${pct}%` : '—'}</td>
                     </tr>
                   );
@@ -274,6 +349,11 @@ function Register() {
         </div>
       </Card>
 
+      <CorrectMark c={fix} onClose={() => setFix(null)} onSave={(to, why) => {
+        const key = `${fix.s.id}-${fix.y}-${fix.m}-${fix.d}`; const before = fixes;
+        setFixes({ ...fixes, [key]: to });
+        toast({ title: `${fix.s.name}, ${fix.d} ${MONTH_NAMES[fix.m]}: ${MARK_WORD[fix.was]} → ${MARK_WORD[to]}`, body: `Reason: ${why}. The original stays in the audit log.`, undo: () => setFixes(before) });
+      }} />
       <Sheet open={!!stu} onClose={() => setStu(null)} title={stu?.name || ''} sub={stu ? `Class 7 B · Roll ${stu.roll}` : ''}
         footer={<Button variant="ghost" onClick={() => setStu(null)}>Close</Button>}>
         {stu && (

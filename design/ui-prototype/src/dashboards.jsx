@@ -5,9 +5,9 @@ import React, { useState } from 'react';
 import * as I from './icons.js';
 import { RECENT_PAYMENTS, CLASS_7B, inr } from './data.js';
 import { STAFF, ROUTES } from './sample.js';
-import { ROLE, pagesFor, APPROVALS_BY_ROLE } from './config.js';
+import { ROLE, pagesFor, pageAccess, APPROVALS_BY_ROLE } from './config.js';
 import { cx, Card, CardHead, Button, Pill, Avatar, Checkbox, Field, Input, Switch, PageHead, Ring, Sheet, Empty, useToast } from './ui.jsx';
-import { useNav, useRole, quickFor, goTo, canOpen } from './shell.jsx';
+import { useNav, useRole, quickFor, goTo, canOpen, canDo } from './shell.jsx';
 import { Band, Banner, FormSheet, ConfirmSheet, Select, Textarea, Progress, HBars, Split, Col, DL, Icon, TONE_SOFT, DatePeriod, PERIODS, fmtRange, periodDays } from './kit.jsx';
 
 /* ---------- Who may open what ---------- */
@@ -16,6 +16,18 @@ function useOpen() {
   const { role, modulesOn } = useRole();
   return (to) => canOpen(role, to, modulesOn);
 }
+// May this person do the work there (Own or Full), not only look at it (View)? Links that do work use this.
+function useDo() {
+  const { role, modulesOn } = useRole();
+  return (to) => {
+    if (!canOpen(role, to, modulesOn)) return false;
+    const [m, p] = to.split('.');
+    return !p || !role.access[m] || pageAccess(role.id, m, p, role.access[m]) !== 'view';
+  };
+}
+// The button text for a link: the doing-word when the person does that work, a reading word when they only look
+const READ_WORD = /^(see|open|view|review|check|read|marks progress)/i;
+const linkLabel = (n, doesIt) => (doesIt || READ_WORD.test(n.action || '') ? n.action || 'Open' : n.see || 'Open');
 // Who may give tasks to other people ("full task manager"). Everyone else gives tasks only to themselves.
 // 01-dashboard.md leaves the list to Settings; this is the least-exposure default.
 const TASK_FULL = ['principal', 'schooladmin', 'vp', 'academichead'];
@@ -53,6 +65,7 @@ function Attention({ items }) {
   const { go } = useNav();
   const toast = useToast();
   const open = useOpen();
+  const does = useDo();
   const [seen, setSeen] = useState(new Set());
   const list = items.filter((n) => !seen.has(n.title));
   return (
@@ -70,6 +83,7 @@ function Attention({ items }) {
           {list.map((n) => {
             const Ic = n.icon ? I[n.icon] || I.Circle : TONE_ICON[n.tone] || I.TriangleAlert;
             const can = open(n.to);
+            const label = linkLabel(n, does(n.to));
             const act = () => (n.to === 'approvals' ? go('approvals') : goTo(go, n.to));
             return (
               <li key={n.title}>
@@ -81,8 +95,8 @@ function Attention({ items }) {
                   </div>
                   <button onClick={() => { setSeen((s) => new Set(s).add(n.title)); toast({ title: 'Marked as seen', body: 'It comes back if the number changes.', tone: 'info', undo: () => setSeen((s) => { const x = new Set(s); x.delete(n.title); return x; }) }); }}
                     className="hidden @md:grid w-8 h-8 place-items-center rounded-lg text-ink3 opacity-0 group-hover:opacity-100 hover:bg-line/60 transition" aria-label="Mark as seen" title="Mark as seen"><I.EyeOff size={16} /></button>
-                  {can && <Button size="sm" variant="secondary" className="hidden @sm:inline-flex" onClick={act}>{n.action}</Button>}
-                  {can && <button className="@sm:hidden w-9 h-9 grid place-items-center rounded-lg text-ink3" onClick={act} aria-label={n.action}><I.ChevronRight size={20} /></button>}
+                  {can && <Button size="sm" variant="secondary" className="hidden @sm:inline-flex" onClick={act}>{label}</Button>}
+                  {can && <button className="@sm:hidden w-9 h-9 grid place-items-center rounded-lg text-ink3" onClick={act} aria-label={label}><I.ChevronRight size={20} /></button>}
                 </div>
               </li>
             );
@@ -98,6 +112,7 @@ function Tasks({ items, given = [] }) {
   const { go } = useNav();
   const toast = useToast();
   const open = useOpen();
+  const does = useDo();
   const { role } = useRole();
   const full = TASK_FULL.includes(role.id);
   const [tab, setTab] = useState('mine');
@@ -136,7 +151,7 @@ function Tasks({ items, given = [] }) {
                 <p className={cx('text-[12.5px]', t.over && !t.done ? 'text-bad font-semibold' : 'text-ink3')}>{t.over && !t.done ? 'Overdue · ' : ''}{t.due}{t.by ? ` · from ${t.by}` : ''}{t.to2 ? ` · given to ${t.to2}` : ''}</p>
               </div>
               {!t.done && t.to && open(t.to) && (
-                <Button size="sm" variant="ghost" className="shrink-0 !px-2.5" onClick={() => goTo(go, t.to)} iconRight={I.ChevronRight}><span className="hidden @sm:inline">{t.action || 'Open'}</span></Button>
+                <Button size="sm" variant="ghost" className="shrink-0 !px-2.5" onClick={() => goTo(go, t.to)} iconRight={I.ChevronRight}><span className="hidden @sm:inline">{linkLabel(t, does(t.to))}</span></Button>
               )}
             </li>
           ))}
@@ -342,7 +357,7 @@ function PeriodCard({ title, sub, icon = 'CalendarRange', to, rows, def = 'thism
 function TodayClasses({ rows, taken, title = 'My classes today', sub }) {
   const { go } = useNav();
   const open = useOpen();
-  const canTake = open('attendance.take');
+  const canTake = useDo()('attendance.take');
   return (
     <Card>
       <CardHead title={title} sub={sub || `Friday · ${rows.length} periods from your Time Table`} icon={I.CalendarRange}
@@ -376,11 +391,12 @@ function HomeLayout({ cfg }) {
   const { role } = useRole();
   const { go } = useNav();
   const open = useOpen();
+  const does = useDo();
   const shown = useShown();
   const band = cfg.band.filter(shown).map((b) => ({ label: b.label, big: b.big, foot: b.foot, onClick: open(b.to) ? () => goTo(go, b.to) : undefined }));
   return (
     <div className="flex flex-col gap-5 @lg:gap-6">
-      <Greeting first={role.person.first} action={cfg.action && open(cfg.action.to) ? <Button variant="primary" icon={cfg.action.icon} onClick={() => goTo(go, cfg.action.to)}>{cfg.action.label}</Button> : null} />
+      <Greeting first={role.person.first} action={cfg.action && does(cfg.action.to) ? <Button variant="primary" icon={cfg.action.icon} onClick={() => goTo(go, cfg.action.to)}>{cfg.action.label}</Button> : null} />
       {cfg.first && <div className="@md:hidden">{cfg.first}</div>}
       {cfg.banner}
       {band.length >= 2 && <Band items={band} />}
@@ -776,7 +792,7 @@ const HOMES = {
       { tone: 'bad', icon: 'LayoutGrid', title: 'No seating plan for 9 C and 10 C', detail: 'Rooms 301 and 302 · 78 students', action: 'Make plan', to: 'exams.datesheet' },
       { tone: 'warn', icon: 'FileText', title: '6 question papers not submitted', detail: 'Hindi 9, Telugu 10, Science 8 and 3 more', action: 'Remind', to: 'exams.papers' },
       { tone: 'warn', icon: 'IdCard', title: '22 admit cards held for fee dues', detail: 'The Principal decides who sits the exam', action: 'Open', to: 'exams.admitcards' },
-      { tone: 'info', icon: 'Lock', title: 'Unit Test 2 marks not locked in 3 subjects', detail: 'Class 8 · Social, Hindi, Computers', action: 'Marks', to: 'exams.marks' },
+      { tone: 'info', icon: 'Lock', title: 'Unit Test 2 marks not locked in 3 subjects', detail: 'Class 8 · Social, Hindi, Computers', action: 'Marks', see: 'Marks progress', to: 'exams.marks' },
     ],
     tasks: [
       { title: 'Invigilation duty chart', due: 'Today', to: 'exams.datesheet', action: 'Duties' },
@@ -902,10 +918,11 @@ export function RoleHome() {
 /* ---------- Role-specific cards ---------- */
 function RecentPayments() {
   const { go } = useNav();
+  const does = useDo();
   return (
     <Card>
       <CardHead title="Recent payments" sub="Live as money comes in" icon={I.ReceiptIndianRupee}
-        action={<Button size="sm" variant="soft" icon={I.Plus} onClick={() => go('fees', { page: 'collect' })}>Collect fee</Button>} />
+        action={does('fees.collect') ? <Button size="sm" variant="soft" icon={I.Plus} onClick={() => go('fees', { page: 'collect' })}>Collect fee</Button> : null} />
       <div className="px-2 pb-2">
         {RECENT_PAYMENTS.map((p) => (
           <div key={p.rcpt} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sunken/70">
@@ -927,6 +944,8 @@ function RecentPayments() {
 function MoneyToday() {
   const { go } = useNav();
   const toast = useToast();
+  const does = useDo();
+  const open = useOpen();
   const [ask, setAsk] = useState(false);
   return (
     <Card>
@@ -937,10 +956,10 @@ function MoneyToday() {
         ))}
       </div>
       <div className="px-4 pb-4 pt-1 grid grid-cols-2 gap-2">
-        <Button variant="secondary" size="sm" icon={I.ReceiptText} onClick={() => go('finance', { page: 'expenses' })}>Record expense</Button>
-        <Button variant="secondary" size="sm" icon={I.List} onClick={() => go('fees', { page: 'dashboard' })}>View payments</Button>
-        <Button variant="secondary" size="sm" icon={I.Send} onClick={() => setAsk(true)}>Fee reminder</Button>
-        <Button variant="secondary" size="sm" icon={I.ChartColumn} onClick={() => go('fees', { page: 'reports' })}>Reports</Button>
+        {does('finance.expenses') && <Button variant="secondary" size="sm" icon={I.ReceiptText} onClick={() => go('finance', { page: 'expenses' })}>Record expense</Button>}
+        {open('fees.dashboard') && <Button variant="secondary" size="sm" icon={I.List} onClick={() => go('fees', { page: 'dashboard' })}>View payments</Button>}
+        {does('fees.defaulters') && <Button variant="secondary" size="sm" icon={I.Send} onClick={() => setAsk(true)}>Fee reminder</Button>}
+        {open('fees.reports') && <Button variant="secondary" size="sm" icon={I.ChartColumn} onClick={() => go('fees', { page: 'reports' })}>Reports</Button>}
       </div>
       <ConfirmSheet open={ask} onClose={() => setAsk(false)} title="Send fee reminders to 61 families?"
         sub="Each family gets a WhatsApp message with the amount due and a payment link, with SMS if WhatsApp fails. Total overdue: ₹8.4 lakh."
@@ -950,20 +969,22 @@ function MoneyToday() {
 }
 function SyllabusCard({ rows, sub, goal }) {
   const { go } = useNav();
+  const open = useOpen();
   return (
     <Card>
       <CardHead title="Syllabus progress" sub={sub} icon={I.BookOpenCheck}
-        action={<button onClick={() => go('academic', { page: 'syllabus' })} className="text-[13px] font-semibold text-brand hover:underline whitespace-nowrap">Open</button>} />
+        action={open('academic.syllabus') && <button onClick={() => go('academic', { page: 'syllabus' })} className="text-[13px] font-semibold text-brand hover:underline whitespace-nowrap">Open</button>} />
       <div className="px-5 pb-5"><HBars rows={rows} goal={goal} lowBelow={55} /></div>
     </Card>
   );
 }
 function MyClassCard() {
   const { go } = useNav();
+  const open = useOpen();
   return (
     <Card>
       <CardHead title="My class: 7 B" sub="38 students · Room 204 · Godavari House leads" icon={I.GraduationCap}
-        action={<button onClick={() => go('students', { page: 'list' })} className="text-[13px] font-semibold text-brand hover:underline whitespace-nowrap">Class list</button>} />
+        action={open('students.list') && <button onClick={() => go('students', { page: 'list' })} className="text-[13px] font-semibold text-brand hover:underline whitespace-nowrap">Class list</button>} />
       <div className="px-5 pb-3 grid grid-cols-3 gap-2 text-center">
         {[['95%', 'Attendance, Oct'], ['82%', 'UT 2 average'], ['1', 'On leave today']].map(([v, l]) => (
           <div key={l} className="rounded-xl bg-sunken/70 py-2.5"><p className="font-display font-semibold text-[20px] tnum leading-tight">{v}</p><p className="text-[11.5px] text-ink3">{l}</p></div>
@@ -972,7 +993,7 @@ function MyClassCard() {
       <ul className="px-2 pb-2">
         {CLASS_7B.slice(0, 3).map((s, i) => (
           <li key={s.id}>
-            <button onClick={() => go('student', { id: s.id })} className="w-full flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-sunken/70 text-left">
+            <button onClick={open('student') ? () => go('student', { id: s.id }) : undefined} className="w-full flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-sunken/70 text-left">
               <Avatar name={s.name} size={32} />
               <span className="min-w-0 flex-1"><span className="block text-[14px] font-semibold truncate">{s.name}</span><span className="block text-[12px] text-ink3">Roll {s.roll} · {['top scorer in UT 2', 'absent 2 days this week', 'new phone number to confirm'][i]}</span></span>
               <I.ChevronRight size={16} className="text-ink3" />
@@ -986,6 +1007,8 @@ function MyClassCard() {
 function VisitorsCard() {
   const toast = useToast();
   const { go } = useNav();
+  const open = useOpen();
+  const does = useDo();
   const [list, setList] = useState([
     ['Prakash Reddy', 'To meet the Principal', '10:20 AM', 'V-1184'], ['Lavanya Rao', 'Parent · Class 3 PTM', '10:05 AM', 'V-1183'], ['Srinu (Sri Sai Plumbing)', 'Block B washrooms', '9:40 AM', 'V-1181'],
     ['Meera Iyer’s father', 'Fee counter', '10:31 AM', 'V-1185'], ['DTDC courier', 'Accounts', '10:36 AM', 'V-1186'], ['Ramesh (CCTV service)', 'Server room', '9:15 AM', 'V-1179'],
@@ -994,13 +1017,13 @@ function VisitorsCard() {
   return (
     <Card>
       <CardHead title="In the building now" sub={`${list.length} visitors with a pass`} icon={I.IdCard}
-        action={<button onClick={() => go('frontoffice', { page: 'visitors' })} className="text-[13px] font-semibold text-brand hover:underline whitespace-nowrap">All visitors</button>} />
+        action={open('frontoffice.visitors') && <button onClick={() => go('frontoffice', { page: 'visitors' })} className="text-[13px] font-semibold text-brand hover:underline whitespace-nowrap">All visitors</button>} />
       <ul className="px-2 pb-2">
         {list.map((v) => (
           <li key={v[3]} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sunken/70">
             <Avatar name={v[0]} size={36} />
             <div className="min-w-0 flex-1"><p className="font-semibold text-[14px] truncate">{v[0]}</p><p className="text-[12.5px] text-ink3 truncate">{v[1]} · in at {v[2]} · <span className="font-mono text-[11.5px]">{v[3]}</span></p></div>
-            <Button size="sm" variant="ghost" icon={I.LogOut} onClick={() => out(v)} className="shrink-0">Out</Button>
+            {does('frontoffice.visitors') && <Button size="sm" variant="ghost" icon={I.LogOut} onClick={() => out(v)} className="shrink-0">Out</Button>}
           </li>
         ))}
       </ul>
@@ -1009,15 +1032,16 @@ function VisitorsCard() {
 }
 function BusesCard() {
   const { go } = useNav();
+  const open = useOpen();
   const ST = { R3: ['Late this morning', 'warn'], R5: ['Insurance due', 'bad'] };
   return (
     <Card>
       <CardHead title="Buses" sub="All parked at school · afternoon trips at 3:50 PM" icon={I.Bus}
-        action={<button onClick={() => go('transport', { page: 'live' })} className="text-[13px] font-semibold text-brand hover:underline whitespace-nowrap">Live map</button>} />
+        action={open('transport.live') && <button onClick={() => go('transport', { page: 'live' })} className="text-[13px] font-semibold text-brand hover:underline whitespace-nowrap">Live map</button>} />
       <ul className="px-2 pb-2">
         {ROUTES.map((r) => (
           <li key={r.id}>
-            <button onClick={() => go('transport', { page: 'routes' })} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sunken/70 text-left">
+            <button onClick={open('transport.routes') ? () => go('transport', { page: 'routes' }) : undefined} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sunken/70 text-left">
               <span className="w-10 h-10 rounded-xl bg-brand/10 text-brand grid place-items-center shrink-0 text-[13px] font-bold">{r.bus.replace('Bus ', 'B')}</span>
               <span className="min-w-0 flex-1"><span className="block font-semibold text-[14px] truncate">{r.name}</span><span className="block text-[12.5px] text-ink3 truncate">{r.reg} · {r.driver} · {r.students} of {r.seats} seats</span></span>
               <Pill tone={ST[r.id]?.[1] || 'ok'} className="!h-5 !text-[11px] shrink-0">{ST[r.id]?.[0] || 'On time'}</Pill>
@@ -1037,7 +1061,7 @@ const NOTE_TYPES = [
   { k: 'Approvals waiting for me', locked: true, def: [1, 1, 0, 0], need: (r) => r.approves || r.id === 'principal' || r.id === 'schooladmin' },
   { k: 'Tasks given to me', def: [1, 0, 0, 0], need: (r) => r.id !== 'student' },
   { k: 'Substitutions I must take', def: [1, 1, 1, 0], need: (r) => r.id === 'teacher' || r.id === 'classteacher' },
-  { k: 'Fee payments received', def: [1, 0, 0, 0], need: (r) => r.access.fees === 'full' },
+  { k: 'Fee payments received', def: [1, 0, 0, 0], need: (r) => canDo(r, 'fees.collect') },
   { k: 'My leave decided', def: [1, 1, 0, 0], need: (r) => r.access.staff === 'own' },
   { k: 'Salary slip ready', def: [1, 0, 0, 1], need: (r) => r.access.salary === 'own' },
   { k: 'Homework and quizzes due', def: [1, 0, 0, 0], need: (r) => r.id === 'student' },
@@ -1076,7 +1100,7 @@ export function MyProfile() {
   const must = ['principal', 'schooladmin', 'accountant', 'vp', 'hr'].includes(roleId);
   const [twoOn, setTwoOn] = useState(false);
   const two = must || twoOn;
-  const news = WHATS_NEW.filter((w) => !w.mod || (w.mod === 'fees' ? role.access.fees === 'full' : role.access[w.mod]));
+  const news = WHATS_NEW.filter((w) => !w.mod || (w.mod === 'fees' ? canDo(role, 'fees.collect') : role.access[w.mod]));
   // Personal pages under My profile: only the parts of Staff & HR and Salary that are this person's own
   const work = [['staff', 'leave', I.CalendarDays, 'My leave', 'Casual 5 · sick 3 · earned 12 days left'], ['salary', 'slips', I.Wallet, 'My salary slips', 'September 2026 slip is ready'], ['staff', 'documents', I.FileText, 'My documents', 'ID card, joining letter, certificates']]
     .filter(([m]) => role.access[m] === 'own');

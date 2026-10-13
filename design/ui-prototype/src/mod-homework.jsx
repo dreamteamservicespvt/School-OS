@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import * as I from './icons.js';
 import { CLASS_7B, FEATURED } from './data.js';
 import { cx, Card, CardHead, Button, Pill, Avatar, Field, Input, Segmented, Switch, Empty, Sheet, useToast, Ring } from './ui.jsx';
-import { useNav, useRole } from './shell.jsx';
+import { useNav, useRole, canOpen } from './shell.jsx';
 import { pagesFor } from './config.js';
 import {
   ModuleHead, useCanEdit, DatePeriod, PERIODS, fmtRange, periodDays, Stats, Band, SearchBox, Toolbar, Select, Textarea, Chips, DataList, BulkBar, SettingsCard, Banner, Suggestion,
@@ -157,6 +157,7 @@ function StaffHomework({ sc }) {
           { label: sc.own ? 'Waiting for you to check' : 'Waiting to be checked', big: toCheck, foot: 'Open Submissions & Grading', onClick: () => go('homework', { page: 'submissions' }) },
           { label: 'Seen by parents', big: `${seenPct}%`, foot: 'From WhatsApp read receipts' },
         ]} />
+        {!sc.own && <HomeworkOverview list={inP} per={per} />}
         <Card>
           <Toolbar>
             <SearchBox id="hw-search" value={q} onChange={setQ} placeholder="Search homework title" />
@@ -170,7 +171,7 @@ function StaffHomework({ sc }) {
             <ExportButton what="homework list" />
           </div>
           {rows.length === 0 ? (
-            <Empty icon={I.NotebookPen} title={tab === 'current' ? 'No current homework here' : 'Nothing in history yet'} body={`Nothing given in ${per.label.toLowerCase()} (${fmtRange(per)}). Pick other dates, or give homework.`} action={sc.canEdit && <Button variant="primary" icon={I.NotebookPen} onClick={() => setGive(true)}>Give homework</Button>} />
+            <Empty icon={I.NotebookPen} title={tab === 'current' ? 'No current homework here' : 'Nothing in history yet'} body={`Nothing given in ${per.label.toLowerCase()} (${fmtRange(per)}). Pick other dates${sc.canEdit ? ', or give homework' : ''}.`} action={sc.canEdit && <Button variant="primary" icon={I.NotebookPen} onClick={() => setGive(true)}>Give homework</Button>} />
           ) : view === 'cards' ? (
             <ul className="grid @md:grid-cols-2 @xl:grid-cols-3 gap-3 p-3">
               {rows.map((h) => (
@@ -192,7 +193,7 @@ function StaffHomework({ sc }) {
                     <span className="inline-flex items-center gap-1"><I.Eye size={13} />Seen by {h.seen} of {STRENGTH[h.cls]}</span>
                   </div>
                   <div className="flex gap-2 mt-auto">
-                    <Button size="sm" variant="secondary" className="flex-1" icon={I.ListChecks} onClick={() => go('homework', { page: 'submissions', hw: h.id })}>Check work</Button>
+                    <Button size="sm" variant="secondary" className="flex-1" icon={I.ListChecks} onClick={() => go('homework', { page: 'submissions', hw: h.id })}>{sc.canEdit ? 'Check work' : 'Who handed in'}</Button>
                     <MoreMenu size="sm" items={[
                       ['Eye', 'Open details', () => go('homework', { page: 'homework', id: h.id })],
                       ...(sc.canEdit ? [['Pencil', 'Edit', () => toast({ title: `Editing: ${h.title}`, body: 'Students and parents see the change. It is logged.', tone: 'info' })],
@@ -224,6 +225,68 @@ function StaffHomework({ sc }) {
   );
 }
 
+// For people who look after homework across the school (Principal, VP, Academic Head, School Admin): who gives how much, and the load on each class
+function HomeworkOverview({ list, per }) {
+  const toast = useToast();
+  const [sent, setSent] = useState({});
+  const teachers = Object.values(list.reduce((a, h) => {
+    const t = (a[h.by] = a[h.by] || { by: h.by, subs: new Set(), classes: new Set(), n: 0, given: 0, handed: 0, check: 0 });
+    t.subs.add(h.sub); t.classes.add(h.cls); t.n++; t.given += STRENGTH[h.cls]; t.handed += h.submitted; t.check += h.status === 'Current' ? h.submitted - h.graded : 0;
+    return a;
+  }, {})).sort((a, b) => b.n - a.n || a.by.localeCompare(b.by));
+  const none = Object.entries(TEACHER).filter(([, t]) => !teachers.some((x) => x.by === t));
+  const cur = list.filter((h) => h.status === 'Current');
+  const days = [...new Set(cur.map((h) => h.due))].sort((a, b) => isoOf(a).localeCompare(isoOf(b)));
+  const load = days.map((d) => {
+    const due = cur.filter((h) => h.due === d);
+    const per = due.reduce((a, h) => ((a[h.cls] = (a[h.cls] || 0) + 1), a), {});
+    return { d, due, heavy: Object.entries(per).filter(([, n]) => n > 1) };
+  });
+  const remind = (t) => { setSent((x) => ({ ...x, [t.by]: true })); toast({ title: `Reminded ${t.by}`, body: `${t.check} pieces of work are waiting to be checked. In the app and on WhatsApp.` }); };
+  return (
+    <div className="grid @xl:grid-cols-2 gap-5 @lg:gap-6 items-start">
+      <Card>
+        <CardHead title="By teacher" sub={`Homework given · ${per.label.toLowerCase()}`} icon={I.Users} />
+        <ul className="px-2 pb-2">
+          {teachers.map((t) => (
+            <li key={t.by} className="flex items-center gap-3 px-3 py-2.5 rounded-xl">
+              <Avatar name={t.by} size={34} />
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold text-[14px] leading-snug truncate">{t.by} <span className="font-normal text-ink3">· {[...t.subs].join(', ')}</span></p>
+                <p className="text-[12.5px] text-ink3 truncate tnum">{t.n} given · {[...t.classes].join(', ')} · {Math.round((t.handed / Math.max(1, t.given)) * 100)}% handed in{t.check ? ` · ${t.check} to check` : ''}</p>
+              </div>
+              {t.check >= 10 && (sent[t.by] ? <Pill tone="ok" className="shrink-0">Reminded</Pill> : <Button size="sm" variant="secondary" icon={I.Bell} className="shrink-0" onClick={() => remind(t)}>Remind</Button>)}
+            </li>
+          ))}
+          {none.map(([sub, t]) => (
+            <li key={t} className="flex items-center gap-3 px-3 py-2.5 rounded-xl">
+              <Avatar name={t} size={34} />
+              <div className="min-w-0 flex-1"><p className="font-semibold text-[14px] leading-snug truncate">{t} <span className="font-normal text-ink3">· {sub}</span></p><p className="text-[12.5px] text-ink3">No homework given in these dates</p></div>
+            </li>
+          ))}
+        </ul>
+      </Card>
+      <Card>
+        <CardHead title="Load on each day" sub="Current homework by due date · more than one for a class on the same day shows in amber" icon={I.CalendarDays} />
+        {load.length === 0 ? <Empty icon={I.CalendarCheck2} title="Nothing due" body="No current homework in these dates." /> : (
+          <ul className="px-2 pb-2">
+            {load.map((x) => (
+              <li key={x.d} className="flex items-start gap-3 px-3 py-2.5 rounded-xl">
+                <span className={cx('w-11 h-11 rounded-xl grid place-items-center shrink-0 font-display text-[18px] font-semibold tnum', x.heavy.length ? 'bg-warn/12 text-warn' : 'bg-sunken text-ink2')}>{x.due.length}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-[14px] leading-snug">Due {x.d === 'Fri 9 Oct' ? 'today, Fri 9 Oct' : x.d}</p>
+                  <p className="text-[12.5px] text-ink3">{x.due.map((h) => `${h.cls} ${h.sub}`).join(' · ')}</p>
+                  {x.heavy.length > 0 && <p className="text-[12.5px] text-warn font-semibold mt-0.5">{x.heavy.map(([c, n]) => `${c} has ${n} due`).join(' · ')}</p>}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+    </div>
+  );
+}
+
 function HomeworkDetail({ id, sc }) {
   const { go } = useNav();
   const toast = useToast();
@@ -249,7 +312,7 @@ function HomeworkDetail({ id, sc }) {
             <p className="text-[13.5px] text-ink3 mt-0.5">{h.sub} · Class {h.cls} · {h.by} · given {h.given} · due {h.due} · out of {h.max}</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="primary" icon={I.ListChecks} onClick={() => go('homework', { page: 'submissions', hw: h.id })}>Check work</Button>
+            <Button variant={sc.canEdit ? 'primary' : 'secondary'} icon={I.ListChecks} onClick={() => go('homework', { page: 'submissions', hw: h.id })}>{sc.canEdit ? 'Check work' : 'Who handed in'}</Button>
             {sc.canEdit && <MoreMenu items={[
               ['Pencil', 'Edit', () => toast({ title: `Editing: ${h.title}`, tone: 'info' })],
               ['Copy', 'Give to another section', () => toast({ title: 'Copied as a new homework', body: 'Choose the section and due date, then send.', tone: 'info' })],
@@ -571,6 +634,7 @@ function SubmissionsPage({ params, access }) {
 function SubsTable({ hw, sc }) {
   const toast = useToast();
   const { go } = useNav();
+  const { modulesOn } = useRole();
   const [rows, setRows] = useState(() => subsFor(hw));
   const [f, setF] = useState('all');
   const [q, setQ] = useState('');
@@ -629,7 +693,7 @@ function SubsTable({ hw, sc }) {
         onConfirm={() => { setSel(new Set()); toast({ title: `Reminder sent to ${selected.filter(notIn).length} parents`, body: 'WhatsApp, with SMS backup. Sent once per homework.' }); }}>
         <p className="text-[14px] text-ink2">Parents of {selected.filter(notIn).map((r) => r.s.name).join(', ')} get one message saying “{hw.title}” is not handed in. Cost: {selected.filter(notIn).length} credits. A message cannot be unsent.</p>
       </ConfirmSheet>
-      <GradeSheet r={one} hw={hw} canEdit={sc.canEdit} onClose={() => setOne(null)} onOpenProfile={(s) => go('student', { id: s.id })}
+      <GradeSheet r={one} hw={hw} canEdit={sc.canEdit} onClose={() => setOne(null)} onOpenProfile={canOpen(sc.role, 'student', modulesOn) ? (s) => go('student', { id: s.id }) : null}
         onSave={(upd) => { setRows((x) => x.map((r) => (r.s.id === upd.s.id ? upd : r))); toast({ title: `Saved for ${upd.s.name}`, body: upd.score != null ? `${upd.score} of ${hw.max} · ${upd.mark}. The student sees the feedback now.` : `${upd.mark}. The student sees it now.` }); }} />
     </>
   );
@@ -657,7 +721,7 @@ function GradeSheet({ r, hw, canEdit, onClose, onSave, onOpenProfile }) {
   const suggestion = `${r.s.name.split(' ')[0]}, your steps for Q1 to Q6 are clear and correct. In Q8 you moved 7 to the other side without changing its sign; check that step again. Try one more problem like Q8 before the test.`;
   return (
     <Sheet open={!!r} onClose={close} wide title={r.s.name} sub={`Roll ${r.s.roll} · ${hw.title}`}
-      footer={<>{real && <Button variant="ghost" icon={I.User} onClick={() => { close(); onOpenProfile(r.s); }}>Profile</Button>}<Button variant="ghost" onClick={close}>Cancel</Button>
+      footer={<>{real && onOpenProfile && <Button variant="ghost" icon={I.User} onClick={() => { close(); onOpenProfile(r.s); }}>Profile</Button>}<Button variant="ghost" onClick={close}>{canEdit ? 'Cancel' : 'Close'}</Button>
         {canEdit && <Button variant="primary" icon={I.Check} disabled={!!errScore || (!r.when && mark === 'Incorrect')} onClick={() => { onSave({ ...r, st: 'Graded', mark, score: score === '' ? null : n, fb: fb.trim(), when: r.when || 'Checked in class' }); close(); }}>Save</Button>}</>}>
       <div className="grid @md:grid-cols-[1fr_1fr] gap-5">
         <div className="flex flex-col gap-3">
@@ -674,21 +738,31 @@ function GradeSheet({ r, hw, canEdit, onClose, onSave, onOpenProfile }) {
               </div>
               <p className="text-[12.5px] text-ink3">{r.st === 'Late' ? <span className="text-warn font-semibold">Late · </span> : null}Handed in {r.when}{zoom ? ` · showing page ${zoom} full size` : ' · tap a page to see it full size'}</p>
             </>
-          ) : <Banner tone="warn">Nothing handed in online yet. If you checked the notebook in class, mark it Complete.</Banner>}
+          ) : <Banner tone="warn">{canEdit ? 'Nothing handed in online yet. If you checked the notebook in class, mark it Complete.' : 'Nothing handed in yet.'}</Banner>}
           {thread.length > 0 && (
             <div className="rounded-2xl border border-line p-3">
               <p className="text-[12px] text-ink3 font-semibold mb-2">Discussion</p>
               <ul className="flex flex-col gap-2">
                 {thread.map((t, i) => <li key={i} className="text-[13.5px]"><b className="font-semibold">{t.who}</b> <span className="text-ink3 text-[12px]">· {t.when}</span><p className="text-ink2">{t.text}</p></li>)}
               </ul>
-              <div className="flex gap-2 mt-2">
+              {canEdit && <div className="flex gap-2 mt-2">
                 <Input value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Reply to the student" className="!h-10" aria-label="Reply to the student" />
                 <Button variant="secondary" icon={I.Reply} disabled={!reply.trim()} onClick={() => { setThread((x) => [...x, { who: 'You', text: reply.trim(), when: 'just now' }]); setReply(''); }} className="!h-10">Reply</Button>
-              </div>
+              </div>}
             </div>
           )}
         </div>
-        <div className="flex flex-col gap-4">
+        {!canEdit ? (
+          <div className="flex flex-col gap-3">
+            <p className="text-[13px] font-semibold text-ink2">Checked by {hw.by}</p>
+            <div className="grid grid-cols-3 gap-2">
+              {[['Status', r.st], ['Score', r.score != null ? `${r.score} / ${hw.max}` : '—'], ['Grade', r.score != null ? hwGrade(r.score, hw.max) : '—']].map(([k, v]) => (
+                <div key={k} className="rounded-xl bg-sunken/70 px-3 py-2.5 min-w-0"><p className="text-[12px] text-ink3 font-semibold">{k}</p><p className="font-semibold text-[15px] tnum truncate">{v}</p></div>
+              ))}
+            </div>
+            <div className="rounded-xl border border-line px-3.5 py-3"><p className="text-[12px] text-ink3 font-semibold mb-1">Feedback to the student</p><p className="text-[13.5px] text-ink2">{r.fb || (r.st === 'Graded' ? 'No written feedback.' : 'Not checked yet.')}</p></div>
+          </div>
+        ) : <div className="flex flex-col gap-4">
           <Field label="Status" required><Segmented value={mark} onChange={setMark} className="w-full" options={['Complete', 'Incorrect']} /></Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label={`Score out of ${hw.max}`} id="gr-score" error={errScore}><Input id="gr-score" inputMode="numeric" value={score} onChange={(e) => setScore(e.target.value.trim())} error={!!errScore} className="tnum !text-[18px] font-semibold" placeholder={`0 to ${hw.max}`} /></Field>
@@ -707,7 +781,7 @@ function GradeSheet({ r, hw, canEdit, onClose, onSave, onOpenProfile }) {
             <Switch id="gr-resub" on={resub} onChange={setResub} label="Allow hand in again" />
             <label htmlFor="gr-resub" className="text-[13.5px]"><b className="font-semibold block">Allow hand in again</b><span className="text-ink3 text-[12.5px]">Only for this student, until Sat 10 Oct</span></label>
           </div>
-        </div>
+        </div>}
       </div>
     </Sheet>
   );
@@ -1477,6 +1551,7 @@ function ProgressPage({ access }) {
   const sc = useScope(access);
   const toast = useToast();
   const { go } = useNav();
+  const { modulesOn } = useRole();
   const [cls, setCls] = useState(sc.classes.includes('7 B') ? '7 B' : sc.classes[0]);
   const [sub, setSub] = useState(sc.own ? sc.subs[0] : 'all');
   const [per, setPer] = useState(PERIODS.thismonth);
@@ -1517,7 +1592,7 @@ function ProgressPage({ access }) {
           <Card className="overflow-hidden">
             <CardHead title={`Students · Class ${cls}`} sub="Tap a student to open their profile" icon={I.Users} />
             <div className="px-3 pb-3"><SearchBox id="lp-search" value={q} onChange={setQ} placeholder="Student name" /></div>
-            <DataList rows={rows} rowKey={(r) => r.s.id} onRow={(r) => (CLASS_7B.some((s) => s.id === r.s.id) ? go('student', { id: r.s.id }) : toast({ title: r.s.name, body: `Homework ${r.done} of ${hwTotal} · quizzes ${r.quizAvg}%`, tone: 'info' }))} minWidth={700} footer={`Showing ${rows.length} of ${all}`}
+            <DataList rows={rows} rowKey={(r) => r.s.id} onRow={(r) => (CLASS_7B.some((s) => s.id === r.s.id) && canOpen(sc.role, 'student', modulesOn) ? go('student', { id: r.s.id }) : toast({ title: r.s.name, body: `Homework ${r.done} of ${hwTotal} · quizzes ${r.quizAvg}%`, tone: 'info' }))} minWidth={700} footer={`Showing ${rows.length} of ${all}`}
               columns={[
                 { key: 'n', label: 'Student', render: (r) => <span className="whitespace-nowrap"><span className="text-ink3 tnum inline-block w-6">{r.s.roll}</span><span className="font-semibold">{r.s.name}</span></span> },
                 { key: 'h', label: 'Homework done', render: (r) => <div className="w-32"><Progress value={(r.done / hwTotal) * 100} tone={r.done / hwTotal < 0.75 ? 'warn' : 'brand'} /><span className="text-[12.5px] text-ink3 tnum">{r.done} of {hwTotal}</span></div> },

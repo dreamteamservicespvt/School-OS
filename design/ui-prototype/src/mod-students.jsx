@@ -4,7 +4,7 @@ import React, { useMemo, useState } from 'react';
 import * as I from './icons.js';
 import { STUDENTS, CLASSES, CLASS_7B, FEATURED, inr } from './data.js';
 import { cx, Card, CardHead, Button, IconButton, Pill, Avatar, Input, Field, Segmented, Tabs, Empty, Sheet, Switch, Checkbox, useToast } from './ui.jsx';
-import { useNav, useRole } from './shell.jsx';
+import { useNav, useRole, canDo, canOpen } from './shell.jsx';
 import {
   ModuleHead, useCanEdit, Icon, Stats, SearchBox, Toolbar, Select, Textarea, Chips, DataList, BulkBar, Row, SettingRow, ToggleRow, SettingsCard,
   Banner, Progress, HBars, DL, Timeline, MoreMenu, FormSheet, ConfirmSheet, Split, Col, ExportButton,
@@ -229,11 +229,11 @@ function Parent360({ id }) {
                       <div className="rounded-lg bg-sunken/60 px-2.5 py-2"><p className="text-ink3 text-[12px] font-semibold">Attendance</p><p className={cx('font-semibold tnum', k.att < 85 && 'text-warn')}>{k.att}% this year</p></div>
                       {fees && <div className="rounded-lg bg-sunken/60 px-2.5 py-2"><p className="text-ink3 text-[12px] font-semibold">Fees</p><p className={cx('font-semibold tnum', k.due && 'text-bad')}>{k.due ? `${inr(k.due)} ${k.state === 'Overdue' ? 'overdue' : 'due'}` : 'Paid'}</p></div>}
                     </div>
-                    <label className="flex items-center gap-3 text-[13.5px]">
-                      <Switch on={primary[k.name]} label={`Primary contact for ${k.name}`} onChange={(v) => { if (!canEdit) return; setPrimary((p) => ({ ...p, [k.name]: v })); toast({ title: v ? `${g.name} is now the primary contact for ${k.name.split(' ')[0]}` : `${g.name} is no longer the primary contact`, body: 'This number gets WhatsApp and SMS first.' }); }} />
+                    {canEdit ? <label className="flex items-center gap-3 text-[13.5px]">
+                      <Switch on={primary[k.name]} label={`Primary contact for ${k.name}`} onChange={(v) => { setPrimary((p) => ({ ...p, [k.name]: v })); toast({ title: v ? `${g.name} is now the primary contact for ${k.name.split(' ')[0]}` : `${g.name} is no longer the primary contact`, body: 'This number gets WhatsApp and SMS first.' }); }} />
                       <span className="font-semibold">Primary contact for messages</span>
-                    </label>
-                    {k.due > 0 && role.access.fees === 'full' && <Button size="sm" variant="soft" icon={I.IndianRupee} onClick={() => go('fees', { student: k.id })}>Collect {inr(k.due)}</Button>}
+                    </label> : primary[k.name] && <p className="text-[13px] text-ink2 flex items-center gap-1.5"><I.CircleCheck size={15} className="text-ok shrink-0" />Primary contact for messages</p>}
+                    {k.due > 0 && canDo(role, 'fees.collect') && <Button size="sm" variant="soft" icon={I.IndianRupee} onClick={() => go('fees', { student: k.id })}>Collect {inr(k.due)}</Button>}
                   </div>
                 ))}
               </div>
@@ -870,12 +870,19 @@ function Leaving() {
     ['Inventory', l.inv ? `${l.inv} items` : 'Clear', !l.inv, 'Boxes'],
   ];
   const cur = list.find((l) => l.id === open);
+  const asks = (l) => l.tc === 'Waiver asked' || l.tc === 'Waiting for approval';
   const t = q.trim().toLowerCase();
   return (
     <div>
       <ModuleHead sub="Transfer or withdrawal with fee and library clearance, and records of past students"
         actions={<Button variant="primary" icon={I.LogOut} onClick={() => setStart(true)}>Start leaving</Button>} />
       <div className="flex flex-col gap-4">
+        {!canEdit && canOpen(role, 'approvals') && list.some(asks) && (
+          <Banner tone="info" icon="BadgeCheck" title={`${list.filter(asks).length} waiting for you:`}
+            action={<Button size="sm" variant="secondary" iconRight={I.ChevronRight} onClick={() => go('approvals')}>Open Approvals</Button>}>
+            The office starts leaving and asks for the TC. You decide TCs and fee waivers in Approvals.
+          </Banner>
+        )}
         <Tabs value={tab} onChange={setTab} tabs={[{ id: 'leaving', label: 'Leaving', count: list.length }, { id: 'left', label: 'Left', count: leftRows.length }, { id: 'alumni', label: 'Alumni', count: 2840 }]} />
         {tab === 'leaving' && (
           <Card className="overflow-hidden">
@@ -946,7 +953,7 @@ function Leaving() {
         footer={cur && canEdit ? <>
           {checks(cur).some((c) => !c[2]) && cur.tc !== 'Waiver asked' && <Button variant="secondary" icon={I.ShieldQuestion} onClick={() => setWaive(cur)}>Request a waiver</Button>}
           <Button variant="primary" icon={I.FileOutput} disabled={checks(cur).some((c) => !c[2]) || cur.tc === 'Waiting for approval'} onClick={() => { setList((l) => l.map((x) => (x.id === cur.id ? { ...x, tc: 'Waiting for approval' } : x))); toast({ title: 'TC sent for approval', body: `TC/2026/0032 for ${cur.s.name} is waiting for Lakshmi Rao in Approvals.` }); }}>{cur.tc === 'Waiting for approval' ? 'TC waiting for approval' : 'Issue TC'}</Button>
-        </> : null}>
+        </> : cur && asks(cur) && canOpen(role, 'approvals') ? <Button variant="primary" iconRight={I.ChevronRight} onClick={() => { setOpen(null); go('approvals'); }}>Decide in Approvals</Button> : null}>
         {cur && (
           <div className="flex flex-col gap-3">
             <p className="text-[13.5px] text-ink2">Clearance checks (automation A14). The TC can be issued when every check is clear or waived.</p>
@@ -958,14 +965,14 @@ function Leaving() {
                     <p className="font-semibold text-[14px]">{k}</p>
                     <p className={cx('text-[12.5px]', ok ? 'text-ink3' : 'text-bad')}>{k === 'Library' && cur.books.length ? cur.books.map((b) => `“${b[0]}” ${b[1]}`).join(' · ') : k === 'Hostel' && cur.hostel ? cur.hostel : v}</p>
                   </div>
-                  {!ok && k === 'Fees' && (role.access.fees === 'full' ? <Button size="sm" variant="soft" icon={I.IndianRupee} onClick={() => go('fees', { student: cur.s.id })}>Collect fee</Button> : <span className="text-[12px] text-ink3">Accounts counter</span>)}
-                  {!ok && k === 'Library' && (role.access.library ? <Button size="sm" variant="soft" icon={I.CornerDownLeft} onClick={() => go('library', { page: 'issue' })}>Return book</Button> : <span className="text-[12px] text-ink3 text-right">Ask Padma Iyer (library)</span>)}
+                  {!ok && k === 'Fees' && (canDo(role, 'fees.collect') ? <Button size="sm" variant="soft" icon={I.IndianRupee} onClick={() => go('fees', { student: cur.s.id })}>Collect fee</Button> : <span className="text-[12px] text-ink3">Accounts counter</span>)}
+                  {!ok && k === 'Library' && (canDo(role, 'library.issue') ? <Button size="sm" variant="soft" icon={I.CornerDownLeft} onClick={() => go('library', { page: 'issue' })}>Return book</Button> : <span className="text-[12px] text-ink3 text-right">Ask Padma Iyer (library)</span>)}
                   {!ok && k === 'Hostel' && <span className="text-[12px] text-ink3 text-right">Joseph Thomas (warden)</span>}
                   {ok && <I.CircleCheck size={18} className="text-ok" />}
                 </li>
               ))}
             </ul>
-            {cur.tc === 'Waiver asked' && <Banner tone="warn" title="Waiver asked.">Fee waiver of {inr(cur.fees)} is waiting for Lakshmi Rao in Approvals.</Banner>}
+            {cur.tc === 'Waiver asked' && <Banner tone="warn" title="Waiver asked.">Fee waiver of {inr(cur.fees)} is waiting for {role.id === 'principal' ? 'you' : 'Lakshmi Rao'} in Approvals.</Banner>}
             {checks(cur).some((c) => !c[2]) && <p className="text-[13px] text-bad font-semibold flex items-center gap-1.5"><I.Lock size={14} />TC blocked: {checks(cur).filter((c) => !c[2]).map((c) => c[0] === 'Fees' ? `${inr(cur.fees)} fees due` : c[0] === 'Library' ? `${cur.books.length} library ${cur.books.length === 1 ? 'book' : 'books'} not returned` : 'hostel bed not handed over').join(' and ')}</p>}
           </div>
         )}
@@ -1041,6 +1048,7 @@ const batchesOf = (secs) => {
 
 function Certificates() {
   const { role } = useRole();
+  const { go } = useNav();
   const toast = useToast();
   const canEdit = useCanEdit();
   const isP = role.id === 'principal';
@@ -1071,6 +1079,12 @@ function Certificates() {
         <Tabs value={tab} onChange={setTab} tabs={[{ id: 'certs', label: 'Certificates', count: certs.length }, { id: 'ids', label: 'ID cards' }]} />
         {tab === 'certs' ? (
           <>
+            {!canEdit && canOpen(role, 'approvals') && certs.some((c) => c.status === 'Requested') && (
+              <Banner tone="info" icon="BadgeCheck" title={`${certs.filter((c) => c.status === 'Requested').length} waiting for you:`}
+                action={<Button size="sm" variant="secondary" iconRight={I.ChevronRight} onClick={() => go('approvals')}>Open Approvals</Button>}>
+                The office issues certificates. TCs and character certificates come to you in Approvals.
+              </Banner>
+            )}
             <Chips value={st} onChange={setSt} options={[{ value: 'all', label: 'All', count: certs.filter((c) => inPeriod(c.date, per)).length }, ...['Requested', 'Approved', 'Issued', 'Cancelled'].map((x) => ({ value: x, label: x, count: certs.filter((c) => c.status === x && inPeriod(c.date, per)).length }))]} />
             <Card className="overflow-hidden">
               <Toolbar><SearchBox id="ce-q" value={q} onChange={setQ} placeholder="Student name or certificate number" /><DatePeriod id="ce-period" value={per} onChange={setPer} className="w-full @md:w-auto" /><ExportButton what="certificates" /></Toolbar>
@@ -1157,7 +1171,7 @@ function Certificates() {
           <Button variant="ghost" onClick={() => { setCancel(view); setView(null); }}>Cancel with a reason</Button>
           {view.status === 'Requested' ? (isP && view.by !== role.person.name ? <Button variant="primary" icon={I.Check} onClick={() => { setStatus(view.no, 'Approved'); toast({ title: `${view.no} approved`, body: 'The office can print the original now.' }); setView(null); }}>Approve TC</Button> : <Button variant="secondary" disabled icon={I.Hourglass}>Waiting for Lakshmi Rao</Button>)
             : <Button variant="primary" icon={I.Printer} onClick={() => { if (view.status === 'Approved') setStatus(view.no, 'Issued'); toast({ title: view.type.startsWith('Transfer') && view.status === 'Issued' ? 'Duplicate TC sent to the printer' : 'Sent to the office printer', body: view.type.startsWith('Transfer') && view.status === 'Issued' ? 'Printed as “Duplicate”. An original was already issued.' : `${view.no.replace(/\//g, '-')}.pdf` }); setView(null); }}>{view.type.startsWith('Transfer') && view.status === 'Issued' ? 'Print duplicate' : 'Print'}</Button>}
-        </> : null}>
+        </> : view && !canEdit && view.status === 'Requested' && canOpen(role, 'approvals') ? <Button variant="primary" iconRight={I.ChevronRight} onClick={() => { setView(null); go('approvals'); }}>Decide in Approvals</Button> : null}>
         {view && <CertPreview c={view} />}
       </Sheet>
       {cancel && <CancelCertSheet c={cancel} onClose={() => setCancel(null)} onSave={(why) => { setStatus(cancel.no, 'Cancelled'); toast({ title: `${cancel.no} cancelled`, body: `Kept on record. Reason: ${why}`, undo: () => setStatus(cancel.no, cancel.status) }); }} />}
@@ -1249,7 +1263,7 @@ function IssueSheet({ onClose, onSave }) {
           <p className="font-semibold text-[14px] flex gap-2 text-bad"><I.Lock size={17} className="shrink-0 mt-0.5" />TC blocked: {inr(dues)} fees due{s.id === FEATURED.id ? ' and 1 library book not returned' : ''}</p>
           <p className="text-[12.5px] text-ink2 mt-1">Clearance (A14) must be clear or waived before a TC.</p>
           <div className="flex gap-2 mt-3 flex-wrap">
-            {role.access.fees === 'full' && <Button type="button" size="sm" variant="secondary" icon={I.IndianRupee} onClick={() => { onClose(); go('fees', { student: s.id }); }}>Collect fee</Button>}
+            {canDo(role, 'fees.collect') && <Button type="button" size="sm" variant="secondary" icon={I.IndianRupee} onClick={() => { onClose(); go('fees', { student: s.id }); }}>Collect fee</Button>}
             <Button type="button" size="sm" variant="ghost" onClick={() => { onClose(); go('students', { page: 'leaving' }); }}>Open Leaving & Alumni</Button>
           </div>
         </div>

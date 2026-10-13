@@ -495,7 +495,7 @@ function DeskPage() {
   return (
     <div>
       <ModuleHead sub={`Fri, 9 Oct · ${role.id === 'receptionist' ? 'You are at the desk' : 'Kavitha Nair at the desk'} · passes expire at ${PASS_END}`}
-        actions={<Button variant="secondary" icon={I.ClipboardList} onClick={() => setSheet('walkin')}>Walk-in request</Button>} />
+        actions={canEdit && <Button variant="secondary" icon={I.ClipboardList} onClick={() => setSheet('walkin')}>Walk-in request</Button>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
         <Band items={[
           { label: 'In the building now', big: String(inside.length), foot: `${inside.filter((v) => v.reply === 'Wait').length} waiting to be called in`, onClick: has('visitors') ? () => go('frontoffice', { page: 'visitors' }) : undefined },
@@ -518,7 +518,8 @@ function DeskPage() {
         <Split>
           <Col>
             {expired.length > 0 && (
-              <Alert tone="bad" title={`${expired.length} visitor not checked out yesterday.`} act={canEdit ? 'Close with the right time' : null} icon={I.LogOut} onAct={() => setOut(expired[0])}>
+              <Alert tone="bad" title={`${expired.length} visitor not checked out yesterday.`} act={canEdit ? 'Close with the right time' : 'Remind'} icon={canEdit ? I.LogOut : I.Send}
+                onAct={() => (canEdit ? setOut(expired[0]) : toast({ title: 'Reminder sent to Kavitha Nair', body: `Close pass ${expired[0].pass} with the right time` }))}>
                 Pass {expired[0].pass} ({expired[0].name}) expired at {PASS_END} on {expired[0].date}.
               </Alert>
             )}
@@ -638,7 +639,7 @@ function VisitorsPage() {
   return (
     <div>
       <ModuleHead sub={gate ? 'At the gate only: register visitors, record vehicles and check passes' : `Visitor log · every pass expires by itself at ${PASS_END}`}
-        actions={<>
+        actions={canEdit && <>
           <Button variant="secondary" icon={I.ScanLine} onClick={() => setSheet('scan')}>Check a pass</Button>
           {gate && <Button variant="secondary" icon={I.Car} onClick={() => setSheet('gate')}>Gate entry</Button>}
           <Button variant="primary" icon={I.UserPlus} onClick={() => setSheet('visitor')}>Add visitor</Button>
@@ -651,7 +652,8 @@ function VisitorsPage() {
           { label: 'Not checked out', value: String(expired.length), sub: 'Pass expired', tone: expired.length ? 'bad' : undefined, icon: 'TimerOff', onClick: () => { setView('log'); setF('Expired'); } },
         ]} />
         {expired.length > 0 && !gate && (
-          <Alert tone="bad" title={`${expired.length} visitor not checked out yesterday:`} act={canEdit ? 'Check out with the right time' : null} icon={I.LogOut} onAct={() => setOut(expired[0])}>
+          <Alert tone="bad" title={`${expired.length} visitor not checked out yesterday:`} act={canEdit ? 'Check out with the right time' : 'Remind'} icon={canEdit ? I.LogOut : I.Send}
+            onAct={() => (canEdit ? setOut(expired[0]) : toast({ title: 'Reminder sent to Kavitha Nair', body: `Close pass ${expired[0].pass} with the right time` }))}>
             {expired[0].name}, pass {expired[0].pass}, expired at {PASS_END} on {expired[0].date}.
           </Alert>
         )}
@@ -1071,7 +1073,7 @@ function EnquiriesPage() {
   return (
     <div>
       <ModuleHead sub="Walk-in and phone enquiries go straight to Admission Management. Every call is logged."
-        actions={<>
+        actions={canEdit && <>
           <Button variant="secondary" icon={I.PhoneCall} onClick={() => setSheet('call')}>Log a call</Button>
           <Button variant="primary" icon={I.Plus} onClick={() => setSheet('enquiry')}>New enquiry</Button>
         </>} />
@@ -1202,7 +1204,7 @@ function AppointmentsPage() {
   return (
     <div>
       <ModuleHead sub="Meetings with the Principal and staff. Booked, leave and teaching times cannot be chosen."
-        actions={<Button variant="primary" icon={I.CalendarPlus} onClick={() => setBook({ who, slot: '' })}>Book appointment</Button>} />
+        actions={canEdit && <Button variant="primary" icon={I.CalendarPlus} onClick={() => setBook({ who, slot: '' })}>Book appointment</Button>} />
       <Split side={380}>
         <Card className="overflow-hidden">
           <div className="p-3 flex flex-col gap-3 border-b border-line">
@@ -1220,10 +1222,14 @@ function AppointmentsPage() {
                   <span className="text-[12.5px] font-semibold text-ink3 tnum pt-2.5">{x.s}</span>
                   {x.kind === 'free' ? (
                     <div className="flex flex-wrap gap-1.5 py-1">
-                      {slots.map((sl) => (
-                        <button key={sl} disabled={!canEdit} onClick={() => setBook({ who, slot: sl })} className={cx('h-9 px-3 rounded-lg text-[12.5px] font-semibold tnum transition', SEG.free, canEdit && 'hover:border-brand hover:text-brand hover:bg-brand/5')}>
+                      {slots.map((sl) => canEdit ? (
+                        <button key={sl} onClick={() => setBook({ who, slot: sl })} className={cx('h-9 px-3 rounded-lg text-[12.5px] font-semibold tnum transition', SEG.free, 'hover:border-brand hover:text-brand hover:bg-brand/5')}>
                           {sl.replace(' AM', '').replace(' PM', '')} <span className="font-normal">free</span>
                         </button>
+                      ) : (
+                        <span key={sl} className={cx('h-9 px-3 rounded-lg text-[12.5px] font-semibold tnum inline-flex items-center gap-1', SEG.free)}>
+                          {sl.replace(' AM', '').replace(' PM', '')} <span className="font-normal">free</span>
+                        </span>
                       ))}
                     </div>
                   ) : (
@@ -1342,7 +1348,7 @@ function PostalPage() {
   return (
     <div>
       <ModuleHead sub="Letters, couriers and parcels received and sent. The person it is for is told on the app."
-        actions={<>
+        actions={canEdit && <>
           <Button variant="secondary" icon={I.Send} onClick={() => setSheet('sent')}>Record sent item</Button>
           <Button variant="primary" icon={I.PackagePlus} onClick={() => setSheet('received')}>Record received item</Button>
         </>} />

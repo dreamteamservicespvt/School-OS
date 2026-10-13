@@ -220,12 +220,12 @@ function useScope(hostels = HOSTELS0) {
 }
 const incHostel = (x, R) => x.h || (x.who[0] && R[x.who[0]]?.h) || null;
 
-// Who decides a pass: the warden of the student's hostel, or the Principal and School Admin
+// Who decides a pass: the warden of the student's hostel (05-roles.md: the Warden approves Hostel Outing Gate Passes)
 function useApprover() {
   const { role } = useRole();
   const canEdit = useCanEdit();
   const { mine } = useScope(SHARED.hostels || HOSTELS0);
-  return (h) => canEdit && (role.id === 'principal' || role.id === 'schooladmin' || (role.id === 'warden' && h === mine));
+  return (h) => canEdit && role.id === 'warden' && h === mine;
 }
 const wardenOf = (h) => (h === 'girls' ? 'Mary Joseph' : 'Joseph Thomas');
 
@@ -451,8 +451,8 @@ function RoomsPage() {
   };
   return (
     <div>
-      <ModuleHead sub={sc.mine ? `Every bed in the ${H.name.toLowerCase()}. Tap a bed to give it, move a student or block it for repair.` : 'Every bed in both hostels. Tap a bed to give it, move a student or block it for repair.'}
-        actions={<>
+      <ModuleHead sub={!canEdit ? 'Every bed in both hostels: who sleeps where, what is free and what is blocked for repair.' : sc.mine ? `Every bed in the ${H.name.toLowerCase()}. Tap a bed to give it, move a student or block it for repair.` : 'Every bed in both hostels. Tap a bed to give it, move a student or block it for repair.'}
+        actions={canEdit && <>
           {/* Adding a hostel and choosing wardens are for the Principal and School Admin, not a warden */}
           <MoreMenu items={sc.mine ? [[I.Layers, `Add a floor to the ${H.name.toLowerCase()}`, addFloor]] : [[I.Building2, 'Add a hostel', () => setAddHostel(true)], [I.Layers, `Add a floor to the ${H.name.toLowerCase()}`, addFloor], [I.UserCog, 'Wardens', () => setWardens(true)]]} />
           <Button variant="primary" icon={I.Plus} onClick={() => setAddRoom(true)}>Add room</Button>
@@ -507,7 +507,7 @@ function RoomsPage() {
                                       match(rm, b) && 'ring-2 ring-brand')}>
                                     <span className={cx('block text-[11px] font-semibold', r ? 'text-ink3' : bl ? 'text-warn' : 'text-ok')}>Bed {b}</span>
                                     <span className={cx('block text-[13px] font-semibold truncate', !r && (bl ? 'text-warn' : 'text-ok'))}>{r ? r.name : bl ? 'Blocked' : 'Free'}</span>
-                                    <span className="block text-[11.5px] text-ink3 truncate">{r ? `${clsOf(r)}${aw ? ` · ${aw.type === 'Leave' ? 'on leave' : 'on outing'}` : ''}` : bl ? 'Repair' : 'Tap to give'}</span>
+                                    <span className="block text-[11.5px] text-ink3 truncate">{r ? `${clsOf(r)}${aw ? ` · ${aw.type === 'Leave' ? 'on leave' : 'on outing'}` : ''}` : bl ? 'Repair' : canEdit ? 'Tap to give' : 'Nobody here'}</span>
                                   </button>
                                 );
                               })}
@@ -579,7 +579,7 @@ function BedSheet({ x, occ, blocked, away, hostels, onClose, onAllocate, onMove,
         </div>
       ) : (
         <div className="flex flex-col gap-4">
-          <Banner tone="ok" title="This bed is free.">Give it to a student waiting for a bed, or block it if it needs repair.</Banner>
+          <Banner tone="ok" title="This bed is free.">{canEdit ? 'Give it to a student waiting for a bed, or block it if it needs repair.' : 'The warden gives free beds to students waiting for one.'}</Banner>
           {canEdit && (
             <div className="flex gap-2 justify-end flex-wrap">
               <Button variant="ghost" icon={I.Lock} onClick={() => onBlock(k, false)}>Block for repair</Button>
@@ -743,7 +743,7 @@ function AllocationPage() {
   return (
     <div>
       <ModuleHead sub={sc.mine ? `Who sleeps where in the ${hostelOf(hostels, sc.mine).name.toLowerCase()}. One bed per student.` : 'Who sleeps where. One bed per student; giving a bed adds the hostel fee.'}
-        actions={<Button variant="primary" icon={I.UserPlus} onClick={() => setAlloc({})}>Give a bed</Button>} />
+        actions={canEdit && <Button variant="primary" icon={I.UserPlus} onClick={() => setAlloc({})}>Give a bed</Button>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
         <Stats items={[
           { label: sc.mine ? `Residents · ${hostelOf(hostels, sc.mine).who.toLowerCase()}` : 'Residents', value: String(live.length), sub: sc.mine ? `${allLive.length} in all hostels` : hostels.slice(0, 2).map((x) => `${live.filter((r) => r.h === x.id).length} ${x.who.toLowerCase()}`).join(' · '), icon: I.Users, onClick: () => setSt('in') },
@@ -997,6 +997,7 @@ const RC = {
 const SICK = { [rid('Rahul Verma')]: 'In the sick room · fever since last night' };
 
 function RollcallPage() {
+  const canEdit = useCanEdit();
   const [view, setView] = useState('roll');
   const [res] = useShared('res', RES0);
   const [passes] = useShared('passes', PASSES0);
@@ -1010,8 +1011,8 @@ function RollcallPage() {
   const myRes = res.filter((r) => sc.sees(r.h));
   return (
     <div>
-      <ModuleHead sub="Morning and night roll call, and what happened in the hostel"
-        actions={<Button variant={view === 'inc' ? 'primary' : 'secondary'} icon={I.NotebookPen} onClick={() => setForm({})}>Record incident</Button>} />
+      <ModuleHead sub={canEdit ? 'Morning and night roll call, and what happened in the hostel' : 'Who was at roll call, who is missing, and what happened in the hostel'}
+        actions={canEdit && <Button variant={view === 'inc' ? 'primary' : 'secondary'} icon={I.NotebookPen} onClick={() => setForm({})}>Record incident</Button>} />
       <Segmented value={view} onChange={setView} className="mb-5" options={[{ value: 'roll', label: 'Roll call', icon: I.ListChecks }, { value: 'inc', label: `Incidents ${myInc.length}`, icon: I.NotebookPen }]} />
       {view === 'roll' ? <RollCall res={res} passes={passes} hostels={hostels} rooms={rooms} onIncident={(pre) => setForm(pre)} />
         : <Incidents inc={myInc} setInc={setInc} res={res} onNew={(pre) => setForm(pre)} />}
@@ -1074,15 +1075,18 @@ function RollCall({ res, passes, hostels, rooms, onIncident }) {
       ) : (
         <div className={cx('rounded-2xl px-4 py-3 flex items-center gap-3 mb-4 text-[14px]', entry.saved ? 'bg-ok/10 text-ok' : 'bg-info/8 text-info')}>
           {entry.saved ? <I.CircleCheck size={19} className="shrink-0" /> : <I.Info size={19} className="shrink-0" />}
-          <p className="text-ink2">
-            {entry.saved ? <><b className="font-semibold text-ink">Saved {entry.saved}.</b> You can change marks and save again.</>
+          <p className="text-ink2 flex-1">
+            {!canEdit ? (entry.saved ? <><b className="font-semibold text-ink">{ses === 'night' ? 'Night' : 'Morning'} roll call taken {entry.saved}.</b> {counts.A ? `${counts.A} absent.` : 'Nobody missing.'}</>
+              : <><b className="font-semibold text-ink">{ses === 'night' ? 'Night roll call is due at 9:30 PM.' : 'Morning roll call not taken yet.'}</b> {wardenOf(h)} takes it.</>)
+              : entry.saved ? <><b className="font-semibold text-ink">Saved {entry.saved}.</b> You can change marks and save again.</>
               : <><b className="font-semibold text-ink">Everyone starts as present.</b> Students on approved outings and leave are already marked. Tap only who is missing.</>}
           </p>
+          {!canEdit && !entry.saved && ses === 'morning' && <Button size="sm" variant="secondary" icon={I.Send} onClick={() => toast({ title: `Reminder sent to ${wardenOf(h)}`, body: `Morning roll call, ${H.name.toLowerCase()}` })}>Remind</Button>}
         </div>
       )}
       {lateOut.length > 0 && (
         <Banner tone="warn" className="mb-4" title={`${lateOut[0].name} not returned (due ${fmtT(away[lateOut[0].id].to.t)}).`}>
-          Out with {away[lateOut[0].id].withName}. Call them, then mark returned in Outing & Visitors.
+          Out with {away[lateOut[0].id].withName}. {canEdit ? 'Call them, then mark returned in Outing & Visitors.' : `${wardenOf(h)} is calling them.`}
         </Banner>
       )}
 
@@ -1091,7 +1095,7 @@ function RollCall({ res, passes, hostels, rooms, onIncident }) {
           {['P', 'A', 'O', 'V'].map((k) => (
             <div key={k} className="rounded-xl bg-surface border border-line px-3 py-2.5 min-w-0">
               <p className={cx('font-display text-[22px] font-semibold tnum leading-none', RC[k].soft)}>{counts[k] || 0}</p>
-              <p className="text-[12px] text-ink3 font-semibold mt-1 truncate">{RC[k].label}</p>
+              <p className="text-[12px] text-ink3 font-semibold mt-1 truncate">{!canEdit && !entry.saved && k === 'P' ? 'Not marked yet' : RC[k].label}</p>
             </div>
           ))}
         </div>
@@ -1102,7 +1106,6 @@ function RollCall({ res, passes, hostels, rooms, onIncident }) {
       </div>
       <Chips className="mb-3" value={floor} onChange={setFloor} options={[{ value: 'all', label: 'All floors', count: people.length }, ...H.floors.map((f) => ({ value: f, label: `${f} floor`, count: people.filter((r) => floorOf[r.room] === f).length }))]} />
 
-      {!canEdit && <Banner tone="info" icon={I.Eye} className="mb-3">You can see the roll call. Only the warden marks it.</Banner>}
       {people.length === 0 ? <Card><Empty icon={I.Users} title="No one lives in this hostel yet" body="Give beds in Allocation, then take roll call here." /></Card> : (
         <ul className="grid grid-cols-1 @xl:grid-cols-2 gap-2">
           {list.map((r) => {
@@ -1117,7 +1120,9 @@ function RollCall({ res, passes, hostels, rooms, onIncident }) {
                     {aw ? (isLate(aw) ? `Not back from outing · due ${fmtT(aw.to.t)}` : `With ${aw.withName} · back ${when(aw.to)}`) : SICK[r.id] || `Class ${clsOf(r)}`}
                   </p>
                 </div>
-                {aw ? <Pill tone={isLate(aw) ? 'bad' : 'info'}>{isLate(aw) ? 'Late' : aw.type === 'Leave' ? 'Leave' : 'Outing'}</Pill> : (
+                {aw ? <Pill tone={isLate(aw) ? 'bad' : 'info'}>{isLate(aw) ? 'Late' : aw.type === 'Leave' ? 'Leave' : 'Outing'}</Pill> : !canEdit ? (
+                  entry.saved || v === 'A' ? <Pill tone={v === 'A' ? 'bad' : 'ok'}>{v === 'A' ? 'Absent' : 'Present'}</Pill> : <Pill tone="neutral">Not marked</Pill>
+                ) : (
                   <div className="flex gap-1" role="radiogroup" aria-label={`Roll call for ${r.name}`}>
                     {['P', 'A'].map((k) => (
                       <button key={k} role="radio" aria-checked={v === k} aria-label={RC[k].label} disabled={!canEdit} onClick={() => setMark(r, k)}
@@ -1358,7 +1363,7 @@ function OutingPage() {
     .sort((a, b) => ['Late', 'Waiting', 'Out', 'Approved', 'Returned', 'Rejected'].indexOf(shownStatus(a)) - ['Late', 'Waiting', 'Out', 'Approved', 'Returned', 'Rejected'].indexOf(shownStatus(b)));
   const actions = (p) => {
     const s = shownStatus(p); const r = R[p.r];
-    if (!canEdit) return null;
+    if (!canEdit) return s === 'Waiting' ? <span className="text-[12px] text-ink3 whitespace-nowrap">With {wardenOf(r.h)}</span> : null;
     if (s === 'Waiting') return approver(r.h) ? <div className="flex gap-1.5"><Button size="sm" variant="soft" icon={I.Check} onClick={() => approve(p)}>Approve</Button><Button size="sm" variant="ghost" onClick={() => setReject(p)}>Reject</Button></div> : <span className="text-[12px] text-ink3 whitespace-nowrap">With {wardenOf(r.h)}</span>;
     if (s === 'Approved') return <Button size="sm" variant="secondary" icon={I.LogOut} onClick={() => markOut(p)}>Mark out</Button>;
     if (s === 'Out' || s === 'Late') return <Button size="sm" variant={s === 'Late' ? 'primary' : 'secondary'} icon={I.LogIn} onClick={() => markBack(p)}>Returned</Button>;
@@ -1367,8 +1372,8 @@ function OutingPage() {
   const inNow = allVisits.filter((v) => sc.sees(RA[v.r]?.h) && v.d === 0 && v.out == null);
   return (
     <div>
-      <ModuleHead sub="Outing and leave passes, and who came to visit"
-        actions={<>
+      <ModuleHead sub={canEdit ? 'Outing and leave passes, and who came to visit' : 'Who is out, who is late back, and who came to visit. The warden approves outings.'}
+        actions={canEdit && <>
           <Button variant="secondary" icon={I.IdCard} onClick={() => { setView('visitors'); setNewVisit(true); }}>Record visitor</Button>
           <Button variant="primary" icon={I.DoorOpen} onClick={() => setNewPass(true)}>New outing pass</Button>
         </>} />
@@ -1378,7 +1383,7 @@ function OutingPage() {
           <>
             {late.map((p) => (
               <Banner key={p.id} tone="bad" title={`${R[p.r].name} not returned (due ${fmtT(p.to.t)}).`}
-                action={canEdit && <div className="flex gap-2 shrink-0"><Button size="sm" variant="secondary" icon={I.Phone} onClick={() => toast({ title: `Calling ${p.withName}`, body: `${p.withPhone} · ${p.withRel}`, tone: 'info' })}>Call</Button><Button size="sm" variant="primary" onClick={() => markBack(p)}>Mark returned</Button></div>}>
+                action={!canEdit ? <Button size="sm" variant="secondary" icon={I.Send} onClick={() => toast({ title: `Reminder sent to ${wardenOf(R[p.r].h)}`, body: `${R[p.r].name} is not back yet` })}>Remind</Button> : <div className="flex gap-2 shrink-0"><Button size="sm" variant="secondary" icon={I.Phone} onClick={() => toast({ title: `Calling ${p.withName}`, body: `${p.withPhone} · ${p.withRel}`, tone: 'info' })}>Call</Button><Button size="sm" variant="primary" onClick={() => markBack(p)}>Mark returned</Button></div>}>
                 Out with {p.withName} ({p.withRel.toLowerCase()}) since {fmtT(p.out.t)}. {wardenOf(R[p.r].h)} was alerted.
               </Banner>
             ))}
@@ -1442,7 +1447,7 @@ function OutingPage() {
       <VisitorSheet open={newVisit} onClose={() => setNewVisit(false)} res={myRes} onSave={(v) => setVisits((x) => [v, ...x])} onUndo={(v) => setVisits((x) => x.filter((y) => y !== v))} />
       <RejectSheet p={reject} name={reject ? R[reject.r].name : ''} onClose={() => setReject(null)} onReject={(p, why) => { const b = upd(p, { status: 'Rejected', why, by: 'you' }); toast({ title: `Rejected: ${R[p.r].name}`, body: `${why} · parent told on WhatsApp`, undo: () => setPasses(b) }); }} />
       <Sheet open={!!open} onClose={() => setOpen(null)} title={open ? `${R[open.r].name} · ${open.type}` : ''} sub={open ? `Gate Pass ${open.id} · Hostel Outing` : ''}
-        footer={open ? <><Button variant="ghost" icon={I.Printer} onClick={() => toast({ title: `Printing pass ${open.id}`, body: 'Show it at the gate. Security scans the QR.' })}>Print pass</Button>{canEdit && shownStatus(open) !== 'Returned' && shownStatus(open) !== 'Rejected' && <Button variant="secondary" onClick={() => { const p = open; setOpen(null); if (shownStatus(p) === 'Out' || shownStatus(p) === 'Late') markBack(p); else markOut(p); }}>{shownStatus(open) === 'Out' || shownStatus(open) === 'Late' ? 'Mark returned' : 'Mark out'}</Button>}<Button variant="primary" onClick={() => setOpen(null)}>Done</Button></> : null}>
+        footer={open ? <>{canEdit && <Button variant="ghost" icon={I.Printer} onClick={() => toast({ title: `Printing pass ${open.id}`, body: 'Show it at the gate. Security scans the QR.' })}>Print pass</Button>}{canEdit && shownStatus(open) !== 'Returned' && shownStatus(open) !== 'Rejected' && <Button variant="secondary" onClick={() => { const p = open; setOpen(null); if (shownStatus(p) === 'Out' || shownStatus(p) === 'Late') markBack(p); else markOut(p); }}>{shownStatus(open) === 'Out' || shownStatus(open) === 'Late' ? 'Mark returned' : 'Mark out'}</Button>}<Button variant="primary" onClick={() => setOpen(null)}>Done</Button></> : null}>
         {open && (
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-2"><Pill tone={passTone[shownStatus(open)]}>{shownStatus(open) === 'Out' ? 'Out now' : shownStatus(open)}</Pill>{open.by && <span className="text-[12.5px] text-ink3">{open.status === 'Rejected' ? 'Rejected' : 'Approved'} by {open.by === 'you' ? 'you' : open.by}</span>}</div>
@@ -1633,7 +1638,7 @@ function MessPage() {
   return (
     <div>
       <ModuleHead sub="Weekly menu, meals eaten and what the mess spends"
-        actions={<>
+        actions={canEdit && <>
           <Button variant="secondary" icon={I.Copy} onClick={() => setCopy(true)}>Copy menu to next week</Button>
           <Button variant="primary" icon={I.Plus} onClick={() => { setView('money'); setAddExp(true); }}>Add mess expense</Button>
         </>} />
@@ -1644,10 +1649,10 @@ function MessPage() {
           <Card className="overflow-hidden">
             <div className="flex flex-col @md:flex-row @md:items-center justify-between gap-3 px-4 @md:px-5 py-3.5 border-b border-line">
               <Segmented value={week} onChange={setWeek} options={[{ value: 'this', label: 'This week · 5–11 Oct' }, { value: 'next', label: 'Next week · 12–18 Oct' }]} />
-              <p className="text-[12.5px] text-ink3">Tap a meal to change it. Calories and protein are per plate.</p>
+              <p className="text-[12.5px] text-ink3">{canEdit ? 'Tap a meal to change it. ' : ''}Calories and protein are per plate.</p>
             </div>
             {!menu ? (
-              <Empty icon={I.UtensilsCrossed} title="No menu for 12–18 Oct yet" body="Copy this week’s menu and change what you need. Due Thu 15 Oct (Dussehra week)." action={canEdit && <Button variant="primary" icon={I.Copy} onClick={doCopy}>Copy this week’s menu</Button>} />
+              <Empty icon={I.UtensilsCrossed} title="No menu for 12–18 Oct yet" body={canEdit ? 'Copy this week’s menu and change what you need. Due Thu 15 Oct (Dussehra week).' : 'The warden makes it by Thu 15 Oct (Dussehra week).'} action={canEdit && <Button variant="primary" icon={I.Copy} onClick={doCopy}>Copy this week’s menu</Button>} />
             ) : (
               <div className="overflow-x-auto scroll-thin">
                 <table className="w-full text-left text-[13.5px]" style={{ minWidth: 820 }}>
@@ -1660,10 +1665,17 @@ function MessPage() {
                           <td className="pl-5 pr-3 py-3"><p className="font-semibold">{day}</p>{today && <Pill tone="brand" className="!h-5 !text-[11px] mt-1">Today</Pill>}</td>
                           {meals.map((m, i) => (
                             <td key={i} className="px-1.5 py-1.5">
-                              <button disabled={!canEdit} onClick={() => setEdit({ day, i, m })} className="w-full text-left rounded-xl px-2 py-1.5 hover:bg-sunken/70 transition disabled:hover:bg-transparent">
-                                <span className="block leading-snug">{m.dish}</span>
-                                <span className="block text-[12px] text-ink3 tnum mt-0.5">≈ {m.kcal} kcal · {m.prot} g protein</span>
-                              </button>
+                              {canEdit ? (
+                                <button onClick={() => setEdit({ day, i, m })} className="w-full text-left rounded-xl px-2 py-1.5 hover:bg-sunken/70 transition">
+                                  <span className="block leading-snug">{m.dish}</span>
+                                  <span className="block text-[12px] text-ink3 tnum mt-0.5">≈ {m.kcal} kcal · {m.prot} g protein</span>
+                                </button>
+                              ) : (
+                                <div className="px-2 py-1.5">
+                                  <span className="block leading-snug">{m.dish}</span>
+                                  <span className="block text-[12px] text-ink3 tnum mt-0.5">≈ {m.kcal} kcal · {m.prot} g protein</span>
+                                </div>
+                              )}
                             </td>
                           ))}
                         </tr>
@@ -1955,7 +1967,9 @@ function SettingsPage() {
   const toast = useToast();
   const canEdit = useCanEdit();
   const { go } = useNav();
-  const [hostels] = useShared('hostels', HOSTELS0);
+  const [hostels, setHostels] = useShared('hostels', HOSTELS0);
+  const [wardens, setWardens] = useState(false);
+  const [addHostel, setAddHostel] = useState(false);
   const [rules, setRules] = useState('Lights out at 10:00 PM (Class 10: 10:30 PM during exams).\nNo mobile phones in rooms. Phones are kept with the warden and given on Sundays, 5 to 6 PM.\nStudy hour every day, 7:00 to 8:00 PM, in the study hall.\nOutside food only on visiting days.');
   const [meals, setMeals] = useState(MEALS.map((m) => m[0]));
   const [newMeal, setNewMeal] = useState('');
@@ -1997,7 +2011,8 @@ function SettingsPage() {
         </Col>
         <Col>
           <Card>
-            <CardHead title="Wardens and outing approvers" sub="The warden of the student’s hostel approves outings" icon={I.UserCog} action={canEdit && toForms && <Button size="sm" variant="ghost" onClick={() => go('settings', { page: 'forms' })}>Forms & Approvals</Button>} />
+            <CardHead title="Wardens and outing approvers" sub="The warden of the student’s hostel approves outings" icon={I.UserCog}
+              action={canEdit && role.id !== 'warden' && <MoreMenu items={[[I.UserCog, 'Change wardens', () => setWardens(true)], [I.Building2, 'Add a hostel', () => setAddHostel(true)], ...(toForms ? [[I.ListChecks, 'Forms & Approvals', () => go('settings', { page: 'forms' })]] : [])]} />} />
             <ul className="px-5 pb-4 divide-y divide-line/70">
               {hostels.map((x) => (
                 <li key={x.id} className="flex items-center gap-3 py-3">
@@ -2007,7 +2022,7 @@ function SettingsPage() {
                 </li>
               ))}
             </ul>
-            <p className="px-5 pb-4 text-[12.5px] text-ink3">The Principal can approve any pass. More approvers can be added in Settings, Forms & Approvals.</p>
+            <p className="px-5 pb-4 text-[12.5px] text-ink3">Only the warden of the student’s hostel approves a pass. A second approver can be added in Settings, Forms & Approvals.</p>
           </Card>
           <Card>
             <CardHead title="Hostel fees" sub="Fee plans from Fee Management" icon={I.ReceiptIndianRupee} action={canEdit && toFeePlans && <Button size="sm" variant="ghost" onClick={() => go('fees', { page: 'structure' })}>Open fee plans</Button>} />
@@ -2030,6 +2045,8 @@ function SettingsPage() {
           ]} />
         </Col>
       </div>
+      <WardensSheet open={wardens} onClose={() => setWardens(false)} hostels={hostels} setHostels={setHostels} />
+      <AddHostelSheet open={addHostel} onClose={() => setAddHostel(false)} hostels={hostels} setHostels={setHostels} onDone={() => {}} />
     </div>
   );
 }

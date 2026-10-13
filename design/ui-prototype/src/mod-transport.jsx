@@ -350,8 +350,8 @@ function LivePage() {
     <div>
       <ModuleHead sub={evening ? 'Evening drop · Friday 9 Oct · buses show once the driver presses Start trip' : 'Morning pickup · Friday 9 Oct · live, updated every 30 seconds'}
         actions={<>
-          <Button variant="secondary" icon={I.History} onClick={() => setHist(true)}>Route history</Button>
-          <Button variant="primary" icon={I.Send} onClick={() => setMsgRoute(true)}>Message a route</Button>
+          <Button variant={canEdit ? 'secondary' : 'primary'} icon={I.History} onClick={() => setHist(true)}>Route history</Button>
+          {canEdit && <Button variant="primary" icon={I.Send} onClick={() => setMsgRoute(true)}>Message a route</Button>}
         </>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
         <div className="flex flex-col @md:flex-row gap-2.5 @md:items-center">
@@ -453,6 +453,11 @@ function LivePage() {
                         <p className="font-semibold text-[14px] leading-snug">{a.title}</p>
                         <p className="text-[12.5px] text-ink3 mt-0.5">{a.time} · {a.body}</p>
                         {!a.open && <p className="text-[12px] text-ink3 mt-1 flex items-center gap-1"><I.Check size={13} />{a.closed}</p>}
+                        {a.open && !canEdit && (
+                          <div className="flex gap-2 mt-2 flex-wrap">
+                            <Button size="sm" variant="secondary" icon={I.Send} onClick={() => toast({ title: 'Reminder sent to Venkatesh Goud', body: `${a.title} · he follows up with the driver` })}>Remind Transport In-charge</Button>
+                          </div>
+                        )}
                         {a.open && canEdit && (
                           <div className="flex gap-2 mt-2 flex-wrap">
                             {a.act === 'call' && <Button size="sm" variant="secondary" icon={I.Phone} onClick={() => callDriver(RT[a.route])}>Call {RT[a.route].driver}</Button>}
@@ -469,7 +474,7 @@ function LivePage() {
             {!evening && alerts.length > 3 && <div className="px-5 pb-4"><button onClick={() => setShowAll(!showAll)} className="text-[13px] font-semibold text-brand hover:underline">{showAll ? 'Show fewer' : `Show all ${alerts.length} from today`}</button></div>}
             <div className="mx-5 mb-5 rounded-xl bg-sunken/70 p-3.5 flex gap-3 text-[13px] text-ink2">
               <I.Siren size={18} className="text-bad shrink-0 mt-0.5" />
-              <p>When a driver presses the red <b className="font-semibold text-ink">Emergency</b> button, you and the Principal are alerted at once with the bus location. A message to parents goes only after a person confirms it.</p>
+              <p>When a driver presses the red <b className="font-semibold text-ink">Emergency</b> button, {canEdit ? 'you and the Principal are' : 'the Transport In-charge and the Principal are'} alerted at once with the bus location. A message to parents goes only after a person confirms it.</p>
             </div>
           </Card>
           </Col>
@@ -511,7 +516,7 @@ function RoutesList() {
   return (
     <div>
       <ModuleHead sub="6 routes · 49 stops · 251 students · fee set per stop"
-        actions={<Button variant="primary" icon={I.Plus} onClick={() => { setAdd(true); setName(''); setTried(false); }}>Add route</Button>} />
+        actions={canEdit && <Button variant="primary" icon={I.Plus} onClick={() => { setAdd(true); setName(''); setTried(false); }}>Add route</Button>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
         <Card className="overflow-hidden">
           <Toolbar>
@@ -829,7 +834,7 @@ function VehiclesPage() {
   return (
     <div>
       <ModuleHead sub="7 vehicles · 7 drivers · 4 attendants · papers and licences with reminders"
-        actions={<>
+        actions={canEdit && <>
           <Button variant="secondary" icon={I.UserPlus} onClick={() => setAddD(true)}>Add driver</Button>
           <Button variant="primary" icon={I.Plus} onClick={() => setAddV(true)}>Add vehicle</Button>
         </>} />
@@ -842,7 +847,8 @@ function VehiclesPage() {
         ]} />
 
         <Card>
-          <CardHead title="Papers needing attention" sub="Reminders go to you 30 days before expiry, and again 7 days before" icon={I.FileText} action={<Pill tone={expired ? 'bad' : 'warn'}>{dueList.length}</Pill>} />
+          <CardHead title="Papers needing attention" sub={canEdit ? 'Reminders go to you 30 days before expiry, and again 7 days before' : 'The Transport In-charge renews these · reminders go 30 and 7 days before expiry'} icon={I.FileText}
+            action={<span className="flex items-center gap-2">{!canEdit && dueList.length > 0 && <Button size="sm" variant="soft" icon={I.Send} onClick={() => toast({ title: 'Reminder sent to Venkatesh Goud', body: `${dueList.length} papers and licences to renew${expired ? ', expired ones first' : ''}` })}>Remind</Button>}<Pill tone={expired ? 'bad' : 'warn'}>{dueList.length}</Pill></span>} />
           <div className="px-5 pb-3 flex flex-col @md:flex-row @md:items-center gap-2">
             <DatePeriod id="tr-due" value={due} onChange={setDue} future className="w-full @md:w-auto" />
             <span className="text-[12.5px] text-ink3">Ending {fmtRange(due)}{due.to >= '2026-10-09' ? ', and anything already expired' : ''}</span>
@@ -924,10 +930,17 @@ function VehiclesPage() {
                       <td className="sticky left-0 bg-surface px-4 py-2.5 whitespace-nowrap"><p className="font-semibold">{v.num}</p><p className="text-[12px] text-ink3 font-mono">{v.reg}</p></td>
                       {v.papers.map((d, i) => (
                         <td key={i} className="px-3 py-2.5">
-                          <button onClick={() => canEdit && setUpload({ who: `${v.num} · ${v.reg}`, what: PAPERS[i], date: d })} className={cx('w-full text-left rounded-lg px-2.5 py-1.5', TONE_SOFT[paperTone(d)], canEdit && 'hover:brightness-95')}>
-                            <span className="block font-semibold tnum text-[13px]">{nice(d)}</span>
-                            <span className="block text-[11.5px] opacity-90">{paperWhen(d)}</span>
-                          </button>
+                          {canEdit ? (
+                            <button onClick={() => setUpload({ who: `${v.num} · ${v.reg}`, what: PAPERS[i], date: d })} className={cx('w-full text-left rounded-lg px-2.5 py-1.5 hover:brightness-95', TONE_SOFT[paperTone(d)])}>
+                              <span className="block font-semibold tnum text-[13px]">{nice(d)}</span>
+                              <span className="block text-[11.5px] opacity-90">{paperWhen(d)}</span>
+                            </button>
+                          ) : (
+                            <span className={cx('block w-full rounded-lg px-2.5 py-1.5', TONE_SOFT[paperTone(d)])}>
+                              <span className="block font-semibold tnum text-[13px]">{nice(d)}</span>
+                              <span className="block text-[11.5px] opacity-90">{paperWhen(d)}</span>
+                            </span>
+                          )}
                         </td>
                       ))}
                     </tr>
@@ -1230,19 +1243,21 @@ function StudentsPage() {
     (!q || (r.s.name + r.s.adm + r.stop).toLowerCase().includes(q.toLowerCase())));
   const used = (rid) => RT[rid].students + rows.filter((x) => x.route === rid && x.added).length;
   const addFee = (ids) => { setRows((x) => x.map((r) => (ids.includes(r.id) ? { ...r, feeOk: true } : r))); };
-  const isApprover = role.id === 'principal' || role.id === 'schooladmin';
+  // Stop changes are approved by the Principal (Settings, Forms & Approvals), even where the page is View for them
+  const isApprover = role.id === 'principal';
   return (
     <div>
       <ModuleHead sub="251 students use the buses. Giving a stop adds the transport fee by itself."
-        actions={<>
+        actions={canEdit && <>
           <Button variant="secondary" icon={I.IdCard} onClick={() => setPass(rows.slice(0, 1))}>Bus passes</Button>
           <Button variant="primary" icon={I.UserPlus} onClick={() => setAssign({ ids: [] })}>Assign transport</Button>
         </>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
         {missing.length > 0 && (
           <Banner tone="warn" title={`${missing.length} students on transport have no transport fee.`}
-            action={canEdit && <Button size="sm" variant="secondary" onClick={() => setFixAll(true)}>Add fee for all {missing.length}</Button>}>
-            They were given a stop before the fee head was set. Add the fee below.
+            action={canEdit ? <Button size="sm" variant="secondary" onClick={() => setFixAll(true)}>Add fee for all {missing.length}</Button>
+              : <Button size="sm" variant="secondary" icon={I.Send} onClick={() => toast({ title: 'Reminder sent to Venkatesh Goud', body: `Add the transport fee for ${missing.length} students` })}>Remind</Button>}>
+            They were given a stop before the fee head was set. {canEdit ? 'Add the fee below.' : 'The Transport In-charge adds it.'}
           </Banner>
         )}
         <div className="grid @lg:grid-cols-2 @xl:grid-cols-3 gap-5 @lg:gap-6 items-start [&>*]:min-w-0">
@@ -1292,7 +1307,7 @@ function StudentsPage() {
                     <li key={c.id} className="p-2.5 rounded-xl hover:bg-sunken/60">
                       <p className="text-[14px] font-semibold leading-snug">{c.who}</p>
                       <p className="text-[12.5px] text-ink3">{c.what} · asked by {c.by}</p>
-                      {isApprover && canEdit && c.by !== role.person.name ? (
+                      {isApprover && c.by !== role.person.name ? (
                         <div className="flex gap-2 mt-2">
                           <Button size="sm" variant="soft" icon={I.Check} onClick={() => { setChanges((x) => x.filter((y) => y !== c)); toast({ title: `Approved: ${c.who}`, body: 'Fee changes from the next installment.', undo: () => setChanges((x) => [c, ...x]) }); }}>Approve</Button>
                           <Button size="sm" variant="ghost" onClick={() => { setChanges((x) => x.filter((y) => y !== c)); toast({ title: `Declined: ${c.who}`, undo: () => setChanges((x) => [c, ...x]) }); }}>Decline</Button>
@@ -1510,7 +1525,7 @@ function TripsPage() {
   return (
     <div>
       <ModuleHead sub="Friday 9 Oct · morning pickup done · evening drop starts 3:50 PM"
-        actions={<>
+        actions={canEdit && <>
           <Button variant="secondary" icon={I.ArrowRightLeft} onClick={() => setSwap(true)}>Change for one day</Button>
           <Button variant="primary" icon={I.CalendarClock} onClick={() => setSched({ route: 'R4', trip: 'morning' })}>Set trip schedule</Button>
         </>} />
@@ -1518,7 +1533,7 @@ function TripsPage() {
         <div className="flex flex-col @md:flex-row gap-3 @md:items-center">
           <Segmented value={view} onChange={setView} options={[{ value: 'today', label: 'Today' }, { value: 'schedule', label: 'Schedule' }, { value: 'history', label: 'History' }]} />
           {view === 'history' && <DatePeriod id="trip-per" value={per} onChange={setPer} className="w-full @md:w-auto" />}
-          <button onClick={() => go('driver')} className="@md:ml-auto inline-flex items-center gap-2 text-[13.5px] font-semibold text-brand hover:underline"><I.Smartphone size={16} />See the driver app (Android)</button>
+          {canEdit && <button onClick={() => go('driver')} className="@md:ml-auto inline-flex items-center gap-2 text-[13.5px] font-semibold text-brand hover:underline"><I.Smartphone size={16} />See the driver app (Android)</button>}
         </div>
 
         {view === 'today' && (
@@ -1797,7 +1812,7 @@ function SettingsPage() {
           <Card>
             <CardHead title="Live tracking" sub="Shows buses on a map during trips" icon={I.MapPinned} />
             <div className="divide-y divide-line/70 border-t border-line/70">
-              <SettingRow title="Live tracking" sub="Turn off to run buses without the map. Trips and boarding still work."><Switch id="ts-live" on label="Live tracking" onChange={() => toast({ title: 'Live tracking stays on', body: 'Turning it off asks the Principal first.', tone: 'info' })} /></SettingRow>
+              <SettingRow title="Live tracking" sub="Turn off to run buses without the map. Trips and boarding still work."><Switch id="ts-live" on label="Live tracking" onChange={() => canEdit && toast({ title: 'Live tracking stays on', body: 'Turning it off asks the Principal first.', tone: 'info' })} /></SettingRow>
               <SettingRow title="Location update interval" sub="Shorter uses more of the driver’s phone battery and data" id="ts-int">
                 <Segmented size="sm" value={interval} onChange={(v) => { if (!canEdit) return; setIntervalV(v); toast({ title: `Location every ${v} seconds`, body: 'Saved. Driver apps pick it up on the next trip.' }); }} options={[{ value: '15', label: '15 s' }, { value: '30', label: '30 s' }, { value: '60', label: '60 s' }]} />
               </SettingRow>
@@ -1827,8 +1842,8 @@ function SettingsPage() {
           <Card>
             <CardHead title="Driver app" sub="School OS Driver for Android, from the Play Store" icon={I.Smartphone} />
             <div className="divide-y divide-line/70 border-t border-line/70">
-              <SettingRow title="Mark boarding for each student" sub="Driver or attendant taps Boarded or Not boarded at each stop" id="ts-board"><Switch id="ts-board" on label="Mark boarding" onChange={() => toast({ title: 'Boarding marks stay on', body: 'Parents’ pickup messages need them.', tone: 'info' })} /></SettingRow>
-              <SettingRow title="Show parents’ phone numbers to drivers" sub="Off: drivers call through the school’s number"><Switch id="ts-phone" on={false} label="Show phone numbers" onChange={() => toast({ title: 'Phone numbers stay hidden from drivers', tone: 'info' })} /></SettingRow>
+              <SettingRow title="Mark boarding for each student" sub="Driver or attendant taps Boarded or Not boarded at each stop" id="ts-board"><Switch id="ts-board" on label="Mark boarding" onChange={() => canEdit && toast({ title: 'Boarding marks stay on', body: 'Parents’ pickup messages need them.', tone: 'info' })} /></SettingRow>
+              <SettingRow title="Show parents’ phone numbers to drivers" sub="Off: drivers call through the school’s number"><Switch id="ts-phone" on={false} label="Show phone numbers" onChange={() => canEdit && toast({ title: 'Phone numbers stay hidden from drivers', tone: 'info' })} /></SettingRow>
             </div>
           </Card>
           <Card>

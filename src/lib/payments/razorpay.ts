@@ -133,6 +133,39 @@ export async function fetchPayment(creds: RazorpayCredentials, paymentId: string
   return call<RazorpayPayment>(creds, "GET", `/v1/payments/${paymentId}`, undefined, fetchImpl);
 }
 
+export type RazorpayPaymentLink = { id: string; short_url: string; status: string; amount: number; reference_id?: string | null };
+
+/**
+ * A Razorpay Payment Link for an amount in paise (Super Admin billing: DREAM
+ * TEAM's GST invoice to a school). Razorpay sends nothing itself; School OS sends the link.
+ */
+export async function createPaymentLink(
+  creds: RazorpayCredentials,
+  input: { amountPaise: bigint | number; referenceId: string; description: string; customer: { name: string; contact?: string | null; email?: string | null }; expireBy?: Date | null; notes?: Record<string, string> },
+  fetchImpl?: FetchLike,
+) {
+  const amount = Number(input.amountPaise);
+  if (!Number.isInteger(amount) || amount < 100) throw new RazorpayProblem("A payment link must be for at least ₹1.", "refused");
+  return call<RazorpayPaymentLink>(creds, "POST", "/v1/payment_links", {
+    amount,
+    currency: "INR",
+    accept_partial: false,
+    reference_id: input.referenceId.slice(0, 40),
+    description: input.description.slice(0, 2048),
+    customer: { name: input.customer.name, ...(input.customer.contact ? { contact: `+91${input.customer.contact}` } : {}), ...(input.customer.email ? { email: input.customer.email } : {}) },
+    notify: { sms: false, email: false },
+    reminder_enable: false,
+    ...(input.expireBy ? { expire_by: Math.floor(input.expireBy.getTime() / 1000) } : {}),
+    notes: input.notes,
+  }, fetchImpl);
+}
+
+/** Cancels a payment link so it can no longer be paid (a cancelled invoice). */
+export async function cancelPaymentLink(creds: RazorpayCredentials, linkId: string, fetchImpl?: FetchLike) {
+  if (!/^plink_[A-Za-z0-9]+$/.test(linkId)) throw new RazorpayProblem("That does not look like a Razorpay payment link ID.", "refused");
+  return call<RazorpayPaymentLink>(creds, "POST", `/v1/payment_links/${linkId}/cancel`, {}, fetchImpl);
+}
+
 export type ConnectionResult = { ok: boolean; checks: { label: string; ok: boolean; note: string }[] };
 
 /** "Test connection": checks the keys' format and mode, then asks Razorpay with them. Never throws. */

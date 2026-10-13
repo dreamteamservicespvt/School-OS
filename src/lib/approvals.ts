@@ -20,6 +20,7 @@ export const REQUEST_TYPES = [
   { key: "certificate", label: "Certificate (including TC)" },
   { key: "payroll", label: "Salary and payroll" },
   { key: "salary-adjustment", label: "Salary adjustment" },
+  { key: "salary-advance", label: "Salary advance or loan" },
   { key: "attendance-correction", label: "Attendance correction" },
   { key: "marks-moderation", label: "Marks change after lock" },
   { key: "notice", label: "Notice" },

@@ -284,6 +284,17 @@ describe("every school table has its walls", () => {
       expect(tables.length).toBeGreaterThan(5);
       const unprotected = tables.filter((t) => !t.rls || !t.forced || Number(t.policies) === 0).map((t) => t.table);
       expect(unprotected).toEqual([]);
+      // The Super Admin console's own tables (07-super-admin.md) use for_school_id, and are
+      // walled off the same way: only the console (app.console) sees them, never a school.
+      const consoleTables = await owner.$queryRaw<{ table: string; rls: boolean; forced: boolean; policies: bigint }[]>`
+        SELECT c.relname AS table, c.relrowsecurity AS rls, c.relforcerowsecurity AS forced,
+               (SELECT count(*) FROM pg_policy p WHERE p.polrelid = c.oid) AS policies
+        FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace AND n.nspname = 'public'
+        WHERE c.relkind = 'r'
+          AND (c.relname LIKE 'console\\_%' OR c.relname IN ('super_admin_user', 'school_invite', 'platform_invoice', 'subscription', 'plan', 'school_group'))`;
+      expect(consoleTables.length).toBeGreaterThan(5);
+      expect(consoleTables.filter((t) => !t.rls || !t.forced || Number(t.policies) === 0).map((t) => t.table)).toEqual([]);
     } finally {
       await owner.$disconnect();
     }

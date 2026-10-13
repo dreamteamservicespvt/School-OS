@@ -13,6 +13,7 @@ import { createInvite } from "../src/lib/auth/invites";
 import { notify } from "../src/lib/notifications";
 import { seedCore } from "./seeds/core";
 import { MODULE_SEEDS } from "./seeds/index";
+import { CONSOLE_PEOPLE, seedConsole } from "./seeds/console";
 
 async function main() {
   if (process.env.NODE_ENV === "production") throw new Error("The demo seed never runs in production.");
@@ -88,9 +89,17 @@ async function main() {
     console.log(`  demo data added: ${module}`);
   }
 
+  await seedConsole(password, {
+    sunrise: { id: sunrise.school.id, city: "Hyderabad", state: "Telangana", schoolType: "Day school", approxStudents: 450 },
+    valley: { id: valley.school.id, city: "Warangal", state: "Telangana", schoolType: "Day school", approxStudents: 220 },
+  });
+  console.log("  demo data added: Super Admin console");
+
   console.log("Demo ready. Sign in with any of these usernames and DEMO_PASSWORD from .env:");
   for (const p of people) console.log(`  ${p.username.padEnd(12)} ${p.name}`);
   console.log(`Invite link for Meena Iyer (new teacher): /invite/${token}`);
+  console.log("Super Admin console (/console/sign-in), mobile number and DEMO_PASSWORD; the code is in the server log:");
+  for (const p of CONSOLE_PEOPLE) console.log(`  ${p.phone}  ${p.name} (${p.role.toLowerCase()})`);
 }
 
 main()

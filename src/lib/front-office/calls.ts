@@ -5,6 +5,7 @@
 // reminder (Task) to the person named.
 import "server-only";
 
+import type { Prisma } from "@prisma/client";
 import type { Current } from "../current";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
@@ -186,4 +187,20 @@ export async function closeCall(tx: Tx, ctx: SchoolContext, id: string, now = ne
   await tx.callLogEntry.update({ where: { id }, data: { status: c.status === "QUERY" ? "QUERY" : "CLOSED", followUpAt: null, followUpLoginId: null } });
   await writeAudit(tx, ctx, { action: "closed", recordType: "Call Log Entry", recordId: id, before: { status: c.status }, after: { status: "CLOSED" } });
   return c;
+}
+
+/**
+ * The call log's filter: dates, purpose and search (name, who, note; the
+ * phone number only for people who see parents' numbers in full, so a masked
+ * number cannot be found digit by digit).
+ */
+export function callLogWhere(opts: { from: Date; to: Date; purpose: string; q: string; phones: boolean }): Prisma.CallLogEntryWhereInput {
+  const q = opts.q.trim().slice(0, 60);
+  const or: Prisma.CallLogEntryWhereInput[] = [];
+  if (q) {
+    or.push({ name: { contains: q, mode: "insensitive" } }, { who: { contains: q, mode: "insensitive" } }, { note: { contains: q, mode: "insensitive" } }, { queryNo: { contains: q, mode: "insensitive" } });
+    const d = q.replace(/\D/g, "");
+    if (d.length >= 3) or.push(opts.phones ? { phone: { contains: d } } : { phone: { contains: d }, isParent: false });
+  }
+  return { AND: [{ archivedAt: null, at: { gte: opts.from, lt: opts.to } }, opts.purpose && opts.purpose !== "all" ? { purpose: opts.purpose } : {}, or.length ? { OR: or } : {}] };
 }

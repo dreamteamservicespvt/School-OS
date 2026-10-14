@@ -27,7 +27,8 @@ export type SchoolAccessView = {
   school: { id: string; name: string; code: string; logoUrl: string | null; timeZone: string; accent: string | null; weekStart: "monday" | "sunday" };
   /** Set by DREAM TEAM in the console. Suspended or Closed: the school is paused (see /paused). */
   schoolStatus: "TRIAL" | "ACTIVE" | "SUSPENDED" | "CLOSED";
-  roles: { key: string | null; name: string }[];
+  /** Each role with its own levels (the Settings copy of 05-roles.md), for who does the desk work (src/lib/duty.ts). */
+  roles: { key: string | null; name: string; permissions?: RolePermissions }[];
   permissions: PermissionMap;
   modulesOn: Set<ModuleKey>;
   features: Set<string>;
@@ -64,7 +65,7 @@ export async function accessIn(userLoginId: string, schoolId: string): Promise<S
     return {
       school: { id: school.id, name: school.name, code: school.code, logoUrl: school.logoUrl, timeZone: school.timeZone, accent: readPreferences(school.preferences).schoolAccent ?? null, weekStart: readPreferences(school.preferences).weekStart === "sunday" ? "sunday" : "monday" },
       schoolStatus: school.status,
-      roles: roles.map((r) => ({ key: r.key, name: r.name })),
+      roles: roles.map((r) => ({ key: r.key, name: r.name, permissions: r.permissions as RolePermissions })),
       permissions: applyExceptions(
         scope === "OWN" ? narrowToOwn(combined) : combined,
         accesses.map((a) => a.exceptions as Record<string, AccessLevel>),

@@ -12,6 +12,7 @@ import { attendanceToday } from "../../attendance/integrations";
 import { lockState, takeChoices, type TakeChoice } from "../../attendance/marks";
 import { staffDay } from "../../attendance/staff";
 import { schoolDays } from "../../attendance/calendar";
+import { classWise } from "../../attendance/classwise";
 import { addDays, iso, n, plural, reach } from "../common";
 import type { AttentionItem, BarRow, DashContext, Viewer, Widget } from "../types";
 
@@ -34,6 +35,8 @@ function access(c: DashContext): Promise<AttendanceAccess> {
   });
 }
 const settings = (c: DashContext) => c.memo("attendance-settings", () => attendanceSettings(c.tx, c.viewer.ctx));
+/** Today's whole-school numbers, read once per page (from the class-wise rows). */
+const today = (c: DashContext) => c.memo("attendance-today", () => attendanceToday(c.tx, c.viewer.ctx, c.today, { campusId: c.viewer.campusId ?? null }));
 /** The classes and periods this person may take today, with "done". */
 export function choices(c: DashContext): Promise<TakeChoice[]> {
   return c.memo("attendance-choices", async () => takeChoices(c.tx, c.viewer.ctx, await access(c), c.today));
@@ -60,15 +63,17 @@ const studentsPresent: Widget<"band"> = {
   async load(c) {
     const a = await access(c);
     if (a.students !== "all") return null;
-    const t = await attendanceToday(c.tx, c.viewer.ctx, c.today);
-    const href = `${BASE}/reports?report=daily`;
+    // The same class-wise rows as Attendance (the whole-school register) and the daily report.
+    const t = await today(c);
+    const href = `${BASE}/register`;
     if (t.off) return { id: "attendance.students-present", label: "Students present", big: "No school", foot: t.off, href };
-    const expected = c.year ? await c.tx.enrolment.count({ where: { academicYearId: c.year.id, archivedAt: null, status: "STUDYING", student: { archivedAt: null } } }) : t.students.marked;
+    const expected = t.students.total;
     if (t.students.marked === 0) return { id: "attendance.students-present", label: "Students present", big: "Not taken", foot: `${plural(t.classes.notMarked, "class", "classes")} not marked yet`, href };
+    const pct = t.students.marked ? Math.round((t.students.present / t.students.marked) * 1000) / 10 : null;
     return {
       id: "attendance.students-present", label: "Students present", big: n(t.students.present), of: `/ ${n(expected)}`,
-      ring: expected ? Math.round((t.students.present / expected) * 100) : undefined,
-      foot: t.classes.notMarked ? `${n(t.students.absent)} absent · ${plural(t.classes.notMarked, "class", "classes")} to mark` : `${n(t.students.absent)} absent, ${n(t.students.late)} late`,
+      ring: pct ?? undefined,
+      foot: t.classes.notMarked ? `${pct}% of marked · ${n(t.students.absent)} absent · ${plural(t.classes.notMarked, "class", "classes")} not marked` : `${pct}% · ${n(t.students.absent)} absent, ${n(t.students.late)} late`,
       href,
     };
   },
@@ -225,30 +230,19 @@ const weekByClass: Widget<"panel"> = {
   async load(c) {
     if (!c.year) return null;
     const monday = addDays(c.today, -((c.today.getUTCDay() + 6) % 7));
-    const marks = await c.tx.attendanceMark.findMany({
-      where: { date: { gte: monday, lte: c.today }, studentId: { not: null }, archivedAt: null, academicYearId: c.year.id },
-      select: { studentId: true, sectionId: true, date: true, periodNo: true, statusKey: true },
-      orderBy: { periodNo: "asc" },
-    });
-    // One status per student per day: the once-a-day mark, or the first period.
-    const day = new Map<string, { sectionId: string; status: string }>();
-    for (const m of marks) {
-      const k = `${m.studentId}:${iso(m.date)}`;
-      if (!day.has(k) && m.sectionId) day.set(k, { sectionId: m.sectionId, status: m.statusKey });
-    }
-    const sections = await c.tx.section.findMany({ where: { academicYearId: c.year.id, archivedAt: null }, include: { schoolClass: { select: { id: true, name: true, sortOrder: true } } } });
-    const byClass = new Map<string, { label: string; sort: number; present: number; total: number }>();
-    for (const { sectionId, status } of day.values()) {
-      const s = sections.find((x) => x.id === sectionId);
-      if (!s || ["leave", "medical"].includes(status)) continue;
-      const row = byClass.get(s.schoolClass.id) ?? { label: s.schoolClass.name, sort: s.schoolClass.sortOrder, present: 0, total: 0 };
-      row.total += 1;
-      if (PRESENT.includes(status)) row.present += 1;
-      byClass.set(s.schoolClass.id, row);
+    // The class-wise rows of the week (the same source as Attendance and Reports), added up per class.
+    const cw = await classWise(c.tx, c.viewer.ctx, { yearId: c.year.id, from: monday, to: c.today, today: c.today, campusId: c.viewer.campusId ?? null });
+    const byClass = new Map<string, { label: string; sort: number; weight: number; counted: number }>();
+    for (const sec of cw.sections) {
+      if (sec.counted === 0) continue;
+      const row = byClass.get(sec.classId) ?? { label: sec.className, sort: sec.sort, weight: 0, counted: 0 };
+      row.weight += sec.weight;
+      row.counted += sec.counted;
+      byClass.set(sec.classId, row);
     }
     const s = await settings(c);
     const rows: BarRow[] = [...byClass.entries()].sort((a, b) => a[1].sort - b[1].sort)
-      .map(([id, r]) => ({ key: id, label: r.label, value: Math.round((r.present / r.total) * 100), href: `${BASE}/reports?report=trends` }));
+      .map(([id, r]) => ({ key: id, label: r.label, value: Math.round((r.weight / r.counted) * 100), href: `${BASE}/register?period=thisweek` }));
     return {
       slot: "main",
       panel: {

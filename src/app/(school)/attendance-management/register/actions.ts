@@ -14,6 +14,11 @@ import { act } from "@/lib/attendance/act";
 import { actionContext } from "@/lib/attendance/page";
 import { AttendanceProblem, BASE } from "@/lib/attendance/access";
 import { requestCorrection } from "@/lib/attendance/corrections";
+import { remindNotMarked } from "@/lib/attendance/remind";
+import { problemState } from "@/lib/attendance/act";
+import { todayIn } from "@/lib/staff/dates";
+import { flash } from "@/lib/flash";
+import { revalidatePath } from "next/cache";
 
 /** Ask for a correction: one or more students (or staff), a date, the new status and a reason. */
 export async function requestCorrectionAction(_: FormState<unknown>, fd: FormData) {
@@ -65,4 +70,28 @@ export async function rejectCorrectionAction(_: FormState<unknown>, fd: FormData
 
 export async function withdrawCorrectionAction(_: FormState<unknown>, fd: FormData) {
   return act(fd, () => decideCorrection(fd, "withdraw"), () => "Correction request withdrawn.");
+}
+
+/**
+ * "Remind" on Not marked yet: asks the class teachers of these sections to take
+ * today's attendance. Only for people who see every section (checked again in
+ * remindNotMarked); each reminder is audited.
+ */
+export async function remindNotMarkedAction(sectionIds: string[]): Promise<string | null> {
+  try {
+    const { current } = await requireAction("attendance-management", "view");
+    const ids = (Array.isArray(sectionIds) ? sectionIds : []).filter((s) => typeof s === "string" && UUID_RE.test(s)).slice(0, 200);
+    if (ids.length === 0) return "Choose a class to remind.";
+    const { access } = await actionContext(current);
+    const tz = current.school.timeZone;
+    const now = new Date();
+    const r = await withSchool(current.ctx, (tx) => remindNotMarked(tx, current.ctx, access, { sectionIds: ids, date: todayIn(tz, now), now, timeZone: tz }));
+    if (r.reminded.length === 0) return r.skipped.length ? `Nobody was reminded: ${r.skipped.map((s) => `${s.name} (${s.why})`).join(", ")}.` : "Nobody was reminded.";
+    await flash({ message: r.reminded.length === 1 ? `Reminded ${r.reminded[0]} to take today's attendance` : `Reminded ${r.reminded.length} class teachers to take today's attendance` });
+    revalidatePath(BASE, "layout");
+    revalidatePath("/dashboard");
+    return null;
+  } catch (e) {
+    return problemState(e).message ?? "That did not go through. Please try again.";
+  }
 }

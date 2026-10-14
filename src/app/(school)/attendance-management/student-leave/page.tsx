@@ -42,6 +42,8 @@ export default async function StudentLeavePage({ searchParams }: Props) {
   const params = readListParams(raw, ["section", "type"]);
   const { current, access, features, today, tz } = await attendancePage();
   if (access.studentLeave === "none") redirect("/no-access?m=attendance-management");
+  // Student leave is the class teacher's and the office's; people who look after the whole school follow it in Approvals.
+  if (access.pages.studentLeave === "hidden") redirect(`${BASE}/register`);
   const status = typeof raw.status === "string" && (raw.status === "all" || (LEAVE_STATUSES as readonly string[]).includes(raw.status)) ? raw.status : "WAITING";
   const openId = typeof raw.open === "string" ? raw.open : null;
   const dates = await periodSetup(current);

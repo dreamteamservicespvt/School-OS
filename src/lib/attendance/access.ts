@@ -9,6 +9,7 @@ import type { SchoolContext, Tx } from "../db";
 import type { Reach } from "../permissions";
 import type { Current } from "../current";
 import { currentYear } from "../academic/years";
+import { pageMode, type PageMode } from "../duty";
 
 export const MODULE = "attendance-management" as const;
 export const BASE = "/attendance-management";
@@ -37,9 +38,36 @@ export type AttendanceAccess = {
   lockOverride: boolean;
   /** May change settings, devices and QR. */
   admin: boolean;
+  /**
+   * How the person uses each page (src/lib/duty.ts, owner's prototype changes of
+   * 13 Oct 2026): the Principal, School Admin and Vice Principal never take a
+   * register or record student leave ("hidden"), and read some pages without
+   * filling them in ("view"). View-only roles (Academic Head) see the register
+   * and reports only. The server still allows what 05-roles.md gives.
+   */
+  pages: { take: PageMode; register: PageMode; studentLeave: PageMode; staff: PageMode; devices: PageMode; settings: PageMode };
+  /** Sees every section: Attendance opens on the class-wise view of the whole school. */
+  classWise: boolean;
 };
 
 export type AccessSource = Pick<Current, "permissions" | "roles" | "campusId"> & { user: { id: string } };
+
+/** The pages part of AttendanceAccess, from the person alone. */
+export function attendancePages(current: Pick<AccessSource, "roles" | "permissions">): AttendanceAccess["pages"] {
+  const p = current.permissions[MODULE];
+  const mode = (page: string) => pageMode(current, MODULE, page);
+  const isHr = current.roles.some((r) => r.key === "hr");
+  // View (Academic Head): the register and reports only (prototype config.js VIEW attendance).
+  const viewOnly = p.change === "none" && p.see === "all";
+  return {
+    take: mode("take"),
+    register: mode("register"),
+    studentLeave: viewOnly ? "hidden" : mode("student-leave"),
+    staff: viewOnly && !isHr ? "hidden" : mode("staff"),
+    devices: mode("devices"),
+    settings: mode("settings"),
+  };
+}
 
 export async function attendanceAccess(tx: Tx, ctx: SchoolContext, current: AccessSource, lockOverrideRoles: string[] = ["principal", "school-admin"]): Promise<AttendanceAccess> {
   const p = current.permissions[MODULE];
@@ -74,6 +102,8 @@ export async function attendanceAccess(tx: Tx, ctx: SchoolContext, current: Acce
     studentLeave: seeAll || (own && isOffice) ? "all" : own && classSections.length > 0 ? "own" : "none",
     lockOverride: full && roleKeys.some((k) => lockOverrideRoles.includes(k)),
     admin: full,
+    pages: attendancePages(current),
+    classWise: seeAll,
   };
 }
 

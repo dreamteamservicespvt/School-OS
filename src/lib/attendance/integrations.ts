@@ -11,6 +11,7 @@ import { schoolDays } from "./calendar";
 import { statusList, type StatusInfo } from "./settings";
 import { attendanceSummary, type PersonSummary } from "./summary";
 import { takeChoices } from "./marks";
+import { classWise } from "./classwise";
 
 export type MonthCell = { date: string; day: number; weekday: number; statusKey: string | null; off: string | null; future: boolean };
 export type MonthView = { label: string; month: string; summary: PersonSummary; cells: MonthCell[] };
@@ -119,30 +120,31 @@ export async function todaysClasses(tx: Tx, ctx: SchoolContext, access: Attendan
   };
 }
 
-/** Today for the Dashboard: students and staff present, classes not yet marked, open flags. */
+/**
+ * Today for the Dashboard: students and staff present, classes not yet marked,
+ * open flags. The student numbers add up the class-wise rows (./classwise.ts),
+ * so the Dashboard, Attendance Reports and the class-wise view always agree.
+ */
 export async function attendanceToday(tx: Tx, ctx: SchoolContext, today: Date, opts: { sectionIds?: string[] | null; campusId?: string | null } = {}) {
   const days = await schoolDays(tx, ctx, today, today, opts.campusId ?? null);
   const info = days.info(today);
-  const sectionFilter = opts.sectionIds ? { sectionId: { in: opts.sectionIds } } : {};
-  const sections = await tx.section.findMany({
-    where: { archivedAt: null, ...(opts.sectionIds ? { id: { in: opts.sectionIds } } : {}), academicYear: { status: "ACTIVE", startDate: { lte: today }, endDate: { gte: today } } },
+  const years = await tx.academicYear.findMany({
+    where: { archivedAt: null, status: "ACTIVE", startDate: { lte: today }, endDate: { gte: today }, ...(opts.campusId ? { campusId: opts.campusId } : {}) },
     select: { id: true },
   });
-  const [studentMarks, staffMarks, staffCount, flags] = await Promise.all([
-    tx.attendanceMark.findMany({ where: { date: today, studentId: { not: null }, archivedAt: null, ...sectionFilter }, select: { studentId: true, sectionId: true, statusKey: true, periodNo: true } }),
+  const [cws, staffMarks, staffCount, flags] = await Promise.all([
+    Promise.all(years.map((y) => classWise(tx, ctx, { yearId: y.id, from: today, to: today, today, sectionIds: opts.sectionIds ?? null, campusId: opts.campusId ?? null }))),
     opts.sectionIds ? Promise.resolve([]) : tx.attendanceMark.findMany({ where: { date: today, staffId: { not: null }, periodNo: 0, archivedAt: null }, select: { statusKey: true } }),
     opts.sectionIds ? Promise.resolve(0) : tx.staff.count({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] } } }),
     tx.attendanceFlag.count({ where: { clearedAt: null } }),
   ]);
-  const studentDays = new Map<string, string>();
-  for (const m of studentMarks.sort((a, b) => a.periodNo - b.periodNo)) if (!studentDays.has(m.studentId!)) studentDays.set(m.studentId!, m.statusKey);
-  const marked = new Set(studentMarks.map((m) => m.sectionId));
+  const rows = cws.flatMap((c) => c.sections).filter((s) => s.students > 0);
+  const sum = (k: "marked" | "present" | "absent" | "leave" | "late" | "students") => rows.reduce((a, s) => a + s[k], 0);
   const count = (vals: string[], keys: string[]) => vals.filter((v) => keys.includes(v)).length;
-  const sVals = [...studentDays.values()];
   return {
     off: info.on ? null : info.title,
-    students: { marked: sVals.length, present: count(sVals, ["present", "late", "half-day"]), absent: count(sVals, ["absent"]), leave: count(sVals, ["leave", "medical"]), late: count(sVals, ["late"]) },
-    classes: { total: sections.length, notMarked: sections.filter((s) => !marked.has(s.id)).length },
+    students: { marked: sum("marked"), present: sum("present"), absent: sum("absent"), leave: sum("leave"), late: sum("late"), total: sum("students") },
+    classes: { total: rows.length, notMarked: info.on ? rows.filter((s) => s.notMarked).length : 0, notMarkedNames: info.on ? rows.filter((s) => s.notMarked).map((s) => s.name) : [] },
     staff: { total: staffCount, marked: staffMarks.length, present: count(staffMarks.map((m) => m.statusKey), ["present", "late", "half-day"]), absent: count(staffMarks.map((m) => m.statusKey), ["absent"]), late: count(staffMarks.map((m) => m.statusKey), ["late"]) },
     openFlags: flags,
     href: BASE,

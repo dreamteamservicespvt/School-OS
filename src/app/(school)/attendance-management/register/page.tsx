@@ -1,6 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CalendarDays, CalendarX2, ClipboardPen, Users } from "lucide-react";
+import { redirect } from "next/navigation";
+import { ArrowLeft, CalendarDays, CalendarX2, ClipboardPen, Users } from "lucide-react";
+import { periodFromSearch } from "@/lib/periods";
+import { periodSetup } from "@/lib/period-setup";
+import { classWise } from "@/lib/attendance/classwise";
+import { notMarkedOn } from "@/lib/attendance/remind";
+import { dayStartUtc } from "@/lib/periods";
+import { ClassWiseView, NotMarkedCard } from "../_components/class-wise";
 import { withSchool } from "@/lib/db";
 import { attendancePage } from "@/lib/attendance/page";
 import { BASE } from "@/lib/attendance/access";
@@ -33,6 +40,9 @@ const CORE = ["present", "absent", "late", "leave"];
 export default async function RegisterPage({ searchParams }: Props) {
   const sp = await searchParams;
   const { current, access, features, settings, tz, today, now } = await attendancePage();
+  if (access.pages.register === "hidden") redirect(`${BASE}/reports`);
+  // People who see every section open on the whole school, class by class; a tile opens one section's register.
+  if (access.classWise && !one(sp.section)) return <WholeSchool sp={sp} />;
   const asked = readMonth(one(sp.month)) ?? monthStart(today);
   const view = one(sp.view) === "student" ? "student" : "class";
   const statusFilter = one(sp.status) ?? "";
@@ -69,7 +79,8 @@ export default async function RegisterPage({ searchParams }: Props) {
     for (const [k, v] of Object.entries(base)) if (v) p.set(k, v);
     return p.size ? `${BASE}/register?${p}` : `${BASE}/register`;
   };
-  const canChange = access.change !== "none";
+  // The School Admin reads the register; the Principal and Vice Principal may still correct a mark (prototype attendance.jsx).
+  const canChange = access.change !== "none" && access.pages.register === "full";
   const cellHref = (studentId: string, iso: string) => {
     if (!canChange || !data.section || data.year?.id !== access.yearId) return null;
     const d = new Date(`${iso}T00:00:00Z`);
@@ -92,6 +103,11 @@ export default async function RegisterPage({ searchParams }: Props) {
         </EmptyState>
       ) : (
         <div className="flex flex-col gap-4">
+          {access.classWise && (
+            <Link href={`${BASE}/register`} className="self-start inline-flex items-center gap-1.5 min-h-11 px-3.5 rounded-xl border border-line bg-surface text-[14px] font-semibold hover:bg-sunken">
+              <ArrowLeft size={16} aria-hidden="true" />All classes
+            </Link>
+          )}
           <Chips label="Register views" value={view} options={[
             { value: "class", label: "Class register", href: qs({ view: null, student: null }) },
             { value: "student", label: "Student calendar", href: qs({ view: "student", status: null }) },
@@ -262,5 +278,54 @@ function StudentCalendar({ s, byKey, statuses, sectionName, yearName, cellHref, 
         </div>
       </Card>
     </div>
+  );
+}
+
+/** The class-wise view of every section (Principal, Vice Principal, School Admin, Academic Head). */
+async function WholeSchool({ sp }: { sp: Record<string, string | string[] | undefined> }) {
+  const { current, access, features, settings, tz, today, now } = await attendancePage();
+  const dates = await periodSetup(current);
+  const range = periodFromSearch(sp, { ...dates, fallback: "today" });
+  const from = range ? new Date(`${range.from}T00:00:00Z`) : today;
+  const to = range ? new Date(`${range.to}T00:00:00Z`) : today;
+  const isToday = isoDay(from) === isoDay(today) && isoDay(to) === isoDay(today);
+  const sort = one(sp.sort) === "class" ? "class" : "low";
+  const lock = lockState(settings, today, now, tz);
+
+  const data = await withSchool(current.ctx, async (tx) => {
+    if (!access.yearId) return null;
+    const [cw, notMarked] = await Promise.all([
+      classWise(tx, current.ctx, { yearId: access.yearId, from, to, today, campusId: access.campusId }),
+      isToday ? notMarkedOn(tx, current.ctx, access, today, dayStartUtc(isoDay(today), tz)) : Promise.resolve([]),
+    ]);
+    return { cw, notMarked };
+  });
+  const groupParam = one(sp.group) ?? "all";
+  const group = data?.cw.groups.some((g) => g.key === groupParam) ? groupParam : "all";
+  const href = (change: Record<string, string | null>) => {
+    const p = new URLSearchParams();
+    const keep: Record<string, string | null> = { period: one(sp.period) ?? null, from: one(sp.from) ?? null, to: one(sp.to) ?? null, sort: one(sp.sort) ?? null, group: group === "all" ? null : group, ...change };
+    for (const [k, v] of Object.entries(keep)) if (v) p.set(k, v);
+    return p.size ? `${BASE}/register?${p}` : `${BASE}/register`;
+  };
+  const t = data?.cw.totals;
+  const sub = !data || !t ? "No academic year running now"
+    : isToday ? `Whole school · today · ${t.markedSections} of ${t.sections} sections marked`
+      : `Whole school · ${range?.label ?? "these dates"}`;
+
+  return (
+    <>
+      <AttHead access={access} features={features} userId={current.user.id} href={`${BASE}/register`} sub={sub} />
+      {!data ? (
+        <EmptyState title="No academic year running now" Icon={CalendarDays}>Attendance shows here once the academic year has started and its sections are set up in Academic Management.</EmptyState>
+      ) : data.cw.sections.length === 0 ? (
+        <EmptyState title="No classes to show" Icon={Users}>No sections are set up for this academic year yet. Add them in Academic Setup.</EmptyState>
+      ) : (
+        <div className="flex flex-col gap-5 lg:gap-6">
+          <NotMarkedCard rows={data.notMarked} lockText={lock.atText} locked={lock.locked} canRemind={access.students === "all"} tz={tz} />
+          <ClassWiseView cw={data.cw} sort={sort} group={group} href={href} period={{ ...dates }} today={isToday} />
+        </div>
+      )}
+    </>
   );
 }

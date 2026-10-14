@@ -37,7 +37,8 @@ const ATTENDANCE_DESK = ["take", "student-leave"];
  */
 export const DUTY: Readonly<Record<string, Partial<Record<ModuleKey, Rule>>>> = {
   principal: {
-    "attendance-management": { hide: ATTENDANCE_DESK, view: ["staff", "devices", "settings"] },
+    // Attendance Settings stays full for the Principal: its forms have no read-only form yet (see the report).
+    "attendance-management": { hide: ATTENDANCE_DESK, view: ["staff", "devices"] },
     "fee-management": { hide: ["collect"], view: ["dashboard", "payments", "documents", "ledger", "defaulters", "reports", "settings"] },
     "examination-results": { view: ["marks"] },
     "staff-hr-management": { hide: ["add"] },

@@ -31,7 +31,7 @@ const STAT_TONES: Tone[] = ["neutral", "warn", "bad", "bad"];
 export default async function DefaultersPage({ searchParams }: { searchParams: SearchParams }) {
   const p = await feeGuard("defaulters");
   const sp = await searchParams;
-  const canEdit = p.can.change;
+  const canEdit = p.does("defaulters");
   const q = one(sp.q).trim().slice(0, 80);
   const cls = one(sp.class);
   const age = one(sp.age);
@@ -42,6 +42,8 @@ export default async function DefaultersPage({ searchParams }: { searchParams: S
   const filter: DefaulterFilter = {
     q: q || null,
     classId: /^[0-9a-f-]{36}$/i.test(cls) ? cls : null,
+    // One section, from Fees by class ("Remind parents").
+    sectionId: /^[0-9a-f-]{36}$/i.test(one(sp.section)) ? one(sp.section) : null,
     ageing: age !== "" && /^\d+$/.test(age) ? Number(age) : null,
     amountAbove: above ? parseRupees(above, "Amount") : null,
     reminded: (rem || null) as DefaulterFilter["reminded"],
@@ -66,7 +68,7 @@ export default async function DefaultersPage({ searchParams }: { searchParams: S
   });
 
   const { all, list } = data;
-  const keep = { q: q || null, class: filter.classId, age: filter.ageing !== null ? String(filter.ageing) : null, above: above || null, rem: rem || null, ...per.keep };
+  const keep = { q: q || null, class: filter.classId, section: filter.sectionId ?? null, age: filter.ageing !== null ? String(filter.ageing) : null, above: above || null, rem: rem || null, ...per.keep };
   const here = (extra: Record<string, string | null> = {}) => qs(HREF, { ...keep, ...extra });
   const filtered = Boolean(q || filter.classId || filter.ageing !== null || above || rem || per.range);
   const over30 = all.rows.filter((r) => r.daysOverdue > 30).length;
@@ -124,7 +126,7 @@ export default async function DefaultersPage({ searchParams }: { searchParams: S
               <PeriodFilter {...p.dates} allLabel="Any due date" />
             </div>
           </Toolbar>
-          <DefaulterList rows={items} canEdit={canEdit} openAll={canEdit && one(sp.send) === "all"} templates={tpl} gateway={data.gateway} csvHref={qs(`${HREF}/export`, keep)} whoHref={whoHref}
+          <DefaulterList rows={items} canEdit={canEdit} canCollect={p.desk} openAll={canEdit && one(sp.send) === "all"} templates={tpl} gateway={data.gateway} csvHref={qs(`${HREF}/export`, keep)} whoHref={whoHref}
             footer={`Showing ${list.rows.length} of ${all.rows.length} · ${formatRupees(list.total)} overdue`}
             empty={all.rows.length === 0
               ? <Empty icon={UserCheck} title="Nobody is overdue" body="Every student has paid what has fallen due. Students show here the day after a due date passes." />
@@ -142,7 +144,7 @@ export default async function DefaultersPage({ searchParams }: { searchParams: S
               </div>
             ) : <div className="rounded-2xl bg-ok/8 px-4 py-3 text-[14px] text-ok font-semibold">Nothing overdue now.</div>}
             <div className="flex gap-2 flex-wrap">
-              {canEdit && <ButtonLink href={`${BASE}/collect/${h.student.id}`} variant="primary" icon={IndianRupee}>Collect fee</ButtonLink>}
+              {p.desk && <ButtonLink href={`${BASE}/collect/${h.student.id}`} variant="primary" icon={IndianRupee}>Collect fee</ButtonLink>}
               {canEdit && h.row && <ButtonLink href={qs(HREF, { ...keep, send: "all", q: h.row.admissionNo, class: null, age: null, above: null, rem: null })} scroll={false} variant="secondary" icon={Send}>Send reminder</ButtonLink>}
               {p.may("ledger") && <ButtonLink href={`${BASE}/ledger/${h.student.id}`} variant="ghost" icon={BookOpen}>Ledger</ButtonLink>}
             </div>

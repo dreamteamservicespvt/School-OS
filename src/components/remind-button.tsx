@@ -11,12 +11,14 @@ import { Bell, BellRing, Check } from "lucide-react";
 import { Button, type ButtonVariant } from "@/components/ui/button";
 import { Pill } from "@/components/ui/badge";
 
-export function RemindButton({ run, label = "Remind", done, size = "sm", variant = "secondary", all = false, className }: {
+export function RemindButton({ run, label = "Remind", done, doneLabel = "Reminded", size = "sm", variant = "secondary", all = false, className }: {
   /** A server action bound to what it reminds about; returns a problem in plain words, or null. */
   run: () => Promise<string | null>;
   label?: string;
   /** When a reminder already went out today, e.g. "10:44 AM". */
   done?: string | null;
+  /** The word before the time once done ("Asked 10:44 AM"). */
+  doneLabel?: string;
   size?: "sm" | "md";
   variant?: ButtonVariant;
   /** "Remind all" style (bell ringing). */
@@ -26,7 +28,7 @@ export function RemindButton({ run, label = "Remind", done, size = "sm", variant
   const router = useRouter();
   const [pending, start] = useTransition();
   const [problem, setProblem] = useState<string | null>(null);
-  if (done) return <Pill tone="ok" className={className}><Check size={13} strokeWidth={3} aria-hidden="true" />Reminded {done}</Pill>;
+  if (done) return <Pill tone="ok" className={className}><Check size={13} strokeWidth={3} aria-hidden="true" />{doneLabel} {done}</Pill>;
   return (
     <span className={className}>
       <Button size={size} variant={variant} icon={all ? BellRing : Bell} loading={pending} loadingText="Sending…"

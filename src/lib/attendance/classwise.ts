@@ -69,6 +69,23 @@ function groupLabel(names: string[], level: string) {
   return allNumbered ? `Classes ${a} ${join} ${b}` : `${names[0]} ${join} ${names[names.length - 1]}`;
 }
 
+type GroupClass = { id: string; name: string; sortOrder: number; level: string | null };
+
+/** Class groups from each class's level (Pre-primary, Primary, ...), in class order. Also used by Fees by class. */
+export function classGroups(list: GroupClass[]) {
+  const levelOf = (c: { name: string; level: string | null }) => c.level || guessLevel(c.name) || "Other classes";
+  const keyOf = (level: string) => level.toLowerCase().replace(/[^a-z]+/g, "-");
+  const classes = [...new Map(list.map((c) => [c.id, c])).values()].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+  const groupNames = new Map<string, string[]>();
+  for (const c of classes) groupNames.set(levelOf(c), [...(groupNames.get(levelOf(c)) ?? []), c.name]);
+  const groups: ClassGroup[] = [...groupNames.entries()].map(([level, names]) => {
+    const i = (LEVELS as readonly string[]).indexOf(level);
+    return { key: keyOf(level), label: groupLabel(names, level), sort: i === -1 ? 99 : i };
+  }).sort((a, b) => a.sort - b.sort);
+  const groupOf = (c: { name: string; level: string | null }) => groups.find((g) => g.key === keyOf(levelOf(c)))!;
+  return { groups, groupOf };
+}
+
 /**
  * Every section of the year (or only the given ones) between two dates. Days
  * after `today` are left out; holidays and Sundays are never counted.
@@ -123,16 +140,7 @@ export async function classWise(
     sums.set(sectionId, row);
   }
 
-  // Class groups from each class's level (Pre-primary, Primary, ...), in class order.
-  const levelOf = (c: { name: string; level: string | null }) => c.level || guessLevel(c.name) || "Other classes";
-  const classes = [...new Map(sections.map((s) => [s.schoolClass.id, s.schoolClass])).values()].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
-  const groupNames = new Map<string, string[]>();
-  for (const c of classes) groupNames.set(levelOf(c), [...(groupNames.get(levelOf(c)) ?? []), c.name]);
-  const groups: ClassGroup[] = [...groupNames.entries()].map(([level, names]) => {
-    const i = (LEVELS as readonly string[]).indexOf(level);
-    return { key: level.toLowerCase().replace(/[^a-z]+/g, "-"), label: groupLabel(names, level), sort: i === -1 ? 99 : i };
-  }).sort((a, b) => a.sort - b.sort);
-  const groupOf = (c: { name: string; level: string | null }) => groups.find((g) => g.key === levelOf(c).toLowerCase().replace(/[^a-z]+/g, "-"))!;
+  const { groups, groupOf } = classGroups(sections.map((s) => s.schoolClass));
 
   const oneDay = working.length === 1 && isoDay(opts.from) === isoDay(to);
   const rows: SectionAttendance[] = sections.map((sec) => {

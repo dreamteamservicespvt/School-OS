@@ -43,9 +43,11 @@ export type DefaulterItem = {
 
 type Option = { value: string; label: string };
 
-export function DefaulterList({ rows, canEdit, footer, empty, openAll, templates, gateway, csvHref, whoHref }: {
+export function DefaulterList({ rows, canEdit, canCollect = canEdit, footer, empty, openAll, templates, gateway, csvHref, whoHref }: {
   rows: DefaulterItem[];
   canEdit: boolean;
+  /** Sits at the fee counter (not the Principal or School Admin, who read this page). */
+  canCollect?: boolean;
   footer: React.ReactNode;
   empty: React.ReactNode;
   openAll: boolean;
@@ -115,7 +117,7 @@ export function DefaulterList({ rows, canEdit, footer, empty, openAll, templates
                   {d.lastReminder ? <><p className="text-[13px]">{d.lastReminder}</p><p className="text-[12px] text-ink3">{d.reminders} sent{d.promised ? ` · promised ${d.promised}` : ""}</p></>
                     : <span className="text-[13px] text-ink3">{d.promised ? `Promised ${d.promised}` : "Not reminded yet"}</span>}
                 </td>
-                <td className="pr-5 pl-3 py-2.5 relative z-10 text-right">{canEdit && <ButtonLink size="sm" variant="soft" href={`/fee-management/collect/${d.id}`}>Collect</ButtonLink>}</td>
+                <td className="pr-5 pl-3 py-2.5 relative z-10 text-right">{canCollect && <ButtonLink size="sm" variant="soft" href={`/fee-management/collect/${d.id}`}>Collect</ButtonLink>}</td>
               </tr>
             ))}
           </tbody>

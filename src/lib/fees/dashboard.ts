@@ -6,27 +6,36 @@ import "server-only";
 import type { Prisma } from "@prisma/client";
 import type { Tx } from "../db";
 import { addDays, monthEnd, monthStart } from "../staff/dates";
-import { DUE_WINDOW_DAYS, classOfStudents } from "./dues";
+import { classOfStudents } from "./dues";
+import { feesByClass } from "./by-class";
 import { studentScope, type FeeViewer } from "./access";
 
 const ZERO = BigInt(0);
 
+/**
+ * The Fee Dashboard band. Pending (not late yet), overdue and the overdue
+ * students add up the per-class rows of ./by-class.ts, so the band, Fees by
+ * class, Fee Reports and the Dashboard always agree.
+ */
 export async function feeTiles(tx: Tx, viewer: FeeViewer, today: Date) {
   const studentFilter: Prisma.PaymentWhereInput = viewer.see === "all" ? {} : { studentId: { in: await scopedStudentIds(tx, viewer) } };
-  const dueFilter: Prisma.StudentFeeDueWhereInput = viewer.see === "all" ? {} : { studentId: { in: await scopedStudentIds(tx, viewer) } };
-  const [todayAgg, monthAgg, pending, overdue] = await Promise.all([
+  const [todayAgg, monthAgg, byClass] = await Promise.all([
     tx.payment.aggregate({ where: { ...studentFilter, status: "POSTED", broughtIn: false, paymentDate: today }, _sum: { amountPaise: true }, _count: { _all: true } }),
     tx.payment.aggregate({ where: { ...studentFilter, status: "POSTED", broughtIn: false, paymentDate: { gte: monthStart(today), lte: today } }, _sum: { amountPaise: true }, _count: { _all: true } }),
-    tx.studentFeeDue.aggregate({ where: { ...dueFilter, state: "OPEN", balancePaise: { gt: 0 }, dueDate: { gte: today, lte: addDays(today, DUE_WINDOW_DAYS) } }, _sum: { balancePaise: true }, _count: { studentId: true } }),
-    tx.studentFeeDue.aggregate({ where: { ...dueFilter, state: "OPEN", balancePaise: { gt: 0 }, dueDate: { lt: today } }, _sum: { balancePaise: true } }),
+    feesByClass(tx, viewer, today),
   ]);
-  const overdueStudents = await tx.studentFeeDue.findMany({ where: { ...dueFilter, state: "OPEN", balancePaise: { gt: 0 }, dueDate: { lt: today } }, select: { studentId: true }, distinct: ["studentId"] });
+  const t = byClass.totals;
   return {
     today: { amount: todayAgg._sum.amountPaise ?? ZERO, count: todayAgg._count._all },
     month: { amount: monthAgg._sum.amountPaise ?? ZERO, count: monthAgg._count._all },
-    pending: pending._sum.balancePaise ?? ZERO,
-    overdue: overdue._sum.balancePaise ?? ZERO,
-    overdueStudents: overdueStudents.length,
+    pending: t.notLate,
+    overdue: t.overdue,
+    overdueStudents: t.overdueStudents,
+    over30: t.over30,
+    /** Due so far this year and paid on it. */
+    year: { due: t.due, paid: t.paid, percent: t.percent },
+    nextDue: byClass.nextDue,
+    byClass,
   };
 }
 

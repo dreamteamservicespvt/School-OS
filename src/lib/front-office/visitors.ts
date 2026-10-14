@@ -270,3 +270,23 @@ export function visitorLogWhere(opts: { scope: Prisma.VisitorEntryWhereInput; fr
   const day: Prisma.VisitorEntryWhereInput = opts.withOpenExpired ? { OR: [{ visitDate: { gte: opts.from, lte: opts.to } }, expiredWhere(now)] } : { visitDate: { gte: opts.from, lte: opts.to } };
   return { AND: [{ archivedAt: null }, opts.scope, day, statusWhere(opts.status, now), ...(opts.search ? [opts.search] : [])] };
 }
+
+/**
+ * The Principal, School Admin or Vice Principal reminds the desk to close a
+ * pass that expired without a check-out (they read the visitor log but do
+ * not do desk work). Everyone at the desk is told on the app.
+ */
+export async function remindDeskAboutPass(tx: Tx, ctx: SchoolContext, id: string, deskLogins: string[], opts: { timeZone: string; now?: Date }) {
+  const now = opts.now ?? new Date();
+  const v = await tx.visitorEntry.findFirst({ where: { id, archivedAt: null } });
+  if (!v) throw new FrontOfficeProblem("This visitor entry was not found.");
+  if (v.timeOut) throw new FrontOfficeProblem(`${v.name} was already checked out at ${clockAt(v.timeOut, opts.timeZone)}.`);
+  if (visitorStatus(v, now) !== "Expired") throw new FrontOfficeProblem(`Pass ${v.passNo} has not expired yet.`);
+  const to = deskLogins.filter((x) => x !== ctx.userId);
+  if (!to.length) throw new FrontOfficeProblem("Nobody at the front desk has a login to remind. Ask the School Admin to add the Receptionist.");
+  for (const login of to) {
+    await notify(tx, ctx, { to: login, type: "visitor-pass-open", text: `Close pass ${v.passNo} (${v.name}) with the right time: it expired at ${clockAt(v.passExpiresAt, opts.timeZone)} without a check-out.`, link: `/front-office/visitors?status=Expired&out=${v.id}` }, now);
+  }
+  await writeAudit(tx, ctx, { action: "desk-reminded", recordType: "Visitor Entry", recordId: v.id, after: { passNo: v.passNo, told: to.length } });
+  return { visitor: v, told: to.length };
+}

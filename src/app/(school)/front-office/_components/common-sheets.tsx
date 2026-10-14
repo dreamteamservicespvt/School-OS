@@ -137,7 +137,7 @@ async function PassSheet({ close, v, met, canCheckOut, canSend, masked, tz, scho
             {(expired || out) && <span className="absolute top-1/2 -translate-y-1/2 px-4 py-1.5 rounded-xl bg-bad text-white font-display font-semibold text-[20px] -rotate-6 shadow-pop">{out ? "Checked out" : "Expired"}</span>}
           </div>
         </div>
-        {!out && (
+        {!out && canSend && (
           <div className="grid grid-cols-2 gap-2 w-full">
             <a href={`${BASE}/visitors/${v.id}/pass`} target="_blank" rel="noopener" className={buttonClass("secondary")}><Printer size={17} aria-hidden="true" />Print</a>
             {canSend && !expired ? <ActButton action={sendPassAction} fields={{ visitorId: v.id }} label="Send to phone" icon="message" variant="secondary" size="md" className="w-full" pendingText="Sending…" />

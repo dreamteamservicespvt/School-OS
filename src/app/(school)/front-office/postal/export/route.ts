@@ -7,6 +7,7 @@ import { foFeaturesOn } from "@/lib/front-office/settings";
 import { POSTAL_STATUS_KEYS, postalWhere } from "@/lib/front-office/postal";
 import { POSTAL_STATUS } from "@/lib/front-office/words";
 import { foExport, plain, rangeWords } from "../../_lib/export";
+import { foPageAllowed } from "@/lib/front-office/access";
 
 export const dynamic = "force-dynamic";
 const TYPE_WORDS: Record<string, string> = { LETTER: "Letter", COURIER: "Courier", PARCEL: "Parcel" };
@@ -14,7 +15,7 @@ const TYPE_WORDS: Record<string, string> = { LETTER: "Letter", COURIER: "Courier
 export async function GET(req: Request) {
   const x = await foExport(req);
   if (x instanceof Response) return x;
-  if (!x.can.desk) return plain("Only the reception desk exports the postal register.", 403);
+  if (!foPageAllowed(x.v, "postal")) return plain("You do not have permission to export the postal register.", 403);
   const range = await x.range("last30");
   const status = POSTAL_STATUS_KEYS.includes(x.get("status")) ? x.get("status") : "all";
   const q = x.get("q");

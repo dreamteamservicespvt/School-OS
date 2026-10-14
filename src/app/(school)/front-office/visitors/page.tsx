@@ -18,7 +18,9 @@ import { Chips, SegLinks } from "@/components/ui/blocks";
 import { PeriodFilter } from "@/components/list/period-filter";
 import { UrlSearch } from "@/components/money/url-filters";
 import { Banner, Col, DataList, Empty, Split, Stack, Stats, Toolbar } from "@/components/money/kit";
-import { FoHead } from "../_components/head";
+import { FoHead, FoManageMenu } from "../_components/head";
+import { ActButton } from "../_components/fields";
+import { remindDeskAction } from "../actions";
 import { CommonSheets } from "../_components/common-sheets";
 import { GateEntrySheet } from "../_components/visitor-sheets";
 import { CheckSheet } from "../_components/pass-check";
@@ -115,9 +117,10 @@ export default async function VisitorsPage({ searchParams }: { searchParams: Sea
       <FoHead pageName="Visitors" href={HREF}
         sub={gate ? "At the gate only: register visitors, record vehicles and check passes" : `Visitor log · every pass expires by itself at ${p.passEndWords}`}
         actions={<>
-          <ButtonLink href={`${sheetHref}${sheetHref.includes("?") ? "&" : "?"}check=`} scroll={false} variant="secondary" icon={ScanLine}>Check a pass</ButtonLink>
+          {p.can.gateWork && <ButtonLink href={`${sheetHref}${sheetHref.includes("?") ? "&" : "?"}check=`} scroll={false} variant="secondary" icon={ScanLine}>Check a pass</ButtonLink>}
           {gate && gateLogOn && p.can.gateWork && <ButtonLink href={addQ(sheetHref, { do: "gate" })} scroll={false} variant="secondary" icon={Car}>Gate entry</ButtonLink>}
           {p.can.register && <ButtonLink href={addQ(sheetHref, { do: "visitor" })} scroll={false} variant="primary" icon={UserPlus}>Add visitor</ButtonLink>}
+          {p.can.manage && !p.may("desk") && <FoManageMenu href={sheetHref} />}
         </>} />
       <Stack>
         <Stats items={[
@@ -128,7 +131,8 @@ export default async function VisitorsPage({ searchParams }: { searchParams: Sea
         ]} />
         {firstExpired && !gate && (
           <Banner tone="bad" title={`${data.expired.length} visitor${data.expired.length === 1 ? "" : "s"} not checked out${firstExpired.visitDate.getTime() === p.today.getTime() ? " today" : ""}:`}
-            action={p.can.checkOut ? <ButtonLink href={addQ(sheetHref, { out: firstExpired.id })} scroll={false} size="sm" variant="secondary" icon={LogOut}>Check out with the right time</ButtonLink> : undefined}>
+            action={p.can.checkOut ? <ButtonLink href={addQ(sheetHref, { out: firstExpired.id })} scroll={false} size="sm" variant="secondary" icon={LogOut}>Check out with the right time</ButtonLink>
+              : p.can.remind ? <ActButton action={remindDeskAction} fields={{ visitorId: firstExpired.id }} label="Remind" icon="send" pendingText="Sending…" /> : undefined}>
             {firstExpired.name}, pass {firstExpired.passNo}, expired at {clockAt(firstExpired.passExpiresAt, p.tz)} on {firstExpired.visitDate.getTime() === p.today.getTime() ? "today" : dayMonth(firstExpired.visitDate)}.
           </Banner>
         )}
@@ -150,7 +154,7 @@ export default async function VisitorsPage({ searchParams }: { searchParams: Sea
               <DataList rows={rows} rowKey={(v) => v.id} minWidth={860} rowHref={(v) => addQ(sheetHref, { pass: v.id })} caption="Visitor log"
                 footer={`Showing ${rows.length} visitor${rows.length === 1 ? "" : "s"} · ${vp.label.toLowerCase()}${isToday && data.expired.some((e) => e.visitDate.getTime() !== p.today.getTime()) ? ", with passes not closed" : ""}`}
                 columns={[
-                  { key: "name", label: "Visitor", render: (v) => <div className="flex items-center gap-3"><Avatar name={v.name} size={36} src={v.photoFileId ? fileLink(v.photoFileId, v.schoolId) : null} /><div className="min-w-0"><p className="font-semibold leading-tight">{v.name}</p><p className="text-[12px] text-ink3 tnum">{phoneOf(v.phone)}{v.peopleCount > 1 ? ` · ${v.peopleCount} people` : ""}</p></div></div> },
+                  { key: "name", label: "Visitor", render: (v) => <div className="flex items-center gap-3"><Avatar name={v.name} size={36} src={v.photoFileId ? fileLink(v.photoFileId, v.schoolId) : null} /><div className="min-w-0"><p className="font-semibold leading-tight">{v.name}</p><p className="text-[12px] text-ink3 tnum whitespace-nowrap">{phoneOf(v.phone)}{v.peopleCount > 1 ? ` · ${v.peopleCount} people` : ""}</p></div></div> },
                   { key: "purpose", label: "Purpose", render: (v) => <div><p className="text-[13.5px]">{v.purpose}</p>{v.note && <p className="text-[12px] text-ink3">{v.note}</p>}</div> },
                   { key: "meet", label: "To meet", render: (v) => { const r = replyOf(v.staffReply); const st = visitorStatus(v, now); return <div><p className="text-[13.5px]">{staffName(v.meetStaffId) || <span className="text-ink3">—</span>}</p>{r && st === "In" && <p className={cx("text-[12px] font-semibold", { ok: "text-ok", warn: "text-warn", bad: "text-bad" }[r.tone])}>Replied: {r.label}</p>}</div>; } },
                   { key: "veh", label: "Vehicle", nowrap: true, render: (v) => (v.vehicleNo ? <span className="font-mono text-[12.5px]">{v.vehicleNo}</span> : <span className="text-ink3">—</span>) },

@@ -8,13 +8,14 @@ import { momentWhere } from "@/lib/periods";
 import { callLogWhere } from "@/lib/front-office/calls";
 import { CALL_STATUS, maskPhone, showPhone } from "@/lib/front-office/words";
 import { foExport, plain, rangeWords } from "../../_lib/export";
+import { foPageAllowed } from "@/lib/front-office/access";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   const x = await foExport(req);
   if (x instanceof Response) return x;
-  if (!x.can.desk) return plain("Only the reception desk exports the call log.", 403);
+  if (!foPageAllowed(x.v, "enquiries")) return plain("You do not have permission to export the call log.", 403);
   const range = await x.range("today");
   const purpose = x.get("purpose") || "all";
   const q = x.get("q");

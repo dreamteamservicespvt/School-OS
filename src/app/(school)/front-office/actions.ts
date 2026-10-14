@@ -10,7 +10,8 @@ import { formValues } from "@/lib/forms";
 import { DuplicateProblem, type Match } from "@/lib/admission/enquiries";
 import { foAction, inFrontOffice, need, problemState, str, id, optionalId, maybe, file, UUID_RE } from "@/lib/front-office/act";
 import { FrontOfficeProblem } from "@/lib/front-office/problem";
-import { addGateEntry, checkOutVisitor, registerVisitor, replyToVisitor, returningVisitor, type ReturningVisitor } from "@/lib/front-office/visitors";
+import { addGateEntry, checkOutVisitor, registerVisitor, remindDeskAboutPass, replyToVisitor, returningVisitor, type ReturningVisitor } from "@/lib/front-office/visitors";
+import { loginsWithRole } from "@/lib/front-office/people";
 import { letOut, refusedPickup, releaseStudent, sendPickupCode } from "@/lib/front-office/pickup";
 import { closeCall, deskEnquiry, logCall, recognisePhone, setCallFollowUp, type KnownPhone } from "@/lib/front-office/calls";
 import { addNote, addWalkIn, clearNote, closeWalkIn, editNote } from "@/lib/front-office/desk";
@@ -77,6 +78,14 @@ export async function checkOutAction(_: S, fd: FormData): Promise<S> {
     const r = await checkOutVisitor(w.tx, w.ctx, id(fd, "visitorId", "visitor"), { timeZone: w.tz, leftAtMinute: hhmm(fd, "timeOut", "time out"), atGate: w.v.level === "gate" });
     return { ...r, words: clockAt(r.at, w.tz) };
   }, (r) => ({ message: `${r.visitor.name} checked out at ${r.words}. Pass ${r.visitor.passNo} no longer works.`, undo: { kind: "fo-checkout", id: r.visitor.id } }));
+}
+
+/** Principal, School Admin, Vice Principal: remind the desk to close an expired pass (they do not do desk work themselves). */
+export async function remindDeskAction(_: S, fd: FormData): Promise<S> {
+  return foAction("view", fd, async (w) => {
+    need(w.can.remind, "remind the desk");
+    return remindDeskAboutPass(w.tx, w.ctx, id(fd, "visitorId", "visitor"), await loginsWithRole(w.tx, w.ctx, "receptionist"), { timeZone: w.tz });
+  }, (r) => `Reminder sent to the front desk: close pass ${r.visitor.passNo} with the right time.`);
 }
 
 export async function sendPassAction(_: S, fd: FormData): Promise<S> {
@@ -317,7 +326,7 @@ export async function clearNoteAction(_: S, fd: FormData): Promise<S> {
 export async function slotsFor(staffId: string, dayIso: string, length: number, rescheduleId?: string | null) {
   try {
     return await inFrontOffice("create", async (w) => {
-      if (!w.can.desk || !UUID_RE.test(staffId) || !/^\d{4}-\d{2}-\d{2}$/.test(dayIso)) return null;
+      if (!w.can.book || !UUID_RE.test(staffId) || !/^\d{4}-\d{2}-\d{2}$/.test(dayIso)) return null;
       const plan = await dayPlan(w.tx, w.ctx, staffId, dayIso, { timeZone: w.tz, length: [15, 30, 45].includes(length) ? length : 15, ignoreId: rescheduleId && UUID_RE.test(rescheduleId) ? rescheduleId : null });
       if (!plan) return null;
       return { leave: plan.leave, free: plan.free, taken: plan.segments.filter((s) => s.kind !== "noshow" && s.appointmentId !== rescheduleId).map((s) => ({ start: s.start, label: s.label, kind: s.kind })) };
@@ -329,7 +338,7 @@ export async function slotsFor(staffId: string, dayIso: string, length: number, 
 
 export async function bookAction(_: S, fd: FormData): Promise<S> {
   return foAction("create", fd, async (w) => {
-    need(w.can.desk, "book appointments");
+    need(w.can.book, "book appointments");
     const startMin = Number(str(fd, "startMin"));
     if (!str(fd, "startMin") || !Number.isFinite(startMin)) throw new FrontOfficeProblem("Pick a free slot.", "startMin");
     return bookAppointment(w.tx, w.ctx, {
@@ -343,13 +352,13 @@ export async function appointmentStatusAction(_: S, fd: FormData): Promise<S> {
   const status = str(fd, "status");
   if (status === "ARRIVED") {
     return foAction("create", fd, async (w) => {
-      need(w.can.desk, "change appointments");
+      need(w.can.book, "change appointments");
       return arriveAppointment(w.tx, w.ctx, id(fd, "appointmentId", "appointment"), { timeZone: w.tz });
     }, (r) => ({ message: `${r.appointment.visitorName} arrived at ${r.at}. Visitor pass ${r.visitor.passNo} made${r.meetName ? `; ${r.meetName} told` : ""}.` }));
   }
   if (!["DONE", "NO_SHOW", "CANCELLED"].includes(status)) return { ok: false, message: "Choose what happened." };
   return foAction("edit", fd, async (w) => {
-    need(w.can.desk, "change appointments");
+    need(w.can.book, "change appointments");
     return setAppointmentStatus(w.tx, w.ctx, id(fd, "appointmentId", "appointment"), status as "DONE" | "NO_SHOW" | "CANCELLED", { timeZone: w.tz });
   }, (r) => ({
     message: `${r.appointment.visitorName}: ${status === "NO_SHOW" ? "no-show" : status.toLowerCase()}.${status === "CANCELLED" ? (r.sent ? ` A message went to the visitor ${r.sent}.` : " Call the visitor to tell them.") : ""}`,
@@ -359,7 +368,7 @@ export async function appointmentStatusAction(_: S, fd: FormData): Promise<S> {
 
 export async function remindAction(_: S, fd: FormData): Promise<S> {
   return foAction("edit", fd, async (w) => {
-    need(w.can.desk, "send reminders");
+    need(w.can.book, "send reminders");
     return remindAppointment(w.tx, w.ctx, id(fd, "appointmentId", "appointment"));
   }, (r) => `Reminder sent to ${r.appointment.visitorName} ${r.sent ?? ""}: ${clockOf(r.appointment.startMin)} with ${r.staffName}.`);
 }

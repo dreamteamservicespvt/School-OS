@@ -42,7 +42,9 @@ export default async function EnquiriesPage({ searchParams }: { searchParams: Se
   const purpose = one(sp.purpose) || "all";
   const phones = p.can.parentPhones;
   const admSee = p.current.permissions["admission-management"].see !== "none";
-  const admCreate = can(p.current.permissions, "admission-management", "create");
+  // The Principal and School Admin read this page; only the desk logs calls and takes enquiries (owner's rule, 13 Oct 2026).
+  const desk = p.can.desk;
+  const admCreate = desk && can(p.current.permissions, "admission-management", "create");
   const period = foPeriod(sp, p.dates, view === "calls" ? "today" : "last7");
   const range = period.range!;
   const span = momentWhere(range, p.tz);
@@ -73,7 +75,7 @@ export default async function EnquiriesPage({ searchParams }: { searchParams: Se
       tx.staff.findMany({ where: { id: { in: enquiries.map((e) => e.ownerStaffId).filter((x): x is string => Boolean(x)) } }, select: { id: true, fullName: true } }),
       tx.task.findMany({ where: { id: { in: requests.map((r) => r.taskId).filter((x): x is string => Boolean(x)) } }, select: { id: true, status: true } }),
     ]);
-    const fuId = UUID.test(one(sp.fu)) ? one(sp.fu) : null;
+    const fuId = desk && UUID.test(one(sp.fu)) ? one(sp.fu) : null;
     const fuCall = fuId ? await tx.callLogEntry.findFirst({ where: { id: fuId, archivedAt: null } }) : null;
     return { enqToday, callsToday, followUps, complaints, enquiries, calls, requests, logins, classes, owners, tasks, fuCall };
   });
@@ -92,10 +94,10 @@ export default async function EnquiriesPage({ searchParams }: { searchParams: Se
   return (
     <div>
       <FoHead pageName="Enquiries & Calls" href={HREF} sub="Walk-in and phone enquiries go straight to Admission Management. Every call is logged."
-        actions={<>
+        actions={desk ? <>
           <ButtonLink href={addQ(sheetHref, { do: "call" })} scroll={false} variant="secondary" icon={PhoneCall}>Log a call</ButtonLink>
           {admCreate && <ButtonLink href={addQ(sheetHref, { do: "enquiry" })} scroll={false} variant="primary" icon={Plus}>New enquiry</ButtonLink>}
-        </>} />
+        </> : null} />
       <Stack>
         <Stats items={[
           { label: "Enquiries today", value: String(data.enqToday.length), sub: data.enqToday.length ? `${walkIn} walk-in, ${data.enqToday.length - walkIn} phone` : "None yet", icon: UserPlus, href: qs(HREF, { period: "today" }), active: view === "enq" },
@@ -151,18 +153,18 @@ export default async function EnquiriesPage({ searchParams }: { searchParams: Se
                 { key: "purpose", label: "Purpose", render: (c) => <div className="max-w-[260px]"><p className="text-[13.5px] font-medium">{c.purpose}</p>{c.note && <p className="text-[12px] text-ink3">{c.note}</p>}{c.queryNo && c.queryId && <Link href={`/communication/queries/${c.queryId}`} className="relative z-[1] text-[12px] font-semibold text-brand hover:underline">Query {c.queryNo}</Link>}</div> },
                 { key: "fu", label: "Follow-up", render: (c) => (c.status === "FOLLOW_UP" && c.followUpAt ? <span className={cx("text-[13px] font-semibold", c.followUpAt <= now ? "text-bad" : "text-warn")}>{timeWords(c.followUpAt)}{c.followUpLoginId ? ` · ${loginName(c.followUpLoginId)}` : ""}</span> : <span className="text-ink3">—</span>) },
                 { key: "st", label: "Status", render: (c) => { const s = CALL_STATUS[c.status] ?? CALL_STATUS.CLOSED; return <Pill tone={s.tone}>{s.label}</Pill>; } },
-                { key: "act", label: "", render: (c) => <RowMenu label={`Actions for the call with ${c.name}`} items={callItems(c, sheetHref, phones)} /> },
+                { key: "act", label: "", render: (c) => (desk ? <RowMenu label={`Actions for the call with ${c.name}`} items={callItems(c, sheetHref, phones)} /> : null) },
               ]}
-              phone={(c) => ({ title: c.name, sub: `${timeWords(c.at)} · ${c.purpose} · ${ph(c)}`, icon: c.direction === "IN" ? PhoneIncoming : PhoneOutgoing, iconTone: c.direction === "IN" ? "info" : "neutral", right: <RowMenu label={`Actions for the call with ${c.name}`} items={callItems(c, sheetHref, phones)} />, pills: c.status === "FOLLOW_UP" && c.followUpAt ? <Pill tone="warn" className="!h-[22px] !text-[11.5px]">Follow-up: {timeWords(c.followUpAt)}</Pill> : undefined })}
+              phone={(c) => ({ title: c.name, sub: `${timeWords(c.at)} · ${c.purpose} · ${ph(c)}`, icon: c.direction === "IN" ? PhoneIncoming : PhoneOutgoing, iconTone: c.direction === "IN" ? "info" : "neutral", right: desk ? <RowMenu label={`Actions for the call with ${c.name}`} items={callItems(c, sheetHref, phones)} /> : undefined, pills: c.status === "FOLLOW_UP" && c.followUpAt ? <Pill tone="warn" className="!h-[22px] !text-[11.5px]">Follow-up: {timeWords(c.followUpAt)}</Pill> : undefined })}
               empty={q || purpose !== "all" ? <Empty icon={SearchX} title="No call matches" body="Try another name, purpose or date range." action={<ButtonLink href={qs(HREF, { view: "calls" })} variant="secondary">Clear filters</ButtonLink>} />
-                : <Empty icon={Phone} title="No calls logged on these dates" body="Log incoming and outgoing calls so nothing is forgotten." action={<ButtonLink href={addQ(sheetHref, { do: "call" })} scroll={false} variant="secondary" icon={PhoneCall}>Log a call</ButtonLink>} />} />
+                : <Empty icon={Phone} title="No calls logged on these dates" body="Log incoming and outgoing calls so nothing is forgotten." action={desk ? <ButtonLink href={addQ(sheetHref, { do: "call" })} scroll={false} variant="secondary" icon={PhoneCall}>Log a call</ButtonLink> : undefined} />} />
           </Card>
         )}
 
         {view === "requests" && (
           <Card className="overflow-hidden">
             <CardHeader title="Walk-in requests" description="Each has a number the person can ask about. The status follows the department’s task." icon={ClipboardList}
-              action={<ButtonLink href={addQ(sheetHref, { do: "walkin" })} scroll={false} size="sm" variant="soft" icon={Plus}>New request</ButtonLink>} />
+              action={desk ? <ButtonLink href={addQ(sheetHref, { do: "walkin" })} scroll={false} size="sm" variant="soft" icon={Plus}>New request</ButtonLink> : undefined} />
             <Toolbar>
               <UrlSearch id="req-search" placeholder="Request number, like REQ-2026-0012, or name" />
               <PeriodFilter {...p.dates} fallback="last7" />
@@ -175,11 +177,11 @@ export default async function EnquiriesPage({ searchParams }: { searchParams: Se
                 { key: "from", label: "From", render: (r) => <div><p className="text-[13.5px]">{r.fromName}</p>{r.about && <p className="text-[12px] text-ink3">{r.about}</p>}</div> },
                 { key: "dept", label: "Department", render: (r) => <div><p className="text-[13.5px]">{r.department}</p>{r.handlerLoginId && <p className="text-[12px] text-ink3">{loginName(r.handlerLoginId)}</p>}</div> },
                 { key: "st", label: "Status", render: (r) => { const s = REQUEST_STATUS[requestStatus(r, data.tasks.find((t) => t.id === r.taskId))] ?? REQUEST_STATUS.SENT; return <Pill tone={s.tone}>{s.label}</Pill>; } },
-                { key: "act", label: "", render: (r) => requestStatus(r, data.tasks.find((t) => t.id === r.taskId)) === "DONE" ? null : <RowMenu label={`Actions for ${r.requestNo}`} items={[{ label: "Mark done", icon: "done", action: closeWalkInAction, fields: { requestId: r.id } }]} /> },
+                { key: "act", label: "", render: (r) => !desk || requestStatus(r, data.tasks.find((t) => t.id === r.taskId)) === "DONE" ? null : <RowMenu label={`Actions for ${r.requestNo}`} items={[{ label: "Mark done", icon: "done", action: closeWalkInAction, fields: { requestId: r.id } }]} /> },
               ]}
               phone={(r) => { const s = REQUEST_STATUS[requestStatus(r, data.tasks.find((t) => t.id === r.taskId))] ?? REQUEST_STATUS.SENT; return { title: r.request, sub: `${r.requestNo} · ${r.fromName} · ${r.department}`, icon: ClipboardList, iconTone: s.tone, pills: <Pill tone={s.tone} className="!h-[22px] !text-[11.5px]">{s.label}</Pill> }; }}
               empty={q ? <Empty icon={SearchX} title={`No request matches “${q}”`} body="Check the number on the person’s slip or message, or try a wider date range." action={<ButtonLink href={qs(HREF, { view: "requests", period: "last30" })} variant="secondary">Show the last 30 days</ButtonLink>} />
-                : <Empty icon={ClipboardList} title="No walk-in requests on these dates" body="A parent asking for a bonafide certificate or a fee statement gets a request number." action={<ButtonLink href={addQ(sheetHref, { do: "walkin" })} scroll={false} variant="secondary" icon={Plus}>Walk-in request</ButtonLink>} />} />
+                : <Empty icon={ClipboardList} title="No walk-in requests on these dates" body="A parent asking for a bonafide certificate or a fee statement gets a request number." action={desk ? <ButtonLink href={addQ(sheetHref, { do: "walkin" })} scroll={false} variant="secondary" icon={Plus}>Walk-in request</ButtonLink> : undefined} />} />
           </Card>
         )}
       </Stack>

@@ -37,7 +37,7 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
   const p = await foGuard("appointments");
   const sp = await searchParams;
   const ctx = p.current.ctx;
-  const desk = p.can.desk;
+  const desk = p.can.book;
   const dayIso = ISO.test(one(sp.day)) && one(sp.day) >= addDaysIso(p.todayStr, -365) && one(sp.day) <= addDaysIso(p.todayStr, 180) ? one(sp.day) : p.todayStr;
   const isToday = dayIso === p.todayStr;
 

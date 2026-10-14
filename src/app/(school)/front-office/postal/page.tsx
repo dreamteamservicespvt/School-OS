@@ -37,8 +37,10 @@ export default async function PostalPage({ searchParams }: { searchParams: Searc
   const span = momentWhere(range, p.tz);
   const today = momentWhere({ period: "today", from: p.todayStr, to: p.todayStr, label: "Today" }, p.tz);
   const week = momentWhere({ period: "last7", from: addDaysIso(p.todayStr, -6), to: p.todayStr, label: "Last 7 days" }, p.tz);
-  const handId = UUID.test(one(sp.hand)) ? one(sp.hand) : null;
-  const adding = one(sp.do) === "received" || one(sp.do) === "sent" ? one(sp.do) : null;
+  // The School Admin reads the register; only the desk records and hands over (owner's rule, 13 Oct 2026).
+  const desk = p.can.desk;
+  const handId = desk && UUID.test(one(sp.hand)) ? one(sp.hand) : null;
+  const adding = desk && (one(sp.do) === "received" || one(sp.do) === "sent") ? one(sp.do) : null;
 
   const data = await withSchool(ctx, async (tx) => {
     const where = (st: string) => postalWhere({ from: span.gte, to: span.lt, status: st, q, atDeskAlways: true });
@@ -72,10 +74,10 @@ export default async function PostalPage({ searchParams }: { searchParams: Searc
   return (
     <div>
       <FoHead pageName="Postal & Deliveries" href={HREF} sub="Letters, couriers and parcels received and sent. The person it is for is told on the app."
-        actions={<>
+        actions={desk ? <>
           <ButtonLink href={addQ(here, { do: "sent" })} scroll={false} variant="secondary" icon={Send}>Record sent item</ButtonLink>
           <ButtonLink href={addQ(here, { do: "received" })} scroll={false} variant="primary" icon={PackagePlus}>Record received item</ButtonLink>
-        </>} />
+        </> : null} />
       <Stack>
         <Stats items={[
           { label: "At the desk", value: String(data.atDesk), sub: data.oldest ? `Oldest since ${dayOf(data.oldest.at) === p.todayStr ? "today" : dayMonth(new Date(`${dayOf(data.oldest.at)}T00:00:00Z`))}` : "Nothing waiting", tone: data.atDesk ? "warn" : undefined, icon: Inbox, href: qs(HREF, { status: "AT_DESK" }), active: status === "AT_DESK" },
@@ -91,7 +93,7 @@ export default async function PostalPage({ searchParams }: { searchParams: Searc
           </Toolbar>
           <div className="px-3 pt-3 pb-1"><Chips value={status} options={chips} label="Postal status" /></div>
           <DataList rows={data.rows} rowKey={(r) => r.id} minWidth={900} caption="Postal register"
-            rowHref={(r) => (r.status === "AT_DESK" ? addQ(here, { hand: r.id }) : null)}
+            rowHref={(r) => (desk && r.status === "AT_DESK" ? addQ(here, { hand: r.id }) : null)}
             footer={`Showing ${data.rows.length} entr${data.rows.length === 1 ? "y" : "ies"} · ${period.label.toLowerCase()}${data.atDesk ? ", with every item still at the desk" : ""}`}
             columns={[
               { key: "d", label: "Date", nowrap: true, render: (r) => <div><p className="text-[13px] tnum">{when(r.at)}</p><p className="text-[11.5px] text-ink3 font-mono">{r.entryNo}</p></div> },
@@ -100,11 +102,11 @@ export default async function PostalPage({ searchParams }: { searchParams: Searc
               { key: "for", label: "For", render: (r) => <span className="text-[13.5px]">{r.forText}</span> },
               { key: "track", label: "Courier and tracking", render: (r) => <div><p className="text-[13px]">{r.courier ?? "—"}</p>{r.trackingNo && <p className="text-[12px] text-ink3 font-mono">{r.trackingNo}</p>}</div> },
               { key: "st", label: "Status", render: (r) => { const s = POSTAL_STATUS[r.status] ?? POSTAL_STATUS.SENT; return <div><Pill tone={s.tone}>{s.label}</Pill>{r.handedToName && <p className="text-[11.5px] text-ink3 mt-1">{r.handedToName}{r.handedAt ? `, ${clockAt(r.handedAt, p.tz)}` : ""}</p>}</div>; } },
-              { key: "act", label: "", render: (r) => (r.status === "AT_DESK" ? <ButtonLink href={addQ(here, { hand: r.id })} scroll={false} size="sm" variant="secondary" icon={HandHelping} className="relative z-[1]">Hand over</ButtonLink> : null) },
+              { key: "act", label: "", render: (r) => (desk && r.status === "AT_DESK" ? <ButtonLink href={addQ(here, { hand: r.id })} scroll={false} size="sm" variant="secondary" icon={HandHelping} className="relative z-[1]">Hand over</ButtonLink> : null) },
             ]}
             phone={(r) => { const s = POSTAL_STATUS[r.status] ?? POSTAL_STATUS.SENT; return { title: r.party, sub: `${r.direction === "RECEIVED" ? "Received" : "Sent"} · ${TYPE_WORDS[r.itemType] ?? r.itemType} · for ${r.forText}`, icon: r.direction === "RECEIVED" ? ArrowDownToLine : ArrowUpFromLine, iconTone: r.status === "AT_DESK" ? "warn" : "neutral", pills: <Pill tone={s.tone} className="!h-[22px] !text-[11.5px]">{s.label}</Pill> }; }}
             empty={q || status !== "all" ? <Empty icon={SearchX} title="No entry matches" body="Try the tracking number, the sender or a wider date range." action={<ButtonLink href={HREF} variant="secondary">Clear filters</ButtonLink>} />
-              : <Empty icon={Inbox} title="No letters or parcels on these dates" body="Record each letter, courier and parcel so nothing is lost at the desk." action={<ButtonLink href={addQ(here, { do: "received" })} scroll={false} variant="secondary" icon={PackagePlus}>Record received item</ButtonLink>} />} />
+              : <Empty icon={Inbox} title="No letters or parcels on these dates" body="Record each letter, courier and parcel so nothing is lost at the desk." action={desk ? <ButtonLink href={addQ(here, { do: "received" })} scroll={false} variant="secondary" icon={PackagePlus}>Record received item</ButtonLink> : undefined} />} />
         </Card>
       </Stack>
       {adding && <PostalSheet closeHref={here} received={adding === "received"} forOptions={forOptions} />}

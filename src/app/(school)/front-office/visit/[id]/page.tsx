@@ -40,7 +40,7 @@ export default async function VisitPage({ params }: { params: Promise<{ id: stri
   if (!data) notFound();
   const { v, staff, isMe } = data;
   // Only the person being visited, and the front desk, may see the visit.
-  if (!isMe && !can.desk && foViewer(current).level !== "view") notFound();
+  if (!isMe && !can.desk && !can.remind) notFound();
 
   const status = visitorStatus(v);
   const reply = replyOf(v.staffReply);

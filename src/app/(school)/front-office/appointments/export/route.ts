@@ -5,13 +5,14 @@ import { buildExport, exportResponse, logExport, type ExportColumn } from "@/lib
 import { formatDate } from "@/lib/format";
 import { APPOINTMENT_STATUS, clockOf, maskPhone, showPhone } from "@/lib/front-office/words";
 import { foExport, plain, rangeWords } from "../../_lib/export";
+import { foPageAllowed } from "@/lib/front-office/access";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   const x = await foExport(req);
   if (x instanceof Response) return x;
-  if (!(x.v.level === "full" || x.v.level === "view")) return plain("You do not have permission to export appointments.", 403);
+  if (!foPageAllowed(x.v, "appointments")) return plain("You do not have permission to export appointments.", 403);
   const day = x.get("day");
   const range = /^\d{4}-\d{2}-\d{2}$/.test(day) ? { period: "custom" as const, from: day, to: day, label: day } : await x.range("today");
   const words = rangeWords(range);

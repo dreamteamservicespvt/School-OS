@@ -333,6 +333,10 @@ model CalendarEntry {
   attendanceOn   Boolean   @default(false) @map("attendance_on")
   /// What made it, e.g. "exam:<id>" or "event:<id>". Empty for typed entries.
   source         String?
+  /// Applies to these classes only (exams, events, PTMs). Empty: the whole school or campus.
+  classIds       String[]  @default([]) @map("class_ids") @db.Uuid
+  /// More details (Events & Calendar, Add to calendar).
+  details        String?
   createdById    String?   @map("created_by_id") @db.Uuid
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedById    String?   @map("updated_by_id") @db.Uuid

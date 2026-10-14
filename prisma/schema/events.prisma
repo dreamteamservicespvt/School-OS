@@ -1,0 +1,293 @@
+// 18 Events & Calendar: school events with registration, attendance,
+// seating, payments, volunteers and reminders; PTM days with each teacher's
+// slots and meeting notes; and the photo gallery with photo consent. The
+// School Calendar itself is Calendar Entry (academic.prisma). Records of
+// other modules (Student, Guardian, Staff, Section, Student Fee Due,
+// Stored File) are kept by id.
+
+/// Events Settings (18 §6): one per school.
+model EventsSetting {
+  schoolId          String   @id @map("school_id") @db.Uuid
+  /// Offered when creating an event.
+  eventTypes        String[] @default(["Annual day", "Sports day", "Cultural", "Competition", "Trip", "Safety drill", "Meeting", "Alumni"]) @map("event_types")
+  venues            String[] @default(["Assembly hall", "Auditorium", "Library hall", "School ground", "Classrooms", "Outside the school"])
+  /// Weekends besides Sunday: these switch attendance off (shown on the calendar).
+  secondSaturdayOff Boolean  @default(false) @map("second_saturday_off")
+  fourthSaturdayOff Boolean  @default(false) @map("fourth_saturday_off")
+  ptmSlotMinutes    Int      @default(10) @map("ptm_slot_minutes")
+  /// Hour (0-23, school time) on the evening before a PTM when parents with a slot are reminded.
+  ptmReminderHour   Int      @default(18) @map("ptm_reminder_hour")
+  /// OUT: leave photos with students without photo consent out. BLUR: blur those students.
+  galleryRule       String   @default("OUT") @map("gallery_rule")
+  /// Calendar feed for Google or Outlook (read only).
+  feedOn            Boolean  @default(false) @map("feed_on")
+  /// Changing it stops old feed links working.
+  feedVersion       Int      @default(1) @map("feed_version")
+  updatedById       String?  @map("updated_by_id") @db.Uuid
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@map("events_setting")
+}
+
+/// Event: a school event (04-data-model.md). Shows on the School Calendar as a Calendar Entry.
+model Event {
+  id              String              @id @default(uuid()) @db.Uuid
+  schoolId        String              @map("school_id") @db.Uuid
+  academicYearId  String              @map("academic_year_id") @db.Uuid
+  campusId        String?             @map("campus_id") @db.Uuid
+  /// EV-26-027, given once, never reused.
+  number          String
+  name            String
+  type            String
+  date            DateTime            @db.Date
+  /// Minutes after midnight, school time.
+  startMin        Int                 @map("start_min")
+  endMin          Int?                @map("end_min")
+  venue           String?
+  /// school, classes, staff, parents, alumni.
+  audienceKind    String              @default("school") @map("audience_kind")
+  classIds        String[]            @default([]) @map("class_ids") @db.Uuid
+  audienceLabel   String              @map("audience_label")
+  registrationOn  Boolean             @default(false) @map("registration_on")
+  seats           Int?
+  /// Fee per student, added to the student's fees as one row per event.
+  feePaise        BigInt?             @map("fee_paise")
+  feeHeadId       String?             @map("fee_head_id") @db.Uuid
+  /// 1d, 2d, morning, none.
+  reminder        String              @default("1d")
+  reminderSentAt  DateTime?           @map("reminder_sent_at")
+  /// PLANNED, OPEN (open for registration), CANCELLED. "Done" is a past date.
+  status          String              @default("PLANNED")
+  cancelReason    String?             @map("cancel_reason")
+  cancelledAt     DateTime?           @map("cancelled_at")
+  calendarEntryId String?             @map("calendar_entry_id") @db.Uuid
+  description     String?
+  createdById     String?             @map("created_by_id") @db.Uuid
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedById     String?             @map("updated_by_id") @db.Uuid
+  updatedAt       DateTime            @updatedAt @map("updated_at")
+  archivedAt      DateTime?           @map("archived_at")
+  registrations   EventRegistration[]
+  volunteers      EventVolunteer[]
+  reminders       EventReminder[]
+
+  @@unique([schoolId, number])
+  @@index([schoolId, date])
+  @@map("event")
+}
+
+/// Event Registration: one student taking part, with their fee row, seat and attendance (Event Attendance and Event Seat).
+model EventRegistration {
+  id             String    @id @default(uuid()) @db.Uuid
+  schoolId       String    @map("school_id") @db.Uuid
+  eventId        String    @map("event_id") @db.Uuid
+  studentId      String    @map("student_id") @db.Uuid
+  /// The Student Fee Due made for the event fee: one per student per event.
+  dueId          String?   @map("due_id") @db.Uuid
+  seat           String?
+  /// Null until attendance is marked.
+  attended       Boolean?
+  markedAt       DateTime? @map("marked_at")
+  markedById     String?   @map("marked_by_id") @db.Uuid
+  registeredById String?   @map("registered_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  withdrawnAt    DateTime? @map("withdrawn_at")
+  withdrawnById  String?   @map("withdrawn_by_id") @db.Uuid
+  event          Event     @relation(fields: [eventId], references: [id])
+
+  @@unique([eventId, studentId])
+  @@index([schoolId, studentId])
+  @@map("event_registration")
+}
+
+/// Event Volunteer: staff, students or parents helping, with their duty.
+model EventVolunteer {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  eventId     String    @map("event_id") @db.Uuid
+  /// staff, student, parent, other.
+  kind        String
+  personId    String?   @map("person_id") @db.Uuid
+  name        String
+  duty        String
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  archivedAt  DateTime? @map("archived_at")
+  event       Event     @relation(fields: [eventId], references: [id])
+
+  @@index([schoolId, eventId])
+  @@map("event_volunteer")
+}
+
+/// Event Reminder: one reminder sent to the audience (by a person, or automatically before the event).
+model EventReminder {
+  id        String   @id @default(uuid()) @db.Uuid
+  schoolId  String   @map("school_id") @db.Uuid
+  eventId   String   @map("event_id") @db.Uuid
+  /// reminder, cancelled, changed.
+  kind      String   @default("reminder")
+  people    Int
+  messageId String?  @map("message_id") @db.Uuid
+  note      String
+  sentById  String?  @map("sent_by_id") @db.Uuid
+  sentAt    DateTime @default(now()) @map("sent_at")
+  event     Event    @relation(fields: [eventId], references: [id])
+
+  @@index([schoolId, eventId])
+  @@map("event_reminder")
+}
+
+/// PTM: one parent-teacher meeting day for some classes.
+model Ptm {
+  id              String       @id @default(uuid()) @db.Uuid
+  schoolId        String       @map("school_id") @db.Uuid
+  academicYearId  String       @map("academic_year_id") @db.Uuid
+  date            DateTime     @db.Date
+  classIds        String[]     @map("class_ids") @db.Uuid
+  classesLabel    String       @map("classes_label")
+  startMin        Int          @map("start_min")
+  endMin          Int          @map("end_min")
+  slotMinutes     Int          @map("slot_minutes")
+  venue           String?
+  /// The waiting queue on the day (large schools).
+  queueOpen       Boolean      @default(false) @map("queue_open")
+  summarySentAt   DateTime?    @map("summary_sent_at")
+  calendarEntryId String?      @map("calendar_entry_id") @db.Uuid
+  createdById     String?      @map("created_by_id") @db.Uuid
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+  archivedAt      DateTime?    @map("archived_at")
+  teachers        PtmTeacher[]
+  slots           PtmSlot[]
+
+  @@index([schoolId, date])
+  @@map("ptm")
+}
+
+/// A teacher meeting parents on a PTM day: the class teachers of the chosen classes, and subject teachers added.
+model PtmTeacher {
+  id         String   @id @default(uuid()) @db.Uuid
+  schoolId   String   @map("school_id") @db.Uuid
+  ptmId      String   @map("ptm_id") @db.Uuid
+  staffId    String   @map("staff_id") @db.Uuid
+  /// "Class teacher, 7 B" or "Mathematics, 6 A–7 B".
+  label      String
+  sectionIds String[] @map("section_ids") @db.Uuid
+  sortOrder  Int      @default(0) @map("sort_order")
+  ptm        Ptm      @relation(fields: [ptmId], references: [id])
+
+  @@unique([ptmId, staffId])
+  @@map("ptm_teacher")
+}
+
+/// PTM Slot: one teacher's time slot on a PTM day; booked for one student's parent at most.
+model PtmSlot {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  ptmId       String    @map("ptm_id") @db.Uuid
+  staffId     String    @map("staff_id") @db.Uuid
+  startMin    Int       @map("start_min")
+  studentId   String?   @map("student_id") @db.Uuid
+  guardianId  String?   @map("guardian_id") @db.Uuid
+  bookedById  String?   @map("booked_by_id") @db.Uuid
+  bookedAt    DateTime? @map("booked_at")
+  arrivedAt   DateTime? @map("arrived_at")
+  remindedAt  DateTime? @map("reminded_at")
+  ptm         Ptm       @relation(fields: [ptmId], references: [id])
+
+  @@unique([ptmId, staffId, startMin])
+  @@index([schoolId, ptmId, studentId])
+  @@map("ptm_slot")
+}
+
+/// PTM Meeting Note: what was said at one meeting. Shown on the student's profile (Activities).
+model PtmMeetingNote {
+  id          String   @id @default(uuid()) @db.Uuid
+  schoolId    String   @map("school_id") @db.Uuid
+  slotId      String   @unique @map("slot_id") @db.Uuid
+  ptmId       String   @map("ptm_id") @db.Uuid
+  studentId   String   @map("student_id") @db.Uuid
+  staffId     String   @map("staff_id") @db.Uuid
+  remarks     String?
+  feedback    String?
+  followUp    String?  @map("follow_up")
+  createdById String?  @map("created_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedById String?  @map("updated_by_id") @db.Uuid
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([schoolId, studentId])
+  @@map("ptm_meeting_note")
+}
+
+/// Album: photos and videos of an event (Gallery).
+model Album {
+  id            String      @id @default(uuid()) @db.Uuid
+  schoolId      String      @map("school_id") @db.Uuid
+  /// AL-19, given once.
+  number        String
+  name          String
+  eventId       String?     @map("event_id") @db.Uuid
+  date          DateTime    @db.Date
+  /// STAFF, CLASSES, EVERYONE. Staff only until changed.
+  visibleTo     String      @default("STAFF") @map("visible_to")
+  classIds      String[]    @default([]) @map("class_ids") @db.Uuid
+  /// OUT or BLUR: what happens to photos with students without photo consent.
+  consentRule   String      @default("OUT") @map("consent_rule")
+  /// DRAFT, PUBLISHED, ARCHIVED.
+  status        String      @default("DRAFT")
+  /// Changing it stops old shared links working.
+  shareVersion  Int         @default(1) @map("share_version")
+  sharedAt      DateTime?   @map("shared_at")
+  publishedAt   DateTime?   @map("published_at")
+  publishedById String?     @map("published_by_id") @db.Uuid
+  createdById   String?     @map("created_by_id") @db.Uuid
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+  items         MediaItem[]
+
+  @@unique([schoolId, number])
+  @@index([schoolId, date])
+  @@map("album")
+}
+
+/// Media Item: one photo or video in an album.
+model MediaItem {
+  id           String     @id @default(uuid()) @db.Uuid
+  schoolId     String     @map("school_id") @db.Uuid
+  albumId      String     @map("album_id") @db.Uuid
+  fileId       String     @map("file_id") @db.Uuid
+  /// PHOTO or VIDEO.
+  kind         String     @default("PHOTO")
+  /// Marked "No students" by a person (no tags needed).
+  noStudents   Boolean    @default(false) @map("no_students")
+  /// The copy with students without photo consent blurred, and which tags it was made for.
+  blurFileId   String?    @map("blur_file_id") @db.Uuid
+  blurKey      String?    @map("blur_key")
+  uploadedById String?    @map("uploaded_by_id") @db.Uuid
+  createdAt    DateTime   @default(now()) @map("created_at")
+  archivedAt   DateTime?  @map("archived_at")
+  album        Album      @relation(fields: [albumId], references: [id])
+  tags         MediaTag[]
+
+  @@index([schoolId, albumId])
+  @@map("media_item")
+}
+
+/// Media Tag: a student shown in a photo or video, with where they are in the photo (for blurring).
+model MediaTag {
+  id         String    @id @default(uuid()) @db.Uuid
+  schoolId   String    @map("school_id") @db.Uuid
+  mediaId    String    @map("media_id") @db.Uuid
+  studentId  String    @map("student_id") @db.Uuid
+  /// Where the student's face is, as a share of the width and height (0 to 1). Empty: blur the whole photo.
+  x          Float?
+  y          Float?
+  taggedById String?   @map("tagged_by_id") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at")
+  media      MediaItem @relation(fields: [mediaId], references: [id])
+
+  @@unique([mediaId, studentId])
+  @@index([schoolId, studentId])
+  @@map("media_tag")
+}

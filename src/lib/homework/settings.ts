@@ -61,5 +61,12 @@ export function lateAfter(dueDate: Date, timeZone: string, graceMinutes: number)
   return new Date(dayStartUtc(next, timeZone).getTime() + graceMinutes * 60_000);
 }
 
+/** The School Features Homework & Learning reads: its optional pages and the teacher assistant. */
+export async function homeworkFeatures(tx: Tx, ctx: SchoolContext): Promise<Set<string>> {
+  const keys = [...OPTIONAL_PAGES.map((o) => o.feature), "ai-assistant", "ai-teacher-assistant"];
+  const rows = await tx.schoolFeature.findMany({ where: { schoolId: ctx.schoolId, isOn: true, featureKey: { in: keys } }, select: { featureKey: true } });
+  return new Set(rows.map((r) => r.featureKey));
+}
+
 /** The teacher assistant drafts only when the school has AI and the teacher assistant on (Settings, Modules On/Off). */
 export const assistantOn = (features: ReadonlySet<string>) => features.has("ai-assistant") && features.has("ai-teacher-assistant");

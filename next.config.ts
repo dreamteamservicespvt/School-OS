@@ -12,6 +12,8 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   serverExternalPackages: ["@node-rs/argon2"],
+  // Homework hand-ins and study material carry photos and PDFs of up to 10 MB each (17 §6).
+  experimental: { serverActions: { bodySizeLimit: "25mb" } },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

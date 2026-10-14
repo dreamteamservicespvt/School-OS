@@ -21,7 +21,7 @@ export type GiveSection = {
   roster: { id: string; name: string; rollNo: number | null }[];
 };
 
-function Text({ name, label, start, required, placeholder, help, value, onValue, area, rows = 3, className }: {
+export function Text({ name, label, start, required, placeholder, help, value, onValue, area, rows = 3, className }: {
   name: string; label: string; start?: string; required?: boolean; placeholder?: string; help?: React.ReactNode;
   value?: string; onValue?: (v: string) => void; area?: boolean; rows?: number; className?: string;
 }) {

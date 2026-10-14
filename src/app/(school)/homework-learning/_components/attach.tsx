@@ -5,7 +5,7 @@
 // the files go with the form; each one can be taken off again before sending.
 
 import { useRef, useState } from "react";
-import { Camera, CircleCheck, FileImage, FileText, Link2, Paperclip, X } from "lucide-react";
+import { Camera, CircleCheck, FileImage, FileText, Link2, Paperclip, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { inputCls } from "@/components/ui/field";
 import { useTyped } from "@/components/ui/url-sheet";
@@ -35,7 +35,7 @@ function FileInput({ name, accept, capture, f }: { name: string; accept: string;
 }
 
 /** "Photo of the board", "File" and "Link" buttons with the list of what was added. */
-export function AttachPicker({ links = true, maxMb = 10, errorName = "attachments" }: { links?: boolean; maxMb?: number; errorName?: string }) {
+export function AttachPicker({ links = true, maxMb = 10, errorName = "attachments", lesson = false }: { links?: boolean; maxMb?: number; errorName?: string; lesson?: boolean }) {
   const photos = useFiles();
   const files = useFiles();
   const [urls, setUrls] = useState<string[]>([]);
@@ -54,14 +54,14 @@ export function AttachPicker({ links = true, maxMb = 10, errorName = "attachment
       <FileInput name="files" accept={ACCEPT} f={files} />
       {urls.map((u, i) => <input key={`${i}${u}`} type="hidden" name="links" value={u} />)}
       <div className="flex flex-wrap gap-2">
-        <Button size="sm" variant="secondary" icon={Camera} onClick={photos.open}>Photo of the board</Button>
-        <Button size="sm" variant="secondary" icon={Paperclip} onClick={files.open}>File</Button>
-        {links && <Button size="sm" variant="secondary" icon={Link2} onClick={() => setLinkOpen(true)}>Link</Button>}
+        {!lesson && <Button size="sm" variant="secondary" icon={Camera} onClick={photos.open}>Photo of the board</Button>}
+        <Button size="sm" variant="secondary" icon={lesson ? Upload : Paperclip} onClick={files.open}>{lesson ? "Upload files" : "File"}</Button>
+        {links && <Button size="sm" variant="secondary" icon={Link2} onClick={() => setLinkOpen(true)}>{lesson ? "Add a link" : "Link"}</Button>}
       </div>
       {linkOpen && (
         <div className="flex gap-2">
           <label htmlFor="attach-link" className="sr-only">Web address</label>
-          <input id="attach-link" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="https://ncert.nic.in/…" autoFocus
+          <input id="attach-link" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={lesson ? "https://youtu.be/… or a web page" : "https://ncert.nic.in/…"} autoFocus
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addLink(); } }} className={cx(inputCls(), "h-10")} />
           <Button size="sm" variant="soft" onClick={addLink}>Add</Button>
         </div>

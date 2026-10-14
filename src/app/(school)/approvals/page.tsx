@@ -18,6 +18,7 @@ import { ListToolbar } from "@/components/list/list-toolbar";
 import { EmptyState } from "@/components/empty-state";
 import { CheckCheck, Inbox, SearchX } from "lucide-react";
 import { ApprovalList, type ApprovalRow } from "./approval-list";
+import { askerJobs } from "@/lib/approval-people";
 
 export const metadata: Metadata = { title: "Approvals" };
 
@@ -62,7 +63,8 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
     const ids = [...new Set(rows.flatMap((r) => [r.askedById, r.currentApproverId].filter((x): x is string => Boolean(x))))];
     const people = await tx.userLogin.findMany({ where: { id: { in: ids } }, select: { id: true, displayName: true } });
     const roles = await tx.role.findMany({ select: { key: true, name: true } });
-    return { rows, total, counts: new Map(counts), rules, decidable, people: new Map(people.map((p) => [p.id, p.displayName])), roles: new Map(roles.map((r) => [r.key, r.name])) };
+    const jobs = await askerJobs(tx, rows.map((r) => r.askedById));
+    return { rows, total, counts: new Map(counts), rules, decidable, jobs, people: new Map(people.map((p) => [p.id, p.displayName])), roles: new Map(roles.map((r) => [r.key, r.name])) };
   });
 
   const now = new Date();
@@ -82,6 +84,8 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
       status: statusWords(a.status, a.history),
       waitingFor: open ? (a.currentApproverId ? (a.currentApproverId === current.user.id ? "you" : data.people.get(a.currentApproverId) ?? "a person") : a.currentApproverRole ? `the ${data.roles.get(a.currentApproverRole) ?? a.currentApproverRole}` : null) : null,
       decidable: data.decidable.has(a.id),
+      job: a.askedById === current.user.id ? null : data.jobs.get(a.askedById) ?? null,
+      reason: a.reason,
       overdue: open && workingDaysBetween(new Date(last?.at ?? a.createdAt), now) >= days,
     };
   });

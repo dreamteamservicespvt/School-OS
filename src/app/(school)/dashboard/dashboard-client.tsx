@@ -275,7 +275,10 @@ export function ApprovalsCard({ count, rows }: { count: number; rows: ApprovalCa
                   <Avatar name={a.who} size={34} />
                   <div className="min-w-0 flex-1">
                     <p className="text-[13.5px] font-semibold leading-snug">{a.who}</p>
+                    {a.as && <p className="text-[12px] text-ink2">{a.as}</p>}
                     <p className="text-[12.5px] text-ink3">{a.what}{a.amount ? ` · ${a.amount}` : ""}</p>
+                    {a.why && <p className="text-[12.5px] text-ink2 line-clamp-2">“{a.why}”</p>}
+                    <span className="inline-flex items-center gap-0.5 text-brand font-semibold text-[12px] mt-0.5">See details<I.ChevronRight size={14} aria-hidden="true" /></span>
                   </div>
                 </Link>
                 <div className="flex gap-2 mt-2 pl-[46px]">

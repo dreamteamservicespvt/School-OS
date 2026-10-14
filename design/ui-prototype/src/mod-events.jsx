@@ -1271,16 +1271,26 @@ const ACTS = [
   { id: 'play', label: 'Outdoor play', time: '2:45 PM', icon: 'Footprints', opts: ['Played', 'Stayed in'] },
 ];
 
+// Activities due by 10:44 AM today (Rhymes, Snack, Water) and how many each class teacher has logged
+const PRE_TODAY = {
+  'UKG A': { absent: 1, due: 3, logged: 3 }, 'UKG B': { absent: 0, due: 3, logged: 3 }, 'LKG A': { absent: 2, due: 3, logged: 2, missing: 'Water' },
+  'LKG B': { absent: 1, due: 3, logged: 3 }, 'Nursery A': { absent: 0, due: 3, logged: 1, missing: 'Snack and Water' },
+};
+const PRE_ABSENT = { 'UKG A': ['Ayaan Khan'], 'UKG B': [], 'LKG A': ['Ishaan Das', 'Veda Singh'], 'LKG B': ['Prisha Joshi'], 'Nursery A': [] };
 function DailyActivities({ access }) {
   const toast = useToast();
   const canEdit = useCanEdit();
   const own = access === 'own';
   const [cls, setCls] = useState('UKG A');
-  const absent = new Set(['Ayaan Khan']);
-  const present = KIDS.filter((k) => !absent.has(k));
+  const P = PRE.find((p) => p.id === cls);
+  const kids = KIDS.slice(0, P.n);
+  const absent = new Set(PRE_ABSENT[cls]);
+  const present = kids.filter((k) => !absent.has(k));
+  const g = PRE_TODAY[cls];
+  const has = (k, id) => { if (absent.has(k)) return null; const v = log[k] && log[k][id]; const ix = ACTS.findIndex((a) => a.id === id); return ix < 3 && ix >= g.logged ? null : v; };
   const [log, setLog] = useState(() => {
     const o = {};
-    KIDS.forEach((k, i) => { if (absent.has(k)) return; o[k] = { rhymes: i % 9 === 4 ? 'Watched' : 'Took part', snack: ['Ate all', 'Ate all', 'Ate half', 'Ate all', 'Ate a little'][i % 5], ...(i % 6 !== 5 ? { water: i % 3 ? '2 glasses' : '1 glass' } : {}) }; });
+    KIDS.forEach((k, i) => { o[k] = { rhymes: i % 9 === 4 ? 'Watched' : 'Took part', snack: ['Ate all', 'Ate all', 'Ate half', 'Ate all', 'Ate a little'][i % 5], ...(i % 6 !== 5 ? { water: i % 3 ? '2 glasses' : '1 glass' } : {}) }; });
     return o;
   });
   const [act, setAct] = useState('colour');
@@ -1290,8 +1300,9 @@ function DailyActivities({ access }) {
   const [send, setSend] = useState(false);
   const [plan, setPlan] = useState(false);
   const A = ACTS.find((a) => a.id === act);
-  const done = (id) => present.filter((k) => log[k] && log[k][id]).length;
+  const done = (id) => present.filter((k) => has(k, id)).length;
   const [per, setPer] = useState(PERIODS.last7);
+  const [reminded, setReminded] = useState(new Set());
   if (own) return <NotForRole title="Daily Activities is for pre-primary classes" body="The daily diary is kept by Nursery to UKG class teachers. Your part of Events & Calendar is the School Calendar and your PTM slots." />;
   // School days in the chosen dates, newest first, for the diary history
   const histDays = [];
@@ -1308,13 +1319,103 @@ function DailyActivities({ access }) {
           <Button variant="primary" icon={I.Send} onClick={() => setSend(true)}>Send today’s diary</Button>
         </>} />
       <div className="flex flex-col gap-5 @lg:gap-6">
-        <div className="flex flex-col @lg:flex-row gap-2.5 @lg:items-center">
-          <Chips className="flex-1 min-w-0" value={cls} onChange={setCls} options={PRE.map((p) => ({ value: p.id, label: p.id, count: p.n }))} />
-        </div>
-        <p className="text-[13.5px] text-ink3 -mt-2">{cls} · class teacher {PRE.find((p) => p.id === cls).teacher} · Fri, 9 Oct · <b className="font-semibold text-ink2">{present.length} present</b>, 1 absent (Ayaan Khan)</p>
-        <Split side={340}>
-          <Card className="overflow-hidden min-w-0">
-            <CardHead title="Today’s diary" sub="Tap a column to log it for the whole class" icon={I.NotebookPen} />
+        {canEdit && <div className="flex flex-col @lg:flex-row gap-2.5 @lg:items-center">
+          <Chips className="flex-1 min-w-0" value={cls} onChange={(v) => { setCls(v); setPick(new Set(KIDS.slice(0, PRE.find((p) => p.id === v).n).filter((k) => !PRE_ABSENT[v].includes(k)))); }} options={PRE.map((p) => ({ value: p.id, label: p.id, count: p.n }))} />
+        </div>}
+        {canEdit && <p className="text-[13.5px] text-ink3 -mt-2">{cls} · class teacher {PRE.find((p) => p.id === cls).teacher} · Fri, 9 Oct · <b className="font-semibold text-ink2">{present.length} present</b>{absent.size ? `, ${absent.size} absent (${[...absent].join(', ')})` : ', no one absent'}</p>}
+        {canEdit ? (
+          <Split side={360}>
+            <Card className="overflow-hidden min-w-0">
+              <CardHead title={canEdit ? 'Today’s diary' : `Today’s diary · ${cls}`} sub={canEdit ? 'Tap a column to log it for the whole class' : `${cls} · ${P.teacher} · ${present.length} present${absent.size ? `, ${absent.size} absent` : ''} · parents get it at 3:30 PM`} icon={I.NotebookPen} />
+              <div className="overflow-x-auto scroll-thin border-t border-line">
+                <table className="text-[12.5px] min-w-full">
+                  <thead>
+                    <tr className="border-b border-line text-ink3">
+                      <th className="sticky left-0 z-10 bg-surface text-left font-semibold px-4 py-2 min-w-[150px]">Child</th>
+                      {ACTS.map((a) => (
+                        <th key={a.id} className="px-1.5 py-2 font-semibold min-w-[96px]">
+                          <button disabled={!canEdit} onClick={() => { setAct(a.id); setVal(a.opts[0]); }} className={cx('w-full rounded-lg px-1.5 py-1 text-left transition', canEdit && act === a.id ? 'bg-brand/10 text-brand' : canEdit ? 'hover:bg-sunken' : 'cursor-default')}>
+                            <span className="flex items-center gap-1 whitespace-nowrap"><Icon name={a.icon} size={13} />{a.label.split(':')[0]}</span>
+                            <span className="block text-[11px] font-medium opacity-90 tnum">{a.time} · {done(a.id)}/{present.length}</span>
+                          </button>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {kids.map((k) => (
+                      <tr key={k} className={cx('border-b border-line/60 last:border-0', absent.has(k) && 'opacity-90')}>
+                        <td className="sticky left-0 z-10 bg-surface px-4 py-2 font-medium whitespace-nowrap">{k}{absent.has(k) && <span className="text-bad text-[11.5px] font-semibold"> · absent</span>}</td>
+                        {ACTS.map((a) => {
+                          const v = has(k, a.id);
+                          return <td key={a.id} className="px-1.5 py-1.5">{v ? <span className={cx('inline-block rounded-md px-1.5 py-0.5 text-[11.5px] font-semibold whitespace-nowrap', /not|Did not|Few|little|Stayed|Rested|Watched/i.test(v) ? 'bg-warn/12 text-warn' : 'bg-ok/12 text-ok')}>{v}</span> : <span className="text-ink3">—</span>}</td>;
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+            <Col>
+              <Card>
+                <CardHead title={`Log: ${A.label}`} sub={`${A.time} · tick the children, then save once`} icon={I.CheckCheck} />
+                <div className="px-5 pb-5 flex flex-col gap-3.5">
+                  <div className="flex flex-wrap gap-1.5">{A.opts.map((o) => <button key={o} onClick={() => setVal(o)} aria-pressed={val === o} className={cx('h-8 px-3 rounded-full text-[13px] font-semibold transition', val === o ? 'bg-ink text-bg' : 'bg-sunken text-ink2 hover:bg-line')}>{o}</button>)}</div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5"><p className="text-[13px] font-semibold text-ink2">Children · {pick.size} ticked</p><button onClick={() => setPick(pick.size === present.length ? new Set() : new Set(present))} className="text-[12.5px] font-semibold text-brand">{pick.size === present.length ? 'Untick all' : 'Tick all present'}</button></div>
+                    <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto scroll-thin">
+                      {present.map((k) => <button key={k} onClick={() => setPick((x) => { const n = new Set(x); n.has(k) ? n.delete(k) : n.add(k); return n; })} aria-pressed={pick.has(k)} className={cx('h-8 px-2.5 rounded-lg text-[12.5px] font-medium border transition', pick.has(k) ? 'border-brand bg-brand/8 text-brand' : 'border-line text-ink3')}>{k.split(' ')[0]}</button>)}
+                    </div>
+                  </div>
+                  <Field label="Note" id="da-note" hint="Optional, for the ticked children"><Input id="da-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="For example: had extra chapati" /></Field>
+                  {canEdit && <Button variant="primary" icon={I.Check} disabled={!pick.size} onClick={() => { const prev = log; setLog((x) => { const n = { ...x }; pick.forEach((k) => { n[k] = { ...(n[k] || {}), [act]: val }; }); return n; }); toast({ title: `${A.label} logged for ${pick.size} children`, body: `${val}${note ? ` · ${note}` : ''}`, undo: () => setLog(prev) }); setNote(''); }}>Save for {pick.size} children</Button>}
+                </div>
+              </Card>
+              <Card>
+                <CardHead title="Diaries sent" sub={`${cls} · ${per.label} · ${fmtRange(per)}`} icon={I.History} />
+                <div className="px-5 pb-3"><DatePeriod id="da-per" size="sm" value={per} onChange={setPer} className="w-full" /></div>
+                {histDays.length ? (
+                  <ul className="px-2 pb-2 max-h-72 overflow-y-auto scroll-thin">
+                    {histDays.slice(0, 40).map((d, i) => {
+                      const iso = ds(d.getFullYear(), d.getMonth(), d.getDate());
+                      const isToday = iso === TODAY;
+                      return <li key={iso}><Row icon={isToday ? 'NotebookPen' : 'Send'} iconTone={isToday ? 'brand' : 'ok'} title={nice(iso) + (d.getFullYear() !== 2026 ? ` ${d.getFullYear()}` : '')} sub={isToday ? 'Being filled in now · usually sent at 3:30 PM' : `Sent ${3 + (i % 2)}:${pad((i * 7) % 60)} PM · ${PRE.find((p) => p.id === cls).n - (i % 3)} parents · ${pctOf(i)}% of activities logged`} /></li>;
+                    })}
+                    {histDays.length > 40 && <li className="px-3 py-2 text-[12.5px] text-ink3">And {histDays.length - 40} earlier school days. Pick shorter dates to see them.</li>}
+                  </ul>
+                ) : <Empty icon={I.CalendarX2} title="No school days in these dates" body="Holidays, Sundays and second Saturdays have no diary." />}
+              </Card>
+              <Card>
+                <CardHead title="Diary filled in" sub={`Days with the full diary · ${fmtRange(per)}`} icon={I.ChartColumn} />
+                <div className="px-5 pb-5"><HBars rows={PRE.map((p, i) => ({ k: p.id.replace('Nursery', 'Nur'), v: Math.min(100, [97, 90, 92, 88, 96][i] - (histDays.length > 30 ? 2 : 0)) }))} lowBelow={90} labelWidth={64} /></div>
+              </Card>
+            </Col>
+          </Split>
+        ) : (
+          <>
+            <Card>
+              <CardHead title="Today in each class" sub="Activities due by now (10:44 AM) and logged by the class teacher · tap a class to read its diary" icon={I.Baby} />
+              <div className="grid grid-cols-1 @sm:grid-cols-2 @lg:grid-cols-3 @xl:grid-cols-5 gap-2.5 px-4 pb-4">
+                {PRE.map((p) => {
+                  const g = PRE_TODAY[p.id]; const on = cls === p.id; const behind = g.logged < g.due;
+                  return (
+                    <div key={p.id} className={cx('rounded-xl border p-3 flex flex-col gap-2 min-w-0', on ? 'border-brand bg-brand/10' : 'border-line')}>
+                      <button type="button" onClick={() => setCls(p.id)} aria-pressed={on} className="text-left min-w-0">
+                        <span className="flex items-baseline justify-between gap-2"><span className="font-semibold text-[14.5px]">{p.id}</span><span className="text-[12.5px] text-ink2 tnum shrink-0"><b className="text-ink">{p.n - g.absent}</b> of {p.n} in</span></span>
+                        <span className="block text-[12.5px] text-ink3 truncate">{p.teacher}</span>
+                        <Progress value={(g.logged / g.due) * 100} tone={behind ? 'warn' : 'ok'} className="mt-2" />
+                        <span className={cx('block text-[12.5px] mt-1.5', behind ? 'text-warn font-semibold' : 'text-ink3')}>{behind ? `${g.missing} not logged yet` : `${g.logged} of ${g.due} logged`}</span>
+                      </button>
+                      {behind && (reminded.has(p.id)
+                        ? <span className="text-[12.5px] text-ok font-semibold flex items-center gap-1"><I.Check size={14} />Reminded</span>
+                        : <Button size="sm" variant="secondary" icon={I.Bell} onClick={() => { setReminded((x) => new Set(x).add(p.id)); toast({ title: `Reminder sent to ${p.teacher}`, body: `${p.id}: ${g.missing} is not logged yet. On the app and WhatsApp.` }); }}>Remind {p.teacher.split(' ')[0]}</Button>)}
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+            <Card className="overflow-hidden min-w-0">
+            <CardHead title={canEdit ? 'Today’s diary' : `Today’s diary · ${cls}`} sub={canEdit ? 'Tap a column to log it for the whole class' : `${cls} · ${P.teacher} · ${present.length} present${absent.size ? `, ${absent.size} absent` : ''} · parents get it at 3:30 PM`} icon={I.NotebookPen} />
             <div className="overflow-x-auto scroll-thin border-t border-line">
               <table className="text-[12.5px] min-w-full">
                 <thead>
@@ -1322,7 +1423,7 @@ function DailyActivities({ access }) {
                     <th className="sticky left-0 z-10 bg-surface text-left font-semibold px-4 py-2 min-w-[150px]">Child</th>
                     {ACTS.map((a) => (
                       <th key={a.id} className="px-1.5 py-2 font-semibold min-w-[96px]">
-                        <button onClick={() => { setAct(a.id); setVal(a.opts[0]); }} className={cx('w-full rounded-lg px-1.5 py-1 text-left transition', act === a.id ? 'bg-brand/10 text-brand' : 'hover:bg-sunken')}>
+                        <button disabled={!canEdit} onClick={() => { setAct(a.id); setVal(a.opts[0]); }} className={cx('w-full rounded-lg px-1.5 py-1 text-left transition', canEdit && act === a.id ? 'bg-brand/10 text-brand' : canEdit ? 'hover:bg-sunken' : 'cursor-default')}>
                           <span className="flex items-center gap-1 whitespace-nowrap"><Icon name={a.icon} size={13} />{a.label.split(':')[0]}</span>
                           <span className="block text-[11px] font-medium opacity-90 tnum">{a.time} · {done(a.id)}/{present.length}</span>
                         </button>
@@ -1331,11 +1432,11 @@ function DailyActivities({ access }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {KIDS.map((k) => (
+                  {kids.map((k) => (
                     <tr key={k} className={cx('border-b border-line/60 last:border-0', absent.has(k) && 'opacity-90')}>
                       <td className="sticky left-0 z-10 bg-surface px-4 py-2 font-medium whitespace-nowrap">{k}{absent.has(k) && <span className="text-bad text-[11.5px] font-semibold"> · absent</span>}</td>
                       {ACTS.map((a) => {
-                        const v = log[k] && log[k][a.id];
+                        const v = has(k, a.id);
                         return <td key={a.id} className="px-1.5 py-1.5">{v ? <span className={cx('inline-block rounded-md px-1.5 py-0.5 text-[11.5px] font-semibold whitespace-nowrap', /not|Did not|Few|little|Stayed|Rested|Watched/i.test(v) ? 'bg-warn/12 text-warn' : 'bg-ok/12 text-ok')}>{v}</span> : <span className="text-ink3">—</span>}</td>;
                       })}
                     </tr>
@@ -1344,21 +1445,7 @@ function DailyActivities({ access }) {
               </table>
             </div>
           </Card>
-          <Col>
-            <Card className="@xl:sticky @xl:top-0">
-              <CardHead title={`Log: ${A.label}`} sub={`${A.time} · tick the children, then save once`} icon={I.CheckCheck} />
-              <div className="px-5 pb-5 flex flex-col gap-3.5">
-                <div className="flex flex-wrap gap-1.5">{A.opts.map((o) => <button key={o} onClick={() => setVal(o)} aria-pressed={val === o} className={cx('h-8 px-3 rounded-full text-[13px] font-semibold transition', val === o ? 'bg-ink text-bg' : 'bg-sunken text-ink2 hover:bg-line')}>{o}</button>)}</div>
-                <div>
-                  <div className="flex items-center justify-between mb-1.5"><p className="text-[13px] font-semibold text-ink2">Children · {pick.size} ticked</p><button onClick={() => setPick(pick.size === present.length ? new Set() : new Set(present))} className="text-[12.5px] font-semibold text-brand">{pick.size === present.length ? 'Untick all' : 'Tick all present'}</button></div>
-                  <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto scroll-thin">
-                    {present.map((k) => <button key={k} onClick={() => setPick((x) => { const n = new Set(x); n.has(k) ? n.delete(k) : n.add(k); return n; })} aria-pressed={pick.has(k)} className={cx('h-8 px-2.5 rounded-lg text-[12.5px] font-medium border transition', pick.has(k) ? 'border-brand bg-brand/8 text-brand' : 'border-line text-ink3')}>{k.split(' ')[0]}</button>)}
-                  </div>
-                </div>
-                <Field label="Note" id="da-note" hint="Optional, for the ticked children"><Input id="da-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="For example: had extra chapati" /></Field>
-                {canEdit && <Button variant="primary" icon={I.Check} disabled={!pick.size} onClick={() => { const prev = log; setLog((x) => { const n = { ...x }; pick.forEach((k) => { n[k] = { ...(n[k] || {}), [act]: val }; }); return n; }); toast({ title: `${A.label} logged for ${pick.size} children`, body: `${val}${note ? ` · ${note}` : ''}`, undo: () => setLog(prev) }); setNote(''); }}>Save for {pick.size} children</Button>}
-              </div>
-            </Card>
+            <div className="grid @xl:grid-cols-2 gap-5 @lg:gap-6 items-start [&>*]:min-w-0">
             <Card>
               <CardHead title="Diaries sent" sub={`${cls} · ${per.label} · ${fmtRange(per)}`} icon={I.History} />
               <div className="px-5 pb-3"><DatePeriod id="da-per" size="sm" value={per} onChange={setPer} className="w-full" /></div>
@@ -1377,8 +1464,9 @@ function DailyActivities({ access }) {
               <CardHead title="Diary filled in" sub={`Days with the full diary · ${fmtRange(per)}`} icon={I.ChartColumn} />
               <div className="px-5 pb-5"><HBars rows={PRE.map((p, i) => ({ k: p.id.replace('Nursery', 'Nur'), v: Math.min(100, [97, 90, 92, 88, 96][i] - (histDays.length > 30 ? 2 : 0)) }))} lowBelow={90} labelWidth={64} /></div>
             </Card>
-          </Col>
-        </Split>
+            </div>
+          </>
+        )}
       </div>
       <ConfirmSheet open={send} onClose={() => setSend(false)} title={`Send today’s diary to ${present.length} parents?`} sub={`${cls} · each parent gets only their own child’s day, by WhatsApp.`}
         confirmLabel={`Send to ${present.length} parents`} onConfirm={() => toast({ title: `Diary sent to ${present.length} parents`, body: `WhatsApp · ${present.length} credits. Activities logged after this go tomorrow.` })}>

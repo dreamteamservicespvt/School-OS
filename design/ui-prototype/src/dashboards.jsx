@@ -2,6 +2,7 @@
 // the top-bar Profile page for whoever is signed in, and the first-day Setup checklist of a new school.
 // Blueprint: modules/01-dashboard.md, modules/00-global.md §1.4, 07-super-admin.md §5.
 import React, { useState } from 'react';
+import { ApprovalWho, ApprovalSheet } from './other.jsx';
 import * as I from './icons.js';
 import { RECENT_PAYMENTS, CLASS_7B, inr } from './data.js';
 import { STAFF, ROUTES } from './sample.js';
@@ -259,10 +260,11 @@ function ApprovalsCard() {
   const { role } = useRole();
   const toast = useToast();
   const [list, setList] = useState(APPROVALS_BY_ROLE[role.id] || []);
+  const [openAp, setOpenAp] = useState(null);
   if (!(APPROVALS_BY_ROLE[role.id] || []).length) return null;
   const decide = (a, ok) => {
     setList((x) => x.filter((y) => y !== a));
-    toast({ title: `${ok ? 'Approved' : 'Declined'}: ${a.kind.toLowerCase()} for ${a.who.split(' (')[0].split(',')[0]}`, body: ok ? 'They have been told.' : 'They will see your reason.', undo: () => setList((x) => [a, ...x]) });
+    toast({ title: `${ok ? 'Approved' : 'Declined'}: ${a.kind.toLowerCase()} for ${a.who}`, body: ok ? 'They have been told.' : 'They will see your reason.', undo: () => setList((x) => [a, ...x]) });
   };
   return (
     <Card>
@@ -277,10 +279,7 @@ function ApprovalsCard() {
         <ul className="px-3 pb-3 flex flex-col gap-1">
           {list.map((a) => (
             <li key={a.who + a.what} className="p-2.5 rounded-xl hover:bg-sunken/70">
-              <div className="flex items-start gap-3">
-                <Avatar name={a.who} size={34} />
-                <div className="min-w-0 flex-1"><p className="text-[13.5px] font-semibold leading-snug">{a.who}</p><p className="text-[12.5px] text-ink3">{a.what}</p></div>
-              </div>
+              <div className="flex items-start gap-3"><ApprovalWho a={a} size={34} small onOpen={() => setOpenAp(a)} /></div>
               <div className="flex gap-2 mt-2 pl-[46px]">
                 <Button size="sm" variant="soft" icon={I.Check} onClick={() => decide(a, true)}>Approve</Button>
                 <Button size="sm" variant="ghost" onClick={() => decide(a, false)}>Decline</Button>
@@ -289,6 +288,7 @@ function ApprovalsCard() {
           ))}
         </ul>
       )}
+      <ApprovalSheet a={openAp} onClose={() => setOpenAp(null)} onDecide={decide} />
     </Card>
   );
 }

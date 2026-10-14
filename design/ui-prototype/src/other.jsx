@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import * as I from './icons.js';
 import { NAV, APPROVALS } from './data.js';
-import { cx, Card, CardHead, Button, Pill, Avatar, Switch, PageHead, useToast, Empty } from './ui.jsx';
+import { cx, Card, CardHead, Button, Pill, Avatar, Switch, PageHead, useToast, Empty, Sheet } from './ui.jsx';
+import { DL } from './kit.jsx';
+import { STAFF } from './sample.js';
 import { useNav, useTheme, useRole, approvalsFor, canOpen } from './shell.jsx';
 import { pageAccess } from './config.js';
 
@@ -10,7 +12,7 @@ import { pageAccess } from './config.js';
 const MONEY_PAGE = { Concession: ['fees', 'concessions'], Expense: ['finance', 'expenses'] };
 export function myApprovals(role, modulesOn) {
   return approvalsFor(role).filter((a) => {
-    if (role.id === 'schooladmin' && a.who === 'Office') return false;
+    if (role.id === 'schooladmin' && a.office) return false;
     const mp = MONEY_PAGE[a.kind];
     return !mp || (canOpen(role, mp.join('.'), modulesOn) && pageAccess(role.id, mp[0], mp[1], role.access[mp[0]]) !== 'view');
   });
@@ -123,6 +125,53 @@ function ThemeThumb({ kind, brand }) {
   );
 }
 
+// One request, shown the same way on Approvals and on every home screen: who is asking (their job), what, and a
+// tap opens the full story with a link to their profile.
+export function ApprovalWho({ a, onOpen, size = 42, small }) {
+  return (
+    <button type="button" onClick={onOpen} className="flex items-start gap-3 flex-1 min-w-0 text-left rounded-xl group" aria-label={`Details of ${a.who}'s request`}>
+      <Avatar name={a.who} size={size} />
+      <span className="min-w-0 flex-1">
+        <span className={cx('block font-semibold leading-snug group-hover:underline', small ? 'text-[13.5px]' : 'text-[15px]')}>{a.who}</span>
+        {a.as && <span className={cx('block text-ink2', small ? 'text-[12px]' : 'text-[13px]')}>{a.as}</span>}
+        <span className={cx('block text-ink3', small ? 'text-[12.5px]' : 'text-[13.5px]')}>{a.what}</span>
+        <span className={cx('inline-flex items-center gap-0.5 text-brand font-semibold mt-0.5', small ? 'text-[12px]' : 'text-[12.5px] @md:hidden')}>See details<I.ChevronRight size={14} /></span>
+      </span>
+    </button>
+  );
+}
+export function ApprovalSheet({ a, onClose, onDecide }) {
+  const { go } = useNav();
+  const { role, modulesOn } = useRole();
+  if (!a) return null;
+  const st = a.staff && STAFF.find((x) => x.id === a.staff);
+  const canStaff = st && canOpen(role, 'staff.list', modulesOn);
+  const canKid = a.student && role.access.students;
+  return (
+    <Sheet open onClose={onClose} title={`${a.kind} request`} sub={a.sent ? `Sent ${a.sent}` : undefined}
+      footer={<><Button variant="ghost" onClick={() => { onDecide(a, false); onClose(); }}>Decline</Button><Button variant="primary" icon={I.Check} onClick={() => { onDecide(a, true); onClose(); }}>Approve</Button></>}>
+      <div className="flex items-center gap-3 rounded-2xl bg-sunken/70 p-3.5">
+        <Avatar name={a.who} size={48} />
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-[15.5px] leading-snug">{a.who}</p>
+          {a.as && <p className="text-[13px] text-ink2">{a.as}</p>}
+          {st && <p className="text-[12.5px] text-ink3">{st.code} · {st.phone} · joined {st.joined}</p>}
+        </div>
+      </div>
+      {(canStaff || canKid) && (
+        <div className="flex flex-wrap gap-2 mt-3">
+          {canStaff && <Button size="sm" variant="secondary" icon={I.UserRound} onClick={() => { onClose(); go('staff', { page: 'profile', id: st.id }); }}>Open {a.who.split(' ')[0]}’s profile</Button>}
+          {canKid && <Button size="sm" variant="secondary" icon={I.GraduationCap} onClick={() => { onClose(); go('student', { id: a.student }); }}>Open student’s profile</Button>}
+        </div>
+      )}
+      <p className="text-[12px] text-ink3 font-semibold mt-5">What they ask</p>
+      <p className="text-[14.5px] mt-0.5">{a.what}</p>
+      {a.why && <><p className="text-[12px] text-ink3 font-semibold mt-3.5">Why</p><p className="text-[14.5px] mt-0.5">{a.why}</p></>}
+      {a.facts && <div className="-mx-5 mt-3.5"><DL rows={a.facts} /></div>}
+    </Sheet>
+  );
+}
+
 export function Approvals() {
   const toast = useToast();
   const { go } = useNav();
@@ -130,6 +179,7 @@ export function Approvals() {
   const [list, setList] = useState(() => myApprovals(role, modulesOn));
   const admin = role.id === 'principal' || role.id === 'schooladmin';
   const [support, setSupport] = useState(admin ? 'waiting' : null);
+  const [open, setOpen] = useState(null);
   const decide = (a, ok) => {
     setList((x) => x.filter((y) => y !== a));
     toast({ title: `${ok ? 'Approved' : 'Declined'}: ${a.what}`, undo: () => setList((x) => [a, ...x]) });
@@ -170,20 +220,21 @@ export function Approvals() {
           <ul className="divide-y divide-line/70">
             {list.map((a) => (
               <li key={a.who + a.what} className="flex flex-col @md:flex-row @md:items-center gap-3 p-4">
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <Avatar name={a.who} size={42} />
-                  <div className="min-w-0"><p className="font-semibold text-[15px]">{a.who}</p><p className="text-[13.5px] text-ink3">{a.what}</p></div>
-                  <Pill tone="info" className="ml-auto @md:ml-2">{a.kind}</Pill>
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <ApprovalWho a={a} onOpen={() => setOpen(a)} />
+                  <Pill tone="info" className="shrink-0">{a.kind}</Pill>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="soft" icon={I.Check} onClick={() => decide(a, true)}>Approve</Button>
-                  <Button variant="ghost" onClick={() => decide(a, false)}>Decline</Button>
+                  <Button variant="ghost" iconRight={I.ChevronRight} className="hidden @md:inline-flex" onClick={() => setOpen(a)}>Details</Button>
+                  <Button variant="soft" icon={I.Check} className="flex-1 @md:flex-none" onClick={() => decide(a, true)}>Approve</Button>
+                  <Button variant="ghost" className="flex-1 @md:flex-none" onClick={() => decide(a, false)}>Decline</Button>
                 </div>
               </li>
             ))}
           </ul>
         )}
       </Card>
+      <ApprovalSheet a={open} onClose={() => setOpen(null)} onDecide={decide} />
     </div>
   );
 }

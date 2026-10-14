@@ -361,7 +361,7 @@ const MORE_STAFF = [
     'Naresh Chary|Art teacher', 'Kalyani Sastry|Music teacher', 'Vijaya Lakshmi|PRT Telugu', 'Kusum Lata|PRT Hindi', 'Sowmya Rao|Special educator', 'Vasudha Iyer|Dance teacher',
     'Rekha Sharma|PRT', 'Fathima Begum|PRT', 'Madhavi Latha|PRT', 'Sujatha Rao|PRT', 'Anjali Verma|PRT', 'Vani Prasad|PRT', 'Hema Latha|PRT',
     'Saritha Reddy|PRT', 'Jyothi Naidu|PRT', 'Kavya Sree|PRT', 'Roopa Devi|PRT', 'Pushpa Latha|PRT', 'Neelima Rao|PRT', 'Swathi Goud|PRT', 'Sravanthi Rao|PRT',
-    'Padmaja Sastry|PRT', 'Aruna Kumari|PRT', 'Manjula Reddy|PRT', 'Sirisha Varma|PRT', 'Ramesh Babu|PRT', 'Leela Prasad|PRT', 'Nirmala Joseph|PRT', 'Gayathri Menon|PRT',
+    'Padmaja Sastry|PRT', 'Aruna Kumari|PRT', 'Manjula Reddy|PRT', 'Sirisha Varma|PRT', 'Leela Prasad|PRT', 'Nirmala Joseph|PRT', 'Gayathri Menon|PRT',
     'Sunil Kumar|PRT', 'Deepika Rao|PRT', 'Haritha Reddy|PRT'].map((x) => ['Teaching', ...x.split('|')]),
   ...['Shalini Verma|HR', 'Naveen Kumar|Office Staff', 'Divya Menon|Admission Counsellor', 'Sana Ali|Counsellor'].map((x) => ['Office', ...x.split('|')]),
   ['Accounts', 'Ramya Krishna', 'Accounts Assistant'],
@@ -424,6 +424,13 @@ function StaffInner({ access }) {
   const list = rows.filter((r) => (st === 'all' || r.st === st) && (dept === 'all' || r.dept === dept) && (!q || r.name.toLowerCase().includes(q.toLowerCase()) || r.code.toLowerCase().includes(q.toLowerCase()) || r.desig.toLowerCase().includes(q.toLowerCase())))
     .sort((a, b) => (b.st === 'Not in yet') - (a.st === 'Not in yet') || (b.st === 'Late') - (a.st === 'Late') || 0);
   const shown = list.slice(0, limit);
+  const dc = rows.filter((r) => dept === 'all' || r.dept === dept).reduce((a, r) => ((a[r.st] = (a[r.st] || 0) + 1), (a.all += 1), a), { all: 0 });
+  const depts = DEPARTMENTS.map(({ k }) => {
+    const rs = rows.filter((r) => r.dept === k);
+    const n0 = (x) => rs.filter((r) => r.st === x).length;
+    const d = { k, n: rs.length, in: n0('Present') + n0('Late'), late: n0('Late'), leave: n0('On leave'), notIn: n0('Not in yet') + n0('Absent') };
+    return { ...d, out: d.leave + d.notIn };
+  }).filter((d) => d.n);
   const lateAvg = Math.round(rows.filter((r) => r.st === 'Late').reduce((a, r) => a + r.late, 0) / Math.max(1, c.Late || 0));
   const update = (code, patch, msg, body) => { const before = rows; setRows((x) => x.map((r) => (r.code === code ? { ...r, ...patch } : r))); toast({ title: msg, body, undo: () => setRows(before) }); };
   const menu = (r) => [['PencilLine', 'Correct this entry', () => setFix(r)], ['CalendarDays', 'Month view', () => setMonth(r)], ['Timer', 'Record overtime', () => setOt(r)]].filter((x, i) => canEdit || i === 1);
@@ -440,22 +447,35 @@ function StaffInner({ access }) {
           { label: 'On leave', value: c['On leave'] || 0, sub: 'Approved in Staff & HR', icon: 'CalendarDays', onClick: () => setSt('On leave') },
           { label: 'Not in yet', value: c['Not in yet'] || 0, sub: c['Not in yet'] ? 'No punch by 10:42 AM' : 'Everyone is in', tone: c['Not in yet'] ? 'bad' : 'ok', icon: 'UserX', onClick: () => setSt('Not in yet') },
         ]} />
+        <Card>
+          <CardHead title="By department" sub={dept === 'all' ? 'Tap a department to see only its staff' : `Showing ${dept} only · tap it again for everyone`} icon={I.Building2} />
+          <div className="grid grid-cols-2 @md:grid-cols-4 gap-2.5 px-4 pb-4">
+            {depts.map((d) => {
+              const on = dept === d.k;
+              return (
+                <button key={d.k} type="button" aria-pressed={on} onClick={() => { setDept(on ? 'all' : d.k); setLimit(25); }}
+                  className={cx('text-left rounded-xl border p-3 transition-colors', on ? 'border-brand bg-brand/10' : 'border-line hover:bg-sunken/70')}>
+                  <span className="flex items-baseline justify-between gap-2"><span className="font-semibold text-[14px] truncate">{d.k}</span><span className="tnum text-[13px] text-ink2 shrink-0"><b className="text-ink">{d.in}</b> of {d.n}</span></span>
+                  <Progress value={(d.in / d.n) * 100} tone={d.out ? 'warn' : 'ok'} className="mt-2" />
+                  <span className={cx('block text-[12px] mt-1.5 leading-snug', d.out ? 'text-ink2' : 'text-ink3')}>{[d.late && `${d.late} late`, d.leave && `${d.leave} on leave`, d.notIn && `${d.notIn} not in`].filter(Boolean).join(' · ') || 'Everyone is in'}</span>
+                </button>
+              );
+            })}
+          </div>
+        </Card>
         <Split side={340}>
           <Card className="overflow-hidden">
             <Toolbar>
               <SearchBox id="sa-search" value={q} onChange={setQ} placeholder="Name, staff code or designation" />
-              <div className="flex gap-2"><Select id="sa-dept" value={dept} onChange={setDept} className="flex-1 @md:w-40" options={[{ value: 'all', label: 'All departments' }, ...DEPARTMENTS.map((d) => ({ value: d.k, label: `${d.k} (${d.n})` }))]} /><ExportButton what="staff attendance" /></div>
+              <div className="flex gap-2 items-center">{dept !== 'all' && <Button variant="secondary" icon={I.X} onClick={() => setDept('all')}>{dept}</Button>}<ExportButton what="staff attendance" /></div>
             </Toolbar>
-            <div className="px-3 pt-3"><Chips value={st} onChange={(v) => { setSt(v); setLimit(25); }} options={[{ value: 'all', label: 'Everyone', count: rows.length }, { value: 'Late', label: 'Late', count: c.Late || 0 }, { value: 'On leave', label: 'On leave', count: c['On leave'] || 0 }, { value: 'Not in yet', label: 'Not in yet', count: c['Not in yet'] || 0 }]} /></div>
-            <DataList rows={shown} rowKey={(r) => r.code} minWidth={820} onRow={(r) => setMonth(r)}
+            <div className="px-3 pt-3"><Chips value={st} onChange={(v) => { setSt(v); setLimit(25); }} options={[{ value: 'all', label: dept === 'all' ? 'Everyone' : `All in ${dept}`, count: dc.all }, { value: 'Late', label: 'Late', count: dc.Late || 0 }, { value: 'On leave', label: 'On leave', count: dc['On leave'] || 0 }, { value: 'Not in yet', label: 'Not in yet', count: dc['Not in yet'] || 0 }]} /></div>
+            <DataList rows={shown} rowKey={(r) => r.code} minWidth={600} onRow={(r) => setMonth(r)}
               columns={[
-                { key: 'name', label: 'Staff', render: (r) => <div className="flex items-center gap-3"><Avatar name={r.name} size={34} /><div className="min-w-0"><p className="font-semibold leading-tight">{r.name}</p><p className="text-[12px] text-ink3 font-mono">{r.code}</p></div></div> },
-                { key: 'desig', label: 'Department', render: (r) => <div><p className="leading-tight">{r.desig}</p><p className="text-[12px] text-ink3">{r.dept}</p></div> },
-                { key: 'in', label: 'In', render: (r) => <span className="tnum whitespace-nowrap">{r.in || '—'}</span> },
-                { key: 'out', label: 'Out', render: (r) => <span className="tnum text-ink3">{r.out || '—'}</span> },
+                { key: 'name', label: 'Staff', render: (r) => <div className="flex items-center gap-3 min-w-0"><Avatar name={r.name} size={34} /><div className="min-w-0"><p className="font-semibold leading-tight whitespace-nowrap">{r.name}</p><p className="text-[12.5px] text-ink3 truncate">{r.desig} · {r.dept}</p></div></div> },
+                { key: 'in', label: 'Came in', render: (r) => r.in ? <div className="whitespace-nowrap"><p className="tnum leading-tight">{r.in}</p><p className="text-[12px] text-ink3 flex items-center gap-1">{React.createElement(I[SRC_ICON(r.src)], { size: 13 })}{r.src.replace('Main gate face scanner', 'Face scanner').replace('App check-in at the bus bay', 'App, bus bay').replace('Staff room fingerprint', 'Fingerprint').replace('QR in the staff room', 'Staff room QR')}</p></div> : <span className="text-ink3">—</span> },
                 { key: 'st', label: 'Status', render: (r) => <div><Pill tone={STF_TONE[r.st]}>{r.st === 'Late' ? `Late · ${r.late} min` : r.st}</Pill>{r.leave && <p className="text-[11.5px] text-ink3 mt-0.5">{r.leave}</p>}</div> },
-                { key: 'src', label: 'Source', render: (r) => r.src ? <span className="flex items-center gap-1.5 text-[13px] text-ink2 whitespace-nowrap">{React.createElement(I[SRC_ICON(r.src)], { size: 15, className: 'text-ink3' })}{r.src}</span> : <span className="text-ink3">—</span> },
-                { key: 'm', label: '', render: (r) => <div onClick={(e) => e.stopPropagation()}><MoreMenu size="sm" label={`Actions for ${r.name}`} items={menu(r)} /></div> },
+                { key: 'm', label: '', render: (r) => <div className="flex justify-end" onClick={(e) => e.stopPropagation()}><MoreMenu size="sm" label={`Actions for ${r.name}`} items={menu(r)} /></div> },
               ]}
               mobile={(r) => ({ avatar: r.name, title: r.name, sub: `${r.desig} · ${r.in ? `in ${r.in}` : r.leave || 'no punch yet'}`, right: <Pill tone={STF_TONE[r.st]} className="!h-[22px] !text-[11.5px]">{r.st === 'Late' ? `Late ${r.late}m` : r.st}</Pill> })}
               footer={false} />

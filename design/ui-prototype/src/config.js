@@ -140,11 +140,12 @@ export const inMenu = (role, id) => { const a = role.access[id]; return !!a && !
 const OV = ['take', 'leave'];
 const DUTY = {
   principal: {
+    events: { view: ['daily'] },
     admissions: { view: ['enquiries', 'applications', 'documents', 'tests', 'settings'] },
     students: { view: ['list', 'parents', 'leaving', 'certificates', 'settings'] },
     academic: { view: ['classes', 'subjects', 'allocation', 'timetable', 'syllabus', 'settings'] },
     attendance: { hide: OV, view: ['staff', 'devices', 'settings'] },
-    fees: { hide: ['collect'], view: ['dashboard', 'ledger', 'defaulters', 'structure', 'reports', 'settings'] },
+    fees: { hide: ['collect'], view: ['dashboard', 'ledger', 'defaulters', 'reports', 'settings'] },
     finance: { view: ['daybook', 'income', 'cashbank', 'accounts', 'reports', 'settings'] },
     exams: { view: ['datesheet', 'admitcards', 'marks', 'reportcards', 'papers', 'settings'] },
     staff: { hide: ['add'], view: ['list', 'documents', 'exit', 'settings'] },
@@ -157,6 +158,7 @@ const DUTY = {
     settings: { hide: ['gateways', 'messaging', 'security'], view: ['profile', 'users', 'designs', 'modules'] },
   },
   schooladmin: {
+    events: { view: ['daily'] },
     admissions: { view: ['decision'] },
     students: { view: ['behaviour'] },
     attendance: { hide: OV, view: ['register'] },
@@ -168,6 +170,7 @@ const DUTY = {
     frontoffice: { hide: ['desk'], view: 'all' },
   },
   vp: {
+    events: { view: ['daily'] },
     attendance: { hide: OV, view: ['staff', 'devices'] },
     students: { view: ['list', 'parents', 'leaving', 'certificates', 'settings'] },
     frontoffice: { hide: ['desk', 'pickup'] },
@@ -354,17 +357,17 @@ export const QUICK_BY_ROLE = {
 // Approvals each person may decide (top bar Approvals)
 export const APPROVALS_BY_ROLE = {
   classteacher: [
-    { who: 'Priya Sharma (parent)', what: 'Student leave · Aarav Sharma, 7 B · Mon 12 Oct', kind: 'Student leave' },
-    { who: 'Kumar Reddy (parent)', what: 'Student leave · Harini Reddy, 7 B · 13–14 Oct', kind: 'Student leave' },
+    { who: 'Priya Sharma', as: 'Mother of Aarav Sharma, 7 B', what: 'Student leave · Aarav Sharma, 7 B · Mon 12 Oct', kind: 'Student leave', sent: 'Thu 8 Oct, 8:15 PM', why: 'Family function in Guntur', facts: [['Days', '1 day · Mon 12 Oct'], ['Aarav this year', '94% present · 6 days absent']] },
+    { who: 'Kumar Reddy', as: 'Father of Harini Reddy, 7 B', what: 'Student leave · Harini Reddy, 7 B · 13–14 Oct', kind: 'Student leave', sent: 'Fri 9 Oct, 7:30 AM', why: 'Eye check-up at L V Prasad hospital', facts: [['Days', '2 days · 13–14 Oct'], ['Harini this year', '97% present']] },
   ],
   warden: [
-    { who: 'Kabir Naidu, 9 C', what: 'Outing pass · Sat 10 Oct, 10 AM–6 PM · with father', kind: 'Outing' },
-    { who: 'Arjun Verma, 8 A', what: 'Weekend home visit · 17–18 Oct', kind: 'Outing' },
-    { who: 'Pranav Rao, 10 B', what: 'Outing pass · Sun 11 Oct · dentist', kind: 'Outing' },
+    { who: 'Kabir Naidu', as: 'Hostel student, 9 C · Room 214', why: 'Shopping for Diwali with his father', what: 'Outing pass · Sat 10 Oct, 10 AM–6 PM · with father', kind: 'Outing' },
+    { who: 'Arjun Verma', as: 'Hostel student, 8 A · Room 108', why: 'Grandmother\'s birthday at home in Warangal', what: 'Weekend home visit · 17–18 Oct', kind: 'Outing' },
+    { who: 'Pranav Rao', as: 'Hostel student, 10 B · Room 305', why: 'Dentist appointment; mother will pick him up', what: 'Outing pass · Sun 11 Oct · dentist', kind: 'Outing' },
   ],
   vp: [
-    { who: 'Anitha K.', what: 'Sick leave · 13–14 Oct', kind: 'Leave' },
-    { who: 'Ravi Teja', what: 'Casual leave · Mon 12 Oct', kind: 'Leave' },
+    { who: 'Anitha Kumari', as: 'PGT English · Class teacher, 10 A', staff: 'T03', what: 'Sick leave · 13–14 Oct', kind: 'Leave', sent: 'Fri 9 Oct, 8:40 AM', why: 'Viral fever; the doctor\'s note is attached', facts: [['Days', '2 days · Tue 13 and Wed 14 Oct'], ['Sick leave left', '6 of 10 now, 4 after this'], ['Periods', '11 over two days · English in 9 and 10'], ['Cover', 'Lalitha Devi and Usha Rani have free periods']] },
+    { who: 'Ravi Teja', as: 'TGT Science · Class teacher, 7 B', staff: 'T01', what: 'Casual leave · Mon 12 Oct', kind: 'Leave', sent: 'Thu 8 Oct, 6:10 PM', why: 'Sister\'s wedding in Vijayawada', facts: [['Days', '1 day · Mon 12 Oct'], ['Casual leave left', '9 of 12 now, 8 after this'], ['Periods that day', '5 · Science in 7 A, 7 B, 8 B, 8 C, 6 A'], ['Cover', 'Imran Shaikh and Karthik Menon are free']] },
   ],
 };
 

@@ -1344,8 +1344,8 @@ function Structure() {
   const [pending, setPending] = useState('waiting');
   const draft = year === '2027–28';
   const cur = open ? CLASSES.find((c) => c.id === open) : null;
-  // Mid-year changes are the Principal's decision. Their Fee Structure page is View (they do not build it),
-  // but the approval stays with them. Nobody approves their own change.
+  // Mid-year changes are the Principal's decision. The Principal may also change the structure; their own changes
+  // apply at once (they are the approver). Nobody approves their own change.
   const { year: acYear } = useRole();
   const approver = role.id === 'principal' && !acYear?.closed;
 
@@ -1356,12 +1356,12 @@ function Structure() {
       <div className="flex flex-col gap-5 @lg:gap-6">
         <div className="flex flex-col @md:flex-row @md:items-center gap-3">
           <Segmented value={year} onChange={setYear} options={[{ value: '2026–27', label: '2026–27 · in use' }, { value: '2027–28', label: '2027–28 · draft' }]} />
-          <p className="text-[13px] text-ink3 @md:ml-2">{draft ? 'Changes here apply from 1 Apr 2027 and need no approval until you publish.' : 'This year has started. Changes need the Principal’s approval and touch only unpaid installments.'}</p>
+          <p className="text-[13px] text-ink3 @md:ml-2">{draft ? 'Changes here apply from 1 Apr 2027 and need no approval until you publish.' : approver ? 'This year has started. You approve fee changes, so yours apply at once, to unpaid installments only.' : 'This year has started. Changes need the Principal’s approval and touch only unpaid installments.'}</p>
         </div>
         {!draft && (
-          <Banner tone="warn" icon={I.Lock} title="Mid-year changes need approval."
+          <Banner tone="warn" icon={I.Lock} title={approver ? 'Mid-year changes reach parents at once.' : 'Mid-year changes need approval.'}
             action={canEdit && <Button size="sm" variant="secondary" onClick={() => setYear('2027–28')}>Change 2027–28</Button>}>
-            Paid rows never change. Unpaid installments change only after the Principal approves. Most changes are better made for next year.
+            {approver ? 'Paid rows never change. Your change updates unpaid installments straight away, parents see it in Parent Link, and the Accountant is told. Most changes are better made for next year.' : 'Paid rows never change. Unpaid installments change only after the Principal approves. Most changes are better made for next year.'}
           </Banner>
         )}
 
@@ -1481,6 +1481,8 @@ function Structure() {
 function AddRowSheet({ clsId, year, onClose }) {
   const toast = useToast();
   const draft = year === '2027–28';
+  const { role } = useRole();
+  const self = role.id === 'principal';
   const [head, setHead] = useState('Lab fee');
   const [amount, setAmount] = useState('3000');
   const [freq, setFreq] = useState('Yearly');
@@ -1493,8 +1495,8 @@ function AddRowSheet({ clsId, year, onClose }) {
   const regen = (f, t) => setInst(makeInst(f, t, draft ? 2027 : 2026, !draft));
   const err = !total ? 'Enter the amount' : sum !== total ? `Installments add up to ${inr(sum)}. Total is ${inr(total)}.` : '';
   return (
-    <Sheet open onClose={onClose} title={`Add fee row · ${c.name}`} sub={draft ? 'For 2027–28. No approval needed until you publish.' : 'For 2026–27. Goes to the Principal for approval.'}
-      footer={<><Button variant="ghost" onClick={onClose}>Cancel</Button><Button variant="primary" icon={I.Check} onClick={() => { setTried(true); if (err) return; onClose(); toast({ title: draft ? `${head} added to ${c.name} (2027–28 draft)` : `Sent to Lakshmi Rao for approval`, body: draft ? `${inr(total)} in ${inst.length} installments` : `${head} ${inr(total)} for ${c.name} from Nov 2026 · ${STRENGTH[c.id]} students` }); }}>{draft ? 'Add row' : 'Send for approval'}</Button></>}>
+    <Sheet open onClose={onClose} title={`Add fee row · ${c.name}`} sub={draft ? 'For 2027–28. No approval needed until you publish.' : self ? 'For 2026–27. You approve fee changes, so this applies at once.' : 'For 2026–27. Goes to the Principal for approval.'}
+      footer={<><Button variant="ghost" onClick={onClose}>Cancel</Button><Button variant="primary" icon={I.Check} onClick={() => { setTried(true); if (err) return; onClose(); toast({ title: draft ? `${head} added to ${c.name} (2027–28 draft)` : self ? `Version 3.1 published: ${head} for ${c.name}` : `Sent to Lakshmi Rao for approval`, body: draft ? `${inr(total)} in ${inst.length} installments` : `${head} ${inr(total)} for ${c.name} from Nov 2026 · ${STRENGTH[c.id]} students` }); }}>{draft ? 'Add row' : self ? `Add for ${STRENGTH[c.id]} students` : 'Send for approval'}</Button></>}>
       <div className="flex flex-col gap-4">
         <Field label="Fee head" required id="ar-head"><Select id="ar-head" value={head} onChange={setHead} options={FEE_HEADS.map((h) => h.name)} /></Field>
         <div className="grid grid-cols-2 gap-3">
@@ -1542,7 +1544,7 @@ function ChangeSheet({ clsId, year, onClose }) {
       <div className="flex flex-col gap-4">
         <Field label="When does this change apply?" id="ch-when">
           <div className="grid gap-2">
-            {[['next', 'From 2027–28', 'Next year’s structure. No approval needed now.'], ['now', 'Now, in 2026–27', 'Only unpaid installments from Nov 2026 change. Needs the Principal’s approval.']].map(([v, l, sub]) => (
+            {[['next', 'From 2027–28', 'Next year’s structure. No approval needed now.'], ['now', 'Now, in 2026–27', isPrincipal ? 'Only unpaid installments from Nov 2026 change. Applies at once.' : 'Only unpaid installments from Nov 2026 change. Needs the Principal’s approval.']].map(([v, l, sub]) => (
               <button key={v} type="button" onClick={() => setWhen(v)} aria-pressed={when === v} className={cx('flex items-start gap-3 p-3 rounded-xl border text-left transition', when === v ? 'border-brand ring-1 ring-brand bg-brand/5' : 'border-line hover:bg-sunken')}>
                 <span className={cx('mt-0.5 w-4 h-4 rounded-full border-2 shrink-0', when === v ? 'border-brand bg-brand' : 'border-line')} />
                 <span><b className="block font-semibold text-[14.5px]">{l}</b><span className="text-[12.5px] text-ink3">{sub}</span></span>

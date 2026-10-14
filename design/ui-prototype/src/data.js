@@ -145,11 +145,17 @@ export const TODAY_EVENTS = [
   { time: 'Mon', title: 'Half-yearly exams start', where: 'Classes 6–10', tone: 'bad' },
 ];
 
+// Requests waiting for the Principal. Each says who is asking (their job), why, and what deciding it changes.
+const CONC_KID = STUDENTS.find((x) => x.clsId === '5' && x.sec === 'A') || STUDENTS[0];
 export const APPROVALS = [
-  { who: 'Ravi Teja', what: 'Casual leave · Mon 12 Oct', kind: 'Leave' },
-  { who: 'Suresh B. (Accounts)', what: 'Concession ₹4,000 · Kavya Rao, 5 A', kind: 'Concession' },
-  { who: 'Anitha K.', what: 'Sick leave · 13–14 Oct', kind: 'Leave' },
-  { who: 'Office', what: 'Expense ₹18,600 · Lab chemicals', kind: 'Expense' },
+  { who: 'Ravi Teja', as: 'TGT Science · Class teacher, 7 B', staff: 'T01', what: 'Casual leave · Mon 12 Oct', kind: 'Leave', sent: 'Thu 8 Oct, 6:10 PM',
+    why: 'Sister\'s wedding in Vijayawada', facts: [['Days', '1 day · Mon 12 Oct'], ['Casual leave left', '9 of 12 now, 8 after this'], ['Periods that day', '5 · Science in 7 A, 7 B, 8 B, 8 C, 6 A'], ['Cover', 'Imran Shaikh and Karthik Menon are free; the VP fixes the substitutes'], ['7 B attendance', 'Swathi Reddy takes it that day']] },
+  { who: 'Suresh Babu', as: 'Accountant · Accounts office', staff: 'A01', student: CONC_KID.id, what: `Concession ₹4,000 · ${CONC_KID.name}, 5 A`, kind: 'Concession', sent: 'Fri 9 Oct, 9:20 AM',
+    why: `Father ${CONC_KID.father} lost his job in August and asked for help with the Q3 tuition`, facts: [['Student', `${CONC_KID.name} · Class 5 A · ${CONC_KID.adm}`], ['Q3 tuition', '₹12,500, would become ₹8,500'], ['Earlier concessions', 'None in 6 years at the school'], ['Fees so far', 'Q1 and Q2 paid on time'], ['Papers', 'Letter from the father, attached']] },
+  { who: 'Anitha Kumari', as: 'PGT English · Class teacher, 10 A', staff: 'T03', what: 'Sick leave · 13–14 Oct', kind: 'Leave', sent: 'Fri 9 Oct, 8:40 AM',
+    why: 'Viral fever; the doctor\'s note is attached', facts: [['Days', '2 days · Tue 13 and Wed 14 Oct'], ['Sick leave left', '6 of 10 now, 4 after this'], ['Periods', '11 over two days · English in 9 and 10'], ['Cover', 'Lalitha Devi and Usha Rani have free periods'], ['10 A attendance', 'Farhana Begum takes it']] },
+  { who: 'Anita Sharma', as: 'School Admin · for the Science lab', staff: 'A02', office: true, what: 'Expense ₹18,600 · Lab chemicals', kind: 'Expense', sent: 'Thu 8 Oct, 3:05 PM',
+    why: 'Chemicals for the Class 9 and 10 practicals before the half-yearly exams, asked for by Farhana Begum (Physics)', facts: [['Supplier', 'Sri Lakshmi Scientific, Ameerpet · lowest of 3 quotes'], ['Amount', '₹18,600 including GST'], ['Lab budget left', '₹64,000 of ₹1,20,000 for the year'], ['Paid from', 'School bank account, after delivery']] },
 ];
 
 export const NOTIFICATIONS = [

@@ -12,7 +12,7 @@ import { DatePeriod, PERIODS, fmtRange } from './kit.jsx';
 import { pageAccess } from './config.js';
 import { ATT_TODAY, NOT_MARKED } from './attendance.jsx';
 const NM_NAMES = NOT_MARKED.map((c) => c.cls).join(', ').replace(/, ([^,]*)$/, ' and $1');
-import { myApprovals } from './other.jsx';
+import { myApprovals, ApprovalWho, ApprovalSheet } from './other.jsx';
 
 // Fee collection by month (₹ lakh) with the dates each month covers, so the period filter can pick months
 const FEE_MONTHS = FEE_TREND.map((m, i) => {
@@ -62,6 +62,7 @@ export function Dashboard({ onAddStudent }) {
   const [loading, setLoading] = useState(true);
   // Only what this person may decide: never their own office's requests, money requests only where they decide
   const [approvals, setApprovals] = useState(() => myApprovals(role, modulesOn));
+  const [openAp, setOpenAp] = useState(null);
   const [feePer, setFeePer] = useState(PERIODS.finyear);
   const [attPer, setAttPer] = useState(PERIODS.thisweek);
   const leaves = approvals.filter((a) => a.kind === 'Leave');
@@ -431,13 +432,7 @@ export function Dashboard({ onAddStudent }) {
               <ul className="px-3 pb-3 flex flex-col gap-1">
                 {approvals.map((a) => (
                   <li key={a.who + a.what} className="p-2.5 rounded-xl hover:bg-sunken/70">
-                    <div className="flex items-start gap-3">
-                      <Avatar name={a.who} size={34} />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[13.5px] font-semibold leading-snug">{a.who}</p>
-                        <p className="text-[12.5px] text-ink3">{a.what}</p>
-                      </div>
-                    </div>
+                    <div className="flex items-start gap-3"><ApprovalWho a={a} size={34} small onOpen={() => setOpenAp(a)} /></div>
                     <div className="flex gap-2 mt-2 pl-[46px]">
                       <Button size="sm" variant="soft" icon={I.Check} onClick={() => decide(a, true)}>Approve</Button>
                       <Button size="sm" variant="ghost" onClick={() => decide(a, false)}>Decline</Button>
@@ -446,6 +441,7 @@ export function Dashboard({ onAddStudent }) {
                 ))}
               </ul>
             )}
+            <ApprovalSheet a={openAp} onClose={() => setOpenAp(null)} onDecide={decide} />
           </Card>
 
           {kind === 'office' && setupCard}

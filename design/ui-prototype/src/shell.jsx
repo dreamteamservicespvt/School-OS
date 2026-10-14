@@ -26,7 +26,7 @@ const MONEY_PAGE = { Concession: ['fees', 'concessions'], Expense: ['finance', '
 export function approvalsFor(role) {
   if (role.id !== 'principal' && role.id !== 'schooladmin') return APPROVALS_BY_ROLE[role.id] || [];
   return APPROVALS.filter((a) => {
-    if (role.id === 'schooladmin' && a.who === 'Office') return false;
+    if (role.id === 'schooladmin' && a.office) return false;
     const mp = MONEY_PAGE[a.kind];
     return !mp || (canOpen(role, mp.join('.')) && pageAccess(role.id, mp[0], mp[1], role.access[mp[0]]) !== 'view');
   });

@@ -60,7 +60,7 @@ export function attendancePages(current: Pick<AccessSource, "roles" | "permissio
   // View (Academic Head): the register and reports only (prototype config.js VIEW attendance).
   const viewOnly = p.change === "none" && p.see === "all";
   return {
-    take: mode("take"),
+    take: viewOnly ? "hidden" : mode("take"),
     register: mode("register"),
     studentLeave: viewOnly ? "hidden" : mode("student-leave"),
     staff: viewOnly && !isHr ? "hidden" : mode("staff"),

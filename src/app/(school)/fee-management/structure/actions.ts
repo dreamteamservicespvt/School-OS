@@ -9,10 +9,11 @@ import { MoneyProblem } from "@/lib/fees/problem";
 import { FREQUENCIES, HEAD_KINDS } from "@/lib/fees/words";
 import {
   archiveFeeHead, assignToClass, classStructure, copyStructure, discardDraft, GST_RATES_BP, openDraft, publishStructure, removeFeeRow,
-  restorePreviousVersion, saveFeeHead, saveFeeRow,
+  restorePreviousVersion, saveFeeHead, saveFeeRow, publishNeedsApproval, askToPublish,
 } from "@/lib/fees/structure";
 import { dateOf, id, ids, optionalId, parseRupees, str, strs } from "@/lib/fees/act";
 import { feeAction } from "../_lib/action";
+import { todayIn } from "@/lib/staff/dates";
 
 /** "Manage class fee structure" is a counter permission (Fee Settings). */
 async function mayManage(tx: Tx, ctx: SchoolContext, viewer: FeeViewer) {
@@ -99,18 +100,24 @@ export async function removeRowAction(_prev: unknown, fd: FormData) {
 
 /** Publishes the draft: the new version is in use from the date. Paid rows never change. */
 export async function publishAction(_prev: unknown, fd: FormData) {
-  return feeAction("edit", fd, async (tx, ctx, viewer) => {
+  return feeAction("edit", fd, async (tx, ctx, viewer, current) => {
     await mayManage(tx, ctx, viewer);
     if (str(fd, "confirm") !== "on") throw new MoneyProblem("Tick the box to confirm the change to students’ unpaid installments.", "confirm");
     const structureId = id(fd, "structureId", "draft");
-    const r = await publishStructure(tx, ctx, structureId, dateOf(fd, "effectiveFrom", "Date it applies from"));
+    const from = dateOf(fd, "effectiveFrom", "Date it applies from");
+    // After the year starts, a change by anyone but the Principal goes to the Principal (they approve fee changes).
+    if (await publishNeedsApproval(tx, structureId, todayIn(current.school.timeZone), viewer.roleKeys)) {
+      const asked = await askToPublish(tx, ctx, structureId, from, str(fd, "reason"));
+      return { version: asked.version, updated: 0, assigned: 0, asked: true };
+    }
+    const r = await publishStructure(tx, ctx, structureId, from);
     let assigned = { students: 0, rows: 0 };
     if (str(fd, "assign") === "on") {
       const on = await featureOn(tx, ctx, "fee-category-fees");
       assigned = await assignToClass(tx, ctx, structureId, on);
     }
-    return { version: r.version, updated: r.impact.students, assigned: assigned.students };
-  }, (r) => `Version ${r.version} published.${r.updated ? ` ${r.updated} students’ unpaid installments updated.` : ""}${r.assigned ? ` ${r.assigned} students without fees got the plan.` : ""} Paid rows are not changed.`, { staffOnly: "publish fee structures" });
+    return { version: r.version, updated: r.impact.students, assigned: assigned.students, asked: false };
+  }, (r) => r.asked ? `Version ${r.version} sent to the Principal for approval. Students’ fees change only when they approve.` : `Version ${r.version} published.${r.updated ? ` ${r.updated} students’ unpaid installments updated.` : ""}${r.assigned ? ` ${r.assigned} students without fees got the plan.` : ""} Paid rows are not changed.`, { staffOnly: "publish fee structures" });
 }
 
 export async function discardAction(_prev: unknown, fd: FormData) {
@@ -164,7 +171,7 @@ export async function prepareYearAction(_prev: unknown, fd: FormData) {
 
 /** Undo a version: the older version is published again as a new version. */
 export async function restoreAction(_prev: unknown, fd: FormData) {
-  return feeAction("edit", fd, async (tx, ctx, viewer) => {
+  return feeAction("edit", fd, async (tx, ctx, viewer, current) => {
     await mayManage(tx, ctx, viewer);
     if (str(fd, "confirm") !== "on") throw new MoneyProblem("Tick the box to confirm.", "confirm");
     const s = await tx.feeStructure.findFirst({ where: { id: id(fd, "structureId", "version") } });
@@ -172,6 +179,10 @@ export async function restoreAction(_prev: unknown, fd: FormData) {
     const { draft } = await classStructure(tx, s.academicYearId, s.classId, s.category);
     if (draft) throw new MoneyProblem("Finish or discard the open draft first.");
     const from = dateOf(fd, "effectiveFrom", "Date it applies from");
+    // Putting back an older version is a change to students' unpaid installments too: after the year starts, the Principal's.
+    if (await publishNeedsApproval(tx, s.id, todayIn(current.school.timeZone), viewer.roleKeys)) {
+      throw new MoneyProblem("This year has started, so only the Principal can put back an older version. Open a new draft with the old amounts and send it for approval.");
+    }
     const r = await restorePreviousVersion(tx, ctx, s.id, from);
     return { version: r.version, old: s.version, from: formatDate(from) };
   }, (r) => `Version ${r.old} is back in use as version ${r.version}, from ${r.from}. Paid rows are not changed.`, { staffOnly: "change fee structures" });

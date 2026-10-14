@@ -7,3 +7,4 @@ import "./academic/undo";
 import "./communication/undo";
 import "./students/undo";
 import "./dashboard/undo";
+import "./homework/undo";

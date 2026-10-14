@@ -122,7 +122,7 @@ export async function resendToUnseen(tx: Tx, s: HomeworkScope, homeworkId: strin
 export async function remindParents(tx: Tx, s: HomeworkScope, homeworkId: string, studentIds: string[]) {
   const hw = await tx.homework.findFirst({ where: { id: homeworkId, archivedAt: null } });
   if (!hw) throw new HomeworkProblem("This homework was not found.");
-  requireWork(s, hw, "this homework");
+  requireWork(s, hw, "this homework", "submissions");
   const subs = await tx.submission.findMany({ where: { homeworkId, studentId: { in: studentIds }, archivedAt: null, status: { in: ["ASSIGNED", "MISSING"] } }, select: { studentId: true } });
   if (!subs.length) throw new HomeworkProblem("Everyone chosen has already handed in. Reminders go only to parents of students who have not.");
   const on = await onChannels(tx, s.ctx);

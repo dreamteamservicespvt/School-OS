@@ -20,7 +20,7 @@ import { tellParentsPending } from "./notify-parents";
 async function homeworkFor(tx: Tx, s: HomeworkScope, homeworkId: string) {
   const hw = await tx.homework.findFirst({ where: { id: homeworkId, archivedAt: null } });
   if (!hw) throw new HomeworkProblem("This homework was not found. It may have been archived.");
-  requireWork(s, hw, "the marking of this homework");
+  requireWork(s, hw, "the marking of this homework", "submissions");
   const year = await tx.academicYear.findUnique({ where: { id: hw.academicYearId }, select: { status: true } });
   if (year?.status === "CLOSED") throw new HomeworkProblem("This academic year is closed, so its homework can only be read.");
   return hw;
@@ -199,7 +199,7 @@ export async function addComment(tx: Tx, s: HomeworkScope, submissionId: string,
   const fromStudent = s.level === "student";
   if (fromStudent) {
     if (s.student?.id !== sub.studentId) throw new HomeworkProblem("You can comment only on your own work.");
-  } else requireWork(s, hw, "comments on this homework");
+  } else requireWork(s, hw, "comments on this homework", "submissions");
   const c = await tx.homeworkComment.create({ data: { schoolId: s.ctx.schoolId, homeworkId: hw.id, studentId: sub.studentId, authorId: s.ctx.userId, authorName: s.name, fromStudent, body: text } });
   await writeAudit(tx, s.ctx, { action: "commented", recordType: "Homework Comment", recordId: c.id, after: { homework: hw.title, fromStudent } });
   // Tell the other side.
@@ -220,7 +220,7 @@ export async function hideComment(tx: Tx, s: HomeworkScope, commentId: string, r
   if (!c) throw new HomeworkProblem("This comment was not found.");
   const hw = await tx.homework.findFirst({ where: { id: c.homeworkId } });
   if (!hw) throw new HomeworkProblem("This homework was not found.");
-  requireWork(s, hw, "comments on this homework");
+  requireWork(s, hw, "comments on this homework", "submissions");
   if (hide && !reason.trim()) throw new HomeworkProblem("Say why it is hidden, so the student understands.", "reason");
   await tx.homeworkComment.update({ where: { id: c.id }, data: hide ? { hiddenAt: new Date(), hiddenReason: reason.trim().slice(0, 200) } : { hiddenAt: null, hiddenReason: null } });
   await writeAudit(tx, s.ctx, { action: hide ? "hidden" : "unhidden", recordType: "Homework Comment", recordId: c.id, after: { reason: hide ? reason.trim() : null } });

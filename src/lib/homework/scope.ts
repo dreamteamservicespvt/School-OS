@@ -10,12 +10,14 @@ import { currentYear } from "../academic/years";
 import { allocationActiveOn } from "../academic/allocation";
 import { staffForUser } from "../people";
 import type { PermissionMap } from "../permissions";
-import { homeworkLevel, HomeworkProblem, type HomeworkLevel } from "./access";
+import { homeworkLevel, HomeworkProblem, pageModes, PAGE_KEYS, type HomeworkLevel, type HomeworkPageKey, type PageMode } from "./access";
 
 export type Pair = { sectionId: string; subjectId: string };
 
 export type HomeworkScope = {
   level: HomeworkLevel;
+  /** Edit, view or nothing on each page (overseers watch and remind; teachers do the desk work). */
+  modes: Record<HomeworkPageKey, PageMode | null>;
   ctx: SchoolContext;
   yearId: string | null;
   yearClosed: boolean;
@@ -39,7 +41,8 @@ export async function homeworkScope(tx: Tx, who: Who, today: Date): Promise<Home
   if (!level) throw new HomeworkProblem("Your role does not include Homework & Learning.");
   const year = await currentYear(tx, who.ctx);
   const yearId = year?.id ?? null;
-  const base = { level, ctx: who.ctx, yearId, yearClosed: year?.status === "CLOSED", name: who.user.displayName, pairs: [] as Pair[], ctSections: [] as string[], student: null as HomeworkScope["student"] };
+  const modes = pageModes(who.permissions, who.roles);
+  const base = { level, modes, ctx: who.ctx, yearId, yearClosed: year?.status === "CLOSED", name: who.user.displayName, pairs: [] as Pair[], ctSections: [] as string[], student: null as HomeworkScope["student"] };
   if (level === "student") {
     const st = await tx.student.findFirst({ where: { userLoginId: who.ctx.userId ?? "", archivedAt: null }, select: { id: true, fullName: true } });
     const enr = st && yearId ? await tx.enrolment.findFirst({ where: { studentId: st.id, academicYearId: yearId, archivedAt: null }, include: { student: false } }) : null;
@@ -63,8 +66,9 @@ export async function homeworkScope(tx: Tx, who: Who, today: Date): Promise<Home
 
 const hasPair = (s: HomeworkScope, sectionId: string, subjectId: string) => s.pairs.some((p) => p.sectionId === sectionId && p.subjectId === subjectId);
 
-/** May this person change (edit, grade, archive) work for this section and subject? */
-export function mayWork(s: HomeworkScope, rec: { sectionId: string; subjectId: string; teacherId?: string | null }) {
+/** May this person change (edit, grade, archive) work for this section and subject, on this page? */
+export function mayWork(s: HomeworkScope, rec: { sectionId: string; subjectId: string; teacherId?: string | null }, page: HomeworkPageKey = "homework") {
+  if (s.modes[page] !== "edit") return false;
   if (s.level === "full") return true;
   if (s.level !== "own") return false;
   return hasPair(s, rec.sectionId, rec.subjectId) || (!!s.staffId && rec.teacherId === s.staffId);
@@ -74,7 +78,7 @@ export function mayWork(s: HomeworkScope, rec: { sectionId: string; subjectId: s
 export function mayRead(s: HomeworkScope, rec: { sectionId: string; subjectId: string; teacherId?: string | null }) {
   if (s.level === "full") return true;
   if (s.level === "student") return !!s.student && rec.sectionId === s.student.sectionId;
-  return mayWork(s, rec) || s.ctSections.includes(rec.sectionId);
+  return mayWork(s, rec) || hasPair(s, rec.sectionId, rec.subjectId) || (!!s.staffId && rec.teacherId === s.staffId) || s.ctSections.includes(rec.sectionId);
 }
 
 /**
@@ -103,9 +107,19 @@ export function workWhere(s: HomeworkScope): { OR?: ScopeClause[] } {
   return { OR: or.length ? or : [{ sectionId: "00000000-0000-0000-0000-000000000000" }] };
 }
 
-export function requireWork(s: HomeworkScope, rec: { sectionId: string; subjectId: string; teacherId?: string | null }, what = "this") {
-  if (!mayWork(s, rec)) throw new HomeworkProblem(`Only the teacher of this class and subject, the Academic Head or the Principal can change ${what}.`);
+export function requireWork(s: HomeworkScope, rec: { sectionId: string; subjectId: string; teacherId?: string | null }, what = "this", page: HomeworkPageKey = "homework") {
+  if (s.modes[page] === "view") throw new HomeworkProblem(`Your role reads ${what} but does not change it. The subject teacher does this work.`);
+  if (!mayWork(s, rec, page)) throw new HomeworkProblem(`Only the teacher of this class and subject can change ${what}.`);
 }
+
+/** Refuses a change on a page this person only reads, or may not open. */
+export function requireDesk(s: HomeworkScope, page: HomeworkPageKey) {
+  if (s.modes[page] === "edit") return;
+  if (s.modes[page] === "view") throw new HomeworkProblem("Your role reads this page but does not change it. The subject teacher does this work.");
+  throw new HomeworkProblem("Your role does not include this page.");
+}
+
+export const editablePages = (s: HomeworkScope) => PAGE_KEYS.filter((p) => s.modes[p] === "edit");
 
 export function requireStaff(s: HomeworkScope) {
   if (s.level === "student") throw new HomeworkProblem("Only teachers can do this.");
@@ -117,8 +131,8 @@ export function requireYearOpen(s: HomeworkScope) {
 }
 
 /** Sections (with their class) this person may set work for, with how many students study there. Classes with no students are left out (02-workflows 9). */
-export async function workSections(tx: Tx, s: HomeworkScope) {
-  if (!s.yearId || s.level === "student") return [];
+export async function workSections(tx: Tx, s: HomeworkScope, page: HomeworkPageKey = "homework") {
+  if (!s.yearId || s.level === "student" || s.modes[page] !== "edit") return [];
   const sections = await tx.section.findMany({
     where: { academicYearId: s.yearId, archivedAt: null, ...(s.level === "own" ? { id: { in: [...new Set(s.pairs.map((p) => p.sectionId))] } } : {}) },
     include: { schoolClass: { select: { name: true, sortOrder: true } } },

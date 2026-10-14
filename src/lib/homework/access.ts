@@ -1,10 +1,16 @@
 // Who sees what in Homework & Learning (05-roles.md, the approved prototype's
-// config.js OWN and OWN_BY_ROLE, and the design thread's role audit):
-//   Full (Principal, School Admin, Vice Principal, Academic Head): every page,
-//     every class and subject.
+// config.js OWN, OWN_BY_ROLE and DUTY, and the owner's 13 Oct request that
+// each role sees only the work they really do):
 //   Own staff (Teacher, Class Teacher): every page but Homework Settings, only
 //     their own classes and subjects from Teacher Allocation; a class teacher
 //     also reads the homework of every subject of their own section.
+//   Principal and School Admin watch and remind: Homework (with who gives how
+//     much and Remind), Learning Progress and Homework Settings. They do not
+//     do a teacher's desk work, so Submissions, Study Material, Quizzes,
+//     Discussions and Online Classes are not in their menu.
+//   Vice Principal and Academic Head read every teaching page (view only) and
+//     run Learning Progress and Homework Settings.
+//   Any other role with Full reach (a school's own role) works on every page.
 //   Student (schools giving students logins): Homework, Study Material,
 //     Quizzes, Discussions and Online Classes, only their own work.
 // Study Material, Quizzes, Discussions and Online Classes are optional pages
@@ -12,6 +18,8 @@
 import type { PermissionMap } from "../permissions";
 
 export type HomeworkLevel = "full" | "own" | "student";
+/** On one page: "edit" does the work there, "view" reads it. */
+export type PageMode = "edit" | "view";
 
 export const HOMEWORK_PAGES = {
   homework: { label: "Homework", levels: ["full", "own", "student"] },
@@ -25,6 +33,7 @@ export const HOMEWORK_PAGES = {
 } as const satisfies Record<string, { label: string; levels: readonly HomeworkLevel[] }>;
 
 export type HomeworkPageKey = keyof typeof HOMEWORK_PAGES;
+export const PAGE_KEYS = Object.keys(HOMEWORK_PAGES) as HomeworkPageKey[];
 
 /** The optional pages and the School Feature that switches each on (Homework Settings, "Optional pages"). */
 export const OPTIONAL_PAGES = [
@@ -39,6 +48,19 @@ export type OptionalFeature = (typeof OPTIONAL_PAGES)[number]["feature"];
 /** Staff roles whose "Own" here means their own classes (not a student's own work). */
 const STAFF_OWN_ROLES = new Set(["teacher", "class-teacher"]);
 
+type Duty = Partial<Record<HomeworkPageKey, PageMode | "hide">>;
+const TEACHING: HomeworkPageKey[] = ["submissions", "study-material", "quizzes", "discussions", "online-classes"];
+const hideTeaching = Object.fromEntries(TEACHING.map((p) => [p, "hide"])) as Duty;
+const viewTeaching = Object.fromEntries(TEACHING.map((p) => [p, "view"])) as Duty;
+
+/** What the people who oversee homework do on each page (prototype config.js DUTY). Pages not named are "edit". */
+export const DUTY: Record<string, Duty> = {
+  principal: { homework: "view", ...hideTeaching, "learning-progress": "view", settings: "view" },
+  "school-admin": { homework: "view", ...hideTeaching, "learning-progress": "view" },
+  "vice-principal": { homework: "view", ...viewTeaching },
+  "academic-head": { homework: "view", ...viewTeaching },
+};
+
 export function homeworkLevel(permissions: PermissionMap, roles: readonly { key: string | null }[]): HomeworkLevel | null {
   const a = permissions["homework-learning"];
   if (!a || a.see === "none") return null;
@@ -48,14 +70,39 @@ export function homeworkLevel(permissions: PermissionMap, roles: readonly { key:
   return "own";
 }
 
+const RANK = { hide: 0, view: 1, edit: 2 } as const;
+
+/**
+ * Edit, view or not at all, for each page: the level's pages, narrowed for
+ * the roles that oversee rather than teach. Several roles give the widest.
+ */
+export function pageModes(permissions: PermissionMap, roles: readonly { key: string | null }[]): Record<HomeworkPageKey, PageMode | null> {
+  const level = homeworkLevel(permissions, roles);
+  const out = {} as Record<HomeworkPageKey, PageMode | null>;
+  const change = permissions["homework-learning"]?.change ?? "none";
+  for (const page of PAGE_KEYS) {
+    if (!level || !(HOMEWORK_PAGES[page].levels as readonly HomeworkLevel[]).includes(level)) { out[page] = null; continue; }
+    if (level !== "full") { out[page] = "edit"; continue; }
+    // A role that sees everything but changes nothing reads every page.
+    if (change !== "all") { out[page] = "view"; continue; }
+    let best: keyof typeof RANK = "hide";
+    for (const r of roles) {
+      const duty = r.key ? DUTY[r.key] : undefined;
+      const m = duty ? duty[page] ?? "edit" : "edit";
+      if (RANK[m] > RANK[best]) best = m;
+    }
+    out[page] = best === "hide" ? null : best;
+  }
+  return out;
+}
+
 export function featureForPage(page: HomeworkPageKey): OptionalFeature | null {
   return OPTIONAL_PAGES.find((o) => o.page === page)?.feature ?? null;
 }
 
 /** May this person open this page, with the school's optional pages as they are switched? */
-export function homeworkPageAllowed(level: HomeworkLevel | null, features: ReadonlySet<string>, page: HomeworkPageKey) {
-  if (!level) return false;
-  if (!(HOMEWORK_PAGES[page].levels as readonly HomeworkLevel[]).includes(level)) return false;
+export function homeworkPageAllowed(modes: Record<HomeworkPageKey, PageMode | null>, features: ReadonlySet<string>, page: HomeworkPageKey) {
+  if (!modes[page]) return false;
   const f = featureForPage(page);
   return !f || features.has(f);
 }

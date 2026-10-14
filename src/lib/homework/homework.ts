@@ -15,7 +15,7 @@ import { effectiveVersion } from "../academic/timetable";
 import { weekday } from "../academic/common";
 import { formatDate } from "../format";
 import { HomeworkProblem } from "./access";
-import { requireStaff, requireWork, requireYearOpen, shortSection, workSections, workSubjects, type HomeworkScope } from "./scope";
+import { mayRead, requireDesk, requireStaff, requireWork, requireYearOpen, shortSection, workSections, workSubjects, type HomeworkScope } from "./scope";
 import { homeworkSettings } from "./settings";
 import { dayDate, homeworkStatus, HANDED_IN, isPastDue, plural, TO_CHECK, type HomeworkStatus } from "./words";
 import { tellParentsHomeworkSet } from "./notify-parents";
@@ -114,6 +114,7 @@ async function addAttachments(tx: Tx, ctx: SchoolContext, homeworkIds: string[],
 /** Gives homework. Returns the homework made (one per section for a whole class). */
 export async function giveHomework(tx: Tx, s: HomeworkScope, input: GiveInput, today: Date) {
   requireStaff(s);
+  requireDesk(s, "homework");
   requireYearOpen(s);
   const ctx = s.ctx;
   const title = input.title.trim().replace(/\s+/g, " ");
@@ -332,7 +333,6 @@ export function bandTotals(rows: HomeworkRow[]) {
 export async function homeworkDetail(tx: Tx, s: HomeworkScope, id: string, today: Date) {
   const h = await tx.homework.findFirst({ where: { id }, include: { attachments: { where: { archivedAt: null }, orderBy: { createdAt: "asc" } } } });
   if (!h) return null;
-  const { mayRead } = await import("./scope");
   if (!mayRead(s, h)) return null;
   if (s.level === "student" && !(await tx.submission.findFirst({ where: { homeworkId: id, studentId: s.student?.id ?? "", archivedAt: null } }))) return null;
   const [section, subject, teacher, subs] = await Promise.all([

@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { ChevronRight, CircleDashed, ClipboardCheck, Lock, PencilLine, Send } from "lucide-react";
 import { periodSetup } from "@/lib/period-setup";
+import { pageMode } from "@/lib/duty";
 import { withSchool } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { dateWhere, periodFromSearch } from "@/lib/periods";
@@ -36,6 +37,8 @@ export default async function MarksEntryPage({ searchParams }: { searchParams: S
   if (!page.year) return (<><PageTop page={page} href={PATH} /><NoYear /></>);
   const year = page.year;
   const tz = page.current.school.timeZone;
+  // Leaders check and remind; the subject teacher enters marks (src/lib/duty.ts). Opening a paper shows it read-only.
+  const checksOnly = pageMode(page.current, "examination-results", "marks") === "view";
   const dates = await periodSetup(page.current);
   const range = periodFromSearch(raw, dates);
   const within = range ? dateWhere(range) : null;
@@ -71,7 +74,7 @@ export default async function MarksEntryPage({ searchParams }: { searchParams: S
   const late = pending.filter(overdue);
 
   const dueBanner = late.length > 0
-    ? <Banner tone="bad" title={`${plural(late.length, "paper")} ${late.length === 1 ? "is" : "are"} past the marks due date.`}>{page.scope.manage ? "Remind the teachers, or open a paper to enter marks for them." : "Enter and submit these first."}</Banner>
+    ? <Banner tone="bad" title={`${plural(late.length, "paper")} ${late.length === 1 ? "is" : "are"} past the marks due date.`}>{page.scope.manage ? (checksOnly ? "Remind the teachers who have not finished." : "Remind the teachers, or open a paper to enter marks for them.") : "Enter and submit these first."}</Banner>
     : dues.length > 0
       ? <Banner tone="info" title={`Marks are due by ${formatDate(dues[dues.length - 1], tz)}.`}>{plural(pending.length, "paper")} still {pending.length === 1 ? "needs" : "need"} marks{dues[0].getTime() !== dues[dues.length - 1].getTime() ? `; the first is due ${formatDate(dues[0], tz)}` : ""}. Marks save as they are typed.</Banner>
       : null;

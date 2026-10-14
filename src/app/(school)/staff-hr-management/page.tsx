@@ -4,6 +4,7 @@ import { Info, MessageCircle, Pencil, SearchX, Upload, UserPlus, Users } from "l
 import { withSchool } from "@/lib/db";
 import { readListParams, listHref } from "@/lib/list";
 import { staffPage, BASE } from "@/lib/staff/page";
+import { pageHidden } from "@/lib/duty";
 import { STAFF_FILTERS, staffOrder, staffWhere } from "@/lib/staff/list";
 import { EMPLOYMENT_TYPES, STAFF_STATUSES } from "@/lib/staff/settings";
 import { onLeaveOn } from "@/lib/staff/leave";
@@ -59,6 +60,8 @@ export default async function StaffListPage({ searchParams }: Search) {
   });
   type Row = (typeof data.rows)[number];
   const canChange = viewer.change === "all";
+  // Adding staff is office work; the Principal sees and approves (src/lib/duty.ts). 05-roles still allows it on the server.
+  const canAdd = canChange && !pageHidden(current, "staff-hr-management", "add");
   const f = params.filters;
   const href = (change: Record<string, string | null>) => listHref(BASE, { ...params, page: 1 }, { ...change, page: null, n: null });
   const deptCount = new Map(data.byDept.map((d) => [d.departmentId ?? "none", d._count._all]));
@@ -102,9 +105,9 @@ export default async function StaffListPage({ searchParams }: Search) {
       <StaffHead page="Staff List" href={BASE}
         sub={`${data.roll.toLocaleString("en-IN")} staff on roll${campusName ? ` · ${campusName}` : ""}`}
         actions={<>
-          {canChange && <ButtonLink href={`${BASE}/import`} icon={Upload} className="max-md:hidden">Import</ButtonLink>}
+          {canAdd && <ButtonLink href={`${BASE}/import`} icon={Upload} className="max-md:hidden">Import</ButtonLink>}
           <ExportLinks href={exportHref} className="max-md:hidden" />
-          {canChange && <ButtonLink href={`${BASE}/add`} variant="primary" icon={UserPlus}>Add staff</ButtonLink>}
+          {canAdd && <ButtonLink href={`${BASE}/add`} variant="primary" icon={UserPlus}>Add staff</ButtonLink>}
         </>} />
 
       <Stats label="Staff today" className="mb-5" items={[
@@ -152,7 +155,7 @@ export default async function StaffListPage({ searchParams }: Search) {
               action={<ButtonLink href={BASE}>Clear filters</ButtonLink>} />
           ) : (
             <Empty icon={Users} title="No staff added yet" body="Add your teachers and staff one by one, or import them all from Excel."
-              action={canChange ? <div className="flex flex-wrap justify-center gap-2"><ButtonLink href={`${BASE}/import`} icon={Upload}>Import staff</ButtonLink><ButtonLink href={`${BASE}/add`} variant="primary" icon={UserPlus}>Add staff</ButtonLink></div> : undefined} />
+              action={canAdd ? <div className="flex flex-wrap justify-center gap-2"><ButtonLink href={`${BASE}/import`} icon={Upload}>Import staff</ButtonLink><ButtonLink href={`${BASE}/add`} variant="primary" icon={UserPlus}>Add staff</ButtonLink></div> : undefined} />
           )} />
       </Card>
       {data.rows.length > 0 && (

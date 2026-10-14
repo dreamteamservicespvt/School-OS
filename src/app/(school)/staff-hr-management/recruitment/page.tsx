@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { pageHidden } from "@/lib/duty";
 import type { Prisma } from "@prisma/client";
 import { Award, Briefcase, CalendarClock, ClipboardCheck, FileSignature, GraduationCap, Inbox, Megaphone, Star, TrendingUp, Users } from "lucide-react";
 import { withSchool } from "@/lib/db";
@@ -38,6 +39,8 @@ export default async function RecruitmentPage({ searchParams }: Props) {
   const { current, viewer, features, tz, today } = await staffPage();
   const hr = viewer.see === "all";
   const canHr = viewer.change === "all";
+  // Adding the hired person is office work (src/lib/duty.ts): the Principal sees the offer but not "Add as staff".
+  const canAdd = canHr && !pageHidden(current, "staff-hr-management", "add");
   const views = [
     ...(hr && features.has("hr-recruitment") ? [{ key: "recruitment", label: "Recruitment" }] : []),
     ...(features.has("hr-appraisal") ? [{ key: "appraisal", label: "Appraisal" }] : []),
@@ -171,7 +174,7 @@ export default async function RecruitmentPage({ searchParams }: Props) {
                         <div className="mt-1.5 flex flex-wrap gap-1.5">
                           <a className={buttonClass("secondary", "sm")} href={`${BASE}/recruitment/offers/${o.id}`} target="_blank" rel="noopener">Offer letter</a>
                           {canHr && <StatusSelectForm trigger="Reply" title={`Offer ${o.offerNo}`} hidden={{ offerId: o.id }} options={OFFER_STATUSES.filter((s) => s.value !== "MADE")} current="ACCEPTED" action={offerStatusAction} />}
-                          {canHr && o.application.status !== "HIRED" && <ButtonLink size="sm" variant="primary" href={`${BASE}/add?application=${o.applicationId}`}>Add as staff</ButtonLink>}
+                          {canAdd && o.application.status !== "HIRED" && <ButtonLink size="sm" variant="primary" href={`${BASE}/add?application=${o.applicationId}`}>Add as staff</ButtonLink>}
                         </div>
                       </div>
                     </li>
@@ -188,7 +191,7 @@ export default async function RecruitmentPage({ searchParams }: Props) {
                       <span className="min-w-0"><span className="block truncate font-semibold">{o.application.name}</span><span className="block text-[12.5px] text-ink3">{o.designation} · {o.offerNo}</span></span>
                       <span className="flex shrink-0 items-center gap-1.5">
                         <Pill tone={OFFER_TONE[o.status]}>{label(OFFER_STATUSES, o.status)}</Pill>
-                        {canHr && o.status === "ACCEPTED" && o.application.status !== "HIRED" && <ButtonLink size="sm" variant="primary" href={`${BASE}/add?application=${o.applicationId}`}>Add as staff</ButtonLink>}
+                        {canAdd && o.status === "ACCEPTED" && o.application.status !== "HIRED" && <ButtonLink size="sm" variant="primary" href={`${BASE}/add?application=${o.applicationId}`}>Add as staff</ButtonLink>}
                       </span>
                     </li>
                   ))}
@@ -233,7 +236,7 @@ export default async function RecruitmentPage({ searchParams }: Props) {
                       <>
                         <InterviewForm action={interviewAction} applicationId={a.id} name={a.name} staff={staffOptions} />
                         {(!offer || offer.status !== "MADE") && a.status !== "OFFERED" && <OfferForm action={offerAction} applicationId={a.id} name={a.name} designation={v.designation} designations={lists.designations} departments={lists.departments} />}
-                        {offer && (offer.status === "MADE" || offer.status === "ACCEPTED") && <ButtonLink size="sm" variant="primary" href={`${BASE}/add?application=${a.id}`}>Add as staff</ButtonLink>}
+                        {canAdd && offer && (offer.status === "MADE" || offer.status === "ACCEPTED") && <ButtonLink size="sm" variant="primary" href={`${BASE}/add?application=${a.id}`}>Add as staff</ButtonLink>}
                         <StatusSelectForm trigger="Status" title={a.name} hidden={{ applicationId: a.id }} options={APPLICATION_STATUSES.filter((s) => s.value !== "HIRED")} current={a.status} action={applicationStatusAction} />
                       </>
                     )}

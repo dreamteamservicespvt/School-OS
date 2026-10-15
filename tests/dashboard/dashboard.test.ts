@@ -113,16 +113,17 @@ describe("modules that are not built or are switched off", () => {
 
   it("loads nothing from an optional module the school has switched off", async () => {
     let loaded = 0;
-    // Hostel Management is optional and not built yet (Library Management now is).
+    // Hostel Management is optional and built; this school has it switched off.
     const lib: Widget<"band"> = { id: "hostel.test", module: "hostel-management", kind: "band", homes: "any", load: async () => { loaded++; return { id: "hostel.test", label: "Beds", big: "1" }; } };
-    const built = new Set<ModuleKey>([...BUILT_MODULES, "hostel-management"]);
+    const built = new Set<ModuleKey>(BUILT_MODULES);
     const allowed = { ...librarian, permissions: { ...librarian.permissions, "hostel-management": { see: "all", change: "all" } } } as Current;
     const off = { ...allowed, modulesOn: new Set<ModuleKey>() } as Current;
     expect(widgetsFor(off, homesFor(off), [lib], built)).toHaveLength(0);
     const on = { ...allowed, modulesOn: new Set<ModuleKey>(["hostel-management"]) } as Current;
     expect(widgetsFor(on, homesFor(on), [lib], built)).toHaveLength(1);
-    // And a module that is switched on but not built still loads nothing.
-    expect(widgetsFor(on, homesFor(on), [lib])).toHaveLength(0);
+    // And a module switched on but not (yet) built in a release loads nothing.
+    const notBuilt = new Set<ModuleKey>([...BUILT_MODULES].filter((m) => m !== "hostel-management"));
+    expect(widgetsFor(on, homesFor(on), [lib], notBuilt)).toHaveLength(0);
     await buildHome(off, { now: NOW, widgets: [lib], built });
     expect(loaded).toBe(0);
   });

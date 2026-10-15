@@ -6,7 +6,8 @@ import { GET } from "@/app/api/v1/files/[id]/route";
 import { checkGstin } from "@/lib/settings/profile-rules";
 import { addCampus, archiveCampus, makeMainCampus, saveBoard } from "@/lib/settings/school-profile";
 import { expiryState, remindExpiringDocuments, shareDocument, uploadDocument, uploadVersion } from "@/lib/settings/vault";
-import { connectIntegration, setModuleOn, testIntegration, INTEGRATIONS } from "@/lib/settings/switches";
+import { canSwitchOn, connectIntegration, setModuleOn, testIntegration, INTEGRATIONS, OPTIONAL_MODULES } from "@/lib/settings/switches";
+import { BUILT_MODULES } from "@/lib/modules";
 import { makeSchool, makeUser } from "../helpers";
 
 const PDF = new File([Buffer.from("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF")], "affiliation.pdf", { type: "application/pdf" });
@@ -116,7 +117,14 @@ describe("School Profile rules", () => {
 describe("Modules On/Off", () => {
   it("only optional modules switch, and only once they are built", async () => {
     await expect(withSchool(ctx(), (tx) => setModuleOn(tx, ctx(), "fee-management", false))).rejects.toThrow(/always on/);
-    await expect(withSchool(ctx(), (tx) => setModuleOn(tx, ctx(), "hostel-management", true))).rejects.toThrow(/arrives in Stage 4/);
+    // Every optional module switches on only once its screens are built.
+    for (const m of OPTIONAL_MODULES) expect(canSwitchOn(m.key)).toBe(BUILT_MODULES.has(m.key));
+    // A built optional module switches on and off for one school; the same choice again changes nothing.
+    expect(await withSchool(ctx(), (tx) => setModuleOn(tx, ctx(), "hostel-management", true))).toBe(true);
+    expect(await withSchool(ctx(), (tx) => setModuleOn(tx, ctx(), "hostel-management", true))).toBe(false);
+    expect(await withSchool(ctx(), (tx) => setModuleOn(tx, ctx(), "hostel-management", false))).toBe(true);
+    const row = await withSchool(ctx(), (tx) => tx.schoolModule.findUniqueOrThrow({ where: { schoolId_moduleKey: { schoolId: school.id, moduleKey: "hostel-management" } } }));
+    expect(row.isOn).toBe(false);
   });
 
   it("integrations: checks details, keeps secrets encrypted, reports health in plain words", async () => {

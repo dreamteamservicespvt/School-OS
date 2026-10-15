@@ -25,8 +25,9 @@ export type RuleDef = {
   timingFields?: { key: string; label: string; kind: "time" | "days"; default: string }[];
 };
 
-// Transport rules (pickup, drop, arriving, emergency) are added when Transport
-// Management is built (D3: no Transport in version 1).
+// Transport rules (pickup, drop, arriving) belong to Transport Management and
+// are shown only where Transport is switched on. Emergency and delay messages
+// to a route are sent by a person after they confirm (12 §5), not by a rule.
 export const RULES: RuleDef[] = [
   { key: "absence", label: "Absent today", when: "A student is marked absent", module: "Attendance Management", audience: "parents", messageType: "attendance", defaultChannels: ["whatsapp"], defaultOn: true },
   { key: "late", label: "Late arrival", when: "A student is marked late", module: "Attendance Management", audience: "parents", messageType: "attendance", defaultChannels: ["whatsapp"], defaultOn: false },
@@ -46,6 +47,9 @@ export const RULES: RuleDef[] = [
     timingFields: [{ key: "time", label: "Time of day", kind: "time", default: "08:00" }] },
   { key: "salary-slip", label: "Salary slip ready", when: "Salary is approved and slips are made", module: "Salary Management", audience: "staff", messageType: "general", defaultChannels: ["app"], defaultOn: true },
   { key: "admission-welcome", label: "Admission welcome", when: "An admission is approved", module: "Admission Management", audience: "parents", messageType: "general", defaultChannels: ["whatsapp"], defaultOn: true },
+  { key: "bus-pickup", label: "Picked up by the bus", when: "A student boards the school bus in the morning", module: "Transport Management", audience: "parents", messageType: "general", defaultChannels: ["whatsapp"], defaultOn: false },
+  { key: "bus-drop", label: "Dropped by the bus", when: "A student reaches school, or gets off at the stop in the evening", module: "Transport Management", audience: "parents", messageType: "general", defaultChannels: ["whatsapp"], defaultOn: false },
+  { key: "bus-arriving", label: "Bus arriving", when: "The bus is a few minutes from the student's stop (set in Transport Settings)", module: "Transport Management", audience: "parents", messageType: "general", defaultChannels: ["whatsapp"], defaultOn: false },
 ];
 
 export const ruleDef = (key: string) => RULES.find((r) => r.key === key);

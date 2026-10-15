@@ -241,8 +241,10 @@ export async function seedAttendance(s: SeedSchool) {
     const { ctx: tctx, access: tAccess } = await accessOf(s, s.users.teacher);
     const d1 = past.at(-8)!;
     const d2 = past.at(-2)!;
-    const marks = await withSchool(sys, (tx) => tx.attendanceMark.findMany({ where: { sectionId: c5a.id, date: { in: [d1, d2] }, statusKey: "absent" }, select: { studentId: true, date: true } }));
-    const pick = (d: Date, n: number) => marks.find((m) => m.date.getTime() === d.getTime())?.studentId ?? c5aKids[n]?.studentId;
+    // An absent mark to correct, else a present one (a student already marked "late" or "medical" has nothing to correct).
+    const marks = await withSchool(sys, (tx) => tx.attendanceMark.findMany({ where: { sectionId: c5a.id, date: { in: [d1, d2] }, statusKey: { in: ["absent", "present"] } }, select: { studentId: true, date: true, statusKey: true } }));
+    const on = (d: Date, k: string) => marks.find((m) => m.date.getTime() === d.getTime() && m.statusKey === k)?.studentId;
+    const pick = (d: Date, n: number) => on(d, "absent") ?? on(d, "present") ?? c5aKids[n]?.studentId;
     const first = await withSchool(tctx, (tx) => requestCorrection(tx, tctx, tAccess, { forWhom: "student", sectionId: c5a.id, date: d1, periodNo: 0, changes: [{ id: pick(d1, 3)!, to: "late", note: "Came at 9:20 with a note from the parent" }], reason: "She came late after the bus broke down; I marked her absent by mistake." }), { timeout: 30_000 });
     if (first.approvalId) await withSchool(pctx, (tx) => decide(tx, pctx, first.approvalId!, "approve", null), { timeout: 30_000 });
     await withSchool(tctx, (tx) => requestCorrection(tx, tctx, tAccess, { forWhom: "student", sectionId: c5a.id, date: d2, periodNo: 0, changes: [{ id: pick(d2, 9)!, to: "medical", note: "Medical certificate received" }], reason: "The parent sent a doctor's certificate for this day." }), { timeout: 30_000 });

@@ -5,6 +5,7 @@
 // inside the school's walls and answers in plain words.
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import type { FormState } from "@/lib/forms";
 import { formatDate, formatRupees } from "@/lib/format";
 import { canDecide, decide } from "@/lib/approvals";
@@ -247,12 +248,16 @@ export async function decideChargeAction(_p: S, fd: FormData): Promise<S> {
 
 /* ---------- Stock check ---------- */
 
+/** Starts a stock check and takes the librarian straight to its scan page. */
 export async function startStockAction(_p: S<{ id: string }>, fd: FormData): Promise<S<{ id: string }>> {
-  return libAction("create", fd, async (w) => {
+  const r = await libAction("create", fd, async (w) => {
     need(w.can.fines, "run stock checks");
     const s = await startSession(w.tx, w.ctx, text(fd, "name", "Name", { min: 3, max: 80 }));
     return { id: s.id };
   }, () => "Stock check started. Scan every copy on the shelves.");
+  // Outside libAction's try, so the redirect is not caught as a problem.
+  if (r?.ok && r.data) redirect(`${BASE}/fines/stock/${r.data.id}`);
+  return r;
 }
 
 /** One scan: quick, no toast (the scan page shows each code as it comes). */

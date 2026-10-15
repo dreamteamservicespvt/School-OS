@@ -195,6 +195,11 @@ export const DOC_TYPES: readonly DocType[] = [
     defaultFields: ["member_no", "class_section", "valid_until"], codeField: "member_no",
   },
   {
+    key: "bus-pass", label: "Bus pass", group: "ID cards", family: "card", usedBy: "Transport Management", title: "Bus Pass", defaultPaper: "A4",
+    fields: [...pick(STUDENT, ["student_name", "admission_no", "class_section", "guardian_phone", "blood_group"]), f("bus_pass_no", "Bus pass number", "BP/2026-27/0042"), f("route", "Route", "Route 4 · Hafeezpet"), f("stop", "Stop", "Hafeezpet Railway Station"), f("pickup_time", "Pickup time", "7:42 AM"), f("drop_time", "Drop time", "4:05 PM"), f("bus_type", "One-way or two-way", "Two-way"), f("valid_until", "Valid until", "31-03-2027")],
+    defaultFields: ["bus_pass_no", "class_section", "route", "stop", "pickup_time", "guardian_phone"], codeField: "bus_pass_no",
+  },
+  {
     key: "purchase-order", label: "Purchase order", group: "Store", family: "money", usedBy: "Inventory Management", title: "Purchase Order", defaultPaper: "A4",
     fields: [
       f("po_no", "Purchase order number", "PO/2026-27/0012"), f("po_date", "Order date", "09-10-2026"), f("vendor_name", "Vendor", "Sri Sai Stationers"),

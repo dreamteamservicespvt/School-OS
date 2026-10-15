@@ -157,6 +157,10 @@ export const QUICK_BY_ROLE: Record<string, Quick[]> = {
     q("/inventory-management/rooms?status=open", "inventory-management", "Maintenance requests", "Open problems reported by staff", "ListChecks"),
   ],
   "hostel-warden": [q("/hostel-management", "hostel-management", "Roll call", "Mark tonight's roll call", "ListChecks")],
-  "transport-in-charge": [q("/transport-management", "transport-management", "Buses today", "Trips, delays and live buses", "Bus")],
+  "transport-in-charge": [
+    q("/transport-management/trips", "transport-management", "Buses today", "Trips, delays and live buses", "Bus"),
+    q("/transport-management/students?do=assign", "transport-management", "Give a bus stop", "Route, stop and the stop's fee", "Route"),
+    q("/transport-management/vehicles?view=costs&do=cost&ck=FUEL", "transport-management", "Record fuel", "Fuel bill for a vehicle", "ReceiptText"),
+  ],
   "gate-security": [q("/front-office/visitors", "front-office", "Add visitor", "Name, phone and who they meet", "IdCard")],
 };

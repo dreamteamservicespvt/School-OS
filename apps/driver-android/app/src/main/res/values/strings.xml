@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">School OS Driver</string>
+    <string name="channel_name">Trip running</string>
+    <string name="notification_title">Trip running</string>
+    <string name="notification_text">Sending the bus\'s location to the school. Tap End trip when you reach.</string>
+</resources>

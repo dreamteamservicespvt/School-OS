@@ -20,7 +20,7 @@ const inr = (n: number) => `₹${n.toLocaleString("en-IN", { maximumFractionDigi
 const num = (v: string) => Number(v.replace(/[₹,\s]/g, "")) || 0;
 
 /** Finance's duplicate-bill and low-cash warnings: a reason or a tick to go on. */
-function Warned() {
+export function Warned() {
   const state = useSheetResult();
   const data = state && !state.ok ? (state.data as { warning?: boolean } | undefined) : undefined;
   if (!data?.warning) return null;

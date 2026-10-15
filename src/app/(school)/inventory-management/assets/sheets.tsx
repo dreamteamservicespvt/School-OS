@@ -14,6 +14,7 @@ import { inputCls } from "@/components/ui/field";
 import { cx } from "@/components/ui/cx";
 import type { FormState } from "@/lib/forms";
 import { SegField } from "../_components/client";
+import { Warned } from "../purchases/sheets";
 import { addAssetAction, addRepairAction, assignAction, disposeAction, linkItemAction, scanTagAction, startAssetAuditAction, updateAssetAction, updateRepairAction } from "./actions";
 
 type Opt = { value: string; label: string };
@@ -129,6 +130,7 @@ export function RepairUpdateSheet({ closeHref, logId, words, vendors, today, sta
         </>
       )}
       <SText name="note" label="Note" maxLength={300} placeholder="Optional" />
+      <Warned />
     </SheetForm>
   );
 }

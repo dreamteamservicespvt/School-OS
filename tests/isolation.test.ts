@@ -551,3 +551,48 @@ describe("Events & Calendar records stay in their school", () => {
     await expect(withSchool(ctxA(), (tx) => tx.album.create({ data: { schoolId: b.id, number: "AL-X", name: "X", date: day } }))).rejects.toThrow();
   });
 });
+
+describe("Homework & Learning records stay in their school", () => {
+  it("school A cannot read, change or add to school B's homework, submissions, courses, lessons, quizzes, boards, online classes or settings", async () => {
+    const ctxB = { schoolId: b.id, userId: userB.id };
+    const day = new Date("2031-06-02T00:00:00Z");
+    const at = new Date("2031-06-02T05:00:00Z");
+    const x = "00000000-0000-4000-8000-000000000002";
+    const where = { academicYearId: x, sectionId: x, classId: x, subjectId: x };
+    const ids = await withSchool(ctxB, async (tx) => {
+      await tx.homeworkSetting.create({ data: { schoolId: b.id } });
+      const hw = await tx.homework.create({ data: { schoolId: b.id, ...where, title: "Only in B", startDate: day, dueDate: day } });
+      await tx.homeworkAttachment.create({ data: { schoolId: b.id, homeworkId: hw.id, kind: "link", name: "Only in B" } });
+      const sub = await tx.submission.create({ data: { schoolId: b.id, homeworkId: hw.id, studentId: x } });
+      await tx.homeworkComment.create({ data: { schoolId: b.id, homeworkId: hw.id, studentId: x, authorName: "B", body: "Only in B" } });
+      const course = await tx.course.create({ data: { schoolId: b.id, ...where } });
+      const lesson = await tx.lesson.create({ data: { schoolId: b.id, courseId: course.id, title: "Only in B" } });
+      await tx.lessonItem.create({ data: { schoolId: b.id, lessonId: lesson.id, kind: "NOTES", name: "Only in B" } });
+      await tx.lessonView.create({ data: { schoolId: b.id, lessonId: lesson.id, studentId: x } });
+      await tx.courseCertificate.create({ data: { schoolId: b.id, courseId: course.id, studentId: x, number: "CC-B-1" } });
+      const quiz = await tx.quiz.create({ data: { schoolId: b.id, ...where, title: "Only in B" } });
+      await tx.quizQuestion.create({ data: { schoolId: b.id, quizId: quiz.id, text: "Only in B?" } });
+      await tx.quizAttempt.create({ data: { schoolId: b.id, quizId: quiz.id, studentId: x } });
+      const board = await tx.discussionBoard.create({ data: { schoolId: b.id, title: "Only in B", ownerName: "B" } });
+      await tx.discussionPost.create({ data: { schoolId: b.id, boardId: board.id, authorName: "B" } });
+      const session = await tx.onlineClassSession.create({ data: { schoolId: b.id, ...where, title: "Only in B", startsAt: at, meetingLink: "https://meet.example/b" } });
+      await tx.onlineClassAttendance.create({ data: { schoolId: b.id, sessionId: session.id, studentId: x } });
+      return { hw: hw.id, sub: sub.id, quiz: quiz.id };
+    });
+    await withSchool(ctxA(), async (tx) => {
+      const counts = await Promise.all([
+        tx.homeworkSetting.count({ where: { schoolId: b.id } }), tx.homework.count(), tx.homeworkAttachment.count(), tx.submission.count(), tx.homeworkComment.count(),
+        tx.course.count(), tx.lesson.count(), tx.lessonItem.count(), tx.lessonView.count(), tx.courseCertificate.count(),
+        tx.quiz.count(), tx.quizQuestion.count(), tx.quizAttempt.count(), tx.discussionBoard.count(), tx.discussionPost.count(),
+        tx.onlineClassSession.count(), tx.onlineClassAttendance.count(),
+      ]);
+      expect(counts).toEqual(Array(17).fill(0));
+      expect(await tx.homework.findUnique({ where: { id: ids.hw } })).toBeNull();
+      expect((await tx.homework.updateMany({ where: { id: ids.hw }, data: { title: "Changed by A" } })).count).toBe(0);
+      expect((await tx.submission.updateMany({ where: { id: ids.sub }, data: { score: 1 } })).count).toBe(0);
+      expect((await tx.quiz.updateMany({ where: { id: ids.quiz }, data: { title: "Changed by A" } })).count).toBe(0);
+    });
+    await expect(withSchool(ctxA(), (tx) => tx.submission.create({ data: { schoolId: b.id, homeworkId: ids.hw, studentId: "00000000-0000-4000-8000-000000000003" } }))).rejects.toThrow();
+    await expect(withSchool(ctxA(), (tx) => tx.homework.create({ data: { schoolId: b.id, ...where, title: "X", startDate: day, dueDate: day } }))).rejects.toThrow();
+  });
+});

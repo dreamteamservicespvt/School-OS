@@ -3,7 +3,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import * as I from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { requirePage } from "@/lib/current";
+import { requireCurrent, requirePage } from "@/lib/current";
+import { reachFor } from "@/lib/permissions";
 import { withSchool } from "@/lib/db";
 import { quickActionsFor } from "@/lib/shell-data";
 import { buildHome } from "@/lib/dashboard/compose";
@@ -29,6 +30,9 @@ function greeting(timeZone: string, now: Date) {
 type Search = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
 export default async function DashboardPage({ searchParams }: Search) {
+  // A student has no Dashboard: their home is Homework & Learning (17 §1).
+  const who = await requireCurrent();
+  if (reachFor(who.permissions, "dashboard", "view") === "none" && reachFor(who.permissions, "homework-learning", "view") !== "none") redirect("/homework-learning");
   const current = await requirePage("dashboard");
   const sp = await searchParams;
   const now = new Date();

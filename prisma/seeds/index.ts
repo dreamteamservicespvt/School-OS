@@ -12,6 +12,7 @@ import { seedDashboard } from "./dashboard";
 import { seedAdmission } from "./admission";
 import { seedFeesFinance } from "./fees-finance";
 import { seedSalary } from "./salary";
+import { seedHomework } from "./homework";
 import { seedFrontOffice } from "./front-office";
 import { seedEvents } from "./events";
 
@@ -28,6 +29,7 @@ export const MODULE_SEEDS: { module: string; seed: ModuleSeed }[] = [
   { module: "admission-management", seed: seedAdmission },
   { module: "fee-management and finance-management", seed: seedFeesFinance },
   { module: "salary-management", seed: seedSalary },
+  { module: "homework-learning", seed: seedHomework },
   { module: "front-office", seed: seedFrontOffice },
   { module: "events-calendar", seed: seedEvents },
 ];

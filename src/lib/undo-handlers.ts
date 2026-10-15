@@ -9,3 +9,4 @@ import "./students/undo";
 import "./dashboard/undo";
 import "./homework/undo";
 import "./front-office/undo";
+import "./events/undo";

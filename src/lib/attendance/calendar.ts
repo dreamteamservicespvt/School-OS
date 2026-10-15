@@ -27,6 +27,8 @@ export async function schoolDays(tx: Tx, ctx: SchoolContext, from: Date, to: Dat
     select: { type: true, title: true, startDate: true, endDate: true, attendanceOn: true },
     orderBy: { startDate: "asc" },
   });
+  // Saturdays the school has off (Events Settings, Weekends).
+  const weekends = await tx.eventsSetting.findUnique({ where: { schoolId: ctx.schoolId }, select: { secondSaturdayOff: true, fourthSaturdayOff: true } });
   const off = new Map<string, string>();
   const allowed = new Set<string>();
   for (const e of entries) {
@@ -42,6 +44,11 @@ export async function schoolDays(tx: Tx, ctx: SchoolContext, from: Date, to: Dat
     if (allowed.has(k)) return { on: true, reason: null, title: null };
     if (off.has(k)) return { on: false, reason: "holiday", title: off.get(k)! };
     if (isoWeekday(d) === 7) return { on: false, reason: "sunday", title: "Sunday" };
+    if (isoWeekday(d) === 6 && weekends) {
+      const n = Math.ceil(d.getUTCDate() / 7);
+      if (n === 2 && weekends.secondSaturdayOff) return { on: false, reason: "holiday", title: "Second Saturday" };
+      if (n === 4 && weekends.fourthSaturdayOff) return { on: false, reason: "holiday", title: "Fourth Saturday" };
+    }
     return { on: true, reason: null, title: null };
   };
   const working = from <= to ? eachDay(from, to).filter((d) => info(d).on) : [];

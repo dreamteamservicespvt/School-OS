@@ -10,6 +10,8 @@ import { allocationActiveOn } from "../../academic/allocation";
 import { mainCampusId } from "../../academic/settings";
 import { CLOSED_TYPES } from "../../academic/calendar";
 import { weekday } from "../../academic/common";
+import { evPageAllowed, evViewer } from "../../events/access";
+import { BUILT_MODULES } from "../../modules";
 import { addDays, clock, dayWord, hasRole, minutesOf, moduleOpen, myStaff, plural, reach, shortDate, someNames } from "../common";
 import type { AgendaItem, AttentionItem, BarRow, ClassToday, DashContext, Widget } from "../types";
 import { attendanceTakeHref, choices as attendanceChoices } from "./attendance";
@@ -286,6 +288,10 @@ const calendarAgenda: Widget<"agenda"> = {
       where: { archivedAt: null, startDate: { lte: until }, endDate: { gte: c.today }, ...(c.viewer.campusId ? { OR: [{ campusId: null }, { campusId: c.viewer.campusId }] } : {}) },
       orderBy: { startDate: "asc" }, take: 8,
     });
+    // Links only to pages this person may open (the School Calendar, and Events or PTM for those who have them).
+    const v = evViewer(c.viewer as unknown as Parameters<typeof evViewer>[0]);
+    const calOpen = BUILT_MODULES.has("events-calendar") && c.viewer.modulesOn.has("events-calendar") && v.level !== null;
+    const evOpen = (page: "events" | "ptm") => calOpen && evPageAllowed(v, page);
     return rows.map((e): AgendaItem => {
       const from = e.startDate < c.today ? c.today : e.startDate;
       const closed = CLOSED_TYPES.includes(e.type);
@@ -294,6 +300,8 @@ const calendarAgenda: Widget<"agenda"> = {
         id: `cal:${e.id}`, time: dayWord(from, c.today), title: e.title,
         where: closed ? `${span} · school closed` : e.type === "exam_day" ? `${span} · exam day` : span,
         tone: closed ? "info" : e.type === "exam_day" ? "bad" : "brand",
+        // Events and PTMs open their own page; everything else opens the School Calendar on that day.
+        href: e.source?.startsWith("event:") && evOpen("events") ? `/events-calendar/events/${e.source.slice(6)}` : e.source?.startsWith("ptm:") && evOpen("ptm") ? `/events-calendar/ptm?day=${e.source.slice(4)}` : calOpen ? `/events-calendar?m=${from.toISOString().slice(0, 7)}&d=${from.toISOString().slice(0, 10)}` : undefined,
         sort: Math.round((from.getTime() - c.today.getTime()) / 60_000) + 1,
       };
     });

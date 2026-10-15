@@ -23,4 +23,5 @@ import "./students/jobs";
 import "./students/import";
 import "./fees/jobs";
 import "./dashboard/jobs";
+import "./events/jobs";
 import "./homework/jobs";

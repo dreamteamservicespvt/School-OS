@@ -3,6 +3,7 @@ import { CalendarCheck2, CalendarDays, Eye, LayoutGrid, ListChecks, NotebookPen,
 import { withSchool, type Tx } from "@/lib/db";
 import { fileLink } from "@/lib/files";
 import { rangeWords } from "@/lib/periods";
+import { formatTime } from "@/lib/format";
 import { listHomework, bandTotals, nextClassDay, nextWorkingDay, sectionStudents, type HomeworkRow } from "@/lib/homework/homework";
 import { byTeacher, loadByDay } from "@/lib/homework/overview";
 import { handInState } from "@/lib/homework/submissions";
@@ -71,7 +72,7 @@ async function StaffHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
     const [{ all }, archived] = await Promise.all([listHomework(tx, s, p.today), tab === "archived" ? listHomework(tx, s, p.today, { archived: true }) : null]);
     const inPeriod = (r: HomeworkRow) => !per.from || !per.to || (r.startDate >= per.from && r.startDate <= per.to);
     const inP = all.filter(inPeriod);
-    const overview = s.level === "full" ? await byTeacher(tx, inP, s.yearId, p.today) : null;
+    const overview = s.level === "full" ? await byTeacher(tx, inP, s.yearId, p.today, p.tz) : null;
     const give = doing === "give" ? await giveSections(tx, p) : null;
     const editing = doing === "edit" && target ? await tx.homework.findFirst({ where: { id: target, archivedAt: null }, include: { attachments: { where: { archivedAt: null } } } }) : null;
     const archiving = doing === "archive" && target ? all.find((r) => r.id === target) ?? null : null;
@@ -122,7 +123,7 @@ async function StaffHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
           { label: "Seen by parents", big: t.messaged ? `${pct(t.seen, t.seenOf)}%` : "—", foot: t.messaged ? "From WhatsApp read receipts" : "No homework messages yet" },
         ]} />
 
-        {data.overview && <Overview lines={data.overview.lines} idle={data.overview.idle.filter((t) => t.subjects.some((x) => inP.some((r) => r.subject === x)))} load={loadByDay(inP)} per={per.label} today={p.today} canRemind={p.current.permissions["homework-learning"]?.change === "all"} />}
+        {data.overview && <Overview lines={data.overview.lines} idle={data.overview.idle.filter((t) => t.subjects.some((x) => inP.some((r) => r.subject === x)))} load={loadByDay(inP)} per={per.label} today={p.today} tz={p.tz} canRemind={p.current.permissions["homework-learning"]?.change === "all"} />}
 
         <Card>
           <Toolbar>
@@ -213,8 +214,8 @@ async function StaffHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
 }
 
 /** For people who look after homework across the school: who gives how much, and the load on each class (HomeworkOverview). */
-function Overview({ lines, idle, load, per, today, canRemind }: {
-  lines: Awaited<ReturnType<typeof byTeacher>>["lines"]; idle: Awaited<ReturnType<typeof byTeacher>>["idle"]; load: ReturnType<typeof loadByDay>; per: string; today: Date; canRemind: boolean;
+function Overview({ lines, idle, load, per, today, tz, canRemind }: {
+  lines: Awaited<ReturnType<typeof byTeacher>>["lines"]; idle: Awaited<ReturnType<typeof byTeacher>>["idle"]; load: ReturnType<typeof loadByDay>; per: string; today: Date; tz: string; canRemind: boolean;
 }) {
   return (
     <div className="grid xl:grid-cols-2 gap-5 lg:gap-6 items-start">
@@ -229,7 +230,7 @@ function Overview({ lines, idle, load, per, today, canRemind }: {
                   <p className="font-semibold text-[14px] leading-snug truncate">{t.name} <span className="font-normal text-ink3">· {t.subjects.join(", ")}</span></p>
                   <p className="text-[12.5px] text-ink3 truncate tnum">{t.given} given · {t.classes.join(", ")} · {pct(t.handed, t.assigned)}% handed in{t.toCheck ? ` · ${t.toCheck} to check` : ""}</p>
                 </div>
-                {canRemind && t.toCheck >= 10 && (t.remindedToday ? <Pill tone="ok" className="shrink-0">Reminded</Pill> : <RemindButton staffId={t.staffId} />)}
+                {canRemind && t.toCheck >= 10 && <RemindButton staffId={t.staffId} done={t.remindedAt ? formatTime(t.remindedAt, tz) : null} />}
               </li>
             ))}
             {idle.map((t) => (

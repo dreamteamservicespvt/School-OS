@@ -4,6 +4,7 @@
 //   Own staff (Teacher, Class Teacher): every page but Homework Settings, only
 //     their own classes and subjects from Teacher Allocation; a class teacher
 //     also reads the homework of every subject of their own section.
+// Who does the desk work is in src/lib/duty.ts (DUTY):
 //   Principal and School Admin watch and remind: Homework (with who gives how
 //     much and Remind), Learning Progress and Homework Settings. They do not
 //     do a teacher's desk work, so Submissions, Study Material, Quizzes,
@@ -16,6 +17,7 @@
 // Study Material, Quizzes, Discussions and Online Classes are optional pages
 // the school switches on in Homework Settings (School Feature records).
 import type { PermissionMap } from "../permissions";
+import { pageMode, type DutyPerson } from "../duty";
 
 export type HomeworkLevel = "full" | "own" | "student";
 /** On one page: "edit" does the work there, "view" reads it. */
@@ -48,19 +50,6 @@ export type OptionalFeature = (typeof OPTIONAL_PAGES)[number]["feature"];
 /** Staff roles whose "Own" here means their own classes (not a student's own work). */
 const STAFF_OWN_ROLES = new Set(["teacher", "class-teacher"]);
 
-type Duty = Partial<Record<HomeworkPageKey, PageMode | "hide">>;
-const TEACHING: HomeworkPageKey[] = ["submissions", "study-material", "quizzes", "discussions", "online-classes"];
-const hideTeaching = Object.fromEntries(TEACHING.map((p) => [p, "hide"])) as Duty;
-const viewTeaching = Object.fromEntries(TEACHING.map((p) => [p, "view"])) as Duty;
-
-/** What the people who oversee homework do on each page (prototype config.js DUTY). Pages not named are "edit". */
-export const DUTY: Record<string, Duty> = {
-  principal: { homework: "view", ...hideTeaching, "learning-progress": "view", settings: "view" },
-  "school-admin": { homework: "view", ...hideTeaching, "learning-progress": "view" },
-  "vice-principal": { homework: "view", ...viewTeaching },
-  "academic-head": { homework: "view", ...viewTeaching },
-};
-
 export function homeworkLevel(permissions: PermissionMap, roles: readonly { key: string | null }[]): HomeworkLevel | null {
   const a = permissions["homework-learning"];
   if (!a || a.see === "none") return null;
@@ -70,13 +59,11 @@ export function homeworkLevel(permissions: PermissionMap, roles: readonly { key:
   return "own";
 }
 
-const RANK = { hide: 0, view: 1, edit: 2 } as const;
-
 /**
- * Edit, view or not at all, for each page: the level's pages, narrowed for
- * the roles that oversee rather than teach. Several roles give the widest.
+ * Edit, view or not at all, for each page: the level's pages, narrowed for the
+ * roles that oversee rather than teach (DUTY in src/lib/duty.ts). Several roles give the widest.
  */
-export function pageModes(permissions: PermissionMap, roles: readonly { key: string | null }[]): Record<HomeworkPageKey, PageMode | null> {
+export function pageModes(permissions: PermissionMap, roles: DutyPerson["roles"]): Record<HomeworkPageKey, PageMode | null> {
   const level = homeworkLevel(permissions, roles);
   const out = {} as Record<HomeworkPageKey, PageMode | null>;
   const change = permissions["homework-learning"]?.change ?? "none";
@@ -85,13 +72,8 @@ export function pageModes(permissions: PermissionMap, roles: readonly { key: str
     if (level !== "full") { out[page] = "edit"; continue; }
     // A role that sees everything but changes nothing reads every page.
     if (change !== "all") { out[page] = "view"; continue; }
-    let best: keyof typeof RANK = "hide";
-    for (const r of roles) {
-      const duty = r.key ? DUTY[r.key] : undefined;
-      const m = duty ? duty[page] ?? "edit" : "edit";
-      if (RANK[m] > RANK[best]) best = m;
-    }
-    out[page] = best === "hide" ? null : best;
+    const m = pageMode({ roles }, "homework-learning", page);
+    out[page] = m === "hidden" ? null : m === "full" ? "edit" : "view";
   }
   return out;
 }

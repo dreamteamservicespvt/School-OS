@@ -10,16 +10,20 @@ import { notify } from "../notifications";
 import { HomeworkProblem } from "./access";
 import type { HomeworkRow } from "./homework";
 import type { HomeworkScope } from "./scope";
+import { dayStartUtc } from "../periods";
 import { dayDate, plural } from "./words";
 
-export type TeacherLine = { staffId: string; name: string; subjects: string[]; classes: string[]; given: number; assigned: number; handed: number; toCheck: number; remindedToday: boolean };
+/** The start of the school's day as a moment, for "already reminded today". */
+const dayStart = (today: Date, tz: string) => dayStartUtc(today.toISOString().slice(0, 10), tz);
+
+export type TeacherLine = { staffId: string; name: string; subjects: string[]; classes: string[]; given: number; assigned: number; handed: number; toCheck: number; remindedAt: Date | null };
 
 /** Homework given in the dates, by teacher; teachers who teach but gave none are listed after. */
-export async function byTeacher(tx: Tx, rows: HomeworkRow[], yearId: string | null, today: Date) {
+export async function byTeacher(tx: Tx, rows: HomeworkRow[], yearId: string | null, today: Date, tz: string) {
   const map = new Map<string, TeacherLine>();
   for (const h of rows) {
     if (!h.teacherId) continue;
-    const t = map.get(h.teacherId) ?? { staffId: h.teacherId, name: h.teacher, subjects: [], classes: [], given: 0, assigned: 0, handed: 0, toCheck: 0, remindedToday: false };
+    const t = map.get(h.teacherId) ?? { staffId: h.teacherId, name: h.teacher, subjects: [], classes: [], given: 0, assigned: 0, handed: 0, toCheck: 0, remindedAt: null };
     if (!t.subjects.includes(h.subject)) t.subjects.push(h.subject);
     if (!t.classes.includes(h.sectionLabel)) t.classes.push(h.sectionLabel);
     t.given++;
@@ -28,9 +32,9 @@ export async function byTeacher(tx: Tx, rows: HomeworkRow[], yearId: string | nu
     t.toCheck += h.counts.toCheck;
     map.set(h.teacherId, t);
   }
-  const reminded = await tx.auditLogEntry.findMany({ where: { action: "reminded-teacher", recordType: "Staff", at: { gte: today } }, select: { recordId: true } });
-  const done = new Set(reminded.map((r) => r.recordId));
-  for (const t of map.values()) t.remindedToday = done.has(t.staffId);
+  const reminded = await tx.auditLogEntry.findMany({ where: { action: "reminded-teacher", recordType: "Staff", at: { gte: dayStart(today, tz) } }, select: { recordId: true, at: true }, orderBy: { at: "asc" } });
+  const done = new Map(reminded.map((r) => [r.recordId, r.at]));
+  for (const t of map.values()) t.remindedAt = done.get(t.staffId) ?? null;
   const lines = [...map.values()].sort((a, b) => b.given - a.given || a.name.localeCompare(b.name));
   // Teachers with allocations this year who gave nothing in these dates.
   const idle: { staffId: string; name: string; subjects: string[] }[] = [];
@@ -58,12 +62,12 @@ export function loadByDay(rows: HomeworkRow[]) {
 }
 
 /** Reminds one teacher about work waiting to be checked: a notification in the app, once a day. */
-export async function remindTeacher(tx: Tx, s: HomeworkScope, staffId: string, today: Date) {
+export async function remindTeacher(tx: Tx, s: HomeworkScope, staffId: string, today: Date, tz: string) {
   if (s.level !== "full" || !s.modes.homework) throw new HomeworkProblem("Only the Principal, the School Admin, the Vice Principal or the Academic Head reminds teachers.");
   const staff = await tx.staff.findFirst({ where: { id: staffId, archivedAt: null }, select: { id: true, fullName: true, userLoginId: true } });
   if (!staff) throw new HomeworkProblem("This teacher was not found.");
   if (!staff.userLoginId) throw new HomeworkProblem(`${staff.fullName} has no login, so the reminder cannot reach them. Speak to them in person.`);
-  const already = await tx.auditLogEntry.findFirst({ where: { action: "reminded-teacher", recordType: "Staff", recordId: staffId, at: { gte: today } } });
+  const already = await tx.auditLogEntry.findFirst({ where: { action: "reminded-teacher", recordType: "Staff", recordId: staffId, at: { gte: dayStart(today, tz) } } });
   if (already) throw new HomeworkProblem(`${staff.fullName} was already reminded today.`);
   const waiting = await tx.submission.count({ where: { archivedAt: null, status: { in: ["SUBMITTED", "LATE"] }, homework: { teacherId: staffId, archivedAt: null, academicYearId: s.yearId ?? undefined } } });
   if (!waiting) throw new HomeworkProblem(`${staff.fullName} has nothing waiting to be checked.`);

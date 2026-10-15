@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Archive, Bell, ChevronDown, Copy, Eye, Pencil, Send, Sparkles, Upload } from "lucide-react";
+import { Archive, ChevronDown, Copy, Eye, Pencil, Send, Sparkles, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Pill } from "@/components/ui/badge";
 import { Segmented, Switch } from "@/components/ui/controls";
@@ -9,8 +9,8 @@ import { FieldShell, inputCls } from "@/components/ui/field";
 import { SheetForm, useTyped } from "@/components/ui/url-sheet";
 import { MoreMenu } from "@/components/money/more-menu";
 import { cx } from "@/components/ui/cx";
-import { ActionButton } from "@/components/students/confirm-action";
 import { AttachPicker, HandInPicker } from "./_components/attach";
+import { RemindButton as SharedRemind } from "@/components/remind-button";
 import { archiveHomeworkAction, draftHomeworkAction, editHomeworkAction, giveHomeworkAction, remindTeacherAction, resendHomeworkAction, submitWorkAction } from "./actions";
 
 export type DueChoice = { date: string; words: string };
@@ -269,8 +269,8 @@ export function SubmitSheet({ closeHref, id, title, sub, maxMb, again }: { close
 }
 
 /** "Remind" next to a teacher with work waiting (By teacher card). */
-export function RemindButton({ staffId }: { staffId: string }) {
-  return <ActionButton action={remindTeacherAction} fields={{ staffId }} className="shrink-0"><Bell size={15} aria-hidden="true" />Remind</ActionButton>;
+export function RemindButton({ staffId, done }: { staffId: string; done: string | null }) {
+  return <SharedRemind className="shrink-0" done={done} run={remindTeacherAction.bind(null, staffId)} />;
 }
 
 /** The ... menu on a homework card. */

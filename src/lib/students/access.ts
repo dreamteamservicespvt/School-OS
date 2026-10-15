@@ -64,11 +64,11 @@ const view = (tabs: string[], on: Partial<Omit<ProfileView, "mode" | "tabs">>): 
 const FULL_VIEW_ROLES = new Set(["principal", "school-admin", "vice-principal", "office-staff"]);
 export const PROFILE_VIEWS: Record<string, ProfileView> = {
   accountant: view(["overview", "fees"], { parents: true }),
-  teacher: view(["overview", "academics", "attendance", "exams", "behaviour"], { personal: true, parents: true, emergency: true }),
-  "class-teacher": view(["overview", "academics", "attendance", "exams", "behaviour", "history"], { personal: true, address: true, parents: true, emergency: true, pickup: true }),
+  teacher: view(["overview", "academics", "attendance", "exams", "homework", "behaviour"], { personal: true, parents: true, emergency: true }),
+  "class-teacher": view(["overview", "academics", "attendance", "exams", "homework", "behaviour", "history"], { personal: true, address: true, parents: true, emergency: true, pickup: true }),
   "hostel-warden": view(["overview", "attendance"], { personal: true, address: true, parents: true, emergency: true }),
   counsellor: view(["overview", "attendance", "behaviour"], { personal: true, address: true, parents: true, emergency: true }),
-  "academic-head": view(["overview", "academics", "attendance", "exams"], { personal: true }),
+  "academic-head": view(["overview", "academics", "attendance", "exams", "homework"], { personal: true }),
   "exam-in-charge": view(["overview", "academics", "attendance", "exams"], { personal: true }),
   "admission-counsellor": view(["overview"], { parents: true, siblings: true }),
   receptionist: { ...view([], {}), mode: "pickup", phones: true },

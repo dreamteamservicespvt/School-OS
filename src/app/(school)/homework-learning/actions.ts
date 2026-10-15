@@ -82,12 +82,12 @@ export async function resendHomeworkAction(_prev: unknown, fd: FormData) {
 }
 
 /** The Principal, School Admin, Vice Principal or Academic Head reminds a teacher about work waiting to be checked. */
-export async function remindTeacherAction(fd: FormData) {
-  return hwQuick("edit", async ({ tx, s, today }) => {
-    const id = str(fd, "staffId");
-    if (!UUID.test(id)) throw new HomeworkProblem("Choose the teacher.");
-    return remindTeacher(tx, s, id, today);
+export async function remindTeacherAction(staffId: string): Promise<string | null> {
+  const problem = await hwQuick("edit", async ({ tx, s, today, tz }) => {
+    if (!UUID.test(staffId)) throw new HomeworkProblem("Choose the teacher.");
+    return remindTeacher(tx, s, staffId, today, tz);
   }, (r) => `Reminded ${r.name}: ${plural(r.waiting, "piece")} of work waiting to be checked.`);
+  return problem ?? null;
 }
 
 /** A student hands in work: photos or PDFs and an optional note. */

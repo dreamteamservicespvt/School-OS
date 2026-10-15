@@ -110,7 +110,7 @@ export async function struggles(tx: Tx, s: HomeworkScope, sectionId: string, sub
 export async function studentHomework(tx: Tx, studentId: string, yearId: string | null, limit = 50) {
   const subs = await tx.submission.findMany({
     where: { studentId, archivedAt: null, homework: { archivedAt: null, ...(yearId ? { academicYearId: yearId } : {}) } },
-    include: { homework: { select: { id: true, title: true, subjectId: true, dueDate: true, maxMarks: true, sectionId: true, startDate: true } } },
+    include: { homework: { select: { id: true, title: true, subjectId: true, dueDate: true, maxMarks: true, sectionId: true, startDate: true, teacherId: true } } },
     orderBy: { homework: { dueDate: "desc" } }, take: limit,
   });
   const subjects = await tx.subject.findMany({ where: { id: { in: [...new Set(subs.map((x) => x.homework.subjectId))] } }, select: { id: true, name: true } });

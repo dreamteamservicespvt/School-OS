@@ -40,6 +40,7 @@ const TEACHING_DESK = ["submissions", "study-material", "quizzes", "discussions"
  * Homework & Learning: homework, submissions, study-material, quizzes, discussions,
  * online-classes, learning-progress, settings (src/lib/homework/access.ts).
  * Library: issue, books, members, fines, reports, settings (src/lib/library/access.ts).
+ * Hostel: rooms, allocation, rollcall, outings, mess, reports, settings (src/lib/hostel/access.ts).
  */
 export const DUTY: Readonly<Record<string, Partial<Record<ModuleKey, Rule>>>> = {
   principal: {
@@ -57,6 +58,8 @@ export const DUTY: Readonly<Record<string, Partial<Record<ModuleKey, Rule>>>> = 
     "reports-analytics": { view: ["warnings"] },
     // Library: the Librarian runs the desk; the Principal watches overdue books and fines (with Remind) and never works Members & Cards.
     "library-management": { hide: ["members"], view: ["issue", "books", "fines", "reports", "settings"] },
+    // Hostel: the Warden runs the hostel; the Principal reads every page (settings too) and reminds the warden.
+    "hostel-management": { view: ["rooms", "allocation", "rollcall", "outings", "mess", "reports", "settings"] },
   },
   "school-admin": {
     "events-calendar": { view: ["daily"] },
@@ -67,6 +70,8 @@ export const DUTY: Readonly<Record<string, Partial<Record<ModuleKey, Rule>>>> = 
     "reports-analytics": { view: ["warnings"] },
     // Library: the School Admin reads every page and keeps Library Settings.
     "library-management": { view: ["issue", "books", "members", "fines", "reports"] },
+    // Hostel: the School Admin reads every page and keeps Hostel Settings (hostels, wardens, fee plans).
+    "hostel-management": { view: ["rooms", "allocation", "rollcall", "outings", "mess", "reports"] },
   },
   "vice-principal": {
     "events-calendar": { view: ["daily"] },

@@ -66,7 +66,7 @@ export const PROFILE_VIEWS: Record<string, ProfileView> = {
   accountant: view(["overview", "fees"], { parents: true }),
   teacher: view(["overview", "academics", "attendance", "exams", "homework", "behaviour"], { personal: true, parents: true, emergency: true }),
   "class-teacher": view(["overview", "academics", "attendance", "exams", "homework", "behaviour", "history"], { personal: true, address: true, parents: true, emergency: true, pickup: true }),
-  "hostel-warden": view(["overview", "attendance"], { personal: true, address: true, parents: true, emergency: true }),
+  "hostel-warden": view(["overview", "attendance", "hostel"], { personal: true, address: true, parents: true, emergency: true }),
   counsellor: view(["overview", "attendance", "behaviour"], { personal: true, address: true, parents: true, emergency: true }),
   "academic-head": view(["overview", "academics", "attendance", "exams", "homework"], { personal: true }),
   "exam-in-charge": view(["overview", "academics", "attendance", "exams"], { personal: true }),
@@ -168,10 +168,23 @@ export async function studentScope(tx: Tx, who: Who, yearId?: string | null): Pr
   const cases = who.ctx.userId
     ? await tx.counsellingCase.findMany({ where: { counsellorId: who.ctx.userId, archivedAt: null }, select: { studentId: true } })
     : [];
+  // Hostel Warden (05-roles.md): Own = the boarders in the hostels they are warden of.
+  const boarders = who.ctx.userId && who.roles.some((r) => r.key === "hostel-warden") ? await wardenBoarders(tx, who.ctx) : [];
   const or: Prisma.StudentWhereInput[] = [];
   if (sections.length && year) or.push({ enrolments: { some: { academicYearId: year, sectionId: { in: sections }, archivedAt: null } } });
   if (cases.length) or.push({ id: { in: cases.map((c) => c.studentId) } });
+  if (boarders.length) or.push({ id: { in: boarders } });
   return or.length ? { OR: or } : { id: { in: [] } };
+}
+
+/** Students with a bed now in a hostel this person is a warden of. */
+async function wardenBoarders(tx: Tx, ctx: SchoolContext) {
+  const staff = await tx.staff.findFirst({ where: { userLoginId: ctx.userId, archivedAt: null }, select: { id: true } });
+  if (!staff) return [];
+  const hostels = await tx.hostelWarden.findMany({ where: { staffId: staff.id, archivedAt: null }, select: { hostelId: true } });
+  if (!hostels.length) return [];
+  const rows = await tx.bedAllocation.findMany({ where: { hostelId: { in: hostels.map((h) => h.hostelId) }, status: "ACTIVE" }, select: { studentId: true } });
+  return rows.map((r) => r.studentId);
 }
 
 export class StudentNotFound extends Error {

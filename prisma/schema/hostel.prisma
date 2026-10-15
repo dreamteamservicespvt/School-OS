@@ -1,0 +1,385 @@
+// 15 Hostel Management (optional, switched on per school): hostels with their
+// wardens, floors, rooms and beds; bed allocation with check-in, moves and
+// check-out; hostel fee plans that add fees to Fee Management; morning and
+// night roll call; the incident log; the mess menu with nutrition, head counts
+// and expenses. Outing and leave passes are Gate Passes of kind Hostel Outing
+// and hostel visitors are Visitor Entries (both in front-office.prisma).
+// Records of other modules (Student, Staff, Student Fee Due, Expense,
+// Approval, Behaviour Incident) are kept by id.
+
+enum HostelGender {
+  BOYS
+  GIRLS
+}
+
+enum BedAllocationStatus {
+  /// The student has this bed now (checked in, or waiting to arrive).
+  ACTIVE
+  /// The student moved to another bed (history kept).
+  MOVED
+  /// The student left the hostel; the bed is free again.
+  CHECKED_OUT
+}
+
+enum RollCallSession {
+  MORNING
+  NIGHT
+}
+
+enum RollCallMarkKind {
+  PRESENT
+  ABSENT
+  /// Away on an approved outing pass that was marked out.
+  OUTING
+  /// Away on an approved leave (overnight) pass that was marked out.
+  LEAVE
+}
+
+enum HostelIncidentType {
+  DISCIPLINE
+  MEDICAL
+  MAINTENANCE
+}
+
+/// Hostel Settings (15 §6): one per school.
+model HostelSetting {
+  schoolId           String   @id @map("school_id") @db.Uuid
+  /// Shown to staff and printed on the allocation letter.
+  rules              String   @default("")
+  /// Minutes after midnight in the school's time zone.
+  morningRollMinute  Int      @default(390) @map("morning_roll_minute")
+  nightRollMinute    Int      @default(1290) @map("night_roll_minute")
+  /// Filled in as the back-by time on new outing passes.
+  outingBackMinute   Int      @default(1080) @map("outing_back_minute")
+  /// Visiting days (0 Sunday to 6 Saturday) and hours; visits at other times need the warden's approval.
+  visitingDays       Int[]    @default([0]) @map("visiting_days")
+  visitingFromMinute Int      @default(600) @map("visiting_from_minute")
+  visitingToMinute   Int      @default(780) @map("visiting_to_minute")
+  /// The meals of the day, in order; used by the menu and the head count.
+  meals              String[] @default(["Breakfast", "Lunch", "Snacks", "Dinner"])
+  /// Messages to parents through Communication.
+  messageOnOut       Boolean  @default(true) @map("message_on_out")
+  messageOnReturn    Boolean  @default(true) @map("message_on_return")
+  messageOnLate      Boolean  @default(true) @map("message_on_late")
+  messageOnIncident  Boolean  @default(true) @map("message_on_incident")
+  /// Alerts to the warden and the Principal.
+  alertNightAbsent   Boolean  @default(true) @map("alert_night_absent")
+  alertLate          Boolean  @default(true) @map("alert_late")
+  /// Minutes after the back-by time before the late alert.
+  lateAfterMinutes   Int      @default(15) @map("late_after_minutes")
+  updatedById        String?  @map("updated_by_id") @db.Uuid
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@map("hostel_setting")
+}
+
+/// Hostel: a building for boys or girls, with its floors.
+model Hostel {
+  id          String       @id @default(uuid()) @db.Uuid
+  schoolId    String       @map("school_id") @db.Uuid
+  name        String
+  gender      HostelGender
+  /// Floor names in order, such as ["Ground", "First", "Second"].
+  floors      String[]     @default(["Ground"])
+  note        String?
+  sortOrder   Int          @default(0) @map("sort_order")
+  createdById String?      @map("created_by_id") @db.Uuid
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  archivedAt  DateTime?    @map("archived_at")
+
+  @@unique([schoolId, name])
+  @@map("hostel")
+}
+
+/// A warden of one hostel (a staff member). Ended wardens are archived, so the history stays.
+model HostelWarden {
+  id           String    @id @default(uuid()) @db.Uuid
+  schoolId     String    @map("school_id") @db.Uuid
+  hostelId     String    @map("hostel_id") @db.Uuid
+  staffId      String    @map("staff_id") @db.Uuid
+  /// "Warden" or "Assistant warden" (night helper and the like).
+  title        String    @default("Warden")
+  fromDate     DateTime  @map("from_date") @db.Date
+  createdById  String?   @map("created_by_id") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at")
+  archivedAt   DateTime? @map("archived_at")
+  archivedById String?   @map("archived_by_id") @db.Uuid
+
+  @@index([schoolId, hostelId])
+  @@index([schoolId, staffId])
+  @@map("hostel_warden")
+}
+
+/// Hostel Room: one room on a floor of a hostel, with its beds.
+model HostelRoom {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  hostelId    String    @map("hostel_id") @db.Uuid
+  floor       String
+  /// Unique in the hostel, such as "B-12" or "214".
+  roomNo      String    @map("room_no")
+  /// Such as "AC" or "Non-AC", when fees differ.
+  roomType    String?   @map("room_type")
+  note        String?
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  beds HostelBed[]
+
+  @@unique([hostelId, roomNo])
+  @@index([schoolId, hostelId])
+  @@map("hostel_room")
+}
+
+/// Bed: one bed in a room, numbered 1, 2, 3... It can be blocked for repair.
+model HostelBed {
+  id            String    @id @default(uuid()) @db.Uuid
+  schoolId      String    @map("school_id") @db.Uuid
+  hostelId      String    @map("hostel_id") @db.Uuid
+  roomId        String    @map("room_id") @db.Uuid
+  bedNo         Int       @map("bed_no")
+  blockedAt     DateTime? @map("blocked_at")
+  blockedReason String?   @map("blocked_reason")
+  blockedById   String?   @map("blocked_by_id") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  archivedAt    DateTime? @map("archived_at")
+
+  room HostelRoom @relation(fields: [roomId], references: [id])
+
+  @@unique([roomId, bedNo])
+  @@index([schoolId, hostelId])
+  @@map("hostel_bed")
+}
+
+/// Bed Allocation: a student's bed from check-in to check-out or a move.
+/// One ACTIVE row per student and per bed (partial unique indexes in the migration).
+model BedAllocation {
+  id             String              @id @default(uuid()) @db.Uuid
+  schoolId       String              @map("school_id") @db.Uuid
+  studentId      String              @map("student_id") @db.Uuid
+  hostelId       String              @map("hostel_id") @db.Uuid
+  roomId         String              @map("room_id") @db.Uuid
+  bedId          String              @map("bed_id") @db.Uuid
+  academicYearId String              @map("academic_year_id") @db.Uuid
+  status         BedAllocationStatus @default(ACTIVE)
+  /// The first night in the hostel (also the start of hostel fees).
+  startDate      DateTime            @map("start_date") @db.Date
+  /// When the student arrived; empty while the bed waits for them.
+  checkedInAt    DateTime?           @map("checked_in_at")
+  checkInById    String?             @map("check_in_by_id") @db.Uuid
+  endDate        DateTime?           @map("end_date") @db.Date
+  endedAt        DateTime?           @map("ended_at")
+  endedById      String?             @map("ended_by_id") @db.Uuid
+  endReason      String?             @map("end_reason")
+  /// The allocation this one moved from / to.
+  movedFromId    String?             @map("moved_from_id") @db.Uuid
+  movedToId      String?             @map("moved_to_id") @db.Uuid
+  feePlanId      String?             @map("fee_plan_id") @db.Uuid
+  note           String?
+  createdById    String?             @map("created_by_id") @db.Uuid
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+
+  @@index([schoolId, status])
+  @@index([schoolId, studentId])
+  @@index([schoolId, bedId])
+  @@map("bed_allocation")
+}
+
+/// A hostel fee plan for one academic year: for a hostel and/or a room type
+/// (empty = every hostel / any room). Its installments become the student's
+/// hostel fees in Fee Management on allocation.
+model HostelFeePlan {
+  id             String    @id @default(uuid()) @db.Uuid
+  schoolId       String    @map("school_id") @db.Uuid
+  academicYearId String    @map("academic_year_id") @db.Uuid
+  name           String
+  hostelId       String?   @map("hostel_id") @db.Uuid
+  roomType       String?   @map("room_type")
+  /// The Fee Management fee head the fees go under (the "Hostel fee" head by default).
+  feeHeadId      String    @map("fee_head_id") @db.Uuid
+  includesMess   Boolean   @default(true) @map("includes_mess")
+  note           String?
+  createdById    String?   @map("created_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  archivedAt     DateTime? @map("archived_at")
+
+  installments HostelFeeInstallment[]
+
+  @@index([schoolId, academicYearId])
+  @@map("hostel_fee_plan")
+}
+
+/// One installment of a hostel fee plan, such as "Quarter 1" due 10 Apr.
+model HostelFeeInstallment {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  planId      String    @map("plan_id") @db.Uuid
+  label       String
+  dueDate     DateTime  @map("due_date") @db.Date
+  amountPaise BigInt    @map("amount_paise")
+  seq         Int       @default(0)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  plan HostelFeePlan @relation(fields: [planId], references: [id])
+
+  @@index([schoolId, planId])
+  @@map("hostel_fee_installment")
+}
+
+/// The link between an allocation and the Student Fee Due rows it added.
+model HostelFeeCharge {
+  id            String    @id @default(uuid()) @db.Uuid
+  schoolId      String    @map("school_id") @db.Uuid
+  allocationId  String    @map("allocation_id") @db.Uuid
+  installmentId String    @map("installment_id") @db.Uuid
+  studentId     String    @map("student_id") @db.Uuid
+  dueId         String    @map("due_id") @db.Uuid
+  /// ADDED, STOPPED (removed on check-out or a move) or KEPT (already paid, so kept).
+  state         String    @default("ADDED")
+  stoppedAt     DateTime? @map("stopped_at")
+  stoppedReason String?   @map("stopped_reason")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  @@unique([allocationId, installmentId])
+  @@index([schoolId, studentId])
+  @@map("hostel_fee_charge")
+}
+
+/// Roll Call: one morning or night roll call of one hostel on one day.
+model RollCall {
+  id           String          @id @default(uuid()) @db.Uuid
+  schoolId     String          @map("school_id") @db.Uuid
+  hostelId     String          @map("hostel_id") @db.Uuid
+  date         DateTime        @db.Date
+  session      RollCallSession
+  takenById    String?         @map("taken_by_id") @db.Uuid
+  takenAt      DateTime        @map("taken_at")
+  presentCount Int             @default(0) @map("present_count")
+  absentCount  Int             @default(0) @map("absent_count")
+  awayCount    Int             @default(0) @map("away_count")
+  /// When the warden and the Principal were told about night absences.
+  alertedAt    DateTime?       @map("alerted_at")
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @updatedAt @map("updated_at")
+
+  marks RollCallMark[]
+
+  @@unique([hostelId, date, session])
+  @@index([schoolId, date])
+  @@map("roll_call")
+}
+
+/// Roll Call Mark: one resident's mark in one roll call.
+model RollCallMark {
+  id         String           @id @default(uuid()) @db.Uuid
+  schoolId   String           @map("school_id") @db.Uuid
+  rollCallId String           @map("roll_call_id") @db.Uuid
+  studentId  String           @map("student_id") @db.Uuid
+  mark       RollCallMarkKind
+  /// The Gate Pass the student is away on.
+  gatePassId String?          @map("gate_pass_id") @db.Uuid
+  createdAt  DateTime         @default(now()) @map("created_at")
+  updatedAt  DateTime         @updatedAt @map("updated_at")
+
+  rollCall RollCall @relation(fields: [rollCallId], references: [id])
+
+  @@unique([rollCallId, studentId])
+  @@index([schoolId, studentId])
+  @@map("roll_call_mark")
+}
+
+/// Hostel Incident: discipline, medical or maintenance, with the students involved.
+model HostelIncident {
+  id                  String             @id @default(uuid()) @db.Uuid
+  schoolId            String             @map("school_id") @db.Uuid
+  /// HI-2026-0031, given once.
+  incidentNo          String             @map("incident_no")
+  hostelId            String?            @map("hostel_id") @db.Uuid
+  type                HostelIncidentType
+  at                  DateTime
+  studentIds          String[]           @default([]) @map("student_ids") @db.Uuid
+  /// Maintenance: the room or place, such as "Room B-12, fan".
+  place               String?
+  description         String
+  actionTaken         String?            @map("action_taken")
+  informParent        Boolean            @default(false) @map("inform_parent")
+  parentMessagedAt    DateTime?          @map("parent_messaged_at")
+  /// The Student Management behaviour incident made from a discipline incident.
+  behaviourIncidentId String?            @map("behaviour_incident_id") @db.Uuid
+  recordedById        String?            @map("recorded_by_id") @db.Uuid
+  createdAt           DateTime           @default(now()) @map("created_at")
+  updatedAt           DateTime           @updatedAt @map("updated_at")
+  archivedAt          DateTime?          @map("archived_at")
+
+  @@unique([schoolId, incidentNo])
+  @@index([schoolId, at])
+  @@map("hostel_incident")
+}
+
+/// Mess Menu: what is served at one meal on one day of a week, with nutrition values per plate.
+model MessMenuItem {
+  id          String   @id @default(uuid()) @db.Uuid
+  schoolId    String   @map("school_id") @db.Uuid
+  /// The Monday the week starts on.
+  weekStart   DateTime @map("week_start") @db.Date
+  /// 0 Monday to 6 Sunday.
+  dayIndex    Int      @map("day_index")
+  meal        String
+  dishes      String
+  kcal        Int?
+  proteinG    Int?     @map("protein_g")
+  /// Nutrition notes, such as "iron-rich" or "no onion on Tuesdays".
+  note        String?
+  updatedById String?  @map("updated_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([schoolId, weekStart, dayIndex, meal])
+  @@map("mess_menu_item")
+}
+
+/// Meal Head Count: how many ate one meal on one day, against the expected count.
+model MealHeadCount {
+  id           String   @id @default(uuid()) @db.Uuid
+  schoolId     String   @map("school_id") @db.Uuid
+  date         DateTime @db.Date
+  meal         String
+  expected     Int
+  actual       Int
+  note         String?
+  recordedById String?  @map("recorded_by_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@unique([schoolId, date, meal])
+  @@map("meal_head_count")
+}
+
+/// Mess Expense: groceries, gas, milk... posted to Finance as an Expense.
+model MessExpense {
+  id           String    @id @default(uuid()) @db.Uuid
+  schoolId     String    @map("school_id") @db.Uuid
+  date         DateTime  @db.Date
+  item         String
+  amountPaise  BigInt    @map("amount_paise")
+  vendorId     String?   @map("vendor_id") @db.Uuid
+  billFileId   String?   @map("bill_file_id") @db.Uuid
+  /// Paid in cash already (then also in the Day Book).
+  paid         Boolean   @default(false)
+  /// The Finance Management Expense made from it.
+  expenseId    String?   @map("expense_id") @db.Uuid
+  note         String?
+  recordedById String?   @map("recorded_by_id") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at")
+  archivedAt   DateTime? @map("archived_at")
+
+  @@index([schoolId, date])
+  @@map("mess_expense")
+}

@@ -10,4 +10,5 @@ import "@/lib/communication/student-profile-tab";
 import "@/lib/events/profile-tab";
 import "@/lib/homework/profile-tab";
 import "@/lib/library/profile-tab";
+import "@/lib/hostel/profile-tab";
 import "@/lib/reports/profile-items";

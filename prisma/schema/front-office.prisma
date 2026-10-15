@@ -55,6 +55,14 @@ model VisitorEntry {
   appointmentId  String?   @map("appointment_id") @db.Uuid
   enquiryId      String?   @map("enquiry_id") @db.Uuid
   checkedOutById String?   @map("checked_out_by_id") @db.Uuid
+  /// Hostel visitors (15 Hostel Management): the resident student met, their
+  /// hostel, the visitor's relation, and LIST (on the student's authorised
+  /// list) or WARDEN (let in with the warden's approval, by approvedById).
+  meetStudentId  String?   @map("meet_student_id") @db.Uuid
+  hostelId       String?   @map("hostel_id") @db.Uuid
+  relation       String?
+  allowedBy      String?   @map("allowed_by")
+  approvedById   String?   @map("approved_by_id") @db.Uuid
   createdById    String?   @map("created_by_id") @db.Uuid
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
@@ -64,6 +72,7 @@ model VisitorEntry {
   @@index([schoolId, visitDate])
   @@index([schoolId, phone])
   @@index([schoolId, meetStaffId])
+  @@index([schoolId, meetStudentId])
   @@map("visitor_entry")
 }
 
@@ -119,6 +128,21 @@ model GatePass {
   status            String       @default("ISSUED")
   leftAt            DateTime?    @map("left_at")
   gateCheckedById   String?      @map("gate_checked_by_id") @db.Uuid
+  /// Hostel Outing (15 Hostel Management): OUTING (same day) or LEAVE (overnight),
+  /// from and back-by times, the hostel, the collector's phone, the approval and
+  /// the return. Status is WAITING, APPROVED, OUT, RETURNED, REJECTED or CANCELLED.
+  outingType        String?      @map("outing_type")
+  fromAt            DateTime?    @map("from_at")
+  toAt              DateTime?    @map("to_at")
+  collectorPhone    String?      @map("collector_phone")
+  hostelId          String?      @map("hostel_id") @db.Uuid
+  approvalId        String?      @map("approval_id") @db.Uuid
+  decidedById       String?      @map("decided_by_id") @db.Uuid
+  decidedAt         DateTime?    @map("decided_at")
+  decisionNote      String?      @map("decision_note")
+  returnedAt        DateTime?    @map("returned_at")
+  returnedById      String?      @map("returned_by_id") @db.Uuid
+  lateAlertedAt     DateTime?    @map("late_alerted_at")
   createdAt         DateTime     @default(now()) @map("created_at")
   updatedAt         DateTime     @updatedAt @map("updated_at")
   archivedAt        DateTime?    @map("archived_at")
@@ -126,6 +150,7 @@ model GatePass {
   @@unique([schoolId, passNo])
   @@index([schoolId, timeOut])
   @@index([schoolId, studentId])
+  @@index([schoolId, kind, status])
   @@map("gate_pass")
 }
 

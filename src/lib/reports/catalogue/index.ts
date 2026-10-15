@@ -1,6 +1,6 @@
 // The report catalogue (19 §2): every report of every built module, in the
 // blueprint's categories. Each module's reports are listed here as that
-// module is built; Transport, Inventory and Hostel are not built, so they
+// module is built; Transport and Inventory are not built, so they
 // have none yet. Only reports the person may see are offered.
 import "server-only";
 
@@ -11,8 +11,9 @@ import { MONEY_REPORTS } from "./money";
 import { ACADEMIC_REPORTS } from "./academic";
 import { PEOPLE_REPORTS } from "./people";
 import { LIBRARY_REPORTS } from "./library";
+import { HOSTEL_REPORTS } from "./hostel";
 
-const ALL: ReportEntry[] = [...STUDENT_REPORTS, ...PEOPLE_REPORTS, ...ACADEMIC_REPORTS, ...MONEY_REPORTS, ...LIBRARY_REPORTS];
+const ALL: ReportEntry[] = [...STUDENT_REPORTS, ...PEOPLE_REPORTS, ...ACADEMIC_REPORTS, ...MONEY_REPORTS, ...LIBRARY_REPORTS, ...HOSTEL_REPORTS];
 
 /** Every report, in category order. */
 export const CATALOGUE: readonly ReportEntry[] = CATEGORIES.flatMap((c) => ALL.filter((e) => e.category === c));

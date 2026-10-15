@@ -31,6 +31,7 @@ export const exitTypeLabel = (t: string) => EXIT_TYPES.find((x) => x.value === t
 export const CLEARANCE_CHECKS = [
   { key: "assets", label: "Assets and stock items returned", module: "inventory-management" },
   { key: "library", label: "Library books returned", module: "library-management" },
+  { key: "hostel", label: "Hostel warden duties handed over", module: "hostel-management" },
   { key: "advances", label: "Advances and loans recovered", module: "salary-management" },
   { key: "id-card", label: "ID card returned", module: null },
   { key: "documents", label: "School documents and keys returned", module: null },
@@ -57,13 +58,19 @@ export async function startExit(tx: Tx, ctx: SchoolContext, input: NewExit) {
   });
   const handover = await buildHandover(tx, ctx, exit.id, staff.id);
   const modulesOn = new Set((await tx.schoolModule.findMany({ where: { schoolId: ctx.schoolId, isOn: true } })).map((m) => m.moduleKey));
-  const optional = new Set(["inventory-management", "library-management"]);
+  const optional = new Set(["inventory-management", "library-management", "hostel-management"]);
+  // Hostel: only a staff member who is a hostel warden has duties to hand over.
+  const warden = await tx.hostelWarden.count({ where: { staffId: staff.id, archivedAt: null } });
   await tx.clearanceCheck.createMany({
-    data: CLEARANCE_CHECKS.map((c) => ({
-      schoolId: ctx.schoolId, exitCaseId: exit.id, key: c.key, label: c.label,
-      status: c.module && optional.has(c.module) && !modulesOn.has(c.module) ? "NOT_NEEDED" : "PENDING",
-      note: c.module && optional.has(c.module) && !modulesOn.has(c.module) ? "Module switched off" : null,
-    })),
+    data: CLEARANCE_CHECKS.map((c) => {
+      const off = Boolean(c.module && optional.has(c.module) && !modulesOn.has(c.module));
+      const notWarden = c.key === "hostel" && !off && warden === 0;
+      return {
+        schoolId: ctx.schoolId, exitCaseId: exit.id, key: c.key, label: c.label,
+        status: off || notWarden ? "NOT_NEEDED" : "PENDING",
+        note: off ? "Module switched off" : notWarden ? "Not a hostel warden" : null,
+      };
+    }),
   });
   if (needsApproval) {
     const approval = await requestApproval(tx, ctx, {
@@ -151,6 +158,12 @@ export async function setClearance(tx: Tx, ctx: SchoolContext, checkId: string, 
     // Library Management (13 §4): books not returned hold the exit clearance.
     const out = await tx.bookIssue.count({ where: { staffId: check.exitCase.staffId, returnedAt: null } });
     if (out) throw new ExitProblem(`${out} library book${out === 1 ? "" : "s"} not returned. Return ${out === 1 ? "it" : "them"} at the library, or the librarian marks ${out === 1 ? "it" : "them"} lost and charges.`);
+  }
+  if (check.key === "hostel" && status === "CLEARED") {
+    // Hostel Management (15 §6): a warden is replaced in Hostel Settings, Wardens, before leaving.
+    const still = await tx.hostelWarden.findMany({ where: { staffId: check.exitCase.staffId, archivedAt: null }, select: { hostelId: true } });
+    const names = still.length ? (await tx.hostel.findMany({ where: { id: { in: still.map((w) => w.hostelId) }, archivedAt: null }, select: { name: true } })).map((h) => h.name) : [];
+    if (names.length) throw new ExitProblem(`Still a warden of ${names.join(" and ")}. Choose another warden in Hostel Settings first.`);
   }
   await tx.clearanceCheck.update({ where: { id: check.id }, data: { status, note, clearedById: status === "PENDING" ? null : ctx.userId, clearedAt: status === "PENDING" ? null : new Date() } });
   await writeAudit(tx, ctx, { action: "clearance-changed", recordType: "Clearance Check", recordId: check.id, before: { status: check.status }, after: { status, note, label: check.label } });

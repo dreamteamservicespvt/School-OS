@@ -41,11 +41,14 @@ function routeInput(fd: FormData): RouteInput {
 }
 
 export async function addRouteAction(_: S, fd: FormData): Promise<S> {
+  let newId = "";
   const r = await trAction("create", fd, async (w) => {
     need(w.can.routes, "add routes");
-    return addRoute(w.tx, w.ctx, routeInput(fd));
+    const route = await addRoute(w.tx, w.ctx, routeInput(fd));
+    newId = route.id;
+    return route;
   }, (route) => (say(`Route ${route.number} · ${route.name} added`, "Now add its stops in order.")));
-  if (r?.ok) redirect(`${BASE}/routes/${(r.data as { id: string }).id}?do=stop`);
+  if (r?.ok && newId) redirect(`${BASE}/routes/${newId}?do=stop`);
   return r;
 }
 

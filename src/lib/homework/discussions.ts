@@ -57,11 +57,12 @@ async function boardFor(tx: Tx, s: HomeworkScope, id: string) {
 }
 
 /** The board's owner, or someone with Full reach, moderates it. */
-export const mayModerate = (s: HomeworkScope, b: { ownerId: string | null }) => s.level === "full" || (s.level === "own" && !!s.ctx.userId && b.ownerId === s.ctx.userId);
+export const mayModerate = (s: HomeworkScope, b: { ownerId: string | null }) =>
+  s.modes.discussions === "edit" && (s.level === "full" || (s.level === "own" && !!s.ctx.userId && b.ownerId === s.ctx.userId));
 
 export async function editBoard(tx: Tx, s: HomeworkScope, id: string, input: BoardInput) {
   const b = await boardFor(tx, s, id);
-  if (!mayModerate(s, b) || s.modes.discussions !== "edit") throw new HomeworkProblem("Only the board's owner can change it.");
+  if (!mayModerate(s, b)) throw new HomeworkProblem("Only the board's owner can change it.");
   const title = checkBoard(input);
   await tx.discussionBoard.update({ where: { id }, data: { title, description: input.description?.trim() || null, audience: input.audience, active: input.active, visible: input.visible } });
   await writeAudit(tx, s.ctx, { action: "changed", recordType: "Discussion Board", recordId: id, before: { title: b.title, active: b.active, audience: b.audience }, after: { title, active: input.active, audience: input.audience } });
@@ -109,7 +110,7 @@ export async function moderate(tx: Tx, s: HomeworkScope, postId: string, what: "
   const p = await tx.discussionPost.findFirst({ where: { id: postId } });
   if (!p) throw new HomeworkProblem("This post was not found.");
   const b = await boardFor(tx, s, p.boardId);
-  if (!mayModerate(s, b)) throw new HomeworkProblem("Only the board's owner, the Academic Head or the Principal can moderate this board.");
+  if (!mayModerate(s, b)) throw new HomeworkProblem("Only the board's owner, or someone who runs Discussions for the whole school, can moderate this board.");
   if ((what === "pin" || what === "unpin" || what === "lock" || what === "unlock") && p.topicId) throw new HomeworkProblem("Only topics can be pinned or locked.");
   if (what === "hide" && !reason.trim()) throw new HomeworkProblem("Choose why it is hidden. The class sees the reason.", "reason");
   const data: Prisma.DiscussionPostUpdateInput =

@@ -141,6 +141,13 @@ export const DOC_TYPES: readonly DocType[] = [
     codeField: "certificate_no",
   },
   {
+    key: "course-certificate", label: "Course certificate", group: "Certificates", family: "letter", usedBy: "Homework & Learning", title: "Certificate of Completion", defaultPaper: "A4",
+    fields: [...STUDENT, f("certificate_no", "Certificate number", "CRS/2026/00012"), f("course_name", "Course", "Mathematics, Class 7 B"), f("lessons", "Lessons finished", "9"), f("teacher_name", "Teacher", "Imran Shaikh"), f("completed_on", "Completed on", "09-10-2026")],
+    defaultFields: [],
+    defaultBody: "This is to certify that {{student_name}} of {{class_section}} has finished all {{lessons}} lessons of the course {{course_name}}, taught by {{teacher_name}}, on {{completed_on}}.\n\nWell done, and keep learning.",
+    codeField: "certificate_no",
+  },
+  {
     key: "character-certificate", label: "Character certificate", group: "Certificates", family: "letter", usedBy: "Student Management", title: "Character Certificate", defaultPaper: "A4",
     fields: [...STUDENT, f("certificate_no", "Certificate number", "CC/2026/0019"), f("conduct", "Conduct", "good"), f("from_year", "From year", "2021-22"), f("to_year", "To year", "2025-26")],
     defaultFields: [],

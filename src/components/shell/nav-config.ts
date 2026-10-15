@@ -74,6 +74,8 @@ export const BOTTOM_BY_ROLE: Record<string, BarItem[]> = {
   "admission-counsellor": [HOME, b("/admission-management", "admission-management", "Enquiries", "PhoneIncoming"), b("/admission-management/applications", "admission-management", "Apply", "FileText", true), b("/admission-management/tests", "admission-management", "Tests", "ClipboardCheck")],
   counsellor: [HOME, b("/student-management/behaviour", "student-management", "Cases", "HeartHandshake", true), b("/communication", "communication", "Messages", "MessagesSquare"), b("/events-calendar", "events-calendar", "Calendar", "CalendarDays")],
   "gate-security": [HOME, b("/front-office/visitors", "front-office", "Visitors", "IdCard", true), b("/front-office/pickup", "front-office", "Pickup", "Users"), b("/events-calendar", "events-calendar", "Calendar", "CalendarDays")],
+  // A student (schools giving students logins) has no Dashboard: Homework is their home.
+  student: [b("/homework-learning", "homework-learning", "Homework", "NotebookPen", true), b("/homework-learning/quizzes", "homework-learning", "Quizzes", "ListChecks"), b("/homework-learning/study-material", "homework-learning", "Material", "FolderOpen"), b("/homework-learning/online-classes", "homework-learning", "Classes", "Video")],
 };
 
 /** "New": the quick actions for each role. */

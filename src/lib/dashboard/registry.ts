@@ -20,6 +20,7 @@ import { ADMISSION_WIDGETS } from "./widgets/admissions";
 import { ATTENDANCE_WIDGETS } from "./widgets/attendance";
 import { MONEY_WIDGETS } from "./widgets/money";
 import { SALARY_WIDGETS } from "./widgets/salary";
+import { HOMEWORK_WIDGETS } from "./widgets/homework";
 import { FRONT_OFFICE_WIDGETS } from "./widgets/front-office";
 
 /** Approvals waiting for this person, as the top bar and Approvals count them. */
@@ -71,6 +72,7 @@ export const WIDGETS: readonly Widget[] = [
   ...ADMISSION_WIDGETS,
   ...MONEY_WIDGETS,
   ...SALARY_WIDGETS,
+  ...HOMEWORK_WIDGETS,
   ...FRONT_OFFICE_WIDGETS,
 ];
 

@@ -28,12 +28,17 @@ export const OVERSIGHT_ROLES = ["principal", "school-admin", "vice-principal"] a
 /** Taking attendance and recording student leave belong to class teachers and the office. */
 const ATTENDANCE_DESK = ["take", "student-leave"];
 
+/** A teacher's desk in Homework & Learning: checking work, lessons, quizzes, boards and online classes. */
+const TEACHING_DESK = ["submissions", "study-material", "quizzes", "discussions", "online-classes"];
+
 /**
  * Page keys per module, as the module's own tabs name them:
  * Attendance: take, register, student-leave, staff, reports, devices, settings.
  * Fees: dashboard, collect, payments, ledger, documents, defaulters, structure, concessions, reports, settings.
  * Examination & Results: marks (Marks Entry).
  * Staff & HR: add (Add Staff). Settings: payment-gateways, messaging, data-security.
+ * Homework & Learning: homework, submissions, study-material, quizzes, discussions,
+ * online-classes, learning-progress, settings (src/lib/homework/access.ts).
  */
 export const DUTY: Readonly<Record<string, Partial<Record<ModuleKey, Rule>>>> = {
   principal: {
@@ -43,17 +48,20 @@ export const DUTY: Readonly<Record<string, Partial<Record<ModuleKey, Rule>>>> = 
     "examination-results": { view: ["marks"] },
     "staff-hr-management": { hide: ["add"] },
     settings: { hide: ["payment-gateways", "messaging", "data-security"] },
+    "homework-learning": { hide: TEACHING_DESK, view: ["homework", "learning-progress", "settings"] },
   },
   "school-admin": {
     "attendance-management": { hide: ATTENDANCE_DESK, view: ["register"] },
     "fee-management": { hide: ["collect"], view: ["dashboard", "payments", "documents", "ledger", "defaulters", "concessions", "reports"] },
     "examination-results": { view: ["marks"] },
+    "homework-learning": { hide: TEACHING_DESK, view: ["homework", "learning-progress"] },
   },
   "vice-principal": {
     "attendance-management": { hide: ATTENDANCE_DESK, view: ["staff", "devices"] },
     "examination-results": { view: ["marks"] },
+    "homework-learning": { view: ["homework", ...TEACHING_DESK] },
   },
-  "academic-head": { "examination-results": { view: ["marks"] } },
+  "academic-head": { "examination-results": { view: ["marks"] }, "homework-learning": { view: ["homework", ...TEACHING_DESK] } },
   "exam-in-charge": { "examination-results": { view: ["marks"] } },
 };
 

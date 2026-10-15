@@ -225,7 +225,10 @@ describe("Student Profile tabs from built modules", () => {
     const { profileTabsFor } = await import("@/lib/students/profile-tabs");
     const { accessIn } = await import("@/lib/auth/access");
     const principal = await accessIn(s.principal.id, s.school.id);
-    expect(profileTabsFor({ permissions: principal!.permissions, modulesOn: new Set() }).map((t) => t.key)).toEqual(["timetable", "attendance", "fees", "exams", "homework", "activities", "communication"]);
+    const all = profileTabsFor({ permissions: principal!.permissions, modulesOn: new Set() });
+    expect(all.filter((t) => !t.tabless).map((t) => t.key)).toEqual(["timetable", "attendance", "fees", "exams", "homework", "activities", "communication"]);
+    // Reports & Analytics adds early-warning items to the Today panel, with no tab of its own.
+    expect(all.filter((t) => t.tabless).map((t) => t.key)).toEqual(["early-warnings"]);
   });
 });
 

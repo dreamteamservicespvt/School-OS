@@ -50,7 +50,7 @@ function moduleFor(model: string): ModuleKey {
   if (/^(Hostel|Room|Bed|Mess)/.test(model)) return "hostel-management";
   if (/^(Visitor|GatePass|Pickup|Appointment)/.test(model)) return "front-office";
   if (/^(Homework|Study|OnlineClass)/.test(model)) return "homework-learning";
-  if (/^(Event|Gallery|Media|Ptm)/.test(model)) return "events-calendar";
+  if (/^(Event|Gallery|Album|Media|Ptm)/.test(model)) return "events-calendar";
   return "settings";
 }
 

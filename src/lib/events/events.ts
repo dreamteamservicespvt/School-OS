@@ -19,6 +19,7 @@ import { sendMessage, type AudienceRule } from "../messaging";
 import { EventsProblem, EventsWarning } from "./problem";
 import { eventsSettings } from "./settings";
 import { syncSourceEntry } from "./calendar";
+import { placeOrder, placesOf } from "./places";
 import { AUDIENCE_KINDS, REMINDERS, classesWords, clock, dayOf, dmy, isoOf, longDay, timeSpan } from "./words";
 
 const ZERO = BigInt(0);
@@ -241,7 +242,7 @@ export async function registerStudents(tx: Tx, ctx: SchoolContext, eventId: stri
   for (const studentId of toAdd) {
     let dueId: string | null = null;
     if (e.feePaise && e.feePaise > ZERO && e.feeHeadId) {
-      const due = await addCharge(tx, ctx, { studentId, feeHeadId: e.feeHeadId, amountPaise: e.feePaise, dueDate: e.date, label: e.name, reason: `Event fee ${e.number}` });
+      const due = await addCharge(tx, ctx, { studentId, feeHeadId: e.feeHeadId, amountPaise: e.feePaise, dueDate: e.date, label: e.name, reason: `Event fee ${e.number}`, academicYearId: e.academicYearId });
       dueId = due.id;
       charged += e.feePaise;
     }
@@ -345,9 +346,8 @@ export async function assignSeats(tx: Tx, ctx: SchoolContext, eventId: string, p
   if (!e || e.status === "CANCELLED") throw new EventsProblem("This event was not found, or it is cancelled.");
   const regs = await tx.eventRegistration.findMany({ where: { eventId, withdrawnAt: null } });
   if (!regs.length) throw new EventsProblem("Nobody is registered yet.");
-  const enrol = await tx.enrolment.findMany({ where: { studentId: { in: regs.map((r) => r.studentId) }, academicYearId: e.academicYearId, archivedAt: null }, include: { schoolClass: { select: { sortOrder: true } }, section: { select: { name: true } } } });
-  const key = (sid: string) => { const x = enrol.find((y) => y.studentId === sid); return x ? [x.schoolClass.sortOrder, x.section?.name ?? "", x.rollNo ?? 999] as const : [999, "", 999] as const; };
-  const sorted = [...regs].sort((a, b) => { const ka = key(a.studentId); const kb = key(b.studentId); return ka[0] - kb[0] || String(ka[1]).localeCompare(String(kb[1])) || Number(ka[2]) - Number(kb[2]); });
+  const places = await placesOf(tx, regs.map((r) => r.studentId), e.academicYearId);
+  const sorted = [...regs].sort((a, b) => placeOrder(places.get(a.studentId), places.get(b.studentId)));
   const rowName = (i: number) => (i < 26 ? String.fromCharCode(65 + i) : `${String.fromCharCode(64 + Math.floor(i / 26))}${String.fromCharCode(65 + (i % 26))}`);
   for (let i = 0; i < sorted.length; i++) {
     await tx.eventRegistration.update({ where: { id: sorted[i].id }, data: { seat: `${rowName(Math.floor(i / perRow))}-${(i % perRow) + 1}` } });

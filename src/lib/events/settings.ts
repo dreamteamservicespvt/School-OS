@@ -41,7 +41,8 @@ export async function saveEventsSettings(tx: Tx, ctx: SchoolContext, change: Set
   const row = await tx.eventsSetting.upsert({ where: { schoolId: ctx.schoolId }, create: { schoolId: ctx.schoolId, ...change, updatedById: ctx.userId }, update: { ...change, updatedById: ctx.userId } });
   const changed = Object.fromEntries(Object.entries(change).filter(([k, v]) => (before as Record<string, unknown>)[k] !== v));
   if (Object.keys(changed).length) {
-    await writeAudit(tx, ctx, { action: "changed", recordType: "Events Settings", recordId: ctx.schoolId, before: Object.fromEntries(Object.keys(changed).map((k) => [k, (before as Record<string, unknown>)[k]])), after: changed });
+    const was = Object.fromEntries(Object.keys(changed).map((k) => [k, (before as Record<string, unknown>)[k]]));
+    await writeAudit(tx, ctx, { action: "changed", recordType: "Events Settings", recordId: ctx.schoolId, before: was as Record<string, string | number | boolean>, after: changed as Record<string, string | number | boolean> });
   }
   return row;
 }

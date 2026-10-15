@@ -461,8 +461,8 @@ export async function removeDue(tx: Tx, ctx: SchoolContext, dueId: string, reaso
 }
 
 /** Adds a one-off charge to one student (a fine, a lost book, an extra activity). It is an exception with a reason. */
-export async function addCharge(tx: Tx, ctx: SchoolContext, input: { studentId: string; feeHeadId: string; amountPaise: bigint; dueDate: Date; label: string; reason: string }) {
-  const enrolment = await tx.enrolment.findFirst({ where: { studentId: input.studentId, archivedAt: null }, orderBy: { createdAt: "desc" } });
+export async function addCharge(tx: Tx, ctx: SchoolContext, input: { studentId: string; feeHeadId: string; amountPaise: bigint; dueDate: Date; label: string; reason: string; /** The year the charge belongs to (an event's year); else the student's latest enrolment. */ academicYearId?: string }) {
+  const enrolment = await tx.enrolment.findFirst({ where: { studentId: input.studentId, archivedAt: null, ...(input.academicYearId ? { academicYearId: input.academicYearId } : {}) }, orderBy: { createdAt: "desc" } });
   if (!enrolment) throw new MoneyProblem("This student is not in a class.");
   await assertYearOpen(tx, enrolment.academicYearId);
   if (input.amountPaise <= BigInt(0)) throw new MoneyProblem("Amount must be more than ₹0.", "amount");

@@ -285,6 +285,8 @@ model MediaTag {
   y          Float?
   taggedById String?   @map("tagged_by_id") @db.Uuid
   createdAt  DateTime  @default(now()) @map("created_at")
+  /// Taken off the photo (tags are never deleted).
+  archivedAt DateTime? @map("archived_at")
   media      MediaItem @relation(fields: [mediaId], references: [id])
 
   @@unique([mediaId, studentId])

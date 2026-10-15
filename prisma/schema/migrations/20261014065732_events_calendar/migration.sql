@@ -228,6 +228,7 @@ CREATE TABLE "media_tag" (
     "y" DOUBLE PRECISION,
     "tagged_by_id" UUID,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "archived_at" TIMESTAMP(3),
 
     CONSTRAINT "media_tag_pkey" PRIMARY KEY ("id")
 );

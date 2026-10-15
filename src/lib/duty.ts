@@ -31,6 +31,9 @@ const ATTENDANCE_DESK = ["take", "student-leave"];
 /** A teacher's desk in Homework & Learning: checking work, lessons, quizzes, boards and online classes. */
 const TEACHING_DESK = ["submissions", "study-material", "quizzes", "discussions", "online-classes"];
 
+/** Transport Management's pages (prototype config.js DUTY: the Principal reads them all, the School Admin all but Settings). */
+const TRANSPORT_PAGES = ["live", "routes", "vehicles", "students", "trips", "reports", "settings"];
+
 /**
  * Page keys per module, as the module's own tabs name them:
  * Attendance: take, register, student-leave, staff, reports, devices, settings.
@@ -39,6 +42,7 @@ const TEACHING_DESK = ["submissions", "study-material", "quizzes", "discussions"
  * Staff & HR: add (Add Staff). Settings: payment-gateways, messaging, data-security.
  * Homework & Learning: homework, submissions, study-material, quizzes, discussions,
  * online-classes, learning-progress, settings (src/lib/homework/access.ts).
+ * Transport: live, routes, vehicles, students, trips, reports, settings (src/lib/transport/words.ts).
  * Library: issue, books, members, fines, reports, settings (src/lib/library/access.ts).
  */
 export const DUTY: Readonly<Record<string, Partial<Record<ModuleKey, Rule>>>> = {
@@ -55,6 +59,7 @@ export const DUTY: Readonly<Record<string, Partial<Record<ModuleKey, Rule>>>> = 
     "homework-learning": { hide: TEACHING_DESK, view: ["homework", "learning-progress", "settings"] },
     // Early Warnings: class teachers review their students' flags; leaders watch every flag and Remind.
     "reports-analytics": { view: ["warnings"] },
+    "transport-management": { view: TRANSPORT_PAGES },
     // Library: the Librarian runs the desk; the Principal watches overdue books and fines (with Remind) and never works Members & Cards.
     "library-management": { hide: ["members"], view: ["issue", "books", "fines", "reports", "settings"] },
   },
@@ -65,6 +70,7 @@ export const DUTY: Readonly<Record<string, Partial<Record<ModuleKey, Rule>>>> = 
     "examination-results": { view: ["marks"] },
     "homework-learning": { hide: TEACHING_DESK, view: ["homework", "learning-progress"] },
     "reports-analytics": { view: ["warnings"] },
+    "transport-management": { view: TRANSPORT_PAGES.filter((p) => p !== "settings") },
     // Library: the School Admin reads every page and keeps Library Settings.
     "library-management": { view: ["issue", "books", "members", "fines", "reports"] },
   },

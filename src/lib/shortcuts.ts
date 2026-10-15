@@ -41,7 +41,11 @@ const BY_ROLE: Record<string, Shortcut[]> = {
     { label: "Visitors", href: "/front-office", module: "front-office" },
     { label: "Find a student", href: "/student-management", module: "student-management" },
   ],
-  "transport-in-charge": [{ label: "Buses today", href: "/transport-management", module: "transport-management" }],
+  "transport-in-charge": [
+    { label: "Buses today", href: "/transport-management/trips", module: "transport-management" },
+    { label: "Students on the buses", href: "/transport-management/students", module: "transport-management" },
+    { label: "Bus papers due", href: "/transport-management/vehicles?view=papers", module: "transport-management" },
+  ],
   librarian: [{ label: "Issue a book", href: "/library-management", module: "library-management" }],
   "hostel-warden": [{ label: "Roll call", href: "/hostel-management", module: "hostel-management" }],
   "store-keeper": [{ label: "Stock", href: "/inventory-management", module: "inventory-management" }],

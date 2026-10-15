@@ -77,6 +77,7 @@ export default async function MessageSettingsPage() {
     { title: "Parents", keys: ["absence", "late", "fee-due", "fee-paid", "exam-reminder", "result", "ptm", "homework-set", "admission-welcome"] },
     { title: "Birthday wishes and pending homework", keys: ["birthday-student", "birthday-staff", "homework-pending"] },
     { title: "Staff", keys: ["salary-slip"] },
+    ...(current.modulesOn.has("transport-management") ? [{ title: "School bus", keys: ["bus-pickup", "bus-drop", "bus-arriving"] }] : []),
   ];
   const people = data.owners.filter((o) => o.value.startsWith("user:")).map((o) => ({ value: o.value.slice(5), label: o.label }));
   const ruleName = (k: string | null) => data.rules.find((r) => r.key === k)?.label ?? "Automatic message";
@@ -176,7 +177,7 @@ export default async function MessageSettingsPage() {
               </ul>
             </div>
           ))}
-          <p className="px-5 py-3 text-[12.5px] text-ink3 border-t border-line/70">Transport pickup, drop and arriving messages come with Transport Management.</p>
+          {!current.modulesOn.has("transport-management") && <p className="px-5 py-3 text-[12.5px] text-ink3 border-t border-line/70">Bus pickup, drop and arriving messages show here when Transport is switched on.</p>}
         </Card>
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 lg:gap-6 items-start">

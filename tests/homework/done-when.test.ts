@@ -20,7 +20,7 @@ const TZ = "Asia/Kolkata";
 let f: Awaited<ReturnType<typeof academicSchool>>;
 let teacher: Current;
 let student: Current;
-let kids: string[] = [];
+const kids: string[] = [];
 const today = todayIn(TZ);
 const day = (n: number) => new Date(today.getTime() + n * 86_400_000);
 const as = <T>(c: Current, fn: (tx: Parameters<Parameters<typeof f.run>[0]>[0], s: HomeworkScope) => Promise<T>) =>

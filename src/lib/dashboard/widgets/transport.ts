@@ -47,7 +47,7 @@ const onRoad: Widget<"band"> = {
       const students = await c.tx.transportAssignment.count({ where: onBusOn(c.today) });
       return { id: "transport.on-road", label: "Buses on the road", big: "0", foot: students ? `${plural(students, "student")} use the buses` : "No trips today", href: `${BASE}/trips` };
     }
-    const running = trips.filter((t) => t.status === "IN_PROGRESS").length;
+    const running = trips.filter((t) => t.status === "STARTED").length;
     const done = trips.filter((t) => t.status === "COMPLETED").length;
     return { id: "transport.on-road", label: "Buses on the road", big: n(running), of: `/ ${n(trips.length)}`, foot: `${plural(done, "trip")} completed today`, href: liveHref(v), ring: Math.round(((running + done) / trips.length) * 100) };
   },
@@ -151,7 +151,7 @@ const fleetPanel: Widget<"panel"> = {
       const late = Math.max(0, ...evs.filter((e) => e.tripId === t.id).map((e) => minutesLate(e.at, e.plannedMin, c.tz) ?? 0));
       const live = liveStatus(t, c.now, settings);
       const right = t.status === "SCHEDULED" ? "Not started" : t.status === "COMPLETED" ? "Completed" : live.status === "Offline" ? "Offline" : late >= settings.lateAfterMin ? `Late ${late} min` : "On time";
-      const tone = right === "Offline" ? "bad" : right.startsWith("Late") ? "warn" : t.status === "IN_PROGRESS" ? "ok" : "neutral";
+      const tone = right === "Offline" ? "bad" : right.startsWith("Late") ? "warn" : t.status === "STARTED" ? "ok" : "neutral";
       return { id: t.id, title: r ? `Route ${r.number} · ${r.name}` : "Route", sub: `${tripKind(t.kind)}${veh ? ` · ${vehicleName(veh)}` : ""}`, right, rightTone: tone, href: v.pages.trips !== "hidden" ? `${BASE}/trips?trip=${t.id}` : undefined };
     });
     return {

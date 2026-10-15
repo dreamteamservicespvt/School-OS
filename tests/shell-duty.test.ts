@@ -12,7 +12,7 @@ import { BOTTOM_BY_ROLE } from "@/components/shell/nav-config";
 
 const ON = new Set<ModuleKey>(MODULES.map((m) => m.key));
 function person(...keys: string[]) {
-  const roles = keys.map((key) => ({ key, name: key, permissions: null }));
+  const roles = keys.map((key) => ({ key, name: key }));
   const permissions = combineRoles(keys.map((k) => ALL_ROLE_TEMPLATES.find((r) => r.key === k)!.permissions));
   return { roles, permissions, menu: menuModules(permissions, ON) };
 }

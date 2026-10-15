@@ -13,7 +13,9 @@ import { prepareReport, ReportProblem } from "@/lib/reports/run";
 import { analyticsAreas, areaOfChart } from "@/lib/reports/analytics";
 import { decideAiSignal, DECISION_LABEL, mayReview, remindFlag, reviewFlag, saveDropRule, WarningProblem, type Decision } from "@/lib/reports/warnings";
 import { archiveCustom, cleanSpec, CustomProblem, saveCustom, saveSchedule, sendSchedule, setScheduleStatus } from "@/lib/reports/custom";
+import { redirect } from "next/navigation";
 import { formatDateTime } from "@/lib/format";
+import { BASE } from "@/lib/reports/access";
 
 type S = FormState<unknown>;
 
@@ -90,12 +92,15 @@ function needCustom(a: { pages: { custom: boolean } }) {
 }
 
 export async function saveCustomAction(_: S, fd: FormData): Promise<S> {
-  return repAction("create", fd, async (w) => {
+  const res = await repAction("create", fd, async (w) => {
     needCustom(w.a);
     const spec = cleanSpec({ area: str(fd, "area"), columns: all(fd, "columns"), classId: str(fd, "classId") || null, show: str(fd, "show"), group: str(fd, "group"), totals: str(fd, "totals") !== "0" }, w.current);
     const r = await saveCustom(w.tx, w.current, str(fd, "name"), spec);
     return { r, schedule: str(fd, "then") === "schedule" };
   }, (x) => ({ message: `Saved: ${x.r.name}. ${x.schedule ? "Now choose when to send it." : "It is in My custom reports. Schedule it to get it by email."}` }));
+  // "Save and schedule it" goes straight on to the schedule sheet for the new report.
+  if (res?.ok && res.data?.schedule) redirect(`${BASE}/custom?schedule=c:${res.data.r.id}`);
+  return res;
 }
 
 export async function archiveCustomAction(_: S, fd: FormData): Promise<S> {

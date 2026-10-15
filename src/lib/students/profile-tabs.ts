@@ -50,6 +50,8 @@ export type ProfileTab = {
   today?: (args: ProfileTabArgs) => Promise<SummaryItem[]>;
   /** Optional narrower check than the module permission, e.g. a role that sees only part of the module. */
   allowed?: (current: Pick<Current, "permissions" | "modulesOn"> & Partial<Pick<Current, "roles">>) => boolean;
+  /** Gives only summary, Today or header items, with no tab of its own (Early warnings from Reports & Analytics). */
+  tabless?: boolean;
   /** Actions for the profile header ("Collect fee", "Mark attendance"). */
   headerActions?: (args: ProfileTabArgs) => Promise<{ label: string; href: string }[]>;
 };

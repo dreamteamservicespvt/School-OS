@@ -9,3 +9,4 @@ import "@/lib/academic/student-profile-tab";
 import "@/lib/communication/student-profile-tab";
 import "@/lib/events/profile-tab";
 import "@/lib/homework/profile-tab";
+import "@/lib/reports/profile-items";

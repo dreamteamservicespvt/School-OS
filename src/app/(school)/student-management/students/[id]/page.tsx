@@ -63,7 +63,7 @@ export default async function StudentProfilePage({ params, searchParams }: { par
   const tabs = [
     { key: "overview", label: "Overview", order: 10 },
     ...(tabAllowed("academics") ? [{ key: "academics", label: "Academics", order: 20 }] : []),
-    ...registered.map((t) => ({ key: t.key, label: t.label, order: t.order })),
+    ...registered.filter((t) => !t.tabless).map((t) => ({ key: t.key, label: t.label, order: t.order })),
     ...(can.seeBehaviour ? [{ key: "behaviour", label: "Behaviour", order: 100 }] : []),
     ...(can.seeDocuments ? [{ key: "documents", label: "Documents", order: 110 }] : []),
     ...(tabAllowed("history") ? [{ key: "history", label: "Timeline", order: 130 }] : []),
@@ -196,7 +196,7 @@ export default async function StudentProfilePage({ params, searchParams }: { par
         {tab === "behaviour" && <BehaviourTab studentId={id} can={can} settings={settings} tz={tz} points={p.points} />}
         {tab === "documents" && <DocumentsTab p={p} can={can} settings={settings} tz={tz} />}
         {tab === "history" && tabAllowed("history") && <HistoryTab studentId={id} can={can} tz={tz} />}
-        {registered.filter((t) => t.key === tab).map((t) => <RegisteredTab key={t.key} load={() => t.load(args)} />)}
+        {registered.filter((t) => t.key === tab && !t.tabless).map((t) => <RegisteredTab key={t.key} load={() => t.load(args)} />)}
       </div>
     </>
   );

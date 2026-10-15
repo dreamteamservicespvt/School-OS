@@ -49,7 +49,7 @@ registerApprovalLink("purchase", (a) =>
     ? { href: `${BASE}/purchases/orders/${a.recordId}`, label: "Open the purchase order" }
     : { href: `${BASE}/purchases?tab=requests&request=${a.recordId}`, label: "Open the purchase request" },
 );
-registerApprovalLink("stock-transfer", () => ({ href: `${BASE}/items?view=movements&kind=TRANSFER`, label: "Open stock movements" }));
+registerApprovalLink("stock-transfer", () => ({ href: `${BASE}/items?view=moves&kind=transfer`, label: "Open stock movements" }));
 registerApprovalLink("stock-audit", (a) => ({ href: `${BASE}/items/audits/${a.recordId}`, label: "Open the stock audit" }));
 registerApprovalLink("asset-disposal", (a) => ({ href: `${BASE}/assets?disposal=${a.recordId}`, label: "Open the asset" }));
 

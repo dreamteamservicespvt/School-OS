@@ -116,7 +116,7 @@ describe("School Profile rules", () => {
 describe("Modules On/Off", () => {
   it("only optional modules switch, and only once they are built", async () => {
     await expect(withSchool(ctx(), (tx) => setModuleOn(tx, ctx(), "fee-management", false))).rejects.toThrow(/always on/);
-    await expect(withSchool(ctx(), (tx) => setModuleOn(tx, ctx(), "transport-management", true))).rejects.toThrow(/arrives in Stage 4/);
+    await expect(withSchool(ctx(), (tx) => setModuleOn(tx, ctx(), "hostel-management", true))).rejects.toThrow(/arrives in Stage 4/);
   });
 
   it("integrations: checks details, keeps secrets encrypted, reports health in plain words", async () => {

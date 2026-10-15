@@ -24,6 +24,7 @@ import { HOMEWORK_WIDGETS } from "./widgets/homework";
 import { FRONT_OFFICE_WIDGETS } from "./widgets/front-office";
 import { EVENTS_WIDGETS } from "./widgets/events";
 import { REPORTS_WIDGETS } from "./widgets/reports";
+import { TRANSPORT_WIDGETS } from "./widgets/transport";
 import { LIBRARY_WIDGETS } from "./widgets/library";
 import { HOSTEL_WIDGETS } from "./widgets/hostel";
 
@@ -80,6 +81,7 @@ export const WIDGETS: readonly Widget[] = [
   ...FRONT_OFFICE_WIDGETS,
   ...EVENTS_WIDGETS,
   ...REPORTS_WIDGETS,
+  ...TRANSPORT_WIDGETS,
   ...LIBRARY_WIDGETS,
   ...HOSTEL_WIDGETS,
 ];

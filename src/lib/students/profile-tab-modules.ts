@@ -12,3 +12,4 @@ import "@/lib/homework/profile-tab";
 import "@/lib/library/profile-tab";
 import "@/lib/hostel/profile-tab";
 import "@/lib/reports/profile-items";
+import "@/lib/transport/profile-tab";

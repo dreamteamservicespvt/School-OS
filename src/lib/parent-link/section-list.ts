@@ -7,5 +7,6 @@ import "../attendance/parent-link";
 import "../fees/parent-link-section";
 import "../exams/parent-link-sections";
 import "../events/parent-link";
+import "../transport/parent-link";
 
 export { allSections, shownSections, sectionSwitches } from "./sections";

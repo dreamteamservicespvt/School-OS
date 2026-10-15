@@ -13,6 +13,7 @@ import type { FormState } from "@/lib/forms";
 import { act, MoneyProblem, problemState } from "@/lib/fees/act";
 import { FileProblem } from "@/lib/files";
 import { todayIn } from "@/lib/academic/common";
+import { dayStartUtc } from "@/lib/periods";
 import { HomeworkProblem } from "@/lib/homework/access";
 import { homeworkScope, type HomeworkScope } from "@/lib/homework/scope";
 
@@ -76,4 +77,11 @@ export async function hwQuick<T>(action: Action, work: Work<T>, success: (result
     return "That did not work because of a problem on our side. Nothing was changed. Please try again.";
   }
   revalidatePath("/", "layout");
+}
+
+/** "2026-10-16T20:00" typed in a date-and-time box, read in the school's time zone. */
+export function localMoment(value: string, timeZone: string): Date | null {
+  const m = /^(\d{4}-\d{2}-\d{2})T([01]\d|2[0-3]):([0-5]\d)$/.exec(value);
+  if (!m) return null;
+  return new Date(dayStartUtc(m[1], timeZone).getTime() + (Number(m[2]) * 60 + Number(m[3])) * 60_000);
 }

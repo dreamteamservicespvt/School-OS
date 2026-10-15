@@ -72,3 +72,9 @@ export async function homeworkGuard(page: HomeworkPageKey) {
 
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const iso = (d: Date) => d.toISOString().slice(0, 10);
+
+/** A moment as a date-and-time box value ("2026-10-16T20:00") in the school's time zone. */
+export function localInput(d: Date, timeZone: string) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(d).map((x) => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
+}

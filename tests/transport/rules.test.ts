@@ -46,14 +46,14 @@ describe("Transport is optional", () => {
     expect(await withSchool(ctx, (tx) => transportOn(tx, ctx))).toBe(false);
     const p = await makeUser({ schools: [{ id: other.school.id, roleKeys: ["principal"] }] });
     const view = (await accessIn(p.id, other.school.id))!;
-    const v = trViewer({ ...view, user: { id: p.id } });
+    const v = trViewer(view);
     expect(Object.values(v.pages).every((m) => m === "hidden")).toBe(true);
   });
 
   it("hides Live Tracking until the school switches live tracking on", async () => {
     const view = (await accessIn(f.incharge.id, f.school.id))!;
-    expect(trViewer({ ...view, user: { id: f.incharge.id } }).pages.live).toBe("full");
-    const noLive = trViewer({ ...view, features: new Set(), user: { id: f.incharge.id } });
+    expect(trViewer(view).pages.live).toBe("full");
+    const noLive = trViewer({ ...view, features: new Set() });
     expect(noLive.pages.live).toBe("hidden");
     expect(noLive.pages.routes).toBe("full");
   });

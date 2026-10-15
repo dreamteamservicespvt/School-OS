@@ -38,7 +38,7 @@ export type Category = (typeof CATEGORIES)[number];
 /** Money reports use the financial year (decided 9 October 2026). */
 export const MONEY: readonly Category[] = ["Fees", "Finance", "Salary"];
 
-/** The module each category comes from. Transport, Library, Inventory and Hostel are not built yet. */
+/** The module each category comes from. Transport, Inventory and Hostel are not built yet. */
 export const CATEGORY_MODULE: Record<Category, ModuleKey> = {
   Students: "student-management", Admissions: "admission-management", Attendance: "attendance-management", Fees: "fee-management",
   Finance: "finance-management", Exams: "examination-results", "Staff and HR": "staff-hr-management", Salary: "salary-management",

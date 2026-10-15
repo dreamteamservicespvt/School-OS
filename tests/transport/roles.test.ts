@@ -90,7 +90,8 @@ describe("Transport Management by role", () => {
     expect(await pagesOf(f.incharge.id)).toEqual(all("full"));
     expect(await pagesOf(f.principal.id)).toEqual(all("view"));
     expect(await pagesOf(f.admin.id)).toEqual({ ...all("view"), settings: "full" });
-    const { settings: _s, ...vpPages } = all("view");
+    const vpPages = all("view");
+    delete vpPages.settings;
     expect(await pagesOf(f.vp.id)).toEqual(vpPages);
     expect(await pagesOf(f.rameshLogin.id)).toEqual({ trips: "view" });
     expect(await pagesOf(f.teacher.id)).toEqual({});

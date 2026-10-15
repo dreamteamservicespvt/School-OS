@@ -68,16 +68,18 @@ export function PickupView({ p, back, showPhones, pickupHref }: { p: Profile; ba
   );
 }
 
-export function LibraryView({ p, back }: { p: Profile; back: React.ReactNode }) {
+export function LibraryView({ p, back, panel }: { p: Profile; back: React.ReactNode; panel?: React.ReactNode }) {
   return (
     <>
       {back}
-      <div className="flex max-w-3xl flex-col gap-5">
+      <div className="flex max-w-5xl flex-col gap-5">
         <Head p={p} size={72} />
-        <Card>
-          <CardHeader title="Library" icon={BookOpen} />
-          <p className="px-5 pb-5 text-[14px] text-ink3">Library cards, books out and fines show here once Library Management is in use.</p>
-        </Card>
+        {panel ?? (
+          <Card>
+            <CardHeader title="Library" icon={BookOpen} />
+            <p className="px-5 pb-5 text-[14px] text-ink3">Library cards, books out and fines show here once Library Management is in use.</p>
+          </Card>
+        )}
       </div>
     </>
   );

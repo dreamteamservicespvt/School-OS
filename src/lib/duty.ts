@@ -43,6 +43,7 @@ const TRANSPORT_PAGES = ["live", "routes", "vehicles", "students", "trips", "rep
  * Homework & Learning: homework, submissions, study-material, quizzes, discussions,
  * online-classes, learning-progress, settings (src/lib/homework/access.ts).
  * Transport: live, routes, vehicles, students, trips, reports, settings (src/lib/transport/words.ts).
+ * Library: issue, books, members, fines, reports, settings (src/lib/library/access.ts).
  */
 export const DUTY: Readonly<Record<string, Partial<Record<ModuleKey, Rule>>>> = {
   principal: {
@@ -59,6 +60,8 @@ export const DUTY: Readonly<Record<string, Partial<Record<ModuleKey, Rule>>>> = 
     // Early Warnings: class teachers review their students' flags; leaders watch every flag and Remind.
     "reports-analytics": { view: ["warnings"] },
     "transport-management": { view: TRANSPORT_PAGES },
+    // Library: the Librarian runs the desk; the Principal watches overdue books and fines (with Remind) and never works Members & Cards.
+    "library-management": { hide: ["members"], view: ["issue", "books", "fines", "reports", "settings"] },
   },
   "school-admin": {
     "events-calendar": { view: ["daily"] },
@@ -68,6 +71,8 @@ export const DUTY: Readonly<Record<string, Partial<Record<ModuleKey, Rule>>>> = 
     "homework-learning": { hide: TEACHING_DESK, view: ["homework", "learning-progress"] },
     "reports-analytics": { view: ["warnings"] },
     "transport-management": { view: TRANSPORT_PAGES.filter((p) => p !== "settings") },
+    // Library: the School Admin reads every page and keeps Library Settings.
+    "library-management": { view: ["issue", "books", "members", "fines", "reports"] },
   },
   "vice-principal": {
     "events-calendar": { view: ["daily"] },

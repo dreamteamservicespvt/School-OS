@@ -27,3 +27,4 @@ import "./events/jobs";
 import "./homework/jobs";
 import "./reports/jobs";
 import "./transport/jobs";
+import "./library/jobs";

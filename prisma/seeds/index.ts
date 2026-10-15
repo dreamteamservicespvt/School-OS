@@ -17,6 +17,7 @@ import { seedFrontOffice } from "./front-office";
 import { seedEvents } from "./events";
 import { seedReports } from "./reports";
 import { seedTransport } from "./transport";
+import { seedLibrary } from "./library";
 
 export const MODULE_SEEDS: { module: string; seed: ModuleSeed }[] = [
   { module: "academic-management", seed: seedAcademic },
@@ -36,4 +37,5 @@ export const MODULE_SEEDS: { module: string; seed: ModuleSeed }[] = [
   { module: "events-calendar", seed: seedEvents },
   { module: "reports-analytics", seed: seedReports },
   { module: "transport-management", seed: seedTransport },
+  { module: "library-management", seed: seedLibrary },
 ];

@@ -157,7 +157,7 @@ export async function releaseStudent(tx: Tx, ctx: SchoolContext, input: ReleaseI
     timeOut = instantOf(day, input.minute, opts.timeZone);
     if (Math.abs(timeOut.getTime() - now.getTime()) > 3 * 3600_000) throw new FrontOfficeProblem("The time must be today, within 3 hours of now.", "time");
   }
-  const open = await tx.gatePass.findFirst({ where: { studentId: input.studentId, kind: "PICKUP", status: "ISSUED", archivedAt: null, timeOut: { gte: today } } });
+  const open = await tx.gatePass.findFirst({ where: { studentId: input.studentId, kind: "PICKUP", status: "ISSUED", archivedAt: null, timeOut: { gte: instantOf(day, 0, opts.timeZone) } } });
   if (open) throw new FrontOfficeProblem(`${info.student.first} already has gate pass ${open.passNo} waiting at the gate.`);
   const passNo = formatNumber(`GP-${day.slice(0, 4)}-`, await nextNumber(tx, ctx, `gate-pass-${day.slice(0, 4)}`), 4);
   const verification = opts.codeCheck ? "photo, code" : "photo";

@@ -10,3 +10,4 @@ import "./dashboard/undo";
 import "./homework/undo";
 import "./front-office/undo";
 import "./events/undo";
+import "./library/handlers";

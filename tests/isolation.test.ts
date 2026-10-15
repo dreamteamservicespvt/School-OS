@@ -721,3 +721,43 @@ describe("Transport Management records stay in their school", () => {
     await expect(withSchool(ctxA(), (tx) => tx.transportAlert.create({ data: { schoolId: b.id, kind: "EMERGENCY", text: "X", at, onceKey: "a-into-b" } }))).rejects.toThrow();
   });
 });
+
+describe("Library Management records stay in their school", () => {
+  it("school A cannot read, change or add to school B's library settings, categories, authors, publishers, books, copies, issues, members, reservations, fines, stock checks or card prints", async () => {
+    const ctxB = { schoolId: b.id, userId: userB.id };
+    const x = "00000000-0000-4000-8000-000000000001";
+    const day = new Date("2026-10-12T00:00:00Z");
+    const ids = await withSchool(ctxB, async (tx) => {
+      await tx.librarySetting.create({ data: { schoolId: b.id } });
+      const cat = await tx.libraryCategory.create({ data: { schoolId: b.id, name: "Only in B" } });
+      await tx.author.create({ data: { schoolId: b.id, name: "Author In B" } });
+      await tx.publisher.create({ data: { schoolId: b.id, name: "Publisher In B" } });
+      const book = await tx.book.create({ data: { schoolId: b.id, title: "Book In B", authorText: "Author In B", categoryId: cat.id } });
+      const copy = await tx.bookCopy.create({ data: { schoolId: b.id, bookId: book.id, accessionNo: "B-1", barcode: "B-1" } });
+      const issue = await tx.bookIssue.create({ data: { schoolId: b.id, copyId: copy.id, bookId: book.id, memberKind: "STUDENT", studentId: x, issuedOn: day, dueOn: day } });
+      await tx.libraryMember.create({ data: { schoolId: b.id, memberKind: "STUDENT", studentId: x, blockReason: "Only in B" } });
+      await tx.reservation.create({ data: { schoolId: b.id, bookId: book.id, memberKind: "STUDENT", studentId: x } });
+      const fine = await tx.libraryFine.create({ data: { schoolId: b.id, fineNo: "LF-B-1", issueId: issue.id, copyId: copy.id, bookId: book.id, memberKind: "STUDENT", studentId: x, reason: "LATE", amountPaise: BigInt(1000) } });
+      const session = await tx.stockCheckSession.create({ data: { schoolId: b.id, name: "Only in B" } });
+      await tx.stockCheckScan.create({ data: { schoolId: b.id, sessionId: session.id, code: "B-1", copyId: copy.id } });
+      await tx.libraryCardPrint.create({ data: { schoolId: b.id, memberKind: "STUDENT", studentId: x, cardNo: "ADM-B" } });
+      return { book: book.id, copy: copy.id, issue: issue.id, fine: fine.id, session: session.id };
+    });
+    await withSchool(ctxA(), async (tx) => {
+      const counts = await Promise.all([
+        tx.librarySetting.count({ where: { schoolId: b.id } }), tx.libraryCategory.count(), tx.author.count(), tx.publisher.count(), tx.book.count(), tx.bookCopy.count(), tx.bookIssue.count(),
+        tx.libraryMember.count(), tx.reservation.count(), tx.libraryFine.count(), tx.stockCheckSession.count(), tx.stockCheckScan.count(), tx.libraryCardPrint.count(),
+      ]);
+      expect(counts).toEqual(Array(13).fill(0));
+      expect(await tx.book.findUnique({ where: { id: ids.book } })).toBeNull();
+      expect(await tx.bookCopy.findMany({ where: { accessionNo: "B-1" } })).toHaveLength(0);
+      expect((await tx.bookCopy.updateMany({ where: { id: ids.copy }, data: { status: "LOST" } })).count).toBe(0);
+      expect((await tx.bookIssue.updateMany({ where: { id: ids.issue }, data: { returnedAt: new Date() } })).count).toBe(0);
+      expect((await tx.libraryFine.updateMany({ where: { id: ids.fine }, data: { status: "WAIVED" } })).count).toBe(0);
+      expect((await tx.stockCheckSession.updateMany({ where: { id: ids.session }, data: { status: "CLOSED" } })).count).toBe(0);
+    });
+    await expect(withSchool(ctxA(), (tx) => tx.book.create({ data: { schoolId: b.id, title: "X", authorText: "X" } }))).rejects.toThrow();
+    await expect(withSchool(ctxA(), (tx) => tx.bookIssue.create({ data: { schoolId: b.id, copyId: ids.copy, bookId: ids.book, memberKind: "STUDENT", studentId: x, issuedOn: day, dueOn: day } }))).rejects.toThrow();
+    await expect(withSchool(ctxA(), (tx) => tx.stockCheckScan.create({ data: { schoolId: b.id, sessionId: ids.session, code: "X-1" } }))).rejects.toThrow();
+  });
+});

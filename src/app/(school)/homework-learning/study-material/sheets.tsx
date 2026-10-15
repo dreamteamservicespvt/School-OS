@@ -5,6 +5,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Archive, ArrowDown, ArrowUp, Check, Copy, Pencil, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/controls";
 import { FieldShell, inputCls } from "@/components/ui/field";
 import { SheetForm, useTyped } from "@/components/ui/url-sheet";
@@ -27,7 +28,7 @@ export function LessonSheet({ closeHref, course, chapters, lesson, maxMb }: {
   const edit = !!lesson;
   return (
     <SheetForm title={edit ? `Edit: ${lesson.title}` : "Add lesson"} sub={`${course.subject} · Class ${course.label}`} closeHref={closeHref}
-      action={edit ? editLessonAction : addLessonAction} submitLabel={edit ? "Save changes" : <><Plus size={16} aria-hidden="true" />Add lesson</>} pendingText="Saving…"
+      action={(edit ? editLessonAction : addLessonAction) as (p: unknown, fd: FormData) => Promise<{ ok: boolean; message?: string }>} submitLabel={edit ? "Save changes" : <><Plus size={16} aria-hidden="true" />Add lesson</>} pendingText="Saving…"
       hidden={edit ? { id: lesson.id } : { sectionId: course.sectionId, subjectId: course.subjectId, label: course.label }}>
       <FieldShell label="Course" id="ls-course" required>
         <input id="ls-course" value={`${course.subject} · Class ${course.label}`} readOnly className={cx(inputCls(), "h-11 bg-sunken/50")} />
@@ -73,8 +74,8 @@ export function ArchiveLessonSheet({ closeHref, id, title }: { closeHref: string
 }
 
 /** Copy this course to another section of the same subject. Lessons start hidden there. */
-export function CopyCourseSheet({ closeHref, courseId, subject, label, lessons, targets }: {
-  closeHref: string; courseId: string; subject: string; label: string; lessons: number; targets: { id: string; label: string }[];
+export function CopyCourseSheet({ closeHref, courseId, subject, lessons, targets }: {
+  closeHref: string; courseId: string; subject: string; lessons: number; targets: { id: string; label: string }[];
 }) {
   const [to, setTo] = useState(targets[0]?.id ?? "");
   const name = targets.find((t) => t.id === to)?.label ?? "";
@@ -156,14 +157,12 @@ export function DoneButton({ id, done, after }: { id: string; done: boolean; aft
   const router = useRouter();
   return (
     <span className="inline-flex flex-col items-end">
-      <button type="button" disabled={busy} onClick={() => start(async () => {
+      <Button variant={done ? "secondary" : "primary"} icon={Check} loading={busy} onClick={() => start(async () => {
         const fd = new FormData();
         fd.set("id", id); fd.set("done", done ? "0" : "1");
         const r = await lessonDoneAction(fd);
         if (r) setProblem(r); else { setProblem(null); router.push(after, { scroll: false }); router.refresh(); }
-      })} className={cx("h-11 px-4 rounded-xl inline-flex items-center gap-2 text-[14px] font-semibold transition disabled:opacity-60", done ? "border border-line bg-surface hover:bg-sunken" : "bg-brand text-white hover:bg-brand/90")}>
-        <Check size={16} aria-hidden="true" />{done ? "Mark as not done" : "Mark as done"}
-      </button>
+      })}>{done ? "Mark as not done" : "Mark as done"}</Button>
       {problem && <span role="alert" className="mt-1 text-[12.5px] text-bad">{problem}</span>}
     </span>
   );

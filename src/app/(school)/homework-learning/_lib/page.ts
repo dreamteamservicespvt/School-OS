@@ -56,7 +56,7 @@ export type HomeworkPage = Awaited<ReturnType<typeof homeworkPage>>;
 export async function homeworkTabs() {
   const p = await homeworkPage();
   const keys = (Object.keys(HOMEWORK_PAGES) as HomeworkPageKey[]).filter((k) => p.may(k));
-  return keys.map((k) => ({ href: PAGE_HREF[k], label: HOMEWORK_PAGES[k].label }));
+  return keys.map((k) => (k === "homework" ? { href: BASE, label: HOMEWORK_PAGES[k].label, exact: true, also: [`${BASE}/homework`] } : { href: PAGE_HREF[k], label: HOMEWORK_PAGES[k].label }));
 }
 
 /** A Homework & Learning page this person may open; anything else is a plain "no access" page. */

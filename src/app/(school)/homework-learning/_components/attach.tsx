@@ -4,7 +4,7 @@
 // (mod-homework.jsx GiveHomeworkSheet and SubmitSheet). Real file inputs, so
 // the files go with the form; each one can be taken off again before sending.
 
-import { useRef, useState } from "react";
+import { useId, useState } from "react";
 import { Camera, CircleCheck, FileImage, FileText, Link2, Paperclip, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { inputCls } from "@/components/ui/field";
@@ -15,23 +15,24 @@ const ACCEPT = "image/jpeg,image/png,application/pdf";
 
 /** A hidden file input whose chosen files are mirrored in state, so the list can show and remove them. */
 function useFiles() {
-  const ref = useRef<HTMLInputElement>(null);
+  const id = useId();
   const [names, setNames] = useState<string[]>([]);
   const sync = (input: HTMLInputElement | null) => setNames(Array.from(input?.files ?? []).map((f) => f.name));
+  const input = () => document.getElementById(id) as HTMLInputElement | null;
   const drop = (index: number) => {
-    const input = ref.current;
-    if (!input?.files) return;
+    const el = input();
+    if (!el?.files) return;
     const dt = new DataTransfer();
-    Array.from(input.files).forEach((f, i) => { if (i !== index) dt.items.add(f); });
-    input.files = dt.files;
-    sync(input);
+    Array.from(el.files).forEach((f, i) => { if (i !== index) dt.items.add(f); });
+    el.files = dt.files;
+    sync(el);
   };
-  const open = () => ref.current?.click();
-  return { ref, names, sync, drop, open };
+  const open = () => input()?.click();
+  return { id, names, sync, drop, open };
 }
 
 function FileInput({ name, accept, capture, f }: { name: string; accept: string; capture?: boolean; f: ReturnType<typeof useFiles> }) {
-  return <input ref={f.ref} type="file" name={name} accept={accept} multiple className="sr-only" tabIndex={-1} aria-hidden="true" {...(capture ? { capture: "environment" } : {})} onChange={(e) => f.sync(e.currentTarget)} />;
+  return <input id={f.id} type="file" name={name} accept={accept} multiple className="sr-only" tabIndex={-1} aria-hidden="true" {...(capture ? { capture: "environment" } : {})} onChange={(e) => f.sync(e.currentTarget)} />;
 }
 
 /** "Photo of the board", "File" and "Link" buttons with the list of what was added. */
@@ -95,9 +96,9 @@ export function HandInPicker({ maxMb, onCount }: { maxMb: number; onCount?: (n: 
   const box = "h-24 rounded-2xl border-2 border-dashed border-line hover:border-brand hover:text-brand flex flex-col items-center justify-center gap-1.5 text-[13.5px] font-semibold text-ink2 transition";
   return (
     <div className="flex flex-col gap-2">
-      <input ref={photos.ref} type="file" name="photos" accept="image/jpeg,image/png" capture="environment" multiple className="sr-only" tabIndex={-1} aria-hidden="true"
+      <input id={photos.id} type="file" name="photos" accept="image/jpeg,image/png" capture="environment" multiple className="sr-only" tabIndex={-1} aria-hidden="true"
         onChange={(e) => { photos.sync(e.currentTarget); onCount?.(e.currentTarget.files!.length + files.names.length); }} />
-      <input ref={files.ref} type="file" name="files" accept={ACCEPT} multiple className="sr-only" tabIndex={-1} aria-hidden="true"
+      <input id={files.id} type="file" name="files" accept={ACCEPT} multiple className="sr-only" tabIndex={-1} aria-hidden="true"
         onChange={(e) => { files.sync(e.currentTarget); onCount?.(e.currentTarget.files!.length + photos.names.length); }} />
       <div className="grid grid-cols-2 gap-2">
         <button type="button" onClick={photos.open} className={box}><Camera size={22} aria-hidden="true" />Take a photo</button>

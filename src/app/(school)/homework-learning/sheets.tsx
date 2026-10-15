@@ -29,11 +29,11 @@ export function Text({ name, label, start, required, placeholder, help, value, o
   const id = `f-${name}`;
   const common = {
     id, name, placeholder, "aria-invalid": t.error ? true : undefined, "aria-describedby": t.error ? `${id}-error` : help ? `${id}-help` : undefined,
-    ...(onValue ? { value: value ?? "", onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => onValue(e.target.value) } : { defaultValue: t.value, key: t.key }),
+    ...(onValue ? { value: value ?? "", onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => onValue(e.target.value) } : { defaultValue: t.value }),
   };
   return (
     <FieldShell label={label} id={id} required={required} error={t.error} help={help} className={className}>
-      {area ? <textarea rows={rows} {...common} className={cx(inputCls(t.error), "py-2.5 resize-y")} /> : <input {...common} className={cx(inputCls(t.error), "h-11")} autoComplete="off" />}
+      {area ? <textarea key={onValue ? undefined : t.key} rows={rows} {...common} className={cx(inputCls(t.error), "py-2.5 resize-y")} /> : <input key={onValue ? undefined : t.key} {...common} className={cx(inputCls(t.error), "h-11")} autoComplete="off" />}
     </FieldShell>
   );
 }
@@ -66,7 +66,9 @@ export function GiveSheet({ closeHref, sections, own, today, defaultMax, onlineO
   const [fromSuggestion, setFromSuggestion] = useState(false);
   const [aiProblem, setAiProblem] = useState<string | null>(null);
   const [drafting, startDraft] = useTransition();
-  const classError = useTyped("sectionId").error ?? useTyped("subjectId").error;
+  const sectionErr = useTyped("sectionId").error;
+  const subjectErr = useTyped("subjectId").error;
+  const classError = sectionErr ?? subjectErr;
   if (!section || !subject) return null;
 
   const pick = (id: string) => {

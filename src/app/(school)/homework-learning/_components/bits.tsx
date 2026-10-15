@@ -10,12 +10,26 @@ const ICONS: Record<string, LucideIcon> = { Calculator, FlaskConical, BookOpen, 
 export const subjectIcon = (subject: string) => ICONS[subjectLook(subject).icon] ?? BookOpen;
 export const subjectTone = (subject: string) => subjectLook(subject).tone;
 
+function SubjectGlyph({ name, size }: { name: string; size: number }) {
+  switch (name) {
+    case "Calculator": return <Calculator size={size} />;
+    case "FlaskConical": return <FlaskConical size={size} />;
+    case "Languages": return <Languages size={size} />;
+    case "Globe": return <Globe size={size} />;
+    case "Monitor": return <Monitor size={size} />;
+    case "Palette": return <Palette size={size} />;
+    case "Dumbbell": return <Dumbbell size={size} />;
+    case "Music": return <Music size={size} />;
+    default: return <BookOpen size={size} />;
+  }
+}
+
 /** The subject's icon in its soft tone (mod-homework.jsx SubIcon). */
 export function SubIcon({ subject, size = 40 }: { subject: string; size?: number }) {
-  const Icon = subjectIcon(subject);
+  const s = size > 36 ? 19 : 16;
   return (
     <span className={cx("rounded-xl grid place-items-center shrink-0", TONE_SOFT[subjectTone(subject)])} style={{ width: size, height: size }} aria-hidden="true">
-      <Icon size={size > 36 ? 19 : 16} />
+      <SubjectGlyph name={subjectLook(subject).icon} size={s} />
     </span>
   );
 }

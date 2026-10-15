@@ -74,7 +74,7 @@ export async function courseList(tx: Tx, s: HomeworkScope): Promise<CourseRow[]>
   });
   // Students see only courses with something to read.
   const shown = s.level === "student" ? rows.filter((r) => r.visible > 0) : rows;
-  return shown.sort((a, b) => a.sort - b.sort || a.sectionLabel.localeCompare(b.sectionLabel) || a.subject.localeCompare(b.subject)).map(({ sort: _s, ...r }) => r);
+  return shown.sort((a, b) => a.sort - b.sort || a.sectionLabel.localeCompare(b.sectionLabel) || a.subject.localeCompare(b.subject)).map((r) => { const { sort, ...rest } = r; void sort; return rest; });
 }
 
 /** The course of a section and subject, made the first time a teacher adds to it. */

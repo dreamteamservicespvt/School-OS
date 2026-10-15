@@ -11,7 +11,7 @@ export type TableColumn = { key: string; label: string; align?: "left" | "right"
 export type DocType = {
   key: string;
   label: string;
-  group: "Fees" | "Certificates" | "ID cards" | "Exams" | "Staff" | "Front office" | "Letters";
+  group: "Fees" | "Certificates" | "ID cards" | "Exams" | "Staff" | "Front office" | "Store" | "Letters";
   family: Family;
   /** Which module prints it. */
   usedBy: string;
@@ -195,6 +195,17 @@ export const DOC_TYPES: readonly DocType[] = [
     defaultFields: ["member_no", "class_section", "valid_until"], codeField: "member_no",
   },
   {
+    key: "purchase-order", label: "Purchase order", group: "Store", family: "money", usedBy: "Inventory Management", title: "Purchase Order", defaultPaper: "A4",
+    fields: [
+      f("po_no", "Purchase order number", "PO/2026-27/0012"), f("po_date", "Order date", "09-10-2026"), f("vendor_name", "Vendor", "Sri Sai Stationers"),
+      f("vendor_gstin", "Vendor GSTIN", "36AABCS1234K1Z5"), f("vendor_phone", "Vendor phone", "98480 12345"), f("vendor_address", "Vendor address", "12-5-77, Ameerpet, Hyderabad"),
+      f("deliver_to", "Deliver to", "Main store"), f("expected_on", "Expected by", "20-10-2026"), f("request_no", "Purchase request", "PR-0031"), f("approved_by", "Approved by", "Lakshmi Rao"),
+    ],
+    defaultFields: ["po_no", "po_date", "vendor_name", "vendor_gstin", "vendor_phone", "deliver_to", "expected_on", "request_no"],
+    sampleLines: [{ label: "A4 notebook 200 pages: 200 pieces at ₹45", amountPaise: 900000 }, { label: "Whiteboard marker, black: 10 boxes at ₹240", amountPaise: 240000 }],
+    codeField: "po_no",
+  },
+  {
     key: "admit-card", label: "Admit card", group: "Exams", family: "admit", usedBy: "Examination & Results", title: "Admit Card", defaultPaper: "A4",
     fields: [...STUDENT, f("exam_name", "Exam", "Half-Yearly Examination 2026"), f("exam_centre", "Exam centre", "Main Campus, Block B")],
     defaultFields: ["exam_name", "student_name", "admission_no", "class_section", "roll_no", "exam_centre"],
@@ -253,7 +264,7 @@ export function findDocType(key: string): DocType | undefined {
   return DOC_TYPES.find((d) => d.key === key);
 }
 
-export const GROUP_ORDER: DocType["group"][] = ["Fees", "Certificates", "ID cards", "Exams", "Staff", "Front office", "Letters"];
+export const GROUP_ORDER: DocType["group"][] = ["Fees", "Certificates", "ID cards", "Exams", "Staff", "Front office", "Store", "Letters"];
 
 /** All merge fields of a document, school fields first. */
 export function allFields(t: DocType): MergeField[] {

@@ -11,8 +11,9 @@ import { MONEY_REPORTS } from "./money";
 import { ACADEMIC_REPORTS } from "./academic";
 import { PEOPLE_REPORTS } from "./people";
 import { LIBRARY_REPORTS } from "./library";
+import { INVENTORY_REPORTS } from "./inventory";
 
-const ALL: ReportEntry[] = [...STUDENT_REPORTS, ...PEOPLE_REPORTS, ...ACADEMIC_REPORTS, ...MONEY_REPORTS, ...LIBRARY_REPORTS];
+const ALL: ReportEntry[] = [...STUDENT_REPORTS, ...PEOPLE_REPORTS, ...ACADEMIC_REPORTS, ...MONEY_REPORTS, ...LIBRARY_REPORTS, ...INVENTORY_REPORTS];
 
 /** Every report, in category order. */
 export const CATALOGUE: readonly ReportEntry[] = CATEGORIES.flatMap((c) => ALL.filter((e) => e.category === c));

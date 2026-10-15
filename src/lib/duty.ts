@@ -40,6 +40,7 @@ const TEACHING_DESK = ["submissions", "study-material", "quizzes", "discussions"
  * Homework & Learning: homework, submissions, study-material, quizzes, discussions,
  * online-classes, learning-progress, settings (src/lib/homework/access.ts).
  * Library: issue, books, members, fines, reports, settings (src/lib/library/access.ts).
+ * Inventory: items, issue, purchases, assets, rooms, reports, settings (src/lib/inventory/access.ts).
  */
 export const DUTY: Readonly<Record<string, Partial<Record<ModuleKey, Rule>>>> = {
   principal: {
@@ -57,6 +58,8 @@ export const DUTY: Readonly<Record<string, Partial<Record<ModuleKey, Rule>>>> = 
     "reports-analytics": { view: ["warnings"] },
     // Library: the Librarian runs the desk; the Principal watches overdue books and fines (with Remind) and never works Members & Cards.
     "library-management": { hide: ["members"], view: ["issue", "books", "fines", "reports", "settings"] },
+    // Inventory: the Store Keeper runs the store; the Principal approves and orders purchases and reads the rest (with Remind).
+    "inventory-management": { view: ["items", "issue", "assets", "rooms", "reports", "settings"] },
   },
   "school-admin": {
     "events-calendar": { view: ["daily"] },
@@ -67,6 +70,8 @@ export const DUTY: Readonly<Record<string, Partial<Record<ModuleKey, Rule>>>> = 
     "reports-analytics": { view: ["warnings"] },
     // Library: the School Admin reads every page and keeps Library Settings.
     "library-management": { view: ["issue", "books", "members", "fines", "reports"] },
+    // Inventory: the School Admin reads every page and keeps Inventory Settings.
+    "inventory-management": { view: ["items", "issue", "purchases", "assets", "rooms", "reports"] },
   },
   "vice-principal": {
     "events-calendar": { view: ["daily"] },

@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowRightLeft, CircleSlash, IndianRupee, Printer, Search, X } from "lucide-react";
+import { ArrowRightLeft, CircleSlash, Printer, Search, X } from "lucide-react";
 import { SheetForm, useTyped } from "@/components/ui/url-sheet";
 import { SArea, SDate, SText } from "@/components/ui/sheet-fields";
 import { FieldShell, inputCls } from "@/components/ui/field";
@@ -193,7 +193,7 @@ export function BulkBar({ href, canChange, canPrint }: { href: string; canChange
       <p className="mr-2 text-[13.5px] font-semibold text-brand" aria-live="polite">{ids.length} picked</p>
       {canChange && <Link scroll={false} href={`${href}${sep}do=change&ids=${join}`} className={buttonClass("secondary", "sm")}><ArrowRightLeft size={15} aria-hidden="true" />Change stop or route</Link>}
       {canChange && <Link scroll={false} href={`${href}${sep}do=stop&ids=${join}`} className={buttonClass("secondary", "sm")}><CircleSlash size={15} aria-hidden="true" />Stop transport</Link>}
-      {canChange && <ActButton action={addFeeAction} fields={{ assignmentIds: join }} label="Add transport fee" icon={IndianRupee} pendingText="Adding…" />}
+      {canChange && <ActButton action={addFeeAction} fields={{ assignmentIds: join }} label="Add transport fee" icon="IndianRupee" pendingText="Adding…" />}
       {canPrint && <a href={`/transport-management/students/pass?ids=${join}`} target="_blank" rel="noreferrer" className={buttonClass("secondary", "sm")}><Printer size={15} aria-hidden="true" />Print bus passes</a>}
       <button type="button" onClick={clear} className={cx(buttonClass("ghost", "sm"), "ml-auto")}><X size={15} aria-hidden="true" />Clear</button>
     </div>

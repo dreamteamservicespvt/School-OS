@@ -101,6 +101,8 @@ export async function driverToday(tx: Tx, c: DriverCaller, now: Date) {
   return {
     driver: { id: c.driver.id, name: c.driver.name, role: c.driver.role },
     date: today.toISOString().slice(0, 10),
+    /** The school's time zone: the app shows times in it, whatever the phone is set to. */
+    timeZone: c.tz,
     settings: { intervalSec: settings.locationIntervalSec, boardingRequired: settings.boardingRequired, stopGeofenceMeters: settings.stopGeofenceMeters },
     trips: sheets.map((s) => ({
       id: s.trip.id, kind: s.trip.kind, title: `Route ${s.route.number} · ${tripKind(s.trip.kind)}`, route: { number: s.route.number, name: s.route.name },

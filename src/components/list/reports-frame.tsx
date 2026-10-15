@@ -16,7 +16,8 @@ export function ReportsFrame({ reports, active, children }: { reports: ReportLin
   return (
     <Split side={340}>
       <div id="report" className="min-w-0 scroll-mt-4 flex flex-col gap-5 lg:gap-6">{children}</div>
-      <Card>
+      {/* min-w-0: long report descriptions are cut with "…", never widen the page on a phone. */}
+      <Card className="min-w-0">
         <CardHeader title="All reports" description="Each has filters, export and print" icon={ChartColumn} />
         <nav aria-label="All reports" className="pb-2">
           {groups.map((g) => (

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Archive, Building2, Bus, CalendarClock, FileWarning, Fuel, IdCard, KeyRound, Paperclip, Pencil, Plus, Power, Send, ShieldCheck, Smartphone, Undo2, UserRound, Users, Wrench } from "lucide-react";
+import { Archive, Building2, Bus, CalendarClock, FileWarning, Fuel, IdCard, KeyRound, Paperclip, Pencil, Plus, Power, ShieldCheck, Smartphone, UserRound, Users, Wrench } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { appOrigin } from "@/lib/origin";
 import { fileLink } from "@/lib/files";
@@ -364,13 +364,13 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Sea
               ]} />
               {can.fleet && (
                 <div className="flex flex-wrap gap-2">
-                  {(r.app.state === "None" || r.app.state === "Invited") && <ActButton action={sendInviteAction} fields={{ driverId: r.d.id }} label={r.app.state === "None" ? "Send app invite" : "Send invite again"} icon={Send} pendingText="Sending…" />}
+                  {(r.app.state === "None" || r.app.state === "Invited") && <ActButton action={sendInviteAction} fields={{ driverId: r.d.id }} label={r.app.state === "None" ? "Send app invite" : "Send invite again"} icon="Send" pendingText="Sending…" />}
                   {r.app.state === "Active" && (
                     <ConfirmAct action={setAppLoginAction} fields={{ driverId: r.d.id, on: "0" }} trigger={<><Power size={16} aria-hidden="true" />Turn app login off</>} title={`Turn off ${r.d.name}'s app login?`} confirmLabel="Turn off" danger>
                       They are signed out at once and their phone keys stop working. Trip history stays.
                     </ConfirmAct>
                   )}
-                  {r.app.state === "Disabled" && <ActButton action={setAppLoginAction} fields={{ driverId: r.d.id, on: "1" }} label="Turn app login on" icon={Undo2} />}
+                  {r.app.state === "Disabled" && <ActButton action={setAppLoginAction} fields={{ driverId: r.d.id, on: "1" }} label="Turn app login on" icon="Undo2" />}
                 </div>
               )}
               {r.d.role === "DRIVER" && (

@@ -1,4 +1,4 @@
-import { Archive, Bus, MapPinned, Plus, Route as RouteIcon, SearchX, Undo2 } from "lucide-react";
+import { Archive, Bus, MapPinned, Plus, Route as RouteIcon, SearchX } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { routesView } from "@/lib/transport/views";
@@ -97,7 +97,7 @@ export default async function RoutesPage({ searchParams }: { searchParams: Searc
                   <li key={r.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sunken/60">
                     <span className="w-10 h-10 rounded-xl bg-sunken text-ink3 grid place-items-center shrink-0"><RouteIcon size={19} aria-hidden="true" /></span>
                     <div className="min-w-0 flex-1"><p className="font-semibold text-[14.5px] truncate">Route {r.number} · {r.name}</p><p className="text-[12.5px] text-ink3 truncate">Archived {formatDate(r.archivedAt!, p.tz)}</p></div>
-                    {p.can.routes && <ActButton action={restoreRouteAction} fields={{ routeId: r.id }} label="Restore" icon={Undo2} variant="ghost" pendingText="Restoring…" />}
+                    {p.can.routes && <ActButton action={restoreRouteAction} fields={{ routeId: r.id }} label="Restore" icon="Undo2" variant="ghost" pendingText="Restoring…" />}
                   </li>
                 ))}
               </ul>

@@ -6,7 +6,11 @@
 
 import { useActionState, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { LocateFixed, type LucideIcon } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Bell, Flag, IndianRupee, LocateFixed, Play, Send, Undo2 } from "lucide-react";
+
+// Icons go to this client button by name: a server page cannot hand it a component.
+const ACT_ICONS = { ArrowDown, ArrowUp, ArrowUpDown, Bell, Flag, IndianRupee, Play, Send, Undo2 };
+export type ActIcon = keyof typeof ACT_ICONS;
 import { useTyped } from "@/components/ui/url-sheet";
 import { FieldShell, inputCls } from "@/components/ui/field";
 import { Segmented, type SegOption } from "@/components/ui/controls";
@@ -81,12 +85,12 @@ export function LocationField({ start, sketch, names = { lat: "lat", lng: "lng" 
 type Act = (prev: FormState<unknown>, fd: FormData) => Promise<FormState<unknown>>;
 
 /** A button that runs one server action (Add fee, Start trip, Close alert...), showing its problem in place. */
-export function ActButton({ action, fields, label, icon, variant = "secondary", size = "sm", className, pendingText }: { action: Act; fields: Record<string, string>; label: React.ReactNode; icon?: LucideIcon; variant?: ButtonVariant; size?: "sm" | "md" | "lg"; className?: string; pendingText?: string }) {
+export function ActButton({ action, fields, label, icon, variant = "secondary", size = "sm", className, pendingText }: { action: Act; fields: Record<string, string>; label: React.ReactNode; icon?: ActIcon; variant?: ButtonVariant; size?: "sm" | "md" | "lg"; className?: string; pendingText?: string }) {
   const [state, run, pending] = useActionState<FormState<unknown>, FormData>(action, null);
   return (
     <form action={run} className={cx("relative z-[1] inline-flex flex-col items-start gap-1", className)}>
       {Object.entries(fields).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
-      <Button type="submit" variant={variant} size={size} icon={icon} loading={pending} className={className?.includes("w-full") ? "w-full" : undefined}>{pending && pendingText ? pendingText : label}</Button>
+      <Button type="submit" variant={variant} size={size} icon={icon ? ACT_ICONS[icon] : undefined} loading={pending} className={className?.includes("w-full") ? "w-full" : undefined}>{pending && pendingText ? pendingText : label}</Button>
       {state && !state.ok && <span className="text-[12px] text-bad max-w-[260px]" role="alert">{state.message}</span>}
     </form>
   );

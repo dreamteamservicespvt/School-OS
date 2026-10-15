@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Archive, ArrowDown, ArrowLeft, ArrowUpDown, ArrowUp, IndianRupee, ListOrdered, MapPin, MapPinned, Pencil, Plus, School, Send, Users } from "lucide-react";
+import { Archive, ArrowLeft, IndianRupee, ListOrdered, MapPin, MapPinned, Pencil, Plus, School, Send, Users } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { formatRupees } from "@/lib/format";
 import { routeDetail, routeParents } from "@/lib/transport/views";
@@ -127,8 +127,8 @@ export default async function RoutePage({ params, searchParams }: { params: Prom
                             </span>
                             <span className="hidden md:flex gap-0.5 justify-end">
                               {canEdit && <>
-                                {i > 0 && <ActButton action={moveStopAction} fields={{ stopId: s.id, dir: "up" }} label={<span className="sr-only">Move {s.name} up</span>} icon={ArrowUp} variant="ghost" />}
-                                {i < data.stops.length - 1 && <ActButton action={moveStopAction} fields={{ stopId: s.id, dir: "down" }} label={<span className="sr-only">Move {s.name} down</span>} icon={ArrowDown} variant="ghost" />}
+                                {i > 0 && <ActButton action={moveStopAction} fields={{ stopId: s.id, dir: "up" }} label={<span className="sr-only">Move {s.name} up</span>} icon="ArrowUp" variant="ghost" />}
+                                {i < data.stops.length - 1 && <ActButton action={moveStopAction} fields={{ stopId: s.id, dir: "down" }} label={<span className="sr-only">Move {s.name} down</span>} icon="ArrowDown" variant="ghost" />}
                               </>}
                             </span>
                           </summary>
@@ -150,8 +150,8 @@ export default async function RoutePage({ params, searchParams }: { params: Prom
                               <div className="flex gap-2 mt-2.5 flex-wrap">
                                 <ButtonLink href={addQ(HREF, { stop: s.id })} scroll={false} size="sm" variant="secondary" icon={Pencil}>Edit stop</ButtonLink>
                                 <span className="md:hidden contents">
-                                  {i > 0 && <ActButton action={moveStopAction} fields={{ stopId: s.id, dir: "up" }} label="Up" icon={ArrowUp} />}
-                                  {i < data.stops.length - 1 && <ActButton action={moveStopAction} fields={{ stopId: s.id, dir: "down" }} label="Down" icon={ArrowDown} />}
+                                  {i > 0 && <ActButton action={moveStopAction} fields={{ stopId: s.id, dir: "up" }} label="Up" icon="ArrowUp" />}
+                                  {i < data.stops.length - 1 && <ActButton action={moveStopAction} fields={{ stopId: s.id, dir: "down" }} label="Down" icon="ArrowDown" />}
                                 </span>
                                 <ConfirmAct action={archiveStopAction} fields={{ stopId: s.id }} trigger="Remove stop" triggerVariant="ghost" title={`Remove ${s.name} from Route ${r.number}?`} confirmLabel={`Remove ${s.name}`} danger>
                                   {kids.length ? `${plural(kids.length, "student")} get on here. Change their stop in Student Transport first.` : "The stop is kept in the history of past trips. The stops after it move up one place."}
@@ -197,7 +197,7 @@ export default async function RoutePage({ params, searchParams }: { params: Prom
               <CardHeader title="More" icon={Users} />
               <div className="px-5 pb-5 flex flex-col gap-2 items-start">
                 {p.can.live && !archived && <ButtonLink href={addQ(HREF, { do: "message" })} scroll={false} variant="secondary" icon={Send}>Message this route&rsquo;s parents</ButtonLink>}
-                {canEdit && data.stops.length > 0 && <ActButton action={copyEveningAction} fields={{ routeId: r.id }} label="Copy for evening drop (reverse order)" icon={ArrowUpDown} pendingText="Copying…" />}
+                {canEdit && data.stops.length > 0 && <ActButton action={copyEveningAction} fields={{ routeId: r.id }} label="Copy for evening drop (reverse order)" icon="ArrowUpDown" pendingText="Copying…" />}
                 {canEdit && (
                   <ConfirmAct action={archiveRouteAction} fields={{ routeId: r.id }} trigger={<><Archive size={16} aria-hidden="true" />Archive route</>} triggerVariant="ghost" title={`Archive Route ${r.number} · ${r.name}?`} confirmLabel={`Archive Route ${r.number}`} danger>
                     {data.used ? `${plural(data.used, "student")} still use this route. Move them to another route in Student Transport first.` : "It drops out of lists and is kept with its history. You can restore it later."}

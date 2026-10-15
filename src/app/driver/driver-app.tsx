@@ -13,6 +13,14 @@ import { Button } from "@/components/ui/button";
 import { Pill } from "@/components/ui/badge";
 import { signOut } from "../(school)/actions";
 import type { driverToday } from "@/lib/transport/driver-api";
+import { clockOf } from "@/lib/transport/words";
+
+/** A moment in the school's time, written like the planned times (7:15 AM). */
+function timeOf(at: string | number | Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date(at));
+  const n = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? 0);
+  return clockOf(n("hour") * 60 + n("minute"));
+}
 
 type Today = Awaited<ReturnType<typeof driverToday>>;
 type Trip = Today["trips"][number];
@@ -207,7 +215,7 @@ export function DriverApp({ initial, schoolName, schoolPhone }: { initial: Today
               {isRun && (
                 <div className="px-4 py-3 border-b border-line text-[13px] text-ink2 flex items-center gap-2">
                   <MapPin size={15} aria-hidden="true" className={fix ? "text-ok" : "text-warn"} />
-                  {isDriver ? (gpsProblem ?? (fix ? `Location sent every ${data.settings.intervalSec} seconds · last ${new Date(fix.at).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}${fix.speed != null ? ` · ${Math.round(fix.speed)} km/h` : ""}` : "Finding the phone's location…")) : "The driver's phone sends the location."}
+                  {isDriver ? (gpsProblem ?? (fix ? `Location sent every ${data.settings.intervalSec} seconds · last ${timeOf(fix.at, data.timeZone)}${fix.speed != null ? ` · ${Math.round(fix.speed)} km/h` : ""}` : "Finding the phone's location…")) : "The driver's phone sends the location."}
                 </div>
               )}
 
@@ -218,7 +226,7 @@ export function DriverApp({ initial, schoolName, schoolPhone }: { initial: Today
                       <div className="flex items-center gap-3">
                         <div className="min-w-0 flex-1">
                           <p className="font-medium">{s.name}</p>
-                          <p className="text-[12.5px] text-ink2">{s.planned}{s.reached ? ` · ${s.reached.status === "MISSED" ? "missed" : `reached ${new Date(s.reached.at).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}`}` : ""}</p>
+                          <p className="text-[12.5px] text-ink2">{s.planned}{s.reached ? ` · ${s.reached.status === "MISSED" ? "missed" : `reached ${timeOf(s.reached.at, data.timeZone)}`}` : ""}</p>
                         </div>
                         {isRun && !s.reached && <Button size="sm" variant="secondary" icon={CheckCircle2} loading={busy === `stop:${s.id}`} onClick={() => act(`stop:${s.id}`, "reached", { tripId: t.id, stopId: s.id, at: new Date().toISOString() }, `${s.name} reached.`)}>Reached</Button>}
                       </div>

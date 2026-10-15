@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BadgeIndianRupee, Bus, Clock, IndianRupee, Plus, Printer, SearchX, TriangleAlert, Users } from "lucide-react";
+import { BadgeIndianRupee, Bus, Clock, Plus, Printer, SearchX, TriangleAlert, Users } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { formatDate, formatRupees } from "@/lib/format";
 import { placesView, type PlaceFilter } from "@/lib/transport/views";
@@ -74,7 +74,7 @@ export default async function StudentTransportPage({ searchParams }: { searchPar
       <Stack>
         {noFee.length > 0 && (
           <Banner tone="warn" icon={TriangleAlert} title={`${plural(noFee.length, "student")} on a bus with no transport fee`}
-            action={can.students ? <ActButton action={addFeeAction} fields={{ assignmentIds: noFee.map((x) => x.assignmentId).join(",") }} label={`Add the fee for all ${noFee.length}`} icon={IndianRupee} pendingText="Adding…" /> : undefined}>
+            action={can.students ? <ActButton action={addFeeAction} fields={{ assignmentIds: noFee.map((x) => x.assignmentId).join(",") }} label={`Add the fee for all ${noFee.length}`} icon="IndianRupee" pendingText="Adding…" /> : undefined}>
             Their fee is missing from Fee Management, so it is not being collected. See the fee check below.
           </Banner>
         )}

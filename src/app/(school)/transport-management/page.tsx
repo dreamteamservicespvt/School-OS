@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AlertTriangle, Bell, Bus, Clock, History, MapPinned, Moon, Phone, Send, Siren, Sun, Users } from "lucide-react";
+import { AlertTriangle, Bus, Clock, History, MapPinned, Moon, Phone, Send, Siren, Sun, Users } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { etas } from "@/lib/transport/geo";
@@ -133,7 +133,7 @@ export default async function LivePage({ searchParams }: { searchParams: SearchP
                       {row?.driver && <a href={telHref(row.driver.phone)} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl border border-line text-[13.5px] font-semibold hover:bg-sunken"><Phone size={15} aria-hidden="true" />Call {row.driver.name.split(" ")[0]}</a>}
                       {bad && a.routeId && can.emergencyMessage && !a.messageId && <ButtonLink size="sm" variant="danger" href={addQ(HREF, { msg: "emergency", route: a.routeId, alert: a.id, trip: a.tripId })} scroll={false} icon={Send}>Message parents</ButtonLink>}
                       {can.live && <ButtonLink size="sm" variant="ghost" href={addQ(HREF, { close: a.id })} scroll={false}>Close</ButtonLink>}
-                      {can.remind && <ActButton action={remindAction} fields={{ text: `Please look at the alert: ${a.text}`, link: BASE }} label="Remind in-charge" icon={Bell} pendingText="Sending…" />}
+                      {can.remind && <ActButton action={remindAction} fields={{ text: `Please look at the alert: ${a.text}`, link: BASE }} label="Remind in-charge" icon="Bell" pendingText="Sending…" />}
                     </div>
                   </li>
                 );

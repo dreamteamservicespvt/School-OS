@@ -1,7 +1,7 @@
 // One trip in detail (12 §2 Trips): the stops in trip order with the planned
 // and reached times, and the students at each with Boarded, Not boarded or
 // Dropped. The in-charge can run the trip from here when the driver cannot.
-import { Check, CircleDot, Flag, Play, School, Square, X } from "lucide-react";
+import { Check, CircleDot, School, Square, X } from "lucide-react";
 import type { tripSheet } from "@/lib/transport/trips";
 import { minutesLate } from "@/lib/transport/views";
 import { TRIP_STATUS, clockOf, showPlate, tripKind } from "@/lib/transport/words";
@@ -42,7 +42,7 @@ export function TripPanel({ sheet, tz, canRun, driver }: { sheet: Sheet; tz: str
         bus={!running ? "none" : allDone ? "end" : "between"} end={morning ? "School" : "Last stop"} ariaLabel={`Progress of Route ${sheet.route.number}`} />
       {canRun && (
         <div className="flex flex-wrap gap-2">
-          {t.status === "SCHEDULED" && <ActButton action={startTripAction} fields={{ tripId: t.id }} label="Start trip" icon={Play} variant="primary" size="md" pendingText="Starting…" />}
+          {t.status === "SCHEDULED" && <ActButton action={startTripAction} fields={{ tripId: t.id }} label="Start trip" icon="Play" variant="primary" size="md" pendingText="Starting…" />}
           {running && (
             <ConfirmAct action={endTripAction} fields={{ tripId: t.id }} trigger={<><Square size={15} aria-hidden="true" />End trip</>} title="End this trip?" confirmLabel="End trip">
               {sheet.stops.length - reached > 0 ? `${sheet.stops.length - reached} stops not reached will be marked missed.` : "Every stop is reached."} {morning ? "Students marked boarded are marked dropped at school, and their parents get the drop message when it is on." : ""} No more locations are kept.
@@ -64,7 +64,7 @@ export function TripPanel({ sheet, tz, canRun, driver }: { sheet: Sheet; tz: str
                 <span className="text-[12.5px] text-ink3 tnum">Planned {clockOf(s.planned)}</span>
                 {s.reached?.status === "REACHED" && <span className={cx("text-[12.5px] tnum font-semibold", late != null && late > 5 ? "text-warn" : "text-ok")}>Reached {clockAt(s.reached.at, tz)}{late != null && late > 0 ? ` · ${late} min late` : ""}{s.reached.source === "GEOFENCE" ? " · automatic" : ""}</span>}
                 {s.reached?.status === "MISSED" && <span className="text-[12.5px] text-bad font-semibold">Missed</span>}
-                {canRun && running && !s.reached && <ActButton action={markStopAction} fields={{ tripId: t.id, stopId: s.id }} label="Reached" icon={Flag} pendingText="Saving…" />}
+                {canRun && running && !s.reached && <ActButton action={markStopAction} fields={{ tripId: t.id, stopId: s.id }} label="Reached" icon="Flag" pendingText="Saving…" />}
               </div>
               {s.students.length > 0 && (
                 <ul className="mt-1.5 flex flex-col gap-1">

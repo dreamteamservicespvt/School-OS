@@ -1,6 +1,7 @@
 import {
-  BadgeCheck, BedDouble, Boxes, Bus, CalendarCheck2, CalendarDays, ClipboardCheck, DoorOpen, FileText, GraduationCap, IdCard, IndianRupee, Landmark,
-  Library, ListTodo, MessagesSquare, NotebookPen, Scale, UserPlus, Users, Wallet, type LucideIcon,
+  BadgeCheck, BedDouble, BookOpen, Boxes, Bus, CalendarCheck2, CalendarDays, ChartColumn, ChartLine, CircleCheck, ClipboardCheck, Clock, DoorOpen, FileText,
+  GraduationCap, IdCard, Inbox, IndianRupee, Landmark, Library, ListTodo, MessagesSquare, NotebookPen, RefreshCw, Scale, TriangleAlert, UserPlus, Users,
+  Wallet, type LucideIcon,
 } from "lucide-react";
 import { ModuleHead } from "@/components/shell/module-head";
 import type { Category } from "@/lib/reports/types";
@@ -20,6 +21,10 @@ export const CAT_ICON: Record<Category, LucideIcon> = {
   "Front Office": DoorOpen, Homework: NotebookPen, Events: CalendarDays, Tasks: ListTodo,
 };
 
-/** Government return icons (prototype GOV). */
-export const GOV_ICON: Record<string, LucideIcon> = { Landmark, IdCard, Scale, BadgeCheck, ClipboardCheck };
+/** Icons named by the Reports & Analytics data (analytics numbers and charts, government returns). */
+export const ICON: Record<string, LucideIcon> = {
+  Landmark, IdCard, Scale, BadgeCheck, ClipboardCheck, GraduationCap, UserPlus, CalendarCheck2, Users, ChartColumn, CircleCheck, ChartLine,
+  TriangleAlert, CalendarDays, IndianRupee, Wallet, Clock, RefreshCw, BookOpen, Inbox,
+};
+export const GOV_ICON = ICON;
 export const iconOr = (m: Record<string, LucideIcon>, k: string) => m[k] ?? FileText;

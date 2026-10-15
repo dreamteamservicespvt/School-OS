@@ -14,6 +14,7 @@ import { formatDate } from "../format";
 import { readPreferences } from "../settings/profile-rules";
 import { fileStore } from "../storage";
 import { makeZip } from "../zip";
+import { currentYear } from "../academic/years";
 
 export class GovProblem extends Error {}
 
@@ -35,6 +36,21 @@ export async function returnsFor(tx: Tx, ctx: SchoolContext) {
   const s = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { board: true } });
   const cbse = /cbse/i.test(s.board ?? "");
   return RETURNS.filter((r) => !r.board || cbse);
+}
+
+/** The return, format version, academic year and campus chosen on the page (?return=&version=&year=&campus=), read the same way for the page and the export. */
+export async function govChoice(tx: Tx, ctx: SchoolContext, sp: Record<string, string | string[] | undefined>, campusId: string | null) {
+  const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
+  const uuid = (v: string) => (/^[0-9a-f-]{36}$/i.test(v) ? v : null);
+  const returns = await returnsFor(tx, ctx);
+  const ret = returns.find((r) => r.key === one(sp.return)) ?? returns[0];
+  const version = ret.versions.includes(one(sp.version)) ? one(sp.version) : ret.versions[0];
+  const years = await tx.academicYear.findMany({ where: { archivedAt: null, ...(campusId ? { campusId } : {}) }, orderBy: { startDate: "desc" }, select: { id: true, name: true, status: true, startDate: true, endDate: true } });
+  const yearId = uuid(one(sp.year));
+  const year = years.find((y) => y.id === yearId) ?? (await currentYear(tx, ctx, campusId)) ?? years[0] ?? null;
+  const campusPick = uuid(one(sp.campus)) ?? campusId;
+  const campus = campusPick ? await tx.campus.findFirst({ where: { id: campusPick, archivedAt: null }, select: { id: true, name: true } }) : null;
+  return { returns, ret, version, years, year: year ? { id: year.id, name: year.name } : null, campus };
 }
 
 export type Who = "student" | "staff" | "school";

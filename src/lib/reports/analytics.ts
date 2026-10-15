@@ -16,7 +16,7 @@ import { entryAllowed, findEntry } from "./catalogue";
 import { readFilters, type PeriodSetupLike, type Raw } from "./filters";
 import { runEntry } from "./run";
 import type { Cell, Column, ReportViewer, Row, Table } from "./types";
-import type { DayRange } from "../periods";
+import { periodFromSearch, type DayRange } from "../periods";
 
 export type AreaKey = "students" | "results" | "finance" | "hr" | "workload" | "teachers" | "admissions";
 export const AREA_LABEL: Record<AreaKey, string> = {
@@ -418,6 +418,25 @@ export async function loadArea(inp: AnalyticsInput, area: AreaKey, opts: { exam?
     case "teachers": return teachers(inp);
     case "admissions": return admissions(inp);
   }
+}
+
+/**
+ * What the Analytics page shows, read from its address the same way for the
+ * page and its exports: the area, the dates (default this academic year; the
+ * Accountant's financial year; the Admission Counsellor's last 6 months),
+ * compare with last year, and the campus ("both" for side by side).
+ */
+export function analyticsQuery(who: ReportViewer, sp: Raw, setup: PeriodSetupLike, a: ReportAccess = reportAccess(who)) {
+  const areas = analyticsAreas(who, a);
+  const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
+  const area = areas.find((x) => x === one(sp.area)) ?? areas[0] ?? null;
+  const only = (k: string) => a.roleKeys.length > 0 && a.roleKeys.every((r) => r === k);
+  const fallback = only("accountant") ? "finyear" as const : only("admission-counsellor") ? "last6m" as const : "acyear" as const;
+  const range = periodFromSearch(sp, { ...setup, fallback })!;
+  const campusRaw = one(sp.campus);
+  const both = campusRaw === "both";
+  const campusId = /^[0-9a-f-]{36}$/i.test(campusRaw) ? campusRaw : who.campusId ?? null;
+  return { areas, area, range, fallback, compare: one(sp.compare) === "1", both, campusId, exam: /^[\w-]{1,64}$/.test(one(sp.exam)) ? one(sp.exam) : undefined };
 }
 
 /** The area a chart key belongs to ("finance.ie" is in Finance). */

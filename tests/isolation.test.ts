@@ -761,3 +761,50 @@ describe("Library Management records stay in their school", () => {
     await expect(withSchool(ctxA(), (tx) => tx.stockCheckScan.create({ data: { schoolId: b.id, sessionId: ids.session, code: "X-1" } }))).rejects.toThrow();
   });
 });
+
+describe("Hostel Management records stay in their school", () => {
+  it("school A cannot read, change or add to school B's hostel settings, hostels, wardens, rooms, beds, allocations, fee plans, fee rows, roll calls, incidents, menus, head counts or mess expenses", async () => {
+    const ctxB = { schoolId: b.id, userId: userB.id };
+    const x = "00000000-0000-4000-8000-000000000001";
+    const day = new Date("2026-10-12T00:00:00Z");
+    const at = new Date("2026-10-12T16:00:00Z");
+    const ids = await withSchool(ctxB, async (tx) => {
+      await tx.hostelSetting.create({ data: { schoolId: b.id, rules: "Only in B" } });
+      const hostel = await tx.hostel.create({ data: { schoolId: b.id, name: "Only in B", gender: "BOYS" } });
+      await tx.hostelWarden.create({ data: { schoolId: b.id, hostelId: hostel.id, staffId: x, fromDate: day } });
+      const room = await tx.hostelRoom.create({ data: { schoolId: b.id, hostelId: hostel.id, floor: "Ground", roomNo: "B-1" } });
+      const bed = await tx.hostelBed.create({ data: { schoolId: b.id, hostelId: hostel.id, roomId: room.id, bedNo: 1 } });
+      const alloc = await tx.bedAllocation.create({ data: { schoolId: b.id, studentId: x, hostelId: hostel.id, roomId: room.id, bedId: bed.id, academicYearId: x, startDate: day } });
+      const plan = await tx.hostelFeePlan.create({ data: { schoolId: b.id, academicYearId: x, name: "Only in B", feeHeadId: x } });
+      const inst = await tx.hostelFeeInstallment.create({ data: { schoolId: b.id, planId: plan.id, label: "Quarter 1", dueDate: day, amountPaise: BigInt(2400000) } });
+      await tx.hostelFeeCharge.create({ data: { schoolId: b.id, allocationId: alloc.id, installmentId: inst.id, studentId: x, dueId: x } });
+      const roll = await tx.rollCall.create({ data: { schoolId: b.id, hostelId: hostel.id, date: day, session: "NIGHT", takenAt: at, absentCount: 1 } });
+      await tx.rollCallMark.create({ data: { schoolId: b.id, rollCallId: roll.id, studentId: x, mark: "ABSENT" } });
+      const incident = await tx.hostelIncident.create({ data: { schoolId: b.id, incidentNo: "HI-B-1", hostelId: hostel.id, type: "DISCIPLINE", at, studentIds: [x], description: "Only in B" } });
+      await tx.messMenuItem.create({ data: { schoolId: b.id, weekStart: day, dayIndex: 0, meal: "Breakfast", dishes: "Only in B" } });
+      await tx.mealHeadCount.create({ data: { schoolId: b.id, date: day, meal: "Breakfast", expected: 10, actual: 9 } });
+      const expense = await tx.messExpense.create({ data: { schoolId: b.id, date: day, item: "Only in B", amountPaise: BigInt(150000) } });
+      return { hostel: hostel.id, room: room.id, bed: bed.id, alloc: alloc.id, roll: roll.id, incident: incident.id, expense: expense.id, plan: plan.id };
+    });
+    await withSchool(ctxA(), async (tx) => {
+      const counts = await Promise.all([
+        tx.hostelSetting.count({ where: { schoolId: b.id } }), tx.hostel.count(), tx.hostelWarden.count(), tx.hostelRoom.count(), tx.hostelBed.count(), tx.bedAllocation.count(),
+        tx.hostelFeePlan.count(), tx.hostelFeeInstallment.count(), tx.hostelFeeCharge.count(), tx.rollCall.count(), tx.rollCallMark.count(), tx.hostelIncident.count(),
+        tx.messMenuItem.count(), tx.mealHeadCount.count(), tx.messExpense.count(),
+      ]);
+      expect(counts).toEqual(Array(15).fill(0));
+      expect(await tx.hostel.findUnique({ where: { id: ids.hostel } })).toBeNull();
+      expect(await tx.bedAllocation.findMany({ where: { studentId: x } })).toHaveLength(0);
+      expect((await tx.hostelBed.updateMany({ where: { id: ids.bed }, data: { blockedAt: at } })).count).toBe(0);
+      expect((await tx.bedAllocation.updateMany({ where: { id: ids.alloc }, data: { status: "CHECKED_OUT" } })).count).toBe(0);
+      expect((await tx.rollCall.updateMany({ where: { id: ids.roll }, data: { absentCount: 0 } })).count).toBe(0);
+      expect((await tx.hostelIncident.updateMany({ where: { id: ids.incident }, data: { description: "Changed by A" } })).count).toBe(0);
+      expect((await tx.messExpense.updateMany({ where: { id: ids.expense }, data: { paid: true } })).count).toBe(0);
+      expect((await tx.hostelFeePlan.updateMany({ where: { id: ids.plan }, data: { name: "Changed by A" } })).count).toBe(0);
+    });
+    await expect(withSchool(ctxA(), (tx) => tx.hostelRoom.create({ data: { schoolId: b.id, hostelId: ids.hostel, floor: "Ground", roomNo: "X-1" } }))).rejects.toThrow();
+    await expect(withSchool(ctxA(), (tx) => tx.bedAllocation.create({ data: { schoolId: b.id, studentId: x, hostelId: ids.hostel, roomId: ids.room, bedId: ids.bed, academicYearId: x, startDate: day } }))).rejects.toThrow();
+    await expect(withSchool(ctxA(), (tx) => tx.rollCallMark.create({ data: { schoolId: b.id, rollCallId: ids.roll, studentId: x, mark: "PRESENT" } }))).rejects.toThrow();
+    await expect(withSchool(ctxA(), (tx) => tx.messExpense.create({ data: { schoolId: b.id, date: day, item: "X", amountPaise: BigInt(100) } }))).rejects.toThrow();
+  });
+});

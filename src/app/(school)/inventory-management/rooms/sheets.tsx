@@ -10,7 +10,8 @@ import { Camera } from "lucide-react";
 import { SheetForm, useTyped } from "@/components/ui/url-sheet";
 import { SArea, SDate, SMoney, SSelect, SSwitch, SText } from "@/components/ui/sheet-fields";
 import { Alert } from "@/components/ui/alert";
-import { SegField } from "../_components/client";
+import { InlineForm, SegField } from "../_components/client";
+import { reportProblemAction } from "../report-problem/actions";
 import { Warned } from "../purchases/sheets";
 import { archiveFacilityAction, assignMaintenanceAction, closeMaintenanceAction, raiseAction, safetyCheckAction, saveExperimentAction, saveFacilityAction } from "./actions";
 
@@ -20,6 +21,15 @@ export type AssetPick = { value: string; label: string; roomId: string | null };
 const PRIORITIES = [{ value: "LOW", label: "Low" }, { value: "NORMAL", label: "Normal" }, { value: "HIGH", label: "High" }, { value: "URGENT", label: "Urgent" }];
 
 /** Place, asset in that place, problem, photo (the phone's camera) and priority. */
+/** Report a problem's form on the page (any staff member); it clears for the next problem after sending. */
+export function ReportProblemForm({ places, assets }: { places: Opt[]; assets: AssetPick[] }) {
+  return (
+    <InlineForm action={reportProblemAction} submit="Send" pendingText="Sending…">
+      {() => <ProblemFields places={places} assets={assets} />}
+    </InlineForm>
+  );
+}
+
 export function ProblemFields({ places, assets, startPlace = "" }: { places: Opt[]; assets: AssetPick[]; startPlace?: string }) {
   const typed = useTyped("placeId", startPlace);
   const [place, setPlace] = useState(typed.value);

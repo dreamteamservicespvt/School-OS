@@ -90,7 +90,7 @@ export default async function InventoryReportsPage({ searchParams }: { searchPar
           { label: "Unpaid bills", value: formatRupees(d.unpaid), tone: d.unpaid > ZERO ? "warn" : undefined, sub: "As on today", href: reportHref("inv-unpaid") },
           { label: "Maintenance cost", value: formatRupees(d.maint._sum.costPaise ?? ZERO), sub: `${d.maint._count.toLocaleString("en-IN")} done · ${per.label}`, href: reportHref("inv-maintenance") },
         ]} />
-        <div className="grid gap-5 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           <Card className="p-5">
             <h2 className="font-semibold text-[15px] mb-3">Stock value by category</h2>
             {d.byCat.length ? <HBars labelWidth={110} valueWidth={96} rows={d.byCat.slice(0, 8).map((c) => ({ key: c.id, label: c.name, value: (Number(c.value / BigInt(100)) / maxCat) * 100, text: formatRupees(c.value) }))} /> : <p className="text-[13.5px] text-ink3">No stock in hand.</p>}

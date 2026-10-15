@@ -54,7 +54,7 @@ export default async function InventorySettingsPage({ searchParams }: { searchPa
     <>
       <InvHead pageName="Inventory Settings" href={base} mode={p.mode} sub={d.who ? `Last changed by ${d.who.displayName} on ${formatDateTime(s.updatedAt, tz)}` : undefined} />
       <Stack>
-        <div className="grid gap-5 lg:grid-cols-2 items-start">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 items-start">
           <Card>
             <CardHeader title="Item categories" icon={FolderTree} description="Each with its reorder level and the Finance head its bills go to." divided
               action={can.settings ? <ButtonLink href={`${base}?cat=new`} size="sm" icon={Plus} scroll={false}>Add category</ButtonLink> : undefined} />

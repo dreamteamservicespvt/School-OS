@@ -59,6 +59,8 @@ export default async function ItemsPage({ searchParams }: { searchParams: Search
     const rows = view === "" || view === "lab" ? await itemsList(tx, f, tz) : [];
     const moves = view === "moves" ? await movesList(tx, mf, { skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE }) : null;
     const expiring = view === "lab" ? await expiringBatches(tx, today, 60) : [];
+    // Items holding an expired batch are flagged in the list too (14 §5: expired stock is flagged).
+    const expiredItems = new Set(rows.length ? (await tx.stockBatch.findMany({ where: { qty: { gt: 0 }, expiresOn: { lt: today }, itemId: { in: rows.map((r) => r.item.id) } }, select: { itemId: true } })).map((b) => b.itemId) : []);
     const sets = view === "sets" ? await tx.bookSet.findMany({ where: { archivedAt: null }, include: { items: true }, orderBy: { name: "asc" } }) : [];
     const audits = view === "audits" ? await tx.stockAudit.findMany({ orderBy: [{ startedOn: "desc" }, { createdAt: "desc" }], take: 50, include: { lines: { select: { countedQty: true, systemQty: true } } } }) : [];
     const needItems = ["in", "out", "transfer", "set"].includes(open) || view === "sets";
@@ -69,7 +71,7 @@ export default async function ItemsPage({ searchParams }: { searchParams: Search
     const nextCode = open === "add" ? await nextCodePreview(tx, current.ctx) : "";
     const editSet = open === "set" && uuidOr(one(sp.set)) ? sets.find((x) => x.id === one(sp.set)) ?? (await tx.bookSet.findFirst({ where: { id: one(sp.set) }, include: { items: true } })) : null;
     const itemNames = new Map((await tx.item.findMany({ where: { id: { in: [...new Set([...sets.flatMap((x) => x.items.map((i) => i.itemId)), ...expiring.map((b) => b.itemId)])] } } })).map((i) => [i.id, i]));
-    return { stores, cats, counts, rows, moves, expiring, sets, audits, items, stockBy, batches, classes, nextCode, editSet, itemNames };
+    return { stores, cats, counts, rows, moves, expiring, expiredItems, sets, audits, items, stockBy, batches, classes, nextCode, editSet, itemNames };
   });
 
   const storeName = new Map(d.stores.map((x) => [x.value, x.label]));
@@ -121,7 +123,7 @@ export default async function ItemsPage({ searchParams }: { searchParams: Search
           ...(s.bookSetsOn ? [{ value: "sets", label: "Book sets", href: here({ view: "sets" }) }] : []),
           { value: "audits", label: "Stock audits", href: here({ view: "audits" }) },
           { value: "moves", label: "Movements", href: qs(`${BASE}/items`, { view: "moves" }) },
-        ]} />
+        ]} className="flex w-full max-w-full overflow-x-auto [scrollbar-width:none]" />
 
         {(view === "" || view === "lab") && (
           <>
@@ -161,10 +163,10 @@ export default async function ItemsPage({ searchParams }: { searchParams: Search
                   action={can.stock && !f.q ? <ButtonLink href={`${BASE}/items/import`} variant="secondary" icon={FileUp}>Import items</ButtonLink> : undefined} />}
                 columns={[
                   { key: "code", label: "Code", nowrap: true, render: (r) => <span className="font-mono text-[13px]">{r.item.code}</span> },
-                  { key: "name", label: "Item", render: (r) => <span className="block min-w-[180px]"><b className={r.state === "OUT" ? "font-semibold text-bad" : "font-semibold"}>{itemLabel(r.item)}</b><span className="block text-[12px] text-ink3">{catName.get(r.item.categoryId) ?? ""}{r.item.tracksExpiry ? " · expiry tracked" : ""}</span></span> },
+                  { key: "name", label: "Item", render: (r) => <span className="block min-w-[180px]"><b className={r.state === "OUT" ? "font-semibold text-bad" : "font-semibold"}>{itemLabel(r.item)}</b><span className="block text-[12px] text-ink3">{catName.get(r.item.categoryId) ?? ""}{r.item.tracksExpiry && !d.expiredItems.has(r.item.id) ? " · expiry tracked" : ""}{d.expiredItems.has(r.item.id) && <b className="font-semibold text-bad"> · expired batch</b>}</span></span> },
                   { key: "unit", label: "Unit", render: (r) => r.item.unit },
                   { key: "stock", label: f.store ? `In ${storeName.get(f.store) ?? "store"}` : "In stock", align: "right", render: (r) => <b className={r.state === "OUT" ? "text-bad" : r.state === "LOW" ? "text-warn" : ""}>{r.shown.toLocaleString("en-IN")}</b> },
-                  ...(d.stores.length > 1 && !f.store ? [{ key: "by", label: "By store", render: (r: (typeof d.rows)[number]) => <span className="text-[12.5px] text-ink2">{[...r.stores.entries()].filter(([, q]) => q).map(([l, q]) => `${storeName.get(l) ?? "Store"} ${q}`).join(" · ")}</span> }] : []),
+                  ...(d.stores.length > 1 && !f.store ? [{ key: "by", label: "By store", render: (r: (typeof d.rows)[number]) => <span className="text-[12.5px] text-ink2">{[...r.stores.entries()].filter(([, q]) => q).map(([l, q]) => `${storeName.get(l) ?? "Store"}: ${q.toLocaleString("en-IN")}`).join(" · ")}</span> }] : []),
                   { key: "reorder", label: "Reorder at", align: "right", render: (r) => (r.reorder ? r.reorder : <span className="text-ink3">None</span>) },
                   { key: "value", label: "Value", align: "right", nowrap: true, render: (r) => (r.item.pricePaise !== null ? formatRupees(r.value) : <span className="text-ink3">No price</span>) },
                   { key: "state", label: "Status", render: (r) => <Pill tone={STOCK_STATE[r.state].tone}>{STOCK_STATE[r.state].label}</Pill> },

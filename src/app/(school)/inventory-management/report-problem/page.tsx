@@ -19,9 +19,7 @@ import { Stack, DL, Empty, Banner } from "@/components/money/kit";
 import { roomOptions } from "@/lib/inventory/lookup";
 import { invViewer, pageOpen } from "@/lib/inventory/access";
 import { BASE, MAINT_STATUS, MODULE, PRIORITY } from "@/lib/inventory/words";
-import { InlineForm } from "../_components/client";
-import { ProblemFields } from "../rooms/sheets";
-import { reportProblemAction } from "./actions";
+import { ReportProblemForm } from "../rooms/sheets";
 import { one, qs, uuidOr, type SearchParams } from "../_lib/page";
 
 export const metadata: Metadata = { title: "Report a problem" };
@@ -69,13 +67,11 @@ export default async function ReportProblemPage({ searchParams }: { searchParams
         {!d.staff ? (
           <Banner tone="info" title="Only staff members report problems here">Ask a staff member to report it.</Banner>
         ) : (
-          <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-5 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-5 items-start">
             <Card>
               <CardHeader title="What is wrong" icon={Wrench} divided />
               <div className="p-5">
-                <InlineForm action={reportProblemAction} submit="Send" pendingText="Sending…">
-                  {() => <ProblemFields places={d.places} assets={d.assets} />}
-                </InlineForm>
+                <ReportProblemForm places={d.places} assets={d.assets} />
               </div>
             </Card>
             <div className="flex flex-col gap-5">

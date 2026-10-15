@@ -217,7 +217,7 @@ export default async function AssetsPage({ searchParams }: { searchParams: Searc
                     { label: "Misplaced", value: d.result.misplaced.length, tone: d.result.misplaced.length ? "warn" : undefined },
                   ]} />
                   {can.assets && d.audit.status === "OPEN" && (
-                    <div className="grid lg:grid-cols-2 gap-5">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                       <ScanTags auditId={d.audit.id} rooms={d.audit.roomId ? d.rooms.filter((r) => r.value === d.audit!.roomId) : d.rooms} startRoom={d.audit.roomId ?? ""} />
                       <div>
                         <p className="text-[13px] font-semibold text-ink2 mb-1.5">Last scanned</p>

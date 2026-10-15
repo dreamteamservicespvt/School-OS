@@ -174,7 +174,7 @@ export default async function PurchasesPage({ searchParams }: { searchParams: Se
           { value: "receipts", label: "Goods received", href: tabHref("receipts") },
           { value: "bills", label: "Bills", href: tabHref("bills") },
           { value: "vendors", label: "Vendors", href: qs(`${BASE}/purchases`, { tab: "vendors" }) },
-        ]} />
+        ]} className="flex w-full max-w-full overflow-x-auto [scrollbar-width:none]" />
         <Card>
           <Toolbar className="md:flex-wrap">
             {tab !== "bills" && <UrlSearch placeholder={tab === "vendors" ? "Search vendor, phone or GSTIN" : "Search number"} label="Search" className="flex-1 md:min-w-[220px]" id="purchases-search" />}

@@ -140,7 +140,19 @@ export const PAY_MODES = [
 ] as const;
 
 export const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString("en-IN")} ${n === 1 ? one : many}`;
-export const qtyWords = (n: number, unit: string) => `${n.toLocaleString("en-IN")} ${unit === "piece" ? (n === 1 ? "piece" : "pieces") : unit}`;
+/** Units written the same for one or many (weights and measures, "dozen"). */
+const SAME_PLURAL = new Set(["kg", "g", "gm", "mg", "ml", "l", "m", "cm", "mm", "dozen"]);
+
+/** A unit for a quantity: "1 bottle", "3 bottles", "2 boxes", "5 kg". */
+export function unitWord(n: number, unit: string) {
+  const u = unit.trim();
+  if (n === 1 || SAME_PLURAL.has(u.toLowerCase()) || !/^[a-z]+$/i.test(u) || /s$/i.test(u)) return u;
+  if (/(x|ch|sh)$/i.test(u)) return `${u}es`;
+  if (/[^aeiou]y$/i.test(u)) return `${u.slice(0, -1)}ies`;
+  return `${u}s`;
+}
+
+export const qtyWords = (n: number, unit: string) => `${n.toLocaleString("en-IN")} ${unitWord(n, unit)}`;
 
 /** Rupees typed in a cell or field ("1,250.50", "₹ 40") as paise, or null when it is not an amount. */
 export function rupeesToPaise(raw: string): bigint | null {

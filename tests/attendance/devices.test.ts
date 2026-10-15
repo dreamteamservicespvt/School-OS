@@ -3,7 +3,7 @@
 // rejected with the reason, a valid punch marks the staff member present
 // with the in time; QR scans from outside the campus area refused and a
 // second scan the same morning blocked; the device API's fair limit.
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { withSchool } from "@/lib/db";
 import { addDevice, autoMatch, hashKey, mapUser, receivePunches, regenerateKey, reprocessRejected } from "@/lib/attendance/devices";
 import { checkIn, createQrSession, qrCode, saveGeoFence } from "@/lib/attendance/qr";
@@ -151,9 +151,16 @@ describe("the device API", () => {
   });
 
   it("has a fair limit per device per minute", async () => {
-    let last = 200;
-    for (let i = 0; i < 65 && last !== 429; i++) last = (await GET(new Request(`http://x/api/v1/attendance/punches?s=${f.school.id}`, { headers: { authorization: `Bearer ${key}` } }))).status;
-    expect(last).toBe(429);
+    // Hold the clock still so a slow run cannot cross into the next minute's count.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date());
+    try {
+      let last = 200;
+      for (let i = 0; i < 65 && last !== 429; i++) last = (await GET(new Request(`http://x/api/v1/attendance/punches?s=${f.school.id}`, { headers: { authorization: `Bearer ${key}` } }))).status;
+      expect(last).toBe(429);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

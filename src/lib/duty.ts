@@ -37,6 +37,9 @@ const ATTENDANCE_DESK = ["take", "student-leave"];
  */
 export const DUTY: Readonly<Record<string, Partial<Record<ModuleKey, Rule>>>> = {
   principal: {
+    // Events & Calendar: the Principal, School Admin and VP plan events and PTMs (the
+    // events team); only Daily Activities, which is not built yet, is theirs to watch.
+    "events-calendar": { view: ["daily"] },
     // Attendance and Fee Settings stay full for the Principal: their forms have no read-only form yet.
     "attendance-management": { hide: ATTENDANCE_DESK, view: ["staff", "devices"] },
     "fee-management": { hide: ["collect"], view: ["dashboard", "payments", "documents", "ledger", "defaulters", "reports"] },
@@ -45,11 +48,13 @@ export const DUTY: Readonly<Record<string, Partial<Record<ModuleKey, Rule>>>> = 
     settings: { hide: ["payment-gateways", "messaging", "data-security"] },
   },
   "school-admin": {
+    "events-calendar": { view: ["daily"] },
     "attendance-management": { hide: ATTENDANCE_DESK, view: ["register"] },
     "fee-management": { hide: ["collect"], view: ["dashboard", "payments", "documents", "ledger", "defaulters", "concessions", "reports"] },
     "examination-results": { view: ["marks"] },
   },
   "vice-principal": {
+    "events-calendar": { view: ["daily"] },
     "attendance-management": { hide: ATTENDANCE_DESK, view: ["staff", "devices"] },
     "examination-results": { view: ["marks"] },
   },

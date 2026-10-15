@@ -15,6 +15,7 @@ import { eventsSettings } from "@/lib/events/settings";
 import { staffForUser } from "@/lib/people";
 import { localNow } from "@/lib/events/jobs";
 import { BASE } from "@/lib/events/words";
+import { pageMode } from "@/lib/duty";
 
 export { BASE };
 export const MODULE = "events-calendar" as const;
@@ -37,8 +38,17 @@ export const evPage = cache(async () => {
       return { settings, me, year, campuses };
     }),
   ]);
-  const may = (page: EvPageKey) => evPageAllowed(v, page);
-  return { current, v, can, tz, today, hour, dates, ...data, may, accountant: v.level === "pay" };
+  // src/lib/duty.ts narrows the screens for the Principal, School Admin and VP:
+  // a page they never use is hidden, a page they only watch has no doing-buttons.
+  // The server still allows what 05-roles.md allows.
+  const mode = (page: EvPageKey) => pageMode(current, MODULE, page);
+  const may = (page: EvPageKey) => evPageAllowed(v, page) && mode(page) !== "hidden";
+  const works = (page: EvPageKey) => mode(page) === "full";
+  const pageCan = (page: EvPageKey) => {
+    if (works(page)) return can;
+    return { ...can, calendar: false, events: false, ptmPlan: false, ptmBook: false, ptmNotes: false, gallery: false, settings: false };
+  };
+  return { current, v, can, tz, today, hour, dates, ...data, may, works, pageCan, accountant: v.level === "pay" };
 });
 
 export type EvPage = Awaited<ReturnType<typeof evPage>>;
@@ -59,7 +69,8 @@ export async function evTabs() {
 export async function evGuard(page: EvPageKey) {
   const p = await evPage();
   if (!p.may(page)) redirect(`/no-access?m=${MODULE}`);
-  return p;
+  // On a page this person only watches (duty.ts), the doing-buttons go.
+  return { ...p, can: p.pageCan(page) };
 }
 
 export type SearchParams = Promise<Record<string, string | string[] | undefined>>;

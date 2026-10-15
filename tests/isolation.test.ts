@@ -514,3 +514,40 @@ describe("Front Office records stay in their school", () => {
     await expect(withSchool(ctxA(), (tx) => tx.postalEntry.create({ data: { schoolId: b.id, entryNo: "PD-X", at, direction: "RECEIVED", itemType: "LETTER", party: "X", forText: "X", status: "AT_DESK" } }))).rejects.toThrow();
   });
 });
+
+describe("Events & Calendar records stay in their school", () => {
+  it("school A cannot read, change or add to school B's events, registrations, volunteers, reminders, PTMs, slots, notes, albums, photos, tags or settings", async () => {
+    const ctxB = { schoolId: b.id, userId: userB.id };
+    const day = new Date("2031-06-06T00:00:00Z");
+    const someone = "00000000-0000-4000-8000-000000000001";
+    const ids = await withSchool(ctxB, async (tx) => {
+      await tx.eventsSetting.create({ data: { schoolId: b.id } });
+      const event = await tx.event.create({ data: { schoolId: b.id, academicYearId: someone, number: "EV-B-1", name: "Event In B", type: "Trip", date: day, startMin: 600, audienceLabel: "Whole school" } });
+      await tx.eventRegistration.create({ data: { schoolId: b.id, eventId: event.id, studentId: someone } });
+      await tx.eventVolunteer.create({ data: { schoolId: b.id, eventId: event.id, kind: "other", name: "Helper In B", duty: "First aid" } });
+      await tx.eventReminder.create({ data: { schoolId: b.id, eventId: event.id, people: 3, note: "Only in B" } });
+      const ptm = await tx.ptm.create({ data: { schoolId: b.id, academicYearId: someone, date: day, classIds: [someone], classesLabel: "Class 5", startMin: 570, endMin: 690, slotMinutes: 10 } });
+      await tx.ptmTeacher.create({ data: { schoolId: b.id, ptmId: ptm.id, staffId: someone, label: "Class teacher, 5 A" } });
+      const slot = await tx.ptmSlot.create({ data: { schoolId: b.id, ptmId: ptm.id, staffId: someone, startMin: 570, studentId: someone } });
+      await tx.ptmMeetingNote.create({ data: { schoolId: b.id, slotId: slot.id, ptmId: ptm.id, studentId: someone, staffId: someone, remarks: "Only in B" } });
+      const album = await tx.album.create({ data: { schoolId: b.id, number: "AL-B-1", name: "Album In B", date: day } });
+      const media = await tx.mediaItem.create({ data: { schoolId: b.id, albumId: album.id, fileId: someone } });
+      await tx.mediaTag.create({ data: { schoolId: b.id, mediaId: media.id, studentId: someone } });
+      return { event: event.id, ptm: ptm.id, slot: slot.id, album: album.id };
+    });
+    await withSchool(ctxA(), async (tx) => {
+      const counts = await Promise.all([
+        tx.eventsSetting.count({ where: { schoolId: b.id } }), tx.event.count(), tx.eventRegistration.count(), tx.eventVolunteer.count(), tx.eventReminder.count(),
+        tx.ptm.count(), tx.ptmTeacher.count(), tx.ptmSlot.count(), tx.ptmMeetingNote.count(), tx.album.count(), tx.mediaItem.count(), tx.mediaTag.count(),
+      ]);
+      expect(counts).toEqual(Array(12).fill(0));
+      expect(await tx.event.findUnique({ where: { id: ids.event } })).toBeNull();
+      expect((await tx.event.updateMany({ where: { id: ids.event }, data: { name: "Changed by A" } })).count).toBe(0);
+      expect((await tx.ptmSlot.updateMany({ where: { id: ids.slot }, data: { studentId: null } })).count).toBe(0);
+      expect((await tx.album.updateMany({ where: { id: ids.album }, data: { status: "PUBLISHED" } })).count).toBe(0);
+    });
+    await expect(withSchool(ctxA(), (tx) => tx.event.create({ data: { schoolId: b.id, academicYearId: someone, number: "EV-X", name: "X", type: "Trip", date: day, startMin: 600, audienceLabel: "X" } }))).rejects.toThrow();
+    await expect(withSchool(ctxA(), (tx) => tx.ptmSlot.create({ data: { schoolId: b.id, ptmId: ids.ptm, staffId: someone, startMin: 600 } }))).rejects.toThrow();
+    await expect(withSchool(ctxA(), (tx) => tx.album.create({ data: { schoolId: b.id, number: "AL-X", name: "X", date: day } }))).rejects.toThrow();
+  });
+});

@@ -16,14 +16,15 @@ import { Button } from "@/components/ui/button";
 import { cx } from "@/components/ui/cx";
 import { useActionState } from "react";
 import type { FormState } from "@/lib/forms";
-import { attendanceAction, cancelEventAction, registerAction, remindAction, saveEventAction, seatsAction, volunteerAction } from "../actions";
+import { attendanceAction, cancelEventAction, officeConsentAction, registerAction, remindAction, saveEventAction, seatsAction, volunteerAction } from "../actions";
+import { StudentPicker, type PickStudent } from "./co-sheets";
 import { WarningConfirm } from "./bits";
 
 type Opt = { value: string; label: string };
 
 export type EventStart = {
   id?: string; name?: string; type?: string; date?: string; startTime?: string; endTime?: string; venue?: string; audienceKind?: string; classIds?: string[];
-  registrationOn?: boolean; seats?: string; fee?: string; reminder?: string; description?: string; feeLocked?: boolean;
+  registrationOn?: boolean; seats?: string; fee?: string; reminder?: string; description?: string; feeLocked?: boolean; consentOn?: boolean; consentBy?: string;
 };
 
 export function EventSheet({ closeHref, start, types, venues, classes, reminders, audiences }: { closeHref: string; start: EventStart; types: string[]; venues: string[]; classes: Opt[]; reminders: Opt[]; audiences: Opt[] }) {
@@ -31,6 +32,8 @@ export function EventSheet({ closeHref, start, types, venues, classes, reminders
   const [audience, setAudience] = useState(aud.value || "school");
   const regT = useTyped("registrationOn", start.registrationOn ? "on" : "");
   const [reg, setReg] = useState(regT.value === "on");
+  const conT = useTyped("consentOn", start.consentOn ? "on" : "");
+  const [consent, setConsent] = useState(conT.value === "on");
   const editing = Boolean(start.id);
   const typeOptions = [...new Set([...(start.type ? [start.type] : []), ...types])].map((t) => ({ value: t, label: t }));
   const venueOptions = [{ value: "", label: "No venue" }, ...[...new Set([...(start.venue ? [start.venue] : []), ...venues])].map((v) => ({ value: v, label: v }))];
@@ -64,6 +67,14 @@ export function EventSheet({ closeHref, start, types, venues, classes, reminders
         </label>
         {reg && <input type="hidden" name="registrationOn" value="on" />}
         {reg && <SText name="seats" label="Seats" help="Leave empty for no limit" inputMode="numeric" start={start.seats} className="tnum" />}
+        {reg && (audience === "school" || audience === "classes") && (
+          <label className="flex items-center gap-3">
+            <Checkbox checked={consent} onChange={setConsent} label="Parent consent on Parent Link" />
+            <span className="text-[14px] flex-1"><b className="font-semibold">Parent consent on Parent Link</b><span className="block text-[12.5px] text-ink3">For trips and outings. A yes registers the child and adds any fee; a no is recorded.</span></span>
+          </label>
+        )}
+        {reg && consent && (audience === "school" || audience === "classes") && <input type="hidden" name="consentOn" value="on" />}
+        {reg && consent && (audience === "school" || audience === "classes") && <SDate name="consentBy" label="Reply by" help="Parents who have not answered get one reminder" start={start.consentBy} />}
       </div>
       <div className="grid grid-cols-2 gap-3">
         <SText name="fee" label="Fee per student" help={start.feeLocked ? "Students already have this fee; it cannot change now" : "Added to the student’s fees"} placeholder="None" inputMode="decimal" start={start.fee} className="tnum" readOnly={start.feeLocked} />
@@ -176,5 +187,19 @@ export function AttendanceForm({ eventId, rows, canMark, marked }: { eventId: st
       {canMark && <Button type="submit" variant="primary" loading={pending} className="self-start"><Check size={16} aria-hidden="true" />{marked ? "Saved · save again" : `Save attendance: ${n} present`}</Button>}
       {state && !state.ok && <p className="text-[12.5px] text-bad" role="alert">{state.message}</p>}
     </form>
+  );
+}
+
+/** The office records an answer a parent gave in person or on the phone. */
+export function OfficeConsentSheet({ closeHref, eventId, students, fee }: { closeHref: string; eventId: string; students: PickStudent[]; fee: string | null }) {
+  const a = useTyped("answer", "GIVEN");
+  const [answer, setAnswer] = useState(a.value || "GIVEN");
+  return (
+    <SheetForm title="Record consent" sub="For a parent who answered in person or on the phone. Parent Link answers come in by themselves." closeHref={closeHref}
+      action={officeConsentAction} submitLabel="Save" hidden={{ eventId, answer }}>
+      <Segmented label="Answer" value={answer} onChange={setAnswer} options={[{ value: "GIVEN", label: "Consent given" }, { value: "DECLINED", label: "Not this time" }]} className="w-full" />
+      <p className="text-[13px] text-ink3">{answer === "GIVEN" ? `The students are registered${fee ? ` and the fee of ${fee} is added to their fees` : ""}.` : "Nothing is charged. Registered students are withdrawn."}</p>
+      <StudentPicker students={students} />
+    </SheetForm>
   );
 }

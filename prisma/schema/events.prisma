@@ -23,6 +23,22 @@ model EventsSetting {
   feedOn            Boolean  @default(false) @map("feed_on")
   /// Changing it stops old feed links working.
   feedVersion       Int      @default(1) @map("feed_version")
+  /// Co-curricular & Sports: the optional tabs.
+  housesOn          Boolean  @default(true) @map("houses_on")
+  clubsOn           Boolean  @default(true) @map("clubs_on")
+  sportsOn          Boolean  @default(true) @map("sports_on")
+  /// Achievement levels, lowest first.
+  levels            String[] @default(["School", "District", "State", "National"])
+  /// Kinds of activity (music, dance, debate...), for participation reports.
+  activityKinds     String[] @default(["Music", "Dance", "Debate", "Art", "Public speaking", "Olympiad", "Competition", "Project", "Volunteering", "Sport"]) @map("activity_kinds")
+  /// Activity credits (optional): points for taking part and for winning, one per level (same order as levels).
+  creditsOn         Boolean  @default(false) @map("credits_on")
+  creditsTakePart   Int[]    @default([5, 10, 15, 20]) @map("credits_take_part")
+  creditsWin        Int[]    @default([10, 20, 40, 60]) @map("credits_win")
+  /// Daily Activities (optional page for pre-primary classes).
+  dailyOn           Boolean  @default(true) @map("daily_on")
+  /// Activity types for Daily Activities: the built-in ones and the school's own.
+  dailyTypes        String[] @default(["Meal", "Nap", "Play", "Water", "Learning activity"]) @map("daily_types")
   updatedById       String?  @map("updated_by_id") @db.Uuid
   updatedAt         DateTime @updatedAt @map("updated_at")
 
@@ -61,6 +77,9 @@ model Event {
   cancelReason    String?             @map("cancel_reason")
   cancelledAt     DateTime?           @map("cancelled_at")
   calendarEntryId String?             @map("calendar_entry_id") @db.Uuid
+  /// Parent consent on Parent Link before a student joins (trips): a "yes" registers the student.
+  consentOn       Boolean             @default(false) @map("consent_on")
+  consentBy       DateTime?           @map("consent_by") @db.Date
   description     String?
   createdById     String?             @map("created_by_id") @db.Uuid
   createdAt       DateTime            @default(now()) @map("created_at")
@@ -148,6 +167,9 @@ model Ptm {
   startMin        Int          @map("start_min")
   endMin          Int          @map("end_min")
   slotMinutes     Int          @map("slot_minutes")
+  /// A break in the time window (no slots in it), minutes after midnight.
+  breakStartMin   Int?         @map("break_start_min")
+  breakEndMin     Int?         @map("break_end_min")
   venue           String?
   /// The waiting queue on the day (large schools).
   queueOpen       Boolean      @default(false) @map("queue_open")

@@ -8,7 +8,7 @@ import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { SheetForm, UrlSheet, useTyped } from "@/components/ui/url-sheet";
 import { SArea, SChips, SDate, SSelect, SSwitch, SText } from "@/components/ui/sheet-fields";
-import { Segmented } from "@/components/ui/controls";
+import { Segmented, Switch } from "@/components/ui/controls";
 import { inputCls } from "@/components/ui/field";
 import { Avatar } from "@/components/ui/avatar";
 import { Pill } from "@/components/ui/badge";
@@ -21,6 +21,8 @@ export function PlanPtmSheet({ closeHref, classes, groups, slotMinutes, venues, 
   const s = useTyped("slotMinutes", String(slotMinutes));
   const [slot, setSlot] = useState(s.value || String(slotMinutes));
   const [pick, setPick] = useState<string[] | null>(null);
+  const b = useTyped("breakOn", "");
+  const [brk, setBrk] = useState(b.value === "on");
   return (
     <SheetForm title="Plan a PTM" sub="Teachers’ slots are made from their classes. The office books for parents who call; parents get a confirmation and a reminder." closeHref={closeHref} action={planPtmAction} submitLabel="Create slots" hidden={{ slotMinutes: slot }}>
       <SDate name="date" label="Date" required help="Must be a working day" start={start} />
@@ -35,6 +37,19 @@ export function PlanPtmSheet({ closeHref, classes, groups, slotMinutes, venues, 
       <div className="grid grid-cols-2 gap-3">
         <SText name="startTime" label="From" required type="time" start="09:30" className="tnum" />
         <SText name="endTime" label="To" required type="time" start="11:30" className="tnum" />
+      </div>
+      <div className="rounded-xl bg-sunken/70 p-3.5 flex flex-col gap-3">
+        <div className="flex items-center gap-3">
+          <Switch on={brk} onChange={setBrk} label="A break in the middle" />
+          <span className="text-[14px] flex-1"><b className="font-semibold">A break in the middle</b><span className="block text-[12.5px] text-ink3">No slots are made in the break, for every teacher</span></span>
+        </div>
+        {brk && <input type="hidden" name="breakOn" value="on" />}
+        {brk && (
+          <div className="grid grid-cols-2 gap-3">
+            <SText name="breakStart" label="Break from" required type="time" start="10:30" className="tnum" />
+            <SText name="breakEnd" label="Break to" required type="time" start="10:40" className="tnum" />
+          </div>
+        )}
       </div>
       <div className="flex flex-col gap-1.5">
         <span className="text-[13px] font-semibold text-ink2">Slot length<span className="text-bad" aria-hidden="true"> *</span></span>

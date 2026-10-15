@@ -148,6 +148,20 @@ export const DOC_TYPES: readonly DocType[] = [
     codeField: "certificate_no",
   },
   {
+    key: "participation-certificate", label: "Participation certificate", group: "Certificates", family: "letter", usedBy: "Events & Calendar", title: "Certificate of Participation", defaultPaper: "A4",
+    fields: [...STUDENT, f("certificate_no", "Certificate number", "CC/2026/00031"), f("activity", "Activity or competition", "Inter-school quiz"), f("level", "Level", "District"), f("activity_date", "Date", "09-10-2026")],
+    defaultFields: [],
+    defaultBody: "This is to certify that {{student_name}} of {{class_section}} took part in {{activity}}, at {{level}} level, on {{activity_date}}.\n\nWe appreciate the effort and the spirit shown.",
+    codeField: "certificate_no",
+  },
+  {
+    key: "achievement-certificate", label: "Achievement certificate", group: "Certificates", family: "letter", usedBy: "Events & Calendar", title: "Certificate of Achievement", defaultPaper: "A4",
+    fields: [...STUDENT, f("certificate_no", "Certificate number", "CC/2026/00032"), f("activity", "Activity or competition", "District inter-school football, Under-17"), f("level", "Level", "District"), f("position", "Position or result", "Winners"), f("activity_date", "Date", "20-09-2026")],
+    defaultFields: [],
+    defaultBody: "This is to certify that {{student_name}} of {{class_section}} won {{position}} in {{activity}}, at {{level}} level, on {{activity_date}}.\n\nCongratulations on this achievement.",
+    codeField: "certificate_no",
+  },
+  {
     key: "character-certificate", label: "Character certificate", group: "Certificates", family: "letter", usedBy: "Student Management", title: "Character Certificate", defaultPaper: "A4",
     fields: [...STUDENT, f("certificate_no", "Certificate number", "CC/2026/0019"), f("conduct", "Conduct", "good"), f("from_year", "From year", "2021-22"), f("to_year", "To year", "2025-26")],
     defaultFields: [],

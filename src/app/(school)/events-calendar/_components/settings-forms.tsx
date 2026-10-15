@@ -10,7 +10,7 @@ import { inputCls } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { cx } from "@/components/ui/cx";
 import type { FormState } from "@/lib/forms";
-import { listAction, renewFeedAction, settingsAction } from "../actions";
+import { creditsAction, listAction, renewFeedAction, settingsAction } from "../actions";
 import { CopyLink } from "./bits";
 
 type S = FormState<unknown>;
@@ -56,7 +56,7 @@ export function WeekendsForm({ second, fourth, canEdit }: { second: boolean; fou
   );
 }
 
-export function ListEditor({ list, items, canEdit, addLabel, placeholder }: { list: "eventTypes" | "venues"; items: string[]; canEdit: boolean; addLabel: string; placeholder: string }) {
+export function ListEditor({ list, items, canEdit, addLabel, placeholder, fixed = [] }: { list: "eventTypes" | "venues" | "activityKinds" | "dailyTypes"; items: string[]; canEdit: boolean; addLabel: string; placeholder: string; fixed?: string[] }) {
   const [state, run, pending] = useActionState<S, FormData>(listAction, null);
   const [adding, setAdding] = useState(false);
   const [value, setValue] = useState("");
@@ -73,7 +73,7 @@ export function ListEditor({ list, items, canEdit, addLabel, placeholder }: { li
       <div className="flex flex-wrap gap-2">
         {items.map((t) => (
           <span key={t} className="h-9 pl-3 pr-1.5 rounded-xl border border-line text-[13.5px] font-semibold flex items-center gap-1">{t}
-            {canEdit && <button type="button" onClick={() => send("remove", t)} aria-label={`Remove ${t}`} className="w-6 h-6 grid place-items-center rounded-md text-ink3 hover:bg-sunken"><X size={13} aria-hidden="true" /></button>}
+            {canEdit && !fixed.includes(t) && <button type="button" onClick={() => send("remove", t)} aria-label={`Remove ${t}`} className="w-6 h-6 grid place-items-center rounded-md text-ink3 hover:bg-sunken"><X size={13} aria-hidden="true" /></button>}
           </span>
         ))}
         {canEdit && !adding && <Button size="sm" variant="soft" icon={Plus} className="!h-9" onClick={() => setAdding(true)}>{addLabel}</Button>}
@@ -155,5 +155,54 @@ export function GalleryRuleForm({ rule, canEdit }: { rule: string; canEdit: bool
       <p className="text-[12.5px] text-ink3">For new albums; each album can change it. Consent texts are in Settings, Data Backup & Security.</p>
       {state && <p role={state.ok ? "status" : "alert"} className={cx("text-[12.5px]", state.ok ? "text-ok" : "text-bad")}>{state.message}</p>}
     </div>
+  );
+}
+
+/** A part of the module the school can switch on or off (houses, clubs, sports, credits, Daily Activities). */
+export function FeatureSwitch({ name, on, label, canEdit }: { name: "housesOn" | "clubsOn" | "sportsOn" | "creditsOn" | "dailyOn"; on: boolean; label: string; canEdit: boolean }) {
+  const { state, save } = useSave();
+  const [v, setV] = useState(on);
+  return (
+    <span className="flex flex-col items-end gap-1">
+      <Switch on={v} label={label} disabled={!canEdit} onChange={(x) => { setV(x); save({ switch: name, on: x ? "on" : "" }); }} />
+      {state && !state.ok && <span role="alert" className="text-[12px] text-bad">{state.message}</span>}
+    </span>
+  );
+}
+
+/** Activity credits for each achievement level: taking part and winning. */
+export function CreditsForm({ on, levels, take, win, canEdit }: { on: boolean; levels: string[]; take: number[]; win: number[]; canEdit: boolean }) {
+  const { state: sw, save } = useSave();
+  const [state, run, pending] = useActionState<S, FormData>(creditsAction, null);
+  const [v, setV] = useState(on);
+  const [dirty, setDirty] = useState(false);
+  return (
+    <>
+      <div className="px-5 -mt-1 pb-3 flex items-center gap-3">
+        <span className="text-[13.5px] text-ink2 flex-1">{v ? "On: new achievements add credits" : "Off"}</span>
+        <Switch on={v} label="Activity credits" disabled={!canEdit} onChange={(x) => { setV(x); save({ switch: "creditsOn", on: x ? "on" : "" }); }} />
+      </div>
+      {v && (
+        <form action={(fd) => { run(fd); setDirty(false); }} onChange={() => setDirty(true)}>
+          <input type="hidden" name="levels" value={levels.length} />
+          <div className="overflow-x-auto scroll-thin border-t border-line">
+            <table className="w-full text-[13.5px] min-w-[360px]">
+              <thead><tr className="text-[12px] text-ink3 text-left border-b border-line"><th scope="col" className="px-5 py-2 font-semibold">Level</th><th scope="col" className="px-3 py-2 font-semibold text-right">Taking part</th><th scope="col" className="px-5 py-2 font-semibold text-right">Winning</th></tr></thead>
+              <tbody>
+                {levels.map((l, i) => (
+                  <tr key={l} className="border-b border-line/70 last:border-0">
+                    <th scope="row" className="px-5 py-2 font-semibold text-left">{l}</th>
+                    <td className="px-3 py-1.5 text-right">{canEdit ? <input name={`take_${i}`} defaultValue={take[i] ?? 0} inputMode="numeric" aria-label={`${l}, taking part`} className={cx(inputCls(false), "h-9 !w-20 text-right tnum ml-auto")} /> : <span className="tnum">{take[i] ?? 0}</span>}</td>
+                    <td className="px-5 py-1.5 text-right">{canEdit ? <input name={`win_${i}`} defaultValue={win[i] ?? 0} inputMode="numeric" aria-label={`${l}, winning`} className={cx(inputCls(false), "h-9 !w-20 text-right tnum ml-auto")} /> : <span className="tnum">{win[i] ?? 0}</span>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {canEdit && dirty && <div className="px-5 py-3 flex justify-end border-t border-line"><Button type="submit" size="sm" variant="primary" loading={pending}>Save credits</Button></div>}
+        </form>
+      )}
+      {(state ?? sw) && <p role={(state ?? sw)!.ok ? "status" : "alert"} className={cx("text-[12.5px] px-5 py-3", (state ?? sw)!.ok ? "text-ok" : "text-bad")}>{(state ?? sw)!.message}</p>}
+    </>
   );
 }

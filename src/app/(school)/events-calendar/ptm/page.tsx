@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import { Building2, CalendarCheck2, CalendarClock, CalendarX2, ChartColumn, NotebookPen, Plus, Users, X } from "lucide-react";
 import { withSchool } from "@/lib/db";
@@ -143,7 +144,9 @@ export default async function PtmPage({ searchParams }: { searchParams: SearchPa
   const firstL = (id: string | null) => { const s = student(id); return s ? `${s.firstName} ${s.lastName ? `${s.lastName[0]}.` : ""}`.trim() : ""; };
   const parentOf = (slot: (typeof d.slots)[number]) => d.guardians.find((g) => g.id === slot.guardianId)?.name ?? "Parent";
   const noted = new Set(d.notes.map((n) => n.slotId));
-  const times = [...new Set(d.slots.map((s) => s.startMin))].sort((a, b) => a - b);
+  // A break in the middle (no slots): its own column in the grid and a row in the teacher's list.
+  const brk = D.breakStartMin != null && D.breakEndMin != null ? { from: D.breakStartMin, to: D.breakEndMin } : null;
+  const times = [...new Set([...d.slots.map((s) => s.startMin), ...(brk ? [brk.from] : [])])].sort((a, b) => a - b);
   const cell = new Map(d.slots.map((s) => [`${s.staffId}:${s.startMin}`, s]));
   const bookable = !past && p.can.ptmBook;
   const officeBooked = d.slots.filter((s) => s.studentId).length;
@@ -256,7 +259,7 @@ export default async function PtmPage({ searchParams }: { searchParams: SearchPa
                 <thead>
                   <tr className="border-b border-line text-ink3">
                     <th scope="col" className="sticky left-0 z-10 bg-surface text-left font-semibold px-4 py-2 min-w-[170px]">Teacher</th>
-                    {times.map((t) => <th scope="col" key={t} className="font-semibold px-1 py-2 tnum whitespace-nowrap min-w-[96px]">{clockShort(t)}</th>)}
+                    {times.map((t) => <th scope="col" key={t} className="font-semibold px-1 py-2 tnum whitespace-nowrap min-w-[96px]">{brk && t === brk.from ? "Break" : clockShort(t)}</th>)}
                   </tr>
                 </thead>
                 <tbody>
@@ -264,7 +267,7 @@ export default async function PtmPage({ searchParams }: { searchParams: SearchPa
                     <tr key={t.id} className="border-b border-line/60 last:border-0">
                       <th scope="row" className="sticky left-0 z-10 bg-surface px-4 py-2 text-left font-normal"><p className="font-semibold text-[13.5px] whitespace-nowrap">{name(t.staffId)}</p><p className="text-[11.5px] text-ink3 whitespace-nowrap">{t.label}</p></th>
                       {times.map((tm) => {
-                        const c = cell.get(`${t.staffId}:${tm}`);
+                        const c = brk && tm === brk.from ? undefined : cell.get(`${t.staffId}:${tm}`);
                         if (!c) return <td key={tm} className="px-1 py-1.5"><span className="block h-11 rounded-lg bg-sunken/50" /></td>;
                         if (!c.studentId) {
                           return (
@@ -298,9 +301,11 @@ export default async function PtmPage({ searchParams }: { searchParams: SearchPa
           <Card>
             <CardHeader icon={CalendarClock} title={`Your slots · ${shortDay(iso)}`} description={`${myRow.label} · ${window}`} />
             <ul className="px-2 pb-2">
-              {d.slots.filter((x) => x.staffId === meId).map((c) => {
+              {d.slots.filter((x) => x.staffId === meId).map((c, i, mineList) => {
                 const done = noted.has(c.id);
-                return (
+                const breakHere = brk && c.startMin > brk.from && (i === 0 || mineList[i - 1].startMin < brk.from);
+                return (<Fragment key={c.id}>
+                  {breakHere && <li className="px-3 py-2 text-[12.5px] text-ink3 font-semibold border-t border-line/70 tnum">{clock(brk.from)} – {clock(brk.to)} · Break</li>}
                   <li key={c.id} className="border-t border-line/70 first:border-0">
                     <div className="flex items-center gap-3 px-3 py-2.5">
                       <span className="w-14 text-[13px] font-semibold tnum text-ink2 shrink-0">{clockShort(c.startMin)}</span>
@@ -315,7 +320,7 @@ export default async function PtmPage({ searchParams }: { searchParams: SearchPa
                         : <ButtonLink size="sm" variant="secondary" href={here({ do: "meet", slot: c.id })} scroll={false}>Open</ButtonLink>}
                     </div>
                   </li>
-                );
+                </Fragment>);
               })}
             </ul>
           </Card>

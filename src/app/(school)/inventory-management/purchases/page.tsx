@@ -12,7 +12,7 @@ import { formatDate, formatRupees } from "@/lib/format";
 import { PAGE_SIZE } from "@/lib/list";
 import { dateWhere } from "@/lib/periods";
 import { fileLink } from "@/lib/files";
-import { Card, CardHeader } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { SegLinks } from "@/components/ui/blocks";

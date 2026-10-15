@@ -120,7 +120,7 @@ describe("Inventory Management by role", () => {
     asUser(f.store.id);
     const saved = await purchases.saveVendorAction(null, form({ name: "Sri Venkateswara Traders", phone: "9849022334", bankName: "SBI", accountNo: "123456789012", ifsc: "SBIN0001234" }));
     expect(saved).toMatchObject({ ok: true });
-    const vendorId = (saved.data as { id: string }).id;
+    const vendorId = (saved!.data as { id: string }).id;
     const detail = await withSchool(keeper(f), (tx) => tx.vendorDetail.findUniqueOrThrow({ where: { vendorId } }));
     expect(detail).toMatchObject({ bankName: null, accountNoEnc: null, accountLast4: null });
     const bill = await purchases.billAction(null, form({ vendorId, billNo: "SVT-77", billDate: "2026-10-10", amount: "1200" }));

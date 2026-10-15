@@ -229,18 +229,15 @@ export function InlineForm<T>({ action, children, submit, pendingText, className
   action: (p: FormState<T>, fd: FormData) => Promise<FormState<T>>; children: (state: FormState<T>, round: number) => React.ReactNode; submit: React.ReactNode | ((state: FormState<T>) => React.ReactNode); pendingText?: string; className?: string; hidden?: Record<string, string>; doneHref?: string;
 }) {
   const router = useRouter();
-  const [state, run, pending] = useActionState<FormState<T>, FormData>(action, null);
-  const [round, setRound] = useState(0);
-  const last = useRef<FormState<T>>(null);
+  // Each success adds one to the round, which resets the fields for the next entry.
+  const [result, run, pending] = useActionState<{ state: FormState<T>; round: number }, FormData>(async (prev, fd) => {
+    const next = await action(prev.state, fd);
+    return { state: next, round: prev.round + (next?.ok ? 1 : 0) };
+  }, { state: null, round: 0 });
+  const { state, round } = result;
   useEffect(() => {
-    if (state && state !== last.current) {
-      last.current = state;
-      if (state.ok) {
-        setRound((r) => r + 1);
-        if (doneHref) router.replace(doneHref, { scroll: false });
-      }
-    }
-  }, [state, doneHref, router]);
+    if (result.state?.ok && doneHref) router.replace(doneHref, { scroll: false });
+  }, [result, doneHref, router]);
   const link = (state?.data as { link?: { href: string; label: string } } | undefined)?.link;
   const fieldErrors = Object.keys(state?.errors ?? {}).length;
   return (

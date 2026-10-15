@@ -20,7 +20,7 @@ import { UrlSearch, UrlSelect } from "@/components/ui/url-controls";
 import { UrlSheet } from "@/components/ui/url-sheet";
 import { PeriodFilter } from "@/components/list/period-filter";
 import { Stats, Stack, Toolbar, DataList, Empty, SimpleTable, DL, type StatItem } from "@/components/money/kit";
-import { classOptions, roomOptions, staffOptions, vendorOptions } from "@/lib/inventory/lookup";
+import { classOptions, staffOptions, vendorOptions } from "@/lib/inventory/lookup";
 import { FACILITY_TYPES, LAB_CHECKLIST, MAINT_STATUS, PRIORITY, ASSET_STATUS, facilityTypeOfRoom, plural } from "@/lib/inventory/words";
 import { InvHead } from "../_components/head";
 import { ActButton } from "../_components/client";

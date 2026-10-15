@@ -14,7 +14,7 @@ import { EvIcon } from "../_components/icons";
 import { ActButton } from "../_components/bits";
 import { AssignSheet, DailyLog, SendDiarySheet } from "../_components/daily-sheets";
 import { removeActivityAction, remindDiaryAction } from "../activity-actions";
-import { BASE, UUID, evGuard, evPeriod, one, qs, type SearchParams } from "../_lib/page";
+import { BASE, evGuard, evPeriod, one, qs, type SearchParams } from "../_lib/page";
 
 export const metadata = { title: "Daily Activities" };
 
@@ -156,7 +156,7 @@ export default async function DailyPage({ searchParams }: { searchParams: Search
                   <Card>
                     <CardHeader title={`Log: ${act.label}`} description={`${clock(act.startMin)} · tick the children, then save once`} icon={CheckCheck}
                       action={act.logs.length === 0 ? <ActButton action={removeActivityAction} fields={{ activityId: act.id }} label="Take off" variant="ghost" /> : undefined} />
-                    <DailyLog activityId={act.id} label={act.label} time={clock(act.startMin)} options={act.options} present={present.map((k) => ({ id: k.id, name: k.fullName }))} />
+                    <DailyLog key={act.id} activityId={act.id} label={act.label} time={clock(act.startMin)} options={act.options} present={present.map((k) => ({ id: k.id, name: k.fullName }))} />
                   </Card>
                 ) : null}
                 {history}
@@ -179,7 +179,7 @@ export default async function DailyPage({ searchParams }: { searchParams: Search
                         <span className="block text-[12.5px] text-ink3 truncate">{c.teacher ?? "No class teacher"}</span>
                         <Progress value={c.due ? (c.logged / c.due) * 100 : c.sentAt ? 100 : 0} tone={behind ? "warn" : "ok"} className="mt-2" />
                         <span className={cx("block text-[12.5px] mt-1.5", behind ? "text-warn font-semibold" : "text-ink3")}>
-                          {c.sentAt ? `Diary sent ${formatTime(c.sentAt, p.tz)}` : behind ? `${c.missing.join(" and ")} not logged yet` : c.due ? `${c.logged} of ${c.due} logged` : "Nothing due yet"}
+                          {c.sentAt ? `Diary sent ${formatTime(c.sentAt, p.tz)}` : behind ? `${c.missing.length > 2 ? `${c.missing.length} activities` : c.missing.map((m) => m.split(":")[0]).join(" and ")} not logged yet` : c.due ? `${c.logged} of ${c.due} logged` : "Nothing due yet"}
                         </span>
                       </Link>
                       {behind && !c.sentAt && (c.reminded

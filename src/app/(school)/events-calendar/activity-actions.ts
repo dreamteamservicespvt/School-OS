@@ -204,5 +204,5 @@ export async function remindDiaryAction(_: S, fd: FormData): Promise<S> {
   return evAction("edit", fd, async (w) => {
     need(w.can.dailyRemind, "send diary reminders");
     return remindTeacher(w.tx, w.ctx, id(fd, "sectionId", "class"), today(w.tz), nowMin(w.tz));
-  }, (r) => `Reminder sent to ${r.teacher}. ${r.section}: ${r.missing.length ? `${r.missing.join(" and ")} not logged yet` : "keep the diary up to date"}.`);
+  }, (r) => `Reminder sent to ${r.teacher}. ${r.section}: ${r.missing.length ? `${r.missing.length > 1 ? `${r.missing.slice(0, -1).join(", ")} and ${r.missing.at(-1)}` : r.missing[0]} not logged yet` : "keep the diary up to date"}.`);
 }

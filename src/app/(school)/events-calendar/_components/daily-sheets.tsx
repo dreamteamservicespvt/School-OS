@@ -5,7 +5,7 @@
 // the Send today's diary sheet. Only the class teacher of the section sees
 // these; the server refuses everyone else, the Principal and VP included.
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState } from "react";
 import { Check } from "lucide-react";
 import { SheetForm, useTyped } from "@/components/ui/url-sheet";
 import { SDate, SSelect, SText } from "@/components/ui/sheet-fields";
@@ -19,13 +19,15 @@ import { assignActivityAction, logActivityAction, sendDiaryAction } from "../act
 type Kid = { id: string; name: string };
 
 export function DailyLog({ activityId, label, time, options, present }: { activityId: string; label: string; time: string; options: string[]; present: Kid[] }) {
-  const [state, run, pending] = useActionState<FormState<unknown>, FormData>(logActivityAction, null);
   const [val, setVal] = useState(options[0] ?? "");
   const [pick, setPick] = useState<Set<string>>(() => new Set(present.map((k) => k.id)));
   const [note, setNote] = useState("");
-  // A new activity picked: start again with everyone present ticked.
-  useEffect(() => { setVal(options[0] ?? ""); setPick(new Set(present.map((k) => k.id))); setNote(""); }, [activityId]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (state?.ok) setNote(""); }, [state]);
+  // The page gives this card a new key for each activity, so it starts again with everyone present ticked.
+  const [state, run, pending] = useActionState<FormState<unknown>, FormData>(async (s, fd) => {
+    const r = await logActivityAction(s, fd);
+    if (r?.ok) setNote("");
+    return r;
+  }, null);
   const all = pick.size === present.length;
   const err = state && !state.ok ? state : null;
   return (

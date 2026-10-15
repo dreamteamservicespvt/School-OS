@@ -262,7 +262,7 @@ export async function remindTeacher(tx: Tx, ctx: SchoolContext, sectionId: strin
   if (!p.teacherId || !p.teacher) throw new EventsProblem(`${p.label} has no class teacher. Set one in Academic Management, Classes.`);
   if (!p.teacherLogin) throw new EventsProblem(`${p.teacher} has no School OS login, so the reminder cannot reach them. Call them instead.`);
   if (p.reminded) throw new EventsProblem(`${p.teacher} was already reminded today.`);
-  const what = p.missing.length ? `${p.missing.join(" and ")} ${p.missing.length === 1 ? "is" : "are"} not logged yet` : "please keep today's diary up to date";
+  const what = p.missing.length ? `${p.missing.length > 1 ? `${p.missing.slice(0, -1).join(", ")} and ${p.missing.at(-1)}` : p.missing[0]} ${p.missing.length === 1 ? "is" : "are"} not logged yet` : "please keep today’s diary up to date";
   await notify(tx, ctx, { to: p.teacherLogin, type: "daily-remind", text: `${p.label} daily diary: ${what}.`, link: `/events-calendar/daily?section=${p.id}`, groupKey: `daily-remind:${p.id}:${today}` });
   await writeAudit(tx, ctx, { action: "reminded", recordType: "Daily Activity", recordId: sectionId, after: { section: p.label, teacher: p.teacher, missing: p.missing } });
   return { teacher: p.teacher, section: p.label, missing: p.missing };

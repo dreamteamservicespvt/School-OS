@@ -177,10 +177,10 @@ export default async function CocurricularPage({ searchParams }: { searchParams:
                     { key: "level", label: "Level", render: (a) => <Pill tone={LEVEL_TONE[a.level] ?? "neutral"}>{a.level}</Pill> },
                     ...(s.creditsOn ? [{ key: "cr", label: "Credits", align: "right" as const, render: (a: (typeof rows)[number]) => <span className="tnum">{a.credits ? `+${a.credits}` : "—"}</span> }] : []),
                     { key: "cert", label: "Certificate", render: (a) => (
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {a.certificateNo ? <><Pill tone="ok" dot>Issued</Pill><a href={qs(`${HREF}/certificates`, { ids: a.id })} target="_blank" rel="noopener" className="relative z-[1] text-[12.5px] font-semibold text-brand px-1.5 h-8 inline-flex items-center gap-1"><Printer size={14} aria-hidden="true" />Print</a></>
+                      <div className="flex flex-col items-start gap-0.5">
+                        {a.certificateNo ? <span className="flex items-center gap-1"><Pill tone="ok" dot>Issued</Pill><a href={qs(`${HREF}/certificates`, { ids: a.id })} target="_blank" rel="noopener" className="relative z-[1] text-[12.5px] font-semibold text-brand px-1 h-7 inline-flex items-center gap-1"><Printer size={14} aria-hidden="true" />Print</a></span>
                           : canEdit ? <ActButton action={certificatesAction} fields={{ achievementIds: a.id }} label="Issue" icon="FileBadge" variant="soft" /> : <span className="text-ink3 text-[13px]">Not yet</span>}
-                        {canEdit && <Link href={here({ do: "archive", id: a.id })} scroll={false} className="relative z-[1] text-[12.5px] text-ink3 hover:text-bad px-1.5 h-8 inline-flex items-center">Take off</Link>}
+                        {canEdit && <Link href={here({ do: "archive", id: a.id })} scroll={false} className="relative z-[1] text-[12.5px] text-ink3 hover:text-bad px-1 h-6 inline-flex items-center">Take off</Link>}
                       </div>
                     ) },
                   ]}
@@ -230,14 +230,14 @@ export default async function CocurricularPage({ searchParams }: { searchParams:
                 ))}
               </div>
               <Split side={340}>
-                <Card>
+                <Card className="min-w-0">
                   <CardHeader title="House points" description="Every change needs a reason and is kept" icon={BarChart3}
                     action={canEdit && <div className="flex gap-2 flex-wrap justify-end"><ButtonLink size="sm" variant="ghost" icon={UserPlus} href={here({ do: "points-assign" })} scroll={false}>Assign students</ButtonLink><ButtonLink size="sm" variant="soft" icon={Plus} href={here({ do: "points" })} scroll={false}>Add or remove points</ButtonLink></div>} />
                   <ul className="px-5 pb-5 flex flex-col gap-3">
                     {d.board.map((h) => {
                       const top = Math.max(1, ...d.board.map((x) => x.points));
                       return (
-                        <li key={h.id} className="grid grid-cols-[120px_1fr_60px] items-center gap-3 text-[13.5px]">
+                        <li key={h.id} className="grid grid-cols-[minmax(0,110px)_1fr_52px] items-center gap-3 text-[13.5px]">
                           <span className="font-semibold truncate">{h.name.replace(/ House$/, "")}</span>
                           <span className="h-3 rounded-full bg-sunken overflow-hidden" aria-hidden="true"><span className={cx("block h-full rounded-full", HOUSE_BG[h.colour])} style={{ width: `${Math.max(0, (h.points / top) * 92)}%` }} /></span>
                           <span className="text-right font-semibold tnum">{n(h.points)}</span>
@@ -247,7 +247,7 @@ export default async function CocurricularPage({ searchParams }: { searchParams:
                   </ul>
                   {d.without > 0 && <p className="px-5 pb-5 -mt-2 text-[13px] text-warn">{n(d.without)} students have no house this year.</p>}
                 </Card>
-                <Card>
+                <Card className="min-w-0">
                   <CardHeader title="Latest changes" icon={History} />
                   <div className="px-5 pb-2"><PeriodFilter {...p.dates} fallback="acyear" /></div>
                   <ul className="px-2 pb-2">

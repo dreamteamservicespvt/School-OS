@@ -2,7 +2,7 @@
 
 // Parent consent for one event and one child on Parent Link (apps.jsx
 // ConsentCard): Give consent (confirmed by a one-time code) or Not this time.
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState } from "react";
 import { Check, FerrisWheel, X } from "lucide-react";
 import { askEventConsent, confirmEventConsentCode, declineEvent } from "@/app/p/[token]/event-actions";
 import type { GuardianState } from "@/app/p/[token]/actions";
@@ -20,12 +20,18 @@ export type EventConsentCardData = {
 export function EventConsentCard({ token, preview, maskedPhone, c }: { token: string; preview: boolean; maskedPhone: string; c: EventConsentCardData }) {
   const [state, setState] = useState<"view" | "code">("view");
   const [changing, setChanging] = useState(false);
-  const [asked, ask] = useActionState<GuardianState, FormData>(askEventConsent.bind(null, token), null);
-  const [confirmed, confirm] = useActionState<GuardianState, FormData>(confirmEventConsentCode.bind(null, token), null);
-  const [declined, decline] = useActionState<GuardianState, FormData>(declineEvent.bind(null, token), null);
   const [answer, setAnswer] = useState(c.answer);
-  useEffect(() => { if (confirmed?.ok) { setAnswer("GIVEN"); setChanging(false); setState("view"); } }, [confirmed]);
-  useEffect(() => { if (declined?.ok) { setAnswer("DECLINED"); setChanging(false); } }, [declined]);
+  const [asked, ask] = useActionState<GuardianState, FormData>(askEventConsent.bind(null, token), null);
+  const [confirmed, confirm] = useActionState<GuardianState, FormData>(async (s, fd) => {
+    const r = await confirmEventConsentCode(token, s, fd);
+    if (r?.ok) { setAnswer("GIVEN"); setChanging(false); setState("view"); }
+    return r;
+  }, null);
+  const [declined, decline] = useActionState<GuardianState, FormData>(async (s, fd) => {
+    const r = await declineEvent(token, s, fd);
+    if (r?.ok) { setAnswer("DECLINED"); setChanging(false); }
+    return r;
+  }, null);
   const asking = !answer || changing;
   const hidden = <><input type="hidden" name="eventId" value={c.eventId} /><input type="hidden" name="studentId" value={c.studentId} /></>;
   return (

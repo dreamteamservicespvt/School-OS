@@ -166,6 +166,105 @@ export async function seedEvents(school: SeedSchool) {
     await publishAlbum(tx, ctx, old.id, false);
     await archiveAlbum(tx, ctx, old.id);
   }, { timeout: 180_000 });
+
+  await seedActivities(ctx, school, today);
+}
+
+/**
+ * Co-curricular & Sports and Daily Activities demo: four houses with points,
+ * clubs and sports teams with members, meetings, training, fixtures and
+ * fitness tests, achievements with certificates and activity credits, and
+ * today's pre-primary diary partly filled in.
+ */
+async function seedActivities(ctx: SchoolContext, school: SeedSchool, today: string) {
+  const sid = ctx.schoolId;
+  const yearId = school.yearId;
+  await withSchool(ctx, async (tx) => {
+    await saveEventsSettings(tx, ctx, { creditsOn: true });
+    const enrol = await tx.enrolment.findMany({ where: { academicYearId: yearId, archivedAt: null, status: "STUDYING" }, select: { studentId: true, sectionId: true, classId: true }, orderBy: [{ classId: "asc" }, { rollNo: "asc" }] });
+    const kids = enrol.map((e) => e.studentId);
+    if (!kids.length) return;
+    const staff = await tx.staff.findMany({ where: { archivedAt: null, status: "ACTIVE" }, select: { id: true }, orderBy: { staffCode: "asc" }, take: 8 });
+    const pick = (i: number) => kids[(i * 7) % kids.length];
+
+    // Houses: everyone in turn, with points and a captain each.
+    const houses: { id: string }[] = [];
+    for (const [i, [name, colour]] of ([["Tagore House", "info"], ["Raman House", "ok"], ["Kalam House", "warn"], ["Sarojini House", "bad"]] as const).entries()) {
+      houses.push(await tx.house.create({ data: { schoolId: sid, name, colour, captainStudentId: pick(i + 40), sortOrder: i } }));
+    }
+    await tx.houseMember.createMany({ data: kids.map((studentId, i) => ({ schoolId: sid, academicYearId: yearId, houseId: houses[i % houses.length].id, studentId, assignedById: ctx.userId })) });
+    const points: [number, number, string, number][] = [[0, 50, "Inter-house quiz, winners", -7], [1, 20, "Cleanest classrooms, week 14", -8], [2, -10, "Late to assembly, 3 students", -9], [3, 30, "Science exhibition, best stall", -30], [1, 40, "Inter-house football, winners", -20], [0, 25, "Debate, runners-up", -14]];
+    for (const [h, p, reason, d] of points) await tx.housePointsEntry.create({ data: { schoolId: sid, academicYearId: yearId, houseId: houses[h].id, points: p, reason, date: new Date(`${addDays(today, d)}T00:00:00Z`), givenById: ctx.userId } });
+
+    // Clubs with members and a meeting each.
+    const clubs: [string, string][] = [["Eco Club", "Thursdays, 2:20 PM"], ["Robotics Club", "Wednesdays, 3:50 PM"], ["Literary Club", "Tuesdays, 2:20 PM"], ["Music Club", "Mondays, 3:50 PM"]];
+    for (const [i, [name, meets]] of clubs.entries()) {
+      const club = await tx.club.create({ data: { schoolId: sid, name, meets, inChargeId: staff[i % Math.max(1, staff.length)]?.id ?? null } });
+      const members = Array.from({ length: 12 }, (_, k) => pick(i * 13 + k * 3)).filter((v, k, a) => a.indexOf(v) === k);
+      await tx.clubMember.createMany({ data: members.map((studentId) => ({ schoolId: sid, academicYearId: yearId, clubId: club.id, studentId, addedById: ctx.userId })) });
+      await tx.clubMeeting.create({ data: { schoolId: sid, clubId: club.id, date: new Date(`${addDays(today, -7)}T00:00:00Z`), topic: "Planning for the term", memberIds: members, presentIds: members.slice(0, members.length - 2), recordedById: ctx.userId } });
+    }
+
+    // Sports teams, training, fixtures and fitness tests.
+    const teams: { id: string }[] = [];
+    for (const [i, [name, sport]] of ([["Under-14 Cricket, boys", "Cricket"], ["Under-17 Football, boys", "Football"], ["Athletics squad", "Athletics"]] as const).entries()) {
+      const team = await tx.sportsTeam.create({ data: { schoolId: sid, name, sport, coachId: staff[(i + 4) % Math.max(1, staff.length)]?.id ?? null, coachName: staff.length ? null : "Visiting coach" } });
+      const members = Array.from({ length: 14 }, (_, k) => pick(100 + i * 17 + k * 5)).filter((v, k, a) => a.indexOf(v) === k);
+      await tx.teamMember.createMany({ data: members.map((studentId) => ({ schoolId: sid, academicYearId: yearId, teamId: team.id, studentId, addedById: ctx.userId })) });
+      for (const d of [-9, -6, -2]) await tx.trainingSession.create({ data: { schoolId: sid, teamId: team.id, date: new Date(`${addDays(today, d)}T00:00:00Z`), startMin: T(15, 50), venue: "School ground", memberIds: members, presentIds: members.filter((_, k) => (k + d) % 7 !== 0), recordedById: ctx.userId } });
+      teams.push(team);
+    }
+    const fixtures: [number | null, string, number, string | null, string | null, string][] = [
+      [1, "Under-17 Football vs Delhi Public School", 16, null, null, "AWAY"], [null, "District athletics meet", 30, null, null, "NEUTRAL"],
+      [0, "Under-14 Cricket vs Meridian School", -19, "WON", "Won by 34 runs", "HOME"], [1, "District inter-school football, Under-17", -25, "WON", "Winners", "NEUTRAL"],
+    ];
+    for (const [t, title, d, result, score, ground] of fixtures) await tx.fixture.create({ data: { schoolId: sid, teamId: t == null ? null : teams[t].id, title, date: new Date(`${addDays(today, d)}T00:00:00Z`), startMin: T(15, 30), ground, result, score, createdById: ctx.userId } });
+    for (let i = 0; i < 40; i++) await tx.fitnessRecord.create({ data: { schoolId: sid, academicYearId: yearId, studentId: pick(200 + i * 3), date: new Date(`${addDays(today, -(i % 20) - 1)}T00:00:00Z`), heightCm: 130 + (i % 30), weightKg: 28 + (i % 18), runSeconds: 150 + (i * 7) % 60, reachCm: 18 + (i % 12), recordedById: ctx.userId } });
+
+    // Achievements with credits; some with certificates.
+    const ach: [string, string, string, string | null, boolean, number][] = [
+      ["Inter-school quiz", "Olympiad", "District", "1st", true, -6], ["Science Olympiad", "Olympiad", "State", "Gold medal", true, -12], ["Inter-house debate", "Debate", "School", "Took part", false, -14],
+      ["District inter-school football, Under-17", "Sport", "District", "Winners", true, -25], ["Classical dance festival", "Dance", "National", "2nd", true, -40], ["Drawing competition", "Art", "School", null, false, -3],
+    ];
+    const credits = { School: [5, 10], District: [10, 20], State: [15, 40], National: [20, 60] } as Record<string, [number, number]>;
+    for (const [i, [activity, kind, level, position, won, d]] of ach.entries()) {
+      for (let k = 0; k < (won ? 2 : 6); k++) {
+        const studentId = pick(300 + i * 11 + k);
+        const date = new Date(`${addDays(today, d)}T00:00:00Z`);
+        const a = await tx.achievement.create({ data: { schoolId: sid, academicYearId: yearId, studentId, activity, kind, level, position: position ?? (won ? null : "Took part"), won, date, createdById: ctx.userId, ...(i % 2 === 0 ? { certificateNo: `CC/2026/${String(i * 10 + k + 1).padStart(5, "0")}`, certificateAt: date, certificateById: ctx.userId } : {}) } });
+        await tx.activityCreditEntry.create({ data: { schoolId: sid, academicYearId: yearId, studentId, achievementId: a.id, points: credits[level][won ? 1 : 0], reason: `${activity} (${level.toLowerCase()} level${won ? ", result" : ", taking part"})`, date, givenById: ctx.userId } });
+      }
+    }
+
+    // Today's pre-primary diary, partly filled in, and last week's diaries sent.
+    const pre = await tx.section.findMany({ where: { academicYearId: yearId, archivedAt: null, schoolClass: { level: "Pre-primary" } }, select: { id: true } });
+    if (await notWorkingDay(tx, ctx, today)) return;
+    const plan: [string, string, number, string[]][] = [
+      ["Learning activity", "Rhymes", T(9, 30), ["Took part", "Watched", "Did not join"]], ["Meal", "Snack", T(10, 15), ["Ate all", "Ate half", "Ate a little", "Did not eat"]],
+      ["Water", "Water", T(10, 30), ["2 glasses", "1 glass", "Few sips"]], ["Learning activity", "Colouring: Diwali diya", T(11, 15), ["Finished", "Half done", "Did not join"]],
+      ["Meal", "Lunch", T(12, 40), ["Ate all", "Ate half", "Ate a little", "Did not eat"]], ["Nap", "Nap", T(13, 30), ["Slept 1 hour", "Slept 30 minutes", "Rested, no sleep"]], ["Play", "Outdoor play", T(14, 45), ["Played", "Stayed in"]],
+    ];
+    for (const [si, s] of pre.entries()) {
+      const children = enrol.filter((e) => e.sectionId === s.id).map((e) => e.studentId);
+      for (const [ai, [type, label, startMin, options]] of plan.entries()) {
+        const act = await tx.dailyActivity.create({ data: { schoolId: sid, academicYearId: yearId, sectionId: s.id, date: new Date(`${today}T00:00:00Z`), type, label, startMin, options, createdById: ctx.userId } });
+        if (ai < 3 - (si % 2)) await tx.dailyActivityLog.createMany({ data: children.map((studentId, k) => ({ schoolId: sid, activityId: act.id, studentId, value: options[k % 5 === 4 ? 1 : 0] })) });
+      }
+      for (let d = 1; d <= 6; d++) {
+        const iso = addDays(today, -d);
+        if (await notWorkingDay(tx, ctx, iso)) continue;
+        await tx.diarySend.create({ data: { schoolId: sid, sectionId: s.id, date: new Date(`${iso}T00:00:00Z`), people: children.length, logged: 88 + ((d * 3 + si) % 12), sentAt: new Date(`${iso}T10:00:00Z`), sentById: ctx.userId } });
+      }
+    }
+  }, { timeout: 180_000 });
+
+  // An outing that asks parents for consent on Parent Link.
+  await withSchool(ctx, async (tx) => {
+    const cls = await tx.schoolClass.findMany({ where: { archivedAt: null, name: { in: ["Class 5", "Class 6", "Class 7"] } }, select: { id: true } });
+    if (!cls.length) return;
+    const date = await workingDay(tx, ctx, addDays(today, 9));
+    await createEvent(tx, ctx, { name: "Zoo Park visit", type: "Trip", date, startMin: T(8, 30), endMin: T(15, 0), venue: null, audienceKind: "classes", classIds: cls.map((c) => c.id), registrationOn: true, seats: null, feePaise: R(450), reminder: "1d", description: "Nehru Zoological Park. School buses leave at 8:30 AM and are back by 3 PM. Entry ticket and snacks included.", consentOn: true, consentBy: addDays(date, -4) < today ? today : addDays(date, -4) });
+  }, { timeout: 60_000 });
 }
 
 /** Books a share of each teacher's slots for students of their sections; for a held PTM, marks arrivals and notes. */

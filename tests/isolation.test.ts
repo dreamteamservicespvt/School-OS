@@ -674,3 +674,50 @@ describe("Reports & Analytics records stay in their school", () => {
     await expect(withSchool(ctxA(), (tx) => tx.reportSchedule.create({ data: { schoolId: b.id, reportKey: "fe-defaulter", reportName: "X", recipientIds: [userA.id], nextAt: new Date(), createdById: userA.id } }))).rejects.toThrow();
   });
 });
+
+describe("Transport Management records stay in their school", () => {
+  it("school A cannot read, change or add to school B's vehicles, papers, drivers, phone keys, routes, stops, places, fees, schedules, trips, locations, stop and boarding marks, alerts, fuel, repairs, reminders or settings", async () => {
+    const ctxB = { schoolId: b.id, userId: userB.id };
+    const x = "00000000-0000-4000-8000-000000000005";
+    const day = new Date("2026-10-15T00:00:00Z");
+    const at = new Date("2026-10-15T02:00:00Z");
+    const ids = await withSchool(ctxB, async (tx) => {
+      await tx.transportSetting.create({ data: { schoolId: b.id } });
+      const vendor = await tx.transportVendor.create({ data: { schoolId: b.id, name: "Only in B Travels" } });
+      const vehicle = await tx.vehicle.create({ data: { schoolId: b.id, number: "TS01ZZ0001", capacity: 30, vendorId: vendor.id } });
+      await tx.vehicleDocument.create({ data: { schoolId: b.id, vehicleId: vehicle.id, kind: "INSURANCE", expiresOn: day } });
+      const driver = await tx.driver.create({ data: { schoolId: b.id, name: "Only in B", phone: "9700000001", licenceNo: "TS0000000001" } });
+      await tx.driverDevice.create({ data: { schoolId: b.id, driverId: driver.id, name: "B phone", keyHash: `b-only-${b.id}`, keyLast4: "BBBB" } });
+      const route = await tx.route.create({ data: { schoolId: b.id, number: 1, name: "Only in B", vehicleId: vehicle.id, driverId: driver.id } });
+      const stop = await tx.stop.create({ data: { schoolId: b.id, routeId: route.id, name: "Only in B", seq: 1, pickupMin: 450 } });
+      const place = await tx.transportAssignment.create({ data: { schoolId: b.id, studentId: x, academicYearId: x, routeId: route.id, stopId: stop.id, fromDate: day, monthlyFeePaise: BigInt(150000) } });
+      await tx.transportFeeCharge.create({ data: { schoolId: b.id, studentId: x, assignmentId: place.id, dueId: x, periodKey: "2026-10", periodStart: day, periodEnd: day, amountPaise: BigInt(150000) } });
+      await tx.tripSchedule.create({ data: { schoolId: b.id, routeId: route.id, kind: "MORNING", startMin: 440 } });
+      const trip = await tx.trip.create({ data: { schoolId: b.id, routeId: route.id, kind: "MORNING", date: day, plannedStartMin: 440, status: "STARTED", startedAt: at, vehicleId: vehicle.id, driverId: driver.id } });
+      await tx.gpsPoint.create({ data: { schoolId: b.id, tripId: trip.id, at, lat: 17.4, lng: 78.4 } });
+      await tx.tripStopEvent.create({ data: { schoolId: b.id, tripId: trip.id, stopId: stop.id, at } });
+      await tx.boardingEvent.create({ data: { schoolId: b.id, tripId: trip.id, studentId: x, status: "BOARDED", at } });
+      await tx.transportAlert.create({ data: { schoolId: b.id, tripId: trip.id, kind: "EMERGENCY", text: "Only in B", at, onceKey: "b-only" } });
+      await tx.fuelLog.create({ data: { schoolId: b.id, vehicleId: vehicle.id, date: day, amountPaise: BigInt(500000) } });
+      await tx.maintenanceLog.create({ data: { schoolId: b.id, vehicleId: vehicle.id, date: day, what: "Only in B", amountPaise: BigInt(100000) } });
+      await tx.transportReminderLog.create({ data: { schoolId: b.id, onceKey: "b-only", text: "Only in B" } });
+      return { vehicle: vehicle.id, driver: driver.id, route: route.id, stop: stop.id, trip: trip.id, place: place.id };
+    });
+    await withSchool(ctxA(), async (tx) => {
+      const counts = await Promise.all([
+        tx.transportSetting.count({ where: { schoolId: b.id } }), tx.transportVendor.count(), tx.vehicle.count(), tx.vehicleDocument.count(), tx.driver.count(), tx.driverDevice.count(),
+        tx.route.count(), tx.stop.count(), tx.transportAssignment.count(), tx.transportFeeCharge.count(), tx.tripSchedule.count(), tx.trip.count(),
+        tx.gpsPoint.count(), tx.tripStopEvent.count(), tx.boardingEvent.count(), tx.transportAlert.count(), tx.fuelLog.count(), tx.maintenanceLog.count(), tx.transportReminderLog.count(),
+      ]);
+      expect(counts).toEqual(Array(19).fill(0));
+      expect(await tx.trip.findUnique({ where: { id: ids.trip } })).toBeNull();
+      expect((await tx.trip.updateMany({ where: { id: ids.trip }, data: { status: "COMPLETED" } })).count).toBe(0);
+      expect((await tx.vehicle.updateMany({ where: { id: ids.vehicle }, data: { capacity: 99 } })).count).toBe(0);
+      expect((await tx.transportAssignment.updateMany({ where: { id: ids.place }, data: { status: "ENDED" } })).count).toBe(0);
+      expect((await tx.driver.updateMany({ where: { id: ids.driver }, data: { status: "INACTIVE" } })).count).toBe(0);
+    });
+    await expect(withSchool(ctxA(), (tx) => tx.gpsPoint.create({ data: { schoolId: b.id, tripId: ids.trip, at, lat: 17.4, lng: 78.4 } }))).rejects.toThrow();
+    await expect(withSchool(ctxA(), (tx) => tx.stop.create({ data: { schoolId: b.id, routeId: ids.route, name: "X", seq: 2, pickupMin: 460 } }))).rejects.toThrow();
+    await expect(withSchool(ctxA(), (tx) => tx.transportAlert.create({ data: { schoolId: b.id, kind: "EMERGENCY", text: "X", at, onceKey: "a-into-b" } }))).rejects.toThrow();
+  });
+});

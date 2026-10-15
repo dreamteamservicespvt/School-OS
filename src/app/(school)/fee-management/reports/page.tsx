@@ -1,6 +1,6 @@
 import Link from "next/link";
 import {
-  Ban, BadgePercent, FileSpreadsheet, Globe, Hourglass, IndianRupee, ListTree, Percent, Printer, Receipt, ReceiptIndianRupee, Timer, Undo2, UserX, Wallet, type LucideIcon,
+  Ban, BadgePercent, FileSpreadsheet, Globe, Hourglass, IndianRupee, LayoutGrid, ListTree, Percent, Printer, Receipt, ReceiptIndianRupee, Timer, Undo2, UserX, Wallet, type LucideIcon,
 } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { formatDate, formatRupees } from "@/lib/format";
@@ -30,6 +30,7 @@ const LOOK: Record<string, { group: string; sub: string; icon: LucideIcon }> = {
   modes: { group: "Collection", sub: "Cash, UPI, online, cheque and more", icon: Wallet },
   online: { group: "Collection", sub: "Successful, failed and not matched", icon: Globe },
   outstanding: { group: "Dues", sub: "By class, with the ageing groups", icon: Hourglass },
+  "by-class": { group: "Dues", sub: "Due, collected, pending and overdue per section", icon: LayoutGrid },
   defaulters: { group: "Dues", sub: "Students with overdue fees", icon: UserX },
   concessions: { group: "Discounts and penalties", sub: "By type, including scholarships", icon: BadgePercent },
   penalty: { group: "Discounts and penalties", sub: "Late fees added, waived and collected", icon: Timer },

@@ -21,6 +21,7 @@ import { ModeIcon, PayPill, modeWord, pct } from "../_components/bits";
 import { CancelSheet, PaymentSheet } from "../_components/payment-sheet";
 import { FailedLinkButton } from "./failed-link";
 import { AdmissionFees } from "./admission-fees";
+import { ClassFees, FEE_SORTS } from "./class-fees";
 import { toSheet } from "../_lib/pay-sheet";
 import { BASE, feeGuard, feePeriod, one, qs, type SearchParams } from "../_lib/page";
 import { PeriodFilter } from "@/components/list/period-filter";
@@ -61,7 +62,7 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
 
   const data = await withSchool(p.current.ctx, async (tx) => {
     const base = { from, to, status: status === "all" ? null : status, mode: mode === "all" ? null : mode, q: q || null };
-    const [tiles, trend, modes, failed, waiting, list, counts, nextDue, over30, fc] = await Promise.all([
+    const [tiles, trend, modes, failed, waiting, list, counts, fc] = await Promise.all([
       feeTiles(tx, p.viewer, today),
       p.year ? monthlyTrend(tx, p.year.startDate, p.year.endDate) : Promise.resolve([]),
       modeBreakdown(tx, period === "today" ? today : monthStart(today), today),
@@ -69,8 +70,6 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
       tx.payment.findMany({ where: { status: "WAITING" }, orderBy: { paidAt: "asc" }, select: { id: true, amountPaise: true } }),
       recentPayments(tx, p.viewer, { ...base, partial: tab === "partial" }, take, (page - 1) * take),
       Promise.all([recentPayments(tx, p.viewer, { ...base, partial: false }, 0), recentPayments(tx, p.viewer, { ...base, partial: true }, 0)]),
-      tx.studentFeeDue.findFirst({ where: { state: "OPEN", balancePaise: { gt: 0 }, dueDate: { gte: today } }, orderBy: { dueDate: "asc" }, select: { dueDate: true } }),
-      tx.studentFeeDue.findMany({ where: { state: "OPEN", balancePaise: { gt: 0 }, dueDate: { lt: addDays(today, -30) } }, select: { studentId: true }, distinct: ["studentId"] }),
       p.features.has("fee-forecast") ? forecast(tx, today) : Promise.resolve(null),
     ]);
     const upiToday = (await modeBreakdown(tx, today, today)).find((m) => m.mode === "UPI")?.count ?? 0;
@@ -82,15 +81,15 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
     ]);
     const sheet = payId ? await paymentView(tx, p.current.ctx, p.viewer, payId, p.tz) : null;
     const cancel = cancelId ? await paymentView(tx, p.current.ctx, p.viewer, cancelId, p.tz) : null;
-    return { tiles, trend, modes, failed, waiting, list, counts, nextDue, over30: over30.length, fc, upiToday, stuckStudents, stuckClasses, guardians, sheet, cancel };
+    return { tiles, trend, modes, failed, waiting, list, counts, fc, upiToday, stuckStudents, stuckClasses, guardians, sheet, cancel };
   });
 
   const { tiles, trend, list } = data;
-  const monthKey = today.toISOString().slice(0, 7);
-  const thisMonth = trend.find((m) => m.key === monthKey);
-  const soFar = trend.filter((m) => m.key <= monthKey);
-  const collectedSoFar = soFar.reduce((a, m) => a + m.collected, BigInt(0));
-  const dueSoFar = soFar.reduce((a, m) => a + m.due, BigInt(0));
+  // The headline is the same per-class total as the band and Fees by class (src/lib/fees/by-class.ts).
+  const collectedSoFar = tiles.year.paid;
+  const dueSoFar = tiles.year.due;
+  const feeSort = FEE_SORTS.find((s) => s.value === one(sp.fsort))?.value ?? "overdue";
+  const feeGroup = tiles.byClass.groups.some((g) => g.key === one(sp.fgroup)) ? one(sp.fgroup) : "all";
   const lakh = (v: bigint) => Number(v) / 1e7;
   const peak = Math.max(1, ...trend.map((m) => Math.max(lakh(m.collected), lakh(m.due))));
   const step = peak > 60 ? 20 : peak > 30 ? 10 : peak > 12 ? 5 : peak > 4 ? 2 : peak > 2 ? 1 : 0.5;
@@ -117,21 +116,25 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
       <FeeHead pageName="Fee Dashboard" href={HREF}
         sub={`${longDate} · live as money comes in · updated ${formatTime(new Date(), p.tz)}`}
         viewActions={<ExportButton href={qs(`${BASE}/dashboard/export`, keep)} />}
-        actions={<ButtonLink href={BASE} variant="primary" icon={IndianRupee}>Collect fee</ButtonLink>} />
+        actions={p.desk ? <ButtonLink href={BASE} variant="primary" icon={IndianRupee}>Collect fee</ButtonLink> : undefined} />
       <Stack>
         <Band items={[
           { label: "Collected today", big: formatRupees(tiles.today.amount), foot: `${tiles.today.count} ${tiles.today.count === 1 ? "payment" : "payments"} · ${data.upiToday} by UPI`, href: `${HREF}#recent` },
-          { label: "Collected this month", big: formatRupeesShort(tiles.month.amount), foot: thisMonth && thisMonth.due > BigInt(0) ? `of ${formatRupeesShort(thisMonth.due)} due in ${new Intl.DateTimeFormat("en-IN", { month: "long", timeZone: "UTC" }).format(today)}` : `${tiles.month.count} payments`, href: `${BASE}/reports` },
-          { label: "Pending", big: formatRupeesShort(tiles.pending), foot: data.nextDue ? `Not late yet · next due ${formatDate(data.nextDue.dueDate)}` : "Nothing falls due in the next 30 days", href: `${BASE}/reports?r=outstanding` },
-          { label: "Overdue", big: formatRupeesShort(tiles.overdue), foot: `${tiles.overdueStudents} ${tiles.overdueStudents === 1 ? "student" : "students"} · ${data.over30} over 30 days`, href: `${BASE}/defaulters` },
+          { label: "Collected this year", big: formatRupeesShort(tiles.year.paid), foot: `of ${formatRupeesShort(tiles.year.due)} due so far · ${Math.round(tiles.year.percent)}%`, href: `${HREF}#by-class` },
+          { label: "Pending", big: formatRupeesShort(tiles.pending), foot: tiles.nextDue ? `Not late yet · next due ${formatDate(tiles.nextDue)}` : "Nothing falls due in the next 30 days", href: p.may("reports") ? `${BASE}/reports?r=outstanding` : undefined },
+          { label: "Overdue", big: formatRupeesShort(tiles.overdue), foot: `${tiles.overdueStudents} ${tiles.overdueStudents === 1 ? "student" : "students"} · ${tiles.over30} over 30 days`, href: p.may("defaulters") ? `${BASE}/defaulters` : undefined },
         ]} />
 
         {data.waiting.length > 0 && (
           <Banner tone="warn" title={`${data.waiting.length} ${data.waiting.length === 1 ? "payment waits" : "payments wait"} for verification (${formatRupees(waitingSum)}).`}
-            action={<Link href={qs(HREF, { ...keep, pay: data.waiting[0].id })} scroll={false} className={buttonClass("secondary", "sm")}>{p.can.change ? "Verify" : "See"}</Link>}>
+            action={<Link href={qs(HREF, { ...keep, pay: data.waiting[0].id })} scroll={false} className={buttonClass("secondary", "sm")}>{p.does("dashboard") ? "Verify" : "See"}</Link>}>
             Cheques and bank transfers post to the Day Book only after the accountant checks them.
           </Banner>
         )}
+
+        <ClassFees data={tiles.byClass} sort={feeSort} group={feeGroup} today={today}
+          href={(change) => `${qs(HREF, { ...keep, fsort: feeSort === "overdue" ? null : feeSort, fgroup: feeGroup === "all" ? null : feeGroup, ...change })}#by-class`}
+          classHref={(id) => `${HREF}/class/${id}`} />
 
         <div className="grid lg:grid-cols-2 xl:grid-cols-3 gap-5 lg:gap-6 items-start">
           <Card>
@@ -184,7 +187,7 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
                     return (
                       <li key={f.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sunken/70">
                         {f.kind === "payment" ? <Link href={payHref(f.id)} scroll={false} className="min-w-0 flex-1 text-left">{body}</Link> : <div className="min-w-0 flex-1">{body}</div>}
-                        {p.can.change && <FailedLinkButton kind={f.kind} id={f.id} />}
+                        {p.does("dashboard") && <FailedLinkButton kind={f.kind} id={f.id} />}
                       </li>
                     );
                   })}
@@ -248,8 +251,8 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
         </div>
       </Stack>
 
-      {data.sheet && <PaymentSheet p={toSheet(data.sheet, today)} closeHref={here} cancelHref={qs(HREF, { ...keep, cancel: data.sheet.id })} canEdit={p.can.change} ledgerHref={p.may("ledger") ? `${BASE}/ledger?student=${data.sheet.studentId}` : null} />}
-      {data.cancel && data.cancel.status === "POSTED" && p.can.change && (
+      {data.sheet && <PaymentSheet p={toSheet(data.sheet, today)} closeHref={here} cancelHref={qs(HREF, { ...keep, cancel: data.sheet.id })} canEdit={p.does("dashboard")} ledgerHref={p.may("ledger") ? `${BASE}/ledger?student=${data.sheet.studentId}` : null} />}
+      {data.cancel && data.cancel.status === "POSTED" && p.does("dashboard") && (
         <CancelSheet p={toSheet(data.cancel, today)} closeHref={qs(HREF, { ...keep, pay: data.cancel.id })} doneHref={here}
           needsOk={p.settings.cancelPastApproval && data.cancel.date < today} approver="the principal" />
       )}

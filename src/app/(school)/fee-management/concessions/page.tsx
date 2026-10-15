@@ -63,7 +63,7 @@ async function decisions(tx: Tx, ctx: SchoolContext, approvalIds: string[]) {
 export default async function ConcessionsPage({ searchParams }: { searchParams: SearchParams }) {
   const p = await feeGuard("concessions");
   const sp = await searchParams;
-  const canEdit = p.can.change;
+  const canEdit = p.does("concessions");
   const tab: TabKey = (TABS as readonly string[]).includes(one(sp.tab)) ? (one(sp.tab) as TabKey) : "concessions";
   const q = one(sp.q).trim().slice(0, 80);
   const stRaw = one(sp.st);

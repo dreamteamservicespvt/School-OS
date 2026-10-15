@@ -10,6 +10,7 @@ import { academicSettings, mainCampusId } from "../academic/settings";
 import { CLOSED_TYPES } from "../academic/calendar";
 import { approvalsFor, requestLabel } from "../approvals";
 import { decidableIds } from "../approvals-inbox";
+import { askerJobs } from "../approval-people";
 import { formatRupees } from "../format";
 import { todayFor } from "../periods";
 import { homesFor, isLeader } from "./homes";
@@ -41,7 +42,8 @@ export function widgetsFor(viewer: Viewer, homes: readonly HomeKind[], widgets: 
 const homeRank = (w: Widget, homes: readonly HomeKind[]) => (w.homes === "any" ? homes.length : Math.min(...w.homes.map((h) => (homes.includes(h) ? homes.indexOf(h) : 99))));
 
 export type TaskCardRow = { id: string; title: string; due: string | null; overdue: boolean; done: boolean; status: TaskStatus; by: string | null; to: string | null };
-export type ApprovalCardRow = { id: string; who: string; what: string; amount: string | null };
+/** One request on the home card: who asks (their job), what, and the reason they gave (owner's changes of 13 Oct 2026). */
+export type ApprovalCardRow = { id: string; who: string; as: string | null; what: string; why: string | null; amount: string | null };
 
 export type Home = {
   homes: HomeKind[];
@@ -172,6 +174,7 @@ export async function buildHome(viewer: Viewer, opts: { now?: Date; widgets?: re
     ]);
     const decidable = await decidableIds(tx, viewer.ctx, approvalRows);
     const askers = new Map((await tx.userLogin.findMany({ where: { id: { in: approvalRows.map((a) => a.askedById) } }, select: { id: true, displayName: true } })).map((u) => [u.id, u.displayName]));
+    const jobs = await askerJobs(tx, approvalRows.map((a) => a.askedById));
     const leader = isLeader(homes);
     const mayApprove = approvalCount > 0 || leader || homes.includes("class-teacher") || viewer.roles.some((r) => r.key === "hostel-warden");
 
@@ -210,7 +213,7 @@ export async function buildHome(viewer: Viewer, opts: { now?: Date; widgets?: re
       band, attention, hiddenSeen: attentionAll.length - attention.length, panels, agenda, birthdays,
       approvals: mayApprove ? {
         count: approvalCount,
-        rows: approvalRows.filter((a) => decidable.has(a.id)).map((a) => ({ id: a.id, who: askers.get(a.askedById) ?? "Someone", what: `${requestLabel(a.type)} · ${a.summary}`, amount: a.amountPaise !== null ? formatRupees(a.amountPaise) : null })),
+        rows: approvalRows.filter((a) => decidable.has(a.id)).map((a) => ({ id: a.id, who: askers.get(a.askedById) ?? "Someone", as: jobs.get(a.askedById) ?? null, what: `${requestLabel(a.type)} · ${a.summary}`, why: a.reason, amount: a.amountPaise !== null ? formatRupees(a.amountPaise) : null })),
       } : null,
       tasks: { access, mine: mineRows, given: given.map((t) => row(t, "given")), left: mineTotal, mineTotal, givenTotal },
       failed,

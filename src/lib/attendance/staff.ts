@@ -59,7 +59,7 @@ export function statusFromInTime(inTime: Date, date: Date, rule: { startTime: st
 }
 
 export type StaffDayRow = {
-  staffId: string; name: string; staffCode: string; designation: string; department: string | null; photoFileId: string | null;
+  staffId: string; name: string; staffCode: string; designation: string; department: string | null; departmentId: string | null; photoFileId: string | null;
   shift: ShiftRule; onLeave: boolean;
   mark: { id: string; statusKey: string; inTime: Date | null; outTime: Date | null; method: string; lateMinutes: number | null; note: string | null } | null;
   overtimeMinutes: number;
@@ -86,7 +86,7 @@ export async function staffDay(tx: Tx, ctx: SchoolContext, access: AttendanceAcc
   const rows: StaffDayRow[] = staff.map((s) => {
     const m = marks.find((x) => x.staffId === s.id);
     return {
-      staffId: s.id, name: s.fullName, staffCode: s.staffCode, designation: s.designation, department: depts.find((d) => d.id === s.departmentId)?.name ?? null, photoFileId: s.photoFileId,
+      staffId: s.id, name: s.fullName, staffCode: s.staffCode, designation: s.designation, department: depts.find((d) => d.id === s.departmentId)?.name ?? null, departmentId: s.departmentId ?? null, photoFileId: s.photoFileId,
       shift: shifts.get(s.id)!, onLeave: leave.has(s.id),
       mark: m ? { id: m.id, statusKey: m.statusKey, inTime: m.inTime, outTime: m.outTime, method: m.method, lateMinutes: m.lateMinutes, note: m.note } : null,
       overtimeMinutes: overtime.find((o) => o.staffId === s.id)?._sum.minutes ?? 0,

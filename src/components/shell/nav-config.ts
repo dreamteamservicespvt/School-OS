@@ -7,7 +7,7 @@ export type IconName =
   | "ClipboardCheck" | "NotebookPen" | "CalendarDays" | "Users" | "Wallet" | "Landmark" | "DoorOpen" | "Bus" | "Library"
   | "Boxes" | "BedDouble" | "ChartColumn" | "Settings" | "House" | "UserX" | "CalendarRange" | "IdCard" | "Route" | "ListChecks"
   | "ArrowRightLeft" | "PackageMinus" | "ShoppingCart" | "PhoneIncoming" | "FileText" | "HeartHandshake" | "Award" | "Send"
-  | "ReceiptText" | "FolderOpen" | "Video";
+  | "ReceiptText" | "FolderOpen" | "Video" | "BadgeCheck";
 
 export const NAV_GROUPS: { group: string | null; items: { key: ModuleKey; label: string; icon: IconName }[] }[] = [
   { group: null, items: [{ key: "dashboard", label: "Dashboard", icon: "LayoutGrid" }] },
@@ -50,11 +50,15 @@ export const MODULE_ICON: Record<ModuleKey, IconName> = Object.fromEntries(
 export type BarItem = { href: string; module: ModuleKey; label: string; icon: IconName; big?: boolean };
 const b = (href: string, module: ModuleKey, label: string, icon: IconName, big?: boolean): BarItem => ({ href, module, label, icon, big });
 const HOME = b("/dashboard", "dashboard", "Home", "House");
+/** Approvals belongs to no module; it shows only to people who may approve something (src/lib/shell-data.ts). */
+export const APPROVE = b("/approvals", "dashboard", "Approve", "BadgeCheck", true);
 
 export const BOTTOM_BY_ROLE: Record<string, BarItem[]> = {
-  principal: [HOME, b("/student-management", "student-management", "Students", "GraduationCap"), b("/fee-management", "fee-management", "Collect", "IndianRupee", true), b("/attendance-management", "attendance-management", "Attendance", "CalendarCheck2")],
-  "school-admin": [HOME, b("/student-management", "student-management", "Students", "GraduationCap"), b("/fee-management", "fee-management", "Collect", "IndianRupee", true), b("/attendance-management", "attendance-management", "Attendance", "CalendarCheck2")],
-  "vice-principal": [HOME, b("/student-management", "student-management", "Students", "GraduationCap"), b("/attendance-management", "attendance-management", "Attendance", "CalendarCheck2", true), b("/examination-results", "examination-results", "Exams", "ClipboardCheck")],
+  // The Principal, School Admin and Vice Principal do no desk work (owner's changes of 13 Oct 2026): their big button
+  // is Approve. Reports & Analytics is not built yet, so the Principal's fourth button is the Fee Dashboard.
+  principal: [HOME, b("/attendance-management/register", "attendance-management", "Attendance", "CalendarCheck2"), APPROVE, b("/fee-management/dashboard", "fee-management", "Fees", "IndianRupee")],
+  "school-admin": [HOME, b("/student-management", "student-management", "Students", "GraduationCap"), APPROVE, b("/communication", "communication", "Messages", "Send")],
+  "vice-principal": [HOME, b("/attendance-management/register", "attendance-management", "Attendance", "CalendarCheck2"), APPROVE, b("/academic-management/substitutions", "academic-management", "Substitutes", "ArrowRightLeft")],
   accountant: [HOME, b("/fee-management/defaulters", "fee-management", "Defaulters", "UserX"), b("/fee-management", "fee-management", "Collect", "IndianRupee", true), b("/finance-management/day-book", "finance-management", "Day Book", "BookOpen")],
   teacher: [HOME, b("/academic-management/time-table", "academic-management", "Time Table", "CalendarRange"), b("/attendance-management", "attendance-management", "Attendance", "CalendarCheck2", true), b("/homework-learning", "homework-learning", "Homework", "NotebookPen")],
   "class-teacher": [HOME, b("/student-management", "student-management", "My class", "GraduationCap"), b("/attendance-management", "attendance-management", "Attendance", "CalendarCheck2", true), b("/examination-results/marks", "examination-results", "Marks", "ClipboardCheck")],
@@ -76,19 +80,33 @@ export const BOTTOM_BY_ROLE: Record<string, BarItem[]> = {
 export type Quick = { href: string; module: ModuleKey; label: string; sub: string; icon: IconName };
 const q = (href: string, module: ModuleKey, label: string, sub: string, icon: IconName): Quick => ({ href, module, label, sub, icon });
 
-const LEADER: Quick[] = [
-  q("/fee-management", "fee-management", "Collect fee", "Find a student and take payment", "IndianRupee"),
-  q("/attendance-management", "attendance-management", "Take attendance", "Mark today's register for a section", "CalendarCheck2"),
-  q("/student-management/new", "student-management", "Add student", "Name, class and parent phone is enough", "UserPlus"),
-  q("/communication", "communication", "Send message", "WhatsApp, SMS or notice to parents", "Send"),
-  q("/admission-management", "admission-management", "Add enquiry", "A parent asked about admission", "PhoneIncoming"),
-  q("/finance-management/expenses?do=new", "finance-management", "Record expense", "Bills, purchases, petty cash", "ReceiptText"),
-];
-
+// The Principal, School Admin and Vice Principal: summaries, gaps and approvals, never desk work such as Collect fee
+// or Take attendance (owner's prototype changes of 13 Oct 2026, config.js QUICK_BY_ROLE).
+const APPROVALS_QUICK = q("/approvals", "dashboard", "Approvals", "Leave, discounts and expenses waiting", "BadgeCheck");
 export const QUICK_BY_ROLE: Record<string, Quick[]> = {
-  principal: LEADER,
-  "school-admin": LEADER,
-  "vice-principal": LEADER,
+  principal: [
+    APPROVALS_QUICK,
+    q("/communication", "communication", "Send a notice", "To parents, staff or a class", "Send"),
+    q("/attendance-management/register", "attendance-management", "Who is absent today", "And which classes are not marked yet", "UserX"),
+    q("/fee-management/defaulters", "fee-management", "Fee defaulters", "Who owes fees and for how long", "IndianRupee"),
+    q("/examination-results/marks", "examination-results", "Marks progress", "Which teachers have not entered marks", "ClipboardCheck"),
+    q("/fee-management/reports", "fee-management", "Fee reports", "Collection, dues and fees by class", "ChartColumn"),
+  ],
+  "school-admin": [
+    q("/student-management/new", "student-management", "Add student", "Name, class and parent phone is enough", "UserPlus"),
+    q("/admission-management", "admission-management", "Add enquiry", "A parent asked about admission", "PhoneIncoming"),
+    q("/communication", "communication", "Send a notice", "To parents, staff or a class", "Send"),
+    q("/staff-hr-management/add", "staff-hr-management", "Add staff", "Name, role and phone to start", "UserPlus"),
+    q("/attendance-management/register", "attendance-management", "Who has not marked attendance", "Remind the class teacher", "CalendarCheck2"),
+    q("/settings/users", "settings", "Users & permissions", "Who can sign in and what they see", "Users"),
+  ],
+  "vice-principal": [
+    q("/attendance-management/register", "attendance-management", "Who has not marked attendance", "Remind the class teacher", "CalendarCheck2"),
+    { ...APPROVALS_QUICK, label: "Approve leave", sub: "Student and staff leave waiting" },
+    q("/communication", "communication", "Send message", "WhatsApp, SMS or notice to parents", "Send"),
+    q("/academic-management/substitutions", "academic-management", "Arrange substitute", "Periods with no teacher today", "ArrowRightLeft"),
+    q("/examination-results/marks", "examination-results", "Marks progress", "Which teachers have not entered marks", "ClipboardCheck"),
+  ],
   accountant: [
     q("/fee-management", "fee-management", "Collect fee", "Find a student and take payment", "IndianRupee"),
     q("/finance-management/expenses?do=new", "finance-management", "Record expense", "Bills, purchases, petty cash", "ReceiptText"),

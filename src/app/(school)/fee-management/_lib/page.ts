@@ -14,6 +14,7 @@ import { counterAllowed, feeFeaturesOn, feeSettings } from "@/lib/fees/settings"
 import { ensureFinanceDefaults } from "@/lib/finance/settings";
 import { periodFromSearch, type PeriodKey } from "@/lib/periods";
 import { periodSetup, type PeriodSetup } from "@/lib/period-setup";
+import { pageMode } from "@/lib/duty";
 
 export const MODULE = "fee-management" as const;
 export const BASE = "/fee-management";
@@ -44,8 +45,16 @@ export const feePage = cache(async () => {
   const reach: "all" | "view" | "own" = data.viewer.change === "all" ? "all" : data.viewer.see === "own" ? "own" : "view";
   const level = feeLevel(data.viewer);
   /** May this person open that Fee Management page? (hidden, not disabled, when not) */
-  const may = (page: FeePageKey) => feePageAllowed(data.viewer, page);
-  return { current, dates, ...data, tz, today: todayIn(tz), can, admissionOnly, reach, level, may };
+  // Desk work by role (src/lib/duty.ts): the Principal and School Admin read the fee pages but never sit at
+  // the counter. A hidden page leaves the tabs and goes to the Fee Dashboard; a "view" page has no doing-buttons.
+  // What the server allows still follows 05-roles.md.
+  const mode = (page: FeePageKey) => pageMode(current, MODULE, page);
+  const may = (page: FeePageKey) => feePageAllowed(data.viewer, page) && mode(page) !== "hidden";
+  /** Does this person do the work on that page (collect, verify, remind, apply), not only read it? */
+  const does = (page: FeePageKey) => can.change && may(page) && mode(page) === "full";
+  /** Sits at the fee counter: Collect Fee buttons and links. */
+  const desk = does("collect");
+  return { current, dates, ...data, tz, today: todayIn(tz), can, admissionOnly, reach, level, may, does, desk };
 });
 
 /** Fee Management's pages, in the order of the approved design (mod-fees.jsx), for this person's level. */
@@ -68,7 +77,7 @@ export async function feeTabs() {
 /** A Fee Management page this person's level may open; anything else is a plain "no access" page. */
 export async function feeGuard(page: FeePageKey) {
   const p = await feePage();
-  if (!p.may(page)) redirect(`/no-access?m=${MODULE}`);
+  if (!p.may(page)) redirect(feePageAllowed(p.viewer, page) && page !== "dashboard" ? `${BASE}/dashboard` : `/no-access?m=${MODULE}`);
   return p;
 }
 

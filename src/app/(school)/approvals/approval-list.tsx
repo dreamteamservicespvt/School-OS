@@ -15,6 +15,8 @@ import { bulkApproveAction, decideAction } from "./actions";
 export type ApprovalRow = {
   id: string; summary: string; typeLabel: string; amount: string | null; amountPaise: string | null; askedBy: string; askedByName: string; asked: string;
   status: { label: string; tone: BadgeTone }; waitingFor: string | null; decidable: boolean; overdue: boolean;
+  /** The asker's job ("Teacher, Science · Class teacher, Class 5 A") and the reason they gave. */
+  job: string | null; reason: string | null;
 };
 
 export function ApprovalList({ rows }: { rows: ApprovalRow[] }) {
@@ -79,7 +81,9 @@ export function ApprovalList({ rows }: { rows: ApprovalRow[] }) {
               <Avatar name={r.askedBy === "you" ? r.askedByName : r.askedBy} size={42} />
               <Link href={`/approvals/${r.id}`} className="min-w-0 flex-1 group">
                 <p className="font-semibold text-[15px] group-hover:text-brand transition">{r.summary}</p>
-                <p className="text-[13px] text-ink3">{r.typeLabel} · asked by {r.askedBy} · {r.asked}{r.waitingFor ? ` · waiting for ${r.waitingFor}` : ""}</p>
+                <p className="text-[13px] text-ink2">Asked by {r.askedBy}{r.job ? <span className="text-ink3">, {r.job}</span> : null}</p>
+                {r.reason && <p className="text-[13px] text-ink2 line-clamp-2 mt-0.5">“{r.reason}”</p>}
+                <p className="text-[12.5px] text-ink3 mt-0.5">{r.typeLabel} · {r.asked}{r.waitingFor ? ` · waiting for ${r.waitingFor}` : ""}</p>
                 <span className="flex flex-wrap items-center gap-1.5 mt-1.5">
                   {r.amount && <span className="font-display font-semibold text-[14px] tnum mr-1">{r.amount}</span>}
                   {r.overdue && <Pill tone="bad">Overdue</Pill>}

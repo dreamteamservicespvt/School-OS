@@ -3,7 +3,7 @@ import { Archive, ChevronRight, CircleCheck, CopyPlus, FilePen, GraduationCap, H
 import { withSchool } from "@/lib/db";
 import { formatDate, formatRupees } from "@/lib/format";
 import { addDays, monthEnd } from "@/lib/staff/dates";
-import { classCards, classStructure, feeHeads, publishImpact } from "@/lib/fees/structure";
+import { classCards, classStructure, feeHeads, publishImpact, publishNeedsApproval, waitingApproval } from "@/lib/fees/structure";
 import { frequencyLabel, headKindLabel, type FrequencyValue } from "@/lib/fees/words";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
@@ -58,7 +58,10 @@ export default async function StructurePage({ searchParams }: { searchParams: Se
         const shown = st.draft ?? st.published;
         const start = year.startDate > p.today ? year.startDate : addDays(monthEnd(p.today), 1) > year.endDate ? p.today : addDays(monthEnd(p.today), 1);
         const impact = doing === "publish" && st.draft ? await publishImpact(tx, st.draft.id, start) : null;
-        sheet = { card, st, shown, start, impact };
+        // After the year starts, anyone but the Principal sends the draft to the Principal; a waiting draft is locked.
+        const needsOk = st.draft ? await publishNeedsApproval(tx, st.draft.id, p.today, p.viewer.roleKeys) : false;
+        const waiting = st.draft ? await waitingApproval(tx, st.draft.id) : null;
+        sheet = { card, st, shown, start, impact, needsOk, waiting };
       }
     }
     return { year, years, current, next, cards, heads, school, banks, versions, items, people, categories, sheet };
@@ -74,6 +77,8 @@ export default async function StructurePage({ searchParams }: { searchParams: Se
   const { year, cards, heads, sheet } = data;
   const isCurrent = year.id === data.current?.id;
   const started = year.startDate <= p.today;
+  // The Principal approves fee changes, so their own mid-year change applies at once (owner's changes of 14 Oct 2026).
+  const approver = p.viewer.roleKeys.includes("principal");
   const here = (extra: Record<string, string | null> = {}) => qs(HREF, { year: isCurrent ? null : year.id, ...extra });
   const close = here();
   const clsHref = (id: string) => here({ cls: id });
@@ -112,13 +117,15 @@ export default async function StructurePage({ searchParams }: { searchParams: Se
         {yearTabs.length > 1 && (
           <div className="flex flex-col md:flex-row md:items-center gap-3">
             <LinkTabs label="Academic year" tabs={yearTabs} className="border-b-0" />
-            <p className="text-[13px] text-ink3 md:ml-2">{started ? "This year has started. Publishing changes only unpaid installments from the date you choose; paid rows never change." : `Changes here apply from ${formatDate(year.startDate)}. Nothing changes for this year.`}</p>
+            <p className="text-[13px] text-ink3 md:ml-2">{!started ? `Changes here apply from ${formatDate(year.startDate)}. Nothing changes for this year.` : approver ? "This year has started. You approve fee changes, so yours apply at once, to unpaid installments only." : "This year has started. Changes need the Principal’s approval and touch only unpaid installments."}</p>
           </div>
         )}
         {started && canManage && (
-          <Banner tone="warn" icon={Lock} title="Mid-year changes touch only unpaid installments."
+          <Banner tone="warn" icon={Lock} title={approver ? "Mid-year changes reach parents at once." : "Mid-year changes need the Principal’s approval."}
             action={data.next && isCurrent ? <ButtonLink size="sm" variant="secondary" href={qs(HREF, { year: data.next.id })}>Change {data.next.name.replace("-", "–")}</ButtonLink> : undefined}>
-            Paid rows never change. You see how many students are affected before you publish. Most changes are better made for next year.
+            {approver
+              ? "Paid rows never change. Your change updates unpaid installments straight away and parents see it in Parent Link. Every change is in the Audit Log. Most changes are better made for next year."
+              : "Paid rows never change. Unpaid installments change only after the Principal approves. Most changes are better made for next year."}
           </Banner>
         )}
 
@@ -225,7 +232,9 @@ export default async function StructurePage({ searchParams }: { searchParams: Se
         <UrlSheet wide closeHref={close} title={`${sheet.card.className} · ${yName}`}
           sub={`${sheet.card.students} ${sheet.card.students === 1 ? "student" : "students"} · ${sheet.st.draft ? `draft version ${sheet.st.draft.version}${sheet.st.published ? `, version ${sheet.st.published.version} in use` : ", not published"}` : sheet.st.published ? `version ${sheet.st.published.version} in use` : "no fees set"} · installments add up to each row’s total`}>
           <div className="flex flex-col gap-4">
-            {sheet.st.draft && <Banner tone="info" icon={FilePen} title={`Draft version ${sheet.st.draft.version}`}>Changes here are not on students’ fees until you publish.</Banner>}
+            {sheet.st.draft && (sheet.waiting
+              ? <Banner tone="warn" icon={Hourglass} title={`Draft version ${sheet.st.draft.version} is waiting for the Principal`}>Sent on {formatDate(sheet.waiting.createdAt, p.tz)}. Students’ fees change only when it is approved. To change it, withdraw the request in Approvals.</Banner>
+              : <Banner tone="info" icon={FilePen} title={`Draft version ${sheet.st.draft.version}`}>Changes here are not on students’ fees until you publish{sheet.needsOk ? " and the Principal approves" : ""}.</Banner>)}
             {!sheet.shown || sheet.shown.items.length === 0 ? <Empty icon={Tag} title="No fee rows yet" body={canManage ? "Add the fees this class pays, with their installments." : "No fees are set for this class yet."} /> : sheet.shown.items.map((r) => {
               const sum = r.installments.reduce((a, i) => a + i.amountPaise, ZERO);
               return (
@@ -239,7 +248,7 @@ export default async function StructurePage({ searchParams }: { searchParams: Se
                   </div>
                   <div className="flex items-center gap-2 mt-2 flex-wrap">
                     <p className={cx("text-[12.5px] flex items-center gap-1.5 flex-1", sum === r.totalPaise ? "text-ok" : "text-bad")}><CircleCheck size={14} aria-hidden="true" />{sum === r.totalPaise ? `Adds up to ${formatRupees(r.totalPaise)}` : `Installments add up to ${formatRupees(sum)}`}</p>
-                    {canManage && <>
+                    {canManage && !sheet.waiting && <>
                       <ButtonLink size="sm" variant="ghost" icon={Pencil} scroll={false} href={here({ cls: sheet.card.classId, do: "row", item: r.feeHeadId })}>Change</ButtonLink>
                       <RemoveRow yearId={year.id} classId={sheet.card.classId} category="" feeHeadId={r.feeHeadId} name={headName(r.feeHeadId)} />
                     </>}
@@ -250,11 +259,11 @@ export default async function StructurePage({ searchParams }: { searchParams: Se
             <p className="text-[13px] text-ink3">Transport, hostel and store items are charged from their own modules. A one-off charge for one student is added on the student’s ledger.</p>
             {(canManage || canAssign) && (
               <div className="flex gap-2 flex-wrap">
-                {canManage && <ButtonLink variant="primary" icon={Plus} scroll={false} href={here({ cls: sheet.card.classId, do: "row" })}>Add fee row</ButtonLink>}
-                {canManage && sheet.st.draft && sheet.st.draft.items.length > 0 && <ButtonLink variant="secondary" icon={CircleCheck} scroll={false} href={here({ cls: sheet.card.classId, do: "publish" })}>Publish version {sheet.st.draft.version}</ButtonLink>}
+                {canManage && !sheet.waiting && <ButtonLink variant="primary" icon={Plus} scroll={false} href={here({ cls: sheet.card.classId, do: "row" })}>Add fee row</ButtonLink>}
+                {canManage && !sheet.waiting && sheet.st.draft && sheet.st.draft.items.length > 0 && <ButtonLink variant="secondary" icon={CircleCheck} scroll={false} href={here({ cls: sheet.card.classId, do: "publish" })}>{sheet.needsOk ? `Send version ${sheet.st.draft.version} for approval` : `Publish version ${sheet.st.draft.version}`}</ButtonLink>}
                 {canAssign && !sheet.st.draft && sheet.st.published && sheet.card.withoutPlan > 0 && <AssignClass structureId={sheet.st.published.id} label={`Give fees to ${sheet.card.withoutPlan} ${sheet.card.withoutPlan === 1 ? "student" : "students"}`} />}
                 {canManage && sheet.shown && sheet.shown.items.length > 0 && cards.length > 1 && <ButtonLink variant="ghost" icon={CopyPlus} scroll={false} href={here({ cls: sheet.card.classId, do: "copy" })}>Copy to classes</ButtonLink>}
-                {canManage && sheet.st.draft && <DiscardDraft structureId={sheet.st.draft.id} />}
+                {canManage && !sheet.waiting && sheet.st.draft && <DiscardDraft structureId={sheet.st.draft.id} />}
               </div>
             )}
             {sheet.st.versions.filter((v) => v.status === "SUPERSEDED").length > 0 && (
@@ -285,8 +294,8 @@ export default async function StructurePage({ searchParams }: { searchParams: Se
             row={item ? { feeHeadId: item.feeHeadId, frequency: item.frequency as FrequencyValue, total: String(Number(item.totalPaise) / 100), installments: item.installments.map((i) => ({ label: i.label, due: iso(i.dueDate), amount: String(Number(i.amountPaise) / 100) })) } : null} />
         );
       })()}
-      {canManage && sheet && doing === "publish" && sheet.st.draft && sheet.impact && (
-        <PublishSheet closeHref={clsHref(sheet.card.classId)} structureId={sheet.st.draft.id} version={sheet.st.draft.version} impact={sheet.impact.message} start={iso(sheet.start)} withoutPlan={sheet.card.withoutPlan} />
+      {canManage && sheet && !sheet.waiting && doing === "publish" && sheet.st.draft && sheet.impact && (
+        <PublishSheet closeHref={clsHref(sheet.card.classId)} structureId={sheet.st.draft.id} version={sheet.st.draft.version} impact={sheet.impact.message} start={iso(sheet.start)} withoutPlan={sheet.card.withoutPlan} needsOk={sheet.needsOk} approver={approver && started} />
       )}
       {canManage && sheet && doing === "copy" && sheet.shown && (
         <CopySheet closeHref={clsHref(sheet.card.classId)} fromId={sheet.shown.id} yearId={year.id} className={sheet.card.className}

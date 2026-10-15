@@ -7,7 +7,7 @@
 import { useActionState, useState } from "react";
 import { CircleAlert, CircleCheck, Plus, Trash2 } from "lucide-react";
 import { SheetForm } from "@/components/ui/url-sheet";
-import { SChips, SDate, SSelect, SSwitch, SText } from "@/components/ui/sheet-fields";
+import { SArea, SChips, SDate, SSelect, SSwitch, SText } from "@/components/ui/sheet-fields";
 import { Button, IconButton } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { FieldShell, inputCls, SelectField, TextField, type Option } from "@/components/ui/field";
@@ -135,13 +135,28 @@ export function RemoveRow({ yearId, classId, category, feeHeadId, name }: { year
   );
 }
 
-export function PublishSheet({ closeHref, structureId, version, impact, start, withoutPlan }: { closeHref: string; structureId: string; version: number; impact: string; start: string; withoutPlan: number }) {
+/**
+ * Publish a draft. After the year has started, someone other than the Principal
+ * sends it to the Principal instead (needsOk); the Principal's own change
+ * applies at once, because they are the approver (owner's changes of 14 Oct 2026).
+ */
+export function PublishSheet({ closeHref, structureId, version, impact, start, withoutPlan, needsOk = false, approver = false }: {
+  closeHref: string; structureId: string; version: number; impact: string; start: string; withoutPlan: number;
+  /** Mid-year, not the Principal: goes to Approvals. */
+  needsOk?: boolean;
+  /** The Principal, mid-year: applies at once. */
+  approver?: boolean;
+}) {
   return (
-    <SheetForm title={`Publish version ${version}`} sub="The new version is in use from the date you choose. Paid rows never change."
-      closeHref={closeHref} action={publishAction} submitLabel="Publish" pendingText="Publishing…" hidden={{ structureId }}>
+    <SheetForm title={needsOk ? `Send version ${version} for approval` : `Publish version ${version}`}
+      sub={needsOk ? "This year has started, so the Principal decides. Nothing changes for students until they approve. Paid rows never change."
+        : approver ? "You approve fee changes, so this applies at once, to unpaid installments only. Parents see it in Parent Link."
+          : "The new version is in use from the date you choose. Paid rows never change."}
+      closeHref={closeHref} action={publishAction} submitLabel={needsOk ? "Send for approval" : "Publish"} pendingText={needsOk ? "Sending…" : "Publishing…"} hidden={{ structureId }}>
       <SDate name="effectiveFrom" label="Applies from" required start={start} help="Unpaid installments due on or after this date follow the new version." />
       <Alert tone="warning">{impact}</Alert>
-      {withoutPlan > 0 && <SSwitch name="assign" title={`Give it to ${withoutPlan} ${withoutPlan === 1 ? "student" : "students"} without fees`} sub="Students of the class who have no fees for this year yet." start />}
+      {needsOk && <SArea name="reason" label="Why the fees change mid-year" required rows={3} help="The Principal sees this in Approvals." />}
+      {!needsOk && withoutPlan > 0 && <SSwitch name="assign" title={`Give it to ${withoutPlan} ${withoutPlan === 1 ? "student" : "students"} without fees`} sub="Students of the class who have no fees for this year yet." start />}
       <label className="flex items-start gap-3 text-[14px]"><input type="checkbox" name="confirm" className="mt-1 size-4 accent-[var(--color-brand)]" /><span>I have checked the amounts and installments.</span></label>
     </SheetForm>
   );

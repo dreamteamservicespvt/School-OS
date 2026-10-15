@@ -11,6 +11,7 @@ import { withSchool } from "@/lib/db";
 import { formatDate, formatRupees } from "@/lib/format";
 import { readListParams, skipTake, listHref, PAGE_SIZE } from "@/lib/list";
 import { dateWhere } from "@/lib/periods";
+import { financeSettings } from "@/lib/finance/settings";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -244,14 +245,15 @@ async function ExpensesView({ p, sp }: { p: P; sp: Raw }) {
       tx.messExpense.aggregate({ where: dated, _sum: { amountPaise: true }, _count: { _all: true } }),
       tx.messExpense.groupBy({ by: ["item"], where: dated, _sum: { amountPaise: true }, orderBy: { _sum: { amountPaise: "desc" } }, take: 6 }),
     ]);
-    const [expenses, vendors, allVendors] = await Promise.all([
+    const [expenses, vendors, allVendors, billAbove] = await Promise.all([
       tx.expense.findMany({ where: { id: { in: rows.map((r) => r.expenseId).filter((x): x is string => Boolean(x)) } }, select: { id: true, number: true, status: true } }),
       tx.vendor.findMany({ where: { id: { in: rows.map((r) => r.vendorId).filter((x): x is string => Boolean(x)) } }, select: { id: true, name: true } }),
       can.mess && one(sp.new) === "1" ? tx.vendor.findMany({ where: { archivedAt: null }, select: { id: true, name: true }, orderBy: { name: "asc" }, take: 300 }) : [],
+      can.mess && one(sp.new) === "1" ? financeSettings(tx, ctx).then((f) => formatRupees(f.billRequiredAbove)) : null,
     ]);
     // Head counts in the same dates, for the cost per plate.
     const plates = await tx.mealHeadCount.aggregate({ where: per.range ? { date: dateWhere(per.range) } : {}, _sum: { actual: true } });
-    return { total, rows, sum, byItem, expenses: new Map(expenses.map((e) => [e.id, e])), vendors: new Map(vendors.map((v) => [v.id, v.name])), allVendors, plates: plates._sum.actual ?? 0 };
+    return { total, rows, sum, byItem, expenses: new Map(expenses.map((e) => [e.id, e])), vendors: new Map(vendors.map((v) => [v.id, v.name])), allVendors, billAbove, plates: plates._sum.actual ?? 0 };
   });
 
   const base = `${BASE}/mess`;
@@ -305,7 +307,7 @@ async function ExpensesView({ p, sp }: { p: P; sp: Raw }) {
           </Col>
         </Split>
       </Stack>
-      {can.mess && one(sp.new) === "1" && <ExpenseSheet closeHref={href({ new: null })} todayStr={p.todayStr} vendors={d.allVendors.map((v) => ({ value: v.id, label: v.name }))} items={MESS_ITEMS} />}
+      {can.mess && one(sp.new) === "1" && <ExpenseSheet closeHref={href({ new: null })} todayStr={p.todayStr} vendors={d.allVendors.map((v) => ({ value: v.id, label: v.name }))} items={MESS_ITEMS} billAbove={d.billAbove} />}
     </>
   );
 }

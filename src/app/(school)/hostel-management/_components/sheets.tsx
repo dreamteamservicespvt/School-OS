@@ -478,7 +478,7 @@ export function CountSheet({ closeHref, date, dateWords, meal, expected, start }
   );
 }
 
-export function ExpenseSheet({ closeHref, todayStr, vendors, items }: { closeHref: string; todayStr: string; vendors: Opt[]; items: string[] }) {
+export function ExpenseSheet({ closeHref, todayStr, vendors, items, billAbove }: { closeHref: string; todayStr: string; vendors: Opt[]; items: string[]; billAbove: string | null }) {
   const t = useTyped("item", "");
   const [item, setItem] = useState(t.value);
   return (
@@ -494,7 +494,7 @@ export function ExpenseSheet({ closeHref, todayStr, vendors, items }: { closeHre
         </div>
       </FieldShell>
       {vendors.length > 0 && <SSelect name="vendorId" label="Vendor" options={vendors} placeholder="No vendor" help="Optional. Vendors are kept in Finance." />}
-      <FieldShell label="Bill photo" id="me-bill" help="Optional, but the Accountant asks for it. A photo or a PDF, up to 10 MB.">
+      <FieldShell label="Bill photo" id="me-bill" help={`${billAbove ? `Needed for amounts over ${billAbove}. ` : ""}A photo or a PDF, up to 10 MB.`}>
         <input id="me-bill" name="bill" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" capture="environment" className="block w-full text-[13.5px] file:mr-3 file:h-10 file:px-4 file:rounded-xl file:border file:border-line file:bg-surface file:font-semibold file:text-ink2 hover:file:bg-sunken" />
       </FieldShell>
       <SSwitch name="paid" title="Paid in cash already" sub="Also goes in today's Day Book." />

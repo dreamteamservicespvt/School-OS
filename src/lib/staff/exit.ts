@@ -147,6 +147,11 @@ export async function setClearance(tx: Tx, ctx: SchoolContext, checkId: string, 
   const check = await tx.clearanceCheck.findFirst({ where: { id: checkId }, include: { exitCase: true } });
   if (!check) throw new ExitProblem("This check was not found.");
   if (["COMPLETED", "CANCELLED"].includes(check.exitCase.status)) throw new ExitProblem("This exit is closed.");
+  if (check.key === "library" && status === "CLEARED") {
+    // Library Management (13 §4): books not returned hold the exit clearance.
+    const out = await tx.bookIssue.count({ where: { staffId: check.exitCase.staffId, returnedAt: null } });
+    if (out) throw new ExitProblem(`${out} library book${out === 1 ? "" : "s"} not returned. Return ${out === 1 ? "it" : "them"} at the library, or the librarian marks ${out === 1 ? "it" : "them"} lost and charges.`);
+  }
   await tx.clearanceCheck.update({ where: { id: check.id }, data: { status, note, clearedById: status === "PENDING" ? null : ctx.userId, clearedAt: status === "PENDING" ? null : new Date() } });
   await writeAudit(tx, ctx, { action: "clearance-changed", recordType: "Clearance Check", recordId: check.id, before: { status: check.status }, after: { status, note, label: check.label } });
 }

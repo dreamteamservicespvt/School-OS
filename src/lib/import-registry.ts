@@ -10,3 +10,4 @@ import "./finance/import";
 import "./students/import";
 import "./admission/import";
 import "./events/import";
+import "./library/import";

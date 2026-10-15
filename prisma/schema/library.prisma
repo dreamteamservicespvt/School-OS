@@ -1,0 +1,385 @@
+// 13 Library Management (optional, switched on per school): books and their
+// copies, issue and return at the desk, renewals and reservations, members'
+// limits and blocks, fines (late, lost, damaged), stock checks and library
+// card prints. Records of other modules (Student, Staff, Student Fee Due,
+// Approval, Income) are kept by id.
+
+enum BookCopyStatus {
+  AVAILABLE
+  ISSUED
+  /// Kept at the desk for the first member in a book's queue.
+  RESERVED
+  LOST
+  DAMAGED
+  WITHDRAWN
+}
+
+enum LibraryMemberKind {
+  STUDENT
+  STAFF
+}
+
+enum BookIssueOutcome {
+  RETURNED
+  LOST
+  DAMAGED
+}
+
+enum ReservationStatus {
+  /// In the queue.
+  WAITING
+  /// A returned copy is kept at the desk for this member.
+  READY
+  /// The member collected the book (issued).
+  COLLECTED
+  CANCELLED
+}
+
+enum LibraryFineReason {
+  LATE
+  LOST
+  DAMAGED
+}
+
+enum LibraryFineStatus {
+  DUE
+  PAID
+  WAIVED
+  /// A lost or damaged charge above the set amount, waiting in Approvals.
+  WAITING
+  /// The approver said no: nothing is charged.
+  NOT_APPROVED
+}
+
+enum StockCheckStatus {
+  OPEN
+  CLOSED
+}
+
+/// Library Settings (13 §6): one per school.
+model LibrarySetting {
+  schoolId              String   @id @map("school_id") @db.Uuid
+  /// Borrowing limits and loan days for students by class group (the class's level):
+  /// [{ level: "Primary", books: 2, loanDays: 14 }]. A level not listed uses the student default.
+  studentRules          Json     @default("[]") @map("student_rules")
+  studentBooks          Int      @default(2) @map("student_books")
+  studentLoanDays       Int      @default(14) @map("student_loan_days")
+  staffBooks            Int      @default(5) @map("staff_books")
+  staffLoanDays         Int      @default(30) @map("staff_loan_days")
+  /// A due date on a Sunday or a School Calendar holiday moves to the next school day.
+  moveDueOffHolidays    Boolean  @default(true) @map("move_due_off_holidays")
+  finePerDayPaise       BigInt   @default(200) @map("fine_per_day_paise")
+  maxFinePaise          BigInt   @default(10000) @map("max_fine_paise")
+  graceDays             Int      @default(0) @map("grace_days")
+  /// Issues are blocked while a member's unpaid fines are above this amount (0 = never blocked).
+  blockFinesAbovePaise  BigInt   @default(10000) @map("block_fines_above_paise")
+  /// Students' fines are added to their fees in Fee Management (one place to pay).
+  finesToFees           Boolean  @default(true) @map("fines_to_fees")
+  /// "price" or "price-plus": the charge for a lost book.
+  lostCharge            String   @default("price-plus") @map("lost_charge")
+  lostExtraPaise        BigInt   @default(5000) @map("lost_extra_paise")
+  /// Lost or damaged charges above this go to Approvals first.
+  approvalAbovePaise    BigInt   @default(50000) @map("approval_above_paise")
+  maxRenewals           Int      @default(2) @map("max_renewals")
+  /// "fcfs" (first come, first served) or "staff-first".
+  queueOrder            String   @default("fcfs") @map("queue_order")
+  /// "barcode", "qr" or "rfid".
+  labelType             String   @default("barcode") @map("label_type")
+  /// Accession numbers: digits wide, and a prefix (empty for plain numbers).
+  accessionPrefix       String   @default("") @map("accession_prefix")
+  accessionWidth        Int      @default(5) @map("accession_width")
+  remindDueTomorrow     Boolean  @default(true) @map("remind_due_tomorrow")
+  remindOverdue         Boolean  @default(true) @map("remind_overdue")
+  remindReservation     Boolean  @default(true) @map("remind_reservation")
+  updatedById           String?  @map("updated_by_id") @db.Uuid
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@map("library_setting")
+}
+
+/// A category of books with its shelf; some are not lent (reference).
+model LibraryCategory {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  name        String
+  /// Shelf letters, such as "A" or "R-1".
+  shelf       String?
+  /// Loan days for books of this category; empty uses the member's loan days.
+  loanDays    Int?      @map("loan_days")
+  /// Reference books stay in the reading room.
+  forLoan     Boolean   @default(true) @map("for_loan")
+  sortOrder   Int       @default(0) @map("sort_order")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  @@unique([schoolId, name])
+  @@map("library_category")
+}
+
+/// Author: picked or added on a book.
+model Author {
+  id         String    @id @default(uuid()) @db.Uuid
+  schoolId   String    @map("school_id") @db.Uuid
+  name       String
+  createdAt  DateTime  @default(now()) @map("created_at")
+  archivedAt DateTime? @map("archived_at")
+
+  @@unique([schoolId, name])
+  @@map("library_author")
+}
+
+/// Publisher: picked or added on a book.
+model Publisher {
+  id         String    @id @default(uuid()) @db.Uuid
+  schoolId   String    @map("school_id") @db.Uuid
+  name       String
+  createdAt  DateTime  @default(now()) @map("created_at")
+  archivedAt DateTime? @map("archived_at")
+
+  @@unique([schoolId, name])
+  @@map("library_publisher")
+}
+
+/// Book: one title in the library.
+model Book {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  title       String
+  /// Author ids in order; authorText keeps the names for search and lists.
+  authorIds   String[]  @default([]) @map("author_ids") @db.Uuid
+  authorText  String    @map("author_text")
+  publisherId String?   @map("publisher_id") @db.Uuid
+  /// 10 or 13 digits, checked; stored without hyphens.
+  isbn        String?
+  categoryId  String?   @map("category_id") @db.Uuid
+  subject     String?
+  language    String?
+  edition     String?
+  pricePaise  BigInt?   @map("price_paise")
+  shelf       String?
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedById String?   @map("updated_by_id") @db.Uuid
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  copies BookCopy[]
+
+  @@index([schoolId, title])
+  @@index([schoolId, isbn])
+  @@index([schoolId, categoryId])
+  @@map("book")
+}
+
+/// Book Copy: one physical copy, with its accession number and barcode.
+model BookCopy {
+  id              String         @id @default(uuid()) @db.Uuid
+  schoolId        String         @map("school_id") @db.Uuid
+  bookId          String         @map("book_id") @db.Uuid
+  /// Unique in the school, never reused.
+  accessionNo     String         @map("accession_no")
+  /// What the label's barcode or QR holds (the accession number unless an RFID tag says otherwise).
+  barcode         String
+  status          BookCopyStatus @default(AVAILABLE)
+  /// Why it was withdrawn, lost or damaged.
+  statusNote      String?        @map("status_note")
+  statusAt        DateTime?      @map("status_at")
+  acquiredOn      DateTime?      @map("acquired_on") @db.Date
+  labelPrintedAt  DateTime?      @map("label_printed_at")
+  createdById     String?        @map("created_by_id") @db.Uuid
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  book Book @relation(fields: [bookId], references: [id])
+  issues BookIssue[]
+
+  @@unique([schoolId, accessionNo])
+  @@unique([schoolId, barcode])
+  @@index([schoolId, bookId, status])
+  @@map("book_copy")
+}
+
+/// Book Issue: one copy lent to one student or staff member.
+model BookIssue {
+  id           String            @id @default(uuid()) @db.Uuid
+  schoolId     String            @map("school_id") @db.Uuid
+  copyId       String            @map("copy_id") @db.Uuid
+  bookId       String            @map("book_id") @db.Uuid
+  memberKind   LibraryMemberKind @map("member_kind")
+  studentId    String?           @map("student_id") @db.Uuid
+  staffId      String?           @map("staff_id") @db.Uuid
+  /// The student's section when the book was issued (reports by class).
+  sectionId    String?           @map("section_id") @db.Uuid
+  issuedOn     DateTime          @map("issued_on") @db.Date
+  issuedAt     DateTime          @default(now()) @map("issued_at")
+  dueOn        DateTime          @map("due_on") @db.Date
+  renewals     Int               @default(0)
+  returnedOn   DateTime?         @map("returned_on") @db.Date
+  returnedAt   DateTime?         @map("returned_at")
+  outcome      BookIssueOutcome?
+  lateDays     Int?              @map("late_days")
+  /// Set when the due date was changed from the one the settings gave, with who changed it.
+  dueChangedReason String?       @map("due_changed_reason")
+  lastRemindedOn DateTime?       @map("last_reminded_on") @db.Date
+  issuedById   String?           @map("issued_by_id") @db.Uuid
+  returnedById String?           @map("returned_by_id") @db.Uuid
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+
+  copy BookCopy @relation(fields: [copyId], references: [id])
+
+  @@index([schoolId, returnedAt, dueOn])
+  @@index([schoolId, studentId])
+  @@index([schoolId, staffId])
+  @@index([schoolId, issuedOn])
+  @@index([schoolId, bookId])
+  @@map("book_issue")
+}
+
+/// Library Member: only what differs from the automatic membership of every
+/// active student and staff member: a changed limit or a block, with reasons.
+model LibraryMember {
+  id           String            @id @default(uuid()) @db.Uuid
+  schoolId     String            @map("school_id") @db.Uuid
+  memberKind   LibraryMemberKind @map("member_kind")
+  studentId    String?           @map("student_id") @db.Uuid
+  staffId      String?           @map("staff_id") @db.Uuid
+  /// Books at a time, replacing the settings' limit.
+  limitOverride Int?             @map("limit_override")
+  limitReason  String?           @map("limit_reason")
+  blockedAt    DateTime?         @map("blocked_at")
+  blockReason  String?           @map("block_reason")
+  blockedById  String?           @map("blocked_by_id") @db.Uuid
+  updatedById  String?           @map("updated_by_id") @db.Uuid
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+
+  @@unique([schoolId, studentId])
+  @@unique([schoolId, staffId])
+  @@map("library_member")
+}
+
+/// Reservation: a member waiting for a book with no copy free.
+model Reservation {
+  id           String            @id @default(uuid()) @db.Uuid
+  schoolId     String            @map("school_id") @db.Uuid
+  bookId       String            @map("book_id") @db.Uuid
+  memberKind   LibraryMemberKind @map("member_kind")
+  studentId    String?           @map("student_id") @db.Uuid
+  staffId      String?           @map("staff_id") @db.Uuid
+  status       ReservationStatus @default(WAITING)
+  reservedAt   DateTime          @default(now()) @map("reserved_at")
+  /// The copy kept at the desk for this member.
+  copyId       String?           @map("copy_id") @db.Uuid
+  readyAt      DateTime?         @map("ready_at")
+  closedAt     DateTime?         @map("closed_at")
+  closedReason String?           @map("closed_reason")
+  issueId      String?           @map("issue_id") @db.Uuid
+  createdById  String?           @map("created_by_id") @db.Uuid
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+
+  @@index([schoolId, bookId, status])
+  @@map("library_reservation")
+}
+
+/// Library Fine: a late fine, or a lost or damaged charge. Never deleted:
+/// paid, waived with a reason, or not approved.
+model LibraryFine {
+  id           String            @id @default(uuid()) @db.Uuid
+  schoolId     String            @map("school_id") @db.Uuid
+  /// LF-0412, given once.
+  fineNo       String            @map("fine_no")
+  issueId      String?           @map("issue_id") @db.Uuid
+  copyId       String            @map("copy_id") @db.Uuid
+  bookId       String            @map("book_id") @db.Uuid
+  memberKind   LibraryMemberKind @map("member_kind")
+  studentId    String?           @map("student_id") @db.Uuid
+  staffId      String?           @map("staff_id") @db.Uuid
+  reason       LibraryFineReason
+  lateDays     Int?              @map("late_days")
+  amountPaise  BigInt            @map("amount_paise")
+  status       LibraryFineStatus @default(DUE)
+  note         String?
+  /// The student's fee row this fine was added to (Fee Management).
+  feeDueId     String?           @map("fee_due_id") @db.Uuid
+  approvalId   String?           @map("approval_id") @db.Uuid
+  /// "fees" or "desk".
+  paidHow      String?           @map("paid_how")
+  paidAt       DateTime?         @map("paid_at")
+  receiptNo    String?           @map("receipt_no")
+  /// Desk collections are recorded as Income in Finance Management.
+  incomeId     String?           @map("income_id") @db.Uuid
+  waivedAt     DateTime?         @map("waived_at")
+  waivedById   String?           @map("waived_by_id") @db.Uuid
+  waiveReason  String?           @map("waive_reason")
+  createdById  String?           @map("created_by_id") @db.Uuid
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+
+  @@unique([schoolId, fineNo])
+  @@index([schoolId, status])
+  @@index([schoolId, studentId])
+  @@index([schoolId, staffId])
+  @@index([schoolId, createdAt])
+  @@map("library_fine")
+}
+
+/// Stock Check Session: scan every copy on the shelves, then close.
+model StockCheckSession {
+  id           String           @id @default(uuid()) @db.Uuid
+  schoolId     String           @map("school_id") @db.Uuid
+  name         String
+  status       StockCheckStatus @default(OPEN)
+  startedAt    DateTime         @default(now()) @map("started_at")
+  startedById  String?          @map("started_by_id") @db.Uuid
+  closedAt     DateTime?        @map("closed_at")
+  closedById   String?          @map("closed_by_id") @db.Uuid
+  /// Counted when closed: copies expected on the shelves or issued, found, missing, extra.
+  expected     Int?
+  found        Int?
+  missing      Int?
+  extra        Int?
+  /// The copy ids missing when closed, kept for review.
+  missingIds   String[]         @default([]) @map("missing_ids") @db.Uuid
+  lostMarkedAt DateTime?        @map("lost_marked_at")
+
+  scans StockCheckScan[]
+
+  @@index([schoolId, status])
+  @@map("stock_check_session")
+}
+
+/// Stock Check Scan: one code scanned in a session.
+model StockCheckScan {
+  id          String   @id @default(uuid()) @db.Uuid
+  schoolId    String   @map("school_id") @db.Uuid
+  sessionId   String   @map("session_id") @db.Uuid
+  code        String
+  /// Empty for an extra copy that is not in the catalogue.
+  copyId      String?  @map("copy_id") @db.Uuid
+  scannedAt   DateTime @default(now()) @map("scanned_at")
+  scannedById String?  @map("scanned_by_id") @db.Uuid
+
+  session StockCheckSession @relation(fields: [sessionId], references: [id])
+
+  @@unique([sessionId, code])
+  @@index([schoolId, sessionId])
+  @@map("stock_check_scan")
+}
+
+/// Library Card Print: one card printed for one member in one academic year.
+model LibraryCardPrint {
+  id             String            @id @default(uuid()) @db.Uuid
+  schoolId       String            @map("school_id") @db.Uuid
+  memberKind     LibraryMemberKind @map("member_kind")
+  studentId      String?           @map("student_id") @db.Uuid
+  staffId        String?           @map("staff_id") @db.Uuid
+  academicYearId String?           @map("academic_year_id") @db.Uuid
+  cardNo         String            @map("card_no")
+  printedById    String?           @map("printed_by_id") @db.Uuid
+  printedAt      DateTime          @default(now()) @map("printed_at")
+
+  @@index([schoolId, academicYearId])
+  @@map("library_card_print")
+}

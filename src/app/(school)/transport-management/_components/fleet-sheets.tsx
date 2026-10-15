@@ -197,12 +197,12 @@ export function CancelCostSheet({ closeHref, entry }: { closeHref: string; entry
 
 type KeyState = FormState<{ key: string; name: string; driver: string }>;
 
-export function KeySheet({ closeHref, driver }: { closeHref: string; driver: { id: string; name: string } }) {
+export function KeySheet({ closeHref, driver, school }: { closeHref: string; driver: { id: string; name: string }; school: { address: string; id: string } }) {
   const [state, run, pending] = useActionState<KeyState, FormData>(issueKeyAction, null);
   const made = state?.ok ? state.data : null;
   return (
     <UrlSheet title={made ? "Phone key" : `Set up ${driver.name}'s phone`} sub={made ? `${made.name} · ${made.driver}` : "For the Android driver app, which sends the location with the screen off"} closeHref={closeHref}>
-      {made ? <ShowKey value={made.key} /> : (
+      {made ? <ShowKey value={made.key} school={school} /> : (
         <form action={run} className="flex flex-col gap-4">
           <input type="hidden" name="driverId" value={driver.id} />
           <FieldShell label="Phone name" id="key-name" help="So you can tell phones apart later">
@@ -211,7 +211,7 @@ export function KeySheet({ closeHref, driver }: { closeHref: string; driver: { i
           <ol className="text-[13.5px] text-ink2 list-decimal pl-5 flex flex-col gap-1">
             <li>Install the School OS Driver app on the phone.</li>
             <li>Make the key here. It is shown only once.</li>
-            <li>Type the school address and the key into the app.</li>
+            <li>Type the school address, the school id and the key into the app.</li>
           </ol>
           {state && !state.ok && <Alert tone="danger">{state.message}</Alert>}
           <div className="flex justify-end gap-2 border-t border-line pt-3.5">
@@ -223,11 +223,15 @@ export function KeySheet({ closeHref, driver }: { closeHref: string; driver: { i
   );
 }
 
-function ShowKey({ value }: { value: string }) {
+function ShowKey({ value, school }: { value: string; school: { address: string; id: string } }) {
   const close = useCloseSheet();
   const [copied, setCopied] = useState<"yes" | "no" | null>(null);
   return (
     <div className="flex flex-col gap-4">
+      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-[13.5px]">
+        <dt className="text-ink2">School address</dt><dd className="font-mono break-all">{school.address}</dd>
+        <dt className="text-ink2">School id</dt><dd className="font-mono break-all">{school.id}</dd>
+      </dl>
       <div className="flex items-stretch gap-2">
         <code className="min-w-0 flex-1 break-all rounded-xl border border-line bg-sunken px-3 py-2.5 font-mono text-[14px]" aria-label="Phone key">{value}</code>
         <Button icon={Copy} onClick={async () => { try { await navigator.clipboard.writeText(value); setCopied("yes"); } catch { setCopied("no"); } }}>{copied === "yes" ? "Copied" : "Copy"}</Button>

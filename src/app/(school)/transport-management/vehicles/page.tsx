@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Archive, Building2, Bus, CalendarClock, FileWarning, Fuel, IdCard, KeyRound, Paperclip, Pencil, Plus, Power, Send, ShieldCheck, Smartphone, Undo2, UserRound, Users, Wrench } from "lucide-react";
 import { withSchool } from "@/lib/db";
+import { appOrigin } from "@/lib/origin";
 import { fileLink } from "@/lib/files";
 import { formatDate, formatRupees } from "@/lib/format";
 import { costsView, fleetView, papersDue } from "@/lib/transport/views";
@@ -35,6 +36,7 @@ const APP_WORDS = { Active: "Active", Invited: "Invited", Disabled: "Disabled", 
 /** Vehicles & Drivers (12 §2): vehicles, drivers and attendants, papers with expiry, fuel and repairs, vendors. */
 export default async function VehiclesPage({ searchParams }: { searchParams: SearchParams }) {
   const p = await trGuard("vehicles");
+  const origin = await appOrigin();
   const sp = await searchParams;
   const view: View = (VIEWS as readonly string[]).includes(one(sp.view)) ? (one(sp.view) as View) : "vehicles";
   const q = one(sp.q).trim().slice(0, 60).toLowerCase();
@@ -429,7 +431,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Sea
       })()}
       {can.fleet && keyFor && (() => {
         const r = data.people.find((x) => x.d.id === keyFor && x.d.role === "DRIVER");
-        return r ? <KeySheet closeHref={here({ person: r.d.id })} driver={{ id: r.d.id, name: r.d.name }} /> : null;
+        return r ? <KeySheet closeHref={here({ person: r.d.id })} driver={{ id: r.d.id, name: r.d.name }} school={{ address: origin, id: p.current.ctx.schoolId }} /> : null;
       })()}
     </div>
   );

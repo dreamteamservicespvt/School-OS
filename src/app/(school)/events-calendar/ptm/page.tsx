@@ -93,7 +93,7 @@ export default async function PtmPage({ searchParams }: { searchParams: SearchPa
       const withT = new Map(slots.filter((s) => s.staffId === slot.staffId && s.studentId).map((s) => [s.studentId!, clock(s.startMin)]));
       const ownSecs = new Set(t?.sectionIds ?? []);
       pickList = kids.map((k) => ({ id: k.id, name: k.fullName, place: pl.get(k.id)?.label ?? "", parent: parent.get(k.id) ?? "No parent on record", hasSlot: withT.get(k.id) ?? null, own: ownSecs.has(enrol.find((e) => e.studentId === k.id)!.sectionId), sort: pl.get(k.id) }))
-        .sort((a, b) => placeOrder(a.sort, b.sort)).map(({ sort: _s, ...k }) => k);
+        .sort((a, b) => placeOrder(a.sort, b.sort)).map(({ sort, ...k }) => { void sort; return k; });
     }
     const perf = doing === "meet" && slot?.studentId ? await performance(tx, ctx, slot.studentId, D.academicYearId, p.today) : null;
     return {
@@ -213,7 +213,7 @@ export default async function PtmPage({ searchParams }: { searchParams: SearchPa
             return (
               <Link key={x.id} href={qs(HREF, { ...vp.keep, day: x.id })} scroll={false} aria-current={on ? "true" : undefined}
                 className={cx("rounded-2xl border bg-surface shadow-card p-3.5 md:p-4 text-left transition", on ? "border-brand ring-1 ring-brand" : "border-line/70 hover:border-ink3/40")}>
-                <div className="flex items-center justify-between gap-2"><p className="font-display font-semibold text-[15px] md:text-[18px] leading-tight whitespace-nowrap">{shortDay(isoOf(x.date))}</p><Pill tone={PTM_STATUS_TONE[st]} className="!h-[22px] !text-[11px]">{st}</Pill></div>
+                <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1"><p className="font-display font-semibold text-[15px] md:text-[18px] leading-tight whitespace-nowrap">{shortDay(isoOf(x.date))}</p><Pill tone={PTM_STATUS_TONE[st]} className="!h-[22px] !text-[11px]">{st}</Pill></div>
                 <p className="text-[12.5px] text-ink3 mt-1">{x.classesLabel} · {clock(x.startMin)} – {clock(x.endMin)}</p>
                 {p.can.own ? (mine.length ? (
                   <><p className="text-[13px] mt-2 tnum"><b className="font-semibold">{mine.filter((m) => m.studentId).length}</b><span className="text-ink3"> of {mine.length} of your slots booked</span></p><Progress value={(mine.filter((m) => m.studentId).length / mine.length) * 100} className="mt-1.5" /></>

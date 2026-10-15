@@ -8,6 +8,9 @@
 // - The Accountant (View, with Fee Management in full): the School Calendar
 //   and "Event Payments" (events with a fee, read only).
 // - Every other role with View: the School Calendar only.
+// - Daily Activities (the pre-primary diary): written only by the class
+//   teacher of each pre-primary section; the Principal, School Admin and VP
+//   read every class's diary and remind (14 Oct 2026 design change).
 import type { Reach } from "../permissions";
 
 export type EvLevel = "full" | "pay" | "own" | "view";
@@ -31,7 +34,11 @@ export const EV_PAGES = {
   calendar: ["full", "pay", "own", "view"],
   events: ["full", "pay"],
   ptm: ["full", "own"],
+  cocurricular: ["full"],
   gallery: ["full"],
+  // Teachers ("own") only when they are the class teacher of a pre-primary
+  // section this year: the page checks that (src/lib/events/daily.ts).
+  daily: ["full", "own"],
   settings: ["full"],
 } as const satisfies Record<string, readonly EvLevel[]>;
 export type EvPageKey = keyof typeof EV_PAGES;
@@ -59,6 +66,10 @@ export function evCan(v: EvViewer) {
     ptmNotes: full || own,
     /** Albums, uploads, tags, publish and share. */
     gallery: full,
+    /** Achievements, certificates, activity credits, houses, clubs and sports teams. */
+    cocurricular: full,
+    /** Remind a pre-primary class teacher whose diary is behind (the diary itself is written only by its class teacher). */
+    dailyRemind: full,
     /** Events Settings. */
     settings: full,
     /** Export what they can see. */

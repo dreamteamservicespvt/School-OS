@@ -16,6 +16,7 @@ import { staffForUser } from "@/lib/people";
 import { localNow } from "@/lib/events/jobs";
 import { BASE } from "@/lib/events/words";
 import { pageMode } from "@/lib/duty";
+import { preSections } from "@/lib/events/daily";
 
 export { BASE };
 export const MODULE = "events-calendar" as const;
@@ -35,18 +36,24 @@ export const evPage = cache(async () => {
         tx.academicYear.findFirst({ where: { archivedAt: null, startDate: { lte: new Date(`${today}T00:00:00Z`) }, endDate: { gte: new Date(`${today}T00:00:00Z`) } } }),
         tx.campus.findMany({ where: { archivedAt: null }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
       ]);
-      return { settings, me, year, campuses };
+      // Daily Activities: the pre-primary sections this year, and those this person is the class teacher of.
+      const pre = year && settings.dailyOn ? await preSections(tx, year.id) : [];
+      const preMine = me ? pre.filter((s) => s.teacherId === me.id) : [];
+      return { settings, me, year, campuses, pre, preMine };
     }),
   ]);
   // src/lib/duty.ts narrows the screens for the Principal, School Admin and VP:
   // a page they never use is hidden, a page they only watch has no doing-buttons.
   // The server still allows what 05-roles.md allows.
   const mode = (page: EvPageKey) => pageMode(current, MODULE, page);
-  const may = (page: EvPageKey) => evPageAllowed(v, page) && mode(page) !== "hidden";
+  // Daily Activities shows when the school keeps it and has pre-primary classes:
+  // to their class teachers (who write the diary) and to the events team (who read it).
+  const dailyOk = data.pre.length > 0 && (data.preMine.length > 0 || v.level === "full");
+  const may = (page: EvPageKey) => evPageAllowed(v, page) && mode(page) !== "hidden" && (page !== "daily" || dailyOk);
   const works = (page: EvPageKey) => mode(page) === "full";
   const pageCan = (page: EvPageKey) => {
     if (works(page)) return can;
-    return { ...can, calendar: false, events: false, ptmPlan: false, ptmBook: false, ptmNotes: false, gallery: false, settings: false };
+    return { ...can, calendar: false, events: false, ptmPlan: false, ptmBook: false, ptmNotes: false, gallery: false, settings: false, cocurricular: false };
   };
   return { current, v, can, tz, today, hour, dates, ...data, may, works, pageCan, accountant: v.level === "pay" };
 });
@@ -60,7 +67,9 @@ export async function evTabs() {
     { key: "calendar", href: BASE, label: "School Calendar", exact: true },
     { key: "events", href: `${BASE}/events`, label: p.accountant ? "Event Payments" : "Events" },
     { key: "ptm", href: `${BASE}/ptm`, label: "PTM" },
+    { key: "cocurricular", href: `${BASE}/cocurricular`, label: "Co-curricular & Sports" },
     { key: "gallery", href: `${BASE}/gallery`, label: "Gallery" },
+    { key: "daily", href: `${BASE}/daily`, label: "Daily Activities" },
     { key: "settings", href: `${BASE}/settings`, label: "Events Settings" },
   ] as const).filter((t) => p.may(t.key)).map(({ href, label, ...t }) => ({ href, label, exact: "exact" in t ? t.exact : undefined }));
 }

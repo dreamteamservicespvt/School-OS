@@ -1,0 +1,324 @@
+// 18 Events & Calendar, continued: parent consent for events; Co-curricular
+// & Sports (achievements with certificates, activity credits, houses and
+// house points, clubs, sports teams with training, fixtures and fitness
+// records); and Daily Activities, the pre-primary diary. Records of other
+// modules (Student, Guardian, Staff, Section, Event) are kept by id.
+
+/// Event Consent: a parent's answer on Parent Link (or given to the office) for one student and one event.
+model EventConsent {
+  id           String   @id @default(uuid()) @db.Uuid
+  schoolId     String   @map("school_id") @db.Uuid
+  eventId      String   @map("event_id") @db.Uuid
+  studentId    String   @map("student_id") @db.Uuid
+  guardianId   String?  @map("guardian_id") @db.Uuid
+  /// GIVEN or DECLINED.
+  answer       String
+  /// parent-link (confirmed by a one-time code) or office.
+  how          String
+  parentLinkId String?  @map("parent_link_id") @db.Uuid
+  recordedById String?  @map("recorded_by_id") @db.Uuid
+  answeredAt   DateTime @default(now()) @map("answered_at")
+
+  @@unique([eventId, studentId])
+  @@index([schoolId, eventId])
+  @@map("event_consent")
+}
+
+/* ---------- Co-curricular & Sports ---------- */
+
+/// Achievement: a student's participation or result in an activity or competition. Also on the Student Profile.
+model Achievement {
+  id              String    @id @default(uuid()) @db.Uuid
+  schoolId        String    @map("school_id") @db.Uuid
+  academicYearId  String    @map("academic_year_id") @db.Uuid
+  studentId       String    @map("student_id") @db.Uuid
+  /// "Inter-school quiz", "District football, Under-17".
+  activity        String
+  /// Music, Dance, Debate... (Events Settings).
+  kind            String
+  level           String    @default("School")
+  /// "1st", "Winners", "Took part".
+  position        String?
+  /// True for a win or a place; false for taking part (activity credits).
+  won             Boolean   @default(false)
+  date            DateTime  @db.Date
+  eventId         String?   @map("event_id") @db.Uuid
+  teamId          String?   @map("team_id") @db.Uuid
+  /// Participation or achievement certificate, numbered once.
+  certificateNo   String?   @map("certificate_no")
+  certificateAt   DateTime? @map("certificate_at")
+  certificateById String?   @map("certificate_by_id") @db.Uuid
+  createdById     String?   @map("created_by_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at")
+  archivedAt      DateTime? @map("archived_at")
+  archiveReason   String?   @map("archive_reason")
+
+  @@index([schoolId, studentId])
+  @@index([schoolId, date])
+  @@map("achievement")
+}
+
+/// Activity Credit Entry: points a student earns (or a correction, with a reason). The total shows on the Student Profile.
+model ActivityCreditEntry {
+  id             String   @id @default(uuid()) @db.Uuid
+  schoolId       String   @map("school_id") @db.Uuid
+  academicYearId String   @map("academic_year_id") @db.Uuid
+  studentId      String   @map("student_id") @db.Uuid
+  achievementId  String?  @map("achievement_id") @db.Uuid
+  points         Int
+  reason         String
+  date           DateTime @db.Date
+  givenById      String?  @map("given_by_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([schoolId, studentId])
+  @@index([schoolId, academicYearId])
+  @@map("activity_credit_entry")
+}
+
+/// House: a school house with its colour and captain.
+model House {
+  id               String    @id @default(uuid()) @db.Uuid
+  schoolId         String    @map("school_id") @db.Uuid
+  name             String
+  /// Theme tone: info, ok, warn, bad, brand.
+  colour           String    @default("info")
+  captainStudentId String?   @map("captain_student_id") @db.Uuid
+  sortOrder        Int       @default(0) @map("sort_order")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  archivedAt       DateTime? @map("archived_at")
+
+  @@index([schoolId])
+  @@map("house")
+}
+
+/// House Member: a student in a house for one school year (a move archives the old row).
+model HouseMember {
+  id             String    @id @default(uuid()) @db.Uuid
+  schoolId       String    @map("school_id") @db.Uuid
+  academicYearId String    @map("academic_year_id") @db.Uuid
+  houseId        String    @map("house_id") @db.Uuid
+  studentId      String    @map("student_id") @db.Uuid
+  assignedById   String?   @map("assigned_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  archivedAt     DateTime? @map("archived_at")
+
+  @@index([schoolId, academicYearId, studentId])
+  @@index([schoolId, houseId])
+  @@map("house_member")
+}
+
+/// House Points Entry: points added or taken away, always with a reason; never changed afterwards.
+model HousePointsEntry {
+  id             String   @id @default(uuid()) @db.Uuid
+  schoolId       String   @map("school_id") @db.Uuid
+  academicYearId String   @map("academic_year_id") @db.Uuid
+  houseId        String   @map("house_id") @db.Uuid
+  points         Int
+  reason         String
+  date           DateTime @db.Date
+  givenById      String?  @map("given_by_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([schoolId, academicYearId])
+  @@map("house_points_entry")
+}
+
+/// Club: a club with its in-charge and meeting time.
+model Club {
+  id         String    @id @default(uuid()) @db.Uuid
+  schoolId   String    @map("school_id") @db.Uuid
+  name       String
+  inChargeId String?   @map("in_charge_id") @db.Uuid
+  meets      String?
+  createdAt  DateTime  @default(now()) @map("created_at")
+  archivedAt DateTime? @map("archived_at")
+
+  @@index([schoolId])
+  @@map("club")
+}
+
+/// Club Member: a student in a club for one school year.
+model ClubMember {
+  id             String    @id @default(uuid()) @db.Uuid
+  schoolId       String    @map("school_id") @db.Uuid
+  academicYearId String    @map("academic_year_id") @db.Uuid
+  clubId         String    @map("club_id") @db.Uuid
+  studentId      String    @map("student_id") @db.Uuid
+  addedById      String?   @map("added_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  archivedAt     DateTime? @map("archived_at")
+
+  @@index([schoolId, clubId])
+  @@index([schoolId, studentId])
+  @@map("club_member")
+}
+
+/// Club Meeting: one meeting with who came.
+model ClubMeeting {
+  id           String   @id @default(uuid()) @db.Uuid
+  schoolId     String   @map("school_id") @db.Uuid
+  clubId       String   @map("club_id") @db.Uuid
+  date         DateTime @db.Date
+  topic        String?
+  memberIds    String[] @map("member_ids") @db.Uuid
+  presentIds   String[] @map("present_ids") @db.Uuid
+  recordedById String?  @map("recorded_by_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([schoolId, clubId, date])
+  @@map("club_meeting")
+}
+
+/// Sports Team: a team with its sport and coach.
+model SportsTeam {
+  id         String    @id @default(uuid()) @db.Uuid
+  schoolId   String    @map("school_id") @db.Uuid
+  name       String
+  sport      String
+  /// A staff coach, or a visiting coach by name.
+  coachId    String?   @map("coach_id") @db.Uuid
+  coachName  String?   @map("coach_name")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  archivedAt DateTime? @map("archived_at")
+
+  @@index([schoolId])
+  @@map("sports_team")
+}
+
+/// Team Member: a student in a sports team for one school year.
+model TeamMember {
+  id             String    @id @default(uuid()) @db.Uuid
+  schoolId       String    @map("school_id") @db.Uuid
+  academicYearId String    @map("academic_year_id") @db.Uuid
+  teamId         String    @map("team_id") @db.Uuid
+  studentId      String    @map("student_id") @db.Uuid
+  addedById      String?   @map("added_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  archivedAt     DateTime? @map("archived_at")
+
+  @@index([schoolId, teamId])
+  @@index([schoolId, studentId])
+  @@map("team_member")
+}
+
+/// Training Session: one training of a team, with attendance.
+model TrainingSession {
+  id           String   @id @default(uuid()) @db.Uuid
+  schoolId     String   @map("school_id") @db.Uuid
+  teamId       String   @map("team_id") @db.Uuid
+  date         DateTime @db.Date
+  startMin     Int?     @map("start_min")
+  venue        String?
+  memberIds    String[] @map("member_ids") @db.Uuid
+  presentIds   String[] @map("present_ids") @db.Uuid
+  recordedById String?  @map("recorded_by_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([schoolId, teamId, date])
+  @@map("training_session")
+}
+
+/// Fixture: a match or competition, and its result once played.
+model Fixture {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  teamId      String?   @map("team_id") @db.Uuid
+  /// "Under-17 Football vs Delhi Public School" or "District athletics meet".
+  title       String
+  date        DateTime  @db.Date
+  startMin    Int?      @map("start_min")
+  venue       String?
+  /// HOME, AWAY or NEUTRAL.
+  ground      String    @default("HOME")
+  /// WON, LOST, DRAW or PLACED; empty until played.
+  result      String?
+  score       String?
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  @@index([schoolId, date])
+  @@map("fixture")
+}
+
+/// Fitness Record: one student's fitness test on one day.
+model FitnessRecord {
+  id             String   @id @default(uuid()) @db.Uuid
+  schoolId       String   @map("school_id") @db.Uuid
+  academicYearId String   @map("academic_year_id") @db.Uuid
+  studentId      String   @map("student_id") @db.Uuid
+  date           DateTime @db.Date
+  heightCm       Float?   @map("height_cm")
+  weightKg       Float?   @map("weight_kg")
+  /// 600 m run, in seconds.
+  runSeconds     Int?     @map("run_seconds")
+  /// Sit-and-reach, in cm.
+  reachCm        Float?   @map("reach_cm")
+  note           String?
+  recordedById   String?  @map("recorded_by_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([schoolId, studentId])
+  @@index([schoolId, date])
+  @@map("fitness_record")
+}
+
+/* ---------- Daily Activities (pre-primary diary) ---------- */
+
+/// Daily Activity: an activity assigned to one pre-primary section for one day (snack, nap, colouring...).
+model DailyActivity {
+  id             String             @id @default(uuid()) @db.Uuid
+  schoolId       String             @map("school_id") @db.Uuid
+  academicYearId String             @map("academic_year_id") @db.Uuid
+  sectionId      String             @map("section_id") @db.Uuid
+  date           DateTime           @db.Date
+  /// Meal, Nap, Play, Water, Learning activity or the school's own.
+  type           String
+  label          String
+  startMin       Int                @map("start_min")
+  /// The choices the teacher taps ("Ate all", "Ate half"...).
+  options        String[]
+  createdById    String?            @map("created_by_id") @db.Uuid
+  createdAt      DateTime           @default(now()) @map("created_at")
+  archivedAt     DateTime?          @map("archived_at")
+  logs           DailyActivityLog[]
+
+  @@index([schoolId, sectionId, date])
+  @@map("daily_activity")
+}
+
+/// Daily Activity Log: one child's entry for one activity (participation and completion, with a note).
+model DailyActivityLog {
+  id         String        @id @default(uuid()) @db.Uuid
+  schoolId   String        @map("school_id") @db.Uuid
+  activityId String        @map("activity_id") @db.Uuid
+  studentId  String        @map("student_id") @db.Uuid
+  value      String
+  note       String?
+  loggedById String?       @map("logged_by_id") @db.Uuid
+  loggedAt   DateTime      @default(now()) @map("logged_at")
+  activity   DailyActivity @relation(fields: [activityId], references: [id])
+
+  @@unique([activityId, studentId])
+  @@index([schoolId, studentId])
+  @@map("daily_activity_log")
+}
+
+/// Diary Send: the day's diary sent to the parents of one section.
+model DiarySend {
+  id        String   @id @default(uuid()) @db.Uuid
+  schoolId  String   @map("school_id") @db.Uuid
+  sectionId String   @map("section_id") @db.Uuid
+  date      DateTime @db.Date
+  people    Int
+  /// Share of the day's activities logged when it was sent (0 to 100).
+  logged    Int
+  messageId String?  @map("message_id") @db.Uuid
+  sentById  String?  @map("sent_by_id") @db.Uuid
+  sentAt    DateTime @default(now()) @map("sent_at")
+
+  @@index([schoolId, sectionId, date])
+  @@map("diary_send")
+}

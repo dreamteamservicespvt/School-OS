@@ -3,6 +3,9 @@
 
 export const BASE = "/events-calendar";
 
+/** A house colour (a theme tone) as a solid fill. */
+export const HOUSE_BG: Record<string, string> = { info: "bg-info", ok: "bg-ok", warn: "bg-warn", bad: "bg-bad", brand: "bg-brand" };
+
 /** Calendar Entry types (decided 9 October 2026), as the calendar draws them (mod-events.jsx TYPE). */
 export const ENTRY_TYPES = {
   holiday: { label: "Holiday", chip: "bg-bad/12 text-bad", dot: "bg-bad", tone: "bad", attendance: false, icon: "Sun" },

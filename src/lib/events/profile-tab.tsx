@@ -2,7 +2,10 @@
 // 90): the PTM meeting notes about the student and the events they were
 // registered for, with attendance. PTM notes show to those who work on PTMs
 // (the events team and teachers); the events list to everyone who may open
-// the School Calendar. Registered through src/lib/students/profile-tab-modules.ts.
+// the School Calendar. Co-curricular & Sports adds the student's achievements
+// (with certificates), house, clubs and teams this year and the activity
+// credits total (when the school gives credits).
+// Registered through src/lib/students/profile-tab-modules.ts.
 import "server-only";
 
 import Link from "next/link";
@@ -11,6 +14,8 @@ import { formatRupees } from "../format";
 import { registerProfileTab, type ProfileTabArgs } from "../students/profile-tabs";
 import { evPageAllowed, evViewer } from "./access";
 import { feeStates } from "./events";
+import { eventsSettings } from "./settings";
+import { creditTotals } from "./cocurricular";
 import { clock, isoOf, longDay } from "./words";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -30,7 +35,26 @@ async function load({ current, studentId }: ProfileTabArgs) {
     const events = regs.length ? await tx.event.findMany({ where: { id: { in: regs.map((r) => r.eventId) }, archivedAt: null }, select: { id: true, name: true, date: true, type: true, feePaise: true, cancelledAt: true } }) : [];
     const fees = await feeStates(tx, regs.map((r) => r.dueId).filter((x): x is string => Boolean(x)));
     const upcoming = notesOn ? await tx.ptmSlot.findMany({ where: { studentId, ptm: { archivedAt: null, date: { gte: new Date(new Date().toISOString().slice(0, 10)) } } }, include: { ptm: true } }) : [];
-    return { notes, ptms, slots, staff, regs, events, fees, upcoming, notesOn, eventsOpen };
+    // Co-curricular & Sports: achievements, house, clubs, teams and credits this year.
+    const today = new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`);
+    const [settings, year, achievements] = await Promise.all([
+      eventsSettings(tx, current.ctx),
+      tx.academicYear.findFirst({ where: { archivedAt: null, startDate: { lte: today }, endDate: { gte: today } }, select: { id: true } }),
+      tx.achievement.findMany({ where: { studentId, archivedAt: null }, orderBy: { date: "desc" }, take: 30 }),
+    ]);
+    const [houseRow, clubRows, teamRows, credits] = year ? await Promise.all([
+      settings.housesOn ? tx.houseMember.findFirst({ where: { studentId, academicYearId: year.id, archivedAt: null } }) : null,
+      settings.clubsOn ? tx.clubMember.findMany({ where: { studentId, academicYearId: year.id, archivedAt: null }, select: { clubId: true } }) : [],
+      settings.sportsOn ? tx.teamMember.findMany({ where: { studentId, academicYearId: year.id, archivedAt: null }, select: { teamId: true } }) : [],
+      settings.creditsOn ? creditTotals(tx, [studentId], year.id) : new Map<string, number>(),
+    ]) : [null, [], [], new Map<string, number>()];
+    const [house, clubs, teams] = await Promise.all([
+      houseRow ? tx.house.findFirst({ where: { id: houseRow.houseId }, select: { name: true } }) : null,
+      clubRows.length ? tx.club.findMany({ where: { id: { in: clubRows.map((c) => c.clubId) }, archivedAt: null }, select: { name: true } }) : [],
+      teamRows.length ? tx.sportsTeam.findMany({ where: { id: { in: teamRows.map((t) => t.teamId) }, archivedAt: null }, select: { name: true } }) : [],
+    ]);
+    const co = { achievements, house: house?.name ?? null, clubs: clubs.map((c) => c.name), teams: teams.map((t) => t.name), credits: settings.creditsOn ? credits.get(studentId) ?? 0 : null, open: evPageAllowed(v, "cocurricular") };
+    return { notes, ptms, slots, staff, regs, events, fees, upcoming, notesOn, eventsOpen, co };
   });
 }
 
@@ -63,6 +87,28 @@ async function ActivitiesTab(args: ProfileTabArgs) {
           </CardBody>
         </Card>
       )}
+      <Card>
+        <CardHeader title="Achievements" description={[d.co.house, d.co.credits != null ? `${d.co.credits} activity credits this year` : null].filter(Boolean).join(" · ") || "Activities, competitions and results"}
+          action={d.co.open ? <Link className="text-sm font-medium text-brand-text hover:underline" href="/events-calendar/cocurricular">Co-curricular</Link> : undefined} />
+        <CardBody>
+          {(d.co.clubs.length > 0 || d.co.teams.length > 0) && (
+            <p className="text-sm mb-2"><span className="text-ink-2">{[d.co.clubs.length ? "Clubs" : null, d.co.teams.length ? "Teams" : null].filter(Boolean).join(" and ")}: </span>{[...d.co.clubs, ...d.co.teams].join(", ")}</p>
+          )}
+          {d.co.achievements.length === 0 ? <p className="text-ink-2">No achievements recorded yet.</p> : (
+            <ul className="divide-y divide-line">
+              {d.co.achievements.map((a) => (
+                <li key={a.id} className="py-3 flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold">{a.activity}</p>
+                    <p className="text-xs text-ink-2">{a.won ? a.position || "Won" : "Took part"} · {a.level} level · {longDay(isoOf(a.date))}{a.certificateNo ? ` · Certificate ${a.certificateNo}` : ""}</p>
+                  </div>
+                  <Badge tone={a.level === "School" ? "neutral" : "success"}>{a.level}</Badge>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardBody>
+      </Card>
       <Card>
         <CardHeader title="Events" description="Events the student was registered for" />
         <CardBody>

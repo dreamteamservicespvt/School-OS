@@ -23,7 +23,36 @@ const DEFAULTS = (schoolId: string): EventsSettings => ({
   galleryRule: "OUT",
   feedOn: false,
   feedVersion: 1,
+  housesOn: true,
+  clubsOn: true,
+  sportsOn: true,
+  levels: ["School", "District", "State", "National"],
+  activityKinds: ["Music", "Dance", "Debate", "Art", "Public speaking", "Olympiad", "Competition", "Project", "Volunteering", "Sport"],
+  creditsOn: false,
+  creditsTakePart: [5, 10, 15, 20],
+  creditsWin: [10, 20, 40, 60],
+  dailyOn: true,
+  dailyTypes: ["Meal", "Nap", "Play", "Water", "Learning activity"],
 });
+
+/** The activity credits for one level: taking part and winning (Events Settings). */
+export function creditsFor(s: Pick<EventsSettings, "levels" | "creditsTakePart" | "creditsWin" | "creditsOn">, level: string, won: boolean) {
+  if (!s.creditsOn) return 0;
+  const i = s.levels.indexOf(level);
+  if (i < 0) return 0;
+  return (won ? s.creditsWin[i] : s.creditsTakePart[i]) ?? 0;
+}
+
+/** Saves the credits table: one "taking part" and one "winning" number per level. */
+export async function saveCredits(tx: Tx, ctx: SchoolContext, takePart: number[], win: number[]) {
+  const s = await eventsSettings(tx, ctx);
+  if (takePart.length !== s.levels.length || win.length !== s.levels.length) throw new EventsProblem("Enter the credits for every level.");
+  for (const [i, v] of [...takePart, ...win].entries()) {
+    if (!Number.isInteger(v) || v < 0 || v > 500) throw new EventsProblem("Credits are whole numbers from 0 to 500.", i < takePart.length ? `take_${i}` : `win_${i - takePart.length}`);
+  }
+  await tx.eventsSetting.upsert({ where: { schoolId: ctx.schoolId }, create: { schoolId: ctx.schoolId, creditsTakePart: takePart, creditsWin: win, updatedById: ctx.userId }, update: { creditsTakePart: takePart, creditsWin: win, updatedById: ctx.userId } });
+  await writeAudit(tx, ctx, { action: "credits-changed", recordType: "Events Settings", recordId: ctx.schoolId, before: { takePart: s.creditsTakePart, win: s.creditsWin }, after: { takePart, win } });
+}
 
 /** The school's Events Settings, or the defaults when none are saved yet. */
 export async function eventsSettings(tx: Tx, ctx: SchoolContext): Promise<EventsSettings> {
@@ -31,7 +60,7 @@ export async function eventsSettings(tx: Tx, ctx: SchoolContext): Promise<Events
   return row ?? DEFAULTS(ctx.schoolId);
 }
 
-export type SettingsChange = Partial<Pick<EventsSettings, "secondSaturdayOff" | "fourthSaturdayOff" | "ptmSlotMinutes" | "ptmReminderHour" | "galleryRule" | "feedOn">>;
+export type SettingsChange = Partial<Pick<EventsSettings, "secondSaturdayOff" | "fourthSaturdayOff" | "ptmSlotMinutes" | "ptmReminderHour" | "galleryRule" | "feedOn" | "housesOn" | "clubsOn" | "sportsOn" | "creditsOn" | "dailyOn">>;
 
 export async function saveEventsSettings(tx: Tx, ctx: SchoolContext, change: SettingsChange) {
   if (change.ptmSlotMinutes != null && ![5, 10, 15, 20].includes(change.ptmSlotMinutes)) throw new EventsProblem("Slot length is 5, 10, 15 or 20 minutes.", "ptmSlotMinutes");
@@ -47,11 +76,17 @@ export async function saveEventsSettings(tx: Tx, ctx: SchoolContext, change: Set
   return row;
 }
 
-/** Adds or removes one entry of a list (event types or venues). */
-export async function changeList(tx: Tx, ctx: SchoolContext, list: "eventTypes" | "venues", op: "add" | "remove", value: string) {
+export type SettingsList = "eventTypes" | "venues" | "activityKinds" | "dailyTypes";
+export const LIST_WORDS: Record<SettingsList, string> = { eventTypes: "event type", venues: "venue", activityKinds: "activity kind", dailyTypes: "activity type" };
+/** Built-in Daily Activities types that cannot be removed (the diary needs them). */
+export const DAILY_BUILT_IN = ["Meal", "Nap", "Play", "Water", "Learning activity"];
+
+/** Adds or removes one entry of a list (event types, venues, activity kinds, Daily Activities types). */
+export async function changeList(tx: Tx, ctx: SchoolContext, list: SettingsList, op: "add" | "remove", value: string) {
   const v = value.trim().replace(/\s+/g, " ");
-  const what = list === "eventTypes" ? "event type" : "venue";
+  const what = LIST_WORDS[list];
   if (op === "add" && (v.length < 2 || v.length > 40)) throw new EventsProblem(`Give the ${what} a name of 2 to 40 characters.`, "value");
+  if (op === "remove" && list === "dailyTypes" && DAILY_BUILT_IN.includes(v)) throw new EventsProblem(`${v} is one of the built-in activity types and stays.`);
   const s = await eventsSettings(tx, ctx);
   const items = s[list];
   if (op === "add" && items.some((x) => x.toLowerCase() === v.toLowerCase())) throw new EventsProblem(`${v} is already in the list.`, "value");

@@ -45,6 +45,9 @@ export type EventInput = {
   feePaise: bigint | null;
   reminder: string;
   description: string | null;
+  /** Ask the parents for consent on Parent Link (a "yes" registers the child). */
+  consentOn?: boolean;
+  consentBy?: string | null;
 };
 
 async function classNames(tx: Tx, classIds: string[]) {
@@ -79,6 +82,11 @@ async function checkInput(tx: Tx, ctx: SchoolContext, input: EventInput, opts: {
   if (input.feePaise != null && input.feePaise < ZERO) throw new EventsProblem("Enter the fee in rupees, like 1200.", "fee");
   if (input.feePaise != null && input.feePaise > ZERO && !input.registrationOn) throw new EventsProblem("A fee is charged to students who register. Switch registration on, or leave the fee empty.", "fee");
   if (!REMINDERS.some((r) => r.value === input.reminder)) throw new EventsProblem("Choose when the reminder goes.", "reminder");
+  if (input.consentOn) {
+    if (!input.registrationOn) throw new EventsProblem("Parent consent registers the child who gets a yes. Switch registration on too.", "consentOn");
+    if (!["school", "classes"].includes(input.audienceKind)) throw new EventsProblem("Parent consent is asked for students: choose the whole school or some classes as the audience.", "audienceKind");
+    if (input.consentBy && input.consentBy > input.date) throw new EventsProblem("The reply-by date is after the event. Pick a date before it.", "consentBy");
+  }
   const year = await tx.academicYear.findFirst({ where: { archivedAt: null, startDate: { lte: dayOf(input.date) }, endDate: { gte: dayOf(input.date) } } });
   if (!year) throw new EventsProblem("Pick a date inside the school year.", "date");
   await assertYearOpen(tx, year.id);
@@ -111,6 +119,7 @@ export async function createEvent(tx: Tx, ctx: SchoolContext, input: EventInput,
       schoolId: ctx.schoolId, academicYearId: year.id, number, name, type: input.type, date: dayOf(input.date), startMin: input.startMin, endMin: input.endMin,
       venue: input.venue, audienceKind: input.audienceKind, classIds: input.audienceKind === "classes" ? input.classIds : [],
       audienceLabel: await audienceLabel(tx, input.audienceKind, input.classIds), registrationOn: input.registrationOn, seats: input.registrationOn ? input.seats : null,
+      consentOn: Boolean(input.consentOn), consentBy: input.consentOn && input.consentBy ? dayOf(input.consentBy) : null,
       feePaise: fee, feeHeadId: head?.id ?? null, reminder: input.reminder, status: input.registrationOn ? "OPEN" : "PLANNED", description: input.description, createdById: ctx.userId,
     },
   });
@@ -138,6 +147,7 @@ export async function updateEvent(tx: Tx, ctx: SchoolContext, eventId: string, i
       name, type: input.type, date: dayOf(input.date), startMin: input.startMin, endMin: input.endMin, venue: input.venue, audienceKind: input.audienceKind,
       classIds: input.audienceKind === "classes" ? input.classIds : [], audienceLabel: await audienceLabel(tx, input.audienceKind, input.classIds),
       registrationOn: input.registrationOn, seats: input.registrationOn ? input.seats : null, feePaise: fee, feeHeadId: before.feeHeadId ?? head?.id ?? null,
+      consentOn: Boolean(input.consentOn), consentBy: input.consentOn && input.consentBy ? dayOf(input.consentBy) : null,
       reminder: input.reminder, status: input.registrationOn ? "OPEN" : "PLANNED", description: input.description, updatedById: ctx.userId,
       reminderSentAt: isoOf(before.date) !== input.date || before.reminder !== input.reminder ? null : before.reminderSentAt,
     },

@@ -30,7 +30,18 @@ export function ptmStatus(p: Pick<Ptm, "date">, today: string): PtmStatus {
 export const SLOT_LENGTHS = [5, 10, 15, 20];
 const MAX_SLOTS_PER_TEACHER = 72;
 
-export type PlanInput = { date: string; classIds: string[]; startMin: number; endMin: number; slotMinutes: number; venue: string | null; subjectTeachers: boolean };
+export type PlanInput = { date: string; classIds: string[]; startMin: number; endMin: number; slotMinutes: number; venue: string | null; subjectTeachers: boolean; breakStartMin?: number | null; breakEndMin?: number | null };
+
+/** The slot start times of a PTM window, leaving out any slot that would run into the break. */
+export function slotStarts(startMin: number, endMin: number, slotMinutes: number, breakStart?: number | null, breakEnd?: number | null) {
+  const out: number[] = [];
+  for (let m = startMin; m + slotMinutes <= endMin; ) {
+    if (breakStart != null && breakEnd != null && m < breakEnd && m + slotMinutes > breakStart) { m = Math.max(m + slotMinutes, breakEnd); continue; }
+    out.push(m);
+    m += slotMinutes;
+  }
+  return out;
+}
 
 /** "Class teacher, 7 B" / "Mathematics, 6 A–7 B". */
 function sectionsWords(labels: string[]) {
@@ -49,6 +60,13 @@ export async function planPtm(tx: Tx, ctx: SchoolContext, input: PlanInput, toda
   if (!SLOT_LENGTHS.includes(input.slotMinutes)) throw new EventsProblem("Slot length is 5, 10, 15 or 20 minutes.", "slotMinutes");
   if (input.endMin <= input.startMin) throw new EventsProblem("The end time is before the start time.", "endTime");
   if (input.endMin - input.startMin < input.slotMinutes) throw new EventsProblem("The time window is shorter than one slot.", "endTime");
+  const hasBreak = input.breakStartMin != null || input.breakEndMin != null;
+  if (hasBreak) {
+    if (input.breakStartMin == null) throw new EventsProblem("Enter when the break starts.", "breakStart");
+    if (input.breakEndMin == null) throw new EventsProblem("Enter when the break ends.", "breakEnd");
+    if (input.breakEndMin <= input.breakStartMin) throw new EventsProblem("The break ends before it starts.", "breakEnd");
+    if (input.breakStartMin <= input.startMin || input.breakEndMin >= input.endMin) throw new EventsProblem("The break must be inside the time window, with slots before and after it.", "breakStart");
+  }
   if ((input.endMin - input.startMin) / input.slotMinutes > MAX_SLOTS_PER_TEACHER) throw new EventsProblem(`That makes more than ${MAX_SLOTS_PER_TEACHER} slots per teacher. Use a shorter window or longer slots.`, "endTime");
   const classes = await tx.schoolClass.findMany({ where: { id: { in: input.classIds }, archivedAt: null }, select: { id: true, name: true, sortOrder: true }, orderBy: { sortOrder: "asc" } });
   if (classes.length !== input.classIds.length) throw new EventsProblem("Some of these classes were not found.", "classIds");
@@ -89,18 +107,19 @@ export async function planPtm(tx: Tx, ctx: SchoolContext, input: PlanInput, toda
 
   const classesLabel = classesWords(classes.map((c) => c.name));
   const ptm = await tx.ptm.create({
-    data: { schoolId: ctx.schoolId, academicYearId: year.id, date: dayOf(input.date), classIds: classes.map((c) => c.id), classesLabel, startMin: input.startMin, endMin: input.endMin, slotMinutes: input.slotMinutes, venue: input.venue, createdById: ctx.userId },
+    data: { schoolId: ctx.schoolId, academicYearId: year.id, date: dayOf(input.date), classIds: classes.map((c) => c.id), classesLabel, startMin: input.startMin, endMin: input.endMin, slotMinutes: input.slotMinutes, venue: input.venue, createdById: ctx.userId,
+      breakStartMin: hasBreak ? input.breakStartMin : null, breakEndMin: hasBreak ? input.breakEndMin : null },
   });
   let order = 0;
   for (const t of live) {
     await tx.ptmTeacher.create({ data: { schoolId: ctx.schoolId, ptmId: ptm.id, staffId: t.staffId, label: t.label, sectionIds: t.sectionIds, sortOrder: order++ } });
   }
-  const starts: number[] = [];
-  for (let m = input.startMin; m + input.slotMinutes <= input.endMin; m += input.slotMinutes) starts.push(m);
+  const starts = slotStarts(input.startMin, input.endMin, input.slotMinutes, hasBreak ? input.breakStartMin : null, hasBreak ? input.breakEndMin : null);
+  if (!starts.length) throw new EventsProblem("No slot fits in this time window. Use a longer window or a shorter break.", "endTime");
   await tx.ptmSlot.createMany({ data: live.flatMap((t) => starts.map((startMin) => ({ schoolId: ctx.schoolId, ptmId: ptm.id, staffId: t.staffId, startMin }))) });
   const entry = await syncSourceEntry(tx, ctx, `ptm:${ptm.id}`, { academicYearId: year.id, type: "ptm", title: `PTM: ${classesLabel}`, date: input.date, classIds: ptm.classIds, details: `${clock(input.startMin)} – ${clock(input.endMin)}${input.venue ? `, ${input.venue}` : ""}` });
   await tx.ptm.update({ where: { id: ptm.id }, data: { calendarEntryId: entry?.id ?? null } });
-  await writeAudit(tx, ctx, { action: "planned", recordType: "PTM", recordId: ptm.id, after: { date: dmy(input.date), classes: classesLabel, teachers: live.length, slots: live.length * starts.length, slotMinutes: input.slotMinutes } });
+  await writeAudit(tx, ctx, { action: "planned", recordType: "PTM", recordId: ptm.id, after: { date: dmy(input.date), classes: classesLabel, teachers: live.length, slots: live.length * starts.length, slotMinutes: input.slotMinutes, break: hasBreak ? `${clock(input.breakStartMin!)} – ${clock(input.breakEndMin!)}` : null } });
   return { ptm, teachers: live.length, slots: live.length * starts.length };
 }
 

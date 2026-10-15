@@ -550,6 +550,49 @@ describe("Events & Calendar records stay in their school", () => {
     await expect(withSchool(ctxA(), (tx) => tx.ptmSlot.create({ data: { schoolId: b.id, ptmId: ids.ptm, staffId: someone, startMin: 600 } }))).rejects.toThrow();
     await expect(withSchool(ctxA(), (tx) => tx.album.create({ data: { schoolId: b.id, number: "AL-X", name: "X", date: day } }))).rejects.toThrow();
   });
+
+  it("school A cannot read, change or add to school B's event consents, achievements, credits, houses, clubs, teams, fixtures, fitness records or daily diaries", async () => {
+    const ctxB = { schoolId: b.id, userId: userB.id };
+    const day = new Date("2031-06-07T00:00:00Z");
+    const someone = "00000000-0000-4000-8000-000000000001";
+    const ids = await withSchool(ctxB, async (tx) => {
+      const event = await tx.event.create({ data: { schoolId: b.id, academicYearId: someone, number: "EV-B-2", name: "Trip In B", type: "Trip", date: day, startMin: 600, audienceLabel: "Whole school", consentOn: true } });
+      await tx.eventConsent.create({ data: { schoolId: b.id, eventId: event.id, studentId: someone, answer: "GIVEN", how: "office" } });
+      const ach = await tx.achievement.create({ data: { schoolId: b.id, academicYearId: someone, studentId: someone, activity: "Quiz In B", kind: "Quiz", date: day } });
+      await tx.activityCreditEntry.create({ data: { schoolId: b.id, academicYearId: someone, studentId: someone, achievementId: ach.id, points: 10, reason: "Quiz", date: day } });
+      const house = await tx.house.create({ data: { schoolId: b.id, name: "House In B" } });
+      await tx.houseMember.create({ data: { schoolId: b.id, academicYearId: someone, houseId: house.id, studentId: someone } });
+      await tx.housePointsEntry.create({ data: { schoolId: b.id, academicYearId: someone, houseId: house.id, points: 5, reason: "Only in B", date: day } });
+      const club = await tx.club.create({ data: { schoolId: b.id, name: "Club In B" } });
+      await tx.clubMember.create({ data: { schoolId: b.id, academicYearId: someone, clubId: club.id, studentId: someone } });
+      await tx.clubMeeting.create({ data: { schoolId: b.id, clubId: club.id, date: day, memberIds: [someone], presentIds: [someone] } });
+      const team = await tx.sportsTeam.create({ data: { schoolId: b.id, name: "Team In B", sport: "Football" } });
+      await tx.teamMember.create({ data: { schoolId: b.id, academicYearId: someone, teamId: team.id, studentId: someone } });
+      await tx.trainingSession.create({ data: { schoolId: b.id, teamId: team.id, date: day, memberIds: [someone], presentIds: [] } });
+      const fixture = await tx.fixture.create({ data: { schoolId: b.id, teamId: team.id, title: "Match In B", date: day } });
+      await tx.fitnessRecord.create({ data: { schoolId: b.id, academicYearId: someone, studentId: someone, date: day, heightCm: 140 } });
+      const act = await tx.dailyActivity.create({ data: { schoolId: b.id, academicYearId: someone, sectionId: someone, date: day, type: "Meal", label: "Snack", startMin: 615, options: ["Ate all"] } });
+      await tx.dailyActivityLog.create({ data: { schoolId: b.id, activityId: act.id, studentId: someone, value: "Ate all" } });
+      await tx.diarySend.create({ data: { schoolId: b.id, sectionId: someone, date: day, people: 1, logged: 100 } });
+      return { ach: ach.id, house: house.id, fixture: fixture.id, act: act.id };
+    });
+    await withSchool(ctxA(), async (tx) => {
+      const counts = await Promise.all([
+        tx.eventConsent.count(), tx.achievement.count(), tx.activityCreditEntry.count(), tx.house.count(), tx.houseMember.count(), tx.housePointsEntry.count(),
+        tx.club.count(), tx.clubMember.count(), tx.clubMeeting.count(), tx.sportsTeam.count(), tx.teamMember.count(), tx.trainingSession.count(),
+        tx.fixture.count(), tx.fitnessRecord.count(), tx.dailyActivity.count(), tx.dailyActivityLog.count(), tx.diarySend.count(),
+      ]);
+      expect(counts).toEqual(Array(17).fill(0));
+      expect(await tx.achievement.findUnique({ where: { id: ids.ach } })).toBeNull();
+      expect((await tx.achievement.updateMany({ where: { id: ids.ach }, data: { certificateNo: "CC/X" } })).count).toBe(0);
+      expect((await tx.house.updateMany({ where: { id: ids.house }, data: { name: "Changed by A" } })).count).toBe(0);
+      expect((await tx.fixture.updateMany({ where: { id: ids.fixture }, data: { result: "WON" } })).count).toBe(0);
+      expect((await tx.dailyActivity.updateMany({ where: { id: ids.act }, data: { label: "Changed by A" } })).count).toBe(0);
+    });
+    await expect(withSchool(ctxA(), (tx) => tx.housePointsEntry.create({ data: { schoolId: b.id, academicYearId: someone, houseId: ids.house, points: 100, reason: "X", date: day } }))).rejects.toThrow();
+    await expect(withSchool(ctxA(), (tx) => tx.dailyActivityLog.create({ data: { schoolId: b.id, activityId: ids.act, studentId: someone, value: "X" } }))).rejects.toThrow();
+    await expect(withSchool(ctxA(), (tx) => tx.achievement.create({ data: { schoolId: b.id, academicYearId: someone, studentId: someone, activity: "X", kind: "X", date: day } }))).rejects.toThrow();
+  });
 });
 
 describe("Homework & Learning records stay in their school", () => {

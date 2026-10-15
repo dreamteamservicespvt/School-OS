@@ -10,7 +10,8 @@ import { addEntry, removeEntry } from "@/lib/events/calendar";
 import { addVolunteer, assignSeats, cancelEvent, createEvent, markAttendance, messageAudience, registerStudents, removeVolunteer, updateEvent, withdrawStudent, type EventInput } from "@/lib/events/events";
 import { bookSlot, cancelBooking, cancelPtm, markArrived, planPtm, saveNotes, sendSummary, setQueue } from "@/lib/events/ptm";
 import { archiveAlbum, askConsent, createAlbum, newShareLink, publishAlbum, removeMedia, renameAlbum, setAlbumAccess, shareAlbum, tagMedia } from "@/lib/events/gallery";
-import { changeList, renewFeed, saveEventsSettings } from "@/lib/events/settings";
+import { changeList, LIST_WORDS, renewFeed, saveCredits, saveEventsSettings } from "@/lib/events/settings";
+import { recordConsent, remindConsent } from "@/lib/events/consent";
 import { localNow } from "@/lib/events/jobs";
 import { parseRupees } from "@/lib/fees/act";
 import { sendMessage } from "@/lib/messaging";
@@ -104,6 +105,7 @@ function eventInput(fd: FormData): EventInput {
     venue: maybe(fd, "venue", "Venue", 80), audienceKind: audience, classIds: audience === "classes" ? ids(fd, "classIds") : [],
     registrationOn: checked(fd, "registrationOn"), seats: seats ? Number(seats) : null, feePaise: fee,
     reminder: str(fd, "reminder") || "1d", description: maybe(fd, "description", "Description", 1000),
+    consentOn: checked(fd, "consentOn"), consentBy: checked(fd, "consentOn") ? dateIso(fd, "consentBy", "Reply-by date", false) : null,
   };
 }
 
@@ -196,6 +198,7 @@ export async function planPtmAction(_: S, fd: FormData): Promise<S> {
     return planPtm(w.tx, w.ctx, {
       date: dateIso(fd, "date", "Date")!, classIds: ids(fd, "classIds"), startMin: time(fd, "startTime", "start time")!, endMin: time(fd, "endTime", "end time")!,
       slotMinutes: Number(str(fd, "slotMinutes")) || 10, venue: maybe(fd, "venue", "Venue", 80), subjectTeachers: checked(fd, "subjectTeachers"),
+      breakStartMin: checked(fd, "breakOn") ? time(fd, "breakStart", "break start") : null, breakEndMin: checked(fd, "breakOn") ? time(fd, "breakEnd", "break end") : null,
     }, today(w.tz));
   }, (r) => ({ message: `PTM planned for ${dmy(r.ptm.date.toISOString().slice(0, 10))}: ${r.ptm.classesLabel}. ${count(r.slots, "slot")} for ${count(r.teachers, "teacher")}.`, link: { href: `/events-calendar/ptm?day=${r.ptm.id}`, label: "Open" } }));
 }
@@ -342,17 +345,65 @@ export async function settingsAction(_: S, fd: FormData): Promise<S> {
       ...(has("ptmReminderHour") ? { ptmReminderHour: Number(str(fd, "ptmReminderHour")) } : {}),
       ...(has("galleryRule") ? { galleryRule: str(fd, "galleryRule") } : {}),
       ...(has("feed") ? { feedOn: checked(fd, "feedOn") } : {}),
+      ...(has("switch") && ["housesOn", "clubsOn", "sportsOn", "creditsOn", "dailyOn"].includes(str(fd, "switch")) ? { [str(fd, "switch")]: checked(fd, "on") } : {}),
     });
-  }, (s) => (fd.has("feed") ? `Calendar feed ${s.feedOn ? "on. Staff can add it to Google or Outlook." : "off. Existing subscriptions stop updating."}` : fd.has("galleryRule") ? (s.galleryRule === "BLUR" ? "Students without photo consent are blurred in new albums." : "Photos with students without photo consent are left out of new albums.") : fd.has("ptmReminderHour") ? `PTM reminders go the day before at ${clock(s.ptmReminderHour * 60)}.` : "Events Settings saved."));
+  }, (s) => (fd.has("switch") ? switchWords(str(fd, "switch"), checked(fd, "on")) : fd.has("feed") ? `Calendar feed ${s.feedOn ? "on. Staff can add it to Google or Outlook." : "off. Existing subscriptions stop updating."}` : fd.has("galleryRule") ? (s.galleryRule === "BLUR" ? "Students without photo consent are blurred in new albums." : "Photos with students without photo consent are left out of new albums.") : fd.has("ptmReminderHour") ? `PTM reminders go the day before at ${clock(s.ptmReminderHour * 60)}.` : "Events Settings saved."));
 }
+
+function switchWords(key: string, on: boolean) {
+  const words: Record<string, [string, string]> = {
+    housesOn: ["Houses are on. The Houses tab shows in Co-curricular & Sports.", "Houses are off. The tab is hidden; points stay on record."],
+    clubsOn: ["Clubs are on.", "Clubs are off. The tab is hidden; members stay on record."],
+    sportsOn: ["Sports teams are on.", "Sports teams are off. The tab is hidden; records stay."],
+    creditsOn: ["Activity credits are on. New achievements add credits.", "Activity credits are off. Totals stay on profiles."],
+    dailyOn: ["Daily Activities is on for pre-primary classes.", "Daily Activities is off. Diaries already kept stay on record."],
+  };
+  return (words[key] ?? ["Saved.", "Saved."])[on ? 0 : 1];
+}
+
+const LISTS = ["eventTypes", "venues", "activityKinds", "dailyTypes"] as const;
 
 export async function listAction(_: S, fd: FormData): Promise<S> {
   return evAction("edit", fd, async (w) => {
     need(w.can.settings, "change Events Settings");
-    const list = str(fd, "list") === "venues" ? "venues" : "eventTypes";
+    const list = LISTS.find((l) => l === str(fd, "list")) ?? "eventTypes";
     const op = str(fd, "op") === "remove" ? "remove" : "add";
     return { v: await changeList(w.tx, w.ctx, list, op, str(fd, "value")), list, op };
-  }, (r) => `${r.list === "venues" ? "Venue" : "Event type"} ${r.op === "add" ? "added" : "removed"}: ${r.v}`);
+  }, (r) => `${LIST_WORDS[r.list].replace(/^./, (c) => c.toUpperCase())} ${r.op === "add" ? "added" : "removed"}: ${r.v}`);
+}
+
+export async function creditsAction(_: S, fd: FormData): Promise<S> {
+  return evAction("edit", fd, async (w) => {
+    need(w.can.settings, "change Events Settings");
+    const n = Number(str(fd, "levels")) || 0;
+    const num = (k: string) => { const v = str(fd, k); if (!/^\d+$/.test(v)) throw new EventsProblem("Credits are whole numbers from 0 to 500.", k); return Number(v); };
+    await saveCredits(w.tx, w.ctx, Array.from({ length: n }, (_x, i) => num(`take_${i}`)), Array.from({ length: n }, (_x, i) => num(`win_${i}`)));
+    return true;
+  }, () => "Activity credits saved. They apply to achievements recorded from now on.");
+}
+
+/* ---------- Parent consent for events ---------- */
+
+export async function officeConsentAction(_: S, fd: FormData): Promise<S> {
+  return evAction("edit", fd, async (w) => {
+    need(w.can.events, "record parent consent");
+    const answer = str(fd, "answer") === "DECLINED" ? "DECLINED" : "GIVEN";
+    const studentIds = ids(fd, "studentIds");
+    if (!studentIds.length) throw new EventsProblem("Choose the students.", "studentIds");
+    let changed = 0;
+    for (const studentId of studentIds) {
+      const r = await recordConsent(w.tx, w.ctx, { eventId: id(fd, "eventId", "event"), studentId, answer, guardianId: null, how: "office" }, today(w.tz));
+      if (r.changed) changed++;
+    }
+    return { changed, answer };
+  }, (r) => (r.answer === "GIVEN" ? `Consent recorded for ${count(r.changed, "student")}. They are registered${r.changed ? "; any fee is added to their fees" : ""}.` : `Recorded: ${count(r.changed, "student")} not going. Nothing is charged.`));
+}
+
+export async function remindConsentAction(_: S, fd: FormData): Promise<S> {
+  return evAction("edit", fd, async (w) => {
+    need(w.can.events, "send reminders");
+    return remindConsent(w.tx, w.ctx, id(fd, "eventId", "event"), today(w.tz));
+  }, (r) => `Reminder sent to ${count(r.people, "parent")} waiting for consent. Track it in Message History.`);
 }
 
 export async function renewFeedAction(_: S, fd: FormData): Promise<S> {

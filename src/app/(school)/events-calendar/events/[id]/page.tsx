@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, Armchair, BellRing, CheckCheck, ClipboardList, HandHeart, Hourglass, IndianRupee, ListChecks, Pencil, Plus, Send, UserPlus, Users, X } from "lucide-react";
+import { ArrowLeft, Armchair, BellRing, CheckCheck, ClipboardList, HandHeart, Hourglass, IndianRupee, ListChecks, Pencil, Plus, Send, ShieldCheck, UserPlus, Users, X } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { formatDateTime, formatRupees } from "@/lib/format";
 import { audienceRule, eligible, eventMoney, eventStatus, feeStates } from "@/lib/events/events";
 import { placeOrder, placesOf } from "@/lib/events/places";
+import { consentCounts } from "@/lib/events/consent";
+import { Ring } from "@/components/ui/display";
 import { EVENT_STATUS, REMINDERS, AUDIENCE_KINDS, eventIcon, hhmm, isoOf, longDay, reminderWords, timeSpan } from "@/lib/events/words";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
@@ -16,8 +18,8 @@ import { DL } from "@/components/ui/blocks";
 import { Banner, Col, DataList, Empty, HBars, ListRow, Split, Stack, Stats, Timeline } from "@/components/money/kit";
 import { EvIcon } from "../../_components/icons";
 import { ActButton } from "../../_components/bits";
-import { AttendanceForm, CancelEventSheet, EventSheet, RegisterSheet, RemindSheet, SeatsSheet, VolunteerSheet } from "../../_components/event-sheets";
-import { removeVolunteerAction, withdrawAction } from "../../actions";
+import { AttendanceForm, CancelEventSheet, EventSheet, OfficeConsentSheet, RegisterSheet, RemindSheet, SeatsSheet, VolunteerSheet } from "../../_components/event-sheets";
+import { remindConsentAction, removeVolunteerAction, withdrawAction } from "../../actions";
 import { BASE, UUID, evGuard, one, qs, type SearchParams } from "../../_lib/page";
 
 export const metadata = { title: "Event" };
@@ -48,7 +50,11 @@ export default async function EventPage({ params, searchParams }: { params: Prom
       tx.eventReminder.findMany({ where: { eventId: id }, orderBy: { sentAt: "desc" } }),
       e.createdById ? tx.userLogin.findFirst({ where: { id: e.createdById }, select: { displayName: true } }) : null,
     ]);
-    return { e, regs, students, places, fees, money, volunteers, reminders, creator };
+    // Parent consent (trips and outings): every student of the audience, with their answer.
+    const consent = e.consentOn && !acc ? await consentCounts(tx, e) : null;
+    const consentStudents = consent ? await tx.student.findMany({ where: { id: { in: [...consent.waitingIds, ...consent.answers.map((a) => a.studentId)] } }, select: { id: true, fullName: true } }) : [];
+    const consentPlaces = consent ? await placesOf(tx, consentStudents.map((x) => x.id), e.academicYearId) : new Map();
+    return { e, regs, students, places, fees, money, volunteers, reminders, creator, consent, consentStudents, consentPlaces };
   });
   if (!d) notFound();
   const e = d.e;
@@ -61,7 +67,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
   const showMoney = p.can.money && fee;
   const tabs = acc
     ? [{ key: "pay", label: "Payments" }, { key: "reg", label: "Fee by student" }]
-    : [{ key: "reg", label: "Registrations" }, { key: "att", label: "Attendance" }, ...(showMoney ? [{ key: "pay", label: "Payments" }] : []), { key: "vol", label: "Volunteers" }, { key: "rem", label: "Reminders" }];
+    : [{ key: "reg", label: "Registrations" }, ...(d.consent ? [{ key: "con", label: "Consent" }] : []), { key: "att", label: "Attendance" }, ...(showMoney ? [{ key: "pay", label: "Payments" }] : []), { key: "vol", label: "Volunteers" }, { key: "rem", label: "Reminders" }];
   const tab = tabs.some((t) => t.key === one(sp.tab)) ? one(sp.tab) : tabs[0].key;
   const here = (over: Record<string, string | null> = {}) => qs(HREF, { tab: tab === tabs[0].key ? null : tab, ...over });
   const doing = full && !cancelled ? one(sp.do) : "";
@@ -75,6 +81,13 @@ export default async function EventPage({ params, searchParams }: { params: Prom
   const onOrAfter = isoOf(e.date) <= p.today;
   const when = `${longDay(isoOf(e.date))} · ${timeSpan(e.startMin, e.endMin)}`;
   const feeOf = (dueId: string | null) => (dueId ? d.fees.get(dueId) ?? "Due" : null);
+  const c = d.consent;
+  const consentOpen = Boolean(c && !cancelled && !done && (!e.consentBy || isoOf(e.consentBy) >= p.today));
+  const consentRows = c ? d.consentStudents.map((st) => {
+    const a = c.answers.find((x) => x.studentId === st.id);
+    return { id: st.id, name: st.fullName, place: d.consentPlaces.get(st.id)?.label ?? "", answer: a?.answer ?? null, how: a?.how ?? null, at: a?.answeredAt ?? null, pl: d.consentPlaces.get(st.id) };
+  }).sort((a, b) => (a.answer === b.answer ? 0 : a.answer === null ? -1 : b.answer === null ? 1 : a.answer === "DECLINED" ? -1 : 1) || placeOrder(a.pl, b.pl)) : [];
+  const CONSENT_WORDS = { GIVEN: { label: "Given", tone: "ok" as const }, DECLINED: { label: "Declined", tone: "bad" as const } };
 
   // Data only the open sheet needs.
   const extra = await withSchool(ctx, async (tx) => {
@@ -92,6 +105,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
       const staff = await tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] } }, select: { id: true, fullName: true }, orderBy: { fullName: "asc" }, take: 1000 });
       return { staff };
     }
+    if (doing === "consent" && d.consent) return { consentPick: consentRows.map((r) => ({ id: r.id, name: r.name, place: r.place.replace(/^Class /, "") })) };
     if (doing === "edit") return { classes: await tx.schoolClass.findMany({ where: { archivedAt: null }, select: { id: true, name: true }, orderBy: { sortOrder: "asc" } }) };
     if (doing === "remind") {
       const rule = await audienceRule(tx, e);
@@ -167,6 +181,26 @@ export default async function EventPage({ params, searchParams }: { params: Prom
                   phone={(r) => ({ title: name(r.studentId), sub: [placeOf(r.studentId), r.seat && `Seat ${r.seat}`].filter(Boolean).join(" · "), avatar: name(r.studentId), pills: fee && feeOf(r.dueId) ? <Pill tone={feeOf(r.dueId) === "Paid" ? "ok" : "warn"} className="!h-[22px] !text-[11.5px]">{feeOf(r.dueId)}</Pill> : undefined })} />
               ) : <Empty icon={ClipboardList} title="No registration for this event" body="Everyone in the audience takes part. Switch registration on to limit seats." />
             )}
+            {tab === "con" && c && (
+              <>
+                {full && consentOpen && (
+                  <div className="flex items-center gap-2 flex-wrap px-4 py-3 border-b border-line">
+                    <p className="text-[13px] text-ink3 flex-1 min-w-[200px]">{e.consentBy ? `Reply by ${longDay(isoOf(e.consentBy))}. ` : ""}A yes on Parent Link is confirmed with a one-time code and registers the child.</p>
+                    <ButtonLink size="sm" variant="secondary" href={here({ do: "consent" })} scroll={false}>Record consent</ButtonLink>
+                  </div>
+                )}
+                <DataList rows={consentRows} rowKey={(r) => r.id} minWidth={560} caption="Parent consent"
+                  footer={`${c.total} students · ${c.given} given · ${c.waiting} waiting · ${c.declined} declined`}
+                  empty={<Empty icon={ShieldCheck} title="No students in the audience" body="Consent is asked of the parents of the audience." />}
+                  columns={[
+                    { key: "s", label: "Student", render: (r) => <div className="flex items-center gap-2.5"><Avatar name={r.name} size={30} /><span className="font-semibold">{r.name}</span></div> },
+                    { key: "cls", label: "Class", render: (r) => r.place || "—" },
+                    { key: "a", label: "Consent on Parent Link", render: (r) => (r.answer ? <Pill tone={CONSENT_WORDS[r.answer as "GIVEN" | "DECLINED"].tone} dot>{CONSENT_WORDS[r.answer as "GIVEN" | "DECLINED"].label}</Pill> : <Pill tone="warn" dot>Waiting</Pill>) },
+                    { key: "h", label: "How", render: (r) => <span className="text-[13px] text-ink3">{r.how === "office" ? "Recorded by the office" : r.how ? "Parent Link" : "—"}{r.at ? ` · ${formatDateTime(r.at, p.tz)}` : ""}</span> },
+                  ]}
+                  phone={(r) => ({ title: r.name, sub: r.place, avatar: r.name, pills: r.answer ? <Pill tone={CONSENT_WORDS[r.answer as "GIVEN" | "DECLINED"].tone} className="!h-[22px] !text-[11.5px]">{CONSENT_WORDS[r.answer as "GIVEN" | "DECLINED"].label}</Pill> : <Pill tone="warn" className="!h-[22px] !text-[11.5px]">Waiting</Pill> })} />
+              </>
+            )}
             {tab === "att" && (
               !e.registrationOn ? <Empty icon={ListChecks} title="No attendance for this event" body="Attendance is kept for events with registration." />
                 : !n ? <Empty icon={ListChecks} title="Nobody is registered" body="Attendance is marked for registered students." />
@@ -199,6 +233,19 @@ export default async function EventPage({ params, searchParams }: { params: Prom
             {tab === "rem" && <div className="p-5"><Timeline items={timeline} /></div>}
           </Card>
           <Col>
+            {c && (
+              <Card>
+                <CardHeader title="Parent consent" description={e.consentBy ? `Reply by ${longDay(isoOf(e.consentBy))}` : "On Parent Link"} icon={ShieldCheck} />
+                <div className="px-5 pb-5 flex flex-col gap-3">
+                  <div className="flex items-center gap-4">
+                    <Ring value={c.total ? (c.given / c.total) * 100 : 0} size={64} stroke={7} tone="ok"><span className="text-[13px] font-bold tnum">{c.total ? Math.round((c.given / c.total) * 100) : 0}%</span></Ring>
+                    <p className="text-[13.5px] text-ink2"><b className="font-semibold tnum">{c.given}</b> given · <b className="font-semibold tnum">{c.waiting}</b> waiting · <b className="font-semibold tnum">{c.declined}</b> declined</p>
+                  </div>
+                  {full && consentOpen && c.waiting > 0 && <ActButton action={remindConsentAction} fields={{ eventId: e.id }} label={`Remind ${c.waiting} waiting`} icon="Bell" className="w-full" />}
+                  {full && consentOpen && c.waiting > 0 && <p className="text-[12.5px] text-ink3">Only the parents who have not answered get the reminder.</p>}
+                </div>
+              </Card>
+            )}
             <Card>
               <CardHeader title="Details" />
               <div>
@@ -207,6 +254,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
                   ["Venue", e.venue ?? "—"],
                   ["Audience", e.audienceLabel],
                   ["Registration", e.registrationOn ? (e.seats ? `On · ${e.seats} seats` : "On · no seat limit") : "Off"],
+                  ...(e.consentOn ? [["Parent consent", `On Parent Link${e.consentBy ? `, reply by ${longDay(isoOf(e.consentBy))}` : ""}`] as [string, string]] : []),
                   ["Fee", fee ? `${formatRupees(fee)} per student, added to fees` : "None"],
                   ["Reminder", e.reminder === "none" ? "No reminder" : `${reminderWords(e.reminder)}, by message`],
                   ...(e.description ? [["Description", e.description] as [string, string]] : []),
@@ -220,12 +268,13 @@ export default async function EventPage({ params, searchParams }: { params: Prom
       {doing === "edit" && "classes" in extra && extra.classes && (
         <EventSheet closeHref={closeHref} types={p.settings.eventTypes} venues={p.settings.venues} classes={extra.classes.map((c) => ({ value: c.id, label: c.name }))}
           reminders={REMINDERS.map((r) => ({ value: r.value, label: r.label }))} audiences={AUDIENCE_KINDS.map((a) => ({ value: a.value, label: a.label }))}
-          start={{ id: e.id, name: e.name, type: e.type, date: isoOf(e.date), startTime: hhmm(e.startMin), endTime: e.endMin != null ? hhmm(e.endMin) : "", venue: e.venue ?? "", audienceKind: e.audienceKind, classIds: e.classIds, registrationOn: e.registrationOn, seats: e.seats ? String(e.seats) : "", fee: fee ? String(Number(fee) / 100) : "", reminder: e.reminder, description: e.description ?? "", feeLocked: Boolean(fee && d.regs.some((r) => r.dueId)) }} />
+          start={{ id: e.id, name: e.name, type: e.type, date: isoOf(e.date), startTime: hhmm(e.startMin), endTime: e.endMin != null ? hhmm(e.endMin) : "", venue: e.venue ?? "", audienceKind: e.audienceKind, classIds: e.classIds, registrationOn: e.registrationOn, seats: e.seats ? String(e.seats) : "", fee: fee ? String(Number(fee) / 100) : "", reminder: e.reminder, description: e.description ?? "", consentOn: e.consentOn, consentBy: e.consentBy ? isoOf(e.consentBy) : "", feeLocked: Boolean(fee && d.regs.some((r) => r.dueId)) }} />
       )}
       {doing === "cancel" && !done && <CancelEventSheet closeHref={closeHref} eventId={e.id} name={e.name} fee={fee && n ? `Unpaid fees are removed; paid fees are refunded through Fee Management.` : null} />}
       {doing === "remind" && "remindTo" in extra && <RemindSheet closeHref={closeHref} eventId={e.id} people={extra.remindTo ?? "the audience"} preview={reminderPreview} />}
       {doing === "register" && "pick" in extra && extra.pick && <RegisterSheet closeHref={closeHref} eventId={e.id} students={extra.pick} seatsLeft={e.seats != null ? Math.max(0, e.seats - n) : null} fee={fee ? formatRupees(fee) : null} />}
       {doing === "volunteer" && "staff" in extra && extra.staff && <VolunteerSheet closeHref={closeHref} eventId={e.id} staff={extra.staff.map((s) => ({ value: s.id, label: s.fullName }))} students={regRows.map((r) => ({ value: r.studentId, label: `${name(r.studentId)}, ${placeOf(r.studentId)}` }))} />}
+      {doing === "consent" && "consentPick" in extra && extra.consentPick && <OfficeConsentSheet closeHref={closeHref} eventId={e.id} students={extra.consentPick} fee={fee ? formatRupees(fee) : null} />}
       {doing === "seats" && <SeatsSheet closeHref={closeHref} eventId={e.id} count={n} />}
     </div>
   );

@@ -49,7 +49,7 @@ export default async function DashboardPage({ searchParams }: Search) {
     buildHome(current, { now }),
     withSchool(current.ctx, (tx) => assignable(tx, { ctx: current.ctx, access })),
   ]);
-  const quick = quickActionsFor(current);
+  const quick = quickActionsFor(current, home.approvals !== null);
   const primary = home.leader ? null : quick[0] ?? null;
   const updated = now.toLocaleTimeString("en-IN", { timeZone: tz, hour: "numeric", minute: "2-digit", hour12: true }).toUpperCase();
   const today = todayFor(tz, now).toISOString().slice(0, 10);

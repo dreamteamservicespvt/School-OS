@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+import { pageHidden } from "@/lib/duty";
 import { withSchool } from "@/lib/db";
 import { hrPage, BASE } from "@/lib/staff/page";
 import { hrSettings, EMPLOYMENT_TYPES } from "@/lib/staff/settings";
@@ -19,6 +21,7 @@ type Search = { searchParams: Promise<Record<string, string | string[] | undefin
 
 export default async function AddStaffPage({ searchParams }: Search) {
   const { current, today } = await hrPage("create");
+  if (pageHidden(current, "staff-hr-management", "add")) redirect(BASE);
   const sp = await searchParams;
   const applicationId = typeof sp.application === "string" && UUID_RE.test(sp.application) ? sp.application : null;
 

@@ -12,6 +12,7 @@ import { classOfStudents } from "./dues";
 import { ageingGroupOf, feeSettings } from "./settings";
 import { ageingLabel, concessionTypeLabel, modeLabel, percentWord, CONCESSION_STATUS_WORDS, REFUND_STATUS_WORDS } from "./words";
 import { defaulters } from "./defaulters";
+import { feesByClass } from "./by-class";
 import type { FeeViewer } from "./access";
 
 const ZERO = BigInt(0);
@@ -177,6 +178,32 @@ export const FEE_REPORTS: ReportDef[] = [
         rows,
         totals,
         chart: s.ageing.map((g, i) => ({ label: ageingLabel(g), value: totals[`b${i}`] as bigint })),
+      };
+    },
+  },
+  {
+    key: "by-class",
+    label: "Fees by class",
+    about: "Each section's fees due so far, collected, pending and overdue, with its class teacher. The same rows as the Fee Dashboard.",
+    filters: [],
+    async run(tx, _ctx, f, viewer) {
+      // The one per-class source (./by-class.ts): these rows add up to the Fee Dashboard band.
+      const data = await feesByClass(tx, viewer, f.today);
+      const rows = data.sections.map((s) => ({
+        class: s.name, teacher: s.teacher?.name ?? "", students: s.students, due: s.due, paid: s.paid,
+        percent: `${s.percent}%`, notLate: s.notLate, overdue: s.overdue, overdueStudents: s.overdueStudents,
+      }));
+      const t = data.totals;
+      return {
+        columns: [
+          { key: "class", label: "Class" }, { key: "teacher", label: "Class teacher" }, { key: "students", label: "Students", kind: "number" },
+          { key: "due", label: "Due so far", kind: "money" }, { key: "paid", label: "Collected", kind: "money" }, { key: "percent", label: "Collected %" },
+          { key: "notLate", label: "Pending, not late", kind: "money" }, { key: "overdue", label: "Overdue", kind: "money" }, { key: "overdueStudents", label: "Students overdue", kind: "number" },
+        ],
+        rows,
+        totals: { class: "Total", students: t.students, due: t.due, paid: t.paid, percent: `${t.percent}%`, notLate: t.notLate, overdue: t.overdue, overdueStudents: t.overdueStudents },
+        chart: data.sections.filter((s) => s.overdue > ZERO).map((s) => ({ label: s.name, value: s.overdue })),
+        note: "Due so far counts fees falling due in the next 30 days. Students who left or are not in a class this year are in their own row.",
       };
     },
   },

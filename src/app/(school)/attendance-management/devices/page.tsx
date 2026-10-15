@@ -41,7 +41,7 @@ export default async function DevicesPage({ searchParams }: Props) {
   const devicesOn = features.has("attendance-devices");
   const qrOn = features.has("attendance-qr");
   const mobileOn = features.has("attendance-mobile");
-  const canEdit = access.change !== "none";
+  const canEdit = access.change !== "none" && access.pages.devices === "full";
   const q = typeof sp.q === "string" ? sp.q.trim().toLowerCase().slice(0, 80) : "";
   const showArchived = sp.archived === "1";
 

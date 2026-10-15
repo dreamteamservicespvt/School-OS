@@ -74,14 +74,9 @@ const chequesToVerify: Widget<"band"> = {
 
 async function overdueStudents(c: DashContext) {
   return c.memo("fee-overdue", async () => {
-    const v = await fees(c);
+    // The same per-class rows as the Fee Dashboard and Fees by class (fees/by-class.ts).
     const t = await tiles(c);
-    const scope = v.see === "all" ? {} : { student: { enrolments: { some: { sectionId: { in: v.sectionIds ?? [] }, archivedAt: null } } } };
-    const late = await c.tx.studentFeeDue.findMany({
-      where: { ...scope, state: "OPEN", balancePaise: { gt: 0 }, dueDate: { lt: addDays(c.today, -30) } },
-      select: { studentId: true }, distinct: ["studentId"],
-    });
-    return { amount: t.overdue, students: t.overdueStudents, over30: late.length };
+    return { amount: t.overdue, students: t.overdueStudents, over30: t.over30 };
   });
 }
 

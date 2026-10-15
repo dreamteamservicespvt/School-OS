@@ -67,7 +67,7 @@ describe("what each role's home loads", () => {
     const staff = home.band.find((b) => b.id === "attendance.staff-present");
     expect(staff?.of).toBe("/ 4");
     expect(staff?.href).toBe("/attendance-management/staff");
-    expect(home.band.find((b) => b.id === "attendance.students-present")?.href).toBe("/attendance-management/reports?report=daily");
+    expect(home.band.find((b) => b.id === "attendance.students-present")?.href).toBe("/attendance-management/register");
     expect(home.tasks.mine.every((t) => t.title !== "Other school task")).toBe(true);
     expect(home.approvals).not.toBeNull();
   });

@@ -13,6 +13,7 @@ import { attendanceSettings, statusList } from "./settings";
 import { attendanceSummary, percentText } from "./summary";
 import { deviceHealth, REJECT_WORDS } from "./devices";
 import { minutesText } from "./time";
+import { classWise } from "./classwise";
 
 export const REPORTS = [
   { key: "daily", label: "Daily attendance", about: "Each class and section on one date, and staff.", students: true, staff: true },
@@ -90,11 +91,16 @@ export async function runReport(tx: Tx, ctx: SchoolContext, access: AttendanceAc
       const days = await schoolDays(tx, ctx, input.date, input.date, access.campusId);
       const info = days.info(input.date);
       if (!info.on) return { title: `Daily attendance ${dayText(input.date)}`, filters: `Date ${dayText(input.date)}`, columns: [], rows: [], empty: `${info.title === "Sunday" ? "Sunday" : `Holiday: ${info.title}`}. Attendance is off for ${dayText(input.date)}.` };
-      for (const s of sections) {
-        const sum = await attendanceSummary(tx, ctx, { sectionId: s.id, from: input.date, to: input.date, today: input.today });
-        const n = sum.people.size;
-        const o = sum.overall;
-        rows.push({ who: s.name, total: n, present: o.present, absent: o.absent, late: o.late, leave: o.leave, notMarked: n - o.markedDays, percent: pct(o.percent), _tone: o.markedDays === 0 ? "warning" : null });
+      // The same per-section rows as the class-wise view and the Dashboard (./classwise.ts), so the numbers agree.
+      if (sections.length) {
+        const years = await tx.academicYear.findMany({ where: { archivedAt: null, startDate: { lte: input.date }, endDate: { gte: input.date }, ...(access.campusId ? { campusId: access.campusId } : {}) }, select: { id: true } });
+        const wanted = access.students === "all" ? null : sections.map((s) => s.id);
+        for (const y of years) {
+          const cw = await classWise(tx, ctx, { yearId: y.id, from: input.date, to: input.date, today: input.today, sectionIds: wanted, campusId: access.campusId });
+          for (const s of cw.sections.filter((x) => x.students > 0 || x.marked > 0)) {
+            rows.push({ who: s.name, total: s.students, present: s.present, absent: s.absent, late: s.late, leave: s.leave, notMarked: Math.max(0, s.students - s.marked), percent: pct(s.percent), _tone: s.marked === 0 ? "warning" : null });
+          }
+        }
       }
       if (staffAll) {
         const staff = await tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] }, joiningDate: { lte: input.date } }, select: { id: true } });

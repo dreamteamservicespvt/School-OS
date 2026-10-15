@@ -54,7 +54,7 @@ export default async function StudentProfilePage({ params, searchParams }: { par
   const view = can.view;
   const back = <BackLink href={p.now ? `${BASE}?class=${p.now.classId}&section=${p.now.sectionId}` : BASE} label="Students" sub={p.now?.section ? classShort(p.now.section.schoolClass.name, p.now.section.name) : undefined} />;
   // Front Office and Gate Security: the photo and the approved pickup list. The Librarian: name, photo and class.
-  if (view.mode === "pickup") return <PickupView p={p} back={back} showPhones={view.phones} pickupHref={BUILT_MODULES.has("front-office") && allowed(current.permissions, "front-office", "create") ? "/front-office" : null} />;
+  if (view.mode === "pickup") return <PickupView p={p} back={back} showPhones={view.phones} pickupHref={BUILT_MODULES.has("front-office") && allowed(current.permissions, "front-office", "view") ? `/front-office/pickup?student=${id}` : null} />;
   if (view.mode === "library") return <LibraryView p={p} back={back} />;
 
   // Tabs: this module's own, then those other modules registered, each by permission and by what this role sees; never an empty tab.

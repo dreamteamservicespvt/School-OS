@@ -9,14 +9,15 @@ import type { AttendanceFeature } from "@/lib/attendance/settings";
 export function attendanceTabs(access: AttendanceAccess, features: Set<AttendanceFeature>): Tab[] {
   const optional = features.has("attendance-devices") || features.has("attendance-qr") || features.has("attendance-mobile");
   const students = access.students !== "none";
+  const shown = (mode: AttendanceAccess["pages"]["take"]) => mode !== "hidden";
   return [
-    ...(students && access.change !== "none" ? [{ href: BASE, label: "Take Attendance", exact: true }] : []),
-    ...(students ? [{ href: `${BASE}/register`, label: "Attendance Register" }] : []),
-    ...(access.studentLeave !== "none" ? [{ href: `${BASE}/student-leave`, label: "Student Leave" }] : []),
-    ...(access.staff !== "none" ? [{ href: `${BASE}/staff`, label: "Staff Attendance" }] : []),
+    ...(students && access.change !== "none" && shown(access.pages.take) ? [{ href: BASE, label: "Take Attendance", exact: true }] : []),
+    ...(students && shown(access.pages.register) ? [{ href: `${BASE}/register`, label: "Attendance Register" }] : []),
+    ...(access.studentLeave !== "none" && shown(access.pages.studentLeave) ? [{ href: `${BASE}/student-leave`, label: "Student Leave" }] : []),
+    ...(access.staff !== "none" && shown(access.pages.staff) ? [{ href: `${BASE}/staff`, label: "Staff Attendance" }] : []),
     ...(students || access.staff === "all" ? [{ href: `${BASE}/reports`, label: "Attendance Reports" }] : []),
-    ...(access.admin && optional ? [{ href: `${BASE}/devices`, label: "Devices & QR" }] : []),
-    ...(access.admin ? [{ href: `${BASE}/settings`, label: "Attendance Settings" }] : []),
+    ...(access.admin && optional && shown(access.pages.devices) ? [{ href: `${BASE}/devices`, label: "Devices & QR" }] : []),
+    ...(access.admin && shown(access.pages.settings) ? [{ href: `${BASE}/settings`, label: "Attendance Settings" }] : []),
   ];
 }
 
@@ -28,7 +29,11 @@ export function AttHead({ access, features, userId, href, sub, actions }: {
   access: AttendanceAccess; features: Set<AttendanceFeature>; userId: string; href: string; sub?: React.ReactNode; actions?: React.ReactNode;
 }) {
   const tabs = attendanceTabs(access, features);
-  const scope = access.change === "none"
+  // Pages the person reads but does not fill in carry "View only", like a View module.
+  const path = href.split("?")[0];
+  const key = path === `${BASE}/register` ? "register" : path === `${BASE}/staff` ? "staff" : path.startsWith(`${BASE}/devices`) ? "devices" : path === `${BASE}/settings` ? "settings" : null;
+  const readOnly = key !== null && access.pages[key] === "view";
+  const scope = access.change === "none" || readOnly
     ? <Pill tone="neutral" className="!h-6 mr-2 align-middle"><Eye size={13} aria-hidden="true" />View only</Pill>
     : access.see === "own" ? <Pill tone="brand" className="!h-6 mr-2 align-middle"><User size={13} aria-hidden="true" />Only yours</Pill> : null;
   return (

@@ -14,6 +14,7 @@ import { checkSchedule, defaultSchedule, splitTotal, type InstallmentDraft } fro
 import { refreshBalances } from "./dues";
 import { monthLabel } from "../staff/dates";
 import { ensureFeeDefaults } from "./settings";
+import { requestApproval } from "../approvals";
 
 // ---------------------------------------------------------------- fee heads
 
@@ -187,12 +188,70 @@ export type FeeRowInput = {
   schedule: InstallmentDraft[];
 };
 
-async function draftOnly(tx: Tx, structureId: string) {
+async function draftOnly(tx: Tx, structureId: string, opts: { waitingOk?: boolean } = {}) {
   const s = await tx.feeStructure.findFirst({ where: { id: structureId, archivedAt: null } });
   if (!s) throw new MoneyProblem("This fee structure was not found.");
   if (s.status !== "DRAFT") throw new MoneyProblem("Only a draft can be changed. Open a new version to change a published structure.");
   await assertYearOpen(tx, s.academicYearId);
+  // A draft waiting for the Principal stays exactly as it was sent, so they approve what they saw.
+  if (!opts.waitingOk && (await waitingApproval(tx, s.id))) throw new MoneyProblem("This draft is waiting for the Principal's approval. Withdraw the request in Approvals to change it.");
   return s;
+}
+
+// ---------------------------------------------------------------- changes after the year starts
+
+export const STRUCTURE_CHANGE = "fee-structure-change" as const;
+
+/** The open approval request for publishing this draft, if any. */
+export async function waitingApproval(tx: Tx, structureId: string) {
+  return tx.approval.findFirst({ where: { type: STRUCTURE_CHANGE, recordId: structureId, status: { in: ["WAITING", "ESCALATED"] } }, select: { id: true, askedById: true, createdAt: true } });
+}
+
+/**
+ * Owner's prototype changes of 14 Oct 2026 (mod-fees.jsx Structure): once the
+ * year has started and a version is in use, a change to students' unpaid
+ * installments is the Principal's decision. The Principal's own change applies
+ * at once (they are the approver); anyone else's goes to Approvals. Next
+ * year's structure, or a class with no version in use yet, needs no approval.
+ */
+export async function publishNeedsApproval(tx: Tx, structureId: string, today: Date, roleKeys: readonly (string | null)[]) {
+  if (roleKeys.includes("principal")) return false;
+  const s = await tx.feeStructure.findFirst({ where: { id: structureId, archivedAt: null }, select: { academicYearId: true, classId: true, category: true } });
+  if (!s) return false;
+  const year = await tx.academicYear.findFirst({ where: { id: s.academicYearId }, select: { startDate: true } });
+  if (!year || year.startDate > today) return false;
+  const inUse = await tx.feeStructure.count({ where: { academicYearId: s.academicYearId, classId: s.classId, category: s.category, status: "PUBLISHED", archivedAt: null } });
+  return inUse > 0;
+}
+
+/** Sends a draft to the Principal to publish from a date. Nothing changes for students until it is approved. */
+export async function askToPublish(tx: Tx, ctx: SchoolContext, structureId: string, effectiveFrom: Date, reason: string) {
+  const s = await draftOnly(tx, structureId);
+  const items = await tx.feeStructureItem.findMany({ where: { structureId, archivedAt: null }, include: { installments: { where: { archivedAt: null } } } });
+  if (!items.length) throw new MoneyProblem("Add at least one fee row before sending it for approval.");
+  for (const item of items) {
+    const problem = checkSchedule(item.totalPaise, item.installments);
+    if (problem) throw new MoneyProblem(problem);
+  }
+  if (reason.trim().length < 5) throw new MoneyProblem("Say why the fees change mid-year, so the Principal can decide.", "reason");
+  const impact = await publishImpact(tx, structureId, effectiveFrom);
+  const cls = await tx.schoolClass.findFirst({ where: { id: s.classId }, select: { name: true } });
+  await tx.feeStructure.update({ where: { id: s.id }, data: { effectiveFrom } });
+  const approval = await requestApproval(tx, ctx, {
+    type: STRUCTURE_CHANGE, recordType: "Fee Structure", recordId: s.id,
+    summary: `${cls?.name ?? "Class"} fee structure, version ${s.version}, from ${monthLabel(effectiveFrom)}: ${impact.students} ${impact.students === 1 ? "student's" : "students'"} unpaid installments`,
+    reason: reason.trim(),
+  });
+  await writeAudit(tx, ctx, { action: "asked-to-publish", recordType: "Fee Structure", recordId: s.id, after: { version: s.version, effectiveFrom: formatDate(effectiveFrom), approval: approval.id, students: impact.students } });
+  return { version: s.version, impact, approvalId: approval.id };
+}
+
+/** Approvals: approving publishes the draft from the date asked (paid rows never change); anything else leaves it a draft. */
+export async function decideStructureChange(tx: Tx, ctx: SchoolContext, structureId: string, decision: string) {
+  if (decision !== "approve") return;
+  const s = await tx.feeStructure.findFirst({ where: { id: structureId, archivedAt: null } });
+  if (!s || s.status !== "DRAFT") throw new MoneyProblem("This draft was already published or discarded.");
+  await publishStructure(tx, ctx, s.id, s.effectiveFrom ?? new Date());
 }
 
 /** Adds or replaces one fee row (with its installments) on a draft. Installments must add up to the total. */
@@ -281,7 +340,7 @@ export async function publishImpact(tx: Tx, structureId: string, effectiveFrom: 
  * by the new version's installments; paid and part-paid rows stay.
  */
 export async function publishStructure(tx: Tx, ctx: SchoolContext, structureId: string, effectiveFrom: Date) {
-  const s = await draftOnly(tx, structureId);
+  const s = await draftOnly(tx, structureId, { waitingOk: true });
   const items = await tx.feeStructureItem.findMany({ where: { structureId, archivedAt: null }, include: { installments: { where: { archivedAt: null } } } });
   if (!items.length) throw new MoneyProblem("Add at least one fee row before publishing.");
   for (const item of items) {

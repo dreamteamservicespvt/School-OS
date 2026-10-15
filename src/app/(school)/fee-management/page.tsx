@@ -20,7 +20,7 @@ export const metadata = { title: "Collect Fee" };
 export default async function CollectFeePage({ searchParams }: { searchParams: SearchParams }) {
   const p = await feePage();
   if (p.viewer.see === "own") redirect(`${BASE}/ledger`);
-  if (!p.can.change) redirect(`${BASE}/dashboard`);
+  if (!p.desk) redirect(`${BASE}/dashboard`);
   const q = one((await searchParams).q).trim().slice(0, 80);
   const list = await withSchool(p.current.ctx, (tx) => (q ? findStudents(tx, p.viewer, q, p.today, 8) : mostOverdue(tx, p.viewer, p.today, 6)));
   return (

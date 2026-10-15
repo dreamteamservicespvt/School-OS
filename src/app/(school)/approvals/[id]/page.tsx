@@ -8,6 +8,7 @@ import { formatDateTime, formatRupees } from "@/lib/format";
 import { OPEN_STATUSES, canDecide, mayReject, requestLabel } from "@/lib/approvals";
 import { ACTION_WORDS, canSeeApproval, statusWords, type HistoryLine } from "@/lib/approvals-inbox";
 import { approvalRecordLink } from "@/lib/approval-links";
+import { askerJobs, profileLinks } from "@/lib/approval-people";
 import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardBody, CardHeader, Detail } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -33,17 +34,19 @@ export default async function ApprovalPage({ params }: { params: Promise<{ id: s
     // Older requests may have no lines; the asking itself is always the first.
     const history: HistoryLine[] = lines.length ? lines : [{ action: "asked", by: a.askedById, at: a.createdAt.toISOString(), note: null }];
     const ids = [...new Set([a.askedById, a.currentApproverId, a.decidedById, ...history.map((h) => h.by)].filter((x): x is string => Boolean(x)))];
-    const [people, roles, mayDecide, mayRejectIt] = await Promise.all([
+    const [people, roles, mayDecide, mayRejectIt, jobs, links] = await Promise.all([
       tx.userLogin.findMany({ where: { id: { in: ids } }, select: { id: true, displayName: true } }),
       tx.role.findMany({ select: { key: true, name: true } }),
       canDecide(tx, current.ctx, a),
       mayReject(tx, current.ctx, a.type),
+      askerJobs(tx, [a.askedById]),
+      profileLinks(tx, current.permissions, a),
     ]);
-    return { a, history, mayDecide, mayRejectIt, people: new Map(people.map((p) => [p.id, p.displayName])), roles: new Map(roles.map((r) => [r.key, r.name])) };
+    return { a, history, mayDecide, mayRejectIt, job: jobs.get(a.askedById) ?? null, links, people: new Map(people.map((p) => [p.id, p.displayName])), roles: new Map(roles.map((r) => [r.key, r.name])) };
   });
   // Not found and not allowed look the same, so nobody learns what exists.
   if (!data) notFound();
-  const { a, history, mayDecide, mayRejectIt, people, roles } = data;
+  const { a, history, mayDecide, mayRejectIt, job, links, people, roles } = data;
   const open = OPEN_STATUSES.includes(a.status);
   const status = statusWords(a.status, a.history);
   const name = (uid: string | null) => (uid ? (uid === current.user.id ? "You" : people.get(uid) ?? "Someone no longer here") : "School OS");
@@ -67,10 +70,20 @@ export default async function ApprovalPage({ params }: { params: Promise<{ id: s
             <Avatar name={name(a.askedById)} size={44} />
             <div className="min-w-0 flex-1">
               <p className="font-semibold text-[15px] truncate">{name(a.askedById)}</p>
+              {job && <p className="text-[13px] text-ink2">{job}</p>}
               <p className="text-[13px] text-ink3 tnum">Asked {formatDateTime(a.createdAt, tz)}</p>
             </div>
             {a.amountPaise !== null && <p className="font-display text-xl font-semibold tnum">{formatRupees(a.amountPaise)}</p>}
           </div>
+          {links.length > 0 && (
+            <div className="flex flex-wrap gap-2 px-5 pt-3">
+              {links.map((l) => (
+                <Link key={l.href} href={l.href} className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-line px-3 text-[13.5px] font-semibold text-ink2 hover:bg-sunken">
+                  {l.kind === "student" ? <I.GraduationCap size={15} aria-hidden="true" /> : <I.UserRound size={15} aria-hidden="true" />}{l.label}
+                </Link>
+              ))}
+            </div>
+          )}
           <CardHeader title="The request" />
           <CardBody>
             <dl className="grid gap-4 sm:grid-cols-3">

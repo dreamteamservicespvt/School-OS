@@ -35,7 +35,7 @@ export default async function DevicePage({ params, searchParams }: { params: Pro
   if (!UUID_RE.test(id)) notFound();
   const { current, access, features, tz, now } = await attendancePage();
   if (!access.admin) redirect("/no-access?m=attendance-management");
-  const canEdit = access.change !== "none";
+  const canEdit = access.change !== "none" && access.pages.devices === "full";
   const onlyRejected = sp.punches === "rejected";
   const list = readListParams(sp, ["punches"]);
   const dates = await periodSetup(current);

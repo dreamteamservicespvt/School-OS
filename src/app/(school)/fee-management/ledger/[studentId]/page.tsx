@@ -65,7 +65,7 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
   const payId = one(sp.pay);
   const cancelId = one(sp.cancel);
   const pq = one(sp.pq).trim().slice(0, 80);
-  const canEdit = p.can.change;
+  const canEdit = p.does("ledger");
 
   const data = await withSchool(p.current.ctx, async (tx) => {
     if (!(await canSeeStudent(tx, p.viewer, studentId))) return null;
@@ -144,8 +144,8 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
     <div>
       <FeeHead pageName="Student Fee Ledger" href={`${BASE}/ledger`} sub="Each student’s fees, payments, balance and receipts. Nothing here is ever deleted."
         actions={<>
-          <ButtonLink href={here({ do: "invoice" })} scroll={false} variant="secondary" icon={FileText} className="hidden md:inline-flex">Fee invoice</ButtonLink>
-          <ButtonLink href={`${BASE}/collect/${studentId}`} variant="primary" icon={IndianRupee}>Collect fee</ButtonLink>
+          {canEdit && <ButtonLink href={here({ do: "invoice" })} scroll={false} variant="secondary" icon={FileText} className="hidden md:inline-flex">Fee invoice</ButtonLink>}
+          {p.desk && <ButtonLink href={`${BASE}/collect/${studentId}`} variant="primary" icon={IndianRupee}>Collect fee</ButtonLink>}
         </>} />
 
       <Stack>

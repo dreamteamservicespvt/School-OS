@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CalendarDays, Clock, Fingerprint, History, Info, Minus, PencilLine, QrCode, Smartphone, Timer, UserCheck, UserX, Users, ArrowLeft } from "lucide-react";
+import { CalendarDays, Clock, Fingerprint, History, Info, Minus, PencilLine, QrCode, Smartphone, Timer, UserCheck, UserX, Users, ArrowLeft, Building2, X } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { day, eachDay, isoDay, monthEnd, monthLabel, monthStart } from "@/lib/staff/dates";
@@ -25,10 +25,12 @@ import { Avatar } from "@/components/ui/avatar";
 import { ButtonLink } from "@/components/ui/button";
 import { Stats } from "@/components/ui/stats";
 import { Chips } from "@/components/ui/chips";
+import { Progress } from "@/components/ui/kit";
+import { cx } from "@/components/ui/cx";
 import { DL, Split, Col } from "@/components/ui/rows";
 import { DataList } from "@/app/(school)/attendance-management/_components/data-list";
 import { RowMenu, type RowMenuItem } from "../_components/row-menu";
-import { CloseSheetButton, UrlDate, UrlSearch, UrlSelect, UrlSheet } from "@/components/ui/url-controls";
+import { CloseSheetButton, UrlDate, UrlSearch, UrlSheet } from "@/components/ui/url-controls";
 import { PeriodFilter } from "@/components/list/period-filter";
 import { MonthCalendar } from "@/components/attendance/month-calendar";
 import { MonthSelect } from "@/components/attendance/month-select";
@@ -54,7 +56,8 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
   const { current, access, settings, features, tz, today, now } = await attendancePage();
   if (access.staff === "none") redirect("/no-access?m=attendance-management");
   const all = access.staff === "all";
-  const canEdit = all && access.change !== "none";
+  // The Principal and Vice Principal read staff attendance; HR and the office mark it (prototype DUTY).
+  const canEdit = all && access.change !== "none" && access.pages.staff === "full";
   const overtimeOn = features.has("attendance-overtime");
   const shiftsOn = features.has("attendance-shifts");
   const qs = (change: Record<string, string | null>, keep = true) => {
@@ -137,12 +140,15 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
     const status = one(sp.status) ?? "";
     const q = (one(sp.q) ?? "").slice(0, 80);
     const data = await withSchool(current.ctx, async (tx) => {
-      const everyone = await staffDay(tx, current.ctx, access, date, { departmentId: dept || undefined, q: q || undefined });
+      // The department tiles count everyone; the list below follows the search and the tile chosen.
+      const whole = await staffDay(tx, current.ctx, access, date);
+      const searched = q ? await staffDay(tx, current.ctx, access, date, { q }) : whole;
       const corrections = all ? await tx.attendanceCorrection.findMany({ where: { forWhom: "staff", archivedAt: null }, orderBy: { createdAt: "desc" }, take: 5 }) : [];
       const users = await tx.userLogin.findMany({ where: { id: { in: corrections.flatMap((c) => [c.requestedById, c.decidedById]).filter((x): x is string => Boolean(x)) } }, select: { id: true, displayName: true } });
       return {
         info: await dayInfo(tx, current.ctx, date, access.campusId),
-        everyone,
+        whole,
+        everyone: searched,
         departments: all ? await tx.department.findMany({ where: { archivedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } }) : [],
         corrections, users: new Map(users.map((u) => [u.id, u.displayName])),
       };
@@ -151,14 +157,27 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
     const isLate = (r: StaffDayRow) => ["late", "half-day"].includes(r.mark?.statusKey ?? "");
     const isLeave = (r: StaffDayRow) => r.onLeave || r.mark?.statusKey === "leave";
     const notIn = (r: StaffDayRow) => !r.mark && !r.onLeave;
-    const present = data.everyone.filter((r) => ["present", "late", "half-day"].includes(r.mark?.statusKey ?? "")).length;
-    const late = data.everyone.filter(isLate);
-    const leave = data.everyone.filter(isLeave);
-    const missing = data.everyone.filter(notIn);
-    const rows = (status === "late" ? late : status === "leave" ? leave : status === "not-marked" ? missing : data.everyone)
-      .toSorted((a, b) => Number(notIn(b)) - Number(notIn(a)) || Number(isLate(b)) - Number(isLate(a)));
+    const isIn = (r: StaffDayRow) => ["present", "late", "half-day"].includes(r.mark?.statusKey ?? "");
+    // The cards at the top: the whole staff that day.
+    const w = data.whole;
+    const present = w.filter(isIn).length;
+    const late = w.filter(isLate);
+    const leave = w.filter(isLeave);
+    const missing = w.filter(notIn);
     const lateAvg = late.length ? Math.round(late.reduce((s, r) => s + (r.mark?.lateMinutes ?? 0), 0) / late.length) : 0;
-    const total = data.everyone.length;
+    const total = w.length;
+    // By department (owner's prototype changes of 13 Oct 2026): tiles replace the department dropdown.
+    const deptName = dept === "none" ? "No department" : data.departments.find((x) => x.id === dept)?.name ?? null;
+    const tiles = [...data.departments, { id: "none", name: "No department" }].map((x) => {
+      const rs = w.filter((r) => (r.departmentId ?? "none") === x.id);
+      const counts = { in: rs.filter(isIn).length, late: rs.filter(isLate).length, leave: rs.filter(isLeave).length, notIn: rs.filter(notIn).length };
+      return { ...x, n: rs.length, ...counts, out: counts.leave + counts.notIn };
+    }).filter((x) => x.n > 0);
+    // The list: the search and the department chosen, then the status chip.
+    const inDept = data.everyone.filter((r) => !dept || (r.departmentId ?? "none") === dept);
+    const dc = { all: inDept.length, late: inDept.filter(isLate).length, leave: inDept.filter(isLeave).length, notIn: inDept.filter(notIn).length };
+    const rows = inDept.filter((r) => (status === "late" ? isLate(r) : status === "leave" ? isLeave(r) : status === "not-marked" ? notIn(r) : true))
+      .toSorted((a, b) => Number(notIn(b)) - Number(notIn(a)) || Number(isLate(b)) - Number(isLate(a)));
     const statusPill = (r: StaffDayRow) => {
       if (notIn(r)) return <Pill tone={isToday && !lock.locked ? "bad" : "neutral"}>{isToday ? "Not in yet" : "Not marked"}</Pill>;
       if (!r.mark) return <Pill tone="info">On leave</Pill>;
@@ -169,7 +188,7 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
     const source = (r: StaffDayRow) => {
       if (!r.mark || !r.mark.inTime) return <span className="text-ink3">—</span>;
       const Ic = SOURCE_ICON[r.mark.method] ?? PencilLine;
-      return <span className="flex items-center gap-1.5 text-[13px] text-ink2 whitespace-nowrap"><Ic size={15} className="text-ink3" aria-hidden="true" />{METHOD_WORDS[r.mark.method] ?? r.mark.method}</span>;
+      return <span className="flex items-center gap-1 text-[12px] text-ink3 whitespace-nowrap"><Ic size={13} aria-hidden="true" />{METHOD_WORDS[r.mark.method] ?? r.mark.method}</span>;
     };
     const menu = (r: StaffDayRow): RowMenuItem[] => [
       { icon: "calendar" as const, label: "Month view", href: qs({ staff: r.staffId, month: null }) },
@@ -206,36 +225,55 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
           { label: isToday ? "Not in yet" : "Not marked", value: missing.length, sub: missing.length ? (isToday ? `No punch by ${new Intl.DateTimeFormat("en-IN", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: tz }).format(now)}` : "No mark that day") : "Everyone is in", tone: missing.length ? "bad" : "ok", icon: UserX, href: qs({ status: "not-marked" }) },
         ]} />
         {!data.info.on && <Banner tone="warn" title={offDayMessage(data.info, date)}>If the school opens that day, turn on &quot;allow attendance&quot; for the date in the School Calendar.</Banner>}
+        {tiles.length > 1 && (
+          <Card>
+            <CardHeader icon={Building2} title="By department" description={deptName ? `Showing ${deptName} only · tap it again for everyone` : "Tap a department to see only its staff"} />
+            <ul className="grid grid-cols-2 md:grid-cols-4 gap-2.5 px-4 pb-4">
+              {tiles.map((t) => {
+                const on = dept === t.id;
+                return (
+                  <li key={t.id} className="min-w-0">
+                    <Link href={qs({ department: on ? null : t.id, status: null })} aria-current={on ? "true" : undefined}
+                      className={cx("block h-full text-left rounded-xl border p-3 transition-colors min-w-0", on ? "border-brand bg-brand/10" : "border-line hover:bg-sunken/70")}>
+                      <span className="flex items-baseline justify-between gap-2 min-w-0"><span className="font-semibold text-[14px] truncate">{t.name}</span><span className="tnum text-[13px] text-ink2 shrink-0"><b className="text-ink">{t.in}</b> of {t.n}</span></span>
+                      <Progress value={(t.in / t.n) * 100} tone={t.out ? "warn" : "ok"} className="mt-2" />
+                      <span className={cx("block text-[12px] mt-1.5 leading-snug", t.out ? "text-ink2" : "text-ink3")}>
+                        {[t.late && `${t.late} late`, t.leave && `${t.leave} on leave`, t.notIn && `${t.notIn} ${isToday ? "not in" : "not marked"}`].filter(Boolean).join(" · ") || "Everyone is in"}
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </Card>
+        )}
         <Split side={340}>
           <Card className="overflow-hidden min-w-0">
             <div className="flex flex-col lg:flex-row gap-2 p-3 border-b border-line">
-              <UrlSearch placeholder="Name or staff code" />
-              <div className="grid grid-cols-2 sm:flex gap-2">
-                {data.departments.length > 0 && <UrlSelect param="department" label="Department" className="sm:w-44" options={[{ value: "", label: "All departments" }, ...data.departments.map((d) => ({ value: d.id, label: d.name }))]} />}
-                <UrlDate label="Date" value={isoDay(date)} max={isoDay(today)} className="sm:w-44" />
+              <UrlSearch placeholder="Name, staff code or designation" />
+              <div className="flex flex-wrap gap-2 items-center">
+                {deptName && <ButtonLink href={qs({ department: null })} variant="secondary" icon={X}>{deptName}</ButtonLink>}
+                <UrlDate label="Date" value={isoDay(date)} max={isoDay(today)} className="flex-1 sm:flex-none sm:w-44" />
                 <ExportMenu href={exportHref} />
               </div>
             </div>
             <div className="px-3 pt-3">
               <Chips label="Staff status" value={status || "all"} options={[
-                { value: "all", label: "Everyone", count: total, href: qs({ status: null }) },
-                { value: "late", label: "Late", count: late.length, href: qs({ status: "late" }) },
-                { value: "leave", label: "On leave", count: leave.length, href: qs({ status: "leave" }) },
-                { value: "not-marked", label: isToday ? "Not in yet" : "Not marked", count: missing.length, href: qs({ status: "not-marked" }) },
+                { value: "all", label: deptName ? `All in ${deptName}` : "Everyone", count: dc.all, href: qs({ status: null }) },
+                { value: "late", label: "Late", count: dc.late, href: qs({ status: "late" }) },
+                { value: "leave", label: "On leave", count: dc.leave, href: qs({ status: "leave" }) },
+                { value: "not-marked", label: isToday ? "Not in yet" : "Not marked", count: dc.notIn, href: qs({ status: "not-marked" }) },
               ]} />
             </div>
-            <DataList rows={rows} rowKey={(r) => r.staffId} href={(r) => qs({ staff: r.staffId, month: null })} minWidth={820} caption={`Staff attendance, ${dayText(date)}`}
+            <DataList rows={rows} rowKey={(r) => r.staffId} href={(r) => qs({ staff: r.staffId, month: null })} minWidth={600} caption={`Staff attendance, ${dayText(date)}`}
               actions={(r) => <RowMenu label={`Actions for ${r.name}`} items={menu(r)} />}
               columns={[
-                { key: "name", label: "Staff", render: (r) => <div className="flex items-center gap-3"><Avatar name={r.name} size={34} /><div className="min-w-0"><p className="font-semibold leading-tight">{r.name}</p><p className="text-[12px] text-ink3 font-mono">{r.staffCode}</p></div></div> },
-                { key: "desig", label: "Department", render: (r) => <div><p className="leading-tight">{r.designation}</p><p className="text-[12px] text-ink3">{r.department ?? "No department"}</p></div> },
-                { key: "in", label: "In", render: (r) => <span className="tnum whitespace-nowrap">{r.mark?.inTime ? clockHHMM(r.mark.inTime, tz) : "—"}</span> },
-                { key: "out", label: "Out", render: (r) => <span className="tnum text-ink3">{r.mark?.outTime ? clockHHMM(r.mark.outTime, tz) : "—"}</span> },
+                { key: "name", label: "Staff", render: (r) => <div className="flex items-center gap-3 min-w-0"><Avatar name={r.name} size={34} /><div className="min-w-0"><p className="font-semibold leading-tight whitespace-nowrap">{r.name}</p><p className="text-[12.5px] text-ink3 truncate">{r.designation} · {r.department ?? "No department"}</p></div></div> },
+                { key: "in", label: "Came in", render: (r) => r.mark?.inTime ? <div className="whitespace-nowrap"><p className="tnum leading-tight">{clockHHMM(r.mark.inTime, tz)}{r.mark.outTime ? <span className="text-ink3"> to {clockHHMM(r.mark.outTime, tz)}</span> : null}</p>{source(r)}</div> : <span className="text-ink3">—</span> },
                 { key: "st", label: "Status", render: (r) => <div>{statusPill(r)}{r.onLeave && r.mark?.statusKey !== "leave" && <p className="text-[11.5px] text-ink3 mt-0.5">Approved leave</p>}{r.overtimeMinutes > 0 && <p className="text-[11.5px] text-ink3 mt-0.5">Overtime {minutesText(r.overtimeMinutes)}</p>}</div> },
-                { key: "src", label: "Source", render: source },
               ]}
               mobile={(r) => ({ avatar: r.name, title: r.name, sub: `${r.designation} · ${r.mark?.inTime ? `in ${clockHHMM(r.mark.inTime, tz)}` : r.onLeave ? "on leave" : "no punch yet"}`, right: statusPill(r) })}
-              footer={rows.length > 0 ? <p className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum">Showing {rows.length} of {total}</p> : false}
+              footer={rows.length > 0 ? <p className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum">Showing {rows.length} of {dc.all}</p> : false}
               empty={<EmptyState bare Icon={Users} title={filtered ? "No staff match" : "No staff yet"}>{filtered ? "Try another name, department or status." : "Staff appear here once they are added in Staff & HR Management."}</EmptyState>} />
           </Card>
           <Col>

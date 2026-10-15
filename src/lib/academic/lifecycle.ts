@@ -56,6 +56,7 @@ async function checkYearDates(tx: Tx, campusId: string, start: Date, end: Date, 
   if (days > 400) throw new AcademicRuleError("An academic year can be at most about 13 months long. Check the end date.", "endDate");
   const overlap = await tx.academicYear.findFirst({
     where: { campusId, archivedAt: null, id: exceptId ? { not: exceptId } : undefined, startDate: { lte: end }, endDate: { gte: start } },
+    orderBy: { startDate: "asc" },
   });
   if (overlap) {
     throw new AcademicRuleError(`These dates overlap ${overlap.name} (${formatDate(overlap.startDate)} to ${formatDate(overlap.endDate)}). Change the dates.`, "startDate");

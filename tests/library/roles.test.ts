@@ -127,6 +127,18 @@ describe("Library Management by role", () => {
     expect(await actions.saveCategoryAction(null, form({ name: "Quiz books", shelf: "Q" }))).toMatchObject({ ok: true });
   });
 
+  it("takes the Librarian straight to the scan page of a stock check just started, and refuses the Principal", async () => {
+    asUser(f.principal.id);
+    expect(await actions.startStockAction(null, form({ name: "October 2026" }))).toMatchObject({ ok: false, message: "Your role cannot run stock checks. Ask the librarian." });
+    asUser(f.librarian.id);
+    const thrown = await actions.startStockAction(null, form({ name: "October 2026" })).then(() => null, (e: unknown) => e as { digest?: string });
+    const session = await withSchool(as(f, f.librarian.id), (tx) => tx.stockCheckSession.findFirstOrThrow({ where: { status: "OPEN" } }));
+    expect(session.name).toBe("October 2026");
+    expect(thrown?.digest).toContain(`/library-management/fines/stock/${session.id}`);
+    // A second one while it is open is refused in plain words, with no redirect.
+    expect(await actions.startStockAction(null, form({ name: "Another check" }))).toMatchObject({ ok: false, message: expect.stringMatching(/still open/) });
+  });
+
   it("exports only from pages a role reads", async () => {
     asUser(f.vp.id);
     const books = await get(booksExport, "/library-management/books/export?format=csv");

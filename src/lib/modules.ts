@@ -81,6 +81,7 @@ export const BUILT_MODULES: ReadonlySet<ModuleKey> = new Set<ModuleKey>([
   "homework-learning",
   "front-office",
   "events-calendar",
+  "reports-analytics",
 ]);
 
 /**

@@ -52,6 +52,8 @@ export const DUTY: Readonly<Record<string, Partial<Record<ModuleKey, Rule>>>> = 
     "staff-hr-management": { hide: ["add"] },
     settings: { hide: ["payment-gateways", "messaging", "data-security"] },
     "homework-learning": { hide: TEACHING_DESK, view: ["homework", "learning-progress", "settings"] },
+    // Early Warnings: class teachers review their students' flags; leaders watch every flag and Remind.
+    "reports-analytics": { view: ["warnings"] },
   },
   "school-admin": {
     "events-calendar": { view: ["daily"] },
@@ -59,12 +61,14 @@ export const DUTY: Readonly<Record<string, Partial<Record<ModuleKey, Rule>>>> = 
     "fee-management": { hide: ["collect"], view: ["dashboard", "payments", "documents", "ledger", "defaulters", "concessions", "reports"] },
     "examination-results": { view: ["marks"] },
     "homework-learning": { hide: TEACHING_DESK, view: ["homework", "learning-progress"] },
+    "reports-analytics": { view: ["warnings"] },
   },
   "vice-principal": {
     "events-calendar": { view: ["daily"] },
     "attendance-management": { hide: ATTENDANCE_DESK, view: ["staff", "devices"] },
     "examination-results": { view: ["marks"] },
     "homework-learning": { view: ["homework", ...TEACHING_DESK] },
+    "reports-analytics": { view: ["warnings"] },
   },
   "academic-head": { "examination-results": { view: ["marks"] }, "homework-learning": { view: ["homework", ...TEACHING_DESK] } },
   "exam-in-charge": { "examination-results": { view: ["marks"] } },

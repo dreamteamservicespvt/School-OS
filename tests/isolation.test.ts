@@ -639,3 +639,38 @@ describe("Homework & Learning records stay in their school", () => {
     await expect(withSchool(ctxA(), (tx) => tx.homework.create({ data: { schoolId: b.id, ...where, title: "X", startDate: day, dueDate: day } }))).rejects.toThrow();
   });
 });
+
+describe("Reports & Analytics records stay in their school", () => {
+  it("school A cannot read, change or add to school B's pins, uses, runs, warning settings, flags, reviews, AI decisions, government exports, custom reports, schedules or sends", async () => {
+    const ctxB = { schoolId: b.id, userId: userB.id };
+    const x = "00000000-0000-4000-8000-000000000004";
+    const ids = await withSchool(ctxB, async (tx) => {
+      await tx.reportPin.create({ data: { schoolId: b.id, userId: userB.id, key: "fe-defaulter" } });
+      await tx.reportUse.create({ data: { schoolId: b.id, userId: userB.id, key: "fe-defaulter" } });
+      const run = await tx.reportRun.create({ data: { schoolId: b.id, userId: userB.id, key: "fe-defaulter", title: "Only in B" } });
+      await tx.earlyWarningSetting.create({ data: { schoolId: b.id } });
+      const flag = await tx.riskFlag.create({ data: { schoolId: b.id, studentId: x, academicYearId: x, area: "attendance", reason: "Only in B", basis: "Only in B" } });
+      await tx.flagReview.create({ data: { schoolId: b.id, flagId: flag.id, decision: "REVIEWED", note: "Only in B", reviewerId: userB.id } });
+      await tx.aiSignalDecision.create({ data: { schoolId: b.id, signalKey: "only-in-b", decision: "DISMISSED", userId: userB.id } });
+      await tx.governmentExport.create({ data: { schoolId: b.id, returnKey: "udise", title: "Only in B", version: "2026-27", rows: 1, exportedById: userB.id } });
+      const custom = await tx.customReport.create({ data: { schoolId: b.id, name: "Only in B", area: "students", columns: ["name"], ownerId: userB.id } });
+      const sched = await tx.reportSchedule.create({ data: { schoolId: b.id, reportKey: `c:${custom.id}`, reportName: "Only in B", recipientIds: [userB.id], nextAt: new Date("2031-06-09T02:30:00Z"), createdById: userB.id } });
+      await tx.reportScheduleSend.create({ data: { schoolId: b.id, scheduleId: sched.id, userId: userB.id, slot: "2031-06-09T02:30" } });
+      return { run: run.id, flag: flag.id, custom: custom.id, sched: sched.id };
+    });
+    await withSchool(ctxA(), async (tx) => {
+      const counts = await Promise.all([
+        tx.reportPin.count(), tx.reportUse.count(), tx.reportRun.count(), tx.earlyWarningSetting.count({ where: { schoolId: b.id } }), tx.riskFlag.count(), tx.flagReview.count(),
+        tx.aiSignalDecision.count(), tx.governmentExport.count(), tx.customReport.count(), tx.reportSchedule.count(), tx.reportScheduleSend.count(),
+      ]);
+      expect(counts).toEqual(Array(11).fill(0));
+      expect(await tx.riskFlag.findUnique({ where: { id: ids.flag } })).toBeNull();
+      expect((await tx.riskFlag.updateMany({ where: { id: ids.flag }, data: { status: "CLOSED" } })).count).toBe(0);
+      expect((await tx.reportRun.updateMany({ where: { id: ids.run }, data: { status: "READY" } })).count).toBe(0);
+      expect((await tx.customReport.updateMany({ where: { id: ids.custom }, data: { name: "Changed by A" } })).count).toBe(0);
+      expect((await tx.reportSchedule.updateMany({ where: { id: ids.sched }, data: { recipientIds: [userA.id] } })).count).toBe(0);
+    });
+    await expect(withSchool(ctxA(), (tx) => tx.flagReview.create({ data: { schoolId: b.id, flagId: ids.flag, decision: "REVIEWED", note: "X", reviewerId: userA.id } }))).rejects.toThrow();
+    await expect(withSchool(ctxA(), (tx) => tx.reportSchedule.create({ data: { schoolId: b.id, reportKey: "fe-defaulter", reportName: "X", recipientIds: [userA.id], nextAt: new Date(), createdById: userA.id } }))).rejects.toThrow();
+  });
+});

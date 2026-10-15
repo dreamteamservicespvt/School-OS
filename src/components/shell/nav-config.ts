@@ -56,7 +56,7 @@ export const APPROVE = b("/approvals", "dashboard", "Approve", "BadgeCheck", tru
 export const BOTTOM_BY_ROLE: Record<string, BarItem[]> = {
   // The Principal, School Admin and Vice Principal do no desk work (owner's changes of 13 Oct 2026): their big button
   // is Approve. Reports & Analytics is not built yet, so the Principal's fourth button is the Fee Dashboard.
-  principal: [HOME, b("/attendance-management/register", "attendance-management", "Attendance", "CalendarCheck2"), APPROVE, b("/fee-management/dashboard", "fee-management", "Fees", "IndianRupee")],
+  principal: [HOME, b("/attendance-management/register", "attendance-management", "Attendance", "CalendarCheck2"), APPROVE, b("/reports-analytics", "reports-analytics", "Reports", "ChartColumn")],
   "school-admin": [HOME, b("/student-management", "student-management", "Students", "GraduationCap"), APPROVE, b("/communication", "communication", "Messages", "Send")],
   "vice-principal": [HOME, b("/attendance-management/register", "attendance-management", "Attendance", "CalendarCheck2"), APPROVE, b("/academic-management/substitutions", "academic-management", "Substitutes", "ArrowRightLeft")],
   accountant: [HOME, b("/fee-management/defaulters", "fee-management", "Defaulters", "UserX"), b("/fee-management", "fee-management", "Collect", "IndianRupee", true), b("/finance-management/day-book", "finance-management", "Day Book", "BookOpen")],
@@ -92,7 +92,7 @@ export const QUICK_BY_ROLE: Record<string, Quick[]> = {
     q("/attendance-management/register", "attendance-management", "Who is absent today", "And which classes are not marked yet", "UserX"),
     q("/fee-management/defaulters", "fee-management", "Fee defaulters", "Who owes fees and for how long", "IndianRupee"),
     q("/examination-results/marks", "examination-results", "Marks progress", "Which teachers have not entered marks", "ClipboardCheck"),
-    q("/fee-management/reports", "fee-management", "Fee reports", "Collection, dues and fees by class", "ChartColumn"),
+    q("/reports-analytics", "reports-analytics", "Reports", "Fees, attendance, results and more", "ChartColumn"),
   ],
   "school-admin": [
     q("/student-management/new", "student-management", "Add student", "Name, class and parent phone is enough", "UserPlus"),

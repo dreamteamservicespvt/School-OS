@@ -1,0 +1,232 @@
+// 19 Reports & Analytics: the catalogue's pins and recent use, background
+// report runs, early-warning Risk Flags with their Flag Reviews, government
+// exports, and the optional custom and scheduled reports. The catalogue itself
+// (Report Definition) is code: each module's report functions, listed in
+// src/lib/reports/catalogue. Records of other modules (Student, Section,
+// Stored File, User Login, Task) are kept by id.
+
+/// Report Pin: a report or an analytics chart a person pinned. kind "report" pins to the top of All Reports, "chart" to their Dashboard.
+model ReportPin {
+  id        String   @id @default(uuid()) @db.Uuid
+  schoolId  String   @map("school_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  kind      String   @default("report")
+  /// The catalogue key ("fees.defaulters") or the chart key ("finance.collection").
+  key       String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([schoolId, userId, kind, key])
+  @@map("report_pin")
+}
+
+/// Report Use: when a person last opened a report, for "Used recently".
+model ReportUse {
+  id        String   @id @default(uuid()) @db.Uuid
+  schoolId  String   @map("school_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  key       String
+  usedAt    DateTime @default(now()) @map("used_at")
+
+  @@unique([schoolId, userId, key])
+  @@index([schoolId, userId, usedAt])
+  @@map("report_use")
+}
+
+/// Report Run: a heavy report prepared in the background, and its file.
+model ReportRun {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  key         String
+  title       String
+  /// The report's filters as page-address words, so the same report can be run again.
+  params      Json      @default("{}")
+  filters     String    @default("")
+  format      String    @default("xlsx")
+  /// QUEUED, READY, FAILED.
+  status      String    @default("QUEUED")
+  rows        Int?
+  fileId      String?   @map("file_id") @db.Uuid
+  problem     String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  readyAt     DateTime? @map("ready_at")
+
+  @@index([schoolId, userId, createdAt])
+  @@map("report_run")
+}
+
+/// Early Warning Setting: the rules behind the flags (one per school). Attendance and pass thresholds come from Attendance and Exam Settings.
+model EarlyWarningSetting {
+  schoolId         String    @id @map("school_id") @db.Uuid
+  /// A fall in a student's percentage between their last two exams, in points, set by the Principal (5 to 50).
+  marksDropPercent Int       @default(15) @map("marks_drop_percent")
+  /// Fees overdue this many days raise a fee flag.
+  feeOverdueDays   Int       @default(60) @map("fee_overdue_days")
+  /// Points above the attendance threshold that still count as Watch.
+  watchMargin      Int       @default(5) @map("watch_margin")
+  lastRefreshAt    DateTime? @map("last_refresh_at")
+  updatedById      String?   @map("updated_by_id") @db.Uuid
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  @@map("early_warning_setting")
+}
+
+/// Risk Flag: one student's risk signal (attendance, marks or fees) waiting for a person to review it.
+model RiskFlag {
+  id             String       @id @default(uuid()) @db.Uuid
+  schoolId       String       @map("school_id") @db.Uuid
+  studentId      String       @map("student_id") @db.Uuid
+  academicYearId String       @map("academic_year_id") @db.Uuid
+  sectionId      String?      @map("section_id") @db.Uuid
+  /// attendance, marks or fees.
+  area           String
+  /// WATCH or ACT_NOW.
+  strength       String       @default("WATCH")
+  /// The reason in plain words, with the numbers behind it.
+  reason         String
+  /// Where the numbers come from.
+  basis          String
+  /// The numbers, for sorting and the student's profile.
+  value          Float?
+  /// NEW, REVIEWED, ACTION_PLANNED, CLOSED.
+  status         String       @default("NEW")
+  /// Set when the signal has cleared or a person closed it.
+  closedAt       DateTime?    @map("closed_at")
+  closedReason   String?      @map("closed_reason")
+  /// The planned action, and the Task or Counselling Case it created.
+  action         String?
+  taskId         String?      @map("task_id") @db.Uuid
+  counsellingId  String?      @map("counselling_id") @db.Uuid
+  raisedAt       DateTime     @default(now()) @map("raised_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  reviews        FlagReview[]
+
+  @@index([schoolId, status])
+  @@index([schoolId, studentId])
+  @@map("risk_flag")
+}
+
+/// Flag Review: a person's decision on a Risk Flag, kept as history.
+model FlagReview {
+  id         String   @id @default(uuid()) @db.Uuid
+  schoolId   String   @map("school_id") @db.Uuid
+  flagId     String   @map("flag_id") @db.Uuid
+  /// REVIEWED, ACTION_PLANNED, NOT_A_CONCERN.
+  decision   String
+  note       String
+  action     String?
+  reviewerId String   @map("reviewer_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at")
+  flag       RiskFlag @relation(fields: [flagId], references: [id])
+
+  @@index([schoolId, flagId])
+  @@map("flag_review")
+}
+
+/// AI Signal Decision: what a person decided about one AI suggestion (dropout risk, a prediction, unusual activity). Suggestions never act by themselves.
+model AiSignalDecision {
+  id        String   @id @default(uuid()) @db.Uuid
+  schoolId  String   @map("school_id") @db.Uuid
+  signalKey String   @map("signal_key")
+  /// FLAGGED (added for review) or DISMISSED (not a concern).
+  decision  String
+  flagId    String?  @map("flag_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([schoolId, signalKey])
+  @@map("ai_signal_decision")
+}
+
+/// Government Export: one UDISE+, APAAR and PEN, or board return file, with its format version and the problems found.
+model GovernmentExport {
+  id             String   @id @default(uuid()) @db.Uuid
+  schoolId       String   @map("school_id") @db.Uuid
+  returnKey      String   @map("return_key")
+  title          String
+  version        String
+  academicYearId String?  @map("academic_year_id") @db.Uuid
+  campusId       String?  @map("campus_id") @db.Uuid
+  rows           Int
+  problems       Int      @default(0)
+  /// True when it was exported with problems; the problems are in a second file.
+  anyway         Boolean  @default(false)
+  fileId         String?  @map("file_id") @db.Uuid
+  problemFileId  String?  @map("problem_file_id") @db.Uuid
+  exportedById   String   @map("exported_by_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([schoolId, createdAt])
+  @@map("government_export")
+}
+
+/// Custom Report: a report a person built from one data area, with their columns, filters, grouping and totals.
+model CustomReport {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  name        String
+  /// students, fees, attendance, staff.
+  area        String
+  columns     String[]
+  /// classId, show, groupBy, totals.
+  filters     Json      @default("{}")
+  ownerId     String    @map("owner_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  @@index([schoolId, ownerId])
+  @@map("custom_report")
+}
+
+/// Report Schedule: a saved or catalogue report emailed to chosen staff every day, week or month.
+model ReportSchedule {
+  id             String               @id @default(uuid()) @db.Uuid
+  schoolId       String               @map("school_id") @db.Uuid
+  /// "c:<custom report id>" or a catalogue key.
+  reportKey      String               @map("report_key")
+  reportName     String               @map("report_name")
+  /// A relative date preset: thisweek, lastweek, thismonth, lastmonth, today, yesterday.
+  datePreset     String               @default("lastweek") @map("date_preset")
+  /// DAILY, WEEKLY, MONTHLY.
+  frequency      String               @default("WEEKLY")
+  /// Weekday 1 (Monday) to 7, or day of the month 1 to 28.
+  day            Int                  @default(1)
+  /// Minutes after midnight, school time.
+  timeMin        Int                  @default(480) @map("time_min")
+  /// pdf or xlsx.
+  format         String               @default("pdf")
+  recipientIds   String[]             @map("recipient_ids") @db.Uuid
+  /// ACTIVE, PAUSED.
+  status         String               @default("ACTIVE")
+  nextAt         DateTime             @map("next_at")
+  lastSentAt     DateTime?            @map("last_sent_at")
+  createdById    String               @map("created_by_id") @db.Uuid
+  createdAt      DateTime             @default(now()) @map("created_at")
+  updatedAt      DateTime             @updatedAt @map("updated_at")
+  archivedAt     DateTime?            @map("archived_at")
+  sends          ReportScheduleSend[]
+
+  @@index([schoolId, status, nextAt])
+  @@map("report_schedule")
+}
+
+/// Report Schedule Send: one email of a scheduled report to one person.
+model ReportScheduleSend {
+  id          String         @id @default(uuid()) @db.Uuid
+  schoolId    String         @map("school_id") @db.Uuid
+  scheduleId  String         @map("schedule_id") @db.Uuid
+  userId      String         @map("user_id") @db.Uuid
+  /// The day the send was for, so it goes once.
+  slot        String
+  rows        Int?
+  fileId      String?        @map("file_id") @db.Uuid
+  messageId   String?        @map("message_id") @db.Uuid
+  problem     String?
+  createdAt   DateTime       @default(now()) @map("created_at")
+  schedule    ReportSchedule @relation(fields: [scheduleId], references: [id])
+
+  @@unique([scheduleId, userId, slot])
+  @@index([schoolId, scheduleId])
+  @@map("report_schedule_send")
+}

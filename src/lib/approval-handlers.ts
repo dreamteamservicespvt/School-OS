@@ -13,3 +13,4 @@ import "./attendance/handlers";
 import "./fees/handlers";
 import "./finance/handlers";
 import "./salary/handlers";
+import "./library/handlers";

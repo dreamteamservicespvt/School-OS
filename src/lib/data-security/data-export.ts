@@ -27,6 +27,7 @@ const MODULE_OF: Record<string, ModuleKey> = {
   Department: "staff-hr-management", Staff: "staff-hr-management", StaffDocument: "staff-hr-management",
   LeaveType: "attendance-management", LeaveRequest: "attendance-management", LeaveBalance: "attendance-management",
   Approval: "settings", Notification: "settings",
+  Author: "library-management", Publisher: "library-management", Reservation: "library-management", StockCheckSession: "library-management", StockCheckScan: "library-management",
 };
 
 /** Kinds of records never put in an export: internal work, not the school's data. */

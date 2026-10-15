@@ -179,7 +179,7 @@ export function BillSheet({ closeHref, orders, vendors, start, today }: { closeH
       {!order && <SSelect name="vendorId" label="Vendor" required options={vendors} placeholder="Choose the vendor" />}
       <div className="grid grid-cols-2 gap-3">
         <SText name="billNo" label="Bill number" required maxLength={40} className="[&_input]:font-mono" />
-        <SMoney key={orderId} name="amount" label="Amount" required start={order?.left ?? ""} help={order ? "Empty part of the order is filled in" : undefined} />
+        <SMoney key={orderId} name="amount" label="Amount" required start={order?.left ?? ""} help={order ? "Filled in with what is still unbilled on the order. Change it to the bill's total." : undefined} />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <SDate name="billDate" label="Bill date" required start={today} max={today} />

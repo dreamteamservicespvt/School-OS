@@ -39,6 +39,11 @@ export async function storeFeeHead(tx: Tx, ctx: SchoolContext) {
 export type IssueLine = { itemId: string; qty: number };
 export type Recipient = { toKind: IssueTo; staffId?: string | null; departmentId?: string | null; sectionId?: string | null; studentId?: string | null };
 
+/** The year a store charge belongs to: the student's enrolment in the current year (not a closed past year). */
+async function chargeYear(tx: Tx, ctx: SchoolContext, studentId: string) {
+  return (await studentSection(tx, ctx, studentId))?.academicYearId;
+}
+
 /** Who an issue is to, in words: "Kiran Rao (staff)", "Science department", "Class 5 A", "Meena Reddy, Class 5 A". */
 export async function recipientWords(tx: Tx, r: Pick<StockIssue, "toKind" | "staffId" | "departmentId" | "sectionId" | "studentId" | "studentSectionId">) {
   if (r.toKind === "STAFF" && r.staffId) return (await tx.staff.findFirst({ where: { id: r.staffId }, select: { fullName: true } }))?.fullName ?? "Staff member";
@@ -132,7 +137,7 @@ export async function issueStock(tx: Tx, ctx: SchoolContext, input: IssueInput) 
     const words = checked.map((c) => `${itemLabel(c.item)} × ${c.qty}`).join(", ");
     const due = await addCharge(tx, ctx, {
       studentId: input.studentId!, feeHeadId: head.id, amountPaise: total, dueDate: input.date,
-      label: `Store: ${words}`.slice(0, 120), reason: `Store counter issue ${issue.number}: ${words}`.slice(0, 300),
+      label: `Store: ${words}`.slice(0, 120), reason: `Store counter issue ${issue.number}: ${words}`.slice(0, 300), academicYearId: await chargeYear(tx, ctx, input.studentId!),
     });
     feeDueId = due.id;
     await tx.stockIssue.update({ where: { id: issue.id }, data: { feeDueId } });
@@ -247,7 +252,7 @@ export async function issueBookSet(tx: Tx, ctx: SchoolContext, input: { setId: s
   let feeDueId: string | null = null;
   if (charge > ZERO) {
     const head = await storeFeeHead(tx, ctx);
-    const due = await addCharge(tx, ctx, { studentId: input.studentId, feeHeadId: head.id, amountPaise: charge, dueDate: input.date, label: set.name.slice(0, 120), reason: `Book set issued at the store counter (${issue.number})` });
+    const due = await addCharge(tx, ctx, { studentId: input.studentId, feeHeadId: head.id, amountPaise: charge, dueDate: input.date, label: set.name.slice(0, 120), reason: `Book set issued at the store counter (${issue.number})`, academicYearId: await chargeYear(tx, ctx, input.studentId) });
     feeDueId = due.id;
     await tx.stockIssue.update({ where: { id: issue.id }, data: { feeDueId } });
   }

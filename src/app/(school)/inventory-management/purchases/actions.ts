@@ -18,7 +18,8 @@ import { invAction, inInventory, need, str, id, optionalId, text, maybe, money, 
 import { cancelBill, cancelRequest, closeOrder, createOrder, createRequest, payBill, receiveGoods, receiptWords, recordBill } from "@/lib/inventory/purchases";
 import { archiveVendor, restoreVendor, saveInventoryVendor } from "@/lib/inventory/vendors";
 import { emailPurchaseOrder } from "@/lib/inventory/po-email";
-import { BASE, rupeesToPaise } from "@/lib/inventory/words";
+import { BASE, MODULE, rupeesToPaise } from "@/lib/inventory/words";
+import type { Action } from "@/lib/permissions";
 
 type S<T = unknown> = FormState<T>;
 
@@ -26,6 +27,20 @@ const notFuture = (w: InvWork, d: Date, field = "date") => {
   if (d > w.today) throw new InventoryProblem("The date cannot be in the future.", field);
   return d;
 };
+
+/**
+ * Bills and vendors are worked by the store keeper (Inventory's own permission)
+ * and by those who pay (Finance Management's permission: the Accountant has
+ * only View in Inventory), so the role is checked against the one that applies.
+ */
+async function storeOrFinance(w: InvWork, action: Action, what: string) {
+  if (w.can.purchase) {
+    await requireAction(MODULE, action);
+    return;
+  }
+  need(w.can.pay, what);
+  await requireAction("finance-management", action === "archive" ? "archive" : "edit");
+}
 
 /* ---------- Requests ---------- */
 
@@ -116,8 +131,8 @@ export async function receiveAction(_p: S, fd: FormData): Promise<S> {
 /* ---------- Bills and payments ---------- */
 
 export async function billAction(_p: S, fd: FormData): Promise<S> {
-  return invAction("create", fd, async (w) => {
-    need(w.can.purchase || w.can.pay, "record vendor bills");
+  return invAction("view", fd, async (w) => {
+    await storeOrFinance(w, "create", "record vendor bills");
     const f = file(fd, "bill");
     const fileId = f ? (await saveFile(w.tx, w.ctx, { file: f, purpose: "inventory-bill", allowed: DOCUMENT_TYPES, maxImageWidth: 1600 })).id : null;
     const r = await recordBill(w.tx, w.ctx, {
@@ -152,8 +167,8 @@ export async function payBillAction(_p: S, fd: FormData): Promise<S> {
 }
 
 export async function cancelBillAction(_p: S, fd: FormData): Promise<S> {
-  return invAction("archive", fd, async (w) => {
-    need(w.can.purchase || w.can.pay, "cancel vendor bills");
+  return invAction("view", fd, async (w) => {
+    await storeOrFinance(w, "archive", "cancel vendor bills");
     const invoiceId = id(fd, "invoiceId", "bill");
     const inv = await w.tx.purchaseInvoice.findFirst({ where: { id: invoiceId } });
     const e = inv ? await w.tx.expense.findFirst({ where: { id: inv.expenseId } }) : null;
@@ -170,8 +185,8 @@ export async function cancelBillAction(_p: S, fd: FormData): Promise<S> {
 
 export async function saveVendorAction(_p: S<{ id: string }>, fd: FormData): Promise<S<{ id: string }>> {
   const vendorId = optionalId(fd, "vendorId");
-  return invAction(vendorId ? "edit" : "create", fd, async (w) => {
-    need(w.can.purchase || w.can.pay, vendorId ? "change vendors" : "add vendors");
+  return invAction("view", fd, async (w) => {
+    await storeOrFinance(w, vendorId ? "edit" : "create", vendorId ? "change vendors" : "add vendors");
     const v = await saveInventoryVendor(w.tx, w.ctx, {
       name: text(fd, "name", "Vendor name", { min: 2, max: 120 }), contactName: maybe(fd, "contactName", "Contact person", 80), phone: maybe(fd, "phone", "Phone", 20), email: maybe(fd, "email", "Email", 120),
       gstin: maybe(fd, "gstin", "GSTIN", 20), address: maybe(fd, "address", "Address", 300), itemsSupplied: maybe(fd, "itemsSupplied", "Items supplied", 300),

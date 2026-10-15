@@ -138,7 +138,7 @@ export default async function RoutePage({ params, searchParams }: { params: Prom
                                 {kids.slice(0, 40).map((k) => (
                                   <li key={k.id} className="flex items-center gap-2.5 text-[13.5px]">
                                     <Avatar name={k.card.name} size={26} />
-                                    {canOpenStudents ? <Link href={`/student-management/${k.studentId}?tab=transport`} className="font-semibold hover:underline truncate">{k.card.name}</Link> : <span className="font-semibold truncate">{k.card.name}</span>}
+                                    {canOpenStudents ? <Link href={`/student-management/students/${k.studentId}?tab=transport`} className="font-semibold hover:underline truncate">{k.card.name}</Link> : <span className="font-semibold truncate">{k.card.name}</span>}
                                     <span className="text-ink3 shrink-0">{k.card.cls}</span>
                                     {k.type !== "TWO_WAY" && <Pill className="!h-5 !text-[11px]">{assignType(k.type)}</Pill>}
                                   </li>

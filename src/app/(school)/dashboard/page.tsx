@@ -33,6 +33,8 @@ export default async function DashboardPage({ searchParams }: Search) {
   // A student has no Dashboard: their home is Homework & Learning (17 §1).
   const who = await requireCurrent();
   if (reachFor(who.permissions, "dashboard", "view") === "none" && reachFor(who.permissions, "homework-learning", "view") !== "none") redirect("/homework-learning");
+  // A driver has no Dashboard either: his home is today's trips in the driver app (01 §2 Driver, 12 §2).
+  if (reachFor(who.permissions, "dashboard", "view") === "none" && who.modulesOn.has("transport-management") && who.permissions["transport-management"]?.see === "own") redirect("/driver");
   const current = await requirePage("dashboard");
   const sp = await searchParams;
   const now = new Date();

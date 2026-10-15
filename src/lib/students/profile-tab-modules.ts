@@ -10,3 +10,4 @@ import "@/lib/communication/student-profile-tab";
 import "@/lib/events/profile-tab";
 import "@/lib/homework/profile-tab";
 import "@/lib/reports/profile-items";
+import "@/lib/transport/profile-tab";

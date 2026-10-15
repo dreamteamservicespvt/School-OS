@@ -105,7 +105,7 @@ export default async function StudentTransportPage({ searchParams }: { searchPar
             footer={`Showing ${data.rows.length} of ${plural(data.all.length, "student")}${period.range ? ` · started ${period.label.toLowerCase()}` : ""}`}
             columns={[
               { key: "tick", label: "", className: "w-8", render: (r) => <RowTick id={r.p.id} label={r.card.name} /> },
-              { key: "s", label: "Student", render: (r) => <div><Link href={`/student-management/${r.p.studentId}?tab=transport`} className="font-semibold hover:underline relative z-[1]">{r.card.name}</Link><p className="text-[12.5px] text-ink3">{r.card.cls} · {r.card.admissionNo}</p></div> },
+              { key: "s", label: "Student", render: (r) => <div><Link href={`/student-management/students/${r.p.studentId}?tab=transport`} className="font-semibold hover:underline relative z-[1]">{r.card.name}</Link><p className="text-[12.5px] text-ink3">{r.card.cls} · {r.card.admissionNo}</p></div> },
               { key: "r", label: "Route", render: (r) => <span className="flex items-center gap-2"><RouteBadge n={r.route.number} size={28} />{r.route.name}</span> },
               { key: "stop", label: "Stop", render: (r) => <span>{r.stop?.name}<span className="block text-[12.5px] text-ink3 tnum">{r.p.type === "DROP_ONLY" ? "Drop only" : clockOf(r.stop?.pickupMin)}</span></span> },
               { key: "t", label: "Type", render: (r) => <Pill tone={r.p.type === "TWO_WAY" ? "neutral" : "info"}>{assignType(r.p.type)}</Pill> },

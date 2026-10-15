@@ -59,6 +59,19 @@ export async function repAction<T>(action: Action, fd: FormData | undefined, wor
   }
 }
 
+/** A one-tap action (pin, Remind, pause): the toast on success, the problem in plain words otherwise. */
+export async function repQuick<T>(action: Action, work: (w: RepWork) => Promise<T>, success: (result: T) => Flash | string | null): Promise<string | null> {
+  try {
+    const result = await inReports(action, work);
+    const f = success(result);
+    if (f) await flash(typeof f === "string" ? { message: f } : f);
+    revalidatePath("/", "layout");
+    return null;
+  } catch (e) {
+    return problemState(e).message ?? "That did not work. Please try again.";
+  }
+}
+
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function str(fd: FormData, key: string) {
   const v = fd.get(key);

@@ -86,6 +86,18 @@ export async function runEntry(tx: Tx, who: ReportViewer, entry: ReportEntry, f:
   return sortRows(t, f.sort, f.dir);
 }
 
+/** The report's own filters (exam, group...) with what is chosen now. */
+export async function optionsFor(tx: Tx, who: ReportViewer, entry: ReportEntry, f: ReportFilters) {
+  if (!entry.options) return [];
+  const a = reportAccess(who);
+  const sections = await reachSections(tx, who.ctx, a.own, f.year?.id ?? null);
+  const cache = new Map<string, Promise<unknown>>();
+  return entry.options({
+    tx, ctx: who.ctx, who, f, tz: who.school.timeZone, sections,
+    memo: <T,>(key: string, fn: () => Promise<T>) => { if (!cache.has(key)) cache.set(key, fn()); return cache.get(key) as Promise<T>; },
+  });
+}
+
 /** Class, section and campus names for the words printed with a report. */
 export async function filterNames(tx: Tx, f: ReportFilters, own: boolean) {
   const [cls, sec, campus, campuses] = await Promise.all([

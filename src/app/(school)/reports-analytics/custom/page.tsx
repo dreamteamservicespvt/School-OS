@@ -19,7 +19,8 @@ import { ButtonLink, buttonClass } from "@/components/ui/button";
 import { LinkTabs } from "@/components/ui/chips";
 import { RepHead, CAT_ICON } from "../_components/head";
 import { ColumnPicker, SaveCustomSheet, ScheduleMenu, ScheduleSheet, type Person, type ReportOption, type ScheduleStart } from "../_components/custom-ui";
-import { archiveCustomAction, archiveScheduleAction } from "../actions";
+import { archiveCustomAction, archiveScheduleAction, customFeatureAction } from "../actions";
+import { QuickButton } from "../_components/bits";
 import { BASE, one, qs, repGuard, withQ, type SearchParams } from "../_lib/page";
 
 export const metadata = { title: "Custom & Scheduled Reports" };
@@ -223,6 +224,12 @@ export default async function CustomReportsPage({ searchParams }: { searchParams
         )}
       </div>
 
+      {p.a.full && (
+        <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-ink3">
+          <span>Custom & Scheduled Reports is on for this school. Switching it off keeps saved reports and pauses schedules.</span>
+          <QuickButton variant="ghost" run={customFeatureAction.bind(null, false)}>Switch off</QuickButton>
+        </div>
+      )}
       {one(sp.save) === "1" && canEdit && data.spec && (
         <SaveCustomSheet spec={{ area: data.spec.area, columns: data.spec.columns, classId: data.spec.classId ?? "", show: data.spec.show, group: data.spec.group, totals: data.spec.totals ? "1" : "0" }}
           sub={`${AREAS[area].label} · ${data.spec.columns.length} columns · ${data.filterText}`} closeHref={withQ(HREF, sp, { save: null })} doneHref={qs(HREF, {})} start="" />

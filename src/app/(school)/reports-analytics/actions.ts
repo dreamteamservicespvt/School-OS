@@ -15,7 +15,8 @@ import { decideAiSignal, DECISION_LABEL, mayReview, remindFlag, reviewFlag, save
 import { archiveCustom, cleanSpec, CustomProblem, saveCustom, saveSchedule, sendSchedule, setScheduleStatus } from "@/lib/reports/custom";
 import { redirect } from "next/navigation";
 import { formatDateTime } from "@/lib/format";
-import { BASE } from "@/lib/reports/access";
+import { BASE, CUSTOM_FEATURE } from "@/lib/reports/access";
+import { writeAudit } from "@/lib/audit";
 
 type S = FormState<unknown>;
 
@@ -146,4 +147,20 @@ export async function sendNowAction(scheduleId: string): Promise<string | null> 
     return { ...out, name: s.reportName };
   }, (x) => (x.sent ? `Sent: ${x.name} to ${x.sent} ${x.sent === 1 ? "person" : "people"}${x.problems.length ? `. Not sent to: ${x.problems.join("; ")}` : ""}.` : null));
   return r ?? problem;
+}
+
+/** Custom & Scheduled Reports on or off for the school (optional, P19). Its reports and schedules stay when off. */
+export async function customFeatureAction(on: boolean): Promise<string | null> {
+  return repQuick("edit", async (w) => {
+    if (!w.a.full) throw new CustomProblem("Only the Principal or School Admin switches this on or off.");
+    const row = await w.tx.schoolFeature.findUnique({ where: { schoolId_featureKey: { schoolId: w.ctx.schoolId, featureKey: CUSTOM_FEATURE } } });
+    if ((row?.isOn ?? false) === on) return;
+    await w.tx.schoolFeature.upsert({
+      where: { schoolId_featureKey: { schoolId: w.ctx.schoolId, featureKey: CUSTOM_FEATURE } },
+      create: { schoolId: w.ctx.schoolId, featureKey: CUSTOM_FEATURE, isOn: on },
+      update: { isOn: on },
+    });
+    if (!on) await w.tx.reportSchedule.updateMany({ where: { status: "ACTIVE", archivedAt: null }, data: { status: "PAUSED" } });
+    await writeAudit(w.tx, w.ctx, { action: on ? "switched-on" : "switched-off", recordType: "School Feature", recordId: null, before: { feature: "Custom & Scheduled Reports", on: !on }, after: { feature: "Custom & Scheduled Reports", on } });
+  }, () => (on ? "Custom & Scheduled Reports is on. Find it in the Reports tabs." : "Custom & Scheduled Reports is off. Saved reports are kept; schedules are paused."));
 }

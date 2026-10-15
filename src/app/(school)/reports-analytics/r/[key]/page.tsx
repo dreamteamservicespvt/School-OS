@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ArrowUpDown, Download, Filter, Hourglass, Inbox, Info, Lock } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { can } from "@/lib/permissions";
@@ -45,14 +45,8 @@ export default async function ReportPage({ params, searchParams }: { params: Pro
   if (!entry) notFound();
   const href = `${BASE}/r/${entry.key}`;
 
-  if (!entryAllowed(entry, p.a, p.current)) {
-    return (
-      <div>
-        <BackLink href={BASE} label="All reports" />
-        <Card><Empty icon={Lock} title={`“${entry.name}” is not open to your role`} body="Reports show only what your role may see. Ask the School Admin for a wider role in Settings, Users & Permissions." /></Card>
-      </div>
-    );
-  }
+  // A report this role may not see goes to No access, like any page the role cannot use.
+  if (!entryAllowed(entry, p.a, p.current)) redirect("/no-access?m=reports-analytics");
 
   const me = p.current.user.id;
   const data = await withSchool(p.current.ctx, async (tx) => {
@@ -92,7 +86,6 @@ export default async function ReportPage({ params, searchParams }: { params: Pro
   const ay = data.years.find((y) => y.id === f.year?.id);
   const closed = entry.money ? fy?.status === "CLOSED" : entry.dated ? Boolean(p.year && f.to < p.year.startDate) : ay?.status === "CLOSED";
 
-  const clsValue = p.a.own ? f.sectionId ?? "" : f.classId ?? "";
   const clsOptions = p.a.own
     ? [{ value: "", label: p.own.length === 1 ? `My class (${p.own[0].label})` : "My classes" }, ...p.own.map((s) => ({ value: s.id, label: s.label }))]
     : [{ value: "", label: "All classes" }, ...data.classes.map((c) => ({ value: c.id, label: c.name }))];

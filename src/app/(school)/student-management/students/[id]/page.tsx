@@ -59,7 +59,7 @@ export default async function StudentProfilePage({ params, searchParams }: { par
 
   // Tabs: this module's own, then those other modules registered, each by permission and by what this role sees; never an empty tab.
   const tabAllowed = (key: string) => view.tabs === null || view.tabs.includes(key);
-  const registered = profileTabsFor(current).filter((t) => tabAllowed(t.key));
+  const registered = profileTabsFor(current).filter((t) => t.tabless || tabAllowed(t.key));
   const tabs = [
     { key: "overview", label: "Overview", order: 10 },
     ...(tabAllowed("academics") ? [{ key: "academics", label: "Academics", order: 20 }] : []),

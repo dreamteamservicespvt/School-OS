@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { History, Pin, SearchX } from "lucide-react";
+import { History, Pin, SearchX, Wand2 } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { catalogueFor } from "@/lib/reports/catalogue";
 import { pinsOf, recentUses } from "@/lib/reports/pins";
@@ -12,7 +12,8 @@ import { Empty } from "@/components/money/kit";
 import { UrlSearch } from "@/components/money/url-filters";
 import { buttonClass } from "@/components/ui/button";
 import { RepHead, CAT_ICON } from "./_components/head";
-import { PinButton } from "./_components/bits";
+import { PinButton, QuickButton } from "./_components/bits";
+import { customFeatureAction } from "./actions";
 import { BASE, one, qs, repGuard, type SearchParams } from "./_lib/page";
 
 export const metadata = { title: "All Reports" };
@@ -76,7 +77,7 @@ export default async function AllReportsPage({ searchParams }: { searchParams: S
           </div>
           {t && <p className="px-5 pt-2 text-[13px] text-ink3">{found.length} {found.length === 1 ? "report matches" : "reports match"} “{q}”</p>}
           {!t && cat === "all" && (
-            <div className="grid lg:grid-cols-2 gap-x-6 px-2 pt-2 pb-2 border-b border-line/70">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-6 px-2 pt-2 pb-2 border-b border-line/70 [&>div]:min-w-0">
               <div>
                 <p className="eyebrow text-ink3 px-3 pt-2 pb-1 flex items-center gap-1.5"><Pin size={12} aria-hidden="true" />Pinned</p>
                 {pinned.length ? <ul>{pinned.map((r) => <Row key={r.key} r={r} showCat />)}</ul>
@@ -94,11 +95,11 @@ export default async function AllReportsPage({ searchParams }: { searchParams: S
               body={mine.length === 0 ? "No report is open to your role yet." : `Nothing called “${q}” in ${cat === "all" ? "your reports" : cat}. Try a shorter word${p.a.pages.custom ? ", or build your own in Custom & Scheduled Reports" : ""}.`}
               action={mine.length ? <Link href={BASE} scroll={false} className={buttonClass("secondary")}>Clear search</Link> : undefined} />
           ) : (
-            <div className="grid xl:grid-cols-2 gap-x-6 px-2 pb-3">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-x-6 px-2 pb-3">
               {groups.map((g) => {
                 const Ic = CAT_ICON[g];
                 return (
-                  <section key={g} className="pt-3" aria-label={g}>
+                  <section key={g} className="pt-3 min-w-0" aria-label={g}>
                     <p className="eyebrow text-ink3 px-3 pb-1 flex items-center gap-1.5"><Ic size={12} aria-hidden="true" />{g}{MONEY.includes(g) && <span className="normal-case tracking-normal font-normal">· financial year</span>}</p>
                     <ul>{found.filter((r) => r.category === g).map((r) => <Row key={r.key} r={r} />)}</ul>
                   </section>
@@ -108,6 +109,16 @@ export default async function AllReportsPage({ searchParams }: { searchParams: S
           )}
           <p className="px-5 py-3 border-t border-line text-[12.5px] text-ink3">Only reports your role may see are listed. Each module adds its reports here as it is switched on.</p>
         </Card>
+        {p.a.full && !p.a.pages.custom && (
+          <Card className="px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
+            <IconTile icon={Wand2} />
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-[14.5px]">Custom & Scheduled Reports is off</p>
+              <p className="text-[13px] text-ink3">Build your own reports and have any report emailed every day, week or month. For schools that need their own reports.</p>
+            </div>
+            <QuickButton run={customFeatureAction.bind(null, true)}>Switch on</QuickButton>
+          </Card>
+        )}
       </div>
     </div>
   );

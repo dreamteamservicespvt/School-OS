@@ -13,6 +13,7 @@ import {
 import { Card, CardHeader } from "@/components/ui/card";
 import { Banner, Chips, Col, DataList, IconTile, Split, Stats, Suggestion, Timeline, Toolbar } from "@/components/ui/kit";
 import { Pill } from "@/components/ui/badge";
+import { Pager } from "@/components/ui/data-list";
 import { Avatar } from "@/components/ui/avatar";
 import { Empty } from "@/components/money/kit";
 import { UrlSearch, UrlSegmented } from "@/components/money/url-filters";
@@ -26,6 +27,8 @@ import { QuickButton } from "../_components/bits";
 import { DropRuleSheet, ReviewSheet } from "../_components/warning-sheets";
 import { aiDecisionAction, remindFlagAction } from "../actions";
 import { BASE, one, qs, repGuard, withQ, type SearchParams } from "../_lib/page";
+
+const PAGE_SIZE = 25;
 
 export const metadata = { title: "Early Warnings" };
 
@@ -65,6 +68,9 @@ export default async function EarlyWarningsPage({ searchParams }: { searchParams
     return { rules, ...res, ai, open, reminded };
   });
   const { rules, list, counts, open, reminded } = data;
+  const pages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+  const page = Math.min(pages, Math.max(1, Number.parseInt(one(sp.page) || "1", 10) || 1));
+  const shown = list.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const keep = { status: status === "open" ? null : status, area: area === "all" ? null : area, q: q || null, period: one(sp.period) || null, from: one(sp.from) || null, to: one(sp.to) || null };
   const close = withQ(HREF, sp, { open: null, review: null, as: null, rule: null, first: null });
@@ -101,7 +107,7 @@ export default async function EarlyWarningsPage({ searchParams }: { searchParams
                 ...STATUSES.map((s) => ({ value: s, label: STATUS_LABEL[s], count: counts[s], href: qs(HREF, { ...keep, status: s }) })),
               ]} />
             </div>
-            <DataList rows={list} rowKey={(f) => f.id} minWidth={720} href={(f) => withQ(HREF, sp, { open: f.id })}
+            <DataList rows={shown} rowKey={(f) => f.id} minWidth={720} href={(f) => withQ(HREF, sp, { open: f.id })}
               empty={status === "NEW" && !q
                 ? <Empty icon={CircleCheck} title="Every flag has been reviewed" body="New flags appear here each morning after attendance is taken, and when marks or fees cross a rule." />
                 : <Empty icon={SearchX} title="No flag matches" body="Try another status, signal or dates." action={<Link href={qs(HREF, { period: "acyear" })} className={buttonClass("secondary")}>Show all open flags this year</Link>} />}
@@ -115,7 +121,9 @@ export default async function EarlyWarningsPage({ searchParams }: { searchParams
                 title: f.name, sub: `${f.cls} · ${f.signals[0]?.text ?? ""}`, lead: <Avatar name={f.name} size={36} />,
                 pills: <><Pill tone={strengthTone(f.strength)} className={cardPill}>{STRENGTH_LABEL[f.strength]}</Pill><Pill tone={STATUS_TONE[f.status]} className={cardPill}>{STATUS_LABEL[f.status]}</Pill></>,
               })}
-              footer={`${list.length} ${list.length === 1 ? "flag" : "flags"} · Act now first`} />
+              footer={list.length > PAGE_SIZE
+                ? <Pager page={page} pageSize={PAGE_SIZE} total={list.length} prevHref={withQ(HREF, sp, { page: page > 2 ? String(page - 1) : null, open: null })} nextHref={withQ(HREF, sp, { page: String(page + 1), open: null })} />
+                : `${list.length} ${list.length === 1 ? "flag" : "flags"} · Act now first`} />
           </Card>
           <Col>
             <Card>

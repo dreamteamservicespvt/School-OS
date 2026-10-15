@@ -152,9 +152,10 @@ async function PassesView({ p, sp }: { p: P; sp: Raw }) {
       <Stack>
         <Views view="passes" />
         {d.late.length > 0 && (
+          <div className="flex flex-col gap-2">
           <Banner tone="bad" icon={AlertTriangle} title={`${plural(d.late.length, "student")} not back.`}
-            action={can.remind ? <span className="flex gap-2 flex-wrap">{lateHostels.map((h) => <ActButton key={h} action={remindWardenAction} fields={{ hostelId: h, what: "late" }} label={lateHostels.length > 1 ? `Remind ${d.hostels.get(h)}` : "Remind the warden"} icon="bell" />)}</span> : undefined}>
-            <ul className="mt-1 flex flex-col gap-1.5">
+            action={can.remind ? <span className="flex gap-2 flex-wrap">{lateHostels.map((h) => <ActButton key={h} action={remindWardenAction} fields={{ hostelId: h, what: "late" }} label={lateHostels.length > 1 ? `Remind ${d.hostels.get(h)}` : "Remind the warden"} icon="bell" />)}</span> : undefined}>Call the person they are with; mark them returned when they are back.</Banner>
+            <ul className="rounded-2xl border border-line bg-surface px-4 py-3 flex flex-col gap-2 text-[14px] text-ink2">
               {d.late.map((r) => (
                 <li key={r.id} className="flex items-center gap-2 flex-wrap">
                   <span className="flex-1 min-w-0"><b className="font-semibold">{d.info.get(r.studentId)?.name ?? "Student"}</b> not returned (due {r.toAt ? clockAt(r.toAt, tz) : ""}{r.toAt && formatDate(r.toAt, tz) !== formatDate(now, tz) ? `, ${formatDate(r.toAt, tz)}` : ""}) · {lateWords(minutesLate(r, now))} late · with {r.collectorName}{can.outings && r.collectorPhone ? `, ${showPhone(r.collectorPhone)}` : ""}</span>
@@ -162,7 +163,7 @@ async function PassesView({ p, sp }: { p: P; sp: Raw }) {
                 </li>
               ))}
             </ul>
-          </Banner>
+          </div>
         )}
         <Stats items={[
           { label: "Waiting approval", value: String(d.waiting), sub: "with the warden", tone: d.waiting ? "warn" : undefined, href: href({ status: "WAITING" }), active: status === "WAITING", icon: CalendarClock },

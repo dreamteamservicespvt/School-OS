@@ -130,7 +130,10 @@ export function projector(points: LatLng[], box: Box = { w: 640, h: 380, pad: 28
   const scale = Math.min((box.w - 2 * box.pad) / spanX, (box.h - 2 * box.pad) / spanY);
   const offX = (box.w - spanX * scale) / 2;
   const offY = (box.h - spanY * scale) / 2;
-  return (p: LatLng) => ({ x: Math.round((offX + (p.lng - minLng) * k * scale) * 10) / 10, y: Math.round((box.h - offY - (p.lat - minLat) * scale) * 10) / 10 });
+  const to = (p: LatLng) => ({ x: Math.round((offX + (p.lng - minLng) * k * scale) * 10) / 10, y: Math.round((box.h - offY - (p.lat - minLat) * scale) * 10) / 10 });
+  /** The place under a point of the drawing (tapping the sketch to set a stop's location). */
+  const back = (x: number, y: number): LatLng => ({ lat: Math.round((minLat + (box.h - offY - y) / scale) * 1e6) / 1e6, lng: Math.round((minLng + (x - offX) / (k * scale)) * 1e6) / 1e6 });
+  return Object.assign(to, { back });
 }
 
 /** An SVG path through the points. */

@@ -6,9 +6,8 @@
 import "server-only";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
-import { requireAction, requirePage, type Current } from "../current";
+import { requireAction, type Current } from "../current";
 import { withSchool, type SchoolContext, type Tx } from "../db";
 import { flash, type Flash } from "../flash";
 import { formValues, type FormState } from "../forms";
@@ -22,7 +21,7 @@ import { DecisionProblem } from "../approvals";
 import { todayDate } from "../front-office/time";
 import { trCan, trViewer, type TrCan, type TrViewer } from "./access";
 import { TransportProblem } from "./problem";
-import { MODULE, type PageKey } from "./words";
+import { MODULE } from "./words";
 
 export { TransportProblem } from "./problem";
 
@@ -61,14 +60,15 @@ export async function inTransport<T>(action: Action, work: (w: TrWork) => Promis
 }
 
 /** A server action: checks, does the work, answers with a FormState. */
-export async function trAction<T>(action: Action, fd: FormData | undefined, work: (w: TrWork) => Promise<T>, success: (result: T) => Flash | string): Promise<FormState<T>> {
+export async function trAction<T>(action: Action, fd: FormData | undefined, work: (w: TrWork) => Promise<T>, success: (result: T) => Flash | string, sendBack = false): Promise<FormState<T>> {
   try {
     const result = await inTransport(action, work);
     const f = success(result);
     const message = typeof f === "string" ? f : f.message;
     await flash(typeof f === "string" ? { message } : f);
     revalidatePath("/transport-management", "layout");
-    return { ok: true, message, data: result };
+    // Only what the screen needs goes back to the browser (a new phone key, shown once).
+    return { ok: true, message, ...(sendBack ? { data: result } : {}) };
   } catch (e) {
     return problemState(e, fd) as FormState<T>;
   }
@@ -77,19 +77,6 @@ export async function trAction<T>(action: Action, fd: FormData | undefined, work
 /** Refuses work a role may not do here, in plain words. */
 export function need(allowed: boolean, what: string) {
   if (!allowed) throw new TransportProblem(`Your role cannot ${what}. Ask the Transport In-charge.`);
-}
-
-/** For pages: the person, refused to /no-access when this page is hidden for their role. */
-export async function trPage(page: PageKey) {
-  const current = await requirePage(MODULE);
-  const v = trViewer(current);
-  if (v.pages[page] === "hidden") {
-    if (page === "live" && v.level !== "none" && !v.live) redirect("/transport-management/trips");
-    redirect(`/no-access?m=${MODULE}`);
-  }
-  const tz = current.school.timeZone;
-  const now = new Date();
-  return { current, v, can: trCan(v, current), tz, now, today: todayDate(tz, now) };
 }
 
 /* ---------- Reading form fields ---------- */

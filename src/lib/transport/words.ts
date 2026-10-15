@@ -184,3 +184,17 @@ export function expiryWords(expires: Date | null, today: Date) {
 }
 
 export const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+/** "₹1,800" with no paise, for chips and short rows (amounts on fees use formatRupees). */
+export function rupeesShort(p: bigint | number | null | undefined) {
+  if (p == null) return "—";
+  const n = typeof p === "bigint" ? Number(p) / 100 : p / 100;
+  return `₹${Math.round(n).toLocaleString("en-IN")}`;
+}
+
+/** Paise as the rupees a person types in a money box ("1800" or "1800.50"). */
+export function rupeesInput(p: bigint | null | undefined) {
+  if (p == null) return "";
+  const hundred = BigInt(100);
+  return p % hundred === BigInt(0) ? String(p / hundred) : (Number(p) / 100).toFixed(2);
+}

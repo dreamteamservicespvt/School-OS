@@ -81,6 +81,25 @@ export async function archiveRoute(tx: Tx, ctx: SchoolContext, routeId: string, 
   return r;
 }
 
+/**
+ * Puts a vehicle (and its driver) on a route from the vehicle form (12 §2:
+ * "Route and driver" on Add vehicle). The vehicle leaves the route it ran
+ * before; an empty route choice just takes it off its route.
+ */
+export async function putVehicleOnRoute(tx: Tx, ctx: SchoolContext, vehicleId: string, routeId: string | null, driverId: string | null) {
+  const was = await tx.route.findFirst({ where: { vehicleId, archivedAt: null } });
+  if (was && was.id !== routeId) {
+    const running = await tx.trip.count({ where: { routeId: was.id, status: "STARTED", vehicleId } });
+    if (running) throw new TransportProblem(`A trip on Route ${was.number} is running with this vehicle. End it first.`, "routeId");
+    await tx.route.update({ where: { id: was.id }, data: { vehicleId: null } });
+    await writeAudit(tx, ctx, { action: "updated", recordType: "Route", recordId: was.id, before: { vehicleId }, after: { vehicleId: null } });
+  }
+  if (!routeId) return null;
+  const r = await tx.route.findFirst({ where: { id: routeId, archivedAt: null } });
+  if (!r) throw new TransportProblem("Choose a route from the list.", "routeId");
+  return editRoute(tx, ctx, routeId, { name: r.name, vehicleId, driverId: driverId ?? r.driverId, attendantId: r.attendantId, feeTwoWayPaise: r.feeTwoWayPaise, feeOneWayPaise: r.feeOneWayPaise, schoolArrivalMin: r.schoolArrivalMin, eveningDepartMin: r.eveningDepartMin });
+}
+
 export async function restoreRoute(tx: Tx, ctx: SchoolContext, routeId: string) {
   const r = await tx.route.findFirst({ where: { id: routeId, archivedAt: { not: null } } });
   if (!r) throw new TransportProblem("This route is not archived.");
@@ -171,6 +190,7 @@ export async function archiveStop(tx: Tx, ctx: SchoolContext, stopId: string, to
   await tx.stop.update({ where: { id: stopId }, data: { archivedAt: new Date() } });
   await renumber(tx, s.routeId);
   await writeAudit(tx, ctx, { action: "archived", recordType: "Stop", recordId: stopId, before: { name: s.name } });
+  return s;
 }
 
 async function renumber(tx: Tx, routeId: string) {

@@ -18,6 +18,7 @@ export const TEMPLATE_CATEGORIES = [
   { key: "staff", label: "Staff" },
   { key: "parent-link", label: "Parent Link" },
   { key: "queries", label: "Queries" },
+  { key: "transport", label: "Transport" },
 ] as const;
 
 export const categoryLabel = (key: string) => TEMPLATE_CATEGORIES.find((c) => c.key === key)?.label ?? key;
@@ -181,6 +182,15 @@ export const READY_TEMPLATES: ReadyTemplate[] = [
   } },
   { key: "ptm", name: "PTM reminder", category: "events", channel: "whatsapp", texts: {
     en: "Dear {guardian_name}, the parent-teacher meeting for {class} is on {date}. Please attend. - {school_name}",
+  } },
+  { key: "bus-pickup", name: "Picked up by the bus", category: "transport", channel: "whatsapp", texts: {
+    en: "Dear {guardian_name}, {message} - {school_name}",
+  } },
+  { key: "bus-drop", name: "Dropped by the bus", category: "transport", channel: "whatsapp", texts: {
+    en: "Dear {guardian_name}, {message} - {school_name}",
+  } },
+  { key: "bus-arriving", name: "Bus arriving", category: "transport", channel: "whatsapp", texts: {
+    en: "Dear {guardian_name}, {message} - {school_name}",
   } },
   { key: "homework-set", name: "Homework set", category: "homework", channel: "app", subject: "New homework", texts: {
     en: "New homework for {class}: {message}",

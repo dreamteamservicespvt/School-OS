@@ -95,12 +95,12 @@ export async function struggles(tx: Tx, s: HomeworkScope, sectionId: string, sub
     where: { sectionId, archivedAt: null, status: { not: "DRAFT" }, ...subjectFilter, ...(from && to ? { createdAt: { gte: from, lt: new Date(to.getTime() + DAY) } } : {}) },
     include: { questions: { where: { archivedAt: null, kind: { not: "SHORT" } } }, attempts: { where: { submittedAt: { not: null } }, select: { answers: true } } },
   });
-  const out: { key: string; label: string; pct: number; href: string }[] = [];
+  const out: { key: string; label: string; quiz: string; pct: number; href: string }[] = [];
   for (const q of quizzes) {
     if (q.attempts.length < 3) continue;
     for (const qn of q.questions) {
       const right = q.attempts.filter((a) => (a.answers as Record<string, unknown>)[qn.id] === qn.correctIndex).length;
-      out.push({ key: qn.id, label: qn.text.length > 60 ? `${qn.text.slice(0, 57)}…` : qn.text, pct: Math.round((right / q.attempts.length) * 100), href: `/homework-learning/quizzes?open=${q.id}` });
+      out.push({ key: qn.id, label: qn.text.length > 60 ? `${qn.text.slice(0, 57)}…` : qn.text, quiz: q.title, pct: Math.round((right / q.attempts.length) * 100), href: `/homework-learning/quizzes?open=${q.id}` });
     }
   }
   return out.sort((a, b) => a.pct - b.pct).slice(0, 6);

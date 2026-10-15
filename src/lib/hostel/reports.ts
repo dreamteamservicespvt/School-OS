@@ -10,11 +10,12 @@ import "server-only";
 import type { SchoolContext, Tx } from "../db";
 import type { Row, Table } from "../reports/types";
 import { clockAt, localOf } from "../front-office/time";
+import { dayStartUtc } from "../periods";
 import { maskPhone } from "../front-office/words";
 import { studentsInfo } from "./allocation";
 import { occupancy, roomGrid } from "./rooms";
 import { minutesLate, shownStatus } from "./outings";
-import { BASE, INCIDENT_TYPE, OUTING_TYPE, PASS_STATUS, SESSION, lateWords, type IncidentType, type OutingType } from "./words";
+import { BASE, INCIDENT_TYPE, OUTING_TYPE, PASS_STATUS, SESSION, isoOf, lateWords, type IncidentType, type OutingType } from "./words";
 
 export type HostelFilter = {
   /** Inclusive dates (00:00 UTC) of the chosen period; null for all dates. */
@@ -31,7 +32,8 @@ export type HostelFilter = {
 
 const ZERO = BigInt(0);
 const dateRange = (f: HostelFilter) => (f.from && f.to ? { gte: f.from, lte: f.to } : undefined);
-const momentRange = (f: HostelFilter) => (f.from && f.to ? { gte: f.from, lt: new Date(f.to.getTime() + 86_400_000) } : undefined);
+/** Timestamps inside the chosen days, in the school's time zone. */
+const momentRange = (f: HostelFilter) => (f.from && f.to ? { gte: dayStartUtc(isoOf(f.from), f.tz), lt: dayStartUtc(isoOf(new Date(f.to.getTime() + 86_400_000)), f.tz) } : undefined);
 const hostelWhere = (f: HostelFilter) => (f.hostelIds ? { hostelId: { in: f.hostelIds } } : {});
 const monthOf = (d: Date, tz?: string) => (tz ? localOf(d, tz).slice(0, 7) : d.toISOString().slice(0, 7));
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];

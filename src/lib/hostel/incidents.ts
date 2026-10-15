@@ -29,6 +29,13 @@ export type IncidentInput = {
   behaviourTypeKey: string | null;
 };
 
+/** The incident's day for the behaviour record (Student Management checks dates by the UTC calendar, so never a day ahead of it). */
+function behaviourDay(at: Date, tz: string, now: Date) {
+  const local = new Date(`${localOf(at, tz).slice(0, 10)}T00:00:00Z`);
+  const utcToday = new Date(`${now.toISOString().slice(0, 10)}T00:00:00Z`);
+  return local.getTime() > utcToday.getTime() ? utcToday : local;
+}
+
 export async function recordIncident(tx: Tx, ctx: SchoolContext, input: IncidentInput, opts: { now: Date; tz: string; assertHostel: (hostelId: string | null) => void; mayAddBehaviour: boolean }) {
   const description = input.description.trim();
   if (description.length < 3) throw new HostelProblem("Write what happened, in a few words.", "description");
@@ -65,7 +72,7 @@ export async function recordIncident(tx: Tx, ctx: SchoolContext, input: Incident
   let behaviourId: string | null = null;
   if (input.type === "DISCIPLINE" && input.behaviourTypeKey && ids.length) {
     if (!opts.mayAddBehaviour) throw new HostelProblem("Your role cannot add to the behaviour record. Leave it off.", "behaviourTypeKey");
-    const b = await reportIncident(tx, ctx, { studentIds: ids, typeKey: input.behaviourTypeKey, description: `Hostel incident ${incidentNo}: ${description}`, date: new Date(`${localOf(input.at, opts.tz).slice(0, 10)}T00:00:00Z`), actionTaken: input.actionTaken, informParent: false });
+    const b = await reportIncident(tx, ctx, { studentIds: ids, typeKey: input.behaviourTypeKey, description: `Hostel incident ${incidentNo}: ${description}`, date: behaviourDay(input.at, opts.tz, opts.now), actionTaken: input.actionTaken, informParent: false });
     behaviourId = b.id;
     await tx.hostelIncident.update({ where: { id: inc.id }, data: { behaviourIncidentId: behaviourId } });
   }

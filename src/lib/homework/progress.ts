@@ -43,7 +43,7 @@ export async function classProgress(tx: Tx, s: HomeworkScope, sectionId: string,
 
   const rows: ProgressRow[] = students.map((st) => {
     const mine = subs.filter((x) => x.studentId === st.id && x.status !== "EXCUSED");
-    const done = mine.filter((x) => (HANDED_IN as readonly string[]).includes(x.status)).length;
+    const done = handedIn(mine);
     const scored = mine.filter((x) => x.score !== null);
     const scorePct = scored.length ? Math.round(scored.reduce((a, x) => a + (x.score! / (max.get(x.homeworkId) ?? 100)) * 100, 0) / scored.length) : null;
     const best = new Map<string, { score: number; max: number }>();
@@ -75,6 +75,30 @@ export async function classProgress(tx: Tx, s: HomeworkScope, sectionId: string,
       lessonsPerStudent: rows.length ? Math.round((rows.reduce((a, r) => a + r.lessonsDone, 0) / rows.length) * 10) / 10 : 0,
     },
   };
+}
+
+/** How many of these submissions were handed in (Submitted, Late or Graded). Excused work is left out before counting. */
+const handedIn = (subs: { status: string }[]) => subs.filter((x) => (HANDED_IN as readonly string[]).includes(x.status)).length;
+
+/**
+ * Homework done for each student over a school year, as Learning Progress
+ * counts it: homework set up to today, excused work left out, handed in out
+ * of given. Used outside Homework & Learning (the PTM cards and meeting view),
+ * so it has no reach of its own: callers show it only to people who may see
+ * those students.
+ */
+export async function homeworkDone(tx: Tx, studentIds: string[], academicYearId: string, today: Date) {
+  const out = new Map<string, { given: number; done: number; pct: number | null }>();
+  if (!studentIds.length) return out;
+  const subs = await tx.submission.findMany({
+    where: { studentId: { in: studentIds }, archivedAt: null, status: { not: "EXCUSED" }, homework: { academicYearId, archivedAt: null, startDate: { lte: today } } },
+    select: { studentId: true, status: true },
+  });
+  for (const id of studentIds) {
+    const mine = subs.filter((x) => x.studentId === id);
+    out.set(id, { given: mine.length, done: handedIn(mine), pct: mine.length ? pct(handedIn(mine), mine.length) : null });
+  }
+  return out;
 }
 
 /** Subjects of a section this person may read progress for: every subject (full, class teacher), or their own. */

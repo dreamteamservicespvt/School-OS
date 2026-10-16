@@ -70,7 +70,7 @@ export default async function EventsSettingsPage({ searchParams }: { searchParam
           </Card>
           <Card>
             <CardHeader icon={Users} title="PTM defaults" />
-            <PtmDefaultsForm slot={s.ptmSlotMinutes} hour={s.ptmReminderHour} canEdit={can} />
+            <PtmDefaultsForm slot={s.ptmSlotMinutes} hour={s.ptmReminderHour} parentBooking={s.ptmParentBooking} canEdit={can} />
           </Card>
         </Col>
         <Col>

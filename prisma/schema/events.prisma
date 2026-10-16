@@ -17,6 +17,8 @@ model EventsSetting {
   ptmSlotMinutes    Int      @default(10) @map("ptm_slot_minutes")
   /// Hour (0-23, school time) on the evening before a PTM when parents with a slot are reminded.
   ptmReminderHour   Int      @default(18) @map("ptm_reminder_hour")
+  /// Parents book, change or cancel a PTM slot themselves on Parent Link (until the day before); the office can always book for them.
+  ptmParentBooking  Boolean  @default(true) @map("ptm_parent_booking")
   /// OUT: leave photos with students without photo consent out. BLUR: blur those students.
   galleryRule       String   @default("OUT") @map("gallery_rule")
   /// Calendar feed for Google or Outlook (read only).

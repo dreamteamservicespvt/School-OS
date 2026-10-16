@@ -20,6 +20,7 @@ const DEFAULTS = (schoolId: string): EventsSettings => ({
   fourthSaturdayOff: false,
   ptmSlotMinutes: 10,
   ptmReminderHour: 18,
+  ptmParentBooking: true,
   galleryRule: "OUT",
   feedOn: false,
   feedVersion: 1,
@@ -60,7 +61,7 @@ export async function eventsSettings(tx: Tx, ctx: SchoolContext): Promise<Events
   return row ?? DEFAULTS(ctx.schoolId);
 }
 
-export type SettingsChange = Partial<Pick<EventsSettings, "secondSaturdayOff" | "fourthSaturdayOff" | "ptmSlotMinutes" | "ptmReminderHour" | "galleryRule" | "feedOn" | "housesOn" | "clubsOn" | "sportsOn" | "creditsOn" | "dailyOn">>;
+export type SettingsChange = Partial<Pick<EventsSettings, "secondSaturdayOff" | "fourthSaturdayOff" | "ptmSlotMinutes" | "ptmReminderHour" | "ptmParentBooking" | "galleryRule" | "feedOn" | "housesOn" | "clubsOn" | "sportsOn" | "creditsOn" | "dailyOn">>;
 
 export async function saveEventsSettings(tx: Tx, ctx: SchoolContext, change: SettingsChange) {
   if (change.ptmSlotMinutes != null && ![5, 10, 15, 20].includes(change.ptmSlotMinutes)) throw new EventsProblem("Slot length is 5, 10, 15 or 20 minutes.", "ptmSlotMinutes");

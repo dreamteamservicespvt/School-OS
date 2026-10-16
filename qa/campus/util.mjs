@@ -1,6 +1,6 @@
 // Helpers for the campus QA scripts (Transport, Library, Inventory, Hostel, Staff & HR).
 //   QA_OUT=/home/claude/qa-out/campus node qa/campus/<script>.mjs
-import { newPage, signIn, go, mainText, shot, layoutIssues, close, VIEWPORTS, BASE } from "../lib.mjs";
+import { newPage, go, mainText, shot, layoutIssues, close, VIEWPORTS, BASE } from "../lib.mjs";
 import { appendFileSync, mkdirSync, existsSync } from "node:fs";
 import path from "node:path";
 export { go, mainText, shot, layoutIssues, close, VIEWPORTS, BASE };
@@ -20,7 +20,12 @@ export async function asUser(login, viewport = VIEWPORTS.laptop1280) {
     await page.context().close();
   }
   const page = await newPage(viewport, { extraHTTPHeaders: { "x-forwarded-for": IP } });
-  await signIn(page, login);
+  // Like signIn() in ../lib.mjs, but waits for the next page instead of a quiet network (dashboards poll).
+  await page.goto(`${BASE}/sign-in`);
+  await page.getByLabel(/username|mobile|login/i).first().fill(login);
+  await page.getByLabel(/password/i).first().fill(process.env.QA_PASSWORD ?? "QaDemo#2026");
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await page.waitForURL((u) => !u.pathname.startsWith("/sign-in"), { timeout: 45_000 }).catch(() => {});
   if (page.url().includes("/sign-in")) throw new Error(`Sign-in failed for ${login}: ${await mainText(page, 400)}`);
   await page.context().storageState({ path: file });
   return page;

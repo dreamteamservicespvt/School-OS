@@ -15,6 +15,8 @@ for (const t of tables) {
   out += `ALTER TABLE "${t}" ENABLE ROW LEVEL SECURITY;\n`;
   out += `ALTER TABLE "${t}" FORCE ROW LEVEL SECURITY;\n`;
   out += `CREATE POLICY "${t}_same_school" ON "${t}" USING (school_id = app_school_id()) WITH CHECK (school_id = app_school_id());\n`;
+  // Only purge_school() (an empty closed school deleted for good) may delete, as the owner.
+  out += `CREATE POLICY "${t}_purge" ON "${t}" FOR DELETE USING (current_user = 'school_os_owner' AND school_id::text = current_setting('app.school_purge', true));\n`;
 }
 writeFileSync(file, sql + out);
 console.log(`School walls added to: ${tables.join(", ")}`);

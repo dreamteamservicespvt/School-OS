@@ -91,7 +91,6 @@ model School {
   notifications Notification[]
   pushDevices   PushDevice[]
   approvals     Approval[]
-  auditLog      AuditLogEntry[]
 
   @@map("school")
 }
@@ -352,7 +351,8 @@ model AuditLogEntry {
   ipAddress   String?  @map("ip_address")
   at          DateTime @default(now())
 
-  school School @relation(fields: [schoolId], references: [id])
+  // No database link to School on purpose: when an empty test school is
+  // deleted for good (purge_school), its Audit Log entries stay, unchanged.
 
   @@index([schoolId, recordType, recordId])
   @@index([schoolId, at])

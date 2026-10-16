@@ -18,7 +18,7 @@ import { carryOver, endAtYearEnd } from "@/lib/transport/carry";
 import { cancelTrip, changeForDay, closeAlert, endTrip, markBoarding, markStop, remindInCharge, saveSchedule, startTrip } from "@/lib/transport/trips";
 import { messageRoute } from "@/lib/transport/messages";
 import { saveSettings, setLiveTracking } from "@/lib/transport/settings";
-import { BASE, clockOf, paperLabel, plural, showPlate, tripKind } from "@/lib/transport/words";
+import { BASE, clockOf, inviteWords, paperLabel, plural, showPlate, tripKind } from "@/lib/transport/words";
 
 type S = FormState<unknown>;
 const say = (message: string, detail?: string | null) => (detail ? `${message}. ${detail}` : message);
@@ -240,11 +240,16 @@ function driverInput(fd: FormData) {
 export async function addDriverAction(_: S, fd: FormData): Promise<S> {
   return trAction("create", fd, async (w) => {
     need(w.can.fleet, "add drivers");
-    return addDriver(w.tx, w.ctx, { ...driverInput(fd), invite: bool(fd, "invite") });
-  }, (r) => say(
-    `${r.driver.name} added as ${r.driver.role === "DRIVER" ? "driver" : "attendant"}`,
-    [r.staffNote, r.invite ? (r.invite.sent ? `Driver app invite sent to ${r.driver.phone}` : "The invite could not be sent now. Send it again from the list.") : r.usedStaffLogin ? "Signs in to the driver app with their staff login" : "No app invite sent"].filter(Boolean).join(" · "),
-  ));
+    const r = await addDriver(w.tx, w.ctx, { ...driverInput(fd), invite: bool(fd, "invite") });
+    return { ...r, expired: Boolean(r.driver.licenceExpiry && r.driver.licenceExpiry < w.today) };
+  }, (r) => {
+    const words = say(
+      `${r.driver.name} added as ${r.driver.role === "DRIVER" ? "driver" : "attendant"}`,
+      [r.staffNote, r.invite ? inviteWords(r.invite.sent.sentBy, r.driver.phone) : r.usedStaffLogin ? "Signs in to the driver app with their staff login" : "No app invite sent"].filter(Boolean).join(" · "),
+    );
+    // Kept as typed (the school may be waiting for the renewal), but never silently.
+    return r.expired ? { message: `${words}. The licence already expired on ${formatDate(r.driver.licenceExpiry!)}: update it before ${r.driver.name} drives`, tone: "danger" } : words;
+  });
 }
 
 export async function editDriverAction(_: S, fd: FormData): Promise<S> {
@@ -259,8 +264,8 @@ export async function sendInviteAction(_: S, fd: FormData): Promise<S> {
     need(w.can.fleet, "send driver app invites");
     const d = await w.tx.driver.findFirst({ where: { id: id(fd, "driverId", "driver") } });
     const r = await sendAppInvite(w.tx, w.ctx, d!.id);
-    return { d: d!, sent: r.sent };
-  }, ({ d, sent }) => (sent ? say(`Driver app invite sent to ${d.phone}`, "A message with the app link and how to sign in.") : { message: say("The invite could not be sent now", "Check Communication, Message Settings, then send again."), tone: "danger" }));
+    return { d: d!, sent: r.sent.sentBy };
+  }, ({ d, sent }) => (sent.length ? say(inviteWords(sent, d.phone), "A message with the app link and how to sign in.") : { message: inviteWords(sent, d.phone), tone: "danger" }));
 }
 
 /** Turning a login off signs the person out of every school; the other schools come from their access, outside the school's walls. */

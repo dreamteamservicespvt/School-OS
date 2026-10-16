@@ -64,25 +64,47 @@ export type Home = {
 
 type Collected = { [K in WidgetKind]: { w: Widget; item: unknown }[] };
 
-async function run(c: DashContext, list: readonly Widget[]) {
-  const out: Collected = { band: [], attention: [], agenda: [], birthdays: [], panel: [] };
+/** Widgets load in this many transactions at once (the Vercel test copy's pool has 3 connections). */
+const GROUPS = 3;
+
+/** One group of widgets, one after another, in one transaction. Results keep each widget's place in the list. */
+async function run(c: DashContext, list: readonly { w: Widget; i: number }[]) {
+  const results: { i: number; w: Widget; items: unknown[] }[] = [];
   const failed: string[] = [];
-  for (const w of list) {
+  for (const { w, i } of list) {
     // Each widget runs inside a savepoint: a failed query aborts only its own
     // part of the transaction, so the widgets after it still load.
     await c.tx.$executeRawUnsafe("SAVEPOINT widget");
     try {
       const r = await w.load(c);
-      const items = r == null ? [] : Array.isArray(r) ? r : [r];
       await c.tx.$executeRawUnsafe("RELEASE SAVEPOINT widget");
-      for (const item of items) out[w.kind].push({ w, item });
+      results.push({ i, w, items: r == null ? [] : Array.isArray(r) ? r : [r] });
     } catch (e) {
       await c.tx.$executeRawUnsafe("ROLLBACK TO SAVEPOINT widget");
       failed.push(w.id);
       console.error(JSON.stringify({ level: "error", event: "dashboard-widget", widget: w.id, error: e instanceof Error ? e.message : String(e) }));
     }
   }
-  return { out, failed };
+  return { results, failed };
+}
+
+/**
+ * Runs the widgets in GROUPS transactions at the same time (QA PLATFORM-13: 66
+ * widgets one after another took up to 3 s). No transaction is open while these
+ * wait, so a small connection pool cannot be held up by the page's own work.
+ */
+async function runAll(viewer: Viewer, base: Omit<DashContext, "tx" | "memo">, list: readonly Widget[]) {
+  const cache = new Map<string, Promise<unknown>>();
+  const memo = <T,>(key: string, fn: () => Promise<T>) => {
+    if (!cache.has(key)) cache.set(key, fn());
+    return cache.get(key) as Promise<T>;
+  };
+  const groups = Array.from({ length: Math.min(GROUPS, list.length) }, (_, g) => list.map((w, i) => ({ w, i })).filter(({ i }) => i % GROUPS === g));
+  const done = await Promise.all(groups.map((group) => withSchool(viewer.ctx, (tx) => run({ ...base, tx, memo }, group), { timeout: 30_000 })));
+  const out: Collected = { band: [], attention: [], agenda: [], birthdays: [], panel: [] };
+  for (const { w, items } of done.flatMap((d) => d.results).sort((a, b) => a.i - b.i)) for (const item of items) out[w.kind].push({ w, item });
+  const failed = done.flatMap((d) => d.failed);
+  return { out, failed: list.filter((w) => failed.includes(w.id)).map((w) => w.id) };
 }
 
 /** "School day 86 of 220" from the year's working days and closed days on the School Calendar. */
@@ -116,18 +138,13 @@ export async function buildHome(viewer: Viewer, opts: { now?: Date; widgets?: re
   const homes = homesFor(viewer);
   const list = widgetsFor(viewer, homes, opts.widgets, opts.built);
 
-  return withSchool(viewer.ctx, async (tx) => {
+  const year = await withSchool(viewer.ctx, async (tx) => {
     const y = await currentYear(tx, viewer.ctx, viewer.campusId);
-    const year = y ? { id: y.id, name: y.name, startDate: y.startDate, endDate: y.endDate, status: y.status, campusId: y.campusId } : null;
-    const cache = new Map<string, Promise<unknown>>();
-    const c: DashContext = {
-      tx, viewer, homes, today, now, tz, year, minuteNow: minuteIn(tz, now),
-      memo: <T,>(key: string, fn: () => Promise<T>) => {
-        if (!cache.has(key)) cache.set(key, fn());
-        return cache.get(key) as Promise<T>;
-      },
-    };
-    const { out, failed } = await run(c, list);
+    return y ? { id: y.id, name: y.name, startDate: y.startDate, endDate: y.endDate, status: y.status, campusId: y.campusId } : null;
+  });
+  const { out, failed } = await runAll(viewer, { viewer, homes, today, now, tz, year, minuteNow: minuteIn(tz, now) }, list);
+
+  return withSchool(viewer.ctx, async (tx) => {
 
     // Band: the person's first home first, then the order set for that home, then the registry order.
     const order = (w: Widget, id: string) => {

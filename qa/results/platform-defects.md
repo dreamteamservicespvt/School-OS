@@ -19,7 +19,7 @@ Where a part of a finding comes from reading the code, the entry says so.
 | PLATFORM-10 | P3 | App shell (theme) | Muted text, warning text and text on red fail 4.5:1 | c53bc48 |
 | PLATFORM-11 | P4 | Settings (Audit log) | "Approved" appears twice in the Action filter | not fixed |
 | PLATFORM-12 | P3 | App shell | Profile menu does not take focus; New sheet lets focus escape | c53bc48 |
-| PLATFORM-13 | P3 | Dashboard | Dashboard takes 1.4 to 3.0s in the large school | not fixed |
+| PLATFORM-13 | P3 | Dashboard | Dashboard takes 1.4 to 3.0s in the large school | fixed, speed not re-measured |
 | PLATFORM-14 | P3 | App shell | Notifications panel count is capped at 8; profile menu links go nowhere | c53bc48 |
 | PLATFORM-15 | P4 | Reports & Analytics | A report hidden by a school feature says "not open to your role" | not fixed |
 | PLATFORM-16 | P4 | Sign in | "Forgot password?" is a Tab stop between login and password | not fixed |
@@ -145,7 +145,7 @@ Where a part of a finding comes from reading the code, the entry says so.
   - 1.4 to 3.0s of server time. CEMS takes 0.85 to 1.4s.
   - Profiling with `qa/platform/dash-profile.ts`: 66 widgets run one after another inside one transaction, each with a savepoint. The slowest is `exams.marks-due` at 112ms; most take 15 to 90ms. There is no single hotspot.
   - All other big Sunrise pages took 64 to 370ms.
-- **Not fixed:** this needs a design change, such as running widgets in parallel transactions or caching the band. Better left to the lead.
+- **Fix:** `src/lib/dashboard/compose.ts` now loads the widgets in 3 transactions at the same time, each keeping its savepoints and the original widget order. The school year is read first and the rest of the page afterwards, so no transaction holds a connection while others wait (the Vercel test copy's pool has 3). Dashboard tests pass. The speed in Sunrise has not been re-measured yet.
 
 ## PLATFORM-14 · P3 · App shell · Notifications panel count and profile menu links
 - **Steps:**

@@ -12,6 +12,7 @@ import { writeAudit } from "@/lib/audit";
 import { parseForm, type FormState } from "@/lib/forms";
 import { flash } from "@/lib/flash";
 import { CORRECTION_COOKIE } from "./_lib/server";
+import { sealCorrection } from "@/lib/academic/correction-cookie";
 
 const correctionSchema = z.object({
   yearId: z.string().uuid("Choose the year."),
@@ -32,7 +33,7 @@ export async function startCorrection(_prev: FormState, formData: FormData): Pro
     return y;
   });
   if (!year || year.status !== "CLOSED") return { ok: false, message: "This year is not closed, so no correction is needed." };
-  (await cookies()).set(CORRECTION_COOKIE, JSON.stringify({ yearId: year.id, reason: parsed.data.reason, userId: current.user.id, until: Date.now() + 30 * 60_000 }), { httpOnly: true, sameSite: "lax", path: "/", maxAge: 30 * 60, secure: process.env.NODE_ENV === "production" });
+  (await cookies()).set(CORRECTION_COOKIE, sealCorrection({ yearId: year.id, reason: parsed.data.reason, userId: current.user.id, until: Date.now() + 30 * 60_000 }), { httpOnly: true, sameSite: "lax", path: "/", maxAge: 30 * 60, secure: process.env.NODE_ENV === "production" });
   await flash({ message: `Correction to ${year.name} started for 30 minutes. Every change is logged with your reason.`, tone: "info" });
   revalidatePath("/academic-management", "layout");
   return { ok: true };

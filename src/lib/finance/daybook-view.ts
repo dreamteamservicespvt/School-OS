@@ -118,6 +118,8 @@ export async function dayBookView(tx: Tx, f: DayBookFilter) {
   const totals = dayBookTotals(entries);
   const sum = (list: DayRow[]) => list.reduce((s, r) => s + r.total, ZERO);
   const posted = rows.filter((r) => r.source === "fee" && !r.cancelled);
+  const moneyOut = new Set(entries.filter((e) => e.direction === "OUT").map((e) => e.id));
+  const feeIn = rows.filter((r) => r.source === "fee" && r.total > ZERO && r.section !== "refunds");
   const online = posted.filter((r) => r.mode === "GATEWAY");
   const offline = posted.filter((r) => r.mode !== "GATEWAY");
   const groups = [
@@ -141,8 +143,11 @@ export async function dayBookView(tx: Tx, f: DayBookFilter) {
     filtered, sections, totals, groups,
     modes: [...modes.entries()].map(([mode, amount]) => ({ mode, amount })).sort((a, b) => (b.amount > a.amount ? 1 : -1)),
     byAccount: [...byAccount.entries()].map(([name, v]) => ({ name, ...v })),
-    feesFull: sum(posted.filter((r) => r.section !== "fees-partial")), feesPartial: sum(posted.filter((r) => r.section === "fees-partial")),
-    reversed: sum(sections.refunds),
+    // The "Total income" line: every fee and other income entry in view, less the income reversals in view, so it adds up
+    // to Total income (a payment cancelled later still counts on its own day; refunds are expenses, not reversals).
+    feesFull: sum(feeIn.filter((r) => r.section !== "fees-partial")), feesPartial: sum(feeIn.filter((r) => r.section === "fees-partial")),
+    otherIncome: sum(sections.income.filter((r) => r.total > ZERO)),
+    reversed: sum(rows.filter((r) => r.sourceType !== "refund" && r.section === "refunds" && moneyOut.has(r.id))),
     waiting: { count: waitingPays.length, amount: waitingPays.reduce((s, p) => s + p.amountPaise, ZERO) },
     rows: all,
   };

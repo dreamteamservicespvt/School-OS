@@ -142,7 +142,7 @@ export async function giveHomework(tx: Tx, s: HomeworkScope, input: GiveInput, t
     }
   }
   const groupId = targets.length > 1 ? randomUUID() : null;
-  const made: { id: string; sectionLabel: string; students: number }[] = [];
+  const made: { id: string; sectionLabel: string; students: number; notified: number; parents: string | null }[] = [];
   const settings = await homeworkSettings(tx, ctx);
   for (const t of targets) {
     let students = await sectionStudents(tx, s.yearId!, t.id);
@@ -159,7 +159,8 @@ export async function giveHomework(tx: Tx, s: HomeworkScope, input: GiveInput, t
       },
     });
     await tx.submission.createMany({ data: students.map((st) => ({ schoolId: ctx.schoolId, homeworkId: hw.id, studentId: st.id })) });
-    made.push({ id: hw.id, sectionLabel: t.label, students: students.length });
+    const entry = { id: hw.id, sectionLabel: t.label, students: students.length, notified: 0, parents: null as string | null };
+    made.push(entry);
     await writeAudit(tx, ctx, {
       action: "created", recordType: "Homework", recordId: hw.id,
       after: { title, section: t.label, subject: subject.name, givenTo: input.givenTo, students: students.length, start: formatDate(input.startDate), due: formatDate(input.dueDate), maxMarks: input.maxMarks },
@@ -167,12 +168,31 @@ export async function giveHomework(tx: Tx, s: HomeworkScope, input: GiveInput, t
     });
     // Students with logins get an app notification (17 §2 "Students are notified when homework is set").
     for (const st of students) {
-      if (st.userLoginId) await notify(tx, ctx, { to: st.userLoginId, type: "homework-set", text: `New homework in ${subject.name}: ${title}. Due ${dayDate(input.dueDate)}.`, link: "/homework-learning", groupKey: "homework-set", mergedText: (n) => `${n} new homework` });
+      if (!st.userLoginId) continue;
+      await notify(tx, ctx, { to: st.userLoginId, type: "homework-set", text: `New homework in ${subject.name}: ${title}. Due ${dayDate(input.dueDate)}.`, link: "/homework-learning", groupKey: "homework-set", mergedText: (n) => `${n} new homework` });
+      entry.notified++;
     }
-    await tellParentsHomeworkSet(tx, ctx, { homeworkId: hw.id, title, subject: subject.name, sectionLabel: t.label, dueDate: input.dueDate, studentIds: students.map((x) => x.id) });
+    entry.parents = await tellParentsHomeworkSet(tx, ctx, { homeworkId: hw.id, title, subject: subject.name, sectionLabel: t.label, dueDate: input.dueDate, studentIds: students.map((x) => x.id) });
   }
   await addAttachments(tx, ctx, made.map((m) => m.id), input.attachments);
   return { made, subject: subject.name };
+}
+
+/**
+ * What the teacher is told after giving homework: only what really happened.
+ * Students with a login get an app notification; parents get a message only
+ * when the "Homework set" message is on and WhatsApp or SMS is connected.
+ */
+export function givenWords(made: { sectionLabel: string; students: number; notified: number; parents: string | null }[]) {
+  const students = made.reduce((a, m) => a + m.students, 0);
+  const notified = made.reduce((a, m) => a + m.notified, 0);
+  const parents = made.map((m) => m.parents);
+  const told = notified ? ` ${plural(notified, "student")} notified in the app.` : "";
+  const toParents = parents.includes("sent") ? " Parents were messaged."
+    : parents.includes("no-channel") ? " Parents were not messaged: WhatsApp or SMS is not connected yet."
+      : parents.includes("off") ? " Parents were not messaged: the Homework set message is off (Communication, Message Settings)."
+        : "";
+  return `Homework sent to ${made.map((m) => m.sectionLabel).join(", ")} (${plural(students, "student")}).${told}${toParents}`;
 }
 
 export type EditInput = { title: string; instructions: string | null; startDate: Date; dueDate: Date; maxMarks: number; onlineSubmission: boolean; attachments: NewAttachment[]; removeAttachmentIds: string[] };
@@ -339,7 +359,8 @@ export async function homeworkDetail(tx: Tx, s: HomeworkScope, id: string, today
     tx.section.findUnique({ where: { id: h.sectionId }, include: { schoolClass: { select: { name: true } } } }),
     tx.subject.findUnique({ where: { id: h.subjectId }, select: { name: true } }),
     h.teacherId ? tx.staff.findUnique({ where: { id: h.teacherId }, select: { fullName: true } }) : null,
-    tx.submission.findMany({ where: { homeworkId: id, archivedAt: null } }),
+    // A student sees only their own work, never their classmates' (17 §2, 05-roles).
+    tx.submission.findMany({ where: { homeworkId: id, archivedAt: null, ...(s.level === "student" ? { studentId: s.student?.id ?? "" } : {}) } }),
   ]);
   const counts = (await countsFor(tx, [id])).get(id)!;
   return {

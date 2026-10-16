@@ -19,15 +19,23 @@ export async function recordIncomeAction(_prev: unknown, fd: FormData) {
       receivedFrom: text(fd, "receivedFrom", "Received from", { min: 2, max: 120 }), vendorId: null, mode,
       reference: mode === "CASH" ? null : optionalText(fd, "reference", "Reference", 80), accountId: optionalId(fd, "accountId"), note: optionalText(fd, "note", "Note", 500),
     }, post);
-    return { post, no: r.receiptNo, amount: formatRupees(r.amountPaise), date: formatDate(r.date) };
-  }, (r) => (r.post ? `${r.no} posted · ${r.amount}. In the Day Book for ${r.date}. Print the receipt from the entry.` : `Saved as draft · ${r.amount}. Not in the Day Book until you post it.`));
+    return { post, no: r.receiptNo, amount: formatRupees(r.amountPaise), date: formatDate(r.date), moved: dayBookMoved(r) };
+  }, (r) => (r.post ? `${r.no} posted · ${r.amount}. ${dayBookWords(r)} Print the receipt from the entry.` : `Saved as draft · ${r.amount}. Not in the Day Book until you post it.`));
+}
+
+/** The Day Book date when it is not the income's own date (that day was already closed). */
+function dayBookMoved(r: { date: Date; dayBookDate: Date | null }) {
+  return r.dayBookDate && r.dayBookDate.getTime() !== r.date.getTime() ? formatDate(r.dayBookDate) : null;
+}
+function dayBookWords(r: { date: string; moved: string | null }) {
+  return r.moved ? `${r.date} was already closed, so it is in the Day Book for ${r.moved}.` : `In the Day Book for ${r.date}.`;
 }
 
 export async function postIncomeAction(_prev: unknown, fd: FormData) {
   return financeAction("edit", fd, async (tx, ctx) => {
     const r = await postIncome(tx, ctx, id(fd, "incomeId", "income"));
-    return { no: r.receiptNo, date: formatDate(r.date) };
-  }, (r) => `${r.no} posted. It is in the Day Book for ${r.date}.`);
+    return { no: r.receiptNo, date: formatDate(r.date), moved: dayBookMoved(r) };
+  }, (r) => `${r.no} posted. ${dayBookWords(r)}`);
 }
 
 export async function cancelIncomeAction(_prev: unknown, fd: FormData) {

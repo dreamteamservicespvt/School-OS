@@ -41,14 +41,14 @@ export async function recordIncome(tx: Tx, ctx: SchoolContext, input: IncomeInpu
   });
   await writeAudit(tx, ctx, { action: "created", recordType: "Income", recordId: income.id, after: { head: head.name, amount: formatRupees(input.amountPaise), from: input.receivedFrom, date: formatDate(input.date) } });
   if (postNow) return postIncome(tx, ctx, income.id);
-  return income;
+  return { ...income, dayBookDate: null as Date | null };
 }
 
 /** Posts a draft: receipt number, Day Book entry. */
 export async function postIncome(tx: Tx, ctx: SchoolContext, incomeId: string) {
   const i = await tx.income.findFirst({ where: { id: incomeId } });
   if (!i) throw new MoneyProblem("This income was not found.");
-  if (i.status === "POSTED") return i;
+  if (i.status === "POSTED") return { ...i, dayBookDate: null as Date | null };
   if (i.status === "CANCELLED") throw new MoneyProblem("This income is cancelled.");
   const fy = await assertBooksOpen(tx, ctx, i.date);
   const s = await financeSettings(tx, ctx);
@@ -56,12 +56,13 @@ export async function postIncome(tx: Tx, ctx: SchoolContext, incomeId: string) {
   const receiptNo = formatNumber(`${s.incomeReceiptPrefix}${fy.name}/`, n, 5);
   const posted = await tx.income.update({ where: { id: i.id }, data: { status: "POSTED", receiptNo, postedAt: new Date(), financialYearId: fy.id } });
   const head = await tx.accountHead.findUnique({ where: { id: i.accountHeadId } });
-  await postToDayBook(tx, ctx, {
+  const { entry } = await postToDayBook(tx, ctx, {
     date: i.date, direction: "IN", amountPaise: i.amountPaise, mode: i.mode, section: "other-income", headName: head?.name ?? "Income", accountHeadId: i.accountHeadId,
     accountId: i.accountId, sourceType: "income", sourceId: i.id, sourceKey: `income:${i.id}`, vendorId: i.vendorId, partyName: i.receivedFrom, reference: i.reference, note: i.note,
   });
   await writeAudit(tx, ctx, { action: "posted", recordType: "Income", recordId: i.id, after: { receiptNo } });
-  return posted;
+  // The Day Book date differs from the income's date when that day was already closed.
+  return { ...posted, dayBookDate: entry.date as Date | null };
 }
 
 export async function cancelIncome(tx: Tx, ctx: SchoolContext, incomeId: string, reason: string, today: Date) {

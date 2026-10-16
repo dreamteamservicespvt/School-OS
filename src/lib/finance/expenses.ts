@@ -182,7 +182,7 @@ export async function payExpense(tx: Tx, ctx: SchoolContext, expenseId: string, 
   await tx.expense.update({ where: { id: e.id }, data: { paidPaise: paid, status: paid >= e.amountPaise ? "PAID" : "APPROVED" } });
   const head = await tx.accountHead.findUnique({ where: { id: e.accountHeadId } });
   const vendor = e.vendorId ? await tx.vendor.findUnique({ where: { id: e.vendorId } }) : null;
-  await postToDayBook(tx, ctx, {
+  const { entry } = await postToDayBook(tx, ctx, {
     date: input.date,
     direction: "OUT",
     amountPaise: amount,
@@ -201,7 +201,8 @@ export async function payExpense(tx: Tx, ctx: SchoolContext, expenseId: string, 
     note: `${e.number}${e.note ? `: ${e.note}` : ""}`,
   });
   await writeAudit(tx, ctx, { action: "paid", recordType: "Expense", recordId: e.id, after: { amount: formatRupees(amount), date: formatDate(input.date), mode: financeModeLabel(input.mode), reference: input.reference } });
-  return pay;
+  // The Day Book date differs from the date paid when that day was already closed.
+  return { ...pay, dayBookDate: entry.date };
 }
 
 /** Cancels an expense with a reason. A paid one gets reversing Day Book entries on the cancel date. */

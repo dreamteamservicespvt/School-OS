@@ -72,7 +72,8 @@ export async function listSchools(f: SchoolFilters, now = new Date(), take = 500
     const where = schoolsWhere(f);
     const [cards, total, chips] = await Promise.all([
       tx.consoleSchool.findMany({ where, orderBy: [{ createdAt: "desc" }], take }),
-      tx.consoleSchool.count(),
+      // Every school apart from closed ones, unless the Closed chip is chosen.
+      tx.consoleSchool.count({ where: f.status === "closed" ? { status: "CLOSED" } : { status: { not: "CLOSED" } } }),
       tx.consoleSchool.groupBy({ by: ["status"], where: schoolsWhere(f, { withStatus: false }), _count: true }),
     ]);
     const ids = cards.map((c) => c.id);

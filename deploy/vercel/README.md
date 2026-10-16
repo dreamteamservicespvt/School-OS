@@ -51,6 +51,6 @@ Usernames: `principal`, `admin`, `accountant`, `teacher`, `subjectteacher`,
 `store` and `viceprincipal`, all with `DEMO_PASSWORD`.
 
 The Super Admin console is at `/console/sign-in` with the mobile number
-`9849012345` and the same password. Its 6-digit code is not sent anywhere on
-the test copy: open the project's **Logs** in Vercel and search for
-`console-message` to read it.
+`9849012345` and the same password. The test copy has no SMS or email, so the
+code page shows the 6-digit code itself (the owner's choice); real deployments
+never show or log codes.

@@ -304,12 +304,18 @@ model LibraryFine {
   /// The student's fee row this fine was added to (Fee Management).
   feeDueId     String?           @map("fee_due_id") @db.Uuid
   approvalId   String?           @map("approval_id") @db.Uuid
-  /// "fees" or "desk".
+  /// "fees", "desk" or "salary".
   paidHow      String?           @map("paid_how")
   paidAt       DateTime?         @map("paid_at")
   receiptNo    String?           @map("receipt_no")
   /// Desk collections are recorded as Income in Finance Management.
   incomeId     String?           @map("income_id") @db.Uuid
+  /// A staff member's fine to be taken from their next salary (Salary Management).
+  salaryAt     DateTime?         @map("salary_at")
+  salaryById   String?           @map("salary_by_id") @db.Uuid
+  /// The Payroll Adjustment (a deduction) the fine is on, and its Payroll Run.
+  adjustmentId String?           @map("adjustment_id") @db.Uuid
+  runId        String?           @map("run_id") @db.Uuid
   waivedAt     DateTime?         @map("waived_at")
   waivedById   String?           @map("waived_by_id") @db.Uuid
   waiveReason  String?           @map("waive_reason")

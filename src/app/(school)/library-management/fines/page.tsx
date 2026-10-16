@@ -23,11 +23,12 @@ import { Stats, Stack, Toolbar, DataList, Empty } from "@/components/money/kit";
 import { cx } from "@/components/ui/cx";
 import { issueMembers } from "@/lib/library/desk";
 import { fineWhere, syncFeeFines } from "@/lib/library/fines";
+import { salaryWords } from "@/lib/library/salary";
 import { openSession } from "@/lib/library/stock";
 import { FINE_REASON, FINE_STATUS, paiseToRupees, plural, type FineReason, type FineStatus } from "@/lib/library/words";
 import { LibHead } from "../_components/head";
 import { ActButton } from "../_components/client";
-import { CollectSheet, CorrectSheet, RejectChargeSheet, StartStockSheet, WaiveSheet } from "../_components/sheets";
+import { CollectSheet, CorrectSheet, RejectChargeSheet, StartStockSheet, StopSalarySheet, ToSalarySheet, WaiveSheet } from "../_components/sheets";
 import { BASE, libGuard, libPeriod, one, qs, UUID, type SearchParams } from "../_lib/page";
 import { finesWhere, readFinesFilter, FINE_TABS } from "../_lib/fines";
 import { decideChargeAction, remindLibrarianAction } from "../actions";
@@ -72,15 +73,16 @@ async function FinesView({ p, sp }: { p: P; sp: Raw }) {
     ]);
     const shown = highlight && !rows.some((r) => r.id === highlight) ? await tx.libraryFine.findFirst({ where: { id: highlight } }) : null;
     const all = shown ? [shown, ...rows] : rows;
-    const [members, books, copies, approvals] = await Promise.all([
+    const [members, books, copies, approvals, runs] = await Promise.all([
       issueMembers(tx, current.ctx, s, all),
       tx.book.findMany({ where: { id: { in: [...new Set(all.map((r) => r.bookId))] } }, select: { id: true, title: true } }),
       tx.bookCopy.findMany({ where: { id: { in: [...new Set(all.map((r) => r.copyId))] } }, select: { id: true, accessionNo: true } }),
       tx.approval.findMany({ where: { id: { in: all.map((r) => r.approvalId).filter((x): x is string => Boolean(x)) } } }),
+      tx.payrollRun.findMany({ where: { id: { in: all.map((r) => r.runId).filter((x): x is string => Boolean(x)) } }, select: { id: true, month: true, status: true } }),
     ]);
     const deciders = new Set<string>();
     for (const a of approvals) if (await canDecide(tx, current.ctx, a)) deciders.add(a.id);
-    return { total, rows: all, due, waiting, paid, waived, byStatus, members, books: new Map(books.map((b) => [b.id, b.title])), copies: new Map(copies.map((c) => [c.id, c.accessionNo])), deciders, extra: Boolean(shown) };
+    return { total, rows: all, due, waiting, paid, waived, byStatus, members, books: new Map(books.map((b) => [b.id, b.title])), copies: new Map(copies.map((c) => [c.id, c.accessionNo])), deciders, runs: new Map(runs.map((r) => [r.id, r])), extra: Boolean(shown) };
   });
 
   type Row = (typeof d.rows)[number];
@@ -93,6 +95,12 @@ async function FinesView({ p, sp }: { p: P; sp: Raw }) {
   const collect = can.fines ? sheetFine("collect") : null;
   const correct = can.fines ? sheetFine("correct") : null;
   const reject = sheetFine("reject");
+  // A staff member's fine can go to their next salary (Salary Management) instead of the desk.
+  const salaryOn = current.modulesOn.has("salary-management");
+  const mayGoToSalary = (r: Row) => can.fines && salaryOn && r.status === "DUE" && Boolean(r.staffId) && !r.feeDueId && !r.salaryAt;
+  const salaryWhere = (r: Row) => salaryWords(r.runId ? d.runs.get(r.runId) ?? null : null);
+  const toSalary = (() => { const r = sheetFine("salary"); return r && mayGoToSalary(r) ? r : null; })();
+  const stopSalary = (() => { const r = can.fines ? sheetFine("desk") : null; return r && r.status === "DUE" && r.salaryAt ? r : null; })();
   const count = (st: string) => d.byStatus.find((x) => x.status === st)?._count._all ?? 0;
   const exportHref = qs(`${base}/export`, { status: f.status || null, reason: f.reason || null, q: f.q || null, ...per.keep });
 
@@ -102,7 +110,9 @@ async function FinesView({ p, sp }: { p: P; sp: Raw }) {
       bits.push(<ActButton key="ok" action={decideChargeAction} fields={{ fineId: r.id, decision: "approve" }} label="Approve" icon="check" variant="primary" />);
       bits.push(<Link key="no" href={href({ reject: r.id })} scroll={false} className="text-[13px] font-semibold text-bad hover:underline">Do not approve</Link>);
     }
-    if (can.fines && r.status === "DUE" && !r.feeDueId) bits.push(<Link key="c" href={href({ collect: r.id })} scroll={false} className="text-[13px] font-semibold text-brand hover:underline">Collect</Link>);
+    if (can.fines && r.status === "DUE" && !r.feeDueId && !r.salaryAt) bits.push(<Link key="c" href={href({ collect: r.id })} scroll={false} className="text-[13px] font-semibold text-brand hover:underline">Collect</Link>);
+    if (mayGoToSalary(r)) bits.push(<Link key="s" href={href({ salary: r.id })} scroll={false} className="text-[13px] font-semibold text-brand hover:underline">From salary</Link>);
+    if (can.fines && r.status === "DUE" && r.salaryAt) bits.push(<Link key="d" href={href({ desk: r.id })} scroll={false} className="text-[13px] font-semibold text-brand hover:underline">Collect here instead</Link>);
     if (can.fines && r.status === "DUE") bits.push(<Link key="w" href={href({ waive: r.id })} scroll={false} className="text-[13px] font-semibold text-ink2 hover:underline">Waive</Link>);
     if (can.fines && r.status === "NOT_APPROVED") bits.push(<Link key="f" href={href({ correct: r.id })} scroll={false} className="text-[13px] font-semibold text-brand hover:underline">Correct the amount</Link>);
     return bits.length ? <span className="flex items-center gap-3 justify-end flex-wrap">{bits}</span> : null;
@@ -140,7 +150,7 @@ async function FinesView({ p, sp }: { p: P; sp: Raw }) {
               { key: "book", label: "Book", render: (r) => <span>{d.books.get(r.bookId) ?? "Book"}<span className="block text-[12.5px] text-ink3 font-mono">{d.copies.get(r.copyId) ?? ""}</span></span> },
               { key: "reason", label: "Reason", render: (r) => <span>{FINE_REASON[r.reason as FineReason]}{r.lateDays ? <span className="text-ink3"> · {r.lateDays}d</span> : ""}</span> },
               { key: "amount", label: "Amount", align: "right", nowrap: true, render: (r) => <b className="font-semibold">{formatRupees(r.amountPaise)}</b> },
-              { key: "status", label: "Status", render: (r) => { const st = FINE_STATUS[r.status as FineStatus]; return <span><Pill tone={st.tone}>{st.label}</Pill><span className="block text-[12px] text-ink3 mt-0.5">{r.status === "WAIVED" ? r.waiveReason : fineWhere(r, tz)}</span></span>; } },
+              { key: "status", label: "Status", render: (r) => { const st = FINE_STATUS[r.status as FineStatus]; return <span><Pill tone={st.tone}>{st.label}</Pill><span className="block text-[12px] text-ink3 mt-0.5">{r.status === "WAIVED" ? r.waiveReason : r.status === "DUE" && r.salaryAt ? salaryWhere(r) : fineWhere(r, tz)}</span></span>; } },
               { key: "date", label: "Date", nowrap: true, render: (r) => formatDate(r.createdAt, tz) },
               { key: "act", label: "", render: acts },
             ]}
@@ -155,8 +165,10 @@ async function FinesView({ p, sp }: { p: P; sp: Raw }) {
         </Card>
         <p className="text-[12.5px] text-ink3">Fine rate: {formatRupees(s.finePerDayPaise)} a day after {plural(s.graceDays, "day")} of grace, at most {formatRupees(s.maxFinePaise)} a book. Charges above {formatRupees(s.approvalAbovePaise)} need approval. {s.finesToFees ? "Students' fines are added to their fees." : "Fines are collected at the library desk."}</p>
       </Stack>
-      {waive && <WaiveSheet closeHref={href({ waive: null })} fineId={waive.id} words={words(waive)} inFees={Boolean(waive.feeDueId)} />}
-      {collect && <CollectSheet closeHref={href({ collect: null })} fineId={collect.id} words={words(collect)} />}
+      {waive && <WaiveSheet closeHref={href({ waive: null })} fineId={waive.id} words={words(waive)} inFees={Boolean(waive.feeDueId)} inSalary={Boolean(waive.salaryAt)} />}
+      {collect && !collect.salaryAt && <CollectSheet closeHref={href({ collect: null })} fineId={collect.id} words={words(collect)} />}
+      {toSalary && <ToSalarySheet closeHref={href({ salary: null })} fineId={toSalary.id} words={words(toSalary)} name={who(toSalary)?.name ?? "The staff member"} />}
+      {stopSalary && <StopSalarySheet closeHref={href({ desk: null })} fineId={stopSalary.id} words={words(stopSalary)} where={salaryWhere(stopSalary)} />}
       {correct && <CorrectSheet closeHref={href({ correct: null })} fineId={correct.id} words={words(correct)} amount={String(paiseToRupees(correct.amountPaise))} />}
       {reject && reject.approvalId && d.deciders.has(reject.approvalId) && <RejectChargeSheet closeHref={href({ reject: null })} fineId={reject.id} words={words(reject)} />}
     </>

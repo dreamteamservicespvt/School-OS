@@ -13,8 +13,8 @@ import { cx } from "@/components/ui/cx";
 import { cleanIsbn, isbnValid, ISBN_INVALID } from "@/lib/library/isbn";
 import { SegField } from "./client";
 import {
-  addCopiesAction, backOnShelfAction, blockAction, cancelReservationAction, collectAction, correctChargeAction, decideChargeAction, limitAction, markLostAction,
-  saveBookAction, saveCategoryAction, startStockAction, waiveAction, withdrawCopyAction,
+  addCopiesAction, backOnShelfAction, blockAction, cancelReservationAction, collectAction, correctChargeAction, decideChargeAction, fineFromSalaryStopAction, fineToSalaryAction,
+  limitAction, markLostAction, saveBookAction, saveCategoryAction, startStockAction, waiveAction, withdrawCopyAction,
 } from "../actions";
 
 type Opt = { value: string; label: string };
@@ -167,10 +167,11 @@ export function LimitSheet({ closeHref, memberKey, name, limit, fromSettings, se
 
 /* ---------- Fines ---------- */
 
-export function WaiveSheet({ closeHref, fineId, words, inFees }: { closeHref: string; fineId: string; words: string; inFees: boolean }) {
+export function WaiveSheet({ closeHref, fineId, words, inFees, inSalary = false }: { closeHref: string; fineId: string; words: string; inFees: boolean; inSalary?: boolean }) {
   return (
     <SheetForm title="Waive fine" sub={words} closeHref={closeHref} action={waiveAction} submitLabel="Waive fine" hidden={{ fineId }}>
       {inFees && <Alert tone="info">The fine is in the student&apos;s fees. Waiving removes that fee row too.</Alert>}
+      {inSalary && <Alert tone="info">The fine was going to be taken from salary. Waiving takes it off the salary too.</Alert>}
       <SArea name="reason" label="Reason" required maxLength={200} placeholder="For example: the child was ill and absent" />
     </SheetForm>
   );
@@ -184,6 +185,26 @@ export function CollectSheet({ closeHref, fineId, words }: { closeHref: string; 
       <SegField name="mode" label="Paid by" start="CASH" onChange={setM} options={[{ value: "CASH", label: "Cash" }, { value: "UPI", label: "UPI" }, { value: "BANK_TRANSFER", label: "Bank" }, { value: "CHEQUE", label: "Cheque" }]} />
       {m !== "CASH" && <SText name="reference" label={m === "CHEQUE" ? "Cheque number" : "Transaction or UTR number"} required maxLength={60} className="[&_input]:font-mono" />}
       <p className="text-[12.5px] text-ink3">Recorded as income in Finance Management with a receipt number.</p>
+    </SheetForm>
+  );
+}
+
+/** A staff member's fine taken from their next salary instead of at the desk. */
+export function ToSalarySheet({ closeHref, fineId, words, name }: { closeHref: string; fineId: string; words: string; name: string }) {
+  return (
+    <SheetForm title="Take from salary" sub={words} closeHref={closeHref} action={fineToSalaryAction} submitLabel="Take from salary" hidden={{ fineId }} pendingText="Saving…">
+      <p className="text-[14px] text-ink2">The fine is added as a deduction to {name}&apos;s next salary worked out in Salary Management, with the fine number as the reason. {name} is told.</p>
+      <p className="text-[13px] text-ink3">It shows as paid here when that salary is approved. It cannot be collected at the desk in the meantime, so it is never taken twice.</p>
+    </SheetForm>
+  );
+}
+
+/** Stops taking a fine from salary, so it is collected at the desk. */
+export function StopSalarySheet({ closeHref, fineId, words, where }: { closeHref: string; fineId: string; words: string; where: string }) {
+  return (
+    <SheetForm title="Collect here instead" sub={words} closeHref={closeHref} action={fineFromSalaryStopAction} submitLabel="Do not take from salary" hidden={{ fineId }} pendingText="Saving…">
+      <p className="text-[14px] text-ink2">{where}. The deduction comes off that salary and the fine is due here again.</p>
+      <p className="text-[13px] text-ink3">A salary already sent for approval cannot change: the accountant takes it back first.</p>
     </SheetForm>
   );
 }

@@ -14,6 +14,8 @@ import { memberByKey, setBlocked, setLimit } from "@/lib/library/members";
 import { issueBook, returnBook, renewIssue, reserveBook, cancelReservation, holderWords } from "@/lib/library/desk";
 import { addBook, addCopies, backOnShelf, splitAccessions, updateBook, withdrawCopy, type BookInput } from "@/lib/library/catalogue";
 import { collectAtDesk, correctCharge, markLostOrDamaged, waiveFine } from "@/lib/library/fines";
+import { sendFineToSalary, stopFineFromSalary } from "@/lib/library/salary";
+import { calculateRun } from "@/lib/salary/payroll";
 import { remindAllOverdue, remindIssue, remindLibrarian } from "@/lib/library/reminders";
 import { closeSession, markMissingLost, scanCode, startSession, type ScanResult } from "@/lib/library/stock";
 import { archiveCategory, saveCategory, saveSettings, librarySettings } from "@/lib/library/settings";
@@ -222,6 +224,23 @@ export async function collectAction(_p: S, fd: FormData): Promise<S> {
     if (!["CASH", "UPI", "BANK_TRANSFER", "CHEQUE"].includes(mode)) throw new LibraryProblem("Choose how it was paid.", "mode");
     return collectAtDesk(w.tx, w.ctx, id(fd, "fineId", "fine"), { mode: mode as "CASH", reference: maybe(fd, "reference", "Reference", 60), today: w.today });
   }, (r) => `${formatRupees(r.amountPaise)} collected from ${r.member?.name ?? "the member"}${r.receiptNo ? `. Receipt ${r.receiptNo}` : ""}.`);
+}
+
+/** A staff member's fine taken from their next salary (Salary Management) instead of at the desk. */
+export async function fineToSalaryAction(_p: S, fd: FormData): Promise<S> {
+  return libAction("edit", fd, async (w) => {
+    need(w.can.fines, "send fines to salary");
+    if (!w.current.modulesOn.has("salary-management")) throw new LibraryProblem("Salary Management is switched off for this school, so fines cannot be taken from salary. Collect it here.");
+    return sendFineToSalary(w.tx, w.ctx, id(fd, "fineId", "fine"));
+  }, (r) => `${formatRupees(r.fine.amountPaise)} will be taken from ${r.staff.fullName}’s next salary. It shows as paid when that salary is approved.`);
+}
+
+/** Stops taking a fine from salary, so it can be collected at the desk. */
+export async function fineFromSalaryStopAction(_p: S, fd: FormData): Promise<S> {
+  return libAction("edit", fd, async (w) => {
+    need(w.can.fines, "change where fines are paid");
+    return stopFineFromSalary(w.tx, w.ctx, id(fd, "fineId", "fine"), "To be collected at the library desk", (runId) => calculateRun(w.tx, w.ctx, runId, w.today));
+  }, (r) => `${r.fine.fineNo} will not be taken from salary${r.run ? "; that salary was worked out again" : ""}. Collect it here.`);
 }
 
 export async function correctChargeAction(_p: S, fd: FormData): Promise<S> {

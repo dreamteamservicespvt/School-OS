@@ -2,7 +2,7 @@
 // damaged charges, and what happens to them. A student's fine is added to
 // their fees in Fee Management (one place to pay) when Library Settings say
 // so; a staff member's is collected at the desk and recorded as income in
-// Finance Management. A lost or damaged charge above the set amount waits in
+// Finance Management, or taken from their next salary (salary.ts). A lost or damaged charge above the set amount waits in
 // Approvals and is added only when approved. Fines are never deleted: they
 // are paid, waived with a reason, or not approved.
 import "server-only";
@@ -17,7 +17,9 @@ import { addCharge, removeDue } from "../fees/structure";
 import { currentYear } from "../academic/years";
 import { ensureFinanceDefaults } from "../finance/settings";
 import { recordIncome } from "../finance/income";
+import { calculateRun } from "../salary/payroll";
 import { LibraryProblem } from "./problem";
+import { stopFineFromSalary } from "./salary";
 import { librarySettings, type LibrarySettings } from "./settings";
 import { memberByKey, memberFields, type Member } from "./members";
 import { FINE_REASON } from "./words";
@@ -172,6 +174,8 @@ export async function waiveFine(tx: Tx, ctx: SchoolContext, fineId: string, reas
   if (!f) throw new LibraryProblem("This fine was not found.");
   if (f.status === "WAITING") throw new LibraryProblem("This charge is waiting in Approvals. The approver decides it there.");
   if (f.status !== "DUE") throw new LibraryProblem(`This fine is already ${f.status === "PAID" ? "paid" : f.status === "WAIVED" ? "waived" : "closed"}.`);
+  // On its way to salary: taken off the salary first (refused once that salary is sent for approval).
+  if (f.salaryAt) await stopFineFromSalary(tx, ctx, f.id, `Waived: ${reason.trim()}`, (runId) => calculateRun(tx, ctx, runId, todayUtc()));
   if (f.feeDueId) {
     const d = await tx.studentFeeDue.findFirst({ where: { id: f.feeDueId } });
     if (d && d.state === "OPEN") {
@@ -191,6 +195,7 @@ export async function collectAtDesk(tx: Tx, ctx: SchoolContext, fineId: string, 
   if (!f) throw new LibraryProblem("This fine was not found.");
   if (f.status !== "DUE") throw new LibraryProblem(f.status === "WAITING" ? "This charge is waiting for approval." : "This fine is not due.");
   if (f.feeDueId) throw new LibraryProblem("This fine is in the student's fees. It is paid in Fee Management, with the other fees.");
+  if (f.salaryAt) throw new LibraryProblem("This fine is going to be taken from salary. Choose “Collect here instead” first, so it is not taken twice.");
   const s = await librarySettings(tx, ctx);
   const member = await memberByKey(tx, ctx, s, f.studentId ? `S:${f.studentId}` : `T:${f.staffId}`);
   const book = await tx.book.findFirst({ where: { id: f.bookId }, select: { title: true } });
@@ -239,8 +244,8 @@ export async function correctCharge(tx: Tx, ctx: SchoolContext, fineId: string, 
 }
 
 /** Words for where a fine is paid, as the fines list shows them. */
-export function fineWhere(f: Pick<LibraryFine, "status" | "feeDueId" | "staffId" | "paidHow" | "receiptNo" | "paidAt">, tz: string) {
-  if (f.status === "PAID") return f.paidHow === "fees" ? "Paid with fees" : `Paid at the desk${f.receiptNo ? ` · ${f.receiptNo}` : ""}${f.paidAt ? ` · ${formatDate(f.paidAt, tz)}` : ""}`;
-  if (f.status === "DUE") return f.feeDueId ? "Added to fees" : f.staffId ? "Collect here or from salary" : "Collect here";
+export function fineWhere(f: Pick<LibraryFine, "status" | "feeDueId" | "staffId" | "paidHow" | "receiptNo" | "paidAt" | "salaryAt">, tz: string) {
+  if (f.status === "PAID") return f.paidHow === "fees" ? "Paid with fees" : f.paidHow === "salary" ? `Taken from salary${f.paidAt ? ` · ${formatDate(f.paidAt, tz)}` : ""}` : `Paid at the desk${f.receiptNo ? ` · ${f.receiptNo}` : ""}${f.paidAt ? ` · ${formatDate(f.paidAt, tz)}` : ""}`;
+  if (f.status === "DUE") return f.feeDueId ? "Added to fees" : f.salaryAt ? "From the next salary" : f.staffId ? "Collect here or from salary" : "Collect here";
   return "";
 }

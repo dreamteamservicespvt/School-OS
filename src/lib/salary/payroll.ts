@@ -22,6 +22,7 @@ import { sendAutomatic } from "../messaging";
 import { notEmployedDays, lopDays as lopOf, workOutPay } from "./calc";
 import { asStatutory, ptSlabs, salarySettings, statutoryFor } from "./settings";
 import { fromStored } from "./structures";
+import { attachFinesToRun, finesPaidBySalary, releaseFineAdjustment } from "../library/salary";
 import { addMonths, adjustmentLabel, firstOfMonth, lastOfMonth, monthName, payModeLabel } from "./words";
 
 const ZERO = BigInt(0);
@@ -127,8 +128,10 @@ export async function calculateRun(tx: Tx, ctx: SchoolContext, runId: string, to
   const days = before ? { working: [] as Date[] } : await schoolDays(tx, ctx, month, upTo, run.campusId);
   const unpaid = await unpaidLeave(tx, ids, days.working);
   const recover = await plannedRecoveries(tx, ids, month, run.id);
-  const adjustments = await tx.payrollAdjustment.findMany({ where: { runId: run.id, archivedAt: null } });
   const structures = await tx.salaryStructure.findMany({ where: { staffId: { in: ids }, archivedAt: null, effectiveFrom: { lte: month } }, orderBy: [{ effectiveFrom: "desc" }, { version: "desc" }] });
+  // Staff library fines sent to salary (Library Management) arrive as one-time deductions.
+  await attachFinesToRun(tx, ctx, run, [...new Set(structures.map((x) => x.staffId))]);
+  const adjustments = await tx.payrollAdjustment.findMany({ where: { runId: run.id, archivedAt: null } });
 
   const calendarDays = end.getUTCDate();
   const daysInMonth = settings.lopDays === "thirty" ? 30 : calendarDays;
@@ -239,6 +242,8 @@ export async function archiveAdjustment(tx: Tx, ctx: SchoolContext, adjustmentId
   assertEditable(adj.run);
   await tx.payrollAdjustment.update({ where: { id: adj.id }, data: { archivedAt: new Date(), archivedById: ctx.userId } });
   await writeAudit(tx, ctx, { action: "payroll-adjustment-archived", recordType: "Payroll Adjustment", recordId: adj.id, before: { type: adjustmentLabel(adj.type), amount: formatRupees(adj.amountPaise), reason: adj.reason } });
+  // A library fine taken off the salary is due at the library desk again.
+  await releaseFineAdjustment(tx, ctx, adj.id, adj.run.month);
   await calculateRun(tx, ctx, adj.runId, today);
   return adj;
 }
@@ -297,6 +302,8 @@ async function approveRun(tx: Tx, ctx: SchoolContext, runId: string) {
       }
     }
   }
+  // Library fines taken in this salary are paid (Library Management).
+  await finesPaidBySalary(tx, ctx, run, new Set(lines.map((l) => l.staffId)));
   // The earlier paid month locks by itself.
   const earlier = await tx.payrollRun.findMany({ where: { campusId: run.campusId, month: { lt: run.month }, status: "PAID" } });
   for (const e of earlier) {

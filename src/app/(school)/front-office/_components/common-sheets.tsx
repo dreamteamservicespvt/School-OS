@@ -134,7 +134,7 @@ async function PassSheet({ close, v, met, canCheckOut, canSend, masked, tz, scho
           </div>
           <div className="relative flex justify-center pb-4">
             <div className={cx("p-3 rounded-2xl bg-white shadow-card border border-line shrink-0", (expired || out) && "opacity-40")} dangerouslySetInnerHTML={{ __html: qr }} aria-label={`QR code for pass ${v.passNo}`} role="img" />
-            {(expired || out) && <span className="absolute top-1/2 -translate-y-1/2 px-4 py-1.5 rounded-xl bg-bad text-white font-display font-semibold text-[20px] -rotate-6 shadow-pop">{out ? "Checked out" : "Expired"}</span>}
+            {(expired || out) && <span className="absolute top-1/2 -translate-y-1/2 px-4 py-1.5 rounded-xl bg-bad text-badink font-display font-semibold text-[20px] -rotate-6 shadow-pop">{out ? "Checked out" : "Expired"}</span>}
           </div>
         </div>
         {!out && canSend && (

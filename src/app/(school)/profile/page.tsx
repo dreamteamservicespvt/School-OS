@@ -106,7 +106,7 @@ export default async function ProfilePage() {
               ]} />
             </Card>
 
-            <Card>
+            <Card id="password" className="scroll-mt-20">
               <CardHeader title="Password and sign-in" icon={I.KeyRound} />
               <div className="divide-y divide-line/70 border-t border-line/70">
                 <div className="flex items-center gap-3 px-5 py-3.5">
@@ -120,7 +120,7 @@ export default async function ProfilePage() {
               </div>
             </Card>
 
-            <Card>
+            <Card id="devices" className="scroll-mt-20">
               <CardHeader title="Signed-in devices" description="Sign out of a phone you lost or a computer you shared" icon={I.MonitorSmartphone} />
               <ul className="px-2 pb-2">
                 {sessions.map((s) => {

@@ -262,7 +262,7 @@ export function DriverApp({ initial, schoolName, schoolPhone }: { initial: Today
                   {online ? (
                     <Button size="lg" variant="danger" icon={Siren} loading={busy === `sos:${t.id}`} onClick={() => emergency(t)}>Emergency</Button>
                   ) : (
-                    schoolPhone && <a href={`tel:${schoolPhone}`} className="inline-flex items-center justify-center gap-2 rounded-xl bg-bad text-white h-12 font-semibold"><Phone size={18} aria-hidden="true" />No internet: call the school</a>
+                    schoolPhone && <a href={`tel:${schoolPhone}`} className="inline-flex items-center justify-center gap-2 rounded-xl bg-bad text-badink h-12 font-semibold"><Phone size={18} aria-hidden="true" />No internet: call the school</a>
                   )}
                   {breakdown === t.id ? (
                     <div className="flex flex-col gap-2">

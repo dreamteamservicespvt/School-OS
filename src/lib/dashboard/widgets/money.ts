@@ -16,6 +16,7 @@ import { financePageAllowed, hiddenPayHeads, expensesWithoutPay, type FinancePag
 import { accountBalances } from "../../finance/daybook";
 import { n, plural, someNames, addDays, shortDate } from "../common";
 import type { DashContext, Viewer, Widget } from "../types";
+import { doesWork } from "../../duty";
 
 const FEES = "/fee-management";
 const FIN = "/finance-management";
@@ -25,6 +26,9 @@ const DAY = 86_400_000;
 function fees(c: DashContext): Promise<FeeViewer> {
   return c.memo("fee-viewer", () => feeViewer(c.tx, c.viewer.ctx, c.viewer as unknown as Parameters<typeof feeViewer>[2]));
 }
+
+/** Sits at the fee counter: may collect, and collecting is their desk work. */
+export const collects = (c: Pick<DashContext, "viewer">, v: FeeViewer) => feePageAllowed(v, "collect") && doesWork(c.viewer, "fee-management", "collect");
 
 /** Fee details (amounts) for this person: never for the Admission Counsellor. */
 const feeDetails = (page: FeePageKey) => (v: Viewer) => !admissionOnlyFor(v) && feePageAllowedFor(v, page);
@@ -188,8 +192,9 @@ const recent: Widget<"panel"> = {
           right: word[r.status] ? `${formatRupees(r.amountPaise)} · ${word[r.status]}` : formatRupees(r.amountPaise),
           rightTone: tone[r.status as keyof typeof tone] ?? "neutral",
         })),
-        href: feePageAllowed(v, "collect") ? `${FEES}/collect` : `${FEES}/dashboard`,
-        linkLabel: feePageAllowed(v, "collect") ? "Collect fee" : "Fee Dashboard",
+        // Collect Fee is the module's first page; the Principal and School Admin never sit at the counter (src/lib/duty.ts).
+        href: collects(c, v) ? FEES : `${FEES}/dashboard`,
+        linkLabel: collects(c, v) ? "Collect fee" : "Fee Dashboard",
         empty: "No fee payments yet this year.",
       },
     };

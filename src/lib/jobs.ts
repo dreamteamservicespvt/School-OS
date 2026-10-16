@@ -6,6 +6,7 @@ import "server-only";
 import type { Prisma } from "@prisma/client";
 import { prisma, withSchool, type SchoolContext, type Tx } from "./db";
 import { notify } from "./notifications";
+import { isTestCopy } from "./test-copy-env";
 
 export const MAX_ATTEMPTS = 3;
 
@@ -21,9 +22,33 @@ export function defineJob(kind: string, label: string, handler: JobHandler, opts
 export async function enqueue(tx: Tx, ctx: SchoolContext, kind: string, idempotencyKey: string, payload: Prisma.InputJsonValue, runAfter = new Date()) {
   const existing = await tx.backgroundJob.findUnique({ where: { schoolId_idempotencyKey: { schoolId: ctx.schoolId, idempotencyKey } } });
   if (existing) return existing;
-  return tx.backgroundJob.create({
+  const job = await tx.backgroundJob.create({
     data: { schoolId: ctx.schoolId, kind, idempotencyKey, payload, runAfter, requestedById: ctx.userId },
   });
+  if (runAfter.getTime() <= Date.now() + 1000) kickJobs();
+  return job;
+}
+
+/**
+ * Hosts without a worker (the Vercel test copy): run due jobs right after the
+ * response that queued them, once the change is saved (job-tick.ts). Elsewhere
+ * `npm run worker` does it, and outside a request this does nothing.
+ */
+let kickPending = false;
+function kickJobs() {
+  if (kickPending || (!isTestCopy() && process.env.RUN_JOBS_AFTER_REQUESTS !== "on")) return;
+  // One burst at a time per server: a bulk send queues hundreds of jobs in one request.
+  kickPending = true;
+  void import("next/server")
+    .then(({ after }) => after(async () => {
+      try {
+        const { tickJobs } = await import("./job-tick");
+        await tickJobs();
+      } finally {
+        kickPending = false;
+      }
+    }))
+    .catch(() => { kickPending = false; });
 }
 
 /** Claims and runs jobs that are due. Returns how many ran. */

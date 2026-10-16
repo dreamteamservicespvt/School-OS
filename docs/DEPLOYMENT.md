@@ -29,7 +29,7 @@ yet: the owner chooses the hosting (decision 0001).
 | `MIGRATION_DATABASE_URL` | Connection as `school_os_owner`, used only for migrations. |
 | `FIELD_ENCRYPTION_KEY` | 32 random bytes, base64. Encrypts Aadhaar, bank accounts, gateway and messaging keys. Back it up separately: without it those fields cannot be read. |
 | `FILE_LINK_SECRET` | Random secret that signs the 15-minute file links. |
-| `S3_BUCKET`, `S3_REGION`, `S3_ENDPOINT` (optional), `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | File storage. Without them files go to `STORAGE_DIR` on local disk (only for one-server setups). |
+| `S3_BUCKET`, `S3_REGION`, `S3_ENDPOINT` (optional; Cloudflare R2 works), `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY` (or `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`) | File storage. Without them files go to `STORAGE_DIR` on local disk (only for one-server setups). |
 | `CHROMIUM_PATH` | Path to the Chromium binary for PDFs. |
 | `APP_URL` | The public web address, used in links sent to parents and staff. |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` | Email for invites and one-time codes. |

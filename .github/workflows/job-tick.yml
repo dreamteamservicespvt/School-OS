@@ -1,0 +1,24 @@
+# Wakes School OS's background work on hosts without a worker (the Vercel
+# test copy; src/lib/job-tick.ts), so reminders and queued WhatsApp, SMS,
+# email and push messages go out even when nobody is using School OS.
+# GitHub may start a scheduled run a few minutes late; work queued while
+# people use School OS also runs right after their request.
+name: Background work
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Run due jobs
+        env:
+          # Repository variable SCHOOL_OS_URL, or the Vercel test copy.
+          APP: ${{ vars.SCHOOL_OS_URL || 'https://school-os-beta.vercel.app' }}
+        run: curl -fsS --max-time 90 -X POST "$APP/api/v1/jobs/tick"

@@ -37,15 +37,25 @@ function localStore(): Store {
 }
 
 function s3Store(): Store {
+  const endpoint = process.env.S3_ENDPOINT || undefined;
+  // Cloudflare R2 encrypts every file itself and does not take the AWS
+  // encryption header; its region is always "auto".
+  const r2 = Boolean(endpoint && /\.r2\.cloudflarestorage\.com/i.test(endpoint));
   const client = new S3Client({
-    region: process.env.S3_REGION ?? "ap-south-1",
-    endpoint: process.env.S3_ENDPOINT || undefined,
-    forcePathStyle: Boolean(process.env.S3_ENDPOINT),
+    region: process.env.S3_REGION ?? (r2 ? "auto" : "ap-south-1"),
+    endpoint,
+    forcePathStyle: Boolean(endpoint),
+    // S3-compatible stores do not all accept the newer automatic checksums.
+    ...(endpoint ? { requestChecksumCalculation: "WHEN_REQUIRED" as const, responseChecksumValidation: "WHEN_REQUIRED" as const } : {}),
+    // S3_ACCESS_KEY_ID / S3_SECRET_ACCESS_KEY, or the standard AWS_* settings.
+    ...(process.env.S3_ACCESS_KEY_ID && process.env.S3_SECRET_ACCESS_KEY
+      ? { credentials: { accessKeyId: process.env.S3_ACCESS_KEY_ID, secretAccessKey: process.env.S3_SECRET_ACCESS_KEY } }
+      : {}),
   });
   const Bucket = process.env.S3_BUCKET!;
   return {
     async put(key, body, contentType) {
-      await client.send(new PutObjectCommand({ Bucket, Key: key, Body: body, ContentType: contentType, ServerSideEncryption: "AES256" }));
+      await client.send(new PutObjectCommand({ Bucket, Key: key, Body: body, ContentType: contentType, ...(r2 ? {} : { ServerSideEncryption: "AES256" as const }) }));
     },
     async get(key) {
       try {

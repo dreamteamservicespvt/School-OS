@@ -12,11 +12,11 @@ import { onChannels } from "@/lib/messaging/channels";
 import { NOTE_KINDS, readNotePrefs, type NoteChannel } from "@/lib/notification-kinds";
 import { pushOn, pushWebConfig } from "@/lib/push";
 import { PushSwitch } from "./push-switch";
-import { fileLink } from "@/lib/files";
+import { PhotoEditor } from "./photo-editor";
+import { myPhotoLink } from "@/lib/profile-photo";
 import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
-import { Avatar } from "@/components/ui/avatar";
 import { ConfirmButton } from "@/components/ui/confirm";
 import { signOut, signOutDevice } from "../actions";
 import { signOutOthers } from "./actions";
@@ -63,7 +63,7 @@ export default async function ProfilePage() {
   const can = (m: ModuleKey) => reachFor(current.permissions, m, "view") !== "none";
   const kinds = NOTE_KINDS.filter((k) => !k.module || can(k.module as ModuleKey));
   const roleNames = current.roles.map((r) => r.name);
-  const photo = staff?.photoFileId ? fileLink(staff.photoFileId, current.school.id) : null;
+  const photo = await withSchool(current.ctx, (tx) => myPhotoLink(tx, current.ctx, u.id));
   const others = sessions.filter((s) => s.id !== current.session.id).length;
 
   const work: { href: string; icon: LucideIcon; title: string; sub: string; show: boolean }[] = [
@@ -80,7 +80,7 @@ export default async function ProfilePage() {
         <Card>
           <div className="p-5 flex flex-col md:flex-row md:items-center gap-4">
             <div className="flex items-center gap-4 min-w-0 flex-1">
-              <Avatar name={u.displayName} size={64} src={photo} />
+              <PhotoEditor name={u.displayName} src={photo} />
               <div className="min-w-0">
                 <p className="font-display font-semibold text-[22px] leading-tight truncate">{u.displayName}</p>
                 <p className="text-[14px] text-ink3 truncate">{roleNames.join(", ") || "No role yet"} · {current.school.name}</p>

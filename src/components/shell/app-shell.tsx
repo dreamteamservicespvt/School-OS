@@ -26,7 +26,7 @@ export type ShellProps = {
   school: { id: string; name: string; place: string };
   schools: { id: string; name: string }[];
   year: { name: string; closed: boolean } | null;
-  person: { id: string; name: string; role: string };
+  person: { id: string; name: string; role: string; photo?: string | null };
   menu: string[];
   bottom: BarItem[];
   quick: Quick[];
@@ -211,7 +211,7 @@ function TopBar({ school, year, person, approvals, canApprove, canMessage, unrea
       <IconButton icon={I.Bell} label="Notifications" badge={unread} onClick={onNotif} />
       <IconButton className="hidden md:inline-flex" icon={dark ? I.Sun : I.Moon} label={dark ? "Switch to light mode" : "Switch to dark mode"} onClick={flip} />
       <button type="button" onClick={onProfile} className="ml-1 shrink-0 flex items-center gap-2.5 rounded-xl hover:bg-sunken p-1 lg:pr-3 transition" aria-label="Your profile and settings">
-        <Avatar name={person.name} size={34} />
+        <Avatar name={person.name} size={34} src={person.photo} />
         <span className="hidden lg:block text-left">
           <span className="block text-[13.5px] font-semibold leading-tight max-w-[10rem] truncate">{person.name}</span>
           <span className="block text-xs text-ink3 max-w-[10rem] truncate">{person.role}</span>
@@ -399,7 +399,7 @@ function ProfileMenu({ open, onClose, person, school, schools, theme, onSwitch }
       <div className="absolute inset-0 bg-shade/35 md:bg-transparent animate-fade" onClick={onClose} aria-hidden="true" />
       <div ref={ref} role="menu" aria-label="Your profile and settings" className="absolute inset-x-0 bottom-0 md:bottom-auto md:left-auto md:right-4 md:top-[68px] md:w-[320px] bg-surface rounded-t-3xl md:rounded-2xl shadow-pop border border-line animate-sheet p-2" style={{ paddingBottom: "calc(0.5rem + env(safe-area-inset-bottom, 0px))" }}>
         <div className="flex items-center gap-3 p-3">
-          <Avatar name={person.name} size={44} />
+          <Avatar name={person.name} size={44} src={person.photo} />
           <div className="min-w-0">
             <p className="font-semibold truncate">{person.name}</p>
             <p className="text-[13px] text-ink3 truncate">{person.role} · {school.name}</p>

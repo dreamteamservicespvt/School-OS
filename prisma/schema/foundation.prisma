@@ -213,6 +213,8 @@ model SchoolAccess {
   scope       AccessScope @default(WHOLE_SCHOOL)
   /// Exceptions for this one person: { [moduleKey]: "full" | "view" | "own" | "none" }.
   exceptions  Json        @default("{}")
+  /// The person's own photo in this school, set in My profile (a Stored File of this school).
+  photoFileId String?     @map("photo_file_id") @db.Uuid
   createdAt   DateTime    @default(now()) @map("created_at")
   updatedAt   DateTime    @updatedAt @map("updated_at")
   archivedAt  DateTime?   @map("archived_at")

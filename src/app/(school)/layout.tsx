@@ -10,6 +10,7 @@ import { readFlash } from "@/lib/flash";
 import { undoChange } from "./undo-action";
 import { activeSystemNotices } from "@/lib/errors";
 import { withSchool } from "@/lib/db";
+import { myPhotoLink } from "@/lib/profile-photo";
 import { currentYear } from "@/lib/academic/years";
 import { cleanTheme } from "@/lib/theme";
 import { cx } from "@/components/ui/cx";
@@ -55,7 +56,7 @@ export default async function SchoolLayout({ children }: { children: React.React
       school={{ id: current.school.id, name: current.school.name, place: shell.place }}
       schools={current.schools.map((s) => ({ id: s.id, name: s.name }))}
       year={year ? { name: year.name, closed: year.status === "CLOSED" } : null}
-      person={{ id: current.user.id, name: current.user.displayName, role: current.roles[0]?.name ?? "" }}
+      person={{ id: current.user.id, name: current.user.displayName, role: current.roles[0]?.name ?? "", photo: await withSchool(current.ctx, (tx) => myPhotoLink(tx, current.ctx, current.user.id)).catch(() => null) }}
       menu={shell.menu.map((m) => m.key)}
       bottom={shell.bottom}
       quick={shell.quick}

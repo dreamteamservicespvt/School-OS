@@ -4,7 +4,7 @@
 // address (?act=…). The server checks every one again.
 
 import { useState } from "react";
-import { CircleCheck, Mail, MessageCircle, MessageSquareText } from "lucide-react";
+import { CircleCheck, Mail, MessageCircle } from "lucide-react";
 import { SheetForm, useTyped } from "@/components/ui/url-sheet";
 import { SArea, SSelect, SText } from "@/components/ui/sheet-fields";
 import { Segmented } from "@/components/ui/controls";
@@ -22,11 +22,11 @@ const CHECKS = [
 
 const mask = (d: string) => { const x = d.replace(/\D/g, "").slice(-10); return x.length === 10 ? `${x.slice(0, 2)}xxx xx${x.slice(7)}` : ""; };
 
-/** WhatsApp, SMS and email chips, sent as repeated "channels". */
-export function ChannelChips({ start = ["whatsapp", "sms"], label = "Send the invite by" }: { start?: string[]; label?: string }) {
+/** WhatsApp and email chips, sent as repeated "channels". */
+export function ChannelChips({ start = ["whatsapp"], label = "Send the invite by" }: { start?: string[]; label?: string }) {
   const t = useTyped("channels", null);
   const [on, setOn] = useState<Set<string>>(new Set(start));
-  const opts: [string, string, typeof Mail][] = [["whatsapp", "WhatsApp", MessageCircle], ["sms", "SMS", MessageSquareText], ["email", "Email", Mail]];
+  const opts: [string, string, typeof Mail][] = [["whatsapp", "WhatsApp", MessageCircle], ["email", "Email", Mail]];
   return (
     <FieldShell label={label} id="channels" required error={t.error}>
       <div className="flex gap-2 flex-wrap" id="channels">
@@ -86,7 +86,7 @@ export function ResetSheet({ closeHref, schoolId, schoolName, userLoginId, admin
         <p>A reset link goes to their mobile, +91 {phoneMasked}. Their old password stops working at once, and they are signed out everywhere.</p>
         <p>They set a new password themselves. DREAM TEAM never sees it.</p>
       </div>
-      <ChannelChips label="Send the link by" start={hasEmail ? ["whatsapp", "sms", "email"] : ["whatsapp", "sms"]} />
+      <ChannelChips label="Send the link by" start={hasEmail ? ["whatsapp", "email"] : ["whatsapp"]} />
       <SArea name="reason" label="Reason" required rows={2} placeholder="Forgot the password; called from the school phone on record." />
     </SheetForm>
   );

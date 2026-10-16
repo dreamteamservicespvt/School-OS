@@ -162,9 +162,9 @@ describe("the Activity Log", () => {
 
 describe("console roles are checked on the server", () => {
   it("matches 07-super-admin.md: only the Owner manages the team, closes schools and marks payments", () => {
-    expect(CONSOLE_CAN.OWNER).toEqual(expect.arrayContaining(["team", "status", "markPaid", "discount", "prices"]));
+    expect(CONSOLE_CAN.OWNER).toEqual(expect.arrayContaining(["team", "status", "markPaid", "discount", "prices", "messaging"]));
     for (const r of ["ONBOARDING", "SUPPORT"] as const) {
-      for (const a of ["team", "status", "markPaid", "discount", "prices"] as const) expect(CONSOLE_CAN[r]).not.toContain(a);
+      for (const a of ["team", "status", "markPaid", "discount", "prices", "messaging"] as const) expect(CONSOLE_CAN[r]).not.toContain(a);
     }
     expect(CONSOLE_CAN.SUPPORT).not.toContain("add");
   });
@@ -243,7 +243,7 @@ describe("the Team", () => {
 describe("a School Admin's invite link", () => {
   it("needs the code on the mobile, sets their own password once, and is logged", async () => {
     const phone = mobile();
-    await addAdmin(actorOf(people.ONBOARDING), school.id, { name: "Kavitha Nair", mobile: phone, email: null, roleKey: "school-admin", channels: ["sms"], checked: "Called the school office" });
+    await addAdmin(actorOf(people.ONBOARDING), school.id, { name: "Kavitha Nair", mobile: phone, email: null, roleKey: "school-admin", channels: ["whatsapp"], checked: "Called the school office" });
     const inv = await withConsole((tx) => tx.schoolInvite.findFirstOrThrow({ where: { forSchoolId: school.id, phone }, orderBy: { sentAt: "desc" } }));
     // The link's token is only in the message; give this invite a known one for the test.
     const token = newToken();

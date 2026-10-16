@@ -193,7 +193,7 @@ This is the most important job in the console. It is one screen in three short p
 | Mobile number | Yes | +91 | Becomes their username. |
 | Email | No | | Needed only to also send the invite by email. |
 | Role in the school | Yes | School Admin | School Admin, or Principal / Owner. Both can create the school's other logins. |
-| Send the invite by | Yes | WhatsApp and SMS | WhatsApp, SMS, email. Any mix. |
+| Send the invite by | Yes | WhatsApp | WhatsApp, and email too when they have one. The console sends no SMS (owner decision, 16-10-2026). DREAM TEAM connects its WhatsApp number in the console's WhatsApp settings (Owner only). |
 
 **Part 3. Start**
 
@@ -203,7 +203,7 @@ This is the most important job in the console. It is one screen in three short p
 | Plan | Yes, when Active | Essential | Essential or Complete, plus add-ons. A Trial school picks its plan when it pays. |
 | Modules switched on | Yes | From the school type | The version-1 modules. Transport stays off and is not offered in version 1. Library, Inventory and Hostel are off unless the school type needs them. The school can change these later in Settings, Modules On/Off. |
 
-Button: **Create School and Send Invite**. Before it runs, one summary line: "Create Sunrise Public School (CBSE, Day school) and send a login invite to Anita Sharma on WhatsApp and SMS?"
+Button: **Create School and Send Invite**. Before it runs, one summary line: "Create Sunrise Public School (CBSE, Day school) and send a login invite to Anita Sharma on WhatsApp?"
 
 **What happens by itself** when the button is pressed:
 
@@ -273,7 +273,7 @@ flowchart TB
   end
   subgraph SW ["Software"]
     W1["Makes the school, roles, modules and the admin's login"]
-    W2["Sends the invite on WhatsApp and SMS"]
+    W2["Sends the invite on WhatsApp"]
     W3{"Opened within 2 days?"}
     W4["Shows 'Signed in' in the console"]
     W5["Shows the Setup checklist in the School Master"]
@@ -376,7 +376,7 @@ Records it changes that already exist in `04-data-model.md`: **School** gains sc
 
 ## 11. Done when
 
-1. Onboarding adds a school in under two minutes, and the School Admin gets the invite on WhatsApp and SMS within a minute.
+1. Onboarding adds a school in under two minutes, and the School Admin gets the invite on WhatsApp within a minute.
 2. The School Admin sets their own password from the link and lands on the Setup checklist; the console shows "Signed in".
 3. An invite link used without the code on the admin's mobile does not work, and an expired link says so and tells them whom to call.
 4. The last active School Admin of a school cannot be disabled.
@@ -395,7 +395,7 @@ The owner asked for these to be decided on 9 October 2026. Each took the recomme
 | Question | Decided |
 |---|---|
 | What is this console? | **DREAM TEAM's own console** above all schools: add a school and hand over its first admin login. Staff logins inside a school stay in Settings, Users & Permissions. |
-| How does the school admin get the login? | **An invite link on WhatsApp and SMS.** The admin confirms a one-time code and sets their own password. DREAM TEAM never knows it. |
+| How does the school admin get the login? | **An invite link on WhatsApp.** The admin confirms a one-time code and sets their own password. DREAM TEAM never knows it. |
 | May DREAM TEAM look inside a school's data? | **Only when the school taps Allow,** for a set time, with every action recorded in the school's own audit log (section 3.4). |
 | How do people sign in? | **One sign-in page for every school,** with the mobile number as username. People who work in several schools of a group pick the school with the School switcher. |
 | Who uses the console? | **Owner, Onboarding and Support** (section 2). Until DREAM TEAM has more people, one person can hold the Owner role alone. |

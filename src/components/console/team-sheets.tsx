@@ -27,7 +27,7 @@ export function InviteTeamSheet({ closeHref, roles, action }: { closeHref: strin
   const [name, setName] = useState("");
   const [mobile, setMobile] = useState("");
   return (
-    <SheetForm title="Invite team member" sub="They get a link on WhatsApp and SMS, confirm a code and set their own password" closeHref={closeHref} action={action} submitLabel="Send invite" pendingText="Sending…" hidden={{ role }}>
+    <SheetForm title="Invite team member" sub="They get a link on WhatsApp, confirm a code and set their own password" closeHref={closeHref} action={action} submitLabel="Send invite" pendingText="Sending…" hidden={{ role }}>
       <SText name="name" label="Full name" required placeholder="Pavan Kalyan" autoComplete="off" onChange={(e) => setName(e.target.value)} />
       <MobileField name="mobile" label="Mobile number" help="Becomes their username. One-time codes go here." onValue={setMobile} />
       <SText name="email" label="Email" type="email" placeholder="name@dreamteamservices.in" autoComplete="off" />

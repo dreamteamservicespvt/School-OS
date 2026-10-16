@@ -21,7 +21,7 @@ import { consoleSignOut, consoleTheme, markConsoleNotesRead, openConsoleNote, se
 export type ConsoleNote = { id: string; text: string; when: string; unread: boolean; tone: string };
 export type ConsoleShellProps = {
   person: { name: string; role: string; phone: string };
-  can: { add: boolean; team: boolean };
+  can: { add: boolean; team: boolean; messaging: boolean };
   schoolCount: number;
   unread: number;
   notes: ConsoleNote[];
@@ -36,11 +36,11 @@ function menu(can: ConsoleShellProps["can"], schoolCount: number): { group: stri
     { group: null, items: [{ href: "/console", label: "Dashboard", icon: I.LayoutGrid }] },
     { group: "Schools", items: [{ href: "/console/schools", label: "Schools", icon: I.School, count: schoolCount || null }] },
     { group: "Money", items: [{ href: "/console/billing", label: "Plans & Billing", icon: I.ReceiptIndianRupee }] },
-    { group: "DREAM TEAM", items: [...(can.team ? [{ href: "/console/team", label: "Team", icon: I.UsersRound }] : []), { href: "/console/activity", label: "Activity Log", icon: I.ScrollText }] },
+    { group: "DREAM TEAM", items: [...(can.team ? [{ href: "/console/team", label: "Team", icon: I.UsersRound }] : []), ...(can.messaging ? [{ href: "/console/whatsapp", label: "WhatsApp", icon: I.MessageCircle }] : []), { href: "/console/activity", label: "Activity Log", icon: I.ScrollText }] },
   ];
 }
 
-const TITLES: [string, string][] = [["/console/schools/new", "Add School"], ["/console/schools", "Schools"], ["/console/billing", "Plans & Billing"], ["/console/team", "Team"], ["/console/activity", "Activity Log"], ["/console/profile", "My profile"], ["/console", "Dashboard"]];
+const TITLES: [string, string][] = [["/console/schools/new", "Add School"], ["/console/schools", "Schools"], ["/console/billing", "Plans & Billing"], ["/console/team", "Team"], ["/console/whatsapp", "WhatsApp settings"], ["/console/activity", "Activity Log"], ["/console/profile", "My profile"], ["/console", "Dashboard"]];
 const titleOf = (path: string) => TITLES.find(([p]) => path === p || path.startsWith(`${p}/`))?.[1] ?? "Dashboard";
 
 function useActive() {

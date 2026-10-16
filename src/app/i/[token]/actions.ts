@@ -11,7 +11,7 @@ export type FinishState = { message: string; field?: "code" | "password"; restar
 export async function sendInviteCodeAction(token: string): Promise<SendState> {
   const r = await sendSchoolInviteCode(token, (await deviceInfo()).ipAddress ?? null);
   if (!r.ok) return { ok: false, message: r.message };
-  return { ok: true, message: `Code sent by SMS to +91 ${r.sentTo}.`, sentTo: r.sentTo, test: r.test };
+  return { ok: true, message: `Code sent on WhatsApp to +91 ${r.sentTo}.`, sentTo: r.sentTo, test: r.test };
 }
 
 export async function finishInviteAction(token: string, _prev: FinishState, fd: FormData): Promise<FinishState> {

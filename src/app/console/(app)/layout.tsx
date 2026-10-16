@@ -35,7 +35,7 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
   return (
     <ConsoleShell
       person={{ name: c.user.name, role: roleLabel(c.user.role), phone: c.user.phone }}
-      can={{ add: c.can("add"), team: c.can("team") }}
+      can={{ add: c.can("add"), team: c.can("team"), messaging: c.can("messaging") }}
       schoolCount={data.schools}
       unread={data.unread}
       notes={data.notes.map((n) => ({ id: n.id, text: n.text, when: ago(n.createdAt), unread: !n.readAt, tone: n.tone }))}

@@ -413,3 +413,27 @@ model ConsoleNotification {
   @@index([userId, readAt])
   @@map("console_notification")
 }
+
+/// DREAM TEAM's own WhatsApp Cloud API connection for console messages
+/// (invites, codes, invoices, notices), set by the Owner in WhatsApp settings.
+/// One row per provider; today only "whatsapp". The access token is kept
+/// encrypted (src/lib/crypto.ts) and is never shown again after it is saved.
+model ConsoleProvider {
+  key               String    @id
+  phoneNumberId     String?   @map("phone_number_id")
+  businessAccountId String?   @map("business_account_id")
+  accessTokenEnc    String?   @map("access_token_enc")
+  /// The last 4 characters of the token, to show which one is saved.
+  tokenLast4        String?   @map("token_last4")
+  language          String    @default("en")
+  /// Per purpose ("invite", "code", ...): { name, status, note, checkedAt }.
+  templates         Json      @default("{}")
+  testedAt          DateTime? @map("tested_at")
+  testResult        String?   @map("test_result")
+  updatedById       String?   @map("updated_by_id") @db.Uuid
+  updatedByName     String?   @map("updated_by_name")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  @@map("console_provider")
+}

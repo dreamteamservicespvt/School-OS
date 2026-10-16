@@ -39,9 +39,11 @@ export function whatsappProvider({ config, secrets }: ProviderConfig): Provider 
             template: {
               name: msg.whatsappTemplate.name,
               language: { code: msg.whatsappTemplate.language },
-              components: msg.whatsappTemplate.params.length
-                ? [{ type: "body", parameters: msg.whatsappTemplate.params.map((text) => ({ type: "text", text })) }]
-                : [],
+              components: [
+                ...(msg.whatsappTemplate.params.length ? [{ type: "body", parameters: msg.whatsappTemplate.params.map((text) => ({ type: "text", text })) }] : []),
+                // An authentication template's "Copy code" button carries the code too.
+                ...(msg.whatsappTemplate.codeButton ? [{ type: "button", sub_type: "url", index: "0", parameters: [{ type: "text", text: msg.whatsappTemplate.codeButton }] }] : []),
+              ],
             },
           }
         : { messaging_product: "whatsapp", to, type: "text", text: { body: msg.text, preview_url: true } };

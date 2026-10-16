@@ -16,7 +16,7 @@ export async function welcomeSendAction(token: string): Promise<WelcomeSend> {
   const r = await startWelcomeCode(token);
   if (!r.ok) return { ok: false, message: r.message };
   (await cookies()).set(CONSOLE_STEP_COOKIE, r.challenge, { httpOnly: true, secure, sameSite: "strict", path: "/console", maxAge: CODE_TTL_MS / 1000 });
-  return { ok: true, message: `Code sent by SMS to +91 ${r.sentTo}.`, sentTo: r.sentTo, test: r.test };
+  return { ok: true, message: `Code sent on WhatsApp to +91 ${r.sentTo}.`, sentTo: r.sentTo, test: r.test };
 }
 
 export async function welcomeFinishAction(token: string, _prev: WelcomeState, fd: FormData): Promise<WelcomeState> {

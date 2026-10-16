@@ -170,7 +170,7 @@ async function FixSheet({ a, canApprove, now }: { a: Attention; canApprove: bool
     if (!inv) return null;
     return (
       <ActSheet title="Send a new invite?" sub={a.schoolName} closeHref={close} action={resendInviteAction} submitLabel={`Send new invite to ${inv.name}`} hidden={{ schoolId, inviteId: inv.id }}>
-        <p>A new link goes to <b className="text-ink">{inv.name}</b>, +91 {maskMobile(inv.phone)}, on {inv.channels.map((x) => (x === "whatsapp" ? "WhatsApp" : x === "sms" ? "SMS" : "email")).join(" and ")}.</p>
+        <p>A new link goes to <b className="text-ink">{inv.name}</b>, +91 {maskMobile(inv.phone)}, on {inv.channels.map((x) => (x === "email" ? "email" : "WhatsApp")).filter((x, i, a) => a.indexOf(x) === i).join(" and ")}.</p>
         <p>{a.kind === "never" ? "The old link stops working." : "The expired link stays closed."} The new one works for 3 days and needs the code sent to their mobile.</p>
       </ActSheet>
     );

@@ -34,7 +34,7 @@ export function SchoolInviteForm({ token, phoneMasked, reset }: { token: string;
         {sent && !sent.ok && <Alert tone="danger">{sent.message}</Alert>}
         <div className="rounded-xl bg-sunken p-3.5 flex items-center gap-3 text-[14px]">
           <MessageSquareText size={20} className="text-brand shrink-0" aria-hidden="true" />
-          <span>First we send a 6-digit code by SMS to <b className="font-semibold tnum">+91 {phoneMasked}</b>, to check this is your phone.</span>
+          <span>First we send a 6-digit code on WhatsApp to <b className="font-semibold tnum">+91 {phoneMasked}</b>, to check this is your phone.</span>
         </div>
         <Button variant="primary" size="lg" className="w-full" loading={sending} loadingText="Sending…" onClick={send}>Send the code</Button>
       </div>

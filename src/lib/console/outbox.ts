@@ -1,14 +1,11 @@
 // Messages DREAM TEAM sends from the console: School Admin invites and login
 // resets, one-time codes, invoices and status notices (07-super-admin.md §4, §5).
 //
-// They go through DREAM TEAM's own WhatsApp, SMS and email accounts, set in the
-// environment (never in the code, 08-platform-security.md §3):
-//   WhatsApp: CONSOLE_WHATSAPP_PHONE_NUMBER_ID, CONSOLE_WHATSAPP_ACCESS_TOKEN,
-//             and approved template names CONSOLE_WHATSAPP_TEMPLATE_<PURPOSE>.
-//   SMS:      CONSOLE_MSG91_AUTH_KEY, CONSOLE_SMS_SENDER, CONSOLE_SMS_DLT_ENTITY_ID,
-//             and DLT template IDs CONSOLE_SMS_TEMPLATE_<PURPOSE>.
-//   Email:    the SMTP_* settings the rest of School OS uses.
-// With none of these set (a developer's computer), a message is recorded as
+// They go on DREAM TEAM's own WhatsApp (src/lib/console/whatsapp.ts: connected by
+// the Owner in the console's WhatsApp settings, or the CONSOLE_WHATSAPP_*
+// environment settings) and, when the person has one, by email (the SMTP_*
+// settings the rest of School OS uses). The console does not send SMS.
+// With nothing connected (a developer's computer), a message is recorded as
 // "test" and, outside production, written to the server log so it can be used.
 //
 // Messages are sent after the change is saved, never inside the transaction,
@@ -18,14 +15,14 @@ import "server-only";
 import { withConsole } from "../db";
 import { isTestCopy } from "../test-copy-env";
 import { mailIsSetUp, sendMail } from "../auth/mail";
-import { msg91Provider } from "../messaging/providers/msg91";
 import { whatsappProvider } from "../messaging/providers/whatsapp";
 import type { SendResult } from "../messaging/providers/types";
+import { whatsappSetup, type ConsolePurposeKey, type WhatsappSetup } from "./whatsapp";
 
-export type ConsoleChannel = "whatsapp" | "sms" | "email";
-export const CHANNEL_LABEL: Record<ConsoleChannel, string> = { whatsapp: "WhatsApp", sms: "SMS", email: "email" };
+export type ConsoleChannel = "whatsapp" | "email";
+export const CHANNEL_LABEL: Record<ConsoleChannel, string> = { whatsapp: "WhatsApp", email: "email" };
 
-/** What a message is for; picks the WhatsApp and SMS template. */
+/** What a message is for; picks the WhatsApp template. */
 export type ConsolePurpose = "invite" | "reset" | "code" | "invoice" | "notice" | "team-invite";
 
 export type ConsoleOutgoing = {
@@ -49,10 +46,9 @@ function env(name: string) {
   return v && v.trim() ? v.trim() : null;
 }
 
-export function channelIsSetUp(channel: ConsoleChannel): boolean {
+export async function channelIsSetUp(channel: ConsoleChannel): Promise<boolean> {
   if (channel === "email") return mailIsSetUp();
-  if (channel === "sms") return Boolean(env("CONSOLE_MSG91_AUTH_KEY") && env("CONSOLE_SMS_SENDER"));
-  return Boolean(env("CONSOLE_WHATSAPP_PHONE_NUMBER_ID") && env("CONSOLE_WHATSAPP_ACCESS_TOKEN"));
+  return (await whatsappSetup()) !== null;
 }
 
 /** Where the console's links point: the address people open School OS at. */
@@ -65,10 +61,12 @@ export function supportPhone(): string | null {
   return env("CONSOLE_SUPPORT_PHONE");
 }
 
-async function sendOne(m: ConsoleOutgoing): Promise<SendResult | "test"> {
-  if (!channelIsSetUp(m.channel)) return "test";
-  const key = m.purpose.toUpperCase().replace(/-/g, "_");
+/** WhatsApp refuses a blank that is empty or has a line break or tab in it. */
+const blank = (v: string) => v.replace(/\s*[\r\n\t]+\s*/g, " · ").replace(/ {4,}/g, "   ").trim() || "-";
+
+async function sendOne(m: ConsoleOutgoing, wa: WhatsappSetup | null): Promise<SendResult | "test"> {
   if (m.channel === "email") {
+    if (!mailIsSetUp()) return "test";
     try {
       await sendMail(m.to, m.subject ?? "School OS", m.text);
       return { ok: true, providerMessageId: "smtp", status: "SENT" };
@@ -76,36 +74,29 @@ async function sendOne(m: ConsoleOutgoing): Promise<SendResult | "test"> {
       return { ok: false, retryable: true, reason: e instanceof Error ? e.message.slice(0, 160) : "The mail server refused it." };
     }
   }
-  if (m.channel === "sms") {
-    return msg91Provider({ config: { senderId: env("CONSOLE_SMS_SENDER") ?? "" }, secrets: { authKey: env("CONSOLE_MSG91_AUTH_KEY") ?? "" } }).send({
-      channel: "sms",
-      to: m.to,
-      text: m.text,
-      dltTemplateId: env(`CONSOLE_SMS_TEMPLATE_${key}`),
-      dltEntityId: env("CONSOLE_SMS_DLT_ENTITY_ID"),
-      senderHeader: env("CONSOLE_SMS_SENDER"),
-    });
-  }
-  const template = env(`CONSOLE_WHATSAPP_TEMPLATE_${key}`);
-  return whatsappProvider({ config: { phoneNumberId: env("CONSOLE_WHATSAPP_PHONE_NUMBER_ID") ?? "" }, secrets: { accessToken: env("CONSOLE_WHATSAPP_ACCESS_TOKEN") ?? "" } }).send({
+  if (!wa) return "test";
+  const template = wa.template(m.purpose as ConsolePurposeKey);
+  const params = (m.templateParams ?? []).map(blank);
+  return whatsappProvider({ config: { phoneNumberId: wa.phoneNumberId }, secrets: { accessToken: wa.accessToken } }).send({
     channel: "whatsapp",
     to: m.to,
     text: m.text,
-    whatsappTemplate: template ? { name: template, language: env("CONSOLE_WHATSAPP_LANGUAGE") ?? "en", params: m.templateParams ?? [] } : null,
+    whatsappTemplate: template ? { name: template, language: wa.language, params, codeButton: m.purpose === "code" ? params[0] : undefined } : null,
   });
 }
 
 /** Sends each message and records it. Never throws: a failed send is recorded and returned. */
 export async function deliver(messages: ConsoleOutgoing[]): Promise<Delivered[]> {
   const out: Delivered[] = [];
+  const wa = messages.some((m) => m.channel === "whatsapp") ? await whatsappSetup().catch(() => null) : null;
   for (const m of messages) {
     let result: SendResult | "test";
     try {
-      result = await sendOne(m);
+      result = await sendOne(m, wa);
     } catch (e) {
       result = { ok: false, retryable: true, reason: e instanceof Error ? e.message.slice(0, 160) : "Could not send." };
     }
-    // The Vercel test copy has no SMS or email, so its codes go to the server
+    // The Vercel test copy may have no WhatsApp or email, so its codes go to the server
     // log there too, as the owner chose (deploy/vercel/README.md).
     if (result === "test" && (process.env.NODE_ENV !== "production" || isTestCopy())) {
       console.info(JSON.stringify({ level: "info", event: "console-message", note: "No provider set up; development only", channel: m.channel, to: m.to, text: m.text }));
@@ -131,7 +122,7 @@ export async function deliver(messages: ConsoleOutgoing[]): Promise<Delivered[]>
   return out;
 }
 
-/** "on WhatsApp and SMS", or what went wrong, for the toast after an action. */
+/** "on WhatsApp and email", or what went wrong, for the toast after an action. */
 export function deliveredWords(list: Delivered[]): string {
   if (list.length === 0) return "";
   const sent = list.filter((d) => d.status !== "FAILED");

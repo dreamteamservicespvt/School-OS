@@ -36,7 +36,7 @@ export function WelcomeForm({ token, phoneMasked }: { token: string; phoneMasked
           {sent && !sent.ok && <Alert tone="danger">{sent.message}</Alert>}
           <p className="text-[13.5px] text-ink2 rounded-xl bg-sunken p-3.5 flex gap-2.5">
             <ShieldCheck size={18} className="text-brand shrink-0 mt-0.5" aria-hidden="true" />
-            <span>We send a 6-digit code by SMS to <b className="font-semibold tnum">+91 {phoneMasked}</b>. Two-step login stays on for every sign-in.</span>
+            <span>We send a 6-digit code on WhatsApp to <b className="font-semibold tnum">+91 {phoneMasked}</b>. Two-step login stays on for every sign-in.</span>
           </p>
           <Button variant="primary" size="lg" className="w-full" loading={sending} loadingText="Sending…" onClick={send}>Send the code</Button>
         </div>

@@ -36,7 +36,7 @@ export default async function ConsoleSignInPage({ searchParams }: { searchParams
       {step === 1 ? (
         <PasswordStep notice={notice} />
       ) : (
-        <CodeStep sentTo={pending!.sentTo} name={user!.name} trustDays={DEVICE_DAYS} test={!channelIsSetUp("sms") && !(user!.email && channelIsSetUp("email"))} shownCode={testCopyCode(challenge)} />
+        <CodeStep sentTo={pending!.sentTo} name={user!.name} trustDays={DEVICE_DAYS} test={!(await channelIsSetUp("whatsapp")) && !(user!.email && (await channelIsSetUp("email")))} shownCode={testCopyCode(challenge)} />
       )}
     </ConsoleFrame>
   );

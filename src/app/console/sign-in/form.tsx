@@ -116,7 +116,7 @@ export function CodeStep({ sentTo, name, trustDays, test, shownCode }: { sentTo:
     <form action={(fd) => { setResent(null); action(fd); }} noValidate className="mt-5 flex flex-col gap-4">
       {shown?.message && <Alert tone={shown.sent ? "success" : "danger"}>{shown.message}</Alert>}
       {shownCode ? (
-        <Alert tone="info">Test copy: no SMS is set up, so your code is <b className="font-semibold tracking-widest">{shownCode}</b>.</Alert>
+        <Alert tone="info">Test copy: WhatsApp is not connected, so your code is <b className="font-semibold tracking-widest">{shownCode}</b>.</Alert>
       ) : (
         test && <TestCodeNote />
       )}

@@ -21,7 +21,6 @@ function welcomeMessages(u: Pick<SuperAdminUser, "name" | "phone" | "email" | "r
   const safe = text.replace(link, `${appUrl()}/console/welcome/••••`);
   const out: ConsoleOutgoing[] = [
     { channel: "whatsapp", to: u.phone, purpose: "team-invite", text, safeText: safe, templateParams: [u.name, CONSOLE_ROLES[u.role].label, link, maskMobile(u.phone)] },
-    { channel: "sms", to: u.phone, purpose: "team-invite", text, safeText: safe, templateParams: [u.name, CONSOLE_ROLES[u.role].label, link, maskMobile(u.phone)] },
   ];
   if (u.email) out.push({ channel: "email", to: u.email, purpose: "team-invite", subject: "Your School OS console invite", text: `${text}\n`, safeText: safe });
   return out;

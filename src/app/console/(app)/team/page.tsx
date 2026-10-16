@@ -89,7 +89,7 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
     if (sp.act === "role" && target.status !== "DISABLED") sheet = <RoleSheet closeHref={here} userId={target.id} name={target.name} current={target.role} lastOwner={isLastOwner(target)} roles={CONSOLE_ROLES} action={changeRoleAction} />;
     else if (sp.act === "resend" && target.status === "INVITED") sheet = (
       <ActSheet title={`Resend the invite to ${target.name}?`} closeHref={here} action={resendTeamAction} submitLabel="Send new invite" hidden={{ userId: target.id }}>
-        <p>A new link goes by WhatsApp and SMS to +91 {maskMobile(target.phone)}{target.email ? ", and by email" : ""}. It works for 3 days. The old link stops working.</p>
+        <p>A new link goes on WhatsApp to +91 {maskMobile(target.phone)}{target.email ? ", and by email" : ""}. It works for 3 days. The old link stops working.</p>
       </ActSheet>
     );
     else if (sp.act === "enable" && target.status === "DISABLED") sheet = (

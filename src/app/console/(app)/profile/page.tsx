@@ -63,7 +63,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
           <Card id="two-step">
             <CardHeader title="Two-step login" icon={ShieldCheck} divided action={<Pill tone="ok" dot>Always on</Pill>} />
             <div className="p-5 flex flex-col gap-2 text-[14px] text-ink2">
-              <p>After your password, a 6-digit code goes by SMS to <b className="font-semibold text-ink tnum">{showMobile(u.phone)}</b>. It cannot be switched off for console logins.</p>
+              <p>After your password, a 6-digit code goes on WhatsApp to <b className="font-semibold text-ink tnum">{showMobile(u.phone)}</b>. It cannot be switched off for console logins.</p>
               <p>A device you trust skips the code for {DEVICE_DAYS} days. Trusted devices now: <b className="font-semibold text-ink tnum">{devices}</b>.</p>
               <p className="text-ink3 text-[13px]">The console signs you out after 30 minutes without use.</p>
             </div>

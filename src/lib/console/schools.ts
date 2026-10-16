@@ -194,7 +194,7 @@ export function inviteState(i: Pick<SchoolInvite, "usedAt" | "cancelledAt" | "re
   return "sent" as const;
 }
 
-const CHANNELS: ConsoleChannel[] = ["whatsapp", "sms", "email"];
+const CHANNELS: ConsoleChannel[] = ["whatsapp", "email"];
 export function cleanChannels(list: string[], email: string | null): ConsoleChannel[] {
   const chosen = CHANNELS.filter((c) => list.includes(c));
   if (chosen.length === 0) throw new ConsoleProblem("Pick at least one way to send the invite.", "channels");
@@ -323,7 +323,7 @@ export async function addSchool(actor: ConsoleActor, input: AddSchoolInput, now 
       inviteId = made.invite.id;
       messages = made.messages;
     }
-    const chWords = joinAnd(channels.map((c) => (c === "email" ? "email" : c === "sms" ? "SMS" : "WhatsApp")));
+    const chWords = joinAnd(channels.map((c) => (c === "email" ? "email" : "WhatsApp")));
     await logActivity(tx, actor, {
       type: "school",
       school,

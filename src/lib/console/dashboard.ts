@@ -31,7 +31,7 @@ export type ChannelStats = Record<string, { sentToday: number; stuck: number; fa
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString("en-IN")} ${n === 1 ? one : many}`;
 const channelWords = (list: string[]) => {
-  const words = list.map((c) => CHANNEL_LABEL[c as ConsoleChannel] ?? c);
+  const words = list.map((c) => CHANNEL_LABEL[c as ConsoleChannel] ?? (c === "sms" ? "SMS" : c));
   return words.length > 1 ? `${words.slice(0, -1).join(", ")} and ${words[words.length - 1]}` : words[0] ?? "";
 };
 type StepRow = { label: string; done: boolean; skipped?: boolean };
@@ -117,7 +117,7 @@ function stuckBy(cards: CardStats[], channel: string) {
 async function systemProblem(cards: CardStats[]) {
   for (const ch of ["whatsapp", "sms"]) {
     const s = stuckBy(cards, ch);
-    if (s.waiting > 0) return { title: `${CHANNEL_LABEL[ch as ConsoleChannel]} messages not going out, ${plural(s.schools.length, "school")} affected.`, schools: s.schools, waiting: s.waiting, channel: ch };
+    if (s.waiting > 0) return { title: `${ch === "sms" ? "SMS" : CHANNEL_LABEL[ch as ConsoleChannel]} messages not going out, ${plural(s.schools.length, "school")} affected.`, schools: s.schools, waiting: s.waiting, channel: ch };
   }
   return null;
 }
@@ -143,14 +143,15 @@ export async function systemChecks(now = new Date()) {
   checks.push(errorsHour === 0
     ? { key: "errors", label: "Errors", ok: true, text: "Normal · no errors in the last hour" }
     : { key: "errors", label: "Errors", ok: errorsHour < 20, text: `${plural(errorsHour, "error")} in the last hour${errorSchools.length ? ` · ${errorSchools.map((e) => e.schoolCode).join(", ")}` : ""}` });
+  const consoleWhatsapp = await channelIsSetUp("whatsapp");
   for (const ch of ["whatsapp", "sms"] as const) {
     const stuck = sum(ch, "stuck");
     const sent = sum(ch, "sentToday");
     const failed = sum(ch, "failed");
-    const label = CHANNEL_LABEL[ch];
+    const label = ch === "sms" ? "SMS" : CHANNEL_LABEL[ch];
     checks.push(stuck > 0
       ? { key: ch, label, ok: false, text: `Not going out · ${stuck.toLocaleString("en-IN")} waiting` }
-      : { key: ch, label, ok: true, text: `Working · ${sent.toLocaleString("en-IN")} sent today${failed ? `, ${failed.toLocaleString("en-IN")} failed` : ""}${ch === "whatsapp" && !channelIsSetUp("whatsapp") ? " · console messages in test mode" : ""}` });
+      : { key: ch, label, ok: true, text: `Working · ${sent.toLocaleString("en-IN")} sent today${failed ? `, ${failed.toLocaleString("en-IN")} failed` : ""}${ch === "whatsapp" && !consoleWhatsapp ? " · console messages in test mode" : ""}` });
   }
   checks.push(platformRazorpay()
     ? { key: "razorpay", label: "Razorpay payments", ok: true, text: lastRazorpay?.paidAt ? `Working · last payment ${when(lastRazorpay.paidAt)}` : "Working · no payment yet" }

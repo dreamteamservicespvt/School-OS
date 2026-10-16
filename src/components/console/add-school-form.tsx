@@ -29,7 +29,7 @@ const inr = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
 const joinAnd = (xs: string[]) => (xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
 const TYPE_ICON: Record<string, I.LucideIcon> = { "Day school": I.Sun, "Boarding school": I.BedDouble, "Pre-school": I.Baby };
 const MOD_ICON: Record<string, I.LucideIcon> = { "library-management": I.Library, "inventory-management": I.Boxes, "hostel-management": I.BedDouble };
-const CH: [string, string, I.LucideIcon][] = [["whatsapp", "WhatsApp", I.MessageCircle], ["sms", "SMS", I.MessageSquareText], ["email", "Email", I.Mail]];
+const CH: [string, string, I.LucideIcon][] = [["whatsapp", "WhatsApp", I.MessageCircle], ["email", "Email", I.Mail]];
 
 export type AddSchoolProps = {
   action: Action;
@@ -53,7 +53,7 @@ export function AddSchoolForm(p: AddSchoolProps) {
     group: v("group", "none"), newGroupName: v("newGroupName"), adminName: v("adminName"), adminMobile: v("adminMobile"), adminEmail: v("adminEmail"), adminRole: v("adminRole", "school-admin"),
     startAs: v("startAs", "TRIAL"), planKey: v("planKey", "essential"),
   }));
-  const [ch, setCh] = useState<Set<string>>(new Set(["whatsapp", "sms"]));
+  const [ch, setCh] = useState<Set<string>>(new Set(["whatsapp"]));
   const [mods, setMods] = useState<Set<string>>(new Set());
   const [hostel, setHostel] = useState(false);
   const [tried, setTried] = useState(false);
@@ -272,7 +272,7 @@ export function AddSchoolForm(p: AddSchoolProps) {
 
         <Col>
           <Card>
-            <CardHeader title="The invite they will get" description="On WhatsApp, with the same text by SMS" icon={I.MessageCircle} />
+            <CardHeader title="The invite they will get" description="On WhatsApp, and by email when you tick it" icon={I.MessageCircle} />
             <InvitePreview school={f.name.trim() || "your school"} admin={f.adminName.trim() || "Anita Sharma"} role={roleWords} mobile={f.adminMobile} time="Preview" help={p.help} host={p.linkHost} />
           </Card>
           <Card>

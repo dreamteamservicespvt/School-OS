@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarClock, Check, CircleCheck, Flag, KeyRound, ListChecks, MessageCircle, Plus, School } from "lucide-react";
+import { CalendarClock, Check, CircleCheck, Flag, KeyRound, ListChecks, MessageCircle, Plus, School, X } from "lucide-react";
 import { requireConsolePage } from "@/lib/console/current";
 import { withConsole } from "@/lib/db";
 import { maskMobile } from "@/lib/console/activity";
@@ -20,10 +20,12 @@ import { testMessageNote } from "@/components/console/test-code-note";
 export const metadata: Metadata = { title: "School added" };
 
 const CH = { whatsapp: "WhatsApp", sms: "SMS", email: "email" } as Record<string, string>;
+const notSentInProduction = process.env.NODE_ENV === "production";
 const joinAnd = (xs: string[]) => (xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
 
 export default async function AddDone({ searchParams }: { searchParams: Promise<{ id?: string }> }) {
-  await requireConsolePage("add");
+  const c = await requireConsolePage("add");
+  const canWhatsapp = c.can("messaging");
   const { id } = await searchParams;
   if (!id || !/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const data = await withConsole(async (tx) => {
@@ -38,9 +40,12 @@ export default async function AddDone({ searchParams }: { searchParams: Promise<
   if (!data) notFound();
   const { card: s, invite, messages } = data;
   const time = formatTime(s.createdAt);
-  const channels = [...new Set(messages.map((m) => CH[m.channel] ?? m.channel))];
+  const sentList = messages.filter((m) => m.status === "SENT");
+  const channels = [...new Set(sentList.map((m) => CH[m.channel] ?? m.channel))];
   const failed = messages.filter((m) => m.status === "FAILED");
   const test = messages.length > 0 && messages.every((m) => m.status === "TEST");
+  // The invite only "went out" when a message really left; test mode on a server does not count.
+  const wentOut = sentList.length > 0 || (test && !notSentInProduction);
   const optional = s.modulesOn.length - CORE_MODULES.length;
   const role = ROLE_WORDS[invite?.roleKey ?? "school-admin"] ?? "School Admin";
   const admin = invite?.name ?? s.adminName ?? "The School Admin";
@@ -50,9 +55,10 @@ export default async function AddDone({ searchParams }: { searchParams: Promise<
     "The starting roles were made: Principal / Owner, School Admin, Accountant, Teacher and the rest.",
     `${s.modulesOn.length} modules were switched on${optional > 0 ? `, ${optional} of them optional` : ""}, with the ${s.board} defaults ready to apply.`,
     invite ? `${admin}’s login was made with status Invited, as ${role}.` : `${admin} already had a login in the group, so only a School Access entry for this school was added.`,
-    invite ? `The invite went out on ${joinAnd(channels) || "the channels chosen"} at ${time}.` : "No invite was needed.",
+    !invite ? "No invite was needed." : sentList.length ? `The invite went out on ${joinAnd(channels)} at ${time}.` : wentOut ? "The invite was written to the server log (test mode)." : null,
     `The school appears in Schools as ${s.startedAs === "TRIAL" ? "Trial" : "Active"}, and in the Activity Log.`,
   ];
+  const notDone = invite && !wentOut ? (failed.length ? `The invite could not be sent: ${failed[0].failReason ?? "WhatsApp refused it"}.` : "The invite was not sent: WhatsApp is not connected yet.") : null;
   return (
     <div>
       <BackLink label="Schools" />
@@ -63,19 +69,25 @@ export default async function AddDone({ searchParams }: { searchParams: Promise<
             <span className="w-14 h-14 rounded-2xl bg-ok/10 text-ok grid place-items-center animate-pop shrink-0"><Check size={28} strokeWidth={2.6} aria-hidden="true" /></span>
             <div className="flex-1 min-w-0">
               <h2 className="font-display text-[22px] font-semibold tracking-tight leading-tight">{s.name} is ready</h2>
-              <p className="text-[14px] text-ink3 mt-1">School code <span className="font-mono text-[12.5px] text-ink2">{s.code}</span> · {s.startedAs === "TRIAL" ? "Trial" : "Active"}{s.trialEndsOn ? ` until ${formatDate(s.trialEndsOn)}` : ""}{invite ? ` · invite sent to ${admin}` : ""}</p>
+              <p className="text-[14px] text-ink3 mt-1">School code <span className="font-mono text-[12.5px] text-ink2">{s.code}</span> · {s.startedAs === "TRIAL" ? "Trial" : "Active"}{s.trialEndsOn ? ` until ${formatDate(s.trialEndsOn)}` : ""}{invite ? (wentOut ? ` · invite sent to ${admin}` : ` · invite not sent yet`) : ""}</p>
             </div>
             <Link href={`/console/schools/${s.id}`} className={buttonClass("primary")}><School size={17} aria-hidden="true" />Open school</Link>
           </Card>
           <Card>
             <CardHeader title="What happened by itself" description={`All done at ${time}`} icon={CircleCheck} />
             <ol className="px-5 pb-4 flex flex-col">
-              {steps.map((t, i) => (
+              {steps.filter((t) => t !== null).map((t, i) => (
                 <li key={i} className="flex gap-3 py-2.5 border-t border-line/70 first:border-t-0">
                   <span className="w-7 h-7 rounded-full bg-ok/15 text-ok grid place-items-center shrink-0"><Check size={15} strokeWidth={3} aria-hidden="true" /></span>
                   <p className="text-[14px] leading-snug pt-1 min-w-0">{t}</p>
                 </li>
               ))}
+              {notDone && (
+                <li className="flex gap-3 py-2.5 border-t border-line/70">
+                  <span className="w-7 h-7 rounded-full bg-bad/15 text-bad grid place-items-center shrink-0"><X size={15} strokeWidth={3} aria-hidden="true" /></span>
+                  <p className="text-[14px] leading-snug pt-1 min-w-0">{notDone} {canWhatsapp ? <Link href="/console/whatsapp" className="text-brand font-medium hover:underline">Connect WhatsApp</Link> : "Ask the Owner to connect WhatsApp."} Then resend it from the school’s page.</p>
+                </li>
+              )}
             </ol>
           </Card>
           <div className="flex gap-2 flex-wrap">
@@ -87,7 +99,7 @@ export default async function AddDone({ searchParams }: { searchParams: Promise<
           {invite && (
             <Card>
               <CardHeader title="Invite on WhatsApp" description={failed.length ? `${failed.length} of ${messages.length} could not be sent. Resend from the school’s page.` : test ? testMessageNote() : `Sent to ${admin} at ${time}`} icon={MessageCircle}
-                action={<Pill tone={failed.length || (test && process.env.NODE_ENV === "production") ? "bad" : test ? "info" : "ok"} dot>{failed.length ? "Not sent" : test ? (process.env.NODE_ENV === "production" ? "Not sent" : "Test mode") : "Sent"}</Pill>} />
+                action={<Pill tone={failed.length || (test && notSentInProduction) ? "bad" : test ? "info" : "ok"} dot>{failed.length ? "Not sent" : test ? (notSentInProduction ? "Not sent" : "Test mode") : "Sent"}</Pill>} />
               <InvitePreview school={s.name} admin={admin} role={role} mobile={invite.phone} time={time} sent={!failed.length && !test} help={supportPhone()} host={appUrl().replace(/^https?:\/\//, "")} />
             </Card>
           )}

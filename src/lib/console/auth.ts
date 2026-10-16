@@ -59,7 +59,7 @@ async function findByPhone(tx: Tx, typed: string) {
 }
 
 /**
- * Vercel test copy only (deploy/vercel/README.md): it has no SMS or email, so
+ * Vercel test copy only (deploy/vercel/README.md): when it has no WhatsApp or email, so
  * the owner chose to have the sign-in page show the code. The code is worked
  * out from the challenge, so the page can show it without storing it.
  * Everywhere else this is null and codes stay random and unseen.
@@ -86,7 +86,7 @@ async function sendCode(user: SuperAdminUser, purpose: "sign-in" | "welcome", no
   });
   const text = `${code} is your School OS Console ${purpose === "sign-in" ? "sign-in" : "set-up"} code. It works for 10 minutes. Never share it with anyone.`;
   const safe = text.replace(code, "••••••");
-  const messages: ConsoleOutgoing[] = [{ channel: "sms", to: user.phone, purpose: "code", text, safeText: safe, templateParams: [code] }];
+  const messages: ConsoleOutgoing[] = [{ channel: "whatsapp", to: user.phone, purpose: "code", text, safeText: safe, templateParams: [code] }];
   if (user.email) messages.push({ channel: "email", to: user.email, purpose: "code", subject: `${code} is your School OS Console code`, text: `Hello ${user.name},\n\n${text}\n\nIf you did not try to sign in, tell the Owner at once.\n`, safeText: safe });
   const sent = await deliver(messages);
   if (sent.every((s) => s.status === "FAILED")) return { ok: false as const, message: "The code could not be sent just now. Try again in a minute." };

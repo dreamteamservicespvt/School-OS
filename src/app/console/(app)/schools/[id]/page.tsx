@@ -162,7 +162,7 @@ export default async function SchoolPage({ params, searchParams }: { params: Pro
       case "resend":
         return c.can("invite") && person?.invite ? (
           <ActSheet title="Send a new invite?" sub={s.name} closeHref={close} action={resendInviteAction} submitLabel={`Send new invite to ${person.name}`} hidden={{ schoolId: id, inviteId: person.invite.id }}>
-            <p>A new link goes to <b className="text-ink">{person.name}</b>, +91 {maskMobile(person.invite.phone)}, on {person.invite.channels.map((x) => (x === "whatsapp" ? "WhatsApp" : x === "sms" ? "SMS" : "email")).join(" and ")}.</p>
+            <p>A new link goes to <b className="text-ink">{person.name}</b>, +91 {maskMobile(person.invite.phone)}, on {person.invite.channels.map((x) => (x === "email" ? "email" : "WhatsApp")).filter((x, i, a) => a.indexOf(x) === i).join(" and ")}.</p>
             <p>The old link stops working. The new one works for 3 days and needs the code sent to their mobile.</p>
           </ActSheet>
         ) : null;

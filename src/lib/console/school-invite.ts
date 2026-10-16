@@ -53,7 +53,7 @@ export async function sendSchoolInviteCode(token: string, ip: string | null, now
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
   await withConsole((tx) => tx.schoolInvite.update({ where: { id: look.invite.id }, data: { codeHash: codeHashOf(look.invite.id, code), codeSentAt: now, codeAttempts: 0, codeOkAt: null } }));
   const text = `${code} is your School OS code for ${look.schoolName}. It works for 10 minutes. Never share it with anyone, including DREAM TEAM.`;
-  const sent = await deliver([{ channel: "sms", to: look.invite.phone, purpose: "code", text, safeText: text.replace(code, "••••••"), templateParams: [code] }]);
+  const sent = await deliver([{ channel: "whatsapp", to: look.invite.phone, purpose: "code", text, safeText: text.replace(code, "••••••"), templateParams: [code] }]);
   if (sent.every((s) => s.status === "FAILED")) return { ok: false as const, message: "The code could not be sent just now. Try again in a minute." };
   return { ok: true as const, sentTo: maskMobile(look.invite.phone), test: sent.every((s) => s.status === "TEST") };
 }
@@ -71,7 +71,7 @@ export async function finishSchoolInvite(token: string, code: string, password: 
   const right = typed.length === 6 && timingSafeEqual(Buffer.from(codeHashOf(inv.id, typed)), Buffer.from(inv.codeHash));
   if (!right) {
     await withConsole((tx) => tx.schoolInvite.update({ where: { id: inv.id }, data: { codeAttempts: { increment: 1 } } }));
-    return { ok: false, message: "That code is not right. Check the SMS and type it again.", field: "code" };
+    return { ok: false, message: "That code is not right. Check WhatsApp and type it again.", field: "code" };
   }
   const bad = checkNewPassword(password);
   if (bad) return { ok: false, message: bad, field: "password" };

@@ -4,7 +4,7 @@
 import type { ConsoleRole } from "@prisma/client";
 
 export const CONSOLE_ROLES: Record<ConsoleRole, { label: string; does: string }> = {
-  OWNER: { label: "Owner", does: "Everything, including the Team page, closing a school, discounts and marking a bank transfer or cheque as paid." },
+  OWNER: { label: "Owner", does: "Everything, including the Team page, WhatsApp settings, closing a school, discounts and marking a bank transfer or cheque as paid." },
   ONBOARDING: { label: "Onboarding", does: "Adds schools, creates and resends School Admin invites, sees setup progress, starts trials. Cannot close a school." },
   SUPPORT: { label: "Support", does: "Sees schools and their admins, resends invites, resets an admin’s login. Cannot add or close schools." },
 };
@@ -43,9 +43,11 @@ export type ConsoleAction =
   /** Make a top-up invoice for more students than paid for. */
   | "topup"
   /** Change the price list. */
-  | "prices";
+  | "prices"
+  /** Connect DREAM TEAM's WhatsApp for console messages, and its templates. */
+  | "messaging";
 
-const ALL: ConsoleAction[] = ["add", "invite", "reset", "disable", "edit", "activate", "status", "plan", "invoice", "markPaid", "approve", "discount", "team", "group", "topup", "prices"];
+const ALL: ConsoleAction[] = ["add", "invite", "reset", "disable", "edit", "activate", "status", "plan", "invoice", "markPaid", "approve", "discount", "team", "group", "topup", "prices", "messaging"];
 
 export const CONSOLE_CAN: Record<ConsoleRole, ConsoleAction[]> = {
   OWNER: ALL,

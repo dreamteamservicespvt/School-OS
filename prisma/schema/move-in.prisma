@@ -1,0 +1,60 @@
+// Switching to School OS (02-workflows.md, workflow 15; decision D7): a school
+// brings its records from its old software, Excel sheets or paper registers.
+// Each uploaded file is worked on as a Move-in File until it is imported
+// through the shared importer (P10); the Move-in Plan holds the go-live check.
+
+/// One file a school is bringing in: which sheet, which heading row, how its
+/// columns and values match School OS, and the fixes typed on screen.
+model MoveInFile {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  /// The upload (Stored File, purpose "move-in").
+  fileId      String    @map("file_id") @db.Uuid
+  fileName    String    @map("file_name")
+  /// Sheet names and row counts of the workbook, for the sheet picker.
+  sheets      Json      @default("[]")
+  sheetIndex  Int       @default(0) @map("sheet_index")
+  /// Row number (from 1) that holds the headings.
+  headerRow   Int       @default(1) @map("header_row")
+  /// What the sheet holds: an import kind key, e.g. "students" or "staff".
+  kind        String
+  /// School OS column key → the file's column number, or a list of numbers joined (first, middle, last name).
+  columnMatch Json      @default("{}") @map("column_match")
+  /// Column key → { file value → School OS value } chosen on screen ("5th B" → "Class 5 B").
+  valueMatch  Json      @default("{}") @map("value_match")
+  /// Row number → { column key → value } typed on screen to fix a row.
+  rowFixes    Json      @default("{}") @map("row_fixes")
+  /// Row numbers left out on purpose.
+  leftOut     Json      @default("[]") @map("left_out")
+  /// Tidy-ups (dates, phones, capitals, class names) are on unless switched off.
+  tidy        Boolean   @default(true)
+  /// open, importing, imported or cancelled.
+  status      String    @default("open")
+  /// The cleaned file handed to the shared importer, and the Import Batch it made.
+  importFileId String?  @map("import_file_id") @db.Uuid
+  batchId     String?   @map("batch_id") @db.Uuid
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  @@index([schoolId, createdAt])
+  @@map("move_in_file")
+}
+
+/// The school's move-in: the numbers from the old software to compare with,
+/// the go-live date, and who confirmed going live.
+model MoveInPlan {
+  schoolId      String    @id @map("school_id") @db.Uuid
+  oldSoftware   String?   @map("old_software")
+  /// What the old software or registers say: { students, staff, guardians }.
+  expected      Json      @default("{}")
+  goLiveDate    DateTime? @map("go_live_date") @db.Date
+  wentLiveAt    DateTime? @map("went_live_at")
+  wentLiveById  String?   @map("went_live_by_id") @db.Uuid
+  /// The go-live summary as confirmed, kept for the record.
+  liveSummary   Json?     @map("live_summary")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@map("move_in_plan")
+}

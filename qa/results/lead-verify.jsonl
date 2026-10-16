@@ -1,0 +1,7 @@
+{"at":"2026-10-16T08:58:02.233Z","area":"lead-verify","id":"PLATFORM-09","check":"1024px /student-management width 1024","status":"PASS"}
+{"at":"2026-10-16T08:58:02.233Z","area":"lead-verify","id":"PLATFORM-09","check":"1024px /fee-management width 1024","status":"PASS"}
+{"at":"2026-10-16T08:58:02.233Z","area":"lead-verify","id":"PLATFORM-09","check":"1024px /staff-hr-management width 1024","status":"PASS"}
+{"at":"2026-10-16T08:58:02.234Z","area":"lead-verify","id":"PLATFORM-09","check":"1024px /attendance-management/reports width 1024","status":"PASS"}
+{"at":"2026-10-16T08:58:02.234Z","area":"lead-verify","id":"PEOPLE-12","check":"class after error kept","status":"PASS"}
+{"at": "2026-10-16T08:58:21.807576Z", "area": "lead-verify", "id": "SIM-06", "check": "Dashboard and Fee Dashboard both show \u20b91.87 L of \u20b91.07 Cr collected this year", "status": "PASS"}
+{"at": "2026-10-16T08:58:21.808484Z", "area": "lead-verify", "id": "SIM-03", "check": "Dashboard students present 16 matches the Grade 5 A register (15 present + 1 late), transferred student not counted", "status": "PASS"}

@@ -317,7 +317,9 @@ export async function recordSend(tx: Tx, ctx: SchoolContext, input: SendInput, p
   }
   if (plan.problems.length) throw new MessagingProblem(plan.problems[0]);
   if (plan.rows.length === 0) {
-    const why = plan.skipped[0] ? ` ${plan.skipped.map((s) => `${s.count} ${s.reason.toLowerCase()}`).join(", ")}.` : "";
+    // "Parents have no app … (1).": the reason keeps its own words and capitals (WhatsApp, SMS);
+    // a count in front read "1 parents have no app".
+    const why = plan.skipped[0] ? ` ${plan.skipped.map((s) => `${s.reason} (${s.count})`).join(". ")}.` : "";
     throw new MessagingProblem(`Nobody would get this message.${why}`);
   }
   const short = plan.creditProblem;

@@ -123,6 +123,10 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 h1, h2, h3 { text-wrap: balance; }
+/* A hidden column label ("Open", "Actions") is absolutely placed by sr-only, so inside a
+   table that scrolls sideways it escaped the scroll box and widened the whole page
+   (1024 px laptops scrolled sideways). In a header cell it can simply stay in the flow. */
+th > .sr-only { position: static; }
 
 @utility tnum { font-variant-numeric: tabular-nums; }
 @utility eyebrow { font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; }

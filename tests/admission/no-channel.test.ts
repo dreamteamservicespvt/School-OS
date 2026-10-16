@@ -1,6 +1,6 @@
 // A school with no SMS, WhatsApp or email connected: admission messages say
 // why they were not sent, never "sent" and never blame the parent's number
-// (QA PEOPLE-08, PEOPLE-09).
+// (QA PEOPLE-05, PEOPLE-08, PEOPLE-21).
 import { beforeAll, describe, expect, it } from "vitest";
 import { withSchool } from "@/lib/db";
 import { createApplication, type ApplicationInput } from "@/lib/admission/applications";

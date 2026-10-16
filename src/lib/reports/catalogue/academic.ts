@@ -81,12 +81,22 @@ const atMonthly: ReportEntry = {
       const people = await rc.tx.enrolment.findMany({ where: { sectionId, archivedAt: null, status: "STUDYING" }, include: { student: { select: { id: true, fullName: true, admissionNo: true } } }, orderBy: { rollNo: "asc" } });
       for (const e of people) {
         const s = sum.people.get(e.studentId);
-        rows.push({ name: e.student.fullName, cls: names.get(sectionId)?.label ?? "", roll: e.rollNo, days: s?.workingDays ?? sum.workingDays, present: s?.present ?? 0, absent: s?.absent ?? 0, late: s?.late ?? 0, leave: s?.leave ?? 0, percent: s?.percent ?? null });
+        const days = s?.workingDays ?? sum.workingDays;
+        const marked = s?.markedDays ?? 0;
+        // School days with no mark saved are shown on their own, never hidden inside the %.
+        rows.push({ name: e.student.fullName, cls: names.get(sectionId)?.label ?? "", roll: e.rollNo, days, marked, notMarked: Math.max(0, days - marked), counted: s?.countedDays ?? 0, present: s?.present ?? 0, absent: s?.absent ?? 0, late: s?.late ?? 0, leave: s?.leave ?? 0, percent: s?.percent ?? null });
       }
     }
+    const unmarked = rows.reduce((a, r) => a + Number(r.notMarked ?? 0), 0);
     return {
-      columns: [{ key: "name", label: "Student" }, { key: "cls", label: "Class" }, { key: "roll", label: "Roll no.", kind: "number" }, { key: "days", label: "School days", kind: "number" }, { key: "present", label: "Present", kind: "number" }, { key: "absent", label: "Absent", kind: "number" }, { key: "late", label: "Late", kind: "number" }, { key: "leave", label: "On leave", kind: "number" }, { key: "percent", label: "Present %", kind: "percent" }],
+      columns: [
+        { key: "name", label: "Student" }, { key: "cls", label: "Class" }, { key: "roll", label: "Roll no.", kind: "number" },
+        { key: "days", label: "School days", kind: "number" }, { key: "marked", label: "Days marked", kind: "number" }, { key: "notMarked", label: "Not marked", kind: "number" },
+        { key: "present", label: "Present", kind: "number" }, { key: "absent", label: "Absent", kind: "number" }, { key: "late", label: "Late", kind: "number" }, { key: "leave", label: "On leave", kind: "number" },
+        { key: "counted", label: "Days counted", kind: "number" }, { key: "percent", label: "Present %", kind: "percent" },
+      ],
       rows,
+      note: `Present % is present days out of days counted: the days marked, without leave (a half day counts half). Holidays and Sundays are not school days.${unmarked ? " Days not marked are left out of the %; take or correct them in Attendance Management." : ""}`,
     };
   },
 };

@@ -139,12 +139,23 @@ export async function attendanceToday(tx: Tx, ctx: SchoolContext, today: Date, o
     tx.attendanceFlag.count({ where: { clearedAt: null } }),
   ]);
   const rows = cws.flatMap((c) => c.sections).filter((s) => s.students > 0);
-  const sum = (k: "marked" | "present" | "absent" | "leave" | "late" | "students") => rows.reduce((a, s) => a + s[k], 0);
+  const sum = (k: "marked" | "present" | "absent" | "leave" | "late" | "students" | "counted" | "weight") => rows.reduce((a, s) => a + s[k], 0);
   const count = (vals: string[], keys: string[]) => vals.filter((v) => keys.includes(v)).length;
+  // The attendance % everywhere (register, reports, this tile): present ÷ days counted; leave is not counted, a half day counts half.
+  const counted = sum("counted");
   return {
     off: info.on ? null : info.title,
-    students: { marked: sum("marked"), present: sum("present"), absent: sum("absent"), leave: sum("leave"), late: sum("late"), total: sum("students") },
-    classes: { total: rows.length, notMarked: info.on ? rows.filter((s) => s.notMarked).length : 0, notMarkedNames: info.on ? rows.filter((s) => s.notMarked).map((s) => s.name) : [] },
+    students: {
+      marked: sum("marked"), present: sum("present"), absent: sum("absent"), leave: sum("leave"), late: sum("late"), total: sum("students"),
+      /** Students on the register with no mark yet (in classes that are taken or not). */
+      notMarked: rows.reduce((a, s) => a + Math.max(0, s.students - s.marked), 0),
+      percent: counted ? Math.round((sum("weight") / counted) * 1000) / 10 : null,
+    },
+    classes: {
+      total: rows.length, notMarked: info.on ? rows.filter((s) => s.notMarked).length : 0, notMarkedNames: info.on ? rows.filter((s) => s.notMarked).map((s) => s.name) : [],
+      /** Students in the classes not taken at all. */
+      notMarkedStudents: rows.filter((s) => s.notMarked).reduce((a, s) => a + s.students, 0),
+    },
     staff: { total: staffCount, marked: staffMarks.length, present: count(staffMarks.map((m) => m.statusKey), ["present", "late", "half-day"]), absent: count(staffMarks.map((m) => m.statusKey), ["absent"]), late: count(staffMarks.map((m) => m.statusKey), ["late"]) },
     openFlags: flags,
     href: BASE,

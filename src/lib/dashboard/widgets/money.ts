@@ -152,15 +152,16 @@ const collectionChart: Widget<"panel"> = {
     const trend = await monthlyTrend(c.tx, c.year.startDate, end);
     let paidSoFar = ZERO, dueSoFar = ZERO;
     const months = trend.map((m) => ({ ...m, paidSoFar: (paidSoFar += m.collected), dueSoFar: (dueSoFar += m.due) })).filter((m) => m.dueSoFar > ZERO);
-    const collected = paidSoFar;
-    const due = dueSoFar;
     const pct = (a: bigint, b: bigint) => (b > ZERO ? Math.min(100, Math.round((Number(a) * 100) / Number(b))) : 0);
+    // "Collected this year" has one meaning: the Fee Dashboard's (fees/by-class.ts), paid on
+    // the fees due so far. The same words show the same numbers on both screens.
+    const year = (await tiles(c)).year;
     return {
       slot: "main",
       panel: {
         kind: "bars", title: "Fee collection", icon: "CreditCard",
         // Each bar: share of the fees due so far that was collected by the end of that month.
-        sub: due > ZERO ? `${formatRupeesShort(collected)} of ${formatRupeesShort(due)} due so far · ${pct(collected, due)}%` : `${c.year.name}: nothing due yet`,
+        sub: year.due > ZERO ? `${formatRupeesShort(year.paid)} of ${formatRupeesShort(year.due)} due so far · ${Math.round(year.percent)}%` : `${c.year.name}: nothing due yet`,
         rows: months.map((m) => ({ key: m.key, label: m.label, value: pct(m.paidSoFar, m.dueSoFar) })),
         goal: 90, lowBelow: 75, href: `${FEES}/reports`, linkLabel: "Reports",
         empty: "No fees have fallen due this year yet.",

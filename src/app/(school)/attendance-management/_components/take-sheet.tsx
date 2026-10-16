@@ -1,7 +1,8 @@
 "use client";
 
-// Take Attendance (05 §2, design/ui-prototype/src/attendance.jsx): everyone
-// starts Present; tap A or L for the exceptions; a long press (or "Add note")
+// Take Attendance (05 §2, design/ui-prototype/src/attendance.jsx): a register
+// not saved yet starts everyone Present (./sheet-start.ts); a saved or locked
+// one shows only saved marks, the rest "Not marked"; tap A or L for the exceptions; a long press (or "Add note")
 // opens every status and a note. One fixed Save button says what will be
 // saved. Offline, the save waits on this phone and is sent when online.
 
@@ -20,6 +21,7 @@ import { saveSheet } from "../actions";
 import { enqueueSave, isNetworkError, newClientId } from "./offline-queue";
 import { QuickChips } from "./sheet-form";
 import { STATUS_ON, STATUS_SOFT, type StatusView } from "./status";
+import { startMarks, unsavedCount } from "./sheet-start";
 
 export type SheetStatus = StatusView & { counts: string };
 export type SheetRow = {
@@ -50,16 +52,13 @@ export function TakeSheet(p: Props) {
   const byKey = useMemo(() => new Map(p.statuses.map((s) => [s.key, s])), [p.statuses]);
   const quick = useMemo(() => QUICK.filter((k) => byKey.has(k)), [byKey]);
   const fixed = useCallback((s: SheetRow) => Boolean(s.leave && !s.leave.halfDay), []);
-  const start = useCallback((): Record<string, Mark> => {
-    const out: Record<string, Mark> = {};
-    for (const s of p.students) {
-      out[s.id] = { statusKey: s.statusKey ?? (fixed(s) ? "leave" : p.defaultStatus === "present" ? "present" : null), note: s.note ?? "" };
-    }
-    return out;
-  }, [p.students, p.defaultStatus, fixed]);
+  const readOnly = p.locked && !p.canChangeAfterLock;
+  // Present by default only on a register not saved yet that this person may save (./sheet-start.ts).
+  const start = useCallback((): Record<string, Mark> => startMarks(p.students, { saved: p.saved, readOnly, defaultStatus: p.defaultStatus }), [p.students, p.saved, readOnly, p.defaultStatus]);
   // The page gives this sheet a new key when the server's copy changes, so it starts fresh then.
   const [marks, setMarks] = useState<Record<string, Mark>>(start);
   const [dirty, setDirty] = useState(!p.saved);
+  const unsaved = unsavedCount(p.students);
   const [q, setQ] = useState("");
   const [confirmAll, setConfirmAll] = useState(false);
   const [noteFor, setNoteFor] = useState<string | null>(null);
@@ -68,7 +67,6 @@ export function TakeSheet(p: Props) {
   const clientId = useRef<string>(newClientId());
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressed = useRef(false);
-  const readOnly = p.locked && !p.canChangeAfterLock;
 
   // Warn before leaving with unsaved marks.
   useEffect(() => {
@@ -169,16 +167,25 @@ export function TakeSheet(p: Props) {
       {readOnly ? (
         <Banner tone="warn" icon={Lock} className="mb-4" title={`Attendance for ${p.dateText} locked at ${p.lockText}.`}
           action={<Link href={p.correctionHref} className={buttonClass("secondary", "sm")}>Request a correction</Link>}>
-          A change now needs a correction request. The principal approves it, and the original stays in the audit log.
+          {!p.saved
+            ? "Attendance was not taken: nothing is saved for this day, so nobody is marked. To add the marks, request a correction; the principal approves it."
+            : `${unsaved ? `${studentsWord(unsaved)} not marked: no mark is saved for them on this day. ` : ""}A change now needs a correction request. The principal approves it, and the original stays in the audit log.`}
         </Banner>
       ) : savedNow ? (
-        <Banner tone="ok" icon={CircleCheck} className="mb-4" role="status" title={`Saved at ${p.savedAtText}${p.savedBy ? ` by ${p.savedBy}` : ""}.`}>
+        <Banner tone={unsaved ? "warn" : "ok"} icon={unsaved ? Info : CircleCheck} className="mb-4" role="status" title={`Saved at ${p.savedAtText}${p.savedBy ? ` by ${p.savedBy}` : ""}.`}>
+          {unsaved ? `${studentsWord(unsaved)} not marked yet: tap P, A or L for each, then save. ` : ""}
           {p.locked ? `It locked at ${p.lockText}; your changes are recorded in the audit log.` : `You can change it until ${p.lockText}.`}
+        </Banner>
+      ) : p.locked && !p.saved ? (
+        <Banner tone="warn" icon={Info} className="mb-4" title={`Not taken: nothing is saved for ${p.dateText}.`}>
+          It locked at {p.lockText}. You may still take it; every change is recorded in the audit log.{p.defaultStatus === "present" ? " Everyone starts as present until you save." : ""}
         </Banner>
       ) : p.locked ? (
         <Banner tone="info" icon={Info} className="mb-4" title={`Locked at ${p.lockText}.`}>You may still change it; every change is recorded in the audit log.</Banner>
-      ) : p.defaultStatus === "present" ? (
-        <Banner tone="info" icon={Info} className="mb-4" title="Everyone starts as present.">Tap only the students who are absent or late.</Banner>
+      ) : p.defaultStatus === "present" && !p.saved ? (
+        <Banner tone="info" icon={Info} className="mb-4" title="Not saved yet. Everyone starts as present.">Tap only the students who are absent or late, then save.</Banner>
+      ) : p.saved ? (
+        <Banner tone="info" icon={Info} className="mb-4" title="Changes not saved yet.">Save to keep them. You can change it until {p.lockText}.</Banner>
       ) : (
         <Banner tone="info" icon={Info} className="mb-4" title="Nobody is marked yet.">Tap P, A or L for each student, or mark everyone present first.</Banner>
       )}
@@ -285,6 +292,8 @@ export function TakeSheet(p: Props) {
     </div>
   );
 }
+
+const studentsWord = (n: number) => (n === 1 ? "1 student" : `${n} students`);
 
 function NoteSheet({ row, mark, statuses, extra, onClose, onSave }: {
   row: SheetRow | null; mark: Mark | undefined; statuses: SheetStatus[]; extra: SheetStatus[];

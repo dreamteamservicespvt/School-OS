@@ -19,6 +19,7 @@ import { attendanceFeatures, attendanceSettings, statusList, statusesFor, type S
 import { instantAt, schoolDateOf, time12 } from "./time";
 import { sectionPeriods, teacherPeriodsOn } from "./timetable";
 import { createCorrection } from "./corrections";
+import { ON_REGISTER_STATUSES } from "./on-register";
 
 export const dayText = (d: Date) => formatDate(d, "UTC");
 
@@ -34,7 +35,7 @@ export async function roster(tx: Tx, sectionId: string, academicYearId: string, 
   const rows = await tx.enrolment.findMany({
     where: opts.pastYear
       ? { sectionId, academicYearId, archivedAt: null }
-      : { sectionId, academicYearId, archivedAt: null, status: "STUDYING", student: { archivedAt: null, status: { in: ["ACTIVE", "ADMITTED"] } } },
+      : { sectionId, academicYearId, archivedAt: null, status: "STUDYING", student: { archivedAt: null, status: { in: ON_REGISTER_STATUSES } } },
     include: { student: { select: { id: true, fullName: true, admissionNo: true, photoFileId: true } } },
   });
   rows.sort((a, b) => (order === "name" ? a.student.fullName.localeCompare(b.student.fullName) : (a.rollNo ?? 9999) - (b.rollNo ?? 9999) || a.student.fullName.localeCompare(b.student.fullName)));

@@ -15,6 +15,7 @@ import { deviceInfo, requireAction, requireCurrent } from "@/lib/current";
 import { hitLimit, limitMessage } from "@/lib/rate-limit";
 import { NOTE_CHANNELS, NOTE_KINDS, type NoteChannel } from "@/lib/notification-kinds";
 import { pushOn } from "@/lib/push";
+import { FileProblem, IMAGE_TYPES, saveFile } from "@/lib/files";
 import { readPreferences } from "@/lib/settings/profile-rules";
 import { ACCENTS, ACCENT_COOKIE } from "@/lib/theme";
 
@@ -162,4 +163,46 @@ export async function removePushDevice(token: string): Promise<Result> {
   });
   revalidatePath("/profile");
   return { ok: true, message: "Push alerts are off for this device" };
+}
+
+/** My profile photo: the person's own, already cropped in the browser to a square. */
+export async function saveMyPhoto(fd: FormData): Promise<Result> {
+  const current = await requireCurrent();
+  const photo = fd.get("photo");
+  if (!(photo instanceof File) || photo.size === 0) return { ok: false, message: "Choose a photo first." };
+  if (photo.size > 5 * 1024 * 1024) return { ok: false, message: "This photo is too large. Choose one under 5 MB." };
+  const limit = await hitLimit(`profile-photo:${current.user.id}`, 20, 60 * 60);
+  if (!limit.ok) return { ok: false, message: limitMessage(limit) };
+  try {
+    await withSchool(current.ctx, async (tx) => {
+      const saved = await saveFile(tx, current.ctx, { file: photo, purpose: "profile-photo", allowed: IMAGE_TYPES, maxImageWidth: 512 });
+      const access = await tx.schoolAccess.findFirstOrThrow({ where: { schoolId: current.ctx.schoolId, userLoginId: current.user.id, archivedAt: null } });
+      await tx.schoolAccess.update({ where: { id: access.id }, data: { photoFileId: saved.id } });
+      // Their staff record (ID card, staff list) shows the same photo.
+      const staff = await tx.staff.findFirst({ where: { userLoginId: current.user.id }, select: { id: true, photoFileId: true } });
+      if (staff) await tx.staff.update({ where: { id: staff.id }, data: { photoFileId: saved.id, updatedById: current.user.id } });
+      await writeAudit(tx, current.ctx, { action: "photo-changed", recordType: "User Login", recordId: current.user.id, before: { photoFileId: access.photoFileId ?? staff?.photoFileId ?? null }, after: { photoFileId: saved.id } });
+    });
+  } catch (e) {
+    if (e instanceof FileProblem) return { ok: false, message: e.message };
+    throw e;
+  }
+  revalidatePath("/", "layout");
+  return { ok: true, message: "Photo saved" };
+}
+
+/** Takes the person's own photo off (their staff record's photo too). The file itself is kept. */
+export async function removeMyPhoto(): Promise<Result> {
+  const current = await requireCurrent();
+  await withSchool(current.ctx, async (tx) => {
+    const access = await tx.schoolAccess.findFirstOrThrow({ where: { schoolId: current.ctx.schoolId, userLoginId: current.user.id, archivedAt: null } });
+    const staff = await tx.staff.findFirst({ where: { userLoginId: current.user.id }, select: { id: true, photoFileId: true } });
+    const before = access.photoFileId ?? staff?.photoFileId ?? null;
+    if (!before) return;
+    await tx.schoolAccess.update({ where: { id: access.id }, data: { photoFileId: null } });
+    if (staff?.photoFileId) await tx.staff.update({ where: { id: staff.id }, data: { photoFileId: null, updatedById: current.user.id } });
+    await writeAudit(tx, current.ctx, { action: "photo-removed", recordType: "User Login", recordId: current.user.id, before: { photoFileId: before }, after: { photoFileId: null } });
+  });
+  revalidatePath("/", "layout");
+  return { ok: true, message: "Photo removed" };
 }

@@ -876,3 +876,16 @@ describe("Inventory Management records stay in their school", () => {
     await expect(withSchool(ctxA(), (tx) => tx.maintenanceRequest.create({ data: { schoolId: b.id, number: "MR-A-9", roomId: x, problem: "X" } }))).rejects.toThrow();
   });
 });
+
+describe("Finance Management day closes stay in their school", () => {
+  it("school A cannot read, reopen or add to school B's closed days", async () => {
+    const date = new Date("2026-10-05T00:00:00Z");
+    const close = await withSchool({ schoolId: b.id, userId: userB.id }, (tx) => tx.dayClose.create({ data: { schoolId: b.id, financialYearId: b.id, date, expectedCashPaise: BigInt(100), countedCashPaise: BigInt(100), incomePaise: BigInt(0), expensePaise: BigInt(0), entryCount: 0, closedById: userB.id } }));
+    await withSchool(ctxA(), async (tx) => {
+      expect(await tx.dayClose.count()).toBe(0);
+      expect(await tx.dayClose.findFirst({ where: { id: close.id } })).toBeNull();
+      expect((await tx.dayClose.updateMany({ where: { id: close.id }, data: { reopenedAt: new Date() } })).count).toBe(0);
+    });
+    await expect(withSchool(ctxA(), (tx) => tx.dayClose.create({ data: { schoolId: b.id, financialYearId: b.id, date, expectedCashPaise: BigInt(0), countedCashPaise: BigInt(0), incomePaise: BigInt(0), expensePaise: BigInt(0), entryCount: 0 } }))).rejects.toThrow();
+  });
+});

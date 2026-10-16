@@ -11,6 +11,8 @@ import { ClosedYearError } from "../academic/years";
 import { FileProblem } from "../files";
 import { DecisionProblem } from "../approvals";
 import { RazorpayProblem } from "../payments/razorpay";
+import { MessagingProblem } from "../messaging/send";
+import { NotEnoughCredits } from "../messaging/credits";
 import { MoneyProblem } from "./problem";
 
 export { MoneyProblem } from "./problem";
@@ -20,7 +22,7 @@ type Known = Error & { field?: string; link?: { href: string; label: string }; w
 export type ProblemData = { link?: { href: string; label: string }; warning?: boolean; code?: string };
 
 export function problemState(e: unknown, fd?: FormData): NonNullable<FormState<ProblemData>> {
-  const known = [MoneyProblem, PermissionDeniedError, ClosedYearError, FileProblem, DecisionProblem, RazorpayProblem];
+  const known = [MoneyProblem, PermissionDeniedError, ClosedYearError, FileProblem, DecisionProblem, RazorpayProblem, MessagingProblem, NotEnoughCredits];
   if (known.some((K) => e instanceof K)) {
     const err = e as Known;
     return {

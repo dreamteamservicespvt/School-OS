@@ -160,6 +160,11 @@ export default async function SalarySettingsPage({ searchParams }: { searchParam
                 </SettingRow>
               ))}
             </div>
+            {settingsEdit && (
+              <div className="px-5 py-4 border-t border-line/70">
+                <Link href="/settings/document-designs/salary-slip" className={cx(buttonClass("secondary", "sm"), "self-start")}><ArrowUpRight size={15} aria-hidden="true" />Change the slip design</Link>
+              </div>
+            )}
           </Card>
         </Col>
       </div>

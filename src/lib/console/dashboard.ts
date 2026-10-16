@@ -173,9 +173,10 @@ export async function glance(now = new Date()) {
     const [by, students, fresh, nextTrial, total] = await Promise.all([
       tx.consoleSchool.groupBy({ by: ["status"], _count: true }),
       tx.consoleSchool.aggregate({ where: { status: "ACTIVE" }, _sum: { activeStudents: true } }),
-      tx.consoleSchool.count({ where: { createdAt: { gte: monthStart } } }),
+      tx.consoleSchool.count({ where: { status: { not: "CLOSED" }, createdAt: { gte: monthStart } } }),
       tx.consoleSchool.findFirst({ where: { status: "TRIAL", trialEndsOn: { not: null } }, orderBy: { trialEndsOn: "asc" }, select: { name: true, trialEndsOn: true } }),
-      tx.consoleSchool.count(),
+      // Closed schools are counted only under Closed.
+      tx.consoleSchool.count({ where: { status: { not: "CLOSED" } } }),
     ]);
     const n = (s: string) => by.find((b) => b.status === s)?._count ?? 0;
     return { trial: n("TRIAL"), active: n("ACTIVE"), suspended: n("SUSPENDED"), closed: n("CLOSED"), students: students._sum.activeStudents ?? 0, fresh, nextTrial, total };

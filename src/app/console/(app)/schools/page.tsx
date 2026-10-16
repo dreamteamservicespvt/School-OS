@@ -31,7 +31,7 @@ export default async function SchoolsPage({ searchParams }: { searchParams: Prom
   const fresh = await withConsole((tx) => {
     const now = new Date();
     const ist = new Date(now.toLocaleString("en-US", { timeZone: CONSOLE_TZ }));
-    return tx.consoleSchool.count({ where: { createdAt: { gte: new Date(Date.UTC(ist.getFullYear(), ist.getMonth(), 1) - 330 * 60_000) } } });
+    return tx.consoleSchool.count({ where: { status: { not: "CLOSED" }, createdAt: { gte: new Date(Date.UTC(ist.getFullYear(), ist.getMonth(), 1) - 330 * 60_000) } } });
   });
   const keep = new URLSearchParams();
   for (const [k, v] of Object.entries(sp)) if (typeof v === "string" && !["status", "bulk", "ids"].includes(k)) keep.set(k, v);

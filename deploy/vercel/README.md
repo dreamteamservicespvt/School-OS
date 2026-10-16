@@ -36,10 +36,14 @@ is loaded only once.
 ## What does not work on Vercel
 
 - **PDFs** (fee receipts, certificates, report cards): Vercel has no Chromium.
-- **The background worker**: messages, reminders, imports and exports are
-  queued but never run.
+- **The background worker** does not run on Vercel. Instead, due jobs run
+  right after the request that queued them, and the GitHub workflow
+  `.github/workflows/job-tick.yml` calls `/api/v1/jobs/tick` every 5 minutes
+  for reminders (src/lib/job-tick.ts). Long jobs (full exports, big imports)
+  may hit Vercel's time limit.
 - **Uploaded files** (photos, documents) are kept only briefly in `/tmp` and
-  may not open later.
+  may not open later, unless file storage is set (`S3_BUCKET`, `S3_ENDPOINT`,
+  `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`; Cloudflare R2 works).
 
 The one-container copy in [deploy/test-copy](../test-copy/README.md) runs all
 of these.

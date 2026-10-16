@@ -121,7 +121,10 @@ export function money(fd: FormData, key: string, label: string, { required = tru
   }
   if (!/^\d+(\.\d{1,2})?$/.test(raw)) throw new LibraryProblem(`${label} must be an amount in rupees, like 120.`, key);
   const [r, p = ""] = raw.split(".");
-  return BigInt(r) * BigInt(100) + BigInt((p + "00").slice(0, 2));
+  const paise = BigInt(r) * BigInt(100) + BigInt((p + "00").slice(0, 2));
+  // Nothing in a library costs a crore; a slip of the keyboard is caught before it becomes a fine or a charge.
+  if (paise > BigInt(10_000_000_00)) throw new LibraryProblem(`${label} looks too large. Check the amount.`, key);
+  return paise;
 }
 
 export function isoDate(fd: FormData, key: string, label: string, { required = true }: { required?: boolean } = {}): Date | null {

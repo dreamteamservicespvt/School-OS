@@ -3,7 +3,7 @@
 import { formatRupees } from "@/lib/format";
 import { id, needRupees, optionalId, str, text } from "@/lib/fees/act";
 import { MoneyProblem } from "@/lib/fees/problem";
-import { copyBudgets, reviseBudget, setBudget } from "@/lib/finance/budgets";
+import { archiveBudget, copyBudgets, reviseBudget, setBudget } from "@/lib/finance/budgets";
 import { financeFeaturesOn } from "@/lib/finance/settings";
 import { financialYearOf } from "@/lib/finance/years";
 import type { SchoolContext, Tx } from "@/lib/db";
@@ -49,4 +49,16 @@ export async function copyBudgetsAction(_prev: unknown, fd: FormData) {
     const made = await copyBudgets(tx, ctx, from.id, to.id, Math.round(pct * 100));
     return { made, year: to.name };
   }, (r) => (r.made ? `${r.made} ${r.made === 1 ? "budget" : "budgets"} made for ${r.year}. Change any head before the year starts.` : `Every head already has a budget for ${r.year}. Nothing was copied.`));
+}
+
+/** Takes a budget line off (set by mistake). Spending already recorded is not touched. */
+export async function removeBudgetAction(budgetId: string): Promise<string | void> {
+  const fd = new FormData();
+  fd.set("budgetId", budgetId);
+  const r = await financeAction("edit", fd, async (tx, ctx) => {
+    await budgetsOn(tx, ctx);
+    await archiveBudget(tx, ctx, id(fd, "budgetId", "budget"));
+    return true;
+  }, () => "Budget removed.");
+  if (!r?.ok) return r?.message ?? "The budget could not be removed.";
 }

@@ -121,6 +121,8 @@ export async function copyBudgets(tx: Tx, ctx: SchoolContext, fromYearId: string
 }
 
 export async function archiveBudget(tx: Tx, ctx: SchoolContext, budgetId: string) {
+  const b = await tx.budget.findFirst({ where: { id: budgetId, archivedAt: null } });
+  if (!b) throw new MoneyProblem("This budget was not found. It may already be removed.");
   await tx.budget.update({ where: { id: budgetId }, data: { archivedAt: new Date() } });
   await writeAudit(tx, ctx, { action: "archived", recordType: "Budget", recordId: budgetId });
 }

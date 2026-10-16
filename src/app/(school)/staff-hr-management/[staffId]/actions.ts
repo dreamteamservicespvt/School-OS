@@ -111,6 +111,20 @@ export async function uploadOwnPhoto(_: FormState<unknown>, fd: FormData) {
   return savePhoto(fd, false);
 }
 
+/** Takes the photo off: HR for anyone, a staff member for their own. Returns a message only when it could not. */
+export async function removeStaffPhoto(staffId: string): Promise<string | void> {
+  const fd = new FormData();
+  fd.set("staffId", staffId);
+  const r = await run(fd, false, async (w, tx) => {
+    if (w.viewer.change !== "all" && w.viewer.staffId !== w.staffId) throw new HrOnlyError("changes to another person's photo");
+    const before = await tx.staff.findUniqueOrThrow({ where: { id: w.staffId } });
+    if (!before.photoFileId) return;
+    await tx.staff.update({ where: { id: w.staffId }, data: { photoFileId: null, updatedById: w.current.user.id } });
+    await writeAudit(tx, w.current.ctx, { action: "photo-removed", recordType: "Staff", recordId: w.staffId, before: { photoFileId: before.photoFileId }, after: { photoFileId: null } });
+  }, () => "Photo removed.");
+  if (!r?.ok) return r?.message ?? "The photo could not be removed.";
+}
+
 async function savePhoto(fd: FormData, hrOnly: boolean) {
   return run(fd, hrOnly, async (w, tx) => {
     if (!hrOnly && w.viewer.staffId !== w.staffId) throw new HrOnlyError("changes to another person's photo");

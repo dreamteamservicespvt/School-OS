@@ -72,6 +72,15 @@ export async function addDocument(tx: Tx, ctx: SchoolContext, input: NewDocument
   return doc;
 }
 
+/** Takes a document off a staff member's record (added by mistake, or no longer needed). The file is kept. */
+export async function removeDocument(tx: Tx, ctx: SchoolContext, id: string) {
+  const doc = await tx.staffDocument.findFirst({ where: { id, archivedAt: null } });
+  if (!doc) throw new StaffProblem("This document was not found. It may already be removed.");
+  await tx.staffDocument.update({ where: { id: doc.id }, data: { archivedAt: new Date() } });
+  await writeAudit(tx, ctx, { action: "archived", recordType: "Staff Document", recordId: doc.id, before: { kind: doc.kind, fileId: doc.fileId } });
+  return doc;
+}
+
 /**
  * A15 for staff documents: a reminder to HR and the staff member when a
  * document is within each reminder window (default 30 and 7 days). Each

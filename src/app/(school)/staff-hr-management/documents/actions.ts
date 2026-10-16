@@ -6,7 +6,9 @@ import type { FormState } from "@/lib/forms";
 import { DOCUMENT_TYPES, saveFile } from "@/lib/files";
 import { act, file, FieldProblem, id, optionalDateOf, optionalId, str } from "@/lib/staff/act";
 import { HrOnlyError } from "@/lib/staff/access";
-import { addDocument } from "@/lib/staff/documents";
+import { addDocument, removeDocument } from "@/lib/staff/documents";
+import { StaffProblem } from "@/lib/staff/staff";
+import { revalidatePath } from "next/cache";
 
 /** Upload a staff document, or renew / fill a missing one (replaceId). HR only. */
 export async function uploadDocument(_: FormState<unknown>, fd: FormData) {
@@ -27,4 +29,18 @@ export async function uploadDocument(_: FormState<unknown>, fd: FormData) {
       return doc.kind;
     }, { timeout: 30_000 });
   }, (kind) => `${kind} saved.`);
+}
+
+/** Takes a staff document off (HR only). Returns a message only when it could not. */
+export async function removeDocumentAction(id: string): Promise<string | void> {
+  const { current, reach } = await requireAction("staff-hr-management", "edit");
+  if (reach !== "all") return "Only HR can remove staff documents.";
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return "This document was not found.";
+  try {
+    await withSchool(current.ctx, (tx) => removeDocument(tx, current.ctx, id));
+  } catch (e) {
+    if (e instanceof StaffProblem) return e.message;
+    throw e;
+  }
+  revalidatePath("/staff-hr-management", "layout");
 }

@@ -2,7 +2,7 @@
 
 import { str, strs } from "@/lib/fees/act";
 import { HomeworkProblem } from "@/lib/homework/access";
-import { addMaterial, addRecording, cancelClass, markJoined, remindMe, scheduleClass } from "@/lib/homework/online";
+import { addMaterial, addRecording, cancelClass, markJoined, remindMe, removeMaterial, removeRecording, scheduleClass } from "@/lib/homework/online";
 import { momentWords, plural } from "@/lib/homework/words";
 import { hwForm, hwQuick, localMoment } from "../_lib/action";
 import { UUID } from "../_lib/page";
@@ -52,4 +52,12 @@ export async function materialAction(_prev: unknown, fd: FormData) {
 /** A student asks for a reminder before the class. */
 export async function remindMeAction(fd: FormData) {
   return hwQuick("edit", async ({ tx, s }) => remindMe(tx, s, uuid(fd, "id", "online class")), () => "We will remind you 15 minutes before.");
+}
+
+export async function removeRecordingAction(id: string, url: string) {
+  return hwQuick("edit", async ({ tx, s }) => removeRecording(tx, s, id, url), () => "Recording link removed.");
+}
+
+export async function removeMaterialAction(id: string, key: string) {
+  return hwQuick("edit", async ({ tx, s }) => removeMaterial(tx, s, id, key), () => "Material removed.");
 }

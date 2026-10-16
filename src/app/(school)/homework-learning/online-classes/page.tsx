@@ -2,7 +2,7 @@ import { Bell, CalendarClock, CalendarPlus, Check, CirclePlay, ClipboardCheck, P
 import { withSchool } from "@/lib/db";
 import { fileLink } from "@/lib/files";
 import { rangeWords } from "@/lib/periods";
-import { JOIN_OPENS_MIN, listSessions, REMIND_BEFORE_MIN, type Material, type SessionRow } from "@/lib/homework/online";
+import { JOIN_OPENS_MIN, listSessions, materialKey, REMIND_BEFORE_MIN, type Material, type SessionRow } from "@/lib/homework/online";
 import { sectionStudents } from "@/lib/homework/homework";
 import { mayWork, workSections, workSubjects } from "@/lib/homework/scope";
 import { momentWords, OC_TONE, plural } from "@/lib/homework/words";
@@ -19,7 +19,8 @@ import { UrlSegmented } from "@/components/money/url-filters";
 import { HomeworkHead } from "../_components/homework-head";
 import { FileRow, SubIcon } from "../_components/bits";
 import { BASE, homeworkGuard, homeworkPeriod, localInput, one, qs, UUID, type HomeworkPage, type SearchParams } from "../_lib/page";
-import { remindMeAction } from "./actions";
+import { remindMeAction, removeMaterialAction, removeRecordingAction } from "./actions";
+import { ConfirmButton } from "@/components/ui/confirm";
 import { AttendanceSheet, CancelSheet, CopyLink, MaterialSheet, RecordingBox, ScheduleSheet, type OcSection } from "./sheets";
 
 export const metadata = { title: "Online Classes" };
@@ -135,8 +136,10 @@ async function StaffOnline({ p, sp }: { p: HomeworkPage; sp: Sp }) {
               <div className="flex flex-col gap-3">
                 <p className="text-[13px] font-semibold text-ink2">Recording and materials</p>
                 <ul>
-                  {o.recordingLinks.map((u, i) => <FileRow key={u} kind="link" name={`Recording${o.recordingLinks.length > 1 ? ` ${i + 1}` : ""}`} meta={u.replace(/^https?:\/\//, "").split("/")[0]} href={u} />)}
-                  {materials.map((m) => <FileRow key={m.name + (m.url ?? m.fileId)} kind={m.url ? "link" : "file"} name={m.name} meta="Shared in the class" href={m.url ?? (m.fileId ? fileLink(m.fileId, schoolId) : null)} />)}
+                  {o.recordingLinks.map((u, i) => <FileRow key={u} kind="link" name={`Recording${o.recordingLinks.length > 1 ? ` ${i + 1}` : ""}`} meta={u.replace(/^https?:\/\//, "").split("/")[0]} href={u}
+                    remove={canWork ? <ConfirmButton trigger="Remove" triggerVariant="ghost" title="Remove this recording link?" confirmLabel="Remove link" confirmVariant="danger" onConfirm={removeRecordingAction.bind(null, o.id, u)}>Students will no longer see it in Online Classes.</ConfirmButton> : undefined} />)}
+                  {materials.map((m) => <FileRow key={m.name + (m.url ?? m.fileId)} kind={m.url ? "link" : "file"} name={m.name} meta="Shared in the class" href={m.url ?? (m.fileId ? fileLink(m.fileId, schoolId) : null)}
+                    remove={canWork ? <ConfirmButton trigger="Remove" triggerVariant="ghost" title={`Remove ${m.name}?`} confirmLabel="Remove material" confirmVariant="danger" onConfirm={removeMaterialAction.bind(null, o.id, materialKey(m))}>Students will no longer see it in this class.</ConfirmButton> : undefined} />)}
                   {!o.recordingLinks.length && !materials.length && <li className="text-[13.5px] text-ink3 px-2">Nothing yet.</li>}
                 </ul>
                 {canWork && <RecordingBox id={o.id} />}

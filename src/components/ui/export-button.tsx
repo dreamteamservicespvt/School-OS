@@ -14,7 +14,7 @@ export function ExportButton({ href, label = "Export", size = "md", className, a
       <summary className={cx(buttonClass("secondary", size), "list-none cursor-pointer [&::-webkit-details-marker]:hidden")}>
         <Download size={size === "sm" ? 15 : 17} strokeWidth={2.2} aria-hidden="true" />{label}
       </summary>
-      <div role="menu" className="absolute right-0 top-[calc(100%+6px)] z-40 w-48 bg-surface border border-line rounded-2xl shadow-pop p-1.5 animate-rise">
+      <div role="menu" className="absolute right-0 top-[calc(100%+6px)] z-40 w-48 max-w-[calc(100vw-2rem)] bg-surface border border-line rounded-2xl shadow-pop p-1.5 animate-rise">
         {([["xlsx", "Excel", FileSpreadsheet], ["csv", "CSV", Sheet], ["pdf", "PDF", FileText]] as const).map(([f, l, Ic]) => (
           <a key={f} role="menuitem" href={`${href}${join}format=${f}`} download className="w-full flex items-center gap-2.5 h-10 px-3 rounded-xl hover:bg-sunken text-[14px]">
             <Ic size={17} className="text-ink3" aria-hidden="true" />{l}

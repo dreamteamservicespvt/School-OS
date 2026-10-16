@@ -51,7 +51,7 @@ function DItem({ k, v, sub, act }: { k: string; v: React.ReactNode; sub?: React.
     <div className="min-w-0">
       <dt className="text-[12px] text-ink3 font-semibold flex items-center gap-2">{k}{act}</dt>
       <dd className="text-[14px] mt-0.5 break-words">{v}</dd>
-      {sub && <dd className="text-[12.5px] text-ink3">{sub}</dd>}
+      {sub && <dd className="text-[12.5px] text-ink3 break-all">{sub}</dd>}
     </div>
   );
 }

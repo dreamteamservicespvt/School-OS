@@ -121,6 +121,8 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
+  /* Long words and pasted links break instead of making the page wider than the screen. */
+  overflow-wrap: break-word;
 }
 h1, h2, h3 { text-wrap: balance; }
 /* A hidden column label ("Open", "Actions") is absolutely placed by sr-only, so inside a

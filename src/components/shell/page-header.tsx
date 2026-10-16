@@ -31,7 +31,7 @@ export function PageHeader({ title, href, userId, sub, crumbs, children, pinLabe
     <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between mb-5">
       <div className="min-w-0">
         {crumbs && <div className="text-[13px] text-ink3 mb-1 flex items-center gap-1.5 flex-wrap">{crumbs}</div>}
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           <h1 className="font-display text-[26px] md:text-[30px] font-semibold tracking-tight leading-tight">{title}{badge}</h1>
           <button type="button" onClick={toggle}
             aria-pressed={pinned} aria-label={pinned ? `Unpin ${label}` : `Pin ${label} to Search`} title={pinned ? "Pinned to Search" : "Pin to Search"}

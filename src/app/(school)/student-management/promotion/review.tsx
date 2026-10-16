@@ -115,7 +115,7 @@ export function PromotionReview({ rows, fromSectionId, fromLabel, fromYear, toYe
             })}
           </ul>
           {missingReason.length > 0 && <p className="text-[13.5px] text-bad" role="alert">Give a reason for {missingReason.length} changed {missingReason.length === 1 ? "decision" : "decisions"} ({missingReason.slice(0, 3).map((r) => r.fullName).join(", ")}{missingReason.length > 3 ? "…" : ""}).</p>}
-          <div className="sticky bottom-20 z-10 flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-surface p-3 shadow-pop sm:bottom-4">
+          <div className="sticky bottom-20 z-10 flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-surface p-3 shadow-pop md:bottom-4">
             <p className="flex-1 font-medium">{summary}</p>
             <Button disabled={missingReason.length > 0} onClick={() => { setStep("confirm"); top.current?.scrollIntoView({ behavior: "smooth" }); }}>Review and confirm</Button>
           </div>

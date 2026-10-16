@@ -35,7 +35,7 @@ export function MoreMenu({ items, label = "More actions", size = "md", className
         <Ellipsis size={size === "sm" ? 15 : 17} aria-hidden="true" />
       </button>
       {open && (
-        <div id={id} role="menu" aria-label={label} className="absolute right-0 top-full mt-1.5 z-40 w-60 bg-surface border border-line rounded-2xl shadow-pop p-1.5 animate-rise">
+        <div id={id} role="menu" aria-label={label} className="absolute right-0 top-full mt-1.5 z-40 w-60 max-w-[calc(100vw-2rem)] bg-surface border border-line rounded-2xl shadow-pop p-1.5 animate-rise">
           {items.map((it) => !it.href
             ? <button key={it.label} type="button" role="menuitem" className={itemCls(it.tone)} onClick={() => { setOpen(false); it.onClick?.(); }}>{it.icon}{it.label}</button>
             : it.file

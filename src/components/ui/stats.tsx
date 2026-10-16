@@ -12,7 +12,7 @@ export const TONE_SOFT: Record<string, string> = { ok: "bg-ok/10 text-ok", warn:
 
 export type StatItem = { label: string; value: React.ReactNode; sub?: React.ReactNode; tone?: Tone; icon?: LucideIcon; href?: string };
 
-const STAT_GRID: Record<number, string> = { 1: "grid-cols-1", 2: "grid-cols-2", 3: "grid-cols-3", 4: "grid-cols-2 xl:grid-cols-4", 5: "grid-cols-2 xl:grid-cols-5", 6: "grid-cols-2 lg:grid-cols-3 xl:grid-cols-6" };
+const STAT_GRID: Record<number, string> = { 1: "grid-cols-1", 2: "grid-cols-2", 3: "grid-cols-2 md:grid-cols-3", 4: "grid-cols-2 xl:grid-cols-4", 5: "grid-cols-2 xl:grid-cols-5", 6: "grid-cols-2 lg:grid-cols-3 xl:grid-cols-6" };
 
 /** Hairline-separated number tiles in one card. */
 export function Stats({ items, className }: { items: StatItem[]; className?: string }) {
@@ -29,7 +29,7 @@ export function Stats({ items, className }: { items: StatItem[]; className?: str
               {m.sub && <p className="text-[12px] text-ink3 truncate">{m.sub}</p>}
             </>
           );
-          const cls = cx("block bg-surface text-left px-4 md:px-5 py-3.5 min-w-0", m.href && "hover:bg-sunken/60 transition", n === 5 && i === 4 && "col-span-2 xl:col-span-1");
+          const cls = cx("block bg-surface text-left px-4 md:px-5 py-3.5 min-w-0", m.href && "hover:bg-sunken/60 transition", n === 5 && i === 4 && "col-span-2 xl:col-span-1", n === 3 && i === 2 && "col-span-2 md:col-span-1");
           return m.href ? <Link key={m.label} href={m.href} className={cls}>{body}</Link> : <div key={m.label} className={cls}>{body}</div>;
         })}
       </div>

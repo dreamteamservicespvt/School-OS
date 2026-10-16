@@ -173,7 +173,7 @@ export function ExportMenu({ href, className, label = "Export" }: { href: string
     <div ref={ref} className={cx("relative shrink-0", className)}>
       <Button variant="secondary" icon={Download} aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen(!open)} className="w-full">{label}</Button>
       {open && (
-        <div role="menu" onClick={() => setOpen(false)} className="absolute right-0 top-11 z-40 w-56 bg-surface border border-line rounded-2xl shadow-pop p-1.5 animate-rise">
+        <div role="menu" onClick={() => setOpen(false)} className="absolute right-0 top-11 z-40 w-56 max-w-[calc(100vw-2rem)] bg-surface border border-line rounded-2xl shadow-pop p-1.5 animate-rise">
           <a role="menuitem" download href={`${href}${join}format=xlsx`} className={itemCls()}><FileSpreadsheet size={17} className="text-ink3" aria-hidden="true" />Excel</a>
           <a role="menuitem" download href={`${href}${join}format=csv`} className={itemCls()}><Sheet size={17} className="text-ink3" aria-hidden="true" />CSV</a>
           <a role="menuitem" download href={`${href}${join}format=pdf`} className={itemCls()}><FileText size={17} className="text-ink3" aria-hidden="true" />PDF</a>

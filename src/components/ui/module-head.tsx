@@ -56,7 +56,7 @@ export function ModuleHead({ title, page, href, userId, sub, scope, actions, tab
     <>
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between mb-5">
         <div className="min-w-0">
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             <h1 className="font-display text-[26px] md:text-[30px] font-semibold tracking-tight leading-tight">
               {title}
               {scope === "view" && <Pill tone="neutral" className="align-middle ml-2 !h-6"><Eye size={13} aria-hidden="true" />View only</Pill>}

@@ -182,7 +182,7 @@ export default async function SchoolPage({ params, searchParams }: { params: Pro
           const waiting = people.find((p) => p.status === "Invited");
           return (
             <UrlSheet title="This admin cannot be disabled" sub={s.name} closeHref={close}
-              footer={<div className="flex gap-2 justify-end"><CloseSheetButton>Close</CloseSheetButton>{c.can("invite") && <Link href={to("admin")} scroll={false} className={buttonClass("primary")}><UserPlus size={17} aria-hidden="true" />Add another School Admin</Link>}</div>}>
+              footer={<div className="flex flex-wrap gap-2 justify-end"><CloseSheetButton>Close</CloseSheetButton>{c.can("invite") && <Link href={to("admin")} scroll={false} className={buttonClass("primary")}><UserPlus size={17} aria-hidden="true" />Add another School Admin</Link>}</div>}>
               <div className="flex flex-col gap-4">
                 <Banner tone="warn" title={`${s.name} needs at least one active admin.`}>Add another admin first.</Banner>
                 <p className="text-[14px] text-ink2 leading-relaxed">{person.name} is the school’s only active School Admin. Without one, nobody could reach the school’s Settings. {waiting ? `${waiting.name}’s invite is still waiting; once they sign in, you can disable ${person.name}.` : `Once the new admin signs in, you can disable ${person.name}.`}</p>

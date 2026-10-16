@@ -141,7 +141,7 @@ export default async function FinanceReportsPage({ searchParams }: { searchParam
               )}
               <Card className="overflow-hidden">
                 <CardHeader title={def.label} description={has("dates") ? dates : `As on ${formatDate(p.today)}`}
-                  action={<div className="flex items-center gap-1.5 shrink-0">
+                  action={<div className="flex flex-wrap justify-end items-center gap-1.5">
                     {has("group") && <UrlSegmented param="group" fallback="month" label="Group by" size="sm" options={[{ value: "month", label: "Month" }, { value: "day", label: "Day" }]} />}
                     {p.can.export && <ExportButton href={exportHref} size="sm" always />}
                     {p.can.export && <a href={`${exportHref}${exportHref.includes("?") ? "&" : "?"}format=pdf`} target="_blank" rel="noreferrer" className={`${buttonClass("ghost", "sm")} hidden sm:inline-flex`}><Printer size={15} aria-hidden="true" />Print</a>}

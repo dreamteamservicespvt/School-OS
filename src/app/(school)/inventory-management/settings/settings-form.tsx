@@ -170,7 +170,7 @@ export function SettingsForm({ start, readOnly, heads }: { start: SettingsStart;
       </Card>
 
       {!readOnly && (
-        <div className="sticky bottom-3 z-10 flex justify-end">
+        <div className="sticky bottom-20 md:bottom-3 z-10 flex justify-end">
           <Button type="submit" variant="primary" size="lg" icon={Save} loading={pending} loadingText="Saving…" className="shadow-pop">Save settings</Button>
         </div>
       )}

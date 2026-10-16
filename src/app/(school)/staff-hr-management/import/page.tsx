@@ -31,7 +31,7 @@ export default async function ImportStaffPage() {
             <ul className="divide-y divide-line">
               {history.map((b) => (
                 <li key={b.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                  <span>{b.fileName} <span className="text-sm text-ink-2">· {formatDateTime(b.createdAt, tz)} · {b.added} added{b.skipped ? `, ${b.skipped} skipped` : ""}</span></span>
+                  <span className="min-w-0 break-all">{b.fileName} <span className="text-sm text-ink-2">· {formatDateTime(b.createdAt, tz)} · {b.added} added{b.skipped ? `, ${b.skipped} skipped` : ""}</span></span>
                   <span className="flex items-center gap-2">
                     {b.undoneAt && <Badge>Undone</Badge>}
                     {b.skipped > 0 && <a href={`${BASE}/import/errors/${b.id}`} className="text-brand-text underline" download>Skipped rows</a>}

@@ -134,7 +134,7 @@ async function StaffHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
             <UrlSegmented param="view" fallback={p.settings.listView === "list" ? "list" : "cards"} className="hidden md:inline-flex" label="Show as"
               options={[{ value: "cards", label: <><LayoutGrid size={15} aria-hidden="true" />Cards</> }, { value: "list", label: <><Rows3 size={15} aria-hidden="true" />List</> }]} />
           </Toolbar>
-          <div className="flex items-center justify-between gap-3 px-3 pt-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 px-3 pt-3">
             <UrlSegmented param="tab" fallback="current" label="Which homework"
               options={[{ value: "current", label: `Current · ${cur.length}` }, { value: "history", label: `History · ${hist.length}` }, ...(tab === "archived" || editsHere ? [{ value: "archived", label: "Archived" }] : [])]} />
             <ExportButton href={qs(`${BASE}/export`, keep)} />

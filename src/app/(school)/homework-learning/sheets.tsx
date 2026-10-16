@@ -222,7 +222,7 @@ export function EditSheet({ closeHref, hw, files, onlineOn }: {
         </fieldset>
       )}
       <AttachPicker />
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <FieldShell label="Start date" id="ed-start" required error={startT.error}><input id="ed-start" name="startDate" type="date" defaultValue={startT.value} key={startT.key} className={cx(inputCls(startT.error), "h-11 tnum")} /></FieldShell>
         <FieldShell label="Due date" id="ed-due" required error={dueT.error}><input id="ed-due" name="dueDate" type="date" defaultValue={dueT.value} key={dueT.key} className={cx(inputCls(dueT.error), "h-11 tnum")} /></FieldShell>
         <FieldShell label="Maximum marks" id="ed-max" error={maxT.error}><input id="ed-max" name="maxMarks" inputMode="numeric" defaultValue={maxT.value} key={maxT.key} className={cx(inputCls(maxT.error), "h-11 tnum")} /></FieldShell>

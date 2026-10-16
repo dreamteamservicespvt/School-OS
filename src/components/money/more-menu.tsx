@@ -27,7 +27,7 @@ export function MoreMenu({ items, label = "More actions", size = "md" }: { items
     <div className="relative" ref={ref}>
       <Button variant="secondary" size={size} icon={Ellipsis} aria-label={label} aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen(!open)} className="!px-3" />
       {open && (
-        <div role="menu" className="absolute right-0 top-11 z-40 w-64 bg-surface border border-line rounded-2xl shadow-pop p-1.5 animate-rise">
+        <div role="menu" className="absolute right-0 top-11 z-40 w-64 max-w-[calc(100vw-2rem)] bg-surface border border-line rounded-2xl shadow-pop p-1.5 animate-rise">
           {items.map(({ icon: Ic, label: l, href, tone, download }) => {
             const cls = cx("w-full flex items-center gap-2.5 h-10 px-3 rounded-xl hover:bg-sunken text-[14px] text-left", tone === "bad" && "text-bad");
             const inner = <><Ic size={17} className={tone === "bad" ? "" : "text-ink3"} aria-hidden="true" />{l}</>;

@@ -696,7 +696,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
             <Card>
               <CardHeader title="Monthly salary" description={st ? `Structure v${st.version} · from ${formatDate(st.effectiveFrom)} · shown only to people with Salary Management` : "No salary structure yet"} icon={Lock} />
               {st ? (
-                <div className="grid grid-cols-3 gap-4 px-5 pb-5">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 px-5 pb-5">
                   <div><p className="text-[12px] text-ink3 font-semibold">Gross</p><p className="text-[18px] font-semibold tnum">{formatRupees(st.grossPaise)}</p></div>
                   <div><p className="text-[12px] text-ink3 font-semibold">Deductions</p><p className="text-[18px] font-semibold tnum">{last ? formatRupees(last.deductionsPaise) : "—"}</p></div>
                   <div><p className="text-[12px] text-ink3 font-semibold">Net</p><p className="text-[18px] font-semibold tnum text-ok">{last ? formatRupees(last.netPaise) : "—"}</p></div>

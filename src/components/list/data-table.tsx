@@ -89,8 +89,8 @@ export function DataTable<Row>({ rows, columns, rowKey, rowHref, total, params, 
           const body = (
             <>
               <div className="flex items-start justify-between gap-2">
-                <span className="font-medium">{titleCol.cell(row)}</span>
-                {badge && badge.cell(row)}
+                <span className="font-medium min-w-0 break-words">{titleCol.cell(row)}</span>
+                {badge && <span className="shrink-0">{badge.cell(row)}</span>}
               </div>
               {meta.map((c) => (
                 <p key={c.key} className="text-sm text-ink-2"><span className="sr-only">{c.label}: </span>{c.cell(row)}</p>

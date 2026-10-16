@@ -8,7 +8,7 @@ import "@/lib/approval-handlers";
 import { decide, canDecide } from "@/lib/approvals";
 import { todayIn } from "@/lib/staff/dates";
 import type { SchoolContext, Tx } from "@/lib/db";
-import { attachBill, cancelExpense, payExpense, recordExpense, saveVendor, submitExpense } from "@/lib/finance/expenses";
+import { attachBill, cancelExpense, payExpense, recordExpense, saveVendor, submitExpense, updateDraftExpense } from "@/lib/finance/expenses";
 import { financeFeaturesOn } from "@/lib/finance/settings";
 import { EXPENSE_MODES } from "@/lib/finance/words";
 import { financeAction } from "../_lib/action";
@@ -93,6 +93,29 @@ export async function submitExpenseAction(_prev: unknown, fd: FormData) {
     (r) => (r === "approved" ? "Approved at once. Mark it paid when the money goes." : "Sent for approval."));
 }
 
+/** Change an expense that was sent back (a draft), then send it for approval again (07 §2). */
+export async function changeExpenseAction(_prev: unknown, fd: FormData) {
+  return financeAction("create", fd, async (tx, ctx) => {
+    const expenseId = id(fd, "expenseId", "expense");
+    const e = await tx.expense.findFirst({ where: { id: expenseId } });
+    if (!e) throw new MoneyProblem("This expense was not found.");
+    const amount = needRupees(fd, "amount", "Amount");
+    if (amount > MAX) throw new MoneyProblem("More than ₹1 crore: check the amount.", "amount");
+    const date = dateOf(fd, "date", "Date");
+    const features = await financeFeaturesOn(tx, ctx);
+    await updateDraftExpense(tx, ctx, expenseId, {
+      date, amountPaise: amount, accountHeadId: id(fd, "accountHeadId", "expense head"),
+      vendorId: await vendorOf(tx, ctx, fd),
+      costCentreId: features.has("finance-cost-centres") ? optionalId(fd, "costCentreId") : e.costCentreId,
+      billFileId: (await billFile(tx, ctx, fd)) ?? e.billFileId,
+      note: text(fd, "what", "What was it for", { min: 3, max: 200 }),
+      isVendorBill: e.isVendorBill, billNo: e.billNo, billDueDate: e.billDueDate,
+      duplicateReason: optionalText(fd, "duplicateReason", "Reason", 300) ?? e.duplicateReason,
+    });
+    return { no: e.number, amount: formatRupees(amount), outcome: await submitExpense(tx, ctx, expenseId) };
+  }, (r) => (r.outcome === "approved" ? `${r.no} changed · ${r.amount}. Approved at once. Mark it paid when the money goes.` : `${r.no} changed · ${r.amount}. Sent for approval again.`));
+}
+
 /** Approve, or send back with a reason. Only the person the request waits for may decide. */
 export async function decideExpenseAction(_prev: unknown, fd: FormData) {
   return financeAction("approve", fd, async (tx, ctx) => {
@@ -115,8 +138,9 @@ export async function payExpenseAction(_prev: unknown, fd: FormData) {
     const date = dateOf(fd, "date", "Date paid");
     const pay = await payExpense(tx, ctx, expenseId, { ...payOf(fd, date), amountPaise: rupeesOf(fd, "payAmount", "Amount") });
     const e = await tx.expense.findFirstOrThrow({ where: { id: expenseId } });
-    return { no: e.number, amount: formatRupees(pay.amountPaise), date: formatDate(date), left: e.amountPaise - e.paidPaise };
-  }, (r) => `${r.no}: ${r.amount} paid. In the Day Book for ${r.date}.${r.left > BigInt(0) ? ` ${formatRupees(r.left)} still to pay.` : ""}`);
+    const moved = pay.dayBookDate.getTime() !== date.getTime() ? formatDate(pay.dayBookDate) : null;
+    return { no: e.number, amount: formatRupees(pay.amountPaise), date: formatDate(date), moved, left: e.amountPaise - e.paidPaise };
+  }, (r) => `${r.no}: ${r.amount} paid. ${r.moved ? `${r.date} was already closed, so it is in the Day Book for ${r.moved}.` : `In the Day Book for ${r.date}.`}${r.left > BigInt(0) ? ` ${formatRupees(r.left)} still to pay.` : ""}`);
 }
 
 export async function attachBillAction(_prev: unknown, fd: FormData) {

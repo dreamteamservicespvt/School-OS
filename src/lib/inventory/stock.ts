@@ -270,7 +270,8 @@ export type OutInput = { itemId: string; locationId: string; qty: number; date: 
 /** Stock out (used up), or damaged, lost or expired stock written off with a reason. */
 export async function stockOut(tx: Tx, ctx: SchoolContext, input: OutInput) {
   if (input.qty < 1) throw new InventoryProblem("The quantity must be at least 1.", "qty");
-  if (input.reason.trim().length < (input.kind === "OUT" ? 3 : 5)) throw new InventoryProblem(input.kind === "OUT" ? "Say what it was used for." : "Give the reason, in at least 5 characters.", "reason");
+  // What a stock out was used for is optional on the form (CAMPUS2-01); a write-off needs its reason.
+  if (input.kind !== "OUT" && input.reason.trim().length < 5) throw new InventoryProblem("Give the reason, in at least 5 characters.", "reason");
   const made = await move(tx, ctx, { itemId: input.itemId, locationId: input.locationId, kind: input.kind, qty: -input.qty, date: input.date, reason: input.reason.trim(), batchId: input.batchId, today: input.today });
   await writeAudit(tx, ctx, { action: input.kind === "OUT" ? "stock-out" : `written-off-${input.kind.toLowerCase()}`, recordType: "Stock Movement", recordId: made[0].id, after: { item: input.itemId, qty: input.qty, kind: MOVE_KIND[input.kind as MoveKind].label, reason: input.reason } });
   return made;

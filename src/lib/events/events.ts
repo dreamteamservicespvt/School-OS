@@ -19,6 +19,7 @@ import { sendMessage, type AudienceRule } from "../messaging";
 import { EventsProblem, EventsWarning } from "./problem";
 import { eventsSettings } from "./settings";
 import { syncSourceEntry } from "./calendar";
+import { tellSafely } from "./tell";
 import { placeOrder, placesOf } from "./places";
 import { AUDIENCE_KINDS, REMINDERS, classesWords, clock, dayOf, dmy, isoOf, longDay, timeSpan } from "./words";
 
@@ -195,7 +196,7 @@ export async function messageAudience(tx: Tx, ctx: SchoolContext, e: Event, kind
   const to = await audienceRule(tx, e);
   if (to.guardiansOf && to.guardiansOf.length === 0) throw new EventsProblem("Nobody is registered yet, so there is no one to send this to.");
   const r = await sendMessage(tx, ctx, {
-    to, channels: "preferred", text: text.replace(/\s+/g, " ").trim(), trigger: kind === "reminder" ? `Event reminder: ${e.name}` : kind === "changed" ? `Event changed: ${e.name}` : `Event cancelled: ${e.name}`,
+    to, channels: "preferred", text: text.replace(/\s+/g, " ").trim(), title: kind === "cancelled" ? `${e.name} cancelled` : e.name, trigger: kind === "reminder" ? `Event reminder: ${e.name}` : kind === "changed" ? `Event changed: ${e.name}` : `Event cancelled: ${e.name}`,
     source: { type: "Event", id: e.id }, audienceLabel: e.audienceLabel,
     idempotencyKey: opts.auto ? `event-reminder:${e.id}:${isoOf(e.date)}` : null,
     onNoCredits: opts.auto ? "fail" : "block",
@@ -317,14 +318,8 @@ export async function cancelEvent(tx: Tx, ctx: SchoolContext, eventId: string, r
   const updated = await tx.event.update({ where: { id: e.id }, data: { status: "CANCELLED", cancelReason: why, cancelledAt: new Date(), updatedById: ctx.userId } });
   await calendarFor(tx, ctx, updated);
   await writeAudit(tx, ctx, { action: "cancelled", recordType: "Event", recordId: e.id, before: { status: e.status }, after: { status: "CANCELLED", reason: why, feeRowsRemoved: removed, refundsAsked: refunds } });
-  let told = 0;
-  if (tell) {
-    try {
-      told = (await messageAudience(tx, ctx, updated, "cancelled")).people;
-    } catch (err) {
-      if (!(err instanceof EventsProblem)) throw err;
-    }
-  }
+  // Telling the audience never blocks the cancellation (ACADEMICS-21).
+  const told = tell ? await tellSafely(() => messageAudience(tx, ctx, updated, "cancelled")) : null;
   return { event: updated, removed, refunds, told };
 }
 

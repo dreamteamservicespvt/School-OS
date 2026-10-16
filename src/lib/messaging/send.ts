@@ -123,9 +123,10 @@ function baseValues(school: { name: string; phone: string | null; timeZone: stri
   return v;
 }
 
-function addressFor(c: Candidate, channel: Channel): { address: string } | { skip: string } {
+function addressFor(c: Candidate, channel: Channel, providersOn = true): { address: string } | { skip: string } {
   if (channel === "app") {
-    if (c.type === "guardian") return { skip: "Parents have no app; they get WhatsApp, SMS or email" };
+    // With no WhatsApp, SMS or email connected, parents cannot get it at all: say so plainly.
+    if (c.type === "guardian") return { skip: providersOn ? "Parents have no app; they get WhatsApp, SMS or email" : "Parents have no app, and WhatsApp, SMS and email are not connected, so they will not get it" };
     return c.userLoginId ? { address: c.userLoginId } : { skip: "No School OS login for app messages" };
   }
   if (c.type === "student") return { skip: "Students get app messages only" };
@@ -227,7 +228,7 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
         ...(input.perPerson?.[c.id] ?? {}),
       };
       for (const ch of channels) {
-        const addr = addressFor(c, ch);
+        const addr = addressFor(c, ch, on.has("whatsapp") || on.has("sms") || on.has("email"));
         if ("skip" in addr) { personSkip ??= addr.skip; continue; }
         const versions = versionsByChannel.get(ch);
         let version: UsableVersion | null = null;
@@ -316,7 +317,9 @@ export async function recordSend(tx: Tx, ctx: SchoolContext, input: SendInput, p
   }
   if (plan.problems.length) throw new MessagingProblem(plan.problems[0]);
   if (plan.rows.length === 0) {
-    const why = plan.skipped[0] ? ` ${plan.skipped.map((s) => `${s.count} ${s.reason.toLowerCase()}`).join(", ")}.` : "";
+    // "Parents have no app … (1).": the reason keeps its own words and capitals (WhatsApp, SMS);
+    // a count in front read "1 parents have no app".
+    const why = plan.skipped[0] ? ` ${plan.skipped.map((s) => `${s.reason} (${s.count})`).join(". ")}.` : "";
     throw new MessagingProblem(`Nobody would get this message.${why}`);
   }
   const short = plan.creditProblem;

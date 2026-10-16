@@ -345,7 +345,7 @@ export async function bookAction(_: S, fd: FormData): Promise<S> {
       staffId: id(fd, "staffId", "person to meet"), dayIso: str(fd, "date"), startMin, lengthMin: Number(str(fd, "lengthMin")) || 15,
       visitorName: str(fd, "visitorName"), visitorPhone: str(fd, "visitorPhone"), purpose: str(fd, "purpose"), confirm: str(fd, "confirm") === "on",
     }, { timeZone: w.tz, rescheduleId: optionalId(fd, "rescheduleId") });
-  }, (r) => `${str(fd, "rescheduleId") ? "Moved" : "Booked"}: ${r.appointment.visitorName} with ${r.staffName}, ${r.when} for ${r.appointment.lengthMin} minutes.${r.sent ? ` Confirmation sent ${r.sent}.` : ""}`);
+  }, (r) => `${str(fd, "rescheduleId") ? "Moved" : "Booked"}: ${r.appointment.visitorName} with ${r.staffName}, ${r.when} for ${r.appointment.lengthMin} minutes.${r.sent ? ` Confirmation sent ${r.sent}.` : ""}${r.notSent ? ` The confirmation was not sent: ${r.notSent}. Call the visitor to tell them.` : ""}`);
 }
 
 export async function appointmentStatusAction(_: S, fd: FormData): Promise<S> {

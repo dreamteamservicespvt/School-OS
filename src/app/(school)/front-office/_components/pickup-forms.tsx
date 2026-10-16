@@ -89,7 +89,7 @@ export function StopSheet({ closeHref, student, classTeacher, calls, deskPhone }
   return (
     <SheetForm title={`Do not release ${student.first}`} sub={`Not on ${student.first}’s pickup list. Call a registered guardian, and tell the class teacher.`} closeHref={closeHref}
       action={refusedAction} hidden={{ studentId: student.id }} submitLabel={classTeacher ? `Tell class teacher ${classTeacher}` : "Keep it with the student’s record"} pendingText="Telling…" submitVariant="danger">
-      <div className="flex justify-center pt-1"><span className="w-16 h-16 rounded-full bg-bad text-white grid place-items-center shadow-pop" aria-hidden="true"><Hand size={30} /></span></div>
+      <div className="flex justify-center pt-1"><span className="w-16 h-16 rounded-full bg-bad text-badink grid place-items-center shadow-pop" aria-hidden="true"><Hand size={30} /></span></div>
       <SText name="who" label="Who is here?" help="Kept with the student’s record" placeholder="Name and relation, like Suresh, neighbour" maxLength={120} />
       {calls.map((c) => (
         <a key={c.tel + c.name} href={`tel:${c.tel}`} className={cx(buttonClass("secondary"), "w-full !justify-start")}><PhoneCall size={17} aria-hidden="true" />Call {c.name} ({c.relationship.toLowerCase()})</a>
@@ -115,7 +115,7 @@ export function PickupList({ people, canChoose, chosen, onChoose }: { people: Pi
           <>
             <span className="relative shrink-0">
               <Avatar name={x.name} size={48} src={x.photo} />
-              {!x.allowed && <span className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-bad text-white grid place-items-center ring-2 ring-surface"><Ban size={13} aria-hidden="true" /></span>}
+              {!x.allowed && <span className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-bad text-badink grid place-items-center ring-2 ring-surface"><Ban size={13} aria-hidden="true" /></span>}
             </span>
             <span className="min-w-0 flex-1">
               <span className={cx("block font-semibold text-[14.5px] truncate", !x.allowed && "text-bad")}>{x.name}</span>

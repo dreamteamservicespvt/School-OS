@@ -260,6 +260,7 @@ export async function parentLinkAction(fd: FormData) {
     to = op === "revoke" ? await provider.revoke(tx, current.ctx, guardianId) : await provider.resend(tx, current.ctx, guardianId);
   }));
   if (r) return r;
-  await flash({ message: op === "revoke" ? `Parent Link revoked. A new link was sent to ${to}.` : `Parent Link sent again to ${to}.` });
+  // Messages are queued here and delivered by the worker: say so, never "sent" (QA PEOPLE-15).
+  await flash({ message: op === "revoke" ? `Parent Link revoked. A new link is on its way to ${to}.` : `Parent Link is on its way to ${to}.` });
   revalidatePath(`${BASE}/guardians/${guardianId}`);
 }

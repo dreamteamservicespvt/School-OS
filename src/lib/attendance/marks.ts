@@ -19,6 +19,7 @@ import { attendanceFeatures, attendanceSettings, statusList, statusesFor, type S
 import { instantAt, schoolDateOf, time12 } from "./time";
 import { sectionPeriods, teacherPeriodsOn } from "./timetable";
 import { createCorrection } from "./corrections";
+import { ON_REGISTER_STATUSES } from "./on-register";
 
 export const dayText = (d: Date) => formatDate(d, "UTC");
 
@@ -34,7 +35,7 @@ export async function roster(tx: Tx, sectionId: string, academicYearId: string, 
   const rows = await tx.enrolment.findMany({
     where: opts.pastYear
       ? { sectionId, academicYearId, archivedAt: null }
-      : { sectionId, academicYearId, archivedAt: null, status: "STUDYING", student: { archivedAt: null, status: { in: ["ACTIVE", "ADMITTED"] } } },
+      : { sectionId, academicYearId, archivedAt: null, status: "STUDYING", student: { archivedAt: null, status: { in: ON_REGISTER_STATUSES } } },
     include: { student: { select: { id: true, fullName: true, admissionNo: true, photoFileId: true } } },
   });
   rows.sort((a, b) => (order === "name" ? a.student.fullName.localeCompare(b.student.fullName) : (a.rollNo ?? 9999) - (b.rollNo ?? 9999) || a.student.fullName.localeCompare(b.student.fullName)));
@@ -184,6 +185,8 @@ export type SaveResult = {
   correctionId?: string;
   clockFlagged?: boolean;
   messagesAt?: Date | null;
+  /** Absence messages are on, but no WhatsApp or SMS channel is connected. */
+  noChannel?: boolean;
   summary: string;
 };
 
@@ -345,9 +348,13 @@ export async function saveClassAttendance(tx: Tx, ctx: SchoolContext, access: At
   await enqueue(tx, ctx, "attendance-after-save", `attendance:${section.id}:${isoDay(input.date)}:${bucket}`, { sectionId: section.id, date: isoDay(input.date) }, sendAt);
 
   const counts = countsOf(entries);
+  // Promise a message only when a channel can carry it (no "Sent" without WhatsApp or SMS).
+  const wantsMessage = settings.absenceAlertOn && (counts.absent ?? 0) > 0;
+  const channelReady = wantsMessage && (await tx.messagingChannel.count({ where: { isOn: true, channel: { in: settings.absenceChannels.length ? settings.absenceChannels : ["whatsapp", "sms"] } } })) > 0;
   return {
     outcome: "saved", counts, changed: changes.length, clockFlagged,
-    messagesAt: settings.absenceAlertOn && (counts.absent ?? 0) > 0 ? sendAt : null,
+    messagesAt: channelReady ? sendAt : null,
+    noChannel: wantsMessage && !channelReady,
     summary: `Attendance saved for ${label}: ${countsText(counts, statuses)}.`,
   };
 }

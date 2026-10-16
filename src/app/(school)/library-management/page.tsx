@@ -150,6 +150,7 @@ async function Desk({ p, sp }: { p: LibPageData & { mode: string }; sp: Raw }) {
     let issueCheck: { ok: true; due: string; days: number; moved: boolean } | { ok: false; message: string; link?: { href: string; label: string } } | null = null;
     let returnInfo: null | { holder: Member | null; issuedOn: Date; dueOn: Date; late: ReturnType<typeof lateFine>; next: string | null; renewals: number } = null;
     let copyProblem: string | null = null;
+    let copyDone: string | null = null;
     if (copyCode && !copy && !bookMatches.length) copyProblem = `No copy or book found for “${copyCode}”. Check the accession number on the label.`;
     if (mode === "issue" && member && copy) {
       try {
@@ -158,12 +159,24 @@ async function Desk({ p, sp }: { p: LibPageData & { mode: string }; sp: Raw }) {
         issueCheck = { ok: true, due: isoDay(def.due), days: def.days, moved: def.moved };
       } catch (e) {
         if (!(e instanceof LibraryProblem)) throw e;
-        issueCheck = { ok: false, message: e.message, link: e.link };
+        // Just issued to this member (the page shows again after Issue with the same copy):
+        // say so calmly instead of "already issued, renew it instead" in red.
+        const open = await openIssueOf(tx, copy.id);
+        const mine = open && open.issuedOn.getTime() === today.getTime() && (member.kind === "STUDENT" ? open.studentId === member.studentId : open.staffId === member.staffId);
+        if (mine) copyDone = `“${copy.book.title}” (copy ${copy.accessionNo}) is issued to ${member.name}. Due ${formatDate(open.dueOn, "UTC")}.`;
+        else issueCheck = { ok: false, message: e.message, link: e.link };
       }
     }
     if (mode === "return" && copy) {
       const open = await openIssueOf(tx, copy.id);
-      if (!open) copyProblem = `Copy ${copy.accessionNo} (“${copy.book.title}”) is not issued to anyone, so there is nothing to return.`;
+      // Just returned (the page shows again after Return with the same copy): say so calmly,
+      // and who it is kept for, instead of "nothing to return" in red.
+      const back = !open ? await tx.bookIssue.findFirst({ where: { copyId: copy.id, returnedOn: today }, select: { id: true } }) : null;
+      if (!open && back) {
+        const kept = await tx.reservation.findFirst({ where: { copyId: copy.id, status: "READY" }, select: { studentId: true, staffId: true } });
+        const keptFor = kept ? await memberByKey(tx, ctx, s, kept.studentId ? `S:${kept.studentId}` : `T:${kept.staffId}`) : null;
+        copyDone = `Copy ${copy.accessionNo} (“${copy.book.title}”) was returned today.${keptFor ? ` Keep it at the desk for ${holderWords(keptFor)}.` : ""}`;
+      } else if (!open) copyProblem = `Copy ${copy.accessionNo} (“${copy.book.title}”) is not issued to anyone, so there is nothing to return.`;
       else {
         const holder = await memberByKey(tx, ctx, s, open.studentId ? `S:${open.studentId}` : `T:${open.staffId}`);
         const queue = await queueOf(tx, s, copy.bookId);
@@ -180,7 +193,7 @@ async function Desk({ p, sp }: { p: LibPageData & { mode: string }; sp: Raw }) {
     const resvMembers = await issueMembers(tx, ctx, s, resv);
     const cancel = cancelId ? resv.find((r) => r.id === cancelId) ?? (await tx.reservation.findFirst({ where: { id: cancelId, status: { in: ["READY", "WAITING"] } } })) : null;
     const history = await historyRows(tx, ctx, s, sp, p);
-    return { member, matches, memberProblem, load, copy, bookMatches, issueCheck, returnInfo, copyProblem, reserveBook, reserveQueue, counts, rows, resv: await withBookTitles(tx, resv.map((r) => ({ ...r, member: resvMembers.get(r.studentId ? `S:${r.studentId}` : `T:${r.staffId}`) ?? null }))), cancel: cancel ? (await withBookTitles(tx, [cancel]))[0] : null, history };
+    return { member, matches, memberProblem, load, copy, bookMatches, issueCheck, returnInfo, copyProblem, copyDone, reserveBook, reserveQueue, counts, rows, resv: await withBookTitles(tx, resv.map((r) => ({ ...r, member: resvMembers.get(r.studentId ? `S:${r.studentId}` : `T:${r.staffId}`) ?? null }))), cancel: cancel ? (await withBookTitles(tx, [cancel]))[0] : null, history };
   });
 
   const memberKey = d.member?.key ?? null;
@@ -235,6 +248,7 @@ async function Desk({ p, sp }: { p: LibPageData & { mode: string }; sp: Raw }) {
                           <ScanBox key="copy-issue" id="scan-copy" href={deskHref} param="copy" label="Book barcode or title" placeholder="Scan the book barcode, or type the accession number or title" start={copyCode} autoFocus hint="Only copies on the shelf can be issued." />
                         )}
                         {d.copyProblem && <Alert tone="danger">{d.copyProblem}</Alert>}
+                        {d.copyDone && <Alert tone="info">{d.copyDone}</Alert>}
                         {d.bookMatches.length > 0 && !d.copy && <BookMatches rows={d.bookMatches} pickHref={(acc) => here({ copy: acc })} reserveHref={(id) => here({ reserve: id, copy: null })} />}
                         {d.copy && (
                           <div className="flex flex-col gap-3">
@@ -266,6 +280,7 @@ async function Desk({ p, sp }: { p: LibPageData & { mode: string }; sp: Raw }) {
                 <>
                   <ScanBox key="copy-return" id="scan-return" href={qs(BASE, { mode: "return", list: list === "issued" ? null : list })} param="copy" label="Book barcode" placeholder="Scan the book barcode, or type the accession number" start={copyCode} autoFocus />
                   {d.copyProblem && <Alert tone="danger">{d.copyProblem}</Alert>}
+                  {d.copyDone && <Alert tone="info">{d.copyDone}</Alert>}
                   {d.bookMatches.length > 0 && !d.copy && <Alert tone="info">Scan the copy&apos;s own barcode or type its accession number to return it. A title is not enough, because each copy is returned on its own.</Alert>}
                   {d.copy && d.returnInfo && (
                     <div className="flex flex-col gap-3">

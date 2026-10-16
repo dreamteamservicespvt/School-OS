@@ -13,8 +13,11 @@ import { StudentProblem } from "./students";
 
 export type LoginLine = { studentId: string; fullName: string; admissionNo: string; username: string; link: string; isNew: boolean };
 
-function usernameFor(code: string, admissionNo: string) {
-  return `${code}-${admissionNo}`.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+/** "cems-2026-0180": the school code once, even when the admission number already starts with it. */
+export function usernameFor(code: string, admissionNo: string) {
+  const slug = (v: string) => v.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const c = slug(code), a = slug(admissionNo);
+  return a === c || a.startsWith(`${c}-`) ? a : slug(`${c}-${a}`);
 }
 
 /** Makes a login for each student without one, or a fresh set-password link for those who have one. */

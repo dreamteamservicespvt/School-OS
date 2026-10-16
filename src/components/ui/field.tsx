@@ -4,6 +4,7 @@
 import { useId } from "react";
 import { CircleAlert } from "lucide-react";
 import { cx } from "./cx";
+import { KeepSelect } from "./keep-select";
 
 /** The shared look of a text box, select or text area. */
 export const inputCls = (error?: unknown) => cx(
@@ -60,11 +61,11 @@ export function SelectField({ label, name, help, error, required, className, opt
   const id = `${useId()}-${name}`;
   return (
     <FieldShell label={label} id={id} help={help} error={error} required={required} className={className}>
-      <select id={id} name={name} required={required} aria-invalid={error ? true : undefined} aria-describedby={describedBy(id, error, help)}
+      <KeepSelect id={id} name={name} required={required} aria-invalid={error ? true : undefined} aria-describedby={describedBy(id, error, help)}
         className={cx(inputCls(error), "h-11 pr-9")} {...rest}>
         {placeholder !== undefined && <option value="">{placeholder}</option>}
         {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-      </select>
+      </KeepSelect>
     </FieldShell>
   );
 }

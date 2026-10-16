@@ -7,6 +7,7 @@ import { attendancePage } from "@/lib/attendance/page";
 import { BASE } from "@/lib/attendance/access";
 import { registerChoices } from "@/lib/attendance/register";
 import { attendanceToday } from "@/lib/attendance/integrations";
+import { percentText } from "@/lib/attendance/summary";
 import { schoolBounds, clampMonth } from "@/lib/attendance/calendar-months";
 import { schoolDays } from "@/lib/attendance/calendar";
 import { DATED_REPORTS, rangePeople, readReportInput, reportsFor, runReport, withDates, type ReportKey, type ReportRow, type ReportTable } from "@/lib/attendance/reports";
@@ -109,7 +110,7 @@ export default async function ReportsPage({ searchParams }: Props) {
             <>
               {data.day.off ? <Banner tone="info" title={`${data.day.off}.`}>Attendance is off for this date. Choose another date.</Banner> : (
                 <Stats items={[
-                  { label: "Students present", value: `${data.day.students.present.toLocaleString("en-IN")} of ${data.day.students.marked.toLocaleString("en-IN")}`, sub: data.day.students.marked ? `${Math.round((data.day.students.present / data.day.students.marked) * 1000) / 10}% · ${data.day.students.late} came late` : "Not marked yet", tone: "ok", icon: UserCheck },
+                  { label: "Students present", value: `${data.day.students.present.toLocaleString("en-IN")} of ${data.day.students.marked.toLocaleString("en-IN")}`, sub: data.day.students.marked ? `${percentText(data.day.students.percent)} · ${data.day.students.late} came late${data.day.students.notMarked ? ` · ${data.day.students.notMarked} not marked` : ""}` : "Not marked yet", tone: "ok", icon: UserCheck },
                   { label: "Absent", value: data.day.students.absent, sub: `${data.day.students.leave} more on approved leave`, icon: UserX, tone: data.day.students.absent ? "bad" : undefined },
                   { label: "Classes marked", value: `${data.day.classes.total - data.day.classes.notMarked} of ${data.day.classes.total}`, sub: data.day.classes.notMarked ? `${data.day.classes.notMarked} not marked yet` : "Every class is marked", icon: ListChecks, tone: data.day.classes.notMarked ? "warn" : "ok", href: data.day.classes.notMarked ? BASE : undefined },
                   ...(access.staff === "all" ? [{ label: "Staff present", value: `${data.day.staff.present} of ${data.day.staff.total}`, sub: `${data.day.staff.late} late · ${data.day.staff.total - data.day.staff.marked} not in yet`, icon: Users, href: `${BASE}/staff` }] : []),

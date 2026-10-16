@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { Archive, BellRing, Check, CircleX, CornerDownLeft, Mail, Plus, RotateCcw, ScanLine, Search, Send, Trash2, UserRound, X, type LucideIcon } from "lucide-react";
 import { Button, type ButtonVariant } from "@/components/ui/button";
 import { Segmented, type SegOption } from "@/components/ui/controls";
+import { KeepSelect } from "@/components/ui/keep-select";
 import { inputCls } from "@/components/ui/field";
 import { FormResultProvider, useTyped } from "@/components/ui/url-sheet";
 import { cx } from "@/components/ui/cx";
@@ -92,10 +93,10 @@ export function ItemLines({ items, start = [], price, limit, stockAt, label = "I
           <div key={r.key} className="rounded-xl border border-line p-2.5 flex flex-col gap-1.5">
             <div className={cx("grid gap-2 items-center", price ? "grid-cols-[1fr_84px_104px_auto]" : "grid-cols-[1fr_96px_auto]")}>
               <label className="sr-only" htmlFor={`line-item-${r.key}`}>Item on line {i + 1}</label>
-              <select id={`line-item-${r.key}`} name="itemId" value={r.itemId} onChange={(e) => set(r.key, { itemId: e.target.value })} className={cx(inputCls(t.error), "h-11 min-w-0")}>
+              <KeepSelect id={`line-item-${r.key}`} name="itemId" value={r.itemId} onChange={(e) => set(r.key, { itemId: e.target.value })} className={cx(inputCls(t.error), "h-11 min-w-0")}>
                 <option value="">Choose an item</option>
                 {items.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
+              </KeepSelect>
               <label className="sr-only" htmlFor={`line-qty-${r.key}`}>Quantity on line {i + 1}</label>
               <input id={`line-qty-${r.key}`} name="qty" inputMode="numeric" value={r.qty} onChange={(e) => set(r.key, { qty: e.target.value.replace(/[^\d]/g, "") })} placeholder="Qty"
                 aria-invalid={over ? true : undefined} className={cx(inputCls(over ? "x" : undefined), "h-11 tnum text-right")} />

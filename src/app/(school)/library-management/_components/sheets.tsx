@@ -40,10 +40,20 @@ function IsbnField({ start }: { start: string }) {
   );
 }
 
+/** Copies: inside the sheet, so a refused number keeps what was typed and shows its problem. */
+function CopiesField({ onCount }: { onCount: (n: number) => void }) {
+  const copies = useTyped("copies", "1");
+  return (
+    <FieldShell label="Copies" id="book-copies" required error={copies.error}>
+      <input key={copies.key} id="book-copies" name="copies" type="number" min={1} max={200} defaultValue={copies.value} onChange={(e) => onCount(Math.max(1, Math.min(200, Number(e.target.value) || 1)))}
+        aria-invalid={copies.error ? true : undefined} aria-describedby={copies.error ? "book-copies-error" : undefined} className={cx(inputCls(copies.error), "h-11 tnum")} />
+    </FieldShell>
+  );
+}
+
 export function BookSheet({ closeHref, doneHref, categories, start, nextAccession }: { closeHref: string; doneHref?: string; categories: Opt[]; start: BookStart | null; nextAccession: string }) {
   const editing = Boolean(start);
-  const copies = useTyped("copies", "1");
-  const [n, setN] = useState(Number(copies.value) || 1);
+  const [n, setN] = useState(1);
   const [more, setMore] = useState(Boolean(start && (start.subject || start.price || start.shelf || start.language || start.edition)));
   return (
     <SheetForm title={editing ? "Change book details" : "Add a book"} sub={editing ? start!.title : "Type the ISBN first; then the title and author."} closeHref={closeHref} doneHref={doneHref}
@@ -55,10 +65,7 @@ export function BookSheet({ closeHref, doneHref, categories, start, nextAccessio
       <SSelect name="categoryId" label="Category" options={categories} placeholder="No category" start={start?.categoryId ?? ""} />
       {!editing && (
         <div className="grid grid-cols-[110px_1fr] gap-3 items-start">
-          <FieldShell label="Copies" id="book-copies" required error={copies.error}>
-            <input key={copies.key} id="book-copies" name="copies" type="number" min={1} max={200} defaultValue={copies.value} onChange={(e) => setN(Math.max(1, Math.min(200, Number(e.target.value) || 1)))}
-              aria-invalid={copies.error ? true : undefined} className={cx(inputCls(copies.error), "h-11 tnum")} />
-          </FieldShell>
+          <CopiesField onCount={setN} />
           <SText name="accessions" label="Accession numbers" maxLength={2000} className="[&_input]:font-mono" placeholder={`From ${nextAccession}`}
             help={`Empty: numbered in sequence from ${nextAccession}. Or type one per copy, separated by commas.`} />
         </div>

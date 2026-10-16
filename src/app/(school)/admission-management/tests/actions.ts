@@ -51,7 +51,7 @@ export async function scheduleInterviewAction(_: FormState<unknown>, fd: FormDat
       interviewerStaffId: id(fd, "interviewerStaffId", "interviewer"),
       startsAt: zonedToInstant(slot, w.tz),
     });
-  }, () => ({ message: "Interview booked. The parent was sent the time.", link: { href: `${BASE}?tab=interviews`, label: "See interviews" } }));
+  }, (r) => ({ message: r.notSent ? `Interview booked. The parent was not sent the time: ${r.notSent}. Call the parent.` : "Interview booked. The parent is being sent the time.", link: { href: `${BASE}?tab=interviews`, label: "See interviews" } }));
 }
 
 export async function outcomeAction(_: FormState<unknown>, fd: FormData) {

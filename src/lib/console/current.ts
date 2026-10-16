@@ -3,6 +3,7 @@
 import "server-only";
 
 import { cache } from "react";
+import { clientIp } from "@/lib/client-ip";
 import { cookies, headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { CONSOLE_COOKIE, CONSOLE_IDLE_MS, actorOf, findConsoleSession } from "./auth";
@@ -20,7 +21,7 @@ export async function consoleDevice() {
   const h = await headers();
   return {
     userAgent: h.get("user-agent"),
-    ipAddress: h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? h.get("x-real-ip") ?? null,
+    ipAddress: clientIp((n) => h.get(n)),
   };
 }
 

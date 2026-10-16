@@ -156,7 +156,8 @@ export async function scheduleInterview(tx: Tx, ctx: SchoolContext, v: Viewer, s
     await notify(tx, ctx, { to: interviewer.userLoginId, type: "admission-interview", text: `Admission interview: ${app.fullName} on ${when}.`, link: `/admission-management/tests?tab=interviews`, groupKey: "admission-interview", mergedText: (n) => `${n} admission interviews booked with you` });
   }
   await writeAudit(tx, ctx, { action: "interview-scheduled", recordType: "Application", recordId: app.id, after: { interviewer: interviewer.id, startsAt: input.startsAt.toISOString(), minutes } });
-  return slot;
+  // Why the parent was not told, when no message could go (QA PEOPLE-21).
+  return { slot, notSent: r.status === "queued" ? null : r.note ?? "messages are not set up" };
 }
 
 /** Record interview notes and outcome; every change is kept in the history. */

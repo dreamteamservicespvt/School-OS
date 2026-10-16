@@ -14,6 +14,7 @@ import { AcademicRuleError } from "@/lib/academic/common";
 import { ClosedYearError, assertYearWritable } from "@/lib/academic/years";
 import { writeAudit } from "@/lib/audit";
 import { academicScope, type AcademicScope } from "@/lib/academic/scope";
+import { openCorrection } from "@/lib/academic/correction-cookie";
 
 export const CORRECTION_COOKIE = "sos_year_correction";
 
@@ -22,14 +23,10 @@ export async function correctionFor(current: Current, yearId: string | null | un
   if (!yearId) return null;
   const raw = (await cookies()).get(CORRECTION_COOKIE)?.value;
   if (!raw) return null;
-  try {
-    const c = JSON.parse(raw) as { yearId: string; reason: string; userId: string; until: number };
-    if (c.yearId !== yearId || c.userId !== current.user.id || c.until < Date.now()) return null;
-    const allowed = current.roles.some((r) => r.key === "principal" || r.key === "school-admin");
-    return allowed ? c.reason : null;
-  } catch {
-    return null;
-  }
+  const c = openCorrection(raw);
+  if (!c || c.yearId !== yearId || c.userId !== current.user.id || c.until < Date.now()) return null;
+  const allowed = current.roles.some((r) => r.key === "principal" || r.key === "school-admin");
+  return allowed ? c.reason : null;
 }
 
 export type Work = { tx: Tx; current: Current; reach: Reach; scope: AcademicScope; correction: string | null };

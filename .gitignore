@@ -11,3 +11,4 @@ test-results/
 .claude/worktrees/
 /storage/
 storage/
+qa-output/

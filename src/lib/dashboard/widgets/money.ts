@@ -16,6 +16,7 @@ import { financePageAllowed, hiddenPayHeads, expensesWithoutPay, type FinancePag
 import { accountBalances } from "../../finance/daybook";
 import { n, plural, someNames, addDays, shortDate } from "../common";
 import type { DashContext, Viewer, Widget } from "../types";
+import { doesWork } from "../../duty";
 
 const FEES = "/fee-management";
 const FIN = "/finance-management";
@@ -25,6 +26,9 @@ const DAY = 86_400_000;
 function fees(c: DashContext): Promise<FeeViewer> {
   return c.memo("fee-viewer", () => feeViewer(c.tx, c.viewer.ctx, c.viewer as unknown as Parameters<typeof feeViewer>[2]));
 }
+
+/** Sits at the fee counter: may collect, and collecting is their desk work. */
+export const collects = (c: Pick<DashContext, "viewer">, v: FeeViewer) => feePageAllowed(v, "collect") && doesWork(c.viewer, "fee-management", "collect");
 
 /** Fee details (amounts) for this person: never for the Admission Counsellor. */
 const feeDetails = (page: FeePageKey) => (v: Viewer) => !admissionOnlyFor(v) && feePageAllowedFor(v, page);
@@ -148,15 +152,16 @@ const collectionChart: Widget<"panel"> = {
     const trend = await monthlyTrend(c.tx, c.year.startDate, end);
     let paidSoFar = ZERO, dueSoFar = ZERO;
     const months = trend.map((m) => ({ ...m, paidSoFar: (paidSoFar += m.collected), dueSoFar: (dueSoFar += m.due) })).filter((m) => m.dueSoFar > ZERO);
-    const collected = paidSoFar;
-    const due = dueSoFar;
     const pct = (a: bigint, b: bigint) => (b > ZERO ? Math.min(100, Math.round((Number(a) * 100) / Number(b))) : 0);
+    // "Collected this year" has one meaning: the Fee Dashboard's (fees/by-class.ts), paid on
+    // the fees due so far. The same words show the same numbers on both screens.
+    const year = (await tiles(c)).year;
     return {
       slot: "main",
       panel: {
         kind: "bars", title: "Fee collection", icon: "CreditCard",
         // Each bar: share of the fees due so far that was collected by the end of that month.
-        sub: due > ZERO ? `${formatRupeesShort(collected)} of ${formatRupeesShort(due)} due so far · ${pct(collected, due)}%` : `${c.year.name}: nothing due yet`,
+        sub: year.due > ZERO ? `${formatRupeesShort(year.paid)} of ${formatRupeesShort(year.due)} due so far · ${Math.round(year.percent)}%` : `${c.year.name}: nothing due yet`,
         rows: months.map((m) => ({ key: m.key, label: m.label, value: pct(m.paidSoFar, m.dueSoFar) })),
         goal: 90, lowBelow: 75, href: `${FEES}/reports`, linkLabel: "Reports",
         empty: "No fees have fallen due this year yet.",
@@ -188,8 +193,9 @@ const recent: Widget<"panel"> = {
           right: word[r.status] ? `${formatRupees(r.amountPaise)} · ${word[r.status]}` : formatRupees(r.amountPaise),
           rightTone: tone[r.status as keyof typeof tone] ?? "neutral",
         })),
-        href: feePageAllowed(v, "collect") ? `${FEES}/collect` : `${FEES}/dashboard`,
-        linkLabel: feePageAllowed(v, "collect") ? "Collect fee" : "Fee Dashboard",
+        // Collect Fee is the module's first page; the Principal and School Admin never sit at the counter (src/lib/duty.ts).
+        href: collects(c, v) ? FEES : `${FEES}/dashboard`,
+        linkLabel: collects(c, v) ? "Collect fee" : "Fee Dashboard",
         empty: "No fee payments yet this year.",
       },
     };

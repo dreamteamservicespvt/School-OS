@@ -3,6 +3,7 @@
 import "server-only";
 
 import { cache } from "react";
+import { clientIp } from "@/lib/client-ip";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { findSession } from "./auth/sessions";
@@ -16,7 +17,7 @@ export async function deviceInfo() {
   const h = await headers();
   return {
     userAgent: h.get("user-agent"),
-    ipAddress: h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? h.get("x-real-ip") ?? null,
+    ipAddress: clientIp((n) => h.get(n)),
   };
 }
 

@@ -26,6 +26,7 @@ function inputOf(fd: FormData, timeZone: string): ReminderInput {
     text: str(fd, "text") || null,
     includeLink: str(fd, "link") === "on",
     scheduledAt: when === "later" ? zonedToInstant(`${tomorrow}T09:00`, timeZone) : null,
+    today: todayIn(timeZone),
   };
 }
 

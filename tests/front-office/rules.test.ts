@@ -123,6 +123,11 @@ describe("Front Office rules", () => {
     await expect(withSchool(desk(), (tx) => releaseStudent(tx, desk(), { ...base, photoMatch: true, reason: "Unwell" }, { timeZone: TZ, codeCheck: false }))).rejects.toThrow(/already has gate pass/);
     const note = await withSchool(as(f, f.classTeacher.id), (tx) => tx.notification.findFirst({ where: { userLoginId: f.classTeacher.id, type: "early-pickup" } }));
     expect(note?.text).toContain("Aarav Sharma");
+    expect(note?.text).toContain(": doctor visit.");
+    // A reason typed under Other keeps its capitals (QA PEOPLE-19).
+    await withSchool(desk(), (tx) => releaseStudent(tx, desk(), { ...base, studentId: f.diya.id, photoMatch: true, reason: "Other", otherReason: "Appointment with Dr. Rao at KGH" }, { timeZone: TZ, codeCheck: false }));
+    const other = await withSchool(as(f, f.classTeacher.id), (tx) => tx.notification.findFirst({ where: { userLoginId: f.classTeacher.id, type: "early-pickup", text: { contains: "Diya" } } }));
+    expect(other?.text).toContain(": Appointment with Dr. Rao at KGH.");
   });
 
   it("sends a desk enquiry straight to Admission Management with an owner and a follow-up (Done when 5)", async () => {
@@ -159,6 +164,15 @@ describe("Front Office rules", () => {
     const again = await withSchool(desk(), (tx) => bookAppointment(tx, desk(), { ...input, visitorName: "Someone Else", visitorPhone: "9848055121" }, { timeZone: TZ, now }));
     expect(again.appointment.startMin).toBe(11 * 60);
     await expect(withSchool(desk(), (tx) => bookAppointment(tx, desk(), { ...input, dayIso: "2026-10-13" }, { timeZone: TZ, now }))).rejects.toThrow(/has passed/);
+  });
+
+  it("says when the asked-for confirmation could not be sent (QA PEOPLE-17)", async () => {
+    const now = at(TODAY, "08:00");
+    const input = { staffId: f.principalStaff.id, dayIso: "2026-10-16", startMin: 12 * 60, lengthMin: 15, visitorName: "Demo Visitor Rao", visitorPhone: "9848055130", purpose: "Fee query", confirm: true };
+    const r = await withSchool(desk(), (tx) => bookAppointment(tx, desk(), input, { timeZone: TZ, now }));
+    expect(r.sent).toBeNull();
+    expect(r.notSent).toMatch(/No WhatsApp or SMS is set up/);
+    expect(r.appointment.confirmationSent).toBe(false);
   });
 
   it("gives every walk-in request a number and a department, and finds it by that number (Done when 11)", async () => {

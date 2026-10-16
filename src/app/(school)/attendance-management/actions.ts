@@ -83,6 +83,7 @@ export async function saveSheet(payload: SheetPayload): Promise<SheetResult> {
     const parts = [result.summary];
     const absent = result.counts.absent ?? 0;
     if (result.messagesAt && absent) parts.push(`Parents of ${absent} absent ${absent === 1 ? "student" : "students"} get a message at ${formatTime(result.messagesAt, tz)}.`);
+    else if (result.noChannel && absent) parts.push("No absence message goes to parents: WhatsApp or SMS is not connected yet (Settings, Messaging).");
     else if (!absent && !input.offline) parts.push("Everyone is in today.");
     if (result.clockFlagged) parts.push("The phone's clock was wrong, so the school's time was used.");
     const message = parts.join(" ");

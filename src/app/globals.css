@@ -12,11 +12,11 @@
 :root {
   /* Neutrals, light. Slight teal bias so greys feel chosen, not default. */
   --bg: 243 246 245; --surface: 255 255 255; --sunken: 236 241 239; --line: 222 229 226;
-  --ink: 15 23 21; --ink-2: 66 80 76; --ink-3: 112 127 122; --shadow: 16 32 28;
+  --ink: 15 23 21; --ink-2: 66 80 76; --ink-3: 96 110 105; --shadow: 16 32 28;
   /* Accent (default: Lagoon) */
   --brand: 12 112 100; --brand-ink: 255 255 255;
   /* Meaning colours */
-  --ok: 21 128 72; --warn: 180 110 0; --bad: 200 40 48; --info: 28 100 200;
+  --ok: 21 128 72; --warn: 156 94 0; --bad: 200 40 48; --info: 28 100 200; --bad-ink: 255 255 255;
   --av-l: 38%;
   color-scheme: light;
 }
@@ -24,17 +24,17 @@
 /* Dark, chosen or following the device. */
 :root[data-theme="dark"] {
   --bg: 9 13 13; --surface: 17 23 23; --sunken: 23 30 30; --line: 36 46 45;
-  --ink: 233 239 237; --ink-2: 166 180 176; --ink-3: 118 133 129; --shadow: 0 0 0;
+  --ink: 233 239 237; --ink-2: 166 180 176; --ink-3: 130 145 141; --shadow: 0 0 0;
   --brand: 52 196 174; --brand-ink: 4 20 18;
-  --ok: 72 205 135; --warn: 240 178 70; --bad: 255 110 112; --info: 112 168 255; --av-l: 74%;
+  --ok: 72 205 135; --warn: 240 178 70; --bad: 255 110 112; --info: 112 168 255; --bad-ink: 9 13 13; --av-l: 74%;
   color-scheme: dark;
 }
 @media (prefers-color-scheme: dark) {
   :root[data-theme="system"] {
     --bg: 9 13 13; --surface: 17 23 23; --sunken: 23 30 30; --line: 36 46 45;
-    --ink: 233 239 237; --ink-2: 166 180 176; --ink-3: 118 133 129; --shadow: 0 0 0;
+    --ink: 233 239 237; --ink-2: 166 180 176; --ink-3: 130 145 141; --shadow: 0 0 0;
     --brand: 52 196 174; --brand-ink: 4 20 18;
-    --ok: 72 205 135; --warn: 240 178 70; --bad: 255 110 112; --info: 112 168 255; --av-l: 74%;
+    --ok: 72 205 135; --warn: 240 178 70; --bad: 255 110 112; --info: 112 168 255; --bad-ink: 9 13 13; --av-l: 74%;
     color-scheme: dark;
   }
 }
@@ -74,6 +74,7 @@
   --color-ok: rgb(var(--ok));
   --color-warn: rgb(var(--warn));
   --color-bad: rgb(var(--bad));
+  --color-badink: rgb(var(--bad-ink));
   --color-info: rgb(var(--info));
   --color-shade: rgb(var(--shadow));
 
@@ -122,6 +123,10 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 h1, h2, h3 { text-wrap: balance; }
+/* A hidden column label ("Open", "Actions") is absolutely placed by sr-only, so inside a
+   table that scrolls sideways it escaped the scroll box and widened the whole page
+   (1024 px laptops scrolled sideways). In a header cell it can simply stay in the flow. */
+th > .sr-only { position: static; }
 
 @utility tnum { font-variant-numeric: tabular-nums; }
 @utility eyebrow { font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; }

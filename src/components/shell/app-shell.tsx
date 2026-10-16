@@ -61,12 +61,33 @@ function useEscape(open: boolean, close: () => void) {
   }, [open, close]);
 }
 
+/** Keeps Tab and Shift+Tab inside an open sheet or menu, as a modal should; can move focus to its first control. */
+function useTrap(ref: React.RefObject<HTMLDivElement | null>, open: boolean, focusFirst = false) {
+  useEffect(() => {
+    if (!open) return;
+    const items = () => [...(ref.current?.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])') ?? [])].filter((el) => el.offsetParent !== null);
+    if (focusFirst) setTimeout(() => items()[0]?.focus(), 30);
+    const k = (e: KeyboardEvent) => {
+      if (e.key !== "Tab" || !ref.current) return;
+      const list = items();
+      if (!list.length) return;
+      const first = list[0], last = list[list.length - 1], at = document.activeElement;
+      if (!ref.current.contains(at)) { e.preventDefault(); first.focus(); }
+      else if (e.shiftKey && (at === first || at === ref.current)) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && at === last) { e.preventDefault(); first.focus(); }
+    };
+    window.addEventListener("keydown", k);
+    return () => window.removeEventListener("keydown", k);
+  }, [ref, open, focusFirst]);
+}
+
 /* ---------- A sheet over the page: dialog on a computer, bottom sheet on a phone ---------- */
 function Sheet({ open, onClose, title, sub, children, wide }: { open: boolean; onClose: () => void; title: string; sub?: string; children: React.ReactNode; wide?: boolean }) {
   const titleId = useId();
   const ref = useRef<HTMLDivElement>(null);
   useEscape(open, onClose);
   useEffect(() => { if (open) setTimeout(() => ref.current?.focus(), 30); }, [open]);
+  useTrap(ref, open);
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center md:p-6">
@@ -174,14 +195,14 @@ function TopBar({ school, year, person, approvals, canApprove, canMessage, unrea
       </Link>
       {/* Computer: search */}
       <button type="button" onClick={onSearch}
-        className="hidden md:flex items-center gap-3 h-11 flex-1 max-w-xl rounded-xl bg-sunken border border-transparent hover:border-line px-3.5 text-ink3 text-[14.5px] transition">
-        <I.Search size={18} aria-hidden="true" />
+        className="hidden md:flex items-center gap-3 h-11 flex-1 min-w-0 max-w-xl rounded-xl bg-sunken border border-transparent hover:border-line px-3.5 text-ink3 text-[14.5px] transition">
+        <I.Search size={18} className="shrink-0" aria-hidden="true" />
         <span className="truncate">Search students, staff, pages… or type what to do</span>
-        <span className="ml-auto flex gap-1"><Kbd>Ctrl</Kbd><Kbd>K</Kbd></span>
+        <span className="ml-auto hidden xl:flex gap-1 shrink-0"><Kbd>Ctrl</Kbd><Kbd>K</Kbd></span>
       </button>
-      <div className="flex-1 hidden md:block" />
+      <div className="flex-1 hidden xl:block" />
       <Link href="/academic-management/settings" title={year ? `Academic year ${year.name}` : "Open an academic year in Academic Settings"}
-        className={cx("hidden lg:inline-flex items-center gap-2 h-9 px-3 rounded-xl border text-[13px] font-semibold hover:bg-sunken tnum", year?.closed ? "border-warn/50 text-warn" : "border-line text-ink2")}>
+        className={cx("hidden lg:inline-flex shrink-0 whitespace-nowrap items-center gap-2 h-9 px-3 rounded-xl border text-[13px] font-semibold hover:bg-sunken tnum", year?.closed ? "border-warn/50 text-warn" : "border-line text-ink2")}>
         <I.CalendarRange size={16} aria-hidden="true" /> {year ? yearLabel(year.name) : "No year yet"}
       </Link>
       <IconButton className="md:hidden" icon={I.Search} label="Search" onClick={onSearch} />
@@ -189,7 +210,7 @@ function TopBar({ school, year, person, approvals, canApprove, canMessage, unrea
       {canMessage && <IconLink className="hidden md:inline-flex" href="/messages" icon={I.MessageCircle} label="Messages" />}
       <IconButton icon={I.Bell} label="Notifications" badge={unread} onClick={onNotif} />
       <IconButton className="hidden md:inline-flex" icon={dark ? I.Sun : I.Moon} label={dark ? "Switch to light mode" : "Switch to dark mode"} onClick={flip} />
-      <button type="button" onClick={onProfile} className="ml-1 flex items-center gap-2.5 rounded-xl hover:bg-sunken p-1 lg:pr-3 transition" aria-label="Your profile and settings">
+      <button type="button" onClick={onProfile} className="ml-1 shrink-0 flex items-center gap-2.5 rounded-xl hover:bg-sunken p-1 lg:pr-3 transition" aria-label="Your profile and settings">
         <Avatar name={person.name} size={34} />
         <span className="hidden lg:block text-left">
           <span className="block text-[13.5px] font-semibold leading-tight max-w-[10rem] truncate">{person.name}</span>
@@ -308,14 +329,16 @@ function QuickSheet({ open, onClose, quick }: { open: boolean; onClose: () => vo
 }
 
 /* ---------- Notifications ---------- */
-function NotifPanel({ open, onClose, notes }: { open: boolean; onClose: () => void; notes: ShellNote[] }) {
+function NotifPanel({ open, onClose, notes, total }: { open: boolean; onClose: () => void; notes: ShellNote[]; total: number }) {
+  const ref = useRef<HTMLDivElement>(null);
   useEscape(open, onClose);
+  useTrap(ref, open, true);
   if (!open) return null;
-  const unread = notes.filter((n) => n.unread).length;
+  const unread = Math.max(total, notes.filter((n) => n.unread).length);
   return (
     <div className="fixed inset-0 z-50">
       <div className="absolute inset-0 bg-shade/35 md:bg-transparent animate-fade" onClick={onClose} aria-hidden="true" />
-      <div role="dialog" aria-label="Notifications"
+      <div ref={ref} role="dialog" aria-modal="true" aria-label="Notifications"
         className="absolute inset-x-0 bottom-0 md:bottom-auto md:left-auto md:right-4 md:top-[68px] md:w-[400px] bg-surface rounded-t-3xl md:rounded-2xl shadow-pop border border-line animate-sheet max-h-[85dvh] flex flex-col">
         <div className="flex items-center justify-between px-5 pt-4 pb-2">
           <div>
@@ -359,7 +382,9 @@ function NotifPanel({ open, onClose, notes }: { open: boolean; onClose: () => vo
 /* ---------- Profile menu ---------- */
 function ProfileMenu({ open, onClose, person, school, schools, theme, onSwitch }: Pick<ShellProps, "person" | "school" | "schools" | "theme"> & { open: boolean; onClose: () => void; onSwitch: () => void }) {
   const [mode, setMode] = useState(theme);
+  const ref = useRef<HTMLDivElement>(null);
   useEscape(open, onClose);
+  useTrap(ref, open, true);
   if (!open) return null;
   const choose = (v: string) => {
     setMode(v);
@@ -372,7 +397,7 @@ function ProfileMenu({ open, onClose, person, school, schools, theme, onSwitch }
   return (
     <div className="fixed inset-0 z-50">
       <div className="absolute inset-0 bg-shade/35 md:bg-transparent animate-fade" onClick={onClose} aria-hidden="true" />
-      <div role="menu" aria-label="Your profile and settings" className="absolute inset-x-0 bottom-0 md:bottom-auto md:left-auto md:right-4 md:top-[68px] md:w-[320px] bg-surface rounded-t-3xl md:rounded-2xl shadow-pop border border-line animate-sheet p-2" style={{ paddingBottom: "calc(0.5rem + env(safe-area-inset-bottom, 0px))" }}>
+      <div ref={ref} role="menu" aria-label="Your profile and settings" className="absolute inset-x-0 bottom-0 md:bottom-auto md:left-auto md:right-4 md:top-[68px] md:w-[320px] bg-surface rounded-t-3xl md:rounded-2xl shadow-pop border border-line animate-sheet p-2" style={{ paddingBottom: "calc(0.5rem + env(safe-area-inset-bottom, 0px))" }}>
         <div className="flex items-center gap-3 p-3">
           <Avatar name={person.name} size={44} />
           <div className="min-w-0">
@@ -386,7 +411,7 @@ function ProfileMenu({ open, onClose, person, school, schools, theme, onSwitch }
             options={[{ value: "light", label: "Light", icon: I.Sun }, { value: "dark", label: "Dark", icon: I.Moon }, { value: "system", label: "Auto", icon: I.MonitorSmartphone }]} />
         </div>
         <div className="border-t border-line my-1" />
-        <Link role="menuitem" href="/profile#appearance" onClick={onClose} className={row}><I.Palette size={18} className="text-ink3" aria-hidden="true" />Colours and text size</Link>
+        <Link role="menuitem" href="/profile/appearance" onClick={onClose} className={row}><I.Palette size={18} className="text-ink3" aria-hidden="true" />Colours and text size</Link>
         <Link role="menuitem" href="/profile" onClick={onClose} className={row}><I.UserCog size={18} className="text-ink3" aria-hidden="true" />My profile and password</Link>
         <Link role="menuitem" href="/profile#devices" onClick={onClose} className={row}><I.MonitorSmartphone size={18} className="text-ink3" aria-hidden="true" />Signed-in devices</Link>
         {schools.length > 1 && <button role="menuitem" type="button" className={row} onClick={() => { onClose(); onSwitch(); }}><I.ArrowRightLeft size={18} className="text-ink3" aria-hidden="true" />Switch school or campus</button>}
@@ -469,7 +494,7 @@ export function AppShell(props: ShellProps) {
       </div>
       <BottomNav items={bottom} onMore={() => setMore(true)} />
       <CommandPalette open={palette} onClose={() => setPalette(false)} userId={person.id} pages={pages} shortcuts={shortcuts} quick={quick} />
-      <NotifPanel open={notif} onClose={() => setNotif(false)} notes={notes} />
+      <NotifPanel open={notif} onClose={() => setNotif(false)} notes={notes} total={unread} />
       <ProfileMenu open={profile} onClose={() => setProfile(false)} person={person} school={school} schools={schools} theme={theme} onSwitch={() => setSwitchOpen(true)} />
       <MoreSheet open={more} onClose={() => setMore(false)} menu={menu} />
       <QuickSheet open={quickOpen} onClose={() => setQuickOpen(false)} quick={quick} />

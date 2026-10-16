@@ -11,6 +11,7 @@ import { isoDay } from "../staff/dates";
 import { schoolDays } from "./calendar";
 import { attendanceSettings, statusList, statusMap, weightOf } from "./settings";
 import { addDay, dayStatus, finish, type DayMark, type PersonSummary } from "./summary";
+import { registerBook } from "./on-register";
 
 export type ClassGroup = { key: string; label: string; sort: number };
 
@@ -23,7 +24,7 @@ export type SectionAttendance = {
   sort: number;
   group: ClassGroup;
   teacher: { staffId: string; name: string; userLoginId: string | null } | null;
-  /** Students studying in the section now. */
+  /** Students on the section's register on the last day of the range (today, or the date chosen). */
   students: number;
   /** For one day: students with a mark that day. For a period: student-days marked. */
   marked: number;
@@ -108,22 +109,28 @@ export async function classWise(
   const working = to < opts.from ? [] : days.working;
   const workingKeys = new Set(working.map(isoDay));
   const ids = sections.map((s) => s.id);
-  const [enrolled, marks, teachers] = await Promise.all([
-    tx.enrolment.groupBy({ by: ["sectionId"], where: { sectionId: { in: ids }, academicYearId: opts.yearId, archivedAt: null, status: "STUDYING", student: { archivedAt: null } }, _count: { _all: true } }),
+  const [book, marks, teachers] = await Promise.all([
+    registerBook(tx, ids),
     working.length === 0 ? Promise.resolve([]) : tx.attendanceMark.findMany({
       where: { sectionId: { in: ids }, studentId: { not: null }, archivedAt: null, date: { gte: opts.from, lte: to } },
       select: { studentId: true, sectionId: true, date: true, periodNo: true, statusKey: true },
     }),
     tx.staff.findMany({ where: { id: { in: sections.map((s) => s.classTeacherId).filter((x): x is string => Boolean(x)) } }, select: { id: true, fullName: true, userLoginId: true } }),
   ]);
-  const count = new Map(enrolled.map((e) => [e.sectionId, e._count._all]));
+  // "On roll" is the register on the last day counted (today for today): the students Take Attendance lists.
+  const rollDay = isoDay(to < opts.from ? opts.from : to);
+  const count = new Map(ids.map((id) => [id, book.countOn(id, rollDay)]));
   const teacherOf = new Map(teachers.map((t) => [t.id, t]));
 
   // One status per student per working day; the day's marks belong to the section they were taken in.
+  // A mark counts only when the student was on that section's register that day
+  // (./on-register.ts): a student who has left keeps their marks, but they are
+  // not counted for the days after they left.
   const byDay = new Map<string, { sectionId: string; marks: DayMark[] }>();
   for (const m of marks) {
     const k = isoDay(m.date);
     if (!workingKeys.has(k) || !m.sectionId) continue;
+    if (!book.has(m.sectionId, m.studentId!, k)) continue;
     const key = `${m.studentId}:${k}`;
     const e = byDay.get(key) ?? { sectionId: m.sectionId, marks: [] };
     e.marks.push(m);

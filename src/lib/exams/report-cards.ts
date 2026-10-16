@@ -19,6 +19,8 @@ import { sectionStudents } from "./roster";
 import { sectionInfo } from "./results";
 import { periodsForClass, refreshReportCards, type PeriodOption } from "./report-status";
 import { attendanceFor } from "./attendance";
+// Attendance Management's register is the source of report card attendance.
+import "../attendance/report-card-source";
 import { writesReportCards, type ExamScope } from "./scope";
 
 export { periodsForClass, refreshReportCards } from "./report-status";

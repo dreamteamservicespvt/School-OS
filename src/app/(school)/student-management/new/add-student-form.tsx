@@ -66,8 +66,10 @@ export function AddStudentForm({ sections, defaultSection, today, nextAdmissionN
       <fieldset className="grid gap-4 sm:grid-cols-2">
         <legend className="sr-only">Student</legend>
         <TextField name="fullName" label="Full name" required autoComplete="off" defaultValue={v("fullName")} error={err("fullName")} className="sm:col-span-2" />
-        <SelectField name="sectionId" label="Class and section" required placeholder="Choose" options={sections.map((s) => ({ value: s.value, label: `${s.label} (${Math.max(0, s.seats - s.filled)} seats left)` }))}
-          value={sectionId} onChange={(e) => setSectionId(e.target.value)} error={err("sectionId")}
+        {/* Keyed by the value sent, so it remounts with that class selected: the form reset
+            after a failed save (React 19) otherwise put it back to "Choose" (PEOPLE-12). */}
+        <SelectField key={`section-${v("sectionId", defaultSection)}`} name="sectionId" label="Class and section" required placeholder="Choose" options={sections.map((s) => ({ value: s.value, label: `${s.label} (${Math.max(0, s.seats - s.filled)} seats left)` }))}
+          defaultValue={v("sectionId", defaultSection)} onChange={(e) => setSectionId(e.target.value)} error={err("sectionId")}
           help={left === null ? undefined : left > 0 ? `${left} of ${section!.seats} seats left.` : `${section!.label} is full. Choose another section, or add seats in Academic Management.`} />
         <TextField name="dateOfBirth" label="Date of birth" type="date" required max={today} defaultValue={v("dateOfBirth")} error={err("dateOfBirth")} />
         <fieldset>

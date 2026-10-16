@@ -208,10 +208,13 @@ export async function personData(tx: Tx, type: DeletionInput["personType"], id: 
 
 // Backups (08-platform-security.md §4).
 
+/** The demo seed records a stand-in backup ("demo (no real backup on this computer)"); it is never shown as a real one. */
+export const REAL_BACKUP = { NOT: { location: { startsWith: "demo" } } } as const;
+
 export async function lastBackup() {
   const [nightly, restore] = await Promise.all([
-    prisma.backupRun.findFirst({ where: { kind: "nightly" }, orderBy: { finishedAt: "desc" } }),
-    prisma.backupRun.findFirst({ where: { restoreTestedAt: { not: null } }, orderBy: { restoreTestedAt: "desc" } }),
+    prisma.backupRun.findFirst({ where: { kind: "nightly", ...REAL_BACKUP }, orderBy: { finishedAt: "desc" } }),
+    prisma.backupRun.findFirst({ where: { restoreTestedAt: { not: null }, ...REAL_BACKUP }, orderBy: { restoreTestedAt: "desc" } }),
   ]);
   return { at: nightly?.finishedAt ?? null, restoreTestedAt: restore?.restoreTestedAt ?? null };
 }

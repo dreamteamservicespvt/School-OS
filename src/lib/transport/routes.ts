@@ -6,7 +6,7 @@ import "server-only";
 import type { Route, Stop } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
-import { formatRupees } from "../format";
+import { formatDate, formatRupees } from "../format";
 import { TransportProblem } from "./problem";
 import { holdsSeat } from "./places";
 import { clockOf } from "./words";
@@ -23,7 +23,11 @@ export type RouteInput = {
   eveningDepartMin: number | null;
 };
 
-async function checkCrew(tx: Tx, input: RouteInput, routeId: string | null) {
+async function checkCrew(tx: Tx, input: RouteInput, routeId: string | null, before: Route | null = null) {
+  const timesChanged = !before || before.schoolArrivalMin !== input.schoolArrivalMin || before.eveningDepartMin !== input.eveningDepartMin;
+  if (timesChanged && input.schoolArrivalMin != null && input.eveningDepartMin != null && input.eveningDepartMin <= input.schoolArrivalMin) {
+    throw new TransportProblem(`The evening trip must leave school after the morning trip reaches it (${clockOf(input.schoolArrivalMin)}).`, "eveningDepart");
+  }
   if (input.vehicleId) {
     const v = await tx.vehicle.findFirst({ where: { id: input.vehicleId, archivedAt: null } });
     if (!v) throw new TransportProblem("Choose a vehicle from the list.", "vehicleId");
@@ -34,6 +38,11 @@ async function checkCrew(tx: Tx, input: RouteInput, routeId: string | null) {
   if (input.driverId) {
     const d = await tx.driver.findFirst({ where: { id: input.driverId, archivedAt: null, status: "ACTIVE" } });
     if (!d || d.role !== "DRIVER") throw new TransportProblem("Choose a driver from the list.", "driverId");
+    // A driver whose licence has ended is not put on a route (12 edge cases: upload the renewed licence or change driver).
+    const today = new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`);
+    if (d.id !== before?.driverId && d.licenceExpiry && d.licenceExpiry < today) {
+      throw new TransportProblem(`Licence of ${d.name} expired on ${formatDate(d.licenceExpiry)}. Upload the renewed licence in Vehicles & Drivers, or choose another driver.`, "driverId");
+    }
   }
   if (input.attendantId) {
     const d = await tx.driver.findFirst({ where: { id: input.attendantId, archivedAt: null, status: "ACTIVE" } });
@@ -59,7 +68,7 @@ export async function editRoute(tx: Tx, ctx: SchoolContext, routeId: string, inp
   const name = input.name.trim().replace(/\s+/g, " ");
   if (name.length < 2) throw new TransportProblem("Give the route a name.", "name");
   if (await tx.route.findFirst({ where: { archivedAt: null, id: { not: routeId }, name: { equals: name, mode: "insensitive" } } })) throw new TransportProblem(`A route called ${name} already exists.`, "name");
-  await checkCrew(tx, input, routeId);
+  await checkCrew(tx, input, routeId, before);
   const after = await tx.route.update({ where: { id: routeId }, data: { name, vehicleId: input.vehicleId, driverId: input.driverId, attendantId: input.attendantId, feeTwoWayPaise: input.feeTwoWayPaise, feeOneWayPaise: input.feeOneWayPaise, schoolArrivalMin: input.schoolArrivalMin, eveningDepartMin: input.eveningDepartMin } });
   await writeAudit(tx, ctx, { action: "updated", recordType: "Route", recordId: routeId, before: routeAudit(before), after: routeAudit(after) });
   return after;
@@ -131,6 +140,9 @@ function checkStop(input: StopInput, route: Route) {
   if (input.feeTwoWayPaise == null && route.feeTwoWayPaise == null) throw new TransportProblem("Enter the two-way fee a month.", "feeTwoWay");
   if (input.feeTwoWayPaise != null && input.feeTwoWayPaise <= BigInt(0)) throw new TransportProblem("Enter the two-way fee a month.", "feeTwoWay");
   if (input.feeOneWayPaise != null && input.feeTwoWayPaise != null && input.feeOneWayPaise > input.feeTwoWayPaise) throw new TransportProblem("The one-way fee cannot be more than the two-way fee.", "feeOneWay");
+  // The morning pickup comes before the bus reaches school; the evening drop after it leaves.
+  if (route.schoolArrivalMin != null && input.pickupMin >= route.schoolArrivalMin) throw new TransportProblem(`The pickup must be before the bus reaches school at ${clockOf(route.schoolArrivalMin)}.`, "pickup");
+  if (route.eveningDepartMin != null && input.dropMin != null && input.dropMin <= route.eveningDepartMin) throw new TransportProblem(`The drop must be after the bus leaves school at ${clockOf(route.eveningDepartMin)}.`, "drop");
   return name;
 }
 

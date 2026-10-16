@@ -4,6 +4,14 @@ import { z } from "zod";
 import { checkbox, dateField, indianMobile, optionalDate, optionalEmail, optionalText, text } from "../forms";
 import { BLOOD_GROUPS, EMPLOYMENT_TYPES, GENDERS } from "./settings";
 
+/** The same rule as checkAadhaar() in staff.ts, kept here so the form schema needs no server import. */
+export function aadhaarProblem(v: string): string | null {
+  const d = v.replace(/\s+/g, "");
+  if (!/^\d{12}$/.test(d)) return `Aadhaar has ${d.replace(/\D/g, "").length} digits. It must have 12 digits.`;
+  if (/^[01]/.test(d)) return "Aadhaar numbers do not start with 0 or 1. Check the number.";
+  return null;
+}
+
 const optionalChoice = (list: readonly string[], label: string) =>
   z.string().trim().refine((v) => v === "" || list.includes(v), { message: `Choose a ${label.toLowerCase()} from the list.` }).transform((v) => (v === "" ? null : v));
 const optionalUuid = z.string().trim().refine((v) => v === "" || /^[0-9a-f-]{36}$/i.test(v), { message: "Choose from the list." }).transform((v) => (v === "" ? null : v));
@@ -21,7 +29,8 @@ export const detailsSchema = z.object({
   staffCode: optionalText("Staff ID", 30),
   dateOfBirth: optionalDate("Date of birth").refine(notFuture(), { message: "Date of birth cannot be in the future." }),
   bloodGroup: optionalChoice(BLOOD_GROUPS, "blood group").default(""),
-  aadhaar: optionalText("Aadhaar", 14),
+  // Checked at step 1, not only at "Create staff" (CAMPUS2-03).
+  aadhaar: optionalText("Aadhaar", 14).superRefine((v, c) => { const why = v ? aadhaarProblem(v) : null; if (why) c.addIssue({ code: "custom", message: why }); }),
   address: optionalText("Current address", 300),
   permanentAddress: optionalText("Permanent address", 300),
   qualification: optionalText("Qualifications", 200),

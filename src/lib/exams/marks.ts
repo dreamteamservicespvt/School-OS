@@ -24,6 +24,18 @@ import { teachesPaper, type ExamScope } from "./scope";
 /** `medical` is medical leave (ML): absent, and the paper is left out of the total. */
 export type MarkValue = { parts: Record<string, number | null>; absent: boolean; medical?: boolean; grade: string | null; remark: string | null };
 
+/** Reads the rows the marks grid sends. Medical leave (ML) stays apart from plain absence (AB). */
+export function readMarkRows(rows: unknown): ({ studentId: string } & MarkValue)[] {
+  if (!Array.isArray(rows) || rows.length > 500) throw new ExamRuleError("These marks could not be read. Reload the page.");
+  return rows.map((r) => {
+    const x = r as { studentId: string } & MarkValue;
+    const parts: Record<string, number | null> = {};
+    for (const [k, v] of Object.entries(x.parts ?? {})) parts[String(k).slice(0, 40)] = v === null || v === undefined || (v as unknown) === "" ? null : Number(v);
+    const medical = Boolean(x.medical);
+    return { studentId: String(x.studentId), parts, absent: Boolean(x.absent) || medical, medical, grade: x.grade ? String(x.grade).slice(0, 10) : null, remark: x.remark ? String(x.remark).slice(0, 300) : null };
+  });
+}
+
 /** Loads one paper (datesheet entry in one section) with everything the marks grid needs. */
 export async function loadPaper(tx: Tx, ctx: SchoolContext, entryId: string, sectionId: string) {
   const entry = await tx.datesheetEntry.findFirst({ where: { id: entryId, archivedAt: null }, include: { exam: true } });

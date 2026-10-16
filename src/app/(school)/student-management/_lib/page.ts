@@ -3,10 +3,10 @@
 import "server-only";
 
 import { cache } from "react";
-import { headers } from "next/headers";
 import { unstable_rethrow } from "next/navigation";
 import { requireAction, requirePage } from "@/lib/current";
 import { withSchool } from "@/lib/db";
+import { appOrigin } from "@/lib/origin";
 import { currentYear } from "@/lib/academic/years";
 import { getStudentSettings } from "@/lib/students/settings";
 import { abilities, requireManage } from "@/lib/students/access";
@@ -76,11 +76,9 @@ export async function attemptForm(values: Record<string, string>, fn: () => Prom
 }
 
 /** The address the app is opened at, for links in QR codes and set-password links. */
+/** The site address printed on certificates (their verify QR). APP_URL wins over the request's host. */
 export async function origin() {
-  const h = await headers();
-  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
-  const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") || host.startsWith("127.") ? "http" : "https");
-  return `${proto}://${host}`;
+  return appOrigin();
 }
 
 /** Today's date (YYYY-MM-DD) in the school's time zone. */

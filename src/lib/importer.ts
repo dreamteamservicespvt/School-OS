@@ -117,8 +117,22 @@ export async function previewImport<T>(tx: Tx, ctx: SchoolContext, kind: ImportK
   for (let i = 0; i < rows.length; i++) {
     const row: Record<string, string> = {};
     for (const c of kind.columns) row[c.key] = match[c.key] !== undefined ? (rows[i][match[c.key]] ?? "").trim() : "";
-    const missing = kind.columns.filter((c) => c.required && !row[c.key]).map((c) => `${c.label} is empty.`);
-    if (missing.length) { out.bad.push({ line: i + 2, row, problems: missing }); continue; }
+    const empty = kind.columns.filter((c) => c.required && !row[c.key]);
+    if (empty.length) {
+      // Show every problem of the row at once, so the office fixes it in one go:
+      // the empty columns, then what the row's own check finds in the rest
+      // (checked against a copy of `seen`, so a skipped row holds no seat or number).
+      const problems = empty.map((c) => `${c.label} is empty.`);
+      const labels = empty.map((c) => norm(c.label));
+      try {
+        const r = await kind.check(tx, ctx, row, new Set(seen));
+        if (!r.ok) problems.push(...r.problems.filter((p) => !labels.some((l) => norm(p).startsWith(l)) && !problems.includes(p)));
+      } catch {
+        // A check that cannot read a row with empty columns adds nothing.
+      }
+      out.bad.push({ line: i + 2, row, problems });
+      continue;
+    }
     const r = await kind.check(tx, ctx, row, seen);
     if (r.ok) out.good.push({ line: i + 2, value: r.value, row });
     else out.bad.push({ line: i + 2, row, problems: r.problems });

@@ -31,17 +31,30 @@ export function SheetHead({ titleId, title, sub, onClose }: { titleId: string; t
 }
 
 /** A panel over the page for a short form. */
+/**
+ * The browser fires "close" on a <dialog> however it closes: Escape, or our own
+ * d.close() after the parent set open to false. Only the first is the person
+ * closing it; telling the parent about the second undoes what the parent just
+ * did (a two-step flow that swaps this dialog for a confirm sheet would close
+ * the sheet at once).
+ */
+export function closedByPerson(openProp: boolean) {
+  return openProp;
+}
+
 export function Dialog({ open, onClose, title, sub, children, footer, wide }: { open: boolean; onClose: () => void; title: string; sub?: React.ReactNode; children: React.ReactNode; footer?: React.ReactNode; wide?: boolean }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const openNow = useRef(open);
   const titleId = useId();
   useEffect(() => {
+    openNow.current = open;
     const d = ref.current;
     if (!d) return;
     if (open && !d.open) d.showModal();
     if (!open && d.open) d.close();
   }, [open]);
   return (
-    <dialog ref={ref} aria-labelledby={titleId} onClose={onClose} className={sheetCls(wide)}
+    <dialog ref={ref} aria-labelledby={titleId} onClose={() => { if (closedByPerson(openNow.current)) onClose(); }} className={sheetCls(wide)}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="flex max-h-[inherit] flex-col">
         <SheetHead titleId={titleId} title={title} sub={sub} onClose={onClose} />

@@ -95,8 +95,11 @@ const papersDue: Widget<"attention"> = {
     const names = [...licences.map((l) => `Licence of ${l.name}`), ...papers.map((p) => `${showPlate(p.vehicle.number)} ${p.kind.toLowerCase()}`)];
     return {
       id: "transport.papers", tone: expired ? "bad" : "warn", icon: "FileWarning",
-      title: expired ? `${plural(expired, "transport paper")} expired` : `${plural(total, "transport paper")} due in ${settings.expiryReminderDays} days`,
-      detail: `${someNames(names)}${names.length > 2 ? ` and ${n(names.length - 2)} more` : ""}. Upload the renewed papers.`,
+      title: expired
+        ? `${plural(expired, "transport paper")} expired${total > expired ? ` · ${n(total - expired)} more due in ${settings.expiryReminderDays} days` : ""}`
+        : `${plural(total, "transport paper")} due in ${settings.expiryReminderDays} days`,
+      // someNames() already ends with "and N more".
+      detail: `${someNames(names)}. Upload the renewed papers.`,
       action: "Review", href: `${BASE}/vehicles?view=papers`, value: `${total}:${expired}`,
     };
   },

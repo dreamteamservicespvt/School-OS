@@ -10,7 +10,7 @@ import { PermissionDeniedError } from "@/lib/permissions";
 import { periodSetup } from "@/lib/period-setup";
 import { todayFor } from "@/lib/periods";
 import { reportAccess, BASE } from "@/lib/reports/access";
-import { entryAllowed, findEntry } from "@/lib/reports/catalogue";
+import { closedWords, entryAllowed, findEntry } from "@/lib/reports/catalogue";
 import { filterParams, readFilters } from "@/lib/reports/filters";
 import { BACKGROUND_ROWS, optionsFor, prepareReport, ReportProblem, reportFile, runEntry, runWords } from "@/lib/reports/run";
 
@@ -29,7 +29,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ key: str
   }
   const entry = findEntry(key);
   if (!entry) return plain("This report was not found.", 404);
-  if (!entryAllowed(entry, reportAccess(current), current)) return plain(`“${entry.name}” is not open to your role.`, 403);
+  if (!entryAllowed(entry, reportAccess(current), current)) return plain(closedWords(entry, reportAccess(current), current), 403);
   const url = new URL(req.url);
   const sp = Object.fromEntries(url.searchParams);
   const format = (["csv", "xlsx", "pdf"].includes(sp.format) ? sp.format : "xlsx") as ExportFormat;

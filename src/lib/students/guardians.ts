@@ -78,6 +78,13 @@ export async function updateGuardian(tx: Tx, ctx: SchoolContext, guardianId: str
   const keys = ["name", "relationship", "phone", "altPhone", "email", "occupation", "dateOfBirth", "address", "language", "optedOut"] as const;
   const val = (g: typeof before, k: (typeof keys)[number]) => (g[k] instanceof Date ? (g[k] as Date).toISOString().slice(0, 10) : g[k]);
   const changed = keys.filter((k) => JSON.stringify(val(before, k)) !== JSON.stringify(val(after, k)));
+  if (changed.includes("phone")) {
+    // Phones were confirmed for Parent Link with a code to the old number: they must be confirmed again
+    // with a code to the new one (11-communication.md, Parent Link). The link itself keeps working.
+    const links = await tx.parentLink.findMany({ where: { guardianId, status: "ACTIVE" }, select: { id: true } });
+    const ended = links.length ? await tx.parentLinkDevice.updateMany({ where: { parentLinkId: { in: links.map((l) => l.id) }, revokedAt: null }, data: { revokedAt: new Date() } }) : { count: 0 };
+    if (ended.count) await writeAudit(tx, ctx, { action: "phones-signed-out", recordType: "Parent Link", recordId: links[0].id, after: { reason: "Guardian changed mobile", phones: ended.count } });
+  }
   if (changed.length) {
     await writeAudit(tx, ctx, {
       action: "changed",

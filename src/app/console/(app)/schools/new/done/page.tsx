@@ -15,6 +15,7 @@ import { PageHead } from "@/components/ui/display";
 import { Col, Split } from "@/components/ui/blocks";
 import { BackLink } from "@/components/console/bits";
 import { InvitePreview } from "@/components/console/add-school-form";
+import { testMessageNote } from "@/components/console/test-code-note";
 
 export const metadata: Metadata = { title: "School added" };
 
@@ -85,8 +86,8 @@ export default async function AddDone({ searchParams }: { searchParams: Promise<
         <Col>
           {invite && (
             <Card>
-              <CardHeader title="Invite on WhatsApp" description={failed.length ? `${failed.length} of ${messages.length} could not be sent. Resend from the school’s page.` : test ? "Messaging is in test mode here: the text went to the server log, not a phone." : `Sent to ${admin} at ${time}`} icon={MessageCircle}
-                action={<Pill tone={failed.length ? "bad" : test ? "info" : "ok"} dot>{failed.length ? "Not sent" : test ? "Test mode" : "Sent"}</Pill>} />
+              <CardHeader title="Invite on WhatsApp" description={failed.length ? `${failed.length} of ${messages.length} could not be sent. Resend from the school’s page.` : test ? testMessageNote() : `Sent to ${admin} at ${time}`} icon={MessageCircle}
+                action={<Pill tone={failed.length || (test && process.env.NODE_ENV === "production") ? "bad" : test ? "info" : "ok"} dot>{failed.length ? "Not sent" : test ? (process.env.NODE_ENV === "production" ? "Not sent" : "Test mode") : "Sent"}</Pill>} />
               <InvitePreview school={s.name} admin={admin} role={role} mobile={invite.phone} time={time} sent={!failed.length && !test} help={supportPhone()} host={appUrl().replace(/^https?:\/\//, "")} />
             </Card>
           )}

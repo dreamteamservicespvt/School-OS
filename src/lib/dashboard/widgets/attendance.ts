@@ -13,6 +13,7 @@ import { lockState, takeChoices, type TakeChoice } from "../../attendance/marks"
 import { staffDay } from "../../attendance/staff";
 import { schoolDays } from "../../attendance/calendar";
 import { classWise } from "../../attendance/classwise";
+import { ON_REGISTER_STATUSES } from "../../attendance/on-register";
 import { addDays, iso, n, plural, reach } from "../common";
 import type { AttentionItem, BarRow, DashContext, Viewer, Widget } from "../types";
 
@@ -69,11 +70,17 @@ const studentsPresent: Widget<"band"> = {
     if (t.off) return { id: "attendance.students-present", label: "Students present", big: "No school", foot: t.off, href };
     const expected = t.students.total;
     if (t.students.marked === 0) return { id: "attendance.students-present", label: "Students present", big: "Not taken", foot: `${plural(t.classes.notMarked, "class", "classes")} not marked yet`, href };
-    const pct = t.students.marked ? Math.round((t.students.present / t.students.marked) * 1000) / 10 : null;
+    // The same % as Attendance Reports and the register: present ÷ days counted (leave not counted).
+    const pct = t.students.percent;
+    const pctText = pct === null ? "Nobody counted" : `${pct}%`;
+    // Students in a taken class who have no mark (new admissions, for example) are named, not counted as present.
+    const unmarked = t.students.notMarked - t.classes.notMarkedStudents;
     return {
       id: "attendance.students-present", label: "Students present", big: n(t.students.present), of: `/ ${n(expected)}`,
       ring: pct ?? undefined,
-      foot: t.classes.notMarked ? `${pct}% of marked · ${n(t.students.absent)} absent · ${plural(t.classes.notMarked, "class", "classes")} not marked` : `${pct}% · ${n(t.students.absent)} absent, ${n(t.students.late)} late`,
+      foot: t.classes.notMarked
+        ? `${pctText} of marked · ${n(t.students.absent)} absent · ${plural(t.classes.notMarked, "class", "classes")} not marked`
+        : `${pctText} · ${n(t.students.absent)} absent, ${n(t.students.late)} late${unmarked > 0 ? ` · ${n(unmarked)} not marked` : ""}`,
       href,
     };
   },
@@ -141,7 +148,8 @@ const mySection: Widget<"band"> = {
     const off = await schoolDayOff(c, section.schoolClass.campusId);
     if (!off.on) return { id: "attendance.my-section-today", label: name, big: "No school", foot: off.title ?? undefined, href: `${BASE}/register?section=${sectionId}` };
     const [count, t, s] = await Promise.all([
-      c.tx.enrolment.count({ where: { sectionId, archivedAt: null, status: "STUDYING", student: { archivedAt: null } } }),
+      // The students Take Attendance lists (on the register today).
+      c.tx.enrolment.count({ where: { sectionId, archivedAt: null, status: "STUDYING", student: { archivedAt: null, status: { in: ON_REGISTER_STATUSES } } } }),
       attendanceToday(c.tx, c.viewer.ctx, c.today, { sectionIds: [sectionId] }),
       settings(c),
     ]);

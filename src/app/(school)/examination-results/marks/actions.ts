@@ -3,7 +3,7 @@
 import type { FormState } from "@/lib/forms";
 import { plural } from "@/lib/academic/common";
 import { ExamRuleError } from "@/lib/exams/common";
-import { loadPaper, remindTeachers, reopenPaper, requestModeration, saveMarks, submitPaper, lockPapers, type MarkValue } from "@/lib/exams/marks";
+import { loadPaper, readMarkRows as cleanRows, remindTeachers, reopenPaper, requestModeration, saveMarks, submitPaper, lockPapers, type MarkValue } from "@/lib/exams/marks";
 import { teachesPaper } from "@/lib/exams/scope";
 import { readSheet } from "@/lib/importer";
 import { writeAudit } from "@/lib/audit";
@@ -14,16 +14,6 @@ export type MarkRow = { studentId: string } & MarkValue;
 export type SaveResult = { ok: true; saved: number; done: number; of: number } | { ok: false; message: string; offline?: false };
 
 const UUID = /^[0-9a-f-]{36}$/i;
-
-function cleanRows(rows: unknown): MarkRow[] {
-  if (!Array.isArray(rows) || rows.length > 500) throw new ExamRuleError("These marks could not be read. Reload the page.");
-  return rows.map((r) => {
-    const x = r as MarkRow;
-    const parts: Record<string, number | null> = {};
-    for (const [k, v] of Object.entries(x.parts ?? {})) parts[String(k).slice(0, 40)] = v === null || v === undefined || (v as unknown) === "" ? null : Number(v);
-    return { studentId: String(x.studentId), parts, absent: Boolean(x.absent), grade: x.grade ? String(x.grade).slice(0, 10) : null, remark: x.remark ? String(x.remark).slice(0, 300) : null };
-  });
-}
 
 /** Autosave: saves the rows that changed. Called as marks are typed. */
 export async function saveMarksAction(entryId: string, sectionId: string, rows: unknown): Promise<SaveResult> {

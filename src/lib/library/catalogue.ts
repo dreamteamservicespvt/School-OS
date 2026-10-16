@@ -81,11 +81,11 @@ async function checkBook(tx: Tx, input: BookInput, bookId: string | null) {
  */
 export async function takeAccessions(tx: Tx, ctx: SchoolContext, s: LibrarySettings, count: number, typed: string[] = []) {
   if (typed.length) {
-    if (typed.length !== count) throw new LibraryProblem(`Type ${count} accession number${count === 1 ? "" : "s"}, one for each copy, or leave the box empty to number them in sequence.`, "accession");
+    if (typed.length !== count) throw new LibraryProblem(`Type ${count} accession number${count === 1 ? "" : "s"}, one for each copy, or leave the box empty to number them in sequence.`, "accessions");
     const seen = new Set<string>();
     for (const a of typed) {
-      if (!/^[A-Za-z0-9/-]{1,20}$/.test(a)) throw new LibraryProblem(`“${a}” is not an accession number. Use letters, digits, - or /.`, "accession");
-      if (seen.has(a.toUpperCase())) throw new LibraryProblem(`Accession ${a} is typed twice.`, "accession");
+      if (!/^[A-Za-z0-9/-]{1,20}$/.test(a)) throw new LibraryProblem(`“${a}” is not an accession number. Use letters, digits, - or /.`, "accessions");
+      if (seen.has(a.toUpperCase())) throw new LibraryProblem(`Accession ${a} is typed twice.`, "accessions");
       seen.add(a.toUpperCase());
     }
     await assertAccessionsFree(tx, ctx, s, typed);
@@ -109,7 +109,7 @@ export async function assertAccessionsFree(tx: Tx, ctx: SchoolContext, s: Librar
     const used = await tx.bookCopy.findFirst({ where: { OR: [{ accessionNo: { equals: a, mode: "insensitive" } }, { barcode: { equals: a, mode: "insensitive" } }] }, select: { id: true } });
     if (used) {
       const next = await nextAccessionPreview(tx, ctx, s);
-      throw new LibraryProblem(`Accession ${a} already exists. The next free number in sequence is ${next}; leave the box empty to use it.`, "accession");
+      throw new LibraryProblem(`Accession ${a} already exists. The next free number in sequence is ${next}; leave the box empty to use it.`, "accessions");
     }
   }
 }

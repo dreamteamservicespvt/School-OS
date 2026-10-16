@@ -63,7 +63,7 @@ export function PlanPtmSheet({ closeHref, classes, groups, slotMinutes, venues, 
 
 export function CancelPtmSheet({ closeHref, ptmId, name, booked }: { closeHref: string; ptmId: string; name: string; booked: number }) {
   return (
-    <SheetForm title={`Cancel the PTM on ${name}?`} sub={booked ? `${booked} booked parents are told, with the reason.` : "No parent has booked yet."} closeHref={closeHref} action={cancelPtmAction} submitLabel="Cancel the PTM" submitVariant="danger" hidden={{ ptmId }}>
+    <SheetForm title={`Cancel the PTM on ${name}?`} sub={booked ? `${booked} booked ${booked === 1 ? "parent is" : "parents are"} told, with the reason.` : "No parent has booked yet."} closeHref={closeHref} action={cancelPtmAction} submitLabel="Cancel the PTM" submitVariant="danger" hidden={{ ptmId }}>
       <SArea name="reason" label="Reason" required rows={3} placeholder="For example: moved to next Saturday because of the election" maxLength={300} />
     </SheetForm>
   );

@@ -73,7 +73,7 @@ export async function makeDraft(tx: Tx, ctx: SchoolContext, yearId: string, camp
   });
   const copied = from ? await copyPeriods(tx, ctx, from.id, version.id) : 0;
   await writeAudit(tx, ctx, { action: "created", recordType: "Timetable Version", recordId: version.id, after: { name: version.name, copiedFrom: from?.name ?? null, periods: copied }, actorNote: note });
-  return { version, created: true };
+  return { version, created: true, copiedFrom: from?.name ?? null };
 }
 
 async function draftOrThrow(tx: Tx, versionId: string, correction?: string | null) {

@@ -13,6 +13,8 @@ import { requestApproval } from "../approvals";
 import { getStudentSettings } from "./settings";
 import { PROFILE_CHANGES, STATUS_LABEL, type StudentStatusKey } from "./labels";
 import { runEnrolled } from "./hooks";
+// Fee Management gives the class fee plan to a student who joins a class (A2, A13).
+import "../fees/enrolled";
 
 export class StudentProblem extends Error {
   /** The form field the problem is about, so it shows next to that field. */
@@ -215,6 +217,7 @@ export async function createStudent(tx: Tx, ctx: SchoolContext, input: NewStuden
     data: { schoolId: ctx.schoolId, studentId: student.id, guardianId, relationship: input.guardianRelation ?? "Father", isPrimary: true, emergencyOrder: 1 },
   });
 
+  if (input.rollNo != null && (!Number.isInteger(input.rollNo) || input.rollNo < 1)) throw new StudentProblem("Roll number starts at 1.", "rollNo");
   const rollNo = input.rollNo ?? (await nextRollNo(tx, section.id, section.academicYearId));
   if (input.rollNo) {
     const clash = await tx.enrolment.findFirst({ where: { sectionId: section.id, academicYearId: section.academicYearId, rollNo: input.rollNo, archivedAt: null } });

@@ -196,7 +196,7 @@ export async function messageAudience(tx: Tx, ctx: SchoolContext, e: Event, kind
   const to = await audienceRule(tx, e);
   if (to.guardiansOf && to.guardiansOf.length === 0) throw new EventsProblem("Nobody is registered yet, so there is no one to send this to.");
   const r = await sendMessage(tx, ctx, {
-    to, channels: "preferred", text: text.replace(/\s+/g, " ").trim(), trigger: kind === "reminder" ? `Event reminder: ${e.name}` : kind === "changed" ? `Event changed: ${e.name}` : `Event cancelled: ${e.name}`,
+    to, channels: "preferred", text: text.replace(/\s+/g, " ").trim(), title: kind === "cancelled" ? `${e.name} cancelled` : e.name, trigger: kind === "reminder" ? `Event reminder: ${e.name}` : kind === "changed" ? `Event changed: ${e.name}` : `Event cancelled: ${e.name}`,
     source: { type: "Event", id: e.id }, audienceLabel: e.audienceLabel,
     idempotencyKey: opts.auto ? `event-reminder:${e.id}:${isoOf(e.date)}` : null,
     onNoCredits: opts.auto ? "fail" : "block",

@@ -139,7 +139,7 @@ export async function cancelPtm(tx: Tx, ctx: SchoolContext, ptmId: string, reaso
   if (booked.length) {
     const school = (await tx.school.findUnique({ where: { id: ctx.schoolId }, select: { name: true } }))?.name ?? "School";
     // Telling the booked parents never blocks the cancellation (ACADEMICS-21).
-    told = await tellSafely(() => sendMessage(tx, ctx, { to: { guardiansOf: [...new Set(booked.map((b) => b.studentId!))] }, channels: "preferred", text: `Dear Parent, the parent-teacher meeting on ${niceDay(isoOf(p.date))} for ${p.classesLabel} is cancelled. ${why} - ${school}`, trigger: "PTM cancelled", source: { type: "PTM", id: p.id } }));
+    told = await tellSafely(() => sendMessage(tx, ctx, { to: { guardiansOf: [...new Set(booked.map((b) => b.studentId!))] }, channels: "preferred", text: `Dear Parent, the parent-teacher meeting on ${niceDay(isoOf(p.date))} for ${p.classesLabel} is cancelled. ${why} - ${school}`, title: "Parent-teacher meeting cancelled", trigger: "PTM cancelled", source: { type: "PTM", id: p.id } }));
   }
   await writeAudit(tx, ctx, { action: "cancelled", recordType: "PTM", recordId: p.id, after: { reason: why, bookingsTold: told?.people ?? 0, notTold: told?.problem ?? null } });
   return { told };

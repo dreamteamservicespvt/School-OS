@@ -55,7 +55,7 @@ export async function addEntryAction(_: S, fd: FormData): Promise<S> {
       told = await tellSafely(() => sendMessage(w.tx, w.ctx, {
         to: classIds.length ? { kinds: ["parents"], classIds } : { kinds: ["parents"] }, channels: "preferred",
         text: `Dear Parent, ${entry.title} on ${when}.${closes ? " The school is closed." : ""} - ${school}`,
-        trigger: `Calendar: ${entry.title}`, source: { type: "Calendar Entry", id: entry.id },
+        title: entry.title, trigger: `Calendar: ${entry.title}`, source: { type: "Calendar Entry", id: entry.id },
       }));
     }
     return { entry, told };

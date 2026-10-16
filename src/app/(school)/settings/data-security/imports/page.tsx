@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
-import { requirePage } from "@/lib/current";
+import { requireSettingsPage } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
 import { formatDateTime } from "@/lib/format";
 import { readListParams, skipTake } from "@/lib/list";
-import { can } from "@/lib/permissions";
 import { importKind, importKinds } from "@/lib/importer";
 import { shownFileName } from "@/lib/data-security/imports";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
@@ -18,7 +17,7 @@ export const metadata: Metadata = { title: "Imports · Data Backup & Security" }
 type Search = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
 export default async function ImportsPage({ searchParams }: Search) {
-  const current = await requirePage("settings");
+  const { current, may } = await requireSettingsPage("data-security");
   const params = readListParams(await searchParams);
   const tz = current.school.timeZone;
   const { rows, total, running, names } = await withSchool(current.ctx, async (tx) => {
@@ -31,8 +30,8 @@ export default async function ImportsPage({ searchParams }: Search) {
     const people = ids.length ? await tx.schoolAccess.findMany({ where: { userLoginId: { in: ids } }, select: { userLogin: { select: { id: true, displayName: true } } } }) : [];
     return { rows, total, running, names: new Map(people.map((p) => [p.userLogin.id, p.userLogin.displayName])) };
   });
-  const canImport = can(current.permissions, "settings", "create");
-  const canUndo = can(current.permissions, "settings", "archive");
+  const canImport = may.create;
+  const canUndo = may.archive;
   const kinds = importKinds();
 
   return (

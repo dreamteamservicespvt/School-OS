@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requirePage } from "@/lib/current";
+import { requireSettingsPage } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
-import { can } from "@/lib/permissions";
 import { formatDateTime } from "@/lib/format";
 import { listHref, readListParams, skipTake } from "@/lib/list";
 import { PageHeader } from "@/components/shell/page-header";
@@ -21,7 +20,7 @@ export const metadata: Metadata = { title: "Users & Permissions" };
 const FILTERS = ["status", "role", "twostep", "exceptions"] as const;
 
 export default async function UsersPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const current = await requirePage("settings");
+  const { current, may } = await requireSettingsPage("users");
   const params = readListParams(await searchParams, FILTERS);
   const tz = current.school.timeZone;
   const { rows, roles } = await withSchool(current.ctx, async (tx) => ({
@@ -50,9 +49,10 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
   return (
     <>
       <PageHeader title="Users & Permissions" href="/settings/users" userId={current.user.id}>
-        {can(current.permissions, "settings", "create") && <ButtonLink href="/settings/users/new" variant="primary">Invite a user</ButtonLink>}
+        {may.create && <ButtonLink href="/settings/users/new" variant="primary">Invite a user</ButtonLink>}
       </PageHeader>
       <UsersNav active="users" />
+      {may.readOnly && <p className="mb-4 rounded-xl bg-surface-2 p-3 text-sm text-ink-2">You can see logins and roles here. The School Admin invites people and changes roles.</p>}
       <p className="mb-4 text-sm text-ink-2">
         {counts.ACTIVE} active · {counts.INVITED} invited · {counts.DISABLED} disabled. Most staff get their login from <Link href="/staff-hr-management/add" className="font-medium text-brand-text underline">Add Staff</Link> in Staff &amp; HR. Everyone else is invited here.
       </p>
@@ -71,8 +71,8 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
       <DataTable rows={page} columns={columns} rowKey={(r) => r.id} rowHref={(r) => `/settings/users/${r.id}`} total={filtered.length} params={params} path="/settings/users" caption="Users of this school"
         empty={rows.length === 0 ? (
           <EmptyState title="No logins yet" icon={<UserIcon className="size-6" />}>
-            Invite the people who will use School OS.
-            <div className="mt-4"><ButtonLink href="/settings/users/new" variant="primary">Invite a user</ButtonLink></div>
+            {may.create ? "Invite the people who will use School OS." : "The School Admin invites the people who will use School OS."}
+            {may.create && <div className="mt-4"><ButtonLink href="/settings/users/new" variant="primary">Invite a user</ButtonLink></div>}
           </EmptyState>
         ) : (
           <EmptyState title="Nobody matches these filters">

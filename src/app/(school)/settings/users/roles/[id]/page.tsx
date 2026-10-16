@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requirePage } from "@/lib/current";
+import { requireSettingsPage } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
-import { can } from "@/lib/permissions";
 import { formatDateTime } from "@/lib/format";
 import { MODULES } from "@/lib/modules";
 import type { RolePermissions } from "@/lib/roles";
@@ -25,7 +24,7 @@ const WORDS: Record<string, string> = { created: "Created", "changed-permissions
 type Version = { name?: string; permissions?: Partial<RolePermissions>; requiresTwoStep?: boolean };
 
 export default async function RolePage({ params }: { params: Promise<{ id: string }> }) {
-  const current = await requirePage("settings");
+  const { current, may } = await requireSettingsPage("users");
   const { id } = await params;
   if (!UUID.test(id)) notFound();
   const tz = current.school.timeZone;
@@ -44,7 +43,7 @@ export default async function RolePage({ params }: { params: Promise<{ id: strin
   if (!data) notFound();
   const { role, holders, history, actors } = data;
   const people = new Map(holders.map((h) => [h.userLoginId, h.userLogin.displayName]));
-  const mayEdit = can(current.permissions, "settings", "edit") && !role.archivedAt;
+  const mayEdit = may.edit && !role.archivedAt;
   const latestChange = history.find((h) => h.action === "changed-permissions" || h.action === "put-back");
 
   return (
@@ -55,8 +54,8 @@ export default async function RolePage({ params }: { params: Promise<{ id: strin
           <Badge tone="brand">{KIND[role.kind]}</Badge>
           {role.kind === "TEMPLATE" && <Badge tone={role.isEnabled ? "success" : "neutral"}>{role.isEnabled ? "On" : "Off"}</Badge>}
           {role.archivedAt && <Badge>Archived</Badge>}
-          {can(current.permissions, "settings", "create") && !role.archivedAt && <ButtonLink href={`/settings/users/roles/new?copy=${id}`}>Copy</ButtonLink>}
-          {can(current.permissions, "settings", "edit") && <RoleSwitch id={id} name={role.name} kind={role.kind} isOn={role.isEnabled} archived={Boolean(role.archivedAt)} people={people.size} />}
+          {may.create && !role.archivedAt && <ButtonLink href={`/settings/users/roles/new?copy=${id}`}>Copy</ButtonLink>}
+          {may.edit && <RoleSwitch id={id} name={role.name} kind={role.kind} isOn={role.isEnabled} archived={Boolean(role.archivedAt)} people={people.size} />}
         </div>
       </PageHeader>
       <div className="space-y-5">

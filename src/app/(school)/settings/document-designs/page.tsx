@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requirePage } from "@/lib/current";
+import { requireSettingsPage } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
 import { formatDate } from "@/lib/format";
-import { can } from "@/lib/permissions";
 import { dataUri } from "@/lib/documents";
 import { BASES } from "@/lib/documents/designs";
 import { DOC_TYPES, GROUP_ORDER } from "@/lib/documents/types";
@@ -15,7 +14,7 @@ import { ArchiveSignatory, SignatoryForm } from "./signatories";
 export const metadata: Metadata = { title: "Document Designs" };
 
 export default async function DocumentDesignsPage() {
-  const current = await requirePage("settings");
+  const { current, may } = await requireSettingsPage("document-designs");
   const tz = current.school.timeZone;
   const { designs, signatories } = await withSchool(current.ctx, async (tx) => ({
     designs: await tx.documentDesign.findMany({ where: { isCurrent: true }, select: { docType: true, base: true, version: true, createdAt: true } }),
@@ -24,12 +23,14 @@ export default async function DocumentDesignsPage() {
     ),
   }));
   const byType = new Map(designs.map((d) => [d.docType, d]));
-  const canCreate = can(current.permissions, "settings", "create");
-  const canArchive = can(current.permissions, "settings", "archive");
+  const canCreate = may.create;
+  const canArchive = may.archive;
+  const canEdit = may.edit;
 
   return (
     <>
       <PageHeader title="Document Designs" href="/settings/document-designs" userId={current.user.id} />
+      {!canEdit && <p className="mb-4 rounded-xl bg-surface-2 p-3 text-sm text-ink-2">You can see and preview every design. The School Admin changes them.</p>}
       <p className="-mt-3 mb-5 max-w-prose text-ink-2">
         How receipts, certificates, ID cards, admit cards, report cards and salary slips look, with your logo, colours and signatures. Every module prints with the design chosen here.
       </p>
@@ -53,7 +54,7 @@ export default async function DocumentDesignsPage() {
                         {d ? `${BASES.find((b) => b.key === d.base)?.label ?? d.base} design, changed ${formatDate(d.createdAt, tz)}` : "Classic design, not changed"} · printed by {t.usedBy}
                       </p>
                       <div className="mt-auto flex flex-wrap gap-2 pt-3">
-                        <Link href={`/settings/document-designs/${t.key}`} className="inline-flex min-h-11 items-center rounded-lg bg-brand px-4 text-sm font-medium text-brand-ink hover:bg-brand-hover">Edit design</Link>
+                        <Link href={`/settings/document-designs/${t.key}`} className="inline-flex min-h-11 items-center rounded-lg bg-brand px-4 text-sm font-medium text-brand-ink hover:bg-brand-hover">{canEdit ? "Edit design" : "See design"}</Link>
                         <a href={`/settings/document-designs/${t.key}/pdf`} target="_blank" rel="noopener" className="inline-flex min-h-11 items-center rounded-lg border border-line-strong px-4 text-sm font-medium hover:bg-surface-2">
                           Preview PDF<span className="sr-only"> of the {t.label.toLowerCase()} (opens in a new tab)</span>
                         </a>

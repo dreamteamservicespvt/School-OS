@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requirePage } from "@/lib/current";
+import { requireSettingsPage } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
 import { assignableRoles } from "@/lib/settings/roles";
 import { PageHeader } from "@/components/shell/page-header";
@@ -10,7 +10,7 @@ import { InviteForm } from "./invite-form";
 export const metadata: Metadata = { title: "Invite a user" };
 
 export default async function InvitePage({ searchParams }: { searchParams: Promise<{ staff?: string }> }) {
-  const current = await requirePage("settings", "create");
+  const { current } = await requireSettingsPage("users", "create");
   const sp = await searchParams;
   const { roles, campuses, staff } = await withSchool(current.ctx, async (tx) => ({
     roles: await assignableRoles(tx),

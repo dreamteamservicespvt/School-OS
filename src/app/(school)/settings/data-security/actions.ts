@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAction } from "@/lib/current";
+import { requireSettingsAction } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
 import { flash } from "@/lib/flash";
@@ -17,16 +17,17 @@ import { TWO_STEP_FEATURE } from "@/lib/data-security/alerts";
 import { DecisionProblem } from "@/lib/approvals";
 
 const BASE = "/settings/data-security";
+const PAGE = "data-security" as const;
 
 export async function requestExportAction(): Promise<string | void> {
-  const { current } = await requireAction("settings", "export");
+  const { current } = await requireSettingsAction(PAGE, "export");
   const { already } = await withSchool(current.ctx, (tx) => requestDataExport(tx, current.ctx, current.permissions));
   await flash({ message: already ? "Your full data export is already being prepared. You will get a notification when it is ready." : "Preparing your full data export. You will get a notification with the download link when it is ready, usually within a few minutes." });
   revalidatePath(BASE);
 }
 
 export async function setTwoStepAction(on: boolean): Promise<string | void> {
-  const { current } = await requireAction("settings", "edit");
+  const { current } = await requireSettingsAction(PAGE, "edit");
   await withSchool(current.ctx, async (tx) => {
     const before = await tx.schoolFeature.findUnique({ where: { schoolId_featureKey: { schoolId: current.ctx.schoolId, featureKey: TWO_STEP_FEATURE } } });
     await tx.schoolFeature.upsert({
@@ -43,7 +44,7 @@ export async function setTwoStepAction(on: boolean): Promise<string | void> {
 // Imports
 
 export async function uploadImportFile(_prev: FormState, fd: FormData): Promise<FormState> {
-  const { current } = await requireAction("settings", "create");
+  const { current } = await requireSettingsAction(PAGE, "create");
   const kind = String(fd.get("kind") ?? "");
   if (!importKind(kind)) return { ok: false, message: "Choose what you are importing.", errors: { kind: "Choose what you are importing." } };
   const file = fd.get("file");
@@ -60,7 +61,7 @@ export async function uploadImportFile(_prev: FormState, fd: FormData): Promise<
 }
 
 export async function startImportAction(kind: string, fileId: string, match: Record<string, number>): Promise<string | void> {
-  const { current } = await requireAction("settings", "create");
+  const { current } = await requireSettingsAction(PAGE, "create");
   const k = importKind(kind);
   if (!k) return "This import is not known.";
   const missing = k.columns.filter((c) => c.required && match[c.key] === undefined).map((c) => c.label);
@@ -71,7 +72,7 @@ export async function startImportAction(kind: string, fileId: string, match: Rec
 }
 
 export async function undoImportAction(batchId: string): Promise<string | void> {
-  const { current } = await requireAction("settings", "archive");
+  const { current } = await requireSettingsAction(PAGE, "archive");
   try {
     await withSchool(current.ctx, (tx) => undoImport(tx, current.ctx, batchId), { timeout: 60_000 });
   } catch (e) {
@@ -83,7 +84,7 @@ export async function undoImportAction(batchId: string): Promise<string | void> 
 // Privacy
 
 export async function saveRetentionAction(_prev: FormState, fd: FormData): Promise<FormState> {
-  const { current } = await requireAction("settings", "edit");
+  const { current } = await requireSettingsAction(PAGE, "edit");
   const values = formValues(fd);
   const errors: Record<string, string> = {};
   let changed = 0;
@@ -113,7 +114,7 @@ export async function saveRetentionAction(_prev: FormState, fd: FormData): Promi
 }
 
 export async function requestDeletionAction(_prev: FormState, fd: FormData): Promise<FormState> {
-  const { current } = await requireAction("settings", "create");
+  const { current } = await requireSettingsAction(PAGE, "create");
   const values = formValues(fd);
   const personType = values.personType === "guardian" || values.personType === "staff" ? values.personType : "student";
   if (!personTypesFor(current.permissions).includes(personType)) return { ok: false, message: "Your role cannot see these records, so it cannot ask for them to be removed.", values };
@@ -142,7 +143,7 @@ export async function requestDeletionAction(_prev: FormState, fd: FormData): Pro
 // Consent
 
 export async function saveConsentAction(_prev: FormState, fd: FormData): Promise<FormState> {
-  const { current } = await requireAction("settings", "edit");
+  const { current } = await requireSettingsAction(PAGE, "edit");
   const values = formValues(fd);
   const languages = await withSchool(current.ctx, async (tx) => (await tx.school.findUnique({ where: { id: current.ctx.schoolId }, select: { languages: true, defaultLanguage: true } })));
   const langs = [...new Set([languages?.defaultLanguage ?? "en", ...(languages?.languages ?? ["en"])])];

@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requirePage } from "@/lib/current";
+import { requireSettingsPage } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
-import { can } from "@/lib/permissions";
 import type { RolePermissions } from "@/lib/roles";
 import { roleAbout, roleUsage } from "@/lib/settings/roles";
 import { PageHeader } from "@/components/shell/page-header";
@@ -18,14 +17,14 @@ export const metadata: Metadata = { title: "Roles" };
 const KIND = { READY: "Ready role", TEMPLATE: "Role template", CUSTOM: "Your own role" } as const;
 
 export default async function RolesPage({ searchParams }: { searchParams: Promise<{ archived?: string }> }) {
-  const current = await requirePage("settings");
+  const { current, may } = await requireSettingsPage("users");
   const showArchived = (await searchParams).archived === "1";
   const { roles, usage } = await withSchool(current.ctx, async (tx) => ({
     roles: await tx.role.findMany({ orderBy: [{ name: "asc" }] }),
     usage: await roleUsage(tx, current.school.id),
   }));
-  const mayEdit = can(current.permissions, "settings", "edit");
-  const mayCreate = can(current.permissions, "settings", "create");
+  const mayEdit = may.edit;
+  const mayCreate = may.create;
   const live = roles.filter((r) => !r.archivedAt);
   const archived = roles.filter((r) => r.archivedAt);
   const groups = [
@@ -62,6 +61,7 @@ export default async function RolesPage({ searchParams }: { searchParams: Promis
         {mayCreate && <ButtonLink href="/settings/users/roles/new" variant="primary">Create a role</ButtonLink>}
       </PageHeader>
       <UsersNav active="roles" />
+      {!mayEdit && <p className="mb-4 rounded-xl bg-surface-2 p-3 text-sm text-ink-2">You can see what each role does. The School Admin changes roles.</p>}
       <p className="mb-4 max-w-3xl text-sm text-ink-2">
         A role is a set of things a person may do. Change a role and everyone with it changes at once. For one person only, use exceptions on their page.
       </p>

@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requirePage } from "@/lib/current";
+import { requireSettingsPage } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
 import { formatDateTime } from "@/lib/format";
 import { readListParams } from "@/lib/list";
-import { can } from "@/lib/permissions";
 import { findProvider, PROVIDERS, TYPE_WORDS } from "@/lib/payments/providers";
 import { PageHeader } from "@/components/shell/page-header";
 import { DataTable } from "@/components/list/data-table";
@@ -19,7 +18,7 @@ export const metadata: Metadata = { title: "Payment Gateways" };
 type Search = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
 export default async function PaymentGatewaysPage({ searchParams }: Search) {
-  const current = await requirePage("settings");
+  const { current, may } = await requireSettingsPage("payment-gateways");
   const params = readListParams(await searchParams, ["provider", "status"]);
   const tz = current.school.timeZone;
   const rows = await withSchool(current.ctx, (tx) =>
@@ -33,7 +32,7 @@ export default async function PaymentGatewaysPage({ searchParams }: Search) {
       orderBy: [{ isActive: "desc" }, { displayName: "asc" }],
     }),
   );
-  const canAdd = can(current.permissions, "settings", "create");
+  const canAdd = may.create;
   const filtered = Boolean(params.q || params.filters.provider || params.filters.status || params.archived);
 
   return (

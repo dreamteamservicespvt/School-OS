@@ -61,7 +61,10 @@ export const DUTY: Readonly<Record<string, Partial<Record<ModuleKey, Rule>>>> = 
     "finance-management": { view: ["day-book"] },
     "examination-results": { view: ["marks"] },
     "staff-hr-management": { hide: ["add"] },
-    settings: { hide: ["payment-gateways", "messaging", "data-security"] },
+    // Settings: the Principal reads the school profile, logins and roles, document designs and
+    // modules (the School Admin changes them), keeps Forms & Approvals, and never uses gateways,
+    // message channels or backups (src/lib/settings/page-access.ts).
+    settings: { hide: ["payment-gateways", "messaging", "data-security"], view: ["school-profile", "users", "document-designs", "modules"] },
     "homework-learning": { hide: TEACHING_DESK, view: ["homework", "learning-progress", "settings"] },
     // Early Warnings: class teachers review their students' flags; leaders watch every flag and Remind.
     "reports-analytics": { view: ["warnings"] },

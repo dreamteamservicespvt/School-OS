@@ -1,11 +1,13 @@
 // Runs one Settings change for a server action: checks the permission on the
-// server, does the work in one transaction for the person's school, and turns
+// server (the module, then the page: a page the person only reads or never
+// uses refuses changes, src/lib/settings/page-access.ts), does the work in one transaction for the person's school, and turns
 // a rule that stopped it into a plain-words message (P7).
 import "server-only";
 
-import { requireAction, type Current } from "@/lib/current";
+import type { Current } from "@/lib/current";
 import { withSchool, type Tx } from "@/lib/db";
 import { PermissionDeniedError, type Action } from "@/lib/permissions";
+import { requireSettingsAction, type SettingsPageKey } from "@/lib/settings/page-access";
 import { SettingsProblem } from "@/lib/settings/common";
 import { FieldProblem } from "@/lib/settings/forms";
 import { FileProblem } from "@/lib/files";
@@ -15,10 +17,10 @@ export type Outcome<T> = { ok: true; data: T; current: Current } | { ok: false; 
 
 export const FAILED = "That did not work, and nothing was changed. Please try again.";
 
-export async function runSettings<T>(action: Action, work: (tx: Tx, current: Current) => Promise<T>): Promise<Outcome<T>> {
+export async function runSettings<T>(page: SettingsPageKey, action: Action, work: (tx: Tx, current: Current) => Promise<T>): Promise<Outcome<T>> {
   let current: Current;
   try {
-    current = (await requireAction("settings", action)).current;
+    current = (await requireSettingsAction(page, action)).current;
   } catch (e) {
     if (e instanceof PermissionDeniedError) return { ok: false, message: e.message };
     throw e;

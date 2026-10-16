@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requirePage } from "@/lib/current";
+import { requireSettingsPage } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
-import { can } from "@/lib/permissions";
 import { formatDateTime } from "@/lib/format";
 import { FIELD_TYPES, showWhenWords } from "@/lib/custom-field-rules";
 import { FORM_ABOUT, formFields } from "@/lib/settings/forms";
@@ -21,13 +20,13 @@ export const metadata: Metadata = { title: "Form builder" };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default async function FormBuilderPage({ params }: { params: Promise<{ id: string }> }) {
-  const current = await requirePage("settings");
+  const { current, may } = await requireSettingsPage("forms-approvals");
   const { id } = await params;
   if (!UUID.test(id)) notFound();
   const form = await withSchool(current.ctx, (tx) => tx.customForm.findUnique({ where: { id } }));
   if (!form) notFound();
   const fields = formFields(form.fields);
-  const mayEdit = can(current.permissions, "settings", "edit") && !form.archivedAt;
+  const mayEdit = may.edit && !form.archivedAt;
   const published = form.status === "published";
 
   return (
@@ -37,7 +36,7 @@ export default async function FormBuilderPage({ params }: { params: Promise<{ id
         <div className="flex flex-wrap items-center gap-2">
           <Badge tone={published ? "success" : "warning"}>{published ? `Published, version ${form.version}` : "Draft"}</Badge>
           {mayEdit && !published && fields.length > 0 && <PublishButton formId={id} name={form.name} fields={fields.length} />}
-          {can(current.permissions, "settings", "archive") && <ArchiveFormButton formId={id} name={form.name} archived={Boolean(form.archivedAt)} />}
+          {may.archive && <ArchiveFormButton formId={id} name={form.name} archived={Boolean(form.archivedAt)} />}
         </div>
       </PageHeader>
       <div className="space-y-5">

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireAction } from "@/lib/current";
+import { requireSettingsAction } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
 import { flash } from "@/lib/flash";
 import { formValues, type FormState } from "@/lib/forms";
@@ -13,6 +13,7 @@ import { findDocType } from "@/lib/documents/types";
 import { addSignatory, archiveSignatory, SignatoryProblem } from "@/lib/documents/signatories";
 
 const PATH = "/settings/document-designs";
+const PAGE = "document-designs" as const;
 
 export type { RecordRef } from "@/lib/documents/records";
 
@@ -20,7 +21,7 @@ export type PreviewResult = { ok: true; html: string } | { ok: false; message: s
 
 /** Live preview in the editor: the unsaved design with sample data or a real record. */
 export async function previewDesign(docType: string, base: string, optionsJson: string, record: RecordRef): Promise<PreviewResult> {
-  const { current } = await requireAction("settings", "view");
+  const { current } = await requireSettingsAction(PAGE, "view");
   const t = findDocType(docType);
   if (!t) return { ok: false, message: "This document type is not known." };
   let raw: unknown;
@@ -50,7 +51,7 @@ export type RecordHit = { kind: "student" | "staff"; id: string; label: string }
 
 /** Finds students or staff to preview with. Needs permission to see them. */
 export async function findRecords(kind: "student" | "staff", q: string): Promise<RecordHit[]> {
-  const { current } = await requireAction("settings", "view");
+  const { current } = await requireSettingsAction(PAGE, "view");
   const area = kind === "student" ? "student-management" : "staff-hr-management";
   if (current.permissions[area].see !== "all") return [];
   const text = q.trim().slice(0, 60);
@@ -71,7 +72,7 @@ export async function findRecords(kind: "student" | "staff", q: string): Promise
 }
 
 export async function saveDesignAction(docType: string, base: string, optionsJson: string): Promise<{ ok: boolean; message: string }> {
-  const { current } = await requireAction("settings", "edit");
+  const { current } = await requireSettingsAction(PAGE, "edit");
   let raw: unknown;
   try {
     raw = JSON.parse(optionsJson);
@@ -91,7 +92,7 @@ export async function saveDesignAction(docType: string, base: string, optionsJso
 }
 
 export async function restoreVersionAction(docType: string, version: number): Promise<string | void> {
-  const { current } = await requireAction("settings", "edit");
+  const { current } = await requireSettingsAction(PAGE, "edit");
   try {
     const row = await withSchool(current.ctx, (tx) => restoreVersion(tx, current.ctx, docType, version));
     await flash({ message: `Version ${version} is in use again, saved as version ${row.version}.` });
@@ -102,7 +103,7 @@ export async function restoreVersionAction(docType: string, version: number): Pr
 }
 
 export async function uploadCardBackground(fd: FormData): Promise<{ ok: true; fileId: string } | { ok: false; message: string }> {
-  const { current } = await requireAction("settings", "edit");
+  const { current } = await requireSettingsAction(PAGE, "edit");
   const file = fd.get("file");
   if (!(file instanceof File) || file.size === 0) return { ok: false, message: "Choose a picture to upload." };
   try {
@@ -114,7 +115,7 @@ export async function uploadCardBackground(fd: FormData): Promise<{ ok: true; fi
 }
 
 export async function addSignatoryAction(_prev: FormState, fd: FormData): Promise<FormState> {
-  const { current } = await requireAction("settings", "create");
+  const { current } = await requireSettingsAction(PAGE, "create");
   const values = formValues(fd);
   const image = fd.get("image");
   try {
@@ -131,7 +132,7 @@ export async function addSignatoryAction(_prev: FormState, fd: FormData): Promis
 }
 
 export async function archiveSignatoryAction(id: string): Promise<string | void> {
-  const { current } = await requireAction("settings", "archive");
+  const { current } = await requireSettingsAction(PAGE, "archive");
   try {
     const { using } = await withSchool(current.ctx, (tx) => archiveSignatory(tx, current.ctx, id));
     await flash({ message: using.length ? `Signatory archived. It no longer prints on ${using.length} design${using.length === 1 ? "" : "s"} that used it.` : "Signatory archived." });

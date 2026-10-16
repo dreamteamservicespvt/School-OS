@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requirePage } from "@/lib/current";
+import { requireSettingsPage } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
-import { can } from "@/lib/permissions";
 import { formatDate } from "@/lib/format";
 import { CUSTOM_FIELD_RECORDS, FIELD_TYPES, showWhenWords, toFieldDef } from "@/lib/custom-field-rules";
 import { formFields } from "@/lib/settings/forms";
@@ -22,13 +21,13 @@ const TABS = [["rules", "Approval rules"], ["fields", "Custom fields"], ["forms"
 type Tab = (typeof TABS)[number][0];
 
 export default async function FormsApprovalsPage({ searchParams }: { searchParams: Promise<{ tab?: string; record?: string; archived?: string }> }) {
-  const current = await requirePage("settings");
+  const { current, may } = await requireSettingsPage("forms-approvals");
   const sp = await searchParams;
   const tab: Tab = TABS.some(([k]) => k === sp.tab) ? (sp.tab as Tab) : "rules";
   const record = CUSTOM_FIELD_RECORDS.some((r) => r.value === sp.record) ? sp.record! : "student";
   const showArchived = sp.archived === "1";
-  const mayEdit = can(current.permissions, "settings", "edit");
-  const mayCreate = can(current.permissions, "settings", "create");
+  const mayEdit = may.edit;
+  const mayCreate = may.create;
   const tz = current.school.timeZone;
 
   const data = await withSchool(current.ctx, async (tx) => {

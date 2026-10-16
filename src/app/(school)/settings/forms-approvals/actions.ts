@@ -11,6 +11,8 @@ import type { StepDraft } from "@/lib/settings/approval-rule-words";
 import type { FieldDraft } from "@/lib/custom-field-rules";
 import { asFormState, runSettings } from "../run";
 
+const PAGE = "forms-approvals" as const;
+
 const PATH = "/settings/forms-approvals";
 
 function draftFrom(fd: FormData): FieldDraft {
@@ -31,19 +33,19 @@ export async function fieldAction(_: FormState, fd: FormData): Promise<FormState
   const id = String(fd.get("id") ?? "");
   const recordType = String(fd.get("recordType") ?? "");
   const input = { ...draftFrom(fd), visibility: String(fd.get("visibility") ?? "everyone") };
-  const r = await runSettings(id ? "edit" : "create", (tx, current) => (id ? editField(tx, current.ctx, id, input) : createField(tx, current.ctx, recordType, input).then(() => true)));
+  const r = await runSettings(PAGE, id ? "edit" : "create", (tx, current) => (id ? editField(tx, current.ctx, id, input) : createField(tx, current.ctx, recordType, input).then(() => true)));
   if (r.ok) revalidatePath(PATH);
   return asFormState(r, formValues(fd), id ? (r.ok && r.data ? `${input.label.trim()} saved.` : "Nothing changed.") : `${input.label.trim()} added. It shows on the form straight away.`);
 }
 
 export async function moveFieldAction(id: string, direction: "up" | "down"): Promise<string | void> {
-  const r = await runSettings("edit", (tx, current) => moveField(tx, current.ctx, id, direction));
+  const r = await runSettings(PAGE, "edit", (tx, current) => moveField(tx, current.ctx, id, direction));
   if (!r.ok) return r.message;
   revalidatePath(PATH);
 }
 
 export async function archiveFieldAction(id: string, archived: boolean): Promise<string | void> {
-  const r = await runSettings(archived ? "archive" : "edit", (tx, current) => setFieldArchived(tx, current.ctx, id, archived));
+  const r = await runSettings(PAGE, archived ? "archive" : "edit", (tx, current) => setFieldArchived(tx, current.ctx, id, archived));
   if (!r.ok) return r.message;
   await flash({ message: archived ? `${r.data.label} archived. Answers already given are kept and still shown on records.` : `${r.data.label} restored.` });
   revalidatePath(PATH);
@@ -56,7 +58,7 @@ function formInput(fd: FormData) {
 }
 
 export async function createFormAction(_: FormState, fd: FormData): Promise<FormState> {
-  const r = await runSettings("create", (tx, current) => createForm(tx, current.ctx, formInput(fd)));
+  const r = await runSettings(PAGE, "create", (tx, current) => createForm(tx, current.ctx, formInput(fd)));
   if (!r.ok) return asFormState(r, formValues(fd), "");
   await flash({ message: `${r.data.name} created. Add its fields, preview it, then publish.` });
   revalidatePath(PATH);
@@ -65,7 +67,7 @@ export async function createFormAction(_: FormState, fd: FormData): Promise<Form
 
 export async function formDetailsAction(_: FormState, fd: FormData): Promise<FormState> {
   const id = String(fd.get("formId") ?? "");
-  const r = await runSettings("edit", (tx, current) => editFormDetails(tx, current.ctx, id, formInput(fd)));
+  const r = await runSettings(PAGE, "edit", (tx, current) => editFormDetails(tx, current.ctx, id, formInput(fd)));
   if (r.ok) revalidatePath(`${PATH}/forms/${id}`);
   return asFormState(r, formValues(fd), r.ok && r.data ? "Form details saved." : "Nothing changed.");
 }
@@ -74,32 +76,32 @@ export async function formFieldAction(_: FormState, fd: FormData): Promise<FormS
   const formId = String(fd.get("formId") ?? "");
   const key = String(fd.get("fieldKey") ?? "") || null;
   const input = draftFrom(fd);
-  const r = await runSettings("edit", (tx, current) => saveFormField(tx, current.ctx, formId, key, input));
+  const r = await runSettings(PAGE, "edit", (tx, current) => saveFormField(tx, current.ctx, formId, key, input));
   if (r.ok) revalidatePath(`${PATH}/forms/${formId}`);
   return asFormState(r, formValues(fd), key ? `${input.label.trim()} saved. Publish the form to use the change.` : `${input.label.trim()} added. Publish the form to use it.`);
 }
 
 export async function removeFormFieldAction(formId: string, key: string): Promise<string | void> {
-  const r = await runSettings("edit", (tx, current) => removeFormField(tx, current.ctx, formId, key));
+  const r = await runSettings(PAGE, "edit", (tx, current) => removeFormField(tx, current.ctx, formId, key));
   if (!r.ok) return r.message;
   revalidatePath(`${PATH}/forms/${formId}`);
 }
 
 export async function moveFormFieldAction(formId: string, key: string, direction: "up" | "down"): Promise<string | void> {
-  const r = await runSettings("edit", (tx, current) => moveFormField(tx, current.ctx, formId, key, direction));
+  const r = await runSettings(PAGE, "edit", (tx, current) => moveFormField(tx, current.ctx, formId, key, direction));
   if (!r.ok) return r.message;
   revalidatePath(`${PATH}/forms/${formId}`);
 }
 
 export async function publishFormAction(formId: string): Promise<string | void> {
-  const r = await runSettings("edit", (tx, current) => publishForm(tx, current.ctx, formId));
+  const r = await runSettings(PAGE, "edit", (tx, current) => publishForm(tx, current.ctx, formId));
   if (!r.ok) return r.message;
   await flash({ message: `${r.data.name} is published (version ${r.data.version}).` });
   revalidatePath(PATH, "layout");
 }
 
 export async function archiveFormAction(formId: string, archived: boolean): Promise<string | void> {
-  const r = await runSettings(archived ? "archive" : "edit", (tx, current) => setFormArchived(tx, current.ctx, formId, archived));
+  const r = await runSettings(PAGE, archived ? "archive" : "edit", (tx, current) => setFormArchived(tx, current.ctx, formId, archived));
   if (!r.ok) return r.message;
   await flash({ message: archived ? `${r.data.name} archived. Answers already given are kept.` : `${r.data.name} restored.` });
   revalidatePath(PATH, "layout");
@@ -128,7 +130,7 @@ export async function saveRuleAction(_: FormState, fd: FormData): Promise<FormSt
     steps.push(who.startsWith("user:") ? { approverUserId: who.slice(5), upToPaise: up } : { approverRole: who.startsWith("role:") ? who.slice(5) : null, upToPaise: up });
   }
   const days = Number(fd.get("escalateAfterDays") ?? "");
-  const r = await runSettings("edit", (tx, current) => saveRule(tx, current.ctx, type, { steps, escalateAfterDays: days }));
+  const r = await runSettings(PAGE, "edit", (tx, current) => saveRule(tx, current.ctx, type, { steps, escalateAfterDays: days }));
   if (!r.ok) return asFormState(r, values, "");
   await flash({ message: `Saved. ${r.data.summary}` });
   revalidatePath(PATH, "layout");
@@ -136,7 +138,7 @@ export async function saveRuleAction(_: FormState, fd: FormData): Promise<FormSt
 }
 
 export async function defaultRuleAction(type: string): Promise<string | void> {
-  const r = await runSettings("edit", (tx, current) => useDefaultRule(tx, current.ctx, type));
+  const r = await runSettings(PAGE, "edit", (tx, current) => useDefaultRule(tx, current.ctx, type));
   if (!r.ok) return r.message;
   await flash({ message: `${requestLabel(type)} uses the default rule again. Your old rule is kept in the audit log.` });
   revalidatePath(PATH, "layout");

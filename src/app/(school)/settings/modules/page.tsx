@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import { requirePage } from "@/lib/current";
+import { requireSettingsPage } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
-import { can } from "@/lib/permissions";
 import { formatDateTime } from "@/lib/format";
 import { MODULES } from "@/lib/modules";
 import { readPreferences, systemPreferences } from "@/lib/settings/profile-rules";
@@ -16,8 +15,8 @@ export const metadata: Metadata = { title: "Modules On/Off" };
 const SECTIONS = [["modules", "Modules"], ["templates", "School-type templates"], ["preferences", "System preferences"], ["ai", "AI assistant"], ["integrations", "Integrations"]] as const;
 
 export default async function ModulesPage() {
-  const current = await requirePage("settings");
-  const mayEdit = can(current.permissions, "settings", "edit");
+  const { current, may } = await requireSettingsPage("modules");
+  const mayEdit = may.edit;
   const tz = current.school.timeZone;
   const data = await withSchool(current.ctx, async (tx) => ({
     school: await tx.school.findUniqueOrThrow({ where: { id: current.school.id }, select: { preferences: true } }),

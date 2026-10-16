@@ -3,7 +3,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requirePage } from "@/lib/current";
+import { requireSettingsPage } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
 import { autoMatch, importKind, previewImport } from "@/lib/importer";
 import { matchFromParams, readUploaded } from "@/lib/data-security/imports";
@@ -20,7 +20,7 @@ const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default async function NewImportPage({ searchParams }: Search) {
-  const current = await requirePage("settings", "create");
+  const { current } = await requireSettingsPage("data-security", "create");
   const sp = await searchParams;
   const kind = importKind(one(sp.kind));
   const fileId = one(sp.file);

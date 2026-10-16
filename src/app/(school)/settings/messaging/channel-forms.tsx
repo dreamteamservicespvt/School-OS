@@ -35,7 +35,7 @@ export type ChannelCardData = {
   webhook: string | null;
 };
 
-export function ChannelCard({ data }: { data: ChannelCardData }) {
+export function ChannelCard({ data, readOnly = false }: { data: ChannelCardData; readOnly?: boolean }) {
   const router = useRouter();
   const [provider, setProvider] = useState(data.provider);
   const [config, setConfig] = useState(data.config);
@@ -72,9 +72,19 @@ export function ChannelCard({ data }: { data: ChannelCardData }) {
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <h2 id={`ch-${data.channel}`} className="text-lg font-semibold">{data.label}</h2>
         <Badge tone={data.isOn ? (data.live ? "success" : "warning") : "neutral"}>{data.isOn ? (data.live ? "On, sending for real" : "On, test mode") : "Off"}</Badge>
-        <label className="ml-auto flex items-center gap-2 text-sm font-medium"><Toggle on={isOn} onChange={setOn} label={`${data.label} on or off`} /> {isOn ? "Switched on" : "Switched off"}</label>
+        {!readOnly && <label className="ml-auto flex items-center gap-2 text-sm font-medium"><Toggle on={isOn} onChange={setOn} label={`${data.label} on or off`} /> {isOn ? "Switched on" : "Switched off"}</label>}
       </div>
       {err("isOn") && <p className="mb-3 text-sm text-danger">{err("isOn")}</p>}
+      {readOnly ? (
+        <dl className="grid gap-3 text-sm sm:grid-cols-2">
+          <div><dt className="text-ink-2">Provider</dt><dd className="font-medium">{data.providers.find((p) => p.key === data.provider)?.label ?? data.provider}</dd></div>
+          <div><dt className="text-ink-2">Sending</dt><dd className="font-medium">{data.live ? "For real" : "Test mode"}</dd></div>
+          {fields.map((f) => (
+            <div key={f.key} className="min-w-0"><dt className="text-ink-2">{f.label}</dt><dd className="break-all font-medium">{f.secret ? (data.hasSecrets ? `Saved (ends in ${data.secretsLast4 ?? "••••"})` : "Not saved") : data.config[f.key] || "Not given"}</dd></div>
+          ))}
+          {data.channel !== "email" && <div><dt className="text-ink-2">Low credit alert</dt><dd className="font-medium tabular-nums">{data.lowCreditAlert.toLocaleString("en-IN")}</dd></div>}
+        </dl>
+      ) : (
       <div className="grid gap-4 md:grid-cols-2">
         <label className="block text-sm font-medium">Provider
           <select value={provider} onChange={(e) => { setProvider(e.target.value); if (e.target.value === "sandbox") setLive(false); }} className={`${input} mt-1 border-line-strong`}>
@@ -104,6 +114,7 @@ export function ChannelCard({ data }: { data: ChannelCardData }) {
           </label>
         )}
       </div>
+      )}
       {data.webhook && provider !== "sandbox" && (
         <div className="mt-4 rounded-xl bg-surface-2 p-3 text-sm">
           <p className="font-medium">Delivery report address</p>
@@ -112,7 +123,7 @@ export function ChannelCard({ data }: { data: ChannelCardData }) {
         </div>
       )}
       {state && !state.ok && state.message && !Object.keys(state.errors ?? {}).length && <p role="alert" className="mt-3 rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">{state.message}</p>}
-      <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-line pt-4">
+      {!readOnly && <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-line pt-4">
         <Button loading={pending} loadingText="Saving" onClick={save}>Save {data.label}</Button>
         <div className="flex flex-1 flex-wrap items-end justify-end gap-2">
           <label className="text-sm font-medium">Send a test to
@@ -120,7 +131,7 @@ export function ChannelCard({ data }: { data: ChannelCardData }) {
           </label>
           <Button variant="secondary" loading={testing} loadingText="Sending" onClick={() => startTest(async () => { setTest(await testChannelAction(data.channel, testTo)); router.refresh(); })}>Send test</Button>
         </div>
-      </div>
+      </div>}
       {test ? <p role="status" className={`mt-2 text-sm ${test.ok ? "text-success" : "text-danger"}`}>{test.message}</p> : data.lastTest && (
         <p className="mt-2 text-sm text-ink-2">Last test {data.lastTest.at}: <span className={data.lastTest.ok ? "text-success" : "text-danger"}>{data.lastTest.note}</span></p>
       )}
@@ -128,12 +139,20 @@ export function ChannelCard({ data }: { data: ChannelCardData }) {
   );
 }
 
-export function DltForm({ entityId, header }: { entityId: string; header: string }) {
+export function DltForm({ entityId, header, readOnly = false }: { entityId: string; header: string; readOnly?: boolean }) {
   const router = useRouter();
   const [e, setE] = useState(entityId);
   const [h, setH] = useState(header);
   const [msg, setMsg] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  if (readOnly) {
+    return (
+      <dl className="grid gap-3 text-sm sm:grid-cols-2">
+        <div><dt className="text-ink-2">DLT entity ID</dt><dd className="font-mono font-medium">{entityId || "Not given"}</dd></div>
+        <div><dt className="text-ink-2">Sender header</dt><dd className="font-mono font-medium">{header || "Not given"}</dd></div>
+      </dl>
+    );
+  }
   return (
     <div className="space-y-3">
       <div className="grid gap-4 sm:grid-cols-2">

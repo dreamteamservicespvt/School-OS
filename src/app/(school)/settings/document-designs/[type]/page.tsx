@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requirePage } from "@/lib/current";
+import { requireSettingsPage } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
 import { formatDateTime } from "@/lib/format";
-import { can } from "@/lib/permissions";
 import { BASES, currentDesign } from "@/lib/documents/designs";
 import { allFields, findDocType } from "@/lib/documents/types";
 import { PageHeader } from "@/components/shell/page-header";
@@ -20,7 +19,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 }
 
 export default async function DesignPage({ params }: Params) {
-  const current = await requirePage("settings");
+  const { current, may } = await requireSettingsPage("document-designs");
   const t = findDocType((await params).type);
   if (!t) notFound();
   const tz = current.school.timeZone;
@@ -32,7 +31,7 @@ export default async function DesignPage({ params }: Params) {
     const people = ids.length ? await tx.schoolAccess.findMany({ where: { userLoginId: { in: ids } }, select: { userLogin: { select: { id: true, displayName: true } } } }) : [];
     return { design, versions, signatories, names: new Map(people.map((p) => [p.userLogin.id, p.userLogin.displayName])) };
   });
-  const canEdit = can(current.permissions, "settings", "edit");
+  const canEdit = may.edit;
   const recordKinds = (["student", "staff"] as const).filter((k) =>
     current.permissions[k === "student" ? "student-management" : "staff-hr-management"].see === "all" &&
     t.fields.some((f) => (k === "student" ? f.key === "student_name" : f.key === "staff_name")),
@@ -47,6 +46,7 @@ export default async function DesignPage({ params }: Params) {
           <span>Printed by {t.usedBy}</span>
         </div>
       </PageHeader>
+      {!canEdit && <p className="mb-4 rounded-xl bg-surface-2 p-3 text-sm text-ink-2">You can see this design and preview it with real records. The School Admin changes it.</p>}
       <DesignEditor type={t} fields={allFields(t)} initial={{ base: design.base, options: design.options }}
         signatories={signatories.map((s) => ({ id: s.id, name: s.name, title: s.title }))} canEdit={canEdit} recordKinds={[...recordKinds]} />
 

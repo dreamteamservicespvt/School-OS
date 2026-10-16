@@ -1,4 +1,4 @@
-import { requirePage } from "@/lib/current";
+import { requireSettingsPage } from "@/lib/settings/page-access";
 import { PageHeader } from "@/components/shell/page-header";
 import { Tabs } from "@/components/ui/tabs";
 
@@ -13,7 +13,7 @@ const DATA_SECURITY_TABS = [
 ];
 
 export default async function DataSecurityLayout({ children }: { children: React.ReactNode }) {
-  const current = await requirePage("settings");
+  const { current } = await requireSettingsPage("data-security");
   return (
     <>
       <PageHeader title="Data Backup & Security" href="/settings/data-security" userId={current.user.id} />

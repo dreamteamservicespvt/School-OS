@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requirePage } from "@/lib/current";
+import { requireSettingsPage } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
 import { formatDateTime } from "@/lib/format";
 import { listHref, readListParams } from "@/lib/list";
-import { can, reachFor } from "@/lib/permissions";
+import { reachFor } from "@/lib/permissions";
 import { actionWords, auditWhere, describeDevice, diff, readAuditFilters } from "@/lib/data-security/audit-view";
 import { Badge } from "@/components/ui/badge";
 import { periodSetup } from "@/lib/period-setup";
@@ -17,7 +17,7 @@ type Search = { searchParams: Promise<Record<string, string | string[] | undefin
 const PAGE = 50;
 
 export default async function AuditLogPage({ searchParams }: Search) {
-  const current = await requirePage("settings");
+  const { current, may } = await requireSettingsPage("data-security");
   const sp = await searchParams;
   const f = readAuditFilters(sp);
   const params = readListParams(sp, ["person", "recordType", "action", "record", "period", "from", "to"]);
@@ -39,7 +39,7 @@ export default async function AuditLogPage({ searchParams }: Search) {
   const pages = Math.max(1, Math.ceil(data.total / PAGE));
   const filtered = Object.values(f).some(Boolean);
   const exportQuery = new URLSearchParams(Object.entries(f).filter(([, v]) => v) as [string, string][]);
-  const canExport = can(current.permissions, "settings", "export");
+  const canExport = may.export;
 
   return (
     <>

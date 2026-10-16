@@ -38,7 +38,7 @@ export async function requestCorrectionAction(_: FormState<unknown>, fd: FormDat
     const note = str(fd, "note").slice(0, 300) || null;
     const reason = str(fd, "reason").slice(0, 500);
     const c = await withSchool(current.ctx, (tx) => requestCorrection(tx, current.ctx, access, {
-      forWhom, sectionId, date, periodNo, reason, changes: people.map((p) => ({ id: p, to, note })),
+      forWhom, sectionId, date, periodNo, reason, changes: people.map((p) => ({ id: p, to, note })), today: todayIn(current.school.timeZone),
     }));
     createdId = c.id;
     return { id: c.id };

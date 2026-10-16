@@ -161,6 +161,26 @@ describe("the lock and corrections (rule 17, Done when 4)", () => {
     expect(corr?.status).toBe("APPROVED");
   });
 
+  it("a correction is only for a school day that has come, inside the year (QA ACAD)", async () => {
+    const access = await accessFor(f, f.teacherA.id);
+    const ask = (day: string) => withSchool(as(f, f.teacherA.id), (tx) => requestCorrection(tx, as(f, f.teacherA.id), access, {
+      forWhom: "student", sectionId: f.sectionA.id, date: d(day), periodNo: 0, changes: [{ id: f.studentsA[1].id, to: "absent" }], reason: "Paper register entered later", today: d("2026-10-16"),
+    }));
+    await expect(ask("2026-12-01")).rejects.toThrow(/has not come yet/);
+    await expect(ask("2026-10-04")).rejects.toThrow(/Sunday|off/i);
+    await expect(ask("2026-10-02")).rejects.toThrow(/Holiday: Gandhi Jayanti/);
+    await expect(ask("2026-03-10")).rejects.toThrow(/outside the academic year/);
+    const none = await withSchool(as(f, f.principal.id), (tx) => tx.attendanceCorrection.count({ where: { date: { in: [d("2026-12-01"), d("2026-10-04"), d("2026-10-02"), d("2026-03-10")] } } }));
+    expect(none).toBe(0);
+  });
+
+  it("a subject teacher cannot correct the class teacher's daily register (QA ACAD)", async () => {
+    const access = { ...(await accessFor(f, f.teacherB.id)), teachingSections: [f.sectionA.id] };
+    await expect(withSchool(as(f, f.teacherB.id), (tx) => requestCorrection(tx, as(f, f.teacherB.id), access, {
+      forWhom: "student", sectionId: f.sectionA.id, date: d("2026-10-09"), periodNo: 0, changes: [{ id: f.studentsA[1].id, to: "absent" }], reason: "Not my class register", today: d("2026-10-16"),
+    }))).rejects.toBeInstanceOf(NotYoursError);
+  });
+
   it("the principal (lock override in Attendance Settings) may still change it, and it is audited", async () => {
     const r = await save(f.principal.id, { sectionId: f.sectionA.id, date, entries: allPresent(f.studentsA, { [f.studentsA[2].id]: "late" }), now: at("2026-10-09", "12:00") });
     expect(r.outcome).toBe("saved");

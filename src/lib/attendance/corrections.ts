@@ -12,6 +12,7 @@ import { formatDate } from "../format";
 import { isoDay } from "../staff/dates";
 import { AttendanceProblem, NotYoursError, type AttendanceAccess } from "./access";
 import { statusList } from "./settings";
+import { dayInfo, offDayMessage } from "./calendar";
 
 export type CorrectionEntry = { id: string; name: string; from: string | null; to: string; note: string | null };
 
@@ -50,6 +51,8 @@ export type CorrectionInput = {
   periodNo: number;
   changes: { id: string; to: string; note?: string | null }[];
   reason: string;
+  /** The school's today; a correction is for today or an earlier school day. */
+  today?: Date;
 };
 
 /** Asks for a correction to locked marks: one or more students of a section (or staff), a date, the new status and a reason. */
@@ -64,10 +67,12 @@ export async function requestCorrection(tx: Tx, ctx: SchoolContext, access: Atte
   const entries: CorrectionEntry[] = [];
   if (input.forWhom === "student") {
     if (!input.sectionId) throw new AttendanceProblem("Choose the class.", "sectionId");
-    const section = await tx.section.findFirst({ where: { id: input.sectionId, archivedAt: null }, include: { schoolClass: { select: { name: true } } } });
+    const section = await tx.section.findFirst({ where: { id: input.sectionId, archivedAt: null }, include: { schoolClass: { select: { name: true, campusId: true } } } });
     if (!section) throw new AttendanceProblem("This class was not found.", "sectionId");
-    const mine = access.students === "all" || access.classSections.includes(section.id) || access.teachingSections.includes(section.id);
+    // The daily register is the class teacher's; a subject teacher corrects only their period (as in Take Attendance).
+    const mine = access.students === "all" || access.classSections.includes(section.id) || (input.periodNo > 0 && access.teachingSections.includes(section.id));
     if (!mine || access.change === "none") throw new NotYoursError();
+    await assertSchoolDay(tx, ctx, input.date, section.academicYearId, section.schoolClass.campusId, input.today);
     sectionName = `${section.schoolClass.name} ${section.name}`;
     const enrolled = await tx.enrolment.findMany({ where: { sectionId: section.id, studentId: { in: input.changes.map((c) => c.id) }, archivedAt: null }, include: { student: { select: { id: true, fullName: true } } } });
     const marks = await tx.attendanceMark.findMany({ where: { studentId: { in: input.changes.map((c) => c.id) }, date: input.date, periodNo: input.periodNo, archivedAt: null } });
@@ -80,6 +85,7 @@ export async function requestCorrection(tx: Tx, ctx: SchoolContext, access: Atte
     }
   } else {
     if (access.staff !== "all" || access.change === "none") throw new AttendanceProblem("Only HR, the School Admin or the Principal can correct staff attendance.");
+    if (input.date > (input.today ?? utcToday())) throw new AttendanceProblem(`${dayText(input.date)} has not come yet. A correction is for today or an earlier day.`, "date");
     const staff = await tx.staff.findMany({ where: { id: { in: input.changes.map((c) => c.id) }, archivedAt: null }, select: { id: true, fullName: true } });
     const marks = await tx.attendanceMark.findMany({ where: { staffId: { in: input.changes.map((c) => c.id) }, date: input.date, periodNo: 0, archivedAt: null } });
     for (const c of input.changes) {
@@ -98,6 +104,21 @@ export async function requestCorrection(tx: Tx, ctx: SchoolContext, access: Atte
     if (clash) throw new AttendanceProblem(`A correction for ${clash.name} on ${dayText(input.date)} is already waiting in Approvals.`, "changes");
   }
   return createCorrection(tx, ctx, { forWhom: input.forWhom, sectionId: input.sectionId, sectionName, date: input.date, periodNo: input.periodNo, kind: "manual", entries, reason: input.reason.trim(), versions: null });
+}
+
+function utcToday() {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+}
+
+/** A student correction is for a school day of the section's year that has come (no future days, holidays or Sundays). */
+async function assertSchoolDay(tx: Tx, ctx: SchoolContext, date: Date, yearId: string, campusId: string | null, today = utcToday()) {
+  if (date > today) throw new AttendanceProblem(`${dayText(date)} has not come yet. A correction is for today or an earlier day.`, "date");
+  const year = await tx.academicYear.findUnique({ where: { id: yearId } });
+  if (year && (date < year.startDate || date > year.endDate)) throw new AttendanceProblem(`${dayText(date)} is outside the academic year ${year.name}.`, "date");
+  if (year?.status === "CLOSED") throw new AttendanceProblem(`${year.name} is closed, so its attendance cannot be changed.`, "date");
+  const info = await dayInfo(tx, ctx, date, campusId);
+  if (!info.on) throw new AttendanceProblem(`${offDayMessage(info, date)} There is no attendance to correct.`, "date");
 }
 
 /** Changes the marks of an approved correction. The before values go to the audit log. */

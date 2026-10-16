@@ -47,8 +47,10 @@ export const PROVIDER_FIELDS: Record<string, { key: string; label: string; secre
     { key: "businessAccountId", label: "WhatsApp Business account ID", secret: false, required: true, help: "Needed to send templates for WhatsApp approval." },
     { key: "displayNumber", label: "School WhatsApp number", secret: false, required: false, help: "Shown to parents on Parent Link, e.g. 9876543210." },
     { key: "accessToken", label: "Permanent access token", secret: true, required: true },
-    { key: "appSecret", label: "App secret", secret: true, required: true, help: "Used to check that delivery reports really come from WhatsApp." },
-    { key: "verifyToken", label: "Webhook verify token", secret: true, required: true, help: "Any long random word. Enter the same word in Meta when you add the webhook address." },
+    // Optional: messages send without them. Delivery reports and replies are
+    // refused until the app secret is set (webhooks.ts), so nothing unchecked gets in.
+    { key: "appSecret", label: "App secret", secret: true, required: false, help: "Optional to start sending. Needed for delivered and read ticks and for replies: Meta for Developers, your app, App settings, Basic." },
+    { key: "verifyToken", label: "Webhook verify token", secret: true, required: false, help: "Optional to start sending. Any long random word; enter the same word in Meta when you add the webhook address." },
   ],
   msg91: [
     { key: "senderId", label: "Sender ID", secret: false, required: true, help: "6 letters, the same as your DLT sender header." },

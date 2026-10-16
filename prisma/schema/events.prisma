@@ -204,18 +204,20 @@ model PtmTeacher {
 
 /// PTM Slot: one teacher's time slot on a PTM day; booked for one student's parent at most.
 model PtmSlot {
-  id          String    @id @default(uuid()) @db.Uuid
-  schoolId    String    @map("school_id") @db.Uuid
-  ptmId       String    @map("ptm_id") @db.Uuid
-  staffId     String    @map("staff_id") @db.Uuid
-  startMin    Int       @map("start_min")
-  studentId   String?   @map("student_id") @db.Uuid
-  guardianId  String?   @map("guardian_id") @db.Uuid
-  bookedById  String?   @map("booked_by_id") @db.Uuid
-  bookedAt    DateTime? @map("booked_at")
-  arrivedAt   DateTime? @map("arrived_at")
-  remindedAt  DateTime? @map("reminded_at")
-  ptm         Ptm       @relation(fields: [ptmId], references: [id])
+  id         String    @id @default(uuid()) @db.Uuid
+  schoolId   String    @map("school_id") @db.Uuid
+  ptmId      String    @map("ptm_id") @db.Uuid
+  staffId    String    @map("staff_id") @db.Uuid
+  startMin   Int       @map("start_min")
+  studentId  String?   @map("student_id") @db.Uuid
+  guardianId String?   @map("guardian_id") @db.Uuid
+  bookedById String?   @map("booked_by_id") @db.Uuid
+  bookedAt   DateTime? @map("booked_at")
+  /// "parent-link" when the parent booked on Parent Link; "office" or empty when school staff booked it.
+  bookedVia  String?   @map("booked_via")
+  arrivedAt  DateTime? @map("arrived_at")
+  remindedAt DateTime? @map("reminded_at")
+  ptm        Ptm       @relation(fields: [ptmId], references: [id])
 
   @@unique([ptmId, staffId, startMin])
   @@index([schoolId, ptmId, studentId])

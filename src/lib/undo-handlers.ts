@@ -12,3 +12,4 @@ import "./front-office/undo";
 import "./events/undo";
 import "./library/handlers";
 import "./inventory/handlers";
+import "./finance/undo";

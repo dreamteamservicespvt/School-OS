@@ -15,7 +15,8 @@ import "server-only";
 
 import type { DayBookEntry, Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
-import { assertBooksOpen, financialYearOf } from "./years";
+import { assertBooksOpen, financialYearOf, openDayFor } from "./years";
+import { formatDate } from "../format";
 import { PAY_SECTIONS, PAY_SOURCES } from "./access";
 
 export type DayBookSection = "fees-full" | "fees-partial" | "other-fees" | "other-income" | "expense" | "salary" | "salary-advance" | "refund" | "reversal" | "opening" | "transfer";
@@ -54,14 +55,17 @@ export type PostInput = {
 export async function postToDayBook(tx: Tx, ctx: SchoolContext, input: PostInput): Promise<{ entry: DayBookEntry; created: boolean }> {
   const existing = await tx.dayBookEntry.findUnique({ where: { schoolId_sourceKey: { schoolId: ctx.schoolId, sourceKey: input.sourceKey } } });
   if (existing) return { entry: existing, created: false };
+  // A day already closed (Close the day) does not change: the entry goes into the next open day, with a note.
+  const at = input.skipBooksCheck ? { date: input.date, moved: false } : await openDayFor(tx, ctx, input.date);
   const fy = input.skipBooksCheck
-    ? await financialYearOf(tx, ctx, input.date)
-    : await assertBooksOpen(tx, ctx, input.date);
+    ? await financialYearOf(tx, ctx, at.date)
+    : await assertBooksOpen(tx, ctx, at.date);
+  const movedNote = at.moved ? `Made on ${formatDate(input.date)}, after that day was closed.` : null;
   const entry = await tx.dayBookEntry.create({
     data: {
       schoolId: ctx.schoolId,
       financialYearId: fy.id,
-      date: input.date,
+      date: at.date,
       direction: input.direction,
       amountPaise: input.amountPaise,
       penaltyPaise: input.penaltyPaise ?? BigInt(0),
@@ -83,7 +87,7 @@ export async function postToDayBook(tx: Tx, ctx: SchoolContext, input: PostInput
       costCentreId: input.costCentreId ?? null,
       partyName: input.partyName.slice(0, 200),
       reference: input.reference ?? null,
-      note: input.note ?? null,
+      note: [input.note, movedNote].filter(Boolean).join(" ").slice(0, 1000) || null,
       reversesEntryId: input.reversesEntryId ?? null,
       createdById: ctx.userId,
     },

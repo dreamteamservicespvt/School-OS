@@ -17,7 +17,7 @@ import { formatDate, formatRupees, formatTime } from "../format";
 import { addDays, todayIn } from "../staff/dates";
 import { postToDayBook } from "../finance/daybook";
 import { accountForMode, cashAccount, mainBankAccount } from "../finance/settings";
-import { financialYearOf, lastClosedDay } from "../finance/years";
+import { assertDayOpen, financialYearOf, lastClosedDay } from "../finance/years";
 import { MoneyProblem, MoneyWarning } from "./problem";
 import { advanceHeld, DUE_WINDOW_DAYS, lockDues, openDues, refreshBalances, studentCard } from "./dues";
 import { counterAllowed, featureOn, feeSettings, type FeeSettings } from "./settings";
@@ -96,6 +96,8 @@ export async function collectPayment(tx: Tx, ctx: SchoolContext, who: Collector,
   }
   const closed = await lastClosedDay(tx, ctx);
   if (closed && paymentDate <= closed) throw new MoneyProblem(`Payment date cannot be before ${formatDate(addDays(closed, 1))} (books closed).`, "paidAt");
+  // A past day closed in the Day Book (Close the day) takes no new payments; today stays open (later payments go into the next day's Day Book).
+  await assertDayOpen(tx, ctx, paymentDate, "paidAt");
   checkMode(input, true);
   if (input.amountPaise <= ZERO) throw new MoneyProblem("Amount must be more than ₹0.", "amount");
 

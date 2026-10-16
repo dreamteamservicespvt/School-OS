@@ -13,6 +13,7 @@ import { MoneyProblem } from "../fees/problem";
 import { formatDate, formatRupees } from "../format";
 import { nextNumber, formatNumber } from "../sequences";
 import { postToDayBook } from "../finance/daybook";
+import { assertBooksOpen } from "../finance/years";
 import { accountForMode, systemHead } from "../finance/settings";
 import { firstOfMonth, monthName, payModeLabel } from "./words";
 
@@ -80,6 +81,7 @@ export async function payAdvance(tx: Tx, ctx: SchoolContext, id: string, input: 
   if (a.status !== "APPROVED") throw new MoneyProblem("This advance is already paid or closed.");
   if (!["BANK_TRANSFER", "CHEQUE", "CASH"].includes(input.mode)) throw new MoneyProblem("Choose how it was paid.", "mode");
   if (input.date > input.today) throw new MoneyProblem("The date paid cannot be in the future.", "date");
+  await assertBooksOpen(tx, ctx, input.date, "date");
   const staff = await tx.staff.findFirst({ where: { id: a.staffId }, select: { fullName: true } });
   const head = await systemHead(tx, ctx, "salary");
   const accountId = await accountForMode(tx, ctx, input.mode, input.accountId);
@@ -120,6 +122,7 @@ export async function closeRepaidInCash(tx: Tx, ctx: SchoolContext, id: string, 
   if (input.date > input.today) throw new MoneyProblem("The date cannot be in the future.", "date");
   if (input.reason.trim().length < 3) throw new MoneyProblem("Give a reason.", "reason");
   const balance = balanceOf(a);
+  if (balance > ZERO) await assertBooksOpen(tx, ctx, input.date, "date");
   const staff = await tx.staff.findFirst({ where: { id: a.staffId }, select: { fullName: true } });
   if (balance > ZERO) {
     const head = await systemHead(tx, ctx, "salary");

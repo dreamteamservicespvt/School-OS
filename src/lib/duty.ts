@@ -39,7 +39,9 @@ const TRANSPORT_PAGES = ["live", "routes", "vehicles", "students", "trips", "rep
  * Attendance: take, register, student-leave, staff, reports, devices, settings.
  * Fees: dashboard, collect, payments, ledger, documents, defaulters, structure, concessions, reports, settings.
  * Examination & Results: marks (Marks Entry).
- * Staff & HR: add (Add Staff). Settings: payment-gateways, messaging, data-security.
+ * Finance: day-book (Close the day), income, expenses, cash-bank, budget, accounts, reports, settings.
+ * Staff & HR: add (Add Staff). Settings: school-profile, users, payment-gateways, messaging,
+ * document-designs, forms-approvals, modules, data-security.
  * Homework & Learning: homework, submissions, study-material, quizzes, discussions,
  * online-classes, learning-progress, settings (src/lib/homework/access.ts).
  * Transport: live, routes, vehicles, students, trips, reports, settings (src/lib/transport/words.ts).
@@ -55,6 +57,8 @@ export const DUTY: Readonly<Record<string, Partial<Record<ModuleKey, Rule>>>> = 
     // Attendance and Fee Settings stay full for the Principal: their forms have no read-only form yet.
     "attendance-management": { hide: ATTENDANCE_DESK, view: ["staff", "devices"] },
     "fee-management": { hide: ["collect"], view: ["dashboard", "payments", "documents", "ledger", "defaulters", "reports"] },
+    // Finance: the Accountant counts the cash and closes the day; the Principal reads the Day Book and reminds (or reopens a day).
+    "finance-management": { view: ["day-book"] },
     "examination-results": { view: ["marks"] },
     "staff-hr-management": { hide: ["add"] },
     settings: { hide: ["payment-gateways", "messaging", "data-security"] },
@@ -73,6 +77,7 @@ export const DUTY: Readonly<Record<string, Partial<Record<ModuleKey, Rule>>>> = 
     "events-calendar": { view: ["daily"] },
     "attendance-management": { hide: ATTENDANCE_DESK, view: ["register"] },
     "fee-management": { hide: ["collect"], view: ["dashboard", "payments", "documents", "ledger", "defaulters", "concessions", "reports"] },
+    "finance-management": { view: ["day-book"] },
     "examination-results": { view: ["marks"] },
     "homework-learning": { hide: TEACHING_DESK, view: ["homework", "learning-progress"] },
     "reports-analytics": { view: ["warnings"] },

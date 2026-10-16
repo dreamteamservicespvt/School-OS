@@ -135,6 +135,18 @@ th > .sr-only { position: static; }
   scrollbar-width: none;
   &::-webkit-scrollbar { display: none; }
 }
+
+/* Rows that scroll sideways (tabs, chips, segmented filters): src/components/ui/scroll-hints.tsx
+   marks the edges that have more, so a fade shows there, and on computers a thin
+   scrollbar appears whenever a row is wider than the screen. Phones keep swiping. */
+.no-scrollbar[data-more="right"] { mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent); }
+.no-scrollbar[data-more="left"] { mask-image: linear-gradient(to left, #000 calc(100% - 40px), transparent); }
+.no-scrollbar[data-more="both"] { mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent); }
+@media (pointer: fine) {
+  .no-scrollbar[data-more] { scrollbar-width: thin; scrollbar-color: rgb(var(--ink-3) / 0.45) transparent; padding-bottom: 2px; }
+  .no-scrollbar[data-more]::-webkit-scrollbar { display: block; height: 6px; }
+  .no-scrollbar[data-more]::-webkit-scrollbar-thumb { background: rgb(var(--ink-3) / 0.45); border-radius: 999px; }
+}
 @utility dotgrid {
   background-image: radial-gradient(rgb(var(--brand-ink) / 0.16) 1px, transparent 1.2px);
   background-size: 14px 14px;

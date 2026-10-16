@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
   Archive, ArchiveRestore, Award, Building2, ChartColumn, Check, CirclePause, CirclePlay, EyeOff, Flag, GraduationCap, History, Hourglass, KeyRound, Layers, LayoutGrid, ListChecks, Lock, LogIn,
-  MessageCircle, Network, Pencil, Phone, ReceiptIndianRupee, Send, Smartphone, StickyNote, UserPlus, UserX, BadgePercent,
+  MessageCircle, Network, Pencil, Phone, ReceiptIndianRupee, Send, Smartphone, StickyNote, Trash2, UserPlus, UserX, BadgePercent,
 } from "lucide-react";
 import { requireConsole } from "@/lib/console/current";
 import { withConsole } from "@/lib/db";
@@ -28,7 +28,7 @@ import { NoteForm } from "@/components/console/note-form";
 import { InvoiceRow } from "@/components/console/invoice-row";
 import { AddAdminSheet, ChangeMobileSheet, EditSchoolSheet, GroupSheet, ResetSheet } from "@/components/console/school-sheets";
 import { ChangePlanSheet, FirstPlanSheet, NewInvoiceSheet, type Prices } from "@/components/console/billing-sheets";
-import { addAdminAction, cancelInviteAction, changeMobileAction, disableAdminAction, editDetailsAction, groupAction, noteAction, resendInviteAction, resetAdminAction, statusAction } from "../actions";
+import { addAdminAction, cancelInviteAction, changeMobileAction, deleteSchoolAction, disableAdminAction, editDetailsAction, groupAction, noteAction, resendInviteAction, resetAdminAction, statusAction } from "../actions";
 import { activateAction, changePlanAction, choosePlanAction, foundingAction, groupDiscountAction, sendNewInvoiceAction } from "../../billing/actions";
 import { invoiceSheet } from "../../_lib/invoice-sheets";
 
@@ -224,6 +224,13 @@ export default async function SchoolPage({ params, searchParams }: { params: Pro
         return c.can("status") && s.status === "CLOSED" ? (
           <ActSheet title={`Reopen ${s.name}?`} sub={s.keepUntil ? `Within the keep period, until ${formatDate(s.keepUntil)}` : "Closed → Active"} closeHref={close} action={statusAction} submitLabel="Reopen school" hidden={{ schoolId: id, move: "reopen" }} reason={{ placeholder: "The trust decided to keep the school open. Letter dated 8 Oct." }}>
             <p>The school’s data is still kept, so everything comes back as it was on the day it closed.</p>
+          </ActSheet>
+        ) : null;
+      case "delete":
+        return c.can("status") && s.status === "CLOSED" ? (
+          <ActSheet title={`Delete ${s.name} for good?`} sub="Closed → Deleted · Owner only · cannot be undone" closeHref={close} action={deleteSchoolAction} submitLabel="Delete for good" danger typeName={s.name} hidden={{ schoolId: id }} reason={{ placeholder: "Test school, made while trying School OS." }}>
+            <p>For test schools. Everything in this school is removed: its users, settings and records. Its logins that work in no other school are removed too.</p>
+            <p>Only a school with no students, payments, Day Book entries or invoices can be deleted. Its Audit Log and this console’s Activity Log are kept.</p>
           </ActSheet>
         ) : null;
       case "suspend":
@@ -469,6 +476,7 @@ export default async function SchoolPage({ params, searchParams }: { params: Pro
                 {s.status === "TRIAL" && c.can("activate") && <Link href={to("activate")} scroll={false} className={buttonClass("soft", "sm")}><CirclePlay size={15} aria-hidden="true" />Activate</Link>}
                 {s.status === "SUSPENDED" && c.can("activate") && <Link href={to("reactivate")} scroll={false} className={buttonClass("soft", "sm")}><CirclePlay size={15} aria-hidden="true" />Reactivate</Link>}
                 {s.status === "CLOSED" && c.can("status") && <Link href={to("reopen")} scroll={false} className={buttonClass("soft", "sm")}><ArchiveRestore size={15} aria-hidden="true" />Reopen</Link>}
+                {s.status === "CLOSED" && c.can("status") && <Link href={to("delete")} scroll={false} className={buttonClass("danger-soft", "sm")}><Trash2 size={15} aria-hidden="true" />Delete for good</Link>}
                 {open && c.can("status") && <Link href={to("suspend")} scroll={false} className={buttonClass("secondary", "sm")}><CirclePause size={15} aria-hidden="true" />Suspend</Link>}
                 {(s.status === "ACTIVE" || s.status === "SUSPENDED") && c.can("status") && <Link href={to("close")} scroll={false} className={buttonClass("danger-soft", "sm")}><Archive size={15} aria-hidden="true" />Close school</Link>}
               </div>

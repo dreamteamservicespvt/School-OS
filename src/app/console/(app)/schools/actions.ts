@@ -4,7 +4,8 @@
 // person's console role on the server and writes an Activity Log line.
 
 import { deliveredWords, type Delivered } from "@/lib/console/outbox";
-import { addAdmin, addNote, cancelInvite, changeAdminMobile, changeStatus, disableAdmin, editDetails, MOVES, resendInvite, resetAdminLogin, setGroup, type StatusMove } from "@/lib/console/schools";
+import { redirect } from "next/navigation";
+import { addAdmin, addNote, cancelInvite, changeAdminMobile, changeStatus, deleteSchoolForGood, disableAdmin, editDetails, MOVES, resendInvite, resetAdminLogin, setGroup, type StatusMove } from "@/lib/console/schools";
 import { sendInvoice, topupInvoice } from "@/lib/console/billing";
 import type { ConsoleAction } from "@/lib/console/roles";
 import type { FormState } from "@/lib/forms";
@@ -47,6 +48,13 @@ export async function statusAction(_p: FormState, fd: FormData) {
   const move = str(fd, "move") as StatusMove;
   if (!(move in MOVES)) return { ok: false, message: "Choose what to do." };
   return consoleAct(MOVE_NEEDS[move], fd, (c) => changeStatus(c.actor, uuid(fd, "schoolId"), move, { reason: str(fd, "reason"), typedName: str(fd, "typedName") || null }), (r) => `${r.name} ${MOVE_DONE[move]}.`);
+}
+
+/** Deletes an empty, closed school for good; Owner only (the "status" action). */
+export async function deleteSchoolAction(_p: FormState, fd: FormData) {
+  const r = await consoleAct("status", fd, (c) => deleteSchoolForGood(c.actor, uuid(fd, "schoolId"), { typedName: str(fd, "typedName"), reason: str(fd, "reason") }), (x) => `${x.name} was deleted for good. Its Audit Log is kept.`);
+  if (r?.ok) redirect("/console/schools?status=closed");
+  return r;
 }
 
 export async function editDetailsAction(_p: FormState, fd: FormData) {

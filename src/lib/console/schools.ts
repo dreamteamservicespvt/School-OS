@@ -616,6 +616,40 @@ export async function changeStatus(actor: ConsoleActor | null, schoolId: string,
   return { name: card.name, from: card.status, to: spec.to };
 }
 
+/** The database's refusals from purge_school(), already in plain words. */
+const PURGE_REFUSALS = [
+  "Only a closed school can be deleted.",
+  "This school has invoices, which are never deleted.",
+  "This school has students, payments or Day Book entries, so it can never be deleted.",
+];
+
+/**
+ * Deletes an empty, closed school for good (07-super-admin.md §7, with the
+ * Owner's approval): meant for test schools. Allowed only for a Closed school
+ * with no students, payments, Day Book entries or invoices, after its name is
+ * typed. Its Audit Log entries and the console Activity Log stay; everything
+ * else of the school goes, all or nothing, in one database transaction.
+ */
+export async function deleteSchoolForGood(actor: ConsoleActor, schoolId: string, input: { typedName: string; reason: string }) {
+  const card = await getCard(schoolId);
+  if (!card) throw new ConsoleProblem("This school was not found.");
+  if (card.status !== "CLOSED") throw new ConsoleProblem(`${card.name} is ${STATUS_LABEL[card.status]}. Close it first; only a closed school can be deleted.`);
+  if (input.typedName.trim() !== card.name) throw new ConsoleProblem(`Type ${card.name} to confirm.`, "typedName");
+  const reason = input.reason.trim();
+  if (reason.length < 5) throw new ConsoleProblem("Give the reason in a few words.", "reason");
+  try {
+    await withConsole(async (tx) => {
+      await tx.$queryRaw`SELECT purge_school(${schoolId}::uuid) AS rows`;
+      await logActivity(tx, actor, { type: "status", school: { id: schoolId, name: card.name }, text: `deleted ${card.name} (${card.code}) for good. Reason: ${reason}`, from: STATUS_LABEL[card.status], to: "Deleted" });
+    }, { timeout: 60_000 });
+  } catch (e) {
+    const said = PURGE_REFUSALS.find((r) => e instanceof Error && e.message.includes(r));
+    if (said) throw new ConsoleProblem(said);
+    throw e;
+  }
+  return { name: card.name };
+}
+
 // ---------------------------------------------------------------------------
 // Details, group and notes
 // ---------------------------------------------------------------------------

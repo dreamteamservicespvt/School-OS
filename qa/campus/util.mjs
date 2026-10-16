@@ -14,12 +14,12 @@ const IP = `10.44.4.${1 + Math.floor(Math.random() * 250)}`;
 export async function asUser(login, viewport = VIEWPORTS.laptop1280) {
   const file = path.join(STATE, `${login}.json`);
   if (existsSync(file)) {
-    const page = await newPage(viewport, { storageState: file, extraHTTPHeaders: { "x-forwarded-for": IP } });
+    const page = await newPage(viewport, { storageState: file, extraHTTPHeaders: { "x-forwarded-for": IP } }); page.setDefaultNavigationTimeout(120_000); page.setDefaultTimeout(60_000);
     await page.goto(`${BASE}/notifications`);
     if (!page.url().includes("/sign-in")) return page;
     await page.context().close();
   }
-  const page = await newPage(viewport, { extraHTTPHeaders: { "x-forwarded-for": IP } });
+  const page = await newPage(viewport, { extraHTTPHeaders: { "x-forwarded-for": IP } }); page.setDefaultNavigationTimeout(120_000); page.setDefaultTimeout(60_000);
   // Like signIn() in ../lib.mjs, but waits for the next page instead of a quiet network (dashboards poll).
   await page.goto(`${BASE}/sign-in`);
   await page.getByLabel(/username|mobile|login/i).first().fill(login);

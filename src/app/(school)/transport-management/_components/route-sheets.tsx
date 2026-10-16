@@ -14,6 +14,7 @@ import { addRouteAction, addStopAction, editRouteAction, editStopAction, message
 import { LocationField, SegField } from "./fields";
 import type { MapRoute } from "./map";
 import type { LatLng } from "@/lib/transport/geo";
+import { plural } from "@/lib/transport/words";
 
 type Opt = { value: string; label: string };
 
@@ -95,9 +96,9 @@ export function RouteMessageSheet({ closeHref, routes, start }: {
   const emergency = start.kind === "emergency";
   return (
     <SheetForm title={emergency ? "Emergency message to parents" : start.kind === "delay" ? "Delay message to parents" : "Message a route"}
-      sub={r ? `${r.parents} parents of ${r.label} get this. A sent message cannot be taken back.` : "Pick the route"}
+      sub={r ? `${plural(r.parents, "parent")} of ${r.label} ${r.parents === 1 ? "gets" : "get"} this. A sent message cannot be taken back.` : "Pick the route"}
       closeHref={closeHref} action={messageRouteAction} submitVariant={emergency ? "danger" : "primary"} submitDisabled={!sure || !r || body.trim().length < 10}
-      submitLabel={<><Send size={16} aria-hidden="true" />{r ? `Send to ${r.parents} parents` : "Send"}</>} pendingText="Sending…"
+      submitLabel={<><Send size={16} aria-hidden="true" />{r ? `Send to ${plural(r.parents, "parent")}` : "Send"}</>} pendingText="Sending…"
       hidden={{ kind: start.kind, confirmed: sure ? "yes" : "", ...(start.alertId ? { alertId: start.alertId } : {}), ...(start.tripId ? { tripId: start.tripId } : {}) }}>
       {emergency && (
         <div className="rounded-xl bg-bad/10 text-bad px-3.5 py-3 text-[13.5px] flex gap-2.5">
@@ -107,7 +108,7 @@ export function RouteMessageSheet({ closeHref, routes, start }: {
       )}
       <FieldShell label="Route" id="rm-route" required error={tRoute.error}>
         <select id="rm-route" name="routeId" value={routeId} onChange={(e) => setRouteId(e.target.value)} className={cx(inputCls(tRoute.error), "h-11")}>
-          {routes.map((x) => <option key={x.id} value={x.id}>{x.label} · {x.parents} parents</option>)}
+          {routes.map((x) => <option key={x.id} value={x.id}>{x.label} · {plural(x.parents, "parent")}</option>)}
         </select>
       </FieldShell>
       <FieldShell label="Message" id="rm-text" required error={tText.error} help={`${body.length} of 600 characters`}>
@@ -115,7 +116,7 @@ export function RouteMessageSheet({ closeHref, routes, start }: {
       </FieldShell>
       <label className="flex items-start gap-3 rounded-xl border border-line px-3.5 py-3 cursor-pointer">
         <input type="checkbox" checked={sure} onChange={(e) => setSure(e.target.checked)} className="mt-1 size-4 accent-[rgb(var(--brand))]" />
-        <span className="text-[14px]"><b className="font-semibold">{r ? `Send to ${r.parents} parents of ${r.label}?` : "Send this message?"}</b><span className="block text-[12.5px] text-ink3">I have read the message. It goes on WhatsApp, with SMS where WhatsApp fails.</span></span>
+        <span className="text-[14px]"><b className="font-semibold">{r ? `Send to ${plural(r.parents, "parent")} of ${r.label}?` : "Send this message?"}</b><span className="block text-[12.5px] text-ink3">I have read the message. It goes on WhatsApp, with SMS where WhatsApp fails.</span></span>
       </label>
     </SheetForm>
   );

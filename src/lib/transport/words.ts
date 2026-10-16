@@ -185,11 +185,12 @@ export function expiryWords(expires: Date | null, today: Date) {
 
 export const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
-/** "₹1,800" with no paise, for chips and short rows (amounts on fees use formatRupees). */
+/** "₹1,800" for chips and short rows; a fee with paise keeps them ("₹600.50"), never rounded to a fee nobody charges. */
 export function rupeesShort(p: bigint | number | null | undefined) {
   if (p == null) return "—";
-  const n = typeof p === "bigint" ? Number(p) / 100 : p / 100;
-  return `₹${Math.round(n).toLocaleString("en-IN")}`;
+  const paise = typeof p === "bigint" ? Number(p) : p;
+  const n = paise / 100;
+  return Number.isInteger(n) ? `₹${n.toLocaleString("en-IN")}` : `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 /** Paise as the rupees a person types in a money box ("1800" or "1800.50"). */
@@ -197,4 +198,14 @@ export function rupeesInput(p: bigint | null | undefined) {
   if (p == null) return "";
   const hundred = BigInt(100);
   return p % hundred === BigInt(0) ? String(p / hundred) : (Number(p) / 100).toFixed(2);
+}
+
+/**
+ * What the screen says about a driver app invite. It is called sent only when a
+ * message channel carried it: with WhatsApp, SMS and email all off nothing went.
+ */
+export function inviteWords(sentBy: string[], phone: string) {
+  return sentBy.length
+    ? `Driver app invite sent to ${phone} by ${sentBy.join(" and ")}`
+    : "The driver app invite was not sent by WhatsApp, SMS or email. Send it again from Settings, Users & Permissions to copy the sign-in link for them";
 }

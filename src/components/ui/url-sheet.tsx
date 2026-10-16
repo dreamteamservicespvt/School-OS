@@ -4,7 +4,7 @@
 // address, such as ?pay=<id>. The page decides on the server whether to show it,
 // so it can be linked to, refreshed and shared; closing goes back to closeHref.
 
-import { createContext, useActionState, useCallback, useContext, useEffect, useId, useRef, useTransition } from "react";
+import { createContext, useActionState, useCallback, useContext, useEffect, useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Dialog, SheetHead, sheetCls } from "./dialog";
 import { Button } from "./button";
@@ -71,11 +71,21 @@ export function SheetForm<T>({ title, sub, wide, closeHref, doneHref, action, su
     const d = ref.current;
     if (d && !d.open) d.showModal();
   }, []);
+  // A problem tied to a field that shows no error of its own (a field built outside the
+  // sheet's result, or a name the form does not have) is shown at the bottom instead,
+  // so a refused form never stays silent.
+  const [unseen, setUnseen] = useState<FormState<T>>(null);
   useEffect(() => {
     if (state?.ok) router.replace(doneHref ?? closeHref, { scroll: false });
-    else if (state) formRef.current?.querySelector<HTMLElement>("[aria-invalid=true]")?.focus();
+    else if (state) {
+      const invalid = formRef.current?.querySelector<HTMLElement>("[aria-invalid=true]");
+      invalid?.focus();
+      const t = window.setTimeout(() => setUnseen(invalid ? null : state), 0);
+      return () => window.clearTimeout(t);
+    }
   }, [state, doneHref, closeHref, router]);
   const fieldErrors = Object.keys(state?.errors ?? {}).length;
+  const showMessage = Boolean(state && !state.ok && state.message && (fieldErrors === 0 || unseen === state));
   return (
     <CloseCtx.Provider value={close}>
       <ResultCtx.Provider value={state as FormState<unknown>}>
@@ -87,7 +97,7 @@ export function SheetForm<T>({ title, sub, wide, closeHref, doneHref, action, su
               {hidden && Object.entries(hidden).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
               <ErrorSummary errors={state?.errors} />
               {children}
-              {state && !state.ok && state.message && fieldErrors === 0 && <Alert tone="danger">{state.message}</Alert>}
+              {showMessage && <Alert tone="danger">{state?.message}</Alert>}
             </div>
             <div className="border-t border-line px-5 py-3.5 flex flex-wrap gap-2 justify-end">
               {extraButtons}

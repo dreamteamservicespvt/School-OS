@@ -76,7 +76,7 @@ export default async function LibraryReportsPage({ searchParams }: { searchParam
           { label: "Fines collected", value: formatRupees(d.fines.collected.paise), sub: per.label, tone: "ok", href: reportHref("lib-fines") },
           { label: "Fines due", value: formatRupees(d.fines.due.paise), sub: `${d.fines.waived.count} waived · ${d.fines.waiting.count} waiting`, href: reportHref("lib-fines") },
         ]} />
-        <div className="grid gap-5 lg:grid-cols-2">
+        <div className="grid gap-5 grid-cols-1 lg:grid-cols-2">
           <Card className="p-5">
             <h2 className="font-semibold text-[15px] mb-3">Books issued by month</h2>
             {d.byMonth.length ? <BarsChart ariaLabel="Books issued by month" data={d.byMonth.map((m) => ({ k: `${MONTHS[Number(m.month.slice(5, 7)) - 1]} ${m.month.slice(2, 4)}`, v: m.value }))} /> : <p className="text-[13.5px] text-ink3">No books issued on these dates.</p>}

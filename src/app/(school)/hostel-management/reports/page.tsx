@@ -72,7 +72,7 @@ export default async function HostelReportsPage({ searchParams }: { searchParams
           { label: "Outings and leaves", value: d.outings.toLocaleString("en-IN"), sub: `${d.lateCount} late return${d.lateCount === 1 ? "" : "s"}`, tone: d.lateCount ? "bad" : undefined, href: reportHref("hostel-outings") },
           { label: "Incidents", value: d.incidents.toLocaleString("en-IN"), sub: per.label, href: reportHref("hostel-incidents") },
         ]} />
-        <div className="grid gap-5 lg:grid-cols-2">
+        <div className="grid gap-5 grid-cols-1 lg:grid-cols-2">
           <Card className="p-5">
             <h2 className="font-semibold text-[15px] mb-3">Occupancy by hostel</h2>
             {d.occ.rows.length ? <HBars labelWidth={110} valueWidth={72} rows={d.occ.rows.map((r) => ({ key: r.hostel.id, label: r.hostel.name, value: r.beds ? (r.taken / r.beds) * 100 : 0, text: `${r.taken} / ${r.beds}`, tone: r.free === 0 ? "warn" as const : "brand" as const }))} /> : <p className="text-[13.5px] text-ink3">No hostel yet.</p>}

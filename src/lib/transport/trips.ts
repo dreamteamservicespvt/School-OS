@@ -54,7 +54,13 @@ export async function saveSchedule(tx: Tx, ctx: SchoolContext, input: { routeId:
   const days = [...new Set(input.days)].filter((d) => d >= 1 && d <= 7).sort();
   if (!days.length) throw new TransportProblem("Pick at least one day.", "days");
   if (input.vehicleId && !(await tx.vehicle.findFirst({ where: { id: input.vehicleId, archivedAt: null } }))) throw new TransportProblem("Choose the vehicle from the list.", "vehicleId");
-  if (input.driverId && !(await tx.driver.findFirst({ where: { id: input.driverId, archivedAt: null, role: "DRIVER", status: "ACTIVE" } }))) throw new TransportProblem("Choose the driver from the list.", "driverId");
+  if (input.driverId) {
+    const d = await tx.driver.findFirst({ where: { id: input.driverId, archivedAt: null, role: "DRIVER", status: "ACTIVE" } });
+    if (!d) throw new TransportProblem("Choose the driver from the list.", "driverId");
+    const today = new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`);
+    if (d.licenceExpiry && d.licenceExpiry < today) throw new TransportProblem(`Licence of ${d.name} expired on ${formatDate(d.licenceExpiry)}. Choose a driver with a valid licence.`, "driverId");
+  }
+  if (input.attendantId && !(await tx.driver.findFirst({ where: { id: input.attendantId, archivedAt: null, role: "ATTENDANT", status: "ACTIVE" } }))) throw new TransportProblem("Choose the attendant from the list.", "attendantId");
   const existing = await tx.tripSchedule.findFirst({ where: { routeId: route.id, kind: input.kind, archivedAt: null } });
   const data = { vehicleId: input.vehicleId, driverId: input.driverId, attendantId: input.attendantId, startMin: input.startMin, days, updatedById: ctx.userId };
   const row = existing ? await tx.tripSchedule.update({ where: { id: existing.id }, data }) : await tx.tripSchedule.create({ data: { ...data, schoolId: ctx.schoolId, routeId: route.id, kind: input.kind } });

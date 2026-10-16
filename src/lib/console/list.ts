@@ -42,6 +42,8 @@ export function schoolsWhere(f: SchoolFilters, opts: { withStatus?: boolean } = 
   const and: Prisma.ConsoleSchoolWhereInput[] = [];
   if (f.ids) and.push({ id: { in: f.ids } });
   if (opts.withStatus !== false && f.status) and.push({ status: STATUS_KEYS[f.status] });
+  // Closed schools (and test schools closed after trying) show only under the Closed chip.
+  else if (opts.withStatus !== false && !f.ids) and.push({ status: { not: "CLOSED" } });
   if (f.board) and.push({ board: f.board });
   if (f.city) and.push({ city: f.city });
   if (f.by) and.push({ addedById: f.by });
@@ -104,7 +106,7 @@ export async function listSchools(f: SchoolFilters, now = new Date(), take = 500
     if (f.setup === "low") rows = rows.filter((r) => r.setupDone * 2 < r.setupTotal);
     if (f.setup === "mid") rows = rows.filter((r) => r.setupDone * 2 >= r.setupTotal && r.setupDone < r.setupTotal);
     const chipCount = (s: SchoolStatus) => chips.find((x) => x.status === s)?._count ?? 0;
-    return { rows, total, chips: { all: chips.reduce((t, x) => t + x._count, 0), trial: chipCount("TRIAL"), active: chipCount("ACTIVE"), suspended: chipCount("SUSPENDED"), closed: chipCount("CLOSED") } };
+    return { rows, total, chips: { all: chips.reduce((t, x) => t + (x.status === "CLOSED" ? 0 : x._count), 0), trial: chipCount("TRIAL"), active: chipCount("ACTIVE"), suspended: chipCount("SUSPENDED"), closed: chipCount("CLOSED") } };
   });
 }
 

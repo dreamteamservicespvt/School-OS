@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requirePage } from "@/lib/current";
+import { requireSettingsPage } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
 import { readListParams, skipTake, listHref } from "@/lib/list";
 import { formatDateTime } from "@/lib/format";
-import { can } from "@/lib/permissions";
 import { CHANNEL_LABEL, channelSetups, PROVIDER_CHANNELS, PROVIDER_FIELDS, PROVIDERS } from "@/lib/messaging/channels";
 import { creditBalances } from "@/lib/messaging/credits";
 import { webhookPath } from "@/lib/messaging/webhooks";
@@ -22,9 +21,9 @@ export const metadata: Metadata = { title: "SMS, WhatsApp & Email" };
 type Search = Promise<Record<string, string | string[] | undefined>>;
 
 export default async function MessagingSettingsPage({ searchParams }: { searchParams: Search }) {
-  const current = await requirePage("settings");
+  const { current, may } = await requireSettingsPage("messaging");
   const tz = current.school.timeZone;
-  const canEdit = can(current.permissions, "settings", "edit");
+  const canEdit = may.edit;
   const params = readListParams(await searchParams, ["channel"]);
   const data = await withSchool(current.ctx, async (tx) => {
     const ctx = current.ctx;
@@ -48,14 +47,14 @@ export default async function MessagingSettingsPage({ searchParams }: { searchPa
     <>
       <PageHeader title="SMS, WhatsApp & Email" href="/settings/messaging" userId={current.user.id} />
       <p className="-mt-3 mb-4 text-ink-2">Connect each channel to a provider. Keys are stored encrypted and never shown again. What each message says is in <Link href="/communication/templates" className="text-brand-text underline">Message Templates</Link>; automatic messages are in <Link href="/communication/settings" className="text-brand-text underline">Message Settings</Link>.</p>
-      {!canEdit && <Alert tone="info" className="mb-4">You can see these settings. Only the Principal and School Admin can change them.</Alert>}
+      {!canEdit && <Alert tone="info" className="mb-4">You can see these settings. The School Admin changes them.</Alert>}
       {low.map((c) => <Alert key={c} tone="warning" className="mb-4">Only {data.balances[c].toLocaleString("en-IN")} {CHANNEL_LABEL[c]} credits left, below your alert of {data.setups[c].lowCreditAlert.toLocaleString("en-IN")}. Buy more from the provider and add them below.</Alert>)}
 
       <div className="space-y-5">
         {PROVIDER_CHANNELS.map((c) => {
           const s = data.setups[c];
           return (
-            <ChannelCard key={c} data={{
+            <ChannelCard key={c} readOnly={!canEdit} data={{
               channel: c, label: CHANNEL_LABEL[c], provider: s.provider, providers: PROVIDERS[c], fields: Object.fromEntries(PROVIDERS[c].map((p) => [p.key, PROVIDER_FIELDS[p.key] ?? []])),
               config: s.config, hasSecrets: s.hasSecrets, secretsLast4: s.secretsLast4, isOn: s.isOn, live: s.environment === "live", lowCreditAlert: s.lowCreditAlert,
               lastTest: s.lastTestAt ? { at: formatDateTime(s.lastTestAt, tz), ok: Boolean(s.lastTestOk), note: s.lastTestNote ?? "" } : null,
@@ -69,7 +68,7 @@ export default async function MessagingSettingsPage({ searchParams }: { searchPa
           <CardHeader title="SMS: DLT registration" description="Indian telecom rules: every SMS needs the school's DLT entity ID, an approved sender header, and a DLT template ID on each SMS template." />
           <CardBody>
             {dltMissing && <Alert tone="warning" className="mb-3">SMS cannot be switched on until both are added.</Alert>}
-            <DltForm entityId={data.school.smsDltEntityId ?? ""} header={data.school.smsSenderHeader ?? ""} />
+            <DltForm entityId={data.school.smsDltEntityId ?? ""} header={data.school.smsSenderHeader ?? ""} readOnly={!canEdit} />
           </CardBody>
         </Card>
 

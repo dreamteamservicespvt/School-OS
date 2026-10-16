@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requirePage } from "@/lib/current";
+import { requireSettingsPage } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
 import { formatDateTime } from "@/lib/format";
 import { readListParams } from "@/lib/list";
@@ -24,7 +24,7 @@ function whatWords(action: string, a: ExportAfter) {
 }
 
 export default async function ExportLogPage({ searchParams }: Search) {
-  const current = await requirePage("settings");
+  const { current } = await requireSettingsPage("data-security");
   const params = readListParams(await searchParams, ["person"]);
   const tz = current.school.timeZone;
   const reach = reachFor(current.permissions, "settings", "view");

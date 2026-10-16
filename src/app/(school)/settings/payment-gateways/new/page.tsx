@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { randomUUID } from "node:crypto";
-import { requirePage } from "@/lib/current";
+import { requireSettingsPage } from "@/lib/settings/page-access";
 import { appOrigin } from "@/lib/origin";
 import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardBody } from "@/components/ui/card";
@@ -11,7 +11,7 @@ import { providerInfo } from "../providers-info";
 export const metadata: Metadata = { title: "Add a gateway" };
 
 export default async function NewGatewayPage() {
-  const current = await requirePage("settings", "create");
+  const { current } = await requireSettingsPage("payment-gateways", "create");
   const origin = await appOrigin();
   return (
     <>

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requirePage } from "@/lib/current";
+import { requireSettingsPage } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
 import { REQUEST_TYPES, barredFrom } from "@/lib/approvals";
 import { roleKeyOf, rulesInUse } from "@/lib/settings/approval-rules";
@@ -22,7 +22,7 @@ function rupees(paise: string | null | undefined) {
 }
 
 export default async function RulePage({ params }: { params: Promise<{ type: string }> }) {
-  const current = await requirePage("settings", "edit");
+  const { current } = await requireSettingsPage("forms-approvals", "edit");
   const { type } = await params;
   const t = REQUEST_TYPES.find((x) => x.key === type);
   if (!t) notFound();

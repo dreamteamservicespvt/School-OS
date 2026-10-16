@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requirePage } from "@/lib/current";
+import { requireSettingsPage } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
-import { can, combineRoles, applyExceptions, narrowToOwn, type ModuleAccess } from "@/lib/permissions";
+import { combineRoles, applyExceptions, narrowToOwn, type ModuleAccess } from "@/lib/permissions";
 import { formatDateTime } from "@/lib/format";
 import { schoolsFor } from "@/lib/auth/access";
 import { MODULES } from "@/lib/modules";
@@ -63,7 +63,7 @@ function historyDetail(action: string, before: unknown, after: unknown): string 
 }
 
 export default async function UserPage({ params }: { params: Promise<{ id: string }> }) {
-  const current = await requirePage("settings");
+  const { current, may } = await requireSettingsPage("users");
   const { id } = await params;
   if (!UUID.test(id)) notFound();
   const tz = current.school.timeZone;
@@ -90,7 +90,7 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
   const last = accesses[0];
   const state: UserState = stateOf(login.status as UserState, Boolean(live));
   const otherSchools = (await schoolsFor(id)).filter((s) => s.id !== current.school.id);
-  const mayEdit = can(current.permissions, "settings", "edit");
+  const mayEdit = may.edit;
   const isSelf = id === current.user.id;
   const mayResetTwoStep = !isSelf && current.roles.some((r) => r.key === "school-admin" || r.key === "principal");
 

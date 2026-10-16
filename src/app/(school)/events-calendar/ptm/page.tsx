@@ -1,12 +1,13 @@
 import { Fragment } from "react";
 import Link from "next/link";
-import { Building2, CalendarCheck2, CalendarClock, CalendarX2, ChartColumn, NotebookPen, Plus, Users, X } from "lucide-react";
+import { Building2, CalendarCheck2, CalendarClock, CalendarX2, ChartColumn, Link2, NotebookPen, Plus, Users, X } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { formatDateTime } from "@/lib/format";
 import { dateWhere } from "@/lib/periods";
 import { placesOf, placeOrder } from "@/lib/events/places";
 import { PTM_STATUS_TONE, absentParents, performance, ptmStatus, waitingQueue } from "@/lib/events/ptm";
-import { clock, clockShort, dmy, isoOf, niceDay, shortDay } from "@/lib/events/words";
+import { clock, clockShort, dayOf, dmy, isoOf, niceDay, shortDay } from "@/lib/events/words";
+import { homeworkDone } from "@/lib/homework/progress";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -64,6 +65,8 @@ export default async function PtmPage({ searchParams }: { searchParams: SearchPa
     const guardianIds = slots.map((s) => s.guardianId).filter((x): x is string => Boolean(x));
     const guardians = guardianIds.length ? await tx.guardian.findMany({ where: { id: { in: guardianIds } }, select: { id: true, name: true } }) : [];
     const places = await placesOf(tx, bookedIds, D.academicYearId);
+    // Homework done this school year for each booked student (the same count as Learning Progress).
+    const homework = await homeworkDone(tx, bookedIds, D.academicYearId, dayOf(p.today));
     // Bookings by class: parents who booked / students in the class.
     const enrolled = await tx.enrolment.groupBy({ by: ["classId"], where: { academicYearId: D.academicYearId, classId: { in: D.classIds }, archivedAt: null, status: "STUDYING" }, _count: { _all: true } });
     const classes = await tx.schoolClass.findMany({ where: { id: { in: D.classIds } }, select: { id: true, name: true, sortOrder: true }, orderBy: { sortOrder: "asc" } });
@@ -98,7 +101,7 @@ export default async function PtmPage({ searchParams }: { searchParams: SearchPa
     }
     const perf = doing === "meet" && slot?.studentId ? await performance(tx, ctx, slot.studentId, D.academicYearId, p.today) : null;
     return {
-      ptms, D, totals: n(totals), booked: n(booked), met: n(met), mine, teachers, slots, notes, staff, students, guardians, places,
+      ptms, D, totals: n(totals), booked: n(booked), met: n(met), mine, teachers, slots, notes, staff, students, guardians, places, homework,
       enrolled: new Map(enrolled.map((e) => [e.classId, e._count._all])), classes, queue, absent, recent, rStudents, rStaff, rPlaces, slot, pickList, perf,
     };
   });
@@ -106,7 +109,10 @@ export default async function PtmPage({ searchParams }: { searchParams: SearchPa
   const keepDay = d.D ? { day: d.D.id } : {};
   const here = (over: Record<string, string | null> = {}) => qs(HREF, { ...vp.keep, ...keepDay, ...over });
   const classOptions = async () => withSchool(ctx, (tx) => tx.schoolClass.findMany({ where: { archivedAt: null }, select: { id: true, name: true, sortOrder: true }, orderBy: { sortOrder: "asc" } }));
-  const sub = p.can.own ? "Only your own PTM slots and notes. The office books slots for parents who call or come in." : "Parent–teacher meetings: slots per teacher, booked by the office for parents, with notes.";
+  const byParents = p.settings.ptmParentBooking;
+  const sub = p.can.own
+    ? `Only your own PTM slots and notes. ${byParents ? "Parents book a slot on Parent Link; the office can book for them." : "The office books slots for parents who call or come in."}`
+    : `Parent–teacher meetings: slots per teacher, booked ${byParents ? "by parents on Parent Link or by the office" : "by the office for parents"}, with notes.`;
   const head = <EvHead pageName="PTM" href={HREF} sub={sub} actions={plan && <ButtonLink href={here({ do: "plan" })} scroll={false} variant="primary" icon={Plus}>Plan a PTM</ButtonLink>} />;
   const planSheet = plan && doing === "plan" ? await (async () => {
     const cls = await classOptions();
@@ -150,6 +156,8 @@ export default async function PtmPage({ searchParams }: { searchParams: SearchPa
   const cell = new Map(d.slots.map((s) => [`${s.staffId}:${s.startMin}`, s]));
   const bookable = !past && p.can.ptmBook;
   const officeBooked = d.slots.filter((s) => s.studentId).length;
+  const byLink = d.slots.filter((s) => s.studentId && s.bookedVia === "parent-link").length;
+  const hw = (studentId: string | null) => (studentId ? d.homework.get(studentId)?.pct ?? null : null);
   const myRow = meId ? d.teachers.find((t) => t.staffId === meId) : undefined;
 
   // The open sheet.
@@ -244,14 +252,14 @@ export default async function PtmPage({ searchParams }: { searchParams: SearchPa
         {status === "Booking open" && full && (
           <Banner tone="info" title={`Booking is open for ${shortDay(iso)}.`}
             action={plan && <MoreMenu label="More PTM actions" items={[{ label: "Cancel this PTM", href: here({ do: "cancel" }), icon: <X size={16} aria-hidden="true" />, tone: "bad" }]} />}>
-            {d.teachers.length} teachers, {D.slotMinutes}-minute slots. Parents get a confirmation when booked and a reminder the day before.
+            {d.teachers.length} teachers, {D.slotMinutes}-minute slots. {byParents ? "Parents book on Parent Link until the day before; the office can book for them. " : ""}Parents get a confirmation when booked and a reminder the day before.
           </Banner>
         )}
 
         {!p.can.own && (
           <Card className="overflow-hidden">
             <CardHeader icon={CalendarClock} title={`Teacher slots · ${shortDay(iso)}`}
-              description={`${D.slotMinutes}-minute slots · ${officeBooked} booked${bookable ? " · tap a free slot to book" : ""}`}
+              description={`${D.slotMinutes}-minute slots · ${officeBooked} booked${byLink ? ` (${byLink} by parents on Parent Link)` : ""}${bookable ? " · tap a free slot to book" : ""}`}
               action={<Legend items={[["bg-brand/15", "Booked"], ["bg-ok/15", "Notes saved"], ["bg-sunken border border-line", "Free"]]} />} />
             <div className="overflow-x-auto scroll-thin border-t border-line">
               <table className="text-[12.5px] min-w-full">
@@ -279,11 +287,14 @@ export default async function PtmPage({ searchParams }: { searchParams: SearchPa
                           );
                         }
                         const done = noted.has(c.id);
+                        const viaLink = c.bookedVia === "parent-link";
+                        const h = hw(c.studentId);
                         return (
                           <td key={tm} className="px-1 py-1.5">
-                            <Link href={here({ do: "meet", slot: c.id })} scroll={false} className={cx("block w-full h-11 rounded-lg px-1.5 py-1 text-left transition hover:brightness-95", done ? "bg-ok/12 text-ok" : "bg-brand/12 text-brand")}>
-                              <span className="block font-semibold truncate leading-tight">{firstL(c.studentId)}</span>
-                              <span className="flex items-center gap-1 text-[10.5px] opacity-90"><Building2 size={10} aria-hidden="true" />{done ? "Notes saved" : c.arrivedAt ? "Arrived" : "Office"}</span>
+                            <Link href={here({ do: "meet", slot: c.id })} scroll={false} aria-label={`${student(c.studentId)?.fullName ?? "Student"} at ${clock(tm)}, booked ${viaLink ? "on Parent Link" : "by the office"}${h != null ? `, homework ${h}% done` : ""}`}
+                              className={cx("block w-full h-11 rounded-lg px-1.5 py-1 text-left transition hover:brightness-95", done ? "bg-ok/12 text-ok" : "bg-brand/12 text-brand")}>
+                              <span className="flex items-baseline gap-1 leading-tight"><span className="font-semibold truncate min-w-0 flex-1">{firstL(c.studentId)}</span>{h != null && <span className="text-[10px] font-semibold tnum shrink-0 opacity-80">{h}%</span>}</span>
+                              <span className="flex items-center gap-1 text-[10.5px] opacity-90">{viaLink ? <Link2 size={10} aria-hidden="true" /> : <Building2 size={10} aria-hidden="true" />}{done ? "Notes saved" : c.arrivedAt ? "Arrived" : viaLink ? "Parent Link" : "Office"}</span>
                             </Link>
                           </td>
                         );
@@ -293,7 +304,7 @@ export default async function PtmPage({ searchParams }: { searchParams: SearchPa
                 </tbody>
               </table>
             </div>
-            <p className="px-5 py-3 text-[12.5px] text-ink3 border-t border-line">One parent per slot. Parents get a confirmation and a reminder the evening before. {d.teachers.length} teachers.</p>
+            <p className="px-5 py-3 text-[12.5px] text-ink3 border-t border-line">One parent per slot. The % on a booked slot is the student’s homework done this year. Parents get a confirmation and a reminder the evening before{byParents ? ", and can change or cancel on Parent Link until the day before" : ""}. {d.teachers.length} teachers.</p>
           </Card>
         )}
 
@@ -312,7 +323,11 @@ export default async function PtmPage({ searchParams }: { searchParams: SearchPa
                       {!c.studentId ? <span className="flex-1 text-[13.5px] text-ink3">Free</span> : (
                         <>
                           <Avatar name={student(c.studentId)?.fullName ?? "Student"} size={32} />
-                          <div className="min-w-0 flex-1"><p className="font-semibold text-[14px] truncate">{parentOf(c)}</p><p className="text-[12px] text-ink3 truncate">Parent of {student(c.studentId)?.fullName} · {d.places.get(c.studentId)?.label}</p></div>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-semibold text-[14px] truncate">{parentOf(c)}</p>
+                            <p className="text-[12px] text-ink3 truncate">Parent of {student(c.studentId)?.fullName} · {d.places.get(c.studentId)?.label}{c.bookedVia === "parent-link" ? " · booked on Parent Link" : ""}</p>
+                            <p className="text-[12px] text-ink2 tnum">{hw(c.studentId) != null ? `Homework ${hw(c.studentId)}% done this year` : "No homework given yet"}</p>
+                          </div>
                           {done ? <Pill tone="ok">Notes saved</Pill> : c.arrivedAt ? <Pill tone="brand">Arrived</Pill> : null}
                         </>
                       )}

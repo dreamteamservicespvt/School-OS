@@ -5,7 +5,8 @@ import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
 import { MoneyProblem } from "../fees/problem";
-import { monthLabel } from "../staff/dates";
+import { monthLabel, todayIn } from "../staff/dates";
+import { formatDate } from "../format";
 
 export const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
@@ -67,7 +68,39 @@ export async function assertBooksOpen(tx: Tx, ctx: SchoolContext, date: Date, fi
   const month = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
   const closed = await tx.periodClose.findUnique({ where: { schoolId_month: { schoolId: ctx.schoolId, month } } });
   if (closed) throw new MoneyProblem(`${monthLabel(month)} is closed, so its books cannot change. Post an adjustment in the open month.`, field);
+  await assertDayOpen(tx, ctx, date, field);
   return fy;
+}
+
+/** The last date the Day Book is closed through (Close the day), or null when no day is closed. Every earlier date is locked too. */
+export async function dayClosedThrough(tx: Tx, ctx: SchoolContext): Promise<Date | null> {
+  const last = await tx.dayClose.findFirst({ where: { schoolId: ctx.schoolId, reopenedAt: null }, orderBy: { date: "desc" }, select: { date: true } });
+  return last?.date ?? null;
+}
+
+/** Today in the school's time zone. */
+export async function schoolToday(tx: Tx, ctx: SchoolContext) {
+  const school = await tx.school.findUnique({ where: { id: ctx.schoolId }, select: { timeZone: true } });
+  return todayIn(school?.timeZone ?? "Asia/Kolkata");
+}
+
+/**
+ * Throws when a person chooses a past date the Day Book is closed through.
+ * Today stays allowed after it is closed: what is recorded later today goes
+ * into the next day's Day Book (postToDayBook moves it there).
+ */
+export async function assertDayOpen(tx: Tx, ctx: SchoolContext, date: Date, field = "date") {
+  const through = await dayClosedThrough(tx, ctx);
+  if (!through || date > through) return;
+  if (date >= (await schoolToday(tx, ctx))) return;
+  throw new MoneyProblem(`The Day Book is closed up to ${formatDate(through)}, so ${formatDate(date)} cannot change. Choose a later date, or ask the Principal to reopen the day.`, field);
+}
+
+/** The date a Day Book entry goes on: the date itself, or the day after the Day Book is closed through. */
+export async function openDayFor(tx: Tx, ctx: SchoolContext, date: Date): Promise<{ date: Date; moved: boolean }> {
+  const through = await dayClosedThrough(tx, ctx);
+  if (!through || date > through) return { date, moved: false };
+  return { date: new Date(through.getTime() + 86_400_000), moved: true };
 }
 
 /** The last day whose books are closed (closed months and years), or null. Payments cannot be dated on or before it. */

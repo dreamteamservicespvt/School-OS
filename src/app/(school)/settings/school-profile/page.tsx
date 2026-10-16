@@ -1,14 +1,13 @@
 import type { Metadata } from "next";
-import { requirePage } from "@/lib/current";
+import { requireSettingsPage } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
-import { can } from "@/lib/permissions";
 import { fileLink } from "@/lib/files";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { readListParams } from "@/lib/list";
 import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { ListToolbar } from "@/components/list/list-toolbar";
-import { DOCUMENT_TYPES_VAULT, readPreferences } from "@/lib/settings/profile-rules";
+import { BOARDS, DOCUMENT_TYPES_VAULT, LANGUAGES, TIME_ZONES, readPreferences } from "@/lib/settings/profile-rules";
 import { expiryState, mayOpenDocument, type DocVersion } from "@/lib/settings/vault";
 import { DetailsForm } from "./details-form";
 import { BoardForm, ComplianceForm, LogoForm, RegionForm } from "./sections";
@@ -16,6 +15,22 @@ import { Campuses } from "./campuses";
 import { Documents, type DocRow } from "./documents";
 
 export const metadata: Metadata = { title: "School Profile" };
+
+/** A setting shown as text, for people who read School Profile but do not change it. */
+function Facts({ rows, cols = "sm:grid-cols-2" }: { rows: [string, React.ReactNode][]; cols?: string }) {
+  return (
+    <dl className={`grid gap-4 ${cols}`}>
+      {rows.map(([label, value]) => (
+        <div key={label} className="min-w-0">
+          <dt className="text-sm text-ink-2">{label}</dt>
+          <dd className="break-words font-medium">{value || <span className="font-normal text-ink-2">Not given</span>}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+const labelOf = (list: readonly { value: string; label: string }[], v: string | null | undefined) => (v ? list.find((x) => x.value === v)?.label ?? v : "");
 
 const SECTIONS = [
   ["details", "School details"],
@@ -27,8 +42,8 @@ const SECTIONS = [
 ] as const;
 
 export default async function SchoolProfilePage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const current = await requirePage("settings");
-  const canEdit = can(current.permissions, "settings", "edit");
+  const { current, may } = await requireSettingsPage("school-profile");
+  const canEdit = may.edit;
   const params = readListParams(await searchParams, ["type", "status"]);
   const tz = current.school.timeZone;
   const roleKeys = current.roles.map((r) => r.key);
@@ -85,7 +100,7 @@ export default async function SchoolProfilePage({ searchParams }: { searchParams
           </a>
         ))}
       </nav>
-      {!canEdit && <p className="mb-4 rounded-xl bg-surface-2 p-3 text-sm text-ink-2">Your role can see these settings but not change them.</p>}
+      {!canEdit && <p className="mb-4 rounded-xl bg-surface-2 p-3 text-sm text-ink-2">You can see the school&apos;s profile here. The School Admin changes it.</p>}
       <div className="space-y-5">
         <Card id="details" className="scroll-mt-20">
           <CardHeader title="School details" description="Shown on screens, receipts, certificates and messages. Each section saves on its own." />
@@ -97,30 +112,55 @@ export default async function SchoolProfilePage({ searchParams }: { searchParams
                 <img src={logoHref} alt="School logo" className="size-28 rounded-xl border border-line object-contain p-2" />
               ) : <p className="text-ink-2">No logo yet.</p>}
             </section>
-            <DetailsForm logoHref={logoHref} initial={{
-              name: school.name, address: school.address ?? "", phone: school.phone ?? "", email: school.email ?? "", website: school.website ?? "",
-              affiliationNumber: school.affiliationNumber ?? "", gstin: school.gstin ?? "", brandColor: school.brandColor ?? "",
-            }} />
+            {canEdit ? (
+              <DetailsForm logoHref={logoHref} initial={{
+                name: school.name, address: school.address ?? "", phone: school.phone ?? "", email: school.email ?? "", website: school.website ?? "",
+                affiliationNumber: school.affiliationNumber ?? "", gstin: school.gstin ?? "", brandColor: school.brandColor ?? "",
+              }} />
+            ) : (
+              <Facts rows={[
+                ["School name", school.name], ["Address", school.address], ["Phone", school.phone], ["Email", school.email], ["Website address", school.website],
+                ["Affiliation number", school.affiliationNumber], ["GSTIN", school.gstin],
+                ["Brand colour", school.brandColor ? <span className="inline-flex items-center gap-2"><span aria-hidden="true" className="size-5 rounded-full border border-line" style={{ background: school.brandColor }} /><span className="font-mono">{school.brandColor}</span></span> : null],
+              ]} />
+            )}
           </CardBody>
         </Card>
 
         <Card id="board" className="scroll-mt-20">
           <CardHeader title="Board and curriculum" description="The board sets defaults for grading, the report card and terms. The modules offer them; each can still be changed there." />
-          <CardBody><BoardForm board={school.board ?? ""} secondBoard={prefs.secondBoard ?? ""} /></CardBody>
+          <CardBody>
+            {canEdit ? <BoardForm board={school.board ?? ""} secondBoard={prefs.secondBoard ?? ""} />
+              : <Facts rows={[["Board", labelOf(BOARDS, school.board)], ["Second board", prefs.secondBoard ? labelOf(BOARDS, prefs.secondBoard) : "This school runs one board"]]} />}
+          </CardBody>
         </Card>
 
         <Card id="region" className="scroll-mt-20">
           <CardHeader title="Language and region" description="Languages switched on here can be chosen for screens and for messages to parents." />
-          <CardBody><RegionForm languages={school.languages} defaultLanguage={school.defaultLanguage} timeZone={school.timeZone} /></CardBody>
+          <CardBody>
+            {canEdit ? <RegionForm languages={school.languages} defaultLanguage={school.defaultLanguage} timeZone={school.timeZone} />
+              : <Facts cols="sm:grid-cols-3" rows={[
+                  ["Screen and message languages", school.languages.map((l) => labelOf(LANGUAGES, l)).join(", ")],
+                  ["Default language", labelOf(LANGUAGES, school.defaultLanguage)],
+                  ["Time zone", labelOf(TIME_ZONES, school.timeZone)],
+                ]} />}
+          </CardBody>
         </Card>
 
         <Card id="compliance" className="scroll-mt-20">
           <CardHeader title="Board compliance" description="Registration numbers the board and the government ask for." />
           <CardBody>
-            <ComplianceForm board={school.board ?? ""} initial={{
-              udiseCode: prefs.compliance?.udiseCode ?? "", boardSchoolCode: prefs.compliance?.boardSchoolCode ?? "",
-              registrationNumber: prefs.compliance?.registrationNumber ?? "", panNumber: prefs.compliance?.panNumber ?? "",
-            }} />
+            {canEdit ? (
+              <ComplianceForm board={school.board ?? ""} initial={{
+                udiseCode: prefs.compliance?.udiseCode ?? "", boardSchoolCode: prefs.compliance?.boardSchoolCode ?? "",
+                registrationNumber: prefs.compliance?.registrationNumber ?? "", panNumber: prefs.compliance?.panNumber ?? "",
+              }} />
+            ) : (
+              <Facts rows={[
+                ["UDISE+ code", prefs.compliance?.udiseCode], [school.board ? `${school.board} school code` : "Board school code", prefs.compliance?.boardSchoolCode],
+                ["Society or trust registration number", prefs.compliance?.registrationNumber], ["PAN of the society or trust", prefs.compliance?.panNumber],
+              ]} />
+            )}
             <p className="mt-6 border-t border-line pt-4 text-sm text-ink-2">
               School group: {school.group ? <strong className="text-ink">{school.group.name}</strong> : "this school is not part of a school group"}.
               {school.group ? " Settings shared by the group are set by DREAM TEAM when the group is set up; this school's own settings above always apply here." : ""}

@@ -11,6 +11,7 @@ import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { assertYearOpen } from "../academic/years";
 import { attendanceSummary } from "../attendance/summary";
+import { homeworkDone } from "../homework/progress";
 import { ruleStates, sendAutomatic, sendMessage } from "../messaging";
 import { staffForUser } from "../people";
 import { EventsProblem } from "./problem";
@@ -180,7 +181,7 @@ export async function bookSlot(tx: Tx, ctx: SchoolContext, slotId: string, stude
   if (already) throw new EventsProblem(`${s.firstName}'s parent already has a slot with ${tName} at ${clock(already.startMin)}. Pick another student or slot.`, "studentId");
   const primary = await tx.studentGuardian.findFirst({ where: { studentId, archivedAt: null }, orderBy: [{ isPrimary: "desc" }, { emergencyOrder: "asc" }], select: { guardianId: true } });
   // One parent per slot: only a free slot is taken (another person booking the same slot at once gets 0 rows).
-  const took = await tx.ptmSlot.updateMany({ where: { id: slot.id, studentId: null }, data: { studentId, guardianId: primary?.guardianId ?? null, bookedById: ctx.userId, bookedAt: new Date(), arrivedAt: null, remindedAt: null } });
+  const took = await tx.ptmSlot.updateMany({ where: { id: slot.id, studentId: null }, data: { studentId, guardianId: primary?.guardianId ?? null, bookedById: ctx.userId, bookedAt: new Date(), bookedVia: "office", arrivedAt: null, remindedAt: null } });
   if (took.count === 0) {
     const now = await tx.ptmSlot.findFirst({ where: { id: slot.id } });
     const who = now?.studentId ? await studentFirst(tx, now.studentId) : null;
@@ -192,7 +193,7 @@ export async function bookSlot(tx: Tx, ctx: SchoolContext, slotId: string, stude
 }
 
 /** The confirmation now, or the reminder before the day (automatic message rule "ptm"). */
-async function tellParent(tx: Tx, ctx: SchoolContext, slot: PtmSlot & { ptm: Ptm }, teacher: string, kind: "confirm" | "remind") {
+export async function tellParent(tx: Tx, ctx: SchoolContext, slot: PtmSlot & { ptm: Ptm }, teacher: string, kind: "confirm" | "remind") {
   if (!slot.studentId) return false;
   const places = await placesOf(tx, [slot.studentId], slot.ptm.academicYearId);
   const place = places.get(slot.studentId);
@@ -215,7 +216,7 @@ export async function cancelBooking(tx: Tx, ctx: SchoolContext, slotId: string, 
   if (isoOf(slot.ptm.date) < today) throw new EventsProblem("This PTM is over.");
   if (await tx.ptmMeetingNote.findFirst({ where: { slotId } })) throw new EventsProblem("Notes are saved for this meeting, so the booking stays.");
   const s = await studentFirst(tx, slot.studentId);
-  await tx.ptmSlot.update({ where: { id: slot.id }, data: { studentId: null, guardianId: null, bookedById: null, bookedAt: null, arrivedAt: null, remindedAt: null } });
+  await tx.ptmSlot.update({ where: { id: slot.id }, data: { studentId: null, guardianId: null, bookedById: null, bookedAt: null, bookedVia: null, arrivedAt: null, remindedAt: null } });
   await writeAudit(tx, ctx, { action: "booking-cancelled", recordType: "PTM Slot", recordId: slot.id, before: { student: s.fullName, time: clock(slot.startMin) } });
   return { student: s, time: clock(slot.startMin) };
 }
@@ -306,9 +307,10 @@ export async function performance(tx: Tx, ctx: SchoolContext, studentId: string,
   }
   const links = await tx.behaviourIncidentStudent.findMany({ where: { studentId }, select: { incidentId: true } });
   const incidents = links.length ? await tx.behaviourIncident.findMany({ where: { id: { in: links.map((l) => l.incidentId) }, archivedAt: null, academicYearId }, orderBy: { date: "desc" }, take: 3 }) : [];
+  const homework = (await homeworkDone(tx, [studentId], academicYearId, dayOf(today))).get(studentId)?.pct ?? null;
   return {
     attendance,
-    homework: null,
+    homework,
     latest,
     behaviour: incidents.map((i) => ({ date: isoOf(i.date), kind: i.kind, text: i.description })),
   };

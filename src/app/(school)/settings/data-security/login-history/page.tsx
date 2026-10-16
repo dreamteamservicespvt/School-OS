@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requirePage } from "@/lib/current";
+import { requireSettingsPage } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
 import { formatDateTime } from "@/lib/format";
 import { readListParams } from "@/lib/list";
@@ -18,7 +18,7 @@ export const metadata: Metadata = { title: "Login history · Data Backup & Secur
 type Search = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
 export default async function LoginHistoryPage({ searchParams }: Search) {
-  const current = await requirePage("settings");
+  const { current } = await requireSettingsPage("data-security");
   const sp = await searchParams;
   const params = readListParams(sp, ["person", "outcome"]);
   const tz = current.school.timeZone;

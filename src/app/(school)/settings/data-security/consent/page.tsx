@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import { requirePage } from "@/lib/current";
+import { requireSettingsPage } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
 import { formatDate } from "@/lib/format";
-import { can } from "@/lib/permissions";
 import { consentTexts, LANGUAGE_NAMES, READY_TEXTS } from "@/lib/data-security/consent";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +12,7 @@ export const metadata: Metadata = { title: "Consent · Data Backup & Security" }
 type Search = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
 export default async function ConsentPage({ searchParams }: Search) {
-  const current = await requirePage("settings");
+  const { current, may } = await requireSettingsPage("data-security");
   const sp = await searchParams;
   const tz = current.school.timeZone;
   const data = await withSchool(current.ctx, async (tx) => {
@@ -22,7 +21,7 @@ export default async function ConsentPage({ searchParams }: Search) {
     return { types: await consentTexts(tx), school, names: new Map(people.map((p) => [p.userLogin.id, p.userLogin.displayName])) };
   });
   const langs = [...new Set([data.school?.defaultLanguage ?? "en", ...(data.school?.languages ?? ["en"])])];
-  const canEdit = can(current.permissions, "settings", "edit");
+  const canEdit = may.edit;
   const starts = Object.fromEntries(data.types.map((t) => [t.key, t.current
     ? { title: t.current.title, text: t.current.text as Record<string, string>, askedOnAdmission: t.current.askedOnAdmission }
     : { title: READY_TEXTS[t.key]?.title ?? "", text: READY_TEXTS[t.key] ? { en: READY_TEXTS[t.key].en } : {}, askedOnAdmission: t.key === "data-processing" || t.key === "photo" }]));

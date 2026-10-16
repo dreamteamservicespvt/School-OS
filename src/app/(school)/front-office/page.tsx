@@ -127,7 +127,7 @@ export default async function DeskPage({ searchParams }: { searchParams: SearchP
                         <Avatar name={v.name} size={40} />
                         <Link href={here({ pass: v.id })} scroll={false} className="min-w-0 flex-1 text-left">
                           <p className="font-semibold text-[14.5px] leading-snug truncate">{v.name} <span className="text-ink3 font-normal">· {v.purpose}</span></p>
-                          <p className="text-[12.5px] text-ink3 truncate">In {clockAt(v.timeIn, p.tz)}{met ? ` · to meet ${met}` : ""}{v.note ? ` · ${v.note}` : ""}</p>
+                          <p className="text-[12.5px] text-ink3 truncate">{r && met && <span className="sm:hidden font-semibold text-ink2">{met.split(" ")[0]}: {r.label} · </span>}In {clockAt(v.timeIn, p.tz)}{met ? ` · to meet ${met}` : ""}{v.note ? ` · ${v.note}` : ""}</p>
                         </Link>
                         {r && met && <Pill tone={r.tone} className="hidden sm:inline-flex">{met.split(" ")[0]}: {r.label}</Pill>}
                         {p.can.checkOut && <ButtonLink href={here({ out: v.id })} scroll={false} size="sm" variant="secondary" icon={LogOut} aria-label={`Check out ${v.name}`}><span className="hidden sm:inline">Check out</span></ButtonLink>}

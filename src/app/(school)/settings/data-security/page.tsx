@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requirePage } from "@/lib/current";
+import { requireSettingsPage } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
 import { formatDate, formatDateTime, formatTime } from "@/lib/format";
-import { can } from "@/lib/permissions";
 import { lastBackup } from "@/lib/data-security/privacy";
 import { exportExpired, EXPORT_LINK_HOURS } from "@/lib/data-security/data-export";
 import { daysAgo, securityAlerts, TWO_STEP_FEATURE } from "@/lib/data-security/alerts";
@@ -23,7 +22,7 @@ function backupWords(at: Date, tz: string, now = new Date()) {
 }
 
 export default async function DataSecurityPage() {
-  const current = await requirePage("settings");
+  const { current, may } = await requireSettingsPage("data-security");
   const tz = current.school.timeZone;
   const since = daysAgo(30);
   const [backup, data] = await Promise.all([
@@ -39,8 +38,8 @@ export default async function DataSecurityPage() {
       return { exports, jobStatus: new Map(jobs.map((j) => [j.idempotencyKey, j.status])), alerts, names: new Map(people.map((p) => [p.userLogin.id, p.userLogin.displayName])), twoStepOn: twoStep?.isOn ?? false, twoStepRoles: [...new Set(twoStepRoles.map((r) => r.name))] };
     }),
   ]);
-  const canExport = can(current.permissions, "settings", "export");
-  const canEdit = can(current.permissions, "settings", "edit");
+  const canExport = may.export;
+  const canEdit = may.edit;
   const preparing = data.exports.some((e) => e.status === "preparing" && data.jobStatus.get(`data-export:${e.id}`) !== "failed");
 
   return (

@@ -136,7 +136,7 @@ export function DesignEditor({ type, fields, initial, signatories, canEdit, reco
               <input type="color" className="mt-1 block h-11 w-16 cursor-pointer rounded-lg border border-line-strong bg-surface" disabled={!canEdit}
                 value={o.accent || "#1d4ed8"} onChange={(e) => set("accent", e.target.value.toUpperCase())} />
             </label>
-            {o.accent ? <Button variant="ghost" size="sm" disabled={!canEdit} onClick={() => set("accent", "")}>Use the school&apos;s colour</Button> : <p className="pb-3 text-sm text-ink-2">Using the school&apos;s branding colour.</p>}
+            {o.accent ? (canEdit && <Button variant="ghost" size="sm" onClick={() => set("accent", "")}>Use the school&apos;s colour</Button>) : <p className="pb-3 text-sm text-ink-2">Using the school&apos;s branding colour.</p>}
           </div>
           <Check label="Show the school logo" checked={o.showLogo} onChange={(v) => set("showLogo", v)} help="The logo is set in School Profile." />
           {family !== "card" && <Check label="Faint logo behind the text" checked={o.watermark} onChange={(v) => set("watermark", v)} />}
@@ -174,7 +174,8 @@ export function DesignEditor({ type, fields, initial, signatories, canEdit, reco
                 <input className={`${input} mt-1`} value={o.card.validUntil} maxLength={40} disabled={!canEdit} placeholder="31-03-2027" onChange={(e) => setCard("validUntil", e.target.value)} />
               </label>
             </div>
-            <BackgroundPicker fileId={o.card.backgroundFileId} disabled={!canEdit} onChange={(id) => setCard("backgroundFileId", id)} />
+            {canEdit ? <BackgroundPicker fileId={o.card.backgroundFileId} disabled={false} onChange={(id) => setCard("backgroundFileId", id)} />
+              : <p className="text-sm"><span className="font-medium">Background picture:</span> <span className="text-ink-2">{o.card.backgroundFileId ? "A picture is set." : "None."}</span></p>}
             <Check label="Show the academic year" checked={o.card.showYear} onChange={(v) => setCard("showYear", v)} />
           </Section>
         )}
@@ -194,12 +195,14 @@ export function DesignEditor({ type, fields, initial, signatories, canEdit, reco
             help="Click a merge field to put it where the cursor is. Each document fills it with the student's or staff member's own details.">
             <textarea ref={bodyRef} rows={family === "letter" ? 10 : 4} value={o.body} disabled={!canEdit} maxLength={4000} aria-label="Text"
               onChange={(e) => set("body", e.target.value)} className="w-full rounded-lg border border-line-strong bg-surface p-3 text-base text-ink" />
-            <div className="flex flex-wrap gap-1.5" aria-label="Merge fields">
-              {fields.map((f) => (
-                <button key={f.key} type="button" disabled={!canEdit} onClick={() => insertField(f.key)} title={`Example: ${f.sample}`}
-                  className="min-h-9 rounded-full border border-line bg-surface-2 px-3 text-sm hover:border-brand hover:text-brand-text">{f.label}</button>
-              ))}
-            </div>
+            {canEdit && (
+              <div className="flex flex-wrap gap-1.5" aria-label="Merge fields">
+                {fields.map((f) => (
+                  <button key={f.key} type="button" onClick={() => insertField(f.key)} title={`Example: ${f.sample}`}
+                    className="min-h-9 rounded-full border border-line bg-surface-2 px-3 text-sm hover:border-brand hover:text-brand-text">{f.label}</button>
+                ))}
+              </div>
+            )}
           </Section>
         )}
 

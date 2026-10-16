@@ -195,6 +195,10 @@ export const READY_TEMPLATES: ReadyTemplate[] = [
   { key: "homework-set", name: "Homework set", category: "homework", channel: "app", subject: "New homework", texts: {
     en: "New homework for {class}: {message}",
   } },
+  // Parents have no app: the "Homework set" rule reaches them on WhatsApp (17 Done when 10).
+  { key: "homework-set", name: "Homework set", category: "homework", channel: "whatsapp", texts: {
+    en: "Dear {guardian_name}, new homework for {class}: {message} - {school_name}",
+  } },
   { key: "homework-pending", name: "Homework pending", category: "homework", channel: "whatsapp", texts: {
     en: "Dear {guardian_name}, {student_name} has not yet submitted homework due on {date}. - {school_name}",
   } },

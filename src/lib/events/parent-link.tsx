@@ -1,6 +1,7 @@
 // Parent Link, Events & Calendar (18 "Connects to": Parent Link shows events,
-// the PTM slot and photos). Read only (rule 31): the chosen child's booked PTM
-// slots, the coming events for their class with whether they are registered
+// the PTM slot and photos). Read only (rule 31) apart from consent and, by the
+// approved design, booking a PTM time: the chosen child's PTMs with their
+// booked meeting or the free times to book (ptm-parent.ts), the coming events for their class with whether they are registered
 // (an event fee is paid in the Fees section, where it appears as its own row),
 // the next holidays, and recent albums the school shared. Events that ask
 // for parent consent (trips and outings) show a consent card first, with
@@ -13,12 +14,15 @@ import { registerSection, type GuardianView } from "../parent-link/sections";
 import { formatRupees } from "../format";
 import { maskPhone } from "../parent-link/links";
 import { EventConsentCard, type EventConsentCardData } from "@/components/parent-link/event-consent-card";
+import { PtmBookingCard, type PtmCardData } from "@/components/parent-link/ptm-booking-card";
+import { parentPtms } from "./ptm-parent";
 import { consentForms } from "./consent";
 import { albumUrl } from "./settings";
 import { CLOSING, clock, dayOf, isoOf, longDay, timeSpan } from "./words";
 
 type Data = {
   consents: EventConsentCardData[];
+  ptmCards: PtmCardData[];
   maskedPhone: string;
   ptm: { id: string; when: string; teacher: string; label: string; venue: string | null }[];
   events: { id: string; name: string; when: string; venue: string | null; registered: boolean; fee: string | null }[];
@@ -33,6 +37,11 @@ function EventsSection({ data, view }: { data: Data; view: GuardianView }) {
       {data.consents.length > 0 && (
         <div className="flex flex-col gap-3 mb-3">
           {data.consents.map((c) => <EventConsentCard key={c.eventId} token={view.token} preview={view.preview} maskedPhone={data.maskedPhone} c={c} />)}
+        </div>
+      )}
+      {data.ptmCards.length > 0 && (
+        <div className="flex flex-col gap-3 mb-3">
+          {data.ptmCards.map((c) => <PtmBookingCard key={`${c.ptmId}:${c.studentId}`} token={view.token} preview={view.preview} c={c} />)}
         </div>
       )}
       <ul>
@@ -79,7 +88,11 @@ registerSection<Data>({
     const childId = view.child.id;
     const classId = view.child.classId;
 
-    const slots = await tx.ptmSlot.findMany({ where: { studentId: childId, ptm: { archivedAt: null, date: { gte: today } } }, include: { ptm: true }, orderBy: { startMin: "asc" } });
+    // PTMs for the child's class: the booked meeting and, when the school allows it, booking a free time (ptm-parent.ts).
+    const cards = (await parentPtms(tx, ctx, { studentId: childId, today: todayIso })).filter((p) => p.parentBooking || p.booked.length);
+    const ptmCards: PtmCardData[] = cards.map((p) => ({ ...p, studentId: childId, child: view.child.firstName }));
+    const carded = new Set(cards.map((p) => p.ptmId));
+    const slots = (await tx.ptmSlot.findMany({ where: { studentId: childId, ptm: { archivedAt: null, date: { gte: today } } }, include: { ptm: true }, orderBy: { startMin: "asc" } })).filter((s) => !carded.has(s.ptmId));
     const staff = slots.length ? await tx.staff.findMany({ where: { id: { in: slots.map((s) => s.staffId) } }, select: { id: true, fullName: true } }) : [];
     const labels = slots.length ? await tx.ptmTeacher.findMany({ where: { ptmId: { in: slots.map((s) => s.ptmId) } }, select: { ptmId: true, staffId: true, label: true } }) : [];
 
@@ -117,7 +130,7 @@ registerSection<Data>({
     });
 
     const data: Data = {
-      consents, maskedPhone: guardian?.phone ? maskPhone(guardian.phone) : "your registered mobile",
+      consents, ptmCards, maskedPhone: guardian?.phone ? maskPhone(guardian.phone) : "your registered mobile",
       ptm: slots.map((s) => ({
         id: s.id, when: `${longDay(isoOf(s.ptm.date))}, ${clock(s.startMin)}`,
         teacher: staff.find((x) => x.id === s.staffId)?.fullName ?? "the teacher",
@@ -127,7 +140,7 @@ registerSection<Data>({
       holidays: visible.map((h) => ({ id: h.id, title: h.title, when: isoOf(h.startDate) === isoOf(h.endDate) ? longDay(isoOf(h.startDate)) : `${longDay(isoOf(h.startDate))} to ${longDay(isoOf(h.endDate))}` })),
       albums: albums.map((a) => ({ id: a.id, name: a.name, when: longDay(isoOf(a.date)), url: albumUrl(a.schoolId, a.id, a.shareVersion) })),
     };
-    if (!data.consents.length && !data.ptm.length && !data.events.length && !data.holidays.length && !data.albums.length) return null;
+    if (!data.consents.length && !data.ptmCards.length && !data.ptm.length && !data.events.length && !data.holidays.length && !data.albums.length) return null;
     return data;
   },
   Render: EventsSection,

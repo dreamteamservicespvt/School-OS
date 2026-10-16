@@ -17,6 +17,8 @@ model EventsSetting {
   ptmSlotMinutes    Int      @default(10) @map("ptm_slot_minutes")
   /// Hour (0-23, school time) on the evening before a PTM when parents with a slot are reminded.
   ptmReminderHour   Int      @default(18) @map("ptm_reminder_hour")
+  /// Parents book, change or cancel a PTM slot themselves on Parent Link (until the day before); the office can always book for them.
+  ptmParentBooking  Boolean  @default(true) @map("ptm_parent_booking")
   /// OUT: leave photos with students without photo consent out. BLUR: blur those students.
   galleryRule       String   @default("OUT") @map("gallery_rule")
   /// Calendar feed for Google or Outlook (read only).
@@ -204,18 +206,20 @@ model PtmTeacher {
 
 /// PTM Slot: one teacher's time slot on a PTM day; booked for one student's parent at most.
 model PtmSlot {
-  id          String    @id @default(uuid()) @db.Uuid
-  schoolId    String    @map("school_id") @db.Uuid
-  ptmId       String    @map("ptm_id") @db.Uuid
-  staffId     String    @map("staff_id") @db.Uuid
-  startMin    Int       @map("start_min")
-  studentId   String?   @map("student_id") @db.Uuid
-  guardianId  String?   @map("guardian_id") @db.Uuid
-  bookedById  String?   @map("booked_by_id") @db.Uuid
-  bookedAt    DateTime? @map("booked_at")
-  arrivedAt   DateTime? @map("arrived_at")
-  remindedAt  DateTime? @map("reminded_at")
-  ptm         Ptm       @relation(fields: [ptmId], references: [id])
+  id         String    @id @default(uuid()) @db.Uuid
+  schoolId   String    @map("school_id") @db.Uuid
+  ptmId      String    @map("ptm_id") @db.Uuid
+  staffId    String    @map("staff_id") @db.Uuid
+  startMin   Int       @map("start_min")
+  studentId  String?   @map("student_id") @db.Uuid
+  guardianId String?   @map("guardian_id") @db.Uuid
+  bookedById String?   @map("booked_by_id") @db.Uuid
+  bookedAt   DateTime? @map("booked_at")
+  /// "parent-link" when the parent booked on Parent Link; "office" or empty when school staff booked it.
+  bookedVia  String?   @map("booked_via")
+  arrivedAt  DateTime? @map("arrived_at")
+  remindedAt DateTime? @map("reminded_at")
+  ptm        Ptm       @relation(fields: [ptmId], references: [id])
 
   @@unique([ptmId, staffId, startMin])
   @@index([schoolId, ptmId, studentId])

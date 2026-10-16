@@ -2,7 +2,7 @@
 
 // Settings, SMS, WhatsApp & Email: save a channel, test it, DLT details and credits.
 import { revalidatePath } from "next/cache";
-import { requireAction } from "@/lib/current";
+import { requireSettingsAction } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
 import { flash } from "@/lib/flash";
 import { PermissionDeniedError } from "@/lib/permissions";
@@ -10,13 +10,14 @@ import { addCredits, ChannelProblem, checkChannel, saveChannel, saveDlt, testCha
 import { PROVIDER_CHANNELS, type ProviderChannel } from "@/lib/messaging/channels";
 
 const PATH = "/settings/messaging";
+const PAGE = "messaging" as const;
 export type ChannelState = { ok: boolean; message?: string; errors?: Record<string, string> } | null;
 
 async function who() {
   try {
-    return (await requireAction("settings", "edit")).current;
+    return (await requireSettingsAction(PAGE, "edit")).current;
   } catch (e) {
-    if (e instanceof PermissionDeniedError) throw new ChannelProblem("Only the Principal and School Admin can change these settings.");
+    if (e instanceof PermissionDeniedError) throw new ChannelProblem(e.message);
     throw e;
   }
 }

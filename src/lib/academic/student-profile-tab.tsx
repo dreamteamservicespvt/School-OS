@@ -68,7 +68,7 @@ async function TimeTableTab(args: ProfileTabArgs) {
           {!d.version || slots.length === 0 ? (
             <p className="text-ink-2">No Time Table is published for this class yet (Academic Management, Time Table).</p>
           ) : (
-            <TimetableGrid slots={slots} days={d.days} cells={d.cells.map(({ classId: _c, ...c }) => c)} mode="class" today={d.todayDay} />
+            <TimetableGrid slots={slots} days={d.days} cells={d.cells} mode="class" today={d.todayDay} />
           )}
         </CardBody>
       </Card>

@@ -343,11 +343,12 @@ export async function settingsAction(_: S, fd: FormData): Promise<S> {
       ...(has("weekends") ? { secondSaturdayOff: checked(fd, "secondSaturdayOff"), fourthSaturdayOff: checked(fd, "fourthSaturdayOff") } : {}),
       ...(has("ptmSlotMinutes") ? { ptmSlotMinutes: Number(str(fd, "ptmSlotMinutes")) } : {}),
       ...(has("ptmReminderHour") ? { ptmReminderHour: Number(str(fd, "ptmReminderHour")) } : {}),
+      ...(has("ptmParentBooking") ? { ptmParentBooking: checked(fd, "ptmParentBooking") } : {}),
       ...(has("galleryRule") ? { galleryRule: str(fd, "galleryRule") } : {}),
       ...(has("feed") ? { feedOn: checked(fd, "feedOn") } : {}),
       ...(has("switch") && ["housesOn", "clubsOn", "sportsOn", "creditsOn", "dailyOn"].includes(str(fd, "switch")) ? { [str(fd, "switch")]: checked(fd, "on") } : {}),
     });
-  }, (s) => (fd.has("switch") ? switchWords(str(fd, "switch"), checked(fd, "on")) : fd.has("feed") ? `Calendar feed ${s.feedOn ? "on. Staff can add it to Google or Outlook." : "off. Existing subscriptions stop updating."}` : fd.has("galleryRule") ? (s.galleryRule === "BLUR" ? "Students without photo consent are blurred in new albums." : "Photos with students without photo consent are left out of new albums.") : fd.has("ptmReminderHour") ? `PTM reminders go the day before at ${clock(s.ptmReminderHour * 60)}.` : "Events Settings saved."));
+  }, (s) => (fd.has("switch") ? switchWords(str(fd, "switch"), checked(fd, "on")) : fd.has("feed") ? `Calendar feed ${s.feedOn ? "on. Staff can add it to Google or Outlook." : "off. Existing subscriptions stop updating."}` : fd.has("galleryRule") ? (s.galleryRule === "BLUR" ? "Students without photo consent are blurred in new albums." : "Photos with students without photo consent are left out of new albums.") : fd.has("ptmReminderHour") ? `PTM reminders go the day before at ${clock(s.ptmReminderHour * 60)}.` : fd.has("ptmParentBooking") ? (s.ptmParentBooking ? "Parents can book, change or cancel a PTM slot on Parent Link until the day before." : "Parents no longer book on Parent Link. The office books for them; booked slots still show.") : "Events Settings saved."));
 }
 
 function switchWords(key: string, on: boolean) {

@@ -90,8 +90,9 @@ export function ListEditor({ list, items, canEdit, addLabel, placeholder, fixed 
   );
 }
 
-export function PtmDefaultsForm({ slot, hour, canEdit }: { slot: number; hour: number; canEdit: boolean }) {
+export function PtmDefaultsForm({ slot, hour, parentBooking, canEdit }: { slot: number; hour: number; parentBooking: boolean; canEdit: boolean }) {
   const { state, save } = useSave();
+  const [byParents, setByParents] = useState(parentBooking);
   const hours = Array.from({ length: 14 }, (_, i) => i + 8);
   const words = (h: number) => `${h > 12 ? h - 12 : h}:00 ${h >= 12 ? "PM" : "AM"}`;
   return (
@@ -107,7 +108,9 @@ export function PtmDefaultsForm({ slot, hour, canEdit }: { slot: number; hour: n
             {hours.map((h) => <option key={h} value={h}>{words(h)}</option>)}
           </select>
         </Row>
-        <Row title="Booking" sub="The office books slots for parents who call or come in. Parent Link shows the booked slot."><span className="text-[13px] text-ink3">Office</span></Row>
+        <Row title="Parents book on Parent Link" sub={byParents ? "Parents book, change or cancel a slot until the day before. The office can always book for them." : "Off: the office books slots for parents who call or come in. Parent Link shows the booked slot."}>
+          <Switch on={byParents} label="Parents book on Parent Link" disabled={!canEdit} onChange={(x) => { setByParents(x); save({ ptmParentBooking: x ? "on" : "" }); }} />
+        </Row>
       </div>
       <Said state={state} />
     </>

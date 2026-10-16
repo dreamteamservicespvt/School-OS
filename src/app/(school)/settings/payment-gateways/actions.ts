@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAction } from "@/lib/current";
+import { requireSettingsAction } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
 import { flash } from "@/lib/flash";
 import { formValues, type FormState } from "@/lib/forms";
@@ -24,6 +24,7 @@ import {
 import type { ConnectionResult } from "@/lib/payments/razorpay";
 
 const PATH = "/settings/payment-gateways";
+const PAGE = "payment-gateways" as const;
 
 function readInput(fd: FormData): GatewayInput {
   const provider = String(fd.get("provider") ?? "");
@@ -61,7 +62,7 @@ function problemState(e: unknown, fd: FormData): FormState {
 export async function saveGateway(_prev: FormState, fd: FormData): Promise<FormState> {
   const id = String(fd.get("id") ?? "");
   const editing = fd.get("mode") === "edit";
-  const { current } = await requireAction("settings", editing ? "edit" : "create");
+  const { current } = await requireSettingsAction(PAGE, editing ? "edit" : "create");
   const input = readInput(fd);
   const typed = String(fd.get("confirm") ?? "");
   let savedId: string;
@@ -92,7 +93,7 @@ export type TestState = (ConnectionResult & { message: string }) | { ok: false; 
 
 /** "Test these details" in the form, before saving. */
 export async function testDetails(_prev: TestState, fd: FormData): Promise<TestState> {
-  const { current } = await requireAction("settings", "edit");
+  const { current } = await requireSettingsAction(PAGE, "edit");
   const id = String(fd.get("id") ?? "");
   try {
     const result = await withSchool(current.ctx, (tx) => testUnsaved(tx, readInput(fd), fd.get("mode") === "edit" ? id : null), { timeout: 30_000 });
@@ -103,7 +104,7 @@ export async function testDetails(_prev: TestState, fd: FormData): Promise<TestS
 }
 
 export async function testSaved(_prev: TestState, fd: FormData): Promise<TestState> {
-  const { current } = await requireAction("settings", "edit");
+  const { current } = await requireSettingsAction(PAGE, "edit");
   const id = String(fd.get("id") ?? "");
   try {
     const result = await withSchool(current.ctx, (tx) => testGateway(tx, current.ctx, id), { timeout: 30_000 });
@@ -116,7 +117,7 @@ export async function testSaved(_prev: TestState, fd: FormData): Promise<TestSta
 }
 
 export async function switchGateway(id: string, on: boolean, typed: string): Promise<string | void> {
-  const { current } = await requireAction("settings", "edit");
+  const { current } = await requireSettingsAction(PAGE, "edit");
   try {
     const g = await withSchool(current.ctx, (tx) => setGatewayActive(tx, current.ctx, id, on, typed));
     await flash({ message: on ? `${g.displayName} is switched on. Fee Settings decides which classes use it.` : `${g.displayName} is switched off. Online payments through it stop; counter payments carry on.` });
@@ -128,7 +129,7 @@ export async function switchGateway(id: string, on: boolean, typed: string): Pro
 }
 
 export async function archive(id: string, typed: string): Promise<string | void> {
-  const { current } = await requireAction("settings", "archive");
+  const { current } = await requireSettingsAction(PAGE, "archive");
   try {
     await withSchool(current.ctx, (tx) => archiveGateway(tx, current.ctx, id, typed));
   } catch (e) {
@@ -140,7 +141,7 @@ export async function archive(id: string, typed: string): Promise<string | void>
 }
 
 export async function restore(id: string): Promise<string | void> {
-  const { current } = await requireAction("settings", "archive");
+  const { current } = await requireSettingsAction(PAGE, "archive");
   try {
     await withSchool(current.ctx, (tx) => restoreGateway(tx, current.ctx, id));
   } catch (e) {
@@ -152,7 +153,7 @@ export async function restore(id: string): Promise<string | void> {
 }
 
 export async function saveLinkedAccount(_prev: FormState, fd: FormData): Promise<FormState> {
-  const { current } = await requireAction("settings", "edit");
+  const { current } = await requireSettingsAction(PAGE, "edit");
   const gatewayId = String(fd.get("gatewayId") ?? "");
   const values = formValues(fd);
   const checked = checkLinkedAccount({
@@ -177,7 +178,7 @@ export async function saveLinkedAccount(_prev: FormState, fd: FormData): Promise
 }
 
 export async function removeLinkedAccount(gatewayId: string, id: string): Promise<string | void> {
-  const { current } = await requireAction("settings", "archive");
+  const { current } = await requireSettingsAction(PAGE, "archive");
   try {
     await withSchool(current.ctx, (tx) => archiveLinkedAccount(tx, current.ctx, id));
   } catch (e) {

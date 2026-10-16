@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requirePage } from "@/lib/current";
+import { requireSettingsPage } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
 import { MODULES } from "@/lib/modules";
 import type { RolePermissions } from "@/lib/roles";
@@ -13,7 +13,7 @@ export const metadata: Metadata = { title: "Create a role" };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default async function NewRolePage({ searchParams }: { searchParams: Promise<{ copy?: string }> }) {
-  const current = await requirePage("settings", "create");
+  const { current } = await requireSettingsPage("users", "create");
   const copy = (await searchParams).copy;
   const { from, roles } = await withSchool(current.ctx, async (tx) => ({
     from: copy && UUID.test(copy) ? await tx.role.findFirst({ where: { id: copy, archivedAt: null } }) : null,

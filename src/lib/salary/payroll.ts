@@ -17,6 +17,7 @@ import { isoDay } from "../staff/dates";
 import { schoolDays } from "../attendance/calendar";
 import { staffMonthForSalary } from "../attendance/staff";
 import { postToDayBook, reverseSource } from "../finance/daybook";
+import { assertBooksOpen } from "../finance/years";
 import { accountForMode, systemHead } from "../finance/settings";
 import { sendAutomatic } from "../messaging";
 import { notEmployedDays, lopDays as lopOf, workOutPay } from "./calc";
@@ -335,6 +336,7 @@ export async function markPaid(tx: Tx, ctx: SchoolContext, runId: string, input:
   if (input.mode !== "CASH" && !input.reference) throw new MoneyProblem(input.mode === "CHEQUE" ? "Enter the cheque numbers." : "Enter the bank batch or UTR reference.", "reference");
   if (input.date > input.today) throw new MoneyProblem("The date paid cannot be in the future.", "date");
   if (input.date < run.month) throw new MoneyProblem(`The date paid is before ${monthName(run.month)} began.`, "date");
+  await assertBooksOpen(tx, ctx, input.date, "date");
   const head = await systemHead(tx, ctx, "salary");
   const accountId = await accountForMode(tx, ctx, input.mode, input.accountId);
   const reversals = (run.reversals as unknown[]) ?? [];

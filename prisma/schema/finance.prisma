@@ -373,3 +373,32 @@ model PeriodClose {
   @@unique([schoolId, month])
   @@map("period_close")
 }
+
+/// Day Close ("Close the day", the day-level Period Close of the approved
+/// design): the cash in the box is counted against what the books expect and
+/// the day's Day Book is locked. A reopened close keeps its row (reopenedAt);
+/// closing again adds a new row. At most one close is in force per date
+/// (partial unique index in the migration).
+model DayClose {
+  id                String    @id @default(uuid()) @db.Uuid
+  schoolId          String    @map("school_id") @db.Uuid
+  financialYearId   String    @map("financial_year_id") @db.Uuid
+  date              DateTime  @db.Date
+  /// Cash in hand the books expect at the end of the day (every cash account).
+  expectedCashPaise BigInt    @map("expected_cash_paise")
+  countedCashPaise  BigInt    @map("counted_cash_paise")
+  /// Why the count differs from the books (needed when it does).
+  differenceReason  String?   @map("difference_reason")
+  /// The day's totals when it was closed.
+  incomePaise       BigInt    @map("income_paise")
+  expensePaise      BigInt    @map("expense_paise")
+  entryCount        Int       @map("entry_count")
+  closedById        String?   @map("closed_by_id") @db.Uuid
+  closedAt          DateTime  @default(now()) @map("closed_at")
+  reopenedAt        DateTime? @map("reopened_at")
+  reopenedById      String?   @map("reopened_by_id") @db.Uuid
+  reopenReason      String?   @map("reopen_reason")
+
+  @@index([schoolId, date])
+  @@map("day_close")
+}

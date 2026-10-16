@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requirePage } from "@/lib/current";
+import { requireSettingsPage } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
 import { formatDateTime } from "@/lib/format";
-import { can } from "@/lib/permissions";
 import { findProvider, TYPE_WORDS } from "@/lib/payments/providers";
 import { secretEndings } from "@/lib/payments/gateways";
 import { appOrigin } from "@/lib/origin";
@@ -21,7 +20,7 @@ export const metadata: Metadata = { title: "Payment gateway" };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default async function GatewayPage({ params }: { params: Promise<{ id: string }> }) {
-  const current = await requirePage("settings");
+  const { current, may } = await requireSettingsPage("payment-gateways");
   const { id } = await params;
   if (!UUID.test(id)) notFound();
   const tz = current.school.timeZone;
@@ -36,8 +35,8 @@ export default async function GatewayPage({ params }: { params: Promise<{ id: st
   if (!data) notFound();
   const { g, linked, history, names } = data;
   const provider = findProvider(g.provider);
-  const canEdit = can(current.permissions, "settings", "edit");
-  const canArchive = can(current.permissions, "settings", "archive");
+  const canEdit = may.edit;
+  const canArchive = may.archive;
   const endings = secretEndings(g);
   const origin = await appOrigin();
   const publicValues: Record<string, string> = {};

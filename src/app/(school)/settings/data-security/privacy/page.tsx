@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requirePage } from "@/lib/current";
+import { requireSettingsPage } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
 import { formatDate, formatDateTime } from "@/lib/format";
-import { can } from "@/lib/permissions";
 import { DELETION_PARTS, personTypesFor, retentionRules, type PersonType } from "@/lib/data-security/privacy";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -24,16 +23,16 @@ const STATUS: Record<string, { label: string; tone: "warning" | "success" | "neu
 };
 
 export default async function PrivacyPage({ searchParams }: Search) {
-  const current = await requirePage("settings");
+  const { current, may } = await requireSettingsPage("data-security");
   const sp = await searchParams;
   const tz = current.school.timeZone;
   const types = personTypesFor(current.permissions);
   const type = (types.includes(one(sp.type) as PersonType) ? one(sp.type) : types[0]) as PersonType | undefined;
   const q = one(sp.q).slice(0, 80);
   const personId = UUID.test(one(sp.person)) ? one(sp.person) : null;
-  const canAsk = can(current.permissions, "settings", "create");
-  const canEdit = can(current.permissions, "settings", "edit");
-  const canExport = can(current.permissions, "settings", "export");
+  const canAsk = may.create;
+  const canEdit = may.edit;
+  const canExport = may.export;
 
   const data = await withSchool(current.ctx, async (tx) => {
     const rules = await retentionRules(tx);

@@ -41,6 +41,12 @@ describe("admission number", () => {
   });
 });
 
+describe("roll number", () => {
+  it("starts at 1: roll number 0 is refused (QA PEOPLE-11)", async () => {
+    await expect(addStudent(s.ctx, s.s5a, { rollNo: 0 })).rejects.toThrow("Roll number starts at 1.");
+  });
+});
+
 describe("duplicate check (Done when 2)", () => {
   it("warns when name and date of birth match, and saves anyway only with a reason", async () => {
     const dob = new Date("2015-08-20T00:00:00Z");

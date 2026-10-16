@@ -38,7 +38,7 @@ const addSchema = z.object({
   guardianPhone: indianMobile("Parent's phone"),
   linkGuardianId: z.string().trim().optional().transform((v) => (v && /^[0-9a-f-]{36}$/i.test(v) ? v : null)),
   admissionNo: optionalText("Admission number", 40),
-  rollNo: z.string().trim().refine((v) => v === "" || /^\d{1,4}$/.test(v), "Roll number must be a whole number.").transform((v) => (v === "" ? null : Number(v))),
+  rollNo: z.string().trim().refine((v) => v === "" || /^\d{1,4}$/.test(v), "Roll number must be a whole number.").refine((v) => v === "" || Number(v) >= 1, "Roll number starts at 1.").transform((v) => (v === "" ? null : Number(v))),
   admissionDate: dateField("Admission date"),
   applyFeePlan: checkbox(),
   duplicateReason: optionalText("Reason", 300),
@@ -161,7 +161,7 @@ export async function saveContactAction(id: string, _prev: FormState, fd: FormDa
 const enrolmentSchema = z.object({
   admissionNo: text("Admission number", 40),
   admissionDate: optionalDate("Admission date"),
-  rollNo: z.string().trim().refine((v) => v === "" || /^\d{1,4}$/.test(v), "Roll number must be a whole number.").transform((v) => (v === "" ? null : Number(v))),
+  rollNo: z.string().trim().refine((v) => v === "" || /^\d{1,4}$/.test(v), "Roll number must be a whole number.").refine((v) => v === "" || Number(v) >= 1, "Roll number starts at 1.").transform((v) => (v === "" ? null : Number(v))),
 });
 export async function saveEnrolmentAction(id: string, _prev: FormState, fd: FormData): Promise<FormState> {
   const parsed = parseForm(enrolmentSchema, fd);

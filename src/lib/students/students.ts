@@ -215,6 +215,7 @@ export async function createStudent(tx: Tx, ctx: SchoolContext, input: NewStuden
     data: { schoolId: ctx.schoolId, studentId: student.id, guardianId, relationship: input.guardianRelation ?? "Father", isPrimary: true, emergencyOrder: 1 },
   });
 
+  if (input.rollNo != null && (!Number.isInteger(input.rollNo) || input.rollNo < 1)) throw new StudentProblem("Roll number starts at 1.", "rollNo");
   const rollNo = input.rollNo ?? (await nextRollNo(tx, section.id, section.academicYearId));
   if (input.rollNo) {
     const clash = await tx.enrolment.findFirst({ where: { sectionId: section.id, academicYearId: section.academicYearId, rollNo: input.rollNo, archivedAt: null } });

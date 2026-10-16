@@ -35,22 +35,24 @@ export function parseForm<S extends z.ZodTypeAny>(schema: S, formData: FormData)
 // Common fields, with messages in school words.
 export const text = (label: string, max = 200) =>
   z.string().trim().min(1, `${label} is needed.`).max(max, `${label} can be at most ${max} characters.`);
+/** An optional field may be missing from the form altogether (a box shown only sometimes): read it as empty. */
+const blank = () => z.string().optional().transform((v) => v ?? "");
 export const optionalText = (label: string, max = 500) =>
-  z.string().trim().max(max, `${label} can be at most ${max} characters.`).transform((v) => (v === "" ? null : v));
+  blank().pipe(z.string().trim().max(max, `${label} can be at most ${max} characters.`)).transform((v) => (v === "" ? null : v));
 export const indianMobile = (label = "Phone number") =>
   z.string().trim().transform((v) => v.replace(/[^\d]/g, "").replace(/^91(?=\d{10}$)/, "")).refine((v) => v.length === 10, {
     message: `${label} must have 10 digits.`,
   }).refine((v) => /^[6-9]/.test(v), { message: `${label} must start with 6, 7, 8 or 9.` });
 export const optionalIndianMobile = (label = "Phone number") =>
-  z.string().trim().transform((v) => v.replace(/[^\d]/g, "").replace(/^91(?=\d{10}$)/, "")).refine((v) => v === "" || v.length === 10, {
+  blank().pipe(z.string().trim()).transform((v) => v.replace(/[^\d]/g, "").replace(/^91(?=\d{10}$)/, "")).refine((v) => v === "" || v.length === 10, {
     message: `${label} must have 10 digits.`,
   }).transform((v) => (v === "" ? null : v));
 export const optionalEmail = (label = "Email") =>
-  z.string().trim().refine((v) => v === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), { message: `${label} does not look right. It should be like name@example.com.` }).transform((v) => (v === "" ? null : v.toLowerCase()));
+  blank().pipe(z.string().trim()).refine((v) => v === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), { message: `${label} does not look right. It should be like name@example.com.` }).transform((v) => (v === "" ? null : v.toLowerCase()));
 export const dateField = (label: string) =>
   z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, `Choose the ${label.toLowerCase()}.`).transform((v) => new Date(`${v}T00:00:00Z`)).refine((d) => !Number.isNaN(d.getTime()), { message: `${label} is not a real date.` });
 export const optionalDate = (label: string) =>
-  z.string().trim().refine((v) => v === "" || /^\d{4}-\d{2}-\d{2}$/.test(v), { message: `${label} is not a real date.` }).transform((v) => (v === "" ? null : new Date(`${v}T00:00:00Z`)));
+  blank().pipe(z.string().trim()).refine((v) => v === "" || /^\d{4}-\d{2}-\d{2}$/.test(v), { message: `${label} is not a real date.` }).transform((v) => (v === "" ? null : new Date(`${v}T00:00:00Z`)));
 export const checkbox = () => z.string().optional().transform((v) => v === "on" || v === "true" || v === "1");
 /** Rupees typed by a person, stored as paise. */
 export const rupees = (label: string, { min = 0 } = {}) =>

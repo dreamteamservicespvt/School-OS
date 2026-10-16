@@ -37,6 +37,8 @@ export type ConsoleOutgoing = {
   text: string;
   /** The same text with links and codes replaced, for the record. */
   safeText: string;
+  /** A one-time code, for WhatsApp's authentication template (its "Copy code" button). */
+  copyCode?: string;
   /** Blanks for an approved WhatsApp template, in order. */
   templateParams?: string[];
   schoolId?: string | null;
@@ -53,6 +55,16 @@ export function channelIsSetUp(channel: ConsoleChannel): boolean {
   if (channel === "email") return mailIsSetUp();
   if (channel === "sms") return Boolean(env("CONSOLE_MSG91_AUTH_KEY") && env("CONSOLE_SMS_SENDER"));
   return Boolean(env("CONSOLE_WHATSAPP_PHONE_NUMBER_ID") && env("CONSOLE_WHATSAPP_ACCESS_TOKEN"));
+}
+
+/** One-time codes can go by WhatsApp: the account and an approved authentication template are set. */
+export function codesByWhatsapp(): boolean {
+  return channelIsSetUp("whatsapp") && Boolean(env("CONSOLE_WHATSAPP_TEMPLATE_CODE"));
+}
+
+/** Some real channel can carry one-time codes, so they must never be shown on a page. */
+export function codesCanBeSent(): boolean {
+  return codesByWhatsapp() || (channelIsSetUp("sms") && Boolean(env("CONSOLE_SMS_TEMPLATE_CODE"))) || mailIsSetUp();
 }
 
 /** Where the console's links point: the address people open School OS at. */
@@ -91,7 +103,7 @@ async function sendOne(m: ConsoleOutgoing): Promise<SendResult | "test"> {
     channel: "whatsapp",
     to: m.to,
     text: m.text,
-    whatsappTemplate: template ? { name: template, language: env("CONSOLE_WHATSAPP_LANGUAGE") ?? "en", params: m.templateParams ?? [] } : null,
+    whatsappTemplate: template ? { name: template, language: env("CONSOLE_WHATSAPP_LANGUAGE") ?? "en", params: m.templateParams ?? [], copyCode: m.copyCode } : null,
   });
 }
 

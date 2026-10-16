@@ -156,6 +156,21 @@ describe("publishing", () => {
     expect(board!.rows.find((r) => r.studentId === students[0])!.status).toBe("READY");
   });
 
+  it("report card attendance comes from the Attendance register (ACADEMICS-15)", async () => {
+    await s.run((tx) => tx.attendanceMark.createMany({ data: [
+      { schoolId: s.school.id, academicYearId: s.year.id, studentId: students[0], sectionId: s.s5a.id, date: d("2026-10-05"), statusKey: "present" },
+      { schoolId: s.school.id, academicYearId: s.year.id, studentId: students[0], sectionId: s.s5a.id, date: d("2026-10-06"), statusKey: "absent" },
+      { schoolId: s.school.id, academicYearId: s.year.id, studentId: students[0], sectionId: s.s5a.id, date: d("2026-10-07"), statusKey: "present" },
+    ] }));
+    const board = await s.run((tx) => reportBoard(tx, s.ctx, s.s5a.id, `exam:${examId}`));
+    const marked = board!.rows.find((r) => r.studentId === students[0])!;
+    expect(marked).toMatchObject({ attendanceFromRegister: true, attendancePresent: 2 });
+    expect(marked.attendanceWorking).toBeGreaterThanOrEqual(3);
+    expect(marked.missing).not.toContain("Attendance");
+    // No mark in the register: the days the class teacher types are still used.
+    expect(board!.rows.find((r) => r.studentId === students[1])!.attendanceFromRegister).toBe(false);
+  });
+
   it("a grade scale change never changes published results", async () => {
     const scale = (await s.run((tx) => gradeScales(tx, s.ctx)))[0];
     const shifted = scale.bands.map((b) => (b.grade === "A1" ? { ...b, from: 81 } : b.grade === "A2" ? { ...b, from: 71, to: 80 } : b.grade === "B1" ? { ...b, from: 61, to: 70 } : b.grade === "B2" ? { ...b, from: 51, to: 60 } : b.grade === "C1" ? { ...b, from: 45, to: 50 } : b.grade === "C2" ? { ...b, from: 41, to: 44 } : b));

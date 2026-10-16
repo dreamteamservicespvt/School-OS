@@ -8,6 +8,7 @@ import type { SchoolContext, Tx } from "../db";
 import { isoDay } from "../staff/dates";
 import { schoolDays } from "./calendar";
 import { attendanceSettings, statusList, statusMap, weightOf, type StatusInfo } from "./settings";
+import { registerBook, type RegisterBook } from "./on-register";
 
 export type DayMark = { statusKey: string; periodNo: number; lateMinutes?: number | null };
 
@@ -107,14 +108,19 @@ export async function attendanceSummary(
   else if ("studentIds" in opts) ids = opts.studentIds;
   else if ("staffId" in opts) { ids = [opts.staffId]; side = "staff"; }
   else if ("staffIds" in opts) { ids = opts.staffIds; side = "staff"; }
-  else {
+  // A section: today's register plus anyone with marks in the section in the
+  // range; only the marks taken in this section on days the student was on its
+  // register count (./on-register.ts), so a student who left or moved keeps
+  // their history without adding days after they went.
+  let book: RegisterBook | null = null;
+  if ("sectionId" in opts) {
+    book = await registerBook(tx, [opts.sectionId]);
     const rows = await tx.attendanceMark.findMany({ where: { sectionId: opts.sectionId, date: { gte: opts.from, lte: to }, archivedAt: null, studentId: { not: null } }, select: { studentId: true }, distinct: ["studentId"] });
-    const enrolled = await tx.enrolment.findMany({ where: { sectionId: opts.sectionId, archivedAt: null, status: "STUDYING" }, select: { studentId: true } });
-    ids = [...new Set([...rows.map((r) => r.studentId!), ...enrolled.map((e) => e.studentId)])];
+    ids = [...new Set([...rows.map((r) => r.studentId!), ...book.current(opts.sectionId)])];
   }
 
   const marks = ids.length === 0 || to < opts.from ? [] : await tx.attendanceMark.findMany({
-    where: { archivedAt: null, date: { gte: opts.from, lte: to }, ...(side === "student" ? { studentId: { in: ids } } : { staffId: { in: ids } }) },
+    where: { archivedAt: null, date: { gte: opts.from, lte: to }, ...(side === "student" ? { studentId: { in: ids } } : { staffId: { in: ids } }), ...("sectionId" in opts ? { sectionId: opts.sectionId } : {}) },
     select: { studentId: true, staffId: true, date: true, periodNo: true, statusKey: true },
   });
   const grouped = new Map<string, Map<string, DayMark[]>>();
@@ -122,6 +128,7 @@ export async function attendanceSummary(
     const pid = (side === "student" ? m.studentId : m.staffId)!;
     const k = isoDay(m.date);
     if (!workingKeys.has(k)) continue;
+    if (book && "sectionId" in opts && !book.has(opts.sectionId, pid, k)) continue;
     const byDay = grouped.get(pid) ?? new Map<string, DayMark[]>();
     const arr = byDay.get(k) ?? [];
     arr.push(m);

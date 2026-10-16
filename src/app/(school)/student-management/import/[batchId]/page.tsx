@@ -25,7 +25,10 @@ export default async function ImportBatchPage({ params }: { params: Promise<{ ba
     const batch = await tx.importBatch.findUnique({ where: { id: batchId } });
     if (!batch || ![STUDENT_IMPORT, UDISE_IMPORT].includes(batch.kind)) return null;
     const ids = (batch.createdIds as string[]).slice(0, 30);
-    const students = await tx.student.findMany({ where: { id: { in: ids } }, select: { id: true, fullName: true, admissionNo: true, archivedAt: true } });
+    // In the order they were imported (the file's order, so admission numbers run upwards).
+    const order = new Map(ids.map((id, i) => [id, i]));
+    const students = (await tx.student.findMany({ where: { id: { in: ids } }, select: { id: true, fullName: true, admissionNo: true, archivedAt: true } }))
+      .sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
     const who = batch.importedById ? await tx.userLogin.findUnique({ where: { id: batch.importedById }, select: { displayName: true } }) : null;
     return { batch, students, who };
   });

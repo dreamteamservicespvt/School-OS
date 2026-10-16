@@ -66,7 +66,8 @@ describe("importer, end to end (departments)", () => {
     const preview = await withSchool(ctx, (tx) => previewImport(tx, ctx, kind, sheet.rows, match));
     expect(preview.good.map((g) => g.row.name)).toEqual(["Mathematics", "Science"]);
     expect(preview.bad.map((b) => b.line)).toEqual([4, 5, 6]);
-    expect(preview.bad[0].problems).toEqual(["Department is empty."]);
+    // Every problem of a row at once: the empty column and the unknown HOD.
+    expect(preview.bad[0].problems).toEqual(["Department is empty.", "No staff member has the staff ID SPS-T-1."]);
     expect(preview.bad[1].problems[0]).toMatch(/appears twice/);
     expect(preview.bad[2].problems[0]).toMatch(/No staff member has the staff ID NO-SUCH-STAFF/);
     expect(errorCsv(kind, preview.bad)).toContain("Problems");

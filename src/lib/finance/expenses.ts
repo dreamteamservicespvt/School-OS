@@ -151,6 +151,9 @@ export async function updateDraftExpense(tx: Tx, ctx: SchoolContext, expenseId: 
  * would go below zero.
  */
 export async function payExpense(tx: Tx, ctx: SchoolContext, expenseId: string, input: PayInput) {
+  // One payment at a time per expense: a double click or a second tab waits here, then
+  // sees the first payment, so the money never goes out (or into the Day Book) twice.
+  await tx.$queryRaw`SELECT id FROM expense WHERE id = ${expenseId}::uuid FOR UPDATE`;
   const e = await tx.expense.findFirst({ where: { id: expenseId } });
   if (!e) throw new MoneyProblem("This expense was not found.");
   if (e.broughtIn) throw new MoneyProblem("Brought in from old software. Not in the Day Book.");

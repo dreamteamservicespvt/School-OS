@@ -37,8 +37,8 @@ export type ConsoleOutgoing = {
   text: string;
   /** The same text with links and codes replaced, for the record. */
   safeText: string;
-  /** A one-time code, for WhatsApp's authentication template (its "Copy code" button). */
-  copyCode?: string;
+  /** WhatsApp: the blank in the template's first button (a one-time code, or the end of a link). */
+  buttonParam?: string;
   /** Blanks for an approved WhatsApp template, in order. */
   templateParams?: string[];
   schoolId?: string | null;
@@ -103,7 +103,7 @@ async function sendOne(m: ConsoleOutgoing): Promise<SendResult | "test"> {
     channel: "whatsapp",
     to: m.to,
     text: m.text,
-    whatsappTemplate: template ? { name: template, language: env("CONSOLE_WHATSAPP_LANGUAGE") ?? "en", params: m.templateParams ?? [], copyCode: m.copyCode } : null,
+    whatsappTemplate: template ? { name: template, language: env("CONSOLE_WHATSAPP_LANGUAGE") ?? "en", params: m.templateParams ?? [], buttonParam: m.buttonParam } : null,
   });
 }
 

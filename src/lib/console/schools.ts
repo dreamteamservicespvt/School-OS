@@ -178,7 +178,10 @@ function inviteMessages(f: InviteFor, link: string): ConsoleOutgoing[] {
     if (ch === "email") {
       if (f.email) out.push({ channel: "email", to: f.email, purpose, subject: f.kind === "INVITE" ? `Your School OS login for ${f.school.name}` : `Your School OS login was reset`, text: `${text}\n`, safeText: safe, schoolId: f.school.id });
     } else {
-      out.push({ channel: ch, to: f.phone, purpose, text, safeText: safe, templateParams: params, schoolId: f.school.id });
+      // WhatsApp's invite template keeps the link in a "Get started" button: its blanks are the
+      // school and the person, and the button ends with the invite's own part of the link.
+      const whatsapp = ch === "whatsapp" ? { templateParams: [f.school.name, f.name], buttonParam: link.slice(link.lastIndexOf("/") + 1) } : { templateParams: params };
+      out.push({ channel: ch, to: f.phone, purpose, text, safeText: safe, ...whatsapp, schoolId: f.school.id });
     }
   }
   return out;

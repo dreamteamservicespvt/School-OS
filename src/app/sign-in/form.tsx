@@ -44,7 +44,6 @@ export function SignInForm({ notice, startWithCode }: { notice?: string; startWi
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center justify-between">
             <label htmlFor="password" className="text-[13px] font-semibold text-ink2">Password</label>
-            <button type="button" onClick={() => { setMode("code"); setMissing({}); }} className="text-[13px] text-brand font-semibold hover:underline">Forgot password?</button>
           </div>
           <div className="relative">
             <input id="password" name="password" type={show ? "text" : "password"} autoComplete="current-password"
@@ -56,6 +55,10 @@ export function SignInForm({ notice, startWithCode }: { notice?: string; startWi
             </button>
           </div>
           {missing.password && <p id="password-error" className="text-[12.5px] text-bad">{missing.password}</p>}
+          {/* After the password box, so Tab goes login, password, Sign in (QA PLATFORM-16). */}
+          <div className="flex justify-end">
+            <button type="button" onClick={() => { setMode("code"); setMissing({}); }} className="text-[13px] text-brand font-semibold hover:underline min-h-9">Forgot password?</button>
+          </div>
         </div>
       ) : (
         <p className="text-[14px] text-ink2 rounded-xl bg-sunken p-3.5 flex gap-2.5">

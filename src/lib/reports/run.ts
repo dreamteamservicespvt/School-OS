@@ -19,7 +19,7 @@ import type { Current } from "../current";
 import { fileStore } from "../storage";
 import { todayIn } from "../staff/dates";
 import { reportAccess, BASE } from "./access";
-import { entryAllowed, findEntry } from "./catalogue";
+import { closedWords, entryAllowed, findEntry } from "./catalogue";
 import { filterWords, readFilters, type Raw } from "./filters";
 import type { Cell, ColKind, ReportEntry, ReportFilters, ReportViewer, Row, RunCtx, Table } from "./types";
 
@@ -74,7 +74,7 @@ export async function reachSections(tx: Tx, ctx: SchoolContext, own: boolean, ye
 /** Runs one report for one person. Refuses a report the person may not see. */
 export async function runEntry(tx: Tx, who: ReportViewer, entry: ReportEntry, f: ReportFilters): Promise<Table> {
   const a = reportAccess(who);
-  if (!entryAllowed(entry, a, who)) throw new ReportProblem(`“${entry.name}” is not open to your role.`);
+  if (!entryAllowed(entry, a, who)) throw new ReportProblem(closedWords(entry, a, who));
   const sections = await reachSections(tx, who.ctx, a.own, f.year?.id ?? null);
   if (a.own && f.sectionId && !sections?.includes(f.sectionId)) throw new ReportProblem("You can see reports for your own classes only.");
   const cache = new Map<string, Promise<unknown>>();
@@ -136,7 +136,7 @@ export async function viewerOf(tx: Tx, userId: string, schoolId: string): Promis
 /** Asks for a heavy report to be prepared in the background. The same filters asked twice the same minute run once. */
 export async function prepareReport(tx: Tx, who: ReportViewer, entry: ReportEntry, params: Record<string, string>, words: string, format: ExportFormat = "xlsx") {
   const a = reportAccess(who);
-  if (!entryAllowed(entry, a, who)) throw new ReportProblem(`“${entry.name}” is not open to your role.`);
+  if (!entryAllowed(entry, a, who)) throw new ReportProblem(closedWords(entry, a, who));
   const run = await tx.reportRun.create({ data: { schoolId: who.ctx.schoolId, userId: who.user.id, key: entry.key, title: entry.name, params, filters: words, format } });
   await enqueue(tx, who.ctx, "reports:run", `reports:run:${run.id}`, { runId: run.id });
   return run;

@@ -87,11 +87,17 @@ export function menuModules(permissions: PermissionMap, modulesOn: ReadonlySet<M
     (built.has(m.key) || m.key === "dashboard"));
 }
 
+/** The digest a refusal carries to the browser, so the error page can say it in plain words. */
+export const NO_PERMISSION_DIGEST = "school-os:no-permission:";
+
 export class PermissionDeniedError extends Error {
+  /** Next.js keeps an error's own digest; production hides the message but not this. */
+  readonly digest: string;
   constructor(module: ModuleKey) {
     const name = MODULES.find((m) => m.key === module)?.name ?? module;
     super(`Your role does not allow this in ${name}. Ask your School Admin if you need it (Settings, Users & Permissions).`);
     this.name = "PermissionDeniedError";
+    this.digest = `${NO_PERMISSION_DIGEST}${module}`;
   }
 }
 

@@ -48,6 +48,16 @@ export function entryAllowed(e: ReportEntry, a: ReportAccess, who: Pick<ReportVi
   return e.allowed ? e.allowed(a, who) : true;
 }
 
+/** Why a report is closed, in plain words: the role, or a school feature that is off (QA PLATFORM-15). */
+export function closedWords(e: ReportEntry, a: ReportAccess, who: Pick<ReportViewer, "features" | "permissions" | "roles" | "modulesOn">) {
+  // Would it open if every school feature were on? Then a feature is what closes it.
+  const everyFeature = { has: () => true } as unknown as typeof who.features;
+  const featureOnly = !entryAllowed(e, a, who) && entryAllowed(e, a, { ...who, features: everyFeature });
+  return featureOnly
+    ? `“${e.name}” needs a feature your school has not switched on. The School Admin can switch it on in Settings.`
+    : `“${e.name}” is not open to your role.`;
+}
+
 export function catalogueFor(a: ReportAccess, who: Pick<ReportViewer, "features" | "permissions" | "roles" | "modulesOn">) {
   return CATALOGUE.filter((e) => entryAllowed(e, a, who));
 }

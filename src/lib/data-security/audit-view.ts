@@ -69,7 +69,9 @@ const WORDS: Record<string, string> = {
   "signed-out-device": "Signed out a device",
   "changed-password": "Changed password",
   "asked-approval": "Asked for approval",
-  "approval-approve": "Approved",
+  "approval-approve": "Approved in Approvals",
+  // Modules also write a plain "approved"; the two must not read the same in the Action filter (QA PLATFORM-11).
+  approved: "Approved",
   "approval-reject": "Not approved",
   "approval-ask-change": "Sent back for a change",
   "approval-withdraw": "Withdrew a request",

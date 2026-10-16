@@ -8,11 +8,11 @@
 import type { FormState } from "@/lib/forms";
 import { formatRupees } from "@/lib/format";
 import { canDecide, decide } from "@/lib/approvals";
-import { DOCUMENT_TYPES, saveFile } from "@/lib/files";
+import { DOCUMENT_TYPES, IMAGE_TYPES, saveFile } from "@/lib/files";
 import { instantOf } from "@/lib/front-office/time";
 import { currentYear } from "@/lib/academic/years";
 import {
-  hostelAction, inHostel, need, str, id, optionalId, ids, text, maybe, int, money, isoDate, minute, on, HostelProblem, type HostelWork,
+  hostelAction, inHostel, need, str, id, optionalId, ids, text, maybe, int, money, isoDate, minute, on, HostelProblem, UUID_RE, type HostelWork,
 } from "@/lib/hostel/act";
 import { assertHostel } from "@/lib/hostel/scope";
 import {
@@ -24,6 +24,7 @@ import { cancelPass, markOut, markReturned, requestPass } from "@/lib/hostel/out
 import { authorisedList, recordVisitor, visitorOut } from "@/lib/hostel/visitors";
 import { remindRollCall, saveRollCall } from "@/lib/hostel/rollcall";
 import { recordIncident } from "@/lib/hostel/incidents";
+import { INVENTORY, raiseFromIncident, type Priority, type RaiseFromIncident } from "@/lib/hostel/maintenance";
 import { copyMenu, recordMessExpense, saveHeadCount, saveMenuItem } from "@/lib/hostel/mess";
 import { wardenLogins } from "@/lib/hostel/settings";
 import { notify } from "@/lib/notifications";
@@ -298,8 +299,33 @@ export async function recordIncidentAction(_p: S, fd: FormData): Promise<S> {
       type, studentIds: ids(fd, "studentIds"), hostelId: optionalId(fd, "hostelId"), place: maybe(fd, "place", "Place", 120), description: text(fd, "description", "What happened", { min: 3, max: 2000 }),
       at, actionTaken: maybe(fd, "actionTaken", "Action taken", 1000), informParent: on(fd, "informParent"), behaviourTypeKey: type === "DISCIPLINE" && behaviour ? behaviour : null,
     }, { now: w.now, tz: w.tz, assertHostel: inMine(w), mayAddBehaviour });
-    return { no: r.incident.incidentNo, type: INCIDENT_TYPE[type].label, told: r.told, behaviour: Boolean(r.behaviourId) };
-  }, (r) => `${r.type} incident ${r.no} recorded.${r.behaviour ? " Added to the behaviour record." : ""}${r.told ? ` ${r.told === 1 ? "The parents were" : `${r.told} families were`} told.` : ""}`);
+    // A maintenance incident can raise the Inventory maintenance request in the same step.
+    let request: string | null = null;
+    if (type === "MAINTENANCE" && on(fd, "raiseRequest") && w.current.modulesOn.has(INVENTORY)) {
+      const raised = await raiseFromIncident(w.tx, w.ctx, r.incident.id, await requestInput(w, fd), { assertHostel: inMine(w), inventoryOn: true });
+      request = raised.request.number;
+    }
+    return { no: r.incident.incidentNo, type: INCIDENT_TYPE[type].label, told: r.told, behaviour: Boolean(r.behaviourId), request };
+  }, (r) => `${r.type} incident ${r.no} recorded.${r.request ? ` Maintenance request ${r.request} sent to the store keeper.` : ""}${r.behaviour ? " Added to the behaviour record." : ""}${r.told ? ` ${r.told === 1 ? "The parents were" : `${r.told} families were`} told.` : ""}`);
+}
+
+/** The place, priority and photo of a maintenance request typed on a hostel form. */
+async function requestInput(w: HostelWork, fd: FormData): Promise<RaiseFromIncident> {
+  const place = str(fd, "placeId");
+  if (!place || !(place.startsWith("hostel:") ? UUID_RE.test(place.slice(7)) : UUID_RE.test(place))) throw new HostelProblem("Choose the place.", "placeId");
+  const priority = (["LOW", "NORMAL", "HIGH", "URGENT"].includes(str(fd, "priority")) ? str(fd, "priority") : "NORMAL") as Priority;
+  const photo = fd.get("photo");
+  const photoFileId = photo instanceof File && photo.size > 0 ? (await saveFile(w.tx, w.ctx, { file: photo, purpose: "maintenance-photo", allowed: IMAGE_TYPES, maxImageWidth: 1600 })).id : null;
+  return { placeId: place, priority, photoFileId };
+}
+
+/** Raises the maintenance request for a maintenance incident recorded earlier. */
+export async function raiseMaintenanceAction(_p: S, fd: FormData): Promise<S> {
+  return hostelAction("create", fd, async (w) => {
+    need(w.can.rollcall, "raise maintenance requests");
+    const r = await raiseFromIncident(w.tx, w.ctx, id(fd, "incidentId", "incident"), await requestInput(w, fd), { assertHostel: inMine(w), inventoryOn: w.current.modulesOn.has(INVENTORY) });
+    return { request: r.request.number, no: r.incident.incidentNo, place: r.room.name };
+  }, (r) => `Maintenance request ${r.request} raised for ${r.no} (${r.place}). The store keeper is told.`);
 }
 
 /* ---------- Outing & Visitors ---------- */

@@ -313,6 +313,8 @@ model HostelIncident {
   parentMessagedAt    DateTime?          @map("parent_messaged_at")
   /// The Student Management behaviour incident made from a discipline incident.
   behaviourIncidentId String?            @map("behaviour_incident_id") @db.Uuid
+  /// The Inventory Management maintenance request raised from a maintenance incident.
+  maintenanceRequestId String?           @map("maintenance_request_id") @db.Uuid
   recordedById        String?            @map("recorded_by_id") @db.Uuid
   createdAt           DateTime           @default(now()) @map("created_at")
   updatedAt           DateTime           @updatedAt @map("updated_at")

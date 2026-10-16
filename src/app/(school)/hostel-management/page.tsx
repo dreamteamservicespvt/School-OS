@@ -6,6 +6,7 @@
 // the incident log (discipline, medical, maintenance). A warden works in
 // their own hostel; leaders read the roll calls and remind the warden.
 import type { Metadata } from "next";
+import Link from "next/link";
 import { AlertTriangle, ClipboardList, Moon, Plus, Search, ShieldAlert, Sun } from "lucide-react";
 import type { Prisma } from "@prisma/client";
 import { withSchool } from "@/lib/db";
@@ -30,7 +31,11 @@ import { defaultSession, rollHistory, rollHref, rollSheet } from "@/lib/hostel/r
 import { INCIDENT_TYPE, SESSION, isoOf, minuteWords, plural, type IncidentType, type RollSession } from "@/lib/hostel/words";
 import { HostelHead } from "./_components/head";
 import { ActButton, RollCallForm, type RollRow } from "./_components/client";
-import { IncidentSheet } from "./_components/sheets";
+import { IncidentSheet, RaiseRequestSheet, type RequestPlaces } from "./_components/sheets";
+import { INVENTORY } from "@/lib/hostel/maintenance";
+import { roomOptions } from "@/lib/inventory/lookup";
+import { invViewer, pageOpen } from "@/lib/inventory/access";
+import { MAINT_STATUS } from "@/lib/inventory/words";
 import { remindRollCallAction, type FoundStudent } from "./actions";
 import { BASE, chosenHostel, hostelGuard, hostelPeriod, idParam, one, qs, type Raw, type SearchParams } from "./_lib/page";
 
@@ -217,6 +222,10 @@ async function IncidentsView({ p, sp }: { p: P; sp: Raw }) {
   const per = hostelPeriod(sp, p.dates, "thismonth");
   const type = (["DISCIPLINE", "MEDICAL", "MAINTENANCE"] as const).find((t) => t === one(sp.type)) ?? null;
   const highlight = idParam(sp.incident);
+  // Inventory Management switched on: a maintenance incident raises a maintenance request there.
+  const inventoryOn = current.modulesOn.has(INVENTORY);
+  const raiseId = inventoryOn && can.rollcall ? idParam(sp.raise) : null;
+  const seesRequests = inventoryOn && pageOpen(invViewer(current), "rooms");
 
   const d = await withSchool(ctx, async (tx) => {
     let nameIds: string[] | null = null;
@@ -244,7 +253,19 @@ async function IncidentsView({ p, sp }: { p: P; sp: Raw }) {
       const s = (await studentsInfo(tx, ctx, [sid])).get(sid);
       if (s) start = [{ id: s.id, name: s.name, admissionNo: s.admissionNo, cls: s.classSection ?? "", gender: null, bed: null, hostelId: null }];
     }
-    return { total, rows, byType, info, people: new Map(people.map((x) => [x.id, x.displayName])), hostels: new Map(hostels.map((h) => [h.id, h.name])), behaviour, start };
+    // Maintenance requests raised in Inventory Management from these incidents.
+    const requestIds = rows.map((r) => r.maintenanceRequestId).filter((x): x is string => Boolean(x));
+    const requests = requestIds.length ? await tx.maintenanceRequest.findMany({ where: { id: { in: requestIds } }, select: { id: true, number: true, status: true, raisedById: true } }) : [];
+    let places: RequestPlaces | null = null;
+    if (inventoryOn && can.rollcall) {
+      const mineNames = new Set(p.myHostels.map((h) => h.name.trim().toLowerCase()));
+      places = {
+        hostels: p.myHostels.map((h) => ({ hostelId: h.id, value: `hostel:${h.id}`, label: h.name })),
+        others: (await roomOptions(tx)).filter((o) => !mineNames.has(o.label.trim().toLowerCase())),
+      };
+    }
+    const raiseFor = raiseId ? await tx.hostelIncident.findFirst({ where: { id: raiseId, type: "MAINTENANCE", maintenanceRequestId: null, archivedAt: null, ...(mine === null ? {} : { hostelId: { in: mine } }) } }) : null;
+    return { total, rows, byType, info, people: new Map(people.map((x) => [x.id, x.displayName])), hostels: new Map(hostels.map((h) => [h.id, h.name])), behaviour, start, requests: new Map(requests.map((r) => [r.id, r])), places, raiseFor };
   });
 
   type Row = (typeof d.rows)[number];
@@ -254,6 +275,21 @@ async function IncidentsView({ p, sp }: { p: P; sp: Raw }) {
   const names = (r: Row) => r.studentIds.map((id) => d.info.get(id)?.name).filter(Boolean).join(", ");
   const exportHref = qs(`${BASE}/incidents/export`, { type, q: params.q || null, ...per.keep });
   const opening = can.rollcall && one(sp.incident) === "1";
+  const requestHref = (q: { id: string; raisedById: string | null }) =>
+    seesRequests ? `/inventory-management/rooms?tab=maintenance&request=${q.id}` : q.raisedById === current.user.id ? `/inventory-management/report-problem?request=${q.id}` : null;
+  /** A maintenance incident's request in Inventory Management: its number and status, or the button to raise one. */
+  const request = (r: Row) => {
+    if (r.type !== "MAINTENANCE" || !inventoryOn) return null;
+    const q = r.maintenanceRequestId ? d.requests.get(r.maintenanceRequestId) : null;
+    if (q) {
+      const st = MAINT_STATUS[q.status as keyof typeof MAINT_STATUS];
+      const words = <><span className="font-mono">{q.number}</span> · {st.label}</>;
+      const to = requestHref(q);
+      return <span className="block text-[12px] mt-0.5">{to ? <Link href={to} className="font-semibold text-brand hover:underline relative z-[1]">{words}</Link> : <span className="text-ink2">{words}</span>}</span>;
+    }
+    if (!d.places) return null;
+    return <Link href={href({ raise: r.id })} scroll={false} className="block text-[12.5px] font-semibold text-brand hover:underline mt-0.5 relative z-[1]">Raise maintenance request</Link>;
+  };
 
   return (
     <>
@@ -281,19 +317,24 @@ async function IncidentsView({ p, sp }: { p: P; sp: Raw }) {
               { key: "type", label: "Type", render: (r) => <Pill tone={INCIDENT_TYPE[r.type as IncidentType].tone}>{INCIDENT_TYPE[r.type as IncidentType].label}</Pill> },
               { key: "who", label: "Student(s) or place", render: (r) => <span>{names(r) || r.place || "—"}<span className="block text-[12.5px] text-ink3">{r.hostelId ? d.hostels.get(r.hostelId) : ""}{names(r) && r.place ? ` · ${r.place}` : ""}</span></span> },
               { key: "what", label: "What happened", className: "max-w-[320px]", render: (r) => <span className="line-clamp-3">{r.description}</span> },
-              { key: "action", label: "Action taken", className: "max-w-[260px]", render: (r) => <span className="line-clamp-3">{r.actionTaken ?? <span className="text-ink3">—</span>}{r.parentMessagedAt && <span className="block text-[12px] text-ok">Parent told</span>}{r.behaviourIncidentId && <span className="block text-[12px] text-info">In the behaviour record</span>}</span> },
+              { key: "action", label: "Action taken", className: "max-w-[260px]", render: (r) => <span className="line-clamp-3">{r.actionTaken ?? <span className="text-ink3">—</span>}{r.parentMessagedAt && <span className="block text-[12px] text-ok">Parent told</span>}{r.behaviourIncidentId && <span className="block text-[12px] text-info">In the behaviour record</span>}{request(r)}</span> },
               { key: "by", label: "Recorded by", render: (r) => (r.recordedById && d.people.get(r.recordedById)) ?? "—" },
             ]}
-            phone={(r) => ({ title: names(r) || r.place || INCIDENT_TYPE[r.type as IncidentType].label, sub: `${formatDate(r.at, tz)}, ${clockAt(r.at, tz)} · ${r.description}`, icon: ShieldAlert, iconTone: INCIDENT_TYPE[r.type as IncidentType].tone, right: <Pill tone={INCIDENT_TYPE[r.type as IncidentType].tone}>{INCIDENT_TYPE[r.type as IncidentType].label}</Pill> })}
+            phone={(r) => ({ title: names(r) || r.place || INCIDENT_TYPE[r.type as IncidentType].label, sub: `${formatDate(r.at, tz)}, ${clockAt(r.at, tz)} · ${r.description}`, icon: ShieldAlert, iconTone: INCIDENT_TYPE[r.type as IncidentType].tone, right: <Pill tone={INCIDENT_TYPE[r.type as IncidentType].tone}>{INCIDENT_TYPE[r.type as IncidentType].label}</Pill>, pills: request(r) ?? undefined })}
           />
           {d.total > 0 && <Pager page={params.page} pageSize={PAGE_SIZE} total={d.total} prevHref={listHref(base, params, { view: "incidents", page: params.page > 2 ? params.page - 1 : null })} nextHref={listHref(base, params, { view: "incidents", page: params.page + 1 })} />}
         </Card>
-        <p className="text-[12.5px] text-ink3">Maintenance incidents are followed up from this log. Discipline incidents can also go to the student&apos;s behaviour record in Student Management.</p>
+        <p className="text-[12.5px] text-ink3">{inventoryOn ? "Maintenance incidents raise a maintenance request in Inventory Management, followed up there by the store keeper." : "Maintenance incidents are followed up from this log."} Discipline incidents can also go to the student&apos;s behaviour record in Student Management.</p>
       </Stack>
       {opening && (
         <IncidentSheet closeHref={href({ incident: null, student: null })} hostels={p.myHostels.map((h) => ({ id: h.id, name: h.name }))} todayStr={p.todayStr}
           nowTime={`${String(Math.floor(p.minute / 60)).padStart(2, "0")}:${String(p.minute % 60).padStart(2, "0")}`} behaviourTypes={d.behaviour}
-          start={{ type: one(sp.type) && ["DISCIPLINE", "MEDICAL", "MAINTENANCE"].includes(one(sp.type)) ? one(sp.type) : "DISCIPLINE", students: d.start, description: "" }} />
+          start={{ type: one(sp.type) && ["DISCIPLINE", "MEDICAL", "MAINTENANCE"].includes(one(sp.type)) ? one(sp.type) : "DISCIPLINE", students: d.start, description: "" }} requestPlaces={d.places} />
+      )}
+      {d.raiseFor && d.places && (
+        <RaiseRequestSheet closeHref={href({ raise: null })} incidentId={d.raiseFor.id} hostelId={d.raiseFor.hostelId ?? ""} places={d.places}
+          words={`${d.raiseFor.incidentNo} · ${formatDate(d.raiseFor.at, tz)}${d.raiseFor.hostelId ? ` · ${d.hostels.get(d.raiseFor.hostelId) ?? ""}` : ""}`}
+          problem={`${d.raiseFor.place ? `${d.raiseFor.place}: ` : ""}${d.raiseFor.description}`} />
       )}
     </>
   );

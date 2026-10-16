@@ -22,6 +22,7 @@ import { allocate, checkOut, moveBed } from "../../src/lib/hostel/allocation";
 import { markOut, markReturned, requestPass } from "../../src/lib/hostel/outings";
 import { recordVisitor, visitorOut } from "../../src/lib/hostel/visitors";
 import { recordIncident } from "../../src/lib/hostel/incidents";
+import { raiseFromIncident } from "../../src/lib/hostel/maintenance";
 import { saveRollCall } from "../../src/lib/hostel/rollcall";
 import { saveHeadCount, saveMenuItem, recordMessExpense } from "../../src/lib/hostel/mess";
 import { mondayOf } from "../../src/lib/hostel/words";
@@ -293,7 +294,9 @@ export async function seedHostel(school: SeedSchool) {
   }, { timeout: 60_000 });
   await withSchool(W.girls, async (tx) => {
     const g = ofHostel("girls");
-    await recordIncident(tx, W.girls, { type: "MAINTENANCE", studentIds: [], hostelId: setup.girls.id, place: "First floor washroom", description: "Geyser not heating since the morning.", at: at(-3, 7, 10), actionTaken: "Electrician informed.", informParent: false, behaviourTypeKey: null }, { now: at(-3, 7, 30), tz: TZ, assertHostel: noScope, mayAddBehaviour: false });
+    const geyser = await recordIncident(tx, W.girls, { type: "MAINTENANCE", studentIds: [], hostelId: setup.girls.id, place: "First floor washroom", description: "Geyser not heating since the morning.", at: at(-3, 7, 10), actionTaken: "Electrician informed.", informParent: false, behaviourTypeKey: null }, { now: at(-3, 7, 30), tz: TZ, assertHostel: noScope, mayAddBehaviour: false });
+    // Raised as a maintenance request in Inventory Management (the boys' broken bed is left to raise from the log).
+    await raiseFromIncident(tx, W.girls, geyser.incident.id, { placeId: `hostel:${setup.girls.id}`, priority: "HIGH", photoFileId: null }, { assertHostel: noScope, inventoryOn: true });
     if (g[2] && g[7]) await recordIncident(tx, W.girls, { type: "DISCIPLINE", studentIds: [g[2].studentId, g[7].studentId], hostelId: setup.girls.id, place: null, description: "Talking loudly after lights out; disturbed the room next door.", at: at(-6, 22, 40), actionTaken: "Warned both students.", informParent: false, behaviourTypeKey: null }, { now: at(-6, 22, 55), tz: TZ, assertHostel: noScope, mayAddBehaviour: false });
   }, { timeout: 60_000 });
 

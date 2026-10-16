@@ -6,9 +6,10 @@
 // per student, the hostel matched to gender, approval before marking out...).
 
 import { useMemo, useState, useTransition } from "react";
-import { Info, ShieldAlert, ShieldCheck } from "lucide-react";
+import { Camera, Info, ShieldAlert, ShieldCheck } from "lucide-react";
 import { SheetForm, useTyped } from "@/components/ui/url-sheet";
 import { SArea, SDate, SMoney, SSelect, SSwitch, SText } from "@/components/ui/sheet-fields";
+import { Switch } from "@/components/ui/controls";
 import { FieldShell, inputCls } from "@/components/ui/field";
 import { Alert } from "@/components/ui/alert";
 import { Spinner } from "@/components/ui/button";
@@ -16,7 +17,7 @@ import { cx } from "@/components/ui/cx";
 import { SegField, StudentFind } from "./client";
 import {
   addFloorAction, addRoomAction, allocateAction, archiveFeePlanAction, blockBedAction, cancelPassAction, checkoutAction, closeHostelAction, closeRoomAction,
-  decidePassAction, guardiansAction, messExpenseAction, moveAction, recordIncidentAction, recordVisitorAction, requestPassAction, saveFeePlanAction,
+  decidePassAction, guardiansAction, messExpenseAction, moveAction, raiseMaintenanceAction, recordIncidentAction, recordVisitorAction, requestPassAction, saveFeePlanAction,
   saveHeadCountAction, saveHostelAction, saveMenuAction, setWardensAction, updateRoomAction, type FoundStudent, type GuardianChoice,
 } from "../actions";
 
@@ -283,19 +284,52 @@ export function CheckoutSheet({ closeHref, allocationId, name, where, todayStr, 
 
 /* ---------- Roll call and incidents ---------- */
 
-export function IncidentSheet({ closeHref, hostels, todayStr, nowTime, behaviourTypes, start }: {
+/** Where a maintenance request can go: each of the person's hostels, then the rooms and places in Inventory's facility register. */
+export type RequestPlaces = { hostels: { hostelId: string; value: string; label: string }[]; others: Opt[] };
+
+const PRIORITIES = [{ value: "LOW", label: "Low" }, { value: "NORMAL", label: "Normal" }, { value: "HIGH", label: "High" }, { value: "URGENT", label: "Urgent" }];
+
+/** Place, priority and photo of the Inventory maintenance request (Report a problem's fields). */
+function RequestFields({ places, hostelId }: { places: RequestPlaces; hostelId: string }) {
+  const here = places.hostels.find((h) => h.hostelId === hostelId) ?? places.hostels[0];
+  const p = useTyped("placeId", here?.value ?? "");
+  const [photo, setPhoto] = useState("");
+  const options = [...places.hostels.map((h) => ({ value: h.value, label: h.label })), ...places.others];
+  return (
+    <div className="flex flex-col gap-3 rounded-xl border border-line p-3 sm:p-4">
+      <SSelect key={`${hostelId}-${p.key}`} name="placeId" label="Place" required options={options} start={p.value || here?.value} help="The hostel, or a room or place from Inventory's register" />
+      <SegField name="priority" label="Priority" start="NORMAL" options={PRIORITIES} />
+      <div className="flex flex-col gap-1.5">
+        <span className="text-[13px] font-semibold text-ink2">Photo</span>
+        <label className="flex items-center gap-3 rounded-xl border border-dashed border-line px-4 py-3 min-h-11 cursor-pointer hover:bg-sunken/60 focus-within:ring-2 focus-within:ring-brand/40">
+          <Camera size={20} className="text-ink3 shrink-0" aria-hidden="true" />
+          <span className="text-[14px] min-w-0 truncate">{photo || "Take a photo or choose one (optional)"}</span>
+          <input type="file" name="photo" accept="image/*" capture="environment" className="sr-only" onChange={(e) => setPhoto(e.target.files?.[0]?.name ?? "")} />
+        </label>
+      </div>
+    </div>
+  );
+}
+
+export function IncidentSheet({ closeHref, hostels, todayStr, nowTime, behaviourTypes, start, requestPlaces }: {
   closeHref: string; hostels: { id: string; name: string }[]; todayStr: string; nowTime: string; behaviourTypes: Opt[] | null; start: { type: string; students: FoundStudent[]; description: string };
+  /** Set only when Inventory Management is on: a maintenance incident can raise its maintenance request. */
+  requestPlaces: RequestPlaces | null;
 }) {
   const t = useTyped("type", start.type);
   const [type, setType] = useState(t.value || start.type);
   const maint = type === "MAINTENANCE";
+  const h = useTyped("hostelId", hostels[0]?.id ?? "");
+  const [hostelId, setHostelId] = useState(h.value || hostels[0]?.id || "");
+  const r = useTyped("raiseRequest", "on");
+  const [raise, setRaise] = useState(r.value === "on");
   return (
     <SheetForm title="Record an incident" sub="Kept in the hostel log. Staff only." closeHref={closeHref} action={recordIncidentAction} submitLabel="Save incident" wide pendingText="Saving…">
       <SegField name="type" label="Type" start={type} onChange={setType} options={[{ value: "DISCIPLINE", label: "Discipline" }, { value: "MEDICAL", label: "Medical" }, { value: "MAINTENANCE", label: "Maintenance" }]} />
       <StudentFind name="studentIds" label="Student(s)" mode="resident" multiple required={!maint} start={start.students} help={maint ? "Optional for maintenance." : undefined} />
       {maint && (
         <div className="grid sm:grid-cols-2 gap-3">
-          {hostels.length > 1 ? <SSelect name="hostelId" label="Hostel" required options={hostels.map((h) => ({ value: h.id, label: h.name }))} start={hostels[0]?.id} /> : <input type="hidden" name="hostelId" value={hostels[0]?.id ?? ""} />}
+          {hostels.length > 1 ? <SSelect name="hostelId" label="Hostel" required options={hostels.map((x) => ({ value: x.id, label: x.name }))} start={hostelId} onChange={(e) => setHostelId(e.target.value)} /> : <input type="hidden" name="hostelId" value={hostels[0]?.id ?? ""} />}
           <SText name="place" label="Room or place" required maxLength={120} placeholder="Room B-21, ceiling fan" />
         </div>
       )}
@@ -309,7 +343,33 @@ export function IncidentSheet({ closeHref, hostels, todayStr, nowTime, behaviour
       {type === "DISCIPLINE" && behaviourTypes && behaviourTypes.length > 0 && (
         <SSelect name="behaviourTypeKey" label="Add to the behaviour record" options={[{ value: "", label: "No, keep it in the hostel log only" }, ...behaviourTypes]} start="" help="Seen by the class teacher and the counsellor in Student Management." />
       )}
-      {maint && <p className="text-[12.5px] text-ink3 flex gap-1.5"><Info size={14} className="shrink-0 mt-0.5" aria-hidden="true" />Repairs are followed up from the hostel incident log.</p>}
+      {maint && requestPlaces && (
+        <>
+          <div className="flex items-center gap-3 rounded-xl border border-line px-4 py-3">
+            <div className="min-w-0 flex-1 text-[14px]">
+              <b className="font-semibold block">Raise a maintenance request</b>
+              <span className="block text-[12.5px] text-ink3 mt-0.5">Goes to the store keeper in Inventory Management, who assigns a technician.</span>
+            </div>
+            <Switch on={raise} onChange={setRaise} label="Raise a maintenance request" name="raiseRequest" />
+          </div>
+          {raise && <RequestFields places={requestPlaces} hostelId={hostelId} />}
+        </>
+      )}
+      {maint && (!requestPlaces || !raise) && <p className="text-[12.5px] text-ink3 flex gap-1.5"><Info size={14} className="shrink-0 mt-0.5" aria-hidden="true" />Repairs are followed up from the hostel incident log.</p>}
+    </SheetForm>
+  );
+}
+
+/** Raises the maintenance request for a maintenance incident recorded earlier. */
+export function RaiseRequestSheet({ closeHref, incidentId, words, problem, hostelId, places }: { closeHref: string; incidentId: string; words: string; problem: string; hostelId: string; places: RequestPlaces }) {
+  return (
+    <SheetForm title="Raise a maintenance request" sub={words} closeHref={closeHref} action={raiseMaintenanceAction} submitLabel="Raise request" pendingText="Sending…" hidden={{ incidentId }}>
+      <div className="rounded-xl bg-sunken/60 px-4 py-3 text-[14px]">
+        <span className="block text-[12.5px] font-semibold text-ink3 mb-0.5">Problem</span>
+        {problem}
+      </div>
+      <RequestFields places={places} hostelId={hostelId} />
+      <p className="text-[12.5px] text-ink3">The store keeper is told and follows it up in Inventory Management, Rooms, Labs &amp; Maintenance.</p>
     </SheetForm>
   );
 }

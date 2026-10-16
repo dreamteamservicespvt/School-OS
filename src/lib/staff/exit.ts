@@ -165,6 +165,19 @@ export async function setClearance(tx: Tx, ctx: SchoolContext, checkId: string, 
     const names = still.length ? (await tx.hostel.findMany({ where: { id: { in: still.map((w) => w.hostelId) }, archivedAt: null }, select: { name: true } })).map((h) => h.name) : [];
     if (names.length) throw new ExitProblem(`Still a warden of ${names.join(" and ")}. Choose another warden in Hostel Settings first.`);
   }
+  if (check.key === "assets" && status === "CLEARED") {
+    // Inventory Management (14 §4): assets assigned to the person and returnable items not returned hold the clearance.
+    const staffId = check.exitCase.staffId;
+    const [assets, lines] = await Promise.all([
+      tx.asset.count({ where: { staffId, status: { not: "DISPOSED" }, archivedAt: null } }),
+      tx.stockIssueLine.findMany({ where: { issue: { staffId, returnable: true } }, select: { qty: true, returnedQty: true } }),
+    ]);
+    const items = lines.filter((l) => l.qty > l.returnedQty).length;
+    if (assets || items) {
+      const parts = [assets ? `${assets} asset${assets === 1 ? "" : "s"} still assigned` : "", items ? `${items} returnable item${items === 1 ? "" : "s"} not returned` : ""].filter(Boolean).join(" and ");
+      throw new ExitProblem(`${parts}. The store keeper moves the assets and records the returns first.`);
+    }
+  }
   await tx.clearanceCheck.update({ where: { id: check.id }, data: { status, note, clearedById: status === "PENDING" ? null : ctx.userId, clearedAt: status === "PENDING" ? null : new Date() } });
   await writeAudit(tx, ctx, { action: "clearance-changed", recordType: "Clearance Check", recordId: check.id, before: { status: check.status }, after: { status, note, label: check.label } });
 }

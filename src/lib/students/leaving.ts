@@ -15,6 +15,7 @@ import { runClearanceChecks } from "./clearance";
 import "../fees/clearance";
 import "../library/clearance";
 import "../hostel/clearance";
+import "../inventory/clearance";
 import { applyStatus, StudentProblem } from "./students";
 import { STUDYING, type StudentStatusKey } from "./labels";
 

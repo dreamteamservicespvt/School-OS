@@ -29,3 +29,4 @@ import "./reports/jobs";
 import "./transport/jobs";
 import "./library/jobs";
 import "./hostel/jobs";
+import "./inventory/jobs";

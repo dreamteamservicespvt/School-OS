@@ -19,6 +19,7 @@ import { seedReports } from "./reports";
 import { seedTransport } from "./transport";
 import { seedLibrary } from "./library";
 import { seedHostel } from "./hostel";
+import { seedInventory } from "./inventory";
 
 export const MODULE_SEEDS: { module: string; seed: ModuleSeed }[] = [
   { module: "academic-management", seed: seedAcademic },
@@ -40,4 +41,5 @@ export const MODULE_SEEDS: { module: string; seed: ModuleSeed }[] = [
   { module: "transport-management", seed: seedTransport },
   { module: "library-management", seed: seedLibrary },
   { module: "hostel-management", seed: seedHostel },
+  { module: "inventory-management", seed: seedInventory },
 ];

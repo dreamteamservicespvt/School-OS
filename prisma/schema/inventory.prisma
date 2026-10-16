@@ -1,0 +1,853 @@
+// 14 Inventory Management (optional, switched on per school): items and
+// their stock by store location (worked out from Stock Movements, kept in
+// step in Stock Balance), book and uniform sets, issues to staff,
+// departments, classes and students (store-counter charges go to the
+// student's fees), stock audits, purchase requests, orders, goods received
+// and vendor bills (the bills are Expenses in Finance Management), assets
+// with tags, assignment history, repairs, depreciation and disposal, asset
+// audits, facilities (the same Room records the Time Table uses),
+// maintenance requests and labs. Records of other modules (Student, Staff,
+// Department, Room, Vendor, Expense, Income, Student Fee Due, Approval) are
+// kept by id. Nothing is ever deleted: records are archived, stock is
+// corrected by new movements, and assets stay in the register as Disposed.
+
+enum StockMoveKind {
+  /// Opening stock when the item was added or imported.
+  OPENING
+  /// Stock in outside a purchase order (a donation, a gift).
+  IN
+  /// Goods received against a purchase order.
+  RECEIVED
+  /// Used up (consumption).
+  OUT
+  /// Given to a person, department, class or student.
+  ISSUE
+  /// A returnable issue came back.
+  RETURN
+  TRANSFER_OUT
+  TRANSFER_IN
+  DAMAGED
+  LOST
+  EXPIRED
+  /// A stock audit's difference, posted when the audit was approved.
+  AUDIT
+}
+
+enum IssueTo {
+  STAFF
+  DEPARTMENT
+  CLASS
+  STUDENT
+}
+
+enum InventoryApproval {
+  /// Waiting in Approvals.
+  WAITING
+  APPROVED
+  REJECTED
+  /// The person who asked took it back, or it was cancelled.
+  CANCELLED
+}
+
+enum StockAuditStatus {
+  /// Counting.
+  OPEN
+  /// Counted; the differences wait in Approvals.
+  WAITING
+  /// Approved: the differences are posted.
+  APPROVED
+  /// Not approved: nothing changed.
+  REJECTED
+}
+
+enum PurchaseRequestStatus {
+  WAITING
+  APPROVED
+  REJECTED
+  /// A purchase order was made from it.
+  ORDERED
+  CANCELLED
+}
+
+enum PurchaseOrderStatus {
+  /// Its amount is above the approved request: waiting in Approvals.
+  WAITING
+  SENT
+  PART_RECEIVED
+  RECEIVED
+  CLOSED
+  CANCELLED
+}
+
+enum AssetStatus {
+  IN_USE
+  IN_REPAIR
+  DISPOSED
+}
+
+enum MaintenanceStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+enum MaintenancePriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+/// Inventory Settings (14 §6): one per school.
+model InventorySetting {
+  schoolId              String   @id @map("school_id") @db.Uuid
+  /// Item codes: prefix and digits, e.g. ST-0001.
+  itemCodePrefix        String   @default("ST-") @map("item_code_prefix")
+  itemCodeWidth         Int      @default(4) @map("item_code_width")
+  /// Asset tags: prefix and digits, e.g. AT-0001.
+  assetTagPrefix        String   @default("AT-") @map("asset_tag_prefix")
+  assetTagWidth         Int      @default(4) @map("asset_tag_width")
+  /// Purchase order numbers, e.g. PO/2026-27/0001.
+  poPrefix              String   @default("PO/") @map("po_prefix")
+  /// Purchase requests up to this estimate are approved at once; above it they wait in Approvals.
+  approveUpToPaise      BigInt   @default(500000) @map("approve_up_to_paise")
+  /// Stock transfers between stores wait in Approvals when this is on.
+  transfersNeedApproval Boolean  @default(false) @map("transfers_need_approval")
+  /// "SLM" (straight line) or "WDV" (written-down value).
+  depreciationMethod    String   @default("SLM") @map("depreciation_method")
+  /// Yearly rate per asset type: { "IT": 30, "Furniture": 10 } (per cent).
+  depreciationRates     Json     @default("{}") @map("depreciation_rates")
+  /// Asset types offered (Furniture, IT, Lab, Sports, Vehicles, Others).
+  assetTypes            String[] @default([]) @map("asset_types")
+  /// Units offered for items (piece, box, packet, kg, litre, set).
+  units                 String[] @default([])
+  warrantyReminderDays  Int      @default(30) @map("warranty_reminder_days")
+  /// Low-stock alerts to the store keeper when an item reaches its reorder level.
+  lowStockAlerts        Boolean  @default(true) @map("low_stock_alerts")
+  bookSetsOn            Boolean  @default(true) @map("book_sets_on")
+  /// A book set can be issued with out-of-stock items left out (they are given later).
+  setsWithMissing       Boolean  @default(true) @map("sets_with_missing")
+  /// The expense head vendor bills go to when the category has none.
+  defaultExpenseHeadId  String?  @map("default_expense_head_id") @db.Uuid
+  updatedById           String?  @map("updated_by_id") @db.Uuid
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@map("inventory_setting")
+}
+
+/// Item Category: stationery, cleaning, lab, sports, uniforms, books and the school's own.
+model ItemCategory {
+  id                  String    @id @default(uuid()) @db.Uuid
+  schoolId            String    @map("school_id") @db.Uuid
+  name                String
+  /// Lab equipment and chemicals: shown under Lab stock, with expiry dates.
+  isLab               Boolean   @default(false) @map("is_lab")
+  /// Reorder level for this category's items unless an item sets its own (0 = no alert).
+  defaultReorderLevel Int       @default(0) @map("default_reorder_level")
+  /// Finance expense head for vendor bills of this category's items.
+  expenseHeadId       String?   @map("expense_head_id") @db.Uuid
+  sortOrder           Int       @default(0) @map("sort_order")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+  archivedAt          DateTime? @map("archived_at")
+
+  items Item[]
+
+  @@unique([schoolId, name])
+  @@map("item_category")
+}
+
+/// Store Location: main store, lab store, sports room and others.
+model StoreLocation {
+  id         String    @id @default(uuid()) @db.Uuid
+  schoolId   String    @map("school_id") @db.Uuid
+  name       String
+  /// The main store: the default for new stock and issues.
+  isMain     Boolean   @default(false) @map("is_main")
+  sortOrder  Int       @default(0) @map("sort_order")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  archivedAt DateTime? @map("archived_at")
+
+  @@unique([schoolId, name])
+  @@map("store_location")
+}
+
+/// Item: one kind of stock (chalk, A4 notebook, Class 5 English textbook, school shirt size 28).
+/// Stock in hand is worked out from Stock Movements (kept in step in Stock Balance).
+model Item {
+  id             String    @id @default(uuid()) @db.Uuid
+  schoolId       String    @map("school_id") @db.Uuid
+  /// Item code (SKU), unique in the school; printed as a barcode.
+  code           String
+  name           String
+  categoryId     String    @map("category_id") @db.Uuid
+  unit           String    @default("piece")
+  /// Size for uniforms and shoes (e.g. "28", "M"); empty for most items.
+  size           String?
+  /// Own reorder level; empty uses the category's (0 = no alert).
+  reorderLevel   Int?      @map("reorder_level")
+  /// Price per unit: stock value, and the charge when sold to a student.
+  pricePaise     BigInt?   @map("price_paise")
+  /// The last price paid on a purchase order (estimates use it).
+  lastPricePaise BigInt?   @map("last_price_paise")
+  /// Chemicals and perishables: stock is kept by batch with an expiry date.
+  tracksExpiry   Boolean   @default(false) @map("tracks_expiry")
+  note           String?
+  /// When the store keeper was last told this item is low (one alert until it is restocked).
+  lowAlertAt     DateTime? @map("low_alert_at")
+  importBatchId  String?   @map("import_batch_id") @db.Uuid
+  createdById    String?   @map("created_by_id") @db.Uuid
+  updatedById    String?   @map("updated_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  archivedAt     DateTime? @map("archived_at")
+
+  category  ItemCategory    @relation(fields: [categoryId], references: [id])
+  balances  StockBalance[]
+  movements StockMovement[]
+
+  @@unique([schoolId, code])
+  @@index([schoolId, categoryId])
+  @@map("item")
+}
+
+/// Stock in hand of one item at one store location, kept in step with its Stock Movements.
+model StockBalance {
+  schoolId   String   @map("school_id") @db.Uuid
+  itemId     String   @map("item_id") @db.Uuid
+  locationId String   @map("location_id") @db.Uuid
+  qty        Int      @default(0)
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  item Item @relation(fields: [itemId], references: [id])
+
+  @@id([itemId, locationId])
+  @@index([schoolId, locationId])
+  @@map("stock_balance")
+}
+
+/// A batch of an expiry-tracked item at one location (chemicals): issued earliest expiry first; expired batches cannot be issued.
+model StockBatch {
+  id         String   @id @default(uuid()) @db.Uuid
+  schoolId   String   @map("school_id") @db.Uuid
+  itemId     String   @map("item_id") @db.Uuid
+  locationId String   @map("location_id") @db.Uuid
+  batchNo    String   @map("batch_no")
+  expiresOn  DateTime @map("expires_on") @db.Date
+  qty        Int      @default(0)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@unique([schoolId, itemId, locationId, batchNo])
+  @@index([schoolId, expiresOn])
+  @@map("stock_batch")
+}
+
+/// Stock Movement: stock coming in, going out, moving between stores, or written off.
+/// Never changed: a correction is a new movement.
+model StockMovement {
+  id            String        @id @default(uuid()) @db.Uuid
+  schoolId      String        @map("school_id") @db.Uuid
+  itemId        String        @map("item_id") @db.Uuid
+  locationId    String        @map("location_id") @db.Uuid
+  kind          StockMoveKind
+  /// Signed: positive in, negative out.
+  qty           Int
+  date          DateTime      @db.Date
+  /// Stock in hand at this location after the movement.
+  balanceAfter  Int           @map("balance_after")
+  batchId       String?       @map("batch_id") @db.Uuid
+  unitCostPaise BigInt?       @map("unit_cost_paise")
+  /// Plain words: "Donation from Rotary Club", "Issued to Class 5 A", "PO/2026-27/0004".
+  reference     String?
+  reason        String?
+  /// The record it came from.
+  issueId       String?       @map("issue_id") @db.Uuid
+  receiptId     String?       @map("receipt_id") @db.Uuid
+  auditId       String?       @map("audit_id") @db.Uuid
+  transferId    String?       @map("transfer_id") @db.Uuid
+  createdById   String?       @map("created_by_id") @db.Uuid
+  createdAt     DateTime      @default(now()) @map("created_at")
+
+  item Item @relation(fields: [itemId], references: [id])
+
+  @@index([schoolId, itemId, createdAt])
+  @@index([schoolId, date])
+  @@map("stock_movement")
+}
+
+/// Stock moved between store locations (waits in Approvals when the settings say so).
+model StockTransfer {
+  id             String            @id @default(uuid()) @db.Uuid
+  schoolId       String            @map("school_id") @db.Uuid
+  number         String
+  date           DateTime          @db.Date
+  fromLocationId String            @map("from_location_id") @db.Uuid
+  toLocationId   String            @map("to_location_id") @db.Uuid
+  /// [{ itemId, qty }]
+  lines          Json
+  note           String?
+  status         InventoryApproval @default(APPROVED)
+  approvalId     String?           @map("approval_id") @db.Uuid
+  decisionNote   String?           @map("decision_note")
+  createdById    String?           @map("created_by_id") @db.Uuid
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  @@unique([schoolId, number])
+  @@map("stock_transfer")
+}
+
+/// Book Set: items sold or issued together, such as "Class 5 book set 2026-27" or a uniform set.
+model BookSet {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  name        String
+  /// Classes it is offered first for (class ids).
+  classIds    String[]  @default([]) @map("class_ids") @db.Uuid
+  /// Charged to the student's fees when issued.
+  pricePaise  BigInt    @map("price_paise")
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  items BookSetItem[]
+
+  @@unique([schoolId, name])
+  @@map("book_set")
+}
+
+model BookSetItem {
+  id       String @id @default(uuid()) @db.Uuid
+  schoolId String @map("school_id") @db.Uuid
+  setId    String @map("set_id") @db.Uuid
+  itemId   String @map("item_id") @db.Uuid
+  qty      Int    @default(1)
+
+  set BookSet @relation(fields: [setId], references: [id])
+
+  @@unique([setId, itemId])
+  @@map("book_set_item")
+}
+
+/// Stock Issue: items given to a staff member, department, class or student (one issue, several lines).
+model StockIssue {
+  id               String   @id @default(uuid()) @db.Uuid
+  schoolId         String   @map("school_id") @db.Uuid
+  number           String
+  date             DateTime @db.Date
+  toKind           IssueTo  @map("to_kind")
+  staffId          String?  @map("staff_id") @db.Uuid
+  departmentId     String?  @map("department_id") @db.Uuid
+  sectionId        String?  @map("section_id") @db.Uuid
+  studentId        String?  @map("student_id") @db.Uuid
+  /// The student's section when issued (for reports by class).
+  studentSectionId String?  @map("student_section_id") @db.Uuid
+  locationId       String   @map("location_id") @db.Uuid
+  bookSetId        String?  @map("book_set_id") @db.Uuid
+  /// Items of the set left out because they were out of stock: [{ itemId, qty }].
+  missing          Json     @default("[]")
+  returnable       Boolean  @default(false)
+  /// What was added to the student's fees (0 for a free issue).
+  chargePaise      BigInt   @default(0) @map("charge_paise")
+  feeDueId         String?  @map("fee_due_id") @db.Uuid
+  note             String?
+  createdById      String?  @map("created_by_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  lines StockIssueLine[]
+
+  @@unique([schoolId, number])
+  @@index([schoolId, date])
+  @@index([schoolId, studentId])
+  @@index([schoolId, staffId])
+  @@map("stock_issue")
+}
+
+model StockIssueLine {
+  id             String @id @default(uuid()) @db.Uuid
+  schoolId       String @map("school_id") @db.Uuid
+  issueId        String @map("issue_id") @db.Uuid
+  itemId         String @map("item_id") @db.Uuid
+  qty            Int
+  unitPricePaise BigInt @default(0) @map("unit_price_paise")
+  returnedQty    Int    @default(0) @map("returned_qty")
+
+  issue StockIssue @relation(fields: [issueId], references: [id])
+
+  @@index([schoolId, itemId])
+  @@map("stock_issue_line")
+}
+
+/// Stock Audit: counting each item in a location; the differences post only after approval.
+model StockAudit {
+  id           String           @id @default(uuid()) @db.Uuid
+  schoolId     String           @map("school_id") @db.Uuid
+  number       String
+  name         String
+  locationId   String           @map("location_id") @db.Uuid
+  status       StockAuditStatus @default(OPEN)
+  startedOn    DateTime         @map("started_on") @db.Date
+  submittedAt  DateTime?        @map("submitted_at")
+  approvalId   String?          @map("approval_id") @db.Uuid
+  decidedAt    DateTime?        @map("decided_at")
+  decisionNote String?          @map("decision_note")
+  createdById  String?          @map("created_by_id") @db.Uuid
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+
+  lines StockAuditLine[]
+
+  @@unique([schoolId, number])
+  @@map("stock_audit")
+}
+
+model StockAuditLine {
+  id         String  @id @default(uuid()) @db.Uuid
+  schoolId   String  @map("school_id") @db.Uuid
+  auditId    String  @map("audit_id") @db.Uuid
+  itemId     String  @map("item_id") @db.Uuid
+  /// Stock in hand in the system when counted.
+  systemQty  Int     @map("system_qty")
+  /// Empty until counted.
+  countedQty Int?    @map("counted_qty")
+  note       String?
+
+  audit StockAudit @relation(fields: [auditId], references: [id])
+
+  @@unique([auditId, itemId])
+  @@map("stock_audit_line")
+}
+
+/// What Inventory keeps about a Vendor (the Vendor itself is Finance's, one shared list):
+/// contact, email, bank details (account number encrypted) and items supplied.
+model VendorDetail {
+  vendorId      String   @id @map("vendor_id") @db.Uuid
+  schoolId      String   @map("school_id") @db.Uuid
+  contactName   String?  @map("contact_name")
+  email         String?
+  bankName      String?  @map("bank_name")
+  accountNoEnc  String?  @map("account_no_enc")
+  accountLast4  String?  @map("account_last4")
+  ifsc          String?
+  itemsSupplied String?  @map("items_supplied")
+  updatedById   String?  @map("updated_by_id") @db.Uuid
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([schoolId])
+  @@map("vendor_detail")
+}
+
+/// Purchase Request: items, quantities and the reason; waits in Approvals above the limit.
+model PurchaseRequest {
+  id            String                @id @default(uuid()) @db.Uuid
+  schoolId      String                @map("school_id") @db.Uuid
+  number        String
+  date          DateTime              @db.Date
+  neededBy      DateTime?             @map("needed_by") @db.Date
+  reason        String
+  departmentId  String?               @map("department_id") @db.Uuid
+  estimatePaise BigInt                @default(0) @map("estimate_paise")
+  status        PurchaseRequestStatus @default(WAITING)
+  approvalId    String?               @map("approval_id") @db.Uuid
+  decidedById   String?               @map("decided_by_id") @db.Uuid
+  decidedAt     DateTime?             @map("decided_at")
+  decisionNote  String?               @map("decision_note")
+  requestedById String?               @map("requested_by_id") @db.Uuid
+  createdAt     DateTime              @default(now()) @map("created_at")
+  updatedAt     DateTime              @updatedAt @map("updated_at")
+
+  lines  PurchaseRequestLine[]
+  orders PurchaseOrder[]
+
+  @@unique([schoolId, number])
+  @@index([schoolId, status])
+  @@map("purchase_request")
+}
+
+model PurchaseRequestLine {
+  id           String @id @default(uuid()) @db.Uuid
+  schoolId     String @map("school_id") @db.Uuid
+  requestId    String @map("request_id") @db.Uuid
+  itemId       String @map("item_id") @db.Uuid
+  qty          Int
+  estUnitPaise BigInt @default(0) @map("est_unit_paise")
+
+  request PurchaseRequest @relation(fields: [requestId], references: [id])
+
+  @@map("purchase_request_line")
+}
+
+/// Purchase Order: made from an approved request; vendor and prices; sent by email or print.
+model PurchaseOrder {
+  id           String              @id @default(uuid()) @db.Uuid
+  schoolId     String              @map("school_id") @db.Uuid
+  number       String
+  date         DateTime            @db.Date
+  requestId    String?             @map("request_id") @db.Uuid
+  vendorId     String              @map("vendor_id") @db.Uuid
+  /// Where the goods are received.
+  locationId   String              @map("location_id") @db.Uuid
+  expectedOn   DateTime?           @map("expected_on") @db.Date
+  totalPaise   BigInt              @map("total_paise")
+  status       PurchaseOrderStatus @default(SENT)
+  approvalId   String?             @map("approval_id") @db.Uuid
+  decisionNote String?             @map("decision_note")
+  note         String?
+  /// Who approved it (the request's or the order's approver), for the bill.
+  approvedById String?             @map("approved_by_id") @db.Uuid
+  emailedTo    String?             @map("emailed_to")
+  emailedAt    DateTime?           @map("emailed_at")
+  closedReason String?             @map("closed_reason")
+  createdById  String?             @map("created_by_id") @db.Uuid
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+
+  request  PurchaseRequest?    @relation(fields: [requestId], references: [id])
+  lines    PurchaseOrderLine[]
+  receipts GoodsReceipt[]
+  invoices PurchaseInvoice[]
+
+  @@unique([schoolId, number])
+  @@index([schoolId, status])
+  @@index([schoolId, vendorId])
+  @@map("purchase_order")
+}
+
+model PurchaseOrderLine {
+  id             String @id @default(uuid()) @db.Uuid
+  schoolId       String @map("school_id") @db.Uuid
+  orderId        String @map("order_id") @db.Uuid
+  itemId         String @map("item_id") @db.Uuid
+  qty            Int
+  unitPricePaise BigInt @map("unit_price_paise")
+  receivedQty    Int    @default(0) @map("received_qty")
+
+  order PurchaseOrder @relation(fields: [orderId], references: [id])
+
+  @@map("purchase_order_line")
+}
+
+/// Goods Receipt: what arrived against a purchase order (part deliveries allowed); stock goes up.
+model GoodsReceipt {
+  id           String   @id @default(uuid()) @db.Uuid
+  schoolId     String   @map("school_id") @db.Uuid
+  number       String
+  orderId      String   @map("order_id") @db.Uuid
+  date         DateTime @db.Date
+  locationId   String   @map("location_id") @db.Uuid
+  /// Why more than ordered was accepted.
+  extraReason  String?  @map("extra_reason")
+  note         String?
+  receivedById String?  @map("received_by_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  order PurchaseOrder      @relation(fields: [orderId], references: [id])
+  lines GoodsReceiptLine[]
+
+  @@unique([schoolId, number])
+  @@index([schoolId, date])
+  @@map("goods_receipt")
+}
+
+model GoodsReceiptLine {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  receiptId   String    @map("receipt_id") @db.Uuid
+  orderLineId String    @map("order_line_id") @db.Uuid
+  itemId      String    @map("item_id") @db.Uuid
+  qty         Int
+  batchNo     String?   @map("batch_no")
+  expiresOn   DateTime? @map("expires_on") @db.Date
+
+  receipt GoodsReceipt @relation(fields: [receiptId], references: [id])
+
+  @@map("goods_receipt_line")
+}
+
+/// Purchase Invoice: the vendor's bill against an order. It is an Expense (vendor bill) in
+/// Finance Management; its payments (Vendor Payments) are that Expense's payments, in the Day Book.
+model PurchaseInvoice {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  orderId     String?   @map("order_id") @db.Uuid
+  vendorId    String    @map("vendor_id") @db.Uuid
+  billNo      String    @map("bill_no")
+  billDate    DateTime  @map("bill_date") @db.Date
+  dueDate     DateTime? @map("due_date") @db.Date
+  amountPaise BigInt    @map("amount_paise")
+  expenseId   String    @map("expense_id") @db.Uuid
+  fileId      String?   @map("file_id") @db.Uuid
+  note        String?
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  order PurchaseOrder? @relation(fields: [orderId], references: [id])
+
+  @@index([schoolId, vendorId, billNo])
+  @@map("purchase_invoice")
+}
+
+/// Asset: furniture, computers and equipment the school owns. Disposed assets stay in the register.
+model Asset {
+  id               String      @id @default(uuid()) @db.Uuid
+  schoolId         String      @map("school_id") @db.Uuid
+  /// Asset tag, unique in the school; printed as a barcode or QR.
+  tag              String
+  name             String
+  /// Furniture, IT, Lab, Sports, Vehicles, Others (Inventory Settings).
+  type             String
+  serialNo         String?     @map("serial_no")
+  /// Where it is: a room, a department, or a person.
+  roomId           String?     @map("room_id") @db.Uuid
+  departmentId     String?     @map("department_id") @db.Uuid
+  staffId          String?     @map("staff_id") @db.Uuid
+  purchaseDate     DateTime?   @map("purchase_date") @db.Date
+  costPaise        BigInt?     @map("cost_paise")
+  vendorId         String?     @map("vendor_id") @db.Uuid
+  warrantyEnd      DateTime?   @map("warranty_end") @db.Date
+  amcEnd           DateTime?   @map("amc_end") @db.Date
+  /// Good, Fair, Poor.
+  condition        String      @default("Good")
+  status           AssetStatus @default(IN_USE)
+  /// The goods receipt it came from, and the stock item it was bought as.
+  receiptId        String?     @map("receipt_id") @db.Uuid
+  itemId           String?     @map("item_id") @db.Uuid
+  /// Own yearly depreciation rate (per cent); empty uses the type's rate.
+  depreciationRate Int?        @map("depreciation_rate")
+  /// The last day a warranty or AMC reminder was sent for (so it is sent once).
+  remindedFor      DateTime?   @map("reminded_for") @db.Date
+  disposedOn       DateTime?   @map("disposed_on") @db.Date
+  note             String?
+  importBatchId    String?     @map("import_batch_id") @db.Uuid
+  createdById      String?     @map("created_by_id") @db.Uuid
+  updatedById      String?     @map("updated_by_id") @db.Uuid
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+  archivedAt       DateTime?   @map("archived_at")
+
+  assignments AssetAssignment[]
+  repairs     AssetMaintenanceLog[]
+  disposals   AssetDisposal[]
+  links       AssetItemLink[]
+
+  @@unique([schoolId, tag])
+  @@index([schoolId, status])
+  @@index([schoolId, roomId])
+  @@map("asset")
+}
+
+/// Asset Assignment: each time an asset was given to a room, department or person (history kept).
+model AssetAssignment {
+  id           String   @id @default(uuid()) @db.Uuid
+  schoolId     String   @map("school_id") @db.Uuid
+  assetId      String   @map("asset_id") @db.Uuid
+  roomId       String?  @map("room_id") @db.Uuid
+  departmentId String?  @map("department_id") @db.Uuid
+  staffId      String?  @map("staff_id") @db.Uuid
+  date         DateTime @db.Date
+  reason       String?
+  createdById  String?  @map("created_by_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  asset Asset @relation(fields: [assetId], references: [id])
+
+  @@index([schoolId, assetId])
+  @@map("asset_assignment")
+}
+
+/// Asset Maintenance Log: a repair or service, with vendor, cost and status.
+model AssetMaintenanceLog {
+  id          String            @id @default(uuid()) @db.Uuid
+  schoolId    String            @map("school_id") @db.Uuid
+  assetId     String            @map("asset_id") @db.Uuid
+  date        DateTime          @db.Date
+  problem     String
+  vendorId    String?           @map("vendor_id") @db.Uuid
+  costPaise   BigInt?           @map("cost_paise")
+  status      MaintenanceStatus @default(OPEN)
+  doneOn      DateTime?         @map("done_on") @db.Date
+  /// The Finance expense the cost went to.
+  expenseId   String?           @map("expense_id") @db.Uuid
+  note        String?
+  createdById String?           @map("created_by_id") @db.Uuid
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+
+  asset Asset @relation(fields: [assetId], references: [id])
+
+  @@index([schoolId, assetId])
+  @@map("asset_maintenance_log")
+}
+
+/// Asset Disposal: sold, scrapped or donated, with a reason and approval. A sale is income in Finance.
+model AssetDisposal {
+  id           String            @id @default(uuid()) @db.Uuid
+  schoolId     String            @map("school_id") @db.Uuid
+  assetId      String            @map("asset_id") @db.Uuid
+  /// SOLD, SCRAPPED or DONATED.
+  method       String
+  reason       String
+  date         DateTime          @db.Date
+  salePaise    BigInt?           @map("sale_paise")
+  buyer        String?
+  /// How the sale money came in (CASH, UPI, BANK_TRANSFER, CHEQUE) and its reference.
+  saleMode     String?           @map("sale_mode")
+  saleRef      String?           @map("sale_ref")
+  status       InventoryApproval @default(WAITING)
+  approvalId   String?           @map("approval_id") @db.Uuid
+  decisionNote String?           @map("decision_note")
+  incomeId     String?           @map("income_id") @db.Uuid
+  createdById  String?           @map("created_by_id") @db.Uuid
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+
+  asset Asset @relation(fields: [assetId], references: [id])
+
+  @@index([schoolId, status])
+  @@map("asset_disposal")
+}
+
+/// Stock items linked to an asset (a computer and its spare parts).
+model AssetItemLink {
+  id          String   @id @default(uuid()) @db.Uuid
+  schoolId    String   @map("school_id") @db.Uuid
+  assetId     String   @map("asset_id") @db.Uuid
+  itemId      String   @map("item_id") @db.Uuid
+  note        String?
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  /// Unlinked: kept with the date, never deleted.
+  archivedAt  DateTime? @map("archived_at")
+
+  asset Asset @relation(fields: [assetId], references: [id])
+
+  @@unique([assetId, itemId])
+  @@map("asset_item_link")
+}
+
+/// Asset Audit (physical check): tags scanned room by room; missing and misplaced assets listed.
+model AssetAudit {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  name        String
+  /// One room, or empty for every room.
+  roomId      String?   @map("room_id") @db.Uuid
+  /// OPEN or CLOSED.
+  status      String    @default("OPEN")
+  startedAt   DateTime  @default(now()) @map("started_at")
+  closedAt    DateTime? @map("closed_at")
+  /// What was missing and misplaced when closed: { missing: n, misplaced: n, found: n }.
+  result      Json?
+  createdById String?   @map("created_by_id") @db.Uuid
+
+  scans AssetAuditScan[]
+
+  @@map("asset_audit")
+}
+
+model AssetAuditScan {
+  id          String   @id @default(uuid()) @db.Uuid
+  schoolId    String   @map("school_id") @db.Uuid
+  auditId     String   @map("audit_id") @db.Uuid
+  code        String
+  assetId     String?  @map("asset_id") @db.Uuid
+  /// The room it was found in.
+  roomId      String?  @map("room_id") @db.Uuid
+  scannedById String?  @map("scanned_by_id") @db.Uuid
+  scannedAt   DateTime @default(now()) @map("scanned_at")
+
+  audit AssetAudit @relation(fields: [auditId], references: [id])
+
+  @@unique([auditId, code])
+  @@map("asset_audit_scan")
+}
+
+/// Facility: a room, lab, hall or ground. It is the same Room record the Time Table uses,
+/// with what Inventory keeps about it.
+model Facility {
+  roomId          String   @id @map("room_id") @db.Uuid
+  schoolId        String   @map("school_id") @db.Uuid
+  /// Classroom, Lab, Hall, Ground, Office, Store, Other.
+  type            String
+  building        String?
+  floor           String?
+  inChargeStaffId String?  @map("in_charge_staff_id") @db.Uuid
+  note            String?
+  updatedById     String?  @map("updated_by_id") @db.Uuid
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([schoolId])
+  @@map("facility")
+}
+
+/// Maintenance Request: something broken, with place, priority, technician, status and cost.
+model MaintenanceRequest {
+  id                String              @id @default(uuid()) @db.Uuid
+  schoolId          String              @map("school_id") @db.Uuid
+  number            String
+  roomId            String              @map("room_id") @db.Uuid
+  assetId           String?             @map("asset_id") @db.Uuid
+  problem           String
+  photoFileId       String?             @map("photo_file_id") @db.Uuid
+  priority          MaintenancePriority @default(NORMAL)
+  status            MaintenanceStatus   @default(OPEN)
+  /// A staff member who repairs, or an outside technician by name.
+  technicianStaffId String?             @map("technician_staff_id") @db.Uuid
+  technicianName    String?             @map("technician_name")
+  vendorId          String?             @map("vendor_id") @db.Uuid
+  raisedById        String?             @map("raised_by_id") @db.Uuid
+  raisedAt          DateTime            @default(now()) @map("raised_at")
+  assignedAt        DateTime?           @map("assigned_at")
+  doneOn            DateTime?           @map("done_on") @db.Date
+  costPaise         BigInt?             @map("cost_paise")
+  /// The Finance expense the cost went to.
+  expenseId         String?             @map("expense_id") @db.Uuid
+  closingNote       String?             @map("closing_note")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+
+  @@unique([schoolId, number])
+  @@index([schoolId, status])
+  @@map("maintenance_request")
+}
+
+/// Lab Experiment: the experiments list per class.
+model LabExperiment {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  classId     String    @map("class_id") @db.Uuid
+  subject     String
+  title       String
+  /// Lab where it is done.
+  roomId      String?   @map("room_id") @db.Uuid
+  materials   String?
+  sortOrder   Int       @default(0) @map("sort_order")
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  @@index([schoolId, classId])
+  @@map("lab_experiment")
+}
+
+/// Lab Safety Check: a checklist with date and result.
+model LabSafetyCheck {
+  id          String   @id @default(uuid()) @db.Uuid
+  schoolId    String   @map("school_id") @db.Uuid
+  roomId      String   @map("room_id") @db.Uuid
+  date        DateTime @db.Date
+  /// [{ label, ok }]
+  checklist   Json
+  /// PASS when every point is fine, else ISSUES.
+  result      String
+  note        String?
+  checkedById String?  @map("checked_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([schoolId, roomId, date])
+  @@map("lab_safety_check")
+}

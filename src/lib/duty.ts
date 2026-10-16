@@ -45,6 +45,7 @@ const TRANSPORT_PAGES = ["live", "routes", "vehicles", "students", "trips", "rep
  * Transport: live, routes, vehicles, students, trips, reports, settings (src/lib/transport/words.ts).
  * Library: issue, books, members, fines, reports, settings (src/lib/library/access.ts).
  * Hostel: rooms, allocation, rollcall, outings, mess, reports, settings (src/lib/hostel/access.ts).
+ * Inventory: items, issue, purchases, assets, rooms, reports, settings (src/lib/inventory/access.ts).
  */
 export const DUTY: Readonly<Record<string, Partial<Record<ModuleKey, Rule>>>> = {
   principal: {
@@ -65,6 +66,8 @@ export const DUTY: Readonly<Record<string, Partial<Record<ModuleKey, Rule>>>> = 
     "library-management": { hide: ["members"], view: ["issue", "books", "fines", "reports", "settings"] },
     // Hostel: the Warden runs the hostel; the Principal reads every page (settings too) and reminds the warden.
     "hostel-management": { view: ["rooms", "allocation", "rollcall", "outings", "mess", "reports", "settings"] },
+    // Inventory: the Store Keeper runs the store; the Principal approves and orders purchases and reads the rest (with Remind).
+    "inventory-management": { view: ["items", "issue", "assets", "rooms", "reports", "settings"] },
   },
   "school-admin": {
     "events-calendar": { view: ["daily"] },
@@ -78,6 +81,8 @@ export const DUTY: Readonly<Record<string, Partial<Record<ModuleKey, Rule>>>> = 
     "library-management": { view: ["issue", "books", "members", "fines", "reports"] },
     // Hostel: the School Admin reads every page and keeps Hostel Settings (hostels, wardens, fee plans).
     "hostel-management": { view: ["rooms", "allocation", "rollcall", "outings", "mess", "reports"] },
+    // Inventory: the School Admin reads every page and keeps Inventory Settings.
+    "inventory-management": { view: ["items", "issue", "purchases", "assets", "rooms", "reports"] },
   },
   "vice-principal": {
     "events-calendar": { view: ["daily"] },

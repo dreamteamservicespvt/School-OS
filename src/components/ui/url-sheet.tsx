@@ -38,6 +38,8 @@ type Action<T> = (prev: FormState<T>, fd: FormData) => Promise<FormState<T>>;
 const ResultCtx = createContext<FormState<unknown>>(null);
 /** The last result of the form this is inside: each field reads its error and what was typed. */
 export const useSheetResult = () => useContext(ResultCtx);
+/** Gives a form on the page (not in a sheet) the same field problems and typed values as a SheetForm. */
+export const FormResultProvider = ResultCtx.Provider;
 
 /**
  * A form in a sheet. On success the sheet closes (the toast says what happened),

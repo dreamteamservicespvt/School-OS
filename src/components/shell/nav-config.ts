@@ -150,7 +150,12 @@ export const QUICK_BY_ROLE: Record<string, Quick[]> = {
     q("/examination-results/report-cards", "examination-results", "Report cards", "Make and publish report cards", "Award"),
   ],
   librarian: [q("/library-management", "library-management", "Issue a book", "Scan the book and the member", "ArrowRightLeft")],
-  "store-keeper": [q("/inventory-management", "inventory-management", "Issue stock", "Give items to a person or room", "PackageMinus")],
+  "store-keeper": [
+    q("/inventory-management", "inventory-management", "Issue stock", "Give items to a person or room", "PackageMinus"),
+    q("/inventory-management/items?state=low", "inventory-management", "Low stock", "Items at or below the reorder level", "Boxes"),
+    q("/inventory-management/purchases?tab=orders&status=open", "inventory-management", "Goods received", "Orders waiting for delivery", "ShoppingCart"),
+    q("/inventory-management/rooms?status=open", "inventory-management", "Maintenance requests", "Open problems reported by staff", "ListChecks"),
+  ],
   "hostel-warden": [q("/hostel-management", "hostel-management", "Roll call", "Mark tonight's roll call", "ListChecks")],
   "transport-in-charge": [
     q("/transport-management/trips", "transport-management", "Buses today", "Trips, delays and live buses", "Bus"),

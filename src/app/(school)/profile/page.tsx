@@ -64,6 +64,7 @@ export default async function ProfilePage() {
     { href: "/staff-hr-management/leave", icon: I.CalendarDays, title: "My leave", sub: "Ask for leave and see what is left", show: Boolean(staff) && can("staff-hr-management") },
     { href: "/salary-management/slips?mine=1", icon: I.Wallet, title: "My salary slips", sub: "Each month's slip to view or download", show: Boolean(staff) && can("salary-management") && BUILT_MODULES.has("salary-management") },
     { href: staff ? `/staff-hr-management/${staff.id}` : "/staff-hr-management", icon: I.FileText, title: "My staff record", sub: "ID card, joining letter and documents", show: Boolean(staff) && can("staff-hr-management") },
+    { href: "/inventory-management/report-problem", icon: I.Wrench, title: "Report a problem", sub: "Something broken? Send it with a photo", show: Boolean(staff) && current.modulesOn.has("inventory-management") && BUILT_MODULES.has("inventory-management") },
   ];
 
   return (

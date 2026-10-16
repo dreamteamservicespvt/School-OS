@@ -808,3 +808,71 @@ describe("Hostel Management records stay in their school", () => {
     await expect(withSchool(ctxA(), (tx) => tx.messExpense.create({ data: { schoolId: b.id, date: day, item: "X", amountPaise: BigInt(100) } }))).rejects.toThrow();
   });
 });
+
+describe("Inventory Management records stay in their school", () => {
+  it("school A cannot read, change or add to school B's store: items, stock, issues, audits, purchases, bills, assets, facilities, maintenance and labs", async () => {
+    const ctxB = { schoolId: b.id, userId: userB.id };
+    const x = "00000000-0000-4000-8000-000000000002";
+    const day = new Date("2026-10-12T00:00:00Z");
+    const s = { schoolId: b.id };
+    const ids = await withSchool(ctxB, async (tx) => {
+      await tx.inventorySetting.create({ data: s });
+      const cat = await tx.itemCategory.create({ data: { ...s, name: "Only in B" } });
+      const loc = await tx.storeLocation.create({ data: { ...s, name: "Store in B" } });
+      const item = await tx.item.create({ data: { ...s, code: "B-0001", name: "Item in B", categoryId: cat.id } });
+      await tx.stockBalance.create({ data: { ...s, itemId: item.id, locationId: loc.id, qty: 5 } });
+      await tx.stockBatch.create({ data: { ...s, itemId: item.id, locationId: loc.id, batchNo: "B1", expiresOn: day } });
+      await tx.stockMovement.create({ data: { ...s, itemId: item.id, locationId: loc.id, kind: "OPENING", qty: 5, date: day, balanceAfter: 5 } });
+      await tx.stockTransfer.create({ data: { ...s, number: "TR-B-1", date: day, fromLocationId: loc.id, toLocationId: loc.id, lines: [] } });
+      const set = await tx.bookSet.create({ data: { ...s, name: "Set in B", pricePaise: BigInt(100) } });
+      await tx.bookSetItem.create({ data: { ...s, setId: set.id, itemId: item.id } });
+      const issue = await tx.stockIssue.create({ data: { ...s, number: "IS-B-1", date: day, toKind: "STAFF", locationId: loc.id } });
+      await tx.stockIssueLine.create({ data: { ...s, issueId: issue.id, itemId: item.id, qty: 1 } });
+      const audit = await tx.stockAudit.create({ data: { ...s, number: "SA-B-1", name: "Count in B", locationId: loc.id, startedOn: day } });
+      await tx.stockAuditLine.create({ data: { ...s, auditId: audit.id, itemId: item.id, systemQty: 5 } });
+      await tx.vendorDetail.create({ data: { ...s, vendorId: x, contactName: "Only in B" } });
+      const req = await tx.purchaseRequest.create({ data: { ...s, number: "PR-B-1", date: day, reason: "Only in B" } });
+      await tx.purchaseRequestLine.create({ data: { ...s, requestId: req.id, itemId: item.id, qty: 1 } });
+      const order = await tx.purchaseOrder.create({ data: { ...s, number: "PO-B-1", date: day, vendorId: x, locationId: loc.id, totalPaise: BigInt(100) } });
+      const line = await tx.purchaseOrderLine.create({ data: { ...s, orderId: order.id, itemId: item.id, qty: 1, unitPricePaise: BigInt(100) } });
+      const receipt = await tx.goodsReceipt.create({ data: { ...s, number: "GR-B-1", orderId: order.id, date: day, locationId: loc.id } });
+      await tx.goodsReceiptLine.create({ data: { ...s, receiptId: receipt.id, orderLineId: line.id, itemId: item.id, qty: 1 } });
+      const bill = await tx.purchaseInvoice.create({ data: { ...s, vendorId: x, billNo: "B-77", billDate: day, amountPaise: BigInt(100), expenseId: x } });
+      const asset = await tx.asset.create({ data: { ...s, tag: "AT-B-1", name: "Asset in B", type: "IT" } });
+      await tx.assetAssignment.create({ data: { ...s, assetId: asset.id, date: day } });
+      await tx.assetMaintenanceLog.create({ data: { ...s, assetId: asset.id, date: day, problem: "Only in B" } });
+      await tx.assetDisposal.create({ data: { ...s, assetId: asset.id, method: "SCRAPPED", reason: "Only in B", date: day } });
+      await tx.assetItemLink.create({ data: { ...s, assetId: asset.id, itemId: item.id } });
+      const check = await tx.assetAudit.create({ data: { ...s, name: "Check in B" } });
+      await tx.assetAuditScan.create({ data: { ...s, auditId: check.id, code: "AT-B-1" } });
+      await tx.facility.create({ data: { ...s, roomId: x, type: "classroom" } });
+      const mr = await tx.maintenanceRequest.create({ data: { ...s, number: "MR-B-1", roomId: x, problem: "Only in B" } });
+      await tx.labExperiment.create({ data: { ...s, classId: x, subject: "Science", title: "Only in B" } });
+      await tx.labSafetyCheck.create({ data: { ...s, roomId: x, date: day, checklist: [], result: "PASSED" } });
+      return { item: item.id, issue: issue.id, order: order.id, bill: bill.id, asset: asset.id, mr: mr.id, loc: loc.id, cat: cat.id };
+    });
+    await withSchool(ctxA(), async (tx) => {
+      const counts = await Promise.all([
+        tx.inventorySetting.count({ where: { schoolId: b.id } }), tx.itemCategory.count(), tx.storeLocation.count(), tx.item.count(), tx.stockBalance.count(), tx.stockBatch.count(),
+        tx.stockMovement.count(), tx.stockTransfer.count(), tx.bookSet.count(), tx.bookSetItem.count(), tx.stockIssue.count(), tx.stockIssueLine.count(), tx.stockAudit.count(),
+        tx.stockAuditLine.count(), tx.vendorDetail.count(), tx.purchaseRequest.count(), tx.purchaseRequestLine.count(), tx.purchaseOrder.count(), tx.purchaseOrderLine.count(),
+        tx.goodsReceipt.count(), tx.goodsReceiptLine.count(), tx.purchaseInvoice.count(), tx.asset.count(), tx.assetAssignment.count(), tx.assetMaintenanceLog.count(),
+        tx.assetDisposal.count(), tx.assetItemLink.count(), tx.assetAudit.count(), tx.assetAuditScan.count(), tx.facility.count(), tx.maintenanceRequest.count(),
+        tx.labExperiment.count(), tx.labSafetyCheck.count(),
+      ]);
+      expect(counts).toEqual(Array(33).fill(0));
+      expect(await tx.item.findUnique({ where: { id: ids.item } })).toBeNull();
+      expect((await tx.item.updateMany({ where: { id: ids.item }, data: { name: "Changed by A" } })).count).toBe(0);
+      expect((await tx.stockBalance.updateMany({ where: { itemId: ids.item }, data: { qty: 999 } })).count).toBe(0);
+      expect((await tx.stockIssue.updateMany({ where: { id: ids.issue }, data: { note: "Changed by A" } })).count).toBe(0);
+      expect((await tx.purchaseOrder.updateMany({ where: { id: ids.order }, data: { status: "CANCELLED" } })).count).toBe(0);
+      expect((await tx.purchaseInvoice.updateMany({ where: { id: ids.bill }, data: { billNo: "A-1" } })).count).toBe(0);
+      expect((await tx.asset.updateMany({ where: { id: ids.asset }, data: { status: "DISPOSED" } })).count).toBe(0);
+      expect((await tx.maintenanceRequest.updateMany({ where: { id: ids.mr }, data: { status: "DONE" } })).count).toBe(0);
+    });
+    await expect(withSchool(ctxA(), (tx) => tx.item.create({ data: { schoolId: b.id, code: "A-1", name: "X", categoryId: ids.cat } }))).rejects.toThrow();
+    await expect(withSchool(ctxA(), (tx) => tx.stockMovement.create({ data: { schoolId: b.id, itemId: ids.item, locationId: ids.loc, kind: "IN", qty: 100, date: day, balanceAfter: 105 } }))).rejects.toThrow();
+    await expect(withSchool(ctxA(), (tx) => tx.asset.create({ data: { schoolId: b.id, tag: "AT-A-9", name: "X", type: "IT" } }))).rejects.toThrow();
+    await expect(withSchool(ctxA(), (tx) => tx.maintenanceRequest.create({ data: { schoolId: b.id, number: "MR-A-9", roomId: x, problem: "X" } }))).rejects.toThrow();
+  });
+});

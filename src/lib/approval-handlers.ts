@@ -16,3 +16,4 @@ import "./salary/handlers";
 import "./transport/handlers";
 import "./library/handlers";
 import "./hostel/handlers";
+import "./inventory/handlers";

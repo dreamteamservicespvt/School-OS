@@ -13,7 +13,7 @@ import { createSession, revokeAllSessions, type DeviceInfo } from "../auth/sessi
 import { hitLimit, limitMessage } from "../rate-limit";
 import { logActivity, maskMobile, SYSTEM_ACTOR } from "./activity";
 import { notifyTeam } from "./notify";
-import { deliver } from "./outbox";
+import { codesByWhatsapp, deliver } from "./outbox";
 import { inviteState } from "./schools";
 
 export const INVITE_CODE_TTL_MS = 10 * 60 * 1000;
@@ -53,9 +53,12 @@ export async function sendSchoolInviteCode(token: string, ip: string | null, now
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
   await withConsole((tx) => tx.schoolInvite.update({ where: { id: look.invite.id }, data: { codeHash: codeHashOf(look.invite.id, code), codeSentAt: now, codeAttempts: 0, codeOkAt: null } }));
   const text = `${code} is your School OS code for ${look.schoolName}. It works for 10 minutes. Never share it with anyone, including DREAM TEAM.`;
-  const sent = await deliver([{ channel: "sms", to: look.invite.phone, purpose: "code", text, safeText: text.replace(code, "••••••"), templateParams: [code] }]);
+  const safe = text.replace(code, "••••••");
+  const sent = await deliver([codesByWhatsapp()
+    ? { channel: "whatsapp", to: look.invite.phone, purpose: "code", text, safeText: safe, templateParams: [code], buttonParam: code }
+    : { channel: "sms", to: look.invite.phone, purpose: "code", text, safeText: safe, templateParams: [code] }]);
   if (sent.every((s) => s.status === "FAILED")) return { ok: false as const, message: "The code could not be sent just now. Try again in a minute." };
-  return { ok: true as const, sentTo: maskMobile(look.invite.phone), test: sent.every((s) => s.status === "TEST") };
+  return { ok: true as const, sentTo: maskMobile(look.invite.phone), by: sent[0]?.channel === "whatsapp" ? "WhatsApp" : "SMS", test: sent.every((s) => s.status === "TEST") };
 }
 
 export type FinishResult = { ok: true; token: string } | { ok: false; message: string; field?: "code" | "password"; restart?: boolean };

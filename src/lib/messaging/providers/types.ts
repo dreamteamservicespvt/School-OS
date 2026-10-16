@@ -12,7 +12,7 @@ export type Outgoing = {
   dltEntityId?: string | null;
   senderHeader?: string | null;
   /** WhatsApp: an approved template's name, language and blanks in order. */
-  whatsappTemplate?: { name: string; language: string; params: string[]; /** Authentication templates: the code behind the "Copy code" button. */ copyCode?: string } | null;
+  whatsappTemplate?: { name: string; language: string; params: string[]; /** The blank in the template's first button: a code for "Copy code", or the end of a link button. */ buttonParam?: string } | null;
   /** Email attachments, already read from storage. */
   attachments?: { filename: string; content: Buffer; contentType: string }[];
 };

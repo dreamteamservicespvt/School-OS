@@ -89,7 +89,7 @@ async function sendCode(user: SuperAdminUser, purpose: "sign-in" | "welcome", no
   const safe = text.replace(code, "••••••");
   // WhatsApp's authentication template takes the code as its only blank and for its "Copy code" button.
   const messages: ConsoleOutgoing[] = codesByWhatsapp()
-    ? [{ channel: "whatsapp", to: user.phone, purpose: "code", text, safeText: safe, templateParams: [code], copyCode: code }]
+    ? [{ channel: "whatsapp", to: user.phone, purpose: "code", text, safeText: safe, templateParams: [code], buttonParam: code }]
     : [{ channel: "sms", to: user.phone, purpose: "code", text, safeText: safe, templateParams: [code] }];
   if (user.email) messages.push({ channel: "email", to: user.email, purpose: "code", subject: `${code} is your School OS Console code`, text: `Hello ${user.name},\n\n${text}\n\nIf you did not try to sign in, tell the Owner at once.\n`, safeText: safe });
   const sent = await deliver(messages);

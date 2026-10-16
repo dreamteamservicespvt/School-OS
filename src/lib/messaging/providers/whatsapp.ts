@@ -41,8 +41,8 @@ export function whatsappProvider({ config, secrets }: ProviderConfig): Provider 
               language: { code: msg.whatsappTemplate.language },
               components: [
                 ...(msg.whatsappTemplate.params.length ? [{ type: "body", parameters: msg.whatsappTemplate.params.map((text) => ({ type: "text", text })) }] : []),
-                // WhatsApp's authentication templates also need the code for their "Copy code" button.
-                ...(msg.whatsappTemplate.copyCode ? [{ type: "button", sub_type: "url", index: "0", parameters: [{ type: "text", text: msg.whatsappTemplate.copyCode }] }] : []),
+                // The first button's blank: the code of an authentication template, or the end of a link button.
+                ...(msg.whatsappTemplate.buttonParam ? [{ type: "button", sub_type: "url", index: "0", parameters: [{ type: "text", text: msg.whatsappTemplate.buttonParam }] }] : []),
               ],
             },
           }

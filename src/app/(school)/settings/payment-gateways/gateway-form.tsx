@@ -37,6 +37,10 @@ export function GatewayForm({ mode, id, providers, saved, webhookBase }: Props) 
   const [name, setName] = useState(v.displayName ?? saved?.displayName ?? p?.name ?? "");
   const [nameTouched, setNameTouched] = useState(mode === "edit" || Boolean(v.displayName));
   const [environment, setEnvironment] = useState<"test" | "live">((v.environment as "test" | "live") ?? saved?.environment ?? "test");
+  // What the person typed in the key fields stays in the form after "Test these details" (a form action
+  // resets uncontrolled fields), so they can test and then save without typing the keys again.
+  const [typed, setTyped] = useState<Record<string, string>>({});
+  const keep = (name: string, fallback: string) => ({ value: typed[name] ?? fallback, onChange: (e: React.ChangeEvent<HTMLInputElement>) => setTyped((t) => ({ ...t, [name]: e.target.value })) });
   const errors = state?.errors ?? {};
   const needsConfirm = mode === "edit" || environment === "live";
   const confirmWord = mode === "edit" ? saved?.displayName ?? name : name || "the display name";
@@ -55,6 +59,7 @@ export function GatewayForm({ mode, id, providers, saved, webhookBase }: Props) 
           <SelectField label="Provider" name="provider" required value={provider} error={errors.provider}
             onChange={(e) => {
               setProvider(e.target.value);
+              setTyped({});
               const np = providers.find((x) => x.key === e.target.value);
               if (!nameTouched && np) setName(np.name);
             }}
@@ -96,13 +101,13 @@ export function GatewayForm({ mode, id, providers, saved, webhookBase }: Props) 
             return (
               <TextField key={`${provider}-${f.key}`} label={f.label} name={`f_${f.key}`} required={!(f.secret && mode === "edit" && ending)}
                 type={f.secret ? "password" : "text"} autoComplete="off" spellCheck={false}
-                defaultValue={f.secret ? "" : v[`f_${f.key}`] ?? saved?.values[f.key] ?? ""}
+                {...keep(`f_${f.key}`, f.secret ? "" : v[`f_${f.key}`] ?? saved?.values[f.key] ?? "")}
                 placeholder={f.secret && ending ? `•••• ${ending}` : undefined}
                 error={errors[`f_${f.key}`]} help={help} />
             );
           })}
           {p.webhookSecret && (
-            <TextField label={p.webhookSecret.label} name="webhookSecret" type="password" autoComplete="off" spellCheck={false}
+            <TextField label={p.webhookSecret.label} name="webhookSecret" type="password" autoComplete="off" spellCheck={false} {...keep("webhookSecret", "")}
               placeholder={saved?.endings.webhookSecret ? `•••• ${saved.endings.webhookSecret}` : undefined}
               help={saved?.endings.webhookSecret ? `Saved, ending ${saved.endings.webhookSecret}. Leave blank to keep it.` : p.webhookSecret.help} />
           )}

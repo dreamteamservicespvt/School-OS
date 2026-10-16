@@ -24,7 +24,7 @@ import { Line, ModeCell } from "../_components/bits";
 import { ActButton, ReasonSheet } from "../_components/forms";
 import { BASE, financePage, financePeriod, one, qs, type SearchParams } from "../_lib/page";
 import { cancelExpenseAction, decideExpenseAction, submitExpenseAction } from "./actions";
-import { AttachBillSheet, PaySheet, RecordExpenseSheet, VendorBillSheet, type ApproverStep } from "./sheets";
+import { AttachBillSheet, ChangeExpenseSheet, PaySheet, RecordExpenseSheet, VendorBillSheet, type ApproverStep } from "./sheets";
 import { OldSoftwareBanner, OldSoftwareEmpty, allBeforeGoLive } from "@/components/money/go-live";
 
 export const metadata = { title: "Expenses" };
@@ -78,12 +78,13 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Sea
   const billId = pick("bill", p.can.edit);
   const cancelId = pick("cancel", p.can.archive);
   const backId = pick("back", p.can.approve);
+  const changeId = pick("change", p.can.create);
   const adding = p.can.create && one(sp.do) === "new";
   const addingBill = p.can.create && billsOn && one(sp.do) === "bill";
-  const focusId = openId || payId || billId || cancelId || backId;
+  const focusId = openId || payId || billId || cancelId || backId || changeId;
   const monthStart = new Date(Date.UTC(p.today.getUTCFullYear(), p.today.getUTCMonth(), 1));
   const billAbove = p.settings.billRequiredAbove;
-  const needsForm = adding || addingBill || Boolean(payId);
+  const needsForm = adding || addingBill || Boolean(payId) || Boolean(changeId);
 
   const data = await withSchool(ctx, async (tx) => {
     const filter = { q: q || null, range: per.range, status: status || null, headId, costCentreId: deptId, abovePaise: above ? BigInt(above) * BigInt(100) : null };
@@ -311,6 +312,11 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Sea
           title={o.isVendorBill ? `Pay bill ${o.billNo}` : `Mark ${o.number} paid`}
           sub={o.isVendorBill ? `${o.vendorName} · ${formatRupees(o.amountPaise - o.paidPaise)} to pay of ${formatRupees(o.amountPaise)}` : `${o.what} · ${formatRupees(o.amountPaise)}${o.vendorName ? ` to ${o.vendorName}` : ""}. It goes into the Day Book on the date paid.`} />
       )}
+      {changeId && o && o.status === "DRAFT" && !o.broughtIn && (
+        <ChangeExpenseSheet closeHref={here({ open: o.id })} expenseId={o.id} number={o.number} reason={o.rejectReason} heads={userHeads} centres={centreOptions}
+          vendors={f?.vendors.map((v) => v.name) ?? []} atOnce={rupees(atOnce)} billAbove={rupees(billAbove)} steps={approverSteps} hasBill={o.hasBill}
+          start={{ amount: String(Number(o.amountPaise) / 100), date: o.date.toISOString().slice(0, 10), what: o.note ?? "", headId: o.accountHeadId, costCentreId: o.costCentreId, vendor: o.vendorName }} />
+      )}
       {billId && o && !o.hasBill && <AttachBillSheet closeHref={here({ open: o.id })} expenseId={o.id} sub={`${o.number} · ${o.what} · ${formatRupees(o.amountPaise)}`} />}
       {backId && o && o.status === "WAITING" && (
         <ReasonSheet closeHref={here()} title={`Send back ${o.number}?`} label="Send back" placeholder="Example: get two quotes first" action={decideExpenseAction} hidden={{ expenseId: o.id, decision: "reject" }} danger={false}
@@ -340,6 +346,7 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Sea
     if (!o.broughtIn) {
       if (o.status === "DRAFT" && p.can.create) actions = <>
         {p.can.archive && <ButtonLink href={here({ cancel: o.id })} scroll={false} variant="danger-soft">Cancel</ButtonLink>}
+        <ButtonLink href={here({ change: o.id })} scroll={false} variant="secondary">Change</ButtonLink>
         <ActButton action={submitExpenseAction} fields={{ expenseId: o.id }} label={o.rejectReason ? "Send again" : "Send for approval"} icon="send" />
       </>;
       if (o.status === "WAITING") actions = mine

@@ -219,18 +219,27 @@ export async function confirmGatewayPayment(
     tx.gatewayTransaction.create({
       data: { schoolId: ctx.schoolId, gatewayAccountId: input.gatewayAccountId, event: input.event, gatewayPaymentId: input.gatewayPaymentId, gatewayOrderId: input.orderId, amountPaise: input.amountPaise === null ? null : BigInt(input.amountPaise), outcome, paymentId },
     });
-  const done = await tx.payment.findFirst({ where: { mode: "GATEWAY", reference: input.gatewayPaymentId, status: { not: "FAILED" } } });
-  if (done) {
+  const alreadyPosted = async () => {
+    const done = await tx.payment.findFirst({ where: { mode: "GATEWAY", reference: input.gatewayPaymentId, status: { not: "FAILED" } } });
+    if (!done) return null;
     await log("already-posted", done.id);
     const receipt = await tx.receipt.findUnique({ where: { paymentId: done.id } });
     return { paymentId: done.id, receiptNo: receipt?.number ?? null, created: false };
-  }
-  const existing = await tx.payment.findFirst({ where: { gatewayPaymentId: input.gatewayPaymentId } });
+  };
+  const before = await alreadyPosted();
+  if (before) return before;
   const link = input.orderId ? await tx.paymentLink.findFirst({ where: { gatewayOrderId: input.orderId } }) : null;
   if (!link) {
     await log("unmatched", null);
     return { paymentId: null, receiptNo: null, created: false };
   }
+  // Razorpay sends payment.captured and order.paid together, and retries: a second
+  // confirmation waits here for the first, then finds it posted. (After a failed
+  // attempt the confirmation has no unique gateway id, so this is the only guard.)
+  await tx.$queryRaw`SELECT id FROM payment_link WHERE id = ${link.id}::uuid FOR UPDATE`;
+  const waited = await alreadyPosted();
+  if (waited) return waited;
+  const existing = await tx.payment.findFirst({ where: { gatewayPaymentId: input.gatewayPaymentId } });
   const amount = input.amountPaise !== null ? BigInt(input.amountPaise) : link.amountPaise;
   const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { timeZone: true } });
   const now = new Date();

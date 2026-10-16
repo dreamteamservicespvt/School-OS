@@ -1,0 +1,79 @@
+// Leave, shared by 09 Staff & HR (staff leave) and 05 Attendance (student leave).
+
+enum LeaveStatus {
+  WAITING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+/// Leave Type: Casual, Sick, Earned... for staff or students.
+model LeaveType {
+  id            String    @id @default(uuid()) @db.Uuid
+  schoolId      String    @map("school_id") @db.Uuid
+  /// "staff" or "student".
+  forWhom       String    @map("for_whom")
+  name          String
+  code          String
+  daysPerYear   Decimal   @default(0) @map("days_per_year") @db.Decimal(5, 1)
+  paid          Boolean   @default(true)
+  carryForward  Boolean   @default(false) @map("carry_forward")
+  maxCarry      Decimal   @default(0) @map("max_carry") @db.Decimal(5, 1)
+  needsDocAfter Int?      @map("needs_doc_after")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  archivedAt    DateTime? @map("archived_at")
+
+  @@unique([schoolId, forWhom, code])
+  @@map("leave_type")
+}
+
+/// Leave Request: leave for a student or a staff member.
+model LeaveRequest {
+  id             String      @id @default(uuid()) @db.Uuid
+  schoolId       String      @map("school_id") @db.Uuid
+  academicYearId String?     @map("academic_year_id") @db.Uuid
+  staffId        String?     @map("staff_id") @db.Uuid
+  studentId      String?     @map("student_id") @db.Uuid
+  leaveTypeId    String      @map("leave_type_id") @db.Uuid
+  fromDate       DateTime    @map("from_date") @db.Date
+  toDate         DateTime    @map("to_date") @db.Date
+  halfDay        Boolean     @default(false) @map("half_day")
+  days           Decimal     @db.Decimal(5, 1)
+  reason         String
+  documentFileId String?     @map("document_file_id") @db.Uuid
+  status         LeaveStatus @default(WAITING)
+  approvalId     String?     @map("approval_id") @db.Uuid
+  recordedById   String?     @map("recorded_by_id") @db.Uuid
+  decidedById    String?     @map("decided_by_id") @db.Uuid
+  decidedAt      DateTime?   @map("decided_at")
+  decisionReason String?     @map("decision_reason")
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+  archivedAt     DateTime?   @map("archived_at")
+
+  @@index([schoolId, staffId, fromDate])
+  @@index([schoolId, studentId, fromDate])
+  @@index([schoolId, status])
+  @@map("leave_request")
+}
+
+/// Leave Balance: days of one leave type for one person for one year.
+model LeaveBalance {
+  id             String    @id @default(uuid()) @db.Uuid
+  schoolId       String    @map("school_id") @db.Uuid
+  academicYearId String    @map("academic_year_id") @db.Uuid
+  staffId        String?   @map("staff_id") @db.Uuid
+  studentId      String?   @map("student_id") @db.Uuid
+  leaveTypeId    String    @map("leave_type_id") @db.Uuid
+  daysGiven      Decimal   @default(0) @map("days_given") @db.Decimal(5, 1)
+  /// [{ days, reason, byId, at }]
+  adjustments    Json      @default("[]")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  archivedAt     DateTime? @map("archived_at")
+
+  @@unique([academicYearId, staffId, studentId, leaveTypeId])
+  @@index([schoolId, staffId])
+  @@map("leave_balance")
+}

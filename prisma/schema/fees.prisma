@@ -1,0 +1,649 @@
+// 06 Fee Management: fee heads, versioned class fee structures with their
+// installments, each student's fees due, concessions, payments with their
+// allocations, receipts, tax invoices, refunds, payment links and reminders.
+// Money is whole paise. Payments and receipts are never edited or deleted:
+// they are cancelled with a reason (04-data-model.md rules 6 to 9, 36, 37, 39).
+
+enum FeeFrequency {
+  MONTHLY
+  QUARTERLY
+  HALF_YEARLY
+  TERM
+  YEARLY
+  ONE_TIME
+}
+
+enum FeeStructureStatus {
+  DRAFT
+  PUBLISHED
+  SUPERSEDED
+}
+
+enum FeeDueKind {
+  FEE
+  LATE_FEE
+  OLD_DUES
+  CHARGE
+}
+
+enum FeeDueState {
+  OPEN
+  REMOVED
+}
+
+enum ConcessionType {
+  DISCOUNT
+  SCHOLARSHIP
+  SIBLING
+  STAFF_CHILD
+  BULK_DISCOUNT
+  LATE_FEE_WAIVER
+}
+
+enum ConcessionStatus {
+  WAITING
+  APPROVED
+  REJECTED
+  APPLIED
+}
+
+enum PaymentMode {
+  CASH
+  UPI
+  CARD
+  NET_BANKING
+  BANK_TRANSFER
+  CHEQUE
+  GATEWAY
+}
+
+enum PaymentStatus {
+  POSTED
+  WAITING
+  CANCELLED
+  FAILED
+}
+
+enum PaymentSource {
+  COUNTER
+  LINK
+  PARENT_LINK
+  IMPORT
+}
+
+enum PaymentLinkStatus {
+  SENT
+  PAID
+  FAILED
+  EXPIRED
+  CANCELLED
+}
+
+enum RefundStatus {
+  WAITING
+  APPROVED
+  REJECTED
+  REFUNDED
+}
+
+enum OpeningBalanceKind {
+  STUDENT_DUES
+  CASH
+  BANK
+}
+
+/// Fee Settings (06 §6): one per school.
+model FeeSetting {
+  id                   String   @id @default(uuid()) @db.Uuid
+  schoolId             String   @unique @map("school_id") @db.Uuid
+  receiptPrefix        String   @map("receipt_prefix")
+  receiptDigits        Int      @default(5) @map("receipt_digits")
+  /// Restart receipt numbers each financial year (the prefix then carries the year).
+  restartEachYear      Boolean  @default(true) @map("restart_each_year")
+  /// A separate series for partial payments, such as PP/.
+  partialSeries        Boolean  @default(false) @map("partial_series")
+  partialPrefix        String   @default("PP/") @map("partial_prefix")
+  taxInvoicePrefix     String   @default("TI/") @map("tax_invoice_prefix")
+  invoicePrefix        String   @default("INV/") @map("invoice_prefix")
+  certificatePrefix    String   @default("FC/") @map("certificate_prefix")
+  receiptTerms         String?  @map("receipt_terms")
+  /// "both", "parent" or "office".
+  printCopies          String   @default("both") @map("print_copies")
+  lateFeeOn            Boolean  @default(false) @map("late_fee_on")
+  /// "flat" (one amount), "per-day" (amount for each day late) or "percent".
+  lateFeeType          String   @default("flat") @map("late_fee_type")
+  lateFeePaise         BigInt   @default(0) @map("late_fee_paise")
+  /// Percent in basis points (250 = 2.5%).
+  lateFeePercentBp     Int      @default(0) @map("late_fee_percent_bp")
+  graceDays            Int      @default(7) @map("grace_days")
+  lateFeeMaxPaise      BigInt?  @map("late_fee_max_paise")
+  /// Fee heads that attract late fee; empty means every head.
+  lateFeeHeadIds       String[] @default([]) @map("late_fee_head_ids")
+  remindersOn          Boolean  @default(false) @map("reminders_on")
+  /// Days relative to the due date: -3 = three days before, 0 = on the day, 7 = seven days after.
+  reminderDays         Int[]    @default([-3, 0, 7]) @map("reminder_days")
+  reminderChannel      String   @default("whatsapp") @map("reminder_channel")
+  reminderTemplate     String   @map("reminder_template")
+  /// Ageing groups as day ranges: [{ from: 0, to: 30 }, ..., { from: 91, to: null }].
+  ageingGroups         Json     @map("ageing_groups")
+  /// Modes that arrive as Waiting for verification (empty = step off).
+  verifyModes          String[] @default([]) @map("verify_modes")
+  /// Discounts and concessions up to this amount apply at once; above it they go to Approvals.
+  concessionLimitPaise BigInt   @default(100000) @map("concession_limit_paise")
+  /// Cancelling a payment made before today needs approval (inferred).
+  cancelPastApproval   Boolean  @default(true) @map("cancel_past_approval")
+  /// { default: gatewayId | null, byClass: { classId: gatewayId } }.
+  gatewayRouting       Json     @default("{}") @map("gateway_routing")
+  /// Counter permissions: { "give-discount": ["principal", ...], ... } (role keys).
+  counterPermissions   Json     @default("{}") @map("counter_permissions")
+  /// Scholarship type names (optional, scholarship-heavy schools).
+  scholarshipTypes     String[] @default([]) @map("scholarship_types")
+  updatedById          String?  @map("updated_by_id") @db.Uuid
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  @@map("fee_setting")
+}
+
+/// Fee Head: a kind of fee, such as tuition or transport. Made inside Fee Structure.
+model FeeHead {
+  id             String    @id @default(uuid()) @db.Uuid
+  schoolId       String    @map("school_id") @db.Uuid
+  name           String
+  /// tuition, annual, admission, activity, transport, exam, class, monthly, hostel, lab, sports, library, miscellaneous, other.
+  kind           String    @default("other")
+  taxable        Boolean   @default(false)
+  /// GST rate in basis points (1800 = 18%). Fee amounts include GST.
+  gstRateBp      Int?      @map("gst_rate_bp")
+  sacCode        String?   @map("sac_code")
+  /// Finance Management Bank Account the head's money goes to (when fees go into different accounts). Empty = main bank account.
+  bankAccountId  String?   @map("bank_account_id") @db.Uuid
+  lateFeeApplies Boolean   @default(true) @map("late_fee_applies")
+  /// System heads: "late-fee", "old-dues". Made by the software, not renamed away.
+  systemKey      String?   @map("system_key")
+  sortOrder      Int       @default(0) @map("sort_order")
+  createdById    String?   @map("created_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  archivedAt     DateTime? @map("archived_at")
+
+  @@unique([schoolId, name])
+  @@map("fee_head")
+}
+
+/// Fee Structure: the fees for one class for one academic year, versioned.
+model FeeStructure {
+  id             String             @id @default(uuid()) @db.Uuid
+  schoolId       String             @map("school_id") @db.Uuid
+  academicYearId String             @map("academic_year_id") @db.Uuid
+  classId        String             @map("class_id") @db.Uuid
+  /// Student category for category-wise fees; "" = all students.
+  category       String             @default("")
+  version        Int                @default(1)
+  status         FeeStructureStatus @default(DRAFT)
+  /// Unpaid installments due on or after this date follow this version.
+  effectiveFrom  DateTime?          @map("effective_from") @db.Date
+  publishedAt    DateTime?          @map("published_at")
+  publishedById  String?            @map("published_by_id") @db.Uuid
+  note           String?
+  createdById    String?            @map("created_by_id") @db.Uuid
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+  archivedAt     DateTime?          @map("archived_at")
+
+  items        FeeStructureItem[]
+  installments Installment[]
+
+  @@unique([schoolId, academicYearId, classId, category, version])
+  @@index([schoolId, academicYearId, status])
+  @@map("fee_structure")
+}
+
+/// One fee row of a structure: fee head, how often, and the total for the year.
+model FeeStructureItem {
+  id          String       @id @default(uuid()) @db.Uuid
+  schoolId    String       @map("school_id") @db.Uuid
+  structureId String       @map("structure_id") @db.Uuid
+  feeHeadId   String       @map("fee_head_id") @db.Uuid
+  frequency   FeeFrequency @default(MONTHLY)
+  totalPaise  BigInt       @map("total_paise")
+  sortOrder   Int          @default(0) @map("sort_order")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  archivedAt  DateTime?    @map("archived_at")
+
+  structure    FeeStructure  @relation(fields: [structureId], references: [id])
+  installments Installment[]
+
+  @@index([schoolId, structureId])
+  @@map("fee_structure_item")
+}
+
+/// Installment: one amount and due date inside a Fee Structure.
+model Installment {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  structureId String    @map("structure_id") @db.Uuid
+  itemId      String    @map("item_id") @db.Uuid
+  feeHeadId   String    @map("fee_head_id") @db.Uuid
+  /// Such as "Apr 2026" or "Term 1".
+  label       String
+  amountPaise BigInt    @map("amount_paise")
+  dueDate     DateTime  @map("due_date") @db.Date
+  seq         Int       @default(0)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  structure FeeStructure     @relation(fields: [structureId], references: [id])
+  item      FeeStructureItem @relation(fields: [itemId], references: [id])
+
+  @@index([schoolId, structureId])
+  @@map("installment")
+}
+
+/// Student Fee Due: what one student owes for one installment (shown as "Fees due").
+/// Balance = amount - concession + adjustment - paid, kept up to date with every change.
+model StudentFeeDue {
+  id               String      @id @default(uuid()) @db.Uuid
+  schoolId         String      @map("school_id") @db.Uuid
+  studentId        String      @map("student_id") @db.Uuid
+  academicYearId   String      @map("academic_year_id") @db.Uuid
+  installmentId    String?     @map("installment_id") @db.Uuid
+  structureId      String?     @map("structure_id") @db.Uuid
+  feeHeadId        String      @map("fee_head_id") @db.Uuid
+  kind             FeeDueKind  @default(FEE)
+  label            String
+  dueDate          DateTime    @map("due_date") @db.Date
+  amountPaise      BigInt      @map("amount_paise")
+  concessionPaise  BigInt      @default(0) @map("concession_paise")
+  /// Corrections with a reason (signed).
+  adjustmentPaise  BigInt      @default(0) @map("adjustment_paise")
+  paidPaise        BigInt      @default(0) @map("paid_paise")
+  balancePaise     BigInt      @map("balance_paise")
+  state            FeeDueState @default(OPEN)
+  /// For a late fee row: the due it was added to.
+  parentDueId      String?     @map("parent_due_id") @db.Uuid
+  /// Old dues carried in, or brought in from old software (rule 36).
+  broughtIn        Boolean     @default(false) @map("brought_in")
+  openingBalanceId String?     @map("opening_balance_id") @db.Uuid
+  /// Set when one student's row differs from the class plan.
+  exceptionReason  String?     @map("exception_reason")
+  removedReason    String?     @map("removed_reason")
+  removedById      String?     @map("removed_by_id") @db.Uuid
+  removedAt        DateTime?   @map("removed_at")
+  note             String?
+  createdById      String?     @map("created_by_id") @db.Uuid
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+
+  @@unique([studentId, installmentId])
+  @@index([schoolId, studentId, state])
+  @@index([schoolId, state, dueDate])
+  @@index([schoolId, parentDueId])
+  @@map("student_fee_due")
+}
+
+/// A change to one row of a student's plan with a reason (Adjustments tab).
+model FeeAdjustment {
+  id          String   @id @default(uuid()) @db.Uuid
+  schoolId    String   @map("school_id") @db.Uuid
+  studentId   String   @map("student_id") @db.Uuid
+  dueId       String   @map("due_id") @db.Uuid
+  /// Signed: positive adds to the fees due, negative reduces them.
+  amountPaise BigInt   @map("amount_paise")
+  reason      String
+  createdById String?  @map("created_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([schoolId, studentId])
+  @@map("fee_adjustment")
+}
+
+/// Concession: a discount, scholarship, bulk discount or late-fee waiver.
+model Concession {
+  id              String           @id @default(uuid()) @db.Uuid
+  schoolId        String           @map("school_id") @db.Uuid
+  studentId       String           @map("student_id") @db.Uuid
+  academicYearId  String           @map("academic_year_id") @db.Uuid
+  type            ConcessionType   @default(DISCOUNT)
+  /// "amount" (a total amount) or "percent" (of each due).
+  mode            String           @default("amount")
+  amountPaise     BigInt           @default(0) @map("amount_paise")
+  percentBp       Int              @default(0) @map("percent_bp")
+  feeHeadIds      String[]         @default([]) @map("fee_head_ids")
+  /// Specific rows, when chosen (late-fee waiver, counter discount).
+  dueIds          String[]         @default([]) @map("due_ids")
+  periodFrom      DateTime?        @map("period_from") @db.Date
+  periodTo        DateTime?        @map("period_to") @db.Date
+  reason          String
+  scholarshipType String?          @map("scholarship_type")
+  documentFileId  String?          @map("document_file_id") @db.Uuid
+  status          ConcessionStatus @default(WAITING)
+  /// Worked out when asked, and the amount actually applied once applied.
+  estimatedPaise  BigInt           @default(0) @map("estimated_paise")
+  appliedPaise    BigInt           @default(0) @map("applied_paise")
+  approvalId      String?          @map("approval_id") @db.Uuid
+  decidedById     String?          @map("decided_by_id") @db.Uuid
+  decisionNote    String?          @map("decision_note")
+  /// The bulk discount rule or payment it came with.
+  bulkRuleId      String?          @map("bulk_rule_id") @db.Uuid
+  paymentId       String?          @map("payment_id") @db.Uuid
+  requestedById   String?          @map("requested_by_id") @db.Uuid
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  archivedAt      DateTime?        @map("archived_at")
+
+  lines ConcessionLine[]
+
+  @@index([schoolId, studentId])
+  @@index([schoolId, status])
+  @@map("concession")
+}
+
+/// How much of a concession went to one due.
+model ConcessionLine {
+  id           String   @id @default(uuid()) @db.Uuid
+  schoolId     String   @map("school_id") @db.Uuid
+  concessionId String   @map("concession_id") @db.Uuid
+  dueId        String   @map("due_id") @db.Uuid
+  amountPaise  BigInt   @map("amount_paise")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  concession Concession @relation(fields: [concessionId], references: [id])
+
+  @@index([schoolId, dueId])
+  @@map("concession_line")
+}
+
+/// Bulk fee discount rule, e.g. "pay 3 months, get 5% off".
+model BulkDiscountRule {
+  id              String    @id @default(uuid()) @db.Uuid
+  schoolId        String    @map("school_id") @db.Uuid
+  name            String
+  minInstallments Int       @map("min_installments")
+  percentBp       Int       @map("percent_bp")
+  feeHeadIds      String[]  @default([]) @map("fee_head_ids")
+  isActive        Boolean   @default(true) @map("is_active")
+  createdById     String?   @map("created_by_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  archivedAt      DateTime? @map("archived_at")
+
+  @@map("bulk_discount_rule")
+}
+
+/// Payment: money received for fees. Never edited or deleted; cancelled with a reason.
+model Payment {
+  id               String        @id @default(uuid()) @db.Uuid
+  schoolId         String        @map("school_id") @db.Uuid
+  studentId        String        @map("student_id") @db.Uuid
+  academicYearId   String?       @map("academic_year_id") @db.Uuid
+  amountPaise      BigInt        @map("amount_paise")
+  /// The late fee part of the amount, shown as penalty.
+  lateFeePaise     BigInt        @default(0) @map("late_fee_paise")
+  /// Extra held as advance (when advances are allowed).
+  advancePaise     BigInt        @default(0) @map("advance_paise")
+  /// Discount given at the counter with this payment.
+  discountPaise    BigInt        @default(0) @map("discount_paise")
+  mode             PaymentMode
+  reference        String?
+  chequeNo         String?       @map("cheque_no")
+  chequeBank       String?       @map("cheque_bank")
+  chequeDate       DateTime?     @map("cheque_date") @db.Date
+  paidAt           DateTime      @map("paid_at")
+  /// The date in the school's time zone (for the Day Book and reports).
+  paymentDate      DateTime      @map("payment_date") @db.Date
+  status           PaymentStatus @default(POSTED)
+  source           PaymentSource @default(COUNTER)
+  isPartial        Boolean       @default(false) @map("is_partial")
+  note             String?
+  collectedById    String?       @map("collected_by_id") @db.Uuid
+  cancelReason     String?       @map("cancel_reason")
+  cancelNote       String?       @map("cancel_note")
+  cancelledById    String?       @map("cancelled_by_id") @db.Uuid
+  cancelledAt      DateTime?     @map("cancelled_at")
+  /// The cancellation waiting for approval (past payments).
+  cancelApprovalId String?       @map("cancel_approval_id") @db.Uuid
+  verifyApprovalId String?       @map("verify_approval_id") @db.Uuid
+  rejectReason     String?       @map("reject_reason")
+  /// Brought in from old software: read-only, never posted to the Day Book (rule 36).
+  broughtIn        Boolean       @default(false) @map("brought_in")
+  oldReceiptNo     String?       @map("old_receipt_no")
+  importBatchId    String?       @map("import_batch_id") @db.Uuid
+  gatewayAccountId String?       @map("gateway_account_id") @db.Uuid
+  /// The gateway's own payment id. One payment per id (rule 8).
+  gatewayPaymentId String?       @map("gateway_payment_id")
+  gatewayOrderId   String?       @map("gateway_order_id")
+  paymentLinkId    String?       @map("payment_link_id") @db.Uuid
+  failureReason    String?       @map("failure_reason")
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+
+  allocations PaymentAllocation[]
+
+  @@unique([schoolId, gatewayPaymentId])
+  @@index([schoolId, studentId])
+  @@index([schoolId, paymentDate])
+  @@index([schoolId, status])
+  @@map("payment")
+}
+
+/// How much of a payment went to one due, and the bank account of its fee head at that time (rule 39).
+model PaymentAllocation {
+  id            String   @id @default(uuid()) @db.Uuid
+  schoolId      String   @map("school_id") @db.Uuid
+  paymentId     String   @map("payment_id") @db.Uuid
+  dueId         String   @map("due_id") @db.Uuid
+  feeHeadId     String   @map("fee_head_id") @db.Uuid
+  amountPaise   BigInt   @map("amount_paise")
+  bankAccountId String?  @map("bank_account_id") @db.Uuid
+  /// Applied later from advance held on this payment (no new money).
+  fromAdvance   Boolean  @default(false) @map("from_advance")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  payment Payment @relation(fields: [paymentId], references: [id])
+
+  @@index([schoolId, dueId])
+  @@index([schoolId, paymentId])
+  @@map("payment_allocation")
+}
+
+/// Receipt: proof for a posted payment. Numbers are unique and never reused (rule 7).
+model Receipt {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  paymentId   String    @unique @map("payment_id") @db.Uuid
+  number      String
+  date        DateTime  @db.Date
+  /// "valid" or "cancelled".
+  status      String    @default("valid")
+  broughtIn   Boolean   @default(false) @map("brought_in")
+  cancelledAt DateTime? @map("cancelled_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@unique([schoolId, number])
+  @@map("receipt")
+}
+
+/// Tax Invoice: the GST invoice for a payment covering a taxable fee head (rule 37).
+model TaxInvoice {
+  id            String   @id @default(uuid()) @db.Uuid
+  schoolId      String   @map("school_id") @db.Uuid
+  paymentId     String   @unique @map("payment_id") @db.Uuid
+  number        String
+  date          DateTime @db.Date
+  gstin         String
+  placeOfSupply String?  @map("place_of_supply")
+  /// [{ feeHeadId, name, sacCode, rateBp, amountPaise, taxPaise }]
+  lines         Json
+  taxablePaise  BigInt   @map("taxable_paise")
+  taxPaise      BigInt   @map("tax_paise")
+  totalPaise    BigInt   @map("total_paise")
+  status        String   @default("valid")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@unique([schoolId, number])
+  @@index([schoolId, date])
+  @@map("tax_invoice")
+}
+
+/// Refund: money given back from a payment, never more than paid (rule 9).
+model Refund {
+  id               String       @id @default(uuid()) @db.Uuid
+  schoolId         String       @map("school_id") @db.Uuid
+  paymentId        String       @map("payment_id") @db.Uuid
+  studentId        String       @map("student_id") @db.Uuid
+  amountPaise      BigInt       @map("amount_paise")
+  mode             PaymentMode
+  reason           String
+  status           RefundStatus @default(WAITING)
+  approvalId       String?      @map("approval_id") @db.Uuid
+  decisionNote     String?      @map("decision_note")
+  refundedOn       DateTime?    @map("refunded_on") @db.Date
+  reference        String?
+  accountId        String?      @map("account_id") @db.Uuid
+  /// The part of the refund that came out of advance held for the student.
+  advanceUsedPaise BigInt       @default(0) @map("advance_used_paise")
+  refundedById     String?      @map("refunded_by_id") @db.Uuid
+  requestedById    String?      @map("requested_by_id") @db.Uuid
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+
+  @@index([schoolId, paymentId])
+  @@index([schoolId, status])
+  @@map("refund")
+}
+
+/// Payment Link: an online payment from the moment the link is sent until the gateway confirms or fails it.
+model PaymentLink {
+  id               String            @id @default(uuid()) @db.Uuid
+  schoolId         String            @map("school_id") @db.Uuid
+  studentId        String            @map("student_id") @db.Uuid
+  /// The guardian who started it from Parent Link, or who it was sent to.
+  guardianId       String?           @map("guardian_id") @db.Uuid
+  dueIds           String[]          @map("due_ids")
+  amountPaise      BigInt            @map("amount_paise")
+  gatewayAccountId String            @map("gateway_account_id") @db.Uuid
+  /// Hash of the secret token in the link; the token itself is never stored.
+  tokenHash        String            @unique @map("token_hash")
+  gatewayOrderId   String?           @map("gateway_order_id")
+  status           PaymentLinkStatus @default(SENT)
+  source           PaymentSource     @default(LINK)
+  channel          String?
+  sentTo           String?           @map("sent_to")
+  expiresAt        DateTime          @map("expires_at")
+  attempts         Int               @default(0)
+  lastAttemptAt    DateTime?         @map("last_attempt_at")
+  paymentId        String?           @map("payment_id") @db.Uuid
+  createdById      String?           @map("created_by_id") @db.Uuid
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+
+  @@unique([schoolId, gatewayOrderId])
+  @@index([schoolId, studentId])
+  @@index([schoolId, status])
+  @@map("payment_link")
+}
+
+/// Every confirmation or failure the gateway sent, and what was done with it (reconciliation).
+model GatewayTransaction {
+  id               String   @id @default(uuid()) @db.Uuid
+  schoolId         String   @map("school_id") @db.Uuid
+  gatewayAccountId String   @map("gateway_account_id") @db.Uuid
+  event            String
+  gatewayPaymentId String?  @map("gateway_payment_id")
+  gatewayOrderId   String?  @map("gateway_order_id")
+  amountPaise      BigInt?  @map("amount_paise")
+  /// "posted", "already-posted", "failed-recorded", "unmatched", "ignored", "verified-waiting".
+  outcome          String
+  paymentId        String?  @map("payment_id") @db.Uuid
+  receivedAt       DateTime @default(now()) @map("received_at")
+
+  @@index([schoolId, gatewayPaymentId])
+  @@index([schoolId, receivedAt])
+  @@map("gateway_transaction")
+}
+
+/// Opening Balance: an amount brought in from old software at go-live (rule 36).
+model OpeningBalance {
+  id              String             @id @default(uuid()) @db.Uuid
+  schoolId        String             @map("school_id") @db.Uuid
+  kind            OpeningBalanceKind
+  financialYearId String             @map("financial_year_id") @db.Uuid
+  date            DateTime           @db.Date
+  studentId       String?            @map("student_id") @db.Uuid
+  /// Cash or bank account (Finance Management) for cash and bank book balances.
+  accountId       String?            @map("account_id") @db.Uuid
+  amountPaise     BigInt             @map("amount_paise")
+  note            String?
+  sourceFile      String?            @map("source_file")
+  importBatchId   String?            @map("import_batch_id") @db.Uuid
+  /// A later change waiting for approval.
+  approvalId      String?            @map("approval_id") @db.Uuid
+  pendingPaise    BigInt?            @map("pending_paise")
+  broughtInById   String?            @map("brought_in_by_id") @db.Uuid
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+  archivedAt      DateTime?          @map("archived_at")
+
+  @@index([schoolId, kind])
+  @@map("opening_balance")
+}
+
+/// Reminder Log: each fee reminder sent, once per installment per scheduled day.
+model FeeReminder {
+  id          String   @id @default(uuid()) @db.Uuid
+  schoolId    String   @map("school_id") @db.Uuid
+  studentId   String   @map("student_id") @db.Uuid
+  dueId       String?  @map("due_id") @db.Uuid
+  /// Makes an automatic reminder go only once, e.g. "auto:<dueId>:-3".
+  onceKey     String?  @map("once_key")
+  channel     String
+  template    String
+  text        String
+  phone       String?
+  amountPaise BigInt   @map("amount_paise")
+  /// "queued", "sent", "skipped-opted-out", "failed".
+  status      String   @default("queued")
+  automatic   Boolean  @default(false)
+  /// The Message in Communication that carried it (delivery status lives there).
+  messageId   String?  @map("message_id") @db.Uuid
+  sentById    String?  @map("sent_by_id") @db.Uuid
+  sentAt      DateTime @default(now()) @map("sent_at")
+
+  @@unique([schoolId, onceKey])
+  @@index([schoolId, studentId])
+  @@map("fee_reminder")
+}
+
+/// A call log note on a defaulter, e.g. "Called parent, promised by 15-10-2026".
+model FeeCallNote {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  studentId   String    @map("student_id") @db.Uuid
+  note        String
+  promisedOn  DateTime? @map("promised_on") @db.Date
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([schoolId, studentId])
+  @@map("fee_call_note")
+}
+
+/// Fee invoices and fee certificates issued, with their unique numbers.
+model FeeDocument {
+  id          String   @id @default(uuid()) @db.Uuid
+  schoolId    String   @map("school_id") @db.Uuid
+  /// "invoice" or "certificate".
+  kind        String
+  number      String
+  studentId   String   @map("student_id") @db.Uuid
+  totalPaise  BigInt   @map("total_paise")
+  /// Invoice: due ids and due date. Certificate: financial year and period.
+  details     Json
+  createdById String?  @map("created_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@unique([schoolId, kind, number])
+  @@index([schoolId, studentId])
+  @@map("fee_document")
+}

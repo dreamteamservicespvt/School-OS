@@ -1,0 +1,82 @@
+"use server";
+
+// One message: cancel before it goes, retry failed, resend to unread or failed.
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { withSchool } from "@/lib/db";
+import { flash } from "@/lib/flash";
+import { commAction } from "@/lib/communication/access";
+import { cancelScheduled, retryFailed } from "@/lib/messaging/deliver";
+import { MessagingProblem } from "@/lib/messaging/send";
+import { planResend, resend, type ResendWho } from "@/lib/messaging/resend";
+import { CHANNEL_LABEL, isChannel } from "@/lib/messaging/channels";
+
+async function ownMessage(id: string) {
+  const access = await commAction("create");
+  const ok = await withSchool(access.current.ctx, (tx) => tx.message.findFirst({ where: { id, schoolId: access.current.ctx.schoolId, ...(access.full ? {} : { sentById: access.current.user.id }) }, select: { id: true } }));
+  if (!ok) throw new MessagingProblem("This message was not found, or you did not send it.");
+  return access;
+}
+
+export async function cancelMessage(id: string): Promise<string | void> {
+  try {
+    const { current } = await ownMessage(id);
+    await withSchool(current.ctx, (tx) => cancelScheduled(tx, current.ctx, id));
+  } catch (e) {
+    if (e instanceof MessagingProblem) return e.message;
+    throw e;
+  }
+  await flash({ message: "Cancelled. Nobody will get this message and the credits are back.", tone: "success" });
+  revalidatePath(`/communication/history/${id}`);
+}
+
+export async function retryMessage(id: string): Promise<string | void> {
+  let n = 0;
+  try {
+    const { current } = await ownMessage(id);
+    n = await withSchool(current.ctx, (tx) => retryFailed(tx, current.ctx, id));
+  } catch (e) {
+    if (e instanceof MessagingProblem) return e.message;
+    throw e;
+  }
+  await flash({ message: `Retrying ${n} failed ${n === 1 ? "message" : "messages"}.`, tone: "success" });
+  revalidatePath(`/communication/history/${id}`);
+}
+
+export type ResendPreview = { ok: true; people: number; cost: string; skipped: string[]; problem: string | null } | { ok: false; message: string };
+
+export async function previewResend(id: string, who: ResendWho, channel: string): Promise<ResendPreview> {
+  if (!isChannel(channel)) return { ok: false, message: "Choose a channel." };
+  try {
+    const { current, scope } = await ownMessage(id);
+    const plan = await withSchool(current.ctx, (tx) => planResend(tx, current.ctx, id, who, channel, scope));
+    const credits = Object.values(plan.cost).reduce((a, b) => a + (b ?? 0), 0);
+    return {
+      ok: true,
+      people: plan.people,
+      cost: credits ? `${credits} ${CHANNEL_LABEL[channel]} credits` : "Free",
+      skipped: plan.skipped.map((g) => `${g.reason}: ${g.count}`),
+      problem: plan.problems[0] ?? plan.creditProblem ?? (plan.people === 0 ? "Nobody can be reached on this channel. Choose another channel." : null),
+    };
+  } catch (e) {
+    if (e instanceof MessagingProblem) return { ok: false, message: e.message };
+    throw e;
+  }
+}
+
+export async function doResend(id: string, who: ResendWho, channel: string): Promise<string | void> {
+  if (!isChannel(channel)) return "Choose a channel.";
+  let newId: string;
+  let people = 0;
+  try {
+    const { current, scope } = await ownMessage(id);
+    const r = await withSchool(current.ctx, (tx) => resend(tx, current.ctx, id, who, channel, scope));
+    newId = r.messageId;
+    people = r.people;
+  } catch (e) {
+    if (e instanceof MessagingProblem) return e.message;
+    throw e;
+  }
+  await flash({ message: `Resending to ${people} ${people === 1 ? "person" : "people"} by ${CHANNEL_LABEL[channel]}.`, tone: "success" });
+  redirect(`/communication/history/${newId}`);
+}

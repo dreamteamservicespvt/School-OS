@@ -1,0 +1,348 @@
+// 04 Academic Management: years, terms, classes, sections, subjects,
+// teacher allocation, the Time Table and substitutions. Shared by every module.
+
+enum AcademicYearStatus {
+  UPCOMING
+  ACTIVE
+  /// No longer the active year, but kept open for late changes until closed.
+  OPEN
+  CLOSED
+}
+
+enum FinancialYearStatus {
+  OPEN
+  CLOSED
+}
+
+enum SubjectType {
+  CORE
+  OPTIONAL
+  ELECTIVE
+  LANGUAGE
+}
+
+enum TimetableVersionStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum SubstitutionStatus {
+  NEEDED
+  ARRANGED
+  CANCELLED
+}
+
+/// Academic Year: one school year for one campus. Only one active per campus.
+model AcademicYear {
+  id          String             @id @default(uuid()) @db.Uuid
+  schoolId    String             @map("school_id") @db.Uuid
+  campusId    String             @map("campus_id") @db.Uuid
+  name        String
+  startDate   DateTime           @map("start_date") @db.Date
+  endDate     DateTime           @map("end_date") @db.Date
+  status      AcademicYearStatus @default(UPCOMING)
+  closedAt    DateTime?          @map("closed_at")
+  createdById String?            @map("created_by_id") @db.Uuid
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedById String?            @map("updated_by_id") @db.Uuid
+  updatedAt   DateTime           @updatedAt @map("updated_at")
+  archivedAt  DateTime?          @map("archived_at")
+
+  terms    Term[]
+  sections Section[]
+
+  @@unique([schoolId, campusId, name])
+  @@index([schoolId, campusId, status])
+  @@map("academic_year")
+}
+
+/// Financial Year: the accounts year (default 1 April to 31 March).
+model FinancialYear {
+  id          String              @id @default(uuid()) @db.Uuid
+  schoolId    String              @map("school_id") @db.Uuid
+  name        String
+  startDate   DateTime            @map("start_date") @db.Date
+  endDate     DateTime            @map("end_date") @db.Date
+  status      FinancialYearStatus @default(OPEN)
+  closedAt    DateTime?           @map("closed_at")
+  createdById String?             @map("created_by_id") @db.Uuid
+  createdAt   DateTime            @default(now()) @map("created_at")
+  updatedAt   DateTime            @updatedAt @map("updated_at")
+  archivedAt  DateTime?           @map("archived_at")
+
+  @@unique([schoolId, name])
+  @@map("financial_year")
+}
+
+/// Term: a part of the year, such as Term 1 or Semester 2.
+model Term {
+  id             String    @id @default(uuid()) @db.Uuid
+  schoolId       String    @map("school_id") @db.Uuid
+  academicYearId String    @map("academic_year_id") @db.Uuid
+  name           String
+  startDate      DateTime  @map("start_date") @db.Date
+  endDate        DateTime  @map("end_date") @db.Date
+  sortOrder      Int       @default(0) @map("sort_order")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  archivedAt     DateTime? @map("archived_at")
+
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
+
+  @@index([schoolId, academicYearId])
+  @@map("term")
+}
+
+/// Class: such as Nursery, Class 5 or B.Sc 1. Any class name is allowed.
+model SchoolClass {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  campusId    String    @map("campus_id") @db.Uuid
+  name        String
+  sortOrder   Int       @default(0) @map("sort_order")
+  /// Pre-primary, Primary, Middle, Secondary, Senior Secondary, College.
+  level       String?
+  stream      String?
+  /// Empty means the school's board.
+  board       String?
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedById String?   @map("updated_by_id") @db.Uuid
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  sections Section[]
+  subjects SubjectClass[]
+
+  @@unique([schoolId, campusId, name])
+  @@index([schoolId, campusId, sortOrder])
+  @@map("school_class")
+}
+
+/// Section: one division of a class for one year, such as 5 A.
+model Section {
+  id             String    @id @default(uuid()) @db.Uuid
+  schoolId       String    @map("school_id") @db.Uuid
+  classId        String    @map("class_id") @db.Uuid
+  academicYearId String    @map("academic_year_id") @db.Uuid
+  name           String
+  seats          Int       @default(40)
+  /// Staff id of the class teacher.
+  classTeacherId String?   @map("class_teacher_id") @db.Uuid
+  room           String?
+  /// Stream (Science, Commerce...) when streams are on.
+  streamId       String?   @map("stream_id") @db.Uuid
+  createdById    String?   @map("created_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedById    String?   @map("updated_by_id") @db.Uuid
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  archivedAt     DateTime? @map("archived_at")
+
+  schoolClass  SchoolClass         @relation(fields: [classId], references: [id])
+  academicYear AcademicYear        @relation(fields: [academicYearId], references: [id])
+  allocations  TeacherAllocation[]
+  periods      TimetablePeriod[]
+
+  @@unique([schoolId, classId, academicYearId, name])
+  @@index([schoolId, academicYearId])
+  @@index([schoolId, classTeacherId])
+  @@map("section")
+}
+
+/// Subject: a subject taught in one or more classes.
+model Subject {
+  id          String      @id @default(uuid()) @db.Uuid
+  schoolId    String      @map("school_id") @db.Uuid
+  name        String
+  code        String
+  type        SubjectType @default(CORE)
+  /// Grade-only subjects (Art, PE) are graded, not marked.
+  gradeOnly   Boolean     @default(false) @map("grade_only")
+  createdById String?     @map("created_by_id") @db.Uuid
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedById String?     @map("updated_by_id") @db.Uuid
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  archivedAt  DateTime?   @map("archived_at")
+
+  classes     SubjectClass[]
+  allocations TeacherAllocation[]
+  periods     TimetablePeriod[]
+
+  @@unique([schoolId, code])
+  @@map("subject")
+}
+
+/// Subject Class Map: which classes a subject is taught in, from and to dates.
+model SubjectClass {
+  id             String    @id @default(uuid()) @db.Uuid
+  schoolId       String    @map("school_id") @db.Uuid
+  subjectId      String    @map("subject_id") @db.Uuid
+  classId        String    @map("class_id") @db.Uuid
+  periodsPerWeek Int       @default(0) @map("periods_per_week")
+  fromDate       DateTime? @map("from_date") @db.Date
+  toDate         DateTime? @map("to_date") @db.Date
+  createdAt      DateTime  @default(now()) @map("created_at")
+  archivedAt     DateTime? @map("archived_at")
+
+  subject     Subject     @relation(fields: [subjectId], references: [id])
+  schoolClass SchoolClass @relation(fields: [classId], references: [id])
+
+  @@index([schoolId, classId])
+  @@index([schoolId, subjectId])
+  @@map("subject_class")
+}
+
+/// Teacher Allocation: which teacher teaches which subject to which section.
+model TeacherAllocation {
+  id             String    @id @default(uuid()) @db.Uuid
+  schoolId       String    @map("school_id") @db.Uuid
+  academicYearId String    @map("academic_year_id") @db.Uuid
+  staffId        String    @map("staff_id") @db.Uuid
+  sectionId      String    @map("section_id") @db.Uuid
+  subjectId      String    @map("subject_id") @db.Uuid
+  isMain         Boolean   @default(true) @map("is_main")
+  /// Empty means the subject's periods per week for the class.
+  periodsPerWeek Int?      @map("periods_per_week")
+  fromDate       DateTime? @map("from_date") @db.Date
+  toDate         DateTime? @map("to_date") @db.Date
+  createdById    String?   @map("created_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  archivedAt     DateTime? @map("archived_at")
+
+  section Section @relation(fields: [sectionId], references: [id])
+  subject Subject @relation(fields: [subjectId], references: [id])
+
+  @@index([schoolId, staffId])
+  @@index([schoolId, sectionId])
+  @@map("teacher_allocation")
+}
+
+/// Period Master: the period slots of a school day (per campus).
+model PeriodSlot {
+  id         String    @id @default(uuid()) @db.Uuid
+  schoolId   String    @map("school_id") @db.Uuid
+  campusId   String    @map("campus_id") @db.Uuid
+  number     Int
+  label      String
+  /// "HH:MM" 24-hour, shown in 12-hour time.
+  startTime  String    @map("start_time")
+  endTime    String    @map("end_time")
+  isBreak    Boolean   @default(false) @map("is_break")
+  /// Days of the week this slot runs (1 = Monday ... 7 = Sunday).
+  days       Int[]     @default([1, 2, 3, 4, 5, 6])
+  createdAt  DateTime  @default(now()) @map("created_at")
+  archivedAt DateTime? @map("archived_at")
+
+  @@index([schoolId, campusId])
+  @@map("period_slot")
+}
+
+/// Timetable Version: a draft or published Time Table with the date it starts.
+model TimetableVersion {
+  id             String                 @id @default(uuid()) @db.Uuid
+  schoolId       String                 @map("school_id") @db.Uuid
+  academicYearId String                 @map("academic_year_id") @db.Uuid
+  campusId       String                 @map("campus_id") @db.Uuid
+  name           String
+  status         TimetableVersionStatus @default(DRAFT)
+  effectiveFrom  DateTime?              @map("effective_from") @db.Date
+  publishedAt    DateTime?              @map("published_at")
+  publishedById  String?                @map("published_by_id") @db.Uuid
+  createdById    String?                @map("created_by_id") @db.Uuid
+  createdAt      DateTime               @default(now()) @map("created_at")
+  updatedAt      DateTime               @updatedAt @map("updated_at")
+  archivedAt     DateTime?              @map("archived_at")
+
+  periods TimetablePeriod[]
+
+  @@index([schoolId, academicYearId, status])
+  @@map("timetable_version")
+}
+
+/// Timetable Period: one slot in a Time Table version.
+model TimetablePeriod {
+  id         String    @id @default(uuid()) @db.Uuid
+  schoolId   String    @map("school_id") @db.Uuid
+  versionId  String    @map("version_id") @db.Uuid
+  sectionId  String    @map("section_id") @db.Uuid
+  /// 1 = Monday ... 6 = Saturday, 7 = Sunday.
+  dayOfWeek  Int       @map("day_of_week")
+  periodNo   Int       @map("period_no")
+  startTime  String    @map("start_time")
+  endTime    String    @map("end_time")
+  subjectId  String?   @map("subject_id") @db.Uuid
+  staffId    String?   @map("staff_id") @db.Uuid
+  room       String?
+  isBreak    Boolean   @default(false) @map("is_break")
+  /// A fixed period with no subject, such as Assembly or Library.
+  label      String?
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  archivedAt DateTime? @map("archived_at")
+
+  version       TimetableVersion @relation(fields: [versionId], references: [id])
+  section       Section          @relation(fields: [sectionId], references: [id])
+  subject       Subject?         @relation(fields: [subjectId], references: [id])
+  substitutions Substitution[]
+
+  @@unique([versionId, sectionId, dayOfWeek, periodNo])
+  @@index([schoolId, versionId, staffId, dayOfWeek, periodNo])
+  @@map("timetable_period")
+}
+
+/// Substitution: a substitute teacher for one period on one date.
+model Substitution {
+  id                String             @id @default(uuid()) @db.Uuid
+  schoolId          String             @map("school_id") @db.Uuid
+  date              DateTime           @db.Date
+  periodId          String             @map("period_id") @db.Uuid
+  absentStaffId     String             @map("absent_staff_id") @db.Uuid
+  substituteStaffId String?            @map("substitute_staff_id") @db.Uuid
+  leaveRequestId    String?            @map("leave_request_id") @db.Uuid
+  status            SubstitutionStatus @default(NEEDED)
+  /// "leave", "absent" or "temporary".
+  reason            String             @default("leave")
+  coverId           String?            @map("cover_id") @db.Uuid
+  note              String?
+  createdById       String?            @map("created_by_id") @db.Uuid
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+  archivedAt        DateTime?          @map("archived_at")
+
+  period TimetablePeriod @relation(fields: [periodId], references: [id])
+
+  @@index([schoolId, date])
+  @@index([schoolId, substituteStaffId, date])
+  @@map("substitution")
+}
+
+/// Calendar Entry: one day or date range on the School Calendar.
+model CalendarEntry {
+  id             String    @id @default(uuid()) @db.Uuid
+  schoolId       String    @map("school_id") @db.Uuid
+  campusId       String?   @map("campus_id") @db.Uuid
+  academicYearId String    @map("academic_year_id") @db.Uuid
+  /// holiday, vacation, exam_day, event, ptm, admission_test
+  type           String
+  title          String
+  startDate      DateTime  @map("start_date") @db.Date
+  endDate        DateTime  @map("end_date") @db.Date
+  /// Attendance taken on these days or not. Holidays switch it off.
+  attendanceOn   Boolean   @default(false) @map("attendance_on")
+  /// What made it, e.g. "exam:<id>" or "event:<id>". Empty for typed entries.
+  source         String?
+  /// Applies to these classes only (exams, events, PTMs). Empty: the whole school or campus.
+  classIds       String[]  @default([]) @map("class_ids") @db.Uuid
+  /// More details (Events & Calendar, Add to calendar).
+  details        String?
+  createdById    String?   @map("created_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedById    String?   @map("updated_by_id") @db.Uuid
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  archivedAt     DateTime? @map("archived_at")
+
+  @@index([schoolId, academicYearId, startDate])
+  @@map("calendar_entry")
+}

@@ -1,0 +1,155 @@
+// 03 Student Management core: one Student record for life, one Enrolment per
+// year, and Guardians shared between brothers and sisters.
+
+enum StudentStatus {
+  ADMITTED
+  ACTIVE
+  PROMOTED
+  TRANSFERRED
+  WITHDRAWN
+  GRADUATED
+  ALUMNI
+  INACTIVE
+}
+
+enum EnrolmentStatus {
+  STUDYING
+  PROMOTED
+  HELD_BACK
+  LEFT
+}
+
+/// Student: one record for one child for life, shared by every module.
+model Student {
+  id             String        @id @default(uuid()) @db.Uuid
+  schoolId       String        @map("school_id") @db.Uuid
+  campusId       String        @map("campus_id") @db.Uuid
+  admissionNo    String        @map("admission_no")
+  firstName      String        @map("first_name")
+  lastName       String?       @map("last_name")
+  /// First name + last name, kept for search and sorting.
+  fullName       String        @map("full_name")
+  photoFileId    String?       @map("photo_file_id") @db.Uuid
+  dateOfBirth    DateTime?     @map("date_of_birth") @db.Date
+  gender         String?
+  bloodGroup     String?       @map("blood_group")
+  /// General, OBC, SC, ST, EWS or the school's own.
+  category       String?
+  religion       String?
+  motherTongue   String?       @map("mother_tongue")
+  address        String?
+  city           String?
+  state          String?
+  pinCode        String?       @map("pin_code")
+  /// Restricted identifiers, encrypted; shown masked.
+  aadhaarEnc     String?       @map("aadhaar_enc")
+  apaarId        String?       @map("apaar_id")
+  pen            String?
+  medicalNotes   String?       @map("medical_notes")
+  status         StudentStatus @default(ACTIVE)
+  joiningDate    DateTime?     @map("joining_date") @db.Date
+  leavingDate    DateTime?     @map("leaving_date") @db.Date
+  leavingReason  String?       @map("leaving_reason")
+  /// Application it was made from (Admission), converted only once.
+  applicationId  String?       @unique @map("application_id") @db.Uuid
+  /// Custom fields made in Settings, Forms & Approvals.
+  customFields   Json          @default("{}") @map("custom_fields")
+  previousSchool String?       @map("previous_school")
+  userLoginId    String?       @map("user_login_id") @db.Uuid
+  createdById    String?       @map("created_by_id") @db.Uuid
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedById    String?       @map("updated_by_id") @db.Uuid
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  archivedAt     DateTime?     @map("archived_at")
+
+  enrolments Enrolment[]
+  guardians  StudentGuardian[]
+
+  @@unique([schoolId, admissionNo])
+  @@unique([schoolId, userLoginId])
+  @@index([schoolId, status])
+  @@index([schoolId, fullName])
+  @@map("student")
+}
+
+/// Enrolment: a student's class, section and roll number for one academic year.
+model Enrolment {
+  id               String          @id @default(uuid()) @db.Uuid
+  schoolId         String          @map("school_id") @db.Uuid
+  studentId        String          @map("student_id") @db.Uuid
+  academicYearId   String          @map("academic_year_id") @db.Uuid
+  classId          String          @map("class_id") @db.Uuid
+  sectionId        String          @map("section_id") @db.Uuid
+  rollNo           Int?            @map("roll_no")
+  stream           String?
+  /// Subject ids of chosen optional subjects and second language.
+  optionalSubjects String[]        @default([]) @map("optional_subjects")
+  status           EnrolmentStatus @default(STUDYING)
+  createdById      String?         @map("created_by_id") @db.Uuid
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+  archivedAt       DateTime?       @map("archived_at")
+
+  student Student @relation(fields: [studentId], references: [id])
+
+  @@unique([studentId, academicYearId])
+  @@index([schoolId, sectionId, academicYearId])
+  @@index([schoolId, academicYearId, classId])
+  @@map("enrolment")
+}
+
+/// Guardian: a parent or guardian. Parents never have a login.
+model Guardian {
+  id           String    @id @default(uuid()) @db.Uuid
+  schoolId     String    @map("school_id") @db.Uuid
+  name         String
+  /// Father, Mother, Guardian, Grandparent...
+  relationship String
+  /// Registered mobile for one-time codes (10 digits).
+  phone        String
+  altPhone     String?   @map("alt_phone")
+  email        String?
+  dateOfBirth  DateTime? @map("date_of_birth") @db.Date
+  occupation   String?
+  annualIncome String?   @map("annual_income")
+  address      String?
+  /// Message language code, e.g. "en", "hi", "te".
+  language     String    @default("en")
+  optedOut     Boolean   @default(false) @map("opted_out")
+  photoFileId  String?   @map("photo_file_id") @db.Uuid
+  createdById  String?   @map("created_by_id") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedById  String?   @map("updated_by_id") @db.Uuid
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  archivedAt   DateTime? @map("archived_at")
+
+  students StudentGuardian[]
+
+  @@index([schoolId, phone])
+  @@map("guardian")
+}
+
+/// The link between one student and one guardian.
+model StudentGuardian {
+  id             String    @id @default(uuid()) @db.Uuid
+  schoolId       String    @map("school_id") @db.Uuid
+  studentId      String    @map("student_id") @db.Uuid
+  guardianId     String    @map("guardian_id") @db.Uuid
+  relationship   String
+  isPrimary      Boolean   @default(false) @map("is_primary")
+  /// Order as emergency contact, 1 first.
+  emergencyOrder Int?      @map("emergency_order")
+  canPickUp      Boolean   @default(true) @map("can_pick_up")
+  /// Custody or access restriction, shown as a warning.
+  restriction    String?
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  archivedAt     DateTime? @map("archived_at")
+
+  student  Student  @relation(fields: [studentId], references: [id])
+  guardian Guardian @relation(fields: [guardianId], references: [id])
+
+  @@unique([studentId, guardianId])
+  @@index([schoolId, guardianId])
+  @@map("student_guardian")
+}

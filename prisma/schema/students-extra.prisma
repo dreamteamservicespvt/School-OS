@@ -1,0 +1,637 @@
+// 03 Student Management: the records this module adds around Student,
+// Enrolment and Guardian (students.prisma). Records in other files are
+// pointed at by id only (no back-relations into other files).
+
+enum CertificateType {
+  TC
+  BONAFIDE
+  STUDY
+  CHARACTER
+  MIGRATION
+}
+
+enum CertificateStatus {
+  REQUESTED
+  APPROVED
+  ISSUED
+  CANCELLED
+}
+
+enum LeavingType {
+  TRANSFER
+  WITHDRAWAL
+  GRADUATION
+}
+
+enum LeavingStatus {
+  IN_PROGRESS
+  LEFT
+  CANCELLED
+}
+
+enum ClearanceStatus {
+  CLEAR
+  PENDING
+  WAIVER_ASKED
+  WAIVED
+}
+
+enum PromotionDecisionKind {
+  PROMOTE
+  DETAIN
+  LEAVING
+}
+
+
+/// Student Settings: the rules for student records in one school (section 6).
+model StudentSettings {
+  schoolId             String    @id @map("school_id") @db.Uuid
+  /// Admission number parts: prefix text, year on/off, running number padding.
+  admissionPrefix      String    @default("") @map("admission_prefix")
+  admissionUseYear     Boolean   @default(true) @map("admission_use_year")
+  admissionPadding     Int       @default(4) @map("admission_padding")
+  admissionRestartYear Boolean   @default(false) @map("admission_restart_year")
+  /// Field keys that must be filled on the student form, beyond the always-required ones.
+  requiredFields       String[]  @default([]) @map("required_fields")
+  /// Column keys shown on the Student List.
+  listColumns          String[]  @default(["photo", "admissionNo", "classSection", "rollNo", "guardian", "phone", "status"]) @map("list_columns")
+  /// [{ key, label, level: "restricted" | "highly" }]
+  identifierTypes      Json      @default("[]") @map("identifier_types")
+  /// Documents expected for every student, for "documents complete (5 of 6)".
+  requiredDocuments    String[]  @default([]) @map("required_documents")
+  leavingReasons       String[]  @default([]) @map("leaving_reasons")
+  /// Certificate types (besides TC, which always needs approval) that need approval.
+  approvalCertificates String[]  @default([]) @map("approval_certificates")
+  /// { [certificateType]: signatoryId }
+  defaultSignatories   Json      @default("{}") @map("default_signatories")
+  /// [{ key, label, kind: "incident" | "warning" | "suspension" | "reward" | "recognition", points }]
+  incidentTypes        Json      @default("[]") @map("incident_types")
+  pointsOn             Boolean   @default(false) @map("points_on")
+  /// Role keys that may open counselling cases (the notes themselves stay with the Counsellor).
+  counsellingRoles     String[]  @default(["counsellor", "principal"]) @map("counselling_roles")
+  counsellingOn        Boolean   @default(false) @map("counselling_on")
+  careerOn             Boolean   @default(false) @map("career_on")
+  alumniOn             Boolean   @default(false) @map("alumni_on")
+  qrOn                 Boolean   @default(true) @map("qr_on")
+  rfidOn               Boolean   @default(false) @map("rfid_on")
+  migrationOn          Boolean   @default(false) @map("migration_on")
+  studentLoginsOn      Boolean   @default(false) @map("student_logins_on")
+  /// DigiLocker-ready file of issued certificates (03 §2), switched on per school.
+  digiLockerOn         Boolean   @default(false) @map("digilocker_on")
+  /// Smart Import: column matching and fix suggestions on the import (03 §2), switched on per school.
+  smartImportOn        Boolean   @default(false) @map("smart_import_on")
+  /// ID card: valid until (date) and cards per A4 page.
+  idCardValidUntil     DateTime? @map("id_card_valid_until") @db.Date
+  idCardsPerPage       Int       @default(8) @map("id_cards_per_page")
+  idCardFields         String[]  @default(["admissionNo", "dateOfBirth", "bloodGroup", "guardianPhone", "address"]) @map("id_card_fields")
+  updatedById          String?   @map("updated_by_id") @db.Uuid
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  @@map("student_settings")
+}
+
+/// Promotion Policy: the rules for one academic year, in versions. A new
+/// version never changes a promotion already saved.
+model PromotionPolicy {
+  id                    String   @id @default(uuid()) @db.Uuid
+  schoolId              String   @map("school_id") @db.Uuid
+  academicYearId        String   @map("academic_year_id") @db.Uuid
+  version               Int
+  passRequired          Boolean  @default(true) @map("pass_required")
+  minAttendancePct      Int?     @map("min_attendance_pct")
+  feeDuesAllowed        Boolean  @default(true) @map("fee_dues_allowed")
+  /// Role key that approves exceptions to the policy.
+  exceptionApproverRole String   @default("principal") @map("exception_approver_role")
+  createdById           String?  @map("created_by_id") @db.Uuid
+  createdAt             DateTime @default(now()) @map("created_at")
+
+  @@unique([schoolId, academicYearId, version])
+  @@map("promotion_policy")
+}
+
+/// Student Status Change: every change of a student's status, with the date it took effect and why.
+model StudentStatusChange {
+  id            String   @id @default(uuid()) @db.Uuid
+  schoolId      String   @map("school_id") @db.Uuid
+  studentId     String   @map("student_id") @db.Uuid
+  fromStatus    String   @map("from_status")
+  toStatus      String   @map("to_status")
+  effectiveDate DateTime @map("effective_date") @db.Date
+  reason        String
+  /// What made it: "profile", "promotion:<batchId>", "leaving:<id>", "auto".
+  source        String   @default("profile")
+  createdById   String?  @map("created_by_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([schoolId, studentId])
+  @@map("student_status_change")
+}
+
+/// Section Change: a move between sections of the same class in one year (history kept).
+model SectionChange {
+  id            String    @id @default(uuid()) @db.Uuid
+  schoolId      String    @map("school_id") @db.Uuid
+  studentId     String    @map("student_id") @db.Uuid
+  enrolmentId   String    @map("enrolment_id") @db.Uuid
+  fromSectionId String    @map("from_section_id") @db.Uuid
+  toSectionId   String    @map("to_section_id") @db.Uuid
+  fromRollNo    Int?      @map("from_roll_no")
+  toRollNo      Int?      @map("to_roll_no")
+  reason        String?
+  createdById   String?   @map("created_by_id") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at")
+  undoneAt      DateTime? @map("undone_at")
+
+  @@index([schoolId, studentId])
+  @@map("section_change")
+}
+
+/// Previous School: where the student studied before, locked once the admission year is closed.
+model StudentPreviousSchool {
+  id          String   @id @default(uuid()) @db.Uuid
+  schoolId    String   @map("school_id") @db.Uuid
+  studentId   String   @unique @map("student_id") @db.Uuid
+  schoolName  String   @map("school_name")
+  board       String?
+  lastClass   String?  @map("last_class")
+  year        String?
+  marks       String?
+  updatedById String?  @map("updated_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([schoolId])
+  @@map("student_previous_school")
+}
+
+/// Student Identifier: a national or academic identifier of a type set in Student Settings.
+model StudentIdentifier {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  studentId   String    @map("student_id") @db.Uuid
+  typeKey     String    @map("type_key")
+  /// Encrypted; shown masked unless the person may see it.
+  valueEnc    String    @map("value_enc")
+  last4       String    @map("last4")
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  @@unique([studentId, typeKey])
+  @@index([schoolId])
+  @@map("student_identifier")
+}
+
+/// Emergency Contact: a person to call who is not a linked guardian, in priority order.
+model StudentEmergencyContact {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  studentId   String    @map("student_id") @db.Uuid
+  name        String
+  relation    String
+  phone       String
+  priority    Int
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  @@index([schoolId, studentId])
+  @@map("student_emergency_contact")
+}
+
+/// Student Document: a student or parent document (birth certificate, TC, Aadhaar...).
+model StudentDocument {
+  id           String    @id @default(uuid()) @db.Uuid
+  schoolId     String    @map("school_id") @db.Uuid
+  studentId    String    @map("student_id") @db.Uuid
+  /// Set when the document belongs to a parent or guardian.
+  guardianId   String?   @map("guardian_id") @db.Uuid
+  kind         String
+  fileId       String    @map("file_id") @db.Uuid
+  note         String?
+  uploadedById String?   @map("uploaded_by_id") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at")
+  archivedAt   DateTime? @map("archived_at")
+
+  @@index([schoolId, studentId])
+  @@map("student_document")
+}
+
+/// Student Note: a note on the profile; private notes are visible only to chosen roles.
+model StudentNote {
+  id             String    @id @default(uuid()) @db.Uuid
+  schoolId       String    @map("school_id") @db.Uuid
+  studentId      String    @map("student_id") @db.Uuid
+  text           String
+  /// Empty = everyone who may open the profile. Otherwise only these role keys (and the author).
+  visibleToRoles String[]  @default([]) @map("visible_to_roles")
+  authorId       String?   @map("author_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  archivedAt     DateTime? @map("archived_at")
+
+  @@index([schoolId, studentId])
+  @@map("student_note")
+}
+
+/// Behaviour Incident: an incident, warning, suspension, reward or recognition for one or more students.
+model BehaviourIncident {
+  id             String    @id @default(uuid()) @db.Uuid
+  schoolId       String    @map("school_id") @db.Uuid
+  academicYearId String    @map("academic_year_id") @db.Uuid
+  typeKey        String    @map("type_key")
+  /// incident, warning, suspension, reward, recognition
+  kind           String
+  date           DateTime  @db.Date
+  description    String
+  actionTaken    String?   @map("action_taken")
+  suspensionFrom DateTime? @map("suspension_from") @db.Date
+  suspensionTo   DateTime? @map("suspension_to") @db.Date
+  /// Who approved a suspension (name, as written on the letter).
+  approvedBy     String?   @map("approved_by")
+  photoFileId    String?   @map("photo_file_id") @db.Uuid
+  parentInformed Boolean   @default(false) @map("parent_informed")
+  /// OPEN or CLOSED.
+  status         String    @default("OPEN")
+  reportedById   String?   @map("reported_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  archivedAt     DateTime? @map("archived_at")
+
+  students BehaviourIncidentStudent[]
+
+  @@index([schoolId, date])
+  @@map("behaviour_incident")
+}
+
+model BehaviourIncidentStudent {
+  id         String @id @default(uuid()) @db.Uuid
+  schoolId   String @map("school_id") @db.Uuid
+  incidentId String @map("incident_id") @db.Uuid
+  studentId  String @map("student_id") @db.Uuid
+
+  incident BehaviourIncident @relation(fields: [incidentId], references: [id])
+
+  @@unique([incidentId, studentId])
+  @@index([schoolId, studentId])
+  @@map("behaviour_incident_student")
+}
+
+/// Behaviour Point Entry: points added or removed for one student, with a reason. The total is the sum.
+model BehaviourPointEntry {
+  id          String   @id @default(uuid()) @db.Uuid
+  schoolId    String   @map("school_id") @db.Uuid
+  studentId   String   @map("student_id") @db.Uuid
+  points      Int
+  reason      String
+  incidentId  String?  @map("incident_id") @db.Uuid
+  createdById String?  @map("created_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([schoolId, studentId])
+  @@map("behaviour_point_entry")
+}
+
+/// Counselling Case: one student's counselling, owned by a counsellor. Highly restricted.
+model CounsellingCase {
+  id              String    @id @default(uuid()) @db.Uuid
+  schoolId        String    @map("school_id") @db.Uuid
+  studentId       String    @map("student_id") @db.Uuid
+  /// User Login of the counsellor.
+  counsellorId    String?   @map("counsellor_id") @db.Uuid
+  reason          String
+  referredById    String?   @map("referred_by_id") @db.Uuid
+  incidentId      String?   @map("incident_id") @db.Uuid
+  actionPlan      String?   @map("action_plan")
+  outsideReferral String?   @map("outside_referral")
+  nextSessionOn   DateTime? @map("next_session_on") @db.Date
+  /// OPEN or CLOSED.
+  status          String    @default("OPEN")
+  openedOn        DateTime  @map("opened_on") @db.Date
+  closedOn        DateTime? @map("closed_on") @db.Date
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  archivedAt      DateTime? @map("archived_at")
+
+  sessions CounsellingSession[]
+
+  @@index([schoolId, studentId])
+  @@index([schoolId, counsellorId])
+  @@map("counselling_case")
+}
+
+model CounsellingSession {
+  id              String    @id @default(uuid()) @db.Uuid
+  schoolId        String    @map("school_id") @db.Uuid
+  caseId          String    @map("case_id") @db.Uuid
+  date            DateTime  @db.Date
+  /// What was done, in a line (seen by everyone allowed to open the case).
+  summary         String
+  /// Confidential notes, encrypted; only the Counsellor role sees them.
+  confidentialEnc String?   @map("confidential_enc")
+  followUpOn      DateTime? @map("follow_up_on") @db.Date
+  createdById     String?   @map("created_by_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  case CounsellingCase @relation(fields: [caseId], references: [id])
+
+  @@index([schoolId, caseId])
+  @@map("counselling_session")
+}
+
+/// Career Record: career notes, entrance exams, college applications, scholarships, interests.
+model CareerRecord {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  studentId   String    @map("student_id") @db.Uuid
+  /// note, entrance-exam, college-application, scholarship, interest
+  kind        String
+  title       String
+  details     String?
+  college     String?
+  course      String?
+  /// For applications: Planned, Applied, Admitted, Not admitted, Joined.
+  status      String?
+  deadline    DateTime? @db.Date
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  @@index([schoolId, studentId])
+  @@map("career_record")
+}
+
+/// Promotion Batch: one year-end promotion of one section (automation A13).
+model PromotionBatch {
+  id            String    @id @default(uuid()) @db.Uuid
+  schoolId      String    @map("school_id") @db.Uuid
+  fromYearId    String    @map("from_year_id") @db.Uuid
+  fromSectionId String    @map("from_section_id") @db.Uuid
+  toYearId      String    @map("to_year_id") @db.Uuid
+  toClassId     String    @map("to_class_id") @db.Uuid
+  policyId      String?   @map("policy_id") @db.Uuid
+  promoted      Int       @default(0)
+  detained      Int       @default(0)
+  leaving       Int       @default(0)
+  summary       String
+  confirmedById String?   @map("confirmed_by_id") @db.Uuid
+  confirmedAt   DateTime  @default(now()) @map("confirmed_at")
+  undoneAt      DateTime? @map("undone_at")
+  undoneById    String?   @map("undone_by_id") @db.Uuid
+
+  decisions PromotionDecision[]
+
+  @@index([schoolId, fromYearId])
+  @@map("promotion_batch")
+}
+
+model PromotionDecision {
+  id               String                @id @default(uuid()) @db.Uuid
+  schoolId         String                @map("school_id") @db.Uuid
+  batchId          String                @map("batch_id") @db.Uuid
+  studentId        String                @map("student_id") @db.Uuid
+  decision         PromotionDecisionKind
+  suggested        PromotionDecisionKind
+  /// Needed when the decision differs from the suggestion.
+  reason           String?
+  /// The facts the suggestion used: { result, attendancePct, feeDuePaise }.
+  facts            Json                  @default("{}")
+  fromEnrolmentId  String                @map("from_enrolment_id") @db.Uuid
+  toEnrolmentId    String?               @map("to_enrolment_id") @db.Uuid
+  toSectionId      String?               @map("to_section_id") @db.Uuid
+  previousStatus   String                @map("previous_status")
+  leavingRequestId String?               @map("leaving_request_id") @db.Uuid
+
+  batch PromotionBatch @relation(fields: [batchId], references: [id])
+
+  @@unique([batchId, studentId])
+  @@index([schoolId, studentId])
+  @@map("promotion_decision")
+}
+
+/// Leaving Request: a transfer, withdrawal or graduation, with clearance (automation A14).
+model LeavingRequest {
+  id                String        @id @default(uuid()) @db.Uuid
+  schoolId          String        @map("school_id") @db.Uuid
+  studentId         String        @map("student_id") @db.Uuid
+  type              LeavingType
+  reason            String
+  lastDate          DateTime      @map("last_date") @db.Date
+  destinationSchool String?       @map("destination_school")
+  documentFileIds   String[]      @default([]) @map("document_file_ids")
+  status            LeavingStatus @default(IN_PROGRESS)
+  /// The student's status before leaving, to put back if the request is cancelled.
+  previousStatus    String        @map("previous_status")
+  leftOn            DateTime?     @map("left_on") @db.Date
+  cancelReason      String?       @map("cancel_reason")
+  createdById       String?       @map("created_by_id") @db.Uuid
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  checks StudentClearanceCheck[]
+
+  @@index([schoolId, status])
+  @@index([schoolId, studentId])
+  @@map("leaving_request")
+}
+
+/// Clearance Check: one check (Fees, Library, Hostel...) on a leaving request.
+model StudentClearanceCheck {
+  id               String          @id @default(uuid()) @db.Uuid
+  schoolId         String          @map("school_id") @db.Uuid
+  leavingRequestId String          @map("leaving_request_id") @db.Uuid
+  name             String
+  status           ClearanceStatus
+  detail           String
+  amountPaise      BigInt?         @map("amount_paise")
+  actionHref       String?         @map("action_href")
+  actionLabel      String?         @map("action_label")
+  waiverReason     String?         @map("waiver_reason")
+  approvalId       String?         @map("approval_id") @db.Uuid
+  checkedAt        DateTime        @default(now()) @map("checked_at")
+
+  request LeavingRequest @relation(fields: [leavingRequestId], references: [id])
+
+  @@unique([leavingRequestId, name])
+  @@map("student_clearance_check")
+}
+
+/// Certificate: a TC, bonafide, study, character or migration certificate for a student.
+model Certificate {
+  id               String            @id @default(uuid()) @db.Uuid
+  schoolId         String            @map("school_id") @db.Uuid
+  studentId        String            @map("student_id") @db.Uuid
+  type             CertificateType
+  /// Given when the certificate is approved or issued; never reused.
+  number           String?
+  purpose          String?
+  issueDate        DateTime          @map("issue_date") @db.Date
+  signatoryId      String?           @map("signatory_id") @db.Uuid
+  status           CertificateStatus @default(REQUESTED)
+  isDuplicate      Boolean           @default(false) @map("is_duplicate")
+  duplicateReason  String?           @map("duplicate_reason")
+  originalId       String?           @map("original_id") @db.Uuid
+  leavingRequestId String?           @map("leaving_request_id") @db.Uuid
+  approvalId       String?           @map("approval_id") @db.Uuid
+  approvedById     String?           @map("approved_by_id") @db.Uuid
+  /// Random code in the QR; it holds no personal data.
+  verifyCode       String            @unique @map("verify_code")
+  /// The details printed, saved at issue so a reprint shows the same.
+  data             Json              @default("{}")
+  requestedById    String?           @map("requested_by_id") @db.Uuid
+  issuedById       String?           @map("issued_by_id") @db.Uuid
+  issuedAt         DateTime?         @map("issued_at")
+  cancelReason     String?           @map("cancel_reason")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+
+  @@unique([schoolId, number])
+  @@index([schoolId, studentId])
+  @@index([schoolId, status])
+  @@map("certificate")
+}
+
+/// ID Card Print: one card printed for one student; a replacement marks the old one replaced.
+model IdCardPrint {
+  id             String    @id @default(uuid()) @db.Uuid
+  schoolId       String    @map("school_id") @db.Uuid
+  studentId      String    @map("student_id") @db.Uuid
+  academicYearId String    @map("academic_year_id") @db.Uuid
+  sectionId      String?   @map("section_id") @db.Uuid
+  batchKey       String?   @map("batch_key")
+  isReplacement  Boolean   @default(false) @map("is_replacement")
+  reason         String?
+  replacesId     String?   @map("replaces_id") @db.Uuid
+  replacedAt     DateTime? @map("replaced_at")
+  validUntil     DateTime? @map("valid_until") @db.Date
+  printedById    String?   @map("printed_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  @@index([schoolId, studentId])
+  @@index([schoolId, academicYearId, sectionId])
+  @@map("id_card_print")
+}
+
+/// RFID card number on a student, for attendance devices (optional).
+model StudentRfid {
+  id          String   @id @default(uuid()) @db.Uuid
+  schoolId    String   @map("school_id") @db.Uuid
+  studentId   String   @unique @map("student_id") @db.Uuid
+  rfidNo      String   @map("rfid_no")
+  updatedById String?  @map("updated_by_id") @db.Uuid
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([schoolId, rfidNo])
+  @@map("student_rfid")
+}
+
+/// Alumni Record: a past student, with graduation year, contact, career and higher education.
+model AlumniRecord {
+  id              String    @id @default(uuid()) @db.Uuid
+  schoolId        String    @map("school_id") @db.Uuid
+  studentId       String    @unique @map("student_id") @db.Uuid
+  graduationYear  String    @map("graduation_year")
+  phone           String?
+  email           String?
+  career          String?
+  higherEducation String?   @map("higher_education")
+  achievements    String?
+  isMentor        Boolean   @default(false) @map("is_mentor")
+  createdById     String?   @map("created_by_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  archivedAt      DateTime? @map("archived_at")
+
+  donations  AlumniDonation[]
+  mentorings AlumniMentorship[]
+
+  @@index([schoolId, graduationYear])
+  @@map("alumni_record")
+}
+
+model AlumniDonation {
+  id          String   @id @default(uuid()) @db.Uuid
+  schoolId    String   @map("school_id") @db.Uuid
+  alumniId    String   @map("alumni_id") @db.Uuid
+  amountPaise BigInt   @map("amount_paise")
+  date        DateTime @db.Date
+  purpose     String
+  /// Receipt number from Finance, Income, once recorded there.
+  receiptRef  String?  @map("receipt_ref")
+  createdById String?  @map("created_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  alumni AlumniRecord @relation(fields: [alumniId], references: [id])
+
+  @@index([schoolId, alumniId])
+  @@map("alumni_donation")
+}
+
+/// Alumni Mentorship: an alumnus linked to a current student.
+model AlumniMentorship {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  alumniId    String    @map("alumni_id") @db.Uuid
+  studentId   String    @map("student_id") @db.Uuid
+  note        String?
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  alumni AlumniRecord @relation(fields: [alumniId], references: [id])
+
+  @@unique([alumniId, studentId])
+  @@index([schoolId, studentId])
+  @@map("alumni_mentorship")
+}
+
+/// Job Post: a job shared with alumni on the alumni job board.
+model JobPost {
+  id           String    @id @default(uuid()) @db.Uuid
+  schoolId     String    @map("school_id") @db.Uuid
+  title        String
+  organisation String
+  location     String?
+  description  String
+  contact      String
+  applyBy      DateTime? @map("apply_by") @db.Date
+  postedById   String?   @map("posted_by_id") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at")
+  archivedAt   DateTime? @map("archived_at")
+
+  @@index([schoolId, createdAt])
+  @@map("job_post")
+}
+
+
+/// Bulk Update: one bulk field change, with every before and after value, so it can be undone.
+model BulkUpdate {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  field       String
+  /// [{ studentId, before, after }]
+  changes     Json
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  undoneAt    DateTime? @map("undone_at")
+  undoneById  String?   @map("undone_by_id") @db.Uuid
+
+  @@index([schoolId, createdAt])
+  @@map("bulk_update")
+}
+
+/// Guardian Merge: two guardian records found to be the same person; the second is archived.
+model GuardianMerge {
+  id          String   @id @default(uuid()) @db.Uuid
+  schoolId    String   @map("school_id") @db.Uuid
+  keptId      String   @map("kept_id") @db.Uuid
+  mergedId    String   @map("merged_id") @db.Uuid
+  /// Student links moved: [{ linkId, studentId }]
+  moved       Json
+  createdById String?  @map("created_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("guardian_merge")
+}

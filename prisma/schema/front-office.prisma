@@ -1,0 +1,317 @@
+// 16 Front Office: the reception desk. Visitors and their passes, the gate
+// log, gate passes for early pickup, walk-in requests, the call log,
+// appointments, postal entries and front-office notes. Records of other
+// modules (Student, Guardian, Staff, Enquiry, Task, Query) are kept by id.
+
+/// Front Office Setting (16 §6, inferred): one per school. The lists the desk
+/// edits inline, the visitor policy and the pass expiry time.
+model FrontOfficeSetting {
+  schoolId           String   @id @map("school_id") @db.Uuid
+  visitorPurposes    String[] @default(["Meeting", "Fee payment", "Admission enquiry", "Delivery", "Interview", "Other"]) @map("visitor_purposes")
+  callPurposes       String[] @default(["Admission enquiry", "Fee", "Transport", "Complaint", "Other"]) @map("call_purposes")
+  requestDepartments String[] @default(["Office", "Accounts", "Academics", "Transport", "Admissions", "Exams", "Hostel", "Library"]) @map("request_departments")
+  photoRequired      Boolean  @default(false) @map("photo_required")
+  idProofRequired    Boolean  @default(false) @map("id_proof_required")
+  /// A one-time code to the guardian's registered mobile before a child is released.
+  pickupCodeCheck    Boolean  @default(false) @map("pickup_code_check")
+  /// "HH:MM": when visitor passes expire. Empty means the end of the school day.
+  passExpiry         String?  @map("pass_expiry")
+  /// Appointment slot length in minutes.
+  slotMinutes        Int      @default(15) @map("slot_minutes")
+  updatedById        String?  @map("updated_by_id") @db.Uuid
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@map("front_office_setting")
+}
+
+/// Visitor Entry: one visit to the school, with its pass.
+model VisitorEntry {
+  id             String    @id @default(uuid()) @db.Uuid
+  schoolId       String    @map("school_id") @db.Uuid
+  /// V-0246, given once, never reused.
+  passNo         String    @map("pass_no")
+  visitDate      DateTime  @map("visit_date") @db.Date
+  name           String
+  /// 10 digits.
+  phone          String
+  purpose        String
+  /// The staff member to meet.
+  meetStaffId    String?   @map("meet_staff_id") @db.Uuid
+  note           String?
+  peopleCount    Int       @default(1) @map("people_count")
+  photoFileId    String?   @map("photo_file_id") @db.Uuid
+  idProofType    String?   @map("id_proof_type")
+  /// Encrypted (restricted field); only the last 4 are shown.
+  idProofNo      String?   @map("id_proof_no")
+  idProofLast4   String?   @map("id_proof_last4")
+  vehicleNo      String?   @map("vehicle_no")
+  timeIn         DateTime  @map("time_in")
+  timeOut        DateTime? @map("time_out")
+  /// The pass stops working at this moment (default the end of the school day).
+  passExpiresAt  DateTime  @map("pass_expires_at")
+  /// The staff member's answer: send-in, wait or not-available.
+  staffReply     String?   @map("staff_reply")
+  staffReplyAt   DateTime? @map("staff_reply_at")
+  appointmentId  String?   @map("appointment_id") @db.Uuid
+  enquiryId      String?   @map("enquiry_id") @db.Uuid
+  checkedOutById String?   @map("checked_out_by_id") @db.Uuid
+  /// Hostel visitors (15 Hostel Management): the resident student met, their
+  /// hostel, the visitor's relation, and LIST (on the student's authorised
+  /// list) or WARDEN (let in with the warden's approval, by approvedById).
+  meetStudentId  String?   @map("meet_student_id") @db.Uuid
+  hostelId       String?   @map("hostel_id") @db.Uuid
+  relation       String?
+  allowedBy      String?   @map("allowed_by")
+  approvedById   String?   @map("approved_by_id") @db.Uuid
+  createdById    String?   @map("created_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  archivedAt     DateTime? @map("archived_at")
+
+  @@unique([schoolId, passNo])
+  @@index([schoolId, visitDate])
+  @@index([schoolId, phone])
+  @@index([schoolId, meetStaffId])
+  @@index([schoolId, meetStudentId])
+  @@map("visitor_entry")
+}
+
+/// Gate Entry (optional gate log): a person or vehicle in or out at the gate.
+model GateEntry {
+  id             String    @id @default(uuid()) @db.Uuid
+  schoolId       String    @map("school_id") @db.Uuid
+  at             DateTime
+  /// IN or OUT.
+  direction      String
+  /// vehicle, school-bus, delivery or person.
+  kind           String
+  who            String
+  vehicleNo      String?   @map("vehicle_no")
+  purpose        String?
+  visitorEntryId String?   @map("visitor_entry_id") @db.Uuid
+  gatePassId     String?   @map("gate_pass_id") @db.Uuid
+  recordedById   String?   @map("recorded_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  archivedAt     DateTime? @map("archived_at")
+
+  @@index([schoolId, at])
+  @@map("gate_entry")
+}
+
+enum GatePassKind {
+  PICKUP
+  HOSTEL_OUTING
+}
+
+/// Gate Pass: a student leaving the school. Kind Pickup is made here when a
+/// guardian on the approved pickup list collects a child early.
+model GatePass {
+  id                String       @id @default(uuid()) @db.Uuid
+  schoolId          String       @map("school_id") @db.Uuid
+  /// GP-2026-0189, given once, never reused.
+  passNo            String       @map("pass_no")
+  kind              GatePassKind
+  studentId         String       @map("student_id") @db.Uuid
+  /// Class and section when the pass was made, e.g. "7 B".
+  sectionLabel      String?      @map("section_label")
+  reason            String
+  /// The time the child is released.
+  timeOut           DateTime     @map("time_out")
+  issuedById        String?      @map("issued_by_id") @db.Uuid
+  /// Pickup: the guardian who collects the child (only from the approved list).
+  guardianId        String?      @map("guardian_id") @db.Uuid
+  collectorName     String?      @map("collector_name")
+  collectorRelation String?      @map("collector_relation")
+  /// Pickup: how the collector was checked, e.g. "photo" or "photo, code".
+  verification      String?
+  /// ISSUED (waiting at the gate) or LEFT.
+  status            String       @default("ISSUED")
+  leftAt            DateTime?    @map("left_at")
+  gateCheckedById   String?      @map("gate_checked_by_id") @db.Uuid
+  /// Hostel Outing (15 Hostel Management): OUTING (same day) or LEAVE (overnight),
+  /// from and back-by times, the hostel, the collector's phone, the approval and
+  /// the return. Status is WAITING, APPROVED, OUT, RETURNED, REJECTED or CANCELLED.
+  outingType        String?      @map("outing_type")
+  fromAt            DateTime?    @map("from_at")
+  toAt              DateTime?    @map("to_at")
+  collectorPhone    String?      @map("collector_phone")
+  hostelId          String?      @map("hostel_id") @db.Uuid
+  approvalId        String?      @map("approval_id") @db.Uuid
+  decidedById       String?      @map("decided_by_id") @db.Uuid
+  decidedAt         DateTime?    @map("decided_at")
+  decisionNote      String?      @map("decision_note")
+  returnedAt        DateTime?    @map("returned_at")
+  returnedById      String?      @map("returned_by_id") @db.Uuid
+  lateAlertedAt     DateTime?    @map("late_alerted_at")
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+  archivedAt        DateTime?    @map("archived_at")
+
+  @@unique([schoolId, passNo])
+  @@index([schoolId, timeOut])
+  @@index([schoolId, studentId])
+  @@index([schoolId, kind, status])
+  @@map("gate_pass")
+}
+
+/// Pickup Code (inferred): a one-time code sent to a guardian's registered
+/// mobile before release, kept only as a hash.
+model PickupCode {
+  id         String    @id @default(uuid()) @db.Uuid
+  schoolId   String    @map("school_id") @db.Uuid
+  studentId  String    @map("student_id") @db.Uuid
+  guardianId String    @map("guardian_id") @db.Uuid
+  codeHash   String    @map("code_hash")
+  expiresAt  DateTime  @map("expires_at")
+  attempts   Int       @default(0)
+  usedAt     DateTime? @map("used_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@index([schoolId, studentId, guardianId])
+  @@map("pickup_code")
+}
+
+/// Front Office Note (inferred): a short note for whoever is at the desk.
+model FrontOfficeNote {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  text        String
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  /// A cleared note is kept, not deleted.
+  clearedAt   DateTime? @map("cleared_at")
+  clearedById String?   @map("cleared_by_id") @db.Uuid
+
+  @@index([schoolId, clearedAt])
+  @@map("front_office_note")
+}
+
+/// Walk-in Request (inferred): a request at the desk routed to a department,
+/// with a request number the person can ask about.
+model WalkInRequest {
+  id             String    @id @default(uuid()) @db.Uuid
+  schoolId       String    @map("school_id") @db.Uuid
+  /// REQ-2026-0042, given once, never reused.
+  requestNo      String    @map("request_no")
+  fromName       String    @map("from_name")
+  fromPhone      String?   @map("from_phone")
+  guardianId     String?   @map("guardian_id") @db.Uuid
+  studentId      String?   @map("student_id") @db.Uuid
+  /// "Mother of Tejas Goud, 5 B".
+  about          String?
+  request        String
+  department     String
+  note           String?
+  /// whatsapp or slip: how the number was given.
+  givenBy        String    @map("given_by")
+  /// SENT, IN_PROGRESS or DONE.
+  status         String    @default("SENT")
+  taskId         String?   @map("task_id") @db.Uuid
+  handlerLoginId String?   @map("handler_login_id") @db.Uuid
+  doneAt         DateTime? @map("done_at")
+  createdById    String?   @map("created_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  archivedAt     DateTime? @map("archived_at")
+
+  @@unique([schoolId, requestNo])
+  @@index([schoolId, createdAt])
+  @@map("walk_in_request")
+}
+
+/// Call Log Entry (inferred): an incoming or outgoing call at the desk.
+model CallLogEntry {
+  id              String    @id @default(uuid()) @db.Uuid
+  schoolId        String    @map("school_id") @db.Uuid
+  at              DateTime
+  /// IN or OUT.
+  direction       String
+  phone           String
+  name            String
+  /// "Father of Aarav Sharma, 7 B", "New enquiry", "Caller".
+  who             String?
+  /// The number belongs to a parent of the school (hidden from roles without permission).
+  isParent        Boolean   @default(false) @map("is_parent")
+  guardianId      String?   @map("guardian_id") @db.Uuid
+  purpose         String
+  note            String?
+  enquiryId       String?   @map("enquiry_id") @db.Uuid
+  queryId         String?   @map("query_id") @db.Uuid
+  queryNo         String?   @map("query_no")
+  followUpAt      DateTime? @map("follow_up_at")
+  followUpLoginId String?   @map("follow_up_login_id") @db.Uuid
+  taskId          String?   @map("task_id") @db.Uuid
+  /// CLOSED, FOLLOW_UP or QUERY.
+  status          String    @default("CLOSED")
+  createdById     String?   @map("created_by_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  archivedAt      DateTime? @map("archived_at")
+
+  @@index([schoolId, at])
+  @@index([schoolId, phone])
+  @@map("call_log_entry")
+}
+
+/// Appointment (inferred): a meeting with the Principal or a staff member.
+model Appointment {
+  id               String    @id @default(uuid()) @db.Uuid
+  schoolId         String    @map("school_id") @db.Uuid
+  staffId          String    @map("staff_id") @db.Uuid
+  date             DateTime  @db.Date
+  /// Minutes from midnight, school time.
+  startMin         Int       @map("start_min")
+  lengthMin        Int       @map("length_min")
+  visitorName      String    @map("visitor_name")
+  visitorPhone     String    @map("visitor_phone")
+  purpose          String
+  /// BOOKED, ARRIVED, DONE, CANCELLED or NO_SHOW.
+  status           String    @default("BOOKED")
+  statusAt         DateTime  @default(now()) @map("status_at")
+  visitorEntryId   String?   @map("visitor_entry_id") @db.Uuid
+  confirmationSent Boolean   @default(false) @map("confirmation_sent")
+  createdById      String?   @map("created_by_id") @db.Uuid
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  archivedAt       DateTime? @map("archived_at")
+
+  @@index([schoolId, staffId, date])
+  @@index([schoolId, date])
+  @@map("appointment")
+}
+
+/// Postal Entry (optional): a letter, courier or parcel received or sent.
+model PostalEntry {
+  id           String    @id @default(uuid()) @db.Uuid
+  schoolId     String    @map("school_id") @db.Uuid
+  /// PD-2026-0318, given once, never reused.
+  entryNo      String    @map("entry_no")
+  at           DateTime
+  /// RECEIVED or SENT.
+  direction    String
+  /// LETTER, COURIER or PARCEL.
+  itemType     String    @map("item_type")
+  /// From (received) or to (sent).
+  party        String
+  /// The staff member it is for, or who sends it.
+  forStaffId   String?   @map("for_staff_id") @db.Uuid
+  /// "Accounts · Suresh Babu", or a department.
+  forText      String    @map("for_text")
+  courier      String?
+  trackingNo   String?   @map("tracking_no")
+  photoFileId  String?   @map("photo_file_id") @db.Uuid
+  /// AT_DESK, HANDED_OVER or SENT.
+  status       String
+  handedToName String?   @map("handed_to_name")
+  handedAt     DateTime? @map("handed_at")
+  handedById   String?   @map("handed_by_id") @db.Uuid
+  createdById  String?   @map("created_by_id") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  archivedAt   DateTime? @map("archived_at")
+
+  @@unique([schoolId, entryNo])
+  @@index([schoolId, at])
+  @@map("postal_entry")
+}

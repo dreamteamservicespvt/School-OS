@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DB_OWNER_PASSWORD: ci-owner
+      DB_APP_PASSWORD: ci-app
+      DATABASE_URL: postgresql://school_os_app:ci-app@localhost:5432/school_os
+      MIGRATION_DATABASE_URL: postgresql://school_os_owner:ci-owner@localhost:5432/school_os
+      FIELD_ENCRYPTION_KEY: Y2ktb25seS1rZXktMzItYnl0ZXMtbG9uZy0xMjM0NTY=
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Create the database roles
+        run: bash scripts/setup-db.sh
+        env:
+          PSQL: psql -h localhost -U postgres
+          PGPASSWORD: postgres
+      - name: Apply migrations to an empty database
+        run: npx prisma migrate deploy
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build

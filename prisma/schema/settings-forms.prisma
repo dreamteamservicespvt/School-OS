@@ -1,0 +1,28 @@
+// Settings (module 20), Forms & Approvals: custom forms built from fields.
+
+/// Custom Form: a form the school builds itself, such as an appraisal or a
+/// consent form. Fields use the same shape as Custom Field, including the
+/// optional "show only when" rule. Publishing makes a new version; drafts can
+/// be changed freely.
+model CustomForm {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  name        String
+  description String?
+  /// Who the form is filled about: student, guardian, staff, enquiry or general.
+  aboutType   String    @default("general") @map("about_type")
+  /// [{ key, label, fieldType, required, choices, help, showWhen }], in order.
+  fields      Json      @default("[]")
+  /// "draft" or "published".
+  status      String    @default("draft")
+  version     Int       @default(0)
+  publishedAt DateTime? @map("published_at")
+  createdById String?   @map("created_by_id") @db.Uuid
+  updatedById String?   @map("updated_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  @@unique([schoolId, name])
+  @@map("custom_form")
+}

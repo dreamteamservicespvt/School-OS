@@ -1,0 +1,15 @@
+// Imports every module's Student Profile tab, so they are registered before
+// the profile renders. Add one import line per module that adds a tab, e.g.
+//   import "@/lib/fees/profile-tab";
+import "server-only";
+import "@/lib/attendance/profile-tab";
+import "@/lib/fees/profile-tab";
+import "@/lib/exams/profile-tab";
+import "@/lib/academic/student-profile-tab";
+import "@/lib/communication/student-profile-tab";
+import "@/lib/events/profile-tab";
+import "@/lib/homework/profile-tab";
+import "@/lib/library/profile-tab";
+import "@/lib/hostel/profile-tab";
+import "@/lib/reports/profile-items";
+import "@/lib/transport/profile-tab";

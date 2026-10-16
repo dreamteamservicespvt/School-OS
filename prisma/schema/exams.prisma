@@ -1,0 +1,503 @@
+// 08 Examination & Results: exams and their datesheets, marks, results,
+// report cards and Exam Settings (04-data-model.md Area 4, rules 14 to 16).
+// Other records inferred in the spec (§8): Exam Type, Mark Category, Exam
+// Settings, Marks Paper (status per paper), Marks Moderation, Result
+// Publication, Co-scholastic Area and Grade, Competency and Level, Seat
+// Allocation, Admit Card Print, Question and Question Paper.
+
+enum ExamPattern {
+  PERCENTAGE
+  GRADING
+  CGPA
+}
+
+/// Ongoing and Completed are worked out from the dates of a published datesheet.
+enum ExamStatus {
+  DRAFT
+  PUBLISHED
+  RESULTS_PUBLISHED
+}
+
+enum MarksPaperStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  SUBMITTED
+  LOCKED
+}
+
+enum ResultStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum ReportCardStatus {
+  NOT_READY
+  READY
+  PRINTED
+  SENT
+}
+
+/// Exam Type: Unit Test 1, FA 1, SA 1, Half Yearly, Annual, plus the school's own.
+model ExamType {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  name        String
+  sortOrder   Int       @default(0) @map("sort_order")
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  @@unique([schoolId, name])
+  @@map("exam_type")
+}
+
+/// Mark Category: a part of a paper's marks, such as Theory, Internal or Practical.
+model MarkCategory {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  name        String
+  sortOrder   Int       @default(0) @map("sort_order")
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  @@unique([schoolId, name])
+  @@map("mark_category")
+}
+
+/// Grade Scale: the bands that turn a percentage into a grade. Each change
+/// raises the version; published results keep a copy of the bands they used.
+model GradeScale {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  name        String
+  /// The ready-made scale it came from: "cbse", "icse", "state" or empty for the school's own.
+  preset      String?
+  /// [{ grade, from, to, points, remark, passing }] with whole-number percentages.
+  bands       Json
+  version     Int       @default(1)
+  isDefault   Boolean   @default(false) @map("is_default")
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedById String?   @map("updated_by_id") @db.Uuid
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  @@unique([schoolId, name])
+  @@map("grade_scale")
+}
+
+/// Exam Settings for the school: pass rules, ranks, weights for the final
+/// result, grades for grade-only subjects, and per-board scale and format.
+model ExamSettings {
+  schoolId            String   @id @map("school_id") @db.Uuid
+  ranksOn             Boolean  @default(true) @map("ranks_on")
+  /// "skip" = 1, 1, 3 (default); "dense" = 1, 1, 2.
+  tieRule             String   @default("skip") @map("tie_rule")
+  passPercentSubject  Int      @default(33) @map("pass_percent_subject")
+  passPercentOverall  Int      @default(33) @map("pass_percent_overall")
+  /// Marks that may be added to a subject to reach the pass mark. 0 = no grace.
+  graceMarks          Int      @default(0) @map("grace_marks")
+  /// A student failing in up to this many subjects, but passing overall, gets "Compartment". 0 = off.
+  compartmentSubjects Int      @default(0) @map("compartment_subjects")
+  /// "zero": an absent paper counts as zero; "leave-out": it is left out of the total.
+  absentRule          String   @default("zero") @map("absent_rule")
+  /// [{ examTypeId, weight }] for the final result across exams.
+  finalWeights        Json     @default("[]") @map("final_weights")
+  /// Grades offered for grade-only subjects, best first.
+  gradeOnlyGrades     String[] @default(["A", "B", "C"]) @map("grade_only_grades")
+  /// { [classId]: "PERCENTAGE" | "GRADING" | "CGPA" }: the default pattern per class.
+  classPatterns       Json     @default("{}") @map("class_patterns")
+  /// { [board]: { scaleId, reportBase } }: grade scale and report card format per board.
+  boards              Json     @default("{}")
+  defaultScaleId      String?  @map("default_scale_id") @db.Uuid
+  /// Role keys that may publish results.
+  publishRoles        String[] @default(["principal", "school-admin", "exam-in-charge"]) @map("publish_roles")
+  /// Days after a paper by when marks are due.
+  marksDueDays        Int      @default(7) @map("marks_due_days")
+  /// Parents are reminded this many days before each paper. 0 = no reminders.
+  reminderDaysBefore  Int      @default(1) @map("reminder_days_before")
+  /// GPA and CGPA worked out from the grade points (optional).
+  gpaOn               Boolean  @default(false) @map("gpa_on")
+  updatedById         String?  @map("updated_by_id") @db.Uuid
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@map("exam_settings")
+}
+
+/// Exam: one exam such as Unit Test 1 or Half Yearly, made by creating a Datesheet.
+model Exam {
+  id                 String      @id @default(uuid()) @db.Uuid
+  schoolId           String      @map("school_id") @db.Uuid
+  academicYearId     String      @map("academic_year_id") @db.Uuid
+  termId             String      @map("term_id") @db.Uuid
+  examTypeId         String      @map("exam_type_id") @db.Uuid
+  title              String
+  pattern            ExamPattern @default(PERCENTAGE)
+  /// Empty means the scale of each class's board (Exam Settings).
+  gradeScaleId       String?     @map("grade_scale_id") @db.Uuid
+  classIds           String[]    @map("class_ids") @db.Uuid
+  startDate          DateTime    @map("start_date") @db.Date
+  endDate            DateTime    @map("end_date") @db.Date
+  status             ExamStatus  @default(DRAFT)
+  publishedAt        DateTime?   @map("published_at")
+  publishedById      String?     @map("published_by_id") @db.Uuid
+  resultsPublishedAt DateTime?   @map("results_published_at")
+  createdById        String?     @map("created_by_id") @db.Uuid
+  createdAt          DateTime    @default(now()) @map("created_at")
+  updatedById        String?     @map("updated_by_id") @db.Uuid
+  updatedAt          DateTime    @updatedAt @map("updated_at")
+  archivedAt         DateTime?   @map("archived_at")
+
+  entries DatesheetEntry[]
+
+  @@index([schoolId, academicYearId, status])
+  @@map("exam")
+}
+
+/// Datesheet Entry: one subject's paper in one exam for one class.
+model DatesheetEntry {
+  id             String       @id @default(uuid()) @db.Uuid
+  schoolId       String       @map("school_id") @db.Uuid
+  examId         String       @map("exam_id") @db.Uuid
+  classId        String       @map("class_id") @db.Uuid
+  subjectId      String       @map("subject_id") @db.Uuid
+  date           DateTime     @db.Date
+  /// "HH:MM" 24-hour; shown in 12-hour time.
+  startTime      String       @map("start_time")
+  durationMin    Int          @map("duration_min")
+  room           String?
+  /// Staff id of the invigilator.
+  invigilatorId  String?      @map("invigilator_id") @db.Uuid
+  /// 0 for grade-only subjects.
+  maxMarks       Int          @map("max_marks")
+  /// Override of the exam's pattern for this subject only.
+  pattern        ExamPattern?
+  /// [{ name, max }] adding up to the maximum marks; empty = one mark out of the maximum.
+  categories     Json         @default("[]")
+  marksDueDate   DateTime?    @map("marks_due_date") @db.Date
+  reminderSentAt DateTime?    @map("reminder_sent_at")
+  createdById    String?      @map("created_by_id") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  archivedAt     DateTime?    @map("archived_at")
+
+  exam Exam @relation(fields: [examId], references: [id])
+
+  @@index([schoolId, examId])
+  @@index([schoolId, date])
+  @@index([schoolId, invigilatorId, date])
+  @@map("datesheet_entry")
+}
+
+/// Marks Paper: one paper (datesheet entry) in one section, with its marks status.
+model MarksPaper {
+  id            String           @id @default(uuid()) @db.Uuid
+  schoolId      String           @map("school_id") @db.Uuid
+  entryId       String           @map("entry_id") @db.Uuid
+  sectionId     String           @map("section_id") @db.Uuid
+  status        MarksPaperStatus @default(NOT_STARTED)
+  submittedAt   DateTime?        @map("submitted_at")
+  submittedById String?          @map("submitted_by_id") @db.Uuid
+  lockedAt      DateTime?        @map("locked_at")
+  lockedById    String?          @map("locked_by_id") @db.Uuid
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+
+  @@unique([entryId, sectionId])
+  @@index([schoolId, status])
+  @@map("marks_paper")
+}
+
+/// Marks: one student's marks in one paper, with the change history.
+model Marks {
+  id          String   @id @default(uuid()) @db.Uuid
+  schoolId    String   @map("school_id") @db.Uuid
+  entryId     String   @map("entry_id") @db.Uuid
+  sectionId   String   @map("section_id") @db.Uuid
+  studentId   String   @map("student_id") @db.Uuid
+  /// { [category]: number } for marked subjects.
+  parts       Json     @default("{}")
+  total       Float?
+  /// For grade-only subjects.
+  grade       String?
+  absent      Boolean  @default(false)
+  /// Medical leave (ML): absent with a reason; the paper is left out of the total.
+  medical     Boolean  @default(false)
+  remark      String?
+  enteredById String?  @map("entered_by_id") @db.Uuid
+  updatedById String?  @map("updated_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  /// [{ at, by, before, after, reason, approvalId }] for changes after submission.
+  history     Json     @default("[]")
+
+  @@unique([entryId, studentId])
+  @@index([schoolId, studentId])
+  @@index([schoolId, entryId, sectionId])
+  @@map("marks")
+}
+
+/// Marks Moderation: a controlled change after submission, with reason and approval.
+model MarksModeration {
+  id            String    @id @default(uuid()) @db.Uuid
+  schoolId      String    @map("school_id") @db.Uuid
+  marksId       String    @map("marks_id") @db.Uuid
+  entryId       String    @map("entry_id") @db.Uuid
+  studentId     String    @map("student_id") @db.Uuid
+  before        Json
+  after         Json
+  reason        String
+  approvalId    String?   @map("approval_id") @db.Uuid
+  /// "waiting", "approved", "rejected" or "withdrawn".
+  status        String    @default("waiting")
+  requestedById String    @map("requested_by_id") @db.Uuid
+  decidedById   String?   @map("decided_by_id") @db.Uuid
+  decidedAt     DateTime? @map("decided_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  @@index([schoolId, status])
+  @@index([schoolId, entryId])
+  @@map("marks_moderation")
+}
+
+/// Result: one student's worked-out result for one exam, or the final result across exams.
+model Result {
+  id             String       @id @default(uuid()) @db.Uuid
+  schoolId       String       @map("school_id") @db.Uuid
+  academicYearId String       @map("academic_year_id") @db.Uuid
+  /// Empty for the final result.
+  examId         String?      @map("exam_id") @db.Uuid
+  /// "exam:<examId>" or "final:<academicYearId>".
+  key            String
+  studentId      String       @map("student_id") @db.Uuid
+  classId        String       @map("class_id") @db.Uuid
+  sectionId      String       @map("section_id") @db.Uuid
+  total          Float        @default(0)
+  maxTotal       Float        @default(0) @map("max_total")
+  percent        Float?
+  grade          String?
+  points         Float?
+  rank           Int?
+  /// "Pass", "Fail", "Compartment"; empty until complete.
+  outcome        String?
+  complete       Boolean      @default(false)
+  missing        Int          @default(0)
+  absentPapers   Int          @default(0) @map("absent_papers")
+  /// Per subject: [{ subjectId, name, max, marks, grade, absent, passed, grace, parts }].
+  subjects       Json         @default("[]")
+  status         ResultStatus @default(DRAFT)
+  publishedAt    DateTime?    @map("published_at")
+  publishedById  String?      @map("published_by_id") @db.Uuid
+  /// The grade bands used when published; a later scale change never alters it (rule 15).
+  scale          Json?
+  computedAt     DateTime     @default(now()) @map("computed_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  @@unique([schoolId, key, studentId])
+  @@index([schoolId, sectionId, key])
+  @@index([schoolId, studentId])
+  @@map("result")
+}
+
+/// Result Publication: publishing (now or on a date) the results of an exam or the final result for some sections. The result history.
+model ResultPublication {
+  id              String    @id @default(uuid()) @db.Uuid
+  schoolId        String    @map("school_id") @db.Uuid
+  academicYearId  String    @map("academic_year_id") @db.Uuid
+  key             String
+  examId          String?   @map("exam_id") @db.Uuid
+  sectionIds      String[]  @map("section_ids") @db.Uuid
+  publishOn       DateTime  @map("publish_on")
+  messageParents  Boolean   @default(true) @map("message_parents")
+  /// "scheduled", "published", "unpublished", "cancelled" or "failed".
+  status          String    @default("scheduled")
+  publishedAt     DateTime? @map("published_at")
+  messagesSent    Int       @default(0) @map("messages_sent")
+  note            String?
+  unpublishedAt   DateTime? @map("unpublished_at")
+  unpublishedById String?   @map("unpublished_by_id") @db.Uuid
+  createdById     String?   @map("created_by_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  @@index([schoolId, status, publishOn])
+  @@index([schoolId, key])
+  @@map("result_publication")
+}
+
+/// Report Card: the printed report for one student for an exam, a term or the year.
+model ReportCard {
+  id                 String           @id @default(uuid()) @db.Uuid
+  schoolId           String           @map("school_id") @db.Uuid
+  academicYearId     String           @map("academic_year_id") @db.Uuid
+  studentId          String           @map("student_id") @db.Uuid
+  sectionId          String           @map("section_id") @db.Uuid
+  /// "exam:<examId>", "term:<termId>" or "year".
+  period             String
+  classTeacherRemark String?          @map("class_teacher_remark")
+  principalRemark    String?          @map("principal_remark")
+  /// Days present and working days, typed when Attendance does not give them.
+  attendancePresent  Int?             @map("attendance_present")
+  attendanceWorking  Int?             @map("attendance_working")
+  status             ReportCardStatus @default(NOT_READY)
+  printedAt          DateTime?        @map("printed_at")
+  sentAt             DateTime?        @map("sent_at")
+  updatedById        String?          @map("updated_by_id") @db.Uuid
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+
+  @@unique([schoolId, studentId, academicYearId, period])
+  @@index([schoolId, sectionId, period])
+  @@map("report_card")
+}
+
+/// Co-scholastic Area: work education, art, health and physical education; also skills and activities.
+model CoScholasticArea {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  name        String
+  /// "area" (co-scholastic), "skill" or "activity".
+  kind        String    @default("area")
+  grades      String[]  @default(["A", "B", "C"])
+  description String?
+  sortOrder   Int       @default(0) @map("sort_order")
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  @@unique([schoolId, name])
+  @@map("co_scholastic_area")
+}
+
+/// Co-scholastic Grade: one student's grade in one area for one report card period.
+model CoScholasticGrade {
+  id             String   @id @default(uuid()) @db.Uuid
+  schoolId       String   @map("school_id") @db.Uuid
+  academicYearId String   @map("academic_year_id") @db.Uuid
+  period         String
+  studentId      String   @map("student_id") @db.Uuid
+  areaId         String   @map("area_id") @db.Uuid
+  grade          String
+  enteredById    String?  @map("entered_by_id") @db.Uuid
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@unique([schoolId, studentId, areaId, period])
+  @@index([schoolId, academicYearId, period])
+  @@map("co_scholastic_grade")
+}
+
+/// Competency: a competency of a subject and its levels (competency-based assessment, optional).
+model Competency {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  subjectId   String    @map("subject_id") @db.Uuid
+  name        String
+  levels      String[]  @default(["Beginning", "Developing", "Proficient", "Advanced"])
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  @@index([schoolId, subjectId])
+  @@map("competency")
+}
+
+/// Competency Level: one student's level in one competency for one report card period.
+model CompetencyLevel {
+  id             String   @id @default(uuid()) @db.Uuid
+  schoolId       String   @map("school_id") @db.Uuid
+  academicYearId String   @map("academic_year_id") @db.Uuid
+  period         String
+  studentId      String   @map("student_id") @db.Uuid
+  competencyId   String   @map("competency_id") @db.Uuid
+  level          String
+  enteredById    String?  @map("entered_by_id") @db.Uuid
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@unique([schoolId, studentId, competencyId, period])
+  @@map("competency_level")
+}
+
+/// Seat Allocation: one student's seat in one exam room for one sitting (optional).
+model SeatAllocation {
+  id         String    @id @default(uuid()) @db.Uuid
+  schoolId   String    @map("school_id") @db.Uuid
+  examId     String    @map("exam_id") @db.Uuid
+  date       DateTime  @db.Date
+  startTime  String    @map("start_time")
+  room       String
+  seatNo     Int       @map("seat_no")
+  studentId  String    @map("student_id") @db.Uuid
+  sectionId  String    @map("section_id") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at")
+  archivedAt DateTime? @map("archived_at")
+
+  @@index([schoolId, examId, date, startTime])
+  @@map("seat_allocation")
+}
+
+/// Admit Card Print: a batch of admit cards printed, for the record.
+model AdmitCardPrint {
+  id          String   @id @default(uuid()) @db.Uuid
+  schoolId    String   @map("school_id") @db.Uuid
+  examId      String   @map("exam_id") @db.Uuid
+  sectionId   String?  @map("section_id") @db.Uuid
+  studentId   String?  @map("student_id") @db.Uuid
+  count       Int
+  printedById String?  @map("printed_by_id") @db.Uuid
+  printedAt   DateTime @default(now()) @map("printed_at")
+
+  @@index([schoolId, examId])
+  @@map("admit_card_print")
+}
+
+/// Question: one question in the question bank (optional page).
+model Question {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  classId     String    @map("class_id") @db.Uuid
+  subjectId   String    @map("subject_id") @db.Uuid
+  /// Syllabus chapter it belongs to.
+  chapterId   String?   @map("chapter_id") @db.Uuid
+  /// "mcq", "short", "long", "true-false", "fill-blank" or "match".
+  type        String    @default("short")
+  text        String
+  /// MCQ options or match pairs, one per line.
+  options     String[]  @default([])
+  answer      String?
+  marks       Int       @default(1)
+  /// "easy", "medium" or "hard".
+  difficulty  String    @default("medium")
+  tags        String[]  @default([])
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  @@index([schoolId, classId, subjectId])
+  @@map("question")
+}
+
+/// Question Paper: a paper made from the bank.
+model QuestionPaper {
+  id           String    @id @default(uuid()) @db.Uuid
+  schoolId     String    @map("school_id") @db.Uuid
+  title        String
+  examId       String?   @map("exam_id") @db.Uuid
+  classId      String    @map("class_id") @db.Uuid
+  subjectId    String    @map("subject_id") @db.Uuid
+  /// "manual", "automatic" or "blueprint".
+  method       String    @default("manual")
+  /// Question ids in paper order.
+  questionIds  String[]  @map("question_ids") @db.Uuid
+  totalMarks   Int       @default(0) @map("total_marks")
+  durationMin  Int?      @map("duration_min")
+  instructions String?
+  /// "draft" or "final".
+  status       String    @default("draft")
+  createdById  String?   @map("created_by_id") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  archivedAt   DateTime? @map("archived_at")
+
+  @@index([schoolId, classId, subjectId])
+  @@map("question_paper")
+}

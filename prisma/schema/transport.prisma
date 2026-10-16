@@ -1,0 +1,506 @@
+// 12 Transport Management (optional module): routes and stops with stop-wise
+// fees, vehicles and their papers, drivers and conductors, students on each
+// bus, trips with live location from the driver app, alerts, and fuel and
+// repair costs. Records of other modules (Student, Staff, User Login, Student
+// Fee Due, Expense, Approval, File) are kept by id.
+
+/// Transport Setting (12 §6): one per school.
+model TransportSetting {
+  schoolId             String   @id @map("school_id") @db.Uuid
+  /// How often the driver app sends the bus location during a trip.
+  locationIntervalSec  Int      @default(30) @map("location_interval_sec")
+  /// A location older than this is shown as "Last seen" (stale).
+  staleAfterSec        Int      @default(120) @map("stale_after_sec")
+  /// No location from a running trip for this long: the bus is Offline.
+  offlineAfterMin      Int      @default(5) @map("offline_after_min")
+  overSpeedKmh         Int      @default(50) @map("over_speed_kmh")
+  deviationMeters      Int      @default(300) @map("deviation_meters")
+  schoolGeofenceMeters Int      @default(150) @map("school_geofence_meters")
+  stopGeofenceMeters   Int      @default(100) @map("stop_geofence_meters")
+  schoolLat            Float?   @map("school_lat")
+  schoolLng            Float?   @map("school_lng")
+  /// "Bus arriving" goes this many minutes before the stop.
+  arrivingMinutes      Int      @default(5) @map("arriving_minutes")
+  /// A trip still running this long after its last planned stop alerts the in-charge.
+  tripLeftRunningMin   Int      @default(30) @map("trip_left_running_min")
+  /// A trip this many minutes behind its plan suggests a delay message.
+  lateAfterMin         Int      @default(10) @map("late_after_min")
+  delaySuggestion      Boolean  @default(true) @map("delay_suggestion")
+  /// Roles told about alerts (the emergency button always tells the in-charge and the Principal).
+  alertRoleKeys        String[] @default(["transport-in-charge", "principal"]) @map("alert_role_keys")
+  boardingRequired     Boolean  @default(true) @map("boarding_required")
+  showParentPhones     Boolean  @default(false) @map("show_parent_phones")
+  /// Transport change approvals: ALL (every change), ROUTE (route changes only) or NONE.
+  changeApproval       String   @default("NONE") @map("change_approval")
+  /// How the transport fee is put on the student's fees: MONTHLY, QUARTERLY, HALF_YEARLY or YEARLY.
+  feeFrequency         String   @default("MONTHLY") @map("fee_frequency")
+  /// Day of the month the transport fee is due.
+  feeDueDay            Int      @default(10) @map("fee_due_day")
+  /// Calendar months (1 to 12) with no transport fee, e.g. the summer holidays.
+  noFeeMonths          Int[]    @default([]) @map("no_fee_months")
+  /// Reminder this many days before a licence or bus paper ends (A15).
+  expiryReminderDays   Int      @default(30) @map("expiry_reminder_days")
+  /// The GPS device company, when the school uses one (set up in Settings, Modules On/Off).
+  gpsProvider          String?  @map("gps_provider")
+  updatedById          String?  @map("updated_by_id") @db.Uuid
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  @@map("transport_setting")
+}
+
+/// Transport Vendor: a company the school hires buses or drivers from.
+model TransportVendor {
+  id            String    @id @default(uuid()) @db.Uuid
+  schoolId      String    @map("school_id") @db.Uuid
+  name          String
+  contactName   String?   @map("contact_name")
+  phone         String?
+  email         String?
+  address       String?
+  gstin         String?
+  bankName      String?   @map("bank_name")
+  /// Encrypted (restricted field); only the last 4 are shown.
+  bankAccountNo String?   @map("bank_account_no")
+  bankLast4     String?   @map("bank_last4")
+  ifsc          String?
+  /// What the school pays the vendor a month, and until when.
+  monthlyChargePaise BigInt? @map("monthly_charge_paise")
+  contractEnd   DateTime? @map("contract_end") @db.Date
+  createdById   String?   @map("created_by_id") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  archivedAt    DateTime? @map("archived_at")
+
+  vehicles Vehicle[]
+  drivers  Driver[]
+
+  @@index([schoolId])
+  @@map("transport_vendor")
+}
+
+/// Vehicle: a bus, van or car.
+model Vehicle {
+  id              String    @id @default(uuid()) @db.Uuid
+  schoolId        String    @map("school_id") @db.Uuid
+  /// KA01AB1234, kept without spaces and in capitals. Unique in the school.
+  number          String
+  /// What the school calls it, e.g. "Bus 4".
+  label           String?
+  /// BUS, VAN or CAR.
+  type            String    @default("BUS")
+  /// Make and model, e.g. Tata Starbus.
+  model           String?
+  capacity        Int
+  /// OWNED or HIRED.
+  ownership       String    @default("OWNED")
+  vendorId        String?   @map("vendor_id") @db.Uuid
+  /// ACTIVE, UNDER_REPAIR or INACTIVE.
+  status          String    @default("ACTIVE")
+  gpsDeviceId     String?   @map("gps_device_id")
+  odometerKm      Int?      @map("odometer_km")
+  /// Maintenance schedule: every N km or N days.
+  serviceEveryKm  Int?      @map("service_every_km")
+  serviceEveryDays Int?     @map("service_every_days")
+  lastServiceOn   DateTime? @map("last_service_on") @db.Date
+  lastServiceKm   Int?      @map("last_service_km")
+  createdById     String?   @map("created_by_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  archivedAt      DateTime? @map("archived_at")
+
+  vendor    TransportVendor?  @relation(fields: [vendorId], references: [id])
+  documents VehicleDocument[]
+  routes    Route[]
+
+  @@unique([schoolId, number])
+  @@map("vehicle")
+}
+
+/// Vehicle Document: insurance, fitness, pollution certificate or permit, with its expiry.
+model VehicleDocument {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  vehicleId   String    @map("vehicle_id") @db.Uuid
+  /// INSURANCE, FITNESS, POLLUTION or PERMIT.
+  kind        String
+  number      String?
+  expiresOn   DateTime  @map("expires_on") @db.Date
+  fileId      String?   @map("file_id") @db.Uuid
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  /// A renewed paper replaces the old one, which is kept.
+  replacedAt  DateTime? @map("replaced_at")
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id])
+
+  @@index([schoolId, vehicleId])
+  @@index([schoolId, expiresOn])
+  @@map("vehicle_document")
+}
+
+/// Driver: a driver or a conductor (attendant), on the staff or hired.
+model Driver {
+  id            String    @id @default(uuid()) @db.Uuid
+  schoolId      String    @map("school_id") @db.Uuid
+  name          String
+  phone         String
+  /// DRIVER or ATTENDANT.
+  role          String    @default("DRIVER")
+  /// STAFF or HIRED.
+  employment    String    @default("STAFF")
+  staffId       String?   @map("staff_id") @db.Uuid
+  vendorId      String?   @map("vendor_id") @db.Uuid
+  licenceNo     String?   @map("licence_no")
+  licenceExpiry DateTime? @map("licence_expiry") @db.Date
+  licenceFileId String?   @map("licence_file_id") @db.Uuid
+  /// The driver app login (role Driver).
+  userLoginId   String?   @map("user_login_id") @db.Uuid
+  /// ACTIVE or INACTIVE.
+  status        String    @default("ACTIVE")
+  createdById   String?   @map("created_by_id") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  archivedAt    DateTime? @map("archived_at")
+
+  vendor  TransportVendor? @relation(fields: [vendorId], references: [id])
+  devices DriverDevice[]
+
+  @@index([schoolId])
+  @@index([schoolId, userLoginId])
+  @@map("driver")
+}
+
+/// Driver Device: a phone the driver app runs on, with its own key (hashed; shown once).
+model DriverDevice {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  driverId    String    @map("driver_id") @db.Uuid
+  name        String
+  keyHash     String    @unique @map("key_hash")
+  keyLast4    String    @map("key_last4")
+  lastSeenAt  DateTime? @map("last_seen_at")
+  /// Points refused (impossible jumps, old or out-of-order times).
+  rejectedPoints Int    @default(0) @map("rejected_points")
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  revokedAt   DateTime? @map("revoked_at")
+
+  driver Driver @relation(fields: [driverId], references: [id])
+
+  @@index([schoolId, driverId])
+  @@map("driver_device")
+}
+
+/// Route: one bus route with its stops in order.
+model Route {
+  id                String    @id @default(uuid()) @db.Uuid
+  schoolId          String    @map("school_id") @db.Uuid
+  /// Route 4
+  number            Int
+  name              String
+  vehicleId         String?   @map("vehicle_id") @db.Uuid
+  driverId          String?   @map("driver_id") @db.Uuid
+  attendantId       String?   @map("attendant_id") @db.Uuid
+  /// One fee for the whole route (a month), used by stops with no fee of their own.
+  feeTwoWayPaise    BigInt?   @map("fee_two_way_paise")
+  feeOneWayPaise    BigInt?   @map("fee_one_way_paise")
+  /// Minutes after midnight the morning trip reaches school.
+  schoolArrivalMin  Int?      @map("school_arrival_min")
+  /// Minutes after midnight the evening trip leaves school.
+  eveningDepartMin  Int?      @map("evening_depart_min")
+  createdById       String?   @map("created_by_id") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  archivedAt        DateTime? @map("archived_at")
+
+  vehicle Vehicle? @relation(fields: [vehicleId], references: [id])
+  stops   Stop[]
+
+  @@unique([schoolId, number])
+  @@map("route")
+}
+
+/// Stop: a pickup point on a route, with its times, place and fee.
+model Stop {
+  id             String    @id @default(uuid()) @db.Uuid
+  schoolId       String    @map("school_id") @db.Uuid
+  routeId        String    @map("route_id") @db.Uuid
+  name           String
+  /// Order on the morning trip (1 is the first pickup).
+  seq            Int
+  /// Minutes after midnight.
+  pickupMin      Int       @map("pickup_min")
+  dropMin        Int?      @map("drop_min")
+  lat            Float?
+  lng            Float?
+  /// This stop's own geofence radius; empty uses Transport Settings.
+  geofenceMeters Int?      @map("geofence_meters")
+  /// A month; empty uses the route's fee.
+  feeTwoWayPaise BigInt?   @map("fee_two_way_paise")
+  feeOneWayPaise BigInt?   @map("fee_one_way_paise")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  archivedAt     DateTime? @map("archived_at")
+
+  route Route @relation(fields: [routeId], references: [id])
+
+  @@index([schoolId, routeId])
+  @@map("stop")
+}
+
+/// Transport Assignment: a student on a route and stop from a date.
+model TransportAssignment {
+  id             String    @id @default(uuid()) @db.Uuid
+  schoolId       String    @map("school_id") @db.Uuid
+  studentId      String    @map("student_id") @db.Uuid
+  academicYearId String    @map("academic_year_id") @db.Uuid
+  routeId        String    @map("route_id") @db.Uuid
+  stopId         String    @map("stop_id") @db.Uuid
+  /// TWO_WAY, PICKUP_ONLY or DROP_ONLY.
+  type           String    @default("TWO_WAY")
+  fromDate       DateTime  @map("from_date") @db.Date
+  /// The last day on this route and stop (set when changed or stopped).
+  toDate         DateTime? @map("to_date") @db.Date
+  /// ACTIVE, WAITING (for approval), ENDED or CANCELLED.
+  status         String    @default("ACTIVE")
+  /// The fee a month when given (kept so a later fee change does not rewrite history).
+  monthlyFeePaise BigInt   @map("monthly_fee_paise")
+  busPassNo      String?   @map("bus_pass_no")
+  /// What this assignment does when approved: ASSIGN, CHANGE (replaces `replacesId`) or STOP.
+  change         String    @default("ASSIGN")
+  replacesId     String?   @map("replaces_id") @db.Uuid
+  approvalId     String?   @map("approval_id") @db.Uuid
+  reason         String?
+  endReason      String?   @map("end_reason")
+  createdById    String?   @map("created_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@index([schoolId, studentId])
+  @@index([schoolId, routeId, status])
+  @@map("transport_assignment")
+}
+
+/// Transport Fee Charge: one transport fee row (a Student Fee Due) for one student and one fee period.
+model TransportFeeCharge {
+  id           String    @id @default(uuid()) @db.Uuid
+  schoolId     String    @map("school_id") @db.Uuid
+  studentId    String    @map("student_id") @db.Uuid
+  assignmentId String    @map("assignment_id") @db.Uuid
+  dueId        String    @map("due_id") @db.Uuid
+  /// 2026-27:2026-10 for a month, 2026-27:Q3 for a quarter.
+  periodKey    String    @map("period_key")
+  periodStart  DateTime  @map("period_start") @db.Date
+  periodEnd    DateTime  @map("period_end") @db.Date
+  amountPaise  BigInt    @map("amount_paise")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  /// Set when the fee row was removed (transport stopped or changed before this period).
+  removedAt    DateTime? @map("removed_at")
+
+  @@index([schoolId, assignmentId])
+  @@index([schoolId, dueId])
+  @@map("transport_fee_charge")
+}
+
+/// Trip Schedule: a route's morning or evening trip on the days chosen.
+model TripSchedule {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  routeId     String    @map("route_id") @db.Uuid
+  /// MORNING (pickup) or EVENING (drop).
+  kind        String
+  vehicleId   String?   @map("vehicle_id") @db.Uuid
+  driverId    String?   @map("driver_id") @db.Uuid
+  attendantId String?   @map("attendant_id") @db.Uuid
+  /// Minutes after midnight.
+  startMin    Int       @map("start_min")
+  /// Days of the week, 1 (Monday) to 7 (Sunday).
+  days        Int[]     @default([1, 2, 3, 4, 5, 6])
+  updatedById String?   @map("updated_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  @@index([schoolId, routeId])
+  @@map("trip_schedule")
+}
+
+/// Trip: one run of a route on one day.
+model Trip {
+  id             String    @id @default(uuid()) @db.Uuid
+  schoolId       String    @map("school_id") @db.Uuid
+  routeId        String    @map("route_id") @db.Uuid
+  /// MORNING or EVENING.
+  kind           String
+  date           DateTime  @db.Date
+  vehicleId      String?   @map("vehicle_id") @db.Uuid
+  driverId       String?   @map("driver_id") @db.Uuid
+  attendantId    String?   @map("attendant_id") @db.Uuid
+  /// Planned start, minutes after midnight.
+  plannedStartMin Int      @map("planned_start_min")
+  /// SCHEDULED, STARTED, COMPLETED or CANCELLED.
+  status         String    @default("SCHEDULED")
+  /// Set when the vehicle or driver was changed for this one day.
+  changedForDay  Boolean   @default(false) @map("changed_for_day")
+  changeNote     String?   @map("change_note")
+  startedAt      DateTime? @map("started_at")
+  endedAt        DateTime? @map("ended_at")
+  startedById    String?   @map("started_by_id") @db.Uuid
+  endedById      String?   @map("ended_by_id") @db.Uuid
+  cancelReason   String?   @map("cancel_reason")
+  lastLat        Float?    @map("last_lat")
+  lastLng        Float?    @map("last_lng")
+  lastSpeedKmh   Float?    @map("last_speed_kmh")
+  lastPointAt    DateTime? @map("last_point_at")
+  pointsAccepted Int       @default(0) @map("points_accepted")
+  pointsRejected Int       @default(0) @map("points_rejected")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@unique([schoolId, routeId, kind, date])
+  @@index([schoolId, date])
+  @@index([schoolId, driverId, date])
+  @@map("trip")
+}
+
+/// GPS Point: one accepted bus location during a running trip.
+model GpsPoint {
+  id         String   @id @default(uuid()) @db.Uuid
+  schoolId   String   @map("school_id") @db.Uuid
+  tripId     String   @map("trip_id") @db.Uuid
+  at         DateTime
+  lat        Float
+  lng        Float
+  speedKmh   Float?   @map("speed_kmh")
+  heading    Float?
+  accuracyM  Float?   @map("accuracy_m")
+  receivedAt DateTime @default(now()) @map("received_at")
+
+  @@index([schoolId, tripId, at])
+  @@map("gps_point")
+}
+
+/// Trip Stop Event: a stop reached (or missed) on a trip.
+model TripStopEvent {
+  id        String   @id @default(uuid()) @db.Uuid
+  schoolId  String   @map("school_id") @db.Uuid
+  tripId    String   @map("trip_id") @db.Uuid
+  stopId    String   @map("stop_id") @db.Uuid
+  /// REACHED or MISSED.
+  status    String   @default("REACHED")
+  at        DateTime
+  /// APP (the driver tapped Reached), GEOFENCE or STAFF.
+  source    String   @default("APP")
+  plannedMin Int?    @map("planned_min")
+  note      String?
+  createdById String? @map("created_by_id") @db.Uuid
+
+  @@unique([tripId, stopId])
+  @@index([schoolId, tripId])
+  @@map("trip_stop_event")
+}
+
+/// Boarding Event: a student boarded, not boarded or dropped on a trip.
+model BoardingEvent {
+  id          String   @id @default(uuid()) @db.Uuid
+  schoolId    String   @map("school_id") @db.Uuid
+  tripId      String   @map("trip_id") @db.Uuid
+  studentId   String   @map("student_id") @db.Uuid
+  stopId      String?  @map("stop_id") @db.Uuid
+  /// BOARDED, NOT_BOARDED or DROPPED.
+  status      String
+  at          DateTime
+  createdById String?  @map("created_by_id") @db.Uuid
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([tripId, studentId])
+  @@index([schoolId, tripId])
+  @@map("boarding_event")
+}
+
+/// Transport Alert: over-speed, route deviation, offline, emergency, breakdown or trip left running.
+model TransportAlert {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  tripId      String?   @map("trip_id") @db.Uuid
+  routeId     String?   @map("route_id") @db.Uuid
+  vehicleId   String?   @map("vehicle_id") @db.Uuid
+  /// OVER_SPEED, ROUTE_DEVIATION, OFFLINE, EMERGENCY, BREAKDOWN or TRIP_LEFT_RUNNING.
+  kind        String
+  text        String
+  lat         Float?
+  lng         Float?
+  speedKmh    Float?    @map("speed_kmh")
+  at          DateTime
+  /// OPEN or CLOSED.
+  status      String    @default("OPEN")
+  /// One alert per trip and kind (or per minute for over-speed): never twice for the same thing.
+  onceKey     String    @map("once_key")
+  closedAt    DateTime? @map("closed_at")
+  closedById  String?   @map("closed_by_id") @db.Uuid
+  closeNote   String?   @map("close_note")
+  /// The parents' message sent about it (after a person confirmed), if any.
+  messageId   String?   @map("message_id") @db.Uuid
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@unique([schoolId, onceKey])
+  @@index([schoolId, at])
+  @@index([schoolId, status])
+  @@map("transport_alert")
+}
+
+/// Fuel Log: a fuel fill for a vehicle; it is also a Finance expense.
+model FuelLog {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  vehicleId   String    @map("vehicle_id") @db.Uuid
+  date        DateTime  @db.Date
+  litres      Decimal?  @db.Decimal(8, 2)
+  amountPaise BigInt    @map("amount_paise")
+  odometerKm  Int?      @map("odometer_km")
+  billFileId  String?   @map("bill_file_id") @db.Uuid
+  expenseId   String?   @map("expense_id") @db.Uuid
+  note        String?
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  cancelledAt DateTime? @map("cancelled_at")
+  cancelReason String?  @map("cancel_reason")
+
+  @@index([schoolId, vehicleId, date])
+  @@map("fuel_log")
+}
+
+/// Maintenance Log: a service or repair of a vehicle; it is also a Finance expense.
+model MaintenanceLog {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  vehicleId   String    @map("vehicle_id") @db.Uuid
+  date        DateTime  @db.Date
+  /// SERVICE or REPAIR.
+  kind        String    @default("REPAIR")
+  what        String
+  amountPaise BigInt    @map("amount_paise")
+  odometerKm  Int?      @map("odometer_km")
+  billFileId  String?   @map("bill_file_id") @db.Uuid
+  expenseId   String?   @map("expense_id") @db.Uuid
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  cancelledAt DateTime? @map("cancelled_at")
+  cancelReason String?  @map("cancel_reason")
+
+  @@index([schoolId, vehicleId, date])
+  @@map("maintenance_log")
+}
+
+/// Transport Reminder Log: an expiry or service reminder sent once (A15).
+model TransportReminderLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  schoolId  String   @map("school_id") @db.Uuid
+  onceKey   String   @map("once_key")
+  text      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([schoolId, onceKey])
+  @@map("transport_reminder_log")
+}

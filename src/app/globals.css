@@ -1,0 +1,167 @@
+@import "tailwindcss";
+
+/*
+ * School OS design system (the approved prototype, design/ui-prototype/src/styles.css).
+ * Calm command centre: a quiet sidebar and soft tinted canvas, white work surfaces,
+ * and one bold coloured moment per screen.
+ *
+ * <html data-theme="light|dark|system" data-accent="lagoon|royal|plum|saffron|rose|graphite" data-size="normal|large">
+ * Colours are RGB triplets so every token works with opacity (bg-brand/10).
+ * Every text and surface pair meets WCAG 2.1 AA (08-platform-security.md §14 rule 6).
+ */
+:root {
+  /* Neutrals, light. Slight teal bias so greys feel chosen, not default. */
+  --bg: 243 246 245; --surface: 255 255 255; --sunken: 236 241 239; --line: 222 229 226;
+  --ink: 15 23 21; --ink-2: 66 80 76; --ink-3: 112 127 122; --shadow: 16 32 28;
+  /* Accent (default: Lagoon) */
+  --brand: 12 112 100; --brand-ink: 255 255 255;
+  /* Meaning colours */
+  --ok: 21 128 72; --warn: 180 110 0; --bad: 200 40 48; --info: 28 100 200;
+  --av-l: 38%;
+  color-scheme: light;
+}
+
+/* Dark, chosen or following the device. */
+:root[data-theme="dark"] {
+  --bg: 9 13 13; --surface: 17 23 23; --sunken: 23 30 30; --line: 36 46 45;
+  --ink: 233 239 237; --ink-2: 166 180 176; --ink-3: 118 133 129; --shadow: 0 0 0;
+  --brand: 52 196 174; --brand-ink: 4 20 18;
+  --ok: 72 205 135; --warn: 240 178 70; --bad: 255 110 112; --info: 112 168 255; --av-l: 74%;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] {
+    --bg: 9 13 13; --surface: 17 23 23; --sunken: 23 30 30; --line: 36 46 45;
+    --ink: 233 239 237; --ink-2: 166 180 176; --ink-3: 118 133 129; --shadow: 0 0 0;
+    --brand: 52 196 174; --brand-ink: 4 20 18;
+    --ok: 72 205 135; --warn: 240 178 70; --bad: 255 110 112; --info: 112 168 255; --av-l: 74%;
+    color-scheme: dark;
+  }
+}
+
+/* School colours a person or school can pick. Light value first, then dark. */
+:root[data-accent="royal"]    { --brand: 37 88 216; }
+:root[data-accent="plum"]     { --brand: 122 52 186; }
+:root[data-accent="saffron"]  { --brand: 184 88 6; }
+:root[data-accent="rose"]     { --brand: 190 28 78; }
+:root[data-accent="graphite"] { --brand: 46 60 78; }
+:root[data-theme="dark"][data-accent="royal"]    { --brand: 118 158 255; }
+:root[data-theme="dark"][data-accent="plum"]     { --brand: 192 146 252; }
+:root[data-theme="dark"][data-accent="saffron"]  { --brand: 248 168 72; }
+:root[data-theme="dark"][data-accent="rose"]     { --brand: 255 120 156; }
+:root[data-theme="dark"][data-accent="graphite"] { --brand: 190 204 222; }
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"][data-accent="royal"]    { --brand: 118 158 255; }
+  :root[data-theme="system"][data-accent="plum"]     { --brand: 192 146 252; }
+  :root[data-theme="system"][data-accent="saffron"]  { --brand: 248 168 72; }
+  :root[data-theme="system"][data-accent="rose"]     { --brand: 255 120 156; }
+  :root[data-theme="system"][data-accent="graphite"] { --brand: 190 204 222; }
+}
+
+/* Bigger text for people who want it. */
+:root[data-size="large"] { font-size: 17.5px; }
+
+@theme inline {
+  --color-bg: rgb(var(--bg));
+  --color-surface: rgb(var(--surface));
+  --color-sunken: rgb(var(--sunken));
+  --color-line: rgb(var(--line));
+  --color-ink: rgb(var(--ink));
+  --color-ink2: rgb(var(--ink-2));
+  --color-ink3: rgb(var(--ink-3));
+  --color-brand: rgb(var(--brand));
+  --color-brandink: rgb(var(--brand-ink));
+  --color-ok: rgb(var(--ok));
+  --color-warn: rgb(var(--warn));
+  --color-bad: rgb(var(--bad));
+  --color-info: rgb(var(--info));
+  --color-shade: rgb(var(--shadow));
+
+  /* Older names, kept so every screen speaks the same palette. */
+  --color-ink-2: rgb(var(--ink-2));
+  --color-ink-3: rgb(var(--ink-3));
+  --color-surface-2: rgb(var(--sunken));
+  --color-surface-3: rgb(var(--line));
+  --color-line-strong: rgb(var(--ink-3) / 0.45);
+  --color-overlay: rgb(var(--shadow) / 0.45);
+  --color-brand-ink: rgb(var(--brand-ink));
+  --color-brand-hover: rgb(var(--brand));
+  --color-brand-text: rgb(var(--brand));
+  --color-brand-soft: rgb(var(--brand) / 0.1);
+  --color-danger: rgb(var(--bad));
+  --color-danger-soft: rgb(var(--bad) / 0.1);
+  --color-success: rgb(var(--ok));
+  --color-success-soft: rgb(var(--ok) / 0.1);
+  --color-warn-bg: rgb(var(--warn) / 0.12);
+  --color-warn-text: rgb(var(--warn));
+  --color-info-soft: rgb(var(--info) / 0.1);
+
+  --font-sans: var(--font-figtree), ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-display: var(--font-bricolage), var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --shadow-card: 0 1px 2px rgb(var(--shadow) / 0.06), 0 1px 1px rgb(var(--shadow) / 0.04);
+  --shadow-pop: 0 12px 32px -8px rgb(var(--shadow) / 0.22), 0 4px 10px -4px rgb(var(--shadow) / 0.12);
+
+  --animate-rise: rise 0.28s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-fade: fade 0.2s ease both;
+  --animate-sheet: sheet 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-pop: pop 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes sheet { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes pop { 0% { transform: scale(0.6); opacity: 0; } 60% { transform: scale(1.08); } 100% { transform: scale(1); opacity: 1; } }
+@keyframes shimmer { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }
+
+html, body { background: rgb(var(--bg)); color: rgb(var(--ink)); }
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+h1, h2, h3 { text-wrap: balance; }
+
+@utility tnum { font-variant-numeric: tabular-nums; }
+@utility eyebrow { font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; }
+@utility scroll-thin { scrollbar-width: thin; scrollbar-color: rgb(var(--line)) transparent; }
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+@utility dotgrid {
+  background-image: radial-gradient(rgb(var(--brand-ink) / 0.16) 1px, transparent 1.2px);
+  background-size: 14px 14px;
+}
+
+.skeleton {
+  background: linear-gradient(90deg, rgb(var(--sunken)) 0%, rgb(var(--line)) 50%, rgb(var(--sunken)) 100%);
+  background-size: 800px 100%;
+  animation: shimmer 1.2s linear infinite;
+  border-radius: 0.5rem;
+}
+
+/* Keyboard users always see where they are. */
+:where(button, a, select, summary, [tabindex], [role="button"]):focus-visible {
+  outline: 2px solid rgb(var(--brand));
+  outline-offset: 2px;
+}
+:where(input, textarea):focus-visible { outline: none; }
+
+.skip-link { position: absolute; left: -9999px; }
+.skip-link:focus {
+  left: 1rem; top: 1rem; z-index: 100;
+  background: rgb(var(--surface)); padding: 0.5rem 1rem; border-radius: 0.75rem;
+}
+
+.toast-in { animation: rise 0.28s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}
+
+@media print {
+  .no-print { display: none !important; }
+  body { background: #fff; }
+}

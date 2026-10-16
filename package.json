@@ -1,0 +1,61 @@
+{
+  "name": "school-os",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "db:setup": "bash scripts/setup-db.sh",
+    "db:migrate": "prisma migrate deploy",
+    "db:seed": "prisma db seed",
+    "postinstall": "prisma generate",
+    "db:new-migration": "bash scripts/new-migration.sh",
+    "db:reset": "bash scripts/reset-dev-db.sh",
+    "worker": "tsx --conditions=react-server --env-file-if-exists=.env scripts/worker.ts",
+    "check:links": "node scripts/check-links.mjs"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "3.1148.0",
+    "@aws-sdk/s3-request-presigner": "3.1148.0",
+    "@node-rs/argon2": "2.0.2",
+    "@prisma/client": "6.19.3",
+    "exceljs": "4.4.0",
+    "lucide-react": "0.441.0",
+    "next": "16.4.0",
+    "nodemailer": "10.0.16",
+    "playwright-core": "1.56.1",
+    "qrcode": "1.5.4",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "server-only": "0.0.1",
+    "sharp": "0.35.5",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "3.3.1",
+    "@tailwindcss/postcss": "4.1.14",
+    "@types/node": "22.18.0",
+    "@types/nodemailer": "8.0.2",
+    "@types/qrcode": "1.5.5",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "eslint": "9.37.0",
+    "eslint-config-next": "16.4.0",
+    "prisma": "6.19.3",
+    "tailwindcss": "4.1.14",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3",
+    "vitest": "5.0.3"
+  },
+  "overrides": {
+    "uuid": "^11.1.1"
+  }
+}

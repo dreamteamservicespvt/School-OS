@@ -1,0 +1,228 @@
+// Settings (module 20): school documents, payment gateways, messaging
+// channels, document designs, custom fields, consent texts, privacy.
+
+/// A school compliance paper in the document vault, with versions.
+model SchoolDocument {
+  id              String    @id @default(uuid()) @db.Uuid
+  schoolId        String    @map("school_id") @db.Uuid
+  docType         String    @map("doc_type")
+  title           String
+  issuedOn        DateTime? @map("issued_on") @db.Date
+  expiresOn       DateTime? @map("expires_on") @db.Date
+  verified        Boolean   @default(false)
+  verifiedById    String?   @map("verified_by_id") @db.Uuid
+  /// Role keys that may see it; default School Admin and Principal.
+  visibleTo       String[]  @default(["school-admin", "principal"]) @map("visible_to")
+  /// [{ fileId, uploadedAt, uploadedById }], newest last. Old versions are kept.
+  versions        Json      @default("[]")
+  reminderSentFor DateTime? @map("reminder_sent_for") @db.Date
+  createdById     String?   @map("created_by_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  archivedAt      DateTime? @map("archived_at")
+
+  @@index([schoolId, expiresOn])
+  @@map("school_document")
+}
+
+/// A connected payment gateway account. Secrets are encrypted and never shown again.
+model PaymentGatewayAccount {
+  id               String    @id @default(uuid()) @db.Uuid
+  schoolId         String    @map("school_id") @db.Uuid
+  displayName      String    @map("display_name")
+  provider         String
+  /// "test" (sandbox) or "live".
+  environment      String    @default("test")
+  isActive         Boolean   @default(false) @map("is_active")
+  /// Public key id, shown in full (e.g. Razorpay key_id).
+  publicKey        String?   @map("public_key")
+  /// Encrypted JSON of the provider's secret fields.
+  secretsEnc       String    @map("secrets_enc")
+  secretsLast4     String?   @map("secrets_last4")
+  webhookSecretEnc String?   @map("webhook_secret_enc")
+  lastTestAt       DateTime? @map("last_test_at")
+  lastTestOk       Boolean?  @map("last_test_ok")
+  lastTestNote     String?   @map("last_test_note")
+  createdById      String?   @map("created_by_id") @db.Uuid
+  updatedById      String?   @map("updated_by_id") @db.Uuid
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  archivedAt       DateTime? @map("archived_at")
+
+  @@unique([schoolId, displayName])
+  @@map("payment_gateway_account")
+}
+
+/// One messaging channel (SMS, WhatsApp, email) and its provider settings.
+model MessagingChannel {
+  schoolId       String    @map("school_id") @db.Uuid
+  channel        String
+  provider       String?
+  isOn           Boolean   @default(false) @map("is_on")
+  /// "test" records messages without sending; "live" sends them.
+  environment    String    @default("test")
+  /// Non-secret settings, e.g. sender id, from address.
+  config         Json      @default("{}")
+  secretsEnc     String?   @map("secrets_enc")
+  secretsLast4   String?   @map("secrets_last4")
+  lowCreditAlert Int       @default(100) @map("low_credit_alert")
+  lastTestAt     DateTime? @map("last_test_at")
+  lastTestOk     Boolean?  @map("last_test_ok")
+  lastTestNote   String?   @map("last_test_note")
+  updatedById    String?   @map("updated_by_id") @db.Uuid
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@id([schoolId, channel])
+  @@map("messaging_channel")
+}
+
+/// Message credits added and used, by channel. Credits left = sum of amounts.
+model CreditLedgerEntry {
+  id          String   @id @default(uuid()) @db.Uuid
+  schoolId    String   @map("school_id") @db.Uuid
+  channel     String
+  /// Positive when credits are added, negative when used.
+  amount      Int
+  note        String
+  messageId   String?  @map("message_id") @db.Uuid
+  createdById String?  @map("created_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([schoolId, channel, createdAt])
+  @@map("credit_ledger_entry")
+}
+
+/// A document design (receipt, certificate, ID card...). Each save keeps the old version.
+model DocumentDesign {
+  id          String   @id @default(uuid()) @db.Uuid
+  schoolId    String   @map("school_id") @db.Uuid
+  docType     String   @map("doc_type")
+  /// The ready design it started from, e.g. "classic", "modern", "cbse".
+  base        String   @default("classic")
+  /// Adjustments: title, colours, which fields show, footer text, signatories, ID card layout.
+  options     Json     @default("{}")
+  version     Int      @default(1)
+  isCurrent   Boolean  @default(true) @map("is_current")
+  createdById String?  @map("created_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([schoolId, docType, isCurrent])
+  @@map("document_design")
+}
+
+/// A signature image for a signatory (Principal, Accountant...), used on documents.
+model Signatory {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  title       String
+  name        String
+  imageFileId String?   @map("image_file_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  @@map("signatory")
+}
+
+/// An extra field added to a record's form (Settings, Forms & Approvals).
+model CustomField {
+  id         String    @id @default(uuid()) @db.Uuid
+  schoolId   String    @map("school_id") @db.Uuid
+  /// Which record: student, guardian, staff, enquiry, application.
+  recordType String    @map("record_type")
+  key        String
+  label      String
+  /// text, number, date, choice, yesno.
+  fieldType  String    @map("field_type")
+  required   Boolean   @default(false)
+  choices    String[]  @default([])
+  /// "everyone" or "restricted" (School Admin and Principal only).
+  visibility String    @default("everyone")
+  /// Show only when another field has a value: { fieldKey, equals }.
+  showWhen   Json?     @map("show_when")
+  sortOrder  Int       @default(0) @map("sort_order")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  archivedAt DateTime? @map("archived_at")
+
+  @@unique([schoolId, recordType, key])
+  @@map("custom_field")
+}
+
+/// Consent Text: one version of a consent's wording. A new version never changes past records.
+model ConsentText {
+  id               String   @id @default(uuid()) @db.Uuid
+  schoolId         String   @map("school_id") @db.Uuid
+  consentType      String   @map("consent_type")
+  title            String
+  version          Int
+  /// { en: "...", hi: "...", ... }
+  text             Json
+  askedOnAdmission Boolean  @default(true) @map("asked_on_admission")
+  isCurrent        Boolean  @default(true) @map("is_current")
+  createdById      String?  @map("created_by_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@unique([schoolId, consentType, version])
+  @@map("consent_text")
+}
+
+/// How long one kind of record is kept before it is listed for removal.
+model RetentionRule {
+  schoolId    String   @map("school_id") @db.Uuid
+  recordType  String   @map("record_type")
+  /// Months to keep; null means as long as the school uses School OS.
+  keepMonths  Int?     @map("keep_months")
+  updatedById String?  @map("updated_by_id") @db.Uuid
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@id([schoolId, recordType])
+  @@map("retention_rule")
+}
+
+/// A request to delete a person's data. Nothing is removed until it is approved.
+model DeletionRequest {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  personType  String    @map("person_type")
+  personId    String    @map("person_id")
+  personName  String    @map("person_name")
+  scope       String    @default("all")
+  reason      String
+  askedBy     String    @map("asked_by")
+  proofFileId String?   @map("proof_file_id") @db.Uuid
+  status      String    @default("waiting")
+  approvalId  String?   @map("approval_id") @db.Uuid
+  completedAt DateTime? @map("completed_at")
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@map("deletion_request")
+}
+
+/// A full download of the school's data, prepared in the background.
+model DataExport {
+  id            String    @id @default(uuid()) @db.Uuid
+  schoolId      String    @map("school_id") @db.Uuid
+  status        String    @default("preparing")
+  fileId        String?   @map("file_id") @db.Uuid
+  requestedById String?   @map("requested_by_id") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at")
+  readyAt       DateTime? @map("ready_at")
+
+  @@map("data_export")
+}
+
+/// A connection to an outside tool (Google, Tally, attendance device...), with its health.
+model Integration {
+  schoolId    String    @map("school_id") @db.Uuid
+  key         String
+  status      String    @default("not-connected")
+  config      Json      @default("{}")
+  secretsEnc  String?   @map("secrets_enc")
+  lastCheckAt DateTime? @map("last_check_at")
+  lastError   String?   @map("last_error")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@id([schoolId, key])
+  @@map("integration")
+}

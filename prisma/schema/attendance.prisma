@@ -1,0 +1,415 @@
+// 05 Attendance Management: daily and period-wise attendance of students and
+// staff, the school's statuses and rules, corrections after the lock, absence
+// alerts (A4), devices, QR check-in, the campus area, shifts and overtime.
+// Student leave uses Leave Request and Leave Balance (leave.prisma).
+
+/// Attendance Setting: one per school (Attendance Settings page, 05 §6).
+model AttendanceSetting {
+  id                     String   @id @default(uuid()) @db.Uuid
+  schoolId               String   @unique @map("school_id") @db.Uuid
+  /// "present" (everyone starts Present) or "none" (nobody marked).
+  defaultStatus          String   @default("present") @map("default_status")
+  /// Period-wise only: "any" (present in any period = present) or "most".
+  periodDayRule          String   @default("any") @map("period_day_rule")
+  /// Register order: "roll" or "name".
+  registerOrder          String   @default("roll") @map("register_order")
+  showPhotos             Boolean  @default(true) @map("show_photos")
+  /// Methods on for students and for staff: register, mobile, qr, device, geo.
+  studentMethods         String[] @default(["register"]) @map("student_methods")
+  staffMethods           String[] @default(["register"]) @map("staff_methods")
+  /// "HH:MM" 24-hour, in the school's time zone.
+  studentStartTime       String   @default("08:45") @map("student_start_time")
+  studentLateAfterMin    Int      @default(10) @map("student_late_after_min")
+  staffStartTime         String   @default("08:30") @map("staff_start_time")
+  staffLateAfterMin      Int      @default(10) @map("staff_late_after_min")
+  /// Staff coming in after this time are marked Half-day (empty = off).
+  staffHalfDayAfter      String?  @default("11:00") @map("staff_half_day_after")
+  /// The day's attendance locks at this time.
+  lockTime               String   @default("11:00") @map("lock_time")
+  /// Role keys that may still change marks after the lock (audited).
+  lockOverrideRoles      String[] @default(["principal", "school-admin"]) @map("lock_override_roles")
+  /// Device and QR punches count only inside this window.
+  punchWindowStart       String   @default("06:00") @map("punch_window_start")
+  punchWindowEnd         String   @default("20:00") @map("punch_window_end")
+  /// A second punch within this many minutes is a repeat.
+  repeatPunchMinutes     Int      @default(5) @map("repeat_punch_minutes")
+  /// Offline: phone clocks more than this far off are flagged.
+  maxClockSkewMinutes    Int      @default(10) @map("max_clock_skew_minutes")
+  absenceAlertOn         Boolean  @default(true) @map("absence_alert_on")
+  absenceDelayMinutes    Int      @default(15) @map("absence_delay_minutes")
+  absenceChannels        String[] @default(["whatsapp"]) @map("absence_channels")
+  absenceTemplate        String   @default("Dear parent, {student} of {class} is absent today ({date}). Please call the school if this is not expected. {school}") @map("absence_template")
+  lateAlertOn            Boolean  @default(false) @map("late_alert_on")
+  thresholdOn            Boolean  @default(true) @map("threshold_on")
+  thresholdPercent       Int      @default(75) @map("threshold_percent")
+  /// parent, class-teacher, principal
+  thresholdNotify        String[] @default(["parent", "class-teacher", "principal"]) @map("threshold_notify")
+  chronicOn              Boolean  @default(true) @map("chronic_on")
+  chronicDays            Int      @default(3) @map("chronic_days")
+  chronicNotify          String[] @default(["class-teacher", "principal"]) @map("chronic_notify")
+  /// Class teachers decide student leave up to this many days themselves.
+  classTeacherLeaveDays  Int      @default(3) @map("class_teacher_leave_days")
+  /// Student leave quotas: going over needs approval.
+  quotaOverNeedsApproval Boolean  @default(true) @map("quota_over_needs_approval")
+  /// QR check-in.
+  qrStudentsOn           Boolean  @default(false) @map("qr_students_on")
+  qrStaffOn              Boolean  @default(false) @map("qr_staff_on")
+  /// "daily" (changes every day) or "fixed".
+  qrRotation             String   @default("daily") @map("qr_rotation")
+  posterTheme            String   @default("ocean") @map("poster_theme")
+  updatedById            String?  @map("updated_by_id") @db.Uuid
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  @@map("attendance_setting")
+}
+
+/// Attendance Status: the school's status list, with letter, colour and how it counts.
+model AttendanceStatus {
+  id         String    @id @default(uuid()) @db.Uuid
+  schoolId   String    @map("school_id") @db.Uuid
+  /// present, absent, late, half-day, excused, leave, medical, or custom-xxx.
+  key        String
+  name       String
+  letter     String
+  /// Theme tone: success, danger, warning, info, brand, neutral.
+  tone       String    @default("neutral")
+  /// present, absent, half, not-counted
+  counts     String    @default("present")
+  /// For staff, students or both.
+  forWhom    String    @default("both") @map("for_whom")
+  system     Boolean   @default(false)
+  sortOrder  Int       @default(0) @map("sort_order")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  archivedAt DateTime? @map("archived_at")
+
+  @@unique([schoolId, key])
+  @@map("attendance_status")
+}
+
+/// Attendance Mark: one student's or staff member's attendance for one day,
+/// or one period where the school takes attendance every period.
+model AttendanceMark {
+  id             String    @id @default(uuid()) @db.Uuid
+  schoolId       String    @map("school_id") @db.Uuid
+  academicYearId String?   @map("academic_year_id") @db.Uuid
+  studentId      String?   @map("student_id") @db.Uuid
+  staffId        String?   @map("staff_id") @db.Uuid
+  /// The student's section that day.
+  sectionId      String?   @map("section_id") @db.Uuid
+  date           DateTime  @db.Date
+  /// 0 = the whole day; 1, 2... = a Time Table period.
+  periodNo       Int       @default(0) @map("period_no")
+  statusKey      String    @map("status_key")
+  /// register, mobile, qr, face, fingerprint, rfid, iris
+  method         String    @default("register")
+  inTime         DateTime? @map("in_time")
+  outTime        DateTime? @map("out_time")
+  lateMinutes    Int?      @map("late_minutes")
+  note           String?
+  leaveRequestId String?   @map("leave_request_id") @db.Uuid
+  markedById     String?   @map("marked_by_id") @db.Uuid
+  markedAt       DateTime  @default(now()) @map("marked_at")
+  /// When it was taken on the phone (offline saves).
+  takenAt        DateTime? @map("taken_at")
+  locked         Boolean   @default(false)
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  archivedAt     DateTime? @map("archived_at")
+
+  @@unique([schoolId, studentId, date, periodNo])
+  @@unique([schoolId, staffId, date, periodNo])
+  @@index([schoolId, sectionId, date])
+  @@index([schoolId, date, statusKey])
+  @@map("attendance_mark")
+}
+
+/// Attendance Submission: one save of a class register, kept so an offline
+/// save sent twice counts once and a wrong phone clock is flagged.
+model AttendanceSubmission {
+  id               String    @id @default(uuid()) @db.Uuid
+  schoolId         String    @map("school_id") @db.Uuid
+  /// Made on the phone; the same id twice is the same save.
+  clientId         String    @map("client_id")
+  sectionId        String    @map("section_id") @db.Uuid
+  date             DateTime  @db.Date
+  periodNo         Int       @default(0) @map("period_no")
+  submittedById    String?   @map("submitted_by_id") @db.Uuid
+  offline          Boolean   @default(false)
+  takenAt          DateTime? @map("taken_at")
+  receivedAt       DateTime  @default(now()) @map("received_at")
+  /// Seconds the phone clock was behind (+) or ahead (-) of the server.
+  clockSkewSeconds Int?      @map("clock_skew_seconds")
+  clockFlagged     Boolean   @default(false) @map("clock_flagged")
+  /// saved, correction, unchanged
+  outcome          String
+  correctionId     String?   @map("correction_id") @db.Uuid
+  entries          Int       @default(0)
+
+  @@unique([schoolId, clientId])
+  @@index([schoolId, sectionId, date])
+  @@map("attendance_submission")
+}
+
+/// Attendance Correction: a change after the lock, through Approvals. The
+/// original stays in the audit log.
+model AttendanceCorrection {
+  id            String    @id @default(uuid()) @db.Uuid
+  schoolId      String    @map("school_id") @db.Uuid
+  /// "student" or "staff"
+  forWhom       String    @default("student") @map("for_whom")
+  sectionId     String?   @map("section_id") @db.Uuid
+  date          DateTime  @db.Date
+  periodNo      Int       @default(0) @map("period_no")
+  /// [{ studentId|staffId, name, from, to, note }]
+  entries       Json
+  reason        String
+  /// manual, offline-conflict, offline-late
+  kind          String    @default("manual")
+  /// For an offline conflict: the version already saved and the one that arrived second.
+  versions      Json?
+  status        String    @default("WAITING")
+  approvalId    String?   @map("approval_id") @db.Uuid
+  requestedById String?   @map("requested_by_id") @db.Uuid
+  decidedById   String?   @map("decided_by_id") @db.Uuid
+  decidedAt     DateTime? @map("decided_at")
+  decisionNote  String?   @map("decision_note")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  archivedAt    DateTime? @map("archived_at")
+
+  @@index([schoolId, status])
+  @@index([schoolId, date])
+  @@map("attendance_correction")
+}
+
+/// Attendance Alert: one message to a parent about attendance. One per
+/// student, day and kind, so a parent never gets two for one absence.
+model AttendanceAlert {
+  id         String   @id @default(uuid()) @db.Uuid
+  schoolId   String   @map("school_id") @db.Uuid
+  studentId  String   @map("student_id") @db.Uuid
+  date       DateTime @db.Date
+  /// absence, late, threshold, chronic
+  kind       String
+  guardianId String?  @map("guardian_id") @db.Uuid
+  text       String
+  channels   String[] @default([])
+  /// waiting, sent, skipped
+  status     String   @default("waiting")
+  note       String?
+  messageRef String?  @map("message_ref")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@unique([schoolId, studentId, date, kind])
+  @@index([schoolId, date])
+  @@map("attendance_alert")
+}
+
+/// Attendance Flag: a student below the % threshold or absent many days in a
+/// row. Raised once per drop and cleared when they recover.
+model AttendanceFlag {
+  id        String    @id @default(uuid()) @db.Uuid
+  schoolId  String    @map("school_id") @db.Uuid
+  studentId String    @map("student_id") @db.Uuid
+  /// below-threshold, absent-streak
+  kind      String
+  value     Decimal   @db.Decimal(6, 2)
+  raisedOn  DateTime  @map("raised_on") @db.Date
+  clearedAt DateTime? @map("cleared_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([schoolId, studentId, kind])
+  @@map("attendance_flag")
+}
+
+/// Attendance Device: a face, fingerprint, RFID card or iris machine.
+model AttendanceDevice {
+  id             String    @id @default(uuid()) @db.Uuid
+  schoolId       String    @map("school_id") @db.Uuid
+  campusId       String    @map("campus_id") @db.Uuid
+  name           String
+  serialNo       String    @map("serial_no")
+  location       String?
+  /// face, rfid, fingerprint, iris
+  deviceType     String    @map("device_type")
+  /// students, staff, both
+  allowedUsers   String    @default("both") @map("allowed_users")
+  ipAddress      String?   @map("ip_address")
+  connectionNote String?   @map("connection_note")
+  /// sha256 of the device's own key; the key is shown once.
+  keyHash        String    @unique @map("key_hash")
+  keyLast4       String    @map("key_last4")
+  keyCreatedAt   DateTime  @default(now()) @map("key_created_at")
+  isActive       Boolean   @default(true) @map("is_active")
+  lastPunchAt    DateTime? @map("last_punch_at")
+  lastSyncAt     DateTime? @map("last_sync_at")
+  createdById    String?   @map("created_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  archivedAt     DateTime? @map("archived_at")
+
+  punches  DevicePunch[]
+  userMaps DeviceUserMap[]
+
+  @@unique([schoolId, serialNo])
+  @@map("attendance_device")
+}
+
+/// Device User Map: which student or staff member a device's user number is.
+model DeviceUserMap {
+  id           String    @id @default(uuid()) @db.Uuid
+  schoolId     String    @map("school_id") @db.Uuid
+  deviceId     String    @map("device_id") @db.Uuid
+  deviceUserNo String    @map("device_user_no")
+  studentId    String?   @map("student_id") @db.Uuid
+  staffId      String?   @map("staff_id") @db.Uuid
+  /// auto or manual
+  matchedBy    String    @default("manual") @map("matched_by")
+  createdById  String?   @map("created_by_id") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  archivedAt   DateTime? @map("archived_at")
+
+  device AttendanceDevice @relation(fields: [deviceId], references: [id])
+
+  @@unique([deviceId, deviceUserNo])
+  @@map("device_user_map")
+}
+
+/// Device Punch: one raw punch from a device, accepted or rejected with the reason.
+model DevicePunch {
+  id           String   @id @default(uuid()) @db.Uuid
+  schoolId     String   @map("school_id") @db.Uuid
+  deviceId     String   @map("device_id") @db.Uuid
+  /// The device's own unique number for the punch; the same number twice counts once.
+  punchNo      String   @map("punch_no")
+  deviceUserNo String   @map("device_user_no")
+  punchedAt    DateTime @map("punched_at")
+  receivedAt   DateTime @default(now()) @map("received_at")
+  accepted     Boolean  @default(false)
+  /// unknown-user, inactive-device, not-allowed, outside-window, repeat, holiday, future
+  rejectReason String?  @map("reject_reason")
+  studentId    String?  @map("student_id") @db.Uuid
+  staffId      String?  @map("staff_id") @db.Uuid
+  markId       String?  @map("mark_id") @db.Uuid
+
+  device AttendanceDevice @relation(fields: [deviceId], references: [id])
+
+  @@unique([deviceId, punchNo])
+  @@index([schoolId, receivedAt])
+  @@index([schoolId, accepted, rejectReason])
+  @@map("device_punch")
+}
+
+/// QR Session: a QR code for check-in, fixed or changing every day.
+model QrSession {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  campusId    String?   @map("campus_id") @db.Uuid
+  name        String
+  /// students, staff, both
+  forWhom     String    @default("staff") @map("for_whom")
+  /// school or campus
+  scope       String    @default("school")
+  /// daily or fixed
+  rotation    String    @default("daily")
+  /// Encrypted secret the day's code is made from.
+  secretEnc   String    @map("secret_enc")
+  validFrom   DateTime  @default(now()) @map("valid_from")
+  expiresAt   DateTime? @map("expires_at")
+  isActive    Boolean   @default(true) @map("is_active")
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  @@map("qr_session")
+}
+
+/// Geo-fence: the campus area for mobile and QR check-in.
+model GeoFence {
+  id          String   @id @default(uuid()) @db.Uuid
+  schoolId    String   @map("school_id") @db.Uuid
+  campusId    String   @map("campus_id") @db.Uuid
+  latitude    Decimal  @db.Decimal(9, 6)
+  longitude   Decimal  @db.Decimal(9, 6)
+  radiusM     Int      @default(50) @map("radius_m")
+  studentsOn  Boolean  @default(false) @map("students_on")
+  staffOn     Boolean  @default(true) @map("staff_on")
+  updatedById String?  @map("updated_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([schoolId, campusId])
+  @@map("geo_fence")
+}
+
+/// Staff Shift: working hours for a group of staff (optional).
+model StaffShift {
+  id           String    @id @default(uuid()) @db.Uuid
+  schoolId     String    @map("school_id") @db.Uuid
+  name         String
+  startTime    String    @map("start_time")
+  endTime      String    @map("end_time")
+  /// Empty = the school's staff late rule.
+  lateAfterMin Int?      @map("late_after_min")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  archivedAt   DateTime? @map("archived_at")
+
+  assignments StaffShiftAssignment[]
+
+  @@map("staff_shift")
+}
+
+/// Which shift a staff member works, from a date.
+model StaffShiftAssignment {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  staffId     String    @map("staff_id") @db.Uuid
+  shiftId     String    @map("shift_id") @db.Uuid
+  fromDate    DateTime  @map("from_date") @db.Date
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  shift StaffShift @relation(fields: [shiftId], references: [id])
+
+  @@index([schoolId, staffId, fromDate])
+  @@map("staff_shift_assignment")
+}
+
+/// Overtime Entry: extra hours a staff member worked on a date (optional).
+model OvertimeEntry {
+  id           String    @id @default(uuid()) @db.Uuid
+  schoolId     String    @map("school_id") @db.Uuid
+  staffId      String    @map("staff_id") @db.Uuid
+  date         DateTime  @db.Date
+  minutes      Int
+  note         String?
+  recordedById String?   @map("recorded_by_id") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  archivedAt   DateTime? @map("archived_at")
+
+  @@index([schoolId, staffId, date])
+  @@map("overtime_entry")
+}
+
+/// Student leave quota: days allowed per leave type for a term or year (optional).
+model StudentLeaveQuota {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  leaveTypeId String    @unique @map("leave_type_id") @db.Uuid
+  days        Decimal   @db.Decimal(5, 1)
+  /// term or year
+  period      String    @default("term")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  @@map("student_leave_quota")
+}

@@ -1,0 +1,404 @@
+// 07 Finance Management: the Day Book (made only by the software), other
+// income, expenses with approval, cash and bank accounts with their books,
+// budgets, journal entries and period closing. Everything works by financial
+// year (04-data-model.md rules 10, 35, 36, 38).
+
+enum DayBookDirection {
+  IN
+  OUT
+}
+
+enum IncomeStatus {
+  DRAFT
+  POSTED
+  CANCELLED
+}
+
+enum ExpenseStatus {
+  DRAFT
+  WAITING
+  APPROVED
+  PAID
+  CANCELLED
+}
+
+enum MoneyAccountKind {
+  CASH
+  BANK
+}
+
+/// Finance Settings (07 §6): one per school.
+model FinanceSetting {
+  id                  String   @id @default(uuid()) @db.Uuid
+  schoolId            String   @unique @map("school_id") @db.Uuid
+  /// 4 = April, so the financial year runs April to March.
+  fyStartMonth        Int      @default(4) @map("fy_start_month")
+  /// Expenses up to this amount are approved at once; above it they go to Approvals.
+  expenseApproveUpTo  BigInt   @default(500000) @map("expense_approve_up_to")
+  /// A bill photo is needed above this amount (inferred).
+  billRequiredAbove   BigInt   @default(200000) @map("bill_required_above")
+  incomeReceiptPrefix String   @default("INC/") @map("income_receipt_prefix")
+  journalPrefix       String   @default("JV/") @map("journal_prefix")
+  /// First day of records in School OS. Older money stays in the old software.
+  goLiveDate          DateTime @default(dbgenerated("'2026-04-01'::date")) @map("go_live_date") @db.Date
+  updatedById         String?  @map("updated_by_id") @db.Uuid
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@map("finance_setting")
+}
+
+/// Account Head (chart of accounts): an income or expense head with a code.
+model AccountHead {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  /// "INCOME" or "EXPENSE".
+  kind        String
+  code        String
+  name        String
+  /// Group such as "Academic income" or "Staff costs".
+  groupName   String    @map("group_name")
+  /// The ledger name in Tally, for the voucher export.
+  tallyLedger String?   @map("tally_ledger")
+  /// Heads the software posts to: "fees", "salary", "refunds"...
+  systemKey   String?   @map("system_key")
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  @@unique([schoolId, code])
+  @@map("account_head")
+}
+
+/// Cost Centre: a department or unit that expenses and budgets are tagged to.
+model CostCentre {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  name        String
+  code        String?
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  @@unique([schoolId, name])
+  @@map("cost_centre")
+}
+
+/// Bank Account: cash in hand or one of the school's bank accounts.
+model BankAccount {
+  id           String           @id @default(uuid()) @db.Uuid
+  schoolId     String           @map("school_id") @db.Uuid
+  kind         MoneyAccountKind
+  name         String
+  bankName     String?          @map("bank_name")
+  /// Encrypted full account number; screens show the last 4 only.
+  accountNoEnc String?          @map("account_no_enc")
+  accountLast4 String?          @map("account_last4")
+  ifsc         String?
+  /// The main bank account (fees with no account chosen go here).
+  isMain       Boolean          @default(false) @map("is_main")
+  campusId     String?          @map("campus_id") @db.Uuid
+  createdById  String?          @map("created_by_id") @db.Uuid
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+  archivedAt   DateTime?        @map("archived_at")
+
+  @@unique([schoolId, name])
+  @@map("bank_account")
+}
+
+/// Day Book Entry: one line in the Day Book, made only by the software.
+/// Each source record posts once (sourceKey); a cancellation adds a reversing entry.
+model DayBookEntry {
+  id               String           @id @default(uuid()) @db.Uuid
+  schoolId         String           @map("school_id") @db.Uuid
+  financialYearId  String           @map("financial_year_id") @db.Uuid
+  date             DateTime         @db.Date
+  postedAt         DateTime         @default(now()) @map("posted_at")
+  direction        DayBookDirection
+  /// Total of the entry (amount + penalty).
+  amountPaise      BigInt           @map("amount_paise")
+  /// The late fee part, shown as penalty.
+  penaltyPaise     BigInt           @default(0) @map("penalty_paise")
+  mode             String
+  /// online-fees, fees-full, fees-partial, other-fees, daycare, other-income, expense, salary, refund, reversal, opening, transfer.
+  section          String
+  headName         String           @map("head_name")
+  feeHeadIds       String[]         @default([]) @map("fee_head_ids")
+  accountHeadId    String?          @map("account_head_id") @db.Uuid
+  /// Cash or bank account the money is in.
+  accountId        String?          @map("account_id") @db.Uuid
+  /// For fee entries when fees go into different bank accounts: the bank account the fee head goes to.
+  depositAccountId String?          @map("deposit_account_id") @db.Uuid
+  /// payment, payment-cancel, refund, income, income-cancel, expense-payment, expense-cancel, payroll, salary-advance, opening-balance, transfer.
+  sourceType       String           @map("source_type")
+  sourceId         String           @map("source_id")
+  sourceKey        String           @map("source_key")
+  studentId        String?          @map("student_id") @db.Uuid
+  classId          String?          @map("class_id") @db.Uuid
+  sectionId        String?          @map("section_id") @db.Uuid
+  staffId          String?          @map("staff_id") @db.Uuid
+  vendorId         String?          @map("vendor_id") @db.Uuid
+  costCentreId     String?          @map("cost_centre_id") @db.Uuid
+  partyName        String           @map("party_name")
+  reference        String?
+  note             String?
+  reversesEntryId  String?          @map("reverses_entry_id") @db.Uuid
+  createdById      String?          @map("created_by_id") @db.Uuid
+
+  @@unique([schoolId, sourceKey])
+  @@index([schoolId, financialYearId, date])
+  @@index([schoolId, accountId, date])
+  @@index([schoolId, sourceType, sourceId])
+  @@map("day_book_entry")
+}
+
+/// Income: money the school receives other than fees.
+model Income {
+  id              String       @id @default(uuid()) @db.Uuid
+  schoolId        String       @map("school_id") @db.Uuid
+  financialYearId String       @map("financial_year_id") @db.Uuid
+  date            DateTime     @db.Date
+  accountHeadId   String       @map("account_head_id") @db.Uuid
+  amountPaise     BigInt       @map("amount_paise")
+  receivedFrom    String       @map("received_from")
+  vendorId        String?      @map("vendor_id") @db.Uuid
+  mode            String
+  reference       String?
+  accountId       String       @map("account_id") @db.Uuid
+  note            String?
+  status          IncomeStatus @default(DRAFT)
+  receiptNo       String?      @map("receipt_no")
+  postedAt        DateTime?    @map("posted_at")
+  cancelReason    String?      @map("cancel_reason")
+  cancelledAt     DateTime?    @map("cancelled_at")
+  cancelledById   String?      @map("cancelled_by_id") @db.Uuid
+  recordedById    String?      @map("recorded_by_id") @db.Uuid
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  @@unique([schoolId, receiptNo])
+  @@index([schoolId, date])
+  @@map("income")
+}
+
+/// Vendor: someone the school buys from (shared with Inventory).
+model Vendor {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  name        String
+  phone       String?
+  gstin       String?
+  address     String?
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  @@unique([schoolId, name])
+  @@map("vendor")
+}
+
+/// Expense: a bill or expense paid by the school. Reaches the Day Book only when paid (D12).
+model Expense {
+  id              String        @id @default(uuid()) @db.Uuid
+  schoolId        String        @map("school_id") @db.Uuid
+  financialYearId String        @map("financial_year_id") @db.Uuid
+  number          String
+  date            DateTime      @db.Date
+  accountHeadId   String        @map("account_head_id") @db.Uuid
+  vendorId        String?       @map("vendor_id") @db.Uuid
+  costCentreId    String?       @map("cost_centre_id") @db.Uuid
+  amountPaise     BigInt        @map("amount_paise")
+  paidPaise       BigInt        @default(0) @map("paid_paise")
+  billFileId      String?       @map("bill_file_id") @db.Uuid
+  /// Vendor bill (purchase invoice) details.
+  isVendorBill    Boolean       @default(false) @map("is_vendor_bill")
+  billNo          String?       @map("bill_no")
+  billDueDate     DateTime?     @map("bill_due_date") @db.Date
+  note            String?
+  status          ExpenseStatus @default(DRAFT)
+  approvalId      String?       @map("approval_id") @db.Uuid
+  rejectReason    String?       @map("reject_reason")
+  /// Reason given when saved despite a duplicate warning.
+  duplicateReason String?       @map("duplicate_reason")
+  /// Brought in from old software: read-only, never in the Day Book or cash and bank books.
+  broughtIn       Boolean       @default(false) @map("brought_in")
+  importBatchId   String?       @map("import_batch_id") @db.Uuid
+  cancelReason    String?       @map("cancel_reason")
+  cancelledAt     DateTime?     @map("cancelled_at")
+  cancelledById   String?       @map("cancelled_by_id") @db.Uuid
+  approvedById    String?       @map("approved_by_id") @db.Uuid
+  approvedAt      DateTime?     @map("approved_at")
+  requestedById   String?       @map("requested_by_id") @db.Uuid
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  payments ExpensePayment[]
+
+  @@unique([schoolId, number])
+  @@index([schoolId, status])
+  @@index([schoolId, date])
+  @@index([schoolId, vendorId, billNo])
+  @@map("expense")
+}
+
+/// One payment of an expense (a vendor bill can be paid in parts).
+model ExpensePayment {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  expenseId   String    @map("expense_id") @db.Uuid
+  amountPaise BigInt    @map("amount_paise")
+  date        DateTime  @db.Date
+  mode        String
+  reference   String?
+  accountId   String    @map("account_id") @db.Uuid
+  paidById    String?   @map("paid_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  cancelledAt DateTime? @map("cancelled_at")
+
+  expense Expense @relation(fields: [expenseId], references: [id])
+
+  @@index([schoolId, expenseId])
+  @@map("expense_payment")
+}
+
+/// Budget (optional): a yearly amount planned for a head and department. Used is always worked out.
+model Budget {
+  id              String    @id @default(uuid()) @db.Uuid
+  schoolId        String    @map("school_id") @db.Uuid
+  financialYearId String    @map("financial_year_id") @db.Uuid
+  accountHeadId   String    @map("account_head_id") @db.Uuid
+  costCentreId    String?   @map("cost_centre_id") @db.Uuid
+  /// "year", "term" or "month".
+  period          String    @default("year")
+  amountPaise     BigInt    @map("amount_paise")
+  originalPaise   BigInt    @map("original_paise")
+  /// Amount per month (12 values, April first) when split.
+  split           Json      @default("[]")
+  createdById     String?   @map("created_by_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  archivedAt      DateTime? @map("archived_at")
+
+  revisions BudgetRevision[]
+
+  @@index([schoolId, financialYearId])
+  @@map("budget")
+}
+
+/// A revision of a budget: the original and each revision are kept.
+model BudgetRevision {
+  id          String   @id @default(uuid()) @db.Uuid
+  schoolId    String   @map("school_id") @db.Uuid
+  budgetId    String   @map("budget_id") @db.Uuid
+  fromPaise   BigInt   @map("from_paise")
+  toPaise     BigInt   @map("to_paise")
+  reason      String
+  createdById String?  @map("created_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  budget Budget @relation(fields: [budgetId], references: [id])
+
+  @@map("budget_revision")
+}
+
+/// Cash Transfer (contra): money moved between cash and bank, e.g. a cash deposit.
+model CashTransfer {
+  id              String    @id @default(uuid()) @db.Uuid
+  schoolId        String    @map("school_id") @db.Uuid
+  financialYearId String    @map("financial_year_id") @db.Uuid
+  fromAccountId   String    @map("from_account_id") @db.Uuid
+  toAccountId     String    @map("to_account_id") @db.Uuid
+  amountPaise     BigInt    @map("amount_paise")
+  date            DateTime  @db.Date
+  reference       String?
+  cancelReason    String?   @map("cancel_reason")
+  cancelledAt     DateTime? @map("cancelled_at")
+  createdById     String?   @map("created_by_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  @@index([schoolId, date])
+  @@map("cash_transfer")
+}
+
+/// Journal Entry (optional, full accounts): debits must equal credits; never edited, only reversed.
+model JournalEntry {
+  id              String   @id @default(uuid()) @db.Uuid
+  schoolId        String   @map("school_id") @db.Uuid
+  financialYearId String   @map("financial_year_id") @db.Uuid
+  number          String
+  date            DateTime @db.Date
+  narration       String
+  campusId        String?  @map("campus_id") @db.Uuid
+  reversesId      String?  @map("reverses_id") @db.Uuid
+  reversedById    String?  @map("reversed_by_id") @db.Uuid
+  createdById     String?  @map("created_by_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  lines JournalLine[]
+
+  @@unique([schoolId, number])
+  @@index([schoolId, date])
+  @@map("journal_entry")
+}
+
+model JournalLine {
+  id            String  @id @default(uuid()) @db.Uuid
+  schoolId      String  @map("school_id") @db.Uuid
+  entryId       String  @map("entry_id") @db.Uuid
+  /// One of: an account head, or a cash or bank account.
+  accountHeadId String? @map("account_head_id") @db.Uuid
+  bankAccountId String? @map("bank_account_id") @db.Uuid
+  debitPaise    BigInt  @default(0) @map("debit_paise")
+  creditPaise   BigInt  @default(0) @map("credit_paise")
+
+  entry JournalEntry @relation(fields: [entryId], references: [id])
+
+  @@index([schoolId, accountHeadId])
+  @@map("journal_line")
+}
+
+/// Period Close: a closed month, whose books can no longer change.
+model PeriodClose {
+  id              String   @id @default(uuid()) @db.Uuid
+  schoolId        String   @map("school_id") @db.Uuid
+  financialYearId String   @map("financial_year_id") @db.Uuid
+  /// First day of the closed month.
+  month           DateTime @db.Date
+  closedById      String?  @map("closed_by_id") @db.Uuid
+  closedAt        DateTime @default(now()) @map("closed_at")
+
+  @@unique([schoolId, month])
+  @@map("period_close")
+}
+
+/// Day Close ("Close the day", the day-level Period Close of the approved
+/// design): the cash in the box is counted against what the books expect and
+/// the day's Day Book is locked. A reopened close keeps its row (reopenedAt);
+/// closing again adds a new row. At most one close is in force per date
+/// (partial unique index in the migration).
+model DayClose {
+  id                String    @id @default(uuid()) @db.Uuid
+  schoolId          String    @map("school_id") @db.Uuid
+  financialYearId   String    @map("financial_year_id") @db.Uuid
+  date              DateTime  @db.Date
+  /// Cash in hand the books expect at the end of the day (every cash account).
+  expectedCashPaise BigInt    @map("expected_cash_paise")
+  countedCashPaise  BigInt    @map("counted_cash_paise")
+  /// Why the count differs from the books (needed when it does).
+  differenceReason  String?   @map("difference_reason")
+  /// The day's totals when it was closed.
+  incomePaise       BigInt    @map("income_paise")
+  expensePaise      BigInt    @map("expense_paise")
+  entryCount        Int       @map("entry_count")
+  closedById        String?   @map("closed_by_id") @db.Uuid
+  closedAt          DateTime  @default(now()) @map("closed_at")
+  reopenedAt        DateTime? @map("reopened_at")
+  reopenedById      String?   @map("reopened_by_id") @db.Uuid
+  reopenReason      String?   @map("reopen_reason")
+
+  @@index([schoolId, date])
+  @@map("day_close")
+}

@@ -105,6 +105,7 @@ export default async function MessagePage({ params, searchParams }: Props) {
         {m.status === "SCHEDULED" && m.scheduledAt && <Banner tone="info" title={`Scheduled for ${formatDateTime(m.scheduledAt, tz)}.`}>Nobody has received it yet. You can cancel it until it goes.</Banner>}
         {m.status === "CANCELLED" && <Banner tone="warn" title="Cancelled.">{m.cancelledAt ? `On ${formatDateTime(m.cancelledAt, tz)}` : ""}{m.cancelledById ? ` by ${data.names.get(m.cancelledById) ?? "staff"}` : ""}. Nobody got it, and no credits were used.</Banner>}
         {m.isEmergency && <Banner tone="bad" title="Emergency broadcast.">Sent also to parents who opted out.</Banner>}
+        {data.rows.some((r) => r.provider === "sandbox") && <Banner tone="warn" title="Test mode: not really sent.">The channel is in test mode in Settings, SMS, WhatsApp &amp; Email, so the people marked &ldquo;Test mode&rdquo; below did not receive this message. It is only recorded.</Banner>}
         {skipped.length > 0 && (
           <Banner tone="warn" title={`${skipped.reduce((n, x) => n + x.count, 0)} left out when it was sent:`}>
             {skipped.map((x) => `${x.reason} ${x.count}${x.names?.length ? ` (${x.names.slice(0, 4).join(", ")}${x.count > 4 ? " and others" : ""})` : ""}`).join("; ")}.

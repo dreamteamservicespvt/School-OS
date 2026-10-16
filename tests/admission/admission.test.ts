@@ -136,6 +136,12 @@ describe("the consent code (D8a)", () => {
     expect(r).toEqual({ ok: false, message: "Too many wrong codes. Send a new code." });
   });
 
+  it("says the school has no SMS set up, not that the parent's number is wrong (QA PEOPLE-05)", async () => {
+    // The test school has no messaging channel switched on.
+    await expect(withSchool(principal.ctx, (tx) => startOtp(tx, principal.ctx, { phone: "9988776644", purpose: "test:no-channel", schoolName: "Test", about: null })))
+      .rejects.toThrow("The code could not be sent. No messaging channel is set up (Settings, SMS, WhatsApp & Email).");
+  });
+
   it("refuses an expired code", async () => {
     await withSchool(principal.ctx, (tx) => startOtp(tx, principal.ctx, { phone, purpose, schoolName: "Test", about: null }, { deliver }));
     const later = new Date(Date.now() + 11 * 60_000);

@@ -184,8 +184,15 @@ export function TodayCard({ items, birthdays }: { items: AgendaItem[]; birthdays
           <p className="text-[12.5px] font-semibold text-ink2 flex items-center gap-1.5 mb-1.5"><I.Cake size={15} className="text-brand" aria-hidden="true" />Birthdays this week</p>
           <ul className="flex flex-col gap-1 text-[13px]">
             {birthdays.slice(0, 6).map((b) => <li key={b.id} className="flex justify-between gap-3"><span className="truncate">{b.name}</span><span className="text-ink3 shrink-0">{b.when}</span></li>)}
-            {birthdays.length > 6 && <li className="text-ink3">and {birthdays.length - 6} more</li>}
           </ul>
+          {birthdays.length > 6 && (
+            <details className="mt-1 text-[13px]">
+              <summary className="cursor-pointer text-ink3 hover:text-ink">and {birthdays.length - 6} more</summary>
+              <ul className="mt-1 flex flex-col gap-1">
+                {birthdays.slice(6).map((b) => <li key={b.id} className="flex justify-between gap-3"><span className="truncate">{b.name}</span><span className="text-ink3 shrink-0">{b.when}</span></li>)}
+              </ul>
+            </details>
+          )}
         </div>
       )}
     </Card>

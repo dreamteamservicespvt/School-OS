@@ -34,6 +34,9 @@ function Picker({ applicants, chosen, onChange, error }: { applicants: Applicant
   );
 }
 
+/** The day after "YYYY-MM-DD": a test is booked ahead, and today's 9:30 may already have passed. */
+const nextDay = (day: string) => new Date(Date.parse(`${day}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+
 export function ScheduleTestButton({ applicants, classes, chosen: first = [], open: startOpen = false, minDay }: { applicants: Applicant[]; classes: { value: string; label: string }[]; chosen?: string[]; open?: boolean; minDay: string }) {
   const [open, setOpen] = useState(startOpen);
   const [chosen, setChosen] = useState(new Set(first));
@@ -46,7 +49,7 @@ export function ScheduleTestButton({ applicants, classes, chosen: first = [], op
           <>
             <TextField label="Test name" name="title" required maxLength={120} defaultValue={f.val("title", "Entrance test")} error={f.err("title")} />
             <Picker applicants={applicants} chosen={chosen} onChange={setChosen} error={f.err("applicationIds")} />
-            <WhenField name="startsAt" label="Date" required defaultValue={f.val("startsAt", `${minDay}T09:30`)} error={f.err("startsAt")} min={minDay} />
+            <WhenField name="startsAt" label="Date" required defaultValue={f.val("startsAt", `${nextDay(minDay)}T09:30`)} error={f.err("startsAt")} min={minDay} />
             <div className="grid grid-cols-[1fr_120px] gap-3">
               <TextField label="Venue" name="venue" maxLength={120} placeholder="Exam hall, Block B" defaultValue={f.val("venue")} error={f.err("venue")} />
               <TextField label="Maximum marks" name="maxMarks" inputMode="numeric" defaultValue={f.val("maxMarks", "100")} error={f.err("maxMarks")} className="tnum" />

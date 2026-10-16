@@ -13,6 +13,7 @@ import { Stats } from "@/components/ui/stats";
 import { Toolbar } from "@/components/ui/toolbar";
 import { DataList } from "@/components/ui/data-list";
 import { Pill } from "@/components/ui/badge";
+import { Alert } from "@/components/ui/alert";
 import { Avatar } from "@/components/ui/avatar";
 import { ButtonLink } from "@/components/ui/button";
 import { Timeline, type TimelineItem } from "@/components/ui/timeline";
@@ -39,12 +40,14 @@ export default async function MessageHistoryPage({ searchParams }: { searchParam
   const mineOnly: Prisma.MessageWhereInput = { schoolId: current.ctx.schoolId, ...(access.full ? {} : { sentById: current.ctx.userId }) };
 
   const data = await withSchool(current.ctx, async (tx) => {
-    const [rows, total, sentCount, reach, firstSent] = await Promise.all([
+    const [rows, total, sentCount, reach, firstSent, testMode] = await Promise.all([
       tx.message.findMany({ where, orderBy: { createdAt: params.sort === "date" && params.dir === "asc" ? "asc" : "desc" }, ...skipTake(params) }),
       tx.message.count({ where }),
       tx.message.count({ where: { ...mineOnly, status: { in: ["SENT", "QUEUED"] } } }),
       tx.messageRecipient.groupBy({ by: ["status"], where: { schoolId: current.ctx.schoolId, isBackup: false, message: mineOnly }, _count: { _all: true } }),
       tx.message.findFirst({ where: mineOnly, orderBy: { createdAt: "asc" }, select: { createdAt: true } }),
+      // Test mode (no provider connected yet): recorded as Delivered, but nothing reached anyone.
+      tx.messageRecipient.count({ where: { schoolId: current.ctx.schoolId, isBackup: false, provider: "sandbox", message: mineOnly } }),
     ]);
     // "One person": everyone this sender has messaged, found by name; then their messages, newest first.
     const who = typeof sp.who === "string" ? sp.who.trim().slice(0, 60) : "";
@@ -66,7 +69,7 @@ export default async function MessageHistoryPage({ searchParams }: { searchParam
       });
       timeline = { name: items[0]?.name ?? "", description: items[0]?.description ?? null, items };
     }
-    return { rows, total, sentCount, reach, firstSent, people, timeline, counts: await countsFor(tx, current.ctx, rows.map((r) => r.id)), names: await senderNames(tx, rows.map((r) => r.sentById)) };
+    return { rows, total, sentCount, reach, firstSent, testMode, people, timeline, counts: await countsFor(tx, current.ctx, rows.map((r) => r.id)), names: await senderNames(tx, rows.map((r) => r.sentById)) };
   });
 
   const by = (s: string) => data.reach.find((r) => r.status === s)?._count._all ?? 0;
@@ -88,10 +91,15 @@ export default async function MessageHistoryPage({ searchParams }: { searchParam
         <Stats items={[
           { label: "Messages sent", value: data.sentCount.toLocaleString("en-IN"), sub: data.firstSent ? `Since ${formatDate(data.firstSent.createdAt, tz)}` : "None yet", icon: Send },
           { label: "People reached", value: reached.toLocaleString("en-IN"), sub: "One line per person", icon: Users },
-          { label: "Delivered", value: pct(delivered, reached), sub: `${delivered.toLocaleString("en-IN")} people`, tone: "ok", icon: CheckCheck },
+          { label: "Delivered", value: pct(delivered, reached), sub: data.testMode ? `${delivered.toLocaleString("en-IN")} people, ${data.testMode.toLocaleString("en-IN")} in test mode` : `${delivered.toLocaleString("en-IN")} people`, tone: "ok", icon: CheckCheck },
           { label: "Read", value: reached ? `${Math.round((read / reached) * 100)}%` : "–", sub: `${read.toLocaleString("en-IN")} people`, icon: Eye },
           { label: "Failed", value: failed.toLocaleString("en-IN"), sub: `Retry up to ${retryLimit} times`, tone: failed ? "bad" : undefined, icon: CircleAlert, href: failed ? "/communication/history?status=failed" : undefined },
         ]} />
+        {data.testMode > 0 && (
+          <Alert tone="warning" title="Some messages were sent in test mode">
+            {data.testMode.toLocaleString("en-IN")} {data.testMode === 1 ? "message was" : "messages were"} only recorded, because the channel is in test mode in Settings, SMS, WhatsApp &amp; Email. Nobody received them, though they count as Delivered here. Open a message to see which.
+          </Alert>
+        )}
         <Card className="overflow-hidden">
           <Toolbar className="flex-wrap">
             <UrlSegmented param="mode" label="Show" options={[{ value: "all", label: "All messages" }, { value: "person", label: "One person" }]} />

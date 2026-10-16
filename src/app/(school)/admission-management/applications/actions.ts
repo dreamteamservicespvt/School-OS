@@ -114,7 +114,7 @@ export async function verifyDocAction(_: FormState<unknown>, fd: FormData) {
 }
 
 export async function rejectDocAction(_: FormState<unknown>, fd: FormData) {
-  return admissionAct("edit", fd, (w) => rejectDocument(w.tx, w.ctx, w.v, w.current.school.name, id(fd, "docId", "document"), str(fd, "reason"), str(fd, "tellParent") === "on"), (told) => `Document rejected.${told ? " The parent was told the reason." : ""}`);
+  return admissionAct("edit", fd, (w) => rejectDocument(w.tx, w.ctx, w.v, w.current.school.name, id(fd, "docId", "document"), str(fd, "reason"), str(fd, "tellParent") === "on"), (r) => `Document rejected.${r.told ? " A message with the reason is on its way to the parent." : r.notSent ? ` The parent was not messaged (${r.notSent}). Please tell them by phone.` : ""}`);
 }
 
 export async function originalSeenAction(_: FormState<unknown>, fd: FormData) {
@@ -122,7 +122,7 @@ export async function originalSeenAction(_: FormState<unknown>, fd: FormData) {
 }
 
 export async function remindAction(_: FormState<unknown>, fd: FormData) {
-  return admissionAct("edit", fd, (w) => remindMissing(w.tx, w.ctx, w.v, w.current.school.name, id(fd, "id", "application")), (n) => `Reminder sent to the parent listing ${n} ${n === 1 ? "paper" : "papers"}.`);
+  return admissionAct("edit", fd, (w) => remindMissing(w.tx, w.ctx, w.v, w.current.school.name, id(fd, "id", "application")), (n) => `Reminder on its way to the parent, listing ${n} ${n === 1 ? "paper" : "papers"}.`);
 }
 
 export async function exceptionAction(_: FormState<unknown>, fd: FormData) {

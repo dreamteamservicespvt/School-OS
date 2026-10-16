@@ -109,11 +109,11 @@ function makeKind(key: string, label: string, columns: ImportColumn[], opts: Imp
       const fullName = row.fullName.replace(/\s+/g, " ").trim();
       const titleName = fullName === fullName.toUpperCase() ? fullName.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) : fullName;
       const dob = parseDate(row.dateOfBirth);
-      if (!dob) problems.push(`Date of birth ${row.dateOfBirth} is not a real date. Write it as DD-MM-YYYY.`);
+      if (!dob) { if (row.dateOfBirth) problems.push(`Date of birth ${row.dateOfBirth} is not a real date. Write it as DD-MM-YYYY.`); }
       else if (dob > new Date()) problems.push(`Date of birth ${row.dateOfBirth} is in the future.`);
       const gender = genderOf(row.gender);
-      if (!gender) problems.push(`Gender "${row.gender}" is not one of ${GENDERS.join(", ")}.`);
-      const phoneProblem = checkIndianMobile(row.guardianPhone);
+      if (!gender && row.gender) problems.push(`Gender "${row.gender}" is not one of ${GENDERS.join(", ")}.`);
+      const phoneProblem = row.guardianPhone ? checkIndianMobile(row.guardianPhone) : null;
       if (phoneProblem) problems.push(`Parent's phone: ${phoneProblem}`);
       const phone = row.guardianPhone.replace(/[^\d]/g, "").replace(/^91(?=\d{10}$)/, "");
       const motherPhone = row.motherPhone ? row.motherPhone.replace(/[^\d]/g, "").replace(/^91(?=\d{10}$)/, "") : null;

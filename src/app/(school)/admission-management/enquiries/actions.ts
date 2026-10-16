@@ -135,7 +135,7 @@ export async function messageAction(_: FormState<unknown>, fd: FormData) {
     const channel = str(fd, "channel");
     if (channel !== "whatsapp" && channel !== "sms" && channel !== "email") throw new AdmissionProblem("Choose how to send it.", "channel");
     return sendEnquiryMessage(w.tx, w.ctx, w.v, id(fd, "id", "enquiry"), { channel, template: str(fd, "template") || "admission-enquiry-message", text: str(fd, "text") });
-  }, () => "Message sent. It is saved in this enquiry's history.");
+  }, () => "Message queued: it is on its way to the parent and saved in this enquiry's history.");
 }
 
 export async function closeLostAction(_: FormState<unknown>, fd: FormData) {
@@ -182,5 +182,5 @@ export async function campaignAction(_: FormState<unknown>, fd: FormData) {
     const channel = str(fd, "channel");
     if (channel !== "whatsapp" && channel !== "sms" && channel !== "email") throw new AdmissionProblem("Choose how to send it.", "channel");
     return runCampaign(w.tx, w.ctx, w.v, w.s, ids, { name: str(fd, "name"), message: str(fd, "message"), channel });
-  }, (r) => ({ message: `Campaign "${r.campaign.name}" sent to ${r.sent} ${r.sent === 1 ? "family" : "families"}${r.skipped ? `, ${r.skipped} skipped (${r.skippedWhy.slice(0, 3).join("; ")}${r.skippedWhy.length > 3 ? "…" : ""})` : ""}.` }), { timeout: 60_000 });
+  }, (r) => ({ message: `Campaign "${r.campaign.name}" ${r.sent ? `queued for ${r.sent} ${r.sent === 1 ? "family" : "families"}` : "was not sent to anyone"}${r.skipped ? `, ${r.skipped} skipped (${r.skippedWhy.slice(0, 3).join("; ")}${r.skippedWhy.length > 3 ? "…" : ""})` : ""}.` }), { timeout: 60_000 });
 }

@@ -8,7 +8,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import type { Tx } from "@/lib/db";
 import { examScope, type ExamScope } from "@/lib/exams/scope";
 import { createDatesheet, publishDatesheet } from "@/lib/exams/datesheet";
-import { lockPapers, papersFor, requestModeration, saveMarks, submitPaper } from "@/lib/exams/marks";
+import { lockPapers, papersFor, readMarkRows, requestModeration, saveMarks, submitPaper } from "@/lib/exams/marks";
 import { publishResults, unpublishResults } from "@/lib/exams/results";
 import { examSettings, gradeScales, saveGradeScale } from "@/lib/exams/settings";
 import { parentReportCards } from "@/lib/exams/parent-link";
@@ -86,6 +86,17 @@ describe("datesheet", () => {
 });
 
 describe("marks entry and locking", () => {
+  it("medical leave (ML) sent by the marks grid is kept apart from absent (QA ACAD)", () => {
+    const [ml, ab, typed] = readMarkRows([
+      { studentId: "a", parts: {}, absent: true, medical: true, grade: null, remark: null },
+      { studentId: "b", parts: {}, absent: true, grade: null, remark: null },
+      { studentId: "c", parts: { Marks: "37.5" }, absent: false, grade: null, remark: null },
+    ]);
+    expect(ml).toMatchObject({ absent: true, medical: true });
+    expect(ab).toMatchObject({ absent: true, medical: false });
+    expect(typed.parts).toEqual({ Marks: 37.5 });
+  });
+
   it("a teacher enters marks only for the subjects and sections they teach", async () => {
     const t = { schoolId: s.school.id, userId: s.teacherUser.id };
     const r = await s.run((tx) => saveMarks(tx, t, teacher, { entryId: mat5a, sectionId: s.s5a.id, rows: [marks(students[0], 45), marks(students[1], 45), marks(students[2], 30), marks(students[3], 10)] }));

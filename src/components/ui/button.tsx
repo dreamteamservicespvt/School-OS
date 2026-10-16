@@ -11,7 +11,7 @@ const VARIANTS: Record<ButtonVariant, string> = {
   secondary: "bg-surface text-ink border border-line hover:bg-sunken active:bg-line/60",
   soft: "bg-brand/10 text-brand hover:bg-brand/15 active:bg-brand/20",
   ghost: "text-ink2 hover:bg-sunken hover:text-ink active:bg-line/60",
-  danger: "bg-bad text-white hover:brightness-110",
+  danger: "bg-bad text-badink hover:brightness-110",
   "danger-soft": "bg-bad/10 text-bad hover:bg-bad/15",
   "danger-outline": "bg-bad/10 text-bad hover:bg-bad/15",
 };
@@ -84,7 +84,7 @@ export function IconLink({ icon: Icon, label, badge, className, size = 40, ...re
 export function CountDot({ count }: { count?: number | null }) {
   if (!count || count <= 0) return null;
   return (
-    <span aria-hidden="true" className="absolute top-1 right-1 min-w-[17px] h-[17px] px-1 rounded-full bg-bad text-white text-[10px] font-bold grid place-items-center ring-2 ring-surface tnum">
+    <span aria-hidden="true" className="absolute top-1 right-1 min-w-[17px] h-[17px] px-1 rounded-full bg-bad text-badink text-[10px] font-bold grid place-items-center ring-2 ring-surface tnum">
       {count > 99 ? "99+" : count}
     </span>
   );

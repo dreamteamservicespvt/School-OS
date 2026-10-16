@@ -15,8 +15,18 @@ import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { notify } from "../notifications";
 import { formatRupees } from "../format";
+import { findModule } from "../modules";
 import { LibraryProblem } from "./problem";
 import { FINE_REASON } from "./words";
+
+/**
+ * Whether Salary Management is on here. It is a core module (not optional), so it has
+ * no on/off switch row and is always on; the switch is read only if it ever becomes optional.
+ */
+export function salaryModuleOn(modulesOn: ReadonlySet<string>) {
+  const info = findModule("salary-management");
+  return !info?.optional || modulesOn.has("salary-management");
+}
 
 const ZERO = BigInt(0);
 /** Runs whose amounts can still change (Salary Management, Generate Salary). */

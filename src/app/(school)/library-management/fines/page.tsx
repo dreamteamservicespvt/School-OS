@@ -23,7 +23,7 @@ import { Stats, Stack, Toolbar, DataList, Empty } from "@/components/money/kit";
 import { cx } from "@/components/ui/cx";
 import { issueMembers } from "@/lib/library/desk";
 import { fineWhere, syncFeeFines } from "@/lib/library/fines";
-import { salaryWords } from "@/lib/library/salary";
+import { salaryModuleOn, salaryWords } from "@/lib/library/salary";
 import { openSession } from "@/lib/library/stock";
 import { FINE_REASON, FINE_STATUS, paiseToRupees, plural, type FineReason, type FineStatus } from "@/lib/library/words";
 import { LibHead } from "../_components/head";
@@ -96,7 +96,7 @@ async function FinesView({ p, sp }: { p: P; sp: Raw }) {
   const correct = can.fines ? sheetFine("correct") : null;
   const reject = sheetFine("reject");
   // A staff member's fine can go to their next salary (Salary Management) instead of the desk.
-  const salaryOn = current.modulesOn.has("salary-management");
+  const salaryOn = salaryModuleOn(current.modulesOn);
   const mayGoToSalary = (r: Row) => can.fines && salaryOn && r.status === "DUE" && Boolean(r.staffId) && !r.feeDueId && !r.salaryAt;
   const salaryWhere = (r: Row) => salaryWords(r.runId ? d.runs.get(r.runId) ?? null : null);
   const toSalary = (() => { const r = sheetFine("salary"); return r && mayGoToSalary(r) ? r : null; })();

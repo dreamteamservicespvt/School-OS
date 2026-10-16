@@ -11,6 +11,7 @@ import { withSchool } from "@/lib/db";
 import { openYear } from "@/lib/academic/lifecycle";
 import { assignStudents, routeSeats } from "@/lib/transport/places";
 import { carryOver, carryOverRows, endAtYearEnd, noticeNewYear } from "@/lib/transport/carry";
+import { placesView } from "@/lib/transport/views";
 import { as, d, makeTransportSchool, trFor, type TrFixture } from "./fixture";
 
 describe("carrying bus places over to a new academic year", () => {
@@ -99,6 +100,17 @@ describe("carrying bus places over to a new academic year", () => {
   it("counts a carried student's seat once", async () => {
     const seats = await run((tx) => routeSeats(tx, d("2027-03-31"), [f.route1.id]));
     expect(seats.get(f.route1.id)?.used).toBe(3);
+  });
+
+  it("lists a carried student once, on today's place, with next year's place beside it", async () => {
+    const today = d("2027-03-31");
+    const all = await run((tx) => placesView(tx, today, { routeId: null, show: "all", q: "", range: null }));
+    const mine = all.filter((r) => r.p.studentId === f.students[1].id);
+    expect(mine).toHaveLength(1);
+    expect(mine[0].p.id).toBe(place[1]);
+    expect(mine[0].next?.fromDate).toEqual(d("2027-04-01"));
+    const later = await run((tx) => placesView(tx, today, { routeId: null, show: "future", q: "", range: null }));
+    expect(later.filter((r) => r.p.studentId === f.students[1].id).map((r) => r.p.academicYearId)).toEqual([nextId]);
   });
 
   it("ends places not coming back at year end", async () => {

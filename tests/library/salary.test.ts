@@ -15,7 +15,7 @@ import { saveStructure } from "@/lib/salary/structures";
 import { archiveAdjustment, calculateRun, openRun, sendForApproval, takeBack } from "@/lib/salary/payroll";
 import { collectAtDesk, createFine, waiveFine } from "@/lib/library/fines";
 import { librarySettings } from "@/lib/library/settings";
-import { fineDeductionReason, sendFineToSalary, stopFineFromSalary } from "@/lib/library/salary";
+import { fineDeductionReason, salaryModuleOn, sendFineToSalary, stopFineFromSalary } from "@/lib/library/salary";
 import { lines, R } from "../salary/fixture";
 import { as, addTestBook, day, desk, libFor, makeLibrarySchool, staffMember, student, type LibFixture } from "./fixture";
 
@@ -141,5 +141,11 @@ describe("a staff member's library fine taken from salary", () => {
     expect((await libFor(f, f.librarian.id)).can.fines).toBe(true);
     expect((await libFor(f, f.teacher.id)).can.fines).toBe(false);
     expect((await libFor(f, f.accountant.id)).can.fines).toBe(false);
+  });
+
+  it("offers salary in a real school: Salary Management is a core module with no on/off switch", async () => {
+    const { view } = await libFor(f, f.librarian.id);
+    expect(view.modulesOn.has("salary-management")).toBe(false);
+    expect(salaryModuleOn(view.modulesOn)).toBe(true);
   });
 });

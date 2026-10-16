@@ -127,9 +127,14 @@ export async function placesView(tx: Tx, today: Date, f: PlaceFilter) {
   const heads = await tx.feeHead.findMany({ where: { kind: "transport" }, select: { id: true } });
   const structureFee = heads.length ? new Set((await tx.studentFeeDue.findMany({ where: { feeHeadId: { in: heads.map((h) => h.id) }, studentId: { in: places.map((p) => p.studentId) }, state: "OPEN" }, select: { studentId: true } })).map((d) => d.studentId)) : new Set<string>();
   const t = f.q.trim().toLowerCase();
+  // A place carried over to the next year starts the day after this year's place ends:
+  // the student is listed once, on the place in use today, unless later places are asked for.
+  const inUse = new Set(places.filter((p) => p.fromDate <= today).map((p) => p.studentId));
+  const nextOf = new Map(places.filter((p) => p.fromDate > today && inUse.has(p.studentId)).map((p) => [p.studentId, p]));
   const rows = places
+    .filter((p) => f.show === "future" || p.fromDate <= today || !inUse.has(p.studentId))
     .filter((p) => cards.get(p.studentId)?.studying)
-    .map((p) => ({ p, card: cards.get(p.studentId)!, route: routes.find((r) => r.id === p.routeId)!, stop: stops.find((s) => s.id === p.stopId)!, feeAdded: charges.some((c) => c.assignmentId === p.id) || structureFee.has(p.studentId), future: p.fromDate > today }))
+    .map((p) => ({ p, card: cards.get(p.studentId)!, route: routes.find((r) => r.id === p.routeId)!, stop: stops.find((s) => s.id === p.stopId)!, feeAdded: charges.some((c) => c.assignmentId === p.id) || structureFee.has(p.studentId), future: p.fromDate > today, next: p.fromDate <= today ? nextOf.get(p.studentId) ?? null : null }))
     .filter((r) => (f.show === "one-way" ? r.p.type !== "TWO_WAY" : f.show === "no-fee" ? !r.feeAdded : f.show === "future" ? r.future : true))
     .filter((r) => !t || [r.card.name, r.card.admissionNo, r.stop?.name ?? "", r.card.cls].join(" ").toLowerCase().includes(t))
     .sort((a, b) => a.route.number - b.route.number || a.card.classSort - b.card.classSort || a.card.name.localeCompare(b.card.name));

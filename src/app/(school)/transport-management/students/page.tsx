@@ -129,13 +129,13 @@ export default async function StudentTransportPage({ searchParams }: { searchPar
               { key: "r", label: "Route", render: (r) => <span className="flex items-center gap-2"><RouteBadge n={r.route.number} size={28} />{r.route.name}</span> },
               { key: "stop", label: "Stop", render: (r) => <span>{r.stop?.name}<span className="block text-[12.5px] text-ink3 tnum">{r.p.type === "DROP_ONLY" ? "Drop only" : clockOf(r.stop?.pickupMin)}</span></span> },
               { key: "t", label: "Type", render: (r) => <Pill tone={r.p.type === "TWO_WAY" ? "neutral" : "info"}>{assignType(r.p.type)}</Pill> },
-              { key: "f", label: "From", nowrap: true, render: (r) => <span>{formatDate(r.p.fromDate)}{r.future && <span className="block text-[12px] text-info">Starts later</span>}{r.p.toDate && <span className="block text-[12px] text-ink3">till {formatDate(r.p.toDate)}</span>}</span> },
+              { key: "f", label: "From", nowrap: true, render: (r) => <span>{formatDate(r.p.fromDate)}{r.future && <span className="block text-[12px] text-info">Starts later</span>}{r.p.toDate && <span className="block text-[12px] text-ink3">till {formatDate(r.p.toDate)}</span>}{r.next && <span className="block text-[12px] text-info">Carried over from {formatDate(r.next.fromDate)}</span>}</span> },
               { key: "fee", label: "Fee added", render: (r) => (r.feeAdded ? <Pill tone="ok" dot>Yes · {rupeesShort(r.p.monthlyFeePaise)}</Pill> : <Pill tone="bad" dot>No</Pill>) },
             ]}
             phone={(r) => ({
               title: r.card.name, avatar: r.card.name, sub: `${r.card.cls} · Route ${r.route.number}, ${r.stop?.name ?? ""}`,
               right: <RowTick id={r.p.id} label={r.card.name} />,
-              pills: <><Pill className="!h-[22px] !text-[11.5px]">{assignType(r.p.type)}</Pill>{!r.feeAdded && <Pill tone="bad" className="!h-[22px] !text-[11.5px]">No fee</Pill>}{r.future && <Pill tone="info" className="!h-[22px] !text-[11.5px]">From {formatDate(r.p.fromDate)}</Pill>}</>,
+              pills: <><Pill className="!h-[22px] !text-[11.5px]">{assignType(r.p.type)}</Pill>{!r.feeAdded && <Pill tone="bad" className="!h-[22px] !text-[11.5px]">No fee</Pill>}{r.future && <Pill tone="info" className="!h-[22px] !text-[11.5px]">From {formatDate(r.p.fromDate)}</Pill>}{r.next && <Pill tone="info" className="!h-[22px] !text-[11.5px]">Carried over</Pill>}</>,
             })}
             empty={q || show !== "all" || routeId || period.range
               ? <Empty icon={SearchX} title="Nobody matches" body="Try another route, or clear the filters." action={<ButtonLink href={HREF} variant="secondary">Clear filters</ButtonLink>} />

@@ -14,7 +14,7 @@ import { memberByKey, setBlocked, setLimit } from "@/lib/library/members";
 import { issueBook, returnBook, renewIssue, reserveBook, cancelReservation, holderWords } from "@/lib/library/desk";
 import { addBook, addCopies, backOnShelf, splitAccessions, updateBook, withdrawCopy, type BookInput } from "@/lib/library/catalogue";
 import { collectAtDesk, correctCharge, markLostOrDamaged, waiveFine } from "@/lib/library/fines";
-import { sendFineToSalary, stopFineFromSalary } from "@/lib/library/salary";
+import { salaryModuleOn, sendFineToSalary, stopFineFromSalary } from "@/lib/library/salary";
 import { calculateRun } from "@/lib/salary/payroll";
 import { remindAllOverdue, remindIssue, remindLibrarian } from "@/lib/library/reminders";
 import { closeSession, markMissingLost, scanCode, startSession, type ScanResult } from "@/lib/library/stock";
@@ -230,7 +230,7 @@ export async function collectAction(_p: S, fd: FormData): Promise<S> {
 export async function fineToSalaryAction(_p: S, fd: FormData): Promise<S> {
   return libAction("edit", fd, async (w) => {
     need(w.can.fines, "send fines to salary");
-    if (!w.current.modulesOn.has("salary-management")) throw new LibraryProblem("Salary Management is switched off for this school, so fines cannot be taken from salary. Collect it here.");
+    if (!salaryModuleOn(w.current.modulesOn)) throw new LibraryProblem("Salary Management is switched off for this school, so fines cannot be taken from salary. Collect it here.");
     return sendFineToSalary(w.tx, w.ctx, id(fd, "fineId", "fine"));
   }, (r) => `${formatRupees(r.fine.amountPaise)} will be taken from ${r.staff.fullName}’s next salary. It shows as paid when that salary is approved.`);
 }

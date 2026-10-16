@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma, withSchool } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
+import { hitLimit, limitMessage } from "@/lib/rate-limit";
 import { checkNewPassword, hashPassword, verifyPassword } from "@/lib/auth/password";
 import { revokeAllSessions, revokeSession, setSessionSchool } from "@/lib/auth/sessions";
 import { schoolsFor } from "@/lib/auth/access";
@@ -94,6 +95,9 @@ export async function changePassword(_prev: PasswordState, formData: FormData): 
   const newPassword = String(formData.get("newPassword") ?? "");
   const confirm = String(formData.get("confirmPassword") ?? "");
 
+  // Like sign-in, a limited number of tries: an open session must not become a way to guess the password.
+  const limit = await hitLimit(`change-password:${current.user.id}`, 10, 600);
+  if (!limit.ok) return { ok: false, message: limitMessage(limit) };
   const user = await prisma.userLogin.findUniqueOrThrow({ where: { id: current.user.id } });
   if (!user.passwordHash || !(await verifyPassword(user.passwordHash, oldPassword))) {
     return { ok: false, message: "Your current password is not right. Check it and try again." };

@@ -5,7 +5,7 @@ import { Lock } from "lucide-react";
 import { ConsoleFrame, StepDots } from "@/components/console/console-frame";
 import { CONSOLE_STEP_COOKIE, DEVICE_DAYS, pendingCode, testCopyCode } from "@/lib/console/auth";
 import { consoleHostAllowed, getConsole } from "@/lib/console/current";
-import { appUrl, channelIsSetUp } from "@/lib/console/outbox";
+import { appUrl, codesCanBeSent } from "@/lib/console/outbox";
 import { withConsole } from "@/lib/db";
 import { CodeStep, PasswordStep } from "./form";
 
@@ -36,7 +36,7 @@ export default async function ConsoleSignInPage({ searchParams }: { searchParams
       {step === 1 ? (
         <PasswordStep notice={notice} />
       ) : (
-        <CodeStep sentTo={pending!.sentTo} name={user!.name} trustDays={DEVICE_DAYS} test={!channelIsSetUp("sms") && !(user!.email && channelIsSetUp("email"))} shownCode={testCopyCode(challenge)} />
+        <CodeStep sentTo={pending!.sentTo} name={user!.name} trustDays={DEVICE_DAYS} test={!codesCanBeSent()} shownCode={testCopyCode(challenge)} />
       )}
     </ConsoleFrame>
   );

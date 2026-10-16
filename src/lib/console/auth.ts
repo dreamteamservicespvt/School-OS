@@ -19,7 +19,7 @@ import { hashToken, newToken } from "../auth/tokens";
 import { hitLimit, limitMessage } from "../rate-limit";
 import type { DeviceInfo } from "../auth/sessions";
 import { logActivity, maskMobile, tenDigits, type ConsoleActor } from "./activity";
-import { deliver, type ConsoleOutgoing } from "./outbox";
+import { codesByWhatsapp, codesCanBeSent, deliver, type ConsoleOutgoing } from "./outbox";
 import { isTestCopy } from "../test-copy-env";
 
 export const CONSOLE_COOKIE = "sos_console";
@@ -65,7 +65,8 @@ async function findByPhone(tx: Tx, typed: string) {
  * Everywhere else this is null and codes stay random and unseen.
  */
 export function testCopyCode(challenge: string | null | undefined): string | null {
-  if (!challenge || !isTestCopy()) return null;
+  // Once a real channel carries codes, they go to the person's phone and are never shown.
+  if (!challenge || !isTestCopy() || codesCanBeSent()) return null;
   const key = process.env.FIELD_ENCRYPTION_KEY;
   if (!key) return null;
   const n = createHmac("sha256", key).update(`console-code:${challenge}`).digest().readUInt32BE(0) % 1_000_000;
@@ -86,7 +87,10 @@ async function sendCode(user: SuperAdminUser, purpose: "sign-in" | "welcome", no
   });
   const text = `${code} is your School OS Console ${purpose === "sign-in" ? "sign-in" : "set-up"} code. It works for 10 minutes. Never share it with anyone.`;
   const safe = text.replace(code, "••••••");
-  const messages: ConsoleOutgoing[] = [{ channel: "sms", to: user.phone, purpose: "code", text, safeText: safe, templateParams: [code] }];
+  // WhatsApp's authentication template takes the code as its only blank and for its "Copy code" button.
+  const messages: ConsoleOutgoing[] = codesByWhatsapp()
+    ? [{ channel: "whatsapp", to: user.phone, purpose: "code", text, safeText: safe, templateParams: [code], copyCode: code }]
+    : [{ channel: "sms", to: user.phone, purpose: "code", text, safeText: safe, templateParams: [code] }];
   if (user.email) messages.push({ channel: "email", to: user.email, purpose: "code", subject: `${code} is your School OS Console code`, text: `Hello ${user.name},\n\n${text}\n\nIf you did not try to sign in, tell the Owner at once.\n`, safeText: safe });
   const sent = await deliver(messages);
   if (sent.every((s) => s.status === "FAILED")) return { ok: false as const, message: "The code could not be sent just now. Try again in a minute." };

@@ -86,6 +86,18 @@ describe("one mark per student per day, one message per absence (Done when 2)", 
     expect(marks).toHaveLength(5);
   });
 
+  it("with no WhatsApp or SMS connected, saving does not promise an absence message (QA ACAD)", async () => {
+    const sys = { schoolId: f.school.id, userId: null };
+    await withSchool(sys, (tx) => tx.messagingChannel.updateMany({ data: { isOn: false } }));
+    try {
+      const r = await save(f.teacherB.id, { sectionId: f.sectionB.id, date: d("2026-10-06"), entries: allPresent(f.studentsB, { [f.studentsB[0].id]: "absent" }), now: at("2026-10-06", "08:50") });
+      expect(r.messagesAt).toBeNull();
+      expect(r.noChannel).toBe(true);
+    } finally {
+      await withSchool(sys, (tx) => tx.messagingChannel.updateMany({ data: { isOn: true } }));
+    }
+  });
+
   it("the parent of the absent student gets exactly one message, even when the automation runs twice", async () => {
     const ctx = as(f, null as unknown as string);
     const sys = { schoolId: f.school.id, userId: null };

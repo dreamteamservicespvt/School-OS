@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { startTransition, useActionState, useState } from "react";
 import { saveGateway, testDetails, type TestState } from "./actions";
 import type { FormState } from "@/lib/forms";
 import { ErrorSummary, SelectField, TextField } from "@/components/ui/field";
@@ -134,7 +134,10 @@ export function GatewayForm({ mode, id, providers, saved, webhookBase }: Props) 
       )}
 
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        <Button type="submit" variant="secondary" formAction={testAction} loading={testing} loadingText="Testing…" formNoValidate>
+        {/* Not a form action: React empties a form after its action runs, and the admin
+            would have to type the keys again before saving. */}
+        <Button variant="secondary" loading={testing} loadingText="Testing…"
+          onClick={(e) => { const fd = new FormData(e.currentTarget.form ?? undefined); startTransition(() => testAction(fd)); }}>
           Test these details
         </Button>
         <SubmitButton pendingText="Saving…">{mode === "new" ? "Add gateway" : "Save changes"}</SubmitButton>

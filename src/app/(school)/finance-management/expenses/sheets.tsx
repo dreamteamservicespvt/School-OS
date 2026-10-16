@@ -9,7 +9,7 @@ import { Alert } from "@/components/ui/alert";
 import type { Option } from "@/components/ui/field";
 import { cx } from "@/components/ui/cx";
 import { WarnCheck } from "../_components/forms";
-import { attachBillAction, payExpenseAction, recordBillAction, recordExpenseAction } from "./actions";
+import { attachBillAction, changeExpenseAction, payExpenseAction, recordBillAction, recordExpenseAction } from "./actions";
 
 const MODES = [{ value: "CASH", label: "Cash" }, { value: "UPI", label: "UPI" }, { value: "BANK_TRANSFER", label: "Bank transfer" }, { value: "CHEQUE", label: "Cheque" }];
 const inr = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
@@ -118,6 +118,34 @@ export function RecordExpenseSheet(p: ExpenseFormData) {
           {paid && <ModeFields prefix="re" mode={mode} setMode={setMode} cash={p.cash} banks={p.banks} mainBank={p.mainBank} cashInHand={p.cashInHand} amount={amt} />}
         </>
       )}
+      <Warned />
+    </SheetForm>
+  );
+}
+
+/** Change an expense the approver sent back, then send it again (07 §2: "to be changed and sent again"). */
+export function ChangeExpenseSheet({ closeHref, expenseId, number, reason, start, heads, centres, vendors, atOnce, billAbove, steps, hasBill }: {
+  closeHref: string; expenseId: string; number: string; reason: string | null; heads: Option[]; centres: Option[] | null; vendors: string[];
+  atOnce: number; billAbove: number; steps: ApproverStep[]; hasBill: boolean;
+  start: { amount: string; date: string; what: string; headId: string; costCentreId: string | null; vendor: string };
+}) {
+  const [amt, setAmt] = useState(num(start.amount));
+  const who = amt > 0 ? approverFor(steps, atOnce, amt) : null;
+  return (
+    <SheetForm title={`Change ${number}`} sub={reason ? `Sent back: “${reason}”` : "Change it, then send it again."} closeHref={closeHref} action={changeExpenseAction}
+      submitLabel={who ? `Save and send to ${who}` : "Save and send"} pendingText="Saving…" hidden={{ expenseId }}>
+      <BillPicker required={!hasBill && amt > billAbove} help={hasBill ? "A bill is attached. Choose a file only to replace it." : `Needed above ${inr(billAbove)}`} />
+      <div className="grid grid-cols-2 gap-3">
+        <SMoney name="amount" label="Amount" required start={start.amount} onValue={(v) => setAmt(num(v))} help={amt ? (who ? `Goes to ${who}` : "Approved at once") : undefined} />
+        <SDate name="date" label="Date" required start={start.date} />
+      </div>
+      <SText name="what" label="What was it for" required start={start.what} maxLength={200} />
+      <div className={cx("grid gap-3", centres && "grid-cols-2")}>
+        <SSelect name="accountHeadId" label="Expense head" required options={heads} start={start.headId} placeholder="Choose a head" />
+        {centres && <SSelect name="costCentreId" label="Department" options={centres} start={start.costCentreId ?? undefined} placeholder="None" help="Cost centre" />}
+      </div>
+      <SText name="vendorName" label="Vendor" start={start.vendor} list="ce-vendors" maxLength={120} help="Pick one, or type a new name to add it" />
+      <datalist id="ce-vendors">{vendors.map((v) => <option key={v} value={v} />)}</datalist>
       <Warned />
     </SheetForm>
   );

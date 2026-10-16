@@ -181,8 +181,8 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
         <OldSoftwareBanner goLive={p.goLive} from={from} to={to} what="Day Book entries" />
         {allBeforeGoLive(p.goLive, from, to) ? <Card><OldSoftwareEmpty goLive={p.goLive} what="Day Book entries" /></Card> : <>
         <Band items={[
-          { label: "Total income", big: formatRupees(v.totals.income), foot: `${nIn} transactions · Fees ${formatRupees(v.feesFull)} + Partial ${formatRupees(v.feesPartial)}${v.reversed < ZERO ? ` · less ${formatRupees(-v.reversed)} reversed` : ""}` },
-          { label: "Total expense", big: formatRupees(v.totals.expense), foot: `${v.sections.expense.length + v.sections.salary.length} transactions${p.payHeads ? " · staff pay not shown" : v.sections.salary.length ? " · includes salary" : ""}` },
+          { label: "Total income", big: formatRupees(v.totals.income), foot: `${nIn} transactions · Fees ${formatRupees(v.feesFull)} + Partial ${formatRupees(v.feesPartial)}${v.otherIncome > ZERO ? ` + Other ${formatRupees(v.otherIncome)}` : ""}${v.reversed < ZERO ? ` · less ${formatRupees(-v.reversed)} reversed` : ""}` },
+          { label: "Total expense", big: formatRupees(v.totals.expense), foot: `${v.totals.expenseCount} transactions${p.payHeads ? " · staff pay not shown" : v.sections.salary.length ? " · includes salary" : ""}` },
           { label: "Net balance", big: signed(v.totals.net), foot: shownClose ? "Day closed and locked" : allClosed ? "All these days are closed" : isToday ? `Live · updated ${formatTime(new Date(), p.tz)}` : oneDay && from < p.today && v.rows.length ? "Not closed yet" : per.label },
         ]} />
 

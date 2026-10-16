@@ -151,6 +151,13 @@ export async function closeMonth(tx: Tx, ctx: SchoolContext, month: Date, today:
   const fy = await financialYearOf(tx, ctx, m);
   const exists = await tx.periodClose.findUnique({ where: { schoolId_month: { schoolId: ctx.schoolId, month: m } } });
   if (exists) throw new MoneyProblem(`${monthLabel(m)} is already closed.`, "month");
+  // Months close in order within the financial year: an earlier open month must close first.
+  const closedBefore = await tx.periodClose.findMany({ where: { financialYearId: fy.id, month: { lt: m } }, select: { month: true } });
+  const open: string[] = [];
+  for (let d = new Date(Date.UTC(fy.startDate.getUTCFullYear(), fy.startDate.getUTCMonth(), 1)); d < m; d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1))) {
+    if (!closedBefore.some((c) => c.month.getTime() === d.getTime())) open.push(monthLabel(d));
+  }
+  if (open.length) throw new MoneyProblem(`Close ${open.join(", ")} first: months close in order.`, "month");
   const waiting = await tx.expense.count({ where: { status: "WAITING", date: { gte: m, lte: end } } });
   const r = await tx.periodClose.create({ data: { schoolId: ctx.schoolId, financialYearId: fy.id, month: m, closedById: ctx.userId } });
   await writeAudit(tx, ctx, { action: "closed-month", recordType: "Period Close", recordId: r.id, after: { month: monthLabel(m), expensesStillWaiting: waiting } });

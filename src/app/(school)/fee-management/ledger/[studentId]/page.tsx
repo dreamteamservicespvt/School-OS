@@ -21,7 +21,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { Ring } from "@/components/ui/display";
 import { DataList, Empty, Progress, Stack, TONE_SOFT, type Tone } from "@/components/money/kit";
 import { LinkTabs } from "@/components/ui/link-tabs";
-import { MoreMenu } from "@/components/money/more-menu";
+import { MoreMenu } from "@/components/ui/more-menu";
 import { ExportButton } from "@/components/ui/export-button";
 import { UrlSheet } from "@/components/ui/url-sheet";
 import { UrlSearch } from "@/components/money/url-filters";
@@ -132,12 +132,12 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
   const yearName = p.year?.name?.replace("-", "–") ?? "";
 
   const menu = canEdit ? [
-    { icon: Award, label: "Fee certificate", href: here({ do: "certificate" }) },
-    { icon: History, label: "Add opening balance (old dues)", href: here({ do: "opening" }) },
-    { icon: Scale, label: "Adjust an amount", href: here({ do: "adjust" }) },
-    { icon: Plus, label: "Add a charge", href: here({ do: "charge" }) },
-    { icon: FileInput, label: "Import old dues", href: "/settings/data-security/imports?kind=fee-old-dues" },
-    { icon: FileSpreadsheet, label: "Import past receipts", href: "/settings/data-security/imports?kind=fee-past-receipts" },
+    { icon: <Award size={17} aria-hidden="true" />, label: "Fee certificate", href: here({ do: "certificate" }) },
+    { icon: <History size={17} aria-hidden="true" />, label: "Add opening balance (old dues)", href: here({ do: "opening" }) },
+    { icon: <Scale size={17} aria-hidden="true" />, label: "Adjust an amount", href: here({ do: "adjust" }) },
+    { icon: <Plus size={17} aria-hidden="true" />, label: "Add a charge", href: here({ do: "charge" }) },
+    { icon: <FileInput size={17} aria-hidden="true" />, label: "Import old dues", href: "/settings/data-security/imports?kind=fee-old-dues" },
+    { icon: <FileSpreadsheet size={17} aria-hidden="true" />, label: "Import past receipts", href: "/settings/data-security/imports?kind=fee-past-receipts" },
   ] : [];
 
   return (

@@ -116,4 +116,17 @@ describe("setup checklist", () => {
     await f.run((tx) => unmarkStep(tx, principal.ctx, row.id));
     expect(setupProgress(await f.run((tx) => setupSteps(tx, principal.ctx, principal))).done).toBe(before);
   });
+
+  it("the Holiday list step is done once the year has a holiday or vacation in Events & Calendar (QA ACAD)", async () => {
+    const holidays = async () => (await f.run((tx) => setupSteps(tx, principal.ctx, principal))).find((s) => s.key === "holidays");
+    expect((await holidays())?.done).toBe(false);
+    // An event is not a holiday; an archived holiday does not count.
+    await f.run((tx) => tx.calendarEntry.create({ data: { schoolId: f.school.id, academicYearId: f.year.id, type: "event", title: "Sports Day", startDate: new Date("2026-11-20"), endDate: new Date("2026-11-20") } }));
+    await f.run((tx) => tx.calendarEntry.create({ data: { schoolId: f.school.id, academicYearId: f.year.id, type: "holiday", title: "Old", startDate: new Date("2026-08-15"), endDate: new Date("2026-08-15"), archivedAt: new Date() } }));
+    expect((await holidays())?.done).toBe(false);
+    await f.run((tx) => tx.calendarEntry.create({ data: { schoolId: f.school.id, academicYearId: f.year.id, type: "vacation", title: "Dasara holidays", startDate: new Date("2026-10-19"), endDate: new Date("2026-10-25") } }));
+    const step = await holidays();
+    expect(step?.done).toBe(true);
+    expect(step?.doneNote).toContain("1 holiday or vacation");
+  });
 });

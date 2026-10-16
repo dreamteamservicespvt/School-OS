@@ -8,7 +8,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import type { Tx } from "@/lib/db";
 import { examScope, type ExamScope } from "@/lib/exams/scope";
 import { createDatesheet, publishDatesheet } from "@/lib/exams/datesheet";
-import { lockPapers, papersFor, requestModeration, saveMarks, submitPaper } from "@/lib/exams/marks";
+import { lockPapers, papersFor, readMarkRows, requestModeration, saveMarks, submitPaper } from "@/lib/exams/marks";
 import { publishResults, unpublishResults } from "@/lib/exams/results";
 import { examSettings, gradeScales, saveGradeScale } from "@/lib/exams/settings";
 import { parentReportCards } from "@/lib/exams/parent-link";
@@ -77,9 +77,26 @@ describe("datesheet", () => {
     await expect(s.run((tx) => saveMarks(tx, s.ctx, principal, { entryId: mat5a, sectionId: s.s5a.id, rows: [marks(students[0], 40)] }))).rejects.toThrow(/once the datesheet is published/);
     await s.run((tx) => publishDatesheet(tx, s.ctx, examId, { tellParents: false }));
   });
+
+  it("the exam days on the School Calendar are for the exam's classes only, not the whole school (QA ACAD)", async () => {
+    const days = await s.run((tx) => tx.calendarEntry.findMany({ where: { source: `exam:${examId}`, archivedAt: null } }));
+    expect(days.length).toBe(2);
+    for (const day of days) expect(day.classIds).toEqual([s.c5.id]);
+  });
 });
 
 describe("marks entry and locking", () => {
+  it("medical leave (ML) sent by the marks grid is kept apart from absent (QA ACAD)", () => {
+    const [ml, ab, typed] = readMarkRows([
+      { studentId: "a", parts: {}, absent: true, medical: true, grade: null, remark: null },
+      { studentId: "b", parts: {}, absent: true, grade: null, remark: null },
+      { studentId: "c", parts: { Marks: "37.5" }, absent: false, grade: null, remark: null },
+    ]);
+    expect(ml).toMatchObject({ absent: true, medical: true });
+    expect(ab).toMatchObject({ absent: true, medical: false });
+    expect(typed.parts).toEqual({ Marks: 37.5 });
+  });
+
   it("a teacher enters marks only for the subjects and sections they teach", async () => {
     const t = { schoolId: s.school.id, userId: s.teacherUser.id };
     const r = await s.run((tx) => saveMarks(tx, t, teacher, { entryId: mat5a, sectionId: s.s5a.id, rows: [marks(students[0], 45), marks(students[1], 45), marks(students[2], 30), marks(students[3], 10)] }));
@@ -137,6 +154,21 @@ describe("publishing", () => {
     expect(cards.map((c) => c.label)).toContain("Half Yearly");
     const board = await s.run((tx) => reportBoard(tx, s.ctx, s.s5a.id, `exam:${examId}`));
     expect(board!.rows.find((r) => r.studentId === students[0])!.status).toBe("READY");
+  });
+
+  it("report card attendance comes from the Attendance register (ACADEMICS-15)", async () => {
+    await s.run((tx) => tx.attendanceMark.createMany({ data: [
+      { schoolId: s.school.id, academicYearId: s.year.id, studentId: students[0], sectionId: s.s5a.id, date: d("2026-10-05"), statusKey: "present" },
+      { schoolId: s.school.id, academicYearId: s.year.id, studentId: students[0], sectionId: s.s5a.id, date: d("2026-10-06"), statusKey: "absent" },
+      { schoolId: s.school.id, academicYearId: s.year.id, studentId: students[0], sectionId: s.s5a.id, date: d("2026-10-07"), statusKey: "present" },
+    ] }));
+    const board = await s.run((tx) => reportBoard(tx, s.ctx, s.s5a.id, `exam:${examId}`));
+    const marked = board!.rows.find((r) => r.studentId === students[0])!;
+    expect(marked).toMatchObject({ attendanceFromRegister: true, attendancePresent: 2 });
+    expect(marked.attendanceWorking).toBeGreaterThanOrEqual(3);
+    expect(marked.missing).not.toContain("Attendance");
+    // No mark in the register: the days the class teacher types are still used.
+    expect(board!.rows.find((r) => r.studentId === students[1])!.attendanceFromRegister).toBe(false);
   });
 
   it("a grade scale change never changes published results", async () => {

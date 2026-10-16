@@ -44,7 +44,7 @@ export async function setupSteps(tx: Tx, ctx: SchoolContext, v: Pick<Viewer, "pe
   // Steps are for the School Admin and Principal; module visibility follows the school, not the person.
   const shown = SETUP_STEPS.filter((s) => moduleOpen({ permissions: v.permissions, modulesOn: v.modulesOn }, s.module));
   const year = await currentYear(tx, ctx);
-  const [school, terms, slots, classes, sections, subjects, staff, staffWithLogin, students, guardians, gateways, channels, links, marks, feeClasses] = await Promise.all([
+  const [school, terms, slots, classes, sections, subjects, staff, staffWithLogin, students, guardians, gateways, channels, links, marks, feeClasses, holidays] = await Promise.all([
     tx.school.findUnique({ where: { id: ctx.schoolId }, select: { name: true, address: true, logoUrl: true, logoFileId: true, board: true } }),
     year ? tx.term.count({ where: { academicYearId: year.id, archivedAt: null } }) : 0,
     tx.periodSlot.count({ where: { archivedAt: null } }),
@@ -60,6 +60,8 @@ export async function setupSteps(tx: Tx, ctx: SchoolContext, v: Pick<Viewer, "pe
     tx.parentLink.count({ where: { status: "ACTIVE" } }),
     tx.setupStepStatus.findMany({ where: { archivedAt: null } }),
     year ? tx.feeStructure.findMany({ where: { academicYearId: year.id, status: "PUBLISHED", archivedAt: null }, select: { classId: true }, distinct: ["classId"] }) : [],
+    // Holidays and vacations typed in Events & Calendar (Calendar Entry) for this year.
+    year ? tx.calendarEntry.count({ where: { academicYearId: year.id, type: { in: ["holiday", "vacation"] }, archivedAt: null } }) : 0,
   ]);
   const signedIn = staffWithLogin.length
     ? await tx.userLogin.count({ where: { id: { in: staffWithLogin.map((s) => s.userLoginId!) }, lastSignInAt: { not: null } } })
@@ -75,7 +77,7 @@ export async function setupSteps(tx: Tx, ctx: SchoolContext, v: Pick<Viewer, "pe
     fees: feeClasses.length ? `${plural(feeClasses.length, "class", "classes")} with a published fee structure` : null,
     gateway: gateways > 0 ? plural(gateways, "gateway") + " connected" : null,
     messaging: channels.length ? channels.map((c) => (c.channel === "sms" ? "SMS" : "WhatsApp")).join(" and ") + " connected" : null,
-    holidays: null,
+    holidays: holidays > 0 ? `${plural(holidays, "holiday or vacation", "holidays and vacations")} in ${year!.name}` : null,
     "parent-link": links > 0 ? `${plural(links, "parent")} have their link` : null,
   };
   return shown.map((s) => {

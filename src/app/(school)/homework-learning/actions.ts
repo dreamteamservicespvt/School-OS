@@ -2,7 +2,7 @@
 
 import { file as oneFile, optionalText, str, strs } from "@/lib/fees/act";
 import { HomeworkProblem } from "@/lib/homework/access";
-import { archiveHomework, editHomework, giveHomework, type NewAttachment } from "@/lib/homework/homework";
+import { archiveHomework, editHomework, giveHomework, givenWords, type NewAttachment } from "@/lib/homework/homework";
 import { resendToUnseen } from "@/lib/homework/notify-parents";
 import { remindTeacher } from "@/lib/homework/overview";
 import { submitWork } from "@/lib/homework/submissions";
@@ -57,7 +57,7 @@ export async function giveHomeworkAction(_prev: unknown, fd: FormData) {
     const students = r.made.reduce((a, m) => a + m.students, 0);
     return { ...r, students, first: r.made[0] };
   }, (r) => ({
-    message: `Homework sent to ${r.made.map((m) => m.sectionLabel).join(", ")}. ${plural(r.students, "student")} notified; parents get it on WhatsApp.`,
+    message: givenWords(r.made),
     link: { href: `/homework-learning/homework/${r.first.id}`, label: "Open" },
   }));
 }

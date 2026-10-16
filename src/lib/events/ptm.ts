@@ -18,6 +18,7 @@ import { EventsProblem } from "./problem";
 import { eventsSettings } from "./settings";
 import { notWorkingDay, syncSourceEntry } from "./calendar";
 import { placesOf } from "./places";
+import { tellSafely, type Told } from "./tell";
 import { classesWords, clock, dayOf, dmy, isoOf, niceDay } from "./words";
 
 export type PtmStatus = "Booking open" | "Today" | "Done";
@@ -134,13 +135,13 @@ export async function cancelPtm(tx: Tx, ctx: SchoolContext, ptmId: string, reaso
   const booked = await tx.ptmSlot.findMany({ where: { ptmId, studentId: { not: null } }, select: { studentId: true } });
   await tx.ptm.update({ where: { id: p.id }, data: { archivedAt: new Date() } });
   await syncSourceEntry(tx, ctx, `ptm:${p.id}`, null);
-  let told = 0;
+  let told: Told | null = null;
   if (booked.length) {
     const school = (await tx.school.findUnique({ where: { id: ctx.schoolId }, select: { name: true } }))?.name ?? "School";
-    const r = await sendMessage(tx, ctx, { to: { guardiansOf: [...new Set(booked.map((b) => b.studentId!))] }, channels: "preferred", text: `Dear Parent, the parent-teacher meeting on ${niceDay(isoOf(p.date))} for ${p.classesLabel} is cancelled. ${why} - ${school}`, trigger: "PTM cancelled", source: { type: "PTM", id: p.id } });
-    told = r.people;
+    // Telling the booked parents never blocks the cancellation (ACADEMICS-21).
+    told = await tellSafely(() => sendMessage(tx, ctx, { to: { guardiansOf: [...new Set(booked.map((b) => b.studentId!))] }, channels: "preferred", text: `Dear Parent, the parent-teacher meeting on ${niceDay(isoOf(p.date))} for ${p.classesLabel} is cancelled. ${why} - ${school}`, title: "Parent-teacher meeting cancelled", trigger: "PTM cancelled", source: { type: "PTM", id: p.id } }));
   }
-  await writeAudit(tx, ctx, { action: "cancelled", recordType: "PTM", recordId: p.id, after: { reason: why, bookingsTold: told } });
+  await writeAudit(tx, ctx, { action: "cancelled", recordType: "PTM", recordId: p.id, after: { reason: why, bookingsTold: told?.people ?? 0, notTold: told?.problem ?? null } });
   return { told };
 }
 

@@ -23,7 +23,7 @@ export async function startDraftAction(yearId: string): Promise<string | undefin
   return actSimple("edit", async ({ tx, current, correction }) => {
     const campusId = await mainCampusId(tx, current.ctx);
     const r = await makeDraft(tx, current.ctx, yearId, campusId, todayIn(current.school.timeZone), correction);
-    return { flash: { message: r.created ? "Draft started from the published Time Table. Changes stay in the draft until you publish." : "A draft is already open. Showing it." } };
+    return { flash: { message: !r.created ? "A draft is already open. Showing it." : "copiedFrom" in r && r.copiedFrom ? "Draft started from the published Time Table. Changes stay in the draft until you publish." : "Empty draft started. Fill it by hand or make it automatically, then publish." } };
   }, { yearId, needs: "arrange", revalidate: [PATH] });
 }
 

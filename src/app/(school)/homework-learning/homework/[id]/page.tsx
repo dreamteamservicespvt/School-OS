@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { CircleCheck, Eye, Hourglass, ListChecks, NotebookText, Send, Upload, Users } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { fileLink } from "@/lib/files";
@@ -24,6 +24,8 @@ export default async function HomeworkDetailPage({ params, searchParams }: { par
   const p = await homeworkGuard("homework");
   const { id } = await params;
   if (!UUID.test(id)) notFound();
+  // This page lists the whole class with parents' names: a student opens their own homework instead.
+  if (p.student) redirect(qs(BASE, { open: id }));
   const sp = await searchParams;
   const s = p.scope;
   const q = one(sp.q).trim().toLowerCase();

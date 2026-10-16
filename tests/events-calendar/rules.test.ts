@@ -12,7 +12,7 @@ import { withSchool } from "@/lib/db";
 import { EventsProblem, EventsWarning } from "@/lib/events/problem";
 import { cancelEvent, createEvent, registerStudents, withdrawStudent } from "@/lib/events/events";
 import { addEntry, notWorkingDay } from "@/lib/events/calendar";
-import { bookSlot, planPtm, saveNotes } from "@/lib/events/ptm";
+import { bookSlot, cancelPtm, planPtm, saveNotes } from "@/lib/events/ptm";
 import { createAlbum, publishAlbum, sharedItems, tagMedia } from "@/lib/events/gallery";
 import { saveEventsSettings } from "@/lib/events/settings";
 import { collectPayment } from "@/lib/fees/collect";
@@ -145,6 +145,13 @@ describe("PTM", () => {
     await expect(withSchool(t, (tx) => saveNotes(tx, t, mine.id, { remarks: "Good", feedback: null, followUp: null, arrived: true }, TODAY, { own: true }))).rejects.toThrow(/on the day/);
     const n = await withSchool(t, (tx) => saveNotes(tx, t, mine.id, { remarks: "Reads well", feedback: null, followUp: null, arrived: true }, "2026-11-10", { own: true }));
     expect(n.note.remarks).toBe("Reads well");
+  });
+
+  it("cancels a PTM with bookings even when the parents cannot be messaged (ACADEMICS-21)", async () => {
+    const r = await withSchool(P(), (tx) => cancelPtm(tx, P(), ptmId, "Heavy rain warning for the whole district", TODAY));
+    expect(r.told?.people).toBe(0);
+    expect(r.told?.problem).toBeTruthy();
+    expect((await withSchool(P(), (tx) => tx.ptm.findUniqueOrThrow({ where: { id: ptmId } }))).archivedAt).not.toBeNull();
   });
 });
 

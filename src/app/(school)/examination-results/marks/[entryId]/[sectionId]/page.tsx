@@ -80,7 +80,7 @@ export default async function PaperPage({ params, searchParams }: { params: Prom
           paperOn: `${formatDate(p.entry.date, tz)}, ${timeRange(p.entry.startTime, p.entry.durationMin)}`,
           teachers: teachers.join(", ") || "No teacher given", dueText: due && open ? `marks due ${formatDate(due, tz)}` : null,
           statusWords: PAPER_STATUS_WORDS[p.paper.status], statusTone: PAPER_STATUS_TONE[p.paper.status],
-          onBehalf: page.scope.manage && !(page.scope.staffId && teacherIds.includes(page.scope.staffId)), approver: "the Exam In-charge or the Principal",
+          onBehalf: page.scope.manage && !(page.scope.staffId && teacherIds.includes(page.scope.staffId)), approver: "the Principal (or the approver your school set for marks changes)",
         }}
         notes={notes}
         actions={page.scope.manage && page.writable && p.paper.status === "SUBMITTED" ? <><ReopenButton entryId={entryId} sectionId={sectionId} label={label} /><LockPaperButton entryId={entryId} sectionId={sectionId} label={label} /></> : null}

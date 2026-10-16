@@ -28,7 +28,7 @@ import { randomUUID } from "node:crypto";
 import { todayIn } from "@/lib/academic/common";
 import { homeworkLevel } from "@/lib/homework/access";
 import { homeworkScope, mayRead, type HomeworkScope } from "@/lib/homework/scope";
-import { giveHomework, listHomework, type GiveInput } from "@/lib/homework/homework";
+import { giveHomework, homeworkDetail, listHomework, type GiveInput } from "@/lib/homework/homework";
 import { gradeSubmission } from "@/lib/homework/submissions";
 import { createQuiz } from "@/lib/homework/quizzes";
 import { remindTeacher } from "@/lib/homework/overview";
@@ -195,5 +195,14 @@ describe("a student sees only their own work", () => {
     const s = await scopeOf(people.student);
     expect(mayRead(s, { sectionId: f.s6a.id, subjectId: f.subjects.MAT })).toBe(false);
     expect(student6a).toBeTruthy();
+  });
+
+  it("a homework's details show a student only their own submission, not the class's (ACADEMICS-18)", async () => {
+    const r = await asScope(people.teacher, (tx, s) => giveHomework(tx, s, give(f.s5a.id, "MAT"), today));
+    const id = r.made[0].id;
+    const teacherView = await asScope(people.teacher, (tx, s) => homeworkDetail(tx, s, id, today));
+    expect(teacherView!.subs.length).toBe(3);
+    const studentView = await asScope(people.student, (tx, s) => homeworkDetail(tx, s, id, today));
+    expect(studentView!.subs.map((x) => x.studentId)).toEqual([students5a[0]]);
   });
 });

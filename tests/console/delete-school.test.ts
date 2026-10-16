@@ -61,6 +61,18 @@ describe("deleting an empty closed school for good", () => {
     expect(await exists(s.id)).toBe(1);
   });
 
+  it("deletes a made-up demo school with its students", async () => {
+    const s = await makeSchool("Delete Demo School");
+    await card(s, "CLOSED");
+    await withSchool({ schoolId: s.id, userId: null }, async (tx) => {
+      await tx.school.update({ where: { id: s.id }, data: { isDemo: true } });
+      await tx.student.create({ data: { schoolId: s.id, campusId: s.campus.id, admissionNo: `A${randomUUID().slice(0, 6)}`, firstName: "Ravi", fullName: "Ravi Demo" } });
+    });
+    await deleteSchoolForGood(owner, s.id, { typedName: s.name, reason: "Demo school, made-up data" });
+    expect(await exists(s.id)).toBe(0);
+    expect(await withSchool({ schoolId: s.id, userId: null }, (tx) => tx.student.count())).toBe(0);
+  });
+
   it("refuses a closed school that has students, and deletes nothing", async () => {
     const s = await makeSchool("Delete Real School");
     await card(s, "CLOSED");

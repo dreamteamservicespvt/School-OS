@@ -78,6 +78,9 @@ model School {
   gstin             String?
   smsDltEntityId    String?      @map("sms_dlt_entity_id")
   smsSenderHeader   String?      @map("sms_sender_header")
+  /// A made-up demo school loaded by the demo seed (prisma/seed.ts). Only a
+  /// demo school can be deleted for good while it has students or payments.
+  isDemo            Boolean      @default(false) @map("is_demo")
   createdAt         DateTime     @default(now()) @map("created_at")
   updatedAt         DateTime     @updatedAt @map("updated_at")
   archivedAt        DateTime?    @map("archived_at")

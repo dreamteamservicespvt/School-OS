@@ -6,7 +6,7 @@
 // Demo users get DEMO_PASSWORD from .env. Real schools' users always set
 // their own password from an invite link (08-platform-security.md §2).
 
-import { prisma, withSchool } from "../src/lib/db";
+import { prisma, withConsole, withSchool } from "../src/lib/db";
 import { createSchool } from "../src/lib/schools";
 import { hashPassword } from "../src/lib/auth/password";
 import { createInvite } from "../src/lib/auth/invites";
@@ -23,9 +23,19 @@ async function main() {
     console.log("The demo is already there. Nothing changed.");
     return;
   }
+  // The Vercel test copy loads the demo only into a new, empty database: once
+  // the console has its own people, a deleted demo is not brought back.
+  if (process.env.SEED_ONLY_EMPTY_DATABASE === "1" && (await withConsole((tx) => tx.superAdminUser.count())) > 0) {
+    console.log("This database is in use (the console has people), so the demo is not loaded.");
+    return;
+  }
 
   const sunrise = await createSchool({ code: "SPS", name: "Sunrise Public School", board: "CBSE", address: "Hyderabad, Telangana" });
   const valley = await createSchool({ code: "GVS", name: "Green Valley School", board: "State Board", address: "Warangal, Telangana" });
+  // Made-up schools: they can be deleted for good from the console, with everything in them.
+  for (const s of [sunrise, valley]) {
+    await withSchool({ schoolId: s.school.id, userId: null }, (tx) => tx.school.update({ where: { id: s.school.id }, data: { isDemo: true } }));
+  }
 
   const hash = await hashPassword(password);
   const people = [

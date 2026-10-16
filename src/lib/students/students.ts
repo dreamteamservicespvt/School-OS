@@ -13,6 +13,8 @@ import { requestApproval } from "../approvals";
 import { getStudentSettings } from "./settings";
 import { PROFILE_CHANGES, STATUS_LABEL, type StudentStatusKey } from "./labels";
 import { runEnrolled } from "./hooks";
+// Fee Management gives the class fee plan to a student who joins a class (A2, A13).
+import "../fees/enrolled";
 
 export class StudentProblem extends Error {
   /** The form field the problem is about, so it shows next to that field. */

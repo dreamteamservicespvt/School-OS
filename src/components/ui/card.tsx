@@ -9,15 +9,16 @@ export function Card({ children, className = "", as: Tag = "section", ...rest }:
 /** A card's title row: optional icon tile, title, one line under it, and an action on the right. */
 export function CardHeader({ title, description, action, id, icon: Icon, divided = false }: { title: React.ReactNode; description?: React.ReactNode; action?: React.ReactNode; id?: string; icon?: LucideIcon; divided?: boolean }) {
   return (
-    <div className={cx("flex items-start justify-between gap-3 px-5 pt-4 pb-3", divided && "border-b border-line")}>
-      <div className="min-w-0 flex items-center gap-2.5">
+    // On a phone a wide action goes under the title rather than squeezing it into a narrow column.
+    <div className={cx("flex flex-wrap items-start justify-between gap-3 px-5 pt-4 pb-3", divided && "border-b border-line")}>
+      <div className="min-w-[min(100%,13rem)] flex-1 flex items-center gap-2.5">
         {Icon && <span className="w-8 h-8 rounded-lg bg-brand/10 text-brand grid place-items-center shrink-0"><Icon size={17} aria-hidden="true" /></span>}
         <div className="min-w-0">
           <h2 id={id} className="font-semibold text-[15px] leading-tight">{title}</h2>
           {description && <p className="text-[13px] text-ink3 mt-0.5">{description}</p>}
         </div>
       </div>
-      {action}
+      {action && <div className="ml-auto shrink-0 max-w-full">{action}</div>}
     </div>
   );
 }

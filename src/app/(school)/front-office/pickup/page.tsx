@@ -82,7 +82,7 @@ export default async function PickupPage({ searchParams }: { searchParams: Searc
           <Card className="p-4 md:p-5">
             <label htmlFor="pk-search" className="text-[13px] font-semibold text-ink2">Find the student</label>
             <div className="flex gap-2 mt-1.5">
-              <UrlSearch id="pk-search" big placeholder="Name, class like 7 B, or admission no." label="Find the student" />
+              <UrlSearch id="pk-search" big placeholder="Student name, class or number" label="Find the student" />
               <ScanIdButton base={HREF} />
             </div>
             {q && (

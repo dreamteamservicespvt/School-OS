@@ -123,6 +123,11 @@ describe("Front Office rules", () => {
     await expect(withSchool(desk(), (tx) => releaseStudent(tx, desk(), { ...base, photoMatch: true, reason: "Unwell" }, { timeZone: TZ, codeCheck: false }))).rejects.toThrow(/already has gate pass/);
     const note = await withSchool(as(f, f.classTeacher.id), (tx) => tx.notification.findFirst({ where: { userLoginId: f.classTeacher.id, type: "early-pickup" } }));
     expect(note?.text).toContain("Aarav Sharma");
+    expect(note?.text).toContain(": doctor visit.");
+    // A reason typed under Other keeps its capitals (QA PEOPLE-19).
+    await withSchool(desk(), (tx) => releaseStudent(tx, desk(), { ...base, studentId: f.diya.id, photoMatch: true, reason: "Other", otherReason: "Appointment with Dr. Rao at KGH" }, { timeZone: TZ, codeCheck: false }));
+    const other = await withSchool(as(f, f.classTeacher.id), (tx) => tx.notification.findFirst({ where: { userLoginId: f.classTeacher.id, type: "early-pickup", text: { contains: "Diya" } } }));
+    expect(other?.text).toContain(": Appointment with Dr. Rao at KGH.");
   });
 
   it("sends a desk enquiry straight to Admission Management with an owner and a follow-up (Done when 5)", async () => {

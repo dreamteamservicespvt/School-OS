@@ -173,7 +173,7 @@ export async function releaseStudent(tx: Tx, ctx: SchoolContext, input: ReleaseI
     await tx.attendanceMark.update({ where: { id: mark.id }, data: { outTime: timeOut, note: [mark.note, `Early pickup ${clockAt(timeOut, opts.timeZone)} with ${person.name} (${passNo})`].filter(Boolean).join(" · ") } });
   }
   if (info.classTeacherLogin) {
-    await notify(tx, ctx, { to: info.classTeacherLogin, type: "early-pickup", text: `${info.student.name} leaves early at ${clockAt(timeOut, opts.timeZone)} with ${person.name} (${person.relationship.toLowerCase()}): ${reason.toLowerCase()}. Gate pass ${passNo}.`, link: `/student-management/students/${input.studentId}` }, now);
+    await notify(tx, ctx, { to: info.classTeacherLogin, type: "early-pickup", text: `${info.student.name} leaves early at ${clockAt(timeOut, opts.timeZone)} with ${person.name} (${person.relationship.toLowerCase()}): ${input.reason === "Other" ? reason : reason.toLowerCase()}. Gate pass ${passNo}.`, link: `/student-management/students/${input.studentId}` }, now);
   }
   await writeAudit(tx, ctx, {
     action: "created", recordType: "Gate Pass", recordId: pass.id,

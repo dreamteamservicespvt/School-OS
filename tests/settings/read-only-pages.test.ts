@@ -151,7 +151,7 @@ describe("every Settings change goes through the page check", () => {
       }
     };
     walk(root);
-    expect(files.length).toBe(8);
+    expect(files.length).toBe(9);
     for (const f of files) {
       const src = readFileSync(f, "utf8");
       expect(src, f).not.toMatch(/requireAction\(/);

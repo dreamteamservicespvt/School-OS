@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requirePage } from "@/lib/current";
+import { requireSettingsPage } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { formatDate, formatDateTime } from "@/lib/format";
@@ -16,7 +16,7 @@ const BASE = "/settings/data-security/switching";
 
 /** Workflow 15, step 9: the go-live summary beside the old software's numbers, then the Principal goes live. */
 export default async function GoLiveCheckPage() {
-  const current = await requirePage("settings");
+  const { current } = await requireSettingsPage("data-security");
   const tz = current.school.timeZone;
   const s = await withSchool(current.ctx, async (tx) => { await settleImports(tx); return goLiveSummary(tx, current.ctx); });
   const stop = blockers(s);

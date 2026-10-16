@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requirePage } from "@/lib/current";
+import { requireSettingsPage } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { formatDateTime } from "@/lib/format";
@@ -35,7 +35,7 @@ const HOME: Record<string, { href: string; label: string }> = {
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
 export default async function MoveInFilePage({ params, searchParams }: Props) {
-  const current = await requirePage("settings");
+  const { current } = await requireSettingsPage("data-security");
   const { id } = await params;
   const sp = await searchParams;
   const step: Step = STEPS.some((s) => s.key === sp.step) ? (sp.step as Step) : "columns";

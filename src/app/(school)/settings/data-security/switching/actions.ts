@@ -6,7 +6,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect, unstable_rethrow } from "next/navigation";
-import { requireAction } from "@/lib/current";
+import { requireSettingsAction } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
 import { flash } from "@/lib/flash";
 import { can } from "@/lib/permissions";
@@ -22,6 +22,7 @@ import {
 } from "@/lib/move-in/service";
 
 const BASE = "/settings/data-security/switching";
+const PAGE = "data-security" as const;
 const isId = (v: unknown): v is string => typeof v === "string" && /^[0-9a-f-]{36}$/i.test(v);
 
 const KNOWN = [MoveInProblem, AcademicRuleError, FileProblem, ParentLinkProblem];
@@ -42,7 +43,7 @@ async function run(fn: () => Promise<unknown>): Promise<string | void> {
 
 /** The person must reach Settings, and be allowed to add the records this file holds. */
 async function forFile(id: string, need: "create" | "archive" = "create") {
-  const { current } = await requireAction("settings", "view");
+  const { current } = await requireSettingsAction(PAGE, "view");
   if (!isId(id)) throw new MoveInProblem("This file was not found.");
   const f = await withSchool(current.ctx, (tx) => getFile(tx, id));
   if (!f) throw new MoveInProblem("This file was not found. It may have been removed.");
@@ -55,7 +56,7 @@ const refresh = (id?: string) => { revalidatePath(BASE); if (id) revalidatePath(
 // ── Upload ─────────────────────────────────────────────────────────────────
 
 export async function uploadAction(_prev: FormState, fd: FormData): Promise<FormState> {
-  const { current } = await requireAction("settings", "view");
+  const { current } = await requireSettingsAction(PAGE, "view");
   const kind = String(fd.get("kind") ?? "");
   const file = fd.get("file");
   const values = { kind };
@@ -266,7 +267,7 @@ const count = (v: FormDataEntryValue | null) => {
 };
 
 export async function expectedAction(_prev: FormState, fd: FormData): Promise<FormState> {
-  const { current } = await requireAction("settings", "edit");
+  const { current } = await requireSettingsAction(PAGE, "edit");
   const values = Object.fromEntries([...fd.entries()].filter(([, v]) => typeof v === "string")) as Record<string, string>;
   const errors: Record<string, string> = {};
   const expected = { students: count(fd.get("students")), staff: count(fd.get("staff")), guardians: count(fd.get("guardians")) };
@@ -283,7 +284,7 @@ export async function expectedAction(_prev: FormState, fd: FormData): Promise<Fo
 }
 
 export async function goLiveAction(sendLinks: boolean): Promise<string | void> {
-  const { current } = await requireAction("settings", "edit");
+  const { current } = await requireSettingsAction(PAGE, "edit");
   let linkNote = "";
   const r = await run(() => withSchool(current.ctx, (tx) => goLive(tx, current.ctx), { timeout: 60_000 }));
   if (r) return r;

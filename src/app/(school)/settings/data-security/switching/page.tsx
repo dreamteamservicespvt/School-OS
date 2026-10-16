@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requirePage } from "@/lib/current";
+import { requireSettingsPage } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { formatDate, formatDateTime } from "@/lib/format";
@@ -30,7 +30,7 @@ type Search = { searchParams: Promise<Record<string, string | string[] | undefin
 
 /** Switching to School OS (workflow 15): the plan, the files being brought in, and the go-live check. */
 export default async function SwitchingPage({ searchParams }: Search) {
-  const current = await requirePage("settings");
+  const { current } = await requireSettingsPage("data-security");
   const sp = await searchParams;
   const wantKind = typeof sp.kind === "string" ? sp.kind : undefined;
   const tz = current.school.timeZone;

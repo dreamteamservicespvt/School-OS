@@ -38,7 +38,7 @@ export const RULES: RuleDef[] = [
   { key: "result", label: "Results", when: "Results are published", module: "Examination & Results", audience: "parents", messageType: "result", defaultChannels: ["whatsapp"], defaultOn: true },
   { key: "ptm", label: "PTM reminder", when: "A parent-teacher meeting is coming", module: "Events & Calendar", audience: "parents", messageType: "general", defaultChannels: ["whatsapp"], defaultOn: true,
     timingFields: [{ key: "daysBefore", label: "Days before the PTM", kind: "days", default: "1" }] },
-  { key: "homework-set", label: "Homework set", when: "A teacher sets homework", module: "Homework & Learning", audience: "parents", messageType: "general", defaultChannels: ["app"], defaultOn: false },
+  { key: "homework-set", label: "Homework set", when: "A teacher sets homework", module: "Homework & Learning", audience: "parents", messageType: "general", defaultChannels: ["whatsapp"], defaultOn: false },
   { key: "homework-pending", label: "Pending homework", when: "Homework is still not submitted after its due date", module: "Homework & Learning", audience: "parents", messageType: "general", defaultChannels: ["whatsapp"], defaultOn: false,
     timingFields: [{ key: "time", label: "Time of day", kind: "time", default: "17:00" }] },
   { key: "birthday-student", label: "Birthday wishes to students", when: "It is a student's birthday", module: "Communication", audience: "parents", messageType: "general", defaultChannels: ["whatsapp"], defaultOn: true,
@@ -97,8 +97,9 @@ export async function sendAutomatic(tx: Tx, ctx: SchoolContext, input: Automatic
   if (!state.isOn) return { status: "off", duplicates: 0 };
 
   const on = await onChannels(tx, ctx);
-  // Use the rule's channels that are on; fall back to WhatsApp, then SMS.
-  let channels = state.channels.filter((c) => on.has(c) && (c !== "sms" || state.templateIds.sms));
+  // Use the rule's channels that are on; fall back to WhatsApp, then SMS. Parents have no
+  // app, so a parents' rule saved with "app" (Homework set used to be) falls back too.
+  let channels = state.channels.filter((c) => on.has(c) && (c !== "sms" || state.templateIds.sms) && !(c === "app" && def.audience === "parents"));
   if (channels.length === 0 && def.audience === "parents") {
     const setups = await channelSetups(tx, ctx);
     channels = setups.whatsapp.isOn ? ["whatsapp"] : setups.sms.isOn && state.templateIds.sms ? ["sms"] : [];

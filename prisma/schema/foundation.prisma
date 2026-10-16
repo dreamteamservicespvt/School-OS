@@ -89,6 +89,7 @@ model School {
   modules       SchoolModule[]
   features      SchoolFeature[]
   notifications Notification[]
+  pushDevices   PushDevice[]
   approvals     Approval[]
   auditLog      AuditLogEntry[]
 
@@ -151,6 +152,7 @@ model UserLogin {
   sessions      Session[]
   accesses      SchoolAccess[]
   notifications Notification[]
+  pushDevices   PushDevice[]
 
   @@map("user_login")
 }
@@ -281,6 +283,28 @@ model Notification {
 
   @@index([schoolId, userLoginId, readAt])
   @@map("notification")
+}
+
+/// Push Device: one browser or installed app where a person switched on push
+/// alerts in My profile (00-global.md §4 rules 6 and 8). The token is the push
+/// service's (Firebase Cloud Messaging) address for that browser. A token the
+/// push service no longer knows is archived, never deleted.
+model PushDevice {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  userLoginId String    @map("user_login_id") @db.Uuid
+  token       String
+  userAgent   String?   @map("user_agent")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  lastSeenAt  DateTime  @default(now()) @map("last_seen_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  school    School    @relation(fields: [schoolId], references: [id])
+  userLogin UserLogin @relation(fields: [userLoginId], references: [id])
+
+  @@unique([schoolId, token])
+  @@index([schoolId, userLoginId])
+  @@map("push_device")
 }
 
 /// Approval: one request waiting for a yes or no.

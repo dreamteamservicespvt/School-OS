@@ -5,7 +5,9 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import type { Outgoing, Provider, ProviderConfig, SendResult } from "./types";
 import { networkFailure, postJson } from "./types";
 
-export const GRAPH = "https://graph.facebook.com/v21.0";
+/** Meta retires each Graph API version about two years after it comes out, so the version is a setting. */
+export const GRAPH_VERSION = /^v\d+\.\d+$/.test(process.env.WHATSAPP_GRAPH_API_VERSION ?? "") ? process.env.WHATSAPP_GRAPH_API_VERSION! : "v23.0";
+export const GRAPH = `https://graph.facebook.com/${GRAPH_VERSION}`;
 
 type GraphError = { error?: { code?: number; message?: string; error_data?: { details?: string } } };
 

@@ -46,6 +46,11 @@ async function main() {
     // The demo seed refuses to run in production; this database is a demo.
     run("npx prisma db seed", { ...env, NODE_ENV: "development" });
   }
+  // DREAM TEAM's own Owner login for the console, when its settings are given
+  // (scripts/console-owner.ts). Added once; later deploys change nothing.
+  if (process.env.CONSOLE_OWNER_PHONE) {
+    run("npx tsx --conditions=react-server scripts/console-owner.ts", settings ? { ...process.env, ...settings.env } : process.env);
+  }
   run("npx next build", { ...process.env, NODE_OPTIONS: process.env.NODE_OPTIONS || "--max-old-space-size=6144" });
 }
 

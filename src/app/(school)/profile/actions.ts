@@ -14,6 +14,7 @@ import { confirmContactChange, roleNeedsTwoStep, startContactChange, type Contac
 import { deviceInfo, requireAction, requireCurrent } from "@/lib/current";
 import { hitLimit, limitMessage } from "@/lib/rate-limit";
 import { NOTE_CHANNELS, NOTE_KINDS, type NoteChannel } from "@/lib/notification-kinds";
+import { pushOn } from "@/lib/push";
 import { readPreferences } from "@/lib/settings/profile-rules";
 import { ACCENTS, ACCENT_COOKIE } from "@/lib/theme";
 
@@ -120,4 +121,45 @@ export async function setSchoolColour(accent: string | null): Promise<Result> {
   revalidatePath("/", "layout");
   const name = ACCENTS.find((a) => a.key === next)?.label;
   return { ok: true, message: next ? `Everyone at ${current.school.name} now sees ${name}.` : "Each person can pick their own colour again." };
+}
+
+/** FCM push addresses are long letters, digits and : _ - only. */
+const PUSH_TOKEN = /^[A-Za-z0-9:_-]{20,4096}$/;
+
+/** Push alerts on this phone or computer (00-global.md §4 rule 8): keeps the browser's push address. */
+export async function savePushDevice(token: string): Promise<Result> {
+  const current = await requireCurrent();
+  if (!PUSH_TOKEN.test(token)) return { ok: false, message: "This browser did not give a push address. Please try again." };
+  const limit = await hitLimit(`push-device:${current.user.id}`, 20, 60 * 60);
+  if (!limit.ok) return { ok: false, message: limitMessage(limit) };
+  const device = await deviceInfo();
+  const r = await withSchool(current.ctx, async (tx) => {
+    if (!(await pushOn(tx, current.ctx))) return "off";
+    const existing = await tx.pushDevice.findUnique({ where: { schoolId_token: { schoolId: current.ctx.schoolId, token } } });
+    // One browser belongs to whoever switched push on there last (a shared office computer).
+    if (existing) {
+      await tx.pushDevice.update({ where: { id: existing.id }, data: { userLoginId: current.user.id, userAgent: device.userAgent, lastSeenAt: new Date(), archivedAt: null } });
+    } else {
+      await tx.pushDevice.create({ data: { schoolId: current.ctx.schoolId, userLoginId: current.user.id, token, userAgent: device.userAgent } });
+    }
+    await writeAudit(tx, current.ctx, { action: "push-alerts-on", recordType: "User Login", recordId: current.user.id, device: device.userAgent, ipAddress: device.ipAddress });
+    return "ok";
+  });
+  if (r === "off") return { ok: false, message: "Push alerts are not switched on by your school." };
+  revalidatePath("/profile");
+  return { ok: true, message: "Push alerts are on for this device" };
+}
+
+/** Stops push alerts on this phone or computer. The record is kept, archived. */
+export async function removePushDevice(token: string): Promise<Result> {
+  const current = await requireCurrent();
+  if (!PUSH_TOKEN.test(token)) return { ok: true, message: "Push alerts are off for this device" };
+  await withSchool(current.ctx, async (tx) => {
+    const d = await tx.pushDevice.findUnique({ where: { schoolId_token: { schoolId: current.ctx.schoolId, token } } });
+    if (!d || d.archivedAt || d.userLoginId !== current.user.id) return;
+    await tx.pushDevice.update({ where: { id: d.id }, data: { archivedAt: new Date() } });
+    await writeAudit(tx, current.ctx, { action: "push-alerts-off", recordType: "User Login", recordId: current.user.id });
+  });
+  revalidatePath("/profile");
+  return { ok: true, message: "Push alerts are off for this device" };
 }

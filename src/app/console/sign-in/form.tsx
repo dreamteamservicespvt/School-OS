@@ -5,6 +5,7 @@ import { useActionState, useRef, useState, useTransition } from "react";
 import { ArrowRight, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
+import { TestCodeNote } from "@/components/console/test-code-note";
 import { FieldShell, inputCls } from "@/components/ui/field";
 import { cx } from "@/components/ui/cx";
 import { consoleBackAction, consoleCodeAction, consolePasswordAction, consoleResendAction, type CodeState, type PasswordState } from "./actions";
@@ -114,7 +115,7 @@ export function CodeStep({ sentTo, name, trustDays, test }: { sentTo: string; na
   return (
     <form action={(fd) => { setResent(null); action(fd); }} noValidate className="mt-5 flex flex-col gap-4">
       {shown?.message && <Alert tone={shown.sent ? "success" : "danger"}>{shown.message}</Alert>}
-      {test && <Alert tone="info">No SMS provider is set up on this server, so the code was written to the server log.</Alert>}
+      {test && <TestCodeNote />}
       <OtpBoxes label={`6-digit code sent to +91 ${sentTo}`} error={wrong} />
       <p className="text-[12.5px] text-ink3 -mt-2">It works for 10 minutes.</p>
       <label className="flex items-start gap-2.5 text-[14px] text-ink2 cursor-pointer select-none">

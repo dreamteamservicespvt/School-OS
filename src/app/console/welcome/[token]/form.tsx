@@ -3,6 +3,7 @@
 import { useActionState, useState, useTransition } from "react";
 import { Check, Circle, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
+import { TestCodeNote, codeNotSent } from "@/components/console/test-code-note";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { inputCls } from "@/components/ui/field";
 import { cx } from "@/components/ui/cx";
@@ -53,8 +54,8 @@ export function WelcomeForm({ token, phoneMasked }: { token: string; phoneMasked
     <>
       <StepDots step={2} labels={["Confirm your phone", "Set your password"]} />
       <form action={action} noValidate className="mt-5 flex flex-col gap-4">
-        {state?.message ? <Alert tone="danger">{state.message}</Alert> : <Alert tone="success">{sent.message}</Alert>}
-        {sent.test && <Alert tone="info">No SMS provider is set up on this server, so the code was written to the server log.</Alert>}
+        {state?.message ? <Alert tone="danger">{state.message}</Alert> : !codeNotSent(sent.test) && <Alert tone="success">{sent.message}</Alert>}
+        {sent.test && <TestCodeNote />}
         <OtpBoxes label={`6-digit code sent to +91 ${sent.sentTo}`} error={state?.field === "code"} />
         <div className="flex flex-col gap-1.5">
           <label htmlFor="password" className="text-[13px] font-semibold text-ink2">Choose a password</label>

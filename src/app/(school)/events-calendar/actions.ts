@@ -15,6 +15,7 @@ import { recordConsent, remindConsent } from "@/lib/events/consent";
 import { localNow } from "@/lib/events/jobs";
 import { parseRupees } from "@/lib/fees/act";
 import { sendMessage } from "@/lib/messaging";
+import { tellSafely, toldWords, type Told } from "@/lib/events/tell";
 import { ENTRY_TYPES, dmy, isEntryType, minutesFrom, clock } from "@/lib/events/words";
 
 type S = FormState<unknown>;
@@ -45,21 +46,21 @@ export async function addEntryAction(_: S, fd: FormData): Promise<S> {
     const classIds = applies === "classes" ? ids(fd, "classIds") : [];
     if (applies === "classes" && !classIds.length) throw new EventsProblem("Choose the classes.", "classIds");
     const entry = await addEntry(w.tx, w.ctx, { title: str(fd, "title"), type, from, to, attendanceOn: checked(fd, "attendanceOn"), campusId, classIds, details: maybe(fd, "details", "Description", 500) }, { confirm: str(fd, "confirm") === "attendance-taken", today: today(w.tz) });
-    let told = 0;
+    let told: Told | null = null;
     if (checked(fd, "notify")) {
       const school = (await w.tx.school.findUnique({ where: { id: w.ctx.schoolId }, select: { name: true } }))?.name ?? "School";
       const when = to && to !== from ? `${dmy(from)} to ${dmy(to)}` : dmy(from);
       const closes = !entry.attendanceOn && (type === "holiday" || type === "vacation");
-      const r = await sendMessage(w.tx, w.ctx, {
+      // Telling parents never blocks adding the entry (ACADEMICS-21).
+      told = await tellSafely(() => sendMessage(w.tx, w.ctx, {
         to: classIds.length ? { kinds: ["parents"], classIds } : { kinds: ["parents"] }, channels: "preferred",
         text: `Dear Parent, ${entry.title} on ${when}.${closes ? " The school is closed." : ""} - ${school}`,
         trigger: `Calendar: ${entry.title}`, source: { type: "Calendar Entry", id: entry.id },
-      });
-      told = r.people;
+      }));
     }
     return { entry, told };
   }, (r) => ({
-    message: `${ENTRY_TYPES[r.entry.type as keyof typeof ENTRY_TYPES]?.label ?? "Entry"} added: ${r.entry.title}. ${r.entry.attendanceOn ? "Attendance can still be taken." : "Attendance is off on these days."}${r.told ? ` ${count(r.told, "parent")} told.` : ""}`,
+    message: `${ENTRY_TYPES[r.entry.type as keyof typeof ENTRY_TYPES]?.label ?? "Entry"} added: ${r.entry.title}. ${r.entry.attendanceOn ? "Attendance can still be taken." : "Attendance is off on these days."}${toldWords(r.told)}`,
     undo: { kind: "ev-entry-add", id: r.entry.id },
   }));
 }
@@ -117,23 +118,20 @@ export async function saveEventAction(_: S, fd: FormData): Promise<S> {
     const eventId = str(fd, "eventId");
     if (eventId) {
       const r = await updateEvent(w.tx, w.ctx, eventId, input, { confirm, today: today(w.tz) });
-      let told = 0;
-      if (r.moved && checked(fd, "tell")) {
-        try { told = (await messageAudience(w.tx, w.ctx, r.event, "changed")).people; } catch (e) { if (!(e instanceof EventsProblem)) throw e; }
-      }
+      const told = r.moved && checked(fd, "tell") ? await tellSafely(() => messageAudience(w.tx, w.ctx, r.event, "changed")) : null;
       return { event: r.event, created: false, told };
     }
-    return { event: await createEvent(w.tx, w.ctx, input, { confirm }), created: true, told: 0 };
+    return { event: await createEvent(w.tx, w.ctx, input, { confirm }), created: true, told: null };
   }, (r) => r.created
     ? { message: `Event created: ${r.event.name}. It is on the School Calendar.`, link: { href: `/events-calendar/events/${r.event.id}`, label: "Open" } }
-    : `${r.event.name} saved.${r.told ? ` ${count(r.told, "person", "people")} told about the change.` : ""}`);
+    : `${r.event.name} saved.${r.told?.problem ? toldWords(r.told) : r.told?.people ? ` ${count(r.told.people, "person", "people")} told about the change.` : ""}`);
 }
 
 export async function cancelEventAction(_: S, fd: FormData): Promise<S> {
   return evAction("edit", fd, async (w) => {
     need(w.can.events, "cancel events");
     return cancelEvent(w.tx, w.ctx, id(fd, "eventId", "event"), str(fd, "reason"), checked(fd, "tell"), today(w.tz));
-  }, (r) => `${r.event.name} cancelled.${r.told ? ` ${count(r.told, "person", "people")} told.` : ""}${r.removed ? ` ${count(r.removed, "unpaid fee")} removed.` : ""}${r.refunds ? ` ${count(r.refunds, "refund")} sent to Approvals.` : ""}`);
+  }, (r) => `${r.event.name} cancelled.${r.told?.problem ? toldWords(r.told) : r.told?.people ? ` ${count(r.told.people, "person", "people")} told.` : ""}${r.removed ? ` ${count(r.removed, "unpaid fee")} removed.` : ""}${r.refunds ? ` ${count(r.refunds, "refund")} sent to Approvals.` : ""}`);
 }
 
 export async function registerAction(_: S, fd: FormData): Promise<S> {
@@ -207,7 +205,7 @@ export async function cancelPtmAction(_: S, fd: FormData): Promise<S> {
   return evAction("archive", fd, async (w) => {
     need(w.can.ptmPlan, "cancel PTMs");
     return cancelPtm(w.tx, w.ctx, id(fd, "ptmId", "PTM"), str(fd, "reason"), today(w.tz));
-  }, (r) => `PTM cancelled.${r.told ? ` ${count(r.told, "parent")} told.` : ""}`);
+  }, (r) => `PTM cancelled.${toldWords(r.told)}`);
 }
 
 export async function bookSlotAction(_: S, fd: FormData): Promise<S> {

@@ -19,6 +19,7 @@ import { sendMessage, type AudienceRule } from "../messaging";
 import { EventsProblem, EventsWarning } from "./problem";
 import { eventsSettings } from "./settings";
 import { syncSourceEntry } from "./calendar";
+import { tellSafely } from "./tell";
 import { placeOrder, placesOf } from "./places";
 import { AUDIENCE_KINDS, REMINDERS, classesWords, clock, dayOf, dmy, isoOf, longDay, timeSpan } from "./words";
 
@@ -317,14 +318,8 @@ export async function cancelEvent(tx: Tx, ctx: SchoolContext, eventId: string, r
   const updated = await tx.event.update({ where: { id: e.id }, data: { status: "CANCELLED", cancelReason: why, cancelledAt: new Date(), updatedById: ctx.userId } });
   await calendarFor(tx, ctx, updated);
   await writeAudit(tx, ctx, { action: "cancelled", recordType: "Event", recordId: e.id, before: { status: e.status }, after: { status: "CANCELLED", reason: why, feeRowsRemoved: removed, refundsAsked: refunds } });
-  let told = 0;
-  if (tell) {
-    try {
-      told = (await messageAudience(tx, ctx, updated, "cancelled")).people;
-    } catch (err) {
-      if (!(err instanceof EventsProblem)) throw err;
-    }
-  }
+  // Telling the audience never blocks the cancellation (ACADEMICS-21).
+  const told = tell ? await tellSafely(() => messageAudience(tx, ctx, updated, "cancelled")) : null;
   return { event: updated, removed, refunds, told };
 }
 

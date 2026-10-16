@@ -77,6 +77,12 @@ describe("datesheet", () => {
     await expect(s.run((tx) => saveMarks(tx, s.ctx, principal, { entryId: mat5a, sectionId: s.s5a.id, rows: [marks(students[0], 40)] }))).rejects.toThrow(/once the datesheet is published/);
     await s.run((tx) => publishDatesheet(tx, s.ctx, examId, { tellParents: false }));
   });
+
+  it("the exam days on the School Calendar are for the exam's classes only, not the whole school (QA ACAD)", async () => {
+    const days = await s.run((tx) => tx.calendarEntry.findMany({ where: { source: `exam:${examId}`, archivedAt: null } }));
+    expect(days.length).toBe(2);
+    for (const day of days) expect(day.classIds).toEqual([s.c5.id]);
+  });
 });
 
 describe("marks entry and locking", () => {

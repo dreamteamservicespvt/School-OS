@@ -318,12 +318,15 @@ export async function syncCalendar(tx: Tx, ctx: SchoolContext, examId: string) {
   const campusIds = [...new Set(classes.map((c) => c.campusId))];
   for (const [day, list] of [...byDay.entries()].sort()) {
     const subj = [...new Set(list.map((e) => subjects.find((s) => s.id === e.subjectId)?.name ?? ""))].filter(Boolean);
-    const cls = classes.filter((c) => list.some((e) => e.classId === c.id)).map((c) => c.name);
+    const sitting = classes.filter((c) => list.some((e) => e.classId === c.id));
+    const cls = sitting.map((c) => c.name);
     const date = new Date(`${day}T00:00:00Z`);
     await tx.calendarEntry.create({
       data: {
         schoolId: ctx.schoolId, campusId: campusIds.length === 1 ? campusIds[0] : null, academicYearId: exam.academicYearId, type: "exam_day",
         title: `${exam.title}: ${wordList(subj)} (${wordList(cls)})`.slice(0, 200), startDate: date, endDate: date, attendanceOn: true, source, createdById: ctx.userId,
+        // Only the classes that sit a paper that day (an empty list would mean the whole school).
+        classIds: sitting.map((c) => c.id),
       },
     });
   }

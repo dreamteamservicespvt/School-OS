@@ -153,7 +153,7 @@ export async function revokeAction(linkId: string, mode: "revoke" | "reissue", r
       await revokeLink(tx, access.current.ctx, linkId, reason);
       return null;
     });
-    await flash({ message: out ? "The old link stopped working. A new link was sent to the registered mobile." : "The link stopped working on every phone.", tone: "success" });
+    await flash({ message: out ? "The old link stopped working. A new link is on its way to the registered mobile." : "The link stopped working on every phone.", tone: "success" });
     revalidatePath("/communication/parent-link");
     if (out) return { newId: out };
   } catch (e) {

@@ -107,6 +107,7 @@ export async function bookAppointment(tx: Tx, ctx: SchoolContext, input: BookInp
     await notify(tx, ctx, { to: staff.userLoginId, type: "appointment", text: `${old ? "Appointment moved" : "New appointment"}: ${visitorName}, ${when} for ${a.lengthMin} minutes. ${purpose}`, link: "/dashboard" }, now);
   }
   let sent: string | null = null;
+  let notSent: string | null = null;
   if (input.confirm) {
     const school = await tx.school.findUnique({ where: { id: ctx.schoolId }, select: { name: true } });
     const r = await messageVisitor(tx, ctx, {
@@ -116,8 +117,9 @@ export async function bookAppointment(tx: Tx, ctx: SchoolContext, input: BookInp
     });
     sent = sentWords(r);
     if (r.status === "queued") await tx.appointment.update({ where: { id: a.id }, data: { confirmationSent: true } });
+    else notSent = r.note ?? "messages are not set up";
   }
-  return { appointment: a, staffName: staff?.fullName ?? "", when, sent };
+  return { appointment: a, staffName: staff?.fullName ?? "", when, sent, notSent };
 }
 
 export const NEXT_STATUS: Record<string, string[]> = { BOOKED: ["ARRIVED", "DONE", "NO_SHOW", "CANCELLED"], ARRIVED: ["DONE"], DONE: [], NO_SHOW: [], CANCELLED: [] };

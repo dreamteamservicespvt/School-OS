@@ -161,6 +161,15 @@ describe("Front Office rules", () => {
     await expect(withSchool(desk(), (tx) => bookAppointment(tx, desk(), { ...input, dayIso: "2026-10-13" }, { timeZone: TZ, now }))).rejects.toThrow(/has passed/);
   });
 
+  it("says when the asked-for confirmation could not be sent (QA PEOPLE-17)", async () => {
+    const now = at(TODAY, "08:00");
+    const input = { staffId: f.principalStaff.id, dayIso: "2026-10-16", startMin: 12 * 60, lengthMin: 15, visitorName: "Demo Visitor Rao", visitorPhone: "9848055130", purpose: "Fee query", confirm: true };
+    const r = await withSchool(desk(), (tx) => bookAppointment(tx, desk(), input, { timeZone: TZ, now }));
+    expect(r.sent).toBeNull();
+    expect(r.notSent).toMatch(/No WhatsApp or SMS is set up/);
+    expect(r.appointment.confirmationSent).toBe(false);
+  });
+
   it("gives every walk-in request a number and a department, and finds it by that number (Done when 11)", async () => {
     const a = await withSchool(desk(), (tx) => addWalkIn(tx, desk(), { fromName: "", fromPhone: null, guardianId: f.father.id, studentId: f.aarav.id, request: "Bonafide certificate for passport", department: "Office", note: null, givenBy: "slip" }, { timeZone: TZ }));
     const b = await withSchool(desk(), (tx) => addWalkIn(tx, desk(), { fromName: "Walk In", fromPhone: "9700000004", guardianId: null, studentId: null, request: "Fee statement", department: "Accounts", note: null, givenBy: "slip" }, { timeZone: TZ }));

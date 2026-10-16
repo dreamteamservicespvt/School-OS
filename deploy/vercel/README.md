@@ -49,3 +49,8 @@ of these.
 Usernames: `principal`, `admin`, `accountant`, `teacher`, `subjectteacher`,
 `librarian`, `reception`, `transport`, `driver`, `warden`, `boyswarden`,
 `store` and `viceprincipal`, all with `DEMO_PASSWORD`.
+
+The Super Admin console is at `/console/sign-in` with the mobile number
+`9849012345` and the same password. Its 6-digit code is not sent anywhere on
+the test copy: open the project's **Logs** in Vercel and search for
+`console-message` to read it.

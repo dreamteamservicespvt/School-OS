@@ -16,6 +16,7 @@
 import "server-only";
 
 import { withConsole } from "../db";
+import { isTestCopy } from "../test-copy-env";
 import { mailIsSetUp, sendMail } from "../auth/mail";
 import { msg91Provider } from "../messaging/providers/msg91";
 import { whatsappProvider } from "../messaging/providers/whatsapp";
@@ -104,7 +105,9 @@ export async function deliver(messages: ConsoleOutgoing[]): Promise<Delivered[]>
     } catch (e) {
       result = { ok: false, retryable: true, reason: e instanceof Error ? e.message.slice(0, 160) : "Could not send." };
     }
-    if (result === "test" && process.env.NODE_ENV !== "production") {
+    // The Vercel test copy has no SMS or email, so its codes go to the server
+    // log there too, as the owner chose (deploy/vercel/README.md).
+    if (result === "test" && (process.env.NODE_ENV !== "production" || isTestCopy())) {
       console.info(JSON.stringify({ level: "info", event: "console-message", note: "No provider set up; development only", channel: m.channel, to: m.to, text: m.text }));
     }
     const status = result === "test" ? "TEST" : result.ok ? "SENT" : "FAILED";

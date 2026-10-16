@@ -230,7 +230,7 @@ export default async function SchoolPage({ params, searchParams }: { params: Pro
         return c.can("status") && s.status === "CLOSED" ? (
           <ActSheet title={`Delete ${s.name} for good?`} sub="Closed → Deleted · Owner only · cannot be undone" closeHref={close} action={deleteSchoolAction} submitLabel="Delete for good" danger typeName={s.name} hidden={{ schoolId: id }} reason={{ placeholder: "Test school, made while trying School OS." }}>
             <p>For test schools. Everything in this school is removed: its users, settings and records. Its logins that work in no other school are removed too.</p>
-            <p>Only a school with no students, payments, Day Book entries or invoices can be deleted. Its Audit Log and this console’s Activity Log are kept.</p>
+            <p>Only a school with no students, payments, Day Book entries or invoices can be deleted, or one of the two made-up demo schools with everything in it. Its Audit Log and this console’s Activity Log are kept.</p>
           </ActSheet>
         ) : null;
       case "suspend":

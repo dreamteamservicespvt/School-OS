@@ -44,7 +44,8 @@ async function main() {
     const env = { ...process.env, ...settings.env };
     run("npx prisma migrate deploy", env);
     // The demo seed refuses to run in production; this database is a demo.
-    run("npx prisma db seed", { ...env, NODE_ENV: "development" });
+    // Only into a new database: a demo the Owner deleted is not brought back.
+    run("npx prisma db seed", { ...env, NODE_ENV: "development", SEED_ONLY_EMPTY_DATABASE: "1" });
   }
   // DREAM TEAM's own Owner login for the console, when its settings are given
   // (scripts/console-owner.ts). Added once; later deploys change nothing.

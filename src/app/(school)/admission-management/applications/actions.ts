@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import type { ApplicationStage } from "@prisma/client";
 import { flash } from "@/lib/flash";
 import { formValues, type FormState } from "@/lib/forms";
-import { AdmissionProblem, checkMobile, file, id, maybe, need, optionalId, problemState, rupeesOf, str } from "@/lib/admission/act";
+import { AdmissionProblem, allProblems, checkMobile, file, id, maybe, need, optionalId, problemState, rupeesOf, str } from "@/lib/admission/act";
 import { admissionAct, customFrom, inSchool } from "@/lib/admission/server";
 import { readApplicationForm } from "@/lib/admission/application-form";
 import { createApplication, editApplication, moveStage, review, sendBack, STAGES, withdraw } from "@/lib/admission/applications";
@@ -28,14 +28,22 @@ export async function saveApplicationAction(_: DupState, fd: FormData): Promise<
       if (!pre.ok) return { ok: false, message: pre.message, errors: { code: pre.message }, values: formValues(fd) };
     }
     const app = await inSchool(existingId ? "edit" : "create", async (w) => {
-      const input = readApplicationForm(fd, { restricted: w.v.restricted });
+      const consentMissing = "The guardian must agree to the data consent, confirmed with the one-time code, before the form is saved.";
+      const types = [DATA_CONSENT, PHOTO_CONSENT].filter((t) => str(fd, `consent_${t}`) === "on");
+      let input;
+      try {
+        input = readApplicationForm(fd, { restricted: w.v.restricted });
+      } catch (e) {
+        // A missing consent is listed with the form's other problems (QA PEOPLE-07).
+        if (!existingId && e instanceof AdmissionProblem && !types.includes(DATA_CONSENT)) throw allProblems({ ...(e.errors ?? (e.field ? { [e.field]: e.message } : {})), code: consentMissing });
+        throw e;
+      }
       if (existingId) {
         const before = await w.tx.application.findFirst({ where: { id: existingId }, select: { customFields: true } });
         return editApplication(w.tx, w.ctx, w.v, w.s, existingId, { ...input, customFields: await customFrom(w, "application", fd, before?.customFields ?? {}) });
       }
       // Consent is given on the form, confirmed by a one-time code to the parent's phone (D8a).
-      const types = [DATA_CONSENT, PHOTO_CONSENT].filter((t) => str(fd, `consent_${t}`) === "on");
-      if (!types.includes(DATA_CONSENT)) throw new AdmissionProblem("The guardian must agree to the data consent, confirmed with the one-time code, before the form is saved.", "code");
+      if (!types.includes(DATA_CONSENT)) throw new AdmissionProblem(consentMissing, "code");
       await verifyOtp(w.tx, { purpose: counterFormPurpose(w.ctx.userId), phone: input.phone, code: str(fd, "code") });
       const campus = await w.tx.campus.findFirst({ where: { archivedAt: null }, orderBy: [{ isMain: "desc" }, { createdAt: "asc" }], select: { id: true } });
       if (!campus) throw new AdmissionProblem("Add a campus in Settings first.");

@@ -5,7 +5,7 @@
 import { redirect } from "next/navigation";
 import { deviceInfo } from "@/lib/current";
 import { formValues, type FormState } from "@/lib/forms";
-import { checkMobile, need, problemState, str } from "@/lib/admission/act";
+import { AdmissionProblem, allProblems, checkMobile, need, problemState, str } from "@/lib/admission/act";
 import { readApplicationForm } from "@/lib/admission/application-form";
 import { DATA_CONSENT } from "@/lib/admission/consent";
 import { checkOnlineCode, schoolByCode, sendOnlineCode, submitOnline } from "@/lib/admission/public";
@@ -41,8 +41,15 @@ export async function submitApplyAction(code: string, _: FormState<unknown>, fd:
   if (!school) return { ok: false, message: CLOSED };
   let path: string;
   try {
-    const input = readApplicationForm(fd, { restricted: false });
     const consentTypes = fd.getAll("consent").map(String).filter((t) => /^[a-z-]{2,40}$/.test(t));
+    let input;
+    try {
+      input = readApplicationForm(fd, { restricted: false });
+    } catch (e) {
+      // A missing consent is listed with the form's other problems (QA PEOPLE-07).
+      if (e instanceof AdmissionProblem && !consentTypes.includes(DATA_CONSENT)) throw allProblems({ ...(e.errors ?? (e.field ? { [e.field]: e.message } : {})), consent: "Please agree to the use of your child's data. The school needs it to process the admission." });
+      throw e;
+    }
     if (!consentTypes.includes(DATA_CONSENT)) return { ok: false, message: "Please agree to the use of your child's data. The school needs it to process the admission.", errors: { consent: "Needed to apply." }, values: formValues(fd) };
     const r = await submitOnline(school.id, {
       ...input,

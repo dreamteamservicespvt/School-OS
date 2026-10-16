@@ -27,7 +27,7 @@ has a vitest test. Each fix was checked again in the browser on the dev build (p
 | ACADEMICS-17 | — | — | number not used | — |
 | ACADEMICS-18 | P1 | Homework & Learning | A student saw classmates and parents on the homework details page | fixed a82b2fe |
 | ACADEMICS-19 | P4 | Student Management | Student username repeats the school code | not fixed |
-| ACADEMICS-20 | P4 | Homework & Learning | Server accepts homework already past its due date | not fixed |
+| ACADEMICS-20 | P4 | Homework & Learning | Server accepts homework already past its due date | fixed |
 | ACADEMICS-21 | P2 | Events & Calendar | With no WhatsApp/SMS, holiday "tell", event cancel and PTM cancel failed | fixed 93169a8 + 4e052f8 |
 
 Totals: 21 defects. By priority: P1 3, P2 5, P3 8, P4 5. Fixed 15. Not fixed 6: 05, 14, 19 and 20, plus 07 and 11, which need a product decision.
@@ -166,7 +166,7 @@ Totals: 21 defects. By priority: P1 3, P2 5, P3 8, P4 5. Fixed 15. Not fixed 6: 
 - **Steps:** Send `giveHomework` (crafted call) with a due date in the past.
 - **Expected:** Refused, as the screen refuses it.
 - **Actual:** Accepted on the server.
-- **Not fixed:** the module's own tests rely on the server allowing past due dates, to set up overdue cases. The screen blocks this case. Changing it needs the module owner's view.
+- **Fix:** `giveHomeworkAction` refuses a due date before today, as the screen does. The module's own tests still set up overdue homework through `giveHomework` directly.
 
 ## ACADEMICS-21 · P2 · Events & Calendar (no messaging channel)
 - **Steps:** With WhatsApp and SMS not connected:

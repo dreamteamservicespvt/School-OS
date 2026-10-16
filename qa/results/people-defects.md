@@ -15,7 +15,7 @@ Fixes were not checked in the browser on the fixed build unless the row says so:
 | PEOPLE-22 | P2 | Admission Management | "Parent Link sent: 2 links" when nothing was sent | Fixed 4fa6e46 |
 | PEOPLE-01 | P3 | Student Management | Import shows only the first problem of a row | Fixed 7ff5f21 |
 | PEOPLE-05 | P3 | Admission Management | Consent code message blamed the phone number | Fixed 4f8fdb9 |
-| PEOPLE-07 | P3 | Admission Management | Application form shows one problem at a time | Not fixed |
+| PEOPLE-07 | P3 | Admission Management | Application form shows one problem at a time | Fixed |
 | PEOPLE-08 | P3 | Admission Management | "No valid mobile number" given as the reason a message did not go | Fixed 4f8fdb9 |
 | PEOPLE-11 | P3 | Student Management | Roll number 0 accepted | Fixed 827b4c3 |
 | PEOPLE-12 | P3 | Student Management | Class and section lost after a failed save | Fixed 827b4c3 |
@@ -98,7 +98,7 @@ Count: 25 defects. P1: 2, P2: 4, P3: 11, P4: 8. Fixed: 18. Not fixed: 6. Needs e
 - Steps: Save a New application with no gender, no class, no address and birth date 01-01-2030.
 - Expected: All problems are listed together (pattern P7).
 - Actual: The form shows one problem at a time: gender first, then consent. The future birth date is never reported before consent.
-- Not fixed: the form's checks run in sequence, with consent as a gate. Fixing it means restructuring the application save. I left it for the module owner because it could not be checked end to end without a consent code (PEOPLE-06).
+- Fix: `readApplicationForm` collects every problem (including a future birth date) and the counter and online forms add a missing consent to the same list. Test: `tests/admission/form-problems.test.ts`.
 
 ## PEOPLE-08 (P3) Wrong reason given when a message did not go
 - Steps: Documents & Verification > Remind about missing papers, on an application with valid phone 9876501299.

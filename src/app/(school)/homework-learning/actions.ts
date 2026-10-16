@@ -46,11 +46,14 @@ const marks = (fd: FormData) => {
 export async function giveHomeworkAction(_prev: unknown, fd: FormData) {
   return hwForm("create", fd, async ({ tx, s, today }) => {
     const givenTo = (["SECTION", "CLASS", "STUDENTS"].includes(str(fd, "givenTo")) ? str(fd, "givenTo") : "SECTION") as "SECTION" | "CLASS" | "STUDENTS";
+    // The screen refuses a past due date; refuse it here too (QA ACADEMICS-20).
+    const dueDate = day(fd, "dueDate", "Due date");
+    if (dueDate.getTime() < today.getTime()) throw new HomeworkProblem("The due date is in the past. Choose today or a later day.", "dueDate");
     const r = await giveHomework(tx, s, {
       sectionId: uuid(fd, "sectionId", "class"), subjectId: uuid(fd, "subjectId", "subject"),
       title: str(fd, "title"), instructions: optionalText(fd, "instructions", "Instructions", 4000),
       givenTo, studentIds: strs(fd, "studentIds").filter((x) => UUID.test(x)),
-      startDate: day(fd, "startDate", "Start date"), dueDate: day(fd, "dueDate", "Due date"),
+      startDate: day(fd, "startDate", "Start date"), dueDate,
       maxMarks: marks(fd), onlineSubmission: str(fd, "online") === "on", fromSuggestion: str(fd, "fromSuggestion") === "1",
       attachments: attachments(fd),
     }, today);

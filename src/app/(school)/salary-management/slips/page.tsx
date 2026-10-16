@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowUpRight, Calculator, Download, Eye, Hourglass, Info, Printer, ReceiptText, SearchX, Send, UserRound } from "lucide-react";
 import { withSchool } from "@/lib/db";
+import { channelSetups } from "@/lib/messaging/channels";
 import { decryptField, maskLast4 } from "@/lib/crypto";
 import { formatRupees } from "@/lib/format";
 import { salarySettings } from "@/lib/salary/settings";
@@ -175,7 +176,8 @@ async function AllSlips({ sp }: { sp: Record<string, string | string[] | undefin
     const viewId = UUID.test(one(sp.slip)) ? one(sp.slip) : "";
     const view = viewId ? slips.find((s) => s.id === viewId) ?? null : null;
     const viewLine = view ? await tx.payrollLine.findUnique({ where: { id: view.lineId } }) : null;
-    return { settings, runs, run, slips, staff, campus, view, viewLine };
+    const whatsappOn = (await channelSetups(tx, ctx)).whatsapp.isOn;
+    return { settings, runs, run, slips, staff, campus, view, viewLine, whatsappOn };
   });
   const run = data.run;
   const done = data.runs.filter((r) => DONE.includes(r.status as (typeof DONE)[number]));
@@ -191,7 +193,9 @@ async function AllSlips({ sp }: { sp: Record<string, string | string[] | undefin
   const notSent = count("MADE");
   const doing = p.change ? one(sp.do) : "";
   const bulkIds = one(sp.ids).split(",").filter((x) => UUID.test(x));
-  const how = one(sp.how) === "email" ? "email" : "whatsapp";
+  // WhatsApp is offered only while it is switched on in Settings (QA money note).
+  const send = data.whatsappOn ? "whatsapp" : "email";
+  const how = one(sp.how) === "email" || !data.whatsappOn ? "email" : "whatsapp";
   const howWord = how === "email" ? "email" : "WhatsApp";
 
   return (
@@ -218,7 +222,7 @@ async function AllSlips({ sp }: { sp: Record<string, string | string[] | undefin
           ) : (
             <>
               {p.change && <BulkBar group="slip" items={[
-                { label: "Send by WhatsApp", icon: "whatsapp", set: { do: "send", how: "whatsapp" } },
+                ...(data.whatsappOn ? [{ label: "Send by WhatsApp", icon: "whatsapp" as const, set: { do: "send", how: "whatsapp" } }] : []),
                 { label: "Send by email", icon: "email", set: { do: "send", how: "email" } },
                 { label: "Print", icon: "print", file: `${HREF}/pdf?print=1` },
               ]} />}
@@ -246,7 +250,7 @@ async function AllSlips({ sp }: { sp: Record<string, string | string[] | undefin
           <UrlSheet wide closeHref={here({ slip: null })} title={`Salary slip · ${monthName(run.month)}`} sub={`${x.fullName} · ${x.staffCode}`}
             footer={<div className="flex gap-2 justify-end flex-wrap">
               <a href={`${HREF}/pdf?ids=${data.view.id}&print=1`} target="_blank" rel="noopener" className={buttonClass("ghost")}><Printer size={17} aria-hidden="true" />Print</a>
-              {p.change && <ButtonLink href={here({ slip: null, do: "send", how: "whatsapp", ids: data.view.id })} scroll={false} variant="secondary" icon={Send}>Send</ButtonLink>}
+              {p.change && <ButtonLink href={here({ slip: null, do: "send", how: send, ids: data.view.id })} scroll={false} variant="secondary" icon={Send}>Send</ButtonLink>}
               <a href={`${HREF}/pdf?ids=${data.view.id}`} download className={buttonClass("primary")}><Download size={17} aria-hidden="true" />Download PDF</a>
             </div>}>
             <SlipView school={p.school.name} place={[data.campus?.name, data.campus?.address].filter(Boolean).join(", ")} month={run.month} paidOn={run.paidOn} line={data.viewLine} person={personOf(x)} showEmployer={data.settings.slipShowEmployer} />
@@ -259,8 +263,8 @@ async function AllSlips({ sp }: { sp: Record<string, string | string[] | undefin
         </ConfirmSheet>
       )}
       {doing === "send-unsent" && run && notSent > 0 && (
-        <ConfirmSheet closeHref={here({ do: null })} title={`Send ${notSent} unsent salary slip${notSent === 1 ? "" : "s"}?`} label={`Send to ${notSent} staff`} action={sendSlipsAction} hidden={{ runId: run.id, how: "whatsapp" }}>
-          <p className="text-[14px] text-ink2">By WhatsApp. Staff with no WhatsApp number on file are listed after sending; print their slips instead. Messages cannot be unsent.</p>
+        <ConfirmSheet closeHref={here({ do: null })} title={`Send ${notSent} unsent salary slip${notSent === 1 ? "" : "s"}?`} label={`Send to ${notSent} staff`} action={sendSlipsAction} hidden={{ runId: run.id, how: send }}>
+          <p className="text-[14px] text-ink2">{data.whatsappOn ? "By WhatsApp. Staff with no WhatsApp number on file are listed after sending; print their slips instead." : "By email, because WhatsApp is switched off in Settings. Staff with no email on file are listed after sending; print their slips instead."} Messages cannot be unsent.</p>
         </ConfirmSheet>
       )}
     </div>

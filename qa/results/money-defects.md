@@ -86,7 +86,7 @@ running typecheck and lint.
 - **Actual:** "That did not save because of a problem on our side…". The slips were correctly not marked sent.
 - **Root cause:** `problemState` (src/lib/fees/act.ts) did not know `MessagingProblem` or `NotEnoughCredits`, so it hid their messages.
 - **Fix:** 00ee921 adds both to the known errors. Test: tests/salary/send-slips.test.ts.
-- **Note:** "Send by WhatsApp" is still offered while WhatsApp is off. It is now refused in plain words, so this was left as a note.
+- **Note:** fixed later: Salary Slips offers "Send by WhatsApp" only while WhatsApp is switched on; otherwise slips are sent by email.
 
 ## MONEY-03 · P3 · Fee Management · Receipt PDF: long UTR cut off
 - **Steps:** record a UPI payment with the reference DEMOUTR0605AARAV, then open the receipt.

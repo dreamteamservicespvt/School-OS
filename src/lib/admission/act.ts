@@ -18,19 +18,26 @@ import { MessagingProblem } from "../messaging/send";
 
 /** A rule of Admission Management said no. The message is for the person, in plain words. */
 export class AdmissionProblem extends Error {
-  constructor(message: string, public field?: string, public link?: { href: string; label: string }) {
+  constructor(message: string, public field?: string, public link?: { href: string; label: string }, public errors?: Record<string, string>) {
     super(message);
     this.name = "AdmissionProblem";
   }
 }
 
-type Known = Error & { field?: string; link?: { href: string; label: string } };
+/** Every problem on a form at once (pattern P7), with the first one as the message. */
+export function allProblems(errors: Record<string, string>): AdmissionProblem {
+  const list = Object.entries(errors);
+  const message = list.length === 1 ? list[0][1] : `${list.length} things need fixing: ${list.map(([, m]) => m).join(" ")}`;
+  return new AdmissionProblem(message, list[0]?.[0], undefined, errors);
+}
+
+type Known = Error & { field?: string; link?: { href: string; label: string }; errors?: Record<string, string> };
 
 export function problemState(e: unknown, fd?: FormData): NonNullable<FormState<{ link?: { href: string; label: string } }>> {
   const known = [AdmissionProblem, PermissionDeniedError, ClosedYearError, FileProblem, DecisionProblem, RazorpayProblem, StudentProblem, MessagingProblem];
   if (known.some((K) => e instanceof K)) {
     const err = e as Known;
-    return { ok: false, message: err.message, errors: err.field ? { [err.field]: err.message } : undefined, values: fd ? formValues(fd) : undefined, data: err.link ? { link: err.link } : undefined };
+    return { ok: false, message: err.message, errors: err.errors ?? (err.field ? { [err.field]: err.message } : undefined), values: fd ? formValues(fd) : undefined, data: err.link ? { link: err.link } : undefined };
   }
   if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
     return { ok: false, message: "Someone else saved the same thing a moment ago. Refresh the page to see it, then try again if still needed.", values: fd ? formValues(fd) : undefined };

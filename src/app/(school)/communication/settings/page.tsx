@@ -11,7 +11,8 @@ import { BACKUP_TYPES, BACKUP_TYPE_LABEL, messageSettings, QUERY_TYPES } from "@
 import { ensureReadyTemplates, templateByKey } from "@/lib/messaging/templates";
 import { OPT_OUT_WAYS } from "@/lib/messaging/optout";
 import { QUERY_TYPE_LABEL, ensureTopics } from "@/lib/communication/queries";
-import { COMM_FEATURE_LIST } from "@/lib/communication/features";
+import { COMM_FEATURES, COMM_FEATURE_LIST } from "@/lib/communication/features";
+import { pushConfigured } from "@/lib/push";
 import { OUTCOME_LABEL } from "@/lib/communication/automation-log";
 import { sectionSwitches } from "@/lib/parent-link/section-list";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -143,8 +144,13 @@ export default async function MessageSettingsPage() {
             </div>
           </Card>
           <Card>
-            <CardHeader title="Optional pages" description="Switched on for this school only. Their data stays if switched off." icon={ToggleRight} />
-            <FeatureSwitches features={COMM_FEATURE_LIST.map((f) => ({ key: f.key, label: f.label, description: f.description, on: data.features.some((x) => x.featureKey === f.key && x.isOn) }))} />
+            <CardHeader title="Optional pages and alerts" description="Switched on for this school only. Their data stays if switched off." icon={ToggleRight} />
+            <FeatureSwitches features={COMM_FEATURE_LIST.map((f) => ({
+              key: f.key,
+              label: f.label,
+              description: f.key === COMM_FEATURES.push && !pushConfigured() ? `${f.description} Not set up on this server yet: ask DREAM TEAM support.` : f.description,
+              on: data.features.some((x) => x.featureKey === f.key && x.isOn),
+            }))} />
           </Card>
         </div>
 

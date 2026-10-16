@@ -48,7 +48,7 @@ const int = (v: unknown, min: number, max: number, words: string) => {
 
 // ── Optional pages (School Feature) ──────────────────────────────────────
 
-/** WhatsApp Inbox and Surveys are switched on school by school with the School Feature record. */
+/** WhatsApp Inbox, Surveys and Push alerts are switched on school by school with the School Feature record. */
 export async function setCommFeatureAction(key: string, on: boolean): Promise<string | void> {
   const f = COMM_FEATURE_LIST.find((x) => x.key === key);
   if (!f) return "This page was not found.";

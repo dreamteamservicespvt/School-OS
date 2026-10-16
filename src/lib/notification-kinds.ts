@@ -2,9 +2,9 @@
 // (00-global.md §1.4 and §4). Each kind groups the notification `type`s that
 // modules write with notify(). No database here, so the browser can use it too.
 
-export const NOTE_CHANNELS = ["app", "whatsapp", "sms", "email"] as const;
+export const NOTE_CHANNELS = ["app", "push", "whatsapp", "sms", "email"] as const;
 export type NoteChannel = (typeof NOTE_CHANNELS)[number];
-export const NOTE_CHANNEL_LABEL: Record<NoteChannel, string> = { app: "App", whatsapp: "WhatsApp", sms: "SMS", email: "Email" };
+export const NOTE_CHANNEL_LABEL: Record<NoteChannel, string> = { app: "App", push: "Push", whatsapp: "WhatsApp", sms: "SMS", email: "Email" };
 
 export type NoteKind = {
   key: string;
@@ -18,12 +18,12 @@ export type NoteKind = {
 };
 
 export const NOTE_KINDS: NoteKind[] = [
-  { key: "approvals", label: "Approvals waiting for me", types: ["approval"], locked: true, defaults: ["app"] },
-  { key: "tasks", label: "Tasks and questions for me", types: ["handover", "interview", "query", "counselling-referral", "task-assigned", "task-done", "task-comment", "task-due", "work-reminder"], defaults: ["app"] },
+  { key: "approvals", label: "Approvals waiting for me", types: ["approval"], locked: true, defaults: ["app", "push"] },
+  { key: "tasks", label: "Tasks and questions for me", types: ["handover", "interview", "query", "counselling-referral", "task-assigned", "task-done", "task-comment", "task-due", "work-reminder"], defaults: ["app", "push"] },
   { key: "substitutions", label: "Substitutions I must take", types: ["substitution", "timetable-published"], defaults: ["app"], module: "academic-management" },
   { key: "staff", label: "My leave and staff matters", types: ["staff-leave", "appraisal", "staff-exit", "settlement"], defaults: ["app"], module: "staff-hr-management" },
   { key: "transport", label: "Bus alerts, trips and vehicle papers", types: ["transport-alert", "transport-trip", "transport-reminder"], defaults: ["app"], module: "transport-management" },
-  { key: "transport-emergency", label: "Bus emergency button pressed", types: ["transport-emergency"], locked: true, defaults: ["app", "whatsapp"], module: "transport-management" },
+  { key: "transport-emergency", label: "Bus emergency button pressed", types: ["transport-emergency"], locked: true, defaults: ["app", "push", "whatsapp"], module: "transport-management" },
   { key: "documents", label: "Documents running out", types: ["document-expiry"], defaults: ["app"] },
   { key: "notices", label: "Notices from the school", types: ["notice", "staff-message"], defaults: ["app"] },
   { key: "security", label: "Security alerts (new sign-in, password changed)", types: ["security", "privacy"], locked: true, defaults: ["app", "email"] },

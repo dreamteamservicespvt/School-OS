@@ -10,6 +10,8 @@ import { BUILT_MODULES, type ModuleKey } from "@/lib/modules";
 import { roleNeedsTwoStep } from "@/lib/auth/two-step";
 import { onChannels } from "@/lib/messaging/channels";
 import { NOTE_KINDS, readNotePrefs, type NoteChannel } from "@/lib/notification-kinds";
+import { pushOn, pushWebConfig } from "@/lib/push";
+import { PushSwitch } from "./push-switch";
 import { fileLink } from "@/lib/files";
 import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -51,7 +53,11 @@ export default async function ProfilePage() {
     prisma.session.findMany({ where: { userLoginId: u.id, revokedAt: null, expiresAt: { gt: new Date() } }, orderBy: { lastUsedAt: "desc" } }),
     withSchool(current.ctx, (tx) => tx.staff.findFirst({ where: { userLoginId: u.id }, select: { id: true, staffCode: true, joiningDate: true, photoFileId: true } })),
     roleNeedsTwoStep(u.id, current.school.id),
-    withSchool(current.ctx, (tx) => onChannels(tx, current.ctx)),
+    withSchool(current.ctx, async (tx) => {
+      const on: string[] = [...(await onChannels(tx, current.ctx))];
+      if (await pushOn(tx, current.ctx)) on.push("push");
+      return on;
+    }),
   ]);
   const twoStepOn = mustTwoStep || u.twoStepChosen;
   const can = (m: ModuleKey) => reachFor(current.permissions, m, "view") !== "none";
@@ -155,7 +161,8 @@ export default async function ProfilePage() {
 
             <Card className="overflow-hidden">
               <CardHeader title="My notifications" description="Choose how each kind reaches you. Some cannot be switched off." icon={I.Bell} />
-              <NotePrefsTable kinds={kinds} prefs={readNotePrefs(u.notificationPrefs)} allowed={[...allowed] as NoteChannel[]} phone={u.phone} />
+              <NotePrefsTable kinds={kinds} prefs={readNotePrefs(u.notificationPrefs)} allowed={allowed as NoteChannel[]} phone={u.phone} />
+              <PushSwitch config={pushWebConfig()} schoolAllows={allowed.includes("push")} />
             </Card>
           </div>
 

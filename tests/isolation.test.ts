@@ -57,6 +57,14 @@ describe("a user of school A cannot read school B", () => {
     });
   });
 
+  it("sees only school A's push devices (push alerts)", async () => {
+    await withSchool({ schoolId: b.id, userId: userB.id }, (tx) => tx.pushDevice.create({ data: { schoolId: b.id, userLoginId: userB.id, token: "school-b-push-token-0000000000" } }));
+    await withSchool(ctxA(), async (tx) => {
+      expect(await tx.pushDevice.findMany({ where: { token: { startsWith: "school-b" } } })).toHaveLength(0);
+      await expect(tx.pushDevice.create({ data: { schoolId: b.id, userLoginId: userA.id, token: "planted-in-b-000000000000" } })).rejects.toThrow();
+    });
+  });
+
   it("cannot open a school B record even by its exact id", async () => {
     await withSchool(ctxA(), async (tx) => {
       expect(await tx.school.findUnique({ where: { id: b.id } })).toBeNull();

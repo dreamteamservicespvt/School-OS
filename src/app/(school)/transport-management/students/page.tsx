@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BadgeIndianRupee, Bus, Clock, Plus, Printer, SearchX, TriangleAlert, Users } from "lucide-react";
+import { BadgeIndianRupee, Bus, CalendarClock, Clock, Plus, Printer, SearchX, TriangleAlert, Users } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { formatDate, formatRupees } from "@/lib/format";
 import { placesView, type PlaceFilter } from "@/lib/transport/views";
@@ -17,7 +17,8 @@ import { Banner, DataList, Empty, Progress, Stack, Stats, Toolbar } from "@/comp
 import { TrHead } from "../_components/head";
 import { RouteBadge } from "../_components/bits";
 import { ActButton } from "../_components/fields";
-import { AllTick, AssignSheet, BulkBar, ChangeSheet, RowTick, StopTransportSheet } from "../_components/student-sheets";
+import { AllTick, AssignSheet, BulkBar, CarrySheet, ChangeSheet, RowTick, StopTransportSheet, type CarryItem } from "../_components/student-sheets";
+import { carryOverRows } from "@/lib/transport/carry";
 import { addFeeAction } from "../actions";
 import { BASE, UUID, addQ, one, qs, trGuard, trPeriod, type SearchParams } from "../_lib/page";
 import { assignCandidates, placeOptions } from "../_lib/options";
@@ -53,8 +54,21 @@ export default async function StudentTransportPage({ searchParams }: { searchPar
     const assign = can.students && doing === "assign" ? await assignCandidates(tx, p.current.ctx, p.today, { sectionId: UUID.test(one(sp.sec)) ? one(sp.sec) : null, q: one(sp.find), studentId: UUID.test(one(sp.student)) ? one(sp.student) : null }) : null;
     const picked = (doing === "change" || doing === "stop") && pickIds.length ? await tx.transportAssignment.findMany({ where: { id: { in: pickIds }, ...holdsSeat(p.today) } }) : [];
     const pickedCards = picked.length ? await studentCards(tx, picked.map((x) => x.studentId)) : new Map();
-    return { rows, all, coverage, options, waiting, cards, assign, picked, pickedCards };
+    // A new academic year is open: last year's bus places wait to be carried over.
+    const carry = await carryOverRows(tx);
+    const carryCards = can.students && doing === "carry" && carry.length ? await studentCards(tx, carry.map((r) => r.place.studentId)) : new Map<string, never>();
+    return { rows, all, coverage, options, waiting, cards, assign, picked, pickedCards, carry, carryCards };
   });
+  const carryYear = data.carry[0]?.toYear ?? null;
+  const carryFrom = data.carry[0]?.fromYear ?? null;
+  const carryItems: CarryItem[] = data.carry.map((r) => {
+    const c = data.carryCards.get(r.place.studentId);
+    return {
+      id: r.place.id, name: c?.name ?? "Student", cls: c && !r.newClass ? c.cls : "", newClass: r.newClass,
+      route: r.routeNumber != null ? `Route ${r.routeNumber}` : "Route", stop: r.stopName ?? "Stop", type: assignType(r.place.type),
+      oldFee: rupeesShort(r.place.monthlyFeePaise), newFee: r.newFeePaise ? rupeesShort(r.newFeePaise) : null, blocked: r.blocked, note: r.note,
+    };
+  }).sort((a, b) => Number(Boolean(a.blocked)) - Number(Boolean(b.blocked)) || a.route.localeCompare(b.route, undefined, { numeric: true }) || a.name.localeCompare(b.name));
 
   const here = (extra: Record<string, string | null>) => qs(HREF, { route: routeId, show: show === "all" ? null : show, q: q || null, ...period.keep, ...extra });
   const close = here({});
@@ -72,6 +86,12 @@ export default async function StudentTransportPage({ searchParams }: { searchPar
       <TrHead page="students" sub={`${plural(data.all.length, "student")} on the buses · ${used} of ${totalSeats} seats used`}
         actions={can.students ? <ButtonLink href={addQ(close, { do: "assign" })} scroll={false} variant="primary" icon={Plus}>Give transport</ButtonLink> : undefined} />
       <Stack>
+        {carryYear && carryFrom && (
+          <Banner tone="info" icon={CalendarClock} title={`${carryYear.name} is open: ${plural(data.carry.length, "bus place")} from ${carryFrom.name} to carry over`}
+            action={can.students ? <ButtonLink href={addQ(close, { do: "carry" })} scroll={false} variant="primary" size="sm">Review and carry over</ButtonLink> : undefined}>
+            {can.students ? `Students keep their route and stop from ${formatDate(carryYear.startDate)} with a new bus pass, and the ${carryYear.name} transport fee is added. Review them first.` : "The Transport In-charge reviews and carries them over."}
+          </Banner>
+        )}
         {noFee.length > 0 && (
           <Banner tone="warn" icon={TriangleAlert} title={`${plural(noFee.length, "student")} on a bus with no transport fee`}
             action={can.students ? <ActButton action={addFeeAction} fields={{ assignmentIds: noFee.map((x) => x.assignmentId).join(",") }} label={`Add the fee for all ${noFee.length}`} icon="IndianRupee" pendingText="Adding…" /> : undefined}>
@@ -200,6 +220,9 @@ export default async function StudentTransportPage({ searchParams }: { searchPar
         <ChangeSheet closeHref={close} ids={data.picked.map((x) => x.id)} who={who(data.picked.length)} places={data.options} today={p.todayStr}
           start={data.picked.length === 1 ? { routeId: data.picked[0].routeId, stopId: data.picked[0].stopId, type: data.picked[0].type } : { routeId: "", stopId: "", type: "TWO_WAY" }}
           approval={approvalWords("change-route")} />
+      )}
+      {can.students && doing === "carry" && carryYear && carryFrom && (
+        <CarrySheet closeHref={close} items={carryItems} fromYear={carryFrom.name} toYear={carryYear.name} toStart={formatDate(carryYear.startDate)} />
       )}
       {can.students && doing === "stop" && data.picked.length > 0 && (
         <StopTransportSheet closeHref={close} ids={data.picked.map((x) => x.id)} who={who(data.picked.length)} today={p.todayStr} approval={approvalWords("stop")} />

@@ -36,7 +36,9 @@ npm run db:seed               # a demo school with a few users
 npm run dev                   # open http://localhost:3000
 ```
 
-Demo usernames: `principal` (two schools), `admin`, `accountant`, `teacher`, `librarian`, `viceprincipal` (sees, never changes).
+Demo usernames: `principal` (two schools), `admin`, `accountant`, `teacher`, `librarian`, `viceprincipal` (sees, never changes),
+and one for each other ready role: `subjectteacher`, `reception`, `transport` (Transport In-charge), `driver`, `warden` and
+`boyswarden` (Hostel Warden), `store` (Store Keeper).
 Their password is `DEMO_PASSWORD` from your `.env`.
 
 ## Checks

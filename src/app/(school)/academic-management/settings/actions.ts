@@ -9,6 +9,7 @@ import { archiveSlot, mainCampusId, saveAcademicSettings, saveSlot } from "@/lib
 import { addCondition, addFinancialYear, archiveCondition, archiveTerm, savePreference, saveTerm, setFeature } from "@/lib/academic/rules";
 import { addRoom, archiveRoom } from "@/lib/academic/rooms";
 import { ACADEMIC_FEATURES, type AcademicFeature } from "@/lib/academic/scope";
+import { noticeNewYear } from "@/lib/transport/carry";
 import { act, actSimple } from "../_lib/server";
 
 const PATH = "/academic-management";
@@ -55,7 +56,9 @@ export async function openYearAction(yearId: string, oldYear: "close" | "keep"):
   if (oldYear !== "close" && oldYear !== "keep") return "Choose what happens to the current year.";
   return actSimple("edit", async ({ tx, current }) => {
     const r = await openYear(tx, current.ctx, yearId, oldYear);
-    return { flash: { message: `${r.year.name} is now the active year.${r.previous ? ` ${r.previous.name} is ${oldYear === "close" ? "closed and read-only" : "kept open for late changes"}.` : ""}` } };
+    // Transport: bus places from last year wait for the Transport In-charge to carry them over.
+    const bus = current.modulesOn.has("transport-management") ? await noticeNewYear(tx, current.ctx, r.year) : 0;
+    return { flash: { message: `${r.year.name} is now the active year.${r.previous ? ` ${r.previous.name} is ${oldYear === "close" ? "closed and read-only" : "kept open for late changes"}.` : ""}${bus ? ` ${bus} bus place${bus === 1 ? "" : "s"} to carry over: the Transport In-charge is told.` : ""}` } };
   });
 }
 

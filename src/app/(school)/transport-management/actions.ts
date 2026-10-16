@@ -14,6 +14,7 @@ import { bool, clock, date, file, id, ids, inTransport, int, maybe, money, need,
 import { addRoute, addStop, archiveRoute, archiveStop, copyForEvening, editRoute, editStop, moveStop, putVehicleOnRoute, restoreRoute, type RouteInput } from "@/lib/transport/routes";
 import { addDriver, addVehicle, appStates, archiveDriver, archiveVehicle, archiveVendor, cancelCost, editDriver, editVehicle, issueDriverKey, recordCost, revokeDriverKey, savePaper, saveVendor, sendAppInvite, setAppLogin, type VehicleInput } from "@/lib/transport/fleet";
 import { addMissingFee, assignStudents, changePlace, stopPlace, keptWords } from "@/lib/transport/places";
+import { carryOver, endAtYearEnd } from "@/lib/transport/carry";
 import { cancelTrip, changeForDay, closeAlert, endTrip, markBoarding, markStop, remindInCharge, saveSchedule, startTrip } from "@/lib/transport/trips";
 import { messageRoute } from "@/lib/transport/messages";
 import { saveSettings, setLiveTracking } from "@/lib/transport/settings";
@@ -398,6 +399,25 @@ export async function stopPlaceAction(_: S, fd: FormData): Promise<S> {
   }, (r) => (r.waiting && !r.done
     ? say(`${plural(r.waiting, "request")} to stop transport sent for approval`, "Nothing changes until it is approved.")
     : say(`Transport stops for ${plural(r.done, "student")} after ${formatDate(r.last)}`, `${r.removed > BigInt(0) ? `${formatRupees(r.removed)} of fees still to come was removed.` : "No fee still to come had to be removed."}${r.waiting ? ` ${r.waiting} more waiting for approval.` : ""}${r.kept}`)));
+}
+
+/** A new academic year: carries the ticked bus places over (same route, stop and type; the new year's fees). */
+export async function carryOverAction(_: S, fd: FormData): Promise<S> {
+  return trAction("create", fd, async (w) => {
+    need(w.can.students, "carry bus places over");
+    return carryOver(w.tx, w.ctx, ids(fd, "placeIds"));
+  }, (r) => say(`${plural(r.carried, "bus place")} carried over to ${r.year}, with new bus passes`, [
+    r.feeRows ? `${formatRupees(r.feePaise)} of ${r.year} transport fees added (${plural(r.feeRows, "row")}).` : null,
+    r.skipped.length ? `${plural(r.skipped.length, "place")} left as ${r.skipped.length === 1 ? "it was" : "they were"}: ${r.skipped.slice(0, 3).map((s) => `${s.name} (${s.why})`).join("; ")}${r.skipped.length > 3 ? "…" : ""}` : null,
+  ].filter(Boolean).join(" ")));
+}
+
+/** Ends the ticked places at year end: students not coming back on the bus. */
+export async function endAtYearEndAction(_: S, fd: FormData): Promise<S> {
+  return trAction("edit", fd, async (w) => {
+    need(w.can.students, "end bus places");
+    return endAtYearEnd(w.tx, w.ctx, ids(fd, "placeIds"));
+  }, (r) => `${plural(r.ended, "bus place")} ended at year end. ${r.ended === 1 ? "It is" : "They are"} not carried over to ${r.year}.`);
 }
 
 export async function addFeeAction(_: S, fd: FormData): Promise<S> {

@@ -15,8 +15,8 @@ import { buttonClass, Spinner } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { cx } from "@/components/ui/cx";
 import { ASSIGN_TYPES } from "@/lib/transport/words";
-import { addFeeAction, assignAction, changePlaceAction, stopPlaceAction } from "../actions";
-import { ActButton, SegField } from "./fields";
+import { addFeeAction, assignAction, carryOverAction, changePlaceAction, endAtYearEndAction, stopPlaceAction } from "../actions";
+import { ActButton, ConfirmAct, SegField } from "./fields";
 import type { Candidate, PlaceOption } from "../_lib/options";
 
 /** Route and stop choice: routes show their free seats, stops their pickup time and fee. */
@@ -197,5 +197,59 @@ export function BulkBar({ href, canChange, canPrint }: { href: string; canChange
       {canPrint && <a href={`/transport-management/students/pass?ids=${join}`} target="_blank" rel="noreferrer" className={buttonClass("secondary", "sm")}><Printer size={15} aria-hidden="true" />Print bus passes</a>}
       <button type="button" onClick={clear} className={cx(buttonClass("ghost", "sm"), "ml-auto")}><X size={15} aria-hidden="true" />Clear</button>
     </div>
+  );
+}
+
+/* ---------- A new academic year: carry bus places over ---------- */
+
+export type CarryItem = { id: string; name: string; cls: string; newClass: string | null; route: string; stop: string; type: string; oldFee: string; newFee: string | null; blocked: string | null; note: string | null };
+
+/**
+ * The review before carrying last year's bus places into the new year: every
+ * place with what happens to it. Places that can go are ticked, except those
+ * of students with no class in the new year yet; places that cannot go say why.
+ */
+export function CarrySheet({ closeHref, items, fromYear, toYear, toStart }: { closeHref: string; items: CarryItem[]; fromYear: string; toYear: string; toStart: string }) {
+  const can = items.filter((i) => !i.blocked);
+  const [picked, setPicked] = useState<Set<string>>(() => new Set(can.filter((i) => !i.note).map((i) => i.id)));
+  const allOn = can.length > 0 && can.every((i) => picked.has(i.id));
+  const toggle = (id: string) => setPicked((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const join = [...picked].join(",");
+  const blocked = items.length - can.length;
+  const n = picked.size;
+  return (
+    <SheetForm title={`Carry bus places over to ${toYear}`} sub={`Each student keeps the route, stop and one-way or two-way from ${toStart}, with a new bus pass. The new year's transport fee goes on their fees. The ${fromYear} place ends the day before.`}
+      closeHref={closeHref} action={carryOverAction} wide pendingText="Carrying over…" submitDisabled={n === 0}
+      submitLabel={n ? `Carry over ${n} place${n === 1 ? "" : "s"}` : "Carry over"} hidden={{ placeIds: join }}
+      extraButtons={n > 0 ? (
+        <ConfirmAct action={endAtYearEndAction} fields={{ placeIds: join }} trigger={`End ${n} at year end`} triggerVariant="ghost" title={`End ${n} bus place${n === 1 ? "" : "s"} at year end?`} confirmLabel={`End ${n} place${n === 1 ? "" : "s"}`} danger>
+          <p className="text-[14px] text-ink2">For students not coming back on the bus in {toYear}. The {fromYear} place ends on its last day and nothing is charged for {toYear}. Fees already paid stay as they are.</p>
+        </ConfirmAct>
+      ) : undefined}>
+      {blocked > 0 && <Alert tone="warning">{blocked} place{blocked === 1 ? "" : "s"} cannot be carried over yet. The reason is shown on each.</Alert>}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <label className="inline-flex items-center gap-2 text-[14px] font-semibold min-h-11 cursor-pointer">
+          <input type="checkbox" checked={allOn} onChange={() => setPicked(allOn ? new Set() : new Set(can.map((i) => i.id)))} className="size-4 accent-[rgb(var(--brand))]" />
+          Tick every place that can go ({can.length})
+        </label>
+        <span className="text-[13px] text-ink3" aria-live="polite">{n} ticked</span>
+      </div>
+      <ul className="flex flex-col divide-y divide-line rounded-xl border border-line max-h-[52vh] overflow-y-auto">
+        {items.map((i) => (
+          <li key={i.id}>
+            <label className={cx("flex items-start gap-3 px-3 py-2.5 text-[14px]", i.blocked ? "opacity-70" : "cursor-pointer hover:bg-sunken/60")}>
+              <input type="checkbox" disabled={Boolean(i.blocked)} checked={picked.has(i.id)} onChange={() => toggle(i.id)} aria-label={`Carry over ${i.name}`} className="mt-1 size-4 shrink-0 accent-[rgb(var(--brand))]" />
+              <span className="min-w-0 flex-1">
+                <b className="font-semibold">{i.name}</b>
+                <span className="text-ink3"> · {i.newClass ? `${i.cls || "—"} → ${i.newClass}` : i.cls}</span>
+                <span className="block text-[12.5px] text-ink2">{i.route} · {i.stop} · {i.type}</span>
+                {i.blocked ? <span className="block text-[12.5px] text-bad">{i.blocked}</span>
+                  : <span className="block text-[12.5px] text-ink3">{i.newFee && i.newFee !== i.oldFee ? `Fee ${i.oldFee} → ${i.newFee} a month` : `Fee ${i.newFee ?? i.oldFee} a month`}{i.note ? <span className="text-warn"> · {i.note}</span> : null}</span>}
+              </span>
+            </label>
+          </li>
+        ))}
+      </ul>
+    </SheetForm>
   );
 }

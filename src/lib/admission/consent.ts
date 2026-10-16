@@ -66,7 +66,8 @@ export async function startOtp(tx: Tx, ctx: SchoolContext, input: { phone: strin
     if (!(await opts.deliver(input.phone, text))) throw new AdmissionProblem("The code could not be sent just now. Please try again in a minute.");
   } else {
     const r = await messageParent(tx, ctx, { to: { name: "Parent", phone: input.phone }, template: "admission-consent-code", channel: "sms", text, secret: true, about: input.about ?? { recordType: "Application", recordId: input.purpose } });
-    if (r.status !== "queued") throw new AdmissionProblem("The code could not be sent to this number.");
+    // Say why (for example no SMS set up), so the office does not blame the parent's number.
+    if (r.status !== "queued") throw new AdmissionProblem(r.status === "skipped" && r.note ? `The code could not be sent. ${r.note}.` : "The code could not be sent to this number.");
   }
   return { sentTo: `•••••${input.phone.slice(-4)}` };
 }

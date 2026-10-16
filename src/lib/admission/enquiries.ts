@@ -337,7 +337,7 @@ export async function sendEnquiryMessage(tx: Tx, ctx: SchoolContext, v: Viewer, 
   if (input.text.length > 1000) throw new AdmissionProblem("A message can be at most 1,000 characters.", "text");
   if (input.channel === "email" && !e.email) throw new AdmissionProblem("This enquiry has no email address. Add one in Edit, or send by WhatsApp or SMS.", "channel");
   const sent = await messageParent(tx, ctx, { to: { name: e.parentName, phone: e.phone, email: e.email }, template: input.template, text: input.text.trim(), channel: input.channel, about: { recordType: "Enquiry", recordId: e.id } });
-  if (sent.status === "skipped") throw new AdmissionProblem(`The message was not sent: ${sent.note?.toLowerCase()}.`);
+  if (sent.status === "skipped") throw new AdmissionProblem(`The message was not sent. ${sent.note ?? "Please try again later"}.`);
   await activity(tx, ctx, e.id, "message", input.text.trim(), { direction: "outgoing", data: { channel: input.channel, template: input.template } });
   return e;
 }
@@ -448,7 +448,7 @@ export async function runCampaign(tx: Tx, ctx: SchoolContext, v: Viewer, s: Sett
     if (input.channel === "email" && !e.email) { skipped++; skippedWhy.push(`${e.childName}: no email`); continue; }
     const text = input.message.trim().replace(/\{parent\}/g, e.parentName).replace(/\{child\}/g, e.childName);
     const r = await messageParent(tx, ctx, { to: { name: e.parentName, phone: e.phone, email: e.email }, template: "admission-campaign", text, channel: input.channel, about: { recordType: "Enquiry", recordId: e.id } });
-    if (r.status === "skipped") { skipped++; skippedWhy.push(`${e.childName}: no valid phone`); continue; }
+    if (r.status === "skipped") { skipped++; skippedWhy.push(`${e.childName}: ${r.note ?? "no valid phone"}`); continue; }
     await tx.enquiry.update({ where: { id: e.id }, data: { campaignId: campaign.id } });
     await activity(tx, ctx, e.id, "campaign", `Campaign "${campaign.name}": ${text}`, { direction: "outgoing", data: { campaignId: campaign.id, channel: input.channel } });
     sent++;

@@ -184,7 +184,7 @@ export async function sendFeeLink(tx: Tx, ctx: SchoolContext, v: Viewer, applica
     text: `Dear ${name}, please pay the application fee of ${formatRupees(st.duePaise - st.paidPaise)} for ${app.fullName} (application ${app.applicationNo}) at ${school.name}: ${link}`,
     about: { recordType: "Application", recordId: app.id },
   });
-  if (r.status === "skipped") throw new AdmissionProblem("The link was not sent: the application has no valid mobile number.");
+  if (r.status === "skipped") throw new AdmissionProblem(`The link was not sent. ${r.note ?? "The application has no valid mobile number"}.`);
   await tx.applicationActivity.create({ data: { schoolId: ctx.schoolId, applicationId: app.id, kind: "fee", text: `Payment link for ${formatRupees(st.duePaise - st.paidPaise)} sent to the parent by ${r.channel === "sms" ? "SMS" : r.channel === "email" ? "email" : "WhatsApp"}.`, byId: ctx.userId } });
   return { channel: r.channel, phone: app.phone };
 }

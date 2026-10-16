@@ -71,14 +71,16 @@ export async function rejectDocument(tx: Tx, ctx: SchoolContext, v: Viewer, scho
   if (reason.trim().length < 3) throw new AdmissionProblem("Give a reason, for example \"Photo not clear\".", "reason");
   await tx.applicationDocument.update({ where: { id: doc.id }, data: { status: "REJECTED", rejectReason: reason.trim(), verifiedAt: null, verifiedById: null } });
   let told = false;
+  let notSent: string | null = null;
   if (tellParent) {
     const name = parentName(app);
     const r = await messageParent(tx, ctx, { to: { name, phone: app.phone, email: app.email }, template: "admission-document-rejected", text: `Dear ${name}, the ${docLabel(doc.docType).toLowerCase()} for ${app.fullName} (application ${app.applicationNo}) could not be accepted: ${reason.trim()}. Please bring or send a new copy to ${schoolName}.`, about: { recordType: "Application", recordId: app.id } });
     told = r.status === "queued";
+    if (!told) notSent = r.note ?? "No valid mobile number";
   }
-  await activity(tx, ctx, app.id, "document", `${docLabel(doc.docType)} rejected: ${reason.trim()}.${told ? " Parent told." : ""}`, { docType: doc.docType });
+  await activity(tx, ctx, app.id, "document", `${docLabel(doc.docType)} rejected: ${reason.trim()}.${told ? " Message to the parent queued." : notSent ? ` Parent not messaged: ${notSent}.` : ""}`, { docType: doc.docType });
   await writeAudit(tx, ctx, { action: "document-rejected", recordType: "Application", recordId: app.id, before: { docType: doc.docType, status: doc.status }, after: { status: "REJECTED", reason: reason.trim(), told } });
-  return told;
+  return { told, notSent };
 }
 
 /** "Original seen at counter" (inferred): the original was shown; a paper not yet received becomes Received. */
@@ -103,7 +105,7 @@ export async function remindMissing(tx: Tx, ctx: SchoolContext, v: Viewer, schoo
   if (list.length === 0) throw new AdmissionProblem("No papers are missing for this applicant.");
   const name = parentName(app);
   const r = await messageParent(tx, ctx, { to: { name, phone: app.phone, email: app.email }, template: "admission-documents-missing", text: `Dear ${name}, for ${app.fullName}'s admission (application ${app.applicationNo}) at ${schoolName}, please bring: ${list.join(", ")}.`, about: { recordType: "Application", recordId: app.id } });
-  if (r.status === "skipped") throw new AdmissionProblem("The reminder was not sent: the application has no valid mobile number.");
+  if (r.status === "skipped") throw new AdmissionProblem(`The reminder was not sent. ${r.note ?? "The application has no valid mobile number"}.`);
   await activity(tx, ctx, app.id, "reminder", `Reminder sent for missing papers: ${list.join(", ")}.`);
   return list.length;
 }

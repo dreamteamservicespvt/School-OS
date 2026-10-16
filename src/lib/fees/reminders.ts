@@ -57,21 +57,39 @@ export type ReminderInput = {
   text: string | null;
   includeLink: boolean;
   scheduledAt?: Date | null;
+  /** The school's today: what is overdue is worked out from it, as on Defaulters. */
+  today: Date;
 };
 
 type Planned = { studentId: string; due: bigint; dueDate: Date; dueIds: string[]; classId: string | null };
 
-/** The students on the list who still owe something, with the oldest due date. */
-async function whoOwes(tx: Tx, studentIds: string[]) {
+type OpenRow = { id: string; dueDate: Date; balancePaise: bigint };
+
+/**
+ * What one reminder is about, so the amount and the date in the message are
+ * about the same rows: everything overdue (as on Defaulters: due before today)
+ * with the oldest overdue date; when nothing is overdue yet, the rows of the
+ * next due date. Rows falling due later (a late fee due today, the next
+ * installment) are not added to an overdue reminder.
+ */
+export function reminderRows<T extends OpenRow>(rows: T[], today: Date): { rows: T[]; due: bigint; dueDate: Date } | null {
+  const open = rows.filter((r) => r.balancePaise > ZERO).sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
+  if (!open.length) return null;
+  const overdue = open.filter((r) => r.dueDate < today);
+  const chosen = overdue.length ? overdue : open.filter((r) => r.dueDate.getTime() === open[0].dueDate.getTime());
+  return { rows: chosen, due: chosen.reduce((s, r) => s + r.balancePaise, ZERO), dueDate: chosen[0].dueDate };
+}
+
+/** The students on the list who still owe something, with what the reminder is about. */
+async function whoOwes(tx: Tx, studentIds: string[], today: Date) {
   const out: Planned[] = [];
   let nothing = 0;
   const unique = [...new Set(studentIds)];
   const enrolments = await tx.enrolment.findMany({ where: { studentId: { in: unique }, archivedAt: null }, orderBy: { createdAt: "desc" }, select: { studentId: true, classId: true } });
   for (const id of unique) {
-    const dues = await openDues(tx, id);
-    const due = dues.reduce((s, d) => s + (d.balancePaise > ZERO ? d.balancePaise : ZERO), ZERO);
-    if (due <= ZERO) { nothing++; continue; }
-    out.push({ studentId: id, due, dueDate: dues[0].dueDate, dueIds: dues.filter((d) => d.balancePaise > ZERO).map((d) => d.id), classId: enrolments.find((e) => e.studentId === id)?.classId ?? null });
+    const r = reminderRows(await openDues(tx, id), today);
+    if (!r || r.due <= ZERO) { nothing++; continue; }
+    out.push({ studentId: id, due: r.due, dueDate: r.dueDate, dueIds: r.rows.map((d) => d.id), classId: enrolments.find((e) => e.studentId === id)?.classId ?? null });
   }
   return { out, nothing };
 }
@@ -107,7 +125,7 @@ export type ReminderPreview = {
 /** P4 preview: how many get it, how many are skipped and why, and the credit cost. Saves nothing. */
 export async function previewReminders(tx: Tx, ctx: SchoolContext, input: ReminderInput): Promise<ReminderPreview> {
   const c = await checkInput(tx, ctx, input);
-  const p = await whoOwes(tx, input.studentIds);
+  const p = await whoOwes(tx, input.studentIds, input.today);
   const linkAvailable = p.out.length > 0 && Boolean(await gatewayFor(tx, ctx, p.out[0].classId));
   if (!p.out.length) return { recipients: 0, skipped: [], skippedNothingDue: p.nothing, cost: 0, creditProblem: null, problems: [], sample: null, linkAvailable };
   const link = input.includeLink && linkAvailable ? `${appUrl()}/pay/…` : "the school office";
@@ -130,7 +148,7 @@ export async function previewReminders(tx: Tx, ctx: SchoolContext, input: Remind
 /** Sends the reminders now (or at the chosen time). Each student's reminder is logged in their reminder history. */
 export async function sendReminders(tx: Tx, ctx: SchoolContext, input: ReminderInput) {
   const c = await checkInput(tx, ctx, input);
-  const p = await whoOwes(tx, input.studentIds);
+  const p = await whoOwes(tx, input.studentIds, input.today);
   if (!p.out.length) throw new MoneyProblem("None of these students owe anything now. Nothing was sent.");
   const links = new Map<string, string>();
   for (const r of p.out) {
@@ -188,7 +206,7 @@ export async function automaticReminders(tx: Tx, ctx: SchoolContext, today: Date
     const done = new Set((await tx.feeReminder.findMany({ where: { onceKey: { in: studentIds.map(onceKey) } }, select: { onceKey: true } })).map((r) => r.onceKey));
     studentIds = studentIds.filter((id) => !done.has(onceKey(id)));
     if (!studentIds.length) continue;
-    const p = await whoOwes(tx, studentIds);
+    const p = await whoOwes(tx, studentIds, today);
     if (!p.out.length) continue;
     const r = await sendAutomatic(tx, ctx, {
       rule: "fee-due",

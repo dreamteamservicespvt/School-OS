@@ -4,6 +4,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { withSchool } from "@/lib/db";
 import { planMessage } from "@/lib/messaging";
+import { sendLinksOnAdmission } from "@/lib/parent-link/links";
 import { makeCommSchool } from "./fixture";
 
 let off: Awaited<ReturnType<typeof makeCommSchool>>;
@@ -23,5 +24,21 @@ describe("app notice to parents", () => {
   it("points to WhatsApp, SMS or email when one is connected", async () => {
     const plan = await withSchool(on.ctx, (tx) => planMessage(tx, on.ctx, { to: { kinds: ["parents"], sectionIds: [on.a.id] }, channels: ["app"], text: "PTM on Saturday." }));
     expect(plan.skipped.map((g) => g.reason)).toContain("Parents have no app; they get WhatsApp, SMS or email");
+  });
+});
+
+describe("Parent Link on admission (QA PEOPLE-22)", () => {
+  it("makes the links but does not mark them sent when nothing is connected", async () => {
+    const r = await withSchool(off.ctx, (tx) => sendLinksOnAdmission(tx, off.ctx, off.anil.id));
+    expect(r.made).toBe(1);
+    const link = await withSchool(off.ctx, (tx) => tx.parentLink.findFirstOrThrow({ where: { guardianId: off.optFather.id } }));
+    expect(link.lastSentAt).toBeNull();
+  });
+
+  it("marks them sent when a channel is connected", async () => {
+    const r = await withSchool(on.ctx, (tx) => sendLinksOnAdmission(tx, on.ctx, on.anil.id));
+    expect(r.made).toBe(1);
+    const link = await withSchool(on.ctx, (tx) => tx.parentLink.findFirstOrThrow({ where: { guardianId: on.optFather.id } }));
+    expect(link.lastSentAt).not.toBeNull();
   });
 });

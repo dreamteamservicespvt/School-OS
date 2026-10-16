@@ -27,7 +27,7 @@ export default async function AdmittedPage({ params }: { params: Promise<{ id: s
       tx.student.findUnique({ where: { id: app.studentId }, select: { id: true, fullName: true, admissionNo: true } }),
       c ? tx.section.findUnique({ where: { id: c.sectionId }, select: { name: true, schoolClass: { select: { name: true } } } }) : null,
       c ? tx.guardian.findMany({ where: { id: { in: [...c.newGuardianIds, ...c.linkedGuardianIds] } }, select: { id: true, name: true, relationship: true, phone: true } }) : [],
-      c?.parentLinkIds?.length ? tx.parentLink.findMany({ where: { id: { in: c.parentLinkIds } }, select: { id: true, guardianId: true, status: true } }) : [],
+      c?.parentLinkIds?.length ? tx.parentLink.findMany({ where: { id: { in: c.parentLinkIds } }, select: { id: true, guardianId: true, status: true, lastSentAt: true } }) : [],
       c?.consentRecordIds?.length ? tx.consentRecord.count({ where: { id: { in: c.consentRecordIds }, withdrawnAt: null } }) : 0,
     ]);
     return { admitted: true as const, app, c, student, section, guardians, links, consents };
@@ -44,11 +44,17 @@ export default async function AdmittedPage({ params }: { params: Promise<{ id: s
   const welcome = c?.welcome === "queued" || c?.welcome === "sent" ? "“Admission confirmed” message, with the admission number" : c?.welcome ? `Not sent (${c.welcome}). Send it from Communication.` : "Not sent. Check the “admission-welcome” rule in Communication.";
   const parents = data.guardians.map((g) => `${g.name}${c?.linkedGuardianIds.includes(g.id) ? " (already a parent here)" : ""}`).join(" and ");
 
+  const sentLinks = data.links.filter((l) => l.lastSentAt).length;
   const rows: [LucideIcon, string, string, string | null][] = [
     [GraduationCap, "Student record", `${admNo}${place ? ` · ${place}` : ""}${c?.rollNo ? ` · roll ${c.rollNo}` : ""}`, `/student-management/students/${app.studentId}`],
     [Users, "Parents linked", parents || "No parent records made", data.guardians[0] ? `/student-management/guardians/${data.guardians[0].id}` : null],
     [ShieldCheck, "Consent moved", data.consents > 0 ? `${data.consents} consent ${data.consents === 1 ? "record" : "records"} moved to the parents` : "No consent records were moved", "/student-management/guardians/consent"],
-    [Smartphone, data.links.length ? "Parent Link sent" : "Parent Link not made", data.links.length ? `${data.links.length} ${data.links.length === 1 ? "link" : "links"}, so the parent can see fees, pay and download receipts` : "Parent Link is off for this school, or the parent has no mobile number", null],
+    // A link is made even when it cannot go (no WhatsApp or SMS): say so, never "sent" (QA PEOPLE-22).
+    [Smartphone, !data.links.length ? "Parent Link not made" : sentLinks ? "Parent Link on its way" : "Parent Link made, not sent",
+      !data.links.length ? "Parent Link is off for this school, or the parent has no mobile number"
+        : sentLinks ? `${sentLinks} ${sentLinks === 1 ? "link" : "links"}, so the parent can see fees, pay and download receipts${sentLinks < data.links.length ? `. ${data.links.length - sentLinks} not sent` : ""}`
+          : `${data.links.length} ${data.links.length === 1 ? "link" : "links"} made, but no WhatsApp or SMS is set up to send them. The School Admin sends them from Communication, Parent Link, once messages are set up.`,
+      null],
     [IndianRupee, "Fee plan", feePlanApplies() ? "Set up from the class fee structure for the year" : "Set up in Fee Management once its fee structures are ready", null],
     [IdCard, "ID card queued", "Certificates & ID Cards · next batch", `/student-management/certificates/id-cards/print?ids=${app.studentId}`],
     [MessageCircle, "Welcome message", welcome, null],

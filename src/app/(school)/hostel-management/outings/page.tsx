@@ -9,6 +9,7 @@ import type { Metadata } from "next";
 import { AlertTriangle, CalendarClock, DoorOpen, FileText, Plus, Search, Ticket, UserCheck, Users } from "lucide-react";
 import type { Prisma } from "@prisma/client";
 import { withSchool } from "@/lib/db";
+import { onChannels } from "@/lib/messaging/channels";
 import { formatDate } from "@/lib/format";
 import { readListParams, skipTake, listHref, PAGE_SIZE } from "@/lib/list";
 import { momentWhere } from "@/lib/periods";
@@ -113,6 +114,7 @@ async function PassesView({ p, sp }: { p: P; sp: Raw }) {
       total, rows: all, waiting, out, late, returned, info, deciders, approvals,
       room: new Map(beds.map((b) => [b.studentId, rooms.find((r) => r.id === b.roomId)?.roomNo ?? ""])),
       people: new Map(people.map((x) => [x.id, x.displayName])), hostels: new Map(hostels.map((h) => [h.id, h.name])), fresh,
+      canMessage: [...(await onChannels(tx, ctx))].some((c) => c !== "app"),
     };
   });
 
@@ -198,7 +200,9 @@ async function PassesView({ p, sp }: { p: P; sp: Raw }) {
           />
           {d.total > 0 && <Pager page={params.page} pageSize={PAGE_SIZE} total={d.total} prevHref={listHref(base, params, { page: params.page > 2 ? params.page - 1 : null })} nextHref={listHref(base, params, { page: params.page + 1 })} />}
         </Card>
-        <p className="text-[12.5px] text-ink3">Each pass is a Gate Pass of kind Hostel Outing, so the front gate sees it too. New outings are back by {minuteWords(s.outingBackMinute)} unless you change it. {s.messageOnOut || s.messageOnReturn ? `Parents are told when their child ${[s.messageOnOut && "goes out", s.messageOnReturn && "comes back"].filter(Boolean).join(" and ")}.` : "Messages to parents are off in Hostel Settings."}</p>
+        <p className="text-[12.5px] text-ink3">Each pass is a Gate Pass of kind Hostel Outing, so the front gate sees it too. New outings are back by {minuteWords(s.outingBackMinute)} unless you change it. {!(s.messageOnOut || s.messageOnReturn) ? "Messages to parents are off in Hostel Settings."
+          : !d.canMessage ? "Messages to parents are on in Hostel Settings, but no WhatsApp, SMS or email is connected, so parents are not told. Connect one in Settings, SMS, WhatsApp & Email."
+          : `Parents are told when their child ${[s.messageOnOut && "goes out", s.messageOnReturn && "comes back"].filter(Boolean).join(" and ")}.`}</p>
       </Stack>
 
       {opened && (() => {

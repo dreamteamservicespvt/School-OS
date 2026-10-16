@@ -69,7 +69,7 @@ export function Chips({ value, options, className, label }: { value: string; opt
 /** A segmented choice made of links (filters in the page address). */
 export function SegLinks({ value, options, size = "md", className, label }: { value: string; options: { value: string; label: React.ReactNode; href: string }[]; size?: "sm" | "md"; className?: string; label: string }) {
   return (
-    <nav aria-label={label} className={cx("inline-flex p-1 rounded-xl bg-sunken gap-1", className)}>
+    <nav aria-label={label} className={cx("inline-flex max-w-full overflow-x-auto no-scrollbar p-1 rounded-xl bg-sunken gap-1", className)}>
       {options.map((o) => {
         const on = o.value === value;
         return (

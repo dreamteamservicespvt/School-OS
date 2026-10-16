@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const current = await getCurrent();
   if (!current) return Response.json({ problem: "Sign in first." }, { status: 401 });
-  if (await hitLimit(`search:${current.user.id}`, 120, 60)) return Response.json({ problem: "Too many searches. Wait a moment." }, { status: 429 });
+  if (!(await hitLimit(`search:${current.user.id}`, 120, 60)).ok) return Response.json({ problem: "Too many searches. Wait a moment." }, { status: 429 });
 
   const q = (new URL(req.url).searchParams.get("q") ?? "").trim().slice(0, 60);
   if (q.length < 2) return Response.json({ students: [], staff: [] });

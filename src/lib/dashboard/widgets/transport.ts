@@ -96,7 +96,7 @@ const papersDue: Widget<"attention"> = {
     return {
       id: "transport.papers", tone: expired ? "bad" : "warn", icon: "FileWarning",
       title: expired ? `${plural(expired, "transport paper")} expired` : `${plural(total, "transport paper")} due in ${settings.expiryReminderDays} days`,
-      detail: `${someNames(names)}${names.length > 2 ? ` and ${n(names.length - 2)} more` : ""}. Upload the renewed papers.`,
+      detail: `${someNames(names)}. Upload the renewed papers.`,
       action: "Review", href: `${BASE}/vehicles?view=papers`, value: `${total}:${expired}`,
     };
   },

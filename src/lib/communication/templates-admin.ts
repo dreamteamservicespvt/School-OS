@@ -10,7 +10,7 @@ import type { ListParams } from "../list";
 import { CHANNELS, channelSecrets, channelSetups, type Channel } from "../messaging/channels";
 import { checkDltId, LANGUAGES, TEMPLATE_CATEGORIES, unknownVariables, variablesIn } from "../messaging/templates";
 import { RULES } from "../messaging/automatic";
-import { submitWhatsappTemplate, whatsappTemplateStatus } from "../messaging/providers/whatsapp";
+import { listWhatsappTemplates, submitWhatsappTemplate, whatsappTemplateStatus } from "../messaging/providers/whatsapp";
 
 export class TemplateProblem extends Error {}
 
@@ -185,6 +185,38 @@ export async function submitForApproval(tx: Tx, ctx: SchoolContext, versionId: s
   await tx.templateVersion.update({ where: { id: v.id }, data: { whatsappName: name, whatsappStatus: status, whatsappNote: note } });
   await writeAudit(tx, ctx, { action: "changed", recordType: "Template", recordId: v.templateId, actorNote: `Template "${v.template.name}" (${v.language}) sent for WhatsApp approval: ${WHATSAPP_STATUS_LABEL[status]}` });
   return status;
+}
+
+/**
+ * Makes every WhatsApp template's status match what the school's WhatsApp
+ * Business account really has. Templates "approved" in test mode were never
+ * sent to WhatsApp; once a real account is connected they would go out as
+ * plain text, which WhatsApp refuses outside a parent's 24-hour reply window.
+ * Here they go back to "Not submitted", so the screens say so and a person can
+ * send them for approval. Pending ones become Approved or Rejected when
+ * WhatsApp decides. Only reads from WhatsApp; never adds, changes or deletes a
+ * template there. Does nothing in test mode or when WhatsApp cannot be read.
+ */
+export async function syncWhatsappApprovals(tx: Tx, ctx: SchoolContext): Promise<{ changed: number } | null> {
+  const setup = (await channelSetups(tx, ctx)).whatsapp;
+  if (setup.provider !== "meta-cloud") return null;
+  const known = await listWhatsappTemplates({ config: setup.config, secrets: await channelSecrets(tx, ctx, "whatsapp") });
+  if (!known) return null;
+  const versions = await tx.templateVersion.findMany({
+    where: { schoolId: ctx.schoolId, isCurrent: true, template: { channel: "whatsapp" } },
+    select: { id: true, language: true, whatsappName: true, whatsappStatus: true, whatsappNote: true },
+  });
+  let changed = 0;
+  for (const v of versions) {
+    const real = v.whatsappName ? known.get(`${v.whatsappName}|${v.language}`) : undefined;
+    const next = real
+      ? { whatsappStatus: WHATSAPP_STATUS_LABEL[real.status] ? real.status : "PENDING", whatsappNote: real.note }
+      : { whatsappStatus: "NOT_SUBMITTED", whatsappNote: v.whatsappStatus && v.whatsappStatus !== "NOT_SUBMITTED" ? "Not on this WhatsApp account yet. Send it for approval." : v.whatsappNote };
+    if (next.whatsappStatus === v.whatsappStatus && next.whatsappNote === v.whatsappNote) continue;
+    await tx.templateVersion.update({ where: { id: v.id }, data: next });
+    changed++;
+  }
+  return { changed };
 }
 
 /** Asks WhatsApp for the status of every pending version of a template. */

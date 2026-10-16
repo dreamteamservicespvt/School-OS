@@ -99,6 +99,31 @@ export async function whatsappTemplateStatus(p: ProviderConfig, name: string, la
   }
 }
 
+/**
+ * Every template the WhatsApp Business account has, keyed "name|language", with
+ * its status. Read-only. Null when the list could not be read in full, so a
+ * caller never mistakes a failed call for "WhatsApp has no templates".
+ */
+export async function listWhatsappTemplates(p: ProviderConfig): Promise<Map<string, { status: string; note: string | null }> | null> {
+  if (!p.config.businessAccountId || !p.secrets.accessToken) return null;
+  const out = new Map<string, { status: string; note: string | null }>();
+  let url: string | null = `${GRAPH}/${encodeURIComponent(p.config.businessAccountId)}/message_templates?fields=name,language,status,rejected_reason&limit=200`;
+  try {
+    for (let page = 0; url && page < 20; page++) {
+      const res: Response = await fetch(url, { headers: { Authorization: `Bearer ${p.secrets.accessToken}` }, signal: AbortSignal.timeout(8000) });
+      if (!res.ok) return null;
+      const json = (await res.json()) as { data?: { name: string; language: string; status: string; rejected_reason?: string }[]; paging?: { next?: string } };
+      for (const t of json.data ?? []) {
+        out.set(`${t.name}|${t.language}`, { status: t.status.toUpperCase(), note: t.rejected_reason && t.rejected_reason !== "NONE" ? t.rejected_reason : null });
+      }
+      url = json.paging?.next ?? null;
+    }
+    return url ? null : out;
+  } catch {
+    return null;
+  }
+}
+
 /** Checks that a webhook call really came from Meta (X-Hub-Signature-256). */
 export function verifyMetaSignature(rawBody: string, header: string | null, appSecret: string): boolean {
   if (!header?.startsWith("sha256=") || !appSecret) return false;

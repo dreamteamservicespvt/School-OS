@@ -58,6 +58,12 @@ export async function saveChannel(tx: Tx, ctx: SchoolContext, channel: ProviderC
   const enc = Object.keys(secrets).length ? encryptSecrets(secrets) : { secretsEnc: null, secretsLast4: null };
   const data = { provider: input.provider, isOn: input.isOn, environment: input.live ? "live" : "test", config, ...enc, lowCreditAlert: input.lowCreditAlert, updatedById: ctx.userId };
   await tx.messagingChannel.upsert({ where: { schoolId_channel: { schoolId: ctx.schoolId, channel } }, create: { schoolId: ctx.schoolId, channel, ...data }, update: data });
+  // A real WhatsApp account connected or changed: template statuses must match
+  // what that account really has (test-mode approvals were never sent to it).
+  if (channel === "whatsapp" && input.provider === "meta-cloud") {
+    const { syncWhatsappApprovals } = await import("../communication/templates-admin");
+    await syncWhatsappApprovals(tx, ctx);
+  }
   const changedSecrets = Object.keys(input.secrets).filter((k) => input.secrets[k]?.trim());
   // Keys are never written to the audit log; only which ones changed.
   await writeAudit(tx, ctx, {

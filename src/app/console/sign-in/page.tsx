@@ -3,7 +3,7 @@ import { cookies, headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { Lock } from "lucide-react";
 import { ConsoleFrame, StepDots } from "@/components/console/console-frame";
-import { CONSOLE_STEP_COOKIE, DEVICE_DAYS, pendingCode } from "@/lib/console/auth";
+import { CONSOLE_STEP_COOKIE, DEVICE_DAYS, pendingCode, testCopyCode } from "@/lib/console/auth";
 import { consoleHostAllowed, getConsole } from "@/lib/console/current";
 import { appUrl, channelIsSetUp } from "@/lib/console/outbox";
 import { withConsole } from "@/lib/db";
@@ -16,7 +16,8 @@ export default async function ConsoleSignInPage({ searchParams }: { searchParams
   if (!(await consoleHostAllowed())) notFound();
   if (await getConsole()) redirect("/console");
   const sp = await searchParams;
-  const pending = await pendingCode((await cookies()).get(CONSOLE_STEP_COOKIE)?.value);
+  const challenge = (await cookies()).get(CONSOLE_STEP_COOKIE)?.value;
+  const pending = await pendingCode(challenge);
   const user = pending ? await withConsole((tx) => tx.superAdminUser.findUnique({ where: { id: pending.userId }, select: { name: true, email: true } })) : null;
   const step = pending && pending.purpose === "sign-in" && user ? 2 : 1;
   const host = (await headers()).get("host") ?? "";
@@ -35,7 +36,7 @@ export default async function ConsoleSignInPage({ searchParams }: { searchParams
       {step === 1 ? (
         <PasswordStep notice={notice} />
       ) : (
-        <CodeStep sentTo={pending!.sentTo} name={user!.name} trustDays={DEVICE_DAYS} test={!channelIsSetUp("sms") && !(user!.email && channelIsSetUp("email"))} />
+        <CodeStep sentTo={pending!.sentTo} name={user!.name} trustDays={DEVICE_DAYS} test={!channelIsSetUp("sms") && !(user!.email && channelIsSetUp("email"))} shownCode={testCopyCode(challenge)} />
       )}
     </ConsoleFrame>
   );

@@ -889,3 +889,18 @@ describe("Finance Management day closes stay in their school", () => {
     await expect(withSchool(ctxA(), (tx) => tx.dayClose.create({ data: { schoolId: b.id, financialYearId: b.id, date, expectedCashPaise: BigInt(0), countedCashPaise: BigInt(0), incomePaise: BigInt(0), expensePaise: BigInt(0), entryCount: 0 } }))).rejects.toThrow();
   });
 });
+
+describe("Switching to School OS files stay in their school", () => {
+  it("school A cannot read, change or add to school B's move-in files and plan", async () => {
+    const file = await withSchool({ schoolId: b.id, userId: userB.id }, async (tx) => {
+      await tx.moveInPlan.create({ data: { schoolId: b.id, oldSoftware: "B software" } });
+      return tx.moveInFile.create({ data: { schoolId: b.id, fileId: b.id, fileName: "b.xlsx", kind: "students" } });
+    });
+    await withSchool(ctxA(), async (tx) => {
+      expect(await tx.moveInFile.count()).toBe(0);
+      expect(await tx.moveInPlan.count()).toBe(0);
+      expect((await tx.moveInFile.updateMany({ where: { id: file.id }, data: { status: "cancelled" } })).count).toBe(0);
+    });
+    await expect(withSchool(ctxA(), (tx) => tx.moveInFile.create({ data: { schoolId: b.id, fileId: b.id, fileName: "x.xlsx", kind: "students" } }))).rejects.toThrow();
+  });
+});

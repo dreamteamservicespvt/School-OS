@@ -1,0 +1,164 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { requireSettingsPage } from "@/lib/settings/page-access";
+import { withSchool } from "@/lib/db";
+import { can } from "@/lib/permissions";
+import { formatDate, formatDateTime } from "@/lib/format";
+import { canBring, canUndo, goLiveSummary, kindInfo, moveInKinds, settleImports } from "@/lib/move-in/service";
+import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Alert } from "@/components/ui/alert";
+import { ButtonLink } from "@/components/ui/button";
+import { EmptyState } from "@/components/empty-state";
+import { AutoRefresh } from "../parts";
+import { UploadForm } from "./forms";
+import { RemoveFileButton } from "./parts";
+
+export const metadata: Metadata = { title: "Switching to School OS · Data Backup & Security" };
+
+const BASE = "/settings/data-security/switching";
+
+/** Records that come in with modules still being built (workflow 15, steps 5 to 8). */
+const LATER = [
+  { label: "Old dues and this year's receipts", module: "Fee Management", about: "Each student's unpaid amount from before, and payments already made this year, kept read-only as Brought in." },
+  { label: "Opening cash and bank balances", module: "Finance Management", about: "The cash book and each bank account on the go-live date." },
+  { label: "Open enquiries", module: "Admission Management", about: "Families still deciding, with their follow-up dates." },
+  { label: "Items, assets and library books", module: "Inventory and Library Management", about: "When those modules are switched on." },
+];
+
+type Search = { searchParams: Promise<Record<string, string | string[] | undefined>> };
+
+/** Switching to School OS (workflow 15): the plan, the files being brought in, and the go-live check. */
+export default async function SwitchingPage({ searchParams }: Search) {
+  const { current } = await requireSettingsPage("data-security");
+  const sp = await searchParams;
+  const wantKind = typeof sp.kind === "string" ? sp.kind : undefined;
+  const tz = current.school.timeZone;
+  const data = await withSchool(current.ctx, async (tx) => {
+    await settleImports(tx);
+    const [files, summary, counts] = await Promise.all([
+      tx.moveInFile.findMany({ where: { archivedAt: null }, orderBy: { createdAt: "desc" }, take: 100 }),
+      goLiveSummary(tx, current.ctx),
+      Promise.all([tx.department.count({ where: { archivedAt: null } })]),
+    ]);
+    const batches = await tx.importBatch.findMany({ where: { id: { in: files.map((f) => f.batchId).filter((x): x is string => Boolean(x)) } } });
+    return { files, summary, departments: counts[0], batches: new Map(batches.map((b) => [b.id, b])) };
+  });
+  const { files, summary } = data;
+  const kinds = moveInKinds();
+  const mine = kinds.filter((k) => canBring(current.permissions, k.key));
+  const importing = files.some((f) => f.status === "importing");
+  const live = summary.plan?.wentLiveAt;
+  const have: Record<string, number> = { departments: data.departments, staff: summary.staff, students: summary.students };
+  const setUp = Boolean(summary.year && summary.classes.length);
+  const sectionCount = summary.classes.reduce((n, c) => n + c.sections.length, 0);
+
+  return (
+    <>
+      <h2 className="sr-only">Switching to School OS</h2>
+      {importing && <AutoRefresh seconds={5} />}
+      {live && (
+        <Alert tone="success" className="mb-5" title={`Your school went live on School OS on ${formatDate(summary.plan!.goLiveDate ?? live, tz)}.`}>
+          You can still bring in records you missed. <Link href={`${BASE}/check`} className="font-medium underline">See the go-live summary</Link>
+        </Alert>
+      )}
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+        <Card>
+          <CardHeader title="Your move to School OS" description="Bring in what your old software, Excel sheets or registers hold, in this order. You can start on any day of the year." />
+          <CardBody className="p-0">
+            <ol className="divide-y divide-line">
+              <Step n={1} title="Set up the school year" done={setUp}
+                status={setUp ? `${summary.year!.name}: ${summary.classes.length} classes, ${sectionCount} sections` : summary.year ? "Add this year's classes and sections" : "Add the current academic year"}
+                about="School profile, the current academic year, classes, sections and subjects. Students are matched to these.">
+                <ButtonLink href="/academic-management" size="sm">{setUp ? "Open Academic Management" : "Set up classes"}</ButtonLink>
+              </Step>
+              {kinds.map((k, i) => (
+                <Step key={k.key} n={i + 2} title={k.label} done={(have[k.key] ?? 0) > 0}
+                  status={have[k.key] !== undefined ? `${have[k.key]} in School OS` : undefined} about={k.about}>
+                  {canBring(current.permissions, k.key) && <ButtonLink href={`${BASE}?kind=${k.key}#bring-in`} size="sm">Bring in</ButtonLink>}
+                  <a href={`${BASE}/template/${k.key}`} className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-brand-text hover:bg-surface-2">Ready Excel sheet</a>
+                </Step>
+              ))}
+              <Step n={kinds.length + 2} title="Check and go live" done={Boolean(live)}
+                status={live ? `Live since ${formatDate(summary.plan!.goLiveDate ?? live, tz)}` : "Compare the totals with your old software, then go live"}
+                about="Students per class, staff and parents, beside what your old software says. The Principal confirms going live.">
+                <ButtonLink href={`${BASE}/check`} size="sm" variant={live ? "secondary" : "primary"}>Open the go-live check</ButtonLink>
+              </Step>
+            </ol>
+            <div className="border-t border-line px-5 py-4">
+              <h3 className="font-medium">Coming with the next modules</h3>
+              <ul className="mt-2 space-y-2 text-sm text-ink-2">
+                {LATER.map((l) => <li key={l.label}><span className="font-medium text-ink">{l.label}</span> ({l.module}): {l.about}</li>)}
+              </ul>
+            </div>
+          </CardBody>
+        </Card>
+
+        <Card id="bring-in" className="self-start">
+          <CardHeader title="Bring in a file" description="School OS finds the headings, works out what the file holds, matches the columns and tidies dates, phones and names. You check every row before anything is saved." />
+          <CardBody>
+            {mine.length ? <UploadForm kinds={mine.map((k) => ({ value: k.key, label: k.label }))} kind={wantKind && mine.some((k) => k.key === wantKind) ? wantKind : undefined} />
+              : <p className="text-ink-2">Your role can see this page but not add records. Ask your School Admin.</p>}
+            <details className="mt-4 text-sm text-ink-2">
+              <summary className="min-h-11 cursor-pointer py-2 font-medium text-ink">Records on paper?</summary>
+              <p>Download the ready Excel sheet next to each step. It has drop-down lists of your own classes, sections and designations, so typing from the register is quick and the rows are right the first time.</p>
+            </details>
+            <details className="text-sm text-ink-2">
+              <summary className="min-h-11 cursor-pointer py-2 font-medium text-ink">Old Excel file (.xls)?</summary>
+              <p>Open it in Excel and use Save As, Excel Workbook (.xlsx), then upload that.</p>
+            </details>
+          </CardBody>
+        </Card>
+      </div>
+
+      <h2 className="mb-3 mt-8 text-lg font-semibold">Files</h2>
+      {importing && <p className="mb-3 text-ink-2" role="status">An import is running now. This page updates by itself.</p>}
+      {files.length === 0 ? (
+        <EmptyState title="No files yet">Upload your first file above. Staff usually come first, then students and parents.</EmptyState>
+      ) : (
+        <ul className="divide-y divide-line rounded-2xl border border-line bg-surface">
+          {files.map((f) => {
+            const sheet = (f.sheets as { name: string; rows: number }[])[f.sheetIndex];
+            const batch = f.batchId ? data.batches.get(f.batchId) : undefined;
+            const label = kindInfo(f.kind)?.label ?? f.kind;
+            return (
+              <li key={f.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                <div className="min-w-0">
+                  <Link href={`${BASE}/${f.id}`} className="font-medium text-brand-text underline-offset-2 hover:underline break-all">{f.fileName}{(f.sheets as unknown[]).length > 1 && sheet ? ` · ${sheet.name}` : ""}</Link>
+                  <p className="text-sm text-ink-2">{label} · uploaded {formatDateTime(f.createdAt, tz)}{batch ? ` · ${batch.added} added${batch.skipped ? `, ${batch.skipped} with problems` : ""}` : ""}</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <FileStatus status={f.status} undone={Boolean(batch?.undoneAt)} />
+                  {f.status !== "importing" && canBring(current.permissions, f.kind) && <RemoveFileButton id={f.id} imported={f.status === "imported"} />}
+                  {f.status === "imported" && batch && !batch.undoneAt && canUndo(current.permissions, f.kind) && <ButtonLink href={`${BASE}/${f.id}`} size="sm">See result</ButtonLink>}
+                  {f.status === "open" && canBring(current.permissions, f.kind) && <ButtonLink href={`${BASE}/${f.id}`} size="sm" variant="primary">Continue</ButtonLink>}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {!can(current.permissions, "settings", "edit") && <p className="mt-4 text-sm text-ink-2">The Principal or School Admin confirms going live.</p>}
+    </>
+  );
+}
+
+function Step({ n, title, done, status, about, children }: { n: number; title: string; done: boolean; status?: string; about: string; children?: React.ReactNode }) {
+  return (
+    <li className="flex flex-wrap items-start gap-4 px-5 py-4">
+      <span aria-hidden="true" className={`grid size-9 shrink-0 place-items-center rounded-full text-sm font-semibold ${done ? "bg-success-soft text-success" : "bg-surface-2 text-ink-2"}`}>{done ? "✓" : n}</span>
+      <div className="min-w-0 flex-1">
+        <h3 className="font-semibold">{title} <span className="sr-only">{done ? "(done)" : "(to do)"}</span></h3>
+        {status && <p className="text-sm font-medium text-ink">{status}</p>}
+        <p className="text-sm text-ink-2">{about}</p>
+        {children && <div className="mt-2 flex flex-wrap items-center gap-2">{children}</div>}
+      </div>
+    </li>
+  );
+}
+
+function FileStatus({ status, undone }: { status: string; undone: boolean }) {
+  if (status === "importing") return <Badge tone="brand">Importing</Badge>;
+  if (status === "imported") return undone ? <Badge>Undone</Badge> : <Badge tone="success">Imported</Badge>;
+  return <Badge tone="warning">Being checked</Badge>;
+}

@@ -11,7 +11,7 @@
 // - Every sign-in, sign-out and lock goes in the Activity Log.
 import "server-only";
 
-import { createHash, randomInt, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomInt, timingSafeEqual } from "node:crypto";
 import type { SuperAdminUser } from "@prisma/client";
 import { withConsole, type Tx } from "../db";
 import { burnPasswordCheck, checkNewPassword, hashPassword, verifyPassword } from "../auth/password";
@@ -20,6 +20,7 @@ import { hitLimit, limitMessage } from "../rate-limit";
 import type { DeviceInfo } from "../auth/sessions";
 import { logActivity, maskMobile, tenDigits, type ConsoleActor } from "./activity";
 import { deliver, type ConsoleOutgoing } from "./outbox";
+import { isTestCopy } from "../test-copy-env";
 
 export const CONSOLE_COOKIE = "sos_console";
 export const CONSOLE_STEP_COOKIE = "sos_console_step";
@@ -57,12 +58,26 @@ async function findByPhone(tx: Tx, typed: string) {
   return tx.superAdminUser.findUnique({ where: { phone: d } });
 }
 
+/**
+ * Vercel test copy only (deploy/vercel/README.md): it has no SMS or email, so
+ * the owner chose to have the sign-in page show the code. The code is worked
+ * out from the challenge, so the page can show it without storing it.
+ * Everywhere else this is null and codes stay random and unseen.
+ */
+export function testCopyCode(challenge: string | null | undefined): string | null {
+  if (!challenge || !isTestCopy()) return null;
+  const key = process.env.FIELD_ENCRYPTION_KEY;
+  if (!key) return null;
+  const n = createHmac("sha256", key).update(`console-code:${challenge}`).digest().readUInt32BE(0) % 1_000_000;
+  return String(n).padStart(6, "0");
+}
+
 /** Makes and sends a 6-digit code; ends earlier codes for the same purpose. */
 async function sendCode(user: SuperAdminUser, purpose: "sign-in" | "welcome", now: Date) {
   const limit = await hitLimit(`console-code:${user.id}`, 5, 900, now);
   if (!limit.ok) return { ok: false as const, message: limitMessage(limit) };
-  const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
   const challenge = newToken();
+  const code = testCopyCode(challenge) ?? String(randomInt(0, 1_000_000)).padStart(6, "0");
   await withConsole(async (tx) => {
     await tx.consoleCode.updateMany({ where: { userId: user.id, purpose, usedAt: null }, data: { usedAt: now } });
     await tx.consoleCode.create({

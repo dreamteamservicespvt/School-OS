@@ -10,6 +10,7 @@ import { classOfStudents } from "./dues";
 import { feesByClass } from "./by-class";
 import { studentScope, type FeeViewer } from "./access";
 import { openPromises, promisedBetween, promisesOnHere } from "./promises";
+import { studentIdsForFilter } from "../students/find";
 
 const ZERO = BigInt(0);
 
@@ -116,13 +117,13 @@ export async function recentPayments(tx: Tx, viewer: FeeViewer, f: RecentFilter,
   const q = f.q?.trim();
   if (q) {
     const [byName, byClass, byReceipt] = await Promise.all([
-      tx.student.findMany({ where: { OR: [{ fullName: { contains: q, mode: "insensitive" } }, { admissionNo: { contains: q, mode: "insensitive" } }] }, select: { id: true }, take: 500 }),
+      studentIdsForFilter(tx, q),
       tx.schoolClass.findMany({ where: { name: { equals: q, mode: "insensitive" } }, select: { id: true } }).then((cls) => cls.length
         ? tx.enrolment.findMany({ where: { archivedAt: null, classId: { in: cls.map((c) => c.id) }, ...(viewer.yearId ? { academicYearId: viewer.yearId } : {}) }, select: { studentId: true }, take: 3000 })
         : []),
       tx.receipt.findMany({ where: { number: { contains: q, mode: "insensitive" } }, select: { paymentId: true }, take: 200 }),
     ]);
-    search = { OR: [{ studentId: { in: [...byName.map((s) => s.id), ...byClass.map((e) => e.studentId)] } }, { id: { in: byReceipt.map((r) => r.paymentId) } }, { reference: { contains: q, mode: "insensitive" } }] };
+    search = { OR: [{ studentId: { in: [...byName, ...byClass.map((e) => e.studentId)] } }, { id: { in: byReceipt.map((r) => r.paymentId) } }, { reference: { contains: q, mode: "insensitive" } }] };
   }
   const where: Prisma.PaymentWhereInput = {
     ...search,

@@ -16,6 +16,7 @@ import { BASE, studentPage } from "../../_lib/page";
 import { StudentsHead } from "../../_lib/head";
 import { sectionNames } from "../../_lib/queries";
 import { behaviourTabs } from "../sub-tabs";
+import { studentIdsForFilter } from "@/lib/students/find";
 
 export const metadata: Metadata = { title: "Counselling" };
 const STEP = 25;
@@ -36,7 +37,7 @@ export default async function CounsellingPage({ searchParams }: { searchParams: 
       ...(params.filters.status ? { status: params.filters.status } : {}),
       ...(range ? { openedOn: dateWhere(range) } : {}),
     };
-    const ids = params.q ? (await tx.student.findMany({ where: { fullName: { contains: params.q, mode: "insensitive" } }, select: { id: true }, take: 200 })).map((s) => s.id) : null;
+    const ids = params.q ? await studentIdsForFilter(tx, params.q) : null;
     const full = ids ? { ...where, studentId: { in: ids } } : where;
     const [total, rows, open] = await Promise.all([
       tx.counsellingCase.count({ where: full }),

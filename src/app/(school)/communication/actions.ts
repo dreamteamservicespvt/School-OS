@@ -3,6 +3,7 @@
 // Send Message: check (count, cost, preview), then send or schedule.
 import { redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
+import { findStudents } from "@/lib/students/find";
 import { flash } from "@/lib/flash";
 import { writeAudit } from "@/lib/audit";
 import { commAction } from "@/lib/communication/access";
@@ -136,11 +137,9 @@ export async function findPeople(q: string): Promise<{ type: "guardian" | "stude
     const digits = term.replace(/\D/g, "");
     const year = await tx.academicYear.findFirst({ where: { schoolId: current.ctx.schoolId, status: "ACTIVE" }, select: { id: true } });
     const inScope = (sectionId: string | null | undefined) => scope.sectionIds === "all" || (sectionId ? scope.sectionIds.includes(sectionId) : false);
-    const students = await tx.student.findMany({
-      where: { schoolId: current.ctx.schoolId, archivedAt: null, status: { in: ["ACTIVE", "ADMITTED"] }, OR: [{ fullName: { contains: term, mode: "insensitive" } }, { admissionNo: { contains: term, mode: "insensitive" } }] },
-      take: 8, select: { id: true, fullName: true, admissionNo: true },
-    });
-    const enrol = year ? await tx.enrolment.findMany({ where: { academicYearId: year.id, studentId: { in: students.map((s) => s.id) } }, select: { studentId: true, sectionId: true } }) : [];
+    // The one student search, within the sender's sections (parents are found just below).
+    const reach = scope.sectionIds === "all" ? {} : year ? { enrolments: { some: { academicYearId: year.id, archivedAt: null, sectionId: { in: scope.sectionIds } } } } : { id: { in: [] } };
+    const students = await findStudents(tx, term, { scope: reach, yearId: year?.id ?? null, statuses: ["ACTIVE", "ADMITTED"], byParent: false, take: 8 });
     const guardians = await tx.guardian.findMany({
       where: { schoolId: current.ctx.schoolId, archivedAt: null, OR: [{ name: { contains: term, mode: "insensitive" } }, ...(digits.length >= 4 ? [{ phone: { contains: digits } }] : [])] },
       take: 8, select: { id: true, name: true, phone: true, relationship: true, students: { where: { archivedAt: null }, select: { studentId: true, student: { select: { fullName: true } } } } },
@@ -151,7 +150,7 @@ export async function findPeople(q: string): Promise<{ type: "guardian" | "stude
       ...guardians
         .filter((g) => scope.sectionIds === "all" || g.students.some((s) => inScope(genrol.find((e) => e.studentId === s.studentId)?.sectionId)))
         .map((g) => ({ type: "guardian" as const, id: g.id, name: g.name, detail: `${g.relationship}${g.students.length ? ` of ${g.students.map((s) => s.student.fullName.split(" ")[0]).join(", ")}` : ""} · ••${g.phone.slice(-4)}` })),
-      ...students.filter((s) => inScope(enrol.find((e) => e.studentId === s.id)?.sectionId)).map((s) => ({ type: "student" as const, id: s.id, name: s.fullName, detail: `Student · ${s.admissionNo}` })),
+      ...students.map((s) => ({ type: "student" as const, id: s.id, name: s.name, detail: `Student · ${s.admissionNo}` })),
       ...staff.map((s) => ({ type: "staff" as const, id: s.id, name: s.fullName, detail: s.designation })),
     ];
   });

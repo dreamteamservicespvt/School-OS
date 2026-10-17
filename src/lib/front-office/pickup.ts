@@ -12,6 +12,7 @@ import { writeAudit } from "../audit";
 import { notify } from "../notifications";
 import { formatNumber, nextNumber } from "../sequences";
 import { currentYear } from "../academic/years";
+import { findStudents } from "../students/find";
 import { FrontOfficeProblem } from "./problem";
 import { messageVisitor } from "./notify";
 import { clockAt, instantOf, localOf, todayIso } from "./time";
@@ -33,7 +34,7 @@ export async function enrolmentsOf(tx: Tx, ctx: SchoolContext, ids: string[]) {
   return out;
 }
 
-/** Students matching a name, an admission number, or a class like "7 B". */
+/** Students matching a search (the one student search), or a whole class like "7 B". */
 export async function searchStudents(tx: Tx, ctx: SchoolContext, rawQ: string, take = 8): Promise<PickupStudent[]> {
   const q = rawQ.trim().replace(/\s+/g, " ").slice(0, 60);
   if (q.length < 2) return [];
@@ -50,11 +51,17 @@ export async function searchStudents(tx: Tx, ctx: SchoolContext, rawQ: string, t
       ids = (await tx.enrolment.findMany({ where: { sectionId: { in: sections.map((s) => s.id) }, archivedAt: null }, select: { studentId: true }, orderBy: { rollNo: "asc" }, take: 80 })).map((e) => e.studentId);
     }
   }
+  if (!ids) {
+    // The one student search: name (one letter wrong allowed), admission or roll number, parent name or phone.
+    const year = await currentYear(tx, ctx);
+    const hits = await findStudents(tx, q, { scope: {}, yearId: year?.id ?? null, statuses: ["ACTIVE"], take });
+    return hits.map((h) => ({ id: h.id, name: h.name, first: h.firstName, admissionNo: h.admissionNo, photoFileId: h.photoFileId, classSection: h.classSection?.replace(/^Class\s+/i, "") ?? null, rollNo: h.rollNo }));
+  }
   const rows = await tx.student.findMany({
-    where: ids ? { ...where, id: { in: ids } } : { ...where, OR: [{ fullName: { contains: q, mode: "insensitive" } }, { admissionNo: { contains: q, mode: "insensitive" } }] },
+    where: { ...where, id: { in: ids } },
     select: { id: true, fullName: true, firstName: true, admissionNo: true, photoFileId: true },
     orderBy: { fullName: "asc" },
-    take: ids ? 80 : take,
+    take: 80,
   });
   const enr = await enrolmentsOf(tx, ctx, rows.map((r) => r.id));
   return rows.map((r) => ({ id: r.id, name: r.fullName, first: r.firstName, admissionNo: r.admissionNo, photoFileId: r.photoFileId, classSection: enr.get(r.id)?.label ?? null, rollNo: enr.get(r.id)?.rollNo ?? null }));

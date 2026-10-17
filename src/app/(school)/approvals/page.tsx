@@ -19,6 +19,9 @@ import { EmptyState } from "@/components/empty-state";
 import { CheckCheck, Inbox, SearchX } from "lucide-react";
 import { ApprovalList, type ApprovalRow } from "./approval-list";
 import { askerJobs } from "@/lib/approval-people";
+import { answersSupport, schoolSupportRequests } from "@/lib/console/support";
+import { ENDED_WORDS, endsWords, lengthWords, type EndHow } from "@/lib/console/support-entry";
+import { SupportRequests, type SupportItem } from "./support-requests";
 
 export const metadata: Metadata = { title: "Approvals" };
 
@@ -34,6 +37,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   const current = await requireCurrent();
   const sp = await searchParams;
   const params = readListParams(sp, ["view", "type", "status", "period", "from", "to"]);
+  const focusSupport = typeof sp.support === "string" ? sp.support : null;
   const roleKeys = current.roles.map((r) => r.key);
   const tz = current.school.timeZone;
   const dates = await periodSetup(current);
@@ -68,6 +72,23 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   });
 
   const now = new Date();
+  // DREAM TEAM support access (07-super-admin.md §3.4): only the School Admin and Principal answer it.
+  const support: SupportItem[] = answersSupport(current)
+    ? (await schoolSupportRequests(current.school.id, now, 8)).map((r) => ({
+      id: r.id,
+      who: `${r.requestedByName} of DREAM TEAM`,
+      reason: r.reason,
+      length: lengthWords(r.lengthMinutes),
+      asked: formatDateTime(r.createdAt, tz),
+      status: r.status,
+      live: r.live,
+      detail: r.status === "DECLINED" ? `Declined by ${r.decidedByName ?? "the school"}${r.declineReason ? `: “${r.declineReason}”` : ""}`
+        : r.live && r.endsAt ? `Allowed by ${r.decidedByName ?? "the school"} until ${endsWords(r.endsAt, now, tz)}`
+        : r.status === "ENDED" || r.status === "ALLOWED" ? `${r.endedHow ? ENDED_WORDS[r.endedHow as EndHow] ?? "Ended" : "Ended at the time given"}${r.endedAt ? `, ${formatDateTime(r.endedAt, tz)}` : r.endsAt ? `, ${formatDateTime(r.endsAt, tz)}` : ""}`
+        : null,
+      focus: r.id === focusSupport,
+    }))
+    : [];
   const rows: ApprovalRow[] = data.rows.map((a) => {
     const open = OPEN_STATUSES.includes(a.status);
     const last = [...((a.history as HistoryLine[]) ?? [])].reverse()[0];
@@ -97,6 +118,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
     <div className="max-w-5xl">
       <PageHeader title="Approvals" href="/approvals" userId={current.user.id}
         sub={approver ? "Requests only you can decide, and the ones you asked for" : "Requests you asked for, such as leave, and where each one is"} />
+      {support.length > 0 && <SupportRequests items={support} schoolName={current.school.name} />}
       {views.length > 1 && (
         <nav aria-label="Which requests" className="-mx-4 px-4 md:mx-0 md:px-0 mb-4">
           <ul className="flex gap-1 overflow-x-auto no-scrollbar border-b border-line">

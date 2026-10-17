@@ -300,8 +300,10 @@ describe("every school table has its walls", () => {
         FROM pg_class c
         JOIN pg_namespace n ON n.oid = c.relnamespace AND n.nspname = 'public'
         WHERE c.relkind = 'r'
-          AND (c.relname LIKE 'console\\_%' OR c.relname IN ('super_admin_user', 'school_invite', 'platform_invoice', 'subscription', 'plan', 'school_group'))`;
+          AND (c.relname LIKE 'console\\_%' OR c.relname IN ('super_admin_user', 'school_invite', 'platform_invoice', 'subscription', 'plan', 'school_group', 'support_access_request'))`;
       expect(consoleTables.length).toBeGreaterThan(5);
+      // Support Access Requests (gap G35) are console records too.
+      expect(consoleTables.map((t) => t.table)).toContain("support_access_request");
       expect(consoleTables.filter((t) => !t.rls || !t.forced || Number(t.policies) === 0).map((t) => t.table)).toEqual([]);
     } finally {
       await owner.$disconnect();

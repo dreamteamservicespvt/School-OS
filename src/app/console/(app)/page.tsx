@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Activity, ArchiveRestore, Bug, CalendarClock, CalendarDays, Check, ChevronRight, CircleAlert, CircleCheck, CreditCard, DatabaseBackup, Flag, Hourglass, ListChecks, MailWarning, MailX, MessageCircle, MessageCircleWarning, MessageSquareText, Plus, ReceiptIndianRupee, ScrollText, StickyNote, UsersRound, Workflow, type LucideIcon } from "lucide-react";
+import { Activity, ArchiveRestore, Bug, CalendarClock, CalendarDays, Check, ChevronRight, CircleAlert, CircleCheck, CreditCard, DatabaseBackup, Flag, Hourglass, LifeBuoy, ListChecks, MailWarning, MailX, MessageCircle, MessageCircleWarning, MessageSquareText, Plus, ReceiptIndianRupee, ScrollText, StickyNote, UsersRound, Workflow, type LucideIcon } from "lucide-react";
 import { requireConsole } from "@/lib/console/current";
 import { withConsole } from "@/lib/db";
 import { attentionItems, glance, nextStep, systemChecks, type Attention } from "@/lib/console/dashboard";
@@ -20,7 +20,7 @@ import { noteAction, resendInviteAction, sendInvoiceAction, topupAction } from "
 
 export const metadata: Metadata = { title: "Dashboard" };
 
-const ICON: Record<Attention["kind"], LucideIcon> = { never: MailWarning, expired: MailX, stuck: Hourglass, trial: CalendarClock, grace: ReceiptIndianRupee, over: UsersRound, alert: MessageCircleWarning };
+const ICON: Record<Attention["kind"], LucideIcon> = { never: MailWarning, expired: MailX, stuck: Hourglass, trial: CalendarClock, grace: ReceiptIndianRupee, over: UsersRound, alert: MessageCircleWarning, support: LifeBuoy };
 const CHECK_ICON: Record<string, LucideIcon> = { errors: Bug, whatsapp: MessageCircle, sms: MessageSquareText, razorpay: CreditCard, jobs: Workflow, backup: DatabaseBackup, restore: ArchiveRestore };
 
 function greeting(now: Date) {
@@ -44,10 +44,11 @@ export default async function ConsoleDashboard({ searchParams }: { searchParams:
   const label = (a: Attention) => (allowed(a) ? a.action : "Open school");
   const href = (a: Attention) => {
     if (a.kind === "alert") return "#system-alerts";
+    if (a.kind === "support") return `/console/support#r-${a.targetId}`;
     if (a.kind === "trial" || !allowed(a)) return `/console/schools/${a.schoolId}`;
     return `/console?fix=${encodeURIComponent(a.id)}`;
   };
-  const fixing = sp.fix ? items.find((a) => a.id === sp.fix && a.kind !== "alert" && a.kind !== "trial" && allowed(a)) : undefined;
+  const fixing = sp.fix ? items.find((a) => a.id === sp.fix && a.kind !== "alert" && a.kind !== "trial" && a.kind !== "support" && allowed(a)) : undefined;
   const sheet = fixing ? await FixSheet({ a: fixing, canApprove: c.can("approve"), now }) : null;
   const dateLine = now.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Kolkata" });
   const nextTrial = g.nextTrial?.trialEndsOn ? Math.round((g.nextTrial.trialEndsOn.getTime() - istDay(now).getTime()) / 86_400_000) : null;

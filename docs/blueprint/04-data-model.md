@@ -439,6 +439,14 @@ These rules hold everywhere. A builder should write a check for each one.
 
 DREAM TEAM SERVICES' own console (`07-super-admin.md`) keeps a few records that belong to no school: **Super Admin User, School Invite, School Status Change, Support Access Request, School Note, Plan, Subscription, Platform Invoice** and **Console Activity Entry**. Their fields are in `07-super-admin.md` §10. They never hold student, fee or salary details. A Support Access Request lets a DREAM TEAM person look inside one school only after that school allows it, for a set time.
 
+Support Access Request rules (added 18 October 2026, gap G35):
+
+- A school has at most one open request at a time (waiting, or allowed and not yet ended). Only the person who asked can open the school with it, and only while their console sign-in lasts.
+- The person never becomes a User Login and holds no Role in the school. They look through the school's own wall for that one school, and can only look: nothing is changed, exported, printed or downloaded, no payment is cancelled, and fields kept for named roles (Aadhaar and other ID numbers, counselling notes, private notes) and Salary Management stay hidden.
+- Every page they open, everything refused and how it ended is an Audit Log Entry of that school marked "DREAM TEAM support (name)", and a Console Activity Entry.
+- An allowed request ends by itself at its end time; the school (from Approvals), the person or the console can end it earlier. It is never deleted.
+- Platform Invoices: a school has at most one year, renewal or second-half invoice for the same period that is not cancelled.
+
 ## Records added in this blueprint
 
 The shared list of record names had 65 records. This blueprint adds five, because the workflows need them:

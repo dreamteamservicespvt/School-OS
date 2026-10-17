@@ -122,6 +122,37 @@ export async function findExistingLogin(mobile: string | null | undefined) {
   return { login, schools: cards };
 }
 
+/**
+ * A login nobody can use now: disabled (its admin was disabled and it works in
+ * no school), never finished (no password, and in no school), or removed with a
+ * cancelled invite. Adding the person again reuses it, switched back on as
+ * Invited with no password, so the new invite works and the old password does not.
+ */
+export function deadLogin(existing: Awaited<ReturnType<typeof findExistingLogin>>) {
+  return Boolean(existing && existing.schools.length === 0 && (existing.login.status === "DISABLED" || !existing.login.passwordHash));
+}
+
+async function reviveLogin(tx: Tx, loginId: string, input: { name: string; mobile: string; email: string | null }) {
+  await tx.userLogin.update({
+    where: { id: loginId },
+    data: { status: "INVITED", passwordHash: null, failedAttempts: 0, lockedUntil: null, archivedAt: null, inviteTokenHash: null, inviteExpiresAt: null, displayName: input.name.slice(0, 120), phone: showMobile(input.mobile), email: input.email },
+  });
+  await tx.session.updateMany({ where: { userLoginId: loginId, revokedAt: null }, data: { revokedAt: new Date(), revokedReason: "Login switched back on by DREAM TEAM" } });
+}
+
+/** The login a new admin gets: theirs from elsewhere in the group, an unusable one switched back on, or a new one. */
+async function adminLogin(tx: Tx, existing: Awaited<ReturnType<typeof findExistingLogin>>, input: { name: string; mobile: string; email: string | null }) {
+  if (existing && !deadLogin(existing)) return { id: existing.login.id, invite: false, revived: false };
+  // A cancelled invite's login is kept (archived) under the same username.
+  const old = existing?.login ?? (await tx.userLogin.findUnique({ where: { username: input.mobile } }));
+  if (old) {
+    await reviveLogin(tx, old.id, input);
+    return { id: old.id, invite: true, revived: true };
+  }
+  const login = await tx.userLogin.create({ data: { username: input.mobile, displayName: input.name.slice(0, 120), phone: showMobile(input.mobile), email: input.email, status: "INVITED" } });
+  return { id: login.id, invite: true, revived: false };
+}
+
 export async function listGroups() {
   return withConsole(async (tx) => {
     const groups = await tx.group.findMany({ where: { archivedAt: null }, orderBy: { name: "asc" } });
@@ -262,7 +293,7 @@ export async function addSchool(actor: ConsoleActor, input: AddSchoolInput, now 
     groupName = input.newGroupName.trim().slice(0, 120);
   }
   let sameGroup: string | null = null;
-  if (existing) {
+  if (existing && !deadLogin(existing)) {
     const inGroup = existing.schools.find((s) => (groupId && s.groupId === groupId));
     if (!inGroup) {
       const where = existing.schools[0];
@@ -295,15 +326,8 @@ export async function addSchool(actor: ConsoleActor, input: AddSchoolInput, now 
       email: input.email ?? undefined, groupId: groupId ?? undefined, status: input.startAs, trialEndsOn: trialEndsOn ?? undefined, optionalOn,
     });
     const role = await tx.role.findFirstOrThrow({ where: { schoolId, key: input.adminRole } });
-    let loginId: string;
-    if (existing) {
-      loginId = existing.login.id;
-    } else {
-      const login = await tx.userLogin.create({
-        data: { username: mobile, displayName: input.adminName.trim().slice(0, 120), phone: showMobile(mobile), email: input.adminEmail, status: "INVITED" },
-      });
-      loginId = login.id;
-    }
+    const got = await adminLogin(tx, existing, { name: input.adminName.trim(), mobile, email: input.adminEmail });
+    const loginId = got.id;
     await tx.schoolAccess.create({ data: { schoolId, userLoginId: loginId, roles: { create: [{ roleId: role.id, schoolId }] } } });
     await writeAudit(tx, ctx, { action: "admin login added by DREAM TEAM", recordType: "User Login", recordId: loginId, after: { role: role.name }, actorNote: `DREAM TEAM: ${actor.name}` });
     if (input.startAs === "TRIAL") {
@@ -321,7 +345,7 @@ export async function addSchool(actor: ConsoleActor, input: AddSchoolInput, now 
     const school = { id: schoolId, name };
     let inviteId: string | null = null;
     let messages: ConsoleOutgoing[] = [];
-    if (!existing) {
+    if (got.invite) {
       const made = await makeInvite(tx, actor, { school, userLoginId: loginId, name: input.adminName.trim(), phone: mobile, email: input.adminEmail, roleKey: input.adminRole, channels, kind: "INVITE" }, now);
       inviteId = made.invite.id;
       messages = made.messages;
@@ -330,7 +354,7 @@ export async function addSchool(actor: ConsoleActor, input: AddSchoolInput, now 
     await logActivity(tx, actor, {
       type: "school",
       school,
-      text: existing
+      text: !got.invite
         ? `added ${name} (${input.board}, ${input.schoolType}) as ${STATUS_LABEL[input.startAs]}${groupName ? ` in ${groupName}` : ""}, and gave ${input.adminName.trim()} (${maskMobile(mobile)}) access with the login they already have in the group.`
         : `added ${name} (${input.board}, ${input.schoolType}) as ${STATUS_LABEL[input.startAs]}${groupName ? ` in ${groupName}` : ""} and sent a login invite to ${input.adminName.trim()}, +91 ${maskMobile(mobile)}, on ${chWords}.`,
       to: STATUS_LABEL[input.startAs],
@@ -369,7 +393,7 @@ async function cardOrThrow(tx: Tx, schoolId: string) {
 }
 
 /** Messages to the school's active admins (status notices, other admins told of a change). */
-async function adminNotice(schoolId: string, schoolName: string, text: string, exceptLoginId?: string | null): Promise<ConsoleOutgoing[]> {
+export async function adminNotice(schoolId: string, schoolName: string, text: string, exceptLoginId?: string | null): Promise<ConsoleOutgoing[]> {
   const admins = (await schoolAdmins(schoolId)).filter((a) => a.status === "ACTIVE" && a.userLoginId !== exceptLoginId);
   const out: ConsoleOutgoing[] = [];
   for (const a of admins) {
@@ -401,11 +425,8 @@ export async function addAdmin(actor: ConsoleActor, schoolId: string, input: { n
   const ctx = { schoolId, userId: null };
   const made = await withConsoleSchool(schoolId, async (tx) => {
     const role = await tx.role.findFirstOrThrow({ where: { schoolId, key: input.roleKey } });
-    let loginId = existing?.login.id ?? null;
-    if (!loginId) {
-      const login = await tx.userLogin.create({ data: { username: mobile, displayName: input.name.trim().slice(0, 120), phone: showMobile(mobile), email: input.email, status: "INVITED" } });
-      loginId = login.id;
-    }
+    const got = await adminLogin(tx, existing, { name: input.name.trim(), mobile, email: input.email });
+    const loginId = got.id;
     const live = await tx.schoolAccess.findFirst({ where: { schoolId, userLoginId: loginId, archivedAt: null } });
     if (live) {
       await tx.schoolAccessRole.create({ data: { schoolAccessId: live.id, roleId: role.id, schoolId } });
@@ -414,14 +435,14 @@ export async function addAdmin(actor: ConsoleActor, schoolId: string, input: { n
     }
     await writeAudit(tx, ctx, { action: "admin login added by DREAM TEAM", recordType: "User Login", recordId: loginId, after: { role: role.name, checked: input.checked }, actorNote: `DREAM TEAM: ${actor.name}` });
     let messages: ConsoleOutgoing[] = [];
-    if (!existing) {
+    if (got.invite) {
       const r = await makeInvite(tx, actor, { school, userLoginId: loginId, name: input.name.trim(), phone: mobile, email: input.email, roleKey: input.roleKey, channels, kind: "INVITE" }, now);
       messages = r.messages;
     }
     await logActivity(tx, actor, {
       type: "invite",
       school,
-      text: `${existing ? "gave" : "sent a new admin invite to"} ${school.name}${existing ? ` admin access to ${input.name.trim()} (same login as elsewhere in the group)` : `, to ${input.name.trim()}, +91 ${maskMobile(mobile)}`}, as ${ROLE_WORDS[input.roleKey]}.${input.checked ? ` Checked: ${input.checked.trim()}.` : ""}`,
+      text: `${got.invite ? "sent a new admin invite to" : "gave"} ${school.name}${got.invite ? `, to ${input.name.trim()}, +91 ${maskMobile(mobile)}${got.revived ? " (their earlier login, which could no longer be used, was switched back on with no password)" : ""}` : ` admin access to ${input.name.trim()} (same login as elsewhere in the group)`}, as ${ROLE_WORDS[input.roleKey]}.${input.checked ? ` Checked: ${input.checked.trim()}.` : ""}`,
       after: { name: input.name.trim(), mobile: maskMobile(mobile), role: input.roleKey },
     });
     return { messages };

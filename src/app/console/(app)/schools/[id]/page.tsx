@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
-  Archive, ArchiveRestore, Award, Building2, ChartColumn, Check, CirclePause, CirclePlay, EyeOff, Flag, GraduationCap, History, Hourglass, KeyRound, Layers, LayoutGrid, ListChecks, Lock, LogIn,
+  Archive, ArchiveRestore, Award, Building2, ChartColumn, Check, CirclePause, CirclePlay, DoorOpen, EyeOff, Flag, GraduationCap, History, Hourglass, KeyRound, Layers, LayoutGrid, LifeBuoy, ListChecks, Lock, LogIn,
   MessageCircle, Network, Pencil, Phone, ReceiptIndianRupee, Send, Smartphone, StickyNote, Trash2, UserPlus, UserX, BadgePercent,
 } from "lucide-react";
 import { requireConsole } from "@/lib/console/current";
@@ -26,7 +26,10 @@ import { ActivityLine } from "@/components/console/activity-line";
 import { ActSheet, CallSheet } from "@/components/console/sheets";
 import { NoteForm } from "@/components/console/note-form";
 import { InvoiceRow } from "@/components/console/invoice-row";
-import { AddAdminSheet, ChangeMobileSheet, EditSchoolSheet, GroupSheet, ResetSheet } from "@/components/console/school-sheets";
+import { AddAdminSheet, ChangeMobileSheet, EditSchoolSheet, GroupSheet, ResetSheet, SupportRequestSheet } from "@/components/console/school-sheets";
+import { supportRequests } from "@/lib/console/support";
+import { endsWords, lengthWords, SUPPORT_LENGTHS, SUPPORT_STATUS_WORDS } from "@/lib/console/support-entry";
+import { enterSupportAction, requestSupportAction } from "../../support/actions";
 import { ChangePlanSheet, FirstPlanSheet, NewInvoiceSheet, type Prices } from "@/components/console/billing-sheets";
 import { addAdminAction, cancelInviteAction, changeMobileAction, deleteSchoolAction, disableAdminAction, editDetailsAction, groupAction, noteAction, resendInviteAction, resetAdminAction, statusAction } from "../actions";
 import { activateAction, changePlanAction, choosePlanAction, foundingAction, groupDiscountAction, sendNewInvoiceAction } from "../../billing/actions";
@@ -75,7 +78,8 @@ export default async function SchoolPage({ params, searchParams }: { params: Pro
   });
   if (!data) notFound();
   const { card: s, sub, invoices, history, notes, invites, log, list } = data;
-  const admins = await schoolAdmins(id);
+  const [admins, supportRows] = await Promise.all([schoolAdmins(id), supportRequests({ schoolId: id, take: 5 }, now)]);
+  const supportOpen = supportRows.find((r) => r.status === "WAITING" || r.live) ?? null;
 
   // Each admin's state, with the invite the console sent them.
   const people = admins.map((a) => {
@@ -119,6 +123,7 @@ export default async function SchoolPage({ params, searchParams }: { params: Pro
     ...(c.can("group") && live ? [<MenuLink key="group" href={to("group")} icon={<Network size={17} />}>Set the school’s Group</MenuLink>] : []),
     ...(c.can("plan") && sub && live ? [<MenuLink key="plan" href={to("plan")} icon={<Layers size={17} />}>Change plan</MenuLink>] : []),
     ...(c.can("plan") && !sub && open ? [<MenuLink key="choose" href={to("choose")} icon={<Layers size={17} />}>Choose plan</MenuLink>] : []),
+    ...(c.can("support") && open && !supportOpen ? [<MenuLink key="support" href={to("support")} icon={<LifeBuoy size={17} />}>Request support access</MenuLink>] : []),
     ...(c.can("invoice") && live && s.status !== "ACTIVE" ? [<MenuLink key="inv" href={to("invoice")} icon={<Send size={17} />}>Send an invoice</MenuLink>] : []),
     ...(c.can("discount") && sub && !founding ? [<MenuLink key="found" href={to("founding")} icon={<Award size={17} />}>Mark as founding school</MenuLink>] : []),
     ...(c.can("discount") && sub && !founding && s.groupId ? [<MenuLink key="gd" href={to("groupdisc")} icon={<BadgePercent size={17} />}>Apply group discount</MenuLink>] : []),
@@ -159,6 +164,12 @@ export default async function SchoolPage({ params, searchParams }: { params: Pro
     switch (kind) {
       case "admin":
         return c.can("invite") && live ? <AddAdminSheet closeHref={close} schoolId={id} schoolName={s.name} needsCheck={Boolean(s.firstAdminSignInAt)} action={addAdminAction} /> : null;
+      case "support": {
+        if (!c.can("support") || !open || supportOpen) return null;
+        const heads = actives.map((p) => `${p.name} (${p.roleKey === "principal" ? "Principal / Owner" : "School Admin"})`);
+        return <SupportRequestSheet closeHref={close} schoolId={id} schoolName={s.name} lengths={SUPPORT_LENGTHS} action={requestSupportAction}
+          answerers={heads.length ? heads.join(" and ") : "the school’s School Admin and Principal"} />;
+      }
       case "resend":
         return c.can("invite") && person?.invite ? (
           <ActSheet title="Send a new invite?" sub={s.name} closeHref={close} action={resendInviteAction} submitLabel={`Send new invite to ${person.name}`} hidden={{ schoolId: id, inviteId: person.invite.id }}>
@@ -452,6 +463,35 @@ export default async function SchoolPage({ params, searchParams }: { params: Pro
               <Row icon={LayoutGrid} title="Modules switched on" sub={optionalWords} right={<b className="font-semibold tnum text-[15px]">{s.modulesOn.length}</b>} />
             </ul>
             <p className="px-5 pb-4 text-[12px] text-ink3 flex gap-1.5"><EyeOff size={13} className="shrink-0 mt-0.5" aria-hidden="true" />The console never shows a student’s name, a fee amount or a salary.{s.measuredAt ? ` Counted ${ago(s.measuredAt, now)}.` : ""}</p>
+          </Card>
+
+          <Card>
+            <CardHeader title="Support access" description="Looking inside the School Master, only with the school’s Allow" icon={LifeBuoy}
+              action={c.can("support") && open && !supportOpen ? <Link href={to("support")} scroll={false} className={buttonClass("soft", "sm")}><LifeBuoy size={15} aria-hidden="true" />Request</Link> : null} />
+            <div className="px-5 pb-4 flex flex-col gap-3 text-[13.5px]">
+              {supportOpen ? (
+                <div className="rounded-xl bg-sunken p-3.5 flex flex-col gap-2">
+                  <p className="text-ink2"><b className="font-semibold text-ink">{supportOpen.live ? `Open until ${endsWords(supportOpen.endsAt!, now)}` : "Waiting for the school’s answer"}</b> · {supportOpen.requestedByName}, {lengthWords(supportOpen.lengthMinutes)}</p>
+                  <p className="text-ink3 break-words">“{supportOpen.reason}”{supportOpen.decidedByName ? ` · allowed by ${supportOpen.decidedByName}` : ""}</p>
+                  {c.can("support") && (
+                    <div className="flex gap-2 flex-wrap">
+                      {supportOpen.live && supportOpen.requestedById === c.user.id && (
+                        <form action={enterSupportAction}>
+                          <input type="hidden" name="requestId" value={supportOpen.id} />
+                          <button type="submit" className={buttonClass("primary", "sm")}><DoorOpen size={15} aria-hidden="true" />Open School Master</button>
+                        </form>
+                      )}
+                      <Link href={`/console/support#r-${supportOpen.id}`} className={buttonClass("secondary", "sm")}>Open request</Link>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-ink3">{open ? "No request open. The school’s School Admin or Principal must allow it first; it ends by itself at the time they give." : "Only a school that is open (Trial or Active) can allow support access."}</p>
+              )}
+              {supportRows.filter((r) => r.id !== supportOpen?.id).slice(0, 3).map((r) => (
+                <p key={r.id} className="text-[12.5px] text-ink3">{formatDate(r.createdAt)} · {r.requestedByName} · {r.status === "ALLOWED" ? "Time ended" : SUPPORT_STATUS_WORDS[r.status]}</p>
+              ))}
+            </div>
           </Card>
 
           <Card>

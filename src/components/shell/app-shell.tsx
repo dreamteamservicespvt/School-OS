@@ -38,6 +38,8 @@ export type ShellProps = {
   unread: number;
   notes: ShellNote[];
   theme: string;
+  /** While DREAM TEAM looks inside the school (07-super-admin.md §3.4): the profile menu only offers to end it. */
+  support?: { ends: string } | null;
   children: React.ReactNode;
 };
 
@@ -380,7 +382,7 @@ function NotifPanel({ open, onClose, notes, total }: { open: boolean; onClose: (
 }
 
 /* ---------- Profile menu ---------- */
-function ProfileMenu({ open, onClose, person, school, schools, theme, onSwitch }: Pick<ShellProps, "person" | "school" | "schools" | "theme"> & { open: boolean; onClose: () => void; onSwitch: () => void }) {
+function ProfileMenu({ open, onClose, person, school, schools, theme, onSwitch, support }: Pick<ShellProps, "person" | "school" | "schools" | "theme" | "support"> & { open: boolean; onClose: () => void; onSwitch: () => void }) {
   const [mode, setMode] = useState(theme);
   const ref = useRef<HTMLDivElement>(null);
   useEscape(open, onClose);
@@ -405,6 +407,15 @@ function ProfileMenu({ open, onClose, person, school, schools, theme, onSwitch }
             <p className="text-[13px] text-ink3 truncate">{person.role} · {school.name}</p>
           </div>
         </div>
+        {support ? (
+          <>
+            <p className="px-3 pb-2 text-[13px] text-ink2">DREAM TEAM support access, for looking only. It ends by itself at {support.ends}.</p>
+            <div className="border-t border-line my-1" />
+            <form method="post" action="/support/end">
+              <button role="menuitem" type="submit" className={cx(row, "text-bad")}><I.LogOut size={18} aria-hidden="true" />End support access now</button>
+            </form>
+          </>
+        ) : <>
         <div className="px-3 py-2">
           <p className="eyebrow text-ink3 mb-2">Mode</p>
           <Segmented className="grid grid-cols-3 w-full" value={mode} onChange={choose} label="Light or dark"
@@ -419,6 +430,7 @@ function ProfileMenu({ open, onClose, person, school, schools, theme, onSwitch }
         <form action={signOut}>
           <button role="menuitem" type="submit" className={cx(row, "text-bad")}><I.LogOut size={18} aria-hidden="true" />Sign out</button>
         </form>
+        </>}
       </div>
     </div>
   );
@@ -454,7 +466,7 @@ function phoneTitle(pathname: string, pages: PageLink[]) {
 }
 
 export function AppShell(props: ShellProps) {
-  const { school, schools, year, person, menu, bottom, quick, pages, shortcuts, approvals, canApprove, canMessage, unread, notes, theme, children } = props;
+  const { school, schools, year, person, menu, bottom, quick, pages, shortcuts, approvals, canApprove, canMessage, unread, notes, theme, support, children } = props;
   const pathname = usePathname();
   const [palette, setPalette] = useState(false);
   const [notif, setNotif] = useState(false);
@@ -495,7 +507,7 @@ export function AppShell(props: ShellProps) {
       <BottomNav items={bottom} onMore={() => setMore(true)} />
       <CommandPalette open={palette} onClose={() => setPalette(false)} userId={person.id} pages={pages} shortcuts={shortcuts} quick={quick} />
       <NotifPanel open={notif} onClose={() => setNotif(false)} notes={notes} total={unread} />
-      <ProfileMenu open={profile} onClose={() => setProfile(false)} person={person} school={school} schools={schools} theme={theme} onSwitch={() => setSwitchOpen(true)} />
+      <ProfileMenu open={profile} onClose={() => setProfile(false)} person={person} school={school} schools={schools} theme={theme} onSwitch={() => setSwitchOpen(true)} support={support} />
       <MoreSheet open={more} onClose={() => setMore(false)} menu={menu} />
       <QuickSheet open={quickOpen} onClose={() => setQuickOpen(false)} quick={quick} />
       <SwitchSheet open={switchOpen} onClose={() => setSwitchOpen(false)} school={school} schools={schools} />

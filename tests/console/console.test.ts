@@ -124,6 +124,7 @@ describe("the console never reads a school's records", () => {
         tx.schoolInvite.count(),
         tx.platformInvoice.count(),
         tx.subscription.count(),
+        tx.supportAccessRequest.count(),
       ];
       for (const t of tries) expect(await t.catch(() => 0)).toBe(0);
     });

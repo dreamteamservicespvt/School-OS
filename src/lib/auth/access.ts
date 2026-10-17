@@ -4,7 +4,7 @@
 import { readPreferences } from "../settings/profile-rules";
 import { withSchool, withUser } from "../db";
 import { applyExceptions, combineRoles, narrowToOwn, type PermissionMap } from "../permissions";
-import type { ModuleKey } from "../modules";
+import { MODULES, type ModuleKey } from "../modules";
 import type { AccessLevel, RolePermissions } from "../roles";
 
 export type SchoolChoice = { id: string; name: string; code: string; logoUrl: string | null };
@@ -37,6 +37,45 @@ export type SchoolAccessView = {
   /** The campus their access is limited to, when the scope is one campus. */
   campusId: string | null;
 };
+
+/**
+ * What a DREAM TEAM support person may open inside a school while its Support
+ * Access Request is allowed (07-super-admin.md §3.4): every page of every
+ * module the school has switched on, as the school's own leaders see it, to
+ * look. They hold no role, so every detail kept for named roles stays hidden
+ * (Aadhaar and other ID numbers, counselling notes, private notes), and they
+ * never see Salary Management. Nothing can be changed, exported, printed or
+ * cancelled: requireAction() in src/lib/current.ts refuses it, and src/proxy.ts
+ * refuses every request from their browser that is not a page.
+ */
+export const SUPPORT_PERMISSIONS: PermissionMap = Object.fromEntries(
+  MODULES.map((m) => [m.key, m.key === "salary-management" ? { see: "none", change: "none" } : { see: "all", change: "all" }]),
+) as PermissionMap;
+
+/** The school as a support person sees it: its details, modules and features, with SUPPORT_PERMISSIONS and no roles. */
+export async function supportAccessView(schoolId: string): Promise<SchoolAccessView | null> {
+  return withSchool({ schoolId, userId: null }, async (tx) => {
+    const school = await tx.school.findUnique({
+      where: { id: schoolId },
+      select: { id: true, name: true, code: true, logoUrl: true, timeZone: true, archivedAt: true, preferences: true, status: true },
+    });
+    if (!school || school.archivedAt) return null;
+    const [modules, features] = await Promise.all([
+      tx.schoolModule.findMany({ where: { schoolId, isOn: true } }),
+      tx.schoolFeature.findMany({ where: { schoolId, isOn: true } }),
+    ]);
+    return {
+      school: { id: school.id, name: school.name, code: school.code, logoUrl: school.logoUrl, timeZone: school.timeZone, accent: readPreferences(school.preferences).schoolAccent ?? null, weekStart: readPreferences(school.preferences).weekStart === "sunday" ? "sunday" : "monday" },
+      schoolStatus: school.status,
+      roles: [],
+      permissions: SUPPORT_PERMISSIONS,
+      scope: "WHOLE_SCHOOL",
+      campusId: null,
+      modulesOn: new Set(modules.map((m) => m.moduleKey as ModuleKey)),
+      features: new Set(features.map((f) => f.featureKey)),
+    };
+  });
+}
 
 /** The person's roles and permissions in one school, or null if they have no access there. */
 export async function accessIn(userLoginId: string, schoolId: string): Promise<SchoolAccessView | null> {

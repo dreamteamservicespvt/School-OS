@@ -8,7 +8,8 @@ import { writeAudit } from "../audit";
 import { DAY_MS } from "../staff/dates";
 import { MoneyProblem } from "./problem";
 import { classOfStudents } from "./dues";
-import { ageingGroupOf, feeSettings } from "./settings";
+import { ageingGroupOf, featureOn, feeSettings } from "./settings";
+import { PROMISE_FEATURE, promisesOf, recordPromise, type PromiseView } from "./promises";
 import { studentScope, type FeeViewer } from "./access";
 import { ageingLabel, type AgeingGroup } from "./words";
 
@@ -47,6 +48,8 @@ export type DefaulterRow = {
   lastReminder: Date | null;
   reminders: number;
   promisedOn: Date | null;
+  /** The current Promise to Pay (latest call note), while Promise to Pay is on. */
+  promise: PromiseView | null;
   /** The fee heads overdue, like "Tuition fee, Late fee". */
   heads: string;
 };
@@ -89,6 +92,7 @@ export async function defaulters(tx: Tx, ctx: SchoolContext, viewer: FeeViewer, 
   const guardians = await tx.studentGuardian.findMany({ where: { studentId: { in: ids }, archivedAt: null }, include: { guardian: true }, orderBy: [{ isPrimary: "desc" }, { emergencyOrder: "asc" }] });
   const reminders = await tx.feeReminder.groupBy({ by: ["studentId"], where: { studentId: { in: ids } }, _count: { _all: true }, _max: { sentAt: true } });
   const notes = await tx.feeCallNote.findMany({ where: { studentId: { in: ids }, promisedOn: { not: null } }, orderBy: { createdAt: "desc" } });
+  const promises = await promisesOf(tx, ctx, ids, today);
   const rows: DefaulterRow[] = [];
   for (const s of students) {
     const info = byStudent.get(s.id);
@@ -126,10 +130,12 @@ export async function defaulters(tx: Tx, ctx: SchoolContext, viewer: FeeViewer, 
       lastReminder: r?._max.sentAt ?? null,
       reminders: r?._count._all ?? 0,
       promisedOn: notes.find((n) => n.studentId === s.id)?.promisedOn ?? null,
+      promise: promises.get(s.id) ?? null,
       heads: [...info.heads].join(", "),
     });
   }
-  rows.sort((a, b) => b.daysOverdue - a.daysOverdue || Number(b.overduePaise - a.overduePaise));
+  // The call list order: a broken promise first (call them again), then the longest overdue; families with an open promise last.
+  rows.sort((a, b) => callOrder(a) - callOrder(b) || b.daysOverdue - a.daysOverdue || Number(b.overduePaise - a.overduePaise));
   // Totals by class, and by ageing group.
   const byClass = new Map<string, { classId: string | null; className: string; amount: bigint; students: number }>();
   for (const r of rows) {
@@ -146,7 +152,19 @@ export async function defaulters(tx: Tx, ctx: SchoolContext, viewer: FeeViewer, 
   return { rows, classTotals, ageingTotals, total, ageing: settings.ageing };
 }
 
-export async function addCallNote(tx: Tx, ctx: SchoolContext, input: { studentId: string; note: string; promisedOn: Date | null }) {
+/** 0 for a broken promise, 2 for an open one, else 1. */
+export const callOrder = (r: Pick<DefaulterRow, "promise">) => (r.promise?.state === "BROKEN" ? 0 : r.promise?.state === "OPEN" ? 2 : 1);
+
+/**
+ * A note of a call with the family. With Promise to Pay on and a promised
+ * date, it is a Promise to Pay (./promises.ts): the note is optional, an
+ * amount may be given, and the date must be within 60 days.
+ */
+export async function addCallNote(tx: Tx, ctx: SchoolContext, input: { studentId: string; note: string; promisedOn: Date | null; amountPaise?: bigint | null; today: Date }) {
+  if (input.promisedOn && (await featureOn(tx, ctx, PROMISE_FEATURE))) {
+    return recordPromise(tx, ctx, { studentId: input.studentId, note: input.note, promisedOn: input.promisedOn, amountPaise: input.amountPaise ?? null, today: input.today });
+  }
+  if (input.amountPaise) throw new MoneyProblem("Give the date the family promised to pay, or leave the amount empty.", "promisedOn");
   if (input.note.trim().length < 3) throw new MoneyProblem("Write what was said, such as Called parent, promised by 15-10-2026.", "note");
   if (input.note.length > 500) throw new MoneyProblem("Note can be at most 500 characters.", "note");
   const n = await tx.feeCallNote.create({ data: { schoolId: ctx.schoolId, studentId: input.studentId, note: input.note.trim(), promisedOn: input.promisedOn, createdById: ctx.userId } });

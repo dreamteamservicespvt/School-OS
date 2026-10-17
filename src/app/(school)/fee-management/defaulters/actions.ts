@@ -9,7 +9,7 @@ import { canSeeStudent, feeViewer } from "@/lib/fees/access";
 import { addCallNote } from "@/lib/fees/defaulters";
 import { previewReminders, sendReminders, type ReminderInput } from "@/lib/fees/reminders";
 import { MoneyProblem } from "@/lib/fees/problem";
-import { id, ids, optionalDateOf, optionalId, str, text, zonedToInstant } from "@/lib/fees/act";
+import { id, ids, optionalDateOf, optionalId, rupeesOf, str, zonedToInstant } from "@/lib/fees/act";
 import { feeAction } from "../_lib/action";
 
 export type PreviewResult =
@@ -64,12 +64,21 @@ export async function sendReminderAction(_prev: unknown, fd: FormData) {
   }, { staffOnly: "send fee reminders" });
 }
 
-/** A note of a call with the parent, with the date they promised to pay. */
+/**
+ * A note of a call with the parent, with the date they promised to pay. With
+ * Promise to Pay on, the date (and optional amount) is a Promise to Pay:
+ * automatic reminders to the family pause until then.
+ */
 export async function callNoteAction(_prev: unknown, fd: FormData) {
-  return feeAction("edit", fd, async (tx, ctx, viewer) => {
+  return feeAction("edit", fd, async (tx, ctx, viewer, current) => {
     const studentId = id(fd, "studentId", "student");
     if (!(await canSeeStudent(tx, viewer, studentId))) throw new MoneyProblem("This student was not found.");
-    const n = await addCallNote(tx, ctx, { studentId, note: text(fd, "note", "Note", { min: 3, max: 500 }), promisedOn: optionalDateOf(fd, "promisedOn", "Promised date") });
-    return n.promisedOn;
-  }, (d) => (d ? `Call note saved. Promised to pay by ${formatDate(d)}.` : "Call note saved."), { staffOnly: "add call notes" });
+    const n = await addCallNote(tx, ctx, {
+      studentId, note: str(fd, "note").replace(/\s+/g, " "), promisedOn: optionalDateOf(fd, "promisedOn", "Promised date"),
+      amountPaise: rupeesOf(fd, "amount", "Amount"), today: todayIn(current.school.timeZone),
+    });
+    return { promisedOn: n.promisedOn, tracked: n.promiseState === "OPEN" };
+  }, (d) => (d.promisedOn
+    ? d.tracked ? `Promise to pay by ${formatDate(d.promisedOn)} saved. Automatic reminders to this family pause until then.` : `Call note saved. Promised to pay by ${formatDate(d.promisedOn)}.`
+    : "Call note saved."), { staffOnly: "add call notes" });
 }

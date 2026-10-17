@@ -350,7 +350,7 @@ export async function confirmGatewayPayment(
   }
   const posted = await finishPosting(tx, ctx, payment.id, { settings: await feeSettings(tx, ctx), holdExtraAsAdvance: true });
   // A second payment on a link already paid (two tabs) is posted too, held as advance; the link keeps its first.
-  if (!link.paymentId) await tx.paymentLink.update({ where: { id: link.id }, data: { status: "PAID", paymentId: payment.id } });
+  await tx.paymentLink.updateMany({ where: { id: link.id, paymentId: null }, data: { status: "PAID", paymentId: payment.id } });
   await log("posted", payment.id);
   const card = await studentCard(tx, ctx, link.studentId);
   await notifyOnlinePayment(tx, ctx, payment, card?.name ?? "a student", link.source);

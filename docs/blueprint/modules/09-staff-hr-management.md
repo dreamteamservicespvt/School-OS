@@ -309,7 +309,8 @@ Used by: the School Admin and, when the school switches them on, the HR and Offi
 | Phone number wrong | 10-digit check for India (inferred) | "Phone has 11 digits" | Correct it |
 | Too much access given by mistake | Start from a role; personal exceptions shown on the profile and in the audit log | "2 extra permissions beyond the Teacher role" | Remove the exception |
 | Overlapping leave | Blocked | "You already have leave on 14-10-2026" | Edit the existing leave |
-| Leave beyond balance | Blocked, or saved as loss of pay if the leave type allows (inferred) | "Casual leave left: 1 day. You asked for 3." | Choose another type or fewer days |
+| Leave beyond balance | Blocked, or saved as loss of pay if the leave type allows (inferred). The loss-of-pay days are the leave's last days and are cut in Generate Salary; ending the leave early gives them back first | "Casual leave left: 1 day. You asked for 3." | Choose another type or fewer days |
+| Leave approved for a day already marked absent | On approval the absent mark becomes Leave (in the audit log), so the day counts once, as leave; cancelling the leave for days not yet taken makes them absent again. A month already paid is put right in the next salary | Not needed | Not needed |
 | Approving own leave | Not allowed (see 00-global.md, section 3) | Not shown | Next approver decides |
 | Cancelling leave already taken | Only before the leave ends; after, HR adjusts the balance with a reason (inferred) | "This leave has ended. Ask HR to adjust." | HR adjustment |
 | Document expiring unnoticed | Expiry reminders (A15) and the "Expiring this month" list | Reminder notification | Upload the renewed document |

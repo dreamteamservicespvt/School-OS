@@ -1,10 +1,13 @@
 // Who a message goes to (11-communication.md, Send Message, "Who"): parents,
-// students or staff, narrowed by class, section, role or a saved group, or
-// chosen one by one. Always limited to what the sender may reach.
+// students or staff, narrowed by class, section, campus, role or a saved
+// group, or chosen one by one. Always limited to what the sender may reach.
+// A parent never gets a child's messages through a link with a custody or
+// access restriction (../students/guardian-access.ts).
 import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
-import { currentYear } from "../academic/years";
+import { currentYear, currentYears } from "../academic/years";
+import { OPEN_LINK } from "../students/guardian-access";
 import { ownSectionIds, sectionLabel } from "../people";
 import type { Reach } from "../permissions";
 
@@ -25,6 +28,8 @@ export type AudienceRule = {
   kinds?: RecipientKind[];
   classIds?: string[];
   sectionIds?: string[];
+  /** Only these campuses (none: every campus). A filter, not a narrowing: a teacher still reaches only their own sections. */
+  campusIds?: string[];
   roleKeys?: string[];
   departmentIds?: string[];
   /** A saved Recipient Group. */
@@ -79,13 +84,14 @@ export type Candidate = {
 
 type Enrolled = StudentInfo & { userLoginId: string | null };
 
-async function enrolledStudents(tx: Tx, ctx: SchoolContext, where: { studentIds?: string[]; sectionIds?: string[]; classIds?: string[] }): Promise<Enrolled[]> {
-  const year = await currentYear(tx, ctx);
-  if (!year) return [];
+async function enrolledStudents(tx: Tx, ctx: SchoolContext, where: { studentIds?: string[]; sectionIds?: string[]; classIds?: string[]; campusIds?: string[] }): Promise<Enrolled[]> {
+  // This year of each campus (or of the chosen campuses): a school with two campuses has two current years.
+  const years = await currentYears(tx, ctx, where.campusIds);
+  if (!years.length) return [];
   const enrolments = await tx.enrolment.findMany({
     where: {
       schoolId: ctx.schoolId,
-      academicYearId: year.id,
+      academicYearId: { in: years.map((y) => y.id) },
       archivedAt: null,
       status: "STUDYING",
       ...(where.studentIds ? { studentId: { in: where.studentIds } } : {}),
@@ -99,7 +105,9 @@ async function enrolledStudents(tx: Tx, ctx: SchoolContext, where: { studentIds?
   const sectionIds = [...new Set(enrolments.map((e) => e.sectionId))];
   const sections = await tx.section.findMany({ where: { id: { in: sectionIds } }, select: { id: true, name: true, schoolClass: { select: { name: true, sortOrder: true } } } });
   const sec = new Map(sections.map((s) => [s.id, s]));
-  return enrolments.map((e) => {
+  // A student who moved campus this year is enrolled in both campuses' years: listed once.
+  const once = new Set<string>();
+  return enrolments.filter((e) => !once.has(e.student.id) && once.add(e.student.id)).map((e) => {
     const s = sec.get(e.sectionId);
     return {
       id: e.student.id,
@@ -123,7 +131,7 @@ const joinNames = (names: string[]) => (names.length <= 1 ? names.join("") : `${
 
 async function guardiansFor(tx: Tx, ctx: SchoolContext, students: Enrolled[], all: boolean, onlyGuardianIds?: Set<string>): Promise<Map<string, Candidate>> {
   const links = await tx.studentGuardian.findMany({
-    where: { schoolId: ctx.schoolId, studentId: { in: students.map((s) => s.id) }, archivedAt: null, guardian: { archivedAt: null } },
+    where: { schoolId: ctx.schoolId, studentId: { in: students.map((s) => s.id) }, ...OPEN_LINK, guardian: { archivedAt: null } },
     select: { studentId: true, relationship: true, isPrimary: true, emergencyOrder: true, guardian: { select: { id: true, name: true, phone: true, email: true, language: true, optedOut: true } } },
   });
   const byStudent = new Map<string, typeof links>();
@@ -160,7 +168,7 @@ async function guardiansFor(tx: Tx, ctx: SchoolContext, students: Enrolled[], al
   return out;
 }
 
-async function staffCandidates(tx: Tx, ctx: SchoolContext, where: { staffIds?: string[]; teachersOnly?: boolean; roleKeys?: string[]; departmentIds?: string[] }): Promise<Candidate[]> {
+async function staffCandidates(tx: Tx, ctx: SchoolContext, where: { staffIds?: string[]; teachersOnly?: boolean; roleKeys?: string[]; departmentIds?: string[]; campusIds?: string[] }): Promise<Candidate[]> {
   let loginFilter: string[] | null = null;
   if (where.roleKeys?.length) {
     const acc = await tx.schoolAccess.findMany({
@@ -178,6 +186,7 @@ async function staffCandidates(tx: Tx, ctx: SchoolContext, where: { staffIds?: s
       ...(where.staffIds ? { id: { in: where.staffIds } } : {}),
       ...(where.teachersOnly ? { staffType: "Teaching" } : {}),
       ...(where.departmentIds?.length ? { departmentId: { in: where.departmentIds } } : {}),
+      ...(where.campusIds?.length ? { campusId: { in: where.campusIds } } : {}),
       ...(loginFilter ? { userLoginId: { in: loginFilter } } : {}),
     },
     select: { id: true, fullName: true, designation: true, phone: true, email: true, userLoginId: true },
@@ -219,7 +228,8 @@ export async function resolveAudience(tx: Tx, ctx: SchoolContext, rule: Audience
   if (kinds.has("parents") || kinds.has("students")) {
     const sectionIds = r.sectionIds?.length ? r.sectionIds : undefined;
     const classIds = r.classIds?.length ? r.classIds : undefined;
-    let pool = await enrolledStudents(tx, ctx, narrowed ? { sectionIds, classIds } : {});
+    const campusIds = r.campusIds?.length ? r.campusIds : undefined;
+    let pool = await enrolledStudents(tx, ctx, narrowed ? { sectionIds, classIds, campusIds } : { campusIds });
     // A teacher choosing "Parents" without a class gets their own sections only.
     if (!narrowed && scope.sectionIds !== "all") pool = pool.filter((s) => inScopeSection(scope, s.sectionId));
     if (kinds.has("parents")) for (const [id, c] of await guardiansFor(tx, ctx, pool, Boolean(r.allGuardians))) guardians.set(id, c);
@@ -238,7 +248,8 @@ export async function resolveAudience(tx: Tx, ctx: SchoolContext, rule: Audience
   }
   // Chosen guardians: with each of their children in the school.
   if (r.guardianIds?.length) {
-    const links = await tx.studentGuardian.findMany({ where: { schoolId: ctx.schoolId, guardianId: { in: r.guardianIds }, archivedAt: null }, select: { studentId: true } });
+    // Only the children they may hear about: a child they have a custody restriction for is left out of the message.
+    const links = await tx.studentGuardian.findMany({ where: { schoolId: ctx.schoolId, guardianId: { in: r.guardianIds }, ...OPEN_LINK }, select: { studentId: true } });
     const pool = await enrolledStudents(tx, ctx, { studentIds: [...new Set(links.map((l) => l.studentId))] });
     const found = await guardiansFor(tx, ctx, pool, true, new Set(r.guardianIds));
     for (const [id, c] of found) if (!guardians.has(id)) guardians.set(id, c);
@@ -258,10 +269,11 @@ export async function resolveAudience(tx: Tx, ctx: SchoolContext, rule: Audience
   const staffKinds = ["staff", "teachers", "admins"].filter((k) => kinds.has(k as RecipientKind));
   if (staffKinds.length) {
     const roleKeys = kinds.has("admins") && !kinds.has("staff") && !kinds.has("teachers") ? [...ADMIN_ROLES, ...(r.roleKeys ?? [])] : r.roleKeys;
-    const list = await staffCandidates(tx, ctx, { teachersOnly: kinds.has("teachers") && !kinds.has("staff") && !kinds.has("admins"), roleKeys, departmentIds: r.departmentIds });
+    const campusIds = r.campusIds?.length ? r.campusIds : undefined;
+    const list = await staffCandidates(tx, ctx, { teachersOnly: kinds.has("teachers") && !kinds.has("staff") && !kinds.has("admins"), roleKeys, departmentIds: r.departmentIds, campusIds });
     let extra: Candidate[] = [];
     if (kinds.has("teachers") && kinds.has("admins") && !kinds.has("staff")) {
-      extra = await staffCandidates(tx, ctx, { roleKeys: ADMIN_ROLES });
+      extra = await staffCandidates(tx, ctx, { roleKeys: ADMIN_ROLES, campusIds });
     }
     for (const c of [...list, ...extra]) if (!others.some((o) => o.key === c.key)) others.push({ ...c, inScope: scope.staff });
   }
@@ -326,7 +338,9 @@ export async function describeAudience(tx: Tx, ctx: SchoolContext, rule: Audienc
       const roles = await tx.role.findMany({ where: { schoolId: ctx.schoolId, key: { in: rule.roleKeys } }, select: { name: true } });
       where = [where, roles.map((x) => x.name).join(", ")].filter(Boolean).join(", ");
     }
-    parts.push(`${joinNames(kinds)}${where ? ` of ${where}` : " (whole school)"}`);
+    const campuses = rule.campusIds?.length ? await tx.campus.findMany({ where: { schoolId: ctx.schoolId, id: { in: rule.campusIds } }, select: { name: true }, orderBy: { name: "asc" } }) : [];
+    const at = campuses.length ? ` at ${joinNames(campuses.map((c) => c.name))}` : "";
+    parts.push(`${joinNames(kinds)}${where ? ` of ${where}${at}` : at || " (whole school)"}`);
   }
   const counts: string[] = [];
   if (rule.guardianIds?.length) counts.push(`${rule.guardianIds.length} chosen parent${rule.guardianIds.length === 1 ? "" : "s"}`);

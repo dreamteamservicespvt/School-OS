@@ -8,6 +8,7 @@ import type { Prisma } from "@prisma/client";
 import type { Tx } from "@/lib/db";
 import { dateWhere, type DayRange } from "@/lib/periods";
 import { overdueWhere } from "@/lib/library/desk";
+import { studentIdsForFilter } from "@/lib/students/find";
 
 export const HISTORY_STATUS = [
   { value: "", label: "All" },
@@ -25,7 +26,7 @@ export async function historyWhere(tx: Tx, f: { range: DayRange | null; q: strin
   const q = f.q.trim();
   if (q) {
     const [students, staff] = await Promise.all([
-      tx.student.findMany({ where: { OR: [{ fullName: { contains: q, mode: "insensitive" } }, { admissionNo: { equals: q, mode: "insensitive" } }] }, select: { id: true }, take: 300 }),
+      studentIdsForFilter(tx, q).then((ids) => ids.map((id) => ({ id }))),
       tx.staff.findMany({ where: { OR: [{ fullName: { contains: q, mode: "insensitive" } }, { staffCode: { equals: q, mode: "insensitive" } }] }, select: { id: true }, take: 300 }),
     ]);
     and.push({ OR: [

@@ -22,7 +22,20 @@ export type SchoolContext = {
   schoolId: string;
   /** The User Login doing the work, or null for the software's own jobs. */
   userId: string | null;
+  /**
+   * Set only while a DREAM TEAM person looks inside this school through an
+   * allowed Support Access Request (07-super-admin.md §3.4). They have no User
+   * Login here (userId is null), and every Audit Log line carries their name.
+   */
+  support?: { requestId: string; name: string } | null;
 };
+
+/**
+ * The id a DREAM TEAM support person shows as their "login" inside a school. It
+ * belongs to no User Login (gen_random_uuid never makes it), so a lookup by it
+ * finds nothing and the wall never treats it as a person.
+ */
+export const SUPPORT_LOGIN_ID = "00000000-0000-0000-0000-00000000d7d7";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -39,7 +52,8 @@ export type WorkOptions = {
 
 export async function withSchool<T>(ctx: SchoolContext, work: (tx: Tx) => Promise<T>, opts: WorkOptions = {}): Promise<T> {
   const schoolId = checkId(ctx.schoolId, "School");
-  const userId = checkId(ctx.userId, "User");
+  // A support person is nobody inside the school: no person is set on the wall.
+  const userId = ctx.userId === SUPPORT_LOGIN_ID ? "" : checkId(ctx.userId, "User");
   return prisma.$transaction(
     async (tx) => {
       await tx.$executeRaw`SELECT set_config('app.school_id', ${schoolId}, true), set_config('app.user_id', ${userId}, true)`;
@@ -78,7 +92,9 @@ export async function withConsole<T>(work: (tx: Tx) => Promise<T>, opts: WorkOpt
  * A console action on one school's own records: creating it, its School Admin
  * logins and School Access, its status and details. Only that school's rows are
  * visible. Callers touch only the records 07-super-admin.md lets the console
- * change, never students, fees or staff.
+ * change, never students, fees or staff. The school's own side uses it too, for
+ * its own console rows only: its plan and invoices, and its School Admin's or
+ * Principal's answer to a Support Access Request (src/lib/console/support.ts).
  */
 export async function withConsoleSchool<T>(schoolId: string, work: (tx: Tx) => Promise<T>, opts: WorkOptions = {}): Promise<T> {
   const id = checkId(schoolId, "School");

@@ -423,8 +423,10 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
           }))} />
       )}
       {canEdit && doing === "invoice" && (
-        <InvoiceSheet studentId={studentId} closeHref={close} father={father} canLink={data.gateway} total={formatRupees(balance)}
-          lines={L.installments.filter((r) => r.balance > ZERO && r.status !== "Not due" && r.status !== "Removed").map((r) => ({ label: `${r.head} · ${r.label}`, amount: formatRupees(r.balance) }))} />
+        <InvoiceSheet studentId={studentId} closeHref={close} father={father} canLink={data.gateway}
+          rows={L.installments.filter((r) => r.balance > ZERO && r.status !== "Removed").map((r) => ({
+            id: r.id, label: `${r.head} · ${r.label}`, status: r.status === "Not due" ? `Due ${formatDate(r.dueDate)}` : r.status, amount: formatRupees(r.balance), paise: r.balance.toString(), dueNow: r.status !== "Not due",
+          }))} />
       )}
 
       {data.sheet && <PaymentSheet p={toSheet(data.sheet, today)} closeHref={close} cancelHref={here({ cancel: data.sheet.id })} canEdit={canEdit} ledgerHref={close} />}

@@ -103,7 +103,7 @@ export async function buildSalaryReport(tx: Tx, key: SalaryReportKey, o: { from:
   // days: no money at all, for HR's View too.
   return {
     title: def.title,
-    columns: [col("Month", "m"), col("Staff ID", "id"), col("Staff member", "s"), col("Days in month", "dm"), col("Working days", "w"), col("Paid days", "pd"), col("Paid leave", "lv"), col("Leave without pay", "ul"), col("Absent", "ab"), col("Late marks", "lt"), col("Loss of pay days", "lop")],
-    rows: lines.map((l) => ({ m: label(l.runId), id: who.get(l.staffId)?.staffCode ?? "", s: who.get(l.staffId)?.fullName ?? "", dm: l.daysInMonth, w: l.workingDays, pd: n(l.paidDays), lv: n(l.leaveDays), ul: n(l.unpaidLeaveDays), ab: n(l.absentDays), lt: l.lateMarks, lop: n(l.lopDays) })),
+    columns: [col("Month", "m"), col("Staff ID", "id"), col("Staff member", "s"), col("Days in month", "dm"), col("Working days", "w"), col("Paid days", "pd"), col("Paid leave", "lv"), col("Leave without pay", "ul"), col("Leave beyond the balance", "bl"), col("Absent", "ab"), col("Late marks", "lt"), col("Loss of pay days", "lop")],
+    rows: lines.map((l) => ({ m: label(l.runId), id: who.get(l.staffId)?.staffCode ?? "", s: who.get(l.staffId)?.fullName ?? "", dm: l.daysInMonth, w: l.workingDays, pd: n(l.paidDays), lv: n(l.leaveDays) - n(l.unpaidLeaveDays) - n(l.leaveLopDays ?? 0), ul: n(l.unpaidLeaveDays), bl: n(l.leaveLopDays ?? 0), ab: n(l.absentDays), lt: l.lateMarks, lop: n(l.lopDays) })),
   };
 }

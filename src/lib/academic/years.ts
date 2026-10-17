@@ -24,6 +24,24 @@ export async function currentYear(tx: Tx, ctx: SchoolContext, campusId?: string 
   );
 }
 
+/**
+ * The current academic year of every campus (or of the chosen campuses), by
+ * the same rule as currentYear: the newest active year, else the newest year.
+ * A school with two campuses has two current years, one each.
+ */
+export async function currentYears(tx: Tx, ctx: SchoolContext, campusIds?: string[] | null) {
+  const rows = await tx.academicYear.findMany({
+    where: { schoolId: ctx.schoolId, archivedAt: null, ...(campusIds?.length ? { campusId: { in: campusIds } } : {}) },
+    orderBy: { startDate: "desc" },
+  });
+  const byCampus = new Map<string, (typeof rows)[number]>();
+  for (const y of rows) {
+    const have = byCampus.get(y.campusId);
+    if (!have || (have.status !== "ACTIVE" && y.status === "ACTIVE")) byCampus.set(y.campusId, y);
+  }
+  return [...byCampus.values()];
+}
+
 /** The year chosen in the URL (?year=), if valid, else the current one. */
 export async function chosenYear(tx: Tx, ctx: SchoolContext, yearId?: string | null) {
   if (yearId && /^[0-9a-f-]{36}$/i.test(yearId)) {

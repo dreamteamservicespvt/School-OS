@@ -10,6 +10,7 @@ import { writeAudit } from "../audit";
 import { MessagingProblem, NOT_SENT, sendMessage } from "../messaging/send";
 import { ensureReadyTemplates, templateByKey } from "../messaging/templates";
 import { checkCode, ParentLinkProblem, sendCode } from "./links";
+import { childrenOfGuardian } from "../students/guardian-access";
 
 export type ConsentTextRow = { id: string; consentType: string; title: string; version: number; text: Record<string, string> };
 
@@ -52,7 +53,7 @@ export type ConsentAction = { consentTextId: string; studentIds: string[]; actio
 export async function askConsentCode(tx: Tx, ctx: SchoolContext, linkId: string, guardianId: string, action: ConsentAction) {
   const text = await tx.consentText.findFirst({ where: { id: action.consentTextId, schoolId: ctx.schoolId, isCurrent: true } });
   if (!text) throw new ParentLinkProblem("This consent form has changed. Please open the page again.");
-  const mine = await childrenOf(tx, ctx, guardianId);
+  const mine = await childrenOfGuardian(tx, ctx, guardianId, { studying: true });
   if (!action.studentIds.length || action.studentIds.some((id) => !mine.includes(id))) throw new ParentLinkProblem("Choose your child for this consent.");
   return sendCode(tx, ctx, linkId, "consent", { detail: action });
 }
@@ -64,8 +65,10 @@ export async function confirmConsent(tx: Tx, ctx: SchoolContext, linkId: string,
   const action = check.code.detail as ConsentAction;
   const text = await tx.consentText.findFirst({ where: { id: action.consentTextId, schoolId: ctx.schoolId } });
   if (!text) return { ok: false as const, message: "This consent form has changed. Please open the page again." };
-  const mine = await childrenOf(tx, ctx, guardianId);
+  // Checked again: a custody restriction set after the code was sent stops it too.
+  const mine = await childrenOfGuardian(tx, ctx, guardianId, { studying: true });
   const students = action.studentIds.filter((id) => mine.includes(id));
+  if (!students.length) return { ok: false as const, message: "Choose your child for this consent." };
   const now = new Date();
   for (const studentId of students) {
     const standing = await tx.consentRecord.findFirst({ where: { schoolId: ctx.schoolId, guardianId, studentId, consentType: text.consentType, withdrawnAt: null } });
@@ -81,12 +84,6 @@ export async function confirmConsent(tx: Tx, ctx: SchoolContext, linkId: string,
     }
   }
   return { ok: true as const, action: action.action, count: students.length, title: text.title };
-}
-
-/** The guardian's children studying in the school (ids). */
-export async function childrenOf(tx: Tx, ctx: SchoolContext, guardianId: string) {
-  const rows = await tx.studentGuardian.findMany({ where: { schoolId: ctx.schoolId, guardianId, archivedAt: null, student: { archivedAt: null, status: { in: ["ACTIVE", "ADMITTED"] } } }, select: { studentId: true } });
-  return rows.map((r) => r.studentId);
 }
 
 /** Request consent: one consent form to a set of guardians, by message, with a reply-by date. */

@@ -19,6 +19,7 @@ import { StudentPicker } from "@/components/students/student-picker";
 import { BASE, studentPage } from "../../_lib/page";
 import { sectionOptions } from "../../_lib/queries";
 import { linkMentorAction, markAlumniAction } from "../../_actions/leaving";
+import { studentIdsForFilter } from "@/lib/students/find";
 
 export const metadata: Metadata = { title: "Alumni" };
 
@@ -32,7 +33,7 @@ export default async function AlumniPage({ searchParams }: { searchParams: Promi
   const path = `${BASE}/leaving/alumni`;
   const data = await withSchool(current.ctx, async (tx) => {
     const f = params.filters;
-    const nameIds = params.q ? (await tx.student.findMany({ where: { OR: [{ fullName: { contains: params.q, mode: "insensitive" } }, { admissionNo: { contains: params.q, mode: "insensitive" } }] }, select: { id: true } })).map((s) => s.id) : null;
+    const nameIds = params.q ? await studentIdsForFilter(tx, params.q) : null;
     const where: Prisma.AlumniRecordWhereInput = {
       archivedAt: null,
       ...(f.year ? { graduationYear: f.year } : {}),

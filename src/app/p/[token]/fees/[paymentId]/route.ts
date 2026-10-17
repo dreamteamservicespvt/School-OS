@@ -1,9 +1,10 @@
-// A receipt or tax invoice PDF for a guardian on Parent Link. The phone must
-// be confirmed for this link (device cookie), and the payment must belong to
-// one of the guardian's own children.
+// A receipt or tax invoice PDF for a guardian on Parent Link. The link,
+// Parent Link and the Fees switch must be on and the phone confirmed for this
+// link (device cookie) (guardianAccess), and the payment must belong to one of
+// the guardian's own children, never one they have a custody restriction for.
 import { cookies } from "next/headers";
 import { withSchool } from "@/lib/db";
-import { confirmedDevice, deviceCookieName, findLink } from "@/lib/parent-link/links";
+import { ACCESS_WORDS, deviceCookieName, findLink, guardianAccess } from "@/lib/parent-link/links";
 import { hitLimit } from "@/lib/rate-limit";
 import { receiptForGuardian, taxInvoiceForGuardian } from "@/lib/fees/parent-link";
 import { MoneyProblem } from "@/lib/fees/problem";
@@ -21,18 +22,15 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
   const doc = new URL(request.url).searchParams.get("doc") === "tax-invoice" ? "tax-invoice" : "receipt";
   if (!UUID.test(paymentId)) return plain(404, "This receipt was not found.");
   const found = await findLink(token);
-  if (!found) return plain(404, "This link is no longer active. Please ask the school for a new one.");
+  if (!found) return plain(404, ACCESS_WORDS.gone);
   const limited = await hitLimit(`pl-receipt:link:${found.linkId}`, 60, 3600);
   if (!limited.ok) return plain(429, "Too many downloads. Please try again later.");
   const key = (await cookies()).get(deviceCookieName(found.linkId))?.value ?? null;
-  const ctx = { schoolId: found.schoolId, userId: null };
+  const g = await guardianAccess(found, key, "fees");
+  if (!g.ok) return plain(403, g.reason === "device" ? "Please open your Parent Link and confirm this phone first." : g.message);
+  const ctx = g.ctx;
   try {
-    const file = await withSchool(ctx, async (tx) => {
-      const ok = await confirmedDevice(tx, found.linkId, key);
-      if (!ok) return null;
-      return doc === "tax-invoice" ? taxInvoiceForGuardian(tx, ctx, ok.link.guardianId, paymentId) : receiptForGuardian(tx, ctx, ok.link.guardianId, paymentId);
-    }, { timeout: 30_000 });
-    if (!file) return plain(403, "Please open your Parent Link and confirm this phone first.");
+    const file = await withSchool(ctx, (tx) => (doc === "tax-invoice" ? taxInvoiceForGuardian(tx, ctx, g.guardianId, paymentId) : receiptForGuardian(tx, ctx, g.guardianId, paymentId)), { timeout: 30_000 });
     const pdf = await file.pdf();
     return new Response(new Uint8Array(pdf), {
       headers: {

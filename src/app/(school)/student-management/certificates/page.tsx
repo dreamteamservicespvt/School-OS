@@ -22,6 +22,7 @@ import { StudentsHead } from "../_lib/head";
 import { sectionNames } from "../_lib/queries";
 import { decideCertificateAction } from "../_actions/certificates";
 import { certificateTabs } from "./sub-tabs";
+import { studentIdsForFilter } from "@/lib/students/find";
 
 export const metadata: Metadata = { title: "Certificates & ID Cards" };
 
@@ -39,7 +40,7 @@ export default async function CertificatesPage({ searchParams }: { searchParams:
   const path = `${BASE}/certificates`;
   const data = await withSchool(current.ctx, async (tx) => {
     const f = params.filters;
-    const nameIds = params.q ? (await tx.student.findMany({ where: { OR: [{ fullName: { contains: params.q, mode: "insensitive" } }, { admissionNo: { contains: params.q, mode: "insensitive" } }] }, select: { id: true } })).map((s) => s.id) : null;
+    const nameIds = params.q ? await studentIdsForFilter(tx, params.q) : null;
     const base: Prisma.CertificateWhereInput = {
       ...(f.type && f.type in CERTIFICATE_LABEL ? { type: f.type as CertificateType } : {}),
       ...(range ? { issueDate: dateWhere(range) } : {}),

@@ -11,6 +11,7 @@ import type { LibraryMember, LibraryMemberKind, Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { currentYear } from "../academic/years";
+import { findStudents } from "../students/find";
 import { LibraryProblem } from "./problem";
 import type { LibrarySettings } from "./settings";
 import type { MemberKey } from "./words";
@@ -140,16 +141,18 @@ export async function memberByCode(tx: Tx, ctx: SchoolContext, s: LibrarySetting
   return null;
 }
 
-/** Members by name, admission number or staff code (the desk's search). */
+/** Members by name, admission number or staff code (the desk's search); students best match first. */
 export async function searchMembers(tx: Tx, ctx: SchoolContext, s: LibrarySettings, q: string, take = 8): Promise<Member[]> {
   const t = q.trim();
   if (t.length < 2) return [];
   const [students, staff] = await Promise.all([
-    tx.student.findMany({ where: { archivedAt: null, status: { in: [...ACTIVE_STUDENT] }, OR: [{ fullName: { contains: t, mode: "insensitive" } }, { admissionNo: { contains: t, mode: "insensitive" } }] }, select: { id: true }, orderBy: { fullName: "asc" }, take }),
+    // The one student search (name with one letter wrong, admission or roll number); not by parents.
+    currentYear(tx, ctx).then((year) => findStudents(tx, t, { scope: {}, yearId: year?.id ?? null, statuses: ACTIVE_STUDENT, byParent: false, take })),
     tx.staff.findMany({ where: { archivedAt: null, status: { in: [...ACTIVE_STAFF] }, OR: [{ fullName: { contains: t, mode: "insensitive" } }, { staffCode: { contains: t, mode: "insensitive" } }] }, select: { id: true }, orderBy: { fullName: "asc" }, take }),
   ]);
   const map = await membersOf(tx, ctx, s, { studentIds: students.map((x) => x.id), staffIds: staff.map((x) => x.id) });
-  return [...map.values()].slice(0, take);
+  const order = [...students.map((x) => `S:${x.id}`), ...staff.map((x) => `T:${x.id}`)];
+  return order.map((k) => map.get(k)).filter((m): m is Member => Boolean(m)).slice(0, take);
 }
 
 /** Books out and unpaid fines for a member: the member panel and the limit check. */

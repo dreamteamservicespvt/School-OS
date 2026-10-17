@@ -12,6 +12,8 @@ import { ageingGroupOf, featureOn, feeSettings } from "./settings";
 import { PROMISE_FEATURE, promisesOf, recordPromise, type PromiseView } from "./promises";
 import { studentScope, type FeeViewer } from "./access";
 import { ageingLabel, type AgeingGroup } from "./words";
+import { studentIdsMatching } from "../students/find";
+import { OPEN_LINK } from "../students/guardian-access";
 
 const ZERO = BigInt(0);
 
@@ -67,11 +69,8 @@ export async function defaulters(tx: Tx, ctx: SchoolContext, viewer: FeeViewer, 
   const studentWhere: Prisma.StudentWhereInput = {
     archivedAt: null,
     ...scope,
-    ...(f.q ? { OR: [
-      { fullName: { contains: f.q, mode: "insensitive" } },
-      { admissionNo: { contains: f.q, mode: "insensitive" } },
-      { guardians: { some: { archivedAt: null, guardian: { name: { contains: f.q, mode: "insensitive" } } } } },
-    ] } : {}),
+    // The one student search: name with one letter wrong, admission or roll number, parent name or phone.
+    ...(f.q ? { id: { in: await studentIdsMatching(tx, f.q, { scope, yearId: viewer.yearId ?? null, statuses: "any" }) } } : {}),
   };
   const students = await tx.student.findMany({ where: studentWhere, select: { id: true, fullName: true, admissionNo: true } });
   const sIds = students.map((s) => s.id);
@@ -89,7 +88,7 @@ export async function defaulters(tx: Tx, ctx: SchoolContext, viewer: FeeViewer, 
   }
   const ids = [...byStudent.keys()];
   const classes = await classOfStudents(tx, ids, viewer.yearId);
-  const guardians = await tx.studentGuardian.findMany({ where: { studentId: { in: ids }, archivedAt: null }, include: { guardian: true }, orderBy: [{ isPrimary: "desc" }, { emergencyOrder: "asc" }] });
+  const guardians = await tx.studentGuardian.findMany({ where: { studentId: { in: ids }, ...OPEN_LINK }, include: { guardian: true }, orderBy: [{ isPrimary: "desc" }, { emergencyOrder: "asc" }] });
   const reminders = await tx.feeReminder.groupBy({ by: ["studentId"], where: { studentId: { in: ids } }, _count: { _all: true }, _max: { sentAt: true } });
   const notes = await tx.feeCallNote.findMany({ where: { studentId: { in: ids }, promisedOn: { not: null } }, orderBy: { createdAt: "desc" } });
   const promises = await promisesOf(tx, ctx, ids, today);

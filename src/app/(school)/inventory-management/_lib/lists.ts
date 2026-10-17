@@ -12,6 +12,7 @@ import { reorderOf } from "@/lib/inventory/stock";
 import { billsWithState } from "@/lib/inventory/purchases";
 import { placeNames } from "@/lib/inventory/assets";
 import { billState, stockState, type MoveKind, type StockState } from "@/lib/inventory/words";
+import { studentIdsForFilter } from "@/lib/students/find";
 
 const ZERO = BigInt(0);
 type Get = (k: string) => string;
@@ -143,7 +144,7 @@ export async function issuesWhere(tx: Tx, f: IssuesFilter): Promise<Prisma.Stock
   }
   if (f.q) {
     const [students, staff] = await Promise.all([
-      tx.student.findMany({ where: { OR: [{ fullName: { contains: f.q, mode: "insensitive" } }, { admissionNo: { contains: f.q, mode: "insensitive" } }] }, select: { id: true }, take: 200 }),
+      studentIdsForFilter(tx, f.q).then((ids) => ids.map((id) => ({ id }))),
       tx.staff.findMany({ where: { fullName: { contains: f.q, mode: "insensitive" } }, select: { id: true }, take: 200 }),
     ]);
     and.push({ OR: [{ number: { contains: f.q, mode: "insensitive" } }, { studentId: { in: students.map((s) => s.id) } }, { staffId: { in: staff.map((s) => s.id) } }, { lines: { some: { itemId: { in: (await tx.item.findMany({ where: { name: { contains: f.q, mode: "insensitive" } }, select: { id: true }, take: 200 })).map((i) => i.id) } } } }] });

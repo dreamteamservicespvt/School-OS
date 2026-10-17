@@ -6,6 +6,7 @@ import "server-only";
 import type { LibraryFineReason, LibraryFineStatus, Prisma } from "@prisma/client";
 import type { Tx } from "@/lib/db";
 import { momentWhere, type DayRange } from "@/lib/periods";
+import { studentIdsForFilter } from "@/lib/students/find";
 
 export const FINE_TABS = [
   { value: "", label: "Due" },
@@ -33,7 +34,7 @@ export async function finesWhere(tx: Tx, f: FinesFilter, tz: string): Promise<Pr
   const q = f.q;
   if (q) {
     const [students, staff, books] = await Promise.all([
-      tx.student.findMany({ where: { OR: [{ fullName: { contains: q, mode: "insensitive" } }, { admissionNo: { equals: q, mode: "insensitive" } }] }, select: { id: true }, take: 300 }),
+      studentIdsForFilter(tx, q).then((ids) => ids.map((id) => ({ id }))),
       tx.staff.findMany({ where: { OR: [{ fullName: { contains: q, mode: "insensitive" } }, { staffCode: { equals: q, mode: "insensitive" } }] }, select: { id: true }, take: 300 }),
       tx.book.findMany({ where: { title: { contains: q, mode: "insensitive" } }, select: { id: true }, take: 300 }),
     ]);

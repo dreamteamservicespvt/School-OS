@@ -13,12 +13,14 @@ import { gatewayFor } from "./settings";
 import { createPaymentLink, payPath } from "./online";
 import { renderReceipt, renderTaxInvoice } from "./documents";
 import { todayIn } from "../staff/dates";
+import { childrenOfGuardian } from "../students/guardian-access";
 
 const ZERO = BigInt(0);
 
-async function childrenOf(tx: Tx, guardianId: string) {
-  const links = await tx.studentGuardian.findMany({ where: { guardianId, archivedAt: null, student: { archivedAt: null } }, include: { student: true } });
-  return links.map((l) => l.student);
+/** The guardian’s children (never one they have a custody restriction for), as student records. */
+async function childrenOf(tx: Tx, ctx: SchoolContext, guardianId: string) {
+  const ids = await childrenOfGuardian(tx, ctx, guardianId);
+  return ids.length ? tx.student.findMany({ where: { schoolId: ctx.schoolId, id: { in: ids } } }) : [];
 }
 
 export type ParentLinkFees = Awaited<ReturnType<typeof parentLinkFees>>;
@@ -27,7 +29,7 @@ export type ParentLinkFees = Awaited<ReturnType<typeof parentLinkFees>>;
 export async function parentLinkFees(tx: Tx, ctx: SchoolContext, guardianId: string, onlyStudentIds?: string[]) {
   const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { timeZone: true } });
   const today = todayIn(school.timeZone);
-  const children = (await childrenOf(tx, guardianId)).filter((c) => !onlyStudentIds || onlyStudentIds.includes(c.id));
+  const children = (await childrenOf(tx, ctx, guardianId)).filter((c) => !onlyStudentIds || onlyStudentIds.includes(c.id));
   const out = [];
   for (const s of children) {
     const dues = await allDues(tx, s.id);
@@ -66,14 +68,13 @@ export async function parentLinkFees(tx: Tx, ctx: SchoolContext, guardianId: str
   return out;
 }
 
-async function assertChild(tx: Tx, guardianId: string, studentId: string) {
-  const link = await tx.studentGuardian.findFirst({ where: { guardianId, studentId, archivedAt: null } });
-  if (!link) throw new MoneyProblem("This student is not linked to you.");
+async function assertChild(tx: Tx, ctx: SchoolContext, guardianId: string, studentId: string) {
+  if (!(await childrenOfGuardian(tx, ctx, guardianId)).includes(studentId)) throw new MoneyProblem("This student is not linked to you.");
 }
 
 /** The Pay button: a payment for the chosen rows (or everything due now). Returns where to send the parent. */
 export async function startParentLinkPayment(tx: Tx, ctx: SchoolContext, guardianId: string, studentId: string, dueIds: string[]) {
-  await assertChild(tx, guardianId, studentId);
+  await assertChild(tx, ctx, guardianId, studentId);
   const made = await createPaymentLink(tx, ctx, { studentId, dueIds, guardianId, source: "PARENT_LINK", channel: "parent-link" });
   return { payPath: payPath(ctx.schoolId, made.token), amountPaise: made.amount, linkId: made.link.id };
 }
@@ -82,7 +83,7 @@ export async function startParentLinkPayment(tx: Tx, ctx: SchoolContext, guardia
 export async function receiptForGuardian(tx: Tx, ctx: SchoolContext, guardianId: string, paymentId: string) {
   const p = await tx.payment.findFirst({ where: { id: paymentId } });
   if (!p) throw new MoneyProblem("This receipt was not found.");
-  await assertChild(tx, guardianId, p.studentId);
+  await assertChild(tx, ctx, guardianId, p.studentId);
   const doc = await renderReceipt(tx, ctx, paymentId, "parent");
   return { fileName: doc.fileName, pdf: doc.pdf };
 }
@@ -91,7 +92,7 @@ export async function receiptForGuardian(tx: Tx, ctx: SchoolContext, guardianId:
 export async function taxInvoiceForGuardian(tx: Tx, ctx: SchoolContext, guardianId: string, paymentId: string) {
   const p = await tx.payment.findFirst({ where: { id: paymentId } });
   if (!p) throw new MoneyProblem("This tax invoice was not found.");
-  await assertChild(tx, guardianId, p.studentId);
+  await assertChild(tx, ctx, guardianId, p.studentId);
   const doc = await renderTaxInvoice(tx, ctx, paymentId);
   return { fileName: doc.fileName, pdf: doc.pdf };
 }

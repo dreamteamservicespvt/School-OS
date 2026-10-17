@@ -241,7 +241,10 @@ function oneMessagePerAddress(rows: PlannedRow[], schoolName: string): { rows: P
       if (sameText) { sameText.push(r); continue; }
       const s = shape(r);
       const own = r.source ? [...variablesIn(r.source.body ?? ""), ...variablesIn(r.source.typed ?? "")].some((k) => OWN_KEYS.has(k)) : true;
-      const sameShape = clusters.find((c) => shape(c[0]) === s && (!own || sameStudents(c[0], r)));
+      // Rows of two guardian records join only when they are about the same children: a child one of them
+      // has a custody restriction for is never added to the other's message (../students/guardian-access.ts).
+      const fits = (c: PlannedRow[]) => c.every((m) => m.candidate.key === r.candidate.key || sameStudents(m, r));
+      const sameShape = clusters.find((c) => shape(c[0]) === s && (!own || sameStudents(c[0], r)) && fits(c));
       if (sameShape) sameShape.push(r); else clusters.push([r]);
     }
     for (const c of clusters) {

@@ -18,6 +18,7 @@ import { addDays, DAY_MS } from "../staff/dates";
 import { classGroups, type ClassGroup } from "../attendance/classwise";
 import { DUE_WINDOW_DAYS, netAmount } from "./dues";
 import type { FeeViewer } from "./access";
+import { OPEN_LINK } from "../students/guardian-access";
 
 const ZERO = BigInt(0);
 export const NO_SECTION = "none";
@@ -182,7 +183,7 @@ export async function sectionFees(tx: Tx, viewer: FeeViewer, sectionId: string, 
   for (const s of students) addStudent(totals, s);
   const t = sec.classTeacherId ? await tx.staff.findFirst({ where: { id: sec.classTeacherId }, select: { id: true, fullName: true, userLoginId: true } }) : null;
   const guardians = await tx.studentGuardian.findMany({
-    where: { studentId: { in: enrol.map((e) => e.studentId) }, archivedAt: null }, orderBy: [{ isPrimary: "desc" }],
+    where: { studentId: { in: enrol.map((e) => e.studentId) }, ...OPEN_LINK }, orderBy: [{ isPrimary: "desc" }],
     select: { studentId: true, guardian: { select: { name: true, phone: true } } },
   });
   const parentOf = new Map<string, { name: string; phone: string | null }>();

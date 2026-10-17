@@ -105,10 +105,11 @@ export async function disableTeamMember(actor: ConsoleActor, userId: string, rea
 export async function changeOwnPassword(actor: ConsoleActor & { id: string }, input: { current: string; next: string; sessionId: string }, now = new Date()) {
   const u = await withConsole((tx) => tx.superAdminUser.findUnique({ where: { id: actor.id } }));
   if (!u || !u.passwordHash) throw new ConsoleProblem("Your login was not found.");
-  if (!(await verifyPassword(input.current, u.passwordHash))) throw new ConsoleProblem("Your current password is not right.", "current");
+  // verifyPassword(stored hash, typed password).
+  if (!(await verifyPassword(u.passwordHash, input.current))) throw new ConsoleProblem("Your current password is not right.", "current");
   const bad = checkNewPassword(input.next);
   if (bad) throw new ConsoleProblem(bad, "next");
-  if (await verifyPassword(input.next, u.passwordHash)) throw new ConsoleProblem("Choose a password you have not used here.", "next");
+  if (await verifyPassword(u.passwordHash, input.next)) throw new ConsoleProblem("Choose a password you have not used here.", "next");
   const passwordHash = await hashPassword(input.next);
   await withConsole(async (tx) => {
     await tx.superAdminUser.update({ where: { id: u.id }, data: { passwordHash, passwordChangedAt: now } });

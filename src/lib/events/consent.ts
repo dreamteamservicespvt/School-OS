@@ -12,7 +12,7 @@ import type { Event } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { notSentWords, sendMessage } from "../messaging";
-import { childrenOf as guardianChildren } from "../parent-link/consent";
+import { childrenOfGuardian } from "../students/guardian-access";
 import { checkCode, ParentLinkProblem, sendCode } from "../parent-link/links";
 import { EventsProblem } from "./problem";
 import { eligible, registerStudents, withdrawStudent } from "./events";
@@ -93,7 +93,7 @@ export type EventConsentDetail = { kind: "event"; eventId: string; studentId: st
 
 /** Step 1 of a "yes": a one-time code to the registered mobile. */
 export async function askEventConsentCode(tx: Tx, ctx: SchoolContext, linkId: string, guardianId: string, eventId: string, studentId: string, today: string) {
-  const mine = await guardianChildren(tx, ctx, guardianId);
+  const mine = await childrenOfGuardian(tx, ctx, guardianId, { studying: true });
   if (!mine.includes(studentId)) throw new ParentLinkProblem("Choose your child.");
   const e = await tx.event.findFirst({ where: { id: eventId } });
   try { assertAsks(e, today); } catch (err) { throw new ParentLinkProblem((err as Error).message); }
@@ -108,7 +108,7 @@ export async function confirmEventConsent(tx: Tx, ctx: SchoolContext, linkId: st
   if (!check.ok) return check;
   const d = check.code.detail as Partial<EventConsentDetail>;
   if (d.kind !== "event" || !d.eventId || !d.studentId) return { ok: false as const, message: "This code was sent for another form. Tap “Give consent” again." };
-  const mine = await guardianChildren(tx, ctx, guardianId);
+  const mine = await childrenOfGuardian(tx, ctx, guardianId, { studying: true });
   if (!mine.includes(d.studentId)) return { ok: false as const, message: "Choose your child." };
   try {
     const r = await recordConsent(tx, ctx, { eventId: d.eventId, studentId: d.studentId, answer: "GIVEN", guardianId, how: "parent-link", parentLinkId: linkId }, today);
@@ -121,7 +121,7 @@ export async function confirmEventConsent(tx: Tx, ctx: SchoolContext, linkId: st
 
 /** "Not this time": recorded without a code (nothing is charged). */
 export async function declineOnParentLink(tx: Tx, ctx: SchoolContext, linkId: string, guardianId: string, eventId: string, studentId: string, today: string) {
-  const mine = await guardianChildren(tx, ctx, guardianId);
+  const mine = await childrenOfGuardian(tx, ctx, guardianId, { studying: true });
   if (!mine.includes(studentId)) throw new ParentLinkProblem("Choose your child.");
   try {
     return await recordConsent(tx, ctx, { eventId, studentId, answer: "DECLINED", guardianId, how: "parent-link", parentLinkId: linkId }, today);

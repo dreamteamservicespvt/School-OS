@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/empty-state";
 import { buttonClass } from "@/components/ui/button";
 import { ConfirmAction } from "@/components/students/confirm-action";
 import { consentRows, consentState } from "@/lib/students/consent";
+import { OPEN_LINK } from "@/lib/students/guardian-access";
 import { CONSENT_TYPES } from "@/lib/students/labels";
 import { BASE, studentPage } from "../../_lib/page";
 import { sectionOptions } from "../../_lib/queries";
@@ -29,8 +30,8 @@ export default async function ConsentRequestPage({ searchParams }: { searchParam
     const sections = await sectionOptions(tx, current, year?.id);
     let where: object | null = null;
     if (ids.length) where = { id: { in: ids } };
-    else if (sp.section && year) where = { students: { some: { archivedAt: null, student: { enrolments: { some: { sectionId: sp.section, academicYearId: year.id, archivedAt: null } } } } } };
-    else if (sp.scope === "all") where = { students: { some: { archivedAt: null, student: { status: { in: ["ADMITTED", "ACTIVE", "PROMOTED"] } } } } };
+    else if (sp.section && year) where = { students: { some: { ...OPEN_LINK, student: { enrolments: { some: { sectionId: sp.section, academicYearId: year.id, archivedAt: null } } } } } };
+    else if (sp.scope === "all") where = { students: { some: { ...OPEN_LINK, student: { status: { in: ["ADMITTED", "ACTIVE", "PROMOTED"] } } } } };
     const guardians = where ? await tx.guardian.findMany({ where: { AND: [where, { archivedAt: null }] }, select: { id: true, name: true }, take: 5000 }) : [];
     const consents = guardians.length ? await consentRows(tx, current.ctx, { guardianIds: guardians.map((g) => g.id) }) : [];
     const pending = guardians.filter((g) => CONSENT_TYPES.some((t) => consentState(consents.filter((c) => c.guardianId === g.id), t.key) !== "GIVEN"));

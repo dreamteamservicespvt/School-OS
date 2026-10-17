@@ -14,7 +14,6 @@ import { requestApproval, decide } from "../approvals";
 import { MoneyProblem } from "../fees/problem";
 import { formatDate, formatRupees } from "../format";
 import { isoDay } from "../staff/dates";
-import { schoolDays } from "../attendance/calendar";
 import { staffMonthForSalary } from "../attendance/staff";
 import { postToDayBook, reverseSource } from "../finance/daybook";
 import { assertBooksOpen } from "../finance/years";
@@ -24,7 +23,8 @@ import { notEmployedDays, lopDays as lopOf, workOutPay } from "./calc";
 import { asStatutory, ptSlabs, salarySettings, statutoryFor } from "./settings";
 import { fromStored } from "./structures";
 import { attachFinesToRun, finesPaidBySalary, releaseFineAdjustment } from "../library/salary";
-import { addMonths, adjustmentLabel, firstOfMonth, lastOfMonth, monthName, payModeLabel } from "./words";
+import { addMonths, adjustmentLabel, correctionLabel, daysWord, firstOfMonth, lastOfMonth, monthName, payModeLabel } from "./words";
+import { carryCorrections } from "./corrections";
 
 const ZERO = BigInt(0);
 const n = (d: Prisma.Decimal | number) => Number(d);
@@ -79,20 +79,6 @@ export async function payrollStaff(tx: Tx, campusId: string, month: Date) {
   });
 }
 
-/** Days of approved unpaid leave (Leave Without Pay) on working days in the range, per person. */
-async function unpaidLeave(tx: Tx, staffIds: string[], working: Date[]) {
-  const unpaidTypes = await tx.leaveType.findMany({ where: { forWhom: "staff", paid: false }, select: { id: true } });
-  const out = new Map<string, number>();
-  if (!unpaidTypes.length || !working.length) return out;
-  const from = working[0], to = working[working.length - 1];
-  const rows = await tx.leaveRequest.findMany({ where: { staffId: { in: staffIds }, status: "APPROVED", archivedAt: null, leaveTypeId: { in: unpaidTypes.map((t) => t.id) }, fromDate: { lte: to }, toDate: { gte: from } }, select: { staffId: true, fromDate: true, toDate: true, halfDay: true } });
-  for (const r of rows) {
-    const days = working.filter((d) => d >= r.fromDate && d <= r.toDate).length;
-    out.set(r.staffId!, (out.get(r.staffId!) ?? 0) + (r.halfDay ? Math.min(0.5, days) : days));
-  }
-  return out;
-}
-
 /** Recoveries due this month: active, not paused advances and loans, oldest first. */
 async function plannedRecoveries(tx: Tx, staffIds: string[], month: Date, runId: string) {
   const rows = await tx.salaryAdvance.findMany({ where: { staffId: { in: staffIds }, status: "ACTIVE", paused: false, startMonth: { lte: month } }, orderBy: { createdAt: "asc" }, include: { recoveries: true } });
@@ -125,13 +111,15 @@ export async function calculateRun(tx: Tx, ctx: SchoolContext, runId: string, to
   const ids = staff.map((s) => s.id);
   const upTo = end < today ? end : today;
   const before = upTo < month;
+  // Present days, absences, leave (approved leave decides its days), unpaid leave and leave beyond the balance.
   const att = ids.length && !before ? await staffMonthForSalary(tx, ctx, { staffIds: ids, from: month, to: upTo, campusId: run.campusId }) : [];
-  const days = before ? { working: [] as Date[] } : await schoolDays(tx, ctx, month, upTo, run.campusId);
-  const unpaid = await unpaidLeave(tx, ids, days.working);
   const recover = await plannedRecoveries(tx, ids, month, run.id);
   const structures = await tx.salaryStructure.findMany({ where: { staffId: { in: ids }, archivedAt: null, effectiveFrom: { lte: month } }, orderBy: [{ effectiveFrom: "desc" }, { version: "desc" }] });
+  const paidIds = [...new Set(structures.map((x) => x.staffId))];
   // Staff library fines sent to salary (Library Management) arrive as one-time deductions.
-  await attachFinesToRun(tx, ctx, run, [...new Set(structures.map((x) => x.staffId))]);
+  await attachFinesToRun(tx, ctx, run, paidIds);
+  // Leave or attendance changed after an earlier month's salary was approved: arrears or a deduction here.
+  await carryCorrections(tx, ctx, run, paidIds, today, settings.lateMarksPerHalfDay);
   const adjustments = await tx.payrollAdjustment.findMany({ where: { runId: run.id, archivedAt: null } });
 
   const calendarDays = end.getUTCDate();
@@ -145,8 +133,9 @@ export async function calculateRun(tx: Tx, ctx: SchoolContext, runId: string, to
     const a = att.find((x) => x.staffId === s.id);
     const st = structures.find((x) => x.staffId === s.id) ?? null;
     const adj = adjustments.filter((x) => x.staffId === s.id);
-    const unpaidDays = unpaid.get(s.id) ?? 0;
-    const lop = lopOf({ absentDays: a?.absentDays ?? 0, unpaidLeaveDays: unpaidDays, halfDays: a?.halfDays ?? 0, lateMarks: a?.lateMarks ?? 0, lateMarksPerHalfDay: settings.lateMarksPerHalfDay });
+    const unpaidDays = a?.unpaidLeaveDays ?? 0;
+    const beyondDays = a?.leaveLopDays ?? 0;
+    const lop = lopOf({ absentDays: a?.absentDays ?? 0, unpaidLeaveDays: unpaidDays, leaveLopDays: beyondDays, halfDays: a?.halfDays ?? 0, lateMarks: a?.lateMarks ?? 0, lateMarksPerHalfDay: settings.lateMarksPerHalfDay });
     const away = notEmployedDays(month, end, s.joiningDate, s.leavingDate);
     const awayScaled = settings.lopDays === "thirty" ? Math.round((away * 30) / calendarDays) : away;
     const flags: string[] = [];
@@ -154,11 +143,13 @@ export async function calculateRun(tx: Tx, ctx: SchoolContext, runId: string, to
     const base = {
       daysInMonth, workingDays: a?.workingDays ?? 0, presentDays: a?.presentDays ?? 0, leaveDays: a?.leaveDays ?? 0, unpaidLeaveDays: unpaidDays,
       absentDays: a?.absentDays ?? 0, lateMarks: a?.lateMarks ?? 0, notMarkedDays: a?.notMarkedDays ?? 0, lopDays: lop.total, overtimeMinutes: a?.overtimeMinutes ?? 0,
+      halfDays: a?.halfDays ?? 0, leaveLopDays: beyondDays,
     };
     if ((a?.notMarkedDays ?? 0) > 0) flags.push("Attendance not complete");
     if (s.leavingDate && s.leavingDate >= month && s.leavingDate <= end) flags.push(`Leaving ${s.leavingDate.getUTCDate()} ${monthName(month).slice(0, 3)}`);
     if (lop.late > 0) notes.push(`${a?.lateMarks} late marks = ${lop.late} ${lop.late === 1 ? "day" : "days"} (${settings.lateMarksPerHalfDay} late marks = half a day)`);
     if (unpaidDays > 0) notes.push(`${unpaidDays} ${unpaidDays === 1 ? "day" : "days"} of leave without pay`);
+    if (beyondDays > 0) notes.push(`${daysWord(beyondDays)} of leave beyond the balance (loss of pay)`);
     if ((a?.absentDays ?? 0) > 0) notes.push(`Absent without leave ${a!.absentDays} ${a!.absentDays === 1 ? "day" : "days"}`);
     if (away > 0) notes.push(s.joiningDate > month ? `Joined ${formatDate(s.joiningDate)}` : `Left ${formatDate(s.leavingDate!)}`);
 
@@ -171,10 +162,14 @@ export async function calculateRun(tx: Tx, ctx: SchoolContext, runId: string, to
       const pay = workOutPay({
         lines: fromStored(st.lines), pfApplies: st.pfApplies, esiApplies: st.esiApplies, tdsPaise: st.tdsPaise,
         daysInMonth, notEmployedDays: awayScaled, lopDays: lop.total, overtimePaise,
-        adjustments: adj.map((x) => ({ type: x.type, amountPaise: x.amountPaise })), recoveries: recover.get(s.id) ?? [],
+        adjustments: adj.map((x) => ({ type: x.type, amountPaise: x.amountPaise, carried: x.forMonth ? x : null })), recoveries: recover.get(s.id) ?? [],
         statutory: asStatutory(stat), ptSlabs: slabs, month: month.getUTCMonth() + 1,
       });
       if (adj.length) flags.push("Adjustment added");
+      for (const x of adj.filter((y) => y.forMonth)) {
+        const parts = [x.pfPaise !== ZERO ? `PF ${formatRupees(x.pfPaise)}` : null, x.esiPaise !== ZERO ? `ESI ${formatRupees(x.esiPaise)}` : null].filter(Boolean);
+        notes.push(`${correctionLabel(x)}: ${x.type === "DEDUCTION" ? "−" : "+"}${formatRupees(x.amountPaise)}${parts.length ? `, with ${parts.join(" and ")} on it by the rules of ${monthName(x.forMonth!)}` : ""}`);
+      }
       if (st.tdsPaise === ZERO && pay.fullGross * BigInt(12) > yearlyLimit) flags.push("No TDS amount");
       if (pay.recoveryReduced) {
         flags.push("Recovery reduced");
@@ -205,7 +200,7 @@ export async function calculateRun(tx: Tx, ctx: SchoolContext, runId: string, to
 
   const updated = await tx.payrollRun.update({
     where: { id: run.id },
-    data: { status: "CALCULATED", staffCount: totals.staff, grossPaise: totals.gross, deductionsPaise: totals.ded, netPaise: totals.net, employerPfPaise: totals.erPf, employerEsiPaise: totals.erEsi, statutoryId: stat.id, calculatedAt: new Date() },
+    data: { status: "CALCULATED", staffCount: totals.staff, grossPaise: totals.gross, deductionsPaise: totals.ded, netPaise: totals.net, employerPfPaise: totals.erPf, employerEsiPaise: totals.erEsi, statutoryId: stat.id, calculatedAt: new Date(), calculatedUpTo: upTo },
   });
   await writeAudit(tx, ctx, {
     action: run.status === "OPEN" ? "payroll-calculated" : "payroll-recalculated", recordType: "Payroll Run", recordId: run.id,
@@ -242,7 +237,11 @@ export async function archiveAdjustment(tx: Tx, ctx: SchoolContext, adjustmentId
   if (!adj) throw new MoneyProblem("This adjustment was not found.");
   assertEditable(adj.run);
   await tx.payrollAdjustment.update({ where: { id: adj.id }, data: { archivedAt: new Date(), archivedById: ctx.userId } });
-  await writeAudit(tx, ctx, { action: "payroll-adjustment-archived", recordType: "Payroll Adjustment", recordId: adj.id, before: { type: adjustmentLabel(adj.type), amount: formatRupees(adj.amountPaise), reason: adj.reason } });
+  await writeAudit(tx, ctx, {
+    action: "payroll-adjustment-archived", recordType: "Payroll Adjustment", recordId: adj.id,
+    before: { type: adjustmentLabel(adj.type), amount: formatRupees(adj.amountPaise), reason: adj.reason, ...(adj.forMonth ? { for: monthName(adj.forMonth) } : {}) },
+    ...(adj.forMonth ? { after: { why: `Removed: ${monthName(adj.forMonth)} is not corrected for this change` } } : {}),
+  });
   // A library fine taken off the salary is due at the library desk again.
   await releaseFineAdjustment(tx, ctx, adj.id, adj.run.month);
   await calculateRun(tx, ctx, adj.runId, today);
@@ -384,6 +383,8 @@ export async function runBreakdown(tx: Tx, runId: string) {
   return { pf: z(s.pfPaise), esi: z(s.esiPaise), pt: z(s.ptPaise), tds: z(s.tdsPaise), recovery: z(s.recoveryPaise), cut: z(s.cutPaise), add: z(s.addPaise), erPf: z(s.erPfPaise), erEsi: z(s.erEsiPaise), lop: z(s.lopPaise), other };
 }
 
-export const lineDays = (l: { paidDays: Prisma.Decimal; leaveDays: Prisma.Decimal; unpaidLeaveDays: Prisma.Decimal; lopDays: Prisma.Decimal; presentDays: Prisma.Decimal; absentDays: Prisma.Decimal }) => ({
-  paid: n(l.paidDays), leave: n(l.leaveDays) - n(l.unpaidLeaveDays), unpaid: n(l.unpaidLeaveDays), lop: n(l.lopDays), present: n(l.presentDays), absent: n(l.absentDays),
+/** A line's days: paid leave, leave without pay and leave beyond the balance are told apart. */
+export const lineDays = (l: { paidDays: Prisma.Decimal; leaveDays: Prisma.Decimal; unpaidLeaveDays: Prisma.Decimal; leaveLopDays?: Prisma.Decimal | null; lopDays: Prisma.Decimal; presentDays: Prisma.Decimal; absentDays: Prisma.Decimal }) => ({
+  paid: n(l.paidDays), leave: n(l.leaveDays) - n(l.unpaidLeaveDays) - n(l.leaveLopDays ?? 0), unpaid: n(l.unpaidLeaveDays), beyond: n(l.leaveLopDays ?? 0),
+  lop: n(l.lopDays), present: n(l.presentDays), absent: n(l.absentDays),
 });

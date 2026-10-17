@@ -21,14 +21,27 @@ async function targets(tx: Tx, ctx: SchoolContext, messageId: string, who: Resen
   const readBy = new Set(
     (await tx.messageRecipient.findMany({ where: { schoolId: ctx.schoolId, messageId, status: "READ" }, select: { guardianId: true, studentId: true, staffId: true, userLoginId: true, recipientType: true } })).map((r) => (r.recipientType === "login" ? r.userLoginId : r.guardianId ?? r.staffId ?? r.studentId)),
   );
+  // A custody restriction added since the first message: that child's message is not sent again to that guardian,
+  // and a message naming several children names only the ones the guardian may still hear about.
+  const guardianIds = [...new Set(rows.map((r) => r.guardianId).filter(Boolean) as string[])];
+  const restricted = guardianIds.length
+    ? await tx.studentGuardian.findMany({ where: { schoolId: ctx.schoolId, guardianId: { in: guardianIds }, archivedAt: null, restriction: { not: null } }, select: { guardianId: true, studentId: true } })
+    : [];
+  const isRestricted = (g: string, s: string | null) => restricted.some((x) => x.guardianId === g && (s === null || x.studentId === s));
   const to: Required<Pick<AudienceRule, "guardianIds" | "studentIds" | "staffIds" | "loginIds">> = { guardianIds: [], studentIds: [], staffIds: [], loginIds: [] };
   const perPerson: Record<string, Record<string, string>> = {};
   for (const r of rows) {
     const id = r.recipientType === "guardian" ? r.guardianId : r.recipientType === "staff" ? r.staffId : r.recipientType === "login" ? r.userLoginId : r.studentId;
     if (!id || (who === "unread" && readBy.has(id))) continue;
+    let values = (r.values ?? {}) as Record<string, string>;
+    if (r.recipientType === "guardian" && r.studentId && isRestricted(id, r.studentId)) continue;
+    if (r.recipientType === "guardian" && !r.studentId && isRestricted(id, null)) {
+      // The children's names are worked out again from the children the guardian may hear about.
+      values = Object.fromEntries(Object.entries(values).filter(([k]) => !["student_name", "class", "admission_no"].includes(k)));
+    }
     const list = r.recipientType === "guardian" ? to.guardianIds : r.recipientType === "staff" ? to.staffIds : r.recipientType === "login" ? to.loginIds : to.studentIds;
     if (!list.includes(id)) list.push(id);
-    perPerson[id] ??= (r.values ?? {}) as Record<string, string>;
+    perPerson[id] ??= values;
   }
   return { to, perPerson, count: to.guardianIds.length + to.studentIds.length + to.staffIds.length + to.loginIds.length };
 }

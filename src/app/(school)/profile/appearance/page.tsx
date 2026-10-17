@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
+import { redirect } from "next/navigation";
 import { requireCurrent } from "@/lib/current";
 import { reachFor } from "@/lib/permissions";
 import { cleanAccent, cleanTextSize, cleanTheme } from "@/lib/theme";
@@ -11,6 +12,7 @@ export const metadata: Metadata = { title: "Colours and text size" };
 
 export default async function AppearancePage() {
   const current = await requireCurrent();
+  if (current.support) redirect("/dashboard");
   const u = current.user;
   return (
     <div className="max-w-4xl">

@@ -1,8 +1,10 @@
 "use server";
 
 // The guardian's actions on Parent Link (no login). Each one finds the link
-// from the token again, checks the phone again on the server, and is
-// rate-limited by address and by link (08-platform-security.md §7).
+// from the token again, checks again on the server that the link, Parent
+// Link, the phone and the section's switch are all on (./guardian.ts), checks
+// the child is one the guardian may act for, and is rate-limited by address
+// and by link (08-platform-security.md §7).
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
@@ -10,12 +12,13 @@ import { deviceInfo } from "@/lib/current";
 import { hitLimit, limitMessage } from "@/lib/rate-limit";
 import { MessagingProblem } from "@/lib/messaging/send";
 import { messageSettings } from "@/lib/messaging/settings";
-import { confirmDevice, confirmedDevice, deviceCookieName, findLink, hashToken, newDeviceKey, ParentLinkProblem, sendCode } from "@/lib/parent-link/links";
+import { ACCESS_WORDS, confirmDevice, deviceCookieName, findLink, hashToken, linkUsable, newDeviceKey, ParentLinkProblem, sendCode } from "@/lib/parent-link/links";
 import { askConsentCode, confirmConsent } from "@/lib/parent-link/consent";
+import { guardianFor } from "./guardian";
 
 export type GuardianState = { ok: boolean; message?: string; step?: "code" | "done" } | null;
 
-const GONE = "This link is no longer active. Please ask the school for a new one.";
+const GONE = ACCESS_WORDS.gone;
 
 async function limits(keys: [string, number, number][]) {
   for (const [key, max, seconds] of keys) {
@@ -52,6 +55,9 @@ export async function sendDeviceCode(token: string, _prev: GuardianState, _form:
   const ctx = { schoolId: found.schoolId, userId: null };
   try {
     const pl = await withSchool(ctx, async (tx) => {
+      // No code while the school has Parent Link off or the link is revoked.
+      const stop = await linkUsable(tx, ctx, found.linkId);
+      if (stop) throw new ParentLinkProblem(ACCESS_WORDS[stop]);
       await sendCode(tx, ctx, found.linkId, "device", { keyHash: hashToken(key) });
       return (await messageSettings(tx, ctx)).parentLink;
     });
@@ -75,26 +81,21 @@ export async function verifyDevice(token: string, _prev: GuardianState, form: Fo
   const key = (await cookies()).get(deviceCookieName(found.linkId))?.value ?? null;
   if (!key) return { ok: false, message: "This code was sent for another phone or browser. Tap \"Send a new code\"." };
   const ctx = { schoolId: found.schoolId, userId: null };
-  const result = await withSchool(ctx, (tx) => confirmDevice(tx, ctx, found.linkId, key, typed, device));
+  const result = await withSchool(ctx, async (tx) => {
+    const stop = await linkUsable(tx, ctx, found.linkId);
+    if (stop) return { ok: false as const, message: ACCESS_WORDS[stop] };
+    return confirmDevice(tx, ctx, found.linkId, key, typed, device);
+  });
   if (!result.ok) return { ok: false, step: "code", message: result.message };
   await setDeviceCookie(found.linkId, key, result.days);
   redirect(`/p/${token}`);
 }
 
-async function guardianFor(token: string) {
-  const found = await findLink(token);
-  if (!found) return null;
-  const key = (await cookies()).get(deviceCookieName(found.linkId))?.value ?? null;
-  const ctx = { schoolId: found.schoolId, userId: null };
-  const ok = await withSchool(ctx, (tx) => confirmedDevice(tx, found.linkId, key));
-  return ok ? { ctx, linkId: found.linkId, guardianId: ok.link.guardianId } : null;
-}
-
 /** Step 1 of giving or withdrawing consent: a code to the registered mobile. */
 export async function askConsent(token: string, _prev: GuardianState, form: FormData): Promise<GuardianState> {
   const device = await deviceInfo();
-  const g = await guardianFor(token);
-  if (!g) return { ok: false, message: GONE };
+  const g = await guardianFor(token, "consent");
+  if (!g.ok) return { ok: false, message: g.message };
   const limited = await limits([
     [`pl-code:ip:${device.ipAddress ?? "unknown"}`, 10, 3600],
     [`pl-code:link:${g.linkId}`, 5, 3600],
@@ -119,8 +120,8 @@ export async function confirmConsentCode(token: string, _prev: GuardianState, fo
   const device = await deviceInfo();
   const typed = String(form.get("code") ?? "").replace(/\D/g, "");
   if (typed.length !== 6) return { ok: false, step: "code", message: "Type the 6-digit code from the message." };
-  const g = await guardianFor(token);
-  if (!g) return { ok: false, message: GONE };
+  const g = await guardianFor(token, "consent");
+  if (!g.ok) return { ok: false, message: g.message };
   const limited = await limits([[`pl-verify:ip:${device.ipAddress ?? "unknown"}`, 20, 600]]);
   if (limited) return { ok: false, step: "code", message: limited };
   const result = await withSchool(g.ctx, (tx) => confirmConsent(tx, g.ctx, g.linkId, g.guardianId, typed, device));

@@ -1,7 +1,10 @@
 // Notice Board (11-communication.md, Notice Board): circulars and notices for
 // chosen roles, classes or campuses, with approval when the school's rule
 // says so, a publish time, an expiry date, read acknowledgement, and "Seen by"
-// for parents (Parent Link opens and WhatsApp read receipts).
+// for parents (Parent Link opens and WhatsApp read receipts). A notice for
+// one campus reaches only that campus everywhere: the message, Parent Link,
+// the student's profile, the notice board and the seen count; a notice with
+// no campus is for the whole school.
 import "server-only";
 
 import type { NoticePriority, NoticeStatus, Prisma } from "@prisma/client";
@@ -10,7 +13,8 @@ import { writeAudit } from "../audit";
 import { enqueue } from "../jobs";
 import { notify } from "../notifications";
 import { requestApproval } from "../approvals";
-import { currentYear } from "../academic/years";
+import { currentYears } from "../academic/years";
+import { OPEN_LINK } from "../students/guardian-access";
 import { sectionLabel } from "../people";
 import { sendMessage, MessagingProblem } from "../messaging/send";
 import { channelSetups } from "../messaging/channels";
@@ -77,15 +81,18 @@ export async function describeNoticeAudience(tx: Tx, ctx: SchoolContext, a: Noti
   return parts.join("; ") || "Nobody chosen";
 }
 
+/** This year of each campus in the audience (every campus when none is chosen). */
+const audienceYearIds = async (tx: Tx, ctx: SchoolContext, a: NoticeAudience) => (await currentYears(tx, ctx, a.campusIds)).map((y) => y.id);
+
 /** Sections the audience covers this year (null: the whole school). */
 async function audienceSectionIds(tx: Tx, ctx: SchoolContext, a: NoticeAudience): Promise<string[] | null> {
   if (!a.sectionIds.length && !a.classIds.length && !a.campusIds.length) return null;
-  const year = await currentYear(tx, ctx);
-  if (!year) return [];
+  const yearIds = await audienceYearIds(tx, ctx, a);
+  if (!yearIds.length) return [];
   const rows = await tx.section.findMany({
     where: {
       schoolId: ctx.schoolId,
-      academicYearId: year.id,
+      academicYearId: { in: yearIds },
       archivedAt: null,
       ...(a.sectionIds.length || a.classIds.length ? { OR: [{ id: { in: a.sectionIds } }, { classId: { in: a.classIds } }] } : {}),
       ...(a.campusIds.length ? { schoolClass: { campusId: { in: a.campusIds } } } : {}),
@@ -112,23 +119,23 @@ export async function audienceLogins(tx: Tx, ctx: SchoolContext, a: NoticeAudien
   }
   if (a.students) {
     const sectionIds = await audienceSectionIds(tx, ctx, a);
-    const year = await currentYear(tx, ctx);
-    if (year) {
-      const rows = await tx.enrolment.findMany({ where: { schoolId: ctx.schoolId, academicYearId: year.id, archivedAt: null, status: "STUDYING", ...(sectionIds ? { sectionId: { in: sectionIds } } : {}), student: { userLoginId: { not: null }, archivedAt: null } }, select: { student: { select: { userLoginId: true } } } });
+    const yearIds = await audienceYearIds(tx, ctx, a);
+    if (yearIds.length) {
+      const rows = await tx.enrolment.findMany({ where: { schoolId: ctx.schoolId, academicYearId: { in: yearIds }, archivedAt: null, status: "STUDYING", ...(sectionIds ? { sectionId: { in: sectionIds } } : {}), student: { userLoginId: { not: null }, archivedAt: null } }, select: { student: { select: { userLoginId: true } } } });
       for (const r of rows) if (r.student.userLoginId) out.add(r.student.userLoginId);
     }
   }
   return [...out];
 }
 
-/** Every guardian (father and mother) of the students in the audience. */
+/** Every guardian (father and mother) of the students in the audience, but never through a link with a custody restriction. */
 export async function audienceGuardianIds(tx: Tx, ctx: SchoolContext, a: NoticeAudience): Promise<string[]> {
   if (!a.parents) return [];
   const sectionIds = await audienceSectionIds(tx, ctx, a);
-  const year = await currentYear(tx, ctx);
-  if (!year) return [];
-  const enrolled = await tx.enrolment.findMany({ where: { schoolId: ctx.schoolId, academicYearId: year.id, archivedAt: null, status: "STUDYING", ...(sectionIds ? { sectionId: { in: sectionIds } } : {}), student: { archivedAt: null } }, select: { studentId: true } });
-  const links = await tx.studentGuardian.findMany({ where: { schoolId: ctx.schoolId, studentId: { in: enrolled.map((e) => e.studentId) }, archivedAt: null, guardian: { archivedAt: null } }, select: { guardianId: true } });
+  const yearIds = await audienceYearIds(tx, ctx, a);
+  if (!yearIds.length) return [];
+  const enrolled = await tx.enrolment.findMany({ where: { schoolId: ctx.schoolId, academicYearId: { in: yearIds }, archivedAt: null, status: "STUDYING", ...(sectionIds ? { sectionId: { in: sectionIds } } : {}), student: { archivedAt: null } }, select: { studentId: true } });
+  const links = await tx.studentGuardian.findMany({ where: { schoolId: ctx.schoolId, studentId: { in: enrolled.map((e) => e.studentId) }, ...OPEN_LINK, guardian: { archivedAt: null } }, select: { guardianId: true } });
   return [...new Set(links.map((l) => l.guardianId))];
 }
 
@@ -270,7 +277,7 @@ export async function publishNotice(tx: Tx, ctx: SchoolContext, noticeId: string
     if (channels.length) {
       try {
         const sent = await sendMessage(tx, ctx, {
-          to: { kinds: ["parents"], classIds: audience.classIds, sectionIds: audience.sectionIds },
+          to: { kinds: ["parents"], classIds: audience.classIds, sectionIds: audience.sectionIds, campusIds: audience.campusIds },
           channels,
           templates,
           title: notice.title,
@@ -352,11 +359,15 @@ export async function markSeenByGuardian(tx: Tx, ctx: SchoolContext, noticeId: s
 export async function boardFor(tx: Tx, ctx: SchoolContext, userLoginId: string, roleKeys: string[], opts: { all?: boolean } = {}) {
   const notices = await tx.notice.findMany({ where: { schoolId: ctx.schoolId, status: "PUBLISHED" }, orderBy: { publishedAt: "desc" }, take: 300 });
   const staff = await tx.staff.findFirst({ where: { schoolId: ctx.schoolId, userLoginId, archivedAt: null }, select: { campusId: true } });
-  const student = await tx.student.findFirst({ where: { schoolId: ctx.schoolId, userLoginId, archivedAt: null }, select: { id: true } });
-  let studentSection: { sectionId: string; classId: string } | null = null;
+  const student = await tx.student.findFirst({ where: { schoolId: ctx.schoolId, userLoginId, archivedAt: null }, select: { id: true, campusId: true } });
+  let studentSection: { sectionId: string; classId: string; campusId: string } | null = null;
   if (student) {
-    const year = await currentYear(tx, ctx);
-    studentSection = year ? await tx.enrolment.findFirst({ where: { studentId: student.id, academicYearId: year.id }, select: { sectionId: true, classId: true } }) : null;
+    // The student's class this year, in their own campus's year.
+    const years = await currentYears(tx, ctx);
+    const enrolments = years.length ? await tx.enrolment.findMany({ where: { studentId: student.id, academicYearId: { in: years.map((y) => y.id) } }, select: { sectionId: true, classId: true, academicYearId: true } }) : [];
+    const campusOf = (e: { academicYearId: string }) => years.find((y) => y.id === e.academicYearId)?.campusId ?? student.campusId;
+    const e = enrolments.find((x) => campusOf(x) === student.campusId) ?? enrolments[0];
+    studentSection = e ? { sectionId: e.sectionId, classId: e.classId, campusId: campusOf(e) } : null;
   }
   const rank: Record<NoticePriority, number> = { CRITICAL: 0, HIGH: 1, NORMAL: 2 };
   return notices
@@ -365,22 +376,29 @@ export async function boardFor(tx: Tx, ctx: SchoolContext, userLoginId: string, 
       const a = readAudience(n.audience);
       if (n.createdById === userLoginId) return true;
       if (a.staff && staff && (!a.roleKeys.length || a.roleKeys.some((k) => roleKeys.includes(k))) && (!a.campusIds.length || a.campusIds.includes(staff.campusId))) return true;
-      if (a.students && studentSection && ((!a.sectionIds.length && !a.classIds.length) || a.sectionIds.includes(studentSection.sectionId) || a.classIds.includes(studentSection.classId))) return true;
+      if (a.students && studentSection && (!a.campusIds.length || a.campusIds.includes(studentSection.campusId)) && ((!a.sectionIds.length && !a.classIds.length) || a.sectionIds.includes(studentSection.sectionId) || a.classIds.includes(studentSection.classId))) return true;
       return false;
     })
     .sort((x, y) => rank[x.priority] - rank[y.priority] || (y.publishedAt?.getTime() ?? 0) - (x.publishedAt?.getTime() ?? 0));
 }
 
-/** Notices for a guardian's children on Parent Link, newest first; Critical ones separately for pinning. */
-export async function noticesForGuardian(tx: Tx, ctx: SchoolContext, children: { sectionId: string | null; classId: string | null }[]) {
+/**
+ * Notices for a guardian's children on Parent Link (and on a student's
+ * profile), newest first; Critical ones separately for pinning. A notice for
+ * some campuses is shown only for a child of one of them; within it, for the
+ * child's class or section when the notice names some.
+ */
+export async function noticesForGuardian(tx: Tx, ctx: SchoolContext, children: { sectionId: string | null; classId: string | null; campusId: string | null }[]) {
   const notices = await tx.notice.findMany({ where: { schoolId: ctx.schoolId, status: "PUBLISHED" }, orderBy: { publishedAt: "desc" }, take: 200 });
-  const sections = new Set(children.map((c) => c.sectionId).filter(Boolean) as string[]);
-  const classes = new Set(children.map((c) => c.classId).filter(Boolean) as string[]);
   return notices.filter((n) => {
     const a = readAudience(n.audience);
     if (!a.parents || !n.channels.includes("parent-link")) return false;
-    if (!a.sectionIds.length && !a.classIds.length) return true;
-    return a.sectionIds.some((s) => sections.has(s)) || a.classIds.some((c) => classes.has(c));
+    // The same child must be in the campus and in the class or section.
+    return children.some((c) => {
+      if (a.campusIds.length && !(c.campusId && a.campusIds.includes(c.campusId))) return false;
+      if (!a.sectionIds.length && !a.classIds.length) return true;
+      return Boolean((c.sectionId && a.sectionIds.includes(c.sectionId)) || (c.classId && a.classIds.includes(c.classId)));
+    });
   });
 }
 

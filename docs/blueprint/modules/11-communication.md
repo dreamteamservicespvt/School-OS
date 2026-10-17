@@ -58,14 +58,14 @@ Each send is one Message to many people. Every person in it is one Message Recip
 **What the person sees**
 
 - Notices list: title, audience, priority (High in amber, Critical in red), published date, expiry date, status (**Draft**, **Waiting for approval**, **Scheduled**, **Published**, **Expired**, **Archived**; inferred), read count ("312 of 450 read").
-- **Seen by parent:** for notices sent to parents, "Seen by 31 of 40", counted from Parent Link opens of the notice and WhatsApp read receipts. Opening the count lists each guardian with the date and time they first saw it, or "Not seen" (decided 9 October 2026).
+- **Seen by parent:** for notices sent to parents, "Seen by 31 of 40", counted from Parent Link opens of the notice and WhatsApp read receipts. Opening the count lists each guardian with the date and time they first saw it, or "Not seen" (decided 9 October 2026). For a notice to some campuses, only parents of a child at those campuses are counted.
 - The notice board as staff and students see it: current notices, Critical first, then High, then Normal.
 - **Group view (optional):** central announcements from the group office to all its schools.
 
 **Actions**
 
 - Create a circular or notice with attachments.
-- Choose the audience: roles, classes, campuses.
+- Choose the audience: roles, classes, campuses. A notice for one campus, with no class ticked, reaches only that campus everywhere: its messages, Parent Link, the student's Communication tab, the notice board and the "Seen by" count. A notice with no campus ticked is for the whole school.
 - Set priority: **Normal**, **High** or **Critical** (decided 9 October 2026). Critical needs a typed confirmation (P4) and is pinned at the top of every chosen guardian's Parent Link until it expires. Schedule a publish time, set an expiry date.
 - Ask for read acknowledgement: readers tap "I have read this"; the notice shows who has and has not.
 - Publish on several channels at once (notice board, app notification, Parent Link, WhatsApp, SMS, email); parents, who have no password login, see it on their Parent Link and get it by message.
@@ -222,13 +222,17 @@ The guardian taps the link in WhatsApp or SMS. The first time it opens on a new 
 - **Fees due:** each installment with amount and due date, the total due, and a **Pay** button that pays online through Razorpay.
 - **Receipts:** every receipt, each with a Download button (PDF).
 - **Attendance this month:** a calendar with present, absent, late and leave days and the month's percentage.
-- **Notices** sent to this guardian's children's classes, newest first.
+- **Notices** sent to this guardian's children's classes (and campus), newest first.
 - **Datesheet** for the coming exams.
 - **Report cards**, only once the school has published them.
 - **Consent forms** waiting for the guardian's answer, and those already given.
 - A short line at the bottom: "To ask a question, message or call the school" with the school's WhatsApp number and phone (inferred: the wording).
 
 The page is read-only apart from paying fees and giving or withdrawing consent. Parents still ask questions by WhatsApp or phone.
+
+A child the guardian has a custody or access restriction for (03 Student Management, Parents & Guardians) is not on the page at all: no card, fees, receipts, attendance, notices, report cards, consent or PTM booking for that child, and none of that child's messages. Their other children are shown as usual. The school's Parent Link page and "What guardians see" preview name the child left out, marked "custody restriction".
+
+Every action and download on the page (Pay, receipts and tax invoices, report cards, consent, event consent, PTM booking) is checked again on the server: the link is active, Parent Link is on and the school is not suspended, the phone is confirmed, the part it belongs to is switched on in section 6, and the child is one the guardian may act for.
 
 **Actions (school staff)**
 
@@ -299,7 +303,7 @@ The page is read-only apart from paying fees and giving or withdrawing consent. 
 ### Notice Board (11)
 
 - [ ] Create circulars, notices and announcements with attachments (Core)
-- [ ] Target a notice to roles, classes or campuses (Core)
+- [ ] Target a notice to roles, classes or campuses; a campus notice reaches only that campus by message, on Parent Link, on the board and in the seen count (Core)
 - [ ] Schedule a notice (Core)
 - [ ] Notice priority Normal, High or Critical; Critical needs a typed confirmation and is pinned on Parent Link (Core) (decided 9 October 2026)
 - [ ] Read acknowledgement and acknowledgement tracking (Core)
@@ -356,6 +360,7 @@ The page is read-only apart from paying fees and giving or withdrawing consent. 
 - [ ] Attendance this month, notices, datesheet and report cards once published (Core) (decided 9 October 2026)
 - [ ] Consent forms, given or withdrawn with a one-time code, and bulk consent requests to existing families (Core) (decided 9 October 2026)
 - [ ] Read-only apart from paying and giving consent; never shows another family's data (Core) (decided 9 October 2026)
+- [ ] A child the guardian has a custody or access restriction for is never shown, paid, consented or booked for on that guardian's Parent Link (Core)
 - [ ] Link sent automatically when an admission is approved, and in bulk to existing families (Core) (decided 9 October 2026)
 - [ ] School switches Parent Link on or off, chooses what it shows, and revokes or reissues a link (Core) (decided 9 October 2026)
 - [ ] Every link open logged (Core) (decided 9 October 2026)

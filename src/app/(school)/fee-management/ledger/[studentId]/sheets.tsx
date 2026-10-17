@@ -14,6 +14,7 @@ import { Pill } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/button";
 import type { Option } from "@/components/ui/field";
 import type { FormState } from "@/lib/forms";
+import { formatRupees } from "@/lib/format";
 import { addChargeAction, addOldDuesAction, adjustAction, assignPlanAction, certificateAction, invoiceAction, resendInvoiceAction } from "./actions";
 
 type Common = { studentId: string; closeHref: string };
@@ -95,15 +96,33 @@ export function CertificateSheet({ studentId, closeHref, years, start }: Common 
   );
 }
 
-export function InvoiceSheet({ studentId, closeHref, lines, total, father, canLink }: Common & { lines: { label: string; amount: string }[]; total: string; father: string; canLink: boolean }) {
+export type InvoiceRow = { id: string; label: string; status: string; amount: string; paise: string; dueNow: boolean };
+
+/** A fee invoice for the ticked rows: what is due now is ticked; rows not due yet can be ticked too. The total is what is ticked. */
+export function InvoiceSheet({ studentId, closeHref, rows, father, canLink }: Common & { rows: InvoiceRow[]; father: string; canLink: boolean }) {
+  const [ticked, setTicked] = useState(() => new Set(rows.filter((r) => r.dueNow).map((r) => r.id)));
+  const total = rows.filter((r) => ticked.has(r.id)).reduce((s, r) => s + BigInt(r.paise), BigInt(0));
+  const flip = (id: string) => setTicked((t) => {
+    const next = new Set(t);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
   return (
-    <SheetForm title="Fee invoice" sub="Everything due now, with its own invoice number." closeHref={closeHref} action={invoiceAction}
-      submitLabel="Make invoice" pendingText="Making…" hidden={{ studentId }} submitDisabled={!lines.length}>
-      {lines.length === 0 ? <Alert tone="info">Nothing is due now, so there is nothing to invoice.</Alert> : (
+    <SheetForm title="Fee invoice" sub="What is due now is ticked. Tick more rows to ask for them early. The invoice gets its own number." closeHref={closeHref} action={invoiceAction}
+      submitLabel="Make invoice" pendingText="Making…" hidden={{ studentId }} submitDisabled={ticked.size === 0}>
+      {rows.length === 0 ? <Alert tone="info">Nothing is left to pay, so there is nothing to invoice.</Alert> : (
         <>
-          <ul className="rounded-xl border border-line divide-y divide-line/70 text-[14px]">
-            {lines.map((l, i) => <li key={i} className="flex justify-between gap-3 px-4 py-2.5"><span className="min-w-0">{l.label}</span><span className="tnum shrink-0">{l.amount}</span></li>)}
-            <li className="flex justify-between gap-3 px-4 py-2.5 font-semibold"><span>Total due</span><span className="tnum">{total}</span></li>
+          <ul className="rounded-xl border border-line divide-y divide-line/70 text-[14px]" aria-label="Rows on the invoice">
+            {rows.map((r) => (
+              <li key={r.id}>
+                <label className="flex items-center gap-3 px-4 py-2.5 cursor-pointer">
+                  <input type="checkbox" name="dueId" value={r.id} checked={ticked.has(r.id)} onChange={() => flip(r.id)} className="size-4 accent-[var(--color-brand)] shrink-0" />
+                  <span className="min-w-0 flex-1">{r.label} <span className="text-[12.5px] text-ink3">· {r.status}</span></span>
+                  <span className="tnum shrink-0">{r.amount}</span>
+                </label>
+              </li>
+            ))}
+            <li className="flex justify-between gap-3 px-4 py-2.5 font-semibold"><span>Total on the invoice</span><span className="tnum">{formatRupees(total)}</span></li>
           </ul>
           {canLink ? <SSwitch name="send" title={`Send to ${father} on WhatsApp`} sub="With a Razorpay link to pay online. The link works for 7 days." start />
             : <p className="text-[13px] text-ink3">Online payment is not set up, so the invoice is made without a payment link. Set up Razorpay in Fee Settings.</p>}

@@ -279,6 +279,49 @@ describe("one message per phone per send", () => {
     expect(wa).toBeTruthy();
   });
 
+  it("never joins a child a guardian has a custody restriction for into that guardian's message", async () => {
+    // The mother shares the father's phone, and has a custody restriction for Sita.
+    await withSchool(s.ctx, async (tx) => {
+      await tx.guardian.update({ where: { id: s.mother.id }, data: { phone: s.father.phone } });
+      await tx.studentGuardian.updateMany({ where: { guardianId: s.mother.id, studentId: s.sita.id }, data: { restriction: "Court order: no contact about Sita" } });
+    });
+    try {
+      const plan = await withSchool(s.ctx, (tx) => planMessage(tx, s.ctx, {
+        to: { guardiansOf: [s.ravi.id, s.sita.id], allGuardians: true }, channels: ["whatsapp"], text: "Dear {guardian_name}, {student_name} did well in the quiz.",
+        perStudent: { [s.ravi.id]: {}, [s.sita.id]: {} },
+      }));
+      // Sita is named once, only to her father; nothing addressed to the mother names her.
+      const aboutSita = plan.rows.filter((r) => r.text.includes("Sita"));
+      expect(aboutSita).toHaveLength(1);
+      expect(aboutSita[0].candidate.id).toBe(s.father.id);
+      expect(aboutSita[0].text).toMatch(/^Dear Srinivas Kumar, /);
+      expect(plan.rows.filter((r) => r.candidate.id === s.mother.id).every((r) => !r.text.includes("Sita"))).toBe(true);
+      // The mother still hears about Ravi.
+      expect(plan.rows.some((r) => r.text.includes("Ravi Kumar") && (r.candidate.id === s.mother.id || r.keys?.some((k) => k.startsWith(`guardian:${s.mother.id}`))))).toBe(true);
+    } finally {
+      await withSchool(s.ctx, async (tx) => {
+        await tx.guardian.update({ where: { id: s.mother.id }, data: { phone: "9123456782" } });
+        await tx.studentGuardian.updateMany({ where: { guardianId: s.mother.id, studentId: s.sita.id }, data: { restriction: null } });
+      });
+    }
+  });
+
+  it("a resend never goes about a child the guardian now has a custody restriction for", async () => {
+    const r = await withSchool(s.ctx, (tx) => sendMessage(tx, s.ctx, { to: { guardiansOf: [s.sita.id], allGuardians: true }, channels: ["whatsapp"], text: "Dear {guardian_name}, {student_name} needs a new uniform.", perStudent: { [s.sita.id]: {} } }));
+    expect(r.people).toBe(2);
+    await withSchool(s.ctx, async (tx) => {
+      await tx.messageRecipient.updateMany({ where: { messageId: r.messageId }, data: { status: "FAILED", failReason: "Number not on WhatsApp." } });
+      await tx.studentGuardian.updateMany({ where: { guardianId: s.mother.id, studentId: s.sita.id }, data: { restriction: "Court order: no contact about Sita" } });
+    });
+    try {
+      const again = await withSchool(s.ctx, (tx) => resend(tx, s.ctx, r.messageId, "failed", "preferred", SYSTEM_SCOPE));
+      const rows = await withSchool(s.ctx, (tx) => tx.messageRecipient.findMany({ where: { messageId: again.messageId } }));
+      expect(rows.map((x) => x.guardianId)).toEqual([s.father.id]);
+    } finally {
+      await withSchool(s.ctx, (tx) => tx.studentGuardian.updateMany({ where: { guardianId: s.mother.id, studentId: s.sita.id }, data: { restriction: null } }));
+    }
+  });
+
   it("each child's own amount still goes in its own message", async () => {
     const wa = await templateId(s.ctx, "fee-due", "whatsapp");
     const same = { due_amount: "₹5,000", due_date: "15-10-2026" };

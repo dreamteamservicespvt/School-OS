@@ -24,7 +24,7 @@ Used by: the Accountant or salary manager (structures, generating salary, slips,
 **Actions**
 
 1. **Open the month:** one payroll run per month per campus (status Open). Default: the month just ended (inferred).
-2. **Inputs arrive by themselves:** present days and late marks from Staff Attendance, approved leave and loss-of-pay days from Staff Leave, overtime from Staff Attendance (optional), loan and advance recoveries (optional). Missing attendance for any staff member is flagged.
+2. **Inputs arrive by themselves:** present days and late marks from Staff Attendance, approved leave and loss-of-pay days from Staff Leave, overtime from Staff Attendance (optional), loan and advance recoveries (optional). Missing attendance for any staff member is flagged. A day with approved leave is a leave day even when it was marked absent, so it is never cut as an absence too; leave without pay and leave days beyond the balance are loss of pay.
 3. **Calculate:** gross pay, deductions and net pay from each person's salary structure and the rules in Salary Settings (status Calculated). When switched on, PF and ESI are calculated from the rates and ceilings in Salary Settings, Professional Tax from the state slab table, and TDS is the monthly amount entered for the staff member (decided 9 October 2026, D9).
 4. **Review:** sort and filter; open any row to see how each amount was worked out.
 5. **Adjust:** add a bonus, arrears or a one-time deduction to a person, each with a reason.
@@ -33,7 +33,7 @@ Used by: the Accountant or salary manager (structures, generating salary, slips,
 8. **Mark paid:** date, mode (bank transfer, cash, cheque) and reference; status Paid. Only now does the salary go into the Day Book, on the date paid, because that is when money leaves (decided 9 October 2026, D12). A bank transfer file can be downloaded (inferred; see open questions).
 9. **Export PF and ESI statements** for the month, ready to upload on the government portals (decided 9 October 2026, D9).
 10. **Lock:** closes the run for good (status Locked). A Paid run is locked by the Accountant, or by itself when the next month's run is approved (inferred).
-11. **Correct after approval:** only by a reversal or an adjustment in the next payroll, with a reason. An approved or locked payroll never changes.
+11. **Correct after approval:** only by a reversal or an adjustment in the next payroll, with a reason. An approved or locked payroll never changes. When leave is approved, cancelled or changed, or attendance is corrected, after a month was approved (or for days after the date it was worked out to), the next month's calculation adds the correction by itself: **arrears** when loss of pay is given back, a **deduction** when more loss of pay is found, one per person and month, with the reason and the month it belongs to (for example "September 2026 salary: 2 days of loss of pay given back"). PF and ESI on it are worked out by that month's rates and ceilings. It is listed under "Check before sending"; the Accountant can remove it, and a removed correction does not come back.
 
 **Form fields: Adjustment**
 
@@ -43,6 +43,7 @@ Used by: the Accountant or salary manager (structures, generating salary, slips,
 | Type | Yes | Bonus | Bonus, arrears, deduction, other |
 | Amount | Yes | | |
 | Reason | Yes | | |
+| Month it belongs to | No | | Only on a correction made by itself (step 11), with the change in loss-of-pay days and the PF and ESI on it |
 
 ### Salary Structures
 
@@ -207,6 +208,9 @@ Used by: the Accountant or salary manager (structures, generating salary, slips,
 | Adjustment with no reason | Reason required | "Give a reason for this bonus" | Not needed |
 | Slips before approval | Slips are made only after approval | "Payroll waiting for approval" | Wait |
 | Changing an approved or locked payroll | Amounts frozen from approval; corrections by reversal or adjustment in the next month | "September is locked. Add an adjustment in October." | Adjustment |
+| Leave or attendance changed after a month was approved | The next month's calculation adds arrears or a deduction by itself, once, with PF and ESI by the earlier month's rules | "September 2026 salary: 1 day of loss of pay given back" | Check it before sending; remove it if it should not be paid |
+| Absent and on leave the same day | Approved leave decides the day: it counts once, as leave | Not needed | Not needed |
+| Leave beyond the balance paid in full | Days beyond the balance, saved on the Leave Request, are loss of pay on the leave's last days | "2 days of leave beyond the balance (loss of pay)" | Not needed |
 | Structure revised for a past month | Effective date before a locked payroll is refused, or creates arrears in the next payroll (inferred) | "Revision before 01-10-2026 will be paid as arrears" | Accept arrears |
 | Recovery more than net pay | Recovery capped so net pay is not negative; the rest moves to next month (inferred) | "Loan recovery reduced to ₹2,000 this month" | Not needed |
 | Seeing others' salaries | Salary is restricted; staff see only their own | Nothing shown | Not needed |
@@ -268,7 +272,7 @@ Other records (inferred): **Salary Component**, **Salary Template** (per designa
 4. Adding a bonus without a reason is not possible.
 5. After the principal approves, every staff member gets a notification that their slip is ready, and can download only their own slip.
 6. Marking the payroll paid adds one salary entry to the Day Book on the payment date.
-7. A locked payroll cannot be edited; a correction appears as an adjustment in the next month.
+7. A locked payroll cannot be edited; a correction appears as an adjustment in the next month. Leave approved for a day already paid as loss of pay appears by itself in the next month as arrears for that month, with PF and ESI on it.
 8. An active loan's installment is deducted each month until the balance is zero, then the loan closes.
 9. A salary revision creates a new version; the previous month's slip still shows the old amounts.
 10. With PF and ESI on, a teacher with basic pay ₹22,000 has PF worked out on ₹15,000, and a staff member earning ₹18,000 has ESI at 0.75%; the employer shares show as the school's cost.

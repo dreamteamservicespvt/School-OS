@@ -66,9 +66,10 @@ describe("Fee structure changes after the year starts", () => {
     expect(s.publishedById).toBe(f.principal.id);
     expect(s.effectiveFrom?.toISOString().slice(0, 10)).toBe("2026-11-01");
     expect(waiting).toBeNull();
-    // Sita gets the lab fee; her January tuition row moved to the new version (the old one kept as Removed, never deleted).
+    // Sita gets the lab fee; her January tuition row moves to the new version as it is (nothing in it changed, so nothing is replaced).
     expect(sita.some((d) => d.label === "Lab fee" && d.state === "OPEN")).toBe(true);
-    expect(sita.filter((d) => d.state === "REMOVED").map((d) => d.dueDate.toISOString().slice(0, 10))).toEqual(["2027-01-10"]);
+    expect(sita.filter((d) => d.dueDate.toISOString().startsWith("2027-01-10")).map((d) => [d.state, d.structureId])).toEqual([["OPEN", draft.id]]);
+    expect(sita.filter((d) => d.state === "REMOVED")).toEqual([]);
     // Ravi's paid row is untouched.
     const paid = ravi.filter((d) => d.paidPaise > BigInt(0));
     expect(paid).toHaveLength(1);

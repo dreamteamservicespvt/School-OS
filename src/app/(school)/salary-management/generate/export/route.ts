@@ -52,6 +52,7 @@ export async function GET(req: Request) {
     { label: "Paid days", value: (x) => x.d.paid },
     { label: "Paid leave", value: (x) => x.d.leave },
     { label: "Leave without pay", value: (x) => x.d.unpaid },
+    { label: "Leave beyond the balance", value: (x) => x.d.beyond },
     { label: "Absent", value: (x) => x.d.absent },
     { label: "Late marks", value: (x) => x.l.lateMarks },
     { label: "Loss of pay days", value: (x) => x.d.lop },

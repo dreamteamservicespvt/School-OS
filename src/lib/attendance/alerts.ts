@@ -19,11 +19,12 @@ import { sendAttendanceMessage } from "./notify-parents";
 import { studentLeavesOn } from "./marks";
 import { instantAt, schoolDateOf } from "./time";
 import { CLEARED_REASON } from "./flags";
+import { OPEN_LINK } from "../students/guardian-access";
 
 const day = (iso: string) => new Date(`${iso}T00:00:00Z`);
 
 async function primaryGuardians(tx: Tx, studentIds: string[]) {
-  const links = await tx.studentGuardian.findMany({ where: { studentId: { in: studentIds }, archivedAt: null }, orderBy: [{ isPrimary: "desc" }, { emergencyOrder: "asc" }] });
+  const links = await tx.studentGuardian.findMany({ where: { studentId: { in: studentIds }, ...OPEN_LINK }, orderBy: [{ isPrimary: "desc" }, { emergencyOrder: "asc" }] });
   const out = new Map<string, string>();
   for (const l of links) if (!out.has(l.studentId)) out.set(l.studentId, l.guardianId);
   return out;

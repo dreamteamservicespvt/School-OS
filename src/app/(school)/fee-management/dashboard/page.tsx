@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { ChartColumn, CircleX, Handshake, IndianRupee, ReceiptIndianRupee, SearchX, UserX, Wallet } from "lucide-react";
+import { ChartColumn, CircleX, Handshake, ShieldQuestion, IndianRupee, ReceiptIndianRupee, SearchX, UserX, Wallet } from "lucide-react";
 import { withSchool } from "@/lib/db";
+import { OPEN_LINK } from "@/lib/students/guardian-access";
 import { formatDate, formatRupees, formatRupeesShort, formatTime } from "@/lib/format";
 import { addDays, monthStart } from "@/lib/staff/dates";
 import { feeTiles, forecast, modeBreakdown, monthlyTrend, recentPayments } from "@/lib/fees/dashboard";
-import { failedOnline } from "@/lib/fees/online";
+import { failedOnline, reversalsToCheck, studentsForPayer, unmatchedOnline } from "@/lib/fees/online";
 import { classOfStudents } from "@/lib/fees/dues";
 import { paymentView } from "@/lib/fees/payment-view";
 import { PROMISE_FEATURE, promiseSummary } from "@/lib/fees/promises";
@@ -21,6 +22,7 @@ import { FeeHead } from "../_components/fee-head";
 import { ModeIcon, PayPill, modeWord, pct } from "../_components/bits";
 import { CancelSheet, PaymentSheet } from "../_components/payment-sheet";
 import { FailedLinkButton } from "./failed-link";
+import { AskCancelButton, MatchSheet } from "./online-check";
 import { AdmissionFees } from "./admission-fees";
 import { ClassFees, FEE_SORTS } from "./class-fees";
 import { toSheet } from "../_lib/pay-sheet";
@@ -40,6 +42,8 @@ const MODES = [
   { value: "CHEQUE", label: "Cheque" }, { value: "BANK_TRANSFER", label: "Bank transfer" }, { value: "NET_BANKING", label: "Net banking" }, { value: "GATEWAY", label: "Online (Razorpay)" },
 ];
 const MODE_ORDER = ["UPI", "CASH", "CHEQUE", "GATEWAY", "BANK_TRANSFER", "CARD", "NET_BANKING"];
+/** How the parent paid on Razorpay, in plain words. */
+const METHOD: Record<string, string> = { upi: "UPI", card: "Card", netbanking: "Net banking", wallet: "Wallet", emi: "EMI", bank_transfer: "Bank transfer" };
 
 /** Fee Dashboard (06 §2, mod-fees.jsx): money as it comes in today, what is pending and overdue. */
 export default async function FeeDashboardPage({ searchParams }: { searchParams: SearchParams }) {
@@ -56,6 +60,7 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
   const page = Math.max(1, Number(one(sp.page)) || 1);
   const payId = one(sp.pay);
   const cancelId = one(sp.cancel);
+  const matchId = one(sp.match);
   const today = p.today;
   const from = per.from ?? new Date("2000-01-01T00:00:00Z");
   const to = per.to ?? today;
@@ -76,15 +81,19 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
       promisesOn ? promiseSummary(tx, today, p.viewer.yearId) : Promise.resolve(null),
     ]);
     const upiToday = (await modeBreakdown(tx, today, today)).find((m) => m.mode === "UPI")?.count ?? 0;
-    const stuckIds = [...new Set([...failed.failed.map((f) => f.studentId), ...failed.stuck.map((s) => s.studentId)])];
+    // Online payments to check (A8): only for the people who collect fees.
+    const [unmatched, reversals] = p.desk ? await Promise.all([unmatchedOnline(tx, addDays(today, -30)), reversalsToCheck(tx, addDays(today, -30))]) : [[], []];
+    const matching = p.desk && /^[0-9a-f-]{36}$/i.test(matchId) ? unmatched.find((u) => u.id === matchId) ?? null : null;
+    const suggested = matching ? await studentsForPayer(tx, matching.payer.contact) : [];
+    const stuckIds = [...new Set([...failed.failed.map((f) => f.studentId), ...failed.stuck.map((s) => s.studentId), ...reversals.map((r) => r.studentId)])];
     const [stuckStudents, stuckClasses, guardians] = await Promise.all([
       tx.student.findMany({ where: { id: { in: stuckIds } }, select: { id: true, fullName: true } }),
       classOfStudents(tx, stuckIds, p.viewer.yearId),
-      tx.studentGuardian.findMany({ where: { studentId: { in: stuckIds }, archivedAt: null }, orderBy: [{ isPrimary: "desc" }], include: { guardian: { select: { name: true, phone: true } } } }),
+      tx.studentGuardian.findMany({ where: { studentId: { in: stuckIds }, ...OPEN_LINK }, orderBy: [{ isPrimary: "desc" }], include: { guardian: { select: { name: true, phone: true } } } }),
     ]);
     const sheet = payId ? await paymentView(tx, p.current.ctx, p.viewer, payId, p.tz) : null;
     const cancel = cancelId ? await paymentView(tx, p.current.ctx, p.viewer, cancelId, p.tz) : null;
-    return { tiles, trend, modes, failed, waiting, list, counts, fc, promises, upiToday, stuckStudents, stuckClasses, guardians, sheet, cancel };
+    return { tiles, trend, modes, failed, waiting, list, counts, fc, promises, upiToday, stuckStudents, stuckClasses, guardians, sheet, cancel, unmatched, reversals, matching, suggested };
   });
 
   const { tiles, trend, list } = data;
@@ -109,7 +118,8 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
   const whenWord = per.words;
   const failedRows = [
     ...data.failed.failed.map((f) => ({ id: f.id, kind: "payment" as const, studentId: f.studentId, amount: f.amountPaise, at: f.createdAt, why: f.failureReason ?? "Declined by the bank" })),
-    ...data.failed.stuck.map((s) => ({ id: s.id, kind: "link" as const, studentId: s.studentId, amount: s.amountPaise, at: s.lastAttemptAt ?? s.updatedAt, why: "Not confirmed by Razorpay within 30 minutes" })),
+    ...data.failed.stuck.map((s) => ({ id: s.id, kind: "link" as const, studentId: s.studentId, amount: s.amountPaise, at: s.lastAttemptAt ?? s.updatedAt,
+      why: s.gatewayStatus === "authorized" ? "The bank holds the money; Razorpay has not taken it yet" : "Not confirmed by Razorpay within 30 minutes" })),
   ].sort((a, b) => b.at.getTime() - a.at.getTime()).slice(0, 8);
   const dayWord = (d: Date) => (formatDate(d, p.tz) === formatDate(today, "UTC") ? formatTime(d, p.tz) : `${formatDate(d, p.tz)}, ${formatTime(d, p.tz)}`);
   const longDate = new Intl.DateTimeFormat("en-IN", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }).format(today);
@@ -173,6 +183,7 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
           <div className="grid lg:grid-cols-2 xl:grid-cols-1 gap-5 lg:gap-6 lg:col-span-2 xl:col-span-1 items-start">
             <Card>
               <CardHeader title="Failed online payments" description="No receipt was made for these" icon={CircleX} action={<Pill tone={failedRows.length ? "bad" : "ok"}>{failedRows.length}</Pill>} />
+              {data.failed.started > 0 && <p className="px-5 pb-2 -mt-1 text-[12.5px] text-ink3">{data.failed.started} {data.failed.started === 1 ? "payment was" : "payments were"} opened and not paid in the last 7 days: Razorpay says no money was taken.</p>}
               {failedRows.length === 0 ? (
                 <p className="px-5 pb-5 text-[13.5px] text-ink3">No failed or stuck online payments in the last 7 days.</p>
               ) : (
@@ -197,6 +208,41 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
                 </ul>
               )}
             </Card>
+            {(data.unmatched.length > 0 || data.reversals.length > 0) && (
+              <div id="online-check" className="scroll-mt-4">
+                <Card>
+                  <CardHeader title="Online payments to check" description="Razorpay took or gave back money that needs a person" icon={ShieldQuestion} action={<Pill tone="warn">{data.unmatched.length + data.reversals.length}</Pill>} />
+                  <ul className="px-2 pb-2">
+                    {data.unmatched.map((u) => (
+                      <li key={u.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sunken/70">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-[14px] truncate">{u.amountPaise !== null ? formatRupees(u.amountPaise) : "Amount not known"} <span className="text-ink3 font-normal">· not matched to a student</span></p>
+                          <p className="text-[12.5px] text-ink3 truncate">{dayWord(u.receivedAt)}{u.payer.contact ? ` · paid from ${u.payer.contact}` : ""}{u.payer.method ? ` · ${METHOD[u.payer.method] ?? u.payer.method}` : ""}</p>
+                          <p className="text-[12px] text-ink3 font-mono truncate">{u.gatewayPaymentId}</p>
+                        </div>
+                        {u.amountPaise !== null && <ButtonLink href={qs(HREF, { ...keep, match: u.id })} scroll={false} size="sm" variant="soft">Post to a student</ButtonLink>}
+                      </li>
+                    ))}
+                    {data.reversals.map((r) => {
+                      const s = data.stuckStudents.find((x) => x.id === r.studentId);
+                      const what = r.kind === "refund" ? `Razorpay refunded ${r.amountPaise !== null ? formatRupees(r.amountPaise) : "it"}` : `The parent's bank disputed ${r.amountPaise !== null ? formatRupees(r.amountPaise) : "it"}`;
+                      return (
+                        <li key={r.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sunken/70">
+                          <Link href={payHref(r.paymentId)} scroll={false} className="min-w-0 flex-1 text-left">
+                            <p className="font-semibold text-[14px] truncate">{s?.fullName ?? "Student"} <span className="text-ink3 font-normal">· {data.stuckClasses.get(r.studentId)?.label ?? ""}</span></p>
+                            <p className="text-[12.5px] text-ink3 truncate">{what} of {formatRupees(r.paymentPaise)} · {dayWord(r.at)}{r.reference ? ` · ${r.reference}` : ""}</p>
+                            <p className="text-[12.5px] text-ink3">The receipt still stands until a person cancels it.</p>
+                          </Link>
+                          {r.asked ? <Pill tone="info">Waiting in Approvals</Pill>
+                            : r.partial ? <ButtonLink href={`${BASE}/concessions?do=refund&student=${r.studentId}`} size="sm" variant="soft">Record the refund</ButtonLink>
+                              : <AskCancelButton transactionId={r.id} />}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </Card>
+              </div>
+            )}
             {data.promises && (
               <Card>
                 <CardHeader title="Promises to pay" description={`Made on calls, with the promised date in ${data.promises.term.label}`} icon={Handshake}
@@ -275,6 +321,10 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
         </div>
       </Stack>
 
+      {data.matching && data.matching.amountPaise !== null && (
+        <MatchSheet closeHref={here} transactionId={data.matching.id} amount={formatRupees(data.matching.amountPaise)} when={dayWord(data.matching.receivedAt)}
+          payer={data.matching.payer.contact ?? data.matching.payer.email ?? null} reference={data.matching.gatewayPaymentId ?? ""} suggested={data.suggested.map((x) => ({ id: x.id, name: x.fullName, admissionNo: x.admissionNo }))} />
+      )}
       {data.sheet && <PaymentSheet p={toSheet(data.sheet, today)} closeHref={here} cancelHref={qs(HREF, { ...keep, cancel: data.sheet.id })} canEdit={p.does("dashboard")} ledgerHref={p.may("ledger") ? `${BASE}/ledger?student=${data.sheet.studentId}` : null} />}
       {data.cancel && data.cancel.status === "POSTED" && p.does("dashboard") && (
         <CancelSheet p={toSheet(data.cancel, today)} closeHref={qs(HREF, { ...keep, pay: data.cancel.id })} doneHref={here}

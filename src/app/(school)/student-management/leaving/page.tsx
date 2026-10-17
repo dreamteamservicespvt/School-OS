@@ -17,6 +17,7 @@ import { BASE, studentPage } from "../_lib/page";
 import { StudentsHead } from "../_lib/head";
 import { CERT_LABEL, CHECK_LABEL, LEAVING_TYPE_LABEL, studentFacts, tcFor } from "./load";
 import { leavingTabs } from "./sub-tabs";
+import { studentIdsForFilter } from "@/lib/students/find";
 
 export const metadata: Metadata = { title: "Leaving & Alumni" };
 
@@ -39,7 +40,7 @@ export default async function LeavingPage({ searchParams }: { searchParams: Prom
       ...(range ? { lastDate: dateWhere(range) } : {}),
       ...(f.type ? { type: f.type as "TRANSFER" } : {}),
       ...(f.clearance === "pending" ? { checks: { some: { status: { in: ["PENDING", "WAIVER_ASKED"] } } } } : f.clearance === "clear" ? { checks: { none: { status: { in: ["PENDING", "WAIVER_ASKED"] } } } } : {}),
-      ...(params.q ? { OR: [{ reason: { contains: params.q, mode: "insensitive" as const } }, { studentId: { in: (await tx.student.findMany({ where: { OR: [{ fullName: { contains: params.q, mode: "insensitive" } }, { admissionNo: { contains: params.q, mode: "insensitive" } }] }, select: { id: true } })).map((s) => s.id) } }] } : {}),
+      ...(params.q ? { OR: [{ reason: { contains: params.q, mode: "insensitive" as const } }, { studentId: { in: await studentIdsForFilter(tx, params.q) } }] } : {}),
     };
     const orderBy = orderByFor(params, { lastDate: { lastDate: params.dir } }, [{ lastDate: "asc" }]);
     const [total, rows] = await Promise.all([

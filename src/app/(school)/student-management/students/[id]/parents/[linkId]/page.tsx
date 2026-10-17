@@ -47,7 +47,7 @@ export default async function LinkSettingsPage({ params }: { params: Promise<{ i
               {can.seeRestricted ? (
                 <>
                   <FormCheck name="restricted" label="This person must not collect or contact the student" defaultChecked={Boolean(l.restriction)}
-                    help="They leave the pickup list, cannot be the primary contact, and show in red in Front Office, Student Pickup." />
+                    help="They leave the pickup list, cannot be the primary contact, and show in red in Front Office, Student Pickup. The student is taken off their Parent Link (no fees, receipts, consent or PTM booking there), and they get none of the student's messages." />
                   <FormArea name="restriction" label="Note" rows={2} defaultValue={l.restriction} help="For example: court order dated 03-02-2026; mother has custody." />
                   <FormArea name="reason" label="Reason for the change" rows={2} help="Needed when the restriction is set, changed or removed. Kept in the history." />
                 </>

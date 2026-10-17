@@ -11,6 +11,7 @@ import { canDecide, decide } from "@/lib/approvals";
 import { DOCUMENT_TYPES, IMAGE_TYPES, saveFile } from "@/lib/files";
 import { instantOf } from "@/lib/front-office/time";
 import { currentYear } from "@/lib/academic/years";
+import { findStudents } from "@/lib/students/find";
 import {
   hostelAction, inHostel, need, str, id, optionalId, ids, text, maybe, int, money, isoDate, minute, on, HostelProblem, UUID_RE, type HostelWork,
 } from "@/lib/hostel/act";
@@ -64,16 +65,13 @@ export async function findStudentsAction(q: string, mode: "new" | "resident"): P
     return await inHostel("view", async (w) => {
       if (mode === "new" && !w.can.allocate) return [];
       if (mode === "resident" && !(w.can.outings || w.can.rollcall || w.can.allocate)) return [];
-      const match = { OR: [{ fullName: { contains: term, mode: "insensitive" as const } }, { admissionNo: { contains: term, mode: "insensitive" as const } }] };
       const active = await w.tx.bedAllocation.findMany({ where: { status: "ACTIVE" }, select: { studentId: true, hostelId: true, roomId: true, bedId: true } });
       const activeBy = new Map(active.map((a) => [a.studentId, a]));
-      let rows: { id: string }[];
-      if (mode === "new") {
-        rows = await w.tx.student.findMany({ where: { archivedAt: null, status: "ACTIVE", ...match, id: { notIn: active.map((a) => a.studentId) } }, select: { id: true }, orderBy: { fullName: "asc" }, take: 12 });
-      } else {
-        const mineIds = active.filter((a) => w.mine === null || w.mine.includes(a.hostelId)).map((a) => a.studentId);
-        rows = await w.tx.student.findMany({ where: { archivedAt: null, ...match, id: { in: mineIds } }, select: { id: true }, orderBy: { fullName: "asc" }, take: 12 });
-      }
+      // The one student search, among students without a bed, or living in the person's own hostels.
+      const year = await currentYear(w.tx, w.ctx);
+      const rows = mode === "new"
+        ? await findStudents(w.tx, term, { scope: {}, where: { id: { notIn: active.map((a) => a.studentId) } }, yearId: year?.id ?? null, statuses: ["ACTIVE"], take: 12 })
+        : await findStudents(w.tx, term, { scope: {}, where: { id: { in: active.filter((a) => w.mine === null || w.mine.includes(a.hostelId)).map((a) => a.studentId) } }, yearId: year?.id ?? null, statuses: "any", take: 12 });
       const info = await studentsInfo(w.tx, w.ctx, rows.map((r) => r.id));
       const rooms = await w.tx.hostelRoom.findMany({ where: { id: { in: rows.map((r) => activeBy.get(r.id)?.roomId).filter((x): x is string => Boolean(x)) } }, select: { id: true, roomNo: true } });
       const beds = await w.tx.hostelBed.findMany({ where: { id: { in: rows.map((r) => activeBy.get(r.id)?.bedId).filter((x): x is string => Boolean(x)) } }, select: { id: true, bedNo: true } });

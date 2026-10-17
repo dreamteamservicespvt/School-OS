@@ -4,6 +4,7 @@
 import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
+import { OPEN_LINK } from "../students/guardian-access";
 import { renderDocument } from "../documents";
 import { currentDesign } from "../documents/designs";
 import { formatDate } from "../format";
@@ -24,7 +25,7 @@ export async function busPasses(tx: Tx, ctx: SchoolContext, assignmentIds: strin
     tx.route.findMany({ where: { id: { in: [...new Set(places.map((p) => p.routeId))] } }, include: { stops: { where: { archivedAt: null }, select: { id: true, pickupMin: true } } } }),
     tx.stop.findMany({ where: { id: { in: [...new Set(places.map((p) => p.stopId))] } } }),
     tx.academicYear.findMany({ where: { id: { in: [...new Set(places.map((p) => p.academicYearId).filter((x): x is string => Boolean(x)))] } } }),
-    tx.studentGuardian.findMany({ where: { studentId: { in: places.map((p) => p.studentId) }, archivedAt: null }, include: { guardian: { select: { phone: true } } }, orderBy: { isPrimary: "desc" } }),
+    tx.studentGuardian.findMany({ where: { studentId: { in: places.map((p) => p.studentId) }, ...OPEN_LINK }, include: { guardian: { select: { phone: true } } }, orderBy: { isPrimary: "desc" } }),
   ]);
   const students = await tx.student.findMany({ where: { id: { in: places.map((p) => p.studentId) } }, select: { id: true, bloodGroup: true, campusId: true } });
   const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { code: true } });

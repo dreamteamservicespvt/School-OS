@@ -10,15 +10,15 @@ import { momentWhere } from "../periods";
 import { formatRupees } from "../format";
 import { classOfStudents } from "./dues";
 import { concessionTypeLabel, CONCESSION_TYPES, percentWord } from "./words";
+import { studentIdsForFilter } from "../students/find";
 
 const ZERO = BigInt(0);
 
 export type ConcessionFilter = { q?: string | null; status?: string | null; range?: DayRange | null; timeZone: string; scholarship?: boolean; ids?: string[] };
 
-/** Ids of students whose name or admission number matches. */
-async function studentsLike(tx: Tx, q: string) {
-  const rows = await tx.student.findMany({ where: { OR: [{ fullName: { contains: q, mode: "insensitive" } }, { admissionNo: { contains: q, mode: "insensitive" } }] }, select: { id: true }, take: 500 });
-  return rows.map((r) => r.id);
+/** Ids of students matching the search (the one student search). */
+function studentsLike(tx: Tx, q: string) {
+  return studentIdsForFilter(tx, q);
 }
 
 async function people(tx: Tx, ids: (string | null)[]) {

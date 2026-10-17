@@ -5,6 +5,7 @@ import type { SchoolContext, Tx } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { currentYear } from "@/lib/academic/years";
 import { STUDYING } from "@/lib/students/labels";
+import { studentIdsMatching } from "@/lib/students/find";
 import { holdsSeat, routeSeats } from "@/lib/transport/places";
 import { clockOf, rupeesShort, showPlate, vehicleType } from "@/lib/transport/words";
 
@@ -56,7 +57,10 @@ export async function assignCandidates(tx: Tx, ctx: SchoolContext, today: Date, 
   sections.sort((a, b) => a.schoolClass.sortOrder - b.schoolClass.sortOrder || a.name.localeCompare(b.name));
   const label = (s: (typeof sections)[number]) => `${s.schoolClass.name} ${s.name}`;
   const q = f.q.trim();
-  const studentWhere = f.studentId ? { id: f.studentId } : q.length >= 2 ? { OR: [{ fullName: { contains: q, mode: "insensitive" as const } }, { admissionNo: { contains: q, mode: "insensitive" as const } }] } : null;
+  // A name search is the one student search (one letter wrong allowed, admission or roll number), best match first.
+  const found = !f.studentId && q.length >= 2 ? await studentIdsMatching(tx, q, { scope: {}, yearId: year.id, byParent: false }) : null;
+  const studentWhere = f.studentId ? { id: f.studentId } : found ? { id: { in: found } } : null;
+  const order = new Map((found ?? []).map((id, i) => [id, i]));
   const options = sections.map((s) => ({ value: s.id, label: label(s) }));
   if (!f.sectionId && !studentWhere) return { sections: options, students: [], year };
   const enr = await tx.enrolment.findMany({
@@ -67,7 +71,7 @@ export async function assignCandidates(tx: Tx, ctx: SchoolContext, today: Date, 
   const students = enr.map((e) => {
     const sec = sections.find((s) => s.id === e.sectionId);
     return { id: e.studentId, name: e.student.fullName, admissionNo: e.student.admissionNo, cls: sec ? label(sec).replace(/^Class\s+/i, "") : "", has: taken.has(e.studentId) };
-  }).sort((a, b) => Number(a.has) - Number(b.has) || a.name.localeCompare(b.name));
+  }).sort((a, b) => Number(a.has) - Number(b.has) || (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0) || a.name.localeCompare(b.name));
   return { sections: options, students, year };
 }
 

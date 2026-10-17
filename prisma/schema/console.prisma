@@ -238,6 +238,58 @@ model SchoolStatusChange {
   @@map("school_status_change")
 }
 
+enum SupportAccessStatus {
+  WAITING
+  ALLOWED
+  DECLINED
+  ENDED
+}
+
+/// Support Access Request: a DREAM TEAM person asks to look inside one school's
+/// School Master to help (07-super-admin.md §3.4). Only that school's School Admin
+/// or Principal can allow it; it ends by itself at the time given. The support
+/// browser's entry is a random token kept only as a hash. The person never gets a
+/// school login: they look through the school's own wall (withSchool) for that one
+/// school, and can change nothing.
+model SupportAccessRequest {
+  id              String              @id @default(uuid()) @db.Uuid
+  forSchoolId     String              @map("for_school_id") @db.Uuid
+  schoolName      String              @map("school_name")
+  /// The Super Admin User who asked.
+  requestedById   String              @map("requested_by_id") @db.Uuid
+  requestedByName String              @map("requested_by_name")
+  reason          String
+  /// How long, once allowed: 60 (1 hour), 240 (4 hours) or 1440 (1 day).
+  lengthMinutes   Int                 @map("length_minutes")
+  status          SupportAccessStatus @default(WAITING)
+  /// The School Admin or Principal who allowed or declined it.
+  decidedById     String?             @map("decided_by_id") @db.Uuid
+  decidedByName   String?             @map("decided_by_name")
+  decidedAt       DateTime?           @map("decided_at")
+  declineReason   String?             @map("decline_reason")
+  /// Start and end of the allowed time.
+  startsAt        DateTime?           @map("starts_at")
+  endsAt          DateTime?           @map("ends_at")
+  endedAt         DateTime?           @map("ended_at")
+  /// time (the time given ran out), school (ended from Approvals), support (DREAM TEAM ended it), withdrawn, paused (the school was suspended or closed)
+  endedHow        String?             @map("ended_how")
+  endedByName     String?             @map("ended_by_name")
+  /// A one-time ticket from the console to the school's own web address, hashed; it works for 1 minute.
+  entryTicketHash      String?        @unique @map("entry_ticket_hash")
+  entryTicketExpiresAt DateTime?      @map("entry_ticket_expires_at")
+  /// The support browser's entry token (its cookie), hashed.
+  entryTokenHash  String?             @unique @map("entry_token_hash")
+  /// The console sign-in it was entered from: signing out of the console ends the entry.
+  entrySessionId  String?             @map("entry_session_id") @db.Uuid
+  enteredAt       DateTime?           @map("entered_at")
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
+
+  @@index([forSchoolId, createdAt])
+  @@index([status])
+  @@map("support_access_request")
+}
+
 /// School Note: a short note the team writes about a school. Only DREAM TEAM sees it.
 model SchoolNote {
   id          String    @id @default(uuid()) @db.Uuid

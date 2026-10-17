@@ -12,9 +12,11 @@ import { encryptField, maskLast4 } from "../crypto";
 import { requestApproval } from "../approvals";
 import { getStudentSettings } from "./settings";
 import { PROFILE_CHANGES, STATUS_LABEL, type StudentStatusKey } from "./labels";
-import { runEnrolled } from "./hooks";
+import { runEnrolled, runSectionChanged } from "./hooks";
 // Fee Management gives the class fee plan to a student who joins a class (A2, A13).
 import "../fees/enrolled";
+// Examination & Results moves a student's marks and results with a section change (G23).
+import "../exams/student-hooks";
 
 export class StudentProblem extends Error {
   /** The form field the problem is about, so it shows next to that field. */
@@ -442,6 +444,7 @@ export async function changeSection(tx: Tx, ctx: SchoolContext, studentId: strin
     data: { schoolId: ctx.schoolId, studentId, enrolmentId: enr.id, fromSectionId: enr.sectionId, toSectionId: to.id, fromRollNo: enr.rollNo, toRollNo: rollNo, reason, createdById: ctx.userId },
   });
   const from = await tx.section.findUniqueOrThrow({ where: { id: enr.sectionId }, include: { schoolClass: true } });
+  await runSectionChanged(tx, ctx, { studentId, academicYearId: year.id, fromSectionId: enr.sectionId, toSectionId: to.id });
   await writeAudit(tx, ctx, {
     action: "section-changed",
     recordType: "Enrolment",
@@ -461,6 +464,7 @@ export async function undoSectionChange(tx: Tx, ctx: SchoolContext, changeId: st
   const clash = ch.fromRollNo !== null && (await tx.enrolment.findFirst({ where: { sectionId: ch.fromSectionId, academicYearId: enr.academicYearId, rollNo: ch.fromRollNo, archivedAt: null } }));
   await tx.enrolment.update({ where: { id: enr.id }, data: { sectionId: ch.fromSectionId, rollNo: clash ? await nextRollNo(tx, ch.fromSectionId, enr.academicYearId) : ch.fromRollNo } });
   await tx.sectionChange.update({ where: { id: ch.id }, data: { undoneAt: new Date() } });
+  await runSectionChanged(tx, ctx, { studentId: enr.studentId, academicYearId: enr.academicYearId, fromSectionId: ch.toSectionId, toSectionId: ch.fromSectionId });
   await writeAudit(tx, ctx, { action: "section-change-undone", recordType: "Enrolment", recordId: enr.id, before: { sectionId: ch.toSectionId }, after: { sectionId: ch.fromSectionId } });
 }
 

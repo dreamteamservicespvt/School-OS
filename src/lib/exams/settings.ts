@@ -68,9 +68,21 @@ export async function examSettings(tx: Tx, ctx: SchoolContext) {
       graceMarks: s.graceMarks,
       compartmentSubjects: s.compartmentSubjects,
       absentRule: s.absentRule,
+      lateJoinRule: s.lateJoinRule,
     } satisfies PassRules,
   };
 }
+
+/** Late joiners (G23): how marks are added for a student who joined after the marks were in. */
+export const LATE_MARKS = [
+  { value: "approval", label: "Added with approval", help: "The teacher asks; the Principal (or the approver set for marks changes) approves in Approvals. Then the result is published like any other." },
+  { value: "off", label: "Not added", help: "The student stays \"Joined after this exam\" and is left out of it." },
+] as const;
+/** Late joiners (G23): how an exam they were left out of counts in the final result. */
+export const LATE_JOIN_RULES = [
+  { value: "leave-out", label: "Left out", help: "The exams the student sat count in its place." },
+  { value: "zero", label: "Counted as 0%", help: "The missed exam's weight counts with 0%." },
+] as const;
 
 export type RulesInput = {
   ranksOn: boolean;
@@ -86,11 +98,15 @@ export type RulesInput = {
   reminderDaysBefore: number;
   gpaOn: boolean;
   defaultScaleId: string;
+  lateMarks: "approval" | "off";
+  lateJoinRule: "leave-out" | "zero";
 };
 
 export async function saveRules(tx: Tx, ctx: SchoolContext, input: RulesInput) {
   const before = await examSettings(tx, ctx);
   if (!(await tx.gradeScale.findFirst({ where: { id: input.defaultScaleId, archivedAt: null } }))) throw new ExamRuleError("Choose the school's grade scale.", "defaultScaleId");
+  if (!LATE_MARKS.some((x) => x.value === input.lateMarks)) throw new ExamRuleError("Choose how marks are added for a student who joined late.", "lateMarks");
+  if (!LATE_JOIN_RULES.some((x) => x.value === input.lateJoinRule)) throw new ExamRuleError("Choose how an exam a late joiner missed counts in the final result.", "lateJoinRule");
   if (input.gradeOnlyGrades.length < 2) throw new ExamRuleError("Give at least 2 grades for grade-only subjects, such as A, B, C.", "gradeOnlyGrades");
   if (input.publishRoles.length === 0) throw new ExamRuleError("Choose at least one role that may publish results.", "publishRoles");
   const data = { ...input, updatedById: ctx.userId };
@@ -117,20 +133,60 @@ export async function saveWeights(tx: Tx, ctx: SchoolContext, weights: FinalWeig
   await writeAudit(tx, ctx, { action: "changed-final-weights", recordType: "Exam Settings", recordId: ctx.schoolId, before: before.finalWeights as unknown as Prisma.InputJsonValue, after: clean as unknown as Prisma.InputJsonValue });
 }
 
+const PATTERN_VALUES: ExamPattern[] = ["PERCENTAGE", "GRADING", "CGPA"];
+
+/**
+ * The default exam pattern per class (08 §6): offered first when a datesheet is
+ * made for the class. A class left out uses Percentage.
+ */
 export async function saveClassPatterns(tx: Tx, ctx: SchoolContext, patterns: Record<string, ExamPattern>) {
   const before = await examSettings(tx, ctx);
-  await tx.examSettings.update({ where: { schoolId: ctx.schoolId }, data: { classPatterns: patterns, updatedById: ctx.userId } });
-  await writeAudit(tx, ctx, { action: "changed-class-patterns", recordType: "Exam Settings", recordId: ctx.schoolId, before: before.classPatterns, after: patterns });
+  const ids = Object.keys(patterns);
+  const classes = ids.length ? await tx.schoolClass.findMany({ where: { id: { in: ids }, archivedAt: null }, select: { id: true } }) : [];
+  if (classes.length !== ids.length) throw new ExamRuleError("A class here was archived or changed. Reload the page.");
+  const clean: Record<string, ExamPattern> = {};
+  for (const [id, p] of Object.entries(patterns)) {
+    if (!PATTERN_VALUES.includes(p)) throw new ExamRuleError("Choose Percentage, Grading or CGPA for each class.");
+    if (p !== "PERCENTAGE") clean[id] = p;
+  }
+  await tx.examSettings.update({ where: { schoolId: ctx.schoolId }, data: { classPatterns: clean, updatedById: ctx.userId } });
+  await writeAudit(tx, ctx, { action: "changed-class-patterns", recordType: "Exam Settings", recordId: ctx.schoolId, before: before.classPatterns, after: clean });
+  return clean;
 }
 
+/** The boards the school's classes follow: the school's board, its second board, and any board a class sets for itself. */
+export async function boardsInUse(tx: Tx, ctx: SchoolContext) {
+  const school = await tx.school.findUnique({ where: { id: ctx.schoolId }, select: { board: true, preferences: true } });
+  const second = (school?.preferences as { secondBoard?: string | null } | null)?.secondBoard ?? null;
+  const classes = await tx.schoolClass.findMany({ where: { archivedAt: null }, select: { name: true, board: true, sortOrder: true }, orderBy: { sortOrder: "asc" } });
+  const names = [...new Set([school?.board, second, ...classes.map((c) => c.board)].filter((b): b is string => Boolean(b && b.trim())))];
+  return names.map((board) => ({
+    board,
+    isSchoolBoard: board === school?.board,
+    classes: classes.filter((c) => (c.board ?? school?.board ?? null) === board).map((c) => c.name),
+  }));
+}
+
+export const REPORT_FORMATS = ["classic", "modern", "cbse"] as const;
+
+/**
+ * The grade scale and report card format for each board (08 §6, Done when 12).
+ * Only boards the school's classes follow can be set. An empty choice means
+ * the school's grade scale or the school's report card design.
+ */
 export async function saveBoards(tx: Tx, ctx: SchoolContext, boards: Record<string, BoardChoice>) {
   const before = await examSettings(tx, ctx);
+  const inUse = (await boardsInUse(tx, ctx)).map((b) => b.board);
+  const clean: Record<string, BoardChoice> = {};
   for (const [board, choice] of Object.entries(boards)) {
+    if (!inUse.includes(board)) throw new ExamRuleError(`No class follows ${board}. Set a class's board in Academic Management, Classes & Sections, then reload this page.`);
     if (choice.scaleId && !(await tx.gradeScale.findFirst({ where: { id: choice.scaleId, archivedAt: null } }))) throw new ExamRuleError(`The grade scale chosen for ${board} was archived. Choose again.`);
-    if (choice.reportBase && !["classic", "modern", "cbse"].includes(choice.reportBase)) throw new ExamRuleError("Choose a report card format.");
+    if (choice.reportBase && !(REPORT_FORMATS as readonly string[]).includes(choice.reportBase)) throw new ExamRuleError(`Choose a report card format for ${board}.`);
+    if (choice.scaleId || choice.reportBase) clean[board] = { scaleId: choice.scaleId || null, reportBase: choice.reportBase || null };
   }
-  await tx.examSettings.update({ where: { schoolId: ctx.schoolId }, data: { boards: boards as unknown as Prisma.InputJsonValue, updatedById: ctx.userId } });
-  await writeAudit(tx, ctx, { action: "changed-board-settings", recordType: "Exam Settings", recordId: ctx.schoolId, before: before.boards as unknown as Prisma.InputJsonValue, after: boards as unknown as Prisma.InputJsonValue });
+  await tx.examSettings.update({ where: { schoolId: ctx.schoolId }, data: { boards: clean as unknown as Prisma.InputJsonValue, updatedById: ctx.userId } });
+  await writeAudit(tx, ctx, { action: "changed-board-settings", recordType: "Exam Settings", recordId: ctx.schoolId, before: before.boards as unknown as Prisma.InputJsonValue, after: clean as unknown as Prisma.InputJsonValue });
+  return clean;
 }
 
 // ---------- Grade scales ----------
@@ -178,7 +234,7 @@ export async function importPreset(tx: Tx, ctx: SchoolContext, key: string) {
 export async function archiveGradeScale(tx: Tx, ctx: SchoolContext, id: string) {
   const settings = await examSettings(tx, ctx);
   if (settings.defaultScaleId === id) throw new ExamRuleError("This is the school's grade scale. Choose another one as the school's scale first.");
-  const inBoards = Object.entries(settings.boards).find(([, c]) => c.scaleId === id);
+  const inBoards = Object.entries(settings.boards).find(([, c]) => c?.scaleId === id);
   if (inBoards) throw new ExamRuleError(`This scale is used for ${inBoards[0]} classes. Choose another one for that board first.`);
   const usedBy = await tx.exam.findFirst({ where: { gradeScaleId: id, archivedAt: null, status: { not: "RESULTS_PUBLISHED" } } });
   if (usedBy) throw new ExamRuleError(`${usedBy.title} uses this scale. Change the exam's scale first.`);
@@ -265,20 +321,38 @@ export async function archiveArea(tx: Tx, ctx: SchoolContext, id: string) {
   await writeAudit(tx, ctx, { action: "archived", recordType: "Co-scholastic Area", recordId: id, before: { name: row.name } });
 }
 
-export async function saveCompetency(tx: Tx, ctx: SchoolContext, input: { subjectId: string; name: string; levels: string[] }) {
-  const name = input.name.trim();
+/**
+ * A competency of a subject and its levels, best last (competency-based
+ * assessment, 08 §6). Changing one keeps the levels already given: a level
+ * that is taken out stays on past report cards.
+ */
+export async function saveCompetency(tx: Tx, ctx: SchoolContext, input: { id?: string | null; subjectId: string; name: string; levels: string[] }) {
+  const name = input.name.trim().replace(/\s+/g, " ");
   if (!name) throw new ExamRuleError("Type the competency, such as Reads with understanding.", "name");
   if (name.length > 120) throw new ExamRuleError("The competency can be at most 120 characters.", "name");
   const subject = await tx.subject.findFirst({ where: { id: input.subjectId, archivedAt: null } });
   if (!subject) throw new ExamRuleError("Choose the subject.", "subjectId");
   const levels = [...new Set(input.levels.map((l) => l.trim()).filter(Boolean))];
   if (levels.length < 2) throw new ExamRuleError("Give at least 2 levels, such as Beginning, Developing, Proficient.", "levels");
+  if (levels.length > 8) throw new ExamRuleError("Give at most 8 levels.", "levels");
+  if (levels.some((l) => l.length > 30)) throw new ExamRuleError("Each level can be at most 30 characters.", "levels");
+  const clash = await tx.competency.findFirst({ where: { subjectId: subject.id, archivedAt: null, name: { equals: name, mode: "insensitive" }, ...(input.id ? { id: { not: input.id } } : {}) } });
+  if (clash) throw new ExamRuleError(`${subject.name} already has the competency ${clash.name}.`, "name");
+  if (input.id) {
+    const before = await tx.competency.findFirst({ where: { id: input.id, archivedAt: null } });
+    if (!before) throw new ExamRuleError("This competency was archived. Reload the page.");
+    const row = await tx.competency.update({ where: { id: before.id }, data: { subjectId: subject.id, name, levels } });
+    await writeAudit(tx, ctx, { action: "changed", recordType: "Competency", recordId: row.id, before: { subjectId: before.subjectId, name: before.name, levels: before.levels }, after: { subject: subject.name, name, levels } });
+    return row;
+  }
   const row = await tx.competency.create({ data: { schoolId: ctx.schoolId, subjectId: subject.id, name, levels, createdById: ctx.userId } });
   await writeAudit(tx, ctx, { action: "created", recordType: "Competency", recordId: row.id, after: { subject: subject.name, name, levels } });
   return row;
 }
 
 export async function archiveCompetency(tx: Tx, ctx: SchoolContext, id: string) {
+  const before = await tx.competency.findFirst({ where: { id, archivedAt: null } });
+  if (!before) throw new ExamRuleError("This competency was already archived. Reload the page.");
   const row = await tx.competency.update({ where: { id }, data: { archivedAt: new Date() } });
   await writeAudit(tx, ctx, { action: "archived", recordType: "Competency", recordId: id, before: { name: row.name } });
 }

@@ -129,6 +129,24 @@ describe("final result", () => {
     expect(f).toMatchObject({ percent: 60, examsCounted: 1, complete: true });
     expect(finalResult([{ examId: "a", weight: 100, result: null }], CBSE, RULES).complete).toBe(false);
   });
+
+  // G23: a student who joined after an exam ("Joined after this exam") never blocks the final result.
+  const missed = { ...examResult([paper("Maths", 100, null)], CBSE, RULES), leftOut: true };
+  it("leaves out an exam a late joiner missed, by default: the exams they sat count in its place", () => {
+    const f = finalResult([{ examId: "hy", weight: 40, result: missed }, { examId: "an", weight: 60, result: exam(80) }], CBSE, RULES);
+    expect(f).toMatchObject({ percent: 80, complete: true, missing: 0, examsCounted: 1, outcome: "Pass" });
+    expect(f.leftOut).toBeFalsy();
+    expect(finalResult([{ examId: "hy", weight: 0, result: missed }, { examId: "an", weight: 0, result: exam(70) }], CBSE, RULES).percent).toBe(70);
+  });
+  it("counts the missed exam as 0% when the school's rule says so", () => {
+    const f = finalResult([{ examId: "hy", weight: 40, result: missed }, { examId: "an", weight: 60, result: exam(80) }], CBSE, { ...RULES, lateJoinRule: "zero" });
+    expect(f).toMatchObject({ percent: 48, complete: true, examsCounted: 2 });
+  });
+  it("a student who missed every exam that counts is left out of the final result too, not missing", () => {
+    const f = finalResult([{ examId: "hy", weight: 100, result: missed }, { examId: "ut", weight: 0, result: exam(90) }], CBSE, RULES);
+    expect(f).toMatchObject({ leftOut: true, complete: false, missing: 0, outcome: null, percent: null });
+    expect(finalResult([{ examId: "hy", weight: 100, result: missed }], CBSE, { ...RULES, lateJoinRule: "zero" }).leftOut).toBe(true);
+  });
 });
 
 describe("mark checks", () => {

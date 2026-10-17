@@ -7,7 +7,7 @@ import { periodSetup } from "@/lib/period-setup";
 import { periodFromSearch } from "@/lib/periods";
 import { withSchool } from "@/lib/db";
 import { formatDateTime } from "@/lib/format";
-import { plural } from "@/lib/academic/common";
+import { plural, wordList } from "@/lib/academic/common";
 import { examKey, finalKey, PAPER_STATUS_TONE, PAPER_STATUS_WORDS, showMarks, showPercent } from "@/lib/exams/common";
 import { examSettings } from "@/lib/exams/settings";
 import { bandsFor, finalSheet, readiness, resultSheet, type SheetRow } from "@/lib/exams/results";
@@ -140,13 +140,13 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
   const absentAny = allRows.filter((r) => Object.values(r.cells).some((c) => c.absent && !c.medical)).length;
   const studentsIn = (id: string) => data.roster.filter((x) => x === id).length;
   const publishSections = data.ready.map((r) => ({ id: r.sectionId, label: r.label, ready: r.ready, problems: r.problems, published: r.published, scheduled: r.scheduled ? formatDateTime(r.scheduled.publishOn, tz) : null, students: studentsIn(r.sectionId) || 0 }));
-  const status = published ? { words: "Published", tone: "ok" as const } : scheduled ? { words: "Publish date set", tone: "info" as const } : { words: "Draft", tone: "neutral" as const };
+  const status = published ? { words: "Published", tone: "ok" as const } : scheduled ? { words: "Publish date set", tone: "info" as const } : mine?.waiting.length ? { words: `Published · ${mine.waiting.length} to publish`, tone: "info" as const } : { words: "Draft", tone: "neutral" as const };
   const lastPublished = data.history.find((h) => h.status === "published");
   const today = new Date().toLocaleDateString("en-CA", { timeZone: tz });
 
-  // Papers with marks still missing in this section (design HyMissing).
+  // Papers with marks still missing in this section (design HyMissing). Students who joined after the exam are left out.
   const missing = !final && data.sheet ? data.sheet.columns.map((c) => ({
-    c, count: data.sheet!.rows.filter((r) => r.cells[c.id]?.missing).length,
+    c, count: data.sheet!.rows.filter((r) => !r.leftOut && r.cells[c.id]?.missing).length,
     status: data.sheet!.paperStatus.find((p) => p.entryId === c.entryId)?.status ?? "NOT_STARTED",
   })).filter((x) => x.count > 0) : [];
 
@@ -166,13 +166,27 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
       {only && missing.length > 0 && (
         <Banner tone="warn" title={`Draft. ${missing.map((m) => m.c.name).join(", ")} marks are not all in for ${section.label}.`}>A draft with missing marks cannot be published.</Banner>
       )}
-      {!only && !published && !scheduled && mine && mine.problems.length > 0 && (
+      {!only && !published && !scheduled && mine && mine.waiting.length === 0 && mine.problems.length > 0 && (
         <Banner tone="warn" title={`Draft. ${mine.problems[0]}`}>{mine.problems.slice(1).join(" ")}{missing.length ? " A draft with missing marks cannot be published." : ""}</Banner>
       )}
-      {!only && !published && !scheduled && mine?.ready && (
+      {!only && !published && !scheduled && mine?.ready && mine.waiting.length === 0 && (
         <Banner tone="info" icon={BadgeCheck} title="Ready to publish."
           action={s.publish && page.writable ? <PublishFlow size="sm" label="Review and publish" keyName={key} title={final ? "final" : exam!.title} chosen={sectionId} today={today} sections={publishSections} /> : <Pill tone="info">Waiting for the Exam In-charge</Pill>}>
           All marks are in for {section.label}. Totals, percentages{ranks ? ", ranks" : ""} and grades are worked out.
+        </Banner>
+      )}
+      {!only && mine && mine.waiting.length > 0 && (
+        <Banner tone="brand" icon={BadgeCheck} title={`Published, except ${plural(mine.waiting.length, "result")} added later: ${mine.waiting.join(", ")}.`}
+          action={s.publish && page.writable && mine.ready && !scheduled ? <PublishFlow size="sm" label="Publish" keyName={key} title={final ? "final" : exam!.title} chosen={sectionId} today={today} sections={publishSections} /> : undefined}>
+          {mine.ready ? "Marks were added for a student who joined late. Publishing it puts their report card on Parent Link and tells only their parents; the others' published results do not change." : mine.problems.join(" ")}
+        </Banner>
+      )}
+      {!only && mine && mine.leftOut.length > 0 && (
+        <Banner tone="info" title={`${wordList(mine.leftOut)} joined after ${final ? "the year's exams" : "this exam"}.`}>
+          {final
+            ? "They are left out of the final result and do not stop it being published."
+            : `Left out of ${exam!.title}; they do not stop the results being published. ${data.settings.lateMarks === "off" ? "Your school does not add late marks (Exam Settings, Late joiners)." : "To include them, the subject teacher adds their marks on each paper; this needs approval."}`}
+          {final ? "" : ` In the final result, a missed exam is ${data.settings.lateJoinRule === "zero" ? "counted as 0%" : "left out and the exams they sat count in its place"}.`}
         </Banner>
       )}
       {final && (
@@ -192,7 +206,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
     const cells: TableRow["cells"] = {};
     for (const c of data.sheet!.columns) {
       const x = r.cells[c.id];
-      cells[c.id] = !x ? { text: "—", tone: null, grade: null, v: null }
+      cells[c.id] = !x || (r.leftOut && x.missing) ? { text: "—", tone: null, grade: null, v: null }
         : x.absent ? { text: x.medical ? "ML" : "AB", tone: "info", grade: null, v: 0 }
         : x.missing ? { text: "—", tone: "warn", grade: null, v: null }
         : c.gradeOnly ? { text: x.grade ?? "", tone: null, grade: x.grade, v: null }
@@ -200,7 +214,8 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
     }
     const failedIn = data.sheet!.columns.filter((c) => r.cells[c.id]?.passed === false).map((c) => short(c.name));
     const absentIn = data.sheet!.columns.filter((c) => r.cells[c.id]?.absent && !r.cells[c.id]?.medical).map((c) => short(c.name));
-    const result = !r.complete ? { text: `${r.missing} missing`, tone: "warn" as const }
+    const result = r.leftOut ? { text: "Joined after this exam", tone: "neutral" as const }
+      : !r.complete ? { text: `${r.missing} missing`, tone: "warn" as const }
       : r.outcome === "Pass" ? (absentIn.length ? { text: `Pass · AB ${absentIn.join(", ")}`, tone: "ok" as const } : { text: "Pass", tone: "ok" as const })
       : r.outcome === "Fail" ? { text: `Fail${failedIn.length ? ` · ${failedIn.join(", ")}` : ""}`, tone: "bad" as const }
       : { text: r.outcome ?? "", tone: "warn" as const };
@@ -298,11 +313,11 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
                   { key: "n", label: "Student", render: (r) => <span className="whitespace-nowrap"><span className="text-ink3 tnum inline-block w-7">{r.rollNo ?? ""}</span><span className="font-medium">{r.name}</span></span> },
                   ...data.fin!.exams.map((e) => ({
                     key: e.id, label: `${e.title}${e.counts && e.weight ? ` · ${e.weight}%` : !e.counts ? " · not counted" : ""}`, align: "right" as const,
-                    render: (r: SheetRow) => { const x = (r as SheetRow & { exams: Record<string, { percent: number | null; complete: boolean } | null> }).exams[e.id]; return x ? (x.complete ? showPercent(x.percent) : <span className="text-warn">Incomplete</span>) : <span className="text-ink3">Waiting</span>; },
+                    render: (r: SheetRow) => { const x = (r as SheetRow & { exams: Record<string, { percent: number | null; complete: boolean; leftOut: boolean } | null> }).exams[e.id]; return x ? (x.leftOut ? <span className="text-ink3">Joined later</span> : x.complete ? showPercent(x.percent) : <span className="text-warn">Incomplete</span>) : <span className="text-ink3">Waiting</span>; },
                   })),
                   { key: "f", label: "Final", align: "right", render: (r) => r.complete ? <span className="font-semibold">{showPercent(r.percent)} · {r.grade}</span> : <span className="text-ink3">—</span> },
                   ...(ranks ? [{ key: "rk", label: "Rank", align: "center" as const, render: (r: SheetRow) => r.rank ?? "—" }] : []),
-                  { key: "o", label: "Result", render: (r) => r.complete ? <span className={cx("font-semibold text-[13px]", r.outcome === "Pass" ? "text-ok" : "text-bad")}>{r.outcome}</span> : <span className="text-ink3 text-[13px]">Waiting for exams</span> },
+                  { key: "o", label: "Result", render: (r) => r.complete ? <span className={cx("font-semibold text-[13px]", r.outcome === "Pass" ? "text-ok" : "text-bad")}>{r.outcome}</span> : <span className="text-ink3 text-[13px]">{r.leftOut ? "Joined after the exams" : "Waiting for exams"}</span> },
                 ]}
                 mobile={(r) => ({ lead: <span className={cx("w-10 h-10 rounded-xl grid place-items-center shrink-0 font-semibold text-[13px] tnum", TONE_SOFT.neutral)}>{r.rollNo ?? "–"}</span>, title: r.name, sub: data.fin!.exams.map((e) => `${e.title} ${(r as SheetRow & { exams: Record<string, { percent: number | null } | null> }).exams[e.id]?.percent ?? "–"}`).join(" · "), right: <span className="font-semibold tnum text-[14px]">{r.complete ? showPercent(r.percent) : "—"}<span className="block text-[11.5px] text-ink3 font-normal">{r.complete ? r.grade : "so far"}</span></span> })} />
             </div>

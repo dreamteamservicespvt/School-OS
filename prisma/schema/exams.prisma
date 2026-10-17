@@ -119,6 +119,13 @@ model ExamSettings {
   reminderDaysBefore  Int      @default(1) @map("reminder_days_before")
   /// GPA and CGPA worked out from the grade points (optional).
   gpaOn               Boolean  @default(false) @map("gpa_on")
+  /// Marks for a student who joined after a paper's marks were submitted or its
+  /// results published: "approval" (default) adds them only through a request
+  /// approved in Approvals; "off" leaves the student out of that exam.
+  lateMarks           String   @default("approval") @map("late_marks")
+  /// An exam a late joiner was left out of, in the final result: "leave-out"
+  /// (default; the exams they sat count in its place) or "zero" (counted as 0%).
+  lateJoinRule        String   @default("leave-out") @map("late_join_rule")
   updatedById         String?  @map("updated_by_id") @db.Uuid
   updatedAt           DateTime @updatedAt @map("updated_at")
 
@@ -213,6 +220,7 @@ model Marks {
   id          String   @id @default(uuid()) @db.Uuid
   schoolId    String   @map("school_id") @db.Uuid
   entryId     String   @map("entry_id") @db.Uuid
+  /// The student's section; it follows the student when they change section.
   sectionId   String   @map("section_id") @db.Uuid
   studentId   String   @map("student_id") @db.Uuid
   /// { [category]: number } for marked subjects.
@@ -237,14 +245,22 @@ model Marks {
   @@map("marks")
 }
 
-/// Marks Moderation: a controlled change after submission, with reason and approval.
+/// Marks Moderation: a controlled change after submission, with reason and
+/// approval. Also late marks: marks for a student who joined after the paper's
+/// marks were in, added only once approved.
 model MarksModeration {
   id            String    @id @default(uuid()) @db.Uuid
   schoolId      String    @map("school_id") @db.Uuid
-  marksId       String    @map("marks_id") @db.Uuid
+  /// Empty for late marks: the student had no marks in the paper yet.
+  marksId       String?   @map("marks_id") @db.Uuid
   entryId       String    @map("entry_id") @db.Uuid
   studentId     String    @map("student_id") @db.Uuid
-  before        Json
+  /// The section the marks are for (late marks; a change reads it from the Marks).
+  sectionId     String?   @map("section_id") @db.Uuid
+  /// "change" (a submitted mark changed) or "late" (marks for a student who joined late).
+  kind          String    @default("change")
+  /// Empty for late marks.
+  before        Json?
   after         Json
   reason        String
   approvalId    String?   @map("approval_id") @db.Uuid
@@ -271,6 +287,7 @@ model Result {
   key            String
   studentId      String       @map("student_id") @db.Uuid
   classId        String       @map("class_id") @db.Uuid
+  /// The student's section; it follows the student when they change section.
   sectionId      String       @map("section_id") @db.Uuid
   total          Float        @default(0)
   maxTotal       Float        @default(0) @map("max_total")
@@ -281,6 +298,11 @@ model Result {
   /// "Pass", "Fail", "Compartment"; empty until complete.
   outcome        String?
   complete       Boolean      @default(false)
+  /// "Joined after this exam": the student joined after the marks were in, so
+  /// is left out of the exam (never published, never blocks publishing). Set
+  /// by itself; cleared once late marks complete the result. On the final
+  /// result: left out of every exam that counts.
+  leftOut        Boolean      @default(false) @map("left_out")
   missing        Int          @default(0)
   absentPapers   Int          @default(0) @map("absent_papers")
   /// Per subject: [{ subjectId, name, max, marks, grade, absent, passed, grace, parts }].

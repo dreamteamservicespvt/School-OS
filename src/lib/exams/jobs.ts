@@ -80,7 +80,7 @@ export async function remindMarksDue(tx: Tx, ctx: SchoolContext, today: Date) {
       const p = papers.find((x) => x.sectionId === s.id);
       if (p && (p.status === "SUBMITTED" || p.status === "LOCKED")) continue;
       const sits = sitters(roster.filter((r) => r.sectionId === s.id), subject);
-      const done = sits.filter((x) => isDone(marks.find((m) => m.studentId === x.studentId && m.sectionId === s.id), subject.gradeOnly)).length;
+      const done = sits.filter((x) => isDone(marks.find((m) => m.studentId === x.studentId), subject.gradeOnly)).length;
       const allocs = await tx.teacherAllocation.findMany({ where: { sectionId: s.id, subjectId: e.subjectId, archivedAt: null }, select: { staffId: true } });
       const staff = await tx.staff.findMany({ where: { id: { in: allocs.map((a) => a.staffId) }, userLoginId: { not: null } }, select: { userLoginId: true } });
       for (const t of staff) {

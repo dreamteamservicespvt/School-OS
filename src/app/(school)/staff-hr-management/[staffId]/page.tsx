@@ -13,6 +13,7 @@ import { EMPLOYMENT_TYPES, hrSettings, statusLabel } from "@/lib/staff/settings"
 import { combineLevels, extraPermissions, roleLines } from "@/lib/staff/role-words";
 import { isoDay, monthStart, monthEnd, eachDay, isoWeekday, monthLabel, addDays } from "@/lib/staff/dates";
 import { exitTypeLabel } from "@/lib/staff/exit";
+import { academicSettings } from "@/lib/academic/settings";
 import { MODULES, type ModuleKey } from "@/lib/modules";
 import type { AccessLevel, RolePermissions } from "@/lib/roles";
 import { Card, CardBody, CardHeader, Detail } from "@/components/ui/card";
@@ -43,7 +44,6 @@ type Props = { params: Promise<{ staffId: string }>; searchParams: Promise<Recor
 export const metadata: Metadata = { title: "Staff Profile" };
 
 /** Inferred: the most periods a teacher should have in a week. */
-const PERIOD_LIMIT = 36;
 
 const TABS = [
   { key: "overview", label: "Overview" },
@@ -79,6 +79,8 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
   const editOpen = typeof sp.edit === "string" ? sp.edit : null;
   const href = (t: string) => `${BASE}/${s.id}${t === "overview" ? "" : `?tab=${t}`}`;
   const left = ["RESIGNED", "RETIRED", "TERMINATED"].includes(s.status);
+  // The school's own limit from Academic Settings (32 unless the school changed it).
+  const periodLimit = teaching ? (await withSchool(current.ctx, (tx) => academicSettings(tx, current.ctx, s.campusId))).maxPeriodsPerWeek : 0;
 
   const head = await withSchool(current.ctx, async (tx) => {
     const [manager, campus, exit, printed, login, onLeave, year] = await Promise.all([
@@ -116,7 +118,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
     { label: "Today", icon: CalendarDays, value: s.status !== "ACTIVE" ? statusLabel(s.status) : head.onLeave ? "On leave" : "–", sub: head.onLeave && s.status === "ACTIVE" ? `Until ${formatDate(head.onLeave.toDate, tz)}` : s.status === "ACTIVE" ? "Once attendance is taken" : undefined, tone: head.onLeave || s.status !== "ACTIVE" ? "warn" : undefined },
     ...(mainLeave ? [{ label: `${mainLeave.type.name} left`, icon: CalendarCheck, value: `${mainLeave.left} of ${mainLeave.given + mainLeave.adjusted}`, sub: limited.filter((b) => b !== mainLeave).slice(0, 2).map((b) => `${b.type.name.replace(/ leave$/i, "")} ${b.left}`).join(" · ") || undefined, href: href("leave") }] : []),
     ...(teaching ? [
-      { label: "Periods a week", icon: Clock, value: `${head.periods} of ${PERIOD_LIMIT}`, sub: `${head.classCount} class${head.classCount === 1 ? "" : "es"}`, tone: head.periods > PERIOD_LIMIT ? "bad" as const : undefined, href: href("workload") },
+      { label: "Periods a week", icon: Clock, value: `${head.periods} of ${periodLimit}`, sub: `${head.classCount} class${head.classCount === 1 ? "" : "es"}`, tone: head.periods > periodLimit ? "bad" as const : undefined, href: href("workload") },
       { label: "Class teacher", icon: School, value: head.classTeacher.length ? head.classTeacher.join(", ") : "No", sub: head.classTeacher.length ? "Takes daily attendance" : undefined },
     ] : []),
     { label: "Documents", icon: FolderOpen, value: `${s.documents.length - docsNeed} of ${s.documents.length}`, sub: docsNeed ? `${docsNeed} need${docsNeed === 1 ? "s" : ""} attention` : s.documents.length ? "All in order" : "None yet", tone: docsNeed ? "warn" : undefined, href: href("documents") },
@@ -570,17 +572,17 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
       ]);
       return { periods, taken, given, year };
     });
-    const pct = Math.min(100, Math.round((data.periods / PERIOD_LIMIT) * 100));
+    const pct = Math.min(100, Math.round((data.periods / periodLimit) * 100));
     return (
       <Card>
         <CardHeader title="Workload" description={data.year?.name} />
         <CardBody className="space-y-4">
           <div>
-            <p className="font-medium">{data.periods} of {PERIOD_LIMIT} periods a week</p>
-            <div className="mt-2 h-3 overflow-hidden rounded-full bg-surface-3" role="meter" aria-valuemin={0} aria-valuemax={PERIOD_LIMIT} aria-valuenow={data.periods} aria-label="Periods a week">
-              <div className={`h-full ${data.periods > PERIOD_LIMIT ? "bg-danger" : "bg-brand"}`} style={{ width: `${pct}%` }} />
+            <p className="font-medium">{data.periods} of {periodLimit} periods a week</p>
+            <div className="mt-2 h-3 overflow-hidden rounded-full bg-surface-3" role="meter" aria-valuemin={0} aria-valuemax={periodLimit} aria-valuenow={data.periods} aria-label="Periods a week">
+              <div className={`h-full ${data.periods > periodLimit ? "bg-danger" : "bg-brand"}`} style={{ width: `${pct}%` }} />
             </div>
-            {data.periods > PERIOD_LIMIT && <p className="mt-1 text-sm text-danger">Over the limit by {data.periods - PERIOD_LIMIT} periods.</p>}
+            {data.periods > periodLimit && <p className="mt-1 text-sm text-danger">Over the limit by {data.periods - periodLimit} periods.</p>}
           </div>
           <dl className="grid gap-4 sm:grid-cols-2">
             <Detail label="Substitutions taken this year">{data.taken}</Detail>

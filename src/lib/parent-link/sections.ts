@@ -22,7 +22,7 @@ import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
 
-export type ParentLinkChild = { id: string; name: string; firstName: string; classLabel: string; sectionId: string | null; classId: string | null; admissionNo: string; photoFileId: string | null };
+export type ParentLinkChild = { id: string; name: string; firstName: string; classLabel: string; sectionId: string | null; classId: string | null; campusId: string | null; admissionNo: string; photoFileId: string | null };
 
 export type GuardianView = {
   schoolId: string;

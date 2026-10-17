@@ -6,7 +6,7 @@ import "server-only";
 import type { Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import type { ListParams } from "../list";
-import { currentYear } from "../academic/years";
+import { currentYears } from "../academic/years";
 import { OPEN_LINK } from "../students/guardian-access";
 
 import { inPeriod, PERIOD_FILTERS } from "./period";
@@ -15,15 +15,15 @@ const DAY = 86400_000;
 
 /** Guardians of students studying now, optionally only in some classes or sections; never through a link with a custody restriction. */
 export async function guardianIdsIn(tx: Tx, ctx: SchoolContext, pick: { classIds?: string[]; sectionIds?: string[] }) {
-  const year = await currentYear(tx, ctx);
+  const years = await currentYears(tx, ctx);
   const narrow = Boolean(pick.classIds?.length || pick.sectionIds?.length);
   let studentIds: string[] | null = null;
   if (narrow) {
-    if (!year) return [];
+    if (!years.length) return [];
     const or: Prisma.EnrolmentWhereInput[] = [];
     if (pick.classIds?.length) or.push({ classId: { in: pick.classIds } });
     if (pick.sectionIds?.length) or.push({ sectionId: { in: pick.sectionIds } });
-    const rows = await tx.enrolment.findMany({ where: { schoolId: ctx.schoolId, academicYearId: year.id, archivedAt: null, OR: or }, select: { studentId: true } });
+    const rows = await tx.enrolment.findMany({ where: { schoolId: ctx.schoolId, academicYearId: { in: years.map((y) => y.id) }, archivedAt: null, OR: or }, select: { studentId: true } });
     studentIds = rows.map((r) => r.studentId);
   }
   const links = await tx.studentGuardian.findMany({
@@ -75,8 +75,8 @@ export async function linkSummary(tx: Tx, ctx: SchoolContext, now = new Date()) 
  */
 export async function childrenByGuardian(tx: Tx, ctx: SchoolContext, guardianIds: string[]) {
   const links = await tx.studentGuardian.findMany({ where: { schoolId: ctx.schoolId, guardianId: { in: guardianIds }, archivedAt: null, student: { archivedAt: null } }, include: { student: { select: { id: true, fullName: true } } } });
-  const year = await currentYear(tx, ctx);
-  const enrolments = year ? await tx.enrolment.findMany({ where: { schoolId: ctx.schoolId, academicYearId: year.id, archivedAt: null, studentId: { in: links.map((l) => l.studentId) } } }) : [];
+  const years = await currentYears(tx, ctx);
+  const enrolments = years.length ? await tx.enrolment.findMany({ where: { schoolId: ctx.schoolId, academicYearId: { in: years.map((y) => y.id) }, archivedAt: null, studentId: { in: links.map((l) => l.studentId) } } }) : [];
   const [classes, sections] = await Promise.all([
     tx.schoolClass.findMany({ where: { schoolId: ctx.schoolId, id: { in: enrolments.map((e) => e.classId) } }, select: { id: true, name: true } }),
     tx.section.findMany({ where: { schoolId: ctx.schoolId, id: { in: enrolments.map((e) => e.sectionId) } }, select: { id: true, name: true } }),

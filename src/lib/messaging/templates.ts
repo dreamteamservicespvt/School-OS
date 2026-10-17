@@ -72,6 +72,26 @@ export function render(text: string, values: Record<string, string | null | unde
   return { ok: true, text: text.replace(BLANK, (_, k: string) => String(values[k])) };
 }
 
+const STRAY = /\{+[^{}\n]{0,40}\}+/g;
+
+/**
+ * Braces still in a filled-in text: a mistyped blank ({Student Name}), a
+ * doubled one ({{diary}}) or a brace without its pair. Such a text never
+ * reaches a parent (Template check).
+ */
+export function strayBraces(text: string): string[] {
+  const found = [...new Set(text.match(STRAY) ?? [])];
+  if (!found.length && /[{}]/.test(text)) found.push(text.includes("{") ? "{" : "}");
+  return found;
+}
+
+/** Braces in a text before it is filled that are not a blank: {Student Name}, {{diary}}, a "{" without its pair. */
+export function strayBlanks(text: string): string[] {
+  const found = [...new Set((text.match(STRAY) ?? []).filter((m) => !/^\{[a-z_]+\}$/.test(m)))];
+  if (!found.length && /[{}]/.test(text.replace(STRAY, ""))) found.push(text.replace(STRAY, "").includes("{") ? "{" : "}");
+  return found;
+}
+
 export const variableLabel = (key: string) => VARIABLES.find((v) => v.key === key)?.label.toLowerCase() ?? key.replace(/_/g, " ");
 
 /** "no due amount" — the reason a recipient is skipped. */
@@ -126,6 +146,30 @@ export function versionFor(versions: UsableVersion[], language: string, schoolLa
 export function unusableReason(channel: Channel, v: Pick<UsableVersion, "dltTemplateId" | "whatsappStatus">): string | null {
   if (channel === "sms" && !v.dltTemplateId) return "This SMS template has no DLT template ID. Add it in Message Templates.";
   return null;
+}
+
+/** Approved by WhatsApp: on a real WhatsApp Business account only these can start a message to a parent. */
+export function isApproved(v: Pick<UsableVersion, "whatsappStatus" | "whatsappName">) {
+  return v.whatsappStatus === "APPROVED" && Boolean(v.whatsappName);
+}
+
+/**
+ * The ready templates that carry a typed message on a channel that sends
+ * only templates (SMS always, WhatsApp on a real account): the typed words
+ * fill their {message} blank.
+ */
+export const TYPED_CARRIER = { guardian: "general", staff: "staff-message" } as const;
+
+/**
+ * "Dear Parent, the PTM is on Saturday. - Sunrise School" becomes "the PTM is
+ * on Saturday.", because the carrying template adds its own greeting and the
+ * school's name. Line breaks become spaces (WhatsApp refuses them in a blank).
+ */
+export function bareText(text: string, schoolName: string) {
+  const one = text.replace(/\s+/g, " ").trim();
+  const name = schoolName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const bare = one.replace(/^Dear [^,.!?]{1,60},\s*/i, "").replace(new RegExp(`\\s*[-–]\\s*${name}\\.?$`), "").trim();
+  return bare || one;
 }
 
 export const LANGUAGES: { code: string; label: string }[] = [

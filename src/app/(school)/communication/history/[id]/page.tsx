@@ -9,6 +9,7 @@ import { readListParams, skipTake, listHref } from "@/lib/list";
 import { formatDateTime } from "@/lib/format";
 import { CHANNEL_LABEL, onChannels, type Channel } from "@/lib/messaging/channels";
 import { retryableFailures } from "@/lib/messaging/deliver";
+import { NOT_SENT } from "@/lib/messaging/send";
 import { RULES } from "@/lib/messaging/automatic";
 import { withHiddenLinks } from "@/lib/parent-link/token";
 import { countsFor, DELIVERY_LABEL, MESSAGE_STATUS_LABEL, senderNames } from "@/lib/communication/history";
@@ -80,7 +81,10 @@ export default async function MessagePage({ params, searchParams }: Props) {
   type R = (typeof data.rows)[number];
   const personKey = (r: R) => r.guardianId ? `guardian:${r.guardianId}` : r.studentId && r.recipientType === "student" ? `student:${r.studentId}` : r.staffId ? `staff:${r.staffId}` : null;
   const when = (r: R) => r.readAt ? formatDateTime(r.readAt, tz) : r.deliveredAt ? formatDateTime(r.deliveredAt, tz) : r.sentAt ? formatDateTime(r.sentAt, tz) : r.failedAt ? formatDateTime(r.failedAt, tz) : "Waiting to go";
-  const why = (r: R) => r.status === "FAILED" ? r.failReason ?? "Failed" : r.isBackup && r.backupReason ? r.backupReason : r.provider === "sandbox" ? "Test mode: not really sent" : null;
+  // "Not sent": no channel could carry it to this person (the reason says why); resend once a channel can.
+  const notSent = (r: R) => r.status === "FAILED" && Boolean(r.failReason?.startsWith(NOT_SENT));
+  const statusWord = (r: R) => (r.isBackup ? "Sent by SMS backup" : notSent(r) ? "Not sent" : DELIVERY_LABEL[r.status]);
+  const why = (r: R) => r.status === "FAILED" ? (notSent(r) ? r.failReason!.slice(NOT_SENT.length) : r.failReason ?? "Failed") : r.isBackup && r.backupReason ? r.backupReason : r.provider === "sandbox" ? "Test mode: not really sent" : null;
   const senderName = sender.replace(/^Rule: /, "");
   const details: [string, React.ReactNode][] = [["To", m.audienceLabel], ["Status", MESSAGE_STATUS_LABEL[m.status]]];
   if (m.trigger) details.push(["Why", m.trigger]);
@@ -97,7 +101,7 @@ export default async function MessagePage({ params, searchParams }: Props) {
           <MessageActions id={m.id} canCancel={m.status === "SCHEDULED"}
             scheduledWords={m.scheduledAt ? `It was going to ${m.recipientCount} people on ${formatDateTime(m.scheduledAt, tz)}.` : null}
             retryable={m.status === "CANCELLED" ? 0 : data.retry.rows.length} overLimit={data.retry.overLimit} retryLimit={data.retry.retryLimit}
-            unread={sent ? data.unread : 0} failed={sent ? counts.failed : 0}
+            unread={sent ? data.unread : 0} failed={sent ? counts.failed : 0} notSent={sent ? data.retry.notSent : 0}
             channels={(["whatsapp", "sms", "email", "app"] as Channel[]).filter((c) => data.on.includes(c))} labels={CHANNEL_LABEL} />
         ) : m.status === "CANCELLED" ? <Pill tone="neutral">Cancelled · not sent</Pill> : null} />
 
@@ -140,10 +144,10 @@ export default async function MessagePage({ params, searchParams }: Props) {
               columns={[
                 { key: "name", label: "Recipient", render: (r) => <div className="flex items-center gap-2.5"><Avatar name={r.name} size={32} /><div className="min-w-0"><p className="font-semibold leading-tight truncate">{r.name}</p><p className="text-[12.5px] text-ink3 truncate">{r.description ?? r.address}</p></div></div> },
                 { key: "ch", label: "Channel", render: (r) => <span className="text-[13px]">{CHANNEL_LABEL[r.channel as Channel] ?? r.channel}</span> },
-                { key: "st", label: "Status", render: (r) => <div><Pill tone={TONE[r.status]} dot>{r.isBackup ? "Sent by SMS backup" : DELIVERY_LABEL[r.status]}</Pill>{why(r) && <p className="text-[12px] text-ink3 mt-0.5">{why(r)}</p>}</div> },
+                { key: "st", label: "Status", render: (r) => <div><Pill tone={TONE[r.status]} dot>{statusWord(r)}</Pill>{why(r) && <p className="text-[12px] text-ink3 mt-0.5">{why(r)}</p>}</div> },
                 { key: "t", label: "Time", align: "right", nowrap: true, render: (r) => <span className="text-[13px]">{when(r)}</span> },
               ]}
-              mobile={(r) => ({ title: r.name, sub: why(r) ?? r.description ?? r.address, avatar: r.name, right: <Pill tone={TONE[r.status]} className="!h-[22px] !text-[11.5px]">{r.isBackup ? "SMS backup" : DELIVERY_LABEL[r.status]}</Pill> })}
+              mobile={(r) => ({ title: r.name, sub: why(r) ?? r.description ?? r.address, avatar: r.name, right: <Pill tone={TONE[r.status]} className="!h-[22px] !text-[11.5px]">{r.isBackup ? "SMS backup" : notSent(r) ? "Not sent" : DELIVERY_LABEL[r.status]}</Pill> })}
             />
           </Card>
           <Col>

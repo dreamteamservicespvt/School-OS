@@ -85,7 +85,8 @@ export type SendPreview = {
   balances: { whatsapp: number; sms: number };
   creditProblem: string | null;
   problems: string[];
-  skipped: { reason: string; count: number; names: string[] }[];
+  /** notSent: no channel can carry it to them (kept as Not sent if sent anyway). */
+  skipped: { reason: string; count: number; names: string[]; notSent?: boolean }[];
   samples: PreviewRow[];
   scheduledAt: string | null;
   emergency: boolean;
@@ -103,7 +104,7 @@ export function previewOf(plan: Plan, input: SendInput): SendPreview {
     balances: plan.balances,
     creditProblem: plan.creditProblem,
     problems: plan.problems,
-    skipped: plan.skipped.map((g) => ({ reason: g.reason, count: g.count, names: g.names.slice(0, 8) })),
+    skipped: plan.skipped.map((g) => ({ reason: g.reason, count: g.count, names: g.names.slice(0, 8), ...(g.notSent ? { notSent: true } : {}) })),
     samples: plan.rows.slice(0, 25).map((r) => ({
       name: r.candidate.name,
       description: r.candidate.description,

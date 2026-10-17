@@ -5,7 +5,7 @@
 import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
-import type { Channel } from "./channels";
+import { PREFERRED_ORDER, type Channel } from "./channels";
 import { planMessage, sendMessage, MessagingProblem, type SendInput } from "./send";
 import type { AudienceRule, Scope } from "./recipients";
 
@@ -33,25 +33,33 @@ async function targets(tx: Tx, ctx: SchoolContext, messageId: string, who: Resen
   return { to, perPerson, count: to.guardianIds.length + to.studentIds.length + to.staffIds.length + to.loginIds.length };
 }
 
-/** The send input for a resend; throws a MessagingProblem when there is nobody or no template for the channel. */
-export async function resendInput(tx: Tx, ctx: SchoolContext, messageId: string, who: ResendWho, channel: Channel, scope: Scope): Promise<SendInput> {
+/**
+ * The send input for a resend; throws a MessagingProblem when there is nobody
+ * or no template for the channel. "preferred": for each person the first of
+ * WhatsApp, SMS, email and app that can carry it now (people who were not
+ * sent it because no channel could carry it at the time).
+ */
+export async function resendInput(tx: Tx, ctx: SchoolContext, messageId: string, who: ResendWho, channel: Channel | "preferred", scope: Scope): Promise<SendInput> {
   const m = await tx.message.findFirst({ where: { id: messageId, schoolId: ctx.schoolId } });
   if (!m) throw new MessagingProblem("This message was not found.");
   if (m.status === "SCHEDULED" || m.status === "CANCELLED") throw new MessagingProblem("This message has not been sent, so there is nothing to resend.");
   const t = await targets(tx, ctx, messageId, who);
   if (!t.count) throw new MessagingProblem(who === "failed" ? "Nobody failed. There is nothing to resend." : "Everyone has read this message. There is nothing to resend.");
-  let templateId: string | null = null;
+  const templates: Partial<Record<Channel, string>> = {};
   if (m.templateId) {
     const first = await tx.template.findUnique({ where: { id: m.templateId } });
-    const same = first?.key ? await tx.template.findFirst({ where: { schoolId: ctx.schoolId, key: first.key, channel, archivedAt: null } }) : first?.channel === channel ? first : null;
-    templateId = same?.id ?? null;
-    if (!templateId && channel !== "app" && channel !== "email") throw new MessagingProblem(`There is no ${channel === "sms" ? "SMS" : "WhatsApp"} template for "${first?.name ?? m.title ?? "this message"}". Add one in Message Templates, or choose another channel.`);
+    for (const ch of channel === "preferred" ? PREFERRED_ORDER : [channel]) {
+      const same = first?.key ? await tx.template.findFirst({ where: { schoolId: ctx.schoolId, key: first.key, channel: ch, archivedAt: null } }) : first?.channel === ch ? first : null;
+      if (same) templates[ch] = same.id;
+    }
+    if (channel !== "preferred" && !templates[channel] && channel !== "app" && channel !== "email") throw new MessagingProblem(`There is no ${channel === "sms" ? "SMS" : "WhatsApp"} template for "${first?.name ?? m.title ?? "this message"}". Add one in Message Templates, or choose another channel.`);
   }
+  const typed = !m.templateId || (channel !== "preferred" && !templates[channel]);
   return {
     to: t.to,
-    channels: [channel],
-    templates: templateId ? { [channel]: templateId } : undefined,
-    text: templateId ? null : m.body,
+    channels: channel === "preferred" ? "preferred" : [channel],
+    templates,
+    text: typed ? m.body : null,
     title: m.title,
     perPerson: t.perPerson,
     messageType: (m.messageType as SendInput["messageType"]) ?? "general",
@@ -64,10 +72,10 @@ export async function resendInput(tx: Tx, ctx: SchoolContext, messageId: string,
   };
 }
 
-export async function planResend(tx: Tx, ctx: SchoolContext, messageId: string, who: ResendWho, channel: Channel, scope: Scope) {
+export async function planResend(tx: Tx, ctx: SchoolContext, messageId: string, who: ResendWho, channel: Channel | "preferred", scope: Scope) {
   return planMessage(tx, ctx, await resendInput(tx, ctx, messageId, who, channel, scope));
 }
 
-export async function resend(tx: Tx, ctx: SchoolContext, messageId: string, who: ResendWho, channel: Channel, scope: Scope) {
+export async function resend(tx: Tx, ctx: SchoolContext, messageId: string, who: ResendWho, channel: Channel | "preferred", scope: Scope) {
   return sendMessage(tx, ctx, await resendInput(tx, ctx, messageId, who, channel, scope));
 }

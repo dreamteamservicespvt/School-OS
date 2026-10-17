@@ -14,7 +14,7 @@ import { remindConsent, requestConsent, standingConsents } from "@/lib/parent-li
 import { channelSetups, type Channel } from "@/lib/messaging/channels";
 import { creditBalances, creditsFor } from "@/lib/messaging/credits";
 import { templateByKey } from "@/lib/messaging/templates";
-import { MessagingProblem } from "@/lib/messaging/send";
+import { MessagingProblem, NOT_SENT } from "@/lib/messaging/send";
 
 const uuid = /^[0-9a-f-]{36}$/;
 
@@ -192,10 +192,11 @@ export async function consentRequestAction(_prev: ConsentRequestState, form: For
       const label = await whoLabel(tx, ctx.schoolId, w);
       if (!confirmed) return { preview: { label, total: all.length, todo: todo.length } };
       const r = await requestConsent(tx, ctx, { consentTextId: text.id, guardianIds: todo, audienceLabel: label, replyBy: replyBy! });
-      return { sent: todo.length, messaged: Boolean(r.message), title: text.title };
+      const missed = r.message?.skipped.find((g) => g.notSent);
+      return { sent: todo.length, messaged: r.message?.people ?? 0, missed: missed ? `${missed.count} not told by message: ${missed.reason.slice(NOT_SENT.length)}.` : "", title: text.title };
     });
     if ("preview" in res) return { ok: true, preview: res.preview };
-    await flash({ message: `"${res.title}" requested from ${res.sent} parent${res.sent === 1 ? "" : "s"}. ${res.messaged ? "They were told by WhatsApp and" : "WhatsApp is off, so no message went out, but"} they see the form on their Parent Link.`, tone: "success" });
+    await flash({ message: `"${res.title}" requested from ${res.sent} parent${res.sent === 1 ? "" : "s"}. ${res.messaged ? `${res.messaged} told by message; all` : "No message could go out, but they"} see the form on their Parent Link.${res.missed ? ` ${res.missed}` : ""}`, tone: "success" });
     revalidatePath("/communication/parent-link/consent");
     return { ok: true, message: "sent" };
   } catch (e) {
@@ -208,7 +209,7 @@ export async function remindConsentAction(requestId: string): Promise<string | v
   try {
     const access = await manager("edit");
     const r = await withSchool(access.current.ctx, (tx) => remindConsent(tx, access.current.ctx, requestId));
-    await flash({ message: `Reminder sent to ${r.count} parent${r.count === 1 ? "" : "s"} still waiting.`, tone: "success" });
+    await flash({ message: `Reminder sent to ${r.count} parent${r.count === 1 ? "" : "s"} still waiting.${r.missed ? ` Some were not sent it: ${r.missed}.` : ""}`, tone: "success" });
   } catch (e) {
     return fail(e);
   }

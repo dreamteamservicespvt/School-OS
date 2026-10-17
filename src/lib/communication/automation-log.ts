@@ -15,6 +15,7 @@ export const OUTCOME_LABEL: Record<string, string> = {
   "opted-out": "Opted out",
   "no-credits": "Not enough credits",
   skipped: "Skipped",
+  "not-sent": "Not sent",
   duplicate: "Already sent",
 };
 

@@ -14,7 +14,9 @@ import { fileStore } from "../storage";
 import { CHANNEL_LABEL, channelSecrets, channelSetups, type Channel, type ProviderChannel } from "./channels";
 import { creditBalances, creditsFor, PAID_CHANNELS, returnCredits, spendCredits } from "./credits";
 import { providerFor, type Outgoing, type Provider, type SendResult } from "./providers";
-import { DELIVER_JOB, MessagingProblem } from "./send";
+import { CANCELLED_REASON, DELIVER_JOB, MessagingProblem, NOT_SENT } from "./send";
+
+export { CANCELLED_REASON };
 import { messageSettings, type BackupType } from "./settings";
 import { currentVersions, render } from "./templates";
 import { withRealLinks } from "../parent-link/token";
@@ -198,9 +200,36 @@ export async function deliverMessage(tx: Tx, ctx: SchoolContext, payload: { mess
     const retryLater = await tx.messageRecipient.count({ where: { messageId: msg.id, status: "QUEUED", failReason: { not: null } } });
     await enqueue(tx, ctx, DELIVER_JOB, `deliver:${msg.id}:${payload.round}:${payload.chunk + 1}`, { messageId: msg.id, round: payload.round, chunk: payload.chunk + 1 }, new Date(Date.now() + (retryLater ? 60_000 : 0)));
   } else {
-    await tx.message.updateMany({ where: { id: msg.id, status: { in: ["QUEUED", "SCHEDULED"] } }, data: { status: "SENT", sentAt: new Date() } });
+    const done = await tx.message.updateMany({ where: { id: msg.id, status: { in: ["QUEUED", "SCHEDULED"] } }, data: { status: "SENT", sentAt: new Date() } });
+    if (done.count === 1) await tellSenderAboutFailures(tx, ctx, msg.id);
   }
   return { sent, failed, left };
+}
+
+/**
+ * When a message has finished going and some people did not get it (the
+ * provider refused it, or no channel could carry it), the person who sent it
+ * is told, with a link to the message where they can retry or resend (G07).
+ * Messages the software sends by itself show on the Dashboard instead
+ * ("Messages not delivered").
+ */
+export async function tellSenderAboutFailures(tx: Tx, ctx: SchoolContext, messageId: string) {
+  const m = await tx.message.findUnique({ where: { id: messageId }, select: { id: true, sentById: true, title: true, trigger: true, audienceLabel: true, sourceType: true } });
+  // A copy of a notification that failed must not make another notification.
+  if (!m?.sentById || m.sourceType === "Notification") return null;
+  const [failed, total] = await Promise.all([
+    tx.messageRecipient.count({ where: { messageId, isBackup: false, status: "FAILED", NOT: { failReason: CANCELLED_REASON } } }),
+    tx.messageRecipient.count({ where: { messageId, isBackup: false } }),
+  ]);
+  if (!failed) return null;
+  const what = m.title ?? m.trigger ?? m.audienceLabel;
+  return notify(tx, { schoolId: ctx.schoolId, userId: null }, {
+    to: m.sentById,
+    type: "message-failed",
+    text: `${failed} of ${total} not delivered: ${what}. Open it to retry, or resend by another channel.`.slice(0, 300),
+    link: `/communication/history/${m.id}`,
+    groupKey: `message-failed:${m.id}`,
+  });
 }
 
 /** Status changes from providers only move forward (Read never goes back to Delivered). */
@@ -239,15 +268,20 @@ export async function cancelScheduled(tx: Tx, ctx: SchoolContext, messageId: str
   const back: Record<string, number> = {};
   for (const r of rows) back[r.channel] = (back[r.channel] ?? 0) + r.credits;
   for (const [ch, n] of Object.entries(back)) await returnCredits(tx, ctx, ch as Channel, n, `Cancelled: ${msg.title ?? msg.audienceLabel}`, messageId);
-  await tx.messageRecipient.updateMany({ where: { messageId, status: "QUEUED" }, data: { status: "FAILED", failReason: "Cancelled before it was sent.", failedAt: new Date(), credits: 0 } });
+  await tx.messageRecipient.updateMany({ where: { messageId, status: "QUEUED" }, data: { status: "FAILED", failReason: CANCELLED_REASON, failedAt: new Date(), credits: 0 } });
   await writeAudit(tx, ctx, { action: "cancelled-message", recordType: "Message", recordId: messageId, before: { status: "SCHEDULED", scheduledAt: msg.scheduledAt?.toISOString() ?? null }, after: { status: "CANCELLED" } });
 }
 
-/** Failed recipients that may still be retried on the same channel. */
+/**
+ * Failed recipients that may still be retried on the same channel. People
+ * no channel could carry it to ("Not sent") are not among them: the same
+ * channel still cannot carry it, so they are resent by the best channel.
+ */
 export async function retryableFailures(tx: Tx, ctx: SchoolContext, messageId: string) {
   const { retryLimit } = await messageSettings(tx, ctx);
-  const rows = await tx.messageRecipient.findMany({ where: { messageId, status: "FAILED", NOT: { failReason: "Cancelled before it was sent." } } });
-  return { retryLimit, rows: rows.filter((r) => r.attempts <= retryLimit), overLimit: rows.filter((r) => r.attempts > retryLimit).length };
+  const rows = await tx.messageRecipient.findMany({ where: { messageId, status: "FAILED", NOT: [{ failReason: CANCELLED_REASON }, { failReason: { startsWith: NOT_SENT } }] } });
+  const notSent = await tx.messageRecipient.count({ where: { messageId, status: "FAILED", failReason: { startsWith: NOT_SENT } } });
+  return { retryLimit, rows: rows.filter((r) => r.attempts <= retryLimit), overLimit: rows.filter((r) => r.attempts > retryLimit).length, notSent };
 }
 
 /** Retry failed: puts failed recipients back in the queue, up to the retry limit. */
@@ -255,7 +289,7 @@ export async function retryFailed(tx: Tx, ctx: SchoolContext, messageId: string)
   const msg = await tx.message.findUnique({ where: { id: messageId } });
   if (!msg || msg.status === "CANCELLED") throw new MessagingProblem("This message was cancelled, so it cannot be retried.");
   const { rows, retryLimit } = await retryableFailures(tx, ctx, messageId);
-  if (rows.length === 0) throw new MessagingProblem(`Nothing to retry. Failed messages can be retried up to ${retryLimit} times (Message Settings).`);
+  if (rows.length === 0) throw new MessagingProblem(`Nothing to retry. Failed messages can be retried up to ${retryLimit} times (Message Settings). People who were not sent it can be resent by another channel.`);
   const needs: Record<string, number> = {};
   for (const r of rows) if (PAID_CHANNELS.has(r.channel as Channel)) needs[r.channel] = (needs[r.channel] ?? 0) + creditsFor(r.channel as Channel, r.text);
   const have = await creditBalances(tx, ctx);
@@ -302,7 +336,7 @@ export async function runSmsBackup(tx: Tx, ctx: SchoolContext, now = new Date())
         channel: { not: "sms" },
         recipientType: "guardian",
         OR: [
-          { status: "FAILED", NOT: { failReason: "Cancelled before it was sent." } },
+          { status: "FAILED", NOT: [{ failReason: CANCELLED_REASON }, { failReason: { startsWith: NOT_SENT } }] },
           { status: { in: ["SENT", "DELIVERED"] }, sentAt: { lt: new Date(now.getTime() - waitMs) } },
         ],
       },

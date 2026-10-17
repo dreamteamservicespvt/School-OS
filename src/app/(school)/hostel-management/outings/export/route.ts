@@ -12,6 +12,7 @@ import { studentsInfo } from "@/lib/hostel/allocation";
 import { minutesLate, outingWhere, passWhen, shownStatus } from "@/lib/hostel/outings";
 import { OUTING_TYPE, PASS_STATUS, lateWords, type OutingType, type PassStatus } from "@/lib/hostel/words";
 import { hostelRoute, rangeWords } from "../../_lib/route";
+import { studentIdsForFilter } from "@/lib/students/find";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,7 @@ export async function GET(req: Request) {
     const inside = x.get("inside") === "1";
     const range = inside ? null : await x.range("last7");
     const r = await withSchool(x.current.ctx, async (tx) => {
-      const nameIds = q ? (await tx.student.findMany({ where: { fullName: { contains: q, mode: "insensitive" } }, select: { id: true }, take: 300 })).map((s) => s.id) : [];
+      const nameIds = q ? await studentIdsForFilter(tx, q) : [];
       const where: Prisma.VisitorEntryWhereInput = {
         archivedAt: null, meetStudentId: { not: null }, ...scope, ...(inside ? { timeOut: null } : range ? { timeIn: momentWhere(range, x.tz) } : {}),
         ...(q ? { OR: [{ name: { contains: q, mode: "insensitive" } }, { passNo: { contains: q, mode: "insensitive" } }, ...(nameIds.length ? [{ meetStudentId: { in: nameIds } }] : [])] } : {}),
@@ -55,7 +56,7 @@ export async function GET(req: Request) {
   const live = status === "WAITING" || status === "OUT" || status === "LATE" || status === "APPROVED";
   const range = live ? null : await x.range("last30");
   const r = await withSchool(x.current.ctx, async (tx) => {
-    const nameIds = q ? (await tx.student.findMany({ where: { fullName: { contains: q, mode: "insensitive" } }, select: { id: true }, take: 300 })).map((s) => s.id) : [];
+    const nameIds = q ? await studentIdsForFilter(tx, q) : [];
     const byStatus: Prisma.GatePassWhereInput = status === "LATE" ? { status: "OUT", toAt: { lt: x.now } } : status === "OUT" ? { status: "OUT", toAt: { gte: x.now } } : status ? { status } : {};
     const where = outingWhere({
       ...scope, ...byStatus, ...(range ? { fromAt: momentWhere(range, x.tz) } : {}),

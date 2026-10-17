@@ -21,6 +21,7 @@ import { BASE, studentPage } from "../_lib/page";
 import { StudentsHead } from "../_lib/head";
 import { sectionNames, sectionOptions } from "../_lib/queries";
 import { behaviourTabs } from "./sub-tabs";
+import { studentIdsForFilter } from "@/lib/students/find";
 
 export const metadata: Metadata = { title: "Behaviour & Counselling" };
 
@@ -40,7 +41,7 @@ export default async function BehaviourPage({ searchParams }: { searchParams: Pr
   const data = await withSchool(current.ctx, async (tx) => {
     const scope = await studentScope(tx, current, year?.id);
     const f = params.filters;
-    const studentWhere: Prisma.StudentWhereInput = { AND: [scope, ...(f.section && year ? [{ enrolments: { some: { sectionId: f.section, academicYearId: year.id, archivedAt: null } } }] : []), ...(params.q ? [{ fullName: { contains: params.q, mode: "insensitive" as const } }] : [])] };
+    const studentWhere: Prisma.StudentWhereInput = { AND: [scope, ...(f.section && year ? [{ enrolments: { some: { sectionId: f.section, academicYearId: year.id, archivedAt: null } } }] : []), ...(params.q ? [{ id: { in: await studentIdsForFilter(tx, params.q) } }] : [])] };
     const base: Prisma.BehaviourIncidentWhereInput = { archivedAt: params.archived ? { not: null } : null, ...(year ? { academicYearId: year.id } : {}) };
     const mine = can.reach === "all" ? null : (await tx.student.findMany({ where: scope, select: { id: true } })).map((x) => x.id);
     if (mine) base.students = { some: { studentId: { in: mine } } };

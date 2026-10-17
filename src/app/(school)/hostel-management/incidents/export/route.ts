@@ -10,6 +10,7 @@ import { studentsInfo } from "@/lib/hostel/allocation";
 import { INCIDENT_TYPE, type IncidentType } from "@/lib/hostel/words";
 import { MAINT_STATUS } from "@/lib/inventory/words";
 import { hostelRoute, rangeWords } from "../../_lib/route";
+import { studentIdsForFilter } from "@/lib/students/find";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,7 @@ export async function GET(req: Request) {
   const q = x.get("q").trim();
   const range = await x.range("thismonth");
   const r = await withSchool(x.current.ctx, async (tx) => {
-    const nameIds = q ? (await tx.student.findMany({ where: { fullName: { contains: q, mode: "insensitive" } }, select: { id: true }, take: 300 })).map((s) => s.id) : [];
+    const nameIds = q ? await studentIdsForFilter(tx, q) : [];
     const where: Prisma.HostelIncidentWhereInput = {
       archivedAt: null, ...(x.mine === null ? {} : { hostelId: { in: x.mine } }), ...(range ? { at: momentWhere(range, x.tz) } : {}), ...(type ? { type } : {}),
       ...(q ? { OR: [{ incidentNo: { contains: q, mode: "insensitive" } }, { description: { contains: q, mode: "insensitive" } }, { place: { contains: q, mode: "insensitive" } }, ...(nameIds.length ? [{ studentIds: { hasSome: nameIds } }] : [])] } : {}),

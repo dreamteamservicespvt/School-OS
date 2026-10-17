@@ -35,6 +35,7 @@ import { ActButton } from "../_components/client";
 import { CancelPassSheet, PassSheet, RejectPassSheet, VisitorSheet } from "../_components/sheets";
 import { decidePassAction, markOutAction, markReturnedAction, remindWardenAction, visitorOutAction, type FoundStudent, type GuardianChoice } from "../actions";
 import { BASE, hostelGuard, hostelPeriod, idParam, one, qs, type Raw, type SearchParams } from "../_lib/page";
+import { studentIdsForFilter } from "@/lib/students/find";
 
 export const metadata: Metadata = { title: "Outing & Visitors · Hostel Management" };
 
@@ -75,7 +76,7 @@ async function PassesView({ p, sp }: { p: P; sp: Raw }) {
 
   const d = await withSchool(ctx, async (tx) => {
     let nameIds: string[] | null = null;
-    if (params.q) nameIds = (await tx.student.findMany({ where: { fullName: { contains: params.q, mode: "insensitive" } }, select: { id: true }, take: 300 })).map((x) => x.id);
+    if (params.q) nameIds = await studentIdsForFilter(tx, params.q);
     const dated: Prisma.GatePassWhereInput = per.range ? { fromAt: momentWhere(per.range, tz) } : {};
     const byStatus: Prisma.GatePassWhereInput =
       status === "LATE" ? { status: "OUT", toAt: { lt: now } }
@@ -249,7 +250,7 @@ async function VisitorsView({ p, sp }: { p: P; sp: Raw }) {
 
   const d = await withSchool(ctx, async (tx) => {
     let nameIds: string[] | null = null;
-    if (params.q) nameIds = (await tx.student.findMany({ where: { fullName: { contains: params.q, mode: "insensitive" } }, select: { id: true }, take: 300 })).map((x) => x.id);
+    if (params.q) nameIds = await studentIdsForFilter(tx, params.q);
     const dated: Prisma.VisitorEntryWhereInput = per.range ? { timeIn: momentWhere(per.range, tz) } : {};
     const where: Prisma.VisitorEntryWhereInput = {
       ...scope, ...(inside ? { timeOut: null } : dated),

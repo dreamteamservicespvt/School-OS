@@ -16,6 +16,7 @@ import { BASE, studentPage } from "../../_lib/page";
 import { StudentsHead } from "../../_lib/head";
 import { CERT_LABEL, LEAVING_TYPE_LABEL, studentFacts, tcFor } from "../load";
 import { leavingTabs } from "../sub-tabs";
+import { studentIdsForFilter } from "@/lib/students/find";
 
 export const metadata: Metadata = { title: "Left" };
 
@@ -32,7 +33,7 @@ export default async function LeftPage({ searchParams }: { searchParams: Promise
   const path = `${BASE}/leaving/left`;
   const data = await withSchool(current.ctx, async (tx) => {
     const f = params.filters;
-    const nameIds = params.q ? (await tx.student.findMany({ where: { OR: [{ fullName: { contains: params.q, mode: "insensitive" } }, { admissionNo: { contains: params.q, mode: "insensitive" } }] }, select: { id: true } })).map((s) => s.id) : null;
+    const nameIds = params.q ? await studentIdsForFilter(tx, params.q) : null;
     const where: Prisma.LeavingRequestWhereInput = {
       status: f.status === "CANCELLED" ? "CANCELLED" : "LEFT",
       ...(f.type ? { type: f.type as "TRANSFER" } : {}),

@@ -230,3 +230,36 @@ model ReportScheduleSend {
   @@index([schoolId, scheduleId])
   @@map("report_schedule_send")
 }
+
+/// Forecast Signal: one "Looking ahead" suggestion worked out from the school's own
+/// records (19 Early Warnings, AI forecasts): what may happen next, the numbers behind
+/// it and what a person could do. It never changes anything: a person adds it for
+/// review or says it is not a concern (AI Signal Decision). Kept while the numbers
+/// still say so; cleared (archived) when they no longer do.
+model ForecastSignal {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  /// Stable key, e.g. "att-proj:<student>:<month>"; the decision is kept against it.
+  key         String
+  /// attendance, marks, fees, students, admissions, staff or finance.
+  area        String
+  /// WATCH or ACT_NOW.
+  strength    String    @default("WATCH")
+  title       String
+  body        String
+  /// What the numbers come from, in plain words ("Why am I seeing this?").
+  source      String
+  href        String?
+  hrefLabel   String?   @map("href_label")
+  studentId   String?   @map("student_id") @db.Uuid
+  value       Float?
+  firstSeenAt DateTime  @default(now()) @map("first_seen_at")
+  computedAt  DateTime  @default(now()) @map("computed_at")
+  /// When the leaders were told about it (once).
+  notifiedAt  DateTime? @map("notified_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  @@unique([schoolId, key])
+  @@index([schoolId, archivedAt])
+  @@map("forecast_signal")
+}

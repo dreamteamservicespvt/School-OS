@@ -54,10 +54,15 @@ export async function recordExpenseAction(_prev: unknown, fd: FormData) {
       isVendorBill: false, billNo: null, billDueDate: null,
       duplicateReason: optionalText(fd, "duplicateReason", "Reason", 300),
     }, str(fd, "paid") === "on" ? payOf(fd, date) : null);
-    return { no: r.expense.number, amount: formatRupees(amount), outcome: r.outcome, budget: r.budget?.message ?? null, date: formatDate(date) };
+    // The Day Book date, which is the next open day when the typed date was already closed.
+    const booked = "dayBookDate" in r && r.dayBookDate ? r.dayBookDate : date;
+    const moved = booked.getTime() !== date.getTime();
+    return { no: r.expense.number, amount: formatRupees(amount), outcome: r.outcome, budget: r.budget?.message ?? null, date: formatDate(date), booked: formatDate(booked), moved };
   }, (r) => {
     const tail = r.budget ? ` ${r.budget}` : "";
-    if (r.outcome === "paid") return `${r.no} paid · ${r.amount}. Approved at once and added to the Day Book for ${r.date}.${tail}`;
+    if (r.outcome === "paid") return r.moved
+      ? `${r.no} paid · ${r.amount}. Approved at once. ${r.date} was already closed, so it is in the Day Book for ${r.booked}.${tail}`
+      : `${r.no} paid · ${r.amount}. Approved at once and added to the Day Book for ${r.date}.${tail}`;
     if (r.outcome === "waiting") return `${r.no} sent for approval · ${r.amount}. You can mark it paid once it is approved.${tail}`;
     return `${r.no} saved · approved at once. Not in the Day Book until you mark it paid.${tail}`;
   });

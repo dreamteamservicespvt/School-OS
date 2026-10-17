@@ -119,7 +119,10 @@ describe("Front Office by role", () => {
   });
 
   it("lets the Principal book appointments but not the School Admin or the Vice Principal", async () => {
-    const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+    // The next day that is not a Sunday, so the test does not depend on the day it runs.
+    let ahead = Date.now() + 86_400_000;
+    if (new Date(ahead).getUTCDay() === 0) ahead += 86_400_000;
+    const tomorrow = new Date(ahead).toISOString().slice(0, 10);
     const book = (startMin: number) => form({ staffId: f.principalStaff.id, date: tomorrow, startMin: String(startMin), lengthMin: "15", visitorName: "Padmini Rao", visitorPhone: "9701230098", purpose: "Behaviour in class" });
     for (const id of [f.admin.id, f.vp.id, f.office.id, f.gate.id]) {
       asUser(id);

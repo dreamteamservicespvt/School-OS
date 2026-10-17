@@ -31,6 +31,7 @@ import { dayStartUtc } from "../periods";
 import { addTask, taskAccess } from "../dashboard/tasks";
 import { referToCounselling } from "../students/behaviour";
 import { BUILT_MODULES } from "../modules";
+import { forecastsFor, type ForecastArea } from "./forecasts";
 import { BASE, type ReportAccess } from "./access";
 import type { ReportViewer } from "./types";
 
@@ -67,6 +68,7 @@ export const DROP_MAX = 50;
 /** A flag a person closed is not raised again for the same reason for this many days. */
 const QUIET_DAYS = 30;
 const CLEARED = "Cleared: the numbers are back within the rules.";
+const SUGGESTION_BASIS = "Suggestion · based on";
 
 export async function warningSettings(tx: Tx, ctx: SchoolContext) {
   return tx.earlyWarningSetting.upsert({ where: { schoolId: ctx.schoolId }, create: { schoolId: ctx.schoolId }, update: {} });
@@ -219,6 +221,8 @@ export async function refreshFlags(tx: Tx, ctx: SchoolContext, now = new Date())
   }
   for (const f of open) {
     if (seen.has(key(f))) continue;
+    // Added by a person from a suggestion (Looking ahead): it stays until a person closes it.
+    if (f.basis.startsWith(SUGGESTION_BASIS)) continue;
     await tx.riskFlag.update({ where: { id: f.id }, data: { status: "CLOSED", closedAt: now, closedReason: CLEARED } });
     cleared++;
   }
@@ -402,7 +406,11 @@ export async function studentFlags(tx: Tx, studentId: string, area?: Area[]) {
 
 /* ---------- AI signals (optional: Settings, Modules On/Off) ---------- */
 
-export type AiSignal = { key: string; kind: "dropout" | "prediction" | "unusual"; title: string; source: string; body: string; studentId?: string; flagId?: string };
+export type AiSignal = {
+  key: string; kind: "dropout" | "prediction" | "unusual"; title: string; source: string; body: string; studentId?: string; flagId?: string;
+  /** Looking ahead: the area, how soon to act, and where to look. */
+  area?: ForecastArea; strength?: "WATCH" | "ACT_NOW"; href?: string; hrefLabel?: string;
+};
 
 /**
  * Suggestions from simple patterns in the school's own records. Each is
@@ -484,34 +492,9 @@ export async function aiSignals(tx: Tx, who: ReportViewer, a: ReportAccess, now 
   }
 
   if (a.ai.forecasts) {
-    // Predictions: where a class's pass % fell between its last two exams, the next one may be lower still.
-    const results = await tx.result.findMany({ where: { academicYearId: year.id, status: "PUBLISHED", examId: { not: null } }, select: { classId: true, examId: true, outcome: true } });
-    const exams = new Map((await tx.exam.findMany({ where: { id: { in: [...new Set(results.map((r) => r.examId!))] } }, select: { id: true, title: true, endDate: true } })).map((e) => [e.id, e]));
-    const classes = new Map((await tx.schoolClass.findMany({ where: { id: { in: [...new Set(results.map((r) => r.classId))] } }, select: { id: true, name: true } })).map((c) => [c.id, c.name]));
-    const byClass = new Map<string, Map<string, { n: number; pass: number }>>();
-    for (const r of results) {
-      const m = byClass.get(r.classId) ?? new Map();
-      const cur = m.get(r.examId!) ?? { n: 0, pass: 0 };
-      cur.n++;
-      if (r.outcome === "Pass") cur.pass++;
-      m.set(r.examId!, cur);
-      byClass.set(r.classId, m);
-    }
-    for (const [classId, m] of byClass) {
-      const list = [...m.entries()].filter(([e]) => exams.has(e)).sort((x, y) => exams.get(x[0])!.endDate.getTime() - exams.get(y[0])!.endDate.getTime());
-      if (list.length < 2) continue;
-      const [pe, pv] = list[list.length - 2];
-      const [le, lv] = list[list.length - 1];
-      if (pv.n < 5 || lv.n < 5) continue;
-      const p1 = (pv.pass / pv.n) * 100, p2 = (lv.pass / lv.n) * 100;
-      if (p1 - p2 < 3) continue;
-      const next = Math.max(0, Math.round(p2 - (p1 - p2) / 2));
-      out.push({
-        key: `predict:${classId}:${le}`, kind: "prediction",
-        title: `${classes.get(classId) ?? "A class"} may do worse in the next exam`,
-        source: `${exams.get(pe)!.title} and ${exams.get(le)!.title} results`,
-        body: `The pass % fell from ${pctText(p1)} to ${pctText(p2)}. If nothing changes it may be about ${next}% next time. Extra classes for students near the pass mark may help; you decide.`,
-      });
+    // Looking ahead: worked out by the background job and stored (forecasts.ts).
+    for (const f of await forecastsFor(tx, { fees: a.warnings.fees, finance: a.finance !== null })) {
+      out.push({ key: f.key, kind: "prediction", area: f.area as ForecastArea, strength: f.strength as "WATCH" | "ACT_NOW", title: f.title, source: f.source, body: f.body, studentId: f.studentId ?? undefined, href: f.href ?? undefined, hrefLabel: f.hrefLabel ?? undefined });
     }
   }
 
@@ -528,7 +511,10 @@ export async function decideAiSignal(tx: Tx, who: ReportViewer, a: ReportAccess,
     const year = await currentYear(tx, who.ctx);
     if (signal.studentId && year) {
       const enrol = await tx.enrolment.findFirst({ where: { studentId: signal.studentId, academicYearId: year.id, archivedAt: null }, select: { sectionId: true } });
-      const flag = await tx.riskFlag.create({ data: { schoolId: who.ctx.schoolId, studentId: signal.studentId, academicYearId: year.id, sectionId: enrol?.sectionId ?? null, area: "attendance", strength: "WATCH", reason: signal.title, basis: `Suggestion · based on ${signal.source}`, raisedAt: now } });
+      const area = signal.area === "marks" || signal.area === "fees" ? signal.area : "attendance";
+      // One open flag per student and area: a suggestion joins the open one if there is one.
+      const already = await tx.riskFlag.findFirst({ where: { studentId: signal.studentId, area, closedAt: null } });
+      const flag = already ?? await tx.riskFlag.create({ data: { schoolId: who.ctx.schoolId, studentId: signal.studentId, academicYearId: year.id, sectionId: enrol?.sectionId ?? null, area, strength: "WATCH", reason: signal.title, basis: `${SUGGESTION_BASIS} ${signal.source}`, raisedAt: now } });
       flagId = flag.id;
     } else {
       const school = await tx.school.findUniqueOrThrow({ where: { id: who.ctx.schoolId }, select: { timeZone: true } });

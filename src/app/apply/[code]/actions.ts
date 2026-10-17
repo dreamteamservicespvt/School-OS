@@ -41,13 +41,20 @@ export async function submitApplyAction(code: string, _: FormState<unknown>, fd:
   if (!school) return { ok: false, message: CLOSED };
   let path: string;
   try {
-    const input = readApplicationForm(fd, { restricted: false });
     const consentTypes = fd.getAll("consent").map(String).filter((t) => /^[a-z-]{2,40}$/.test(t));
-    if (!consentTypes.includes(DATA_CONSENT)) return { ok: false, message: "Please agree to the use of your child's data. The school needs it to process the admission.", errors: { consent: "Needed to apply." }, values: formValues(fd) };
+    let givenByName = "";
+    // Every problem at once, the consent and the sender's name included (PEOPLE-07).
+    const input = readApplicationForm(fd, {
+      restricted: false,
+      extra: (c) => {
+        givenByName = c.take(() => need(fd, "givenByName", "Your name", 120), "");
+        if (!consentTypes.includes(DATA_CONSENT)) c.add("consent", "Please agree to the use of your child's data. The school needs it to process the admission.");
+      },
+    });
     const r = await submitOnline(school.id, {
       ...input,
       consentTypes,
-      givenByName: need(fd, "givenByName", "Your name", 120),
+      givenByName,
       code: str(fd, "code"),
       heardFrom: str(fd, "heardFrom") || null,
     }, (await deviceInfo()).ipAddress);

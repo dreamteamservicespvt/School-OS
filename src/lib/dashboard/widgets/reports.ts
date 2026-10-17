@@ -8,6 +8,7 @@ import { reportAccess } from "../../reports/access";
 import { flagScope } from "../../reports/warnings";
 import { pinsOf } from "../../reports/pins";
 import { pinnedCharts, type AChart } from "../../reports/analytics";
+import { forecastsFor } from "../../reports/forecasts";
 import { plural } from "../common";
 import type { DashContext, Panel, Viewer, Widget } from "../types";
 
@@ -45,6 +46,30 @@ const earlyWarnings: Widget<"attention"> = {
   },
 };
 
+/** Looking ahead (forecasts.ts): suggestions about what may happen next, for the leaders who have Forecasts on. */
+const lookingAhead: Widget<"attention"> = {
+  id: "reports.looking-ahead",
+  module: "reports-analytics",
+  kind: "attention",
+  homes: ["leader"],
+  allowed: (v) => access(v).ai.forecasts,
+  async load(c: DashContext) {
+    const a = access(c.viewer);
+    const list = await forecastsFor(c.tx, { fees: a.warnings.fees, finance: a.finance !== null });
+    if (!list.length) return null;
+    const decided = new Set((await c.tx.aiSignalDecision.findMany({ where: { signalKey: { in: list.map((f) => f.key) } }, select: { signalKey: true } })).map((d) => d.signalKey));
+    const open = list.filter((f) => !decided.has(f.key));
+    if (!open.length) return null;
+    const soon = open.filter((f) => f.strength === "ACT_NOW").length;
+    return {
+      id: "reports.looking-ahead", tone: soon ? "warn" : "info", icon: "Sparkles",
+      title: `Looking ahead: ${plural(open.length, "thing")} that may need you soon`,
+      detail: `${soon ? `${soon} to act on soon. ` : ""}For example: ${open[0].title}. Suggestions only; you decide.`,
+      action: "See all", href: `${BASE}/early-warnings#looking-ahead`, value: String(open.length),
+    };
+  },
+};
+
 /** One Dashboard card from a pinned chart: percent bars as bars, anything else as a short list. */
 function panelOf(ch: AChart): Panel {
   const rows = ch.kind === "hbars" ? (ch.hbars ?? []).map((r) => ({ k: r.k, v: r.v, label: r.label ?? `${r.v}${ch.unit ?? "%"}` }))
@@ -76,4 +101,4 @@ const pinned: Widget<"panel"> = {
   },
 };
 
-export const REPORTS_WIDGETS: readonly Widget[] = [earlyWarnings, pinned];
+export const REPORTS_WIDGETS: readonly Widget[] = [earlyWarnings, lookingAhead, pinned];

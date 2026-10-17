@@ -99,8 +99,8 @@ export async function recordExpense(tx: Tx, ctx: SchoolContext, input: ExpenseIn
   if (opts.draft) return { expense, outcome: "draft" as const, budget };
   const sent = await submitExpense(tx, ctx, expense.id, budget?.message ?? null);
   if (sent === "approved" && payNow) {
-    await payExpense(tx, ctx, expense.id, payNow);
-    return { expense, outcome: "paid" as const, budget };
+    const pay = await payExpense(tx, ctx, expense.id, payNow);
+    return { expense, outcome: "paid" as const, budget, dayBookDate: pay.dayBookDate };
   }
   return { expense, outcome: sent, budget };
 }

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowUpRight, Calculator, Download, Eye, Hourglass, Info, Printer, ReceiptText, SearchX, Send, UserRound } from "lucide-react";
 import { withSchool } from "@/lib/db";
+import { channelSetups } from "@/lib/messaging/channels";
 import { decryptField, maskLast4 } from "@/lib/crypto";
 import { formatRupees } from "@/lib/format";
 import { salarySettings } from "@/lib/salary/settings";
@@ -175,7 +176,8 @@ async function AllSlips({ sp }: { sp: Record<string, string | string[] | undefin
     const viewId = UUID.test(one(sp.slip)) ? one(sp.slip) : "";
     const view = viewId ? slips.find((s) => s.id === viewId) ?? null : null;
     const viewLine = view ? await tx.payrollLine.findUnique({ where: { id: view.lineId } }) : null;
-    return { settings, runs, run, slips, staff, campus, view, viewLine };
+    const channels = await channelSetups(tx, ctx);
+    return { settings, runs, run, slips, staff, campus, view, viewLine, waOn: channels.whatsapp.isOn, emailOn: channels.email.isOn };
   });
   const run = data.run;
   const done = data.runs.filter((r) => DONE.includes(r.status as (typeof DONE)[number]));
@@ -193,11 +195,13 @@ async function AllSlips({ sp }: { sp: Record<string, string | string[] | undefin
   const bulkIds = one(sp.ids).split(",").filter((x) => UUID.test(x));
   const how = one(sp.how) === "email" ? "email" : "whatsapp";
   const howWord = how === "email" ? "email" : "WhatsApp";
+  // Only ways of sending that are connected are offered (QA: "Send by WhatsApp" was offered with WhatsApp off).
+  const singleHow = data.waOn ? "whatsapp" : data.emailOn ? "email" : null;
 
   return (
     <div>
       <SalaryHead pageName="Salary Slips" href={HREF} sub="Made only from the approved salary · each person can download only their own"
-        actions={ready && notSent > 0 ? <ButtonLink href={here({ do: "send-unsent" })} scroll={false} variant="primary" icon={Send}>Send unsent slips</ButtonLink> : null}
+        actions={ready && notSent > 0 && data.waOn ? <ButtonLink href={here({ do: "send-unsent" })} scroll={false} variant="primary" icon={Send}>Send unsent slips</ButtonLink> : null}
         viewActions={p.me ? <ButtonLink href={`${HREF}?mine=1`} variant="ghost" icon={UserRound}>My slips</ButtonLink> : null} />
       <Stack>
         <Stats items={[
@@ -218,9 +222,9 @@ async function AllSlips({ sp }: { sp: Record<string, string | string[] | undefin
           ) : (
             <>
               {p.change && <BulkBar group="slip" items={[
-                { label: "Send by WhatsApp", icon: "whatsapp", set: { do: "send", how: "whatsapp" } },
-                { label: "Send by email", icon: "email", set: { do: "send", how: "email" } },
-                { label: "Print", icon: "print", file: `${HREF}/pdf?print=1` },
+                ...(data.waOn ? [{ label: "Send by WhatsApp", icon: "whatsapp" as const, set: { do: "send", how: "whatsapp" } }] : []),
+                ...(data.emailOn ? [{ label: "Send by email", icon: "email" as const, set: { do: "send", how: "email" } }] : []),
+                { label: "Print", icon: "print" as const, file: `${HREF}/pdf?print=1` },
               ]} />}
               <DataList rows={rows} rowKey={(s) => s.id} rowHref={(s) => here({ slip: s.id })} minWidth={760} caption="Salary slips"
                 footer={`Showing ${rows.length} of ${data.slips.length} slips · ${monthName(run.month)}`}
@@ -246,7 +250,7 @@ async function AllSlips({ sp }: { sp: Record<string, string | string[] | undefin
           <UrlSheet wide closeHref={here({ slip: null })} title={`Salary slip · ${monthName(run.month)}`} sub={`${x.fullName} · ${x.staffCode}`}
             footer={<div className="flex gap-2 justify-end flex-wrap">
               <a href={`${HREF}/pdf?ids=${data.view.id}&print=1`} target="_blank" rel="noopener" className={buttonClass("ghost")}><Printer size={17} aria-hidden="true" />Print</a>
-              {p.change && <ButtonLink href={here({ slip: null, do: "send", how: "whatsapp", ids: data.view.id })} scroll={false} variant="secondary" icon={Send}>Send</ButtonLink>}
+              {p.change && singleHow && <ButtonLink href={here({ slip: null, do: "send", how: singleHow, ids: data.view.id })} scroll={false} variant="secondary" icon={Send}>Send</ButtonLink>}
               <a href={`${HREF}/pdf?ids=${data.view.id}`} download className={buttonClass("primary")}><Download size={17} aria-hidden="true" />Download PDF</a>
             </div>}>
             <SlipView school={p.school.name} place={[data.campus?.name, data.campus?.address].filter(Boolean).join(", ")} month={run.month} paidOn={run.paidOn} line={data.viewLine} person={personOf(x)} showEmployer={data.settings.slipShowEmployer} />
@@ -258,7 +262,7 @@ async function AllSlips({ sp }: { sp: Record<string, string | string[] | undefin
           <p className="text-[14px] text-ink2">Each staff member gets only their own {monthName(run.month)} slip: the message says it is ready and the slip opens in My profile, behind their login. Messages cannot be unsent.</p>
         </ConfirmSheet>
       )}
-      {doing === "send-unsent" && run && notSent > 0 && (
+      {doing === "send-unsent" && run && notSent > 0 && data.waOn && (
         <ConfirmSheet closeHref={here({ do: null })} title={`Send ${notSent} unsent salary slip${notSent === 1 ? "" : "s"}?`} label={`Send to ${notSent} staff`} action={sendSlipsAction} hidden={{ runId: run.id, how: "whatsapp" }}>
           <p className="text-[14px] text-ink2">By WhatsApp. Staff with no WhatsApp number on file are listed after sending; print their slips instead. Messages cannot be unsent.</p>
         </ConfirmSheet>

@@ -24,6 +24,7 @@ export const NOTE_KINDS: NoteKind[] = [
   { key: "staff", label: "My leave and staff matters", types: ["staff-leave", "appraisal", "staff-exit", "settlement"], defaults: ["app"], module: "staff-hr-management" },
   { key: "transport", label: "Bus alerts, trips and vehicle papers", types: ["transport-alert", "transport-trip", "transport-reminder"], defaults: ["app"], module: "transport-management" },
   { key: "transport-emergency", label: "Bus emergency button pressed", types: ["transport-emergency"], locked: true, defaults: ["app", "push", "whatsapp"], module: "transport-management" },
+  { key: "looking-ahead", label: "Looking ahead: what may happen next", types: ["looking-ahead"], defaults: ["app", "push"], module: "reports-analytics" },
   { key: "documents", label: "Documents running out", types: ["document-expiry"], defaults: ["app"] },
   { key: "notices", label: "Notices from the school", types: ["notice", "staff-message"], defaults: ["app"] },
   { key: "security", label: "Security alerts (new sign-in, password changed)", types: ["security", "privacy"], locked: true, defaults: ["app", "email"] },

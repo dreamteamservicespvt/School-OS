@@ -76,14 +76,15 @@ export async function forecast(tx: Tx, today: Date) {
   const pastDue = await tx.studentFeeDue.aggregate({ where: { state: "OPEN", kind: { in: ["FEE", "CHARGE"] }, dueDate: { gte: pastFrom, lte: pastTo } }, _sum: { amountPaise: true, concessionPaise: true, adjustmentPaise: true, paidPaise: true } });
   const dueTotal = (pastDue._sum.amountPaise ?? ZERO) - (pastDue._sum.concessionPaise ?? ZERO) + (pastDue._sum.adjustmentPaise ?? ZERO);
   const paidTotal = pastDue._sum.paidPaise ?? ZERO;
-  const rate = dueTotal > ZERO ? Number(paidTotal) / Number(dueTotal) : 0.85;
+  // No dues in the last 3 months to learn from: no estimate, rather than an invented rate (AI rule 2).
+  const rate = dueTotal > ZERO ? Number(paidTotal) / Number(dueTotal) : null;
   const out = [];
   for (let k = 0; k < 3; k++) {
     const start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + k, 1));
     const end = monthEnd(start);
     const agg = await tx.studentFeeDue.aggregate({ where: { state: "OPEN", balancePaise: { gt: 0 }, dueDate: { gte: start, lte: end } }, _sum: { balancePaise: true } });
     const due = agg._sum.balancePaise ?? ZERO;
-    out.push({ label: new Intl.DateTimeFormat("en-IN", { month: "long", year: "numeric", timeZone: "UTC" }).format(start), due, expected: BigInt(Math.round(Number(due) * rate)) });
+    out.push({ label: new Intl.DateTimeFormat("en-IN", { month: "long", year: "numeric", timeZone: "UTC" }).format(start), due, expected: rate === null ? null : BigInt(Math.round(Number(due) * rate)) });
   }
   return { rate, basis: { from: pastFrom, to: pastTo, due: dueTotal, paid: paidTotal }, months: out };
 }

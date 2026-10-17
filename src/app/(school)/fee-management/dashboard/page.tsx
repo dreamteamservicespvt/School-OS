@@ -196,11 +196,17 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
             </Card>
             {data.fc && (
               <Suggestion title="Collection forecast"
-                source={`Installments due in the next 3 months, and the ${Math.round(data.fc.rate * 100)}% of dues paid on time from ${formatDate(data.fc.basis.from)} to ${formatDate(data.fc.basis.to)}`}
+                source={data.fc.rate === null
+                  ? `Installments due in the next 3 months. No dues fell due from ${formatDate(data.fc.basis.from)} to ${formatDate(data.fc.basis.to)}, so there is nothing yet to learn from`
+                  : `Installments due in the next 3 months, and the ${Math.round(data.fc.rate * 100)}% of dues paid from ${formatDate(data.fc.basis.from)} to ${formatDate(data.fc.basis.to)}`}
                 actions={<ButtonLink href={`${BASE}/defaulters`} size="sm" variant="secondary" icon={UserX}>See who is overdue</ButtonLink>}>
-                Expect about {data.fc.months.map((m, i) => (
-                  <span key={m.label}>{i > 0 ? (i === data.fc!.months.length - 1 ? " and " : ", ") : ""}<b className="text-ink">{formatRupeesShort(m.expected)}</b> in {m.label.split(" ")[0]}{i === 0 ? ` (${formatRupeesShort(m.due)} due)` : ""}</span>
-                ))}.
+                {data.fc.rate === null
+                  ? <>Due: {data.fc.months.map((m, i) => (
+                    <span key={m.label}>{i > 0 ? (i === data.fc!.months.length - 1 ? " and " : ", ") : ""}<b className="text-ink">{formatRupeesShort(m.due)}</b> in {m.label.split(" ")[0]}</span>
+                  ))}. An estimate of what will come in starts once a month of dues has passed.</>
+                  : <>Expect about {data.fc.months.map((m, i) => (
+                    <span key={m.label}>{i > 0 ? (i === data.fc!.months.length - 1 ? " and " : ", ") : ""}<b className="text-ink">{formatRupeesShort(m.expected ?? m.due)}</b> in {m.label.split(" ")[0]}{i === 0 ? ` (${formatRupeesShort(m.due)} due)` : ""}</span>
+                  ))}.</>}
               </Suggestion>
             )}
           </div>

@@ -7,7 +7,7 @@ import { formatDate, formatDateTime, formatTime } from "@/lib/format";
 import { momentWhere, periodFromSearch, rangeWords } from "@/lib/periods";
 import { addDays } from "@/lib/staff/dates";
 import {
-  ACTIONS, AREAS, aiSignals, listFlags, mayRemind, mayReview, remindedToday, STATUS_LABEL, STATUS_TONE, STRENGTH_LABEL, warningRules,
+  ACTIONS, AREAS, aiSignals, listFlags, mayRemind, mayReview, remindedToday, rowIs, STATUS_LABEL, STATUS_TONE, STRENGTH_LABEL, warningRules,
   type Area, type FlagRow, type FlagStatus,
 } from "@/lib/reports/warnings";
 import { FORECAST_AREA_LABEL } from "@/lib/reports/forecasts";
@@ -58,10 +58,10 @@ export default async function EarlyWarningsPage({ searchParams }: { searchParams
       listFlags(tx, p.current, a, { status, area, q, raisedFrom: when?.gte ?? null, raisedTo: when?.lt ?? null }),
       aiSignals(tx, p.current, a),
     ]);
-    let open: FlagRow | null = openId ? res.list.find((f) => f.id === openId) ?? null : null;
+    let open: FlagRow | null = openId ? res.list.find((f) => rowIs(f, openId)) ?? null : null;
     if (openId && !open) {
       for (const s of ["open", "CLOSED"] as const) {
-        open = (await listFlags(tx, p.current, a, { status: s, area: "all", q: "", raisedFrom: null, raisedTo: null })).list.find((f) => f.id === openId) ?? null;
+        open = (await listFlags(tx, p.current, a, { status: s, area: "all", q: "", raisedFrom: null, raisedTo: null })).list.find((f) => rowIs(f, openId)) ?? null;
         if (open) break;
       }
     }

@@ -11,6 +11,7 @@ import { formatDate } from "../format";
 import { attendanceSummary } from "../attendance/summary";
 import { CLEARED_REASON as ATTENDANCE_CLEARED, flagStatusOf, OPEN_ATTENDANCE_FLAG } from "../attendance/flags";
 import type { Area, FlagStatus } from "./warnings";
+import { weighAttendanceRows } from "./absence-signals";
 
 /** Why an attendance Risk Flag closed when the student's Attendance Flag took over. */
 export const JOINED = "Joined the Attendance Flag: attendance concerns are kept on one record.";
@@ -86,7 +87,7 @@ export async function attendanceFlagRows(tx: Tx, ctx: SchoolContext, q: { year: 
   const sum = openIds.length && q.today >= q.year.startDate ? await attendanceSummary(tx, ctx, { studentIds: openIds, from: q.year.startDate, to: q.today, today: q.today }) : null;
   const since = `${formatDate(q.year.startDate, "UTC")} to ${formatDate(q.today, "UTC")}`;
   const rules = q.rules;
-  return groups.map((g): BaseRow => {
+  const rows = groups.map((g): BaseRow => {
     const list = [...g].sort((x, y) => (x.kind === y.kind ? 0 : x.kind === "below-threshold" ? -1 : 1));
     const main = list[0];
     const open = isOpenAttendance(main);
@@ -128,6 +129,8 @@ export async function attendanceFlagRows(tx: Tx, ctx: SchoolContext, q: { year: 
       raisedAt: new Date(Math.min(...list.map((f) => f.createdAt.getTime()))), reviews,
     };
   });
+  // Absence reasons (./absence-signals.ts): the reason mix in the basis, and a stronger or weaker row.
+  return weighAttendanceRows(tx, ctx, rows, { from: q.year.startDate, today: q.today, threshold: rules.threshold, streakDays: rules.streakDays });
 }
 
 /**

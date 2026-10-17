@@ -43,6 +43,7 @@ import { addTask, taskAccess } from "../dashboard/tasks";
 import { referToCounselling } from "../students/behaviour";
 import { BUILT_MODULES } from "../modules";
 import { forecastsFor, type ForecastArea } from "./forecasts";
+import { dropoutReasons, withAbsenceReasons } from "./absence-signals";
 import { BASE, type ReportAccess } from "./access";
 import { attendanceFlagRows, coveredStudents, joinAttendanceFlags, JOINED, riskRow, type BaseRow } from "./attendance-rows";
 import type { ReportViewer } from "./types";
@@ -200,11 +201,13 @@ export async function refreshFlags(tx: Tx, ctx: SchoolContext, now = new Date())
   const enrolRows = await tx.enrolment.findMany({ where: { academicYearId: year.id, archivedAt: null, status: "STUDYING", student: { archivedAt: null } }, select: { studentId: true, sectionId: true } });
   const enrol = new Map(enrolRows.map((e) => [e.studentId, e.sectionId]));
   const covered = await coveredStudents(tx);
-  const signals = [
+  // Absence reasons adjust them (./absence-signals.ts); without recorded reasons nothing changes.
+  // Attendance Flag rows get the same in attendanceFlagRows.
+  const signals: Signal[] = await withAbsenceReasons(tx, ctx, [
     ...(await attendanceSignals(tx, ctx, year, enrol, today, rules, covered)),
     ...(await marksSignals(tx, year, enrol, rules)),
     ...(await feeSignals(tx, ctx, year, enrol, today, rules)),
-  ];
+  ], { from: year.startDate, today, enrol, threshold: rules.threshold, streakDays: rules.streakDays });
   const open = await tx.riskFlag.findMany({ where: { closedAt: null } });
   const quiet = await tx.riskFlag.findMany({ where: { closedAt: { gte: new Date(now.getTime() - QUIET_DAYS * DAY_MS) }, status: "CLOSED", NOT: { closedReason: { in: [CLEARED, JOINED] } } }, select: { studentId: true, area: true, strength: true } });
   const key = (s: { studentId: string; area: string }) => `${s.studentId}:${s.area}`;
@@ -526,6 +529,7 @@ export async function aiSignals(tx: Tx, who: ReportViewer, a: ReportAccess, now 
       const sums = await Promise.all(months.map((m) => attendanceSummary(tx, who.ctx, { studentIds: ids, from: m.s < year.startDate ? year.startDate : m.s, to: m.e, today })));
       const names = new Map((await tx.student.findMany({ where: { id: { in: ids } }, select: { id: true, fullName: true } })).map((s) => [s.id, s.fullName]));
       const fees = new Set((await tx.riskFlag.findMany({ where: { closedAt: null, area: "fees", studentId: { in: ids } }, select: { studentId: true } })).map((x) => x.studentId));
+      const reasons = await dropoutReasons(tx, who.ctx, ids, months[0].s < year.startDate ? year.startDate : months[0].s, today, a.warnings.fees);
       for (const f of flagged) {
         const ps = sums.map((s) => s.people.get(f.studentId)?.percent ?? null);
         if (ps.some((p) => p === null)) continue;
@@ -534,9 +538,9 @@ export async function aiSignals(tx: Tx, who: ReportViewer, a: ReportAccess, now 
         const name = names.get(f.studentId) ?? "A student";
         out.push({
           key: `dropout:${f.studentId}:${today.toISOString().slice(0, 7)}`, kind: "dropout", studentId: f.studentId, flagId: f.id,
-          title: `${name} may be at risk of leaving`,
-          source: `attendance for the last three months${fees.has(f.studentId) ? " and overdue fees" : ""}`,
-          body: `Attendance has fallen three months in a row (${pctText(p1)}, ${pctText(p2)}, ${pctText(p3)}). A call from the class teacher may help; you decide.`,
+          title: `${name} may be at risk of leaving`, strength: reasons.get(f.studentId)?.strong ? "ACT_NOW" : undefined,
+          source: `attendance for the last three months${reasons.has(f.studentId) ? ", the absence reasons" : ""}${fees.has(f.studentId) ? " and overdue fees" : ""}`,
+          body: `Attendance has fallen three months in a row (${pctText(p1)}, ${pctText(p2)}, ${pctText(p3)}).${reasons.get(f.studentId)?.why ?? ""} A call from the class teacher may help; you decide.`,
         });
       }
     }

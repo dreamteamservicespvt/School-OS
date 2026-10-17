@@ -108,6 +108,14 @@ model AttendanceMark {
   outTime        DateTime? @map("out_time")
   lateMinutes    Int?      @map("late_minutes")
   note           String?
+  /// Absence reason, for marks that count as absent, when the school records
+  /// reasons (School Feature attendance-absence-reasons): sick, family-function,
+  /// travel, fees-dispute, not-known, other. Empty = not recorded.
+  absenceReason  String?   @map("absence_reason")
+  /// A short note with the reason (mainly for "other").
+  absenceNote    String?   @map("absence_note")
+  /// Where the reason came from: register, later (the absent list), leave (approved Student Leave).
+  reasonSource   String?   @map("absence_reason_source")
   leaveRequestId String?   @map("leave_request_id") @db.Uuid
   markedById     String?   @map("marked_by_id") @db.Uuid
   markedAt       DateTime  @default(now()) @map("marked_at")
@@ -122,6 +130,7 @@ model AttendanceMark {
   @@unique([schoolId, staffId, date, periodNo])
   @@index([schoolId, sectionId, date])
   @@index([schoolId, date, statusKey])
+  @@index([schoolId, absenceReason, date])
   @@map("attendance_mark")
 }
 

@@ -14,6 +14,7 @@ import { act } from "@/lib/attendance/act";
 import { actionContext } from "@/lib/attendance/page";
 import { AttendanceProblem, BASE } from "@/lib/attendance/access";
 import { requestCorrection } from "@/lib/attendance/corrections";
+import { setAbsenceReason } from "@/lib/attendance/absence-reasons";
 import { remindNotMarked } from "@/lib/attendance/remind";
 import { problemState } from "@/lib/attendance/act";
 import { todayIn } from "@/lib/staff/dates";
@@ -94,4 +95,23 @@ export async function remindNotMarkedAction(sectionIds: string[]): Promise<strin
   } catch (e) {
     return problemState(e).message ?? "That did not go through. Please try again.";
   }
+}
+
+/**
+ * The reason for a student's absence, set later from the day's absent list
+ * (absence reasons, when the school records them). Only the reason changes;
+ * the mark and the % stay. Class teachers for their section, the office and
+ * whole-school roles; checked again in setAbsenceReason. Audited.
+ */
+export async function setAbsenceReasonAction(_: FormState<unknown>, fd: FormData) {
+  return act(fd, async () => {
+    const { current } = await requireAction("attendance-management", "edit");
+    const { access } = await actionContext(current);
+    const studentId = id(fd, "studentId", "student");
+    const date = dateOf(fd, "date", "Date");
+    const reason = str(fd, "reason").slice(0, 40);
+    if (!reason) throw new FieldProblem("Choose the reason.", "reason");
+    const note = str(fd, "note").slice(0, 100) || null;
+    return withSchool(current.ctx, (tx) => setAbsenceReason(tx, current.ctx, access, { studentId, date, reason, note }));
+  }, (r) => (r.changed ? `Reason saved for ${r.name}: ${r.label}.` : "Nothing changed."));
 }

@@ -20,6 +20,7 @@ import { instantAt, schoolDateOf, time12 } from "./time";
 import { sectionPeriods, teacherPeriodsOn } from "./timetable";
 import { createCorrection } from "./corrections";
 import { ON_REGISTER_STATUSES } from "./on-register";
+import { nextReason, reasonChoices, reasonFromLeave, REASONS_FEATURE, shownReason, type ShownReason } from "./absence-reasons";
 
 export const dayText = (d: Date) => formatDate(d, "UTC");
 
@@ -44,13 +45,16 @@ export async function roster(tx: Tx, sectionId: string, academicYearId: string, 
 
 /** Approved student leave covering a date, by student. */
 export async function studentLeavesOn(tx: Tx, studentIds: string[], date: Date) {
-  if (studentIds.length === 0) return new Map<string, { id: string; typeName: string; halfDay: boolean; reason: string | null }>();
+  if (studentIds.length === 0) return new Map<string, { id: string; typeName: string; typeCode: string | null; halfDay: boolean; reason: string | null }>();
   const rows = await tx.leaveRequest.findMany({
     where: { studentId: { in: studentIds }, status: "APPROVED", archivedAt: null, fromDate: { lte: date }, toDate: { gte: date } },
     select: { id: true, studentId: true, leaveTypeId: true, halfDay: true, reason: true },
   });
-  const types = await tx.leaveType.findMany({ where: { id: { in: rows.map((r) => r.leaveTypeId) } }, select: { id: true, name: true } });
-  return new Map(rows.map((r) => [r.studentId!, { id: r.id, typeName: types.find((t) => t.id === r.leaveTypeId)?.name ?? "Leave", halfDay: r.halfDay, reason: r.reason || null }]));
+  const types = await tx.leaveType.findMany({ where: { id: { in: rows.map((r) => r.leaveTypeId) } }, select: { id: true, name: true, code: true } });
+  return new Map(rows.map((r) => {
+    const t = types.find((x) => x.id === r.leaveTypeId);
+    return [r.studentId!, { id: r.id, typeName: t?.name ?? "Leave", typeCode: t?.code ?? null, halfDay: r.halfDay, reason: r.reason || null }];
+  }));
 }
 
 export type LockState = { locked: boolean; at: Date; atText: string };
@@ -127,6 +131,8 @@ export type SheetStudent = {
   studentId: string; rollNo: number | null; name: string; admissionNo: string; photoUrl: string | null;
   statusKey: string | null; note: string | null; method: string | null;
   leave: { id: string; typeName: string; halfDay: boolean; reason: string | null } | null;
+  /** The absence reason as this person may see it (absence reasons on, absent marks only). */
+  reason: ShownReason | null;
 };
 
 export async function loadSheet(tx: Tx, ctx: SchoolContext, access: AttendanceAccess, input: { sectionId: string; date: Date; periodNo: number; now: Date; timeZone: string }) {
@@ -134,6 +140,7 @@ export async function loadSheet(tx: Tx, ctx: SchoolContext, access: AttendanceAc
   if (!section) throw new AttendanceProblem("This class was not found.");
   if (!(await canTake(tx, ctx, access, section.id, input.date, input.periodNo))) throw new NotYoursError();
   const settings = await attendanceSettings(tx, ctx);
+  const reasonsOn = (await attendanceFeatures(tx, ctx)).has(REASONS_FEATURE);
   const [info, statuses, students, marks, lastSubmission] = await Promise.all([
     dayInfo(tx, ctx, input.date, section.campusId),
     statusList(tx, ctx),
@@ -149,6 +156,7 @@ export async function loadSheet(tx: Tx, ctx: SchoolContext, access: AttendanceAc
       studentId: s.studentId, rollNo: s.rollNo, name: s.name, admissionNo: s.admissionNo,
       photoUrl: settings.showPhotos && s.photoFileId ? fileLink(s.photoFileId, ctx.schoolId) : null,
       statusKey: m?.statusKey ?? null, note: m?.note ?? null, method: m?.method ?? null, leave: leaves.get(s.studentId) ?? null,
+      reason: reasonsOn && m ? shownReason(m, access.seesFees) : null,
     };
   });
   const savedBy = lastSubmission?.submittedById ? await tx.userLogin.findUnique({ where: { id: lastSubmission.submittedById }, select: { displayName: true } }) : null;
@@ -158,12 +166,16 @@ export async function loadSheet(tx: Tx, ctx: SchoolContext, access: AttendanceAc
     section, settings, day: info, statuses: statusesFor(statuses, "students") as StatusInfo[], students: sheet,
     saved: marks.length > 0, savedAt: lastSubmission?.receivedAt ?? (marks[0]?.markedAt ?? null), savedBy: savedBy?.displayName ?? null,
     lock, canChangeAfterLock: access.lockOverride, future,
+    /** Absence reasons (School Feature): the reasons this person may choose, or null when off. */
+    reasons: reasonsOn ? reasonChoices(access.seesFees) : null,
   };
 }
 
 // ---------------------------------------------------------------- saving
 
-export type Entry = { studentId: string; statusKey: string; note?: string | null };
+/** One student's mark. The absence reason is optional: left out, an absent student gets "Not known yet" (when reasons are on). */
+export type Entry = { studentId: string; statusKey: string; note?: string | null; reason?: string | null; reasonNote?: string | null };
+type Reason = { absenceReason: string | null; absenceNote: string | null; reasonSource: string | null };
 
 export type SaveInput = {
   sectionId: string;
@@ -230,6 +242,8 @@ export async function saveClassAttendance(tx: Tx, ctx: SchoolContext, access: At
   const students = await roster(tx, section.id, section.academicYearId);
   const inClass = new Map(students.map((s) => [s.studentId, s]));
   const leaves = await studentLeavesOn(tx, students.map((s) => s.studentId), input.date);
+  const reasonsOn = (await attendanceFeatures(tx, ctx)).has(REASONS_FEATURE);
+  const absentKeys = new Set(statuses.filter((s) => s.counts === "absent").map((s) => s.key));
   const seen = new Set<string>();
   const entries: (Entry & { leaveRequestId: string | null })[] = [];
   for (const e of input.entries) {
@@ -240,7 +254,7 @@ export async function saveClassAttendance(tx: Tx, ctx: SchoolContext, access: At
     const statusKey = leave && !leave.halfDay ? "leave" : e.statusKey;
     if (!valid.has(statusKey)) throw new AttendanceProblem(`"${e.statusKey}" is not one of the school's attendance statuses. Reload the page and try again.`);
     const note = (e.note ?? "").trim().slice(0, 300) || null;
-    entries.push({ studentId: e.studentId, statusKey, note, leaveRequestId: leave && statusKey === "leave" ? leave.id : null });
+    entries.push({ studentId: e.studentId, statusKey, note, reason: e.reason ?? null, reasonNote: e.reasonNote ?? null, leaveRequestId: leave && statusKey === "leave" ? leave.id : null });
   }
 
   // Offline: wrong phone clock (08 §10). The server's time is used when the difference is big.
@@ -256,9 +270,24 @@ export async function saveClassAttendance(tx: Tx, ctx: SchoolContext, access: At
 
   const existing = await tx.attendanceMark.findMany({ where: { sectionId: section.id, date: input.date, periodNo: input.periodNo, archivedAt: null, studentId: { not: null } } });
   const before = new Map(existing.map((m) => [m.studentId!, m]));
+  // Absence reasons: an unchanged mark saved again without a reason keeps what it had (marks from before stay "not recorded").
+  const reasons = new Map<string, Reason>();
+  for (const e of entries) {
+    const b = before.get(e.studentId);
+    const leave = leaves.get(e.studentId);
+    const keepAsIs = b && b.statusKey === e.statusKey && !e.reason;
+    reasons.set(e.studentId, keepAsIs
+      ? { absenceReason: b.absenceReason, absenceNote: b.absenceNote, reasonSource: b.reasonSource }
+      : nextReason({
+          on: reasonsOn, absent: absentKeys.has(e.statusKey), seesFees: access.seesFees, wanted: e.reason, note: e.reasonNote, existing: b ?? null,
+          leave: leave?.halfDay ? reasonFromLeave({ typeCode: leave.typeCode, typeName: leave.typeName, reason: leave.reason }) : null,
+        }));
+  }
+  const reasonOf = (id: string) => reasons.get(id)!;
   const changes = entries.filter((e) => {
     const b = before.get(e.studentId);
-    return !b || b.statusKey !== e.statusKey || (b.note ?? null) !== (e.note ?? null);
+    const r = reasonOf(e.studentId);
+    return !b || b.statusKey !== e.statusKey || (b.note ?? null) !== (e.note ?? null) || b.absenceReason !== r.absenceReason || (b.absenceNote ?? null) !== r.absenceNote;
   });
   const lock = lockState(settings, input.date, input.now, input.timeZone);
   const reachedSameDay = isoDay(today) === isoDay(input.date);
@@ -319,6 +348,7 @@ export async function saveClassAttendance(tx: Tx, ctx: SchoolContext, access: At
       data: fresh.map((c) => ({
         schoolId: ctx.schoolId, academicYearId: section.academicYearId, studentId: c.studentId, sectionId: section.id, date: input.date, periodNo: input.periodNo,
         statusKey: c.statusKey, note: c.note ?? null, method: "register", markedById: ctx.userId, markedAt: input.now, takenAt, leaveRequestId: c.leaveRequestId,
+        ...reasonOf(c.studentId),
       })),
       skipDuplicates: true,
     });
@@ -326,17 +356,17 @@ export async function saveClassAttendance(tx: Tx, ctx: SchoolContext, access: At
   for (const c of changes.filter((x) => before.has(x.studentId))) {
     await tx.attendanceMark.update({
       where: { id: before.get(c.studentId)!.id },
-      data: { statusKey: c.statusKey, note: c.note ?? null, method: "register", markedById: ctx.userId, markedAt: input.now, takenAt, leaveRequestId: c.leaveRequestId },
+      data: { statusKey: c.statusKey, note: c.note ?? null, method: "register", markedById: ctx.userId, markedAt: input.now, takenAt, leaveRequestId: c.leaveRequestId, ...reasonOf(c.studentId) },
     });
   }
   const afterLock = lockedForThis;
   await writeAudit(tx, ctx, {
     action: afterLock ? "attendance-changed-after-lock" : existing.length ? "attendance-changed" : "attendance-saved",
     recordType: "Attendance Mark", recordId: section.id,
-    before: existing.length ? (changes.filter((c) => before.has(c.studentId)).map((c) => ({ student: names.get(c.studentId), status: before.get(c.studentId)!.statusKey, note: before.get(c.studentId)!.note })) as unknown as Prisma.InputJsonValue) : null,
+    before: existing.length ? (changes.filter((c) => before.has(c.studentId)).map((c) => ({ student: names.get(c.studentId), status: before.get(c.studentId)!.statusKey, note: before.get(c.studentId)!.note, reason: before.get(c.studentId)!.absenceReason })) as unknown as Prisma.InputJsonValue) : null,
     after: {
       class: section.name, date: isoDay(input.date), period: input.periodNo || null, counts: countsOf(entries),
-      changes: changes.map((c) => ({ student: names.get(c.studentId), status: c.statusKey, note: c.note ?? null })),
+      changes: changes.map((c) => ({ student: names.get(c.studentId), status: c.statusKey, note: c.note ?? null, ...(reasonOf(c.studentId).absenceReason ? { reason: reasonOf(c.studentId).absenceReason } : {}) })),
       offline: Boolean(input.offline), clockFlagged,
     } as unknown as Prisma.InputJsonValue,
   });

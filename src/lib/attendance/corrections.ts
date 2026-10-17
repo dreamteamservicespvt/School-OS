@@ -13,6 +13,7 @@ import { isoDay } from "../staff/dates";
 import { AttendanceProblem, NotYoursError, type AttendanceAccess } from "./access";
 import { statusList } from "./settings";
 import { dayInfo, offDayMessage } from "./calendar";
+import { absentKeys, nextReason, reasonsOn } from "./absence-reasons";
 
 export type CorrectionEntry = { id: string; name: string; from: string | null; to: string; note: string | null };
 
@@ -128,14 +129,18 @@ export async function applyCorrection(tx: Tx, ctx: SchoolContext, correctionId: 
   const section = c.sectionId ? await tx.section.findUnique({ where: { id: c.sectionId } }) : null;
   const year = section ? { id: section.academicYearId } : await tx.academicYear.findFirst({ where: { schoolId: ctx.schoolId, startDate: { lte: c.date }, endDate: { gte: c.date }, archivedAt: null } });
   const changed: { name: string; before: string | null; after: string }[] = [];
+  // Absence reasons: a student corrected to absent gets "Not known yet" (when reasons are on); corrected away from absent, none.
+  const students = c.forWhom === "student";
+  const [keys, on] = students ? await Promise.all([absentKeys(tx, ctx), reasonsOn(tx, ctx)]) : [new Set<string>(), false];
   for (const e of entries) {
     const where = c.forWhom === "staff" ? { staffId: e.id } : { studentId: e.id };
     const mark = await tx.attendanceMark.findFirst({ where: { ...where, date: c.date, periodNo: c.periodNo, archivedAt: null } });
+    const reason = students ? nextReason({ on, absent: keys.has(e.to), seesFees: true, existing: mark, wanted: null }) : {};
     if (mark) {
-      await tx.attendanceMark.update({ where: { id: mark.id }, data: { statusKey: e.to, note: e.note ?? mark.note, markedById: ctx.userId, markedAt: new Date(), method: mark.method } });
+      await tx.attendanceMark.update({ where: { id: mark.id }, data: { statusKey: e.to, note: e.note ?? mark.note, markedById: ctx.userId, markedAt: new Date(), method: mark.method, ...reason } });
     } else {
       await tx.attendanceMark.create({
-        data: { schoolId: ctx.schoolId, academicYearId: year?.id ?? null, ...where, sectionId: c.sectionId, date: c.date, periodNo: c.periodNo, statusKey: e.to, note: e.note, method: "register", markedById: ctx.userId, locked: true },
+        data: { schoolId: ctx.schoolId, academicYearId: year?.id ?? null, ...where, sectionId: c.sectionId, date: c.date, periodNo: c.periodNo, statusKey: e.to, note: e.note, method: "register", markedById: ctx.userId, locked: true, ...reason },
       });
     }
     changed.push({ name: e.name, before: mark?.statusKey ?? null, after: e.to });

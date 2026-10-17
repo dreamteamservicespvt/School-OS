@@ -15,7 +15,7 @@ import { readMonth, registerChoices, registerMonth, registerYears } from "@/lib/
 import { clampMonth } from "@/lib/attendance/calendar-months";
 import { studentMonth } from "@/lib/attendance/integrations";
 import { attendanceSummary, percentText } from "@/lib/attendance/summary";
-import { lockState } from "@/lib/attendance/marks";
+import { dayText, lockState } from "@/lib/attendance/marks";
 import { time12 } from "@/lib/attendance/time";
 import { isoDay, monthStart } from "@/lib/staff/dates";
 import { Card } from "@/components/ui/card";
@@ -28,6 +28,7 @@ import { AttHead } from "../_components/att-head";
 import { MonthSelect } from "@/components/attendance/month-select";
 import { ExportMenu } from "../_components/export-menu";
 import { cellClass, Legend, type StatusView } from "../_components/status";
+import { REASONS_FEATURE } from "@/lib/attendance/absence-reasons";
 
 export const metadata: Metadata = { title: "Attendance Register" };
 
@@ -60,7 +61,7 @@ export default async function RegisterPage({ searchParams }: Props) {
     const waiting = await tx.attendanceCorrection.count({ where: { status: "WAITING", archivedAt: null, forWhom: "student", ...(access.students === "all" ? {} : { sectionId: { in: current_.map((s) => s.id) } }) } });
     const base = { month, bounds, year, waiting };
     if (!section) return { ...base, sections, section: null, grid: null, student: null };
-    const grid = await registerMonth(tx, current.ctx, { sectionId: section.id, month, today, status: view === "class" ? statusFilter || null : null });
+    const grid = await registerMonth(tx, current.ctx, { sectionId: section.id, month, today, status: view === "class" ? statusFilter || null : null, reasons: features.has(REASONS_FEATURE) ? { seesFees: access.seesFees } : null });
     if (view === "class" || !grid) return { ...base, sections, section, grid, student: null };
     const sid = one(sp.student);
     const pick = grid.rows.find((r) => r.id === sid) ?? grid.rows[0] ?? null;
@@ -111,6 +112,7 @@ export default async function RegisterPage({ searchParams }: Props) {
           <Chips label="Register views" value={view} options={[
             { value: "class", label: "Class register", href: qs({ view: null, student: null }) },
             { value: "student", label: "Student calendar", href: qs({ view: "student", status: null }) },
+            ...(features.has(REASONS_FEATURE) ? [{ value: "absences", label: "Absent list", href: `${BASE}/register/absences` }] : []),
             { value: "corrections", label: "Corrections", count: data.waiting || null, href: `${BASE}/register/corrections` },
           ]} />
           <div className="flex flex-col sm:flex-row gap-2 sm:items-center flex-wrap">
@@ -155,6 +157,8 @@ function ClassGrid({ grid, byKey, statuses, cellHref, statusFilter, threshold, t
   const anyPast = grid.dates.some((d) => !d.future);
   const thisMonth = grid.month === isoDay(today).slice(0, 7);
   const used = new Set(grid.rows.flatMap((r) => Object.values(r.days)));
+  const anyNotKnown = grid.rows.some((r) => Object.values(r.reasons).some((x) => x.key === "not-known"));
+  const why = (r: Grid["rows"][number], iso: string) => { const x = r.reasons[iso]; return x ? ` · ${x.label}${x.note ? `: ${x.note}` : ""}` : ""; };
   const legend = statuses.filter((s) => CORE.includes(s.key) || used.has(s.key));
   return (
     <Card className="overflow-hidden">
@@ -163,7 +167,10 @@ function ClassGrid({ grid, byKey, statuses, cellHref, statusFilter, threshold, t
           <h2 className="font-semibold">{grid.label}</h2>
           <p className="text-[13px] text-ink3">{grid.section.name} · {grid.rows.length} {grid.rows.length === 1 ? "student" : "students"} · {grid.workingDays} school {grid.workingDays === 1 ? "day" : "days"}{thisMonth ? " so far" : ""} · {percentText(grid.overall.percent)} present</p>
         </div>
-        <Legend statuses={legend} extra={shown.some((d) => d.off) ? <li className="flex items-center gap-1.5"><span aria-hidden="true" className={cx("w-4 h-4 rounded grid place-items-center text-[9px] font-bold", HOLIDAY_CELL)}>H</span>Holiday</li> : undefined} />
+        <Legend statuses={legend} extra={<>
+          {shown.some((d) => d.off) && <li className="flex items-center gap-1.5"><span aria-hidden="true" className={cx("w-4 h-4 rounded grid place-items-center text-[9px] font-bold", HOLIDAY_CELL)}>H</span>Holiday</li>}
+          {anyNotKnown && <li className="flex items-center gap-1.5"><span aria-hidden="true" className="w-2 h-2 rounded-full bg-warn" />Reason not known yet</li>}
+        </>} />
       </div>
       {!anyPast ? (
         <div className="border-t border-line"><EmptyState bare title="This month has not started" Icon={CalendarDays}>Marks show here from the first school day of {grid.label}.</EmptyState></div>
@@ -202,14 +209,15 @@ function ClassGrid({ grid, byKey, statuses, cellHref, statusFilter, threshold, t
                       const key = r.days[d.iso];
                       const st = key ? byKey.get(key) ?? { key, name: key, letter: "?", tone: "neutral" } : undefined;
                       const href = cellHref(r.id, d.iso);
+                      const unknown = r.reasons[d.iso]?.key === "not-known";
                       const box = st
-                        ? <span className={cx("inline-grid place-items-center min-w-7 h-7 px-0.5 rounded-md text-[10.5px] font-bold", cellClass(st))}><span aria-hidden="true">{st.letter}</span></span>
+                        ? <span className={cx("relative inline-grid place-items-center min-w-7 h-7 px-0.5 rounded-md text-[10.5px] font-bold", cellClass(st))}><span aria-hidden="true">{st.letter}</span>{unknown && <span aria-hidden="true" className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-warn ring-2 ring-surface" />}</span>
                         : <span className="inline-grid place-items-center w-7 h-7 rounded-md border border-dashed border-line text-ink3/60" aria-hidden="true">·</span>;
                       return (
                         <td key={d.iso} className="px-1 py-1.5 text-center border-b border-line/60 group-last:border-0">
                           {href
-                            ? <Link href={href} title={`${label}: ${st?.name ?? "Not marked"}`} aria-label={`${label}: ${st?.name ?? "not marked"}. Change`} className="inline-grid rounded-md outline-none hover:ring-2 hover:ring-brand/60 focus-visible:ring-2 focus-visible:ring-brand">{box}</Link>
-                            : <span title={`${label}: ${st?.name ?? "Not marked"}`}>{box}<span className="sr-only">{label}: {st?.name ?? "not marked"}</span></span>}
+                            ? <Link href={href} title={`${label}: ${st?.name ?? "Not marked"}${why(r, d.iso)}`} aria-label={`${label}: ${st?.name ?? "not marked"}${why(r, d.iso)}. Change`} className="inline-grid rounded-md outline-none hover:ring-2 hover:ring-brand/60 focus-visible:ring-2 focus-visible:ring-brand">{box}</Link>
+                            : <span title={`${label}: ${st?.name ?? "Not marked"}${why(r, d.iso)}`}>{box}<span className="sr-only">{label}: {st?.name ?? "not marked"}{why(r, d.iso)}</span></span>}
                         </td>
                       );
                     })}
@@ -268,8 +276,9 @@ function StudentCalendar({ s, byKey, statuses, sectionName, yearName, cellHref, 
                 </>
               );
               const cls = cx("flex h-14 sm:h-16 flex-col items-center justify-center rounded-xl", c.off ? (c.off === "Sunday" ? "bg-sunken/60 text-ink3" : HOLIDAY_CELL) : st ? cellClass(st) : c.future ? "text-ink3" : "border border-dashed border-line text-ink3");
+              const reason = s.row.reasons[c.date];
               return (
-                <div key={c.date} role="gridcell" title={c.off ?? st?.name}>
+                <div key={c.date} role="gridcell" title={c.off ?? (st ? `${st.name}${reason ? ` · ${reason.label}` : ""}` : undefined)}>
                   {href ? <Link href={href} className={cx(cls, "hover:ring-2 hover:ring-brand/60")}>{body}</Link> : <div className={cls}>{body}</div>}
                 </div>
               );
@@ -277,6 +286,19 @@ function StudentCalendar({ s, byKey, statuses, sectionName, yearName, cellHref, 
           </div>
         </div>
       </Card>
+      {Object.keys(s.row.reasons).length > 0 && (
+        <Card className="overflow-hidden">
+          <h2 className="px-5 pt-4 font-semibold">Reasons for absences</h2>
+          <ul className="px-2 pb-2 divide-y divide-line/70">
+            {Object.entries(s.row.reasons).sort(([a], [b]) => a.localeCompare(b)).map(([iso, r]) => (
+              <li key={iso} className="flex items-center gap-3 px-3 py-2.5 text-[14px]">
+                <span className="w-24 shrink-0 tnum text-ink2">{dayText(new Date(`${iso}T00:00:00Z`))}</span>
+                <span className="min-w-0 flex-1"><span className="font-semibold">{r.label}</span>{r.note ? <span className="text-ink3"> · {r.note}</span> : null}</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
     </div>
   );
 }

@@ -119,7 +119,12 @@ export default async function TakeAttendancePage({ searchParams }: Props) {
           periodNo={data.chosen!.periodNo} periodLabel={data.chosen!.periodLabel}
           statuses={sheet.statuses.map((s) => ({ key: s.key, name: s.name, letter: s.letter, tone: s.tone, counts: s.counts }))}
           defaultStatus={settings.defaultStatus === "none" ? "not-marked" : "present"}
-          students={sheet.students.map((s) => ({ id: s.studentId, roll: s.rollNo, name: s.name, admissionNo: s.admissionNo, photoUrl: s.photoUrl, statusKey: s.statusKey, note: s.note, leave: s.leave ? { typeName: s.leave.typeName, halfDay: s.leave.halfDay, reason: s.leave.reason } : null }))}
+          students={sheet.students.map((s) => ({
+            id: s.studentId, roll: s.rollNo, name: s.name, admissionNo: s.admissionNo, photoUrl: s.photoUrl, statusKey: s.statusKey, note: s.note,
+            leave: s.leave ? { typeName: s.leave.typeName, halfDay: s.leave.halfDay, reason: s.leave.reason } : null,
+            reason: s.reason ? { key: s.reason.key, label: s.reason.label, note: s.reason.note } : null,
+          }))}
+          reasons={sheet.reasons}
           saved={sheet.saved}
           savedAtText={sheet.savedAt ? formatTime(sheet.savedAt, tz) : null} savedBy={sheet.savedBy}
           locked={sheet.lock.locked} lockText={sheet.lock.atText} canChangeAfterLock={sheet.canChangeAfterLock}

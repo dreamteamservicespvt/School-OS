@@ -7,10 +7,10 @@ import { gatewayCredentials } from "@/lib/payments/gateways";
 import { verifyWebhookSignature } from "@/lib/payments/razorpay";
 import { readRazorpayEvent, runGatewayEvent } from "@/lib/payments/events";
 import { hitLimit } from "@/lib/rate-limit";
-// Fee Management's handler for confirmed and failed payments (A8).
+// Every module's gateway handler (onGatewayEvent), so each confirmation reaches them all:
+// Fee Management's for fee payments (A8) and Admission Management's for application fees.
 import "@/lib/fees/gateway-handler";
-// Modules register their gateway handlers (onGatewayEvent) next to their approval handlers.
-import "@/lib/approval-handlers";
+import "@/lib/admission/gateway-handler";
 
 export const dynamic = "force-dynamic";
 

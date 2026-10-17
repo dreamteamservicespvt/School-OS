@@ -5,7 +5,6 @@ import "server-only";
 import type { ApprovalStatus, Prisma } from "@prisma/client";
 import { withSchool, type SchoolContext, type Tx } from "./db";
 import { DecisionProblem, approvalsFor, canDecide, decide } from "./approvals";
-import "./approval-handlers";
 
 /** These roles see every request of the school (00-global.md §3; 05-roles.md). */
 export const OVERSEER_ROLES = ["school-admin", "principal"];

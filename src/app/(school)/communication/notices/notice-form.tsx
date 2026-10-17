@@ -15,6 +15,8 @@ export type NoticeFormData = {
   staffAllowed: boolean;
   wholeSchool: boolean;
   needsApproval: { parents: boolean; all: boolean };
+  /** Critical goes even to parents who opted out: only the office marks a notice Critical. */
+  criticalAllowed: boolean;
   defaultExpiry: string;
 };
 
@@ -154,7 +156,7 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
         <fieldset>
           <legend className="mb-2 font-semibold">Priority</legend>
           <div className="flex flex-wrap gap-2">
-            {[["NORMAL", "Normal"], ["HIGH", "High"], ["CRITICAL", "Critical"]].map(([k, l]) => (
+            {[["NORMAL", "Normal"], ["HIGH", "High"], ...(data.criticalAllowed ? [["CRITICAL", "Critical"]] : [])].map(([k, l]) => (
               <label key={k} className={`inline-flex min-h-11 cursor-pointer items-center rounded-full border px-4 ${priority === k ? (k === "CRITICAL" ? "border-bad ring-4 ring-bad/10 bg-bad/10 font-medium text-bad" : k === "HIGH" ? "border-warn bg-warn/10 font-medium text-warn" : "border-brand bg-brand/10 font-medium text-brand") : "border-line hover:border-ink3/50 focus:border-brand focus:ring-4 focus:ring-brand/15 outline-none"}`}>
                 <input type="radio" name="priority" value={k} checked={priority === k} onChange={() => setPriority(k)} className="sr-only" />{l}
               </label>
@@ -196,7 +198,7 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
             {err("criticalWord") && <p className="mt-1.5 text-[12.5px] text-bad">{err("criticalWord")}</p>}
           </div>
         )}
-        {approval && <Alert tone="info">This notice goes to the principal for approval first. It is published once approved.</Alert>}
+        {approval && <Alert tone="info">This notice goes for approval first. It is published once approved.</Alert>}
       </section>
 
       <div className="flex flex-wrap gap-2">

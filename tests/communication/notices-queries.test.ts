@@ -35,11 +35,11 @@ const notice = (over: Partial<NoticeInput> = {}): NoticeInput => ({
 
 describe("notices", () => {
   it("needs a typed confirmation for Critical", async () => {
-    await expect(withSchool(s.ctx, (tx) => saveNotice(tx, s.ctx, notice({ priority: "CRITICAL" }), { action: "publish", fullAccess: true, criticalConfirmed: false }))).rejects.toThrow(/Type CRITICAL/);
+    await expect(withSchool(s.ctx, (tx) => saveNotice(tx, s.ctx, notice({ priority: "CRITICAL" }), { action: "publish", criticalConfirmed: false }))).rejects.toThrow(/Type CRITICAL/);
   });
 
   it("sends a teacher's notice to parents for approval, and publishes it with a message once approved", async () => {
-    const saved = await withSchool(teacherCtx, (tx) => saveNotice(tx, teacherCtx, notice(), { action: "publish", fullAccess: false, criticalConfirmed: false }));
+    const saved = await withSchool(teacherCtx, (tx) => saveNotice(tx, teacherCtx, notice(), { action: "publish", criticalConfirmed: false }));
     expect(saved.outcome).toBe("approval");
     expect(saved.notice.status).toBe("WAITING_APPROVAL");
     await withSchool(s.ctx, (tx) => decide(tx, s.ctx, saved.notice.approvalId!, "approve", null));
@@ -54,7 +54,7 @@ describe("notices", () => {
 
   it("schedules a notice for later and publishes it once at its time", async () => {
     const at = new Date(Date.now() + 60 * 60_000);
-    const saved = await withSchool(s.ctx, (tx) => saveNotice(tx, s.ctx, notice({ title: "Later notice", channels: ["board"], publishAt: at }), { action: "publish", fullAccess: true, criticalConfirmed: false }));
+    const saved = await withSchool(s.ctx, (tx) => saveNotice(tx, s.ctx, notice({ title: "Later notice", channels: ["board"], publishAt: at }), { action: "publish", criticalConfirmed: false }));
     expect(saved.outcome).toBe("scheduled");
     await withSchool(s.ctx, (tx) => tx.backgroundJob.updateMany({ where: { schoolId: s.school.id, kind: "notice:publish" }, data: { runAfter: new Date(Date.now() - 1000) } }));
     await withSchool(s.ctx, (tx) => tx.notice.update({ where: { id: saved.notice.id }, data: { publishAt: new Date(Date.now() - 1000) } }));
@@ -71,7 +71,7 @@ describe("notices", () => {
   });
 
   it("expires notices after their expiry date, and archives on request", async () => {
-    const saved = await withSchool(s.ctx, (tx) => saveNotice(tx, s.ctx, notice({ title: "Old notice", channels: ["board"], expiresOn: new Date("2026-01-01") }), { action: "publish", fullAccess: true, criticalConfirmed: false }));
+    const saved = await withSchool(s.ctx, (tx) => saveNotice(tx, s.ctx, notice({ title: "Old notice", channels: ["board"], expiresOn: new Date("2026-01-01") }), { action: "publish", criticalConfirmed: false }));
     expect(await withSchool(s.ctx, (tx) => expireNotices(tx, s.ctx))).toBeGreaterThanOrEqual(1);
     const n = await withSchool(s.ctx, (tx) => tx.notice.findUniqueOrThrow({ where: { id: saved.notice.id } }));
     expect(n.status).toBe("EXPIRED");
@@ -80,7 +80,7 @@ describe("notices", () => {
   });
 
   it("records who read and acknowledged a notice", async () => {
-    const saved = await withSchool(s.ctx, (tx) => saveNotice(tx, s.ctx, notice({ title: "Staff meeting", audience: { parents: false, students: false, staff: true, roleKeys: [], classIds: [], sectionIds: [], campusIds: [] }, channels: ["board", "app"], askAck: true }), { action: "publish", fullAccess: true, criticalConfirmed: false }));
+    const saved = await withSchool(s.ctx, (tx) => saveNotice(tx, s.ctx, notice({ title: "Staff meeting", audience: { parents: false, students: false, staff: true, roleKeys: [], classIds: [], sectionIds: [], campusIds: [] }, channels: ["board", "app"], askAck: true }), { action: "publish", criticalConfirmed: false }));
     await withSchool(teacherCtx, (tx) => markRead(tx, teacherCtx, saved.notice.id, false));
     await withSchool(teacherCtx, (tx) => markRead(tx, teacherCtx, saved.notice.id, true));
     const ack = await withSchool(s.ctx, (tx) => tx.noticeAcknowledgement.findMany({ where: { noticeId: saved.notice.id } }));

@@ -4,11 +4,12 @@ import type { Notice } from "@prisma/client";
 import { withSchool } from "@/lib/db";
 import type { CommAccess } from "@/lib/communication/access";
 import { currentYear } from "@/lib/academic/years";
-import { messageSettings } from "@/lib/messaging/settings";
-import { readAudience, DEFAULT_EXPIRY_DAYS } from "@/lib/communication/notices";
+import { readAudience, needsApproval, DEFAULT_EXPIRY_DAYS } from "@/lib/communication/notices";
 import { utcToLocal } from "@/lib/communication/time";
 import { formatDate } from "@/lib/format";
 import type { NoticeFormData } from "./notice-form";
+
+const noAudience = { parents: false, students: false, staff: false, roleKeys: [], classIds: [], sectionIds: [], campusIds: [] };
 
 export async function noticeFormData(access: CommAccess, notice: Notice | null): Promise<NoticeFormData> {
   const { current, scope } = access;
@@ -22,7 +23,6 @@ export async function noticeFormData(access: CommAccess, notice: Notice | null):
     const classes = [...new Map(sections.map((s) => [s.classId, { id: s.classId, name: s.schoolClass.name, sections: sections.filter((x) => x.classId === s.classId).map((x) => ({ id: x.id, name: x.name })) }])).values()];
     const roles = scope.staff ? await tx.role.findMany({ where: { schoolId: current.ctx.schoolId, archivedAt: null, isEnabled: true, key: { not: null } }, select: { key: true, name: true }, orderBy: { name: "asc" } }) : [];
     const campuses = await tx.campus.findMany({ where: { schoolId: current.ctx.schoolId, archivedAt: null }, select: { id: true, name: true } });
-    const settings = await messageSettings(tx, current.ctx);
     const files = notice?.attachmentFileIds.length ? await tx.storedFile.findMany({ where: { id: { in: notice.attachmentFileIds } }, select: { id: true, fileName: true } }) : [];
     const a = notice ? readAudience(notice.audience) : null;
     return {
@@ -49,7 +49,9 @@ export async function noticeFormData(access: CommAccess, notice: Notice | null):
       campuses,
       staffAllowed: scope.staff,
       wholeSchool: scope.sectionIds === "all",
-      needsApproval: access.full ? { parents: false, all: false } : { parents: settings.noticeApproval === "parents", all: settings.noticeApproval === "all" },
+      // The same rule the server applies when it is saved (the people who decide notices need nobody's approval).
+      needsApproval: { parents: await needsApproval(tx, current.ctx, { ...noAudience, parents: true }), all: await needsApproval(tx, current.ctx, { ...noAudience, students: true }) },
+      criticalAllowed: access.full,
       defaultExpiry: formatDate(new Date(Date.now() + DEFAULT_EXPIRY_DAYS * 86400_000), tz),
     };
   });

@@ -7,7 +7,7 @@ import "server-only";
 import type { Prisma } from "@prisma/client";
 import { prisma, type SchoolContext, type Tx } from "../db";
 import { writeAudit } from "../audit";
-import { requestApproval, onDecision } from "../approvals";
+import { requestApproval, type AskableType, type FollowUp } from "../approvals";
 import { notify } from "../notifications";
 import type { PermissionMap } from "../permissions";
 
@@ -159,23 +159,25 @@ export async function anonymise(tx: Tx, type: DeletionInput["personType"], id: s
   return changed;
 }
 
-/** What happens when the Approvals page decides a deletion request. */
-onDecision("data-deletion", async (tx, ctx, approval, decision, note) => {
-  const req = await tx.deletionRequest.findUnique({ where: { id: approval.recordId } });
-  if (!req || req.status !== "waiting") return;
-  if (decision === "approve") {
-    const fields = await anonymise(tx, req.personType as DeletionInput["personType"], req.personId, req.scope);
-    await tx.deletionRequest.update({ where: { id: req.id }, data: { status: "completed", completedAt: new Date() } });
-    // Only the names of the fields go in the log, never the removed values.
-    await writeAudit(tx, ctx, { action: "deletion-completed", recordType: "Deletion Request", recordId: req.id, after: { personType: req.personType, personId: req.personId, fieldsRemoved: fields } });
-  } else {
-    await tx.deletionRequest.update({ where: { id: req.id }, data: { status: decision === "withdraw" ? "withdrawn" : "rejected" } });
-    await writeAudit(tx, ctx, { action: "deletion-rejected", recordType: "Deletion Request", recordId: req.id, after: { decision, note } });
-  }
-  if (req.createdById && req.createdById !== ctx.userId && decision !== "withdraw") {
-    await notify(tx, ctx, { to: req.createdById, type: "privacy", text: decision === "approve" ? `The personal data of ${req.personName} was removed as asked.` : `The request to remove ${req.personName}'s data was not approved.`, link: "/settings/data-security/privacy" });
-  }
-});
+/** What happens when a deletion request is decided (listed in src/lib/approval-handlers.ts). */
+export const followUps = {
+  "data-deletion": async (tx, ctx, approval, decision, note) => {
+    const req = await tx.deletionRequest.findUnique({ where: { id: approval.recordId } });
+    if (!req || req.status !== "waiting") return;
+    if (decision === "approve") {
+      const fields = await anonymise(tx, req.personType as DeletionInput["personType"], req.personId, req.scope);
+      await tx.deletionRequest.update({ where: { id: req.id }, data: { status: "completed", completedAt: new Date() } });
+      // Only the names of the fields go in the log, never the removed values.
+      await writeAudit(tx, ctx, { action: "deletion-completed", recordType: "Deletion Request", recordId: req.id, after: { personType: req.personType, personId: req.personId, fieldsRemoved: fields } });
+    } else {
+      await tx.deletionRequest.update({ where: { id: req.id }, data: { status: decision === "withdraw" ? "withdrawn" : "rejected" } });
+      await writeAudit(tx, ctx, { action: "deletion-rejected", recordType: "Deletion Request", recordId: req.id, after: { decision, note } });
+    }
+    if (req.createdById && req.createdById !== ctx.userId && decision !== "withdraw") {
+      await notify(tx, ctx, { to: req.createdById, type: "privacy", text: decision === "approve" ? `The personal data of ${req.personName} was removed as asked.` : `The request to remove ${req.personName}'s data was not approved.`, link: "/settings/data-security/privacy" });
+    }
+  },
+} satisfies Partial<Record<AskableType, FollowUp>>;
 
 // One person's data on request.
 

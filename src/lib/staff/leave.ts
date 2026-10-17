@@ -353,7 +353,7 @@ export async function applyLeave(tx: Tx, ctx: SchoolContext, input: ApplyInput) 
 
 // ---------------------------------------------------------------- decisions (A5)
 
-/** What happens to a staff leave when its approval is decided. Registered with onDecision. */
+/** What happens to a staff leave when its approval is decided. Listed in src/lib/approval-handlers.ts. */
 export async function onLeaveDecision(tx: Tx, ctx: SchoolContext, approval: { id: string }, decision: "approve" | "reject" | "ask-change" | "withdraw", note: string | null) {
   const requests = await tx.leaveRequest.findMany({ where: { approvalId: approval.id, status: "WAITING", archivedAt: null } });
   for (const r of requests) {

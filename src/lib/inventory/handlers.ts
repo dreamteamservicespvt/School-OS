@@ -1,13 +1,13 @@
 // Inventory Management's follow-ups: what happens when the approver decides a
 // purchase request or order, a stock transfer, a stock audit's differences or
 // an asset disposal (Approvals), where each request opens, and Undo for an
-// issue just made at the desk (P5). Imported by src/lib/approval-handlers.ts
-// and src/lib/undo-handlers.ts.
+// issue just made at the desk (P5). Listed in src/lib/approval-handlers.ts
+// and imported by src/lib/undo-handlers.ts.
 import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
-import { onDecision } from "../approvals";
-import { registerApprovalLink } from "../approval-links";
+import type { AskableType, FollowUp } from "../approvals";
+import type { LinkMaker } from "../approval-links";
 import { registerUndo } from "../undo";
 import { withSchool } from "../db";
 import { writeAudit } from "../audit";
@@ -27,31 +27,31 @@ async function today(tx: Tx, ctx: SchoolContext) {
   return todayIn(s?.timeZone ?? "Asia/Kolkata");
 }
 
-onDecision("purchase", async (tx, ctx, approval, decision, note) => {
-  if (approval.recordType === "Purchase Order") await decideOrder(tx, ctx, approval.recordId, decision, note);
-  else await decideRequest(tx, ctx, approval.recordId, decision, note);
-});
+export const followUps = {
+  purchase: async (tx, ctx, approval, decision, note) => {
+    if (approval.recordType === "Purchase Order") await decideOrder(tx, ctx, approval.recordId, decision, note);
+    else await decideRequest(tx, ctx, approval.recordId, decision, note);
+  },
+  "stock-transfer": async (tx, ctx, approval, decision, note) => {
+    await decideTransfer(tx, ctx, approval.recordId, decision, note, await today(tx, ctx));
+  },
+  "stock-audit": async (tx, ctx, approval, decision, note) => {
+    await decideAudit(tx, ctx, approval.recordId, decision, note, await today(tx, ctx));
+  },
+  "asset-disposal": async (tx, ctx, approval, decision, note) => {
+    await decideDisposal(tx, ctx, approval.recordId, decision, note);
+  },
+} satisfies Partial<Record<AskableType, FollowUp>>;
 
-onDecision("stock-transfer", async (tx, ctx, approval, decision, note) => {
-  await decideTransfer(tx, ctx, approval.recordId, decision, note, await today(tx, ctx));
-});
-
-onDecision("stock-audit", async (tx, ctx, approval, decision, note) => {
-  await decideAudit(tx, ctx, approval.recordId, decision, note, await today(tx, ctx));
-});
-
-onDecision("asset-disposal", async (tx, ctx, approval, decision, note) => {
-  await decideDisposal(tx, ctx, approval.recordId, decision, note);
-});
-
-registerApprovalLink("purchase", (a) =>
-  a.recordType === "Purchase Order"
-    ? { href: `${BASE}/purchases/orders/${a.recordId}`, label: "Open the purchase order" }
-    : { href: `${BASE}/purchases?tab=requests&request=${a.recordId}`, label: "Open the purchase request" },
-);
-registerApprovalLink("stock-transfer", () => ({ href: `${BASE}/items?view=moves&kind=transfer`, label: "Open stock movements" }));
-registerApprovalLink("stock-audit", (a) => ({ href: `${BASE}/items/audits/${a.recordId}`, label: "Open the stock audit" }));
-registerApprovalLink("asset-disposal", (a) => ({ href: `${BASE}/assets?disposal=${a.recordId}`, label: "Open the asset" }));
+export const approvalLinks = {
+  purchase: (a) =>
+    a.recordType === "Purchase Order"
+      ? { href: `${BASE}/purchases/orders/${a.recordId}`, label: "Open the purchase order" }
+      : { href: `${BASE}/purchases?tab=requests&request=${a.recordId}`, label: "Open the purchase request" },
+  "stock-transfer": () => ({ href: `${BASE}/items?view=moves&kind=transfer`, label: "Open stock movements" }),
+  "stock-audit": (a) => ({ href: `${BASE}/items/audits/${a.recordId}`, label: "Open the stock audit" }),
+  "asset-disposal": (a) => ({ href: `${BASE}/assets?disposal=${a.recordId}`, label: "Open the asset" }),
+} satisfies Partial<Record<AskableType, LinkMaker>>;
 
 const RECENT_MS = 2 * 60_000;
 

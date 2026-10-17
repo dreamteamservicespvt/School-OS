@@ -153,7 +153,7 @@ export async function applyCorrection(tx: Tx, ctx: SchoolContext, correctionId: 
   return changed.length;
 }
 
-/** What happens when a correction is decided (registered with onDecision). */
+/** What happens when a correction is decided (listed in src/lib/approval-handlers.ts). */
 export async function onCorrectionDecision(tx: Tx, ctx: SchoolContext, approval: { id: string; recordId: string }, decision: Decision, note: string | null) {
   const c = await tx.attendanceCorrection.findFirst({ where: { id: approval.recordId, status: "WAITING" } });
   if (!c) return;

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import {
   Banknote, CalendarPlus, CalendarRange, CalendarX2, Check, Eye, FileDown, FileSpreadsheet, FileWarning, Hourglass, Info, ListChecks, Lock, Plus, Receipt,
-  ReceiptText, SearchX, Send, Undo2, Wallet,
+  ReceiptText, SearchX, Send, TriangleAlert, Undo2, Wallet,
 } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { canDecide } from "@/lib/approvals";
@@ -98,6 +98,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
   const noTds = included.filter((l) => l.flags.includes("No TDS amount"));
   const lopLines = included.filter((l) => Number(l.lopDays) > 0);
   const corrections = data.adjustments.filter((a) => a.forMonth);
+  const negative = included.filter((l) => l.netPaise < ZERO);
   const lopTotal = lopLines.reduce((s, l) => s + Number(l.lopDays), 0);
   const name = (id: string) => staffOf.get(id)?.fullName ?? "Staff";
   const waiting = data.allRuns.filter((r) => r.status === "WAITING");
@@ -186,10 +187,13 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
                 )}
               </Card>
 
-              {(status === "OPEN" || status === "CALCULATED") && (noStructure.length + incomplete.length + noTds.length + lopLines.length + corrections.length > 0) && (
+              {(status === "OPEN" || status === "CALCULATED") && (negative.length + noStructure.length + incomplete.length + noTds.length + lopLines.length + corrections.length > 0) && (
                 <Card>
                   <CardHeader title="Check before sending" description="Flags from the rules in Salary Settings" icon={ListChecks} />
                   <ul className="divide-y divide-line/70 border-t border-line/70">
+                    {negative.length > 0 && <Check1 icon={TriangleAlert} tone="bad" title={`Net pay below zero for ${negative.length} staff · cannot be sent or approved`}
+                      sub={`${negative.slice(0, 3).map((l) => (money ? `${name(l.staffId)} ${amt(l.netPaise)}` : name(l.staffId))).join(", ")}. A correction or one-time deduction is more than the pay. Change or remove the adjustment first.`}
+                      action={<ButtonLink href={here({ show: "flag" })} scroll={false} size="sm" variant="secondary">Show</ButtonLink>} />}
                     {noStructure.length > 0 && <Check1 icon={FileWarning} tone="warn" title={`${noStructure.length} staff ${noStructure.length === 1 ? "has" : "have"} no salary structure`} sub={`${noStructure.slice(0, 3).map((l) => `${name(l.staffId)}, ${staffOf.get(l.staffId)?.designation}`).join("; ")}. Left out until a structure exists.`}
                       action={p.change ? <ButtonLink href={`${BASE}/structures?do=add&staff=${noStructure[0].staffId}`} size="sm" variant="secondary">Add</ButtonLink> : null} />}
                     {incomplete.length > 0 && <Check1 icon={CalendarX2} tone="warn" title={`Attendance missing for ${incomplete.length} staff`} sub={incomplete.slice(0, 3).map((l) => `${name(l.staffId)} ${l.notMarkedDays} ${l.notMarkedDays === 1 ? "day" : "days"}`).join(", ") + ". Not marked and no leave asked."}
@@ -471,10 +475,10 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
   );
 }
 
-function Check1({ icon: Icon, tone, title, sub, action }: { icon: typeof Info; tone: "warn" | "info"; title: string; sub: string; action: React.ReactNode }) {
+function Check1({ icon: Icon, tone, title, sub, action }: { icon: typeof Info; tone: "bad" | "warn" | "info"; title: string; sub: string; action: React.ReactNode }) {
   return (
     <li className="flex items-center gap-3 px-5 py-3">
-      <span className={cx("w-9 h-9 rounded-xl grid place-items-center shrink-0", tone === "warn" ? "bg-warn/12 text-warn" : "bg-info/10 text-info")}><Icon size={18} aria-hidden="true" /></span>
+      <span className={cx("w-9 h-9 rounded-xl grid place-items-center shrink-0", tone === "bad" ? "bg-bad/10 text-bad" : tone === "warn" ? "bg-warn/12 text-warn" : "bg-info/10 text-info")}><Icon size={18} aria-hidden="true" /></span>
       <div className="min-w-0 flex-1"><p className="font-semibold text-[14px]">{title}</p><p className="text-[12.5px] text-ink3 truncate">{sub}</p></div>
       {action}
     </li>

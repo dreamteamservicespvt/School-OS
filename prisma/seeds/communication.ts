@@ -202,6 +202,6 @@ export async function seedCommunication(school: SeedSchool) {
       await closeSurvey(tx, principalCtx, closed.id);
       const st = ex("staff");
       await saveSurvey(tx, principalCtx, null, { title: "Staff feedback · Term 1", audience: "staff", anonymous: true, closesOn: null, questions: st.questions }, labels, today);
-    });
+    }, { timeout: 120_000 });
   }
 }

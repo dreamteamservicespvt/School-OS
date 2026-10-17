@@ -61,7 +61,9 @@ async function MySlips({ sp }: { sp: Record<string, string | string[] | undefine
     const staff = await tx.staff.findUniqueOrThrow({ where: { id: me.id }, include: { department: { select: { name: true } } } });
     const thisRun = await tx.payrollRun.findFirst({ where: { campusId: staff.campusId, month: firstOfMonth(p.today) }, select: { status: true, month: true } });
     const campus = await tx.campus.findFirst({ where: { id: staff.campusId }, select: { name: true, address: true } });
-    return { settings, slips, lines, staff, thisRun, campus };
+    // Own adjustments only (bonus, arrears, corrections of an earlier month), shown on the slip with their month or reason.
+    const adjustments = await tx.payrollAdjustment.findMany({ where: { staffId: me.id, archivedAt: null, runId: { in: slips.map((s) => s.runId) } }, orderBy: { createdAt: "asc" } });
+    return { settings, slips, lines, staff, thisRun, campus, adjustments };
   });
   const lineOf = new Map(data.lines.map((l) => [l.id, l]));
   const latest = data.slips[0];
@@ -151,7 +153,7 @@ async function MySlips({ sp }: { sp: Record<string, string | string[] | undefine
             <a href={`${pdf(view.id)}&print=1`} target="_blank" rel="noopener" className={buttonClass("ghost")}><Printer size={17} aria-hidden="true" />Print</a>
             <a href={pdf(view.id)} download className={buttonClass("primary")}><Download size={17} aria-hidden="true" />Download PDF</a>
           </div>}>
-          <SlipView school={p.school.name} place={[data.campus?.name, data.campus?.address].filter(Boolean).join(", ")} month={view.month} paidOn={view.run.paidOn} line={lineOf.get(view.lineId)!} person={person} showEmployer={data.settings.slipShowEmployer} />
+          <SlipView school={p.school.name} place={[data.campus?.name, data.campus?.address].filter(Boolean).join(", ")} month={view.month} paidOn={view.run.paidOn} line={lineOf.get(view.lineId)!} person={person} showEmployer={data.settings.slipShowEmployer} adjustments={data.adjustments.filter((a) => a.runId === view.runId)} />
         </UrlSheet>
       )}
     </div>
@@ -176,8 +178,9 @@ async function AllSlips({ sp }: { sp: Record<string, string | string[] | undefin
     const viewId = UUID.test(one(sp.slip)) ? one(sp.slip) : "";
     const view = viewId ? slips.find((s) => s.id === viewId) ?? null : null;
     const viewLine = view ? await tx.payrollLine.findUnique({ where: { id: view.lineId } }) : null;
+    const viewAdjustments = view ? await tx.payrollAdjustment.findMany({ where: { runId: view.runId, staffId: view.staffId, archivedAt: null }, orderBy: { createdAt: "asc" } }) : [];
     const channels = await channelSetups(tx, ctx);
-    return { settings, runs, run, slips, staff, campus, view, viewLine, waOn: channels.whatsapp.isOn, emailOn: channels.email.isOn };
+    return { settings, runs, run, slips, staff, campus, view, viewLine, viewAdjustments, waOn: channels.whatsapp.isOn, emailOn: channels.email.isOn };
   });
   const run = data.run;
   const done = data.runs.filter((r) => DONE.includes(r.status as (typeof DONE)[number]));
@@ -253,7 +256,7 @@ async function AllSlips({ sp }: { sp: Record<string, string | string[] | undefin
               {p.change && singleHow && <ButtonLink href={here({ slip: null, do: "send", how: singleHow, ids: data.view.id })} scroll={false} variant="secondary" icon={Send}>Send</ButtonLink>}
               <a href={`${HREF}/pdf?ids=${data.view.id}`} download className={buttonClass("primary")}><Download size={17} aria-hidden="true" />Download PDF</a>
             </div>}>
-            <SlipView school={p.school.name} place={[data.campus?.name, data.campus?.address].filter(Boolean).join(", ")} month={run.month} paidOn={run.paidOn} line={data.viewLine} person={personOf(x)} showEmployer={data.settings.slipShowEmployer} />
+            <SlipView school={p.school.name} place={[data.campus?.name, data.campus?.address].filter(Boolean).join(", ")} month={run.month} paidOn={run.paidOn} line={data.viewLine} person={personOf(x)} showEmployer={data.settings.slipShowEmployer} adjustments={data.viewAdjustments} />
           </UrlSheet>
         );
       })()}

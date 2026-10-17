@@ -8,7 +8,7 @@ import { canDecide } from "@/lib/approvals";
 import { formatDate, formatDateTime, formatRupees, formatRupeesShort } from "@/lib/format";
 import { payrollStaff, runBreakdown, lineDays } from "@/lib/salary/payroll";
 import { salarySettings } from "@/lib/salary/settings";
-import { addMonths, adjustmentLabel, dayNum, dayShort, firstOfMonth, lastOfMonth, monthKey, monthName, monthShort } from "@/lib/salary/words";
+import { addMonths, correctionLabel, dayNum, dayShort, firstOfMonth, lastOfMonth, monthKey, monthName, monthShort } from "@/lib/salary/words";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import { ButtonLink, buttonClass } from "@/components/ui/button";
@@ -97,6 +97,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
   const incomplete = included.filter((l) => l.flags.includes("Attendance not complete"));
   const noTds = included.filter((l) => l.flags.includes("No TDS amount"));
   const lopLines = included.filter((l) => Number(l.lopDays) > 0);
+  const corrections = data.adjustments.filter((a) => a.forMonth);
   const lopTotal = lopLines.reduce((s, l) => s + Number(l.lopDays), 0);
   const name = (id: string) => staffOf.get(id)?.fullName ?? "Staff";
   const waiting = data.allRuns.filter((r) => r.status === "WAITING");
@@ -185,7 +186,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
                 )}
               </Card>
 
-              {(status === "OPEN" || status === "CALCULATED") && (noStructure.length + incomplete.length + noTds.length + lopLines.length > 0) && (
+              {(status === "OPEN" || status === "CALCULATED") && (noStructure.length + incomplete.length + noTds.length + lopLines.length + corrections.length > 0) && (
                 <Card>
                   <CardHeader title="Check before sending" description="Flags from the rules in Salary Settings" icon={ListChecks} />
                   <ul className="divide-y divide-line/70 border-t border-line/70">
@@ -195,6 +196,9 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
                       action={p.current.permissions["attendance-management"]?.see !== "none" ? <ButtonLink href="/attendance-management/staff" size="sm" variant="secondary">Open</ButtonLink> : null} />}
                     {noTds.length > 0 && <Check1 icon={Receipt} tone="warn" title={`${noTds.length} staff ${noTds.length === 1 ? "has" : "have"} no TDS amount`} sub={`${noTds.slice(0, 2).map((l) => name(l.staffId)).join(", ")} · yearly pay is above the ${formatRupeesShort(data.settings.tdsReminderAbovePaise)} limit set in Salary Settings`}
                       action={p.change ? <ButtonLink href={here({ tds: noTds[0].staffId })} scroll={false} size="sm" variant="secondary">Enter TDS</ButtonLink> : null} />}
+                    {corrections.length > 0 && <Check1 icon={Undo2} tone="info" title={`${corrections.length} ${corrections.length === 1 ? "correction" : "corrections"} for earlier months`}
+                      sub={corrections.slice(0, 3).map((a) => `${name(a.staffId)}: ${correctionLabel(a)}, ${Number(a.lopDays) < 0 ? `${dayNum(-Number(a.lopDays))} ${Number(a.lopDays) === -1 ? "day" : "days"} given back` : `${dayNum(Number(a.lopDays))} more loss of pay`}${money ? ` (${a.type === "DEDUCTION" ? "−" : "+"}${amt(a.amountPaise)})` : ""}`).join("; ") + ". Leave or attendance changed after that salary was approved."}
+                      action={<ButtonLink href={here({ show: "adj" })} scroll={false} size="sm" variant="ghost">Show</ButtonLink>} />}
                     {lopLines.length > 0 && <Check1 icon={Info} tone="info" title={`${lopLines.length} staff ${lopLines.length === 1 ? "has" : "have"} loss of pay · ${dayNum(lopTotal)} ${lopTotal === 1 ? "day" : "days"}`} sub={lopLines.slice(0, 4).map((l) => `${name(l.staffId)} ${dayNum(Number(l.lopDays))}`).join(", ")}
                       action={<ButtonLink href={here({ show: "lop" })} scroll={false} size="sm" variant="ghost">Show</ButtonLink>} />}
                   </ul>
@@ -227,7 +231,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
                       <ul className="flex flex-col gap-1">
                         {data.adjustments.map((a) => (
                           <li key={a.id} className="text-[13px] flex justify-between items-center gap-2">
-                            <span className="truncate" title={a.reason}>{name(a.staffId)} · {adjustmentLabel(a.type)}</span>
+                            <span className="truncate" title={a.reason}>{name(a.staffId)} · {correctionLabel(a)}</span>
                             <span className="flex items-center gap-1 shrink-0"><span className="tnum">{a.type === "DEDUCTION" ? "−" : "+"}{amt(a.amountPaise)}</span>
                               {editable && <ActButton action={removeAdjustmentAction} fields={{ adjustmentId: a.id }} label="Remove" variant="ghost" size="sm" />}</span>
                           </li>
@@ -243,6 +247,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
                     <MoneyLi k="Paid days" v={dayNum(included.reduce((s, l) => s + Number(l.paidDays), 0))} strong />
                     <MoneyLi sub k="Leave days" v={dayNum(included.reduce((s, l) => s + lineDays(l).leave, 0))} />
                     <MoneyLi sub k="Leave without pay" v={dayNum(included.reduce((s, l) => s + Number(l.unpaidLeaveDays), 0))} />
+                    <MoneyLi sub k="Leave beyond the balance" v={dayNum(included.reduce((s, l) => s + lineDays(l).beyond, 0))} />
                     <MoneyLi sub k="Absent without leave" v={dayNum(included.reduce((s, l) => s + Number(l.absentDays), 0))} />
                     <MoneyLi k="Loss of pay" v={dayNum(lopTotal)} strong />
                   </ul>
@@ -314,7 +319,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
                             </td>
                             {l.included ? <>
                               <td className="px-2">{dayNum(d.paid)}</td>
-                              <td className="px-2">{d.leave + d.unpaid ? dayNum(d.leave + d.unpaid) : "—"}</td>
+                              <td className="px-2">{d.leave + d.unpaid + d.beyond ? dayNum(d.leave + d.unpaid + d.beyond) : "—"}</td>
                               <td className={cx("px-2", d.lop > 0 && "text-bad font-semibold")}>{d.lop ? dayNum(d.lop) : "—"}</td>
                               {money && <>
                                 <td className="px-2">{amt(l.grossPaise)}</td>
@@ -382,7 +387,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
                       {unearned > ZERO && <WorkRow k={d.lop ? `Loss of pay, ${dayNum(d.lop)} ${d.lop === 1 ? "day" : "days"}` : "Days not employed"} v={`− ${amt(unearned)}`}
                         sub={`${openLine.notes.join(" · ") || "From Staff Attendance and Staff Leave"} · ${amt(full)} × ${dayNum(openLine.daysInMonth - d.paid)} ÷ ${openLine.daysInMonth}`} tone="text-bad" />}
                       {openLine.overtimePaise > ZERO && <WorkRow k="Overtime" v={`+ ${amt(openLine.overtimePaise)}`} sub={`${Math.round(openLine.overtimeMinutes / 6) / 10} hours from Staff Attendance`} tone="text-ok" />}
-                      {adj.map((a) => <WorkRow key={a.id} k={adjustmentLabel(a.type)} v={`${a.type === "DEDUCTION" ? "−" : "+"} ${amt(a.amountPaise)}`} sub={a.reason} tone={a.type === "DEDUCTION" ? "text-bad" : "text-ok"} />)}
+                      {adj.map((a) => <WorkRow key={a.id} k={correctionLabel(a)} v={`${a.type === "DEDUCTION" ? "−" : "+"} ${amt(a.amountPaise)}`} sub={a.forMonth && (a.pfPaise || a.esiPaise) ? `${a.reason} PF ${amt(a.pfPaise)} and ESI ${amt(a.esiPaise)} on it, by the rules of ${monthName(a.forMonth)}, are in the deductions.` : a.reason} tone={a.type === "DEDUCTION" ? "text-bad" : "text-ok"} />)}
                     </ul>
                   </div>
                   <div>
@@ -406,7 +411,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
               </>
             ) : (
               <DL rows={[
-                ["Working days", String(openLine.workingDays)], ["Present", dayNum(d.present)], ["Paid leave", dayNum(d.leave)], ["Leave without pay", dayNum(d.unpaid)],
+                ["Working days", String(openLine.workingDays)], ["Present", dayNum(d.present)], ["Paid leave", dayNum(d.leave)], ["Leave without pay", dayNum(d.unpaid)], ["Leave beyond the balance", dayNum(d.beyond)],
                 ["Absent without leave", dayNum(d.absent)], ["Late marks", String(openLine.lateMarks)], ["Loss of pay", `${dayNum(d.lop)} ${d.lop === 1 ? "day" : "days"}`], ["Days paid", `${dayNum(d.paid)} of ${openLine.daysInMonth}`],
               ]} />
             )}
@@ -426,7 +431,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
         <ConfirmSheet closeHref={here({ do: null })} title={`Send ${monthName(run.month)} salary for approval?`} label="Send for approval" action={sendRunAction} hidden={{ runId: run.id }}>
           <div className="flex flex-col gap-3 text-[14px] text-ink2">
             <p><b className="font-semibold text-ink">{run.staffCount} staff, net {amt(run.netPaise)}</b> (gross {amt(run.grossPaise)}).{noStructure.length ? ` ${noStructure.map((l) => name(l.staffId)).slice(0, 3).join(", ")} ${noStructure.length === 1 ? "is" : "are"} left out until they have a salary structure.` : ""}</p>
-            <p>Attendance after today is not in yet. Leave approved after today is adjusted in next month’s salary.</p>
+            <p>Attendance after today is not in yet. Days after today, and leave or attendance changed after approval, come into next month’s salary by themselves as arrears or a deduction, with the reason.</p>
             {data.adjustments.length > 0 && <p>{data.adjustments.length} adjustment{data.adjustments.length > 1 ? "s" : ""} included, each with its reason.</p>}
             <p>Nobody approves a month they sent: it goes to the Principal, or to the School Admin when the Principal sent it.</p>
           </div>

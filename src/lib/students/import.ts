@@ -233,12 +233,14 @@ function makeKind(key: string, label: string, columns: ImportColumn[], opts: Imp
  */
 export async function undoStudents(tx: Tx, ctx: SchoolContext, ids: string[]) {
   const now = new Date();
-  const [paid, marked, results] = await Promise.all([
+  const [paid, marked, results, marks] = await Promise.all([
     tx.payment.findMany({ where: { studentId: { in: ids }, broughtIn: false, status: { in: ["POSTED", "WAITING"] } }, select: { studentId: true }, distinct: ["studentId"] }),
     tx.attendanceMark.findMany({ where: { studentId: { in: ids }, archivedAt: null }, select: { studentId: true }, distinct: ["studentId"] }),
-    tx.result.findMany({ where: { studentId: { in: ids } }, select: { studentId: true }, distinct: ["studentId"] }),
+    // "Joined after this exam" rows hold no marks, so they never count as work done (G23).
+    tx.result.findMany({ where: { studentId: { in: ids }, leftOut: false }, select: { studentId: true }, distinct: ["studentId"] }),
+    tx.marks.findMany({ where: { studentId: { in: ids } }, select: { studentId: true }, distinct: ["studentId"] }),
   ]);
-  const used = [...new Set([...paid, ...marked, ...results].map((r) => r.studentId!).filter(Boolean))];
+  const used = [...new Set([...paid, ...marked, ...results, ...marks].map((r) => r.studentId!).filter(Boolean))];
   if (used.length) {
     const named = await tx.student.findMany({ where: { id: { in: used.slice(0, 5) } }, select: { fullName: true } });
     throw new StudentProblem(`This import cannot be undone: ${used.length === 1 ? "1 of its students already has" : `${used.length} of its students already have`} fee payments, attendance or marks made in School OS (${named.map((n) => n.fullName).join(", ")}${used.length > 5 ? " and others" : ""}). Correct or archive those students one by one instead.`);

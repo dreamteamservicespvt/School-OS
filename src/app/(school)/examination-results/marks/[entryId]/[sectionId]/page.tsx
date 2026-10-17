@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { formatDate, formatDateTime } from "@/lib/format";
-import { loadPaper } from "@/lib/exams/marks";
+import { isDone, loadPaper } from "@/lib/exams/marks";
 import { PAPER_STATUS_TONE, PAPER_STATUS_WORDS, timeRange } from "@/lib/exams/common";
 import { teachesPaper } from "@/lib/exams/scope";
 import { pageMode } from "@/lib/duty";
@@ -38,12 +38,15 @@ export default async function PaperPage({ params, searchParams }: { params: Prom
   const name = (id: string | null | undefined) => people.find((x) => x.id === id)?.displayName ?? "";
   const students: GridStudent[] = p.students.map((s) => {
     const m = p.marks.find((x) => x.studentId === s.studentId);
-    const history = ((m?.history as { at: string; by?: string; approvedBy?: string; before: { total?: number | null; absent?: boolean; medical?: boolean; grade?: string | null }; after: { total?: number | null; absent?: boolean; medical?: boolean; grade?: string | null }; reason: string }[]) ?? []);
-    const words = (v: { total?: number | null; absent?: boolean; medical?: boolean; grade?: string | null }) => (v.medical ? "ML" : v.absent ? "AB" : p.subject.gradeOnly ? v.grade ?? "" : String(v.total ?? ""));
+    type Value = { total?: number | null; absent?: boolean; medical?: boolean; grade?: string | null } | null;
+    const history = ((m?.history as { at: string; by?: string; approvedBy?: string; before: Value; after: Value; reason: string }[]) ?? []);
+    // Late marks have no "before": the student had no marks.
+    const words = (v: Value) => (!v ? "" : v.medical ? "ML" : v.absent ? "AB" : p.subject.gradeOnly ? v.grade ?? "" : String(v.total ?? ""));
     return {
       id: s.studentId, name: s.name, rollNo: s.rollNo, admissionNo: s.admissionNo,
       parts: (m?.parts ?? {}) as Record<string, number>, absent: m?.absent ?? false, medical: m?.medical ?? false, grade: m?.grade ?? null, remark: m?.remark ?? null,
       waiting: p.waiting.some((w) => w.studentId === s.studentId),
+      late: !open && !isDone(m, p.subject.gradeOnly),
       history: history.map((h) => ({ at: formatDateTime(new Date(h.at), tz), by: name(h.by), approvedBy: name(h.approvedBy), reason: h.reason, before: words(h.before), after: words(h.after) })),
     };
   });
@@ -75,6 +78,7 @@ export default async function PaperPage({ params, searchParams }: { params: Prom
         status={p.paper.status}
         canEdit={canEdit}
         canRequest={!open && page.writable && teaches}
+        lateMarks={p.lateMarks}
         head={{
           title: `${p.subject.name} · ${p.section.label}`, sectionShort: p.section.label.replace(/^Class /, ""), examTitle: p.exam.title,
           paperOn: `${formatDate(p.entry.date, tz)}, ${timeRange(p.entry.startTime, p.entry.durationMin)}`,

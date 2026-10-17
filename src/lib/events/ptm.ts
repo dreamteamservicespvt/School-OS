@@ -291,7 +291,7 @@ export async function performance(tx: Tx, ctx: SchoolContext, studentId: string,
     const sum = await attendanceSummary(tx, ctx, { studentId, from: year.startDate, to: year.endDate, today: dayOf(today) });
     attendance = sum.people.get(studentId)?.percent ?? null;
   }
-  const results = await tx.result.findMany({ where: { studentId, academicYearId, examId: { not: null } }, orderBy: { computedAt: "desc" }, take: 2 });
+  const results = await tx.result.findMany({ where: { studentId, academicYearId, examId: { not: null }, leftOut: false }, orderBy: { computedAt: "desc" }, take: 2 });
   let latest: Performance["latest"] = null;
   if (results.length) {
     const exams = await tx.exam.findMany({ where: { id: { in: results.map((r) => r.examId!) } }, select: { id: true, title: true } });

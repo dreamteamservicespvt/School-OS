@@ -1,14 +1,25 @@
 "use server";
 
 // Exam Settings (08 §6). Only people with full reach (manage) change these;
-// every change is audited by the library functions.
+// every change is audited by the library functions. A change that alters how
+// results are worked out (grade scale, rules, weights, boards) works out the
+// draft results again at once; published results never change (rule 15).
+import type { ExamPattern } from "@prisma/client";
+import type { SchoolContext, Tx } from "@/lib/db";
 import type { Band } from "@/lib/exams/grades";
 import { ExamRuleError } from "@/lib/exams/common";
+import { recomputeDrafts } from "@/lib/exams/results";
 import {
-  addListItem, archiveArea, archiveGradeScale, archiveListItem, importPreset, saveArea, saveGradeScale, saveRules, saveWeights, setExamFeature, type RulesInput,
+  addListItem, archiveArea, archiveCompetency, archiveGradeScale, archiveListItem, importPreset, saveArea, saveBoards, saveClassPatterns, saveCompetency, saveGradeScale, saveRules, saveWeights, setExamFeature,
+  type BoardChoice, type RulesInput,
 } from "@/lib/exams/settings";
 import { actSimple, str } from "../_lib/server";
 import { EXAM_FEATURES } from "./features";
+
+const DRAFTS = " Draft results are worked out again; published results do not change.";
+/** Long enough for a school with many exams and sections to work its drafts out again. */
+const RECOMPUTE = { timeout: 180_000 };
+const redo = (tx: Tx, ctx: SchoolContext) => recomputeDrafts(tx, ctx);
 
 const UUID = /^[0-9a-f-]{36}$/i;
 type ListKind = "examType" | "markCategory";
@@ -47,8 +58,9 @@ export async function saveScaleAction(id: string | null, name: string, bands: un
   return actSimple("edit", async ({ tx, current }) => {
     if (id && !UUID.test(id)) throw new ExamRuleError("Reload the page and try again.");
     const row = await saveGradeScale(tx, current.ctx, { id, name: String(name ?? ""), bands: cleanBands(bands) });
+    if (id) await redo(tx, current.ctx);
     return { flash: { message: `${row.name} saved${row.version > 1 ? ` as version ${row.version}` : ""}. Published results keep the scale they were made with.` } };
-  });
+  }, RECOMPUTE);
 }
 
 export async function importPresetAction(key: string) {
@@ -70,8 +82,9 @@ export async function saveWeightsAction(weights: { examTypeId: string; weight: n
   return actSimple("edit", async ({ tx, current }) => {
     if (!Array.isArray(weights) || weights.length > 50) throw new ExamRuleError("Reload the page and try again.");
     await saveWeights(tx, current.ctx, weights.map((w) => ({ examTypeId: String(w.examTypeId), weight: Number(w.weight) })));
-    return { flash: { message: "Final result weights saved. Final results are worked out again when marks change." } };
-  });
+    await redo(tx, current.ctx);
+    return { flash: { message: `Final result weights saved.${DRAFTS}` } };
+  }, RECOMPUTE);
 }
 
 const int = (fd: FormData, k: string, min: number, max: number, words: string) => {
@@ -96,9 +109,57 @@ export async function saveRulesForm(fd: FormData) {
       reminderDaysBefore: int(fd, "reminderDaysBefore", 0, 7, "Reminder days"),
       gpaOn: fd.get("gpaOn") === "on",
       defaultScaleId: str(fd, "defaultScaleId"),
+      lateMarks: str(fd, "lateMarks") === "off" ? "off" : "approval",
+      lateJoinRule: str(fd, "lateJoinRule") === "zero" ? "zero" : "leave-out",
     };
     await saveRules(tx, current.ctx, input);
-    return { flash: { message: "Exam rules saved. They apply to results worked out from now on." } };
+    await redo(tx, current.ctx);
+    return { flash: { message: `Exam rules saved.${DRAFTS}` } };
+  }, RECOMPUTE);
+}
+
+/** Default exam pattern per class: { [classId]: "PERCENTAGE" | "GRADING" | "CGPA" }. */
+export async function saveClassPatternsAction(patterns: Record<string, string>) {
+  return actSimple("edit", async ({ tx, current }) => {
+    const entries = Object.entries(patterns ?? {});
+    if (entries.length > 300 || entries.some(([id]) => !UUID.test(id))) throw new ExamRuleError("Reload the page and try again.");
+    await saveClassPatterns(tx, current.ctx, Object.fromEntries(entries.map(([id, p]) => [id, String(p) as ExamPattern])));
+    return { flash: { message: "Exam pattern per class saved. New datesheets start with it; exams already made keep theirs." } };
+  });
+}
+
+/** Grade scale and report card format per board: { [board]: { scaleId, reportBase } }. */
+export async function saveBoardsAction(boards: Record<string, { scaleId?: string | null; reportBase?: string | null }>) {
+  return actSimple("edit", async ({ tx, current }) => {
+    const entries = Object.entries(boards ?? {});
+    if (entries.length > 20) throw new ExamRuleError("Reload the page and try again.");
+    const clean: Record<string, BoardChoice> = {};
+    for (const [board, c] of entries) {
+      const scaleId = c?.scaleId ? String(c.scaleId) : null;
+      if (scaleId && !UUID.test(scaleId)) throw new ExamRuleError("Reload the page and try again.");
+      clean[String(board).slice(0, 60)] = { scaleId, reportBase: c?.reportBase ? String(c.reportBase) : null };
+    }
+    await saveBoards(tx, current.ctx, clean);
+    await redo(tx, current.ctx);
+    return { flash: { message: `Board settings saved. Each class uses its board's grade scale and report card format.${DRAFTS}` } };
+  }, RECOMPUTE);
+}
+
+export async function saveCompetencyForm(fd: FormData) {
+  return actSimple("edit", async ({ tx, current }) => {
+    const id = str(fd, "id");
+    const subjectId = str(fd, "subjectId");
+    if ((id && !UUID.test(id)) || (subjectId && !UUID.test(subjectId))) throw new ExamRuleError("Reload the page and try again.");
+    const row = await saveCompetency(tx, current.ctx, { id: id || null, subjectId, name: str(fd, "name"), levels: str(fd, "levels").split(",") });
+    return { flash: { message: `${row.name} saved.` } };
+  });
+}
+
+export async function archiveCompetencyAction(id: string) {
+  return actSimple("archive", async ({ tx, current }) => {
+    if (!UUID.test(id)) throw new ExamRuleError("Reload the page and try again.");
+    await archiveCompetency(tx, current.ctx, id);
+    return { flash: { message: "Competency archived. Levels already given stay on past report cards." } };
   });
 }
 
@@ -123,6 +184,8 @@ export async function setFeatureAction(key: string, on: boolean) {
   return actSimple("edit", async ({ tx, current }) => {
     if (!(EXAM_FEATURES as readonly string[]).includes(key)) throw new ExamRuleError("This cannot be switched here.");
     await setExamFeature(tx, current.ctx, key, Boolean(on));
+    // Different boards changes which grade scale each class's draft results use.
+    if (key === "exam-boards") await redo(tx, current.ctx);
     return { flash: { message: on ? "Switched on." : "Switched off." } };
-  });
+  }, RECOMPUTE);
 }

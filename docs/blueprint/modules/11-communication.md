@@ -64,12 +64,12 @@ Each send is one Message to many people. Every person in it is one Message Recip
 
 **Actions**
 
-- Create a circular or notice with attachments.
+- Create a circular or notice with attachments. Anyone who may send messages writes notices within their own scope: a teacher for their own sections' parents and students, never to staff and never Critical (inferred). They change and archive only the notices they wrote.
 - Choose the audience: roles, classes, campuses. A notice for one campus, with no class ticked, reaches only that campus everywhere: its messages, Parent Link, the student's Communication tab, the notice board and the "Seen by" count. A notice with no campus ticked is for the whole school.
 - Set priority: **Normal**, **High** or **Critical** (decided 9 October 2026). Critical needs a typed confirmation (P4) and is pinned at the top of every chosen guardian's Parent Link until it expires. Schedule a publish time, set an expiry date.
 - Ask for read acknowledgement: readers tap "I have read this"; the notice shows who has and has not.
 - Publish on several channels at once (notice board, app notification, Parent Link, WhatsApp, SMS, email); parents, who have no password login, see it on their Parent Link and get it by message.
-- **Approval before publishing:** notices go to Approvals when the school's rule says so (for example all notices to parents) (inferred default).
+- **Approval before publishing:** notices go to Approvals when the school's rule says so (for example all notices to parents) (inferred default). The rule applies to everyone who writes a notice except the people who approve notices themselves (the Principal, unless Forms & Approvals names someone else) (inferred). Approving publishes the notice (or schedules it for its publish time); sending it back or rejecting it returns it to Draft.
 - Archive; expired notices move to the archive by themselves.
 - Remind those who have not acknowledged (inferred).
 - **Resend to parents who have not seen it:** one tap, by the same or another channel, with the usual preview of count and cost (decided 9 October 2026).

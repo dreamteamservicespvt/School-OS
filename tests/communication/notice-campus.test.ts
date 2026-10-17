@@ -35,7 +35,7 @@ const notice = (title: string, campusIds: string[]): NoticeInput => ({
   expiresOn: null,
   askAck: false,
 });
-const publish = (n: NoticeInput) => withSchool(s.ctx, async (tx) => (await saveNotice(tx, s.ctx, n, { action: "publish", fullAccess: true, criticalConfirmed: false })).notice);
+const publish = (n: NoticeInput) => withSchool(s.ctx, async (tx) => (await saveNotice(tx, s.ctx, n, { action: "publish", criticalConfirmed: false })).notice);
 const recipients = (messageId: string) => withSchool(s.ctx, async (tx) => (await tx.messageRecipient.findMany({ where: { messageId }, select: { name: true } })).map((r) => r.name).sort());
 const parentLinkNotices = (guardianId: string) => withSchool(s.ctx, async (tx) => {
   const view = await loadGuardianView(tx, s.ctx, { linkId: randomUUID(), guardianId, childId: null, token: "t", preview: false });

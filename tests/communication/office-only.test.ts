@@ -1,7 +1,8 @@
-// Office work in Communication (templates, notices, Parent Link, consent requests, Message Settings)
-// needs school-wide reach (11-communication.md, 05-roles.md). A class teacher, whose reach is their
-// own sections, is refused on the server by every page and action, even by direct address, while
-// what they may do (send to their own sections) keeps working.
+// Office work in Communication (templates, Parent Link, consent requests, Message Settings, and
+// reminding or resending a notice) needs school-wide reach (11-communication.md, 05-roles.md). A class
+// teacher, whose reach is their own sections, is refused on the server by every page and action, even
+// by direct address, while what they may do (send to their own sections, write a notice for them:
+// tests/communication/notice-approval.test.ts) keeps working.
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 let token: string | null = null;
@@ -48,7 +49,6 @@ beforeEach(async () => {
 
 describe("Communication office pages refuse a class teacher", () => {
   const pages: [string, () => Promise<{ default: (p: never) => Promise<unknown> }>, object][] = [
-    ["New notice", () => import("@/app/(school)/communication/notices/new/page"), {}],
     ["New template", () => import("@/app/(school)/communication/templates/new/page"), {}],
     ["Message Settings", () => import("@/app/(school)/communication/settings/page"), {}],
     ["Automation log", () => import("@/app/(school)/communication/settings/log/page"), {}],
@@ -75,15 +75,10 @@ describe("Communication office pages refuse a class teacher", () => {
 });
 
 describe("Communication office actions refuse a class teacher", () => {
-  it("notices: write, archive, remind and resend", async () => {
+  it("notices: remind and resend", async () => {
     const n = await import("@/app/(school)/communication/notices/actions");
-    const form = new FormData();
-    form.set("title", "Sports day");
-    form.set("body", "On Friday.");
     const before = await withSchool({ schoolId: s.school.id, userId: s.principal.id }, (tx) => tx.notice.count({ where: { schoolId: s.school.id } }));
-    await refused(() => n.saveNoticeAction(null as never, form));
     const fakeId = "00000000-0000-4000-8000-000000000000";
-    await refused(() => n.archiveNoticeAction(fakeId));
     await refused(() => n.remindAction(fakeId));
     await refused(() => n.previewNoticeResend(fakeId, "whatsapp"));
     await refused(() => n.resendNotice(fakeId, "whatsapp"));

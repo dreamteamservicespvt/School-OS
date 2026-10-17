@@ -82,8 +82,8 @@ export default async function NoticePage({ params, searchParams }: { params: Pro
           {n.askAck && <Pill tone="info">Asks for “I have read this”</Pill>}
         </>}
         actions={<NoticeActions id={n.id}
-          canEdit={access.full && n.status === "DRAFT"}
-          canArchive={access.full && n.status !== "ARCHIVED" && n.status !== "WAITING_APPROVAL"}
+          canEdit={data.manager && access.canChange && n.status === "DRAFT"}
+          canArchive={data.manager && access.canChange && n.status !== "ARCHIVED" && n.status !== "WAITING_APPROVAL"}
           canAck={data.inAudience && n.askAck && n.status === "PUBLISHED"} acked={Boolean(data.myAck?.acknowledgedAt)}
           canRemind={access.full && n.askAck && n.status === "PUBLISHED" ? notRead.length : 0}
           unseen={access.full && n.status === "PUBLISHED" ? unseen : 0} channels={[...channels]} />} />

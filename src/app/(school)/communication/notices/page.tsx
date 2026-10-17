@@ -66,8 +66,8 @@ export default async function NoticeBoardPage({ searchParams }: { searchParams: 
   return (
     <>
       <CommHead access={access} page="Notice Board" href="/communication/notices"
-        sub={access.full ? "Circulars and notices with read tracking. Notices to parents go to the Principal for approval first." : "Notices for you are on the board. The office writes and publishes notices."}
-        actions={access.full ? <ButtonLink href="/communication/notices/new" variant="primary" icon={Plus}>New notice</ButtonLink> : undefined} />
+        sub={access.full ? "Circulars and notices with read tracking. Notices to parents go for approval first, unless you approve them yourself." : access.canChange ? "Notices for you are on the board, with the notices you wrote. Notices to parents go for approval first." : "Notices for you are on the board."}
+        actions={access.canChange ? <ButtonLink href="/communication/notices/new" variant="primary" icon={Plus}>New notice</ButtonLink> : undefined} />
       <Split side={340}>
         <Card className="overflow-hidden min-w-0">
           <Toolbar className="flex-wrap">
@@ -86,7 +86,7 @@ export default async function NoticeBoardPage({ searchParams }: { searchParams: 
             paging={{ page: params.page, pageSize: PAGE_SIZE, total: data.total, href: (p) => listHref("/communication/notices", listParams, { page: p }) }}
             empty={
               <EmptyState bare Icon={Megaphone} title={filtered ? "No notices here" : group === "waiting" ? "Nothing waiting" : "No notices here"}
-                action={access.full ? <ButtonLink href="/communication/notices/new" icon={Plus}>New notice</ButtonLink> : undefined}>
+                action={access.canChange ? <ButtonLink href="/communication/notices/new" icon={Plus}>New notice</ButtonLink> : undefined}>
                 {group === "waiting" ? "Drafts, scheduled notices and those waiting for approval show here." : "Try another search, or write a new notice."}
               </EmptyState>
             }

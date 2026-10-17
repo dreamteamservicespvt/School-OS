@@ -24,7 +24,8 @@ Anything marked **(decided 9 October 2026)** is a decision from this review. Any
 
 - Passwords are **hashed** (stored so that nobody, including DREAM TEAM, can read them back). They are never stored encrypted, never shown and never sent by message.
 - New users set their own password from an invite link. DREAM TEAM never types or knows a school user's password.
-- Two-step login (a one-time code to the phone) for School Admin, Principal and Accountant (`00-global.md` §5). If that phone is lost, another School Admin or the Principal resets two-step login; the reset is logged (`modules/20-settings.md`).
+- Two-step login (a one-time code to the phone) for School Admin, Principal and Accountant (`00-global.md` §5), on from the first day for every school. Nobody is locked out by it: a person no code can reach signs in with the password, it is logged, and they are shown how to add a mobile number or email. A one-time code alone never replaces both steps. If that phone is lost, another School Admin or the Principal resets two-step login; the reset is logged (`modules/20-settings.md`).
+- A sign-in from a new device, and a changed password, are told to the person at once (in the app and by email), with "Not you? Sign out everywhere".
 - Too many wrong passwords slow the login down, then lock it for 15 minutes (inferred), and the user and School Admins are told.
 - Disabling a user or changing their roles signs them out everywhere at once.
 - Parent Link (`modules/11-communication.md`) has no password. Its secret link is stored hashed, works only for that guardian's own children, and needs a one-time code to the guardian's registered mobile the first time it opens on a new phone.
@@ -82,6 +83,7 @@ Heavy work (large reports, exports, imports, batch printing, bulk messages) runs
 - **Webhooks to other software** (optional): the school can send chosen events to its own systems. Each one is signed, retried if it fails, and logged.
 - **API keys for schools** (optional, later): a school connecting its own software gets a key limited to chosen data. Not in the first version.
 - **Limits against abuse:** each user, device and key has a fair limit on requests per minute, so one bad script cannot slow down every school.
+- **Addresses a school types in** (an integration's test connection): School OS calls only addresses on the public internet, https only, never the server itself, a private network or the cloud's metadata address. The name is looked up and every address it gives is checked; the call goes to the checked address, redirects are not followed and it gives up after 5 seconds.
 
 ## 8. Files
 

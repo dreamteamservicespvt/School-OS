@@ -63,7 +63,7 @@ The top bar is on every screen, above the page. It is not part of the 20-item me
 ### 1.4 Profile menu
 
 - My profile: view and edit own name, photo, phone and email. Changing the phone or email needs a one-time code sent to the new number or address (inferred).
-- Change password. Rules come from Settings, Users & Permissions.
+- Change password. Rules come from Settings, Users & Permissions. After signing in with a one-time code instead of the password (a forgotten password), a new password can be set without the old one, once, within 30 minutes. A person whose role needs two-step login signs in with codes only by typing two, one by email and one to the mobile (added 18 October 2026).
 - Signed-in devices: list of active sessions with device, place and last used time, "Sign out" per device and "Sign out everywhere".
 - My notification preferences: per notification type, choose app, push, email, SMS or WhatsApp where the school allows it (section 4).
 - Language: one of the school's enabled languages for screens (inferred: per-person choice; the school sets which languages are on).

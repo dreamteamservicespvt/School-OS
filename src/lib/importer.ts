@@ -4,6 +4,7 @@
 import "server-only";
 
 import ExcelJS from "exceljs";
+import type { Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "./db";
 import { writeAudit } from "./audit";
 
@@ -17,11 +18,19 @@ export type ImportKind<T> = {
   columns: ImportColumn[];
   /** Checks one row; may look things up. Problems are in plain words. */
   check: (tx: Tx, ctx: SchoolContext, row: Record<string, string>, seen: Set<string>) => Promise<RowResult<T>>;
-  /** Saves one good row; returns the new record's id (for Undo) or null if it updated an existing one. */
-  save: (tx: Tx, ctx: SchoolContext, value: T) => Promise<{ id: string; created: boolean }>;
+  /**
+   * Saves one good row; returns the record's id and whether it was created.
+   * An import that changes existing records returns what it changed
+   * (`before` and `after`), so Undo can put the old values back.
+   */
+  save: (tx: Tx, ctx: SchoolContext, value: T) => Promise<{ id: string; created: boolean; before?: Record<string, unknown>; after?: Record<string, unknown> }>;
   /** Undoes the records an import created (archives them). */
   undo: (tx: Tx, ctx: SchoolContext, ids: string[]) => Promise<void>;
+  /** Puts back the values an import changed; returns how many records were put back. */
+  revert?: (tx: Tx, ctx: SchoolContext, rows: UpdatedRow[]) => Promise<number>;
 };
+
+export type UpdatedRow = { id: string; before: Record<string, unknown>; after: Record<string, unknown> };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const kinds = new Map<string, ImportKind<any>>();
@@ -143,11 +152,13 @@ export async function previewImport<T>(tx: Tx, ctx: SchoolContext, kind: ImportK
 /** Imports the good rows only (step 5) and keeps the history for Undo. */
 export async function runImport<T>(tx: Tx, ctx: SchoolContext, kind: ImportKind<T>, fileName: string, preview: Preview<T>) {
   const createdIds: string[] = [];
+  const updatedRows: UpdatedRow[] = [];
   let updated = 0;
   for (const g of preview.good) {
     const saved = await kind.save(tx, ctx, g.value);
     if (saved.created) createdIds.push(saved.id);
     else updated++;
+    if (!saved.created && saved.before && saved.after) updatedRows.push({ id: saved.id, before: saved.before, after: saved.after });
   }
   const batch = await tx.importBatch.create({
     data: {
@@ -158,6 +169,7 @@ export async function runImport<T>(tx: Tx, ctx: SchoolContext, kind: ImportKind<
       updated,
       skipped: preview.bad.length,
       createdIds,
+      updatedRows: updatedRows as unknown as Prisma.InputJsonValue,
       errorReport: preview.bad.map((b) => ({ line: b.line, row: b.row, problems: b.problems })),
       importedById: ctx.userId,
     },
@@ -171,9 +183,13 @@ export async function undoImport(tx: Tx, ctx: SchoolContext, batchId: string) {
   if (!batch || batch.undoneAt) throw new Error("This import was already undone.");
   const kind = kinds.get(batch.kind);
   if (!kind) throw new Error("This import cannot be undone.");
-  await kind.undo(tx, ctx, batch.createdIds as string[]);
+  const created = batch.createdIds as string[];
+  if (created.length) await kind.undo(tx, ctx, created);
+  const changed = (batch.updatedRows ?? []) as unknown as UpdatedRow[];
+  const putBack = changed.length && kind.revert ? await kind.revert(tx, ctx, changed) : 0;
   await tx.importBatch.update({ where: { id: batchId }, data: { undoneAt: new Date(), undoneById: ctx.userId } });
-  await writeAudit(tx, ctx, { action: "import-undone", recordType: "Import", recordId: batchId, after: { kind: batch.kind, archived: (batch.createdIds as string[]).length } });
+  await writeAudit(tx, ctx, { action: "import-undone", recordType: "Import", recordId: batchId, after: { kind: batch.kind, archived: created.length, putBack } });
+  return { archived: created.length, putBack };
 }
 
 /** The bad rows with their problems, to fix and import again. */

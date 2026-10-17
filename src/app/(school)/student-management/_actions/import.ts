@@ -10,7 +10,7 @@ import { flash } from "@/lib/flash";
 import { formValues, type FormState } from "@/lib/forms";
 import { SHEET_TYPES, saveFile } from "@/lib/files";
 import { previewImport, runImport, undoImport } from "@/lib/importer";
-import { STUDENT_IMPORT, UDISE_IMPORT, studentImport } from "@/lib/students/import";
+import { STUDENT_IMPORT_KINDS, STUDENT_UPDATE_IMPORT, studentImportFor } from "@/lib/students/import-kinds";
 import { StudentProblem } from "@/lib/students/students";
 import { getStudentSettings } from "@/lib/students/settings";
 import { acceptedFixes, applyFixes } from "@/lib/students/smart-import";
@@ -18,7 +18,7 @@ import { BASE, attempt, attemptForm, studentAction } from "../_lib/page";
 import { loadSheet } from "../import/load";
 
 const isId = (v: unknown): v is string => typeof v === "string" && /^[0-9a-f-]{36}$/i.test(v);
-const KINDS = [STUDENT_IMPORT, UDISE_IMPORT];
+const KINDS = STUDENT_IMPORT_KINDS;
 
 export async function uploadImportAction(_prev: FormState, fd: FormData): Promise<FormState> {
   const { current } = await studentAction("create", { manage: true });
@@ -57,22 +57,24 @@ export async function runImportAction(_prev: FormState, fd: FormData): Promise<F
   if (!isId(fileId) || !KINDS.includes(kindKey)) return { ok: false, message: "Upload the file again." };
   let batchId = "";
   let added = 0;
+  let updated = 0;
   let skipped = 0;
   const r = await attemptForm({}, async () => {
     await withSchool(current.ctx, async (tx) => {
       const sheet = await loadSheet(tx, fileId);
-      const kind = studentImport(kindKey, { sectionId: isId(sectionId) ? sectionId : null, applyFeePlan: fee });
+      const kind = studentImportFor(kindKey, { sectionId: isId(sectionId) ? sectionId : null, applyFeePlan: fee });
       // Smart Import: only the fixes the person ticked, and only when the school has it on.
       const settings = await getStudentSettings(tx, current.ctx);
       const rows = settings.smartImportOn ? applyFixes(sheet.rows, match, acceptedFixes(String(fd.get("fix") ?? ""))) : sheet.rows;
       const preview = await previewImport(tx, current.ctx, kind, rows, match);
       if (preview.good.length === 0) throw new StudentProblem("No row is ready to import. Fix the problems shown, then upload the file again.");
       const batch = await runImport(tx, current.ctx, kind, sheet.file.fileName, preview);
-      batchId = batch.id; added = batch.added; skipped = batch.skipped;
+      batchId = batch.id; added = batch.added; updated = batch.updated; skipped = batch.skipped;
     }, { timeout: 300_000 });
   });
   if (!r?.ok) return r;
-  await flash({ message: `${added} students imported.${skipped ? ` ${skipped} rows were skipped; download them, fix and import again.` : ""}` });
+  const done = kindKey === STUDENT_UPDATE_IMPORT ? `${updated} ${updated === 1 ? "student" : "students"} updated.` : `${added} students imported.`;
+  await flash({ message: `${done}${skipped ? ` ${skipped} rows were skipped; download them, fix and import again.` : ""}` });
   revalidatePath(BASE);
   redirect(`${BASE}/import/${batchId}`);
 }
@@ -81,13 +83,17 @@ export async function undoImportAction(fd: FormData) {
   const { current } = await studentAction("archive", { manage: true });
   const id = String(fd.get("id") ?? "");
   if (!isId(id)) return "This import was not found.";
+  let putBack = 0;
+  let changes = false;
   const r = await attempt(() => withSchool(current.ctx, async (tx) => {
     const batch = await tx.importBatch.findUnique({ where: { id } });
     if (!batch || !KINDS.includes(batch.kind)) throw new StudentProblem("This import was not found.");
     if (batch.undoneAt) throw new StudentProblem("This import was already undone.");
-    await undoImport(tx, current.ctx, id);
+    const u = await undoImport(tx, current.ctx, id);
+    putBack = u.putBack;
+    changes = batch.kind === STUDENT_UPDATE_IMPORT;
   }, { timeout: 120_000 }));
   if (r) return r;
-  await flash({ message: "Import undone. The students it added are archived, and the import stays in the history." });
+  await flash({ message: changes ? `Import undone. ${putBack} ${putBack === 1 ? "student is" : "students are"} back to the values before it; any value changed since was kept.` : "Import undone. The students it added are archived, and the import stays in the history." });
   revalidatePath(BASE);
 }

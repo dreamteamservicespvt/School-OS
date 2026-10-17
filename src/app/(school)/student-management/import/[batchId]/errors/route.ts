@@ -2,7 +2,7 @@ import { requireAction } from "@/lib/current";
 import { withSchool } from "@/lib/db";
 import { errorCsv } from "@/lib/importer";
 import { PermissionDeniedError } from "@/lib/permissions";
-import { STUDENT_IMPORT, UDISE_IMPORT, studentImport } from "@/lib/students/import";
+import { STUDENT_IMPORT_KINDS, studentImportFor } from "@/lib/students/import-kinds";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +18,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ batchId
   const { batchId } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(batchId)) return new Response("This import was not found.", { status: 404 });
   const batch = await withSchool(current.ctx, (tx) => tx.importBatch.findUnique({ where: { id: batchId } }));
-  if (!batch || ![STUDENT_IMPORT, UDISE_IMPORT].includes(batch.kind)) return new Response("This import was not found.", { status: 404 });
-  const csv = errorCsv(studentImport(batch.kind, { sectionId: null, applyFeePlan: false }), batch.errorReport as { line: number; row: Record<string, string>; problems: string[] }[]);
+  if (!batch || !STUDENT_IMPORT_KINDS.includes(batch.kind)) return new Response("This import was not found.", { status: 404 });
+  const csv = errorCsv(studentImportFor(batch.kind, { sectionId: null, applyFeePlan: false }), batch.errorReport as { line: number; row: Record<string, string>; problems: string[] }[]);
   return new Response(csv, { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="skipped-rows.csv"`, "Cache-Control": "private, no-store" } });
 }

@@ -4,7 +4,8 @@ import { redirect } from "next/navigation";
 import { CircleCheck, Columns3, ListChecks, Sparkles, TriangleAlert } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { autoMatch, previewImport } from "@/lib/importer";
-import { STUDENT_IMPORT, UDISE_IMPORT, studentImport } from "@/lib/students/import";
+import { STUDENT_IMPORT, STUDENT_IMPORT_KINDS, STUDENT_UPDATE_IMPORT, studentImportFor } from "@/lib/students/import-kinds";
+import type { StudentUpdate } from "@/lib/students/update-import";
 import { StudentProblem } from "@/lib/students/students";
 import { acceptedFixes, applyFixes, suggestFixes, suggestMatch } from "@/lib/students/smart-import";
 import { PageHeader } from "@/components/shell/page-header";
@@ -35,9 +36,10 @@ export default async function ImportMatchPage({ searchParams }: { searchParams: 
   const raw = await searchParams;
   const sp: Record<string, string | undefined> = Object.fromEntries(Object.entries(raw).map(([k, v]) => [k, one(v)]));
   if (!isId(sp.file)) redirect(`${BASE}/import`);
-  const kindKey = sp.kind === UDISE_IMPORT ? UDISE_IMPORT : STUDENT_IMPORT;
+  const kindKey = sp.kind && STUDENT_IMPORT_KINDS.includes(sp.kind) ? sp.kind : STUDENT_IMPORT;
+  const updating = kindKey === STUDENT_UPDATE_IMPORT;
   const sectionId = isId(sp.section) ? sp.section! : null;
-  const kind = studentImport(kindKey, { sectionId, applyFeePlan: sp.fee === "1" });
+  const kind = studentImportFor(kindKey, { sectionId, applyFeePlan: sp.fee === "1" });
   const smart = settings.smartImportOn;
   const accepted = smart ? acceptedFixes(sp.fix) : new Set<string>();
 
@@ -141,7 +143,20 @@ export default async function ImportMatchPage({ searchParams }: { searchParams: 
               description={`${preview.good.length} ${preview.good.length === 1 ? "row is" : "rows are"} ready · ${preview.bad.length} ${preview.bad.length === 1 ? "row has" : "rows have"} problems${result.section ? ` · rows with no class go to ${result.section.schoolClass.name} ${result.section.name}` : ""}`} />
             <div className="px-5 pb-5 flex flex-col gap-4">
               {missingRequired.length > 0 && <Alert tone="warning">Match these required columns first: {missingRequired.map((c) => c.label).join(", ")}.</Alert>}
-              {preview.good.length > 0 && (
+              {updating && preview.good.length > 0 && (
+                <div>
+                  <p className="mb-1.5 font-semibold text-[14px] flex items-center gap-2"><CircleCheck size={17} className="text-ok" aria-hidden="true" />What will change</p>
+                  <ul className="max-h-96 divide-y divide-line/70 overflow-y-auto scroll-thin rounded-xl border border-line text-[13.5px]">
+                    {preview.good.slice(0, 200).map((g) => {
+                      const u = g.value as StudentUpdate;
+                      return (
+                        <li key={g.line} className="px-3 py-2"><b className="font-semibold">Row {g.line}</b> · {g.row.admissionNo}: {u.changes.map((c) => `${c.label} ${c.from} → ${c.to}`).join("; ")}</li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+              {!updating && preview.good.length > 0 && (
                 <div className="flex items-start gap-3">
                   <CircleCheck size={18} className="text-ok shrink-0 mt-0.5" aria-hidden="true" />
                   <p className="text-[14px] text-ink2"><b className="font-semibold text-ink">Ready to import:</b> {preview.good.slice(0, 8).map((g) => g.row.fullName).join(", ")}{preview.good.length > 8 ? ` and ${preview.good.length - 8} more` : ""}.</p>
@@ -152,7 +167,7 @@ export default async function ImportMatchPage({ searchParams }: { searchParams: 
                   <p className="mb-1.5 font-semibold text-[14px] flex items-center gap-2"><TriangleAlert size={17} className="text-warn" aria-hidden="true" />Rows with problems (not imported)</p>
                   <ul className="max-h-96 divide-y divide-line/70 overflow-y-auto scroll-thin rounded-xl border border-line text-[13.5px]">
                     {preview.bad.slice(0, 200).map((b) => (
-                      <li key={b.line} className="px-3 py-2"><b className="font-semibold">Row {b.line}</b>{b.row.fullName ? ` · ${b.row.fullName}` : ""}: <span className="text-bad">{b.problems.join(" ")}</span></li>
+                      <li key={b.line} className="px-3 py-2"><b className="font-semibold">Row {b.line}</b>{b.row.fullName ? ` · ${b.row.fullName}` : b.row.admissionNo ? ` · ${b.row.admissionNo}` : ""}: <span className="text-bad">{b.problems.join(" ")}</span></li>
                     ))}
                   </ul>
                   <p className="mt-1.5 text-[12.5px] text-ink3">After the import you can download these rows with their problems, fix them and import again.</p>
@@ -165,7 +180,7 @@ export default async function ImportMatchPage({ searchParams }: { searchParams: 
               <p className="text-[14px] text-ink2">No row is ready yet. Fix the column match, or fix the file and <Link className="font-semibold text-brand underline" href={`${BASE}/import`}>upload it again</Link>.</p>
             ) : (
               <ActionForm action={runImportAction} footer={<>
-                <SubmitButton pendingText="Importing…">{`Import ${preview.good.length} ${preview.good.length === 1 ? "student" : "students"}`}</SubmitButton>
+                <SubmitButton pendingText={updating ? "Updating…" : "Importing…"}>{`${updating ? "Update" : "Import"} ${preview.good.length} ${preview.good.length === 1 ? "student" : "students"}`}</SubmitButton>
                 <ButtonLink href={`${BASE}/import`} variant="ghost">Start again</ButtonLink>
               </>}>
                 <input type="hidden" name="file" value={sp.file} />
@@ -174,7 +189,7 @@ export default async function ImportMatchPage({ searchParams }: { searchParams: 
                 <input type="hidden" name="fee" value={sp.fee === "1" ? "1" : ""} />
                 <input type="hidden" name="match" value={JSON.stringify(match)} />
                 <input type="hidden" name="fix" value={fixValue} />
-                <p className="text-[14px] text-ink2">Only the ready rows are imported{preview.bad.length ? `; the ${preview.bad.length} with problems are skipped` : ""}.{accepted.size ? ` The ${accepted.size} fixes you ticked are used.` : ""} You can undo the whole import later from Import history.</p>
+                <p className="text-[14px] text-ink2">Only the ready rows are imported{preview.bad.length ? `; the ${preview.bad.length} with problems are skipped` : ""}.{accepted.size ? ` The ${accepted.size} fixes you ticked are used.` : ""} {updating ? "Undo in Import history puts the old values back, except any changed again since." : "You can undo the whole import later from Import history."}</p>
               </ActionForm>
             )}
           </Card>

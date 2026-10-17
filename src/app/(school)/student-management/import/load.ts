@@ -4,13 +4,14 @@ import "server-only";
 import type { Tx } from "@/lib/db";
 import { readSheet } from "@/lib/importer";
 import { fileStore } from "@/lib/storage";
-import { STUDENT_IMPORT, UDISE_IMPORT } from "@/lib/students/import";
+import { STUDENT_IMPORT, STUDENT_UPDATE_IMPORT, UDISE_IMPORT } from "@/lib/students/import-kinds";
 import { StudentProblem } from "@/lib/students/students";
 
 export const MAX_IMPORT_ROWS = 2000;
 export const IMPORT_KINDS = [
   { key: STUDENT_IMPORT, label: "Students (CSV or Excel)", help: "Our template, or your own sheet with similar columns." },
   { key: UDISE_IMPORT, label: "UDISE+ student data", help: "The file downloaded from the UDISE+ portal." },
+  { key: STUDENT_UPDATE_IMPORT, label: "Changes to students already here", help: "A sheet with the admission number and the columns to correct, such as phones or addresses. Empty cells are left as they are." },
 ] as const;
 
 /** The uploaded file's headings and rows. Only files uploaded for an import are read. */

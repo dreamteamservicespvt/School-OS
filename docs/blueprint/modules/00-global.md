@@ -133,6 +133,8 @@ Status flow: **Waiting** → **Approved** or **Rejected**. Also **Withdrawn** (t
 - The linked record moves on by itself (for example approved leave reduces the balance; an approved refund becomes ready to pay).
 - Every decision is written to the Audit Log. A decision cannot be edited. A mistaken approval is undone by the normal reversal of the record (for example cancelling the leave), never by changing the history.
 - If an approver does nothing within the escalation time set in Forms & Approvals (default 2 working days, inferred), the request moves to the next approver and both are told.
+- **Approved, but not finished** (added 18 October 2026, gap G01): before that date a decision could be recorded while its record stayed waiting (a leave, a payment to verify, an application at Decision, an outing pass, a library charge and so on). Approvals lists each such request for the person who decided it, and every one for the Principal and School Admin, with **Finish now**: it does what the decision should have done, in the decider's name, with an Audit Log line naming who finished it. If it cannot be done now (for example the class is full), the plain reason is shown and nothing changes. Nothing is finished by itself.
+- If the record cannot move on when a request is decided (for example a salary month with a net pay below zero), the decision is refused with the plain reason, and nothing changes.
 
 ## 4. Notifications (no spam)
 

@@ -22,6 +22,10 @@ import { askerJobs } from "@/lib/approval-people";
 import { answersSupport, schoolSupportRequests } from "@/lib/console/support";
 import { ENDED_WORDS, endsWords, EXPIRED_WORDS, lengthWords, type EndHow } from "@/lib/console/support-entry";
 import { SupportRequests, type SupportItem } from "./support-requests";
+import { UnfinishedList, type UnfinishedItem } from "./unfinished-list";
+import { finishesAny, unfinishedApprovals } from "@/lib/approvals-unfinished";
+import { decisionOf } from "@/lib/approval-waiting";
+import { approvalRecordLink } from "@/lib/approval-links";
 
 export const metadata: Metadata = { title: "Approvals" };
 
@@ -68,7 +72,12 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
     const people = await tx.userLogin.findMany({ where: { id: { in: ids } }, select: { id: true, displayName: true } });
     const roles = await tx.role.findMany({ select: { key: true, name: true } });
     const jobs = await askerJobs(tx, rows.map((r) => r.askedById));
-    return { rows, total, counts: new Map(counts), rules, decidable, jobs, people: new Map(people.map((p) => [p.id, p.displayName])), roles: new Map(roles.map((r) => [r.key, r.name])) };
+    // Decided requests whose record never moved on: for the person who decided each, and the Principal and School Admin.
+    const any = await finishesAny(tx, current.ctx);
+    const decidedSome = any || Boolean(await tx.approval.findFirst({ where: { decidedById: current.user.id, status: { in: ["APPROVED", "REJECTED"] } }, select: { id: true } }));
+    const unfinished = decidedSome ? await unfinishedApprovals(tx, current.ctx, { any }) : [];
+    const deciders = await tx.userLogin.findMany({ where: { id: { in: unfinished.map((a) => a.decidedById).filter((x): x is string => Boolean(x)) } }, select: { id: true, displayName: true } });
+    return { rows, total, counts: new Map(counts), rules, decidable, jobs, unfinished, deciders: new Map(deciders.map((p) => [p.id, p.displayName])), people: new Map(people.map((p) => [p.id, p.displayName])), roles: new Map(roles.map((r) => [r.key, r.name])) };
   });
 
   const now = new Date();
@@ -90,6 +99,21 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
       focus: r.id === focusSupport,
     }))
     : [];
+  const DECIDED_WORDS = { approve: ["Approved", "approved"], reject: ["Not approved", "not approved"], "ask-change": ["Sent back", "sent back for a change"], withdraw: ["Withdrawn", "withdrawn"] } as const;
+  const unfinished: UnfinishedItem[] = data.unfinished.map((a) => {
+    const [decided, decidedWords] = DECIDED_WORDS[decisionOf(a) ?? "approve"];
+    return {
+      id: a.id,
+      summary: a.summary,
+      typeLabel: requestLabel(a.type),
+      decided,
+      decidedWords,
+      by: a.decidedById === current.user.id ? "you" : (a.decidedById && data.deciders.get(a.decidedById)) || "the approver",
+      when: a.decidedAt ? formatDateTime(a.decidedAt, tz) : "",
+      record: a.recordType.toLowerCase(),
+      link: approvalRecordLink(a),
+    };
+  });
   const rows: ApprovalRow[] = data.rows.map((a) => {
     const open = OPEN_STATUSES.includes(a.status);
     const last = [...((a.history as HistoryLine[]) ?? [])].reverse()[0];
@@ -120,6 +144,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
       <PageHeader title="Approvals" href="/approvals" userId={current.user.id}
         sub={approver ? "Requests only you can decide, and the ones you asked for" : "Requests you asked for, such as leave, and where each one is"} />
       {support.length > 0 && <SupportRequests items={support} schoolName={current.school.name} />}
+      {unfinished.length > 0 && !current.support && <UnfinishedList items={unfinished} />}
       {views.length > 1 && (
         <nav aria-label="Which requests" className="-mx-4 px-4 md:mx-0 md:px-0 mb-4">
           <ul className="flex gap-1 overflow-x-auto no-scrollbar border-b border-line">

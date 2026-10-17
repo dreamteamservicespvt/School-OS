@@ -4,7 +4,7 @@
 // comes from Settings, Forms & Approvals.
 import "server-only";
 
-import type { ApprovalStatus, Prisma } from "@prisma/client";
+import { Prisma, type ApprovalStatus } from "@prisma/client";
 import type { SchoolContext, Tx } from "./db";
 import { writeAudit } from "./audit";
 import { notify } from "./notifications";
@@ -289,6 +289,21 @@ export async function followUpFor(type: string): Promise<FollowUp | null> {
 }
 
 export class DecisionProblem extends Error {}
+
+/**
+ * The plain words of a problem the person can act on: a decision refused, or
+ * a module's own problem from a follow-up ("Class 5 is full", "Net pay is
+ * below zero for..."). Null for a fault on our side, whose words are not for
+ * the screen.
+ */
+export function plainReason(e: unknown): string | null {
+  if (!(e instanceof Error) || !e.message) return null;
+  if (e instanceof DecisionProblem) return e.message;
+  if (Object.getPrototypeOf(e) === Error.prototype) return null;
+  if ([TypeError, RangeError, ReferenceError, SyntaxError, EvalError, URIError].some((K) => e instanceof K)) return null;
+  if ([Prisma.PrismaClientKnownRequestError, Prisma.PrismaClientUnknownRequestError, Prisma.PrismaClientValidationError, Prisma.PrismaClientInitializationError, Prisma.PrismaClientRustPanicError].some((K) => e instanceof K)) return null;
+  return e.message;
+}
 
 export async function decide(tx: Tx, ctx: SchoolContext, approvalId: string, decision: Decision, note: string | null) {
   const approval = await tx.approval.findUnique({ where: { id: approvalId } });

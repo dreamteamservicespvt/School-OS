@@ -5,6 +5,7 @@ import "server-only";
 
 import type { AskableType, FollowUp } from "../approvals";
 import type { LinkMaker } from "../approval-links";
+import { requestIds, type StillWaiting } from "../approval-waiting";
 import { decideExpense } from "./expenses";
 import { decideOpeningBalance } from "./accounts";
 
@@ -12,6 +13,12 @@ export const followUps = {
   expense: (tx, ctx, a, decision, note) => decideExpense(tx, ctx, a.recordId, decision, note),
   "opening-balance": (tx, ctx, a, decision, note) => decideOpeningBalance(tx, ctx, a.recordId, decision, note),
 } satisfies Partial<Record<AskableType, FollowUp>>;
+
+/** Decided requests whose record still waits on them: their follow-up never ran (Approvals, "Approved, but not finished"). */
+export const unfinished = {
+  expense: async (tx) => requestIds(await tx.expense.findMany({ where: { status: "WAITING", approvalId: { not: null } }, select: { approvalId: true } })),
+  "opening-balance": async (tx) => requestIds(await tx.openingBalance.findMany({ where: { pendingPaise: { not: null }, approvalId: { not: null } }, select: { approvalId: true } })),
+} satisfies Partial<Record<AskableType, StillWaiting>>;
 
 export const approvalLinks = {
   expense: (a) => ({ href: `/finance-management/expenses/${a.recordId}`, label: "Open the expense" }),

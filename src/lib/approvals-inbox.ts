@@ -4,7 +4,7 @@ import "server-only";
 
 import type { ApprovalStatus, Prisma } from "@prisma/client";
 import { withSchool, type SchoolContext, type Tx } from "./db";
-import { DecisionProblem, approvalsFor, canDecide, decide } from "./approvals";
+import { approvalsFor, canDecide, decide, plainReason } from "./approvals";
 
 /** These roles see every request of the school (00-global.md §3; 05-roles.md). */
 export const OVERSEER_ROLES = ["school-admin", "principal"];
@@ -85,7 +85,7 @@ export async function bulkApprove(ctx: SchoolContext, ids: string[]): Promise<Bu
       result.approved++;
     } catch (e) {
       const summary = await withSchool(ctx, (tx) => tx.approval.findUnique({ where: { id }, select: { summary: true } })).catch(() => null);
-      result.skipped.push({ summary: summary?.summary ?? "A request", reason: e instanceof DecisionProblem ? e.message : "It could not be approved. Try it on its own." });
+      result.skipped.push({ summary: summary?.summary ?? "A request", reason: plainReason(e) ?? "It could not be approved. Try it on its own." });
     }
   }
   return result;

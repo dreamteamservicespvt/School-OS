@@ -4,6 +4,7 @@ import "server-only";
 
 import type { AskableType, FollowUp } from "../approvals";
 import type { LinkMaker } from "../approval-links";
+import { requestIds, type StillWaiting } from "../approval-waiting";
 import { writeAudit } from "../audit";
 import { goLive } from "./notices";
 
@@ -20,6 +21,11 @@ export const followUps = {
     await writeAudit(tx, ctx, { action: decision === "withdraw" ? "approval-withdrawn" : "sent-back", recordType: "Notice", recordId: notice.id, before: { status: "WAITING_APPROVAL" }, after: { status: "DRAFT", note } });
   },
 } satisfies Partial<Record<AskableType, FollowUp>>;
+
+/** Decided requests whose record still waits on them: their follow-up never ran (Approvals, "Approved, but not finished"). */
+export const unfinished = {
+  notice: async (tx) => requestIds(await tx.notice.findMany({ where: { status: "WAITING_APPROVAL", approvalId: { not: null } }, select: { approvalId: true } })),
+} satisfies Partial<Record<AskableType, StillWaiting>>;
 
 export const approvalLinks = {
   notice: (a) => ({ href: `/communication/notices/${a.recordId}`, label: "Open the notice" }),

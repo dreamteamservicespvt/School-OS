@@ -104,9 +104,13 @@ describe("a student hands in", () => {
     const r1 = await as(student, (tx, s) => submitWork(tx, s, onTime.made[0].id, { files: [], note: "My answers" }, new Date(), today, TZ));
     expect(r1).toMatchObject({ status: "SUBMITTED", late: false });
 
-    const passed = await as(teacher, (tx, s) => giveHomework(tx, s, give({ startDate: day(-3), dueDate: day(-1) }), today));
+    // Given three days ago, due yesterday (homework cannot be given with a due date already past).
+    const passed = await as(teacher, (tx, s) => giveHomework(tx, s, give({ startDate: day(-3), dueDate: day(-1) }), day(-3)));
     const r2 = await as(student, (tx, s) => submitWork(tx, s, passed.made[0].id, { files: [], note: "Sorry, late" }, new Date(), today, TZ));
     expect(r2).toMatchObject({ status: "LATE", late: true });
+
+    // A due date already past is refused, as the screen refuses it (QA ACADEMICS-20).
+    await expect(as(teacher, (tx, s) => giveHomework(tx, s, give({ startDate: day(-3), dueDate: day(-1) }), today))).rejects.toThrow(/already passed/);
 
     // Late means after 11:59 PM on the due date in the school's time zone, plus the grace time.
     const edge = lateAfter(new Date("2026-10-15T00:00:00Z"), TZ, 30);

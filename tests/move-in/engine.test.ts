@@ -4,7 +4,8 @@ import { describe, expect, it } from "vitest";
 import ExcelJS from "exceljs";
 import { decodeText, guessSeparator, readDelimited, readWorkbook, ReadProblem } from "@/lib/move-in/read";
 import { classKey, dateOrder, readDate, splitClassSection, tidyBloodGroup, tidyDate, tidyGender, tidyName, tidyPhone } from "@/lib/move-in/tidy";
-import { findHeaderRow, guessKind, matchColumns } from "@/lib/move-in/match";
+import { closeEnough, findHeaderRow, guessKind, matchColumns } from "@/lib/move-in/match";
+import { parseRupees } from "@/lib/fees/act";
 import { findOption, findSection, suggestSections, type SectionOption } from "@/lib/move-in/lookups";
 import { cleanCsv, prepareSheet, safeCell, type Choices } from "@/lib/move-in/prepare";
 import type { ImportColumn } from "@/lib/importer";
@@ -150,6 +151,31 @@ describe("matching headings", () => {
     expect(m.guardianPhone).toEqual([8]);
     expect(m.motherName).toEqual([9]);
     expect(m.motherPhone).toEqual([10]);
+  });
+  it("forgives a typo or two in a heading, but not a different word", () => {
+    expect(closeEnough("admisionno", "admissionno")).toBe(true);
+    expect(closeEnough("fathermobil", "fathermobile")).toBe(true);
+    expect(closeEnough("mothername", "fathername")).toBe(false);
+    const g = [["Admision No", "Studnet Name", "Date of Brith", "Gender", "Fathers Nmae", "Fathers Mobil"], ["A-1", "Ravi Rao", "14/03/2016", "M", "Srinivas Rao", "9876543210"], ["A-2", "Sita Rao", "01/01/2015", "F", "Mohan Rao", "9876501234"], ["A-3", "Anil Das", "05/06/2015", "M", "Das", "9876501299"]];
+    const m = matchColumns("students", STUDENT_COLS, g[0], g.slice(1));
+    expect(m.admissionNo).toEqual([0]);
+    expect(m.fullName).toEqual([1]);
+    expect(m.dateOfBirth).toEqual([2]);
+    expect(m.guardianName).toEqual([4]);
+    expect(m.guardianPhone).toEqual([5]);
+  });
+  it("knows the headings of Fedena and Entab exports", () => {
+    const m = matchColumns("students", STUDENT_COLS, ["Stu Name", "Batch", "Admission Num", "DOB", "Gender", "Father Name", "Mobile"], []);
+    expect(m.fullName).toEqual([0]);
+    expect(m.className).toEqual([1]);
+    expect(m.admissionNo).toEqual([2]);
+  });
+  it("reads amounts written the way old registers write them", () => {
+    expect(parseRupees("Rs. 12,500/-", "Amount")).toBe(BigInt(1250000));
+    expect(parseRupees("INR 4500", "Amount")).toBe(BigInt(450000));
+    expect(parseRupees("₹ 4,500.50", "Amount")).toBe(BigInt(450050));
+    expect(parseRupees("12500/-", "Amount")).toBe(BigInt(1250000));
+    expect(() => parseRupees("twelve", "Amount")).toThrow();
   });
   it("finds required columns by their values when the heading says nothing", () => {
     const g = [["Student", "Col2", "Col3", "Col4", "Papa"], ["Ravi", "9876543210", "14/03/2016", "M", "Rao"], ["Sita", "9876501234", "01/01/2015", "F", "Rao"]];

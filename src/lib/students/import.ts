@@ -225,9 +225,27 @@ function makeKind(key: string, label: string, columns: ImportColumn[], opts: Imp
   };
 }
 
-/** Archives the students an import made, with their enrolments and links, and parents left with no child. */
+/**
+ * Archives the students an import made, with their enrolments and links, and
+ * parents left with no child. Refused as a whole once any of them has records
+ * made in School OS since (a fee payment, attendance or marks), so real work
+ * is never archived with an import; their unpaid fee rows are taken off.
+ */
 export async function undoStudents(tx: Tx, ctx: SchoolContext, ids: string[]) {
   const now = new Date();
+  const [paid, marked, results] = await Promise.all([
+    tx.payment.findMany({ where: { studentId: { in: ids }, broughtIn: false, status: { in: ["POSTED", "WAITING"] } }, select: { studentId: true }, distinct: ["studentId"] }),
+    tx.attendanceMark.findMany({ where: { studentId: { in: ids }, archivedAt: null }, select: { studentId: true }, distinct: ["studentId"] }),
+    tx.result.findMany({ where: { studentId: { in: ids } }, select: { studentId: true }, distinct: ["studentId"] }),
+  ]);
+  const used = [...new Set([...paid, ...marked, ...results].map((r) => r.studentId!).filter(Boolean))];
+  if (used.length) {
+    const named = await tx.student.findMany({ where: { id: { in: used.slice(0, 5) } }, select: { fullName: true } });
+    throw new StudentProblem(`This import cannot be undone: ${used.length === 1 ? "1 of its students already has" : `${used.length} of its students already have`} fee payments, attendance or marks made in School OS (${named.map((n) => n.fullName).join(", ")}${used.length > 5 ? " and others" : ""}). Correct or archive those students one by one instead.`);
+  }
+  // Fee rows the class fee plan made and nobody paid go with the students.
+  const unpaid = await tx.studentFeeDue.findMany({ where: { studentId: { in: ids }, state: "OPEN", paidPaise: 0 }, select: { id: true } });
+  if (unpaid.length) await tx.studentFeeDue.updateMany({ where: { id: { in: unpaid.map((d) => d.id) } }, data: { state: "REMOVED", removedReason: "Import undone", removedById: ctx.userId, removedAt: now } });
   for (const id of ids) {
     const s = await tx.student.findUnique({ where: { id } });
     if (!s || s.archivedAt) continue;

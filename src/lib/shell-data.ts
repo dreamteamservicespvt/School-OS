@@ -5,6 +5,7 @@ import { withSchool } from "./db";
 import { BUILT_MODULES, MODULES } from "./modules";
 import { shortcutsFor } from "./shortcuts";
 import { approvalsFor } from "./approvals";
+import { UNREAD } from "./notifications";
 import type { Current } from "./current";
 import { BOTTOM_BY_ROLE, QUICK_BY_ROLE, type BarItem, type Quick } from "@/components/shell/nav-config";
 import { FEE_PAGES, feePageAllowedFor, type FeePageKey } from "./fees/access";
@@ -58,7 +59,7 @@ export function quickActionsFor(current: Pick<Current, "roles" | "menu" | "permi
 
 export async function shellData(current: Current) {
   const [{ unread, approvals: requests, campus }, supportWaiting] = await Promise.all([withSchool(current.ctx, async (tx) => ({
-    unread: await tx.notification.count({ where: { userLoginId: current.user.id, readAt: null } }),
+    unread: await tx.notification.count({ where: { userLoginId: current.user.id, ...UNREAD } }),
     campus: await tx.campus.findFirst({ where: { archivedAt: null }, orderBy: [{ isMain: "desc" }, { createdAt: "asc" }], select: { name: true, address: true } }),
     // Only requests this person may decide: named to them, or to one of their roles (00-global.md §3.2).
     approvals: await tx.approval.count({ where: await approvalsFor(tx, current.ctx, current.roles.map((r) => r.key)) }),

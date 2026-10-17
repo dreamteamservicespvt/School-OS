@@ -1,6 +1,26 @@
 // Notifications without spam (00-global.md §4).
 
+import type { Notification, Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "./db";
+
+/**
+ * A notification still to read: not opened, and its work not already done
+ * (rule 5: a decided approval, a closed task). Done ones count as read in the
+ * bell, the list and "New only" (gap G48).
+ */
+export const UNREAD = { readAt: null, doneAt: null } satisfies Prisma.NotificationWhereInput;
+const READ: Prisma.NotificationWhereInput = { OR: [{ readAt: { not: null } }, { doneAt: { not: null } }] };
+export const isUnread = (n: { readAt: Date | null; doneAt: Date | null }) => !n.readAt && !n.doneAt;
+
+/** One page of a person's notifications: unread first, newest first (the bell list, §4). */
+export async function notificationPage(tx: Tx, where: Prisma.NotificationWhereInput, skip: number, take: number): Promise<Notification[]> {
+  const unreadWhere = { AND: [where, UNREAD] };
+  const unread = await tx.notification.count({ where: unreadWhere });
+  const first = skip < unread ? await tx.notification.findMany({ where: unreadWhere, orderBy: { createdAt: "desc" }, skip, take }) : [];
+  const more = take - first.length;
+  const rest = more > 0 ? await tx.notification.findMany({ where: { AND: [where, READ] }, orderBy: { createdAt: "desc" }, skip: Math.max(0, skip - unread), take: more }) : [];
+  return [...first, ...rest];
+}
 
 /** Repeated events of the same kind within this window become one line with a count (inferred: 30 minutes). */
 export const MERGE_WINDOW_MS = 30 * 60 * 1000;

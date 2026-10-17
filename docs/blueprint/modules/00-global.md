@@ -144,7 +144,7 @@ Rules:
 2. **Opens the right screen.** Every notification has one target screen. Tapping it opens that screen with the record already open.
 3. **One event, one notification.** The same event never creates two notifications for the same person. Repeated events of the same kind within 30 minutes are merged into one line with a count, for example "5 new fee payments" (inferred: the 30 minutes).
 4. **Not for your own actions.** People are not notified about things they did themselves (inferred).
-5. **Clears itself.** When the work is done (the approval is decided, the task is closed), the related notification is marked done for everyone who received it (inferred).
+5. **Clears itself.** When the work is done (the approval is decided, the task is closed), the related notification is marked done for everyone who received it (inferred). A done notification counts as read: it is not in the bell's count or "New only", and it is listed with the read ones (added 18 October 2026).
 6. **People choose the channel.** In Profile, each person chooses for each type whether they get it in the app only, as a push alert, or also by email or WhatsApp where the school allows it. Default: in-app and push for approvals and tasks; in-app only for everything else (inferred).
 7. **Some cannot be switched off.** Security alerts (new sign-in, password changed) and approvals waiting on this person cannot be switched off (inferred).
 8. **Push respects the phone.** Push alerts use the installable web app. Each push carries the same link as the in-app notification.

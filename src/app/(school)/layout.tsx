@@ -14,6 +14,7 @@ import { readFlash } from "@/lib/flash";
 import { undoChange } from "./undo-action";
 import { activeSystemNotices } from "@/lib/errors";
 import { withSchool } from "@/lib/db";
+import { isUnread, notificationPage } from "@/lib/notifications";
 import { PAGE_PATH_HEADER, recordMissing } from "@/lib/record-gate";
 import { myPhotoLink } from "@/lib/profile-photo";
 import { currentYear } from "@/lib/academic/years";
@@ -46,12 +47,7 @@ export default async function SchoolLayout({ children }: { children: React.React
     withSchool(current.ctx, async (tx) => ({
       missing: await recordMissing(tx, pagePath),
       year: await currentYear(tx, current.ctx),
-      notes: await tx.notification.findMany({
-        where: { userLoginId: current.user.id },
-        orderBy: [{ readAt: { sort: "desc", nulls: "first" } }, { createdAt: "desc" }],
-        take: 8,
-        select: { id: true, text: true, createdAt: true, readAt: true },
-      }),
+      notes: await notificationPage(tx, { userLoginId: current.user.id }, 0, 8),
     })),
     admin ? schoolPlanState(current.school.id).catch(() => null) : Promise.resolve(null),
   ]);
@@ -76,7 +72,7 @@ export default async function SchoolLayout({ children }: { children: React.React
       canApprove={shell.canApprove}
       canMessage
       unread={shell.unread}
-      notes={notes.map((n) => ({ id: n.id, text: n.text, when: ago(n.createdAt), unread: !n.readAt }))}
+      notes={notes.map((n) => ({ id: n.id, text: n.text, when: ago(n.createdAt), unread: isUnread(n) }))}
       theme={cleanTheme(current.user.theme)}
       support={supportEnds ? { ends: supportEnds } : null}
     >

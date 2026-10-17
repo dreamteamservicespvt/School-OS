@@ -11,6 +11,7 @@ import { enqueue } from "../jobs";
 import { notify } from "../notifications";
 import { requestApproval } from "../approvals";
 import { currentYear } from "../academic/years";
+import { OPEN_LINK } from "../students/guardian-access";
 import { sectionLabel } from "../people";
 import { sendMessage, MessagingProblem } from "../messaging/send";
 import { channelSetups } from "../messaging/channels";
@@ -121,14 +122,14 @@ export async function audienceLogins(tx: Tx, ctx: SchoolContext, a: NoticeAudien
   return [...out];
 }
 
-/** Every guardian (father and mother) of the students in the audience. */
+/** Every guardian (father and mother) of the students in the audience, but never through a link with a custody restriction. */
 export async function audienceGuardianIds(tx: Tx, ctx: SchoolContext, a: NoticeAudience): Promise<string[]> {
   if (!a.parents) return [];
   const sectionIds = await audienceSectionIds(tx, ctx, a);
   const year = await currentYear(tx, ctx);
   if (!year) return [];
   const enrolled = await tx.enrolment.findMany({ where: { schoolId: ctx.schoolId, academicYearId: year.id, archivedAt: null, status: "STUDYING", ...(sectionIds ? { sectionId: { in: sectionIds } } : {}), student: { archivedAt: null } }, select: { studentId: true } });
-  const links = await tx.studentGuardian.findMany({ where: { schoolId: ctx.schoolId, studentId: { in: enrolled.map((e) => e.studentId) }, archivedAt: null, guardian: { archivedAt: null } }, select: { guardianId: true } });
+  const links = await tx.studentGuardian.findMany({ where: { schoolId: ctx.schoolId, studentId: { in: enrolled.map((e) => e.studentId) }, ...OPEN_LINK, guardian: { archivedAt: null } }, select: { guardianId: true } });
   return [...new Set(links.map((l) => l.guardianId))];
 }
 

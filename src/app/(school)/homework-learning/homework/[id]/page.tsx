@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { CircleCheck, Eye, Hourglass, ListChecks, NotebookText, Send, Upload, Users } from "lucide-react";
 import { withSchool } from "@/lib/db";
+import { OPEN_LINK } from "@/lib/students/guardian-access";
 import { fileLink } from "@/lib/files";
 import { givenToWords, homeworkDetail, seenFor, messagedHomework, sectionStudents } from "@/lib/homework/homework";
 import { previewResend } from "@/lib/homework/notify-parents";
@@ -39,7 +40,7 @@ export default async function HomeworkDetailPage({ params, searchParams }: { par
     const [roster, seen, messaged] = await Promise.all([sectionStudents(tx, d.hw.academicYearId, d.hw.sectionId), seenFor(tx, [id]), messagedHomework(tx, [id])]);
     const given = new Set(d.subs.filter((x) => x.status !== "EXCUSED").map((x) => x.studentId));
     const students = roster.filter((r) => given.has(r.id));
-    const links = await tx.studentGuardian.findMany({ where: { studentId: { in: students.map((x) => x.id) }, archivedAt: null }, orderBy: [{ isPrimary: "desc" }, { emergencyOrder: "asc" }], select: { studentId: true, guardianId: true } });
+    const links = await tx.studentGuardian.findMany({ where: { studentId: { in: students.map((x) => x.id) }, ...OPEN_LINK }, orderBy: [{ isPrimary: "desc" }, { emergencyOrder: "asc" }], select: { studentId: true, guardianId: true } });
     const guardians = await tx.guardian.findMany({ where: { id: { in: [...new Set(links.map((l) => l.guardianId))] } }, select: { id: true, name: true } });
     const gName = new Map(guardians.map((g) => [g.id, g.name]));
     const parentOf = new Map<string, string>();

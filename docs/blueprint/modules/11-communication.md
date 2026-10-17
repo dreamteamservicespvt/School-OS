@@ -230,6 +230,10 @@ The guardian taps the link in WhatsApp or SMS. The first time it opens on a new 
 
 The page is read-only apart from paying fees and giving or withdrawing consent. Parents still ask questions by WhatsApp or phone.
 
+A child the guardian has a custody or access restriction for (03 Student Management, Parents & Guardians) is not on the page at all: no card, fees, receipts, attendance, notices, report cards, consent or PTM booking for that child, and none of that child's messages. Their other children are shown as usual. The school's Parent Link page and "What guardians see" preview name the child left out, marked "custody restriction".
+
+Every action and download on the page (Pay, receipts and tax invoices, report cards, consent, event consent, PTM booking) is checked again on the server: the link is active, Parent Link is on and the school is not suspended, the phone is confirmed, the part it belongs to is switched on in section 6, and the child is one the guardian may act for.
+
 **Actions (school staff)**
 
 - **Send links:** each guardian's link is created and sent automatically by WhatsApp or SMS when an admission is approved. For families already in the school, **Send to existing families** sends links in bulk to a chosen class, section or the whole school, with the P11 preview and result summary.
@@ -356,6 +360,7 @@ The page is read-only apart from paying fees and giving or withdrawing consent. 
 - [ ] Attendance this month, notices, datesheet and report cards once published (Core) (decided 9 October 2026)
 - [ ] Consent forms, given or withdrawn with a one-time code, and bulk consent requests to existing families (Core) (decided 9 October 2026)
 - [ ] Read-only apart from paying and giving consent; never shows another family's data (Core) (decided 9 October 2026)
+- [ ] A child the guardian has a custody or access restriction for is never shown, paid, consented or booked for on that guardian's Parent Link (Core)
 - [ ] Link sent automatically when an admission is approved, and in bulk to existing families (Core) (decided 9 October 2026)
 - [ ] School switches Parent Link on or off, chooses what it shows, and revokes or reissues a link (Core) (decided 9 October 2026)
 - [ ] Every link open logged (Core) (decided 9 October 2026)

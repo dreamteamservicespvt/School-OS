@@ -7,12 +7,13 @@ import type { Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import type { ListParams } from "../list";
 import { currentYear } from "../academic/years";
+import { OPEN_LINK } from "../students/guardian-access";
 
 import { inPeriod, PERIOD_FILTERS } from "./period";
 export const LINK_FILTERS = ["status", "class", "section", "opened", ...PERIOD_FILTERS] as const;
 const DAY = 86400_000;
 
-/** Guardians of students studying now, optionally only in some classes or sections. */
+/** Guardians of students studying now, optionally only in some classes or sections; never through a link with a custody restriction. */
 export async function guardianIdsIn(tx: Tx, ctx: SchoolContext, pick: { classIds?: string[]; sectionIds?: string[] }) {
   const year = await currentYear(tx, ctx);
   const narrow = Boolean(pick.classIds?.length || pick.sectionIds?.length);
@@ -26,7 +27,7 @@ export async function guardianIdsIn(tx: Tx, ctx: SchoolContext, pick: { classIds
     studentIds = rows.map((r) => r.studentId);
   }
   const links = await tx.studentGuardian.findMany({
-    where: { schoolId: ctx.schoolId, archivedAt: null, ...(studentIds ? { studentId: { in: studentIds } } : {}), guardian: { archivedAt: null }, student: { archivedAt: null, status: { in: ["ACTIVE", "ADMITTED"] } } },
+    where: { schoolId: ctx.schoolId, ...OPEN_LINK, ...(studentIds ? { studentId: { in: studentIds } } : {}), guardian: { archivedAt: null }, student: { archivedAt: null, status: { in: ["ACTIVE", "ADMITTED"] } } },
     select: { guardianId: true },
   });
   return [...new Set(links.map((l) => l.guardianId))];
@@ -67,7 +68,11 @@ export async function linkSummary(tx: Tx, ctx: SchoolContext, now = new Date()) 
   return { active, revoked, opened30, never, withoutLink: Math.max(0, all.length - withLink) };
 }
 
-/** Each guardian's children with class and section, for the list. */
+/**
+ * Each guardian's children with class and section, for the list. A child the
+ * guardian has a custody restriction for is kept, marked `restricted`: the
+ * office sees it, and that the child is not on the guardian's Parent Link.
+ */
 export async function childrenByGuardian(tx: Tx, ctx: SchoolContext, guardianIds: string[]) {
   const links = await tx.studentGuardian.findMany({ where: { schoolId: ctx.schoolId, guardianId: { in: guardianIds }, archivedAt: null, student: { archivedAt: null } }, include: { student: { select: { id: true, fullName: true } } } });
   const year = await currentYear(tx, ctx);
@@ -76,11 +81,11 @@ export async function childrenByGuardian(tx: Tx, ctx: SchoolContext, guardianIds
     tx.schoolClass.findMany({ where: { schoolId: ctx.schoolId, id: { in: enrolments.map((e) => e.classId) } }, select: { id: true, name: true } }),
     tx.section.findMany({ where: { schoolId: ctx.schoolId, id: { in: enrolments.map((e) => e.sectionId) } }, select: { id: true, name: true } }),
   ]);
-  const map = new Map<string, { id: string; name: string; classLabel: string }[]>();
+  const map = new Map<string, { id: string; name: string; classLabel: string; restricted: boolean }[]>();
   for (const l of links) {
     const e = enrolments.find((x) => x.studentId === l.studentId);
     const label = e ? `${classes.find((c) => c.id === e.classId)?.name ?? ""} ${sections.find((s) => s.id === e.sectionId)?.name ?? ""}`.trim() : "";
-    map.set(l.guardianId, [...(map.get(l.guardianId) ?? []), { id: l.student.id, name: l.student.fullName, classLabel: label }]);
+    map.set(l.guardianId, [...(map.get(l.guardianId) ?? []), { id: l.student.id, name: l.student.fullName, classLabel: label, restricted: Boolean(l.restriction) }]);
   }
   return map;
 }

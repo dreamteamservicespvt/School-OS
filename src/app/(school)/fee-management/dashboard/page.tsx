@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChartColumn, CircleX, Handshake, IndianRupee, ReceiptIndianRupee, SearchX, UserX, Wallet } from "lucide-react";
 import { withSchool } from "@/lib/db";
+import { OPEN_LINK } from "@/lib/students/guardian-access";
 import { formatDate, formatRupees, formatRupeesShort, formatTime } from "@/lib/format";
 import { addDays, monthStart } from "@/lib/staff/dates";
 import { feeTiles, forecast, modeBreakdown, monthlyTrend, recentPayments } from "@/lib/fees/dashboard";
@@ -80,7 +81,7 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
     const [stuckStudents, stuckClasses, guardians] = await Promise.all([
       tx.student.findMany({ where: { id: { in: stuckIds } }, select: { id: true, fullName: true } }),
       classOfStudents(tx, stuckIds, p.viewer.yearId),
-      tx.studentGuardian.findMany({ where: { studentId: { in: stuckIds }, archivedAt: null }, orderBy: [{ isPrimary: "desc" }], include: { guardian: { select: { name: true, phone: true } } } }),
+      tx.studentGuardian.findMany({ where: { studentId: { in: stuckIds }, ...OPEN_LINK }, orderBy: [{ isPrimary: "desc" }], include: { guardian: { select: { name: true, phone: true } } } }),
     ]);
     const sheet = payId ? await paymentView(tx, p.current.ctx, p.viewer, payId, p.tz) : null;
     const cancel = cancelId ? await paymentView(tx, p.current.ctx, p.viewer, cancelId, p.tz) : null;

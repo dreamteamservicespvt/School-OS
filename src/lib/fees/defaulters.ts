@@ -12,6 +12,7 @@ import { ageingGroupOf, featureOn, feeSettings } from "./settings";
 import { PROMISE_FEATURE, promisesOf, recordPromise, type PromiseView } from "./promises";
 import { studentScope, type FeeViewer } from "./access";
 import { ageingLabel, type AgeingGroup } from "./words";
+import { OPEN_LINK } from "../students/guardian-access";
 
 const ZERO = BigInt(0);
 
@@ -89,7 +90,7 @@ export async function defaulters(tx: Tx, ctx: SchoolContext, viewer: FeeViewer, 
   }
   const ids = [...byStudent.keys()];
   const classes = await classOfStudents(tx, ids, viewer.yearId);
-  const guardians = await tx.studentGuardian.findMany({ where: { studentId: { in: ids }, archivedAt: null }, include: { guardian: true }, orderBy: [{ isPrimary: "desc" }, { emergencyOrder: "asc" }] });
+  const guardians = await tx.studentGuardian.findMany({ where: { studentId: { in: ids }, ...OPEN_LINK }, include: { guardian: true }, orderBy: [{ isPrimary: "desc" }, { emergencyOrder: "asc" }] });
   const reminders = await tx.feeReminder.groupBy({ by: ["studentId"], where: { studentId: { in: ids } }, _count: { _all: true }, _max: { sentAt: true } });
   const notes = await tx.feeCallNote.findMany({ where: { studentId: { in: ids }, promisedOn: { not: null } }, orderBy: { createdAt: "desc" } });
   const promises = await promisesOf(tx, ctx, ids, today);

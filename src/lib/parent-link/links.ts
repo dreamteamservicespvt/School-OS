@@ -21,6 +21,7 @@ import { channelSetups, type Channel } from "../messaging/channels";
 import { ensureReadyTemplates, templateByKey } from "../messaging/templates";
 import { messageSettings } from "../messaging/settings";
 import type { AudienceRule } from "../messaging/recipients";
+import { OPEN_LINK } from "../students/guardian-access";
 
 export class ParentLinkProblem extends Error {}
 
@@ -144,7 +145,8 @@ export async function sendToFamilies(tx: Tx, ctx: SchoolContext, guardianIds: st
 export async function sendLinksOnAdmission(tx: Tx, ctx: SchoolContext, studentId: string) {
   const settings = await messageSettings(tx, ctx);
   if (!settings.parentLink.on || !settings.parentLink.autoSendOnAdmission) return { made: 0 };
-  const guardians = await tx.studentGuardian.findMany({ where: { studentId, archivedAt: null }, select: { guardianId: true } });
+  // Not a guardian with a custody restriction for this child.
+  const guardians = await tx.studentGuardian.findMany({ where: { studentId, ...OPEN_LINK, guardian: { archivedAt: null } }, select: { guardianId: true } });
   const todo = await guardiansWithoutLinks(tx, ctx, guardians.map((g) => g.guardianId));
   const links = [];
   for (const g of todo) links.push(await createLink(tx, ctx, g));
@@ -196,19 +198,33 @@ export type OpenState =
   | { state: "verify"; schoolName: string; maskedPhone: string; linkId: string; schoolId: string; codeSentAt: Date | null }
   | { state: "open"; schoolName: string; linkId: string; schoolId: string; guardianId: string; deviceId: string };
 
+/**
+ * Whether a link can be used now: it is active, the school has Parent Link
+ * switched on and is not suspended or closed, and the guardian is still on
+ * record. Shared by opening the page and by every guardian action.
+ */
+async function linkCheck(tx: Tx, ctx: SchoolContext, linkId: string) {
+  const link = await tx.parentLink.findUniqueOrThrow({ where: { id: linkId } });
+  const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { name: true, phone: true, status: true, timeZone: true } });
+  if (link.status !== "ACTIVE") return { state: "gone" as const, link, school };
+  const settings = await messageSettings(tx, ctx);
+  if (!settings.parentLink.on || school.status === "SUSPENDED" || school.status === "CLOSED") return { state: "off" as const, link, school };
+  const guardian = await tx.guardian.findUniqueOrThrow({ where: { id: link.guardianId }, select: { phone: true, archivedAt: true } });
+  if (guardian.archivedAt) return { state: "gone" as const, link, school };
+  return { state: "ok" as const, link, school, settings, guardian };
+}
+
 /** Checks a link and a phone's key. Writes "opened" to the log when it opens. */
 export async function openLink(token: string, deviceKey: string | null, device: { userAgent: string | null; ipAddress: string | null }, now = new Date()): Promise<OpenState> {
   const found = await findLink(token);
   if (!found) return { state: "invalid" };
   const ctx: SchoolContext = { schoolId: found.schoolId, userId: null };
   return withSchool(ctx, async (tx) => {
-    const link = await tx.parentLink.findUniqueOrThrow({ where: { id: found.linkId } });
-    const school = await tx.school.findUniqueOrThrow({ where: { id: found.schoolId }, select: { name: true, phone: true, status: true } });
-    if (link.status === "REVOKED") return { state: "revoked" as const, schoolName: school.name, schoolPhone: school.phone };
-    const settings = await messageSettings(tx, ctx);
-    if (!settings.parentLink.on || school.status === "SUSPENDED" || school.status === "CLOSED") return { state: "off" as const, schoolName: school.name, schoolPhone: school.phone };
-    const guardian = await tx.guardian.findUniqueOrThrow({ where: { id: link.guardianId }, select: { phone: true, archivedAt: true } });
-    if (guardian.archivedAt) return { state: "revoked" as const, schoolName: school.name, schoolPhone: school.phone };
+    const check = await linkCheck(tx, ctx, found.linkId);
+    const { link, school } = check;
+    if (check.state === "gone") return { state: "revoked" as const, schoolName: school.name, schoolPhone: school.phone };
+    if (check.state === "off") return { state: "off" as const, schoolName: school.name, schoolPhone: school.phone };
+    const { guardian } = check;
     if (deviceKey) {
       const dev = await tx.parentLinkDevice.findFirst({ where: { parentLinkId: link.id, keyHash: hashToken(deviceKey), revokedAt: null, expiresAt: { gt: now } } });
       if (dev) {
@@ -298,13 +314,56 @@ export async function confirmDevice(tx: Tx, ctx: SchoolContext, linkId: string, 
   return { ok: true as const, deviceId: dev.id, days: settings.parentLink.deviceDays };
 }
 
-/** Is this phone still confirmed for this link? Every guardian action checks it again on the server. */
+/** Is this phone still confirmed for this link? Every guardian action checks it again on the server (see guardianAccess). */
 export async function confirmedDevice(tx: Tx, linkId: string, deviceKey: string | null, now = new Date()) {
   if (!deviceKey) return null;
   const link = await tx.parentLink.findUnique({ where: { id: linkId } });
   if (!link || link.status !== "ACTIVE") return null;
   const dev = await tx.parentLinkDevice.findFirst({ where: { parentLinkId: linkId, keyHash: hashToken(deviceKey), revokedAt: null, expiresAt: { gt: now } } });
   return dev ? { link, device: dev } : null;
+}
+
+export type AccessRefusal = "gone" | "off" | "device" | "section-off";
+
+/** What the guardian is told when an action is refused. */
+export const ACCESS_WORDS: Record<AccessRefusal, string> = {
+  gone: "This link is no longer active. Please ask the school for a new one.",
+  off: "The school has switched off Parent Link for now. To ask a question, message or call the school.",
+  device: "Please confirm this phone again: open the link and type the code we send.",
+  "section-off": "The school has switched this part of Parent Link off. Please call the school.",
+};
+
+export type GuardianAccess =
+  | { ok: true; ctx: SchoolContext; linkId: string; guardianId: string; timeZone: string }
+  | { ok: false; reason: AccessRefusal; message: string };
+
+const refused = (reason: AccessRefusal): GuardianAccess => ({ ok: false, reason, message: ACCESS_WORDS[reason] });
+
+/**
+ * The one check before any guardian action or download on Parent Link (pay,
+ * receipts and tax invoices, report cards, consent, event consent, PTM
+ * booking), made again on the server as when the page opens: the link is
+ * active, the school has Parent Link on and is not suspended or closed, the
+ * guardian is still on record, this phone is confirmed, and the switch of the
+ * section the action belongs to (Message Settings, Parent Link; a missing
+ * switch is on) is on. Unlike openLink, it writes nothing. Each action then
+ * checks the child with ../students/guardian-access.ts.
+ */
+export async function guardianAccess(found: LinkFound, deviceKey: string | null, section: string | null, now = new Date()): Promise<GuardianAccess> {
+  const ctx: SchoolContext = { schoolId: found.schoolId, userId: null };
+  return withSchool(ctx, async (tx) => {
+    const check = await linkCheck(tx, ctx, found.linkId);
+    if (check.state !== "ok") return refused(check.state);
+    if (!(await confirmedDevice(tx, found.linkId, deviceKey, now))) return refused("device");
+    if (section && check.settings.parentLink.shows[section] === false) return refused("section-off");
+    return { ok: true as const, ctx, linkId: found.linkId, guardianId: check.link.guardianId, timeZone: check.school.timeZone };
+  });
+}
+
+/** Before a one-time code for a new phone is sent or checked: the link must be usable (no code while Parent Link is off). */
+export async function linkUsable(tx: Tx, ctx: SchoolContext, linkId: string): Promise<AccessRefusal | null> {
+  const check = await linkCheck(tx, ctx, linkId);
+  return check.state === "ok" ? null : check.state;
 }
 
 export type { AudienceRule };

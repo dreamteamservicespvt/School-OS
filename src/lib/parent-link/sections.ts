@@ -15,8 +15,9 @@
 // (view.child is the one chosen), never anything of another family; return
 // null when there is nothing to show (no empty boxes); read-only apart from
 // paying and consent. Actions go through server actions that check the
-// phone again with confirmedDevice() from ./links. In a staff preview
-// (view.preview), buttons must not act.
+// link, the phone and the section's switch again with guardianAccess() from
+// ./links, and the child with ../students/guardian-access.ts. In a staff
+// preview (view.preview), buttons must not act.
 import "server-only";
 
 import type { SchoolContext, Tx } from "../db";

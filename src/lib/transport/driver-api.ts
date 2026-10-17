@@ -12,6 +12,7 @@ import "server-only";
 import type { Driver, DriverDevice } from "@prisma/client";
 import { getCurrent, isPaused } from "../current";
 import { withSchool, type SchoolContext, type Tx } from "../db";
+import { OPEN_LINK } from "../students/guardian-access";
 import { todayDate } from "../front-office/time";
 import { hitLimit } from "../rate-limit";
 import { hashKey } from "./fleet";
@@ -95,7 +96,7 @@ export async function driverToday(tx: Tx, c: DriverCaller, now: Date) {
   const studentIds = sheets.flatMap((s) => s.stops.flatMap((x) => x.students.map((k) => k.id)));
   const phones = new Map<string, string>();
   if (settings.showParentPhones && studentIds.length) {
-    const links = await tx.studentGuardian.findMany({ where: { studentId: { in: studentIds }, archivedAt: null }, orderBy: { isPrimary: "desc" }, select: { studentId: true, guardian: { select: { phone: true } } } });
+    const links = await tx.studentGuardian.findMany({ where: { studentId: { in: studentIds }, ...OPEN_LINK }, orderBy: { isPrimary: "desc" }, select: { studentId: true, guardian: { select: { phone: true } } } });
     for (const l of links) if (!phones.has(l.studentId)) phones.set(l.studentId, l.guardian.phone);
   }
   return {

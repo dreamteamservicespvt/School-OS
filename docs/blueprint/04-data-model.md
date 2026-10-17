@@ -421,7 +421,7 @@ These rules hold everywhere. A builder should write a check for each one.
 
 **Added on 9 October 2026**
 
-31. A Parent Link shows only that guardian's own children, and only what the school has chosen to show. It is read-only apart from paying and giving consent. Its secure token is stored only in hashed form. A new phone must be confirmed by a one-time code to the guardian's registered mobile. A revoked link stops working at once.
+31. A Parent Link shows only that guardian's own children, and only what the school has chosen to show. It is read-only apart from paying and giving consent. Its secure token is stored only in hashed form. A new phone must be confirmed by a one-time code to the guardian's registered mobile. A revoked link stops working at once. A child whose link to the guardian has a custody or access restriction is not shown, and cannot be paid, consented or booked for, on that guardian's Parent Link; that guardian gets none of that child's messages.
 32. A User Login belongs to exactly one Staff, Student or Driver record. It can open only the schools and campuses named in its School Access entries, with the roles and scope set there. Each school's records stay apart from every other school's, even inside one Group.
 33. A Consent Record keeps the Consent Text version agreed to. A new version of a text never changes past records. A withdrawn consent stays on record with its withdrawal date and is no longer used from that date. Photos of a student are used in the gallery or on social media only while photo consent stands.
 34. An SMS can be sent only from a Template that has a DLT template ID.

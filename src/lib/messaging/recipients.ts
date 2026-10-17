@@ -1,10 +1,13 @@
 // Who a message goes to (11-communication.md, Send Message, "Who"): parents,
 // students or staff, narrowed by class, section, role or a saved group, or
 // chosen one by one. Always limited to what the sender may reach.
+// A parent never gets a child's messages through a link with a custody or
+// access restriction (../students/guardian-access.ts).
 import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
 import { currentYear } from "../academic/years";
+import { OPEN_LINK } from "../students/guardian-access";
 import { ownSectionIds, sectionLabel } from "../people";
 import type { Reach } from "../permissions";
 
@@ -123,7 +126,7 @@ const joinNames = (names: string[]) => (names.length <= 1 ? names.join("") : `${
 
 async function guardiansFor(tx: Tx, ctx: SchoolContext, students: Enrolled[], all: boolean, onlyGuardianIds?: Set<string>): Promise<Map<string, Candidate>> {
   const links = await tx.studentGuardian.findMany({
-    where: { schoolId: ctx.schoolId, studentId: { in: students.map((s) => s.id) }, archivedAt: null, guardian: { archivedAt: null } },
+    where: { schoolId: ctx.schoolId, studentId: { in: students.map((s) => s.id) }, ...OPEN_LINK, guardian: { archivedAt: null } },
     select: { studentId: true, relationship: true, isPrimary: true, emergencyOrder: true, guardian: { select: { id: true, name: true, phone: true, email: true, language: true, optedOut: true } } },
   });
   const byStudent = new Map<string, typeof links>();
@@ -238,7 +241,8 @@ export async function resolveAudience(tx: Tx, ctx: SchoolContext, rule: Audience
   }
   // Chosen guardians: with each of their children in the school.
   if (r.guardianIds?.length) {
-    const links = await tx.studentGuardian.findMany({ where: { schoolId: ctx.schoolId, guardianId: { in: r.guardianIds }, archivedAt: null }, select: { studentId: true } });
+    // Only the children they may hear about: a child they have a custody restriction for is left out of the message.
+    const links = await tx.studentGuardian.findMany({ where: { schoolId: ctx.schoolId, guardianId: { in: r.guardianIds }, ...OPEN_LINK }, select: { studentId: true } });
     const pool = await enrolledStudents(tx, ctx, { studentIds: [...new Set(links.map((l) => l.studentId))] });
     const found = await guardiansFor(tx, ctx, pool, true, new Set(r.guardianIds));
     for (const [id, c] of found) if (!guardians.has(id)) guardians.set(id, c);

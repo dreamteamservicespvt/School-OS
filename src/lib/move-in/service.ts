@@ -7,6 +7,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
+import { OPEN_LINK } from "../students/guardian-access";
 import { writeAudit } from "../audit";
 import { importKind, importKinds, previewImport, type ImportKind } from "../importer";
 import { startImport } from "../data-security/imports";
@@ -523,6 +524,7 @@ export async function goLive(tx: Tx, ctx: SchoolContext) {
 
 /** Guardians of this year's students, for sending Parent Links on going live. */
 export async function liveGuardianIds(tx: Tx) {
-  const rows = await tx.guardian.findMany({ where: { archivedAt: null, students: { some: { archivedAt: null, student: { archivedAt: null, status: "ACTIVE" } } } }, select: { id: true } });
+  // Not a guardian whose every child has a custody restriction against them.
+  const rows = await tx.guardian.findMany({ where: { archivedAt: null, students: { some: { ...OPEN_LINK, student: { archivedAt: null, status: "ACTIVE" } } } }, select: { id: true } });
   return rows.map((r) => r.id);
 }

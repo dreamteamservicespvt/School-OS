@@ -1,14 +1,15 @@
-// A report card PDF for a guardian, from their Parent Link. The phone must be
-// confirmed, the child must be the guardian's own, and every result on the
-// report card must be published (08 Done when 11). Logged in the Audit Log.
+// A report card PDF for a guardian, from their Parent Link. The link, Parent
+// Link and the Report cards switch must be on and the phone confirmed
+// (guardianAccess), the child must be the guardian's own (never one they have
+// a custody restriction for), and every result on the report card must be
+// published (08 Done when 11). Logged in the Audit Log.
 import { cookies } from "next/headers";
 import { withSchool } from "@/lib/db";
 import { deviceInfo } from "@/lib/current";
 import { writeAudit } from "@/lib/audit";
 import { hitLimit } from "@/lib/rate-limit";
-import { deviceCookieName, findLink, openLink } from "@/lib/parent-link/links";
-import { guardianChildren } from "@/lib/parent-link/view";
-import { messageSettings } from "@/lib/messaging/settings";
+import { deviceCookieName, findLink, guardianAccess } from "@/lib/parent-link/links";
+import { isChildOfGuardian } from "@/lib/students/guardian-access";
 import { parentReportCardPdf } from "@/lib/exams/parent-link";
 
 export const dynamic = "force-dynamic";
@@ -32,17 +33,15 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
   const found = await findLink(token);
   if (!found) return plain("This link does not work. Please ask the school for a new one.", 404);
   const key = (await cookies()).get(deviceCookieName(found.linkId))?.value ?? null;
-  const state = await openLink(token, key, device);
-  if (state.state !== "open") return Response.redirect(new URL(`/p/${token}`, request.url), 303);
-  const ctx = { schoolId: state.schoolId, userId: null };
+  const g = await guardianAccess(found, key, "report-cards");
+  if (!g.ok && g.reason === "section-off") return plain("This report card is not available. Results may not be published yet.", 404);
+  if (!g.ok) return Response.redirect(new URL(`/p/${token}`, request.url), 303);
+  const ctx = g.ctx;
   try {
     const out = await withSchool(ctx, async (tx) => {
-      const settings = await messageSettings(tx, ctx);
-      if (settings.parentLink.shows["report-cards"] === false) return null;
-      const { children } = await guardianChildren(tx, ctx, state.guardianId);
-      if (!children.some((c) => c.id === childId)) return null;
+      if (!(await isChildOfGuardian(tx, ctx, g.guardianId, childId, { studying: true }))) return null;
       const pdf = await parentReportCardPdf(tx, ctx, childId, yearId, period);
-      if (pdf) await writeAudit(tx, ctx, { action: "downloaded", recordType: "Report Card", recordId: childId, after: { period, by: "guardian", linkId: state.linkId }, device: device.userAgent, ipAddress: device.ipAddress });
+      if (pdf) await writeAudit(tx, ctx, { action: "downloaded", recordType: "Report Card", recordId: childId, after: { period, by: "guardian", linkId: g.linkId }, device: device.userAgent, ipAddress: device.ipAddress });
       return pdf;
     }, { timeout: 60_000 });
     if (!out) return plain("This report card is not available. Results may not be published yet.", 404);

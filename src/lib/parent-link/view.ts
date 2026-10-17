@@ -1,37 +1,38 @@
 // Builds what one guardian may see on their Parent Link: only their own
-// children studying in the school (rule 31). The child chosen on the page
-// (?child=) is checked against that list on the server.
+// children studying in the school (rule 31), never a child the guardian has a
+// custody or access restriction for (03 §2; ../students/guardian-access.ts).
+// The child chosen on the page (?child=) is checked against that list on the
+// server.
 import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
 import { currentYear } from "../academic/years";
+import { childrenOfGuardian } from "../students/guardian-access";
 import type { GuardianView, ParentLinkChild } from "./sections";
 
 export async function guardianChildren(tx: Tx, ctx: SchoolContext, guardianId: string): Promise<{ children: ParentLinkChild[]; academicYearId: string | null }> {
-  const links = await tx.studentGuardian.findMany({
-    where: { schoolId: ctx.schoolId, guardianId, archivedAt: null, student: { archivedAt: null, status: { in: ["ACTIVE", "ADMITTED"] } } },
-    include: { student: true },
-  });
+  const ids = await childrenOfGuardian(tx, ctx, guardianId, { studying: true });
+  const students = ids.length ? await tx.student.findMany({ where: { schoolId: ctx.schoolId, id: { in: ids } } }) : [];
   const year = await currentYear(tx, ctx);
-  const enrolments = year
-    ? await tx.enrolment.findMany({ where: { schoolId: ctx.schoolId, academicYearId: year.id, archivedAt: null, studentId: { in: links.map((l) => l.studentId) } } })
+  const enrolments = year && ids.length
+    ? await tx.enrolment.findMany({ where: { schoolId: ctx.schoolId, academicYearId: year.id, archivedAt: null, studentId: { in: ids } } })
     : [];
   const [classes, sections] = await Promise.all([
     tx.schoolClass.findMany({ where: { schoolId: ctx.schoolId, id: { in: enrolments.map((e) => e.classId) } }, select: { id: true, name: true } }),
     tx.section.findMany({ where: { schoolId: ctx.schoolId, id: { in: enrolments.map((e) => e.sectionId) } }, select: { id: true, name: true } }),
   ]);
-  const children = links
-    .map((l) => {
-      const e = enrolments.find((x) => x.studentId === l.studentId);
+  const children = students
+    .map((s) => {
+      const e = enrolments.find((x) => x.studentId === s.id);
       return {
-        id: l.student.id,
-        name: l.student.fullName,
-        firstName: l.student.firstName,
+        id: s.id,
+        name: s.fullName,
+        firstName: s.firstName,
         classLabel: e ? `${classes.find((c) => c.id === e.classId)?.name ?? ""} ${sections.find((x) => x.id === e.sectionId)?.name ?? ""}`.trim() : "",
         sectionId: e?.sectionId ?? null,
         classId: e?.classId ?? null,
-        admissionNo: l.student.admissionNo,
-        photoFileId: l.student.photoFileId,
+        admissionNo: s.admissionNo,
+        photoFileId: s.photoFileId,
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));

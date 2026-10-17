@@ -26,6 +26,7 @@ import { currentYear } from "../academic/years";
 import { attendanceSettings } from "../attendance/settings";
 import { attendanceSummary } from "../attendance/summary";
 import { schoolDays } from "../attendance/calendar";
+import { OPEN_ATTENDANCE_FLAG } from "../attendance/flags";
 import { examSettings } from "../exams/settings";
 import { forecast as feeForecast } from "../fees/dashboard";
 import { accountBalances } from "../finance/daybook";
@@ -265,7 +266,11 @@ async function feeForecasts(c: Ctx): Promise<Forecast[]> {
 export const LEAVING_WITH_FEES = "leaving-f:";
 
 async function leavingForecasts(c: Ctx, enrolled: Enrolled[]): Promise<Forecast[]> {
-  const open = await c.tx.riskFlag.findMany({ where: { closedAt: null, academicYearId: c.year.id }, select: { studentId: true, area: true, sectionId: true } });
+  const open = [
+    ...await c.tx.riskFlag.findMany({ where: { closedAt: null, academicYearId: c.year.id }, select: { studentId: true, area: true } }),
+    // Attendance concerns live on the Attendance Flag (one record; see warnings.ts).
+    ...(await c.tx.attendanceFlag.findMany({ where: OPEN_ATTENDANCE_FLAG, select: { studentId: true } })).map((f) => ({ studentId: f.studentId, area: "attendance" })),
+  ];
   const enrolledIds = new Set(enrolled.map((e) => e.studentId));
   const areas = new Map<string, Set<string>>();
   for (const f of open) if (enrolledIds.has(f.studentId)) areas.set(f.studentId, (areas.get(f.studentId) ?? new Set()).add(f.area));

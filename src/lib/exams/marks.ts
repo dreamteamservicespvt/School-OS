@@ -269,6 +269,9 @@ export type PaperRow = {
   teachers: { name: string; userId: string | null }[];
 };
 
+/** "Class 9 A" before "Class 10 A": the same order as localeCompare with numeric, made once rather than for every comparison. */
+const BY_LABEL = new Intl.Collator(undefined, { numeric: true });
+
 /** The papers a person enters marks for (their own allocations), or every paper for full reach. */
 export async function papersFor(tx: Tx, ctx: SchoolContext, scope: ExamScope, yearId: string, f: { examId?: string; status?: string; q?: string }) {
   const exams = await tx.exam.findMany({ where: { academicYearId: yearId, archivedAt: null, status: { not: "DRAFT" }, ...(f.examId ? { id: f.examId } : {}) }, include: { entries: { where: { archivedAt: null } } }, orderBy: { startDate: "desc" } });
@@ -289,22 +292,45 @@ export async function papersFor(tx: Tx, ctx: SchoolContext, scope: ExamScope, ye
     tx.teacherAllocation.findMany({ where: { academicYearId: yearId, archivedAt: null, sectionId: { in: [...new Set(pairs.map((p) => p.section.id))] } }, select: { sectionId: true, subjectId: true, staffId: true } }),
   ]);
   const staff = await tx.staff.findMany({ where: { id: { in: [...new Set(allocs.map((a) => a.staffId))] } }, select: { id: true, fullName: true, userLoginId: true } });
+  // Looked up once rather than searched for every paper (the Dashboard reads every paper of the year: QA PLATFORM-13).
+  // Each lookup keeps the first row, as a search with find() would.
+  const first = <T, K>(rows: T[], key: (r: T) => K) => {
+    const m = new Map<K, T>();
+    for (const r of rows) if (!m.has(key(r))) m.set(key(r), r);
+    return m;
+  };
+  const groups = <T, K>(rows: T[], key: (r: T) => K) => {
+    const m = new Map<K, T[]>();
+    for (const r of rows) {
+      const list = m.get(key(r));
+      if (list) list.push(r);
+      else m.set(key(r), [r]);
+    }
+    return m;
+  };
+  const subjectById = first(subjects, (s) => s.id);
+  const rosterBySection = groups(roster, (r) => r.sectionId);
+  const marksByPaper = groups(marks, (m) => `${m.entryId}|${m.sectionId}`);
+  const paperByKey = first(papers, (p) => `${p.entryId}|${p.sectionId}`);
+  const waitingByEntry = first(waiting, (w) => w.entryId);
+  const allocsByPaper = groups(allocs, (a) => `${a.sectionId}|${a.subjectId}`);
+  const staffById = groups(staff, (x) => x.id);
   const rows: PaperRow[] = pairs.map(({ exam, entry, section }) => {
-    const subject = subjects.find((s) => s.id === entry.subjectId)!;
-    const students = sitters(roster.filter((r) => r.sectionId === section.id), subject);
-    const mine = marks.filter((m) => m.entryId === entry.id && m.sectionId === section.id);
-    const done = students.filter((s: RosterStudent) => isDone(mine.find((m) => m.studentId === s.studentId), subject.gradeOnly)).length;
+    const subject = subjectById.get(entry.subjectId)!;
+    const students = sitters(rosterBySection.get(section.id) ?? [], subject);
+    const mine = first(marksByPaper.get(`${entry.id}|${section.id}`) ?? [], (m) => m.studentId);
+    const done = students.filter((s: RosterStudent) => isDone(mine.get(s.studentId), subject.gradeOnly)).length;
     return {
       entryId: entry.id, sectionId: section.id, examId: exam.id, examTitle: exam.title, sectionLabel: `${section.schoolClass.name} ${section.name}`, subjectName: subject.name,
-      date: entry.date, due: entry.marksDueDate, status: papers.find((p) => p.entryId === entry.id && p.sectionId === section.id)?.status ?? "NOT_STARTED", done, of: students.length, gradeOnly: subject.gradeOnly,
-      waiting: waiting.find((w) => w.entryId === entry.id)?._count ?? 0,
-      teachers: allocs.filter((a) => a.sectionId === section.id && a.subjectId === entry.subjectId).flatMap((a) => staff.filter((x) => x.id === a.staffId).map((x) => ({ name: x.fullName, userId: x.userLoginId }))),
+      date: entry.date, due: entry.marksDueDate, status: paperByKey.get(`${entry.id}|${section.id}`)?.status ?? "NOT_STARTED", done, of: students.length, gradeOnly: subject.gradeOnly,
+      waiting: waitingByEntry.get(entry.id)?._count ?? 0,
+      teachers: (allocsByPaper.get(`${section.id}|${entry.subjectId}`) ?? []).flatMap((a) => (staffById.get(a.staffId) ?? []).map((x) => ({ name: x.fullName, userId: x.userLoginId }))),
     };
   });
   const q = f.q?.toLowerCase();
   return rows
     .filter((r) => (!f.status || r.status === f.status) && (!q || `${r.subjectName} ${r.sectionLabel} ${r.examTitle}`.toLowerCase().includes(q)))
-    .sort((a, b) => a.date.getTime() - b.date.getTime() || a.sectionLabel.localeCompare(b.sectionLabel, undefined, { numeric: true }));
+    .sort((a, b) => a.date.getTime() - b.date.getTime() || BY_LABEL.compare(a.sectionLabel, b.sectionLabel));
 }
 
 /**

@@ -45,7 +45,13 @@ function readPayload(p: SheetPayload) {
   const entries: Entry[] = [];
   for (const e of p.entries) {
     if (!e || !UUID_RE.test(String(e.studentId)) || typeof e.statusKey !== "string" || e.statusKey.length > 40) return null;
-    entries.push({ studentId: e.studentId, statusKey: e.statusKey, note: typeof e.note === "string" ? e.note.slice(0, 300) : null });
+    if (e.reason != null && (typeof e.reason !== "string" || e.reason.length > 40)) return null;
+    entries.push({
+      studentId: e.studentId, statusKey: e.statusKey, note: typeof e.note === "string" ? e.note.slice(0, 300) : null,
+      // Absence reason: optional; older phones' offline saves have none.
+      reason: typeof e.reason === "string" && e.reason ? e.reason : null,
+      reasonNote: typeof e.reasonNote === "string" ? e.reasonNote.slice(0, 100) : null,
+    });
   }
   let offline: { takenAt: Date; clientNow: Date } | null = null;
   if (p.offline) {

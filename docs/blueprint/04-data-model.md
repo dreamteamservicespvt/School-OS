@@ -248,7 +248,7 @@ erDiagram
 
 | Record | What it is | Key fields |
 |---|---|---|
-| Attendance Mark | One student's or staff member's attendance for one day, or one period where the school takes attendance every period. | Student or staff, date, period (optional), status (present, absent, late, half-day, excused, leave, medical, or the school's own), method (register, mobile, QR, face, fingerprint, RFID card), marked by, time, note, locked or not. |
+| Attendance Mark | One student's or staff member's attendance for one day, or one period where the school takes attendance every period. | Student or staff, date, period (optional), status (present, absent, late, half-day, excused, leave, medical, or the school's own), method (register, mobile, QR, face, fingerprint, RFID card), marked by, time, note, locked or not. Absence reason *(added 17 October 2026, gap list P1.8; only for a status that counts as absent, when the school switches absence reasons on)*: Sick, Family function, Travel, Fees dispute, Not known yet or Other, a short note, and where it came from (Take Attendance, set later from the absent list, or approved student leave). Empty means not recorded. |
 | Leave Request | Leave for a student or a staff member. Student leave is recorded by school staff, because parents have no login. | Student or staff, leave type, from date, to date, half-day or not, reason, document, status (Waiting, Approved, Rejected, Cancelled), recorded by, decided by, reason for the decision. |
 | Leave Balance | *Added (decided 9 October 2026).* How many days of one leave type a staff member, or a student where the school switches student leave balances on, has for one year. | Staff or student, leave type, academic year, days given, adjustments with reasons, days taken (worked out from approved Leave Requests), days left. |
 | Homework | Work given to a class, section or chosen students. | Section or chosen students, subject, teacher, title, instructions, attachments, date given, due date, maximum marks (100 unless the teacher changes it). |
@@ -397,7 +397,7 @@ These rules hold everywhere. A builder should write a check for each one.
 14. Marks are between 0 and the paper's maximum. A change after marks are locked needs a reason and an Approval, and the old value is kept.
 15. A Grade Scale has no gaps and no overlaps. Changing it never changes results already published.
 16. Results in draft cannot be published.
-17. Attendance locks after the cut-off time set in Attendance Settings. A later change needs a correction request and an Approval. The original mark stays in the audit log.
+17. Attendance locks after the cut-off time set in Attendance Settings. A later change needs a correction request and an Approval. The original mark stays in the audit log. An absence reason does not change the mark or the %, so the class teacher or the office may set it after the lock without a correction; every change is in the audit log. The reason "Fees dispute" is shown only to people who see the whole school's fees; everyone else sees "Other" (added 17 October 2026).
 18. A holiday on the School Calendar switches attendance off for that day. Reports leave the day out.
 
 **Years and history**

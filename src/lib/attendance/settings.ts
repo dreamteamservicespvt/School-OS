@@ -16,6 +16,7 @@ export const ATTENDANCE_FEATURES = [
   { key: "attendance-leave-quotas", label: "Student leave balances", about: "A limit of days per leave type for a term or year, like 6 medical days a term." },
   { key: "attendance-shifts", label: "Staff shifts", about: "Different working hours for groups of staff." },
   { key: "attendance-overtime", label: "Overtime", about: "Record extra hours staff worked, for salary." },
+  { key: "attendance-absence-reasons", label: "Absence reasons", about: "Record why a student was absent: sick, family function, travel, fees dispute, not known yet or other. Shown in the register, reports and Early Warnings." },
 ] as const;
 export type AttendanceFeature = (typeof ATTENDANCE_FEATURES)[number]["key"];
 

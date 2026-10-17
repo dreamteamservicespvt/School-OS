@@ -17,7 +17,7 @@ import { hashToken, placeholderFor, tokenFor } from "./token";
 import { prisma, withSchool, type SchoolContext, type Tx } from "../db";
 import { writeAudit } from "../audit";
 import { sendMessage, MessagingProblem, type SendResult } from "../messaging/send";
-import { channelSetups, type Channel } from "../messaging/channels";
+import { channelSetups, whatsappIsLive, type Channel } from "../messaging/channels";
 import { ensureReadyTemplates, templateByKey } from "../messaging/templates";
 import { messageSettings } from "../messaging/settings";
 import type { AudienceRule } from "../messaging/recipients";
@@ -43,22 +43,39 @@ export async function createLink(tx: Tx, ctx: SchoolContext, guardianId: string)
   return link;
 }
 
-/** The channel and template for sending links: WhatsApp if connected, else SMS (with a DLT ID). */
+/**
+ * Why a template cannot go on a channel right now, or null when it can: SMS
+ * needs the school's DLT entity ID and sender header and a template with a
+ * DLT template ID; a real WhatsApp account needs a template WhatsApp approved.
+ */
+async function cannotCarry(tx: Tx, ctx: SchoolContext, ch: "whatsapp" | "sms", templateId: string, setups: Awaited<ReturnType<typeof channelSetups>>): Promise<string | null> {
+  if (ch === "sms") {
+    const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { smsDltEntityId: true, smsSenderHeader: true } });
+    if (!school.smsDltEntityId || !school.smsSenderHeader) return "Add your DLT entity ID and sender header in Settings, SMS, WhatsApp & Email before sending SMS.";
+    const ok = await tx.templateVersion.count({ where: { templateId, isCurrent: true, dltTemplateId: { not: null } } });
+    return ok ? null : "The SMS template has no DLT template ID. Add it in Message Templates, or send by WhatsApp.";
+  }
+  if (!whatsappIsLive(setups.whatsapp)) return null;
+  const ok = await tx.templateVersion.count({ where: { templateId, isCurrent: true, whatsappStatus: "APPROVED", whatsappName: { not: null } } });
+  return ok ? null : "WhatsApp has not approved the template yet. Send it for approval in Message Templates, or send by SMS.";
+}
+
+/** The channel and template for sending links: WhatsApp if it can carry it, else SMS (with a DLT ID). */
 async function linkChannel(tx: Tx, ctx: SchoolContext, wanted?: Channel | null): Promise<{ channel: Channel; templateId: string }> {
   await ensureReadyTemplates(tx, ctx);
   const setups = await channelSetups(tx, ctx);
   const order: Channel[] = wanted ? [wanted] : ["whatsapp", "sms"];
+  let why: string | null = null;
   for (const ch of order) {
     if (ch !== "whatsapp" && ch !== "sms") continue;
     if (!setups[ch].isOn) continue;
     const t = await templateByKey(tx, ctx, "parent-link", ch);
     if (!t) continue;
-    if (ch === "sms") {
-      const ok = await tx.templateVersion.count({ where: { templateId: t.id, isCurrent: true, dltTemplateId: { not: null } } });
-      if (!ok) { if (wanted) throw new ParentLinkProblem("The Parent Link SMS template has no DLT template ID. Add it in Message Templates, or send by WhatsApp."); continue; }
-    }
+    const no = await cannotCarry(tx, ctx, ch, t.id, setups);
+    if (no) { if (wanted) throw new ParentLinkProblem(no); why ??= no; continue; }
     return { channel: ch, templateId: t.id };
   }
+  if (why) throw new ParentLinkProblem(`Links cannot be sent: ${why}`);
   throw new ParentLinkProblem(wanted ? `${wanted === "sms" ? "SMS" : "WhatsApp"} is switched off. Switch it on in Settings, SMS, WhatsApp & Email.` : "Neither WhatsApp nor SMS is switched on, so links cannot be sent. Switch one on in Settings, SMS, WhatsApp & Email.");
 }
 
@@ -233,11 +250,12 @@ export async function sendCode(tx: Tx, ctx: SchoolContext, linkId: string, purpo
   const setups = await channelSetups(tx, ctx);
   let channel: Channel | null = null;
   let templateId: string | null = null;
+  // SMS first (codes are what SMS is for), else WhatsApp; each only when it can really carry the code.
   for (const ch of ["sms", "whatsapp"] as const) {
     if (!setups[ch].isOn) continue;
     const t = await templateByKey(tx, ctx, "parent-link-code", ch);
     if (!t) continue;
-    if (ch === "sms" && !(await tx.templateVersion.count({ where: { templateId: t.id, isCurrent: true, dltTemplateId: { not: null } } }))) continue;
+    if (await cannotCarry(tx, ctx, ch, t.id, setups)) continue;
     channel = ch;
     templateId = t.id;
     break;

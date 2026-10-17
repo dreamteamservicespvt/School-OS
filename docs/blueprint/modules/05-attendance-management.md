@@ -101,7 +101,7 @@ Used by: teachers (Take Attendance for their classes, student leave for their se
 **What the person sees**
 
 - Today's list: staff name, department, designation, shift (optional), in time, out time, status (Present, Absent, Late, Half-day, On leave), source (device, QR, mobile, manual).
-- Staff on approved leave are already marked On leave.
+- Staff on approved leave are already marked On leave. A day already marked absent becomes On leave when full-day leave for it is approved (recorded in the audit log), and stays On leave if it is marked absent again.
 - Late arrivals highlighted, with minutes late.
 - Monthly view per staff member (the same register as students).
 

@@ -71,6 +71,7 @@ Used by: the Principal and office (calendar, holidays, events), teachers and cla
 | Date and time | Yes | | |
 | Venue | No | | |
 | Audience | Yes | Whole school | Classes, staff, parents, alumni |
+| Campus | No | All campuses | Only for a school with more than one campus. An event of one campus uses that campus's year and classes; it shows on Parent Link (with its consent form) and its messages go only to that campus, as a notice for one campus does. Holidays of one campus show on Parent Link for that campus's children only (added 18 October 2026). |
 | Registration | No | Off | Seats limit when on |
 | Fee | No | None | |
 | Reminder | No | 1 day before (inferred) | |

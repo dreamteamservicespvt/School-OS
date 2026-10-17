@@ -16,7 +16,7 @@ import { maskPhone } from "../parent-link/links";
 import { EventConsentCard, type EventConsentCardData } from "@/components/parent-link/event-consent-card";
 import { PtmBookingCard, type PtmCardData } from "@/components/parent-link/ptm-booking-card";
 import { parentPtms } from "./ptm-parent";
-import { consentForms } from "./consent";
+import { consentForms, forCampus } from "./consent";
 import { albumUrl } from "./settings";
 import { CLOSING, clock, dayOf, isoOf, longDay, timeSpan } from "./words";
 
@@ -87,6 +87,8 @@ registerSection<Data>({
     const soon = new Date(today.getTime() + 45 * 86_400_000);
     const childId = view.child.id;
     const classId = view.child.classId;
+    // Events and holidays of every campus, and of the child's own campus only (as notices for one campus are).
+    const campusId = view.child.campusId;
 
     // PTMs for the child's class: the booked meeting and, when the school allows it, booking a free time (ptm-parent.ts).
     const cards = (await parentPtms(tx, ctx, { studentId: childId, today: todayIso })).filter((p) => p.parentBooking || p.booked.length);
@@ -97,14 +99,14 @@ registerSection<Data>({
     const labels = slots.length ? await tx.ptmTeacher.findMany({ where: { ptmId: { in: slots.map((s) => s.ptmId) } }, select: { ptmId: true, staffId: true, label: true } }) : [];
 
     const events = await tx.event.findMany({
-      where: { archivedAt: null, cancelledAt: null, date: { gte: today, lte: soon }, OR: [{ audienceKind: { in: ["school", "parents"] } }, ...(classId ? [{ audienceKind: "classes", classIds: { has: classId } }] : [])] },
+      where: { archivedAt: null, cancelledAt: null, date: { gte: today, lte: soon }, AND: [forCampus(campusId)], OR: [{ audienceKind: { in: ["school", "parents"] } }, ...(classId ? [{ audienceKind: "classes", classIds: { has: classId } }] : [])] },
       orderBy: [{ date: "asc" }, { startMin: "asc" }], take: 6,
     });
     const regs = events.length ? await tx.eventRegistration.findMany({ where: { studentId: childId, eventId: { in: events.map((e) => e.id) }, withdrawnAt: null }, select: { eventId: true } }) : [];
     const reg = new Set(regs.map((r) => r.eventId));
 
     // Events asking this child's parent for consent.
-    const asks = await consentForms(tx, childId, classId, todayIso);
+    const asks = await consentForms(tx, childId, classId, todayIso, campusId);
     const guardian = asks.length ? await tx.guardian.findUnique({ where: { id: view.guardianId }, select: { phone: true } }) : null;
     const consents: EventConsentCardData[] = asks.map(({ e, answer }) => ({
       eventId: e.id, studentId: childId, child: view.child.firstName, name: e.name, answer,
@@ -119,7 +121,7 @@ registerSection<Data>({
     }));
 
     const holidays = await tx.calendarEntry.findMany({
-      where: { archivedAt: null, type: { in: [...CLOSING] }, attendanceOn: false, endDate: { gte: today }, startDate: { lte: soon } },
+      where: { archivedAt: null, type: { in: [...CLOSING] }, attendanceOn: false, endDate: { gte: today }, startDate: { lte: soon }, ...forCampus(campusId) },
       orderBy: { startDate: "asc" }, take: 3,
     });
     const visible = holidays.filter((h) => !h.classIds.length || (classId && h.classIds.includes(classId)));

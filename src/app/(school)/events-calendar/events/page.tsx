@@ -107,7 +107,8 @@ export default async function EventsPage({ searchParams }: { searchParams: Searc
       </Stack>
       {doing === "create" && (
         <EventSheet closeHref={here({ do: null })} start={{ date: p.today < range.from ? range.from : p.today, startTime: hhmm(600) }} types={p.settings.eventTypes} venues={p.settings.venues}
-          classes={data.classes.map((c) => ({ value: c.id, label: c.name }))} reminders={REMINDERS.map((r) => ({ value: r.value, label: r.label }))} audiences={AUDIENCE_KINDS.map((a) => ({ value: a.value, label: a.label }))} />
+          classes={data.classes.map((c) => ({ value: c.id, label: c.name }))} reminders={REMINDERS.map((r) => ({ value: r.value, label: r.label }))} audiences={AUDIENCE_KINDS.map((a) => ({ value: a.value, label: a.label }))}
+          campuses={p.campuses.map((c) => ({ value: c.id, label: c.name }))} />
       )}
     </div>
   );

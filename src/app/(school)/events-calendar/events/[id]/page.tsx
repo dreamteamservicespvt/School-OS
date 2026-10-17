@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, Armchair, BellRing, CheckCheck, ClipboardList, HandHeart, Hourglass, IndianRupee, ListChecks, Pencil, Plus, Send, ShieldCheck, UserPlus, Users, X } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { formatDateTime, formatRupees } from "@/lib/format";
-import { audienceRule, eligible, eventMoney, eventStatus, feeStates } from "@/lib/events/events";
+import { audienceRule, eligible, eventMoney, eventStatus, eventYearIds, feeStates } from "@/lib/events/events";
 import { placeOrder, placesOf } from "@/lib/events/places";
 import { consentCounts } from "@/lib/events/consent";
 import { Ring } from "@/components/ui/display";
@@ -94,7 +94,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
     if (doing === "register") {
       let ids: string[] = [];
       if (e.audienceKind === "alumni") ids = (await tx.student.findMany({ where: { archivedAt: null, status: { in: ["ALUMNI", "GRADUATED"] } }, select: { id: true }, take: 2000 })).map((s) => s.id);
-      else ids = (await tx.enrolment.findMany({ where: { academicYearId: e.academicYearId, archivedAt: null, status: "STUDYING", ...(e.audienceKind === "classes" ? { classId: { in: e.classIds } } : {}) }, select: { studentId: true }, take: 4000 })).map((x) => x.studentId);
+      else ids = (await tx.enrolment.findMany({ where: { academicYearId: { in: await eventYearIds(tx, e) }, archivedAt: null, status: "STUDYING", ...(e.audienceKind === "classes" ? { classId: { in: e.classIds } } : {}) }, select: { studentId: true }, take: 4000 })).map((x) => x.studentId);
       const ok = await eligible(tx, e, ids);
       const st = await tx.student.findMany({ where: { id: { in: [...ok] } }, select: { id: true, fullName: true } });
       const pl = await placesOf(tx, st.map((s) => s.id), e.academicYearId);
@@ -268,7 +268,8 @@ export default async function EventPage({ params, searchParams }: { params: Prom
       {doing === "edit" && "classes" in extra && extra.classes && (
         <EventSheet closeHref={closeHref} types={p.settings.eventTypes} venues={p.settings.venues} classes={extra.classes.map((c) => ({ value: c.id, label: c.name }))}
           reminders={REMINDERS.map((r) => ({ value: r.value, label: r.label }))} audiences={AUDIENCE_KINDS.map((a) => ({ value: a.value, label: a.label }))}
-          start={{ id: e.id, name: e.name, type: e.type, date: isoOf(e.date), startTime: hhmm(e.startMin), endTime: e.endMin != null ? hhmm(e.endMin) : "", venue: e.venue ?? "", audienceKind: e.audienceKind, classIds: e.classIds, registrationOn: e.registrationOn, seats: e.seats ? String(e.seats) : "", fee: fee ? String(Number(fee) / 100) : "", reminder: e.reminder, description: e.description ?? "", consentOn: e.consentOn, consentBy: e.consentBy ? isoOf(e.consentBy) : "", feeLocked: Boolean(fee && d.regs.some((r) => r.dueId)) }} />
+          campuses={p.campuses.map((c) => ({ value: c.id, label: c.name }))}
+          start={{ id: e.id, campusId: e.campusId ?? "", name: e.name, type: e.type, date: isoOf(e.date), startTime: hhmm(e.startMin), endTime: e.endMin != null ? hhmm(e.endMin) : "", venue: e.venue ?? "", audienceKind: e.audienceKind, classIds: e.classIds, registrationOn: e.registrationOn, seats: e.seats ? String(e.seats) : "", fee: fee ? String(Number(fee) / 100) : "", reminder: e.reminder, description: e.description ?? "", consentOn: e.consentOn, consentBy: e.consentBy ? isoOf(e.consentBy) : "", feeLocked: Boolean(fee && d.regs.some((r) => r.dueId)) }} />
       )}
       {doing === "cancel" && !done && <CancelEventSheet closeHref={closeHref} eventId={e.id} name={e.name} fee={fee && n ? `Unpaid fees are removed; paid fees are refunded through Fee Management.` : null} />}
       {doing === "remind" && "remindTo" in extra && <RemindSheet closeHref={closeHref} eventId={e.id} people={extra.remindTo ?? "the audience"} preview={reminderPreview} />}

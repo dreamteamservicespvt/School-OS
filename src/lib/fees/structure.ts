@@ -4,14 +4,14 @@
 // and assigning a structure to a class or one student.
 import "server-only";
 
-import type { FeeFrequency, FeeStructure, Prisma } from "@prisma/client";
+import type { FeeFrequency, FeeStructure, Prisma, StudentFeeDue } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { formatRupees, formatDate } from "../format";
 import { assertYearOpen } from "../academic/years";
 import { MoneyProblem } from "./problem";
 import { checkSchedule, defaultSchedule, splitTotal, type InstallmentDraft } from "./schedule";
-import { refreshBalances } from "./dues";
+import { lockDues, refreshBalances } from "./dues";
 import { monthLabel } from "../staff/dates";
 import { ensureFeeDefaults } from "./settings";
 import { requestApproval } from "../approvals";
@@ -237,12 +237,14 @@ export async function askToPublish(tx: Tx, ctx: SchoolContext, structureId: stri
   const impact = await publishImpact(tx, structureId, effectiveFrom);
   const cls = await tx.schoolClass.findFirst({ where: { id: s.classId }, select: { name: true } });
   await tx.feeStructure.update({ where: { id: s.id }, data: { effectiveFrom } });
+  // One approval covers the whole change, including the adjustments on part-paid rows: the Principal sees the amounts here.
+  const money = [impact.addedPaise ? `${formatRupees(impact.addedPaise)} added` : "", impact.takenOffPaise ? `${formatRupees(impact.takenOffPaise)} taken off` : ""].filter(Boolean).join(", ");
   const approval = await requestApproval(tx, ctx, {
     type: STRUCTURE_CHANGE, recordType: "Fee Structure", recordId: s.id,
-    summary: `${cls?.name ?? "Class"} fee structure, version ${s.version}, from ${monthLabel(effectiveFrom)}: ${impact.students} ${impact.students === 1 ? "student's" : "students'"} unpaid installments`,
+    summary: `${cls?.name ?? "Class"} fee structure, version ${s.version}, from ${monthLabel(effectiveFrom)}: ${impact.students} ${impact.students === 1 ? "student's" : "students'"} unpaid installments${money ? ` (${money})` : ""}. Paid rows are not changed`,
     reason: reason.trim(),
   });
-  await writeAudit(tx, ctx, { action: "asked-to-publish", recordType: "Fee Structure", recordId: s.id, after: { version: s.version, effectiveFrom: formatDate(effectiveFrom), approval: approval.id, students: impact.students } });
+  await writeAudit(tx, ctx, { action: "asked-to-publish", recordType: "Fee Structure", recordId: s.id, after: { version: s.version, effectiveFrom: formatDate(effectiveFrom), approval: approval.id, students: impact.students, added: formatRupees(impact.addedPaise), takenOff: formatRupees(impact.takenOffPaise), rowsKept: impact.kept } });
   return { version: s.version, impact, approvalId: approval.id };
 }
 
@@ -299,45 +301,269 @@ export async function discardDraft(tx: Tx, ctx: SchoolContext, structureId: stri
 }
 
 // ---------------------------------------------------------------- publishing
+//
+// Publishing a new version from a date (rule 20: it never rewrites the past).
+// For each student who follows the class structure, each of their rows due on
+// or after the date is matched to the new version's installment for the same
+// period: the same fee head and due month, else the same fee head and name.
+//
+// - A row with money on it (paid or part-paid, a concession, or an adjustment)
+//   is kept, and the new version's installment for that period is not added
+//   again, so a period is never charged twice. When something is still left to
+//   pay on it, the change in the fee is put on it as an adjustment with a
+//   reason (a cut never below what is left). A fully paid or fully waived row
+//   does not change: paid rows are not changed.
+// - An untouched row is replaced by the new installment (kept as Removed, never
+//   deleted), or moves to the new version as it is when nothing differs. Its
+//   late fee moves with it to the new row; when there is no new row, or the
+//   new one is due later, an unpaid late fee comes off.
+// The preview (publishImpact) and the publish run the same plan, so what the
+// school is shown is exactly what happens.
 
-type Impact = { students: number; rows: number; from: Date; message: string };
+const ZERO = BigInt(0);
+/** The reason on the adjustments a new version puts on kept rows (also how they are found again). */
+const REVISION = "Fee structure version";
 
-/** Students whose fees follow a structure: they hold dues made from one of its versions. */
-async function followers(tx: Tx, structureIds: string[]) {
-  const rows = await tx.studentFeeDue.findMany({ where: { structureId: { in: structureIds } }, select: { studentId: true }, distinct: ["studentId"] });
-  return rows.map((r) => r.studentId);
+/** One installment of the version being published (or put back). */
+type NewInstallment = { id: string; feeHeadId: string; label: string; amountPaise: bigint; dueDate: Date; seq: number };
+
+/** Why a row stays as it is: there is money on it. */
+type KeptWhy = "paid" | "concession" | "adjusted";
+
+type RowChange =
+  | { kind: "same"; old: StudentFeeDue; inst: NewInstallment }
+  | { kind: "replace"; old: StudentFeeDue; inst: NewInstallment }
+  | { kind: "remove"; old: StudentFeeDue }
+  | { kind: "add"; inst: NewInstallment }
+  | { kind: "keep"; old: StudentFeeDue; inst: NewInstallment | null; why: KeptWhy; change: bigint; applied: bigint };
+
+type Plan = {
+  followers: number;
+  students: { studentId: string; changes: RowChange[] }[];
+  /** Late fee rows (open) added on rows that are replaced or removed, by the row they are on. */
+  lateFees: Map<string, StudentFeeDue[]>;
+};
+
+export type Impact = {
+  /** Students whose fees change. */
+  students: number;
+  /** Rows replaced by the new version's installment. */
+  rows: number;
+  added: number;
+  removed: number;
+  /** Rows kept because money is on them; how many of those get an adjustment. */
+  kept: number;
+  adjusted: number;
+  addedPaise: bigint;
+  takenOffPaise: bigint;
+  /** Fully paid rows keep their old amount: how much less (below) or more (above) than the new fee was paid. */
+  paidBelowPaise: bigint;
+  paidBelowRows: number;
+  paidAbovePaise: bigint;
+  paidAboveRows: number;
+  lateFeesMoved: number;
+  lateFeesRemoved: number;
+  from: Date;
+  /** The headline (06 §5: "This updates 120 students' unpaid installments from Nov 2026. Paid rows are not changed."). */
+  message: string;
+  /** What else changes, one plain sentence each. */
+  details: string[];
+};
+
+const monthKey = (d: Date) => d.toISOString().slice(0, 7);
+const labelKey = (s: string) => s.trim().replace(/\s+/g, " ").toLowerCase();
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+function keptWhy(d: StudentFeeDue, waitingConcession: Set<string>): KeptWhy | null {
+  if (d.paidPaise > ZERO) return "paid";
+  if (d.concessionPaise > ZERO || waitingConcession.has(d.id)) return "concession";
+  if (d.adjustmentPaise !== ZERO) return "adjusted";
+  return null;
 }
 
 /**
- * What publishing a draft changes for existing students: their unpaid
- * installments due on or after the date move to the new version. Paid and
- * part-paid rows never change.
+ * Pairs a student's rows with the new version's installments: first by fee
+ * head and due month, then by fee head and name; a row from the date on with
+ * money on it that is still unpaired takes the next unpaired installment of
+ * its fee head. All rows and installments take part in pairing, so a period
+ * whose due date moves across the date is neither charged twice nor lost; only
+ * rows due on or after the date change, and only installments due on or after
+ * it are added.
  */
-export async function publishImpact(tx: Tx, structureId: string, effectiveFrom: Date): Promise<Impact> {
-  const s = await tx.feeStructure.findFirstOrThrow({ where: { id: structureId } });
-  const older = await tx.feeStructure.findMany({ where: { academicYearId: s.academicYearId, classId: s.classId, category: s.category, status: "PUBLISHED", archivedAt: null } });
-  const ids = older.map((o) => o.id);
-  if (!ids.length) return { students: 0, rows: 0, from: effectiveFrom, message: "Nobody follows this structure yet. Assign it to the class after publishing." };
-  const rows = await tx.studentFeeDue.findMany({
-    where: { structureId: { in: ids }, state: "OPEN", kind: "FEE", paidPaise: 0, dueDate: { gte: effectiveFrom } },
-    select: { studentId: true },
-  });
-  const students = new Set(rows.map((r) => r.studentId)).size;
-  const all = (await followers(tx, ids)).length;
-  return {
-    students: Math.max(students, 0),
-    rows: rows.length,
-    from: effectiveFrom,
-    message: all === 0
-      ? "Nobody follows this structure yet. Assign it to the class after publishing."
-      : `This updates ${students} student${students === 1 ? "'s" : "s'"} unpaid installments from ${monthLabel(effectiveFrom)}. Paid rows are not changed.`,
+function matchRows(olds: StudentFeeDue[], insts: NewInstallment[], from: Date, why: (d: StudentFeeDue) => KeptWhy | null, base: (d: StudentFeeDue) => bigint): RowChange[] {
+  const used = new Set<string>();
+  const pairs = new Map<string, StudentFeeDue>();
+  type Keyed = { dueDate: Date; label: string };
+  const keys = [(x: Keyed) => monthKey(x.dueDate), (x: Keyed) => labelKey(x.label)];
+  for (const key of keys) {
+    for (const inst of insts) {
+      if (pairs.has(inst.id)) continue;
+      const k = key(inst);
+      const candidates = olds.filter((o) => !used.has(o.id) && o.feeHeadId === inst.feeHeadId && key(o) === k);
+      if (!candidates.length) continue;
+      const pick = candidates.find((o) => why(o)) ?? candidates[0];
+      pairs.set(inst.id, pick);
+      used.add(pick.id);
+    }
+  }
+  for (const o of olds) {
+    if (used.has(o.id) || o.dueDate < from || !why(o)) continue;
+    const inst = insts.find((i) => !pairs.has(i.id) && i.dueDate >= from && i.feeHeadId === o.feeHeadId);
+    if (!inst) continue;
+    pairs.set(inst.id, o);
+    used.add(o.id);
+  }
+  const keep = (old: StudentFeeDue, inst: NewInstallment | null): RowChange => {
+    const change = (inst ? inst.amountPaise : ZERO) - base(old);
+    // Only what is left to pay follows the new version; a cut never goes below it.
+    const applied = old.balancePaise <= ZERO ? ZERO : change >= ZERO ? change : -change > old.balancePaise ? -old.balancePaise : change;
+    return { kind: "keep", old, inst, why: why(old)!, change, applied };
   };
+  const out: RowChange[] = [];
+  for (const inst of insts) {
+    const old = pairs.get(inst.id);
+    if (!old) {
+      if (inst.dueDate >= from) out.push({ kind: "add", inst });
+    } else if (old.dueDate < from) {
+      // Billed before the date by an older version: the past stays as it is.
+    } else if (why(old)) out.push(keep(old, inst));
+    else if (old.amountPaise === inst.amountPaise && old.dueDate.getTime() === inst.dueDate.getTime() && labelKey(old.label) === labelKey(inst.label)) out.push({ kind: "same", old, inst });
+    else out.push({ kind: "replace", old, inst });
+  }
+  for (const old of olds) {
+    if (used.has(old.id) || old.dueDate < from) continue;
+    out.push(why(old) ? keep(old, null) : { kind: "remove", old });
+  }
+  return out;
+}
+
+/** The versions of a class structure whose rows a new version takes over (published and replaced ones). */
+async function versionIds(tx: Tx, s: { academicYearId: string; classId: string; category: string; id: string }) {
+  const rows = await tx.feeStructure.findMany({
+    where: { academicYearId: s.academicYearId, classId: s.classId, category: s.category, status: { in: ["PUBLISHED", "SUPERSEDED"] }, archivedAt: null, id: { not: s.id } },
+    select: { id: true },
+  });
+  return rows.map((r) => r.id);
+}
+
+/** Works out, row by row, what a new version from the date does to every student who follows the structure. */
+async function planRepublish(tx: Tx, s: { academicYearId: string; classId: string; category: string; id: string }, installments: NewInstallment[], effectiveFrom: Date, opts: { lock?: boolean } = {}): Promise<Plan> {
+  const ids = await versionIds(tx, s);
+  if (!ids.length) return { followers: 0, students: [], lateFees: new Map() };
+  const followers = (await tx.studentFeeDue.findMany({ where: { structureId: { in: ids }, state: "OPEN" }, select: { studentId: true }, distinct: ["studentId"] })).map((r) => r.studentId);
+  if (!followers.length) return { followers: 0, students: [], lateFees: new Map() };
+  const where = { studentId: { in: followers }, structureId: { in: ids }, state: "OPEN" as const, kind: "FEE" as const };
+  // Only rows from the date on can change; they are locked so a payment cannot slip in meanwhile.
+  if (opts.lock) await lockDues(tx, (await tx.studentFeeDue.findMany({ where: { ...where, dueDate: { gte: effectiveFrom } }, select: { id: true } })).map((r) => r.id));
+  const olds = await tx.studentFeeDue.findMany({ where, orderBy: [{ dueDate: "asc" }, { createdAt: "asc" }] });
+  // The fee a row stands for now: its amount plus the changes earlier versions put on it (not
+  // the school's own adjustments, which stay). A paid row an earlier version did not change keeps its amount.
+  const revisions = await tx.feeAdjustment.groupBy({ by: ["dueId"], where: { dueId: { in: olds.map((o) => o.id) }, reason: { startsWith: REVISION } }, _sum: { amountPaise: true } });
+  const revisedBy = new Map(revisions.map((r) => [r.dueId, r._sum.amountPaise ?? ZERO]));
+  const base = (d: StudentFeeDue) => d.amountPaise + (revisedBy.get(d.id) ?? ZERO);
+  // A concession waiting in Approvals for chosen rows keeps those rows, so it still finds them when approved.
+  const waiting = await tx.concession.findMany({ where: { studentId: { in: followers }, status: { in: ["WAITING", "APPROVED"] }, NOT: { dueIds: { isEmpty: true } } }, select: { dueIds: true } });
+  const waitingSet = new Set(waiting.flatMap((c) => c.dueIds));
+  const why = (d: StudentFeeDue) => keptWhy(d, waitingSet);
+  const insts = [...installments].sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime() || a.seq - b.seq);
+  const students = followers.map((studentId) => ({ studentId, changes: matchRows(olds.filter((o) => o.studentId === studentId), insts, effectiveFrom, why, base) }));
+  const going = students.flatMap((st) => st.changes).filter((c): c is Extract<RowChange, { kind: "replace" | "remove" }> => c.kind === "replace" || c.kind === "remove").map((c) => c.old.id);
+  const late = going.length ? await tx.studentFeeDue.findMany({ where: { parentDueId: { in: going }, kind: "LATE_FEE", state: "OPEN" } }) : [];
+  const lateFees = new Map<string, StudentFeeDue[]>();
+  for (const l of late) lateFees.set(l.parentDueId!, [...(lateFees.get(l.parentDueId!) ?? []), l]);
+  return { followers: followers.length, students, lateFees };
+}
+
+/** A late fee moves to the new row while the new row is not due later; otherwise an unpaid one comes off (a paid one stays on the new row, so it is never added twice). */
+function lateFeeMoves(c: Extract<RowChange, { kind: "replace" | "remove" }>, lateFees: Plan["lateFees"]) {
+  const rows = lateFees.get(c.old.id) ?? [];
+  const stillLate = c.kind === "replace" && c.inst.dueDate.getTime() <= c.old.dueDate.getTime();
+  return {
+    move: rows.filter((l) => c.kind === "replace" && (stillLate || l.paidPaise > ZERO)),
+    remove: rows.filter((l) => !(c.kind === "replace" && stillLate) && l.paidPaise === ZERO),
+  };
+}
+
+function impactOf(plan: Plan, from: Date, today?: Date): Impact {
+  const out: Impact = {
+    students: 0, rows: 0, added: 0, removed: 0, kept: 0, adjusted: 0, addedPaise: ZERO, takenOffPaise: ZERO,
+    paidBelowPaise: ZERO, paidBelowRows: 0, paidAbovePaise: ZERO, paidAboveRows: 0, lateFeesMoved: 0, lateFeesRemoved: 0,
+    from, message: "", details: [],
+  };
+  const money = (p: bigint) => { if (p > ZERO) out.addedPaise += p; else out.takenOffPaise -= p; };
+  for (const st of plan.students) {
+    let changed = false;
+    for (const c of st.changes) {
+      if (c.kind === "same") continue;
+      if (c.kind === "add") { out.added++; money(c.inst.amountPaise); changed = true; continue; }
+      if (c.kind === "keep") {
+        out.kept++;
+        if (c.applied !== ZERO) { out.adjusted++; money(c.applied); changed = true; }
+        const rest = c.change - c.applied;
+        if (rest > ZERO) { out.paidBelowPaise += rest; out.paidBelowRows++; }
+        if (rest < ZERO) { out.paidAbovePaise -= rest; out.paidAboveRows++; }
+        continue;
+      }
+      changed = true;
+      if (c.kind === "replace") { out.rows++; money(c.inst.amountPaise - c.old.amountPaise); } else { out.removed++; money(-c.old.amountPaise); }
+      const late = lateFeeMoves(c, plan.lateFees);
+      out.lateFeesMoved += late.move.length;
+      out.lateFeesRemoved += late.remove.length;
+      for (const l of late.remove) money(-(l.balancePaise > ZERO ? l.balancePaise : ZERO));
+    }
+    if (changed) out.students++;
+  }
+  if (plan.followers === 0) {
+    out.message = "Nobody follows this structure yet. Assign it to the class after publishing.";
+    return out;
+  }
+  out.message = `This updates ${out.students} student${out.students === 1 ? "'s" : "s'"} unpaid installments from ${monthLabel(from)}. Paid rows are not changed.`;
+  const d = out.details;
+  if (out.addedPaise || out.takenOffPaise) {
+    d.push([out.addedPaise ? `${formatRupees(out.addedPaise)} added` : "", out.takenOffPaise ? `${formatRupees(out.takenOffPaise)} taken off` : ""].filter(Boolean).join(" and ") + " in all.");
+  } else if (out.students === 0) {
+    d.push("No student's amounts change.");
+  }
+  const rows = [out.rows ? `${plural(out.rows, "row", "rows")} replaced` : "", out.added ? `${out.added} added` : "", out.removed ? `${out.removed} taken off` : ""].filter(Boolean);
+  if (rows.length) d.push(`${rows.join(", ")}.`);
+  if (out.kept) {
+    d.push(`${plural(out.kept, "row is", "rows are")} kept because they are paid, part-paid or have a concession, so no period is charged twice${out.adjusted ? `. On ${plural(out.adjusted, "row", "rows")} the change in the fee is added to what is left to pay, as an adjustment` : ""}.`);
+  }
+  if (out.paidBelowRows) d.push(`${plural(out.paidBelowRows, "fully paid or waived row keeps its", "fully paid or waived rows keep their")} old amount, ${formatRupees(out.paidBelowPaise)} less than the new fee in all. Add a charge on the student's ledger if it should be paid.`);
+  if (out.paidAboveRows) d.push(`${formatRupees(out.paidAbovePaise)} was already paid above the new fee on ${plural(out.paidAboveRows, "row", "rows")}. Give it back with a refund on Concessions & Refunds if the school wants.`);
+  if (out.lateFeesMoved) d.push(`${plural(out.lateFeesMoved, "late fee moves", "late fees move")} to the new ${out.lateFeesMoved === 1 ? "row" : "rows"}.`);
+  if (out.lateFeesRemoved) d.push(`${plural(out.lateFeesRemoved, "unpaid late fee comes", "unpaid late fees come")} off with ${out.lateFeesRemoved === 1 ? "its row" : "their rows"}.`);
+  if (today && from < today) d.push(`${formatDate(from)} is before today, so installments already overdue change too.`);
+  return out;
+}
+
+async function draftInstallments(tx: Tx, structureId: string): Promise<NewInstallment[]> {
+  return tx.installment.findMany({ where: { structureId, archivedAt: null, item: { archivedAt: null } }, select: { id: true, feeHeadId: true, label: true, amountPaise: true, dueDate: true, seq: true } });
+}
+
+/**
+ * What publishing a draft from a date changes for existing students, worked
+ * out the same way as the publish itself. Give today to be told about a date
+ * in the past.
+ */
+export async function publishImpact(tx: Tx, structureId: string, effectiveFrom: Date, today?: Date): Promise<Impact> {
+  const s = await tx.feeStructure.findFirstOrThrow({ where: { id: structureId } });
+  const plan = await planRepublish(tx, s, await draftInstallments(tx, structureId), effectiveFrom);
+  return impactOf(plan, effectiveFrom, today);
+}
+
+/** What putting an older version back from a date would change (the same plan as publishing it again). */
+export async function restoreImpact(tx: Tx, structureId: string, effectiveFrom: Date, today?: Date): Promise<Impact> {
+  const s = await tx.feeStructure.findFirstOrThrow({ where: { id: structureId } });
+  const plan = await planRepublish(tx, { ...s, id: "00000000-0000-0000-0000-000000000000" }, await draftInstallments(tx, structureId), effectiveFrom);
+  return impactOf(plan, effectiveFrom, today);
 }
 
 /**
  * Publishes a draft as the version in use. The older version is kept as
- * Superseded. Existing students' unpaid rows from the date on are replaced
- * by the new version's installments; paid and part-paid rows stay.
+ * Superseded. Each student's rows from the date on follow the new version as
+ * planned above: paid rows never change, no period is charged twice,
+ * concessions stay, and late fees move or come off with their rows.
  */
 export async function publishStructure(tx: Tx, ctx: SchoolContext, structureId: string, effectiveFrom: Date) {
   const s = await draftOnly(tx, structureId, { waitingOk: true });
@@ -347,33 +573,50 @@ export async function publishStructure(tx: Tx, ctx: SchoolContext, structureId: 
     const problem = checkSchedule(item.totalPaise, item.installments);
     if (problem) throw new MoneyProblem(problem);
   }
-  const impact = await publishImpact(tx, structureId, effectiveFrom);
-  const older = await tx.feeStructure.findMany({ where: { academicYearId: s.academicYearId, classId: s.classId, category: s.category, status: "PUBLISHED", archivedAt: null } });
-  const olderIds = older.map((o) => o.id);
-  const students = olderIds.length ? await followers(tx, olderIds) : [];
-  await tx.feeStructure.updateMany({ where: { id: { in: olderIds } }, data: { status: "SUPERSEDED" } });
+  const plan = await planRepublish(tx, s, items.flatMap((i) => i.installments), effectiveFrom, { lock: true });
+  const impact = impactOf(plan, effectiveFrom);
+  await tx.feeStructure.updateMany({ where: { academicYearId: s.academicYearId, classId: s.classId, category: s.category, status: "PUBLISHED", archivedAt: null }, data: { status: "SUPERSEDED" } });
   await tx.feeStructure.update({ where: { id: s.id }, data: { status: "PUBLISHED", publishedAt: new Date(), publishedById: ctx.userId, effectiveFrom } });
 
-  let replaced = 0;
-  if (students.length) {
-    const old = await tx.studentFeeDue.findMany({
-      where: { structureId: { in: olderIds }, state: "OPEN", kind: "FEE", paidPaise: 0, dueDate: { gte: effectiveFrom } },
-    });
-    for (const d of old) {
-      await tx.studentFeeDue.update({
-        where: { id: d.id },
-        data: { state: "REMOVED", removedReason: `Replaced by version ${s.version} of the fee structure`, removedById: ctx.userId, removedAt: new Date() },
+  const now = new Date();
+  const removed = { state: "REMOVED" as const, removedReason: `Replaced by version ${s.version} of the fee structure`, removedById: ctx.userId, removedAt: now };
+  const adjustReason = `${REVISION} ${s.version} from ${monthLabel(effectiveFrom)}`;
+  for (const st of plan.students) {
+    const made = new Map<string, string>();
+    const fresh = st.changes.flatMap((c) => (c.kind === "add" || c.kind === "replace" ? [c.inst] : []));
+    if (fresh.length) {
+      const rows = await tx.studentFeeDue.createManyAndReturn({
+        data: fresh.map((i) => ({
+          schoolId: ctx.schoolId, studentId: st.studentId, academicYearId: s.academicYearId, installmentId: i.id, structureId: s.id, feeHeadId: i.feeHeadId, kind: "FEE" as const,
+          label: i.label, dueDate: i.dueDate, amountPaise: i.amountPaise, balancePaise: i.amountPaise, createdById: ctx.userId,
+        })),
+        select: { id: true, installmentId: true },
       });
+      for (const r of rows) made.set(r.installmentId!, r.id);
     }
-    replaced = old.length;
-    const installments = items.flatMap((i) => i.installments).filter((i) => i.dueDate >= effectiveFrom);
-    for (const studentId of students) await createDues(tx, ctx, studentId, s.academicYearId, s.id, installments);
+    for (const c of st.changes) {
+      if (c.kind === "same" || (c.kind === "keep" && c.inst)) {
+        await tx.studentFeeDue.update({ where: { id: c.old.id }, data: { installmentId: c.inst!.id, structureId: s.id } });
+      }
+      if (c.kind === "keep" && c.applied !== ZERO) await adjustDue(tx, ctx, c.old.id, c.applied, adjustReason);
+      if (c.kind === "replace" || c.kind === "remove") {
+        await tx.studentFeeDue.update({ where: { id: c.old.id }, data: removed });
+        const late = lateFeeMoves(c, plan.lateFees);
+        const to = c.kind === "replace" ? made.get(c.inst.id) : undefined;
+        if (to && late.move.length) await tx.studentFeeDue.updateMany({ where: { id: { in: late.move.map((l) => l.id) } }, data: { parentDueId: to } });
+        if (late.remove.length) await tx.studentFeeDue.updateMany({ where: { id: { in: late.remove.map((l) => l.id) } }, data: { ...removed, removedReason: `Row replaced by version ${s.version} of the fee structure` } });
+      }
+    }
   }
   await writeAudit(tx, ctx, {
     action: "published",
     recordType: "Fee Structure",
     recordId: s.id,
-    after: { version: s.version, effectiveFrom: formatDate(effectiveFrom), studentsUpdated: impact.students, rowsReplaced: replaced },
+    after: {
+      version: s.version, effectiveFrom: formatDate(effectiveFrom), studentsUpdated: impact.students, rowsReplaced: impact.rows, rowsAdded: impact.added, rowsRemoved: impact.removed,
+      rowsKept: impact.kept, rowsAdjusted: impact.adjusted, added: formatRupees(impact.addedPaise), takenOff: formatRupees(impact.takenOffPaise),
+      lateFeesMoved: impact.lateFeesMoved, lateFeesRemoved: impact.lateFeesRemoved,
+    },
   });
   return { version: s.version, impact };
 }

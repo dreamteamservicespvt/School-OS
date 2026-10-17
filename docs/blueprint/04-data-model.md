@@ -404,7 +404,7 @@ These rules hold everywhere. A builder should write a check for each one.
 **Years and history**
 
 19. Each campus has only one active Academic Year. Past academic years are kept read-only. Only an authorised correction can change them, and it is logged.
-20. Fee Structures and Salary Structures keep their old versions. A change applies from a date; it never rewrites the past.
+20. Fee Structures and Salary Structures keep their old versions. A change applies from a date; it never rewrites the past. A new Fee Structure version never charges a period twice: a Student Fee Due with money on it (paid, part-paid, a concession or an adjustment) stays for its period, and the change in the fee is put on what is left to pay as an adjustment with a reason; a fully paid row never changes (added 18 October 2026).
 21. Records are archived, never deleted. A student who leaves becomes a past student; the record stays.
 
 **Safety and checks**

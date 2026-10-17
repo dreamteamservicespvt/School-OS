@@ -116,13 +116,13 @@ Each send is one Message to many people. Every person in it is one Message Recip
 **What the person sees**
 
 - One list for everything sent: by people, by automatic rules, by notices. Columns: date and time, sent by (person or rule), channel, title or template, recipients count, delivered, read, failed, cost.
-- Opening a message shows each recipient's status: **Queued**, **Sent**, **Delivered**, **Read**, **Failed** (with the reason, for example "number not on WhatsApp").
+- Opening a message shows each recipient's status: **Queued**, **Sent**, **Delivered**, **Read**, **Failed** (with the reason, for example "number not on WhatsApp"), or **Not sent** when no channel could carry it to them (with the reason, for example "WhatsApp has not approved the template yet; the SMS template has no DLT template ID") (added 18 October 2026).
 - **Person view:** all messages to and from one parent, student or staff member across channels (also on the student and parent pages).
 - The person's own received messages and replies are in the top bar Messages, not here.
 
 - A message sent with SMS backup shows how many were also sent by SMS, and each recipient's status shows "Sent by SMS backup" with the reason (failed, or not read in time) (decided 9 October 2026).
 
-**Actions:** filter (date, channel, sender, rule, status); retry failed (within the limit); resend to failed by another channel, for example SMS when WhatsApp failed (inferred); **Resend to unread** in one tap on any sent message, to everyone not yet at Read, by the same or another channel, with the usual preview of count and cost before it goes (decided 9 October 2026); export (P8).
+**Actions:** filter (date, channel, sender, rule, status); retry failed (within the limit); resend to failed by another channel, for example SMS when WhatsApp failed (inferred), or by **the best channel for each person**, which is how people marked Not sent are sent once a channel can carry it; **Resend to unread** in one tap on any sent message, to everyone not yet at Read, by the same or another channel, with the usual preview of count and cost before it goes (decided 9 October 2026); export (P8).
 
 **Form fields:** none.
 
@@ -423,6 +423,9 @@ Every action and download on the page (Pay, receipts and tax invoices, report ca
 | Wrong machine translation reaches a parent | Each translation is shown to the sender before sending and can be edited; the parent's copy is labelled "Translated from English"; off unless the school turns on AI features (decided 9 October 2026) | "Check the Telugu version before sending" | Edit the translation, or send in English |
 | Internal notes seen by parents | Internal notes never leave the system | Shown with a lock icon | Not needed |
 | SMS sent without DLT registration | SMS can only be sent from a template with a DLT template ID | "This SMS template has no DLT template ID. Add it in Message Templates." | Add the ID, or send by WhatsApp |
+| A message lost because its channel cannot carry it (added 18 October 2026) | Each person gets it on a channel that can really carry it: "preferred" tries WhatsApp, then SMS, email and app for each person, and an automatic rule tries its own channels, then WhatsApp and SMS. SMS goes only from a template with a DLT template ID; typed words go by SMS only inside the ready "General announcement (SMS)" template. On a real WhatsApp account only templates WhatsApp approved are used, and typed words go inside the approved "General announcement" template (WhatsApp refuses plain text outside a parent's 24 hours). In test mode nothing is sent, so any template is used | Before sending, the preview counts them in red: "12 not sent: WhatsApp has not approved the template "Absent today" yet; the SMS template "Absent today (SMS)" has no DLT template ID". Messages the software sends by itself (rules, reminders, hostel, library, attendance alerts) are kept in Message History with those people as Not sent; the person who sent a message is notified when some of it was not delivered; the Dashboard shows "Messages not delivered this week" | Fix the channel (approval, DLT template ID), then Resend failed by the best channel for each person |
+| A blank reaches a parent unfilled | Every text is checked before sending: braces that are not a blank from the list ({Student Name}, {{diary}}, a lone "{") block the send, naming them; a blank with no value skips that person (or blocks a single send) | "The message has a blank that cannot be filled: {Student Name}." | Use the blank from the list, or take out the braces |
+| One phone gets the same message twice | One message per phone, email or login per send: two guardian records with one number get one message; brothers and sisters on one phone get one message naming them all, unless it carries a child's own amount, receipt or link | "Same number as Srinivas Kumar" | Not needed |
 | Critical notice sent by mistake | Critical priority needs a typed confirmation (P4) | "Type CRITICAL to pin this on every chosen parent's Parent Link" (inferred: the word) | Archive the notice; it leaves Parent Link at once |
 | Someone else opens a guardian's link | The first open on a new phone needs a one-time code sent to the guardian's registered mobile | "We have sent a code to +91 ••••• ••210" | Guardian asks the school to reissue the link |
 | Parent Link shows another family's data | A link shows only its own guardian's children; every open is checked on the server and never returns other families' records | Not needed | Not needed |
@@ -435,7 +438,8 @@ Every action and download on the page (Pay, receipts and tax invoices, report ca
 The **Message Settings** page holds:
 
 - **Automatic messages:** a list of "When this happens, then send this" rules (absence, late arrival, fee due, fee paid, exam reminders, results, PTM, homework set, pending homework, transport pickup, drop and arriving, birthday wishes, salary slip ready). For each: on or off, template, channel, who receives it, timing. Each rule never sends duplicates.
-- **Automation log:** what was sent, to whom, and why (which rule and which event).
+- **Automation log:** what was sent, to whom, and why (which rule and which event). A person the rule could not reach shows as **Not sent** with the reason, once per event; when the channel is fixed, the next run of the same event sends it.
+- **WhatsApp approval:** on a real WhatsApp account, a rule whose WhatsApp template is not approved says so, and parents get it by SMS (with a DLT template ID) or not at all until it is approved.
 - **Birthday wishes** to students and staff: on or off, template, time of day.
 - **Pending-homework messages** to parents: on or off and timing.
 - **Consent and opt-out:** the list of parents who opted out of non-emergency messages, with the date and how (inferred: how); add or remove with a note.

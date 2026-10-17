@@ -571,7 +571,7 @@ export function SendForm({ data }: { data: SendFormData }) {
                 {!whoReady && <li className="flex gap-2"><Users size={15} className="text-ink3 shrink-0 mt-0.5" aria-hidden="true" /><span>{err.who}</span></li>}
                 {whoReady && live && <li className="flex gap-2"><Users size={15} className="text-ink3 shrink-0 mt-0.5" aria-hidden="true" /><span>{live.audienceLabel || whoLabel}</span></li>}
                 {live?.skipped.map((g) => (
-                  <li key={g.reason} className="flex gap-2">
+                  <li key={g.reason} className={cx("flex gap-2", g.notSent && "text-bad")}>
                     {/opted out/i.test(g.reason) ? <BellOff size={15} className="text-ink3 shrink-0 mt-0.5" aria-hidden="true" /> : <TriangleAlert size={15} className="text-warn shrink-0 mt-0.5" aria-hidden="true" />}
                     <span>{fmt(g.count)} {g.reason.charAt(0).toLowerCase() + g.reason.slice(1)}{g.names.length ? ` (${g.names.slice(0, 3).join(", ")}${g.count > 3 ? " and others" : ""})` : ""}</span>
                   </li>

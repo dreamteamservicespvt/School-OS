@@ -9,7 +9,7 @@
 //        const r = await sendMessage(tx, ctx, {
 //          to: { guardiansOf: [studentId] },        // or guardianIds, staffIds, studentIds,
 //                                                   // or kinds + classIds/sectionIds/roleKeys
-//          channels: "preferred",                   // WhatsApp if connected, else SMS; or ["sms", "app"]
+//          channels: "preferred",                   // per person: WhatsApp, else SMS, email, app; or ["sms", "app"]
 //          templates: { whatsapp: templateId },     // per channel; SMS needs one with a DLT ID (rule 34)
 //          text: "Typed text with {student_name}",  // for channels without a template
 //          values: { due_amount: "₹12,500" },       // blanks for everyone
@@ -28,6 +28,10 @@
 //    onNoCredits: "fail" to record failures), and saves one Message with one
 //    Message Recipient per person and channel in YOUR transaction. Delivery
 //    happens in the background job "messaging:deliver" (safe to run twice).
+//    When no channel can carry it to someone, the preview says so and the
+//    person is kept as Failed "Not sent: <why>"; when that is everyone, the
+//    send is refused, or recorded as not sent with onNobody: "record" (for
+//    messages the software sends by itself, so they show as not delivered).
 //    Use planMessage() with the same input for a preview (count, cost, skips)
 //    without saving anything.
 //
@@ -56,7 +60,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import "server-only";
 
-export { sendMessage, planMessage, recordSend, MessagingProblem, skippedWords, MAX_TEXT, type SendInput, type SendResult, type Plan, type PlannedRow, type SkipGroup } from "./send";
+export { sendMessage, planMessage, recordSend, MessagingProblem, skippedWords, notSentWords, NOT_SENT, MAX_TEXT, type SendInput, type SendResult, type Plan, type PlannedRow, type NotSentRow, type SkipGroup } from "./send";
 export { sendAutomatic, RULES, ruleStates, type AutomaticInput, type AutomaticResult } from "./automatic";
 export { cancelScheduled, retryFailed, applyStatus } from "./deliver";
 export { CHANNELS, CHANNEL_LABEL, type Channel } from "./channels";

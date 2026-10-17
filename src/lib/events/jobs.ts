@@ -5,6 +5,8 @@
 import "server-only";
 
 import { defineSchedule } from "../jobs";
+import { MessagingProblem } from "../messaging/send";
+import { EventsProblem } from "./problem";
 import { sendDueReminders } from "./events";
 import { sendPtmReminders } from "./ptm";
 
@@ -18,6 +20,12 @@ export function localNow(now: Date, timeZone: string) {
 defineSchedule("event-reminders", 30, async (tx, ctx, now) => {
   const school = await tx.school.findUnique({ where: { id: ctx.schoolId }, select: { timeZone: true } });
   const { today, hour } = localNow(now, school?.timeZone ?? "Asia/Kolkata");
-  await sendDueReminders(tx, ctx, today, hour);
+  // Event reminders never stop the PTM reminders: each event's own problem is noted on it.
+  try {
+    await sendDueReminders(tx, ctx, today, hour);
+  } catch (e) {
+    if (!(e instanceof MessagingProblem) && !(e instanceof EventsProblem)) throw e;
+    console.warn(JSON.stringify({ level: "warn", event: "event-reminders-failed", schoolId: ctx.schoolId, reason: e.message }));
+  }
   await sendPtmReminders(tx, ctx, today, hour);
 });

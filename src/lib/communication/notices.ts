@@ -289,6 +289,8 @@ export async function publishNotice(tx: Tx, ctx: SchoolContext, noticeId: string
           onNoCredits: "fail",
           emergency: notice.priority === "CRITICAL",
           idempotencyKey: `notice:${notice.id}`,
+          // Parents no channel can carry it to are kept as Not sent in Message History, not lost.
+          onNobody: "record",
         });
         messageId = sent.messageId;
       } catch (e) {

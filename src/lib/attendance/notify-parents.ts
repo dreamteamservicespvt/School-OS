@@ -36,6 +36,8 @@ export async function sendAttendanceMessage(tx: Tx, ctx: SchoolContext, alert: A
       if (r.status === "duplicate") return { status: "sent", note: "Already sent for this day" };
       if (r.status === "off") return { status: "skipped", note: `The "${alert.kind === "absence" ? "Absent today" : "Late arrival"}" message is switched off in Message Settings` };
       if (r.status === "nobody") return { status: "skipped", note: "No parent with a phone number" };
+      // Kept in Message History as Not sent, with the reason, so it can be sent once a channel can carry it.
+      if (r.status === "not-sent") return { status: "skipped", note: r.reason, messageRef: r.result?.messageId ?? null };
       return { status: "skipped", note: NO_CHANNEL };
     }
     // Threshold and chronic absence: a short text from Attendance.
@@ -48,7 +50,9 @@ export async function sendAttendanceMessage(tx: Tx, ctx: SchoolContext, alert: A
       source: { type: "Attendance Alert", id: alert.id },
       idempotencyKey: `attendance-alert:${alert.id}`,
       onNoCredits: "fail",
+      onNobody: "record",
     });
+    if (!r.queued && r.notSent) return { status: "skipped", note: r.skipped.find((g) => g.notSent)?.reason ?? NO_CHANNEL, messageRef: r.messageId };
     return { status: "sent", note: null, messageRef: r.messageId };
   } catch (e) {
     if (e instanceof MessagingProblem) return { status: "skipped", note: e.message || NO_CHANNEL };

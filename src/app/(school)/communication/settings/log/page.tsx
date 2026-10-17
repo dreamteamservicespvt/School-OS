@@ -17,7 +17,7 @@ import { PeriodFilter } from "@/components/list/period-filter";
 import { EmptyState } from "@/components/empty-state";
 import { ExportMenu } from "@/components/communication/export-menu";
 
-const TONE: Record<string, PillTone> = { sent: "ok", "no-credits": "bad" };
+const TONE: Record<string, PillTone> = { sent: "ok", "no-credits": "bad", "not-sent": "bad" };
 
 export const metadata: Metadata = { title: "Automation log" };
 

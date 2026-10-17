@@ -210,6 +210,8 @@ describe("console roles are checked on the server", () => {
 
 describe("the Team", () => {
   it("never loses its last active Owner", async () => {
+    // Owners made by other test files step aside, so this file's Owner is the only active one.
+    await withConsole((tx) => tx.superAdminUser.updateMany({ where: { role: "OWNER", status: "ACTIVE", id: { not: people.OWNER.id } }, data: { status: "DISABLED" } }));
     const lone = await withConsole((tx) => tx.superAdminUser.findMany({ where: { role: "OWNER", status: "ACTIVE" } }));
     expect(lone).toHaveLength(1);
     const helper = await teamMember("OWNER");

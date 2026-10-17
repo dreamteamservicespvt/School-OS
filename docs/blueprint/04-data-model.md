@@ -256,9 +256,9 @@ erDiagram
 | Submission | One student's work for one homework. | Homework, student, submitted at, files (when submitted online), status (assigned, submitted, late, graded, missing), check result (complete, incorrect), score, grade, feedback, resubmission allowed or not. |
 | Exam | One exam, such as Unit Test 1 or Half Yearly. Made by creating a Datesheet. | Name, exam type, academic year, term, classes, pattern (Percentage, Grading, CGPA), grade scale, status (Draft, Published, Ongoing, Completed, Results published). |
 | Datesheet Entry | One subject's paper in one exam for one class. | Exam, class, subject, date, start time, duration (end time is shown), room, invigilator, maximum marks, mark categories (theory, practical, internal and so on). |
-| Marks | One student's marks in one paper. | Datesheet entry, student, marks for each mark category, grade (for grade-only subjects), absent or not, entered by, status (Not started, In progress, Submitted, Locked; kept for each paper, as in Examination & Results), change history. |
+| Marks | One student's marks in one paper. | Datesheet entry, student, section (follows the student when they change section), marks for each mark category, grade (for grade-only subjects), absent or not, entered by, status (Not started, In progress, Submitted, Locked; kept for each paper, as in Examination & Results), change history (including late marks added with approval). |
 | Grade Scale | The bands that turn marks into grades. Ready-made for CBSE, ICSE and state boards, or the school's own. | Name, bands (from percent, to percent, grade, points, remark), pass rule. |
-| Result | *Added in this blueprint.* One student's worked-out result for one exam, or the final result across exams. | Exam (or "final"), student, total, percentage, grade, rank (if the school uses ranks), pass or not, publish date, status (Draft, Published). |
+| Result | *Added in this blueprint.* One student's worked-out result for one exam, or the final result across exams. | Exam (or "final"), student, section (a draft follows the student when they change section; a published result keeps the section it was published in), total, percentage, grade, rank (if the school uses ranks), pass or not, publish date, status (Draft, Published), joined after this exam (left out; gap list G23). |
 | Report Card | The printed report for one student for a term or the year. Shown on Parent Link once published. | Student, term or year, design, marks and grades, attendance, co-scholastic grades, teacher remarks, principal remarks, date made, status (Not ready, Ready, Printed, Sent). |
 
 ## Area 5: Staff pay
@@ -397,7 +397,7 @@ These rules hold everywhere. A builder should write a check for each one.
 
 14. Marks are between 0 and the paper's maximum. A change after marks are locked needs a reason and an Approval, and the old value is kept.
 15. A Grade Scale has no gaps and no overlaps. Changing it never changes results already published.
-16. Results in draft cannot be published.
+16. Results in draft cannot be published. A student who joined after an exam's marks were in is "Joined after this exam": left out of that exam, so they never stop a class's results being published. Their marks are added only by a request approved in Approvals, or not at all, as Exam Settings says; the other students' published results never change. In the final result, an exam they missed is left out (the exams they sat count in its place) or counted as 0%, by the school's rule (gap list G23).
 17. Attendance locks after the cut-off time set in Attendance Settings. A later change needs a correction request and an Approval. The original mark stays in the audit log. An absence reason does not change the mark or the %, so the class teacher or the office may set it after the lock without a correction; every change is in the audit log. The reason "Fees dispute" is shown only to people who see the whole school's fees; everyone else sees "Other" (added 17 October 2026).
 18. A holiday on the School Calendar switches attendance off for that day. Reports leave the day out.
 

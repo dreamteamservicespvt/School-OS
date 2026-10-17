@@ -3,10 +3,11 @@
 import { decide } from "@/lib/approvals";
 import { formatRupees } from "@/lib/format";
 import { cancelPayment } from "@/lib/fees/cancel";
-import { sendPaymentLink } from "@/lib/fees/online";
+import { askToCancelReversed, cancelLink, postUnmatchedToStudent, sendPaymentLink } from "@/lib/fees/online";
+import { canSeeStudent } from "@/lib/fees/access";
 import { MoneyProblem } from "@/lib/fees/problem";
 import { CANCEL_REASONS } from "@/lib/fees/words";
-import { id, optionalText, rupeesOf, str, text } from "@/lib/fees/act";
+import { id, optionalId, optionalText, rupeesOf, str, text } from "@/lib/fees/act";
 import { feeAction } from "../_lib/action";
 
 /** Cancel with a reason: never deleted. Reopens the dues and reverses the Day Book entry today. */
@@ -66,7 +67,39 @@ export async function newLinkForStuck(_prev: unknown, fd: FormData) {
     const linkId = id(fd, "linkId", "payment link");
     const link = await tx.paymentLink.findFirst({ where: { id: linkId } });
     if (!link) throw new MoneyProblem("This payment link was not found.");
+    // The old link stops working, so the family pays once; a payment already made on it is still posted.
+    if (link.status !== "PAID" && link.status !== "CANCELLED") await cancelLink(tx, ctx, link.id);
     const r = await sendPaymentLink(tx, ctx, { studentId: link.studentId, dueIds: link.dueIds, channel: "whatsapp" });
     return { amount: formatRupees(r.amount), to: r.card.fatherName ?? r.card.primaryGuardian?.name ?? "the parent" };
   }, (r) => `New payment link sent to ${r.to}. ${r.amount} · WhatsApp. Valid 7 days.`, { staffOnly: "send payment links" });
+}
+
+/**
+ * An online payment Razorpay confirmed that matched no student: the office
+ * chooses the student (a suggested one, or by admission number) and it is
+ * posted through the normal posting, with its receipt, once.
+ */
+export async function postUnmatchedAction(_prev: unknown, fd: FormData) {
+  return feeAction("create", fd, async (tx, ctx, viewer) => {
+    const transactionId = id(fd, "transactionId", "online payment");
+    let studentId = optionalId(fd, "studentId");
+    const admissionNo = str(fd, "admissionNo");
+    if (!studentId && admissionNo) {
+      const s = await tx.student.findFirst({ where: { admissionNo: { equals: admissionNo, mode: "insensitive" }, archivedAt: null }, select: { id: true } });
+      if (!s) throw new MoneyProblem(`No student has admission number ${admissionNo}.`, "admissionNo");
+      studentId = s.id;
+    }
+    if (!studentId) throw new MoneyProblem("Choose the student, or type their admission number.", "admissionNo");
+    if (!(await canSeeStudent(tx, viewer, studentId))) throw new MoneyProblem("This student was not found.", "admissionNo");
+    const r = await postUnmatchedToStudent(tx, ctx, { transactionId, studentId });
+    return { amount: formatRupees(r.amountPaise), student: r.student, no: r.receiptNo ?? "", paymentId: r.paymentId };
+  }, (r) => ({ message: `${r.amount} posted to ${r.student}${r.no ? `, receipt ${r.no}` : ""}. The parent gets the receipt message.`, link: { href: `/fee-management/payments/${r.paymentId}`, label: "Open payment" } }), { staffOnly: "post online payments" });
+}
+
+/** A refund or dispute made at Razorpay: asks to cancel the payment, through Approvals. Nothing is cancelled until it is approved. */
+export async function askCancelReversedAction(_prev: unknown, fd: FormData) {
+  return feeAction("archive", fd, async (tx, ctx) => {
+    const r = await askToCancelReversed(tx, ctx, id(fd, "transactionId", "refund or dispute"));
+    return r.receiptNo ?? "the payment";
+  }, (no) => ({ message: `Cancelling ${no} is sent for approval. It stays posted until it is decided.`, tone: "info", link: { href: "/approvals", label: "Open Approvals" } }), { staffOnly: "cancel payments" });
 }

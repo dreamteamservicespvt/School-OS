@@ -534,6 +534,10 @@ model PaymentLink {
   attempts         Int               @default(0)
   lastAttemptAt    DateTime?         @map("last_attempt_at")
   paymentId        String?           @map("payment_id") @db.Uuid
+  /// When the reconcile job last asked the gateway about this link's orders, and what it said:
+  /// "no-payment", "authorized", "failed", "posted" or "not-reached".
+  checkedAt        DateTime?         @map("checked_at")
+  gatewayStatus    String?           @map("gateway_status")
   createdById      String?           @map("created_by_id") @db.Uuid
   createdAt        DateTime          @default(now()) @map("created_at")
   updatedAt        DateTime          @updatedAt @map("updated_at")
@@ -542,6 +546,22 @@ model PaymentLink {
   @@index([schoolId, studentId])
   @@index([schoolId, status])
   @@map("payment_link")
+}
+
+/// Every gateway order made for a Payment Link. A new order is made when the amount due changes, so a
+/// payment on an older order (an old browser tab) still finds its link and is posted (rule 8).
+model PaymentLinkOrder {
+  id             String   @id @default(uuid()) @db.Uuid
+  schoolId       String   @map("school_id") @db.Uuid
+  paymentLinkId  String   @map("payment_link_id") @db.Uuid
+  gatewayOrderId String   @map("gateway_order_id")
+  /// The amount the order was made for.
+  amountPaise    BigInt   @map("amount_paise")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@unique([schoolId, gatewayOrderId])
+  @@index([schoolId, paymentLinkId])
+  @@map("payment_link_order")
 }
 
 /// Every confirmation or failure the gateway sent, and what was done with it (reconciliation).
@@ -553,9 +573,12 @@ model GatewayTransaction {
   gatewayPaymentId String?  @map("gateway_payment_id")
   gatewayOrderId   String?  @map("gateway_order_id")
   amountPaise      BigInt?  @map("amount_paise")
-  /// "posted", "already-posted", "failed-recorded", "unmatched", "ignored", "verified-waiting".
+  /// "posted", "already-posted", "failed-recorded", "unmatched", "ignored", "verified-waiting",
+  /// "refund-reported", "dispute-reported" (a refund or dispute made at the gateway, for the office to check).
   outcome          String
   paymentId        String?  @map("payment_id") @db.Uuid
+  /// What the gateway told about the payer and the event: { contact, email, method, reference }.
+  details          Json?
   receivedAt       DateTime @default(now()) @map("received_at")
 
   @@index([schoolId, gatewayPaymentId])

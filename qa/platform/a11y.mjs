@@ -24,8 +24,7 @@ for (let i = 0; i < 8; i++) { const f = await focusInfo(p); order.push(`${f.tag}
 say(order.some((o) => /NO FOCUS RING/.test(o)) ? "FAIL" : "PASS", `sign-in tab order: ${order.join(" -> ")}`);
 await p.getByLabel(/username|mobile|login/i).first().focus();
 await p.keyboard.type("demo.nobody.qa5");
-await p.keyboard.press("Tab"); // "Forgot password?" comes before the password box
-await p.keyboard.press("Tab");
+await p.keyboard.press("Tab"); // straight to the password box ("Forgot password?" is after Sign in, PLATFORM-16)
 await p.keyboard.type("Wrong#Pass1");
 await p.keyboard.press("Enter");
 await p.waitForTimeout(2500);

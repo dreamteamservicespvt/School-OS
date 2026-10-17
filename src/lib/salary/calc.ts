@@ -63,10 +63,16 @@ export function structureGross(lines: StructureLine[]) {
   return resolveLines(lines).filter((l) => l.kind === "EARNING").reduce((s, l) => s + l.amountPaise, ZERO);
 }
 
-/** Loss of pay days: absent, unpaid leave, half days, and late marks (N late = half a day). In half days. */
-export function lopDays(input: { absentDays: number; unpaidLeaveDays: number; halfDays: number; lateMarks: number; lateMarksPerHalfDay: number }) {
-  const late = input.lateMarksPerHalfDay > 0 ? Math.floor(input.lateMarks / input.lateMarksPerHalfDay) * 0.5 : 0;
-  const total = input.absentDays + input.unpaidLeaveDays + input.halfDays * 0.5 + late;
+/** Days of loss of pay from late marks: N late marks make half a day (0 = off). */
+export const lateLop = (lateMarks: number, lateMarksPerHalfDay: number) => (lateMarksPerHalfDay > 0 ? Math.floor(lateMarks / lateMarksPerHalfDay) * 0.5 : 0);
+
+/**
+ * Loss of pay days: absent without leave, unpaid leave, leave beyond the
+ * balance, half days, and late marks (N late = half a day). In half days.
+ */
+export function lopDays(input: { absentDays: number; unpaidLeaveDays: number; leaveLopDays?: number; halfDays: number; lateMarks: number; lateMarksPerHalfDay: number }) {
+  const late = lateLop(input.lateMarks, input.lateMarksPerHalfDay);
+  const total = input.absentDays + input.unpaidLeaveDays + (input.leaveLopDays ?? 0) + input.halfDays * 0.5 + late;
   return { total: Math.round(total * 2) / 2, late };
 }
 
@@ -88,7 +94,8 @@ export type PayInput = {
   notEmployedDays: number;
   lopDays: number;
   overtimePaise?: bigint;
-  adjustments?: { type: string; amountPaise: bigint }[];
+  /** Bonus, arrears and one-time deductions. A correction of an earlier month carries the PF and ESI on it, worked out by that month's rules. */
+  adjustments?: { type: string; amountPaise: bigint; carried?: Carried | null }[];
   /** Planned advance and loan recoveries, oldest first. */
   recoveries?: { advanceId: string; amountPaise: bigint }[];
   statutory: Statutory;
@@ -96,6 +103,9 @@ export type PayInput = {
   /** The month (1 to 12), for a special Professional Tax month. */
   month: number;
 };
+
+/** PF and ESI on a correction of an earlier month, by that month's rules (less than 0 when pay is recovered). */
+export type Carried = { pfWagePaise: bigint; pfPaise: bigint; erPfPaise: bigint; esiWagePaise: bigint; esiPaise: bigint; erEsiPaise: bigint };
 
 export type PayResult = ReturnType<typeof workOutPay>;
 
@@ -121,16 +131,25 @@ export function workOutPay(p: PayInput) {
   const overtime = p.overtimePaise ?? ZERO;
   const gross = earned + overtime + add;
 
+  // Corrections of earlier months bring their own PF and ESI, worked out by that month's rules.
+  const carried = adj.filter((a) => a.carried);
+  const sumOf = (k: keyof Carried) => carried.reduce((s, a) => s + a.carried![k], ZERO);
+  const carriedArrears = carried.filter((a) => a.type !== "DEDUCTION").reduce((s, a) => s + a.amountPaise, ZERO);
+  const atLeast0 = (v: bigint) => (v < ZERO ? ZERO : v);
+
   const st = p.statutory;
   const pfOn = st.pfOn && p.pfApplies;
-  const pfWage = pfOn ? (basicEarned < st.pfCeilingPaise ? basicEarned : st.pfCeilingPaise) : ZERO;
-  const pf = pfOn ? toRupee(pct(pfWage, st.pfEmployeeBp)) : ZERO;
-  const erPf = pfOn ? toRupee(pct(pfWage, st.pfEmployerBp)) : ZERO;
+  const pfWageNow = pfOn ? (basicEarned < st.pfCeilingPaise ? basicEarned : st.pfCeilingPaise) : ZERO;
+  const pfWage = atLeast0(pfWageNow + sumOf("pfWagePaise"));
+  const pf = atLeast0((pfOn ? toRupee(pct(pfWageNow, st.pfEmployeeBp)) : ZERO) + sumOf("pfPaise"));
+  const erPf = atLeast0((pfOn ? toRupee(pct(pfWageNow, st.pfEmployerBp)) : ZERO) + sumOf("erPfPaise"));
   // ESI applies to staff whose monthly wages (the structure's gross) are within the limit.
-  const esiOn = st.esiOn && p.esiApplies && fullGross <= st.esiLimitPaise && gross > ZERO;
-  const esiWage = esiOn ? gross : ZERO;
-  const esi = esiOn ? ceilRupee(pct(gross, st.esiEmployeeBp)) : ZERO;
-  const erEsi = esiOn ? ceilRupee(pct(gross, st.esiEmployerBp)) : ZERO;
+  const esiBase = gross - carriedArrears;
+  const esiOn = st.esiOn && p.esiApplies && fullGross <= st.esiLimitPaise && esiBase > ZERO;
+  const carriedEsi = sumOf("esiPaise") !== ZERO || sumOf("esiWagePaise") !== ZERO;
+  const esiWage = atLeast0((esiOn ? esiBase : ZERO) + sumOf("esiWagePaise"));
+  const esi = atLeast0((esiOn ? ceilRupee(pct(esiBase, st.esiEmployeeBp)) : ZERO) + sumOf("esiPaise"));
+  const erEsi = atLeast0((esiOn ? ceilRupee(pct(esiBase, st.esiEmployerBp)) : ZERO) + sumOf("erEsiPaise"));
   const pt = st.ptOn ? professionalTax(p.ptSlabs, gross, p.month) : ZERO;
   const tds = p.tdsPaise > ZERO ? p.tdsPaise : ZERO;
   const other = fixedDeductions.reduce((s, d) => s + d.amountPaise, ZERO);
@@ -153,7 +172,7 @@ export function workOutPay(p: PayInput) {
     fixedDeductions,
     fullGross, basic, basicEarned, paidDays, lop, notEmployed, lopPaise, earned, overtime, add, cut, gross,
     pfWage, pf, erPf, pfCapped: pfOn && basicEarned > st.pfCeilingPaise,
-    esiApplies: esiOn, esiWage, esi, erEsi,
+    esiApplies: esiOn || carriedEsi, esiWage, esi, erEsi,
     pt, tds, other, recoveries, recovery, recoveryReduced: reduced,
     deductions, net: gross - deductions,
   };

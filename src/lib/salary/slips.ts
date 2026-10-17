@@ -3,7 +3,7 @@
 // only their own, from My profile; office staff send or print them in bulk.
 import "server-only";
 
-import type { Prisma } from "@prisma/client";
+import type { PayrollAdjustment, Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { decryptField, maskLast4 } from "../crypto";
@@ -14,22 +14,42 @@ import { formatRupees } from "../format";
 import { sendMessage } from "../messaging";
 import { lineDays } from "./payroll";
 import { salarySettings } from "./settings";
-import { dayNum, monthName } from "./words";
+import { adjustmentLabel, correctionLabel, dayNum, daysWord, monthName } from "./words";
 
 const ZERO = BigInt(0);
 type Money = { name: string; amountPaise: string };
 
 export type SlipLine = { label: string; amountPaise: bigint; kind: "earning" | "deduction" };
 
-/** The earnings and deductions on a slip, from the frozen payroll line. TDS is always shown (Done when 11). */
+export type SlipAdjustment = Pick<PayrollAdjustment, "type" | "amountPaise" | "reason" | "forMonth" | "lopDays">;
+
+/** One adjustment's words on the slip: "Arrears for September 2026 (2 days)" or "Bonus: Sports day coach". */
+export function adjustmentWords(a: SlipAdjustment) {
+  if (a.forMonth) return `${correctionLabel(a)}${a.lopDays ? ` (${daysWord(Math.abs(Number(a.lopDays)))})` : ""}`;
+  const why = a.reason.length > 60 ? `${a.reason.slice(0, 57)}…` : a.reason;
+  return `${adjustmentLabel(a.type)}: ${why}`;
+}
+
+/**
+ * The earnings and deductions on a slip, from the frozen payroll line. TDS is
+ * always shown (Done when 11). With the run's adjustments for the person,
+ * each shows on its own with its reason or the month it corrects.
+ */
 export function slipLines(l: {
   earnings: Prisma.JsonValue; otherDeductions: Prisma.JsonValue; fullGrossPaise: bigint; grossPaise: bigint; lopDays: Prisma.Decimal | number; overtimePaise: bigint; addPaise: bigint; cutPaise: bigint;
   pfPaise: bigint; esiPaise: bigint; esiApplies: boolean; ptPaise: bigint; tdsPaise: bigint; recoveryPaise: bigint;
-}): SlipLine[] {
+}, adjustments: SlipAdjustment[] = []): SlipLine[] {
   const out: SlipLine[] = [];
+  const adds = adjustments.filter((a) => a.type !== "DEDUCTION");
+  const cuts = adjustments.filter((a) => a.type === "DEDUCTION");
+  const total = (xs: SlipAdjustment[]) => xs.reduce((s, a) => s + a.amountPaise, ZERO);
+  // One line each when they add up to what the line took; otherwise the totals, as before.
+  const eachAdd = adds.length > 0 && total(adds) === l.addPaise;
+  const eachCut = cuts.length > 0 && total(cuts) === l.cutPaise;
   for (const e of (l.earnings as Money[]) ?? []) out.push({ label: e.name, amountPaise: BigInt(e.amountPaise), kind: "earning" });
   if (l.overtimePaise > ZERO) out.push({ label: "Overtime", amountPaise: l.overtimePaise, kind: "earning" });
-  if (l.addPaise > ZERO) out.push({ label: "Bonus and arrears", amountPaise: l.addPaise, kind: "earning" });
+  if (eachAdd) for (const a of adds) out.push({ label: adjustmentWords(a), amountPaise: a.amountPaise, kind: "earning" });
+  else if (l.addPaise > ZERO) out.push({ label: "Bonus and arrears", amountPaise: l.addPaise, kind: "earning" });
   // Earnings print in full; what was not earned (loss of pay, days before joining or after leaving) is one deduction, so net matches to the paisa.
   const unpaid = l.fullGrossPaise + l.overtimePaise + l.addPaise - l.grossPaise;
   if (unpaid > ZERO) out.push({ label: Number(l.lopDays) > 0 ? "Loss of pay" : "Days not employed", amountPaise: unpaid, kind: "deduction" });
@@ -39,7 +59,8 @@ export function slipLines(l: {
   out.push({ label: "Income tax (TDS)", amountPaise: l.tdsPaise, kind: "deduction" });
   for (const d of (l.otherDeductions as Money[]) ?? []) out.push({ label: d.name, amountPaise: BigInt(d.amountPaise), kind: "deduction" });
   if (l.recoveryPaise > ZERO) out.push({ label: "Advance or loan recovery", amountPaise: l.recoveryPaise, kind: "deduction" });
-  if (l.cutPaise > ZERO) out.push({ label: "Other deductions", amountPaise: l.cutPaise, kind: "deduction" });
+  if (eachCut) for (const a of cuts) out.push({ label: adjustmentWords(a), amountPaise: a.amountPaise, kind: "deduction" });
+  else if (l.cutPaise > ZERO) out.push({ label: "Other deductions", amountPaise: l.cutPaise, kind: "deduction" });
   return out;
 }
 
@@ -57,7 +78,8 @@ export async function slipDocument(tx: Tx, ctx: SchoolContext, slipId: string): 
   const l = slip.line;
   const settings = await salarySettings(tx, ctx);
   const d = lineDays(l);
-  const lines = slipLines(l);
+  const adjustments = await tx.payrollAdjustment.findMany({ where: { runId: slip.runId, staffId: slip.staffId, archivedAt: null }, orderBy: { createdAt: "asc" } });
+  const lines = slipLines(l, adjustments);
   const fields: DocumentData["fields"] = {
     staff_name: staff.fullName, staff_code: staff.staffCode, designation: staff.designation, department: staff.department?.name ?? "",
     slip_month: monthName(slip.month), bank_account: staff.bankAccountEnc ? maskLast4(decryptField(staff.bankAccountEnc)) : "", pan: staff.panEnc ? maskPan(decryptField(staff.panEnc)) : "",

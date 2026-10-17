@@ -4,6 +4,7 @@ import "server-only";
 
 import type { Prisma } from "@prisma/client";
 import type { Tx } from "../db";
+import { OPEN_LINK } from "../students/guardian-access";
 import { dateWhere, momentWhere, type DayRange } from "../periods";
 import { holdsSeat, monthlyFee, routeSeats } from "./places";
 import { studentCards } from "./people";
@@ -222,7 +223,7 @@ export async function routeParents(tx: Tx, today: Date) {
   const out: { id: string; number: number; name: string; label: string; students: number; parents: number }[] = [];
   for (const r of routes) {
     const students = await routeStudents(tx, r.id, today);
-    const links = students.length ? await tx.studentGuardian.findMany({ where: { studentId: { in: students }, archivedAt: null }, select: { studentId: true, guardianId: true, isPrimary: true } }) : [];
+    const links = students.length ? await tx.studentGuardian.findMany({ where: { studentId: { in: students }, ...OPEN_LINK }, select: { studentId: true, guardianId: true, isPrimary: true } }) : [];
     const chosen = new Set<string>();
     for (const s of students) {
       const mine = links.filter((l) => l.studentId === s);

@@ -4,19 +4,20 @@
 // consent" sends a one-time code to the guardian's registered mobile and the
 // code confirms it (the child is registered and any fee is added); "Not this
 // time" is recorded at once and charges nothing. Each action finds the link
-// from the token again, checks the phone again on the server, and is
-// rate-limited by address and by link (08-platform-security.md §7).
-import { cookies } from "next/headers";
+// from the token again, checks again on the server that the link, Parent
+// Link, the phone and the Events switch are on (./guardian.ts) and that the
+// child is one the guardian may act for, and is rate-limited by address and
+// by link (08-platform-security.md §7).
 import { withSchool } from "@/lib/db";
 import { deviceInfo } from "@/lib/current";
 import { hitLimit, limitMessage } from "@/lib/rate-limit";
 import { MessagingProblem } from "@/lib/messaging/send";
-import { confirmedDevice, deviceCookieName, findLink, ParentLinkProblem } from "@/lib/parent-link/links";
+import { ParentLinkProblem } from "@/lib/parent-link/links";
 import { askEventConsentCode, confirmEventConsent, declineOnParentLink } from "@/lib/events/consent";
 import { localNow } from "@/lib/events/jobs";
 import type { GuardianState } from "./actions";
+import { guardianFor as accessFor } from "./guardian";
 
-const GONE = "This link is no longer active. Please ask the school for a new one.";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 async function limits(keys: [string, number, number][]) {
@@ -27,17 +28,10 @@ async function limits(keys: [string, number, number][]) {
   return null;
 }
 
+/** The guardian, with the school's today, when the Events and PTM section is on for them. */
 async function guardianFor(token: string) {
-  const found = await findLink(token);
-  if (!found) return null;
-  const key = (await cookies()).get(deviceCookieName(found.linkId))?.value ?? null;
-  const ctx = { schoolId: found.schoolId, userId: null };
-  return withSchool(ctx, async (tx) => {
-    const ok = await confirmedDevice(tx, found.linkId, key);
-    if (!ok) return null;
-    const school = await tx.school.findUnique({ where: { id: found.schoolId }, select: { timeZone: true } });
-    return { ctx, linkId: found.linkId, guardianId: ok.link.guardianId, today: localNow(new Date(), school?.timeZone ?? "Asia/Kolkata").today };
-  });
+  const g = await accessFor(token, "events");
+  return g.ok ? { ...g, today: localNow(new Date(), g.timeZone).today } : g;
 }
 
 function ids(form: FormData) {
@@ -50,7 +44,7 @@ function ids(form: FormData) {
 export async function askEventConsent(token: string, _prev: GuardianState, form: FormData): Promise<GuardianState> {
   const device = await deviceInfo();
   const g = await guardianFor(token);
-  if (!g) return { ok: false, message: GONE };
+  if (!g.ok) return { ok: false, message: g.message };
   const x = ids(form);
   if (!x) return { ok: false, message: "Choose your child for this event." };
   const limited = await limits([
@@ -74,7 +68,7 @@ export async function confirmEventConsentCode(token: string, _prev: GuardianStat
   const typed = String(form.get("code") ?? "").replace(/\D/g, "");
   if (typed.length !== 6) return { ok: false, step: "code", message: "Type the 6-digit code from the message." };
   const g = await guardianFor(token);
-  if (!g) return { ok: false, message: GONE };
+  if (!g.ok) return { ok: false, message: g.message };
   const limited = await limits([[`pl-verify:ip:${device.ipAddress ?? "unknown"}`, 20, 600]]);
   if (limited) return { ok: false, step: "code", message: limited };
   const r = await withSchool(g.ctx, (tx) => confirmEventConsent(tx, g.ctx, g.linkId, g.guardianId, typed, g.today));
@@ -86,7 +80,7 @@ export async function confirmEventConsentCode(token: string, _prev: GuardianStat
 export async function declineEvent(token: string, _prev: GuardianState, form: FormData): Promise<GuardianState> {
   const device = await deviceInfo();
   const g = await guardianFor(token);
-  if (!g) return { ok: false, message: GONE };
+  if (!g.ok) return { ok: false, message: g.message };
   const x = ids(form);
   if (!x) return { ok: false, message: "Choose your child for this event." };
   const limited = await limits([[`pl-answer:ip:${device.ipAddress ?? "unknown"}`, 20, 600]]);

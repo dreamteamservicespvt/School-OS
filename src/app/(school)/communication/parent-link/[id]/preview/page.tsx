@@ -22,7 +22,9 @@ export default async function PreviewPage({ params, searchParams }: { params: Pr
     if (!link) return null;
     const view = await loadGuardianView(tx, current.ctx, { linkId: link.id, guardianId: link.guardianId, childId: typeof child === "string" ? child : null, token: "", preview: true });
     const school = await tx.school.findUniqueOrThrow({ where: { id: current.ctx.schoolId }, select: { phone: true } });
-    return { link, view, sections: view ? await loadSections(tx, current.ctx, { ...view, month: typeof month === "string" ? month : null }) : [], phone: school.phone };
+    // Children left off this guardian's page because of a custody or access restriction.
+    const restricted = await tx.studentGuardian.findMany({ where: { schoolId: current.ctx.schoolId, guardianId: link.guardianId, archivedAt: null, restriction: { not: null }, student: { archivedAt: null } }, select: { student: { select: { fullName: true } } } });
+    return { link, view, restricted: restricted.map((r) => r.student.fullName), sections: view ? await loadSections(tx, current.ctx, { ...view, month: typeof month === "string" ? month : null }) : [], phone: school.phone };
   });
   if (!data) notFound();
 
@@ -31,6 +33,11 @@ export default async function PreviewPage({ params, searchParams }: { params: Pr
       <BackLink href={`/communication/parent-link/${id}`} label="Parent Link" sub="What they see" />
       <RecordHead title="What guardians see" />
       <Banner tone="info" title="A preview of this guardian’s page." className="mb-5">Buttons do nothing here, and this visit is not counted as an open.</Banner>
+      {data.restricted.length > 0 && (
+        <Banner tone="bad" title="Custody restriction." className="mb-5">
+          Not shown to this guardian: {data.restricted.join(", ")}. They cannot pay, give consent or book for {data.restricted.length === 1 ? "this child" : "these children"} here, and get none of {data.restricted.length === 1 ? "the child’s" : "their"} messages.
+        </Banner>
+      )}
       <div className="mx-auto w-full max-w-[400px] sm:rounded-[40px] sm:border-[10px] sm:border-ink/90 sm:shadow-pop overflow-hidden bg-bg">
         <div className="sm:h-[780px] sm:overflow-y-auto scroll-thin">
           {data.view ? (

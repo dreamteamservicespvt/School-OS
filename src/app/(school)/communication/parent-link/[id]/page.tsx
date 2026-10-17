@@ -51,7 +51,7 @@ export default async function LinkPage({ params }: { params: Promise<{ id: strin
   const waiting = data.requests.filter((r) => !data.records.some((c) => c.consentType === r.consentType && !c.withdrawnAt) && !data.records.some((c) => c.consentType === r.consentType && c.withdrawnAt && c.withdrawnHow !== "replaced by a newer version"));
   const channels = (["whatsapp", "sms"] as const).filter((c) => data.setups[c].isOn).map((c) => ({ value: c, label: c === "sms" ? "SMS" : "WhatsApp" }));
 
-  const kidsText = data.kids.length ? data.kids.map((k) => `${k.name}${k.classLabel ? ` (${k.classLabel})` : ""}`).join(", ") : "None studying now";
+  const kidsText = data.kids.length ? data.kids.map((k) => `${k.name}${k.classLabel ? ` (${k.classLabel})` : ""}${k.restricted ? ", not on Parent Link: custody restriction" : ""}`).join("; ") : "None studying now";
   const liveDevices = link.devices.filter((d) => !d.revokedAt && d.expiresAt > now).length;
   const ICONS: Record<string, TimelineItem["icon"]> = { Opened: Eye, Sent: Send, Created: Plus, Revoked: Ban, "Phone confirmed with a one-time code": ShieldCheck, "One-time code sent": MessageSquareText, "Wrong one-time code typed": TriangleAlert, "Consent given": FileSignature, "Consent withdrawn": FileSignature };
   const TONES: Record<string, TimelineItem["tone"]> = { Opened: "ok", Revoked: "bad", "Phone confirmed with a one-time code": "ok", "Wrong one-time code typed": "warn", "Consent given": "ok", Created: "brand" };

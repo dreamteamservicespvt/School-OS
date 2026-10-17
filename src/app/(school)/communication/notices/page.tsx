@@ -46,7 +46,7 @@ export default async function NoticeBoardPage({ searchParams }: { searchParams: 
       tx.notice.groupBy({ by: ["status"], where: { AND: [mineWhere, { status: { not: "ARCHIVED" } }] }, _count: { _all: true } }),
       boardFor(tx, current.ctx, current.user.id, access.roleKeys),
     ]);
-    return { rows, total, byStatus, board, counts: await noticeCounts(tx, rows.map((r) => r.id)) };
+    return { rows, total, byStatus, board, counts: await noticeCounts(tx, rows) };
   });
   const groupCount = (g: NoticeGroup) => data.byStatus.filter((s) => (NOTICE_GROUPS[g] as readonly string[]).includes(s.status)).reduce((a, s) => a + s._count._all, 0);
   const rank = { CRITICAL: 0, HIGH: 1, NORMAL: 2 } as const;

@@ -4,6 +4,7 @@
 // warden only for their own hostel.
 import { requireAction } from "@/lib/current";
 import { withSchool } from "@/lib/db";
+import { OPEN_LINK } from "@/lib/students/guardian-access";
 import { renderDocument } from "@/lib/documents";
 import { logExport } from "@/lib/exports";
 import { formatDate } from "@/lib/format";
@@ -42,7 +43,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       tx.hostelBed.findFirst({ where: { id: a.bedId } }),
       hostelSettings(tx, current.ctx),
       wardensByHostel(tx, [a.hostelId]),
-      tx.studentGuardian.findFirst({ where: { studentId: a.studentId, archivedAt: null }, orderBy: [{ isPrimary: "desc" }, { emergencyOrder: "asc" }], include: { guardian: { select: { name: true, address: true } } } }),
+      tx.studentGuardian.findFirst({ where: { studentId: a.studentId, ...OPEN_LINK }, orderBy: [{ isPrimary: "desc" }, { emergencyOrder: "asc" }], include: { guardian: { select: { name: true, address: true } } } }),
     ]);
     const st = info.get(a.studentId);
     if (!st || !hostel || !room || !bed) return plain("This allocation was not found.", 404);

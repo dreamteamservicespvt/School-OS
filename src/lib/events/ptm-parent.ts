@@ -16,6 +16,7 @@ import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { notify } from "../notifications";
 import { ParentLinkProblem } from "../parent-link/links";
+import { isChildOfGuardian } from "../students/guardian-access";
 import { eventsSettings } from "./settings";
 import { tellParent } from "./ptm";
 import { clock, dayOf, isoOf, longDay, shortDay, timeSpan } from "./words";
@@ -46,9 +47,9 @@ const DAY = 86_400_000;
 const inBreak = (p: Pick<Ptm, "breakStartMin" | "breakEndMin" | "slotMinutes">, startMin: number) =>
   p.breakStartMin != null && p.breakEndMin != null && startMin < p.breakEndMin && startMin + p.slotMinutes > p.breakStartMin;
 
-async function assertGuardianOf(tx: Tx, guardianId: string, studentId: string) {
-  const link = await tx.studentGuardian.findFirst({ where: { guardianId, studentId, archivedAt: null }, select: { id: true } });
-  if (!link) throw new ParentLinkProblem("This child is not on your Parent Link.");
+/** The child must be one the guardian sees on Parent Link (never one with a custody restriction). */
+async function assertGuardianOf(tx: Tx, ctx: SchoolContext, guardianId: string, studentId: string) {
+  if (!(await isChildOfGuardian(tx, ctx, guardianId, studentId, { studying: true }))) throw new ParentLinkProblem("This child is not on your Parent Link.");
 }
 
 /** The child's class place in the PTM's school year, or null when the PTM is not for their class. */
@@ -119,7 +120,7 @@ async function guardianName(tx: Tx, guardianId: string) {
 
 /** The parent books (or moves their booking to) a free slot. One booking per child per PTM; one parent per slot. */
 export async function bookOnParentLink(tx: Tx, ctx: SchoolContext, who: Who & { slotId: string }) {
-  await assertGuardianOf(tx, who.guardianId, who.studentId);
+  await assertGuardianOf(tx, ctx, who.guardianId, who.studentId);
   const slot = await openSlot(tx, ctx, who.slotId, who.today);
   const p = slot.ptm;
   if (inBreak(p, slot.startMin)) throw new ParentLinkProblem("That time is the break. Pick another time.");
@@ -159,7 +160,7 @@ export async function bookOnParentLink(tx: Tx, ctx: SchoolContext, who: Who & { 
 
 /** The parent cancels their child's booking (until the day before; not once the meeting has started). */
 export async function cancelOnParentLink(tx: Tx, ctx: SchoolContext, who: Who & { slotId: string }) {
-  await assertGuardianOf(tx, who.guardianId, who.studentId);
+  await assertGuardianOf(tx, ctx, who.guardianId, who.studentId);
   const slot = await openSlot(tx, ctx, who.slotId, who.today);
   if (slot.studentId !== who.studentId) throw new ParentLinkProblem("This booking is no longer there. Please refresh the page.");
   if (slot.arrivedAt || (await tx.ptmMeetingNote.findFirst({ where: { slotId: slot.id } }))) throw new ParentLinkProblem("This meeting has already started, so it cannot be cancelled here.");

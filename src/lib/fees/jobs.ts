@@ -12,7 +12,7 @@ import { addLateFees } from "./late-fees";
 import { automaticReminders } from "./reminders";
 import { settlePromises } from "./promises";
 import { applyAdvance } from "./collect";
-import { expireLinks } from "./online";
+import { expireLinks, reconcileOnlinePayments } from "./online";
 import "./import";
 
 async function schoolToday(tx: Tx, schoolId: string, now: Date) {
@@ -41,3 +41,8 @@ defineSchedule("fee-advance", 24 * 60, async (tx, ctx, now) => {
 defineSchedule("fee-expire-links", 60, async (tx, ctx, now) => {
   await expireLinks(tx, ctx, now);
 });
+
+// A8, automatic reconciliation: asks Razorpay about Checkouts with no confirmation and posts what was captured (once).
+defineSchedule("fee-gateway-reconcile", 15, async (tx, ctx, now) => {
+  await reconcileOnlinePayments(tx, ctx, now);
+}, { ownTransaction: true });

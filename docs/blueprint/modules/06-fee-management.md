@@ -21,7 +21,8 @@ Used by: the Accountant and cashier (collection, ledger, defaulters, structure, 
 - **Payment-method breakdown:** cash, UPI, card, net banking, bank transfer, cheque, gateway, for the chosen period.
 - **Collection forecast (optional, AI):** expected collection for the next 1 to 3 months from installments due and past payment behaviour, labelled "Suggestion" with the numbers used.
 - **Recent Payments:** live list, newest first. Columns: date and time, student (name, class), fee heads, amount, mode, receipt number or reference, status (**Posted**, **Waiting for verification**, **Cancelled**, **Failed**). Tabs: Full payments, Partial payments (as in the old software).
-- **Failed online payments:** payments the gateway reported as failed or not confirmed, with the parent's phone and a "Send new link" action.
+- **Failed online payments:** payments the gateway reported as failed or not confirmed, with the parent's phone and a "Send new link" action (the old link stops working, so the family pays once). Payments the parent opened and closed without paying, where Razorpay says no money was taken, are counted, not listed (added 18 October 2026).
+- **Online payments to check** (added 18 October 2026, shown to the people who collect fees when there is something to check): money Razorpay took that matched no payment link, with the amount, time and the phone it was paid from, and **Post to a student** (students whose parent has that phone are suggested; or type the admission number). It is posted the usual way: the student's oldest dues first, anything over held as advance, the receipt, the parent's message and the Day Book. Also refunds made in the Razorpay Dashboard and disputes raised by a parent's bank: the receipt still stands, with **Ask to cancel**, which goes to Approvals like any cancellation; a refund of only part of a payment is recorded as a refund on Concessions & Refunds instead. The Accountants are told of each one.
 
 **Actions**
 
@@ -336,7 +337,7 @@ Other actions:
 These are listed in the feature map under "Automatic work". They have no page; they are built with this module.
 
 - [ ] Payment confirmed only from the gateway's verified callback; never posted twice (Core)
-- [ ] Automatic reconciliation of online payments (Core)
+- [ ] Automatic reconciliation of online payments (Core) · every 15 minutes the software asks Razorpay about payments opened and not confirmed, and posts what was captured, once (added 18 October 2026)
 - [ ] Failed-payment handling (Core) · failed payments listed on Fee Dashboard
 
 ## 4. Connections
@@ -372,7 +373,7 @@ These are listed in the feature map under "Automatic work". They have no page; t
 - **A1 Fee paid:** in one step, the Payment is posted, the Receipt is created with the next number, the student's dues and balance update, the Day Book gets an entry (built in Finance), the Dashboard updates, and the parent gets the payment message (WhatsApp, using the receipt template with school name, student name, receipt number, amount and date).
 - **A7 Fee due date comes:** reminders go on the days set in Fee Settings (for example 3 days before, on the day, 7 days after); after the grace period the late fee is added as its own row; the Defaulters list updates. Each reminder is sent once per installment per scheduled day (inferred). A family with an open Promise to Pay dated today or later gets no automatic reminder on that day.
 - **Promise to Pay kept or broken** (added 17 October 2026): when a payment is posted, the student's open promise is checked and marked Kept if it is covered. Each day, open promises whose date has passed are marked Kept or Broken from the payments made by the date; a broken one tells the person who recorded it, and is done before the day's reminders so they resume at once.
-- **A8 Online payment received:** see the automatic-work features below. A payment is posted only when the gateway's verified callback confirms it; the gateway's payment ID is stored, and a second callback with the same ID does nothing; payments are matched automatically to the student and installments from the payment link; payments that fail or are not confirmed within 30 minutes (inferred) are flagged on the Fee Dashboard, and no receipt is made.
+- **A8 Online payment received:** see the automatic-work features below. A payment is posted only when the gateway's verified callback confirms it; the gateway's payment ID is stored, and a second callback with the same ID does nothing; payments are matched automatically to the student and installments from the payment link; payments that fail or are not confirmed within 30 minutes (inferred) are flagged on the Fee Dashboard, and no receipt is made. Added 18 October 2026: only a captured payment is posted (payment.captured or order.paid; an authorised one is not money taken yet). A payment on any order ever made for a link is matched to it, and when the order is unknown, by the link reference School OS put in the order's notes. Every 15 minutes, payments opened 10 minutes to 3 days ago with no confirmation are checked with Razorpay (again each hour): a captured payment is posted, a failed one is recorded, and one Razorpay cannot be asked about is tried again later. Money that matches no link waits in Online payments to check for a person to choose the student. Refunds and disputes made at Razorpay are kept for the office to check and never cancel a payment by themselves. Admission application fees are left to Admission Management.
 
 ## 5. Rules and mistake-proofing
 
@@ -455,7 +456,7 @@ All have filters, analytics and export (P8), and appear in Reports & Analytics.
 
 **Promise to Pay** (added 17 October 2026, in 04-data-model.md): the call log note with a promised date, amount, and status Open, Kept, Broken or Replaced.
 
-Other records (inferred): **Fee Invoice**, **Fee Certificate**, **Payment Link** (amount, rows covered, gateway, expiry, status), **Gateway Transaction** (gateway payment ID, callback received, verified, matched), **Reminder Log**, **Bulk Discount Rule**, **Scholarship Type** and **Scholarship Application**, **Daycare Plan** and **Daycare Enrolment**, **Late Fee Rule**, **Advance Balance**, **Tax Invoice** (number, GSTIN, rate, tax amount, payment), **Ageing Group**.
+Other records (inferred): **Fee Invoice**, **Fee Certificate**, **Payment Link** (amount, rows covered, gateway, expiry, status), **Payment Link Order** (every gateway order made for a link, added 18 October 2026), **Gateway Transaction** (gateway payment ID, callback received, verified, matched, the phone and method it was paid with, a refund or dispute reference), **Reminder Log**, **Bulk Discount Rule**, **Scholarship Type** and **Scholarship Application**, **Daycare Plan** and **Daycare Enrolment**, **Late Fee Rule**, **Advance Balance**, **Tax Invoice** (number, GSTIN, rate, tax amount, payment), **Ageing Group**.
 
 ## 9. Done when
 

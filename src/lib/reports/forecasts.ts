@@ -26,6 +26,7 @@ import { currentYear } from "../academic/years";
 import { attendanceSettings } from "../attendance/settings";
 import { attendanceSummary } from "../attendance/summary";
 import { schoolDays } from "../attendance/calendar";
+import { leavingWeights, leavingWhy } from "./absence-signals";
 import { examSettings } from "../exams/settings";
 import { forecast as feeForecast } from "../fees/dashboard";
 import { accountBalances } from "../finance/daybook";
@@ -269,7 +270,9 @@ async function leavingForecasts(c: Ctx, enrolled: Enrolled[]): Promise<Forecast[
   const enrolledIds = new Set(enrolled.map((e) => e.studentId));
   const areas = new Map<string, Set<string>>();
   for (const f of open) if (enrolledIds.has(f.studentId)) areas.set(f.studentId, (areas.get(f.studentId) ?? new Set()).add(f.area));
-  const many = [...areas.entries()].filter(([, a]) => a.size >= 2).slice(0, MAX_STUDENTS);
+  // Weighed by the absence reasons (./absence-signals.ts): unexplained absences count more, sick days less, "Fees dispute" as fees.
+  const weights = await leavingWeights(c.tx, c.ctx, areas, c.year.startDate, c.today);
+  const many = [...areas.keys()].map((id) => [id, weights.get(id)!.counted] as const).filter(([id]) => weights.get(id)!.score >= 2).slice(0, MAX_STUDENTS);
   if (!many.length) return [];
   const who = await names(c.tx, many.map(([id]) => id));
   const sectionOf = new Map(enrolled.map((e) => [e.studentId, e.sectionId]));
@@ -277,11 +280,12 @@ async function leavingForecasts(c: Ctx, enrolled: Enrolled[]): Promise<Forecast[
   const words: Record<string, string> = { attendance: "attendance", marks: "marks", fees: "fees" };
   return many.map(([id, a]) => {
     const list = [...a].map((x) => words[x] ?? x);
+    const w = weights.get(id)!;
     return {
-      key: `${a.has("fees") ? LEAVING_WITH_FEES : "leaving:"}${id}:${[...a].sort().join("+")}:${month(c.today)}`, area: "students" as const, strength: a.size >= 3 ? "ACT_NOW" as const : "WATCH" as const, studentId: id,
+      key: `${a.has("fees") ? LEAVING_WITH_FEES : "leaving:"}${id}:${[...a].sort().join("+")}:${month(c.today)}`, area: "students" as const, strength: w.score >= 3 ? "ACT_NOW" as const : "WATCH" as const, studentId: id,
       title: `${who.get(id) ?? "A student"} (${cls.get(sectionOf.get(id)!) ?? "class"}) may be thinking of leaving`,
-      body: `There are open early warnings in ${a.size} areas${list.length ? ` (${list.join(" and ")})` : ""}. Problems in two or more areas at once often come before a family moves their child. A friendly talk with the family may help; you decide.`,
-      source: "open Early Warning flags this year",
+      body: `There are open early warnings in ${a.size} ${a.size === 1 ? "area" : "areas"}${list.length ? ` (${list.join(" and ")})` : ""}.${leavingWhy(w)} Problems in two or more areas at once, or many absences nobody can explain, often come before a family moves their child. A friendly talk with the family may help; you decide.`,
+      source: leavingWhy(w) ? "open Early Warning flags and the absence reasons this year" : "open Early Warning flags this year",
       href: `/student-management/students/${id}`, hrefLabel: "Open profile",
     };
   });

@@ -68,7 +68,7 @@ export async function applyDecision(tx: Tx, ctx: SchoolContext, app: Application
   await writeAudit(tx, ctx, { action: `decision-${decision}`, recordType: "Application", recordId: app.id, before: { stage: app.stage }, after: { decision, note } });
 }
 
-/** onDecision("admission") — the Approvals list runs this. */
+/** The follow-up for an admission request (listed in src/lib/approval-handlers.ts); decide() runs it. */
 export async function onAdmissionDecision(tx: Tx, ctx: SchoolContext, approval: { recordId: string }, decision: Decision, note: string | null) {
   const app = await tx.application.findFirst({ where: { id: approval.recordId, archivedAt: null } });
   if (!app) throw new DecisionProblem("The application behind this request was not found.");

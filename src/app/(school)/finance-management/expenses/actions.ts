@@ -4,7 +4,6 @@ import { formatDate, formatRupees } from "@/lib/format";
 import { DOCUMENT_TYPES, saveFile } from "@/lib/files";
 import { dateOf, file, id, needRupees, optionalDateOf, optionalId, optionalText, rupeesOf, str, text } from "@/lib/fees/act";
 import { MoneyProblem } from "@/lib/fees/problem";
-import "@/lib/approval-handlers";
 import { decide, canDecide } from "@/lib/approvals";
 import { todayIn } from "@/lib/staff/dates";
 import type { SchoolContext, Tx } from "@/lib/db";

@@ -21,7 +21,6 @@ import { addDevice, autoMatch, receivePunches, reprocessRejected } from "../../s
 import { createQrSession, saveGeoFence } from "../../src/lib/attendance/qr";
 import { recordOvertime, saveShift, assignShift } from "../../src/lib/attendance/staff";
 import { decide } from "../../src/lib/approvals";
-import "../../src/lib/approval-handlers";
 import { addDays, isoDay } from "../../src/lib/staff/dates";
 import type { SeedSchool } from "./types";
 

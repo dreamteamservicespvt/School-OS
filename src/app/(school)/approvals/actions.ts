@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import "@/lib/approval-handlers";
 import { requireCurrent } from "@/lib/current";
 import { withSchool } from "@/lib/db";
 import { flash } from "@/lib/flash";

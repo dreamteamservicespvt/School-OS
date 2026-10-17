@@ -1,6 +1,5 @@
 "use server";
 
-import "@/lib/approval-handlers";
 import { decide } from "@/lib/approvals";
 import { dateOf, id, needRupees, optionalId, optionalText, str, text } from "@/lib/fees/act";
 import { MoneyProblem } from "@/lib/fees/problem";

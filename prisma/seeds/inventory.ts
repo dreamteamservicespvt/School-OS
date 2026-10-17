@@ -12,7 +12,6 @@
 // lab experiments and safety checks; a stock audit waiting for approval and
 // a closed asset check. Dates are set from the day the demo is seeded.
 import { withSchool, type SchoolContext } from "../../src/lib/db";
-import "../../src/lib/approval-handlers";
 import { decide } from "../../src/lib/approvals";
 import { inventorySettings } from "../../src/lib/inventory/settings";
 import { addItem } from "../../src/lib/inventory/items";

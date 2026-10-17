@@ -1,5 +1,6 @@
 // One Approvals list for every request (00-global.md §3). Modules create
-// requests here and register what happens when one is decided; who approves
+// requests here; what happens to each request's record once it is decided is
+// listed in ./approval-handlers.ts, which decide() loads itself. Who approves
 // comes from Settings, Forms & Approvals.
 import "server-only";
 
@@ -44,6 +45,15 @@ export const REQUEST_TYPES = [
 
 export type RequestType = (typeof REQUEST_TYPES)[number]["key"];
 export const requestLabel = (key: string) => REQUEST_TYPES.find((t) => t.key === key)?.label ?? key;
+
+/**
+ * Request types nothing in School OS asks for yet (00-global.md §3 lists
+ * them, and Forms & Approvals keeps a rule for each). They cannot be asked for
+ * until their module adds a follow-up in ./approval-handlers.ts.
+ */
+export const NOT_ASKED_YET = ["salary-adjustment", "user-request"] as const satisfies readonly RequestType[];
+/** The request types a module can ask for: each has a follow-up, which TypeScript checks in ./approval-handlers.ts. */
+export type AskableType = Exclude<RequestType, (typeof NOT_ASKED_YET)[number]>;
 
 export type RuleStep = { approverRole?: string | null; approverUserId?: string | null; upToPaise?: string | null };
 
@@ -103,7 +113,7 @@ async function holders(tx: Tx, schoolId: string, step: RuleStep): Promise<string
 }
 
 export type NewRequest = {
-  type: RequestType;
+  type: AskableType;
   recordType: string;
   recordId: string;
   summary: string;
@@ -220,6 +230,24 @@ export async function canDecide(tx: Tx, ctx: SchoolContext, approval: { type: st
   return Boolean(mine);
 }
 
+/**
+ * Does this person decide requests of this type: a step of the school's rule
+ * names them or a role they hold, or they are the Principal, who decides last
+ * (the School Admin, when the school has no Principal)? Used where an approver
+ * acting on their own work needs nobody's approval (a notice to parents).
+ */
+export async function decidesRequestsOf(tx: Tx, ctx: SchoolContext, type: AskableType) {
+  if (!ctx.userId) return false;
+  const { steps } = await stepsFor(tx, ctx.schoolId, type);
+  for (const step of [...steps, { approverRole: "principal" }]) {
+    if (step.approverUserId) {
+      if (step.approverUserId === ctx.userId) return true;
+    } else if (step.approverRole && !barredFrom(type, step.approverRole) && (await holdsRole(tx, ctx, step.approverRole))) return true;
+  }
+  const noPrincipal = (await holders(tx, ctx.schoolId, { approverRole: "principal" })).length === 0;
+  return noPrincipal && (await holdsRole(tx, ctx, "school-admin"));
+}
+
 /** The open requests this person may decide. */
 export async function approvalsFor(tx: Tx, ctx: SchoolContext, roleKeys: (string | null)[], extra: Prisma.ApprovalWhereInput = {}) {
   const keys = roleKeys.filter((k): k is string => Boolean(k));
@@ -245,12 +273,19 @@ export function rejectRefusal(type: string) {
   return `Only ${who} can reject ${requestLabel(type).toLowerCase()} requests. You can approve it or ask for a change.`;
 }
 
-type Handler = (tx: Tx, ctx: SchoolContext, approval: { id: string; recordType: string; recordId: string; amountPaise: bigint | null }, decision: Decision, note: string | null) => Promise<void>;
-const handlers = new Map<string, Handler>();
+/** What happens to a request's record when it is decided (00-global.md §3.4). Each module's list is in ./approval-handlers.ts. */
+export type FollowUp = (tx: Tx, ctx: SchoolContext, approval: { id: string; recordType: string; recordId: string; amountPaise: bigint | null }, decision: Decision, note: string | null) => Promise<void>;
 
-/** A module says what happens to its record when a request is decided (00-global.md §3.4). */
-export function onDecision(type: RequestType, handler: Handler) {
-  handlers.set(type, handler);
+/**
+ * The follow-up for a request type, or null when there is none. The list is
+ * loaded here, by this file, so no screen, job or script has to remember to
+ * import it: a server that has just started runs the same follow-ups as one
+ * that has been up all day. Loaded on first use because the modules'
+ * follow-ups themselves use this file (requestApproval).
+ */
+export async function followUpFor(type: string): Promise<FollowUp | null> {
+  const { followUpOf } = await import("./approval-handlers");
+  return followUpOf(type);
 }
 
 export class DecisionProblem extends Error {}
@@ -272,6 +307,10 @@ export async function decide(tx: Tx, ctx: SchoolContext, approvalId: string, dec
     throw new DecisionProblem("Give a reason of at least 5 characters, so the person knows why.");
   }
 
+  // Without a follow-up the request would say Approved while its record stays waiting: refuse, and change nothing.
+  const followUp = await followUpFor(approval.type);
+  if (!followUp) throw new DecisionProblem(`School OS cannot act on this request yet (${requestLabel(approval.type)}), so nothing was changed. Please tell DREAM TEAM support.`);
+
   const status: ApprovalStatus = decision === "approve" ? "APPROVED" : decision === "withdraw" ? "WITHDRAWN" : "REJECTED";
   const history = [...((approval.history as object[]) ?? []), { at: new Date().toISOString(), by: ctx.userId, action: decision, note }];
   // Only one decision can win, even if two people press at the same moment.
@@ -281,7 +320,7 @@ export async function decide(tx: Tx, ctx: SchoolContext, approvalId: string, dec
   });
   if (changed.count === 0) throw new DecisionProblem("This request was already decided.");
 
-  await handlers.get(approval.type)?.(tx, ctx, approval, decision, note);
+  await followUp(tx, ctx, approval, decision, note);
 
   // The related notifications are done for everyone who received them (§4 rule 5).
   await tx.notification.updateMany({ where: { link: `/approvals/${approval.id}`, doneAt: null }, data: { doneAt: new Date() } });

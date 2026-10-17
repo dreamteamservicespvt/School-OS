@@ -1,6 +1,6 @@
 // One line of the console's Activity Log, the same on the Dashboard, a
 // school's page and the Activity Log page.
-import { Activity, Building2, Circle, Download, Flag, KeyRound, LogIn, Pencil, ReceiptIndianRupee, Send, StickyNote, UsersRound, type LucideIcon } from "lucide-react";
+import { Activity, Building2, Circle, Download, Flag, KeyRound, LifeBuoy, LogIn, Pencil, ReceiptIndianRupee, Send, StickyNote, UsersRound, type LucideIcon } from "lucide-react";
 import { TONE_SOFT, type Tone } from "@/components/ui/blocks";
 import { cx } from "@/components/ui/cx";
 import { formatDate, formatTime } from "@/lib/format";
@@ -15,6 +15,7 @@ export const LOG_LOOK: Record<string, [LucideIcon, Tone]> = {
   team: [UsersRound, "neutral"],
   details: [Pencil, "neutral"],
   signin: [LogIn, "neutral"],
+  support: [LifeBuoy, "info"],
   export: [Download, "neutral"],
   system: [Activity, "bad"],
 };

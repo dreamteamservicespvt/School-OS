@@ -5,6 +5,9 @@ import "../src/lib/job-registry";
 import { queueSchedules, runDueJobs } from "../src/lib/jobs";
 import { measureStale } from "../src/lib/console/measure";
 import { runBillingDay } from "../src/lib/console/billing";
+import { endExpiredSupport } from "../src/lib/console/support-entry";
+import { hitLimit } from "../src/lib/rate-limit";
+import { BILLING_LIMIT_KEY } from "../src/lib/job-tick";
 
 // The Super Admin console: school cards are measured every 10 minutes (only
 // counts), and the billing day (trial ends, renewals, reminders, grace) runs
@@ -15,11 +18,14 @@ let lastMeasure = 0;
 let lastBilling = 0;
 
 async function consoleWork() {
+  // Support access ends by itself at the time the school gave (07-super-admin.md §3.4 step 5).
+  await endExpiredSupport();
   if (Date.now() - lastMeasure > MEASURE_EVERY_MS) {
     lastMeasure = Date.now();
     await measureStale();
   }
-  if (Date.now() - lastBilling > BILLING_EVERY_MS) {
+  // Several workers (and the web server's job tick) share one hourly limit, so two billing days never run at once.
+  if (Date.now() - lastBilling > BILLING_EVERY_MS && (await hitLimit(BILLING_LIMIT_KEY, 1, BILLING_EVERY_MS / 1000)).ok) {
     lastBilling = Date.now();
     const done = await runBillingDay();
     if (done.length) console.log(JSON.stringify({ level: "info", event: "console-billing-day", done: done.length }));

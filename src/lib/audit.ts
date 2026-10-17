@@ -4,7 +4,7 @@
 // to change or delete an entry once written.
 
 import type { Prisma } from "@prisma/client";
-import type { SchoolContext, Tx } from "./db";
+import { SUPPORT_LOGIN_ID, type SchoolContext, type Tx } from "./db";
 
 export type AuditInput = {
   action: string;
@@ -18,17 +18,22 @@ export type AuditInput = {
   ipAddress?: string | null;
 };
 
+/** How the Audit Log marks what a DREAM TEAM person did inside a school (07-super-admin.md §3.4, step 6). */
+export const supportNote = (name: string) => `DREAM TEAM support (${name})`;
+
 export async function writeAudit(tx: Tx, ctx: SchoolContext, entry: AuditInput) {
+  // Whatever is written while DREAM TEAM looks inside the school carries their name, never a school login.
+  const support = ctx.support ? supportNote(ctx.support.name) : ctx.userId === SUPPORT_LOGIN_ID ? "DREAM TEAM support" : null;
   return tx.auditLogEntry.create({
     data: {
       schoolId: ctx.schoolId,
-      userLoginId: ctx.userId,
+      userLoginId: support ? null : ctx.userId,
       action: entry.action,
       recordType: entry.recordType,
       recordId: entry.recordId ?? null,
       before: entry.before ?? undefined,
       after: entry.after ?? undefined,
-      actorNote: entry.actorNote ?? null,
+      actorNote: support && entry.actorNote !== support ? [support, entry.actorNote].filter(Boolean).join("; ") : entry.actorNote ?? null,
       device: entry.device ?? null,
       ipAddress: entry.ipAddress ?? null,
     },

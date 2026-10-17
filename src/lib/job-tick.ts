@@ -33,12 +33,18 @@ export async function tickJobs(budgetMs = BURST_MS): Promise<TickResult> {
   return { ran, schedules };
 }
 
+/** One billing day an hour, whichever server or worker gets there first. */
+export const BILLING_LIMIT_KEY = "job-tick:console-billing";
+
 /** The console's own timed work, as scripts/worker.ts does it. */
 async function consoleWork() {
   try {
-    const [{ measureStale }, { runBillingDay }] = await Promise.all([import("./console/measure"), import("./console/billing")]);
+    const [{ measureStale }, { runBillingDay }, { endExpiredSupport }] = await Promise.all([import("./console/measure"), import("./console/billing"), import("./console/support-entry")]);
+    // Support access ends by itself at the time the school gave (07-super-admin.md §3.4 step 5).
+    await endExpiredSupport();
     if ((await hitLimit("job-tick:console-measure", 1, 10 * 60)).ok) await measureStale();
-    if ((await hitLimit("job-tick:console-billing", 1, 60 * 60)).ok) await runBillingDay();
+    // The same limit as scripts/worker.ts, so the billing day runs once an hour across every server and worker.
+    if ((await hitLimit(BILLING_LIMIT_KEY, 1, 60 * 60)).ok) await runBillingDay();
   } catch (e) {
     console.error(JSON.stringify({ level: "error", event: "console-work", error: e instanceof Error ? e.message : String(e) }));
   }

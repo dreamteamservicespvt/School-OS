@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import * as I from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { redirect } from "next/navigation";
 import { requireCurrent } from "@/lib/current";
 import { prisma, withSchool } from "@/lib/db";
 import { formatDate, formatDateTime } from "@/lib/format";
@@ -47,6 +48,8 @@ function DL({ rows }: { rows: [string, React.ReactNode][] }) {
 
 export default async function ProfilePage() {
   const current = await requireCurrent();
+  // A DREAM TEAM support person has no login here, so no profile (07-super-admin.md §3.4).
+  if (current.support) redirect("/dashboard");
   const tz = current.school.timeZone;
   const u = current.user;
   const [sessions, staff, mustTwoStep, allowed] = await Promise.all([

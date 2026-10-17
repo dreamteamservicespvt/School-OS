@@ -77,6 +77,8 @@ export async function buildExport<Row>(format: ExportFormat, columns: ExportColu
 
 /** The export log (Settings, Data Backup & Security) is the audit log's "exported" lines. */
 export async function logExport(tx: Tx, ctx: SchoolContext, what: { title: string; format: ExportFormat; filters: string; rows: number }) {
+  // DREAM TEAM support access never takes data out of the school (07-super-admin.md §3.4).
+  if (ctx.support) throw new Error("DREAM TEAM support access cannot export, print or download the school’s data.");
   await writeAudit(tx, ctx, { action: "exported", recordType: "Export", recordId: null, after: what });
 }
 

@@ -7,6 +7,8 @@ import { shellData } from "@/lib/shell-data";
 import { AppShell } from "@/components/shell/app-shell";
 import { RecentPages } from "@/components/shell/search-box";
 import { SchoolColour } from "@/components/shell/school-colour";
+import { SupportBar } from "@/components/shell/support-bar";
+import { endsWords } from "@/lib/console/support-entry";
 import { Toast } from "@/components/ui/toast";
 import { readFlash } from "@/lib/flash";
 import { undoChange } from "./undo-action";
@@ -54,6 +56,7 @@ export default async function SchoolLayout({ children }: { children: React.React
     admin ? schoolPlanState(current.school.id).catch(() => null) : Promise.resolve(null),
   ]);
   if (missing) notFound();
+  const supportEnds = current.support ? endsWords(current.support.endsAt, new Date(), current.school.timeZone) : null;
   const banner = isPaused(current)
     ? { tone: "problem" as const, text: "School OS for this school is paused. You can still pay or download the school's data.", payUrl: null, href: "/paused" }
     : planBanner(plan);
@@ -75,7 +78,9 @@ export default async function SchoolLayout({ children }: { children: React.React
       unread={shell.unread}
       notes={notes.map((n) => ({ id: n.id, text: n.text, when: ago(n.createdAt), unread: !n.readAt }))}
       theme={cleanTheme(current.user.theme)}
+      support={supportEnds ? { ends: supportEnds } : null}
     >
+      {current.support && supportEnds && <SupportBar schoolName={current.school.name} ends={supportEnds} endsAt={current.support.endsAt.toISOString()} who={current.support.name} />}
       <RecentPages userId={current.user.id} pages={shell.pages} />
       <SchoolColour accent={current.school.accent} />
       {notices.map((n) => {

@@ -25,6 +25,15 @@ export function linkUrl(linkId: string) {
   return `${appUrl()}/p/${tokenFor(linkId)}`;
 }
 
+/**
+ * The secret of a fee payment link started from Parent Link's Pay button,
+ * worked out from the Payment Link's id, so a second tap can be sent to the
+ * same open link (src/lib/fees/online.ts). Only its hash is stored.
+ */
+export function payLinkTokenFor(paymentLinkId: string): string {
+  return createHmac("sha256", secret()).update(`pay-link:${paymentLinkId}`).digest("base64url");
+}
+
 /** What message texts keep instead of the link itself. */
 export const PLACEHOLDER = /⟦parent-link:([0-9a-f-]{36})⟧/g;
 export const placeholderFor = (linkId: string) => `⟦parent-link:${linkId}⟧`;

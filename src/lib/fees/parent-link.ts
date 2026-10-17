@@ -72,11 +72,15 @@ async function assertChild(tx: Tx, ctx: SchoolContext, guardianId: string, stude
   if (!(await childrenOfGuardian(tx, ctx, guardianId)).includes(studentId)) throw new MoneyProblem("This student is not linked to you.");
 }
 
-/** The Pay button: a payment for the chosen rows (or everything due now). Returns where to send the parent. */
+/**
+ * The Pay button: a payment for the chosen rows (or everything due now).
+ * Tapping Pay again for the same rows and amount opens the same link, not a
+ * new one each time. Returns where to send the parent.
+ */
 export async function startParentLinkPayment(tx: Tx, ctx: SchoolContext, guardianId: string, studentId: string, dueIds: string[]) {
   await assertChild(tx, ctx, guardianId, studentId);
-  const made = await createPaymentLink(tx, ctx, { studentId, dueIds, guardianId, source: "PARENT_LINK", channel: "parent-link" });
-  return { payPath: payPath(ctx.schoolId, made.token), amountPaise: made.amount, linkId: made.link.id };
+  const made = await createPaymentLink(tx, ctx, { studentId, dueIds, guardianId, source: "PARENT_LINK", channel: "parent-link", reuseOpen: true });
+  return { payPath: payPath(ctx.schoolId, made.token), amountPaise: made.amount, linkId: made.link.id, reused: made.reused };
 }
 
 /** A receipt (parent copy) for one of the guardian's children, as a PDF. */

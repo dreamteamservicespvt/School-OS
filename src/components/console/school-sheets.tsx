@@ -132,3 +132,20 @@ export function EditSchoolSheet({ closeHref, schoolId, s, states, boards, types,
     </SheetForm>
   );
 }
+
+/** Request support access (07-super-admin.md §3.4, step 1): the reason, and how long; 1 hour unless changed. */
+export function SupportRequestSheet({ closeHref, schoolId, schoolName, answerers, lengths, action }: { closeHref: string; schoolId: string; schoolName: string; answerers: string; lengths: readonly { minutes: number; label: string }[]; action: Action }) {
+  const [length, setLength] = useState(String(lengths[0]?.minutes ?? 60));
+  const words = lengths.find((l) => String(l.minutes) === length)?.label ?? "";
+  return (
+    <SheetForm title="Request support access" sub={`${schoolName} · nothing opens until the school allows it`} closeHref={closeHref} action={action} submitLabel="Send request" pendingText="Sending…" hidden={{ schoolId, lengthMinutes: length }}>
+      <SArea name="reason" label="Why you need to look inside" required rows={2} placeholder="Fee structure is not saving" help="The school sees these words when it decides." />
+      <FieldShell label="For how long, once allowed" id="length" required>
+        <Segmented label="For how long, once allowed" value={length} onChange={setLength} className="w-full" options={lengths.map((l) => ({ value: String(l.minutes), label: l.label }))} />
+      </FieldShell>
+      <p className="rounded-xl bg-sunken p-3 text-[13.5px] text-ink2 leading-relaxed">
+        The request goes to {answerers} in their Approvals and on WhatsApp. Once allowed, you can look inside for {words}, with a coloured bar on every screen. You cannot change anything, export, print or cancel payments, and you never see Aadhaar or other ID numbers, salaries or counselling notes. Everything you open is written in the school’s Audit Log.
+      </p>
+    </SheetForm>
+  );
+}

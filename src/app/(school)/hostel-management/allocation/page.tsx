@@ -35,6 +35,7 @@ import { ActButton } from "../_components/client";
 import { AllocateSheet, CheckoutSheet, MoveSheet, type FreeBed } from "../_components/sheets";
 import { checkInAction, type FoundStudent } from "../actions";
 import { hostelGuard, hostelPeriod, idParam, one, qs, type SearchParams } from "../_lib/page";
+import { studentIdsForFilter } from "@/lib/students/find";
 
 export const metadata: Metadata = { title: "Allocation · Hostel Management" };
 
@@ -63,8 +64,7 @@ export default async function AllocationPage({ searchParams }: { searchParams: S
     const awayIds = [...away.keys()];
     let nameIds: string[] | null = null;
     if (params.q) {
-      const found = await tx.student.findMany({ where: { OR: [{ fullName: { contains: params.q, mode: "insensitive" } }, { admissionNo: { contains: params.q, mode: "insensitive" } }] }, select: { id: true }, take: 500 });
-      nameIds = found.map((s) => s.id);
+      nameIds = await studentIdsForFilter(tx, params.q);
     }
     const byView: Record<string, Prisma.BedAllocationWhereInput> = {
       "": { status: "ACTIVE" },

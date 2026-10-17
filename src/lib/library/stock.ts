@@ -36,7 +36,7 @@ export async function scanCode(tx: Tx, ctx: SchoolContext, sessionId: string, ra
   const session = await tx.stockCheckSession.findFirst({ where: { id: sessionId } });
   if (!session) throw new LibraryProblem("This stock check was not found.");
   if (session.status !== "OPEN") throw new LibraryProblem("This stock check is closed. Start a new one to scan again.");
-  const copy = await tx.bookCopy.findFirst({ where: { OR: [{ accessionNo: { equals: code, mode: "insensitive" } }, { barcode: { equals: code, mode: "insensitive" } }] }, include: { book: { select: { title: true } } } });
+  const copy = await tx.bookCopy.findFirst({ where: { releasedAt: null, OR: [{ accessionNo: { equals: code, mode: "insensitive" } }, { barcode: { equals: code, mode: "insensitive" } }] }, include: { book: { select: { title: true } } } });
   const key = copy ? copy.accessionNo : code.toUpperCase();
   const again = await tx.stockCheckScan.findFirst({ where: { sessionId, code: key } });
   if (again) return { kind: "again", code: key, title: copy?.book.title ?? null, accessionNo: copy?.accessionNo ?? null, status: copy?.status ?? null };

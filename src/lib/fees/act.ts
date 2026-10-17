@@ -100,7 +100,8 @@ export function rupeesOf(fd: FormData, key: string, label: string): bigint | nul
 }
 
 export function parseRupees(raw: string, label: string, key?: string): bigint | null {
-  const v = raw.replace(/[,₹\s]/g, "");
+  // Old registers and exports write amounts as "Rs. 12,500/-", "INR 4500" or "₹ 4,500.00".
+  const v = raw.replace(/[,₹\s]/g, "").replace(/^(rs\.?|inr)/i, "").replace(/\/-$|-$/, "");
   if (!v) return null;
   if (!/^\d{1,10}(\.\d{1,2})?$/.test(v)) throw new MoneyProblem(`${label} must be an amount in rupees, like 4500 or 4500.50.`, key);
   const [r, p = ""] = v.split(".");

@@ -9,10 +9,10 @@ import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { formatDate } from "../format";
 import { isoDay } from "../staff/dates";
-import { onLeaveOn } from "../staff/leave";
+import { holidaySet, lopDates, onLeaveOn } from "../staff/leave";
 import { AttendanceProblem, BASE, type AttendanceAccess } from "./access";
-import { dayInfo, OffDayError, schoolDays } from "./calendar";
-import { attendanceFeatures, attendanceSettings, statusList, statusesFor } from "./settings";
+import { dayInfo, OffDayError } from "./calendar";
+import { attendanceFeatures, attendanceSettings, statusList, statusMap, statusesFor, weightOf } from "./settings";
 import { instantAt, minutesOf, schoolDateOf } from "./time";
 import { LockedError, lockState } from "./marks";
 import { attendanceSummary } from "./summary";
@@ -109,16 +109,21 @@ export async function saveStaffAttendance(tx: Tx, ctx: SchoolContext, access: At
   if (!info.on) throw new OffDayError(info, input.date);
   if (input.entries.length === 0) throw new AttendanceProblem("Mark at least one staff member before saving.");
   const settings = await attendanceSettings(tx, ctx);
-  const valid = new Set(statusesFor(await statusList(tx, ctx), "staff").map((s) => s.key));
+  const staffStatuses = statusesFor(await statusList(tx, ctx), "staff");
+  const valid = new Set(staffStatuses.map((s) => s.key));
+  const absentKeys = new Set(staffStatuses.filter((s) => s.counts === "absent").map((s) => s.key));
   const ids = [...new Set(input.entries.map((e) => e.staffId))];
   const staff = await tx.staff.findMany({ where: { id: { in: ids }, archivedAt: null }, select: { id: true, fullName: true, campusId: true } });
   if (staff.length !== ids.length) throw new AttendanceProblem("One of the staff members was not found. Reload the page and save again.");
   const year = await tx.academicYear.findFirst({ where: { schoolId: ctx.schoolId, startDate: { lte: input.date }, endDate: { gte: input.date }, archivedAt: null, ...(access.campusId ? { campusId: access.campusId } : {}) } });
-  const [existing, leave, shifts] = await Promise.all([
+  const [existing, leave, shifts, fullDay] = await Promise.all([
     tx.attendanceMark.findMany({ where: { staffId: { in: ids }, date: input.date, periodNo: 0, archivedAt: null } }),
     onLeaveOn(tx, ctx, input.date, ids),
     shiftsOn(tx, ctx, ids, input.date),
+    tx.leaveRequest.findMany({ where: { staffId: { in: ids }, status: "APPROVED", archivedAt: null, halfDay: false, fromDate: { lte: input.date }, toDate: { gte: input.date } }, select: { id: true, staffId: true } }),
   ]);
+  // A full day of approved leave is Leave, even when marked absent: the day counts once, as leave.
+  const fullLeave = new Map(fullDay.map((l) => [l.staffId!, l.id]));
   const lock = lockState(settings, input.date, input.now, input.timeZone);
   const parseTime = (v: string | null | undefined, label: string) => {
     if (!v) return null;
@@ -128,7 +133,7 @@ export async function saveStaffAttendance(tx: Tx, ctx: SchoolContext, access: At
   const changes: { staffId: string; name: string; before: string | null; after: string; inTime: Date | null; outTime: Date | null; late: number | null; note: string | null }[] = [];
   for (const e of input.entries) {
     const s = staff.find((x) => x.id === e.staffId)!;
-    let statusKey = leave.has(e.staffId) && e.statusKey === "present" ? "leave" : e.statusKey;
+    let statusKey = (leave.has(e.staffId) && e.statusKey === "present") || (fullLeave.has(e.staffId) && absentKeys.has(e.statusKey)) ? "leave" : e.statusKey;
     if (!valid.has(statusKey)) throw new AttendanceProblem(`Choose a status for ${s.fullName}.`);
     const inTime = parseTime(e.inTime, `In time for ${s.fullName}`);
     const outTime = parseTime(e.outTime, `Out time for ${s.fullName}`);
@@ -151,7 +156,7 @@ export async function saveStaffAttendance(tx: Tx, ctx: SchoolContext, access: At
   }
   for (const c of changes) {
     const b = existing.find((x) => x.staffId === c.staffId);
-    const data = { statusKey: c.after, inTime: c.inTime, outTime: c.outTime, lateMinutes: c.late, note: c.note, markedById: ctx.userId, markedAt: input.now };
+    const data = { statusKey: c.after, inTime: c.inTime, outTime: c.outTime, lateMinutes: c.late, note: c.note, markedById: ctx.userId, markedAt: input.now, leaveRequestId: c.after === "leave" ? fullLeave.get(c.staffId) ?? null : null };
     if (b) await tx.attendanceMark.update({ where: { id: b.id }, data: { ...data, method: b.method === "register" ? "register" : b.method } });
     else await tx.attendanceMark.create({ data: { schoolId: ctx.schoolId, academicYearId: year?.id ?? null, staffId: c.staffId, date: input.date, periodNo: 0, method: "register", ...data } });
   }
@@ -228,32 +233,91 @@ export async function assignShift(tx: Tx, ctx: SchoolContext, access: Attendance
 
 // ---------------------------------------------------------------- for Salary (Done when 10)
 
-export type SalaryAttendance = { staffId: string; workingDays: number; presentDays: number; absentDays: number; leaveDays: number; halfDays: number; lateMarks: number; overtimeMinutes: number; notMarkedDays: number };
+export type SalaryAttendance = {
+  staffId: string; workingDays: number; presentDays: number; absentDays: number;
+  /** Every leave day: paid, unpaid and beyond the balance. */
+  leaveDays: number;
+  halfDays: number; lateMarks: number; overtimeMinutes: number; notMarkedDays: number;
+  /** Days of approved leave of an unpaid type (Leave Without Pay). */
+  unpaidLeaveDays: number;
+  /** Days of approved leave beyond the balance (StaffLeaveDetail.lopDays), on the leave's last days. */
+  leaveLopDays: number;
+};
 
 /**
  * A month of staff attendance for Generate Salary: present days (half days
- * count 0.5), leave, late marks and overtime. Approved staff leave on a day
- * with no mark counts as leave.
+ * count 0.5), absences, leave, late marks and overtime, one answer per day.
+ * Approved leave decides the day whatever its mark, so a day marked absent
+ * and then given leave counts once, as leave (09 A5, 10 §2 step 2). Half-day
+ * leave covers half the day; the mark decides the other half. Unpaid leave and
+ * days beyond the leave balance are counted for loss of pay.
  */
 export async function staffMonthForSalary(tx: Tx, ctx: SchoolContext, input: { staffIds: string[]; from: Date; to: Date; campusId?: string | null }): Promise<SalaryAttendance[]> {
   const sum = await attendanceSummary(tx, ctx, { staffIds: input.staffIds, from: input.from, to: input.to, campusId: input.campusId });
-  const days = await schoolDays(tx, ctx, input.from, input.to, input.campusId ?? null);
-  const leaves = await tx.leaveRequest.findMany({ where: { staffId: { in: input.staffIds }, status: "APPROVED", archivedAt: null, fromDate: { lte: input.to }, toDate: { gte: input.from } }, select: { staffId: true, fromDate: true, toDate: true, halfDay: true } });
+  const statuses = statusMap(await statusList(tx, ctx, { includeArchived: true }));
+  const leaves = await tx.leaveRequest.findMany({ where: { staffId: { in: input.staffIds }, status: "APPROVED", archivedAt: null, fromDate: { lte: input.to }, toDate: { gte: input.from } }, select: { id: true, staffId: true, leaveTypeId: true, fromDate: true, toDate: true, halfDay: true } });
+  const typeIds = [...new Set(leaves.map((l) => l.leaveTypeId))];
+  const [types, rules, details] = leaves.length
+    ? await Promise.all([
+        tx.leaveType.findMany({ where: { id: { in: typeIds } }, select: { id: true, paid: true } }),
+        tx.leaveTypeRule.findMany({ where: { leaveTypeId: { in: typeIds } }, select: { leaveTypeId: true, countsHolidays: true } }),
+        tx.staffLeaveDetail.findMany({ where: { leaveRequestId: { in: leaves.map((l) => l.id) } }, select: { leaveRequestId: true, lopDays: true } }),
+      ])
+    : [[], [], []];
+  const paid = (l: { leaveTypeId: string }) => types.find((t) => t.id === l.leaveTypeId)?.paid ?? true;
+  // Days beyond the balance are the last counted days of each leave.
+  const withLop = leaves.filter((l) => paid(l) && Number(details.find((x) => x.leaveRequestId === l.id)?.lopDays ?? 0) > 0);
+  const holidays = withLop.length
+    ? await holidaySet(tx, ctx, withLop.reduce((m, l) => (l.fromDate < m ? l.fromDate : m), withLop[0].fromDate), withLop.reduce((m, l) => (l.toDate > m ? l.toDate : m), withLop[0].toDate), input.campusId ?? null)
+    : new Set<string>();
+  const lopOf = new Map(withLop.map((l) => [l.id, lopDates(l, Number(details.find((x) => x.leaveRequestId === l.id)!.lopDays), holidays, rules.find((r) => r.leaveTypeId === l.leaveTypeId)?.countsHolidays ?? false)]));
   const overtime = await tx.overtimeEntry.groupBy({ by: ["staffId"], where: { staffId: { in: input.staffIds }, date: { gte: input.from, lte: input.to }, archivedAt: null }, _sum: { minutes: true } });
+  const fromKey = isoDay(input.from);
+  const toKey = isoDay(input.to < input.from ? input.from : input.to);
   return input.staffIds.map((id) => {
-    const s = sum.people.get(id)!;
     const marked = sum.days.get(id) ?? new Map<string, string>();
-    let leaveDays = s.byStatus.leave ?? 0;
-    let notMarked = 0;
-    for (const d of days.working) {
-      if (marked.has(isoDay(d))) continue;
-      const l = leaves.find((x) => x.staffId === id && x.fromDate <= d && x.toDate >= d);
-      if (l) leaveDays += l.halfDay ? 0.5 : 1;
-      else notMarked++;
+    const mine = leaves.filter((l) => l.staffId === id);
+    const r = { present: 0, absent: 0, leave: 0, half: 0, late: 0, notMarked: 0, unpaid: 0, beyond: 0 };
+    const working = new Set<string>();
+    for (const d of sum.workingDates) {
+      const k = isoDay(d);
+      working.add(k);
+      const on = mine.filter((l) => l.fromDate <= d && l.toDate >= d);
+      for (const l of on) if (!paid(l)) r.unpaid += l.halfDay ? 0.5 : 1;
+      const cover = Math.min(1, on.reduce((s, l) => s + (l.halfDay ? 0.5 : 1), 0));
+      const st = marked.get(k) ?? null;
+      r.leave += cover;
+      if (cover >= 1) continue;
+      if (!st) {
+        if (cover === 0) r.notMarked++;
+        continue;
+      }
+      if (st === "late") r.late++;
+      if (st === "leave" && cover === 0) r.leave += 1;
+      const w = weightOf(statuses.get(st));
+      if (w === null) continue;
+      if (cover > 0) {
+        // Half a day on leave: the mark tells the other half.
+        r.present += Math.min(w, 1 - cover);
+        if (w === 0) r.absent += 1 - cover;
+        continue;
+      }
+      r.present += w;
+      if (w === 0) r.absent += 1;
+      else if (w === 0.5) r.half += 1;
+    }
+    for (const l of mine) {
+      for (const [k, part] of lopOf.get(l.id) ?? []) {
+        if (k < fromKey || k > toKey) continue;
+        r.beyond += part;
+        // A loss-of-pay day the leave counts but the school is closed (for example a Saturday off) is still a leave day.
+        if (!working.has(k)) r.leave += part;
+      }
     }
     return {
-      staffId: id, workingDays: days.working.length, presentDays: s.present, absentDays: s.absent, leaveDays,
-      halfDays: s.byStatus["half-day"] ?? 0, lateMarks: s.late, overtimeMinutes: overtime.find((o) => o.staffId === id)?._sum.minutes ?? 0, notMarkedDays: notMarked,
+      staffId: id, workingDays: sum.workingDays, presentDays: r.present, absentDays: r.absent, leaveDays: r.leave,
+      halfDays: r.half, lateMarks: r.late, overtimeMinutes: overtime.find((o) => o.staffId === id)?._sum.minutes ?? 0, notMarkedDays: r.notMarked,
+      unpaidLeaveDays: r.unpaid, leaveLopDays: r.beyond,
     };
   });
 }

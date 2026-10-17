@@ -6,6 +6,16 @@
 // student until a person reviews it, and every planned action (a Task or a
 // counselling referral) is made by that review, with the reviewer's note.
 //
+// Attendance is flagged once (gap list P1.6): the Attendance Flag that A4
+// raises (05 §4) is the one record of a student's attendance concern. Early
+// Warnings lists it as the student's attendance row and records the review on
+// it, so a review here shows in Attendance and on the Dashboard, and a flag
+// that clears in Attendance closes here. A Risk Flag is raised for attendance
+// only where no Attendance Flag covers the student (the Watch line above the
+// threshold, or a school with the threshold alert off); once an Attendance
+// Flag is raised, that Risk Flag joins it (joinAttendanceFlags) with its
+// reviews, and is closed with a link, never deleted.
+//
 // Who does what (05-roles.md and the owner's prototype changes of 13-14 Oct):
 // class teachers and teachers review the flags of their own students; the
 // Principal, School Admin and Vice Principal watch every flag and Remind the
@@ -22,6 +32,7 @@ import { currentYear } from "../academic/years";
 import { ownSectionIds } from "../people";
 import { attendanceSettings } from "../attendance/settings";
 import { attendanceSummary } from "../attendance/summary";
+import { flagStatusOf } from "../attendance/flags";
 import { examSettings } from "../exams/settings";
 import type { SubjectResult } from "../exams/compute";
 import { defaulters } from "../fees/defaulters";
@@ -31,7 +42,10 @@ import { dayStartUtc } from "../periods";
 import { addTask, taskAccess } from "../dashboard/tasks";
 import { referToCounselling } from "../students/behaviour";
 import { BUILT_MODULES } from "../modules";
+import { forecastsFor, type ForecastArea } from "./forecasts";
+import { dropoutReasons, withAbsenceReasons } from "./absence-signals";
 import { BASE, type ReportAccess } from "./access";
+import { attendanceFlagRows, coveredStudents, joinAttendanceFlags, JOINED, riskRow, type BaseRow } from "./attendance-rows";
 import type { ReportViewer } from "./types";
 
 export const WARNINGS_HREF = `${BASE}/early-warnings`;
@@ -67,6 +81,7 @@ export const DROP_MAX = 50;
 /** A flag a person closed is not raised again for the same reason for this many days. */
 const QUIET_DAYS = 30;
 const CLEARED = "Cleared: the numbers are back within the rules.";
+const SUGGESTION_BASIS = "Suggestion · based on";
 
 export async function warningSettings(tx: Tx, ctx: SchoolContext) {
   return tx.earlyWarningSetting.upsert({ where: { schoolId: ctx.schoolId }, create: { schoolId: ctx.schoolId }, update: {} });
@@ -96,30 +111,24 @@ type Signal = { studentId: string; sectionId: string | null; area: Area; strengt
 const pctText = (n: number) => `${Math.round(n * 10) / 10}%`;
 const listWords = (xs: string[]) => (xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
 
-/** Attendance signals: below the threshold (Act now) or within the watch margin above it (Watch), and absent days in a row. */
-async function attendanceSignals(tx: Tx, ctx: SchoolContext, year: { id: string; startDate: Date }, enrol: Map<string, string>, today: Date, rules: Awaited<ReturnType<typeof warningRules>>): Promise<Signal[]> {
-  const ids = [...enrol.keys()];
+/**
+ * Attendance signals for students no Attendance Flag covers: within the watch
+ * margin above the threshold (Watch), or below it where Attendance has not
+ * flagged them (Act now; the threshold alert may be off). Students with an
+ * Attendance Flag not yet cleared are left out: that flag is their attendance
+ * row (attendanceFlagRows), even when a person closed it as not a concern.
+ */
+async function attendanceSignals(tx: Tx, ctx: SchoolContext, year: { id: string; startDate: Date }, enrol: Map<string, string>, today: Date, rules: Awaited<ReturnType<typeof warningRules>>, covered: Set<string>): Promise<Signal[]> {
+  const ids = [...enrol.keys()].filter((id) => !covered.has(id));
   if (!ids.length || today < year.startDate) return [];
   const sum = await attendanceSummary(tx, ctx, { studentIds: ids, from: year.startDate, to: today, today });
-  const streaks = await tx.attendanceFlag.findMany({ where: { studentId: { in: ids }, kind: "absent-streak", clearedAt: null } });
   const since = `${formatDate(year.startDate, "UTC")} to ${formatDate(today, "UTC")}`;
   const out: Signal[] = [];
   for (const id of ids) {
     const p = sum.people.get(id)?.percent ?? null;
-    const streak = streaks.find((s) => s.studentId === id);
-    const reasons: string[] = [];
-    const basis: string[] = [];
-    let strength: Signal["strength"] | null = null;
-    if (p !== null && sum.people.get(id)!.countedDays >= 5) {
-      if (p < rules.threshold) { strength = "ACT_NOW"; reasons.push(`Attendance ${pctText(p)} this year (threshold ${rules.threshold}%)`); basis.push(`Attendance, ${since} · threshold ${rules.threshold}% (Attendance Settings)`); }
-      else if (p < rules.watch) { strength = "WATCH"; reasons.push(`Attendance ${pctText(p)} this year (watch line ${rules.watch}%, threshold ${rules.threshold}%)`); basis.push(`Attendance, ${since}`); }
-    }
-    if (streak) {
-      reasons.push(`Absent ${Number(streak.value)} school days in a row, up to ${formatDate(streak.raisedOn, "UTC")}`);
-      basis.push(`Attendance register · rule: ${rules.streakDays} days in a row (Attendance Settings)`);
-      strength = strength === "ACT_NOW" || (p !== null && p < rules.watch) ? "ACT_NOW" : strength ?? "WATCH";
-    }
-    if (strength) out.push({ studentId: id, sectionId: enrol.get(id) ?? null, area: "attendance", strength, reason: reasons.join("\n"), basis: basis.join("\n"), value: p });
+    if (p === null || sum.people.get(id)!.countedDays < 5) continue;
+    if (p < rules.threshold) out.push({ studentId: id, sectionId: enrol.get(id) ?? null, area: "attendance", strength: "ACT_NOW", reason: `Attendance ${pctText(p)} this year (threshold ${rules.threshold}%)`, basis: `Attendance, ${since} · threshold ${rules.threshold}% (Attendance Settings)`, value: p });
+    else if (p < rules.watch) out.push({ studentId: id, sectionId: enrol.get(id) ?? null, area: "attendance", strength: "WATCH", reason: `Attendance ${pctText(p)} this year (watch line ${rules.watch}%, threshold ${rules.threshold}%)`, basis: `Attendance, ${since}`, value: p });
   }
   return out;
 }
@@ -178,23 +187,29 @@ async function feeSignals(tx: Tx, ctx: SchoolContext, year: { id: string }, enro
  * Works out every signal again and keeps one open flag per student and area:
  * new signals become New flags (the class teacher is told about Act now ones),
  * changed numbers update the open flag, and flags whose numbers are back
- * within the rules close by themselves with that reason. Safe to run twice.
+ * within the rules close by themselves with that reason. Attendance Flags are
+ * not copied: an attendance Risk Flag whose student has one joins it first.
+ * Safe to run twice.
  */
 export async function refreshFlags(tx: Tx, ctx: SchoolContext, now = new Date()) {
   const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { timeZone: true } });
   const today = todayIn(school.timeZone, now);
+  const joined = await joinAttendanceFlags(tx, ctx, now);
   const year = await currentYear(tx, ctx);
-  if (!year) return { raised: 0, updated: 0, cleared: 0 };
+  if (!year) return { raised: 0, updated: 0, cleared: 0, joined };
   const rules = await warningRules(tx, ctx);
   const enrolRows = await tx.enrolment.findMany({ where: { academicYearId: year.id, archivedAt: null, status: "STUDYING", student: { archivedAt: null } }, select: { studentId: true, sectionId: true } });
   const enrol = new Map(enrolRows.map((e) => [e.studentId, e.sectionId]));
-  const signals = [
-    ...(await attendanceSignals(tx, ctx, year, enrol, today, rules)),
+  const covered = await coveredStudents(tx);
+  // Absence reasons adjust them (./absence-signals.ts); without recorded reasons nothing changes.
+  // Attendance Flag rows get the same in attendanceFlagRows.
+  const signals: Signal[] = await withAbsenceReasons(tx, ctx, [
+    ...(await attendanceSignals(tx, ctx, year, enrol, today, rules, covered)),
     ...(await marksSignals(tx, year, enrol, rules)),
     ...(await feeSignals(tx, ctx, year, enrol, today, rules)),
-  ];
+  ], { from: year.startDate, today, enrol, threshold: rules.threshold, streakDays: rules.streakDays });
   const open = await tx.riskFlag.findMany({ where: { closedAt: null } });
-  const quiet = await tx.riskFlag.findMany({ where: { closedAt: { gte: new Date(now.getTime() - QUIET_DAYS * DAY_MS) }, status: "CLOSED", NOT: { closedReason: CLEARED } }, select: { studentId: true, area: true, strength: true } });
+  const quiet = await tx.riskFlag.findMany({ where: { closedAt: { gte: new Date(now.getTime() - QUIET_DAYS * DAY_MS) }, status: "CLOSED", NOT: { closedReason: { in: [CLEARED, JOINED] } } }, select: { studentId: true, area: true, strength: true } });
   const key = (s: { studentId: string; area: string }) => `${s.studentId}:${s.area}`;
   const openBy = new Map(open.map((f) => [key(f), f]));
   const seen = new Set<string>();
@@ -219,6 +234,8 @@ export async function refreshFlags(tx: Tx, ctx: SchoolContext, now = new Date())
   }
   for (const f of open) {
     if (seen.has(key(f))) continue;
+    // Added by a person from a suggestion (Looking ahead): it stays until a person closes it.
+    if (f.basis.startsWith(SUGGESTION_BASIS)) continue;
     await tx.riskFlag.update({ where: { id: f.id }, data: { status: "CLOSED", closedAt: now, closedReason: CLEARED } });
     cleared++;
   }
@@ -234,37 +251,61 @@ export async function refreshFlags(tx: Tx, ctx: SchoolContext, now = new Date())
     }
   }
   await tx.earlyWarningSetting.update({ where: { schoolId: ctx.schoolId }, data: { lastRefreshAt: now } });
-  return { raised, updated, cleared };
+  return { raised, updated, cleared, joined };
 }
 
 /** Which flags this person sees: their own students for own reach; fee flags only with the whole school's fees. */
 export async function flagScope(tx: Tx, who: ReportViewer, a: ReportAccess): Promise<Prisma.RiskFlagWhereInput> {
-  if (!a.warnings.on) return { id: "00000000-0000-0000-0000-000000000000" };
+  return (await scopeOf(tx, who, a)).where;
+}
+
+/** The Risk Flag filter, and the sections whose Attendance Flags this person sees (null: every section). */
+async function scopeOf(tx: Tx, who: ReportViewer, a: ReportAccess) {
+  const year = await currentYear(tx, who.ctx);
+  if (!a.warnings.on) return { where: { id: "00000000-0000-0000-0000-000000000000" } as Prisma.RiskFlagWhereInput, sectionIds: [] as string[] | null, year };
   const where: Prisma.RiskFlagWhereInput = {};
   if (!a.warnings.fees) where.area = { in: ["attendance", "marks"] };
+  let sectionIds: string[] | null = null;
   if (a.own) {
-    const year = await currentYear(tx, who.ctx);
-    const own = year ? await ownSectionIds(tx, who.ctx, year.id) : [];
-    where.sectionId = { in: own };
+    sectionIds = year ? await ownSectionIds(tx, who.ctx, year.id) : [];
+    where.sectionId = { in: sectionIds };
   }
-  return where;
+  return { where, sectionIds, year };
+}
+
+/**
+ * Every Early Warnings row this person sees: Risk Flags (marks, fees, and
+ * attendance where no Attendance Flag covers the student) and the students'
+ * Attendance Flags. An open attendance Risk Flag of a student who has an
+ * Attendance Flag is left out (it joins that flag at the next check), so each
+ * child has one attendance row.
+ */
+async function visibleRows(tx: Tx, who: ReportViewer, a: ReportAccess, q: { studentIds?: string[]; openOnly?: boolean; raisedFrom?: Date | null; raisedTo?: Date | null } = {}): Promise<BaseRow[]> {
+  if (!a.warnings.on) return [];
+  const s = await scopeOf(tx, who, a);
+  const raised = q.raisedFrom || q.raisedTo ? { ...(q.raisedFrom ? { gte: q.raisedFrom } : {}), ...(q.raisedTo ? { lt: q.raisedTo } : {}) } : null;
+  const risk = await tx.riskFlag.findMany({
+    where: { AND: [s.where, q.studentIds ? { studentId: { in: q.studentIds } } : {}, q.openOnly ? { closedAt: null } : {}, raised ? { raisedAt: raised } : {}] },
+    include: { reviews: { orderBy: { createdAt: "desc" } } }, orderBy: [{ raisedAt: "desc" }],
+  });
+  const covered = await coveredStudents(tx, q.studentIds);
+  const rules = await warningRules(tx, who.ctx);
+  const att = await attendanceFlagRows(tx, who.ctx, { year: s.year, today: todayIn(who.school.timeZone), rules, sectionIds: s.sectionIds, studentIds: q.studentIds, openOnly: q.openOnly });
+  return [
+    ...risk.filter((f) => !(f.area === "attendance" && f.closedAt === null && covered.has(f.studentId))).map(riskRow),
+    ...att.filter((r) => !raised || ((!raised.gte || r.raisedAt >= raised.gte) && (!raised.lt || r.raisedAt < raised.lt))),
+  ];
 }
 
 export type FlagFilter = { status: "open" | FlagStatus; area: Area | "all"; q: string; raisedFrom: Date | null; raisedTo: Date | null };
 
 export async function listFlags(tx: Tx, who: ReportViewer, a: ReportAccess, f: FlagFilter) {
-  const scope = await flagScope(tx, who, a);
-  const base: Prisma.RiskFlagWhereInput = {
-    ...scope,
-    ...(f.raisedFrom || f.raisedTo ? { raisedAt: { ...(f.raisedFrom ? { gte: f.raisedFrom } : {}), ...(f.raisedTo ? { lt: f.raisedTo } : {}) } } : {}),
-  };
-  const all = await tx.riskFlag.findMany({ where: base, include: { reviews: { orderBy: { createdAt: "desc" } } }, orderBy: [{ raisedAt: "desc" }] });
+  const all = await visibleRows(tx, who, a, { raisedFrom: f.raisedFrom, raisedTo: f.raisedTo });
   const students = new Map((await tx.student.findMany({ where: { id: { in: [...new Set(all.map((x) => x.studentId))] } }, select: { id: true, fullName: true, admissionNo: true, photoFileId: true } })).map((s) => [s.id, s]));
   const sections = new Map((await tx.section.findMany({ where: { id: { in: [...new Set(all.map((x) => x.sectionId).filter((x): x is string => Boolean(x)))] } }, include: { schoolClass: { select: { name: true } } } })).map((s) => [s.id, `${s.schoolClass.name.replace(/^Class\s+/i, "")} ${s.name}`]));
   const people = new Map((await tx.userLogin.findMany({ where: { id: { in: [...new Set(all.flatMap((x) => x.reviews.map((r) => r.reviewerId)))] } }, select: { id: true, displayName: true } })).map((u) => [u.id, u.displayName]));
   const rows = all.map((x) => ({
     ...x,
-    status: x.status as FlagStatus,
     name: students.get(x.studentId)?.fullName ?? "Student",
     admissionNo: students.get(x.studentId)?.admissionNo ?? "",
     cls: x.sectionId ? sections.get(x.sectionId) ?? "" : "",
@@ -285,17 +326,31 @@ export async function listFlags(tx: Tx, who: ReportViewer, a: ReportAccess, f: F
     .filter((r) => (f.status === "open" ? r.status !== "CLOSED" : r.status === f.status))
     .filter((r) => f.area === "all" || r.area === f.area)
     .filter((r) => !q || `${r.name} ${r.cls} ${r.admissionNo}`.toLowerCase().includes(q))
-    .sort((x, y) => (x.strength === y.strength ? y.raisedAt.getTime() - x.raisedAt.getTime() : x.strength === "ACT_NOW" ? -1 : 1));
+    .sort(byStrength);
   return { list, counts };
 }
 export type FlagRow = Awaited<ReturnType<typeof listFlags>>["list"][number];
 
-/** One flag this person may see, or a refusal. */
-async function visibleFlag(tx: Tx, who: ReportViewer, a: ReportAccess, flagId: string) {
-  const scope = await flagScope(tx, who, a);
-  const f = await tx.riskFlag.findFirst({ where: { AND: [scope, { id: flagId }] } });
-  if (!f) throw new WarningProblem("This flag was not found, or it is not one of your students.");
-  return f;
+/** Act now first, then the newest. */
+const byStrength = (x: BaseRow, y: BaseRow) => (x.strength === y.strength ? y.raisedAt.getTime() - x.raisedAt.getTime() : x.strength === "ACT_NOW" ? -1 : 1);
+
+/** Is this the row a link names? A row of Attendance Flags answers to each of its flags' ids. */
+export const rowIs = (r: BaseRow, id: string) => r.id === id || (r.source === "attendance" && r.attendanceFlagIds.includes(id));
+
+/** One flag this person may see (a Risk Flag, or a student's Attendance Flags), or a refusal. */
+async function visibleFlag(tx: Tx, who: ReportViewer, a: ReportAccess, flagId: string): Promise<BaseRow> {
+  if (a.warnings.on) {
+    const s = await scopeOf(tx, who, a);
+    const f = await tx.riskFlag.findFirst({ where: { AND: [s.where, { id: flagId }] }, include: { reviews: { orderBy: { createdAt: "desc" } } } });
+    if (f) return riskRow(f);
+    const af = await tx.attendanceFlag.findFirst({ where: { id: flagId }, select: { studentId: true } });
+    if (af) {
+      const rows = await attendanceFlagRows(tx, who.ctx, { year: s.year, today: todayIn(who.school.timeZone), rules: await warningRules(tx, who.ctx), sectionIds: s.sectionIds, studentIds: [af.studentId] });
+      const row = rows.find((r) => rowIs(r, flagId));
+      if (row) return row;
+    }
+  }
+  throw new WarningProblem("This flag was not found, or it is not one of your students.");
 }
 
 /** May this person review this flag? Teachers their own students; fee flags the people who decide about fees. */
@@ -309,10 +364,19 @@ export function mayRemind(a: ReportAccess) {
   return a.warnings.on && !a.own;
 }
 
+/** The area of a flag by its id: a Risk Flag's own, or attendance for an Attendance Flag. */
+export async function flagArea(tx: Tx, flagId: string): Promise<string | null> {
+  const f = await tx.riskFlag.findFirst({ where: { id: flagId }, select: { area: true } });
+  if (f) return f.area;
+  return (await tx.attendanceFlag.findFirst({ where: { id: flagId }, select: { id: true } })) ? "attendance" : null;
+}
+
 /**
  * A person's review (required before any action): Reviewed with a note, an
  * action planned (which makes the Task or the counselling referral), or closed
- * as not a concern with the reason. Audited with the decision and note.
+ * as not a concern with the reason. Audited with the decision and note. For a
+ * student's attendance row the review is saved on their Attendance Flags, so
+ * Attendance and the Dashboard show it too.
  */
 export async function reviewFlag(tx: Tx, who: ReportViewer, a: ReportAccess, flagId: string, input: { decision: string; note: string; action: string | null }, now = new Date()) {
   const f = await visibleFlag(tx, who, a, flagId);
@@ -351,17 +415,26 @@ export async function reviewFlag(tx: Tx, who: ReportViewer, a: ReportAccess, fla
       made = `Task created: ${task.title}, due ${formatDate(due, "UTC")}.`;
     }
   }
-  const status: FlagStatus = decision === "NOT_A_CONCERN" ? "CLOSED" : decision === "ACTION_PLANNED" ? "ACTION_PLANNED" : f.status === "ACTION_PLANNED" ? "ACTION_PLANNED" : "REVIEWED";
-  await tx.flagReview.create({ data: { schoolId: who.ctx.schoolId, flagId: f.id, decision, note, action: act?.label ?? null, reviewerId: who.ctx.userId! } });
-  await tx.riskFlag.update({
-    where: { id: f.id },
-    data: {
-      status, ...(act ? { action: act.label } : {}), ...(taskId ? { taskId } : {}), ...(counsellingId ? { counsellingId } : {}),
-      ...(status === "CLOSED" ? { closedAt: now, closedReason: note } : {}),
-    },
-  });
-  await writeAudit(tx, who.ctx, { action: "flag-reviewed", recordType: "Risk Flag", recordId: f.id, before: { status: f.status }, after: { status, decision, note, action: act?.label ?? null, taskId, counsellingId } });
-  return { name: student.fullName, status, decision, made };
+  const statusAfter = (before: string): FlagStatus => (decision === "NOT_A_CONCERN" ? "CLOSED" : decision === "ACTION_PLANNED" ? "ACTION_PLANNED" : before === "ACTION_PLANNED" ? "ACTION_PLANNED" : "REVIEWED");
+  const change = (before: string) => {
+    const status = statusAfter(before);
+    return { status, ...(act ? { action: act.label } : {}), ...(taskId ? { taskId } : {}), ...(counsellingId ? { counsellingId } : {}), ...(status === "CLOSED" ? { closedAt: now, closedReason: note } : {}) };
+  };
+  if (f.source === "attendance") {
+    for (const af of await tx.attendanceFlag.findMany({ where: { id: { in: f.attendanceFlagIds } } })) {
+      const before = flagStatusOf(af);
+      const data = change(before);
+      await tx.flagReview.create({ data: { schoolId: who.ctx.schoolId, attendanceFlagId: af.id, decision, note, action: act?.label ?? null, reviewerId: who.ctx.userId!, createdAt: now } });
+      await tx.attendanceFlag.update({ where: { id: af.id }, data });
+      await writeAudit(tx, who.ctx, { action: "flag-reviewed", recordType: "Attendance Flag", recordId: af.id, before: { status: before }, after: { status: data.status, decision, note, action: act?.label ?? null, taskId, counsellingId } });
+    }
+  } else {
+    const data = change(f.status);
+    await tx.flagReview.create({ data: { schoolId: who.ctx.schoolId, flagId: f.id, decision, note, action: act?.label ?? null, reviewerId: who.ctx.userId! } });
+    await tx.riskFlag.update({ where: { id: f.id }, data });
+    await writeAudit(tx, who.ctx, { action: "flag-reviewed", recordType: "Risk Flag", recordId: f.id, before: { status: f.status }, after: { status: data.status, decision, note, action: act?.label ?? null, taskId, counsellingId } });
+  }
+  return { name: student.fullName, status: statusAfter(f.status), decision, made };
 }
 
 /** Remind the class teacher (attendance and marks) or the accounts team (fees) to look at a flag. */
@@ -385,7 +458,7 @@ export async function remindFlag(tx: Tx, who: ReportViewer, a: ReportAccess, fla
     ? `Please follow up the fees of ${student.fullName}: ${f.reason.split("\n")[0]}.`
     : `Please review the early-warning flag for ${student.fullName}: ${f.reason.split("\n")[0]}.`;
   for (const p of to) {
-    await sendReminder(tx, who.ctx, { action: "early-warning-reminder", recordType: "Risk Flag", recordId: f.id, to: p.id, text, link: f.area === "fees" ? "/fee-management/defaulters" : `${WARNINGS_HREF}?open=${f.id}` });
+    await sendReminder(tx, who.ctx, { action: "early-warning-reminder", recordType: f.source === "attendance" ? "Attendance Flag" : "Risk Flag", recordId: f.id, to: p.id, text, link: f.area === "fees" ? "/fee-management/defaulters" : `${WARNINGS_HREF}?open=${f.id}` });
   }
   return { names: to.map((p) => p.name), student: student.fullName };
 }
@@ -395,14 +468,36 @@ export async function remindedToday(tx: Tx, ctx: SchoolContext, flagIds: string[
   return remindedSince(tx, ctx, "early-warning-reminder", flagIds, dayStartUtc(todayIn(tz).toISOString().slice(0, 10), tz));
 }
 
-/** Open flags of one student for their profile ("today" items) and the Dashboard. */
-export async function studentFlags(tx: Tx, studentId: string, area?: Area[]) {
-  return tx.riskFlag.findMany({ where: { studentId, closedAt: null, ...(area ? { area: { in: area } } : {}) }, orderBy: [{ strength: "asc" }, { raisedAt: "desc" }] });
+/** Open flags of one student this person sees, Act now first: for their profile ("today" items). */
+export async function studentFlags(tx: Tx, who: ReportViewer, a: ReportAccess, studentId: string) {
+  const rows = await visibleRows(tx, who, a, { studentIds: [studentId], openOnly: true });
+  return rows.filter((r) => r.status !== "CLOSED").sort(byStrength);
+}
+
+/**
+ * The students the Early Warnings card on the Dashboard counts, once each:
+ * open Risk Flags this person sees (Act now ones for people who watch, New
+ * ones for people who review). Attendance Flags are left out, because the
+ * Attendance cards count those children, so no child is counted twice.
+ */
+export async function dashboardWarningStudents(tx: Tx, who: ReportViewer, a: ReportAccess) {
+  if (!a.warnings.on) return [];
+  const s = await scopeOf(tx, who, a);
+  const rows = await tx.riskFlag.findMany({
+    where: { AND: [s.where, a.warnings.review === "none" ? { closedAt: null, strength: "ACT_NOW" } : { status: "NEW" }] },
+    select: { studentId: true, area: true },
+  });
+  const covered = await coveredStudents(tx, [...new Set(rows.filter((r) => r.area === "attendance").map((r) => r.studentId))]);
+  return [...new Set(rows.filter((r) => !(r.area === "attendance" && covered.has(r.studentId))).map((r) => r.studentId))];
 }
 
 /* ---------- AI signals (optional: Settings, Modules On/Off) ---------- */
 
-export type AiSignal = { key: string; kind: "dropout" | "prediction" | "unusual"; title: string; source: string; body: string; studentId?: string; flagId?: string };
+export type AiSignal = {
+  key: string; kind: "dropout" | "prediction" | "unusual"; title: string; source: string; body: string; studentId?: string; flagId?: string;
+  /** Looking ahead: the area, how soon to act, and where to look. */
+  area?: ForecastArea; strength?: "WATCH" | "ACT_NOW"; href?: string; hrefLabel?: string;
+};
 
 /**
  * Suggestions from simple patterns in the school's own records. Each is
@@ -418,8 +513,12 @@ export async function aiSignals(tx: Tx, who: ReportViewer, a: ReportAccess, now 
   const out: AiSignal[] = [];
 
   if (a.ai.insights) {
-    // Dropout risk: attendance falling three months in a row for a student who is already flagged.
-    const flagged = await tx.riskFlag.findMany({ where: { closedAt: null, area: "attendance", strength: "ACT_NOW" }, take: 30 });
+    // Dropout risk: attendance falling three months in a row for a student who is already flagged
+    // (their Attendance Flag, or an attendance Risk Flag where no Attendance Flag covers them).
+    const covered = await coveredStudents(tx);
+    const fromAttendance = (await attendanceFlagRows(tx, who.ctx, { year, today, rules: await warningRules(tx, who.ctx), sectionIds: null, openOnly: true })).filter((r) => r.strength === "ACT_NOW");
+    const fromRisk = (await tx.riskFlag.findMany({ where: { closedAt: null, area: "attendance", strength: "ACT_NOW" }, take: 30 })).filter((f) => !covered.has(f.studentId));
+    const flagged = [...fromAttendance, ...fromRisk].slice(0, 30).map((f) => ({ id: f.id, studentId: f.studentId }));
     const months = [2, 1, 0].map((back) => {
       const s = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - back, 1));
       const e = back === 0 ? today : new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - back + 1, 0));
@@ -430,6 +529,7 @@ export async function aiSignals(tx: Tx, who: ReportViewer, a: ReportAccess, now 
       const sums = await Promise.all(months.map((m) => attendanceSummary(tx, who.ctx, { studentIds: ids, from: m.s < year.startDate ? year.startDate : m.s, to: m.e, today })));
       const names = new Map((await tx.student.findMany({ where: { id: { in: ids } }, select: { id: true, fullName: true } })).map((s) => [s.id, s.fullName]));
       const fees = new Set((await tx.riskFlag.findMany({ where: { closedAt: null, area: "fees", studentId: { in: ids } }, select: { studentId: true } })).map((x) => x.studentId));
+      const reasons = await dropoutReasons(tx, who.ctx, ids, months[0].s < year.startDate ? year.startDate : months[0].s, today, a.warnings.fees);
       for (const f of flagged) {
         const ps = sums.map((s) => s.people.get(f.studentId)?.percent ?? null);
         if (ps.some((p) => p === null)) continue;
@@ -438,9 +538,9 @@ export async function aiSignals(tx: Tx, who: ReportViewer, a: ReportAccess, now 
         const name = names.get(f.studentId) ?? "A student";
         out.push({
           key: `dropout:${f.studentId}:${today.toISOString().slice(0, 7)}`, kind: "dropout", studentId: f.studentId, flagId: f.id,
-          title: `${name} may be at risk of leaving`,
-          source: `attendance for the last three months${fees.has(f.studentId) ? " and overdue fees" : ""}`,
-          body: `Attendance has fallen three months in a row (${pctText(p1)}, ${pctText(p2)}, ${pctText(p3)}). A call from the class teacher may help; you decide.`,
+          title: `${name} may be at risk of leaving`, strength: reasons.get(f.studentId)?.strong ? "ACT_NOW" : undefined,
+          source: `attendance for the last three months${reasons.has(f.studentId) ? ", the absence reasons" : ""}${fees.has(f.studentId) ? " and overdue fees" : ""}`,
+          body: `Attendance has fallen three months in a row (${pctText(p1)}, ${pctText(p2)}, ${pctText(p3)}).${reasons.get(f.studentId)?.why ?? ""} A call from the class teacher may help; you decide.`,
         });
       }
     }
@@ -484,34 +584,9 @@ export async function aiSignals(tx: Tx, who: ReportViewer, a: ReportAccess, now 
   }
 
   if (a.ai.forecasts) {
-    // Predictions: where a class's pass % fell between its last two exams, the next one may be lower still.
-    const results = await tx.result.findMany({ where: { academicYearId: year.id, status: "PUBLISHED", examId: { not: null } }, select: { classId: true, examId: true, outcome: true } });
-    const exams = new Map((await tx.exam.findMany({ where: { id: { in: [...new Set(results.map((r) => r.examId!))] } }, select: { id: true, title: true, endDate: true } })).map((e) => [e.id, e]));
-    const classes = new Map((await tx.schoolClass.findMany({ where: { id: { in: [...new Set(results.map((r) => r.classId))] } }, select: { id: true, name: true } })).map((c) => [c.id, c.name]));
-    const byClass = new Map<string, Map<string, { n: number; pass: number }>>();
-    for (const r of results) {
-      const m = byClass.get(r.classId) ?? new Map();
-      const cur = m.get(r.examId!) ?? { n: 0, pass: 0 };
-      cur.n++;
-      if (r.outcome === "Pass") cur.pass++;
-      m.set(r.examId!, cur);
-      byClass.set(r.classId, m);
-    }
-    for (const [classId, m] of byClass) {
-      const list = [...m.entries()].filter(([e]) => exams.has(e)).sort((x, y) => exams.get(x[0])!.endDate.getTime() - exams.get(y[0])!.endDate.getTime());
-      if (list.length < 2) continue;
-      const [pe, pv] = list[list.length - 2];
-      const [le, lv] = list[list.length - 1];
-      if (pv.n < 5 || lv.n < 5) continue;
-      const p1 = (pv.pass / pv.n) * 100, p2 = (lv.pass / lv.n) * 100;
-      if (p1 - p2 < 3) continue;
-      const next = Math.max(0, Math.round(p2 - (p1 - p2) / 2));
-      out.push({
-        key: `predict:${classId}:${le}`, kind: "prediction",
-        title: `${classes.get(classId) ?? "A class"} may do worse in the next exam`,
-        source: `${exams.get(pe)!.title} and ${exams.get(le)!.title} results`,
-        body: `The pass % fell from ${pctText(p1)} to ${pctText(p2)}. If nothing changes it may be about ${next}% next time. Extra classes for students near the pass mark may help; you decide.`,
-      });
+    // Looking ahead: worked out by the background job and stored (forecasts.ts).
+    for (const f of await forecastsFor(tx, { fees: a.warnings.fees, finance: a.finance !== null })) {
+      out.push({ key: f.key, kind: "prediction", area: f.area as ForecastArea, strength: f.strength as "WATCH" | "ACT_NOW", title: f.title, source: f.source, body: f.body, studentId: f.studentId ?? undefined, href: f.href ?? undefined, hrefLabel: f.hrefLabel ?? undefined });
     }
   }
 
@@ -528,8 +603,21 @@ export async function decideAiSignal(tx: Tx, who: ReportViewer, a: ReportAccess,
     const year = await currentYear(tx, who.ctx);
     if (signal.studentId && year) {
       const enrol = await tx.enrolment.findFirst({ where: { studentId: signal.studentId, academicYearId: year.id, archivedAt: null }, select: { sectionId: true } });
-      const flag = await tx.riskFlag.create({ data: { schoolId: who.ctx.schoolId, studentId: signal.studentId, academicYearId: year.id, sectionId: enrol?.sectionId ?? null, area: "attendance", strength: "WATCH", reason: signal.title, basis: `Suggestion · based on ${signal.source}`, raisedAt: now } });
-      flagId = flag.id;
+      const area = signal.area === "marks" || signal.area === "fees" ? signal.area : "attendance";
+      // One open flag per student and area: a suggestion joins the open one if there is one. For
+      // attendance that is the student's Attendance Flag; one a person closed is opened again for review.
+      const attendance = area === "attendance" ? await tx.attendanceFlag.findMany({ where: { studentId: signal.studentId, clearedAt: null } }) : [];
+      if (attendance.length) {
+        flagId = [...attendance].sort((x, y) => (x.kind === y.kind ? 0 : x.kind === "below-threshold" ? -1 : 1))[0].id;
+        for (const af of attendance.filter((f) => f.status === "CLOSED")) {
+          await tx.attendanceFlag.update({ where: { id: af.id }, data: { status: "NEW", closedAt: null, closedReason: null } });
+          await writeAudit(tx, who.ctx, { action: "reopened", recordType: "Attendance Flag", recordId: af.id, before: { status: af.status, closedReason: af.closedReason }, after: { status: "NEW", reason: `Added for review from a suggestion: ${signal.title}` } });
+        }
+      } else {
+        const already = await tx.riskFlag.findFirst({ where: { studentId: signal.studentId, area, closedAt: null } });
+        const flag = already ?? await tx.riskFlag.create({ data: { schoolId: who.ctx.schoolId, studentId: signal.studentId, academicYearId: year.id, sectionId: enrol?.sectionId ?? null, area, strength: "WATCH", reason: signal.title, basis: `${SUGGESTION_BASIS} ${signal.source}`, raisedAt: now } });
+        flagId = flag.id;
+      }
     } else {
       const school = await tx.school.findUniqueOrThrow({ where: { id: who.ctx.schoolId }, select: { timeZone: true } });
       await addTask(tx, { ctx: who.ctx, access: taskAccess(who) }, { title: `Check: ${signal.title}`.slice(0, 150), assignedToId: who.ctx.userId, dueAt: null, details: `Suggestion, based on ${signal.source}. ${signal.body}`, remind: false }, { now, timeZone: school.timeZone, link: WARNINGS_HREF });

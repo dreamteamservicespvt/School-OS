@@ -5,6 +5,7 @@ import { formatDateTime } from "@/lib/format";
 import { readListParams, skipTake } from "@/lib/list";
 import { importKind, importKinds } from "@/lib/importer";
 import { shownFileName } from "@/lib/data-security/imports";
+import { mayImport } from "@/lib/move-in/service";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/list/data-table";
@@ -18,7 +19,8 @@ type Search = { searchParams: Promise<Record<string, string | string[] | undefin
 
 export default async function ImportsPage({ searchParams }: Search) {
   const { current, may } = await requireSettingsPage("data-security");
-  const params = readListParams(await searchParams);
+  const sp = await searchParams;
+  const params = readListParams(sp);
   const tz = current.school.timeZone;
   const { rows, total, running, names } = await withSchool(current.ctx, async (tx) => {
     const [rows, total, running] = await Promise.all([
@@ -30,9 +32,11 @@ export default async function ImportsPage({ searchParams }: Search) {
     const people = ids.length ? await tx.schoolAccess.findMany({ where: { userLoginId: { in: ids } }, select: { userLogin: { select: { id: true, displayName: true } } } }) : [];
     return { rows, total, running, names: new Map(people.map((p) => [p.userLogin.id, p.userLogin.displayName])) };
   });
-  const canImport = may.create;
-  const canUndo = may.archive;
-  const kinds = importKinds();
+  // Each kind of record is imported, and undone, only by people who may add it in its own module.
+  const kinds = importKinds().filter((k) => mayImport(current.permissions, k.key, "create", current.modulesOn));
+  const canImport = may.create && kinds.length > 0;
+  const canUndo = (kind: string) => may.archive && mayImport(current.permissions, kind, "archive", current.modulesOn);
+  const wanted = typeof sp.kind === "string" && kinds.some((k) => k.key === sp.kind) ? sp.kind : undefined;
 
   return (
     <>
@@ -42,7 +46,7 @@ export default async function ImportsPage({ searchParams }: Search) {
         <Card>
           <CardHeader title="Import from a spreadsheet" description="Upload, match your columns, check the preview, then import the good rows. Rows with problems are left out and you can download them to fix." />
           <CardBody>
-            {canImport ? <UploadForm kinds={kinds.map((k) => ({ value: k.key, label: k.label }))} /> : <p className="text-ink-2">Your role can see import history but not import. Ask your School Admin.</p>}
+            {canImport ? <UploadForm kinds={kinds.map((k) => ({ value: k.key, label: k.label }))} kind={wanted} /> : <p className="text-ink-2">Your role can see import history but not import. Ask your School Admin.</p>}
           </CardBody>
         </Card>
         <Card>
@@ -83,7 +87,7 @@ export default async function ImportsPage({ searchParams }: Search) {
         actions={(r) => (
           <div className="flex flex-wrap justify-end gap-1">
             {r.skipped > 0 && <a href={`/settings/data-security/imports/${r.id}/errors`} className="inline-flex min-h-11 items-center rounded-lg px-3 font-medium text-brand-text hover:bg-surface-2">Rows with problems</a>}
-            {canUndo && !r.undoneAt && r.added > 0 && importKind(r.kind) && <UndoImportButton batchId={r.id} label={importKind(r.kind)!.label} added={r.added} />}
+            {canUndo(r.kind) && !r.undoneAt && (r.added > 0 || r.updated > 0) && importKind(r.kind) && <UndoImportButton batchId={r.id} label={importKind(r.kind)!.label} added={r.added} />}
           </div>
         )}
         empty={<EmptyState title="Nothing has been imported yet">When a school moves to School OS, its students, staff and fee dues usually come in from spreadsheets. Each import is listed here and can be undone.</EmptyState>}

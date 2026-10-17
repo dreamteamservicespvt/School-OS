@@ -7,10 +7,10 @@ import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
-import { sendMessage } from "../messaging/send";
-import { channelSetups } from "../messaging/channels";
+import { MessagingProblem, NOT_SENT, sendMessage } from "../messaging/send";
 import { ensureReadyTemplates, templateByKey } from "../messaging/templates";
 import { checkCode, ParentLinkProblem, sendCode } from "./links";
+import { childrenOfGuardian } from "../students/guardian-access";
 
 export type ConsentTextRow = { id: string; consentType: string; title: string; version: number; text: Record<string, string> };
 
@@ -53,7 +53,7 @@ export type ConsentAction = { consentTextId: string; studentIds: string[]; actio
 export async function askConsentCode(tx: Tx, ctx: SchoolContext, linkId: string, guardianId: string, action: ConsentAction) {
   const text = await tx.consentText.findFirst({ where: { id: action.consentTextId, schoolId: ctx.schoolId, isCurrent: true } });
   if (!text) throw new ParentLinkProblem("This consent form has changed. Please open the page again.");
-  const mine = await childrenOf(tx, ctx, guardianId);
+  const mine = await childrenOfGuardian(tx, ctx, guardianId, { studying: true });
   if (!action.studentIds.length || action.studentIds.some((id) => !mine.includes(id))) throw new ParentLinkProblem("Choose your child for this consent.");
   return sendCode(tx, ctx, linkId, "consent", { detail: action });
 }
@@ -65,8 +65,10 @@ export async function confirmConsent(tx: Tx, ctx: SchoolContext, linkId: string,
   const action = check.code.detail as ConsentAction;
   const text = await tx.consentText.findFirst({ where: { id: action.consentTextId, schoolId: ctx.schoolId } });
   if (!text) return { ok: false as const, message: "This consent form has changed. Please open the page again." };
-  const mine = await childrenOf(tx, ctx, guardianId);
+  // Checked again: a custody restriction set after the code was sent stops it too.
+  const mine = await childrenOfGuardian(tx, ctx, guardianId, { studying: true });
   const students = action.studentIds.filter((id) => mine.includes(id));
+  if (!students.length) return { ok: false as const, message: "Choose your child for this consent." };
   const now = new Date();
   for (const studentId of students) {
     const standing = await tx.consentRecord.findFirst({ where: { schoolId: ctx.schoolId, guardianId, studentId, consentType: text.consentType, withdrawnAt: null } });
@@ -84,31 +86,35 @@ export async function confirmConsent(tx: Tx, ctx: SchoolContext, linkId: string,
   return { ok: true as const, action: action.action, count: students.length, title: text.title };
 }
 
-/** The guardian's children studying in the school (ids). */
-export async function childrenOf(tx: Tx, ctx: SchoolContext, guardianId: string) {
-  const rows = await tx.studentGuardian.findMany({ where: { schoolId: ctx.schoolId, guardianId, archivedAt: null, student: { archivedAt: null, status: { in: ["ACTIVE", "ADMITTED"] } } }, select: { studentId: true } });
-  return rows.map((r) => r.studentId);
-}
-
 /** Request consent: one consent form to a set of guardians, by message, with a reply-by date. */
 export async function requestConsent(tx: Tx, ctx: SchoolContext, input: { consentTextId: string; guardianIds: string[]; audienceLabel: string; replyBy: Date }) {
   const text = await tx.consentText.findFirst({ where: { id: input.consentTextId, schoolId: ctx.schoolId, isCurrent: true } });
   if (!text) throw new ParentLinkProblem("Choose a consent type.");
   if (!input.guardianIds.length) throw new ParentLinkProblem("Every parent chosen has already given this consent.");
   const req = await tx.consentRequest.create({ data: { schoolId: ctx.schoolId, consentType: text.consentType, consentTextId: text.id, audienceLabel: input.audienceLabel, guardianIds: input.guardianIds, replyBy: input.replyBy, createdById: ctx.userId } });
-  const sent = await notifyConsent(tx, ctx, req.id, input.guardianIds, text.title, "Consent request");
+  // Nobody to message (all opted out): the form is still on their Parent Link.
+  const sent = await notifyConsent(tx, ctx, req.id, input.guardianIds, text.title, "Consent request", "record").catch((e) => { if (e instanceof MessagingProblem) return null; throw e; });
   await tx.consentRequest.update({ where: { id: req.id }, data: { messageId: sent?.messageId ?? null } });
   await writeAudit(tx, ctx, { action: "requested-consent", recordType: "Consent Request", recordId: req.id, after: { type: text.consentType, version: text.version, guardians: input.guardianIds.length, replyBy: input.replyBy.toISOString().slice(0, 10) } });
   return { request: req, message: sent };
 }
 
-async function notifyConsent(tx: Tx, ctx: SchoolContext, requestId: string, guardianIds: string[], title: string, trigger: string) {
+/**
+ * Tells the guardians a consent form is waiting: each on a channel that can
+ * carry it (the Consent request template on WhatsApp, else the same words by
+ * SMS in "General announcement (SMS)" or by email). The form is on their
+ * Parent Link either way. A request is never stopped by messaging: anyone no
+ * channel can reach is kept on the message as Not sent, with the reason.
+ */
+async function notifyConsent(tx: Tx, ctx: SchoolContext, requestId: string, guardianIds: string[], title: string, trigger: string, onNobody: "block" | "record") {
   await ensureReadyTemplates(tx, ctx);
-  const setups = await channelSetups(tx, ctx);
-  if (!setups.whatsapp.isOn) return null; // Shown on Parent Link either way.
   const t = await templateByKey(tx, ctx, "consent-request", "whatsapp");
-  if (!t) return null;
-  return sendMessage(tx, ctx, { to: { guardianIds }, channels: ["whatsapp"], templates: { whatsapp: t.id }, values: { title }, trigger, source: { type: "Consent Request", id: requestId } });
+  const school = (await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { name: true } })).name;
+  return sendMessage(tx, ctx, {
+    to: { guardianIds }, channels: "preferred", templates: t ? { whatsapp: t.id } : {}, values: { title },
+    text: `Dear Parent, ${school} asks for your consent: ${title}. Please open your Parent Link to read it and agree. - ${school}`, title: trigger,
+    trigger, source: { type: "Consent Request", id: requestId }, onNobody,
+  });
 }
 
 /** Given, waiting and withdrawn for one request. */
@@ -133,9 +139,15 @@ export async function remindConsent(tx: Tx, ctx: SchoolContext, requestId: strin
   if (request.replyBy < today) throw new ParentLinkProblem("The reply-by date has passed, so reminders have stopped. Send a new request if needed.");
   if (!waiting.length) throw new ParentLinkProblem("Nobody is waiting: every parent has answered.");
   const text = await tx.consentText.findUniqueOrThrow({ where: { id: request.consentTextId } });
-  const sent = await notifyConsent(tx, ctx, request.id, waiting, text.title, "Consent reminder");
-  if (!sent) throw new ParentLinkProblem("WhatsApp is switched off, so the reminder cannot be sent. Parents still see the form on their Parent Link.");
+  let sent;
+  try {
+    sent = await notifyConsent(tx, ctx, request.id, waiting, text.title, "Consent reminder", "block");
+  } catch (e) {
+    if (!(e instanceof MessagingProblem)) throw e;
+    const why = e.message.match(/Not sent: ([^(]+)/)?.[1]?.trim();
+    throw new ParentLinkProblem(`The reminder cannot be sent${why ? `: ${why}` : ""}. Parents still see the form on their Parent Link.`);
+  }
   await tx.consentRequest.update({ where: { id: request.id }, data: { lastReminderAt: new Date() } });
   await writeAudit(tx, ctx, { action: "reminded-consent", recordType: "Consent Request", recordId: request.id, after: { guardians: waiting.length } });
-  return { count: waiting.length, messageId: sent.messageId };
+  return { count: sent.people, messageId: sent.messageId, missed: sent.skipped.find((g) => g.notSent)?.reason.slice(NOT_SENT.length) ?? null };
 }

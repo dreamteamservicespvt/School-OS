@@ -10,6 +10,7 @@ import { BOTTOM_BY_ROLE, QUICK_BY_ROLE, type BarItem, type Quick } from "@/compo
 import { FEE_PAGES, feePageAllowedFor, type FeePageKey } from "./fees/access";
 import { FINANCE_PAGES, financePageAllowed, type FinancePageKey } from "./finance/access";
 import { pageHidden } from "./duty";
+import { answersSupport, waitingSupportCount } from "./console/support";
 import type { ModuleKey } from "./modules";
 
 /** The page a module's own address opens, when the link names no page. */
@@ -56,12 +57,15 @@ export function quickActionsFor(current: Pick<Current, "roles" | "menu" | "permi
 }
 
 export async function shellData(current: Current) {
-  const { unread, approvals, campus } = await withSchool(current.ctx, async (tx) => ({
+  const [{ unread, approvals: requests, campus }, supportWaiting] = await Promise.all([withSchool(current.ctx, async (tx) => ({
     unread: await tx.notification.count({ where: { userLoginId: current.user.id, readAt: null } }),
     campus: await tx.campus.findFirst({ where: { archivedAt: null }, orderBy: [{ isMain: "desc" }, { createdAt: "asc" }], select: { name: true, address: true } }),
     // Only requests this person may decide: named to them, or to one of their roles (00-global.md §3.2).
     approvals: await tx.approval.count({ where: await approvalsFor(tx, current.ctx, current.roles.map((r) => r.key)) }),
-  }));
+  })),
+  // DREAM TEAM support access waiting for the School Admin or Principal (07-super-admin.md §3.4).
+  answersSupport(current) ? waitingSupportCount(current.school.id).catch(() => 0) : Promise.resolve(0)]);
+  const approvals = requests + supportWaiting;
 
   const menu = current.menu.map((m) => ({ key: m.key, name: m.name, href: `/${m.key}` }));
   const visible = new Set<string>(current.menu.map((m) => m.key));

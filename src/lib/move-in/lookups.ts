@@ -9,6 +9,9 @@ export type Lookups = {
   sections: SectionOption[];
   designations: string[];
   departments: string[];
+  /** Fee heads (Fee Structure) and expense heads (Finance Settings), for the money sheets' drop-downs. */
+  feeHeads?: string[];
+  expenseHeads?: string[];
 };
 
 export const sectionLabel = (s: { className: string; sectionName: string }) => `${s.className} ${s.sectionName}`;

@@ -50,7 +50,7 @@ Used by: the School Admin and, when the school switches on the Office Staff role
 | Apply class fee plan | Yes | On | |
 | More details | No | | Photo, blood group, address, category, previous school, identifiers and the school's extra fields |
 
-Duplicate check on create and import: same name and date of birth, or same name with the same guardian or phone. The match is shown with **Open existing** and **Save anyway** (with a reason, inferred).
+Duplicate check on create and import: the same or a similar name (another spelling such as Mohd and Mohammed, or one letter wrong) with the same date of birth, or with the same guardian or phone. Twins, with different names, are never taken for one child. The match is shown with **Open existing** and **Save anyway** (with a reason, inferred). In an import the row waits for a choice instead: **Same student: update** the record already here (its old values come back on Undo), **Brother or sister** (link the same parents), or **A different child**. A parent already on record with the row's phone is linked by itself only when the names match; any other name on that phone waits for **Same family** or **A different family**, so a school office or van driver number never joins two families. Father and mother on one mobile are two parent records, each linked once.
 
 ### Student Profile
 
@@ -133,7 +133,7 @@ One lifelong record per student: each year's class is kept, and nothing is overw
 - Add or edit a parent or guardian.
 - Link a guardian to a student with a relation; link one guardian to several children (siblings).
 - Set the **primary contact** for messages for each child (inferred: which number gets WhatsApp and SMS).
-- **Custody / access restriction flag** on a guardian link, with a note. A flagged guardian is not on the authorised pickup list and is shown with a red mark in Front Office, Student Pickup (inferred link).
+- **Custody / access restriction flag** on a guardian link, with a note. A flagged guardian is not on the authorised pickup list and is shown with a red mark in Front Office, Student Pickup (inferred link). They do not see that child on their Parent Link (no fees, receipts, consent or PTM booking there) and get none of that child's messages; their other children are not affected. The office still sees the flag on the student and the guardian.
 - Merge two parent records that are the same person (inferred: needed after imports; keeps all links and history).
 - **Resend / revoke Parent Link** on a guardian: resend the guardian's personal link by WhatsApp or SMS, or revoke it (for example a lost phone) and issue a new one. The Parent Link page itself is owned by Communication (decided 9 October 2026, D4).
 - **Send consent request:** for one guardian or many selected (for example all guardians of existing students after switching to School OS), sends a consent request through Parent Link; the guardian agrees with a one-time code to their registered mobile (decided 9 October 2026, D8a).
@@ -433,7 +433,7 @@ One lifelong record per student: each year's class is kept, and nothing is overw
 | Second original TC | Only one original; later copies print "Duplicate" with a reason | "An original TC was issued on 12-04-2026. Print a duplicate?" | Not needed |
 | Lost ID card reprinted | Reason required; old card marked replaced | "Reason for reprint" | Not needed |
 | Custody-restricted guardian | Flag shown in red wherever pickup or contact happens | "Do not release to this person. See note." | Only an admin can change the flag, with a reason |
-| Parent Link reaches the wrong person | Link opens on a new phone only after a one-time code to the guardian's registered mobile; a custody-flagged guardian does not see that child in Parent Link (inferred) | "Parent Link revoked. A new link was sent to 98xxxxxx10." | Revoke and resend the link |
+| Parent Link reaches the wrong person | Link opens on a new phone only after a one-time code to the guardian's registered mobile; a custody-flagged guardian does not see, pay for, consent for or book for that child in Parent Link, and gets none of that child's messages (inferred) | "Parent Link revoked. A new link was sent to 98xxxxxx10." | Revoke and resend the link |
 | Using a child's data without consent | Guardians without data consent are listed in Needs Attention; consent is never ticked by staff, only given by the guardian with a one-time code | "Consent not given. Send a consent request?" | Send the consent request through Parent Link |
 
 ## 6. Settings

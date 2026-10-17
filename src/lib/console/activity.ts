@@ -5,8 +5,12 @@ import type { ConsoleRole, Prisma } from "@prisma/client";
 import type { Tx } from "../db";
 import { roleLabel } from "./roles";
 
-/** Who did it: a DREAM TEAM person, or the software itself. */
-export type ConsoleActor = { id: string; name: string; role: ConsoleRole; ipAddress?: string | null } | { id: null; name: "School OS"; role: null; ipAddress?: null };
+/**
+ * Who did it: a DREAM TEAM person, or the software itself. A school's own
+ * person answering DREAM TEAM (a Support Access Request) is named the same
+ * way as the software: no console id, their name and school in words.
+ */
+export type ConsoleActor = { id: string; name: string; role: ConsoleRole; ipAddress?: string | null } | { id: null; name: string; role: null; ipAddress?: null };
 
 export const SYSTEM_ACTOR: ConsoleActor = { id: null, name: "School OS", role: null };
 
@@ -20,6 +24,7 @@ export const ACTIVITY_TYPES = {
   team: "Team",
   details: "Details",
   signin: "Console sign-in",
+  support: "Support access",
   export: "Export",
   system: "System",
 } as const;
@@ -56,7 +61,7 @@ export async function logActivity(tx: Tx, actor: ConsoleActor, entry: ActivityIn
 
 /** "Ravi (Onboarding)" for a line's text. */
 export function actorWords(actor: ConsoleActor) {
-  return actor.role ? `${actor.name.split(" ")[0]} (${roleLabel(actor.role)})` : "School OS";
+  return actor.role ? `${actor.name.split(" ")[0]} (${roleLabel(actor.role)})` : actor.name;
 }
 
 /** "98xxx xx123": a mobile number as the Activity Log and messages show it. */

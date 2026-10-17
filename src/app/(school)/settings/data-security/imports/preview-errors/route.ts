@@ -4,6 +4,7 @@ import { withSchool } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { errorCsv, importKind, previewImport } from "@/lib/importer";
 import { matchFromParams, readUploaded } from "@/lib/data-security/imports";
+import { mayImport } from "@/lib/move-in/service";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const kind = importKind(url.searchParams.get("kind") ?? "");
   const fileId = url.searchParams.get("file") ?? "";
-  if (!kind || !/^[0-9a-f-]{36}$/i.test(fileId)) return new Response("This import was not found.", { status: 404 });
+  if (!kind || !/^[0-9a-f-]{36}$/i.test(fileId) || !mayImport(current.permissions, kind.key, "create", current.modulesOn)) return new Response("This import was not found.", { status: 404 });
   const csv = await withSchool(current.ctx, async (tx) => {
     const uploaded = await readUploaded(tx, fileId);
     if (!uploaded) return null;

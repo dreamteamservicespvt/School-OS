@@ -1,7 +1,7 @@
 import { requireAction } from "@/lib/current";
 import { templateCsv } from "@/lib/importer";
 import { PermissionDeniedError } from "@/lib/permissions";
-import { STUDENT_IMPORT, UDISE_IMPORT, studentImport } from "@/lib/students/import";
+import { STUDENT_IMPORT, STUDENT_IMPORT_KINDS, studentImportFor } from "@/lib/students/import-kinds";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +13,8 @@ export async function GET(req: Request) {
     if (e instanceof PermissionDeniedError) return new Response("You do not have permission to import students.", { status: 403 });
     throw e;
   }
-  const kind = new URL(req.url).searchParams.get("kind") === UDISE_IMPORT ? UDISE_IMPORT : STUDENT_IMPORT;
-  const csv = templateCsv(studentImport(kind, { sectionId: null, applyFeePlan: true }));
+  const asked = new URL(req.url).searchParams.get("kind") ?? "";
+  const kind = STUDENT_IMPORT_KINDS.includes(asked) ? asked : STUDENT_IMPORT;
+  const csv = templateCsv(studentImportFor(kind, { sectionId: null, applyFeePlan: true }));
   return new Response(csv, { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="${kind}-template.csv"`, "Cache-Control": "private, no-store" } });
 }

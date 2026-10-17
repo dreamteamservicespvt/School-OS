@@ -162,6 +162,9 @@ async function nextInvoiceNumber(tx: Tx, on: Date) {
 
 type NewInvoice = { schoolId: string; schoolName: string; subscriptionId?: string | null; kind: string; quote: Quote; students?: number | null; periodFrom?: Date | null; periodTo?: Date | null; dueOn: Date; status?: "UNPAID" | "WAITING"; issuedOn: Date };
 
+/** The database refused a second year invoice for the same school and period (platform_invoice_one_per_period). */
+export const isDuplicateInvoice = (e: unknown) => e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002";
+
 async function makeInvoice(tx: Tx, actor: ConsoleActor, n: NewInvoice) {
   const number = await nextInvoiceNumber(tx, n.issuedOn);
   const inv = await tx.platformInvoice.create({
@@ -251,6 +254,24 @@ export async function sendInvoice(actor: ConsoleActor, invoiceId: string, opts: 
   return { delivered, link, problem, number: inv.number };
 }
 
+/** Year invoices: unpaid past their grace, they suspend the school; paid, they bring it back. */
+const YEAR_KINDS = ["NEW", "RENEWAL", "SECOND_HALF"];
+
+/**
+ * Whether paying this invoice makes the school Active. A Trial school: when it
+ * pays for its year. A Suspended school: when the software suspended it (trial
+ * ended, or an invoice unpaid after its grace; never a suspension made by hand
+ * with a reason) and no other year invoice is still unpaid past its grace.
+ */
+async function paymentReactivates(tx: Tx, card: { id: string; status: string }, inv: PlatformInvoice, at: Date) {
+  if (!YEAR_KINDS.includes(inv.kind)) return false;
+  if (card.status === "TRIAL") return true;
+  const last = await tx.schoolStatusChange.findFirst({ where: { forSchoolId: card.id, toStatus: "SUSPENDED" }, orderBy: { createdAt: "desc" } });
+  if (!last || last.byId !== null) return false;
+  const overdue = await tx.platformInvoice.count({ where: { forSchoolId: card.id, id: { not: inv.id }, status: "UNPAID", kind: { in: YEAR_KINDS }, dueOn: { lt: addDays(istDay(at), -GRACE_DAYS) } } });
+  return overdue === 0;
+}
+
 /** Marks an invoice paid and does what paying does: credits, status, reactivation. */
 async function applyPayment(tx: Tx, actor: ConsoleActor, inv: PlatformInvoice, paid: { via: "RAZORPAY" | "BANK" | "CHEQUE"; ref: string | null; at: Date }) {
   const card = await tx.consoleSchool.findUniqueOrThrow({ where: { id: inv.forSchoolId } });
@@ -265,6 +286,10 @@ async function applyPayment(tx: Tx, actor: ConsoleActor, inv: PlatformInvoice, p
     const plan = list[sub?.planKey ?? "essential"];
     credits = Math.max(inv.students, plan?.minStudents ?? 100) * (plan?.creditsPerStudent ?? 0);
   }
+  // A paid top-up adds its extra students to those paid for (07-super-admin.md §3.5 step 5).
+  if (inv.kind === "TOPUP" && inv.students && inv.subscriptionId) {
+    await tx.subscription.update({ where: { id: inv.subscriptionId }, data: { studentsPaidFor: { increment: inv.students } } });
+  }
   if (credits > 0) await tx.creditLedgerEntry.create({ data: { schoolId: inv.forSchoolId, channel: "whatsapp", amount: credits, note: `${INVOICE_KIND_LABEL[inv.kind]} ${inv.number}: ${credits.toLocaleString("en-IN")} message credits` } });
   await writeAudit(tx, ctx, { action: "DREAM TEAM invoice paid", recordType: "Platform Invoice", recordId: inv.id, after: { number: inv.number, via: paid.via, credits } });
   await logActivity(tx, actor, {
@@ -276,8 +301,10 @@ async function applyPayment(tx: Tx, actor: ConsoleActor, inv: PlatformInvoice, p
     from: inv.status === "UNPAID" ? "Unpaid" : inv.status,
     to: "Paid",
   });
-  // Paying makes a Trial school Active, and reactivates a Suspended school at once.
-  if (card.status === "TRIAL" || card.status === "SUSPENDED") {
+  // Paying makes a Trial school Active, and paying the overdue invoice reactivates a school the
+  // software suspended for it, at once (07-super-admin.md §3.5 step 6, §7). A school suspended
+  // by hand stays suspended, and so does one with another year invoice still overdue.
+  if ((card.status === "TRIAL" || card.status === "SUSPENDED") && (await paymentReactivates(tx, card, inv, paid.at))) {
     const to = "ACTIVE";
     await tx.school.update({ where: { id: card.id }, data: { status: to } });
     await tx.consoleSchool.update({ where: { id: card.id }, data: { status: to, statusSince: paid.at, keepUntil: null, trialEndsOn: card.status === "TRIAL" ? card.trialEndsOn : card.trialEndsOn } });
@@ -298,7 +325,8 @@ export async function markPaid(actor: ConsoleActor, invoiceId: string, input: { 
   if (inv.status !== "UNPAID") throw new ConsoleProblem(`This invoice is ${inv.status === "PAID" ? "already paid" : inv.status === "WAITING" ? "waiting for the Owner's OK; send it first" : "cancelled"}.`);
   const before = await getCard(inv.forSchoolId);
   await withConsoleSchool(inv.forSchoolId, (tx) => applyPayment(tx, actor, inv, { via: input.via, ref: `${input.via === "CHEQUE" ? "Cheque" : "UTR"} ${ref}`, at: input.receivedOn }));
-  return { number: inv.number, reactivated: before?.status === "SUSPENDED" };
+  const after = await getCard(inv.forSchoolId);
+  return { number: inv.number, reactivated: before?.status === "SUSPENDED" && after?.status === "ACTIVE" };
 }
 
 /** A Razorpay payment link was paid (webhook). Safe to receive twice. */
@@ -436,7 +464,12 @@ export async function invoiceFor(actor: ConsoleActor, schoolId: string, what: { 
     if (!sub) throw new ConsoleProblem(`${card.name} has no plan yet. Choose its plan, which sends the first invoice.`);
     const open = await tx.platformInvoice.findFirst({ where: { forSchoolId: schoolId, kind: { in: ["NEW", "RENEWAL"] }, status: { in: ["UNPAID", "WAITING"] } } });
     if (open) throw new ConsoleProblem(`Invoice ${open.number} for this year is still unpaid. Resend it instead.`);
+    const already = await tx.platformInvoice.findFirst({ where: { forSchoolId: schoolId, kind: "RENEWAL", periodFrom: sub.renewOn, status: { not: "CANCELLED" } } });
+    if (already) throw new ConsoleProblem(`Invoice ${already.number} already covers the year from ${formatDate(sub.renewOn)}.`);
     return renewalInvoice(tx, actor, card.name, sub, today);
+  }).catch((e: unknown) => {
+    if (isDuplicateInvoice(e)) throw new ConsoleProblem("An invoice for this year was made a moment ago. Refresh the page.");
+    throw e;
   });
   return sendInvoice(actor, made.id, { now });
 }
@@ -469,9 +502,8 @@ export async function topupInvoice(actor: ConsoleActor, schoolId: string, opts: 
     if (waiting) throw new ConsoleProblem(`Top-up invoice ${waiting.number} is already ${waiting.status === "WAITING" ? "waiting for the Owner's OK" : "sent"}.`);
     const rate = sub.pricePerStudentPaise / 2n;
     const quote = finish([{ label: `Top-up: ${extra.toLocaleString("en-IN")} students above the ${sub.studentsPaidFor.toLocaleString("en-IN")} paid for, rest of the year at half rate (${formatRupees(rate)} each)`, qty: extra, ratePaise: rate, amountPaise: rate * BigInt(extra) }], sub.discountPercent, sub.discountReason === "group" ? `Group discount ${sub.discountPercent}%` : undefined);
-    const inv = await makeInvoice(tx, actor, { schoolId, schoolName: card.name, subscriptionId: sub.id, kind: "TOPUP", quote, students: extra, issuedOn: today, dueOn: addDays(today, PAY_WITHIN_DAYS), periodFrom: today, periodTo: sub.renewOn, status: opts.waitForOk ? "WAITING" : "UNPAID" });
-    await tx.subscription.update({ where: { id: sub.id }, data: { studentsPaidFor: card.activeStudents } });
-    return inv;
+    // The students paid for go up only when this invoice is paid (applyPayment), never while it waits or if it is cancelled.
+    return makeInvoice(tx, actor, { schoolId, schoolName: card.name, subscriptionId: sub.id, kind: "TOPUP", quote, students: extra, issuedOn: today, dueOn: addDays(today, PAY_WITHIN_DAYS), periodFrom: today, periodTo: sub.renewOn, status: opts.waitForOk ? "WAITING" : "UNPAID" });
   });
   if (opts.waitForOk) return { invoiceId: made.id, number: made.number, sent: null };
   return { invoiceId: made.id, number: made.number, sent: await sendInvoice(actor, made.id, { now }) };
@@ -571,85 +603,114 @@ export async function refreshBilling(tx: Tx, schoolId: string, now = new Date())
 // What happens by itself (run daily by the worker)
 // ---------------------------------------------------------------------------
 
-/** Trial ends, renewal reminders and invoices, grace and suspension, the six-month check. Safe to run many times a day. */
+/**
+ * Trial ends, renewal reminders and invoices, grace and suspension, the
+ * six-month check. Safe to run many times a day, and on several workers: each
+ * school is done on its own (one school's problem never stops the others, and
+ * is reported to the Owner), and a school's year, renewal or second-half
+ * invoice is made once (the database refuses a second one for the same period).
+ */
 export async function runBillingDay(now = new Date()) {
   const today = istDay(now);
   const done: string[] = [];
+  const failed: string[] = [];
+  const each = async (school: { id: string; name: string }, work: () => Promise<void>) => {
+    try {
+      await work();
+    } catch (e) {
+      // Another run made this school's invoice at the same moment: nothing to do.
+      if (isDuplicateInvoice(e)) return;
+      failed.push(school.name);
+      console.error(JSON.stringify({ level: "error", event: "console-billing-school", school: school.id, error: e instanceof Error ? e.message : String(e) }));
+    }
+  };
 
   // 1. Trial end: 30 days without payment, the school becomes Suspended; data kept 90 days.
   const trials = await withConsole((tx) => tx.consoleSchool.findMany({ where: { status: "TRIAL", trialEndsOn: { lt: today } }, select: { id: true, name: true } }));
   for (const t of trials) {
-    const paid = await withConsole((tx) => tx.platformInvoice.count({ where: { forSchoolId: t.id, status: "PAID" } }));
-    if (paid > 0) continue;
-    await changeStatus(null, t.id, "suspend", { reason: "Trial ended without payment. Data is kept 90 days." }, now, { system: true }).catch(() => null);
-    done.push(`trial-ended:${t.name}`);
+    await each(t, async () => {
+      const paid = await withConsole((tx) => tx.platformInvoice.count({ where: { forSchoolId: t.id, status: "PAID" } }));
+      if (paid > 0) return;
+      await changeStatus(null, t.id, "suspend", { reason: "Trial ended without payment. Data is kept 90 days." }, now, { system: true });
+      done.push(`trial-ended:${t.name}`);
+    });
   }
 
   const subs = await withConsole((tx) => tx.subscription.findMany());
   for (const sub of subs) {
-    const card = await getCard(sub.forSchoolId);
+    const card = await getCard(sub.forSchoolId).catch(() => null);
     if (!card || card.status === "CLOSED") continue;
-    // 2. Renewal invoice 30 days before, then reminders at 15, 7 and 1 day.
-    const daysTo = daysBetween(today, sub.renewOn);
-    if (daysTo <= 30 && daysTo >= 0) {
-      const hasRenewal = await withConsole((tx) => tx.platformInvoice.findFirst({ where: { forSchoolId: sub.forSchoolId, kind: "RENEWAL", periodFrom: sub.renewOn, status: { not: "CANCELLED" } } }));
-      if (!hasRenewal) {
-        const inv = await withConsoleSchool(sub.forSchoolId, (tx) => renewalInvoice(tx, SYSTEM_ACTOR, card.name, sub, today));
-        await sendInvoice(SYSTEM_ACTOR, inv.id, { now, reminder: `Your School OS renewal is due on ${formatDate(sub.renewOn)}, in ${daysTo} day${daysTo === 1 ? "" : "s"}.` }).catch(() => null);
-        await withConsole((tx) => tx.subscription.update({ where: { id: sub.id }, data: { remindersSent: [...new Set([...sub.remindersSent, `${sub.renewOn.toISOString().slice(0, 10)}:30`])] } }));
-        done.push(`renewal-invoice:${card.name}`);
-      } else if (hasRenewal.status === "UNPAID") {
-        const step = REMINDER_DAYS.filter((d) => d < 30).find((d) => daysTo <= d && !sub.remindersSent.includes(`${sub.renewOn.toISOString().slice(0, 10)}:${d}`));
-        if (step) {
-          await sendInvoice(SYSTEM_ACTOR, hasRenewal.id, { now, reminder: `Reminder: your School OS renewal is due on ${formatDate(sub.renewOn)}, in ${daysTo} day${daysTo === 1 ? "" : "s"}.` }).catch(() => null);
-          await withConsole((tx) => tx.subscription.update({ where: { id: sub.id }, data: { remindersSent: [...new Set([...sub.remindersSent, ...REMINDER_DAYS.filter((d) => d >= step).map((d) => `${sub.renewOn.toISOString().slice(0, 10)}:${d}`)])] } }));
-          done.push(`reminder-${step}:${card.name}`);
-        }
-      }
-    }
-    // 3. The new year starts on the renewal date.
-    if (today >= sub.renewOn) {
-      const renewal = await withConsole((tx) => tx.platformInvoice.findFirst({ where: { forSchoolId: sub.forSchoolId, kind: "RENEWAL", periodFrom: sub.renewOn, status: { not: "CANCELLED" } } }));
-      await withConsole((tx) => tx.subscription.update({
-        where: { id: sub.id },
-        data: { startOn: sub.renewOn, renewOn: addMonths(sub.renewOn, 12), planKey: sub.nextPlanKey ?? sub.planKey, hostel: sub.nextHostel ?? sub.hostel, nextPlanKey: null, nextHostel: null, studentsPaidFor: renewal?.students ?? sub.studentsPaidFor, sixMonthCheckedAt: null, remindersSent: [] },
-      }));
-      done.push(`rolled:${card.name}`);
-    }
-    // 4. Second half, and the six-month check.
-    const six = addMonths(sub.startOn, 6);
-    if (today >= six && today < sub.renewOn && !sub.sixMonthCheckedAt) {
-      if (sub.payIn === "HALVES") {
-        const has = await withConsole((tx) => tx.platformInvoice.findFirst({ where: { forSchoolId: sub.forSchoolId, kind: "SECOND_HALF", periodFrom: six, status: { not: "CANCELLED" } } }));
-        if (!has) {
-          const inv = await withConsoleSchool(sub.forSchoolId, async (tx) => {
-            const list = await priceList(tx, sub.startOn);
-            const founding = sub.discountReason === "founding";
-            const quote = quoteYear(list, { planKey: sub.planKey, students: sub.studentsPaidFor, hostel: sub.hostel, discountPercent: sub.discountPercent, discountReason: sub.discountReason, founding, pricePerStudent: sub.pricePerStudentPaise, fraction: { num: 6, den: 12 }, label: "Second half" });
-            return makeInvoice(tx, SYSTEM_ACTOR, { schoolId: sub.forSchoolId, schoolName: card.name, subscriptionId: sub.id, kind: "SECOND_HALF", quote, students: sub.studentsPaidFor, periodFrom: six, periodTo: sub.renewOn, issuedOn: today, dueOn: addDays(today, PAY_WITHIN_DAYS) });
-          });
-          await sendInvoice(SYSTEM_ACTOR, inv.id, { now }).catch(() => null);
-          done.push(`second-half:${card.name}`);
-        }
-      }
-      // More than 10% above what was paid for: a top-up invoice that waits for the Owner's OK.
-      if (card.activeStudents * 10 > sub.studentsPaidFor * 11) {
-        const made = await topupInvoice(SYSTEM_ACTOR, sub.forSchoolId, { waitForOk: true, now }).catch(() => null);
-        if (made) await withConsole((tx) => notifyTeam(tx, { roles: ["OWNER"], text: `A top-up invoice for ${card.name} waits for your OK: ${card.activeStudents} students, ${sub.studentsPaidFor} paid for.`, link: "/console/billing", tone: "warn" }));
-        done.push(`topup:${card.name}`);
-      }
-      await withConsole((tx) => tx.subscription.update({ where: { id: sub.id }, data: { sixMonthCheckedAt: now } }));
-    }
-    // 5. Grace, then Suspended.
-    const status = await withConsoleSchool(sub.forSchoolId, (tx) => refreshBilling(tx, sub.forSchoolId, now));
-    if (status === "OVERDUE" && card.status === "ACTIVE") {
-      const overdue = await withConsole((tx) => tx.platformInvoice.findFirst({ where: { forSchoolId: sub.forSchoolId, status: "UNPAID", kind: { in: ["NEW", "RENEWAL", "SECOND_HALF"] }, dueOn: { lt: addDays(today, -GRACE_DAYS) } } }));
-      if (overdue) {
-        const moved = await changeStatus(null, sub.forSchoolId, "suspend", { reason: `Invoice ${overdue.number} unpaid ${GRACE_DAYS} days after its date` }, now, { system: true }).catch(() => null);
-        if (moved) await withConsole((tx) => notifyTeam(tx, { roles: ["OWNER", "SUPPORT"], text: `${card.name} was suspended: invoice ${overdue.number} is unpaid ${GRACE_DAYS} days after its due date.`, link: `/console/schools/${sub.forSchoolId}`, tone: "bad" }));
-        done.push(`suspended:${card.name}`);
+    await each(card, () => billOne(sub, card, now, done));
+  }
+  if (failed.length) {
+    const which = failed.length === 1 ? failed[0] : `${failed.length} schools: ${failed.slice(0, 5).join(", ")}`;
+    await withConsole((tx) => notifyTeam(tx, { roles: ["OWNER"], text: `The billing day could not finish for ${which}. It tries again at the next run.`, link: "/console/billing", tone: "bad" })).catch(() => null);
+  }
+  return done;
+}
+
+/** One school's billing day (runBillingDay). */
+async function billOne(sub: Subscription, card: { id: string; name: string; status: string; activeStudents: number }, now: Date, done: string[]) {
+  const today = istDay(now);
+  // 2. Renewal invoice 30 days before, then reminders at 15, 7 and 1 day.
+  const daysTo = daysBetween(today, sub.renewOn);
+  if (daysTo <= 30 && daysTo >= 0) {
+    const hasRenewal = await withConsole((tx) => tx.platformInvoice.findFirst({ where: { forSchoolId: sub.forSchoolId, kind: "RENEWAL", periodFrom: sub.renewOn, status: { not: "CANCELLED" } } }));
+    if (!hasRenewal) {
+      const inv = await withConsoleSchool(sub.forSchoolId, (tx) => renewalInvoice(tx, SYSTEM_ACTOR, card.name, sub, today));
+      await sendInvoice(SYSTEM_ACTOR, inv.id, { now, reminder: `Your School OS renewal is due on ${formatDate(sub.renewOn)}, in ${daysTo} day${daysTo === 1 ? "" : "s"}.` }).catch(() => null);
+      await withConsole((tx) => tx.subscription.update({ where: { id: sub.id }, data: { remindersSent: [...new Set([...sub.remindersSent, `${sub.renewOn.toISOString().slice(0, 10)}:30`])] } }));
+      done.push(`renewal-invoice:${card.name}`);
+    } else if (hasRenewal.status === "UNPAID") {
+      const step = REMINDER_DAYS.filter((d) => d < 30).find((d) => daysTo <= d && !sub.remindersSent.includes(`${sub.renewOn.toISOString().slice(0, 10)}:${d}`));
+      if (step) {
+        await sendInvoice(SYSTEM_ACTOR, hasRenewal.id, { now, reminder: `Reminder: your School OS renewal is due on ${formatDate(sub.renewOn)}, in ${daysTo} day${daysTo === 1 ? "" : "s"}.` }).catch(() => null);
+        await withConsole((tx) => tx.subscription.update({ where: { id: sub.id }, data: { remindersSent: [...new Set([...sub.remindersSent, ...REMINDER_DAYS.filter((d) => d >= step).map((d) => `${sub.renewOn.toISOString().slice(0, 10)}:${d}`)])] } }));
+        done.push(`reminder-${step}:${card.name}`);
       }
     }
   }
-  return done;
+  // 3. The new year starts on the renewal date.
+  if (today >= sub.renewOn) {
+    const renewal = await withConsole((tx) => tx.platformInvoice.findFirst({ where: { forSchoolId: sub.forSchoolId, kind: "RENEWAL", periodFrom: sub.renewOn, status: { not: "CANCELLED" } } }));
+    await withConsole((tx) => tx.subscription.update({
+      where: { id: sub.id },
+      data: { startOn: sub.renewOn, renewOn: addMonths(sub.renewOn, 12), planKey: sub.nextPlanKey ?? sub.planKey, hostel: sub.nextHostel ?? sub.hostel, nextPlanKey: null, nextHostel: null, studentsPaidFor: renewal?.students ?? sub.studentsPaidFor, sixMonthCheckedAt: null, remindersSent: [] },
+    }));
+    done.push(`rolled:${card.name}`);
+  }
+  // 4. Second half, and the six-month check.
+  const six = addMonths(sub.startOn, 6);
+  if (today >= six && today < sub.renewOn && !sub.sixMonthCheckedAt) {
+    if (sub.payIn === "HALVES") {
+      const has = await withConsole((tx) => tx.platformInvoice.findFirst({ where: { forSchoolId: sub.forSchoolId, kind: "SECOND_HALF", periodFrom: six, status: { not: "CANCELLED" } } }));
+      if (!has) {
+        const inv = await withConsoleSchool(sub.forSchoolId, async (tx) => {
+          const list = await priceList(tx, sub.startOn);
+          const founding = sub.discountReason === "founding";
+          const quote = quoteYear(list, { planKey: sub.planKey, students: sub.studentsPaidFor, hostel: sub.hostel, discountPercent: sub.discountPercent, discountReason: sub.discountReason, founding, pricePerStudent: sub.pricePerStudentPaise, fraction: { num: 6, den: 12 }, label: "Second half" });
+          return makeInvoice(tx, SYSTEM_ACTOR, { schoolId: sub.forSchoolId, schoolName: card.name, subscriptionId: sub.id, kind: "SECOND_HALF", quote, students: sub.studentsPaidFor, periodFrom: six, periodTo: sub.renewOn, issuedOn: today, dueOn: addDays(today, PAY_WITHIN_DAYS) });
+        });
+        await sendInvoice(SYSTEM_ACTOR, inv.id, { now }).catch(() => null);
+        done.push(`second-half:${card.name}`);
+      }
+    }
+    // More than 10% above what was paid for: a top-up invoice that waits for the Owner's OK.
+    if (card.activeStudents * 10 > sub.studentsPaidFor * 11) {
+      const made = await topupInvoice(SYSTEM_ACTOR, sub.forSchoolId, { waitForOk: true, now }).catch(() => null);
+      if (made) await withConsole((tx) => notifyTeam(tx, { roles: ["OWNER"], text: `A top-up invoice for ${card.name} waits for your OK: ${card.activeStudents} students, ${sub.studentsPaidFor} paid for.`, link: "/console/billing", tone: "warn" }));
+      done.push(`topup:${card.name}`);
+    }
+    await withConsole((tx) => tx.subscription.update({ where: { id: sub.id }, data: { sixMonthCheckedAt: now } }));
+  }
+  // 5. Grace, then Suspended.
+  const status = await withConsoleSchool(sub.forSchoolId, (tx) => refreshBilling(tx, sub.forSchoolId, now));
+  if (status === "OVERDUE" && card.status === "ACTIVE") {
+    const overdue = await withConsole((tx) => tx.platformInvoice.findFirst({ where: { forSchoolId: sub.forSchoolId, status: "UNPAID", kind: { in: ["NEW", "RENEWAL", "SECOND_HALF"] }, dueOn: { lt: addDays(today, -GRACE_DAYS) } } }));
+    if (overdue) {
+      const moved = await changeStatus(null, sub.forSchoolId, "suspend", { reason: `Invoice ${overdue.number} unpaid ${GRACE_DAYS} days after its date` }, now, { system: true }).catch(() => null);
+      if (moved) await withConsole((tx) => notifyTeam(tx, { roles: ["OWNER", "SUPPORT"], text: `${card.name} was suspended: invoice ${overdue.number} is unpaid ${GRACE_DAYS} days after its due date.`, link: `/console/schools/${sub.forSchoolId}`, tone: "bad" }));
+      done.push(`suspended:${card.name}`);
+    }
+  }
 }

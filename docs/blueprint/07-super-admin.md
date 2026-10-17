@@ -128,6 +128,8 @@ How it works:
 
 Even with support access, the support user cannot see restricted details (Aadhaar and other ID numbers, salaries, counsellor notes), cannot export data, and cannot cancel payments.
 
+As built (gap G35, inferred): support access is for looking only. The support user opens every page of the modules the school has switched on, as the school's leaders see them, except Salary Management, and cannot save, send, approve, export, print or download anything. Only the person who asked can open it, and only while signed in to the console; the request is answered by the school's School Admin or Principal, and a decline needs a reason, as for any request. If DREAM TEAM should also be able to make changes for a school, that is a later decision.
+
 ### 3.5 Plans & Billing
 
 **Purpose:** what each school pays, and whether it has paid. The prices and rules come from `school-os/pricing/pricing.md`; if they differ, that file wins.
@@ -365,7 +367,7 @@ New records, all kept outside any one school's data. All marked (inferred), for 
 | Super Admin User | A DREAM TEAM person who uses the console. | Name, mobile, email, role (Owner, Onboarding, Support), status, last sign-in. |
 | School Invite | A login invite to a school's admin. | School, User Login, channels, sent at, expires at, status (sent, opened, used, expired, cancelled), sent by. The link is stored hashed. |
 | School Status Change | One change of a school's status. | School, from, to, reason, by, date. |
-| Support Access Request | A request to enter a school to help. | School, Super Admin User, reason, length, status (waiting, allowed, declined, ended), allowed by, start, end. |
+| Support Access Request | A request to enter a school to help. | School, Super Admin User, reason, length, status (waiting, allowed, declined, ended), allowed (or declined) by and when, the reason for declining, start, end, ended at and how (at the time given, by the school, by DREAM TEAM, withdrawn, school paused). The support browser's entry is a random token kept hashed. |
 | School Note | A team note about a school. | School, text, by, date. |
 | Plan | A price on the price list. | Name (Essential, Complete) or add-on (Transport, Hostel), price, minimum students, price above 1,000 students, modules included, credits included, storage included, valid from. |
 | Subscription | What one school pays for. | School, plan, add-ons, students paid for, price per student, discount and reason (group, founding school), founding price locked until, start date, renewal date, paid yearly or in halves, status (paid, due, in grace, overdue). |

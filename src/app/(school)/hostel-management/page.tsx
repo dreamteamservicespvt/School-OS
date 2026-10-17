@@ -38,6 +38,7 @@ import { invViewer, pageOpen } from "@/lib/inventory/access";
 import { MAINT_STATUS } from "@/lib/inventory/words";
 import { remindRollCallAction, type FoundStudent } from "./actions";
 import { BASE, chosenHostel, hostelGuard, hostelPeriod, idParam, one, qs, type Raw, type SearchParams } from "./_lib/page";
+import { studentIdsForFilter } from "@/lib/students/find";
 
 export const metadata: Metadata = { title: "Roll Call & Incidents · Hostel Management" };
 
@@ -229,7 +230,7 @@ async function IncidentsView({ p, sp }: { p: P; sp: Raw }) {
 
   const d = await withSchool(ctx, async (tx) => {
     let nameIds: string[] | null = null;
-    if (params.q) nameIds = (await tx.student.findMany({ where: { fullName: { contains: params.q, mode: "insensitive" } }, select: { id: true }, take: 300 })).map((s) => s.id);
+    if (params.q) nameIds = await studentIdsForFilter(tx, params.q);
     const scope: Prisma.HostelIncidentWhereInput = { archivedAt: null, ...(mine === null ? {} : { hostelId: { in: mine } }) };
     const dated: Prisma.HostelIncidentWhereInput = { ...scope, ...(per.range ? { at: momentWhere(per.range, tz) } : {}) };
     const where: Prisma.HostelIncidentWhereInput = {

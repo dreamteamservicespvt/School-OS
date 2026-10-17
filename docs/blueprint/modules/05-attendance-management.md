@@ -27,6 +27,7 @@ Used by: teachers (Take Attendance for their classes, student leave for their se
 
 - **Mark all present** (one tap), then tap the exceptions: each tap cycles Present, Absent, Late; a long press or "More" opens the full status list (half-day, excused, leave, medical and the school's own statuses) (inferred: the tap behaviour).
 - Add a note to one student's entry (for example "came at 10:15, doctor's visit").
+- **Absence reason** (optional; when the school switches absence reasons on, see "Absence reasons" below): an absent student's row shows "Reason: Not known yet"; tapping it, or the long press, picks Sick, Family function, Travel, Fees dispute (only for people who see the school's fees), Not known yet or Other (with a short note). Saving without choosing keeps "Not known yet", so the one-tap register is as fast as before.
 - **Save** (one fixed button at the bottom: "Save attendance: 38 present, 2 absent"). Saving runs automation A4.
 - Change a saved entry before the lock time; after it, request a correction (see Attendance Register).
 - Offline (optional, schools with poor internet): saved on the phone and sent when online.
@@ -40,7 +41,9 @@ Used by: teachers (Take Attendance for their classes, student leave for their se
 **What the person sees**
 
 - **Class register:** month grid, students down the side, dates across, each cell a colour and letter (P present, A absent, L late, H half-day, LV leave, and so on). Standard colour legend at the top. Holidays and weekends shaded and not counted. Totals per student: days present, days counted, %.
-- **Student calendar:** one student's month as a calendar with the same colours, plus the year's %.
+- **Student calendar:** one student's month as a calendar with the same colours, plus the year's %, and the month's absences with their reasons (when absence reasons are on).
+- **Absent list** (when absence reasons are on): the students absent on a date (default today) in the person's classes, with the mark, the reason, its note and where it came from, and any leave for the day. Filters: date, class and section, reason. The class teacher, the Office Staff template and whole-school roles set or change a reason here later, for example after the parent calls back. Only the reason changes, never the mark or the %, so it works after the lock too; each change goes into the audit log.
+- In the class register, an absent cell's label says its reason, and a small dot marks "Not known yet".
 - Filters: class, section, month (default this month), status.
 
 **Actions**
@@ -76,6 +79,7 @@ Used by: teachers (Take Attendance for their classes, student leave for their se
 - **Approve** or **Reject** with a reason (also from Approvals). Class teachers can decide for their own sections up to the limit set in Forms & Approvals.
 - Cancel a leave (with a reason).
 - When approved, the days are marked **Leave** in Take Attendance in advance, and no absence message is sent for those days (inferred).
+- When absence reasons are on, approved leave also gives a reason to days already marked absent that have none or only "Not known yet": Medical is Sick, Holiday is Travel, any other type is Other with the leave type and reason as the note. A reason a person chose stays. Cancelling the leave puts those days back to "Not known yet".
 - **Leave balances and quotas (optional, switched on per school in Attendance Settings):** a limit per leave type for a term or year (for example 6 medical days per term), as in the old software. Each student then has a Leave Balance record per leave type, shown while recording leave ("Medical: 2 of 6 days left this term"). Leave beyond the quota shows a warning and goes to Approvals even when it is within the class teacher's limit (inferred).
 
 **Form fields: Record student leave**
@@ -97,7 +101,7 @@ Used by: teachers (Take Attendance for their classes, student leave for their se
 **What the person sees**
 
 - Today's list: staff name, department, designation, shift (optional), in time, out time, status (Present, Absent, Late, Half-day, On leave), source (device, QR, mobile, manual).
-- Staff on approved leave are already marked On leave.
+- Staff on approved leave are already marked On leave. A day already marked absent becomes On leave when full-day leave for it is approved (recorded in the audit log), and stays On leave if it is marked absent again.
 - Late arrivals highlighted, with minutes late.
 - Monthly view per staff member (the same register as students).
 
@@ -157,6 +161,17 @@ See section 7 for the list. All reports leave out holidays, weekends and other n
 ### Attendance Settings
 
 **Purpose:** attendance types, late rules, the time after which attendance is locked, and alerts to parents. See section 6.
+
+### Absence reasons
+
+*Added 17 October 2026 (gap list P1.8). Optional: switched on per school in Attendance Settings, Punch methods, More options ("Absence reasons").*
+
+**Purpose:** know why a student was absent, so the school acts on the right thing (a call to the family, a fee conversation, nothing for a sick day), and Early Warnings can tell an unexplained absence from a sick day.
+
+- **Reasons:** Sick, Family function, Travel, Fees dispute, Not known yet, Other (with a short note, up to 100 characters). Only marks whose status counts as absent have a reason. Marks from before have none ("Not recorded").
+- **Where a reason comes from:** Take Attendance (optional, "Not known yet" by default), approved Student Leave for that day (see Student Leave), or set later from the Absent list in the Attendance Register by the class teacher or the office. Parent Link stays read-only: a parent who explains an absence by phone or WhatsApp is recorded by staff on the Absent list.
+- **Who sees "Fees dispute":** only people who see the whole school's fees (Fee Management, Full or View). Everyone else sees "Other" without its note, cannot choose it, and keeps it unchanged when they leave the "Other" they see.
+- **Where reasons are used:** the class register and student calendar, the Student Profile's Attendance tab ("Absences and reasons"), the Date range report, the Absence reasons report (section 7), and Early Warnings (19 Reports & Analytics): an attendance flag's basis shows the reason mix ("6 not known yet, 2 sick"); when most absences are "Not known yet" a Watch becomes Act now; when most were sick days or approved leave an Act now above the threshold becomes a Watch. "Fees dispute" absences raise a fee flag, seen only by fee roles. In Looking ahead, many "Not known yet" absences count towards "may be thinking of leaving", absences that were mostly sick days or leave do not, and a "Fees dispute" counts as fees.
 
 ## 3. All features
 
@@ -309,6 +324,7 @@ Student leave types, and who approves student leave, are set here (types) and in
 - Student leave by type and class.
 - Staff overtime (optional) and shift attendance (optional).
 - Device health: punches received and rejected by device (inferred).
+- Absence reasons (when switched on): absent days by reason for each class and section, or every absent day with one chosen reason (or not recorded), for any dates. A day absent in several periods counts once. "Fees dispute" is a column only for people who see the school's fees; for others it is counted in Other.
 
 All leave out non-working days and follow P8.
 
@@ -316,7 +332,7 @@ All leave out non-working days and follow P8.
 
 | Record | Creates | Reads | Updates |
 |---|---|---|---|
-| Attendance Mark | Yes (students and staff) | Yes | Yes (before lock, or through an approved correction) |
+| Attendance Mark | Yes (students and staff) | Yes | Yes (before lock, or through an approved correction; the absence reason at any time, audited) |
 | Leave Request | Yes (student leave) | Yes (student and staff leave) | Yes (decision, cancel) |
 | Leave Balance | Yes (students, when quotas are on) | Yes | Yes (approved and cancelled student leave) |
 | Student, Guardian, Staff, Class, Section, Timetable Period | | Yes | |

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireSettingsAction } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
+import { findStudents } from "@/lib/students/find";
 import { flash } from "@/lib/flash";
 import { formValues, type FormState } from "@/lib/forms";
 import { FileProblem, IMAGE_TYPES, saveFile } from "@/lib/files";
@@ -57,10 +58,10 @@ export async function findRecords(kind: "student" | "staff", q: string): Promise
   const text = q.trim().slice(0, 60);
   return withSchool(current.ctx, async (tx) => {
     if (kind === "student") {
-      const rows = await tx.student.findMany({
-        where: { archivedAt: null, ...(text ? { OR: [{ fullName: { contains: text, mode: "insensitive" } }, { admissionNo: { contains: text, mode: "insensitive" } }] } : {}) },
-        orderBy: { fullName: "asc" }, take: 8, select: { id: true, fullName: true, admissionNo: true },
-      });
+      // Typed: the one student search (any status). Empty: the first few by name.
+      const rows = text
+        ? (await findStudents(tx, text, { scope: {}, yearId: null, statuses: "any", byParent: false, take: 8 })).map((h) => ({ id: h.id, fullName: h.name, admissionNo: h.admissionNo }))
+        : await tx.student.findMany({ where: { archivedAt: null }, orderBy: { fullName: "asc" }, take: 8, select: { id: true, fullName: true, admissionNo: true } });
       return rows.map((r) => ({ kind, id: r.id, label: `${r.fullName} (${r.admissionNo})` }));
     }
     const rows = await tx.staff.findMany({

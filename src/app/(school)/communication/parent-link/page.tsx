@@ -78,7 +78,7 @@ export default async function ParentLinkPage({ searchParams }: { searchParams: S
   for (const o of data.opens) { const w = weekStart(o.at); if (w >= 0 && w < weeks && o.recordId) perWeek[w].add(o.recordId); }
   const bars = perWeek.map((set, i) => ({ k: new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", timeZone: tz }).format(new Date(now.getTime() - (i + 1) * 7 * DAY + DAY)), v: set.size })).reverse();
   const quick = (filters: Record<string, string>) => listHref("/communication/parent-link", { ...params, filters, page: 1, q: "" }, {});
-  const kidsOf = (guardianId: string) => (data.kids.get(guardianId) ?? []).map((k) => `${k.name}${k.classLabel ? ` (${k.classLabel})` : ""}`).join(", ");
+  const kidsOf = (guardianId: string) => (data.kids.get(guardianId) ?? []).map((k) => `${k.name}${k.classLabel ? ` (${k.classLabel})` : ""}${k.restricted ? ", not on Parent Link: custody restriction" : ""}`).join("; ");
   const opened = (l: (typeof data.rows)[number]) => (l.lastOpenedAt ? formatDateTime(l.lastOpenedAt, tz) : "Never");
 
   return (

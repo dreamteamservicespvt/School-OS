@@ -4,7 +4,8 @@
 // fee heads, fee rows with installments that must add up, publishing a
 // version, copying, preparing next year and undoing a version.
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState, useTransition } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CircleAlert, CircleCheck, Plus, Trash2 } from "lucide-react";
 import { SheetForm } from "@/components/ui/url-sheet";
 import { SArea, SChips, SDate, SSelect, SSwitch, SText } from "@/components/ui/sheet-fields";
@@ -135,13 +136,56 @@ export function RemoveRow({ yearId, classId, category, feeHeadId, name }: { year
   );
 }
 
+type ImpactWords = { message: string; details: string[] };
+
+/**
+ * The date a version applies from, and what it changes worked out for that
+ * date: changing the date asks the server again (?from=), so the school sees
+ * exactly what publishing will do before it publishes.
+ */
+function FromDate({ start, impact, help }: { start: string; impact: ImpactWords | null; help?: string }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
+  const [pending, go] = useTransition();
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onDate = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = e.target.value;
+    if (timer.current) clearTimeout(timer.current);
+    // Only a whole date in a sensible year, once typing stops.
+    if (!/^(20\d\d)-\d{2}-\d{2}$/.test(v) || v === start) return;
+    timer.current = setTimeout(() => {
+      const u = new URLSearchParams(params.toString());
+      u.set("from", v);
+      go(() => router.replace(`${pathname}?${u}`, { scroll: false }));
+    }, 400);
+  };
+  return (
+    <>
+      <SDate name="effectiveFrom" label="Applies from" required start={start} help={help} onChange={onDate} />
+      {impact && (
+        <Alert tone="warning">
+          <div className={cx(pending && "opacity-60")}>
+            <p>{pending ? "Working out what changes for this date…" : impact.message}</p>
+            {!pending && impact.details.length > 0 && (
+              <ul className="mt-1.5 list-disc pl-5 flex flex-col gap-0.5">
+                {impact.details.map((d) => <li key={d}>{d}</li>)}
+              </ul>
+            )}
+          </div>
+        </Alert>
+      )}
+    </>
+  );
+}
+
 /**
  * Publish a draft. After the year has started, someone other than the Principal
  * sends it to the Principal instead (needsOk); the Principal's own change
  * applies at once, because they are the approver (owner's changes of 14 Oct 2026).
  */
 export function PublishSheet({ closeHref, structureId, version, impact, start, withoutPlan, needsOk = false, approver = false }: {
-  closeHref: string; structureId: string; version: number; impact: string; start: string; withoutPlan: number;
+  closeHref: string; structureId: string; version: number; impact: ImpactWords; start: string; withoutPlan: number;
   /** Mid-year, not the Principal: goes to Approvals. */
   needsOk?: boolean;
   /** The Principal, mid-year: applies at once. */
@@ -153,8 +197,7 @@ export function PublishSheet({ closeHref, structureId, version, impact, start, w
         : approver ? "You approve fee changes, so this applies at once, to unpaid installments only. Parents see it in Parent Link."
           : "The new version is in use from the date you choose. Paid rows never change."}
       closeHref={closeHref} action={publishAction} submitLabel={needsOk ? "Send for approval" : "Publish"} pendingText={needsOk ? "Sending…" : "Publishing…"} hidden={{ structureId }}>
-      <SDate name="effectiveFrom" label="Applies from" required start={start} help="Unpaid installments due on or after this date follow the new version." />
-      <Alert tone="warning">{impact}</Alert>
+      <FromDate start={start} impact={impact} help="Unpaid installments due on or after this date follow the new version." />
       {needsOk && <SArea name="reason" label="Why the fees change mid-year" required rows={3} help="The Principal sees this in Approvals." />}
       {!needsOk && withoutPlan > 0 && <SSwitch name="assign" title={`Give it to ${withoutPlan} ${withoutPlan === 1 ? "student" : "students"} without fees`} sub="Students of the class who have no fees for this year yet." start />}
       <label className="flex items-start gap-3 text-[14px]"><input type="checkbox" name="confirm" className="mt-1 size-4 accent-[var(--color-brand)]" /><span>I have checked the amounts and installments.</span></label>
@@ -181,11 +224,11 @@ export function PrepareSheet({ closeHref, fromYearId, toYearId, fromName, toName
   );
 }
 
-export function RestoreSheet({ closeHref, structureId, version, start }: { closeHref: string; structureId: string; version: number; start: string }) {
+export function RestoreSheet({ closeHref, structureId, version, start, impact }: { closeHref: string; structureId: string; version: number; start: string; impact: ImpactWords | null }) {
   return (
     <SheetForm title={`Use version ${version} again`} sub="It is published again as a new version. Paid rows never change." closeHref={closeHref}
       action={restoreAction} submitLabel="Use this version" pendingText="Restoring…" hidden={{ structureId }}>
-      <SDate name="effectiveFrom" label="Applies from" required start={start} />
+      <FromDate start={start} impact={impact} />
       <label className="flex items-start gap-3 text-[14px]"><input type="checkbox" name="confirm" className="mt-1 size-4 accent-[var(--color-brand)]" /><span>Unpaid installments from this date change back to version {version}.</span></label>
     </SheetForm>
   );

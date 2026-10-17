@@ -46,9 +46,10 @@ export class OfficeOnly extends Error {
 }
 
 /**
- * Office work in Communication (11-communication.md): templates, notices, Parent Link, consent requests
- * and Message Settings need school-wide reach. Someone with their own scope only (a teacher, the
- * accountant, the receptionist) is sent to the no-access page.
+ * Office work in Communication (11-communication.md): templates, Parent Link, consent requests,
+ * Message Settings, surveys, and reminding or resending a notice need school-wide reach. Someone with
+ * their own scope only (a teacher, the accountant, the receptionist) is sent to the no-access page.
+ * Writing a notice is not office work: anyone who may send messages writes one for their own scope.
  */
 export async function commOfficePage(action: Action = "view") {
   const access = await commPage(action);

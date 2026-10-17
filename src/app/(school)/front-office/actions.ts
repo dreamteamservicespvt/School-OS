@@ -13,6 +13,7 @@ import { FrontOfficeProblem } from "@/lib/front-office/problem";
 import { addGateEntry, checkOutVisitor, registerVisitor, remindDeskAboutPass, replyToVisitor, returningVisitor, type ReturningVisitor } from "@/lib/front-office/visitors";
 import { loginsWithRole } from "@/lib/front-office/people";
 import { letOut, refusedPickup, releaseStudent, sendPickupCode } from "@/lib/front-office/pickup";
+import { findStudents } from "@/lib/students/find";
 import { closeCall, deskEnquiry, logCall, recognisePhone, setCallFollowUp, type KnownPhone } from "@/lib/front-office/calls";
 import { addNote, addWalkIn, clearNote, closeWalkIn, editNote } from "@/lib/front-office/desk";
 import { arriveAppointment, bookAppointment, dayPlan, remindAppointment, setAppointmentStatus } from "@/lib/front-office/appointments";
@@ -269,12 +270,19 @@ export async function searchFrom(q: string) {
       if (!w.can.desk) return [];
       const t = q.trim();
       if (t.length < 3) return [];
-      const rows = await w.tx.studentGuardian.findMany({
-        where: { archivedAt: null, student: { archivedAt: null, status: "ACTIVE" }, guardian: { archivedAt: null }, OR: [{ student: { fullName: { contains: t, mode: "insensitive" } } }, { guardian: { name: { contains: t, mode: "insensitive" } } }] },
-        select: { relationship: true, student: { select: { id: true, fullName: true, admissionNo: true } }, guardian: { select: { id: true, name: true } } },
-        take: 6, orderBy: [{ isPrimary: "desc" }],
+      // The one student search (student or parent name, one letter wrong allowed, phone, admission number),
+      // then each student's parents: the parent who matched first.
+      const hits = await findStudents(w.tx, t, { scope: {}, yearId: null, statuses: ["ACTIVE"], take: 6 });
+      const links = await w.tx.studentGuardian.findMany({
+        where: { archivedAt: null, studentId: { in: hits.map((h) => h.id) }, guardian: { archivedAt: null } },
+        select: { studentId: true, relationship: true, isPrimary: true, guardian: { select: { id: true, name: true } } },
+        orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
       });
-      return rows.map((r) => ({ guardianId: r.guardian.id, studentId: r.student.id, label: `${r.guardian.name} (${r.relationship.toLowerCase()} of ${r.student.fullName})`, student: r.student.fullName, admissionNo: r.student.admissionNo }));
+      const rows = hits.flatMap((h) => links
+        .filter((l) => l.studentId === h.id)
+        .sort((a, b) => Number(b.guardian.name === h.parent) - Number(a.guardian.name === h.parent))
+        .map((l) => ({ ...l, student: h })));
+      return rows.slice(0, 6).map((r) => ({ guardianId: r.guardian.id, studentId: r.student.id, label: `${r.guardian.name} (${r.relationship.toLowerCase()} of ${r.student.name})`, student: r.student.name, admissionNo: r.student.admissionNo }));
     });
   } catch {
     return [];

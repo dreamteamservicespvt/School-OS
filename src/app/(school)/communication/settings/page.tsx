@@ -4,7 +4,7 @@ import { BadgeCheck, BellOff, Check, Coins, History, Link2, MessageSquareText, P
 import { withSchool } from "@/lib/db";
 import { commOfficePage } from "@/lib/communication/access";
 import { formatDate, formatDateTime } from "@/lib/format";
-import { CHANNELS, CHANNEL_LABEL, channelSetups, type Channel } from "@/lib/messaging/channels";
+import { CHANNELS, CHANNEL_LABEL, channelSetups, whatsappIsLive, type Channel } from "@/lib/messaging/channels";
 import { creditBalances } from "@/lib/messaging/credits";
 import { ruleStates } from "@/lib/messaging/automatic";
 import { BACKUP_TYPES, BACKUP_TYPE_LABEL, messageSettings, QUERY_TYPES } from "@/lib/messaging/settings";
@@ -63,6 +63,7 @@ export default async function MessageSettingsPage() {
   const usedOf = (c: string) => Math.abs(data.used.find((u) => u.channel === c)?._sum.amount ?? 0);
   const totalLeft = data.balances.whatsapp + data.balances.sms;
 
+  const whatsappLive = whatsappIsLive(data.setups.whatsapp);
   const ruleRows: RuleRowData[] = data.rules.map((r) => ({
     key: r.key, label: r.label, when: r.when, module: r.module, audience: r.audience, isOn: r.isOn, channels: r.channels, sendTo: r.sendTo, timing: r.timing,
     timingFields: (r.timingFields ?? []).map((f) => ({ key: f.key, label: f.label, kind: f.kind })),
@@ -71,7 +72,10 @@ export default async function MessageSettingsPage() {
       const vs = data.versions.filter((v) => v.templateId === id);
       if (!id) return { channel: c, label: "No template for this channel. Add one in Message Templates.", href: null, problem: r.channels.includes(c) ? `No ${CHANNEL_LABEL[c]} template, so this channel is skipped.` : null };
       const noDlt = c === "sms" && vs.some((v) => !v.dltTemplateId);
-      return { channel: c, label: vs[0]?.template.name ?? "Template", href: `/communication/templates/${id}`, problem: r.channels.includes(c) && noDlt ? "The SMS template has no DLT template ID, so SMS is skipped." : null };
+      // On a real WhatsApp account only approved templates go; parents then get it by SMS, or not at all.
+      const notApproved = c === "whatsapp" && whatsappLive && !vs.some((v) => v.whatsappStatus === "APPROVED");
+      const problem = !r.channels.includes(c) ? null : noDlt ? "The SMS template has no DLT template ID, so SMS is skipped." : notApproved ? "WhatsApp has not approved this template yet, so parents get it by SMS (with a DLT template ID) or not at all. Send it for approval." : null;
+      return { channel: c, label: vs[0]?.template.name ?? "Template", href: `/communication/templates/${id}`, problem };
     }),
   }));
   const groupsOfRules = [

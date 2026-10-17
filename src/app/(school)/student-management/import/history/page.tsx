@@ -9,7 +9,7 @@ import { DataTable, type Column } from "@/components/list/data-table";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/empty-state";
-import { STUDENT_IMPORT, UDISE_IMPORT } from "@/lib/students/import";
+import { STUDENT_IMPORT_KINDS, importKindLabel } from "@/lib/students/import-kinds";
 import { BASE, studentPage } from "../../_lib/page";
 
 export const metadata: Metadata = { title: "Import history" };
@@ -21,7 +21,7 @@ export default async function ImportHistoryPage({ searchParams }: { searchParams
   const params = readListParams(await searchParams);
   const path = `${BASE}/import/history`;
   const data = await withSchool(current.ctx, async (tx) => {
-    const where = { kind: { in: [STUDENT_IMPORT, UDISE_IMPORT] } };
+    const where = { kind: { in: STUDENT_IMPORT_KINDS } };
     const [total, rows] = await Promise.all([tx.importBatch.count({ where }), tx.importBatch.findMany({ where, orderBy: { createdAt: "desc" }, ...skipTake(params) })]);
     const people = await tx.userLogin.findMany({ where: { id: { in: rows.map((r) => r.importedById).filter((x): x is string => Boolean(x)) } }, select: { id: true, displayName: true } });
     return { total, rows, people };
@@ -29,7 +29,7 @@ export default async function ImportHistoryPage({ searchParams }: { searchParams
   type Row = (typeof data.rows)[number];
   const columns: Column<Row>[] = [
     { key: "file", label: "File", phone: "title", cell: (r) => r.fileName },
-    { key: "kind", label: "Kind", cell: (r) => (r.kind === UDISE_IMPORT ? "UDISE+" : "Students") },
+    { key: "kind", label: "Kind", cell: (r) => importKindLabel(r.kind) },
     { key: "when", label: "When", phone: "meta", cell: (r) => formatDateTime(r.createdAt, tz) },
     { key: "who", label: "By", cell: (r) => data.people.find((p) => p.id === r.importedById)?.displayName ?? "" },
     { key: "added", label: "Added", phone: "meta", cell: (r) => `${r.added} added, ${r.skipped} skipped` },

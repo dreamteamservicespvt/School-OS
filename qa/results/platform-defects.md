@@ -19,11 +19,11 @@ Where a part of a finding comes from reading the code, the entry says so.
 | PLATFORM-10 | P3 | App shell (theme) | Muted text, warning text and text on red fail 4.5:1 | c53bc48 |
 | PLATFORM-11 | P4 | Settings (Audit log) | "Approved" appears twice in the Action filter | not fixed |
 | PLATFORM-12 | P3 | App shell | Profile menu does not take focus; New sheet lets focus escape | c53bc48 |
-| PLATFORM-13 | P3 | Dashboard | Dashboard takes 1.4 to 3.0s in the large school | fixed, speed not re-measured |
+| PLATFORM-13 | P3 | Dashboard | Dashboard takes 1.4 to 3.0s in the large school | 57e9367, b6c14b5 |
 | PLATFORM-14 | P3 | App shell | Notifications panel count is capped at 8; profile menu links go nowhere | c53bc48 |
-| PLATFORM-15 | P4 | Reports & Analytics | A report hidden by a school feature says "not open to your role" | not fixed |
-| PLATFORM-16 | P4 | Sign in | "Forgot password?" is a Tab stop between login and password | not fixed |
-| PLATFORM-17 | P4 | App shell | Not-found pages answer HTTP 200 | not fixed |
+| PLATFORM-15 | P4 | Reports & Analytics | A report hidden by a school feature says "not open to your role" | 90f1b3d |
+| PLATFORM-16 | P4 | Sign in | "Forgot password?" is a Tab stop between login and password | 89efaca |
+| PLATFORM-17 | P4 | App shell | Not-found pages answer HTTP 200 | 8fd7f5e |
 | PLATFORM-18 | P4 | Dashboard | Transport papers alert says "and 1 more and 1 more" | f184e44 |
 | PLATFORM-19 | n/a (environment) | Background jobs | No job worker runs in the QA environment | not fixed: environment |
 
@@ -145,7 +145,14 @@ Where a part of a finding comes from reading the code, the entry says so.
   - 1.4 to 3.0s of server time. CEMS takes 0.85 to 1.4s.
   - Profiling with `qa/platform/dash-profile.ts`: 66 widgets run one after another inside one transaction, each with a savepoint. The slowest is `exams.marks-due` at 112ms; most take 15 to 90ms. There is no single hotspot.
   - All other big Sunrise pages took 64 to 370ms.
-- **Fix:** `src/lib/dashboard/compose.ts` now loads the widgets in 3 transactions at the same time, each keeping its savepoints and the original widget order. The school year is read first and the rest of the page afterwards, so no transaction holds a connection while others wait (the Vercel test copy's pool has 3). Dashboard tests pass. The speed in Sunrise has not been re-measured yet.
+- **Fix (first try):** `src/lib/dashboard/compose.ts` loaded the widgets in 3 transactions at the same time, still one after another inside each, with a savepoint around every widget and one memo shared by the three transactions.
+- **Fix:** 57e9367, 80470ac, 2804596, b6c14b5.
+  - The widgets are put in bundles, one per module (fees with finance, academic with attendance). Up to 6 transactions, never more than the connection pool holds, take bundles from one queue. Each transaction has its own memo, so a shared read is never used in another transaction.
+  - The year, Seen marks, approvals, tasks and the school-day line load in the same lanes. The setup checklist check runs alongside the page instead of before it.
+  - No savepoint per widget: a failing widget's transaction is rolled back and its lane goes on in a new one. Queries per page: 436 before, 313 after.
+  - The marks papers list (`exams.marks-due`) looks rows up instead of searching all marks for every paper. `todayFor()` and `minutesLate()` keep one date formatter per time zone.
+  - Tests: `tests/dashboard/lanes.test.ts` shows the page is identical in 1, 3 or 6 transactions, a shared read stays in its own transaction, and a failing widget anywhere in a bundle leaves the rest of the page. The page output was byte-for-byte the same before and after for 12 logins in both demo schools.
+- **Verified (18 Oct 2026):** `qa/platform/dash-speed.ts principal Sunrise` (NOLOG=1, 12 runs, before and after taken in turn three times on a dev machine at 100% CPU from other work): median 1.85, 1.71 and 1.26s before, 1.04, 1.13 and 0.97s after; best 0.99, 1.27 and 0.84s before, 0.73, 0.74 and 0.52s after. These are buildHome times only, not the whole request. Re-measure on a quiet machine or the test copy.
 
 ## PLATFORM-14 · P3 · App shell · Notifications panel count and profile menu links
 - **Steps:**
@@ -161,17 +168,21 @@ Where a part of a finding comes from reading the code, the entry says so.
 ## PLATFORM-15 · P4 · Reports & Analytics · Feature-hidden report says "not open to your role"
 - **Steps:** As cems.admin, open `/reports-analytics/r/at-overtime` (and `at-devices`, `fi-budget`, `fi-trial`).
 - **Actual:** "“Overtime and shifts” is not open to your role." The real reason is that the school feature is off. The index rightly hides these reports.
-- **Not fixed:** `entryAllowed` mixes the role check and the feature check. Cosmetic.
+- **Fix:** 90f1b3d. `featureOff()` in the report catalogue tells a report closed only by a School Feature from one the role may not see. The report page now says "“Overtime and shifts” is switched off for <school>. It needs Overtime. The Principal or School Admin can switch it on in Attendance Settings. Nothing is lost while it is off." (Finance reports name Budget or Accounts and Finance Settings.) Exports and background runs use the same words. A report the role may not see still goes to No access.
+- **Verified:** `tests/platform/qa-lead-words.test.ts` (Overtime and shifts, Budget against actual, and a role-closed report).
 
 ## PLATFORM-16 · P4 · Sign in · "Forgot password?" is a Tab stop between login and password
 - **Steps:** On Sign in, press Tab from the login box.
 - **Actual:** Focus goes to "Forgot password?" before the Password box. Pressing Enter there switches to the code flow, which is easy to do by mistake when typing quickly.
-- **Not fixed:** cosmetic. It could go after the password box in DOM order.
+- **Fix:** 89efaca. The link is now one control after Sign in, "Forgot password? Sign in with a one-time code" (it replaces the old "Sign in with a one-time code instead" button, which did the same). Tab goes login, password (its Show button), Keep me signed in, Sign in, then Forgot password.
+- **Verified:** `tests/platform/sign-in-tab-order.test.ts` reads the rendered form's Tab order. `qa/platform/a11y.mjs` updated (one Tab from login to password).
 
 ## PLATFORM-17 · P4 · App shell · Not-found pages answer HTTP 200
 - **Steps:** GET `/no-such-page`, or another school's student URL.
 - **Actual:** 200 with "This page is not here", because of streaming. People see the right words; monitors and crawlers see a success.
-- **Not fixed:** a Next streaming limitation.
+- **Cause:** every module has a `loading.tsx`. Next.js sends 200 as soon as that loading screen can show, so a record page calling `notFound()` after it looks the record up can no longer change the status. `/no-such-page` itself already answered 404 on this commit (the `[module]` page has no loading screen).
+- **Fix:** 8fd7f5e. `src/proxy.ts` passes the path of a full page load (only GET page loads: not in-app navigation, server actions, uploads or the API) to the school layout, which sits above every `loading.tsx`. The layout asks `src/lib/record-gate.ts`, inside the transaction it already opens: for 45 record pages (students, fees, payments, staff, applications, books and so on), a record id that does not exist in this school, or another school's (row-level security hides it), or a value that is not an id, calls `notFound()` before anything streams. Archived records, roles and own-class checks stay with each page. Loading screens are unchanged, and in-app navigation is unchanged.
+- **Verified:** `tests/platform/record-gate.test.ts` (paths, fixed folders checked against `src/app`, another school's record missing). `qa/platform/status-codes.mjs` against `next start`: 404 with "This page is not here" for unknown addresses, missing records, a bad id and School B's student opened as School A's admin; 200 for real pages and School A's own student. With the proxy skipped, the same record pages answer 200, which shows the cause.
 
 ## PLATFORM-18 · P4 · Dashboard · Transport papers alert says "and 1 more and 1 more"
 - **Fix:** f184e44 in `src/lib/dashboard/widgets/transport.ts`.

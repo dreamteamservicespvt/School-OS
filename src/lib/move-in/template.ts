@@ -9,6 +9,7 @@ import ExcelJS from "exceljs";
 import type { ImportKind } from "../importer";
 import type { Lookups } from "./lookups";
 import { valueType } from "./match";
+import { PAYMENT_MODES } from "../fees/words";
 
 const LAST_ROW = 3001;
 
@@ -16,6 +17,14 @@ const colName = (n: number) => {
   let s = "";
   for (let x = n + 1; x > 0; x = Math.floor((x - 1) / 26)) s = String.fromCharCode(65 + ((x - 1) % 26)) + s;
   return s;
+};
+
+/** Where the filled sheet is uploaded, by import kind, when its own module has an Import page. */
+const UPLOAD_AT: Record<string, string> = {
+  "fee-old-dues": "Fee Management, Student Fee Ledger, Import",
+  "fee-past-receipts": "Fee Management, Student Fee Ledger, Import",
+  "finance-past-expenses": "Finance Management, Expenses, Import",
+  "calendar-holidays": "Events & Calendar, School Calendar, Import",
 };
 
 export async function templateWorkbook(kind: ImportKind<unknown>, lookups: Lookups, schoolName: string): Promise<Buffer> {
@@ -38,6 +47,10 @@ export async function templateWorkbook(kind: ImportKind<unknown>, lookups: Looku
     guardianRelation: ["Father", "Mother", "Guardian", "Grandparent", "Other"],
     category: ["General", "OBC", "SC", "ST", "EWS"],
     employmentType: ["Permanent", "Probation", "Contract", "Temporary", "Part-time", "Guest"],
+    feeHead: lookups.feeHeads ?? [],
+    mode: PAYMENT_MODES.map((m) => m.label),
+    ...(kind.key === "finance-past-expenses" ? { head: lookups.expenseHeads ?? [] } : {}),
+    ...(kind.key === "calendar-holidays" ? { type: ["Holiday", "Vacation"] } : {}),
   };
 
   ws.columns = kind.columns.map((c) => ({ header: c.label + (c.required ? " *" : ""), key: c.key, width: Math.max(14, Math.min(36, c.label.length + 6)) }));
@@ -78,7 +91,7 @@ export async function templateWorkbook(kind: ImportKind<unknown>, lookups: Looku
   help.columns = [{ header: "Column", width: 30 }, { header: "How to fill it", width: 90 }];
   help.getRow(1).font = { bold: true };
   help.addRow([`${schoolName}: ${kind.label}`, "Fill one row for each record on the first sheet. Columns with a star must be filled. Leave other columns empty when you do not know."]);
-  help.addRow(["", "Upload the file in Settings, Data Backup & Security, Switching to School OS. Every row is checked and you can fix problems on the screen before anything is saved."]);
+  help.addRow(["", `Upload the file in ${UPLOAD_AT[kind.key] ? `${UPLOAD_AT[kind.key]}, or in ` : ""}Settings, Data Backup & Security, Switching to School OS. Every row is checked and you see the problems before anything is saved.`]);
   for (const c of kind.columns) {
     const list = listFor[c.key];
     help.addRow([c.label + (c.required ? " *" : ""), [c.help, c.example ? `Example: ${c.example}.` : null, list?.length ? `Choose from: ${list.slice(0, 12).join(", ")}${list.length > 12 ? "…" : ""}.` : null].filter(Boolean).join(" ") || "Optional."]);

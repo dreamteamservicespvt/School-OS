@@ -17,6 +17,7 @@ import { daysText } from "../staff/leave";
 import { AttendanceProblem, BASE, NotYoursError, type AttendanceAccess } from "./access";
 import { schoolDays } from "./calendar";
 import { attendanceFeatures, attendanceSettings, ensureAttendanceDefaults } from "./settings";
+import { fillReasonsFromLeave, undoReasonsFromLeave } from "./absence-reasons";
 
 const dayText = (d: Date) => formatDate(d, "UTC");
 const num = (d: Prisma.Decimal | number | null | undefined) => Number(d ?? 0);
@@ -160,6 +161,8 @@ export async function recordStudentLeave(tx: Tx, ctx: SchoolContext, access: Att
   if (input.approveNow && c.mayDecide) {
     await tx.leaveRequest.update({ where: { id: request.id }, data: { status: "APPROVED", decidedById: ctx.userId, decidedAt: new Date(), decisionReason: "Approved when recorded" } });
     await writeAudit(tx, ctx, { action: "leave-approve", recordType: "Leave Request", recordId: request.id, before: { status: "WAITING" }, after: { status: "APPROVED", note: "Approved when recorded" } });
+    // Days already marked absent take their reason from the leave (absence reasons).
+    await fillReasonsFromLeave(tx, ctx, request.id);
     return { request, approved: true, summary, quota: c.quota, overQuota: c.overQuota };
   }
 
@@ -180,14 +183,17 @@ export async function recordStudentLeave(tx: Tx, ctx: SchoolContext, access: Att
   return { request, approved: false, summary, quota: c.quota, overQuota: c.overQuota };
 }
 
-/** What happens to a student leave when its approval is decided (registered with onDecision). */
+/** What happens to a student leave when its approval is decided (listed in src/lib/approval-handlers.ts). */
 export async function onStudentLeaveDecision(tx: Tx, ctx: SchoolContext, approval: { id: string }, decision: Decision, note: string | null) {
   const rows = await tx.leaveRequest.findMany({ where: { approvalId: approval.id, status: "WAITING", archivedAt: null, studentId: { not: null } } });
   for (const r of rows) {
     const status = decision === "approve" ? "APPROVED" : decision === "withdraw" ? "CANCELLED" : "REJECTED";
     await tx.leaveRequest.update({ where: { id: r.id }, data: { status, decidedById: decision === "withdraw" ? null : ctx.userId, decidedAt: new Date(), decisionReason: note } });
     await writeAudit(tx, ctx, { action: `leave-${decision}`, recordType: "Leave Request", recordId: r.id, before: { status: r.status }, after: { status, note } });
-    if (decision === "approve") await tellClassTeacher(tx, ctx, r);
+    if (decision === "approve") {
+      await fillReasonsFromLeave(tx, ctx, r.id);
+      await tellClassTeacher(tx, ctx, r);
+    }
   }
 }
 
@@ -240,6 +246,7 @@ export async function decideStudentLeave(tx: Tx, ctx: SchoolContext, access: Att
   const status = decision === "approve" ? "APPROVED" : "REJECTED";
   await tx.leaveRequest.update({ where: { id: r.id }, data: { status, decidedById: ctx.userId, decidedAt: new Date(), decisionReason: note?.trim() || null } });
   await writeAudit(tx, ctx, { action: `leave-${decision}`, recordType: "Leave Request", recordId: r.id, before: { status: r.status }, after: { status, note } });
+  if (status === "APPROVED") await fillReasonsFromLeave(tx, ctx, r.id);
 }
 
 /** Cancels a student's leave with a reason. Days already taken stay on record; Take Attendance stops showing Leave for later days. */
@@ -264,4 +271,5 @@ export async function cancelStudentLeave(tx: Tx, ctx: SchoolContext, access: Att
   }
   await tx.leaveRequest.update({ where: { id: r.id }, data: { status: "CANCELLED", decisionReason: reason.trim(), decidedAt: new Date() } });
   await writeAudit(tx, ctx, { action: "leave-cancelled", recordType: "Leave Request", recordId: r.id, before: { status: r.status }, after: { status: "CANCELLED", reason } });
+  if (r.status === "APPROVED") await undoReasonsFromLeave(tx, ctx, r);
 }

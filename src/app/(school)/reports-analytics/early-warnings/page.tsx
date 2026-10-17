@@ -1,15 +1,16 @@
 import Link from "next/link";
 import {
-  CalendarX2, Check, CircleCheck, Eye, Inbox, IndianRupee, ListChecks, ListTodo, Pencil, SearchX, Settings2, Sparkles, TrendingDown, TriangleAlert, User, UserCheck,
+  CalendarX2, Check, CircleCheck, Eye, Inbox, IndianRupee, ListChecks, ListTodo, Pencil, SearchX, Settings2, Sparkles, Telescope, TrendingDown, TriangleAlert, User, UserCheck,
 } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { formatDate, formatDateTime, formatTime } from "@/lib/format";
 import { momentWhere, periodFromSearch, rangeWords } from "@/lib/periods";
 import { addDays } from "@/lib/staff/dates";
 import {
-  ACTIONS, AREAS, aiSignals, listFlags, mayRemind, mayReview, remindedToday, STATUS_LABEL, STATUS_TONE, STRENGTH_LABEL, warningRules,
+  ACTIONS, AREAS, aiSignals, listFlags, mayRemind, mayReview, remindedToday, rowIs, STATUS_LABEL, STATUS_TONE, STRENGTH_LABEL, warningRules,
   type Area, type FlagRow, type FlagStatus,
 } from "@/lib/reports/warnings";
+import { FORECAST_AREA_LABEL } from "@/lib/reports/forecasts";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Banner, Chips, Col, DataList, IconTile, Split, Stats, Suggestion, Timeline, Toolbar } from "@/components/ui/kit";
 import { Pill } from "@/components/ui/badge";
@@ -57,10 +58,10 @@ export default async function EarlyWarningsPage({ searchParams }: { searchParams
       listFlags(tx, p.current, a, { status, area, q, raisedFrom: when?.gte ?? null, raisedTo: when?.lt ?? null }),
       aiSignals(tx, p.current, a),
     ]);
-    let open: FlagRow | null = openId ? res.list.find((f) => f.id === openId) ?? null : null;
+    let open: FlagRow | null = openId ? res.list.find((f) => rowIs(f, openId)) ?? null : null;
     if (openId && !open) {
       for (const s of ["open", "CLOSED"] as const) {
-        open = (await listFlags(tx, p.current, a, { status: s, area: "all", q: "", raisedFrom: null, raisedTo: null })).list.find((f) => f.id === openId) ?? null;
+        open = (await listFlags(tx, p.current, a, { status: s, area: "all", q: "", raisedFrom: null, raisedTo: null })).list.find((f) => rowIs(f, openId)) ?? null;
         if (open) break;
       }
     }
@@ -68,6 +69,8 @@ export default async function EarlyWarningsPage({ searchParams }: { searchParams
     return { rules, ...res, ai, open, reminded };
   });
   const { rules, list, counts, open, reminded } = data;
+  const ahead = data.ai.filter((s) => s.kind === "prediction");
+  const signals = data.ai.filter((s) => s.kind !== "prediction");
   const pages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
   const page = Math.min(pages, Math.max(1, Number.parseInt(one(sp.page) || "1", 10) || 1));
   const shown = list.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -142,10 +145,25 @@ export default async function EarlyWarningsPage({ searchParams }: { searchParams
               {rules.lastRefreshAt && <p className="px-5 pb-3 -mt-2 text-[12px] text-ink3">Last checked {formatDateTime(rules.lastRefreshAt, p.tz)}</p>}
               {a.warnings.rule && <div className="px-5 pb-4"><ButtonLink href={withQ(HREF, sp, { rule: "1" })} scroll={false} size="sm" variant="secondary" icon={Pencil}>Change the marks-drop rule</ButtonLink></div>}
             </Card>
-            {(a.ai.insights || a.ai.forecasts) && (
+            {a.ai.forecasts && (
+              <>
+                <div id="looking-ahead" className="scroll-mt-4 flex items-center gap-2 px-1"><Telescope size={15} className="text-brand" aria-hidden="true" /><p className="text-[13px] font-semibold text-ink2">Looking ahead</p><span className="text-[12px] text-ink3">· what may happen next, if nothing changes</span></div>
+                {ahead.map((s) => (
+                  <Suggestion key={s.key} title={s.title} source={s.source}
+                    actions={<>
+                      {s.area && <Pill tone={s.strength === "ACT_NOW" ? "bad" : "warn"} dot>{FORECAST_AREA_LABEL[s.area]}{s.strength === "ACT_NOW" ? " · act soon" : ""}</Pill>}
+                      {s.href && <ButtonLink href={s.href} size="sm" variant="secondary">{s.hrefLabel ?? "Open"}</ButtonLink>}
+                      <QuickButton run={aiDecisionAction.bind(null, s.key, "FLAGGED")} variant="soft">{s.studentId ? "Add for review" : "Make it a task"}</QuickButton>
+                      <QuickButton run={aiDecisionAction.bind(null, s.key, "DISMISSED")} variant="ghost">Not a concern</QuickButton>
+                    </>}>{s.body}</Suggestion>
+                ))}
+                {ahead.length === 0 && <Card><Empty icon={Telescope} title="Nothing to look out for right now" body="Worked out again every few hours from attendance, marks, fees, admissions, staff leave and the cash and bank books." /></Card>}
+              </>
+            )}
+            {a.ai.insights && (
               <>
                 <div className="flex items-center gap-2 px-1"><Sparkles size={15} className="text-brand" aria-hidden="true" /><p className="text-[13px] font-semibold text-ink2">AI signals</p><span className="text-[12px] text-ink3">· on in Settings, Modules On/Off</span></div>
-                {data.ai.map((s) => (
+                {signals.map((s) => (
                   <Suggestion key={s.key} title={s.title} source={s.source}
                     actions={<>
                       {s.flagId
@@ -154,7 +172,7 @@ export default async function EarlyWarningsPage({ searchParams }: { searchParams
                       <QuickButton run={aiDecisionAction.bind(null, s.key, "DISMISSED")} variant="ghost">Not a concern</QuickButton>
                     </>}>{s.body}</Suggestion>
                 ))}
-                {data.ai.length === 0 && <Card><Empty icon={Sparkles} title="No AI signals right now" body="New ones appear here after each day’s attendance and each exam." /></Card>}
+                {signals.length === 0 && <Card><Empty icon={Sparkles} title="No AI signals right now" body="New ones appear here after each day’s attendance and each exam." /></Card>}
               </>
             )}
           </Col>

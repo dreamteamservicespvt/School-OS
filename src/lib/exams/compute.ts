@@ -12,6 +12,12 @@ export type PassRules = {
   compartmentSubjects: number;
   /** "zero" counts an absent paper as 0; "leave-out" leaves it out of the total. */
   absentRule: string;
+  /**
+   * An exam a student joined too late for (Result "Joined after this exam"),
+   * in the final result: "leave-out" (default) lets the exams they sat count
+   * in its place; "zero" counts it as 0%.
+   */
+  lateJoinRule?: string;
 };
 
 export type PaperInput = {
@@ -54,6 +60,8 @@ export type ExamResult = {
   missing: number;
   absentPapers: number;
   subjects: SubjectResult[];
+  /** "Joined after this exam": left out of it, so it never blocks publishing. */
+  leftOut?: boolean;
 };
 
 export const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -157,16 +165,28 @@ export type FinalExamInput = { examId: string; weight: number; result: ExamResul
  * The final result across the year's exams, using each exam's weight (for
  * example Term 1 40% and Term 2 60%). With no weights set, every exam counts
  * the same. Each subject's final percentage is weighted the same way.
+ *
+ * An exam the student joined too late for (result.leftOut) never blocks the
+ * final result. By the school's rule it is left out, so the exams they sat
+ * count in its place, or counted as 0%. A student left out of every exam that
+ * counts gets a final result that is left out too.
  */
 export function finalResult(exams: FinalExamInput[], bands: Band[], rules: PassRules): ExamResult & { examsCounted: number } {
   const anyWeight = exams.some((e) => e.weight > 0);
-  const counted = exams.filter((e) => (anyWeight ? e.weight > 0 : true));
+  const counts = exams.filter((e) => (anyWeight ? e.weight > 0 : true));
+  const missed = (e: FinalExamInput) => Boolean(e.result?.leftOut);
+  const zero = rules.lateJoinRule === "zero";
+  const counted = zero ? counts : counts.filter((e) => !missed(e));
+  const sat = counted.filter((e) => !missed(e));
+  if (counts.length > 0 && sat.length === 0) {
+    return { total: 0, maxTotal: 0, percent: null, grade: null, points: null, outcome: null, complete: false, missing: 0, absentPapers: 0, subjects: [], leftOut: true, examsCounted: 0 };
+  }
   const w = (e: FinalExamInput) => (anyWeight ? e.weight : 1);
-  const complete = counted.length > 0 && counted.every((e) => e.result?.complete);
-  const missing = counted.reduce((n, e) => n + (e.result ? e.result.missing : 1), 0);
+  const complete = counted.length > 0 && sat.every((e) => e.result?.complete);
+  const missing = sat.reduce((n, e) => n + (e.result ? e.result.missing : 1), 0);
 
   const bySubject = new Map<string, { name: string; sum: number; weight: number; marks: number; max: number; absent: boolean; gradeOnly: boolean; grade: string | null }>();
-  for (const e of counted) {
+  for (const e of sat) {
     for (const s of e.result?.subjects ?? []) {
       const cur = bySubject.get(s.subjectId) ?? { name: s.name, sum: 0, weight: 0, marks: 0, max: 0, absent: false, gradeOnly: s.gradeOnly, grade: null };
       if (s.gradeOnly) cur.grade = s.grade ?? cur.grade;
@@ -188,23 +208,30 @@ export function finalResult(exams: FinalExamInput[], bands: Band[], rules: PassR
     return { subjectId, name: x.name, max: x.max, marks: round2(x.marks), absent: x.absent, gradeOnly: false, grade: band?.grade ?? null, points: band?.points ?? null, percent, passed, grace: 0, missing: false };
   });
 
-  const withPercent = counted.filter((e) => e.result?.percent !== null && e.result?.percent !== undefined);
+  // A missed exam counted as zero adds its weight with 0%.
+  const withPercent = counted.filter((e) => missed(e) || (e.result?.percent !== null && e.result?.percent !== undefined));
   const totalW = withPercent.reduce((s, e) => s + w(e), 0);
-  const percent = totalW > 0 ? round2(withPercent.reduce((s, e) => s + (e.result!.percent ?? 0) * w(e), 0) / totalW) : null;
+  const percent = totalW > 0 ? round2(withPercent.reduce((s, e) => s + (missed(e) ? 0 : e.result!.percent ?? 0) * w(e), 0) / totalW) : null;
   const band = percent === null ? null : bandFor(percent, bands);
   return {
-    total: round2(counted.reduce((s, e) => s + (e.result?.total ?? 0), 0)),
-    maxTotal: counted.reduce((s, e) => s + (e.result?.maxTotal ?? 0), 0),
+    total: round2(sat.reduce((s, e) => s + (e.result?.total ?? 0), 0)),
+    maxTotal: sat.reduce((s, e) => s + (e.result?.maxTotal ?? 0), 0),
     percent,
     grade: band?.grade ?? null,
     points: meanPoints(subjects.filter((s) => !s.gradeOnly).map((s) => s.points)),
     outcome: complete ? outcomeOf(subjects, percent, rules) : null,
     complete,
     missing,
-    absentPapers: counted.reduce((n, e) => n + (e.result?.absentPapers ?? 0), 0),
+    absentPapers: sat.reduce((n, e) => n + (e.result?.absentPapers ?? 0), 0),
     subjects,
     examsCounted: counted.length,
   };
+}
+
+/** Is a student's mark complete: every category, or absent, or a grade for grade-only subjects. */
+export function isDone(m: { absent: boolean; total: number | null; grade: string | null } | undefined | null, gradeOnly: boolean) {
+  if (!m) return false;
+  return m.absent || (gradeOnly ? Boolean(m.grade) : m.total !== null);
 }
 
 /** Checks one mark against its category's maximum (rule 14). Returns the problem in plain words, or null. */

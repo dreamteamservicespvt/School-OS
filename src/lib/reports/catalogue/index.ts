@@ -14,6 +14,8 @@ import { TRANSPORT_REPORTS } from "./transport";
 import { LIBRARY_REPORTS } from "./library";
 import { HOSTEL_REPORTS } from "./hostel";
 import { INVENTORY_REPORTS } from "./inventory";
+import { ATTENDANCE_FEATURES } from "../../attendance/settings";
+import { FINANCE_FEATURES } from "../../finance/words";
 
 const ALL: ReportEntry[] = [...STUDENT_REPORTS, ...PEOPLE_REPORTS, ...ACADEMIC_REPORTS, ...MONEY_REPORTS, ...TRANSPORT_REPORTS, ...LIBRARY_REPORTS, ...HOSTEL_REPORTS, ...INVENTORY_REPORTS];
 
@@ -48,14 +50,40 @@ export function entryAllowed(e: ReportEntry, a: ReportAccess, who: Pick<ReportVi
   return e.allowed ? e.allowed(a, who) : true;
 }
 
+/** The optional parts (School Features, P19) that can close a report: their names and where they are switched on. */
+const FEATURE_PLACE: Record<string, { label: string; where: string }> = Object.fromEntries([
+  ...ATTENDANCE_FEATURES.map((f) => [f.key, { label: f.label, where: "Attendance Settings" }]),
+  ...FINANCE_FEATURES.map((f) => [f.key, { label: f.label, where: "Finance Settings" }]),
+]);
+
+export type FeatureOff = { title: string; body: string; features: string[] };
+
+/**
+ * A report closed only because a School Feature is off for the school, not because of the role
+ * (QA PLATFORM-15): which features, and the words that say so and who can switch them on.
+ * Null when the report is open, or when the role is what closes it.
+ */
+export function featureOff(e: ReportEntry, a: ReportAccess, who: Pick<ReportViewer, "features" | "permissions" | "roles" | "modulesOn">, schoolName = "your school"): FeatureOff | null {
+  if (entryAllowed(e, a, who)) return null;
+  // Would it open if every school feature were on? Then a feature is what closes it; note which ones were asked for.
+  const asked = new Set<string>();
+  const everyFeature = { has: (k: string) => { asked.add(k); return true; } } as unknown as typeof who.features;
+  if (!entryAllowed(e, a, { ...who, features: everyFeature })) return null;
+  const features = [...asked].filter((k) => !who.features.has(k));
+  const named = features.map((k) => FEATURE_PLACE[k]).filter(Boolean);
+  const labels = named.map((f) => f.label).join(" and ");
+  const where = [...new Set(named.map((f) => f.where))].join(" and ") || "Settings";
+  return {
+    features,
+    title: `“${e.name}” is switched off for ${schoolName}`,
+    body: `${labels ? `It needs ${labels}. ` : ""}The Principal or School Admin can switch it on in ${where}. Nothing is lost while it is off.`,
+  };
+}
+
 /** Why a report is closed, in plain words: the role, or a school feature that is off (QA PLATFORM-15). */
 export function closedWords(e: ReportEntry, a: ReportAccess, who: Pick<ReportViewer, "features" | "permissions" | "roles" | "modulesOn">) {
-  // Would it open if every school feature were on? Then a feature is what closes it.
-  const everyFeature = { has: () => true } as unknown as typeof who.features;
-  const featureOnly = !entryAllowed(e, a, who) && entryAllowed(e, a, { ...who, features: everyFeature });
-  return featureOnly
-    ? `“${e.name}” needs a feature your school has not switched on. The School Admin can switch it on in Settings.`
-    : `“${e.name}” is not open to your role.`;
+  const off = featureOff(e, a, who);
+  return off ? `${off.title}. ${off.body}` : `“${e.name}” is not open to your role.`;
 }
 
 export function catalogueFor(a: ReportAccess, who: Pick<ReportViewer, "features" | "permissions" | "roles" | "modulesOn">) {

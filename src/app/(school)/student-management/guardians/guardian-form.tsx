@@ -34,7 +34,7 @@ export function GuardianForm({ action, g, studentId, canRestrict, cancelHref }: 
       {!g && studentId && canRestrict && (
         <fieldset className="space-y-3 rounded-xl border border-danger/30 p-4">
           <legend className="px-1 font-semibold">Custody / access restriction</legend>
-          <FormCheck name="restricted" label="This person must not collect or contact the student" help="Restricted field. They will not be on the pickup list and show in red in Front Office." />
+          <FormCheck name="restricted" label="This person must not collect or contact the student" help="Restricted field. They will not be on the pickup list and show in red in Front Office. The student is not on their Parent Link, and they get none of the student's messages." />
           <FormArea name="restriction" label="Note" rows={2} />
         </fieldset>
       )}

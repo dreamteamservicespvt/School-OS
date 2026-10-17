@@ -5,6 +5,9 @@
 // one shows only saved marks, the rest "Not marked"; tap A or L for the exceptions; a long press (or "Add note")
 // opens every status and a note. One fixed Save button says what will be
 // saved. Offline, the save waits on this phone and is sent when online.
+// When the school records absence reasons, an absent student shows "Reason:
+// Not known yet"; tapping it (or the long press) picks the reason. Optional:
+// saving without one keeps "Not known yet".
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -28,7 +31,10 @@ export type SheetRow = {
   id: string; roll: number | null; name: string; admissionNo: string; photoUrl: string | null;
   statusKey: string | null; note: string | null;
   leave: { typeName: string; halfDay: boolean; reason: string | null } | null;
+  /** The saved absence reason, as this person may see it. */
+  reason?: { key: string; label: string; note: string | null } | null;
 };
+export type ReasonChoice = { key: string; label: string };
 
 type Props = {
   userId: string;
@@ -41,8 +47,11 @@ type Props = {
   saved: boolean; savedAtText: string | null; savedBy: string | null;
   locked: boolean; lockText: string; canChangeAfterLock: boolean; correctionHref: string;
   offlineOn: boolean;
+  /** Absence reasons this person may choose, or null when the school does not record them. */
+  reasons?: ReasonChoice[] | null;
 };
 
+type Why = { key: string | null; note: string };
 type Mark = { statusKey: string | null; note: string };
 const QUICK = ["present", "absent", "late"];
 const NOTE_CHIPS = ["Came at 9:20", "Doctor visit", "Left early, parent picked up", "No uniform"];
@@ -66,6 +75,14 @@ export function TakeSheet(p: Props) {
   const [pending, startTransition] = useTransition();
   const clientId = useRef<string>(newClientId());
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Absence reasons, kept apart from the marks: key null = not chosen ("Not known yet" when saved).
+  const [why, setWhy] = useState<Record<string, Why>>(() => Object.fromEntries(p.students.map((s) => [s.id, { key: s.reason?.key ?? null, note: s.reason?.note ?? "" }])));
+  const isAbsent = (k: string | null | undefined) => Boolean(k && byKey.get(k)?.counts === "absent");
+  const reasonText = (id: string) => {
+    const r = why[id];
+    const label = p.reasons?.find((x) => x.key === r?.key)?.label ?? p.students.find((s) => s.id === id)?.reason?.label ?? "Not known yet";
+    return `Reason: ${label}${r?.note ? ` · ${r.note}` : ""}`;
+  };
   const longPressed = useRef(false);
 
   // Warn before leaving with unsaved marks.
@@ -111,7 +128,9 @@ export function TakeSheet(p: Props) {
 
   const entries = () => p.students.flatMap((s) => {
     const m = marks[s.id];
-    return m?.statusKey ? [{ studentId: s.id, statusKey: m.statusKey, note: m.note.trim() || null }] : [];
+    if (!m?.statusKey) return [];
+    const r = p.reasons && isAbsent(m.statusKey) ? why[s.id] : null;
+    return [{ studentId: s.id, statusKey: m.statusKey, note: m.note.trim() || null, ...(r?.key ? { reason: r.key, reasonNote: r.note.trim() || null } : {}) }];
   });
 
   const keepOffline = (list: ReturnType<typeof entries>) => {
@@ -235,6 +254,9 @@ export function TakeSheet(p: Props) {
                 <p className={cx("font-semibold text-[14.5px] truncate", isFixed && "text-ink2")}>{s.name}</p>
                 <p className="text-[12px] text-ink3 truncate">
                   {isFixed ? `On approved leave · ${s.leave!.reason || s.leave!.typeName}`
+                    : p.reasons && isAbsent(v) ? (readOnly
+                      ? reasonText(s.id)
+                      : <button type="button" onClick={() => setNoteFor(s.id)} className="text-bad/90 hover:text-brand text-left truncate max-w-full">{reasonText(s.id)}{m?.note ? ` · ${m.note}` : ""}</button>)
                     : readOnly ? (m?.note || s.admissionNo)
                       : <button type="button" onClick={() => setNoteFor(s.id)} className="hover:text-brand text-left truncate max-w-full">{m?.note ? m.note : s.leave?.halfDay ? "Half-day leave approved · Add note" : "Add note"}</button>}
                 </p>
@@ -287,25 +309,38 @@ export function TakeSheet(p: Props) {
       </Dialog>
 
       <NoteSheet row={noteRow} mark={noteRow ? marks[noteRow.id] : undefined} statuses={p.statuses} extra={extraStatuses}
+        reasons={p.reasons ?? null} reason={noteRow ? why[noteRow.id] : undefined}
         onClose={() => setNoteFor(null)}
-        onSave={(statusKey, note) => { if (noteRow) set(noteRow.id, { statusKey, note }); setNoteFor(null); }} />
+        onSave={(statusKey, note, reason) => {
+          if (noteRow) {
+            set(noteRow.id, { statusKey, note });
+            if (reason) setWhy((w) => ({ ...w, [noteRow.id]: reason }));
+          }
+          setNoteFor(null);
+        }} />
     </div>
   );
 }
 
 const studentsWord = (n: number) => (n === 1 ? "1 student" : `${n} students`);
 
-function NoteSheet({ row, mark, statuses, extra, onClose, onSave }: {
+function NoteSheet({ row, mark, statuses, extra, reasons, reason, onClose, onSave }: {
   row: SheetRow | null; mark: Mark | undefined; statuses: SheetStatus[]; extra: SheetStatus[];
-  onClose: () => void; onSave: (statusKey: string | null, note: string) => void;
+  reasons: ReasonChoice[] | null; reason: Why | undefined;
+  onClose: () => void; onSave: (statusKey: string | null, note: string, reason: Why | null) => void;
 }) {
   const [t, setT] = useState("");
   const [st, setSt] = useState<string | null>(null);
+  const [rk, setRk] = useState<string | null>(null);
+  const [rn, setRn] = useState("");
   const [forId, setForId] = useState<string | null>(null);
-  if (row && row.id !== forId) { setForId(row.id); setT(mark?.note ?? ""); setSt(mark?.statusKey ?? null); }
+  if (row && row.id !== forId) { setForId(row.id); setT(mark?.note ?? ""); setSt(mark?.statusKey ?? null); setRk(reason?.key ?? null); setRn(reason?.note ?? ""); }
+  const absent = Boolean(reasons && st && statuses.find((s) => s.key === st)?.counts === "absent");
+  // "Other" needs a short note, unless it is the reason already saved.
+  const needsNote = absent && rk === "other" && rk !== (row?.reason?.key ?? null) && !rn.trim();
   return (
     <Dialog open={Boolean(row)} onClose={onClose} title={row ? `Note for ${row.name}` : "Note"} sub="Only staff can see this"
-      footer={<><Button variant="ghost" onClick={onClose}>Cancel</Button><Button variant="primary" onClick={() => onSave(st, t.trim().slice(0, 300))}>Save note</Button></>}>
+      footer={<><Button variant="ghost" onClick={onClose}>Cancel</Button><Button variant="primary" disabled={needsNote} onClick={() => onSave(st, t.trim().slice(0, 300), absent ? { key: rk, note: rn.trim().slice(0, 100) } : null)}>Save note</Button></>}>
       {row && (
         <div className="flex flex-col gap-4">
           <div>
@@ -323,6 +358,29 @@ function NoteSheet({ row, mark, statuses, extra, onClose, onSave }: {
             </div>
             {extra.length > 0 && <p className="text-[12.5px] text-ink3 mt-2">P, A and L are on the list. The others are here.</p>}
           </div>
+          {absent && reasons && (
+            <div>
+              <p className="text-[13px] font-semibold text-ink2 mb-2">Reason for the absence <span className="font-normal text-ink3">(optional)</span></p>
+              <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={`Reason for the absence of ${row.name}`}>
+                {reasons.map((r) => {
+                  const on = (rk ?? "not-known") === r.key;
+                  return (
+                    <button key={r.key} type="button" role="radio" aria-checked={on} onClick={() => setRk(r.key)}
+                      className={cx("h-9 px-3 rounded-full border text-[13px] font-medium transition", on ? "border-brand bg-brand/10 text-brand" : "border-line text-ink2 hover:border-ink3/60")}>
+                      {r.label}
+                    </button>
+                  );
+                })}
+              </div>
+              {(rk === "other" || rn) && (
+                <label className="flex flex-col gap-1.5 mt-2">
+                  <span className="text-[12.5px] text-ink3">{rk === "other" ? "What happened? (needed for Other)" : "Short note on the reason"}</span>
+                  <input value={rn} onChange={(e) => setRn(e.target.value)} maxLength={100} placeholder="For example: grandmother unwell"
+                    className={cx(inputCls(needsNote), "h-11 px-3 text-[15px]")} />
+                </label>
+              )}
+            </div>
+          )}
           <QuickChips items={NOTE_CHIPS} onPick={setT} />
           <label className="flex flex-col gap-1.5">
             <span className="sr-only">Note</span>

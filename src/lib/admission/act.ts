@@ -18,19 +18,46 @@ import { MessagingProblem } from "../messaging/send";
 
 /** A rule of Admission Management said no. The message is for the person, in plain words. */
 export class AdmissionProblem extends Error {
+  /** Every problem of the form at once, by field (PEOPLE-07); `field` is the first. */
+  public errors?: Record<string, string>;
   constructor(message: string, public field?: string, public link?: { href: string; label: string }) {
     super(message);
     this.name = "AdmissionProblem";
   }
 }
 
-type Known = Error & { field?: string; link?: { href: string; label: string } };
+/** One problem for a whole form: "Please fix 3 things before saving." with each field's message. */
+export function formProblems(errors: Record<string, string>): AdmissionProblem {
+  const keys = Object.keys(errors);
+  const p = new AdmissionProblem(keys.length === 1 ? errors[keys[0]] : `Please fix ${keys.length} things before saving.`, keys[0]);
+  p.errors = errors;
+  return p;
+}
+
+/** Runs each check and keeps going, so a form shows every problem at once. */
+export function collector() {
+  const errors: Record<string, string> = {};
+  return {
+    errors,
+    take<T>(work: () => T, fallback: T): T {
+      try { return work(); } catch (e) {
+        if (!(e instanceof AdmissionProblem) || !e.field) throw e;
+        errors[e.field] ??= e.message;
+        return fallback;
+      }
+    },
+    add(field: string, message: string) { errors[field] ??= message; },
+    done() { if (Object.keys(errors).length) throw formProblems(errors); },
+  };
+}
+
+type Known = Error & { field?: string; errors?: Record<string, string>; link?: { href: string; label: string } };
 
 export function problemState(e: unknown, fd?: FormData): NonNullable<FormState<{ link?: { href: string; label: string } }>> {
   const known = [AdmissionProblem, PermissionDeniedError, ClosedYearError, FileProblem, DecisionProblem, RazorpayProblem, StudentProblem, MessagingProblem];
   if (known.some((K) => e instanceof K)) {
     const err = e as Known;
-    return { ok: false, message: err.message, errors: err.field ? { [err.field]: err.message } : undefined, values: fd ? formValues(fd) : undefined, data: err.link ? { link: err.link } : undefined };
+    return { ok: false, message: err.message, errors: err.errors ?? (err.field ? { [err.field]: err.message } : undefined), values: fd ? formValues(fd) : undefined, data: err.link ? { link: err.link } : undefined };
   }
   if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
     return { ok: false, message: "Someone else saved the same thing a moment ago. Refresh the page to see it, then try again if still needed.", values: fd ? formValues(fd) : undefined };

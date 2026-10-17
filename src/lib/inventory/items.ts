@@ -72,7 +72,7 @@ async function checkItem(tx: Tx, ctx: SchoolContext, input: ItemInput, selfId?: 
   let code = input.code?.trim().toUpperCase() || null;
   if (code) {
     if (!CODE_RE.test(code)) throw new InventoryProblem("The item code can have 2 to 24 letters, digits, - or /.", "code");
-    const taken = await tx.item.findFirst({ where: { code: { equals: code, mode: "insensitive" }, ...(selfId ? { id: { not: selfId } } : {}) } });
+    const taken = await tx.item.findFirst({ where: { code: { equals: code, mode: "insensitive" }, releasedAt: null, ...(selfId ? { id: { not: selfId } } : {}) } });
     if (taken) {
       const next = await nextCodePreview(tx, ctx);
       throw new InventoryProblem(`Code ${taken.code} belongs to ${label(taken)}${taken.archivedAt ? " (archived)" : ""}. Use the next code: ${next}.`, "code", { href: `${BASE}/items/${taken.id}`, label: "Open that item" });

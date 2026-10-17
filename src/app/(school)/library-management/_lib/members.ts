@@ -9,6 +9,7 @@ import type { SchoolContext, Tx } from "@/lib/db";
 import { currentYear } from "@/lib/academic/years";
 import { ACTIVE_STAFF, ACTIVE_STUDENT, membersOf, type Member } from "@/lib/library/members";
 import type { LibrarySettings } from "@/lib/library/settings";
+import { studentIdsForFilter } from "@/lib/students/find";
 
 export type MemberTab = "students" | "staff" | "blocked";
 export type MembersFilter = { tab: MemberTab; q: string; sec: string };
@@ -33,7 +34,7 @@ export async function memberRows(tx: Tx, ctx: SchoolContext, s: LibrarySettings,
     if (year) {
       const where: Prisma.EnrolmentWhereInput = {
         academicYearId: year.id, archivedAt: null, ...(f.sec ? { sectionId: f.sec } : {}),
-        student: { archivedAt: null, status: { in: [...ACTIVE_STUDENT] }, ...(q ? { OR: [{ fullName: { contains: q, mode: "insensitive" } }, { admissionNo: { contains: q, mode: "insensitive" } }] } : {}) },
+        student: { archivedAt: null, status: { in: [...ACTIVE_STUDENT] }, ...(q ? { id: { in: await studentIdsForFilter(tx, q) } } : {}) },
       };
       total = await tx.enrolment.count({ where });
       const rows = await tx.enrolment.findMany({ where, orderBy: [{ student: { fullName: "asc" } }, { id: "asc" }], select: { studentId: true }, ...pg });

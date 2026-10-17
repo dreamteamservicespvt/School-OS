@@ -34,13 +34,13 @@ type MenuItem = { href: string; label: string; icon: LucideIcon; count?: number 
 function menu(can: ConsoleShellProps["can"], schoolCount: number): { group: string | null; items: MenuItem[] }[] {
   return [
     { group: null, items: [{ href: "/console", label: "Dashboard", icon: I.LayoutGrid }] },
-    { group: "Schools", items: [{ href: "/console/schools", label: "Schools", icon: I.School, count: schoolCount || null }] },
+    { group: "Schools", items: [{ href: "/console/schools", label: "Schools", icon: I.School, count: schoolCount || null }, { href: "/console/support", label: "Support Access", icon: I.LifeBuoy }] },
     { group: "Money", items: [{ href: "/console/billing", label: "Plans & Billing", icon: I.ReceiptIndianRupee }] },
     { group: "DREAM TEAM", items: [...(can.team ? [{ href: "/console/team", label: "Team", icon: I.UsersRound }] : []), { href: "/console/activity", label: "Activity Log", icon: I.ScrollText }] },
   ];
 }
 
-const TITLES: [string, string][] = [["/console/schools/new", "Add School"], ["/console/schools", "Schools"], ["/console/billing", "Plans & Billing"], ["/console/team", "Team"], ["/console/activity", "Activity Log"], ["/console/profile", "My profile"], ["/console", "Dashboard"]];
+const TITLES: [string, string][] = [["/console/schools/new", "Add School"], ["/console/schools", "Schools"], ["/console/support", "Support Access"], ["/console/billing", "Plans & Billing"], ["/console/team", "Team"], ["/console/activity", "Activity Log"], ["/console/profile", "My profile"], ["/console", "Dashboard"]];
 const titleOf = (path: string) => TITLES.find(([p]) => path === p || path.startsWith(`${p}/`))?.[1] ?? "Dashboard";
 
 function useActive() {

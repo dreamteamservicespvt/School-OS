@@ -16,7 +16,6 @@ import { saveCounts, startAudit, submitAudit } from "@/lib/inventory/audits";
 import { archiveCategory, archiveLocation, saveCategory, saveLocation, saveSettings, inventorySettings } from "@/lib/inventory/settings";
 import { searchCounterStudents, type CounterStudent } from "@/lib/inventory/lookup";
 import { notify } from "@/lib/notifications";
-import "@/lib/approval-handlers";
 import { canDecide, decide } from "@/lib/approvals";
 import { BASE, DEFAULT_ASSET_TYPES, plural, qtyWords } from "@/lib/inventory/words";
 

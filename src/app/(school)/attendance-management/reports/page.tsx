@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { CalendarCheck2, CalendarDays, CalendarRange, ChartColumn, ChartLine, ChevronRight, Clock, FileText, ListChecks, ScanFace, Table2, Timer, TrendingDown, TriangleAlert, UserCheck, Users, UserX } from "lucide-react";
+import { CalendarCheck2, CalendarDays, CalendarRange, ChartColumn, ChartLine, ChevronRight, Clock, FileText, ListChecks, MessageCircleQuestion, ScanFace, Table2, Timer, TrendingDown, TriangleAlert, UserCheck, Users, UserX } from "lucide-react";
+import { reasonChoices } from "@/lib/attendance/absence-reasons";
 import type { LucideIcon } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { isoDay } from "@/lib/staff/dates";
@@ -38,7 +39,7 @@ const TABS: { key: ReportKey; label: string }[] = [
   { key: "daily", label: "Today" }, { key: "trends", label: "Trends" }, { key: "chronic", label: "Chronic absence" }, { key: "late", label: "Late arrivals" },
 ];
 const ICON: Record<string, LucideIcon> = {
-  daily: CalendarCheck2, monthly: Table2, "staff-monthly": Users, range: CalendarRange, trends: ChartLine, chronic: UserX, late: Clock, leave: CalendarDays, overtime: Timer, devices: ScanFace,
+  daily: CalendarCheck2, monthly: Table2, "staff-monthly": Users, range: CalendarRange, trends: ChartLine, chronic: UserX, late: Clock, leave: CalendarDays, overtime: Timer, devices: ScanFace, reasons: MessageCircleQuestion,
 };
 const num = (v: string | number | null | undefined) => (typeof v === "number" ? v : v ? Number.parseFloat(String(v)) : Number.NaN);
 
@@ -193,7 +194,8 @@ export default async function ReportsPage({ searchParams }: Props) {
 
           {!isTab && t && info && (
             <TableCard t={t} about={info.about} toolbar={<>
-              {r === "monthly" && data.sections.length > 0 && <UrlSelect param="section" label="Class and section" className="sm:w-52" options={[{ value: "", label: "Every class" }, ...data.sections.map((s) => ({ value: s.id, label: s.name }))]} />}
+              {(r === "monthly" || r === "reasons") && data.sections.length > 0 && <UrlSelect param="section" label="Class and section" className="sm:w-52" options={[{ value: "", label: "Every class" }, ...data.sections.map((s) => ({ value: s.id, label: s.name }))]} />}
+              {r === "reasons" && <UrlSelect param="reason" label="Reason" className="sm:w-52" options={[{ value: "", label: "Every reason, by class" }, ...reasonChoices(access.seesFees).map((x) => ({ value: x.key, label: x.label })), { value: "none", label: "Not recorded" }]} />}
               {r === "range" && data.sections.length > 0 && <UrlSelect param="section" label="Class and section" className="sm:w-52" value={input.sectionId ?? data.sections[0]?.id ?? ""} options={data.sections.map((s) => ({ value: s.id, label: s.name }))} />}
               {r === "range" && <UrlSelect param="person" label="Student or staff member" className="sm:w-60" value={input.person ?? data.people[0]?.value ?? ""} options={data.people} />}
               {["monthly", "staff-monthly"].includes(r) && <MonthSelect value={isoDay(data.month).slice(0, 7)} min={data.bounds.min} max={data.bounds.max} className="sm:w-64" />}

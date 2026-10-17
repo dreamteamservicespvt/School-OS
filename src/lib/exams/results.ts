@@ -3,6 +3,14 @@
 // marks cannot be published (rule 16). Publishing (now or on a set date)
 // keeps a copy of the grade bands, so a later scale change never alters a
 // published result (rule 15); report cards become ready and parents are told.
+//
+// A section's results are those of the students on its roll: a student's
+// marks and draft results follow them when they change section, and a result
+// already published stays with the section it was published in (its rank and
+// values are history) while showing in the new section too (G23). A student who
+// joined after an exam's marks were in is "Joined after this exam": left out
+// of it, never blocking anyone's publishing, until late marks (with approval,
+// Exam Settings) complete their result.
 import "server-only";
 
 import type { Prisma, Result } from "@prisma/client";
@@ -13,7 +21,7 @@ import { formatDate, formatDateTime } from "../format";
 import { assertYearOpen } from "../academic/years";
 import { plural, wordList } from "../academic/common";
 import { ExamRuleError, examKey, finalKey } from "./common";
-import { examResult, finalResult, rankWithTies, type ExamResult, type PaperInput, type SubjectResult } from "./compute";
+import { examResult, finalResult, isDone, rankWithTies, type ExamResult, type PaperInput, type SubjectResult } from "./compute";
 import { readBands, type Band } from "./grades";
 import { examSettings, scaleFor } from "./settings";
 import { sectionStudents, sitters } from "./roster";
@@ -50,22 +58,31 @@ function storedResult(r: Result): ExamResult {
   return {
     total: r.total, maxTotal: r.maxTotal, percent: r.percent, grade: r.grade, points: r.points,
     outcome: (r.outcome as ExamResult["outcome"]) ?? null, complete: r.complete, missing: r.missing, absentPapers: r.absentPapers,
-    subjects: (Array.isArray(r.subjects) ? r.subjects : []) as unknown as SubjectResult[],
+    subjects: (Array.isArray(r.subjects) ? r.subjects : []) as unknown as SubjectResult[], leftOut: r.leftOut,
   };
 }
 
+type Computed = { studentId: string; result: ExamResult; keep: boolean };
+
+/**
+ * Saves worked-out results. Rows marked `keep` (published, and not being
+ * worked out again after an approved change) are only used to place the
+ * others in the ranking; they are never changed. Students left out of the
+ * exam get no rank.
+ */
 async function saveResults(
   tx: Tx, ctx: SchoolContext,
   base: { yearId: string; examId: string | null; key: string; classId: string; sectionId: string },
-  computed: { studentId: string; result: ExamResult; keepPublished: boolean }[],
+  computed: Computed[],
   ranksOn: boolean, tieRule: string,
 ) {
-  const ranks = ranksOn ? rankWithTies(computed.map((c) => ({ id: c.studentId, percent: c.result.percent, total: c.result.total, complete: c.result.complete })), tieRule) : new Map<string, number>();
+  const ranks = ranksOn ? rankWithTies(computed.filter((c) => !c.result.leftOut).map((c) => ({ id: c.studentId, percent: c.result.percent, total: c.result.total, complete: c.result.complete })), tieRule) : new Map<string, number>();
   for (const c of computed) {
+    if (c.keep) continue;
     const r = c.result;
     const data = {
-      total: r.total, maxTotal: r.maxTotal, percent: r.percent, grade: r.grade, points: r.points, rank: ranks.get(c.studentId) ?? null,
-      outcome: r.outcome, complete: r.complete, missing: r.missing, absentPapers: r.absentPapers,
+      total: r.total, maxTotal: r.maxTotal, percent: r.percent, grade: r.grade, points: r.points, rank: r.leftOut ? null : ranks.get(c.studentId) ?? null,
+      outcome: r.outcome, complete: r.complete, missing: r.missing, absentPapers: r.absentPapers, leftOut: Boolean(r.leftOut),
       subjects: r.subjects as unknown as Prisma.InputJsonValue, computedAt: new Date(), classId: base.classId, sectionId: base.sectionId,
     };
     await tx.result.upsert({
@@ -77,43 +94,78 @@ async function saveResults(
 }
 
 /**
+ * The results of a key for the students on a section's roll, wherever they
+ * were worked out. A draft of a student who has since moved into this section
+ * (same class) is brought along; a published one stays with the section it was
+ * published in, as history, and is only read here (G23).
+ */
+export async function rosterResults(tx: Tx, key: string, section: { id: string; classId: string }, studentIds: string[]) {
+  if (studentIds.length === 0) return [];
+  const rows = await tx.result.findMany({ where: { key, studentId: { in: studentIds } } });
+  const moved = rows.filter((r) => r.status === "DRAFT" && r.sectionId !== section.id && r.classId === section.classId);
+  if (moved.length) {
+    await tx.result.updateMany({ where: { id: { in: moved.map((r) => r.id) } }, data: { sectionId: section.id } });
+    for (const r of moved) r.sectionId = section.id;
+  }
+  return rows;
+}
+
+const CLOSED = new Set(["SUBMITTED", "LOCKED"]);
+
+/**
  * Works out every student's result for one exam in one section (A9). Published
  * results are left as they are, unless a moderation was approved; then they
  * are worked out again with the bands they were published with.
+ *
+ * A student with no marks at all in papers whose marks were already submitted
+ * (or published) joined after this exam: their result is "Joined after this
+ * exam" (left out). It stays so until late marks complete it.
  */
-export async function recomputeSection(tx: Tx, ctx: SchoolContext, examId: string, sectionId: string, opts: { includePublished?: boolean } = {}) {
+export async function recomputeSection(tx: Tx, ctx: SchoolContext, examId: string, sectionId: string, opts: { includePublished?: boolean; final?: boolean } = {}) {
   const exam = await tx.exam.findFirst({ where: { id: examId } });
   if (!exam) return;
   const section = await sectionInfo(tx, sectionId);
-  const settings = await examSettings(tx, ctx);
-  const papers = await papersOf(tx, examId, section.classId);
   const students = await sectionStudents(tx, [sectionId], exam.academicYearId);
+  const ids = students.map((s) => s.studentId);
   const key = examKey(examId);
-  const existing = await tx.result.findMany({ where: { key, sectionId } });
-  const published = existing.filter((r) => r.status === "PUBLISHED");
-  if (published.length && !opts.includePublished) {
-    await recomputeFinal(tx, ctx, exam.academicYearId, sectionId);
+  const existing = await rosterResults(tx, key, section, ids);
+  const allPublished = students.length > 0 && students.every((st) => existing.some((r) => r.studentId === st.studentId && r.status === "PUBLISHED"));
+  if (allPublished && !opts.includePublished) {
+    if (opts.final !== false) await recomputeFinal(tx, ctx, exam.academicYearId, sectionId);
     return;
   }
+  const settings = await examSettings(tx, ctx);
+  const papers = await papersOf(tx, examId, section.classId);
   const scale = await bandsFor(tx, ctx, exam.gradeScaleId, section.board);
-  const marks = await tx.marks.findMany({ where: { entryId: { in: papers.map((p) => p.entry.id) }, sectionId } });
+  const entryIds = papers.map((p) => p.entry.id);
+  const [marks, paperRows] = await Promise.all([
+    tx.marks.findMany({ where: { entryId: { in: entryIds }, studentId: { in: ids } } }),
+    tx.marksPaper.findMany({ where: { entryId: { in: entryIds }, sectionId }, select: { entryId: true, status: true } }),
+  ]);
+  const closed = new Set(paperRows.filter((p) => CLOSED.has(p.status)).map((p) => p.entryId));
+  // Once the section's results are published, every paper's marks were in, whatever its status says.
+  if (existing.some((r) => r.status === "PUBLISHED" && r.sectionId === sectionId)) for (const id of entryIds) closed.add(id);
   const takers = new Map(papers.map((p) => [p.entry.id, new Set(sitters(students, p.subject).map((s) => s.studentId))]));
-  const computed = students.map((st) => {
+  const computed: Computed[] = students.map((st) => {
     const prior = existing.find((r) => r.studentId === st.studentId);
+    if (prior?.status === "PUBLISHED" && !opts.includePublished) return { studentId: st.studentId, result: storedResult(prior), keep: true };
     const bands: Band[] = prior?.status === "PUBLISHED" && prior.scale ? readBands(prior.scale) : scale.bands;
-    const inputs: PaperInput[] = papers
-      .filter((p) => takers.get(p.entry.id)?.has(st.studentId))
-      .map((p) => {
-        const m = marks.find((x) => x.entryId === p.entry.id && x.studentId === st.studentId);
-        return {
-          subjectId: p.subject.id, name: p.subject.name, max: p.subject.gradeOnly ? 0 : p.entry.maxMarks, gradeOnly: p.subject.gradeOnly,
-          marks: m ? { total: m.total, absent: m.absent, medical: m.medical, grade: m.grade, parts: (m.parts ?? {}) as Record<string, number> } : null,
-        };
-      });
-    return { studentId: st.studentId, result: examResult(inputs, bands, settings.rules), keepPublished: prior?.status === "PUBLISHED" };
+    const sits = papers.filter((p) => takers.get(p.entry.id)?.has(st.studentId));
+    const markOf = (entryId: string) => marks.find((x) => x.entryId === entryId && x.studentId === st.studentId);
+    const inputs: PaperInput[] = sits.map((p) => {
+      const m = markOf(p.entry.id);
+      return {
+        subjectId: p.subject.id, name: p.subject.name, max: p.subject.gradeOnly ? 0 : p.entry.maxMarks, gradeOnly: p.subject.gradeOnly,
+        marks: m ? { total: m.total, absent: m.absent, medical: m.medical, grade: m.grade, parts: (m.parts ?? {}) as Record<string, number> } : null,
+      };
+    });
+    const result = examResult(inputs, bands, settings.rules);
+    const joinedLate = sits.length > 0 && sits.every((p) => closed.has(p.entry.id)) && !sits.some((p) => isDone(markOf(p.entry.id), p.subject.gradeOnly));
+    const leftOut = !result.complete && (joinedLate || Boolean(prior?.leftOut));
+    return { studentId: st.studentId, result: leftOut ? { ...result, outcome: null, leftOut } : result, keep: false };
   });
   await saveResults(tx, ctx, { yearId: exam.academicYearId, examId, key, classId: section.classId, sectionId }, computed, settings.ranksOn, settings.tieRule);
-  await recomputeFinal(tx, ctx, exam.academicYearId, sectionId);
+  if (opts.final !== false) await recomputeFinal(tx, ctx, exam.academicYearId, sectionId);
 }
 
 /** The year's exams for a class that count in the final result, with their weights. */
@@ -125,34 +177,48 @@ export async function finalExams(tx: Tx, ctx: SchoolContext, yearId: string, cla
   return exams.map((e) => ({ id: e.id, title: e.title, examTypeId: e.examTypeId, weight: weightOf(e.examTypeId), counts: anyWeight ? weightOf(e.examTypeId) > 0 : true }));
 }
 
-/** The final result across the year's exams for one section, until it is published. */
+/**
+ * The final result across the year's exams for one section. Published final
+ * results are kept unless an approved change needs them worked out again.
+ * Every student on the roll first gets a result for each exam that counts, so
+ * a student who joined after an exam is "Joined after this exam" in it rather
+ * than missing; the school's rule then leaves that exam out or counts it as 0%.
+ */
 export async function recomputeFinal(tx: Tx, ctx: SchoolContext, yearId: string, sectionId: string, opts: { includePublished?: boolean } = {}) {
   const section = await sectionInfo(tx, sectionId);
   const key = finalKey(yearId);
-  const existing = await tx.result.findMany({ where: { key, sectionId } });
-  if (existing.some((r) => r.status === "PUBLISHED") && !opts.includePublished) return;
+  const students = await sectionStudents(tx, [sectionId], yearId);
+  const ids = students.map((s) => s.studentId);
+  const existing = await rosterResults(tx, key, section, ids);
+  const allPublished = students.length > 0 && students.every((st) => existing.some((r) => r.studentId === st.studentId && r.status === "PUBLISHED"));
+  if (allPublished && !opts.includePublished) return;
   const exams = await finalExams(tx, ctx, yearId, section.classId);
   if (exams.length === 0) return;
+  const keys = exams.map((e) => examKey(e.id));
+  let results = await tx.result.findMany({ where: { key: { in: keys }, studentId: { in: ids } } });
+  const gaps = exams.filter((e) => ids.some((id) => !results.some((r) => r.key === examKey(e.id) && r.studentId === id)));
+  if (gaps.length) {
+    for (const e of gaps) await recomputeSection(tx, ctx, e.id, sectionId, { final: false });
+    results = await tx.result.findMany({ where: { key: { in: keys }, studentId: { in: ids } } });
+  }
   const settings = await examSettings(tx, ctx);
   const scale = await bandsFor(tx, ctx, null, section.board);
-  const students = await sectionStudents(tx, [sectionId], yearId);
-  const results = await tx.result.findMany({ where: { key: { in: exams.map((e) => examKey(e.id)) }, studentId: { in: students.map((s) => s.studentId) } } });
-  const computed = students.map((st) => {
+  const computed: Computed[] = students.map((st) => {
     const prior = existing.find((r) => r.studentId === st.studentId);
+    if (prior?.status === "PUBLISHED" && !opts.includePublished) return { studentId: st.studentId, result: storedResult(prior), keep: true };
     const bands = prior?.status === "PUBLISHED" && prior.scale ? readBands(prior.scale) : scale.bands;
     const inputs = exams.map((e) => {
       const r = results.find((x) => x.key === examKey(e.id) && x.studentId === st.studentId);
       return { examId: e.id, weight: e.counts ? (e.weight || 1) : 0, result: r ? storedResult(r) : null };
     });
-    const out = finalResult(inputs, bands, settings.rules);
-    return { studentId: st.studentId, result: out, keepPublished: false };
+    return { studentId: st.studentId, result: finalResult(inputs, bands, settings.rules), keep: false };
   });
   await saveResults(tx, ctx, { yearId, examId: null, key, classId: section.classId, sectionId }, computed, settings.ranksOn, settings.tieRule);
 }
 
 /** Works out again every draft result of open years, e.g. after a grade scale or a pass rule changes. Published ones stay. */
 export async function recomputeDrafts(tx: Tx, ctx: SchoolContext) {
-  const exams = await tx.exam.findMany({ where: { archivedAt: null, status: "PUBLISHED", academicYearId: { in: (await tx.academicYear.findMany({ where: { status: { not: "CLOSED" } }, select: { id: true } })).map((y) => y.id) } } });
+  const exams = await tx.exam.findMany({ where: { archivedAt: null, status: { not: "DRAFT" }, academicYearId: { in: (await tx.academicYear.findMany({ where: { status: { not: "CLOSED" } }, select: { id: true } })).map((y) => y.id) } } });
   let n = 0;
   for (const e of exams) {
     const sections = await tx.section.findMany({ where: { classId: { in: e.classIds }, academicYearId: e.academicYearId, archivedAt: null }, select: { id: true } });
@@ -164,9 +230,44 @@ export async function recomputeDrafts(tx: Tx, ctx: SchoolContext) {
   return n;
 }
 
+/**
+ * A student changed section (or the change was undone): their marks, draft
+ * results and report cards of the year go with them, so the new section's
+ * marks grid, result sheet and report cards show what they already have, and
+ * the old section no longer counts them (G23). A published result stays with
+ * the section it was published in, unchanged, and shows in the new section
+ * too. Drafts and ranks of both sections are worked out again.
+ */
+export async function followSectionChange(tx: Tx, ctx: SchoolContext, e: { studentId: string; academicYearId: string; fromSectionId: string; toSectionId: string }) {
+  const [from, to] = await Promise.all([sectionInfo(tx, e.fromSectionId), sectionInfo(tx, e.toSectionId)]);
+  const marks = await tx.marks.updateMany({ where: { studentId: e.studentId, sectionId: e.fromSectionId }, data: { sectionId: e.toSectionId } });
+  const moving = await tx.result.findMany({ where: { studentId: e.studentId, academicYearId: e.academicYearId, sectionId: e.fromSectionId, classId: to.classId, status: "DRAFT" } });
+  if (moving.length) await tx.result.updateMany({ where: { id: { in: moving.map((r) => r.id) } }, data: { sectionId: e.toSectionId } });
+  const cards = await tx.reportCard.updateMany({ where: { studentId: e.studentId, academicYearId: e.academicYearId, sectionId: e.fromSectionId }, data: { sectionId: e.toSectionId } });
+  if (marks.count + moving.length + cards.count === 0) return;
+  const examIds = [...new Set(moving.filter((r) => r.examId).map((r) => r.examId!))];
+  for (const examId of examIds) {
+    for (const sectionId of [e.fromSectionId, e.toSectionId]) await recomputeSection(tx, ctx, examId, sectionId, { final: false });
+  }
+  if (examIds.length || moving.some((r) => r.examId === null)) {
+    for (const sectionId of [e.fromSectionId, e.toSectionId]) await recomputeFinal(tx, ctx, e.academicYearId, sectionId);
+  }
+  await refreshReportCards(tx, ctx, e.academicYearId, [e.fromSectionId, e.toSectionId]);
+  await writeAudit(tx, ctx, {
+    action: "results-followed-student", recordType: "Result", recordId: e.studentId,
+    before: { section: from.label }, after: { section: to.label, marks: marks.count, results: moving.length, reportCards: cards.count },
+  });
+}
+
 // ---------- Publishing ----------
 
-export type Readiness = { sectionId: string; label: string; ready: boolean; problems: string[]; published: boolean; scheduled: { id: string; publishOn: Date } | null };
+export type Readiness = {
+  sectionId: string; label: string; ready: boolean; problems: string[]; published: boolean; scheduled: { id: string; publishOn: Date } | null;
+  /** Students shown as "Joined after this exam": left out, so they do not stop publishing. */
+  leftOut: string[];
+  /** Results added after the section was published (late marks), waiting to be published. */
+  waiting: string[];
+};
 
 /** What stops a result being published, per section, in plain words (rule 16). */
 export async function readiness(tx: Tx, ctx: SchoolContext, key: string, sectionIds: string[]): Promise<Readiness[]> {
@@ -177,38 +278,47 @@ export async function readiness(tx: Tx, ctx: SchoolContext, key: string, section
   for (const sectionId of sectionIds) {
     const section = await sectionInfo(tx, sectionId);
     const problems: string[] = [];
-    const results = await tx.result.findMany({ where: { key, sectionId } });
     const students = await sectionStudents(tx, [sectionId], section.academicYearId);
+    const ids = students.map((s) => s.studentId);
+    const nameOf = (sid: string) => students.find((s) => s.studentId === sid)?.name ?? "";
+    const results = ids.length ? await tx.result.findMany({ where: { key, studentId: { in: ids } } }) : [];
+    const leftOut = new Set(results.filter((r) => r.leftOut).map((r) => r.studentId));
     if (isFinal) {
       const exams = (await finalExams(tx, ctx, id, section.classId)).filter((e) => e.counts);
       if (exams.length === 0) problems.push(`No exams count in the final result for ${section.label}. Set the weights in Exam Settings.`);
-      const pubs = await tx.result.findMany({ where: { key: { in: exams.map((e) => examKey(e.id)) }, sectionId, status: "PUBLISHED" }, select: { key: true } });
-      const unpublished = exams.filter((e) => !pubs.some((p) => p.key === examKey(e.id)));
+      const examRows = ids.length ? await tx.result.findMany({ where: { key: { in: exams.map((e) => examKey(e.id)) }, studentId: { in: ids } }, select: { key: true, studentId: true, status: true, leftOut: true, sectionId: true } }) : [];
+      // Published for this section: its own rows, not a published result a moved-in student brought.
+      const unpublished = exams.filter((e) => !examRows.some((p) => p.key === examKey(e.id) && p.status === "PUBLISHED" && p.sectionId === sectionId));
       if (unpublished.length) problems.push(`Publish ${wordList(unpublished.map((e) => e.title))} results for ${section.label} first.`);
+      // Late marks completed after an exam was published: that result is published first, so the final never uses an unpublished one.
+      for (const e of exams.filter((x) => !unpublished.includes(x))) {
+        const late = examRows.filter((r) => r.key === examKey(e.id) && r.status === "DRAFT" && !r.leftOut).map((r) => nameOf(r.studentId)).filter(Boolean);
+        if (late.length) problems.push(`Publish the ${e.title} result of ${wordList(late)} first. ${late.length === 1 ? "It was" : "They were"} completed after ${e.title} was published for ${section.label}.`);
+      }
     } else {
       const exam = await tx.exam.findFirst({ where: { id } });
       if (!exam || exam.status === "DRAFT") problems.push("Publish the datesheet first.");
       const papers = exam ? await papersOf(tx, exam.id, section.classId) : [];
-      const marks = await tx.marks.findMany({ where: { entryId: { in: papers.map((p) => p.entry.id) }, sectionId } });
+      const marks = ids.length ? await tx.marks.findMany({ where: { entryId: { in: papers.map((p) => p.entry.id) }, studentId: { in: ids } } }) : [];
       const missingSubjects: string[] = [];
       for (const p of papers) {
-        const takers = sitters(students, p.subject);
-        const done = (sid: string) => {
-          const m = marks.find((x) => x.entryId === p.entry.id && x.studentId === sid);
-          return Boolean(m && (m.absent || (p.subject.gradeOnly ? m.grade : m.total !== null)));
-        };
-        if (takers.some((t) => !done(t.studentId))) missingSubjects.push(p.subject.name);
+        const takers = sitters(students, p.subject).filter((t) => !leftOut.has(t.studentId));
+        if (takers.some((t) => !isDone(marks.find((x) => x.entryId === p.entry.id && x.studentId === t.studentId), p.subject.gradeOnly))) missingSubjects.push(p.subject.name);
       }
       if (missingSubjects.length) problems.push(`${plural(missingSubjects.length, "subject")} ${missingSubjects.length === 1 ? "has" : "have"} missing marks in ${section.label}: ${wordList(missingSubjects)}.`);
       if (papers.length === 0) problems.push(`${section.label} has no papers in this exam.`);
     }
-    const missingStudents = students.filter((s) => !results.some((r) => r.studentId === s.studentId && r.complete));
+    const missingStudents = students.filter((s) => !leftOut.has(s.studentId) && !results.some((r) => r.studentId === s.studentId && r.complete));
     if (problems.length === 0 && missingStudents.length) problems.push(`${plural(missingStudents.length, "student")} in ${section.label} ${missingStudents.length === 1 ? "has" : "have"} no complete result yet. Open the result sheet to check.`);
+    const counted = results.filter((r) => !r.leftOut);
     const sched = scheduledRows.find((s) => s.sectionIds.includes(sectionId));
+    const somePublished = counted.some((r) => r.status === "PUBLISHED" && r.sectionId === sectionId);
     out.push({
       sectionId, label: section.label, ready: problems.length === 0, problems,
-      published: results.length > 0 && results.every((r) => r.status === "PUBLISHED"),
+      published: counted.length > 0 && counted.every((r) => r.status === "PUBLISHED"),
       scheduled: sched ? { id: sched.id, publishOn: sched.publishOn } : null,
+      leftOut: students.filter((s) => leftOut.has(s.studentId)).map((s) => s.name),
+      waiting: somePublished ? counted.filter((r) => r.status === "DRAFT").map((r) => nameOf(r.studentId)).filter(Boolean) : [],
     });
   }
   return out;
@@ -264,6 +374,12 @@ async function yearOfKey(tx: Tx, key: string) {
 export async function runPublication(tx: Tx, ctx: SchoolContext, publicationId: string, now = new Date()) {
   const pub = await tx.resultPublication.findFirst({ where: { id: publicationId } });
   if (!pub || pub.status !== "scheduled") return { sections: [] as string[], students: 0, parents: 0 };
+  const isExam = pub.key.startsWith("exam:");
+  // Worked out again first, so students who joined since (left out) or moved in are counted as they are now.
+  for (const sectionId of pub.sectionIds) {
+    if (isExam) await recomputeSection(tx, ctx, pub.key.slice(5), sectionId);
+    else await recomputeFinal(tx, ctx, pub.academicYearId, sectionId);
+  }
   const ready = await readiness(tx, ctx, pub.key, pub.sectionIds);
   const blocked = ready.filter((r) => !r.ready && !r.published);
   if (blocked.length) {
@@ -275,17 +391,15 @@ export async function runPublication(tx: Tx, ctx: SchoolContext, publicationId: 
     await writeAudit(tx, ctx, { action: "result-publish-failed", recordType: "Result Publication", recordId: pub.id, after: { note } });
     return { sections: [] as string[], students: 0, parents: 0 };
   }
-  const isExam = pub.key.startsWith("exam:");
   const studentIds: string[] = [];
   for (const sectionId of pub.sectionIds) {
     const section = await sectionInfo(tx, sectionId);
-    if (isExam) await recomputeSection(tx, ctx, pub.key.slice(5), sectionId);
-    else await recomputeFinal(tx, ctx, pub.academicYearId, sectionId);
     const exam = isExam ? await tx.exam.findFirst({ where: { id: pub.key.slice(5) } }) : null;
     const scale = await bandsFor(tx, ctx, exam?.gradeScaleId ?? null, section.board);
-    const rows = await tx.result.findMany({ where: { key: pub.key, sectionId, status: "DRAFT" } });
+    // "Joined after this exam" rows are never published: there is nothing in them to publish.
+    const rows = await tx.result.findMany({ where: { key: pub.key, sectionId, status: "DRAFT", leftOut: false } });
     await tx.result.updateMany({
-      where: { key: pub.key, sectionId, status: "DRAFT" },
+      where: { key: pub.key, sectionId, status: "DRAFT", leftOut: false },
       data: { status: "PUBLISHED", publishedAt: now, publishedById: pub.createdById, scale: { id: scale.id, name: scale.name, version: scale.version, bands: scale.bands } as unknown as Prisma.InputJsonValue },
     });
     studentIds.push(...rows.map((r) => r.studentId));
@@ -371,6 +485,8 @@ export type SheetRow = {
   cells: Record<string, { marks: number | null; grade: string | null; absent: boolean; medical: boolean; missing: boolean; passed: boolean | null; grace: number }>;
   total: number; maxTotal: number; percent: number | null; grade: string | null; points: number | null; rank: number | null; outcome: string | null; complete: boolean; missing: number;
   status: "DRAFT" | "PUBLISHED"; publishedAt: Date | null;
+  /** "Joined after this exam" (for the final: after every exam that counts). */
+  leftOut: boolean;
 };
 
 /**
@@ -399,10 +515,12 @@ export async function resultSheet(tx: Tx, ctx: SchoolContext, examId: string, se
   const section = await sectionInfo(tx, sectionId);
   const papers = await papersOf(tx, examId, section.classId);
   const students = await sectionStudents(tx, [sectionId], exam.academicYearId);
-  let results = await tx.result.findMany({ where: { key: examKey(examId), sectionId } });
-  if (results.length === 0 && exam.status !== "DRAFT") {
+  const ids = students.map((s) => s.studentId);
+  let results = await rosterResults(tx, examKey(examId), section, ids);
+  // Worked out when someone on the roll has no result yet (nothing entered so far, or a student who joined since).
+  if (exam.status !== "DRAFT" && ids.some((id) => !results.some((r) => r.studentId === id))) {
     await recomputeSection(tx, ctx, examId, sectionId);
-    results = await tx.result.findMany({ where: { key: examKey(examId), sectionId } });
+    results = await rosterResults(tx, examKey(examId), section, ids);
   }
   const columns: SheetColumn[] = papers.map((p) => ({ id: p.subject.id, name: p.subject.name, max: p.subject.gradeOnly ? 0 : p.entry.maxMarks, gradeOnly: p.subject.gradeOnly, entryId: p.entry.id }));
   const rows = buildRows(students, results);
@@ -420,6 +538,7 @@ function buildRows(students: { studentId: string; name: string; rollNo: number |
       studentId: st.studentId, name: st.name, rollNo: st.rollNo, admissionNo: st.admissionNo, cells,
       total: r?.total ?? 0, maxTotal: r?.maxTotal ?? 0, percent: r?.percent ?? null, grade: r?.grade ?? null, points: r?.points ?? null, rank: r?.rank ?? null,
       outcome: r?.outcome ?? null, complete: r?.complete ?? false, missing: r?.missing ?? 0, status: r?.status ?? "DRAFT", publishedAt: r?.publishedAt ?? null,
+      leftOut: r?.leftOut ?? false,
     };
   });
 }
@@ -429,17 +548,18 @@ export async function finalSheet(tx: Tx, ctx: SchoolContext, yearId: string, sec
   const section = await sectionInfo(tx, sectionId);
   const exams = await finalExams(tx, ctx, yearId, section.classId);
   const students = await sectionStudents(tx, [sectionId], yearId);
-  let finals = await tx.result.findMany({ where: { key: finalKey(yearId), sectionId } });
-  if (finals.length === 0 && exams.length) {
+  const ids = students.map((s) => s.studentId);
+  let finals = await rosterResults(tx, finalKey(yearId), section, ids);
+  if (exams.length && ids.some((id) => !finals.some((r) => r.studentId === id))) {
     await recomputeFinal(tx, ctx, yearId, sectionId);
-    finals = await tx.result.findMany({ where: { key: finalKey(yearId), sectionId } });
+    finals = await rosterResults(tx, finalKey(yearId), section, ids);
   }
-  const examResults = await tx.result.findMany({ where: { key: { in: exams.map((e) => examKey(e.id)) }, sectionId } });
+  const examResults = ids.length ? await tx.result.findMany({ where: { key: { in: exams.map((e) => examKey(e.id)) }, studentId: { in: ids } } }) : [];
   const rows = buildRows(students, finals).map((row) => ({
     ...row,
     exams: Object.fromEntries(exams.map((e) => {
       const r = examResults.find((x) => x.key === examKey(e.id) && x.studentId === row.studentId);
-      return [e.id, r ? { percent: r.percent, grade: r.grade, status: r.status, complete: r.complete } : null];
+      return [e.id, r ? { percent: r.percent, grade: r.grade, status: r.status, complete: r.complete, leftOut: r.leftOut } : null];
     })),
   }));
   const subjects = new Map<string, { id: string; name: string }>();

@@ -11,6 +11,7 @@ import { writeAudit } from "../audit";
 import { requestConsent as askParents } from "../parent-link/consent";
 import { StudentProblem } from "./students";
 import { CONSENT_TYPES } from "./labels";
+import { OPEN_LINK } from "./guardian-access";
 
 export type ConsentState = "GIVEN" | "WITHDRAWN" | "REQUESTED" | "NONE";
 export type ConsentRow = { guardianId: string; studentId: string; consentType: string; status: Exclude<ConsentState, "NONE">; consentTextId: string | null; version: number | null; givenOn: Date | null; method: string | null; withdrawnOn: Date | null; withdrawnNote: string | null };
@@ -51,7 +52,7 @@ export async function consentRows(tx: Tx, ctx: SchoolContext, where: { guardianI
   });
   if (requests.length) {
     const asked = [...new Set(requests.flatMap((q) => q.guardianIds))].filter((g) => !where.guardianIds || where.guardianIds.includes(g));
-    const links = await tx.studentGuardian.findMany({ where: { guardianId: { in: asked }, archivedAt: null, ...(where.studentIds ? { studentId: { in: where.studentIds } } : {}) } });
+    const links = await tx.studentGuardian.findMany({ where: { guardianId: { in: asked }, ...OPEN_LINK, ...(where.studentIds ? { studentId: { in: where.studentIds } } : {}) } });
     for (const q of requests) {
       for (const l of links) {
         if (!q.guardianIds.includes(l.guardianId)) continue;

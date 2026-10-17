@@ -99,6 +99,8 @@ model RiskFlag {
   counsellingId  String?      @map("counselling_id") @db.Uuid
   raisedAt       DateTime     @default(now()) @map("raised_at")
   updatedAt      DateTime     @updatedAt @map("updated_at")
+  /// Set when an attendance flag joined the student's Attendance Flag, the one record for attendance concerns.
+  attendanceFlagId String?    @map("attendance_flag_id") @db.Uuid
   reviews        FlagReview[]
 
   @@index([schoolId, status])
@@ -106,20 +108,25 @@ model RiskFlag {
   @@map("risk_flag")
 }
 
-/// Flag Review: a person's decision on a Risk Flag, kept as history.
+/// Flag Review: a person's decision on a Risk Flag or an Attendance Flag, kept as history.
 model FlagReview {
-  id         String   @id @default(uuid()) @db.Uuid
-  schoolId   String   @map("school_id") @db.Uuid
-  flagId     String   @map("flag_id") @db.Uuid
+  id               String          @id @default(uuid()) @db.Uuid
+  schoolId         String          @map("school_id") @db.Uuid
+  /// The Risk Flag (marks, fees, or attendance with no Attendance Flag behind it).
+  flagId           String?         @map("flag_id") @db.Uuid
+  /// The Attendance Flag. A review made on a Risk Flag that later joined an Attendance Flag has both.
+  attendanceFlagId String?         @map("attendance_flag_id") @db.Uuid
   /// REVIEWED, ACTION_PLANNED, NOT_A_CONCERN.
-  decision   String
-  note       String
-  action     String?
-  reviewerId String   @map("reviewer_id") @db.Uuid
-  createdAt  DateTime @default(now()) @map("created_at")
-  flag       RiskFlag @relation(fields: [flagId], references: [id])
+  decision         String
+  note             String
+  action           String?
+  reviewerId       String          @map("reviewer_id") @db.Uuid
+  createdAt        DateTime        @default(now()) @map("created_at")
+  flag             RiskFlag?       @relation(fields: [flagId], references: [id], onDelete: Restrict)
+  attendanceFlag   AttendanceFlag? @relation(fields: [attendanceFlagId], references: [id], onDelete: Restrict)
 
   @@index([schoolId, flagId])
+  @@index([schoolId, attendanceFlagId])
   @@map("flag_review")
 }
 
@@ -229,4 +236,37 @@ model ReportScheduleSend {
   @@unique([scheduleId, userId, slot])
   @@index([schoolId, scheduleId])
   @@map("report_schedule_send")
+}
+
+/// Forecast Signal: one "Looking ahead" suggestion worked out from the school's own
+/// records (19 Early Warnings, AI forecasts): what may happen next, the numbers behind
+/// it and what a person could do. It never changes anything: a person adds it for
+/// review or says it is not a concern (AI Signal Decision). Kept while the numbers
+/// still say so; cleared (archived) when they no longer do.
+model ForecastSignal {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  /// Stable key, e.g. "att-proj:<student>:<month>"; the decision is kept against it.
+  key         String
+  /// attendance, marks, fees, students, admissions, staff or finance.
+  area        String
+  /// WATCH or ACT_NOW.
+  strength    String    @default("WATCH")
+  title       String
+  body        String
+  /// What the numbers come from, in plain words ("Why am I seeing this?").
+  source      String
+  href        String?
+  hrefLabel   String?   @map("href_label")
+  studentId   String?   @map("student_id") @db.Uuid
+  value       Float?
+  firstSeenAt DateTime  @default(now()) @map("first_seen_at")
+  computedAt  DateTime  @default(now()) @map("computed_at")
+  /// When the leaders were told about it (once).
+  notifiedAt  DateTime? @map("notified_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  @@unique([schoolId, key])
+  @@index([schoolId, archivedAt])
+  @@map("forecast_signal")
 }

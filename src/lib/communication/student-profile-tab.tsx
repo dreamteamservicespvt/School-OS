@@ -47,7 +47,9 @@ async function load({ current, studentId, academicYearId }: ProfileTabArgs) {
     const enrolment = academicYearId
       ? await tx.enrolment.findFirst({ where: { schoolId: current.ctx.schoolId, studentId, academicYearId, archivedAt: null }, orderBy: { createdAt: "desc" }, select: { sectionId: true, classId: true } })
       : null;
-    const notices = enrolment ? (await noticesForGuardian(tx, current.ctx, [enrolment])).slice(0, 10) : [];
+    // The notices this student's parents see: the campus of the year shown, then the class and section.
+    const year = enrolment && academicYearId ? await tx.academicYear.findFirst({ where: { id: academicYearId, schoolId: current.ctx.schoolId }, select: { campusId: true } }) : null;
+    const notices = enrolment ? (await noticesForGuardian(tx, current.ctx, [{ ...enrolment, campusId: year?.campusId ?? null }])).slice(0, 10) : [];
     return { rows, total, notices };
   });
 }

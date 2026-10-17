@@ -38,6 +38,8 @@ export type AttendanceAccess = {
   lockOverride: boolean;
   /** May change settings, devices and QR. */
   admin: boolean;
+  /** Has the whole school's fees (Fee Management, see all): may see and choose the "Fees dispute" absence reason. */
+  seesFees: boolean;
   /**
    * How the person uses each page (src/lib/duty.ts, owner's prototype changes of
    * 13 Oct 2026): the Principal, School Admin and Vice Principal never take a
@@ -102,6 +104,7 @@ export async function attendanceAccess(tx: Tx, ctx: SchoolContext, current: Acce
     studentLeave: seeAll || (own && isOffice) ? "all" : own && classSections.length > 0 ? "own" : "none",
     lockOverride: full && roleKeys.some((k) => lockOverrideRoles.includes(k)),
     admin: full,
+    seesFees: current.permissions["fee-management"]?.see === "all",
     pages: attendancePages(current),
     classWise: seeAll,
   };

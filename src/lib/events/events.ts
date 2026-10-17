@@ -15,7 +15,7 @@ import { assertYearOpen } from "../academic/years";
 import { addCharge, removeDue } from "../fees/structure";
 import { refundable, requestRefund } from "../fees/refunds";
 import { ensureFeeDefaults } from "../fees/settings";
-import { sendMessage, type AudienceRule } from "../messaging";
+import { MessagingProblem, notSentWords, sendMessage, type AudienceRule } from "../messaging";
 import { EventsProblem, EventsWarning } from "./problem";
 import { eventsSettings } from "./settings";
 import { syncSourceEntry } from "./calendar";
@@ -200,13 +200,16 @@ export async function messageAudience(tx: Tx, ctx: SchoolContext, e: Event, kind
     source: { type: "Event", id: e.id }, audienceLabel: e.audienceLabel,
     idempotencyKey: opts.auto ? `event-reminder:${e.id}:${isoOf(e.date)}` : null,
     onNoCredits: opts.auto ? "fail" : "block",
+    // The schedule has nobody to tell: when no channel can carry it, it is kept as Not sent (Message History, Dashboard).
+    onNobody: opts.auto ? "record" : "block",
   });
+  const missed = notSentWords(r);
   await tx.eventReminder.create({
-    data: { schoolId: ctx.schoolId, eventId: e.id, kind, people: r.people, messageId: r.messageId, sentById: opts.auto ? null : ctx.userId, note: opts.auto ? "Automatic reminder" : kind === "reminder" ? "Reminder" : kind === "changed" ? "Change sent to the audience" : "Cancellation sent to the audience" },
+    data: { schoolId: ctx.schoolId, eventId: e.id, kind, people: r.people, messageId: r.messageId, sentById: opts.auto ? null : ctx.userId, note: `${opts.auto ? "Automatic reminder" : kind === "reminder" ? "Reminder" : kind === "changed" ? "Change sent to the audience" : "Cancellation sent to the audience"}${missed ? `. ${missed}` : ""}`.slice(0, 500) },
   });
   if (kind === "reminder") await tx.event.update({ where: { id: e.id }, data: { reminderSentAt: new Date() } });
   await writeAudit(tx, ctx, { action: `message-${kind}`, recordType: "Event", recordId: e.id, after: { people: r.people, auto: Boolean(opts.auto) } });
-  return r;
+  return { ...r, missed };
 }
 
 /* ---------- Registration and fees ---------- */
@@ -442,8 +445,10 @@ export async function sendDueReminders(tx: Tx, ctx: SchoolContext, today: string
       await messageAudience(tx, ctx, e, "reminder", { auto: true });
       sent++;
     } catch (err) {
-      if (!(err instanceof EventsProblem)) throw err;
+      // One event's problem never stops the other reminders (or the PTM reminders after them).
+      if (!(err instanceof EventsProblem) && !(err instanceof MessagingProblem)) throw err;
       await tx.event.update({ where: { id: e.id }, data: { reminderSentAt: new Date() } });
+      await tx.eventReminder.create({ data: { schoolId: ctx.schoolId, eventId: e.id, kind: "reminder", people: 0, messageId: null, sentById: null, note: `Automatic reminder not sent: ${err.message}`.slice(0, 500) } });
     }
   }
   return sent;

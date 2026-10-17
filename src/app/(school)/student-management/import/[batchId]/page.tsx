@@ -9,7 +9,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { ConfirmAction } from "@/components/students/confirm-action";
-import { STUDENT_IMPORT, UDISE_IMPORT } from "@/lib/students/import";
+import { STUDENT_IMPORT_KINDS } from "@/lib/students/import-kinds";
 import { BASE, studentPage } from "../../_lib/page";
 import { undoImportAction } from "../../_actions/import";
 
@@ -23,7 +23,7 @@ export default async function ImportBatchPage({ params }: { params: Promise<{ ba
   if (!/^[0-9a-f-]{36}$/i.test(batchId)) notFound();
   const data = await withSchool(current.ctx, async (tx) => {
     const batch = await tx.importBatch.findUnique({ where: { id: batchId } });
-    if (!batch || ![STUDENT_IMPORT, UDISE_IMPORT].includes(batch.kind)) return null;
+    if (!batch || !STUDENT_IMPORT_KINDS.includes(batch.kind)) return null;
     const ids = (batch.createdIds as string[]).slice(0, 30);
     // In the order they were imported (the file's order, so admission numbers run upwards).
     const order = new Map(ids.map((id, i) => [id, i]));
@@ -55,9 +55,11 @@ export default async function ImportBatchPage({ params }: { params: Promise<{ ba
             )}
             <div className="flex flex-wrap gap-2">
               {!batch.undoneAt && <ButtonLink href={`${BASE}?new=1`} size="sm">See them in the Student List</ButtonLink>}
-              {!batch.undoneAt && batch.added > 0 && (
+              {!batch.undoneAt && (batch.added > 0 || batch.updated > 0) && (
                 <ConfirmAction action={undoImportAction} fields={{ id: batch.id }} trigger="Undo this import" triggerVariant="danger-outline" title="Undo this import?" confirmLabel="Undo import" confirmVariant="danger">
-                  The {batch.added} students it added are archived, with their class and parent links. Parents with no other child are archived too. The import stays in the history.
+                  {batch.added > 0 && <>The {batch.added} students it added are archived, with their class and parent links, and their admission numbers are free for a corrected file. Parents with no other child are archived too. </>}
+                  {batch.updated > 0 && <>The {batch.updated} students it updated get their earlier values back, except any changed again since. </>}
+                  The import stays in the history.
                 </ConfirmAction>
               )}
             </div>

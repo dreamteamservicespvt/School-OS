@@ -2,7 +2,9 @@
 // the columns"). Old school software, UDISE+ downloads and hand-made Excel
 // sheets name the same thing many ways ("Adm No", "SR No", "Father Mob",
 // "D.O.B"). This finds the heading row, what the sheet holds, and which
-// column is which: by name first, then by what the values look like.
+// column is which: by name first (forgiving a typo or two), then by what the
+// values look like. Fedena calls the class a "Batch", Entab writes "Stu Name"
+// and "F Name"; those are listed below.
 
 import type { ImportColumn } from "../importer";
 import { classKey, plain, readDate, splitClassSection, tidyGender, tidyPhone } from "./tidy";
@@ -19,18 +21,18 @@ export const PARTS: Record<string, { key: string; label: string; names: string[]
 /** Headings other software uses, beyond each import's own column names and aliases. */
 const SAME_AS: Record<string, Record<string, string[]>> = {
   students: {
-    fullName: ["student name", "name of student", "name of the student", "students name", "student full name", "pupil name", "candidate name", "name", "full name", "student"],
-    className: ["class", "standard", "std", "grade", "class name", "present class", "current class", "class studying", "admitted class", "class admitted"],
+    fullName: ["student name", "stu name", "studentname", "name of student", "name of the student", "students name", "student full name", "pupil name", "candidate name", "name", "full name", "student"],
+    className: ["class", "standard", "std", "grade", "class name", "batch", "course", "present class", "current class", "class studying", "admitted class", "class admitted"],
     sectionName: ["section", "sec", "division", "div", "section name"],
     classSection: ["class section", "class and section", "class & section", "class/section", "class-section", "class sec", "class-sec", "std div", "standard division", "class div"],
     dateOfBirth: ["dob", "d o b", "date of birth", "birth date", "birthdate", "dob dd mm yyyy", "date of birth dd mm yyyy", "student dob"],
     gender: ["gender", "sex", "boy girl", "m f"],
-    guardianName: ["father name", "fathers name", "father", "name of father", "father guardian name", "guardian name", "parent name", "parents name", "guardian", "father s name"],
+    guardianName: ["father name", "fathername", "father s full name", "fathers name", "father", "name of father", "father guardian name", "guardian name", "parent name", "parents name", "guardian", "father s name"],
     guardianRelation: ["relation", "relationship", "guardian relation", "relation with student"],
     guardianPhone: ["father mobile", "father mobile no", "father phone", "father contact", "father mob", "fathers mobile", "parent mobile", "parent phone", "parent contact", "guardian mobile", "guardian phone", "mobile", "mobile no", "mobile number", "phone", "phone no", "phone number", "contact", "contact no", "contact number", "sms mobile", "sms number", "primary mobile", "whatsapp", "whatsapp number", "mob no", "cell"],
-    motherName: ["mother name", "mothers name", "mother", "name of mother", "mother s name"],
+    motherName: ["mother name", "mothername", "mothers name", "mother", "name of mother", "mother s name"],
     motherPhone: ["mother mobile", "mother mobile no", "mother phone", "mother contact", "mother mob", "mothers mobile", "secondary mobile", "alternate mobile", "alternate number", "other mobile"],
-    admissionNo: ["admission no", "admission number", "adm no", "admn no", "adm number", "admission id", "enrollment no", "enrolment no", "enrollment number", "sr no", "s r no", "scholar no", "scholar number", "gr no", "g r no", "general register no", "reg no", "registration no", "registration number", "student id", "student code", "admno"],
+    admissionNo: ["admission no", "admission number", "adm no.", "admission num", "stu adm no", "student admission no", "adm no", "admn no", "adm number", "admission id", "enrollment no", "enrolment no", "enrollment number", "sr no", "s r no", "scholar no", "scholar number", "gr no", "g r no", "general register no", "reg no", "registration no", "registration number", "student id", "student code", "admno"],
     rollNo: ["roll no", "roll number", "roll", "class roll no", "rollno"],
     admissionDate: ["admission date", "date of admission", "doa", "admitted on", "joining date", "date of joining"],
     bloodGroup: ["blood group", "blood", "bloodgroup", "b group"],
@@ -101,7 +103,28 @@ function targets(kindKey: string, columns: ImportColumn[]): Target[] {
   return out;
 }
 
-/** How well a heading fits a column: 3 for the same words, 2 when it starts with them, 1 when it contains them. */
+/** Letters to add, drop, change or swap to turn one heading into another (two swapped letters count once). */
+export function editDistance(a: string, b: string): number {
+  if (a === b) return 0;
+  const d: number[][] = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+    }
+  }
+  return d[a.length][b.length];
+}
+
+/** A heading with a typo or two ("Admision No", "Fathers Mobil") still fits: about one slip per six letters. */
+export function closeEnough(h: string, n: string): boolean {
+  if (n.length < 6 || h.length < 6) return false;
+  return editDistance(h, n) <= Math.max(1, Math.floor(n.length / 6));
+}
+
+/** How well a heading fits a column: 3 for the same words, 2 when it starts with them, 1 when it contains them or is a near spelling. */
 function fit(heading: string, names: string[]): number {
   const h = plain(heading);
   if (!h) return 0;
@@ -110,6 +133,7 @@ function fit(heading: string, names: string[]): number {
     if (h === n) return 3;
     if (n.length >= 4 && h.startsWith(n)) best = Math.max(best, 2);
     else if (n.length >= 5 && h.includes(n)) best = Math.max(best, 1);
+    else if (closeEnough(h, n)) best = Math.max(best, 1);
   }
   return best;
 }

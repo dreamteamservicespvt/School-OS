@@ -67,7 +67,7 @@ export default async function SettingsPage({ searchParams }: Props) {
   });
   const tones = TONES.map((t) => ({ value: t.value, label: t.label }));
   const counts = COUNTS.map((c) => ({ value: c.value, label: c.label }));
-  const extra = ATTENDANCE_FEATURES.filter((f) => f.key === "attendance-shifts" || f.key === "attendance-overtime");
+  const extra = ATTENDANCE_FEATURES.filter((f) => f.key === "attendance-shifts" || f.key === "attendance-overtime" || f.key === "attendance-absence-reasons");
 
   const lock = lockState(s, today, now, tz);
   const lockIn = Math.max(0, Math.round((lock.at.getTime() - now.getTime()) / 60000));

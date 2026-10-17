@@ -3,9 +3,15 @@
 // maximum; absent and marks cannot both be set. Submitting closes the paper
 // for the teacher; after that a change needs a reason and an approval
 // (moderation), and the old and new marks stay in the history.
+//
+// Late marks (G23): a student who joined after a paper's marks were in has
+// none. By the school's choice in Exam Settings their marks are added only
+// through the same request and approval (the default), or not at all (the
+// student stays "Joined after this exam"). Marks belong to the student, so
+// they are found by student and follow a student who changes section.
 import "server-only";
 
-import type { MarksPaperStatus, Prisma } from "@prisma/client";
+import { Prisma, type MarksPaperStatus } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { notify } from "../notifications";
@@ -14,7 +20,7 @@ import { formatDate } from "../format";
 import { assertYearOpen } from "../academic/years";
 import { plural, wordList } from "../academic/common";
 import { ExamRuleError, showMarks } from "./common";
-import { checkMark, round2 } from "./compute";
+import { checkMark, isDone, round2 } from "./compute";
 import { categoriesOf, type Category } from "./datesheet";
 import { examSettings } from "./settings";
 import { sectionStudents, sitters, type RosterStudent } from "./roster";
@@ -44,7 +50,8 @@ export async function loadPaper(tx: Tx, ctx: SchoolContext, entryId: string, sec
   if (section.classId !== entry.classId) return null;
   const subject = await tx.subject.findFirstOrThrow({ where: { id: entry.subjectId } });
   const students = sitters(await sectionStudents(tx, [sectionId], entry.exam.academicYearId), subject);
-  const marks = await tx.marks.findMany({ where: { entryId, sectionId } });
+  // By student, not by section: a student who moved in keeps the marks they already have (G23).
+  const marks = students.length ? await tx.marks.findMany({ where: { entryId, studentId: { in: students.map((s) => s.studentId) } } }) : [];
   const paper = await tx.marksPaper.upsert({ where: { entryId_sectionId: { entryId, sectionId } }, create: { schoolId: ctx.schoolId, entryId, sectionId }, update: {} });
   const settings = await examSettings(tx, ctx);
   const scale = await bandsFor(tx, ctx, entry.exam.gradeScaleId, section.board);
@@ -52,16 +59,13 @@ export async function loadPaper(tx: Tx, ctx: SchoolContext, entryId: string, sec
   return {
     entry, exam: entry.exam, section, subject, students, marks, paper,
     categories: categoriesOf(entry), gradeList: settings.gradeOnlyGrades, bands: scale.bands, waiting,
+    lateMarks: settings.lateMarks === "off" ? "off" as const : "approval" as const,
   };
 }
 
 export type PaperView = NonNullable<Awaited<ReturnType<typeof loadPaper>>>;
 
-/** Is a student's mark complete: every category, or absent, or a grade for grade-only subjects. */
-export function isDone(m: { absent: boolean; total: number | null; grade: string | null } | undefined, gradeOnly: boolean) {
-  if (!m) return false;
-  return m.absent || (gradeOnly ? Boolean(m.grade) : m.total !== null);
-}
+export { isDone };
 
 /** Checks one student's marks; returns the problem in plain words (08 §5), or null. */
 export function checkValue(student: { name: string }, v: MarkValue, cats: Category[], gradeOnly: boolean, gradeList: string[]): string | null {
@@ -130,7 +134,7 @@ export async function saveMarks(tx: Tx, ctx: SchoolContext, scope: ExamScope, in
     };
     const same = prev && JSON.stringify(prev.parts) === JSON.stringify(data.parts) && prev.absent === data.absent && prev.medical === data.medical && prev.grade === data.grade && (prev.remark ?? null) === data.remark;
     if (same) continue;
-    if (prev) await tx.marks.update({ where: { id: prev.id }, data });
+    if (prev) await tx.marks.update({ where: { id: prev.id }, data: { ...data, sectionId: input.sectionId } });
     else await tx.marks.create({ data: { schoolId: ctx.schoolId, entryId: input.entryId, sectionId: input.sectionId, studentId: row.studentId, enteredById: ctx.userId, ...data } });
     changes.push({ student: st.name, before: prev ? { parts: prev.parts, absent: prev.absent, medical: prev.medical, grade: prev.grade } : null, after: { parts: data.parts, absent: data.absent, medical: data.medical, grade: data.grade } });
   }
@@ -139,7 +143,7 @@ export async function saveMarks(tx: Tx, ctx: SchoolContext, scope: ExamScope, in
     await writeAudit(tx, ctx, { action: "marks-entered", recordType: "Marks", recordId: paper.paper.id, after: { paper: `${paper.exam.title}, ${paper.section.label}, ${paper.subject.name}`, changes } as unknown as Prisma.InputJsonValue });
     await recomputeSection(tx, ctx, paper.exam.id, paper.section.id);
   }
-  const after = await tx.marks.findMany({ where: { entryId: input.entryId, sectionId: input.sectionId } });
+  const after = await tx.marks.findMany({ where: { entryId: input.entryId, studentId: { in: paper.students.map((s) => s.studentId) } } });
   const done = paper.students.filter((s) => isDone(after.find((m) => m.studentId === s.studentId), paper.subject.gradeOnly)).length;
   return { saved: changes.length, done, of: paper.students.length };
 }
@@ -194,9 +198,19 @@ export async function lockPapers(tx: Tx, ctx: SchoolContext, scope: ExamScope, e
   return { locked: locked.count, open };
 }
 
+/** Words for a marks value in requests and the moderation report. */
+function valueWords(v: { absent?: boolean; medical?: boolean; grade?: string | null; total?: number | null } | null, gradeOnly: boolean) {
+  if (!v) return "no marks";
+  return v.medical ? "medical leave" : v.absent ? "absent" : gradeOnly ? v.grade ?? "no grade" : showMarks(v.total ?? null);
+}
+
 /**
  * Asks for a change after submission or lock (moderation, rule 14): a reason,
  * an approval, and the old value kept. Nothing changes until it is approved.
+ *
+ * For a student with no marks in the paper (one who joined after the marks
+ * were in) it asks to add late marks instead, if Exam Settings allows them.
+ * They too apply only once approved.
  */
 export async function requestModeration(tx: Tx, ctx: SchoolContext, scope: ExamScope, input: { entryId: string; sectionId: string; studentId: string; value: MarkValue; reason: string }) {
   const paper = await loadPaper(tx, ctx, input.entryId, input.sectionId);
@@ -212,7 +226,10 @@ export async function requestModeration(tx: Tx, ctx: SchoolContext, scope: ExamS
   const problem = checkValue(st, input.value, paper.categories, paper.subject.gradeOnly, paper.gradeList);
   if (problem) throw new ExamRuleError(problem, "value");
   const marks = paper.marks.find((m) => m.studentId === input.studentId);
-  if (!marks) throw new ExamRuleError("This student has no marks to change.");
+  const late = !isDone(marks, paper.subject.gradeOnly);
+  if (late && paper.lateMarks === "off") {
+    throw new ExamRuleError(`${st.name} has no ${paper.subject.name} marks: they joined after the marks were in. Your school leaves such students out of the exam (Exam Settings, Late joiners), so ${st.name} shows as "Joined after this exam".`);
+  }
   const absent = input.value.absent || Boolean(input.value.medical);
   const after = {
     parts: paper.subject.gradeOnly || absent ? {} : cleanParts(input.value.parts, paper.categories),
@@ -221,25 +238,40 @@ export async function requestModeration(tx: Tx, ctx: SchoolContext, scope: ExamS
   };
   if (!paper.subject.gradeOnly && !after.absent && after.total === null) throw new ExamRuleError("Enter every mark category for the new marks.", "value");
   if (paper.subject.gradeOnly && !after.absent && !after.grade) throw new ExamRuleError("Choose the new grade.", "value");
-  const before = { parts: marks.parts, absent: marks.absent, medical: marks.medical, grade: marks.grade, total: marks.total };
-  if (JSON.stringify(before.parts) === JSON.stringify(after.parts) && before.absent === after.absent && before.medical === after.medical && before.grade === after.grade) throw new ExamRuleError("The new marks are the same as the old ones.", "value");
-  const waiting = await tx.marksModeration.findFirst({ where: { marksId: marks.id, status: "waiting" } });
+  const before = marks && !late ? { parts: marks.parts, absent: marks.absent, medical: marks.medical, grade: marks.grade, total: marks.total } : null;
+  if (before && JSON.stringify(before.parts) === JSON.stringify(after.parts) && before.absent === after.absent && before.medical === after.medical && before.grade === after.grade) throw new ExamRuleError("The new marks are the same as the old ones.", "value");
+  const waiting = await tx.marksModeration.findFirst({ where: { entryId: input.entryId, studentId: input.studentId, status: "waiting" } });
   if (waiting) throw new ExamRuleError(`A change for ${st.name} is already waiting for approval.`);
   const mod = await tx.marksModeration.create({
-    data: { schoolId: ctx.schoolId, marksId: marks.id, entryId: input.entryId, studentId: input.studentId, before: before as unknown as Prisma.InputJsonValue, after: after as unknown as Prisma.InputJsonValue, reason, requestedById: ctx.userId! },
+    data: {
+      schoolId: ctx.schoolId, marksId: marks?.id ?? null, entryId: input.entryId, studentId: input.studentId, sectionId: paper.section.id, kind: late ? "late" : "change",
+      before: before ? before as unknown as Prisma.InputJsonValue : Prisma.JsonNull, after: after as unknown as Prisma.InputJsonValue, reason, requestedById: ctx.userId!,
+    },
   });
-  const words = (v: { absent: boolean; medical?: boolean; grade: string | null; total: number | null }) => (v.medical ? "medical leave" : v.absent ? "absent" : paper.subject.gradeOnly ? v.grade ?? "no grade" : showMarks(v.total));
   const approval = await requestApproval(tx, ctx, {
     type: "marks-moderation", recordType: "Marks Moderation", recordId: mod.id,
-    summary: `${st.name}, ${paper.section.label}: ${paper.subject.name} (${paper.exam.title}) from ${words(before)} to ${words(after)}`,
+    summary: late
+      ? `${st.name}, ${paper.section.label}: add ${paper.subject.name} marks (${paper.exam.title}) for a student who joined late: ${valueWords(after, paper.subject.gradeOnly)}`
+      : `${st.name}, ${paper.section.label}: ${paper.subject.name} (${paper.exam.title}) from ${valueWords(before, paper.subject.gradeOnly)} to ${valueWords(after, paper.subject.gradeOnly)}`,
     reason,
   });
   await tx.marksModeration.update({ where: { id: mod.id }, data: { approvalId: approval.id } });
-  await writeAudit(tx, ctx, { action: "marks-change-asked", recordType: "Marks", recordId: marks.id, before: before as unknown as Prisma.InputJsonValue, after: { ...after, reason } as unknown as Prisma.InputJsonValue });
-  return { moderation: mod, approval };
+  await writeAudit(tx, ctx, {
+    action: late ? "late-marks-asked" : "marks-change-asked", recordType: late ? "Marks Moderation" : "Marks", recordId: late ? mod.id : marks!.id,
+    before: before ? before as unknown as Prisma.InputJsonValue : undefined,
+    after: { ...after, reason, ...(late ? { student: st.name, paper: `${paper.exam.title}, ${paper.section.label}, ${paper.subject.name}` } : {}) } as unknown as Prisma.InputJsonValue,
+  });
+  return { moderation: mod, approval, late };
 }
 
-/** What happens when a moderation is decided (Approvals). Approved: the new marks apply, the old ones stay in the history, results are worked out again. */
+type StoredValue = { parts: Record<string, number>; absent: boolean; medical?: boolean; grade: string | null; total: number | null };
+
+/**
+ * What happens when a moderation is decided (Approvals). Approved: the new
+ * marks apply, the old ones stay in the history, results are worked out again.
+ * Approved late marks are added for the student in their section now; only
+ * that student's result changes, and it waits to be published like any draft.
+ */
 export async function decideModeration(tx: Tx, ctx: SchoolContext, moderationId: string, decision: "approve" | "reject" | "ask-change" | "withdraw", approvalId: string) {
   const mod = await tx.marksModeration.findFirst({ where: { id: moderationId } });
   if (!mod || mod.status !== "waiting") return;
@@ -248,15 +280,33 @@ export async function decideModeration(tx: Tx, ctx: SchoolContext, moderationId:
     await tx.marksModeration.update({ where: { id: mod.id }, data: { status: decision === "withdraw" ? "withdrawn" : "rejected", decidedById: ctx.userId, decidedAt: now } });
     return;
   }
+  const after = mod.after as StoredValue;
+  const entry = await tx.datesheetEntry.findFirstOrThrow({ where: { id: mod.entryId } });
+  const exam = await tx.exam.findFirstOrThrow({ where: { id: entry.examId } });
+  if (mod.kind === "late" || !mod.marksId) {
+    const enrolment = await tx.enrolment.findFirst({ where: { studentId: mod.studentId, academicYearId: exam.academicYearId, archivedAt: null } });
+    const sectionId = enrolment?.sectionId ?? mod.sectionId;
+    if (!sectionId) throw new ExamRuleError("This student has no section this year, so the marks cannot be added.");
+    // The student is "Joined after this exam" until every paper has marks, so adding one paper never blocks the others.
+    await recomputeSection(tx, ctx, entry.examId, sectionId, { final: false });
+    const existing = await tx.marks.findFirst({ where: { entryId: mod.entryId, studentId: mod.studentId } });
+    const history = [...((existing?.history as unknown[]) ?? []), { at: now.toISOString(), by: mod.requestedById, approvedBy: ctx.userId, before: null, after: mod.after, reason: mod.reason, approvalId, late: true }];
+    const values = { parts: after.parts, absent: after.absent, medical: Boolean(after.medical), grade: after.grade, total: after.total, updatedById: mod.requestedById, sectionId, history: history as unknown as Prisma.InputJsonValue };
+    const row = existing
+      ? await tx.marks.update({ where: { id: existing.id }, data: values })
+      : await tx.marks.create({ data: { schoolId: ctx.schoolId, entryId: mod.entryId, studentId: mod.studentId, enteredById: mod.requestedById, ...values } });
+    await tx.marksModeration.update({ where: { id: mod.id }, data: { status: "approved", decidedById: ctx.userId, decidedAt: now, marksId: row.id } });
+    await writeAudit(tx, ctx, { action: "late-marks-added", recordType: "Marks", recordId: row.id, after: { ...(mod.after as object), reason: mod.reason, approvalId } as unknown as Prisma.InputJsonValue });
+    // Not "includePublished": the other students' published results, ranks included, never change.
+    await recomputeSection(tx, ctx, entry.examId, sectionId);
+    return;
+  }
   const marks = await tx.marks.findFirstOrThrow({ where: { id: mod.marksId } });
-  const after = mod.after as { parts: Record<string, number>; absent: boolean; medical?: boolean; grade: string | null; total: number | null };
   const history = [...((marks.history as unknown[]) ?? []), { at: now.toISOString(), by: mod.requestedById, approvedBy: ctx.userId, before: mod.before, after: mod.after, reason: mod.reason, approvalId }];
   await tx.marks.update({ where: { id: marks.id }, data: { parts: after.parts, absent: after.absent, medical: Boolean(after.medical), grade: after.grade, total: after.total, updatedById: mod.requestedById, history: history as unknown as Prisma.InputJsonValue } });
   await tx.marksModeration.update({ where: { id: mod.id }, data: { status: "approved", decidedById: ctx.userId, decidedAt: now } });
-  await writeAudit(tx, ctx, { action: "marks-changed-after-lock", recordType: "Marks", recordId: marks.id, before: mod.before as Prisma.InputJsonValue, after: { ...(mod.after as object), reason: mod.reason, approvalId } as unknown as Prisma.InputJsonValue });
-  const entry = await tx.datesheetEntry.findFirstOrThrow({ where: { id: mod.entryId } });
+  await writeAudit(tx, ctx, { action: "marks-changed-after-lock", recordType: "Marks", recordId: marks.id, before: (mod.before ?? undefined) as Prisma.InputJsonValue | undefined, after: { ...(mod.after as object), reason: mod.reason, approvalId } as unknown as Prisma.InputJsonValue });
   await recomputeSection(tx, ctx, entry.examId, marks.sectionId, { includePublished: true });
-  const exam = await tx.exam.findFirstOrThrow({ where: { id: entry.examId } });
   await recomputeFinal(tx, ctx, exam.academicYearId, marks.sectionId, { includePublished: true });
 }
 
@@ -268,6 +318,9 @@ export type PaperRow = {
   /** Subject teachers from Teacher Allocation. */
   teachers: { name: string; userId: string | null }[];
 };
+
+/** "Class 9 A" before "Class 10 A": the same order as localeCompare with numeric, made once rather than for every comparison. */
+const BY_LABEL = new Intl.Collator(undefined, { numeric: true });
 
 /** The papers a person enters marks for (their own allocations), or every paper for full reach. */
 export async function papersFor(tx: Tx, ctx: SchoolContext, scope: ExamScope, yearId: string, f: { examId?: string; status?: string; q?: string }) {
@@ -289,22 +342,46 @@ export async function papersFor(tx: Tx, ctx: SchoolContext, scope: ExamScope, ye
     tx.teacherAllocation.findMany({ where: { academicYearId: yearId, archivedAt: null, sectionId: { in: [...new Set(pairs.map((p) => p.section.id))] } }, select: { sectionId: true, subjectId: true, staffId: true } }),
   ]);
   const staff = await tx.staff.findMany({ where: { id: { in: [...new Set(allocs.map((a) => a.staffId))] } }, select: { id: true, fullName: true, userLoginId: true } });
+  // Looked up once rather than searched for every paper (the Dashboard reads every paper of the year: QA PLATFORM-13).
+  // Each lookup keeps the first row, as a search with find() would.
+  const first = <T, K>(rows: T[], key: (r: T) => K) => {
+    const m = new Map<K, T>();
+    for (const r of rows) if (!m.has(key(r))) m.set(key(r), r);
+    return m;
+  };
+  const groups = <T, K>(rows: T[], key: (r: T) => K) => {
+    const m = new Map<K, T[]>();
+    for (const r of rows) {
+      const list = m.get(key(r));
+      if (list) list.push(r);
+      else m.set(key(r), [r]);
+    }
+    return m;
+  };
+  const subjectById = first(subjects, (s) => s.id);
+  const rosterBySection = groups(roster, (r) => r.sectionId);
+  // By paper and student, not by section: marks follow a student who changed section (G23).
+  const marksByEntry = groups(marks, (m) => m.entryId);
+  const paperByKey = first(papers, (p) => `${p.entryId}|${p.sectionId}`);
+  const waitingByEntry = first(waiting, (w) => w.entryId);
+  const allocsByPaper = groups(allocs, (a) => `${a.sectionId}|${a.subjectId}`);
+  const staffById = groups(staff, (x) => x.id);
   const rows: PaperRow[] = pairs.map(({ exam, entry, section }) => {
-    const subject = subjects.find((s) => s.id === entry.subjectId)!;
-    const students = sitters(roster.filter((r) => r.sectionId === section.id), subject);
-    const mine = marks.filter((m) => m.entryId === entry.id && m.sectionId === section.id);
-    const done = students.filter((s: RosterStudent) => isDone(mine.find((m) => m.studentId === s.studentId), subject.gradeOnly)).length;
+    const subject = subjectById.get(entry.subjectId)!;
+    const students = sitters(rosterBySection.get(section.id) ?? [], subject);
+    const mine = first(marksByEntry.get(entry.id) ?? [], (m) => m.studentId);
+    const done = students.filter((s: RosterStudent) => isDone(mine.get(s.studentId), subject.gradeOnly)).length;
     return {
       entryId: entry.id, sectionId: section.id, examId: exam.id, examTitle: exam.title, sectionLabel: `${section.schoolClass.name} ${section.name}`, subjectName: subject.name,
-      date: entry.date, due: entry.marksDueDate, status: papers.find((p) => p.entryId === entry.id && p.sectionId === section.id)?.status ?? "NOT_STARTED", done, of: students.length, gradeOnly: subject.gradeOnly,
-      waiting: waiting.find((w) => w.entryId === entry.id)?._count ?? 0,
-      teachers: allocs.filter((a) => a.sectionId === section.id && a.subjectId === entry.subjectId).flatMap((a) => staff.filter((x) => x.id === a.staffId).map((x) => ({ name: x.fullName, userId: x.userLoginId }))),
+      date: entry.date, due: entry.marksDueDate, status: paperByKey.get(`${entry.id}|${section.id}`)?.status ?? "NOT_STARTED", done, of: students.length, gradeOnly: subject.gradeOnly,
+      waiting: waitingByEntry.get(entry.id)?._count ?? 0,
+      teachers: (allocsByPaper.get(`${section.id}|${entry.subjectId}`) ?? []).flatMap((a) => (staffById.get(a.staffId) ?? []).map((x) => ({ name: x.fullName, userId: x.userLoginId }))),
     };
   });
   const q = f.q?.toLowerCase();
   return rows
     .filter((r) => (!f.status || r.status === f.status) && (!q || `${r.subjectName} ${r.sectionLabel} ${r.examTitle}`.toLowerCase().includes(q)))
-    .sort((a, b) => a.date.getTime() - b.date.getTime() || a.sectionLabel.localeCompare(b.sectionLabel, undefined, { numeric: true }));
+    .sort((a, b) => a.date.getTime() - b.date.getTime() || BY_LABEL.compare(a.sectionLabel, b.sectionLabel));
 }
 
 /**
@@ -347,21 +424,23 @@ export async function moderationList(tx: Tx, f: { examId?: string; status?: stri
     tx.subject.findMany({ where: { id: { in: entries.map((e) => e.subjectId) } }, select: { id: true, name: true, gradeOnly: true } }),
     tx.student.findMany({ where: { id: { in: rows.map((r) => r.studentId) } }, select: { id: true, fullName: true, admissionNo: true } }),
     tx.userLogin.findMany({ where: { id: { in: [...new Set(rows.flatMap((r) => [r.requestedById, r.decidedById].filter((x): x is string => Boolean(x))))] } }, select: { id: true, displayName: true } }),
-    tx.marks.findMany({ where: { id: { in: rows.map((r) => r.marksId) } }, select: { id: true, sectionId: true } }),
+    tx.marks.findMany({ where: { id: { in: rows.map((r) => r.marksId).filter((x): x is string => Boolean(x)) } }, select: { id: true, sectionId: true } }),
   ]);
-  const sections = await tx.section.findMany({ where: { id: { in: marks.map((m) => m.sectionId) } }, include: { schoolClass: true } });
+  const sectionOf = (r: (typeof rows)[number]) => r.sectionId ?? marks.find((m) => m.id === r.marksId)?.sectionId ?? null;
+  const sections = await tx.section.findMany({ where: { id: { in: rows.map(sectionOf).filter((x): x is string => Boolean(x)) } }, include: { schoolClass: true } });
   const words = (v: unknown, gradeOnly: boolean) => {
+    if (!v) return "None (joined late)";
     const x = v as { absent?: boolean; grade?: string | null; total?: number | null };
     return x.absent ? "Absent" : gradeOnly ? x.grade ?? "" : showMarks(x.total ?? null);
   };
   return rows.map((r) => {
     const e = entries.find((x) => x.id === r.entryId);
     const subj = subjects.find((s) => s.id === e?.subjectId);
-    const sec = sections.find((s) => s.id === marks.find((m) => m.id === r.marksId)?.sectionId);
+    const sec = sections.find((s) => s.id === sectionOf(r));
     return {
       id: r.id, approvalId: r.approvalId, exam: e?.exam.title ?? "", subject: subj?.name ?? "", section: sec ? `${sec.schoolClass.name} ${sec.name}` : "",
       student: students.find((s) => s.id === r.studentId)?.fullName ?? "", admissionNo: students.find((s) => s.id === r.studentId)?.admissionNo ?? "",
-      oldMarks: words(r.before, Boolean(subj?.gradeOnly)), newMarks: words(r.after, Boolean(subj?.gradeOnly)), reason: r.reason, status: r.status,
+      oldMarks: words(r.before, Boolean(subj?.gradeOnly)), newMarks: words(r.after, Boolean(subj?.gradeOnly)), reason: r.reason, status: r.status, late: r.kind === "late",
       askedBy: people.find((p) => p.id === r.requestedById)?.displayName ?? "", decidedBy: people.find((p) => p.id === r.decidedById)?.displayName ?? "",
       askedOn: r.createdAt, decidedOn: r.decidedAt,
     };

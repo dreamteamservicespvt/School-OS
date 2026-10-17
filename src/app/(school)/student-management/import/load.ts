@@ -4,13 +4,14 @@ import "server-only";
 import type { Tx } from "@/lib/db";
 import { readSheet } from "@/lib/importer";
 import { fileStore } from "@/lib/storage";
-import { STUDENT_IMPORT, UDISE_IMPORT } from "@/lib/students/import";
+import { STUDENT_IMPORT, STUDENT_UPDATE_IMPORT, UDISE_IMPORT } from "@/lib/students/import-kinds";
 import { StudentProblem } from "@/lib/students/students";
 
 export const MAX_IMPORT_ROWS = 2000;
 export const IMPORT_KINDS = [
   { key: STUDENT_IMPORT, label: "Students (CSV or Excel)", help: "Our template, or your own sheet with similar columns." },
   { key: UDISE_IMPORT, label: "UDISE+ student data", help: "The file downloaded from the UDISE+ portal." },
+  { key: STUDENT_UPDATE_IMPORT, label: "Changes to students already here", help: "A sheet with the admission number and the columns to correct, such as phones or addresses. Empty cells are left as they are." },
 ] as const;
 
 /** The uploaded file's headings and rows. Only files uploaded for an import are read. */
@@ -23,6 +24,27 @@ export async function loadSheet(tx: Tx, fileId: string) {
   if (sheet.headers.length === 0) throw new StudentProblem("The file is empty. Use the template, with the headings in the first row.");
   if (sheet.rows.length > MAX_IMPORT_ROWS) throw new StudentProblem(`The file has ${sheet.rows.length} rows. Import at most ${MAX_IMPORT_ROWS} at a time; split the file.`);
   return { file: f, ...sheet };
+}
+
+const CHOICE = /^(new|update:[0-9a-f-]{36}|family:[0-9a-f-]{36}|family-row:\d{1,6})$/i;
+
+/** The choices made for rows that may already be on record, from the page address (d_<row>=<choice>) or a form's JSON. */
+export function decisionsFrom(params: Record<string, string | undefined>): Record<number, string> {
+  const out: Record<number, string> = {};
+  for (const [k, v] of Object.entries(params)) {
+    const m = /^d_(\d{1,6})$/.exec(k);
+    if (m && v && CHOICE.test(v)) out[Number(m[1])] = v;
+  }
+  return out;
+}
+
+export function decisionsFromJson(raw: string): Record<number, string> {
+  try {
+    const o = JSON.parse(raw || "{}") as Record<string, unknown>;
+    return decisionsFrom(Object.fromEntries(Object.entries(o).map(([k, v]) => [`d_${k}`, typeof v === "string" ? v : undefined])));
+  } catch {
+    return {};
+  }
 }
 
 /** The column match from the page address (m_<column>=<index>), or the automatic one. */

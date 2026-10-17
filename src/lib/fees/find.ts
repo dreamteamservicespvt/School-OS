@@ -1,5 +1,5 @@
-// Finding a student at the fee counter and in the ledger picker: by name,
-// admission number or parent phone, with what they owe now.
+// Finding a student at the fee counter and in the ledger picker (the one
+// student search in ../students/find.ts), with what they owe now.
 import "server-only";
 
 import type { Prisma } from "@prisma/client";
@@ -7,6 +7,7 @@ import type { Tx } from "../db";
 import { addDays } from "../staff/dates";
 import { DUE_WINDOW_DAYS, classOfStudents } from "./dues";
 import { studentScope, type FeeViewer } from "./access";
+import { findStudents as findAnyStudents } from "../students/find";
 
 const ZERO = BigInt(0);
 
@@ -24,23 +25,15 @@ export type FoundStudent = {
   overdue: boolean;
 };
 
-/** Students matching a search (name, admission number or parent phone), at most `take`. */
+/**
+ * Students matching a search, best first, at most `take`: the one student
+ * search (name with one letter wrong, admission or roll number, parent name or
+ * phone), every status, within the person's fee reach.
+ */
 export async function findStudents(tx: Tx, viewer: FeeViewer, q: string, today: Date, take = 8): Promise<FoundStudent[]> {
-  const text = q.trim();
-  if (!text) return [];
-  const digits = text.replace(/\D/g, "");
-  const or: Prisma.StudentWhereInput[] = [
-    { fullName: { contains: text, mode: "insensitive" } },
-    { admissionNo: { contains: text, mode: "insensitive" } },
-  ];
-  if (digits.length >= 4) or.push({ guardians: { some: { archivedAt: null, guardian: { phone: { contains: digits } } } } });
-  const rows = await tx.student.findMany({
-    where: { archivedAt: null, AND: [studentScope(viewer), { OR: or }] },
-    orderBy: [{ status: "asc" }, { fullName: "asc" }],
-    take,
-    select: { id: true },
-  });
-  return describeStudents(tx, viewer, rows.map((r) => r.id), today);
+  if (!q.trim()) return [];
+  const hits = await findAnyStudents(tx, q, { scope: studentScope(viewer), yearId: viewer.yearId ?? null, statuses: "any", take });
+  return describeStudents(tx, viewer, hits.map((h) => h.id), today);
 }
 
 /** Students with the oldest overdue fees: most likely at the counter today. */

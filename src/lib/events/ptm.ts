@@ -12,12 +12,13 @@ import { writeAudit } from "../audit";
 import { assertYearOpen } from "../academic/years";
 import { attendanceSummary } from "../attendance/summary";
 import { homeworkDone } from "../homework/progress";
-import { ruleStates, sendAutomatic, sendMessage } from "../messaging";
+import { notSentWords, ruleStates, sendAutomatic, sendMessage } from "../messaging";
 import { staffForUser } from "../people";
 import { EventsProblem } from "./problem";
 import { eventsSettings } from "./settings";
 import { notWorkingDay, syncSourceEntry } from "./calendar";
 import { placesOf } from "./places";
+import { isChildOfGuardian, OPEN_LINK } from "../students/guardian-access";
 import { tellSafely, type Told } from "./tell";
 import { classesWords, clock, dayOf, dmy, isoOf, niceDay } from "./words";
 
@@ -180,7 +181,7 @@ export async function bookSlot(tx: Tx, ctx: SchoolContext, slotId: string, stude
   const s = await studentFirst(tx, studentId);
   const already = await tx.ptmSlot.findFirst({ where: { ptmId: slot.ptmId, staffId: slot.staffId, studentId } });
   if (already) throw new EventsProblem(`${s.firstName}'s parent already has a slot with ${tName} at ${clock(already.startMin)}. Pick another student or slot.`, "studentId");
-  const primary = await tx.studentGuardian.findFirst({ where: { studentId, archivedAt: null }, orderBy: [{ isPrimary: "desc" }, { emergencyOrder: "asc" }], select: { guardianId: true } });
+  const primary = await tx.studentGuardian.findFirst({ where: { studentId, ...OPEN_LINK }, orderBy: [{ isPrimary: "desc" }, { emergencyOrder: "asc" }], select: { guardianId: true } });
   // One parent per slot: only a free slot is taken (another person booking the same slot at once gets 0 rows).
   const took = await tx.ptmSlot.updateMany({ where: { id: slot.id, studentId: null }, data: { studentId, guardianId: primary?.guardianId ?? null, bookedById: ctx.userId, bookedAt: new Date(), bookedVia: "office", arrivedAt: null, remindedAt: null } });
   if (took.count === 0) {
@@ -198,10 +199,12 @@ export async function tellParent(tx: Tx, ctx: SchoolContext, slot: PtmSlot & { p
   if (!slot.studentId) return false;
   const places = await placesOf(tx, [slot.studentId], slot.ptm.academicYearId);
   const place = places.get(slot.studentId);
+  // The parent who booked, unless a custody restriction was set since: then the child's other parents.
+  const booker = slot.guardianId && (await isChildOfGuardian(tx, ctx, slot.guardianId, slot.studentId)) ? slot.guardianId : null;
   const r = await sendAutomatic(tx, ctx, {
     rule: "ptm",
     event: { key: `ptm-${kind}:${slot.id}:${slot.studentId}:${slot.bookedAt?.getTime() ?? 0}`, label: kind === "confirm" ? `PTM booked: ${niceDay(isoOf(slot.ptm.date))}` : `PTM reminder: ${niceDay(isoOf(slot.ptm.date))}` },
-    to: slot.guardianId ? { guardianIds: [slot.guardianId] } : { guardiansOf: [slot.studentId] },
+    to: booker ? { guardianIds: [booker] } : { guardiansOf: [slot.studentId] },
     perStudent: { [slot.studentId]: { class: `${place?.label ?? slot.ptm.classesLabel} with ${teacher} at ${clock(slot.startMin)}`, date: niceDay(isoOf(slot.ptm.date)) } },
     values: { class: `${place?.label ?? slot.ptm.classesLabel} with ${teacher} at ${clock(slot.startMin)}`, date: niceDay(isoOf(slot.ptm.date)) },
     source: { type: "PTM", id: slot.ptmId },
@@ -288,7 +291,7 @@ export async function performance(tx: Tx, ctx: SchoolContext, studentId: string,
     const sum = await attendanceSummary(tx, ctx, { studentId, from: year.startDate, to: year.endDate, today: dayOf(today) });
     attendance = sum.people.get(studentId)?.percent ?? null;
   }
-  const results = await tx.result.findMany({ where: { studentId, academicYearId, examId: { not: null } }, orderBy: { computedAt: "desc" }, take: 2 });
+  const results = await tx.result.findMany({ where: { studentId, academicYearId, examId: { not: null }, leftOut: false }, orderBy: { computedAt: "desc" }, take: 2 });
   let latest: Performance["latest"] = null;
   if (results.length) {
     const exams = await tx.exam.findMany({ where: { id: { in: results.map((r) => r.examId!) } }, select: { id: true, title: true } });
@@ -341,7 +344,7 @@ export async function sendSummary(tx: Tx, ctx: SchoolContext, ptmId: string, tod
   });
   await tx.ptm.update({ where: { id: p.id }, data: { summarySentAt: new Date() } });
   await writeAudit(tx, ctx, { action: "summary-sent", recordType: "PTM", recordId: p.id, after: { parents: r.people } });
-  return { people: r.people, students: students.length };
+  return { people: r.people, students: students.length, missed: notSentWords(r) };
 }
 
 /** The evening-before reminders (run by a schedule; each slot once). */

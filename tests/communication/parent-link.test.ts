@@ -143,9 +143,9 @@ describe("only the guardian's own children", () => {
     const base = { body: "Body text for the notice.", attachmentFileIds: [], priority: "NORMAL" as const, channels: ["board", "parent-link"] as ("board" | "parent-link")[], publishAt: null, expiresOn: null, askAck: false };
     const audience = (sectionIds: string[]) => ({ parents: true, students: false, staff: false, roleKeys: [], classIds: [], sectionIds, campusIds: [] });
     await withSchool(s.ctx, async (tx) => {
-      await saveNotice(tx, s.ctx, { ...base, title: "Only 5 B", audience: audience([s.b.id]) }, { action: "publish", fullAccess: true, criticalConfirmed: false });
-      await saveNotice(tx, s.ctx, { ...base, title: "Only 5 A", audience: audience([s.a.id]) }, { action: "publish", fullAccess: true, criticalConfirmed: false });
-      await saveNotice(tx, s.ctx, { ...base, title: "School closed tomorrow", priority: "CRITICAL", audience: audience([]) }, { action: "publish", fullAccess: true, criticalConfirmed: true });
+      await saveNotice(tx, s.ctx, { ...base, title: "Only 5 B", audience: audience([s.b.id]) }, { action: "publish", criticalConfirmed: false });
+      await saveNotice(tx, s.ctx, { ...base, title: "Only 5 A", audience: audience([s.a.id]) }, { action: "publish", criticalConfirmed: false });
+      await saveNotice(tx, s.ctx, { ...base, title: "School closed tomorrow", priority: "CRITICAL", audience: audience([]) }, { action: "publish", criticalConfirmed: true });
     });
     const link = await withSchool(s.ctx, (tx) => tx.parentLink.findFirstOrThrow({ where: { guardianId: s.father.id, status: "ACTIVE" } }));
     const sections = await withSchool(s.ctx, async (tx) => {

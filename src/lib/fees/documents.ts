@@ -12,7 +12,8 @@ import { formatDate, formatRupees, formatDateTime } from "../format";
 import { nextNumber, formatNumber } from "../sequences";
 import { writeAudit } from "../audit";
 import { MoneyProblem } from "./problem";
-import { openDues, studentCard } from "./dues";
+import { dueStatus, openDues, studentCard } from "./dues";
+import { todayIn } from "../staff/dates";
 import { featureOn, feeSettings } from "./settings";
 import { modeLabel, percentWord } from "./words";
 import { financialYearOf } from "../finance/years";
@@ -152,13 +153,21 @@ export async function renderTaxInvoice(tx: Tx, ctx: SchoolContext, paymentId: st
   return { html, fileName: `tax-invoice-${inv.number.replace(/[^A-Za-z0-9-]+/g, "-")}.pdf`, pdf: () => htmlToPdf(html, size), invoice: inv };
 }
 
-/** Makes a fee invoice for chosen dues of a student (with its own number) and returns it. */
+/**
+ * Makes a fee invoice for chosen dues of a student (with its own number) and
+ * returns it. With no rows chosen it covers what is due now: the Due and
+ * Overdue rows (late fees included), never installments that are not due yet.
+ */
 export async function createFeeInvoice(tx: Tx, ctx: SchoolContext, studentId: string, dueIds: string[]) {
   const open = await openDues(tx, studentId);
-  const chosen = dueIds.length ? open.filter((d) => dueIds.includes(d.id)) : open;
-  if (!chosen.length) throw new MoneyProblem("Nothing is due for this student, so there is nothing to invoice.");
-  const settings = await feeSettings(tx, ctx);
   const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { timeZone: true } });
+  const today = todayIn(school.timeZone);
+  // A chosen row brings its late fee with it (the ledger shows them together).
+  const chosen = dueIds.length
+    ? open.filter((d) => dueIds.includes(d.id) || (d.kind === "LATE_FEE" && d.parentDueId !== null && dueIds.includes(d.parentDueId)))
+    : open.filter((d) => ["DUE", "OVERDUE"].includes(dueStatus(d, today)));
+  if (!chosen.length) throw new MoneyProblem(dueIds.length ? "None of the chosen rows has anything left to pay." : "Nothing is due now for this student, so there is nothing to invoice.");
+  const settings = await feeSettings(tx, ctx);
   const fy = await financialYearOf(tx, ctx, new Date());
   const n = await nextNumber(tx, ctx, `fee-invoice:${fy.name}`);
   const number = formatNumber(`${settings.invoicePrefix}${fy.name}/`, n, 5);

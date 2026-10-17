@@ -11,6 +11,7 @@ import { hostelFeesDue, outNow, residents, type Resident } from "@/lib/hostel/al
 import { UUID_RE } from "@/lib/hostel/act";
 import { RESIDENT_STATUS } from "@/lib/hostel/words";
 import { hostelRoute, rangeWords } from "../../_lib/route";
+import { studentIdsForFilter } from "@/lib/students/find";
 
 export const dynamic = "force-dynamic";
 const SHOWN: Record<string, string> = { "": "Everyone with a bed", arriving: "Not arrived", away: "Away now", out: "Checked out" };
@@ -26,7 +27,7 @@ export async function GET(req: Request) {
     const one = UUID_RE.test(x.get("hostel")) ? all.find((h) => h.id === x.get("hostel")) : null;
     const ids = one ? [one.id] : all.map((h) => h.id);
     const away = [...(await outNow(tx)).keys()];
-    const nameIds = q ? (await tx.student.findMany({ where: { OR: [{ fullName: { contains: q, mode: "insensitive" } }, { admissionNo: { contains: q, mode: "insensitive" } }] }, select: { id: true }, take: 500 })).map((s) => s.id) : null;
+    const nameIds = q ? await studentIdsForFilter(tx, q) : null;
     const byView: Record<string, Prisma.BedAllocationWhereInput> = {
       "": { status: "ACTIVE" }, arriving: { status: "ACTIVE", checkedInAt: null }, away: { status: "ACTIVE", studentId: { in: away } },
       out: { status: "CHECKED_OUT", ...(range ? { endDate: dateWhere(range) } : {}) },

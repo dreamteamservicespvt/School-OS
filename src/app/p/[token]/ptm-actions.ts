@@ -3,19 +3,19 @@
 // PTM booking on Parent Link (mod-events.jsx: "Parents book a slot on Parent
 // Link; the office can book for them"): book a free time, move the booking
 // to another time, or cancel it, until the day before the PTM. Each action
-// finds the link from the token again, checks the confirmed phone (device)
-// again on the server, checks the child is the guardian's, and is
+// finds the link from the token again, checks again on the server that the
+// link, Parent Link, the confirmed phone (device) and the Events switch are on
+// (./guardian.ts), checks the child is one the guardian may act for, and is
 // rate-limited by address and by link (08-platform-security.md §7).
-import { cookies } from "next/headers";
 import { withSchool } from "@/lib/db";
 import { deviceInfo } from "@/lib/current";
 import { hitLimit, limitMessage } from "@/lib/rate-limit";
-import { confirmedDevice, deviceCookieName, findLink, ParentLinkProblem } from "@/lib/parent-link/links";
+import { ParentLinkProblem } from "@/lib/parent-link/links";
 import { bookOnParentLink, cancelOnParentLink } from "@/lib/events/ptm-parent";
 import { localNow } from "@/lib/events/jobs";
 import type { GuardianState } from "./actions";
+import { guardianFor as accessFor } from "./guardian";
 
-const GONE = "This link is no longer active. Please ask the school for a new one.";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 async function limited(linkId: string) {
@@ -27,17 +27,10 @@ async function limited(linkId: string) {
   return null;
 }
 
+/** The guardian, with the school's today, when the Events and PTM section is on for them. */
 async function guardianFor(token: string) {
-  const found = await findLink(token);
-  if (!found) return null;
-  const key = (await cookies()).get(deviceCookieName(found.linkId))?.value ?? null;
-  const ctx = { schoolId: found.schoolId, userId: null };
-  return withSchool(ctx, async (tx) => {
-    const ok = await confirmedDevice(tx, found.linkId, key);
-    if (!ok) return null;
-    const school = await tx.school.findUnique({ where: { id: found.schoolId }, select: { timeZone: true } });
-    return { ctx, linkId: found.linkId, guardianId: ok.link.guardianId, today: localNow(new Date(), school?.timeZone ?? "Asia/Kolkata").today };
-  });
+  const g = await accessFor(token, "events");
+  return g.ok ? { ...g, today: localNow(new Date(), g.timeZone).today } : g;
 }
 
 function ids(form: FormData) {
@@ -49,7 +42,7 @@ function ids(form: FormData) {
 /** Book a free time (or move the child's booking at this PTM to it). */
 export async function bookPtmSlot(token: string, _prev: GuardianState, form: FormData): Promise<GuardianState> {
   const g = await guardianFor(token);
-  if (!g) return { ok: false, message: GONE };
+  if (!g.ok) return { ok: false, message: g.message };
   const x = ids(form);
   if (!x) return { ok: false, message: "Pick a time first." };
   const stop = await limited(g.linkId);
@@ -67,7 +60,7 @@ export async function bookPtmSlot(token: string, _prev: GuardianState, form: For
 /** Cancel the child's booking. */
 export async function cancelPtmSlot(token: string, _prev: GuardianState, form: FormData): Promise<GuardianState> {
   const g = await guardianFor(token);
-  if (!g) return { ok: false, message: GONE };
+  if (!g.ok) return { ok: false, message: g.message };
   const x = ids(form);
   if (!x) return { ok: false, message: "This booking was not found. Please refresh the page." };
   const stop = await limited(g.linkId);

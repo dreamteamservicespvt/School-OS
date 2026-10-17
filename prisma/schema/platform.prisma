@@ -81,6 +81,8 @@ model ImportBatch {
   skipped      Int       @default(0)
   /// Ids of records this import created, for Undo.
   createdIds   Json      @default("[]") @map("created_ids")
+  /// Records this import changed, with the values before and after, so Undo can put them back.
+  updatedRows  Json      @default("[]") @map("updated_rows")
   errorReport  Json      @default("[]") @map("error_report")
   importedById String?   @map("imported_by_id") @db.Uuid
   createdAt    DateTime  @default(now()) @map("created_at")

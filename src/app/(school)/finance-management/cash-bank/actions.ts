@@ -1,6 +1,5 @@
 "use server";
 
-import "@/lib/approval-handlers";
 import { formatDate, formatRupees } from "@/lib/format";
 import { dateOf, id, needRupees, optionalText, rupeesOf, str, text } from "@/lib/fees/act";
 import { MoneyProblem } from "@/lib/fees/problem";

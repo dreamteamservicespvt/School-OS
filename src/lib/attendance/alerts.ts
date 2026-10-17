@@ -8,6 +8,7 @@ import "server-only";
 import { Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { notify } from "../notifications";
+import { writeAudit } from "../audit";
 import { formatDate } from "../format";
 import { addDays, isoDay } from "../staff/dates";
 import { BASE } from "./access";
@@ -17,11 +18,13 @@ import { attendanceSummary, dayStatus, percentText } from "./summary";
 import { sendAttendanceMessage } from "./notify-parents";
 import { studentLeavesOn } from "./marks";
 import { instantAt, schoolDateOf } from "./time";
+import { CLEARED_REASON } from "./flags";
+import { OPEN_LINK } from "../students/guardian-access";
 
 const day = (iso: string) => new Date(`${iso}T00:00:00Z`);
 
 async function primaryGuardians(tx: Tx, studentIds: string[]) {
-  const links = await tx.studentGuardian.findMany({ where: { studentId: { in: studentIds }, archivedAt: null }, orderBy: [{ isPrimary: "desc" }, { emergencyOrder: "asc" }] });
+  const links = await tx.studentGuardian.findMany({ where: { studentId: { in: studentIds }, ...OPEN_LINK }, orderBy: [{ isPrimary: "desc" }, { emergencyOrder: "asc" }] });
   const out = new Map<string, string>();
   for (const l of links) if (!out.has(l.studentId)) out.set(l.studentId, l.guardianId);
   return out;
@@ -99,7 +102,15 @@ export async function afterAttendanceSaved(tx: Tx, ctx: SchoolContext, payload: 
   };
   let flagged = 0;
   let cleared = 0;
+  // Not yet cleared, including flags a person closed as not a concern: those are not raised again until attendance recovers.
   const open = await tx.attendanceFlag.findMany({ where: { studentId: { in: studentIds }, clearedAt: null } });
+  /** Attendance is back within the rule: the flag clears and, unless a person closed it already, closes in Early Warnings too. */
+  const clear = async (flag: (typeof open)[number]) => {
+    const at = new Date();
+    await tx.attendanceFlag.update({ where: { id: flag.id }, data: { clearedAt: at, ...(flag.status === "CLOSED" ? {} : { status: "CLOSED", closedAt: at, closedReason: CLEARED_REASON }) } });
+    if (flag.status !== "CLOSED") await writeAudit(tx, ctx, { action: "cleared", recordType: "Attendance Flag", recordId: flag.id, before: { status: flag.status }, after: { status: "CLOSED", reason: CLEARED_REASON } });
+    cleared++;
+  };
   const year = await tx.academicYear.findUnique({ where: { id: section.academicYearId } });
 
   if (settings.thresholdOn && year) {
@@ -117,8 +128,7 @@ export async function afterAttendanceSaved(tx: Tx, ctx: SchoolContext, payload: 
           await raiseAlerts(tx, ctx, date, "threshold", [{ studentId: id, text: `Dear parent, ${nameOf(id)}'s attendance this year is ${percentText(p)}, below the school's ${settings.thresholdPercent}%. Please speak to the class teacher. ${school?.name ?? ""}` }], settings.absenceChannels);
         }
       } else if (flag && p !== null && p >= settings.thresholdPercent) {
-        await tx.attendanceFlag.update({ where: { id: flag.id }, data: { clearedAt: new Date() } });
-        cleared++;
+        await clear(flag);
       }
     }
   }
@@ -144,10 +154,7 @@ export async function afterAttendanceSaved(tx: Tx, ctx: SchoolContext, payload: 
         }
       } else if (!absentAll && flag) {
         const today = all.find((m) => m.studentId === id && isoDay(m.date) === isoDay(date));
-        if (today && (weightOf(statuses.get(today.statusKey)) ?? 0) > 0) {
-          await tx.attendanceFlag.update({ where: { id: flag.id }, data: { clearedAt: new Date() } });
-          cleared++;
-        }
+        if (today && (weightOf(statuses.get(today.statusKey)) ?? 0) > 0) await clear(flag);
       }
     }
   }

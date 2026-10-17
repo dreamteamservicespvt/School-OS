@@ -238,7 +238,8 @@ Decided **D1**: Razorpay is the first gateway connected.
 **What the person sees**
 
 - **Backups:** "Last backup: today, 2:00 AM". The school sees its last backup time here; how and how often server backups run, and how a restore is done, are described in `08-platform-security.md`, section 4 (decided 9 October 2026). The school can still download all its own data at any time (below).
-- **Import and export tools:** CSV templates for each import, the column matching step, import preview, import error report, partial import (good rows only), import history with **Undo** (the shared importer, P10).
+- **Import and export tools:** CSV templates for each import, the column matching step, import preview, import error report, partial import (good rows only), import history with **Undo** (the shared importer, P10). Each kind of record is imported and undone only by people whose role may add it in its own module, and kinds of switched-off modules are not offered.
+- **Switching to School OS** (workflow 15): the steps in the order a school does them (year and classes, departments, staff, students and parents, fee structures, old dues, past receipts, opening cash and bank balances, past expenses, then the optional ones), each file checked row by row, with a choice for each row that may already be on record (same student: update, same family, a new student), kept with the file until it is imported.
 - **Export all school data:** a full download of the school's data (prepared in the background; link sent by notification and valid for a short time).
 - **Audit log:** every change with who, what, when, device, and before and after values. Filters: person, record type, date, action.
 - **Login history:** sign-ins and failed attempts by user, with device and place.

@@ -1,7 +1,6 @@
 "use server";
 
 import type { ConcessionType, PaymentMode } from "@prisma/client";
-import "@/lib/approval-handlers";
 import { decide } from "@/lib/approvals";
 import { DOCUMENT_TYPES, saveFile } from "@/lib/files";
 import { formatRupees } from "@/lib/format";

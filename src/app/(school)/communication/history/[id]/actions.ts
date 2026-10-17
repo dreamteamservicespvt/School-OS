@@ -46,7 +46,7 @@ export async function retryMessage(id: string): Promise<string | void> {
 export type ResendPreview = { ok: true; people: number; cost: string; skipped: string[]; problem: string | null } | { ok: false; message: string };
 
 export async function previewResend(id: string, who: ResendWho, channel: string): Promise<ResendPreview> {
-  if (!isChannel(channel)) return { ok: false, message: "Choose a channel." };
+  if (!isChannel(channel) && channel !== "preferred") return { ok: false, message: "Choose a channel." };
   try {
     const { current, scope } = await ownMessage(id);
     const plan = await withSchool(current.ctx, (tx) => planResend(tx, current.ctx, id, who, channel, scope));
@@ -54,7 +54,7 @@ export async function previewResend(id: string, who: ResendWho, channel: string)
     return {
       ok: true,
       people: plan.people,
-      cost: credits ? `${credits} ${CHANNEL_LABEL[channel]} credits` : "Free",
+      cost: credits ? `${credits} ${channel === "preferred" ? "" : `${CHANNEL_LABEL[channel]} `}credits` : "Free",
       skipped: plan.skipped.map((g) => `${g.reason}: ${g.count}`),
       problem: plan.problems[0] ?? plan.creditProblem ?? (plan.people === 0 ? "Nobody can be reached on this channel. Choose another channel." : null),
     };
@@ -65,7 +65,7 @@ export async function previewResend(id: string, who: ResendWho, channel: string)
 }
 
 export async function doResend(id: string, who: ResendWho, channel: string): Promise<string | void> {
-  if (!isChannel(channel)) return "Choose a channel.";
+  if (!isChannel(channel) && channel !== "preferred") return "Choose a channel.";
   let newId: string;
   let people = 0;
   try {
@@ -77,6 +77,6 @@ export async function doResend(id: string, who: ResendWho, channel: string): Pro
     if (e instanceof MessagingProblem) return e.message;
     throw e;
   }
-  await flash({ message: `Resending to ${people} ${people === 1 ? "person" : "people"} by ${CHANNEL_LABEL[channel]}.`, tone: "success" });
+  await flash({ message: `Resending to ${people} ${people === 1 ? "person" : "people"}${channel === "preferred" ? ", each by the best channel that can carry it" : ` by ${CHANNEL_LABEL[channel]}`}.`, tone: "success" });
   redirect(`/communication/history/${newId}`);
 }

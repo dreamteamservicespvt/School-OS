@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BadgeCheck, ChartBar, CircleCheck, CircleX, FilePen, FileText, FileWarning, Hourglass, IndianRupee, Paperclip, Plus, ReceiptText, SearchX, Send, ShieldCheck, Undo2 } from "lucide-react";
+import { BadgeCheck, ChartBar, CircleCheck, CircleX, FileInput, FilePen, FileText, FileWarning, Hourglass, IndianRupee, Paperclip, Plus, ReceiptText, SearchX, Send, ShieldCheck, Undo2 } from "lucide-react";
 import { withSchool, type SchoolContext, type Tx } from "@/lib/db";
 import { canDecide, defaultSteps, stepForAmount, type RuleStep } from "@/lib/approvals";
 import { ruleNamer } from "@/lib/settings/approval-rules";
@@ -177,6 +177,7 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Sea
       <FinanceHead pageName="Expenses" href={HREF} sub="Bills and expenses with a photo of the bill. Bigger amounts wait for approval."
         viewActions={p.can.export ? <ExportButton href={qs(`${HREF}/export`, keep)} /> : null}
         actions={p.can.create ? <>
+          <ButtonLink href={`${HREF}/import`} variant="secondary" icon={FileInput} className="hidden md:inline-flex">Import past expenses</ButtonLink>
           {billsOn && <ButtonLink href={here({ do: "bill" })} scroll={false} variant="secondary" icon={FileText}>Record vendor bill</ButtonLink>}
           <ButtonLink href={here({ do: "new" })} scroll={false} variant="primary" icon={Plus}>Record expense</ButtonLink>
         </> : null} />

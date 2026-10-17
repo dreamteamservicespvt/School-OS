@@ -13,6 +13,9 @@ import { writeAudit } from "../audit";
 import { assertYearOpen } from "../academic/years";
 import { formatNumber, nextNumber } from "../sequences";
 import { sendMessage, MessagingProblem } from "../messaging";
+
+/** The certificate message: {child} and {certificate} are filled per child. */
+export const certificateText = (school: string) => `Dear Parent, congratulations! {child} has been given {certificate}. The printed certificate comes home with the class teacher. - ${school}`;
 import { EventsProblem } from "./problem";
 import { creditsFor, eventsSettings } from "./settings";
 import { placeOrder, placesOf } from "./places";
@@ -138,7 +141,7 @@ export async function issueCertificates(tx: Tx, ctx: SchoolContext, achievementI
     try {
       const r = await sendMessage(tx, ctx, {
         to: { guardiansOf: [...new Set(todo.map((t) => t.studentId))] }, channels: "preferred",
-        text: `Dear Parent, congratulations! {{child}} has been given {{certificate}}. The printed certificate comes home with the class teacher. - ${school}`,
+        text: certificateText(school),
         perStudent, trigger: "Certificate issued", source: { type: "Achievement", id: todo[0].id },
       });
       told = r.people;

@@ -122,6 +122,7 @@ export async function giveHomework(tx: Tx, s: HomeworkScope, input: GiveInput, t
   if (title.length > 200) throw new HomeworkProblem("The title can be at most 200 characters.", "title");
   if ((input.instructions ?? "").length > 4000) throw new HomeworkProblem("Instructions can be at most 4,000 characters.", "instructions");
   if (input.dueDate.getTime() < input.startDate.getTime()) throw new HomeworkProblem("Due date is before the start date.", "dueDate");
+  if (input.dueDate.getTime() < today.getTime()) throw new HomeworkProblem("The due date has already passed. Choose today or a later day.", "dueDate");
   if (!Number.isInteger(input.maxMarks) || input.maxMarks < 1 || input.maxMarks > 100) throw new HomeworkProblem("Maximum marks must be from 1 to 100.", "maxMarks");
   if (!input.instructions?.trim() && input.attachments.length === 0 && title.length < 3) throw new HomeworkProblem("Say what to do: type instructions or attach a photo of the board.", "instructions");
 
@@ -189,7 +190,7 @@ export function givenWords(made: { sectionLabel: string; students: number; notif
   const parents = made.map((m) => m.parents);
   const told = notified ? ` ${plural(notified, "student")} notified in the app.` : "";
   const toParents = parents.includes("sent") ? " Parents were messaged."
-    : parents.includes("no-channel") ? " Parents were not messaged: WhatsApp or SMS is not connected yet."
+    : parents.includes("no-channel") || parents.includes("not-sent") ? " Parents were not messaged: no channel can carry it yet (see Communication, Message History)."
       : parents.includes("off") ? " Parents were not messaged: the Homework set message is off (Communication, Message Settings)."
         : "";
   return `Homework sent to ${made.map((m) => m.sectionLabel).join(", ")} (${plural(students, "student")}).${told}${toParents}`;

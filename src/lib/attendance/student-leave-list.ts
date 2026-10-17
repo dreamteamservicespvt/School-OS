@@ -11,6 +11,7 @@ import { UUID_RE } from "../staff/act";
 import type { AttendanceAccess } from "./access";
 import { registerChoices } from "./register";
 import { canDecideStudentLeave, quotaFor, quotaText, studentLeaveTypes } from "./student-leave";
+import { studentIdsForFilter } from "../students/find";
 
 export const LEAVE_STATUSES = ["WAITING", "APPROVED", "REJECTED", "CANCELLED"] as const;
 export type LeaveFilters = { q?: string; section?: string; type?: string; range?: DayRange | null; status: string; skip?: number; take?: number };
@@ -29,7 +30,7 @@ export async function studentLeaveList(tx: Tx, ctx: SchoolContext, access: Atten
     ? (await tx.enrolment.findMany({ where: { sectionId: f.section, archivedAt: null }, select: { studentId: true } })).map((e) => e.studentId)
     : null;
   const nameMatch = f.q
-    ? (await tx.student.findMany({ where: { OR: [{ fullName: { contains: f.q, mode: "insensitive" } }, { admissionNo: { contains: f.q, mode: "insensitive" } }] }, select: { id: true }, take: 500 })).map((s) => s.id)
+    ? await studentIdsForFilter(tx, f.q)
     : null;
   const lists = [inReach, sectionStudents, nameMatch].filter((x): x is string[] => x !== null);
   const ids = lists.length ? lists.reduce((a, b) => a.filter((x) => b.includes(x))) : null;

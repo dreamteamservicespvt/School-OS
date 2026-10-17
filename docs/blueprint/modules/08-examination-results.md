@@ -88,6 +88,7 @@ Rules shown on the form ("Before you save"): subjects are listed by date and tim
 - Mark absent (no marks needed; counts as absent, not zero, in results, inferred).
 - **Submit** the subject when complete. After submitting, the teacher cannot change marks.
 - **Moderation:** after submission, a controlled change needs a reason and approval (Approvals); the change history (old mark, new mark, who, why) is kept.
+- **Late joiners** (gap list G23): a student who joined after the paper's marks were submitted shows "Joined late" with no marks. If Exam Settings allows late marks (the default), the subject teacher adds their marks with a reason; they apply only once approved in Approvals, like a moderation. A student who changes section keeps the marks they already have; the new section's teacher enters only the rest.
 - Import marks from Excel (P10) (inferred: for teachers who prefer sheets).
 
 **Form fields:** mark per category per student (between 0 and the maximum), or grade (from the subject's grade list), absent tick, remark per student (optional, inferred).
@@ -99,9 +100,11 @@ Rules shown on the form ("Before you save"): subjects are listed by date and tim
 **What the person sees**
 
 - Per exam and class: each student's marks per subject, total, average, percentage, grade, rank (optional), pass or fail, worked out as soon as marks are entered (automation A9).
-- **Final result:** combines all exams of the year using the weights in Exam Settings (for example Term 1 40% and Term 2 60%), with the final grade and result (pass, fail, or the school's own result types such as "compartment", inferred).
+- **Final result:** combines all exams of the year using the weights in Exam Settings (for example Term 1 40% and Term 2 60%), with the final grade and result (pass, fail, or the school's own result types such as "compartment", inferred). An exam a late joiner missed is left out (the exams they sat count in its place) or counted as 0%, by the school's rule in Exam Settings.
 - Status of each result: **Draft** or **Published**, with the publish date.
 - Missing marks are highlighted ("Science marks not submitted for 7 B").
+- **Joined after this exam** (gap list G23): a student who joined the section after the exam's marks were in is shown so, is left out of that exam and does not stop the results being published. When late marks complete their result, it is published on its own ("Published, except 1 result added later"); only their parents are told, and the other students' published results do not change. The final result waits for it.
+- A student who changes section takes their marks, draft results and report cards with them. A result already published stays with the section it was published in, unchanged (rank included), and shows in the new section too.
 
 **Actions**
 
@@ -311,14 +314,15 @@ The **Exam Settings** page holds:
 - **Mark categories (components):** theory, internal, practical, assignment, attendance, project, plus the school's own; default split per subject (inferred).
 - **Grade scale:** ranges with grade, minimum %, maximum %, points and remark, and whether each grade is passing (for example A1 91 to 100% Outstanding, 10 points). Ready-made presets: CBSE 9-point, ICSE, State Board, which the school can import and change. A scale preview shows the bands. No overlaps or gaps.
 - **Pass rules:** pass marks per subject and overall, and rules for grace marks if the school uses them (inferred).
-- **GPA** (optional, GPA-based boards and international schools): GPA and CGPA calculation.
+- **GPA** (optional, GPA-based boards and international schools): GPA and CGPA calculation. When on, report cards show the grade points per subject and the GPA (exam or term) or CGPA (year).
+- **Late joiners** (gap list G23): whether marks are added for a student who joined after the marks were in (**Added with approval**, the default, through Approvals; or **Not added**, so the student stays "Joined after this exam"), and how an exam they missed counts in the final result (**Left out**, the default, or **Counted as 0%**).
 - **Ranks** on or off, and the tie rule.
 - **Weights** for the final result across exams (inferred: needed for "final result combining all exams").
 - **Co-scholastic areas** and their grading (optional, CBSE-style report cards), such as work education, art, health and physical education.
-- **Competency-based assessment** (optional): competencies per subject and their levels.
+- **Competency-based assessment** (optional): competencies per subject and their levels; added, changed and archived here, graded on report cards when switched on.
 - **Exam rules per school:** who can publish results, marks submission deadlines, admit card signatory, instructions printed on admit cards (inferred items).
 - Report card templates per board are chosen here and designed in Settings, Document Designs.
-- **Per board (optional, schools running two boards):** a grade scale and a report card template for each board. A class uses the ones for its board, set in Academic Management, Classes & Sections (default: the school's board).
+- **Per board (optional, schools running two boards):** a grade scale and a report card template for each board. A class uses the ones for its board, set in Academic Management, Classes & Sections (default: the school's board). Only boards the school's classes follow can be set; an empty choice means the school's scale or design. Changing it works out draft results again; published results do not change.
 
 ## 7. Reports
 
@@ -338,7 +342,7 @@ All follow P8 and appear in Reports & Analytics.
 |---|---|---|---|
 | Exam | Yes (created with the datesheet) | Yes | Yes (status) |
 | Datesheet Entry | Yes | Yes | Yes (until results exist) |
-| Marks | Yes | Yes | Yes (before submission; after, by moderation) |
+| Marks | Yes | Yes | Yes (before submission; after, by moderation or approved late marks) |
 | Grade Scale | Yes | Yes | Yes (versioned) |
 | Report Card | Yes | Yes | Yes (remarks, status) |
 | Student, Class, Section, Subject, Teacher Allocation, Term, Academic Year | | Yes | |
@@ -348,7 +352,7 @@ All follow P8 and appear in Reports & Analytics.
 | Approval, Notification | Yes | Yes | |
 | Audit Log Entry | Yes | | |
 
-Other records (inferred): **Exam Type**, **Mark Category**, **Exam Room Allocation** and **Seat Allocation**, **Admit Card Print**, **Result** (per student per exam: total, %, grade, rank, published date) and **Final Result**, **Marks Moderation** (old, new, reason, approval), **Co-scholastic Grade**, **Competency Level**, **Question** and **Question Paper**, **Pass Rule**.
+Other records (inferred): **Exam Type**, **Mark Category**, **Exam Room Allocation** and **Seat Allocation**, **Admit Card Print**, **Result** (per student per exam: total, %, grade, rank, published date) and **Final Result**, **Marks Moderation** (old, new, reason, approval; late marks for a student who joined late have no old value), **Co-scholastic Grade**, **Competency Level**, **Question** and **Question Paper**, **Pass Rule**.
 
 ## 9. Done when
 

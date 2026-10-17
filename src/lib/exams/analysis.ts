@@ -153,7 +153,7 @@ export async function studentsBehind(tx: Tx, scope: ExamScope, yearId: string, f
 
 /** One student's results across every exam and year, oldest first, for the progress trend. */
 export async function studentProgress(tx: Tx, studentId: string) {
-  const results = await tx.result.findMany({ where: { studentId, examId: { not: null } }, orderBy: { computedAt: "asc" } });
+  const results = await tx.result.findMany({ where: { studentId, examId: { not: null }, leftOut: false }, orderBy: { computedAt: "asc" } });
   const exams = await tx.exam.findMany({ where: { id: { in: results.map((r) => r.examId!) } }, select: { id: true, title: true, startDate: true, academicYearId: true } });
   const years = await tx.academicYear.findMany({ where: { id: { in: [...new Set(exams.map((e) => e.academicYearId))] } }, select: { id: true, name: true } });
   return results
@@ -181,7 +181,8 @@ export async function entryStatus(tx: Tx, scope: ExamScope, yearId: string, f: {
     const subject = subjects.find((x) => x.id === e.subjectId);
     if (!subject) continue;
     const sits = sitters(roster.filter((r) => r.sectionId === s.id), subject);
-    const mine = marks.filter((m) => m.entryId === e.id && m.sectionId === s.id);
+    // By student: marks follow a student who changed section (G23).
+    const mine = marks.filter((m) => m.entryId === e.id);
     rows.push({
       exam: e.examTitle, section: s.label, subject: subject.name, entryId: e.id, sectionId: s.id, due: e.marksDueDate,
       teacher: allocs.filter((a) => a.sectionId === s.id && a.subjectId === e.subjectId).map((a) => a.staff.fullName).join(", ") || "Not given",

@@ -1,9 +1,17 @@
 // Approvals (00-global.md §3) and approval rules (Settings, Forms & Approvals):
 // deciding, bulk approve, never approving your own request, and the rule
 // summary in plain words.
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
+
+// The purchases asked for here point at no real record: their follow-up only notes the decision.
+const decided = vi.hoisted(() => [] as string[]);
+vi.mock("@/lib/approval-handlers", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/approval-handlers")>();
+  return { ...real, followUpOf: (type: string) => (type === "purchase" ? async (_tx: unknown, _ctx: unknown, _a: unknown, d: string) => { decided.push(d); } : real.followUpOf(type)) };
+});
+
 import { withSchool } from "@/lib/db";
-import { decide, onDecision, requestApproval, DecisionProblem } from "@/lib/approvals";
+import { decide, requestApproval, DecisionProblem } from "@/lib/approvals";
 import { bulkApprove, canSeeApproval, inboxWhere, statusWords } from "@/lib/approvals-inbox";
 import { ruleSummary, saveRule, useDefaultRule } from "@/lib/settings/approval-rules";
 import { makeSchool, makeUser } from "../helpers";
@@ -66,8 +74,6 @@ describe("Done when 6: refunds above ₹5,000 go to the Principal", () => {
 
 describe("deciding", () => {
   it("approve, reject with a reason, ask for change and withdraw", async () => {
-    const decided: string[] = [];
-    onDecision("purchase", async (_tx, _ctx, _a, d) => { decided.push(d); });
     const a1 = await ask(teacher.id, "purchase", 100);
     await withSchool(c(principal.id), (tx) => decide(tx, c(principal.id), a1.id, "approve", null));
     const a2 = await ask(teacher.id, "purchase", 200);

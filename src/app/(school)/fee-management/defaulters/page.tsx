@@ -8,6 +8,8 @@ import { defaulters, type DefaulterFilter } from "@/lib/fees/defaulters";
 import { feeTemplates, reminderHistory } from "@/lib/fees/reminders";
 import { gatewayFor } from "@/lib/fees/settings";
 import { parseRupees } from "@/lib/fees/act";
+import { PROMISE_FEATURE, PROMISE_MAX_DAYS, promiseTarget, promiseWords } from "@/lib/fees/promises";
+import { addDays } from "@/lib/staff/dates";
 import { Card, CardHeader } from "@/components/ui/card";
 import { ButtonLink, buttonClass } from "@/components/ui/button";
 import { Empty, HBars, Stack, Stats, Timeline, Toolbar, type Tone } from "@/components/money/kit";
@@ -15,6 +17,7 @@ import { UrlSearch, UrlSelect } from "@/components/money/url-filters";
 import { UrlSheet } from "@/components/ui/url-sheet";
 import { ExportButton } from "@/components/ui/export-button";
 import { PeriodFilter } from "@/components/list/period-filter";
+import { cx } from "@/components/ui/cx";
 import { FeeHead } from "../_components/fee-head";
 import { BASE, feeGuard, feePeriod, one, qs, type SearchParams } from "../_lib/page";
 import { DefaulterList, type DefaulterItem } from "./list";
@@ -32,6 +35,7 @@ export default async function DefaultersPage({ searchParams }: { searchParams: S
   const p = await feeGuard("defaulters");
   const sp = await searchParams;
   const canEdit = p.does("defaulters");
+  const promisesOn = p.features.has(PROMISE_FEATURE);
   const q = one(sp.q).trim().slice(0, 80);
   const cls = one(sp.class);
   const age = one(sp.age);
@@ -79,7 +83,8 @@ export default async function DefaultersPage({ searchParams }: { searchParams: S
       id: r.studentId, name: r.name, adm: r.admissionNo, photo: photo ? fileLink(photo, p.current.ctx.schoolId) : null, cls: r.classLabel,
       parent: r.parentName ?? "", phone: r.phone ?? "", amount: formatRupees(r.overduePaise), amountShort: formatRupeesShort(r.overduePaise), amountPaise: r.overduePaise.toString(),
       heads: r.heads, since: formatDate(r.oldestDue), days: r.daysOverdue, tone: ageTone(r.daysOverdue),
-      lastReminder: r.lastReminder ? formatDateTime(r.lastReminder, p.tz) : null, reminders: r.reminders, promised: r.promisedOn ? formatDate(r.promisedOn) : null,
+      lastReminder: r.lastReminder ? formatDateTime(r.lastReminder, p.tz) : null, reminders: r.reminders, promised: !r.promise && r.promisedOn ? formatDate(r.promisedOn) : null,
+      promise: r.promise && (r.promise.state === "OPEN" || r.promise.state === "BROKEN") ? { words: promiseWords(r.promise), tone: r.promise.state === "BROKEN" ? "bad" : "info" } : null,
     };
   });
   const whoHref = Object.fromEntries(items.map((d) => [d.id, here({ who: d.id })]));
@@ -141,6 +146,11 @@ export default async function DefaultersPage({ searchParams }: { searchParams: S
               <div className="rounded-2xl bg-bad/8 px-4 py-3">
                 <p className="font-display text-[22px] font-semibold tnum text-bad leading-tight">{formatRupees(h.row.overduePaise)}</p>
                 <p className="text-[13px] text-ink2">{h.row.heads} · since {formatDate(h.row.oldestDue)} · {h.row.daysOverdue} days</p>
+                {h.row.promise && (h.row.promise.state === "OPEN" || h.row.promise.state === "BROKEN") && (
+                  <p className={cx("text-[13px] font-semibold mt-1", h.row.promise.state === "BROKEN" ? "text-bad" : "text-ink")}>
+                    {promiseWords(h.row.promise)}{h.row.promise.state === "BROKEN" ? ". Call the family again." : ". Automatic reminders are paused until then."}
+                  </p>
+                )}
               </div>
             ) : <div className="rounded-2xl bg-ok/8 px-4 py-3 text-[14px] text-ok font-semibold">Nothing overdue now.</div>}
             <div className="flex gap-2 flex-wrap">
@@ -166,11 +176,18 @@ export default async function DefaultersPage({ searchParams }: { searchParams: S
                 {h.calls.map((c) => (
                   <li key={c.id} className="rounded-xl bg-sunken/70 p-3 text-[14px]">
                     <p>{c.note}</p>
-                    <p className="text-[12.5px] text-ink3 mt-0.5">{formatDateTime(c.createdAt, p.tz)} · {h.users.find((u) => u.id === c.createdById)?.displayName ?? "Staff"}{c.promisedOn ? ` · promised ${formatDate(c.promisedOn)}` : ""}</p>
+                    <p className="text-[12.5px] text-ink3 mt-0.5">{formatDateTime(c.createdAt, p.tz)} · {h.users.find((u) => u.id === c.createdById)?.displayName ?? "Staff"}{c.promisedOn && !c.promiseState ? ` · promised ${formatDate(c.promisedOn)}` : ""}</p>
+                    {c.promiseState && c.promisedOn && (
+                      <p className={cx("text-[12.5px] font-semibold mt-1", c.promiseState === "KEPT" ? "text-ok" : c.promiseState === "BROKEN" || (c.promiseState === "OPEN" && c.promisedOn < p.today) ? "text-bad" : "text-ink2")}>
+                        {promiseWords({ state: c.promiseState === "OPEN" && c.promisedOn < p.today ? "BROKEN" : c.promiseState, promisedOn: c.promisedOn, amountPaise: c.promisedPaise })}
+                        {c.promiseState !== "OPEN" && c.promiseState !== "REPLACED" && c.promisePaidPaise !== null ? ` · ${formatRupees(c.promisePaidPaise)} of ${formatRupees(promiseTarget(c))} paid by then` : ""}
+                        {c.promiseState === "OPEN" && c.promisedOn >= p.today ? " · automatic reminders paused" : ""}
+                      </p>
+                    )}
                   </li>
                 ))}
               </ul>
-              {canEdit && <CallNoteForm studentId={h.student.id} />}
+              {canEdit && <CallNoteForm studentId={h.student.id} promise={promisesOn ? { min: p.today.toISOString().slice(0, 10), max: addDays(p.today, PROMISE_MAX_DAYS).toISOString().slice(0, 10) } : null} />}
             </div>
           </div>
         </UrlSheet>

@@ -1,12 +1,14 @@
 "use server";
 
 // Notice Board: save, publish (or send for approval), archive, read and
-// acknowledge, remind, and resend to parents who have not seen it.
+// acknowledge, remind, and resend to parents who have not seen it. Anyone who
+// may send messages writes notices within their own scope (a teacher: their
+// own sections); reminding and resending stay with the office.
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { flash } from "@/lib/flash";
-import { commOfficeAction } from "@/lib/communication/access";
+import { commAction, commOfficeAction } from "@/lib/communication/access";
 import { localToUtc } from "@/lib/communication/time";
 import { archiveNotice, checkNoticeScope, markRead, NoticeProblem, NOTICE_CHANNELS, noticeResendInput, remindUnacknowledged, saveNotice, CRITICAL_WORD, type NoticeChannel, type NoticeInput } from "@/lib/communication/notices";
 import { DOCUMENT_TYPES, FileProblem, saveFile } from "@/lib/files";
@@ -51,37 +53,45 @@ function readNotice(form: FormData, timeZone: string): { input: NoticeInput; err
 }
 
 export async function saveNoticeAction(_prev: NoticeState, form: FormData): Promise<NoticeState> {
-  const access = await commOfficeAction(form.get("id") ? "edit" : "create");
+  const access = await commAction(form.get("id") ? "edit" : "create");
   const { current } = access;
   const { input, errors } = readNotice(form, current.school.timeZone);
+  // Critical goes even to parents who opted out (an emergency broadcast): the office's call.
+  if (input.priority === "CRITICAL" && !access.full) errors.priority = "Only the office can mark a notice Critical. Choose Normal or High.";
   const files = form.getAll("files").filter((f): f is File => f instanceof File && f.size > 0);
   if (files.length + input.attachmentFileIds.length > 5) errors.files = "A notice can have at most 5 attachments.";
   if (Object.keys(errors).length) return { ok: false, message: Object.keys(errors).length === 1 ? Object.values(errors)[0] : `Please fix ${Object.keys(errors).length} things before saving.`, errors };
   const action = form.get("intent") === "publish" ? "publish" : "draft";
   const criticalConfirmed = String(form.get("criticalWord") ?? "").trim().toUpperCase() === CRITICAL_WORD;
   if (action === "publish" && input.priority === "CRITICAL" && !criticalConfirmed) return { ok: false, needsCritical: true, message: `Type ${CRITICAL_WORD} to pin this on every chosen parent's Parent Link.` };
-  const id = String(form.get("id") ?? "") || null;
+  const raw = String(form.get("id") ?? "");
+  const id = uuid.test(raw) ? raw : null;
   let result;
   try {
     checkNoticeScope(input, access.scope);
     result = await withSchool(current.ctx, async (tx) => {
+      const before = id ? await tx.notice.findFirst({ where: { id, schoolId: current.ctx.schoolId }, select: { createdById: true, attachmentFileIds: true } }) : null;
+      // Someone with their own scope changes only notices they wrote.
+      if (before && !access.full && before.createdById !== current.user.id) throw new NoticeProblem("You can change only notices you wrote.");
+      // Attachments kept from before must be this notice's own.
+      input.attachmentFileIds = input.attachmentFileIds.filter((f) => before?.attachmentFileIds.includes(f));
       for (const f of files) {
         const saved = await saveFile(tx, current.ctx, { file: f, purpose: "notice", allowed: DOCUMENT_TYPES, maxImageWidth: 1600 });
         input.attachmentFileIds.push(saved.id);
       }
-      return saveNotice(tx, current.ctx, input, { id: id && uuid.test(id) ? id : null, action, fullAccess: access.full, criticalConfirmed });
+      return saveNotice(tx, current.ctx, input, { id, action, criticalConfirmed });
     });
   } catch (e) {
     if (e instanceof NoticeProblem || e instanceof FileProblem) return { ok: false, message: e.message };
     throw e;
   }
-  const words = { draft: "Saved as a draft.", approval: "Sent for approval. It is published once the principal approves it.", scheduled: "Scheduled. It is published at its time.", published: "Published." }[result.outcome];
+  const words = { draft: "Saved as a draft.", approval: "Sent for approval. It is published once it is approved.", scheduled: "Scheduled. It is published at its time.", published: "Published." }[result.outcome];
   await flash({ message: `${words}`, tone: "success", link: { href: `/communication/notices/${result.notice.id}`, label: "Open notice" } });
   redirect(`/communication/notices/${result.notice.id}`);
 }
 
 export async function archiveNoticeAction(id: string): Promise<string | void> {
-  const { current } = await commOfficeAction("archive");
+  const { current } = await commAction("archive");
   try {
     const n = await withSchool(current.ctx, async (tx) => {
       const own = await tx.notice.findFirst({ where: { id, schoolId: current.ctx.schoolId } });

@@ -1,14 +1,14 @@
 // One salary slip on screen (mod-salary.jsx SlipSheet), from the frozen payroll line.
 import { formatRupees } from "@/lib/format";
 import { rupeesInWords } from "@/lib/documents/words";
-import { slipLines } from "@/lib/salary/slips";
+import { slipLines, type SlipAdjustment } from "@/lib/salary/slips";
 import { dayNum, dayShort, monthName } from "@/lib/salary/words";
 import type { PayrollLine } from "@prisma/client";
 
 export type SlipPerson = { fullName: string; staffCode: string; designation: string; department: string; pan: string; uan: string; bank: string };
 
-export function SlipView({ school, place, month, paidOn, line, person, showEmployer }: { school: string; place: string; month: Date; paidOn: Date | null; line: PayrollLine; person: SlipPerson; showEmployer: boolean }) {
-  const all = slipLines(line);
+export function SlipView({ school, place, month, paidOn, line, person, showEmployer, adjustments = [] }: { school: string; place: string; month: Date; paidOn: Date | null; line: PayrollLine; person: SlipPerson; showEmployer: boolean; adjustments?: SlipAdjustment[] }) {
+  const all = slipLines(line, adjustments);
   const earn = all.filter((l) => l.kind === "earning");
   const ded = all.filter((l) => l.kind === "deduction");
   const sum = (ls: typeof all) => ls.reduce((s, l) => s + l.amountPaise, BigInt(0));
@@ -29,12 +29,12 @@ export function SlipView({ school, place, month, paidOn, line, person, showEmplo
       <div className="grid md:grid-cols-2 gap-x-6 px-4 py-3">
         <div>
           <p className="eyebrow text-ink3 mt-2 mb-1">Earnings</p>
-          <ul className="divide-y divide-line/70">{earn.map((l) => <L key={l.label} k={l.label} v={l.amountPaise} />)}
+          <ul className="divide-y divide-line/70">{earn.map((l, i) => <L key={`${i}-${l.label}`} k={l.label} v={l.amountPaise} />)}
             <li className="flex justify-between py-1.5 font-semibold"><span>Total earnings</span><span className="tnum">{formatRupees(sum(earn))}</span></li></ul>
         </div>
         <div>
           <p className="eyebrow text-ink3 mt-2 mb-1">Deductions</p>
-          <ul className="divide-y divide-line/70">{ded.map((l) => <L key={l.label} k={l.label} v={l.amountPaise} />)}
+          <ul className="divide-y divide-line/70">{ded.map((l, i) => <L key={`${i}-${l.label}`} k={l.label} v={l.amountPaise} />)}
             <li className="flex justify-between py-1.5 font-semibold"><span>Total deductions</span><span className="tnum">{formatRupees(sum(ded))}</span></li></ul>
         </div>
       </div>

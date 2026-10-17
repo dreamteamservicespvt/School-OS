@@ -8,6 +8,7 @@ import "./staff/import";
 import "./fees/import";
 import "./finance/import";
 import "./students/import";
+import "./students/update-import";
 import "./admission/import";
 import "./events/import";
 import "./library/import";

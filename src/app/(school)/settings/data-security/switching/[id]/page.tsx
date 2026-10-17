@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { AutoRefresh } from "../../parts";
 import { ColumnsForm, FixRowForm, SheetForm, ValuesForm } from "../forms";
-import { AddClassesButton, AddOptionsButton, ImportButton, LeaveOutButton, RemoveFileButton, TidySwitch, UndoFixButton, UndoImportButton } from "../parts";
+import { AddClassesButton, AddOptionsButton, ClearChoiceButton, ImportButton, LeaveOutButton, RemoveFileButton, RowChoices, TidySwitch, UndoFixButton, UndoImportButton } from "../parts";
 
 export const metadata: Metadata = { title: "Check a file · Switching to School OS" };
 
@@ -30,6 +30,11 @@ const HOME: Record<string, { href: string; label: string }> = {
   students: { href: "/student-management", label: "Open Student List" },
   staff: { href: "/staff-hr-management", label: "Open Staff List" },
   departments: { href: "/staff-hr-management/settings", label: "Open HR Settings" },
+  "fee-old-dues": { href: "/fee-management/ledger", label: "Open Student Fee Ledger" },
+  "fee-past-receipts": { href: "/fee-management/ledger", label: "Open Student Fee Ledger" },
+  "finance-past-expenses": { href: "/finance-management/expenses", label: "Open Expenses" },
+  "calendar-holidays": { href: "/events-calendar", label: "Open School Calendar" },
+  "admission-enquiries": { href: "/admission-management/enquiries", label: "Open Enquiries" },
 };
 
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
@@ -61,7 +66,7 @@ export default async function MoveInFilePage({ params, searchParams }: Props) {
   const { file, kind, prepared, lookups, checked } = w;
   const info = kindInfo(kind.key);
   const label = info?.label ?? kind.label;
-  const mayEdit = file.status === "open" && canBring(current.permissions, kind.key);
+  const mayEdit = file.status === "open" && canBring(current.permissions, kind.key, current.modulesOn);
   const sheetList = file.sheets as { name: string; rows: number }[];
   const sheetName = sheetList.length > 1 ? sheetList[file.sheetIndex]?.name : null;
   const headers = prepared.headers;
@@ -73,7 +78,7 @@ export default async function MoveInFilePage({ params, searchParams }: Props) {
         <h2 className="mt-1 text-xl font-semibold break-all">{file.fileName}{sheetName ? ` · ${sheetName}` : ""}</h2>
         <p className="text-sm text-ink-2">{label} · {prepared.rows.length} {prepared.rows.length === 1 ? "row" : "rows"} · uploaded {formatDateTime(file.createdAt, tz)}</p>
       </div>
-      {file.status !== "importing" && canBring(current.permissions, kind.key) && <RemoveFileButton id={file.id} imported={file.status === "imported"} />}
+      {file.status !== "importing" && canBring(current.permissions, kind.key, current.modulesOn) && <RemoveFileButton id={file.id} imported={file.status === "imported"} />}
     </div>
   );
 
@@ -100,7 +105,7 @@ export default async function MoveInFilePage({ params, searchParams }: Props) {
               <div className="flex flex-wrap gap-2">
                 {HOME[kind.key] && !batch.undoneAt && <ButtonLink href={HOME[kind.key].href} variant="primary">{HOME[kind.key].label}</ButtonLink>}
                 {batch.skipped > 0 && <a href={`/settings/data-security/imports/${batch.id}/errors`} className="inline-flex min-h-11 items-center rounded-lg px-3 font-medium text-brand-text hover:bg-surface-2">Download rows with problems</a>}
-                {!batch.undoneAt && batch.added > 0 && canUndo(current.permissions, kind.key) && <UndoImportButton id={file.id} added={batch.added} label={label.toLowerCase()} />}
+                {!batch.undoneAt && (batch.added > 0 || batch.updated > 0) && canUndo(current.permissions, kind.key, current.modulesOn) && <UndoImportButton id={file.id} added={batch.added} label={label.toLowerCase()} />}
               </div>
               {batch.skipped > 0 && <p className="text-sm text-ink-2">Some rows changed between the check and the import (for example a section filled up). Fix them in the downloaded file and bring that file in.</p>}
             </CardBody>
@@ -110,7 +115,7 @@ export default async function MoveInFilePage({ params, searchParams }: Props) {
     );
   }
 
-  const kinds = moveInKinds().filter((k) => canBring(current.permissions, k.key) || k.key === kind.key);
+  const kinds = moveInKinds(current.modulesOn).filter((k) => canBring(current.permissions, k.key, current.modulesOn) || k.key === kind.key);
   const sample = w.sheet.rows.slice(file.headerRow, file.headerRow + 12);
   const columnRows = kind.columns.map((c) => ({
     key: c.key, label: c.label, required: Boolean(c.required),
@@ -251,9 +256,11 @@ export default async function MoveInFilePage({ params, searchParams }: Props) {
                         <div className="min-w-0">
                           <p><strong>Row {p.line}</strong>{p.values.fullName || p.values.name ? ` · ${p.values.fullName || p.values.name}` : ""}{fixed && <Badge tone="brand" className="ml-2">Fixed by you</Badge>}</p>
                           <p className="text-danger">{p.problems.join(" ")}</p>
+                          {p.chosen && <p className="text-sm text-ink-2">Your choice: {p.chosenWords ?? p.chosen}</p>}
                         </div>
-                        {mayEdit && <div className="flex gap-1">{fixed && <UndoFixButton id={file.id} line={p.line} />}<LeaveOutButton id={file.id} lines={[p.line]} out /></div>}
+                        {mayEdit && <div className="flex gap-1">{p.chosen && <ClearChoiceButton id={file.id} line={p.line} />}{fixed && <UndoFixButton id={file.id} line={p.line} />}<LeaveOutButton id={file.id} lines={[p.line]} out /></div>}
                       </div>
+                      {mayEdit && p.choices.length > 0 && <RowChoices id={file.id} line={p.line} choices={p.choices.filter((c) => c.value !== p.chosen)} />}
                       {mayEdit && (
                         <details className="mt-1">
                           <summary className="inline-flex min-h-11 cursor-pointer items-center font-medium text-brand-text">Fix this row</summary>
@@ -270,6 +277,20 @@ export default async function MoveInFilePage({ params, searchParams }: Props) {
               </ul>
               {checked.problems.length > 100 && <p className="px-5 pb-4 text-sm text-ink-2">The first 100 are shown. Download all {checked.problems.length}, fix them in Excel and bring that file in, or leave them all out.</p>}
               {mayEdit && checked.problems.length > 1 && <div className="border-t border-line px-5 py-3"><LeaveOutButton id={file.id} lines={checked.problems.map((p) => p.line)} out label={`Leave out all ${checked.problems.length} rows with problems`} /></div>}
+            </Card>
+          )}
+
+          {checked.decided.length > 0 && (
+            <Card>
+              <CardHeader title="Your choices" description="Rows that may already be on record, with what you chose for each. Nothing is merged unless you chose it." />
+              <ul className="divide-y divide-line">
+                {checked.decided.slice(0, 100).map((d) => (
+                  <li key={d.line} className="flex flex-wrap items-start justify-between gap-2 px-5 py-3">
+                    <p className="min-w-0"><strong>Row {d.line}</strong>{d.values.fullName ? ` · ${d.values.fullName}` : ""}<span className="block text-sm text-ink-2">{d.words}</span></p>
+                    {mayEdit && <ClearChoiceButton id={file.id} line={d.line} />}
+                  </li>
+                ))}
+              </ul>
             </Card>
           )}
 
@@ -294,7 +315,7 @@ export default async function MoveInFilePage({ params, searchParams }: Props) {
             <CardBody className="flex flex-wrap items-center gap-3 border-t border-line">
               {mayEdit && checked.ready.length > 0 ? <ImportButton id={file.id} ready={checked.ready.length} problems={checked.problems.length} label={label.toLowerCase()} />
                 : <p className="text-ink-2">{checked.ready.length ? "Your role cannot bring these in." : "Fix the problems above, or match the columns and words, to make rows ready."}</p>}
-              {kind.key === "students" && <p className="text-sm text-ink-2">Parents with the same phone number are linked as one family, and brothers and sisters share them.</p>}
+              {kind.key === "students" && <p className="text-sm text-ink-2">A parent already on record with the same phone is linked only when the name matches (a close spelling is fine), so brothers and sisters share their parents. Any other match waits for your choice above.</p>}
             </CardBody>
           </Card>
         </div>

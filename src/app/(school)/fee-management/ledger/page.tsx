@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { SearchX, UserRoundSearch } from "lucide-react";
+import { FileInput, SearchX, UserRoundSearch } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { fileLink } from "@/lib/files";
 import { formatRupees } from "@/lib/format";
 import { findStudents, mostOverdue } from "@/lib/fees/find";
 import { Card } from "@/components/ui/card";
+import { ButtonLink } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { Pill } from "@/components/ui/badge";
 import { Empty } from "@/components/money/kit";
@@ -31,7 +32,8 @@ export default async function LedgerIndexPage({ searchParams }: { searchParams: 
   const list = await withSchool(p.current.ctx, (tx) => (q ? findStudents(tx, p.viewer, q, p.today, 20) : mostOverdue(tx, p.viewer, p.today, own ? 40 : 10)));
   return (
     <div>
-      <FeeHead pageName="Student Fee Ledger" href={`${BASE}/ledger`} sub={own ? "Fee status of the students in your classes." : "Each student’s fees, payments, balance and receipts. Nothing here is ever deleted."} />
+      <FeeHead pageName="Student Fee Ledger" href={`${BASE}/ledger`} sub={own ? "Fee status of the students in your classes." : "Each student’s fees, payments, balance and receipts. Nothing here is ever deleted."}
+        actions={p.can.change ? <ButtonLink href={`${BASE}/ledger/import`} variant="secondary" icon={FileInput}>Import old dues and receipts</ButtonLink> : undefined} />
       <div className="max-w-3xl">
         <UrlSearch big id="ledger-search" placeholder="Name, admission no. or parent phone" autoFocus label="Find a student" />
         <Card className="mt-4 overflow-hidden">

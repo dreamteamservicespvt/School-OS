@@ -6,16 +6,18 @@
 import "server-only";
 
 import type { PaymentMode } from "@prisma/client";
+import type { SchoolContext, Tx } from "../db";
 import { defineImport } from "../importer";
 import { writeAudit } from "../audit";
 import { parseDateText } from "../staff/import";
 import { parseRupees } from "./act";
 import { MoneyProblem } from "./problem";
-import { refreshBalances } from "./dues";
+import { lockDues, refreshBalances } from "./dues";
 import { ensureFeeDefaults } from "./settings";
 import { financialYearOf } from "../finance/years";
 import { currentYear } from "../academic/years";
 import { PAYMENT_MODES } from "./words";
+import { formatRupees } from "../format";
 
 function rupees(v: string, label: string): { ok: true; value: bigint } | { ok: false; problem: string } {
   try {
@@ -42,7 +44,7 @@ defineImport<OldDue>({
     { key: "dueDate", label: "Due date", required: true, example: "31-03-2026", help: "DD-MM-YYYY" },
     { key: "note", label: "Note", example: "Balance from 2025-26" },
   ],
-  async check(tx, ctx, row) {
+  async check(tx, ctx, row, seen) {
     await ensureFeeDefaults(tx, ctx);
     const problems: string[] = [];
     const student = row.admissionNo ? await tx.student.findFirst({ where: { admissionNo: { equals: row.admissionNo.trim(), mode: "insensitive" }, archivedAt: null } }) : null;
@@ -55,6 +57,16 @@ defineImport<OldDue>({
     const dueDate = parseDateText(row.dueDate ?? "");
     if (!dueDate) problems.push("Due date is not a date like 31-03-2026.");
     if ((row.note ?? "").length > 300) problems.push("Note can be at most 300 characters.");
+    // Workflow 15 "Old dues are imported twice": one brought-in row per student and fee head.
+    if (student && head) {
+      const k = `od:${student.id}:${head.id}`;
+      if (seen.has(k)) problems.push(`Old dues for ${student.fullName} (${head.name}) are on another row of the file. Put them on one row.`);
+      else {
+        seen.add(k);
+        const before = await tx.studentFeeDue.findFirst({ where: { studentId: student.id, feeHeadId: head.id, kind: "OLD_DUES", broughtIn: true, state: "OPEN" } });
+        if (before) problems.push(`Old dues for ${student.fullName} (${head.name}) are already brought in: ${formatRupees(before.amountPaise)}. Undo the earlier import to replace them, or leave this row out.`);
+      }
+    }
     if (problems.length || !student || !head || !amount.ok || !dueDate) return { ok: false, problems };
     return { ok: true, value: { studentId: student.id, feeHeadId: head.id, amountPaise: amount.value, dueDate, note: row.note?.trim() || null, headName: head.name } };
   },
@@ -113,7 +125,7 @@ defineImport<PastReceipt>({
   ],
   async check(tx, ctx, row, seen) {
     const problems: string[] = [];
-    const student = row.admissionNo ? await tx.student.findFirst({ where: { admissionNo: { equals: row.admissionNo.trim(), mode: "insensitive" } } }) : null;
+    const student = row.admissionNo ? await tx.student.findFirst({ where: { admissionNo: { equals: row.admissionNo.trim(), mode: "insensitive" }, releasedAt: null } }) : null;
     if (!student) problems.push(`No student with admission number "${row.admissionNo}".`);
     const no = (row.oldReceiptNo ?? "").trim();
     if (!no) problems.push("Old receipt number is needed.");
@@ -148,15 +160,51 @@ defineImport<PastReceipt>({
     let number = `OLD-${v.oldReceiptNo}`;
     for (let n = 2; await tx.receipt.findUnique({ where: { schoolId_number: { schoolId: ctx.schoolId, number } } }); n++) number = `OLD-${v.oldReceiptNo}-${n}`;
     await tx.receipt.create({ data: { schoolId: ctx.schoolId, paymentId: p.id, number, date: v.date, broughtIn: true } });
+    await allocateBroughtIn(tx, ctx, p.id, v);
     return { id: p.id, created: true };
   },
   async undo(tx, ctx, ids) {
     for (const id of ids) {
       const p = await tx.payment.findFirst({ where: { id, broughtIn: true } });
       if (!p || p.status === "CANCELLED") continue;
+      // The dues it paid open again, as they were before the import.
+      const allocs = await tx.paymentAllocation.findMany({ where: { paymentId: id } });
+      await lockDues(tx, allocs.map((a) => a.dueId));
+      for (const a of allocs) await tx.studentFeeDue.update({ where: { id: a.dueId }, data: { paidPaise: { decrement: a.amountPaise } } });
+      await refreshBalances(tx, allocs.map((a) => a.dueId));
       await tx.payment.update({ where: { id }, data: { status: "CANCELLED", cancelReason: "Import undone", cancelledById: ctx.userId, cancelledAt: new Date() } });
       await tx.receipt.updateMany({ where: { paymentId: id }, data: { status: "cancelled", cancelledAt: new Date() } });
     }
     await writeAudit(tx, ctx, { action: "brought-in-undone", recordType: "Payment", recordId: null, after: { count: ids.length } });
   },
 });
+
+/**
+ * Workflow 15 step 6: a payment already made in the old software reduces this
+ * year's dues: rows of the named fee head first, then the oldest open rows.
+ * What is left over is held as advance, as at the counter. It never reaches
+ * the Day Book.
+ */
+async function allocateBroughtIn(tx: Tx, ctx: SchoolContext, paymentId: string, v: PastReceipt) {
+  const head = v.headName ? await tx.feeHead.findFirst({ where: { archivedAt: null, name: { equals: v.headName, mode: "insensitive" } }, select: { id: true } }) : null;
+  const open = await tx.studentFeeDue.findMany({
+    where: { studentId: v.studentId, state: "OPEN", balancePaise: { gt: 0 }, ...(v.academicYearId ? { academicYearId: v.academicYearId } : {}) },
+    orderBy: [{ dueDate: "asc" }, { kind: "asc" }, { createdAt: "asc" }],
+  });
+  const ordered = head ? [...open.filter((d) => d.feeHeadId === head.id), ...open.filter((d) => d.feeHeadId !== head.id)] : open;
+  await lockDues(tx, ordered.map((d) => d.id));
+  let left = v.amountPaise;
+  const lines: { dueId: string; feeHeadId: string; amountPaise: bigint }[] = [];
+  for (const d of ordered) {
+    if (left <= BigInt(0)) break;
+    const take = d.balancePaise < left ? d.balancePaise : left;
+    lines.push({ dueId: d.id, feeHeadId: d.feeHeadId, amountPaise: take });
+    left -= take;
+  }
+  if (lines.length) {
+    await tx.paymentAllocation.createMany({ data: lines.map((l) => ({ schoolId: ctx.schoolId, paymentId, dueId: l.dueId, feeHeadId: l.feeHeadId, amountPaise: l.amountPaise })) });
+    for (const l of lines) await tx.studentFeeDue.update({ where: { id: l.dueId }, data: { paidPaise: { increment: l.amountPaise } } });
+    await refreshBalances(tx, lines.map((l) => l.dueId));
+  }
+  if (left > BigInt(0)) await tx.payment.update({ where: { id: paymentId }, data: { advancePaise: left } });
+}

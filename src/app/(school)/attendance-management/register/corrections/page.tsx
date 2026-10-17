@@ -9,6 +9,7 @@ import { BASE } from "@/lib/attendance/access";
 import { registerChoices } from "@/lib/attendance/register";
 import { CORRECTION_WORDS, statusName, type CorrectionEntry } from "@/lib/attendance/corrections";
 import { statusList } from "@/lib/attendance/settings";
+import { REASONS_FEATURE } from "@/lib/attendance/absence-reasons";
 import { Card } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -84,6 +85,7 @@ export default async function CorrectionsPage({ searchParams }: Props) {
         <Chips label="Register views" value="corrections" options={[
           { value: "class", label: "Class register", href: `${BASE}/register` },
           { value: "student", label: "Student calendar", href: `${BASE}/register?view=student` },
+          ...(features.has(REASONS_FEATURE) ? [{ value: "absences", label: "Absent list", href: `${BASE}/register/absences` }] : []),
           { value: "corrections", label: "Corrections", count: data.counts.WAITING || null, href: path },
         ]} />
         <Card className="overflow-hidden">

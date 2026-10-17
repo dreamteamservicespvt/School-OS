@@ -106,11 +106,11 @@ export async function seedCommunication(school: SeedSchool) {
   // Notices.
   await withSchool(principalCtx, async (tx) => {
     const base = { attachmentFileIds: [], askAck: false, publishAt: null, expiresOn: null };
-    await saveNotice(tx, principalCtx, { ...base, title: "Diwali holidays", body: "The school is closed from 30 October to 3 November for Diwali. Classes start again on Tuesday 4 November.", audience: { parents: true, students: true, staff: true, roleKeys: [], classIds: [], sectionIds: [], campusIds: [] }, priority: "HIGH", channels: ["board", "app", "parent-link"] }, { action: "publish", fullAccess: true, criticalConfirmed: false });
-    await saveNotice(tx, principalCtx, { ...base, title: "School closed tomorrow due to heavy rain", body: "Because of the heavy rain warning, the school will stay closed tomorrow. Online classes are not planned.", audience: { parents: true, students: false, staff: true, roleKeys: [], classIds: [], sectionIds: [], campusIds: [] }, priority: "CRITICAL", channels: ["board", "app", "parent-link"], expiresOn: new Date(Date.now() + 2 * 86400_000) }, { action: "publish", fullAccess: true, criticalConfirmed: true });
-    await saveNotice(tx, principalCtx, { ...base, title: "Class 5 A field trip to the Science Centre", body: "Class 5 A visits the Science Centre on 22 October. Please send a packed lunch and water.", audience: { parents: true, students: true, staff: false, roleKeys: [], classIds: [], sectionIds: [a.id], campusIds: [] }, priority: "NORMAL", channels: ["board", "parent-link"] }, { action: "publish", fullAccess: true, criticalConfirmed: false });
-    await saveNotice(tx, principalCtx, { ...base, title: "Teachers: submit question papers", body: "Please submit the half-yearly question papers to the exam cell by Friday.", audience: { parents: false, students: false, staff: true, roleKeys: [], classIds: [], sectionIds: [], campusIds: [] }, priority: "NORMAL", channels: ["board", "app"], askAck: true }, { action: "publish", fullAccess: true, criticalConfirmed: false });
-    await saveNotice(tx, principalCtx, { ...base, title: "Annual day rehearsal timings", body: "Draft: rehearsal timings for annual day.", audience: { parents: true, students: true, staff: false, roleKeys: [], classIds: [], sectionIds: [], campusIds: [] }, priority: "NORMAL", channels: ["board"] }, { action: "draft", fullAccess: true, criticalConfirmed: false });
+    await saveNotice(tx, principalCtx, { ...base, title: "Diwali holidays", body: "The school is closed from 30 October to 3 November for Diwali. Classes start again on Tuesday 4 November.", audience: { parents: true, students: true, staff: true, roleKeys: [], classIds: [], sectionIds: [], campusIds: [] }, priority: "HIGH", channels: ["board", "app", "parent-link"] }, { action: "publish", criticalConfirmed: false });
+    await saveNotice(tx, principalCtx, { ...base, title: "School closed tomorrow due to heavy rain", body: "Because of the heavy rain warning, the school will stay closed tomorrow. Online classes are not planned.", audience: { parents: true, students: false, staff: true, roleKeys: [], classIds: [], sectionIds: [], campusIds: [] }, priority: "CRITICAL", channels: ["board", "app", "parent-link"], expiresOn: new Date(Date.now() + 2 * 86400_000) }, { action: "publish", criticalConfirmed: true });
+    await saveNotice(tx, principalCtx, { ...base, title: "Class 5 A field trip to the Science Centre", body: "Class 5 A visits the Science Centre on 22 October. Please send a packed lunch and water.", audience: { parents: true, students: true, staff: false, roleKeys: [], classIds: [], sectionIds: [a.id], campusIds: [] }, priority: "NORMAL", channels: ["board", "parent-link"] }, { action: "publish", criticalConfirmed: false });
+    await saveNotice(tx, principalCtx, { ...base, title: "Teachers: submit question papers", body: "Please submit the half-yearly question papers to the exam cell by Friday.", audience: { parents: false, students: false, staff: true, roleKeys: [], classIds: [], sectionIds: [], campusIds: [] }, priority: "NORMAL", channels: ["board", "app"], askAck: true }, { action: "publish", criticalConfirmed: false });
+    await saveNotice(tx, principalCtx, { ...base, title: "Annual day rehearsal timings", body: "Draft: rehearsal timings for annual day.", audience: { parents: true, students: true, staff: false, roleKeys: [], classIds: [], sectionIds: [], campusIds: [] }, priority: "NORMAL", channels: ["board"] }, { action: "draft", criticalConfirmed: false });
   });
 
   // Queries.
@@ -202,6 +202,6 @@ export async function seedCommunication(school: SeedSchool) {
       await closeSurvey(tx, principalCtx, closed.id);
       const st = ex("staff");
       await saveSurvey(tx, principalCtx, null, { title: "Staff feedback · Term 1", audience: "staff", anonymous: true, closesOn: null, questions: st.questions }, labels, today);
-    });
+    }, { timeout: 120_000 });
   }
 }

@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { NO_PERMISSION_DIGEST, PermissionDeniedError } from "@/lib/permissions";
 import { actionWords } from "@/lib/data-security/audit-view";
-import { closedWords, findEntry } from "@/lib/reports/catalogue";
+import { closedWords, featureOff, findEntry } from "@/lib/reports/catalogue";
 import type { ReportAccess } from "@/lib/reports/access";
 
 describe("refusals in plain words", () => {
@@ -28,8 +28,22 @@ describe("refusals in plain words", () => {
       modulesOn: new Set<string>(),
     } as never;
     const access = { cats: [entry.category], own: false, roleKeys: ["school-admin"], full: true, staffAttendance: true } as unknown as ReportAccess;
-    expect(closedWords(entry, access, who)).toMatch(/feature your school has not switched on/);
+    expect(closedWords(entry, access, who)).toMatch(/switched off for your school/);
+    expect(closedWords(entry, access, who)).not.toMatch(/your role/);
+    // The page names the feature, the school, and who switches it on where.
+    const off = featureOff(entry, access, who, "Chaitanya EM School")!;
+    expect(off.features).toEqual(["attendance-overtime"]);
+    expect(off.title).toBe("“Overtime and shifts” is switched off for Chaitanya EM School");
+    expect(off.body).toMatch(/needs Overtime\. The Principal or School Admin can switch it on in Attendance Settings/);
     const noStaff = { ...access, staffAttendance: false } as ReportAccess;
     expect(closedWords(entry, noStaff, who)).toMatch(/not open to your role/);
+    expect(featureOff(entry, noStaff, who)).toBeNull();
+  });
+
+  it("names Finance Settings for a finance report closed by its feature", () => {
+    const entry = findEntry("fi-budget")!;
+    const who = { features: new Set<string>(), permissions: { "finance-management": { see: "all", change: "all" } }, roles: [], modulesOn: new Set<string>() } as never;
+    const access = { cats: [entry.category], own: false, roleKeys: ["school-admin"], full: true, finance: "full" } as unknown as ReportAccess;
+    expect(featureOff(entry, access, who)?.body).toMatch(/needs Budget\. .* in Finance Settings/);
   });
 });

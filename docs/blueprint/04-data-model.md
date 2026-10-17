@@ -156,7 +156,7 @@ erDiagram
 |---|---|---|
 | Enquiry | The first contact from a family about admission. | Child's name, parent's name, phone, class wanted, source (walk-in, phone, WhatsApp, referral, campaign or the school's own), status (default list, which the school can change: New, Contacted, Visit scheduled, Visited, Application given, Applied, Admitted, Lost), owner (Staff), next follow-up date and time, notes, call history, reason if lost. |
 | Application | The admission form for one child. | Application number (unique), enquiry it came from, child's details, parents' details, class applied for, previous school and marks, documents with a checked status for each, test and interview scores (optional), application fee payment (optional), decision (approved, rejected, waiting list), waiting list rank, remarks. |
-| Student | One record for one child for life, shared by every module. | Admission number (unique in the school), name, photo, date of birth, gender, blood group, category, address, emergency contacts in order, APAAR and PEN numbers (restricted), status, joining date, leaving date and reason. Status list: lead and applicant (held in Enquiry and Application until approval), admitted, active, promoted, transferred, withdrawn, graduated, alumni, inactive. |
+| Student | One record for one child for life, shared by every module. | Admission number (unique in the school; freed only when the import that added the student is undone, see rule 25), name, photo, date of birth, gender, blood group, category, address, emergency contacts in order, APAAR and PEN numbers (restricted), status, joining date, leaving date and reason. Status list: lead and applicant (held in Enquiry and Application until approval), admitted, active, promoted, transferred, withdrawn, graduated, alumni, inactive. |
 | Enrolment | *Added in this blueprint.* The student's class, section and roll number for one academic year. A new one is made each year. Old ones are kept. | Student, academic year, section, roll number, stream, optional subjects and second language chosen, status (studying, promoted, held back, left). |
 | Guardian | A parent or guardian. Parents have no login. They get messages, payment links and one Parent Link. | Name, relationship, phone (the registered mobile for one-time codes), email, date of birth (for parents' birthday wishes, optional), occupation, address, message language, opted out of messages or not. Each link to a student holds: relationship, order as emergency contact, on the approved pickup list or not, custody or access restriction. |
 | Parent Link | *Added (decided 9 October 2026).* One guardian's personal, secure link to a phone-friendly page with no password. It shows all that guardian's children: fees due with a Pay button, receipts, attendance this month, notices, the datesheet, report cards once published, and consent forms. It is read-only apart from paying and giving consent. Owned by 11 Communication. | Guardian, secure token (stored only in hashed form, never readable), status (Active, Revoked), created on, last opened, verified devices (each phone confirmed by a one-time code to the guardian's registered mobile). |
@@ -207,12 +207,14 @@ erDiagram
 | Installment | One amount and due date inside a Fee Structure. | Fee structure, fee head, label (such as "April 2027"), amount, due date. |
 | Student Fee Due | What one student owes for one installment. This is what the Defaulters list and reminders read. | Student, installment, amount, concession, late fee added, paid so far, balance, status (Not due, Due, Overdue, Paid; a row that is partly paid keeps its status and shows the amount paid so far), old dues carried in or not, opening balance brought in from old software or not (decided 9 October 2026). |
 | Concession | A discount, scholarship, bulk discount or late-fee waiver. | Student fee dues it reduces, amount or percent, type (concession, bulk discount, scholarship, late-fee waiver), reason, requested by, approval, status (Waiting, Approved, Rejected, Applied). |
-| Payment Link | *Added in this blueprint.* A link sent to a parent to pay online. | Student, dues it covers, amount, gateway, the message it was sent in, expiry, status (sent, paid, failed, expired), gateway reference, attempts. |
+| Payment Link | *Added in this blueprint.* A link sent to a parent to pay online. | Student, dues it covers, amount, gateway, the message it was sent in, expiry, status (sent, paid, failed, expired), gateway reference, attempts, when the gateway was last asked about it and what it said (added 18 October 2026). |
+| Payment Link Order | *Added 18 October 2026.* One gateway order made for a Payment Link. A new order is made when the amount due changes; every one is kept, so a payment on an older order (an old browser tab) is still matched to its link. | Payment Link, gateway order id, amount, made on. |
 | Payment | Money received for fees, at the counter, by Payment Link or through Parent Link. | Student, the dues it pays and how much of each, total, mode (cash, UPI, card, net banking, bank transfer, cheque, gateway), reference number, time, collected by, status (Posted, Waiting for verification, Cancelled, Failed), cancel reason and who cancelled, brought in or not (decided 9 October 2026: a past payment imported from old software is marked "brought in", is read-only and is never posted to the Day Book again). |
 | Receipt | The proof given for a posted payment. A receipt imported with a brought-in payment keeps its old number and is read-only. | Receipt number (unique, in the pattern set in Fee Settings), payment, date, status (valid, cancelled), brought in or not (decided 9 October 2026: imported, read-only, never posted to the Day Book). |
 | Tax Invoice | *Added (decided 9 October 2026).* The GST invoice made for a payment that covers a taxable Fee Head. | Invoice number (unique), payment, date, school GSTIN, SAC code, each taxable fee head with its amount, GST rate and the GST included in it, total. |
 | Opening Balance | *Added (decided 9 October 2026).* An amount brought in from old software when the school starts on School OS (workflow 15, "Switching to School OS"). A school can start on any day of the year. | Kind (cash book, bank book, or a student's old dues), financial year, date, cash or bank account or student, amount, brought in by, source file. A student's old dues become Student Fee Due rows marked as brought in. |
 | Refund | Money given back from a payment. | Payment, amount, mode, reason, approval, date. |
+| Promise to Pay | *Added 17 October 2026.* What a family says on a call about dues: "will pay ₹5,000 on 25 October". It is the call log note on Defaulters (Fee Call Note) with a promised date, kept as one record. Switched on school by school (Fee Settings, "Promise to pay"). | Student, call note (optional when a date is given), promised date (today or within 60 days), amount (optional; empty means everything overdue when the promise was made), overdue when made, status (Open, Kept, Broken, Replaced), paid towards it by the promised date, when it was kept or broken, recorded by. |
 | Day Book Entry | One line in the Day Book. Made only by the software. | Financial year (decided 9 October 2026), date, money in or out, amount, mode, head (fee type, income head or expense head), the record it came from (payment, refund, income, expense, payroll run, salary advance, or an opening balance brought in from old software), student, staff member or vendor, the entry it reverses (for a cancellation). |
 | Income | Money the school receives other than fees, including alumni donations. | Date, income head, amount, source, mode, reference, cash or bank account, status (Draft, Posted, Cancelled). |
 | Expense | A bill or expense paid by the school, including transport fuel and repair bills. | Date, vendor, expense head, department, amount, mode, bill photo, status (Draft, Waiting for approval, Approved, Paid, Cancelled; decided 9 October 2026), approval. An expense turned down at approval goes back to Draft with the reason; there is no Rejected status. It reaches the Day Book only when marked Paid. |
@@ -248,16 +250,16 @@ erDiagram
 
 | Record | What it is | Key fields |
 |---|---|---|
-| Attendance Mark | One student's or staff member's attendance for one day, or one period where the school takes attendance every period. | Student or staff, date, period (optional), status (present, absent, late, half-day, excused, leave, medical, or the school's own), method (register, mobile, QR, face, fingerprint, RFID card), marked by, time, note, locked or not. |
+| Attendance Mark | One student's or staff member's attendance for one day, or one period where the school takes attendance every period. | Student or staff, date, period (optional), status (present, absent, late, half-day, excused, leave, medical, or the school's own), method (register, mobile, QR, face, fingerprint, RFID card), marked by, time, note, locked or not. Absence reason *(added 17 October 2026, gap list P1.8; only for a status that counts as absent, when the school switches absence reasons on)*: Sick, Family function, Travel, Fees dispute, Not known yet or Other, a short note, and where it came from (Take Attendance, set later from the absent list, or approved student leave). Empty means not recorded. |
 | Leave Request | Leave for a student or a staff member. Student leave is recorded by school staff, because parents have no login. | Student or staff, leave type, from date, to date, half-day or not, reason, document, status (Waiting, Approved, Rejected, Cancelled), recorded by, decided by, reason for the decision. |
 | Leave Balance | *Added (decided 9 October 2026).* How many days of one leave type a staff member, or a student where the school switches student leave balances on, has for one year. | Staff or student, leave type, academic year, days given, adjustments with reasons, days taken (worked out from approved Leave Requests), days left. |
 | Homework | Work given to a class, section or chosen students. | Section or chosen students, subject, teacher, title, instructions, attachments, date given, due date, maximum marks (100 unless the teacher changes it). |
 | Submission | One student's work for one homework. | Homework, student, submitted at, files (when submitted online), status (assigned, submitted, late, graded, missing), check result (complete, incorrect), score, grade, feedback, resubmission allowed or not. |
 | Exam | One exam, such as Unit Test 1 or Half Yearly. Made by creating a Datesheet. | Name, exam type, academic year, term, classes, pattern (Percentage, Grading, CGPA), grade scale, status (Draft, Published, Ongoing, Completed, Results published). |
 | Datesheet Entry | One subject's paper in one exam for one class. | Exam, class, subject, date, start time, duration (end time is shown), room, invigilator, maximum marks, mark categories (theory, practical, internal and so on). |
-| Marks | One student's marks in one paper. | Datesheet entry, student, marks for each mark category, grade (for grade-only subjects), absent or not, entered by, status (Not started, In progress, Submitted, Locked; kept for each paper, as in Examination & Results), change history. |
+| Marks | One student's marks in one paper. | Datesheet entry, student, section (follows the student when they change section), marks for each mark category, grade (for grade-only subjects), absent or not, entered by, status (Not started, In progress, Submitted, Locked; kept for each paper, as in Examination & Results), change history (including late marks added with approval). |
 | Grade Scale | The bands that turn marks into grades. Ready-made for CBSE, ICSE and state boards, or the school's own. | Name, bands (from percent, to percent, grade, points, remark), pass rule. |
-| Result | *Added in this blueprint.* One student's worked-out result for one exam, or the final result across exams. | Exam (or "final"), student, total, percentage, grade, rank (if the school uses ranks), pass or not, publish date, status (Draft, Published). |
+| Result | *Added in this blueprint.* One student's worked-out result for one exam, or the final result across exams. | Exam (or "final"), student, section (a draft follows the student when they change section; a published result keeps the section it was published in), total, percentage, grade, rank (if the school uses ranks), pass or not, publish date, status (Draft, Published), joined after this exam (left out; gap list G23). |
 | Report Card | The printed report for one student for a term or the year. Shown on Parent Link once published. | Student, term or year, design, marks and grades, attendance, co-scholastic grades, teacher remarks, principal remarks, date made, status (Not ready, Ready, Printed, Sent). |
 
 ## Area 5: Staff pay
@@ -283,8 +285,8 @@ erDiagram
 | Professional Tax Slab | *Added (decided 9 October 2026).* One band of a state's Professional Tax table. Optional. | State, salary from, salary to, monthly amount (and a different amount for a chosen month where the state's table says so), valid from. |
 | Statutory Statement | *Added (decided 9 October 2026).* The monthly PF or ESI statement exported for the government portals. | Payroll run, month, campus, kind (PF or ESI), staff lines with wages and employee and employer shares, totals, file made, made by, date. |
 | Salary Structure | One staff member's earnings and deductions. A change makes a new version; old versions are kept. | Staff, earnings and deductions (name, amount or rule), PF and ESI apply or not, monthly TDS amount (typed in, not calculated, in the first version), valid from, version. |
-| Payroll Run | The salary for one month for all staff of one campus. Only one per month per campus (decided 9 October 2026). | Month, campus, status (Open, Calculated, Waiting for approval, Approved, Paid, Locked), totals, approved by, paid on, locked on. It reaches the Day Book only when marked Paid. Locked comes after Paid: the Accountant locks it, or it locks by itself when the next month's run is approved. |
-| Payslip | One staff member's salary slip for one month. | Payroll run, staff, salary structure version used, days worked, leave, overtime, gross pay, deduction lines (PF employee share, ESI employee share, Professional Tax, TDS, and the school's own), employer PF and ESI shares (shown, not deducted), advance or loan recovered, substitution pay, adjustments with reasons, net pay, status (Made, Sent, Downloaded). |
+| Payroll Run | The salary for one month for all staff of one campus. Only one per month per campus (decided 9 October 2026). | Month, campus, status (Open, Calculated, Waiting for approval, Approved, Paid, Locked), totals, worked out on and up to which day, approved by, paid on, locked on. It reaches the Day Book only when marked Paid. Locked comes after Paid: the Accountant locks it, or it locks by itself when the next month's run is approved. |
+| Payslip | One staff member's salary slip for one month. | Payroll run, staff, salary structure version used, days worked, leave (paid, without pay, and beyond the balance), overtime, gross pay, deduction lines (PF employee share, ESI employee share, Professional Tax, TDS, and the school's own), employer PF and ESI shares (shown, not deducted), advance or loan recovered, substitution pay, adjustments with reasons (a correction of an earlier month names that month), net pay, status (Made, Sent, Downloaded). |
 | Salary Advance | An advance or loan given to a staff member and recovered from later salaries. | Staff, type (advance or loan), amount, date given, monthly recovery, start recovery from, reason, recovered so far, balance, status (Active, Closed). It reaches the Day Book when paid out (decided 9 October 2026). |
 
 ## Area 6: Messages, calendar, approvals and the audit log
@@ -310,8 +312,8 @@ erDiagram
 | Record | What it is | Key fields |
 |---|---|---|
 | Message | One send by WhatsApp, SMS, email or app notification, to one person or to many (decided 9 October 2026). | Channel, template, text, audience chosen, number of recipients, cost in credits, sent by a person or by an automatic rule, what caused it (such as "absent today"), time. |
-| Message Recipient | *Added (decided 9 October 2026).* One person who gets one Message, with their own delivery status. | Message, recipient (guardian, student or staff), phone or email used, status (Queued, Sent, Delivered, Read, Failed), reason if failed, time of each change. |
-| Notice | A circular or notice for chosen classes, roles or campuses. Shown on Parent Link. | Title, text, attachments, audience, priority, publish time, expiry date, approval, status (Draft, Waiting for approval, Scheduled, Published, Expired, Archived), read count. |
+| Message Recipient | *Added (decided 9 October 2026).* One person who gets one Message, with their own delivery status. | Message, recipient (guardian, student or staff), phone or email used, status (Queued, Sent, Delivered, Read, Failed), reason if failed, time of each change. A person no channel could carry the message to is kept as Failed with the reason "Not sent: …" (added 18 October 2026), so nobody is lost silently; they are sent again with Resend, not Retry. |
+| Notice | A circular or notice for chosen classes, roles or campuses. Shown on Parent Link. A notice for some campuses reaches only those campuses (message, Parent Link, student profile, notice board, seen count); with no campus it is for the whole school. | Title, text, attachments, audience, priority, publish time, expiry date, approval, status (Draft, Waiting for approval, Scheduled, Published, Expired, Archived), read count. |
 | Template | A ready message format with blanks. | Name, category, channel, language, text with blanks (such as student name or due amount), version, WhatsApp approval status (Approved, Pending, Rejected), DLT template ID (for SMS; decided 9 October 2026: an SMS can be sent only from a template that has one). |
 | Event | A school event, such as Annual Day or a PTM. | Type, title, date, venue, audience, registration needed or not, fee (optional), reminders, status (Planned, Open for registration, Done, Cancelled). |
 | Media Tag | *Added.* A student shown in a gallery photo or video. A photo is shown or shared only if every tagged student's guardian has given photo consent (Consent Record). | Photo or video, student, tagged by, date. |
@@ -360,13 +362,13 @@ erDiagram
 | Trip | One morning or evening run of a route on one date. | Route, vehicle, driver, date, morning pickup or evening drop, start time, end time, stops reached, students boarded, status (Scheduled, Started, Completed, Cancelled). |
 | Transport Assignment | Which student uses which route and stop. | Student, route, stop, one-way or two-way, from date, to date, bus pass number. |
 | Book | One title in the library. | Title, author, publisher, ISBN, category, subject. |
-| Book Copy | One physical copy of a book. | Book, accession number, barcode, status (Available, Issued, Reserved, Lost, Damaged, Withdrawn). |
+| Book Copy | One physical copy of a book. | Book, accession number, barcode, status (Available, Issued, Reserved, Lost, Damaged, Withdrawn), released on (set only when the catalogue import that added a never-issued copy is undone; see rule 25). |
 | Book Issue | One book copy lent to one person. | Book copy, student or staff, issued on, due on, returned on, renewals, fine (reason late, lost or damaged; status Due, Paid, Waived). A student's fine can be added to their fees as a Student Fee Due row. |
-| Item | One kind of stock, such as chalk, notebooks or uniforms. | Item code (SKU, unique), name, unit, category, reorder level, store location. Stock in hand is worked out from Stock Movements. |
+| Item | One kind of stock, such as chalk, notebooks or uniforms. | Item code (SKU, unique; freed only by an import undo, rule 25), name, unit, category, reorder level, store location. Stock in hand is worked out from Stock Movements. |
 | Book Set | *Added.* A set of Items sold or issued together, such as a class's book set. | Name, class (optional), items with quantities, price. Issuing a set makes one Stock Movement per item. |
 | Stock Movement | Stock coming in, going out, moving between stores, or written off. | Item, type (in, out, transfer, damaged, lost, expired), quantity, date, from and to (store, department, class, staff or student), purchase bill, charge to the student's fees or not. |
-| Asset | Furniture, computers and equipment the school owns. | Asset tag (unique), name, category, location, given to, purchase date, warranty end date, status (In use, In repair, Disposed), repair log. |
-| Hostel Room | One room in a hostel. | Hostel (boys or girls), floor, room number, number of beds, warden. |
+| Asset | Furniture, computers and equipment the school owns. | Asset tag (unique; freed only by an import undo, rule 25), name, category, location, given to, purchase date, warranty end date, status (In use, In repair, Disposed), repair log. |
+| Hostel Room | One room in a hostel. | Hostel (boys or girls), floor, room number (unique in the hostel; freed only by an import undo of a room nobody slept in, rule 25), number of beds, warden. |
 | Bed Allocation | One student given one bed. | Student, hostel room, bed number, check-in date, check-out date, status (Checked in, On outing, Checked out). |
 
 ## Key rules
@@ -385,25 +387,25 @@ These rules hold everywhere. A builder should write a check for each one.
 
 6. Payments and receipts are never edited or deleted. A wrong one is cancelled with a reason, or refunded with a reason. Both stay on record. *Decided: staff can never delete a fee payment.*
 7. A Receipt is made only for a Posted Payment. Receipt numbers are unique and never reused.
-8. An online Payment is posted only after the payment gateway confirms it. The same confirmation can never post twice. Failed attempts are flagged.
+8. An online Payment is posted only after the payment gateway confirms it. The same confirmation can never post twice. Failed attempts are flagged. Added 18 October 2026: confirmed means the money was captured (an authorised payment is not yet money taken). A payment on any order of a Payment Link is matched to that link. When the gateway says nothing, the software asks it, and posts what was captured. Money the gateway took that matches no link is posted only when a person chooses the student. A refund or dispute made at the gateway never cancels a payment by itself: a person asks to cancel it, through Approvals.
 9. A Payment can never be more than what is due, unless the school allows advance payment in Fee Settings. A Refund can never be more than what was paid.
 10. Day Book Entries are made only by the software, from Payments, Refunds, Income, Expenses, Payroll Runs, Salary Advances and opening balances brought in from old software. Nobody types them. An Expense, a Payroll Run and a Salary Advance post only when marked Paid, because that is when money leaves (decided 9 October 2026). Cancelling a payment adds a reversing entry; it does not remove the first one.
 11. The Installments of a fee head add up to its total in the Fee Structure.
 12. Discounts, refunds and expenses above the limit set in Settings, Forms & Approvals need an Approval before they count.
-13. A Payroll Run cannot be changed once Approved, and is Locked after it is Paid (by the Accountant, or by itself when the next month's run is approved). A mistake is put right by a reversal or an adjustment with a reason, never by changing the run. There is only one Payroll Run per month per campus.
+13. A Payroll Run cannot be changed once Approved, and is Locked after it is Paid (by the Accountant, or by itself when the next month's run is approved). A mistake is put right by a reversal or an adjustment with a reason, never by changing the run. There is only one Payroll Run per month per campus. When leave is approved, cancelled or changed, or attendance is corrected, after a month's run was approved (or for days after the date it was worked out to), the next run still being prepared carries the difference by itself as one Payroll Adjustment per person and month: arrears when loss of pay is given back, a deduction when more is found, with the reason and the month it belongs to, and PF and ESI on it worked out by that month's rules. It is made once; one the Accountant removes stays removed. For salary, a day with approved leave is a leave day, never also an absence, and leave days beyond the Leave Balance are loss of pay.
 
 **Marks and attendance**
 
 14. Marks are between 0 and the paper's maximum. A change after marks are locked needs a reason and an Approval, and the old value is kept.
 15. A Grade Scale has no gaps and no overlaps. Changing it never changes results already published.
-16. Results in draft cannot be published.
-17. Attendance locks after the cut-off time set in Attendance Settings. A later change needs a correction request and an Approval. The original mark stays in the audit log.
+16. Results in draft cannot be published. A student who joined after an exam's marks were in is "Joined after this exam": left out of that exam, so they never stop a class's results being published. Their marks are added only by a request approved in Approvals, or not at all, as Exam Settings says; the other students' published results never change. In the final result, an exam they missed is left out (the exams they sat count in its place) or counted as 0%, by the school's rule (gap list G23).
+17. Attendance locks after the cut-off time set in Attendance Settings. A later change needs a correction request and an Approval. The original mark stays in the audit log. An absence reason does not change the mark or the %, so the class teacher or the office may set it after the lock without a correction; every change is in the audit log. The reason "Fees dispute" is shown only to people who see the whole school's fees; everyone else sees "Other" (added 17 October 2026).
 18. A holiday on the School Calendar switches attendance off for that day. Reports leave the day out.
 
 **Years and history**
 
 19. Each campus has only one active Academic Year. Past academic years are kept read-only. Only an authorised correction can change them, and it is logged.
-20. Fee Structures and Salary Structures keep their old versions. A change applies from a date; it never rewrites the past.
+20. Fee Structures and Salary Structures keep their old versions. A change applies from a date; it never rewrites the past. A new Fee Structure version never charges a period twice: a Student Fee Due with money on it (paid, part-paid, a concession or an adjustment) stays for its period, and the change in the fee is put on what is left to pay as an adjustment with a reason; a fully paid row never changes (added 18 October 2026).
 21. Records are archived, never deleted. A student who leaves becomes a past student; the record stays.
 
 **Safety and checks**
@@ -411,7 +413,7 @@ These rules hold everywhere. A builder should write a check for each one.
 22. Every change to money, marks or attendance is written to the audit log, with the value before and after. So is every approval decision and every change to a student's or staff member's details.
 23. Audit Log Entries can never be changed or deleted.
 24. Permissions are checked by the software for every action, not only hidden on screen. A person sees only the records their Role and scope allow, in lists, exports, search and AI answers.
-25. Admission numbers, staff IDs, application numbers, receipt numbers, usernames and asset tags are unique in the school.
+25. Admission numbers, staff IDs, application numbers, receipt numbers, usernames and asset tags are unique in the school. One exception keeps workflow 15 "fix the file, undo and import again" working: when an import is undone, the numbers its records typed (admission numbers, accession numbers, item codes, asset tags, room numbers) are freed for the corrected file. Those records stay archived with a "released on" date, for the record; a number of a record used since (a fee payment, attendance, marks, a book issued, stock moved, a bed given) is never freed, and nothing else frees a number. A number given by the school's running sequence is never given out again.
 26. No double booking: a teacher, room or invigilator cannot be in two places in the same period. A Substitution cannot give a teacher two classes at once.
 27. A student has at most one active Bed Allocation. A Book Copy can be issued to only one person at a time, and only within the borrowing limit.
 28. A TC can be printed only when the student's fee dues are cleared and, where Library is on, all books are returned.
@@ -420,7 +422,7 @@ These rules hold everywhere. A builder should write a check for each one.
 
 **Added on 9 October 2026**
 
-31. A Parent Link shows only that guardian's own children, and only what the school has chosen to show. It is read-only apart from paying and giving consent. Its secure token is stored only in hashed form. A new phone must be confirmed by a one-time code to the guardian's registered mobile. A revoked link stops working at once.
+31. A Parent Link shows only that guardian's own children, and only what the school has chosen to show. It is read-only apart from paying and giving consent. Its secure token is stored only in hashed form. A new phone must be confirmed by a one-time code to the guardian's registered mobile. A revoked link stops working at once. A child whose link to the guardian has a custody or access restriction is not shown, and cannot be paid, consented or booked for, on that guardian's Parent Link; that guardian gets none of that child's messages.
 32. A User Login belongs to exactly one Staff, Student or Driver record. It can open only the schools and campuses named in its School Access entries, with the roles and scope set there. Each school's records stay apart from every other school's, even inside one Group.
 33. A Consent Record keeps the Consent Text version agreed to. A new version of a text never changes past records. A withdrawn consent stays on record with its withdrawal date and is no longer used from that date. Photos of a student are used in the gallery or on social media only while photo consent stands.
 34. An SMS can be sent only from a Template that has a DLT template ID.
@@ -430,9 +432,21 @@ These rules hold everywhere. A builder should write a check for each one.
 38. A Budget's amount used is never stored or typed. It is always worked out from paid Expenses.
 39. When fees go into different bank accounts, every part of a Payment belongs to the bank account linked to its Fee Head at the time of payment. Changing a Fee Head's bank account later never moves past payments (decided 9 October 2026).
 
+**Added on 17 October 2026**
+
+40. A student has at most one Open Promise to Pay; a new promise marks the earlier one Replaced. While it is Open and its date has not passed, automatic fee reminders to that family pause (reminders sent by hand still go). It is Kept when posted payments made after the call and dated on or before the promised date cover it (brought-in receipts never count). It is Broken when the date passes without that: the family goes to the top of Defaulters, the person who recorded it is told, and automatic reminders resume. A Promise to Pay is never deleted; each change of status is in the audit log. The fee forecasts count an Open promise on its promised date, for what is left to pay on it, and leave that family's overdue rows out of the usual share so nothing counts twice.
+
 ## Outside any school: the Super Admin console
 
 DREAM TEAM SERVICES' own console (`07-super-admin.md`) keeps a few records that belong to no school: **Super Admin User, School Invite, School Status Change, Support Access Request, School Note, Plan, Subscription, Platform Invoice** and **Console Activity Entry**. Their fields are in `07-super-admin.md` §10. They never hold student, fee or salary details. A Support Access Request lets a DREAM TEAM person look inside one school only after that school allows it, for a set time.
+
+Support Access Request rules (added 18 October 2026, gap G35):
+
+- A school has at most one open request at a time (waiting, or allowed and not yet ended). Only the person who asked can open the school with it, and only while their console sign-in lasts.
+- The person never becomes a User Login and holds no Role in the school. They look through the school's own wall for that one school, and can only look: nothing is changed, exported, printed or downloaded, no payment is cancelled, and fields kept for named roles (Aadhaar and other ID numbers, counselling notes, private notes) and Salary Management stay hidden.
+- Every page they open, everything refused and how it ended is an Audit Log Entry of that school marked "DREAM TEAM support (name)", and a Console Activity Entry.
+- An allowed request ends by itself at its end time; the school (from Approvals), the person or the console can end it earlier. It is never deleted.
+- Platform Invoices: a school has at most one year, renewal or second-half invoice for the same period that is not cancelled.
 
 ## Records added in this blueprint
 
@@ -445,6 +459,7 @@ The shared list of record names had 65 records. This blueprint adds five, becaus
 | Result | Holds the worked-out total, percentage, grade and rank, and the publish date, apart from the raw marks. |
 | Certificate | Keeps every TC, bonafide, study, character certificate and experience letter with its number and approval. |
 | Payment Link | Holds an online payment from the moment the link is sent until the gateway confirms or fails it. |
+| Payment Link Order | Keeps every gateway order made for a Payment Link, so a payment on any of them is matched (rule 8). |
 
 Module specs list Substitution, Result, Certificate and Payment Link under "Other records (inferred)". They are defined on this page, as above.
 
@@ -466,6 +481,12 @@ The decisions of 9 October 2026 add these records:
 | Tax Invoice | Holds the GST invoice for payments on taxable fee heads (D8). |
 | Opening Balance | Holds cash, bank and old student dues brought in at go-live (D7). |
 | Salary Advance | Holds an advance or loan, its recovery, and its Day Book posting when paid (D12). |
+
+The gap list of 17 October 2026 adds:
+
+| Added record | Why it is needed |
+|---|---|
+| Promise to Pay | Lets the accountant note the date (and amount) a family promises on a call, pause automatic reminders until then, and count promises kept and broken. Kept on the Fee Call Note, not as a copy. |
 
 Module specs in `modules/` name more small records, marked "(inferred)". They hang off the records on this page. Confirm them with the owner before building. Where a module spec and this page use different names for the same thing, the name on this page wins:
 

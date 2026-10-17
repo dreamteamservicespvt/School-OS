@@ -15,10 +15,11 @@ import { IMAGE_TYPES, FileProblem, saveFile, sniffType } from "../files";
 import { fileStore } from "../storage";
 import { nextNumber } from "../sequences";
 import { consentRows, requestConsent } from "../students/consent";
-import { sendMessage } from "../messaging";
+import { notSentWords, sendMessage } from "../messaging";
 import { EventsProblem } from "./problem";
 import { albumUrl, eventsSettings } from "./settings";
 import { classesWords, dayOf, dmy, isoOf } from "./words";
+import { OPEN_LINK } from "../students/guardian-access";
 
 export const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
 export const PHOTO_WIDTH = 1920;
@@ -147,7 +148,7 @@ export async function shareAlbum(tx: Tx, ctx: SchoolContext, albumId: string) {
   });
   await tx.album.update({ where: { id: a.id }, data: { sharedAt: new Date() } });
   await writeAudit(tx, ctx, { action: "shared", recordType: "Album", recordId: a.id, after: { people: r.people } });
-  return { people: r.people };
+  return { people: r.people, missed: notSentWords(r) };
 }
 
 /** Stops the old shared link working (a new link is made). */
@@ -254,7 +255,7 @@ export async function askConsent(tx: Tx, ctx: SchoolContext, albumId: string) {
   const consented = await consentedStudents(tx, ctx, tagged);
   const missing = tagged.filter((s) => !consented.has(s));
   if (!missing.length) throw new EventsProblem("Every tagged student has photo consent.");
-  const guardians = await tx.studentGuardian.findMany({ where: { studentId: { in: missing }, archivedAt: null }, select: { guardianId: true } });
+  const guardians = await tx.studentGuardian.findMany({ where: { studentId: { in: missing }, ...OPEN_LINK }, select: { guardianId: true } });
   const r = await requestConsent(tx, ctx, [...new Set(guardians.map((g) => g.guardianId))], ["photo"]);
   await writeAudit(tx, ctx, { action: "consent-asked", recordType: "Album", recordId: albumId, after: { students: missing.length } });
   return { students: missing.length, result: r };

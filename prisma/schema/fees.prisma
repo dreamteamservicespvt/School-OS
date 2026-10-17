@@ -615,17 +615,40 @@ model FeeReminder {
   @@map("fee_reminder")
 }
 
+/// What happened to a Promise to Pay (06 §2 Defaulters).
+enum FeePromiseState {
+  /// Waiting for the promised date. Automatic fee reminders to the family pause.
+  OPEN
+  /// Payments made by the promised date covered it.
+  KEPT
+  /// The date passed without enough payment. The family goes back to the top of the call list.
+  BROKEN
+  /// A newer promise was recorded for the same student.
+  REPLACED
+}
+
 /// A call log note on a defaulter, e.g. "Called parent, promised by 15-10-2026".
+/// A note with a promised date, made while Promise to Pay is on, is a Promise to Pay.
 model FeeCallNote {
-  id          String    @id @default(uuid()) @db.Uuid
-  schoolId    String    @map("school_id") @db.Uuid
-  studentId   String    @map("student_id") @db.Uuid
-  note        String
-  promisedOn  DateTime? @map("promised_on") @db.Date
-  createdById String?   @map("created_by_id") @db.Uuid
-  createdAt   DateTime  @default(now()) @map("created_at")
+  id               String           @id @default(uuid()) @db.Uuid
+  schoolId         String           @map("school_id") @db.Uuid
+  studentId        String           @map("student_id") @db.Uuid
+  note             String
+  promisedOn       DateTime?        @map("promised_on") @db.Date
+  /// The amount the family said they would pay. Empty: everything overdue when the promise was made.
+  promisedPaise    BigInt?          @map("promised_paise")
+  /// What was overdue when the promise was made.
+  owedPaise        BigInt?          @map("owed_paise")
+  /// Empty for a plain call note, and for dates noted before Promise to Pay was switched on.
+  promiseState     FeePromiseState? @map("promise_state")
+  /// Paid towards the promise by the promised date, worked out when it was kept or broken.
+  promisePaidPaise BigInt?          @map("promise_paid_paise")
+  promiseSettledAt DateTime?        @map("promise_settled_at")
+  createdById      String?          @map("created_by_id") @db.Uuid
+  createdAt        DateTime         @default(now()) @map("created_at")
 
   @@index([schoolId, studentId])
+  @@index([schoolId, promiseState, promisedOn])
   @@map("fee_call_note")
 }
 

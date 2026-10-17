@@ -101,6 +101,7 @@ export const FEE_FEATURES = [
   { key: "fee-category-fees", label: "Category-wise fees", about: "Different fee amounts for different student categories." },
   { key: "fee-scholarships", label: "Scholarships", about: "Scholarship types, applied to a student's fees as a reduction." },
   { key: "fee-forecast", label: "Collection forecast", about: "A suggested collection for the next 3 months from installments due and past payments." },
+  { key: "fee-promises", label: "Promise to pay", about: "On a call, note the date (and amount) a family promises to pay. Automatic reminders to them pause until then; a broken promise puts them back at the top of Defaulters." },
 ] as const;
 export type FeeFeature = (typeof FEE_FEATURES)[number]["key"];
 

@@ -17,6 +17,7 @@ import { openDues } from "./dues";
 import { feeSettings, gatewayFor } from "./settings";
 import { feeMessageInput, planMessage, sendAutomatic, sendMessage } from "./notify-parents";
 import { createPaymentLink, payPath } from "./online";
+import { pausedByPromise } from "./promises";
 import { REMINDER_CHANNELS, TEMPLATE_VARIABLES } from "./words";
 
 const ZERO = BigInt(0);
@@ -191,7 +192,8 @@ export async function sendReminders(tx: Tx, ctx: SchoolContext, input: ReminderI
  * example 3 days before, on the day, 7 days after) the parents of students
  * with an unpaid row due on that day get one reminder, only once. The rule's
  * on/off switch, channels and template are in Communication, Message Settings
- * (rule "Fee reminder").
+ * (rule "Fee reminder"). A family with an open Promise to Pay dated today or
+ * later is skipped: their reminders pause until the promised date.
  */
 export async function automaticReminders(tx: Tx, ctx: SchoolContext, today: Date) {
   const s = await feeSettings(tx, ctx);
@@ -205,6 +207,8 @@ export async function automaticReminders(tx: Tx, ctx: SchoolContext, today: Date
     const onceKey = (id: string) => `auto:${id}:${day}:${offset}`;
     const done = new Set((await tx.feeReminder.findMany({ where: { onceKey: { in: studentIds.map(onceKey) } }, select: { onceKey: true } })).map((r) => r.onceKey));
     studentIds = studentIds.filter((id) => !done.has(onceKey(id)));
+    const paused = await pausedByPromise(tx, ctx, studentIds, today);
+    studentIds = studentIds.filter((id) => !paused.has(id));
     if (!studentIds.length) continue;
     const p = await whoOwes(tx, studentIds, today);
     if (!p.out.length) continue;

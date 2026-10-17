@@ -5,15 +5,17 @@ import { feeViewer, studentScope as feeStudentScope } from "@/lib/fees/access";
 import { formatDate, formatRupees } from "@/lib/format";
 import { staffScope, viewerFor } from "@/lib/staff/access";
 import { currentYear } from "@/lib/academic/years";
+import { findStudents } from "@/lib/students/find";
 import { hitLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
 /**
- * The one Search box's record results (00-global.md §1.1): students by name,
- * admission number or parent phone, parents by name or phone, staff by name,
- * code or phone, and fee receipts by number (including an old software's
- * receipt number). Only records this person may open are returned.
+ * The one Search box's record results (00-global.md §1.1): students by name
+ * (one letter wrong allowed), admission or roll number, or parent name or
+ * phone; parents by name or phone; staff by name, code or phone; and fee
+ * receipts by number (including an old software's receipt number). Only
+ * records this person may open are returned.
  */
 export async function GET(req: Request) {
   const current = await getCurrent();
@@ -30,29 +32,12 @@ export async function GET(req: Request) {
     const canStaff = current.permissions["staff-hr-management"].see !== "none";
     const year = await currentYear(tx, current.ctx);
 
+    // Students: the one student search (name in any order, one letter wrong,
+    // admission or roll number; parents' names and phones only for people who see parents).
+    const seeParents = canStudents && abilities(current).seeParents;
     const students = canStudents
-      ? await tx.student.findMany({
-          where: {
-            AND: [
-              await studentScope(tx, current, year?.id),
-              { archivedAt: null },
-              {
-                OR: [
-                  { fullName: { contains: q, mode: "insensitive" } },
-                  { admissionNo: { contains: q, mode: "insensitive" } },
-                  ...(phone ? [{ guardians: { some: { archivedAt: null, guardian: { phone: { contains: phone } } } } }] : []),
-                ],
-              },
-            ],
-          },
-          select: { id: true, fullName: true, admissionNo: true, status: true, enrolments: { where: { academicYearId: year?.id ?? "", archivedAt: null }, select: { sectionId: true, rollNo: true }, take: 1 } },
-          orderBy: { fullName: "asc" },
-          take: 6,
-        })
+      ? await findStudents(tx, q, { scope: await studentScope(tx, current, year?.id), yearId: year?.id ?? null, statuses: "any", byParent: seeParents, take: 6 })
       : [];
-    const sectionIds = students.flatMap((s) => s.enrolments.map((e) => e.sectionId));
-    const sections = sectionIds.length ? await tx.section.findMany({ where: { id: { in: sectionIds } }, select: { id: true, name: true, schoolClass: { select: { name: true } } } }) : [];
-    const label = new Map(sections.map((s) => [s.id, `${s.schoolClass.name} ${s.name}`]));
 
     const viewer = canStaff ? await viewerFor(tx, current.ctx, current) : null;
     const staff = viewer
@@ -71,7 +56,6 @@ export async function GET(req: Request) {
       : [];
 
     // Parents: only those of students this person may see, and only for people who see parents.
-    const seeParents = canStudents && abilities(current).seeParents;
     const parents = seeParents
       ? await tx.guardian.findMany({
           where: {
@@ -111,11 +95,12 @@ export async function GET(req: Request) {
     return {
       parents: parents.map((g) => ({ id: g.id, name: g.name, sub: [g.relationship, g.phone, g.students.map((s) => s.student.fullName).join(", ")].filter(Boolean).join(" · "), href: `/student-management/guardians/${g.id}` })),
       receipts,
-      students: students.map((s) => {
-        const e = s.enrolments[0];
-        const cls = e ? label.get(e.sectionId) : null;
-        return { id: s.id, name: s.fullName, sub: [cls, e?.rollNo ? `Roll ${e.rollNo}` : null, s.admissionNo].filter(Boolean).join(" · "), href: `/student-management/students/${s.id}` };
-      }),
+      students: students.map((s) => ({
+        id: s.id,
+        name: s.name,
+        sub: [s.classSection, s.rollNo ? `Roll ${s.rollNo}` : null, s.admissionNo, s.parent ? `Parent ${s.parent}` : null].filter(Boolean).join(" · "),
+        href: `/student-management/students/${s.id}`,
+      })),
       staff: staff.map((s) => ({ id: s.id, name: s.fullName, sub: `${s.designation} · ${s.staffCode}`, href: `/staff-hr-management/${s.id}` })),
     };
   });

@@ -6,6 +6,8 @@
 import "@/lib/approval-handlers";
 import { requireAction } from "@/lib/current";
 import { withSchool } from "@/lib/db";
+import { findStudents as findAnyStudents } from "@/lib/students/find";
+import { abilities } from "@/lib/students/access";
 import type { FormState } from "@/lib/forms";
 import { DOCUMENT_TYPES, saveFile } from "@/lib/files";
 import { dateOf, FieldProblem, file, id, str, UUID_RE } from "@/lib/staff/act";
@@ -36,20 +38,12 @@ export async function findStudents(q: string): Promise<StudentOption[]> {
   const { current } = await requireAction("attendance-management", "create");
   const { access } = await actionContext(current);
   if (access.studentLeave === "none" || !access.yearId) return [];
+  // The one student search, within the students this person may record leave for.
+  const yearId = access.yearId;
   return withSchool(current.ctx, async (tx) => {
-    const rows = await tx.enrolment.findMany({
-      where: {
-        academicYearId: access.yearId!, archivedAt: null, status: "STUDYING",
-        ...(access.studentLeave === "own" ? { sectionId: { in: access.classSections } } : {}),
-        student: { archivedAt: null, status: { in: ["ACTIVE", "ADMITTED"] }, OR: [{ fullName: { contains: text, mode: "insensitive" } }, { admissionNo: { contains: text, mode: "insensitive" } }] },
-      },
-      include: { student: { select: { id: true, fullName: true, admissionNo: true } } },
-      take: 12,
-      orderBy: { student: { fullName: "asc" } },
-    });
-    const sections = await tx.section.findMany({ where: { id: { in: rows.map((r) => r.sectionId) } }, include: { schoolClass: { select: { name: true } } } });
-    const name = new Map(sections.map((s) => [s.id, `${s.schoolClass.name} ${s.name}`]));
-    return rows.map((r) => ({ id: r.student.id, label: r.student.fullName, detail: `${name.get(r.sectionId) ?? ""}${r.rollNo ? `, roll ${r.rollNo}` : ""} · ${r.student.admissionNo}` }));
+    const scope = { enrolments: { some: { academicYearId: yearId, archivedAt: null, status: "STUDYING" as const, ...(access.studentLeave === "own" ? { sectionId: { in: access.classSections } } : {}) } } };
+    const hits = await findAnyStudents(tx, text, { scope, yearId, statuses: ["ACTIVE", "ADMITTED"], byParent: abilities(current).seeParents, take: 12 });
+    return hits.map((h) => ({ id: h.id, label: h.name, detail: `${h.classSection ?? ""}${h.rollNo ? `, roll ${h.rollNo}` : ""} · ${h.admissionNo}` }));
   });
 }
 

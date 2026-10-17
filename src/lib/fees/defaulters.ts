@@ -11,6 +11,7 @@ import { classOfStudents } from "./dues";
 import { ageingGroupOf, feeSettings } from "./settings";
 import { studentScope, type FeeViewer } from "./access";
 import { ageingLabel, type AgeingGroup } from "./words";
+import { studentIdsMatching } from "../students/find";
 
 const ZERO = BigInt(0);
 
@@ -64,11 +65,8 @@ export async function defaulters(tx: Tx, ctx: SchoolContext, viewer: FeeViewer, 
   const studentWhere: Prisma.StudentWhereInput = {
     archivedAt: null,
     ...scope,
-    ...(f.q ? { OR: [
-      { fullName: { contains: f.q, mode: "insensitive" } },
-      { admissionNo: { contains: f.q, mode: "insensitive" } },
-      { guardians: { some: { archivedAt: null, guardian: { name: { contains: f.q, mode: "insensitive" } } } } },
-    ] } : {}),
+    // The one student search: name with one letter wrong, admission or roll number, parent name or phone.
+    ...(f.q ? { id: { in: await studentIdsMatching(tx, f.q, { scope, yearId: viewer.yearId ?? null, statuses: "any" }) } } : {}),
   };
   const students = await tx.student.findMany({ where: studentWhere, select: { id: true, fullName: true, admissionNo: true } });
   const sIds = students.map((s) => s.id);

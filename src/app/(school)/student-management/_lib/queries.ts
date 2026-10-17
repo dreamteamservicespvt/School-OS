@@ -11,6 +11,7 @@ import { fileLink } from "@/lib/files";
 import { ownSectionIds } from "@/lib/people";
 import type { ResolvedSettings } from "@/lib/students/settings";
 import { studentsWithDues } from "@/lib/students/hooks";
+import { studentIdsMatching } from "@/lib/students/find";
 
 export type SectionOption = { value: string; label: string; classId: string; className: string; sectionName: string; seats: number; filled: number };
 
@@ -71,16 +72,10 @@ export async function studentListWhere(tx: Tx, who: Who, params: ListParams, yea
     and.push({ id: { in: ids } });
   }
   if (params.q) {
-    const q = params.q;
-    const digits = q.replace(/\D/g, "");
-    and.push({
-      OR: [
-        { fullName: { contains: q, mode: "insensitive" } },
-        { admissionNo: { contains: q, mode: "insensitive" } },
-        ...(digits.length >= 4 ? [{ guardians: { some: { archivedAt: null, guardian: { phone: { contains: digits } } } } }] : []),
-        { guardians: { some: { archivedAt: null, guardian: { name: { contains: q, mode: "insensitive" } } } } },
-      ],
-    });
+    // The one student search: name in any order or with one letter wrong,
+    // admission or roll number, parent name or phone. The filters above still apply.
+    const ids = await studentIdsMatching(tx, params.q, { scope: and[0], yearId, statuses: "any", archived: "include" });
+    and.push({ id: { in: ids } });
   }
   return { AND: and };
 }

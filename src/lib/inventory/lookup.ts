@@ -1,14 +1,14 @@
-// Finding people and things at the store counter: students (by name or
-// admission number, with their class this year), and the lists the issue and
+// Finding people and things at the store counter: students (the one student
+// search, with their class this year), and the lists the issue and
 // purchase forms offer. The store keeper has no Student Management access,
 // so this reads only what the counter needs: name, admission number, class.
 import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
 import { currentYear } from "../academic/years";
+import { findStudents } from "../students/find";
 import { itemLabel } from "./items";
 import { reorderOf, totalsFor } from "./stock";
-import { STUDYING } from "./issues";
 import { qtyWords, stockState } from "./words";
 
 export type CounterStudent = { id: string; name: string; admissionNo: string; cls: string; classId: string | null };
@@ -26,15 +26,17 @@ export async function studentsByIds(tx: Tx, ctx: SchoolContext, ids: string[]): 
   });
 }
 
-/** Students studying now, by name or admission number. */
+/**
+ * Students studying now: the one student search (name with one letter wrong,
+ * admission or roll number). Never by parents: the store keeper does not see them.
+ */
 export async function searchCounterStudents(tx: Tx, ctx: SchoolContext, q: string, take = 8) {
   const t = q.trim();
   if (t.length < 2) return [];
-  const found = await tx.student.findMany({
-    where: { archivedAt: null, status: { in: STUDYING as never[] }, OR: [{ fullName: { contains: t, mode: "insensitive" } }, { admissionNo: { contains: t, mode: "insensitive" } }] },
-    select: { id: true }, orderBy: { fullName: "asc" }, take,
-  });
-  return studentsByIds(tx, ctx, found.map((s) => s.id));
+  const year = await currentYear(tx, ctx);
+  const found = await findStudents(tx, t, { scope: {}, yearId: year?.id ?? null, byParent: false, take });
+  const byId = new Map((await studentsByIds(tx, ctx, found.map((s) => s.id))).map((s) => [s.id, s]));
+  return found.map((s) => byId.get(s.id)).filter((s): s is NonNullable<typeof s> => Boolean(s));
 }
 
 export type ItemOption = { value: string; label: string; code: string; unit: string; stock: number; price: string; lastPrice: string; state: string; tracksExpiry: boolean };

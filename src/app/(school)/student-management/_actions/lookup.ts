@@ -1,10 +1,11 @@
 "use server";
 
-// Finding students while filling a form: by name or admission number, or a
-// whole section. Only students the person may see are returned.
+// Finding students while filling a form (the one student search), or a whole
+// section. Only students the person may see are returned.
 
 import { withSchool } from "@/lib/db";
-import { studentScope } from "@/lib/students/access";
+import { abilities, studentScope } from "@/lib/students/access";
+import { findStudents } from "@/lib/students/find";
 import { currentYear } from "@/lib/academic/years";
 import { STUDYING } from "@/lib/students/labels";
 import { studentAction } from "../_lib/page";
@@ -26,13 +27,8 @@ export async function searchStudents(q: string, opts: { anyStatus?: boolean } = 
   return withSchool(current.ctx, async (tx) => {
     const year = await currentYear(tx, current.ctx);
     const scope = await studentScope(tx, current, year?.id);
-    const rows = await tx.student.findMany({
-      where: { AND: [scope, { archivedAt: null }, opts.anyStatus ? {} : { status: { in: [...STUDYING] } }, { OR: [{ fullName: { contains: text, mode: "insensitive" } }, { admissionNo: { contains: text, mode: "insensitive" } }] }] },
-      include: { enrolments: { where: { archivedAt: null, ...(year ? { academicYearId: year.id } : {}) }, take: 1 } },
-      orderBy: { fullName: "asc" },
-      take: 15,
-    });
-    return shape(tx, year?.id ?? null, rows);
+    const hits = await findStudents(tx, text, { scope, yearId: year?.id ?? null, statuses: opts.anyStatus ? "any" : STUDYING, byParent: abilities(current).seeParents, take: 15 });
+    return hits.map((h) => ({ id: h.id, name: h.name, admissionNo: h.admissionNo, cls: h.classSection ?? "" }));
   });
 }
 

@@ -551,7 +551,8 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
   const needs = { ...cost, sms: (cost.sms ?? 0) + backupCost };
   const used = [...new Set(rows.map((r) => r.channel))];
   return {
-    channels: primary.length ? primary : used.length ? used : [...new Set(notSent.map((n) => n.channel))],
+    // The channels chosen, and any a person fell back to (shown on Message History).
+    channels: primary.length || used.length ? [...new Set([...primary, ...used])] : [...new Set(notSent.map((n) => n.channel))],
     rows,
     notSent,
     people: reached.size,

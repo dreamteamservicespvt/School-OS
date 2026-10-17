@@ -98,8 +98,8 @@ function ContactForm({ kind, current }: { kind: "phone" | "email"; current: stri
   );
 }
 
-export function PasswordButton({ withoutOld = false, openNow = false }: { withoutOld?: boolean; openNow?: boolean }) {
-  const [open, setOpen] = useState(openNow);
+export function PasswordButton({ withoutOld = false }: { withoutOld?: boolean }) {
+  const [open, setOpen] = useState(false);
   return (
     <>
       <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>{withoutOld ? "Set a new password" : "Change password"}</Button>

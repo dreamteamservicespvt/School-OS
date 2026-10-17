@@ -91,7 +91,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
         )}
         {withoutOld && params.newPassword === "1" && (
           <Alert tone="info" title="You signed in with a one-time code">
-            If you forgot your password, set a new one now under Password and sign-in. Your old password is not needed for the next 30 minutes.
+            If you forgot your password, press Set a new password under Password and sign-in. Your old password is not needed for the next 30 minutes.
           </Alert>
         )}
         <Card>
@@ -137,7 +137,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                     <b className="font-semibold block">Password</b>
                     <span className="block text-[12.5px] text-ink3">{u.passwordChangedAt ? `Last changed ${formatDate(u.passwordChangedAt)}` : "Set when you accepted your invite"}</span>
                   </div>
-                  <PasswordButton withoutOld={withoutOld} openNow={withoutOld && params.newPassword === "1"} />
+                  <PasswordButton withoutOld={withoutOld} />
                 </div>
                 <TwoStepRow required={mustTwoStep} on={twoStepOn} sendsTo={u.email ?? u.phone} cannotReach={cannotReach} />
               </div>

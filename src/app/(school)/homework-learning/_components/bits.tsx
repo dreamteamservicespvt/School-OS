@@ -44,7 +44,7 @@ export function BackLink({ href, label, sub }: { href: string; label: string; su
 }
 
 /** One attached file or link with a way to open it. */
-export function FileRow({ name, meta, href, kind }: { name: string; meta?: string; href: string | null; kind: string }) {
+export function FileRow({ name, meta, href, kind, remove }: { name: string; meta?: string; href: string | null; kind: string; remove?: React.ReactNode }) {
   const Icon = kind === "link" ? Link2 : /\.pdf$/i.test(name) || kind === "file" ? FileText : FileImage;
   const external = kind === "link";
   return (
@@ -60,6 +60,7 @@ export function FileRow({ name, meta, href, kind }: { name: string; meta?: strin
           {external ? <ExternalLink size={15} aria-hidden="true" /> : <Download size={15} aria-hidden="true" />}Open
         </a>
       )}
+      {remove}
     </li>
   );
 }

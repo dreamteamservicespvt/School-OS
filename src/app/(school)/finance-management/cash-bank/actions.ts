@@ -5,7 +5,7 @@ import { formatDate, formatRupees } from "@/lib/format";
 import { dateOf, id, needRupees, optionalText, rupeesOf, str, text } from "@/lib/fees/act";
 import { MoneyProblem } from "@/lib/fees/problem";
 import { todayIn } from "@/lib/staff/dates";
-import { cancelTransfer, moveMoney, saveBankAccount, setOpeningBalance } from "@/lib/finance/accounts";
+import { archiveBankAccount, cancelTransfer, moveMoney, saveBankAccount, setOpeningBalance } from "@/lib/finance/accounts";
 import { financeAction } from "../_lib/action";
 
 /** Move money (contra) between cash and bank: two lines, neither income nor expense. */
@@ -58,4 +58,15 @@ export async function openingAction(_prev: unknown, fd: FormData) {
     const r = await setOpeningBalance(tx, ctx, { accountId, amountPaise: amount, date: had ? had.date : dateOf(fd, "date", "As on"), note: reason });
     return { waiting: r.waiting, amount: formatRupees(amount) };
   }, (r) => (r.waiting ? `Sent for approval: opening balance ${r.amount}. Every book from the opening date changes once approved.` : `Opening balance set at ${r.amount}.`));
+}
+
+/** Takes a bank account off (added by mistake, or closed). Refused while it holds money or fee heads use it. */
+export async function removeAccountAction(accountId: string): Promise<string | void> {
+  const fd = new FormData();
+  fd.set("accountId", accountId);
+  const r = await financeAction("archive", fd, async (tx, ctx) => {
+    await archiveBankAccount(tx, ctx, id(fd, "accountId", "bank account"));
+    return true;
+  }, () => "Bank account removed. Its past entries stay in the books.");
+  if (!r?.ok) return r?.message ?? "The account could not be removed.";
 }

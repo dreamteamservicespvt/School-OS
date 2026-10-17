@@ -119,7 +119,28 @@ export async function addRecording(tx: Tx, s: HomeworkScope, id: string, url: st
   await writeAudit(tx, s.ctx, { action: "recording-added", recordType: "Online Class Session", recordId: id, after: { url: link } });
 }
 
+/** Takes a recording link off the class (pasted by mistake). */
+export async function removeRecording(tx: Tx, s: HomeworkScope, id: string, url: string) {
+  const x = await sessionFor(tx, s, id);
+  if (!x.recordingLinks.includes(url)) throw new HomeworkProblem("This recording is already removed.");
+  await tx.onlineClassSession.update({ where: { id }, data: { recordingLinks: x.recordingLinks.filter((u) => u !== url) } });
+  await writeAudit(tx, s.ctx, { action: "recording-removed", recordType: "Online Class Session", recordId: id, before: { url } });
+}
+
 export type Material = { name: string; url?: string; fileId?: string };
+
+/** The key that tells one shared material from another: its link or its file. */
+export const materialKey = (m: Material) => m.fileId ?? m.url ?? m.name;
+
+/** Takes a shared material off the class (shared by mistake). The file itself is kept. */
+export async function removeMaterial(tx: Tx, s: HomeworkScope, id: string, key: string) {
+  const x = await sessionFor(tx, s, id);
+  const list = (Array.isArray(x.materials) ? x.materials : []) as Material[];
+  const gone = list.find((m) => materialKey(m) === key);
+  if (!gone) throw new HomeworkProblem("This material is already removed.");
+  await tx.onlineClassSession.update({ where: { id }, data: { materials: list.filter((m) => m !== gone) as unknown as Prisma.InputJsonValue } });
+  await writeAudit(tx, s.ctx, { action: "material-removed", recordType: "Online Class Session", recordId: id, before: { name: gone.name } });
+}
 
 export async function addMaterial(tx: Tx, s: HomeworkScope, id: string, input: { file: File | null; url: string; name: string }) {
   const x = await sessionFor(tx, s, id);

@@ -32,10 +32,11 @@ import {
   type ProfileValues,
 } from "./edit-forms";
 import {
-  changeStatusAction, giveLoginAction, newSignInLink, saveContact, saveEmergency, saveEmployment, saveExtraFields, savePersonal, saveRestricted, switchLoginAction, uploadOwnPhoto, uploadPhoto,
+  changeStatusAction, giveLoginAction, newSignInLink, saveContact, saveEmergency, saveEmployment, saveExtraFields, savePersonal, saveRestricted, switchLoginAction, uploadOwnPhoto, uploadPhoto, removeStaffPhoto,
 } from "./actions";
 import { UploadDocumentForm } from "../documents/upload-form";
-import { uploadDocument } from "../documents/actions";
+import { removeDocumentAction, uploadDocument } from "../documents/actions";
+import { ConfirmButton } from "@/components/ui/confirm";
 
 type Props = { params: Promise<{ staffId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -146,6 +147,11 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
             <div className="-mt-10 flex shrink-0 flex-col items-center gap-1 md:-mt-12">
               <span className="rounded-full bg-surface p-1"><Avatar name={s.fullName} photoFileId={s.photoFileId} size="lg" /></span>
               {photoAction && <PhotoForm staffId={s.id} action={photoAction} has={Boolean(s.photoFileId)} />}
+              {photoAction && s.photoFileId && (
+                <ConfirmButton trigger="Remove photo" triggerVariant="ghost" title="Remove this photo?" confirmLabel="Remove photo" confirmVariant="danger" onConfirm={removeStaffPhoto.bind(null, s.id)}>
+                  Initials show instead, and the ID card prints without a photo until a new one is added.
+                </ConfirmButton>
+              )}
             </div>
             <div className="min-w-0 pt-3">
               <div className="flex flex-wrap items-center gap-2">
@@ -655,7 +661,12 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
                     <div className="flex items-center gap-2">
                       <Badge tone={DOC_TONE[status]}>{status}</Badge>
                       {d.fileId && <a href={`${BASE}/files/${d.fileId}`} target="_blank" rel="noopener" className="inline-flex min-h-11 items-center px-2 font-medium text-brand-text hover:underline">Open</a>}
-                      {hr && !left && (status !== "Valid") && <UploadDocumentForm staffOptions={[{ value: s!.id, label: s!.fullName }]} types={types} action={uploadDocument} fixedStaffId={s!.id} replace={{ id: d.id, kind: d.kind }} />}
+                      {hr && !left && <UploadDocumentForm staffOptions={[{ value: s!.id, label: s!.fullName }]} types={types} action={uploadDocument} fixedStaffId={s!.id} replace={{ id: d.id, kind: d.kind }} />}
+                      {hr && !left && (
+                        <ConfirmButton trigger="Remove" triggerVariant="danger-soft" title={`Remove ${d.kind}?`} confirmLabel="Remove document" confirmVariant="danger" onConfirm={removeDocumentAction.bind(null, d.id)}>
+                          It is taken off {s!.fullName}’s record and its expiry reminders stop. Use this for a document added by mistake. The file itself is kept for the record.
+                        </ConfirmButton>
+                      )}
                     </div>
                   </li>
                 );

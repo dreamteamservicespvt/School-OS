@@ -5,7 +5,8 @@ import { SheetForm } from "@/components/ui/url-sheet";
 import { SArea, SMoney, SSelect, SText } from "@/components/ui/sheet-fields";
 import { Segmented } from "@/components/ui/controls";
 import type { Option } from "@/components/ui/field";
-import { copyBudgetsAction, reviseBudgetAction, setBudgetAction } from "./actions";
+import { copyBudgetsAction, removeBudgetAction, reviseBudgetAction, setBudgetAction } from "./actions";
+import { ConfirmButton } from "@/components/ui/confirm";
 
 const inr = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
 const num = (s: string) => Number(s.replace(/[^\d.]/g, "")) || 0;
@@ -39,6 +40,11 @@ export function ReviseSheet({ closeHref, budgetId, title, sub, now, used }: { cl
       <SMoney name="amount" label="New budget for the year" required placeholder={String(now)} onValue={(v) => setAmt(num(v))} help={help} />
       {amt > 0 && amt < used && <p className="text-[13px] text-warn font-semibold -mt-2">Already {inr(used)} spent or committed. The head shows as over budget.</p>}
       <SArea name="reason" label="Reason" required rows={2} placeholder="Example: Annual Day moved to December" help="Kept with the revision." />
+      <div className="border-t border-line pt-3">
+        <ConfirmButton trigger="Remove this budget" triggerVariant="danger-soft" title="Remove this budget?" confirmLabel="Remove budget" confirmVariant="danger" onConfirm={() => removeBudgetAction(budgetId)}>
+          The head no longer has a budget for this year. Expenses already recorded are not touched. Use this for a budget set by mistake.
+        </ConfirmButton>
+      </div>
     </SheetForm>
   );
 }

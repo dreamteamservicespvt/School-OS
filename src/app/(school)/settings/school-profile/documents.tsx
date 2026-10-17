@@ -172,7 +172,7 @@ export function Documents({ docs, roles, canEdit, total }: { docs: DocRow[]; rol
                       {d.title}
                       {st && <Badge tone={st.tone}>{st.label}</Badge>}
                       <Badge tone={d.verified ? "success" : "neutral"}>{d.verified ? "Verified" : "Not verified"}</Badge>
-                      {d.archived && <Badge>Archived</Badge>}
+                      {d.archived && <Badge>Removed</Badge>}
                     </p>
                     <p className="text-sm text-ink-2">
                       {d.docType}
@@ -185,6 +185,13 @@ export function Documents({ docs, roles, canEdit, total }: { docs: DocRow[]; rol
                     {latest && <a href={latest.href} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center rounded-lg border border-line-strong px-3 text-sm font-medium hover:bg-surface-2">Preview</a>}
                     {!d.archived && <Button size="sm" variant="secondary" onClick={() => setDialog({ kind: "share", doc: d })}>Share</Button>}
                     {canEdit && !d.archived && <Button size="sm" variant="secondary" onClick={() => setDialog({ kind: "version", doc: d })}>New version</Button>}
+                    {canEdit && (d.archived ? (
+                      <ConfirmButton trigger="Restore" triggerVariant="secondary" title={`Restore ${d.title}?`} confirmLabel="Restore document" onConfirm={() => documentAction(d.id, "restore")}>It will appear in the list again, with its reminders.</ConfirmButton>
+                    ) : (
+                      <ConfirmButton trigger="Remove" triggerVariant="danger-soft" title={`Remove ${d.title}?`} confirmLabel="Remove document" confirmVariant="danger" onConfirm={() => documentAction(d.id, "archive")}>
+                        It is taken off the list and stops sending reminders. Added by mistake? This is the way to take it off. You can bring it back from “Show removed” if you need it.
+                      </ConfirmButton>
+                    ))}
                     <Button size="sm" variant="ghost" aria-expanded={open === d.id} onClick={() => setOpen(open === d.id ? null : d.id)}>{open === d.id ? "Less" : "More"}</Button>
                   </div>
                 </div>
@@ -207,13 +214,6 @@ export function Documents({ docs, roles, canEdit, total }: { docs: DocRow[]; rol
                         ) : (
                           <ActionButton label="Mark verified" pendingLabel="Saving…" run={() => documentAction(d.id, "verify")} />
                         ))}
-                        {d.archived ? (
-                          <ConfirmButton trigger="Restore" title={`Restore ${d.title}?`} confirmLabel="Restore document" onConfirm={() => documentAction(d.id, "restore")}>It will appear in the vault again, with its reminders.</ConfirmButton>
-                        ) : (
-                          <ConfirmButton trigger="Archive" triggerVariant="ghost" title={`Archive ${d.title}?`} confirmLabel="Archive document" confirmVariant="danger" onConfirm={() => documentAction(d.id, "archive")}>
-                            It leaves the vault list and stops sending reminders. All versions are kept, and you can restore it with the Archived filter.
-                          </ConfirmButton>
-                        )}
                       </div>
                     )}
                   </div>

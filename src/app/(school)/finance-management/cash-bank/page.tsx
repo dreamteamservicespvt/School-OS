@@ -16,7 +16,8 @@ import { FinanceHead } from "../_components/finance-head";
 import { Line, Ref } from "../_components/bits";
 import { ReasonSheet } from "../_components/forms";
 import { BASE, financePage, financePeriod, one, qs, type SearchParams } from "../_lib/page";
-import { cancelTransferAction } from "./actions";
+import { cancelTransferAction, removeAccountAction } from "./actions";
+import { ConfirmButton } from "@/components/ui/confirm";
 import { AddAccountSheet, MoveMoneySheet, OpeningSheet } from "./sheets";
 import { OldSoftwareBanner, OldSoftwareEmpty, allBeforeGoLive } from "@/components/money/go-live";
 
@@ -81,6 +82,7 @@ export default async function CashBankPage({ searchParams }: { searchParams: Sea
   const dayLabel = oneDay ? (from.getTime() === p.today.getTime() ? `Today · ${formatDate(from)}` : formatDate(from)) : `${formatDate(from)} to ${formatDate(to)}`;
   const accountChoices = data.accounts.map((a) => ({ value: a.id, label: a.name, balance: rupees(data.balances.get(a.id) ?? ZERO) }));
   const firstBank = data.accounts.find((a) => a.kind === "BANK" && a.isMain) ?? data.accounts.find((a) => a.kind === "BANK");
+  const openBank = data.accounts.find((a) => a.id === data.bookId && a.kind === "BANK") ?? null;
   const dayBookHref = (id: string, d: Date) => qs(`${BASE}/day-book`, { period: "custom", from: iso(d), to: iso(d), e: id });
   const t = data.transfer;
 
@@ -108,6 +110,11 @@ export default async function CashBankPage({ searchParams }: { searchParams: Sea
           <Card className="overflow-hidden">
             <CardHeader title={isCash ? "Cash book" : `Bank book · ${acct?.name ?? ""}`} description={dayLabel} icon={isCash ? Banknote : Landmark}
               action={<div className="flex gap-1.5">
+                {p.can.archive && openBank && !openBank.isMain && (
+                  <ConfirmButton trigger="Remove account" triggerVariant="ghost" title={`Remove ${openBank.name}?`} confirmLabel="Remove account" confirmVariant="danger" onConfirm={removeAccountAction.bind(null, openBank.id)}>
+                    It is taken off the list of accounts. Its past entries stay in the books. It must hold ₹0 and no fee head may still pay into it.
+                  </ConfirmButton>
+                )}
                 {p.can.export && <ExportButton href={qs(`${HREF}/export`, { ...keep, book: data.bookId ?? null })} size="sm" />}
                 {p.can.export && <a href={qs(`${HREF}/export`, { ...keep, book: data.bookId ?? null, format: "pdf" })} target="_blank" rel="noreferrer" className={cx(buttonClass("ghost", "sm"), "hidden sm:inline-flex")}><Printer size={15} aria-hidden="true" />Print</a>}
               </div>} />

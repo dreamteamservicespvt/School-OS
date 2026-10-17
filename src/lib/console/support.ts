@@ -25,7 +25,7 @@ import { notifyTeam } from "./notify";
 import { deliver, type Delivered } from "./outbox";
 import { ADMIN_ROLE_KEYS } from "./measure";
 import { adminNotice, ConsoleProblem, STATUS_LABEL } from "./schools";
-import { endIn, endSupport, endsWords, lengthWords, SUPPORT_LENGTHS, SUPPORT_RECORD, supportContext, supportLink } from "./support-entry";
+import { endIn, endSupport, endsWords, expireIn, lengthWords, SUPPORT_LENGTHS, SUPPORT_RECORD, SUPPORT_WAIT_MS, supportContext, supportLink, waitedTooLong } from "./support-entry";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** The one-time ticket from the console to the school's own address works this long. */
@@ -40,10 +40,12 @@ async function answerers(tx: Tx, schoolId: string) {
   return [...new Set(rows.map((r) => r.userLoginId))];
 }
 
-/** Allowed requests of this school that are past their time end now, inside the same work. */
+/** Allowed requests of this school that are past their time end now, and requests waiting 24 hours expire, inside the same work. */
 async function endOverdue(tx: Tx, schoolId: string, now: Date) {
   const due = await tx.supportAccessRequest.findMany({ where: { forSchoolId: schoolId, status: "ALLOWED", endsAt: { lte: now } } });
   for (const r of due) await endIn(tx, r, "time", null, now);
+  const stale = await tx.supportAccessRequest.findMany({ where: { forSchoolId: schoolId, status: "WAITING", createdAt: { lte: new Date(now.getTime() - SUPPORT_WAIT_MS) } } });
+  for (const r of stale) await expireIn(tx, r, now);
 }
 
 // ---------------------------------------------------------------------------
@@ -98,6 +100,7 @@ async function requestOrThrow(id: string) {
 /** The console takes back a request the school has not answered yet. */
 export async function withdrawSupportRequest(actor: ConsoleActor, id: string, now = new Date()) {
   const r = await requestOrThrow(id);
+  if (r.status === "EXPIRED") throw new ConsoleProblem("This request has already expired: the school did not answer within 24 hours.");
   if (r.status !== "WAITING") throw new ConsoleProblem("The school has already answered this request.");
   const done = await endSupport(r.id, "withdrawn", { ctx: { schoolId: r.forSchoolId, userId: null }, actorNote: `DREAM TEAM: ${actor.name}`, actor }, now);
   if (!done) throw new ConsoleProblem("The school has already answered this request.");
@@ -185,6 +188,8 @@ export class SupportProblem extends Error {
   }
 }
 
+const EXPIRED_ANSWER = "This request has expired: it waited more than 24 hours without an answer. Nothing was opened. DREAM TEAM can ask again if they still need to help.";
+
 /** The school person answering: who they are, and their roles here. */
 export type Answerer = { ctx: SchoolContext; user: { id: string; displayName: string }; roles: { key: string | null; name: string }[]; school: { id: string; name: string; timeZone: string }; support?: unknown };
 
@@ -199,9 +204,9 @@ export async function schoolSupportRequests(schoolId: string, now = new Date(), 
   return rows.map((r) => ({ ...r, live: r.status === "ALLOWED" && Boolean(r.endsAt && r.endsAt > now) }));
 }
 
-/** How many of this school's requests wait for an answer (the top bar's Approvals count). */
-export async function waitingSupportCount(schoolId: string) {
-  return withConsoleSchool(schoolId, (tx) => tx.supportAccessRequest.count({ where: { forSchoolId: schoolId, status: "WAITING" } }));
+/** How many of this school's requests wait for an answer (the top bar's Approvals count); one waiting 24 hours has expired. */
+export async function waitingSupportCount(schoolId: string, now = new Date()) {
+  return withConsoleSchool(schoolId, (tx) => tx.supportAccessRequest.count({ where: { forSchoolId: schoolId, status: "WAITING", createdAt: { gt: new Date(now.getTime() - SUPPORT_WAIT_MS) } } }));
 }
 
 /** Step 3: Allow (the time starts now) or Decline (with a reason, as for any request). */
@@ -210,9 +215,15 @@ export async function answerSupport(c: Answerer, id: string, decision: "allow" |
   if (!UUID.test(id)) throw new SupportProblem("This request was not found.");
   const why = note?.trim() ?? "";
   if (decision === "decline" && why.length < 5) throw new SupportProblem("Give a reason of at least 5 characters, so DREAM TEAM knows why.");
-  return withConsoleSchool(c.school.id, async (tx) => {
+  const answered = await withConsoleSchool(c.school.id, async (tx) => {
     const r = await tx.supportAccessRequest.findFirst({ where: { id, forSchoolId: c.school.id } });
     if (!r) throw new SupportProblem("This request was not found.");
+    // Not answered within 24 hours: it expires now, and DREAM TEAM asks again if they still need to.
+    if (waitedTooLong(r, now)) {
+      await expireIn(tx, r, now);
+      return null;
+    }
+    if (r.status === "EXPIRED") throw new SupportProblem(EXPIRED_ANSWER);
     if (r.status !== "WAITING") throw new SupportProblem(r.status === "ENDED" && r.endedHow === "withdrawn" ? "DREAM TEAM has withdrawn this request." : "This request was already answered.");
     const allow = decision === "allow";
     const endsAt = new Date(now.getTime() + r.lengthMinutes * 60_000);
@@ -248,6 +259,8 @@ export async function answerSupport(c: Answerer, id: string, decision: "allow" |
     });
     return { requestedByName: r.requestedByName, endsAt: allow ? endsAt : null, until };
   });
+  if (!answered) throw new SupportProblem(EXPIRED_ANSWER);
+  return answered;
 }
 
 /** Step 5: the school ends it earlier, from its Approvals history. */

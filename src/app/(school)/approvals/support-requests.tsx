@@ -22,7 +22,7 @@ export type SupportItem = {
   reason: string;
   length: string;
   asked: string;
-  status: "WAITING" | "ALLOWED" | "DECLINED" | "ENDED";
+  status: "WAITING" | "ALLOWED" | "DECLINED" | "ENDED" | "EXPIRED";
   live: boolean;
   /** "Allowed by Anita Sharma until 3:40 PM", "Ended at the time given, 3:40 PM" */
   detail: string | null;
@@ -30,8 +30,8 @@ export type SupportItem = {
   focus: boolean;
 };
 
-const TONE: Record<SupportItem["status"], BadgeTone> = { WAITING: "warn", ALLOWED: "ok", DECLINED: "neutral", ENDED: "neutral" };
-const WORDS: Record<SupportItem["status"], string> = { WAITING: "Waiting for you", ALLOWED: "Open now", DECLINED: "Declined", ENDED: "Ended" };
+const TONE: Record<SupportItem["status"], BadgeTone> = { WAITING: "warn", ALLOWED: "ok", DECLINED: "neutral", ENDED: "neutral", EXPIRED: "neutral" };
+const WORDS: Record<SupportItem["status"], string> = { WAITING: "Waiting for you", ALLOWED: "Open now", DECLINED: "Declined", ENDED: "Ended", EXPIRED: "Expired" };
 
 export function SupportRequests({ items, schoolName }: { items: SupportItem[]; schoolName: string }) {
   const router = useRouter();

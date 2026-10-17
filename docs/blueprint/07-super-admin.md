@@ -123,7 +123,7 @@ How it works:
 2. **Automatic:** the request appears in the school's top bar **Approvals** for its School Admin and Principal, and they get a WhatsApp message.
 3. The school taps **Allow** or **Decline**.
 4. If allowed, the Support user can open that school's School Master for the time given. A coloured bar shows on every screen: "Support access for Sunrise Public School, ends 3:40 PM".
-5. **Automatic:** access ends by itself at the time given. The school can end it earlier from its Approvals history.
+5. **Automatic:** access ends by itself at the time given. The school can end it earlier from its Approvals history. A request the school has not answered within 24 hours expires by itself, and the Support user is told (added 18 October 2026, inferred: 24 hours).
 6. **Automatic:** everything the Support user does inside the school is written in that school's own audit log, marked "DREAM TEAM support", and in the console's Activity Log.
 
 Even with support access, the support user cannot see restricted details (Aadhaar and other ID numbers, salaries, counsellor notes), cannot export data, and cannot cancel payments.
@@ -367,7 +367,7 @@ New records, all kept outside any one school's data. All marked (inferred), for 
 | Super Admin User | A DREAM TEAM person who uses the console. | Name, mobile, email, role (Owner, Onboarding, Support), status, last sign-in. |
 | School Invite | A login invite to a school's admin. | School, User Login, channels, sent at, expires at, status (sent, opened, used, expired, cancelled), sent by. The link is stored hashed. |
 | School Status Change | One change of a school's status. | School, from, to, reason, by, date. |
-| Support Access Request | A request to enter a school to help. | School, Super Admin User, reason, length, status (waiting, allowed, declined, ended), allowed (or declined) by and when, the reason for declining, start, end, ended at and how (at the time given, by the school, by DREAM TEAM, withdrawn, school paused). The support browser's entry is a random token kept hashed. |
+| Support Access Request | A request to enter a school to help. | School, Super Admin User, reason, length, status (waiting, allowed, declined, ended, expired), allowed (or declined) by and when, the reason for declining, start, end, ended at and how (at the time given, by the school, by DREAM TEAM, withdrawn, school paused). The support browser's entry is a random token kept hashed. |
 | School Note | A team note about a school. | School, text, by, date. |
 | Plan | A price on the price list. | Name (Essential, Complete) or add-on (Transport, Hostel), price, minimum students, price above 1,000 students, modules included, credits included, storage included, valid from. |
 | Subscription | What one school pays for. | School, plan, add-ons, students paid for, price per student, discount and reason (group, founding school), founding price locked until, start date, renewal date, paid yearly or in halves, status (paid, due, in grace, overdue). |

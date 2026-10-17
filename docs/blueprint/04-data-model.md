@@ -446,6 +446,7 @@ Support Access Request rules (added 18 October 2026, gap G35):
 - The person never becomes a User Login and holds no Role in the school. They look through the school's own wall for that one school, and can only look: nothing is changed, exported, printed or downloaded, no payment is cancelled, and fields kept for named roles (Aadhaar and other ID numbers, counselling notes, private notes) and Salary Management stay hidden.
 - Every page they open, everything refused and how it ended is an Audit Log Entry of that school marked "DREAM TEAM support (name)", and a Console Activity Entry.
 - An allowed request ends by itself at its end time; the school (from Approvals), the person or the console can end it earlier. It is never deleted.
+- A request the school has not answered within 24 hours becomes Expired by itself; the person who asked is told and can ask again (added 18 October 2026, inferred: 24 hours).
 - Platform Invoices: a school has at most one year, renewal or second-half invoice for the same period that is not cancelled.
 
 ## Records added in this blueprint

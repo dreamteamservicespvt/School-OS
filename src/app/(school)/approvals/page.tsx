@@ -20,7 +20,7 @@ import { CheckCheck, Inbox, SearchX } from "lucide-react";
 import { ApprovalList, type ApprovalRow } from "./approval-list";
 import { askerJobs } from "@/lib/approval-people";
 import { answersSupport, schoolSupportRequests } from "@/lib/console/support";
-import { ENDED_WORDS, endsWords, lengthWords, type EndHow } from "@/lib/console/support-entry";
+import { ENDED_WORDS, endsWords, EXPIRED_WORDS, lengthWords, type EndHow } from "@/lib/console/support-entry";
 import { SupportRequests, type SupportItem } from "./support-requests";
 
 export const metadata: Metadata = { title: "Approvals" };
@@ -83,6 +83,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
       status: r.status,
       live: r.live,
       detail: r.status === "DECLINED" ? `Declined by ${r.decidedByName ?? "the school"}${r.declineReason ? `: “${r.declineReason}”` : ""}`
+        : r.status === "EXPIRED" ? `${EXPIRED_WORDS}${r.endedAt ? `, ${formatDateTime(r.endedAt, tz)}` : ""}`
         : r.live && r.endsAt ? `Allowed by ${r.decidedByName ?? "the school"} until ${endsWords(r.endsAt, now, tz)}`
         : r.status === "ENDED" || r.status === "ALLOWED" ? `${r.endedHow ? ENDED_WORDS[r.endedHow as EndHow] ?? "Ended" : "Ended at the time given"}${r.endedAt ? `, ${formatDateTime(r.endedAt, tz)}` : r.endsAt ? `, ${formatDateTime(r.endsAt, tz)}` : ""}`
         : null,

@@ -243,6 +243,8 @@ enum SupportAccessStatus {
   ALLOWED
   DECLINED
   ENDED
+  /// The school did not answer within 24 hours.
+  EXPIRED
 }
 
 /// Support Access Request: a DREAM TEAM person asks to look inside one school's

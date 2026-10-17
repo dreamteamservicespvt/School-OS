@@ -40,7 +40,8 @@ export const BILLING_LIMIT_KEY = "job-tick:console-billing";
 async function consoleWork() {
   try {
     const [{ measureStale }, { runBillingDay }, { endExpiredSupport }] = await Promise.all([import("./console/measure"), import("./console/billing"), import("./console/support-entry")]);
-    // Support access ends by itself at the time the school gave (07-super-admin.md §3.4 step 5).
+    // Support access ends by itself at the time the school gave (07-super-admin.md §3.4 step 5),
+    // and a request the school has not answered within 24 hours expires.
     await endExpiredSupport();
     if ((await hitLimit("job-tick:console-measure", 1, 10 * 60)).ok) await measureStale();
     // The same limit as scripts/worker.ts, so the billing day runs once an hour across every server and worker.

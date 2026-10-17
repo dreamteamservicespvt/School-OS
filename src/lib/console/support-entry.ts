@@ -33,7 +33,13 @@ export const SUPPORT_LENGTHS = [
 ] as const;
 export const lengthWords = (minutes: number) => SUPPORT_LENGTHS.find((l) => l.minutes === minutes)?.label ?? `${minutes} minutes`;
 
-export const SUPPORT_STATUS_WORDS = { WAITING: "Waiting for the school", ALLOWED: "Allowed", DECLINED: "Declined", ENDED: "Ended" } as const;
+export const SUPPORT_STATUS_WORDS = { WAITING: "Waiting for the school", ALLOWED: "Allowed", DECLINED: "Declined", ENDED: "Ended", EXPIRED: "Expired" } as const;
+
+/** A request the school has not answered expires after this long (inferred: 24 hours). */
+export const SUPPORT_WAIT_MS = 24 * 60 * 60 * 1000;
+export const EXPIRED_WORDS = "Expired: the school did not answer within 24 hours";
+/** Has this waiting request waited too long? */
+export const waitedTooLong = (r: Pick<SupportAccessRequest, "status" | "createdAt">, now = new Date()) => r.status === "WAITING" && now.getTime() - r.createdAt.getTime() >= SUPPORT_WAIT_MS;
 
 export type EndHow = "time" | "school" | "support" | "withdrawn" | "paused";
 export const ENDED_WORDS: Record<EndHow, string> = {
@@ -185,15 +191,61 @@ export async function endIn(tx: Tx, r: SupportAccessRequest, how: EndHow, by: En
   return true;
 }
 
-/** Allowed requests past their time end by themselves (run by the worker, as well as on the next request). */
+/**
+ * A request still waiting after 24 hours expires, once: it can no longer be
+ * allowed, the school's notifications about it are done, and the person who
+ * asked is told, so they can ask again.
+ */
+export async function expireIn(tx: Tx, r: SupportAccessRequest, now: Date) {
+  const changed = await tx.supportAccessRequest.updateMany({
+    where: { id: r.id, status: "WAITING" },
+    data: { status: "EXPIRED", endedAt: now, endedByName: "School OS (automatic)" },
+  });
+  if (changed.count === 0) return false;
+  await tx.notification.updateMany({ where: { link: supportLink(r.id), doneAt: null }, data: { doneAt: now } });
+  await writeAudit(tx, { schoolId: r.forSchoolId, userId: null }, {
+    action: "support access expired",
+    recordType: SUPPORT_RECORD,
+    recordId: r.id,
+    before: { status: "WAITING" },
+    after: { status: "EXPIRED", how: EXPIRED_WORDS, for: r.requestedByName },
+    actorNote: "School OS (automatic)",
+  });
+  await logActivity(tx, SYSTEM_ACTOR, { type: "support", school: { id: r.forSchoolId, name: r.schoolName }, text: `${r.requestedByName}’s support access request to ${r.schoolName} expired: the school did not answer within 24 hours.`, from: "Waiting", to: "Expired" });
+  await notifyTeam(tx, { roles: [], alsoUserId: r.requestedById, text: `Your support access request to ${r.schoolName} expired: the school did not answer within 24 hours. Ask again if you still need to help.`, link: "/console/support", tone: "warn" });
+  return true;
+}
+
+/** Expires one waiting request, if it has waited 24 hours. */
+export async function expireIfWaitedTooLong(requestId: string, now = new Date()) {
+  const r = await withConsole((tx) => tx.supportAccessRequest.findUnique({ where: { id: requestId } }));
+  if (!r || !waitedTooLong(r, now)) return false;
+  return withConsoleSchool(r.forSchoolId, (tx) => expireIn(tx, r, now));
+}
+
+/**
+ * Allowed requests past their time end by themselves, and requests the school
+ * has not answered within 24 hours expire (run by the job tick and the worker,
+ * as well as on the next request).
+ */
 export async function endExpiredSupport(now = new Date()) {
-  const due = await withConsole((tx) => tx.supportAccessRequest.findMany({ where: { status: "ALLOWED", endsAt: { lte: now } }, select: { id: true } }));
+  const [due, stale] = await withConsole((tx) => Promise.all([
+    tx.supportAccessRequest.findMany({ where: { status: "ALLOWED", endsAt: { lte: now } }, select: { id: true } }),
+    tx.supportAccessRequest.findMany({ where: { status: "WAITING", createdAt: { lte: new Date(now.getTime() - SUPPORT_WAIT_MS) } }, select: { id: true } }),
+  ]));
   let ended = 0;
   for (const d of due) {
     try {
       if (await endSupport(d.id, "time", null, now)) ended++;
     } catch (e) {
       console.error(JSON.stringify({ level: "error", event: "support-end", request: d.id, error: e instanceof Error ? e.message : String(e) }));
+    }
+  }
+  for (const d of stale) {
+    try {
+      if (await expireIfWaitedTooLong(d.id, now)) ended++;
+    } catch (e) {
+      console.error(JSON.stringify({ level: "error", event: "support-expire", request: d.id, error: e instanceof Error ? e.message : String(e) }));
     }
   }
   return ended;

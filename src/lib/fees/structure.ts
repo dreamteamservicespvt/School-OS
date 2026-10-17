@@ -581,33 +581,35 @@ export async function publishStructure(tx: Tx, ctx: SchoolContext, structureId: 
   const now = new Date();
   const removed = { state: "REMOVED" as const, removedReason: `Replaced by version ${s.version} of the fee structure`, removedById: ctx.userId, removedAt: now };
   const adjustReason = `${REVISION} ${s.version} from ${monthLabel(effectiveFrom)}`;
-  for (const st of plan.students) {
-    const made = new Map<string, string>();
-    const fresh = st.changes.flatMap((c) => (c.kind === "add" || c.kind === "replace" ? [c.inst] : []));
-    if (fresh.length) {
-      const rows = await tx.studentFeeDue.createManyAndReturn({
-        data: fresh.map((i) => ({
-          schoolId: ctx.schoolId, studentId: st.studentId, academicYearId: s.academicYearId, installmentId: i.id, structureId: s.id, feeHeadId: i.feeHeadId, kind: "FEE" as const,
-          label: i.label, dueDate: i.dueDate, amountPaise: i.amountPaise, balancePaise: i.amountPaise, createdById: ctx.userId,
-        })),
-        select: { id: true, installmentId: true },
-      });
-      for (const r of rows) made.set(r.installmentId!, r.id);
-    }
-    for (const c of st.changes) {
-      if (c.kind === "same" || (c.kind === "keep" && c.inst)) {
-        await tx.studentFeeDue.update({ where: { id: c.old.id }, data: { installmentId: c.inst!.id, structureId: s.id } });
-      }
-      if (c.kind === "keep" && c.applied !== ZERO) await adjustDue(tx, ctx, c.old.id, c.applied, adjustReason);
-      if (c.kind === "replace" || c.kind === "remove") {
-        await tx.studentFeeDue.update({ where: { id: c.old.id }, data: removed });
-        const late = lateFeeMoves(c, plan.lateFees);
-        const to = c.kind === "replace" ? made.get(c.inst.id) : undefined;
-        if (to && late.move.length) await tx.studentFeeDue.updateMany({ where: { id: { in: late.move.map((l) => l.id) } }, data: { parentDueId: to } });
-        if (late.remove.length) await tx.studentFeeDue.updateMany({ where: { id: { in: late.remove.map((l) => l.id) } }, data: { ...removed, removedReason: `Row replaced by version ${s.version} of the fee structure` } });
-      }
-    }
+  // Written in a few statements for the whole class, not one per row.
+  const changes = plan.students.flatMap((st) => st.changes.map((c) => ({ studentId: st.studentId, c })));
+  const fresh = changes.flatMap(({ studentId, c }) => (c.kind === "add" || c.kind === "replace" ? [{ studentId, inst: c.inst }] : []));
+  const made = new Map<string, string>();
+  if (fresh.length) {
+    const rows = await tx.studentFeeDue.createManyAndReturn({
+      data: fresh.map(({ studentId, inst: i }) => ({
+        schoolId: ctx.schoolId, studentId, academicYearId: s.academicYearId, installmentId: i.id, structureId: s.id, feeHeadId: i.feeHeadId, kind: "FEE" as const,
+        label: i.label, dueDate: i.dueDate, amountPaise: i.amountPaise, balancePaise: i.amountPaise, createdById: ctx.userId,
+      })),
+      select: { id: true, studentId: true, installmentId: true },
+    });
+    for (const r of rows) made.set(`${r.studentId}|${r.installmentId}`, r.id);
   }
+  // Rows that stay move to the new version's installment for their period.
+  const repoint = new Map<string, string[]>();
+  for (const { c } of changes) if (c.kind === "same" || (c.kind === "keep" && c.inst)) repoint.set(c.inst!.id, [...(repoint.get(c.inst!.id) ?? []), c.old.id]);
+  for (const [installmentId, ids] of repoint) await tx.studentFeeDue.updateMany({ where: { id: { in: ids } }, data: { installmentId, structureId: s.id } });
+  const going = changes.flatMap(({ c }) => (c.kind === "replace" || c.kind === "remove" ? [c] : []));
+  if (going.length) await tx.studentFeeDue.updateMany({ where: { id: { in: going.map((c) => c.old.id) } }, data: removed });
+  const lateGone: string[] = [];
+  for (const c of going) {
+    const late = lateFeeMoves(c, plan.lateFees);
+    const to = c.kind === "replace" ? made.get(`${c.old.studentId}|${c.inst.id}`) : undefined;
+    if (to && late.move.length) await tx.studentFeeDue.updateMany({ where: { id: { in: late.move.map((l) => l.id) } }, data: { parentDueId: to } });
+    lateGone.push(...late.remove.map((l) => l.id));
+  }
+  if (lateGone.length) await tx.studentFeeDue.updateMany({ where: { id: { in: lateGone } }, data: { ...removed, removedReason: `Row replaced by version ${s.version} of the fee structure` } });
+  for (const { c } of changes) if (c.kind === "keep" && c.applied !== ZERO) await adjustDue(tx, ctx, c.old.id, c.applied, adjustReason);
   await writeAudit(tx, ctx, {
     action: "published",
     recordType: "Fee Structure",

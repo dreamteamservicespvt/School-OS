@@ -21,9 +21,9 @@ Where a part of a finding comes from reading the code, the entry says so.
 | PLATFORM-12 | P3 | App shell | Profile menu does not take focus; New sheet lets focus escape | c53bc48 |
 | PLATFORM-13 | P3 | Dashboard | Dashboard takes 1.4 to 3.0s in the large school | fixed, speed not re-measured |
 | PLATFORM-14 | P3 | App shell | Notifications panel count is capped at 8; profile menu links go nowhere | c53bc48 |
-| PLATFORM-15 | P4 | Reports & Analytics | A report hidden by a school feature says "not open to your role" | not fixed |
-| PLATFORM-16 | P4 | Sign in | "Forgot password?" is a Tab stop between login and password | not fixed |
-| PLATFORM-17 | P4 | App shell | Not-found pages answer HTTP 200 | not fixed |
+| PLATFORM-15 | P4 | Reports & Analytics | A report hidden by a school feature says "not open to your role" | 90f1b3d |
+| PLATFORM-16 | P4 | Sign in | "Forgot password?" is a Tab stop between login and password | 89efaca |
+| PLATFORM-17 | P4 | App shell | Not-found pages answer HTTP 200 | 8fd7f5e |
 | PLATFORM-18 | P4 | Dashboard | Transport papers alert says "and 1 more and 1 more" | f184e44 |
 | PLATFORM-19 | n/a (environment) | Background jobs | No job worker runs in the QA environment | not fixed: environment |
 
@@ -161,17 +161,21 @@ Where a part of a finding comes from reading the code, the entry says so.
 ## PLATFORM-15 · P4 · Reports & Analytics · Feature-hidden report says "not open to your role"
 - **Steps:** As cems.admin, open `/reports-analytics/r/at-overtime` (and `at-devices`, `fi-budget`, `fi-trial`).
 - **Actual:** "“Overtime and shifts” is not open to your role." The real reason is that the school feature is off. The index rightly hides these reports.
-- **Not fixed:** `entryAllowed` mixes the role check and the feature check. Cosmetic.
+- **Fix:** 90f1b3d. `featureOff()` in the report catalogue tells a report closed only by a School Feature from one the role may not see. The report page now says "“Overtime and shifts” is switched off for <school>. It needs Overtime. The Principal or School Admin can switch it on in Attendance Settings. Nothing is lost while it is off." (Finance reports name Budget or Accounts and Finance Settings.) Exports and background runs use the same words. A report the role may not see still goes to No access.
+- **Verified:** `tests/platform/qa-lead-words.test.ts` (Overtime and shifts, Budget against actual, and a role-closed report).
 
 ## PLATFORM-16 · P4 · Sign in · "Forgot password?" is a Tab stop between login and password
 - **Steps:** On Sign in, press Tab from the login box.
 - **Actual:** Focus goes to "Forgot password?" before the Password box. Pressing Enter there switches to the code flow, which is easy to do by mistake when typing quickly.
-- **Not fixed:** cosmetic. It could go after the password box in DOM order.
+- **Fix:** 89efaca. The link is now one control after Sign in, "Forgot password? Sign in with a one-time code" (it replaces the old "Sign in with a one-time code instead" button, which did the same). Tab goes login, password (its Show button), Keep me signed in, Sign in, then Forgot password.
+- **Verified:** `tests/platform/sign-in-tab-order.test.ts` reads the rendered form's Tab order. `qa/platform/a11y.mjs` updated (one Tab from login to password).
 
 ## PLATFORM-17 · P4 · App shell · Not-found pages answer HTTP 200
 - **Steps:** GET `/no-such-page`, or another school's student URL.
 - **Actual:** 200 with "This page is not here", because of streaming. People see the right words; monitors and crawlers see a success.
-- **Not fixed:** a Next streaming limitation.
+- **Cause:** every module has a `loading.tsx`. Next.js sends 200 as soon as that loading screen can show, so a record page calling `notFound()` after it looks the record up can no longer change the status. `/no-such-page` itself already answered 404 on this commit (the `[module]` page has no loading screen).
+- **Fix:** 8fd7f5e. `src/proxy.ts` passes the path of a full page load (only GET page loads: not in-app navigation, server actions, uploads or the API) to the school layout, which sits above every `loading.tsx`. The layout asks `src/lib/record-gate.ts`, inside the transaction it already opens: for 45 record pages (students, fees, payments, staff, applications, books and so on), a record id that does not exist in this school, or another school's (row-level security hides it), or a value that is not an id, calls `notFound()` before anything streams. Archived records, roles and own-class checks stay with each page. Loading screens are unchanged, and in-app navigation is unchanged.
+- **Verified:** `tests/platform/record-gate.test.ts` (paths, fixed folders checked against `src/app`, another school's record missing). `qa/platform/status-codes.mjs` against `next start`: 404 with "This page is not here" for unknown addresses, missing records, a bad id and School B's student opened as School A's admin; 200 for real pages and School A's own student. With the proxy skipped, the same record pages answer 200, which shows the cause.
 
 ## PLATFORM-18 · P4 · Dashboard · Transport papers alert says "and 1 more and 1 more"
 - **Fix:** f184e44 in `src/lib/dashboard/widgets/transport.ts`.

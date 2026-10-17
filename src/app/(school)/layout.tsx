@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { headers } from "next/headers";
+import { notFound } from "next/navigation";
 import { isPaused, pausedAdmin, requireCurrent } from "@/lib/current";
 import { planBanner, schoolPlanState } from "@/lib/console/school-billing";
 import { shellData } from "@/lib/shell-data";
@@ -10,6 +12,7 @@ import { readFlash } from "@/lib/flash";
 import { undoChange } from "./undo-action";
 import { activeSystemNotices } from "@/lib/errors";
 import { withSchool } from "@/lib/db";
+import { PAGE_PATH_HEADER, recordMissing } from "@/lib/record-gate";
 import { myPhotoLink } from "@/lib/profile-photo";
 import { currentYear } from "@/lib/academic/years";
 import { cleanTheme } from "@/lib/theme";
@@ -32,11 +35,14 @@ export default async function SchoolLayout({ children }: { children: React.React
   // A paused school: only its School Admin or Principal gets this far, for Settings (the data download).
   const current = await requireCurrent({ paused: "admin" });
   const admin = pausedAdmin(current);
-  const [shell, flashed, notices, { year, notes }, plan] = await Promise.all([
+  // On a full page load, a record that is not in this school answers 404 before the page streams (QA PLATFORM-17).
+  const pagePath = (await headers()).get(PAGE_PATH_HEADER);
+  const [shell, flashed, notices, { missing, year, notes }, plan] = await Promise.all([
     shellData(current),
     readFlash(),
     activeSystemNotices(),
     withSchool(current.ctx, async (tx) => ({
+      missing: await recordMissing(tx, pagePath),
       year: await currentYear(tx, current.ctx),
       notes: await tx.notification.findMany({
         where: { userLoginId: current.user.id },
@@ -47,6 +53,7 @@ export default async function SchoolLayout({ children }: { children: React.React
     })),
     admin ? schoolPlanState(current.school.id).catch(() => null) : Promise.resolve(null),
   ]);
+  if (missing) notFound();
   const banner = isPaused(current)
     ? { tone: "problem" as const, text: "School OS for this school is paused. You can still pay or download the school's data.", payUrl: null, href: "/paused" }
     : planBanner(plan);

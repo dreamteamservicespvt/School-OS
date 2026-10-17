@@ -42,9 +42,7 @@ export function SignInForm({ notice, startWithCode }: { notice?: string; startWi
 
       {mode === "password" ? (
         <div className="flex flex-col gap-1.5">
-          <div className="flex items-center justify-between">
-            <label htmlFor="password" className="text-[13px] font-semibold text-ink2">Password</label>
-          </div>
+          <label htmlFor="password" className="text-[13px] font-semibold text-ink2">Password</label>
           <div className="relative">
             <input id="password" name="password" type={show ? "text" : "password"} autoComplete="current-password"
               onChange={() => setMissing({})} aria-invalid={missing.password ? true : undefined} aria-describedby={missing.password ? "password-error" : undefined}
@@ -55,10 +53,6 @@ export function SignInForm({ notice, startWithCode }: { notice?: string; startWi
             </button>
           </div>
           {missing.password && <p id="password-error" className="text-[12.5px] text-bad">{missing.password}</p>}
-          {/* After the password box, so Tab goes login, password, Sign in (QA PLATFORM-16). */}
-          <div className="flex justify-end">
-            <button type="button" onClick={() => { setMode("code"); setMissing({}); }} className="text-[13px] text-brand font-semibold hover:underline min-h-9">Forgot password?</button>
-          </div>
         </div>
       ) : (
         <p className="text-[14px] text-ink2 rounded-xl bg-sunken p-3.5 flex gap-2.5">
@@ -75,8 +69,9 @@ export function SignInForm({ notice, startWithCode }: { notice?: string; startWi
       <Button type="submit" variant="primary" size="lg" className="w-full mt-1" loading={busy} loadingText="Checking…">
         {mode === "code" ? "Send code" : "Sign in"}
       </Button>
+      {/* "Forgot password?" sits after Sign in, so Tab goes login, password, Sign in and a quick Tab and Enter cannot switch to the code flow (QA PLATFORM-16). */}
       <button type="button" onClick={() => { setMode(mode === "code" ? "password" : "code"); setMissing({}); }} className="text-[14px] font-semibold text-ink2 hover:text-ink h-10">
-        {mode === "code" ? "Use password instead" : "Sign in with a one-time code instead"}
+        {mode === "code" ? "Use password instead" : "Forgot password? Sign in with a one-time code"}
       </button>
     </form>
   );

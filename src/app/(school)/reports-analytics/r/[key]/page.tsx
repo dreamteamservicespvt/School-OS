@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowUpDown, Download, Filter, Hourglass, Inbox, Info, Lock } from "lucide-react";
+import { ArrowUpDown, Download, Filter, Hourglass, Inbox, Info, Lock, PowerOff } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { formatTime } from "@/lib/format";
-import { entryAllowed, findEntry } from "@/lib/reports/catalogue";
+import { entryAllowed, featureOff, findEntry } from "@/lib/reports/catalogue";
+import { EmptyState } from "@/components/empty-state";
 import { filterParams, readFilters, uuidOr } from "@/lib/reports/filters";
 import { pinsOf, recordUse } from "@/lib/reports/pins";
 import { cellText, optionsFor, ReportProblem, runEntry, runWords, SHOW_ROWS } from "@/lib/reports/run";
@@ -45,8 +46,20 @@ export default async function ReportPage({ params, searchParams }: { params: Pro
   if (!entry) notFound();
   const href = `${BASE}/r/${entry.key}`;
 
+  // A report closed by a School Feature says so and who can switch it on (QA PLATFORM-15).
   // A report this role may not see goes to No access, like any page the role cannot use.
-  if (!entryAllowed(entry, p.a, p.current)) redirect("/no-access?m=reports-analytics");
+  if (!entryAllowed(entry, p.a, p.current)) {
+    const off = featureOff(entry, p.a, p.current, p.current.school.name);
+    if (!off) redirect("/no-access?m=reports-analytics");
+    return (
+      <div>
+        <BackLink href={BASE} label="All reports" />
+        <div className="max-w-xl mx-auto mt-4 md:mt-10">
+          <EmptyState Icon={PowerOff} title={off.title}>{off.body}</EmptyState>
+        </div>
+      </div>
+    );
+  }
 
   const me = p.current.user.id;
   const data = await withSchool(p.current.ctx, async (tx) => {

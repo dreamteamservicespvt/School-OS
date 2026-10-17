@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { cookies } from "next/headers";
 import { ACCENT_COOKIE, SIZE_COOKIE, THEME_COOKIE, cleanAccent, cleanTextSize, cleanTheme } from "@/lib/theme";
+import { Suspense } from "react";
+import { ScrollHints } from "@/components/ui/scroll-hints";
 import "./globals.css";
 
 // The approved design's type: Figtree for reading, Bricolage Grotesque for titles and numbers.
@@ -39,7 +41,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       data-size={cleanTextSize(jar.get(SIZE_COOKIE)?.value)}
       className={`${figtree.variable} ${bricolage.variable} ${mono.variable}`}
     >
-      <body className="min-h-dvh">{children}</body>
+      <body className="min-h-dvh">
+        {children}
+        {/* Sideways-scrolling rows on every page: selected item in view, fades, scrollbar on computers. */}
+        <Suspense fallback={null}><ScrollHints /></Suspense>
+      </body>
     </html>
   );
 }

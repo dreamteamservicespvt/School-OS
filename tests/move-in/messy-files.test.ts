@@ -11,7 +11,7 @@ import { runDueJobs } from "@/lib/jobs";
 import { autoMatch, importKind, previewImport, RowProblem, runImport, undoImport, type Decisions, type ImportKind } from "@/lib/importer";
 import { accessIn } from "@/lib/auth/access";
 import { findLogin } from "@/lib/auth/sign-in";
-import { addUpload, canBring, chooseRow, importFile, mayImport, moveInKinds, phonesOfDifferentFamilies, settleImports, workOn } from "@/lib/move-in/service";
+import { addUpload, canBring, chooseRow, importFile, lastFailure, mayImport, moveInKinds, phonesOfDifferentFamilies, settleImports, workOn } from "@/lib/move-in/service";
 import { studentImport, STUDENT_IMPORT } from "@/lib/students/import";
 import { saveStudentSettings } from "@/lib/students/settings";
 import { moduleImportRefusal, runModuleFile, checkModuleFile, undoModuleImport, uploadModuleFile } from "@/lib/imports/module-import";
@@ -295,10 +295,15 @@ describe("rows that may already be on record wait for a person's choice (G17)", 
     expect(after.checked!.problems).toEqual([]);
     expect(after.checked!.decided.map((d) => d.line)).toEqual([3]);
     await run((tx) => importFile(tx, ctx, id));
-    for (let i = 0; i < 10; i++) if ((await runDueJobs(50)) === 0) break;
-    await run((tx) => settleImports(tx));
+    // Other test files share the job queue: run jobs until this file's import has settled.
+    for (let i = 0; i < 40; i++) {
+      const ran = await runDueJobs(50);
+      await run((tx) => settleImports(tx));
+      const now = await run((tx) => tx.moveInFile.findUniqueOrThrow({ where: { id } }));
+      if (now.status !== "importing" || ran === 0) break;
+    }
     const f = await run((tx) => tx.moveInFile.findUniqueOrThrow({ where: { id } }));
-    expect(f.status).toBe("imported");
+    expect({ status: f.status, failure: await run((tx) => lastFailure(tx, f.importFileId)) }).toEqual({ status: "imported", failure: null });
     expect(await run((tx) => tx.importBatch.findUniqueOrThrow({ where: { id: f.batchId! } }))).toMatchObject({ added: 2, skipped: 0 });
     expect(await run((tx) => tx.guardian.count({ where: { phone: p } }))).toBe(2);
     await expect(run((tx) => chooseRow(tx, ctx, id, 3, "merge-everything"))).rejects.toThrow();

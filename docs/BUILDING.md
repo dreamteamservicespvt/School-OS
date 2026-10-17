@@ -46,8 +46,14 @@ Everything here exists so that 20 modules read as one product.
   `reach` is `"all"` or `"own"`. With `"own"`, limit every query to the person's own classes
   or records (teachers: their Teacher Allocations; everyone: their own leave, slips, profile).
 - Lists, search, exports and counts all use the same limits.
-- Approvals: `requestApproval(tx, ctx, {...})` and `onDecision(type, handler)` from
-  `src/lib/approvals.ts`. Register handlers in a file imported by `src/lib/approval-handlers.ts`.
+- Approvals: `requestApproval(tx, ctx, {...})` from `src/lib/approvals.ts`. What happens to the
+  record when a request is decided is a `followUps` map in the module's `handlers.ts`, listed in
+  `src/lib/approval-handlers.ts` (TypeScript refuses the list if a request type has none);
+  `decide()` loads that list itself, so no screen needs a side-effect import.
+- Other registries (`registerUndo`, `defineJob`, `defineImport`, `registerSection`,
+  `registerProfileTab`, `registerClearanceCheck`, `onEnrolled`, `onGatewayEvent`...): add the
+  file to that registry's index; tests/registries.test.ts checks every place that reads a
+  registry reaches every file that registers in it.
 
 ## 4. Screens (00-global.md P1 to P20)
 

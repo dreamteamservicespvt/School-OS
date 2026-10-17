@@ -7,7 +7,8 @@ import { esc, htmlToPdf } from "@/lib/pdf";
 import { formatDateTime } from "@/lib/format";
 import { monthStart, todayIn } from "@/lib/staff/dates";
 import { attendanceAccess } from "@/lib/attendance/access";
-import { attendanceSettings } from "@/lib/attendance/settings";
+import { attendanceFeatures, attendanceSettings } from "@/lib/attendance/settings";
+import { REASONS_FEATURE } from "@/lib/attendance/absence-reasons";
 import { readMonth, registerChoices, registerMonth, type RegisterRow } from "@/lib/attendance/register";
 import { percentText } from "@/lib/attendance/summary";
 
@@ -28,7 +29,8 @@ export async function GET(req: Request) {
     const sections = await registerChoices(tx, access, year?.id ?? access.yearId);
     const section = sections.find((s) => s.id === url.searchParams.get("section"));
     if (!section) return new Response("This class was not found, or it is not one of yours.", { status: 404 });
-    const grid = await registerMonth(tx, current.ctx, { sectionId: section.id, month, today, status });
+    const reasonsOn = (await attendanceFeatures(tx, current.ctx)).has(REASONS_FEATURE);
+    const grid = await registerMonth(tx, current.ctx, { sectionId: section.id, month, today, status, reasons: reasonsOn ? { seesFees: access.seesFees } : null });
     if (!grid) return new Response("This class was not found.", { status: 404 });
     const letters = new Map(grid.statuses.map((s) => [s.key, s]));
     const statusName = status ? letters.get(status)?.name ?? status : null;
@@ -80,6 +82,8 @@ export async function GET(req: Request) {
       { label: "Late", value: (r) => r.summary.late },
       { label: "Leave", value: (r) => r.summary.leave },
       { label: "Attendance %", value: (r) => (r.summary.percent === null ? "" : r.summary.percent) },
+      // Absence reasons (when the school records them): "06 Sick; 07 Not known yet".
+      ...(reasonsOn ? [{ label: "Absence reasons", value: (r: RegisterRow) => Object.entries(r.reasons).sort(([a], [b]) => a.localeCompare(b)).map(([iso, x]) => `${iso.slice(8)} ${x.label}${x.note ? ` (${x.note})` : ""}`).join("; ") }] : []),
     ];
     const file = await buildExport(format, columns, grid.rows, {
       title, schoolName: current.school.name, exportedBy: current.user.displayName, timeZone: tz,

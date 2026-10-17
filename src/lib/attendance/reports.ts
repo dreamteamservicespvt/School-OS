@@ -14,6 +14,7 @@ import { attendanceSummary, percentText } from "./summary";
 import { deviceHealth, REJECT_WORDS } from "./devices";
 import { minutesText } from "./time";
 import { classWise } from "./classwise";
+import { ABSENCE_REASONS, absentKeys, FEE_REASON, isReason, reasonChoices, shownReason, SOURCE_WORDS } from "./absence-reasons";
 
 export const REPORTS = [
   { key: "daily", label: "Daily attendance", about: "Each class and section on one date, and staff.", students: true, staff: true },
@@ -24,6 +25,7 @@ export const REPORTS = [
   { key: "chronic", label: "Chronic absence", about: "Students below the threshold or absent several days in a row.", students: true, staff: false },
   { key: "late", label: "Late arrivals", about: "Students and staff late, by month.", students: true, staff: true },
   { key: "leave", label: "Student leave", about: "Student leave by type and class.", students: true, staff: false },
+  { key: "reasons", label: "Absence reasons", about: "Absent days by reason for each class, or every absence with one reason.", students: true, staff: false, feature: "attendance-absence-reasons" },
   { key: "overtime", label: "Overtime and shifts", about: "Staff overtime and attendance by shift.", students: false, staff: true, feature: "attendance-overtime" },
   { key: "devices", label: "Device health", about: "Punches received and rejected by device.", students: false, staff: true, feature: "attendance-devices" },
 ] as const;
@@ -43,13 +45,15 @@ export type ReportInput = {
   person: string | null;
   /** Student leave report: this month or the whole year. */
   period: "month" | "year";
+  /** Absence reasons report: one reason (or "none", not recorded); null groups every reason by class. */
+  reason?: string | null;
   today: Date;
   /** The shared date filter (Late arrivals, Student leave, Overtime, Date range, Device health); null keeps the month. */
   dates?: { from: Date; to: Date; label: string } | null;
 };
 
 /** The reports that use the shared date filter rather than one month or one date. */
-export const DATED_REPORTS: ReportKey[] = ["late", "leave", "overtime", "range", "devices"];
+export const DATED_REPORTS: ReportKey[] = ["late", "leave", "overtime", "range", "devices", "reasons"];
 
 /** Applies the shared date filter (lib/periods) to a report's input. */
 export function withDates(input: ReportInput, range: { from: string; to: string; label: string } | null): ReportInput {
@@ -186,16 +190,19 @@ export async function runReport(tx: Tx, ctx: SchoolContext, access: AttendanceAc
       const who = kind === "staff" ? await tx.staff.findFirst({ where: { id }, select: { fullName: true } }) : await tx.student.findFirst({ where: { id }, select: { fullName: true } });
       const sum = await attendanceSummary(tx, ctx, { ...(kind === "staff" ? { staffId: id } : { studentId: id }), from: input.from, to: input.to, today: input.today });
       const days = sum.days.get(id) ?? new Map<string, string>();
-      const marks = await tx.attendanceMark.findMany({ where: { ...(kind === "staff" ? { staffId: id } : { studentId: id }), date: { gte: input.from, lte: input.to }, archivedAt: null, periodNo: 0 }, select: { date: true, note: true, lateMinutes: true } });
+      const marks = await tx.attendanceMark.findMany({ where: { ...(kind === "staff" ? { staffId: id } : { studentId: id }), date: { gte: input.from, lte: input.to }, archivedAt: null, periodNo: 0 }, select: { date: true, note: true, lateMinutes: true, absenceReason: true, absenceNote: true } });
       const notes = new Map(marks.map((m) => [isoDay(m.date), m]));
+      // Absence reasons, when any are recorded ("Fees dispute" shows as Other without the school's fees).
+      const withReasons = marks.some((m) => m.absenceReason);
+      const why = (k: string) => { const s = notes.get(k); const r = s ? shownReason(s, access.seesFees) : null; return r ? `${r.label}${r.note ? `: ${r.note}` : ""}` : ""; };
       const p = sum.people.get(id)!;
       return {
         title: `Attendance of ${who?.fullName ?? "person"}, ${dayText(input.from)} to ${dayText(input.to)}`, filters: `${who?.fullName ?? ""}, ${dayText(input.from)} to ${dayText(input.to)}`,
-        columns: [{ key: "date", label: "Date", phone: "title" }, { key: "status", label: "Status", phone: "badge" }, { key: "late", label: "Minutes late", numeric: true }, { key: "note", label: "Note", phone: "meta" }],
+        columns: [{ key: "date", label: "Date", phone: "title" }, { key: "status", label: "Status", phone: "badge" }, ...(withReasons ? [{ key: "reason", label: "Reason" }] : []), { key: "late", label: "Minutes late", numeric: true }, { key: "note", label: "Note", phone: "meta" }],
         rows: sum.workingDates.map((d) => {
           const k = isoDay(d);
           const st = days.get(k);
-          return { date: dayText(d), status: st ? statusName.get(st) ?? st : "Not marked", late: notes.get(k)?.lateMinutes ?? null, note: notes.get(k)?.note ?? "", _tone: st === "absent" ? "danger" : st === "late" ? "warning" : null };
+          return { date: dayText(d), status: st ? statusName.get(st) ?? st : "Not marked", ...(withReasons ? { reason: why(k) } : {}), late: notes.get(k)?.lateMinutes ?? null, note: notes.get(k)?.note ?? "", _tone: st === "absent" ? "danger" : st === "late" ? "warning" : null };
         }),
         footer: `${sum.workingDays} working days · ${p.countedDays} counted · present ${p.present} · absent ${p.absent} · late ${p.late} · leave ${p.leave} · ${pct(p.percent)}.`,
         empty: "No working days in these dates.",
@@ -297,6 +304,7 @@ export async function runReport(tx: Tx, ctx: SchoolContext, access: AttendanceAc
         rows: [...agg.values()].sort((a, b) => a.cls.localeCompare(b.cls) || a.type.localeCompare(b.type)), empty: "No approved student leave in this period.",
       };
     }
+    case "reasons": return reasonsReport(tx, ctx, access, input);
     case "overtime": {
       if (!staffAll) return { title: "Overtime and shifts", filters: "", columns: [], rows: [], empty: "Only HR, the School Admin or the Principal can see this report." };
       const from = input.dates?.from ?? monthStart(input.month);
@@ -338,6 +346,68 @@ export async function runReport(tx: Tx, ctx: SchoolContext, access: AttendanceAc
   }
   // Every key is handled above.
   return { title: "Report", filters: "", columns: [], rows: [], empty: "Choose a report." };
+}
+
+/**
+ * Absence reasons (gap list P1.8): absent days by reason for each class in
+ * reach, or, with one reason chosen, every absent day with it. "Fees dispute"
+ * is counted as Other for people without the school's fees.
+ */
+async function reasonsReport(tx: Tx, ctx: SchoolContext, access: AttendanceAccess, input: ReportInput): Promise<ReportTable> {
+  const from = input.dates?.from ?? monthStart(input.month);
+  const to = input.dates?.to ?? monthEnd(input.month);
+  const words = input.dates ? `${dayText(from)} to ${dayText(to)}` : monthLabel(from);
+  const all = await sectionsInReach(tx, access);
+  const sections = input.sectionId ? all.filter((s) => s.id === input.sectionId) : all;
+  const keys = await absentKeys(tx, ctx);
+  const days = await schoolDays(tx, ctx, from, to, access.campusId);
+  const working = new Set(days.working.map(isoDay));
+  const marks = sections.length ? await tx.attendanceMark.findMany({
+    where: { sectionId: { in: sections.map((s) => s.id) }, studentId: { not: null }, date: { gte: from, lte: to }, archivedAt: null, statusKey: { in: [...keys] } },
+    orderBy: [{ date: "asc" }, { periodNo: "asc" }],
+    select: { studentId: true, sectionId: true, date: true, absenceReason: true, absenceNote: true, reasonSource: true },
+  }) : [];
+  // One absent day per student and date: the first reason recorded that day.
+  const byDay = new Map<string, (typeof marks)[number]>();
+  for (const m of marks) {
+    if (!working.has(isoDay(m.date))) continue;
+    const k = `${m.studentId}:${isoDay(m.date)}`;
+    const cur = byDay.get(k);
+    if (!cur || (!cur.absenceReason && m.absenceReason)) byDay.set(k, m);
+  }
+  const daysList = [...byDay.values()].map((m) => ({ ...m, shown: shownReason(m, access.seesFees) }));
+  const sectionName = new Map(all.map((s) => [s.id, s.name]));
+  const label = `${input.sectionId ? `${sectionName.get(input.sectionId) ?? "Class"}, ` : ""}${input.dates ? `dates ${words}` : `month ${words}`}`;
+  const wanted = input.reason && (input.reason === "none" || reasonChoices(access.seesFees).some((r) => r.key === input.reason)) ? input.reason : null;
+  if (wanted) {
+    const list = daysList.filter((d) => (wanted === "none" ? !d.shown : d.shown?.key === wanted));
+    const people = new Map((await tx.student.findMany({ where: { id: { in: [...new Set(list.map((d) => d.studentId!))] } }, select: { id: true, fullName: true } })).map((s) => [s.id, s.fullName]));
+    const reasonWord = wanted === "none" ? "Not recorded" : ABSENCE_REASONS.find((r) => r.key === wanted)?.label ?? wanted;
+    return {
+      title: `Absences: ${reasonWord}, ${words}`, filters: `${label}; reason ${reasonWord}`,
+      columns: [{ key: "date", label: "Date", phone: "meta" }, { key: "who", label: "Student", phone: "title" }, { key: "class", label: "Class", phone: "meta" }, { key: "reason", label: "Reason", phone: "badge" }, { key: "note", label: "Note" }, { key: "source", label: "Recorded from" }],
+      rows: list.map((d) => ({ date: dayText(d.date), who: people.get(d.studentId!) ?? "Student", class: sectionName.get(d.sectionId ?? "") ?? "", reason: d.shown?.label ?? "Not recorded", note: d.shown?.note ?? "", source: d.shown?.source ? SOURCE_WORDS[d.shown.source] ?? d.shown.source : "", _tone: !d.shown || d.shown.key === "not-known" ? "warning" : null })),
+      footer: `${list.length} absent ${list.length === 1 ? "day" : "days"}.`, empty: "No absences with this reason in these dates.",
+    };
+  }
+  const shownKeys = ABSENCE_REASONS.map((r) => r.key as string).filter((k) => access.seesFees || k !== FEE_REASON);
+  const count = (list: typeof daysList) => {
+    const row: ReportRow = { absent: list.length, none: 0 };
+    for (const k of shownKeys) row[k] = 0;
+    for (const d of list) { const k = d.shown?.key ?? "none"; row[k] = Number(row[k] ?? 0) + 1; }
+    return row;
+  };
+  const rows: ReportRow[] = sections.map((s): ReportRow => ({ who: s.name, ...count(daysList.filter((d) => d.sectionId === s.id)) })).filter((r) => Number(r.absent) > 0);
+  if (rows.length > 1) rows.push({ who: "All classes", ...count(daysList), _tone: null });
+  return {
+    title: `Absence reasons ${words}`, filters: `${label}; absent days by reason`,
+    columns: [
+      { key: "who", label: "Class and section", phone: "title" }, { key: "absent", label: "Absent days", numeric: true, phone: "badge" },
+      ...shownKeys.map((k) => ({ key: k, label: ABSENCE_REASONS.find((r) => r.key === k)!.label, numeric: true, ...(k === "not-known" ? { phone: "meta" as const } : {}) })),
+      { key: "none", label: "Not recorded", numeric: true },
+    ],
+    rows, footer: `${days.working.length} working days. A day absent in several periods counts once.`, empty: "Nobody was absent in these dates.",
+  };
 }
 
 /** People for the date-range report: students in reach, and staff when allowed. */
@@ -384,6 +454,7 @@ export function readReportInput(get: (k: string) => string | null | undefined, t
     sectionId: section && UUID.test(section) ? section : null,
     person: person && /^(student|staff):[0-9a-f-]{36}$/i.test(person) ? person : null,
     period: get("period") === "year" ? "year" : "month",
+    reason: (() => { const v = get("reason"); return v && (v === "none" || isReason(v)) ? v : null; })(),
     today,
   };
 }

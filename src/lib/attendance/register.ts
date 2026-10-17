@@ -11,9 +11,14 @@ import { roster, sectionInfo } from "./marks";
 import { previousYearStart } from "./calendar-months";
 import { attendanceSettings, statusList, statusesFor } from "./settings";
 import { attendanceSummary, type PersonSummary } from "./summary";
+import { absentKeys, shownReason, type ShownReason } from "./absence-reasons";
 
 export type RegisterDate = { iso: string; day: number; weekday: string; off: string | null; future: boolean };
-export type RegisterRow = { id: string; roll: number | null; name: string; admissionNo: string; days: Record<string, string>; summary: PersonSummary };
+export type RegisterRow = {
+  id: string; roll: number | null; name: string; admissionNo: string; days: Record<string, string>; summary: PersonSummary;
+  /** Absence reasons by date, as this person may see them (absence reasons on). */
+  reasons: Record<string, ShownReason>;
+};
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -66,7 +71,7 @@ export function readMonth(v: string | undefined | null): Date | null {
   return new Date(`${v}-01T00:00:00Z`);
 }
 
-export async function registerMonth(tx: Tx, ctx: SchoolContext, input: { sectionId: string; month: Date; today: Date; status?: string | null }) {
+export async function registerMonth(tx: Tx, ctx: SchoolContext, input: { sectionId: string; month: Date; today: Date; status?: string | null; reasons?: { seesFees: boolean } | null }) {
   const section = await sectionInfo(tx, input.sectionId);
   if (!section) return null;
   const from = monthStart(input.month);
@@ -89,8 +94,22 @@ export async function registerMonth(tx: Tx, ctx: SchoolContext, input: { section
     ...students.map((s) => ({ id: s.studentId, roll: s.rollNo, name: s.name, admissionNo: s.admissionNo })),
     ...extra.map((s) => ({ id: s.id, roll: null, name: `${s.fullName} (left)`, admissionNo: s.admissionNo })),
   ];
+  // Absence reasons (when the school records them): the first reason recorded for each absent day.
+  const reasonsBy = new Map<string, Record<string, ShownReason>>();
+  if (input.reasons) {
+    const keys = await absentKeys(tx, ctx);
+    const marks = await tx.attendanceMark.findMany({ where: { sectionId: section.id, date: { gte: from, lte: to }, archivedAt: null, studentId: { not: null }, statusKey: { in: [...keys] }, absenceReason: { not: null } }, orderBy: { periodNo: "asc" }, select: { studentId: true, date: true, absenceReason: true, absenceNote: true, reasonSource: true } });
+    for (const m of marks) {
+      const per = reasonsBy.get(m.studentId!) ?? {};
+      const k = isoDay(m.date);
+      const shown = shownReason(m, input.reasons.seesFees);
+      if (!per[k] && shown) per[k] = shown;
+      reasonsBy.set(m.studentId!, per);
+    }
+  }
   let rows: RegisterRow[] = people.map((p) => ({
     ...p,
+    reasons: reasonsBy.get(p.id) ?? {},
     days: Object.fromEntries(sum.days.get(p.id) ?? new Map()),
     summary: sum.people.get(p.id) ?? { workingDays: sum.workingDays, markedDays: 0, countedDays: 0, present: 0, absent: 0, late: 0, leave: 0, byStatus: {}, percent: null },
   }));

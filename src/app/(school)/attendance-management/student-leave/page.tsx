@@ -14,6 +14,9 @@ import { BASE } from "@/lib/attendance/access";
 import { STUDENT_LEAVE_STATUS } from "@/lib/attendance/student-leave";
 import { LEAVE_STATUSES, studentLeaveDetail, studentLeaveList } from "@/lib/attendance/student-leave-list";
 import { attendanceSettings } from "@/lib/attendance/settings";
+import { REASONS_FEATURE } from "@/lib/attendance/absence-reasons";
+import Link from "next/link";
+import { buttonClass } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
@@ -108,6 +111,11 @@ export default async function StudentLeavePage({ searchParams }: Props) {
         ) : undefined} />
 
       <div className="flex flex-col gap-5 lg:gap-6">
+        {office && features.has(REASONS_FEATURE) && (
+          <Banner tone="info" title="A parent called about an absence?" action={<Link href={`${BASE}/register/absences`} className={buttonClass("secondary", "sm")}>Open the absent list</Link>}>
+            Record why the student was absent in the day&apos;s absent list. Record leave here when the parent asks for days off.
+          </Banner>
+        )}
         <Stats items={[
           { label: "Waiting", value: waiting, sub: waiting ? (ownOnly ? "For you to decide" : data.oldestWaiting ? `Oldest from ${formatDate(data.oldestWaiting.createdAt, tz)}` : "To decide") : "Nothing to decide", tone: waiting ? "warn" : "ok", icon: Hourglass, href: qs({ status: null }) },
           { label: "On leave today", value: data.onLeaveToday, sub: "Students, all approved", icon: CalendarCheck2 },

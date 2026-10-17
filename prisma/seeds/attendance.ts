@@ -102,7 +102,10 @@ export async function seedAttendance(s: SeedSchool) {
       const ahead = (await schoolDays(tx, pctx, from, addDays(from, 30), s.campusId)).working;
       return ahead[Math.min(n, ahead.length - 1)] ?? from;
     };
-    await put(leaveStudents.today?.studentId, "FAMILY", today, today, "Sister's wedding in Vijayawada.", true);
+    // Leave "today" only works on a school day; on a Sunday or holiday it goes on the next one.
+    const todayIsSchool = (await schoolDays(tx, pctx, today, today, s.campusId)).working.length > 0;
+    const leaveDay = todayIsSchool ? today : await nextSchoolDay(today, 0);
+    await put(leaveStudents.today?.studentId, "FAMILY", leaveDay, leaveDay, "Sister's wedding in Vijayawada.", true);
     if (s.full) {
       const f1 = await nextSchoolDay(addDays(today, 1), 0);
       const f2 = await nextSchoolDay(addDays(today, 1), 1);

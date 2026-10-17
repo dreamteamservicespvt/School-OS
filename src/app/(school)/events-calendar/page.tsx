@@ -96,7 +96,6 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
     : !full ? "Holidays, exams, events and PTMs. Go back to earlier years or ahead to the end of the year. Read only."
       : `Holidays, vacations, exams, events and PTMs in one place, from ${monthLabel(firstMonth)} to ${monthLabel(lastMonth)}.`;
   const yearLabel = yearOnScreen?.name.replace("-", "–") ?? "";
-  const settingsCreate = p.current.permissions.settings?.change !== "none" && p.current.permissions.settings?.change != null;
   const holidayDays = (e: { startDate: Date; endDate: Date }) => dayCount(isoOf(e.startDate), isoOf(e.endDate));
   const removing = out.entry ? { id: out.entry.id, title: out.entry.title, closes: !out.entry.attendanceOn && ["holiday", "vacation"].includes(out.entry.type), when: out.entry.endDate > out.entry.startDate ? `${dmy(isoOf(out.entry.startDate))} to ${dmy(isoOf(out.entry.endDate))}` : dmy(isoOf(out.entry.startDate)) } : null;
 
@@ -268,7 +267,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
         <UrlSheet title="Import the holiday list" sub="Copy last year's list with dates to check, or pick a spreadsheet." closeHref={closeHref}>
           <div className="flex flex-col gap-2">
             <ButtonLink href={here({ do: "copy" })} scroll={false} variant="secondary" icon={History} className="justify-start">Copy last year&apos;s holidays</ButtonLink>
-            {settingsCreate && <ButtonLink href="/settings/data-security/imports?kind=calendar-holidays" variant="secondary" icon={FileSpreadsheet} className="justify-start">From a spreadsheet (Excel or CSV)</ButtonLink>}
+            <ButtonLink href={`${BASE}/import`} variant="secondary" icon={FileSpreadsheet} className="justify-start">From a spreadsheet (Excel or CSV)</ButtonLink>
           </div>
         </UrlSheet>
       )}

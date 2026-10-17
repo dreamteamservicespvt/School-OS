@@ -13,6 +13,7 @@ import { requestApproval } from "../approvals";
 import { getStudentSettings } from "./settings";
 import { PROFILE_CHANGES, STATUS_LABEL, type StudentStatusKey } from "./labels";
 import { runEnrolled, runSectionChanged } from "./hooks";
+import { namesAlike } from "./name-match";
 // Fee Management gives the class fee plan to a student who joins a class (A2, A13).
 import "../fees/enrolled";
 // Examination & Results moves a student's marks and results with a section change (G23).
@@ -59,7 +60,10 @@ export async function previewAdmissionNo(tx: Tx, ctx: SchoolContext) {
   return f.prefix + "…";
 }
 
-/** Takes the next free admission number; numbers typed in by hand are skipped, never reused. */
+/**
+ * Takes the next free admission number; numbers typed in by hand are skipped, never reused.
+ * (The running number also passes over numbers freed by an import undo, so it never gives one out twice.)
+ */
 export async function takeAdmissionNo(tx: Tx, ctx: SchoolContext) {
   const year = await currentYear(tx, ctx);
   const f = await admissionFormat(tx, ctx, year?.startDate);
@@ -71,37 +75,79 @@ export async function takeAdmissionNo(tx: Tx, ctx: SchoolContext) {
   throw new StudentProblem("Could not find a free admission number. Check the format in Student Settings.", "admissionNo");
 }
 
-/** Rule: admission number unique in the school. Says whose it is, in plain words. */
-export async function admissionNoTaken(tx: Tx, admissionNo: string, exceptStudentId?: string) {
-  const other = await tx.student.findFirst({
-    where: { admissionNo: { equals: admissionNo.trim(), mode: "insensitive" }, ...(exceptStudentId ? { id: { not: exceptStudentId } } : {}) },
+/**
+ * The student holding an admission number, if any. A number freed when its
+ * import was undone (releasedAt) is held by nobody, so the corrected file can
+ * use it again; any other student keeps their number, even once archived.
+ */
+export async function admissionHolder(tx: Tx, admissionNo: string, exceptStudentId?: string) {
+  return tx.student.findFirst({
+    where: { admissionNo: { equals: admissionNo.trim(), mode: "insensitive" }, releasedAt: null, ...(exceptStudentId ? { id: { not: exceptStudentId } } : {}) },
     include: { enrolments: { where: { archivedAt: null }, orderBy: { createdAt: "desc" }, take: 1 } },
   });
+}
+
+/** Rule: admission number unique in the school. Says whose it is, in plain words. */
+export async function admissionNoTaken(tx: Tx, admissionNo: string, exceptStudentId?: string) {
+  const other = await admissionHolder(tx, admissionNo, exceptStudentId);
   if (!other) return null;
   const e = other.enrolments[0];
   const sec = e ? await tx.section.findUnique({ where: { id: e.sectionId }, include: { schoolClass: true } }) : null;
   const where = sec ? `, ${sec.schoolClass.name.replace(/^Class /, "")} ${sec.name}` : "";
-  return `Admission number ${other.admissionNo} already belongs to ${other.fullName}${where}.`;
+  return `Admission number ${other.admissionNo} already belongs to ${other.fullName}${where}${other.archivedAt ? " (archived)" : ""}.`;
 }
 
-export type DuplicateMatch = { id: string; fullName: string; admissionNo: string; why: string };
+export type DuplicateMatch = {
+  id: string; fullName: string; admissionNo: string; why: string;
+  /** The class and section this year, for showing which child it is ("5 A"). */
+  classSection: string | null;
+  /** The child's main parent, to offer "same family". */
+  primaryGuardianId: string | null;
+};
 
-/** Duplicate check (03 §2): same name and date of birth, or same name with the same guardian phone. */
-export async function findDuplicates(tx: Tx, q: { fullName: string; dateOfBirth?: Date | null; guardianPhone?: string | null; exceptId?: string }): Promise<DuplicateMatch[]> {
+/**
+ * Duplicate check (03 §2): a student already on record with the same or a
+ * similar name (another spelling, one letter apart, initials; see
+ * name-match.ts) and the same date of birth or the same parent's phone.
+ * Twins have different names, so they are never taken for one child.
+ */
+export async function findDuplicates(tx: Tx, q: { fullName: string; dateOfBirth?: Date | null; guardianPhone?: string | null; phones?: (string | null | undefined)[]; exceptId?: string }): Promise<DuplicateMatch[]> {
   const name = q.fullName.trim().replace(/\s+/g, " ");
   if (!name) return [];
-  const sameName = await tx.student.findMany({
-    where: { fullName: { equals: name, mode: "insensitive" }, archivedAt: null, ...(q.exceptId ? { id: { not: q.exceptId } } : {}) },
-    include: { guardians: { where: { archivedAt: null }, include: { guardian: true } } },
-    take: 20,
+  const phones = [...new Set([q.guardianPhone, ...(q.phones ?? [])].filter((p): p is string => Boolean(p)))];
+  const or: Prisma.StudentWhereInput[] = [];
+  if (q.dateOfBirth) or.push({ dateOfBirth: q.dateOfBirth });
+  if (phones.length) or.push({ guardians: { some: { archivedAt: null, guardian: { archivedAt: null, phone: { in: phones } } } } });
+  if (!or.length) return [];
+  const found = await tx.student.findMany({
+    where: { archivedAt: null, OR: or, ...(q.exceptId ? { id: { not: q.exceptId } } : {}) },
+    include: {
+      guardians: { where: { archivedAt: null }, include: { guardian: true }, orderBy: [{ isPrimary: "desc" }, { emergencyOrder: "asc" }] },
+      enrolments: { where: { archivedAt: null }, orderBy: { createdAt: "desc" }, take: 1 },
+    },
+    orderBy: { createdAt: "asc" },
+    take: 300,
   });
-  const out: DuplicateMatch[] = [];
-  for (const s of sameName) {
-    const sameDob = q.dateOfBirth && s.dateOfBirth && s.dateOfBirth.toISOString().slice(0, 10) === q.dateOfBirth.toISOString().slice(0, 10);
-    const samePhone = q.guardianPhone && s.guardians.some((g) => g.guardian.phone === q.guardianPhone);
-    if (sameDob || samePhone) out.push({ id: s.id, fullName: s.fullName, admissionNo: s.admissionNo, why: sameDob ? "same name and date of birth" : "same name and parent's phone" });
-  }
-  return out;
+  const day = q.dateOfBirth?.toISOString().slice(0, 10);
+  const hits = found.flatMap((s) => {
+    const like = namesAlike(name, s.fullName);
+    if (!like) return [];
+    const sameDob = Boolean(day && s.dateOfBirth && s.dateOfBirth.toISOString().slice(0, 10) === day);
+    const samePhone = s.guardians.some((g) => phones.includes(g.guardian.phone));
+    if (!sameDob && !samePhone) return [];
+    const nameWords = like === "same" ? "same name" : "similar name";
+    const why = sameDob ? `${nameWords} and date of birth` : `${nameWords} and parent's phone`;
+    return [{ s, why: like === "same" ? why : why.replace(" and ", " and same ") }];
+  });
+  const sections = hits.length ? await tx.section.findMany({ where: { id: { in: hits.map((h) => h.s.enrolments[0]?.sectionId).filter((x): x is string => Boolean(x)) } }, include: { schoolClass: true } }) : [];
+  return hits.map(({ s, why }) => {
+    const sec = sections.find((x) => x.id === s.enrolments[0]?.sectionId);
+    return {
+      id: s.id, fullName: s.fullName, admissionNo: s.admissionNo, why,
+      classSection: sec ? `${sec.schoolClass.name.replace(/^Class /, "")} ${sec.name}` : null,
+      primaryGuardianId: s.guardians[0]?.guardianId ?? null,
+    };
+  });
 }
 
 export async function nextRollNo(tx: Tx, sectionId: string, academicYearId: string) {

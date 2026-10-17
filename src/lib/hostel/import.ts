@@ -6,7 +6,7 @@
 // src/lib/import-registry.ts.
 import "server-only";
 
-import { defineImport } from "../importer";
+import { defineImport, RowProblem } from "../importer";
 import { addRoom, closeRoom } from "./rooms";
 import { HostelProblem } from "./problem";
 
@@ -43,7 +43,7 @@ defineImport<Row>({
       const k = `${hostel.id}:${roomNo}`;
       if (seen.has(k)) problems.push(`Room ${roomNo} is twice in the file for ${hostel.name}.`);
       seen.add(k);
-      const clash = await tx.hostelRoom.findFirst({ where: { hostelId: hostel.id, roomNo: { equals: roomNo, mode: "insensitive" } }, select: { id: true } });
+      const clash = await tx.hostelRoom.findFirst({ where: { hostelId: hostel.id, roomNo: { equals: roomNo, mode: "insensitive" }, releasedAt: null }, select: { id: true } });
       if (clash) problems.push(`Room ${roomNo} is already in ${hostel.name}.`);
     }
     if (problems.length) return { ok: false, problems };
@@ -51,14 +51,14 @@ defineImport<Row>({
   },
   save: async (tx, ctx, v) => {
     const h = await tx.hostel.findFirst({ where: { id: v.hostelId, archivedAt: null } });
-    if (!h) throw new Error(`${v.roomNo}: the hostel ${v.hostelName} is closed.`);
+    if (!h) throw new RowProblem(`${v.roomNo}: the hostel ${v.hostelName} is closed.`);
     const floor = h.floors.find((f) => f.toLowerCase() === v.floor.toLowerCase());
     if (!floor) await tx.hostel.update({ where: { id: h.id }, data: { floors: [...h.floors, v.floor] } });
     try {
       const room = await addRoom(tx, ctx, { hostelId: h.id, floor: floor ?? v.floor, roomNo: v.roomNo, beds: v.beds, roomType: v.roomType });
       return { id: room.id, created: true };
     } catch (err) {
-      if (err instanceof HostelProblem) throw new Error(`${v.roomNo}: ${err.message}`);
+      if (err instanceof HostelProblem) throw new RowProblem(`${v.roomNo}: ${err.message}`);
       throw err;
     }
   },
@@ -68,6 +68,8 @@ defineImport<Row>({
     for (const id of ids) {
       const r = await tx.hostelRoom.findFirst({ where: { id, archivedAt: null }, select: { id: true } });
       if (r) await closeRoom(tx, ctx, r.id, "Import undone");
+      // A room nobody ever slept in has its number free again, so the corrected file can bring it in.
+      if (r && (await tx.bedAllocation.count({ where: { roomId: id } })) === 0) await tx.hostelRoom.update({ where: { id }, data: { releasedAt: new Date() } });
     }
   },
 });

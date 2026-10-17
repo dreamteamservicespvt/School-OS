@@ -26,6 +26,27 @@ export async function loadSheet(tx: Tx, fileId: string) {
   return { file: f, ...sheet };
 }
 
+const CHOICE = /^(new|update:[0-9a-f-]{36}|family:[0-9a-f-]{36}|family-row:\d{1,6})$/i;
+
+/** The choices made for rows that may already be on record, from the page address (d_<row>=<choice>) or a form's JSON. */
+export function decisionsFrom(params: Record<string, string | undefined>): Record<number, string> {
+  const out: Record<number, string> = {};
+  for (const [k, v] of Object.entries(params)) {
+    const m = /^d_(\d{1,6})$/.exec(k);
+    if (m && v && CHOICE.test(v)) out[Number(m[1])] = v;
+  }
+  return out;
+}
+
+export function decisionsFromJson(raw: string): Record<number, string> {
+  try {
+    const o = JSON.parse(raw || "{}") as Record<string, unknown>;
+    return decisionsFrom(Object.fromEntries(Object.entries(o).map(([k, v]) => [`d_${k}`, typeof v === "string" ? v : undefined])));
+  } catch {
+    return {};
+  }
+}
+
 /** The column match from the page address (m_<column>=<index>), or the automatic one. */
 export function matchFrom(params: Record<string, string | undefined>, auto: Record<string, number>, columnKeys: string[], headerCount: number) {
   const touched = columnKeys.some((k) => params[`m_${k}`] !== undefined);

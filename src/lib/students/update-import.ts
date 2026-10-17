@@ -12,7 +12,7 @@ import { writeAudit } from "../audit";
 import { checkIndianMobile, formatDate } from "../format";
 import { splitName } from "./students";
 import { GENDERS } from "./labels";
-import { parseDate } from "./import";
+import { parseDate } from "./parse-date";
 
 export const STUDENT_UPDATE_IMPORT = "students-update";
 
@@ -127,15 +127,17 @@ const kind: ImportKind<StudentUpdate> = {
       category: s.category ?? "", religion: s.religion ?? "", motherTongue: s.motherTongue ?? "", apaarId: s.apaarId ?? "", pen: s.pen ?? "", previousSchool: s.previousSchool ?? "",
     };
     const out: StudentUpdate = { studentId: s.id, guardianId: g?.id ?? null, before: { student: {}, guardian: {} }, after: { student: {}, guardian: {} }, changes: [] };
+    // A name written in other capitals is the same name, not a change.
+    const same = (k: string, a: string, b: string) => (k === "fullName" || k === "name" ? a.toLowerCase().replace(/\s+/g, " ").trim() === b.toLowerCase() : a === b);
     for (const [k, v] of Object.entries(want.student) as [StudentField, string][]) {
-      if (current[k] === v) continue;
+      if (same(k, current[k], v)) continue;
       out.before.student[k] = current[k];
       out.after.student[k] = v;
       out.changes.push({ label: STUDENT_FIELDS[k], from: shown(k, current[k]), to: shown(k, v) });
     }
     if (g) {
       for (const [k, v] of Object.entries(want.guardian) as [GuardianField, string][]) {
-        if (g[k] === v) continue;
+        if (same(k, g[k], v)) continue;
         out.before.guardian[k] = g[k];
         out.after.guardian[k] = v;
         out.changes.push({ label: GUARDIAN_FIELDS[k], from: g[k], to: v });

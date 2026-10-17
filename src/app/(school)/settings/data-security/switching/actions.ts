@@ -17,7 +17,7 @@ import { AcademicRuleError } from "@/lib/academic/common";
 import { ParentLinkProblem, sendToFamilies } from "@/lib/parent-link/links";
 import { MessagingProblem } from "@/lib/messaging";
 import {
-  MoveInProblem, addMissingClasses, addMissingOptions, addUpload, canBring, canUndo, chooseSheet, fixRow, getFile, goLive, importFile,
+  MoveInProblem, addMissingClasses, addMissingOptions, addUpload, canBring, canUndo, chooseRow, chooseSheet, fixRow, getFile, goLive, importFile,
   kindInfo, leaveOut, liveGuardianIds, removeFile, saveExpected, setColumns, setTidy, setValues, undoFix,
 } from "@/lib/move-in/service";
 
@@ -41,13 +41,13 @@ async function run(fn: () => Promise<unknown>): Promise<string | void> {
   }
 }
 
-/** The person must reach Settings, and be allowed to add the records this file holds. */
+/** The person must reach Settings, and be allowed to add (or undo) the records this file holds in their own module. */
 async function forFile(id: string, need: "create" | "archive" = "create") {
   const { current } = await requireSettingsAction(PAGE, "view");
   if (!isId(id)) throw new MoveInProblem("This file was not found.");
   const f = await withSchool(current.ctx, (tx) => getFile(tx, id));
   if (!f) throw new MoveInProblem("This file was not found. It may have been removed.");
-  if (!(need === "create" ? canBring : canUndo)(current.permissions, f.kind)) throw new MoveInProblem(`Your role cannot ${need === "create" ? "add" : "undo"} ${kindInfo(f.kind)?.label.toLowerCase() ?? "these records"}. Ask your School Admin.`);
+  if (!(need === "create" ? canBring : canUndo)(current.permissions, f.kind, current.modulesOn)) throw new MoveInProblem(`Your role cannot ${need === "create" ? "add" : "undo"} ${kindInfo(f.kind)?.label.toLowerCase() ?? "these records"}. Ask your School Admin.`);
   return { current, file: f };
 }
 
@@ -71,7 +71,7 @@ export async function uploadAction(_prev: FormState, fd: FormData): Promise<Form
   try {
     ids = await withSchool(current.ctx, async (tx) => {
       const saved = await saveFile(tx, current.ctx, { file, purpose: "move-in", allowed: SHEET_TYPES });
-      return addUpload(tx, current.ctx, current.permissions, { fileId: saved.id, fileName: file.name, kind: kind || null });
+      return addUpload(tx, current.ctx, current.permissions, { fileId: saved.id, fileName: file.name, kind: kind || null }, current.modulesOn);
     }, { timeout: 120_000 });
   } catch (e) {
     const m = problem(e);
@@ -194,6 +194,16 @@ export async function undoFixAction(id: string, line: number): Promise<string | 
   const r = await run(async () => {
     const { current } = await forFile(id);
     await withSchool(current.ctx, (tx) => undoFix(tx, id, line));
+  });
+  if (r) return r;
+  refresh(id);
+}
+
+/** A choice for a row that may already be on record (same student, same family, a new student); "" takes it back. */
+export async function chooseRowAction(id: string, line: number, value: string): Promise<string | void> {
+  const r = await run(async () => {
+    const { current } = await forFile(id);
+    await withSchool(current.ctx, (tx) => chooseRow(tx, current.ctx, id, line, value));
   });
   if (r) return r;
   refresh(id);

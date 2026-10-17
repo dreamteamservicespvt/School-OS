@@ -4,7 +4,7 @@
 // src/lib/import-registry.ts.
 import "server-only";
 
-import { defineImport } from "../importer";
+import { defineImport, RowProblem } from "../importer";
 import { addEntry } from "./calendar";
 import { localNow } from "./jobs";
 import { EventsProblem } from "./problem";
@@ -59,7 +59,7 @@ defineImport<Row>({
       const e = await addEntry(tx, ctx, { title: v.title, type: v.type, from: v.from, to: v.to, attendanceOn: false }, { confirm: true, today });
       return { id: e.id, created: true };
     } catch (err) {
-      if (err instanceof EventsProblem) throw new Error(`${v.title}: ${err.message}`);
+      if (err instanceof EventsProblem) throw new RowProblem(`${v.title}: ${err.message}`);
       throw err;
     }
   },

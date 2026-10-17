@@ -7,6 +7,7 @@ import { requireSettingsPage } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
 import { autoMatch, importKind, previewImport } from "@/lib/importer";
 import { matchFromParams, readUploaded } from "@/lib/data-security/imports";
+import { mayImport } from "@/lib/move-in/service";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -24,7 +25,7 @@ export default async function NewImportPage({ searchParams }: Search) {
   const sp = await searchParams;
   const kind = importKind(one(sp.kind));
   const fileId = one(sp.file);
-  if (!kind || !UUID.test(fileId)) notFound();
+  if (!kind || !UUID.test(fileId) || !mayImport(current.permissions, kind.key, "create", current.modulesOn)) notFound();
   const step = one(sp.step) === "preview" ? "preview" : "match";
 
   const result = await withSchool(current.ctx, async (tx) => {
@@ -113,6 +114,7 @@ export default async function NewImportPage({ searchParams }: Search) {
                   ))}
                 </ul>
                 {result.preview.bad.length > 50 && <p className="mt-2 text-sm text-ink-2">And {result.preview.bad.length - 50} more in the download.</p>}
+                {result.preview.bad.some((b) => b.choices?.length) && <p className="mt-2 text-sm text-ink-2">Some rows may already be on record. Bring this file in from <Link href="/settings/data-security/switching" className="font-medium underline">Switching to School OS</Link> (or Student Management, Import) to choose for each row: the same student, the same family, or a new student.</p>}
               </CardBody>
             </Card>
           )}

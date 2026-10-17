@@ -190,12 +190,16 @@ model BookCopy {
   createdById     String?        @map("created_by_id") @db.Uuid
   createdAt       DateTime       @default(now()) @map("created_at")
   updatedAt       DateTime       @updatedAt @map("updated_at")
+  /// Set only when the catalogue import that added the copy is undone: the
+  /// copy stays withdrawn for the record and its accession number is free again.
+  releasedAt      DateTime?      @map("released_at")
 
   book Book @relation(fields: [bookId], references: [id])
   issues BookIssue[]
 
-  @@unique([schoolId, accessionNo])
-  @@unique([schoolId, barcode])
+  /// Accession number and barcode unique in the school among copies not
+  /// released by an import undo: partial unique indexes in the migration
+  /// 20261018100000_import_undo_frees_numbers.
   @@index([schoolId, bookId, status])
   @@map("book_copy")
 }

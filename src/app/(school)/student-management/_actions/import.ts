@@ -15,7 +15,7 @@ import { StudentProblem } from "@/lib/students/students";
 import { getStudentSettings } from "@/lib/students/settings";
 import { acceptedFixes, applyFixes } from "@/lib/students/smart-import";
 import { BASE, attempt, attemptForm, studentAction } from "../_lib/page";
-import { loadSheet } from "../import/load";
+import { decisionsFromJson, loadSheet } from "../import/load";
 
 const isId = (v: unknown): v is string => typeof v === "string" && /^[0-9a-f-]{36}$/i.test(v);
 const KINDS = STUDENT_IMPORT_KINDS;
@@ -66,14 +66,15 @@ export async function runImportAction(_prev: FormState, fd: FormData): Promise<F
       // Smart Import: only the fixes the person ticked, and only when the school has it on.
       const settings = await getStudentSettings(tx, current.ctx);
       const rows = settings.smartImportOn ? applyFixes(sheet.rows, match, acceptedFixes(String(fd.get("fix") ?? ""))) : sheet.rows;
-      const preview = await previewImport(tx, current.ctx, kind, rows, match);
+      const decisions = kindKey === STUDENT_UPDATE_IMPORT ? {} : decisionsFromJson(String(fd.get("decisions") ?? ""));
+      const preview = await previewImport(tx, current.ctx, kind, rows, match, decisions);
       if (preview.good.length === 0) throw new StudentProblem("No row is ready to import. Fix the problems shown, then upload the file again.");
       const batch = await runImport(tx, current.ctx, kind, sheet.file.fileName, preview);
       batchId = batch.id; added = batch.added; updated = batch.updated; skipped = batch.skipped;
     }, { timeout: 300_000 });
   });
   if (!r?.ok) return r;
-  const done = kindKey === STUDENT_UPDATE_IMPORT ? `${updated} ${updated === 1 ? "student" : "students"} updated.` : `${added} students imported.`;
+  const done = kindKey === STUDENT_UPDATE_IMPORT ? `${updated} ${updated === 1 ? "student" : "students"} updated.` : `${added} students imported${updated ? `, ${updated} already here updated` : ""}.`;
   await flash({ message: `${done}${skipped ? ` ${skipped} rows were skipped; download them, fix and import again.` : ""}` });
   revalidatePath(BASE);
   redirect(`${BASE}/import/${batchId}`);

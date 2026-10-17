@@ -11,6 +11,7 @@ import { DOCUMENT_TYPES, FileProblem, SHEET_TYPES, saveFile } from "@/lib/files"
 import { importKind, undoImport } from "@/lib/importer";
 import { requestDataExport } from "@/lib/data-security/data-export";
 import { startImport } from "@/lib/data-security/imports";
+import { mayImport } from "@/lib/move-in/service";
 import { PrivacyProblem, personTypesFor, requestDeletion, setRetention, DELETION_PARTS, type DeletionPart } from "@/lib/data-security/privacy";
 import { ConsentProblem, saveConsentText } from "@/lib/data-security/consent";
 import { TWO_STEP_FEATURE } from "@/lib/data-security/alerts";
@@ -47,6 +48,7 @@ export async function uploadImportFile(_prev: FormState, fd: FormData): Promise<
   const { current } = await requireSettingsAction(PAGE, "create");
   const kind = String(fd.get("kind") ?? "");
   if (!importKind(kind)) return { ok: false, message: "Choose what you are importing.", errors: { kind: "Choose what you are importing." } };
+  if (!mayImport(current.permissions, kind, "create", current.modulesOn)) return { ok: false, message: "Your role cannot add these records. Ask your School Admin.", errors: { kind: "Your role cannot add these records." }, values: { kind } };
   const file = fd.get("file");
   if (!(file instanceof File) || file.size === 0) return { ok: false, message: "Choose a CSV or Excel file to upload.", errors: { file: "Choose a CSV or Excel file to upload." }, values: { kind } };
   let id: string;
@@ -64,6 +66,7 @@ export async function startImportAction(kind: string, fileId: string, match: Rec
   const { current } = await requireSettingsAction(PAGE, "create");
   const k = importKind(kind);
   if (!k) return "This import is not known.";
+  if (!mayImport(current.permissions, kind, "create", current.modulesOn)) return "Your role cannot add these records. Ask your School Admin.";
   const missing = k.columns.filter((c) => c.required && match[c.key] === undefined).map((c) => c.label);
   if (missing.length) return `Match a column for ${missing.join(", ")} first.`;
   await withSchool(current.ctx, (tx) => startImport(tx, current.ctx, { kind, fileId, match }));
@@ -73,8 +76,14 @@ export async function startImportAction(kind: string, fileId: string, match: Rec
 
 export async function undoImportAction(batchId: string): Promise<string | void> {
   const { current } = await requireSettingsAction(PAGE, "archive");
+  if (!/^[0-9a-f-]{36}$/i.test(batchId)) return "This import was not found.";
   try {
-    await withSchool(current.ctx, (tx) => undoImport(tx, current.ctx, batchId), { timeout: 60_000 });
+    await withSchool(current.ctx, async (tx) => {
+      const batch = await tx.importBatch.findUnique({ where: { id: batchId }, select: { kind: true } });
+      if (!batch) throw new Error("This import cannot be undone: it was not found.");
+      if (!mayImport(current.permissions, batch.kind, "archive", current.modulesOn)) throw new Error("This import cannot be undone by your role. Ask your School Admin.");
+      await undoImport(tx, current.ctx, batchId);
+    }, { timeout: 60_000 });
   } catch (e) {
     return e instanceof Error && /already undone|cannot be undone/.test(e.message) ? e.message : "The import could not be undone. Nothing was changed. Try again.";
   }

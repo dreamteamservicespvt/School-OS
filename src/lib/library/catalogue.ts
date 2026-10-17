@@ -103,10 +103,13 @@ export async function takeAccessions(tx: Tx, ctx: SchoolContext, s: LibrarySetti
   return out;
 }
 
-/** Refuses accession numbers already in the school (any copy, also withdrawn ones: numbers are never reused). */
+/**
+ * Refuses accession numbers already in the school (any copy, also withdrawn ones: numbers are never reused),
+ * except those freed when the import that added them was undone (releasedAt).
+ */
 export async function assertAccessionsFree(tx: Tx, ctx: SchoolContext, s: LibrarySettings, list: string[]) {
   for (const a of list) {
-    const used = await tx.bookCopy.findFirst({ where: { OR: [{ accessionNo: { equals: a, mode: "insensitive" } }, { barcode: { equals: a, mode: "insensitive" } }] }, select: { id: true } });
+    const used = await tx.bookCopy.findFirst({ where: { releasedAt: null, OR: [{ accessionNo: { equals: a, mode: "insensitive" } }, { barcode: { equals: a, mode: "insensitive" } }] }, select: { id: true } });
     if (used) {
       const next = await nextAccessionPreview(tx, ctx, s);
       throw new LibraryProblem(`Accession ${a} already exists. The next free number in sequence is ${next}; leave the box empty to use it.`, "accessions");
@@ -218,7 +221,7 @@ export function catalogueWhere(f: CatalogueFilter): Prisma.BookWhereInput {
       { title: { contains: q, mode: "insensitive" } },
       { authorText: { contains: q, mode: "insensitive" } },
       ...(/^\d{9,13}X?$/.test(digits) ? [{ isbn: { contains: digits } }] : []),
-      { copies: { some: { OR: [{ accessionNo: { equals: q, mode: "insensitive" } }, { barcode: { equals: q, mode: "insensitive" } }] } } },
+      { copies: { some: { releasedAt: null, OR: [{ accessionNo: { equals: q, mode: "insensitive" } }, { barcode: { equals: q, mode: "insensitive" } }] } } },
     ] });
   }
   if (f.categoryId === "none") and.push({ categoryId: null });
@@ -252,5 +255,5 @@ export const shelfOf = (b: { shelf: string | null }, cat: { shelf: string | null
 export async function copyByCode(tx: Tx, raw: string) {
   const code = raw.trim();
   if (!code) return null;
-  return tx.bookCopy.findFirst({ where: { OR: [{ accessionNo: { equals: code, mode: "insensitive" } }, { barcode: { equals: code, mode: "insensitive" } }] }, include: { book: true } });
+  return tx.bookCopy.findFirst({ where: { releasedAt: null, OR: [{ accessionNo: { equals: code, mode: "insensitive" } }, { barcode: { equals: code, mode: "insensitive" } }] }, include: { book: true } });
 }

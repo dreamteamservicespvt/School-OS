@@ -3,6 +3,7 @@ import Link from "next/link";
 import { requireSettingsPage } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
 import { can } from "@/lib/permissions";
+import { findModule } from "@/lib/modules";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { canBring, canUndo, goLiveSummary, kindInfo, moveInKinds, settleImports } from "@/lib/move-in/service";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
@@ -18,13 +19,22 @@ export const metadata: Metadata = { title: "Switching to School OS · Data Backu
 
 const BASE = "/settings/data-security/switching";
 
-/** Records that come in with modules still being built (workflow 15, steps 5 to 8). */
-const LATER = [
-  { label: "Old dues and this year's receipts", module: "Fee Management", about: "Each student's unpaid amount from before, and payments already made this year, kept read-only as Brought in." },
-  { label: "Opening cash and bank balances", module: "Finance Management", about: "The cash book and each bank account on the go-live date." },
-  { label: "Open enquiries", module: "Admission Management", about: "Families still deciding, with their follow-up dates." },
-  { label: "Items, assets and library books", module: "Inventory and Library Management", about: "When those modules are switched on." },
+/**
+ * Steps of workflow 15 that are typed on a screen, not brought in from a file:
+ * they sit between the imports, in the order the school does them.
+ */
+const SCREEN_STEPS = [
+  { key: "fee-structures", order: 5, title: "Set this year's fee structures", module: "fee-management" as const, href: "/fee-management/structure", button: "Open Fee Structure", about: "The Accountant sets each class's fees for this year before bringing in old dues, so dues and receipts land on the right fee heads." },
+  { key: "opening-balances", order: 8, title: "Opening cash and bank balances", module: "finance-management" as const, href: "/finance-management/cash-bank", button: "Open Cash & Bank", about: "The Accountant enters the cash book and each bank account on the go-live date, and the financial year (April to March unless changed)." },
 ];
+
+/** Where each import also has its own page in its module, for people who do not use Settings (the Accountant). */
+const MODULE_PAGE: Record<string, string> = {
+  "fee-old-dues": "/fee-management/ledger/import?kind=fee-old-dues",
+  "fee-past-receipts": "/fee-management/ledger/import?kind=fee-past-receipts",
+  "finance-past-expenses": "/finance-management/expenses/import",
+  "calendar-holidays": "/events-calendar/import",
+};
 
 type Search = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -39,17 +49,33 @@ export default async function SwitchingPage({ searchParams }: Search) {
     const [files, summary, counts] = await Promise.all([
       tx.moveInFile.findMany({ where: { archivedAt: null }, orderBy: { createdAt: "desc" }, take: 100 }),
       goLiveSummary(tx, current.ctx),
-      Promise.all([tx.department.count({ where: { archivedAt: null } })]),
+      Promise.all([
+        tx.department.count({ where: { archivedAt: null } }),
+        tx.studentFeeDue.count({ where: { broughtIn: true, kind: "OLD_DUES", state: { not: "REMOVED" } } }),
+        tx.payment.count({ where: { broughtIn: true, status: { not: "CANCELLED" } } }),
+        tx.expense.count({ where: { broughtIn: true, status: { not: "CANCELLED" } } }),
+        tx.feeStructure.count({ where: { archivedAt: null } }),
+        tx.openingBalance.count({ where: { archivedAt: null, kind: { not: "STUDENT_DUES" } } }),
+      ]),
     ]);
     const batches = await tx.importBatch.findMany({ where: { id: { in: files.map((f) => f.batchId).filter((x): x is string => Boolean(x)) } } });
-    return { files, summary, departments: counts[0], batches: new Map(batches.map((b) => [b.id, b])) };
+    return { files, summary, counts, batches: new Map(batches.map((b) => [b.id, b])) };
   });
   const { files, summary } = data;
-  const kinds = moveInKinds();
-  const mine = kinds.filter((k) => canBring(current.permissions, k.key));
+  const kinds = moveInKinds(current.modulesOn);
+  const mine = kinds.filter((k) => canBring(current.permissions, k.key, current.modulesOn));
   const importing = files.some((f) => f.status === "importing");
   const live = summary.plan?.wentLiveAt;
-  const have: Record<string, number> = { departments: data.departments, staff: summary.staff, students: summary.students };
+  const [departments, oldDues, receipts, expenses, structures, openings] = data.counts;
+  const have: Record<string, number> = {
+    departments, staff: summary.staff, students: summary.students, "fee-old-dues": oldDues, "fee-past-receipts": receipts, "finance-past-expenses": expenses,
+    "fee-structures": structures, "opening-balances": openings,
+  };
+  // The steps after setting up the year: each import, and the steps typed on a screen, in workflow 15 order.
+  const steps = [
+    ...kinds.map((k) => ({ kind: k, screen: null, order: k.order })),
+    ...SCREEN_STEPS.map((s) => ({ kind: null, screen: s, order: s.order })),
+  ].sort((a, b) => a.order - b.order);
   const setUp = Boolean(summary.year && summary.classes.length);
   const sectionCount = summary.classes.reduce((n, c) => n + c.sections.length, 0);
 
@@ -72,25 +98,24 @@ export default async function SwitchingPage({ searchParams }: Search) {
                 about="School profile, the current academic year, classes, sections and subjects. Students are matched to these.">
                 <ButtonLink href="/academic-management" size="sm">{setUp ? "Open Academic Management" : "Set up classes"}</ButtonLink>
               </Step>
-              {kinds.map((k, i) => (
+              {steps.map(({ kind: k, screen: s }, i) => k ? (
                 <Step key={k.key} n={i + 2} title={k.label} done={(have[k.key] ?? 0) > 0}
                   status={have[k.key] !== undefined ? `${have[k.key]} in School OS` : undefined} about={k.about}>
-                  {canBring(current.permissions, k.key) && <ButtonLink href={`${BASE}?kind=${k.key}#bring-in`} size="sm">Bring in</ButtonLink>}
+                  {canBring(current.permissions, k.key, current.modulesOn) && <ButtonLink href={`${BASE}?kind=${k.key}#bring-in`} size="sm">Bring in</ButtonLink>}
                   <a href={`${BASE}/template/${k.key}`} className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-brand-text hover:bg-surface-2">Ready Excel sheet</a>
+                  {MODULE_PAGE[k.key] && <span className="text-sm text-ink-2">Also on {findModule(k.module)?.name ?? "its module"}, for the person who does it.</span>}
+                </Step>
+              ) : s && (
+                <Step key={s.key} n={i + 2} title={s.title} done={(have[s.key] ?? 0) > 0} about={s.about}>
+                  {can(current.permissions, s.module, "view") && <ButtonLink href={s.href} size="sm">{s.button}</ButtonLink>}
                 </Step>
               ))}
-              <Step n={kinds.length + 2} title="Check and go live" done={Boolean(live)}
+              <Step n={steps.length + 2} title="Check and go live" done={Boolean(live)}
                 status={live ? `Live since ${formatDate(summary.plan!.goLiveDate ?? live, tz)}` : "Compare the totals with your old software, then go live"}
                 about="Students per class, staff and parents, beside what your old software says. The Principal confirms going live.">
                 <ButtonLink href={`${BASE}/check`} size="sm" variant={live ? "secondary" : "primary"}>Open the go-live check</ButtonLink>
               </Step>
             </ol>
-            <div className="border-t border-line px-5 py-4">
-              <h3 className="font-medium">Coming with the next modules</h3>
-              <ul className="mt-2 space-y-2 text-sm text-ink-2">
-                {LATER.map((l) => <li key={l.label}><span className="font-medium text-ink">{l.label}</span> ({l.module}): {l.about}</li>)}
-              </ul>
-            </div>
           </CardBody>
         </Card>
 
@@ -129,9 +154,9 @@ export default async function SwitchingPage({ searchParams }: Search) {
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <FileStatus status={f.status} undone={Boolean(batch?.undoneAt)} />
-                  {f.status !== "importing" && canBring(current.permissions, f.kind) && <RemoveFileButton id={f.id} imported={f.status === "imported"} />}
-                  {f.status === "imported" && batch && !batch.undoneAt && canUndo(current.permissions, f.kind) && <ButtonLink href={`${BASE}/${f.id}`} size="sm">See result</ButtonLink>}
-                  {f.status === "open" && canBring(current.permissions, f.kind) && <ButtonLink href={`${BASE}/${f.id}`} size="sm" variant="primary">Continue</ButtonLink>}
+                  {f.status !== "importing" && canBring(current.permissions, f.kind, current.modulesOn) && <RemoveFileButton id={f.id} imported={f.status === "imported"} />}
+                  {f.status === "imported" && batch && !batch.undoneAt && canUndo(current.permissions, f.kind, current.modulesOn) && <ButtonLink href={`${BASE}/${f.id}`} size="sm">See result</ButtonLink>}
+                  {f.status === "open" && canBring(current.permissions, f.kind, current.modulesOn) && <ButtonLink href={`${BASE}/${f.id}`} size="sm" variant="primary">Continue</ButtonLink>}
                 </div>
               </li>
             );

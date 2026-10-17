@@ -24,6 +24,7 @@ import { createSession, findSession, mayResetWithoutOld, NEW_PASSWORD_AFTER_CODE
 import { roleNeedsTwoStep, TWO_STEP_FEATURE, verifyChallenge, type Deliver } from "@/lib/auth/two-step";
 import { verifyPassword } from "@/lib/auth/password";
 import { NEW_SCHOOL_TWO_STEP_FEATURE } from "@/lib/schools";
+import { chosenCopyChannels } from "@/lib/notification-channels";
 import { makeSchool, makeUser, noSleep, PASSWORD } from "../helpers";
 
 const { changePassword } = await import("@/app/(school)/actions");
@@ -260,6 +261,16 @@ describe("a sign-in from a new device", () => {
     await createSession(teacher.id, school.id, { userAgent: ua });
     await completeSignIn(teacher.id, school.id, { userAgent: ua, deviceId: "phone-device-0123456789abcdef" });
     expect(await securityNotes(school.id, teacher.id)).toHaveLength(0);
+  });
+
+  it("security alerts go by email too unless the person chose otherwise; other kinds follow what was ticked", () => {
+    expect(chosenCopyChannels({}, "security")).toEqual(["email"]);
+    expect(chosenCopyChannels({}, "privacy")).toEqual(["email"]);
+    expect(chosenCopyChannels({ security: ["app", "whatsapp"] }, "security")).toEqual(["whatsapp"]);
+    expect(chosenCopyChannels({}, "notice")).toEqual([]);
+    // A choice ticked in My profile is saved under the kind ("notices"), not the type ("notice").
+    expect(chosenCopyChannels({ notices: ["app", "email"] }, "notice")).toEqual(["email"]);
+    expect(chosenCopyChannels({ "leave-decided": ["app", "sms"] }, "leave-decided")).toEqual(["sms"]);
   });
 
   it("a changed password is told to the person too", async () => {

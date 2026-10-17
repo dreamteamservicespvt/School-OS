@@ -9,25 +9,26 @@
 import "server-only";
 
 import type { SchoolContext, Tx } from "./db";
-import { NOTE_KINDS, channelsForType } from "./notification-kinds";
+import { NOTE_KINDS } from "./notification-kinds";
 
 export const COPY_CHANNELS = ["whatsapp", "sms", "email"] as const;
 export type NotificationCopyChannel = (typeof COPY_CHANNELS)[number];
 
+function savedChoice(prefs: unknown, key: string | undefined): unknown[] | null {
+  if (!key || !prefs || typeof prefs !== "object") return null;
+  const list = (prefs as Record<string, unknown>)[key];
+  return Array.isArray(list) ? list : null;
+}
+
 /**
- * The extra channels one person chose for one notification type. A type that
- * belongs to a kind in My profile follows that kind's choice, or its default
- * when the person has not chosen (Security alerts: email). Any other type
- * follows a choice saved under its own name.
+ * The extra channels one person chose for one notification type: what they
+ * ticked in My profile for the kind the type belongs to, or a choice saved
+ * under the type's own name. Security alerts, which cannot be switched off,
+ * go by email too unless the person chose otherwise (00-global.md §4, rule 7).
  */
 export function chosenCopyChannels(prefs: unknown, type: string): NotificationCopyChannel[] {
-  if (NOTE_KINDS.some((k) => k.types.includes(type))) {
-    const list = channelsForType(prefs, type);
-    return COPY_CHANNELS.filter((c) => list.includes(c));
-  }
-  if (!prefs || typeof prefs !== "object") return [];
-  const list = (prefs as Record<string, unknown>)[type];
-  if (!Array.isArray(list)) return [];
+  const kind = NOTE_KINDS.find((k) => k.types.includes(type));
+  const list = savedChoice(prefs, kind?.key) ?? savedChoice(prefs, type) ?? (kind?.key === "security" ? kind.defaults : []);
   return COPY_CHANNELS.filter((c) => list.includes(c));
 }
 

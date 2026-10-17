@@ -13,11 +13,12 @@ import { renderDocument, type DocumentData } from "../documents";
 import { currentDesign } from "../documents/designs";
 import type { TableColumn } from "../documents/types";
 import { ExamRuleError, examKey, finalKey, parsePeriod, patternLabel, showMarks, showPercent, type Period } from "./common";
-import type { SubjectResult } from "./compute";
+import { round2, type SubjectResult } from "./compute";
+import { bandFor, readBands } from "./grades";
 import { examSettings, reportBaseFor } from "./settings";
 import { sectionStudents } from "./roster";
 import { sectionInfo } from "./results";
-import { periodsForClass, refreshReportCards, type PeriodOption } from "./report-status";
+import { cardReady, neededKeys, periodsForClass, refreshReportCards, type PeriodOption } from "./report-status";
 import { attendanceFor } from "./attendance";
 // Attendance Management's register is the source of report card attendance.
 import "../attendance/report-card-source";
@@ -47,21 +48,25 @@ export async function reportBoard(tx: Tx, ctx: SchoolContext, sectionId: string,
   if (!option) return null;
   await refreshReportCards(tx, ctx, section.academicYearId, [sectionId]);
   const f = await features(tx, ctx);
-  const [students, cards, areas, grades, results] = await Promise.all([
-    sectionStudents(tx, [sectionId], section.academicYearId),
-    tx.reportCard.findMany({ where: { sectionId, period: option.key } }),
+  const students = await sectionStudents(tx, [sectionId], section.academicYearId);
+  const ids = students.map((s) => s.studentId);
+  // Found by student: report cards and results follow a student who changed section (G23).
+  const [cards, areas, grades, results] = await Promise.all([
+    tx.reportCard.findMany({ where: { studentId: { in: ids }, academicYearId: section.academicYearId, period: option.key } }),
     f.coScholastic ? tx.coScholasticArea.findMany({ where: { archivedAt: null }, orderBy: { sortOrder: "asc" } }) : Promise.resolve([]),
     f.coScholastic ? tx.coScholasticGrade.findMany({ where: { period: option.key, academicYearId: section.academicYearId } }) : Promise.resolve([]),
-    tx.result.findMany({ where: { sectionId, key: { in: option.resultKeys } } }),
+    tx.result.findMany({ where: { studentId: { in: ids }, key: { in: option.resultKeys } } }),
   ]);
-  const attendance = await attendanceFor(tx, ctx, students.map((s) => s.studentId), await periodDates(tx, option, section.academicYearId));
+  const attendance = await attendanceFor(tx, ctx, ids, await periodDates(tx, option, section.academicYearId));
   const rows = students.map((s) => {
     const card = cards.find((c) => c.studentId === s.studentId);
     const mine = results.filter((r) => r.studentId === s.studentId);
-    const needed = option.period.kind === "year" ? option.resultKeys.filter((k) => k.startsWith("final:")) : option.resultKeys;
+    const needed = neededKeys(option);
     const missing: string[] = [];
-    const unpublished = needed.filter((k) => !mine.some((r) => r.key === k && r.status === "PUBLISHED"));
-    if (unpublished.length) missing.push(mine.some((r) => needed.includes(r.key) && !r.complete) || mine.length < needed.length ? "Marks" : "Result not published");
+    const ready = cardReady(needed, mine);
+    const leftOut = !ready && needed.every((k) => mine.some((r) => r.key === k && r.leftOut));
+    if (leftOut) missing.push(option.period.kind === "exam" ? "Joined after this exam" : "Joined after these exams");
+    else if (!ready) missing.push(mine.some((r) => needed.includes(r.key) && !r.complete && !r.leftOut) || mine.length < needed.length ? "Marks" : "Result not published");
     if (!card?.classTeacherRemark) missing.push("Class teacher remark");
     if (!card?.principalRemark) missing.push("Principal remark");
     if (f.coScholastic && areas.some((a) => !grades.some((g) => g.studentId === s.studentId && g.areaId === a.id && g.grade))) missing.push("Co-scholastic grades");
@@ -71,7 +76,7 @@ export async function reportBoard(tx: Tx, ctx: SchoolContext, sectionId: string,
       ...s, cardId: card?.id ?? null, status: card?.status ?? "NOT_READY", classTeacherRemark: card?.classTeacherRemark ?? "", principalRemark: card?.principalRemark ?? "",
       attendancePresent: att?.present ?? card?.attendancePresent ?? null, attendanceWorking: att?.working ?? card?.attendanceWorking ?? null, attendanceFromRegister: Boolean(att),
       missing, printedAt: card?.printedAt ?? null, sentAt: card?.sentAt ?? null,
-      published: unpublished.length === 0,
+      published: ready, leftOut,
     };
   });
   return { section, option, rows, areas, grades, features: f };
@@ -201,7 +206,7 @@ export async function saveCompetencyLevels(tx: Tx, ctx: SchoolContext, scope: Ex
 export async function draftRemarks(tx: Tx, ctx: SchoolContext, sectionId: string, periodKey: string) {
   const board = await reportBoard(tx, ctx, sectionId, periodKey);
   if (!board) return [];
-  const results = await tx.result.findMany({ where: { sectionId, key: { in: board.option.resultKeys } } });
+  const results = await tx.result.findMany({ where: { studentId: { in: board.rows.map((r) => r.studentId) }, key: { in: board.option.resultKeys } } });
   return board.rows.map((s) => {
     const mine = results.filter((r) => r.studentId === s.studentId && r.complete);
     if (mine.length === 0) return { studentId: s.studentId, text: null as string | null, why: "No complete marks yet, so there is nothing to draft from." };
@@ -234,8 +239,9 @@ export async function markCards(tx: Tx, ctx: SchoolContext, scope: ExamScope, in
   const section = await sectionInfo(tx, input.sectionId);
   if (!writesReportCards(scope, input.sectionId)) throw new ExamRuleError(`Only the class teacher of ${section.label}, the Exam In-charge or the Principal can do this.`);
   const now = new Date();
+  const onRoll = (await sectionStudents(tx, [input.sectionId], section.academicYearId)).map((x) => x.studentId);
   const changed = await tx.reportCard.updateMany({
-    where: { sectionId: input.sectionId, period: input.period, studentId: { in: input.studentIds }, status: { not: "NOT_READY" } },
+    where: { academicYearId: section.academicYearId, period: input.period, studentId: { in: input.studentIds.filter((id) => onRoll.includes(id)) }, status: { not: "NOT_READY" } },
     data: input.as === "PRINTED" ? { status: "PRINTED", printedAt: now } : { status: "SENT", sentAt: now },
   });
   if (changed.count) await writeAudit(tx, ctx, { action: input.as === "PRINTED" ? "report-cards-printed" : "report-cards-sent", recordType: "Report Card", recordId: `${input.sectionId}:${input.period}`, after: { count: changed.count } });
@@ -278,22 +284,34 @@ export async function reportCardData(tx: Tx, ctx: SchoolContext, studentId: stri
   const present = att?.present ?? card?.attendancePresent ?? null;
   const working = att?.working ?? card?.attendanceWorking ?? null;
 
-  const resultOf = (examId: string) => results.find((r) => r.key === examKey(examId));
-  const final = results.find((r) => r.key === finalKey(section.academicYearId));
-  const headline = option.period.kind === "exam" ? resultOf(option.examIds[0]) : option.period.kind === "year" ? final : null;
+  const resultOf = (examId: string) => results.find((r) => r.key === examKey(examId) && !r.leftOut);
+  const final = results.find((r) => r.key === finalKey(section.academicYearId) && !r.leftOut);
+  const termResults = option.period.kind === "term" ? option.examIds.map(resultOf).filter((r): r is NonNullable<typeof r> => Boolean(r)) : [];
+  const headline = option.period.kind === "exam" ? resultOf(option.examIds[0]) : option.period.kind === "year" ? final : termHeadline(termResults);
   const pattern = exams[0]?.pattern ?? "PERCENTAGE";
+  // GPA and CGPA (Exam Settings): grade points shown whatever the pattern; CGPA for the year.
+  const pointsOn = pattern === "CGPA" || settings.gpaOn;
 
   let columns: TableColumn[];
   let rows: Record<string, string>[];
   if (option.period.kind === "exam") {
     const r = resultOf(option.examIds[0]);
     const subjects = (r?.subjects ?? []) as unknown as SubjectResult[];
-    const showMarksCol = pattern !== "GRADING";
-    columns = [{ key: "subject", label: "Subject" }, ...(showMarksCol ? [{ key: "max", label: "Max marks", align: "right" as const }, { key: "marks", label: "Marks", align: "right" as const }] : []), { key: "grade", label: "Grade", align: "center" }, ...(pattern === "CGPA" ? [{ key: "points", label: "Points", align: "right" as const }] : [])];
-    rows = subjects.map((s) => ({
-      subject: s.parts && Object.keys(s.parts).length > 1 ? `${s.name} (${Object.entries(s.parts).map(([k, v]) => `${k} ${showMarks(v)}`).join(", ")})` : s.name,
-      max: s.gradeOnly ? "" : String(s.max), marks: s.absent ? (s.medical ? "ML" : "AB") : s.gradeOnly ? "" : showMarks(s.marks), grade: s.grade ?? "", points: s.points === null ? "" : String(s.points),
-    }));
+    // A datesheet can set a subject's own pattern (08 §2): Grading shows only its grade, CGPA its points.
+    const entries = await tx.datesheetEntry.findMany({ where: { examId: option.examIds[0], classId: section.classId, archivedAt: null }, select: { subjectId: true, pattern: true } });
+    const patternOf = (subjectId: string) => entries.find((e) => e.subjectId === subjectId)?.pattern ?? pattern;
+    const showMarksCol = subjects.some((s) => !s.gradeOnly && patternOf(s.subjectId) !== "GRADING");
+    const showPoints = pointsOn || subjects.some((s) => patternOf(s.subjectId) === "CGPA");
+    columns = [{ key: "subject", label: "Subject" }, ...(showMarksCol ? [{ key: "max", label: "Max marks", align: "right" as const }, { key: "marks", label: "Marks", align: "right" as const }] : []), { key: "grade", label: "Grade", align: "center" }, ...(showPoints ? [{ key: "points", label: "Points", align: "right" as const }] : [])];
+    rows = subjects.map((s) => {
+      const own = patternOf(s.subjectId);
+      const marksShown = !s.gradeOnly && own !== "GRADING";
+      return {
+        subject: marksShown && s.parts && Object.keys(s.parts).length > 1 ? `${s.name} (${Object.entries(s.parts).map(([k, v]) => `${k} ${showMarks(v)}`).join(", ")})` : s.name,
+        max: marksShown ? String(s.max) : "", marks: s.absent ? (s.medical ? "ML" : "AB") : marksShown ? showMarks(s.marks) : "", grade: s.grade ?? "",
+        points: s.points === null || !(pointsOn || own === "CGPA") ? "" : String(s.points),
+      };
+    });
   } else {
     columns = [{ key: "subject", label: "Subject" }, ...exams.map((e) => ({ key: e.id, label: e.title, align: "right" as const })), ...(option.period.kind === "year" ? [{ key: "final", label: "Final %", align: "right" as const }] : []), { key: "grade", label: "Grade", align: "center" }];
     const names = new Map<string, string>();
@@ -347,7 +365,7 @@ export async function reportCardData(tx: Tx, ctx: SchoolContext, studentId: stri
       class_teacher: classTeacher?.fullName ?? "",
       remarks: card?.classTeacherRemark ?? "",
       principal_remarks: card?.principalRemark ?? "",
-      ...(pattern === "CGPA" && headline?.points !== null && headline?.points !== undefined ? { overall_grade: `${headline.grade ?? ""} (CGPA ${headline.points.toFixed(1)})` } : {}),
+      ...(pointsOn && headline?.points !== null && headline?.points !== undefined ? { overall_grade: `${headline.grade ?? ""} (${pattern === "CGPA" || option.period.kind === "year" ? "CGPA" : "GPA"} ${headline.points.toFixed(1)})` } : {}),
     },
     rows, columns, extraTables, photoFileId: st.photoFileId, campusId: st.campusId,
     verifyText: `${st.admissionNo} ${option.label} ${year.name}`,
@@ -355,22 +373,48 @@ export async function reportCardData(tx: Tx, ctx: SchoolContext, studentId: stri
   return { data, board: section.board, label: `${st.fullName}, ${option.label}`, pattern: patternLabel(pattern) };
 }
 
-/** Renders report cards as one PDF in the board's format (08 Done when 10 and 12). */
-export async function renderReportCards(tx: Tx, ctx: SchoolContext, items: { studentId: string; sectionId: string }[], periodKey: string) {
-  if (items.length === 0) throw new ExamRuleError("There are no report cards to print.");
+/**
+ * The report card format for a class's board (Exam Settings, Different
+ * boards): null means the school's own report card design.
+ */
+export async function reportFormatFor(tx: Tx, ctx: SchoolContext, classBoard: string | null) {
   const f = await features(tx, ctx);
   const settings = await examSettings(tx, ctx);
   const school = await tx.school.findUnique({ where: { id: ctx.schoolId }, select: { board: true } });
+  return reportBaseFor(settings, classBoard ?? school?.board ?? null, f.boards) as "classic" | "modern" | "cbse" | null;
+}
+
+/** Renders report cards as one PDF in the board's format (08 Done when 10 and 12). */
+export async function renderReportCards(tx: Tx, ctx: SchoolContext, items: { studentId: string; sectionId: string }[], periodKey: string) {
+  if (items.length === 0) throw new ExamRuleError("There are no report cards to print.");
   const datas: DocumentData[] = [];
   let board: string | null = null;
   for (const it of items) {
     const d = await reportCardData(tx, ctx, it.studentId, it.sectionId, periodKey);
     datas.push(d.data);
-    board = d.board ?? school?.board ?? null;
+    board = d.board;
   }
-  const base = reportBaseFor(settings, board, f.boards);
+  const base = await reportFormatFor(tx, ctx, board);
   const design = base ? await currentDesign(tx, "report-card") : null;
-  return renderDocument(tx, ctx, "report-card", datas, design && base ? { design: { base: base as "classic" | "modern" | "cbse", options: design.options } } : {});
+  return renderDocument(tx, ctx, "report-card", datas, design && base ? { design: { base, options: design.options } } : {});
+}
+
+/**
+ * A term report card's totals (08 §2 Report Cards): the term's exams added
+ * up, the percentage of all their marks, the grade from the bands the results
+ * were published with, and Pass only when every exam of the term is passed.
+ */
+export function termHeadline(rows: { total: number; maxTotal: number; percent: number | null; points: number | null; outcome: string | null; complete: boolean; scale: unknown }[]) {
+  if (rows.length === 0) return null;
+  const total = round2(rows.reduce((a, r) => a + r.total, 0));
+  const maxTotal = rows.reduce((a, r) => a + r.maxTotal, 0);
+  const percent = maxTotal > 0 ? round2((total / maxTotal) * 100) : null;
+  const scale = rows.find((r) => r.scale)?.scale;
+  const band = percent === null || !scale ? null : bandFor(percent, readBands(scale));
+  const pts = rows.map((r) => r.points).filter((p): p is number => p !== null);
+  const complete = rows.every((r) => r.complete);
+  const outcome = !complete ? null : rows.some((r) => r.outcome === "Fail") ? "Fail" : rows.some((r) => r.outcome === "Compartment") ? "Compartment" : rows.every((r) => r.outcome === "Pass") ? "Pass" : null;
+  return { total, maxTotal, percent, grade: band?.grade ?? null, points: pts.length ? round2(pts.reduce((a, b) => a + b, 0) / pts.length) : null, rank: null as number | null, outcome };
 }
 
 export function periodWords(p: Period) {

@@ -30,6 +30,8 @@ export type CancelInput = { reason: string; note: string | null; bounceChargePai
  * Returns whether it is cancelled now or waiting.
  */
 export async function cancelPayment(tx: Tx, ctx: SchoolContext, paymentId: string, input: CancelInput) {
+  // DREAM TEAM support access can never cancel a payment (07-super-admin.md §3.4).
+  if (ctx.support) throw new MoneyProblem("DREAM TEAM support access cannot cancel payments. Ask the school’s accountant.");
   if (!input.reason) throw new MoneyProblem("Choose the reason for cancelling.", "reason");
   if (input.reason === "Other" && (!input.note || input.note.length < 5)) throw new MoneyProblem("Say what happened in the note (at least 5 characters).", "note");
   const p = await tx.payment.findFirst({ where: { id: paymentId } });

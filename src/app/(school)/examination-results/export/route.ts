@@ -122,7 +122,7 @@ async function build(tx: Tx, current: Current, scope: ExamScope, yearId: string,
       const labels = ["Roll", "Student", "Admission no", ...sheet.columns.map((c) => c.gradeOnly ? c.name : `${c.name} (${c.max})`), ...overall, "Status"];
       const rows = sheet.rows.map((r) => {
         const row: Row = only === null
-          ? { Roll: r.rollNo, Student: r.name, "Admission no": r.admissionNo, Total: `${showMarks(r.total)} / ${r.maxTotal}`, "%": r.percent, Grade: r.grade ?? "", Rank: r.rank, Result: r.outcome ?? "", Status: r.status === "PUBLISHED" ? "Published" : "Draft" }
+          ? { Roll: r.rollNo, Student: r.name, "Admission no": r.admissionNo, Total: `${showMarks(r.total)} / ${r.maxTotal}`, "%": r.percent, Grade: r.grade ?? "", Rank: r.rank, Result: r.leftOut ? "Joined after this exam" : r.outcome ?? "", Status: r.status === "PUBLISHED" ? "Published" : "Draft" }
           : { Roll: r.rollNo, Student: r.name, "Admission no": r.admissionNo, Status: r.status === "PUBLISHED" ? "Published" : "Draft" };
         for (const c of sheet.columns) {
           const cell = r.cells[c.id];
@@ -136,7 +136,7 @@ async function build(tx: Tx, current: Current, scope: ExamScope, yearId: string,
     const f = await finalSheet(tx, current.ctx, yearId, sectionId);
     const labels = ["Roll", "Student", "Admission no", ...f.exams.map((e) => `${e.title} %`), "Final %", "Grade", "Rank", "Result"];
     const rows = f.rows.map((r) => {
-      const row: Row = { Roll: r.rollNo, Student: r.name, "Admission no": r.admissionNo, "Final %": r.percent, Grade: r.grade ?? "", Rank: r.rank, Result: r.outcome ?? "" };
+      const row: Row = { Roll: r.rollNo, Student: r.name, "Admission no": r.admissionNo, "Final %": r.percent, Grade: r.grade ?? "", Rank: r.rank, Result: r.leftOut ? "Joined after the exams" : r.outcome ?? "" };
       for (const e of f.exams) row[`${e.title} %`] = r.exams[e.id]?.percent ?? null;
       return row;
     });

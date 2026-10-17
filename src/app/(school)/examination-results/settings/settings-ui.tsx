@@ -12,8 +12,11 @@ import { cx } from "@/components/ui/cx";
 import { checkBands, type Band } from "@/lib/exams/grades";
 import { ActionSheet } from "../_components/sheets";
 import {
-  addListItemAction, archiveAreaAction, archiveListItemAction, archiveScaleAction, importPresetAction, saveAreaForm, saveRulesForm, saveScaleAction, saveWeightsAction, setFeatureAction,
+  addListItemAction, archiveAreaAction, archiveCompetencyAction, archiveListItemAction, archiveScaleAction, importPresetAction, saveAreaForm, saveBoardsAction, saveClassPatternsAction,
+  saveCompetencyForm, saveRulesForm, saveScaleAction, saveWeightsAction, setFeatureAction,
 } from "./actions";
+
+type Option = { value: string; label: string; help?: string };
 
 type Msg = { ok: boolean; text: string } | null;
 
@@ -216,6 +219,7 @@ export function WeightsEditor({ types, weights, canEdit }: { types: { id: string
 export type RulesValues = {
   ranksOn: boolean; tieRule: string; passPercentSubject: number; passPercentOverall: number; graceMarks: number; compartmentSubjects: number; absentRule: string;
   gradeOnlyGrades: string[]; publishRoles: string[]; marksDueDays: number; reminderDaysBefore: number; gpaOn: boolean; defaultScaleId: string | null;
+  lateMarks: string; lateJoinRule: string;
 };
 
 function Row({ title, sub, htmlFor, children }: { title: string; sub?: string; htmlFor?: string; children: React.ReactNode }) {
@@ -239,10 +243,12 @@ function Num({ name, value, min, max, suffix, disabled }: { name: string; value:
   );
 }
 
-export function RulesForm({ v, scales, roles, canEdit }: { v: RulesValues; scales: { id: string; name: string }[]; roles: { key: string; name: string }[]; canEdit: boolean }) {
+export function RulesForm({ v, scales, roles, canEdit, lateMarks, lateJoin }: { v: RulesValues; scales: { id: string; name: string }[]; roles: { key: string; name: string }[]; canEdit: boolean; lateMarks: Option[]; lateJoin: Option[] }) {
   const { pending, msg, run } = useRun();
   const [ranks, setRanks] = useState(v.ranksOn);
   const [gpa, setGpa] = useState(v.gpaOn);
+  const [late, setLate] = useState(v.lateMarks);
+  const [missed, setMissed] = useState(v.lateJoinRule);
   const sel = cx(inputCls(), "!h-10 w-auto min-w-48");
   return (
     <form className="px-5 pb-4" onSubmit={(e) => { e.preventDefault(); const fd = new FormData(e.currentTarget); run(() => saveRulesForm(fd), "Exam rules saved."); }}>
@@ -261,8 +267,17 @@ export function RulesForm({ v, scales, roles, canEdit }: { v: RulesValues; scale
         <Row title="Tie rule" htmlFor="r-tieRule">
           <select id="r-tieRule" name="tieRule" defaultValue={v.tieRule} className={sel}><option value="skip">Same rank, next rank skipped (1, 1, 3)</option><option value="dense">Same rank, next rank follows (1, 1, 2)</option></select>
         </Row>
-        <Row title="GPA and CGPA" sub="Worked out from the grade points">
+        <Row title="GPA and CGPA" sub="Grade points on report cards: GPA for an exam or term, CGPA for the year">
           <Switch label="GPA and CGPA" name="gpaOn" on={gpa} onChange={setGpa} disabled={!canEdit} />
+        </Row>
+
+        <h3 className="mt-5 text-[12px] font-semibold uppercase tracking-wide text-ink3">Late joiners</h3>
+        <p className="text-[12.5px] text-ink3">A student who joins after an exam&apos;s marks are in shows as &quot;Joined after this exam&quot;. They never stop the class&apos;s results from being published.</p>
+        <Row title="Their marks" sub={lateMarks.find((o) => o.value === late)?.help} htmlFor="r-lateMarks">
+          <select id="r-lateMarks" name="lateMarks" value={late} onChange={(e) => setLate(e.target.value)} className={sel}>{lateMarks.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select>
+        </Row>
+        <Row title="An exam they missed, in the final result" sub={lateJoin.find((o) => o.value === missed)?.help} htmlFor="r-lateJoinRule">
+          <select id="r-lateJoinRule" name="lateJoinRule" value={missed} onChange={(e) => setMissed(e.target.value)} className={sel}>{lateJoin.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select>
         </Row>
 
         <h3 className="mt-5 text-[12px] font-semibold uppercase tracking-wide text-ink3">Exam rules</h3>
@@ -335,6 +350,136 @@ export function AreasList({ areas, canEdit, on }: { areas: Area[]; canEdit: bool
       </ActionSheet>
       <ActionSheet open={Boolean(archive)} onClose={() => setArchive(null)} title={`Archive ${archive?.name ?? ""}?`} confirmLabel="Archive" confirmVariant="danger" pendingText="Archiving…" run={() => archiveAreaAction(archive!.id)}>
         <p className="text-[14px] text-ink2">It will not be on new report cards. Grades already given stay on past report cards.</p>
+      </ActionSheet>
+    </>
+  );
+}
+
+// ---------- Exam pattern per class ----------
+
+export function ClassPatternsEditor({ classes, patterns, options, canEdit }: { classes: { id: string; name: string }[]; patterns: Record<string, string>; options: Option[]; canEdit: boolean }) {
+  const start = () => Object.fromEntries(classes.map((c) => [c.id, patterns[c.id] ?? "PERCENTAGE"]));
+  const [vals, setVals] = useState<Record<string, string>>(start);
+  const { pending, msg, setMsg, run } = useRun();
+  const changed = classes.some((c) => vals[c.id] !== (patterns[c.id] ?? "PERCENTAGE"));
+  if (classes.length === 0) return <p className="px-5 pb-5 text-[13px] text-ink3">No classes yet. Add them in Academic Management, Classes &amp; Sections.</p>;
+  return (
+    <div className="px-5 pb-5 flex flex-col gap-2.5">
+      {classes.map((c) => (
+        <div key={c.id} className="flex items-center gap-3">
+          <label htmlFor={`pat-${c.id}`} className="flex-1 min-w-0 truncate font-semibold text-[14px]">{c.name}</label>
+          <select id={`pat-${c.id}`} disabled={!canEdit} value={vals[c.id]} onChange={(e) => { setMsg(null); setVals({ ...vals, [c.id]: e.target.value }); }} className={cx(inputCls(), "!h-10 !w-36")}>
+            {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
+      ))}
+      <Note msg={msg} />
+      {canEdit && (
+        <Button variant="secondary" className="self-start" icon={Check} disabled={!changed} loading={pending} loadingText="Saving"
+          onClick={() => run(() => saveClassPatternsAction(vals), "Exam pattern per class saved.")}>Save patterns</Button>
+      )}
+    </div>
+  );
+}
+
+// ---------- Per board: grade scale and report card format ----------
+
+type BoardRow = { board: string; isSchoolBoard: boolean; classes: string[] };
+type BoardVal = { scaleId: string; reportBase: string };
+
+export function BoardsEditor({ boards, values, scales, formats, schoolScale, canEdit, on }: {
+  boards: BoardRow[]; values: Record<string, { scaleId: string | null; reportBase: string | null }>; scales: { id: string; name: string }[]; formats: Option[]; schoolScale: string; canEdit: boolean; on: boolean;
+}) {
+  const start = () => Object.fromEntries(boards.map((b) => [b.board, { scaleId: values[b.board]?.scaleId ?? "", reportBase: values[b.board]?.reportBase ?? "" }])) as Record<string, BoardVal>;
+  const [vals, setVals] = useState<Record<string, BoardVal>>(start);
+  const { pending, msg, setMsg, run } = useRun();
+  const changed = boards.some((b) => vals[b.board].scaleId !== (values[b.board]?.scaleId ?? "") || vals[b.board].reportBase !== (values[b.board]?.reportBase ?? ""));
+  const set = (board: string, k: keyof BoardVal, v: string) => { setMsg(null); setVals({ ...vals, [board]: { ...vals[board], [k]: v } }); };
+  const sel = cx(inputCls(), "!h-10");
+  return (
+    <div className="px-5 pb-5 flex flex-col gap-3">
+      {!on && <p className="text-[13px] text-ink3">Switch on Different boards below. Until then every class uses the school&apos;s grade scale and report card design.</p>}
+      {boards.length === 0 && <p className="text-[13px] text-ink3">No board is set. Set the school&apos;s board in Settings, School Profile, and a class&apos;s own board in Academic Management, Classes &amp; Sections.</p>}
+      {boards.map((b) => (
+        <fieldset key={b.board} className="rounded-xl border border-line p-3.5 flex flex-col gap-3">
+          <legend className="sr-only">{b.board}</legend>
+          <div>
+            <p className="font-semibold text-[14px] flex items-center gap-2">{b.board}{b.isSchoolBoard && <Pill tone="neutral">School&apos;s board</Pill>}</p>
+            <p className="text-[12.5px] text-ink3">{b.classes.length ? `Classes: ${b.classes.join(", ")}` : "No class follows this board yet."}</p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-ink2">Grade scale
+              <select disabled={!canEdit} value={vals[b.board].scaleId} onChange={(e) => set(b.board, "scaleId", e.target.value)} className={sel}>
+                <option value="">School&apos;s scale ({schoolScale})</option>
+                {scales.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-ink2">Report card format
+              <select disabled={!canEdit} value={vals[b.board].reportBase} onChange={(e) => set(b.board, "reportBase", e.target.value)} className={sel}>
+                <option value="">School&apos;s report card design</option>
+                {formats.map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}
+              </select>
+            </label>
+          </div>
+        </fieldset>
+      ))}
+      <Note msg={msg} />
+      {canEdit && boards.length > 0 && (
+        <Button variant="secondary" className="self-start" icon={Check} disabled={!changed} loading={pending} loadingText="Saving"
+          onClick={() => run(() => saveBoardsAction(Object.fromEntries(Object.entries(vals).map(([k, v]) => [k, { scaleId: v.scaleId || null, reportBase: v.reportBase || null }]))), "Board settings saved.")}>Save board settings</Button>
+      )}
+    </div>
+  );
+}
+
+// ---------- Competencies ----------
+
+type Competency = { id: string; subjectId: string; name: string; levels: string[] };
+
+export function CompetencyList({ items, subjects, canEdit, on }: { items: Competency[]; subjects: { id: string; name: string }[]; canEdit: boolean; on: boolean }) {
+  const [edit, setEdit] = useState<Competency | "new" | null>(null);
+  const [archive, setArchive] = useState<Competency | null>(null);
+  const c = edit && edit !== "new" ? edit : null;
+  const bySubject = subjects.map((s) => ({ s, list: items.filter((x) => x.subjectId === s.id) })).filter((g) => g.list.length);
+  return (
+    <>
+      {!on && <p className="px-5 pb-3 text-[13px] text-ink3">Switch on Competency-based assessment below to grade these on report cards.</p>}
+      <div className="px-5 pb-4 flex flex-col gap-3">
+        {bySubject.map(({ s, list }) => (
+          <div key={s.id}>
+            <p className="text-[12px] font-semibold uppercase tracking-wide text-ink3 mb-1.5">{s.name}</p>
+            <ul className="flex flex-col gap-2">
+              {list.map((x) => (
+                <li key={x.id} className="flex items-center gap-3 rounded-xl border border-line px-3.5 py-2.5">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-[14px]">{x.name}</p>
+                    <p className="text-[12.5px] text-ink3 truncate">Levels {x.levels.join(", ")}</p>
+                  </div>
+                  {canEdit && <Button size="sm" variant="ghost" onClick={() => setEdit(x)}>Edit</Button>}
+                  {canEdit && <Button size="sm" variant="ghost" onClick={() => setArchive(x)} aria-label={`Archive ${x.name}`}><X size={15} aria-hidden="true" /></Button>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+        {items.length === 0 && <p className="text-[13px] text-ink3">No competencies yet.</p>}
+      </div>
+      {canEdit && subjects.length > 0 && <div className="px-5 pb-5"><Button size="sm" variant="soft" icon={Plus} onClick={() => setEdit("new")}>Add competency</Button></div>}
+      <ActionSheet key={c?.id ?? "new"} open={Boolean(edit)} onClose={() => setEdit(null)} title={c ? `Change ${c.name}` : "Add competency"} confirmLabel={c ? "Save" : "Add competency"} pendingText="Saving…" run={saveCompetencyForm}>
+        <div className="flex flex-col gap-4">
+          {c && <input type="hidden" name="id" value={c.id} />}
+          <label className="block"><span className="mb-1.5 block text-[13.5px] font-semibold">Subject</span>
+            <select name="subjectId" required defaultValue={c?.subjectId ?? ""} className={cx(inputCls(), "h-11")}>
+              <option value="" disabled>Choose the subject</option>
+              {subjects.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+            </select>
+          </label>
+          <label className="block"><span className="mb-1.5 block text-[13.5px] font-semibold">Competency</span><input name="name" required maxLength={120} defaultValue={c?.name} placeholder="Reads with understanding" className={cx(inputCls(), "h-11")} /></label>
+          <label className="block"><span className="mb-1.5 block text-[13.5px] font-semibold">Levels</span><input name="levels" required defaultValue={c?.levels.join(", ") ?? "Beginning, Developing, Proficient, Advanced"} className={cx(inputCls(), "h-11")} /><span className="mt-1 block text-[12.5px] text-ink3">From first to highest, separated by commas. 2 to 8 levels.</span></label>
+        </div>
+      </ActionSheet>
+      <ActionSheet open={Boolean(archive)} onClose={() => setArchive(null)} title={`Archive ${archive?.name ?? ""}?`} confirmLabel="Archive" confirmVariant="danger" pendingText="Archiving…" run={() => archiveCompetencyAction(archive!.id)}>
+        <p className="text-[14px] text-ink2">It will not be on new report cards. Levels already given stay on past report cards.</p>
       </ActionSheet>
     </>
   );

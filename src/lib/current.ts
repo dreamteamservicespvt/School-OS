@@ -3,13 +3,17 @@
 import "server-only";
 
 import { cache } from "react";
+import type { Session, UserLogin } from "@prisma/client";
 import { clientIp } from "@/lib/client-ip";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { findSession } from "./auth/sessions";
-import { accessIn, schoolsFor } from "./auth/access";
-import { menuModules, reachFor, requirePermission, type Action } from "./permissions";
+import { accessIn, schoolsFor, supportAccessView } from "./auth/access";
+import { menuModules, PermissionDeniedError, reachFor, requirePermission, type Action } from "./permissions";
 import { MODULES, type ModuleKey } from "./modules";
+import { SUPPORT_LOGIN_ID, type SchoolContext } from "./db";
+import { findSupportEntry, logSupportLook, logSupportRefused, supportContext, type SupportEntry } from "./console/support-entry";
+import { SUPPORT_COOKIE, SUPPORT_PATH_HEADER } from "./support-paths";
 
 export const SESSION_COOKIE = "sos_session";
 
@@ -45,9 +49,58 @@ export async function clearSessionCookie() {
   (await cookies()).delete(SESSION_COOKIE);
 }
 
+/** The signed-in person's school context: always a person (a User Login, or a support person's id that is nobody's). */
+export type CurrentContext = SchoolContext & { userId: string };
+
+/** While DREAM TEAM looks inside the school (07-super-admin.md §3.4): who, and until when. Null for everyone else. */
+export type SupportView = { requestId: string; name: string; schoolName: string; endsAt: Date };
+
+/**
+ * A DREAM TEAM support person inside one school, through its allowed Support
+ * Access Request. They are no User Login: their id belongs to nobody, they
+ * hold no role, and their permissions only let them look (SUPPORT_PERMISSIONS).
+ */
+async function supportCurrent(e: SupportEntry) {
+  const view = await supportAccessView(e.schoolId);
+  if (!view) return null;
+  const now = new Date();
+  const user: UserLogin = {
+    id: SUPPORT_LOGIN_ID, username: "dream-team-support", displayName: `DREAM TEAM support (${e.name})`, phone: null, email: null, passwordHash: null, status: "ACTIVE",
+    inviteTokenHash: null, inviteExpiresAt: null, failedAttempts: 0, lockedUntil: null, lastSignInAt: null, passwordChangedAt: null, twoStepResetAt: null, twoStepChosen: false,
+    notificationPrefs: {}, theme: "system", accent: "royal", textSize: "normal", createdAt: now, updatedAt: now, archivedAt: null,
+  };
+  const session: Session & { userLogin: UserLogin } = {
+    id: e.requestId, userLoginId: SUPPORT_LOGIN_ID, tokenHash: "", schoolId: e.schoolId, campusId: null, userAgent: null, ipAddress: null,
+    createdAt: now, lastUsedAt: now, expiresAt: e.endsAt, revokedAt: null, revokedReason: null, userLogin: user,
+  };
+  // Step 6: every page they open goes in the school's Audit Log (src/proxy.ts passes the path; prefetches are not passed).
+  const path = (await headers()).get(SUPPORT_PATH_HEADER);
+  if (path) await logSupportLook(e, path, now).catch(() => null);
+  const support: SupportView = { requestId: e.requestId, name: e.name, schoolName: e.schoolName, endsAt: e.endsAt };
+  const ctx: CurrentContext = supportContext(e);
+  return {
+    session,
+    user,
+    schools: [{ id: view.school.id, name: view.school.name, code: view.school.code, logoUrl: view.school.logoUrl }],
+    ...view,
+    ctx,
+    menu: menuModules(view.permissions, view.modulesOn),
+    support: support as SupportView | null,
+  };
+}
+
 /** The signed-in person in their current school, or null. Cached for one request. */
 export const getCurrent = cache(async () => {
-  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+  const jar = await cookies();
+  const supportToken = jar.get(SUPPORT_COOKIE)?.value;
+  if (supportToken) {
+    const entry = await findSupportEntry(supportToken);
+    if (entry) return supportCurrent(entry);
+    // An ended support entry is never anyone's session; requireCurrent sends the browser to /support/left.
+    return null;
+  }
+
+  const token = jar.get(SESSION_COOKIE)?.value;
   const session = await findSession(token);
   if (!session) return null;
 
@@ -57,13 +110,15 @@ export const getCurrent = cache(async () => {
   const access = await accessIn(session.userLoginId, schoolId);
   if (!access) return null;
 
+  const ctx: CurrentContext = { schoolId, userId: session.userLoginId };
   return {
     session,
     user: session.userLogin,
     schools,
     ...access,
-    ctx: { schoolId, userId: session.userLoginId },
+    ctx,
     menu: menuModules(access.permissions, access.modulesOn),
+    support: null as SupportView | null,
   };
 });
 
@@ -81,14 +136,37 @@ export const pausedAdmin = (c: Pick<Current, "roles">) => c.roles.some((r) => r.
  */
 export async function requireCurrent(opts: { paused?: "admin" | "any" } = {}): Promise<Current> {
   const current = await getCurrent();
-  if (!current) redirect("/sign-in");
+  if (!current) {
+    // A support browser whose access ended (time up, ended by either side, or signed out of the console).
+    if ((await cookies()).get(SUPPORT_COOKIE)?.value) redirect("/support/left");
+    redirect("/sign-in");
+  }
   if (isPaused(current) && opts.paused !== "any" && !(opts.paused === "admin" && pausedAdmin(current))) redirect("/paused");
   return current;
+}
+
+/**
+ * DREAM TEAM support access is for looking only (07-super-admin.md §3.4): no
+ * change, no export or print, no payment cancellation. Refused in plain words,
+ * and the attempt is written in the school's Audit Log.
+ */
+export class SupportLookOnlyError extends PermissionDeniedError {
+  constructor(module: ModuleKey, action: Action) {
+    super(module);
+    this.name = "SupportLookOnlyError";
+    this.message = action === "export" || action === "print"
+      ? "DREAM TEAM support access cannot export, print or download the school's data."
+      : "DREAM TEAM support access is for looking only. Ask the school to make this change.";
+  }
 }
 
 /** For server actions that change something: checks the role on the server first. */
 export async function requireAction(module: ModuleKey, action: Action) {
   const current = await requireCurrent({ paused: module === "settings" ? "admin" : undefined });
+  if (current.support && action !== "view") {
+    await logSupportRefused({ requestId: current.support.requestId, schoolId: current.school.id, name: current.support.name }, module, action).catch(() => null);
+    throw new SupportLookOnlyError(module, action);
+  }
   const reach = requirePermission(current.permissions, module, action);
   return { current, reach };
 }
@@ -97,6 +175,7 @@ export async function requireAction(module: ModuleKey, action: Action) {
 export async function requirePage(module: ModuleKey, action: Action = "view"): Promise<Current> {
   const current = await requireCurrent({ paused: module === "settings" ? "admin" : undefined });
   if (reachFor(current.permissions, module, action) === "none") redirect(`/no-access?m=${module}`);
+  if (current.support && (action === "export" || action === "print")) redirect(`/no-access?m=${module}`);
   const info = MODULES.find((m) => m.key === module);
   if (info?.optional && !current.modulesOn.has(module)) redirect(`/no-access?m=${module}&off=1`);
   return current;

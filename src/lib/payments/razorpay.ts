@@ -125,12 +125,32 @@ export async function createOrder(
   }, fetchImpl);
 }
 
-export type RazorpayPayment = { id: string; order_id: string | null; amount: number; currency: string; status: "created" | "authorized" | "captured" | "refunded" | "failed"; method?: string; email?: string; contact?: string; created_at: number; error_description?: string | null };
+export type RazorpayPayment = {
+  id: string; order_id: string | null; amount: number; currency: string; status: "created" | "authorized" | "captured" | "refunded" | "failed";
+  method?: string; email?: string; contact?: string; created_at: number; error_description?: string | null;
+  /** Razorpay sends an empty list when there are no notes. */
+  notes?: Record<string, string> | unknown[];
+};
 
 /** Reads one payment from Razorpay, e.g. to match a payment confirmed while School OS was busy. */
 export async function fetchPayment(creds: RazorpayCredentials, paymentId: string, fetchImpl?: FetchLike) {
   if (!/^pay_[A-Za-z0-9]+$/.test(paymentId)) throw new RazorpayProblem("That does not look like a Razorpay payment ID (it starts with pay_).", "refused");
   return call<RazorpayPayment>(creds, "GET", `/v1/payments/${paymentId}`, undefined, fetchImpl);
+}
+
+/** Every payment attempt on one order (the reconcile job: was money taken that School OS never heard about?). */
+export async function fetchOrderPayments(creds: RazorpayCredentials, orderId: string, fetchImpl?: FetchLike) {
+  if (!/^order_[A-Za-z0-9]+$/.test(orderId)) throw new RazorpayProblem("That does not look like a Razorpay order ID (it starts with order_).", "refused");
+  const r = await call<{ items?: RazorpayPayment[] }>(creds, "GET", `/v1/orders/${orderId}/payments`, undefined, fetchImpl);
+  return Array.isArray(r?.items) ? r.items : [];
+}
+
+/** Our own notes from a Razorpay entity, as plain strings (an empty list means none). */
+export function notesOf(raw: unknown): Record<string, string> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) if (typeof v === "string" || typeof v === "number") out[k] = String(v);
+  return out;
 }
 
 export type RazorpayPaymentLink = { id: string; short_url: string; status: string; amount: number; reference_id?: string | null };

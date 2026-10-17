@@ -300,8 +300,10 @@ describe("every school table has its walls", () => {
         FROM pg_class c
         JOIN pg_namespace n ON n.oid = c.relnamespace AND n.nspname = 'public'
         WHERE c.relkind = 'r'
-          AND (c.relname LIKE 'console\\_%' OR c.relname IN ('super_admin_user', 'school_invite', 'platform_invoice', 'subscription', 'plan', 'school_group'))`;
+          AND (c.relname LIKE 'console\\_%' OR c.relname IN ('super_admin_user', 'school_invite', 'platform_invoice', 'subscription', 'plan', 'school_group', 'support_access_request'))`;
       expect(consoleTables.length).toBeGreaterThan(5);
+      // Support Access Requests (gap G35) are console records too.
+      expect(consoleTables.map((t) => t.table)).toContain("support_access_request");
       expect(consoleTables.filter((t) => !t.rls || !t.forced || Number(t.policies) === 0).map((t) => t.table)).toEqual([]);
     } finally {
       await owner.$disconnect();
@@ -934,5 +936,24 @@ describe("The one student search stays in its school", () => {
     await withSchool({ schoolId: b.id, userId: userB.id }, async (tx) => {
       expect((await findStudents(tx, "Zubieda", { scope: {}, yearId: null })).map((h) => h.id)).toEqual([sid]);
     });
+  });
+});
+
+describe("Online fee payment orders stay in their school", () => {
+  it("school A cannot read, change or add to school B's payment link orders or gateway log", async () => {
+    const x = "00000000-0000-4000-8000-000000000005";
+    const ids = await withSchool({ schoolId: b.id, userId: userB.id }, async (tx) => {
+      const order = await tx.paymentLinkOrder.create({ data: { schoolId: b.id, paymentLinkId: x, gatewayOrderId: "order_OnlyInB1", amountPaise: BigInt(600000) } });
+      const log = await tx.gatewayTransaction.create({ data: { schoolId: b.id, gatewayAccountId: x, event: "payment.captured", gatewayPaymentId: "pay_OnlyInB1", gatewayOrderId: "order_OnlyInB1", amountPaise: BigInt(600000), outcome: "unmatched", details: { contact: "+919800000000" } } });
+      return { order: order.id, log: log.id };
+    });
+    await withSchool(ctxA(), async (tx) => {
+      expect(await tx.paymentLinkOrder.count()).toBe(0);
+      expect(await tx.gatewayTransaction.count()).toBe(0);
+      expect(await tx.paymentLinkOrder.findFirst({ where: { gatewayOrderId: "order_OnlyInB1" } })).toBeNull();
+      expect((await tx.paymentLinkOrder.updateMany({ where: { id: ids.order }, data: { paymentLinkId: x } })).count).toBe(0);
+      expect((await tx.gatewayTransaction.updateMany({ where: { id: ids.log }, data: { outcome: "posted" } })).count).toBe(0);
+    });
+    await expect(withSchool(ctxA(), (tx) => tx.paymentLinkOrder.create({ data: { schoolId: b.id, paymentLinkId: x, gatewayOrderId: "order_FromA1", amountPaise: BigInt(1) } }))).rejects.toThrow();
   });
 });

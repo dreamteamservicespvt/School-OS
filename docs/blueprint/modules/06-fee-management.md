@@ -21,7 +21,8 @@ Used by: the Accountant and cashier (collection, ledger, defaulters, structure, 
 - **Payment-method breakdown:** cash, UPI, card, net banking, bank transfer, cheque, gateway, for the chosen period.
 - **Collection forecast (optional, AI):** expected collection for the next 1 to 3 months from installments due and past payment behaviour, labelled "Suggestion" with the numbers used.
 - **Recent Payments:** live list, newest first. Columns: date and time, student (name, class), fee heads, amount, mode, receipt number or reference, status (**Posted**, **Waiting for verification**, **Cancelled**, **Failed**). Tabs: Full payments, Partial payments (as in the old software).
-- **Failed online payments:** payments the gateway reported as failed or not confirmed, with the parent's phone and a "Send new link" action.
+- **Failed online payments:** payments the gateway reported as failed or not confirmed, with the parent's phone and a "Send new link" action (the old link stops working, so the family pays once). Payments the parent opened and closed without paying, where Razorpay says no money was taken, are counted, not listed (added 18 October 2026).
+- **Online payments to check** (added 18 October 2026, shown to the people who collect fees when there is something to check): money Razorpay took that matched no payment link, with the amount, time and the phone it was paid from, and **Post to a student** (students whose parent has that phone are suggested; or type the admission number). It is posted the usual way: the student's oldest dues first, anything over held as advance, the receipt, the parent's message and the Day Book. Also refunds made in the Razorpay Dashboard and disputes raised by a parent's bank: the receipt still stands, with **Ask to cancel**, which goes to Approvals like any cancellation; a refund of only part of a payment is recorded as a refund on Concessions & Refunds instead. The Accountants are told of each one.
 
 **Actions**
 
@@ -97,7 +98,7 @@ Other actions:
 **Actions**
 
 - View, print or download a receipt (office copy, parent copy, both) and share it.
-- **Fee invoice:** generate and send an invoice for chosen dues (design in Settings, Document Designs).
+- **Fee invoice:** generate and send an invoice for chosen dues (design in Settings, Document Designs). The rows due now (Due and Overdue, with their late fees) are ticked; rows not due yet can be ticked too, and the total is what is ticked. An invoice never asks for the whole year unless those rows are ticked (added 18 October 2026).
 - **Fee certificate:** a certificate of fees paid in a year or period (for example for income tax), from the design in Document Designs.
 - **Cancel a payment** (decided, D2): needs a reason; the payment stays on record marked Cancelled; the dues reopen; the receipt is marked cancelled; Finance posts a reversal in the Day Book on the cancel date. Cancelling a payment older than today needs approval (inferred).
 - **Adjust:** change an amount on the student's plan (for example a corrected fee) by an adjustment with a reason, never by editing a payment.
@@ -173,7 +174,11 @@ Other actions:
 - Copy a class's structure to other classes, or last year's structure to this year with an optional % increase (inferred).
 - **Installments:** for each row, the installment schedule with due dates. The installments must add up to the row total.
 - **Assign** the structure to a class (all students in it) or to one student. An exception for one student needs a reason.
-- Publish a new version; existing students' unpaid future installments update only after the person confirms, and paid rows never change (inferred).
+- Publish a new version; existing students' unpaid future installments update only after the person confirms, and paid rows never change (inferred). Added 18 October 2026:
+  - Before publishing, the sheet shows what the new version does from the date chosen (worked out again when the date changes): how many students change, how much is added and taken off in all, how many rows are kept, and what happens to late fees. The publish does exactly that.
+  - Each student's rows from the date are matched to the new version by fee head and due month (else by name). A period is never charged twice: a row already paid, part-paid, or with a concession or adjustment is kept, and the new installment for that period is not added again. The change in the fee goes on what is left to pay on it, as an adjustment with the reason "Fee structure version 3 from November 2026", never below what is left. A fully paid or fully waived row does not change; the sheet says how much it differs from the new fee, so the school can add a charge or a refund by hand.
+  - Other rows move to the new version: as they are when nothing differs, otherwise replaced (the old row kept as Removed, never deleted). A late fee on a replaced row moves to the new row, so it is never added twice; when the row goes, or the new one is due later, an unpaid late fee comes off with it.
+  - Putting back an older version ("Use again") works the same way.
 - Daycare: enrol a child in a daycare plan; charges are raised per cycle.
 
 **Form fields: Add fee row**
@@ -332,7 +337,7 @@ Other actions:
 These are listed in the feature map under "Automatic work". They have no page; they are built with this module.
 
 - [ ] Payment confirmed only from the gateway's verified callback; never posted twice (Core)
-- [ ] Automatic reconciliation of online payments (Core)
+- [ ] Automatic reconciliation of online payments (Core) · every 15 minutes the software asks Razorpay about payments opened and not confirmed, and posts what was captured, once (added 18 October 2026)
 - [ ] Failed-payment handling (Core) · failed payments listed on Fee Dashboard
 
 ## 4. Connections
@@ -368,7 +373,7 @@ These are listed in the feature map under "Automatic work". They have no page; t
 - **A1 Fee paid:** in one step, the Payment is posted, the Receipt is created with the next number, the student's dues and balance update, the Day Book gets an entry (built in Finance), the Dashboard updates, and the parent gets the payment message (WhatsApp, using the receipt template with school name, student name, receipt number, amount and date).
 - **A7 Fee due date comes:** reminders go on the days set in Fee Settings (for example 3 days before, on the day, 7 days after); after the grace period the late fee is added as its own row; the Defaulters list updates. Each reminder is sent once per installment per scheduled day (inferred). A family with an open Promise to Pay dated today or later gets no automatic reminder on that day.
 - **Promise to Pay kept or broken** (added 17 October 2026): when a payment is posted, the student's open promise is checked and marked Kept if it is covered. Each day, open promises whose date has passed are marked Kept or Broken from the payments made by the date; a broken one tells the person who recorded it, and is done before the day's reminders so they resume at once.
-- **A8 Online payment received:** see the automatic-work features below. A payment is posted only when the gateway's verified callback confirms it; the gateway's payment ID is stored, and a second callback with the same ID does nothing; payments are matched automatically to the student and installments from the payment link; payments that fail or are not confirmed within 30 minutes (inferred) are flagged on the Fee Dashboard, and no receipt is made.
+- **A8 Online payment received:** see the automatic-work features below. A payment is posted only when the gateway's verified callback confirms it; the gateway's payment ID is stored, and a second callback with the same ID does nothing; payments are matched automatically to the student and installments from the payment link; payments that fail or are not confirmed within 30 minutes (inferred) are flagged on the Fee Dashboard, and no receipt is made. Added 18 October 2026: only a captured payment is posted (payment.captured or order.paid; an authorised one is not money taken yet). A payment on any order ever made for a link is matched to it, and when the order is unknown, by the link reference School OS put in the order's notes. Every 15 minutes, payments opened 10 minutes to 3 days ago with no confirmation are checked with Razorpay (again each hour): a captured payment is posted, a failed one is recorded, and one Razorpay cannot be asked about is tried again later. Money that matches no link waits in Online payments to check for a person to choose the student. Refunds and disputes made at Razorpay are kept for the office to check and never cancel a payment by themselves. Admission application fees are left to Admission Management.
 
 ## 5. Rules and mistake-proofing
 
@@ -382,7 +387,7 @@ These are listed in the feature map under "Automatic work". They have no page; t
 | Refund more than paid | Capped at paid minus earlier refunds | "Maximum refund ₹5,000" | Lower the amount |
 | Discount without authority | Discount and waiver fields shown only to permitted roles; above the limit goes to Approvals | "Discounts above ₹1,000 need the principal's approval" | Request approval |
 | Installments that do not add up | Save blocked until installments equal the row total | "Installments add up to ₹58,000. Total is ₹60,000." | Fix an installment |
-| Changing a structure already paid | Paid rows never change; future unpaid rows change only after confirmation | "This updates 120 students' unpaid installments from Nov 2026. Paid rows are not changed." | Undo the version (inferred) |
+| Changing a structure already paid | Paid rows never change; future unpaid rows change only after confirmation; a period already paid, part-paid or with a concession is never charged again, only the change on what is left to pay is added (18 October 2026) | "This updates 120 students' unpaid installments from Nov 2026. Paid rows are not changed." With the amounts added and taken off and the rows kept | Undo the version (inferred) |
 | Student without a fee plan | Collect Fee shows "No fees assigned" with an Assign button; Student List filter "No fee plan" (inferred) | "No fees assigned to Kiran (Nursery A)" | Assign the class plan |
 | Backdating a payment | Needs the "change payment date" permission; not before the last closed day (inferred) | "Payment date cannot be before 30-09-2026 (books closed)" | Ask an authorised person |
 | Wrong gateway account used | Gateway chosen by Fee Settings routing (by class, class group or fee head) | Not needed | Change routing |
@@ -451,7 +456,7 @@ All have filters, analytics and export (P8), and appear in Reports & Analytics.
 
 **Promise to Pay** (added 17 October 2026, in 04-data-model.md): the call log note with a promised date, amount, and status Open, Kept, Broken or Replaced.
 
-Other records (inferred): **Fee Invoice**, **Fee Certificate**, **Payment Link** (amount, rows covered, gateway, expiry, status), **Gateway Transaction** (gateway payment ID, callback received, verified, matched), **Reminder Log**, **Bulk Discount Rule**, **Scholarship Type** and **Scholarship Application**, **Daycare Plan** and **Daycare Enrolment**, **Late Fee Rule**, **Advance Balance**, **Tax Invoice** (number, GSTIN, rate, tax amount, payment), **Ageing Group**.
+Other records (inferred): **Fee Invoice**, **Fee Certificate**, **Payment Link** (amount, rows covered, gateway, expiry, status), **Payment Link Order** (every gateway order made for a link, added 18 October 2026), **Gateway Transaction** (gateway payment ID, callback received, verified, matched, the phone and method it was paid with, a refund or dispute reference), **Reminder Log**, **Bulk Discount Rule**, **Scholarship Type** and **Scholarship Application**, **Daycare Plan** and **Daycare Enrolment**, **Late Fee Rule**, **Advance Balance**, **Tax Invoice** (number, GSTIN, rate, tax amount, payment), **Ageing Group**.
 
 ## 9. Done when
 

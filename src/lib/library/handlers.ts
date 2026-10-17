@@ -1,11 +1,11 @@
 // Library Management's follow-ups: what happens when the approver decides a
 // large lost or damaged charge (Approvals), where that request opens, and
-// Undo for the desk's small changes (P5). Imported by
-// src/lib/approval-handlers.ts and src/lib/undo-handlers.ts.
+// Undo for the desk's small changes (P5). Listed in
+// src/lib/approval-handlers.ts and imported by src/lib/undo-handlers.ts.
 import "server-only";
 
-import { onDecision } from "../approvals";
-import { registerApprovalLink } from "../approval-links";
+import type { AskableType, FollowUp } from "../approvals";
+import type { LinkMaker } from "../approval-links";
 import { registerUndo } from "../undo";
 import { withSchool } from "../db";
 import { writeAudit } from "../audit";
@@ -16,11 +16,15 @@ import { libCan, libViewer } from "./access";
 import { LibraryProblem } from "./problem";
 import { BASE } from "./words";
 
-onDecision("library-charge", async (tx, ctx, approval, decision, note) => {
-  await decideCharge(tx, ctx, approval.recordId, decision, note);
-});
+export const followUps = {
+  "library-charge": async (tx, ctx, approval, decision, note) => {
+    await decideCharge(tx, ctx, approval.recordId, decision, note);
+  },
+} satisfies Partial<Record<AskableType, FollowUp>>;
 
-registerApprovalLink("library-charge", (a) => ({ href: `${BASE}/fines?fine=${a.recordId}`, label: "Open the fine" }));
+export const approvalLinks = {
+  "library-charge": (a) => ({ href: `${BASE}/fines?fine=${a.recordId}`, label: "Open the fine" }),
+} satisfies Partial<Record<AskableType, LinkMaker>>;
 
 const RECENT_MS = 2 * 60_000;
 

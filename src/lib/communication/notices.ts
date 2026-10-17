@@ -12,7 +12,7 @@ import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { enqueue } from "../jobs";
 import { notify } from "../notifications";
-import { requestApproval } from "../approvals";
+import { decidesRequestsOf, requestApproval } from "../approvals";
 import { currentYears } from "../academic/years";
 import { OPEN_LINK } from "../students/guardian-access";
 import { sectionLabel } from "../people";
@@ -164,17 +164,23 @@ export function checkNoticeScope(input: NoticeInput, scope: Scope) {
   if (input.audience.sectionIds.some((id) => !allowed.has(id))) throw new NoticeProblem("You can send notices only to your own sections. Other classes are not offered.");
 }
 
-/** Does this notice need the principal's approval first? (Message Settings, from Forms & Approvals; inferred default: notices to parents.) */
-export async function needsApproval(tx: Tx, ctx: SchoolContext, a: NoticeAudience, senderHasFullAccess: boolean) {
-  if (senderHasFullAccess) return false;
+/**
+ * Does this notice need approval before it is published? The school's notice
+ * approval rule (Message Settings, kept with Forms & Approvals; inferred
+ * default: every notice to parents) applies to everyone who writes one, except
+ * the people who decide notice requests themselves (the Principal, unless the
+ * school's rule names someone else).
+ */
+export async function needsApproval(tx: Tx, ctx: SchoolContext, a: NoticeAudience) {
   const { noticeApproval } = await messageSettings(tx, ctx);
-  return noticeApproval === "all" || (noticeApproval === "parents" && a.parents);
+  const ruled = noticeApproval === "all" || (noticeApproval === "parents" && a.parents);
+  return ruled && !(await decidesRequestsOf(tx, ctx, "notice"));
 }
 
 export const PUBLISH_JOB = "notice:publish";
 
 /** Saves a notice as a draft, sends it for approval, schedules it or publishes it now. */
-export async function saveNotice(tx: Tx, ctx: SchoolContext, input: NoticeInput, opts: { id?: string | null; action: "draft" | "publish"; fullAccess: boolean; criticalConfirmed: boolean; now?: Date }) {
+export async function saveNotice(tx: Tx, ctx: SchoolContext, input: NoticeInput, opts: { id?: string | null; action: "draft" | "publish"; criticalConfirmed: boolean; now?: Date }) {
   const now = opts.now ?? new Date();
   if (input.priority === "CRITICAL" && opts.action === "publish" && !opts.criticalConfirmed) {
     throw new NoticeProblem(`Type ${CRITICAL_WORD} to pin this on every chosen parent's Parent Link.`);
@@ -208,7 +214,7 @@ export async function saveNotice(tx: Tx, ctx: SchoolContext, input: NoticeInput,
   }
   if (opts.action === "draft") return { notice, outcome: "draft" as const };
 
-  if (await needsApproval(tx, ctx, input.audience, opts.fullAccess)) {
+  if (await needsApproval(tx, ctx, input.audience)) {
     const approval = await requestApproval(tx, ctx, { type: "notice", recordType: "Notice", recordId: notice.id, summary: `Notice: ${notice.title} (${audienceLabel})` });
     notice = await tx.notice.update({ where: { id: notice.id }, data: { status: "WAITING_APPROVAL", approvalId: approval.id } });
     return { notice, outcome: "approval" as const };
@@ -289,6 +295,8 @@ export async function publishNotice(tx: Tx, ctx: SchoolContext, noticeId: string
           onNoCredits: "fail",
           emergency: notice.priority === "CRITICAL",
           idempotencyKey: `notice:${notice.id}`,
+          // Parents no channel can carry it to are kept as Not sent in Message History, not lost.
+          onNobody: "record",
         });
         messageId = sent.messageId;
       } catch (e) {

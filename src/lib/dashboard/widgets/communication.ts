@@ -7,6 +7,7 @@ import { readListParams } from "../../list";
 import { queryWhere } from "../../communication/queries";
 import { QUERY_FILTERS, queryListWhere } from "../../communication/query-list";
 import { channelSetups } from "../../messaging/channels";
+import { CANCELLED_REASON, NOT_SENT } from "../../messaging/send";
 import { creditBalances } from "../../messaging/credits";
 import { n, plural, reach, someNames } from "../common";
 import type { AttentionItem, DashContext, Widget } from "../types";
@@ -80,6 +81,41 @@ const newMessages: Widget<"band"> = {
   },
 };
 
+/**
+ * Messages not delivered in the last 7 days (G07): refused by the provider,
+ * or not sent because no channel could carry them (also automatic messages,
+ * which have no sender to tell). Retried ones leave the count; so do the
+ * failed people of a message already resent to them.
+ */
+export async function notDeliveredCount(tx: DashContext["tx"], now: Date) {
+  const since = new Date(now.getTime() - 7 * 86_400_000);
+  const resent = await tx.message.findMany({ where: { createdAt: { gte: since }, resendOfId: { not: null }, trigger: { startsWith: "Resend to failed" } }, select: { resendOfId: true } });
+  const base = { isBackup: false, status: "FAILED" as const, failedAt: { gte: since }, NOT: { failReason: CANCELLED_REASON }, messageId: { notIn: resent.map((r) => r.resendOfId!) } };
+  const [count, notSent] = await Promise.all([
+    tx.messageRecipient.count({ where: base }),
+    tx.messageRecipient.count({ where: { ...base, failReason: { startsWith: NOT_SENT } } }),
+  ]);
+  return { count, notSent };
+}
+
+const notDelivered: Widget<"attention"> = {
+  id: "communication.not-delivered",
+  module: "communication",
+  kind: "attention",
+  homes: ["leader"],
+  allowed: (v) => reach(v, "communication") === "all",
+  async load(c) {
+    const { count, notSent } = await notDeliveredCount(c.tx, c.now);
+    if (!count) return null;
+    return {
+      id: "communication.not-delivered", tone: "bad", icon: "Send",
+      title: `${plural(count, "message")} not delivered this week`,
+      detail: notSent ? `${n(notSent)} not sent: no channel could carry ${notSent === 1 ? "it" : "them"} · retry or resend` : "Retry, or resend by another channel",
+      action: "Retry", href: "/communication/history?status=failed", value: String(count),
+    };
+  },
+};
+
 /** Settings alerts for the people who fix them: a failed channel or gateway test, or message credits running low. */
 const settingsAlerts: Widget<"attention"> = {
   id: "settings.alerts",
@@ -117,4 +153,4 @@ const settingsAlerts: Widget<"attention"> = {
   },
 };
 
-export const COMMUNICATION_WIDGETS: Widget[] = [parentMessages, newMessages, overdueQueries, myOverdueQueries, settingsAlerts] as Widget[];
+export const COMMUNICATION_WIDGETS: Widget[] = [parentMessages, newMessages, overdueQueries, myOverdueQueries, notDelivered, settingsAlerts] as Widget[];

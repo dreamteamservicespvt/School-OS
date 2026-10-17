@@ -3,7 +3,7 @@ import { Archive, ChevronRight, CircleCheck, CopyPlus, FilePen, GraduationCap, H
 import { withSchool } from "@/lib/db";
 import { formatDate, formatRupees } from "@/lib/format";
 import { addDays, monthEnd } from "@/lib/staff/dates";
-import { classCards, classStructure, feeHeads, publishImpact, publishNeedsApproval, waitingApproval } from "@/lib/fees/structure";
+import { classCards, classStructure, feeHeads, publishImpact, publishNeedsApproval, restoreImpact, waitingApproval } from "@/lib/fees/structure";
 import { frequencyLabel, headKindLabel, type FrequencyValue } from "@/lib/fees/words";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
@@ -56,8 +56,14 @@ export default async function StructurePage({ searchParams }: { searchParams: Se
       if (card) {
         const st = await classStructure(tx, year.id, clsId, "");
         const shown = st.draft ?? st.published;
-        const start = year.startDate > p.today ? year.startDate : addDays(monthEnd(p.today), 1) > year.endDate ? p.today : addDays(monthEnd(p.today), 1);
-        const impact = doing === "publish" && st.draft ? await publishImpact(tx, st.draft.id, start) : null;
+        const first = year.startDate > p.today ? year.startDate : addDays(monthEnd(p.today), 1) > year.endDate ? p.today : addDays(monthEnd(p.today), 1);
+        // The preview is worked out for the date chosen in the sheet (?from=), the same way the publish does it.
+        const from = one(sp.from);
+        const chosen = /^\d{4}-\d{2}-\d{2}$/.test(from) ? new Date(`${from}T00:00:00Z`) : null;
+        const start = chosen && !Number.isNaN(chosen.getTime()) ? chosen : first;
+        const restoring = doing === "restore" ? st.versions.find((x) => x.id === one(sp.ver) && x.status === "SUPERSEDED") ?? null : null;
+        const impact = doing === "publish" && st.draft ? await publishImpact(tx, st.draft.id, start, p.today)
+          : restoring ? await restoreImpact(tx, restoring.id, start, p.today) : null;
         // After the year starts, anyone but the Principal sends the draft to the Principal; a waiting draft is locked.
         const needsOk = st.draft ? await publishNeedsApproval(tx, st.draft.id, p.today, p.viewer.roleKeys) : false;
         const waiting = st.draft ? await waitingApproval(tx, st.draft.id) : null;
@@ -295,7 +301,7 @@ export default async function StructurePage({ searchParams }: { searchParams: Se
         );
       })()}
       {canManage && sheet && !sheet.waiting && doing === "publish" && sheet.st.draft && sheet.impact && (
-        <PublishSheet closeHref={clsHref(sheet.card.classId)} structureId={sheet.st.draft.id} version={sheet.st.draft.version} impact={sheet.impact.message} start={iso(sheet.start)} withoutPlan={sheet.card.withoutPlan} needsOk={sheet.needsOk} approver={approver && started} />
+        <PublishSheet closeHref={clsHref(sheet.card.classId)} structureId={sheet.st.draft.id} version={sheet.st.draft.version} impact={{ message: sheet.impact.message, details: sheet.impact.details }} start={iso(sheet.start)} withoutPlan={sheet.card.withoutPlan} needsOk={sheet.needsOk} approver={approver && started} />
       )}
       {canManage && sheet && doing === "copy" && sheet.shown && (
         <CopySheet closeHref={clsHref(sheet.card.classId)} fromId={sheet.shown.id} yearId={year.id} className={sheet.card.className}
@@ -303,7 +309,7 @@ export default async function StructurePage({ searchParams }: { searchParams: Se
       )}
       {canManage && sheet && doing === "restore" && (() => {
         const v = sheet.st.versions.find((x) => x.id === one(sp.ver) && x.status === "SUPERSEDED");
-        return v ? <RestoreSheet closeHref={clsHref(sheet.card.classId)} structureId={v.id} version={v.version} start={iso(sheet.start)} /> : null;
+        return v ? <RestoreSheet closeHref={clsHref(sheet.card.classId)} structureId={v.id} version={v.version} start={iso(sheet.start)} impact={sheet.impact ? { message: sheet.impact.message, details: sheet.impact.details } : null} /> : null;
       })()}
       {canManage && doing === "prepare" && isCurrent && data.next && (
         <PrepareSheet closeHref={close} fromYearId={year.id} toYearId={data.next.id} fromName={yName} toName={data.next.name.replace("-", "–")} />

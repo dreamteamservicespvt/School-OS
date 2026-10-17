@@ -4,7 +4,7 @@
 import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
-import { channelSetups, onChannels, type Channel } from "./channels";
+import { onChannels, type Channel } from "./channels";
 import { planMessage, recordSend, type SendInput, type SendResult } from "./send";
 import { messageSettings, type BackupType } from "./settings";
 import { ensureReadyTemplates, templateByKey } from "./templates";
@@ -82,12 +82,20 @@ export type AutomaticInput = {
   source?: { type: string; id: string } | null;
 };
 
-export type AutomaticResult = { status: "sent"; result: SendResult; duplicates: number } | { status: "off" | "nobody" | "duplicate" | "no-channel"; duplicates: number };
+export type AutomaticResult =
+  | { status: "sent"; result: SendResult; duplicates: number }
+  /** No channel could carry it to anyone: kept in Message History as Not sent (result), once per event and person. */
+  | { status: "not-sent"; result: SendResult | null; reason: string; duplicates: number }
+  | { status: "off" | "nobody" | "duplicate" | "no-channel"; duplicates: number };
 
 /**
  * Sends one automatic message, if its rule is on. People already sent this
  * event by this rule are left out (no duplicates), opted-out parents are
- * skipped, and every person gets a line in the automation log.
+ * skipped, and every person gets a line in the automation log. Each person
+ * gets it on the rule's channels, or, where those cannot carry it to them
+ * (switched off, not approved by WhatsApp, no DLT template ID), on the next
+ * channel the rule has a template for. Nobody is lost silently: people no
+ * channel can reach are kept on the message as Not sent, with the reason.
  */
 export async function sendAutomatic(tx: Tx, ctx: SchoolContext, input: AutomaticInput): Promise<AutomaticResult> {
   const def = ruleDef(input.rule);
@@ -97,32 +105,29 @@ export async function sendAutomatic(tx: Tx, ctx: SchoolContext, input: Automatic
   if (!state.isOn) return { status: "off", duplicates: 0 };
 
   const on = await onChannels(tx, ctx);
-  // Use the rule's channels that are on; fall back to WhatsApp, then SMS. Parents have no
-  // app, so a parents' rule saved with "app" (Homework set used to be) falls back too.
-  let channels = state.channels.filter((c) => on.has(c) && (c !== "sms" || state.templateIds.sms) && !(c === "app" && def.audience === "parents"));
-  if (channels.length === 0 && def.audience === "parents") {
-    const setups = await channelSetups(tx, ctx);
-    channels = setups.whatsapp.isOn ? ["whatsapp"] : setups.sms.isOn && state.templateIds.sms ? ["sms"] : [];
-  }
-  if (channels.length === 0 && def.audience === "staff") channels = ["app"];
-  if (channels.length === 0) return { status: "no-channel", duplicates: 0 };
-
+  const parents = def.audience === "parents";
+  // Parents have no app: a parents' rule saved with "app" (Homework set used to be) uses the other channels.
+  const order: Channel[] = parents ? ["whatsapp", "sms", "email"] : ["app", "whatsapp", "sms", "email"];
   const templates: Partial<Record<Channel, string>> = {};
-  for (const c of channels) {
+  for (const c of new Set<Channel>([...state.channels, ...order])) {
     const id = state.templateIds[c] ?? (await templateByKey(tx, ctx, def.key, c))?.id;
     if (id) templates[c] = id;
   }
-  channels = channels.filter((c) => templates[c]);
-  if (channels.length === 0) return { status: "no-channel", duplicates: 0 };
+  const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { smsDltEntityId: true, smsSenderHeader: true } });
+  const smsReady = Boolean(school.smsDltEntityId && school.smsSenderHeader);
+  const channels = state.channels.filter((c) => on.has(c) && templates[c] && !(c === "app" && parents) && (c !== "sms" || smsReady));
+  // WhatsApp and SMS are always tried for parents, so the reason names them; other channels only with a template.
+  const fallback = order.filter((c) => !channels.includes(c) && (templates[c] || (parents && (c === "whatsapp" || c === "sms"))));
 
-  const done = new Set(
-    (await tx.automationLog.findMany({ where: { schoolId: ctx.schoolId, ruleKey: def.key, eventKey: input.event.key, outcome: { in: ["sent", "no-credits"] } }, select: { recipientKey: true } })).map((r) => r.recipientKey),
-  );
+  const logged = await tx.automationLog.findMany({ where: { schoolId: ctx.schoolId, ruleKey: def.key, eventKey: input.event.key, outcome: { in: ["sent", "no-credits", "not-sent"] } }, select: { recipientKey: true, outcome: true } });
+  const done = new Set(logged.filter((r) => r.outcome !== "not-sent").map((r) => r.recipientKey));
+  const notSentBefore = new Set(logged.filter((r) => r.outcome === "not-sent").map((r) => r.recipientKey));
   const settings = await messageSettings(tx, ctx);
   const backupOn = def.messageType !== "general" && settings.smsBackup[def.messageType as BackupType]?.on;
   const send: SendInput = {
     to: { ...input.to, allGuardians: input.to.allGuardians ?? state.sendTo === "all" },
     channels,
+    fallback,
     templates,
     values: input.values,
     perStudent: input.perStudent,
@@ -132,13 +137,14 @@ export async function sendAutomatic(tx: Tx, ctx: SchoolContext, input: Automatic
     trigger: input.event.label,
     source: input.source ?? null,
     onNoCredits: "fail",
+    onNobody: "record",
     exclude: (key) => done.has(key) || [...done].some((d) => d.startsWith(`${key}:`)),
   };
   const plan = await planMessage(tx, ctx, send);
   const duplicates = done.size;
   if (plan.problems.length) {
     // A broken setup must be visible, not silent: logged for each person.
-    await logLines(tx, ctx, def.key, input.event, plan.rows.map((r) => ({ key: r.rowKey, name: r.candidate.name })), "skipped", plan.problems[0], null);
+    await logLines(tx, ctx, def.key, input.event, [...plan.rows.map((r) => ({ key: r.rowKey, name: r.candidate.name })), ...(plan.notSent ?? []).map((r) => ({ key: r.rowKey, name: r.candidate.name }))], "skipped", plan.problems[0], null);
     return { status: "no-channel", duplicates };
   }
   for (const s of plan.skipped) {
@@ -146,11 +152,19 @@ export async function sendAutomatic(tx: Tx, ctx: SchoolContext, input: Automatic
       await logLines(tx, ctx, def.key, input.event, (s.keys ?? []).map((key, i) => ({ key, name: s.names[i] ?? "Parent" })), "opted-out", "Opted out of messages", null);
     }
   }
-  if (plan.rows.length === 0) return { status: duplicates ? "duplicate" : "nobody", duplicates };
-  const result = await recordSend(tx, ctx, send, plan);
+  // Someone this event could not reach before is not recorded as Not sent a second time.
+  const notSent = (plan.notSent ?? []).filter((r) => !notSentBefore.has(r.rowKey));
+  const reason = (plan.notSent ?? [])[0]?.reason ?? "";
+  if (plan.rows.length === 0 && notSent.length === 0) {
+    if ((plan.notSent ?? []).length) return { status: "not-sent", result: null, reason, duplicates };
+    return { status: duplicates ? "duplicate" : "nobody", duplicates };
+  }
+  const result = await recordSend(tx, ctx, send, { ...plan, notSent });
   const people = new Map<string, string>();
-  for (const r of plan.rows) people.set(r.rowKey, r.candidate.name);
+  for (const r of plan.rows) for (const key of r.keys ?? [r.rowKey]) people.set(key, r.candidate.name);
   await logLines(tx, ctx, def.key, input.event, [...people].map(([key, name]) => ({ key, name })), plan.creditProblem ? "no-credits" : "sent", plan.creditProblem, result.messageId);
+  for (const r of notSent) await logLines(tx, ctx, def.key, input.event, [{ key: r.rowKey, name: r.candidate.name }], "not-sent", r.reason, result.messageId);
+  if (plan.rows.length === 0) return { status: "not-sent", result, reason, duplicates };
   return { status: "sent", result, duplicates };
 }
 

@@ -177,6 +177,9 @@ model PayrollRun {
   employerEsiPaise BigInt        @default(0) @map("employer_esi_paise")
   statutoryId      String?       @map("statutory_id") @db.Uuid
   calculatedAt     DateTime?     @map("calculated_at")
+  /// The last day of attendance and leave the calculation took in. Later days,
+  /// and later changes, reach the next month's salary as a correction.
+  calculatedUpTo   DateTime?     @map("calculated_up_to") @db.Date
   sentById         String?       @map("sent_by_id") @db.Uuid
   sentAt           DateTime?     @map("sent_at")
   approvalId       String?       @map("approval_id") @db.Uuid
@@ -224,6 +227,12 @@ model PayrollLine {
   lateMarks        Int      @default(0) @map("late_marks")
   notMarkedDays    Int      @default(0) @map("not_marked_days")
   lopDays          Decimal  @default(0) @map("lop_days") @db.Decimal(5, 1)
+  /// Days marked half-day without leave (half a day of loss of pay each).
+  /// Empty on lines worked out before 18 October 2026.
+  halfDays         Int?     @map("half_days")
+  /// Days of approved leave beyond the leave balance (Staff Leave loss of pay).
+  /// Empty on lines worked out before 18 October 2026.
+  leaveLopDays     Decimal? @map("leave_lop_days") @db.Decimal(5, 1)
   overtimeMinutes  Int      @default(0) @map("overtime_minutes")
   /// [{ name, amountPaise, how }] for the full month.
   earnings         Json     @default("[]")
@@ -264,6 +273,10 @@ model PayrollLine {
 }
 
 /// Payroll Adjustment: a bonus, arrears or one-time deduction for one person in one run, with its reason.
+/// A correction of an earlier month (leave or attendance changed after that
+/// month's salary was approved) also says the month it belongs to, the run it
+/// corrects, the change in loss-of-pay days, and the PF and ESI on it worked
+/// out by that month's rules.
 model PayrollAdjustment {
   id           String    @id @default(uuid()) @db.Uuid
   schoolId     String    @map("school_id") @db.Uuid
@@ -273,6 +286,18 @@ model PayrollAdjustment {
   type         String
   amountPaise  BigInt    @map("amount_paise")
   reason       String
+  /// A correction: the month it belongs to (first day) and the approved run it corrects.
+  forMonth     DateTime? @map("for_month") @db.Date
+  fromRunId    String?   @map("from_run_id") @db.Uuid
+  /// A correction: loss-of-pay days added (more than 0) or given back (less than 0).
+  lopDays      Decimal?  @map("lop_days") @db.Decimal(5, 1)
+  /// A correction: PF and ESI on it, by the rules of the month it belongs to (less than 0 when recovered).
+  pfWagePaise  BigInt    @default(0) @map("pf_wage_paise")
+  pfPaise      BigInt    @default(0) @map("pf_paise")
+  erPfPaise    BigInt    @default(0) @map("er_pf_paise")
+  esiWagePaise BigInt    @default(0) @map("esi_wage_paise")
+  esiPaise     BigInt    @default(0) @map("esi_paise")
+  erEsiPaise   BigInt    @default(0) @map("er_esi_paise")
   createdById  String?   @map("created_by_id") @db.Uuid
   createdAt    DateTime  @default(now()) @map("created_at")
   archivedAt   DateTime? @map("archived_at")
@@ -281,6 +306,7 @@ model PayrollAdjustment {
   run PayrollRun @relation(fields: [runId], references: [id])
 
   @@index([schoolId, runId])
+  @@index([schoolId, staffId, forMonth])
   @@map("payroll_adjustment")
 }
 

@@ -7,7 +7,6 @@ import { escalateOverdue } from "./approvals";
 import { pruneRateLimits } from "./rate-limit";
 import "./exports";
 import "./importer";
-import "./approval-handlers";
 import "./data-security/jobs";
 import "./staff/jobs";
 import "./attendance/jobs";

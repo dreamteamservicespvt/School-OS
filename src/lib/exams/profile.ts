@@ -38,7 +38,8 @@ export async function studentExamsTab(tx: Tx, ctx: SchoolContext, scope: ExamSco
     .sort((a, b) => b.academicYear.startDate.getTime() - a.academicYear.startDate.getTime());
   const visible = enrolments.filter((e) => seesSection(scope, e.sectionId));
   if (visible.length === 0) return null;
-  const results = await tx.result.findMany({ where: { studentId, academicYearId: { in: visible.map((e) => e.academicYearId) } } });
+  // An exam the student joined after ("Joined after this exam") has nothing to show.
+  const results = await tx.result.findMany({ where: { studentId, academicYearId: { in: visible.map((e) => e.academicYearId) }, leftOut: false } });
   const exams = await tx.exam.findMany({ where: { id: { in: results.map((r) => r.examId).filter((x): x is string => Boolean(x)) } }, select: { id: true, title: true, startDate: true } });
   const cards = await tx.reportCard.findMany({ where: { studentId } });
   const years: StudentExamsTab["years"] = [];

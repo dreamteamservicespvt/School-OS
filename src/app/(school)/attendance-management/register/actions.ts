@@ -3,7 +3,6 @@
 // Attendance corrections (05 §2 Attendance Register, rule 17): asked here,
 // decided through Approvals. The original marks stay in the audit log.
 
-import "@/lib/approval-handlers";
 import { redirect } from "next/navigation";
 import { requireAction } from "@/lib/current";
 import { withSchool } from "@/lib/db";

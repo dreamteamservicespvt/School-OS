@@ -475,6 +475,7 @@ flowchart TB
 | No teacher is free for a period | Only free teachers are suggested | The period shows as "substitute needed" on the Dashboard. | The office picks a teacher from the free periods view. |
 | A teacher is booked twice | Clash check before saving | "This teacher is already teaching 7 B in period 3." | Pick another teacher. |
 | Leave is approved by mistake | | | Cancel the leave with a reason. The balance comes back. Both steps are logged. |
+| Leave is approved for a day already marked absent, or after that month's salary was approved | The absent mark becomes leave, so the day counts once | | Nothing to do: the next month's salary gives the loss of pay back as arrears, with the reason. |
 
 ### Records created or changed
 
@@ -678,6 +679,7 @@ flowchart TB
 | Salary is generated twice for the same month | Only one salary run per month for each campus | "Salary for September is already generated." | Open the existing one. |
 | A change is made without a reason | A reason is needed for every adjustment | "Please give a reason for this bonus." | Add the reason. |
 | A mistake is found after approval | The approved month is locked | | Put it right with a reversal or an adjustment, with a reason. The locked month is not changed. |
+| Leave or attendance for an approved month changes later | The month stays as it was paid | "September 2026 salary: 1 day of loss of pay given back" | The next month's salary adds the arrears or deduction by itself, with PF and ESI by the earlier month's rules. The accountant checks it before sending. |
 | A salary structure changed during the month | Old versions are kept, and each slip records the version used | | Nothing is lost. |
 | Someone tries to see another person's slip | Each person sees only their own slip, unless their role allows more | | |
 

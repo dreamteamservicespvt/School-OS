@@ -12,7 +12,7 @@ import { NOT_OPENED_MS, SETUP_STUCK_DAYS } from "./schools";
 import { CHANNEL_LABEL, channelIsSetUp, type ConsoleChannel } from "./outbox";
 import type { ConsoleAction } from "./roles";
 
-export type AttentionKind = "never" | "expired" | "stuck" | "trial" | "grace" | "over" | "alert";
+export type AttentionKind = "never" | "expired" | "stuck" | "trial" | "grace" | "over" | "alert" | "support";
 export type Attention = {
   id: string;
   kind: AttentionKind;
@@ -43,9 +43,10 @@ export async function attentionItems(now = new Date()): Promise<Attention[]> {
   const notOpenedBefore = new Date(now.getTime() - NOT_OPENED_MS);
   const stuckBefore = new Date(now.getTime() - SETUP_STUCK_DAYS * 86_400_000);
   return withConsole(async (tx) => {
-    const [invites, stuck, trials, grace, subs, cards] = await Promise.all([
+    const [invites, stuck, trials, grace, subs, cards, support] = await Promise.all([
+      // Invites not used yet, opened or not (an opened link whose password was never set still needs a call).
       tx.schoolInvite.findMany({
-        where: { usedAt: null, cancelledAt: null, replacedAt: null, openedAt: null, OR: [{ sentAt: { lt: notOpenedBefore } }, { expiresAt: { lte: now } }], expiresAt: { gt: new Date(now.getTime() - 30 * 86_400_000) } },
+        where: { usedAt: null, cancelledAt: null, replacedAt: null, OR: [{ sentAt: { lt: notOpenedBefore } }, { expiresAt: { lte: now } }], expiresAt: { gt: new Date(now.getTime() - 30 * 86_400_000) } },
         orderBy: { sentAt: "asc" },
         take: 20,
       }),
@@ -54,6 +55,7 @@ export async function attentionItems(now = new Date()): Promise<Attention[]> {
       tx.platformInvoice.findMany({ where: { status: "UNPAID", kind: { in: ["RENEWAL", "SECOND_HALF", "NEW"] }, dueOn: { lt: today } }, orderBy: { dueOn: "asc" }, take: 20 }),
       tx.subscription.findMany({ select: { forSchoolId: true, studentsPaidFor: true, pricePerStudentPaise: true } }),
       tx.consoleSchool.findMany({ where: { status: { not: "CLOSED" } }, select: { id: true, name: true, status: true, activeStudents: true, setupDone: true, setupTotal: true, adminName: true, channelStats: true } }),
+      tx.supportAccessRequest.findMany({ where: { status: "WAITING" }, orderBy: { createdAt: "asc" }, take: 20 }),
     ]);
     const byId = new Map(cards.map((c) => [c.id, c]));
     const pendingTopups = new Set((await tx.platformInvoice.findMany({ where: { kind: "TOPUP", status: { in: ["WAITING", "UNPAID"] } }, select: { forSchoolId: true } })).map((i) => i.forSchoolId));
@@ -64,8 +66,14 @@ export async function attentionItems(now = new Date()): Promise<Attention[]> {
       if (!card) continue;
       const expired = i.expiresAt <= now;
       const ago = daysBetween(i.sentAt, now);
+      const what = i.kind === "RESET" ? "reset link" : "invite";
+      if (!expired && i.openedAt) {
+        // Opened, but the password was never set: same button, its own words.
+        out.push({ id: `never:${i.id}`, kind: "never", tone: "warn", title: `${card.name}: admin ${what} opened ${daysBetween(i.openedAt, now) <= 0 ? "today" : `${plural(daysBetween(i.openedAt, now), "day")} ago`}, password not set yet.`, detail: `${i.name} · +91 ${maskMobile(i.phone)} · sent ${formatDate(i.sentAt)}${i.sentByName ? ` by ${i.sentByName}` : ""}`, action: "Resend invite", needs: "invite", schoolId: card.id, schoolName: card.name, targetId: i.id });
+        continue;
+      }
       out.push(expired
-        ? { id: `expired:${i.id}`, kind: "expired", tone: "bad", title: `${card.name}: ${i.kind === "RESET" ? "reset" : "invite"} link expired ${daysBetween(i.expiresAt, now) <= 1 ? "yesterday" : `${daysBetween(i.expiresAt, now)} days ago`}.`, detail: `${i.name} · sent ${formatDate(i.sentAt)}, never opened`, action: "Send new invite", needs: "invite", schoolId: card.id, schoolName: card.name, targetId: i.id }
+        ? { id: `expired:${i.id}`, kind: "expired", tone: "bad", title: `${card.name}: ${i.kind === "RESET" ? "reset" : "invite"} link expired ${daysBetween(i.expiresAt, now) <= 1 ? "yesterday" : `${daysBetween(i.expiresAt, now)} days ago`}.`, detail: `${i.name} · sent ${formatDate(i.sentAt)}, ${i.openedAt ? `opened ${formatDate(i.openedAt)}, password never set` : "never opened"}`, action: "Send new invite", needs: "invite", schoolId: card.id, schoolName: card.name, targetId: i.id }
         : { id: `never:${i.id}`, kind: "never", tone: "warn", title: `${card.name}: admin ${i.kind === "RESET" ? "reset link" : "invite"} sent ${plural(ago, "day")} ago, not opened.`, detail: `${i.name} · +91 ${maskMobile(i.phone)} · sent on ${channelWords(i.channels)}${i.sentByName ? ` by ${i.sentByName}` : ""}`, action: "Resend invite", needs: "invite", schoolId: card.id, schoolName: card.name, targetId: i.id });
     }
 
@@ -100,10 +108,15 @@ export async function attentionItems(now = new Date()): Promise<Attention[]> {
       out.push({ id: `over:${card.id}`, kind: "over", tone: "warn", title: `${card.name}: ${card.activeStudents.toLocaleString("en-IN")} active students, ${sub.studentsPaidFor.toLocaleString("en-IN")} paid for.`, detail: `${extra.toLocaleString("en-IN")} more than paid for (${pct}%). Top-up is half the yearly rate (${formatRupees(sub.pricePerStudentPaise / 2n)} each) for the rest of the year.`, action: "Make top-up invoice", needs: "topup", schoolId: card.id, schoolName: card.name, targetId: card.id });
     }
 
+    // Support access waiting (07-super-admin.md §3.1): the school has not answered yet.
+    for (const r of support) {
+      out.push({ id: `support:${r.id}`, kind: "support", tone: "info", title: `Request to ${r.schoolName} waiting for their answer.`, detail: `${r.requestedByName} · asked ${formatDate(r.createdAt)}, ${formatTime(r.createdAt)} · “${r.reason}”`, action: "Open request", needs: null, schoolId: r.forSchoolId, schoolName: r.schoolName, targetId: r.id });
+    }
+
     const alert = await systemProblem(cards);
     if (alert) out.push({ id: "alert", kind: "alert", tone: "bad", title: alert.title, detail: alert.schools.join(", "), action: "Open System alerts", needs: null, schoolId: null, schoolName: null, targetId: null });
 
-    const order: AttentionKind[] = ["alert", "grace", "expired", "never", "over", "stuck", "trial"];
+    const order: AttentionKind[] = ["alert", "grace", "expired", "never", "support", "over", "stuck", "trial"];
     return out.sort((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind));
   });
 }

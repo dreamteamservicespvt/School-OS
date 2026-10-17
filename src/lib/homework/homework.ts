@@ -190,7 +190,7 @@ export function givenWords(made: { sectionLabel: string; students: number; notif
   const parents = made.map((m) => m.parents);
   const told = notified ? ` ${plural(notified, "student")} notified in the app.` : "";
   const toParents = parents.includes("sent") ? " Parents were messaged."
-    : parents.includes("no-channel") ? " Parents were not messaged: WhatsApp or SMS is not connected yet."
+    : parents.includes("no-channel") || parents.includes("not-sent") ? " Parents were not messaged: no channel can carry it yet (see Communication, Message History)."
       : parents.includes("off") ? " Parents were not messaged: the Homework set message is off (Communication, Message Settings)."
         : "";
   return `Homework sent to ${made.map((m) => m.sectionLabel).join(", ")} (${plural(students, "student")}).${told}${toParents}`;

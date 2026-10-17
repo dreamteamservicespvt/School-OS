@@ -13,7 +13,7 @@ import type { DailyActivity } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { notify } from "../notifications";
-import { sendMessage, MessagingProblem } from "../messaging";
+import { sendMessage, MessagingProblem, notSentWords } from "../messaging";
 import { staffForUser } from "../people";
 import { EventsProblem } from "./problem";
 import { eventsSettings } from "./settings";
@@ -189,6 +189,9 @@ export function childDay(acts: { label: string; logs: { studentId: string; value
   }).filter(Boolean).join(" ");
 }
 
+/** The diary message: {diary} is each child's own day (one blank, filled per child). */
+export const diaryText = (teacher: string, section: string) => `{diary} – ${teacher}, ${section}`;
+
 /** Sends the day's diary to the parents: each parent gets only their own child's day. */
 export async function sendDiary(tx: Tx, ctx: SchoolContext, sectionId: string, today: string) {
   const year = await yearOf(tx, today);
@@ -210,7 +213,7 @@ export async function sendDiary(tx: Tx, ctx: SchoolContext, sectionId: string, t
   let r;
   try {
     r = await sendMessage(tx, ctx, {
-      to: { guardiansOf: ids }, channels: "preferred", text: `{{diary}} – ${sec.teacher ?? "Class teacher"}, ${sec.label}`,
+      to: { guardiansOf: ids }, channels: "preferred", text: diaryText(sec.teacher ?? "Class teacher", sec.label),
       perStudent, trigger: `Daily diary: ${sec.label}`, source: { type: "Diary Send", id: sectionId }, audienceLabel: `Parents of ${sec.label}`,
     });
   } catch (e) {
@@ -219,7 +222,7 @@ export async function sendDiary(tx: Tx, ctx: SchoolContext, sectionId: string, t
   }
   const send = await tx.diarySend.create({ data: { schoolId: ctx.schoolId, sectionId, date: dayOf(today), people: r.people, logged: Math.min(100, logged), messageId: r.messageId, sentById: ctx.userId } });
   await writeAudit(tx, ctx, { action: "diary-sent", recordType: "Diary Send", recordId: send.id, after: { section: sec.label, parents: r.people, logged } });
-  return { people: r.people, children: ids.length, section: sec };
+  return { people: r.people, children: ids.length, section: sec, missed: notSentWords(r) };
 }
 
 export type ClassProgress = PreSection & { present: number; absent: number; due: number; logged: number; missing: string[]; sentAt: Date | null; reminded: boolean };

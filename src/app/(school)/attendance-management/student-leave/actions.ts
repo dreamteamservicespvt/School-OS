@@ -3,7 +3,6 @@
 // Student Leave (05 §2): recorded by staff, decided by the class teacher
 // within the limit or by the principal, through Approvals.
 
-import "@/lib/approval-handlers";
 import { requireAction } from "@/lib/current";
 import { withSchool } from "@/lib/db";
 import { findStudents as findAnyStudents } from "@/lib/students/find";

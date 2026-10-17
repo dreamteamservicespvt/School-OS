@@ -183,7 +183,7 @@ export async function recordStudentLeave(tx: Tx, ctx: SchoolContext, access: Att
   return { request, approved: false, summary, quota: c.quota, overQuota: c.overQuota };
 }
 
-/** What happens to a student leave when its approval is decided (registered with onDecision). */
+/** What happens to a student leave when its approval is decided (listed in src/lib/approval-handlers.ts). */
 export async function onStudentLeaveDecision(tx: Tx, ctx: SchoolContext, approval: { id: string }, decision: Decision, note: string | null) {
   const rows = await tx.leaveRequest.findMany({ where: { approvalId: approval.id, status: "WAITING", archivedAt: null, studentId: { not: null } } });
   for (const r of rows) {

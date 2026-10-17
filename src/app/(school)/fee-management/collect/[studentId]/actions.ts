@@ -143,6 +143,8 @@ export async function resendReceipt(_prev: unknown, fd: FormData) {
     if (r.status === "off") throw new MoneyProblem("The \"Fee received\" message is switched off. Switch it on in Communication, Message Settings.", undefined, { href: "/communication/settings", label: "Open Message Settings" });
     if (r.status === "no-channel") throw new MoneyProblem("No messaging channel is set up. Set up WhatsApp or SMS in Settings.", undefined, { href: "/settings", label: "Open Settings" });
     if (r.status === "nobody") throw new MoneyProblem("No parent can get this message: no phone number, or they opted out. Print the receipt instead.");
+    // No channel can carry it (for example WhatsApp has not approved the template and SMS has no DLT template ID): say why, nothing is sent.
+    if (r.status === "not-sent") throw new MoneyProblem(`The receipt was not sent: ${r.reason.replace(/^Not sent: /, "")}. Print the receipt instead.`, undefined, { href: "/communication/settings", label: "Open Message Settings" });
     return { no: receipt.number };
-  }, (r) => `Receipt ${r.no} sent again on WhatsApp.`, { staffOnly: false });
+  }, (r) => `Receipt ${r.no} sent again to the parents.`, { staffOnly: false });
 }

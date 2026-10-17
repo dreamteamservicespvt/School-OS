@@ -8,7 +8,7 @@ import { sendPaymentLink } from "@/lib/fees/online";
 import { addOldDues } from "@/lib/fees/opening";
 import { MoneyProblem } from "@/lib/fees/problem";
 import { addCharge, adjustDue, assignToStudent, removeDue } from "@/lib/fees/structure";
-import { dateOf, id, needRupees, optionalId, optionalText, str, text } from "@/lib/fees/act";
+import { dateOf, id, ids, needRupees, optionalId, optionalText, str, text } from "@/lib/fees/act";
 import { feeAction } from "../../_lib/action";
 
 const BASE = "/fee-management/documents";
@@ -88,11 +88,13 @@ export async function certificateAction(_prev: unknown, fd: FormData) {
   }, (d) => ({ message: `Fee certificate ${d.number} is ready: ${d.total} paid.`, link: { href: `${BASE}/${d.id}`, label: "Open certificate" } }), { staffOnly: "make fee certificates" });
 }
 
-/** A fee invoice for what is due now, and (when chosen) the parent gets it with a Razorpay link. */
+/** A fee invoice for the ticked rows (what is due now unless more are ticked), and (when chosen) the parent gets it with a Razorpay link. */
 export async function invoiceAction(_prev: unknown, fd: FormData) {
   return feeAction("create", fd, async (tx, ctx, viewer) => {
     const studentId = await student(tx, viewer, fd);
-    const doc = await createFeeInvoice(tx, ctx, studentId, []);
+    const dueIds = ids(fd, "dueId");
+    if (!dueIds.length) throw new MoneyProblem("Tick at least one row to put on the invoice.", "dueId");
+    const doc = await createFeeInvoice(tx, ctx, studentId, dueIds);
     let sent = false;
     if (str(fd, "send") === "on") {
       const dueIds = (doc.details as { dueIds: string[] }).dueIds;

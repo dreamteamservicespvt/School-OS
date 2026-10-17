@@ -59,3 +59,6 @@ export function daysWord(n: number) {
   return `${n % 1 ? n.toFixed(1) : n} ${n === 1 ? "day" : "days"}`;
 }
 export const dayNum = (n: number) => (n % 1 ? (n === 0.5 ? "½" : n.toFixed(1)) : String(n));
+
+/** An adjustment's name with the month it corrects: "Arrears for September 2026". */
+export const correctionLabel = (a: { type: string; forMonth: Date | null }) => `${adjustmentLabel(a.type)}${a.forMonth ? ` for ${monthName(a.forMonth)}` : ""}`;

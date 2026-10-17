@@ -58,6 +58,25 @@ export function countLeaveDays(from: Date, to: Date, holidays: Set<string>, opts
   return days;
 }
 
+/**
+ * The dates of an approved leave that are loss of pay (days beyond the
+ * balance, StaffLeaveDetail.lopDays): its last counted days, counted the way
+ * countLeaveDays counts them. YYYY-MM-DD to days (1, or 0.5 for a half day).
+ */
+export function lopDates(leave: { fromDate: Date; toDate: Date; halfDay: boolean }, lopDays: number, holidays: Set<string>, countsHolidays: boolean): Map<string, number> {
+  const out = new Map<string, number>();
+  if (!(lopDays > 0) || leave.toDate < leave.fromDate) return out;
+  const counted = eachDay(leave.fromDate, leave.toDate).filter((d) => countsHolidays || isWorkingDay(d, holidays));
+  const unit = leave.halfDay ? 0.5 : 1;
+  let left = lopDays;
+  for (let i = counted.length - 1; i >= 0 && left > 0; i--) {
+    const take = Math.min(unit, left);
+    out.set(isoDay(counted[i]), take);
+    left -= take;
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------- balances
 
 /** The leave year: the academic year of the staff member's campus holding the date. */
@@ -334,7 +353,7 @@ export async function applyLeave(tx: Tx, ctx: SchoolContext, input: ApplyInput) 
 
 // ---------------------------------------------------------------- decisions (A5)
 
-/** What happens to a staff leave when its approval is decided. Registered with onDecision. */
+/** What happens to a staff leave when its approval is decided. Listed in src/lib/approval-handlers.ts. */
 export async function onLeaveDecision(tx: Tx, ctx: SchoolContext, approval: { id: string }, decision: "approve" | "reject" | "ask-change" | "withdraw", note: string | null) {
   const requests = await tx.leaveRequest.findMany({ where: { approvalId: approval.id, status: "WAITING", archivedAt: null } });
   for (const r of requests) {
@@ -347,6 +366,7 @@ export async function onLeaveDecision(tx: Tx, ctx: SchoolContext, approval: { id
     const staff = r.staffId ? await tx.staff.findUnique({ where: { id: r.staffId } }) : null;
     if (!staff) continue;
     if (decision === "approve") {
+      await absentMarksToLeave(tx, ctx, r, staff.fullName);
       const detail = await tx.staffLeaveDetail.findUnique({ where: { leaveRequestId: r.id } });
       const raised = await raiseSubstitutions(tx, ctx, r, staff, detail?.halfDayPart ?? null);
       if (raised > 0) {
@@ -369,6 +389,30 @@ export async function onLeaveDecision(tx: Tx, ctx: SchoolContext, approval: { id
       await notify(tx, ctx, { to: staff.userLoginId, type: "staff-leave", text: `Your leave from ${formatDate(r.fromDate)} was ${words}${note ? `. Reason: ${note}` : "."}`, link: "/staff-hr-management/leave" });
     }
   }
+}
+
+/**
+ * A5: approved leave shows in Staff Attendance. Days of a full-day leave
+ * already marked absent (or another status that counts as absent) become
+ * Leave, so the day counts once, as leave, and not as an absence too. A half
+ * day keeps its mark: the other half of the day was worked or missed.
+ */
+export async function absentMarksToLeave(tx: Tx, ctx: SchoolContext, r: Pick<LeaveRequest, "id" | "staffId" | "fromDate" | "toDate" | "halfDay">, staffName: string) {
+  if (r.halfDay || !r.staffId) return 0;
+  const absentKeys = await tx.attendanceStatus.findMany({ where: { schoolId: ctx.schoolId, counts: "absent" }, select: { key: true } });
+  const keys = [...new Set(["absent", ...absentKeys.map((s) => s.key)])];
+  const marks = await tx.attendanceMark.findMany({
+    where: { staffId: r.staffId, periodNo: 0, archivedAt: null, date: { gte: r.fromDate, lte: r.toDate }, statusKey: { in: keys } },
+    orderBy: { date: "asc" }, select: { id: true, date: true, statusKey: true },
+  });
+  if (marks.length === 0) return 0;
+  await tx.attendanceMark.updateMany({ where: { id: { in: marks.map((m) => m.id) } }, data: { statusKey: "leave", leaveRequestId: r.id } });
+  await writeAudit(tx, ctx, {
+    action: "staff-attendance-leave-approved", recordType: "Attendance Mark", recordId: null,
+    before: marks.map((m) => ({ staff: staffName, date: isoDay(m.date), status: m.statusKey })) as unknown as Prisma.InputJsonValue,
+    after: { staff: staffName, leaveRequestId: r.id, status: "leave", dates: marks.map((m) => isoDay(m.date)) },
+  });
+  return marks.length;
 }
 
 // ---------------------------------------------------------------- cancelling
@@ -415,7 +459,8 @@ export async function cancelLeave(tx: Tx, ctx: SchoolContext, requestId: string,
     const rule = await tx.leaveTypeRule.findUnique({ where: { leaveTypeId: r.leaveTypeId } });
     const holidays = await holidaySet(tx, ctx, r.fromDate, newTo, staff.campusId);
     const days = countLeaveDays(r.fromDate, newTo, holidays, { countsHolidays: rule?.countsHolidays ?? false });
-    const lop = Math.min(num(detail?.lopDays), days);
+    // The days beyond the balance are the last days of the leave, so the days given back are those first.
+    const lop = Math.max(0, Math.min(num(detail?.lopDays) - (num(r.days) - days), days));
     await tx.leaveRequest.update({ where: { id: r.id }, data: { toDate: newTo, days } });
     if (detail) await tx.staffLeaveDetail.update({ where: { leaveRequestId: r.id }, data: { lopDays: lop } });
     kind = "shortened";
@@ -424,6 +469,12 @@ export async function cancelLeave(tx: Tx, ctx: SchoolContext, requestId: string,
     where: { leaveRequestId: r.id, date: { gte: today }, status: { not: "CANCELLED" }, archivedAt: null },
     data: { status: "CANCELLED", note: "Leave cancelled" },
   });
+  // Days marked absent that became Leave on approval are absent again for the days given back.
+  const back = await tx.attendanceMark.findMany({ where: { leaveRequestId: r.id, staffId: staff.id, statusKey: "leave", archivedAt: null, date: { gte: kind === "cancelled" ? r.fromDate : today } }, select: { id: true, date: true } });
+  if (back.length) {
+    await tx.attendanceMark.updateMany({ where: { id: { in: back.map((m) => m.id) } }, data: { statusKey: "absent", leaveRequestId: null } });
+    await writeAudit(tx, ctx, { action: "staff-attendance-leave-cancelled", recordType: "Attendance Mark", recordId: null, before: { staff: staff.fullName, status: "leave", dates: back.map((m) => isoDay(m.date)) }, after: { status: "absent", leaveRequestId: r.id, reason } });
+  }
   await writeAudit(tx, ctx, {
     action: kind === "cancelled" ? "leave-cancelled" : "leave-shortened", recordType: "Leave Request", recordId: r.id,
     before: { status: r.status, to: isoDay(r.toDate), days: num(r.days) }, after: { reason, substitutionsCancelled: subs.count },

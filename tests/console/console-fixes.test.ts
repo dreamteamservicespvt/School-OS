@@ -1,0 +1,242 @@
+// Console bugs fixed with gap G35 (07-super-admin.md §3.1, §3.5, §3.6, §5):
+// - a console person can change their own password (the check had its two values swapped);
+// - a top-up raises the students paid for only when it is paid, never while it waits or once cancelled;
+// - paying reactivates only a school the software suspended for an overdue invoice, and only when nothing else is overdue;
+// - adding an admin again after they were disabled (or their invite cancelled) gives them a working invite;
+// - the billing day carries on past a school it cannot finish, and never makes a year invoice twice;
+// - an invite that was opened but never finished shows in Needs attention.
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+
+const jar = new Map<string, string>();
+vi.mock("next/headers", () => ({
+  cookies: async () => ({ get: (name: string) => (jar.has(name) ? { name, value: jar.get(name)! } : undefined), set: (name: string, value: string) => { jar.set(name, value); }, delete: (name: string) => { jar.delete(name); } }),
+  headers: async () => new Headers({ "user-agent": "vitest" }),
+}));
+vi.mock("next/navigation", () => ({
+  redirect: (url: string) => { throw new Error(`REDIRECT ${url}`); },
+  notFound: () => { throw new Error("NOT_FOUND"); },
+}));
+vi.mock("next/cache", () => ({ revalidatePath: () => {}, revalidateTag: () => {} }));
+
+import { randomUUID } from "node:crypto";
+import type { SuperAdminUser } from "@prisma/client";
+import { prisma, withConsole, withConsoleSchool } from "@/lib/db";
+import { hashToken, newToken } from "@/lib/auth/tokens";
+import { hashPassword, verifyPassword } from "@/lib/auth/password";
+import { actorOf, CONSOLE_COOKIE } from "@/lib/console/auth";
+import { addDays, cancelInvoice, istDay, markPaid, runBillingDay, startSubscription, topupInvoice, invoiceFor } from "@/lib/console/billing";
+import { addAdmin, cancelInvite, changeStatus, disableAdmin } from "@/lib/console/schools";
+import { attentionItems } from "@/lib/console/dashboard";
+import { changePasswordAction } from "@/app/console/(app)/profile/actions";
+import { makeSchool, makeUser, PASSWORD } from "../helpers";
+
+let owner: SuperAdminUser;
+
+const mobile = () => `9${String(Math.floor(Math.random() * 1e9)).padStart(9, "0")}`;
+const form = (o: Record<string, string>) => { const fd = new FormData(); for (const [k, v] of Object.entries(o)) fd.set(k, v); return fd; };
+const today = () => istDay(new Date());
+
+async function teamMember(role: "OWNER" | "SUPPORT") {
+  return withConsole(async (tx) => tx.superAdminUser.create({ data: { name: `${role} ${randomUUID().slice(0, 4)}`, phone: mobile(), role, status: "ACTIVE", passwordHash: await hashPassword(PASSWORD) } }));
+}
+
+async function asConsole(u: SuperAdminUser) {
+  const token = newToken();
+  const s = await withConsole((tx) => tx.consoleSession.create({ data: { userId: u.id, tokenHash: hashToken(token), lastUsedAt: new Date(), expiresAt: new Date(Date.now() + 30 * 60_000) } }));
+  jar.clear();
+  jar.set(CONSOLE_COOKIE, token);
+  return s.id;
+}
+
+async function schoolWithCard(name: string, activeStudents = 0) {
+  const s = await makeSchool(name);
+  await withConsoleSchool(s.id, (tx) => tx.consoleSchool.create({ data: { id: s.id, code: s.code, name: s.name, city: "Nagpur", state: "Maharashtra", status: "ACTIVE", statusSince: new Date(), startedAs: "ACTIVE", activeStudents } }));
+  return s;
+}
+
+const sub = (schoolId: string) => withConsole((tx) => tx.subscription.findUniqueOrThrow({ where: { forSchoolId: schoolId } }));
+const status = async (schoolId: string) => (await withConsole((tx) => tx.consoleSchool.findUniqueOrThrow({ where: { id: schoolId } }))).status;
+const invoices = (schoolId: string, kind: string) => withConsole((tx) => tx.platformInvoice.findMany({ where: { forSchoolId: schoolId, kind }, orderBy: { createdAt: "asc" } }));
+
+/** A year invoice already sent and now overdue past its grace. */
+async function overdueYearInvoice(schoolId: string, kind: "NEW" | "SECOND_HALF" | "RENEWAL", daysLate = 20) {
+  const due = addDays(today(), -daysLate);
+  return withConsole((tx) => tx.platformInvoice.create({
+    data: { number: `T/${randomUUID().slice(0, 8)}`, forSchoolId: schoolId, kind, items: [], subtotalPaise: 100_000n, gstPaise: 18_000n, totalPaise: 118_000n, periodFrom: addDays(due, -1), issuedOn: addDays(due, -14), dueOn: due, status: "UNPAID", sentAt: addDays(due, -14) },
+  }));
+}
+
+beforeAll(async () => {
+  owner = await teamMember("OWNER");
+});
+
+beforeEach(() => jar.clear());
+
+// Other console tests count the active Owners; this file's Owner leaves when it is done.
+afterAll(async () => {
+  await withConsole((tx) => tx.superAdminUser.update({ where: { id: owner.id }, data: { status: "DISABLED", disabledAt: new Date(), disabledReason: "test finished" } }));
+});
+
+describe("a console person's own password", () => {
+  it("changes with the right current password, and other devices are signed out", async () => {
+    const me = await teamMember("SUPPORT");
+    const other = await withConsole((tx) => tx.consoleSession.create({ data: { userId: me.id, tokenHash: hashToken(newToken()), lastUsedAt: new Date(), expiresAt: new Date(Date.now() + 30 * 60_000) } }));
+    const mine = await asConsole(me);
+    const wrong = (await changePasswordAction(null, form({ current: "Not-my-pass-1", next: "Brand-new-77", again: "Brand-new-77" }))) as { ok: boolean; message?: string };
+    expect(wrong.ok).toBe(false);
+    expect(wrong.message).toMatch(/current password is not right/);
+    const same = (await changePasswordAction(null, form({ current: PASSWORD, next: PASSWORD, again: PASSWORD }))) as { ok: boolean; message?: string };
+    expect(same.ok).toBe(false);
+    expect(same.message).toMatch(/not used here/);
+    const ok = (await changePasswordAction(null, form({ current: PASSWORD, next: "Brand-new-77", again: "Brand-new-77" }))) as { ok: boolean; message?: string };
+    expect(ok.ok, ok.message).toBe(true);
+    const after = await withConsole((tx) => tx.superAdminUser.findUniqueOrThrow({ where: { id: me.id } }));
+    expect(await verifyPassword(after.passwordHash!, "Brand-new-77")).toBe(true);
+    expect(await verifyPassword(after.passwordHash!, PASSWORD)).toBe(false);
+    expect((await withConsole((tx) => tx.consoleSession.findUniqueOrThrow({ where: { id: other.id } }))).revokedAt).not.toBeNull();
+    expect((await withConsole((tx) => tx.consoleSession.findUniqueOrThrow({ where: { id: mine } }))).revokedAt).toBeNull();
+  });
+});
+
+describe("top-up invoices", () => {
+  it("raise the students paid for when paid, never while waiting or once cancelled", async () => {
+    const s = await schoolWithCard("Topup Public School");
+    await startSubscription(actorOf(owner), s.id, { planKey: "essential", hostel: false, buses: 0, students: 400, payIn: "YEARLY" });
+    await withConsole((tx) => tx.consoleSchool.update({ where: { id: s.id }, data: { activeStudents: 450 } }));
+    expect((await sub(s.id)).studentsPaidFor).toBe(400);
+
+    const waiting = await topupInvoice(actorOf(owner), s.id, { waitForOk: true });
+    expect((await sub(s.id)).studentsPaidFor).toBe(400);
+    await cancelInvoice(actorOf(owner), waiting.invoiceId, "Made by mistake, checking numbers");
+    expect((await sub(s.id)).studentsPaidFor).toBe(400);
+    // With the top-up cancelled, "more students than paid for" is back in Needs attention.
+    expect((await attentionItems()).some((a) => a.id === `over:${s.id}`)).toBe(true);
+
+    const sent = await topupInvoice(actorOf(owner), s.id, { waitForOk: false });
+    expect((await sub(s.id)).studentsPaidFor).toBe(400);
+    await markPaid(actorOf(owner), sent.invoiceId, { via: "BANK", ref: "UTR77881122", receivedOn: today() });
+    expect((await sub(s.id)).studentsPaidFor).toBe(450);
+  });
+});
+
+describe("paying and a Suspended school", () => {
+  it("a school suspended by hand stays suspended when an invoice is paid", async () => {
+    const s = await schoolWithCard("Handheld Suspension School");
+    await startSubscription(actorOf(owner), s.id, { planKey: "essential", hostel: false, buses: 0, students: 100, payIn: "YEARLY" });
+    const late = await overdueYearInvoice(s.id, "SECOND_HALF");
+    await changeStatus(actorOf(owner), s.id, "suspend", { reason: "Asked by the trust in writing, 8 Oct." });
+    await invoiceFor(actorOf(owner), s.id, { kind: "CREDITS", credits: 4000 });
+    const credits = (await invoices(s.id, "CREDITS"))[0];
+    const r1 = await markPaid(actorOf(owner), credits.id, { via: "BANK", ref: "UTR10101010", receivedOn: today() });
+    expect(r1.reactivated).toBe(false);
+    const r2 = await markPaid(actorOf(owner), late.id, { via: "BANK", ref: "UTR20202020", receivedOn: today() });
+    expect(r2.reactivated).toBe(false);
+    expect(await status(s.id)).toBe("SUSPENDED");
+  });
+
+  it("a school the software suspended comes back when the last overdue invoice is paid, not before", async () => {
+    const s = await schoolWithCard("Overdue Twice School");
+    await startSubscription(actorOf(owner), s.id, { planKey: "essential", hostel: false, buses: 0, students: 100, payIn: "HALVES" });
+    const first = await overdueYearInvoice(s.id, "RENEWAL", 40);
+    const second = await overdueYearInvoice(s.id, "SECOND_HALF", 20);
+    await changeStatus(null, s.id, "suspend", { reason: `Invoice ${first.number} unpaid 15 days after its date` }, new Date(), { system: true });
+    // A credit pack is not the overdue invoice.
+    await invoiceFor(actorOf(owner), s.id, { kind: "CREDITS", credits: 4000 });
+    const credits = (await invoices(s.id, "CREDITS"))[0];
+    expect((await markPaid(actorOf(owner), credits.id, { via: "BANK", ref: "UTR30303030", receivedOn: today() })).reactivated).toBe(false);
+    expect((await markPaid(actorOf(owner), first.id, { via: "BANK", ref: "UTR40404040", receivedOn: today() })).reactivated).toBe(false);
+    expect(await status(s.id)).toBe("SUSPENDED");
+    expect((await markPaid(actorOf(owner), second.id, { via: "BANK", ref: "UTR50505050", receivedOn: today() })).reactivated).toBe(true);
+    expect(await status(s.id)).toBe("ACTIVE");
+    const school = await withConsoleSchool(s.id, (tx) => tx.school.findUniqueOrThrow({ where: { id: s.id } }));
+    expect(school.status).toBe("ACTIVE");
+  });
+});
+
+describe("adding an admin again", () => {
+  it("after they were disabled: their login is switched back on, with no password, and a new invite goes", async () => {
+    const s = await schoolWithCard("Readd Admin School");
+    await makeUser({ schools: [{ id: s.id, roleKeys: ["school-admin"] }], name: "Stays Admin" });
+    const m = mobile();
+    await addAdmin(actorOf(owner), s.id, { name: "Leaving Admin", mobile: m, email: null, roleKey: "school-admin", channels: ["sms"], checked: null });
+    const login = await prisma.userLogin.findUniqueOrThrow({ where: { username: m } });
+    await prisma.userLogin.update({ where: { id: login.id }, data: { status: "ACTIVE", passwordHash: await hashPassword("Old-pass-11") } });
+    await disableAdmin(actorOf(owner), s.id, login.id, "Left the school in October");
+    expect((await prisma.userLogin.findUniqueOrThrow({ where: { id: login.id } })).status).toBe("DISABLED");
+
+    await addAdmin(actorOf(owner), s.id, { name: "Leaving Admin", mobile: m, email: null, roleKey: "school-admin", channels: ["sms"], checked: null });
+    const back = await prisma.userLogin.findUniqueOrThrow({ where: { id: login.id } });
+    expect(back.status).toBe("INVITED");
+    expect(back.passwordHash).toBeNull();
+    const live = await withConsole((tx) => tx.schoolInvite.findMany({ where: { forSchoolId: s.id, userLoginId: login.id, usedAt: null, cancelledAt: null, replacedAt: null } }));
+    expect(live).toHaveLength(1);
+    const access = await withConsoleSchool(s.id, (tx) => tx.schoolAccess.count({ where: { schoolId: s.id, userLoginId: login.id, archivedAt: null } }));
+    expect(access).toBe(1);
+  });
+
+  it("after their invite was cancelled: the same number works again", async () => {
+    const s = await schoolWithCard("Cancelled Invite School");
+    const m = mobile();
+    await addAdmin(actorOf(owner), s.id, { name: "Wrong Number", mobile: m, email: null, roleKey: "school-admin", channels: ["sms"], checked: null });
+    const inv = await withConsole((tx) => tx.schoolInvite.findFirstOrThrow({ where: { forSchoolId: s.id, phone: m } }));
+    await cancelInvite(actorOf(owner), s.id, inv.id, "Sent to the wrong person");
+    expect((await prisma.userLogin.findUniqueOrThrow({ where: { username: m } })).archivedAt).not.toBeNull();
+    await addAdmin(actorOf(owner), s.id, { name: "Right Person", mobile: m, email: null, roleKey: "principal", channels: ["sms"], checked: null });
+    const login = await prisma.userLogin.findUniqueOrThrow({ where: { username: m } });
+    expect(login.archivedAt).toBeNull();
+    expect(login.status).toBe("INVITED");
+    expect(login.displayName).toBe("Right Person");
+    expect(await withConsole((tx) => tx.schoolInvite.count({ where: { userLoginId: login.id, usedAt: null, cancelledAt: null, replacedAt: null } }))).toBe(1);
+  });
+});
+
+describe("the billing day", () => {
+  it("carries on past a school it cannot finish, tells the Owner, and makes a renewal once", async () => {
+    // A school card and subscription whose school record is gone: refreshing its banner fails.
+    const brokenId = randomUUID();
+    await withConsole(async (tx) => {
+      await tx.consoleSchool.create({ data: { id: brokenId, code: `BRK-${brokenId.slice(0, 6)}`, name: "Broken Card School", status: "ACTIVE", statusSince: new Date(), startedAs: "ACTIVE" } });
+      await tx.subscription.create({ data: { forSchoolId: brokenId, planKey: "essential", studentsPaidFor: 100, pricePerStudentPaise: 12000n, startOn: today(), renewOn: addDays(today(), 200) } });
+    });
+    const good = await schoolWithCard("Renewal Soon School", 120);
+    await startSubscription(actorOf(owner), good.id, { planKey: "essential", hostel: false, buses: 0, students: 100, payIn: "YEARLY" });
+    const renewOn = addDays(today(), 10);
+    await withConsole((tx) => tx.subscription.update({ where: { forSchoolId: good.id }, data: { renewOn } }));
+
+    await expect(runBillingDay()).resolves.toBeDefined();
+    expect(await invoices(good.id, "RENEWAL")).toHaveLength(1);
+    expect(await withConsole((tx) => tx.consoleNotification.count({ where: { userId: owner.id, text: { contains: "could not finish" } } }))).toBeGreaterThan(0);
+
+    // Run again, and a second renewal for the same period is refused by the database itself.
+    await runBillingDay();
+    expect(await invoices(good.id, "RENEWAL")).toHaveLength(1);
+    const first = (await invoices(good.id, "RENEWAL"))[0];
+    await expect(withConsole((tx) => tx.platformInvoice.create({
+      data: { number: `T/${randomUUID().slice(0, 8)}`, forSchoolId: good.id, kind: "RENEWAL", items: [], subtotalPaise: 1n, gstPaise: 0n, totalPaise: 1n, periodFrom: first.periodFrom, issuedOn: today(), dueOn: renewOn },
+    }))).rejects.toThrow();
+    // Making the year's invoice by hand is refused in plain words.
+    await expect(invoiceFor(actorOf(owner), good.id, { kind: "YEAR" })).rejects.toThrow(/still unpaid|already covers/);
+    // A cancelled one can be replaced.
+    await withConsole((tx) => tx.platformInvoice.update({ where: { id: first.id }, data: { status: "CANCELLED", cancelledAt: new Date(), cancelReason: "test" } }));
+    await runBillingDay();
+    expect((await invoices(good.id, "RENEWAL")).filter((i) => i.status !== "CANCELLED")).toHaveLength(1);
+  });
+});
+
+describe("Needs attention", () => {
+  it("shows an invite that was opened but never finished, before and after it expires", async () => {
+    const s = await schoolWithCard("Opened Invite School");
+    const now = new Date();
+    const day = 86_400_000;
+    const [opened, expired] = await withConsole((tx) => Promise.all([
+      tx.schoolInvite.create({ data: { forSchoolId: s.id, userLoginId: randomUUID(), name: "Opened Person", phone: mobile(), roleKey: "school-admin", channels: ["sms"], tokenHash: hashToken(newToken()), sentAt: new Date(now.getTime() - 3 * day), openedAt: new Date(now.getTime() - day), expiresAt: new Date(now.getTime() + day) } }),
+      tx.schoolInvite.create({ data: { forSchoolId: s.id, userLoginId: randomUUID(), name: "Expired Person", phone: mobile(), roleKey: "school-admin", channels: ["sms"], tokenHash: hashToken(newToken()), sentAt: new Date(now.getTime() - 5 * day), openedAt: new Date(now.getTime() - 4 * day), expiresAt: new Date(now.getTime() - 2 * day) } }),
+    ]));
+    const items = await attentionItems(now);
+    const a = items.find((i) => i.id === `never:${opened.id}`);
+    expect(a?.title).toMatch(/opened .* password not set yet/);
+    expect(a?.action).toBe("Resend invite");
+    const b = items.find((i) => i.id === `expired:${expired.id}`);
+    expect(b?.detail).toMatch(/password never set/);
+  });
+});

@@ -12,7 +12,7 @@ import { writeAudit } from "../audit";
 import { assertYearOpen } from "../academic/years";
 import { attendanceSummary } from "../attendance/summary";
 import { homeworkDone } from "../homework/progress";
-import { ruleStates, sendAutomatic, sendMessage } from "../messaging";
+import { notSentWords, ruleStates, sendAutomatic, sendMessage } from "../messaging";
 import { staffForUser } from "../people";
 import { EventsProblem } from "./problem";
 import { eventsSettings } from "./settings";
@@ -291,7 +291,7 @@ export async function performance(tx: Tx, ctx: SchoolContext, studentId: string,
     const sum = await attendanceSummary(tx, ctx, { studentId, from: year.startDate, to: year.endDate, today: dayOf(today) });
     attendance = sum.people.get(studentId)?.percent ?? null;
   }
-  const results = await tx.result.findMany({ where: { studentId, academicYearId, examId: { not: null } }, orderBy: { computedAt: "desc" }, take: 2 });
+  const results = await tx.result.findMany({ where: { studentId, academicYearId, examId: { not: null }, leftOut: false }, orderBy: { computedAt: "desc" }, take: 2 });
   let latest: Performance["latest"] = null;
   if (results.length) {
     const exams = await tx.exam.findMany({ where: { id: { in: results.map((r) => r.examId!) } }, select: { id: true, title: true } });
@@ -344,7 +344,7 @@ export async function sendSummary(tx: Tx, ctx: SchoolContext, ptmId: string, tod
   });
   await tx.ptm.update({ where: { id: p.id }, data: { summarySentAt: new Date() } });
   await writeAudit(tx, ctx, { action: "summary-sent", recordType: "PTM", recordId: p.id, after: { parents: r.people } });
-  return { people: r.people, students: students.length };
+  return { people: r.people, students: students.length, missed: notSentWords(r) };
 }
 
 /** The evening-before reminders (run by a schedule; each slot once). */

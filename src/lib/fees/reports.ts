@@ -431,19 +431,26 @@ export const FEE_REPORTS: ReportDef[] = [
   {
     key: "online",
     label: "Online payments",
-    about: "Every gateway confirmation and failure: posted, already posted (a second confirmation), failed, or not matched.",
+    about: "Every gateway confirmation and failure: posted, already posted (a second confirmation), failed, found by reconciliation, matched by hand, not matched, or refunded or disputed at Razorpay.",
     filters: ["dates"],
     async run(tx, _ctx, f) {
       const list = await tx.gatewayTransaction.findMany({ where: { receivedAt: { gte: f.from, lt: new Date(f.to.getTime() + DAY_MS) } }, orderBy: { receivedAt: "asc" } });
       const pays = await tx.payment.findMany({ where: { id: { in: list.map((l) => l.paymentId).filter((x): x is string => Boolean(x)) } }, select: { id: true, studentId: true } });
       const n = await names(tx, pays.map((p) => p.studentId));
-      const OUTCOME: Record<string, string> = { posted: "Posted", "already-posted": "Second confirmation, ignored", "failed-recorded": "Failed", unmatched: "Not matched", ignored: "Ignored" };
-      const rows = list.map((l) => ({ at: l.receivedAt, event: l.event, paymentId: l.gatewayPaymentId ?? "", order: l.gatewayOrderId ?? "", student: n.get(pays.find((p) => p.id === l.paymentId)?.studentId ?? "")?.fullName ?? "", outcome: OUTCOME[l.outcome] ?? l.outcome, amount: l.amountPaise }));
+      const OUTCOME: Record<string, string> = {
+        posted: "Posted", "already-posted": "Second confirmation, ignored", "failed-recorded": "Failed", unmatched: "Not matched", ignored: "Ignored",
+        "refund-reported": "Refunded at Razorpay, to check", "dispute-reported": "Disputed at the bank, to check", "reversal-unmatched": "Refund or dispute, not matched",
+      };
+      const EVENT: Record<string, string> = {
+        "payment.captured": "Payment captured", "order.paid": "Order paid", "checkout.verified": "Checkout confirmed", "payment.failed": "Payment failed",
+        "reconcile.captured": "Found by reconciliation", "matched-by-hand": "Matched by hand", "refund.processed": "Refunded", "payment.dispute.created": "Dispute opened", "payment.dispute.lost": "Dispute lost",
+      };
+      const rows = list.map((l) => ({ at: l.receivedAt, event: EVENT[l.event] ?? l.event, paymentId: l.gatewayPaymentId ?? "", order: l.gatewayOrderId ?? "", student: n.get(pays.find((p) => p.id === l.paymentId)?.studentId ?? "")?.fullName ?? "", outcome: OUTCOME[l.outcome] ?? l.outcome, amount: l.amountPaise }));
       return {
         columns: [{ key: "at", label: "Received", kind: "date" }, { key: "event", label: "Event" }, { key: "paymentId", label: "Gateway payment ID" }, { key: "order", label: "Order" }, { key: "student", label: "Student" }, { key: "outcome", label: "Outcome" }, { key: "amount", label: "Amount", kind: "money" }],
         rows,
         totals: { at: null, event: `${rows.length} confirmations`, amount: sum(rows.filter((r) => r.outcome === "Posted"), (r) => r.amount ?? ZERO) },
-        note: "The total counts posted payments only.",
+        note: `The total counts posted payments only. ${rows.filter((r) => r.outcome === "Posted" && (r.event === "Found by reconciliation" || r.event === "Matched by hand")).length} were reconciled: found by asking Razorpay, or matched to a student by hand.`,
       };
     },
   },

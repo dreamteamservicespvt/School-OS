@@ -6,6 +6,8 @@
 // Each change saves by itself; when the phone is offline the marks wait on
 // this device and save when it is back online. "One at a time" shows one
 // student with large number keys, for phones.
+// A student who joined after the marks were in shows "Joined late"; their
+// marks are added by a request that needs approval, when the school allows it.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MarksPaperStatus } from "@prisma/client";
@@ -33,6 +35,8 @@ import { readMarksSheet, requestChangeAction, saveMarksAction, submitPaperAction
 export type GridStudent = {
   id: string; name: string; rollNo: number | null; admissionNo: string;
   parts: Record<string, number>; absent: boolean; medical: boolean; grade: string | null; remark: string | null; waiting: boolean;
+  /** No marks while the paper is submitted or locked: joined after the marks were in. */
+  late: boolean;
   history: { at: string; by: string; approvedBy: string; reason: string; before: string; after: string }[];
 };
 
@@ -46,6 +50,8 @@ type Row = { parts: Record<string, string>; absent: boolean; medical: boolean; g
 type Props = {
   entryId: string; sectionId: string; paperLabel: string; students: GridStudent[]; categories: Cat[]; gradeOnly: boolean; gradeList: string[]; bands: Band[];
   status: MarksPaperStatus; canEdit: boolean; canRequest: boolean; head: PaperHead; actions?: React.ReactNode; notes?: React.ReactNode;
+  /** Exam Settings, Late joiners: "approval" adds late marks by a request; "off" leaves the student out. */
+  lateMarks: "approval" | "off";
 };
 
 const num = (s: string) => (s.trim() === "" ? null : Number(s.trim()));
@@ -348,6 +354,7 @@ export function MarksGrid(props: Props) {
                           <tr key={s.id} className="border-b border-line/60 last:border-0">
                             <th scope="row" className="sticky left-0 z-10 bg-surface px-4 py-1.5 whitespace-nowrap text-left font-normal">
                               <span className="text-ink3 tnum inline-block w-7">{s.rollNo ?? ""}</span><span className="font-medium">{s.name}</span>
+                              {s.late && <Pill tone="info" className="ml-2 !h-5 !text-[11px]">Joined late</Pill>}
                             </th>
                             {gradeOnly ? (
                               <td className="px-2 py-1.5 text-center">
@@ -358,7 +365,7 @@ export function MarksGrid(props: Props) {
                                     {gradeList.map((g) => <option key={g} value={g}>{g}</option>)}
                                     <option value="AB">AB</option><option value="ML">ML</option>
                                   </select>
-                                ) : <LockedCell value={r.absent ? code(r) : r.grade} s={s} canRequest={canRequest} onAsk={setAsk} />}
+                                ) : <LockedCell value={r.absent ? code(r) : r.grade} s={s} canRequest={canRequest && (!s.late || props.lateMarks === "approval")} onAsk={setAsk} />}
                               </td>
                             ) : cats.map((c, k) => {
                               const v = shown(s.id, c.name);
@@ -372,7 +379,7 @@ export function MarksGrid(props: Props) {
                                       className={cx("w-[72px] h-10 rounded-lg border text-center text-[15px] font-semibold tnum bg-surface outline-none transition",
                                         cellBad ? "border-bad ring-4 ring-bad/10 text-bad" : r.absent ? "border-line text-info" : "border-line focus:border-brand focus:ring-4 focus:ring-brand/15",
                                         tried && !t.done && !cellBad && v === "" && "border-warn bg-warn/[.06]")} />
-                                  ) : <LockedCell value={r.absent ? code(r) : r.parts[c.name] ?? ""} s={s} canRequest={canRequest} onAsk={setAsk} />}
+                                  ) : <LockedCell value={r.absent ? code(r) : r.parts[c.name] ?? ""} s={s} canRequest={canRequest && (!s.late || props.lateMarks === "approval")} onAsk={setAsk} />}
                                 </td>
                               );
                             })}
@@ -396,7 +403,7 @@ export function MarksGrid(props: Props) {
                 </div>
               </Card>
             ) : (
-              <OneAtATime students={students} rows={rows} cats={cats} gradeOnly={gradeOnly} gradeList={gradeList} canEdit={canEdit} canRequest={canRequest} totals={totals} max={max} bands={bands}
+              <OneAtATime students={students} rows={rows} cats={cats} gradeOnly={gradeOnly} gradeList={gradeList} canEdit={canEdit} canRequest={canRequest} lateMarks={props.lateMarks} totals={totals} max={max} bands={bands}
                 problemOf={problemOf} setCell={setCell} setGrade={setGrade} onAsk={setAsk} />
             )}
           </>
@@ -450,6 +457,16 @@ export function MarksGrid(props: Props) {
 
 function LockedCell({ value, s, canRequest, onAsk }: { value: string; s: GridStudent; canRequest: boolean; onAsk: (s: GridStudent) => void }) {
   const isCode = value === "AB" || value === "ML";
+  if (s.late) {
+    if (!canRequest) return <span title="Joined after the marks were in: left out of this exam." className="inline-grid place-items-center w-[72px] h-10 rounded-lg bg-sunken/50 text-ink3">—</span>;
+    return (
+      <button type="button" onClick={() => onAsk(s)} disabled={s.waiting} title={s.waiting ? "Marks are waiting for approval." : "Joined after the marks were in. Tap to add marks; they need approval."}
+        aria-label={`${s.name} joined late and has no marks. ${s.waiting ? "Marks are waiting for approval." : "Add marks."}`}
+        className={cx("w-[72px] h-10 rounded-lg inline-flex items-center justify-center gap-1 text-[13px] font-semibold transition", s.waiting ? "bg-warn/12 text-warn" : "bg-info/10 text-info hover:bg-info/15")}>
+        {s.waiting ? <><Hourglass size={12} aria-hidden="true" />Asked</> : "+ Add"}
+      </button>
+    );
+  }
   if (!canRequest) return <span className={cx("inline-grid place-items-center w-[72px] h-10 rounded-lg bg-sunken/50 font-semibold tnum", isCode ? "text-info" : value ? "text-ink" : "text-ink3")}>{value || "—"}</span>;
   return (
     <button type="button" onClick={() => onAsk(s)} disabled={s.waiting} title={s.waiting ? "A change is waiting for approval." : "Submitted. Tap to ask for a change."}
@@ -460,14 +477,15 @@ function LockedCell({ value, s, canRequest, onAsk }: { value: string; s: GridStu
   );
 }
 
-function OneAtATime({ students, rows, cats, gradeOnly, gradeList, canEdit, canRequest, totals, max, bands, problemOf, setCell, setGrade, onAsk }: {
-  students: GridStudent[]; rows: Record<string, Row>; cats: Cat[]; gradeOnly: boolean; gradeList: string[]; canEdit: boolean; canRequest: boolean;
+function OneAtATime({ students, rows, cats, gradeOnly, gradeList, canEdit, canRequest: canAsk, lateMarks, totals, max, bands, problemOf, setCell, setGrade, onAsk }: {
+  students: GridStudent[]; rows: Record<string, Row>; cats: Cat[]; gradeOnly: boolean; gradeList: string[]; canEdit: boolean; canRequest: boolean; lateMarks: "approval" | "off";
   totals: Record<string, { total: number | null; grade: string; done: boolean }>; max: number; bands: Band[];
   problemOf: (r: Row) => string | null; setCell: (id: string, cat: string, text: string) => void; setGrade: (id: string, g: string) => void; onAsk: (s: GridStudent) => void;
 }) {
   const [i, setI] = useState(() => Math.max(0, students.findIndex((s) => !totals[s.id]?.done)));
   const [k, setK] = useState(0);
   const s = students[Math.min(i, students.length - 1)];
+  const canRequest = canAsk && (!s.late || lateMarks === "approval");
   const r = rows[s.id];
   const c = cats[Math.min(k, cats.length - 1)];
   const v = r.absent ? code(r) : c ? r.parts[c.name] ?? "" : "";
@@ -487,7 +505,7 @@ function OneAtATime({ students, rows, cats, gradeOnly, gradeList, canEdit, canRe
         <Avatar name={s.name} size={48} />
         <div className="min-w-0 flex-1">
           <p className="font-semibold text-[16px] truncate">{s.name}</p>
-          <p className="text-[13px] text-ink3">{s.rollNo ? `Roll ${s.rollNo} · ` : ""}{i + 1} of {students.length} · <span className="font-mono text-[12px]">{s.admissionNo}</span></p>
+          <p className="text-[13px] text-ink3">{s.rollNo ? `Roll ${s.rollNo} · ` : ""}{i + 1} of {students.length} · <span className="font-mono text-[12px]">{s.admissionNo}</span>{s.late ? " · Joined late" : ""}</p>
         </div>
         <select aria-label="Go to student" value={i} onChange={(ev) => go(Number(ev.target.value))} className={cx(inputCls(), "!h-10 !w-auto max-w-[40%] text-[13px]")}>
           {students.map((x, n) => <option key={x.id} value={n}>{x.rollNo ? `${x.rollNo}. ` : ""}{x.name}{totals[x.id]?.done ? " ✓" : ""}</option>)}
@@ -506,7 +524,7 @@ function OneAtATime({ students, rows, cats, gradeOnly, gradeList, canEdit, canRe
                   className={cx("h-14 rounded-xl border text-[18px] font-semibold transition", (r.absent ? code(r) : r.grade) === g ? "border-brand bg-brand text-brandink" : "border-line hover:bg-sunken/60", (g === "AB" || g === "ML") && (r.absent ? code(r) : r.grade) !== g && "text-info")}>{g}</button>
               ))}
             </div>
-          ) : canRequest && <Button variant="secondary" className="mt-4 w-full" disabled={s.waiting} onClick={() => onAsk(s)}>{s.waiting ? "A change is waiting for approval" : "Ask for a change"}</Button>}
+          ) : canRequest && <Button variant="secondary" className="mt-4 w-full" disabled={s.waiting} onClick={() => onAsk(s)}>{s.waiting ? "Waiting for approval" : s.late ? "Add marks" : "Ask for a change"}</Button>}
         </>
       ) : (
         <>
@@ -536,7 +554,9 @@ function OneAtATime({ students, rows, cats, gradeOnly, gradeList, canEdit, canRe
               <button type="button" onClick={() => setCell(s.id, c.name, "")} className="h-12 rounded-xl border border-line text-[14px] font-semibold text-ink2 hover:bg-sunken/60">Clear</button>
               <button type="button" onClick={() => press("del")} aria-label="Delete last digit" className="h-12 rounded-xl border border-line grid place-items-center hover:bg-sunken/60"><Delete size={20} aria-hidden="true" /></button>
             </div>
-          ) : <p className="text-[13.5px] text-ink3 mt-4">{canRequest ? (s.waiting ? "A change for this student is waiting for approval." : "These marks are submitted. Tap a mark to ask for a change.") : "These marks cannot be changed here."}</p>}
+          ) : <p className="text-[13.5px] text-ink3 mt-4">{s.late
+            ? (canRequest ? (s.waiting ? "Marks for this student are waiting for approval." : "Joined after the marks were in. Tap a mark to add marks; they need approval.") : "Joined after the marks were in: left out of this exam.")
+            : canRequest ? (s.waiting ? "A change for this student is waiting for approval." : "These marks are submitted. Tap a mark to ask for a change.") : "These marks cannot be changed here."}</p>}
         </>
       )}
       <div className="flex gap-2 mt-4">
@@ -549,19 +569,20 @@ function OneAtATime({ students, rows, cats, gradeOnly, gradeList, canEdit, canRe
 }
 
 const REASONS = ["Totalling error", "A page was not checked", "Re-evaluation asked by the parent", "Typed wrongly"];
+const LATE_REASONS = ["Joined late; took the paper on another day", "Marks from the previous school", "Joined late; absent for the paper"];
 
 function ChangeSheet({ entryId, sectionId, categories: cats, gradeOnly, gradeList, student, head, onClose }: Props & { student: GridStudent; onClose: () => void }) {
   const [reason, setReason] = useState("");
-  const now = student.absent ? (student.medical ? "ML" : "AB") : gradeOnly ? student.grade ?? "—" : cats.map((c) => `${cats.length > 1 ? `${c.name} ` : ""}${student.parts[c.name] ?? "—"}`).join(", ");
+  const now = student.late ? "None yet" : student.absent ? (student.medical ? "ML" : "AB") : gradeOnly ? student.grade ?? "—" : cats.map((c) => `${cats.length > 1 ? `${c.name} ` : ""}${student.parts[c.name] ?? "—"}`).join(", ");
   return (
-    <ActionSheet open onClose={onClose} title="Ask for a mark change" sub={`${student.name}${student.rollNo ? ` · roll ${student.rollNo}` : ""}`} confirmLabel="Send for approval" confirmIcon={<Send size={16} />} pendingText="Sending…"
+    <ActionSheet open onClose={onClose} title={student.late ? "Add marks for a student who joined late" : "Ask for a mark change"} sub={`${student.name}${student.rollNo ? ` · roll ${student.rollNo}` : ""}`} confirmLabel="Send for approval" confirmIcon={<Send size={16} />} pendingText="Sending…"
       run={async (fd) => {
         fd.set("entryId", entryId); fd.set("sectionId", sectionId); fd.set("studentId", student.id);
         const r = await requestChangeAction({ ok: false } as FormState, fd);
         return r?.ok ? undefined : r?.message ?? "That did not work. Please try again.";
       }}>
       <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-xl bg-sunken/70 px-3.5 py-2.5"><p className="text-[12px] text-ink3 font-semibold">Submitted mark</p><p className="font-display text-[22px] font-semibold tnum text-ink">{now}</p></div>
+        <div className="rounded-xl bg-sunken/70 px-3.5 py-2.5"><p className="text-[12px] text-ink3 font-semibold">{student.late ? "Marks now" : "Submitted mark"}</p><p className="font-display text-[22px] font-semibold tnum text-ink">{now}</p></div>
         {gradeOnly ? (
           <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-ink2">Correct grade
             <select name="grade" defaultValue={student.grade ?? ""} className={cx(inputCls(), "h-11")}><option value="">Choose</option>{gradeList.map((g) => <option key={g} value={g}>{g}</option>)}</select>
@@ -588,11 +609,13 @@ function ChangeSheet({ entryId, sectionId, categories: cats, gradeOnly, gradeLis
       <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-ink2">
         <span>Reason <span className="text-bad">*</span></span>
         <span className="flex flex-wrap gap-1.5 mb-1">
-          {REASONS.map((x) => <button key={x} type="button" onClick={() => setReason(x)} className="h-8 px-3 rounded-full bg-sunken text-[13px] font-medium text-ink hover:bg-line">{x}</button>)}
+          {(student.late ? LATE_REASONS : REASONS).map((x) => <button key={x} type="button" onClick={() => setReason(x)} className="h-8 px-3 rounded-full bg-sunken text-[13px] font-medium text-ink hover:bg-line">{x}</button>)}
         </span>
         <textarea name="reason" required rows={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="For example: question 7 was checked but not added to the total" className={cx(inputCls(), "py-2 font-normal")} />
       </label>
-      <p className="text-[12.5px] text-ink3 flex gap-1.5"><Info size={14} className="shrink-0 mt-0.5" aria-hidden="true" />Goes to {head.approver} in Approvals. The old mark stays until it is approved. Results are worked out again after approval.</p>
+      <p className="text-[12.5px] text-ink3 flex gap-1.5"><Info size={14} className="shrink-0 mt-0.5" aria-hidden="true" />{student.late
+        ? `Goes to ${head.approver} in Approvals. Nothing changes until it is approved. The student's result counts once every paper has marks, and is then published like any other; the class's published results do not change.`
+        : `Goes to ${head.approver} in Approvals. The old mark stays until it is approved. Results are worked out again after approval.`}</p>
     </ActionSheet>
   );
 }

@@ -7,6 +7,8 @@
 //   imported or promoted (onEnrolled, automation A13).
 // - Attendance and Fee Management say whether anything is recorded for a
 //   student in a year, which stops a promotion being undone (registerYearActivity).
+// - Examination & Results moves a student's marks, draft results and report
+//   cards with them when they change section, or the change is undone (onSectionChanged).
 import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
@@ -54,6 +56,17 @@ export async function runEnrolled(tx: Tx, ctx: SchoolContext, e: EnrolledEvent) 
 }
 /** True once a module (Fee Management) applies fee plans, so the form can say so. */
 export const feePlanApplies = () => enrolledHandlers.length > 0;
+
+export type SectionChangedEvent = { studentId: string; academicYearId: string; fromSectionId: string; toSectionId: string };
+type SectionChangedFn = (tx: Tx, ctx: SchoolContext, e: SectionChangedEvent) => Promise<void>;
+const sectionChangedHandlers: SectionChangedFn[] = [];
+export function onSectionChanged(fn: SectionChangedFn) {
+  sectionChangedHandlers.push(fn);
+}
+/** Runs in the same transaction as the section change, so both happen or neither. */
+export async function runSectionChanged(tx: Tx, ctx: SchoolContext, e: SectionChangedEvent) {
+  for (const fn of sectionChangedHandlers) await fn(tx, ctx, e);
+}
 
 type ActivityFn = (tx: Tx, ctx: SchoolContext, q: { studentIds: string[]; academicYearId: string }) => Promise<string | null>;
 const activityChecks: ActivityFn[] = [];

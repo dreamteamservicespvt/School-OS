@@ -133,6 +133,18 @@ export async function onChannels(tx: Tx, ctx: SchoolContext): Promise<Set<Channe
   return on;
 }
 
+/**
+ * A real WhatsApp Business account. There, WhatsApp accepts only approved
+ * templates to start a message to a parent; a typed message goes only within
+ * 24 hours of the parent's own last message. In test mode nothing is sent.
+ */
+export function whatsappIsLive(s: Pick<ChannelSetup, "isOn" | "environment" | "provider">) {
+  return s.isOn && s.environment === "live" && s.provider === "meta-cloud";
+}
+
+/** The order "preferred" tries for each person: the first channel that can carry the message to them. */
+export const PREFERRED_ORDER: Channel[] = ["whatsapp", "sms", "email", "app"];
+
 /** "WhatsApp if connected, else SMS" (11-communication.md, Send Message, Channel default). */
 export async function preferredChannel(tx: Tx, ctx: SchoolContext): Promise<Channel> {
   const on = await onChannels(tx, ctx);

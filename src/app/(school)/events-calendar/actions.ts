@@ -185,7 +185,7 @@ export async function remindAction(_: S, fd: FormData): Promise<S> {
     if (!e || e.status === "CANCELLED") throw new EventsProblem("This event was not found, or it is cancelled.");
     if (e.date.toISOString().slice(0, 10) < today(w.tz)) throw new EventsProblem("This event is over.");
     return messageAudience(w.tx, w.ctx, e, "reminder");
-  }, (r) => `Reminder sent to ${count(r.people, "person", "people")}. Track it in Message History.`);
+  }, (r) => `Reminder sent to ${count(r.people, "person", "people")}.${r.missed ? ` ${r.missed}` : ""} Track it in Message History.`);
 }
 
 /* ---------- PTM ---------- */
@@ -253,7 +253,7 @@ export async function summaryAction(_: S, fd: FormData): Promise<S> {
   return evAction("edit", fd, async (w) => {
     need(w.can.ptmPlan, "send the PTM summary");
     return sendSummary(w.tx, w.ctx, id(fd, "ptmId", "PTM"), today(w.tz));
-  }, (r) => `PTM summary sent to ${count(r.people, "parent")} who did not come.`);
+  }, (r) => `PTM summary sent to ${count(r.people, "parent")} who did not come.${r.missed ? ` ${r.missed}` : ""}`);
 }
 
 /* ---------- Gallery ---------- */
@@ -297,7 +297,7 @@ export async function shareAlbumAction(_: S, fd: FormData): Promise<S> {
   return evAction("edit", fd, async (w) => {
     need(w.can.gallery, "share albums");
     return shareAlbum(w.tx, w.ctx, id(fd, "albumId", "album"));
-  }, (r) => `Album link sent to ${count(r.people, "parent")}. Photo consent is checked for every photo when they open it.`);
+  }, (r) => `Album link sent to ${count(r.people, "parent")}.${r.missed ? ` ${r.missed}` : ""} Photo consent is checked for every photo when they open it.`);
 }
 
 export async function newLinkAction(_: S, fd: FormData): Promise<S> {
@@ -402,7 +402,7 @@ export async function remindConsentAction(_: S, fd: FormData): Promise<S> {
   return evAction("edit", fd, async (w) => {
     need(w.can.events, "send reminders");
     return remindConsent(w.tx, w.ctx, id(fd, "eventId", "event"), today(w.tz));
-  }, (r) => `Reminder sent to ${count(r.people, "parent")} waiting for consent. Track it in Message History.`);
+  }, (r) => `Reminder sent to ${count(r.people, "parent")} waiting for consent.${r.missed ? ` ${r.missed}` : ""} Track it in Message History.`);
 }
 
 export async function renewFeedAction(_: S, fd: FormData): Promise<S> {

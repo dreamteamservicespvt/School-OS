@@ -1,8 +1,8 @@
 // Messages from the hostel (15 §4 Sends, 11 Communication): parents hear
 // when their child goes out and comes back, when they are late, and about an
 // incident when the warden ticks "Tell the parent" (each switched on or off in
-// Hostel Settings). Parents get them through Communication: WhatsApp or SMS
-// where set up, else the Parent Link app. Staff alerts (night roll call
+// Hostel Settings). Parents get them through Communication, each on a channel
+// that can carry it (WhatsApp, else SMS or email). Staff alerts (night roll call
 // absences, late returns) go to the hostel's wardens and the Principal in the
 // app, at once.
 import "server-only";
@@ -19,17 +19,14 @@ export type SendOutcome = { status: "sent" | "skipped"; how: string; note?: stri
 export async function messageParents(tx: Tx, ctx: SchoolContext, student: { id: string; name: string }, text: string, opts: { trigger: string; key: string; source: { type: string; id: string } }): Promise<SendOutcome> {
   const base = { to: { guardiansOf: [student.id] }, text, trigger: opts.trigger, source: opts.source, audienceLabel: `Parents of ${student.name}`, onNoCredits: "fail" as const };
   try {
-    const r = await sendMessage(tx, ctx, { ...base, channels: "preferred", idempotencyKey: `hostel:${opts.key}` });
-    return r.queued > 0 ? { status: "sent", how: "to the parents" } : { status: "skipped", how: "message", note: "No parent with a phone number" };
+    // Each parent on a channel that can carry it; when none can, it is kept as Not sent with the reason.
+    const r = await sendMessage(tx, ctx, { ...base, channels: "preferred", idempotencyKey: `hostel:${opts.key}`, onNobody: "record" });
+    if (r.queued > 0) return { status: "sent", how: "to the parents" };
+    const why = r.skipped.find((g) => g.notSent)?.reason;
+    return { status: "skipped", how: "message", note: why ?? "No parent with a phone number" };
   } catch (e) {
-    if (!(e instanceof MessagingProblem)) throw e;
-    try {
-      const r = await sendMessage(tx, ctx, { ...base, channels: ["app"], idempotencyKey: `hostel:${opts.key}:app` });
-      return r.queued > 0 ? { status: "sent", how: "to the parents in the app" } : { status: "skipped", how: "app", note: "No parent uses the app" };
-    } catch (e2) {
-      if (e2 instanceof MessagingProblem) return { status: "skipped", how: "message", note: e2.message.replace(/\.$/, "") };
-      throw e2;
-    }
+    if (e instanceof MessagingProblem) return { status: "skipped", how: "message", note: e.message.replace(/\.$/, "") };
+    throw e;
   }
 }
 

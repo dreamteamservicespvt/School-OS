@@ -197,7 +197,7 @@ export async function logActivityAction(_: S, fd: FormData): Promise<S> {
 
 export async function sendDiaryAction(_: S, fd: FormData): Promise<S> {
   return evAction("edit", fd, async (w) => sendDiary(w.tx, w.ctx, id(fd, "sectionId", "class"), today(w.tz)),
-    (r) => `Diary sent to ${count(r.people, "parent")} of ${r.section.label}. Each parent gets only their own child’s day.`);
+    (r) => `Diary sent to ${count(r.people, "parent")} of ${r.section.label}. Each parent gets only their own child’s day.${r.missed ? ` ${r.missed}` : ""}`);
 }
 
 export async function remindDiaryAction(_: S, fd: FormData): Promise<S> {

@@ -15,7 +15,7 @@ import { IMAGE_TYPES, FileProblem, saveFile, sniffType } from "../files";
 import { fileStore } from "../storage";
 import { nextNumber } from "../sequences";
 import { consentRows, requestConsent } from "../students/consent";
-import { sendMessage } from "../messaging";
+import { notSentWords, sendMessage } from "../messaging";
 import { EventsProblem } from "./problem";
 import { albumUrl, eventsSettings } from "./settings";
 import { classesWords, dayOf, dmy, isoOf } from "./words";
@@ -147,7 +147,7 @@ export async function shareAlbum(tx: Tx, ctx: SchoolContext, albumId: string) {
   });
   await tx.album.update({ where: { id: a.id }, data: { sharedAt: new Date() } });
   await writeAudit(tx, ctx, { action: "shared", recordType: "Album", recordId: a.id, after: { people: r.people } });
-  return { people: r.people };
+  return { people: r.people, missed: notSentWords(r) };
 }
 
 /** Stops the old shared link working (a new link is made). */

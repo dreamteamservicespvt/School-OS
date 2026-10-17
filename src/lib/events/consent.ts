@@ -11,7 +11,7 @@ import "server-only";
 import type { Event } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
-import { sendMessage } from "../messaging";
+import { notSentWords, sendMessage } from "../messaging";
 import { childrenOf as guardianChildren } from "../parent-link/consent";
 import { checkCode, ParentLinkProblem, sendCode } from "../parent-link/links";
 import { EventsProblem } from "./problem";
@@ -80,7 +80,7 @@ export async function remindConsent(tx: Tx, ctx: SchoolContext, eventId: string,
   });
   await tx.eventReminder.create({ data: { schoolId: ctx.schoolId, eventId: e.id, kind: "reminder", people: r.people, messageId: r.messageId, sentById: ctx.userId, note: "Consent reminder to parents who have not answered" } });
   await writeAudit(tx, ctx, { action: "consent-reminded", recordType: "Event", recordId: e.id, after: { parents: r.people } });
-  return r;
+  return { ...r, missed: notSentWords(r) };
 }
 
 export function consentText(e: Pick<Event, "name" | "date" | "feePaise" | "consentBy">, school: string) {

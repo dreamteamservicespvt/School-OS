@@ -8,8 +8,7 @@ import "server-only";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { formatDate } from "../format";
-import { MessagingProblem, planMessage, sendAutomatic, sendMessage, templateByKey, type Channel, type SendInput } from "../messaging";
-import { onChannels } from "../messaging/channels";
+import { CHANNEL_LABEL, MessagingProblem, NOT_SENT, planMessage, sendAutomatic, sendMessage, templateByKey, type Channel, type SendInput } from "../messaging";
 import { HomeworkProblem } from "./access";
 import { requireWork, type HomeworkScope } from "./scope";
 import { seenFor } from "./homework";
@@ -79,16 +78,12 @@ async function resendInput(tx: Tx, s: HomeworkScope, homeworkId: string) {
   ]);
   const cls = section ? `${section.schoolClass.name} ${section.name}` : "";
   const message = `${subject?.name ?? "Homework"}: ${hw.title}. Due ${formatDate(hw.dueDate, "UTC")}.`;
-  // WhatsApp if connected, else the parents' app; the Homework template for the app.
-  const on = await onChannels(tx, s.ctx);
-  const channel: Channel = on.has("whatsapp") ? "whatsapp" : on.has("sms") ? "sms" : "app";
-  const template = await templateByKey(tx, s.ctx, "homework-set", channel);
-  if (channel === "sms" && !template) throw new HomeworkProblem("SMS needs an approved template for homework. Add one in Communication, Templates, or connect WhatsApp.", undefined, { href: "/communication/templates", label: "Open Templates" });
+  // Each parent on a channel that can carry it: the Homework template where there is one, else the typed words.
   const input: SendInput = {
     to: { guardiansOf: students },
-    channels: [channel],
-    templates: template ? { [channel]: template.id } : undefined,
-    text: template ? null : `Dear {guardian_name}, new homework for {class}: {message} - {school_name}`,
+    channels: "preferred",
+    templates: await templatesFor(tx, s.ctx, "homework-set"),
+    text: `Dear {guardian_name}, new homework for {class}: {message} - {school_name}`,
     title: "New homework",
     values: { class: cls, message },
     perStudent: Object.fromEntries(students.map((id) => [id, { class: cls, message }])),
@@ -96,21 +91,34 @@ async function resendInput(tx: Tx, s: HomeworkScope, homeworkId: string) {
     source: { type: "Homework", id: homeworkId },
     resendOfId: first?.id ?? null,
   };
-  return { hw, students, input, channel };
+  return { hw, students, input };
 }
+
+/** The school's WhatsApp and SMS templates for a key, for the channels that have one. */
+async function templatesFor(tx: Tx, ctx: SchoolContext, key: string) {
+  const out: Partial<Record<Channel, string>> = {};
+  for (const ch of ["whatsapp", "sms"] as const) {
+    const t = await templateByKey(tx, ctx, key, ch);
+    if (t) out[ch] = t.id;
+  }
+  return out;
+}
+
+const channelWords = (channels: Channel[]) => channels.map((c) => CHANNEL_LABEL[c]).join(" and ") || "no channel";
 
 /** What a resend would do: how many parents, on which channel, and the credits. */
 export async function previewResend(tx: Tx, s: HomeworkScope, homeworkId: string) {
-  const { students, input, channel } = await resendInput(tx, s, homeworkId);
+  const { students, input } = await resendInput(tx, s, homeworkId);
   const plan = await planMessage(tx, s.ctx, input);
-  return { students: students.length, parents: plan.rows.length, channel, problem: plan.problems[0] ?? (plan.rows.length ? plan.creditProblem : "Nobody would get this message: no parent has a phone number or the app."), credits: plan.rows.reduce((a, r) => a + r.credits, 0) };
+  const notSent = plan.skipped.find((g) => g.notSent);
+  return { students: students.length, parents: plan.rows.length, channel: channelWords(plan.channels), problem: plan.problems[0] ?? (plan.rows.length ? plan.creditProblem : `Nobody would get this message: ${notSent ? notSent.reason.slice(NOT_SENT.length) : "no parent has a mobile number"}.`), credits: plan.rows.reduce((a, r) => a + r.credits, 0) };
 }
 
 export async function resendToUnseen(tx: Tx, s: HomeworkScope, homeworkId: string) {
-  const { hw, students, input, channel } = await resendInput(tx, s, homeworkId);
+  const { hw, students, input } = await resendInput(tx, s, homeworkId);
   try {
     const r = await sendMessage(tx, s.ctx, input);
-    await writeAudit(tx, s.ctx, { action: "resent", recordType: "Homework", recordId: hw.id, after: { title: hw.title, students: students.length, channel } });
+    await writeAudit(tx, s.ctx, { action: "resent", recordType: "Homework", recordId: hw.id, after: { title: hw.title, students: students.length, parents: r.people, notSent: r.notSent ?? 0 } });
     return { students: students.length, messageId: r.messageId };
   } catch (e) {
     if (e instanceof MessagingProblem) throw new HomeworkProblem(e.message);
@@ -125,20 +133,17 @@ export async function remindParents(tx: Tx, s: HomeworkScope, homeworkId: string
   requireWork(s, hw, "this homework", "submissions");
   const subs = await tx.submission.findMany({ where: { homeworkId, studentId: { in: studentIds }, archivedAt: null, status: { in: ["ASSIGNED", "MISSING"] } }, select: { studentId: true } });
   if (!subs.length) throw new HomeworkProblem("Everyone chosen has already handed in. Reminders go only to parents of students who have not.");
-  const on = await onChannels(tx, s.ctx);
-  const channel: Channel = on.has("whatsapp") ? "whatsapp" : on.has("sms") ? "sms" : "app";
-  const template = await templateByKey(tx, s.ctx, "homework-pending", channel);
-  if (channel === "sms" && !template) throw new HomeworkProblem("SMS needs an approved template for homework reminders. Add one in Communication, Templates, or connect WhatsApp.", undefined, { href: "/communication/templates", label: "Open Templates" });
   const date = formatDate(hw.dueDate, "UTC");
   const ids = subs.map((x) => x.studentId);
   try {
     const r = await sendMessage(tx, s.ctx, {
-      to: { guardiansOf: ids }, channels: [channel], templates: template ? { [channel]: template.id } : undefined,
-      text: template ? null : "Dear {guardian_name}, {student_name} has not yet submitted homework due on {date}. - {school_name}",
+      // Each parent on a channel that can carry it: the Pending homework template where there is one, else the typed words.
+      to: { guardiansOf: ids }, channels: "preferred", templates: await templatesFor(tx, s.ctx, "homework-pending"),
+      text: "Dear {guardian_name}, {student_name} has not yet submitted homework due on {date}. - {school_name}",
       title: "Homework not handed in", values: { date }, perStudent: Object.fromEntries(ids.map((id) => [id, { date }])),
       trigger: "Teacher reminded parents about homework", source: { type: "Homework", id: hw.id },
     });
-    await writeAudit(tx, s.ctx, { action: "reminded", recordType: "Homework", recordId: hw.id, after: { title: hw.title, students: ids.length, channel } });
+    await writeAudit(tx, s.ctx, { action: "reminded", recordType: "Homework", recordId: hw.id, after: { title: hw.title, students: ids.length, parents: r.people, notSent: r.notSent ?? 0 } });
     return { students: ids.length, messageId: r.messageId };
   } catch (e) {
     if (e instanceof MessagingProblem) throw new HomeworkProblem(e.message);

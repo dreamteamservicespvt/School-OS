@@ -12,7 +12,7 @@ import { writeAudit } from "../audit";
 import { assertYearOpen } from "../academic/years";
 import { attendanceSummary } from "../attendance/summary";
 import { homeworkDone } from "../homework/progress";
-import { ruleStates, sendAutomatic, sendMessage } from "../messaging";
+import { notSentWords, ruleStates, sendAutomatic, sendMessage } from "../messaging";
 import { staffForUser } from "../people";
 import { EventsProblem } from "./problem";
 import { eventsSettings } from "./settings";
@@ -341,7 +341,7 @@ export async function sendSummary(tx: Tx, ctx: SchoolContext, ptmId: string, tod
   });
   await tx.ptm.update({ where: { id: p.id }, data: { summarySentAt: new Date() } });
   await writeAudit(tx, ctx, { action: "summary-sent", recordType: "PTM", recordId: p.id, after: { parents: r.people } });
-  return { people: r.people, students: students.length };
+  return { people: r.people, students: students.length, missed: notSentWords(r) };
 }
 
 /** The evening-before reminders (run by a schedule; each slot once). */

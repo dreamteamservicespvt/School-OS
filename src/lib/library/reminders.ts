@@ -1,7 +1,7 @@
 // Messages from the library (13 §4, Notifications and 11 Communication):
 // "your reserved book is ready", "due tomorrow" and overdue reminders. A
-// student's parents get them through Communication (WhatsApp or SMS where
-// set up, else the Parent Link app); staff get an app notification. The
+// student's parents get them through Communication, each on a channel that
+// can carry it (WhatsApp, else SMS or email); staff get an app notification. The
 // Principal's "Remind" tells the Librarian in the app.
 import "server-only";
 
@@ -26,17 +26,14 @@ export async function messageMember(tx: Tx, ctx: SchoolContext, m: Member, text:
   }
   const base = { to: { guardiansOf: [m.studentId!] }, text, trigger: opts.trigger, source: opts.source, audienceLabel: `Parents of ${m.name}`, onNoCredits: "fail" as const };
   try {
-    const r = await sendMessage(tx, ctx, { ...base, channels: "preferred", idempotencyKey: `library:${opts.key}` });
-    return r.queued > 0 ? { status: "sent", how: "to the parents" } : { status: "skipped", how: "message", note: "No parent with a phone number" };
+    // Each parent on a channel that can carry it; when none can, it is kept as Not sent with the reason.
+    const r = await sendMessage(tx, ctx, { ...base, channels: "preferred", idempotencyKey: `library:${opts.key}`, onNobody: "record" });
+    if (r.queued > 0) return { status: "sent", how: "to the parents" };
+    const why = r.skipped.find((g) => g.notSent)?.reason;
+    return { status: "skipped", how: "message", note: why ?? "No parent with a phone number" };
   } catch (e) {
-    if (!(e instanceof MessagingProblem)) throw e;
-    try {
-      const r = await sendMessage(tx, ctx, { ...base, channels: ["app"], idempotencyKey: `library:${opts.key}:app` });
-      return r.queued > 0 ? { status: "sent", how: "to the parents in the app" } : { status: "skipped", how: "app", note: "No parent uses the app" };
-    } catch (e2) {
-      if (e2 instanceof MessagingProblem) return { status: "skipped", how: "message", note: e2.message.replace(/\.$/, "") };
-      throw e2;
-    }
+    if (e instanceof MessagingProblem) return { status: "skipped", how: "message", note: e.message.replace(/\.$/, "") };
+    throw e;
   }
 }
 

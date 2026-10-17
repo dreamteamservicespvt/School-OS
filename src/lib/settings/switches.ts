@@ -10,7 +10,8 @@ import { decryptField, encryptField } from "../crypto";
 import { BUILT_MODULES, MODULES, type ModuleKey } from "../modules";
 import { SettingsProblem } from "./common";
 import { ROLL_ORDERS, WEEK_STARTS, boardDefaults, readPreferences, type Preferences } from "./profile-rules";
-import { AI_FEATURES, INTEGRATIONS, SCHOOL_TEMPLATES, checkIntegrationFields, type IntegrationDef } from "./switch-rules";
+import { AI_FEATURES, INTEGRATIONS, SCHOOL_TEMPLATES, checkIntegrationFields, httpAllowed, type IntegrationDef } from "./switch-rules";
+import { AddressRefused, publicFetch } from "../net/public-fetch";
 
 export * from "./switch-rules";
 
@@ -123,25 +124,27 @@ export async function applyTemplate(tx: Tx, ctx: SchoolContext, key: string, rep
 // ------------------------------------------------------------ Integrations
 
 export type IntegrationCheck = { ok: boolean; note: string };
-type Fetcher = (url: string) => Promise<{ status: number }>;
+type Fetcher = (url: string, opts: { allowHttp: boolean }) => Promise<{ status: number }>;
 
-const defaultFetch: Fetcher = async (url) => {
-  const res = await fetch(url, { method: "GET", redirect: "manual", signal: AbortSignal.timeout(6000) });
-  return { status: res.status };
-};
+/** Public internet addresses only, looked up and checked first; no redirects; 5 seconds at most. */
+const defaultFetch: Fetcher = (url, opts) => publicFetch(url, { allowHttp: opts.allowHttp, timeoutMs: 5000 });
 
 /** Checks the details, and that any address answers. Says what worked and what did not. */
 export async function testIntegration(def: IntegrationDef, values: Record<string, string>, fetcher: Fetcher = defaultFetch): Promise<IntegrationCheck> {
+  // The field checks also refuse a private address typed as an IP or a local name, before any call.
   const problems = checkIntegrationFields(def, values, { secretsKept: true });
   if (Object.keys(problems).length) return { ok: false, note: Object.values(problems)[0] };
   const urlField = def.fields.find((f) => f.type === "url" && values[f.key]);
   if (!urlField) return { ok: true, note: "Details are complete." };
+  const address = values[urlField.key];
+  const allowHttp = httpAllowed(def);
   try {
-    const { status } = await fetcher(values[urlField.key]);
-    if (status >= 500) return { ok: false, note: `${values[urlField.key]} answered with an error (${status}). Check the address, or ask the provider.` };
-    return { ok: true, note: `${values[urlField.key]} answered.` };
-  } catch {
-    return { ok: false, note: `School OS could not reach ${values[urlField.key]}. Check the address and that it is open to the internet.` };
+    const { status } = await fetcher(address, { allowHttp });
+    if (status >= 500) return { ok: false, note: `${address} answered with an error (${status}). Check the address, or ask the provider.` };
+    return { ok: true, note: `${address} answered.` };
+  } catch (e) {
+    if (e instanceof AddressRefused) return { ok: false, note: `${urlField.label}: ${e.message}` };
+    return { ok: false, note: `School OS could not reach ${address}. Check the address and that it is open to the internet.` };
   }
 }
 

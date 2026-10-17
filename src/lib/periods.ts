@@ -74,9 +74,17 @@ const utcDay = (y: number, m: number, d: number) => new Date(Date.UTC(y, m, d));
 export const isDay = (v: string | null | undefined): v is string => Boolean(v && /^\d{4}-\d{2}-\d{2}$/.test(v) && iso(new Date(`${v}T00:00:00Z`)) === v);
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
+const DAY_FORMATS = new Map<string, Intl.DateTimeFormat>();
+
 /** Today in the school's zone, at 00:00 UTC. */
 export function todayFor(timeZone: string, now = new Date()) {
-  return new Date(`${new Intl.DateTimeFormat("en-CA", { timeZone }).format(now)}T00:00:00Z`);
+  // A formatter is costly to make and pages call this for every row: one per time zone.
+  let f = DAY_FORMATS.get(timeZone);
+  if (!f) {
+    f = new Intl.DateTimeFormat("en-CA", { timeZone });
+    DAY_FORMATS.set(timeZone, f);
+  }
+  return new Date(`${f.format(now)}T00:00:00Z`);
 }
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];

@@ -3,6 +3,7 @@
 // the way the approved design lays it out (01-dashboard.md §2).
 import "server-only";
 
+import { availableParallelism } from "node:os";
 import type { TaskStatus } from "@prisma/client";
 import { withSchool, type Tx } from "../db";
 import { currentYear } from "../academic/years";
@@ -64,47 +65,137 @@ export type Home = {
 
 type Collected = { [K in WidgetKind]: { w: Widget; item: unknown }[] };
 
-/** Widgets load in this many transactions at once (the Vercel test copy's pool has 3 connections). */
-const GROUPS = 3;
+/** At most this many transactions load one Dashboard at once (QA PLATFORM-13). */
+const MAX_LANES = 6;
 
-/** One group of widgets, one after another, in one transaction. Results keep each widget's place in the list. */
-async function run(c: DashContext, list: readonly { w: Widget; i: number }[]) {
-  const results: { i: number; w: Widget; items: unknown[] }[] = [];
-  const failed: string[] = [];
-  for (const { w, i } of list) {
-    // Each widget runs inside a savepoint: a failed query aborts only its own
-    // part of the transaction, so the widgets after it still load.
-    await c.tx.$executeRawUnsafe("SAVEPOINT widget");
-    try {
-      const r = await w.load(c);
-      await c.tx.$executeRawUnsafe("RELEASE SAVEPOINT widget");
-      results.push({ i, w, items: r == null ? [] : Array.isArray(r) ? r : [r] });
-    } catch (e) {
-      await c.tx.$executeRawUnsafe("ROLLBACK TO SAVEPOINT widget");
-      failed.push(w.id);
-      console.error(JSON.stringify({ level: "error", event: "dashboard-widget", widget: w.id, error: e instanceof Error ? e.message : String(e) }));
-    }
-  }
-  return { results, failed };
+/**
+ * Connections in the app's database pool: connection_limit in DATABASE_URL
+ * (the Vercel test copy sets 3), else about Prisma's default (2 per CPU core + 1).
+ */
+export function poolSize(url = process.env.DATABASE_URL ?? "", cpus = availableParallelism()) {
+  const m = /[?&]connection_limit=(\d+)/.exec(url);
+  return m ? Math.max(1, Number(m[1])) : cpus + 1;
+}
+
+/** Lanes for one page: never more than the pool holds, MAX_LANES, or the bundles to share out. */
+export function laneCount(bundles: number, pool = poolSize()) {
+  return Math.max(1, Math.min(MAX_LANES, pool, bundles));
 }
 
 /**
- * Runs the widgets in GROUPS transactions at the same time (QA PLATFORM-13: 66
- * widgets one after another took up to 3 s). No transaction is open while these
- * wait, so a small connection pool cannot be held up by the page's own work.
+ * Modules whose widgets read the same records load in one bundle: the fee
+ * and finance widgets share the person's fee view, the academic ones the
+ * attendance choices of the day.
  */
-async function runAll(viewer: Viewer, base: Omit<DashContext, "tx" | "memo">, list: readonly Widget[]) {
+const SHARES: Partial<Record<ModuleKey, ModuleKey>> = { "finance-management": "fee-management", "academic-management": "attendance-management" };
+
+/** One piece of a lane's work: a widget, or one of the page's own reads. A job that throws ends its lane's transaction. */
+type Job = { run: (c: DashContext) => Promise<void>; fail: (e: unknown) => void };
+
+/**
+ * The widgets in bundles, one per module (SHARES joins a few): widgets of a
+ * module share their reads (the person's attendance reach, fee view, exam
+ * sections), so they load in one transaction and read them once. Biggest
+ * bundles go first so the lanes finish at about the same time; ties keep
+ * the registry order.
+ */
+export function bundlesOf<T extends { w: Widget }>(jobs: readonly T[]): T[][] {
+  const by = new Map<string, T[]>();
+  for (const j of jobs) {
+    const key = SHARES[j.w.module] ?? j.w.module;
+    by.set(key, [...(by.get(key) ?? []), j]);
+  }
+  return [...by.values()].sort((a, b) => b.length - a.length);
+}
+
+/** A memo for one transaction: a shared read is made once, and only used in the transaction that read it. */
+function memoFor(): DashContext["memo"] {
   const cache = new Map<string, Promise<unknown>>();
-  const memo = <T,>(key: string, fn: () => Promise<T>) => {
-    if (!cache.has(key)) cache.set(key, fn());
-    return cache.get(key) as Promise<T>;
+  return <T,>(key: string, fn: () => Promise<T>) => {
+    let p = cache.get(key) as Promise<T> | undefined;
+    if (!p) {
+      p = fn();
+      // Whoever awaits it still gets the error; a read nobody awaits any more must not crash the server.
+      p.catch(() => {});
+      cache.set(key, p);
+    }
+    return p;
   };
-  const groups = Array.from({ length: Math.min(GROUPS, list.length) }, (_, g) => list.map((w, i) => ({ w, i })).filter(({ i }) => i % GROUPS === g));
-  const done = await Promise.all(groups.map((group) => withSchool(viewer.ctx, (tx) => run({ ...base, tx, memo }, group), { timeout: 30_000 })));
-  const out: Collected = { band: [], attention: [], agenda: [], birthdays: [], panel: [] };
-  for (const { w, items } of done.flatMap((d) => d.results).sort((a, b) => a.i - b.i)) for (const item of items) out[w.kind].push({ w, item });
-  const failed = done.flatMap((d) => d.failed);
-  return { out, failed: list.filter((w) => failed.includes(w.id)).map((w) => w.id) };
+}
+
+/** The school year the Dashboard is about, read in each transaction. */
+async function yearIn(tx: Tx, viewer: Viewer): Promise<DashContext["year"]> {
+  const y = await currentYear(tx, viewer.ctx, viewer.campusId);
+  return y ? { id: y.id, name: y.name, startDate: y.startDate, endDate: y.endDate, status: y.status, campusId: y.campusId } : null;
+}
+
+/** Thrown inside a lane's transaction to roll it back after a job failed. */
+const RESTART = Symbol("restart");
+
+/**
+ * Runs the bundles in a few transactions at the same time (QA PLATFORM-13:
+ * 66 widgets one after another took up to 3 s). Each lane takes the next
+ * bundle from the queue until it is empty, job after job, with its own memo:
+ * no lane ever waits for another lane's query, only for a free connection.
+ * When a job fails, its lane's transaction is rolled back (a failed query
+ * leaves it unusable) and the lane goes on with the next job in a new one,
+ * so one failing widget never stops the others. Widgets only read, so
+ * nothing already loaded is lost (a settings row some modules make on first
+ * read is simply made again next time).
+ */
+async function runLanes(viewer: Viewer, base: Omit<DashContext, "tx" | "memo" | "year">, queue: Job[][], lanes = laneCount(queue.length)) {
+  const lane = async () => {
+    let bundle = queue.shift();
+    let at = 0;
+    while (bundle) {
+      try {
+        await withSchool(viewer.ctx, async (tx) => {
+          const c: DashContext = { ...base, tx, year: await yearIn(tx, viewer), memo: memoFor() };
+          for (; bundle; bundle = queue.shift(), at = 0) {
+            while (at < bundle.length) {
+              const job = bundle[at++];
+              try {
+                await job.run(c);
+              } catch (e) {
+                job.fail(e);
+                throw RESTART;
+              }
+            }
+          }
+        }, { timeout: 30_000 });
+      } catch (e) {
+        if (e !== RESTART) throw e;
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(lanes, queue.length) }, lane));
+}
+
+type Loaded = { i: number; w: Widget; items: unknown[] };
+
+/** One widget as a job: its items go to `results`, a failure to `failed` and the log. */
+function widgetJob(w: Widget, i: number, results: Loaded[], failed: Set<string>) {
+  return {
+    w,
+    run: async (c: DashContext) => {
+      const r = await w.load(c);
+      results.push({ i, w, items: r == null ? [] : Array.isArray(r) ? r : [r] });
+    },
+    fail: (e: unknown) => {
+      failed.add(w.id);
+      console.error(JSON.stringify({ level: "error", event: "dashboard-widget", widget: w.id, error: e instanceof Error ? e.message : String(e) }));
+    },
+  };
+}
+
+/** One of the page's own reads (Seen marks, approvals, tasks). Its failure fails the page, unless it has a fallback. */
+function pageJob<T>(read: (c: DashContext) => Promise<T>, errors: unknown[], fallback?: () => T) {
+  const job = {
+    value: undefined as T | undefined,
+    run: async (c: DashContext) => { job.value = await read(c); },
+    fail: (e: unknown) => { if (fallback) job.value = fallback(); else errors.push(e); },
+  };
+  return job;
 }
 
 /** "School day 86 of 220" from the year's working days and closed days on the School Calendar. */
@@ -131,73 +222,36 @@ async function schoolDayLine(tx: Tx, viewer: Viewer, today: Date, year: DashCont
   return `School day ${n} of ${total}`;
 }
 
-export async function buildHome(viewer: Viewer, opts: { now?: Date; widgets?: readonly Widget[]; built?: ReadonlySet<ModuleKey> } = {}): Promise<Home> {
+/** `lanes` sets how many transactions load the page (tests and measuring; 1 loads it all in one, one widget after another). */
+export async function buildHome(viewer: Viewer, opts: { now?: Date; widgets?: readonly Widget[]; built?: ReadonlySet<ModuleKey>; lanes?: number } = {}): Promise<Home> {
   const now = opts.now ?? new Date();
   const tz = viewer.school.timeZone;
   const today = todayFor(tz, now);
   const homes = homesFor(viewer);
   const list = widgetsFor(viewer, homes, opts.widgets, opts.built);
+  const leader = isLeader(homes);
+  const access = taskAccess(viewer);
+  const me = viewer.user.id;
 
-  const year = await withSchool(viewer.ctx, async (tx) => {
-    const y = await currentYear(tx, viewer.ctx, viewer.campusId);
-    return y ? { id: y.id, name: y.name, startDate: y.startDate, endDate: y.endDate, status: y.status, campusId: y.campusId } : null;
-  });
-  const { out, failed } = await runAll(viewer, { viewer, homes, today, now, tz, year, minuteNow: minuteIn(tz, now) }, list);
-
-  return withSchool(viewer.ctx, async (tx) => {
-
-    // Band: the person's first home first, then the order set for that home, then the registry order.
-    const order = (w: Widget, id: string) => {
-      const hr = homeRank(w, homes);
-      const home = homes[hr] as HomeKind | undefined;
-      const set = home ? BAND_ORDER[home] ?? [] : [];
-      const i = set.indexOf(id);
-      return [hr, i === -1 ? 50 : i, WIDGETS.indexOf(w)];
-    };
-    const band = out.band
-      .map(({ w, item }) => ({ w, item: item as BandItem }))
-      .sort((a, b) => {
-        const x = order(a.w, a.item.id), y2 = order(b.w, b.item.id);
-        return x[0] - y2[0] || x[1] - y2[1] || x[2] - y2[2];
-      })
-      .map((x) => x.item)
-      .filter((b, i, all) => all.findIndex((o) => o.id === b.id) === i)
-      .slice(0, 4);
-
-    // Needs attention: duplicates merged by id, most urgent first, minus what the person marked Seen (until the number changes).
-    const seen = await tx.dashboardSeen.findMany({ where: { userLoginId: viewer.user.id, archivedAt: null } });
-    const seenValue = new Map(seen.map((s) => [s.itemKey, s.value]));
-    const attentionAll = (out.attention.map((x) => x.item) as AttentionItem[])
-      .filter((a, i, all) => all.findIndex((o) => o.id === a.id) === i)
-      .sort((a, b) => TONE_RANK[a.tone] - TONE_RANK[b.tone]);
-    const attention = attentionAll.filter((a) => seenValue.get(a.id) !== a.value);
-
-    const panels: Record<PanelSlot, Panel[]> = { first: [], main: [], side: [] };
-    for (const { item } of out.panel) {
-      const p = item as { slot: PanelSlot; panel: Panel };
-      panels[p.slot].push(p.panel);
-    }
-
-    const agenda = (out.agenda.map((x) => x.item) as AgendaItem[]).sort((a, b) => a.sort - b.sort).slice(0, 7);
-    const birthdays = (out.birthdays.map((x) => x.item) as Birthday[])
-      .filter((b, i, all) => all.findIndex((o) => o.id === b.id) === i)
-      .sort((a, b) => a.sort - b.sort || a.name.localeCompare(b.name));
-
-    // Waiting for your approval: only requests this person may decide.
-    const approvalWhere = await approvalsFor(tx, viewer.ctx, viewer.roles.map((r) => r.key));
-    const [approvalCount, approvalRows] = await Promise.all([
-      tx.approval.count({ where: approvalWhere }),
-      tx.approval.findMany({ where: approvalWhere, orderBy: { createdAt: "asc" }, take: 4 }),
+  // The page's own reads share the lanes with the widgets.
+  const results: Loaded[] = [];
+  const failedIds = new Set<string>();
+  const errors: unknown[] = [];
+  const seenJob = pageJob(({ tx }) => tx.dashboardSeen.findMany({ where: { userLoginId: me, archivedAt: null } }), errors);
+  // Waiting for your approval: only requests this person may decide.
+  const approvalJob = pageJob(async ({ tx }) => {
+    const where = await approvalsFor(tx, viewer.ctx, viewer.roles.map((r) => r.key));
+    const [count, rows] = await Promise.all([
+      tx.approval.count({ where }),
+      tx.approval.findMany({ where, orderBy: { createdAt: "asc" }, take: 4 }),
     ]);
-    const decidable = await decidableIds(tx, viewer.ctx, approvalRows);
-    const askers = new Map((await tx.userLogin.findMany({ where: { id: { in: approvalRows.map((a) => a.askedById) } }, select: { id: true, displayName: true } })).map((u) => [u.id, u.displayName]));
-    const jobs = await askerJobs(tx, approvalRows.map((a) => a.askedById));
-    const leader = isLeader(homes);
-    const mayApprove = approvalCount > 0 || leader || homes.includes("class-teacher") || viewer.roles.some((r) => r.key === "hostel-warden");
-
-    // My tasks: open ones (overdue first), and those finished today so they can be undone.
-    const access = taskAccess(viewer);
-    const me = viewer.user.id;
+    const decidable = await decidableIds(tx, viewer.ctx, rows);
+    const askers = new Map((await tx.userLogin.findMany({ where: { id: { in: rows.map((a) => a.askedById) } }, select: { id: true, displayName: true } })).map((u) => [u.id, u.displayName]));
+    const jobs = await askerJobs(tx, rows.map((a) => a.askedById));
+    return { count, rows, decidable, askers, jobs };
+  }, errors);
+  // My tasks: open ones (overdue first), and those finished today so they can be undone.
+  const taskJob = pageJob(async ({ tx }) => {
     const since = new Date(now.getTime() - 12 * 3_600_000);
     const [mine, given, mineTotal, givenTotal] = await Promise.all([
       tx.task.findMany({ where: { archivedAt: null, assignedToId: me, OR: [{ status: { in: OPEN_TASK } }, { status: "DONE", doneAt: { gte: since } }] }, orderBy: [{ dueAt: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }], take: 30 }),
@@ -206,34 +260,83 @@ export async function buildHome(viewer: Viewer, opts: { now?: Date; widgets?: re
       access === "full" ? tx.task.count({ where: { archivedAt: null, givenById: me, assignedToId: { not: me }, status: { in: OPEN_TASK } } }) : Promise.resolve(0),
     ]);
     const names = new Map((await tx.userLogin.findMany({ where: { id: { in: [...mine.map((t) => t.givenById), ...given.map((t) => t.assignedToId)] } }, select: { id: true, displayName: true } })).map((u) => [u.id, u.displayName]));
-    const dueWords = (d: Date | null) => {
-      if (!d) return null;
-      const day = todayFor(tz, d);
-      const time = d.toLocaleTimeString("en-IN", { timeZone: tz, hour: "numeric", minute: "2-digit", hour12: true }).toUpperCase();
-      const diff = daysBetween(today, day);
-      if (diff < 0) return diff === -1 ? `Was due yesterday, ${time}` : `Was due ${day.getUTCDate()} ${day.toLocaleString("en-GB", { month: "short", timeZone: "UTC" })}`;
-      return `${diff === 0 ? "Today" : dayWord(day, today)}, ${time}`;
-    };
-    const row = (t: (typeof mine)[number], kind: "mine" | "given"): TaskCardRow => ({
-      id: t.id, title: t.title, due: dueWords(t.dueAt), overdue: isOverdue(t, now), done: t.status === "DONE", status: t.status,
-      by: kind === "mine" && t.givenById !== me ? names.get(t.givenById) ?? null : null,
-      to: kind === "given" ? names.get(t.assignedToId) ?? null : null,
-    });
-    const mineRows = mine.map((t) => row(t, "mine")).sort((a, b) => Number(a.done) - Number(b.done) || Number(b.overdue) - Number(a.overdue)).slice(0, 8);
+    return { mine, given, mineTotal, givenTotal, names };
+  }, errors);
+  const dayJob = pageJob(({ tx, year }) => schoolDayLine(tx, viewer, today, year), errors, () => null);
 
-    const dayLine = await schoolDayLine(tx, viewer, today, year).catch(() => null);
+  const queue: Job[][] = [...bundlesOf(list.map((w, i) => widgetJob(w, i, results, failedIds))), [seenJob], [approvalJob], [taskJob], [dayJob]];
+  await runLanes(viewer, { viewer, homes, today, now, tz, minuteNow: minuteIn(tz, now) }, queue, opts.lanes);
+  if (errors.length) throw errors[0];
 
-    return {
-      homes, leader,
-      first: viewer.user.displayName.split(" ")[0],
-      dayLine: [longDay(today), dayLine].filter(Boolean).join(" · "),
-      band, attention, hiddenSeen: attentionAll.length - attention.length, panels, agenda, birthdays,
-      approvals: mayApprove ? {
-        count: approvalCount,
-        rows: approvalRows.filter((a) => decidable.has(a.id)).map((a) => ({ id: a.id, who: askers.get(a.askedById) ?? "Someone", as: jobs.get(a.askedById) ?? null, what: `${requestLabel(a.type)} · ${a.summary}`, why: a.reason, amount: a.amountPaise !== null ? formatRupees(a.amountPaise) : null })),
-      } : null,
-      tasks: { access, mine: mineRows, given: given.map((t) => row(t, "given")), left: mineTotal, mineTotal, givenTotal },
-      failed,
-    };
-  }, { timeout: 30_000 });
+  const out: Collected = { band: [], attention: [], agenda: [], birthdays: [], panel: [] };
+  for (const { w, items } of results.sort((a, b) => a.i - b.i)) for (const item of items) out[w.kind].push({ w, item });
+  const failed = list.filter((w) => failedIds.has(w.id)).map((w) => w.id);
+
+  // Band: the person's first home first, then the order set for that home, then the registry order.
+  const order = (w: Widget, id: string) => {
+    const hr = homeRank(w, homes);
+    const home = homes[hr] as HomeKind | undefined;
+    const set = home ? BAND_ORDER[home] ?? [] : [];
+    const i = set.indexOf(id);
+    return [hr, i === -1 ? 50 : i, WIDGETS.indexOf(w)];
+  };
+  const band = out.band
+    .map(({ w, item }) => ({ w, item: item as BandItem }))
+    .sort((a, b) => {
+      const x = order(a.w, a.item.id), y2 = order(b.w, b.item.id);
+      return x[0] - y2[0] || x[1] - y2[1] || x[2] - y2[2];
+    })
+    .map((x) => x.item)
+    .filter((b, i, all) => all.findIndex((o) => o.id === b.id) === i)
+    .slice(0, 4);
+
+  // Needs attention: duplicates merged by id, most urgent first, minus what the person marked Seen (until the number changes).
+  const seenValue = new Map(seenJob.value!.map((s) => [s.itemKey, s.value]));
+  const attentionAll = (out.attention.map((x) => x.item) as AttentionItem[])
+    .filter((a, i, all) => all.findIndex((o) => o.id === a.id) === i)
+    .sort((a, b) => TONE_RANK[a.tone] - TONE_RANK[b.tone]);
+  const attention = attentionAll.filter((a) => seenValue.get(a.id) !== a.value);
+
+  const panels: Record<PanelSlot, Panel[]> = { first: [], main: [], side: [] };
+  for (const { item } of out.panel) {
+    const p = item as { slot: PanelSlot; panel: Panel };
+    panels[p.slot].push(p.panel);
+  }
+
+  const agenda = (out.agenda.map((x) => x.item) as AgendaItem[]).sort((a, b) => a.sort - b.sort).slice(0, 7);
+  const birthdays = (out.birthdays.map((x) => x.item) as Birthday[])
+    .filter((b, i, all) => all.findIndex((o) => o.id === b.id) === i)
+    .sort((a, b) => a.sort - b.sort || a.name.localeCompare(b.name));
+
+  const ap = approvalJob.value!;
+  const mayApprove = ap.count > 0 || leader || homes.includes("class-teacher") || viewer.roles.some((r) => r.key === "hostel-warden");
+
+  const { mine, given, mineTotal, givenTotal, names } = taskJob.value!;
+  const dueWords = (d: Date | null) => {
+    if (!d) return null;
+    const day = todayFor(tz, d);
+    const time = d.toLocaleTimeString("en-IN", { timeZone: tz, hour: "numeric", minute: "2-digit", hour12: true }).toUpperCase();
+    const diff = daysBetween(today, day);
+    if (diff < 0) return diff === -1 ? `Was due yesterday, ${time}` : `Was due ${day.getUTCDate()} ${day.toLocaleString("en-GB", { month: "short", timeZone: "UTC" })}`;
+    return `${diff === 0 ? "Today" : dayWord(day, today)}, ${time}`;
+  };
+  const row = (t: (typeof mine)[number], kind: "mine" | "given"): TaskCardRow => ({
+    id: t.id, title: t.title, due: dueWords(t.dueAt), overdue: isOverdue(t, now), done: t.status === "DONE", status: t.status,
+    by: kind === "mine" && t.givenById !== me ? names.get(t.givenById) ?? null : null,
+    to: kind === "given" ? names.get(t.assignedToId) ?? null : null,
+  });
+  const mineRows = mine.map((t) => row(t, "mine")).sort((a, b) => Number(a.done) - Number(b.done) || Number(b.overdue) - Number(a.overdue)).slice(0, 8);
+
+  return {
+    homes, leader,
+    first: viewer.user.displayName.split(" ")[0],
+    dayLine: [longDay(today), dayJob.value].filter(Boolean).join(" · "),
+    band, attention, hiddenSeen: attentionAll.length - attention.length, panels, agenda, birthdays,
+    approvals: mayApprove ? {
+      count: ap.count,
+      rows: ap.rows.filter((a) => ap.decidable.has(a.id)).map((a) => ({ id: a.id, who: ap.askers.get(a.askedById) ?? "Someone", as: ap.jobs.get(a.askedById) ?? null, what: `${requestLabel(a.type)} · ${a.summary}`, why: a.reason, amount: a.amountPaise !== null ? formatRupees(a.amountPaise) : null })),
+    } : null,
+    tasks: { access, mine: mineRows, given: given.map((t) => row(t, "given")), left: mineTotal, mineTotal, givenTotal },
+    failed,
+  };
 }

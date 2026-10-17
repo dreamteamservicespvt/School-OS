@@ -41,16 +41,20 @@ export default async function DashboardPage({ searchParams }: Search) {
   const tz = current.school.timeZone;
 
   // A new school's School Admin and Principal start on the setup checklist until most of it is done.
-  if (sp.view !== "dashboard" && moduleOpen(current, "settings") && reach(current, "settings", "edit") === "all") {
-    const p = setupProgress(await withSchool(current.ctx, (tx) => setupSteps(tx, current.ctx, current)));
-    if (!p.complete && p.done * 2 < p.total) redirect("/dashboard/setup");
-  }
-
+  // It is read alongside the page rather than before it (QA PLATFORM-13).
+  const setupFirst = sp.view !== "dashboard" && moduleOpen(current, "settings") && reach(current, "settings", "edit") === "all";
+  const setup = setupFirst ? withSchool(current.ctx, (tx) => setupSteps(tx, current.ctx, current)) : null;
   const access = taskAccess(current);
-  const [home, people] = await Promise.all([
+  const page = Promise.all([
     buildHome(current, { now }),
     withSchool(current.ctx, (tx) => assignable(tx, { ctx: current.ctx, access })),
   ]);
+  page.catch(() => {}); // Awaited below; a school sent to setup never needs it.
+  if (setup) {
+    const p = setupProgress(await setup);
+    if (!p.complete && p.done * 2 < p.total) redirect("/dashboard/setup");
+  }
+  const [home, people] = await page;
   const quick = quickActionsFor(current, home.approvals !== null);
   const primary = home.leader ? null : quick[0] ?? null;
   const updated = now.toLocaleTimeString("en-IN", { timeZone: tz, hour: "numeric", minute: "2-digit", hour12: true }).toUpperCase();

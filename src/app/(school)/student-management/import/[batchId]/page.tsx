@@ -55,9 +55,11 @@ export default async function ImportBatchPage({ params }: { params: Promise<{ ba
             )}
             <div className="flex flex-wrap gap-2">
               {!batch.undoneAt && <ButtonLink href={`${BASE}?new=1`} size="sm">See them in the Student List</ButtonLink>}
-              {!batch.undoneAt && batch.added > 0 && (
+              {!batch.undoneAt && (batch.added > 0 || batch.updated > 0) && (
                 <ConfirmAction action={undoImportAction} fields={{ id: batch.id }} trigger="Undo this import" triggerVariant="danger-outline" title="Undo this import?" confirmLabel="Undo import" confirmVariant="danger">
-                  The {batch.added} students it added are archived, with their class and parent links. Parents with no other child are archived too. The import stays in the history.
+                  {batch.added > 0 && <>The {batch.added} students it added are archived, with their class and parent links, and their admission numbers are free for a corrected file. Parents with no other child are archived too. </>}
+                  {batch.updated > 0 && <>The {batch.updated} students it updated get their earlier values back, except any changed again since. </>}
+                  The import stays in the history.
                 </ConfirmAction>
               )}
             </div>

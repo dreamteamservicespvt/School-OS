@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChartColumn, CircleX, Handshake, IndianRupee, ReceiptIndianRupee, SearchX, UserX, Wallet } from "lucide-react";
+import { ChartColumn, CircleX, FileInput, Handshake, IndianRupee, ReceiptIndianRupee, SearchX, UserX, Wallet } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { OPEN_LINK } from "@/lib/students/guardian-access";
 import { formatDate, formatRupees, formatRupeesShort, formatTime } from "@/lib/format";
@@ -120,7 +120,10 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
       <FeeHead pageName="Fee Dashboard" href={HREF}
         sub={`${longDate} · live as money comes in · updated ${formatTime(new Date(), p.tz)}`}
         viewActions={<ExportButton href={qs(`${BASE}/dashboard/export`, keep)} />}
-        actions={p.desk ? <ButtonLink href={BASE} variant="primary" icon={IndianRupee}>Collect fee</ButtonLink> : undefined} />
+        actions={p.can.change ? <>
+          <ButtonLink href={`${BASE}/ledger/import`} variant="secondary" icon={FileInput} className="hidden md:inline-flex">Import old dues and receipts</ButtonLink>
+          {p.desk && <ButtonLink href={BASE} variant="primary" icon={IndianRupee}>Collect fee</ButtonLink>}
+        </> : undefined} />
       <Stack>
         <Band items={[
           { label: "Collected today", big: formatRupees(tiles.today.amount), foot: `${tiles.today.count} ${tiles.today.count === 1 ? "payment" : "payments"} · ${data.upiToday} by UPI`, href: `${HREF}#recent` },

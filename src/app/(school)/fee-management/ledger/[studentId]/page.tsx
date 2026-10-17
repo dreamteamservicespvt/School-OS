@@ -139,8 +139,8 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
     { icon: <History size={17} aria-hidden="true" />, label: "Add opening balance (old dues)", href: here({ do: "opening" }) },
     { icon: <Scale size={17} aria-hidden="true" />, label: "Adjust an amount", href: here({ do: "adjust" }) },
     { icon: <Plus size={17} aria-hidden="true" />, label: "Add a charge", href: here({ do: "charge" }) },
-    { icon: <FileInput size={17} aria-hidden="true" />, label: "Import old dues", href: "/settings/data-security/imports?kind=fee-old-dues" },
-    { icon: <FileSpreadsheet size={17} aria-hidden="true" />, label: "Import past receipts", href: "/settings/data-security/imports?kind=fee-past-receipts" },
+    { icon: <FileInput size={17} aria-hidden="true" />, label: "Import old dues", href: `${BASE}/ledger/import?kind=fee-old-dues` },
+    { icon: <FileSpreadsheet size={17} aria-hidden="true" />, label: "Import past receipts", href: `${BASE}/ledger/import?kind=fee-past-receipts` },
   ] : [];
 
   return (

@@ -7,7 +7,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ConfirmButton } from "@/components/ui/confirm";
 import { ActionButton } from "../../action-button";
-import { addClassesAction, addOptionsAction, goLiveAction, importAction, leaveOutAction, removeAction, tidyAction, undoFileImportAction, undoFixAction } from "./actions";
+import { addClassesAction, addOptionsAction, chooseRowAction, goLiveAction, importAction, leaveOutAction, removeAction, tidyAction, undoFileImportAction, undoFixAction } from "./actions";
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
@@ -43,6 +43,24 @@ export function AddOptionsButton({ id, column, words }: { id: string; column: "d
 export function LeaveOutButton({ id, lines, out, label }: { id: string; lines: number[]; out: boolean; label?: string }) {
   const router = useRouter();
   return <ActionButton variant="ghost" label={label ?? (out ? "Leave out" : "Bring back")} run={async () => { const p = await leaveOutAction(id, lines, out); if (!p) router.refresh(); return p; }} />;
+}
+
+/** The choices for a row that may already be on record: nothing is merged until one is picked. */
+export function RowChoices({ id, line, choices }: { id: string; line: number; choices: { value: string; label: string }[] }) {
+  const router = useRouter();
+  return (
+    <div className="mt-2 rounded-xl border border-line bg-surface-2 p-3">
+      <p className="text-sm font-medium text-ink">Choose what this row is:</p>
+      <div className="mt-1 flex flex-wrap gap-2">
+        {choices.map((c) => <ActionButton key={c.value} variant="secondary" label={c.label} run={async () => { const p = await chooseRowAction(id, line, c.value); if (!p) router.refresh(); return p; }} />)}
+      </div>
+    </div>
+  );
+}
+
+export function ClearChoiceButton({ id, line }: { id: string; line: number }) {
+  const router = useRouter();
+  return <ActionButton variant="ghost" label="Change my choice" run={async () => { const p = await chooseRowAction(id, line, ""); if (!p) router.refresh(); return p; }} />;
 }
 
 export function UndoFixButton({ id, line }: { id: string; line: number }) {

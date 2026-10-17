@@ -1,0 +1,25 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { ModuleImportPage } from "@/components/import/module-import-page";
+import { EvHead } from "../_components/head";
+import { BASE, evGuard } from "../_lib/page";
+
+export const metadata: Metadata = { title: "Import holidays · Events & Calendar" };
+
+const ABOUT = {
+  "calendar-holidays": "One row per holiday or vacation, with its date (and a vacation's last day). Each is added as if typed on the School Calendar: attendance is off on those days. A holiday already on the calendar is not added twice.",
+};
+
+/** The holiday list from a spreadsheet (18 §2 School Calendar), for whoever keeps the School Calendar; no Settings needed. */
+export default async function HolidayImportPage() {
+  const p = await evGuard("calendar");
+  if (!p.can.calendar) redirect(BASE);
+  return (
+    <>
+      <EvHead pageName="Import holidays" href={`${BASE}/import`}
+        sub={<>The holiday list from a spreadsheet. <Link href={BASE} className="font-semibold text-brand hover:underline">School Calendar</Link></>} />
+      <ModuleImportPage current={p.current} keys={["calendar-holidays"]} base={`${BASE}/import`} about={ABOUT} doneHref={BASE} doneLabel="Open School Calendar" />
+    </>
+  );
+}

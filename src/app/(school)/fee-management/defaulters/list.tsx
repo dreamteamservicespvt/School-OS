@@ -197,9 +197,9 @@ function ReminderSheet({ list, onClose, onSent, templates, gateway }: { list: De
         <input type="hidden" name="when" value={when} />
         {link && <input type="hidden" name="link" value="on" />}
         {!ownWording && <input type="hidden" name="templateId" value={tpl} />}
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {[["Parents", preview?.ok ? preview.recipients : "…"], ["Overdue", totalShort], ["Cost", preview?.ok ? `${preview.cost} ${preview.cost === 1 ? "credit" : "credits"}` : "…"]].map(([k, v]) => (
-            <div key={String(k)} className="rounded-xl bg-sunken/70 px-3 py-2.5"><p className="text-[12px] text-ink3 font-semibold">{k}</p><p className="font-display text-[19px] font-semibold tnum leading-tight">{v}</p></div>
+            <div key={String(k)} className="rounded-xl bg-sunken/70 px-3 py-2.5"><p className="text-[12px] text-ink3 font-semibold">{k}</p><p className="font-display text-[19px] font-semibold tnum leading-tight truncate">{v}</p></div>
           ))}
         </div>
         <div className="grid md:grid-cols-2 gap-4">

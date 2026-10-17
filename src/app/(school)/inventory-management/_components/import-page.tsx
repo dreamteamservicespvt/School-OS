@@ -43,7 +43,7 @@ export async function ImportPage({ p, kind }: { p: InvPageData & { mode: string 
           <ul className="divide-y divide-line/70">
             {history.map((b) => (
               <li key={b.id} className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 text-[14px]">
-                <span className="min-w-0">{b.fileName} <span className="text-[13px] text-ink3">· {formatDateTime(b.createdAt, p.tz)} · {b.added} added{b.skipped ? `, ${b.skipped} skipped` : ""}</span></span>
+                <span className="min-w-0 break-all">{b.fileName} <span className="text-[13px] text-ink3">· {formatDateTime(b.createdAt, p.tz)} · {b.added} added{b.skipped ? `, ${b.skipped} skipped` : ""}</span></span>
                 <span className="flex items-center gap-2">
                   {b.undoneAt && <Pill>Undone</Pill>}
                   {b.skipped > 0 && <a href={`${BASE}/import/errors/${b.id}?kind=${kind}`} className="text-brand font-semibold hover:underline" download>Skipped rows</a>}

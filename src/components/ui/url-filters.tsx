@@ -79,7 +79,7 @@ export function ExportMenu({ href, className }: { href: string; className?: stri
       <summary className="list-none inline-flex items-center justify-center gap-2 h-10 px-4 rounded-xl text-sm font-semibold bg-surface text-ink border border-line hover:bg-sunken cursor-pointer [&::-webkit-details-marker]:hidden">
         <Download size={17} aria-hidden="true" />Export
       </summary>
-      <div className="absolute right-0 top-11 z-40 w-48 bg-surface border border-line rounded-2xl shadow-pop p-1.5 animate-rise">
+      <div className="absolute right-0 top-11 z-40 w-48 max-w-[calc(100vw-2rem)] bg-surface border border-line rounded-2xl shadow-pop p-1.5 animate-rise">
         {[["xlsx", "Excel"], ["csv", "CSV"], ["pdf", "PDF"]].map(([f, l]) => (
           <a key={f} href={`${href}${join}format=${f}`} download className="flex items-center gap-2.5 h-10 px-3 rounded-xl hover:bg-sunken text-[14px]">{l}</a>
         ))}

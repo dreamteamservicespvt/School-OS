@@ -72,7 +72,7 @@ export function FacilitySheet({ closeHref, start, types, campuses, staff }: { cl
         <SSelect name="type" label="Type" required options={types.map((t) => ({ value: t, label: t }))} start={start?.type ?? "Classroom"} />
       </div>
       {!start && campuses.length > 1 && <SSelect name="campusId" label="Campus" required options={campuses} start={campuses[0]?.value} />}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <SText name="capacity" label="Capacity" inputMode="numeric" maxLength={5} start={start?.capacity} placeholder="40" />
         <SText name="building" label="Building" maxLength={60} start={start?.building} placeholder="Block A" />
         <SText name="floor" label="Floor" maxLength={20} start={start?.floor} placeholder="Ground" />

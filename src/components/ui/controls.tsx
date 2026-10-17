@@ -10,7 +10,7 @@ export type SegOption = string | { value: string; label: React.ReactNode; icon?:
 
 export function Segmented({ value, onChange, options, className, size = "md", label }: { value: string; onChange: (v: string) => void; options: readonly SegOption[]; className?: string; size?: "sm" | "md"; label?: string }) {
   return (
-    <div role="radiogroup" aria-label={label} className={cx("inline-flex p-1 rounded-xl bg-sunken gap-1", className)}>
+    <div role="radiogroup" aria-label={label} className={cx("inline-flex max-w-full overflow-x-auto no-scrollbar p-1 rounded-xl bg-sunken gap-1", className)}>
       {options.map((o) => {
         const v = typeof o === "string" ? o : o.value;
         const l = typeof o === "string" ? o : o.label;
@@ -18,7 +18,7 @@ export function Segmented({ value, onChange, options, className, size = "md", la
         const on = v === value;
         return (
           <button key={v} type="button" role="radio" aria-checked={on} onClick={() => onChange(v)}
-            className={cx("inline-flex items-center justify-center gap-1.5 rounded-lg font-semibold transition whitespace-nowrap flex-1",
+            className={cx("inline-flex items-center justify-center gap-1.5 rounded-lg font-semibold transition whitespace-nowrap flex-1 shrink-0",
               size === "sm" ? "h-7 px-2.5 text-xs" : "h-9 px-3.5 text-[13px]",
               on ? "bg-surface text-ink shadow-card" : "text-ink2 hover:text-ink")}>
             {Ic && <Ic size={15} aria-hidden="true" />}{l}

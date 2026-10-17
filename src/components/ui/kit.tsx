@@ -16,7 +16,7 @@ export const TONE_SOFT: Record<Tone | "neutral", string> = { ok: "bg-ok/10 text-
 
 /* ---------- Numbers at the top of a page ---------- */
 export type StatItem = { label: string; value: React.ReactNode; sub?: React.ReactNode; tone?: Tone; icon?: LucideIcon; href?: string };
-const STAT_GRID: Record<number, string> = { 1: "grid-cols-1", 2: "grid-cols-2", 3: "grid-cols-3", 4: "grid-cols-2 xl:grid-cols-4", 5: "grid-cols-2 xl:grid-cols-5", 6: "grid-cols-2 lg:grid-cols-3 xl:grid-cols-6" };
+const STAT_GRID: Record<number, string> = { 1: "grid-cols-1", 2: "grid-cols-2", 3: "grid-cols-2 md:grid-cols-3", 4: "grid-cols-2 xl:grid-cols-4", 5: "grid-cols-2 xl:grid-cols-5", 6: "grid-cols-2 lg:grid-cols-3 xl:grid-cols-6" };
 
 /** Number tiles with hairlines between them, in one card. */
 export function Stats({ items, className }: { items: StatItem[]; className?: string }) {
@@ -33,7 +33,7 @@ export function Stats({ items, className }: { items: StatItem[]; className?: str
               {m.sub && <p className="text-[12px] text-ink3 truncate">{m.sub}</p>}
             </>
           );
-          const cls = cx("block bg-surface text-left px-4 md:px-5 py-3.5 min-w-0", n === 5 && i === 4 && "col-span-2 xl:col-span-1");
+          const cls = cx("block bg-surface text-left px-4 md:px-5 py-3.5 min-w-0", n === 5 && i === 4 && "col-span-2 xl:col-span-1", n === 3 && i === 2 && "col-span-2 md:col-span-1");
           return m.href
             ? <Link key={m.label} href={m.href} className={cx(cls, "hover:bg-sunken transition")}>{inner}</Link>
             : <div key={m.label} className={cls}>{inner}</div>;
@@ -79,7 +79,7 @@ export function Band({ items, className, label }: { items: BandItem[]; className
 
 /* ---------- Search and filters at the top of a list card ---------- */
 export function Toolbar({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <div className={cx("flex flex-col md:flex-row gap-2.5 p-3 border-b border-line", className)}>{children}</div>;
+  return <div className={cx("flex flex-col md:flex-row md:flex-wrap md:items-center gap-2.5 p-3 border-b border-line", className)}>{children}</div>;
 }
 
 export type ChipLink = { value: string; label: React.ReactNode; count?: number; href: string };

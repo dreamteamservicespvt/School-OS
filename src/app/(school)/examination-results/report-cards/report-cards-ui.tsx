@@ -22,7 +22,7 @@ function useLeaveWarning(dirty: boolean) {
 
 function SaveBar({ dirty, saving, onSave, message }: { dirty: number; saving: boolean; onSave: () => void; message: { ok: boolean; text: string } | null }) {
   return (
-    <div className="sticky bottom-16 z-10 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface p-3 shadow-pop sm:bottom-4">
+    <div className="sticky bottom-20 z-10 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface p-3 shadow-pop md:bottom-4">
       <p role="status" aria-live="polite" className={message && !message.ok ? "text-danger" : "text-ink-2"}>
         {message ? message.text : dirty ? `${dirty} change${dirty === 1 ? "" : "s"} not saved yet` : "Everything is saved."}
       </p>

@@ -18,7 +18,7 @@ export function CardHeader({ title, description, action, id, icon: Icon, divided
           {description && <p className="text-[13px] text-ink3 mt-0.5">{description}</p>}
         </div>
       </div>
-      {action && <div className="ml-auto shrink-0 max-w-full">{action}</div>}
+      {action && <div className="ml-auto max-w-full min-w-0 flex flex-wrap justify-end gap-2 [&>div]:flex-wrap [&>div]:justify-end">{action}</div>}
     </div>
   );
 }

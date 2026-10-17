@@ -109,10 +109,10 @@ export function QuizSheet({ closeHref, sections, bank, start, defaults, edit }: 
         </div>
       )}
       <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-[13px] font-semibold text-ink2">Questions · {qs.length}</p>
           {!kept && (
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {pool.length > 0 && <Button size="sm" variant="ghost" icon={Library} onClick={() => setBankOpen((x) => !x)}>From question bank</Button>}
               <Button size="sm" variant="soft" icon={Plus} onClick={() => setQs((x) => [...x, blank()])}>Add</Button>
             </div>

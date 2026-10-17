@@ -163,7 +163,7 @@ export function StaffSheet(p: Props) {
         </ul>
       )}
       {p.canEdit && (
-        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface/95 px-4 py-3 backdrop-blur pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <div className="fixed inset-x-0 bottom-[calc(68px+env(safe-area-inset-bottom))] md:bottom-0 md:left-[76px] lg:left-[268px] z-20 border-t border-line bg-surface/95 px-4 py-3 backdrop-blur md:pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <div className="mx-auto flex max-w-3xl">
             <Button size="lg" className="w-full" onClick={save} loading={pending} loadingText="Saving…" disabled={pending || dirty.size === 0}>
               {dirty.size ? `Save staff attendance: ${dirty.size} ${dirty.size === 1 ? "change" : "changes"}` : "No changes to save"}

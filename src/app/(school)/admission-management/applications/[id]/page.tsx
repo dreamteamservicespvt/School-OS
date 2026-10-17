@@ -211,7 +211,7 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
                   </div>
                 ))}
               </div>
-              {app.email && <p className="px-5 pb-5 -mt-2 text-[13.5px] text-ink2">Email: {app.email}</p>}
+              {app.email && <p className="px-5 pb-5 -mt-2 text-[13.5px] text-ink2 break-all">Email: {app.email}</p>}
             </Card>
             <Card>
               <CardHeader title="Previous school and preferences" icon={School} />

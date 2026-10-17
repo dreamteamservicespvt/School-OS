@@ -76,7 +76,7 @@ export function VehicleSheet({ closeHref, start, vendors, routes, drivers, gps }
       )}
       <fieldset className="flex flex-col gap-2">
         <legend className="text-[13px] font-semibold text-ink2 mb-1">Maintenance schedule</legend>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <SText name="odometerKm" label="Odometer now (km)" inputMode="numeric" start={start?.odometerKm} />
           <SText name="serviceEveryKm" label="Service every (km)" inputMode="numeric" start={start?.serviceEveryKm} placeholder="10000" />
           <SText name="serviceEveryDays" label="or every (days)" inputMode="numeric" start={start?.serviceEveryDays} placeholder="90" />

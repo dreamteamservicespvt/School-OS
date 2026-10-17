@@ -128,10 +128,10 @@ const BANNER_ICON: Record<string, LucideIcon> = { info: Info, ok: CircleCheck, w
 export function Banner({ tone = "info", icon, title, children, action, className }: { tone?: "info" | "ok" | "warn" | "bad" | "brand"; icon?: LucideIcon; title?: React.ReactNode; children?: React.ReactNode; action?: React.ReactNode; className?: string }) {
   const Ic = icon ?? BANNER_ICON[tone];
   return (
-    <div role={tone === "bad" || tone === "warn" ? "alert" : undefined} className={cx("rounded-2xl px-4 py-3 flex items-start md:items-center gap-3 text-[14px]", BANNER[tone], className)}>
+    <div role={tone === "bad" || tone === "warn" ? "alert" : undefined} className={cx("rounded-2xl px-4 py-3 flex flex-wrap md:flex-nowrap items-start md:items-center gap-3 text-[14px]", BANNER[tone], className)}>
       <Ic size={19} className={cx("shrink-0 mt-0.5 md:mt-0", TONE_TEXT[tone])} aria-hidden="true" />
-      <div className="text-ink2 flex-1 min-w-0">{title && <b className="font-semibold text-ink">{title} </b>}{children}</div>
-      {action}
+      <div className="text-ink2 flex-1 min-w-0 basis-[calc(100%-2.5rem)] md:basis-auto">{title && <b className="font-semibold text-ink">{title} </b>}{children}</div>
+      {action && <div className="shrink-0 flex gap-2 flex-wrap pl-8 md:pl-0">{action}</div>}
     </div>
   );
 }
@@ -256,7 +256,7 @@ export const SubHead = ({ children }: { children: React.ReactNode }) => <p class
 /** A list footer: "Showing 25 of 340" with a "Show more" link. */
 export function ListFooter({ shown, total, moreHref, children }: { shown: number; total: number; moreHref?: string | null; children?: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-line text-[13px] text-ink3">
+    <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-line text-[13px] text-ink3">
       <span className="tnum" aria-live="polite">Showing {shown.toLocaleString("en-IN")} of {total.toLocaleString("en-IN")}</span>
       {children}
       {moreHref && <Link href={moreHref} scroll={false} className="inline-flex items-center justify-center font-semibold whitespace-nowrap transition h-8 px-3 text-[13px] gap-1.5 rounded-lg bg-surface text-ink border border-line hover:bg-sunken">Show more</Link>}

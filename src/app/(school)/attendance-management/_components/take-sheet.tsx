@@ -192,7 +192,7 @@ export function TakeSheet(p: Props) {
 
       {/* Counts + tools */}
       <div className="flex flex-col md:flex-row gap-3 md:items-center mb-4">
-        <div className={cx("grid gap-2 flex-1", tiles.length === 5 ? "grid-cols-5" : "grid-cols-4")} aria-live="polite">
+        <div className={cx("grid gap-2 flex-1", tiles.length === 5 ? "grid-cols-3 sm:grid-cols-5" : "grid-cols-2 sm:grid-cols-4")} aria-live="polite">
           {tiles.map((t) => (
             <div key={t.key} className="rounded-xl bg-surface border border-line px-3 py-2.5 min-w-0">
               <p className={cx("font-display text-[22px] font-semibold tnum leading-none", t.key === "none" ? "text-ink3" : STATUS_SOFT[byKey.get(t.key)?.tone ?? "neutral"])}>{t.value}</p>

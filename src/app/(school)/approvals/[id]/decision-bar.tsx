@@ -31,7 +31,7 @@ export function DecisionBar({ id, summary, canDecide, canReject = true, canWithd
   if (!canDecide && !canWithdraw) return null;
   return (
     <>
-      <div className="fixed inset-x-0 bottom-14 z-20 border-t border-line bg-surface p-3 shadow-pop sm:static sm:z-auto sm:rounded-2xl sm:border sm:p-4 sm:shadow-none">
+      <div className="fixed inset-x-0 bottom-[calc(68px+env(safe-area-inset-bottom))] z-20 border-t border-line bg-surface p-3 shadow-pop sm:static sm:z-auto sm:rounded-2xl sm:border sm:p-4 sm:shadow-none">
         {error && !asking && <p role="alert" className="mb-2 rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">{error}</p>}
         <div className="flex flex-wrap gap-2">
           {canDecide && (

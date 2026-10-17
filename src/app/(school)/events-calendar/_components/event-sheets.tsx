@@ -44,8 +44,8 @@ export function EventSheet({ closeHref, start, types, venues, classes, reminders
         <SText name="name" label="Name" required start={start.name} placeholder="For example: Annual Day 2027" maxLength={80} />
         <SSelect name="type" label="Type" required help="From Events Settings" options={typeOptions} start={start.type ?? types[0]} />
       </div>
-      <div className="grid grid-cols-3 gap-3">
-        <SDate name="date" label="Date" required start={start.date} />
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div className="col-span-2 sm:col-span-1"><SDate name="date" label="Date" required start={start.date} /></div>
         <SText name="startTime" label="From" required type="time" start={start.startTime ?? "10:00"} className="tnum" />
         <SText name="endTime" label="To" type="time" start={start.endTime} className="tnum" />
       </div>

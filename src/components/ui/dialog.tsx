@@ -59,7 +59,7 @@ export function Dialog({ open, onClose, title, sub, children, footer, wide }: { 
       <div className="flex max-h-[inherit] flex-col">
         <SheetHead titleId={titleId} title={title} sub={sub} onClose={onClose} />
         <div className="overflow-y-auto scroll-thin px-5 pb-5">{open && children}</div>
-        {footer && <div className="border-t border-line px-5 py-3.5 flex gap-2 justify-end">{footer}</div>}
+        {footer && <div className="border-t border-line px-5 py-3.5 flex flex-wrap gap-2 justify-end">{footer}</div>}
       </div>
     </dialog>
   );

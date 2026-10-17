@@ -86,7 +86,7 @@ export default async function FeeReportsPage({ searchParams }: { searchParams: S
         )}
         <Card className="overflow-hidden">
           <CardHeader title={def.label} description={def.about}
-            action={<div className="flex items-center gap-1.5 shrink-0">
+            action={<div className="flex flex-wrap justify-end items-center gap-1.5">
               <ExportButton href={exportHref} size="sm" always />
               <a href={`${exportHref}&format=pdf`} target="_blank" rel="noreferrer" className={`${buttonClass("ghost", "sm")} hidden sm:inline-flex`}><Printer size={15} aria-hidden="true" />Print</a>
             </div>} />

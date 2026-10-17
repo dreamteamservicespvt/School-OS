@@ -25,6 +25,7 @@ import { bulkDiscountFor, recordAppliedLines, spread } from "./concessions";
 import { modeLabel, NEEDS_REFERENCE } from "./words";
 import { placeOfSupply, taxLines } from "./tax";
 import { sendFeePaid } from "./notify-parents";
+import { settlePromises } from "./promises";
 
 export type CollectInput = {
   studentId: string;
@@ -335,6 +336,8 @@ export async function finishPosting(tx: Tx, ctx: SchoolContext, paymentId: strin
     await sendFeePaid(tx, ctx, { paymentId: payment.id, studentId: payment.studentId, amountPaise: payment.amountPaise, date: payment.paymentDate, receiptNo });
   }
   await writeAudit(tx, ctx, { action: "posted", recordType: "Payment", recordId: payment.id, after: { ...paymentAudit(payment), receipt: receiptNo, student: card?.name ?? null } });
+  // A payment that covers an open Promise to Pay marks it kept.
+  if (!payment.broughtIn) await settlePromises(tx, ctx, todayIn(school.timeZone), [payment.studentId]);
   return { receiptNo, created: true };
 }
 

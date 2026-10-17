@@ -11,7 +11,7 @@ import { entryAllowed, findEntry } from "@/lib/reports/catalogue";
 import { togglePin } from "@/lib/reports/pins";
 import { prepareReport, ReportProblem } from "@/lib/reports/run";
 import { analyticsAreas, areaOfChart } from "@/lib/reports/analytics";
-import { decideAiSignal, DECISION_LABEL, mayReview, remindFlag, reviewFlag, saveDropRule, WarningProblem, type Decision } from "@/lib/reports/warnings";
+import { decideAiSignal, DECISION_LABEL, flagArea, mayReview, remindFlag, reviewFlag, saveDropRule, WarningProblem, type Decision } from "@/lib/reports/warnings";
 import { archiveCustom, cleanSpec, CustomProblem, saveCustom, saveSchedule, sendSchedule, setScheduleStatus } from "@/lib/reports/custom";
 import { redirect } from "next/navigation";
 import { formatDateTime } from "@/lib/format";
@@ -59,8 +59,8 @@ export async function reviewAction(_: S, fd: FormData): Promise<S> {
     const flagId = id(fd, "flagId", "flag");
     const decision = str(fd, "decision") as Decision;
     if (!(decision in DECISION_LABEL)) throw new WarningProblem("Choose the decision.", "decision");
-    const f = await w.tx.riskFlag.findFirst({ where: { id: flagId }, select: { area: true } });
-    if (f && !mayReview(w.a, f.area)) throw new WarningProblem("Your role watches these flags. Use Remind to ask the class teacher.");
+    const area = await flagArea(w.tx, flagId);
+    if (area && !mayReview(w.a, area)) throw new WarningProblem("Your role watches these flags. Use Remind to ask the class teacher.");
     return reviewFlag(w.tx, w.current, w.a, flagId, { decision, note: str(fd, "note"), action: str(fd, "action") || null });
   }, (r) => ({ message: r.status === "CLOSED" ? `Closed: ${r.name}. Recorded with your name and note in the audit log.` : `${DECISION_LABEL[r.decision as Decision]}: ${r.name}. ${r.made ? `${r.made} ` : ""}Recorded in the audit log.` }));
 }

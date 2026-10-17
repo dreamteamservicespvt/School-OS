@@ -39,6 +39,8 @@ export type DefaulterItem = {
   lastReminder: string | null;
   reminders: number;
   promised: string | null;
+  /** Promise to Pay (when on): "Promised for 25-10-2026", or a broken promise, which puts the family first. */
+  promise: { words: string; tone: "info" | "bad" } | null;
 };
 
 type Option = { value: string; label: string };
@@ -114,7 +116,8 @@ export function DefaulterList({ rows, canEdit, canCollect = canEdit, footer, emp
                 <td className="px-3 py-2.5 text-right tnum"><p className="font-semibold">{d.amount}</p><p className="text-[12px] text-ink3 max-w-[180px] truncate ml-auto">{d.heads}</p></td>
                 <td className="px-3 py-2.5"><p className="tnum">{d.since}</p><Pill tone={d.tone} className="!h-5 !text-[11px]">{d.days} days</Pill></td>
                 <td className="px-3 py-2.5">
-                  {d.lastReminder ? <><p className="text-[13px]">{d.lastReminder}</p><p className="text-[12px] text-ink3">{d.reminders} sent{d.promised ? ` · promised ${d.promised}` : ""}</p></>
+                  {d.promise && <Pill tone={d.promise.tone} className="!h-5 !text-[11px] mb-1">{d.promise.words}</Pill>}
+                  {d.promise && !d.lastReminder ? <p className="text-[12px] text-ink3">{d.promise.tone === "info" ? "Reminders paused" : "Not reminded yet"}</p> : d.lastReminder ? <><p className="text-[13px]">{d.lastReminder}</p><p className="text-[12px] text-ink3">{d.reminders} sent{d.promised ? ` · promised ${d.promised}` : ""}</p></>
                     : <span className="text-[13px] text-ink3">{d.promised ? `Promised ${d.promised}` : "Not reminded yet"}</span>}
                 </td>
                 <td className="pr-5 pl-3 py-2.5 relative z-10 text-right">{canCollect && <ButtonLink size="sm" variant="soft" href={`/fee-management/collect/${d.id}`}>Collect</ButtonLink>}</td>
@@ -132,6 +135,7 @@ export function DefaulterList({ rows, canEdit, canCollect = canEdit, footer, emp
               <div className="min-w-0 flex-1">
                 <p className="font-semibold text-[15px] truncate">{d.name}</p>
                 <p className="text-[13px] text-ink3 truncate">{d.cls} · {d.heads}</p>
+                {d.promise && <p className={cx("text-[12.5px] font-semibold truncate", d.promise.tone === "bad" ? "text-bad" : "text-info")}>{d.promise.words}</p>}
               </div>
               <div className="text-right shrink-0"><p className="font-semibold tnum">{d.amount}</p><Pill tone={d.tone} className="!h-5 !text-[11px]">{d.days} days</Pill></div>
               <ChevronRight size={18} className="text-ink3 shrink-0" aria-hidden="true" />

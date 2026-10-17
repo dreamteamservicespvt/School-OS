@@ -15,6 +15,7 @@ import { deviceHealth, REJECT_WORDS } from "./devices";
 import { minutesText } from "./time";
 import { classWise } from "./classwise";
 import { ABSENCE_REASONS, absentKeys, FEE_REASON, isReason, reasonChoices, shownReason, SOURCE_WORDS } from "./absence-reasons";
+import { FLAG_STATUS_LABEL, flagStatusOf, OPEN_ATTENDANCE_FLAG } from "./flags";
 
 export const REPORTS = [
   { key: "daily", label: "Daily attendance", about: "Each class and section on one date, and staff.", students: true, staff: true },
@@ -242,18 +243,19 @@ export async function runReport(tx: Tx, ctx: SchoolContext, access: AttendanceAc
     case "chronic": {
       const sections = await sectionsInReach(tx, access);
       const enrol = await tx.enrolment.findMany({ where: { sectionId: { in: sections.map((s) => s.id) }, archivedAt: null, status: "STUDYING" }, select: { studentId: true, sectionId: true } });
-      const flags = await tx.attendanceFlag.findMany({ where: { studentId: { in: enrol.map((e) => e.studentId) }, clearedAt: null }, orderBy: { raisedOn: "desc" } });
+      const flags = await tx.attendanceFlag.findMany({ where: { studentId: { in: enrol.map((e) => e.studentId) }, ...OPEN_ATTENDANCE_FLAG }, orderBy: { raisedOn: "desc" } });
       const people = new Map((await tx.student.findMany({ where: { id: { in: flags.map((f) => f.studentId) } }, select: { id: true, fullName: true, admissionNo: true } })).map((s) => [s.id, s]));
       const sectionOf = new Map(enrol.map((e) => [e.studentId, sections.find((s) => s.id === e.sectionId)?.name ?? ""]));
       return {
         title: "Chronic absence", filters: `Below ${settings.thresholdPercent}% or absent ${settings.chronicDays} days in a row; open flags`,
-        columns: [{ key: "who", label: "Student", phone: "title" }, { key: "class", label: "Class", phone: "meta" }, { key: "kind", label: "Flag", phone: "badge" }, { key: "value", label: "Value", numeric: true }, { key: "since", label: "Flagged on", phone: "meta" }],
+        columns: [{ key: "who", label: "Student", phone: "title" }, { key: "class", label: "Class", phone: "meta" }, { key: "kind", label: "Flag", phone: "badge" }, { key: "value", label: "Value", numeric: true }, { key: "since", label: "Flagged on", phone: "meta" }, { key: "review", label: "Review" }],
         rows: flags.map((f) => ({
           who: people.get(f.studentId)?.fullName ?? "Student", class: sectionOf.get(f.studentId) ?? "",
           kind: f.kind === "below-threshold" ? `Below ${settings.thresholdPercent}%` : "Absent days in a row",
-          value: f.kind === "below-threshold" ? `${Number(f.value)}%` : `${Number(f.value)} days`, since: dayText(f.raisedOn), _tone: "danger",
+          value: f.kind === "below-threshold" ? `${Number(f.value)}%` : `${Number(f.value)} days`, since: dayText(f.raisedOn),
+          review: `${FLAG_STATUS_LABEL[flagStatusOf(f)]}${f.action ? `: ${f.action}` : ""}`, _tone: "danger",
         })),
-        empty: "No student is flagged now. Flags clear on their own when attendance recovers.",
+        empty: "No student is flagged now. Flags clear on their own when attendance recovers, or when a person closes them in Early Warnings.",
       };
     }
     case "late": {

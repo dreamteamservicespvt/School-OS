@@ -17,6 +17,7 @@ import { parseMonth, studentCalendarFor } from "./calendar-months";
 import { percentText } from "./summary";
 import { attendanceFeatures } from "./settings";
 import { REASONS_FEATURE, studentAbsences } from "./absence-reasons";
+import { FLAG_STATUS_LABEL } from "./flags";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Stats } from "@/components/ui/stats";
 import { Banner } from "@/components/ui/banner";
@@ -77,7 +78,7 @@ registerProfileTab({
       <div className="flex flex-col gap-5">
         {tab.openFlags.map((f) => (
           <Banner key={f.kind} tone="warn" icon={TriangleAlert} title={f.kind === "below-threshold" ? `Below ${threshold}% attendance.` : `Absent ${f.value} school days in a row.`}>
-            Flagged on {formatDate(f.raisedOn, "UTC")}. The class teacher and the principal were told once.
+            Flagged on {formatDate(f.raisedOn, "UTC")}. The class teacher and the principal were told once. Early Warnings: {FLAG_STATUS_LABEL[f.status].toLowerCase()}{f.action ? ` (${f.action})` : ""}.
           </Banner>
         ))}
         <Stats items={[

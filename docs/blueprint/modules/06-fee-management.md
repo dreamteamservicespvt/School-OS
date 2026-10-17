@@ -128,6 +128,11 @@ Other actions:
 - **Send reminder** to one, selected, or everyone on the list in one go: choose channel and template; the payment link is added automatically when a gateway is connected (with Parent Link on, the guardian's Parent Link with its Pay button, inferred); preview with recipient count and cost (Communication rules, P4). Parents who opted out are skipped, and the preview says how many were skipped (see the open question on opt-outs).
 - **Reminder history** per student: date, channel, template, delivery status.
 - Call log note: "Called parent, promised by 15-10-2026" (inferred).
+- **Promise to Pay (optional, added 17 October 2026):** when "Promise to pay" is on in Fee Settings, the call note can record what the family promised: "will pay ₹5,000 on 25-10-2026". While the promise is open:
+  - automatic fee reminders to that family pause until the date (reminders sent by hand from this page still go);
+  - the list shows "Promised for 25-10-2026" (with the amount when one was said), and the family moves to the end of the list; the student's fee ledger shows the same;
+  - the Collection forecast and Looking ahead count the promised amount on the promised date.
+  When posted payments made after the call and dated on or before the promised date cover it, the promise is marked **Kept**. When the date passes without that, it is marked **Broken**: the family goes to the top of the list with "Promise of 25-10-2026 broken", the person who recorded it is told, and automatic reminders resume. A new promise replaces an open one. The Fee Dashboard shows **Promises to pay**: kept and broken this term, and how many are open now.
 - Open Collect Fee for a student.
 
 **Form fields: Send reminder**
@@ -139,6 +144,14 @@ Other actions:
 | Template | Yes | The fee reminder template | Variables: student name, class, due amount, due date, link |
 | Include payment link | No | On when a gateway is connected | |
 | Send at | No | Now | Or schedule |
+
+**Form fields: Call note and Promise to Pay**
+
+| Field | Required | Default | Notes |
+|---|---|---|---|
+| Note | Yes, unless a promised date is given with Promise to Pay on | | Up to 500 characters. Empty with a promise: "Promised to pay ₹5,000 by 25-10-2026." |
+| Promised to pay by | No | | With Promise to Pay on: today or within 60 days |
+| Amount promised | No | All overdue | Promise to Pay only. More than ₹0 and not more than the family owes in all |
 
 ### Fee Structure
 
@@ -270,6 +283,7 @@ Other actions:
 - [ ] Reminder history per defaulter (Core)
 - [ ] Send a reminder to everyone on a dues list in one go (Core)
 - [ ] Payment links sent by message (Core)
+- [ ] Promise to Pay on a call: automatic reminders pause until the date; kept or broken worked out from payments; a broken promise goes back to the top of the list (Optional: switched on in Fee Settings) (added 17 October 2026)
 
 ### Fee Structure (10)
 
@@ -352,7 +366,8 @@ These are listed in the feature map under "Automatic work". They have no page; t
 **Automations owned**
 
 - **A1 Fee paid:** in one step, the Payment is posted, the Receipt is created with the next number, the student's dues and balance update, the Day Book gets an entry (built in Finance), the Dashboard updates, and the parent gets the payment message (WhatsApp, using the receipt template with school name, student name, receipt number, amount and date).
-- **A7 Fee due date comes:** reminders go on the days set in Fee Settings (for example 3 days before, on the day, 7 days after); after the grace period the late fee is added as its own row; the Defaulters list updates. Each reminder is sent once per installment per scheduled day (inferred).
+- **A7 Fee due date comes:** reminders go on the days set in Fee Settings (for example 3 days before, on the day, 7 days after); after the grace period the late fee is added as its own row; the Defaulters list updates. Each reminder is sent once per installment per scheduled day (inferred). A family with an open Promise to Pay dated today or later gets no automatic reminder on that day.
+- **Promise to Pay kept or broken** (added 17 October 2026): when a payment is posted, the student's open promise is checked and marked Kept if it is covered. Each day, open promises whose date has passed are marked Kept or Broken from the payments made by the date; a broken one tells the person who recorded it, and is done before the day's reminders so they resume at once.
 - **A8 Online payment received:** see the automatic-work features below. A payment is posted only when the gateway's verified callback confirms it; the gateway's payment ID is stored, and a second callback with the same ID does nothing; payments are matched automatically to the student and installments from the payment link; payments that fail or are not confirmed within 30 minutes (inferred) are flagged on the Fee Dashboard, and no receipt is made.
 
 ## 5. Rules and mistake-proofing
@@ -375,6 +390,8 @@ These are listed in the feature map under "Automatic work". They have no page; t
 | Late fee added wrongly | Late fee is its own row, can be waived with permission and reason | "Late fee ₹200 added on 18-10-2026" | Waive with reason |
 | Old receipts counted twice after switching | Imported past receipts are marked Brought in, read-only, and never post to the Day Book or today's collection | "Brought in from old software on 01-11-2026. Not in the Day Book." | Undo the whole import from the import history and import again |
 | Taxable fee without a GSTIN | A fee head cannot be marked taxable until the school's GSTIN is saved in School Profile (inferred) | "Add the school's GSTIN in Settings, School Profile first" | Add the GSTIN |
+| Promise that never ends | Promise to Pay dates must be today or within 60 days; one open promise per student, a new one replaces it | "Choose a date within 60 days, by 16-12-2026." | Pick an earlier date, or change the installments in the student's ledger |
+| Promise for more than is owed | Amount capped at what the family owes in all | "The family owes ₹18,000 in all. The promise cannot be for more." | Lower the amount, or leave it empty for everything overdue |
 | Cheque bounced | Cancel the payment with reason "Cheque bounced"; dues reopen; optional bounce charge as an adjustment (inferred) | "Payment cancelled. Dues reopened." | Collect again |
 
 ## 6. Settings
@@ -394,6 +411,7 @@ The **Fee Settings** page holds:
 - **Approval limits shown here, stored in Settings, Forms & Approvals:** concessions, refunds, cancellations.
 - **Scholarship types** and **eligibility rules** (optional, scholarship-heavy schools).
 - **Bulk discount rules** are kept on Concessions & Refunds.
+- **Promise to pay (optional, added 17 October 2026):** on or off (default off). When off, a promised date on a call note is only noted, as before; nothing pauses.
 
 ## 7. Reports
 
@@ -431,6 +449,8 @@ All have filters, analytics and export (P8), and appear in Reports & Analytics.
 | Approval, Notification | Yes | Yes | |
 | Audit Log Entry | Yes | | |
 
+**Promise to Pay** (added 17 October 2026, in 04-data-model.md): the call log note with a promised date, amount, and status Open, Kept, Broken or Replaced.
+
 Other records (inferred): **Fee Invoice**, **Fee Certificate**, **Payment Link** (amount, rows covered, gateway, expiry, status), **Gateway Transaction** (gateway payment ID, callback received, verified, matched), **Reminder Log**, **Bulk Discount Rule**, **Scholarship Type** and **Scholarship Application**, **Daycare Plan** and **Daycare Enrolment**, **Late Fee Rule**, **Advance Balance**, **Tax Invoice** (number, GSTIN, rate, tax amount, payment), **Ageing Group**.
 
 ## 9. Done when
@@ -450,6 +470,7 @@ Other records (inferred): **Fee Invoice**, **Fee Certificate**, **Payment Link**
 13. A guardian opens Parent Link, sees the fees due, pays with Razorpay, and the receipt appears for download once the gateway confirms it.
 14. A daycare child billed by days attended is charged for exactly the days marked present that week.
 15. With fees into different bank accounts on, a cash payment of tuition and transport fees prints a receipt showing each head's bank account, and the Day Book shows tuition against the school account and transport against the trust account; the same payment online is split by Razorpay to the two accounts (decided 9 October 2026).
+16. With Promise to pay on, the accountant notes "will pay ₹5,000 on 25-10-2026" for a defaulter: no automatic reminder goes to that family until then; a ₹5,000 payment on 24-10-2026 marks it Kept; with no payment, on 26-10-2026 it is Broken, the family is first on Defaulters and its reminders resume. The Collection forecast for October counts the ₹5,000.
 
 ## 10. Open questions
 

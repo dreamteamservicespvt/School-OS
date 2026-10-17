@@ -3,7 +3,10 @@
 // section, student leave waiting, absence streaks and low attendance, and
 // "Attendance this week" by class. Reach follows Attendance Management
 // (src/lib/attendance/access.ts): full roles see the whole school, a class
-// teacher only their own section, HR only staff attendance.
+// teacher only their own section, HR only staff attendance. The flag cards
+// count the Attendance Flag, the one record of a student's attendance concern:
+// its review is done in Early Warnings, and the Early Warnings card leaves
+// these children out, so each is counted once.
 import "server-only";
 
 import { attendanceAccess, BASE, type AttendanceAccess } from "../../attendance/access";
@@ -14,7 +17,9 @@ import { staffDay } from "../../attendance/staff";
 import { schoolDays } from "../../attendance/calendar";
 import { classWise } from "../../attendance/classwise";
 import { ON_REGISTER_STATUSES } from "../../attendance/on-register";
-import { addDays, iso, n, plural, reach } from "../common";
+import { OPEN_ATTENDANCE_FLAG } from "../../attendance/flags";
+import { reportAccess } from "../../reports/access";
+import { addDays, iso, moduleOpen, n, plural, reach } from "../common";
 import type { AttentionItem, BarRow, DashContext, Viewer, Widget } from "../types";
 
 const MODULE = "attendance-management" as const;
@@ -181,26 +186,33 @@ async function flagCard(c: DashContext, kind: "absent-streak" | "below-threshold
   if (a.students === "none") return null;
   const own = a.students === "all" ? null : await ownStudents(c, a);
   if (own && own.length === 0) return null;
-  const count = await c.tx.attendanceFlag.count({ where: { kind, clearedAt: null, ...(own ? { studentId: { in: own } } : {}) } });
+  const flags = await c.tx.attendanceFlag.findMany({ where: { kind, ...OPEN_ATTENDANCE_FLAG, ...(own ? { studentId: { in: own } } : {}) }, select: { studentId: true, status: true } });
+  const count = new Set(flags.map((f) => f.studentId)).size;
   if (count === 0) return null;
   const s = await settings(c);
+  // Reviewed in Early Warnings, for the people who see it; the Chronic absence report otherwise.
+  const warnings = moduleOpen(c.viewer, "reports-analytics") && reportAccess(c.viewer).warnings.on;
+  const notReviewed = new Set(flags.filter((f) => f.status === "NEW").map((f) => f.studentId)).size;
+  const review = warnings && notReviewed ? ` ${notReviewed} not reviewed yet.` : "";
+  const href = warnings ? "/reports-analytics/early-warnings?area=attendance" : `${BASE}/reports?report=chronic`;
   return kind === "absent-streak"
     ? {
         id: "attendance.absent-streak", tone: "warn", icon: "UserX",
         title: `${plural(count, "student")} absent ${s.chronicDays} days in a row`,
-        detail: "Call the parents. The card goes when they are marked present.", action: "See students",
-        href: `${BASE}/reports?report=chronic`, value: String(count),
+        detail: `Call the parents. The card goes when they are marked present.${review}`, action: "See students",
+        href, value: String(count),
       }
     : {
         id: "attendance.below-threshold", tone: "bad", icon: "TrendingDown",
         title: `${plural(count, "student")} below ${s.thresholdPercent}% attendance`,
-        detail: "This academic year, from the Attendance Register.", action: "Review",
-        href: `${BASE}/reports?report=chronic`, value: String(count),
+        detail: `This academic year, from the Attendance Register.${review}`, action: "Review",
+        href, value: String(count),
       };
 }
 
 const absentStreak: Widget<"attention"> = { id: "attendance.absent-streak", module: MODULE, kind: "attention", homes: ["leader", "class-teacher"], load: (c) => flagCard(c, "absent-streak") };
-const belowThreshold: Widget<"attention"> = { id: "attendance.below-threshold", module: MODULE, kind: "attention", homes: ["leader", "academic-head"], load: (c) => flagCard(c, "below-threshold") };
+// Class teachers too: the Early Warnings card leaves out students with an Attendance Flag, so this is where they see them.
+const belowThreshold: Widget<"attention"> = { id: "attendance.below-threshold", module: MODULE, kind: "attention", homes: ["leader", "academic-head", "class-teacher"], load: (c) => flagCard(c, "below-threshold") };
 
 /** "Take attendance for 7 B · locks at 11:00 AM" for the class teacher's sections not yet marked. */
 const notTaken: Widget<"attention"> = {

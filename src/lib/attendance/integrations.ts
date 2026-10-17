@@ -12,6 +12,7 @@ import { statusList, type StatusInfo } from "./settings";
 import { attendanceSummary, type PersonSummary } from "./summary";
 import { takeChoices } from "./marks";
 import { classWise } from "./classwise";
+import { flagStatusOf, OPEN_ATTENDANCE_FLAG, type AttendanceFlagStatus } from "./flags";
 
 export type MonthCell = { date: string; day: number; weekday: number; statusKey: string | null; off: string | null; future: boolean };
 export type MonthView = { label: string; month: string; summary: PersonSummary; cells: MonthCell[] };
@@ -54,7 +55,8 @@ export type StudentAttendanceTab = {
   months: { month: string; label: string; summary: PersonSummary }[];
   thisMonth: MonthView;
   statuses: StatusInfo[];
-  openFlags: { kind: string; raisedOn: Date; value: number }[];
+  /** Open Attendance Flags, with their review in Early Warnings. */
+  openFlags: { id: string; kind: string; raisedOn: Date; value: number; status: AttendanceFlagStatus; action: string | null }[];
   leave: { id: string; from: Date; to: Date; days: number; type: string; status: string }[];
   registerHref: string;
 };
@@ -81,13 +83,13 @@ export async function studentAttendanceTab(tx: Tx, ctx: SchoolContext, studentId
       if (s.workingDays > 0) months.push({ month: isoDay(m).slice(0, 7), label: monthLabel(m), summary: s });
     }
   }
-  const flags = await tx.attendanceFlag.findMany({ where: { studentId, clearedAt: null }, orderBy: { raisedOn: "desc" } });
+  const flags = await tx.attendanceFlag.findMany({ where: { studentId, ...OPEN_ATTENDANCE_FLAG }, orderBy: { raisedOn: "desc" } });
   const leaveRows = await tx.leaveRequest.findMany({ where: { studentId, archivedAt: null }, orderBy: { fromDate: "desc" }, take: 20 });
   const types = await tx.leaveType.findMany({ where: { id: { in: leaveRows.map((l) => l.leaveTypeId) } }, select: { id: true, name: true } });
   const section = year ? enrol.find((e) => e.academicYearId === year.id)?.sectionId : undefined;
   return {
     year: year ? { id: year.id, name: year.name } : null, yearSummary, months: months.reverse(), thisMonth, statuses,
-    openFlags: flags.map((f) => ({ kind: f.kind, raisedOn: f.raisedOn, value: Number(f.value) })),
+    openFlags: flags.map((f) => ({ id: f.id, kind: f.kind, raisedOn: f.raisedOn, value: Number(f.value), status: flagStatusOf(f), action: f.action })),
     leave: leaveRows.map((l) => ({ id: l.id, from: l.fromDate, to: l.toDate, days: Number(l.days), type: types.find((t) => t.id === l.leaveTypeId)?.name ?? "Leave", status: l.status })),
     registerHref: `${BASE}/register?view=student&student=${studentId}${section ? `&section=${section}` : ""}`,
   };
@@ -136,7 +138,7 @@ export async function attendanceToday(tx: Tx, ctx: SchoolContext, today: Date, o
     Promise.all(years.map((y) => classWise(tx, ctx, { yearId: y.id, from: today, to: today, today, sectionIds: opts.sectionIds ?? null, campusId: opts.campusId ?? null }))),
     opts.sectionIds ? Promise.resolve([]) : tx.attendanceMark.findMany({ where: { date: today, staffId: { not: null }, periodNo: 0, archivedAt: null }, select: { statusKey: true } }),
     opts.sectionIds ? Promise.resolve(0) : tx.staff.count({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] } } }),
-    tx.attendanceFlag.count({ where: { clearedAt: null } }),
+    tx.attendanceFlag.count({ where: OPEN_ATTENDANCE_FLAG }),
   ]);
   const rows = cws.flatMap((c) => c.sections).filter((s) => s.students > 0);
   const sum = (k: "marked" | "present" | "absent" | "leave" | "late" | "students" | "counted" | "weight") => rows.reduce((a, s) => a + s[k], 0);

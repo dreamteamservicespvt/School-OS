@@ -9,6 +9,10 @@ import { todayIn } from "@/lib/staff/dates";
 import { feePageAllowed, feeViewer } from "@/lib/fees/access";
 import { defaulters, type DefaulterRow } from "@/lib/fees/defaulters";
 import { parseRupees, UUID_RE } from "@/lib/fees/act";
+import { promiseWords } from "@/lib/fees/promises";
+
+/** The Promise to Pay in words when there is one (kept, broken or open), else the date noted on a call. */
+const promisedBy = (r: DefaulterRow) => (r.promise ? promiseWords(r.promise) : r.promisedOn ? formatDate(r.promisedOn) : "");
 
 export const dynamic = "force-dynamic";
 
@@ -60,7 +64,7 @@ export async function GET(req: Request) {
     { label: "Phone", value: (r) => (r.optedOut ? `${r.phone ?? ""} (opted out of messages)` : r.phone ?? "") },
     { label: "Overdue", value: (r) => formatRupees(r.overduePaise) },
     { label: "Days late", value: (r) => String(r.daysOverdue) },
-    { label: "Promised by", value: (r) => (r.promisedOn ? formatDate(r.promisedOn) : "") },
+    { label: "Promised by", value: promisedBy },
     { label: "Call note", value: () => "" },
   ] : [
     { label: "Student", value: (r) => r.name },
@@ -74,7 +78,7 @@ export async function GET(req: Request) {
     { label: "Days late", value: (r) => String(r.daysOverdue) },
     { label: "Reminders sent", value: (r) => String(r.reminders) },
     { label: "Last reminder", value: (r) => (r.lastReminder ? formatDateTime(r.lastReminder, tz) : "") },
-    { label: "Promised by", value: (r) => (r.promisedOn ? formatDate(r.promisedOn) : "") },
+    { label: "Promised by", value: promisedBy },
   ];
   return exportResponse(await buildExport(format, columns, data.rows, { title: data.title, schoolName: current.school.name, filters: data.filters, exportedBy: current.user.displayName, timeZone: tz }));
 }

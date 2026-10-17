@@ -99,6 +99,8 @@ model RiskFlag {
   counsellingId  String?      @map("counselling_id") @db.Uuid
   raisedAt       DateTime     @default(now()) @map("raised_at")
   updatedAt      DateTime     @updatedAt @map("updated_at")
+  /// Set when an attendance flag joined the student's Attendance Flag, the one record for attendance concerns.
+  attendanceFlagId String?    @map("attendance_flag_id") @db.Uuid
   reviews        FlagReview[]
 
   @@index([schoolId, status])
@@ -106,20 +108,25 @@ model RiskFlag {
   @@map("risk_flag")
 }
 
-/// Flag Review: a person's decision on a Risk Flag, kept as history.
+/// Flag Review: a person's decision on a Risk Flag or an Attendance Flag, kept as history.
 model FlagReview {
-  id         String   @id @default(uuid()) @db.Uuid
-  schoolId   String   @map("school_id") @db.Uuid
-  flagId     String   @map("flag_id") @db.Uuid
+  id               String          @id @default(uuid()) @db.Uuid
+  schoolId         String          @map("school_id") @db.Uuid
+  /// The Risk Flag (marks, fees, or attendance with no Attendance Flag behind it).
+  flagId           String?         @map("flag_id") @db.Uuid
+  /// The Attendance Flag. A review made on a Risk Flag that later joined an Attendance Flag has both.
+  attendanceFlagId String?         @map("attendance_flag_id") @db.Uuid
   /// REVIEWED, ACTION_PLANNED, NOT_A_CONCERN.
-  decision   String
-  note       String
-  action     String?
-  reviewerId String   @map("reviewer_id") @db.Uuid
-  createdAt  DateTime @default(now()) @map("created_at")
-  flag       RiskFlag @relation(fields: [flagId], references: [id])
+  decision         String
+  note             String
+  action           String?
+  reviewerId       String          @map("reviewer_id") @db.Uuid
+  createdAt        DateTime        @default(now()) @map("created_at")
+  flag             RiskFlag?       @relation(fields: [flagId], references: [id], onDelete: Restrict)
+  attendanceFlag   AttendanceFlag? @relation(fields: [attendanceFlagId], references: [id], onDelete: Restrict)
 
   @@index([schoolId, flagId])
+  @@index([schoolId, attendanceFlagId])
   @@map("flag_review")
 }
 

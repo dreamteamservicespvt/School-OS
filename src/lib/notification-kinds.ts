@@ -19,7 +19,7 @@ export type NoteKind = {
 
 export const NOTE_KINDS: NoteKind[] = [
   { key: "approvals", label: "Approvals waiting for me", types: ["approval"], locked: true, defaults: ["app", "push"] },
-  { key: "tasks", label: "Tasks and questions for me", types: ["handover", "interview", "query", "counselling-referral", "task-assigned", "task-done", "task-comment", "task-due", "work-reminder"], defaults: ["app", "push"] },
+  { key: "tasks", label: "Tasks and questions for me", types: ["handover", "interview", "query", "counselling-referral", "task-assigned", "task-done", "task-comment", "task-due", "work-reminder", "fee-promise"], defaults: ["app", "push"] },
   { key: "substitutions", label: "Substitutions I must take", types: ["substitution", "timetable-published"], defaults: ["app"], module: "academic-management" },
   { key: "staff", label: "My leave and staff matters", types: ["staff-leave", "appraisal", "staff-exit", "settlement"], defaults: ["app"], module: "staff-hr-management" },
   { key: "transport", label: "Bus alerts, trips and vehicle papers", types: ["transport-alert", "transport-trip", "transport-reminder"], defaults: ["app"], module: "transport-management" },

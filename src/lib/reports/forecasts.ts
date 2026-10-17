@@ -27,8 +27,10 @@ import { attendanceSettings } from "../attendance/settings";
 import { attendanceSummary } from "../attendance/summary";
 import { schoolDays } from "../attendance/calendar";
 import { leavingWeights, leavingWhy } from "./absence-signals";
+import { OPEN_ATTENDANCE_FLAG } from "../attendance/flags";
 import { examSettings } from "../exams/settings";
 import { forecast as feeForecast } from "../fees/dashboard";
+import { promisesAhead } from "../fees/promises";
 import { accountBalances } from "../finance/daybook";
 import { admissionYear, loadSettings as admissionSettings } from "../admission/settings";
 import { loginsWithRole } from "../front-office/people";
@@ -253,11 +255,12 @@ async function feeForecasts(c: Ctx): Promise<Forecast[]> {
   risky.sort((a, b) => Number(b.amount - a.amount));
   const who = await names(c.tx, risky.slice(0, 5).map((r) => r.id));
   const share = Math.round((Number(atRisk) / Number(total)) * 100);
+  const promised = await promisesAhead(c.tx, c.today, 30, total - atRisk);
   return [{
     key: `fee-late:${month(c.today)}`, area: "fees", strength: share >= 25 ? "ACT_NOW" : "WATCH", value: share,
     title: `${formatRupees(atRisk)} of the next 30 days’ fees may come in late`,
-    body: `${formatRupeesShort(total)} falls due by ${formatDate(addDays(c.today, 30), "UTC")}. ${plural(risky.length, "student")} owing ${formatRupeesShort(atRisk)} (${share}%) usually pay well after the due date: ${risky.slice(0, 5).map((r) => `${who.get(r.id) ?? "a student"} (${formatRupees(r.amount)}, usually ~${r.typical} days late)`).join("; ")}${risky.length > 5 ? "; and others" : ""}. A friendly reminder or a call before the due date may help; you decide.`,
-    source: "fee dues falling due in the next 30 days, and when each of these students cleared their dues in the last 12 months",
+    body: `${formatRupeesShort(total)} falls due by ${formatDate(addDays(c.today, 30), "UTC")}. ${plural(risky.length, "student")} owing ${formatRupeesShort(atRisk)} (${share}%) usually pay well after the due date: ${risky.slice(0, 5).map((r) => `${who.get(r.id) ?? "a student"} (${formatRupees(r.amount)}, usually ~${r.typical} days late)`).join("; ")}${risky.length > 5 ? "; and others" : ""}.${promised.words} A friendly reminder or a call before the due date may help; you decide.`,
+    source: `fee dues falling due in the next 30 days, and when each of these students cleared their dues in the last 12 months${promised.source}`,
     href: "/fee-management/dashboard", hrefLabel: "Open Fee Dashboard",
   }];
 }
@@ -266,7 +269,11 @@ async function feeForecasts(c: Ctx): Promise<Forecast[]> {
 export const LEAVING_WITH_FEES = "leaving-f:";
 
 async function leavingForecasts(c: Ctx, enrolled: Enrolled[]): Promise<Forecast[]> {
-  const open = await c.tx.riskFlag.findMany({ where: { closedAt: null, academicYearId: c.year.id }, select: { studentId: true, area: true, sectionId: true } });
+  const open = [
+    ...await c.tx.riskFlag.findMany({ where: { closedAt: null, academicYearId: c.year.id }, select: { studentId: true, area: true } }),
+    // Attendance concerns live on the Attendance Flag (one record; see warnings.ts).
+    ...(await c.tx.attendanceFlag.findMany({ where: OPEN_ATTENDANCE_FLAG, select: { studentId: true } })).map((f) => ({ studentId: f.studentId, area: "attendance" })),
+  ];
   const enrolledIds = new Set(enrolled.map((e) => e.studentId));
   const areas = new Map<string, Set<string>>();
   for (const f of open) if (enrolledIds.has(f.studentId)) areas.set(f.studentId, (areas.get(f.studentId) ?? new Set()).add(f.area));

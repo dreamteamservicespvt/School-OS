@@ -213,6 +213,7 @@ erDiagram
 | Tax Invoice | *Added (decided 9 October 2026).* The GST invoice made for a payment that covers a taxable Fee Head. | Invoice number (unique), payment, date, school GSTIN, SAC code, each taxable fee head with its amount, GST rate and the GST included in it, total. |
 | Opening Balance | *Added (decided 9 October 2026).* An amount brought in from old software when the school starts on School OS (workflow 15, "Switching to School OS"). A school can start on any day of the year. | Kind (cash book, bank book, or a student's old dues), financial year, date, cash or bank account or student, amount, brought in by, source file. A student's old dues become Student Fee Due rows marked as brought in. |
 | Refund | Money given back from a payment. | Payment, amount, mode, reason, approval, date. |
+| Promise to Pay | *Added 17 October 2026.* What a family says on a call about dues: "will pay ₹5,000 on 25 October". It is the call log note on Defaulters (Fee Call Note) with a promised date, kept as one record. Switched on school by school (Fee Settings, "Promise to pay"). | Student, call note (optional when a date is given), promised date (today or within 60 days), amount (optional; empty means everything overdue when the promise was made), overdue when made, status (Open, Kept, Broken, Replaced), paid towards it by the promised date, when it was kept or broken, recorded by. |
 | Day Book Entry | One line in the Day Book. Made only by the software. | Financial year (decided 9 October 2026), date, money in or out, amount, mode, head (fee type, income head or expense head), the record it came from (payment, refund, income, expense, payroll run, salary advance, or an opening balance brought in from old software), student, staff member or vendor, the entry it reverses (for a cancellation). |
 | Income | Money the school receives other than fees, including alumni donations. | Date, income head, amount, source, mode, reference, cash or bank account, status (Draft, Posted, Cancelled). |
 | Expense | A bill or expense paid by the school, including transport fuel and repair bills. | Date, vendor, expense head, department, amount, mode, bill photo, status (Draft, Waiting for approval, Approved, Paid, Cancelled; decided 9 October 2026), approval. An expense turned down at approval goes back to Draft with the reason; there is no Rejected status. It reaches the Day Book only when marked Paid. |
@@ -430,6 +431,10 @@ These rules hold everywhere. A builder should write a check for each one.
 38. A Budget's amount used is never stored or typed. It is always worked out from paid Expenses.
 39. When fees go into different bank accounts, every part of a Payment belongs to the bank account linked to its Fee Head at the time of payment. Changing a Fee Head's bank account later never moves past payments (decided 9 October 2026).
 
+**Added on 17 October 2026**
+
+40. A student has at most one Open Promise to Pay; a new promise marks the earlier one Replaced. While it is Open and its date has not passed, automatic fee reminders to that family pause (reminders sent by hand still go). It is Kept when posted payments made after the call and dated on or before the promised date cover it (brought-in receipts never count). It is Broken when the date passes without that: the family goes to the top of Defaulters, the person who recorded it is told, and automatic reminders resume. A Promise to Pay is never deleted; each change of status is in the audit log. The fee forecasts count an Open promise on its promised date, for what is left to pay on it, and leave that family's overdue rows out of the usual share so nothing counts twice.
+
 ## Outside any school: the Super Admin console
 
 DREAM TEAM SERVICES' own console (`07-super-admin.md`) keeps a few records that belong to no school: **Super Admin User, School Invite, School Status Change, Support Access Request, School Note, Plan, Subscription, Platform Invoice** and **Console Activity Entry**. Their fields are in `07-super-admin.md` §10. They never hold student, fee or salary details. A Support Access Request lets a DREAM TEAM person look inside one school only after that school allows it, for a set time.
@@ -466,6 +471,12 @@ The decisions of 9 October 2026 add these records:
 | Tax Invoice | Holds the GST invoice for payments on taxable fee heads (D8). |
 | Opening Balance | Holds cash, bank and old student dues brought in at go-live (D7). |
 | Salary Advance | Holds an advance or loan, its recovery, and its Day Book posting when paid (D12). |
+
+The gap list of 17 October 2026 adds:
+
+| Added record | Why it is needed |
+|---|---|
+| Promise to Pay | Lets the accountant note the date (and amount) a family promises on a call, pause automatic reminders until then, and count promises kept and broken. Kept on the Fee Call Note, not as a copy. |
 
 Module specs in `modules/` name more small records, marked "(inferred)". They hang off the records on this page. Confirm them with the owner before building. Where a module spec and this page use different names for the same thing, the name on this page wins:
 

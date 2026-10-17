@@ -14,6 +14,7 @@ import { paymentView } from "@/lib/fees/payment-view";
 import { findStudents, mostOverdue } from "@/lib/fees/find";
 import { gatewayFor } from "@/lib/fees/settings";
 import { structureForStudent } from "@/lib/fees/structure";
+import { promisesOf, promiseWords } from "@/lib/fees/promises";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import { Pill } from "@/components/ui/badge";
@@ -77,7 +78,9 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
     const extra = canEdit && doing ? await sheetData(tx, doing, card, studentId) : null;
     const pick = doing === "pick" ? (pq ? await findStudents(tx, p.viewer, pq, p.today, 12) : await mostOverdue(tx, p.viewer, p.today, 8)) : null;
     const gateway = canEdit && doing === "invoice" ? Boolean(await gatewayFor(tx, p.current.ctx, card.classId)) : false;
-    return { card, ledger, sheet: sheet?.studentId === studentId ? sheet : null, cancel: cancel?.studentId === studentId ? cancel : null, extra, pick, gateway };
+    // Promise to Pay (when on): an open promise, or a broken one still waiting for a new call.
+    const promise = (await promisesOf(tx, p.current.ctx, [studentId], p.today)).get(studentId) ?? null;
+    return { promise: promise && (promise.state === "OPEN" || promise.state === "BROKEN") ? promise : null, card, ledger, sheet: sheet?.studentId === studentId ? sheet : null, cancel: cancel?.studentId === studentId ? cancel : null, extra, pick, gateway };
   });
   if (!data) notFound();
 
@@ -156,6 +159,9 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
               <div className="flex items-center gap-2 flex-wrap">
                 <Link href={`/student-management/${card.id}`} className="font-display font-semibold text-[19px] leading-tight hover:underline text-left">{card.name}</Link>
                 {L.overdue > ZERO ? <Pill tone="bad">{formatRupees(L.overdue)} overdue</Pill> : balance > ZERO ? <Pill tone="warn">{formatRupees(balance)} due</Pill> : <Pill tone="ok">No dues</Pill>}
+                {data.promise && (p.may("defaulters")
+                  ? <Link href={`${BASE}/defaulters?who=${studentId}`}><Pill tone={data.promise.state === "BROKEN" ? "bad" : "info"}>{promiseWords(data.promise)}</Pill></Link>
+                  : <Pill tone={data.promise.state === "BROKEN" ? "bad" : "info"}>{promiseWords(data.promise)}</Pill>)}
               </div>
               <p className="text-[13px] text-ink3 truncate">
                 {card.classSection}{card.rollNo != null ? ` · Roll ${card.rollNo}` : ""} · <span className="font-mono text-[12.5px]">{card.admissionNo}</span>

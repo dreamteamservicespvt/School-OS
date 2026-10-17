@@ -218,17 +218,30 @@ model AttendanceAlert {
 }
 
 /// Attendance Flag: a student below the % threshold or absent many days in a
-/// row. Raised once per drop and cleared when they recover.
+/// row. Raised once per drop and cleared when they recover. It is the one
+/// record of a student's attendance concern: Early Warnings (19) lists and
+/// reviews it, and the Dashboard counts it, so a review shows everywhere.
 model AttendanceFlag {
-  id        String    @id @default(uuid()) @db.Uuid
-  schoolId  String    @map("school_id") @db.Uuid
-  studentId String    @map("student_id") @db.Uuid
+  id            String       @id @default(uuid()) @db.Uuid
+  schoolId      String       @map("school_id") @db.Uuid
+  studentId     String       @map("student_id") @db.Uuid
   /// below-threshold, absent-streak
-  kind      String
-  value     Decimal   @db.Decimal(6, 2)
-  raisedOn  DateTime  @map("raised_on") @db.Date
-  clearedAt DateTime? @map("cleared_at")
-  createdAt DateTime  @default(now()) @map("created_at")
+  kind          String
+  value         Decimal      @db.Decimal(6, 2)
+  raisedOn      DateTime     @map("raised_on") @db.Date
+  /// Set when attendance is back within the rule (A4). Until then the flag is not raised again.
+  clearedAt     DateTime?    @map("cleared_at")
+  /// The review in Early Warnings: NEW, REVIEWED, ACTION_PLANNED, CLOSED.
+  status        String       @default("NEW")
+  /// Set when it cleared or a person closed it as not a concern.
+  closedAt      DateTime?    @map("closed_at")
+  closedReason  String?      @map("closed_reason")
+  /// The planned action, and the Task or Counselling Case it created.
+  action        String?
+  taskId        String?      @map("task_id") @db.Uuid
+  counsellingId String?      @map("counselling_id") @db.Uuid
+  createdAt     DateTime     @default(now()) @map("created_at")
+  reviews       FlagReview[]
 
   @@index([schoolId, studentId, kind])
   @@map("attendance_flag")

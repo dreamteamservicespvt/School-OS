@@ -1,9 +1,11 @@
 // Absence reasons in Early Warnings and Looking ahead (gap list P1.8; 05
 // Attendance, "Absence reasons"). Kept here so warnings.ts and forecasts.ts
 // only call in:
-// - attendance flags show the reason mix in their basis; many "Not known yet"
-//   absences turn a Watch into Act now; absences that were mostly sick days or
-//   approved leave turn an Act now above the threshold into a Watch;
+// - attendance rows (Attendance Flag rows from attendance-rows.ts, and the
+//   Watch-line Risk Flags of students no Attendance Flag covers) show the
+//   reason mix in their basis; many "Not known yet" absences turn a Watch into
+//   Act now; absences that were mostly sick days or approved leave turn an Act
+//   now above the threshold into a Watch;
 // - "Fees dispute" absences are fee signals (only fee roles see fee flags), and
 //   attendance flags, which teachers see, count them as Other;
 // - "may be at risk of leaving" and "may be thinking of leaving" say the reason
@@ -21,6 +23,41 @@ export type SignalLike = { studentId: string; sectionId: string | null; area: Ar
 /** "Not known yet" absences that make one attendance flag a leaving signal on its own. */
 export const UNEXPLAINED_ALONE = 5;
 
+type AttendanceRow = { strength: "WATCH" | "ACT_NOW"; reason: string; basis: string; value: number | null };
+
+/** One attendance row (a signal or an Attendance Flag row) weighed by the student's reason mix; its value is the attendance %. */
+function weigh<R extends AttendanceRow>(r: R, m: ReasonMix | undefined, o: { threshold: number; streakDays: number }): R {
+  const text = mixText(m, false);
+  if (!m || !text) return r;
+  const reasons = r.reason.split("\n");
+  const basis = r.basis.split("\n");
+  basis[0] = `${basis[0]} · absence reasons: ${text}`;
+  let strength = r.strength;
+  if (strength === "WATCH" && mostlyUnexplained(m, Math.max(3, o.streakDays))) {
+    strength = "ACT_NOW";
+    reasons.push(`${unexplained(m)} of ${m.absent} absent days have no reason known yet`);
+    basis.push("Absence reasons in the register · many not known yet is a stronger signal");
+  } else if (strength === "ACT_NOW" && (r.value === null || r.value >= o.threshold) && mostlyExplained(m)) {
+    strength = "WATCH";
+    reasons.push(`Most absent days were sick days or approved leave (${explained(m)} of ${m.absent})`);
+    basis.push("Absence reasons in the register and approved Student Leave");
+  }
+  return { ...r, strength, reason: reasons.join("\n"), basis: basis.join("\n") };
+}
+
+/**
+ * Early Warnings rows from Attendance Flags (attendance-rows.ts), weighed by
+ * this year's absence reasons. Open rows only: a closed row keeps the words it
+ * was closed with.
+ */
+export async function weighAttendanceRows<R extends AttendanceRow & { studentId: string; status: string }>(tx: Tx, ctx: SchoolContext, rows: R[], o: { from: Date; today: Date; threshold: number; streakDays: number }): Promise<R[]> {
+  const open = rows.filter((r) => r.status !== "CLOSED");
+  if (!open.length || o.today < o.from) return rows;
+  const mixes = await reasonMix(tx, ctx, [...new Set(open.map((r) => r.studentId))], o.from, o.today);
+  if (!mixes.size) return rows;
+  return rows.map((r) => (r.status === "CLOSED" ? r : weigh(r, mixes.get(r.studentId), o)));
+}
+
 /**
  * Early Warnings: the signals worked out from attendance, marks and fees,
  * adjusted by the absence reasons recorded this year. Attendance signals carry
@@ -32,25 +69,7 @@ export async function withAbsenceReasons<S extends SignalLike>(tx: Tx, ctx: Scho
   if (o.today < o.from) return signals;
   const mixes = await reasonMix(tx, ctx, [...o.enrol.keys()], o.from, o.today);
   if (!mixes.size) return signals;
-  const out: SignalLike[] = signals.map((s) => {
-    const m = mixes.get(s.studentId);
-    const text = s.area === "attendance" ? mixText(m, false) : "";
-    if (!m || !text) return s;
-    const reasons = s.reason.split("\n");
-    const basis = s.basis.split("\n");
-    basis[0] = `${basis[0]} · absence reasons: ${text}`;
-    let strength = s.strength;
-    if (strength === "WATCH" && mostlyUnexplained(m, Math.max(3, o.streakDays))) {
-      strength = "ACT_NOW";
-      reasons.push(`${unexplained(m)} of ${m.absent} absent days have no reason known yet`);
-      basis.push("Absence reasons in the register · many not known yet is a stronger signal");
-    } else if (strength === "ACT_NOW" && (s.value === null || s.value >= o.threshold) && mostlyExplained(m)) {
-      strength = "WATCH";
-      reasons.push(`Most absent days were sick days or approved leave (${explained(m)} of ${m.absent})`);
-      basis.push("Absence reasons in the register and approved Student Leave");
-    }
-    return { ...s, strength, reason: reasons.join("\n"), basis: basis.join("\n") };
-  });
+  const out: SignalLike[] = signals.map((s) => (s.area === "attendance" ? weigh(s, mixes.get(s.studentId), o) : s));
   if (!BUILT_MODULES.has("fee-management")) return out;
   for (const [id, m] of mixes) {
     const n = m.by[FEE_REASON] ?? 0;

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChartColumn, CircleX, IndianRupee, ReceiptIndianRupee, SearchX, UserX, Wallet } from "lucide-react";
+import { ChartColumn, CircleX, Handshake, IndianRupee, ReceiptIndianRupee, SearchX, UserX, Wallet } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { formatDate, formatRupees, formatRupeesShort, formatTime } from "@/lib/format";
 import { addDays, monthStart } from "@/lib/staff/dates";
@@ -7,6 +7,7 @@ import { feeTiles, forecast, modeBreakdown, monthlyTrend, recentPayments } from 
 import { failedOnline } from "@/lib/fees/online";
 import { classOfStudents } from "@/lib/fees/dues";
 import { paymentView } from "@/lib/fees/payment-view";
+import { PROMISE_FEATURE, promiseSummary } from "@/lib/fees/promises";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
 import { ButtonLink, buttonClass } from "@/components/ui/button";
@@ -62,7 +63,8 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
 
   const data = await withSchool(p.current.ctx, async (tx) => {
     const base = { from, to, status: status === "all" ? null : status, mode: mode === "all" ? null : mode, q: q || null };
-    const [tiles, trend, modes, failed, waiting, list, counts, fc] = await Promise.all([
+    const promisesOn = p.features.has(PROMISE_FEATURE);
+    const [tiles, trend, modes, failed, waiting, list, counts, fc, promises] = await Promise.all([
       feeTiles(tx, p.viewer, today),
       p.year ? monthlyTrend(tx, p.year.startDate, p.year.endDate) : Promise.resolve([]),
       modeBreakdown(tx, period === "today" ? today : monthStart(today), today),
@@ -70,7 +72,8 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
       tx.payment.findMany({ where: { status: "WAITING" }, orderBy: { paidAt: "asc" }, select: { id: true, amountPaise: true } }),
       recentPayments(tx, p.viewer, { ...base, partial: tab === "partial" }, take, (page - 1) * take),
       Promise.all([recentPayments(tx, p.viewer, { ...base, partial: false }, 0), recentPayments(tx, p.viewer, { ...base, partial: true }, 0)]),
-      p.features.has("fee-forecast") ? forecast(tx, today) : Promise.resolve(null),
+      p.features.has("fee-forecast") ? forecast(tx, today, { promises: promisesOn }) : Promise.resolve(null),
+      promisesOn ? promiseSummary(tx, today, p.viewer.yearId) : Promise.resolve(null),
     ]);
     const upiToday = (await modeBreakdown(tx, today, today)).find((m) => m.mode === "UPI")?.count ?? 0;
     const stuckIds = [...new Set([...failed.failed.map((f) => f.studentId), ...failed.stuck.map((s) => s.studentId)])];
@@ -81,7 +84,7 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
     ]);
     const sheet = payId ? await paymentView(tx, p.current.ctx, p.viewer, payId, p.tz) : null;
     const cancel = cancelId ? await paymentView(tx, p.current.ctx, p.viewer, cancelId, p.tz) : null;
-    return { tiles, trend, modes, failed, waiting, list, counts, fc, upiToday, stuckStudents, stuckClasses, guardians, sheet, cancel };
+    return { tiles, trend, modes, failed, waiting, list, counts, fc, promises, upiToday, stuckStudents, stuckClasses, guardians, sheet, cancel };
   });
 
   const { tiles, trend, list } = data;
@@ -194,18 +197,33 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
                 </ul>
               )}
             </Card>
+            {data.promises && (
+              <Card>
+                <CardHeader title="Promises to pay" description={`Made on calls, with the promised date in ${data.promises.term.label}`} icon={Handshake}
+                  action={p.may("defaulters") ? <ButtonLink href={`${BASE}/defaulters`} size="sm" variant="ghost">Defaulters</ButtonLink> : undefined} />
+                <div className="px-5 pb-5">
+                  <p className="font-display text-[24px] font-semibold tnum leading-tight">
+                    <span className="text-ok">{data.promises.kept} kept</span> <span className="text-ink3 font-normal">·</span> <span className={data.promises.broken ? "text-bad" : "text-ink3"}>{data.promises.broken} broken</span>
+                  </p>
+                  <p className="text-[13px] text-ink3 mt-1">
+                    {data.promises.kept + data.promises.broken > 0 ? `${Math.round((data.promises.kept * 100) / (data.promises.kept + data.promises.broken))}% kept · ` : ""}
+                    {data.promises.open ? `${data.promises.open} open now for ${formatRupeesShort(data.promises.openPaise)}, reminders paused` : "None open now"}
+                  </p>
+                </div>
+              </Card>
+            )}
             {data.fc && (
               <Suggestion title="Collection forecast"
                 source={data.fc.rate === null
                   ? `Installments due in the next 3 months. No dues fell due from ${formatDate(data.fc.basis.from)} to ${formatDate(data.fc.basis.to)}, so there is nothing yet to learn from`
-                  : `Installments due in the next 3 months, and the ${Math.round(data.fc.rate * 100)}% of dues paid from ${formatDate(data.fc.basis.from)} to ${formatDate(data.fc.basis.to)}`}
+                  : `Installments due in the next 3 months, and the ${Math.round(data.fc.rate * 100)}% of dues paid from ${formatDate(data.fc.basis.from)} to ${formatDate(data.fc.basis.to)}${data.fc.promises ? `, with ${data.fc.promises} open ${data.fc.promises === 1 ? "promise" : "promises"} to pay counted on the promised dates` : ""}`}
                 actions={<ButtonLink href={`${BASE}/defaulters`} size="sm" variant="secondary" icon={UserX}>See who is overdue</ButtonLink>}>
                 {data.fc.rate === null
                   ? <>Due: {data.fc.months.map((m, i) => (
                     <span key={m.label}>{i > 0 ? (i === data.fc!.months.length - 1 ? " and " : ", ") : ""}<b className="text-ink">{formatRupeesShort(m.due)}</b> in {m.label.split(" ")[0]}</span>
                   ))}. An estimate of what will come in starts once a month of dues has passed.</>
                   : <>Expect about {data.fc.months.map((m, i) => (
-                    <span key={m.label}>{i > 0 ? (i === data.fc!.months.length - 1 ? " and " : ", ") : ""}<b className="text-ink">{formatRupeesShort(m.expected ?? m.due)}</b> in {m.label.split(" ")[0]}{i === 0 ? ` (${formatRupeesShort(m.due)} due)` : ""}</span>
+                    <span key={m.label}>{i > 0 ? (i === data.fc!.months.length - 1 ? " and " : ", ") : ""}<b className="text-ink">{formatRupeesShort(m.expected ?? m.due)}</b> in {m.label.split(" ")[0]}{i === 0 || m.promised > BigInt(0) ? ` (${[i === 0 ? `${formatRupeesShort(m.due)} due` : null, m.promised > BigInt(0) ? `${formatRupeesShort(m.promised)} promised` : null].filter(Boolean).join(", ")})` : ""}</span>
                   ))}.</>}
               </Suggestion>
             )}

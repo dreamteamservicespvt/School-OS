@@ -123,6 +123,8 @@ describe("percentages", () => {
     expect(r2.flagged).toBe(0);
     const flags = await withSchool(sys, (tx) => tx.attendanceFlag.findMany({ where: { studentId: s, kind: "below-threshold", clearedAt: null } }));
     expect(flags).toHaveLength(1);
+    // One record for the concern: Early Warnings reviews this same flag (src/lib/attendance/flags.ts).
+    expect(flags[0]).toMatchObject({ status: "NEW", closedAt: null });
     const notes = await withSchool(sys, (tx) => tx.notification.findMany({ where: { type: "attendance-flag", text: { contains: "below 75%" } } }));
     expect(new Set(notes.map((n) => n.userLoginId))).toEqual(new Set([f.teacherA.id, f.principal.id]));
     // Absent 3 school days in a row (8, 9 and 10 October) is flagged as well.

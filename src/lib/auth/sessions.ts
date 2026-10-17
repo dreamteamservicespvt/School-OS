@@ -9,9 +9,16 @@ export const SESSION_IDLE_MS = 7 * 24 * 60 * 60 * 1000;
 /** lastUsedAt is refreshed at most this often, to keep page loads light. */
 const TOUCH_EVERY_MS = 5 * 60 * 1000;
 
-export type DeviceInfo = { userAgent?: string | null; ipAddress?: string | null };
+/**
+ * The browser a request comes from. `deviceId` is the browser's own random id
+ * (a long-lived cookie, see signInDevice in lib/current.ts); only its hash is kept.
+ */
+export type DeviceInfo = { userAgent?: string | null; ipAddress?: string | null; deviceId?: string | null };
 
-export async function createSession(userLoginId: string, schoolId: string | null, device: DeviceInfo, now = new Date()) {
+/** The stored form of a browser's device id. */
+export const deviceKeyOf = (deviceId: string | null | undefined) => (deviceId ? hashToken(`device:${deviceId}`) : null);
+
+export async function createSession(userLoginId: string, schoolId: string | null, device: DeviceInfo, now = new Date(), opts: { signedInWithCode?: boolean } = {}) {
   const token = newToken();
   const session = await prisma.session.create({
     data: {
@@ -20,11 +27,21 @@ export async function createSession(userLoginId: string, schoolId: string | null
       schoolId,
       userAgent: device.userAgent?.slice(0, 400) ?? null,
       ipAddress: device.ipAddress ?? null,
+      deviceKey: deviceKeyOf(device.deviceId),
+      signedInWithCode: opts.signedInWithCode ?? false,
       lastUsedAt: now,
       expiresAt: new Date(now.getTime() + SESSION_IDLE_MS),
     },
   });
   return { token, session };
+}
+
+/** After signing in with a one-time code (a forgotten password), a new password may be set without the old one for this long. */
+export const NEW_PASSWORD_AFTER_CODE_MS = 30 * 60 * 1000;
+
+/** Whether this session may set a new password without typing the old one. */
+export function mayResetWithoutOld(session: { signedInWithCode?: boolean | null; createdAt?: Date | null }, now = new Date()) {
+  return Boolean(session.signedInWithCode && session.createdAt && now.getTime() - session.createdAt.getTime() < NEW_PASSWORD_AFTER_CODE_MS);
 }
 
 /** Finds a live session for a cookie token, or null. Disabled logins have no live sessions. */

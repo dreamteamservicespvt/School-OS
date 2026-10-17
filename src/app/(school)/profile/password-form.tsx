@@ -7,7 +7,8 @@ import { FieldShell, inputCls } from "@/components/ui/field";
 import { cx } from "@/components/ui/cx";
 import { changePassword, type PasswordState } from "../actions";
 
-export function PasswordForm() {
+/** `withoutOld`: the person just signed in with a one-time code, so the old password is not asked for. */
+export function PasswordForm({ withoutOld = false }: { withoutOld?: boolean }) {
   const [state, action, pending] = useActionState<PasswordState, FormData>(changePassword, null);
   const [show, setShow] = useState(false);
   const [pw, setPw] = useState("");
@@ -22,9 +23,13 @@ export function PasswordForm() {
   return (
     <form action={action} className="flex flex-col gap-4">
       {state && <p role="alert" className="rounded-xl bg-bad/10 px-3.5 py-2.5 text-sm text-bad">{state.message}</p>}
-      <FieldShell label="Current password" id="currentPassword" required>
-        <input id="currentPassword" name="currentPassword" type={show ? "text" : "password"} autoComplete="current-password" required className={cx(inputCls(), "h-11")} />
-      </FieldShell>
+      {withoutOld ? (
+        <p className="rounded-xl bg-sunken px-3.5 py-2.5 text-sm text-ink2">You signed in with a one-time code, so your old password is not needed. Choose a new one.</p>
+      ) : (
+        <FieldShell label="Current password" id="currentPassword" required>
+          <input id="currentPassword" name="currentPassword" type={show ? "text" : "password"} autoComplete="current-password" required className={cx(inputCls(), "h-11")} />
+        </FieldShell>
+      )}
       <FieldShell label="New password" id="newPassword" required>
         <div className="relative">
           <input id="newPassword" name="newPassword" type={show ? "text" : "password"} autoComplete="new-password" required value={pw} onChange={(e) => setPw(e.target.value)} className={cx(inputCls(), "h-11 pr-12")} />

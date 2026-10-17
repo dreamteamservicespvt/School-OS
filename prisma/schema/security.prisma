@@ -15,7 +15,9 @@ model TwoStepChallenge {
   /// Where it was sent, masked, e.g. "pr•••@gmail.com".
   sentTo      String    @map("sent_to")
   attempts    Int       @default(0)
-  /// "sign-in", or "phone" / "email" when the code confirms a new mobile number or email.
+  /// "sign-in" (after the password); "code-sign-in" (instead of the password) and
+  /// "code-sign-in-second" (the second code on the other contact, for roles that need two-step login);
+  /// or "phone" / "email" when the code confirms a new mobile number or email.
   purpose     String    @default("sign-in")
   /// The new mobile number or email being confirmed (purpose "phone" or "email").
   newValue    String?   @map("new_value")

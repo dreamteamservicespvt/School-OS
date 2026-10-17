@@ -9,14 +9,24 @@
 import "server-only";
 
 import type { SchoolContext, Tx } from "./db";
+import { NOTE_KINDS, channelsForType } from "./notification-kinds";
 
 export const COPY_CHANNELS = ["whatsapp", "sms", "email"] as const;
 export type NotificationCopyChannel = (typeof COPY_CHANNELS)[number];
 
-/** The extra channels one person chose for one kind of notification. */
-export function chosenCopyChannels(prefs: unknown, kind: string): NotificationCopyChannel[] {
+/**
+ * The extra channels one person chose for one notification type. A type that
+ * belongs to a kind in My profile follows that kind's choice, or its default
+ * when the person has not chosen (Security alerts: email). Any other type
+ * follows a choice saved under its own name.
+ */
+export function chosenCopyChannels(prefs: unknown, type: string): NotificationCopyChannel[] {
+  if (NOTE_KINDS.some((k) => k.types.includes(type))) {
+    const list = channelsForType(prefs, type);
+    return COPY_CHANNELS.filter((c) => list.includes(c));
+  }
   if (!prefs || typeof prefs !== "object") return [];
-  const list = (prefs as Record<string, unknown>)[kind];
+  const list = (prefs as Record<string, unknown>)[type];
   if (!Array.isArray(list)) return [];
   return COPY_CHANNELS.filter((c) => list.includes(c));
 }

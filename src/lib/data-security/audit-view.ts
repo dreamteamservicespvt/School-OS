@@ -58,6 +58,7 @@ const WORDS: Record<string, string> = {
   exported: "Exported",
   "signed-in": "Signed in",
   "signed-in-new-device": "Signed in on a new device",
+  "signed-in-without-two-step": "Signed in without two-step login (no code could reach them)",
   "sign-in-failed": "Wrong password",
   "locked-after-wrong-passwords": "Locked after wrong passwords",
   "two-step-code-sent": "One-time code sent",
@@ -125,7 +126,7 @@ export function describeDevice(userAgent: string | null | undefined) {
   return browser ? `${browser} on ${os}` : userAgent.slice(0, 60);
 }
 
-export const LOGIN_ACTIONS = ["signed-in", "signed-in-new-device", "sign-in-failed", "locked-after-wrong-passwords", "two-step-failed", "two-step-locked", "two-step-passed", "signed-out", "signed-out-everywhere"];
+export const LOGIN_ACTIONS = ["signed-in", "signed-in-new-device", "signed-in-without-two-step", "sign-in-failed", "locked-after-wrong-passwords", "two-step-failed", "two-step-locked", "two-step-passed", "signed-out", "signed-out-everywhere"];
 export const FAILED_LOGIN_ACTIONS = ["sign-in-failed", "locked-after-wrong-passwords", "two-step-failed", "two-step-locked"];
 /** The audit filters from a page address. */
 export function readAuditFilters(sp: Record<string, string | string[] | undefined>): AuditFilters {

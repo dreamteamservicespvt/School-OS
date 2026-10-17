@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { deviceInfo, setSessionCookie } from "@/lib/current";
+import { deviceInfo, setSessionCookie, signInDevice } from "@/lib/current";
 import { finishSchoolInvite, sendSchoolInviteCode } from "@/lib/console/school-invite";
 import { hitLimit, limitMessage } from "@/lib/rate-limit";
 
@@ -17,7 +17,8 @@ export async function sendInviteCodeAction(token: string): Promise<SendState> {
 export async function finishInviteAction(token: string, _prev: FinishState, fd: FormData): Promise<FinishState> {
   const password = String(fd.get("password") ?? "");
   if (password !== String(fd.get("confirm") ?? "")) return { message: "The two passwords are not the same. Type them again.", field: "password" };
-  const device = await deviceInfo();
+  // The browser's own id goes with the session, so a later sign-in here is not a "new device".
+  const device = await signInDevice();
   const limit = await hitLimit(`school-invite:ip:${device.ipAddress ?? "unknown"}`, 20, 600);
   if (!limit.ok) return { message: limitMessage(limit) };
   const r = await finishSchoolInvite(token, String(fd.get("code") ?? ""), password, device);

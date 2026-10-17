@@ -13,10 +13,12 @@ export const metadata: Metadata = { title: "One-time code" };
 export default async function SignInCodePage() {
   if (await getCurrent()) redirect("/dashboard");
   const challenge = await findChallenge((await cookies()).get(CHALLENGE_COOKIE)?.value);
+  const second = challenge?.purpose === "code-sign-in-second";
   return (
-    <AuthFrame eyebrow="One more step" title="Enter the code" sub="This keeps your school's records safe.">
+    <AuthFrame eyebrow={second ? "Last step" : "One more step"} title={second ? "Enter the second code" : "Enter the code"} sub={second ? "The first code was right. Your role needs a second code, on your other contact." : "This keeps your school's records safe."}>
       {challenge ? (
-        <CodeForm sentTo={challenge.sentTo} trustDays={TRUST_DAYS} />
+        // A code typed instead of the password does not make this a trusted device.
+        <CodeForm key={challenge.id} sentTo={challenge.sentTo} trustDays={challenge.purpose === "code-sign-in" ? null : TRUST_DAYS} />
       ) : (
         <div className="flex flex-col gap-4">
           <Alert tone="danger">Your sign-in has timed out, or the code was used up. Sign in again to get a new code.</Alert>

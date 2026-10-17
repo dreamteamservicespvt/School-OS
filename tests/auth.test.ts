@@ -14,6 +14,8 @@ let admin: Awaited<ReturnType<typeof makeUser>>;
 beforeAll(async () => {
   school = await makeSchool();
   admin = await makeUser({ schools: [{ id: school.id, roleKeys: ["school-admin"] }], name: "Office Head" });
+  // These tests are about passwords; two-step login (on for every new school) has its own tests.
+  await withSchool({ schoolId: school.id, userId: null }, (tx) => tx.schoolFeature.update({ where: { schoolId_featureKey: { schoolId: school.id, featureKey: "two-step-login" } }, data: { isOn: false } }));
 });
 
 describe("passwords", () => {

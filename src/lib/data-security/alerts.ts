@@ -18,7 +18,7 @@ export async function securityAlerts(tx: Tx, since: Date, take = 20) {
     where: {
       at: { gte: since },
       OR: [
-        { action: { in: ["locked-after-wrong-passwords", "two-step-locked", "signed-in-new-device", "data-export-requested", "person-exported", "webhook-refused"] } },
+        { action: { in: ["locked-after-wrong-passwords", "two-step-locked", "signed-in-new-device", "signed-in-without-two-step", "data-export-requested", "person-exported", "webhook-refused"] } },
         { action: "exported", after: { path: ["rows"], gte: MASS_EXPORT_ROWS } },
       ],
     },
@@ -31,6 +31,7 @@ export async function securityAlerts(tx: Tx, since: Date, take = 20) {
       r.action === "locked-after-wrong-passwords" ? "Login locked after wrong passwords" :
       r.action === "two-step-locked" ? "Too many wrong one-time codes" :
       r.action === "signed-in-new-device" ? "Sign-in from a new device" :
+      r.action === "signed-in-without-two-step" ? "Signed in without two-step login: no code could reach them" :
       r.action === "data-export-requested" ? "Full data export asked for" :
       r.action === "person-exported" ? "One person's data exported" :
       r.action === "webhook-refused" ? "Payment confirmation with a wrong signature" :

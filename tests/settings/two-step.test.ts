@@ -61,7 +61,7 @@ describe("one-time codes", () => {
     expect(row.tokenHash).not.toBe(started.token);
 
     const ok = await verifyChallenge(started.token, ` ${code.slice(0, 3)} ${code.slice(3)} `, device);
-    expect(ok).toEqual({ ok: true, userLoginId: principal.id, schoolId: school.id });
+    expect(ok).toMatchObject({ ok: true, userLoginId: principal.id, schoolId: school.id, purpose: "sign-in" });
     expect(await verifyChallenge(started.token, code, device)).toMatchObject({ ok: false, restart: true });
 
     const { token } = await completeSignIn(principal.id, school.id, device);
@@ -139,5 +139,10 @@ describe("sign-in history", () => {
     const rows = await withSchool({ schoolId: school.id, userId: null }, (tx) => tx.auditLogEntry.findMany({ where: { recordId: teacher.id }, orderBy: { at: "asc" } }));
     expect(rows.map((r) => r.action)).toContain("sign-in-failed");
     expect(rows.at(-1)?.action).toBe("signed-in-new-device");
+    // The person is told, and cannot switch it off (00-global.md §4, rule 7).
+    const notes = await withSchool({ schoolId: school.id, userId: null }, (tx) => tx.notification.findMany({ where: { userLoginId: teacher.id, type: "security" } }));
+    expect(notes).toHaveLength(1);
+    expect(notes[0].text).toMatch(/New sign-in to Two-step School .*Not you\? Sign out everywhere/);
+    expect(notes[0].link).toBe("/profile#devices");
   });
 });

@@ -3,10 +3,9 @@
 import { cleanAccent } from "@/lib/theme";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { completeSignIn, findLogin, signIn } from "@/lib/auth/sign-in";
-import { schoolsFor } from "@/lib/auth/access";
+import { afterRightCode, signIn, startCodeSignIn, startSecondStep } from "@/lib/auth/sign-in";
 import { CHALLENGE_COOKIE, CODE_TTL_MS, TRUST_DAYS, TRUSTED_COOKIE, findChallenge, startChallenge, trustDevice, verifyChallenge } from "@/lib/auth/two-step";
-import { deviceInfo, setAppearanceCookies, setSessionCookie } from "@/lib/current";
+import { setAppearanceCookies, setSessionCookie, signInDevice } from "@/lib/current";
 import { prisma } from "@/lib/db";
 import { hitLimit, limitMessage } from "@/lib/rate-limit";
 
@@ -22,23 +21,32 @@ async function finish(userLoginId: string, token: string, remember = true) {
   if (user) await setAppearanceCookies(user.theme, cleanAccent(user.accent), user.textSize);
 }
 
+async function keepChallenge(token: string) {
+  (await cookies()).set(CHALLENGE_COOKIE, token, { httpOnly: true, secure, sameSite: "lax", path: "/sign-in", maxAge: CODE_TTL_MS / 1000 });
+}
+
 export async function signInAction(_prev: SignInState, formData: FormData): Promise<SignInState> {
   const username = String(formData.get("username") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   if (!username || !password) {
     return { message: "Type your username and your password.", username };
   }
-  const device = await deviceInfo();
+  const device = await signInDevice();
   const limit = await hitLimit(`sign-in:ip:${device.ipAddress ?? "unknown"}`, 30, 600);
   if (!limit.ok) return { message: limitMessage(limit), username };
   const jar = await cookies();
   const result = await signIn(username, password, device, { trustedDevice: jar.get(TRUSTED_COOKIE)?.value });
   const remember = formData.get("remember") === "on";
   if (!result.ok && result.twoStep) {
+    const step = await startSecondStep(result.twoStep.userLoginId, result.twoStep.schoolId, device);
+    if (step.kind === "problem") return { message: step.message, username };
+    if (step.kind === "signed-in") {
+      // No code can reach this person yet: signed in, and My profile shows how to fix it.
+      await finish(result.twoStep.userLoginId, step.token, remember);
+      redirect("/profile?twoStep=add#password");
+    }
     jar.set(REMEMBER_COOKIE, remember ? "1" : "0", { httpOnly: true, secure, sameSite: "lax", path: "/sign-in", maxAge: CODE_TTL_MS / 1000 });
-    const started = await startChallenge(result.twoStep.userLoginId, result.twoStep.schoolId, device);
-    if (!started.ok) return { message: started.message, username };
-    jar.set(CHALLENGE_COOKIE, started.token, { httpOnly: true, secure, sameSite: "lax", path: "/sign-in", maxAge: CODE_TTL_MS / 1000 });
+    await keepChallenge(step.token);
     redirect("/sign-in/code");
   }
   if (!result.ok) return { message: result.message, username };
@@ -48,24 +56,20 @@ export async function signInAction(_prev: SignInState, formData: FormData): Prom
 
 /**
  * Sign in with a one-time code instead of the password (also the way back in
- * after a forgotten password). The code goes to the mobile or email on the login.
+ * after a forgotten password). The code goes to the mobile or email on the
+ * login. A person whose role needs two-step login gets a second code on their
+ * other contact before they are signed in.
  */
 export async function codeSignInAction(_prev: SignInState, formData: FormData): Promise<SignInState> {
   const username = String(formData.get("username") ?? "").trim();
   if (!username) return { message: "Type your mobile number, email or username.", username };
-  const device = await deviceInfo();
+  const device = await signInDevice();
   const limit = await hitLimit(`code-sign-in:ip:${device.ipAddress ?? "unknown"}`, 10, 600);
   if (!limit.ok) return { message: limitMessage(limit), username };
-  const user = await findLogin(username);
-  const school = user && user.status === "ACTIVE" && !user.archivedAt && (!user.lockedUntil || user.lockedUntil <= new Date()) ? (await schoolsFor(user.id))[0] : null;
-  if (!user || !school || (!user.phone && !user.email)) {
-    return { message: "We could not send a code to that login. Check what you typed, or ask your School Admin to send you a new invite link.", username };
-  }
-  const started = await startChallenge(user.id, school.id, device);
+  const started = await startCodeSignIn(username, device);
   if (!started.ok) return { message: started.message, username };
-  const jar = await cookies();
-  jar.set(CHALLENGE_COOKIE, started.token, { httpOnly: true, secure, sameSite: "lax", path: "/sign-in", maxAge: CODE_TTL_MS / 1000 });
-  jar.set(REMEMBER_COOKIE, formData.get("remember") === "on" ? "1" : "0", { httpOnly: true, secure, sameSite: "lax", path: "/sign-in", maxAge: CODE_TTL_MS / 1000 });
+  await keepChallenge(started.token);
+  (await cookies()).set(REMEMBER_COOKIE, formData.get("remember") === "on" ? "1" : "0", { httpOnly: true, secure, sameSite: "lax", path: "/sign-in", maxAge: CODE_TTL_MS / 1000 });
   redirect("/sign-in/code");
 }
 
@@ -74,7 +78,7 @@ export type CodeState = { message: string; restart?: boolean; sent?: boolean } |
 export async function verifyCodeAction(_prev: CodeState, formData: FormData): Promise<CodeState> {
   const jar = await cookies();
   const token = jar.get(CHALLENGE_COOKIE)?.value;
-  const device = await deviceInfo();
+  const device = await signInDevice();
   const limit = await hitLimit(`two-step:ip:${device.ipAddress ?? "unknown"}`, 30, 600);
   if (!limit.ok) return { message: limitMessage(limit) };
   const result = await verifyChallenge(token, String(formData.get("code") ?? ""), device);
@@ -83,15 +87,22 @@ export async function verifyCodeAction(_prev: CodeState, formData: FormData): Pr
     return { message: result.message, restart: result.restart };
   }
   jar.delete({ name: CHALLENGE_COOKIE, path: "/sign-in" });
-  const { token: session } = await completeSignIn(result.userLoginId, result.schoolId, device);
-  if (formData.get("trust") === "on") {
-    const trusted = await trustDevice(result.userLoginId, device);
+  const next = await afterRightCode(result, device);
+  if (next.kind === "problem") return { message: next.message, restart: true };
+  if (next.kind === "second-code") {
+    // The first code was right; the page now asks for the second one.
+    await keepChallenge(next.token);
+    redirect("/sign-in/code");
+  }
+  if (next.mayTrust && formData.get("trust") === "on") {
+    const trusted = await trustDevice(next.userLoginId, device);
     jar.set(TRUSTED_COOKIE, trusted, { httpOnly: true, secure, sameSite: "lax", path: "/", maxAge: TRUST_DAYS * 86_400 });
   }
   const remember = jar.get(REMEMBER_COOKIE)?.value !== "0";
   jar.delete({ name: REMEMBER_COOKIE, path: "/sign-in" });
-  await finish(result.userLoginId, session, remember);
-  redirect("/dashboard");
+  await finish(next.userLoginId, next.token, remember);
+  // After a code instead of the password, My profile lets them set a new password.
+  redirect(result.purpose === "sign-in" ? "/dashboard" : "/profile?newPassword=1#password");
 }
 
 export async function resendCodeAction(): Promise<CodeState> {
@@ -101,8 +112,10 @@ export async function resendCodeAction(): Promise<CodeState> {
     jar.delete({ name: CHALLENGE_COOKIE, path: "/sign-in" });
     return { message: "Your sign-in has timed out. Sign in again.", restart: true };
   }
-  const started = await startChallenge(challenge.userLoginId, challenge.schoolId, await deviceInfo());
+  // A new code goes the same way as the one it replaces, for the same step.
+  const only = challenge.purpose === "sign-in" ? undefined : challenge.channel === "email" ? "email" : challenge.channel === "sms" ? "phone" : undefined;
+  const started = await startChallenge(challenge.userLoginId, challenge.schoolId, await signInDevice(), { purpose: challenge.purpose, only });
   if (!started.ok) return { message: started.message };
-  jar.set(CHALLENGE_COOKIE, started.token, { httpOnly: true, secure, sameSite: "lax", path: "/sign-in", maxAge: CODE_TTL_MS / 1000 });
+  await keepChallenge(started.token);
   return { message: `A new code was sent to ${started.sentTo}. The earlier code no longer works.`, sent: true };
 }

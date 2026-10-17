@@ -16,6 +16,8 @@ export type Choices = {
   rowFixes: Record<string, Record<string, string>>;
   leftOut: number[];
   tidy: boolean;
+  /** Row number → the choice made for a row that may already be on record (read by the import's own check). */
+  rowChoices?: Record<string, string>;
 };
 
 export type Change = { key: string; from: string; to: string };

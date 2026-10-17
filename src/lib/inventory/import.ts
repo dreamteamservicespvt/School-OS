@@ -7,7 +7,7 @@
 // src/lib/import-registry.ts.
 import "server-only";
 
-import { defineImport } from "../importer";
+import { defineImport, RowProblem } from "../importer";
 import { writeAudit } from "../audit";
 import { parseDateText } from "../staff/import";
 import { todayIn } from "../staff/dates";
@@ -76,7 +76,7 @@ defineImport<ItemRow>({
       else if (seen.has(`code:${code}`)) problems.push(`Code ${code} is twice in the file.`);
       else {
         seen.add(`code:${code}`);
-        const used = await tx.item.findFirst({ where: { code: { equals: code, mode: "insensitive" } }, select: { name: true } });
+        const used = await tx.item.findFirst({ where: { code: { equals: code, mode: "insensitive" }, releasedAt: null }, select: { name: true } });
         if (used) problems.push(`Code ${code} belongs to ${used.name}.`);
       }
     }
@@ -119,7 +119,7 @@ defineImport<ItemRow>({
       const { item } = await addItem(tx, ctx, { code: v.code, name: v.name, categoryId, unit: v.unit, size: v.size, reorderLevel: v.reorder, pricePaise: v.pricePaise, tracksExpiry: v.tracksExpiry, note: null }, opening, todayIn(school?.timeZone ?? "Asia/Kolkata"));
       return { id: item.id, created: true };
     } catch (err) {
-      if (err instanceof InventoryProblem) throw new Error(`${v.name}: ${err.message}`);
+      if (err instanceof InventoryProblem) throw new RowProblem(`${v.name}: ${err.message}`);
       throw err;
     }
   },
@@ -131,7 +131,9 @@ defineImport<ItemRow>({
     const today = todayIn(school?.timeZone ?? "Asia/Kolkata");
     const balances = await tx.stockBalance.findMany({ where: { itemId: { in: ids }, qty: { gt: 0 } } });
     for (const b of balances) await move(tx, ctx, { itemId: b.itemId, locationId: b.locationId, kind: "AUDIT", qty: -b.qty, date: today, reason: "Import undone", today });
-    await tx.item.updateMany({ where: { id: { in: ids } }, data: { archivedAt: new Date(), updatedById: ctx.userId } });
+    // Their codes are free again, so the corrected file can bring them in.
+    const now = new Date();
+    await tx.item.updateMany({ where: { id: { in: ids } }, data: { archivedAt: now, releasedAt: now, updatedById: ctx.userId } });
     await writeAudit(tx, ctx, { action: "import-undone", recordType: "Item", recordId: ids[0] ?? ctx.schoolId, after: { items: ids.length } });
   },
 });
@@ -170,7 +172,7 @@ defineImport<AssetRow>({
       else if (seen.has(`tag:${tag}`)) problems.push(`Tag ${tag} is twice in the file.`);
       else {
         seen.add(`tag:${tag}`);
-        const used = await tx.asset.findFirst({ where: { tag: { equals: tag, mode: "insensitive" } }, select: { name: true } });
+        const used = await tx.asset.findFirst({ where: { tag: { equals: tag, mode: "insensitive" }, releasedAt: null }, select: { name: true } });
         if (used) problems.push(`Tag ${tag} belongs to ${used.name}.`);
       }
     }
@@ -212,14 +214,16 @@ defineImport<AssetRow>({
       const [a] = await addAssets(tx, ctx, { ...v.place, name: v.name, type: v.type, tag: v.tag, serialNo: v.serialNo, purchaseDate: v.purchaseDate, costPaise: v.costPaise, vendorId: v.vendorId, warrantyEnd: v.warrantyEnd, amcEnd: v.amcEnd, condition: v.condition, note: null });
       return { id: a.id, created: true };
     } catch (err) {
-      if (err instanceof InventoryProblem) throw new Error(`${v.name}: ${err.message}`);
+      if (err instanceof InventoryProblem) throw new RowProblem(`${v.name}: ${err.message}`);
       throw err;
     }
   },
   undo: async (tx, ctx, ids) => {
     const busy = await tx.assetDisposal.count({ where: { assetId: { in: ids } } });
     if (busy) throw new Error("Some of these assets have been disposed of since the import. Correct them one by one.");
-    await tx.asset.updateMany({ where: { id: { in: ids } }, data: { archivedAt: new Date(), updatedById: ctx.userId } });
+    // Their tags are free again, so the corrected file can bring them in.
+    const now = new Date();
+    await tx.asset.updateMany({ where: { id: { in: ids } }, data: { archivedAt: now, releasedAt: now, updatedById: ctx.userId } });
     await writeAudit(tx, ctx, { action: "import-undone", recordType: "Asset", recordId: ids[0] ?? ctx.schoolId, after: { assets: ids.length } });
   },
 });

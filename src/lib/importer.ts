@@ -4,20 +4,45 @@
 import "server-only";
 
 import ExcelJS from "exceljs";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "./db";
 import { writeAudit } from "./audit";
 
 export type ImportColumn = { key: string; label: string; required?: boolean; example?: string; help?: string; aliases?: string[] };
 
-export type RowResult<T> = { ok: true; value: T } | { ok: false; problems: string[] };
+/**
+ * A choice a person makes for one row before it can be imported, such as
+ * "Same student: update Arjun Rao" for a row that may already be on record.
+ * Nothing is merged until a person picks one.
+ */
+export type RowChoice = { value: string; label: string };
+
+export type RowResult<T> = { ok: true; value: T } | { ok: false; problems: string[]; choices?: RowChoice[] };
+
+/** Where a row is in the file (from 2, after the headings) and the choice made for it, if any. */
+export type RowPlace = { line: number; decision?: string };
+
+/**
+ * A row that cannot be saved, in plain words. The importer lists the row with
+ * this reason and carries on with the others; any other error stops the import.
+ */
+export class RowProblem extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "RowProblem";
+  }
+}
 
 export type ImportKind<T> = {
   key: string;
   label: string;
   columns: ImportColumn[];
-  /** Checks one row; may look things up. Problems are in plain words. */
-  check: (tx: Tx, ctx: SchoolContext, row: Record<string, string>, seen: Set<string>) => Promise<RowResult<T>>;
+  /**
+   * Checks one row; may look things up. Problems are in plain words. A row
+   * that needs a person's choice says so with `choices`; the choice made comes
+   * back in `place.decision`.
+   */
+  check: (tx: Tx, ctx: SchoolContext, row: Record<string, string>, seen: Set<string>, place?: RowPlace) => Promise<RowResult<T>>;
   /**
    * Saves one good row; returns the record's id and whether it was created.
    * An import that changes existing records returns what it changed
@@ -115,15 +140,27 @@ export function autoMatch(columns: ImportColumn[], headers: string[]): Record<st
   return match;
 }
 
+export type BadRow = { line: number; row: Record<string, string>; problems: string[]; choices?: RowChoice[] };
+
 export type Preview<T> = {
   good: { line: number; value: T; row: Record<string, string> }[];
-  bad: { line: number; row: Record<string, string>; problems: string[] }[];
+  bad: BadRow[];
 };
 
-export async function previewImport<T>(tx: Tx, ctx: SchoolContext, kind: ImportKind<T>, rows: string[][], match: Record<string, number>): Promise<Preview<T>> {
+/** Choices made for rows, by line in the file (from 2): "update:<id>", "new"... Only the kind that offered them reads them. */
+export type Decisions = Record<number, string>;
+
+/**
+ * Checks every row (step 4). `lines` gives each row's line in the person's own
+ * file when the rows were cleaned first (Switching to School OS), so problems
+ * and choices name the rows as the person sees them; otherwise row i is line i + 2.
+ */
+export async function previewImport<T>(tx: Tx, ctx: SchoolContext, kind: ImportKind<T>, rows: string[][], match: Record<string, number>, decisions: Decisions = {}, lines?: number[]): Promise<Preview<T>> {
   const out: Preview<T> = { good: [], bad: [] };
   const seen = new Set<string>();
   for (let i = 0; i < rows.length; i++) {
+    const line = lines?.[i] ?? i + 2;
+    const place: RowPlace = { line, decision: decisions[line] || undefined };
     const row: Record<string, string> = {};
     for (const c of kind.columns) row[c.key] = match[c.key] !== undefined ? (rows[i][match[c.key]] ?? "").trim() : "";
     const empty = kind.columns.filter((c) => c.required && !row[c.key]);
@@ -134,32 +171,60 @@ export async function previewImport<T>(tx: Tx, ctx: SchoolContext, kind: ImportK
       const problems = empty.map((c) => `${c.label} is empty.`);
       const labels = empty.map((c) => norm(c.label));
       try {
-        const r = await kind.check(tx, ctx, row, new Set(seen));
+        const r = await kind.check(tx, ctx, row, new Set(seen), place);
         if (!r.ok) problems.push(...r.problems.filter((p) => !labels.some((l) => norm(p).startsWith(l)) && !problems.includes(p)));
       } catch {
         // A check that cannot read a row with empty columns adds nothing.
       }
-      out.bad.push({ line: i + 2, row, problems });
+      out.bad.push({ line, row, problems });
       continue;
     }
-    const r = await kind.check(tx, ctx, row, seen);
-    if (r.ok) out.good.push({ line: i + 2, value: r.value, row });
-    else out.bad.push({ line: i + 2, row, problems: r.problems });
+    const r = await kind.check(tx, ctx, row, seen, place);
+    if (r.ok) out.good.push({ line, value: r.value, row });
+    else out.bad.push({ line, row, problems: r.problems, ...(r.choices?.length ? { choices: r.choices } : {}) });
   }
   return out;
 }
 
-/** Imports the good rows only (step 5) and keeps the history for Undo. */
+/** The plain reason a row could not be saved, or null when the error is not about the row (it then stops the import). */
+export function rowRefusal(e: unknown): string | null {
+  if (e instanceof RowProblem) return e.message;
+  if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+    return "Another record already has the same number or name, so this row was not added. Check the row and bring it in again.";
+  }
+  return null;
+}
+
+/**
+ * Imports the good rows only (step 5) and keeps the history for Undo. Each
+ * row is saved on its own (a savepoint): a row that cannot be saved is listed
+ * with the reason and the others still go in.
+ */
 export async function runImport<T>(tx: Tx, ctx: SchoolContext, kind: ImportKind<T>, fileName: string, preview: Preview<T>) {
   const createdIds: string[] = [];
   const updatedRows: UpdatedRow[] = [];
+  const bad: BadRow[] = [...preview.bad];
   let updated = 0;
   for (const g of preview.good) {
-    const saved = await kind.save(tx, ctx, g.value);
+    await tx.$executeRawUnsafe("SAVEPOINT import_row");
+    let saved: Awaited<ReturnType<ImportKind<T>["save"]>>;
+    try {
+      saved = await kind.save(tx, ctx, g.value);
+      await tx.$executeRawUnsafe("RELEASE SAVEPOINT import_row");
+    } catch (e) {
+      const why = rowRefusal(e);
+      if (why === null) throw e;
+      // Everything this row wrote is taken back; the import carries on.
+      await tx.$executeRawUnsafe("ROLLBACK TO SAVEPOINT import_row");
+      await tx.$executeRawUnsafe("RELEASE SAVEPOINT import_row");
+      bad.push({ line: g.line, row: g.row, problems: [why] });
+      continue;
+    }
     if (saved.created) createdIds.push(saved.id);
     else updated++;
     if (!saved.created && saved.before && saved.after) updatedRows.push({ id: saved.id, before: saved.before, after: saved.after });
   }
+  bad.sort((a, b) => a.line - b.line);
   const batch = await tx.importBatch.create({
     data: {
       schoolId: ctx.schoolId,
@@ -167,14 +232,14 @@ export async function runImport<T>(tx: Tx, ctx: SchoolContext, kind: ImportKind<
       fileName: fileName.slice(0, 200),
       added: createdIds.length,
       updated,
-      skipped: preview.bad.length,
+      skipped: bad.length,
       createdIds,
       updatedRows: updatedRows as unknown as Prisma.InputJsonValue,
-      errorReport: preview.bad.map((b) => ({ line: b.line, row: b.row, problems: b.problems })),
+      errorReport: bad.map((b) => ({ line: b.line, row: b.row, problems: b.problems })),
       importedById: ctx.userId,
     },
   });
-  await writeAudit(tx, ctx, { action: "imported", recordType: "Import", recordId: batch.id, after: { kind: kind.key, fileName, added: createdIds.length, updated, skipped: preview.bad.length } });
+  await writeAudit(tx, ctx, { action: "imported", recordType: "Import", recordId: batch.id, after: { kind: kind.key, fileName, added: createdIds.length, updated, skipped: bad.length } });
   return batch;
 }
 

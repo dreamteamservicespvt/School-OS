@@ -6,7 +6,7 @@
 // src/lib/import-registry.ts.
 import "server-only";
 
-import { defineImport } from "../importer";
+import { defineImport, RowProblem } from "../importer";
 import { addBook, splitAccessions, MAX_COPIES } from "./catalogue";
 import { cleanIsbn, isbnValid, ISBN_INVALID } from "./isbn";
 import { LibraryProblem } from "./problem";
@@ -61,7 +61,7 @@ defineImport<Row>({
       else if (seen.has(`acc:${a.toUpperCase()}`)) problems.push(`Accession ${a} is twice in the file.`);
       else {
         seen.add(`acc:${a.toUpperCase()}`);
-        const used = await tx.bookCopy.findFirst({ where: { accessionNo: { equals: a, mode: "insensitive" } }, select: { id: true } });
+        const used = await tx.bookCopy.findFirst({ where: { releasedAt: null, OR: [{ accessionNo: { equals: a, mode: "insensitive" } }, { barcode: { equals: a, mode: "insensitive" } }] }, select: { id: true } });
         if (used) problems.push(`Accession ${a} already exists.`);
       }
     }
@@ -88,14 +88,17 @@ defineImport<Row>({
       const { book } = await addBook(tx, ctx, { title: v.title, authors: v.authors, publisher: v.publisher, isbn: v.isbn, categoryId, subject: v.subject, language: v.language, edition: null, pricePaise: v.pricePaise, shelf: v.shelf, copies: v.copies, accessions: v.accessions });
       return { id: book.id, created: true };
     } catch (err) {
-      if (err instanceof LibraryProblem) throw new Error(`${v.title}: ${err.message}`);
+      if (err instanceof LibraryProblem) throw new RowProblem(`${v.title}: ${err.message}`);
       throw err;
     }
   },
   undo: async (tx, ctx, ids) => {
     const issued = await tx.bookCopy.count({ where: { bookId: { in: ids }, status: { in: ["ISSUED", "RESERVED"] } } });
     if (issued) throw new Error(`${issued} cop${issued === 1 ? "y of these books is" : "ies of these books are"} out with members. Return them first, then undo the import.`);
-    await tx.bookCopy.updateMany({ where: { bookId: { in: ids }, status: { not: "WITHDRAWN" } }, data: { status: "WITHDRAWN", statusNote: "Import undone", statusAt: new Date() } });
+    const now = new Date();
+    await tx.bookCopy.updateMany({ where: { bookId: { in: ids }, status: { not: "WITHDRAWN" } }, data: { status: "WITHDRAWN", statusNote: "Import undone", statusAt: now } });
+    // Accession numbers of copies never issued are free again, so the corrected file can bring them in.
+    await tx.bookCopy.updateMany({ where: { bookId: { in: ids }, releasedAt: null, issues: { none: {} } }, data: { releasedAt: now } });
     await tx.book.updateMany({ where: { id: { in: ids } }, data: { archivedAt: new Date(), updatedById: ctx.userId } });
   },
 });

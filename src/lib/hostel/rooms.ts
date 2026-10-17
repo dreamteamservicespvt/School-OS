@@ -18,7 +18,7 @@ export async function addRoom(tx: Tx, ctx: SchoolContext, input: RoomInput) {
   if (!roomNo) throw new HostelProblem("Room number is needed.", "roomNo");
   if (roomNo.length > 12) throw new HostelProblem("A room number can be at most 12 characters.", "roomNo");
   if (!Number.isInteger(input.beds) || input.beds < 1 || input.beds > 12) throw new HostelProblem("A room has 1 to 12 beds.", "beds");
-  const clash = await tx.hostelRoom.findFirst({ where: { hostelId: h.id, roomNo: { equals: roomNo, mode: "insensitive" } } });
+  const clash = await tx.hostelRoom.findFirst({ where: { hostelId: h.id, roomNo: { equals: roomNo, mode: "insensitive" }, releasedAt: null } });
   if (clash) throw new HostelProblem(clash.archivedAt ? `Room ${clash.roomNo} was closed earlier in ${h.name}. Use another number.` : `Room ${clash.roomNo} is already in ${h.name}.`, "roomNo");
   const room = await tx.hostelRoom.create({
     data: {

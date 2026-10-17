@@ -61,14 +61,21 @@ model Student {
   updatedById    String?       @map("updated_by_id") @db.Uuid
   updatedAt      DateTime      @updatedAt @map("updated_at")
   archivedAt     DateTime?     @map("archived_at")
+  /// Set only when the import that added the student is undone: the student
+  /// stays archived for the record, and the admission number is free for the
+  /// corrected file. Every other student keeps their number for ever.
+  releasedAt     DateTime?     @map("released_at")
 
   enrolments Enrolment[]
   guardians  StudentGuardian[]
 
-  @@unique([schoolId, admissionNo])
+  /// Admission number unique in the school among students not released by an
+  /// import undo: a partial unique index (student_admission_no_live) in the
+  /// migration 20261018100000_import_undo_frees_numbers.
   @@unique([schoolId, userLoginId])
   @@index([schoolId, status])
   @@index([schoolId, fullName])
+  @@index([schoolId, dateOfBirth])
   @@map("student")
 }
 

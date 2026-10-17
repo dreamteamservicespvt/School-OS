@@ -4,7 +4,7 @@
 // read: it needs no outside service. Every suggestion is shown as "Suggestion" and is
 // used only when a person confirms it. Empty cells stay empty; nothing is guessed.
 import type { ImportColumn } from "../importer";
-import { parseDate } from "./import";
+import { parseDate } from "./parse-date";
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 const words = (s: string) => new Set(norm(s).split(" ").filter((w) => w.length > 1 || /\d/.test(w)));

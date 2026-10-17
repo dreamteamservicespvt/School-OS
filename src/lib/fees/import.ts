@@ -125,7 +125,7 @@ defineImport<PastReceipt>({
   ],
   async check(tx, ctx, row, seen) {
     const problems: string[] = [];
-    const student = row.admissionNo ? await tx.student.findFirst({ where: { admissionNo: { equals: row.admissionNo.trim(), mode: "insensitive" } } }) : null;
+    const student = row.admissionNo ? await tx.student.findFirst({ where: { admissionNo: { equals: row.admissionNo.trim(), mode: "insensitive" }, releasedAt: null } }) : null;
     if (!student) problems.push(`No student with admission number "${row.admissionNo}".`);
     const no = (row.oldReceiptNo ?? "").trim();
     if (!no) problems.push("Old receipt number is needed.");

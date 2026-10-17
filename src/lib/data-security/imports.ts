@@ -11,7 +11,13 @@ import { fileStore } from "../storage";
 import { notify } from "../notifications";
 import "../import-registry";
 
-export type ImportJob = { kind: string; fileId: string; match: Record<string, number> };
+export type ImportJob = {
+  kind: string; fileId: string; match: Record<string, number>;
+  /** Each row's line in the person's own file (Switching to School OS cleans the rows first), so problems name the rows they see. */
+  lines?: number[];
+  /** The choices made for rows that may already be on record, by line. */
+  decisions?: Record<number, string>;
+};
 
 export async function readUploaded(tx: Tx, fileId: string) {
   const file = await tx.storedFile.findUnique({ where: { id: fileId } });
@@ -37,7 +43,7 @@ export async function runImportJob(tx: Tx, ctx: SchoolContext, payload: ImportJo
   if (done) return { batchId: done.id, repeated: true };
   const uploaded = await readUploaded(tx, payload.fileId);
   if (!uploaded) throw new Error("The uploaded file is missing");
-  const preview = await previewImport(tx, ctx, kind, uploaded.sheet.rows, payload.match);
+  const preview = await previewImport(tx, ctx, kind, uploaded.sheet.rows, payload.match, payload.decisions ?? {}, payload.lines);
   const batch = await runImport(tx, ctx, kind, `${uploaded.file.fileName.slice(0, 150)}#${payload.fileId}`, preview);
   if (ctx.userId) {
     await notify(tx, { schoolId: ctx.schoolId, userId: null }, {

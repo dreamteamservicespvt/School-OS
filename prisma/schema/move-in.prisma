@@ -26,6 +26,9 @@ model MoveInFile {
   rowFixes    Json      @default("{}") @map("row_fixes")
   /// Row numbers left out on purpose.
   leftOut     Json      @default("[]") @map("left_out")
+  /// Row number → the choice made for a row that may already be on record
+  /// ("update:<student>", "family:<parent>", "family-row:<row>", "new").
+  rowChoices  Json      @default("{}") @map("row_choices")
   /// Tidy-ups (dates, phones, capitals, class names) are on unless switched off.
   tidy        Boolean   @default(true)
   /// open, importing, imported or cancelled.

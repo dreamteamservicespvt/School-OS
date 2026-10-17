@@ -126,10 +126,13 @@ model HostelRoom {
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
   archivedAt  DateTime? @map("archived_at")
+  /// Set only when the rooms import that added the room is undone: its number is free again.
+  releasedAt  DateTime? @map("released_at")
 
   beds HostelBed[]
 
-  @@unique([hostelId, roomNo])
+  /// Room number unique in the hostel among rooms not released by an import
+  /// undo: a partial unique index in the migration 20261018100000_import_undo_frees_numbers.
   @@index([schoolId, hostelId])
   @@map("hostel_room")
 }

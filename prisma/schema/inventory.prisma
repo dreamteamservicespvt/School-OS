@@ -203,12 +203,15 @@ model Item {
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
   archivedAt     DateTime? @map("archived_at")
+  /// Set only when the import that added the item is undone: its code is free again.
+  releasedAt     DateTime? @map("released_at")
 
   category  ItemCategory    @relation(fields: [categoryId], references: [id])
   balances  StockBalance[]
   movements StockMovement[]
 
-  @@unique([schoolId, code])
+  /// Code unique in the school among items not released by an import undo:
+  /// a partial unique index in the migration 20261018100000_import_undo_frees_numbers.
   @@index([schoolId, categoryId])
   @@map("item")
 }
@@ -628,13 +631,16 @@ model Asset {
   createdAt        DateTime    @default(now()) @map("created_at")
   updatedAt        DateTime    @updatedAt @map("updated_at")
   archivedAt       DateTime?   @map("archived_at")
+  /// Set only when the import that added the asset is undone: its tag is free again.
+  releasedAt       DateTime?   @map("released_at")
 
   assignments AssetAssignment[]
   repairs     AssetMaintenanceLog[]
   disposals   AssetDisposal[]
   links       AssetItemLink[]
 
-  @@unique([schoolId, tag])
+  /// Tag unique in the school among assets not released by an import undo:
+  /// a partial unique index in the migration 20261018100000_import_undo_frees_numbers.
   @@index([schoolId, status])
   @@index([schoolId, roomId])
   @@map("asset")

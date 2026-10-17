@@ -9,17 +9,19 @@ import type { Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { OPEN_LINK } from "../students/guardian-access";
 import { writeAudit } from "../audit";
-import { importKind, importKinds, previewImport, type ImportKind } from "../importer";
+import { importKind, importKinds, previewImport, type Decisions, type ImportKind, type RowChoice } from "../importer";
 import { startImport } from "../data-security/imports";
 import { currentYear } from "../academic/years";
 import { addClass, addSection } from "../academic/structure";
 import { ensureHrDefaults } from "../staff/settings";
 import { fileStore } from "../storage";
-import type { ModuleKey } from "../modules";
+import { findModule, type ModuleKey } from "../modules";
 import type { PermissionMap } from "../permissions";
 import { can } from "../permissions";
 import "../import-registry";
-import { STUDENT_IMPORT, studentImport } from "../students/import";
+import { STUDENT_IMPORT, decisionWords, studentImport } from "../students/import";
+import { STUDENT_UPDATE_IMPORT } from "../students/update-import";
+import { namesAlike } from "../students/name-match";
 import { MAX_ROWS, readWorkbook, ReadProblem, type Sheet } from "./read";
 import { findHeaderRow, guessKind, matchColumns, type ColumnMatch } from "./match";
 import { classKey, plain, splitClassSection } from "./tidy";
@@ -34,18 +36,45 @@ export class MoveInProblem extends Error {
 
 export type MoveInKind = { key: string; label: string; module: ModuleKey; order: number; about: string };
 
-/** Imports in the order a school brings them in (workflow 15, steps 3 to 8). Others follow when their modules add them. */
+/**
+ * Imports in the order a school brings them in (workflow 15, steps 3 to 8),
+ * with the module that owns each: a person may bring in, and undo, only what
+ * their role may add in that module (05-roles.md). The Accountant brings in
+ * old dues and past receipts (Fee Management) and past expenses (Finance
+ * Management) without Settings.
+ */
 const KNOWN: Record<string, Omit<MoveInKind, "key" | "label">> = {
   departments: { module: "settings", order: 1, about: "Departments such as Science and Accounts, with their heads. Bring these first if your staff list has departments." },
   staff: { module: "staff-hr-management", order: 2, about: "Teachers and other staff, with phone, designation and joining date. Logins can be made for them." },
   students: { module: "student-management", order: 3, about: "Students with their class, section, roll number and admission number, and their parents. Old admission numbers are kept." },
+  "students-update": { module: "student-management", order: 4, about: "Changes to students already here, found by admission number." },
+  "fee-old-dues": { module: "fee-management", order: 6, about: "For each student, the amount still unpaid from before. Each becomes an opening balance row on the Student Fee Ledger, marked Brought in." },
+  "fee-past-receipts": { module: "fee-management", order: 7, about: "Payments already made this year in the old software, with their receipt numbers. They reduce the dues, are kept read-only as Brought in, and never reach the Day Book." },
+  "finance-past-expenses": { module: "finance-management", order: 9, about: "Expenses of this financial year, for reports. Kept as Brought in; they never reach the Day Book or the cash and bank books." },
+  "admission-enquiries": { module: "admission-management", order: 10, about: "Families still deciding, with their follow-up dates." },
+  "calendar-holidays": { module: "events-calendar", order: 11, about: "This year's holidays and vacations, so attendance and the School Calendar know the days off." },
+  "library-catalogue": { module: "library-management", order: 12, about: "Books and their copies, with accession numbers." },
+  "hostel-rooms": { module: "hostel-management", order: 13, about: "Hostel rooms and their beds." },
+  "inventory-items": { module: "inventory-management", order: 14, about: "Items with their opening stock." },
+  "inventory-assets": { module: "inventory-management", order: 15, about: "The asset register with tags." },
 };
-const HIDDEN = new Set(["students-udise"]); // UDISE+ files are read by the Students import.
+// UDISE+ files are read by the Students import; changes to students come in on Student Management, Import,
+// and a row of the Students file that is a student already here can be chosen as "same student: update".
+const HIDDEN = new Set(["students-udise", STUDENT_UPDATE_IMPORT]);
 
-export function moveInKinds(): MoveInKind[] {
+/** The module that owns an import kind ("settings" for kinds not listed). */
+export function kindModule(key: string): ModuleKey {
+  return KNOWN[key]?.module ?? "settings";
+}
+
+/** Optional modules the school has switched off hide their imports (P19). */
+const switchedOn = (module: ModuleKey, modulesOn?: ReadonlySet<ModuleKey>) => !modulesOn || !findModule(module)?.optional || modulesOn.has(module);
+
+export function moveInKinds(modulesOn?: ReadonlySet<ModuleKey>): MoveInKind[] {
   return importKinds()
     .filter((k) => !HIDDEN.has(k.key))
     .map((k) => ({ key: k.key, label: k.label, ...(KNOWN[k.key] ?? { module: "settings" as ModuleKey, order: 50, about: `${k.label} from your old software or a spreadsheet.` }) }))
+    .filter((k) => switchedOn(k.module, modulesOn))
     .sort((a, b) => a.order - b.order || a.label.localeCompare(b.label));
 }
 
@@ -53,13 +82,20 @@ export function kindInfo(key: string) {
   return moveInKinds().find((k) => k.key === key) ?? null;
 }
 
-export const canBring = (permissions: PermissionMap, kindKey: string) => {
+/** May this person bring in this kind of record: their role may add in its module, and the module is on. */
+export const canBring = (permissions: PermissionMap, kindKey: string, modulesOn?: ReadonlySet<ModuleKey>) => {
   const k = kindInfo(kindKey);
-  return Boolean(k && can(permissions, k.module, "create"));
+  return Boolean(k && switchedOn(k.module, modulesOn) && can(permissions, k.module, "create"));
 };
-export const canUndo = (permissions: PermissionMap, kindKey: string) => {
+export const canUndo = (permissions: PermissionMap, kindKey: string, modulesOn?: ReadonlySet<ModuleKey>) => {
   const k = kindInfo(kindKey);
-  return Boolean(k && can(permissions, k.module, "archive"));
+  return Boolean(k && switchedOn(k.module, modulesOn) && can(permissions, k.module, "archive"));
+};
+
+/** Any import kind, also the ones Switching to School OS does not list, with its owning module (the shared importer in Settings). */
+export const mayImport = (permissions: PermissionMap, kindKey: string, action: "create" | "archive", modulesOn?: ReadonlySet<ModuleKey>) => {
+  const owner = kindModule(kindKey);
+  return Boolean(importKind(kindKey) && switchedOn(owner, modulesOn) && can(permissions, owner, action));
 };
 
 function kindOf(key: string): ImportKind<unknown> {
@@ -103,12 +139,12 @@ export function firstChoices(sheet: Sheet, kindKey?: string | null) {
  * records: a workbook with a Students sheet and a Staff sheet becomes two.
  * The person may only bring in what their role can add.
  */
-export async function addUpload(tx: Tx, ctx: SchoolContext, permissions: PermissionMap, upload: { fileId: string; fileName: string; kind?: string | null }) {
+export async function addUpload(tx: Tx, ctx: SchoolContext, permissions: PermissionMap, upload: { fileId: string; fileName: string; kind?: string | null }, modulesOn?: ReadonlySet<ModuleKey>) {
   const sheets = await readStored(tx, upload.fileId);
   const info: SheetInfo[] = sheets.map((s) => ({ name: s.name, rows: Math.max(0, s.rows.length - 1) }));
   const usable = sheets.map((s, i) => ({ s, i })).filter(({ s }) => s.rows.filter((r) => r.some((c) => c)).length >= 2);
   if (!usable.length) throw new MoveInProblem("This file has no rows to bring in. Put the headings in one row and the records below them.");
-  const allowed = new Set(moveInKinds().filter((k) => canBring(permissions, k.key)).map((k) => k.key));
+  const allowed = new Set(moveInKinds(modulesOn).filter((k) => canBring(permissions, k.key, modulesOn)).map((k) => k.key));
   if (!allowed.size) throw new MoveInProblem("Your role cannot add any of these records. Ask your School Admin.");
   if (upload.kind && !allowed.has(upload.kind)) throw new MoveInProblem("Your role cannot add these records.", "kind");
 
@@ -145,9 +181,11 @@ export async function schoolLookups(tx: Tx, ctx: SchoolContext): Promise<Lookups
     include: { schoolClass: { select: { name: true, sortOrder: true } } },
     orderBy: [{ schoolClass: { sortOrder: "asc" } }, { name: "asc" }],
   }) : [];
-  const [designations, departments] = await Promise.all([
+  const [designations, departments, feeHeads, expenseHeads] = await Promise.all([
     tx.designation.findMany({ where: { archivedAt: null }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { name: true } }),
     tx.department.findMany({ where: { archivedAt: null }, orderBy: { name: "asc" }, select: { name: true } }),
+    tx.feeHead.findMany({ where: { archivedAt: null }, orderBy: { name: "asc" }, select: { name: true } }),
+    tx.accountHead.findMany({ where: { kind: "EXPENSE", archivedAt: null }, orderBy: { name: "asc" }, select: { name: true } }),
   ]);
   return {
     yearId: year?.id ?? null,
@@ -155,22 +193,35 @@ export async function schoolLookups(tx: Tx, ctx: SchoolContext): Promise<Lookups
     sections: sections.map((s) => ({ id: s.id, className: s.schoolClass.name, sectionName: s.name, key: classKey(s.schoolClass.name) })),
     designations: designations.map((d) => d.name),
     departments: departments.map((d) => d.name),
+    feeHeads: feeHeads.map((h) => h.name),
+    expenseHeads: expenseHeads.map((h) => h.name),
   };
 }
 
-export const choicesOf = (f: { headerRow: number; columnMatch: unknown; valueMatch: unknown; rowFixes: unknown; leftOut: unknown; tidy: boolean }): Choices => ({
+export const choicesOf = (f: { headerRow: number; columnMatch: unknown; valueMatch: unknown; rowFixes: unknown; leftOut: unknown; tidy: boolean; rowChoices?: unknown }): Choices => ({
   headerRow: f.headerRow,
   columnMatch: (f.columnMatch ?? {}) as ColumnMatch,
   valueMatch: (f.valueMatch ?? {}) as Choices["valueMatch"],
   rowFixes: (f.rowFixes ?? {}) as Choices["rowFixes"],
   leftOut: (f.leftOut ?? []) as number[],
   tidy: f.tidy,
+  rowChoices: (f.rowChoices ?? {}) as Record<string, string>,
 });
 
 export type Checked = {
   ready: Prepared["rows"];
-  problems: { line: number; values: Record<string, string>; problems: string[] }[];
+  problems: { line: number; values: Record<string, string>; problems: string[]; choices: RowChoice[]; chosen: string | null; chosenWords: string | null }[];
+  /** Ready rows that are ready because of a choice made on screen: what it does, to look at or change. */
+  decided: { line: number; values: Record<string, string>; chosen: string; words: string }[];
 };
+
+/** The choices made on screen, by row of the file, for the rows still in it. */
+function decisionsOf(choices: Choices, prepared: Prepared): Decisions {
+  const out: Decisions = {};
+  const lines = new Set(prepared.rows.map((r) => r.line));
+  for (const [line, value] of Object.entries(choices.rowChoices ?? {})) if (lines.has(Number(line)) && typeof value === "string" && value) out[Number(line)] = value;
+  return out;
+}
 
 /** Everything a file's page shows: the sheet, the cleaned rows and, when asked, each row's check. */
 export async function workOn(tx: Tx, ctx: SchoolContext, id: string, opts: { check: boolean }) {
@@ -184,18 +235,24 @@ export async function workOn(tx: Tx, ctx: SchoolContext, id: string, opts: { che
   const choices = choicesOf(file);
   const prepared = prepareSheet(kind.key, kind.columns, sheet.rows, choices, lookups);
   let checked: Checked | null = null;
-  if (opts.check) checked = await checkRows(tx, ctx, kind, prepared);
+  if (opts.check) checked = await checkRows(tx, ctx, kind, prepared, decisionsOf(choices, prepared));
   return { file, sheets, sheet, kind, lookups, choices, prepared, checked };
 }
 
-/** Each row through the import's own checks, exactly as the import will run them. Saves nothing. */
-export async function checkRows(tx: Tx, ctx: SchoolContext, kind: ImportKind<unknown>, prepared: Prepared): Promise<Checked> {
+/**
+ * Each row through the import's own checks, exactly as the import will run
+ * them, with the choices made on screen. Rows keep their own line in the
+ * file. Saves nothing.
+ */
+export async function checkRows(tx: Tx, ctx: SchoolContext, kind: ImportKind<unknown>, prepared: Prepared, decisions: Decisions = {}): Promise<Checked> {
   const identity = Object.fromEntries(kind.columns.map((c, i) => [c.key, i]));
-  const preview = await previewImport(tx, ctx, kind, rowsForImport(kind.columns, prepared.rows), identity);
-  const lineOf = (previewLine: number) => prepared.rows[previewLine - 2];
+  const preview = await previewImport(tx, ctx, kind, rowsForImport(kind.columns, prepared.rows), identity, decisions, prepared.rows.map((r) => r.line));
+  const byLine = new Map(prepared.rows.map((r) => [r.line, r]));
+  const ready = preview.good.map((g) => byLine.get(g.line)!);
   return {
-    ready: preview.good.map((g) => lineOf(g.line)),
-    problems: preview.bad.map((b) => ({ line: lineOf(b.line).line, values: lineOf(b.line).values, problems: b.problems })),
+    ready,
+    problems: preview.bad.map((b) => ({ line: b.line, values: byLine.get(b.line)!.values, problems: b.problems, choices: b.choices ?? [], chosen: decisions[b.line] ?? null, chosenWords: decisions[b.line] ? decisionWords(decisions[b.line]) || null : null })),
+    decided: ready.filter((r) => decisions[r.line]).map((r) => ({ line: r.line, values: r.values, chosen: decisions[r.line], words: decisionWords(decisions[r.line]) })),
   };
 }
 
@@ -229,7 +286,7 @@ export async function chooseSheet(tx: Tx, ctx: SchoolContext, id: string, input:
     where: { id },
     data: {
       sheetIndex: input.sheetIndex, headerRow, kind: input.kind, columnMatch: match,
-      ...(sheetChanged || kindChanged || headerChanged ? { valueMatch: {}, rowFixes: {}, leftOut: [] } : {}),
+      ...(sheetChanged || kindChanged || headerChanged ? { valueMatch: {}, rowFixes: {}, leftOut: [], rowChoices: {} } : {}),
     },
   });
 }
@@ -284,6 +341,24 @@ export async function undoFix(tx: Tx, id: string, line: number) {
   const fixes = { ...((f.rowFixes ?? {}) as Record<string, Record<string, string>>) };
   delete fixes[String(line)];
   await tx.moveInFile.update({ where: { id }, data: { rowFixes: fixes } });
+}
+
+/**
+ * The choice made for one row that may already be on record: "update:<student>",
+ * "family:<parent>", "family-row:<row>" or "new"; "" takes the choice back.
+ * The row's own check accepts only the choices it offered.
+ */
+export async function chooseRow(tx: Tx, ctx: SchoolContext, id: string, line: number, value: string) {
+  const f = await openFile(tx, id);
+  if (!Number.isInteger(line) || line < 2) throw new MoveInProblem("This row was not found.");
+  const v = value.trim();
+  if (v && !/^(new|update:[0-9a-f-]{36}|family:[0-9a-f-]{36}|family-row:\d{1,6})$/i.test(v)) throw new MoveInProblem("Choose one of the choices shown for this row.");
+  const all = { ...((f.rowChoices ?? {}) as Record<string, string>) };
+  const before = all[String(line)] ?? null;
+  if (v) all[String(line)] = v;
+  else delete all[String(line)];
+  await tx.moveInFile.update({ where: { id }, data: { rowChoices: all } });
+  await writeAudit(tx, ctx, { action: v ? "row-chosen" : "row-choice-cleared", recordType: "Move-in File", recordId: id, before: { line, choice: before }, after: { line, choice: v || null, words: v ? decisionWords(v) : null } });
 }
 
 export async function leaveOut(tx: Tx, id: string, lines: number[], out: boolean) {
@@ -395,7 +470,10 @@ export async function importFile(tx: Tx, ctx: SchoolContext, id: string) {
   const shown = `${f.fileName.replace(/\.[^.]+$/, "")}${(f.sheets as SheetInfo[]).length > 1 && sheetName ? ` (${sheetName})` : ""}.csv`;
   await tx.storedFile.create({ data: { id: fileId, schoolId: ctx.schoolId, storageKey: key, fileName: shown.slice(0, 150), contentType: "text/csv", sizeBytes: csv.length, purpose: "import", uploadedById: ctx.userId } });
   const identity = Object.fromEntries(w.kind.columns.map((c, i) => [c.key, i]));
-  await startImport(tx, ctx, { kind: w.kind.key, fileId, match: identity });
+  // The import job sees the rows with their own lines in the file, and the choices made for them.
+  const lines = ready.map((r) => r.line);
+  const decisions = Object.fromEntries(Object.entries(decisionsOf(w.choices, w.prepared)).filter(([line]) => lines.includes(Number(line))));
+  await startImport(tx, ctx, { kind: w.kind.key, fileId, match: identity, lines, decisions });
   await tx.moveInFile.update({ where: { id }, data: { status: "importing", importFileId: fileId } });
   await writeAudit(tx, ctx, { action: "import-started", recordType: "Move-in File", recordId: id, after: { kind: w.kind.key, rows: ready.length, leftWithProblems: w.checked!.problems.length } });
   return { rows: ready.length, problems: w.checked!.problems.length };
@@ -446,7 +524,7 @@ export async function goLiveSummary(tx: Tx, ctx: SchoolContext) {
     year ? tx.enrolment.findMany({ where: { academicYearId: year.id, archivedAt: null, student: { archivedAt: null, status: "ACTIVE" } }, select: { sectionId: true, rollNo: true } }) : Promise.resolve([]),
     tx.staff.count({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] } } }),
     tx.staff.count({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] }, userLoginId: null } }),
-    tx.guardian.findMany({ where: { archivedAt: null, students: { some: { archivedAt: null, student: { archivedAt: null, status: "ACTIVE" } } } }, select: { name: true, phone: true } }),
+    tx.guardian.findMany({ where: { archivedAt: null, students: { some: { archivedAt: null, student: { archivedAt: null, status: "ACTIVE" } } } }, select: { name: true, phone: true, students: { where: { archivedAt: null }, select: { studentId: true } } } }),
     tx.moveInFile.count({ where: { archivedAt: null, status: { in: ["open", "importing"] } } }),
     tx.importBatch.count({ where: { undoneAt: null, skipped: { gt: 0 } } }),
     tx.department.count({ where: { archivedAt: null } }),
@@ -462,7 +540,7 @@ export async function goLiveSummary(tx: Tx, ctx: SchoolContext) {
   }
   const phones = new Map<string, Set<string>>();
   for (const g of guardians) { const set = phones.get(g.phone) ?? new Set(); set.add(plain(g.name)); phones.set(g.phone, set); }
-  const sharedPhones = [...phones.values()].filter((s) => s.size >= 3).length;
+  const sharedPhones = phonesOfDifferentFamilies(guardians);
   const overFull = [...classMap.values()].flatMap((c) => c.sections.filter((s) => s.students > s.seats).map((s) => `${c.name} ${s.name}`));
   const expected = (plan?.expected ?? {}) as Expected;
   return {
@@ -477,6 +555,24 @@ export async function goLiveSummary(tx: Tx, ctx: SchoolContext) {
     expected,
     plan,
   };
+}
+
+/**
+ * Phones held by parents of different families: two parent records with the
+ * phone, with different names and no child in common. Usually the school's
+ * own number or a van driver's typed in the old software. A father and mother
+ * sharing one mobile are one family (they have the same children).
+ */
+export function phonesOfDifferentFamilies(guardians: { name: string; phone: string; students: { studentId: string }[] }[]) {
+  const byPhone = new Map<string, typeof guardians>();
+  for (const g of guardians) byPhone.set(g.phone, [...(byPhone.get(g.phone) ?? []), g]);
+  let n = 0;
+  for (const list of byPhone.values()) {
+    if (list.length < 2) continue;
+    const apart = list.some((a, i) => list.slice(i + 1).some((b) => !namesAlike(a.name, b.name) && !a.students.some((x) => b.students.some((y) => y.studentId === x.studentId))));
+    if (apart) n++;
+  }
+  return n;
 }
 
 /** What still stops going live, in plain words. Empty means the school can go live. */
@@ -500,7 +596,7 @@ export function warnings(s: Summary): string[] {
   if (s.checks.problemBatches > 0) out.push(`${s.checks.problemBatches} ${s.checks.problemBatches === 1 ? "import left" : "imports left"} rows out because of problems. Download them from Import history, fix and bring them in.`);
   if (s.checks.overFull.length) out.push(`More students than seats in ${s.checks.overFull.slice(0, 5).join(", ")}${s.checks.overFull.length > 5 ? ` and ${s.checks.overFull.length - 5} more` : ""}.`);
   if (s.checks.noRoll > 0) out.push(`${s.checks.noRoll} ${s.checks.noRoll === 1 ? "student has" : "students have"} no roll number. Roll numbers can be given class by class in Student Management.`);
-  if (s.checks.sharedPhones > 0) out.push(`${s.checks.sharedPhones} phone ${s.checks.sharedPhones === 1 ? "number is" : "numbers are"} shared by three or more different parents. It may be the school's own number typed in the old software.`);
+  if (s.checks.sharedPhones > 0) out.push(`${s.checks.sharedPhones} phone ${s.checks.sharedPhones === 1 ? "number is" : "numbers are"} shared by parents of different families. It may be the school's own number or a van driver's typed in the old software; correct the parents' phones in Student Management.`);
   if (s.checks.staffNoLogin > 0) out.push(`${s.checks.staffNoLogin} staff ${s.checks.staffNoLogin === 1 ? "member has" : "members have"} no login yet.`);
   return out;
 }

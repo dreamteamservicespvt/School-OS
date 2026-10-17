@@ -71,7 +71,7 @@ async function takeTag(tx: Tx, ctx: SchoolContext, s: InvSettings) {
 
 /** 14 §5 "Asset tag reused": "Tag AT-0042 belongs to Projector, Room 12". */
 async function tagTaken(tx: Tx, ctx: SchoolContext, tag: string, selfId?: string) {
-  const taken = await tx.asset.findFirst({ where: { tag: { equals: tag, mode: "insensitive" }, ...(selfId ? { id: { not: selfId } } : {}) } });
+  const taken = await tx.asset.findFirst({ where: { tag: { equals: tag, mode: "insensitive" }, releasedAt: null, ...(selfId ? { id: { not: selfId } } : {}) } });
   if (!taken) return;
   const where = await placeWords(tx, taken);
   throw new InventoryProblem(`Tag ${taken.tag} belongs to ${taken.name}, ${where}. Use the next tag: ${await nextTagPreview(tx, ctx)}.`, "tag", { href: `${BASE}/assets/${taken.id}`, label: "Open that asset" });
@@ -360,7 +360,7 @@ export async function scanTag(tx: Tx, ctx: SchoolContext, input: { auditId: stri
   if (!code) throw new InventoryProblem("Scan or type a tag.", "code");
   const room = await tx.room.findFirst({ where: { id: input.roomId } });
   if (!room) throw new InventoryProblem("Choose the room you are checking.", "roomId");
-  const asset = await tx.asset.findFirst({ where: { tag: { equals: code, mode: "insensitive" } } });
+  const asset = await tx.asset.findFirst({ where: { tag: { equals: code, mode: "insensitive" }, releasedAt: null } });
   const seen = await tx.assetAuditScan.findFirst({ where: { auditId: audit.id, code } });
   if (seen) return { result: "again" as const, asset, room };
   await tx.assetAuditScan.create({ data: { schoolId: ctx.schoolId, auditId: audit.id, code, assetId: asset?.id ?? null, roomId: room.id, scannedById: ctx.userId } });

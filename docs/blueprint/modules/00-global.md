@@ -281,9 +281,13 @@ Every Import button uses one shared importer from Settings, Data Backup & Securi
 2. Upload a file (CSV or Excel).
 3. Match columns (auto-matched by name; AI suggestions when Smart Import is on).
 4. Preview with each row's problems shown in plain words.
-5. Import the good rows; download the bad rows with their errors to fix and re-import.
+5. Import the good rows; download the bad rows with their errors to fix and re-import. Each row is saved on its own: a row that cannot be saved is listed with its reason and the others still go in.
 6. Summary: added, updated, skipped.
-7. Undo the whole import from the import history.
+7. Undo the whole import from the import history. Numbers the undone import typed (admission numbers, accession numbers, item codes, asset tags, room numbers) are free again, so the corrected file can be imported (04-data-model.md rule 25).
+
+A row that may already be on record (a student with a similar name and the same date of birth or parent's phone, an admission number already used, or a parent's phone on record under another name) is never merged on a guess. The preview shows it with a choice: **Same student: update** the record already here, **Brother or sister** (or **Same family**) to link the parents already on record, or **A new student** / **A different family**. A parent with the same phone is linked by itself only when the names match (another spelling or one letter wrong is fine).
+
+Each import is used by the people who may add those records in their own module (05-roles.md): old dues and past receipts in Fee Management, past expenses in Finance Management, the holiday list in Events & Calendar, each from that module's own page as well as from Settings.
 
 ### P11. Bulk actions
 

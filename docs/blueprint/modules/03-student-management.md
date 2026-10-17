@@ -50,7 +50,7 @@ Used by: the School Admin and, when the school switches on the Office Staff role
 | Apply class fee plan | Yes | On | |
 | More details | No | | Photo, blood group, address, category, previous school, identifiers and the school's extra fields |
 
-Duplicate check on create and import: same name and date of birth, or same name with the same guardian or phone. The match is shown with **Open existing** and **Save anyway** (with a reason, inferred).
+Duplicate check on create and import: the same or a similar name (another spelling such as Mohd and Mohammed, or one letter wrong) with the same date of birth, or with the same guardian or phone. Twins, with different names, are never taken for one child. The match is shown with **Open existing** and **Save anyway** (with a reason, inferred). In an import the row waits for a choice instead: **Same student: update** the record already here (its old values come back on Undo), **Brother or sister** (link the same parents), or **A different child**. A parent already on record with the row's phone is linked by itself only when the names match; any other name on that phone waits for **Same family** or **A different family**, so a school office or van driver number never joins two families. Father and mother on one mobile are two parent records, each linked once.
 
 ### Student Profile
 

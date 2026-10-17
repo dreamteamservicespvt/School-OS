@@ -27,7 +27,7 @@ Used by: the Principal and office (calendar, holidays, events), teachers and cla
 - **Add a holiday or event** for one date (name, date, "allow attendance on this date"). Adding a holiday runs automation A11.
 - **Add a vacation** (a date range, for example summer vacation).
 - **Remove** an entry (with Undo; removing a holiday switches attendance back on for that day after confirmation).
-- Import the holiday list from a spreadsheet, or copy last year's with dates to check (inferred).
+- Import the holiday list from a spreadsheet (**School Calendar, Import holidays**, for whoever keeps the School Calendar; no Settings needed), or copy last year's with dates to check (inferred).
 - Exams appear automatically from published datesheets (A10); events and PTMs from their pages; admission test dates are added here or from Admission Management (inferred).
 
 **Form fields: Add to calendar**

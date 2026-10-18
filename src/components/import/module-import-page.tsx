@@ -5,7 +5,7 @@
 import type { Current } from "@/lib/current";
 import { withSchool } from "@/lib/db";
 import { formatDateTime } from "@/lib/format";
-import { importKind } from "@/lib/importer";
+import { importKind, leftWords } from "@/lib/importer";
 import { MODULE_IMPORTS, moduleImportHistory, moduleImportRefusal, type ModuleImportKey } from "@/lib/imports/module-import";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
@@ -44,11 +44,13 @@ export async function ModuleImportPage({ current, keys, initial, base, about, do
           <ul className="divide-y divide-line/70">
             {history.map((b) => {
               const k = kinds.find((x) => x.key === b.kind);
+              // Rows left out on purpose (for example "300 no old dues"): counted, never problems.
+              const left = leftWords(b.leftOut as { reason: string; count: number }[]);
               return (
                 <li key={b.id} className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 text-[14px]">
                   <span className="min-w-0 break-all">
                     <span className="font-medium">{k?.label ?? b.kind}</span> · {shown(b.fileName)}
-                    <span className="block text-[13px] text-ink3">{formatDateTime(b.createdAt, tz)} · {b.added} added{b.skipped ? `, ${b.skipped} with problems` : ""}</span>
+                    <span className="block text-[13px] text-ink3">{formatDateTime(b.createdAt, tz)} · {b.added} added{left ? `, ${left}` : ""}{b.skipped ? `, ${b.skipped} with problems` : ""}</span>
                   </span>
                   <span className="flex flex-wrap items-center gap-2">
                     {b.undoneAt && <Pill>Undone</Pill>}

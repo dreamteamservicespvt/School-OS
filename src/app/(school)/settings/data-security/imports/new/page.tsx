@@ -5,7 +5,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireSettingsPage } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
-import { autoMatch, importKind, previewImport } from "@/lib/importer";
+import { autoMatch, importKind, leftCounts, previewImport } from "@/lib/importer";
 import { matchFromParams, readUploaded } from "@/lib/data-security/imports";
 import { mayImport } from "@/lib/move-in/service";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
@@ -99,6 +99,7 @@ export default async function NewImportPage({ searchParams }: Search) {
           <div className="flex flex-wrap items-center gap-3">
             <Badge tone="success">{result.preview.good.length} ready to import</Badge>
             <Badge tone={result.preview.bad.length ? "danger" : "neutral"}>{result.preview.bad.length} with problems</Badge>
+            {leftCounts(result.preview.left).map((l) => <Badge key={l.reason}>{l.count} {l.reason.toLowerCase()}: left out, nothing to fix</Badge>)}
           </div>
           {result.preview.bad.length > 0 && (
             <Card>

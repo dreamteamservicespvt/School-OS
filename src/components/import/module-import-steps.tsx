@@ -20,7 +20,11 @@ type Column = { key: string; label: string; required?: boolean; help?: string };
 export type ImportKindView = { key: string; label: string; about: string; columns: Column[]; templateHref: string; one: string; many: string };
 type Actions = { upload: typeof uploadModuleImport; check: typeof checkModuleImport; run: typeof runModuleImport; undo: typeof undoModuleImportAction };
 type Upload = { fileId: string; fileName: string; headers: string[]; match: Record<string, number>; rows: number };
-type Checked = { good: number; bad: { line: number; name: string; problems: string[] }[]; sample: { line: number; text: string }[] };
+type Checked = { good: number; bad: { line: number; name: string; problems: string[] }[]; sample: { line: number; text: string }[]; left: { reason: string; count: number }[] };
+type Left = { reason: string; count: number }[];
+
+/** "300 with no old dues": rows left out on purpose, never problems. */
+const leftText = (left: Left) => left.map((l) => `${l.count} ${l.reason.toLowerCase()}`).join(", ");
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
@@ -32,7 +36,7 @@ export function ModuleImportSteps({ kinds, initial, doneHref, doneLabel, errorsB
   const [file, setFile] = useState<Upload | null>(null);
   const [match, setMatch] = useState<Record<string, string>>({});
   const [checked, setChecked] = useState<Checked | null>(null);
-  const [done, setDone] = useState<{ batchId: string; added: number; skipped: number; undone?: number } | null>(null);
+  const [done, setDone] = useState<{ batchId: string; added: number; skipped: number; left?: Left; undone?: number } | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const router = useRouter();
@@ -138,7 +142,8 @@ export function ModuleImportSteps({ kinds, initial, doneHref, doneLabel, errorsB
       {checked && !done && (
         <section aria-labelledby="mi-step4" className={box}>
           <h2 id="mi-step4" className="text-[16px] font-semibold">4. Check</h2>
-          <p className="mt-2 flex flex-wrap gap-2"><Pill tone="ok">{checked.good} ready</Pill> <Pill tone={checked.bad.length ? "bad" : "neutral"}>{checked.bad.length} with problems</Pill></p>
+          <p className="mt-2 flex flex-wrap gap-2"><Pill tone="ok">{checked.good} ready</Pill> <Pill tone={checked.bad.length ? "bad" : "neutral"}>{checked.bad.length} with problems</Pill>{checked.left.map((l) => <Pill key={l.reason} tone="neutral">{l.count} {l.reason.toLowerCase()}</Pill>)}</p>
+          {checked.left.length > 0 && <p className="mt-1 text-[13px] text-ink3">Rows with nothing to bring in ({leftText(checked.left)}) are left out. They are not problems and need nothing.</p>}
           {checked.sample.length > 0 && (
             <ul className="mt-3 flex flex-col gap-0.5 text-[14px]">
               {checked.sample.map((s) => <li key={s.line}>Row {s.line}: {s.text}</li>)}
@@ -164,7 +169,7 @@ export function ModuleImportSteps({ kinds, initial, doneHref, doneLabel, errorsB
           <h2 id="mi-step5" className="text-[16px] font-semibold">5. Done</h2>
           {done.undone !== undefined ? <p className="mt-1 text-[14px]">Import undone: {plural(done.undone, kind.one, kind.many)} taken back.</p> : (
             <>
-              <p className="mt-1 text-[14px]">{plural(done.added, kind.one, kind.many)} brought in{done.skipped ? `, ${plural(done.skipped, "row", "rows")} left out with problems` : ""}.</p>
+              <p className="mt-1 text-[14px]">{plural(done.added, kind.one, kind.many)} brought in{done.left?.length ? `, ${leftText(done.left)}` : ""}{done.skipped ? `, ${plural(done.skipped, "row", "rows")} left out with problems` : ""}.</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <Link href={doneHref} className={buttonClass("primary", "sm")}>{doneLabel}</Link>
                 {done.skipped > 0 && <a href={`${errorsBase}/${done.batchId}?kind=${kind.key}`} className={buttonClass("secondary", "sm")} download>Download the rows with problems</a>}

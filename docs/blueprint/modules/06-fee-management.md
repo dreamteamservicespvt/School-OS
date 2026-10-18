@@ -103,7 +103,7 @@ Other actions:
 - **Cancel a payment** (decided, D2): needs a reason; the payment stays on record marked Cancelled; the dues reopen; the receipt is marked cancelled; Finance posts a reversal in the Day Book on the cancel date. Cancelling a payment older than today needs approval (inferred).
 - **Adjust:** change an amount on the student's plan (for example a corrected fee) by an adjustment with a reason, never by editing a payment.
 - Add opening balance (old dues) with a note.
-- **Import opening balances (old dues) in bulk** with the shared importer (P10): admission number, fee head (or "Old dues"), amount, due date, note. Each row becomes an opening balance row on the student's ledger. Importing dues adds nothing to the Day Book; the money is counted only when it is collected (decided 9 October 2026, D7).
+- **Import opening balances (old dues) in bulk** with the shared importer (P10): admission number, fee head (or "Old dues"), amount, due date, note. Each row becomes an opening balance row on the student's ledger. Importing dues adds nothing to the Day Book; the money is counted only when it is collected (decided 9 October 2026, D7). Added 18 October 2026: a sheet may list every student; a row with an empty, "-", "nil" or zero amount is left out and counted as "No old dues" in the check and the result, never shown as a problem to fix.
 - **Import past receipts** with the shared importer (P10): admission number, old receipt number, date, amount, mode, fee head. They are kept as read-only Payment and Receipt records marked **Brought in**, with the old receipt number. They show in the ledger and fee certificates, but never post to the Day Book of School OS, never count in today's collection, and cannot be cancelled or refunded here (inferred: refunds of old payments are recorded in Finance as an expense). Both imports are steps of workflow 15, "Switching to School OS" (see 02-workflows.md). The Accountant brings them in from **Student Fee Ledger, Import old dues and receipts** (also linked from the Fee Dashboard and each student's ledger), without Settings; the ready Excel sheet has the school's fee heads and the payment modes in drop-downs. A students import with old dues or past receipts brought in is undone only after those imports are undone.
 - Assign a fee plan or remove an unpaid row (with the "assign / unassign fees" permission and a reason).
 
@@ -347,7 +347,7 @@ These are listed in the feature map under "Automatic work". They have no page; t
 | From | What |
 |---|---|
 | 03 Student Management | Students, classes, categories, parents' phones; new students from import and promotion (A13) needing fee plans |
-| 02 Admission | Fee plan request on conversion (A2); application fee collection |
+| 02 Admission | Fee plan request on conversion (A2); application fee collection (added 18 October 2026: each confirmed application fee is posted to the Day Book under Other fee types, "Application fee", and a cancelled one is reversed there; the payment stays on the application, as an applicant is not a student yet) |
 | 12 Transport (optional) | Transport fee for a student's stop (A12) |
 | 15 Hostel (optional) | Hostel fees for allocated students |
 | 13 Library, 14 Inventory | Fines and charges (lost books, books and uniforms issued at the store) added to the student's dues (inferred: as fee rows) |

@@ -49,7 +49,7 @@ function matchOf(fd: FormData, headers: string[]) {
 /** A warden imports into their own hostel only: other hostels' rows are skipped with a reason. */
 function ownHostels(p: Preview<unknown>, mine: Mine) {
   if (mine === null) return p;
-  const out: Preview<unknown> = { good: [], bad: [...p.bad] };
+  const out: Preview<unknown> = { good: [], bad: [...p.bad], left: [...p.left] };
   for (const g of p.good) {
     const v = g.value as Row;
     if (mine.includes(v.hostelId)) out.good.push(g);

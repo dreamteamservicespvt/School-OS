@@ -1,0 +1,77 @@
+// Old dues from a sheet that lists every student (workflow 15, follow-up C):
+// a row with an empty, "-", "nil" or zero amount is simply left out and
+// counted as "No old dues" in the check and the result, never shown as a
+// problem row to fix. Through the Fee Management import actions, as the
+// Accountant, with a real session.
+import { beforeAll, describe, expect, it, vi } from "vitest";
+
+let token: string | null = null;
+vi.mock("next/headers", () => ({
+  cookies: async () => ({ get: (name: string) => (name === "sos_session" && token ? { name, value: token } : undefined), set: () => {}, delete: () => {} }),
+  headers: async () => new Headers(),
+}));
+vi.mock("next/navigation", () => ({
+  redirect: (url: string) => { throw new Error(`REDIRECT ${url}`); },
+  notFound: () => { throw new Error("NOT_FOUND"); },
+}));
+vi.mock("next/cache", () => ({ revalidatePath: () => {}, revalidateTag: () => {} }));
+
+import { createSession } from "@/lib/auth/sessions";
+import { withSchool } from "@/lib/db";
+import { noOldDues } from "@/lib/fees/import";
+import { checkModuleImport, runModuleImport, uploadModuleImport } from "@/app/(school)/_imports/actions";
+import { makeFeeSchool, type FeeSchool } from "./fixture";
+
+let f: FeeSchool;
+const signIn = async (userId: string) => { token = (await createSession(userId, f.school.id, { userAgent: "test" })).token; };
+
+beforeAll(async () => {
+  f = await makeFeeSchool();
+}, 120_000);
+
+describe("rows with no old dues are left out, not problems (follow-up C)", () => {
+  it("reads an empty, dash, nil or zero amount as no old dues, and a real amount or a wrong one as a row to check", () => {
+    for (const v of ["", "  ", "-", "0", "0.00", "₹0", "Rs. 0/-", "nil", "NIL", "None"]) expect(noOldDues({ amount: v }), v).toBe("No old dues");
+    for (const v of ["3500", "Rs. 12,500/-", "0.50", "abc"]) expect(noOldDues({ amount: v }), v).toBeNull();
+  });
+
+  it("checks and imports a sheet of every student: only the dues come in, the rest are counted as no old dues", async () => {
+    await signIn(f.accountant.id);
+    const csv = [
+      "Admission number,Fee head,Amount,Due date",
+      `${f.ravi.admissionNo},,3500,31-03-2026`,
+      `${f.sita.admissionNo},,,31-03-2026`,
+      `${f.anil.admissionNo},,0,31-03-2026`,
+      "NO-DUES-1,,-,31-03-2026",
+      "NOPE-1,,100,31-03-2026",
+    ].join("\n");
+    const up = new FormData();
+    up.set("kind", "fee-old-dues");
+    up.set("file", new File([csv], "every-student.csv", { type: "text/csv" }));
+    const u = await uploadModuleImport(up);
+    if (!u.ok) throw new Error(u.message);
+    const fd = () => {
+      const x = new FormData();
+      x.set("kind", "fee-old-dues");
+      x.set("fileId", u.data.fileId);
+      for (const [k, v] of Object.entries(u.data.match)) x.set(`col:${k}`, String(v));
+      return x;
+    };
+    const checked = await checkModuleImport(fd());
+    if (!checked.ok) throw new Error(checked.message);
+    expect(checked.data.good).toBe(1);
+    expect(checked.data.bad.map((b) => b.line)).toEqual([6]);
+    expect(checked.data.bad[0].problems.join(" ")).toMatch(/No student with admission number "NOPE-1"/);
+    expect(checked.data.left).toEqual([{ reason: "No old dues", count: 3 }]);
+
+    const ran = await runModuleImport(fd());
+    expect(ran).toMatchObject({ ok: true, data: { added: 1, skipped: 1, left: [{ reason: "No old dues", count: 3 }] } });
+    if (!ran.ok) return;
+    const batch = await withSchool(f.ctx, (tx) => tx.importBatch.findUniqueOrThrow({ where: { id: ran.data.batchId } }));
+    expect(batch.leftOut).toEqual([{ reason: "No old dues", count: 3 }]);
+    // Only the real problem is in the rows to download and fix.
+    expect((batch.errorReport as { line: number }[]).map((b) => b.line)).toEqual([6]);
+    const old = await withSchool(f.ctx, (tx) => tx.studentFeeDue.findMany({ where: { kind: "OLD_DUES", state: "OPEN" } }));
+    expect(old.map((d) => [d.studentId, d.amountPaise])).toEqual([[f.ravi.id, BigInt(350000)]]);
+  });
+});

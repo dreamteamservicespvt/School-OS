@@ -9,7 +9,7 @@ import type { Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { OPEN_LINK } from "../students/guardian-access";
 import { writeAudit } from "../audit";
-import { importKind, importKinds, previewImport, type Decisions, type ImportKind, type RowChoice } from "../importer";
+import { importKind, importKinds, leftCounts, previewImport, type Decisions, type ImportKind, type RowChoice } from "../importer";
 import { startImport } from "../data-security/imports";
 import { currentYear } from "../academic/years";
 import { addClass, addSection } from "../academic/structure";
@@ -213,6 +213,8 @@ export type Checked = {
   problems: { line: number; values: Record<string, string>; problems: string[]; choices: RowChoice[]; chosen: string | null; chosenWords: string | null }[];
   /** Ready rows that are ready because of a choice made on screen: what it does, to look at or change. */
   decided: { line: number; values: Record<string, string>; chosen: string; words: string }[];
+  /** Rows the import leaves out on purpose, not problems, counted by reason (for example "No old dues"). */
+  left: { reason: string; count: number }[];
 };
 
 /** The choices made on screen, by row of the file, for the rows still in it. */
@@ -253,6 +255,7 @@ export async function checkRows(tx: Tx, ctx: SchoolContext, kind: ImportKind<unk
     ready,
     problems: preview.bad.map((b) => ({ line: b.line, values: byLine.get(b.line)!.values, problems: b.problems, choices: b.choices ?? [], chosen: decisions[b.line] ?? null, chosenWords: decisions[b.line] ? decisionWords(decisions[b.line]) || null : null })),
     decided: ready.filter((r) => decisions[r.line]).map((r) => ({ line: r.line, values: r.values, chosen: decisions[r.line], words: decisionWords(decisions[r.line]) })),
+    left: leftCounts(preview.left),
   };
 }
 
@@ -352,7 +355,7 @@ export async function chooseRow(tx: Tx, ctx: SchoolContext, id: string, line: nu
   const f = await openFile(tx, id);
   if (!Number.isInteger(line) || line < 2) throw new MoveInProblem("This row was not found.");
   const v = value.trim();
-  if (v && !/^(new|update:[0-9a-f-]{36}|family:[0-9a-f-]{36}|family-row:\d{1,6})$/i.test(v)) throw new MoveInProblem("Choose one of the choices shown for this row.");
+  if (v && !/^(new|sibling|other-family|update:[0-9a-f-]{36}|family:[0-9a-f-]{36}|family-row:\d{1,6})$/i.test(v)) throw new MoveInProblem("Choose one of the choices shown for this row.");
   const all = { ...((f.rowChoices ?? {}) as Record<string, string>) };
   const before = all[String(line)] ?? null;
   if (v) all[String(line)] = v;

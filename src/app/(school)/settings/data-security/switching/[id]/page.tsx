@@ -101,6 +101,7 @@ export default async function MoveInFilePage({ params, searchParams }: Props) {
                 <Num label="Added" value={batch.added} tone="success" />
                 <Num label="Updated" value={batch.updated} />
                 <Num label="Left out with problems" value={batch.skipped} tone={batch.skipped ? "warning" : undefined} />
+                {(batch.leftOut as { reason: string; count: number }[]).map((l) => <Num key={l.reason} label={`${l.reason} (nothing to bring in)`} value={l.count} />)}
               </dl>
               <div className="flex flex-wrap gap-2">
                 {HOME[kind.key] && !batch.undoneAt && <ButtonLink href={HOME[kind.key].href} variant="primary">{HOME[kind.key].label}</ButtonLink>}
@@ -238,7 +239,7 @@ export default async function MoveInFilePage({ params, searchParams }: Props) {
             <Num label="Ready to bring in" value={checked.ready.length} tone="success" />
             <Num label="With problems" value={checked.problems.length} tone={checked.problems.length ? "danger" : undefined} />
             <Num label="Left out by you" value={prepared.passed.leftOut} />
-            <Num label="Passed over" value={prepared.passed.empty + prepared.passed.headings + prepared.passed.totals} hint={[prepared.passed.empty && `${prepared.passed.empty} empty`, prepared.passed.headings && `${prepared.passed.headings} repeated headings`, prepared.passed.totals && `${prepared.passed.totals} total ${prepared.passed.totals === 1 ? "row" : "rows"}`].filter(Boolean).join(", ") || undefined} />
+            <Num label="Passed over" value={prepared.passed.empty + prepared.passed.headings + prepared.passed.totals + checked.left.reduce((a, l) => a + l.count, 0)} hint={[prepared.passed.empty && `${prepared.passed.empty} empty`, prepared.passed.headings && `${prepared.passed.headings} repeated headings`, prepared.passed.totals && `${prepared.passed.totals} total ${prepared.passed.totals === 1 ? "row" : "rows"}`, ...checked.left.map((l) => `${l.count} ${l.reason.toLowerCase()}`)].filter(Boolean).join(", ") || undefined} />
           </dl>
           {missingRequired.length > 0 && <Alert tone="warning" title={`Choose the column for ${missingRequired.map((c) => c.label).join(", ")}.`} action={<Link className="font-medium underline" href={`${BASE}/${file.id}?step=columns`}>Match columns</Link>}>Every row shows a problem until it is matched.</Alert>}
           {prepared.unmatched.length > 0 && <Alert tone="warning" title={`${prepared.unmatched.length} ${prepared.unmatched.length === 1 ? "word needs" : "words need"} matching.`} action={<Link className="font-medium underline" href={`${BASE}/${file.id}?step=values`}>Match words</Link>}>Rows with an unmatched class or designation show a problem until it is matched.</Alert>}

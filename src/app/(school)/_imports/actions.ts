@@ -10,6 +10,7 @@ import { revalidatePath } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { flash } from "@/lib/flash";
+import { leftWords } from "@/lib/importer";
 import { FileProblem } from "@/lib/files";
 import { PermissionDeniedError } from "@/lib/permissions";
 import { MoneyProblem } from "@/lib/fees/problem";
@@ -56,14 +57,15 @@ export async function checkModuleImport(fd: FormData): Promise<Result<CheckedFil
   }
 }
 
-export async function runModuleImport(fd: FormData): Promise<Result<{ batchId: string; added: number; updated: number; skipped: number }>> {
+export async function runModuleImport(fd: FormData): Promise<Result<{ batchId: string; added: number; updated: number; skipped: number; left: { reason: string; count: number }[] }>> {
   try {
     const { current, key } = await guardModuleImport(str(fd, "kind"), "create");
     const batch = await withSchool(current.ctx, (tx) => runModuleFile(tx, current.ctx, key, str(fd, "fileId"), fd), { timeout: 300_000 });
     const words = MODULE_IMPORTS[key];
-    await flash({ message: `${batch.added} ${batch.added === 1 ? words.one : words.many} brought in${batch.skipped ? `; ${batch.skipped} ${batch.skipped === 1 ? "row was" : "rows were"} left out with problems to download` : ""}.` });
+    const left = (batch.leftOut ?? []) as { reason: string; count: number }[];
+    await flash({ message: `${batch.added} ${batch.added === 1 ? words.one : words.many} brought in${left.length ? `; ${leftWords(left)} (rows left out, nothing to fix)` : ""}${batch.skipped ? `; ${batch.skipped} ${batch.skipped === 1 ? "row was" : "rows were"} left out with problems to download` : ""}.` });
     revalidatePath("/", "layout");
-    return { ok: true, data: { batchId: batch.id, added: batch.added, updated: batch.updated, skipped: batch.skipped } };
+    return { ok: true, data: { batchId: batch.id, added: batch.added, updated: batch.updated, skipped: batch.skipped, left } };
   } catch (e) {
     return fail(e);
   }

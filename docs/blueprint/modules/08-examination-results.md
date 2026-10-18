@@ -26,7 +26,7 @@ Used by: the Exam In-charge or Academic Head role templates when the school swit
 - Save as draft. After saving, **Configure mark categories** for each subject becomes available (for example theory 80, internal 20).
 - **Rooms and invigilators:** assign an exam room and an invigilator to each paper; clashes (a room or an invigilator used twice at the same time) are blocked.
 - **Seating arrangement (optional):** generate seat numbers per room by roll number, mixing classes if chosen (inferred: the mixing option), and print seating charts.
-- **Publish** the datesheet (automation A10). Once published, parents see it on Parent Link (owned by Communication, decided 9 October 2026, D4).
+- **Publish** the datesheet (automation A10). Once published, parents see it on Parent Link (owned by Communication, decided 9 October 2026, D4). "Message parents now" tells parents only about papers still to come, each class with the day of its next paper; a paper already held is never announced, and a datesheet whose papers are all over sends no message. The publish dialog says how many papers are already over.
 - View, print, edit (until results are uploaded), archive.
 
 **Form fields: Exam details**
@@ -61,7 +61,7 @@ Rules shown on the form ("Before you save"): subjects are listed by date and tim
 **What the person sees**
 
 - Exams with a published schedule, as cards: exam, class, start, end, number of subjects, status ribbon.
-- Preview: exam information (exam, class, type, total students), then one admit card per student: school logo and name, "Examination admit card", exam name, year and term, student name, roll number, photo, father's and mother's name, class, admission number; a subject table with number, subject (with the theory, practical and internal assessment split under it), date, day, time, maximum marks and invigilator; instructions for candidates; signature lines (student, class teacher, and the school's chosen signatory). Design from Settings, Document Designs.
+- Preview: exam information (exam, class, type, total students), then one admit card per student: school logo and name, "Examination admit card", exam name, year and term, student name, roll number, photo, father's and mother's name, class, admission number; a subject table with number, subject (with the theory, practical and internal assessment split under it), date, day, time, maximum marks and invigilator; instructions for candidates; signature lines (student, class teacher, and the school's chosen signatory; with none chosen in Document Designs, a line for the Principal, inferred). Numbers such as the admission number are never broken across lines. Design from Settings, Document Designs.
 
 **Actions**
 

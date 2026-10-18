@@ -41,13 +41,42 @@ export async function ensureTopics(tx: Tx, ctx: SchoolContext) {
   await tx.queryTopic.createMany({ data: READY_TOPICS.map((name, i) => ({ schoolId: ctx.schoolId, name, sortOrder: i })), skipDuplicates: true });
 }
 
-/** Which queries a person sees: everything with full access; otherwise their own, their department's and those they logged. */
-export async function queryWhere(tx: Tx, ctx: SchoolContext, reach: "all" | "own"): Promise<Prisma.QueryWhereInput> {
+/**
+ * Which queries a person sees: everything with full access; otherwise their own, their department's and those they logged.
+ * campusId: a person limited to one campus sees the queries about their campus's students, parents and staff, the ones
+ * about nobody in particular, and their own.
+ */
+export async function queryWhere(tx: Tx, ctx: SchoolContext, reach: "all" | "own", campusId?: string | null): Promise<Prisma.QueryWhereInput> {
+  const base = await reachWhere(tx, ctx, reach);
+  return campusId ? { AND: [base, await queryCampusWhere(tx, ctx, campusId)] } : base;
+}
+
+async function reachWhere(tx: Tx, ctx: SchoolContext, reach: "all" | "own"): Promise<Prisma.QueryWhereInput> {
   if (reach === "all") return { schoolId: ctx.schoolId };
   const staff = ctx.userId ? await tx.staff.findFirst({ where: { schoolId: ctx.schoolId, userLoginId: ctx.userId }, select: { departmentId: true } }) : null;
   return {
     schoolId: ctx.schoolId,
     OR: [{ ownerId: ctx.userId }, { createdById: ctx.userId }, ...(staff?.departmentId ? [{ departmentId: staff.departmentId, ownerId: null }] : [])],
+  };
+}
+
+/** Queries about one campus (see queryWhere). */
+async function queryCampusWhere(tx: Tx, ctx: SchoolContext, campusId: string): Promise<Prisma.QueryWhereInput> {
+  const [students, links, staff] = await Promise.all([
+    tx.student.findMany({ where: { schoolId: ctx.schoolId, campusId }, select: { id: true } }),
+    tx.studentGuardian.findMany({ where: { schoolId: ctx.schoolId, student: { campusId } }, select: { guardianId: true } }),
+    tx.staff.findMany({ where: { schoolId: ctx.schoolId, campusId }, select: { id: true } }),
+  ]);
+  const studentIds = students.map((s) => s.id);
+  return {
+    OR: [
+      ...(ctx.userId ? [{ ownerId: ctx.userId }, { createdById: ctx.userId }] : []),
+      { aboutStudentId: { in: studentIds } },
+      { studentId: { in: studentIds } },
+      { guardianId: { in: [...new Set(links.map((l) => l.guardianId))] } },
+      { staffId: { in: staff.map((s) => s.id) } },
+      { aboutStudentId: null, studentId: null, guardianId: null, staffId: null },
+    ],
   };
 }
 

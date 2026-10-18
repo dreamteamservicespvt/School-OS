@@ -4,7 +4,7 @@ import { ArrowLeft, Check, CheckCheck, CircleAlert, Inbox, Phone, Search, Settin
 import { withSchool } from "@/lib/db";
 import { commPage } from "@/lib/communication/access";
 import { COMM_FEATURES } from "@/lib/communication/features";
-import { canReplyFreely, inboxWhere, QUICK_REPLIES, type InboxTab } from "@/lib/communication/inbox";
+import { canReplyFreely, inboxCampusWhere, inboxWhere, QUICK_REPLIES, type InboxTab } from "@/lib/communication/inbox";
 import { childrenByGuardian } from "@/lib/communication/parent-link-admin";
 import { formatDate } from "@/lib/format";
 import { Card } from "@/components/ui/card";
@@ -58,29 +58,31 @@ export default async function InboxPage({ searchParams }: { searchParams: Search
   const now = new Date();
   const data = await withSchool(current.ctx, async (tx) => {
     const ctx = current.ctx;
-    const where = inboxWhere(ctx, full, tab, q);
+    // A person limited to one campus sees the chats about their campus (and unknown numbers, and their own).
+    const campus = await inboxCampusWhere(tx, ctx, access.scope.campusId);
+    const where = { AND: [inboxWhere(ctx, full, tab, q), campus] };
     const [chats, mine, all, none] = await Promise.all([
       tx.whatsappChat.findMany({ where, orderBy: { lastMessageAt: "desc" }, take: 100, include: { messages: { orderBy: { createdAt: "desc" }, take: 1 } } }),
       tx.whatsappChat.count({ where: inboxWhere(ctx, full, "mine", "") }),
-      full ? tx.whatsappChat.count({ where: inboxWhere(ctx, full, "all", "") }) : 0,
-      full ? tx.whatsappChat.count({ where: inboxWhere(ctx, full, "none", "") }) : 0,
+      full ? tx.whatsappChat.count({ where: { AND: [inboxWhere(ctx, full, "all", ""), campus] } }) : 0,
+      full ? tx.whatsappChat.count({ where: { AND: [inboxWhere(ctx, full, "none", ""), campus] } }) : 0,
     ]);
     const curId = chatId || (chats[0]?.id ?? "");
-    const cur = curId ? await tx.whatsappChat.findFirst({ where: { AND: [{ id: curId }, inboxWhere(ctx, full, full ? "all" : "mine", "")] } }) : null;
+    const cur = curId ? await tx.whatsappChat.findFirst({ where: { AND: [{ id: curId }, inboxWhere(ctx, full, full ? "all" : "mine", ""), campus] } }) : null;
     const thread = cur ? await tx.whatsappChatMessage.findMany({ where: { schoolId: ctx.schoolId, chatId: cur.id }, orderBy: { createdAt: "asc" }, take: 300 }) : [];
     const ids = [...new Set([...chats.map((c) => c.assignedToId), cur?.assignedToId, ...thread.map((m) => m.sentById)].filter(Boolean) as string[])];
     const people = await tx.userLogin.findMany({ where: { id: { in: ids } }, select: { id: true, displayName: true } });
     let about: { lines: string[]; links: { href: string; label: string }[] } = { lines: [], links: [] };
     if (cur?.contactType === "guardian" && cur.contactId) {
       const g = await tx.guardian.findFirst({ where: { id: cur.contactId, schoolId: ctx.schoolId }, select: { relationship: true } });
-      const kids = (await childrenByGuardian(tx, ctx, [cur.contactId])).get(cur.contactId) ?? [];
+      const kids = (await childrenByGuardian(tx, ctx, [cur.contactId], access.scope.campusId)).get(cur.contactId) ?? [];
       about = { lines: [`${g?.relationship ?? "Parent"} of ${kids.map((k) => `${k.name}${k.classLabel ? `, ${k.classLabel}` : ""}`).join(" and ") || "no child studying now"}`], links: kids.map((k) => ({ href: `/student-management/students/${k.id}`, label: k.name })) };
     } else if (cur?.contactType === "staff" && cur.contactId) {
       const s = await tx.staff.findFirst({ where: { id: cur.contactId, schoolId: ctx.schoolId }, select: { id: true, designation: true } });
       about = { lines: [`Staff · ${s?.designation ?? "Staff"}`], links: s ? [{ href: `/staff-hr-management/${s.id}`, label: "Staff record" }] : [] };
     }
     const query = cur?.queryId ? await tx.query.findFirst({ where: { id: cur.queryId, schoolId: ctx.schoolId }, select: { id: true, number: true } }) : null;
-    return { chats, counts: { mine, all, none }, cur, thread, people: new Map(people.map((p) => [p.id, p.displayName])), about, query, owners: full ? await ownerOptions(tx, ctx) : [] };
+    return { chats, counts: { mine, all, none }, cur, thread, people: new Map(people.map((p) => [p.id, p.displayName])), about, query, owners: full ? await ownerOptions(tx, ctx, access.scope.campusId) : [] };
   });
   const { cur } = data;
   const name = (id: string | null) => (id ? data.people.get(id) ?? "Staff" : null);

@@ -6,6 +6,8 @@ import { formValues, type FormState } from "@/lib/forms";
 import { AdmissionProblem, dateTimeOf, emailOf, id, maybe, mobileOf, need, optionalDateOf, optionalId, problemState, str, todayIn, UUID_RE } from "@/lib/admission/act";
 import { admissionAct, customFrom, inSchool } from "@/lib/admission/server";
 import { admissionYear, openYears } from "@/lib/admission/settings";
+import { enquiryScope } from "@/lib/admission/access";
+import { personCampusId } from "@/lib/campus";
 import {
   addNote, archiveEnquiry, changeSource, changeStatus, closeLost, createEnquiry, DuplicateProblem, editEnquiry, findDuplicates, logCall,
   reassign, reopen, restoreEnquiry, runCampaign, sendEnquiryMessage, setFollowUp, type Match,
@@ -22,10 +24,11 @@ function duplicateState(e: DuplicateProblem, fd: FormData): DupState {
 /** Duplicate check on leaving the phone or email field (02 Done when 2). */
 export async function checkDuplicates(phone: string, email: string, excludeEnquiryId?: string): Promise<Match[]> {
   try {
-    return await inSchool("create", ({ tx }) => findDuplicates(tx, {
+    return await inSchool("create", ({ tx, v }) => findDuplicates(tx, {
       phone: phone.replace(/[^\d]/g, "").replace(/^91(?=\d{10}$)/, ""),
       email: email.trim() || null,
       excludeEnquiryId: excludeEnquiryId && UUID_RE.test(excludeEnquiryId) ? excludeEnquiryId : null,
+      campusId: v.campusId,
     }));
   } catch {
     return [];
@@ -35,11 +38,18 @@ export async function checkDuplicates(phone: string, email: string, excludeEnqui
 export async function addEnquiryAction(_: DupState, fd: FormData): Promise<DupState> {
   try {
     const e = await inSchool("create", async (w) => {
+      // The enquiry is for the campus of the class wanted, else of the year chosen, else the person's own
+      // campus, in that campus's year (each campus has its own years). A person limited to one campus
+      // chooses from that campus only; createEnquiry refuses another campus's class.
       const chosen = optionalId(fd, "yearId");
-      const year = chosen ? (await openYears(w.tx)).find((y) => y.id === chosen) ?? null : await admissionYear(w.tx, w.ctx, w.s);
-      if (!year) throw new AdmissionProblem(chosen ? "Choose a year that is open for admissions." : "Set up an academic year in Academic Management first.", chosen ? "yearId" : undefined);
-      const campus = await w.tx.campus.findFirst({ where: { archivedAt: null }, orderBy: [{ isMain: "desc" }, { createdAt: "asc" }], select: { id: true } });
-      if (!campus) throw new AdmissionProblem("Add a campus in Settings first.");
+      const chosenYear = chosen ? (await openYears(w.tx, w.v.campusId)).find((y) => y.id === chosen) ?? null : null;
+      if (chosen && !chosenYear) throw new AdmissionProblem("Choose a year that is open for admissions.", "yearId");
+      const classId = optionalId(fd, "classId");
+      const cls = classId ? await w.tx.schoolClass.findFirst({ where: { id: classId, archivedAt: null }, select: { campusId: true } }) : null;
+      const campusId = cls?.campusId ?? chosenYear?.campusId ?? (await personCampusId(w.tx, w.ctx, w.v));
+      if (!campusId) throw new AdmissionProblem("Add a campus in Settings first.");
+      const year = chosenYear ?? (await admissionYear(w.tx, w.ctx, w.s, campusId));
+      if (!year) throw new AdmissionProblem("Set up an academic year in Academic Management first.");
       const customFields = await customFrom(w, "enquiry", fd, {});
       return createEnquiry(w.tx, w.ctx, w.v, w.s, {
         childName: need(fd, "childName", "Child's name", 120),
@@ -56,7 +66,7 @@ export async function addEnquiryAction(_: DupState, fd: FormData): Promise<DupSt
         referredBy: maybe(fd, "referredBy", "Referred by", 120),
         notes: maybe(fd, "notes", "Notes", 2000),
         customFields,
-      }, { yearId: year.id, campusId: campus.id, today: todayIn(w.tz), force: str(fd, "force") === "1", siblingOfId: optionalId(fd, "siblingOfId") });
+      }, { yearId: year.id, campusId, today: todayIn(w.tz), force: str(fd, "force") === "1", siblingOfId: optionalId(fd, "siblingOfId") });
     });
     await flash({ message: `Enquiry added for ${e.childName}.`, link: { href: `${BASE}/${e.id}`, label: "Open enquiry" } });
     revalidatePath("/", "layout");
@@ -71,7 +81,7 @@ export async function editEnquiryAction(_: DupState, fd: FormData): Promise<DupS
   try {
     const e = await inSchool("edit", async (w) => {
       const enquiryId = id(fd, "id", "enquiry");
-      const before = await w.tx.enquiry.findFirst({ where: { id: enquiryId }, select: { customFields: true } });
+      const before = await w.tx.enquiry.findFirst({ where: { id: enquiryId, AND: [enquiryScope(w.v)] }, select: { customFields: true } });
       return editEnquiry(w.tx, w.ctx, w.v, enquiryId, {
         childName: need(fd, "childName", "Child's name", 120),
         parentName: need(fd, "parentName", "Parent's name", 120),
@@ -164,7 +174,7 @@ export async function bulkAssignAction(_: FormState<unknown>, fd: FormData) {
     const reason = need(fd, "reason", "Reason", 300);
     let moved = 0;
     for (const e of ids) {
-      const row = await w.tx.enquiry.findFirst({ where: { id: e }, select: { ownerStaffId: true } });
+      const row = await w.tx.enquiry.findFirst({ where: { id: e, AND: [enquiryScope(w.v)] }, select: { ownerStaffId: true } });
       if (!row || row.ownerStaffId === owner) continue;
       await reassign(w.tx, w.ctx, w.v, e, owner, reason);
       moved++;

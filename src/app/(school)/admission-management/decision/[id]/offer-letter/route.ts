@@ -6,7 +6,7 @@ import { withSchool } from "@/lib/db";
 import { renderDocument } from "@/lib/documents";
 import { formatDate } from "@/lib/format";
 import { logExport } from "@/lib/exports";
-import { viewerFor } from "@/lib/admission/access";
+import { applicationScope, viewerFor } from "@/lib/admission/access";
 import { UUID_RE } from "@/lib/admission/act";
 import { parentName } from "@/lib/admission/applications";
 
@@ -20,7 +20,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   return withSchool(current.ctx, async (tx) => {
     const v = await viewerFor(tx, current.ctx, current);
     if (v.see !== "all") return text("Only the admission team can print offer letters.", 403);
-    const app = await tx.application.findFirst({ where: { id, archivedAt: null } });
+    const app = await tx.application.findFirst({ where: { id, archivedAt: null, ...applicationScope(v) } });
     if (!app || !app.offerLetterNo || !app.offerSentAt) return text("There is no offer letter yet. Record it as sent on Admission Decision first.", 404);
     const [cls, year] = await Promise.all([
       tx.schoolClass.findUnique({ where: { id: app.classId }, select: { name: true } }),

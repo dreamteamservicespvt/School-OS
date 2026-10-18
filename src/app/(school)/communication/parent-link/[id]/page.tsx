@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { commPage } from "@/lib/communication/access";
 import { formatDate, formatDateTime } from "@/lib/format";
-import { childrenByGuardian, guardianLinkIds, linkHistory } from "@/lib/communication/parent-link-admin";
+import { childrenByGuardian, guardianLinkIds, linkCampusWhere, linkHistory } from "@/lib/communication/parent-link-admin";
 import { maskPhone, REVOKE_REASONS } from "@/lib/parent-link/links";
 import { consentTypeLabel } from "@/lib/parent-link/consent";
 import { channelSetups } from "@/lib/messaging/channels";
@@ -28,13 +28,15 @@ export default async function LinkPage({ params }: { params: Promise<{ id: strin
   const now = new Date();
   const data = await withSchool(current.ctx, async (tx) => {
     const ctx = current.ctx;
-    const link = await tx.parentLink.findFirst({ where: { id, schoolId: ctx.schoolId }, include: { devices: { orderBy: { verifiedAt: "desc" } } } });
+    // Another campus's guardian's link is not found for a person limited to one campus.
+    const campusId = access.scope.campusId ?? null;
+    const link = await tx.parentLink.findFirst({ where: { id, schoolId: ctx.schoolId, ...(await linkCampusWhere(tx, ctx, campusId)) }, include: { devices: { orderBy: { verifiedAt: "desc" } } } });
     if (!link) return null;
     const guardian = await tx.guardian.findFirstOrThrow({ where: { id: link.guardianId, schoolId: ctx.schoolId }, select: { id: true, name: true, phone: true, optedOut: true } });
     const ids = await guardianLinkIds(tx, ctx, guardian.id);
     const [history, kids, records, requests, setups, newer] = await Promise.all([
       linkHistory(tx, ctx, ids),
-      childrenByGuardian(tx, ctx, [guardian.id]),
+      childrenByGuardian(tx, ctx, [guardian.id], campusId),
       tx.consentRecord.findMany({ where: { schoolId: ctx.schoolId, guardianId: guardian.id }, orderBy: { givenAt: "desc" } }),
       tx.consentRequest.findMany({ where: { schoolId: ctx.schoolId, guardianIds: { has: guardian.id } }, orderBy: { createdAt: "desc" } }),
       channelSetups(tx, ctx),

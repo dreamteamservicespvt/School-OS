@@ -15,12 +15,13 @@ export type ClassSeats = { classId: string; className: string; sections: Section
  * in the upcoming year yet. They will take seats, so new joiners cannot.
  */
 async function continuingFor(tx: Tx, yearId: string): Promise<Map<string, number>> {
-  const year = await tx.academicYear.findUnique({ where: { id: yearId }, select: { status: true, startDate: true } });
+  const year = await tx.academicYear.findUnique({ where: { id: yearId }, select: { status: true, startDate: true, campusId: true } });
   const out = new Map<string, number>();
   if (!year || year.status !== "UPCOMING") return out;
-  const before = await tx.academicYear.findFirst({ where: { archivedAt: null, startDate: { lt: year.startDate } }, orderBy: { startDate: "desc" }, select: { id: true } });
+  // The year before is the same campus's, and the class below is the same campus's (each campus has its own years and classes).
+  const before = await tx.academicYear.findFirst({ where: { archivedAt: null, campusId: year.campusId, startDate: { lt: year.startDate } }, orderBy: { startDate: "desc" }, select: { id: true } });
   if (!before) return out;
-  const classes = await tx.schoolClass.findMany({ where: { archivedAt: null }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true } });
+  const classes = await tx.schoolClass.findMany({ where: { archivedAt: null, campusId: year.campusId }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true } });
   const rows = await tx.enrolment.groupBy({
     by: ["classId"],
     where: { academicYearId: before.id, archivedAt: null, status: "STUDYING", student: { archivedAt: null, enrolments: { none: { academicYearId: yearId, archivedAt: null } } } },

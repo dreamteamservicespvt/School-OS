@@ -7,7 +7,7 @@ import { commPage } from "@/lib/communication/access";
 import { readListParams, skipTake, listHref, PAGE_SIZE } from "@/lib/list";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { RULES } from "@/lib/messaging/automatic";
-import { countsFor, DELIVERY_LABEL, HISTORY_FILTERS, historyWhere, senderNames } from "@/lib/communication/history";
+import { countsFor, DELIVERY_LABEL, HISTORY_FILTERS, historyWhere, messageCampusWhere, recipientCampusWhere, senderNames } from "@/lib/communication/history";
 import { Card } from "@/components/ui/card";
 import { Stats } from "@/components/ui/stats";
 import { Toolbar } from "@/components/ui/toolbar";
@@ -40,20 +40,25 @@ export default async function MessageHistoryPage({ searchParams }: { searchParam
   const mineOnly: Prisma.MessageWhereInput = { schoolId: current.ctx.schoolId, ...(access.full ? {} : { sentById: current.ctx.userId }) };
 
   const data = await withSchool(current.ctx, async (tx) => {
+    // A person limited to one campus sees the messages about their campus (and the people of it) only.
+    const campus = await messageCampusWhere(tx, current.ctx, access.scope.campusId);
+    const ofCampus = await recipientCampusWhere(tx, current.ctx, access.scope.campusId);
+    const listWhere: Prisma.MessageWhereInput = { AND: [where, campus] };
+    const mine: Prisma.MessageWhereInput = { AND: [mineOnly, campus] };
     const [rows, total, sentCount, reach, firstSent, testMode] = await Promise.all([
-      tx.message.findMany({ where, orderBy: { createdAt: params.sort === "date" && params.dir === "asc" ? "asc" : "desc" }, ...skipTake(params) }),
-      tx.message.count({ where }),
-      tx.message.count({ where: { ...mineOnly, status: { in: ["SENT", "QUEUED"] } } }),
-      tx.messageRecipient.groupBy({ by: ["status"], where: { schoolId: current.ctx.schoolId, isBackup: false, message: mineOnly }, _count: { _all: true } }),
-      tx.message.findFirst({ where: mineOnly, orderBy: { createdAt: "asc" }, select: { createdAt: true } }),
+      tx.message.findMany({ where: listWhere, orderBy: { createdAt: params.sort === "date" && params.dir === "asc" ? "asc" : "desc" }, ...skipTake(params) }),
+      tx.message.count({ where: listWhere }),
+      tx.message.count({ where: { AND: [mine], status: { in: ["SENT", "QUEUED"] } } }),
+      tx.messageRecipient.groupBy({ by: ["status"], where: { schoolId: current.ctx.schoolId, isBackup: false, message: mine, AND: [ofCampus] }, _count: { _all: true } }),
+      tx.message.findFirst({ where: mine, orderBy: { createdAt: "asc" }, select: { createdAt: true } }),
       // Test mode (no provider connected yet): recorded as Delivered, but nothing reached anyone.
-      tx.messageRecipient.count({ where: { schoolId: current.ctx.schoolId, isBackup: false, provider: "sandbox", message: mineOnly } }),
+      tx.messageRecipient.count({ where: { schoolId: current.ctx.schoolId, isBackup: false, provider: "sandbox", message: mine, AND: [ofCampus] } }),
     ]);
     // "One person": everyone this sender has messaged, found by name; then their messages, newest first.
     const who = typeof sp.who === "string" ? sp.who.trim().slice(0, 60) : "";
     const people = mode === "person" && who.length >= 2
       ? await tx.messageRecipient.findMany({
-          where: { schoolId: current.ctx.schoolId, name: { contains: who, mode: "insensitive" }, message: mineOnly },
+          where: { schoolId: current.ctx.schoolId, name: { contains: who, mode: "insensitive" }, message: mine, AND: [ofCampus] },
           distinct: ["recipientType", "guardianId", "studentId", "staffId"], take: 8, orderBy: { queuedAt: "desc" },
           select: { recipientType: true, guardianId: true, studentId: true, staffId: true, name: true, description: true },
         })
@@ -63,7 +68,7 @@ export default async function MessageHistoryPage({ searchParams }: { searchParam
     if (mode === "person" && person && /^(guardian|student|staff):[0-9a-f-]{36}$/.test(person)) {
       const [type, id] = person.split(":");
       const items = await tx.messageRecipient.findMany({
-        where: { schoolId: current.ctx.schoolId, message: mineOnly, ...(type === "guardian" ? { guardianId: id } : type === "student" ? { studentId: id } : { staffId: id }) },
+        where: { schoolId: current.ctx.schoolId, message: mine, AND: [ofCampus], ...(type === "guardian" ? { guardianId: id } : type === "student" ? { studentId: id } : { staffId: id }) },
         include: { message: { select: { id: true, title: true, trigger: true, sourceType: true } } },
         orderBy: { queuedAt: "desc" }, take: 60,
       });

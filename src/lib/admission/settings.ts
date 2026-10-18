@@ -171,25 +171,68 @@ export const live = (list: ListItem[]) => list.filter((x) => !x.archived);
 /**
  * The year admissions are open for: the one chosen in Admission Settings,
  * else the upcoming year once it has sections, else the current year (inferred).
+ * Each campus has its own years (04-data-model.md rule 19): with a campus, the
+ * year is that campus's. The year chosen in Settings belongs to one campus;
+ * another campus takes its open year of the same name.
  */
-export async function admissionYear(tx: Tx, ctx: SchoolContext, s: Pick<Settings, "admissionYearId">) {
+export async function admissionYear(tx: Tx, ctx: SchoolContext, s: Pick<Settings, "admissionYearId">, campusId?: string | null) {
+  const campus = campusId ? { campusId } : {};
   if (s.admissionYearId) {
     const y = await tx.academicYear.findFirst({ where: { id: s.admissionYearId, archivedAt: null } });
-    if (y && y.status !== "CLOSED") return y;
+    if (y && y.status !== "CLOSED") {
+      if (!campusId || y.campusId === campusId) return y;
+      const same = await tx.academicYear.findFirst({ where: { campusId, name: y.name, archivedAt: null, status: { not: "CLOSED" } } });
+      if (same) return same;
+    }
   }
-  const upcoming = await tx.academicYear.findFirst({ where: { status: "UPCOMING", archivedAt: null }, orderBy: { startDate: "asc" } });
+  const upcoming = await tx.academicYear.findFirst({ where: { status: "UPCOMING", archivedAt: null, ...campus }, orderBy: { startDate: "asc" } });
   if (upcoming && (await tx.section.count({ where: { academicYearId: upcoming.id, archivedAt: null } })) > 0) return upcoming;
-  return currentYear(tx, ctx);
+  return currentYear(tx, ctx, campusId ?? null);
 }
 
-/** Years an admission can be for: the current one and upcoming ones. */
-export async function openYears(tx: Tx) {
-  return tx.academicYear.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "UPCOMING"] } }, orderBy: { startDate: "asc" } });
+/** The admission year of each campus the person sees (only theirs when limited to one campus). */
+export async function admissionYears(tx: Tx, ctx: SchoolContext, s: Pick<Settings, "admissionYearId">, limit?: string | null) {
+  const campuses = await tx.campus.findMany({ where: { archivedAt: null, ...(limit ? { id: limit } : {}) }, orderBy: [{ isMain: "desc" }, { createdAt: "asc" }], select: { id: true } });
+  const out: NonNullable<Awaited<ReturnType<typeof admissionYear>>>[] = [];
+  for (const c of campuses) {
+    const y = await admissionYear(tx, ctx, s, c.id);
+    if (y) out.push(y);
+  }
+  return out;
 }
 
-/** Classes in order. */
-export async function classList(tx: Tx) {
-  return tx.schoolClass.findMany({ where: { archivedAt: null }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true, sortOrder: true, campusId: true } });
+/**
+ * The year of a campus for a year chosen on a form: the year itself when it
+ * is the campus's, else the campus's open year of the same name, else null.
+ */
+export async function yearOnCampus(tx: Tx, yearId: string, campusId: string) {
+  const y = await tx.academicYear.findFirst({ where: { id: yearId, archivedAt: null } });
+  if (!y) return null;
+  if (y.campusId === campusId) return y;
+  return tx.academicYear.findFirst({ where: { campusId, name: y.name, archivedAt: null, status: { in: ["ACTIVE", "UPCOMING"] } } });
+}
+
+/** Years an admission can be for: the current one and upcoming ones (only the campus's when one is given). */
+export async function openYears(tx: Tx, campusId?: string | null) {
+  return tx.academicYear.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "UPCOMING"] }, ...(campusId ? { campusId } : {}) }, orderBy: { startDate: "asc" } });
+}
+
+/** Classes in order (only the campus's when one is given). */
+export async function classList(tx: Tx, campusId?: string | null) {
+  return tx.schoolClass.findMany({ where: { archivedAt: null, ...(campusId ? { campusId } : {}) }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true, sortOrder: true, campusId: true } });
+}
+
+/** Campus names by id when the person sees more than one campus, to tell the classes and years of each apart; empty otherwise. */
+export async function campusNames(tx: Tx, limit?: string | null): Promise<Map<string, string>> {
+  if (limit) return new Map();
+  const rows = await tx.campus.findMany({ where: { archivedAt: null }, select: { id: true, name: true } });
+  return rows.length > 1 ? new Map(rows.map((c) => [c.id, c.name])) : new Map();
+}
+
+/** "Class 1", or "Class 1 (North Campus)" when the person sees more than one campus. */
+export function withCampus(names: Map<string, string>, label: string, campusId: string | null | undefined) {
+  const c = campusId ? names.get(campusId) : undefined;
+  return c ? `${label} (${c})` : label;
 }
 
 /** Class 2 and above ask for the previous school, TC and marksheet (inferred). */
@@ -217,7 +260,8 @@ export async function classRules(tx: Tx): Promise<Map<string, ClassRule>> {
   const out = new Map<string, ClassRule>();
   for (const c of classes) {
     const r = rows.find((x) => x.classId === c.id);
-    out.set(c.id, r ? fromRow(r) : { classId: c.id, documents: defaultDocsFor(needsPreviousSchool(c, classes)), feePaise: null, onlineOpen: true, minAge: null, maxAge: null, ownerStaffId: null, saved: false });
+    // "Class 2 and above" is read among the classes of the class's own campus.
+    out.set(c.id, r ? fromRow(r) : { classId: c.id, documents: defaultDocsFor(needsPreviousSchool(c, classes.filter((x) => x.campusId === c.campusId))), feePaise: null, onlineOpen: true, minAge: null, maxAge: null, ownerStaffId: null, saved: false });
   }
   return out;
 }
@@ -234,11 +278,12 @@ export async function classRule(tx: Tx, classId: string): Promise<ClassRule> {
 
 /**
  * Staff who can work on enquiries: active staff with a login whose roles give
- * Admission Management (full or own). Owners and interviewers come from here.
+ * Admission Management (full or own). Owners and interviewers come from here
+ * (only the campus's staff for a person limited to one campus).
  */
-export async function admissionStaff(tx: Tx, ctx: SchoolContext, opts: { allStaff?: boolean } = {}) {
+export async function admissionStaff(tx: Tx, ctx: SchoolContext, opts: { allStaff?: boolean; campusId?: string | null } = {}) {
   const staff = await tx.staff.findMany({
-    where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] }, ...(opts.allStaff ? {} : { userLoginId: { not: null } }) },
+    where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] }, ...(opts.allStaff ? {} : { userLoginId: { not: null } }), ...(opts.campusId ? { campusId: opts.campusId } : {}) },
     orderBy: { fullName: "asc" },
     select: { id: true, fullName: true, designation: true, userLoginId: true },
   });

@@ -59,3 +59,39 @@ export async function senderNames(tx: Tx, ids: (string | null)[]) {
   const users = list.length ? await tx.userLogin.findMany({ where: { id: { in: list } }, select: { id: true, displayName: true } }) : [];
   return new Map(users.map((u) => [u.id, u.displayName]));
 }
+
+const NONE = "00000000-0000-0000-0000-000000000000";
+const nonEmpty = (ids: string[]) => (ids.length ? ids : [NONE]);
+
+/** The students, their guardians and the staff of one campus, for the campus limits below. */
+async function campusPeople(tx: Tx, ctx: SchoolContext, campusId: string) {
+  const [students, links, staff] = await Promise.all([
+    tx.student.findMany({ where: { schoolId: ctx.schoolId, campusId }, select: { id: true } }),
+    tx.studentGuardian.findMany({ where: { schoolId: ctx.schoolId, student: { campusId } }, select: { guardianId: true } }),
+    tx.staff.findMany({ where: { schoolId: ctx.schoolId, campusId }, select: { id: true } }),
+  ]);
+  return { students: nonEmpty(students.map((s) => s.id)), guardians: nonEmpty([...new Set(links.map((l) => l.guardianId))]), staff: nonEmpty(staff.map((s) => s.id)) };
+}
+
+/** A recipient row about someone of the campus (a parent of one of its students, a student or a staff member). */
+const aboutCampus = (p: Awaited<ReturnType<typeof campusPeople>>): Prisma.MessageRecipientWhereInput => ({ OR: [{ studentId: { in: p.students } }, { guardianId: { in: p.guardians } }, { staffId: { in: p.staff } }] });
+/** A recipient row about nobody of any campus (a School OS login, a typed address). */
+const aboutNobody: Prisma.MessageRecipientWhereInput = { studentId: null, guardianId: null, staffId: null };
+
+/**
+ * For a person limited to one campus: the messages about their campus. A
+ * message that went only to another campus's parents, students or staff is
+ * left out; one they sent, or one to nobody of any campus, stays. {} for the
+ * whole school. Used with historyWhere() by Message History and its export.
+ */
+export async function messageCampusWhere(tx: Tx, ctx: SchoolContext, campusId: string | null | undefined): Promise<Prisma.MessageWhereInput> {
+  if (!campusId) return {};
+  const p = await campusPeople(tx, ctx, campusId);
+  return { OR: [...(ctx.userId ? [{ sentById: ctx.userId }] : []), { recipients: { some: aboutCampus(p) } }, { recipients: { every: aboutNobody } }] };
+}
+
+/** For a person limited to one campus: the people of one message who are of their campus (or of no campus). {} for the whole school. */
+export async function recipientCampusWhere(tx: Tx, ctx: SchoolContext, campusId: string | null | undefined): Promise<Prisma.MessageRecipientWhereInput> {
+  if (!campusId) return {};
+  return { OR: [aboutCampus(await campusPeople(tx, ctx, campusId)), aboutNobody] };
+}

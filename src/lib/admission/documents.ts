@@ -8,7 +8,7 @@ import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { DOCUMENT_TYPES, FileProblem, saveFile } from "../files";
 import { AdmissionProblem } from "./act";
-import { requireFull, type Viewer } from "./access";
+import { applicationScope, requireFull, type Viewer } from "./access";
 import { activity, loadApplication, parentName, CLOSED_STAGES } from "./applications";
 import { classRule, docLabel, DOC_TYPES, type ClassDoc } from "./settings";
 import { messageParent } from "./notify-parents";
@@ -30,17 +30,17 @@ export function progressOf(docs: Pick<ApplicationDocument, "docType" | "status">
   return { required: required.length, verified: verified.length, requiredVerified, total: Math.max(checklist.length, docs.length), missing, complete: unverifiedRequired.length === 0, unverifiedRequired };
 }
 
-async function loadDoc(tx: Tx, docId: string) {
-  const doc = await tx.applicationDocument.findFirst({ where: { id: docId } });
+async function loadDoc(tx: Tx, v: Viewer, docId: string) {
+  const doc = await tx.applicationDocument.findFirst({ where: { id: docId, application: applicationScope(v) } });
   if (!doc) throw new AdmissionProblem("This paper was not found.");
-  const app = await loadApplication(tx, doc.applicationId);
+  const app = await loadApplication(tx, doc.applicationId, v);
   if (CLOSED_STAGES.includes(app.stage) && app.stage !== "ADMITTED") throw new AdmissionProblem("This application is closed, so its papers cannot change.");
   return { doc, app };
 }
 
 export async function uploadDocument(tx: Tx, ctx: SchoolContext, v: Viewer, input: { applicationId: string; docType: string; file: File; note: string | null }) {
   requireFull(v, "admission papers");
-  const app = await loadApplication(tx, input.applicationId);
+  const app = await loadApplication(tx, input.applicationId, v);
   if (CLOSED_STAGES.includes(app.stage) && app.stage !== "ADMITTED") throw new AdmissionProblem("This application is closed, so papers cannot be added.");
   if (!DOC_TYPES.some((d) => d.key === input.docType)) throw new AdmissionProblem("Choose the document type.", "docType");
   if (input.file.size > MAX_DOC_BYTES) throw new FileProblem(`This file is ${(input.file.size / 1024 / 1024).toFixed(1)} MB. Admission papers can be at most 5 MB. Take a smaller photo or scan at a lower size.`);
@@ -57,7 +57,7 @@ export async function uploadDocument(tx: Tx, ctx: SchoolContext, v: Viewer, inpu
 
 export async function verifyDocument(tx: Tx, ctx: SchoolContext, v: Viewer, docId: string) {
   requireFull(v, "verifying papers");
-  const { doc, app } = await loadDoc(tx, docId);
+  const { doc, app } = await loadDoc(tx, v, docId);
   if (doc.status === "VERIFIED") throw new AdmissionProblem("This paper is already verified.");
   if (!doc.fileId && !doc.originalSeen) throw new AdmissionProblem(`Upload ${docLabel(doc.docType).toLowerCase()} or mark the original as seen at the counter before verifying it.`);
   await tx.applicationDocument.update({ where: { id: doc.id }, data: { status: "VERIFIED", verifiedById: ctx.userId, verifiedAt: new Date(), rejectReason: null } });
@@ -67,7 +67,7 @@ export async function verifyDocument(tx: Tx, ctx: SchoolContext, v: Viewer, docI
 
 export async function rejectDocument(tx: Tx, ctx: SchoolContext, v: Viewer, schoolName: string, docId: string, reason: string, tellParent: boolean) {
   requireFull(v, "rejecting papers");
-  const { doc, app } = await loadDoc(tx, docId);
+  const { doc, app } = await loadDoc(tx, v, docId);
   if (reason.trim().length < 3) throw new AdmissionProblem("Give a reason, for example \"Photo not clear\".", "reason");
   await tx.applicationDocument.update({ where: { id: doc.id }, data: { status: "REJECTED", rejectReason: reason.trim(), verifiedAt: null, verifiedById: null } });
   let told = false;
@@ -86,7 +86,7 @@ export async function rejectDocument(tx: Tx, ctx: SchoolContext, v: Viewer, scho
 /** "Original seen at counter" (inferred): the original was shown; a paper not yet received becomes Received. */
 export async function markOriginalSeen(tx: Tx, ctx: SchoolContext, v: Viewer, docId: string) {
   requireFull(v, "admission papers");
-  const { doc, app } = await loadDoc(tx, docId);
+  const { doc, app } = await loadDoc(tx, v, docId);
   if (doc.originalSeen) throw new AdmissionProblem("The original is already marked as seen.");
   await tx.applicationDocument.update({ where: { id: doc.id }, data: { originalSeen: true, status: doc.status === "NOT_RECEIVED" || doc.status === "REJECTED" ? "RECEIVED" : doc.status } });
   await activity(tx, ctx, app.id, "document", `${docLabel(doc.docType)}: original seen at the counter.`, { docType: doc.docType });
@@ -96,7 +96,7 @@ export async function markOriginalSeen(tx: Tx, ctx: SchoolContext, v: Viewer, do
 /** Send a reminder to the parent listing the missing papers. */
 export async function remindMissing(tx: Tx, ctx: SchoolContext, v: Viewer, schoolName: string, applicationId: string) {
   requireFull(v, "reminders");
-  const app = await loadApplication(tx, applicationId);
+  const app = await loadApplication(tx, applicationId, v);
   const rule = await classRule(tx, app.classId);
   const docs = await tx.applicationDocument.findMany({ where: { applicationId } });
   const p = progressOf(docs, rule.documents);
@@ -114,7 +114,7 @@ export async function remindMissing(tx: Tx, ctx: SchoolContext, v: Viewer, schoo
 export async function recordPapersException(tx: Tx, ctx: SchoolContext, v: Viewer, applicationId: string, reason: string) {
   requireFull(v, "exceptions");
   if (!v.overCapacity) throw new AdmissionProblem("Only the Principal or School Admin can record an exception for missing papers.");
-  const app = await loadApplication(tx, applicationId);
+  const app = await loadApplication(tx, applicationId, v);
   if (reason.trim().length < 10) throw new AdmissionProblem("Give the reason for the exception in a sentence, for example \"TC to come from the old school by 30-06\".", "reason");
   await tx.application.update({ where: { id: app.id }, data: { papersException: reason.trim(), updatedById: ctx.userId } });
   await activity(tx, ctx, app.id, "exception", `Exception recorded: may be admitted with papers pending. Reason: ${reason.trim()}`);

@@ -6,7 +6,7 @@ import { commOfficePage } from "@/lib/communication/access";
 import { COMM_FEATURES } from "@/lib/communication/features";
 import { readListParams, skipTake, listHref, PAGE_SIZE } from "@/lib/list";
 import { formatDate } from "@/lib/format";
-import { shownStatus, SURVEY_EXAMPLES, SURVEY_FILTERS, surveyWhere } from "@/lib/communication/surveys";
+import { shownStatus, SURVEY_EXAMPLES, SURVEY_FILTERS, surveyCampusWhere, surveyWhere } from "@/lib/communication/surveys";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Toolbar } from "@/components/ui/toolbar";
 import { DataList } from "@/components/ui/data-list";
@@ -48,9 +48,11 @@ export default async function SurveysPage({ searchParams }: { searchParams: Sear
   const where = surveyWhere(current.ctx, params, tz);
   const now = new Date();
   const data = await withSchool(current.ctx, async (tx) => {
+    // A person limited to one campus sees their campus's surveys only.
+    const campus = await surveyCampusWhere(tx, current.ctx, access.scope.campusId);
     const [rows, total] = await Promise.all([
-      tx.survey.findMany({ where, orderBy: [{ sentAt: { sort: "desc", nulls: "first" } }, { createdAt: "desc" }], ...skipTake(params) }),
-      tx.survey.count({ where }),
+      tx.survey.findMany({ where: { AND: [where, campus] }, orderBy: [{ sentAt: { sort: "desc", nulls: "first" } }, { createdAt: "desc" }], ...skipTake(params) }),
+      tx.survey.count({ where: { AND: [where, campus] } }),
     ]);
     const answered = rows.length ? await tx.surveyInvite.groupBy({ by: ["surveyId"], where: { schoolId: current.ctx.schoolId, surveyId: { in: rows.map((r) => r.id) }, answeredAt: { not: null } }, _count: { _all: true } }) : [];
     return { rows, total, answered: new Map(answered.map((a) => [a.surveyId, a._count._all])) };

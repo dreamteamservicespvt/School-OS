@@ -8,7 +8,7 @@ import { withSchool } from "@/lib/db";
 import { flash } from "@/lib/flash";
 import { commAction } from "@/lib/communication/access";
 import { localToUtc } from "@/lib/communication/time";
-import { guardianIdsIn } from "@/lib/communication/parent-link-admin";
+import { assertLinkOnCampus, guardianIdsIn, linkCampusWhere } from "@/lib/communication/parent-link-admin";
 import { guardiansWithoutLinks, ParentLinkProblem, reissueLink, resendLink, revokeLink, REVOKE_REASONS, sendToFamilies } from "@/lib/parent-link/links";
 import { remindConsent, requestConsent, standingConsents } from "@/lib/parent-link/consent";
 import { channelSetups, type Channel } from "@/lib/messaging/channels";
@@ -38,15 +38,17 @@ function readWho(form: FormData): Who | string {
   return "Choose who: the whole school, a class or a section.";
 }
 
-async function whoLabel(tx: Parameters<Parameters<typeof withSchool>[1]>[0], schoolId: string, who: Who) {
-  if (who.kind === "school") return "Whole school";
+async function whoLabel(tx: Parameters<Parameters<typeof withSchool>[1]>[0], schoolId: string, who: Who, campusId?: string | null) {
+  // "The whole school" is the person's campus when they are limited to one.
+  if (who.kind === "school") return campusId ? (await tx.campus.findFirst({ where: { id: campusId, schoolId }, select: { name: true } }))?.name ?? "Your campus" : "Whole school";
   if (who.kind === "class") return (await tx.schoolClass.findFirst({ where: { id: who.id!, schoolId }, select: { name: true } }))?.name ?? "Class";
   const s = await tx.section.findFirst({ where: { id: who.id!, schoolId }, select: { name: true, classId: true } });
   const c = s ? await tx.schoolClass.findFirst({ where: { id: s.classId, schoolId }, select: { name: true } }) : null;
   return `${c?.name ?? ""} ${s?.name ?? ""}`.trim() || "Section";
 }
 
-const pick = (who: Who) => ({ classIds: who.kind === "class" ? [who.id!] : [], sectionIds: who.kind === "section" ? [who.id!] : [] });
+/** The guardians chosen: only those of the person's campus when they are limited to one. */
+const pick = (who: Who, campusId: string | null | undefined) => ({ classIds: who.kind === "class" ? [who.id!] : [], sectionIds: who.kind === "section" ? [who.id!] : [], campusId: campusId ?? null });
 
 export type FamiliesPreview = { ok: true; label: string; total: number; todo: number; alreadyHave: number; channel: string; credits: number; balance: number | null; scheduled: string | null } | { ok: false; message: string };
 
@@ -63,7 +65,7 @@ export async function previewFamilies(form: FormData): Promise<FamiliesPreview> 
     const wanted = String(form.get("channel") ?? "");
     return await withSchool(access.current.ctx, async (tx) => {
       const ctx = access.current.ctx;
-      const all = await guardianIdsIn(tx, ctx, pick(who));
+      const all = await guardianIdsIn(tx, ctx, pick(who, access.scope.campusId));
       const todo = await guardiansWithoutLinks(tx, ctx, all);
       const setups = await channelSetups(tx, ctx);
       const channel: Channel | null = wanted === "whatsapp" || wanted === "sms" ? wanted : setups.whatsapp.isOn ? "whatsapp" : setups.sms.isOn ? "sms" : null;
@@ -73,7 +75,7 @@ export async function previewFamilies(form: FormData): Promise<FamiliesPreview> 
       if (channel === "sms" && !v?.dltTemplateId) return { ok: false as const, message: "The Parent Link SMS template has no DLT template ID. Add it in Message Templates, or send by WhatsApp." };
       const per = creditsFor(channel, (v?.body ?? "").replace("{link}", "https://x.in/p/" + "x".repeat(43)));
       const balances = await creditBalances(tx, ctx);
-      return { ok: true as const, label: await whoLabel(tx, ctx.schoolId, who), total: all.length, todo: todo.length, alreadyHave: all.length - todo.length, channel, credits: per * todo.length, balance: balances[channel], scheduled: scheduledAt ? at : null };
+      return { ok: true as const, label: await whoLabel(tx, ctx.schoolId, who, access.scope.campusId), total: all.length, todo: todo.length, alreadyHave: all.length - todo.length, channel, credits: per * todo.length, balance: balances[channel], scheduled: scheduledAt ? at : null };
     });
   } catch (e) {
     return { ok: false, message: fail(e) };
@@ -93,8 +95,8 @@ export async function sendFamiliesAction(form: FormData): Promise<FamiliesResult
     const wanted = String(form.get("channel") ?? "");
     const r = await withSchool(access.current.ctx, async (tx) => {
       const ctx = access.current.ctx;
-      const ids = await guardianIdsIn(tx, ctx, pick(who));
-      return sendToFamilies(tx, ctx, ids, { channel: wanted === "whatsapp" || wanted === "sms" ? wanted : null, scheduledAt, audienceLabel: `Parent Links: ${await whoLabel(tx, ctx.schoolId, who)}` });
+      const ids = await guardianIdsIn(tx, ctx, pick(who, access.scope.campusId));
+      return sendToFamilies(tx, ctx, ids, { channel: wanted === "whatsapp" || wanted === "sms" ? wanted : null, scheduledAt, audienceLabel: `Parent Links: ${await whoLabel(tx, ctx.schoolId, who, access.scope.campusId)}` });
     });
     revalidatePath("/communication/parent-link");
     return { ok: true, made: r.made, alreadyHad: r.alreadyHad, queued: r.result?.queued ?? 0, skipped: (r.result?.skipped ?? []).map((s) => `${s.count} ${s.reason}`), messageId: r.result?.messageId ?? null };
@@ -107,7 +109,10 @@ export async function resendAction(linkId: string, channel: string): Promise<str
   if (!uuid.test(linkId)) return "This link was not found.";
   try {
     const access = await manager("edit");
-    await withSchool(access.current.ctx, (tx) => resendLink(tx, access.current.ctx, linkId, channel === "whatsapp" || channel === "sms" ? channel : null));
+    await withSchool(access.current.ctx, async (tx) => {
+      await assertLinkOnCampus(tx, access.current.ctx, linkId, access.scope.campusId);
+      return resendLink(tx, access.current.ctx, linkId, channel === "whatsapp" || channel === "sms" ? channel : null);
+    });
     await flash({ message: "The same link was sent again. Phones already confirmed keep working.", tone: "success" });
   } catch (e) {
     return fail(e);
@@ -126,7 +131,8 @@ export async function resendManyAction(linkIds: string[], channel: string): Prom
     let sent = 0;
     let failed = 0;
     await withSchool(access.current.ctx, async (tx) => {
-      const active = await tx.parentLink.findMany({ where: { schoolId: access.current.ctx.schoolId, id: { in: ids }, status: "ACTIVE" }, select: { id: true } });
+      // Another campus's guardians' links count as not sent for a person limited to one campus.
+      const active = await tx.parentLink.findMany({ where: { schoolId: access.current.ctx.schoolId, id: { in: ids }, status: "ACTIVE", ...(await linkCampusWhere(tx, access.current.ctx, access.scope.campusId)) }, select: { id: true } });
       failed = ids.length - active.length;
       for (const l of active) {
         try { await resendLink(tx, access.current.ctx, l.id, ch); sent++; } catch (e) { if (e instanceof ParentLinkProblem || e instanceof MessagingProblem) failed++; else throw e; }
@@ -149,6 +155,7 @@ export async function revokeAction(linkId: string, mode: "revoke" | "reissue", r
   try {
     const access = await manager("edit");
     const out = await withSchool(access.current.ctx, async (tx) => {
+      await assertLinkOnCampus(tx, access.current.ctx, linkId, access.scope.campusId);
       if (mode === "reissue") return (await reissueLink(tx, access.current.ctx, linkId, reason, channel === "whatsapp" || channel === "sms" ? channel : null)).id;
       await revokeLink(tx, access.current.ctx, linkId, reason);
       return null;
@@ -184,12 +191,12 @@ export async function consentRequestAction(_prev: ConsentRequestState, form: For
       const ctx = access.current.ctx;
       const text = await tx.consentText.findFirst({ where: { id: textId, schoolId: ctx.schoolId, isCurrent: true } });
       if (!text) throw new ParentLinkProblem("Choose a consent type.");
-      const all = await guardianIdsIn(tx, ctx, pick(w));
+      const all = await guardianIdsIn(tx, ctx, pick(w, access.scope.campusId));
       // Default: guardians with no current consent of this type (inferred).
       const standing = await standingConsents(tx, ctx, { guardianIds: all, consentType: text.consentType });
       const have = new Set(standing.filter((r) => !r.withdrawnAt && r.textVersion === text.version).map((r) => r.guardianId));
       const todo = all.filter((g) => !have.has(g));
-      const label = await whoLabel(tx, ctx.schoolId, w);
+      const label = await whoLabel(tx, ctx.schoolId, w, access.scope.campusId);
       if (!confirmed) return { preview: { label, total: all.length, todo: todo.length } };
       const r = await requestConsent(tx, ctx, { consentTextId: text.id, guardianIds: todo, audienceLabel: label, replyBy: replyBy! });
       const missed = r.message?.skipped.find((g) => g.notSent);
@@ -208,7 +215,7 @@ export async function remindConsentAction(requestId: string): Promise<string | v
   if (!uuid.test(requestId)) return "This request was not found.";
   try {
     const access = await manager("edit");
-    const r = await withSchool(access.current.ctx, (tx) => remindConsent(tx, access.current.ctx, requestId));
+    const r = await withSchool(access.current.ctx, (tx) => remindConsent(tx, access.current.ctx, requestId, access.scope.campusId));
     await flash({ message: `Reminder sent to ${r.count} parent${r.count === 1 ? "" : "s"} still waiting.${r.missed ? ` Some were not sent it: ${r.missed}.` : ""}`, tone: "success" });
   } catch (e) {
     return fail(e);

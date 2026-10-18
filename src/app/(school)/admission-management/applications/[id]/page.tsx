@@ -16,7 +16,8 @@ import { CANCEL_REASONS, COUNTER_MODES, activeRazorpay, feeStatus, modeLabel } f
 import { admissionConsentTexts, DATA_CONSENT } from "@/lib/admission/consent";
 import { outcomeLabel } from "@/lib/admission/tests";
 import { blockers } from "@/lib/admission/convert";
-import { classRule, docLabel, stageOn } from "@/lib/admission/settings";
+import { admissionYear, classRule, docLabel, stageOn } from "@/lib/admission/settings";
+import { applicationScope } from "@/lib/admission/access";
 import { seatsFor } from "@/lib/admission/seats";
 import { phoneWords } from "@/lib/admission/words";
 import { loadCustomFields, visibleFields } from "@/lib/custom-fields";
@@ -49,22 +50,23 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
   if (!UUID_RE.test(id)) notFound();
   const { current, viewer, settings, tz, year } = await fullPage();
   const data = await withSchool(current.ctx, async (tx) => {
+    // Another campus's application is not found for a person limited to one campus.
     const app = await tx.application.findFirst({
-      where: { id, archivedAt: null },
+      where: { id, archivedAt: null, ...applicationScope(viewer) },
       include: {
         documents: { orderBy: { docType: "asc" } }, payments: { orderBy: { createdAt: "desc" } }, activities: { orderBy: { at: "desc" }, take: 200 },
         tests: { where: { archivedAt: null }, include: { test: true } }, interviews: { orderBy: { startsAt: "desc" } },
       },
     });
     if (!app) return null;
-    const [cls, year, rule, consents, texts, enquiry, sibling, student, seats, staff, users, fields, block, approval, online] = await Promise.all([
+    const [cls, year, rule, consents, texts, enquiry, sibling, student, seats, staff, users, fields, block, approval, online, admitting] = await Promise.all([
       tx.schoolClass.findUnique({ where: { id: app.classId }, select: { name: true } }),
       tx.academicYear.findUnique({ where: { id: app.academicYearId }, select: { name: true, status: true } }),
       classRule(tx, app.classId),
       tx.admissionConsent.findMany({ where: { applicationId: app.id }, orderBy: { givenAt: "desc" } }),
       admissionConsentTexts(tx, current.school.name),
       app.enquiryId ? tx.enquiry.findUnique({ where: { id: app.enquiryId }, select: { id: true, enquiryNo: true, ownerStaffId: true } }) : null,
-      app.siblingStudentId ? tx.student.findUnique({ where: { id: app.siblingStudentId }, select: { id: true, fullName: true, admissionNo: true } }) : null,
+      app.siblingStudentId ? tx.student.findFirst({ where: { id: app.siblingStudentId, ...(viewer.campusId ? { campusId: viewer.campusId } : {}) }, select: { id: true, fullName: true, admissionNo: true } }) : null,
       app.studentId ? tx.student.findUnique({ where: { id: app.studentId }, select: { id: true, fullName: true, admissionNo: true } }) : null,
       seatsFor(tx, app.academicYearId, [app.classId]),
       tx.staff.findMany({ select: { id: true, fullName: true, userLoginId: true } }),
@@ -73,8 +75,10 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
       app.stage === "APPROVED" ? blockers(tx, current.ctx, app) : Promise.resolve([] as string[]),
       app.approvalId ? tx.approval.findUnique({ where: { id: app.approvalId }, select: { id: true, status: true } }) : null,
       app.feeDuePaise ? activeRazorpay(tx).then(Boolean) : Promise.resolve(false),
+      // The admission year of the application's own campus (each campus has its own years).
+      admissionYear(tx, current.ctx, settings, app.campusId),
     ]);
-    return { app, cls, year, rule, consents, texts, enquiry, sibling, student, seat: seats.get(app.classId), staff, users, fields: visibleFields(fields, current.roles), block, approval, online };
+    return { admitting, app, cls, year, rule, consents, texts, enquiry, sibling, student, seat: seats.get(app.classId), staff, users, fields: visibleFields(fields, current.roles), block, approval, online };
   });
   if (!data) {
     return (
@@ -99,7 +103,8 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
   if (app.aadhaarEnc && viewer.restricted) {
     try { aadhaar = maskLast4(decryptField(app.aadhaarEnc)); } catch { aadhaar = "On file"; }
   }
-  const yearLabel = data.year ? `${data.year.name}${data.year.status === "ACTIVE" && year && year.id !== app.academicYearId ? " mid-year" : ""}` : "";
+  const campusYear = data.admitting ?? year;
+  const yearLabel = data.year ? `${data.year.name}${data.year.status === "ACTIVE" && campusYear && campusYear.id !== app.academicYearId ? " mid-year" : ""}` : "";
   const owner = staffName(data.enquiry?.ownerStaffId);
   const parent = app.fatherName ?? app.motherName ?? app.guardianName ?? "Parent";
   const decisionStage = ["DECISION", "APPROVED", "WAITING_LIST"].includes(app.stage);

@@ -4,7 +4,7 @@ import { CalendarDays, ClipboardList, MessageSquareText, Pencil, Quote, Star, Us
 import { withSchool } from "@/lib/db";
 import { commOfficePage } from "@/lib/communication/access";
 import { formatDate } from "@/lib/format";
-import { QUESTION_KINDS, questionsWhere, shownStatus, surveyResults } from "@/lib/communication/surveys";
+import { loadSurvey, QUESTION_KINDS, questionsWhere, shownStatus, surveyResults } from "@/lib/communication/surveys";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Stats } from "@/components/ui/stats";
 import { HBars } from "@/components/ui/charts";
@@ -31,7 +31,8 @@ export default async function SurveyPage({ params }: { params: Promise<{ id: str
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const data = await withSchool(current.ctx, async (tx) => {
-    const survey = await tx.survey.findFirst({ where: { id, schoolId: current.ctx.schoolId, archivedAt: null } });
+    // Another campus's (or a whole-school) survey is not found for a person limited to one campus.
+    const survey = await loadSurvey(tx, current.ctx, id, access.scope.campusId);
     if (!survey) return null;
     if (survey.status === "DRAFT") {
       const questions = await tx.surveyQuestion.findMany({ where: questionsWhere(current.ctx, id), orderBy: { sortOrder: "asc" } });

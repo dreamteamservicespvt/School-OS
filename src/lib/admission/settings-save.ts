@@ -88,7 +88,8 @@ export type ClassRuleInput = { classId: string; documents: ClassDoc[]; feePaise:
 /** Papers needed, application fee, online form, age rule and owner for one class. */
 export async function saveClassRule(tx: Tx, ctx: SchoolContext, v: Viewer, input: ClassRuleInput) {
   requireFull(v, "Admission Settings");
-  const cls = await tx.schoolClass.findFirst({ where: { id: input.classId, archivedAt: null }, select: { id: true, name: true } });
+  // A person limited to one campus keeps the rules of their campus's classes only.
+  const cls = await tx.schoolClass.findFirst({ where: { id: input.classId, archivedAt: null, ...(v.campusId ? { campusId: v.campusId } : {}) }, select: { id: true, name: true } });
   if (!cls) throw new AdmissionProblem("This class was not found.");
   const docs = input.documents.filter((d) => DOC_TYPES.some((t) => t.key === d.type));
   if (input.minAge !== null && (input.minAge < 1 || input.minAge > 20)) throw new AdmissionProblem("Lowest age must be between 1 and 20.", "minAge");

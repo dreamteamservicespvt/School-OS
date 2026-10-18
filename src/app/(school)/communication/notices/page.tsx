@@ -6,7 +6,7 @@ import { commPage } from "@/lib/communication/access";
 import { readListParams, skipTake, listHref, PAGE_SIZE } from "@/lib/list";
 import { formatDate } from "@/lib/format";
 import { boardFor, PRIORITY_LABEL, STATUS_LABEL } from "@/lib/communication/notices";
-import { NOTICE_FILTERS, NOTICE_GROUPS, noticeCounts, noticeWhere, type NoticeGroup } from "@/lib/communication/notice-list";
+import { NOTICE_FILTERS, NOTICE_GROUPS, noticeCampusWhere, noticeCounts, noticeWhere, type NoticeGroup } from "@/lib/communication/notice-list";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Toolbar } from "@/components/ui/toolbar";
 import { DataList } from "@/components/ui/data-list";
@@ -40,10 +40,12 @@ export default async function NoticeBoardPage({ searchParams }: { searchParams: 
   const mineWhere = noticeWhere(current.ctx, access.full, { ...params, q: "", filters: {} }, tz);
 
   const data = await withSchool(current.ctx, async (tx) => {
+    // A person limited to one campus does not see notices for other campuses only.
+    const campus = await noticeCampusWhere(tx, current.ctx, access.scope.campusId);
     const [rows, total, byStatus, board] = await Promise.all([
-      tx.notice.findMany({ where, orderBy: { createdAt: "desc" }, ...skipTake(params) }),
-      tx.notice.count({ where }),
-      tx.notice.groupBy({ by: ["status"], where: { AND: [mineWhere, { status: { not: "ARCHIVED" } }] }, _count: { _all: true } }),
+      tx.notice.findMany({ where: { AND: [where, campus] }, orderBy: { createdAt: "desc" }, ...skipTake(params) }),
+      tx.notice.count({ where: { AND: [where, campus] } }),
+      tx.notice.groupBy({ by: ["status"], where: { AND: [mineWhere, campus, { status: { not: "ARCHIVED" } }] }, _count: { _all: true } }),
       boardFor(tx, current.ctx, current.user.id, access.roleKeys),
     ]);
     return { rows, total, byStatus, board, counts: await noticeCounts(tx, rows) };

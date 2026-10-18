@@ -5,7 +5,7 @@ import { withSchool } from "@/lib/db";
 import { renderDocument } from "@/lib/documents";
 import { formatRupees } from "@/lib/format";
 import { logExport } from "@/lib/exports";
-import { viewerFor } from "@/lib/admission/access";
+import { applicationScope, viewerFor } from "@/lib/admission/access";
 import { UUID_RE } from "@/lib/admission/act";
 import { modeLabel } from "@/lib/admission/fee";
 import { feeStatus } from "@/lib/admission/fee";
@@ -19,7 +19,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   return withSchool(current.ctx, async (tx) => {
     const v = await viewerFor(tx, current.ctx, current);
     if (v.see !== "all") return text("Only the admission team can print receipts.", 403);
-    const pay = await tx.applicationFeePayment.findFirst({ where: { id: paymentId, applicationId: id }, include: { application: { include: { payments: true } } } });
+    const pay = await tx.applicationFeePayment.findFirst({ where: { id: paymentId, applicationId: id, application: applicationScope(v) }, include: { application: { include: { payments: true } } } });
     if (!pay || pay.status !== "CONFIRMED" || pay.cancelledAt || !pay.receiptNo) return text("There is no receipt for this payment: it is not confirmed, or it was cancelled.", 404);
     const app = pay.application;
     const cls = await tx.schoolClass.findUnique({ where: { id: app.classId }, select: { name: true } });

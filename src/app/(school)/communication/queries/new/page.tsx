@@ -16,7 +16,7 @@ export default async function NewQueryPage() {
     const topics = await tx.queryTopic.findMany({ where: { schoolId: current.ctx.schoolId, archivedAt: null }, orderBy: { sortOrder: "asc" } });
     return {
       topics: topics.map((t) => ({ id: t.id, name: t.name, owner: t.defaultOwnerId ? `user:${t.defaultOwnerId}` : t.defaultDepartmentId ? `dept:${t.defaultDepartmentId}` : null })),
-      owners: await ownerOptions(tx, current.ctx),
+      owners: await ownerOptions(tx, current.ctx, access.scope.campusId),
       types: Object.entries(QUERY_TYPE_LABEL).map(([value, label]) => ({ value, label })),
       priorities: QUERY_PRIORITIES.map((p) => ({ value: p.key, label: p.label })),
       cameBy: CAME_BY.map((c) => ({ value: c.key, label: c.label })),

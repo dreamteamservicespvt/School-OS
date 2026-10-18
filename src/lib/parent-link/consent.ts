@@ -11,6 +11,7 @@ import { MessagingProblem, NOT_SENT, sendMessage } from "../messaging/send";
 import { ensureReadyTemplates, templateByKey } from "../messaging/templates";
 import { checkCode, ParentLinkProblem, sendCode } from "./links";
 import { childrenOfGuardian } from "../students/guardian-access";
+import { campusGuardianIds } from "../communication/parent-link-admin";
 
 export type ConsentTextRow = { id: string; consentType: string; title: string; version: number; text: Record<string, string> };
 
@@ -132,9 +133,15 @@ export async function requestStatus(tx: Tx, ctx: SchoolContext, requestId: strin
   return { request: req, given: [...given], withdrawn: [...withdrawn], waiting };
 }
 
-/** Reminder for those still waiting (until the reply-by date). */
-export async function remindConsent(tx: Tx, ctx: SchoolContext, requestId: string) {
-  const { request, waiting } = await requestStatus(tx, ctx, requestId);
+/**
+ * Reminder for those still waiting (until the reply-by date).
+ * campusId: a person limited to one campus reminds their campus's parents only.
+ */
+export async function remindConsent(tx: Tx, ctx: SchoolContext, requestId: string, campusId?: string | null) {
+  const status = await requestStatus(tx, ctx, requestId);
+  const request = status.request;
+  const ours = campusId ? new Set(await campusGuardianIds(tx, ctx, campusId)) : null;
+  const waiting = ours ? status.waiting.filter((g) => ours.has(g)) : status.waiting;
   const today = new Date(new Date().toISOString().slice(0, 10));
   if (request.replyBy < today) throw new ParentLinkProblem("The reply-by date has passed, so reminders have stopped. Send a new request if needed.");
   if (!waiting.length) throw new ParentLinkProblem("Nobody is waiting: every parent has answered.");

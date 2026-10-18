@@ -31,11 +31,12 @@ function Row({ title, sub, children }: { title: string; sub: React.ReactNode; ch
 }
 
 export default async function AdmissionSettingsPage() {
-  const { current, settings: s, year } = await workPage("edit");
+  const { current, viewer, settings: s, year } = await workPage("edit");
   const canEdit = true; // workPage lets only full reach in; the actions check again.
   const data = await withSchool(current.ctx, async (tx) => {
     const [classes, rules, staff, years, approvalRule, roles, nextSeq] = await Promise.all([
-      classList(tx), classRules(tx), admissionStaff(tx, current.ctx), openYears(tx),
+      // Class rules are kept per class: a person limited to one campus sees their campus's classes. The rest is school-wide.
+      classList(tx, viewer.campusId), classRules(tx), admissionStaff(tx, current.ctx), openYears(tx),
       tx.approvalRule.findFirst({ where: { requestType: "admission", archivedAt: null } }),
       tx.role.findMany({ where: { key: { not: null } }, select: { key: true, name: true } }),
       year ? tx.application.count({ where: { academicYearId: year.id } }) : 0,

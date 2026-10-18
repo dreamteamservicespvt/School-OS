@@ -12,7 +12,7 @@ import { retryableFailures } from "@/lib/messaging/deliver";
 import { NOT_SENT } from "@/lib/messaging/send";
 import { RULES } from "@/lib/messaging/automatic";
 import { withHiddenLinks } from "@/lib/parent-link/token";
-import { countsFor, DELIVERY_LABEL, MESSAGE_STATUS_LABEL, senderNames } from "@/lib/communication/history";
+import { countsFor, DELIVERY_LABEL, MESSAGE_STATUS_LABEL, messageCampusWhere, recipientCampusWhere, senderNames } from "@/lib/communication/history";
 import { EmptyState } from "@/components/empty-state";
 import { Pill, type PillTone } from "@/components/ui/badge";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -48,10 +48,12 @@ export default async function MessagePage({ params, searchParams }: Props) {
   const tz = current.school.timeZone;
   const list = readListParams(await searchParams, ["status", "channel"]);
   const data = await withSchool(current.ctx, async (tx) => {
-    const m = await tx.message.findFirst({ where: { id, schoolId: current.ctx.schoolId, ...(access.full ? {} : { sentById: current.user.id }) } });
+    // A message only to another campus's people is not found for a person limited to one campus; within one, only their campus's people are listed.
+    const m = await tx.message.findFirst({ where: { id, schoolId: current.ctx.schoolId, ...(access.full ? {} : { sentById: current.user.id }), AND: [await messageCampusWhere(tx, current.ctx, access.scope.campusId)] } });
     if (!m) return null;
     const where: Prisma.MessageRecipientWhereInput = {
       messageId: m.id,
+      AND: [await recipientCampusWhere(tx, current.ctx, access.scope.campusId)],
       ...(list.q ? { OR: [{ name: { contains: list.q, mode: "insensitive" } }, { description: { contains: list.q, mode: "insensitive" } }, { address: { contains: list.q } }] } : {}),
       ...(list.filters.status === "backup" ? { isBackup: true } : list.filters.status ? { status: list.filters.status as Prisma.EnumDeliveryStatusFilter["equals"] } : {}),
       ...(list.filters.channel ? { channel: list.filters.channel } : {}),

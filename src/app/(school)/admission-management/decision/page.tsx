@@ -11,7 +11,8 @@ import { momentWhere, periodFromSearch } from "@/lib/periods";
 import { workPage, BASE } from "@/lib/admission/page";
 import { UUID_RE } from "@/lib/admission/act";
 import { progressOf } from "@/lib/admission/documents";
-import { classRules, openYears, stageOn } from "@/lib/admission/settings";
+import { admissionYears, classRules, openYears, stageOn } from "@/lib/admission/settings";
+import { applicationScope } from "@/lib/admission/access";
 import { bestSection, seatsFor, fullWords } from "@/lib/admission/seats";
 import { bestTestPct, outcomeLabel } from "@/lib/admission/tests";
 import { blockers, familyQuestion, type FamilyQuestion } from "@/lib/admission/convert";
@@ -38,7 +39,7 @@ const TONE_TEXT = { ok: "text-ok", warn: "text-warn", bad: "text-bad", brand: "t
 type FactTone = keyof typeof TONE_TEXT;
 
 export default async function DecisionPage({ searchParams }: Search) {
-  const { current, viewer, settings, year, tz, today } = await workPage();
+  const { current, viewer, settings, tz, today } = await workPage();
   const raw = await searchParams;
   const tabs = ["ready", "approved", ...(settings.waitingListOn ? ["waiting"] : []), "done"];
   const tab = tabs.includes(one(raw.tab)) ? one(raw.tab) : "ready";
@@ -50,10 +51,11 @@ export default async function DecisionPage({ searchParams }: Search) {
   const mayRejectAdmission = current.roles.some((r) => r.key === "principal");
 
   const data = await withSchool(current.ctx, async (tx) => {
-    const years = await openYears(tx);
+    // Every open year of each campus the person sees (only their campus's when limited to one).
+    const [years, admitting] = await Promise.all([openYears(tx, viewer.campusId), admissionYears(tx, current.ctx, settings, viewer.campusId)]);
     const yearIds = years.length ? years.map((y) => y.id) : [NONE];
     const n = await names(tx);
-    const base = { archivedAt: null, academicYearId: { in: yearIds } };
+    const base = { archivedAt: null, academicYearId: { in: yearIds }, ...applicationScope(viewer) };
     const decidedWhere = { ...base, stage: { in: ["APPROVED", "REJECTED", "ADMITTED"] as ApplicationStage[] }, decidedAt: range ? momentWhere(range, tz) : { not: null } };
     const [readyCount, approvedCount, waitingCount, doneCount] = await Promise.all([
       tx.application.count({ where: { ...base, stage: "DECISION" } }),
@@ -89,16 +91,16 @@ export default async function DecisionPage({ searchParams }: Search) {
         if (q) familyAsk.set(a.id, q);
       }
     }
-    const siblings = await tx.student.findMany({ where: { id: { in: apps.map((a) => a.siblingStudentId).filter((x): x is string => Boolean(x)) } }, select: { id: true, fullName: true } });
+    const siblings = await tx.student.findMany({ where: { id: { in: apps.map((a) => a.siblingStudentId).filter((x): x is string => Boolean(x)) }, ...(viewer.campusId ? { campusId: viewer.campusId } : {}) }, select: { id: true, fullName: true } });
     const history = tab === "waiting" ? await tx.applicationActivity.findMany({ where: { kind: "waiting-list", application: base }, orderBy: { at: "desc" }, take: 30, include: { application: { select: { classId: true } } } }) : [];
     const userIds = [...new Set([...decided.map((d) => d.decidedById), ...history.map((h) => h.byId), ...approvals.map((a) => a.askedById)].filter((x): x is string => Boolean(x)))];
     const users = await tx.userLogin.findMany({ where: { id: { in: userIds } }, select: { id: true, displayName: true } });
-    return { years, n, apps, decided, seats, rules, approvals, block, familyAsk, siblings, history, users, counts: { ready: readyCount, approved: approvedCount, waiting: waitingCount, done: doneCount } };
+    return { years, admitting, n, apps, decided, seats, rules, approvals, block, familyAsk, siblings, history, users, counts: { ready: readyCount, approved: approvedCount, waiting: waitingCount, done: doneCount } };
   });
 
   const { n } = data;
   const who = (id: string | null) => data.users.find((u) => u.id === id)?.displayName ?? "Staff";
-  const yl = (id: string) => { const y = data.years.find((x) => x.id === id); return y ? (y.status === "ACTIVE" && year && year.id !== y.id ? `${y.name} mid-year` : y.name) : ""; };
+  const yl = (id: string) => { const y = data.years.find((x) => x.id === id); return y ? (y.status === "ACTIVE" && data.admitting.some((a) => a.campusId === y.campusId && a.id !== y.id) ? `${y.name} mid-year` : y.name) : ""; };
   const seatOf = (a: { academicYearId: string; classId: string }) => data.seats.get(a.academicYearId)?.get(a.classId);
   const seatText = (a: { academicYearId: string; classId: string }) => {
     const c = seatOf(a);

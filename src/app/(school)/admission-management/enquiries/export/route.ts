@@ -21,7 +21,7 @@ export async function GET(req: Request) {
   return withSchool(current.ctx, async (tx) => {
     const v = await viewerFor(tx, current.ctx, current);
     const s = await loadSettings(tx, current.ctx);
-    const yearIds = (await openYears(tx)).map((y) => y.id);
+    const yearIds = (await openYears(tx, v.campusId)).map((y) => y.id);
     const where = enquiryWhere(params, v, { yearId: yearIds.length ? yearIds : ["00000000-0000-0000-0000-000000000000"], timeZone: tz, range });
     const rows = await tx.enquiry.findMany({ where, orderBy: enquiryOrder(params), take: 5000, include: { campaign: { select: { name: true } } } });
     const n = await names(tx);

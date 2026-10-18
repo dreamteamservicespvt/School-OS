@@ -11,7 +11,7 @@ export default async function NewSurveyPage({ searchParams }: { searchParams: Pr
   requireSurveys(access);
   const raw = await searchParams;
   const example = typeof raw.example === "string" ? raw.example : null;
-  const data = await surveyFormData(access.current.ctx, access.current.school.timeZone, null, example);
+  const data = await surveyFormData(access.current.ctx, access.current.school.timeZone, null, example, access.scope.campusId);
   return (
     <>
       <BackLink href="/communication/surveys" label="Surveys" />

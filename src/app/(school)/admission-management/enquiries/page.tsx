@@ -8,7 +8,7 @@ import { admissionPage, BASE } from "@/lib/admission/page";
 import { UUID_RE, instantToLocal, zonedToInstant } from "@/lib/admission/act";
 import { ENQUIRY_FILTERS, enquiryOrder, enquiryWhere } from "@/lib/admission/list";
 import { enquiryScope, canWorkOn } from "@/lib/admission/access";
-import { CLOSED_STATUSES, label, live, openYears } from "@/lib/admission/settings";
+import { CLOSED_STATUSES, admissionYears, label, live, openYears } from "@/lib/admission/settings";
 import { enquiryChoices, names } from "@/lib/admission/choices";
 import { enquiryTemplates } from "@/lib/admission/enquiries";
 import { seatsFor } from "@/lib/admission/seats";
@@ -49,7 +49,8 @@ export default async function EnquiriesPage({ searchParams }: Search) {
   const range = periodFromSearch(raw, { timeZone: tz });
 
   const data = await withSchool(current.ctx, async (tx) => {
-    const years = await openYears(tx);
+    // Every open year of each campus the person sees (only theirs when limited to one campus).
+    const [years, admitting] = await Promise.all([openYears(tx, viewer.campusId), admissionYears(tx, current.ctx, settings, viewer.campusId)]);
     const yearIds = years.map((y) => y.id);
     const where = enquiryWhere(params, viewer, { yearId: yearIds.length ? yearIds : ["00000000-0000-0000-0000-000000000000"], timeZone: tz, now, range });
     const base = { AND: [enquiryScope(viewer)], archivedAt: null, academicYearId: { in: yearIds } };
@@ -83,11 +84,12 @@ export default async function EnquiriesPage({ searchParams }: Search) {
         const who = (id: string | null) => users.find((u) => u.id === id)?.displayName ?? null;
         const seat = e.classId ? (await seatsFor(tx, e.academicYearId, [e.classId])).get(e.classId) : undefined;
         const ey = years.find((y) => y.id === e.academicYearId);
+        const midYear = (y: { id: string; status: string; campusId: string }) => y.status === "ACTIVE" && admitting.some((a) => a.campusId === y.campusId && a.id !== y.id);
         const isOpen = !CLOSED_STATUSES.includes(e.status);
         panel = {
           id: e.id, childName: e.childName, parentName: e.parentName, phone: e.phone, email: e.email,
           className: e.classId ? n.classes.get(e.classId) ?? null : null,
-          enquiryNo: e.enquiryNo, yearLabel: ey ? (ey.status === "ACTIVE" && year && year.id !== ey.id ? `${ey.name} mid-year` : ey.name) : "Earlier year",
+          enquiryNo: e.enquiryNo, yearLabel: ey ? (midYear(ey) ? `${ey.name} mid-year` : ey.name) : "Earlier year",
           status: e.status, statusLabel: label(settings.statusList, e.status), source: e.source, sourceLabel: label(settings.sourceList, e.source),
           firstSourceLabel: e.firstSource !== e.source ? label(settings.sourceList, e.firstSource) : null,
           ownerStaffId: e.ownerStaffId, ownerName: e.ownerStaffId ? n.staff.get(e.ownerStaffId) ?? null : null,
@@ -104,7 +106,7 @@ export default async function EnquiriesPage({ searchParams }: Search) {
         };
       }
     }
-    return { years, rows, total, choices, n, counts: { all, mine, dueToday, overdue, week, lost, openCount }, panel, canWork };
+    return { years, admitting, rows, total, choices, n, counts: { all, mine, dueToday, overdue, week, lost, openCount }, panel, canWork };
   });
 
   const { rows, total, choices, n, counts, panel } = data;
@@ -113,9 +115,9 @@ export default async function EnquiriesPage({ searchParams }: Search) {
   const chip = (value: string | null) => listHref(PATH, params, { quick: value, page: null, id: null });
   const yearLabel = (id: string) => {
     const y = data.years.find((x) => x.id === id);
-    return y ? (y.status === "ACTIVE" && year && year.id !== y.id ? `${y.name} mid-year` : y.name) : "";
+    return y ? (y.status === "ACTIVE" && data.admitting.some((a) => a.campusId === y.campusId && a.id !== y.id) ? `${y.name} mid-year` : y.name) : "";
   };
-  const yearsText = data.years.length > 1 && year ? `${year.name} and mid-year ${data.years.find((y) => y.status === "ACTIVE" && y.id !== year.id)?.name ?? ""}`.trim() : year?.name ?? "";
+  const yearsText = data.years.length > 1 && year ? `${year.name} and mid-year ${data.years.find((y) => y.status === "ACTIVE" && y.id !== year.id && y.campusId === year.campusId)?.name ?? ""}`.trim() : year?.name ?? "";
   const sub = own ? `Only the enquiries you added or own · ${counts.all} ${counts.all === 1 ? "enquiry" : "enquiries"}` : `${counts.openCount} open enquiries · ${yearsText}`;
   const canAdd = viewer.change !== "none" && data.years.length > 0;
   const full = viewer.change === "all" && !own;

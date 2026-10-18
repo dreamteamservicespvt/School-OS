@@ -4,10 +4,10 @@ import { withSchool } from "@/lib/db";
 import { buildExport, exportResponse, logExport } from "@/lib/exports";
 import { viewerFor } from "@/lib/admission/access";
 import { exportFormatOf } from "@/lib/admission/list";
-import { admissionYear, loadSettings } from "@/lib/admission/settings";
+import { admissionYears, loadSettings } from "@/lib/admission/settings";
 import { REPORTS, report, type ReportKey } from "@/lib/admission/reports";
 import { names } from "@/lib/admission/choices";
-import { describeFilters, readFilters } from "../../filters";
+import { defaultYears, describeFilters, readFilters } from "../../filters";
 
 type Row = Record<string, string | number>;
 
@@ -22,8 +22,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ key: str
     const v = await viewerFor(tx, current.ctx, current);
     if (v.see !== "all") return new Response("Only the admission team can export admission reports.", { status: 403 });
     const s = await loadSettings(tx, current.ctx);
-    const year = await admissionYear(tx, current.ctx, s);
-    const read = readFilters(Object.fromEntries(url.searchParams.entries()), s, year?.id ?? null, current.school.timeZone);
+    // By default each campus's admission year (only the person's campus when limited to one), as on screen.
+    const raw = Object.fromEntries(url.searchParams.entries());
+    const read = readFilters(raw, s, defaultYears(await admissionYears(tx, current.ctx, s, v.campusId), raw), current.school.timeZone);
     if (!read) return new Response("No academic year is set up yet.", { status: 400 });
     const n = await names(tx);
     const r = await report(tx, s, v, key as ReportKey, read.f, n);

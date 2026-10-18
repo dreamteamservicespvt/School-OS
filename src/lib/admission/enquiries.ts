@@ -10,8 +10,8 @@ import { writeAudit } from "../audit";
 import { notify } from "../notifications";
 import { formatDateTime } from "../format";
 import { AdmissionProblem, instantToLocal, zonedToInstant } from "./act";
-import { canWorkOn, requireFull, type Viewer } from "./access";
-import { CLOSED_STATUSES, SYSTEM_STATUSES, label, live, type Settings } from "./settings";
+import { canWorkOn, enquiryScope, requireFull, requireOwnCampus, type Viewer } from "./access";
+import { CLOSED_STATUSES, SYSTEM_STATUSES, label, live, yearOnCampus, type Settings } from "./settings";
 import { messageParent } from "./notify-parents";
 import { formatNumber, nextNumber } from "../sequences";
 
@@ -24,25 +24,29 @@ export const CALL_OUTCOMES = ["Talked", "No answer", "Busy", "Switched off", "Wr
 
 export type Match = { kind: "enquiry" | "application" | "parent"; text: string; href: string; id: string };
 
-/** "This phone already has an open enquiry for Arjun (class 2)" — matches on phone or email (02 §5). */
-export async function findDuplicates(tx: Tx, input: { phone?: string | null; email?: string | null; excludeEnquiryId?: string | null; excludeApplicationId?: string | null }): Promise<Match[]> {
+/**
+ * "This phone already has an open enquiry for Arjun (class 2)" — matches on phone or email (02 §5).
+ * campusId: a person limited to one campus is shown that campus's matches only.
+ */
+export async function findDuplicates(tx: Tx, input: { phone?: string | null; email?: string | null; excludeEnquiryId?: string | null; excludeApplicationId?: string | null; campusId?: string | null }): Promise<Match[]> {
   const phone = input.phone && /^\d{10}$/.test(input.phone) ? input.phone : null;
   const email = input.email ? input.email.toLowerCase() : null;
   if (!phone && !email) return [];
   const or = <T>(p: T, e: T) => [...(phone ? [p] : []), ...(email ? [e] : [])];
+  const campus = input.campusId ? { campusId: input.campusId } : {};
   const [enquiries, applications, guardians, classes] = await Promise.all([
     tx.enquiry.findMany({
-      where: { archivedAt: null, status: { notIn: [...CLOSED_STATUSES] }, id: input.excludeEnquiryId ? { not: input.excludeEnquiryId } : undefined, OR: or<Prisma.EnquiryWhereInput>({ phone: phone! }, { email: { equals: email!, mode: "insensitive" } }) },
+      where: { archivedAt: null, status: { notIn: [...CLOSED_STATUSES] }, id: input.excludeEnquiryId ? { not: input.excludeEnquiryId } : undefined, ...campus, OR: or<Prisma.EnquiryWhereInput>({ phone: phone! }, { email: { equals: email!, mode: "insensitive" } }) },
       take: 5, orderBy: { createdAt: "desc" },
     }),
     tx.application.findMany({
-      where: { archivedAt: null, stage: { notIn: ["REJECTED", "WITHDRAWN", "ADMITTED"] }, id: input.excludeApplicationId ? { not: input.excludeApplicationId } : undefined, OR: or<Prisma.ApplicationWhereInput>({ phone: phone! }, { email: { equals: email!, mode: "insensitive" } }) },
+      where: { archivedAt: null, stage: { notIn: ["REJECTED", "WITHDRAWN", "ADMITTED"] }, id: input.excludeApplicationId ? { not: input.excludeApplicationId } : undefined, ...campus, OR: or<Prisma.ApplicationWhereInput>({ phone: phone! }, { email: { equals: email!, mode: "insensitive" } }) },
       take: 5, orderBy: { createdAt: "desc" },
     }),
     tx.guardian.findMany({
       where: { archivedAt: null, OR: or<Prisma.GuardianWhereInput>({ phone: phone! }, { email: { equals: email!, mode: "insensitive" } }) },
       take: 3,
-      include: { students: { where: { archivedAt: null, student: { archivedAt: null, status: { in: ["ACTIVE", "ADMITTED"] } } }, include: { student: { include: { enrolments: { where: { archivedAt: null }, orderBy: { createdAt: "desc" }, take: 1 } } } } } },
+      include: { students: { where: { archivedAt: null, student: { archivedAt: null, status: { in: ["ACTIVE", "ADMITTED"] }, ...campus } }, include: { student: { include: { enrolments: { where: { archivedAt: null }, orderBy: { createdAt: "desc" }, take: 1 } } } } } },
     }),
     tx.schoolClass.findMany({ select: { id: true, name: true } }),
   ]);
@@ -165,33 +169,45 @@ function checkSource(s: Settings, key: string) {
   if (!live(s.sourceList).some((x) => x.key === key)) throw new AdmissionProblem("Choose where the family heard of the school.", "source");
 }
 
-async function checkClass(tx: Tx, classId: string | null) {
-  if (!classId) return;
-  if (!(await tx.schoolClass.findFirst({ where: { id: classId, archivedAt: null }, select: { id: true } }))) throw new AdmissionProblem("Choose a class from the list.", "classId");
+/** The class wanted, if any; it must be on the given campus when one is given. */
+async function checkClass(tx: Tx, classId: string | null, campusId?: string | null) {
+  if (!classId) return null;
+  const cls = await tx.schoolClass.findFirst({ where: { id: classId, archivedAt: null }, select: { id: true, campusId: true } });
+  if (!cls) throw new AdmissionProblem("Choose a class from the list.", "classId");
+  if (campusId && cls.campusId !== campusId) throw new AdmissionProblem("Choose a class of this enquiry's campus.", "classId");
+  return cls;
 }
 
 /**
  * Adds an enquiry. A matching phone or email stops it with the matches,
  * unless the person chose "Add as sibling enquiry" (siblingOfId) or "Save anyway".
+ * The enquiry is for the campus of the class wanted (else opts.campusId), in
+ * that campus's year: opts.yearId, or the campus's open year of the same name
+ * (each campus has its own years). A person limited to one campus adds
+ * enquiries for that campus only.
  */
 export async function createEnquiry(tx: Tx, ctx: SchoolContext, v: Viewer, s: Settings, input: EnquiryInput, opts: { yearId: string; campusId: string; today: string; force?: boolean; siblingOfId?: string | null; importBatchId?: string | null; now?: Date }) {
   if (v.change === "none") throw new AdmissionProblem("Your role cannot add enquiries.");
   checkSource(s, input.source);
-  await checkClass(tx, input.classId);
+  const cls = await checkClass(tx, input.classId);
+  const campusId = cls?.campusId ?? opts.campusId;
+  requireOwnCampus(v, campusId, cls ? "classId" : undefined);
+  const year = await yearOnCampus(tx, opts.yearId, campusId);
+  if (!year) throw new AdmissionProblem("This campus has no year open for admissions. Add it in Academic Management.", "yearId");
   const now = opts.now ?? new Date();
   if (input.nextFollowUpAt.getTime() < now.getTime() - 5 * 60_000) throw new AdmissionProblem("The next follow-up must be now or later.", "nextFollowUpAt");
   if (!opts.force && !opts.siblingOfId) {
-    const matches = await findDuplicates(tx, { phone: input.phone, email: input.email });
+    const matches = await findDuplicates(tx, { phone: input.phone, email: input.email, campusId: v.campusId });
     if (matches.length) throw new DuplicateProblem(matches);
   }
   let siblingOfId: string | null = null;
   if (opts.siblingOfId) {
-    const sib = await tx.enquiry.findFirst({ where: { id: opts.siblingOfId, archivedAt: null } });
+    const sib = await tx.enquiry.findFirst({ where: { id: opts.siblingOfId, archivedAt: null, ...(v.campusId ? { campusId: v.campusId } : {}) } });
     if (sib) siblingOfId = sib.id;
   }
   let owner = input.ownerStaffId;
   if (owner) {
-    if (!(await tx.staff.findFirst({ where: { id: owner, archivedAt: null }, select: { id: true } }))) throw new AdmissionProblem("Choose the owner from the list.", "ownerStaffId");
+    if (!(await tx.staff.findFirst({ where: { id: owner, archivedAt: null, ...(v.campusId ? { campusId: v.campusId } : {}) }, select: { id: true } }))) throw new AdmissionProblem("Choose the owner from the list.", "ownerStaffId");
   } else {
     owner = await pickOwner(tx, ctx, s, { classId: input.classId, adderStaffId: v.staffId, today: opts.today });
   }
@@ -199,7 +215,7 @@ export async function createEnquiry(tx: Tx, ctx: SchoolContext, v: Viewer, s: Se
   const e = await tx.enquiry.create({
     data: {
       enquiryNo: await nextEnquiryNo(tx, ctx),
-      schoolId: ctx.schoolId, campusId: opts.campusId, academicYearId: opts.yearId,
+      schoolId: ctx.schoolId, campusId, academicYearId: year.id,
       childName: input.childName, parentName: input.parentName, phone: input.phone, email: input.email, classId: input.classId,
       source: input.source, firstSource: input.source, status: "new", ownerStaffId: owner,
       nextFollowUpAt: input.nextFollowUpAt, nextAction: input.nextAction, childDob: input.childDob, currentSchool: input.currentSchool,
@@ -216,7 +232,8 @@ export async function createEnquiry(tx: Tx, ctx: SchoolContext, v: Viewer, s: Se
 }
 
 export async function loadEnquiry(tx: Tx, v: Viewer, id: string, opts: { forChange?: boolean } = {}) {
-  const e = await tx.enquiry.findFirst({ where: { id, archivedAt: null } });
+  // Another campus's enquiry is "not found" for a person limited to one campus.
+  const e = await tx.enquiry.findFirst({ where: { id, archivedAt: null, ...(v.campusId ? { campusId: v.campusId } : {}) } });
   if (!e) throw new AdmissionProblem("This enquiry was not found. It may have been archived.");
   if (v.see !== "all" && !canWorkOn({ change: "own", staffId: v.staffId, userId: v.userId }, e)) throw new AdmissionProblem("This enquiry belongs to someone else. Ask the admission team if you need it.");
   if (opts.forChange && !canWorkOn(v, e)) throw new AdmissionProblem("You can read this enquiry but not change it.");
@@ -227,9 +244,9 @@ export type EnquiryEdit = Pick<EnquiryInput, "childName" | "parentName" | "phone
 
 export async function editEnquiry(tx: Tx, ctx: SchoolContext, v: Viewer, id: string, input: EnquiryEdit, opts: { force?: boolean } = {}) {
   const e = await loadEnquiry(tx, v, id, { forChange: true });
-  await checkClass(tx, input.classId);
+  await checkClass(tx, input.classId, e.campusId);
   if (!opts.force && (input.phone !== e.phone || (input.email ?? null) !== (e.email ?? null))) {
-    const matches = await findDuplicates(tx, { phone: input.phone !== e.phone ? input.phone : null, email: input.email !== e.email ? input.email : null, excludeEnquiryId: e.id });
+    const matches = await findDuplicates(tx, { phone: input.phone !== e.phone ? input.phone : null, email: input.email !== e.email ? input.email : null, excludeEnquiryId: e.id, campusId: v.campusId });
     if (matches.length) throw new DuplicateProblem(matches);
   }
   const changed = await tx.enquiry.update({ where: { id: e.id }, data: { ...input, customFields: input.customFields ?? (e.customFields as Prisma.InputJsonValue), updatedById: ctx.userId } });
@@ -272,7 +289,7 @@ export async function changeSource(tx: Tx, ctx: SchoolContext, v: Viewer, s: Set
 export async function reassign(tx: Tx, ctx: SchoolContext, v: Viewer, id: string, ownerStaffId: string, reason: string | null) {
   const e = await loadEnquiry(tx, v, id, { forChange: true });
   if (e.ownerStaffId === ownerStaffId) throw new AdmissionProblem("This person already owns the enquiry.", "ownerStaffId");
-  if (!(await tx.staff.findFirst({ where: { id: ownerStaffId, archivedAt: null }, select: { id: true } }))) throw new AdmissionProblem("Choose the new owner from the list.", "ownerStaffId");
+  if (!(await tx.staff.findFirst({ where: { id: ownerStaffId, archivedAt: null, ...(v.campusId ? { campusId: v.campusId } : {}) }, select: { id: true } }))) throw new AdmissionProblem("Choose the new owner from the list.", "ownerStaffId");
   const [from, to] = [await staffName(tx, e.ownerStaffId), await staffName(tx, ownerStaffId)];
   const changed = await tx.enquiry.update({ where: { id: e.id }, data: { ownerStaffId, remindedFor: null, updatedById: ctx.userId } });
   await activity(tx, ctx, e.id, "reassigned", `Reassigned from ${from} to ${to}.${reason ? ` Reason: ${reason}` : ""}`, { data: { from: e.ownerStaffId, to: ownerStaffId, reason } });
@@ -380,7 +397,7 @@ export async function archiveEnquiry(tx: Tx, ctx: SchoolContext, v: Viewer, id: 
 
 export async function restoreEnquiry(tx: Tx, ctx: SchoolContext, v: Viewer, id: string) {
   requireFull(v, "restoring enquiries");
-  const e = await tx.enquiry.findFirst({ where: { id, archivedAt: { not: null } } });
+  const e = await tx.enquiry.findFirst({ where: { id, archivedAt: { not: null }, ...(v.campusId ? { campusId: v.campusId } : {}) } });
   if (!e) throw new AdmissionProblem("This enquiry is not archived.");
   await tx.enquiry.update({ where: { id }, data: { archivedAt: null, updatedById: ctx.userId } });
   await activity(tx, ctx, id, "restored", "Restored from the archive.");
@@ -437,7 +454,7 @@ export async function runCampaign(tx: Tx, ctx: SchoolContext, v: Viewer, s: Sett
   if (input.name.trim().length < 3) throw new AdmissionProblem("Name the campaign, for example \"Class 1 open day\".", "name");
   if (input.message.trim().length < 10) throw new AdmissionProblem("Type the message parents will read.", "message");
   if (input.message.length > 1000) throw new AdmissionProblem("A message can be at most 1,000 characters.", "message");
-  const enquiries = await tx.enquiry.findMany({ where: { id: { in: ids }, archivedAt: null } });
+  const enquiries = await tx.enquiry.findMany({ where: { id: { in: ids }, archivedAt: null, AND: [enquiryScope(v)] } });
   if (enquiries.length === 0) throw new AdmissionProblem("Select at least one enquiry.");
   const campaign = await tx.admissionCampaign.create({ data: { schoolId: ctx.schoolId, name: input.name.trim(), message: input.message.trim(), channel: input.channel, createdById: ctx.userId } });
   let sent = 0;

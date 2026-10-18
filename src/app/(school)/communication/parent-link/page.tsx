@@ -5,7 +5,7 @@ import { withSchool } from "@/lib/db";
 import { commPage } from "@/lib/communication/access";
 import { readListParams, skipTake, listHref, PAGE_SIZE } from "@/lib/list";
 import { formatDate, formatDateTime } from "@/lib/format";
-import { childrenByGuardian, LINK_FILTERS, linkListWhere, linkSummary } from "@/lib/communication/parent-link-admin";
+import { childrenByGuardian, LINK_FILTERS, linkCampusWhere, linkListWhere, linkSummary } from "@/lib/communication/parent-link-admin";
 import { maskPhone } from "@/lib/parent-link/links";
 import { requestStatus } from "@/lib/parent-link/consent";
 import { sectionSwitches } from "@/lib/parent-link/section-list";
@@ -43,22 +43,26 @@ export default async function ParentLinkPage({ searchParams }: { searchParams: S
   const since = new Date(now.getTime() - weeks * 7 * DAY);
   const data = await withSchool(current.ctx, async (tx) => {
     const ctx = current.ctx;
-    const where = await linkListWhere(tx, ctx, params, now, tz);
+    // A person limited to one campus sees the links of their campus's guardians, and its classes, only.
+    const campusId = access.scope.campusId ?? null;
+    const mine = await linkCampusWhere(tx, ctx, campusId);
+    const campusLinks = campusId ? (await tx.parentLink.findMany({ where: { schoolId: ctx.schoolId, ...mine }, select: { id: true } })).map((l) => l.id) : null;
+    const where = await linkListWhere(tx, ctx, params, now, tz, campusId);
     const [rows, total, summary, settings, classes, sections, opens, everOpened, sentCount, requests] = await Promise.all([
       tx.parentLink.findMany({ where, orderBy: params.sort === "opened" ? { lastOpenedAt: { sort: params.dir, nulls: "last" } } : { createdAt: params.sort === "created" ? params.dir : "desc" }, ...skipTake(params), include: { devices: { where: { revokedAt: null, expiresAt: { gt: now } }, select: { id: true } } } }),
       tx.parentLink.count({ where }),
-      linkSummary(tx, ctx, now),
+      linkSummary(tx, ctx, now, campusId),
       messageSettings(tx, ctx),
-      tx.schoolClass.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null }, select: { id: true, name: true }, orderBy: { sortOrder: "asc" } }),
-      tx.section.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null }, select: { id: true, name: true, classId: true }, orderBy: { name: "asc" } }),
-      tx.auditLogEntry.findMany({ where: { schoolId: ctx.schoolId, recordType: "Parent Link", action: "opened", at: { gte: since } }, select: { recordId: true, at: true }, take: 50_000 }),
-      tx.parentLink.count({ where: { schoolId: ctx.schoolId, lastOpenedAt: { not: null } } }),
-      tx.parentLink.count({ where: { schoolId: ctx.schoolId, lastSentAt: { not: null } } }),
+      tx.schoolClass.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null, ...(campusId ? { campusId } : {}) }, select: { id: true, name: true }, orderBy: { sortOrder: "asc" } }),
+      tx.section.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null, ...(campusId ? { schoolClass: { campusId } } : {}) }, select: { id: true, name: true, classId: true }, orderBy: { name: "asc" } }),
+      tx.auditLogEntry.findMany({ where: { schoolId: ctx.schoolId, recordType: "Parent Link", action: "opened", at: { gte: since }, ...(campusLinks ? { recordId: { in: campusLinks } } : {}) }, select: { recordId: true, at: true }, take: 50_000 }),
+      tx.parentLink.count({ where: { schoolId: ctx.schoolId, lastOpenedAt: { not: null }, ...mine } }),
+      tx.parentLink.count({ where: { schoolId: ctx.schoolId, lastSentAt: { not: null }, ...mine } }),
       tx.consentRequest.findMany({ where: { schoolId: ctx.schoolId }, orderBy: { createdAt: "desc" }, take: 3 }),
     ]);
     const guardians = await tx.guardian.findMany({ where: { id: { in: rows.map((r) => r.guardianId) } }, select: { id: true, name: true, phone: true } });
-    const kids = await childrenByGuardian(tx, ctx, rows.map((r) => r.guardianId));
-    const preview = await tx.parentLink.findFirst({ where: { schoolId: ctx.schoolId, status: "ACTIVE" }, orderBy: { createdAt: "asc" }, select: { id: true } });
+    const kids = await childrenByGuardian(tx, ctx, rows.map((r) => r.guardianId), campusId);
+    const preview = await tx.parentLink.findFirst({ where: { schoolId: ctx.schoolId, status: "ACTIVE", ...mine }, orderBy: { createdAt: "asc" }, select: { id: true } });
     const consents = [];
     for (const r of requests) consents.push(await requestStatus(tx, ctx, r.id));
     const texts = await tx.consentText.findMany({ where: { schoolId: ctx.schoolId, id: { in: requests.map((r) => r.consentTextId) } }, select: { id: true, title: true, version: true } });

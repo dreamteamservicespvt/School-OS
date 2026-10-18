@@ -13,12 +13,12 @@ import { notify } from "../notifications";
 import { formatRupees } from "../format";
 import { hitLimit, limitMessage } from "../rate-limit";
 import { AdmissionProblem, todayIn } from "./act";
-import { admissionYear, classList, classRules, live, loadSettings } from "./settings";
+import { admissionYear, campusNames, classList, classRules, live, loadSettings, withCampus } from "./settings";
 import { pickOwner } from "./enquiries";
 import { createApplication, type ApplicationInput } from "./applications";
 import { admissionConsentTexts, recordConsents, startOtp, tryOtp, verifyOtp, DATA_CONSENT } from "./consent";
 import { activeRazorpay, feeStatus } from "./fee";
-import { requireFull, type Viewer } from "./access";
+import { applicationScope, requireFull, type Viewer } from "./access";
 import { messageParent } from "./notify-parents";
 import { appUrl } from "../parent-link/token";
 
@@ -41,7 +41,7 @@ export async function publicForm(schoolId: string) {
     const s = await loadSettings(tx, systemCtx(schoolId));
     const school = await tx.school.findUniqueOrThrow({ where: { id: schoolId }, select: { name: true, phone: true, email: true, address: true, logoUrl: true, logoFileId: true, code: true, timeZone: true } });
     const year = await admissionYear(tx, systemCtx(schoolId), s);
-    const [classes, rules] = await Promise.all([classList(tx), classRules(tx)]);
+    const [classes, rules, campus] = await Promise.all([classList(tx), classRules(tx), campusNames(tx)]);
     const open = classes.filter((c) => rules.get(c.id)?.onlineOpen !== false);
     const consents = await admissionConsentTexts(tx, school.name);
     const pay = s.applicationFeeOn ? Boolean(await activeRazorpay(tx)) : false;
@@ -51,7 +51,8 @@ export async function publicForm(schoolId: string) {
       year: year ? { id: year.id, name: year.name } : null,
       classes: open.map((c) => {
         const r = rules.get(c.id);
-        return { id: c.id, name: c.name, fee: s.applicationFeeOn && r?.feePaise ? formatRupees(r.feePaise) : null, minAge: r?.minAge ?? null, maxAge: r?.maxAge ?? null, previousSchool: (r?.documents ?? []).some((d) => d.type === "transfer-certificate") };
+        // A school with several campuses shows each class with its campus.
+        return { id: c.id, name: withCampus(campus, c.name, c.campusId), fee: s.applicationFeeOn && r?.feePaise ? formatRupees(r.feePaise) : null, minAge: r?.minAge ?? null, maxAge: r?.maxAge ?? null, previousSchool: (r?.documents ?? []).some((d) => d.type === "transfer-certificate") };
       }),
       consents,
       onlinePayment: pay,
@@ -103,9 +104,12 @@ export async function submitOnline(schoolId: string, input: OnlineSubmission, ip
     if (!input.consentTypes.includes(DATA_CONSENT)) throw new AdmissionProblem("Please agree to the use of your child's data. The school needs it to process the admission.", `consent_${DATA_CONSENT}`);
     await verifyOtp(tx, { purpose: `online:${input.phone}`, phone: input.phone, code: input.code });
     const school = await tx.school.findUniqueOrThrow({ where: { id: schoolId }, select: { name: true, campuses: { where: { isMain: true, archivedAt: null }, select: { id: true } } } });
-    const campusId = school.campuses[0]?.id ?? (await tx.campus.findFirstOrThrow({ where: { archivedAt: null }, select: { id: true } })).id;
+    // The application is for the campus of the class chosen, in that campus's admission year (each campus has its own years).
+    const cls = await tx.schoolClass.findFirst({ where: { id: input.classId, archivedAt: null }, select: { campusId: true } });
+    const campusId = cls?.campusId ?? school.campuses[0]?.id ?? (await tx.campus.findFirstOrThrow({ where: { archivedAt: null }, select: { id: true } })).id;
+    const campusYear = (await admissionYear(tx, ctx, s, campusId)) ?? year;
     // A family already in Enquiries is joined to their enquiry; a new family gets one, so the funnel counts them.
-    let enquiry = await tx.enquiry.findFirst({ where: { archivedAt: null, phone: input.phone, status: { notIn: ["applied", "admitted"] } }, orderBy: { createdAt: "desc" } });
+    let enquiry = await tx.enquiry.findFirst({ where: { archivedAt: null, phone: input.phone, status: { notIn: ["applied", "admitted"] }, campusId }, orderBy: { createdAt: "desc" } });
     if (!enquiry) {
       const source = input.heardFrom && live(s.sourceList).some((x) => x.key === input.heardFrom) ? input.heardFrom : live(s.sourceList).some((x) => x.key === "website") ? "website" : live(s.sourceList)[0]?.key ?? "website";
       const tz = (await tx.school.findUniqueOrThrow({ where: { id: schoolId }, select: { timeZone: true } })).timeZone;
@@ -113,14 +117,14 @@ export async function submitOnline(schoolId: string, input: OnlineSubmission, ip
       enquiry = await tx.enquiry.create({
         data: {
           enquiryNo: await nextEnquiryNo(tx, ctx),
-          schoolId, campusId, academicYearId: year.id, childName: [input.firstName, input.lastName].filter(Boolean).join(" "),
+          schoolId, campusId, academicYearId: campusYear.id, childName: [input.firstName, input.lastName].filter(Boolean).join(" "),
           parentName: input.fatherName ?? input.motherName ?? input.guardianName ?? "Parent", phone: input.phone, email: input.email, classId: input.classId,
           source, firstSource: source, status: "new", ownerStaffId: owner, childDob: input.dateOfBirth, currentSchool: input.previousSchool,
         },
       });
       await tx.enquiryActivity.create({ data: { schoolId, enquiryId: enquiry.id, kind: "created", text: "Enquiry made from the online application form." } });
     }
-    const app = await createApplication(tx, ctx, null, s, input, { campusId, channel: "online", enquiryId: enquiry.id, force: false });
+    const app = await createApplication(tx, ctx, null, s, { ...input, yearId: campusYear.id }, { campusId, channel: "online", enquiryId: enquiry.id, force: false });
     const texts = await admissionConsentTexts(tx, school.name);
     await recordConsents(tx, ctx, app, { types: input.consentTypes, givenByName: input.givenByName, howGiven: "admission-form-online", texts, verifiedAt: new Date() });
     // The enquiry owner hears about it; a school with no owner set tells its principals.
@@ -171,7 +175,7 @@ export function statusPath(schoolCode: string, schoolId: string, applicationId: 
 /** Sends the parent the link to pay the application fee online (Razorpay). The receipt is made only once Razorpay confirms. */
 export async function sendFeeLink(tx: Tx, ctx: SchoolContext, v: Viewer, applicationId: string) {
   requireFull(v, "fee links");
-  const app = await tx.application.findFirst({ where: { id: applicationId, archivedAt: null }, include: { payments: true } });
+  const app = await tx.application.findFirst({ where: { id: applicationId, archivedAt: null, ...applicationScope(v) }, include: { payments: true } });
   if (!app) throw new AdmissionProblem("This application was not found.");
   const st = feeStatus(app, app.payments);
   if (st.key === "not-needed" || st.key === "paid") throw new AdmissionProblem("Nothing is due on this application.");

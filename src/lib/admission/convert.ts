@@ -143,7 +143,7 @@ export async function familyQuestion(tx: Tx, app: Application): Promise<FamilyQu
 /** Confirm admission: once per application. A second try opens the existing student. */
 export async function confirmAdmission(tx: Tx, ctx: SchoolContext, v: Viewer, applicationId: string, input: ConfirmInput) {
   requireFull(v, "confirming admissions");
-  const app = await loadApplication(tx, applicationId);
+  const app = await loadApplication(tx, applicationId, v);
   if (app.studentId) {
     const st = await tx.student.findUnique({ where: { id: app.studentId } });
     throw new AlreadyAdmittedProblem(`This application is already admitted as ${st?.fullName ?? app.fullName}, admission no. ${st?.admissionNo ?? "?"}.`, undefined, { href: `/admission-management/decision/${app.id}/admitted`, label: "Open the admission" });
@@ -353,7 +353,7 @@ async function happenedSince(tx: Tx, studentId: string, admittedAt: Date, feeDue
 /** Undo admission: within 10 minutes, and only if nothing else has happened to the student. */
 export async function undoAdmission(tx: Tx, ctx: SchoolContext, v: Viewer, applicationId: string, now = new Date()) {
   requireFull(v, "undoing an admission");
-  const app = await loadApplication(tx, applicationId);
+  const app = await loadApplication(tx, applicationId, v);
   if (!app.studentId || !app.admittedAt || app.stage !== "ADMITTED") throw new AdmissionProblem("This application is not admitted.");
   if (now.getTime() - app.admittedAt.getTime() > UNDO_ADMISSION_MS) throw new AdmissionProblem("Undo admission works for 10 minutes only. To reverse it now, record the student leaving in Student Management (Leaving & Alumni).");
   const c = app.conversion as unknown as Conversion | null;

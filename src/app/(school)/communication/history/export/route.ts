@@ -6,7 +6,7 @@ import { formatDateTime } from "@/lib/format";
 import { PermissionDeniedError, reachFor } from "@/lib/permissions";
 import { CHANNEL_LABEL, type Channel } from "@/lib/messaging/channels";
 import { RULES } from "@/lib/messaging/automatic";
-import { countsFor, HISTORY_FILTERS, historyWhere, MESSAGE_STATUS_LABEL, senderNames, type Counts } from "@/lib/communication/history";
+import { countsFor, HISTORY_FILTERS, historyWhere, messageCampusWhere, MESSAGE_STATUS_LABEL, senderNames, type Counts } from "@/lib/communication/history";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +27,8 @@ export async function GET(req: Request) {
   type Row = { m: Awaited<ReturnType<typeof load>>["rows"][number]; c: Counts; by: string };
   async function load() {
     return withSchool(current!.ctx, async (tx) => {
-      const rows = await tx.message.findMany({ where: historyWhere(current!.ctx, full, params, tz), orderBy: { createdAt: "desc" }, take: 10000 });
+      // A person limited to one campus gets the messages about their campus only.
+      const rows = await tx.message.findMany({ where: { AND: [historyWhere(current!.ctx, full, params, tz), await messageCampusWhere(tx, current!.ctx, current!.campusId)] }, orderBy: { createdAt: "desc" }, take: 10000 });
       const counts = await countsFor(tx, current!.ctx, rows.map((r) => r.id));
       const names = await senderNames(tx, rows.map((r) => r.sentById));
       const filters = [params.q && `search "${params.q}"`, ...Object.entries(params.filters).map(([k, v]) => `${k}: ${v}`)].filter(Boolean).join(", ");

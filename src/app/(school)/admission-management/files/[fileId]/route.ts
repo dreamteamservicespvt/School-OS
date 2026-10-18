@@ -3,7 +3,7 @@
 import { requireCurrent } from "@/lib/current";
 import { withSchool } from "@/lib/db";
 import { fileStore } from "@/lib/storage";
-import { viewerFor } from "@/lib/admission/access";
+import { applicationScope, viewerFor } from "@/lib/admission/access";
 import { UUID_RE } from "@/lib/admission/act";
 
 const notFound = () => new Response("This file was not found, or you cannot open it.", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } });
@@ -16,7 +16,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ fileId:
   const found = await withSchool(current.ctx, async (tx) => {
     const v = await viewerFor(tx, current.ctx, current);
     if (v.see !== "all") return null;
-    const doc = await tx.applicationDocument.findFirst({ where: { fileId }, select: { id: true } });
+    const doc = await tx.applicationDocument.findFirst({ where: { fileId, application: applicationScope(v) }, select: { id: true } });
     if (!doc) return null;
     return tx.storedFile.findFirst({ where: { id: fileId, archivedAt: null } });
   });

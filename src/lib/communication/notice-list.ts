@@ -3,7 +3,7 @@ import "server-only";
 import type { Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import type { ListParams } from "../list";
-import { readAudience } from "./notices";
+import { noticeOnCampus, readAudience } from "./notices";
 import { OPEN_LINK } from "../students/guardian-access";
 
 import { inPeriod, PERIOD_FILTERS } from "./period";
@@ -29,6 +29,18 @@ export function noticeWhere(ctx: SchoolContext, full: boolean, p: ListParams, ti
   const when = inPeriod(p.filters, timeZone);
   if (when) and.push({ createdAt: when });
   return { AND: and };
+}
+
+/**
+ * For a person limited to one campus: leaves out the notices for other campuses
+ * only (a notice with no campus is for the whole school and stays). {} for the
+ * whole school. Used with noticeWhere() by the Notice Board list and its export.
+ */
+export async function noticeCampusWhere(tx: Tx, ctx: SchoolContext, campusId: string | null | undefined): Promise<Prisma.NoticeWhereInput> {
+  if (!campusId) return {};
+  const rows = await tx.notice.findMany({ where: { schoolId: ctx.schoolId }, select: { id: true, audience: true, createdById: true } });
+  const hidden = rows.filter((n) => !noticeOnCampus(n, campusId, ctx.userId)).map((n) => n.id);
+  return hidden.length ? { id: { notIn: hidden } } : {};
 }
 
 /**

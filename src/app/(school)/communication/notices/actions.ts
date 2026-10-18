@@ -10,7 +10,7 @@ import { withSchool } from "@/lib/db";
 import { flash } from "@/lib/flash";
 import { commAction, commOfficeAction } from "@/lib/communication/access";
 import { localToUtc } from "@/lib/communication/time";
-import { archiveNotice, checkNoticeScope, markRead, NoticeProblem, NOTICE_CHANNELS, noticeResendInput, remindUnacknowledged, saveNotice, CRITICAL_WORD, type NoticeChannel, type NoticeInput } from "@/lib/communication/notices";
+import { archiveNotice, checkNoticeCampus, checkNoticeScope, markRead, noticeOnCampus, NoticeProblem, NOTICE_CHANNELS, noticeResendInput, remindUnacknowledged, saveNotice, CRITICAL_WORD, type NoticeChannel, type NoticeInput } from "@/lib/communication/notices";
 import { DOCUMENT_TYPES, FileProblem, saveFile } from "@/lib/files";
 import { planMessage, sendMessage, MessagingProblem } from "@/lib/messaging/send";
 import { requireAction } from "@/lib/current";
@@ -68,9 +68,13 @@ export async function saveNoticeAction(_prev: NoticeState, form: FormData): Prom
   const id = uuid.test(raw) ? raw : null;
   let result;
   try {
+    // A sender limited to one campus: the notice is for their campus, and its classes must be of it.
     checkNoticeScope(input, access.scope);
     result = await withSchool(current.ctx, async (tx) => {
-      const before = id ? await tx.notice.findFirst({ where: { id, schoolId: current.ctx.schoolId }, select: { createdById: true, attachmentFileIds: true } }) : null;
+      await checkNoticeCampus(tx, input.audience, access.scope.campusId);
+      const found = id ? await tx.notice.findFirst({ where: { id, schoolId: current.ctx.schoolId }, select: { createdById: true, attachmentFileIds: true, audience: true } }) : null;
+      if (id && (!found || !noticeOnCampus(found, access.scope.campusId, current.user.id))) throw new NoticeProblem("This notice was not found.");
+      const before = found;
       // Someone with their own scope changes only notices they wrote.
       if (before && !access.full && before.createdById !== current.user.id) throw new NoticeProblem("You can change only notices you wrote.");
       // Attachments kept from before must be this notice's own.
@@ -91,11 +95,11 @@ export async function saveNoticeAction(_prev: NoticeState, form: FormData): Prom
 }
 
 export async function archiveNoticeAction(id: string): Promise<string | void> {
-  const { current } = await commAction("archive");
+  const { current, scope } = await commAction("archive");
   try {
     const n = await withSchool(current.ctx, async (tx) => {
       const own = await tx.notice.findFirst({ where: { id, schoolId: current.ctx.schoolId } });
-      if (!own) throw new NoticeProblem("This notice was not found.");
+      if (!own || !noticeOnCampus(own, scope.campusId, current.user.id)) throw new NoticeProblem("This notice was not found.");
       if (current.permissions.communication.change !== "all" && own.createdById !== current.user.id) throw new NoticeProblem("You can archive only notices you wrote.");
       return archiveNotice(tx, current.ctx, id);
     });
@@ -115,9 +119,9 @@ export async function acknowledgeNotice(id: string) {
 }
 
 export async function remindAction(id: string): Promise<string | void> {
-  const { current } = await commOfficeAction("create");
+  const { current, scope } = await commOfficeAction("create");
   try {
-    const n = await withSchool(current.ctx, (tx) => remindUnacknowledged(tx, current.ctx, id));
+    const n = await withSchool(current.ctx, (tx) => remindUnacknowledged(tx, current.ctx, id, scope.campusId));
     await flash({ message: `Reminded ${n} ${n === 1 ? "person" : "people"}.`, tone: "success" });
   } catch (e) {
     if (e instanceof NoticeProblem) return e.message;
@@ -131,7 +135,7 @@ export type NoticeResendPreview = { ok: true; people: number; cost: string; skip
 export async function previewNoticeResend(id: string, channel: "whatsapp" | "sms" | "email"): Promise<NoticeResendPreview> {
   const { current, scope } = await commOfficeAction("create");
   try {
-    const plan = await withSchool(current.ctx, async (tx) => planMessage(tx, current.ctx, { ...(await noticeResendInput(tx, current.ctx, id, channel)), scope }));
+    const plan = await withSchool(current.ctx, async (tx) => planMessage(tx, current.ctx, { ...(await noticeResendInput(tx, current.ctx, id, channel, scope.campusId)), scope }));
     const credits = Object.values(plan.cost).reduce((a, b) => a + (b ?? 0), 0);
     return { ok: true, people: plan.people, cost: credits ? `${credits} credits` : "Free", skipped: plan.skipped.map((g) => `${g.reason}: ${g.count}`), problem: plan.problems[0] ?? plan.creditProblem ?? null };
   } catch (e) {
@@ -144,7 +148,7 @@ export async function resendNotice(id: string, channel: "whatsapp" | "sms" | "em
   const { current, scope } = await commOfficeAction("create");
   let messageId: string;
   try {
-    const r = await withSchool(current.ctx, async (tx) => sendMessage(tx, current.ctx, { ...(await noticeResendInput(tx, current.ctx, id, channel)), scope }));
+    const r = await withSchool(current.ctx, async (tx) => sendMessage(tx, current.ctx, { ...(await noticeResendInput(tx, current.ctx, id, channel, scope.campusId)), scope }));
     messageId = r.messageId;
     await flash({ message: `Sending to ${r.people} parents who have not seen it.`, tone: "success", link: { href: `/communication/history/${r.messageId}`, label: "See delivery" } });
   } catch (e) {

@@ -25,9 +25,9 @@ export async function GET(req: Request) {
     const v = await viewerFor(tx, current.ctx, current);
     if (v.see !== "all") return new Response("Only the admission team can export applications.", { status: 403 });
     const s = await loadSettings(tx, current.ctx);
-    const yearIds = (await openYears(tx)).map((y) => y.id);
+    const yearIds = (await openYears(tx, v.campusId)).map((y) => y.id);
     const rows = await tx.application.findMany({
-      where: applicationWhere(params, { yearId: yearIds.length ? yearIds : ["00000000-0000-0000-0000-000000000000"], range, timeZone: tz }), orderBy: applicationOrder(params), take: 5000,
+      where: applicationWhere(params, { yearId: yearIds.length ? yearIds : ["00000000-0000-0000-0000-000000000000"], range, timeZone: tz, campusId: v.campusId }), orderBy: applicationOrder(params), take: 5000,
       include: { documents: { select: { docType: true, status: true } }, payments: { select: { status: true, amountPaise: true, cancelledAt: true } } },
     });
     const [n, rules] = await Promise.all([names(tx), classRules(tx)]);

@@ -1,12 +1,14 @@
 // Attendance totals and % (05 §2 Attendance Register, §7, rule 18). Every
-// total leaves out Sundays and School Calendar holidays, and days with no
-// mark or a "not counted" status are not in the %. Used by the register,
-// reports, the Dashboard, the Student Profile and Parent Link.
+// total leaves out the days that are not school days for the person's campus
+// and class (src/lib/calendar/school-days.ts: Sundays, days that are not
+// working days, Saturdays off, holidays), and days with no mark or a "not
+// counted" status are not in the %. Used by the register, reports, report
+// cards, salary, the Dashboard, the Student Profile and Parent Link.
 import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
 import { isoDay } from "../staff/dates";
-import { schoolDays } from "./calendar";
+import { loadSchoolCalendar } from "../calendar/school-days";
 import { attendanceSettings, statusList, statusMap, weightOf, type StatusInfo } from "./settings";
 import { registerBook, type RegisterBook } from "./on-register";
 
@@ -77,8 +79,11 @@ export function finish(s: PersonSummary): PersonSummary {
 export type SummaryTarget = { studentId: string } | { sectionId: string } | { staffId: string } | { studentIds: string[] } | { staffIds: string[] };
 
 export type SummaryResult = {
+  /** School days in the range for the campus asked for (or the section's class). */
   workingDays: number;
   workingDates: Date[];
+  /** One person's school days: their own campus and class. */
+  workingOf: (id: string) => Date[];
   /** Everyone together. */
   overall: PersonSummary;
   /** Per student or staff id. */
@@ -97,10 +102,8 @@ export async function attendanceSummary(
   opts: SummaryTarget & { from: Date; to: Date; today?: Date; campusId?: string | null },
 ): Promise<SummaryResult> {
   const to = opts.today && opts.today < opts.to ? opts.today : opts.to;
-  const [settings, list] = await Promise.all([attendanceSettings(tx, ctx), statusList(tx, ctx, { includeArchived: true })]);
+  const [settings, list, calendar] = await Promise.all([attendanceSettings(tx, ctx), statusList(tx, ctx, { includeArchived: true }), loadSchoolCalendar(tx, ctx, opts.from, to)]);
   const statuses = statusMap(list);
-  const days = await schoolDays(tx, ctx, opts.from, to, opts.campusId ?? null);
-  const workingKeys = new Set(days.working.map(isoDay));
 
   let ids: string[] = [];
   let side: "student" | "staff" = "student";
@@ -113,11 +116,31 @@ export async function attendanceSummary(
   // register count (./on-register.ts), so a student who left or moved keeps
   // their history without adding days after they went.
   let book: RegisterBook | null = null;
+  let sectionPlace: Place | null = null;
   if ("sectionId" in opts) {
     book = await registerBook(tx, [opts.sectionId]);
     const rows = await tx.attendanceMark.findMany({ where: { sectionId: opts.sectionId, date: { gte: opts.from, lte: to }, archivedAt: null, studentId: { not: null } }, select: { studentId: true }, distinct: ["studentId"] });
     ids = [...new Set([...rows.map((r) => r.studentId!), ...book.current(opts.sectionId)])];
+    const sec = await tx.section.findFirst({ where: { id: opts.sectionId }, select: { classId: true, schoolClass: { select: { campusId: true } } } });
+    sectionPlace = sec ? { campusId: sec.schoolClass.campusId, classId: sec.classId } : null;
   }
+
+  // Each person's school days come from their own campus (and class).
+  const places = sectionPlace ? null : await placesOf(tx, ids, side, opts.from, to);
+  const fallback: Place = sectionPlace ?? { campusId: opts.campusId ?? null, classId: null };
+  const workingBy = new Map<string, { dates: Date[]; keys: Set<string> }>();
+  const workingFor = (p: Place) => {
+    const k = `${p.campusId ?? ""}:${p.classId ?? ""}`;
+    let w = workingBy.get(k);
+    if (!w) {
+      const dates = opts.from <= to ? calendar.campus(p.campusId).working({ classId: p.classId }) : [];
+      w = { dates, keys: new Set(dates.map(isoDay)) };
+      workingBy.set(k, w);
+    }
+    return w;
+  };
+  const placeOf = (id: string): Place => places?.get(id) ?? fallback;
+  const main = workingFor(fallback);
 
   const marks = ids.length === 0 || to < opts.from ? [] : await tx.attendanceMark.findMany({
     where: { archivedAt: null, date: { gte: opts.from, lte: to }, ...(side === "student" ? { studentId: { in: ids } } : { staffId: { in: ids } }), ...("sectionId" in opts ? { sectionId: opts.sectionId } : {}) },
@@ -127,7 +150,7 @@ export async function attendanceSummary(
   for (const m of marks) {
     const pid = (side === "student" ? m.studentId : m.staffId)!;
     const k = isoDay(m.date);
-    if (!workingKeys.has(k)) continue;
+    if (!workingFor(placeOf(pid)).keys.has(k)) continue;
     if (book && "sectionId" in opts && !book.has(opts.sectionId, pid, k)) continue;
     const byDay = grouped.get(pid) ?? new Map<string, DayMark[]>();
     const arr = byDay.get(k) ?? [];
@@ -138,9 +161,9 @@ export async function attendanceSummary(
   const rule = settings.periodDayRule === "most" ? "most" : "any";
   const people = new Map<string, PersonSummary>();
   const dayMap = new Map<string, Map<string, string>>();
-  const overall = emptySummary(days.working.length);
+  const overall = emptySummary(main.dates.length);
   for (const id of ids) {
-    const s = emptySummary(days.working.length);
+    const s = emptySummary(workingFor(placeOf(id)).dates.length);
     const statusByDay = new Map<string, string>();
     for (const [k, dm] of grouped.get(id) ?? []) {
       const st = dayStatus(dm, statuses, rule);
@@ -151,7 +174,53 @@ export async function attendanceSummary(
     people.set(id, finish(s));
     dayMap.set(id, statusByDay);
   }
-  return { workingDays: days.working.length, workingDates: days.working, overall: finish(overall), people, days: dayMap };
+  return {
+    workingDays: main.dates.length, workingDates: main.dates, workingOf: (id) => workingFor(placeOf(id)).dates,
+    overall: finish(overall), people, days: dayMap,
+  };
+}
+
+export type Place = { campusId: string | null; classId: string | null };
+
+/**
+ * Where each person is, for their school days: a student's class and campus
+ * in the year the range ends in (or the latest one before it), a staff
+ * member's campus.
+ */
+export async function placesOf(tx: Tx, ids: string[], side: "student" | "staff", from: Date, to: Date): Promise<Map<string, Place>> {
+  const out = new Map<string, Place>();
+  if (ids.length === 0) return out;
+  if (side === "staff") {
+    const staff = await tx.staff.findMany({ where: { id: { in: ids } }, select: { id: true, campusId: true } });
+    for (const s of staff) out.set(s.id, { campusId: s.campusId, classId: null });
+    return out;
+  }
+  const enrols = await tx.enrolment.findMany({ where: { studentId: { in: ids }, archivedAt: null }, select: { studentId: true, academicYearId: true, classId: true } });
+  if (enrols.length === 0) return out;
+  const [years, classes] = await Promise.all([
+    tx.academicYear.findMany({ where: { id: { in: [...new Set(enrols.map((e) => e.academicYearId))] } }, select: { id: true, startDate: true, endDate: true } }),
+    tx.schoolClass.findMany({ where: { id: { in: [...new Set(enrols.map((e) => e.classId))] } }, select: { id: true, campusId: true } }),
+  ]);
+  const yearOf = new Map(years.map((y) => [y.id, y]));
+  const end = to < from ? from : to;
+  // The year holding the end of the range wins; else the latest year that started before it; else the earliest after.
+  const score = (yearId: string) => {
+    const y = yearOf.get(yearId);
+    if (!y) return -Number.MAX_VALUE;
+    if (y.startDate <= end && y.endDate >= end) return Number.MAX_VALUE;
+    if (y.startDate <= end) return y.startDate.getTime();
+    return -y.startDate.getTime();
+  };
+  const best = new Map<string, (typeof enrols)[number]>();
+  for (const e of enrols) {
+    const b = best.get(e.studentId);
+    if (!b || score(e.academicYearId) > score(b.academicYearId)) best.set(e.studentId, e);
+  }
+  for (const [id, e] of best) {
+    const campusId = classes.find((c) => c.id === e.classId)?.campusId;
+    if (campusId) out.set(id, { campusId, classId: e.classId });
+  }
+  return out;
 }
 
 /** "92.5%" or "Not marked yet" */

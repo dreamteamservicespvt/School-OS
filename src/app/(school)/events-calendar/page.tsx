@@ -2,7 +2,8 @@ import Link from "next/link";
 import { CalendarClock, CalendarDays, CalendarX2, ChevronLeft, ChevronRight, FileSpreadsheet, History, List, Plus, Sun, Trash2, Upload } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { calendarItems, closesSchool, holidayList, lastYearHolidays, type CalItem } from "@/lib/events/calendar";
-import { ENTRY_TYPES, MONTHS, TYPE_CHIPS, addDaysIso, dayCount, dmy, isoOf, niceDay, spanWords, weekendOf, type EntryType } from "@/lib/events/words";
+import { schoolCalendar } from "@/lib/calendar/school-days";
+import { ENTRY_TYPES, MONTHS, TYPE_CHIPS, addDaysIso, dayCount, dayOf, dmy, isoOf, niceDay, spanWords, type EntryType } from "@/lib/events/words";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
@@ -64,15 +65,17 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
 
   const out = await withSchool(ctx, async (tx) => {
     const opts = { campusId: campusId || null, classId: classId || null };
-    const [monthItems, coming, listItems, holidays, copyRows] = await Promise.all([
+    const [monthItems, coming, listItems, holidays, copyRows, days] = await Promise.all([
       calendarItems(tx, ctx, monthStart(month), monthEnd(month), opts),
       calendarItems(tx, ctx, p.today, addDaysIso(p.today, 180), opts),
       view === "list" ? calendarItems(tx, ctx, range.from, range.to, opts) : Promise.resolve([] as CalItem[]),
       yearOnScreen ? holidayList(tx, ctx, yearOnScreen.id, campusId || null) : Promise.resolve([]),
       doing === "copy" && p.year ? lastYearHolidays(tx, ctx, p.year.id) : Promise.resolve([]),
+      // The school's one rule for a school day, for the campus and class shown.
+      schoolCalendar(tx, ctx, dayOf(monthStart(month)), dayOf(monthEnd(month)), campusId || null),
     ]);
     const entry = doing === "remove" && one(sp.entry) ? await tx.calendarEntry.findFirst({ where: { id: one(sp.entry), archivedAt: null, source: null } }) : null;
-    return { monthItems, coming, listItems, holidays, copyRows, entry };
+    return { monthItems, coming, listItems, holidays, copyRows, entry, days };
   });
 
   const typeOk = (i: CalItem) => type === "all" || i.type === type || (type === "holiday" && i.type === "vacation");
@@ -83,7 +86,10 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
   const lead = (new Date(Date.UTC(y, mo - 1, 1)).getUTCDay() + 6) % 7;
   const s = p.settings;
   const selEntries = onDay(sel);
-  const selWeekend = weekendOf(sel, s);
+  const dayRule = (iso: string) => out.days.info(dayOf(iso), { classId: classId || null });
+  const weekendOn = (iso: string) => { const i = dayRule(iso); return !i.on && i.reason !== "holiday" ? i.title : null; };
+  const selInfo = dayRule(sel);
+  const selWeekend = weekendOn(sel);
   const coming = out.coming.filter(typeOk).filter((i) => i.to >= p.today).slice(0, 7);
   const listed = out.listItems.filter(typeOk);
   const weekendWords = ["Sundays", s.secondSaturdayOff && "the second Saturday", s.fourthSaturdayOff && "the fourth Saturday"].filter(Boolean).join(s.fourthSaturdayOff && s.secondSaturdayOff ? ", " : " and ").replace(/, (?=[^,]*$)/, " and ");
@@ -143,8 +149,9 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
                 {Array.from({ length: days }, (_, i) => i + 1).map((d) => {
                   const iso = `${month}-${pad(d)}`;
                   const es = onDay(iso);
-                  const wk = weekendOf(iso, s);
-                  const off = es.some(closesSchool);
+                  const wk = weekendOn(iso);
+                  const dr = dayRule(iso);
+                  const off = !dr.on && dr.reason === "holiday";
                   const isSel = iso === sel;
                   return (
                     <Link key={d} href={here({ d: iso })} scroll={false} aria-current={isSel ? "date" : undefined}
@@ -153,7 +160,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
                         off ? "bg-bad/[.05]" : wk ? "bg-sunken/60" : "", isSel && "ring-2 ring-inset ring-brand")}>
                       <span className="flex items-center gap-1">
                         <span className={cx("w-7 h-7 rounded-full grid place-items-center text-[13px] font-semibold tnum shrink-0", iso === p.today ? "bg-brand text-brandink" : off ? "text-bad" : wk ? "text-ink3" : "text-ink2")}>{d}</span>
-                        {wk && wk !== "Sunday" && <span className="hidden xl:inline text-[10.5px] text-ink3 truncate">{wk === "Second Saturday" ? "2nd Sat" : "4th Sat"}</span>}
+                        {(wk === "Second Saturday" || wk === "Fourth Saturday") && <span className="hidden xl:inline text-[10.5px] text-ink3 truncate">{wk === "Second Saturday" ? "2nd Sat" : "4th Sat"}</span>}
                       </span>
                       <span className="hidden lg:flex flex-col gap-0.5 min-w-0">
                         {es.slice(0, 3).map((e) => <span key={e.id} title={e.title} className={cx("truncate rounded-md px-1.5 py-0.5 text-[11px] font-semibold leading-tight", ENTRY_TYPES[e.type].chip)}>{e.title.replace(/^PTM: /, "PTM ")}</span>)}
@@ -166,13 +173,13 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
               </div>
               <div className="px-4 md:px-5 py-3.5 flex flex-col gap-2">
                 <Legend items={[["bg-bad/40", "Holiday or vacation"], ["bg-info/40", "Exam day"], ["bg-ok/40", "Event"], ["bg-brand/40", "PTM"], ["bg-warn/40", "Admission test"], ["bg-sunken border border-line", "Weekend"]]} />
-                <p className="text-[12.5px] text-ink3">Holiday: attendance is off that day. Event: it shows here and attendance can still be taken. Weekends: {weekendWords}.</p>
+                <p className="text-[12.5px] text-ink3">Holiday: attendance is off that day. Event: it shows here and the day stays a normal school day or weekend. &quot;Attendance allowed&quot;: someone opened that date for attendance. Weekends: {weekendWords}, and the days that are not working days in Academic Settings.</p>
               </div>
             </Card>
             <Col>
               <Card>
                 <CardHeader icon={CalendarDays} title={sel === p.today ? `Today, ${niceDay(sel).split(", ")[1]}` : niceDay(sel)}
-                  description={selWeekend ? `${selWeekend} · no school` : selEntries.some(closesSchool) ? "Attendance is off" : "School day"}
+                  description={selInfo.on ? (selInfo.opened ? "School day: attendance allowed" : "School day") : selWeekend ? `${selWeekend} · no school` : "Attendance is off"}
                   action={full ? <ButtonLink size="sm" variant="soft" icon={Plus} href={here({ do: "add" })} scroll={false}>Add</ButtonLink> : undefined} />
                 {selEntries.length ? (
                   <ul className="px-3 pb-3 flex flex-col">
@@ -187,7 +194,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
                             <Pill tone={ENTRY_TYPES[e.type].tone} className="!h-[22px] !text-[11.5px]">{ENTRY_TYPES[e.type].label}</Pill>
                             {e.source === "datesheet" && <Pill tone="neutral" className="!h-[22px] !text-[11.5px]">From the datesheet</Pill>}
                             {e.source === "admission" && <Pill tone="neutral" className="!h-[22px] !text-[11.5px]">From Admission</Pill>}
-                            {e.attendanceOn && ["holiday", "vacation"].includes(e.type) && <Pill tone="neutral" className="!h-[22px] !text-[11.5px]">Attendance allowed</Pill>}
+                            {e.attendanceOn && !e.source && <Pill tone="neutral" className="!h-[22px] !text-[11.5px]">Attendance allowed</Pill>}
                           </div>
                         </div>
                         {full && e.removable && (
@@ -228,7 +235,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
                 { key: "from", label: "Date", nowrap: true, render: (e) => <span className="tnum">{spanWords(e.from, e.to)}</span> },
                 { key: "name", label: "Name", render: (e) => <span className="font-semibold">{e.title}</span> },
                 { key: "type", label: "Type", render: (e) => <Pill tone={ENTRY_TYPES[e.type].tone}>{ENTRY_TYPES[e.type].label}</Pill> },
-                { key: "att", label: "Attendance", render: (e) => (closesSchool(e) ? <span className="text-bad font-semibold">Off</span> : <span className="text-ink2">Taken</span>) },
+                { key: "att", label: "Attendance", render: (e) => (closesSchool(e) ? <span className="text-bad font-semibold">Off</span> : e.attendanceOn && !e.source ? <span className="text-ink2">Allowed</span> : <span className="text-ink2">As usual</span>) },
                 { key: "cls", label: "Applies to", render: (e) => <span className="text-[13px] text-ink2">{appliesWords(e, data.classes, p.campuses)}</span> },
               ]}
               phone={(e) => ({ title: e.title, sub: spanWords(e.from, e.to), icon: CalendarDays, iconTone: ENTRY_TYPES[e.type].tone, pills: <Pill tone={ENTRY_TYPES[e.type].tone} className="!h-[22px] !text-[11.5px]">{ENTRY_TYPES[e.type].label}</Pill> })} />

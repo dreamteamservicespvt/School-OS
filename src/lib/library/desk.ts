@@ -12,7 +12,7 @@ import type { BookCopy, BookIssue, Reservation } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { formatDate, formatRupees } from "../format";
-import { holidaySet, isWorkingDay } from "../staff/leave";
+import { isWorkingDay, offDaySet } from "../staff/leave";
 import { LibraryProblem } from "./problem";
 import { librarySettings, type LibrarySettings } from "./settings";
 import { memberByKey, memberFields, memberLoad, membersOf, whereMember, type Member } from "./members";
@@ -37,9 +37,9 @@ export async function loanDaysFor(tx: Tx, member: Pick<Member, "loanDays">, book
   return member.loanDays;
 }
 
-/** Moves a date forward off Sundays and School Calendar holidays. */
+/** Moves a date forward to a school day (off Sundays, days off and School Calendar holidays). */
 export async function nextSchoolDay(tx: Tx, ctx: SchoolContext, d: Date) {
-  const holidays = await holidaySet(tx, ctx, d, addDays(d, 60));
+  const holidays = await offDaySet(tx, ctx, d, addDays(d, 60));
   let out = d;
   for (let i = 0; i < 60 && !isWorkingDay(out, holidays); i++) out = addDays(out, 1);
   return out;

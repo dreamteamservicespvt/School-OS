@@ -13,6 +13,7 @@ import { formatDate } from "../format";
 import { assertYearOpen } from "../academic/years";
 import { headLoginFor, ensureHrDefaults } from "./settings";
 import { addDays, eachDay, isoDay, isoWeekday } from "./dates";
+import { schoolCalendar, type SchoolDayInfo } from "../calendar/school-days";
 
 export class LeaveProblem extends Error {
   constructor(message: string, public field?: string) {
@@ -29,31 +30,34 @@ type Adjustment = { days: number; reason: string; byId: string | null; at: strin
 
 // ---------------------------------------------------------------- days
 
-/** Holidays and vacations on the School Calendar between two dates, as YYYY-MM-DD. */
-export async function holidaySet(tx: Tx, ctx: SchoolContext, from: Date, to: Date, campusId?: string | null): Promise<Set<string>> {
-  const entries = await tx.calendarEntry.findMany({
-    where: {
-      schoolId: ctx.schoolId, archivedAt: null, attendanceOn: false, type: { in: ["holiday", "vacation"] },
-      startDate: { lte: to }, endDate: { gte: from },
-      ...(campusId ? { OR: [{ campusId: null }, { campusId }] } : {}),
-    },
-    select: { startDate: true, endDate: true },
-  });
-  const out = new Set<string>();
-  for (const e of entries) for (const d of eachDay(e.startDate < from ? from : e.startDate, e.endDate > to ? to : e.endDate)) out.add(isoDay(d));
-  return out;
+/**
+ * Days between two dates that are not school days for the campus, as
+ * YYYY-MM-DD: Sundays and other days that are not working days, Saturdays
+ * off and School Calendar holidays (the school's one rule,
+ * src/lib/calendar/school-days.ts). A date the School Calendar opens for
+ * attendance is a working day.
+ */
+export async function offDaySet(tx: Tx, ctx: SchoolContext, from: Date, to: Date, campusId?: string | null): Promise<Set<string>> {
+  if (to < from) return new Set();
+  return new Set((await schoolCalendar(tx, ctx, from, to, campusId)).offDays().keys());
 }
 
-export const isWorkingDay = (d: Date, holidays: Set<string>) => isoWeekday(d) !== 7 && !holidays.has(isoDay(d));
+/** The same days with why each is off ("Sunday", "Second Saturday", a holiday's name), for calendars. */
+export async function offDayMap(tx: Tx, ctx: SchoolContext, from: Date, to: Date, campusId?: string | null): Promise<Map<string, SchoolDayInfo>> {
+  if (to < from) return new Map();
+  return (await schoolCalendar(tx, ctx, from, to, campusId)).offDays();
+}
+
+export const isWorkingDay = (d: Date, offDays: Set<string>) => !offDays.has(isoDay(d));
 
 /**
- * Leave days between two dates. Sundays and School Calendar holidays inside
- * the range are not counted unless the leave type counts them (09 Apply for
- * leave, "To date" note). A half day counts 0.5.
+ * Leave days between two dates. Days that are not school days (offDaySet:
+ * Sundays, Saturdays off, holidays) are not counted unless the leave type
+ * counts them (09 Apply for leave, "To date" note). A half day counts 0.5.
  */
-export function countLeaveDays(from: Date, to: Date, holidays: Set<string>, opts: { countsHolidays?: boolean; halfDay?: boolean } = {}) {
+export function countLeaveDays(from: Date, to: Date, offDays: Set<string>, opts: { countsHolidays?: boolean; halfDay?: boolean } = {}) {
   if (to < from) return 0;
-  const days = eachDay(from, to).filter((d) => opts.countsHolidays || isWorkingDay(d, holidays)).length;
+  const days = eachDay(from, to).filter((d) => opts.countsHolidays || isWorkingDay(d, offDays)).length;
   if (opts.halfDay) return days > 0 ? 0.5 : 0;
   return days;
 }
@@ -63,10 +67,10 @@ export function countLeaveDays(from: Date, to: Date, holidays: Set<string>, opts
  * balance, StaffLeaveDetail.lopDays): its last counted days, counted the way
  * countLeaveDays counts them. YYYY-MM-DD to days (1, or 0.5 for a half day).
  */
-export function lopDates(leave: { fromDate: Date; toDate: Date; halfDay: boolean }, lopDays: number, holidays: Set<string>, countsHolidays: boolean): Map<string, number> {
+export function lopDates(leave: { fromDate: Date; toDate: Date; halfDay: boolean }, lopDays: number, offDays: Set<string>, countsHolidays: boolean): Map<string, number> {
   const out = new Map<string, number>();
   if (!(lopDays > 0) || leave.toDate < leave.fromDate) return out;
-  const counted = eachDay(leave.fromDate, leave.toDate).filter((d) => countsHolidays || isWorkingDay(d, holidays));
+  const counted = eachDay(leave.fromDate, leave.toDate).filter((d) => countsHolidays || isWorkingDay(d, offDays));
   const unit = leave.halfDay ? 0.5 : 1;
   let left = lopDays;
   for (let i = counted.length - 1; i >= 0 && left > 0; i--) {
@@ -197,7 +201,7 @@ export async function teacherPeriods(tx: Tx, ctx: SchoolContext, staff: { id: st
     orderBy: { periodNo: "asc" },
   });
   if (periods.length === 0) return [];
-  const holidays = await holidaySet(tx, ctx, from, to, staff.campusId);
+  const holidays = await offDaySet(tx, ctx, from, to, staff.campusId);
   const out: PeriodNeed[] = [];
   for (const date of eachDay(from, to)) {
     if (!isWorkingDay(date, holidays)) continue;
@@ -288,9 +292,9 @@ export async function checkLeave(tx: Tx, ctx: SchoolContext, input: ApplyInput, 
     }
   }
 
-  const holidays = await holidaySet(tx, ctx, input.from, input.to, staff.campusId);
+  const holidays = await offDaySet(tx, ctx, input.from, input.to, staff.campusId);
   const days = countLeaveDays(input.from, input.to, holidays, { countsHolidays: rule?.countsHolidays ?? false, halfDay: Boolean(input.halfDayPart) });
-  if (days <= 0) throw new LeaveProblem("These dates are all Sundays or holidays on the School Calendar, so no leave is needed.", "from");
+  if (days <= 0) throw new LeaveProblem("These dates are all days without school (Sundays, days off or School Calendar holidays), so no leave is needed.", "from");
 
   const needsDoc = (rule?.documentRequired ?? false) || (type.needsDocAfter !== null && days > type.needsDocAfter);
   if (needsDoc && !input.documentFileId) {
@@ -457,7 +461,7 @@ export async function cancelLeave(tx: Tx, ctx: SchoolContext, requestId: string,
     // Already started: keep the days taken, give back the rest.
     const newTo = addDays(today, -1);
     const rule = await tx.leaveTypeRule.findUnique({ where: { leaveTypeId: r.leaveTypeId } });
-    const holidays = await holidaySet(tx, ctx, r.fromDate, newTo, staff.campusId);
+    const holidays = await offDaySet(tx, ctx, r.fromDate, newTo, staff.campusId);
     const days = countLeaveDays(r.fromDate, newTo, holidays, { countsHolidays: rule?.countsHolidays ?? false });
     // The days beyond the balance are the last days of the leave, so the days given back are those first.
     const lop = Math.max(0, Math.min(num(detail?.lopDays) - (num(r.days) - days), days));

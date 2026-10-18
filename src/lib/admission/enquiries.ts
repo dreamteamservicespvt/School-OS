@@ -14,6 +14,7 @@ import { canWorkOn, requireFull, type Viewer } from "./access";
 import { CLOSED_STATUSES, SYSTEM_STATUSES, label, live, type Settings } from "./settings";
 import { messageParent } from "./notify-parents";
 import { formatNumber, nextNumber } from "../sequences";
+import { schoolCalendar } from "../calendar/school-days";
 
 /** The next enquiry number, ENQ-0001 (never reused). */
 export async function nextEnquiryNo(tx: Tx, ctx: SchoolContext) {
@@ -110,18 +111,14 @@ export async function pickOwner(tx: Tx, ctx: SchoolContext, s: Settings, input: 
   return input.adderStaffId;
 }
 
-/** Next working day (Monday to Saturday, not a holiday on the School Calendar) at 11:00 AM (inferred). */
-export async function defaultFollowUp(tx: Tx, timeZone: string, now = new Date()) {
+/** Next school day of the campus (the school's one rule: working days, Saturdays off, holidays) at 11:00 AM (inferred). */
+export async function defaultFollowUp(tx: Tx, ctx: SchoolContext, timeZone: string, now = new Date(), campusId: string | null = null) {
   const today = instantToLocal(now, timeZone).slice(0, 10);
   const d = new Date(`${today}T00:00:00Z`);
-  const holidays = await tx.calendarEntry.findMany({
-    where: { archivedAt: null, attendanceOn: false, type: { in: ["holiday", "vacation"] }, endDate: { gte: d }, startDate: { lte: new Date(d.getTime() + 30 * 86_400_000) } },
-    select: { startDate: true, endDate: true },
-  });
+  const calendar = await schoolCalendar(tx, ctx, new Date(d.getTime() + 86_400_000), new Date(d.getTime() + 30 * 86_400_000), campusId);
   for (let i = 1; i < 30; i++) {
     const next = new Date(d.getTime() + i * 86_400_000);
-    if (next.getUTCDay() === 0) continue;
-    if (holidays.some((h) => h.startDate <= next && h.endDate >= next)) continue;
+    if (!calendar.info(next).on) continue;
     return zonedToInstant(`${next.toISOString().slice(0, 10)}T11:00`, timeZone);
   }
   return zonedToInstant(`${new Date(d.getTime() + 86_400_000).toISOString().slice(0, 10)}T11:00`, timeZone);

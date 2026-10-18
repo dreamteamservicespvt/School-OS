@@ -130,10 +130,11 @@ export async function assignActivity(tx: Tx, ctx: SchoolContext, input: AssignIn
   if (dates[0] < today) throw new EventsProblem("Pick today or a later day.", "days");
   const year = await yearOf(tx, dates[0], "days");
   const sec = await assertDiaryTeacher(tx, ctx, input.sectionId, year.id);
+  const campusId = (await tx.schoolClass.findUnique({ where: { id: sec.classId }, select: { campusId: true } }))?.campusId ?? null;
   const made: DailyActivity[] = [];
   const skipped: string[] = [];
   for (const iso of dates) {
-    if (await notWorkingDay(tx, ctx, iso)) { skipped.push(iso); continue; }
+    if (await notWorkingDay(tx, ctx, iso, campusId, { classId: sec.classId })) { skipped.push(iso); continue; }
     const same = await tx.dailyActivity.findFirst({ where: { sectionId: sec.id, date: dayOf(iso), archivedAt: null, label: { equals: label, mode: "insensitive" } } });
     if (same) { skipped.push(iso); continue; }
     made.push(await tx.dailyActivity.create({ data: { schoolId: ctx.schoolId, academicYearId: year.id, sectionId: sec.id, date: dayOf(iso), type: input.type, label, startMin: input.startMin, options: optionsFor(input.type), createdById: ctx.userId } }));

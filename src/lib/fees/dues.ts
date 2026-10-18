@@ -27,7 +27,7 @@ export function netAmount(d: Pick<StudentFeeDue, "amountPaise" | "concessionPais
 /** Keeps balance = amount - concession + adjustment - paid, after any change to a row. */
 export async function refreshBalances(tx: Tx, dueIds: string[]) {
   if (dueIds.length === 0) return;
-  await tx.$executeRaw`UPDATE student_fee_due SET balance_paise = amount_paise - concession_paise + adjustment_paise - paid_paise, updated_at = now() WHERE id = ANY(${dueIds}::uuid[])`;
+  await tx.$executeRaw`UPDATE student_fee_due SET balance_paise = amount_paise - concession_paise + adjustment_paise - paid_paise, updated_at = now() AT TIME ZONE 'UTC' WHERE id = ANY(${dueIds}::uuid[])`;
 }
 
 /** Locks the rows for this change, so two payments at the same moment cannot both take the same balance. */

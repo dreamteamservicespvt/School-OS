@@ -68,7 +68,7 @@ export default async function ClassFeesPage({ params, searchParams }: { params: 
         </div>
         <Stats items={[
           { label: "Due so far", value: money(t.due), sub: `${t.students} students · fees due in the next 30 days included`, icon: FileText },
-          { label: "Collected", value: money(t.paid), sub: `${t.percent}% of what is due`, icon: IndianRupee, tone: "ok" },
+          { label: "Collected", value: money(t.paid), sub: t.due > zero ? `${t.percent}% of what is due` : "Nothing is due yet", icon: IndianRupee, tone: t.due > zero ? "ok" : undefined },
           { label: "Pending", value: t.pending > zero ? money(t.pending) : "Nil", sub: t.owe ? `${t.owe} ${t.owe === 1 ? "student" : "students"} · ${money(t.overdue)} overdue` : "Everyone has paid", icon: Hourglass, tone: t.overdue > zero ? "bad" : t.pending > zero ? "warn" : "ok" },
           { label: "Class teacher", value: data.teacher?.name ?? "Not set", sub: data.teacher ? `Looks after ${data.name}` : "Set one in Academic Management", icon: UserRound },
         ]} />

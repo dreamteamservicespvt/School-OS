@@ -51,8 +51,8 @@ describe("the arithmetic", () => {
   });
 
   it("counts the open pipeline only when the school has its own joining rate", () => {
-    expect(seatForecast({ seats: 40, inClass: 20, approved: 2, pipeline: 10, joinRate: null })).toEqual({ expected: 22, fromPipeline: 0, empty: 18 });
-    expect(seatForecast({ seats: 40, inClass: 30, approved: 5, pipeline: 20, joinRate: 0.4 })).toEqual({ expected: 43, fromPipeline: 8, empty: -3 });
+    expect(seatForecast({ seats: 40, inClass: 20, approved: 2, pipeline: 10, joinRate: null })).toEqual({ expected: 22, fromPipeline: 0, moving: 0, empty: 18 });
+    expect(seatForecast({ seats: 40, inClass: 30, approved: 5, pipeline: 20, joinRate: 0.4 })).toEqual({ expected: 43, fromPipeline: 8, moving: 0, empty: -3 });
   });
 });
 
@@ -117,7 +117,7 @@ describe("Looking ahead for a real school", () => {
     expect(a.ai.forecasts).toBe(true);
     const flagsBefore = await withSchool(principal.ctx, (tx) => tx.riskFlag.count({ where: { studentId: att.studentsA[1].id } }));
     expect(flagsBefore).toBe(0);
-    const signals = await withSchool(principal.ctx, (tx) => aiSignals(tx, principal, a, ATT_NOW));
+    const signals = await withSchool(principal.ctx, (tx) => aiSignals(tx, principal, a));
     const s = signals.find((x) => x.kind === "prediction" && x.studentId === att.studentsA[1].id)!;
     expect(s.area).toBe("attendance");
     await withSchool(principal.ctx, (tx) => decideAiSignal(tx, principal, a, s.key, "FLAGGED", ATT_NOW));
@@ -126,7 +126,7 @@ describe("Looking ahead for a real school", () => {
     const flag = await withSchool(principal.ctx, (tx) => tx.riskFlag.findFirstOrThrow({ where: { studentId: att.studentsA[1].id } }));
     expect(flag).toMatchObject({ area: "attendance", strength: "WATCH", closedAt: null });
     // Decided: no longer offered.
-    const again = await withSchool(principal.ctx, (tx) => aiSignals(tx, principal, a, ATT_NOW));
+    const again = await withSchool(principal.ctx, (tx) => aiSignals(tx, principal, a));
     expect(again.some((x) => x.key === s.key)).toBe(false);
     const audit = await withSchool(principal.ctx, (tx) => tx.auditLogEntry.count({ where: { recordType: "AI Signal", action: "suggestion-added" } }));
     expect(audit).toBe(1);

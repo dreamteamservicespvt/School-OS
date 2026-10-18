@@ -186,12 +186,14 @@ async function flagCard(c: DashContext, kind: "absent-streak" | "below-threshold
   if (a.students === "none") return null;
   const own = a.students === "all" ? null : await ownStudents(c, a);
   if (own && own.length === 0) return null;
+  // Reviewed in Early Warnings, for the people who see it; the Chronic absence report otherwise.
+  const warnings = moduleOpen(c.viewer, "reports-analytics") && reportAccess(c.viewer).warnings.on;
+  // People who see Early Warnings count these children on its card (students who need a closer look), once.
+  if (kind === "below-threshold" && warnings) return null;
   const flags = await c.tx.attendanceFlag.findMany({ where: { kind, ...OPEN_ATTENDANCE_FLAG, ...(own ? { studentId: { in: own } } : {}) }, select: { studentId: true, status: true } });
   const count = new Set(flags.map((f) => f.studentId)).size;
   if (count === 0) return null;
   const s = await settings(c);
-  // Reviewed in Early Warnings, for the people who see it; the Chronic absence report otherwise.
-  const warnings = moduleOpen(c.viewer, "reports-analytics") && reportAccess(c.viewer).warnings.on;
   const notReviewed = new Set(flags.filter((f) => f.status === "NEW").map((f) => f.studentId)).size;
   const review = warnings && notReviewed ? ` ${notReviewed} not reviewed yet.` : "";
   const href = warnings ? "/reports-analytics/early-warnings?area=attendance" : `${BASE}/reports?report=chronic`;
@@ -211,7 +213,7 @@ async function flagCard(c: DashContext, kind: "absent-streak" | "below-threshold
 }
 
 const absentStreak: Widget<"attention"> = { id: "attendance.absent-streak", module: MODULE, kind: "attention", homes: ["leader", "class-teacher"], load: (c) => flagCard(c, "absent-streak") };
-// Class teachers too: the Early Warnings card leaves out students with an Attendance Flag, so this is where they see them.
+// For people without Early Warnings (it is off, or not open to their role); the Early Warnings card counts these children for the others.
 const belowThreshold: Widget<"attention"> = { id: "attendance.below-threshold", module: MODULE, kind: "attention", homes: ["leader", "academic-head", "class-teacher"], load: (c) => flagCard(c, "below-threshold") };
 
 /** "Take attendance for 7 B · locks at 11:00 AM" for the class teacher's sections not yet marked. */

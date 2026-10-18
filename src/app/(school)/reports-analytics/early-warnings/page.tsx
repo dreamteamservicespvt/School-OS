@@ -8,9 +8,10 @@ import { momentWhere, periodFromSearch, rangeWords } from "@/lib/periods";
 import { addDays } from "@/lib/staff/dates";
 import {
   ACTIONS, AREAS, aiSignals, listFlags, mayRemind, mayReview, remindedToday, rowIs, STATUS_LABEL, STATUS_TONE, STRENGTH_LABEL, warningRules,
-  type Area, type FlagRow, type FlagStatus,
+  type AiSignal, type Area, type FlagRow, type FlagStatus,
 } from "@/lib/reports/warnings";
-import { FORECAST_AREA_LABEL } from "@/lib/reports/forecasts";
+import { CERTAINTY_LABEL, FORECAST_AREA_LABEL } from "@/lib/reports/forecasts";
+import { lookingAheadView } from "@/lib/reports/looking-ahead";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Banner, Chips, Col, DataList, IconTile, Split, Stats, Suggestion, Timeline, Toolbar } from "@/components/ui/kit";
 import { Pill } from "@/components/ui/badge";
@@ -48,14 +49,17 @@ export default async function EarlyWarningsPage({ searchParams }: { searchParams
   const areas = AREAS.filter((x) => x.value !== "fees" || a.warnings.fees);
   const area = (areas.find((x) => x.value === one(sp.area))?.value ?? "all") as Area | "all";
   const q = one(sp.q).trim();
-  const range = periodFromSearch(sp, { ...p.dates, fallback: "last30" });
+  const strength = one(sp.strength) === "ACT_NOW" || one(sp.strength) === "WATCH" ? (one(sp.strength) as "ACT_NOW" | "WATCH") : "all";
+  // "period=all": every open flag whatever day it was raised (the Dashboard card's list).
+  const range = one(sp.period) === "all" ? null : periodFromSearch(sp, { ...p.dates, fallback: "last30" });
   const when = range ? momentWhere(range, p.tz) : null;
   const openId = one(sp.open) || one(sp.review);
+  const aheadArea = one(sp.ahead);
 
   const data = await withSchool(p.current.ctx, async (tx) => {
     const [rules, res, ai] = await Promise.all([
       warningRules(tx, p.current.ctx),
-      listFlags(tx, p.current, a, { status, area, q, raisedFrom: when?.gte ?? null, raisedTo: when?.lt ?? null }),
+      listFlags(tx, p.current, a, { status, area, q, raisedFrom: when?.gte ?? null, raisedTo: when?.lt ?? null, strength }),
       aiSignals(tx, p.current, a),
     ]);
     let open: FlagRow | null = openId ? res.list.find((f) => rowIs(f, openId)) ?? null : null;
@@ -69,14 +73,16 @@ export default async function EarlyWarningsPage({ searchParams }: { searchParams
     return { rules, ...res, ai, open, reminded };
   });
   const { rules, list, counts, open, reminded } = data;
-  const ahead = data.ai.filter((s) => s.kind === "prediction");
-  const signals = data.ai.filter((s) => s.kind !== "prediction");
+  // One Looking ahead view: the most important few, every area with its count, the rest behind See all.
+  const view = lookingAheadView(data.ai);
+  const all = aheadArea ? lookingAheadView(data.ai, { area: aheadArea === "all" ? null : aheadArea }) : null;
   const pages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
   const page = Math.min(pages, Math.max(1, Number.parseInt(one(sp.page) || "1", 10) || 1));
   const shown = list.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const studentsShown = new Set(list.map((f) => f.studentId)).size;
 
-  const keep = { status: status === "open" ? null : status, area: area === "all" ? null : area, q: q || null, period: one(sp.period) || null, from: one(sp.from) || null, to: one(sp.to) || null };
-  const close = withQ(HREF, sp, { open: null, review: null, as: null, rule: null, first: null });
+  const keep = { status: status === "open" ? null : status, area: area === "all" ? null : area, strength: strength === "all" ? null : strength, q: q || null, period: one(sp.period) || null, from: one(sp.from) || null, to: one(sp.to) || null };
+  const close = withQ(HREF, sp, { open: null, review: null, as: null, rule: null, first: null, ahead: null });
   const due = formatDate(addDays(p.today, 3), "UTC");
   const own = p.own.map((s) => s.label);
   const remindAt = (id: string) => { const t = reminded.get(id); return t ? formatTime(t, p.tz) : null; };
@@ -91,8 +97,8 @@ export default async function EarlyWarningsPage({ searchParams }: { searchParams
         {a.own && <Banner tone="info" title="Showing your classes only.">Fee signals go to the Principal and accounts, not to teachers.</Banner>}
         {!a.own && a.warnings.review === "none" && <Banner tone="info" title="You watch these flags.">Class teachers review their students’ flags; use Remind to ask them. Fee flags go to accounts.</Banner>}
         <Stats items={[
-          { label: "Act now", value: String(counts.actNow), sub: "Open flags", tone: "bad", icon: TriangleAlert, href: qs(HREF, { ...keep, status: null }) },
-          { label: "Watch", value: String(counts.watch), sub: "Open flags", tone: "warn", icon: Eye },
+          { label: "Act now", value: String(counts.actNow), sub: "Open flags · strong signs", tone: "bad", icon: TriangleAlert, href: qs(HREF, { ...keep, status: null, strength: "ACT_NOW" }) },
+          { label: "Watch", value: String(counts.watch), sub: "Open flags · fees are always Watch", tone: "warn", icon: Eye, href: qs(HREF, { ...keep, status: null, strength: "WATCH" }) },
           { label: "Not reviewed yet", value: String(counts.NEW), sub: "Review before any action", tone: "brand", icon: Inbox, href: qs(HREF, { ...keep, status: "NEW" }) },
           { label: "Closed", value: String(counts.CLOSED), sub: "With a reason each", icon: CircleCheck, href: qs(HREF, { ...keep, status: "CLOSED" }) },
         ]} />
@@ -103,7 +109,10 @@ export default async function EarlyWarningsPage({ searchParams }: { searchParams
               <PeriodFilter {...p.dates} fallback="last30" className="w-full md:w-auto" />
               <UrlSegmented param="area" fallback="all" label="Signal" options={[{ value: "all", label: "All" }, ...areas.map((x) => ({ value: x.value, label: x.label }))]} />
             </Toolbar>
-            <p className="px-4 pt-3 text-[12.5px] text-ink3">Showing flags raised: {range ? `${range.label} · ${rangeWords(range.from, range.to)}` : "All dates"}</p>
+            <p className="px-4 pt-3 text-[12.5px] text-ink3">
+              Showing flags raised: {range ? `${range.label} · ${rangeWords(range.from, range.to)}` : "All dates"}
+              {strength !== "all" && <> · {STRENGTH_LABEL[strength]} only · <Link href={qs(HREF, { ...keep, strength: null })} className="text-brand font-semibold hover:underline">Show Act now and Watch</Link></>}
+            </p>
             <div className="px-3 pt-2">
               <Chips value={status} label="Flag status" options={[
                 { value: "open", label: "Open", count: counts.open, href: qs(HREF, { ...keep, status: null }) },
@@ -126,7 +135,7 @@ export default async function EarlyWarningsPage({ searchParams }: { searchParams
               })}
               footer={list.length > PAGE_SIZE
                 ? <Pager page={page} pageSize={PAGE_SIZE} total={list.length} prevHref={withQ(HREF, sp, { page: page > 2 ? String(page - 1) : null, open: null })} nextHref={withQ(HREF, sp, { page: String(page + 1), open: null })} />
-                : `${list.length} ${list.length === 1 ? "flag" : "flags"} · Act now first`} />
+                : `${list.length} ${list.length === 1 ? "flag" : "flags"} · ${studentsShown} ${studentsShown === 1 ? "student" : "students"} · Act now first`} />
           </Card>
           <Col>
             <Card>
@@ -145,34 +154,23 @@ export default async function EarlyWarningsPage({ searchParams }: { searchParams
               {rules.lastRefreshAt && <p className="px-5 pb-3 -mt-2 text-[12px] text-ink3">Last checked {formatDateTime(rules.lastRefreshAt, p.tz)}</p>}
               {a.warnings.rule && <div className="px-5 pb-4"><ButtonLink href={withQ(HREF, sp, { rule: "1" })} scroll={false} size="sm" variant="secondary" icon={Pencil}>Change the marks-drop rule</ButtonLink></div>}
             </Card>
-            {a.ai.forecasts && (
+            {(a.ai.forecasts || a.ai.insights) && (
               <>
-                <div id="looking-ahead" className="scroll-mt-4 flex items-center gap-2 px-1"><Telescope size={15} className="text-brand" aria-hidden="true" /><p className="text-[13px] font-semibold text-ink2">Looking ahead</p><span className="text-[12px] text-ink3">· what may happen next, if nothing changes</span></div>
-                {ahead.map((s) => (
-                  <Suggestion key={s.key} title={s.title} source={s.source}
-                    actions={<>
-                      {s.area && <Pill tone={s.strength === "ACT_NOW" ? "bad" : "warn"} dot>{FORECAST_AREA_LABEL[s.area]}{s.strength === "ACT_NOW" ? " · act soon" : ""}</Pill>}
-                      {s.href && <ButtonLink href={s.href} size="sm" variant="secondary">{s.hrefLabel ?? "Open"}</ButtonLink>}
-                      <QuickButton run={aiDecisionAction.bind(null, s.key, "FLAGGED")} variant="soft">{s.studentId ? "Add for review" : "Make it a task"}</QuickButton>
-                      <QuickButton run={aiDecisionAction.bind(null, s.key, "DISMISSED")} variant="ghost">Not a concern</QuickButton>
-                    </>}>{s.body}</Suggestion>
-                ))}
-                {ahead.length === 0 && <Card><Empty icon={Telescope} title="Nothing to look out for right now" body="Worked out again every few hours from attendance, marks, fees, admissions, staff leave and the cash and bank books." /></Card>}
-              </>
-            )}
-            {a.ai.insights && (
-              <>
-                <div className="flex items-center gap-2 px-1"><Sparkles size={15} className="text-brand" aria-hidden="true" /><p className="text-[13px] font-semibold text-ink2">AI signals</p><span className="text-[12px] text-ink3">· on in Settings, Modules On/Off</span></div>
-                {signals.map((s) => (
-                  <Suggestion key={s.key} title={s.title} source={s.source}
-                    actions={<>
-                      {s.flagId
-                        ? <ButtonLink href={withQ(HREF, sp, { open: s.flagId })} scroll={false} size="sm" variant="soft">Open the flag</ButtonLink>
-                        : <QuickButton run={aiDecisionAction.bind(null, s.key, "FLAGGED")} variant="soft">Add for review</QuickButton>}
-                      <QuickButton run={aiDecisionAction.bind(null, s.key, "DISMISSED")} variant="ghost">Not a concern</QuickButton>
-                    </>}>{s.body}</Suggestion>
-                ))}
-                {signals.length === 0 && <Card><Empty icon={Sparkles} title="No AI signals right now" body="New ones appear here after each day’s attendance and each exam." /></Card>}
+                <div id="looking-ahead" className="scroll-mt-4 flex items-center gap-2 px-1"><Telescope size={15} className="text-brand" aria-hidden="true" /><p className="text-[13px] font-semibold text-ink2">Looking ahead</p><span className="text-[12px] text-ink3">· what may happen next, if nothing changes · most important first</span></div>
+                {view.groups.length > 0 && (
+                  <Card>
+                    <div className="px-4 py-3 flex flex-wrap gap-2" aria-label="Looking ahead by area">
+                      {view.groups.map((g) => (
+                        <Link key={g.area} href={withQ(HREF, sp, { ahead: g.area })} scroll={false} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-sunken/80 text-[12.5px] font-semibold text-ink2 hover:text-brand">
+                          {g.label} <b className="tnum text-ink">{g.count}</b>{g.actNow ? <span className="text-bad">· {g.actNow} act soon</span> : null}
+                        </Link>
+                      ))}
+                    </div>
+                  </Card>
+                )}
+                {view.top.map((s) => <AheadCard key={s.key} s={s} />)}
+                {view.total > view.top.length && <ButtonLink href={withQ(HREF, sp, { ahead: "all" })} scroll={false} variant="secondary" icon={Sparkles}>See all {view.total} suggestions</ButtonLink>}
+                {view.total === 0 && <Card><Empty icon={Telescope} title="Nothing to look out for right now" body="Worked out again every few hours from attendance, marks, fees, admissions, the syllabus, messages, staff leave, the cash and bank books and unusual changes." /></Card>}
               </>
             )}
           </Col>
@@ -220,6 +218,35 @@ export default async function EarlyWarningsPage({ searchParams }: { searchParams
           teacher={null} counsellor={null} dueWords={due} />
       )}
       {one(sp.rule) === "1" && a.warnings.rule && <DropRuleSheet value={rules.drop} closeHref={close} />}
+      {all && (
+        <UrlSheet wide title={aheadArea === "all" ? "Looking ahead: all suggestions" : `Looking ahead: ${all.groups[0]?.label ?? "suggestions"}`} closeHref={close}
+          sub={`${all.groups.reduce((n, g) => n + g.count, 0)} suggestions, most important first. Each one is only a suggestion: nothing changes until a person decides.`}>
+          <div className="flex flex-col gap-6">
+            {all.groups.map((g) => (
+              <section key={g.area} className="flex flex-col gap-3">
+                <p className="eyebrow text-ink3">{g.label} · {g.count}{g.actNow ? ` · ${g.actNow} to act on soon` : ""}</p>
+                {g.items.map((s) => <AheadCard key={s.key} s={s} />)}
+                {g.more > 0 && <Link href={withQ(HREF, sp, { ahead: g.area })} scroll={false} className="text-[13px] font-semibold text-brand hover:underline">and {g.more} more {g.label.toLowerCase()} suggestions</Link>}
+              </section>
+            ))}
+            {all.groups.length === 0 && <Empty icon={Telescope} title="Nothing here right now" body="Suggestions appear when the numbers say so, and go when they no longer do." />}
+          </div>
+        </UrlSheet>
+      )}
     </div>
+  );
+}
+
+/** One Looking ahead suggestion: what may happen, how sure, what it is based on, and the person's choices. */
+function AheadCard({ s }: { s: AiSignal }) {
+  return (
+    <Suggestion title={s.title} source={s.source}
+      actions={<>
+        {s.area && <Pill tone={s.strength === "ACT_NOW" ? "bad" : "warn"} dot>{FORECAST_AREA_LABEL[s.area]}{s.strength === "ACT_NOW" ? " · act soon" : ""}</Pill>}
+        {s.certainty && <Pill tone="neutral">{CERTAINTY_LABEL[s.certainty]}</Pill>}
+        {s.href && <ButtonLink href={s.href} size="sm" variant="secondary">{s.hrefLabel ?? "Open"}</ButtonLink>}
+        <QuickButton run={aiDecisionAction.bind(null, s.key, "FLAGGED")} variant="soft">{s.studentId ? "Add for review" : "Make it a task"}</QuickButton>
+        <QuickButton run={aiDecisionAction.bind(null, s.key, "DISMISSED")} variant="ghost">Not a concern</QuickButton>
+      </>}>{s.body}</Suggestion>
   );
 }

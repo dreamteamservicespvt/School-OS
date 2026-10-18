@@ -7,6 +7,8 @@ import type { Tx } from "../db";
 
 /** The parts of the signed-in person the Dashboard needs. Current satisfies it; tests build it from accessIn(). */
 export type Viewer = Pick<Current, "ctx" | "permissions" | "roles" | "modulesOn" | "features" | "school" | "scope" | "campusId"> & {
+  /** The roles the school chose for the AI assistant; the default leaders when left out. */
+  aiRoles?: readonly string[];
   user: { id: string; displayName: string };
 };
 
@@ -27,7 +29,7 @@ export type Tone = "brand" | "ok" | "warn" | "bad" | "info";
 export type DashIcon =
   | "UserX" | "TriangleAlert" | "ListChecks" | "ArrowRightLeft" | "CalendarDays" | "FileWarning" | "BadgeCheck" | "MessagesSquare"
   | "HeartHandshake" | "Award" | "Users" | "TrendingDown" | "Settings" | "CreditCard" | "Send" | "UserCheck" | "ClipboardCheck"
-  | "BookOpenCheck" | "Megaphone" | "Clock" | "ListTodo" | "Sparkles";
+  | "BookOpenCheck" | "Megaphone" | "Clock" | "ListTodo" | "Sparkles" | "BarChart3";
 
 /** One number in the brand band at the top ("School today"). */
 export type BandItem = {

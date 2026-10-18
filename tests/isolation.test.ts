@@ -916,6 +916,29 @@ describe("Switching to School OS files stay in their school", () => {
     });
     await expect(withSchool(ctxA(), (tx) => tx.moveInFile.create({ data: { schoolId: b.id, fileId: b.id, fileName: "x.xlsx", kind: "students" } }))).rejects.toThrow();
   });
+
+  it("school A cannot read, change or add to school B's remembered column matches (Import Mapping)", async () => {
+    const m = await withSchool({ schoolId: b.id, userId: userB.id }, (tx) => tx.importMapping.create({ data: { schoolId: b.id, kind: "students", headerKey: "only-in-b", headings: ["adm no"], columns: { admissionNo: ["adm no"] }, source: "B software", fileName: "b.xlsx" } }));
+    await withSchool(ctxA(), async (tx) => {
+      expect(await tx.importMapping.count()).toBe(0);
+      expect(await tx.importMapping.findUnique({ where: { id: m.id } })).toBeNull();
+      expect((await tx.importMapping.updateMany({ where: { id: m.id }, data: { archivedAt: new Date() } })).count).toBe(0);
+    });
+    await expect(withSchool(ctxA(), (tx) => tx.importMapping.create({ data: { schoolId: b.id, kind: "students", headerKey: "from-a", fileName: "x.xlsx" } }))).rejects.toThrow();
+  });
+});
+
+describe("The AI Call log stays in its school", () => {
+  it("school A cannot read, change or add to school B's AI Calls", async () => {
+    const call = await withSchool({ schoolId: b.id, userId: userB.id }, (tx) => tx.aiCall.create({ data: { schoolId: b.id, feature: "ai-smart-import", purpose: "Only in B", model: "claude-opus-5-5", userLoginId: userB.id, outcome: "ok", sent: true } }));
+    await withSchool(ctxA(), async (tx) => {
+      expect(await tx.aiCall.count()).toBe(0);
+      expect(await tx.aiCall.findMany({ where: { purpose: "Only in B" } })).toHaveLength(0);
+      expect((await tx.aiCall.updateMany({ where: { id: call.id }, data: { outcome: "failed" } })).count).toBe(0);
+      expect((await tx.aiCall.aggregate({ _sum: { costPaise: true } }))._sum.costPaise).toBeNull();
+    });
+    await expect(withSchool(ctxA(), (tx) => tx.aiCall.create({ data: { schoolId: b.id, feature: "ai-smart-import", purpose: "From A", model: "x" } }))).rejects.toThrow();
+  });
 });
 
 describe("The one student search stays in its school", () => {

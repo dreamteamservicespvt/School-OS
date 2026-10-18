@@ -45,6 +45,37 @@ model MoveInFile {
   @@map("move_in_file")
 }
 
+/// Import Mapping: a column match the school confirmed for files from one
+/// source (the same software's export has the same headings), so the next file
+/// with those headings is matched by itself. Kept by heading text, never by
+/// column number, so it still fits when the columns move.
+model ImportMapping {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  /// The import kind, e.g. "students" or "staff".
+  kind        String
+  /// The file's headings, tidied, sorted and joined, then hashed: one mapping per set of headings.
+  headerKey   String    @map("header_key")
+  /// The file's headings, tidied.
+  headings    Json      @default("[]")
+  /// School OS column key → the headings (tidied) that fill it, in order.
+  columns     Json      @default("{}")
+  /// The old software, from the Move-in Plan ("Fedena"), when the school named it.
+  source      String?
+  /// The file the match was learnt from.
+  fileName    String    @map("file_name")
+  timesUsed   Int       @default(0) @map("times_used")
+  lastUsedAt  DateTime? @map("last_used_at")
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  @@unique([schoolId, kind, headerKey])
+  @@index([schoolId, kind])
+  @@map("import_mapping")
+}
+
 /// The school's move-in: the numbers from the old software to compare with,
 /// the go-live date, and who confirmed going live.
 model MoveInPlan {

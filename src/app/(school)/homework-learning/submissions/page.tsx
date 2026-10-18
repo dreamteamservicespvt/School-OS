@@ -39,6 +39,8 @@ export default async function SubmissionsPage({ searchParams }: { searchParams: 
   const openId = UUID.test(one(sp.open)) ? one(sp.open) : "";
   const doing = one(sp.do);
   const ids = one(sp.ids).split(",").filter((x) => UUID.test(x));
+  // Select mode on phones and tablets (TEACHING-11): tapping a student ticks them for a bulk action.
+  const picking = one(sp.pick) === "1";
 
   const data = await withSchool(p.current.ctx, async (tx) => {
     const { all } = await listHomework(tx, s, p.today);
@@ -81,7 +83,7 @@ export default async function SubmissionsPage({ searchParams }: { searchParams: 
   const notIn = (st: string) => st === "ASSIGNED" || st === "MISSING";
   const count = (fn: (st: string) => boolean) => rows.filter((r) => fn(r.sub.status)).length;
   const counted = rows.filter((r) => r.sub.status !== "EXCUSED");
-  const keep = { ...per.keep, hw: hw.id, f: f === "all" ? null : f, q: q || null };
+  const keep = { ...per.keep, hw: hw.id, f: f === "all" ? null : f, q: q || null, pick: picking && canEdit ? "1" : null };
   const here = (extra: Record<string, string | null> = {}) => qs(HREF, { ...keep, ...extra });
   const shown = rows.filter((r) => f === "all" || (f === "check" ? toCheck(r.sub.status) : f === "graded" ? r.sub.status === "GRADED" : notIn(r.sub.status)))
     .filter((r) => !q || r.st.name.toLowerCase().includes(q) || String(r.st.rollNo ?? "") === q || r.st.admissionNo.toLowerCase().includes(q));
@@ -113,8 +115,17 @@ export default async function SubmissionsPage({ searchParams }: { searchParams: 
           <Toolbar>
             <UrlSearch id="sg-search" placeholder="Student name or roll" label="Search students" />
             <span className="flex-1" />
-            <ExportButton href={qs(`${HREF}/export`, { hw: hw.id, f: f === "all" ? null : f, q: q || null })} />
+            <div className="flex gap-2.5">
+              {/* Phones and tablets show cards, not the table's tick boxes: Select turns a tap on a card into a tick. */}
+              {canEdit && (
+                <ButtonLink href={here({ pick: picking ? null : "1" })} scroll={false} variant={picking ? "primary" : "secondary"} icon={picking ? CircleCheck : ListChecks} className="lg:hidden flex-1">
+                  {picking ? "Done" : "Select students"}
+                </ButtonLink>
+              )}
+              <ExportButton href={qs(`${HREF}/export`, { hw: hw.id, f: f === "all" ? null : f, q: q || null })} />
+            </div>
           </Toolbar>
+          {canEdit && picking && <p className="px-4 pt-3 text-[13px] text-ink3 lg:hidden">Tap students to tick them, then choose Mark Complete or Remind parents. You see what will change before anything is saved.</p>}
           <div className="px-3 pt-3">
             <Chips value={f} label="Show" options={[
               { value: "all", label: "Everyone", count: rows.length, href: here({ f: null }) },
@@ -129,7 +140,7 @@ export default async function SubmissionsPage({ searchParams }: { searchParams: 
           ]} />}
           <div className="mt-3 border-t border-line">
             <DataList rows={shown} rowKey={(r) => r.st.id} rowHref={(r) => here({ open: r.sub.id })} scroll={false} minWidth={780} caption={`Submissions for ${hw.title}`}
-              select={canEdit ? { form: "subs-bulk", label: (r) => `Select ${r.st.name}`, allLabel: "Select every student shown" } : undefined}
+              select={canEdit ? { form: "subs-bulk", label: (r) => `Select ${r.st.name}`, allLabel: "Select every student shown" } : undefined} pickMode={canEdit && picking}
               footer={<p className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum">Showing {shown.length} of {rows.length}</p>}
               empty={<Empty icon={ListChecks} title="Nobody here" body="Try another filter or search." />}
               columns={[

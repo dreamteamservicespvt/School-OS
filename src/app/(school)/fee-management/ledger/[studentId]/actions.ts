@@ -1,12 +1,13 @@
 "use server";
 
 import { formatRupees } from "@/lib/format";
-import type { Tx } from "@/lib/db";
+import type { SchoolContext, Tx } from "@/lib/db";
 import { canSeeStudent, type FeeViewer } from "@/lib/fees/access";
 import { createFeeCertificate, createFeeInvoice } from "@/lib/fees/documents";
 import { sendPaymentLink } from "@/lib/fees/online";
 import { addOldDues } from "@/lib/fees/opening";
 import { MoneyProblem } from "@/lib/fees/problem";
+import { counterAllowed, feeSettings } from "@/lib/fees/settings";
 import { addCharge, adjustDue, assignToStudent, removeDue } from "@/lib/fees/structure";
 import { dateOf, id, ids, needRupees, optionalId, optionalText, str, text } from "@/lib/fees/act";
 import { feeAction } from "../../_lib/action";
@@ -19,10 +20,21 @@ async function student(tx: Tx, viewer: FeeViewer, fd: FormData) {
   return studentId;
 }
 
+const COUNTER_WORDS = {
+  "assign-fees": "Your role cannot assign fees. The School Admin can allow it in Fee Settings, Counter permissions.",
+  "edit-student-fees": "Your role cannot change a student’s fees. The School Admin can allow it in Fee Settings, Counter permissions.",
+} as const;
+
+/** "Assign / unassign fees" and "Edit a student's fees" are counter permissions (Fee Settings), checked here on the server. */
+async function mayDo(tx: Tx, ctx: SchoolContext, viewer: FeeViewer, key: keyof typeof COUNTER_WORDS) {
+  if (!counterAllowed(await feeSettings(tx, ctx), viewer.roleKeys, key)) throw new MoneyProblem(COUNTER_WORDS[key]);
+}
+
 /** Old dues from before School OS: a "Brought in" row on the ledger. Nothing goes to the Day Book. */
 export async function addOldDuesAction(_prev: unknown, fd: FormData) {
   return feeAction("create", fd, async (tx, ctx, viewer) => {
     const studentId = await student(tx, viewer, fd);
+    await mayDo(tx, ctx, viewer, "edit-student-fees");
     const r = await addOldDues(tx, ctx, {
       studentId,
       feeHeadId: optionalId(fd, "feeHeadId"),
@@ -42,6 +54,8 @@ export async function adjustAction(_prev: unknown, fd: FormData) {
     const due = await tx.studentFeeDue.findFirst({ where: { id: dueId, studentId } });
     if (!due) throw new MoneyProblem("Choose the row to change.", "dueId");
     const how = str(fd, "how");
+    // Removing a row is "assign / unassign fees"; adding to or reducing it is "edit a student's fees".
+    if (how === "remove" || how === "add" || how === "reduce") await mayDo(tx, ctx, viewer, how === "remove" ? "assign-fees" : "edit-student-fees");
     const reason = text(fd, "reason", "Reason", { min: 5, max: 300 });
     if (how === "remove") {
       await removeDue(tx, ctx, dueId, reason);
@@ -58,6 +72,7 @@ export async function adjustAction(_prev: unknown, fd: FormData) {
 export async function addChargeAction(_prev: unknown, fd: FormData) {
   return feeAction("create", fd, async (tx, ctx, viewer) => {
     const studentId = await student(tx, viewer, fd);
+    await mayDo(tx, ctx, viewer, "edit-student-fees");
     const due = await addCharge(tx, ctx, {
       studentId,
       feeHeadId: id(fd, "feeHeadId", "fee head"),
@@ -74,6 +89,7 @@ export async function addChargeAction(_prev: unknown, fd: FormData) {
 export async function assignPlanAction(_prev: unknown, fd: FormData) {
   return feeAction("create", fd, async (tx, ctx, viewer) => {
     const studentId = await student(tx, viewer, fd);
+    await mayDo(tx, ctx, viewer, "assign-fees");
     const n = await assignToStudent(tx, ctx, studentId, id(fd, "structureId", "fee structure"), optionalText(fd, "reason", "Reason", 300));
     return n;
   }, (n) => `Fee plan assigned: ${n} ${n === 1 ? "row" : "rows"} added.`, { staffOnly: "assign fees" });

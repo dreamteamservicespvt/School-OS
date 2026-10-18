@@ -199,9 +199,10 @@ export function promiseWords(p: Pick<PromiseView, "state" | "promisedOn" | "amou
 /**
  * Open promises still to come, each with what is left to pay on it (never more
  * than the student owes now), for the forecasts: counted on the promised date.
+ * `only`: the students of one campus (feeStudentFilter), when the person is limited to one.
  */
-export async function openPromises(tx: Tx, today: Date, until?: Date) {
-  const rows = await tx.feeCallNote.findMany({ where: { promiseState: "OPEN", promisedOn: { gte: today, ...(until ? { lte: until } : {}) } } });
+export async function openPromises(tx: Tx, today: Date, until?: Date, only: { studentId?: { in: string[] } } = {}) {
+  const rows = await tx.feeCallNote.findMany({ where: { ...only, promiseState: "OPEN", promisedOn: { gte: today, ...(until ? { lte: until } : {}) } } });
   const out: { studentId: string; promisedOn: Date; leftPaise: bigint }[] = [];
   for (const p of rows) {
     const paid = await paidTowards(tx, { studentId: p.studentId, createdAt: p.createdAt, promisedOn: p.promisedOn! });
@@ -252,12 +253,15 @@ export async function termAround(tx: Tx, today: Date, yearId: string | null) {
   return { label: "the last 90 days", from: addDays(today, -90), to: today };
 }
 
-/** The Fee Dashboard's Promises figure: kept and broken this term (by promised date), and open now. */
-export async function promiseSummary(tx: Tx, today: Date, yearId: string | null) {
+/**
+ * The Fee Dashboard's Promises figure: kept and broken this term (by promised
+ * date), and open now. `only`: one campus's students, when the person is limited to one.
+ */
+export async function promiseSummary(tx: Tx, today: Date, yearId: string | null, only: { studentId?: { in: string[] } } = {}) {
   const term = await termAround(tx, today, yearId);
   const [settled, open] = await Promise.all([
-    tx.feeCallNote.groupBy({ by: ["promiseState"], where: { promiseState: { in: ["KEPT", "BROKEN"] }, promisedOn: { gte: term.from, lte: term.to } }, _count: { _all: true } }),
-    tx.feeCallNote.findMany({ where: { promiseState: "OPEN" }, select: { promisedOn: true, promisedPaise: true, owedPaise: true } }),
+    tx.feeCallNote.groupBy({ by: ["promiseState"], where: { ...only, promiseState: { in: ["KEPT", "BROKEN"] }, promisedOn: { gte: term.from, lte: term.to } }, _count: { _all: true } }),
+    tx.feeCallNote.findMany({ where: { ...only, promiseState: "OPEN" }, select: { promisedOn: true, promisedPaise: true, owedPaise: true } }),
   ]);
   const count = (s: string) => settled.find((r) => r.promiseState === s)?._count._all ?? 0;
   // An open promise whose date has passed (not marked yet by the job) counts as broken.

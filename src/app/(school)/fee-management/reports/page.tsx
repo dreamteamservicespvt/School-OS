@@ -6,6 +6,8 @@ import { withSchool } from "@/lib/db";
 import { formatDate, formatRupees } from "@/lib/format";
 import { cellText, FEE_REPORTS, findFeeReport, type ReportFilterKey } from "@/lib/fees/reports";
 import { reportFilter } from "@/lib/fees/report-params";
+import { feeStudentFilter } from "@/lib/fees/access";
+import { inCampus } from "@/lib/campus";
 import { PAYMENT_MODES } from "@/lib/fees/words";
 import { Card, CardHeader } from "@/components/ui/card";
 import { buttonClass } from "@/components/ui/button";
@@ -50,11 +52,13 @@ export default async function FeeReportsPage({ searchParams }: { searchParams: S
   const has = (k: ReportFilterKey) => def.filters.includes(k);
 
   const data = await withSchool(p.current.ctx, async (tx) => {
+    // A person limited to one campus picks from its classes, and the people who collected its students' fees.
+    const only = has("collector") ? await feeStudentFilter(tx, p.viewer) : {};
     const [result, classes, heads, collectors] = await Promise.all([
       def.run(tx, p.current.ctx, f, p.viewer),
-      has("class") ? tx.schoolClass.findMany({ where: { archivedAt: null }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true } }) : [],
+      has("class") ? tx.schoolClass.findMany({ where: { archivedAt: null, ...inCampus(p.viewer) }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true } }) : [],
       has("head") ? tx.feeHead.findMany({ where: { archivedAt: null }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true } }) : [],
-      has("collector") ? tx.payment.groupBy({ by: ["collectedById"], where: { collectedById: { not: null } } }) : [],
+      has("collector") ? tx.payment.groupBy({ by: ["collectedById"], where: { ...only, collectedById: { not: null } } }) : [],
     ]);
     const people = collectors.length ? await tx.userLogin.findMany({ where: { id: { in: collectors.map((c) => c.collectedById!).filter(Boolean) } }, select: { id: true, displayName: true }, orderBy: { displayName: "asc" } }) : [];
     return { result, classes, heads, people };

@@ -4,7 +4,8 @@ import type { ConcessionType, PaymentMode } from "@prisma/client";
 import { decide } from "@/lib/approvals";
 import { DOCUMENT_TYPES, saveFile } from "@/lib/files";
 import { formatRupees } from "@/lib/format";
-import { canSeeStudent } from "@/lib/fees/access";
+import type { Tx } from "@/lib/db";
+import { canSeeStudent, type FeeViewer } from "@/lib/fees/access";
 import { archiveBulkRule, giveConcession, revokeConcession, saveBulkRule } from "@/lib/fees/concessions";
 import { markRefunded, requestRefund } from "@/lib/fees/refunds";
 import { MoneyProblem } from "@/lib/fees/problem";
@@ -14,6 +15,14 @@ import { todayIn } from "@/lib/staff/dates";
 import { feeAction } from "../_lib/action";
 
 const GIVEN = CONCESSION_TYPES.filter((t) => t.value !== "BULK_DISCOUNT").map((t) => t.value) as string[];
+
+/**
+ * A record of a student the person may not see (another campus, when limited
+ * to one) is "not found", the same words as a record that does not exist.
+ */
+async function mustSee(tx: Tx, viewer: FeeViewer, studentId: string | null | undefined, what: string) {
+  if (studentId && !(await canSeeStudent(tx, viewer, studentId))) throw new MoneyProblem(`This ${what} was not found.`);
+}
 
 /** A concession for one student: applies at once up to the school's limit, else goes to Approvals. */
 export async function newConcessionAction(_prev: unknown, fd: FormData) {
@@ -58,19 +67,23 @@ export async function newConcessionAction(_prev: unknown, fd: FormData) {
 
 /** Takes an applied concession off again, with a reason. The record stays. */
 export async function revokeConcessionAction(_prev: unknown, fd: FormData) {
-  return feeAction("edit", fd, async (tx, ctx) => {
-    await revokeConcession(tx, ctx, id(fd, "concessionId", "concession"), text(fd, "reason", "Reason", { min: 5, max: 300 }));
+  return feeAction("edit", fd, async (tx, ctx, viewer) => {
+    const concessionId = id(fd, "concessionId", "concession");
+    const c = await tx.concession.findFirst({ where: { id: concessionId }, select: { studentId: true } });
+    await mustSee(tx, viewer, c?.studentId, "concession");
+    await revokeConcession(tx, ctx, concessionId, text(fd, "reason", "Reason", { min: 5, max: 300 }));
     return true;
   }, () => "Concession taken off. The rows it covered are due again, and the record stays with your reason.", { staffOnly: "change concessions" });
 }
 
 /** Approve or decline a concession or refund from this page (the same decision as in Approvals). */
 export async function decideAction(_prev: unknown, fd: FormData) {
-  return feeAction("approve", fd, async (tx, ctx) => {
+  return feeAction("approve", fd, async (tx, ctx, viewer) => {
     const kind = str(fd, "kind");
     const recordId = id(fd, "recordId", "request");
     const decision = str(fd, "decision") === "approve" ? "approve" : "reject";
     const rec = kind === "refund" ? await tx.refund.findFirst({ where: { id: recordId } }) : await tx.concession.findFirst({ where: { id: recordId } });
+    if (rec) await mustSee(tx, viewer, rec.studentId, "request");
     if (!rec?.approvalId || rec.status !== "WAITING") throw new MoneyProblem("This request is not waiting for a decision.");
     const note = optionalText(fd, "note", "Note", 300);
     if (decision === "reject" && !note) throw new MoneyProblem("Say why it is declined. The person who asked sees it.", "note");
@@ -96,8 +109,9 @@ export async function newRefundAction(_prev: unknown, fd: FormData) {
 
 /** The money went back: date and reference. Finance gets a money-out entry in the Day Book. */
 export async function markRefundedAction(_prev: unknown, fd: FormData) {
-  return feeAction("edit", fd, async (tx, ctx) => {
+  return feeAction("edit", fd, async (tx, ctx, viewer) => {
     const refundId = id(fd, "refundId", "refund");
+    await mustSee(tx, viewer, (await tx.refund.findFirst({ where: { id: refundId }, select: { studentId: true } }))?.studentId, "refund");
     await markRefunded(tx, ctx, refundId, { date: dateOf(fd, "date", "Date paid"), reference: optionalText(fd, "reference", "Reference", 80), accountId: optionalId(fd, "accountId") });
     const r = await tx.refund.findFirstOrThrow({ where: { id: refundId } });
     return formatRupees(r.amountPaise);

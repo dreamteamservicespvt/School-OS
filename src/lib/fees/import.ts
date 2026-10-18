@@ -15,7 +15,8 @@ import { MoneyProblem } from "./problem";
 import { lockDues, refreshBalances } from "./dues";
 import { ensureFeeDefaults } from "./settings";
 import { financialYearOf } from "../finance/years";
-import { currentYear } from "../academic/years";
+import { studentYear } from "../academic/years";
+import { campusLimitOf } from "../staff/campus-logins";
 import { PAYMENT_MODES } from "./words";
 import { formatRupees } from "../format";
 
@@ -67,7 +68,9 @@ defineImport<OldDue>({
   async check(tx, ctx, row, seen) {
     await ensureFeeDefaults(tx, ctx);
     const problems: string[] = [];
-    const student = row.admissionNo ? await tx.student.findFirst({ where: { admissionNo: { equals: row.admissionNo.trim(), mode: "insensitive" }, archivedAt: null } }) : null;
+    // One campus: only that campus's students.
+    const limit = await campusLimitOf(tx, ctx);
+    const student = row.admissionNo ? await tx.student.findFirst({ where: { admissionNo: { equals: row.admissionNo.trim(), mode: "insensitive" }, archivedAt: null, ...(limit ? { campusId: limit } : {}) } }) : null;
     if (!student) problems.push(`No student with admission number "${row.admissionNo}".`);
     const headName = row.feeHead?.trim() || "Old dues";
     const head = await tx.feeHead.findFirst({ where: { archivedAt: null, name: { equals: headName, mode: "insensitive" } } });
@@ -91,7 +94,8 @@ defineImport<OldDue>({
     return { ok: true, value: { studentId: student.id, feeHeadId: head.id, amountPaise: amount.value, dueDate, note: row.note?.trim() || null, headName: head.name } };
   },
   async save(tx, ctx, v) {
-    const year = await currentYear(tx, ctx);
+    // The row belongs to the current year of the student's own campus.
+    const year = await studentYear(tx, ctx, v.studentId);
     if (!year) throw new Error("No academic year");
     const fy = await financialYearOf(tx, ctx, v.dueDate);
     const ob = await tx.openingBalance.create({
@@ -145,7 +149,8 @@ defineImport<PastReceipt>({
   ],
   async check(tx, ctx, row, seen) {
     const problems: string[] = [];
-    const student = row.admissionNo ? await tx.student.findFirst({ where: { admissionNo: { equals: row.admissionNo.trim(), mode: "insensitive" }, releasedAt: null } }) : null;
+    const limit = await campusLimitOf(tx, ctx);
+    const student = row.admissionNo ? await tx.student.findFirst({ where: { admissionNo: { equals: row.admissionNo.trim(), mode: "insensitive" }, releasedAt: null, ...(limit ? { campusId: limit } : {}) } }) : null;
     if (!student) problems.push(`No student with admission number "${row.admissionNo}".`);
     const no = (row.oldReceiptNo ?? "").trim();
     if (!no) problems.push("Old receipt number is needed.");

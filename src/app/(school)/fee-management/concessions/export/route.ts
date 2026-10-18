@@ -5,7 +5,7 @@ import { formatDate, formatRupees } from "@/lib/format";
 import { PermissionDeniedError } from "@/lib/permissions";
 import { periodFromSearch } from "@/lib/periods";
 import { periodSetup } from "@/lib/period-setup";
-import { feePageAllowed, feeViewer } from "@/lib/fees/access";
+import { feePageAllowed, feeStudentFilter, feeViewer } from "@/lib/fees/access";
 import { concessionRows, refundRows, type ConcessionRow, type RefundRow } from "@/lib/fees/concession-list";
 import { modeLabel } from "@/lib/fees/words";
 
@@ -33,12 +33,14 @@ export async function GET(req: Request) {
     const viewer = await feeViewer(tx, current.ctx, current);
     if (!feePageAllowed(viewer, "concessions")) return null;
     const words = [range ? `asked ${range.label}` : null, filter.q && `search "${filter.q}"`, filter.status && C_WORDS[filter.status]].filter(Boolean).join(", ") || "All";
+    // A person limited to one campus exports that campus's students' records only.
+    const only = await feeStudentFilter(tx, viewer);
     if (tab === "refunds") {
-      const r = await refundRows(tx, filter, 10000);
+      const r = await refundRows(tx, { ...filter, only }, 10000);
       await logExport(tx, current.ctx, { title: "Refunds", format, filters: words, rows: r.rows.length });
       return { kind: "refunds" as const, rows: r.rows, words };
     }
-    const c = await concessionRows(tx, filter, 10000);
+    const c = await concessionRows(tx, { ...filter, only }, 10000);
     const title = tab === "scholarships" ? "Scholarships" : "Concessions";
     await logExport(tx, current.ctx, { title, format, filters: words, rows: c.rows.length });
     return { kind: "concessions" as const, title, rows: c.rows, words };

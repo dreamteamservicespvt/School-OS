@@ -1,11 +1,11 @@
 "use server";
 
 import { requireAction } from "@/lib/current";
-import { withSchool } from "@/lib/db";
+import { withSchool, type Tx } from "@/lib/db";
 import { PermissionDeniedError } from "@/lib/permissions";
 import { formatDate } from "@/lib/format";
 import { addDays, todayIn } from "@/lib/staff/dates";
-import { canSeeStudent, feeViewer } from "@/lib/fees/access";
+import { canSeeStudent, feeViewer, studentScope, type FeeViewer } from "@/lib/fees/access";
 import { addCallNote } from "@/lib/fees/defaulters";
 import { previewReminders, sendReminders, type ReminderInput } from "@/lib/fees/reminders";
 import { MoneyProblem } from "@/lib/fees/problem";
@@ -15,6 +15,15 @@ import { feeAction } from "../_lib/action";
 export type PreviewResult =
   | { ok: true; recipients: number; cost: number; skipped: { reason: string; count: number }[]; nothingDue: number; creditProblem: string | null; problems: string[]; sample: string | null; linkAvailable: boolean }
   | { ok: false; message: string };
+
+/** Every chosen student must be one the person may see (their campus, when limited to one). */
+async function visibleOnly(tx: Tx, viewer: FeeViewer, input: ReminderInput) {
+  const ids = [...new Set(input.studentIds)];
+  if (!ids.length || (viewer.see === "all" && !viewer.campusId)) return input;
+  const n = await tx.student.count({ where: { id: { in: ids }, ...studentScope(viewer) } });
+  if (n !== ids.length) throw new MoneyProblem("This student was not found.", "studentIds");
+  return input;
+}
 
 function inputOf(fd: FormData, timeZone: string): ReminderInput {
   const when = str(fd, "when");
@@ -43,7 +52,7 @@ export async function previewReminderAction(fd: FormData): Promise<PreviewResult
     return await withSchool(current.ctx, async (tx) => {
       const viewer = await feeViewer(tx, current.ctx, current);
       if (viewer.change !== "all") throw new MoneyProblem("Your role cannot send fee reminders.");
-      const p = await previewReminders(tx, current.ctx, inputOf(fd, current.school.timeZone));
+      const p = await previewReminders(tx, current.ctx, await visibleOnly(tx, viewer, inputOf(fd, current.school.timeZone)));
       return { ok: true as const, recipients: p.recipients, cost: p.cost, skipped: p.skipped.map((s) => ({ reason: s.reason, count: s.count })), nothingDue: p.skippedNothingDue, creditProblem: p.creditProblem, problems: p.problems, sample: p.sample, linkAvailable: p.linkAvailable };
     });
   } catch (e) {
@@ -54,8 +63,8 @@ export async function previewReminderAction(fd: FormData): Promise<PreviewResult
 
 /** Sends (or schedules) the reminders. Each student's reminder goes in their reminder history. */
 export async function sendReminderAction(_prev: unknown, fd: FormData) {
-  return feeAction("create", fd, async (tx, ctx, _viewer, current) => {
-    const r = await sendReminders(tx, ctx, inputOf(fd, current.school.timeZone));
+  return feeAction("create", fd, async (tx, ctx, viewer, current) => {
+    const r = await sendReminders(tx, ctx, await visibleOnly(tx, viewer, inputOf(fd, current.school.timeZone)));
     return r;
   }, (r) => {
     const skipped = r.skipped.reduce((s, g) => s + g.count, 0);

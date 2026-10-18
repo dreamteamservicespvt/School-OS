@@ -8,6 +8,7 @@ import { redirect } from "next/navigation";
 import { requirePage } from "@/lib/current";
 import { withSchool } from "@/lib/db";
 import { currentYear } from "@/lib/academic/years";
+import { personCampusId } from "@/lib/campus";
 import { todayIn } from "@/lib/staff/dates";
 import { admissionOnly as isAdmissionOnly, feeLevel, feePageAllowed, feeViewer, type FeePageKey } from "@/lib/fees/access";
 import { counterAllowed, feeFeaturesOn, feeSettings } from "@/lib/fees/settings";
@@ -28,7 +29,8 @@ export const feePage = cache(async () => {
       feeViewer(tx, current.ctx, current),
       feeSettings(tx, current.ctx),
       feeFeaturesOn(tx, current.ctx),
-      currentYear(tx, current.ctx),
+      // The person's own campus's current year (a school's campuses may start their years on different dates).
+      personCampusId(tx, current.ctx, current).then((campusId) => currentYear(tx, current.ctx, campusId)),
       tx.school.findUniqueOrThrow({ where: { id: current.ctx.schoolId }, select: { name: true, gstin: true, timeZone: true } }),
       tx.financeSetting.findUniqueOrThrow({ where: { schoolId: current.ctx.schoolId }, select: { goLiveDate: true } }),
     ]);

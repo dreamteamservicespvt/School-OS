@@ -6,7 +6,7 @@ import "server-only";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { formatDate, formatRupees } from "../format";
-import { currentYear } from "../academic/years";
+import { studentYear } from "../academic/years";
 import { financialYearOf } from "../finance/years";
 import { MoneyProblem } from "./problem";
 import { ensureFeeDefaults } from "./settings";
@@ -16,7 +16,8 @@ export async function addOldDues(tx: Tx, ctx: SchoolContext, input: { studentId:
   if (input.amountPaise <= BigInt(0)) throw new MoneyProblem("Amount must be more than ₹0.", "amount");
   const student = await tx.student.findFirst({ where: { id: input.studentId, archivedAt: null }, select: { id: true, fullName: true } });
   if (!student) throw new MoneyProblem("This student was not found.");
-  const year = await currentYear(tx, ctx);
+  // The row belongs to the current year of the student's own campus.
+  const year = await studentYear(tx, ctx, student.id);
   if (!year) throw new MoneyProblem("Set up the academic year in Academic Management first.");
   const head = input.feeHeadId
     ? await tx.feeHead.findFirst({ where: { id: input.feeHeadId, archivedAt: null } })

@@ -123,11 +123,16 @@ export async function studentCard(tx: Tx, ctx: SchoolContext, studentId: string,
   };
 }
 
-/** Class and section names for many students in one year (lists, Day Book entries). */
-export async function classOfStudents(tx: Tx, studentIds: string[], academicYearId?: string | null) {
+/**
+ * Class and section names for many students in a year (lists, Day Book
+ * entries). Several years may be given: each campus's current year, so the
+ * students of every campus get their class (a student is in one of them).
+ */
+export async function classOfStudents(tx: Tx, studentIds: string[], academicYearId?: string | readonly string[] | null) {
   if (!studentIds.length) return new Map<string, { classId: string; sectionId: string; label: string; className: string }>();
+  const years = academicYearId == null ? [] : typeof academicYearId === "string" ? [academicYearId] : [...academicYearId];
   const rows = await tx.enrolment.findMany({
-    where: { studentId: { in: studentIds }, archivedAt: null, ...(academicYearId ? { academicYearId } : {}) },
+    where: { studentId: { in: studentIds }, archivedAt: null, ...(years.length ? { academicYearId: { in: years } } : {}) },
     orderBy: { createdAt: "asc" },
   });
   const sectionIds = [...new Set(rows.map((r) => r.sectionId))];

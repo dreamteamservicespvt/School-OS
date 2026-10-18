@@ -425,10 +425,11 @@ export async function cancelLink(tx: Tx, ctx: SchoolContext, linkId: string) {
  * (the parent closed it) are counted, not listed; failed attempts are listed
  * once, as failed payments.
  */
-export async function failedOnline(tx: Tx, since: Date) {
-  const failed = await tx.payment.findMany({ where: { status: "FAILED", createdAt: { gte: since } }, orderBy: { createdAt: "desc" }, take: 50 });
+export async function failedOnline(tx: Tx, since: Date, only: { studentId?: { in: string[] } } = {}) {
+  // `only`: the students of one campus (feeStudentFilter), for a person limited to one.
+  const failed = await tx.payment.findMany({ where: { ...only, status: "FAILED", createdAt: { gte: since } }, orderBy: { createdAt: "desc" }, take: 50 });
   const links = await tx.paymentLink.findMany({
-    where: { status: { in: ["SENT", "FAILED"] }, attempts: { gt: 0 }, lastAttemptAt: { lt: new Date(Date.now() - CONFIRM_WITHIN_MS), gte: since }, paymentId: null },
+    where: { ...only, status: { in: ["SENT", "FAILED"] }, attempts: { gt: 0 }, lastAttemptAt: { lt: new Date(Date.now() - CONFIRM_WITHIN_MS), gte: since }, paymentId: null },
     orderBy: { lastAttemptAt: "desc" },
     take: 100,
   });

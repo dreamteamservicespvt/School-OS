@@ -3,6 +3,8 @@ import { ArrowRight, CircleCheck, FileText, Hourglass, SearchX, UserPlus } from 
 import { withSchool } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { classOfStudents } from "@/lib/fees/dues";
+import { feeStudentFilter } from "@/lib/fees/access";
+import { inCampus } from "@/lib/campus";
 import { feeStatus } from "@/lib/admission/fee";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
@@ -31,16 +33,18 @@ export async function AdmissionFees({ searchParams }: { searchParams: SearchPara
   const made = per.from && per.to ? { gte: per.from, lt: new Date(per.to.getTime() + 86_400_000) } : undefined;
 
   const data = await withSchool(p.current.ctx, async (tx) => {
+    // A person limited to one campus sees that campus's applications and students only.
+    const only = await feeStudentFilter(tx, p.viewer);
     const [apps, heads, classes] = await Promise.all([
       tx.application.findMany({
-        where: { feeDuePaise: { gt: ZERO }, ...(made ? { createdAt: made } : {}) }, orderBy: { createdAt: "desc" }, take: 500,
+        where: { ...inCampus(p.viewer), feeDuePaise: { gt: ZERO }, ...(made ? { createdAt: made } : {}) }, orderBy: { createdAt: "desc" }, take: 500,
         select: { id: true, applicationNo: true, fullName: true, guardianName: true, fatherName: true, classId: true, stage: true, feeDuePaise: true, createdAt: true },
       }),
       tx.feeHead.findMany({ where: { kind: "admission", archivedAt: null }, select: { id: true } }),
       tx.schoolClass.findMany({ select: { id: true, name: true } }),
     ]);
     const appPays = apps.length ? await tx.applicationFeePayment.findMany({ where: { applicationId: { in: apps.map((a) => a.id) } }, select: { applicationId: true, status: true, amountPaise: true, cancelledAt: true, receiptNo: true, confirmedAt: true } }) : [];
-    const dues = heads.length ? await tx.studentFeeDue.findMany({ where: { feeHeadId: { in: heads.map((h) => h.id) }, state: "OPEN", ...(made ? { createdAt: made } : {}) }, orderBy: { createdAt: "desc" }, take: 500, select: { id: true, studentId: true, balancePaise: true, paidPaise: true, dueDate: true } }) : [];
+    const dues = heads.length ? await tx.studentFeeDue.findMany({ where: { ...only, feeHeadId: { in: heads.map((h) => h.id) }, state: "OPEN", ...(made ? { createdAt: made } : {}) }, orderBy: { createdAt: "desc" }, take: 500, select: { id: true, studentId: true, balancePaise: true, paidPaise: true, dueDate: true } }) : [];
     const ids = [...new Set(dues.map((d) => d.studentId))];
     const [students, studentClasses, allocations] = await Promise.all([
       tx.student.findMany({ where: { id: { in: ids } }, select: { id: true, fullName: true, admissionNo: true } }),

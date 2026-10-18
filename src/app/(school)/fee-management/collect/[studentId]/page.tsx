@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { fileLink } from "@/lib/files";
 import { formatDate, formatRupees } from "@/lib/format";
+import { studentYear } from "@/lib/academic/years";
 import { canSeeStudent } from "@/lib/fees/access";
 import { advanceHeld, allDues, dueStatus, netAmount, studentCard, totalsOf } from "@/lib/fees/dues";
 import { gatewayFor } from "@/lib/fees/settings";
@@ -23,20 +24,22 @@ export default async function CollectPage({ params }: { params: Promise<{ studen
   if (!/^[0-9a-f-]{36}$/i.test(studentId)) notFound();
   const data = await withSchool(p.current.ctx, async (tx) => {
     if (!(await canSeeStudent(tx, p.viewer, studentId))) return null;
-    const card = await studentCard(tx, p.current.ctx, studentId, p.year?.id);
+    // "This year" for this student is their own campus's current year.
+    const year = await studentYear(tx, p.current.ctx, studentId);
+    const card = await studentCard(tx, p.current.ctx, studentId, year?.id);
     if (!card) return null;
     const dues = await allDues(tx, studentId);
     const heads = await tx.feeHead.findMany({ where: { id: { in: dues.map((d) => d.feeHeadId) } }, select: { id: true, name: true } });
     const advance = await advanceHeld(tx, studentId);
     const gateway = await gatewayFor(tx, p.current.ctx, card.classId);
-    return { card, dues, heads, advance, gateway: Boolean(gateway) };
+    return { card, dues, heads, advance, gateway: Boolean(gateway), year };
   });
   if (!data) notFound();
-  const { card, dues, heads, advance } = data;
-  const yearDues = dues.filter((d) => !p.year || d.academicYearId === p.year.id || d.balancePaise > BigInt(0));
+  const { card, dues, heads, advance, year } = data;
+  const yearDues = dues.filter((d) => !year || d.academicYearId === year.id || d.balancePaise > BigInt(0));
   const totals = totalsOf(yearDues);
   const rows: DueRow[] = yearDues
-    .filter((d) => d.balancePaise > BigInt(0) || d.academicYearId === p.year?.id)
+    .filter((d) => d.balancePaise > BigInt(0) || d.academicYearId === year?.id)
     .map((d) => {
       const status = dueStatus(d, p.today);
       const head = heads.find((h) => h.id === d.feeHeadId)?.name ?? "Fees";

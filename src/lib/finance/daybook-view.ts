@@ -30,7 +30,7 @@ export type DayRow = {
   head: string;
   amount: bigint;
   penalty: bigint;
-  /** Signed: money in positive, money out positive in its own section, reversals negative. */
+  /** Signed: money in positive, money out positive in its own section; a reversal or refund is negative when money goes back out (a fee cancelled or refunded) and positive when it comes back in (an expense or salary cancelled). */
   total: bigint;
   mode: string;
   reference: string | null;
@@ -105,7 +105,7 @@ export async function dayBookView(tx: Tx, f: DayBookFilter) {
   const rows: DayRow[] = entries.map((e) => {
     const source = SECTION_OF[e.section] ?? "income";
     const isRev = e.section === "reversal" || e.section === "refund";
-    const total = isRev ? -e.amountPaise : e.amountPaise;
+    const total = isRev && e.direction === "OUT" ? -e.amountPaise : e.amountPaise;
     return {
       id: e.id, source, section: isRev ? "refunds" : e.section === "salary-advance" ? "salary" : e.section === "online-fees" ? "fees-full" : e.section,
       date: e.date, at: e.postedAt, who: e.partyName, number: numberOf(e), classLabel: e.studentId ? classLabelOf(e) : "",
@@ -161,6 +161,8 @@ export async function dayBookView(tx: Tx, f: DayBookFilter) {
     feesFull: sum(feeIn.filter((r) => r.section !== "fees-partial")), feesPartial: sum(feeIn.filter((r) => r.section === "fees-partial")),
     otherIncome: sum(sections.income.filter((r) => r.total > ZERO)),
     reversed: sum(rows.filter((r) => r.sourceType !== "refund" && r.section === "refunds" && moneyOut.has(r.id))),
+    // Expenses and salary cancelled in view: money back in, taken off Total expense (so it adds up to the Expenses shown).
+    expenseReversed: sum(rows.filter((r) => r.section === "refunds" && !moneyOut.has(r.id))),
     waiting: { count: waitingPays.length, amount: waitingPays.reduce((s, p) => s + p.amountPaise, ZERO) },
     rows: all,
   };

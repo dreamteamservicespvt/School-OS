@@ -12,7 +12,7 @@ import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { formatDate, formatRupees } from "../format";
 import { addCharge, removeDue } from "../fees/structure";
-import { currentYear } from "../academic/years";
+import { currentYear, currentYears } from "../academic/years";
 import { enrolmentsOf } from "../front-office/pickup";
 import { HostelProblem } from "./problem";
 import { feePlans, planForRoom, type FeePlan } from "./settings";
@@ -149,14 +149,17 @@ export async function allocate(tx: Tx, ctx: SchoolContext, input: AllocateInput,
   const { bed, room, hostel } = await freeBed(tx, input.bedId);
   opts.assertHostel(hostel.id);
   assertGender(hostel, student);
-  const year = await currentYear(tx, ctx);
+  // The student's own campus's current year (a school's campuses can start the year on different dates).
+  const year = await currentYear(tx, ctx, student.campusId);
   if (!year) throw new HostelProblem("Set up this academic year first (Academic Management).");
   const enrolled = await tx.enrolment.findFirst({ where: { studentId: student.id, academicYearId: year.id, archivedAt: null } });
   if (!enrolled) throw new HostelProblem(`${student.fullName} is not in a class this year. Add them to a class first.`, "studentId");
 
   let plan: FeePlan | null = null;
   if (input.feePlanId !== "none") {
-    plan = (await feePlans(tx, year.id)).find((p) => p.id === input.feePlanId) ?? null;
+    // A hostel fee plan is made for one campus's year; any campus's current year's plan may be chosen.
+    const years = await currentYears(tx, ctx);
+    plan = (await Promise.all(years.map((y) => feePlans(tx, y.id)))).flat().find((p) => p.id === input.feePlanId) ?? null;
     if (!plan) throw new HostelProblem("Choose the hostel fee plan, or No hostel fees.", "feePlanId");
     if (plan.hostelId && plan.hostelId !== hostel.id) throw new HostelProblem(`“${plan.name}” is for another hostel. Choose the plan for ${hostel.name}.`, "feePlanId");
   }

@@ -14,7 +14,7 @@ import { writeAudit } from "../audit";
 import { formatRupees } from "../format";
 import { nextNumber, formatNumber } from "../sequences";
 import { addCharge } from "../fees/structure";
-import { currentYear } from "../academic/years";
+import { studentYear } from "../academic/years";
 import { InventoryProblem } from "./problem";
 import { inventorySettings } from "./settings";
 import { balanceOf, move, notEnough, usableBatches } from "./stock";
@@ -62,7 +62,7 @@ export async function recipientWords(tx: Tx, r: Pick<StockIssue, "toKind" | "sta
 
 /** The student's section this year (for reports by class), or their latest. */
 async function studentSection(tx: Tx, ctx: SchoolContext, studentId: string) {
-  const year = await currentYear(tx, ctx);
+  const year = await studentYear(tx, ctx, studentId);
   const e = await tx.enrolment.findFirst({ where: { studentId, archivedAt: null, ...(year ? { academicYearId: year.id } : {}) }, orderBy: { createdAt: "desc" } })
     ?? await tx.enrolment.findFirst({ where: { studentId, archivedAt: null }, orderBy: { createdAt: "desc" } });
   return e;

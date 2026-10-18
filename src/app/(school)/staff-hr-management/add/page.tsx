@@ -8,6 +8,8 @@ import { leaveYearFor } from "@/lib/staff/leave";
 import { isoDay } from "@/lib/staff/dates";
 import { roleLines } from "@/lib/staff/role-words";
 import { UUID_RE } from "@/lib/staff/act";
+import { campusStaffWhere } from "@/lib/staff/list";
+import { personCampusId } from "@/lib/campus";
 import type { AccessLevel, RolePermissions } from "@/lib/roles";
 import { MODULES } from "@/lib/modules";
 import { BackLink } from "@/components/ui/module-head";
@@ -20,7 +22,7 @@ export const metadata: Metadata = { title: "Add Staff" };
 type Search = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
 export default async function AddStaffPage({ searchParams }: Search) {
-  const { current, today } = await hrPage("create");
+  const { current, viewer, today } = await hrPage("create");
   if (pageHidden(current, "staff-hr-management", "add")) redirect(BASE);
   const sp = await searchParams;
   const applicationId = typeof sp.application === "string" && UUID_RE.test(sp.application) ? sp.application : null;
@@ -30,11 +32,15 @@ export default async function AddStaffPage({ searchParams }: Search) {
       hrSettings(tx, current.ctx),
       tx.designation.findMany({ where: { archivedAt: null }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
       tx.department.findMany({ where: { archivedAt: null }, orderBy: { name: "asc" } }),
-      tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] } }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, designation: true } }),
-      tx.campus.findMany({ where: { archivedAt: null }, orderBy: [{ isMain: "desc" }, { name: "asc" }] }),
+      // One campus: the reporting manager is one of that campus's staff (or the person adding), and the campus is theirs.
+      tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] }, AND: [campusStaffWhere(viewer)] }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, designation: true } }),
+      tx.campus.findMany({ where: { archivedAt: null, ...(current.campusId ? { id: current.campusId } : {}) }, orderBy: [{ isMain: "desc" }, { name: "asc" }] }),
       tx.role.findMany({ where: { isEnabled: true, archivedAt: null }, orderBy: [{ kind: "asc" }, { name: "asc" }] }),
     ]);
-    const year = campuses[0] ? await leaveYearFor(tx, current.ctx, today, campuses[0].id) : null;
+    // The campus chosen at first is the person's own; the classes to give are of that campus's year.
+    const mine = await personCampusId(tx, current.ctx, current);
+    const campusId = campuses.find((c) => c.id === mine)?.id ?? campuses[0]?.id ?? null;
+    const year = campusId ? await leaveYearFor(tx, current.ctx, today, campusId) : null;
     const sections = year ? await tx.section.findMany({ where: { academicYearId: year.id, archivedAt: null }, include: { schoolClass: true }, orderBy: [{ schoolClass: { sortOrder: "asc" } }, { name: "asc" }] }) : [];
     const classIds = [...new Set(sections.map((s) => s.classId))];
     const subjects = await tx.subjectClass.findMany({ where: { classId: { in: classIds }, archivedAt: null, subject: { archivedAt: null } }, include: { subject: true } });
@@ -56,6 +62,7 @@ export default async function AddStaffPage({ searchParams }: Search) {
       departments: departments.map((d) => ({ value: d.id, label: d.name })),
       staff: staff.map((s) => ({ value: s.id, label: `${s.fullName} (${s.designation})` })),
       campuses: campuses.map((c) => ({ value: c.id, label: c.name })),
+      campusId: campusId ?? "",
       roles: roles.filter((r, i) => r.key !== "student" && roles.findIndex((x) => (x.key ?? x.id) === (r.key ?? r.id)) === i).map((r) => {
         const perms = r.permissions as RolePermissions;
         return { key: r.key ?? r.id, name: r.name, perms: perms as Record<string, AccessLevel>, lines: roleLines(perms).map((l) => `${l.module}: ${l.words}`) };

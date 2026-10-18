@@ -6,6 +6,7 @@ import { formatDate, formatRupees, formatRupeesShort } from "@/lib/format";
 import { workOutPay } from "@/lib/salary/calc";
 import { asStatutory, components, ptSlabs, statutoryFor, templates as loadTemplates, lastFrozenMonth } from "@/lib/salary/settings";
 import { fromStored } from "@/lib/salary/structures";
+import { staffOnCampus } from "@/lib/salary/campus";
 import { addMonths, firstOfMonth, monthName } from "@/lib/salary/words";
 import { Card } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
@@ -42,10 +43,12 @@ export default async function StructuresPage({ searchParams }: { searchParams: S
   const pick = (k: string) => (UUID.test(one(sp[k])) ? one(sp[k]) : "");
 
   const data = await withSchool(ctx, async (tx) => {
+    // One campus: the structures of their campus's staff only.
+    const onCampus = await staffOnCampus(tx, ctx, p.current);
     const [staff, depts, all, stat, comps, tpls, frozen] = await Promise.all([
-      tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] } }, orderBy: { staffCode: "asc" }, select: { id: true, fullName: true, staffCode: true, designation: true, departmentId: true, joiningDate: true, bankAccountEnc: true, bankName: true, uan: true } }),
+      tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] }, ...(p.current.campusId ? { campusId: p.current.campusId } : {}) }, orderBy: { staffCode: "asc" }, select: { id: true, fullName: true, staffCode: true, designation: true, departmentId: true, joiningDate: true, bankAccountEnc: true, bankName: true, uan: true } }),
       tx.department.findMany({ where: { archivedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
-      tx.salaryStructure.findMany({ where: { archivedAt: null }, orderBy: [{ effectiveFrom: "desc" }, { version: "desc" }] }),
+      tx.salaryStructure.findMany({ where: { archivedAt: null, ...onCampus }, orderBy: [{ effectiveFrom: "desc" }, { version: "desc" }] }),
       statutoryFor(tx, ctx, thisMonth),
       components(tx, ctx),
       loadTemplates(tx, ctx),

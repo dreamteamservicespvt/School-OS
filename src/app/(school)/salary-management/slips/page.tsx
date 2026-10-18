@@ -6,6 +6,7 @@ import { channelSetups } from "@/lib/messaging/channels";
 import { decryptField, maskLast4 } from "@/lib/crypto";
 import { formatRupees } from "@/lib/format";
 import { salarySettings } from "@/lib/salary/settings";
+import { runsOnCampus } from "@/lib/salary/campus";
 import { SLIP_STATUS_LABEL, SLIP_STATUS_TONE, dayNum, dayShort, firstOfMonth, monthName } from "@/lib/salary/words";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
@@ -169,7 +170,8 @@ async function AllSlips({ sp }: { sp: Record<string, string | string[] | undefin
   const st = STATUS.some((s) => s.value === one(sp.status)) ? one(sp.status) : "all";
   const data = await withSchool(ctx, async (tx) => {
     const settings = await salarySettings(tx, ctx);
-    const runs = await tx.payrollRun.findMany({ orderBy: [{ month: "desc" }], take: 36, select: { id: true, month: true, status: true, campusId: true, paidOn: true, staffCount: true } });
+    // One campus: their campus's months only (their own slips stay on My Salary Slips).
+    const runs = await tx.payrollRun.findMany({ where: runsOnCampus(p.current), orderBy: [{ month: "desc" }], take: 36, select: { id: true, month: true, status: true, campusId: true, paidOn: true, staffCount: true } });
     const asked = UUID.test(one(sp.run)) ? runs.find((r) => r.id === one(sp.run)) : null;
     const run = asked ?? runs.find((r) => DONE.includes(r.status as (typeof DONE)[number])) ?? runs[0] ?? null;
     const slips = run ? await tx.payslip.findMany({ where: { runId: run.id }, orderBy: { createdAt: "asc" } }) : [];

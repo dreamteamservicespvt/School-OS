@@ -8,6 +8,7 @@ import { hrPage, BASE } from "@/lib/staff/page";
 import { docStatus, DOC_TONE, showDocNumber, type DocStatus } from "@/lib/staff/documents";
 import { hrSettings } from "@/lib/staff/settings";
 import { monthEnd } from "@/lib/staff/dates";
+import { campusStaffWhere } from "@/lib/staff/list";
 import { StaffHead } from "../_components/head";
 import { Avatar } from "../_components/bits";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -39,7 +40,9 @@ export default async function DocumentsPage({ searchParams }: Props) {
   const data = await withSchool(current.ctx, async (tx) => {
     const settings = await hrSettings(tx, current.ctx);
     const soonDays = Math.max(...settings.reminderDays, 30);
-    const onRoll = { archivedAt: null, status: { notIn: ["RESIGNED" as const, "RETIRED" as const, "TERMINATED" as const] } };
+    // One campus: the documents, counts and ID cards of their campus's staff (and their own).
+    const mine = campusStaffWhere(viewer);
+    const onRoll = { archivedAt: null, status: { notIn: ["RESIGNED" as const, "RETIRED" as const, "TERMINATED" as const] }, AND: [mine] };
     const [all, docs, staff, designations, printed] = await Promise.all([
       tx.staffDocument.findMany({ where: { archivedAt: null, staff: onRoll }, select: { fileId: true, expiresOn: true, staffId: true } }),
       tx.staffDocument.findMany({
@@ -52,8 +55,8 @@ export default async function DocumentsPage({ searchParams }: Props) {
         orderBy: [{ expiresOn: { sort: "asc", nulls: "last" } }, { createdAt: "desc" }],
         take: 1000,
       }),
-      tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] } }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, staffCode: true, designation: true } }),
-      tx.staff.groupBy({ by: ["designation"], where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] } }, _count: true, orderBy: { designation: "asc" } }),
+      tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] }, AND: [mine] }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, staffCode: true, designation: true } }),
+      tx.staff.groupBy({ by: ["designation"], where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] }, AND: [mine] }, _count: true, orderBy: { designation: "asc" } }),
       tx.staffIdCardPrint.findMany({ distinct: ["staffId"], select: { staffId: true } }),
     ]);
     return { settings, soonDays, all, docs, staff, designations, printed: new Set(printed.map((p) => p.staffId)) };

@@ -6,6 +6,7 @@ import type { FormState } from "@/lib/forms";
 import { DOCUMENT_TYPES, saveFile } from "@/lib/files";
 import { act, file, FieldProblem, id, optionalDateOf, optionalId, str } from "@/lib/staff/act";
 import { HrOnlyError } from "@/lib/staff/access";
+import { campusStaffWhere } from "@/lib/staff/list";
 import { addDocument, removeDocument } from "@/lib/staff/documents";
 import { StaffProblem } from "@/lib/staff/staff";
 import { revalidatePath } from "next/cache";
@@ -25,7 +26,9 @@ export async function uploadDocument(_: FormState<unknown>, fd: FormData) {
     return withSchool(current.ctx, async (tx) => {
       if (!replaceId && kind.length < 2) throw new FieldProblem("Choose the document type.", "kind");
       const saved = await saveFile(tx, current.ctx, { file: upload, purpose: "staff-document", allowed: DOCUMENT_TYPES, maxImageWidth: 1600 });
-      const doc = await addDocument(tx, current.ctx, { staffId, kind: kind.slice(0, 80), fileId: saved.id, number: str(fd, "number").slice(0, 40) || null, issuedOn, expiresOn }, replaceId);
+      // One campus: another campus's staff member is not found (their own record stays theirs).
+      const me = await tx.staff.findFirst({ where: { userLoginId: current.user.id, archivedAt: null }, select: { id: true } });
+      const doc = await addDocument(tx, current.ctx, { staffId, kind: kind.slice(0, 80), fileId: saved.id, number: str(fd, "number").slice(0, 40) || null, issuedOn, expiresOn }, replaceId, campusStaffWhere({ campusId: current.campusId, staffId: me?.id ?? null }));
       return doc.kind;
     }, { timeout: 30_000 });
   }, (kind) => `${kind} saved.`);
@@ -37,7 +40,10 @@ export async function removeDocumentAction(id: string): Promise<string | void> {
   if (reach !== "all") return "Only HR can remove staff documents.";
   if (!/^[0-9a-f-]{36}$/i.test(id)) return "This document was not found.";
   try {
-    await withSchool(current.ctx, (tx) => removeDocument(tx, current.ctx, id));
+    await withSchool(current.ctx, async (tx) => {
+      const me = await tx.staff.findFirst({ where: { userLoginId: current.user.id, archivedAt: null }, select: { id: true } });
+      return removeDocument(tx, current.ctx, id, campusStaffWhere({ campusId: current.campusId, staffId: me?.id ?? null }));
+    });
   } catch (e) {
     if (e instanceof StaffProblem) return e.message;
     throw e;

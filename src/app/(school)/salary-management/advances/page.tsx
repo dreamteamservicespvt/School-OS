@@ -2,6 +2,7 @@ import { HandCoins, History, Landmark, Repeat, SearchX, Wallet } from "lucide-re
 import { withSchool } from "@/lib/db";
 import { formatDate, formatRupees } from "@/lib/format";
 import { balanceOf } from "@/lib/salary/advances";
+import { staffOnCampus } from "@/lib/salary/campus";
 import { salarySettings } from "@/lib/salary/settings";
 import { ADVANCE_STATUS_LABEL, ADVANCE_STATUS_TONE, addMonths, firstOfMonth, monthKey, monthName, payModeLabel } from "@/lib/salary/words";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -42,11 +43,13 @@ export default async function AdvancesPage({ searchParams }: { searchParams: Sea
 
   const data = await withSchool(ctx, async (tx) => {
     const settings = await salarySettings(tx, ctx);
-    const all = await tx.salaryAdvance.findMany({ orderBy: [{ createdAt: "desc" }] });
+    // One campus: the advances and loans of their campus's staff only.
+    const onCampus = await staffOnCampus(tx, ctx, p.current);
+    const all = await tx.salaryAdvance.findMany({ where: onCampus, orderBy: [{ createdAt: "desc" }] });
     const staff = await tx.staff.findMany({ where: { id: { in: all.map((a) => a.staffId) } }, select: { id: true, fullName: true, staffCode: true, designation: true } });
-    const thisMonth = await tx.salaryRecovery.aggregate({ where: { kind: "PAYROLL", date: { gte: monthNow } }, _sum: { amountPaise: true } });
-    const recoveries = openId ? await tx.salaryRecovery.findMany({ where: { advanceId: openId }, orderBy: { date: "asc" } }) : [];
-    const people = doing === "give" ? await tx.staff.findMany({ where: { archivedAt: null, status: { notIn: ["RESIGNED", "RETIRED", "TERMINATED"] } }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, designation: true } }) : [];
+    const thisMonth = await tx.salaryRecovery.aggregate({ where: { kind: "PAYROLL", date: { gte: monthNow }, advance: onCampus }, _sum: { amountPaise: true } });
+    const recoveries = openId ? await tx.salaryRecovery.findMany({ where: { advanceId: openId, advance: onCampus }, orderBy: { date: "asc" } }) : [];
+    const people = doing === "give" ? await tx.staff.findMany({ where: { archivedAt: null, status: { notIn: ["RESIGNED", "RETIRED", "TERMINATED"] }, ...(p.current.campusId ? { campusId: p.current.campusId } : {}) }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, designation: true } }) : [];
     const banks = doing === "pay" ? await tx.bankAccount.findMany({ where: { kind: "BANK", archivedAt: null }, orderBy: [{ isMain: "desc" }, { name: "asc" }], select: { id: true, name: true, isMain: true, accountLast4: true } }) : [];
     const ids = [...new Set(all.flatMap((a) => (a.history as Hist[]).map((h) => h.by)).filter((x): x is string => !!x))];
     const users = openId ? await tx.userLogin.findMany({ where: { id: { in: ids } }, select: { id: true, displayName: true } }) : [];

@@ -4,6 +4,7 @@ import { withSchool } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { dateWhere, periodFromSearch } from "@/lib/periods";
 import { hrPage, BASE } from "@/lib/staff/page";
+import { staffIdOnCampus } from "@/lib/staff/list";
 import { exitTypeLabel } from "@/lib/staff/exit";
 import { StaffHead } from "../_components/head";
 import { Avatar } from "../_components/bits";
@@ -31,17 +32,19 @@ export default async function StaffExitPage({ searchParams }: Search) {
 
   const data = await withSchool(current.ctx, async (tx) => {
     const named = q ? await tx.staff.findMany({ where: { OR: [{ fullName: { contains: q, mode: "insensitive" } }, { staffCode: { contains: q, mode: "insensitive" } }] }, select: { id: true }, take: 500 }) : null;
+    // One campus: the exits of their campus's staff only (the list, the open ones and the count).
+    const mine = staffIdOnCampus(viewer);
     const where = {
       ...(range ? { lastWorkingDay: dateWhere(range) } : {}),
       ...(status ? { status: status as "IN_PROGRESS" } : {}),
       ...(type ? { type: type as "RESIGNATION" } : {}),
-      ...(named ? { staffId: { in: named.map((n) => n.id) } } : {}),
+      AND: [mine, named ? { staffId: { in: named.map((n) => n.id) } } : {}],
     };
     const yearStart = new Date(Date.UTC(today.getUTCMonth() >= 3 ? today.getUTCFullYear() : today.getUTCFullYear() - 1, 3, 1));
     const [exits, openAll, closedThisYear] = await Promise.all([
       tx.exitCase.findMany({ where, orderBy: [{ status: "asc" }, { lastWorkingDay: "desc" }], take: 200, include: { handover: { select: { doneAt: true } }, clearance: { select: { status: true } } } }),
-      tx.exitCase.findMany({ where: { status: { in: ["WAITING_APPROVAL", "IN_PROGRESS"] } }, select: { lastWorkingDay: true, handover: { select: { doneAt: true } }, clearance: { select: { status: true } } } }),
-      tx.exitCase.count({ where: { status: "COMPLETED", lastWorkingDay: { gte: yearStart } } }),
+      tx.exitCase.findMany({ where: { status: { in: ["WAITING_APPROVAL", "IN_PROGRESS"] }, ...mine }, select: { lastWorkingDay: true, handover: { select: { doneAt: true } }, clearance: { select: { status: true } } } }),
+      tx.exitCase.count({ where: { status: "COMPLETED", lastWorkingDay: { gte: yearStart }, ...mine } }),
     ]);
     const staff = await tx.staff.findMany({ where: { id: { in: exits.map((e) => e.staffId) } }, select: { id: true, fullName: true, designation: true, photoFileId: true } });
     return { exits, staff: new Map(staff.map((s) => [s.id, s])), openAll, closedThisYear };

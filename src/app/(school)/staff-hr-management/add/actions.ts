@@ -77,7 +77,8 @@ export async function createStaffAction(_: FormState<Created>, fd: FormData): Pr
       }
       const r = await createStaff(tx, current.ctx, { ...d, gender: d.gender ?? null, bloodGroup: d.bloodGroup ?? null, photoFileId },
         giveLogin ? { roleKeys, username: str(fd, "username") || null, exceptions, campusId: str(fd, "accessCampusId") || null } : null,
-        allocations, { allowDuplicate: str(fd, "allowDuplicate") === "on" });
+        // One campus: the new staff member joins that campus, and a login opens that campus only (src/lib/staff/staff.ts).
+        allocations, { allowDuplicate: str(fd, "allowDuplicate") === "on", campusLimit: current.campusId });
       if (UUID_RE.test(applicationId)) await markHired(tx, current.ctx, applicationId, r.staff.id);
       return r;
     }, { timeout: 30_000 });

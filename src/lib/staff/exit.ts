@@ -12,6 +12,7 @@ import { nextNumber, formatNumber } from "../sequences";
 import { formatDate } from "../format";
 import { currentYear } from "../academic/years";
 import { hrPeople } from "./access";
+import { loginsForCampus } from "./campus-logins";
 
 export class ExitProblem extends Error {
   constructor(message: string, public field?: string) {
@@ -56,7 +57,7 @@ export async function startExit(tx: Tx, ctx: SchoolContext, input: NewExit) {
       reason: input.reason.trim(), letterFileId: input.letterFileId, status: needsApproval ? "WAITING_APPROVAL" : "IN_PROGRESS", createdById: ctx.userId,
     },
   });
-  const handover = await buildHandover(tx, ctx, exit.id, staff.id);
+  const handover = await buildHandover(tx, ctx, exit.id, staff.id, staff.campusId);
   const modulesOn = new Set((await tx.schoolModule.findMany({ where: { schoolId: ctx.schoolId, isOn: true } })).map((m) => m.moduleKey));
   const optional = new Set(["inventory-management", "library-management", "hostel-management"]);
   // Hostel: only a staff member who is a hostel warden has duties to hand over.
@@ -88,9 +89,9 @@ export async function startExit(tx: Tx, ctx: SchoolContext, input: NewExit) {
   return exit;
 }
 
-/** Classes and subjects (Teacher Allocation) and class-teacher duties to hand over. */
-async function buildHandover(tx: Tx, ctx: SchoolContext, exitCaseId: string, staffId: string) {
-  const year = await currentYear(tx, ctx);
+/** Classes and subjects (Teacher Allocation) and class-teacher duties to hand over, in the current year of the leaving staff member's campus. */
+async function buildHandover(tx: Tx, ctx: SchoolContext, exitCaseId: string, staffId: string, campusId: string) {
+  const year = await currentYear(tx, ctx, campusId);
   if (!year) return 0;
   const [allocs, sections] = await Promise.all([
     tx.teacherAllocation.findMany({ where: { staffId, academicYearId: year.id, archivedAt: null }, include: { section: { include: { schoolClass: true } }, subject: true } }),
@@ -196,7 +197,8 @@ export async function sendSettlement(tx: Tx, ctx: SchoolContext, exitCaseId: str
       where: { schoolId: ctx.schoolId, archivedAt: null, userLogin: { status: "ACTIVE" }, roles: { some: { role: { key: "accountant", isEnabled: true } } } },
       select: { userLoginId: true },
     });
-    for (const p of new Set(payroll.map((x) => x.userLoginId))) {
+    // One campus: salary staff limited to another campus are not told.
+    for (const p of await loginsForCampus(tx, ctx, [...new Set(payroll.map((x) => x.userLoginId))], staff.campusId)) {
       await notify(tx, ctx, { to: p, type: "settlement", text: `Final settlement for ${staff.fullName}: last working day ${formatDate(exit.lastWorkingDay)}.`, link: `/staff-hr-management/exit/${exit.id}` });
     }
   }
@@ -234,7 +236,7 @@ export async function finishLastDay(tx: Tx, ctx: SchoolContext, exitCaseId: stri
     action: "left-school", recordType: "Staff", recordId: staff.id,
     before: { status: staff.status }, after: { status, lastWorkingDay: exit.lastWorkingDay.toISOString().slice(0, 10), loginClosed },
   });
-  for (const p of await hrPeople(tx, ctx)) {
+  for (const p of await loginsForCampus(tx, ctx, await hrPeople(tx, ctx), staff.campusId)) {
     await notify(tx, ctx, { to: p, type: "staff-exit", text: `${staff.fullName}'s last working day was ${formatDate(exit.lastWorkingDay)}. Their login is now closed.`, link: `/staff-hr-management/exit/${exit.id}` });
   }
 }

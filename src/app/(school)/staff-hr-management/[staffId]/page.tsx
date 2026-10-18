@@ -6,6 +6,7 @@ import { formatDate, formatDateTime, formatRupees } from "@/lib/format";
 import { salaryLevel } from "@/lib/salary/access";
 import { staffPage, BASE } from "@/lib/staff/page";
 import { canChangeStaff, canOpenStaff, canSeeSalary } from "@/lib/staff/access";
+import { campusStaffWhere } from "@/lib/staff/list";
 import { showRestricted } from "@/lib/staff/staff";
 import { balancesFor, daysText, holidaySet, leaveYearFor } from "@/lib/staff/leave";
 import { docStatus, DOC_TONE, showDocNumber } from "@/lib/staff/documents";
@@ -231,8 +232,9 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
         tx.emergencyContact.findMany({ where: { staffId: s!.id, archivedAt: null }, orderBy: { priority: "asc" } }),
         tx.designation.findMany({ where: { archivedAt: null }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
         tx.department.findMany({ where: { archivedAt: null }, orderBy: { name: "asc" } }),
-        tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] } }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true } }),
-        tx.campus.findMany({ where: { archivedAt: null } }),
+        // One campus: the reporting manager and the campus are chosen from their campus (the ones already set stay in the list).
+        tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] }, OR: [campusStaffWhere(viewer), ...(s!.reportingToId ? [{ id: s!.reportingToId }] : [])] }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true } }),
+        tx.campus.findMany({ where: { archivedAt: null, ...(viewer.campusId ? { id: { in: [viewer.campusId, s!.campusId] } } : {}) } }),
         tx.customField.findMany({ where: { recordType: "staff", archivedAt: null }, orderBy: { sortOrder: "asc" } }),
         tx.role.findMany({ where: { isEnabled: true, archivedAt: null, key: { not: "student" } }, orderBy: { name: "asc" } }),
         s!.userLoginId ? tx.schoolAccess.findFirst({ where: { userLoginId: s!.userLoginId }, orderBy: { createdAt: "desc" }, include: { roles: { include: { role: true } } } }) : null,

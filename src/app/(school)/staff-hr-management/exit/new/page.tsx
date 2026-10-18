@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { hrPage, BASE } from "@/lib/staff/page";
+import { campusStaffWhere } from "@/lib/staff/list";
 import { isoDay } from "@/lib/staff/dates";
 import { BackLink } from "@/components/ui/module-head";
 import { PageHeader } from "@/components/shell/page-header";
@@ -20,7 +21,8 @@ export default async function NewExitPage({ searchParams }: Props) {
   const staff = await withSchool(current.ctx, async (tx) => {
     const busy = await tx.exitCase.findMany({ where: { status: { in: ["WAITING_APPROVAL", "IN_PROGRESS"] } }, select: { staffId: true } });
     return tx.staff.findMany({
-      where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] }, id: { notIn: busy.map((b) => b.staffId) } },
+      // One campus: only their campus's staff can be chosen.
+      where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] }, id: { notIn: busy.map((b) => b.staffId) }, AND: [campusStaffWhere(viewer)] },
       orderBy: { fullName: "asc" }, select: { id: true, fullName: true, staffCode: true, designation: true },
     });
   });

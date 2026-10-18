@@ -24,6 +24,8 @@ export type WizardData = {
   departments: Option[];
   staff: Option[];
   campuses: Option[];
+  /** The campus chosen at first: the person's own (src/lib/campus.ts personCampusId); the classes in step 3 are of its year. */
+  campusId: string;
   roles: { key: string; name: string; perms: Record<string, AccessLevel>; lines: string[] }[];
   yearName: string | null;
   classes: { id: string; name: string; sections: { id: string; name: string }[]; subjects: { id: string; name: string }[] }[];
@@ -201,7 +203,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
             <TextField label="Qualifications" name="qualification" defaultValue={p?.qualification} error={err("qualification")} />
             <TextField label="Experience (years)" name="experienceYears" inputMode="numeric" defaultValue={p?.experienceYears} error={err("experienceYears")} />
             <SelectField label="Reporting manager" name="reportingToId" defaultValue="" options={data.staff} placeholder="None" error={err("reportingToId")} />
-            {data.campuses.length > 1 ? <SelectField label="Campus" name="campusId" defaultValue={data.campuses[0]?.value} options={data.campuses} error={err("campusId")} /> : <input type="hidden" name="campusId" value={data.campuses[0]?.value ?? ""} />}
+            {data.campuses.length > 1 ? <SelectField label="Campus" name="campusId" defaultValue={data.campusId} options={data.campuses} error={err("campusId")} /> : <input type="hidden" name="campusId" value={data.campuses[0]?.value ?? ""} />}
             <TextField label="Staff ID" name="staffCode" error={err("staffCode")} help="Leave empty to give the next free ID automatically." autoComplete="off" />
             <div />
             <TextArea label="Current address" name="address" rows={2} error={err("address")} />

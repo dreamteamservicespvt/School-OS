@@ -11,6 +11,35 @@ import { STAFF_STATUSES } from "./settings";
 
 export const STAFF_FILTERS = ["designation", "department", "status", "type", "campus"] as const;
 
+const NOBODY = "00000000-0000-0000-0000-000000000000";
+
+/**
+ * One campus (src/lib/campus.ts): the staff of the viewer's campus and their
+ * own record; {} for the whole school. For pickers and lists of other people
+ * that do not depend on the viewer's "see" reach (leave, documents, exits).
+ */
+export function campusStaffWhere(v: Pick<Viewer, "campusId" | "staffId">): Prisma.StaffWhereInput {
+  return v.campusId ? { OR: [{ campusId: v.campusId }, { id: v.staffId ?? NOBODY }] } : {};
+}
+
+/** For records that hold only a staffId: the staff ids the viewer may see (their campus and their own record), or null for the whole school. */
+export function campusStaffIds(v: Pick<Viewer, "campusStaff" | "staffId">): string[] | null {
+  if (!v.campusStaff) return null;
+  return v.staffId && !v.campusStaff.has(v.staffId) ? [...v.campusStaff, v.staffId] : [...v.campusStaff];
+}
+
+/** `{ staffId: { in } }` for records keyed by staff (leave, exits, appraisals, training); {} for the whole school. */
+export function staffIdOnCampus(v: Pick<Viewer, "campusStaff" | "staffId">): { staffId?: { in: string[] } } {
+  const ids = campusStaffIds(v);
+  return ids ? { staffId: { in: ids } } : {};
+}
+
+/** Is this staff member on another campus than the viewer's (never their own record)? */
+export function offCampus(v: Pick<Viewer, "campusStaff" | "staffId">, staffId: string | null | undefined): boolean {
+  if (!v.campusStaff) return false;
+  return !staffId || (staffId !== v.staffId && !v.campusStaff.has(staffId));
+}
+
 export function staffWhere(params: ListParams, viewer: Viewer): Prisma.StaffWhereInput {
   const f = params.filters;
   const status = f.status === "all" ? undefined : STAFF_STATUSES.some((s) => s.value === f.status) ? (f.status as StaffStatus) : "ACTIVE";
@@ -34,6 +63,11 @@ export function staffWhere(params: ListParams, viewer: Viewer): Prisma.StaffWher
     ...(f.type ? { employmentType: f.type } : {}),
     ...(f.campus ? { campusId: f.campus } : {}),
   };
+}
+
+/** The staff on roll a viewer may see (the Staff List's summary counts). */
+export function onRollWhere(viewer: Viewer): Prisma.StaffWhereInput {
+  return { AND: [staffScope(viewer)], archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] } };
 }
 
 export function staffOrder(params: ListParams) {

@@ -8,7 +8,7 @@ import { readListParams } from "@/lib/list";
 import { htmlToPdf } from "@/lib/pdf";
 import { writeAudit } from "@/lib/audit";
 import { logExport } from "@/lib/exports";
-import { viewerFor } from "@/lib/staff/access";
+import { staffScope, viewerFor } from "@/lib/staff/access";
 import { STAFF_FILTERS, staffWhere } from "@/lib/staff/list";
 import { idCardsHtml } from "@/lib/staff/print";
 import { UUID_RE } from "@/lib/staff/act";
@@ -28,11 +28,12 @@ export async function GET(req: Request) {
     // Printing ID cards is HR work (05-roles); "own" reach only views its own record.
     if (viewer.see !== "all" || viewer.change !== "all") return problem("Only HR, the School Admin or the Principal can print staff ID cards.", 403);
     let where;
+    // One campus: chosen staff of another campus are not printed (staffScope keeps their campus and their own record).
     if (sp.get("ids")) {
       const ids = sp.get("ids")!.split(",").filter((v) => UUID_RE.test(v)).slice(0, 500);
-      where = { id: { in: ids }, archivedAt: null };
+      where = { id: { in: ids }, archivedAt: null, AND: [staffScope(viewer)] };
     } else if (sp.get("staff") && UUID_RE.test(sp.get("staff")!)) {
-      where = { id: sp.get("staff")!, archivedAt: null };
+      where = { id: sp.get("staff")!, archivedAt: null, AND: [staffScope(viewer)] };
     } else {
       where = staffWhere(readListParams(Object.fromEntries(sp.entries()), STAFF_FILTERS), viewer);
     }

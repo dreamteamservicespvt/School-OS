@@ -7,6 +7,7 @@ import { formatDate, formatRupees } from "@/lib/format";
 import { todayIn } from "@/lib/staff/dates";
 import { changeInstallment, closeRepaidInCash, giveAdvance, payAdvance, setPaused } from "@/lib/salary/advances";
 import { monthName, parseMonthKey } from "@/lib/salary/words";
+import { assertAdvanceOnCampus, assertStaffOnCampus } from "@/lib/salary/campus";
 import { salaryAction } from "../_lib/action";
 
 const tz = (c: { school: { timeZone: string } }) => todayIn(c.school.timeZone);
@@ -18,11 +19,14 @@ const who = async (tx: Tx, advanceId: string) => {
 
 /** Asks for an advance or loan. The Principal approves it in Forms & Approvals; it goes in the Day Book when paid. */
 export async function giveAdvanceAction(_prev: unknown, fd: FormData) {
-  return salaryAction("create", fd, async (tx, ctx) => {
+  return salaryAction("create", fd, async (tx, ctx, current) => {
     const startMonth = parseMonthKey(str(fd, "from"));
     if (!startMonth) throw new MoneyProblem("Choose the month recovery starts.", "from");
+    const staffId = id(fd, "staffId", "staff member");
+    // One campus: another campus's staff member is not found.
+    await assertStaffOnCampus(tx, ctx, current, staffId);
     const a = await giveAdvance(tx, ctx, {
-      staffId: id(fd, "staffId", "staff member"), type: str(fd, "type"), amountPaise: needRupees(fd, "amount", "Amount"),
+      staffId, type: str(fd, "type"), amountPaise: needRupees(fd, "amount", "Amount"),
       installmentPaise: needRupees(fd, "installment", "Recover each month"), startMonth, reason: str(fd, "reason"),
     });
     return { what: `${a.type === "LOAN" ? "Loan" : "Advance"} of ${formatRupees(a.amountPaise)} for ${a.staffName}` };
@@ -32,6 +36,7 @@ export async function giveAdvanceAction(_prev: unknown, fd: FormData) {
 export async function payAdvanceAction(_prev: unknown, fd: FormData) {
   return salaryAction("edit", fd, async (tx, ctx, current) => {
     const advanceId = id(fd, "advanceId", "advance");
+    await assertAdvanceOnCampus(tx, ctx, current, advanceId);
     const mode = str(fd, "mode");
     const a = await payAdvance(tx, ctx, advanceId, { date: dateOf(fd, "date", "Paid on"), mode, reference: mode === "CASH" ? null : optionalText(fd, "reference", "Reference", 60), accountId: mode === "CASH" ? null : optionalId(fd, "accountId"), today: tz(current) });
     const w = await who(tx, advanceId);
@@ -40,8 +45,9 @@ export async function payAdvanceAction(_prev: unknown, fd: FormData) {
 }
 
 export async function pauseAdvanceAction(_prev: unknown, fd: FormData) {
-  return salaryAction("edit", fd, async (tx, ctx) => {
+  return salaryAction("edit", fd, async (tx, ctx, current) => {
     const advanceId = id(fd, "advanceId", "advance");
+    await assertAdvanceOnCampus(tx, ctx, current, advanceId);
     const paused = str(fd, "paused") !== "0";
     await setPaused(tx, ctx, advanceId, paused, str(fd, "reason"));
     return { name: (await who(tx, advanceId)).name, paused };
@@ -49,8 +55,9 @@ export async function pauseAdvanceAction(_prev: unknown, fd: FormData) {
 }
 
 export async function installmentAction(_prev: unknown, fd: FormData) {
-  return salaryAction("edit", fd, async (tx, ctx) => {
+  return salaryAction("edit", fd, async (tx, ctx, current) => {
     const advanceId = id(fd, "advanceId", "advance");
+    await assertAdvanceOnCampus(tx, ctx, current, advanceId);
     const amount = needRupees(fd, "installment", "New monthly installment");
     await changeInstallment(tx, ctx, advanceId, amount, str(fd, "reason"));
     return { name: (await who(tx, advanceId)).name, amount: formatRupees(amount) };
@@ -60,6 +67,7 @@ export async function installmentAction(_prev: unknown, fd: FormData) {
 export async function closeCashAction(_prev: unknown, fd: FormData) {
   return salaryAction("edit", fd, async (tx, ctx, current) => {
     const advanceId = id(fd, "advanceId", "advance");
+    await assertAdvanceOnCampus(tx, ctx, current, advanceId);
     const before = await tx.salaryAdvance.findFirst({ where: { id: advanceId }, select: { amountPaise: true, recoveredPaise: true } });
     await closeRepaidInCash(tx, ctx, advanceId, { date: dateOf(fd, "date", "Received on"), reason: str(fd, "reason"), today: tz(current) });
     const w = await who(tx, advanceId);

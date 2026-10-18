@@ -7,6 +7,7 @@ import { PermissionDeniedError } from "@/lib/permissions";
 import { salaryLevel } from "@/lib/salary/access";
 import { ecrText, recordStatement, type StatementRow } from "@/lib/salary/statements";
 import { monthName } from "@/lib/salary/words";
+import { campusRun } from "@/lib/salary/campus";
 
 export const dynamic = "force-dynamic";
 const UUID = /^[0-9a-f-]{36}$/i;
@@ -28,6 +29,8 @@ export async function GET(req: Request) {
   let made;
   try {
     made = await withSchool(current.ctx, async (tx) => {
+      // One campus: another campus's month is not found.
+      await campusRun(tx, runId, current);
       const r = await recordStatement(tx, current.ctx, runId, kind);
       await logExport(tx, current.ctx, { title: `${kind} statement ${monthName(r.run.month)}`, format: kind === "PF" ? "csv" : "xlsx", filters: monthName(r.run.month), rows: r.rows.length });
       return r;

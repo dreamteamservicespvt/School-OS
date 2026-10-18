@@ -32,9 +32,10 @@ export type StaffMessageResult = { staff: number; inApp: number; noLogin: number
 export async function messageStaff(
   tx: Tx,
   ctx: SchoolContext,
-  input: { staffIds: string[]; text: string; channels: CopyChannel[]; senderName: string; key: string },
+  input: { staffIds: string[]; text: string; channels: CopyChannel[]; senderName: string; key: string; campusId?: string | null },
 ): Promise<StaffMessageResult> {
-  const staff = await tx.staff.findMany({ where: { schoolId: ctx.schoolId, id: { in: input.staffIds }, archivedAt: null }, select: { id: true, userLoginId: true } });
+  // One campus (src/lib/campus.ts): only that campus's staff are found.
+  const staff = await tx.staff.findMany({ where: { schoolId: ctx.schoolId, id: { in: input.staffIds }, archivedAt: null, ...(input.campusId ? { campusId: input.campusId } : {}) }, select: { id: true, userLoginId: true } });
   if (!staff.length) throw new StaffMessageProblem("None of the chosen staff were found. Reload the page and choose again.");
 
   let copies: SendResult | null = null;

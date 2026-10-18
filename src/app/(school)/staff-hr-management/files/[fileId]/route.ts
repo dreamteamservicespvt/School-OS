@@ -38,10 +38,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ fileId:
       if (training) ok = await staffWith(training.staffId);
     }
     if (!ok && hr) {
-      ok = Boolean(
-        (await tx.exitCase.findFirst({ where: { letterFileId: fileId }, select: { id: true } })) ??
-        (await tx.jobApplication.findFirst({ where: { resumeFileId: fileId }, select: { id: true } })),
-      );
+      // An exit letter opens with the record of the person leaving (one campus: their campus only); a resume is school-wide recruitment.
+      const exit = await tx.exitCase.findFirst({ where: { letterFileId: fileId }, select: { staffId: true } });
+      ok = exit ? await staffWith(exit.staffId) : Boolean(await tx.jobApplication.findFirst({ where: { resumeFileId: fileId }, select: { id: true } }));
     }
     return ok ? file : null;
   });

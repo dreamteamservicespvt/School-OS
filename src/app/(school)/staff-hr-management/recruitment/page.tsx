@@ -7,6 +7,7 @@ import { Award, Briefcase, CalendarClock, ClipboardCheck, FileSignature, Graduat
 import { withSchool } from "@/lib/db";
 import { formatDate, formatDateTime, formatRupees } from "@/lib/format";
 import { staffPage, BASE } from "@/lib/staff/page";
+import { campusStaffWhere, staffIdOnCampus } from "@/lib/staff/list";
 import { APPLICATION_STATUSES, INTERVIEW_OUTCOMES, label, OFFER_STATUSES, VACANCY_STATUSES } from "@/lib/staff/talent";
 import { addDays, isoDay } from "@/lib/staff/dates";
 import { StaffHead } from "../_components/head";
@@ -56,8 +57,9 @@ export default async function RecruitmentPage({ searchParams }: Props) {
     const [designations, departments, staff, years] = await Promise.all([
       tx.designation.findMany({ where: { archivedAt: null }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
       tx.department.findMany({ where: { archivedAt: null }, orderBy: { name: "asc" } }),
-      hr ? tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] } }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, designation: true, photoFileId: true } }) : [],
-      canHr ? tx.academicYear.findMany({ where: { archivedAt: null }, orderBy: { startDate: "desc" }, select: { id: true, name: true } }) : [],
+      // One campus: the staff to choose (interviewers, training, promotions) and the years are their campus's.
+      hr ? tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] }, AND: [campusStaffWhere(viewer)] }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, designation: true, photoFileId: true } }) : [],
+      canHr ? tx.academicYear.findMany({ where: { archivedAt: null, ...(viewer.campusId ? { campusId: viewer.campusId } : {}) }, orderBy: { startDate: "desc" }, select: { id: true, name: true } }) : [],
     ]);
     return { years: years.map((y) => ({ value: y.id, label: y.name })), designations: designations.map((d) => ({ value: d.name, label: d.name })), departments: departments.map((d) => ({ value: d.id, label: d.name })), staff };
   });
@@ -254,7 +256,8 @@ export default async function RecruitmentPage({ searchParams }: Props) {
     const data = await withSchool(current.ctx, async (tx) => {
       const cycles = await tx.appraisalCycle.findMany({ orderBy: { startDate: "desc" }, take: 10 });
       const cycle = cycles.find((c) => c.id === sp.cycle) ?? cycles[0];
-      const where = hr ? {} : { OR: [{ staffId: viewer.staffId ?? "" }, { reviewerId: viewer.staffId ?? "" }] };
+      // One campus: the appraisals of their campus's staff, and the ones they review.
+      const where = hr ? (viewer.campusId ? { OR: [staffIdOnCampus(viewer), { reviewerId: viewer.staffId ?? "00000000-0000-0000-0000-000000000000" }] } : {}) : { OR: [{ staffId: viewer.staffId ?? "" }, { reviewerId: viewer.staffId ?? "" }] };
       const appraisals = cycle ? await tx.appraisal.findMany({ where: { cycleId: cycle.id, ...where }, orderBy: { createdAt: "asc" } }) : [];
       const people = await tx.staff.findMany({ where: { id: { in: appraisals.flatMap((a) => [a.staffId, a.reviewerId].filter((x): x is string => Boolean(x))) } }, select: { id: true, fullName: true, designation: true, photoFileId: true } });
       return { cycles, cycle, appraisals, people };
@@ -348,7 +351,7 @@ export default async function RecruitmentPage({ searchParams }: Props) {
   }
 
   async function Training() {
-    const rows = await withSchool(current.ctx, (tx) => tx.trainingRecord.findMany({ where: { archivedAt: null }, orderBy: { fromDate: "desc" }, take: 200 }));
+    const rows = await withSchool(current.ctx, (tx) => tx.trainingRecord.findMany({ where: { archivedAt: null, ...staffIdOnCampus(viewer) }, orderBy: { fromDate: "desc" }, take: 200 }));
     type Row = (typeof rows)[number];
     const totalHours = rows.reduce((s, r) => s + Number(r.hours), 0);
     const people = new Set(rows.map((r) => r.staffId)).size;
@@ -380,7 +383,7 @@ export default async function RecruitmentPage({ searchParams }: Props) {
   }
 
   async function Promotions() {
-    const rows = await withSchool(current.ctx, (tx) => tx.promotionRecord.findMany({ orderBy: { effectiveFrom: "desc" }, take: 200 }));
+    const rows = await withSchool(current.ctx, (tx) => tx.promotionRecord.findMany({ where: staffIdOnCampus(viewer), orderBy: { effectiveFrom: "desc" }, take: 200 }));
     return (
       <Card className="overflow-hidden">
         <CardHeader title="Promotions" icon={TrendingUp} description="A promotion changes the designation from a date; salary changes go to Salary Structures" divided />

@@ -13,6 +13,7 @@ import { formatDate } from "../format";
 import { assertYearOpen } from "../academic/years";
 import { headLoginFor, ensureHrDefaults } from "./settings";
 import { addDays, eachDay, isoDay, isoWeekday } from "./dates";
+import { loginsForCampus } from "./campus-logins";
 
 export class LeaveProblem extends Error {
   constructor(message: string, public field?: string) {
@@ -374,7 +375,8 @@ export async function onLeaveDecision(tx: Tx, ctx: SchoolContext, approval: { id
           where: { schoolId: ctx.schoolId, archivedAt: null, userLogin: { status: "ACTIVE" }, roles: { some: { role: { key: { in: ["principal", "academic-head", "vice-principal"] }, isEnabled: true } } } },
           select: { userLoginId: true },
         });
-        for (const a of new Set(arrangers.map((x) => x.userLoginId))) {
+        // One campus: those limited to another campus are not told.
+        for (const a of await loginsForCampus(tx, ctx, [...new Set(arrangers.map((x) => x.userLoginId))], staff.campusId)) {
           await notify(tx, ctx, {
             to: a, type: "substitution", text: `${raised} period${raised === 1 ? "" : "s"} of ${staff.fullName} need a substitute (leave from ${formatDate(r.fromDate)})`,
             link: "/academic-management", groupKey: "substitutions-needed", mergedText: (n) => `${n} approved leaves have periods that need substitutes`,

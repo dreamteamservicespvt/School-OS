@@ -6,6 +6,7 @@ import { PermissionDeniedError } from "@/lib/permissions";
 import { salaryLevel } from "@/lib/salary/access";
 import { lineDays } from "@/lib/salary/payroll";
 import { monthName } from "@/lib/salary/words";
+import { runsOnCampus } from "@/lib/salary/campus";
 
 export const dynamic = "force-dynamic";
 const UUID = /^[0-9a-f-]{36}$/i;
@@ -28,7 +29,8 @@ export async function GET(req: Request) {
   const q = g("q").trim().toLowerCase().slice(0, 80);
   const show = g("show");
   const data = await withSchool(current.ctx, async (tx) => {
-    const run = await tx.payrollRun.findFirst({ where: { id: g("run") } });
+    // One campus: another campus's month is not found.
+    const run = await tx.payrollRun.findFirst({ where: { id: g("run"), ...runsOnCampus(current) } });
     if (!run) return null;
     const lines = await tx.payrollLine.findMany({ where: { runId: run.id } });
     const staff = await tx.staff.findMany({ where: { id: { in: lines.map((l) => l.staffId) } }, select: { id: true, fullName: true, staffCode: true, designation: true } });

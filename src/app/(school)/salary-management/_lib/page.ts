@@ -27,7 +27,8 @@ export const salaryPage = cache(async () => {
     if (level === "full") await ensureSalaryDefaults(tx, current.ctx);
     const [me, campuses, school] = await Promise.all([
       tx.staff.findFirst({ where: { userLoginId: current.user.id, archivedAt: null }, select: { id: true, fullName: true, staffCode: true, campusId: true } }),
-      tx.campus.findMany({ where: { archivedAt: null }, orderBy: [{ isMain: "desc" }, { name: "asc" }], select: { id: true, name: true, isMain: true } }),
+      // One campus (src/lib/salary/campus.ts): their campus is the only one to choose.
+      tx.campus.findMany({ where: { archivedAt: null, ...(current.campusId ? { id: current.campusId } : {}) }, orderBy: [{ isMain: "desc" }, { name: "asc" }], select: { id: true, name: true, isMain: true } }),
       tx.school.findUniqueOrThrow({ where: { id: current.ctx.schoolId }, select: { name: true } }),
     ]);
     return { me, campuses, school };
@@ -42,7 +43,9 @@ export const salaryPage = cache(async () => {
   /** Amounts show only with full Salary Management; HR's View is days, leave and loss of pay. */
   const money = level === "full";
   const may = (page: SalaryPageKey) => salaryPageAllowed(p, page);
-  return { current, dates, tz, today, level, money, can, change: level === "full" && (can.create || can.edit), may, ...data };
+  /** The campus a page opens on: the one their access is limited to, else their own staff record's, else the main campus. */
+  const homeCampusId = data.campuses.find((c) => c.id === data.me?.campusId)?.id ?? data.campuses[0]?.id ?? "";
+  return { current, dates, tz, today, level, money, can, change: level === "full" && (can.create || can.edit), may, homeCampusId, ...data };
 });
 
 export type SalaryPage = Awaited<ReturnType<typeof salaryPage>>;

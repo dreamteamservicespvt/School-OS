@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { hrPage, BASE } from "@/lib/staff/page";
+import { campusStaffWhere, offCampus } from "@/lib/staff/list";
 import { exitTypeLabel } from "@/lib/staff/exit";
 import { UUID_RE } from "@/lib/staff/act";
 import { BackLink } from "@/components/ui/module-head";
@@ -28,10 +29,11 @@ export default async function ExitPage({ params }: Props) {
   const { current, viewer, tz } = await hrPage();
   const data = await withSchool(current.ctx, async (tx) => {
     const exit = await tx.exitCase.findFirst({ where: { id: exitId }, include: { handover: { orderBy: [{ kind: "asc" }, { createdAt: "asc" }] }, clearance: { orderBy: { key: "asc" } } } });
-    if (!exit) return null;
+    // One campus: another campus's exit is not found.
+    if (!exit || offCampus(viewer, exit.staffId)) return null;
     const [staff, teachers, approval] = await Promise.all([
       tx.staff.findUnique({ where: { id: exit.staffId }, include: { department: true } }),
-      tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] }, staffType: "Teaching", id: { not: exit.staffId } }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true } }),
+      tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] }, staffType: "Teaching", id: { not: exit.staffId }, AND: [campusStaffWhere(viewer)] }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true } }),
       exit.approvalId ? tx.approval.findUnique({ where: { id: exit.approvalId } }) : null,
     ]);
     const names = await tx.staff.findMany({ where: { id: { in: exit.handover.map((h) => h.toStaffId).filter((x): x is string => Boolean(x)) } }, select: { id: true, fullName: true } });

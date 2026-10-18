@@ -26,8 +26,11 @@ export async function GET(req: Request) {
   if (!ids.length) return new Response("Choose the slips.", { status: 400 });
   return withSchool(current.ctx, async (tx) => {
     const me = await tx.staff.findFirst({ where: { userLoginId: current.user.id, archivedAt: null }, select: { id: true } });
+    const own = { staffId: me?.id ?? "00000000-0000-0000-0000-000000000000" };
+    // One campus: full Salary Management prints their campus's slips, and their own.
+    const reach = level !== "full" ? own : current.campusId ? { OR: [{ run: { campusId: current.campusId } }, own] } : {};
     const allowed = await tx.payslip.findMany({
-      where: { id: { in: ids }, ...(level === "full" ? {} : { staffId: me?.id ?? "00000000-0000-0000-0000-000000000000" }), run: { status: { in: ["APPROVED", "PAID", "LOCKED"] } } },
+      where: { id: { in: ids }, ...reach, run: { status: { in: ["APPROVED", "PAID", "LOCKED"] } } },
       orderBy: { month: "desc" }, select: { id: true, staffId: true },
     });
     if (!allowed.length) return new Response(level === "full" ? "These slips were not found." : "You can open only your own salary slips.", { status: level === "full" ? 404 : 403 });

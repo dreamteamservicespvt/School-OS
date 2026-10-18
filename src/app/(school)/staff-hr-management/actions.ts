@@ -6,6 +6,7 @@ import { writeAudit } from "@/lib/audit";
 import { COPY_CHANNELS, messageStaff, StaffMessageProblem, staffMessageWords, type CopyChannel } from "@/lib/staff/staff-message";
 import { act, FieldProblem, optionalId, str, UUID_RE } from "@/lib/staff/act";
 import { HrOnlyError } from "@/lib/staff/access";
+import { campusStaffWhere } from "@/lib/staff/list";
 import type { FormState } from "@/lib/forms";
 
 function ids(fd: FormData) {
@@ -25,7 +26,8 @@ export async function bulkChangeDepartment(_: FormState<unknown>, fd: FormData) 
     return withSchool(current.ctx, async (tx) => {
       const dept = departmentId ? await tx.department.findFirst({ where: { id: departmentId, archivedAt: null } }) : null;
       if (departmentId && !dept) throw new FieldProblem("Choose a department.", "departmentId");
-      const staff = await tx.staff.findMany({ where: { id: { in: list }, archivedAt: null } });
+      // One campus: staff of another campus are not found, so they are never changed.
+      const staff = await tx.staff.findMany({ where: { id: { in: list }, archivedAt: null, AND: [campusStaffWhere({ campusId: current.campusId, staffId: null })] } });
       let changed = 0;
       for (const s of staff) {
         if (s.departmentId === (dept?.id ?? null)) continue;
@@ -54,7 +56,7 @@ export async function bulkMessage(_: FormState<unknown>, fd: FormData) {
     // One key per opening of the dialog: pressing Send twice never sends twice.
     const key = UUID_RE.test(str(fd, "key")) ? str(fd, "key") : crypto.randomUUID();
     try {
-      return await withSchool(current.ctx, (tx) => messageStaff(tx, current.ctx, { staffIds: list, text, channels, senderName: current.user.displayName, key }));
+      return await withSchool(current.ctx, (tx) => messageStaff(tx, current.ctx, { staffIds: list, text, channels, senderName: current.user.displayName, key, campusId: current.campusId }));
     } catch (e) {
       if (e instanceof StaffMessageProblem) throw new FieldProblem(e.message, e.field);
       throw e;

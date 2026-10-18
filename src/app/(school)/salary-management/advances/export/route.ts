@@ -7,6 +7,7 @@ import { periodSetup } from "@/lib/period-setup";
 import { periodFromSearch } from "@/lib/periods";
 import { salaryLevel } from "@/lib/salary/access";
 import { balanceOf } from "@/lib/salary/advances";
+import { staffOnCampus } from "@/lib/salary/campus";
 import { ADVANCE_STATUS_LABEL, monthName, payModeLabel } from "@/lib/salary/words";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +33,8 @@ export async function GET(req: Request) {
   const from = range ? new Date(`${range.from}T00:00:00Z`) : null;
   const to = range ? new Date(`${range.to}T23:59:59.999Z`) : null;
   const data = await withSchool(current.ctx, async (tx) => {
-    const all = await tx.salaryAdvance.findMany({ orderBy: { createdAt: "desc" } });
+    // One campus: the advances and loans of their campus's staff only.
+    const all = await tx.salaryAdvance.findMany({ where: await staffOnCampus(tx, current.ctx, current), orderBy: { createdAt: "desc" } });
     const staff = await tx.staff.findMany({ where: { id: { in: all.map((a) => a.staffId) } }, select: { id: true, fullName: true, staffCode: true } });
     const by = new Map(staff.map((s) => [s.id, s]));
     const rows = all.map((a) => ({ a, s: by.get(a.staffId) }))

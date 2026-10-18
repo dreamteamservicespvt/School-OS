@@ -404,7 +404,7 @@ These rules hold everywhere. A builder should write a check for each one.
 
 **Years and history**
 
-19. Each campus has only one active Academic Year. Past academic years are kept read-only. Only an authorised correction can change them, and it is logged.
+19. Each campus has only one active Academic Year. Past academic years are kept read-only. Only an authorised correction can change them, and it is logged. A school whose campuses start the year on different dates has one current year per campus: a record that belongs to a campus (an enrolment, an attendance mark, a fee, an exam, homework) is in its own campus's year, a student's "this year" is their own campus's current year, and a page opens on the year of the person's own campus (the campus their access is limited to, else their Staff record's, else the main campus) (added 18 October 2026).
 20. Fee Structures and Salary Structures keep their old versions. A change applies from a date; it never rewrites the past. A new Fee Structure version never charges a period twice: a Student Fee Due with money on it (paid, part-paid, a concession or an adjustment) stays for its period, and the change in the fee is put on what is left to pay as an adjustment with a reason; a fully paid row never changes (added 18 October 2026).
 21. Records are archived, never deleted. A student who leaves becomes a past student; the record stays.
 
@@ -423,7 +423,7 @@ These rules hold everywhere. A builder should write a check for each one.
 **Added on 9 October 2026**
 
 31. A Parent Link shows only that guardian's own children, and only what the school has chosen to show. It is read-only apart from paying and giving consent. Its secure token is stored only in hashed form. A new phone must be confirmed by a one-time code to the guardian's registered mobile. A revoked link stops working at once. A child whose link to the guardian has a custody or access restriction is not shown, and cannot be paid, consented or booked for, on that guardian's Parent Link; that guardian gets none of that child's messages.
-32. A User Login belongs to exactly one Staff, Student or Driver record. It can open only the schools and campuses named in its School Access entries, with the roles and scope set there. Each school's records stay apart from every other school's, even inside one Group.
+32. A User Login belongs to exactly one Staff, Student or Driver record. It can open only the schools and campuses named in its School Access entries, with the roles and scope set there. Each school's records stay apart from every other school's, even inside one Group. A login whose scope is "One campus" sees and changes only that campus's students, staff, fees, classes and the work in them, in every list, count, search, export, report, Dashboard card and action; its own staff record, leave and salary slips stay open to it, and records of no campus (school-wide settings and events) are unchanged (added 18 October 2026).
 33. A Consent Record keeps the Consent Text version agreed to. A new version of a text never changes past records. A withdrawn consent stays on record with its withdrawal date and is no longer used from that date. Photos of a student are used in the gallery or on social media only while photo consent stands.
 34. An SMS can be sent only from a Template that has a DLT template ID.
 35. Every Day Book Entry belongs to one Financial Year. Finance reports, the cash book and the bank book work by financial year, not by academic year. A closed financial year is read-only.

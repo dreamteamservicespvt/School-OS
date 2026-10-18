@@ -27,8 +27,17 @@ export type FindStudentOptions = {
   scope: Prisma.StudentWhereInput;
   /** The screen's own filter, for example "students without a bed". */
   where?: Prisma.StudentWhereInput;
-  /** The year whose class, section and roll number are shown and searched. */
-  yearId: string | null;
+  /**
+   * The year whose class, section and roll number are shown and searched, or
+   * the current year of each campus (a student's class is in their own campus's year).
+   */
+  yearId: string | string[] | null;
+  /**
+   * Only students of this campus (a person limited to one campus). Read from
+   * `scope` too when it carries a campus (studentScope() of Student and Fee
+   * Management), so the campus is narrowed in the database, not after.
+   */
+  campusId?: string | null;
   /** Default: students studying now (Admitted, Active, Promoted). "any": every status, left students too. */
   statuses?: readonly StudentStatus[] | "any";
   /** Archived records: left out (default), included, or only those. */
@@ -80,6 +89,20 @@ type Row = {
 };
 
 const isEmpty = (w: Prisma.StudentWhereInput | undefined) => !w || Object.keys(w).length === 0;
+
+/** The campus a person's limit on students names at its top (studentScope() puts it there), if any. */
+export function scopeCampus(scope: Prisma.StudentWhereInput | undefined): string | null {
+  if (!scope) return null;
+  if (typeof scope.campusId === "string") return scope.campusId;
+  const and = Array.isArray(scope.AND) ? scope.AND : scope.AND ? [scope.AND] : [];
+  for (const part of and) {
+    const c = scopeCampus(part);
+    if (c) return c;
+  }
+  return null;
+}
+
+const yearsOf = (y: string | string[] | null) => (Array.isArray(y) ? y : y ? [y] : []);
 const STUDYING_SET = new Set<string>(STUDYING);
 /** One collator for sorting names (making one per comparison is slow). */
 const NAMES = new Intl.Collator("en", { sensitivity: "base" });
@@ -106,7 +129,7 @@ export async function findStudents(tx: Tx, rawQ: string, opts: FindStudentOption
   // One letter matches most of the school: a picker over the whole school
   // needs only the first few names starting with it, which come first.
   const oneLetter = Array.from(q.lower).length < 2 && take <= 50 && !restricted;
-  const filter: Filter = { statuses: opts.statuses === "any" ? null : [...(opts.statuses ?? STUDYING)], archived: opts.archived ?? "exclude", yearId: opts.yearId, byParent, limit: oneLetter ? 200 : Math.max(CANDIDATES, take) };
+  const filter: Filter = { statuses: opts.statuses === "any" ? null : [...(opts.statuses ?? STUDYING)], archived: opts.archived ?? "exclude", yearIds: yearsOf(opts.yearId), campusId: opts.campusId ?? scopeCampus(opts.scope), byParent, limit: oneLetter ? 200 : Math.max(CANDIDATES, take) };
   const allowed = async (hits: StudentHit[]) => {
     if (!restricted || !hits.length) return hits;
     const ok = new Set((await tx.student.findMany({ where: { AND: [opts.scope, opts.where ?? {}, { id: { in: hits.map((h) => h.id) } }] }, select: { id: true } })).map((r) => r.id));
@@ -150,7 +173,8 @@ export function studentIdsForFilter(tx: Tx, rawQ: string): Promise<string[]> {
 type Filter = {
   statuses: string[] | null;
   archived: "exclude" | "include" | "only";
-  yearId: string | null;
+  yearIds: string[];
+  campusId: string | null;
   byParent: boolean;
   limit: number;
 };
@@ -192,7 +216,7 @@ async function candidates(tx: Tx, q: ParsedQuery, f: Filter, pass: "typed" | "cl
     ? Prisma.sql`(${short ? Prisma.sql`starts_with(lower(s.admission_no), ${q.lower})` : Prisma.sql`strpos(lower(s.admission_no), ${q.lower}) > 0`}
         OR ${q.compact && !short ? Prisma.sql`strpos(translate(lower(s.admission_no), ${SEPARATORS}, ''), ${q.compact}) > 0` : FALSE}
         OR ${nameHit(Prisma.sql`lower(s.full_name)`)}
-        OR ${q.roll ? Prisma.sql`s.id = ANY(ARRAY(SELECT e.student_id FROM enrolment e WHERE e.academic_year_id = ${f.yearId}::uuid AND e.archived_at IS NULL AND e.roll_no = ${q.roll.rollNo}))` : FALSE})`
+        OR ${q.roll ? Prisma.sql`s.id = ANY(ARRAY(SELECT e.student_id FROM enrolment e WHERE e.academic_year_id = ANY(${f.yearIds}::uuid[]) AND e.archived_at IS NULL AND e.roll_no = ${q.roll.rollNo}))` : FALSE})`
     : nameHit(Prisma.sql`lower(s.full_name)`);
   const guardianHit = typed
     ? Prisma.sql`(${nameHit(Prisma.sql`lower(g.name)`)} OR ${q.digits ? Prisma.sql`${phone(Prisma.sql`g.phone`)} OR ${phone(Prisma.sql`coalesce(g.alt_phone, '')`)}` : FALSE})`
@@ -210,6 +234,7 @@ async function candidates(tx: Tx, q: ParsedQuery, f: Filter, pass: "typed" | "cl
       WHERE ${exclude.length ? Prisma.sql`NOT (s.id = ANY(${exclude}::uuid[]))` : TRUE}
         AND ${f.statuses ? Prisma.sql`s.status::text = ANY(${f.statuses}::text[])` : TRUE}
         AND ${f.archived === "exclude" ? Prisma.sql`s.archived_at IS NULL` : f.archived === "only" ? Prisma.sql`s.archived_at IS NOT NULL` : TRUE}
+        AND ${f.campusId ? Prisma.sql`s.campus_id = ${f.campusId}::uuid` : TRUE}
         AND (s.id = ANY(ARRAY(SELECT student_id FROM p)) OR ${studentHit})
       ORDER BY CASE WHEN lower(s.admission_no) = ${q.lower} THEN 0
                     WHEN lower(s.full_name) = ${q.lower} THEN 1
@@ -223,7 +248,7 @@ async function candidates(tx: Tx, q: ParsedQuery, f: Filter, pass: "typed" | "cl
         FROM found
         LEFT JOIN LATERAL (
           SELECT e.class_id, e.section_id, e.roll_no FROM enrolment e
-          WHERE e.student_id = found.id AND e.academic_year_id = ${f.yearId}::uuid AND e.archived_at IS NULL LIMIT 1
+          WHERE e.student_id = found.id AND e.academic_year_id = ANY(${f.yearIds}::uuid[]) AND e.archived_at IS NULL LIMIT 1
         ) e ON true
         LEFT JOIN section sec ON sec.id = e.section_id
         LEFT JOIN school_class c ON c.id = sec.class_id) x) AS students,

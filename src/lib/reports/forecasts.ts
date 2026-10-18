@@ -36,6 +36,7 @@ import { admissionYear, loadSettings as admissionSettings } from "../admission/s
 import { loginsWithRole } from "../front-office/people";
 import { notify } from "../notifications";
 import { formatDate, formatRupees, formatRupeesShort } from "../format";
+import { wordList } from "../academic/common";
 import { addDays, DAY_MS, todayIn } from "../staff/dates";
 import { BUILT_MODULES } from "../modules";
 
@@ -60,6 +61,8 @@ const EVERY_MS = 3 * 60 * 60 * 1000;
 const LEADER_ROLES = ["principal", "school-admin"];
 
 const pct = (n: number) => `${Math.round(n * 10) / 10}%`;
+/** An estimate in whole rupees: "about ₹9,92,347", never paise (TEACHING-20). */
+export const aboutRupees = (paise: bigint) => formatRupees(BigInt(Math.round(Number(paise) / 100)) * BigInt(100));
 const month = (d: Date) => d.toISOString().slice(0, 7);
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
@@ -286,12 +289,14 @@ async function leavingForecasts(c: Ctx, enrolled: Enrolled[]): Promise<Forecast[
   const cls = await classLabels(c.tx, many.map(([id]) => sectionOf.get(id)!));
   const words: Record<string, string> = { attendance: "attendance", marks: "marks", fees: "fees" };
   return many.map(([id, a]) => {
-    const list = [...a].map((x) => words[x] ?? x);
+    // Always in the same order, as a proper list: "attendance, marks and fees" (TEACHING-20).
+    const order = Object.keys(words);
+    const list = [...a].sort((x, y) => (order.indexOf(x) + 1 || 99) - (order.indexOf(y) + 1 || 99)).map((x) => words[x] ?? x);
     const w = weights.get(id)!;
     return {
       key: `${a.has("fees") ? LEAVING_WITH_FEES : "leaving:"}${id}:${[...a].sort().join("+")}:${month(c.today)}`, area: "students" as const, strength: w.score >= 3 ? "ACT_NOW" as const : "WATCH" as const, studentId: id,
       title: `${who.get(id) ?? "A student"} (${cls.get(sectionOf.get(id)!) ?? "class"}) may be thinking of leaving`,
-      body: `There are open early warnings in ${a.size} ${a.size === 1 ? "area" : "areas"}${list.length ? ` (${list.join(" and ")})` : ""}.${leavingWhy(w)} Problems in two or more areas at once, or many absences nobody can explain, often come before a family moves their child. A friendly talk with the family may help; you decide.`,
+      body: `There are open early warnings in ${a.size} ${a.size === 1 ? "area" : "areas"}${list.length ? ` (${wordList(list)})` : ""}.${leavingWhy(w)} Problems in two or more areas at once, or many absences nobody can explain, often come before a family moves their child. A friendly talk with the family may help; you decide.`,
       source: leavingWhy(w) ? "open Early Warning flags and the absence reasons this year" : "open Early Warning flags this year",
       href: `/student-management/students/${id}`, hrefLabel: "Open profile",
     };
@@ -393,7 +398,7 @@ async function financeForecasts(c: Ctx): Promise<Forecast[]> {
   return [{
     key: `cash:${month(c.today)}`, area: "finance", strength: after < BigInt(0) ? "ACT_NOW" : "WATCH", value: Number(after) / 100,
     title: after < BigInt(0) ? `Cash may run short by about ${formatRupeesShort(-after)} this month` : `Cash may be low at the end of this month: about ${formatRupeesShort(after)}`,
-    body: `Cash and bank now: ${formatRupees(cash)}. Expected fees this month: about ${formatRupees(inflow)}. Usual spending: about ${formatRupees(monthlyOut)} a month (average of the last 3 months)${salary > BigInt(0) ? `, and the last salary month was ${formatRupees(salary)}` : ""}. Collecting dues early or moving a payment may help; you decide.`,
+    body: `Cash and bank now: ${formatRupees(cash)}. Expected fees this month: about ${aboutRupees(inflow)}. Usual spending: about ${aboutRupees(monthlyOut)} a month (average of the last 3 months)${salary > BigInt(0) ? `, and the last salary month was ${formatRupees(salary)}` : ""}. Collecting dues early or moving a payment may help; you decide.`,
     source: `cash and bank balances, the Day Book from ${formatDate(from, "UTC")} to ${formatDate(to, "UTC")} and the fee collection forecast`,
     href: "/finance-management", hrefLabel: "Open Finance Management",
   }];

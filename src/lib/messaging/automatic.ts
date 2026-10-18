@@ -71,6 +71,40 @@ export async function ruleStates(tx: Tx, ctx: SchoolContext): Promise<RuleState[
   });
 }
 
+export type RuleReady = {
+  /** The rule is switched on in Message Settings. */
+  on: boolean;
+  /** At least one channel that is switched on has a template for it: the message can go. */
+  ready: boolean;
+  /** Those channels, in the rule's order. */
+  channels: Channel[];
+  label: string;
+};
+
+/**
+ * Can this rule's message go now? Worked out the way sendAutomatic picks its
+ * channels, so a screen that promises a message ("Parents of 2 absent
+ * students get a message at 9:05 AM") and the sender cannot disagree.
+ */
+export async function ruleReady(tx: Tx, ctx: SchoolContext, key: string): Promise<RuleReady> {
+  const def = ruleDef(key);
+  if (!def) throw new Error(`Unknown automatic message rule: ${key}`);
+  const state = (await ruleStates(tx, ctx)).find((r) => r.key === def.key)!;
+  if (!state.isOn) return { on: false, ready: false, channels: [], label: def.label };
+  const on = await onChannels(tx, ctx);
+  const parents = def.audience === "parents";
+  const order: Channel[] = parents ? ["whatsapp", "sms", "email"] : ["app", "whatsapp", "sms", "email"];
+  const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { smsDltEntityId: true, smsSenderHeader: true } });
+  const smsReady = Boolean(school.smsDltEntityId && school.smsSenderHeader);
+  const channels: Channel[] = [];
+  for (const c of new Set<Channel>([...state.channels, ...order])) {
+    if (!on.has(c) || (c === "app" && parents) || (c === "sms" && !smsReady)) continue;
+    const id = state.templateIds[c] ?? (await templateByKey(tx, ctx, def.key, c))?.id;
+    if (id) channels.push(c);
+  }
+  return { on: true, ready: channels.length > 0, channels, label: def.label };
+}
+
 export type AutomaticInput = {
   rule: string;
   /** One event, e.g. { key: "attendance:2026-10-09:<student id>", label: "Absent on 09-10-2026" }. */

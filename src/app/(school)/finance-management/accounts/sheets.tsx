@@ -23,7 +23,7 @@ export function JournalSheet({ closeHref, today, heads }: { closeHref: string; t
   const set = (k: number, x: Partial<L>) => setLines((ls) => ls.map((l) => (l.k === k ? { ...l, ...x } : l)));
   return (
     <SheetForm wide title="Journal entry" sub="Debits must equal credits. Posted entries are never edited, only reversed." closeHref={closeHref} action={journalAction} submitLabel="Post entry" pendingText="Posting…">
-      <SDate name="date" label="Date" required start={today} className="max-w-[220px]" />
+      <SDate name="date" label="Date" required start={today} max={today} className="max-w-[220px]" />
       <div className="flex flex-col gap-2">
         <p className="text-[13px] font-semibold text-ink2">Lines</p>
         {lines.map((l, i) => (

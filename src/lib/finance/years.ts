@@ -85,6 +85,16 @@ export async function schoolToday(tx: Tx, ctx: SchoolContext) {
 }
 
 /**
+ * Money cannot come in or go out on a day that has not come yet, as with a
+ * fee payment: an expense, its payment, other income, a journal entry, a
+ * money move or a refund dated ahead would count in today's cash in hand
+ * while sitting in a later Day Book.
+ */
+export async function assertNotFuture(tx: Tx, ctx: SchoolContext, date: Date, field = "date", what = "The date") {
+  if (date > (await schoolToday(tx, ctx))) throw new MoneyProblem(`${what} cannot be in the future.`, field);
+}
+
+/**
  * Throws when a person chooses a past date the Day Book is closed through.
  * Today stays allowed after it is closed: what is recorded later today goes
  * into the next day's Day Book (postToDayBook moves it there).

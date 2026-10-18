@@ -12,7 +12,7 @@ import { monthLabel } from "../staff/dates";
 import { MoneyProblem, MoneyWarning } from "../fees/problem";
 import { accountBalances, postToDayBook, reverseSource } from "./daybook";
 import { ensureFinanceDefaults } from "./settings";
-import { assertBooksOpen, financialYearOf } from "./years";
+import { assertBooksOpen, assertNotFuture, financialYearOf } from "./years";
 
 const ZERO = BigInt(0);
 
@@ -69,6 +69,7 @@ export async function moveMoney(tx: Tx, ctx: SchoolContext, input: { fromId: str
   const [from, to] = await Promise.all([tx.bankAccount.findFirst({ where: { id: input.fromId, archivedAt: null } }), tx.bankAccount.findFirst({ where: { id: input.toId, archivedAt: null } })]);
   if (!from) throw new MoneyProblem("Choose where the money comes from.", "fromId");
   if (!to) throw new MoneyProblem("Choose where the money goes.", "toId");
+  await assertNotFuture(tx, ctx, input.date, "date", "The date moved");
   const fy = await assertBooksOpen(tx, ctx, input.date);
   const balance = (await accountBalances(tx, ctx)).get(from.id) ?? ZERO;
   if (balance < input.amountPaise && !input.confirmLowCash) throw new MoneyWarning(`${from.name} has ${formatRupees(balance)}. This move is ${formatRupees(input.amountPaise)}.`, "amount");

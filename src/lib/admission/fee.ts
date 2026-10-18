@@ -3,12 +3,18 @@
 // the payment is confirmed: at the counter by the person who took the money,
 // online only after Razorpay's signature or webhook confirms it (A8 rules).
 // The same confirmation arriving twice never makes a second receipt.
+// Every confirmed payment is posted to the Day Book through Fee Management
+// (src/lib/fees/application-fee.ts), and a cancelled one is reversed there,
+// so the counter's cash and the books always match.
 import "server-only";
 
 import type { Application, ApplicationFeePayment } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { formatRupees } from "../format";
+import { todayIn } from "../staff/dates";
+import { assertBooksOpen } from "../finance/years";
+import { postApplicationFee, reverseApplicationFee } from "../fees/application-fee";
 import { nextNumber, formatNumber } from "../sequences";
 import { razorpayCredentials } from "../payments/gateways";
 import { createOrder, verifyPaymentSignature, type RazorpayCredentials } from "../payments/razorpay";
@@ -25,6 +31,9 @@ export const COUNTER_MODES = [
   { value: "bank-transfer", label: "Bank transfer" },
 ] as const;
 export const modeLabel = (m: string) => (m === "online" ? "Online (Razorpay)" : COUNTER_MODES.find((x) => x.value === m)?.label ?? m);
+
+/** Why an application fee is cancelled: Fee Management's reasons, in applicant words. "Other" needs a note. */
+export const CANCEL_REASONS = ["Wrong applicant", "Wrong amount", "Cheque bounced", "Duplicate", "Other"] as const;
 
 export type FeeStatus = { key: "not-needed" | "paid" | "waiting" | "due"; label: string; paidPaise: bigint; duePaise: bigint };
 
@@ -65,22 +74,42 @@ export async function recordCounterPayment(tx: Tx, ctx: SchoolContext, v: Viewer
   if (input.amountPaise > left) throw new AdmissionProblem(`Only ${formatRupees(left)} is due. Take ${formatRupees(left)} or less.`, "amount");
   const receipt = await receiptNo(tx, ctx, app);
   const p = await tx.applicationFeePayment.create({ data: { schoolId: ctx.schoolId, applicationId: app.id, amountPaise: input.amountPaise, mode: input.mode, reference: input.reference, status: "CONFIRMED", receiptNo: receipt, confirmedAt: new Date(), receivedById: ctx.userId } });
-  await activity(tx, ctx, app.id, "fee", `Application fee ${formatRupees(input.amountPaise)} received (${modeLabel(input.mode)}). Receipt ${receipt}.`);
-  await writeAudit(tx, ctx, { action: "fee-received", recordType: "Application", recordId: app.id, after: { paymentId: p.id, amount: formatRupees(input.amountPaise), mode: input.mode, reference: input.reference, receipt } });
+  const entry = await postApplicationFee(tx, ctx, p);
+  await activity(tx, ctx, app.id, "fee", `Application fee ${formatRupees(input.amountPaise)} received (${modeLabel(input.mode)}). Receipt ${receipt}. In the Day Book.`);
+  await writeAudit(tx, ctx, { action: "fee-received", recordType: "Application", recordId: app.id, after: { paymentId: p.id, amount: formatRupees(input.amountPaise), mode: input.mode, reference: input.reference, receipt, dayBookEntryId: entry?.id ?? null } });
   return p;
 }
 
-/** Cancel a payment with a reason (never deleted). Principal or School Admin only. */
-export async function cancelPayment(tx: Tx, ctx: SchoolContext, v: Viewer, paymentId: string, reason: string) {
+/**
+ * Cancel a payment with a reason, as a fee payment is cancelled (rule 6):
+ * never deleted, the receipt number stays on record marked cancelled, and
+ * the Day Book gets a reversal on today's date. Principal or School Admin
+ * only; DREAM TEAM support access never cancels a payment.
+ */
+export async function cancelPayment(tx: Tx, ctx: SchoolContext, v: Viewer, paymentId: string, input: { reason: string; note: string | null }) {
   requireFull(v, "the application fee");
+  if (ctx.support) throw new AdmissionProblem("DREAM TEAM support access cannot cancel payments. Ask the Principal.");
   if (!v.overCapacity) throw new AdmissionProblem("Only the Principal or School Admin can cancel a payment.");
   const p = await tx.applicationFeePayment.findFirst({ where: { id: paymentId } });
   if (!p) throw new AdmissionProblem("This payment was not found.");
   if (p.cancelledAt) throw new AdmissionProblem("This payment is already cancelled.");
-  if (reason.trim().length < 5) throw new AdmissionProblem("Give the reason for cancelling this payment.", "reason");
-  await tx.applicationFeePayment.update({ where: { id: p.id }, data: { cancelledAt: new Date(), cancelReason: reason.trim() } });
-  await activity(tx, ctx, p.applicationId, "fee", `Payment ${p.receiptNo ?? ""} of ${formatRupees(p.amountPaise)} cancelled: ${reason.trim()}`);
-  await writeAudit(tx, ctx, { action: "fee-cancelled", recordType: "Application", recordId: p.applicationId, before: { paymentId: p.id, status: p.status, receipt: p.receiptNo }, after: { cancelled: true, reason: reason.trim() } });
+  if (p.status !== "CONFIRMED") throw new AdmissionProblem(p.status === "PENDING" ? "This payment is still waiting for confirmation from Razorpay, so there is nothing to cancel." : "This online payment failed, so there is nothing to cancel.");
+  if (!(CANCEL_REASONS as readonly string[]).includes(input.reason)) throw new AdmissionProblem("Choose why it is cancelled.", "reason");
+  const note = input.note?.trim() || null;
+  if (input.reason === "Other" && (!note || note.length < 5)) throw new AdmissionProblem("Say what happened in the note (at least 5 characters).", "note");
+  const why = note ? `${input.reason}: ${note}` : input.reason;
+  const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { timeZone: true } });
+  const today = todayIn(school.timeZone);
+  try {
+    await assertBooksOpen(tx, ctx, today);
+  } catch (e) {
+    throw new AdmissionProblem(e instanceof Error ? e.message : "The books are closed for today.");
+  }
+  await tx.applicationFeePayment.update({ where: { id: p.id }, data: { cancelledAt: new Date(), cancelReason: why } });
+  const reversed = await reverseApplicationFee(tx, ctx, p.id, today, why);
+  await activity(tx, ctx, p.applicationId, "fee", `Payment ${p.receiptNo ?? ""} of ${formatRupees(p.amountPaise)} cancelled: ${why}.${reversed.length ? " The Day Book has a reversal today." : ""}`);
+  await writeAudit(tx, ctx, { action: "fee-cancelled", recordType: "Application", recordId: p.applicationId, before: { paymentId: p.id, status: p.status, receipt: p.receiptNo, amount: formatRupees(p.amountPaise) }, after: { cancelled: true, reason: input.reason, note, dayBookReversals: reversed.map((r) => r.id) } });
+  return { receiptNo: p.receiptNo, amount: formatRupees(p.amountPaise), reversed: reversed.length > 0 };
 }
 
 /** The school's active Razorpay gateway, if it has one (Settings, Payment Gateways). */
@@ -114,9 +143,11 @@ async function confirmPending(tx: Tx, ctx: SchoolContext, orderId: string, payme
   const receipt = await receiptNo(tx, ctx, app);
   const changed = await tx.applicationFeePayment.updateMany({ where: { id: p.id, status: { not: "CONFIRMED" } }, data: { status: "CONFIRMED", gatewayPaymentId: paymentId, confirmedAt: new Date(), receiptNo: receipt, failedReason: null } });
   if (changed.count === 0) return { payment: p, confirmedNow: false };
-  await activity(tx, ctx, p.applicationId, "fee", `Online payment of ${formatRupees(p.amountPaise)} confirmed by Razorpay (${via}). Receipt ${receipt}.`);
-  await writeAudit(tx, ctx, { action: "fee-received", recordType: "Application", recordId: p.applicationId, after: { paymentId: p.id, amount: formatRupees(p.amountPaise), mode: "online", gatewayPaymentId: paymentId, receipt, via } });
-  return { payment: { ...p, status: "CONFIRMED" as const, receiptNo: receipt }, confirmedNow: true };
+  const confirmed = await tx.applicationFeePayment.findUniqueOrThrow({ where: { id: p.id } });
+  const entry = await postApplicationFee(tx, ctx, confirmed);
+  await activity(tx, ctx, p.applicationId, "fee", `Online payment of ${formatRupees(p.amountPaise)} confirmed by Razorpay (${via}). Receipt ${receipt}. In the Day Book.`);
+  await writeAudit(tx, ctx, { action: "fee-received", recordType: "Application", recordId: p.applicationId, after: { paymentId: p.id, amount: formatRupees(p.amountPaise), mode: "online", gatewayPaymentId: paymentId, receipt, via, dayBookEntryId: entry?.id ?? null } });
+  return { payment: confirmed, confirmedNow: true };
 }
 
 /** After Checkout: trusted only when Razorpay's signature for this order and payment matches. */

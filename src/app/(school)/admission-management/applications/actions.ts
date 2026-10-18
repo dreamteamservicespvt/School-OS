@@ -162,7 +162,8 @@ export async function counterPaymentAction(_: FormState<unknown>, fd: FormData) 
 }
 
 export async function cancelPaymentAction(_: FormState<unknown>, fd: FormData) {
-  return admissionAct("approve", fd, (w) => cancelPayment(w.tx, w.ctx, w.v, id(fd, "paymentId", "payment"), str(fd, "reason")), () => "Payment cancelled. The record and its receipt number are kept.");
+  return admissionAct("approve", fd, (w) => cancelPayment(w.tx, w.ctx, w.v, id(fd, "paymentId", "payment"), { reason: str(fd, "reason"), note: maybe(fd, "note", "Note", 300) }),
+    (r) => `Receipt ${r.receiptNo ?? ""} cancelled. The record and its receipt number are kept${r.reversed ? `, and the Day Book has a reversal of ${r.amount} today` : ""}.`);
 }
 
 export async function sendFeeLinkAction(_: FormState<unknown>, fd: FormData) {

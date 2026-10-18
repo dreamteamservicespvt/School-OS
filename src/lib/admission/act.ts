@@ -15,6 +15,7 @@ import { DecisionProblem } from "../approvals";
 import { RazorpayProblem } from "../payments/razorpay";
 import { StudentProblem } from "../students/students";
 import { MessagingProblem } from "../messaging/send";
+import { MoneyProblem } from "../fees/problem";
 
 /** A rule of Admission Management said no. The message is for the person, in plain words. */
 export class AdmissionProblem extends Error {
@@ -54,7 +55,8 @@ export function collector() {
 type Known = Error & { field?: string; errors?: Record<string, string>; link?: { href: string; label: string } };
 
 export function problemState(e: unknown, fd?: FormData): NonNullable<FormState<{ link?: { href: string; label: string } }>> {
-  const known = [AdmissionProblem, PermissionDeniedError, ClosedYearError, FileProblem, DecisionProblem, RazorpayProblem, StudentProblem, MessagingProblem];
+  // MoneyProblem: the application fee is posted to the Day Book, whose books may be closed.
+  const known = [AdmissionProblem, PermissionDeniedError, ClosedYearError, FileProblem, DecisionProblem, RazorpayProblem, StudentProblem, MessagingProblem, MoneyProblem];
   if (known.some((K) => e instanceof K)) {
     const err = e as Known;
     return { ok: false, message: err.message, errors: err.errors ?? (err.field ? { [err.field]: err.message } : undefined), values: fd ? formValues(fd) : undefined, data: err.link ? { link: err.link } : undefined };

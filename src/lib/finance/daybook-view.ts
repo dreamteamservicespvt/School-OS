@@ -42,6 +42,8 @@ export type DayRow = {
   studentId: string | null;
   sourceType: string;
   sourceId: string;
+  /** For an application fee: the application it was paid on. */
+  applicationId?: string | null;
 };
 
 const SECTION_OF: Record<string, DayRow["source"]> = {
@@ -72,13 +74,14 @@ export async function dayBookView(tx: Tx, f: DayBookFilter) {
   // Names and numbers for each entry.
   const ids = (type: string) => entries.filter((e) => e.sourceType === type).map((e) => e.sourceId);
   const payIds = [...ids("payment"), ...ids("payment-cancel"), ...waitingPays.map((p) => p.id)];
-  const [receipts, incomes, expensePays, accounts, students, cancelled] = await Promise.all([
+  const [receipts, incomes, expensePays, accounts, students, cancelled, appFees] = await Promise.all([
     tx.receipt.findMany({ where: { paymentId: { in: payIds } }, select: { paymentId: true, number: true } }),
     tx.income.findMany({ where: { id: { in: [...ids("income"), ...ids("income-cancel")] } }, select: { id: true, receiptNo: true } }),
     tx.expensePayment.findMany({ where: { id: { in: [...ids("expense-payment"), ...ids("expense-cancel")] } }, select: { id: true, expense: { select: { id: true, number: true } } } }),
     tx.bankAccount.findMany({ select: { id: true, name: true } }),
     tx.student.findMany({ where: { id: { in: waitingPays.map((p) => p.studentId) } }, select: { id: true, fullName: true } }),
     tx.dayBookEntry.findMany({ where: { reversesEntryId: { in: entries.map((e) => e.id) } }, select: { reversesEntryId: true } }),
+    tx.applicationFeePayment.findMany({ where: { id: { in: [...ids("application-fee"), ...ids("application-fee-cancel")] } }, select: { id: true, receiptNo: true, applicationId: true } }),
   ]);
   const classes = await classOfStudents(tx, [...new Set([...entries.map((e) => e.studentId), ...waitingPays.map((p) => p.studentId)].filter((x): x is string => Boolean(x)))]);
   const acc = new Map(accounts.map((a) => [a.id, a.name]));
@@ -87,6 +90,7 @@ export async function dayBookView(tx: Tx, f: DayBookFilter) {
     if (e.sourceType.startsWith("payment")) return receipts.find((r) => r.paymentId === e.sourceId)?.number ?? null;
     if (e.sourceType.startsWith("income")) return incomes.find((i) => i.id === e.sourceId)?.receiptNo ?? null;
     if (e.sourceType.startsWith("expense")) return expensePays.find((x) => x.id === e.sourceId)?.expense.number ?? null;
+    if (e.sourceType.startsWith("application-fee")) return appFees.find((x) => x.id === e.sourceId)?.receiptNo ?? null;
     return null;
   };
 
@@ -100,6 +104,7 @@ export async function dayBookView(tx: Tx, f: DayBookFilter) {
       head: e.headName, amount: e.amountPaise - e.penaltyPaise, penalty: e.penaltyPaise, total, mode: e.mode, reference: e.reference,
       account: e.accountId ? acc.get(e.accountId) ?? null : null, depositAccount: e.depositAccountId ? acc.get(e.depositAccountId) ?? null : null,
       note: e.note, waiting: false, cancelled: reversed.has(e.id), studentId: e.studentId, sourceType: e.sourceType, sourceId: e.sourceId,
+      applicationId: e.sourceType.startsWith("application-fee") ? appFees.find((x) => x.id === e.sourceId)?.applicationId ?? null : null,
     };
   });
   const waitingRows: DayRow[] = waitingPays.map((p) => ({
@@ -153,14 +158,20 @@ export async function dayBookView(tx: Tx, f: DayBookFilter) {
   };
 }
 
-/** Fees collected on one day as the Fee Dashboard counts them, to show both agree. */
+/**
+ * Fees collected on one day as the Fee Dashboard counts them, to show both
+ * agree; application fees (applicants, not students yet) are in the Day Book
+ * but not on the Fee Dashboard, so they are shown on their own line.
+ */
 export async function feeDashboardMatch(tx: Tx, day: Date) {
-  const [posted, waiting] = await Promise.all([
+  const [posted, waiting, applications] = await Promise.all([
     tx.payment.aggregate({ where: { status: "POSTED", broughtIn: false, paymentDate: day }, _sum: { amountPaise: true }, _count: { _all: true } }),
     tx.payment.aggregate({ where: { status: "WAITING", paymentDate: day }, _sum: { amountPaise: true }, _count: { _all: true } }),
+    tx.dayBookEntry.aggregate({ where: { sourceType: "application-fee", date: day }, _sum: { amountPaise: true }, _count: { _all: true } }),
   ]);
   return {
     posted: { amount: posted._sum.amountPaise ?? ZERO, count: posted._count._all },
     waiting: { amount: waiting._sum.amountPaise ?? ZERO, count: waiting._count._all },
+    applicationFees: { amount: applications._sum.amountPaise ?? ZERO, count: applications._count._all },
   };
 }

@@ -49,6 +49,11 @@ export type EventInput = {
   /** Ask the parents for consent on Parent Link (a "yes" registers the child). */
   consentOn?: boolean;
   consentBy?: string | null;
+  /**
+   * One campus only (a school with more than one campus); null for every
+   * campus. Left out, a new event is for every campus and a changed one keeps its campus.
+   */
+  campusId?: string | null;
 };
 
 async function classNames(tx: Tx, classIds: string[]) {
@@ -57,9 +62,23 @@ async function classNames(tx: Tx, classIds: string[]) {
   return rows;
 }
 
-export async function audienceLabel(tx: Tx, kind: string, classIds: string[]) {
+export async function audienceLabel(tx: Tx, kind: string, classIds: string[], campusName?: string | null) {
   if (kind === "classes") return classesWords((await classNames(tx, classIds)).map((c) => c.name));
-  return AUDIENCE_KINDS.find((a) => a.value === kind)?.label ?? "Whole school";
+  const label = AUDIENCE_KINDS.find((a) => a.value === kind)?.label ?? "Whole school";
+  // One campus's event: "North Campus", "Parents, North Campus".
+  if (campusName) return kind === "school" ? campusName : `${label}, ${campusName}`;
+  return label;
+}
+
+/**
+ * The academic years an event's students come from: its campus's year, or,
+ * for an event of every campus, the year of each campus on the event's date
+ * (a school with two campuses has two current years).
+ */
+export async function eventYearIds(tx: Tx, e: Pick<Event, "academicYearId" | "campusId" | "date">) {
+  if (e.campusId) return [e.academicYearId];
+  const years = await tx.academicYear.findMany({ where: { archivedAt: null, startDate: { lte: e.date }, endDate: { gte: e.date } }, select: { id: true } });
+  return [...new Set([e.academicYearId, ...years.map((y) => y.id)])];
 }
 
 /** The fee head event fees are collected under (made the first time an event has a fee). */
@@ -70,7 +89,7 @@ async function eventFeeHead(tx: Tx, ctx: SchoolContext) {
   return tx.feeHead.create({ data: { schoolId: ctx.schoolId, name: "Event fees", kind: "activity", systemKey: "event-fees", lateFeeApplies: false, createdById: ctx.userId } });
 }
 
-async function checkInput(tx: Tx, ctx: SchoolContext, input: EventInput, opts: { confirm?: boolean; ignoreId?: string }) {
+async function checkInput(tx: Tx, ctx: SchoolContext, input: EventInput, opts: { confirm?: boolean; ignoreId?: string; campusBefore?: string | null }) {
   const name = input.name.trim().replace(/\s+/g, " ");
   if (name.length < 2) throw new EventsProblem("Give the event a name.", "name");
   if (name.length > 80) throw new EventsProblem("The name can be at most 80 characters.", "name");
@@ -88,8 +107,16 @@ async function checkInput(tx: Tx, ctx: SchoolContext, input: EventInput, opts: {
     if (!["school", "classes"].includes(input.audienceKind)) throw new EventsProblem("Parent consent is asked for students: choose the whole school or some classes as the audience.", "audienceKind");
     if (input.consentBy && input.consentBy > input.date) throw new EventsProblem("The reply-by date is after the event. Pick a date before it.", "consentBy");
   }
-  const year = await tx.academicYear.findFirst({ where: { archivedAt: null, startDate: { lte: dayOf(input.date) }, endDate: { gte: dayOf(input.date) } } });
-  if (!year) throw new EventsProblem("Pick a date inside the school year.", "date");
+  // One campus's event uses that campus's year and classes; an event of every campus reaches each campus (Parent Link, messages).
+  const campusId = input.campusId === undefined ? opts.campusBefore ?? null : input.campusId;
+  const campus = campusId ? await tx.campus.findFirst({ where: { id: campusId, archivedAt: null }, select: { id: true, name: true } }) : null;
+  if (campusId && !campus) throw new EventsProblem("Choose the campus.", "campusId");
+  if (campus && input.audienceKind === "classes") {
+    const away = await tx.schoolClass.findMany({ where: { id: { in: input.classIds }, campusId: { not: campus.id } }, select: { name: true } });
+    if (away.length) throw new EventsProblem(`${away.map((c) => c.name).join(", ")} ${away.length === 1 ? "is" : "are"} at another campus. Choose classes of ${campus.name}, or All campuses.`, "classIds");
+  }
+  const year = await tx.academicYear.findFirst({ where: { archivedAt: null, ...(campus ? { campusId: campus.id } : {}), startDate: { lte: dayOf(input.date) }, endDate: { gte: dayOf(input.date) } } });
+  if (!year) throw new EventsProblem(campus ? `Pick a date inside the school year of ${campus.name}.` : "Pick a date inside the school year.", "date");
   await assertYearOpen(tx, year.id);
   // Two events in one venue at once: a warning (18 §5).
   if (input.venue && !opts.confirm) {
@@ -98,7 +125,7 @@ async function checkInput(tx: Tx, ctx: SchoolContext, input: EventInput, opts: {
     const clash = same.find((o) => o.startMin < end && (o.endMin ?? o.startMin + 60) > input.startMin);
     if (clash) throw new EventsWarning(`${input.venue} is booked for the ${clash.name} on ${dmy(input.date)}, ${timeSpan(clash.startMin, clash.endMin)}. Change the venue or time, or save anyway.`, "venue-clash", "venue");
   }
-  return { name, year, settings: s };
+  return { name, year, settings: s, campusId: campus?.id ?? null, campusName: campus?.name ?? null };
 }
 
 async function calendarFor(tx: Tx, ctx: SchoolContext, e: Event) {
@@ -110,16 +137,16 @@ async function calendarFor(tx: Tx, ctx: SchoolContext, e: Event) {
 }
 
 export async function createEvent(tx: Tx, ctx: SchoolContext, input: EventInput, opts: { confirm?: boolean } = {}) {
-  const { name, year } = await checkInput(tx, ctx, input, opts);
+  const { name, year, campusId, campusName } = await checkInput(tx, ctx, input, opts);
   const n = await nextNumber(tx, ctx, `event-${year.startDate.getUTCFullYear()}`);
   const number = `EV-${String(year.startDate.getUTCFullYear()).slice(2)}-${String(n).padStart(3, "0")}`;
   const fee = input.feePaise && input.feePaise > ZERO ? input.feePaise : null;
   const head = fee ? await eventFeeHead(tx, ctx) : null;
   const e = await tx.event.create({
     data: {
-      schoolId: ctx.schoolId, academicYearId: year.id, number, name, type: input.type, date: dayOf(input.date), startMin: input.startMin, endMin: input.endMin,
+      schoolId: ctx.schoolId, academicYearId: year.id, campusId, number, name, type: input.type, date: dayOf(input.date), startMin: input.startMin, endMin: input.endMin,
       venue: input.venue, audienceKind: input.audienceKind, classIds: input.audienceKind === "classes" ? input.classIds : [],
-      audienceLabel: await audienceLabel(tx, input.audienceKind, input.classIds), registrationOn: input.registrationOn, seats: input.registrationOn ? input.seats : null,
+      audienceLabel: await audienceLabel(tx, input.audienceKind, input.classIds, campusName), registrationOn: input.registrationOn, seats: input.registrationOn ? input.seats : null,
       consentOn: Boolean(input.consentOn), consentBy: input.consentOn && input.consentBy ? dayOf(input.consentBy) : null,
       feePaise: fee, feeHeadId: head?.id ?? null, reminder: input.reminder, status: input.registrationOn ? "OPEN" : "PLANNED", description: input.description, createdById: ctx.userId,
     },
@@ -134,19 +161,22 @@ export async function updateEvent(tx: Tx, ctx: SchoolContext, eventId: string, i
   const before = await tx.event.findFirst({ where: { id: eventId, archivedAt: null } });
   if (!before) throw new EventsProblem("This event was not found.");
   if (before.status === "CANCELLED") throw new EventsProblem("This event is cancelled. Create a new event instead.");
-  const { name } = await checkInput(tx, ctx, input, { confirm: opts.confirm, ignoreId: eventId });
+  const { name, year, campusId, campusName } = await checkInput(tx, ctx, input, { confirm: opts.confirm, ignoreId: eventId, campusBefore: before.campusId });
   const fee = input.feePaise && input.feePaise > ZERO ? input.feePaise : null;
   const charged = await tx.eventRegistration.count({ where: { eventId, withdrawnAt: null, dueId: { not: null } } });
   if (charged && (fee ?? ZERO) !== (before.feePaise ?? ZERO)) throw new EventsProblem(`${charged} students already have the fee on their fees. The fee cannot change now.`, "fee");
   const active = await tx.eventRegistration.count({ where: { eventId, withdrawnAt: null } });
   if (!input.registrationOn && active) throw new EventsProblem(`${active} students are registered. Withdraw them first to switch registration off.`, "registrationOn");
   if (input.seats != null && active > input.seats) throw new EventsProblem(`${active} students are registered already. Seats cannot be fewer than that.`, "seats");
+  const movedCampus = campusId !== before.campusId;
+  if (movedCampus && active) throw new EventsProblem(`${active} students are registered. Withdraw them first to change the campus.`, "campusId");
   const head = fee && !before.feeHeadId ? await eventFeeHead(tx, ctx) : null;
   const e = await tx.event.update({
     where: { id: eventId },
     data: {
       name, type: input.type, date: dayOf(input.date), startMin: input.startMin, endMin: input.endMin, venue: input.venue, audienceKind: input.audienceKind,
-      classIds: input.audienceKind === "classes" ? input.classIds : [], audienceLabel: await audienceLabel(tx, input.audienceKind, input.classIds),
+      ...(movedCampus ? { campusId, academicYearId: year.id } : {}),
+      classIds: input.audienceKind === "classes" ? input.classIds : [], audienceLabel: await audienceLabel(tx, input.audienceKind, input.classIds, campusName),
       registrationOn: input.registrationOn, seats: input.registrationOn ? input.seats : null, feePaise: fee, feeHeadId: before.feeHeadId ?? head?.id ?? null,
       consentOn: Boolean(input.consentOn), consentBy: input.consentOn && input.consentBy ? dayOf(input.consentBy) : null,
       reminder: input.reminder, status: input.registrationOn ? "OPEN" : "PLANNED", description: input.description, updatedById: ctx.userId,
@@ -171,13 +201,15 @@ export async function audienceRule(tx: Tx, e: Event): Promise<AudienceRule> {
     const regs = await tx.eventRegistration.findMany({ where: { eventId: e.id, withdrawnAt: null }, select: { studentId: true } });
     return { guardiansOf: regs.map((r) => r.studentId) };
   }
-  if (e.audienceKind === "classes") return { kinds: ["parents"], classIds: e.classIds };
-  if (e.audienceKind === "staff") return { kinds: ["staff"] };
+  // One campus's event reaches that campus only, as a notice for one campus does.
+  const campusIds = e.campusId ? [e.campusId] : undefined;
+  if (e.audienceKind === "classes") return { kinds: ["parents"], classIds: e.classIds, campusIds };
+  if (e.audienceKind === "staff") return { kinds: ["staff"], campusIds };
   if (e.audienceKind === "alumni") {
     const alumni = await tx.student.findMany({ where: { archivedAt: null, status: { in: ["ALUMNI", "GRADUATED"] } }, select: { id: true }, take: 5000 });
     return { guardiansOf: alumni.map((a) => a.id) };
   }
-  return { kinds: ["parents"] };
+  return { kinds: ["parents"], campusIds };
 }
 
 async function schoolName(tx: Tx, ctx: SchoolContext) {
@@ -230,7 +262,7 @@ export async function eligible(tx: Tx, e: Event, studentIds: string[]) {
     return new Set(rows.map((r) => r.id));
   }
   const rows = await tx.enrolment.findMany({
-    where: { studentId: { in: studentIds }, academicYearId: e.academicYearId, archivedAt: null, status: "STUDYING", ...(e.audienceKind === "classes" ? { classId: { in: e.classIds } } : {}) },
+    where: { studentId: { in: studentIds }, academicYearId: { in: await eventYearIds(tx, e) }, archivedAt: null, status: "STUDYING", ...(e.audienceKind === "classes" ? { classId: { in: e.classIds } } : {}) },
     select: { studentId: true },
   });
   return new Set(rows.map((r) => r.studentId));

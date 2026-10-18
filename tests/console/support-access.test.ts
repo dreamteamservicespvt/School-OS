@@ -31,7 +31,7 @@ import { createSession } from "@/lib/auth/sessions";
 import { hashPassword } from "@/lib/auth/password";
 import { CONSOLE_COOKIE } from "@/lib/console/auth";
 import { actorOf } from "@/lib/console/auth";
-import { claimSupportTicket, requestSupportAccess, startSupportEntry } from "@/lib/console/support";
+import { claimSupportTicket, requestSupportAccess, startSupportEntry, waitingSupportCount } from "@/lib/console/support";
 import { endExpiredSupport, endSupportByToken, findSupportEntry } from "@/lib/console/support-entry";
 import { getCurrent, requireAction, requireCurrent, requirePage, SupportLookOnlyError } from "@/lib/current";
 import { abilities } from "@/lib/students/access";
@@ -181,6 +181,55 @@ describe("the school answers", () => {
     await expect(startSupportEntry(actorOf(team.SUPPORT), sessionId, asked.id)).rejects.toThrow(/no longer allowed/);
     // The person who asked is told.
     expect(await withConsole((tx) => tx.consoleNotification.count({ where: { userId: team.SUPPORT.id, text: { contains: "declined" } } }))).toBeGreaterThan(0);
+  });
+});
+
+describe("a request nobody answers", () => {
+  it("expires after 24 hours on the job tick: Expired, the asker told, out of the school's Approvals", async () => {
+    const asked = await requestSupportAccess(actorOf(team.SUPPORT), school.id, { reason: "Report cards are not printing", lengthMinutes: 60 });
+    // 23 hours: still waiting.
+    await withConsole((tx) => tx.supportAccessRequest.update({ where: { id: asked.id }, data: { createdAt: new Date(Date.now() - 23 * 3600_000) } }));
+    await endExpiredSupport();
+    expect((await requestOf(asked.id)).status).toBe("WAITING");
+    expect(await waitingSupportCount(school.id)).toBe(1);
+    // 24 hours: expired, once.
+    await withConsole((tx) => tx.supportAccessRequest.update({ where: { id: asked.id }, data: { createdAt: new Date(Date.now() - 24 * 3600_000 - 1000) } }));
+    expect(await waitingSupportCount(school.id)).toBe(0);
+    expect(await endExpiredSupport()).toBeGreaterThanOrEqual(1);
+    const r = await requestOf(asked.id);
+    expect(r.status).toBe("EXPIRED");
+    expect(r.endedAt).not.toBeNull();
+    expect(await endExpiredSupport()).toBe(0);
+    expect(await withConsole((tx) => tx.consoleNotification.count({ where: { userId: team.SUPPORT.id, text: { contains: "expired" } } }))).toBe(1);
+    expect(await withSchool({ schoolId: school.id, userId: null }, (tx) => tx.notification.count({ where: { link: `/approvals?support=${asked.id}`, doneAt: null } }))).toBe(0);
+    expect((await audit(school.id, "support access expired")).some((a) => a.recordId === asked.id && a.actorNote === "School OS (automatic)")).toBe(true);
+    expect(await withConsole((tx) => tx.consoleActivityEntry.count({ where: { forSchoolId: school.id, toValue: "Expired" } }))).toBeGreaterThan(0);
+    // It can no longer be allowed, opened or withdrawn; DREAM TEAM can ask again.
+    await asSchool(admin.id, school.id);
+    expect(await answerSupportAction(asked.id, "allow", null)).toMatch(/expired/);
+    const sessionId = await asConsole(team.SUPPORT);
+    await expect(startSupportEntry(actorOf(team.SUPPORT), sessionId, asked.id)).rejects.toThrow(/no longer allowed/);
+    expect(((await withdrawSupportAction(null, form({ requestId: asked.id }))) as { ok: boolean; message?: string }).message).toMatch(/expired/);
+    const again = await requestSupportAccess(actorOf(team.SUPPORT), school.id, { reason: "Report cards are not printing", lengthMinutes: 60 });
+    expect((await requestOf(again.id)).status).toBe("WAITING");
+    await withdrawSupportAction(null, form({ requestId: again.id }));
+  });
+
+  it("an answer after 24 hours finds it expired, even before the job tick ran; a new request clears an old one", async () => {
+    const asked = await requestSupportAccess(actorOf(team.SUPPORT), school.id, { reason: "Timetable will not publish", lengthMinutes: 240 });
+    await withConsole((tx) => tx.supportAccessRequest.update({ where: { id: asked.id }, data: { createdAt: new Date(Date.now() - 25 * 3600_000) } }));
+    await asSchool(principal.id, school.id);
+    expect(await answerSupportAction(asked.id, "allow", null)).toMatch(/expired/);
+    const r = await requestOf(asked.id);
+    expect(r.status).toBe("EXPIRED");
+    expect(r.startsAt).toBeNull();
+    // Asking again does not wait for the job tick either.
+    const old = await requestSupportAccess(actorOf(team.SUPPORT), school.id, { reason: "Timetable will not publish", lengthMinutes: 60 });
+    await withConsole((tx) => tx.supportAccessRequest.update({ where: { id: old.id }, data: { createdAt: new Date(Date.now() - 25 * 3600_000) } }));
+    const fresh = await requestSupportAccess(actorOf(team.SUPPORT), school.id, { reason: "Timetable will not publish", lengthMinutes: 60 });
+    expect((await requestOf(old.id)).status).toBe("EXPIRED");
+    await asConsole(team.SUPPORT);
+    await withdrawSupportAction(null, form({ requestId: fresh.id }));
   });
 });
 

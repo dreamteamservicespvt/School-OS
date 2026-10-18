@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Clock, DoorOpen, EyeOff, Hourglass, LifeBuoy, Lock, School } from "lucide-react";
 import { requireConsole } from "@/lib/console/current";
 import { supportRequests, type SupportRow } from "@/lib/console/support";
-import { ENDED_WORDS, endsWords, lengthWords, SUPPORT_STATUS_WORDS, type EndHow } from "@/lib/console/support-entry";
+import { ENDED_WORDS, endsWords, EXPIRED_WORDS, lengthWords, SUPPORT_STATUS_WORDS, type EndHow } from "@/lib/console/support-entry";
 import { formatDate, formatTime } from "@/lib/format";
 import { Card, CardHeader } from "@/components/ui/card";
 import { PageHead } from "@/components/ui/display";
@@ -17,7 +17,7 @@ export const metadata: Metadata = { title: "Support Access" };
 
 type SP = Promise<{ act?: string; entry?: string; school?: string }>;
 
-const TONE: Record<SupportRow["status"], PillTone> = { WAITING: "info", ALLOWED: "ok", DECLINED: "bad", ENDED: "neutral" };
+const TONE: Record<SupportRow["status"], PillTone> = { WAITING: "info", ALLOWED: "ok", DECLINED: "bad", ENDED: "neutral", EXPIRED: "neutral" };
 const when = (d: Date) => `${formatDate(d)}, ${formatTime(d)}`;
 const ENTRY_WORDS: Record<string, { tone: "info" | "warn"; text: string }> = {
   ended: { tone: "info", text: "You ended your support access. The school’s Audit Log shows when." },
@@ -66,6 +66,7 @@ export default async function SupportPage({ searchParams }: { searchParams: SP }
             {r.decidedByName && r.decidedAt ? ` · ${r.status === "DECLINED" ? "declined" : "allowed"} by ${r.decidedByName}, ${formatTime(r.decidedAt)}` : ""}
             {r.live && r.endsAt ? ` · until ${endsWords(r.endsAt, now)}` : ""}
             {r.status === "ENDED" && r.endedHow ? ` · ${ENDED_WORDS[r.endedHow as EndHow] ?? "Ended"}${r.endedAt ? `, ${when(r.endedAt)}` : ""}` : ""}
+            {r.status === "EXPIRED" ? ` · ${EXPIRED_WORDS}${r.endedAt ? `, ${when(r.endedAt)}` : ""}` : ""}
           </p>
           {r.status === "DECLINED" && r.declineReason && <p className="text-[12.5px] text-ink3">The school’s reason: “{r.declineReason}”</p>}
         </div>

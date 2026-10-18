@@ -56,7 +56,7 @@ Other actions:
 
 - **Discount or penalty change at the counter:** only for people with the permission ("give discount", "waive late fee"). Above the school's limit it becomes a concession request in Approvals and the payment waits (inferred: it waits rather than proceeding).
 - **Advance payment (optional):** paying more than the current dues, only when Fee Settings allows advances; the extra is held as advance and applied to the next installments (inferred: how advance is applied).
-- **Send payment link:** sends an online payment link for the selected dues by WhatsApp or SMS (uses the gateway set for the student's class in Fee Settings). When Parent Link is on, parents can also pay any time from the Pay button on their Parent Link (decided 9 October 2026, D4).
+- **Send payment link:** sends an online payment link for the selected dues by WhatsApp or SMS (uses the gateway set for the student's class in Fee Settings). When Parent Link is on, parents can also pay any time from the Pay button on their Parent Link (decided 9 October 2026, D4). Tapping Pay again for the same fees and the same amount opens the same payment link while it is open and has at least an hour left, instead of making a new one each time (added 18 October 2026, inferred: the hour).
 - **UPI QR:** shows a UPI QR for the exact amount on screen for the parent to scan at the counter (inferred: dynamic QR when the gateway supports it).
 
 **Form fields: Collect fee**

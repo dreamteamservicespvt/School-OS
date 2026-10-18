@@ -4,6 +4,7 @@
 import "server-only";
 
 import type { AskableType, FollowUp } from "../approvals";
+import { notSentBack, requestIds, type StillWaiting } from "../approval-waiting";
 import { certificateDecided } from "./certificates";
 import { waiverDecided } from "./leaving";
 import { currentYear } from "../academic/years";
@@ -33,3 +34,18 @@ export const followUps = {
     }
   },
 } satisfies Partial<Record<AskableType, FollowUp>>;
+
+/** Decided requests whose record still waits on them: their follow-up never ran (Approvals, "Approved, but not finished"). */
+export const unfinished = {
+  // Sent back for a change, a certificate or a waiver keeps waiting on purpose.
+  certificate: async (tx) => notSentBack(tx, requestIds(await tx.certificate.findMany({ where: { status: "REQUESTED", approvalId: { not: null } }, select: { approvalId: true } }))),
+  "clearance-waiver": async (tx) => notSentBack(tx, requestIds(await tx.studentClearanceCheck.findMany({ where: { status: "WAIVER_ASKED", approvalId: { not: null } }, select: { approvalId: true } }))),
+  // Approved, but the student is still Transferred or Withdrawn, with no status change made by this approval.
+  "re-admission": async (tx) => {
+    const approved = await tx.approval.findMany({ where: { type: "re-admission", status: "APPROVED" }, select: { id: true, recordId: true } });
+    if (!approved.length) return [];
+    const away = new Set((await tx.student.findMany({ where: { id: { in: approved.map((a) => a.recordId) }, status: { in: ["TRANSFERRED", "WITHDRAWN"] } }, select: { id: true } })).map((s) => s.id));
+    const done = new Set((await tx.studentStatusChange.findMany({ where: { source: { in: approved.map((a) => `approval:${a.id}`) } }, select: { source: true } })).map((c) => c.source));
+    return approved.filter((a) => away.has(a.recordId) && !done.has(`approval:${a.id}`)).map((a) => a.id);
+  },
+} satisfies Partial<Record<AskableType, StillWaiting>>;

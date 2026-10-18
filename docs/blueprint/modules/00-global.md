@@ -133,6 +133,8 @@ Status flow: **Waiting** → **Approved** or **Rejected**. Also **Withdrawn** (t
 - The linked record moves on by itself (for example approved leave reduces the balance; an approved refund becomes ready to pay).
 - Every decision is written to the Audit Log. A decision cannot be edited. A mistaken approval is undone by the normal reversal of the record (for example cancelling the leave), never by changing the history.
 - If an approver does nothing within the escalation time set in Forms & Approvals (default 2 working days, inferred), the request moves to the next approver and both are told.
+- **Approved, but not finished** (added 18 October 2026, gap G01): before that date a decision could be recorded while its record stayed waiting (a leave, a payment to verify, an application at Decision, an outing pass, a library charge and so on). Approvals lists each such request for the person who decided it, and every one for the Principal and School Admin, with **Finish now**: it does what the decision should have done, in the decider's name, with an Audit Log line naming who finished it. If it cannot be done now (for example the class is full), the plain reason is shown and nothing changes. Nothing is finished by itself.
+- If the record cannot move on when a request is decided (for example a salary month with a net pay below zero), the decision is refused with the plain reason, and nothing changes.
 
 ## 4. Notifications (no spam)
 
@@ -144,7 +146,7 @@ Rules:
 2. **Opens the right screen.** Every notification has one target screen. Tapping it opens that screen with the record already open.
 3. **One event, one notification.** The same event never creates two notifications for the same person. Repeated events of the same kind within 30 minutes are merged into one line with a count, for example "5 new fee payments" (inferred: the 30 minutes).
 4. **Not for your own actions.** People are not notified about things they did themselves (inferred).
-5. **Clears itself.** When the work is done (the approval is decided, the task is closed), the related notification is marked done for everyone who received it (inferred).
+5. **Clears itself.** When the work is done (the approval is decided, the task is closed), the related notification is marked done for everyone who received it (inferred). A done notification counts as read: it is not in the bell's count or "New only", and it is listed with the read ones (added 18 October 2026).
 6. **People choose the channel.** In Profile, each person chooses for each type whether they get it in the app only, as a push alert, or also by email or WhatsApp where the school allows it. Default: in-app and push for approvals and tasks; in-app only for everything else (inferred).
 7. **Some cannot be switched off.** Security alerts (new sign-in, password changed) and approvals waiting on this person cannot be switched off (inferred).
 8. **Push respects the phone.** Push alerts use the installable web app. Each push carries the same link as the in-app notification.

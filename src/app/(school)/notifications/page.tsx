@@ -13,6 +13,7 @@ import { ListToolbar } from "@/components/list/list-toolbar";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import { cx } from "@/components/ui/cx";
+import { isUnread, notificationPage, UNREAD } from "@/lib/notifications";
 import { markAllNotificationsRead, openNotification } from "../actions";
 
 export const metadata: Metadata = { title: "Notifications" };
@@ -42,15 +43,15 @@ export default async function NotificationsPage({ searchParams }: { searchParams
   const range = periodFromSearch(sp, dates);
   const where: Prisma.NotificationWhereInput = {
     userLoginId: current.user.id,
-    ...(params.filters.show === "unread" ? { readAt: null } : {}),
+    ...(params.filters.show === "unread" ? UNREAD : {}),
     ...(range ? { createdAt: momentWhere(range, tz) } : {}),
     ...(params.q ? { text: { contains: params.q, mode: "insensitive" } } : {}),
   };
   const data = await withSchool(current.ctx, async (tx) => {
     const [notes, total, unread] = await Promise.all([
-      tx.notification.findMany({ where, orderBy: [{ readAt: { sort: "desc", nulls: "first" } }, { createdAt: "desc" }], skip: (params.page - 1) * PAGE, take: PAGE }),
+      notificationPage(tx, where, (params.page - 1) * PAGE, PAGE),
       tx.notification.count({ where }),
-      tx.notification.count({ where: { userLoginId: current.user.id, readAt: null } }),
+      tx.notification.count({ where: { userLoginId: current.user.id, ...UNREAD } }),
     ]);
     return { notes, total, unread };
   });
@@ -79,22 +80,23 @@ export default async function NotificationsPage({ searchParams }: { searchParams
           <ul className="bg-surface rounded-2xl border border-line/70 shadow-card divide-y divide-line/70 overflow-hidden">
             {data.notes.map((n) => {
               const Icon = iconFor(n.type);
+              const fresh = isUnread(n);
               return (
                 <li key={n.id}>
                   <form action={openNotification}>
                     <input type="hidden" name="id" value={n.id} />
-                    <button type="submit" className={cx("w-full text-left flex items-start gap-3 px-4 md:px-5 py-3.5 transition hover:bg-sunken/70", !n.readAt && "bg-brand/[0.04]")}>
-                      <span className={cx("mt-0.5 size-10 shrink-0 rounded-xl grid place-items-center", n.readAt ? "bg-sunken text-ink3" : "bg-brand/10 text-brand")} aria-hidden="true">
+                    <button type="submit" className={cx("w-full text-left flex items-start gap-3 px-4 md:px-5 py-3.5 transition hover:bg-sunken/70", fresh && "bg-brand/[0.04]")}>
+                      <span className={cx("mt-0.5 size-10 shrink-0 rounded-xl grid place-items-center", !fresh ? "bg-sunken text-ink3" : "bg-brand/10 text-brand")} aria-hidden="true">
                         <Icon size={19} />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className={cx("block text-[14.5px] leading-snug", n.readAt ? "text-ink2" : "font-semibold text-ink")}>
-                          {!n.readAt && <span className="sr-only">New. </span>}{n.text}
+                        <span className={cx("block text-[14.5px] leading-snug", !fresh ? "text-ink2" : "font-semibold text-ink")}>
+                          {fresh && <span className="sr-only">New. </span>}{n.text}
                           {n.count > 1 && <span className="ml-1.5 tnum text-ink3 font-medium">×{n.count}</span>}
                         </span>
                         <span className="block text-[12.5px] text-ink3 mt-1 tnum">{formatDateTime(n.createdAt, tz)}</span>
                       </span>
-                      {!n.readAt && <span className="mt-2 size-2 shrink-0 rounded-full bg-brand" aria-hidden="true" />}
+                      {fresh && <span className="mt-2 size-2 shrink-0 rounded-full bg-brand" aria-hidden="true" />}
                       <I.ChevronRight size={17} className="mt-2.5 shrink-0 text-ink3" aria-hidden="true" />
                     </button>
                   </form>

@@ -25,9 +25,11 @@ type Opt = { value: string; label: string };
 export type EventStart = {
   id?: string; name?: string; type?: string; date?: string; startTime?: string; endTime?: string; venue?: string; audienceKind?: string; classIds?: string[];
   registrationOn?: boolean; seats?: string; fee?: string; reminder?: string; description?: string; feeLocked?: boolean; consentOn?: boolean; consentBy?: string;
+  campusId?: string;
 };
 
-export function EventSheet({ closeHref, start, types, venues, classes, reminders, audiences }: { closeHref: string; start: EventStart; types: string[]; venues: string[]; classes: Opt[]; reminders: Opt[]; audiences: Opt[] }) {
+/** campuses: only when the school has more than one; an event is for every campus or for one. */
+export function EventSheet({ closeHref, start, types, venues, classes, reminders, audiences, campuses = [] }: { closeHref: string; start: EventStart; types: string[]; venues: string[]; classes: Opt[]; reminders: Opt[]; audiences: Opt[]; campuses?: Opt[] }) {
   const aud = useTyped("audienceKind", start.audienceKind ?? "school");
   const [audience, setAudience] = useState(aud.value || "school");
   const regT = useTyped("registrationOn", start.registrationOn ? "on" : "");
@@ -58,6 +60,7 @@ export function EventSheet({ closeHref, start, types, venues, classes, reminders
           </select>
         </label>
       </div>
+      {campuses.length > 1 && <SSelect name="campusId" label="Campus" help="An event of one campus is shown and sent only to that campus" options={[{ value: "", label: "All campuses" }, ...campuses]} start={start.campusId ?? ""} />}
       {audience === "classes" && <SChips name="classIds" label="Classes" options={classes} start={start.classIds} required />}
       <WarningConfirm keyName="venue-clash" />
       <div className="rounded-xl bg-sunken/70 p-3.5 flex flex-col gap-3">

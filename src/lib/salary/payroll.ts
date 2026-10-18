@@ -30,6 +30,8 @@ const ZERO = BigInt(0);
 const n = (d: Prisma.Decimal | number) => Number(d);
 
 export const EDITABLE = ["OPEN", "CALCULATED"] as const;
+/** The flag on a line whose net pay is below zero. */
+export const BELOW_ZERO = "Net pay below zero";
 const frozen = (s: string) => ["APPROVED", "PAID", "LOCKED"].includes(s);
 
 export async function getRun(tx: Tx, runId: string) {
@@ -175,6 +177,11 @@ export async function calculateRun(tx: Tx, ctx: SchoolContext, runId: string, to
         flags.push("Recovery reduced");
         notes.push(`Loan or advance recovery reduced to ${formatRupees(pay.recovery)} this month so net pay is not below zero; the rest moves to next month`);
       }
+      // A correction of an earlier month or a one-time deduction larger than the pay: the month cannot be sent or approved like this.
+      if (pay.net < ZERO) {
+        flags.push(BELOW_ZERO);
+        notes.push(`Net pay is ${formatRupees(pay.net)}: the deductions are more than the pay. Change the adjustment before sending the month for approval`);
+      }
       totals.staff++;
       totals.gross += pay.gross; totals.ded += pay.deductions; totals.net += pay.net; totals.erPf += pay.erPf; totals.erEsi += pay.erEsi;
       data = {
@@ -248,12 +255,27 @@ export async function archiveAdjustment(tx: Tx, ctx: SchoolContext, adjustmentId
   return adj;
 }
 
+/** Staff in a run whose net pay is below zero, with the amount: a correction or one-time deduction larger than the pay. */
+export async function belowZero(tx: Tx, runId: string) {
+  const rows = await tx.payrollLine.findMany({ where: { runId, included: true, netPaise: { lt: ZERO } }, select: { staffId: true, netPaise: true } });
+  const staff = rows.length ? await tx.staff.findMany({ where: { id: { in: rows.map((r) => r.staffId) } }, select: { id: true, fullName: true } }) : [];
+  return rows.map((r) => ({ staffId: r.staffId, name: staff.find((x) => x.id === r.staffId)?.fullName ?? "A staff member", netPaise: r.netPaise })).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** "Ravi Kumar (−₹1,200) and Kavitha Rao (−₹300)" */
+export const belowZeroWords = (rows: { name: string; netPaise: bigint }[]) => {
+  const each = rows.map((r) => `${r.name} (${formatRupees(r.netPaise)})`);
+  return each.length > 1 ? `${each.slice(0, -1).join(", ")} and ${each[each.length - 1]}` : each[0] ?? "";
+};
+
 /** Send for approval (Settings, Forms & Approvals: "Salary and payroll"). Nobody approves a run they sent. */
 export async function sendForApproval(tx: Tx, ctx: SchoolContext, runId: string) {
   const run = await getRun(tx, runId);
   if (run.status === "OPEN") throw new MoneyProblem("Calculate the month first.");
   assertEditable(run);
   if (run.staffCount === 0) throw new MoneyProblem("Nobody in this month has a salary structure yet. Add structures and recalculate.");
+  const negative = await belowZero(tx, run.id);
+  if (negative.length) throw new MoneyProblem(`Net pay is below zero for ${belowZeroWords(negative)}. Change or remove the adjustment that takes more than the pay, then send the month for approval.`);
   const left = await tx.payrollLine.count({ where: { runId: run.id, included: false, flags: { has: "No salary structure" } } });
   const approval = await requestApproval(tx, ctx, {
     type: "payroll", recordType: "Payroll Run", recordId: run.id, amountPaise: run.netPaise,
@@ -285,6 +307,9 @@ export async function decidePayroll(tx: Tx, ctx: SchoolContext, runId: string, d
 
 /** A6: approved. Amounts freeze, slips are made, recoveries are taken, staff are told, last month's paid run locks. */
 async function approveRun(tx: Tx, ctx: SchoolContext, runId: string) {
+  // Never approved with a net pay below zero (a month sent before this check, too): nothing changes, the month stays waiting.
+  const negative = await belowZero(tx, runId);
+  if (negative.length) throw new MoneyProblem(`Net pay is below zero for ${belowZeroWords(negative)}, so this month cannot be approved. Send it back so the Accountant can change the adjustment.`);
   const run = await tx.payrollRun.update({ where: { id: runId }, data: { status: "APPROVED", approvedById: ctx.userId, approvedAt: new Date() } });
   const lines = await tx.payrollLine.findMany({ where: { runId, included: true } });
   for (const l of lines) {

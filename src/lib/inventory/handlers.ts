@@ -8,6 +8,7 @@ import "server-only";
 import type { SchoolContext, Tx } from "../db";
 import type { AskableType, FollowUp } from "../approvals";
 import type { LinkMaker } from "../approval-links";
+import { requestIds, type StillWaiting } from "../approval-waiting";
 import { registerUndo } from "../undo";
 import { withSchool } from "../db";
 import { writeAudit } from "../audit";
@@ -42,6 +43,17 @@ export const followUps = {
     await decideDisposal(tx, ctx, approval.recordId, decision, note);
   },
 } satisfies Partial<Record<AskableType, FollowUp>>;
+
+/** Decided requests whose record still waits on them: their follow-up never ran (Approvals, "Approved, but not finished"). */
+export const unfinished = {
+  purchase: async (tx) => requestIds([
+    ...(await tx.purchaseRequest.findMany({ where: { status: "WAITING", approvalId: { not: null } }, select: { approvalId: true } })),
+    ...(await tx.purchaseOrder.findMany({ where: { status: "WAITING", approvalId: { not: null } }, select: { approvalId: true } })),
+  ]),
+  "stock-transfer": async (tx) => requestIds(await tx.stockTransfer.findMany({ where: { status: "WAITING", approvalId: { not: null } }, select: { approvalId: true } })),
+  "stock-audit": async (tx) => requestIds(await tx.stockAudit.findMany({ where: { status: "WAITING", approvalId: { not: null } }, select: { approvalId: true } })),
+  "asset-disposal": async (tx) => requestIds(await tx.assetDisposal.findMany({ where: { status: "WAITING", approvalId: { not: null } }, select: { approvalId: true } })),
+} satisfies Partial<Record<AskableType, StillWaiting>>;
 
 export const approvalLinks = {
   purchase: (a) =>

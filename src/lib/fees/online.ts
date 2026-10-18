@@ -6,7 +6,7 @@
 // so a second confirmation for the same payment does nothing.
 import "server-only";
 
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import type { PaymentLink, PaymentLinkOrder, PaymentSource } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
@@ -21,13 +21,15 @@ import { DUE_WINDOW_DAYS, lockDues, openDues, studentCard } from "./dues";
 import { featureOn, feeSettings, gatewayFor } from "./settings";
 import { allocate, finishPosting, notifyOnlinePayment } from "./collect";
 import { feeMessageInput, planMessage, sendMessage } from "./notify-parents";
-import { appUrl } from "../parent-link/token";
+import { appUrl, payLinkTokenFor } from "../parent-link/token";
 import { mainBankAccount } from "../finance/settings";
 
 const ZERO = BigInt(0);
 
 /** A link is good for 7 days (inferred). */
 export const LINK_DAYS = 7;
+/** An open Parent Link payment is used again for the same fees only while it has at least this long left (inferred: 1 hour). */
+export const REUSE_LEFT_MS = 60 * 60 * 1000;
 /** Online payments not confirmed within this time are flagged on the Fee Dashboard (A8, inferred 30 minutes). */
 export const CONFIRM_WITHIN_MS = 30 * 60 * 1000;
 
@@ -78,11 +80,16 @@ export function payPath(schoolId: string, token: string) {
  * Makes a payment link for chosen rows of a student. The gateway is the one
  * set for the student's class in Fee Settings. Returns the secret token
  * (shown once, in the link) and the link record.
+ *
+ * With reuseOpen (the Pay button on Parent Link), the guardian's open link
+ * for exactly the same rows and amount is used again instead of making a new
+ * one each tap. Its secret is worked out from its id with the server key
+ * (like the Parent Link's own), so it can be given again; only its hash is kept.
  */
 export async function createPaymentLink(
   tx: Tx,
   ctx: SchoolContext,
-  input: { studentId: string; dueIds: string[]; guardianId?: string | null; source: PaymentSource; channel?: string | null },
+  input: { studentId: string; dueIds: string[]; guardianId?: string | null; source: PaymentSource; channel?: string | null; reuseOpen?: boolean },
 ) {
   const card = await studentCard(tx, ctx, input.studentId);
   if (!card) throw new MoneyProblem("This student was not found.");
@@ -95,12 +102,29 @@ export async function createPaymentLink(
   if (amount < BigInt(100)) throw new MoneyProblem("An online payment must be at least ₹1.", "dueIds");
   const gateway = await gatewayFor(tx, ctx, card.classId);
   if (!gateway) throw new MoneyProblem("No payment gateway is switched on. Connect Razorpay in Settings, Payment Gateways.", undefined, { href: "/settings/payment-gateways", label: "Open Payment Gateways" });
-  const token = randomBytes(24).toString("base64url");
+  const guardianId = input.guardianId ?? card.primaryGuardian?.id ?? null;
+  if (input.reuseOpen && guardianId) {
+    const rows = chosen.map((d) => d.id).sort().join(",");
+    const open = await tx.paymentLink.findMany({
+      where: {
+        studentId: input.studentId, guardianId, source: input.source, status: { in: ["SENT", "FAILED"] }, paymentId: null,
+        amountPaise: amount, gatewayAccountId: gateway.id, expiresAt: { gt: new Date(Date.now() + REUSE_LEFT_MS) },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    });
+    // Only a link whose secret can be worked out again (links made before this could not).
+    const same = open.find((l) => [...l.dueIds].sort().join(",") === rows && l.tokenHash === hashToken(payLinkTokenFor(l.id)));
+    if (same) return { link: same, token: payLinkTokenFor(same.id), card, amount, reused: true };
+  }
+  const id = randomUUID();
+  const token = input.reuseOpen ? payLinkTokenFor(id) : randomBytes(24).toString("base64url");
   const link = await tx.paymentLink.create({
     data: {
+      id,
       schoolId: ctx.schoolId,
       studentId: input.studentId,
-      guardianId: input.guardianId ?? card.primaryGuardian?.id ?? null,
+      guardianId,
       dueIds: chosen.map((d) => d.id),
       amountPaise: amount,
       gatewayAccountId: gateway.id,
@@ -112,7 +136,7 @@ export async function createPaymentLink(
     },
   });
   await writeAudit(tx, ctx, { action: "created", recordType: "Payment Link", recordId: link.id, after: { student: card.name, amount: formatRupees(amount), rows: chosen.length, source: input.source } });
-  return { link, token, card, amount };
+  return { link, token, card, amount, reused: false };
 }
 
 /** Sends a payment link to the parent by WhatsApp or SMS. Returns what happened. */

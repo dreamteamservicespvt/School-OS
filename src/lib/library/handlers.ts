@@ -6,6 +6,7 @@ import "server-only";
 
 import type { AskableType, FollowUp } from "../approvals";
 import type { LinkMaker } from "../approval-links";
+import { requestIds, type StillWaiting } from "../approval-waiting";
 import { registerUndo } from "../undo";
 import { withSchool } from "../db";
 import { writeAudit } from "../audit";
@@ -21,6 +22,11 @@ export const followUps = {
     await decideCharge(tx, ctx, approval.recordId, decision, note);
   },
 } satisfies Partial<Record<AskableType, FollowUp>>;
+
+/** Decided requests whose record still waits on them: their follow-up never ran (Approvals, "Approved, but not finished"). */
+export const unfinished = {
+  "library-charge": async (tx) => requestIds(await tx.libraryFine.findMany({ where: { status: "WAITING", approvalId: { not: null } }, select: { approvalId: true } })),
+} satisfies Partial<Record<AskableType, StillWaiting>>;
 
 export const approvalLinks = {
   "library-charge": (a) => ({ href: `${BASE}/fines?fine=${a.recordId}`, label: "Open the fine" }),

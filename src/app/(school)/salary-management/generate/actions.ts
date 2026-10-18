@@ -33,8 +33,10 @@ export async function addAdjustmentAction(_prev: unknown, fd: FormData) {
   return salaryAction("edit", fd, async (tx, ctx, current) => {
     const type = str(fd, "type");
     const r = await addAdjustment(tx, ctx, { runId: id(fd, "runId", "salary month"), staffId: id(fd, "staffId", "staff member"), type, amountPaise: needRupees(fd, "amount", "Amount"), reason: str(fd, "reason") }, tz(current));
-    return { what: `${adjustmentLabel(type)} of ${formatRupees(r.adj.amountPaise)} added for ${r.staff}`, reason: r.adj.reason };
-  }, (r) => `${r.what}. Reason kept with it: “${r.reason}”.`);
+    const line = await tx.payrollLine.findFirst({ where: { runId: r.adj.runId, staffId: r.adj.staffId }, select: { netPaise: true, included: true } });
+    const below = line?.included && line.netPaise < BigInt(0) ? ` ${r.staff}’s net pay is now ${formatRupees(line.netPaise)}, below zero: the month cannot be sent for approval until you change it.` : "";
+    return { what: `${adjustmentLabel(type)} of ${formatRupees(r.adj.amountPaise)} added for ${r.staff}`, reason: r.adj.reason, below };
+  }, (r) => `${r.what}. Reason kept with it: “${r.reason}”.${r.below}`);
 }
 
 export async function removeAdjustmentAction(_prev: unknown, fd: FormData) {

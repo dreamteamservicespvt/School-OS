@@ -107,6 +107,8 @@ function eventInput(fd: FormData): EventInput {
     registrationOn: checked(fd, "registrationOn"), seats: seats ? Number(seats) : null, feePaise: fee,
     reminder: str(fd, "reminder") || "1d", description: maybe(fd, "description", "Description", 1000),
     consentOn: checked(fd, "consentOn"), consentBy: checked(fd, "consentOn") ? dateIso(fd, "consentBy", "Reply-by date", false) : null,
+    // Only a school with more than one campus is asked; "" is every campus.
+    campusId: fd.has("campusId") ? (UUID_RE.test(str(fd, "campusId")) ? str(fd, "campusId") : null) : undefined,
   };
 }
 

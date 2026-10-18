@@ -50,6 +50,6 @@ export function WorkRow({ k, v, sub, tone }: { k: React.ReactNode; v: React.Reac
 
 /** A flag on a staff row: adjustments in brand blue, leaving neutral, the rest a warning. */
 export function FlagPill({ f, phone }: { f: string; phone?: boolean }) {
-  const tone = f === "Adjustment added" ? "brand" : f.startsWith("Leaving") || f.startsWith("No longer") ? "neutral" : "warn";
+  const tone = f === "Net pay below zero" ? "bad" : f === "Adjustment added" ? "brand" : f.startsWith("Leaving") || f.startsWith("No longer") ? "neutral" : "warn";
   return <Pill tone={tone} className={phone ? "!h-[22px] !text-[11.5px]" : "!h-5 !text-[11px]"}>{f}</Pill>;
 }

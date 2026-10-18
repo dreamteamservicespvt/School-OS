@@ -4,8 +4,9 @@ import { revalidatePath } from "next/cache";
 import { requireCurrent } from "@/lib/current";
 import { withSchool } from "@/lib/db";
 import { flash } from "@/lib/flash";
-import { DecisionProblem, decide, type Decision } from "@/lib/approvals";
+import { decide, plainReason, type Decision } from "@/lib/approvals";
 import { bulkApprove, type BulkResult } from "@/lib/approvals-inbox";
+import { finishFollowUp } from "@/lib/approvals-unfinished";
 import { answerSupport, endSupportFromSchool, SupportProblem } from "@/lib/console/support";
 
 const LOOK_ONLY = "DREAM TEAM support access is for looking only. The school decides its own requests.";
@@ -27,11 +28,38 @@ export async function decideAction(id: string, decision: Decision, note: string 
   try {
     await withSchool(current.ctx, (tx) => decide(tx, current.ctx, id, decision, clean));
   } catch (e) {
-    if (e instanceof DecisionProblem) return e.message;
+    // A refusal, or the module's own reason from the follow-up ("Class 5 is full"): nothing was changed.
+    const plain = plainReason(e);
+    if (plain) return plain;
     console.error(JSON.stringify({ level: "error", event: "approval-decide", error: e instanceof Error ? e.message : String(e) }));
     return "That did not work, and nothing was changed. Please try again.";
   }
   await flash({ message: DONE[decision] });
+  revalidatePath("/", "layout");
+}
+
+const FINISHED: Record<Decision, string> = { approve: "approved", reject: "not approved", "ask-change": "sent back for a change", withdraw: "withdrawn" };
+
+/**
+ * "Finish now" (Approved, but not finished): runs the follow-up of a decided
+ * request whose record never moved on. Only the person who decided it, the
+ * Principal or the School Admin. If it cannot be done now, the plain reason
+ * comes back and nothing changes.
+ */
+export async function finishFollowUpAction(id: string): Promise<string | void> {
+  const current = await requireCurrent();
+  if (current.support) return LOOK_ONLY;
+  if (!/^[0-9a-f-]{36}$/i.test(String(id))) return "This request was not found.";
+  let done: Awaited<ReturnType<typeof finishFollowUp>>;
+  try {
+    done = await withSchool(current.ctx, (tx) => finishFollowUp(tx, current.ctx, String(id)));
+  } catch (e) {
+    const plain = plainReason(e);
+    if (plain) return plain;
+    console.error(JSON.stringify({ level: "error", event: "approval-finish", error: e instanceof Error ? e.message : String(e) }));
+    return "That did not work, and nothing was changed. Please try again.";
+  }
+  await flash({ message: `Finished: ${done.approval.summary}. It is now ${FINISHED[done.decision]}, as decided.` });
   revalidatePath("/", "layout");
 }
 

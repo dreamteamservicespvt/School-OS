@@ -15,7 +15,7 @@ import { notSentWords, sendMessage } from "../messaging";
 import { childrenOfGuardian } from "../students/guardian-access";
 import { checkCode, ParentLinkProblem, sendCode } from "../parent-link/links";
 import { EventsProblem } from "./problem";
-import { eligible, registerStudents, withdrawStudent } from "./events";
+import { eligible, eventYearIds, registerStudents, withdrawStudent } from "./events";
 import { dayOf, isoOf, longDay, dmy } from "./words";
 import { formatRupees } from "../format";
 
@@ -23,7 +23,7 @@ export type ConsentAnswer = "GIVEN" | "DECLINED";
 
 /** The audience's students (this year) for an event that asks for consent. */
 export async function consentAudience(tx: Tx, e: Event) {
-  const rows = await tx.enrolment.findMany({ where: { academicYearId: e.academicYearId, archivedAt: null, status: "STUDYING", ...(e.audienceKind === "classes" ? { classId: { in: e.classIds } } : {}) }, select: { studentId: true }, take: 5000 });
+  const rows = await tx.enrolment.findMany({ where: { academicYearId: { in: await eventYearIds(tx, e) }, archivedAt: null, status: "STUDYING", ...(e.audienceKind === "classes" ? { classId: { in: e.classIds } } : {}) }, select: { studentId: true }, take: 5000 });
   return rows.map((r) => r.studentId);
 }
 
@@ -131,10 +131,13 @@ export async function declineOnParentLink(tx: Tx, ctx: SchoolContext, linkId: st
   }
 }
 
-/** The events asking this child's parent for consent now (Parent Link). */
-export async function consentForms(tx: Tx, studentId: string, classId: string | null, today: string) {
+/** An event (or holiday) for every campus, or for this child's own campus (Parent Link). */
+export const forCampus = (campusId: string | null) => (campusId ? { OR: [{ campusId: null }, { campusId }] } : { campusId: null });
+
+/** The events asking this child's parent for consent now (Parent Link): the child's class, on every campus or the child's own. */
+export async function consentForms(tx: Tx, studentId: string, classId: string | null, today: string, campusId: string | null = null) {
   const events = await tx.event.findMany({
-    where: { archivedAt: null, status: { not: "CANCELLED" }, consentOn: true, date: { gte: dayOf(today) }, OR: [{ audienceKind: { in: ["school", "parents"] } }, ...(classId ? [{ audienceKind: "classes", classIds: { has: classId } }] : [])] },
+    where: { archivedAt: null, status: { not: "CANCELLED" }, consentOn: true, date: { gte: dayOf(today) }, AND: [forCampus(campusId)], OR: [{ audienceKind: { in: ["school", "parents"] } }, ...(classId ? [{ audienceKind: "classes", classIds: { has: classId } }] : [])] },
     orderBy: { date: "asc" }, take: 5,
   });
   const answers = events.length ? await tx.eventConsent.findMany({ where: { studentId, eventId: { in: events.map((e) => e.id) } } }) : [];

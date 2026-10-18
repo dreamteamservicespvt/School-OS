@@ -8,6 +8,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma, type SchoolContext, type Tx } from "../db";
 import { writeAudit } from "../audit";
 import { requestApproval, type AskableType, type FollowUp } from "../approvals";
+import { requestIds, type StillWaiting } from "../approval-waiting";
 import { notify } from "../notifications";
 import type { PermissionMap } from "../permissions";
 
@@ -178,6 +179,11 @@ export const followUps = {
     }
   },
 } satisfies Partial<Record<AskableType, FollowUp>>;
+
+/** Decided requests whose record still waits on them: their follow-up never ran (Approvals, "Approved, but not finished"). */
+export const unfinished = {
+  "data-deletion": async (tx) => requestIds(await tx.deletionRequest.findMany({ where: { status: "waiting", approvalId: { not: null } }, select: { approvalId: true } })),
+} satisfies Partial<Record<AskableType, StillWaiting>>;
 
 // One person's data on request.
 

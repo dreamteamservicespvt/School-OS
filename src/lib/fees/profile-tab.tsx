@@ -42,7 +42,10 @@ registerProfileTab({
     if (!data || !data.tab.hasPlan) return [];
     const t = data.tab;
     if (t.totals.balance <= ZERO) return [{ label: "Fees", value: "All paid", tone: "success", href: t.ledgerLink }];
-    return [{ label: "Fees due", value: formatRupees(t.totals.balance), tone: t.overduePaise > ZERO ? "danger" : "warning", href: t.ledgerLink }];
+    // The same fee status as the Student List and Fees by class: what has fallen due (by today + 30 days) and is not paid.
+    const fallenDue = t.rows.filter((r) => r.status === "OVERDUE" || r.status === "DUE").reduce((sum, r) => sum + r.balancePaise, ZERO);
+    if (fallenDue <= ZERO) return [{ label: "Fees", value: "Nothing due yet", sub: `${formatRupees(t.totals.balance)} not due yet`, tone: "neutral", href: t.ledgerLink }];
+    return [{ label: "Fees due", value: formatRupees(fallenDue), sub: t.overduePaise > ZERO ? `${formatRupees(t.overduePaise)} overdue` : "Not overdue yet", tone: t.overduePaise > ZERO ? "danger" : "warning", href: t.ledgerLink }];
   },
   today: async (args) => {
     const data = await load(args);

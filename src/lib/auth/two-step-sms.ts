@@ -7,17 +7,23 @@ import "server-only";
 
 import { withSchool, type SchoolContext, type Tx } from "../db";
 import { channelSetups } from "../messaging/channels";
+import { inTestMode } from "../messaging/providers";
 import { MessagingProblem, sendMessage } from "../messaging/send";
 import { ensureReadyTemplates, templateByKey } from "../messaging/templates";
+import { logOneTimeCode, testModeCarriesCodes } from "../dev-codes";
 
 export const SIGN_IN_CODE_TEMPLATE = "sign-in-code";
+
+/** What a code is for, in the server log on a tester's computer. */
+export const CODE_PURPOSE_WORDS: Record<string, string> = { "sign-in": "sign-in", "change-phone": "new mobile number", "change-email": "new email" };
 
 /** The SMS template to use for sign-in codes, or null when SMS cannot be used now. */
 export async function signInSmsTemplate(tx: Tx, ctx: SchoolContext): Promise<string | null> {
   const setups = await channelSetups(tx, ctx);
   if (!setups.sms.isOn) return null;
   // Test mode sends nothing; on a live server that would leave the person with no code at all.
-  if (setups.sms.provider === "sandbox" && process.env.NODE_ENV === "production") return null;
+  // On a tester's computer the code is read from the server log (dev-codes.ts).
+  if (inTestMode(setups.sms) && !testModeCarriesCodes()) return null;
   const school = await tx.school.findUnique({ where: { id: ctx.schoolId }, select: { smsDltEntityId: true, smsSenderHeader: true } });
   if (!school?.smsDltEntityId || !school.smsSenderHeader) return null;
   await ensureReadyTemplates(tx, ctx);
@@ -47,9 +53,7 @@ export async function sendCodeBySms(input: { schoolId: string; userLoginId: stri
         idempotencyKey: input.key ? `${input.purpose && input.purpose !== "sign-in" ? input.purpose : "two-step"}:${input.key}` : null,
       });
       const setups = await channelSetups(tx, ctx);
-      if (setups.sms.provider === "sandbox") {
-        console.info(JSON.stringify({ level: "info", event: "two-step-code", note: "SMS is in test mode; development only", to: input.userLoginId, code: input.code }));
-      }
+      logOneTimeCode({ to: input.phone, purpose: CODE_PURPOSE_WORDS[input.purpose ?? "sign-in"] ?? input.purpose ?? "sign-in", code: input.code, carriedBy: inTestMode(setups.sms) ? "test" : "real" });
       return { sent: true, messageId: r.messageId };
     });
   } catch (e) {

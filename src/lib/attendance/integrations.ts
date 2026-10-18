@@ -149,6 +149,8 @@ export async function attendanceToday(tx: Tx, ctx: SchoolContext, today: Date, o
     off: info.on ? null : info.title,
     students: {
       marked: sum("marked"), present: sum("present"), absent: sum("absent"), leave: sum("leave"), late: sum("late"), total: sum("students"),
+      /** Students the % counts: marked, leaving out those on leave. "Present of counted" agrees with the %. */
+      counted,
       /** Students on the register with no mark yet (in classes that are taken or not). */
       notMarked: rows.reduce((a, s) => a + Math.max(0, s.students - s.marked), 0),
       percent: counted ? Math.round((sum("weight") / counted) * 1000) / 10 : null,

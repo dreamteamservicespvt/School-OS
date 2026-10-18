@@ -61,6 +61,20 @@ describe("Class-wise attendance", () => {
     expect(rows.reduce((s, r) => s + Number(r.total), 0)).toBe(today.students.total);
   });
 
+  it("\"present of\" counts the same students as the %: a student on leave is in neither (TEACHING-19)", async () => {
+    const DAY2 = "2026-10-08";
+    const access = await accessFor(f, f.teacherA.id);
+    const keys = ["absent", "leave", "present", "present", "late"];
+    await withSchool(as(f, f.teacherA.id), (tx) => saveClassAttendance(tx, as(f, f.teacherA.id), access, {
+      sectionId: f.sectionA.id, date: d(DAY2), periodNo: 0, timeZone: TZ, now: at(DAY2, "09:00"),
+      entries: f.studentsA.map((s, i) => ({ studentId: s.id, statusKey: keys[i] })),
+    }));
+    const ctx = as(f, f.principal.id);
+    const today = await withSchool(ctx, (tx) => attendanceToday(tx, ctx, d(DAY2)));
+    expect(today.students).toMatchObject({ marked: 5, present: 3, leave: 1, counted: 4, percent: 75 });
+    expect(Math.round((today.students.present / today.students.counted) * 1000) / 10).toBe(today.students.percent);
+  });
+
   it("the Principal reminds the class teacher of a section not marked: a notification and an audit entry", async () => {
     const ctx = as(f, f.principal.id);
     const access = await accessFor(f, f.principal.id);

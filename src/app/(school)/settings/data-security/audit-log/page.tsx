@@ -87,7 +87,7 @@ export default async function AuditLogPage({ searchParams }: Search) {
                       <span className="font-medium">{actionWords(r.action)}</span>{" "}
                       <span className="text-ink-2">· {r.recordType}</span>
                       <span className="block text-sm text-ink-2">
-                        {r.userLoginId ? names.get(r.userLoginId) ?? "A person no longer at this school" : r.actorNote ?? "School OS"}
+                        {r.userLoginId ? `${names.get(r.userLoginId) ?? "A person no longer at this school"}${r.actorNote ? ` · ${r.actorNote}` : ""}` : r.actorNote ?? "School OS"}
                         {r.device ? ` · ${describeDevice(r.device)}` : ""}{r.ipAddress ? ` · ${r.ipAddress}` : ""}
                       </span>
                     </span>

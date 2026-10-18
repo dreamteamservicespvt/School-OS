@@ -145,9 +145,10 @@ export default async function EarlyWarningsPage({ searchParams }: { searchParams
               {rules.lastRefreshAt && <p className="px-5 pb-3 -mt-2 text-[12px] text-ink3">Last checked {formatDateTime(rules.lastRefreshAt, p.tz)}</p>}
               {a.warnings.rule && <div className="px-5 pb-4"><ButtonLink href={withQ(HREF, sp, { rule: "1" })} scroll={false} size="sm" variant="secondary" icon={Pencil}>Change the marks-drop rule</ButtonLink></div>}
             </Card>
-            {a.ai.forecasts && (
+            {/* A class teacher sees only the items about their own students, and the heading only when there are some. */}
+            {a.ai.forecasts && (a.ai.forecastScope === "all" || ahead.length > 0) && (
               <>
-                <div id="looking-ahead" className="scroll-mt-4 flex items-center gap-2 px-1"><Telescope size={15} className="text-brand" aria-hidden="true" /><p className="text-[13px] font-semibold text-ink2">Looking ahead</p><span className="text-[12px] text-ink3">· what may happen next, if nothing changes</span></div>
+                <div id="looking-ahead" className="scroll-mt-4 flex items-center gap-2 px-1"><Telescope size={15} className="text-brand" aria-hidden="true" /><p className="text-[13px] font-semibold text-ink2">Looking ahead</p><span className="text-[12px] text-ink3">· {a.ai.forecastScope === "own" ? "about students in your class, " : ""}what may happen next, if nothing changes</span></div>
                 {ahead.map((s) => (
                   <Suggestion key={s.key} title={s.title} source={s.source}
                     actions={<>

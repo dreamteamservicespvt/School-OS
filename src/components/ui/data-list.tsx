@@ -44,7 +44,7 @@ export type Paging = { page: number; pageSize: number; total: number; href: (pag
 export type ListColumn<Row> = DataColumn<Row>;
 export type ListCard = MobileCard;
 
-export function DataList<Row>({ rows, columns, rowKey, rowHref: rowHrefIn, href: hrefIn, rowLabel, mobile, empty, select, selectOnPhone, footer, paging, minWidth = 640, bp = "lg", caption, rowClass, scroll }: {
+export function DataList<Row>({ rows, columns, rowKey, rowHref: rowHrefIn, href: hrefIn, rowLabel, mobile, empty, select, selectOnPhone, pickMode, footer, paging, minWidth = 640, bp = "lg", caption, rowClass, scroll }: {
   rows: Row[];
   columns: DataColumn<Row>[];
   rowKey: (row: Row) => string;
@@ -58,6 +58,12 @@ export function DataList<Row>({ rows, columns, rowKey, rowHref: rowHrefIn, href:
   select?: ListSelect<Row>;
   /** Tick boxes on the phone cards too (the design leaves them out of most lists). */
   selectOnPhone?: boolean;
+  /**
+   * Select mode on phones and tablets: a tap on a card ticks it instead of
+   * opening it, with "select all" above the cards, so bulk actions work
+   * without the computer's table (P11).
+   */
+  pickMode?: boolean;
   /** false: no footer, even with paging. */
   footer?: React.ReactNode | false;
   /** Page links; shown as the footer when no footer is given. */
@@ -116,10 +122,17 @@ export function DataList<Row>({ rows, columns, rowKey, rowHref: rowHrefIn, href:
           </tbody>
         </table>
       </div>
+      {select && pickMode && (
+        <label className={cx("flex items-center gap-3 px-4 py-3 border-b border-line/70 text-[14px] font-semibold text-ink2 cursor-pointer", bp === "md" ? "md:hidden" : "lg:hidden")}>
+          <input type="checkbox" data-bulk-all aria-label={select.allLabel ?? "Select all on this page"} className={tickCls} />
+          {select.allLabel ?? "Select all on this page"}
+        </label>
+      )}
       <ul className={cx("divide-y divide-line/70", bp === "md" ? "md:hidden" : "lg:hidden")} aria-label={caption}>
         {rows.map((r) => {
           const m = mobile(r);
-          const href = rowHref?.(r) ?? null;
+          const pick = Boolean(select && pickMode);
+          const href = pick ? null : rowHref?.(r) ?? null;
           const Ic = m.icon;
           const body = (
             <>
@@ -133,6 +146,14 @@ export function DataList<Row>({ rows, columns, rowKey, rowHref: rowHrefIn, href:
               {href && <ChevronRight size={18} className="text-ink3 shrink-0" aria-hidden="true" />}
             </>
           );
+          if (pick) {
+            // The whole card is the tick box's label: a big target for a thumb.
+            return (
+              <li key={rowKey(r)} className="relative has-[:checked]:bg-brand/5">
+                <label className="w-full min-w-0 flex items-center gap-3 px-4 py-3 cursor-pointer active:bg-sunken">{tick(r)}{body}</label>
+              </li>
+            );
+          }
           return (
             <li key={rowKey(r)} className="relative flex items-center has-[:checked]:bg-brand/5">
               {select && selectOnPhone && <span className="pl-4 grid place-items-center">{tick(r)}</span>}

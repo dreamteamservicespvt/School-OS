@@ -7,10 +7,9 @@
 import "server-only";
 
 import { reportAccess } from "../../reports/access";
-import { dashboardWarningStudents } from "../../reports/warnings";
+import { dashboardWarningStudents, visibleForecasts } from "../../reports/warnings";
 import { pinsOf } from "../../reports/pins";
 import { pinnedCharts, type AChart } from "../../reports/analytics";
-import { forecastsFor } from "../../reports/forecasts";
 import { plural } from "../common";
 import type { DashContext, Panel, Viewer, Widget } from "../types";
 
@@ -45,16 +44,19 @@ const earlyWarnings: Widget<"attention"> = {
   },
 };
 
-/** Looking ahead (forecasts.ts): suggestions about what may happen next, for the leaders who have Forecasts on. */
+/**
+ * Looking ahead (forecasts.ts): suggestions about what may happen next, for the
+ * leaders who have Forecasts on, and for a class teacher about their own students.
+ */
 const lookingAhead: Widget<"attention"> = {
   id: "reports.looking-ahead",
   module: "reports-analytics",
   kind: "attention",
-  homes: ["leader"],
+  homes: ["leader", "class-teacher"],
   allowed: (v) => access(v).ai.forecasts,
   async load(c: DashContext) {
     const a = access(c.viewer);
-    const list = await forecastsFor(c.tx, { fees: a.warnings.fees, finance: a.finance !== null });
+    const list = await visibleForecasts(c.tx, c.viewer, a);
     if (!list.length) return null;
     const decided = new Set((await c.tx.aiSignalDecision.findMany({ where: { signalKey: { in: list.map((f) => f.key) } }, select: { signalKey: true } })).map((d) => d.signalKey));
     const open = list.filter((f) => !decided.has(f.key));

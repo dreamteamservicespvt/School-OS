@@ -213,7 +213,8 @@ export const DOC_TYPES: readonly DocType[] = [
   {
     key: "admit-card", label: "Admit card", group: "Exams", family: "admit", usedBy: "Examination & Results", title: "Admit Card", defaultPaper: "A4",
     fields: [...STUDENT, f("exam_name", "Exam", "Half-Yearly Examination 2026"), f("exam_centre", "Exam centre", "Main Campus, Block B")],
-    defaultFields: ["exam_name", "student_name", "admission_no", "class_section", "roll_no", "exam_centre"],
+    // 08 Admit Cards: the student, roll number, father's and mother's name, class and admission number.
+    defaultFields: ["exam_name", "student_name", "admission_no", "class_section", "roll_no", "father_name", "mother_name", "exam_centre"],
     defaultBody: "Bring this admit card to every exam. Reach 15 minutes before the start. Mobile phones are not allowed in the exam hall.",
     columns: [{ key: "no", label: "#", align: "center" }, { key: "subject", label: "Subject" }, { key: "date", label: "Date" }, { key: "day", label: "Day" }, { key: "time", label: "Time" }, { key: "max", label: "Max marks", align: "right" }, { key: "invigilator", label: "Invigilator" }],
     sampleRows: [

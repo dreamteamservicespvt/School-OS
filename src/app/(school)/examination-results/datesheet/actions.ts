@@ -70,7 +70,8 @@ export async function publishDatesheetAction(examId: string, tellParents: boolea
     const r = await publishDatesheet(tx, current.ctx, examId, { tellParents });
     const bits = [`${plural(r.days, "exam day")} added to the School Calendar and Time Table`, "admit cards can be printed"];
     if (r.invigilators) bits.push(`${plural(r.invigilators, "invigilator")} told`);
-    if (tellParents) bits.push(`${plural(r.parents, "parent")} messaged`);
+    if (tellParents && r.upcoming === 0) bits.push("no message to parents, because every paper is already over");
+    else if (tellParents) bits.push(`${plural(r.parents, "parent")} messaged${r.past ? ` about the papers still to come (${plural(r.past, "paper")} already held left out)` : ""}`);
     return { flash: { message: `Datesheet published: ${bits.join(", ")}.` } };
   }, { needs: "datesheets" });
 }

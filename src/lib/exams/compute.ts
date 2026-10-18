@@ -243,3 +243,14 @@ export function checkMark(category: string, max: number, value: number | null): 
   if (Math.round(value * 2) !== value * 2) return `${category}: use whole or half marks, such as 37 or 37.5.`;
   return null;
 }
+
+/**
+ * The total and grade the marks screens show while marks are typed: nothing
+ * while a mark is blank, not a number or outside its maximum, so a grade never
+ * shows next to a mark the server would refuse (25 out of 20 has no grade).
+ */
+export function typedTotal(parts: { name: string; max: number; value: number | null }[], max: number, bands: Band[]): { total: number | null; grade: string; valid: boolean } {
+  if (parts.some((p) => p.value === null || Number.isNaN(p.value) || checkMark(p.name, p.max, p.value))) return { total: null, grade: "", valid: false };
+  const total = parts.reduce((a, p) => a + (p.value as number), 0);
+  return { total, grade: max ? bandFor((total / max) * 100, bands)?.grade ?? "" : "", valid: true };
+}

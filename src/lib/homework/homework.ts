@@ -19,6 +19,7 @@ import { mayRead, requireDesk, requireStaff, requireWork, requireYearOpen, short
 import { homeworkSettings } from "./settings";
 import { dayDate, homeworkStatus, HANDED_IN, isPastDue, plural, TO_CHECK, type HomeworkStatus } from "./words";
 import { tellParentsHomeworkSet } from "./notify-parents";
+import { aiConfirmedNote } from "../ai/audit";
 
 const DAY = 86_400_000;
 const addDays = (d: Date, n: number) => new Date(d.getTime() + n * DAY);
@@ -165,7 +166,7 @@ export async function giveHomework(tx: Tx, s: HomeworkScope, input: GiveInput, t
     await writeAudit(tx, ctx, {
       action: "created", recordType: "Homework", recordId: hw.id,
       after: { title, section: t.label, subject: subject.name, givenTo: input.givenTo, students: students.length, start: formatDate(input.startDate), due: formatDate(input.dueDate), maxMarks: input.maxMarks },
-      actorNote: input.fromSuggestion ? "Drafted by the teacher assistant, checked and sent by the teacher" : null,
+      actorNote: input.fromSuggestion ? await aiConfirmedNote(tx, ctx) : null,
     });
     // Students with logins get an app notification (17 §2 "Students are notified when homework is set").
     for (const st of students) {

@@ -126,6 +126,8 @@ export function RemarksGrid({ rows, sectionId, period, classTeacher, principal, 
   const start = useMemo(() => Object.fromEntries(rows.map((r) => [r.studentId, { ct: r.classTeacherRemark, pr: r.principalRemark, ap: r.attendancePresent?.toString() ?? "", aw: r.attendanceWorking?.toString() ?? "" }])) as Record<string, RemarkDraft>, [rows]);
   const [vals, setVals] = useState(start);
   const [hints, setHints] = useState<Record<string, { text: string | null; why: string }>>({});
+  // Remarks the teacher started from a suggestion: saved with "prepared by AI, confirmed by <teacher>" in the change history.
+  const [kept, setKept] = useState<Set<string>>(new Set());
   const [saving, startSave] = useTransition();
   const [drafting, startDraft] = useTransition();
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
@@ -137,8 +139,8 @@ export function RemarksGrid({ rows, sectionId, period, classTeacher, principal, 
   const save = () => startSave(async () => {
     const out = changed.map((r) => {
       const v = vals[r.studentId];
-      const row: { studentId: string; classTeacherRemark?: string | null; principalRemark?: string | null; attendancePresent?: number | null; attendanceWorking?: number | null } = { studentId: r.studentId };
-      if (classTeacher && v.ct !== start[r.studentId].ct) row.classTeacherRemark = v.ct;
+      const row: { studentId: string; classTeacherRemark?: string | null; principalRemark?: string | null; attendancePresent?: number | null; attendanceWorking?: number | null; fromSuggestion?: boolean } = { studentId: r.studentId };
+      if (classTeacher && v.ct !== start[r.studentId].ct) { row.classTeacherRemark = v.ct; if (kept.has(r.studentId)) row.fromSuggestion = true; }
       if (principal && v.pr !== start[r.studentId].pr) row.principalRemark = v.pr;
       if (classTeacher && !r.attendanceFromRegister && (v.ap !== start[r.studentId].ap || v.aw !== start[r.studentId].aw)) {
         row.attendancePresent = v.ap === "" ? null : Number(v.ap);
@@ -188,7 +190,7 @@ export function RemarksGrid({ rows, sectionId, period, classTeacher, principal, 
                     <span className="mt-1 block rounded-lg border border-dashed border-line-strong bg-surface-2 p-2 text-sm">
                       <Badge tone="brand">Suggestion</Badge>{" "}
                       {hint.text ?? hint.why}
-                      {hint.text && <><span className="block text-xs text-ink-2">{hint.why}</span><button type="button" className="mt-1 min-h-9 font-medium text-brand-text hover:underline" onClick={() => set(r.studentId, "ct", hint.text!)}>Use this</button></>}
+                      {hint.text && <><span className="block text-xs text-ink-2">{hint.why}</span><button type="button" className="mt-1 min-h-9 font-medium text-brand-text hover:underline" onClick={() => { set(r.studentId, "ct", hint.text!); setKept((k) => new Set(k).add(r.studentId)); }}>Use this</button></>}
                     </span>
                   )}
                 </label>

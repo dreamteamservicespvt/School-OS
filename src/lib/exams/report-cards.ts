@@ -23,6 +23,7 @@ import { attendanceFor } from "./attendance";
 // Attendance Management's register is the source of report card attendance.
 import "../attendance/report-card-source";
 import { writesReportCards, type ExamScope } from "./scope";
+import { aiConfirmedNote } from "../ai/audit";
 
 export { periodsForClass, refreshReportCards } from "./report-status";
 
@@ -96,7 +97,8 @@ async function periodDates(tx: Tx, option: PeriodOption, yearId: string): Promis
   return { from: year.startDate, to: year.endDate };
 }
 
-export type RemarkRow = { studentId: string; classTeacherRemark?: string | null; principalRemark?: string | null; attendancePresent?: number | null; attendanceWorking?: number | null };
+/** fromSuggestion: the class teacher remark started from a remark suggestion the teacher kept (00-global.md §2.1 rule 6). */
+export type RemarkRow = { studentId: string; classTeacherRemark?: string | null; principalRemark?: string | null; attendancePresent?: number | null; attendanceWorking?: number | null; fromSuggestion?: boolean };
 
 /** Saves remarks and typed attendance for many students at once (the bulk entry grid). */
 export async function saveRemarks(tx: Tx, ctx: SchoolContext, scope: ExamScope, input: { sectionId: string; period: string; rows: RemarkRow[]; principal: boolean }) {
@@ -107,6 +109,7 @@ export async function saveRemarks(tx: Tx, ctx: SchoolContext, scope: ExamScope, 
   if (!option) throw new ExamRuleError("Choose the exam or term first.");
   const students = await sectionStudents(tx, [input.sectionId], section.academicYearId);
   const changes: unknown[] = [];
+  const fromSuggestion: string[] = [];
   for (const row of input.rows) {
     const st = students.find((s) => s.studentId === row.studentId);
     if (!st) throw new ExamRuleError("A student here is no longer in this section. Reload the page.");
@@ -135,11 +138,18 @@ export async function saveRemarks(tx: Tx, ctx: SchoolContext, scope: ExamScope, 
     if (same) continue;
     if (before) await tx.reportCard.update({ where: { id: before.id }, data });
     else await tx.reportCard.create({ data: { schoolId: ctx.schoolId, academicYearId: section.academicYearId, studentId: st.studentId, sectionId: input.sectionId, period: option.key, ...(data as object) } as Prisma.ReportCardUncheckedCreateInput });
-    changes.push({ student: st.name, before: before ? { classTeacherRemark: before.classTeacherRemark, principalRemark: before.principalRemark, attendancePresent: before.attendancePresent, attendanceWorking: before.attendanceWorking } : null, after: data });
+    const suggested = Boolean(row.fromSuggestion && data.classTeacherRemark !== undefined && data.classTeacherRemark);
+    if (suggested) fromSuggestion.push(st.name);
+    changes.push({ student: st.name, before: before ? { classTeacherRemark: before.classTeacherRemark, principalRemark: before.principalRemark, attendancePresent: before.attendancePresent, attendanceWorking: before.attendanceWorking } : null, after: data, ...(suggested ? { fromSuggestion: true } : {}) });
   }
   if (changes.length) {
     await refreshReportCards(tx, ctx, section.academicYearId, [input.sectionId]);
-    await writeAudit(tx, ctx, { action: "report-card-remarks", recordType: "Report Card", recordId: `${input.sectionId}:${option.key}`, after: { section: section.label, period: option.label, changes } as unknown as Prisma.InputJsonValue });
+    // A remark kept from a suggestion is marked "prepared by AI, confirmed by <person>" (00-global.md §2.1 rule 6).
+    await writeAudit(tx, ctx, {
+      action: "report-card-remarks", recordType: "Report Card", recordId: `${input.sectionId}:${option.key}`,
+      after: { section: section.label, period: option.label, changes, ...(fromSuggestion.length ? { fromSuggestion } : {}) } as unknown as Prisma.InputJsonValue,
+      actorNote: fromSuggestion.length ? await aiConfirmedNote(tx, ctx) : null,
+    });
   }
   return changes.length;
 }

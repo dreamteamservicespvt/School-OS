@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
-import { Info, CircleCheck, TriangleAlert, Sparkles } from "lucide-react";
+import { Info, CircleCheck, TriangleAlert } from "lucide-react";
 import { cx } from "./cx";
 import { TONE_TEXT } from "./stats";
 
@@ -57,7 +57,7 @@ export function LinkTabs({ value, tabs, className, label = "Views" }: { value: s
 }
 
 const BANNER: Record<string, string> = { info: "bg-info/8", ok: "bg-ok/10", warn: "bg-warn/12", bad: "bg-bad/10", brand: "bg-brand/8" };
-const BANNER_ICON: Record<string, LucideIcon> = { info: Info, ok: CircleCheck, warn: TriangleAlert, bad: TriangleAlert, brand: Sparkles };
+const BANNER_ICON: Record<string, LucideIcon> = { info: Info, ok: CircleCheck, warn: TriangleAlert, bad: TriangleAlert, brand: Info };
 
 /** A calm message strip. */
 export function Banner({ tone = "info", icon, title, children, action, className }: { tone?: "info" | "ok" | "warn" | "bad" | "brand"; icon?: LucideIcon; title?: React.ReactNode; children?: React.ReactNode; action?: React.ReactNode; className?: string }) {

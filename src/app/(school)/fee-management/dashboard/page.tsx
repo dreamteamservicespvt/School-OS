@@ -29,6 +29,7 @@ import { toSheet } from "../_lib/pay-sheet";
 import { BASE, feeGuard, feePeriod, one, qs, type SearchParams } from "../_lib/page";
 import { PeriodFilter } from "@/components/list/period-filter";
 import { OldSoftwareBanner, OldSoftwareEmpty, allBeforeGoLive } from "@/components/money/go-live";
+import { aiAllowed } from "@/lib/settings/switch-rules";
 
 export const metadata = { title: "Fee Dashboard" };
 
@@ -77,7 +78,8 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
       tx.payment.findMany({ where: { status: "WAITING" }, orderBy: { paidAt: "asc" }, select: { id: true, amountPaise: true } }),
       recentPayments(tx, p.viewer, { ...base, partial: tab === "partial" }, take, (page - 1) * take),
       Promise.all([recentPayments(tx, p.viewer, { ...base, partial: false }, 0), recentPayments(tx, p.viewer, { ...base, partial: true }, 0)]),
-      p.features.has("fee-forecast") ? forecast(tx, today, { promises: promisesOn }) : Promise.resolve(null),
+      // A forecast is a suggestion: shown only with the AI assistant on, to the roles chosen for it (00-global.md §2.1 rule 8).
+      p.features.has("fee-forecast") && aiAllowed(p.current) ? forecast(tx, today, { promises: promisesOn }) : Promise.resolve(null),
       promisesOn ? promiseSummary(tx, today, p.viewer.yearId) : Promise.resolve(null),
     ]);
     const upiToday = (await modeBreakdown(tx, today, today)).find((m) => m.mode === "UPI")?.count ?? 0;

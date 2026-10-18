@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import { requireSettingsPage } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatRupees } from "@/lib/format";
+import { aiUsage } from "@/lib/ai";
 import { MODULES } from "@/lib/modules";
 import { readPreferences, systemPreferences } from "@/lib/settings/profile-rules";
-import { AI_FEATURES, INTEGRATIONS, OPTIONAL_MODULES, SCHOOL_TEMPLATES, canSwitchOn } from "@/lib/settings/switches";
+import { INTEGRATIONS, OPTIONAL_MODULES, SCHOOL_TEMPLATES, SHOWN_AI_FEATURES, aiFeatureReady, aiRolesOf, canSwitchOn } from "@/lib/settings/switches";
 import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -24,7 +25,9 @@ export default async function ModulesPage() {
     features: await tx.schoolFeature.findMany({}),
     integrations: await tx.integration.findMany({}),
     roles: await tx.role.findMany({ where: { archivedAt: null, isEnabled: true, key: { not: null } }, orderBy: { name: "asc" }, select: { key: true, name: true } }),
+    usage: await aiUsage(tx, current.ctx),
   }));
+  const usage = data.usage;
   const on = new Set(data.modules.filter((m) => m.isOn).map((m) => m.moduleKey));
   const featureOn = new Set(data.features.filter((f) => f.isOn).map((f) => f.featureKey));
   const prefs = readPreferences(data.school.preferences);
@@ -73,18 +76,27 @@ export default async function ModulesPage() {
         <Card>
           <CardHeader id="ai" title="AI assistant" description="Off until you switch it on. Each feature below has its own switch." />
           <CardBody className="space-y-5">
-            <AssistantForm on={assistantOn} roles={data.roles.map((r) => ({ key: r.key!, name: r.name }))} chosen={prefs.aiRoles ?? []} mayEdit={mayEdit} />
+            <div className="rounded-xl border border-line px-4 py-3">
+              <p className="font-medium">AI service{" "}{usage.connected ? <Badge tone="success">Connected</Badge> : <Badge>Not connected yet</Badge>}</p>
+              <p className="text-sm text-ink-2">
+                {usage.connected
+                  ? "Run by DREAM TEAM. Only what each task needs is sent: never Aadhaar, bank details, salary or counselling notes, and phone numbers are hidden unless a feature needs them. Every request is logged, and nothing changes until a person accepts a suggestion."
+                  : "Not connected yet: DREAM TEAM connects it. Until then every feature below works on School OS's own rules, with no outside service."}
+              </p>
+              <p className="mt-1 text-sm">This month: {usage.month.requests} {usage.month.requests === 1 ? "request" : "requests"}, about {formatRupees(usage.month.costPaise)} · Today: {usage.today} of {usage.dailyLimit} a day</p>
+            </div>
+            <AssistantForm on={assistantOn} roles={data.roles.map((r) => ({ key: r.key!, name: r.name }))} chosen={aiRolesOf(prefs)} mayEdit={mayEdit} dailyLimit={prefs.aiDailyLimit ?? null} platformLimit={usage.platformLimit} />
             <div>
               <p className="mb-2 font-medium">AI features</p>
               {!assistantOn && <p className="mb-2 text-sm text-ink-2">Switch on the AI assistant first. While it is off, every feature is off.</p>}
               <ul className="divide-y divide-line rounded-xl border border-line">
-                {AI_FEATURES.map((f) => (
+                {SHOWN_AI_FEATURES.map((f) => (
                   <li key={f.key} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
                     <div className="min-w-0 flex-1">
                       <p className="font-medium">{f.label}</p>
                       <p className="text-sm text-ink-2">{f.about}</p>
                     </div>
-                    <FeatureSwitch featureKey={f.key} label={f.label} on={featureOn.has(f.key)} assistantOn={assistantOn} mayEdit={mayEdit} />
+                    <FeatureSwitch featureKey={f.key} label={f.label} on={featureOn.has(f.key)} assistantOn={assistantOn} mayEdit={mayEdit} ready={aiFeatureReady(f.key)} />
                   </li>
                 ))}
               </ul>

@@ -37,7 +37,7 @@ export async function saveSettingsAction(section: string, _prev: FormState, fd: 
     const columns = fd.getAll("listColumns").map(String).filter((k) => LIST_COLUMNS.some((c) => c.key === k));
     if (columns.length === 0) errors.listColumns = "Choose at least one column for the Student List.";
     const docs = lines(fd.get("requiredDocuments"), 30);
-    change = { admissionPrefix: prefix, admissionUseYear: on(fd, "admissionUseYear"), admissionPadding: padding, admissionRestartYear: on(fd, "admissionRestartYear"), requiredFields: required, listColumns: columns, requiredDocuments: docs, studentLoginsOn: on(fd, "studentLoginsOn"), smartImportOn: on(fd, "smartImportOn") };
+    change = { admissionPrefix: prefix, admissionUseYear: on(fd, "admissionUseYear"), admissionPadding: padding, admissionRestartYear: on(fd, "admissionRestartYear"), requiredFields: required, listColumns: columns, requiredDocuments: docs, studentLoginsOn: on(fd, "studentLoginsOn") };
   } else if (section === "identifiers") {
     const types: IdentifierType[] = [];
     const count = Math.min(40, Number(fd.get("rows") ?? 0) || 0);

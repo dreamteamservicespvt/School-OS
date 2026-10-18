@@ -19,6 +19,7 @@ import { financeLevel, financePageAllowed } from "../finance/access";
 import { salaryLevel } from "../salary/access";
 import { attendancePages } from "../attendance/access";
 import { pageMode } from "../duty";
+import { aiAllowed } from "../settings/switch-rules";
 import { taskAccess } from "../dashboard/tasks";
 import { CATEGORIES, CATEGORY_MODULE, MONEY, type Category, type ReportViewer } from "./types";
 
@@ -88,7 +89,7 @@ export type ReportAccess = {
   teacherResults: boolean;
 };
 
-type Who = Pick<ReportViewer, "permissions" | "roles" | "modulesOn" | "features">;
+type Who = Pick<ReportViewer, "permissions" | "roles" | "modulesOn" | "features" | "aiRoles">;
 
 /** Is this module built, switched on and open to the person? */
 export function moduleOpen(who: Who, key: ModuleKey) {
@@ -135,7 +136,8 @@ export function reportAccess(who: Who): ReportAccess {
   const feeSignals = fees && !own && !(roleKeys.includes("academic-head") && !full && !roleKeys.includes("vice-principal"));
   const leader = full || roleKeys.includes("vice-principal");
   const review: "all" | "own" | "none" = own ? "own" : full && pageMode(who, MODULE, "warnings") === "full" ? "all" : "none";
-  const ai = who.features.has("ai-assistant") && leader;
+  // AI only for the roles the school chose for the AI assistant (00-global.md §2.1 rule 8), and only for leaders here.
+  const ai = aiAllowed(who) && leader;
 
   return {
     see: p.see, full, own, roleKeys, cats,
@@ -155,7 +157,7 @@ export function reportAccess(who: Who): ReportAccess {
       feeReview: feeSignals && warningsOn && full && who.permissions["fee-management"].change === "all",
       rule: roleKeys.includes("principal") && full,
     },
-    ai: { insights: ai && who.features.has("ai-insights"), forecasts: ai && who.features.has("ai-forecasts") },
+    ai: { insights: ai && aiAllowed(who, "ai-insights"), forecasts: ai && aiAllowed(who, "ai-forecasts") },
     teacherResults: roleKeys.includes("principal") || roleKeys.includes("academic-head"),
   };
 }

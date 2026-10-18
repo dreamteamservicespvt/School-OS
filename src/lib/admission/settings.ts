@@ -74,6 +74,33 @@ export const DOC_TYPES = [
 ] as const;
 export const docLabel = (key: string) => DOC_TYPES.find((d) => d.key === key)?.label ?? key;
 
+/**
+ * Admission papers and the Student Management documents they become on
+ * admission (Student Settings, "Documents expected for every student"). The
+ * two checklists are written differently, so each paper has the ready
+ * student name, and words that find the school's own name for it when the
+ * school renamed its list. A paper with no match keeps its admission name.
+ */
+export const PAPER_TO_STUDENT_DOCUMENT: Record<string, { name: string | null; words: RegExp | null; not?: RegExp }> = {
+  "birth-certificate": { name: "Birth certificate", words: /birth/i },
+  "transfer-certificate": { name: "Transfer certificate (previous school)", words: /transfer|\btc\b|leaving cert/i },
+  marksheet: { name: null, words: /mark ?sheet|marks card|report card|result/i },
+  aadhaar: { name: "Aadhaar card", words: /aadh?aa?r/i, not: /parent|father|mother|guardian/i },
+  "address-proof": { name: "Address proof", words: /address|residence/i },
+  "parent-id": { name: "Parent's ID proof", words: /parent|father|mother|guardian/i },
+  photo: { name: "Passport-size photo", words: /photo/i },
+  other: { name: null, words: null },
+};
+
+/** The student document name for an admission paper, in the school's own list when it has one. */
+export function studentDocumentKind(docType: string, studentDocuments: string[]): string {
+  const m = PAPER_TO_STUDENT_DOCUMENT[docType];
+  if (!m) return docLabel(docType);
+  if (m.name && studentDocuments.includes(m.name)) return m.name;
+  const own = m.words ? studentDocuments.find((k) => m.words!.test(k) && !(m.not && m.not.test(k))) : undefined;
+  return own ?? docLabel(docType);
+}
+
 export type ClassDoc = { type: string; required: boolean };
 
 export const OWNER_RULES = [

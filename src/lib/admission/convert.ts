@@ -3,25 +3,36 @@
 // The student is made by Student Management's createStudent, so there is one
 // way to make a student (admission number from Student Settings, roll number,
 // Enrolment, fee plan hooks). Guardians are linked to the existing ones when
-// the phone matches (brothers and sisters); the consent given on the form
-// becomes each guardian's Consent Records; Parent Link is created and sent;
-// the welcome message goes through Communication's automatic rule. "Undo
-// admission" works for 10 minutes while nothing else has happened.
+// the phone matches and the name matches too (brothers and sisters; close
+// spellings allowed, src/lib/students/name-match.ts); a phone on record under
+// another name is never merged silently: the admissions person says whether
+// it is the same family. The verified papers become the student's documents
+// (with the photo), and the previous school keeps its last class and marks.
+// The consent given on the form becomes each guardian's Consent Records;
+// Parent Link is created and sent; the welcome message goes through
+// Communication's automatic rule. "Undo admission" works for 10 minutes
+// while nothing else has happened (no payment, attendance or marks), and
+// takes the fee plan rows it made off the student's fees.
 import "server-only";
 
 import { Prisma, type Application, type Guardian } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
+import { formatRupees } from "../format";
 import { assertYearOpen } from "../academic/years";
 import { createStudent, StudentProblem } from "../students/students";
 import { createGuardian, linkGuardian } from "../students/guardians";
 import { recordConsentGiven } from "../students/consent";
+import { getStudentSettings } from "../students/settings";
+import { namesAlike } from "../students/name-match";
+import { refreshBalances } from "../fees/dues";
+import { IMAGE_TYPES } from "../files";
 import { sendLinksOnAdmission } from "../parent-link/links";
 import { MessagingProblem, sendAutomatic } from "../messaging";
 import { AdmissionProblem } from "./act";
 import { requireFull, type Viewer } from "./access";
 import { activity, feeSettled, loadApplication } from "./applications";
-import { classRule, loadSettings, stageOn } from "./settings";
+import { classRule, loadSettings, stageOn, studentDocumentKind } from "./settings";
 import { progressOf } from "./documents";
 import { hasDataConsent } from "./consent";
 import { seatsFor } from "./seats";
@@ -40,6 +51,14 @@ export type Conversion = {
   consentRecordIds?: string[];
   parentLinkIds?: string[];
   welcome?: string;
+  /** The verified papers made into Student Documents (same files). */
+  studentDocumentIds?: string[];
+  /** The photo paper, set as the student's photo. */
+  photoFileId?: string | null;
+  /** The fee plan rows (Student Fee Due) made for the student. */
+  feeDueIds?: string[];
+  /** "same:<guardianId>" or "new", when the phone was on record under another name. */
+  family?: string | null;
 };
 
 export class AlreadyAdmittedProblem extends AdmissionProblem {}
@@ -58,16 +77,67 @@ export async function blockers(tx: Tx, ctx: SchoolContext, app: Application) {
   return out;
 }
 
-export type ConfirmInput = { sectionId: string | null; admissionDate: Date };
+export type ConfirmInput = {
+  sectionId: string | null;
+  admissionDate: Date;
+  /** Only when the form's phone is on record under another name: "same:<guardianId>" or "new". */
+  family?: string | null;
+};
 
-/** The family already in school: parents with this phone and the other parents of their children. */
-async function familyOf(tx: Tx, phones: string[]) {
-  const matched = await tx.guardian.findMany({ where: { archivedAt: null, phone: { in: phones } } });
-  if (!matched.length) return { matched, family: matched };
-  const links = await tx.studentGuardian.findMany({ where: { archivedAt: null, guardianId: { in: matched.map((g) => g.id) } }, select: { studentId: true } });
+type Wanted = { relationship: string; name: string };
+
+/** The parents named on the form, in order. The first owns the main phone. */
+function parentsOnForm(app: Pick<Application, "fatherName" | "motherName" | "guardianName" | "guardianRelation">): Wanted[] {
+  const wanted: Wanted[] = [];
+  if (app.fatherName) wanted.push({ relationship: "Father", name: app.fatherName });
+  if (app.motherName) wanted.push({ relationship: "Mother", name: app.motherName });
+  if (app.guardianName) wanted.push({ relationship: app.guardianRelation ?? "Guardian", name: app.guardianName });
+  return wanted;
+}
+
+const sameRelation = (g: Pick<Guardian, "relationship">, w: Pick<Wanted, "relationship">) => g.relationship.toLowerCase() === w.relationship.toLowerCase();
+
+/** Parents on record with the form's phones, with the names of their children in school. */
+async function parentsWithPhones(tx: Tx, app: Pick<Application, "phone" | "altPhone">) {
+  const phones = [app.phone, app.altPhone].filter((p): p is string => Boolean(p));
+  return tx.guardian.findMany({
+    where: { archivedAt: null, phone: { in: phones } },
+    orderBy: { createdAt: "asc" },
+    include: { students: { where: { archivedAt: null, student: { archivedAt: null } }, include: { student: { select: { fullName: true } } }, orderBy: { createdAt: "asc" }, take: 3 } },
+  });
+}
+
+/** The family already in school: these parents and the other parents of their children. */
+async function familyOf(tx: Tx, anchors: Guardian[]) {
+  if (!anchors.length) return anchors;
+  const links = await tx.studentGuardian.findMany({ where: { archivedAt: null, guardianId: { in: anchors.map((g) => g.id) } }, select: { studentId: true } });
   const siblingLinks = await tx.studentGuardian.findMany({ where: { archivedAt: null, studentId: { in: links.map((l) => l.studentId) } }, include: { guardian: true } });
-  const family = [...new Map([...matched, ...siblingLinks.map((l) => l.guardian).filter((g) => !g.archivedAt)].map((g) => [g.id, g])).values()];
-  return { matched, family };
+  return [...new Map([...anchors, ...siblingLinks.map((l) => l.guardian).filter((g) => !g.archivedAt)].map((g) => [g.id, g])).values()];
+}
+
+export type FamilyQuestion = { question: string; options: { value: string; label: string }[] };
+
+/**
+ * When the form's phone already belongs to parents on record and none of them
+ * has the name of a parent on the form (close spellings allowed), the
+ * admissions person says whether this is the same family before the
+ * admission is confirmed: never merged silently. Null when nothing needs asking.
+ */
+export async function familyQuestion(tx: Tx, app: Application): Promise<FamilyQuestion | null> {
+  const wanted = parentsOnForm(app);
+  const onPhone = await parentsWithPhones(tx, app);
+  if (!onPhone.length || onPhone.some((g) => wanted.some((w) => namesAlike(g.name, w.name)))) return null;
+  const phone = onPhone[0].phone;
+  const kidsOf = (g: (typeof onPhone)[number]) => g.students.map((x) => x.student.fullName);
+  const who = onPhone.slice(0, 3).map((g) => `${g.name}${kidsOf(g).length ? ` (parent of ${kidsOf(g).join(", ")})` : ""}`).join(", ");
+  const named = wanted.map((w) => w.name).join(" and ");
+  return {
+    question: `Phone ${phone} is already on record for ${who}, not for ${named} named on this form. Say whether this is the same family.`,
+    options: [
+      ...onPhone.slice(0, 3).map((g) => ({ value: `same:${g.id}`, label: `Same family: link to ${g.name} (${g.relationship}${kidsOf(g).length ? `, parent of ${kidsOf(g).join(", ")}` : ""})` })),
+      { value: "new", label: `A different family: add ${named} as ${wanted.length === 1 ? "a new parent" : "new parents"} with this phone` },
+    ],
+  };
 }
 
 /** Confirm admission: once per application. A second try opens the existing student. */
@@ -93,26 +163,40 @@ export async function confirmAdmission(tx: Tx, ctx: SchoolContext, v: Viewer, ap
     throw new AdmissionProblem(`${seats.className} ${section.name} is full (${section.enrolled} of ${section.seats}). Choose another section, or increase the seats in Academic Management, Classes & Sections.`, "sectionId");
   }
 
+  // Who the guardians are: the parents named on the form, in order. A parent
+  // already on record is reused only when the phone and the name both match
+  // (close spellings allowed), or when the person said it is the same family.
+  const wanted = parentsOnForm(app);
+  const onPhone = await parentsWithPhones(tx, app);
+  const named = onPhone.filter((g) => wanted.some((w) => namesAlike(g.name, w.name)));
+  let chosen: Guardian | null = null;
+  let anchors: Guardian[] = named;
+  if (onPhone.length && !named.length) {
+    if (!input.family) throw new AdmissionProblem((await familyQuestion(tx, app))?.question ?? "Say whether this is the same family.", "family");
+    if (input.family === "new") anchors = [];
+    else {
+      chosen = onPhone.find((g) => `same:${g.id}` === input.family) ?? null;
+      if (!chosen) throw new AdmissionProblem("The family chosen is not offered any more. Choose again.", "family");
+      anchors = [chosen];
+    }
+  }
+
   // Claim the application first, so two people pressing at once make one student.
   const claimed = await tx.application.updateMany({ where: { id: app.id, studentId: null, stage: "APPROVED" }, data: { stage: "ADMITTED", admittedAt: new Date(), admittedById: ctx.userId } });
   if (claimed.count === 0) throw new AlreadyAdmittedProblem("This application was admitted a moment ago by someone else.", undefined, { href: `/admission-management/decision/${app.id}/admitted`, label: "Open the admission" });
 
-  // Who the guardians are: the parents named on the form, in order.
-  const wanted: { relationship: string; name: string }[] = [];
-  if (app.fatherName) wanted.push({ relationship: "Father", name: app.fatherName });
-  if (app.motherName) wanted.push({ relationship: "Mother", name: app.motherName });
-  if (app.guardianName) wanted.push({ relationship: app.guardianRelation ?? "Guardian", name: app.guardianName });
-  // The first on the form owns the main phone; when that phone is already a parent of the school, that parent is reused.
-  const { matched, family } = await familyOf(tx, [app.phone, app.altPhone].filter((p): p is string => Boolean(p)));
+  const family = await familyOf(tx, anchors);
   const used = new Set<string>();
-  const pick = (w: { relationship: string }, first: boolean): Guardian | undefined => {
-    const g = family.find((x) => !used.has(x.id) && x.relationship.toLowerCase() === w.relationship.toLowerCase())
-      ?? (first ? matched.find((x) => !used.has(x.id) && x.phone === app.phone) : undefined);
+  const pick = (w: Wanted): Guardian | undefined => {
+    const byName = family.filter((x) => !used.has(x.id) && namesAlike(x.name, w.name));
+    let g = byName.find((x) => sameRelation(x, w)) ?? byName[0];
+    // "Same family": the parent on record is this parent, written another way.
+    if (!g && chosen && !used.has(chosen.id) && sameRelation(chosen, w)) g = chosen;
     if (g) used.add(g.id);
     return g;
   };
   const primary = wanted[0];
-  const primaryReuse = pick(primary, true);
+  const primaryReuse = pick(primary);
 
   let made;
   try {
@@ -122,7 +206,8 @@ export async function confirmAdmission(tx: Tx, ctx: SchoolContext, v: Viewer, ap
       admissionDate: input.admissionDate, applyFeePlan: true,
       // The family was checked for duplicates when the application was made.
       duplicateReason: `Admitted from application ${app.applicationNo}`,
-      category: app.category, religion: app.religion, motherTongue: app.motherTongue, address: app.address, previousSchool: app.previousSchool,
+      category: app.category, religion: app.religion, motherTongue: app.motherTongue, address: app.address,
+      previousSchool: app.previousSchool, previousClass: app.previousClass, previousMarks: app.previousMarks,
     });
   } catch (e) {
     if (e instanceof StudentProblem) throw new AdmissionProblem(`${e.message} (Student Management)`, e.field === "sectionId" ? "sectionId" : undefined);
@@ -130,6 +215,9 @@ export async function confirmAdmission(tx: Tx, ctx: SchoolContext, v: Viewer, ap
   }
   const { student, enrolment } = made;
   await tx.student.update({ where: { id: student.id }, data: { applicationId: app.id, aadhaarEnc: app.aadhaarEnc, updatedById: ctx.userId } });
+  // The fee plan rows made for the new student, so Undo can take them off again.
+  const feeDueIds = (await tx.studentFeeDue.findMany({ where: { studentId: student.id }, select: { id: true } })).map((d) => d.id);
+  const papers = await carryPapers(tx, ctx, app, student.id);
 
   const newGuardianIds: string[] = [];
   const linkedGuardianIds: string[] = [];
@@ -142,7 +230,7 @@ export async function confirmAdmission(tx: Tx, ctx: SchoolContext, v: Viewer, ap
   const linkIds = [firstLink.id];
   const guardianIds = [firstLink.guardianId];
   for (const w of wanted.slice(1)) {
-    const reuse = pick(w, false);
+    const reuse = pick(w);
     let guardianId: string;
     if (reuse) {
       guardianId = reuse.id;
@@ -155,6 +243,13 @@ export async function confirmAdmission(tx: Tx, ctx: SchoolContext, v: Viewer, ap
     const link = await linkGuardian(tx, ctx, student.id, guardianId, { relationship: w.relationship, emergency: true });
     linkIds.push(link.id);
     guardianIds.push(guardianId);
+  }
+  // "Same family" with a parent the form did not name (the other parent): the child is theirs too.
+  if (chosen && !used.has(chosen.id)) {
+    const link = await linkGuardian(tx, ctx, student.id, chosen.id, { relationship: chosen.relationship, emergency: true });
+    linkedGuardianIds.push(chosen.id);
+    linkIds.push(link.id);
+    guardianIds.push(chosen.id);
   }
 
   // The consent given on the application becomes each guardian's Consent Records, with the text version agreed to.
@@ -190,15 +285,69 @@ export async function confirmAdmission(tx: Tx, ctx: SchoolContext, v: Viewer, ap
     if (!(e instanceof MessagingProblem)) throw e;
   }
 
-  const conversion: Conversion = { enrolmentId: enrolment.id, sectionId: section.id, rollNo: enrolment.rollNo ?? 0, newGuardianIds, linkedGuardianIds, linkIds, admissionNo: student.admissionNo, consentRecordIds, parentLinkIds, welcome };
+  const conversion: Conversion = {
+    enrolmentId: enrolment.id, sectionId: section.id, rollNo: enrolment.rollNo ?? 0, newGuardianIds, linkedGuardianIds, linkIds, admissionNo: student.admissionNo, consentRecordIds, parentLinkIds, welcome,
+    studentDocumentIds: papers.documentIds, photoFileId: papers.photoFileId, feeDueIds, family: input.family ?? null,
+  };
   await tx.application.update({ where: { id: app.id }, data: { studentId: student.id, conversion: conversion as unknown as Prisma.InputJsonValue, updatedById: ctx.userId } });
   if (app.enquiryId) {
     const e = await tx.enquiry.findUnique({ where: { id: app.enquiryId } });
     if (e) await systemStatus(tx, ctx, s, e, "admitted", `Admitted as ${student.fullName}, admission no. ${student.admissionNo}.`);
   }
-  await activity(tx, ctx, app.id, "admitted", `Admitted as ${student.fullName}, admission no. ${student.admissionNo}, ${cls?.name ?? ""} ${section.name}, roll no. ${enrolment.rollNo}. ${newGuardianIds.length} new parent record${newGuardianIds.length === 1 ? "" : "s"}${linkedGuardianIds.length ? `, ${linkedGuardianIds.length} linked to an existing parent (sibling)` : ""}.`, conversion as unknown as Prisma.InputJsonValue);
-  await writeAudit(tx, ctx, { action: "admitted", recordType: "Application", recordId: app.id, before: { stage: "APPROVED" }, after: { studentId: student.id, admissionNo: student.admissionNo, sectionId: section.id, rollNo: enrolment.rollNo, newGuardianIds, linkedGuardianIds } });
+  const docsWords = papers.documentIds.length ? ` ${papers.documentIds.length} verified paper${papers.documentIds.length === 1 ? "" : "s"} added to the student's documents${papers.photoFileId ? ", with the photo" : ""}.` : "";
+  const familyWords = input.family === "new" && !chosen ? " The phone was on record for another family: new parent records made, as chosen." : chosen ? ` Linked to ${chosen.name} as the same family, as chosen.` : "";
+  await activity(tx, ctx, app.id, "admitted", `Admitted as ${student.fullName}, admission no. ${student.admissionNo}, ${cls?.name ?? ""} ${section.name}, roll no. ${enrolment.rollNo}. ${newGuardianIds.length} new parent record${newGuardianIds.length === 1 ? "" : "s"}${linkedGuardianIds.length ? `, ${linkedGuardianIds.length} linked to an existing parent (sibling)` : ""}.${docsWords}${familyWords}`, conversion as unknown as Prisma.InputJsonValue);
+  await writeAudit(tx, ctx, { action: "admitted", recordType: "Application", recordId: app.id, before: { stage: "APPROVED" }, after: { studentId: student.id, admissionNo: student.admissionNo, sectionId: section.id, rollNo: enrolment.rollNo, newGuardianIds, linkedGuardianIds, documents: papers.documentIds.length, feeRows: feeDueIds.length, family: input.family ?? null } });
   return { student, enrolment, conversion, welcome };
+}
+
+/**
+ * The papers verified at admission become the student's documents, pointing
+ * at the same stored files (nothing is copied), named as Student Settings
+ * lists them. A verified photo becomes the student's photo.
+ */
+async function carryPapers(tx: Tx, ctx: SchoolContext, app: Application, studentId: string) {
+  const papers = await tx.applicationDocument.findMany({ where: { applicationId: app.id, status: "VERIFIED", fileId: { not: null } }, orderBy: { createdAt: "asc" } });
+  const documentIds: string[] = [];
+  let photoFileId: string | null = null;
+  if (!papers.length) return { documentIds, photoFileId };
+  const kinds = (await getStudentSettings(tx, ctx)).requiredDocuments;
+  const files = await tx.storedFile.findMany({ where: { id: { in: papers.map((p) => p.fileId!) } }, select: { id: true, contentType: true, fileName: true } });
+  for (const p of papers) {
+    const kind = studentDocumentKind(p.docType, kinds);
+    const doc = await tx.studentDocument.create({
+      data: { schoolId: ctx.schoolId, studentId, kind, fileId: p.fileId!, note: `Verified at admission (application ${app.applicationNo})${p.originalSeen ? ", original seen" : ""}`, uploadedById: p.uploadedById ?? ctx.userId },
+    });
+    documentIds.push(doc.id);
+    const file = files.find((f) => f.id === p.fileId);
+    await writeAudit(tx, ctx, { action: "uploaded", recordType: "Student Document", recordId: doc.id, after: { studentId, kind, fileName: file?.fileName ?? null, from: `Application ${app.applicationNo}` } });
+    if (p.docType === "photo" && !photoFileId && file && (IMAGE_TYPES as readonly string[]).includes(file.contentType)) photoFileId = file.id;
+  }
+  if (photoFileId) await tx.student.update({ where: { id: studentId }, data: { photoFileId } });
+  return { documentIds, photoFileId };
+}
+
+/** What has already happened to a new student, in plain words; empty when the admission can still be undone. */
+async function happenedSince(tx: Tx, studentId: string, admittedAt: Date, feeDueIds: string[] | undefined) {
+  const [payments, links, concessions, adjustments, otherDues, attendance, marks, edits] = await Promise.all([
+    tx.payment.count({ where: { studentId } }),
+    tx.paymentLink.count({ where: { studentId } }),
+    tx.concession.count({ where: { studentId, archivedAt: null } }),
+    tx.feeAdjustment.count({ where: { studentId } }),
+    // Rows added since (a charge, another plan); a late fee the daily job hung on the admission's own rows does not count.
+    feeDueIds ? tx.studentFeeDue.count({ where: { studentId, id: { notIn: feeDueIds }, NOT: { kind: "LATE_FEE", parentDueId: { in: feeDueIds } } } }) : Promise.resolve(0),
+    tx.attendanceMark.count({ where: { studentId } }),
+    tx.marks.count({ where: { studentId } }),
+    tx.auditLogEntry.count({ where: { recordId: studentId, recordType: "Student", at: { gt: new Date(admittedAt.getTime() + 60_000) } } }),
+  ]);
+  const out: string[] = [];
+  if (payments) out.push("a fee payment");
+  else if (links) out.push("a payment link");
+  if (concessions || adjustments || otherDues) out.push("a change to the fees");
+  if (attendance) out.push("attendance");
+  if (marks) out.push("marks");
+  if (edits) out.push("a change to the student's record");
+  return out;
 }
 
 /** Undo admission: within 10 minutes, and only if nothing else has happened to the student. */
@@ -211,10 +360,22 @@ export async function undoAdmission(tx: Tx, ctx: SchoolContext, v: Viewer, appli
   if (!c) throw new AdmissionProblem("This admission cannot be undone here.");
   const student = await tx.student.findUniqueOrThrow({ where: { id: app.studentId } });
   const enrolments = await tx.enrolment.count({ where: { studentId: student.id, archivedAt: null } });
-  // Anything recorded for the student after the admission (a payment, attendance, an edit) stops the undo.
-  const others = await tx.auditLogEntry.count({ where: { recordId: student.id, recordType: "Student", at: { gt: new Date(app.admittedAt.getTime() + 60_000) } } });
-  if (enrolments !== 1 || others > 0) throw new AdmissionProblem("Something else has already happened to this student, so the admission cannot be undone. Record the student leaving in Student Management instead.");
+  // Anything recorded for the student after the admission (a payment, attendance, marks, an edit) stops the undo.
+  const happened = await happenedSince(tx, student.id, app.admittedAt, c.feeDueIds);
+  if (enrolments !== 1) happened.push("a change of class");
+  if (happened.length) {
+    const what = happened.join(", ");
+    throw new AdmissionProblem(`${what[0].toUpperCase()}${what.slice(1)} ${happened.length === 1 ? "is" : "are"} already recorded for this student, so the admission cannot be undone. Record the student leaving in Student Management (Leaving & Alumni) instead.`);
+  }
   const at = new Date();
+  // The fee plan made at admission comes off the student's fees (nothing was paid on it).
+  const dues = await tx.studentFeeDue.findMany({ where: { studentId: student.id, state: "OPEN" }, select: { id: true, amountPaise: true } });
+  if (dues.length) {
+    await tx.studentFeeDue.updateMany({ where: { id: { in: dues.map((d) => d.id) } }, data: { state: "REMOVED", removedReason: "Admission undone", removedById: ctx.userId, removedAt: at } });
+    await refreshBalances(tx, dues.map((d) => d.id));
+    await writeAudit(tx, ctx, { action: "removed", recordType: "Student Fee Due", recordId: student.id, before: { rows: dues.length, total: formatRupees(dues.reduce((a, d) => a + d.amountPaise, BigInt(0))) }, after: { reason: "Admission undone" } });
+  }
+  if (c.studentDocumentIds?.length) await tx.studentDocument.updateMany({ where: { id: { in: c.studentDocumentIds }, archivedAt: null }, data: { archivedAt: at } });
   await tx.studentGuardian.updateMany({ where: { id: { in: c.linkIds } }, data: { archivedAt: at } });
   if (c.newGuardianIds.length) {
     const stillUsed = await tx.studentGuardian.findMany({ where: { guardianId: { in: c.newGuardianIds }, archivedAt: null }, select: { guardianId: true } });
@@ -225,14 +386,14 @@ export async function undoAdmission(tx: Tx, ctx: SchoolContext, v: Viewer, appli
   if (c.consentRecordIds?.length) await tx.consentRecord.updateMany({ where: { id: { in: c.consentRecordIds }, withdrawnAt: null }, data: { withdrawnAt: at, withdrawnHow: "Admission undone" } });
   await tx.enrolment.update({ where: { id: c.enrolmentId }, data: { archivedAt: at } });
   // The student record is archived and released from the application, so the application can be admitted again.
-  await tx.student.update({ where: { id: student.id }, data: { archivedAt: at, applicationId: null, status: "INACTIVE", leavingReason: "Admission undone" } });
+  await tx.student.update({ where: { id: student.id }, data: { archivedAt: at, applicationId: null, status: "INACTIVE", leavingReason: "Admission undone", ...(c.photoFileId ? { photoFileId: null } : {}) } });
   await tx.admissionConsent.updateMany({ where: { applicationId: app.id }, data: { guardianId: null, studentId: null } });
   await tx.application.update({ where: { id: app.id }, data: { stage: "APPROVED", studentId: null, admittedAt: null, admittedById: null, conversion: Prisma.DbNull, updatedById: ctx.userId } });
   if (app.enquiryId) {
     const e = await tx.enquiry.findUnique({ where: { id: app.enquiryId } });
     if (e && e.status === "admitted") await tx.enquiry.update({ where: { id: e.id }, data: { status: "applied", closedAt: null } });
   }
-  await activity(tx, ctx, app.id, "admission-undone", `Admission undone: ${student.fullName} (${c.admissionNo}) archived, with the new parent records, their Parent Links and the class place.`);
+  await activity(tx, ctx, app.id, "admission-undone", `Admission undone: ${student.fullName} (${c.admissionNo}) archived, with the new parent records, their Parent Links, the class place${dues.length ? `, the fee plan (${dues.length} row${dues.length === 1 ? "" : "s"})` : ""}${c.studentDocumentIds?.length ? " and the documents" : ""}.`);
   await writeAudit(tx, ctx, { action: "admission-undone", recordType: "Application", recordId: app.id, before: { studentId: student.id, admissionNo: c.admissionNo }, after: { stage: "APPROVED" } });
   await writeAudit(tx, ctx, { action: "archived", recordType: "Student", recordId: student.id, after: { reason: "Admission undone within 10 minutes" } });
   return c.admissionNo;

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { Check, ChevronRight, GraduationCap, IdCard, IndianRupee, MessageCircle, ShieldCheck, Smartphone, Users, type LucideIcon } from "lucide-react";
+import { Check, ChevronRight, FileText, GraduationCap, IdCard, IndianRupee, MessageCircle, ShieldCheck, Smartphone, Users, type LucideIcon } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { workPage, BASE } from "@/lib/admission/page";
@@ -55,7 +55,10 @@ export default async function AdmittedPage({ params }: { params: Promise<{ id: s
         : sentLinks ? `${sentLinks} ${sentLinks === 1 ? "link" : "links"}, so the parent can see fees, pay and download receipts${sentLinks < data.links.length ? `. ${data.links.length - sentLinks} not sent` : ""}`
           : `${data.links.length} ${data.links.length === 1 ? "link" : "links"} made, but no WhatsApp or SMS is set up to send them. The School Admin sends them from Communication, Parent Link, once messages are set up.`,
       null],
-    [IndianRupee, "Fee plan", feePlanApplies() ? "Set up from the class fee structure for the year" : "Set up in Fee Management once its fee structures are ready", null],
+    ...(c?.studentDocumentIds?.length ? [[FileText, "Documents", `${c.studentDocumentIds.length} verified ${c.studentDocumentIds.length === 1 ? "paper" : "papers"} added to the student's documents${c.photoFileId ? ", with the photo" : ""}`, `/student-management/students/${app.studentId}?tab=documents`] as [LucideIcon, string, string, string | null]] : []),
+    [IndianRupee, "Fee plan", !feePlanApplies() ? "Set up in Fee Management once its fee structures are ready"
+      : c?.feeDueIds?.length ? `${c.feeDueIds.length} fee ${c.feeDueIds.length === 1 ? "row" : "rows"} set up from the class fee structure for the year`
+        : c?.feeDueIds ? "No fee structure is published for this class yet. Set it up in Fee Management, Fee Structure." : "Set up from the class fee structure for the year", null],
     [IdCard, "ID card queued", "Certificates & ID Cards · next batch", `/student-management/certificates/id-cards/print?ids=${app.studentId}`],
     [MessageCircle, "Welcome message", welcome, null],
   ];

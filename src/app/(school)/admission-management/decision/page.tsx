@@ -14,7 +14,7 @@ import { progressOf } from "@/lib/admission/documents";
 import { classRules, openYears, stageOn } from "@/lib/admission/settings";
 import { bestSection, seatsFor, fullWords } from "@/lib/admission/seats";
 import { bestTestPct, outcomeLabel } from "@/lib/admission/tests";
-import { blockers } from "@/lib/admission/convert";
+import { blockers, familyQuestion, type FamilyQuestion } from "@/lib/admission/convert";
 import { names } from "@/lib/admission/choices";
 import { Card, CardHeader } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
@@ -80,12 +80,20 @@ export default async function DecisionPage({ searchParams }: Search) {
     const rules = await classRules(tx);
     const approvals = await tx.approval.findMany({ where: { id: { in: apps.map((a) => a.approvalId).filter((x): x is string => Boolean(x)) } }, select: { id: true, status: true, askedById: true, createdAt: true } });
     const block = new Map<string, string[]>();
-    if (tab === "approved") for (const a of apps) block.set(a.id, await blockers(tx, current.ctx, a));
+    // A phone on record under another name: the person says whether it is the same family before confirming.
+    const familyAsk = new Map<string, FamilyQuestion>();
+    if (tab === "approved") {
+      for (const a of apps) {
+        block.set(a.id, await blockers(tx, current.ctx, a));
+        const q = await familyQuestion(tx, a);
+        if (q) familyAsk.set(a.id, q);
+      }
+    }
     const siblings = await tx.student.findMany({ where: { id: { in: apps.map((a) => a.siblingStudentId).filter((x): x is string => Boolean(x)) } }, select: { id: true, fullName: true } });
     const history = tab === "waiting" ? await tx.applicationActivity.findMany({ where: { kind: "waiting-list", application: base }, orderBy: { at: "desc" }, take: 30, include: { application: { select: { classId: true } } } }) : [];
     const userIds = [...new Set([...decided.map((d) => d.decidedById), ...history.map((h) => h.byId), ...approvals.map((a) => a.askedById)].filter((x): x is string => Boolean(x)))];
     const users = await tx.userLogin.findMany({ where: { id: { in: userIds } }, select: { id: true, displayName: true } });
-    return { years, n, apps, decided, seats, rules, approvals, block, siblings, history, users, counts: { ready: readyCount, approved: approvedCount, waiting: waitingCount, done: doneCount } };
+    return { years, n, apps, decided, seats, rules, approvals, block, familyAsk, siblings, history, users, counts: { ready: readyCount, approved: approvedCount, waiting: waitingCount, done: doneCount } };
   });
 
   const { n } = data;
@@ -204,7 +212,7 @@ export default async function DecisionPage({ searchParams }: Search) {
                           {settings.offerLettersOn && <OfferButtons id={a.id} sent={Boolean(a.offerSentAt)} accepted={Boolean(a.offerAcceptedAt)} hasEmail={Boolean(a.email)} />}
                           {settings.offerLettersOn && a.offerLetterNo && <ButtonLink variant="ghost" icon={Printer} href={`${PATH}/${a.id}/offer-letter`} target="_blank">Print</ButtonLink>}
                           {blocks.length === 0 && sections.length > 0
-                            ? <ConfirmButton id={a.id} name={a.fullName} sub={`${n.classes.get(a.classId) ?? ""} · ${yl(a.academicYearId)} · ${a.applicationNo}`} sections={sections} defaultSection={best?.id ?? null} today={today} />
+                            ? <ConfirmButton id={a.id} name={a.fullName} sub={`${n.classes.get(a.classId) ?? ""} · ${yl(a.academicYearId)} · ${a.applicationNo}`} sections={sections} defaultSection={best?.id ?? null} today={today} family={data.familyAsk.get(a.id) ?? null} />
                             : <ButtonLink variant="soft" icon={CircleAlert} href={`${BASE}/applications/${a.id}`}>See what is missing</ButtonLink>}
                         </div>
                       )}

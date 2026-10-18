@@ -185,6 +185,9 @@ export type NewStudent = {
   address?: string | null;
   aadhaar?: string | null;
   previousSchool?: string | null;
+  /** Last class and marks at the previous school (an admission form has them). */
+  previousClass?: string | null;
+  previousMarks?: string | null;
   how?: "added" | "imported";
 };
 
@@ -247,7 +250,7 @@ export async function createStudent(tx: Tx, ctx: SchoolContext, input: NewStuden
     },
   });
   if (input.previousSchool) {
-    await tx.studentPreviousSchool.create({ data: { schoolId: ctx.schoolId, studentId: student.id, schoolName: input.previousSchool, updatedById: ctx.userId } });
+    await tx.studentPreviousSchool.create({ data: { schoolId: ctx.schoolId, studentId: student.id, schoolName: input.previousSchool, lastClass: input.previousClass ?? null, marks: input.previousMarks ?? null, updatedById: ctx.userId } });
   }
 
   // The parent: an existing one (brother or sister already here) or a new record.

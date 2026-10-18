@@ -17,12 +17,16 @@ import { round2, type SubjectResult } from "./compute";
 import { bandFor, readBands } from "./grades";
 import { examSettings, reportBaseFor } from "./settings";
 import { sectionStudents } from "./roster";
-import { sectionInfo } from "./results";
+import { recomputeSection, sectionInfo } from "./results";
 import { cardReady, neededKeys, periodsForClass, refreshReportCards, type PeriodOption } from "./report-status";
 import { attendanceFor } from "./attendance";
 // Attendance Management's register is the source of report card attendance.
 import "../attendance/report-card-source";
 import { writesReportCards, type ExamScope } from "./scope";
+import { draftRemark, type ExamMarks, type RemarkDraft } from "./remark-drafts";
+import { attendanceSettings } from "../attendance/settings";
+import { addDays, todayIn } from "../academic/common";
+import { HANDED_IN } from "../homework/words";
 
 export { periodsForClass, refreshReportCards } from "./report-status";
 
@@ -96,10 +100,18 @@ async function periodDates(tx: Tx, option: PeriodOption, yearId: string): Promis
   return { from: year.startDate, to: year.endDate };
 }
 
-export type RemarkRow = { studentId: string; classTeacherRemark?: string | null; principalRemark?: string | null; attendancePresent?: number | null; attendanceWorking?: number | null };
+export type RemarkRow = {
+  studentId: string; classTeacherRemark?: string | null; principalRemark?: string | null; attendancePresent?: number | null; attendanceWorking?: number | null;
+  /** The class teacher remark came from a suggestion: kept as it was, or edited first. */
+  suggestion?: "kept" | "edited" | null;
+};
 
-/** Saves remarks and typed attendance for many students at once (the bulk entry grid). */
-export async function saveRemarks(tx: Tx, ctx: SchoolContext, scope: ExamScope, input: { sectionId: string; period: string; rows: RemarkRow[]; principal: boolean }) {
+/**
+ * Saves remarks and typed attendance for many students at once (the bulk entry
+ * grid). Remarks kept from a suggestion are logged "prepared by AI, confirmed
+ * by <person>" (00-global.md §2.1 rule 6).
+ */
+export async function saveRemarks(tx: Tx, ctx: SchoolContext, scope: ExamScope, input: { sectionId: string; period: string; rows: RemarkRow[]; principal: boolean; confirmedBy?: string }) {
   const section = await sectionInfo(tx, input.sectionId);
   await assertYearOpen(tx, section.academicYearId);
   if (!writesReportCards(scope, input.sectionId) && !input.principal) throw new ExamRuleError(`Only the class teacher of ${section.label}, the Exam In-charge or the Principal can write these remarks.`);
@@ -107,6 +119,7 @@ export async function saveRemarks(tx: Tx, ctx: SchoolContext, scope: ExamScope, 
   if (!option) throw new ExamRuleError("Choose the exam or term first.");
   const students = await sectionStudents(tx, [input.sectionId], section.academicYearId);
   const changes: unknown[] = [];
+  const suggested: ("kept" | "edited")[] = [];
   for (const row of input.rows) {
     const st = students.find((s) => s.studentId === row.studentId);
     if (!st) throw new ExamRuleError("A student here is no longer in this section. Reload the page.");
@@ -135,11 +148,17 @@ export async function saveRemarks(tx: Tx, ctx: SchoolContext, scope: ExamScope, 
     if (same) continue;
     if (before) await tx.reportCard.update({ where: { id: before.id }, data });
     else await tx.reportCard.create({ data: { schoolId: ctx.schoolId, academicYearId: section.academicYearId, studentId: st.studentId, sectionId: input.sectionId, period: option.key, ...(data as object) } as Prisma.ReportCardUncheckedCreateInput });
-    changes.push({ student: st.name, before: before ? { classTeacherRemark: before.classTeacherRemark, principalRemark: before.principalRemark, attendancePresent: before.attendancePresent, attendanceWorking: before.attendanceWorking } : null, after: data });
+    const suggestion = data.classTeacherRemark && (row.suggestion === "kept" || row.suggestion === "edited") ? row.suggestion : null;
+    if (suggestion) suggested.push(suggestion);
+    changes.push({ student: st.name, before: before ? { classTeacherRemark: before.classTeacherRemark, principalRemark: before.principalRemark, attendancePresent: before.attendancePresent, attendanceWorking: before.attendanceWorking } : null, after: data, ...(suggestion ? { suggestion: suggestion === "kept" ? "Prepared by AI, kept as suggested" : "Prepared by AI, edited before saving" } : {}) });
   }
   if (changes.length) {
     await refreshReportCards(tx, ctx, section.academicYearId, [input.sectionId]);
-    await writeAudit(tx, ctx, { action: "report-card-remarks", recordType: "Report Card", recordId: `${input.sectionId}:${option.key}`, after: { section: section.label, period: option.label, changes } as unknown as Prisma.InputJsonValue });
+    const edited = suggested.filter((x) => x === "edited").length;
+    const actorNote = suggested.length
+      ? `Prepared by AI, confirmed by ${input.confirmedBy?.trim() || "the class teacher"}: ${suggested.length} class teacher ${suggested.length === 1 ? "remark" : "remarks"}${edited ? ` (${edited} edited before saving)` : ""}`
+      : null;
+    await writeAudit(tx, ctx, { action: "report-card-remarks", recordType: "Report Card", recordId: `${input.sectionId}:${option.key}`, after: { section: section.label, period: option.label, changes } as unknown as Prisma.InputJsonValue, actorNote });
   }
   return changes.length;
 }
@@ -198,39 +217,83 @@ export async function saveCompetencyLevels(tx: Tx, ctx: SchoolContext, scope: Ex
   return n;
 }
 
+/** A student's real marks in one exam: only papers they wrote (absent, medical leave and grade-only left out). */
+function examMarksOf(title: string, r: { subjects: unknown; complete: boolean; leftOut: boolean } | undefined): ExamMarks | null {
+  if (!r || !r.complete || r.leftOut) return null;
+  const subjects = (Array.isArray(r.subjects) ? r.subjects : []) as SubjectResult[];
+  return {
+    title,
+    subjects: subjects.filter((x) => !x.gradeOnly && !x.absent && !x.medical && !x.missing && x.marks !== null && x.max > 0).map((x) => ({ name: x.name, marks: x.marks!, max: x.max })),
+    notWritten: subjects.filter((x) => !x.gradeOnly && x.absent).map((x) => `${x.name} (${x.medical ? "ML" : "AB"})`),
+  };
+}
+
 /**
- * Drafts a remark per student from their real marks and attendance (teacher
- * assistant). Always a "Suggestion": nothing is saved until the teacher
- * edits or accepts it (00-global.md §2.1).
+ * Suggests a remark per student (teacher assistant, gap G30) from evidence in
+ * the school's own records: this period's marks and the change since the exam
+ * before, attendance, homework handed in and co-scholastic grades. Each
+ * sentence shows its source; a student with no marks gets no suggestion.
+ * Always a "Suggestion": nothing is saved until the teacher keeps it and
+ * saves (00-global.md §2.1).
  */
-export async function draftRemarks(tx: Tx, ctx: SchoolContext, sectionId: string, periodKey: string) {
+export async function draftRemarks(tx: Tx, ctx: SchoolContext, sectionId: string, periodKey: string): Promise<RemarkDraft[]> {
   const board = await reportBoard(tx, ctx, sectionId, periodKey);
   if (!board) return [];
-  const results = await tx.result.findMany({ where: { studentId: { in: board.rows.map((r) => r.studentId) }, key: { in: board.option.resultKeys } } });
+  const { section, option } = board;
+  const ids = board.rows.map((r) => r.studentId);
+  const [settings, attendance, school, exams, dates] = await Promise.all([
+    examSettings(tx, ctx),
+    attendanceSettings(tx, ctx),
+    tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { timeZone: true } }),
+    tx.exam.findMany({ where: { academicYearId: section.academicYearId, archivedAt: null, classIds: { has: section.classId }, status: { not: "DRAFT" } }, orderBy: { startDate: "asc" }, select: { id: true, title: true } }),
+    periodDates(tx, option, section.academicYearId),
+  ]);
+  const inPeriod = exams.filter((e) => option.examIds.includes(e.id));
+  const read = () => tx.result.findMany({ where: { studentId: { in: ids }, academicYearId: section.academicYearId, examId: { in: exams.map((e) => e.id) } }, select: { studentId: true, examId: true, key: true, subjects: true, complete: true, leftOut: true } });
+  let results = await read();
+  // Worked out when someone on the roll has no result yet (as Results does), so a student
+  // who joined after the exam shows as left out of it rather than waiting for marks.
+  const gaps = inPeriod.filter((e) => ids.some((id) => !results.some((r) => r.studentId === id && r.examId === e.id)));
+  if (gaps.length) {
+    for (const e of gaps) await recomputeSection(tx, ctx, e.id, sectionId);
+    results = await read();
+  }
+  // Homework due in the period and already past its due date; excused work is left out.
+  const today = todayIn(school.timeZone);
+  const hwTo = new Date(Math.min(dates.to.getTime(), addDays(today, -1).getTime()));
+  const submissions = hwTo >= dates.from ? await tx.submission.findMany({
+    where: { studentId: { in: ids }, archivedAt: null, status: { not: "EXCUSED" }, homework: { academicYearId: section.academicYearId, archivedAt: null, dueDate: { gte: dates.from, lte: hwTo } } },
+    select: { studentId: true, status: true },
+  }) : [];
   return board.rows.map((s) => {
-    const mine = results.filter((r) => r.studentId === s.studentId && r.complete);
-    if (mine.length === 0) return { studentId: s.studentId, text: null as string | null, why: "No complete marks yet, so there is nothing to draft from." };
-    const subjects = mine.flatMap((r) => (r.subjects as unknown as SubjectResult[]).filter((x) => !x.gradeOnly && x.percent !== null));
-    const bySubject = new Map<string, number[]>();
-    for (const x of subjects) bySubject.set(x.name, [...(bySubject.get(x.name) ?? []), x.percent!]);
-    const avg = [...bySubject.entries()].map(([name, list]) => ({ name, p: list.reduce((a, b) => a + b, 0) / list.length })).sort((a, b) => b.p - a.p);
-    const overall = mine.reduce((a, r) => a + (r.percent ?? 0), 0) / mine.length;
-    const first = s.name.split(" ")[0];
-    const best = avg.slice(0, 2).filter((x) => x.p >= 60).map((x) => x.name);
-    const weak = avg.filter((x) => x.p < Math.min(60, overall - 5)).slice(-2).map((x) => x.name);
-    const parts: string[] = [];
-    if (overall >= 85) parts.push(`${first} has done very well this term.`);
-    else if (overall >= 65) parts.push(`${first} has done well this term.`);
-    else if (overall >= 45) parts.push(`${first} is making steady progress.`);
-    else parts.push(`${first} needs more support and regular practice.`);
-    if (best.length) parts.push(`Strong in ${best.join(" and ")}.`);
-    if (weak.length) parts.push(`Should give more time to ${weak.join(" and ")}.`);
-    if (s.attendanceWorking && s.attendancePresent !== null) {
-      const att = (s.attendancePresent / s.attendanceWorking) * 100;
-      if (att < 75) parts.push("Attendance is low and needs to improve.");
-      else if (att >= 95) parts.push("Regular in attendance.");
+    const mine = (examId: string) => results.find((r) => r.studentId === s.studentId && r.key === examKey(examId));
+    const written = inPeriod.flatMap((e) => { const m = examMarksOf(e.title, mine(e.id)); return m && m.subjects.length ? [{ id: e.id, m }] : []; });
+    const waiting = inPeriod.some((e) => { const r = mine(e.id); return !r || (!r.complete && !r.leftOut); });
+    // The exam before the latest one written in this period, with marks of its own.
+    const latest = written.length ? exams.findIndex((e) => e.id === written[written.length - 1].id) : -1;
+    let previous: ExamMarks | null = null;
+    for (let i = latest - 1; latest > 0 && i >= 0 && !previous; i--) {
+      const m = examMarksOf(exams[i].title, mine(exams[i].id));
+      if (m && m.subjects.length) previous = m;
     }
-    return { studentId: s.studentId, text: parts.join(" "), why: `From ${mine.length === 1 ? "this exam's" : "these exams'"} marks${s.attendanceWorking ? " and attendance" : ""}.` };
+    const hw = submissions.filter((x) => x.studentId === s.studentId);
+    return draftRemark({
+      studentId: s.studentId,
+      firstName: s.name.split(" ")[0],
+      period: option.period.kind === "exam" ? { kind: "exam", examTitle: option.label } : { kind: option.period.kind },
+      exams: written.map((w) => w.m),
+      waiting,
+      previous,
+      passOverall: settings.rules.passPercentOverall,
+      passSubject: settings.rules.passPercentSubject,
+      attendance: s.attendanceWorking && s.attendancePresent !== null ? { present: s.attendancePresent, working: s.attendanceWorking, fromRegister: s.attendanceFromRegister, from: dates.from, to: new Date(Math.min(dates.to.getTime(), today.getTime())) } : null,
+      attendanceThreshold: attendance.thresholdPercent,
+      homework: hw.length ? { given: hw.length, done: hw.filter((x) => (HANDED_IN as readonly string[]).includes(x.status)).length, from: dates.from, to: hwTo } : null,
+      coScholastic: board.areas.flatMap((a) => {
+        const g = board.grades.find((x) => x.studentId === s.studentId && x.areaId === a.id && x.grade);
+        return g ? [{ area: a.name, grade: g.grade, best: g.grade === a.grades[0] }] : [];
+      }),
+    });
   });
 }
 

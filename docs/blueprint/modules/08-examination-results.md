@@ -132,7 +132,7 @@ Rules shown on the form ("Before you save"): subjects are listed by date and tim
 
 **Actions**
 
-- Enter **class teacher remarks** and **principal remarks** for each student (bulk entry grid). With the AI teacher assistant on, "Draft remarks" suggests a remark per student from their marks and attendance, labelled "Suggestion"; the teacher edits and accepts each one.
+- Enter **class teacher remarks** and **principal remarks** for each student (bulk entry grid). With the AI teacher assistant on, "Draft remarks" suggests a remark per student from their marks and attendance, labelled "Suggestion"; the teacher edits and accepts each one. The suggestion is built only from that student's own records (gap list G30): the period's marks and the change in each subject since the exam before, attendance, homework handed in and co-scholastic grades, in words for the period (this exam, this term or this year), and each sentence shows its source. A student with no marks for the period (absent, medical leave, or joined after the exam) gets no suggestion: "No marks for this exam: write your own remark." The teacher keeps, edits or discards each one; a kept remark is logged "prepared by AI, confirmed by <person>".
 - Enter co-scholastic grades, skills, activities and competencies (or they come from Events & Calendar and Exam Settings areas).
 - Generate report cards for a class as one PDF, print in batches (P9), or send each to the parent's WhatsApp (inferred: send as PDF).
 

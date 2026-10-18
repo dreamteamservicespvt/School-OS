@@ -5,6 +5,7 @@ import "server-only";
 import type { ApprovalStatus, Prisma } from "@prisma/client";
 import { withSchool, type SchoolContext, type Tx } from "./db";
 import { approvalsFor, canDecide, decide, plainReason } from "./approvals";
+import { approvalsOnCampus } from "./approval-campus";
 
 /** These roles see every request of the school (00-global.md §3; 05-roles.md). */
 export const OVERSEER_ROLES = ["school-admin", "principal"];
@@ -26,16 +27,17 @@ export function isOverseer(roleKeys: (string | null)[]) {
 export async function inboxWhere(tx: Tx, ctx: SchoolContext, roleKeys: (string | null)[], view: InboxView): Promise<Prisma.ApprovalWhereInput> {
   if (view === "mine") return approvalsFor(tx, ctx, roleKeys);
   if (view === "asked") return { askedById: ctx.userId ?? undefined };
-  if (isOverseer(roleKeys)) return {};
+  // One campus: only that campus's requests (and their own).
+  if (isOverseer(roleKeys)) return approvalsOnCampus(tx, ctx, {});
   const keys = roleKeys.filter((k): k is string => Boolean(k));
-  return {
+  return approvalsOnCampus(tx, ctx, {
     OR: [
       { askedById: ctx.userId ?? undefined },
       { decidedById: ctx.userId ?? undefined },
       { currentApproverId: ctx.userId },
       { currentApproverId: null, currentApproverRole: { in: keys } },
     ],
-  };
+  });
 }
 
 export function canSeeApproval(

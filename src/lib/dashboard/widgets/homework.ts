@@ -6,7 +6,7 @@
 import "server-only";
 
 import { dayStartUtc } from "../../periods";
-import { homeworkScope, workWhere, type HomeworkScope } from "../../homework/scope";
+import { homeworkScope, inYears, listWhere, workWhere, type HomeworkScope } from "../../homework/scope";
 import { homeworkFeatures } from "../../homework/settings";
 import { plural, someNames } from "../common";
 import type { AgendaItem, AttentionItem, BarRow, DashContext, Widget } from "../types";
@@ -20,7 +20,7 @@ function scopeOf(c: DashContext): Promise<HomeworkScope | null> {
   return c.memo("homework-scope", async () => {
     try {
       const s = await homeworkScope(c.tx, c.viewer, c.today);
-      return s.yearId ? s : null;
+      return s.yearIds.length ? s : null;
     } catch {
       return null;
     }
@@ -37,7 +37,7 @@ const toCheck: Widget<"attention"> = {
     const s = await scopeOf(c);
     if (!s || s.level === "student" || s.modes.submissions !== "edit") return null;
     const rows = await c.tx.submission.findMany({
-      where: { archivedAt: null, status: { in: [...TO_CHECK] }, homework: { archivedAt: null, academicYearId: s.yearId!, ...workWhere(s) } },
+      where: { archivedAt: null, status: { in: [...TO_CHECK] }, homework: { archivedAt: null, academicYearId: inYears(s), ...workWhere(s) } },
       select: { homework: { select: { id: true, title: true, dueDate: true } } },
     });
     if (!rows.length) return null;
@@ -68,7 +68,7 @@ const pilingUp: Widget<"attention"> = {
     const s = await scopeOf(c);
     if (!s || s.level !== "full" || !s.modes.homework) return null;
     const waiting = await c.tx.homework.findMany({
-      where: { archivedAt: null, academicYearId: s.yearId!, teacherId: { not: null }, submissions: { some: { archivedAt: null, status: { in: [...TO_CHECK] } } } },
+      where: { archivedAt: null, ...listWhere(s), teacherId: { not: null }, submissions: { some: { archivedAt: null, status: { in: [...TO_CHECK] } } } },
       select: { teacherId: true, _count: { select: { submissions: { where: { archivedAt: null, status: { in: [...TO_CHECK] } } } } } },
     });
     const per = new Map<string, number>();
@@ -96,10 +96,11 @@ const handedIn: Widget<"panel"> = {
     const s = await scopeOf(c);
     if (!s || s.level === "student" || !s.modes["learning-progress"]) return null;
     const from = new Date(c.today.getTime() - 7 * DAY);
-    const sectionIds = s.level === "full" ? null : s.ctSections;
+    // Full reach: every section (of their campus, when limited to one); a class teacher: their own.
+    const sectionIds = s.level === "full" ? s.campusSections : s.ctSections;
     if (sectionIds && !sectionIds.length) return null;
     const hws = await c.tx.homework.findMany({
-      where: { archivedAt: null, academicYearId: s.yearId!, dueDate: { gte: from, lt: c.today }, ...(sectionIds ? { sectionId: { in: sectionIds } } : {}) },
+      where: { archivedAt: null, academicYearId: inYears(s), dueDate: { gte: from, lt: c.today }, ...(sectionIds ? { sectionId: { in: sectionIds } } : {}) },
       select: { sectionId: true, classId: true, submissions: { where: { archivedAt: null, status: { not: "EXCUSED" } }, select: { status: true } } },
     });
     if (!hws.length) return null;

@@ -11,7 +11,7 @@ import { randomUUID } from "node:crypto";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { logExport, type ExportFormat } from "../exports";
-import { currentYear } from "../academic/years";
+import { yearsFor } from "../academic/years";
 import { attendanceSummary } from "../attendance/summary";
 import { defaulters } from "../fees/defaulters";
 import { formatDateTime } from "../format";
@@ -84,35 +84,44 @@ export function cleanSpec(raw: { area: string; columns: string[]; classId?: stri
 /** Runs a custom report with the person's permissions; the same rows on screen, in the file and in the email. */
 export async function runCustom(tx: Tx, who: ReportViewer, spec: CustomSpec, today: Date): Promise<Table> {
   if (!areasFor(who).includes(spec.area)) throw new CustomProblem(`${who.user.displayName} cannot see ${AREAS[spec.area].label.toLowerCase()} data.`);
-  const year = await currentYear(tx, who.ctx);
+  // Each campus's current year (a school's campuses can start the year on different dates);
+  // a person limited to one campus sees only that campus's students and staff.
+  const campus = who.campusId ? { campusId: who.campusId } : {};
+  const years = await yearsFor(tx, who.ctx, who.campusId);
+  const year = years.length ? { ids: years.map((y) => y.id), startDate: new Date(Math.min(...years.map((y) => y.startDate.getTime()))) } : null;
   const fields = AREAS[spec.area].fields.filter((f) => spec.columns.includes(f.key));
   let rows: (Row & { _cls?: string; _gender?: string })[] = [];
   if (spec.area === "staff") {
-    const staff = await tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] }, ...(spec.show === "Teaching" ? { staffType: "Teaching" } : spec.show === "Non-teaching" ? { staffType: { not: "Teaching" } } : {}) }, include: { department: { select: { name: true } } }, orderBy: { fullName: "asc" } });
+    const staff = await tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] }, ...campus, ...(spec.show === "Teaching" ? { staffType: "Teaching" } : spec.show === "Non-teaching" ? { staffType: { not: "Teaching" } } : {}) }, include: { department: { select: { name: true } } }, orderBy: { fullName: "asc" } });
     rows = staff.map((s) => ({ name: s.fullName, dept: s.department?.name ?? "", role: s.designation, joined: s.joiningDate, phone: s.phone, type: s.staffType }));
   } else if (year) {
-    const enrol = await tx.enrolment.findMany({ where: { academicYearId: year.id, archivedAt: null, status: "STUDYING", student: { archivedAt: null }, ...(spec.classId ? { classId: spec.classId } : {}) }, include: { student: { include: { guardians: { where: { archivedAt: null }, orderBy: [{ isPrimary: "desc" }], include: { guardian: { select: { name: true, phone: true, relationship: true } } } } } } } });
+    const enrol = await tx.enrolment.findMany({ where: { academicYearId: { in: year.ids }, archivedAt: null, status: "STUDYING", student: { archivedAt: null, ...campus }, ...(spec.classId ? { classId: spec.classId } : {}) }, include: { student: { include: { guardians: { where: { archivedAt: null }, orderBy: [{ isPrimary: "desc" }], include: { guardian: { select: { name: true, phone: true, relationship: true } } } } } } } });
     const sections = new Map((await tx.section.findMany({ where: { id: { in: [...new Set(enrol.map((e) => e.sectionId))] } }, include: { schoolClass: { select: { name: true, sortOrder: true } } } })).map((s) => [s.id, s]));
     enrol.sort((a, b) => { const x = sections.get(a.sectionId), y = sections.get(b.sectionId); return ((x?.schoolClass.sortOrder ?? 0) - (y?.schoolClass.sortOrder ?? 0)) || (x?.name ?? "").localeCompare(y?.name ?? "") || (a.rollNo ?? 999) - (b.rollNo ?? 999) || a.student.fullName.localeCompare(b.student.fullName); });
     const label = (sid: string) => { const s = sections.get(sid); return s ? `${s.schoolClass.name.replace(/^Class\s+/i, "")} ${s.name}` : ""; };
     const className = (sid: string) => sections.get(sid)?.schoolClass.name ?? "";
     const gender = (g: string | null) => (g === "Female" ? "Girl" : g === "Male" ? "Boy" : g ?? "");
     if (spec.area === "students") {
-      const ids = new Set(spec.show === "new" ? (await tx.student.findMany({ where: { joiningDate: { gte: year.startDate } }, select: { id: true } })).map((s) => s.id) : []);
+      const ids = new Set(spec.show === "new" ? (await tx.student.findMany({ where: { joiningDate: { gte: year.startDate }, ...campus }, select: { id: true } })).map((s) => s.id) : []);
       rows = enrol.filter((e) => spec.show !== "active" || e.student.status === "ACTIVE").filter((e) => spec.show !== "new" || ids.has(e.studentId)).map((e) => {
         const father = e.student.guardians.find((g) => /father/i.test(g.relationship))?.guardian.name ?? "";
         return { name: e.student.fullName, cls: label(e.sectionId), adm: e.student.admissionNo, father, phone: e.student.guardians[0]?.guardian.phone ?? "", status: e.student.status.charAt(0) + e.student.status.slice(1).toLowerCase(), gender: gender(e.student.gender), dob: e.student.dateOfBirth, category: e.student.category ?? "", _cls: className(e.sectionId), _gender: gender(e.student.gender) };
       });
     } else if (spec.area === "fees") {
-      const d = await defaulters(tx, who.ctx, { userId: who.user.id, see: "all", change: "none", roleKeys: [], sectionIds: null, yearId: year.id }, today, { classId: spec.classId });
+      const d = await defaulters(tx, who.ctx, { userId: who.user.id, see: "all", change: "none", roleKeys: [], sectionIds: null, yearId: year.ids[0], yearIds: year.ids, campusId: who.campusId ?? null }, today, { classId: spec.classId });
       const g = new Map(enrol.map((e) => [e.studentId, e]));
       rows = d.rows.filter((r) => spec.show === "all" || r.daysOverdue > Number(spec.show)).map((r) => ({ name: r.name, cls: r.classLabel, overdue: r.overduePaise, days: r.daysOverdue, heads: r.heads, parent: r.parentName ?? "", phone: r.phone ?? "", _cls: r.className, _gender: gender(g.get(r.studentId)?.student.gender ?? null) }));
     } else if (spec.area === "attendance") {
-      const sum = enrol.length ? await attendanceSummary(tx, who.ctx, { studentIds: enrol.map((e) => e.studentId), from: year.startDate, to: today, today }) : null;
-      rows = enrol.map((e) => { const s = sum?.people.get(e.studentId); return { name: e.student.fullName, cls: label(e.sectionId), att: s?.percent ?? null, absent: s?.absent ?? 0, late: s?.late ?? 0, _cls: className(e.sectionId), _gender: gender(e.student.gender) }; })
+      // Each campus's students from their own year's first day.
+      const sums = await Promise.all(years.map((y) => {
+        const ids = enrol.filter((e) => e.academicYearId === y.id).map((e) => e.studentId);
+        return ids.length ? attendanceSummary(tx, who.ctx, { studentIds: ids, from: y.startDate, to: today, today }) : null;
+      }));
+      const sum = { people: new Map(sums.flatMap((x) => (x ? [...x.people.entries()] : []))) };
+      rows = enrol.map((e) => { const s = sum.people.get(e.studentId); return { name: e.student.fullName, cls: label(e.sectionId), att: s?.percent ?? null, absent: s?.absent ?? 0, late: s?.late ?? 0, _cls: className(e.sectionId), _gender: gender(e.student.gender) }; })
         .filter((r) => spec.show === "all" || (r.att !== null && Number(r.att) < Number(spec.show)));
     } else {
-      const res = await tx.result.findMany({ where: { academicYearId: year.id, examId: { not: null }, status: "PUBLISHED", studentId: { in: enrol.map((e) => e.studentId) } }, select: { studentId: true, examId: true, percent: true } });
+      const res = await tx.result.findMany({ where: { academicYearId: { in: year.ids }, examId: { not: null }, status: "PUBLISHED", studentId: { in: enrol.map((e) => e.studentId) } }, select: { studentId: true, examId: true, percent: true } });
       const exams = new Map((await tx.exam.findMany({ where: { id: { in: [...new Set(res.map((r) => r.examId!))] } }, select: { id: true, endDate: true } })).map((x) => [x.id, x.endDate.getTime()]));
       rows = enrol.map((e) => {
         const mine = res.filter((r) => r.studentId === e.studentId && r.percent !== null).sort((a, b) => (exams.get(a.examId!) ?? 0) - (exams.get(b.examId!) ?? 0));
@@ -170,9 +179,14 @@ export async function saveCustom(tx: Tx, who: ReportViewer, name: string, spec: 
   return r;
 }
 
+/** Only the person who made a report or schedule changes it; the School Admin or Principal may too (someone may have left). */
+const mayChange = (who: ReportViewer, ownerId: string | null) =>
+  ownerId === who.user.id || who.roles.some((r) => r.key === "school-admin" || r.key === "principal");
+
 export async function archiveCustom(tx: Tx, who: ReportViewer, id: string) {
   const r = await tx.customReport.findFirst({ where: { id, archivedAt: null } });
   if (!r) throw new CustomProblem("This report was not found.");
+  if (!mayChange(who, r.ownerId)) throw new CustomProblem("Only the person who saved this report can archive it.");
   await tx.customReport.update({ where: { id }, data: { archivedAt: new Date() } });
   const scheds = await tx.reportSchedule.updateMany({ where: { reportKey: `c:${id}`, archivedAt: null }, data: { status: "PAUSED" } });
   await writeAudit(tx, who.ctx, { action: "archived", recordType: "Custom Report", recordId: id, after: { name: r.name, schedulesPaused: scheds.count } });
@@ -270,6 +284,7 @@ export async function saveSchedule(tx: Tx, who: ReportViewer, input: ScheduleInp
   if (scheduleId) {
     const before = await tx.reportSchedule.findFirst({ where: { id: scheduleId, archivedAt: null } });
     if (!before) throw new CustomProblem("This schedule was not found.");
+    if (!mayChange(who, before.createdById)) throw new CustomProblem("Only the person who made this schedule can change it.");
     const s = await tx.reportSchedule.update({ where: { id: scheduleId }, data: { ...data, nextAt } });
     await writeAudit(tx, who.ctx, { action: "changed", recordType: "Report Schedule", recordId: s.id, before: { frequency: before.frequency, recipientIds: before.recipientIds }, after: data });
     return s;
@@ -282,6 +297,7 @@ export async function saveSchedule(tx: Tx, who: ReportViewer, input: ScheduleInp
 export async function setScheduleStatus(tx: Tx, who: ReportViewer, id: string, to: "ACTIVE" | "PAUSED" | "ARCHIVED", now = new Date()) {
   const s = await tx.reportSchedule.findFirst({ where: { id } });
   if (!s) throw new CustomProblem("This schedule was not found.");
+  if (!mayChange(who, s.createdById)) throw new CustomProblem("Only the person who made this schedule can change it.");
   if (to === "ARCHIVED") {
     if (s.archivedAt) throw new CustomProblem("This schedule is already archived.");
     await tx.reportSchedule.update({ where: { id }, data: { archivedAt: now, status: "PAUSED" } });
@@ -316,6 +332,13 @@ async function fileFor(tx: Tx, recipient: ReportViewer, s: { reportKey: string; 
 }
 
 /** Sends one schedule now to every recipient (made with each one's own permissions). One send per person per slot. */
+/** "Send now" from the page: only the person who made the schedule (or the School Admin or Principal). */
+export async function mayChangeSchedule(tx: Tx, who: ReportViewer, scheduleId: string) {
+  const s = await tx.reportSchedule.findFirst({ where: { id: scheduleId, archivedAt: null }, select: { createdById: true } });
+  if (!s) throw new CustomProblem("This schedule was not found.");
+  if (!mayChange(who, s.createdById)) throw new CustomProblem("Only the person who made this schedule can send it.");
+}
+
 export async function sendSchedule(tx: Tx, ctx: SchoolContext, scheduleId: string, now = new Date(), slot = now.toISOString().slice(0, 16)) {
   const s = await tx.reportSchedule.findFirst({ where: { id: scheduleId, archivedAt: null } });
   if (!s) throw new CustomProblem("This schedule was not found.");

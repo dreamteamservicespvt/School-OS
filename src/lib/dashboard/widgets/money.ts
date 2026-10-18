@@ -9,7 +9,7 @@
 import "server-only";
 
 import { formatRupees, formatRupeesShort } from "../../format";
-import { feeViewer, feePageAllowed, admissionOnlyFor, feePageAllowedFor, type FeeViewer, type FeePageKey } from "../../fees/access";
+import { feeViewer, feePageAllowed, admissionOnlyFor, feePageAllowedFor, feeStudentFilter, type FeeViewer, type FeePageKey } from "../../fees/access";
 import { feeTiles, monthlyTrend, recentPayments } from "../../fees/dashboard";
 import { failedOnline } from "../../fees/online";
 import { financePageAllowed, hiddenPayHeads, expensesWithoutPay, type FinancePageKey } from "../../finance/access";
@@ -34,6 +34,11 @@ export const collects = (c: Pick<DashContext, "viewer">, v: FeeViewer) => feePag
 const feeDetails = (page: FeePageKey) => (v: Viewer) => !admissionOnlyFor(v) && feePageAllowedFor(v, page);
 const finance = (page: FinancePageKey) => (v: Viewer) => financePageAllowed(v.permissions, page);
 
+/** One campus: only that campus's students' payments (fee rows link to students by id only). */
+function onCampus(c: DashContext) {
+  return c.memo("fee-campus", async () => feeStudentFilter(c.tx, await fees(c)));
+}
+
 function tiles(c: DashContext) {
   return c.memo("fee-tiles", async () => feeTiles(c.tx, await fees(c), c.today));
 }
@@ -46,7 +51,7 @@ const collectedToday: Widget<"band"> = {
   allowed: feeDetails("dashboard"),
   async load(c) {
     const t = (await tiles(c)).today;
-    const upi = await c.tx.payment.count({ where: { status: "POSTED", broughtIn: false, paymentDate: c.today, mode: "UPI" } });
+    const upi = await c.tx.payment.count({ where: { status: "POSTED", broughtIn: false, paymentDate: c.today, mode: "UPI", ...(await onCampus(c)) } });
     return {
       id: "fees.collected-today", label: "Fees collected today", big: formatRupeesShort(t.amount),
       foot: t.count ? `${plural(t.count, "payment")}${upi ? ` · ${n(upi)} by UPI` : ""}` : "No payments yet today",
@@ -62,7 +67,7 @@ const chequesToVerify: Widget<"band"> = {
   homes: ["accountant"],
   allowed: feeDetails("payments"),
   async load(c) {
-    const where = { status: "WAITING" as const, broughtIn: false };
+    const where = { status: "WAITING" as const, broughtIn: false, ...(await onCampus(c)) };
     const [agg, oldest] = await Promise.all([
       c.tx.payment.aggregate({ where, _sum: { amountPaise: true }, _count: { _all: true } }),
       c.tx.payment.findFirst({ where, orderBy: { paymentDate: "asc" }, select: { paymentDate: true } }),
@@ -125,7 +130,7 @@ const failed: Widget<"attention"> = {
   homes: ["leader", "accountant"],
   allowed: feeDetails("dashboard"),
   async load(c) {
-    const f = await failedOnline(c.tx, addDays(c.today, -7));
+    const f = await failedOnline(c.tx, addDays(c.today, -7), await onCampus(c));
     const rows = [...f.failed, ...f.stuck];
     if (!rows.length) return null;
     const students = await c.tx.student.findMany({ where: { id: { in: rows.slice(0, 2).map((r) => r.studentId) } }, select: { fullName: true } });
@@ -149,7 +154,7 @@ const collectionChart: Widget<"panel"> = {
     const end = c.year.endDate < c.today ? c.year.endDate : c.today;
     // Collected so far against due so far, at the end of each month: payments
     // made early or late still count against the dues they paid.
-    const trend = await monthlyTrend(c.tx, c.year.startDate, end);
+    const trend = await monthlyTrend(c.tx, c.year.startDate, end, await onCampus(c));
     let paidSoFar = ZERO, dueSoFar = ZERO;
     const months = trend.map((m) => ({ ...m, paidSoFar: (paidSoFar += m.collected), dueSoFar: (dueSoFar += m.due) })).filter((m) => m.dueSoFar > ZERO);
     const pct = (a: bigint, b: bigint) => (b > ZERO ? Math.min(100, Math.round((Number(a) * 100) / Number(b))) : 0);
@@ -217,7 +222,7 @@ const moneyToday: Widget<"panel"> = {
     const hidden = await payHeads(c);
     const [t, waiting, spent, balances, cashAccounts] = await Promise.all([
       tiles(c),
-      c.tx.payment.aggregate({ where: { status: "WAITING", broughtIn: false }, _sum: { amountPaise: true }, _count: { _all: true } }),
+      onCampus(c).then((only) => c.tx.payment.aggregate({ where: { status: "WAITING", broughtIn: false, ...only }, _sum: { amountPaise: true }, _count: { _all: true } })),
       c.tx.expensePayment.aggregate({ where: { date: c.today, cancelledAt: null, ...(hidden ? { expense: expensesWithoutPay(hidden) } : {}) }, _sum: { amountPaise: true }, _count: { _all: true } }),
       accountBalances(c.tx, c.viewer.ctx),
       c.tx.bankAccount.findMany({ where: { kind: "CASH", archivedAt: null }, select: { id: true } }),

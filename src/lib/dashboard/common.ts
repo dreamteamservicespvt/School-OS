@@ -89,6 +89,11 @@ export function myClassSections(c: DashContext) {
 }
 
 /** Words for a list of names: "Ravi, Anitha and 2 more". */
+/** One campus: the ids of that campus's students; null for the whole school. Read once per page. */
+export function campusStudents(c: DashContext): Promise<string[] | null> {
+  return c.memo("campus-students", async () => (c.viewer.campusId ? (await c.tx.student.findMany({ where: { campusId: c.viewer.campusId }, select: { id: true } })).map((s) => s.id) : null));
+}
+
 export function someNames(names: string[], show = 2) {
   if (names.length <= show) return names.length === 2 ? `${names[0]} and ${names[1]}` : names.join(", ");
   return `${names.slice(0, show).join(", ")} and ${names.length - show} more`;

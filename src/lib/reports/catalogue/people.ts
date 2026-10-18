@@ -60,9 +60,11 @@ const STAFF: ReportEntry[] = [
   {
     key: "hr-leave", category: "Staff and HR", name: "Leave taken", sub: "Days of each kind of leave used by each person", dated: true, fallback: "acyear",
     async run(rc) {
+      // One campus: that campus's staff only.
+      const onCampus = rc.f.campusId ? (await rc.tx.staff.findMany({ where: { campusId: rc.f.campusId }, select: { id: true } })).map((x) => x.id) : null;
       const [types, leave] = await Promise.all([
         rc.tx.leaveType.findMany({ where: { forWhom: "staff" }, orderBy: { name: "asc" } }),
-        rc.tx.leaveRequest.findMany({ where: { staffId: { not: null }, status: "APPROVED", archivedAt: null, fromDate: { lte: rc.f.to }, toDate: { gte: rc.f.from } }, select: { staffId: true, leaveTypeId: true, days: true } }),
+        rc.tx.leaveRequest.findMany({ where: { staffId: onCampus ? { in: onCampus } : { not: null }, status: "APPROVED", archivedAt: null, fromDate: { lte: rc.f.to }, toDate: { gte: rc.f.from } }, select: { staffId: true, leaveTypeId: true, days: true } }),
       ]);
       const staff = new Map((await rc.tx.staff.findMany({ where: { id: { in: [...new Set(leave.map((l) => l.staffId!))] } }, select: { id: true, fullName: true } })).map((s) => [s.id, s.fullName]));
       const used = types.filter((t) => leave.some((l) => l.leaveTypeId === t.id));
@@ -81,8 +83,8 @@ const STAFF: ReportEntry[] = [
     key: "hr-moves", category: "Staff and HR", name: "Joiners and leavers", sub: "Who joined and who left in the dates chosen", dated: true, fallback: "acyear",
     async run(rc) {
       const [joined, left] = await Promise.all([
-        rc.tx.staff.findMany({ where: { archivedAt: null, joiningDate: { gte: rc.f.from, lte: rc.f.to } }, include: { department: { select: { name: true } } } }),
-        rc.tx.staff.findMany({ where: { leavingDate: { gte: rc.f.from, lte: rc.f.to } }, include: { department: { select: { name: true } } } }),
+        rc.tx.staff.findMany({ where: { archivedAt: null, joiningDate: { gte: rc.f.from, lte: rc.f.to }, ...(rc.f.campusId ? { campusId: rc.f.campusId } : {}) }, include: { department: { select: { name: true } } } }),
+        rc.tx.staff.findMany({ where: { leavingDate: { gte: rc.f.from, lte: rc.f.to }, ...(rc.f.campusId ? { campusId: rc.f.campusId } : {}) }, include: { department: { select: { name: true } } } }),
       ]);
       const rows: Row[] = [
         ...joined.map((s) => ({ name: s.fullName, what: "Joined", date: s.joiningDate, role: s.designation, dept: s.department?.name ?? "", reason: "" })),

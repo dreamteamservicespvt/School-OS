@@ -9,6 +9,7 @@ import type { SchoolContext, Tx } from "./db";
 import { writeAudit } from "./audit";
 import { notify } from "./notifications";
 import { formatRupees } from "./format";
+import { approvalOffCampus, approvalsOnCampus } from "./approval-campus";
 
 export const REQUEST_TYPES = [
   { key: "student-leave", label: "Student leave" },
@@ -248,12 +249,12 @@ export async function decidesRequestsOf(tx: Tx, ctx: SchoolContext, type: Askabl
   return noPrincipal && (await holdsRole(tx, ctx, "school-admin"));
 }
 
-/** The open requests this person may decide. */
-export async function approvalsFor(tx: Tx, ctx: SchoolContext, roleKeys: (string | null)[], extra: Prisma.ApprovalWhereInput = {}) {
+/** The open requests this person may decide (only their campus's, for a person limited to one campus). */
+export async function approvalsFor(tx: Tx, ctx: SchoolContext, roleKeys: (string | null)[], extra: Prisma.ApprovalWhereInput = {}): Promise<Prisma.ApprovalWhereInput> {
   const keys = roleKeys.filter((k): k is string => Boolean(k));
   // A role barred from a request type (HR and staff leave) never sees it as waiting for them.
   const barredFor = Object.entries(NEVER_DECIDES).flatMap(([type, roles]) => (roles ?? []).filter((r) => keys.includes(r)).map((r) => ({ type, currentApproverRole: r })));
-  return {
+  return approvalsOnCampus(tx, ctx, {
     AND: [
       extra,
       { schoolId: ctx.schoolId, status: { in: OPEN_STATUSES }, askedById: { not: ctx.userId ?? undefined } },
@@ -261,7 +262,7 @@ export async function approvalsFor(tx: Tx, ctx: SchoolContext, roleKeys: (string
       { OR: [{ currentApproverId: ctx.userId }, { currentApproverId: null, currentApproverRole: { in: keys } }] },
       ...(barredFor.length ? [{ NOT: { OR: barredFor } }] : []),
     ],
-  } satisfies Prisma.ApprovalWhereInput;
+  } satisfies Prisma.ApprovalWhereInput);
 }
 
 export type Decision = "approve" | "reject" | "ask-change" | "withdraw";
@@ -307,7 +308,8 @@ export function plainReason(e: unknown): string | null {
 
 export async function decide(tx: Tx, ctx: SchoolContext, approvalId: string, decision: Decision, note: string | null) {
   const approval = await tx.approval.findUnique({ where: { id: approvalId } });
-  if (!approval) throw new DecisionProblem("This request was not found.");
+  // A request about another campus's record is unknown to a person limited to one campus.
+  if (!approval || (await approvalOffCampus(tx, ctx, approval))) throw new DecisionProblem("This request was not found.");
   if (!OPEN_STATUSES.includes(approval.status)) throw new DecisionProblem("This request was already decided.");
 
   if (decision === "withdraw") {

@@ -6,8 +6,9 @@ import "server-only";
 import { availableParallelism } from "node:os";
 import type { TaskStatus } from "@prisma/client";
 import { withSchool, type Tx } from "../db";
-import { currentYear } from "../academic/years";
-import { academicSettings, mainCampusId } from "../academic/settings";
+import { currentYear, yearsFor } from "../academic/years";
+import { personCampusId } from "../campus";
+import { academicSettings } from "../academic/settings";
 import { CLOSED_TYPES } from "../academic/calendar";
 import { approvalsFor, requestLabel } from "../approvals";
 import { decidableIds } from "../approvals-inbox";
@@ -123,10 +124,20 @@ function memoFor(): DashContext["memo"] {
   };
 }
 
-/** The school year the Dashboard is about, read in each transaction. */
+/**
+ * The school year the Dashboard is about, read in each transaction: the
+ * current year of the person's own campus (the one they are limited to, else
+ * their Staff record's, else the main campus).
+ */
 async function yearIn(tx: Tx, viewer: Viewer): Promise<DashContext["year"]> {
-  const y = await currentYear(tx, viewer.ctx, viewer.campusId);
+  const y = await currentYear(tx, viewer.ctx, await personCampusId(tx, viewer.ctx, viewer));
   return y ? { id: y.id, name: y.name, startDate: y.startDate, endDate: y.endDate, status: y.status, campusId: y.campusId } : null;
+}
+
+/** The current year of every campus the person sees (one each), for numbers about every student. */
+async function yearIdsIn(tx: Tx, viewer: Viewer, year: DashContext["year"]): Promise<string[]> {
+  const ids = (await yearsFor(tx, viewer.ctx, viewer.campusId ?? null)).map((y) => y.id);
+  return ids.length ? ids : year ? [year.id] : [];
 }
 
 /** Thrown inside a lane's transaction to roll it back after a job failed. */
@@ -143,14 +154,15 @@ const RESTART = Symbol("restart");
  * nothing already loaded is lost (a settings row some modules make on first
  * read is simply made again next time).
  */
-async function runLanes(viewer: Viewer, base: Omit<DashContext, "tx" | "memo" | "year">, queue: Job[][], lanes = laneCount(queue.length)) {
+async function runLanes(viewer: Viewer, base: Omit<DashContext, "tx" | "memo" | "year" | "yearIds">, queue: Job[][], lanes = laneCount(queue.length)) {
   const lane = async () => {
     let bundle = queue.shift();
     let at = 0;
     while (bundle) {
       try {
         await withSchool(viewer.ctx, async (tx) => {
-          const c: DashContext = { ...base, tx, year: await yearIn(tx, viewer), memo: memoFor() };
+          const year = await yearIn(tx, viewer);
+          const c: DashContext = { ...base, tx, year, yearIds: await yearIdsIn(tx, viewer, year), memo: memoFor() };
           for (; bundle; bundle = queue.shift(), at = 0) {
             while (at < bundle.length) {
               const job = bundle[at++];
@@ -201,7 +213,8 @@ function pageJob<T>(read: (c: DashContext) => Promise<T>, errors: unknown[], fal
 /** "School day 86 of 220" from the year's working days and closed days on the School Calendar. */
 async function schoolDayLine(tx: Tx, viewer: Viewer, today: Date, year: DashContext["year"]) {
   if (!year) return null;
-  const campusId = viewer.campusId ?? (await mainCampusId(tx, viewer.ctx));
+  // The year's own campus: its timings and its closed days.
+  const campusId = year.campusId;
   const settings = await academicSettings(tx, viewer.ctx, campusId);
   const closed = await tx.calendarEntry.findMany({ where: { archivedAt: null, type: { in: CLOSED_TYPES }, attendanceOn: false, startDate: { lte: year.endDate }, endDate: { gte: year.startDate }, OR: [{ campusId: null }, { campusId }] } });
   const off = new Set<string>();

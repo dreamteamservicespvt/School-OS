@@ -45,10 +45,11 @@ export async function govChoice(tx: Tx, ctx: SchoolContext, sp: Record<string, s
   const returns = await returnsFor(tx, ctx);
   const ret = returns.find((r) => r.key === one(sp.return)) ?? returns[0];
   const version = ret.versions.includes(one(sp.version)) ? one(sp.version) : ret.versions[0];
-  const years = await tx.academicYear.findMany({ where: { archivedAt: null, ...(campusId ? { campusId } : {}) }, orderBy: { startDate: "desc" }, select: { id: true, name: true, status: true, startDate: true, endDate: true } });
+  // A person limited to one campus: always that campus and its years.
+  const campusPick = campusId ?? uuid(one(sp.campus));
+  const years = await tx.academicYear.findMany({ where: { archivedAt: null, ...(campusPick ? { campusId: campusPick } : {}) }, orderBy: { startDate: "desc" }, select: { id: true, name: true, status: true, startDate: true, endDate: true } });
   const yearId = uuid(one(sp.year));
-  const year = years.find((y) => y.id === yearId) ?? (await currentYear(tx, ctx, campusId)) ?? years[0] ?? null;
-  const campusPick = uuid(one(sp.campus)) ?? campusId;
+  const year = years.find((y) => y.id === yearId) ?? (await currentYear(tx, ctx, campusPick)) ?? years[0] ?? null;
   const campus = campusPick ? await tx.campus.findFirst({ where: { id: campusPick, archivedAt: null }, select: { id: true, name: true } }) : null;
   return { returns, ret, version, years, year: year ? { id: year.id, name: year.name } : null, campus };
 }

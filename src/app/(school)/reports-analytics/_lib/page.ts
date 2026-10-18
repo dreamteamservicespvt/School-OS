@@ -9,6 +9,7 @@ import { requirePage } from "@/lib/current";
 import { withSchool } from "@/lib/db";
 import { periodSetup } from "@/lib/period-setup";
 import { currentYear } from "@/lib/academic/years";
+import { campusChoices, personCampusId } from "@/lib/campus";
 import { todayFor } from "@/lib/periods";
 import { DEFAULT_GO_LIVE } from "@/lib/finance/go-live";
 import { ownSectionIds } from "@/lib/people";
@@ -24,9 +25,10 @@ export const repPage = cache(async () => {
   const [dates, data] = await Promise.all([
     periodSetup(current),
     withSchool(current.ctx, async (tx) => {
+      // The person's own campus's year; a person limited to one campus has only that campus to choose.
       const [year, campuses, fin] = await Promise.all([
-        currentYear(tx, current.ctx),
-        tx.campus.findMany({ where: { archivedAt: null }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+        personCampusId(tx, current.ctx, current).then((c) => currentYear(tx, current.ctx, c)),
+        campusChoices(tx, current.ctx, current),
         tx.financeSetting.findFirst({ select: { goLiveDate: true } }),
       ]);
       // Own reach: the sections this person teaches this year, by name ("7 B").

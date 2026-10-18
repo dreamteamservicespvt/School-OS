@@ -8,6 +8,7 @@ import { periodsForStaffOnDate, effectiveVersion } from "../../academic/timetabl
 import { needsOn } from "../../academic/substitutions";
 import { allocationActiveOn } from "../../academic/allocation";
 import { mainCampusId } from "../../academic/settings";
+import { personCampusId } from "../../campus";
 import { CLOSED_TYPES } from "../../academic/calendar";
 import { weekday } from "../../academic/common";
 import { evPageAllowed, evViewer } from "../../events/access";
@@ -147,7 +148,8 @@ const myAgenda: Widget<"agenda"> = {
 /** Periods today whose teacher is away and no substitute is arranged (Done when 6 of 04). */
 function needsToday(c: DashContext) {
   return c.memo("needs-today", async () => {
-    const campusId = c.viewer.campusId ?? (await mainCampusId(c.tx, c.viewer.ctx));
+    // The person's own campus: the one they are limited to, else their Staff record's, else the main campus.
+    const campusId = (await personCampusId(c.tx, c.viewer.ctx, c.viewer)) ?? (await mainCampusId(c.tx, c.viewer.ctx));
     const needs = await needsOn(c.tx, c.viewer.ctx, campusId, c.today);
     return { campusId, off: needs.off, open: needs.rows.filter((r) => r.substitution?.status !== "ARRANGED"), all: needs.rows };
   });

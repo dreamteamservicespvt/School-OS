@@ -12,7 +12,7 @@ import { togglePin } from "@/lib/reports/pins";
 import { prepareReport, ReportProblem } from "@/lib/reports/run";
 import { analyticsAreas, areaOfChart } from "@/lib/reports/analytics";
 import { decideAiSignal, DECISION_LABEL, flagArea, mayReview, remindFlag, reviewFlag, saveDropRule, WarningProblem, type Decision } from "@/lib/reports/warnings";
-import { archiveCustom, cleanSpec, CustomProblem, saveCustom, saveSchedule, sendSchedule, setScheduleStatus } from "@/lib/reports/custom";
+import { archiveCustom, cleanSpec, CustomProblem, mayChangeSchedule, saveCustom, saveSchedule, sendSchedule, setScheduleStatus } from "@/lib/reports/custom";
 import { redirect } from "next/navigation";
 import { formatDateTime } from "@/lib/format";
 import { BASE, CUSTOM_FEATURE } from "@/lib/reports/access";
@@ -141,6 +141,7 @@ export async function sendNowAction(scheduleId: string): Promise<string | null> 
   let problem: string | null = null;
   const r = await repQuick("create", async (w) => {
     needCustom(w.a);
+    await mayChangeSchedule(w.tx, w.current, scheduleId);
     const out = await sendSchedule(w.tx, w.ctx, scheduleId);
     if (!out.sent && out.problems.length) problem = `Not sent: ${out.problems.join("; ")}`;
     const s = await w.tx.reportSchedule.findFirstOrThrow({ where: { id: scheduleId }, select: { reportName: true } });

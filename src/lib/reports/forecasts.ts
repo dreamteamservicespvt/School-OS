@@ -22,7 +22,8 @@
 import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
-import { currentYear } from "../academic/years";
+import { currentYear, currentYears } from "../academic/years";
+import { mainCampus } from "../campus";
 import { attendanceSettings } from "../attendance/settings";
 import { attendanceSummary } from "../attendance/summary";
 import { schoolDays } from "../attendance/calendar";
@@ -408,19 +409,29 @@ async function financeForecasts(c: Ctx): Promise<Forecast[]> {
 export async function computeForecasts(tx: Tx, ctx: SchoolContext, now = new Date()): Promise<Forecast[]> {
   const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { timeZone: true } });
   const today = todayIn(school.timeZone, now);
-  const year = await currentYear(tx, ctx);
-  if (!year) return [];
-  const c: Ctx = { tx, ctx, today, year };
-  const enrolled = await tx.enrolment.findMany({ where: { academicYearId: year.id, archivedAt: null, status: "STUDYING", student: { archivedAt: null } }, select: { studentId: true, sectionId: true, classId: true } });
-  const parts: [string, () => Promise<Forecast[]>][] = [
-    ["attendance", () => attendanceForecasts(c, enrolled)],
-    ["marks", () => marksForecasts(c, enrolled)],
+  // Each campus's own current year for its students and seats (a school's campuses can start
+  // the year on different dates); the school-wide parts once, with the main campus's year.
+  const years = await currentYears(tx, ctx);
+  if (!years.length) return [];
+  const main = (await currentYear(tx, ctx, await mainCampus(tx, ctx))) ?? years[0];
+  const parts: [string, () => Promise<Forecast[]>][] = [];
+  for (const year of years) {
+    const c: Ctx = { tx, ctx, today, year };
+    const enrolled = await tx.enrolment.findMany({ where: { academicYearId: year.id, archivedAt: null, status: "STUDYING", student: { archivedAt: null } }, select: { studentId: true, sectionId: true, classId: true } });
+    parts.push(
+      ["attendance", () => attendanceForecasts(c, enrolled)],
+      ["marks", () => marksForecasts(c, enrolled)],
+      ["students", () => leavingForecasts(c, enrolled)],
+    );
+  }
+  const c: Ctx = { tx, ctx, today, year: main };
+  parts.push(
     ["fees", () => feeForecasts(c)],
-    ["students", () => leavingForecasts(c, enrolled)],
+    // Seats: the admission year (Admission Settings), once.
     ["admissions", () => admissionForecasts(c)],
     ["staff", () => staffForecasts(c)],
     ["finance", () => financeForecasts(c)],
-  ];
+  );
   const out: Forecast[] = [];
   for (const [name, part] of parts) {
     try {

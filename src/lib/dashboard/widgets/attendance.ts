@@ -19,7 +19,7 @@ import { classWise } from "../../attendance/classwise";
 import { ON_REGISTER_STATUSES } from "../../attendance/on-register";
 import { OPEN_ATTENDANCE_FLAG } from "../../attendance/flags";
 import { reportAccess } from "../../reports/access";
-import { addDays, iso, moduleOpen, n, plural, reach } from "../common";
+import { addDays, campusStudents, iso, moduleOpen, n, plural, reach } from "../common";
 import type { AttentionItem, BarRow, DashContext, Viewer, Widget } from "../types";
 
 const MODULE = "attendance-management" as const;
@@ -174,7 +174,8 @@ const leaveWaiting: Widget<"band"> = {
   async load(c) {
     const a = await access(c);
     if (a.studentLeave === "none") return null;
-    const own = a.studentLeave === "own" ? await ownStudents(c, a) : null;
+    // Own: their section's students; one campus: that campus's students.
+    const own = a.studentLeave === "own" ? await ownStudents(c, a) : await campusStudents(c);
     if (own && own.length === 0) return null;
     const count = await c.tx.leaveRequest.count({ where: { status: "WAITING", archivedAt: null, studentId: own ? { in: own } : { not: null } } });
     return { id: "attendance.student-leave", label: "Student leave", big: n(count), foot: count ? "Waiting for a decision" : "Nothing waiting", href: `${BASE}/student-leave?status=WAITING` };
@@ -184,7 +185,7 @@ const leaveWaiting: Widget<"band"> = {
 async function flagCard(c: DashContext, kind: "absent-streak" | "below-threshold"): Promise<AttentionItem | null> {
   const a = await access(c);
   if (a.students === "none") return null;
-  const own = a.students === "all" ? null : await ownStudents(c, a);
+  const own = a.students === "all" ? await campusStudents(c) : await ownStudents(c, a);
   if (own && own.length === 0) return null;
   const flags = await c.tx.attendanceFlag.findMany({ where: { kind, ...OPEN_ATTENDANCE_FLAG, ...(own ? { studentId: { in: own } } : {}) }, select: { studentId: true, status: true } });
   const count = new Set(flags.map((f) => f.studentId)).size;
@@ -251,7 +252,8 @@ const weekByClass: Widget<"panel"> = {
     if (!c.year) return null;
     const monday = addDays(c.today, -((c.today.getUTCDay() + 6) % 7));
     // The class-wise rows of the week (the same source as Attendance and Reports), added up per class.
-    const cw = await classWise(c.tx, c.viewer.ctx, { yearId: c.year.id, from: monday, to: c.today, today: c.today, campusId: c.viewer.campusId ?? null });
+    // Each campus's own current year (only theirs for a person limited to one campus).
+    const cw = await classWise(c.tx, c.viewer.ctx, { yearId: c.yearIds, from: monday, to: c.today, today: c.today, campusId: c.viewer.campusId ?? null });
     const byClass = new Map<string, { label: string; sort: number; weight: number; counted: number }>();
     for (const sec of cw.sections) {
       if (sec.counted === 0) continue;

@@ -7,6 +7,7 @@ import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
 import { currentYear } from "../academic/years";
+import { personCampusId } from "../campus";
 import { chosenFinancialYear } from "../finance/years";
 import { formatDate } from "../format";
 import { periodFromSearch, type PeriodKey, type SchoolCalendar } from "../periods";
@@ -25,10 +26,18 @@ export type PeriodSetupLike = { timeZone: string; weekStart: "monday" | "sunday"
 const d = (iso: string) => new Date(`${iso}T00:00:00Z`);
 const iso = (x: Date) => x.toISOString().slice(0, 10);
 
-/** Reads one report's filters. Own-reach people may only pick among their own sections (checked again by each report). */
+/**
+ * Reads one report's filters. Own-reach people may only pick among their own
+ * sections (checked again by each report). `campusId` is the campus the
+ * person's access is limited to ("One campus"): the campus is then always
+ * theirs, whatever the page address says, and so is the year.
+ */
 export async function readFilters(tx: Tx, ctx: SchoolContext, entry: Pick<ReportEntry, "dated" | "money" | "fallback">, sp: Raw, setup: PeriodSetupLike, today: Date, campusId: string | null = null): Promise<ReportFilters> {
+  const campus = campusId ?? uuidOr(one(sp.campus));
   const yearParam = uuidOr(one(sp.year));
-  const year = (yearParam ? await tx.academicYear.findFirst({ where: { id: yearParam, archivedAt: null } }) : null) ?? (await currentYear(tx, ctx, campusId));
+  // The chosen year, if it is on the campus; else the current year of the campus (or of the person's own campus).
+  const year = (yearParam ? await tx.academicYear.findFirst({ where: { id: yearParam, archivedAt: null, ...(campus ? { campusId: campus } : {}) } }) : null)
+    ?? (await currentYear(tx, ctx, campus ?? (await personCampusId(tx, ctx, null))));
   let fy: ReportFilters["fy"] = null;
   let range: ReportFilters["range"] = null;
   if (entry.money) {
@@ -60,7 +69,7 @@ export async function readFilters(tx: Tx, ctx: SchoolContext, entry: Pick<Report
     fy: fy ? { id: fy.id, name: fy.name, startDate: fy.startDate, endDate: fy.endDate } : null,
     classId: uuidOr(one(sp.class)),
     sectionId: uuidOr(one(sp.section)),
-    campusId: uuidOr(one(sp.campus), campusId),
+    campusId: campus,
     extra,
     sort: /^[\w-]{1,40}$/.test(one(sp.sort)) ? one(sp.sort) : null,
     dir,

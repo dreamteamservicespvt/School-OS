@@ -323,8 +323,8 @@ export function renderHtml(input: RenderInput): string {
     .refline{display:flex;justify-content:space-between;font-size:10pt;margin-bottom:2mm}
     .body p{margin:0 0 3mm;text-align:justify}.body.small{font-size:9.5pt;margin-top:3mm}
     .info{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.5mm 6mm;margin:0 0 4mm;padding:3mm 4mm;border:1px solid #ccc;border-radius:1.5mm;flex:1}
-    .info div{display:flex;gap:2mm}.info dt{min-width:32mm;color:#555}.info dd{margin:0;font-weight:600;min-width:0;overflow-wrap:anywhere}
-    .info div.whole{flex-wrap:wrap}.info div.whole dd{white-space:nowrap;overflow-wrap:normal}
+    .info div{display:flex;flex-wrap:wrap;column-gap:2mm}.info dt{min-width:26mm;color:#555}.info dd{margin:0;font-weight:600;flex:1 1 auto;max-width:100%;overflow-wrap:break-word}
+    .info div.whole dd{white-space:nowrap;overflow-wrap:normal}
     .withphoto{display:flex;gap:4mm;align-items:flex-start}
     table{width:100%;border-collapse:collapse}
     .lines th,.lines td{border:1px solid #bbb;padding:1.8mm 2.5mm;text-align:left;vertical-align:top}

@@ -6,7 +6,7 @@ import "server-only";
 
 import type { DayBookEntry, Prisma } from "@prisma/client";
 import type { Tx } from "../db";
-import { classOfStudents } from "../fees/dues";
+import { classInYearOf, classOfSections } from "../fees/dues";
 import { dayBookTotals } from "./daybook";
 import { dayBookWithoutPay } from "./access";
 
@@ -30,7 +30,7 @@ export type DayRow = {
   head: string;
   amount: bigint;
   penalty: bigint;
-  /** Signed: money in positive, money out positive in its own section, reversals negative. */
+  /** Signed: money in positive, money out positive in its own section; a reversal or refund is negative when money goes back out (a fee cancelled or refunded) and positive when it comes back in (an expense or salary cancelled). */
   total: bigint;
   mode: string;
   reference: string | null;
@@ -64,11 +64,13 @@ export async function dayBookView(tx: Tx, f: DayBookFilter) {
     ...(f.hidePay ? dayBookWithoutPay(f.hidePay) : {}),
   };
   const entries = await tx.dayBookEntry.findMany({ where, orderBy: [{ date: "asc" }, { postedAt: "asc" }] });
+  // Waiting payments in the chosen class: the student was in that class in the payment's year.
+  const inClass = f.waiting && f.classId ? await tx.enrolment.findMany({ where: { classId: f.classId, archivedAt: null }, select: { studentId: true, academicYearId: true } }) : null;
   const waitingPays = f.waiting
-    ? await tx.payment.findMany({
-      where: { status: "WAITING", paymentDate: { gte: f.from, lte: f.to }, ...(f.classId ? { studentId: { in: (await tx.enrolment.findMany({ where: { classId: f.classId, archivedAt: null }, select: { studentId: true } })).map((e) => e.studentId) } } : {}) },
+    ? (await tx.payment.findMany({
+      where: { status: "WAITING", paymentDate: { gte: f.from, lte: f.to }, ...(inClass ? { studentId: { in: inClass.map((e) => e.studentId) } } : {}) },
       orderBy: { paidAt: "asc" },
-    })
+    })).filter((p) => !inClass || !p.academicYearId || inClass.some((e) => e.studentId === p.studentId && e.academicYearId === p.academicYearId))
     : [];
 
   // Names and numbers for each entry.
@@ -83,7 +85,13 @@ export async function dayBookView(tx: Tx, f: DayBookFilter) {
     tx.dayBookEntry.findMany({ where: { reversesEntryId: { in: entries.map((e) => e.id) } }, select: { reversesEntryId: true } }),
     tx.applicationFeePayment.findMany({ where: { id: { in: [...ids("application-fee"), ...ids("application-fee-cancel")] } }, select: { id: true, receiptNo: true, applicationId: true } }),
   ]);
-  const classes = await classOfStudents(tx, [...new Set([...entries.map((e) => e.studentId), ...waitingPays.map((p) => p.studentId)].filter((x): x is string => Boolean(x)))]);
+  // The class an entry was posted with (its own section), so a promoted student's entry shows the class of that payment's year;
+  // entries posted without a section, and payments still waiting, show the class in the payment's year, else this year's.
+  const [sectionOf, classIn] = await Promise.all([
+    classOfSections(tx, entries.map((e) => e.sectionId).filter((x): x is string => Boolean(x))),
+    classInYearOf(tx, [...entries.filter((e) => e.studentId && !e.sectionId).map((e) => ({ studentId: e.studentId! })), ...waitingPays]),
+  ]);
+  const classLabelOf = (e: DayBookEntry) => (e.sectionId ? sectionOf.get(e.sectionId)?.label : undefined) ?? (e.studentId ? classIn(e.studentId)?.label ?? "" : "");
   const acc = new Map(accounts.map((a) => [a.id, a.name]));
   const reversed = new Set(cancelled.map((c) => c.reversesEntryId));
   const numberOf = (e: DayBookEntry) => {
@@ -97,10 +105,10 @@ export async function dayBookView(tx: Tx, f: DayBookFilter) {
   const rows: DayRow[] = entries.map((e) => {
     const source = SECTION_OF[e.section] ?? "income";
     const isRev = e.section === "reversal" || e.section === "refund";
-    const total = isRev ? -e.amountPaise : e.amountPaise;
+    const total = isRev && e.direction === "OUT" ? -e.amountPaise : e.amountPaise;
     return {
       id: e.id, source, section: isRev ? "refunds" : e.section === "salary-advance" ? "salary" : e.section === "online-fees" ? "fees-full" : e.section,
-      date: e.date, at: e.postedAt, who: e.partyName, number: numberOf(e), classLabel: e.studentId ? classes.get(e.studentId)?.label ?? "" : "",
+      date: e.date, at: e.postedAt, who: e.partyName, number: numberOf(e), classLabel: e.studentId ? classLabelOf(e) : "",
       head: e.headName, amount: e.amountPaise - e.penaltyPaise, penalty: e.penaltyPaise, total, mode: e.mode, reference: e.reference,
       account: e.accountId ? acc.get(e.accountId) ?? null : null, depositAccount: e.depositAccountId ? acc.get(e.depositAccountId) ?? null : null,
       note: e.note, waiting: false, cancelled: reversed.has(e.id), studentId: e.studentId, sourceType: e.sourceType, sourceId: e.sourceId,
@@ -109,7 +117,7 @@ export async function dayBookView(tx: Tx, f: DayBookFilter) {
   });
   const waitingRows: DayRow[] = waitingPays.map((p) => ({
     id: `w:${p.id}`, source: "fee", section: p.isPartial ? "fees-partial" : "fees-full", date: p.paymentDate, at: p.paidAt,
-    who: students.find((s) => s.id === p.studentId)?.fullName ?? "Student", number: null, classLabel: classes.get(p.studentId)?.label ?? "",
+    who: students.find((s) => s.id === p.studentId)?.fullName ?? "Student", number: null, classLabel: classIn(p.studentId, p.academicYearId)?.label ?? "",
     head: "Waiting for verification", amount: p.amountPaise - p.lateFeePaise, penalty: p.lateFeePaise, total: p.amountPaise, mode: p.mode, reference: p.reference ?? p.chequeNo,
     account: null, depositAccount: null, note: null, waiting: true, cancelled: false, studentId: p.studentId, sourceType: "payment", sourceId: p.id,
   }));
@@ -153,6 +161,8 @@ export async function dayBookView(tx: Tx, f: DayBookFilter) {
     feesFull: sum(feeIn.filter((r) => r.section !== "fees-partial")), feesPartial: sum(feeIn.filter((r) => r.section === "fees-partial")),
     otherIncome: sum(sections.income.filter((r) => r.total > ZERO)),
     reversed: sum(rows.filter((r) => r.sourceType !== "refund" && r.section === "refunds" && moneyOut.has(r.id))),
+    // Expenses and salary cancelled in view: money back in, taken off Total expense (so it adds up to the Expenses shown).
+    expenseReversed: sum(rows.filter((r) => r.section === "refunds" && !moneyOut.has(r.id))),
     waiting: { count: waitingPays.length, amount: waitingPays.reduce((s, p) => s + p.amountPaise, ZERO) },
     rows: all,
   };

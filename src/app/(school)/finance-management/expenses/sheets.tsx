@@ -98,7 +98,7 @@ export function RecordExpenseSheet(p: ExpenseFormData) {
       <BillPicker required={amt > p.billAbove} help={`Needed above ${inr(p.billAbove)}`} />
       <div className="grid grid-cols-2 gap-3">
         <SMoney name="amount" label="Amount" required onValue={(v) => setAmt(num(v))} help={amt ? (who ? `Goes to ${who}` : "Approved at once") : undefined} />
-        <SDate name="date" label="Date" required start={p.today} />
+        <SDate name="date" label="Date" required start={p.today} max={p.today} />
       </div>
       <SText name="what" label="What was it for" required placeholder="Example: Chalk and dusters for Block B" maxLength={200} />
       <div className={cx("grid gap-3", p.centres && "grid-cols-2")}>
@@ -158,7 +158,7 @@ export function VendorBillSheet({ closeHref, today, heads, lastHead, centres, ve
       <SSelect name="vendorId" label="Vendor" required options={vendors} placeholder="Choose a vendor" help={vendors.length ? undefined : "Add vendors by recording an expense with a new vendor name"} />
       <div className="grid grid-cols-2 gap-3">
         <SText name="billNo" label="Bill number" required placeholder="SSS/1210" maxLength={40} />
-        <SDate name="date" label="Bill date" required start={today} />
+        <SDate name="date" label="Bill date" required start={today} max={today} />
         <SMoney name="amount" label="Amount" required />
         <SDate name="dueDate" label="Due date" required />
       </div>
@@ -183,7 +183,7 @@ export function PaySheet({ closeHref, expenseId, title, sub, left, partial, toda
     <SheetForm title={title} sub={sub} closeHref={closeHref} action={payExpenseAction} submitLabel={`Mark ${inr(amt || 0)} paid`} pendingText="Saving…" hidden={{ expenseId, mode }}>
       {partial && <SMoney name="payAmount" label="Amount" required start={String(left)} onValue={(v) => setAmt(num(v))} help="Pay part now and the rest later, if you like" />}
       <ModeFields prefix="mp" mode={mode} setMode={setMode} cash={cash} banks={banks} mainBank={mainBank} cashInHand={cashInHand} amount={amt} />
-      <SDate name="date" label="Date paid" required start={today} />
+      <SDate name="date" label="Date paid" required start={today} max={today} />
       <Warned />
     </SheetForm>
   );

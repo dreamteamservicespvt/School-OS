@@ -40,10 +40,13 @@ const PERIODS: Option[] = [
   { value: "range", label: "Choose dates" },
 ];
 
-export function ConcessionSheet({ closeHref, student, heads, scholarships, limit, startType }: {
+export function ConcessionSheet({ closeHref, student, heads, startHead, scholarships, limit, startType }: {
   closeHref: string;
   student: { id: string; name: string; classLabel: string };
+  /** The student's own fee heads with something left to pay this year. */
   heads: Option[];
+  /** Chosen at the start: Tuition when the student has it. */
+  startHead: string | null;
   scholarships: string[];
   limit: string;
   startType: string;
@@ -83,7 +86,7 @@ export function ConcessionSheet({ closeHref, student, heads, scholarships, limit
         <p className="text-[12.5px] text-ink3">Up to {limit} applies at once. Above it, the request goes to Approvals and applies once approved.</p>
       </div>
       {type !== "LATE_FEE_WAIVER" ? (
-        heads.length ? <SChips name="feeHeadId" label="Fee heads" required options={heads} start={heads[0] ? [heads[0].value] : []} />
+        heads.length ? <SChips name="feeHeadId" label="Fee heads" required options={heads} start={startHead ? [startHead] : heads[0] ? [heads[0].value] : []} />
           : <Alert tone="info">No fee heads yet. Add them in Fee Structure first.</Alert>
       ) : <p className="text-[13px] text-ink3">Takes off late fees the student has not paid yet.</p>}
       <SArea name="reason" label="Reason" required placeholder="Example: father’s job loss, letter attached" help="Printed on the approval and kept in the audit log." />

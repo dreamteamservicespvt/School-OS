@@ -20,7 +20,7 @@ export function RecordIncomeSheet({ closeHref, today, heads, payers, cash, banks
     <SheetForm title="Record income" sub="For money other than fees" closeHref={closeHref} action={recordIncomeAction}
       submitLabel={post ? "Post to Day Book" : "Save as draft"} pendingText="Saving…" hidden={{ mode, post: post ? "on" : "" }}>
       <div className="grid grid-cols-2 gap-3">
-        <SDate name="date" label="Date" required start={today} />
+        <SDate name="date" label="Date" required start={today} max={today} />
         <SMoney name="amount" label="Amount" required />
       </div>
       <SSelect name="accountHeadId" label="Income head" required options={heads} placeholder="Choose a head" help="From the chart of accounts" />

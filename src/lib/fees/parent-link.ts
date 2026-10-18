@@ -13,6 +13,7 @@ import { gatewayFor } from "./settings";
 import { createPaymentLink, payPath } from "./online";
 import { renderReceipt, renderTaxInvoice } from "./documents";
 import { todayIn } from "../staff/dates";
+import { currentEnrolment } from "../academic/years";
 import { childrenOfGuardian } from "../students/guardian-access";
 
 const ZERO = BigInt(0);
@@ -34,7 +35,7 @@ export async function parentLinkFees(tx: Tx, ctx: SchoolContext, guardianId: str
   for (const s of children) {
     const dues = await allDues(tx, s.id);
     const heads = await tx.feeHead.findMany({ where: { id: { in: dues.map((d) => d.feeHeadId) } } });
-    const enrol = await tx.enrolment.findFirst({ where: { studentId: s.id, archivedAt: null }, orderBy: { createdAt: "desc" } });
+    const enrol = await currentEnrolment(tx, s.id);
     const section = enrol ? await tx.section.findUnique({ where: { id: enrol.sectionId }, include: { schoolClass: true } }) : null;
     const payments = await tx.payment.findMany({ where: { studentId: s.id, status: { in: ["POSTED", "CANCELLED"] } }, orderBy: { paidAt: "desc" }, take: 50 });
     const receipts = await tx.receipt.findMany({ where: { paymentId: { in: payments.map((p) => p.id) } } });

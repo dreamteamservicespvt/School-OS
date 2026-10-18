@@ -9,7 +9,7 @@ import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { requestApproval } from "../approvals";
 import { formatRupees } from "../format";
-import { assertYearOpen } from "../academic/years";
+import { assertYearOpen, currentEnrolment } from "../academic/years";
 import { MoneyProblem } from "./problem";
 import { lockDues, refreshBalances } from "./dues";
 import { feeSettings } from "./settings";
@@ -96,6 +96,24 @@ export async function applyConcession(tx: Tx, ctx: SchoolContext, concessionId: 
   return applied;
 }
 
+/**
+ * The fee heads a new concession can reduce for this student: those with
+ * something still to pay this year (06 Form fields: Concession), with Tuition
+ * chosen at the start when the student has it. With nothing left to pay, every
+ * head, so the person sees why nothing can be reduced.
+ */
+export async function concessionHeadChoices(tx: Tx, studentId: string) {
+  const enrolment = await currentEnrolment(tx, studentId);
+  const [heads, open] = await Promise.all([
+    tx.feeHead.findMany({ where: { archivedAt: null }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true, kind: true } }),
+    tx.studentFeeDue.groupBy({ by: ["feeHeadId"], where: { studentId, state: "OPEN", balancePaise: { gt: 0 }, kind: { in: ["FEE", "CHARGE"] }, ...(enrolment ? { academicYearId: enrolment.academicYearId } : {}) } }),
+  ]);
+  const own = new Set(open.map((o) => o.feeHeadId));
+  const list = own.size ? heads.filter((h) => own.has(h.id)) : heads;
+  const start = list.find((h) => h.kind === "tuition") ?? list.find((h) => /tuition/i.test(h.name)) ?? list[0] ?? null;
+  return { heads: list.map((h) => ({ id: h.id, name: h.name })), startId: start?.id ?? null };
+}
+
 function checkInput(input: ConcessionInput) {
   if (input.reason.trim().length < 5) throw new MoneyProblem("Give a reason of at least 5 characters.", "reason");
   if (input.mode === "percent") {
@@ -112,15 +130,19 @@ function checkInput(input: ConcessionInput) {
  */
 export async function giveConcession(tx: Tx, ctx: SchoolContext, input: ConcessionInput, opts: { forceApproval?: boolean } = {}) {
   checkInput(input);
-  const enrolment = await tx.enrolment.findFirst({ where: { studentId: input.studentId, archivedAt: null }, orderBy: { createdAt: "desc" }, include: { student: true } });
-  if (!enrolment) throw new MoneyProblem("This student is not in a class.");
-  await assertYearOpen(tx, enrolment.academicYearId);
+  // The year of the chosen rows, else the student's class this year (never the enrolment made last).
+  const enrolment = await currentEnrolment(tx, input.studentId);
+  const student = await tx.student.findFirst({ where: { id: input.studentId }, select: { fullName: true } });
+  if (!enrolment || !student) throw new MoneyProblem("This student is not in a class.");
+  const rowYear = input.dueIds?.length ? (await tx.studentFeeDue.findFirst({ where: { id: { in: input.dueIds }, studentId: input.studentId }, select: { academicYearId: true } }))?.academicYearId : null;
+  const academicYearId = rowYear ?? enrolment.academicYearId;
+  await assertYearOpen(tx, academicYearId);
   const settings = await feeSettings(tx, ctx);
   const c = await tx.concession.create({
     data: {
       schoolId: ctx.schoolId,
       studentId: input.studentId,
-      academicYearId: enrolment.academicYearId,
+      academicYearId,
       type: input.type,
       mode: input.mode,
       amountPaise: input.mode === "amount" ? input.amountPaise : BigInt(0),
@@ -153,7 +175,7 @@ export async function giveConcession(tx: Tx, ctx: SchoolContext, input: Concessi
       type: input.type === "SCHOLARSHIP" ? "scholarship" : "concession",
       recordType: "Concession",
       recordId: c.id,
-      summary: `${what} of ${formatRupees(estimate)} for ${enrolment.student.fullName}`,
+      summary: `${what} of ${formatRupees(estimate)} for ${student.fullName}`,
       amountPaise: estimate,
       reason: input.reason,
     });

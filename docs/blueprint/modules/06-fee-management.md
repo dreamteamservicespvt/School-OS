@@ -90,6 +90,7 @@ Other actions:
   - **Partial payments:** payments that did not clear a row fully, with balance, reference, slip, recorded date and settled date.
   - **Invoices:** fee invoices raised (inferred: one per installment or on demand).
   - **Adjustments:** concessions, scholarships, late fees, waivers, reversals and refunds, each with reason and approver.
+- **Balance now:** what has fallen due by today, less what is paid, and an installment already paid towards. A later installment stays under **Coming up**, at its reduced amount when it has a concession, so a concession never makes next term's fee look owed today (18 October 2026).
 - **Opening balance:** dues carried in from before (old dues), shown as their own row.
 - **Brought-in receipts:** past receipts imported from the old software, shown in Payments marked **Brought in**, read-only (decided 9 October 2026, D7).
 - **On Parent Link:** the guardian sees this ledger's fees due with a **Pay** button (Razorpay) and can download receipts and tax invoices. Parent Link is read-only apart from paying (the page is owned by Communication, decided 9 October 2026, D4).
@@ -216,7 +217,7 @@ Other actions:
 | Student | Yes | The student open on screen | |
 | Type | Yes | Discount | Discount, scholarship, sibling, staff child (inferred list) |
 | Amount or % | Yes | | |
-| Fee heads | Yes | Tuition (inferred) | |
+| Fee heads | Yes | Tuition (inferred) | Only the heads the student still has something to pay on this year (18 October 2026) |
 | Period | Yes | Rest of this year | |
 | Reason | Yes | | |
 | Document | No | | |

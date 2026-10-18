@@ -3,7 +3,7 @@
 // person has full Salary Management; HR's View gets the days report only.
 import type { Tx } from "../db";
 import type { ExportColumn } from "../exports";
-import { formatRupees } from "../format";
+import { formatDate, formatRupees } from "../format";
 import { firstOfMonth, monthName } from "./words";
 
 export const SALARY_REPORTS = [
@@ -47,7 +47,7 @@ export async function buildSalaryReport(tx: Tx, key: SalaryReportKey, o: { from:
     return {
       title: def.title,
       columns: [col("Month", "m"), ...(many ? [col("Campus", "c")] : []), col("Staff", "s"), col("Gross", "g"), col("Deductions", "d"), col("Net", "n"), col("Employer PF", "epf"), col("Employer ESI", "eesi"), col("Status", "st"), col("Paid on", "p")],
-      rows: runs.map((x) => ({ m: monthName(x.month), c: campus.get(x.campusId) ?? "", s: x.staffCount, g: r(x.grossPaise), d: r(x.deductionsPaise), n: r(x.netPaise), epf: r(x.employerPfPaise), eesi: r(x.employerEsiPaise), st: x.status.charAt(0) + x.status.slice(1).toLowerCase(), p: x.paidOn ? x.paidOn.toISOString().slice(0, 10) : "" })),
+      rows: runs.map((x) => ({ m: monthName(x.month), c: campus.get(x.campusId) ?? "", s: x.staffCount, g: r(x.grossPaise), d: r(x.deductionsPaise), n: r(x.netPaise), epf: r(x.employerPfPaise), eesi: r(x.employerEsiPaise), st: x.status.charAt(0) + x.status.slice(1).toLowerCase(), p: x.paidOn ? formatDate(x.paidOn) : "" })),
     };
   }
   if (key === "trends") {

@@ -10,7 +10,7 @@ import { requestApproval } from "../approvals";
 import { formatDate, formatRupees } from "../format";
 import { postToDayBook } from "../finance/daybook";
 import { accountForMode, systemHead } from "../finance/settings";
-import { assertBooksOpen } from "../finance/years";
+import { assertBooksOpen, assertNotFuture } from "../finance/years";
 import { MoneyProblem } from "./problem";
 import { lockDues, refreshBalances, studentCard } from "./dues";
 import { modeLabel } from "./words";
@@ -73,6 +73,7 @@ export async function markRefunded(tx: Tx, ctx: SchoolContext, refundId: string,
   if (r.status === "REFUNDED") throw new MoneyProblem("This refund is already marked refunded.");
   if (r.status !== "APPROVED") throw new MoneyProblem("A refund can be paid only after it is approved.");
   if (r.mode !== "CASH" && !input.reference) throw new MoneyProblem(`Enter the ${r.mode === "CHEQUE" ? "cheque number" : "transaction or UTR number"}.`, "reference");
+  await assertNotFuture(tx, ctx, input.date, "date", "The date refunded");
   await assertBooksOpen(tx, ctx, input.date, "date");
   const p = await tx.payment.findUniqueOrThrow({ where: { id: r.paymentId }, include: { allocations: { orderBy: { createdAt: "desc" } } } });
   if (p.status !== "POSTED") throw new MoneyProblem("The payment was cancelled, so nothing can be refunded from it.");

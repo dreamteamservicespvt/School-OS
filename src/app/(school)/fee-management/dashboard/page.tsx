@@ -138,7 +138,7 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
       <Stack>
         <Band items={[
           { label: "Collected today", big: formatRupees(tiles.today.amount), foot: `${tiles.today.count} ${tiles.today.count === 1 ? "payment" : "payments"} · ${data.upiToday} by UPI`, href: `${HREF}#recent` },
-          { label: "Collected this year", big: formatRupeesShort(tiles.year.paid), foot: `of ${formatRupeesShort(tiles.year.due)} due so far · ${Math.round(tiles.year.percent)}%`, href: `${HREF}#by-class` },
+          { label: "Collected this year", big: formatRupeesShort(tiles.year.paid), foot: tiles.year.due > BigInt(0) ? `of ${formatRupeesShort(tiles.year.due)} due so far · ${Math.round(tiles.year.percent)}%` : "Nothing is due yet this year", href: `${HREF}#by-class` },
           { label: "Pending", big: formatRupeesShort(tiles.pending), foot: tiles.nextDue ? `Not late yet · next due ${formatDate(tiles.nextDue)}` : "Nothing falls due in the next 30 days", href: p.may("reports") ? `${BASE}/reports?r=outstanding` : undefined },
           { label: "Overdue", big: formatRupeesShort(tiles.overdue), foot: `${tiles.overdueStudents} ${tiles.overdueStudents === 1 ? "student" : "students"} · ${tiles.over30} over 30 days`, href: p.may("defaulters") ? `${BASE}/defaulters` : undefined },
         ]} />
@@ -159,7 +159,7 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
             <CardHeader title="Monthly collection" description={`Collected against due, ${p.year?.name ?? "this year"} (₹ lakh)`} icon={ChartColumn} />
             <div className="px-5 pb-1 flex items-baseline gap-3 flex-wrap">
               <p className="font-display text-[28px] font-semibold tnum">{formatRupeesShort(collectedSoFar)}</p>
-              <p className="text-[13px] text-ink3">of {formatRupeesShort(dueSoFar)} due so far · <span className="text-ok font-semibold">{pct(collectedSoFar, dueSoFar)}%</span></p>
+              <p className="text-[13px] text-ink3">{dueSoFar > BigInt(0) ? <>of {formatRupeesShort(dueSoFar)} due so far · <span className="text-ok font-semibold">{pct(collectedSoFar, dueSoFar)}%</span></> : "Nothing is due yet this year"}</p>
             </div>
             <div className="px-3 pb-2">
               {trend.length ? <Bars data={trend.map((m) => ({ k: m.label, v: Math.round(lakh(m.collected) * 100) / 100, v2: Math.round(lakh(m.due) * 100) / 100, tip: `${m.label}: ${formatRupees(m.collected)} collected of ${formatRupees(m.due)} due` }))}

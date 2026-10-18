@@ -1,7 +1,10 @@
 import { getCurrent } from "@/lib/current";
 import { withSchool } from "@/lib/db";
 import { abilities, studentScope } from "@/lib/students/access";
-import { feeViewer, studentScope as feeStudentScope } from "@/lib/fees/access";
+import { feePageAllowedFor, feeViewer, studentScope as feeStudentScope } from "@/lib/fees/access";
+import { feeIntent, findStudents as findFeeStudents } from "@/lib/fees/find";
+import { todayIn } from "@/lib/staff/dates";
+import { doesWork } from "@/lib/duty";
 import { formatDate, formatRupees } from "@/lib/format";
 import { staffScope, viewerFor } from "@/lib/staff/access";
 import { currentYear } from "@/lib/academic/years";
@@ -15,7 +18,8 @@ export const dynamic = "force-dynamic";
  * (one letter wrong allowed), admission or roll number, or parent name or
  * phone; parents by name or phone; staff by name, code or phone; and fee
  * receipts by number (including an old software's receipt number). Only
- * records this person may open are returned.
+ * records this person may open are returned. "fee Ravi" also offers Collect
+ * Fee for each Ravi, for people who collect fees (feeIntent).
  */
 export async function GET(req: Request) {
   const current = await getCurrent();
@@ -23,7 +27,12 @@ export async function GET(req: Request) {
   if (!(await hitLimit(`search:${current.user.id}`, 120, 60)).ok) return Response.json({ problem: "Too many searches. Wait a moment." }, { status: 429 });
 
   const q = (new URL(req.url).searchParams.get("q") ?? "").trim().slice(0, 60);
-  if (q.length < 2) return Response.json({ students: [], staff: [], parents: [], receipts: [] });
+  if (q.length < 2) return Response.json({ students: [], staff: [], parents: [], receipts: [], collect: [] });
+  const feeName = feeIntent(q);
+  // Only for people who sit at the fee counter (src/lib/duty.ts): the Principal reads fees but does not collect.
+  const forCollect = feeName !== null && feePageAllowedFor(current, "collect") && doesWork(current, "fee-management", "collect");
+  // With "fee <name>", the people searches look for the name.
+  const who = forCollect ? feeName : q;
   const digits = q.replace(/\D/g, "");
   const phone = digits.length >= 4 ? digits : null;
 
@@ -36,7 +45,17 @@ export async function GET(req: Request) {
     // admission or roll number; parents' names and phones only for people who see parents).
     const seeParents = canStudents && abilities(current).seeParents;
     const students = canStudents
-      ? await findStudents(tx, q, { scope: await studentScope(tx, current, year?.id), yearId: year?.id ?? null, statuses: "any", byParent: seeParents, take: 6 })
+      ? await findStudents(tx, who, { scope: await studentScope(tx, current, year?.id), yearId: year?.id ?? null, statuses: "any", byParent: seeParents, take: 6 })
+      : [];
+
+    // "fee <name>": Collect Fee for each student found, within the person's fee reach, with what is due now.
+    const collect = forCollect
+      ? (await findFeeStudents(tx, await feeViewer(tx, current.ctx, current), who, todayIn(current.school?.timeZone ?? "Asia/Kolkata"), 4)).map((s) => ({
+          id: s.id,
+          name: s.name,
+          sub: [s.classSection, s.admissionNo, s.due > BigInt(0) ? `${formatRupees(s.due)} due${s.overdue ? ", overdue" : ""}` : "Nothing due now"].join(" · "),
+          href: `/fee-management/collect/${s.id}`,
+        }))
       : [];
 
     const viewer = canStaff ? await viewerFor(tx, current.ctx, current) : null;
@@ -93,6 +112,7 @@ export async function GET(req: Request) {
       : [];
 
     return {
+      collect,
       parents: parents.map((g) => ({ id: g.id, name: g.name, sub: [g.relationship, g.phone, g.students.map((s) => s.student.fullName).join(", ")].filter(Boolean).join(" · "), href: `/student-management/guardians/${g.id}` })),
       receipts,
       students: students.map((s) => ({

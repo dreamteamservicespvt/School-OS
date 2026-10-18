@@ -140,6 +140,8 @@ export async function referAction(_prev: FormState, fd: FormData): Promise<FormS
 async function visibleCase(tx: Tx, who: Who & { ctx: { userId: string | null } }, seeCounselling: boolean, caseId: string) {
   const c = await tx.counsellingCase.findFirst({ where: { id: caseId, archivedAt: null } });
   if (!c || (!seeCounselling && c.counsellorId !== who.ctx.userId)) throw new StudentProblem("This case was not found.");
+  // A person limited to one campus: only that campus's students' cases.
+  if (who.campusId && !(await tx.student.count({ where: { id: c.studentId, campusId: who.campusId } }))) throw new StudentProblem("This case was not found.");
   return c;
 }
 

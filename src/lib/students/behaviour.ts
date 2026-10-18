@@ -6,7 +6,7 @@ import "server-only";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { notify } from "../notifications";
-import { currentYear, assertYearOpen } from "../academic/years";
+import { studentYear, assertYearOpen } from "../academic/years";
 import { decryptField, encryptField } from "../crypto";
 import { getStudentSettings } from "./settings";
 import { StudentProblem } from "./students";
@@ -41,7 +41,8 @@ export async function reportIncident(tx: Tx, ctx: SchoolContext, input: NewIncid
     if (input.suspensionTo < input.suspensionFrom) throw new StudentProblem("The to date is before the from date.", "suspensionTo");
     if (!input.approvedBy?.trim()) throw new StudentProblem("Say who approved the suspension.", "approvedBy");
   }
-  const year = await currentYear(tx, ctx);
+  // The year of the students' own campus (a school's campuses can start the year on different dates).
+  const year = await studentYear(tx, ctx, ids[0]);
   if (!year) throw new StudentProblem("No academic year is open. Open one in Academic Management.");
   await assertYearOpen(tx, year.id);
 

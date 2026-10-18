@@ -4,7 +4,7 @@ import { logExport } from "@/lib/exports";
 import { PermissionDeniedError, reachFor } from "@/lib/permissions";
 import { dateWhere, periodFromSearch } from "@/lib/periods";
 import { getStudentSettings } from "@/lib/students/settings";
-import { abilities } from "@/lib/students/access";
+import { abilities, visibleStudentIds } from "@/lib/students/access";
 import { CERTIFICATE_LABEL } from "@/lib/students/labels";
 import { digiLockerCsv } from "@/lib/students/digilocker";
 import { sectionNames } from "../../_lib/queries";
@@ -30,8 +30,9 @@ export async function GET(req: Request) {
     const can = abilities(current, settings);
     if (!settings.digiLockerOn) return { error: "The DigiLocker file is switched off in Student Settings.", status: 404 } as const;
     if (!can.manage) return { error: "You do not have permission to export certificates.", status: 403 } as const;
+    const mine = await visibleStudentIds(tx, current);
     const certs = await tx.certificate.findMany({
-      where: { status: "ISSUED", number: { not: null }, ...(range ? { issueDate: dateWhere(range) } : {}) },
+      where: { status: "ISSUED", number: { not: null }, ...(range ? { issueDate: dateWhere(range) } : {}), ...(mine ? { studentId: { in: mine } } : {}) },
       orderBy: [{ issueDate: "asc" }, { number: "asc" }], take: 20000,
     });
     const students = await tx.student.findMany({

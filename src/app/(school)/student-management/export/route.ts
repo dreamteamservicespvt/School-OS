@@ -4,7 +4,8 @@ import { buildExport, exportResponse, logExport, type ExportColumn, type ExportF
 import { readListParams } from "@/lib/list";
 import { formatDate } from "@/lib/format";
 import { PermissionDeniedError, reachFor } from "@/lib/permissions";
-import { currentYear } from "@/lib/academic/years";
+import { currentYear, yearsFor } from "@/lib/academic/years";
+import { personCampusId } from "@/lib/campus";
 import { getStudentSettings } from "@/lib/students/settings";
 import { abilities } from "@/lib/students/access";
 import { STATUS_LABEL } from "@/lib/students/labels";
@@ -34,9 +35,11 @@ export async function GET(req: Request) {
   const file = await withSchool(current.ctx, async (tx) => {
     const settings = await getStudentSettings(tx, current.ctx);
     const can = abilities(current, settings);
-    const year = await currentYear(tx, current.ctx);
-    const where = await studentListWhere(tx, current, params, year?.id ?? null, year?.startDate ?? null, settings);
-    const students = await tx.student.findMany({ where, include: studentListInclude(year?.id ?? null), orderBy: { fullName: "asc" }, take: 10000 });
+    // The list's students, each with their class in their own campus's current year; only their campus for a person limited to one.
+    const year = await currentYear(tx, current.ctx, await personCampusId(tx, current.ctx, current));
+    const yearIds = (await yearsFor(tx, current.ctx, current.campusId)).map((y) => y.id);
+    const where = await studentListWhere(tx, current, params, yearIds, year?.startDate ?? null, settings);
+    const students = await tx.student.findMany({ where, include: studentListInclude(yearIds), orderBy: { fullName: "asc" }, take: 10000 });
     const names = await sectionNames(tx, students.flatMap((s) => s.enrolments.map((e) => e.sectionId)));
     const chosen = new Set(url.searchParams.getAll("f"));
     const allowed = EXPORT_FIELDS.filter((f) => (!f.restricted || can.seeRestricted) && fieldAllowed(f.key, can) && (chosen.size ? chosen.has(f.key) : f.default));

@@ -6,7 +6,7 @@ import { readListParams, listHref, orderByFor } from "@/lib/list";
 import { formatDate, formatRupees } from "@/lib/format";
 import { BUILT_MODULES } from "@/lib/modules";
 import { can } from "@/lib/permissions";
-import { listFacts, feeFilterAvailable } from "@/lib/students/hooks";
+import { listFactsByYear, feeFilterAvailable } from "@/lib/students/hooks";
 import { admissionOnlyFor } from "@/lib/fees/access";
 import { phoneShow, classShort } from "@/lib/students/show";
 import { CATEGORIES, GENDERS, LIST_COLUMNS, STATUS_LABEL, STUDENT_STATUSES, type StudentStatusKey } from "@/lib/students/labels";
@@ -22,7 +22,7 @@ import { MoreMenu } from "@/components/ui/more-menu";
 import { BASE, studentPage } from "./_lib/page";
 import { StudentsHead } from "./_lib/head";
 import { EXPORT_FIELDS, fieldAllowed } from "./_lib/export-fields";
-import { classTiles, LIST_FILTERS, mainGuardian, photoSrc, sectionNames, studentListInclude, studentListWhere, type ListStudent } from "./_lib/queries";
+import { classTiles, LIST_FILTERS, mainGuardian, photoSrc, sectionNames, studentListInclude, studentListWhere, studentsByYear, type ListStudent } from "./_lib/queries";
 
 export const metadata: Metadata = { title: "Student List" };
 
@@ -31,11 +31,12 @@ type Row = ListStudent & { sectionLabel: string; photo: string | null; att: numb
 const STEP = 25;
 
 export default async function StudentListPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const { current, settings, year, can: ab, tz } = await studentPage();
+  const { current, settings, year, years, yearIds, can: ab, tz } = await studentPage();
   const raw = await searchParams;
   const params = readListParams(raw, LIST_FILTERS);
   const shownCount = Math.min(500, Math.max(STEP, Number.parseInt(String(raw.n ?? ""), 10) || STEP));
-  const yearId = year?.id ?? null;
+  // Each student's class is in their own campus's current year (two campuses can start the year on different dates).
+  const yearId = yearIds;
   const feesOn = feeFilterAvailable();
   if (!feesOn) delete params.filters.fee;
 
@@ -48,7 +49,7 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
       students = await tx.student.findMany({ where, include: studentListInclude(yearId), orderBy: orderBy as object, take: shownCount });
     } else {
       // Class, section and roll order, as on the class register (design: students.jsx).
-      const keys = await tx.student.findMany({ where, select: { id: true, fullName: true, enrolments: { where: { archivedAt: null, ...(yearId ? { academicYearId: yearId } : {}) }, take: 1, select: { classId: true, sectionId: true, rollNo: true } } } });
+      const keys = await tx.student.findMany({ where, select: { id: true, fullName: true, enrolments: { where: { archivedAt: null, ...(yearId.length ? { academicYearId: { in: yearId } } : {}) }, take: 1, select: { classId: true, sectionId: true, rollNo: true } } } });
       const classOrder = new Map(tiles.map((t, i) => [t.id, i]));
       const secNames = await sectionNames(tx, keys.flatMap((k) => k.enrolments.map((e) => e.sectionId)));
       const rank = (k: (typeof keys)[number]) => {
@@ -65,7 +66,7 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
       students = ids.map((id) => byId.get(id)!).filter(Boolean);
     }
     const names = await sectionNames(tx, students.flatMap((s) => s.enrolments.map((e) => e.sectionId)));
-    const facts = await listFacts(tx, current.ctx, students.map((s) => s.id), yearId);
+    const facts = await listFactsByYear(tx, current.ctx, studentsByYear(students, years.length ? years : year ? [year] : []));
     // Class, section and roll order, as on the class register; sorting by a column keeps that column's order.
     const rows: Row[] = students.map((s) => {
       const f = facts.facts.get(s.id);

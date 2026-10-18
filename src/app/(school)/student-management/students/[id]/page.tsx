@@ -50,7 +50,7 @@ export default async function StudentProfilePage({ params, searchParams }: { par
   const s = p.student;
   const status = s.status as StudentStatusKey;
   const href = `${BASE}/students/${id}`;
-  const args = { current, studentId: id, academicYearId: yearId, searchParams: { month: typeof month === "string" ? month : undefined } };
+  const args = { current, studentId: id, academicYearId: p.yearId, searchParams: { month: typeof month === "string" ? month : undefined } };
 
   const view = can.view;
   const back = <BackLink href={p.now ? `${BASE}?class=${p.now.classId}&section=${p.now.sectionId}` : BASE} label="Students" sub={p.now?.section ? classShort(p.now.section.schoolClass.name, p.now.section.name) : undefined} />;

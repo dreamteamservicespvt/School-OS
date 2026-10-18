@@ -116,6 +116,20 @@ export async function listFacts(tx: Tx, ctx: SchoolContext, studentIds: string[]
   return { facts: out, has };
 }
 
+/**
+ * The same facts when the students are in different years: each campus's
+ * students in their own campus's current year (year id -> student ids).
+ */
+export async function listFactsByYear(tx: Tx, ctx: SchoolContext, byYear: Map<string, string[]>) {
+  const out = new Map<string, ListFacts>();
+  const has = { attendance: listFactProviders.some((p) => p.covers.attendance), fees: listFactProviders.some((p) => p.covers.fees) };
+  for (const [yearId, ids] of byYear) {
+    const part = await listFacts(tx, ctx, ids, yearId);
+    for (const [id, f] of part.facts) out.set(id, f);
+  }
+  return { facts: out, has };
+}
+
 type FeeFilterFn = (tx: Tx, ctx: SchoolContext, q: { academicYearId: string; kind: "dues" | "overdue" }) => Promise<string[]>;
 let feeFilter: FeeFilterFn | null = null;
 export function registerFeeFilter(fn: FeeFilterFn) {

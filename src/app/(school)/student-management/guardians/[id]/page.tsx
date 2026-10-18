@@ -19,11 +19,11 @@ import { ActionForm, FormArea, FormSelect } from "@/components/students/action-f
 import { ActionButton, ConfirmAction } from "@/components/students/confirm-action";
 import { consentRows, consentState } from "@/lib/students/consent";
 import { parentLinkProvider, parentLinkStatus } from "@/lib/students/guardians";
-import { listFacts } from "@/lib/students/hooks";
+import { listFactsByYear } from "@/lib/students/hooks";
 import { CONSENT_STATUS_LABEL, CONSENT_TYPES, STATUS_LABEL, STATUS_TONE, languageLabel } from "@/lib/students/labels";
 import { classShort, phoneShow } from "@/lib/students/show";
 import { BASE, studentPage } from "../../_lib/page";
-import { sectionNames } from "../../_lib/queries";
+import { sectionNames, studentsByYear } from "../../_lib/queries";
 import { consentRequestAction, parentLinkAction, setPrimaryAction, withdrawConsentAction } from "../../_actions/guardians";
 import { admissionOnlyFor } from "@/lib/fees/access";
 import { visibleGuardianFor } from "../load";
@@ -35,20 +35,21 @@ const stateWord = (s: keyof typeof TONE) => s === "NONE" ? "Not given" : CONSENT
 
 export default async function Parent360({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { current, year, can, tz } = await studentPage();
+  const { current, year, years, yearIds, can, tz } = await studentPage();
   if (!can.seeParents) redirect(BASE);
   const provider = parentLinkProvider();
   const data = await withSchool(current.ctx, async (tx) => {
     const g = await visibleGuardianFor(tx, current, id);
     if (!g) return null;
-    const links = await tx.studentGuardian.findMany({ where: { guardianId: id, archivedAt: null }, orderBy: { createdAt: "asc" }, include: { student: { include: { enrolments: { where: { archivedAt: null, ...(year ? { academicYearId: year.id } : {}) }, take: 1 } } } } });
+    // Each child's class in their own campus's current year; one campus: only that campus's children.
+    const links = await tx.studentGuardian.findMany({ where: { guardianId: id, archivedAt: null, ...(current.campusId ? { student: { campusId: current.campusId } } : {}) }, orderBy: { createdAt: "asc" }, include: { student: { include: { enrolments: { where: { archivedAt: null, ...(yearIds.length ? { academicYearId: { in: yearIds } } : {}) }, take: 1 } } } } });
     const names = await sectionNames(tx, links.flatMap((l) => l.student.enrolments.map((e) => e.sectionId)));
     const consents = (await consentRows(tx, current.ctx, { guardianIds: [id] })).sort((a, b) => a.studentId.localeCompare(b.studentId) || a.consentType.localeCompare(b.consentType));
     const texts = await tx.consentText.findMany({ where: { id: { in: consents.map((c) => c.consentTextId).filter((x): x is string => Boolean(x)) } } });
     const docs = can.seeDocuments ? await tx.studentDocument.findMany({ where: { guardianId: id, archivedAt: null }, orderBy: { createdAt: "desc" } }) : [];
     const link = provider ? (await parentLinkStatus(tx, current.ctx, [id])).get(id) ?? null : null;
     const merged = g.archivedAt ? await tx.guardianMerge.findFirst({ where: { mergedId: id } }) : null;
-    const facts = await listFacts(tx, current.ctx, links.map((l) => l.studentId), year?.id ?? null);
+    const facts = await listFactsByYear(tx, current.ctx, studentsByYear(links.map((l) => l.student), years.length ? years : year ? [year] : []));
     return { g, links, names, consents, texts, docs, link, merged, facts };
   });
   if (!data) notFound();

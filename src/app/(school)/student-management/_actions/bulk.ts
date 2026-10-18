@@ -11,6 +11,7 @@ import type { FormState } from "@/lib/forms";
 import { applyBulkUpdate, bulkChangeSection, matchPhotos, previewBulkUpdate, saveBulkPhotos, type BulkRow, type PhotoMatch } from "@/lib/students/bulk";
 import { generateLogins, loginsCsv } from "@/lib/students/logins";
 import { loadVisibleStudent } from "@/lib/students/access";
+import { campusAllows, sectionCampusId } from "@/lib/campus";
 import { BULK_FIELDS } from "@/lib/students/labels";
 import { MAX_FILE_BYTES } from "@/lib/files";
 import { BASE, attemptForm, origin, studentAction } from "../_lib/page";
@@ -62,6 +63,8 @@ export async function bulkSectionAction(_prev: FormState, fd: FormData): Promise
   const r = await attemptForm({ toSectionId: to }, async () => {
     out = await withSchool(current.ctx, async (tx) => {
       for (const id of ids) await loadVisibleStudent(tx, current, id);
+      // One campus: only that campus's sections.
+      if (!campusAllows(current, await sectionCampusId(tx, to))) throw new StudentProblem("Choose a section of your campus.", "toSectionId");
       return bulkChangeSection(tx, current.ctx, ids, to);
     }, { timeout: 120_000 });
   });
@@ -83,8 +86,8 @@ export async function bulkPhotosAction(_prev: FormState, fd: FormData): Promise<
   let result = { saved: 0, skipped: [] as string[] };
   const r = await attemptForm({}, async () => {
     await withSchool(current.ctx, async (tx) => {
-      matches = await matchPhotos(tx, files.map((f) => f.name));
-      if (step === "save") result = await saveBulkPhotos(tx, current.ctx, files, { replaceExisting, skip });
+      matches = await matchPhotos(tx, files.map((f) => f.name), current.campusId);
+      if (step === "save") result = await saveBulkPhotos(tx, current.ctx, files, { replaceExisting, skip, campusId: current.campusId });
     }, { timeout: 300_000 });
   });
   if (!r?.ok) return r as FormState<never>;

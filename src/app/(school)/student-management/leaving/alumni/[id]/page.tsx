@@ -10,6 +10,7 @@ import { Col, DL, Row, Split } from "@/components/ui/blocks";
 import { ButtonLink } from "@/components/ui/button";
 import { ActionForm, FormArea, FormCheck, FormText } from "@/components/students/action-form";
 import { BASE, studentPage, todayIso } from "../../../_lib/page";
+import { campusAllows } from "@/lib/campus";
 import { addDonationAction, saveAlumniAction } from "../../../_actions/leaving";
 
 export const metadata: Metadata = { title: "Alumni record" };
@@ -23,6 +24,9 @@ export default async function AlumniRecordPage({ params }: { params: Promise<{ i
   const data = await withSchool(current.ctx, async (tx) => {
     const a = await tx.alumniRecord.findFirst({ where: { id, archivedAt: null }, include: { donations: { orderBy: { date: "desc" } }, mentorings: { where: { archivedAt: null } } } });
     if (!a) return null;
+    // One campus: that campus's alumni only.
+    const st = await tx.student.findFirst({ where: { id: a.studentId }, select: { campusId: true } });
+    if (!campusAllows(current, st?.campusId)) return null;
     const students = await tx.student.findMany({ where: { id: { in: [a.studentId, ...a.mentorings.map((m) => m.studentId)] } }, select: { id: true, fullName: true, admissionNo: true } });
     return { a, students };
   });

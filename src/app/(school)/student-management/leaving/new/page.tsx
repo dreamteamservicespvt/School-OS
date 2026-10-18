@@ -16,11 +16,11 @@ export const metadata: Metadata = { title: "Start leaving" };
 
 /** Start leaving (03 §2): transfer or withdrawal with reason, last date, destination school and documents. */
 export default async function StartLeavingPage({ searchParams }: { searchParams: Promise<{ student?: string }> }) {
-  const { current, settings, year, can, tz } = await studentPage();
+  const { current, settings, yearIds, can, tz } = await studentPage();
   if (!can.manage) redirect(`${BASE}/leaving`);
   const sp = await searchParams;
   const data = await withSchool(current.ctx, async (tx) => {
-    const sections = await sectionOptions(tx, current, year?.id);
+    const sections = await sectionOptions(tx, current, yearIds);
     const s = sp.student && /^[0-9a-f-]{36}$/i.test(sp.student) ? await loadVisibleStudent(tx, current, sp.student).catch(() => null) : null;
     return { sections, initial: s ? [{ id: s.id, name: s.fullName, admissionNo: s.admissionNo, cls: "" }] : [] };
   });

@@ -16,11 +16,11 @@ import { referAction } from "../../../_actions/behaviour";
 export const metadata: Metadata = { title: "Refer to counselling" };
 
 export default async function ReferPage({ searchParams }: { searchParams: Promise<{ student?: string; incident?: string }> }) {
-  const { current, settings, year, can } = await studentPage();
+  const { current, settings, yearIds, can } = await studentPage();
   if (!settings.counsellingOn || !can.contribute) redirect(`${BASE}/behaviour`);
   const sp = await searchParams;
   const data = await withSchool(current.ctx, async (tx) => {
-    const sections = await sectionOptions(tx, current, year?.id, { own: can.reach === "own" });
+    const sections = await sectionOptions(tx, current, yearIds, { own: can.reach === "own" });
     const s = sp.student ? await loadVisibleStudent(tx, current, sp.student).catch(() => null) : null;
     return { sections, initial: s ? [{ id: s.id, name: s.fullName, admissionNo: s.admissionNo, cls: "" }] : [], people: await counsellors(tx, current.ctx) };
   });

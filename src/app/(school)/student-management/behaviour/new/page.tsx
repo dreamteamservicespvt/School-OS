@@ -12,16 +12,16 @@ import { loadVisibleStudent } from "@/lib/students/access";
 export const metadata: Metadata = { title: "Report incident" };
 
 export default async function ReportIncidentPage({ searchParams }: { searchParams: Promise<{ student?: string }> }) {
-  const { current, settings, year, can, tz } = await studentPage();
+  const { current, settings, yearIds, can, tz } = await studentPage();
   if (!can.contribute || !can.seeBehaviour) redirect(`${BASE}/behaviour`);
   const { student } = await searchParams;
   const data = await withSchool(current.ctx, async (tx) => {
-    const sections = await sectionOptions(tx, current, year?.id, { own: can.reach === "own" });
+    const sections = await sectionOptions(tx, current, yearIds, { own: can.reach === "own" });
     let initial: { id: string; name: string; admissionNo: string; cls: string }[] = [];
     if (student) {
       const s = await loadVisibleStudent(tx, current, student).catch(() => null);
       if (s) {
-        const e = year ? await tx.enrolment.findFirst({ where: { studentId: s.id, academicYearId: year.id, archivedAt: null } }) : null;
+        const e = yearIds.length ? await tx.enrolment.findFirst({ where: { studentId: s.id, academicYearId: { in: yearIds }, archivedAt: null } }) : null;
         initial = [{ id: s.id, name: s.fullName, admissionNo: s.admissionNo, cls: e ? sections.find((x) => x.value === e.sectionId)?.label ?? "" : "" }];
       }
     }

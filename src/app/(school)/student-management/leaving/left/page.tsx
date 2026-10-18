@@ -13,6 +13,7 @@ import { ListToolbar } from "@/components/list/list-toolbar";
 import { DataList, cardPill, type DataColumn } from "@/components/ui/data-list";
 import { shortDate, shownCount } from "@/lib/students/show";
 import { BASE, studentPage } from "../../_lib/page";
+import { visibleStudentIds } from "@/lib/students/access";
 import { StudentsHead } from "../../_lib/head";
 import { CERT_LABEL, LEAVING_TYPE_LABEL, studentFacts, tcFor } from "../load";
 import { leavingTabs } from "../sub-tabs";
@@ -34,8 +35,11 @@ export default async function LeftPage({ searchParams }: { searchParams: Promise
   const data = await withSchool(current.ctx, async (tx) => {
     const f = params.filters;
     const nameIds = params.q ? await studentIdsForFilter(tx, params.q) : null;
+    // One campus: that campus's students only.
+    const mine = await visibleStudentIds(tx, current);
     const where: Prisma.LeavingRequestWhereInput = {
       status: f.status === "CANCELLED" ? "CANCELLED" : "LEFT",
+      ...(mine ? { AND: [{ studentId: { in: mine } }] } : {}),
       ...(f.type ? { type: f.type as "TRANSFER" } : {}),
       ...(range ? { lastDate: dateWhere(range) } : {}),
       ...(nameIds ? { studentId: { in: nameIds } } : {}),

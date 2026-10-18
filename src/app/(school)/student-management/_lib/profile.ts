@@ -11,6 +11,7 @@ import { loadVisibleStudent, noteVisible, studentScope, type ProfileView, type S
 import { emergencyList, previousSchoolLocked } from "@/lib/students/students";
 import { pointsTotal } from "@/lib/students/behaviour";
 import { pickupList } from "@/lib/students/guardians";
+import { currentYear } from "@/lib/academic/years";
 import type { ResolvedSettings } from "@/lib/students/settings";
 
 /** The student row with the parts this person may not see taken out (ProfileView). */
@@ -29,9 +30,11 @@ export function redactStudent<T extends Record<string, unknown> & { customFields
   return { ...out, customFields: extra };
 }
 
-export async function loadProfile(tx: Tx, current: Current, id: string, can: StudentAbilities, settings: ResolvedSettings, yearId: string | null) {
+export async function loadProfile(tx: Tx, current: Current, id: string, can: StudentAbilities, settings: ResolvedSettings, fallbackYearId: string | null) {
   const v = can.view;
   const student = redactStudent(await loadVisibleStudent(tx, current, id), v);
+  // "This year" for a student is their own campus's current year (two campuses can start the year on different dates).
+  const yearId = (await currentYear(tx, current.ctx, student.campusId))?.id ?? fallbackYearId;
   const none = <T,>(x: T) => Promise.resolve(x);
   const [enrolments, links, emergency, previous, identifiers, notes, customFields, docs, leaving, incidentsCount, points, openSuspension, roles, photoOk, pickups, lockedYear] = await Promise.all([
     tx.enrolment.findMany({ where: { studentId: id }, orderBy: { createdAt: "desc" } }),
@@ -93,6 +96,8 @@ export async function loadProfile(tx: Tx, current: Current, id: string, can: Stu
 
   return {
     student,
+    /** The student's own campus's current year, for this year's class and the other modules' tabs. */
+    yearId,
     photo: student.photoFileId ? fileLink(student.photoFileId, current.ctx.schoolId) : null,
     /** A parent withdrew photo consent: the photo is hidden from the gallery and social posts. */
     photoWithdrawn: photoOk > 0,

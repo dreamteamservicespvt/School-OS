@@ -25,6 +25,8 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
     const c = await tx.counsellingCase.findFirst({ where: { id, archivedAt: null }, include: { sessions: { orderBy: { date: "desc" } } } });
     // Only allowed staff, or the counsellor the case is given to (checked on the server).
     if (!c || (!can.seeCounselling && c.counsellorId !== current.ctx.userId)) return null;
+    // A person limited to one campus: only that campus's students' cases.
+    if (current.campusId && !(await tx.student.count({ where: { id: c.studentId, campusId: current.campusId } }))) return null;
     const student = await tx.student.findUnique({ where: { id: c.studentId }, select: { id: true, fullName: true, admissionNo: true } });
     const people = await counsellors(tx, current.ctx);
     const referredBy = c.referredById ? await tx.userLogin.findUnique({ where: { id: c.referredById }, select: { displayName: true } }) : null;

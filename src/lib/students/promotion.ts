@@ -48,8 +48,9 @@ export async function promotionPreview(tx: Tx, ctx: SchoolContext, q: { fromSect
   const from = await tx.section.findFirst({ where: { id: q.fromSectionId, archivedAt: null }, include: { schoolClass: true, academicYear: true } });
   if (!from) throw new StudentProblem("Choose the class and section to promote.", "fromSectionId");
   if (from.academicYear.status === "CLOSED") throw new StudentProblem(`Locked: ${from.academicYear.name} is closed. Promotion is done before the year is closed.`, "fromSectionId");
+  // The next year and class are on the class's own campus (each campus has its own years).
   const toYear = q.toYearId
-    ? await tx.academicYear.findFirst({ where: { id: q.toYearId, archivedAt: null } })
+    ? await tx.academicYear.findFirst({ where: { id: q.toYearId, archivedAt: null, campusId: from.academicYear.campusId } })
     : await nextYear(tx, from.academicYearId);
   if (!toYear) {
     const name = `${from.academicYear.startDate.getUTCFullYear() + 1}-${String((from.academicYear.startDate.getUTCFullYear() + 2) % 100).padStart(2, "0")}`;
@@ -59,7 +60,7 @@ export async function promotionPreview(tx: Tx, ctx: SchoolContext, q: { fromSect
   if (toYear.startDate <= from.academicYear.startDate) throw new StudentProblem(`${toYear.name} is not after ${from.academicYear.name}. Choose the next year.`, "toYearId");
 
   const defaultNext = await nextClass(tx, from.classId);
-  const toClass = q.toClassId ? await tx.schoolClass.findFirst({ where: { id: q.toClassId, archivedAt: null } }) : defaultNext;
+  const toClass = q.toClassId ? await tx.schoolClass.findFirst({ where: { id: q.toClassId, archivedAt: null, campusId: from.schoolClass.campusId } }) : defaultNext;
   const finalClass = !defaultNext && !q.toClassId;
 
   const policy = await currentPolicy(tx, from.academicYearId);

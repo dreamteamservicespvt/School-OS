@@ -4,7 +4,7 @@ import { abilities, studentScope } from "@/lib/students/access";
 import { feeViewer, studentScope as feeStudentScope } from "@/lib/fees/access";
 import { formatDate, formatRupees } from "@/lib/format";
 import { staffScope, viewerFor } from "@/lib/staff/access";
-import { currentYear } from "@/lib/academic/years";
+import { yearsFor } from "@/lib/academic/years";
 import { findStudents } from "@/lib/students/find";
 import { hitLimit } from "@/lib/rate-limit";
 
@@ -30,13 +30,15 @@ export async function GET(req: Request) {
   const result = await withSchool(current.ctx, async (tx) => {
     const canStudents = current.permissions["student-management"].see !== "none";
     const canStaff = current.permissions["staff-hr-management"].see !== "none";
-    const year = await currentYear(tx, current.ctx);
+    // Each campus's current year (only theirs for a person limited to one campus): a student's class is in their own campus's year.
+    const yearIds = (await yearsFor(tx, current.ctx, current.campusId)).map((y) => y.id);
+    const scope = canStudents ? await studentScope(tx, current, yearIds) : null;
 
     // Students: the one student search (name in any order, one letter wrong,
     // admission or roll number; parents' names and phones only for people who see parents).
     const seeParents = canStudents && abilities(current).seeParents;
     const students = canStudents
-      ? await findStudents(tx, q, { scope: await studentScope(tx, current, year?.id), yearId: year?.id ?? null, statuses: "any", byParent: seeParents, take: 6 })
+      ? await findStudents(tx, q, { scope: scope ?? {}, yearId: yearIds, statuses: "any", byParent: seeParents, take: 6 })
       : [];
 
     const viewer = canStaff ? await viewerFor(tx, current.ctx, current) : null;
@@ -61,9 +63,9 @@ export async function GET(req: Request) {
           where: {
             archivedAt: null,
             OR: [{ name: { contains: q, mode: "insensitive" } }, ...(phone ? [{ phone: { contains: phone } }] : [])],
-            students: { some: { archivedAt: null, student: { AND: [await studentScope(tx, current, year?.id), { archivedAt: null }] } } },
+            students: { some: { archivedAt: null, student: { AND: [scope ?? {}, { archivedAt: null }] } } },
           },
-          select: { id: true, name: true, relationship: true, phone: true, students: { where: { archivedAt: null, student: { archivedAt: null } }, select: { student: { select: { fullName: true } } }, take: 3 } },
+          select: { id: true, name: true, relationship: true, phone: true, students: { where: { archivedAt: null, student: { AND: [scope ?? {}, { archivedAt: null }] } }, select: { student: { select: { fullName: true } } }, take: 3 } },
           orderBy: { name: "asc" },
           take: 4,
         })

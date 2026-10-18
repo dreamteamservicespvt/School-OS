@@ -2,7 +2,8 @@ import { requireAction } from "@/lib/current";
 import { withSchool } from "@/lib/db";
 import { htmlToPdf } from "@/lib/pdf";
 import { PermissionDeniedError } from "@/lib/permissions";
-import { currentYear } from "@/lib/academic/years";
+import { yearsFor } from "@/lib/academic/years";
+import { campusAllows } from "@/lib/campus";
 import { getStudentSettings } from "@/lib/students/settings";
 import { abilities, studentScope } from "@/lib/students/access";
 import { idCardsHtml, recordBatch, sectionCards } from "@/lib/students/id-cards";
@@ -40,9 +41,12 @@ export async function GET(req: Request) {
       const settings = await getStudentSettings(tx, current.ctx);
       const can = abilities(current, settings);
       if (can.reach !== "all" || can.lookupOnly) return { error: "You do not have permission to print ID cards.", status: 403 };
-      const year = await currentYear(tx, current.ctx);
+      // Each campus's current year; a person limited to one campus prints only that campus's cards.
+      const yearIds = (await yearsFor(tx, current.ctx, current.campusId)).map((y) => y.id);
 
       if (isId(section)) {
+        const head = await sectionCards(tx, section);
+        if (!campusAllows(current, head.section.schoolClass.campusId)) return { error: "This class was not found.", status: 404 };
         const { data, slice } = await recordBatch(tx, current.ctx, section, batch);
         const validUntil = settings.idCardValidUntil ?? data.section.academicYear.endDate;
         return { html: await idCardsHtml(tx, current.ctx, slice, { classLabel: data.label, yearName: data.section.academicYear.name, validUntil }), name: `id-cards-${data.label}-batch-${batch + 1}` };
@@ -52,15 +56,16 @@ export async function GET(req: Request) {
         const card = await tx.idCardPrint.findFirst({ where: { id: replacement, isReplacement: true } });
         if (!card || !card.sectionId) return { error: "This replacement card was not found.", status: 404 };
         const data = await sectionCards(tx, card.sectionId);
+        if (!campusAllows(current, data.section.schoolClass.campusId)) return { error: "This replacement card was not found.", status: 404 };
         const s = data.students.find((x) => x.id === card.studentId);
         if (!s) return { error: "This student is no longer in the class.", status: 404 };
         return { html: await idCardsHtml(tx, current.ctx, [s], { classLabel: data.label, yearName: data.section.academicYear.name, validUntil: card.validUntil ?? data.section.academicYear.endDate, replacement: true }), name: `id-card-${s.admissionNo}-replacement` };
       }
 
       if (ids.length) {
-        if (!year) return { error: "No academic year is set up yet.", status: 409 };
-        const scope = await studentScope(tx, current, year.id);
-        const enr = await tx.enrolment.findMany({ where: { academicYearId: year.id, archivedAt: null, studentId: { in: ids }, student: scope }, select: { sectionId: true } });
+        if (!yearIds.length) return { error: "No academic year is set up yet.", status: 409 };
+        const scope = await studentScope(tx, current, yearIds);
+        const enr = await tx.enrolment.findMany({ where: { academicYearId: { in: yearIds }, archivedAt: null, studentId: { in: ids }, student: scope }, select: { sectionId: true } });
         const sectionIds = [...new Set(enr.map((e) => e.sectionId))];
         if (sectionIds.length === 0) return { error: "None of these students has a class this year.", status: 409 };
         const pages: string[] = [];

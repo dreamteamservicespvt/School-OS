@@ -30,7 +30,7 @@ const TONE = { GIVEN: "ok", WITHDRAWN: "bad", REQUESTED: "warn", NONE: "warn" } 
 const STEP = 25;
 
 export default async function GuardiansPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const { current, year, can, tz } = await studentPage();
+  const { current, yearIds, can, tz } = await studentPage();
   if (!can.seeParents) redirect(BASE);
   const raw = await searchParams;
   const params = readListParams(raw, FILTERS);
@@ -40,8 +40,9 @@ export default async function GuardiansPage({ searchParams }: { searchParams: Pr
   const f = params.filters;
 
   const data = await withSchool(current.ctx, async (tx) => {
-    const scope = await studentScope(tx, current, year?.id);
-    const inReach: Prisma.GuardianWhereInput = can.reach === "own" ? { students: { some: { archivedAt: null, student: scope } } } : {};
+    const scope = await studentScope(tx, current, yearIds);
+    // Own reach, or one campus: the parents of their students only.
+    const inReach: Prisma.GuardianWhereInput = can.reach === "own" || current.campusId ? { students: { some: { archivedAt: null, student: scope } } } : {};
     const base: Prisma.GuardianWhereInput = { AND: [{ archivedAt: params.archived ? { not: null } : null }, inReach] };
 
     // Consent states are read once: for the counts on the chips and tiles, and for the filters.
@@ -79,7 +80,7 @@ export default async function GuardiansPage({ searchParams }: { searchParams: Pr
       tx.guardian.count({ where }),
       tx.guardian.findMany({
         where, orderBy: orderBy as object, take,
-        include: { students: { where: { archivedAt: null }, include: { student: { include: { enrolments: { where: { archivedAt: null, ...(year ? { academicYearId: year.id } : {}) }, take: 1 } } } } } },
+        include: { students: { where: { archivedAt: null }, include: { student: { include: { enrolments: { where: { archivedAt: null, ...(yearIds.length ? { academicYearId: { in: yearIds } } : {}) }, take: 1 } } } } } },
       }),
       tx.studentGuardian.findMany({ where: { archivedAt: null, guardianId: { in: allIds } }, select: { studentId: true }, distinct: ["studentId"] }),
       tx.studentGuardian.count({ where: { archivedAt: null, guardianId: { in: allIds }, restriction: { not: null } } }),

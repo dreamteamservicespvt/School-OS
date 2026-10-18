@@ -15,13 +15,14 @@ import { AddStudentForm } from "./add-student-form";
 export const metadata: Metadata = { title: "Add student" };
 
 export default async function AddStudentPage({ searchParams }: { searchParams: Promise<{ section?: string }> }) {
-  const { current, settings, year, can, tz } = await studentPage();
+  const { current, settings, year, yearIds, can, tz } = await studentPage();
   if (!can.manage) redirect(`/no-access?m=student-management`);
   const sp = await searchParams;
   const data = await withSchool(current.ctx, async (tx) => {
-    const sections = await sectionOptions(tx, current, year?.id);
+    // Each campus's current year: the class picker lists every campus the person works in, named by campus.
+    const sections = await sectionOptions(tx, current, yearIds);
     const nextRolls: Record<string, number> = {};
-    if (year) for (const s of sections) nextRolls[s.value] = await nextRollNo(tx, s.value, year.id);
+    for (const s of sections) nextRolls[s.value] = await nextRollNo(tx, s.value, s.yearId);
     return { sections, nextAdmissionNo: await previewAdmissionNo(tx, current.ctx), nextRolls };
   });
 

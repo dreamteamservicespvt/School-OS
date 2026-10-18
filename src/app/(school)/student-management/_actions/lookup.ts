@@ -6,7 +6,6 @@
 import { withSchool } from "@/lib/db";
 import { abilities, studentScope } from "@/lib/students/access";
 import { findStudents } from "@/lib/students/find";
-import { currentYear } from "@/lib/academic/years";
 import { STUDYING } from "@/lib/students/labels";
 import { studentAction } from "../_lib/page";
 
@@ -21,29 +20,27 @@ async function shape(tx: Parameters<Parameters<typeof withSchool>[1]>[0], yearId
 }
 
 export async function searchStudents(q: string, opts: { anyStatus?: boolean } = {}): Promise<PickedStudent[]> {
-  const { current } = await studentAction("view");
+  const { current, yearIds } = await studentAction("view");
   const text = q.trim().slice(0, 60);
   if (text.length < 2) return [];
   return withSchool(current.ctx, async (tx) => {
-    const year = await currentYear(tx, current.ctx);
-    const scope = await studentScope(tx, current, year?.id);
-    const hits = await findStudents(tx, text, { scope, yearId: year?.id ?? null, statuses: opts.anyStatus ? "any" : STUDYING, byParent: abilities(current).seeParents, take: 15 });
+    const scope = await studentScope(tx, current, yearIds);
+    const hits = await findStudents(tx, text, { scope, yearId: yearIds, statuses: opts.anyStatus ? "any" : STUDYING, byParent: abilities(current).seeParents, take: 15 });
     return hits.map((h) => ({ id: h.id, name: h.name, admissionNo: h.admissionNo, cls: h.classSection ?? "" }));
   });
 }
 
 export async function studentsInSection(sectionId: string): Promise<PickedStudent[]> {
-  const { current } = await studentAction("view");
+  const { current, yearIds } = await studentAction("view");
   if (!/^[0-9a-f-]{36}$/i.test(sectionId)) return [];
   return withSchool(current.ctx, async (tx) => {
-    const year = await currentYear(tx, current.ctx);
-    const scope = await studentScope(tx, current, year?.id);
+    const scope = await studentScope(tx, current, yearIds);
     const rows = await tx.student.findMany({
       where: { AND: [scope, { archivedAt: null, status: { in: [...STUDYING] } }, { enrolments: { some: { sectionId, archivedAt: null, status: "STUDYING" } } }] },
       include: { enrolments: { where: { sectionId, archivedAt: null }, take: 1 } },
       orderBy: { fullName: "asc" },
       take: 200,
     });
-    return shape(tx, year?.id ?? null, rows);
+    return shape(tx, null, rows);
   });
 }

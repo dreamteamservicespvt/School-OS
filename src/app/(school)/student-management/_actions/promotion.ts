@@ -9,6 +9,8 @@ import { withSchool } from "@/lib/db";
 import { flash } from "@/lib/flash";
 import type { FormState } from "@/lib/forms";
 import { confirmPromotion, undoPromotion, type DecisionInput } from "@/lib/students/promotion";
+import { StudentProblem } from "@/lib/students/students";
+import { campusAllows, sectionCampusId } from "@/lib/campus";
 import { BASE, attempt, attemptForm, studentAction } from "../_lib/page";
 
 const isId = (v: unknown): v is string => typeof v === "string" && /^[0-9a-f-]{36}$/i.test(v);
@@ -34,7 +36,11 @@ export async function confirmPromotionAction(_prev: FormState, fd: FormData): Pr
   let batchId = "";
   let summary = "";
   const r = await attemptForm({}, async () => {
-    const out = await withSchool(current.ctx, (tx) => confirmPromotion(tx, current.ctx, { fromSectionId, toYearId, toClassId: isId(toClassId) ? toClassId : null, decisions }), { timeout: 120_000 });
+    const out = await withSchool(current.ctx, async (tx) => {
+      // One campus: only that campus's classes, and only its students.
+      if (!campusAllows(current, await sectionCampusId(tx, fromSectionId))) throw new StudentProblem("Choose the class and section to promote.");
+      return confirmPromotion(tx, current.ctx, { fromSectionId, toYearId, toClassId: isId(toClassId) ? toClassId : null, decisions });
+    }, { timeout: 120_000 });
     batchId = out.batch.id;
     summary = out.batch.summary;
   });
@@ -47,7 +53,11 @@ export async function confirmPromotionAction(_prev: FormState, fd: FormData): Pr
 export async function undoPromotionAction(fd: FormData) {
   const { current } = await studentAction("edit", { manage: true });
   const id = String(fd.get("batchId") ?? "");
-  const r = await attempt(() => withSchool(current.ctx, (tx) => undoPromotion(tx, current.ctx, id), { timeout: 120_000 }));
+  const r = await attempt(() => withSchool(current.ctx, async (tx) => {
+    const batch = isId(id) ? await tx.promotionBatch.findUnique({ where: { id }, select: { fromSectionId: true } }) : null;
+    if (batch && !campusAllows(current, await sectionCampusId(tx, batch.fromSectionId))) throw new StudentProblem("This promotion was not found.");
+    return undoPromotion(tx, current.ctx, id);
+  }, { timeout: 120_000 }));
   if (r) return r;
   await flash({ message: "Promotion undone. The students are back in their class, and the batch is kept in the history." });
   revalidatePath(`${BASE}/promotion`);

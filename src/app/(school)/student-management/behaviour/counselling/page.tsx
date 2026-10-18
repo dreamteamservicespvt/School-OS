@@ -23,7 +23,7 @@ const STEP = 25;
 
 /** Counselling cases: only for the roles set in Student Settings, and each counsellor's own cases. */
 export default async function CounsellingPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const { current, can, settings, year, tz } = await studentPage();
+  const { current, can, settings, yearIds, tz } = await studentPage();
   if (!settings.counsellingOn) redirect(`${BASE}/behaviour`);
   const raw = await searchParams;
   const params = readListParams(raw, ["status"]);
@@ -31,14 +31,17 @@ export default async function CounsellingPage({ searchParams }: { searchParams: 
   const range = periodFromSearch(raw, { timeZone: tz });
   const path = `${BASE}/behaviour/counselling`;
   const data = await withSchool(current.ctx, async (tx) => {
+    // A person limited to one campus sees that campus's cases only.
+    const campusStudents = current.campusId ? (await tx.student.findMany({ where: { campusId: current.campusId }, select: { id: true } })).map((s) => s.id) : null;
     const where = {
       archivedAt: null,
       ...(can.seeCounselling ? {} : { counsellorId: current.ctx.userId ?? "" }),
       ...(params.filters.status ? { status: params.filters.status } : {}),
       ...(range ? { openedOn: dateWhere(range) } : {}),
+      ...(campusStudents ? { studentId: { in: campusStudents } } : {}),
     };
     const ids = params.q ? await studentIdsForFilter(tx, params.q) : null;
-    const full = ids ? { ...where, studentId: { in: ids } } : where;
+    const full = ids ? { ...where, AND: [{ studentId: { in: ids } }] } : where;
     const [total, rows, open] = await Promise.all([
       tx.counsellingCase.count({ where: full }),
       tx.counsellingCase.findMany({ where: full, orderBy: [{ status: "desc" }, { nextSessionOn: "asc" }, { openedOn: "desc" }], take, include: { _count: { select: { sessions: true } } } }),
@@ -48,7 +51,7 @@ export default async function CounsellingPage({ searchParams }: { searchParams: 
     const [students, people, enrol] = await Promise.all([
       tx.student.findMany({ where: { id: { in: studentIds } }, select: { id: true, fullName: true } }),
       tx.userLogin.findMany({ where: { id: { in: rows.flatMap((r) => [r.counsellorId, r.referredById]).filter((x): x is string => Boolean(x)) } }, select: { id: true, displayName: true } }),
-      year ? tx.enrolment.findMany({ where: { studentId: { in: studentIds }, academicYearId: year.id, archivedAt: null }, select: { studentId: true, sectionId: true } }) : [],
+      yearIds.length ? tx.enrolment.findMany({ where: { studentId: { in: studentIds }, academicYearId: { in: yearIds }, archivedAt: null }, select: { studentId: true, sectionId: true } }) : [],
     ]);
     const names = await sectionNames(tx, enrol.map((e) => e.sectionId));
     const cls = new Map(enrol.map((e) => { const n = names.get(e.sectionId); return [e.studentId, n ? classShort(n.className, n.sectionName) : ""]; }));

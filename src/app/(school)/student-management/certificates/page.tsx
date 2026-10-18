@@ -23,6 +23,7 @@ import { sectionNames } from "../_lib/queries";
 import { decideCertificateAction } from "../_actions/certificates";
 import { certificateTabs } from "./sub-tabs";
 import { studentIdsForFilter } from "@/lib/students/find";
+import { visibleStudentIds } from "@/lib/students/access";
 
 export const metadata: Metadata = { title: "Certificates & ID Cards" };
 
@@ -32,7 +33,7 @@ const STATUSES = Object.keys(CERT_STATUS_LABEL) as CertificateStatus[];
 
 /** Certificates issued and requested: number, type, student, date, status; requests waiting for approval on top. */
 export default async function CertificatesPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const { current, settings, can, tz, year } = await studentPage();
+  const { current, settings, can, tz, year, yearIds } = await studentPage();
   const raw = await searchParams;
   const params = readListParams(raw, FILTERS);
   const take = shownCount(raw, STEP);
@@ -41,7 +42,10 @@ export default async function CertificatesPage({ searchParams }: { searchParams:
   const data = await withSchool(current.ctx, async (tx) => {
     const f = params.filters;
     const nameIds = params.q ? await studentIdsForFilter(tx, params.q) : null;
+    // A person limited to one campus: that campus's students' certificates only.
+    const mine = await visibleStudentIds(tx, current, yearIds);
     const base: Prisma.CertificateWhereInput = {
+      ...(mine ? { studentId: { in: mine } } : {}),
       ...(f.type && f.type in CERTIFICATE_LABEL ? { type: f.type as CertificateType } : {}),
       ...(range ? { issueDate: dateWhere(range) } : {}),
       ...(params.q ? { OR: [{ number: { contains: params.q, mode: "insensitive" as const } }, { studentId: { in: nameIds ?? [] } }] } : {}),
@@ -51,7 +55,7 @@ export default async function CertificatesPage({ searchParams }: { searchParams:
     const [total, rows, waiting, byStatus] = await Promise.all([
       tx.certificate.count({ where }),
       tx.certificate.findMany({ where, orderBy: orderBy as object, take }),
-      tx.certificate.findMany({ where: { status: "REQUESTED" }, orderBy: { createdAt: "asc" }, take: 30 }),
+      tx.certificate.findMany({ where: { status: "REQUESTED", ...(mine ? { studentId: { in: mine } } : {}) }, orderBy: { createdAt: "asc" }, take: 30 }),
       tx.certificate.groupBy({ by: ["status"], where: base, _count: true }),
     ]);
     const approvals = await tx.approval.findMany({ where: { id: { in: waiting.map((w) => w.approvalId).filter((x): x is string => Boolean(x)) } } });

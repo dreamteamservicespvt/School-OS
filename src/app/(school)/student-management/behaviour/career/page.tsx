@@ -11,7 +11,7 @@ import { GraduationCap, Plus, School, Users } from "lucide-react";
 import { ActionForm, FormArea, FormSelect, FormText } from "@/components/students/action-form";
 import { ActionSelect } from "@/components/students/confirm-action";
 import { StudentPicker } from "@/components/students/student-picker";
-import { studentScope } from "@/lib/students/access";
+import { visibleStudentIds } from "@/lib/students/access";
 import { APPLICATION_STATUSES, CAREER_KINDS } from "@/lib/students/labels";
 import { BASE, studentPage } from "../../_lib/page";
 import { sectionOptions } from "../../_lib/queries";
@@ -23,12 +23,11 @@ export const metadata: Metadata = { title: "Career guidance" };
 
 /** Career guidance (optional, secondary schools): notes, entrance exams, college applications, scholarships, interests, alumni mentors. */
 export default async function CareerPage({ searchParams }: { searchParams: Promise<{ kind?: string }> }) {
-  const { current, settings, year, can, tz } = await studentPage();
+  const { current, settings, yearIds, can, tz } = await studentPage();
   if (!settings.careerOn || !can.seeBehaviour) redirect(`${BASE}/behaviour`);
   const { kind } = await searchParams;
   const data = await withSchool(current.ctx, async (tx) => {
-    const scope = await studentScope(tx, current, year?.id);
-    const ids = can.reach === "all" ? null : (await tx.student.findMany({ where: scope, select: { id: true } })).map((s) => s.id);
+    const ids = await visibleStudentIds(tx, current, yearIds);
     const records = await tx.careerRecord.findMany({
       where: { archivedAt: null, ...(ids ? { studentId: { in: ids } } : {}), ...(kind && CAREER_KINDS.some((k) => k.key === kind) ? { kind } : {}) },
       orderBy: [{ deadline: "asc" }, { createdAt: "desc" }], take: 200,
@@ -36,7 +35,7 @@ export default async function CareerPage({ searchParams }: { searchParams: Promi
     const students = await tx.student.findMany({ where: { id: { in: records.map((r) => r.studentId) } }, select: { id: true, fullName: true } });
     const mentorships = await tx.alumniMentorship.findMany({ where: { archivedAt: null, ...(ids ? { studentId: { in: ids } } : {}) }, include: { alumni: true }, take: 50 });
     const mentorStudents = await tx.student.findMany({ where: { id: { in: [...mentorships.map((m) => m.studentId), ...mentorships.map((m) => m.alumni.studentId)] } }, select: { id: true, fullName: true } });
-    const sections = await sectionOptions(tx, current, year?.id, { own: can.reach === "own" });
+    const sections = await sectionOptions(tx, current, yearIds, { own: can.reach === "own" });
     return { records, students, mentorships, mentorStudents, sections };
   });
   const name = (id: string) => data.students.find((s) => s.id === id)?.fullName ?? data.mentorStudents.find((s) => s.id === id)?.fullName ?? "";

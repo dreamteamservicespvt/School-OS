@@ -7,7 +7,7 @@ import type { Prisma, StudentStatus } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { nextNumber } from "../sequences";
-import { assertYearOpen, currentYear } from "../academic/years";
+import { assertYearOpen, currentYear, studentYear } from "../academic/years";
 import { encryptField, maskLast4 } from "../crypto";
 import { requestApproval } from "../approvals";
 import { getStudentSettings } from "./settings";
@@ -361,7 +361,8 @@ export async function saveContact(tx: Tx, ctx: SchoolContext, studentId: string,
 export async function saveEnrolment(tx: Tx, ctx: SchoolContext, studentId: string, e: { admissionNo: string; admissionDate: Date | null; rollNo: number | null }) {
   const taken = await admissionNoTaken(tx, e.admissionNo, studentId);
   if (taken) throw new StudentProblem(taken, "admissionNo");
-  const year = await currentYear(tx, ctx);
+  // The roll number of this year's class: the student's own campus's current year.
+  const year = await studentYear(tx, ctx, studentId);
   if (year && e.rollNo !== null) {
     const enr = await tx.enrolment.findFirst({ where: { studentId, academicYearId: year.id, archivedAt: null } });
     if (enr && enr.rollNo !== e.rollNo) {
@@ -477,7 +478,8 @@ export async function applyStatus(tx: Tx, ctx: SchoolContext, studentId: string,
 
 /** Change section within the same class (keeps history). Returns the change, for Undo. */
 export async function changeSection(tx: Tx, ctx: SchoolContext, studentId: string, toSectionId: string, reason: string | null) {
-  const year = await currentYear(tx, ctx);
+  // This year's class is in the student's own campus's current year.
+  const year = await studentYear(tx, ctx, studentId);
   if (!year) throw new StudentProblem("No academic year is open. Open one in Academic Management.");
   await assertYearOpen(tx, year.id);
   const enr = await tx.enrolment.findFirst({ where: { studentId, academicYearId: year.id, archivedAt: null } });

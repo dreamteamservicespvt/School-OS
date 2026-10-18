@@ -10,6 +10,7 @@ export const AI_FEATURES = [
   { key: "ai-enquiry-reply", label: "AI auto-reply to enquiries", about: "Suggests replies to admission enquiries; a person sends them." },
   { key: "ai-insights", label: "Student insights and early warnings", about: "Flags students whose attendance, marks or fees need attention." },
   { key: "ai-forecasts", label: "Forecasts", about: "Expected fee collection and admissions, from the school's own records." },
+  { key: "ai-principal-summary", label: "Principal summary", about: "Today's brief for the Principal and School Admin each school morning, and the weekly brief on Monday: what happened, what may need them next and what waits for their decision. Every number is the school's own record, with a link to the list behind it." },
   { key: "ai-teacher-assistant", label: "Teacher assistant", about: "Helps teachers draft lesson plans and homework." },
   { key: "ai-question-papers", label: "AI question papers", about: "Drafts question papers from the syllabus for the teacher to edit." },
   { key: "ai-translation", label: "Translation of typed messages", about: "Translates a typed message into each parent's language. The sender sees and can edit each translation; the parent's copy says \"Translated from English\"." },

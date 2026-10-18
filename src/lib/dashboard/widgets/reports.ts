@@ -1,6 +1,6 @@
 // Reports & Analytics on the Dashboard (19 "Connects to": "01 Dashboard:
 // early warnings and pinned charts"; 01 Principal summary). Leaders get
-// the students who need a closer look (Act now: strong signs
+// Today's brief and the students who need a closer look (Act now: strong signs
 // in attendance or marks, never fees alone); class teachers their own
 // students' flags; anyone who pinned an Analytics chart sees it under their
 // numbers. The Early Warnings card counts students with an Attendance Flag
@@ -12,6 +12,7 @@ import { reportAccess } from "../../reports/access";
 import { ACT_NOW_HREF, aiSignals, dashboardWarnings } from "../../reports/warnings";
 import { closerLookWords } from "../../reports/strength";
 import { lookingAheadView } from "../../reports/looking-ahead";
+import { BRIEF_SECTION_LABEL, briefAllowed, todaysBrief, type BriefSection } from "../../reports/brief";
 import { pinsOf } from "../../reports/pins";
 import { pinnedCharts, type AChart } from "../../reports/analytics";
 import { plural } from "../common";
@@ -81,6 +82,23 @@ const lookingAhead: Widget<"attention"> = {
   },
 };
 
+/** Today's brief (Principal summary, brief.ts): what happened, what may need you next, what waits for you. */
+const brief: Widget<"panel"> = {
+  id: "reports.brief",
+  module: "reports-analytics",
+  kind: "panel",
+  homes: ["leader"],
+  allowed: (v) => briefAllowed(v),
+  async load(c) {
+    const b = await todaysBrief(c.tx, c.viewer, c.now);
+    const sections = (Object.keys(BRIEF_SECTION_LABEL) as BriefSection[])
+      .map((s) => ({ heading: BRIEF_SECTION_LABEL[s], lines: b.lines.filter((l) => l.section === s).map((l) => ({ text: l.text, href: l.href, suggestion: l.suggestion, basis: l.basis })) }))
+      .filter((s) => s.lines.length);
+    if (!sections.length) return null;
+    return { slot: "first", panel: { kind: "brief", title: b.title, sub: b.period, sections, note: "Every number is from the school's own records, with the list behind it. Lines marked Suggestion are forecasts: nothing changes until a person decides." } };
+  },
+};
+
 /** One Dashboard card from a pinned chart: percent bars as bars, anything else as a short list. */
 function panelOf(ch: AChart): Panel {
   const rows = ch.kind === "hbars" ? (ch.hbars ?? []).map((r) => ({ k: r.k, v: r.v, label: r.label ?? `${r.v}${ch.unit ?? "%"}` }))
@@ -112,4 +130,4 @@ const pinned: Widget<"panel"> = {
   },
 };
 
-export const REPORTS_WIDGETS: readonly Widget[] = [earlyWarnings, lookingAhead, pinned];
+export const REPORTS_WIDGETS: readonly Widget[] = [brief, earlyWarnings, lookingAhead, pinned];

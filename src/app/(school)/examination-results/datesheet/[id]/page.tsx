@@ -5,7 +5,7 @@ import { ArrowLeft, CalendarDays, CalendarRange, Check, DoorOpen, FileText, Grid
 import { withSchool } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { isoDay, plural } from "@/lib/academic/common";
-import { examDetail, marksExist } from "@/lib/exams/datesheet";
+import { examDetail, marksExist, upcomingPapers } from "@/lib/exams/datesheet";
 import { EXAM_STATUS_TONE, classRange, dayDate, patternLabel, shownExamStatus } from "@/lib/exams/common";
 import { sittings } from "@/lib/exams/seating";
 import { Pill } from "@/components/ui/badge";
@@ -63,6 +63,8 @@ export default async function DatesheetDetail({ params, searchParams }: { params
     : exam.publishedAt ? `Published ${formatDate(exam.publishedAt, tz)}${who(exam.publishedById) ? ` by ${who(exam.publishedById)}` : ""}` : "Published";
   const title = `${exam.title} · ${classRange(data.classes.map((c) => c.name))}`;
   const list = withYear("/examination-results/datesheet", page);
+  // Papers already held are never announced to parents (TEACHING-13): the publish dialog says so.
+  const ahead = upcomingPapers(entries, page.today);
 
   // Months the exam runs in, with exam days and holidays marked.
   const months: { y: number; m: number }[] = [];
@@ -101,7 +103,8 @@ export default async function DatesheetDetail({ params, searchParams }: { params
           </div>
           <div className="flex gap-2 flex-wrap no-print">
             {can && exam.status === "DRAFT" && entries.length > 0 && (
-              <PublishSheet examId={id} title={title} papers={entries.length} students={data.students} firstDay={formatDate(entries[0].date)} startOpen={one(raw.publish) === "1"} />
+              <PublishSheet examId={id} title={title} papers={entries.length} students={data.students} firstDay={formatDate(entries[0].date)}
+                past={ahead.past} nextDay={ahead.next ? formatDate(ahead.next, "UTC") : null} startOpen={one(raw.publish) === "1"} />
             )}
             {can && exam.status !== "DRAFT" && !data.locked && <ButtonLink href={withYear(`/examination-results/datesheet/${id}/edit`, page)} icon={DoorOpen}>Rooms & invigilators</ButtonLink>}
             {seatingOn && exam.status !== "DRAFT" && !exam.archivedAt && page.scope.datesheets && <ButtonLink href={withYear(`/examination-results/datesheet/${id}/seating`, page)} icon={Grid3x3}>Seating</ButtonLink>}

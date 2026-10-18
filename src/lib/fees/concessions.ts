@@ -96,6 +96,24 @@ export async function applyConcession(tx: Tx, ctx: SchoolContext, concessionId: 
   return applied;
 }
 
+/**
+ * The fee heads a new concession can reduce for this student: those with
+ * something still to pay this year (06 Form fields: Concession), with Tuition
+ * chosen at the start when the student has it. With nothing left to pay, every
+ * head, so the person sees why nothing can be reduced.
+ */
+export async function concessionHeadChoices(tx: Tx, studentId: string) {
+  const enrolment = await currentEnrolment(tx, studentId);
+  const [heads, open] = await Promise.all([
+    tx.feeHead.findMany({ where: { archivedAt: null }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true, kind: true } }),
+    tx.studentFeeDue.groupBy({ by: ["feeHeadId"], where: { studentId, state: "OPEN", balancePaise: { gt: 0 }, kind: { in: ["FEE", "CHARGE"] }, ...(enrolment ? { academicYearId: enrolment.academicYearId } : {}) } }),
+  ]);
+  const own = new Set(open.map((o) => o.feeHeadId));
+  const list = own.size ? heads.filter((h) => own.has(h.id)) : heads;
+  const start = list.find((h) => h.kind === "tuition") ?? list.find((h) => /tuition/i.test(h.name)) ?? list[0] ?? null;
+  return { heads: list.map((h) => ({ id: h.id, name: h.name })), startId: start?.id ?? null };
+}
+
 function checkInput(input: ConcessionInput) {
   if (input.reason.trim().length < 5) throw new MoneyProblem("Give a reason of at least 5 characters.", "reason");
   if (input.mode === "percent") {

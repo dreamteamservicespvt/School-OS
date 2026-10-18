@@ -217,7 +217,7 @@ Other actions:
 | Student | Yes | The student open on screen | |
 | Type | Yes | Discount | Discount, scholarship, sibling, staff child (inferred list) |
 | Amount or % | Yes | | |
-| Fee heads | Yes | Tuition (inferred) | |
+| Fee heads | Yes | Tuition (inferred) | Only the heads the student still has something to pay on this year (18 October 2026) |
 | Period | Yes | Rest of this year | |
 | Reason | Yes | | |
 | Document | No | | |

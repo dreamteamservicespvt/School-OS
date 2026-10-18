@@ -17,6 +17,7 @@ Used by: the School Admin and, when the school switches on the Office Staff role
 **What the person sees**
 
 - List columns: photo, name, admission number, class and section, roll number, father's or guardian's name, phone, status, fee status chip (Paid, Due, Overdue; only for people allowed to see fees).
+- Facts from other modules (gap list G20): attendance % this year (from Attendance, for people who see attendance), the final result once it is published (from Examination & Results, for people who see that class's results), and the fee status chip with its amount. The chip counts the fees fallen due by today + 30 days, as Fees by class does, so the two screens agree: Overdue when any of it is past its due date, Due when it is not, Paid when it is all paid; nothing shows while no fee has fallen due. A "Fees" filter (Has dues, Overdue) is offered only to people allowed to see fees.
 - Class tiles at the top with the number of students in each class and section; tapping a tile filters the list (this answers "what is our strength by class?").
 - Quick filters: class, section, status (default: Active). More filters: gender, category, new this year, transport user, hostel resident, missing documents, missing photo (inferred: the extra filters).
 - A teacher sees only the students of the sections they teach.
@@ -126,7 +127,7 @@ One lifelong record per student: each year's class is kept, and nothing is overw
 
 - List columns: name, relation (father, mother, guardian), phone, children (with classes), occupation, opted out of messages (yes or no), data consent (Given, Not given, Withdrawn), Parent Link (Active, Not sent, Revoked) (decided 9 October 2026).
 - Quick filters: consent not given, consent withdrawn, photo consent not given, Parent Link not opened yet (inferred).
-- **Parent page (Parent 360):** children, fees and payments for all children, attendance of each child, messages sent, PTMs, transport, documents, requests and complaints, consent records (each consent type with the text version agreed to, date, and how it was given: application form or Parent Link), and Parent Link status with the last time it was opened.
+- **Parent page (Parent 360):** children, fees and payments for all children, attendance of each child, messages sent, PTMs, transport, documents, requests and complaints, consent records (each consent type with the text version agreed to, date, and how it was given: application form or Parent Link), and Parent Link status with the last time it was opened. Each child shows their class this year, attendance %, fee status and published final result, each only to people allowed to see it; fees due and the latest payments of all children only to people allowed to see fees. A teacher sees only the children they teach (gap list G20).
 
 **Actions**
 
@@ -193,6 +194,7 @@ One lifelong record per student: each year's class is kept, and nothing is overw
 - A guided page in three steps (inferred: the steps):
   1. **Choose:** from year and class (and section), and the target year, class and section. Default target: the next class in order, same section name, next academic year.
   2. **Review the batch:** every student with their final result (from Examination & Results), attendance %, fee dues (shown as a warning only), and a suggested decision from the promotion policy: **Promote**, **Detain** (repeat the class) or **Leaving**. The person can change any row; changes from the suggestion need a reason.
+     Each row shows every reason for its suggestion (gap list G20), for example "did not pass, ₹4,500 fees due (a warning only)". Only published final results count; a compartment result is not a pass when the policy requires one. Fee dues are everything still to pay for the year and earlier years; the amount shows only to people allowed to see fees ("fees due" for others). When the class's final results are not published yet, the page says so: "Final results for Class 5 are not published yet."
   3. **Confirm:** summary ("38 promoted to 6 A, 1 detained, 1 leaving"), then save.
 - Promotion history: past batches with who confirmed them.
 

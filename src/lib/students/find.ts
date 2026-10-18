@@ -11,7 +11,7 @@
 //
 // No database extension is needed: the database narrows the rows with plain
 // string tests, and the rules in find-rules.ts decide and rank in the app.
-// Its speed for a school of 2,000 students is measured in tests/students/find.test.ts.
+// Its speed for a school of 2,000 students is measured in tests/students/find-speed.test.ts.
 import "server-only";
 
 import { Prisma, type StudentStatus } from "@prisma/client";
@@ -167,10 +167,12 @@ const FALSE = Prisma.sql`false`;
  * part, or contains its last part, which any one-letter slip leaves intact.
  *
  * One statement, sent back as one JSON value (much quicker to read than many
- * rows). The parents who pass the prefilter, and students with the roll
- * number, are worked out once as lists of ids, and each student's class is
- * looked up by its own index: plans that cannot go wrong on tables without
- * statistics yet (joins here were once worked out again for every student).
+ * rows). The guardians who pass the prefilter, their links, the students with
+ * the roll number, and the classes of the students found are each read once by
+ * a list of ids: plans that cannot go wrong on tables without statistics yet,
+ * or with statistics from before the school's students were added (joins here
+ * were once worked out again for every student, and later for every pair of
+ * parent link and guardian).
  */
 async function candidates(tx: Tx, q: ParsedQuery, f: Filter, pass: "typed" | "close", exclude: string[]): Promise<Row[]> {
   const typed = pass === "typed";
@@ -198,11 +200,22 @@ async function candidates(tx: Tx, q: ParsedQuery, f: Filter, pass: "typed" | "cl
     ? Prisma.sql`(${nameHit(Prisma.sql`lower(g.name)`)} OR ${q.digits ? Prisma.sql`${phone(Prisma.sql`g.phone`)} OR ${phone(Prisma.sql`coalesce(g.alt_phone, '')`)}` : FALSE})`
     : nameHit(Prisma.sql`lower(g.name)`);
 
+  // Every costly string test runs once per row of its own table, and each
+  // step after that reads by a list of ids, joined up here in the app. A plan
+  // that pairs rows cannot multiply them: with statistics from before a
+  // school's students were added (a new school on a busy server), the planner
+  // once paired each parent link with every guardian, testing names 4 million
+  // times (36 seconds for one search).
   const query = Prisma.sql`
-    WITH p AS MATERIALIZED (
-      SELECT sg.student_id, g.name, g.phone, g.alt_phone AS alt
-      FROM student_guardian sg JOIN guardian g ON g.id = sg.guardian_id
-      WHERE ${f.byParent ? TRUE : FALSE} AND sg.archived_at IS NULL AND g.archived_at IS NULL AND ${guardianHit}
+    WITH gm AS MATERIALIZED (
+      SELECT g.id, g.name, g.phone, g.alt_phone AS alt
+      FROM guardian g
+      WHERE ${f.byParent ? TRUE : FALSE} AND g.archived_at IS NULL AND ${guardianHit}
+    ),
+    p AS MATERIALIZED (
+      SELECT sg.student_id, sg.guardian_id
+      FROM student_guardian sg
+      WHERE sg.archived_at IS NULL AND sg.guardian_id = ANY(ARRAY(SELECT id FROM gm))
     ),
     found AS MATERIALIZED (
       SELECT s.id, s.full_name, s.first_name, s.admission_no, s.status, s.archived_at IS NOT NULL AS archived, s.photo_file_id
@@ -216,23 +229,45 @@ async function candidates(tx: Tx, q: ParsedQuery, f: Filter, pass: "typed" | "cl
                     WHEN starts_with(lower(s.admission_no), ${q.lower}) OR starts_with(lower(s.full_name), ${q.tokens[0] ?? q.lower}) THEN 2
                     ELSE 3 END, s.status::text <> ALL(${[...STUDYING]}::text[]), s.full_name
       LIMIT ${f.limit}
+    ),
+    en AS MATERIALIZED (
+      SELECT e.student_id, e.class_id, e.section_id, e.roll_no
+      FROM enrolment e
+      WHERE e.student_id = ANY(ARRAY(SELECT id FROM found)) AND e.academic_year_id = ${f.yearId}::uuid AND e.archived_at IS NULL
+    ),
+    secs AS MATERIALIZED (
+      SELECT sec.id, sec.name, c.name AS class_name
+      FROM section sec LEFT JOIN school_class c ON c.id = sec.class_id
+      WHERE sec.id = ANY(ARRAY(SELECT DISTINCT section_id FROM en WHERE section_id IS NOT NULL))
     )
     SELECT
-      (SELECT coalesce(json_agg(x), '[]'::json) FROM (
-        SELECT found.*, e.class_id, e.section_id, e.roll_no, c.name AS class_name, sec.name AS section_name
-        FROM found
-        LEFT JOIN LATERAL (
-          SELECT e.class_id, e.section_id, e.roll_no FROM enrolment e
-          WHERE e.student_id = found.id AND e.academic_year_id = ${f.yearId}::uuid AND e.archived_at IS NULL LIMIT 1
-        ) e ON true
-        LEFT JOIN section sec ON sec.id = e.section_id
-        LEFT JOIN school_class c ON c.id = sec.class_id) x) AS students,
-      (SELECT coalesce(json_agg(p), '[]'::json) FROM p) AS parents`;
-  const [out] = await tx.$queryRaw<{ students: Omit<Row, "parents">[]; parents: { student_id: string; name: string; phone: string; alt: string | null }[] }[]>(query);
+      (SELECT coalesce(json_agg(found), '[]'::json) FROM found) AS students,
+      (SELECT coalesce(json_agg(en), '[]'::json) FROM en) AS enrolments,
+      (SELECT coalesce(json_agg(secs), '[]'::json) FROM secs) AS sections,
+      (SELECT coalesce(json_agg(p), '[]'::json) FROM p) AS links,
+      (SELECT coalesce(json_agg(gm), '[]'::json) FROM gm) AS guardians`;
+  type Enrolled = { student_id: string; class_id: string | null; section_id: string | null; roll_no: number | null };
+  const [out] = await tx.$queryRaw<{
+    students: Omit<Row, "parents" | "class_id" | "section_id" | "roll_no" | "class_name" | "section_name">[];
+    enrolments: Enrolled[];
+    sections: { id: string; name: string; class_name: string | null }[];
+    links: { student_id: string; guardian_id: string }[];
+    guardians: { id: string; name: string; phone: string; alt: string | null }[];
+  }[]>(query);
 
+  const enrolled = new Map(out.enrolments.map((e) => [e.student_id, e]));
+  const sections = new Map(out.sections.map((x) => [x.id, x]));
+  const guardians = new Map(out.guardians.map((g) => [g.id, g]));
   const parents = new Map<string, Row["parents"]>();
-  for (const p of out.parents) parents.set(p.student_id, [...(parents.get(p.student_id) ?? []), { name: p.name, phone: p.phone, alt: p.alt }]);
-  return out.students.map((r) => ({ ...r, parents: parents.get(r.id) ?? [] }));
+  for (const l of out.links) {
+    const g = guardians.get(l.guardian_id);
+    if (g) parents.set(l.student_id, [...(parents.get(l.student_id) ?? []), { name: g.name, phone: g.phone, alt: g.alt }]);
+  }
+  return out.students.map((r) => {
+    const e = enrolled.get(r.id);
+    const sec = e?.section_id ? sections.get(e.section_id) : undefined;
+    return { ...r, class_id: e?.class_id ?? null, section_id: e?.section_id ?? null, roll_no: e?.roll_no ?? null, class_name: sec?.class_name ?? null, section_name: sec?.name ?? null, parents: parents.get(r.id) ?? [] };
+  });
 }
 
 const digitsOf = (p: string | null) => (p ?? "").replace(/\D/g, "");

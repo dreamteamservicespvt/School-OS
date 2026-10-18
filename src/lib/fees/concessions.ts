@@ -9,7 +9,7 @@ import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { requestApproval } from "../approvals";
 import { formatRupees } from "../format";
-import { assertYearOpen } from "../academic/years";
+import { assertYearOpen, currentEnrolment } from "../academic/years";
 import { MoneyProblem } from "./problem";
 import { lockDues, refreshBalances } from "./dues";
 import { feeSettings } from "./settings";
@@ -112,15 +112,19 @@ function checkInput(input: ConcessionInput) {
  */
 export async function giveConcession(tx: Tx, ctx: SchoolContext, input: ConcessionInput, opts: { forceApproval?: boolean } = {}) {
   checkInput(input);
-  const enrolment = await tx.enrolment.findFirst({ where: { studentId: input.studentId, archivedAt: null }, orderBy: { createdAt: "desc" }, include: { student: true } });
-  if (!enrolment) throw new MoneyProblem("This student is not in a class.");
-  await assertYearOpen(tx, enrolment.academicYearId);
+  // The year of the chosen rows, else the student's class this year (never the enrolment made last).
+  const enrolment = await currentEnrolment(tx, input.studentId);
+  const student = await tx.student.findFirst({ where: { id: input.studentId }, select: { fullName: true } });
+  if (!enrolment || !student) throw new MoneyProblem("This student is not in a class.");
+  const rowYear = input.dueIds?.length ? (await tx.studentFeeDue.findFirst({ where: { id: { in: input.dueIds }, studentId: input.studentId }, select: { academicYearId: true } }))?.academicYearId : null;
+  const academicYearId = rowYear ?? enrolment.academicYearId;
+  await assertYearOpen(tx, academicYearId);
   const settings = await feeSettings(tx, ctx);
   const c = await tx.concession.create({
     data: {
       schoolId: ctx.schoolId,
       studentId: input.studentId,
-      academicYearId: enrolment.academicYearId,
+      academicYearId,
       type: input.type,
       mode: input.mode,
       amountPaise: input.mode === "amount" ? input.amountPaise : BigInt(0),
@@ -153,7 +157,7 @@ export async function giveConcession(tx: Tx, ctx: SchoolContext, input: Concessi
       type: input.type === "SCHOLARSHIP" ? "scholarship" : "concession",
       recordType: "Concession",
       recordId: c.id,
-      summary: `${what} of ${formatRupees(estimate)} for ${enrolment.student.fullName}`,
+      summary: `${what} of ${formatRupees(estimate)} for ${student.fullName}`,
       amountPaise: estimate,
       reason: input.reason,
     });

@@ -11,6 +11,7 @@ import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { formatDate, formatRupees } from "../format";
 import { addDays } from "../staff/dates";
+import { currentEnrolments } from "../academic/years";
 import { appUrl } from "../parent-link/token";
 import { MoneyProblem } from "./problem";
 import { openDues } from "./dues";
@@ -86,11 +87,11 @@ async function whoOwes(tx: Tx, studentIds: string[], today: Date) {
   const out: Planned[] = [];
   let nothing = 0;
   const unique = [...new Set(studentIds)];
-  const enrolments = await tx.enrolment.findMany({ where: { studentId: { in: unique }, archivedAt: null }, orderBy: { createdAt: "desc" }, select: { studentId: true, classId: true } });
+  const enrolments = await currentEnrolments(tx, unique);
   for (const id of unique) {
     const r = reminderRows(await openDues(tx, id), today);
     if (!r || r.due <= ZERO) { nothing++; continue; }
-    out.push({ studentId: id, due: r.due, dueDate: r.dueDate, dueIds: r.rows.map((d) => d.id), classId: enrolments.find((e) => e.studentId === id)?.classId ?? null });
+    out.push({ studentId: id, due: r.due, dueDate: r.dueDate, dueIds: r.rows.map((d) => d.id), classId: enrolments.get(id)?.classId ?? null });
   }
   return { out, nothing };
 }

@@ -5,6 +5,7 @@ import "server-only";
 import type { StudentFeeDue } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { addDays } from "../staff/dates";
+import { currentEnrolment, currentEnrolments } from "../academic/years";
 
 /** A row is "Due" from this many days before its due date (inferred: the current period). */
 export const DUE_WINDOW_DAYS = 30;
@@ -88,17 +89,21 @@ export async function advanceHeld(tx: Tx, studentId: string) {
 
 export type StudentCard = Awaited<ReturnType<typeof studentCard>>;
 
-/** The student card on fee screens: photo, name, class and section, roll number, father's name, parents' phones. */
+/**
+ * The student card on fee screens: photo, name, class and section, roll number, father's name, parents' phones.
+ * The class is the one in the given year (a payment's year, for history), else the student's class this year.
+ */
 export async function studentCard(tx: Tx, ctx: SchoolContext, studentId: string, academicYearId?: string | null) {
   const s = await tx.student.findFirst({
     where: { id: studentId },
     include: {
-      enrolments: { where: { archivedAt: null, ...(academicYearId ? { academicYearId } : {}) }, orderBy: { createdAt: "desc" }, take: 1 },
       guardians: { where: { archivedAt: null }, include: { guardian: true }, orderBy: [{ isPrimary: "desc" }, { emergencyOrder: "asc" }] },
     },
   });
   if (!s) return null;
-  const e = s.enrolments[0] ?? null;
+  const e = academicYearId
+    ? await tx.enrolment.findFirst({ where: { studentId, academicYearId, archivedAt: null } })
+    : await currentEnrolment(tx, studentId);
   const section = e ? await tx.section.findUnique({ where: { id: e.sectionId }, include: { schoolClass: true } }) : null;
   const father = s.guardians.find((g) => /father/i.test(g.relationship))?.guardian ?? null;
   const primary = s.guardians[0]?.guardian ?? null;
@@ -123,20 +128,50 @@ export async function studentCard(tx: Tx, ctx: SchoolContext, studentId: string,
   };
 }
 
-/** Class and section names for many students in one year (lists, Day Book entries). */
+export type ClassOf = { classId: string; sectionId: string; label: string; className: string };
+
+async function sectionLabels(tx: Tx, sectionIds: string[]) {
+  const sections = await tx.section.findMany({ where: { id: { in: [...new Set(sectionIds)] } }, include: { schoolClass: true } });
+  return new Map(sections.map((s) => [s.id, { classId: s.classId, sectionId: s.id, label: `${s.schoolClass.name} ${s.name}`, className: s.schoolClass.name } satisfies ClassOf]));
+}
+
+/**
+ * Class and section names for many students: in the given year, else each
+ * student's class this year (lists, reports, Day Book entries).
+ */
 export async function classOfStudents(tx: Tx, studentIds: string[], academicYearId?: string | null) {
-  if (!studentIds.length) return new Map<string, { classId: string; sectionId: string; label: string; className: string }>();
-  const rows = await tx.enrolment.findMany({
-    where: { studentId: { in: studentIds }, archivedAt: null, ...(academicYearId ? { academicYearId } : {}) },
-    orderBy: { createdAt: "asc" },
-  });
-  const sectionIds = [...new Set(rows.map((r) => r.sectionId))];
-  const sections = await tx.section.findMany({ where: { id: { in: sectionIds } }, include: { schoolClass: true } });
-  const byId = new Map(sections.map((s) => [s.id, s]));
-  const out = new Map<string, { classId: string; sectionId: string; label: string; className: string }>();
+  const out = new Map<string, ClassOf>();
+  if (!studentIds.length) return out;
+  const rows = academicYearId
+    ? await tx.enrolment.findMany({ where: { studentId: { in: [...new Set(studentIds)] }, archivedAt: null, academicYearId } })
+    : [...(await currentEnrolments(tx, studentIds)).values()];
+  const labels = await sectionLabels(tx, rows.map((r) => r.sectionId));
   for (const r of rows) {
-    const s = byId.get(r.sectionId);
-    if (s) out.set(r.studentId, { classId: r.classId, sectionId: r.sectionId, label: `${s.schoolClass.name} ${s.name}`, className: s.schoolClass.name });
+    const s = labels.get(r.sectionId);
+    if (s) out.set(r.studentId, s);
   }
   return out;
+}
+
+/**
+ * For records that belong to a year (payments, concessions, refunds, late
+ * fees): the student's class in that record's year, so last year's receipt
+ * shows last year's class and this year's shows this year's. A record with no
+ * year, or a year the student was not enrolled in, shows the class this year.
+ */
+export async function classInYearOf(tx: Tx, records: { studentId: string; academicYearId?: string | null }[]) {
+  const ids = [...new Set(records.map((r) => r.studentId))];
+  const all = ids.length ? await tx.enrolment.findMany({ where: { studentId: { in: ids }, archivedAt: null } }) : [];
+  const current = await currentEnrolments(tx, ids);
+  const labels = await sectionLabels(tx, all.map((r) => r.sectionId));
+  const inYear = new Map(all.map((e) => [`${e.studentId}|${e.academicYearId}`, e.sectionId]));
+  return (studentId: string, academicYearId?: string | null): ClassOf | null => {
+    const sectionId = (academicYearId ? inYear.get(`${studentId}|${academicYearId}`) : undefined) ?? current.get(studentId)?.sectionId;
+    return sectionId ? labels.get(sectionId) ?? null : null;
+  };
+}
+
+/** Class and section names of sections stored on records (a Day Book entry keeps the student's section when posted). */
+export async function classOfSections(tx: Tx, sectionIds: string[]) {
+  return sectionLabels(tx, sectionIds);
 }

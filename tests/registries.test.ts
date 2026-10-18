@@ -79,7 +79,6 @@ const REGISTRIES: { name: string; registry: string; adds: RegExp; reads: RegExp 
   { name: "Student Profile tabs (registerProfileTab)", registry: "src/lib/students/profile-tabs.ts", adds: /\bregisterProfileTab\(\s*\{/, reads: /\bprofileTabsFor\(/ },
   { name: "leaving clearance checks (registerClearanceCheck)", registry: "src/lib/students/clearance.ts", adds: /\bregisterClearanceCheck\(\s*"/, reads: /\b(runClearanceChecks|clearanceCheckNames)\(/ },
   { name: "fee plan on enrolment (onEnrolled)", registry: "src/lib/students/hooks.ts", adds: /\bonEnrolled\(\s*async/, reads: /\b(runEnrolled|feePlanApplies)\(/ },
-  { name: "promotion facts and year activity", registry: "src/lib/students/hooks.ts", adds: /\b(registerPromotionFacts|registerYearActivity)\(\s*async/, reads: /\b(promotionFacts|yearActivity)\(tx/ },
   { name: "report card attendance (registerAttendanceSource)", registry: "src/lib/exams/attendance.ts", adds: /\bregisterAttendanceSource\(\s*\(/, reads: /\battendanceFor\(tx/ },
   { name: "Parent Link on guardian screens (registerParentLink)", registry: "src/lib/students/guardians.ts", adds: /\bregisterParentLink\(\s*[a-z]/, reads: /\b(parentLinkProvider|parentLinkStatus)\(/ },
 ];
@@ -110,5 +109,18 @@ describe("every place that reads a registry loads every file that adds to it", (
     expect(approvals).toMatch(/await import\("\.\/approval-handlers"\)/);
     // Nothing registers follow-ups as a side effect any more.
     expect(having(/\bonDecision\(\s*"/).map(rel)).toEqual([]);
+  });
+
+  it("student facts (G20): every module's sources are in src/lib/students/fact-sources.ts, which hooks.ts loads itself", () => {
+    const list = path.join(src, "lib", "students", "fact-sources.ts");
+    const listed = new Set(deps(list));
+    // Each module that gives Student Management facts exports them from its student-facts file.
+    const modules = having(/^export const (promotionFacts|listFacts|yearActivity|studentsWithDues)\b/m);
+    expect(modules.map(rel).sort()).toEqual(["src/lib/attendance/student-facts.ts", "src/lib/exams/student-facts.ts", "src/lib/fees/student-facts.ts"]);
+    expect(modules.filter((f) => !listed.has(f)).map(rel)).toEqual([]);
+    const hooks = text.get(path.join(src, "lib", "students", "hooks.ts"))!;
+    expect(hooks).toMatch(/import\("\.\/fact-sources"\)/);
+    // Nothing registers facts as a side effect any more.
+    expect(having(/\bregister(PromotionFacts|YearActivity|ListFacts|FeeFilter)\(/).map(rel)).toEqual([]);
   });
 });

@@ -8,6 +8,7 @@ import { clientIp } from "@/lib/client-ip";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { findSession } from "./auth/sessions";
+import { newToken } from "./auth/tokens";
 import { accessIn, schoolsFor, supportAccessView } from "./auth/access";
 import { menuModules, PermissionDeniedError, reachFor, requirePermission, type Action } from "./permissions";
 import { MODULES, type ModuleKey } from "./modules";
@@ -23,6 +24,20 @@ export async function deviceInfo() {
     userAgent: h.get("user-agent"),
     ipAddress: clientIp((n) => h.get(n)),
   };
+}
+
+/** The browser's own random id, kept for 2 years, so a sign-in from a new device is told apart. */
+export const DEVICE_COOKIE = "sos_device";
+
+/** The device, with this browser's id (made now on its first sign-in). For sign-in actions only: it may set a cookie. */
+export async function signInDevice() {
+  const jar = await cookies();
+  let deviceId = jar.get(DEVICE_COOKIE)?.value ?? null;
+  if (!deviceId || !/^[A-Za-z0-9_-]{20,100}$/.test(deviceId)) {
+    deviceId = newToken();
+    jar.set(DEVICE_COOKIE, deviceId, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 2 * 365 * 86_400 });
+  }
+  return { ...(await deviceInfo()), deviceId };
 }
 
 /** Keeps the person signed in for 30 days, or (on a shared device) only until the browser closes. */

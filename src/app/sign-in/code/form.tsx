@@ -7,7 +7,7 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { cx } from "@/components/ui/cx";
 import { resendCodeAction, verifyCodeAction, type CodeState } from "../actions";
 
-export function CodeForm({ sentTo, trustDays }: { sentTo: string; trustDays: number }) {
+export function CodeForm({ sentTo, trustDays }: { sentTo: string; trustDays: number | null }) {
   const [state, action, pending] = useActionState<CodeState, FormData>(verifyCodeAction, null);
   const [resent, setResent] = useState<CodeState>(null);
   const [sending, startSending] = useTransition();
@@ -35,10 +35,12 @@ export function CodeForm({ sentTo, trustDays }: { sentTo: string; trustDays: num
           className={cx("w-full h-14 rounded-xl border bg-surface text-center text-[24px] font-semibold tnum tracking-[0.5em] outline-none transition",
             wrong ? "border-bad ring-4 ring-bad/10" : "border-line focus:border-brand focus:ring-4 focus:ring-brand/15")} />
       </div>
-      <label className="flex items-start gap-2.5 text-[14px] text-ink2 cursor-pointer select-none">
-        <input type="checkbox" name="trust" className="mt-0.5 size-5 shrink-0 rounded-md accent-brand" />
-        <span>Trust this device for {trustDays} days. Only on your own phone or computer, never a shared one.</span>
-      </label>
+      {trustDays && (
+        <label className="flex items-start gap-2.5 text-[14px] text-ink2 cursor-pointer select-none">
+          <input type="checkbox" name="trust" className="mt-0.5 size-5 shrink-0 rounded-md accent-brand" />
+          <span>Trust this device for {trustDays} days. Only on your own phone or computer, never a shared one.</span>
+        </label>
+      )}
       <Button type="submit" variant="primary" size="lg" className="w-full mt-1" loading={pending} loadingText="Checking…">Verify and sign in</Button>
       <div className="flex flex-wrap items-center justify-between gap-2 text-[14px]">
         <button type="button" disabled={sending} className="h-10 font-semibold text-brand hover:underline disabled:opacity-60"

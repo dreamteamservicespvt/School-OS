@@ -9,6 +9,13 @@ import { writeAudit } from "./audit";
 import { MODULES } from "./modules";
 import { ALL_ROLE_TEMPLATES } from "./roles";
 
+/**
+ * The School Feature for two-step login (TWO_STEP_FEATURE in auth/two-step.ts,
+ * which this file cannot import: the seed runs it outside the server). A test
+ * keeps the two the same.
+ */
+export const NEW_SCHOOL_TWO_STEP_FEATURE = "two-step-login";
+
 export type NewSchool = {
   code: string;
   name: string;
@@ -68,7 +75,10 @@ export async function buildSchool(tx: Tx, ctx: SchoolContext, input: NewSchool) 
   await tx.schoolModule.createMany({
     data: MODULES.filter((m) => m.optional).map((m) => ({ schoolId, moduleKey: m.key, isOn: on.has(m.key) })),
   });
-  await writeAudit(tx, ctx, { action: "created", recordType: "School", recordId: schoolId, after: { code: input.code, name: input.name } });
+  // Two-step login is on from the first day for the roles that need it (School Admin,
+  // Principal, Accountant: 08-platform-security.md §2). A School Admin can switch it off.
+  await tx.schoolFeature.create({ data: { schoolId, featureKey: NEW_SCHOOL_TWO_STEP_FEATURE, isOn: true } });
+  await writeAudit(tx, ctx, { action: "created", recordType: "School", recordId: schoolId, after: { code: input.code, name: input.name, twoStepLogin: "on" } });
   return { school, campus };
 }
 

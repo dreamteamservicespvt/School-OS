@@ -79,7 +79,7 @@ A school's first School Admin is made by DREAM TEAM in the Super Admin console (
 - Create a role by copying an existing one; change permissions; archive a role with no users.
 - Give one person extra permissions or a narrower scope (shown as exceptions).
 - Set password format rules (minimum length, letters and numbers; inferred defaults: 8 characters with a number).
-- Require two-step login (one-time code) for sensitive roles.
+- Require two-step login (one-time code) for sensitive roles. It is on from the first day for School Admin, Principal and Accountant (schools that existed before were switched on too, unless their School Admin had switched it off). A School Admin may switch it off, after a warning that anyone who learns one of their passwords could then sign in; the change is in the audit log. Nobody is locked out: a person no code can reach signs in with the password, it shows in Security alerts, and Data Backup & Security lists who still needs a mobile number or email (added 18 October 2026).
 - Session rules: time-out after inactivity (default 30 minutes on computers, 7 days on the installed phone app; inferred), sign out everywhere.
 - Task access levels (full task manager or own tasks only) per role.
 - **Permission change alert:** whenever anyone's roles, permissions, scope or exceptions change, every School Admin gets an alert saying who changed what for whom. It cannot be switched off (inferred: cannot be switched off).
@@ -226,7 +226,7 @@ Decided **D1**: Razorpay is the first gateway connected.
 
 - Switch a module or optional page on or off (switching off asks for confirmation and says what will be hidden).
 - Apply a template (shows the changes; only fills settings not already set, unless the person chooses otherwise; inferred).
-- Connect, test or disconnect an integration.
+- Connect, test or disconnect an integration. A test calls only addresses on the public internet: https only (Tally may use http), never the server itself, a private network or the cloud's metadata address, with the name looked up and checked first, no redirects followed and a 5-second limit (added 18 October 2026).
 - Turn AI on or off and choose roles; switch each AI feature, including translation of typed messages, on or off (decided 9 October 2026).
 
 **Form fields:** switches; template choice; per-integration connection fields.
@@ -244,7 +244,7 @@ Decided **D1**: Razorpay is the first gateway connected.
 - **Audit log:** every change with who, what, when, device, and before and after values. Filters: person, record type, date, action.
 - **Login history:** sign-ins and failed attempts by user, with device and place.
 - **Export log:** who exported what and when.
-- **Security alerts:** unusual logins (new device or place, many failed attempts) and mass exports.
+- **Security alerts:** unusual logins (new device or place, many failed attempts, a sign-in without two-step login because no code could reach the person) and mass exports. The person who signed in on a new device is also told at once, in the app and by email, with "Not you? Sign out everywhere" (added 18 October 2026).
 - **Integration and API call logs** (optional): calls to and from connected systems, with errors.
 - **Privacy:** data retention periods per record type; consent records; data deletion requests (need approval); data export request for one person.
 - **Consent texts and records** (decided 9 October 2026): the consent types, each with its current text and earlier versions. Consent types include data processing under the DPDP Act 2023, photo consent (for the gallery and social media), APAAR consent and message opt-ins. A guardian gives consent on the admission form or through Parent Link, confirmed by a one-time code to the guardian's mobile. Each Consent Record keeps the guardian, the student, the consent type, the version of the text agreed to, when and how it was given, and when it was withdrawn, if it was. Consent can be withdrawn at any time; a withdrawal is a new entry, never an edit. Consent Records are kept on the student's guardian in 03 Student Management; this page holds the versioned consent texts and a **consent log view** showing, per consent type and class, who has given, who has not, and who has withdrawn.

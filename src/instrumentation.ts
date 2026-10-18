@@ -8,6 +8,12 @@ export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
   const { applyTestCopyEnv } = await import("./lib/test-copy-env");
   applyTestCopyEnv();
+  // Signing keys should not be the encryption key (08-platform-security.md §3). Not stopped
+  // here, because links already sent are signed with it; DREAM TEAM sets these before go-live.
+  if (process.env.NODE_ENV === "production") {
+    const missing = ["FILE_LINK_SECRET", "PARENT_LINK_SECRET"].filter((k) => !process.env[k]);
+    if (missing.length) console.warn(JSON.stringify({ level: "warn", event: "signing-key-missing", keys: missing, note: "FIELD_ENCRYPTION_KEY is signing links too. Set these before the first school goes live." }));
+  }
 }
 
 export const onRequestError: Instrumentation.onRequestError = async (error, request) => {

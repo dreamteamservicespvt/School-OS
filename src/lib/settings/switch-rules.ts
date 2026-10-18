@@ -1,6 +1,7 @@
 // Lists and checks for Modules On/Off, with no database, so the browser can
 // use them too: AI features, school-type templates and integrations.
 import type { ModuleKey } from "../modules";
+import { publicUrlProblem } from "../net/public-address";
 
 /** AI features under the AI assistant (Modules On/Off). Each is a School Feature switch other modules read. */
 export const AI_FEATURES = [
@@ -92,6 +93,9 @@ export const INTEGRATION_STATUS: Record<string, { label: string; tone: "success"
 
 const IP = /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/;
 
+/** Tally's own server speaks plain http; every other address must be https. */
+export const httpAllowed = (def: Pick<IntegrationDef, "key">) => def.key === "tally";
+
 /** Checks the typed details. Secret fields may stay blank when a secret is already saved. */
 export function checkIntegrationFields(def: IntegrationDef, values: Record<string, string>, opts: { secretsKept: boolean }) {
   const errors: Record<string, string> = {};
@@ -106,7 +110,12 @@ export function checkIntegrationFields(def: IntegrationDef, values: Record<strin
       let u: URL | null = null;
       try { u = new URL(v); } catch { u = null; }
       if (!u || !["https:", "http:"].includes(u.protocol)) errors[f.key] = `${f.label} must be a full web address, like https://example.com.`;
-      else if (u.protocol !== "https:" && def.key !== "tally") errors[f.key] = `${f.label} must start with https:// so the connection is encrypted.`;
+      else if (u.protocol !== "https:" && !httpAllowed(def)) errors[f.key] = `${f.label} must start with https:// so the connection is encrypted.`;
+      else {
+        // School OS calls this address, so never one inside a private network (checked again after the name is looked up).
+        const refused = publicUrlProblem(v, { allowHttp: httpAllowed(def) });
+        if (refused) errors[f.key] = `${f.label}: ${refused}`;
+      }
     } else if (f.type === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) errors[f.key] = `${f.label} does not look right. It should be like name@example.com.`;
     else if (f.type === "ip" && !IP.test(v)) errors[f.key] = `${f.label} should be like 192.168.1.50.`;
     else if (def.key === "google" && f.key === "serviceKey" && v !== "kept") {

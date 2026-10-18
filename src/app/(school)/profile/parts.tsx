@@ -98,30 +98,33 @@ function ContactForm({ kind, current }: { kind: "phone" | "email"; current: stri
   );
 }
 
-export function PasswordButton() {
+export function PasswordButton({ withoutOld = false }: { withoutOld?: boolean }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>Change password</Button>
-      <Dialog open={open} onClose={() => setOpen(false)} title="Change password" sub="Your other devices will be signed out.">
-        <PasswordForm />
+      <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>{withoutOld ? "Set a new password" : "Change password"}</Button>
+      <Dialog open={open} onClose={() => setOpen(false)} title={withoutOld ? "Set a new password" : "Change password"} sub="Your other devices will be signed out.">
+        <PasswordForm withoutOld={withoutOld} />
       </Dialog>
     </>
   );
 }
 
-export function TwoStepRow({ required, on, sendsTo }: { required: boolean; on: boolean; sendsTo: string | null }) {
+/** `cannotReach`: the role needs two-step login but no code can reach this person yet, and what to do. */
+export function TwoStepRow({ required, on, sendsTo, cannotReach = null }: { required: boolean; on: boolean; sendsTo: string | null; cannotReach?: string | null }) {
   const [value, setValue] = useState(on);
   const [pending, start] = useTransition();
   const [say, toast] = useSay();
   const router = useRouter();
-  const sub = required
+  const sub = cannotReach
+    ? `Required for your role, but no code can reach you yet, so you sign in with your password only. ${cannotReach}`
+    : required
     ? `A code goes to ${sendsTo ?? "your phone or email"} after your password. Required for your role.`
     : value ? `A code goes to ${sendsTo ?? "your phone or email"} after your password.` : "A code to your phone or email after your password. Safer if someone learns your password.";
   return (
     <div className="flex items-center gap-3 px-5 py-3.5">
-      <div className="min-w-0 flex-1 text-[14px]"><b className="font-semibold block">Two-step login</b><span className="block text-[12.5px] text-ink3">{sub}</span></div>
-      {required ? <Pill tone="ok"><I.Lock size={12} aria-hidden="true" />On</Pill> : (
+      <div className="min-w-0 flex-1 text-[14px]"><b className="font-semibold block">Two-step login</b><span className={cx("block text-[12.5px]", cannotReach ? "text-warn" : "text-ink3")}>{sub}</span></div>
+      {cannotReach ? <Pill tone="warn"><I.TriangleAlert size={12} aria-hidden="true" />Not set up</Pill> : required ? <Pill tone="ok"><I.Lock size={12} aria-hidden="true" />On</Pill> : (
         <Switch on={value} label="Two-step login" disabled={pending} onChange={(v) => {
           setValue(v);
           start(async () => {

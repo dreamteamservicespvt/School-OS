@@ -57,7 +57,7 @@ export function SignInForm({ notice, startWithCode }: { notice?: string; startWi
       ) : (
         <p className="text-[14px] text-ink2 rounded-xl bg-sunken p-3.5 flex gap-2.5">
           <MessageSquareText size={18} className="text-brand shrink-0 mt-0.5" aria-hidden="true" />
-          We will send a 6-digit code to the mobile number or email on your login. After signing in you can set a new password in My profile.
+          We will send a 6-digit code to the mobile number or email on your login. If your role needs two-step login, a second code goes to your other contact. After signing in you can set a new password in My profile.
         </p>
       )}
 

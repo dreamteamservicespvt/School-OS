@@ -8,7 +8,9 @@ import { prisma, withSchool } from "@/lib/db";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { reachFor } from "@/lib/permissions";
 import { BUILT_MODULES, type ModuleKey } from "@/lib/modules";
-import { roleNeedsTwoStep } from "@/lib/auth/two-step";
+import { codeChannels, roleNeedsTwoStep, twoStepHelp } from "@/lib/auth/two-step";
+import { mayResetWithoutOld } from "@/lib/auth/sessions";
+import { Alert } from "@/components/ui/alert";
 import { onChannels } from "@/lib/messaging/channels";
 import { NOTE_KINDS, readNotePrefs, type NoteChannel } from "@/lib/notification-kinds";
 import { pushOn, pushWebConfig } from "@/lib/push";
@@ -46,12 +48,14 @@ function DL({ rows }: { rows: [string, React.ReactNode][] }) {
   );
 }
 
-export default async function ProfilePage() {
+export default async function ProfilePage({ searchParams }: { searchParams: Promise<{ twoStep?: string; newPassword?: string }> }) {
   const current = await requireCurrent();
   // A DREAM TEAM support person has no login here, so no profile (07-super-admin.md §3.4).
   if (current.support) redirect("/dashboard");
+  const params = await searchParams;
   const tz = current.school.timeZone;
   const u = current.user;
+  const withoutOld = mayResetWithoutOld(current.session);
   const [sessions, staff, mustTwoStep, allowed] = await Promise.all([
     prisma.session.findMany({ where: { userLoginId: u.id, revokedAt: null, expiresAt: { gt: new Date() } }, orderBy: { lastUsedAt: "desc" } }),
     withSchool(current.ctx, (tx) => tx.staff.findFirst({ where: { userLoginId: u.id }, select: { id: true, staffCode: true, joiningDate: true, photoFileId: true } })),
@@ -63,6 +67,9 @@ export default async function ProfilePage() {
     }),
   ]);
   const twoStepOn = mustTwoStep || u.twoStepChosen;
+  // Two-step login is needed but no code can reach this person yet: say how to fix it.
+  const reach = twoStepOn ? await codeChannels(u, current.school.id) : null;
+  const cannotReach = reach && !reach.email && !reach.phone ? twoStepHelp(u) : null;
   const can = (m: ModuleKey) => reachFor(current.permissions, m, "view") !== "none";
   const kinds = NOTE_KINDS.filter((k) => !k.module || can(k.module as ModuleKey));
   const roleNames = current.roles.map((r) => r.name);
@@ -80,6 +87,16 @@ export default async function ProfilePage() {
     <div>
       <PageHeader title="My profile" href="/profile" userId={u.id} sub="Your own details, password, devices and alerts. Only you see this page." />
       <div className="flex flex-col gap-5 lg:gap-6">
+        {twoStepOn && params.twoStep === "add" && (
+          <Alert tone="warning" title="Your role needs two-step login, but no one-time code can reach you yet">
+            You signed in with your password only this time. {cannotReach ?? "The sign-in code could not be sent (for example, the school's SMS has no credits left). Ask your School Admin."}
+          </Alert>
+        )}
+        {withoutOld && params.newPassword === "1" && (
+          <Alert tone="info" title="You signed in with a one-time code">
+            If you forgot your password, press Set a new password under Password and sign-in. Your old password is not needed for the next 30 minutes.
+          </Alert>
+        )}
         <Card>
           <div className="p-5 flex flex-col md:flex-row md:items-center gap-4">
             <div className="flex items-center gap-4 min-w-0 flex-1">
@@ -123,9 +140,9 @@ export default async function ProfilePage() {
                     <b className="font-semibold block">Password</b>
                     <span className="block text-[12.5px] text-ink3">{u.passwordChangedAt ? `Last changed ${formatDate(u.passwordChangedAt)}` : "Set when you accepted your invite"}</span>
                   </div>
-                  <PasswordButton />
+                  <PasswordButton withoutOld={withoutOld} />
                 </div>
-                <TwoStepRow required={mustTwoStep} on={twoStepOn} sendsTo={u.email ?? u.phone} />
+                <TwoStepRow required={mustTwoStep} on={twoStepOn} sendsTo={u.email ?? u.phone} cannotReach={cannotReach} />
               </div>
             </Card>
 

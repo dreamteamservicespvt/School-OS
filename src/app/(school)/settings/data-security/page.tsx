@@ -7,6 +7,7 @@ import { lastBackup } from "@/lib/data-security/privacy";
 import { exportExpired, EXPORT_LINK_HOURS } from "@/lib/data-security/data-export";
 import { daysAgo, securityAlerts, TWO_STEP_FEATURE } from "@/lib/data-security/alerts";
 import { describeDevice } from "@/lib/data-security/audit-view";
+import { codeChannels } from "@/lib/auth/two-step";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert } from "@/components/ui/alert";
@@ -35,9 +36,21 @@ export default async function DataSecurityPage() {
       const people = ids.length ? await tx.schoolAccess.findMany({ where: { userLoginId: { in: ids } }, select: { userLogin: { select: { id: true, displayName: true } } } }) : [];
       const twoStep = await tx.schoolFeature.findUnique({ where: { schoolId_featureKey: { schoolId: current.ctx.schoolId, featureKey: TWO_STEP_FEATURE } } });
       const twoStepRoles = await tx.role.findMany({ where: { requiresTwoStep: true, isEnabled: true, archivedAt: null }, select: { name: true } });
-      return { exports, jobStatus: new Map(jobs.map((j) => [j.idempotencyKey, j.status])), alerts, names: new Map(people.map((p) => [p.userLogin.id, p.userLogin.displayName])), twoStepOn: twoStep?.isOn ?? false, twoStepRoles: [...new Set(twoStepRoles.map((r) => r.name))] };
+      // The people those roles cover, to say who no code can reach yet.
+      const sensitive = await tx.schoolAccess.findMany({
+        where: { archivedAt: null, userLogin: { status: "ACTIVE", archivedAt: null }, roles: { some: { role: { requiresTwoStep: true, isEnabled: true, archivedAt: null } } } },
+        select: { userLogin: { select: { id: true, displayName: true, email: true, phone: true } } },
+      });
+      return { exports, jobStatus: new Map(jobs.map((j) => [j.idempotencyKey, j.status])), alerts, names: new Map(people.map((p) => [p.userLogin.id, p.userLogin.displayName])), twoStepOn: twoStep?.isOn ?? false, twoStepRoles: [...new Set(twoStepRoles.map((r) => r.name))], sensitive: sensitive.map((s) => s.userLogin) };
     }),
   ]);
+  const unreachable: { id: string; displayName: string }[] = [];
+  if (data.twoStepOn) {
+    for (const p of data.sensitive) {
+      const can = await codeChannels(p, current.ctx.schoolId);
+      if (!can.email && !can.phone) unreachable.push(p);
+    }
+  }
   const canExport = may.export;
   const canEdit = may.edit;
   const preparing = data.exports.some((e) => e.status === "preparing" && data.jobStatus.get(`data-export:${e.id}`) !== "failed");
@@ -110,6 +123,12 @@ export default async function DataSecurityPage() {
               </span>
             </p>
             <p className="text-sm text-ink-2">A person can trust their own device for 30 days. If a phone is lost, another School Admin or the Principal resets two-step login in Users &amp; Permissions.</p>
+            {unreachable.length > 0 && (
+              <Alert tone="warning" title={`No code can reach ${unreachable.length === 1 ? "1 person" : `${unreachable.length} people`} yet`}>
+                {unreachable.map((p) => p.displayName).join(", ")} still sign{unreachable.length === 1 ? "s" : ""} in with the password only, so nobody is locked out. Add a mobile number or email for them in{" "}
+                <Link href="/settings/users" className="font-medium text-brand-text underline">Users &amp; Permissions</Link>, or set up SMS in Communication.
+              </Alert>
+            )}
             {canEdit && <TwoStepSwitch on={data.twoStepOn} />}
           </CardBody>
         </Card>

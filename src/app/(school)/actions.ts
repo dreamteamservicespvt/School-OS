@@ -6,7 +6,9 @@ import { prisma, withSchool } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
 import { hitLimit, limitMessage } from "@/lib/rate-limit";
 import { checkNewPassword, hashPassword, verifyPassword } from "@/lib/auth/password";
-import { revokeAllSessions, revokeSession, setSessionSchool } from "@/lib/auth/sessions";
+import { mayResetWithoutOld, revokeAllSessions, revokeSession, setSessionSchool } from "@/lib/auth/sessions";
+import { securityAlert } from "@/lib/auth/security-alert";
+import { formatDateTime } from "@/lib/format";
 import { schoolsFor } from "@/lib/auth/access";
 import { clearSessionCookie, deviceInfo, requireCurrent } from "@/lib/current";
 import { cookies } from "next/headers";
@@ -99,20 +101,39 @@ export async function changePassword(_prev: PasswordState, formData: FormData): 
   const limit = await hitLimit(`change-password:${current.user.id}`, 10, 600);
   if (!limit.ok) return { ok: false, message: limitMessage(limit) };
   const user = await prisma.userLogin.findUniqueOrThrow({ where: { id: current.user.id } });
-  if (!user.passwordHash || !(await verifyPassword(user.passwordHash, oldPassword))) {
+  // Just signed in with a one-time code (a forgotten password): the old password is not needed.
+  const withoutOld = !oldPassword && mayResetWithoutOld(current.session);
+  if (!withoutOld && (!user.passwordHash || !(await verifyPassword(user.passwordHash, oldPassword)))) {
     return { ok: false, message: "Your current password is not right. Check it and try again." };
   }
   const problem = checkNewPassword(newPassword);
   if (problem) return { ok: false, message: `New password: ${problem}` };
   if (newPassword !== confirm) return { ok: false, message: "The two new passwords are not the same. Type them again." };
 
+  const now = new Date();
   await prisma.userLogin.update({
     where: { id: user.id },
-    data: { passwordHash: await hashPassword(newPassword), passwordChangedAt: new Date() },
+    data: { passwordHash: await hashPassword(newPassword), passwordChangedAt: now },
   });
+  // Used once: the next change needs the new password.
+  if (withoutOld) await prisma.session.update({ where: { id: current.session.id }, data: { signedInWithCode: false } });
   // A changed password signs out every other device.
   const others = await revokeAllSessions(user.id, "Password changed", current.session.id);
-  await audit("changed-password");
+  const device = await deviceInfo();
+  // The person is told even though they did it themselves: it matters most when it was not them.
+  const afterSave = await withSchool(current.ctx, async (tx) => {
+    await writeAudit(tx, current.ctx, {
+      action: "changed-password", recordType: "User Login", recordId: user.id,
+      after: withoutOld ? { with: "one-time code sign-in" } : undefined, device: device.userAgent, ipAddress: device.ipAddress,
+    });
+    const school = await tx.school.findUnique({ where: { id: current.ctx.schoolId }, select: { timeZone: true } });
+    return securityAlert(tx, current.ctx.schoolId, user.id, {
+      subject: "Your School OS password was changed",
+      text: `Your School OS password was changed on ${formatDateTime(now, school?.timeZone)}${others > 0 ? ` and ${others} other device${others === 1 ? " was" : "s were"} signed out` : ""}. Not you? Tell your School Admin at once.`,
+      link: "/profile#password",
+    });
+  });
+  await afterSave();
   return {
     ok: true,
     message: others > 0 ? `Password changed. You were signed out on ${others} other device${others === 1 ? "" : "s"}.` : "Password changed.",

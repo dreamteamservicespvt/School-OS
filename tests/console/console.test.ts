@@ -28,7 +28,8 @@ import { CONSOLE_COOKIE, consoleSignIn } from "@/lib/console/auth";
 import { requireConsole, requireConsolePage } from "@/lib/console/current";
 import { CONSOLE_CAN } from "@/lib/console/roles";
 import { findSchoolInvite, finishSchoolInvite, sendSchoolInviteCode } from "@/lib/console/school-invite";
-import { addAdmin } from "@/lib/console/schools";
+import { addAdmin, addSchool } from "@/lib/console/schools";
+import { roleNeedsTwoStep } from "@/lib/auth/two-step";
 import { actorOf } from "@/lib/console/auth";
 import { requireCurrent } from "@/lib/current";
 import { changeRoleAction, disableTeamAction, inviteTeamAction, resendTeamAction } from "@/app/console/(app)/team/actions";
@@ -265,6 +266,23 @@ describe("a School Admin's invite link", () => {
     expect(again.ok).toBe(false);
     const login = await prisma.userLogin.findUnique({ where: { id: inv.userLoginId } });
     expect(login?.status).toBe("ACTIVE");
+  });
+});
+
+describe("Add School", () => {
+  it("makes the school with its first School Admin, and two-step login on from the first day", async () => {
+    const adminMobile = mobile();
+    const made = await addSchool(actorOf(people.ONBOARDING), {
+      name: `Two-step Public School ${randomUUID().slice(0, 4)}`, city: "Warangal", state: "Telangana", board: "CBSE", schoolType: "Day school",
+      phone: mobile(), email: null, approxStudents: 300, groupId: null, newGroupName: null,
+      adminName: "Ramesh Rao", adminMobile, adminEmail: null, adminRole: "school-admin", channels: ["sms"],
+      startAs: "TRIAL", planKey: "essential", hostel: false, optionalOn: [],
+    });
+    const feature = await withSchool({ schoolId: made.schoolId, userId: null }, (tx) => tx.schoolFeature.findUnique({ where: { schoolId_featureKey: { schoolId: made.schoolId, featureKey: "two-step-login" } } }));
+    expect(feature?.isOn).toBe(true);
+    const login = await prisma.userLogin.findUniqueOrThrow({ where: { username: adminMobile } });
+    expect(login.status).toBe("INVITED");
+    expect(await roleNeedsTwoStep(login.id, made.schoolId)).toBe(true);
   });
 });
 

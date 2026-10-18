@@ -8,6 +8,7 @@ import { periodFromSearch } from "@/lib/periods";
 import { periodSetup } from "@/lib/period-setup";
 import { feeLevel, feePageAllowed, feeViewer } from "@/lib/fees/access";
 import { recentPayments } from "@/lib/fees/dashboard";
+import { cancelReasonLabel } from "@/lib/fees/words";
 import { modeWord } from "../../_components/bits";
 
 export const dynamic = "force-dynamic";
@@ -61,7 +62,7 @@ export async function GET(req: Request) {
     { label: "Reference", value: (r) => r.reference ?? r.chequeNo ?? r.gatewayPaymentId ?? "" },
     { label: "Part payment", value: (r) => (r.isPartial ? "Yes" : "No") },
     { label: "Status", value: (r) => STATUS[r.status] ?? r.status },
-    { label: "Cancel reason", value: (r) => r.cancelReason ?? "" },
+    { label: "Cancel reason", value: (r) => cancelReasonLabel(r.cancelReason) },
   ];
   return exportResponse(await buildExport(format, columns, data.list.rows, { title: "Fee payments", schoolName: current.school.name, filters: data.filters, exportedBy: current.user.displayName, timeZone: tz }));
 }

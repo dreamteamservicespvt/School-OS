@@ -10,7 +10,7 @@ import { formatDate, formatRupees } from "../format";
 import { DAY_MS } from "../staff/dates";
 import { classInYearOf, classOfStudents } from "./dues";
 import { ageingGroupOf, feeSettings } from "./settings";
-import { ageingLabel, concessionTypeLabel, modeLabel, percentWord, CONCESSION_STATUS_WORDS, REFUND_STATUS_WORDS } from "./words";
+import { ageingLabel, cancelReasonLabel, concessionTypeLabel, modeLabel, percentWord, CONCESSION_STATUS_WORDS, REFUND_STATUS_WORDS } from "./words";
 import { defaulters } from "./defaulters";
 import { feesByClass } from "./by-class";
 import type { FeeViewer } from "./access";
@@ -326,7 +326,7 @@ export const FEE_REPORTS: ReportDef[] = [
       const receipts = await tx.receipt.findMany({ where: { paymentId: { in: list.map((p) => p.id) } } });
       const users = await tx.userLogin.findMany({ where: { id: { in: list.map((p) => p.cancelledById).filter((x): x is string => Boolean(x)) } }, select: { id: true, displayName: true } });
       const filtered = list.filter((p) => !f.classId || classIn(p.studentId, p.academicYearId)?.classId === f.classId);
-      const rows = filtered.map((p) => ({ cancelledOn: p.cancelledAt, paidOn: p.paymentDate, receipt: receipts.find((r) => r.paymentId === p.id)?.number ?? "Not posted", student: n.get(p.studentId)?.fullName ?? "", class: classIn(p.studentId, p.academicYearId)?.label ?? "", mode: modeLabel(p.mode), by: users.find((u) => u.id === p.cancelledById)?.displayName ?? "", reason: [p.cancelReason, p.cancelNote ?? p.rejectReason].filter(Boolean).join(": "), amount: p.amountPaise }));
+      const rows = filtered.map((p) => ({ cancelledOn: p.cancelledAt, paidOn: p.paymentDate, receipt: receipts.find((r) => r.paymentId === p.id)?.number ?? "Not posted", student: n.get(p.studentId)?.fullName ?? "", class: classIn(p.studentId, p.academicYearId)?.label ?? "", mode: modeLabel(p.mode), by: users.find((u) => u.id === p.cancelledById)?.displayName ?? "", reason: [cancelReasonLabel(p.cancelReason), p.cancelNote ?? p.rejectReason].filter(Boolean).join(": "), amount: p.amountPaise }));
       return {
         columns: [
           { key: "cancelledOn", label: "Cancelled on", kind: "date" }, { key: "paidOn", label: "Paid on", kind: "date" }, { key: "receipt", label: "Receipt" }, { key: "student", label: "Student" }, { key: "class", label: "Class" },

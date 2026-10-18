@@ -19,7 +19,7 @@ import { lockDues, refreshBalances, studentCard } from "./dues";
 import { feeSettings } from "./settings";
 import { finishPosting } from "./collect";
 import { addCharge } from "./structure";
-import { modeLabel } from "./words";
+import { cancelReasonLabel, modeLabel } from "./words";
 
 const ZERO = BigInt(0);
 
@@ -56,7 +56,7 @@ export async function cancelPayment(tx: Tx, ctx: SchoolContext, paymentId: strin
       recordId: p.id,
       summary: `Cancel ${formatRupees(p.amountPaise)} ${modeLabel(p.mode).toLowerCase()} paid by ${card?.name ?? "a student"} on ${formatDate(p.paymentDate)}`,
       amountPaise: p.amountPaise,
-      reason: [input.reason, input.note].filter(Boolean).join(": "),
+      reason: [cancelReasonLabel(input.reason), input.note].filter(Boolean).join(": "),
     });
     await tx.payment.update({ where: { id: p.id }, data: { cancelApprovalId: approval.id, cancelReason: input.reason, cancelNote: input.note } });
     await writeAudit(tx, ctx, { action: "asked-cancel", recordType: "Payment", recordId: p.id, after: { reason: input.reason, note: input.note } });
@@ -89,7 +89,7 @@ async function doCancel(tx: Tx, ctx: SchoolContext, paymentId: string, input: Ca
   });
   await tx.receipt.updateMany({ where: { paymentId: p.id }, data: { status: "cancelled", cancelledAt: new Date() } });
   await tx.taxInvoice.updateMany({ where: { paymentId: p.id }, data: { status: "cancelled" } });
-  await reverseSource(tx, ctx, { sourceType: "payment", sourceId: p.id, date: today, reversalType: "payment-cancel", note: `Payment cancelled: ${input.reason}${input.note ? ` (${input.note})` : ""}` });
+  await reverseSource(tx, ctx, { sourceType: "payment", sourceId: p.id, date: today, reversalType: "payment-cancel", note: `Payment cancelled: ${cancelReasonLabel(input.reason)}${input.note ? ` (${input.note})` : ""}` });
   if (input.reason === "Cheque bounced" && input.bounceChargePaise && input.bounceChargePaise > ZERO) {
     const head = await tx.feeHead.findFirst({ where: { archivedAt: null, OR: [{ systemKey: "late-fee" }, { kind: "miscellaneous" }] }, orderBy: { systemKey: "asc" } });
     if (head) await addCharge(tx, ctx, { studentId: p.studentId, feeHeadId: head.id, amountPaise: input.bounceChargePaise, dueDate: today, label: "Cheque bounce charge", reason: `Cheque ${p.chequeNo ?? ""} bounced`.trim() });

@@ -93,12 +93,10 @@ export async function studentLedger(tx: Tx, studentId: string, today: Date, tz: 
     return `${headName(d.feeHeadId)} · ${d.label}`;
   };
 
-  // Which rows belong in the balance now: fallen due, or already touched.
-  const touched = new Set<string>([
-    ...payments.flatMap((p) => p.allocations.map((a) => a.dueId)),
-    ...conLines.map((l) => l.dueId),
-    ...adjustments.map((a) => a.dueId),
-  ]);
+  // Which rows belong in the balance now: fallen due, or already paid towards (paid ahead).
+  // A concession or adjustment on a later installment does not bring it forward: it stays
+  // under Coming up at its reduced amount, so next term's fee never looks owed today.
+  const touched = new Set<string>(payments.filter((p) => p.status === "POSTED").flatMap((p) => p.allocations.filter((a) => a.amountPaise > ZERO).map((a) => a.dueId)));
   const shown = dues.filter((d) => d.dueDate <= today || touched.has(d.id) || d.kind !== "FEE");
   const shownIds = new Set(shown.map((d) => d.id));
   const comingUp = dues.filter((d) => !shownIds.has(d.id) && d.state === "OPEN");

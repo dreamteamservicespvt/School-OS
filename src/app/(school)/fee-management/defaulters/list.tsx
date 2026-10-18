@@ -156,7 +156,8 @@ function ReminderSheet({ list, onClose, onSent, templates, gateway }: { list: De
   const [channel, setChannel] = useState<"whatsapp" | "sms" | "email">("whatsapp");
   const opts = templates[channel];
   const [tpl, setTpl] = useState(opts[0]?.value ?? OWN);
-  const [text, setText] = useState("Dear {guardian_name}, fees of {due_amount} for {student_name} ({class}) are overdue since {due_date}. Please pay at the school office or online: {link} - {school_name}");
+  // {link} is the family's payment link, or "the school office" when there is none, so the words never promise online payment that is off.
+  const [text, setText] = useState("Dear {guardian_name}, fees of {due_amount} for {student_name} ({class}) are overdue since {due_date}. Please pay at {link}. - {school_name}");
   const [link, setLink] = useState(gateway);
   const [when, setWhen] = useState("now");
   const [preview, setPreview] = useState<PreviewResult | null>(null);
@@ -187,10 +188,15 @@ function ReminderSheet({ list, onClose, onSent, templates, gateway }: { list: De
   useEffect(() => { if (state?.ok) onSent(); }, [state]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const blocked = !preview || !preview.ok || Boolean(preview.creditProblem) || preview.problems.length > 0 || preview.recipients === 0 || (channel === "sms" && ownWording);
-  const label = `${when === "now" ? "Send to" : "Schedule for"} ${preview?.ok ? preview.recipients : n} ${(preview?.ok ? preview.recipients : n) === 1 ? "parent" : "parents"}`;
+  // One count everywhere, from the server's plan: parents reached, messages sent (one per child), and their cost.
+  const ready = preview?.ok ? preview : null;
+  const parents = (k: number) => `${k} ${k === 1 ? "parent" : "parents"}`;
+  const label = ready ? `${when === "now" ? "Send to" : "Schedule for"} ${parents(ready.recipients)}` : preview ? "Send reminder" : "Checking…";
+  const channelLabel = CHANNELS.find((c) => c.value === channel)!.label;
 
   return (
-    <Dialog open onClose={onClose} wide title={`Send fee reminder to ${n} ${n === 1 ? "parent" : "parents"}`} sub="Check the message, the count and the cost before sending"
+    <Dialog open onClose={onClose} wide title={ready ? `Send fee reminder to ${parents(ready.recipients)}` : "Send fee reminder"}
+      sub={`${n} ${n === 1 ? "student" : "students"} on the list. Check the message, the count and the cost before sending.`}
       footer={<>
         <Button variant="ghost" onClick={onClose}>Cancel</Button>
         <Button variant="primary" icon={Send} disabled={blocked || checking} loading={pending} onClick={() => formRef.current?.requestSubmit()}>{label}</Button>
@@ -202,7 +208,7 @@ function ReminderSheet({ list, onClose, onSent, templates, gateway }: { list: De
         {link && <input type="hidden" name="link" value="on" />}
         {!ownWording && <input type="hidden" name="templateId" value={tpl} />}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {[["Parents", preview?.ok ? preview.recipients : "…"], ["Overdue", totalShort], ["Cost", preview?.ok ? `${preview.cost} ${preview.cost === 1 ? "credit" : "credits"}` : "…"]].map(([k, v]) => (
+          {[["Parents", ready ? ready.recipients : "…"], ["Overdue", totalShort], ["Cost", ready ? `${ready.cost} ${ready.cost === 1 ? "credit" : "credits"}` : "…"]].map(([k, v]) => (
             <div key={String(k)} className="rounded-xl bg-sunken/70 px-3 py-2.5"><p className="text-[12px] text-ink3 font-semibold">{k}</p><p className="font-display text-[19px] font-semibold tnum leading-tight truncate">{v}</p></div>
           ))}
         </div>
@@ -218,11 +224,13 @@ function ReminderSheet({ list, onClose, onSent, templates, gateway }: { list: De
         <div className="rounded-2xl border border-line divide-y divide-line/70">
           {gateway
             ? <SettingRow title="Add the payment link" sub="Razorpay link for each family’s exact dues, valid 7 days. Parent Link shows a Pay button too."><Switch on={link} onChange={setLink} label="Add the payment link" /></SettingRow>
-            : <SettingRow title="Payment link" sub="Online payment is not set up. Set up Razorpay in Fee Settings to add a link." />}
+            : <SettingRow title="Payment link" sub="Online payment is not set up, so no payment link is added. Gateways are connected in Settings, Payment Gateways." />}
           <SettingRow title="Send" sub={when === "now" ? "Goes out now" : "Goes out tomorrow at 9:00 AM"}><Segmented size="sm" label="When" value={when} onChange={setWhen} options={[{ value: "now", label: "Now" }, { value: "later", label: "Tomorrow 9 AM" }]} /></SettingRow>
         </div>
         <div>
-          <p className="text-[13px] font-semibold text-ink2 mb-1.5">Preview for {list[0].parent || list[0].name}{n > 1 ? ` (1 of ${n})` : ""}</p>
+          <p className="text-[13px] font-semibold text-ink2 mb-1.5">
+            {ready?.sampleFor ? `Preview for ${ready.sampleFor.parent}${ready.sampleFor.students.length ? `, about ${ready.sampleFor.students.join(" and ")}` : ""}${ready.messages > 1 ? ` (1 of ${ready.messages} messages)` : ""}` : "Preview"}
+          </p>
           <div className="rounded-2xl bg-ok/8 border border-ok/20 p-3.5 text-[14px] leading-relaxed max-w-md whitespace-pre-line">
             {preview?.ok ? preview.sample ?? "Nobody on this list can get the message." : checking ? "Getting the preview…" : "—"}
           </div>
@@ -230,7 +238,7 @@ function ReminderSheet({ list, onClose, onSent, templates, gateway }: { list: De
         {preview && !preview.ok && <Alert tone="danger">{preview.message}</Alert>}
         {preview?.ok && (
           <Banner tone={preview.creditProblem || preview.problems.length ? "bad" : "info"}
-            title={preview.creditProblem ?? preview.problems[0] ?? `${preview.cost} ${CHANNELS.find((c) => c.value === channel)!.label} ${preview.cost === 1 ? "credit" : "credits"}.`}>
+            title={preview.creditProblem ?? preview.problems[0] ?? `${preview.messages} ${channelLabel} ${preview.messages === 1 ? "message" : "messages"} to ${parents(preview.recipients)}${preview.messages > preview.recipients ? " (one for each child)" : ""}. Cost: ${preview.cost} ${preview.cost === 1 ? "credit" : "credits"}. This cannot be unsent.`}>
             {[
               ...preview.skipped.map((s) => `${s.count} skipped: ${s.reason.toLowerCase()}`),
               preview.nothingDue ? `${preview.nothingDue} owe nothing now` : null,

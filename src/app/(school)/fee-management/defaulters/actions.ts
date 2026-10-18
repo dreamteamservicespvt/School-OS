@@ -13,7 +13,7 @@ import { id, ids, optionalDateOf, optionalId, rupeesOf, str, zonedToInstant } fr
 import { feeAction } from "../_lib/action";
 
 export type PreviewResult =
-  | { ok: true; recipients: number; cost: number; skipped: { reason: string; count: number }[]; nothingDue: number; creditProblem: string | null; problems: string[]; sample: string | null; linkAvailable: boolean }
+  | { ok: true; students: number; recipients: number; messages: number; cost: number; skipped: { reason: string; count: number }[]; nothingDue: number; creditProblem: string | null; problems: string[]; sample: string | null; sampleFor: { parent: string; students: string[] } | null; linkAvailable: boolean }
   | { ok: false; message: string };
 
 function inputOf(fd: FormData, timeZone: string): ReminderInput {
@@ -44,7 +44,10 @@ export async function previewReminderAction(fd: FormData): Promise<PreviewResult
       const viewer = await feeViewer(tx, current.ctx, current);
       if (viewer.change !== "all") throw new MoneyProblem("Your role cannot send fee reminders.");
       const p = await previewReminders(tx, current.ctx, inputOf(fd, current.school.timeZone));
-      return { ok: true as const, recipients: p.recipients, cost: p.cost, skipped: p.skipped.map((s) => ({ reason: s.reason, count: s.count })), nothingDue: p.skippedNothingDue, creditProblem: p.creditProblem, problems: p.problems, sample: p.sample, linkAvailable: p.linkAvailable };
+      return {
+        ok: true as const, students: p.students, recipients: p.recipients, messages: p.messages, cost: p.cost, skipped: p.skipped.map((s) => ({ reason: s.reason, count: s.count })),
+        nothingDue: p.skippedNothingDue, creditProblem: p.creditProblem, problems: p.problems, sample: p.sample, sampleFor: p.sampleFor, linkAvailable: p.linkAvailable,
+      };
     });
   } catch (e) {
     if (e instanceof MoneyProblem) return { ok: false, message: e.message };

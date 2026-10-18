@@ -20,8 +20,9 @@ beforeAll(async () => {
   s = await makeCommSchool();
 });
 
+/** Runs this school's due jobs only: other test files' jobs share the queue. */
 async function runAll() {
-  for (let i = 0; i < 10; i++) if ((await runDueJobs(50)) === 0) break;
+  for (let i = 0; i < 10; i++) if ((await runDueJobs(50, { schoolId: s.school.id })) === 0) break;
 }
 
 describe("who gets a message", () => {

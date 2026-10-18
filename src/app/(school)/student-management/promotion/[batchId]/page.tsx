@@ -11,6 +11,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { ConfirmAction } from "@/components/students/confirm-action";
 import { BASE, studentPage } from "../../_lib/page";
 import { undoPromotionAction } from "../../_actions/promotion";
+import { seesStudentFees } from "@/lib/fees/access";
 
 export const metadata: Metadata = { title: "Promotion batch" };
 
@@ -21,6 +22,7 @@ const TONE = { PROMOTE: "success", DETAIN: "warning", LEAVING: "neutral" } as co
 export default async function PromotionBatchPage({ params }: { params: Promise<{ batchId: string }> }) {
   const { current, can, tz } = await studentPage();
   if (!can.manage) redirect(BASE);
+  const seeFees = seesStudentFees(current);
   const { batchId } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(batchId)) notFound();
   const data = await withSchool(current.ctx, async (tx) => {
@@ -70,7 +72,7 @@ export default async function PromotionBatchPage({ params }: { params: Promise<{
                     <div className="min-w-0">
                       <Link href={`${BASE}/students/${d.studentId}`} className="font-medium hover:underline">{s?.fullName ?? "Student"}</Link> <span className="text-[13.5px] text-ink2">{s?.admissionNo}</span>
                       <p className="text-[13.5px] text-ink2">
-                        {[facts.resultText, facts.attendancePct != null ? `Attendance ${Math.round(facts.attendancePct)}%` : null, facts.feeDuePaise ? `Fees due ${formatRupees(BigInt(facts.feeDuePaise))}` : null].filter(Boolean).join(" · ")}
+                        {[facts.resultText, facts.attendancePct != null ? `Attendance ${Math.round(facts.attendancePct)}%` : null, seeFees && facts.feeDuePaise && BigInt(facts.feeDuePaise) > BigInt(0) ? `Fees due ${formatRupees(BigInt(facts.feeDuePaise))}` : null].filter(Boolean).join(" · ")}
                       </p>
                       {d.decision !== d.suggested && <p className="text-[13.5px]">Suggested {LABEL[d.suggested].toLowerCase()}; changed because: {d.reason}</p>}
                     </div>

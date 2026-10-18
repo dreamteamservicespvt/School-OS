@@ -22,9 +22,9 @@ type Section = { id: string; name: string };
 const LABEL: Record<Kind, string> = { PROMOTE: "Promote", DETAIN: "Detain", LEAVING: "Leaving" };
 const TONE: Record<Kind, "success" | "warning" | "neutral"> = { PROMOTE: "success", DETAIN: "warning", LEAVING: "neutral" };
 
-export function PromotionReview({ rows, fromSectionId, fromLabel, fromYear, toYearId, toYearName, toClassId, toClassName, targetSections, detainSections, defaultSectionName, finalClass, hasFacts }: {
+export function PromotionReview({ rows, fromSectionId, fromLabel, fromYear, toYearId, toYearName, toClassId, toClassName, targetSections, detainSections, defaultSectionName, finalClass }: {
   rows: ReviewRow[]; fromSectionId: string; fromLabel: string; fromYear: string; toYearId: string; toYearName: string;
-  toClassId: string | null; toClassName: string | null; targetSections: Section[]; detainSections: Section[]; defaultSectionName: string; finalClass: boolean; hasFacts: boolean;
+  toClassId: string | null; toClassName: string | null; targetSections: Section[]; detainSections: Section[]; defaultSectionName: string; finalClass: boolean;
 }) {
   const open = rows.filter((r) => !r.alreadyIn);
   const [state, action] = useActionState<FormState, FormData>(confirmPromotionAction, null);
@@ -65,7 +65,6 @@ export function PromotionReview({ rows, fromSectionId, fromLabel, fromYear, toYe
       <FormMessage state={state} />
       {step === "review" ? (
         <>
-          {!hasFacts && <p className="rounded-xl bg-info-soft px-4 py-3 text-[13.5px]">Results, attendance and fee dues show here once Examination &amp; Results, Attendance and Fee Management are in use. Until then every student is suggested for promotion.</p>}
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="secondary" onClick={() => setDec((d) => Object.fromEntries(Object.entries(d).map(([k, v]) => [k, { ...v, decision: open.find((r) => r.studentId === k)!.suggested, reason: "" }])))}>Use every suggestion</Button>
             {!finalClass && <Button size="sm" variant="secondary" onClick={() => setDec((d) => Object.fromEntries(Object.entries(d).map(([k, v]) => [k, { ...v, decision: "PROMOTE" as Kind }])))}>Promote everyone</Button>}

@@ -1,39 +1,52 @@
 // Where other modules plug into student work, without this module knowing
-// them. Each is a small registry; a module adds one call when it is built.
+// them.
 //
 // - Examination & Results, Attendance and Fee Management give the facts the
-//   promotion suggestion uses (registerPromotionFacts).
+//   promotion suggestion, the Student List and Parent 360 use (final result,
+//   attendance %, fees due), and say whether anything is recorded for a
+//   student in a year, which stops a promotion being undone. They are named in
+//   one explicit list, ./fact-sources.ts, which the functions below load
+//   themselves: a page, action or job that asks for facts always gets every
+//   source, even on a server that has just started (gap lists G01 and G20).
 // - Fee Management applies the class fee plan when a student is added,
 //   imported or promoted (onEnrolled, automation A13).
-// - Attendance and Fee Management say whether anything is recorded for a
-//   student in a year, which stops a promotion being undone (registerYearActivity).
 // - Examination & Results moves a student's marks, draft results and report
 //   cards with them when they change section, or the change is undone (onSectionChanged).
 import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
+import type { PermissionMap } from "../permissions";
+
+/** A published final result: pass, fail, or the school's own "compartment". */
+export type ResultKind = "pass" | "fail" | "compartment";
 
 export type PromotionFacts = {
-  /** Final result: "pass", "fail" or null when results are not published. */
-  result?: "pass" | "fail" | null;
+  /** The year's published final result; null when it is not published. */
+  result?: ResultKind | null;
   /** How the result is shown, e.g. "Pass, 78%". */
   resultText?: string | null;
   attendancePct?: number | null;
+  /** Still to pay for the year and any earlier year, in paise; 0n when everything is paid. */
   feeDuePaise?: bigint | null;
 };
 
-type FactsFn = (tx: Tx, ctx: SchoolContext, q: { studentIds: string[]; academicYearId: string }) => Promise<Map<string, PromotionFacts>>;
-const factProviders: FactsFn[] = [];
-export function registerPromotionFacts(fn: FactsFn) {
-  factProviders.push(fn);
-}
+export type FactQuery = { studentIds: string[]; academicYearId: string };
+export type PromotionSource = (tx: Tx, ctx: SchoolContext, q: FactQuery) => Promise<Map<string, PromotionFacts>>;
+/** Plain words for what is recorded in the year ("fees are paid for 2 students"), or null. */
+export type ActivitySource = (tx: Tx, ctx: SchoolContext, q: FactQuery) => Promise<string | null>;
+
+/** The modules' sources, loaded on first use (their files import types from this one). */
+const sources = () => import("./fact-sources");
+
+/** Final result, attendance % and fees due of each student in a year, for the promotion suggestion. */
 export async function promotionFacts(tx: Tx, ctx: SchoolContext, studentIds: string[], academicYearId: string) {
   const out = new Map<string, PromotionFacts>(studentIds.map((id) => [id, {}]));
-  for (const fn of factProviders) {
+  if (!studentIds.length) return out;
+  for (const fn of (await sources()).promotionSources) {
     const part = await fn(tx, ctx, { studentIds, academicYearId });
     for (const [id, facts] of part) out.set(id, { ...out.get(id), ...facts });
   }
-  return { facts: out, hasProviders: factProviders.length > 0 };
+  return out;
 }
 
 export type EnrolledEvent = {
@@ -68,14 +81,10 @@ export async function runSectionChanged(tx: Tx, ctx: SchoolContext, e: SectionCh
   for (const fn of sectionChangedHandlers) await fn(tx, ctx, e);
 }
 
-type ActivityFn = (tx: Tx, ctx: SchoolContext, q: { studentIds: string[]; academicYearId: string }) => Promise<string | null>;
-const activityChecks: ActivityFn[] = [];
-export function registerYearActivity(fn: ActivityFn) {
-  activityChecks.push(fn);
-}
 /** Plain words for what is recorded, e.g. "attendance is marked for 12 students", or null when nothing is. */
 export async function yearActivity(tx: Tx, ctx: SchoolContext, studentIds: string[], academicYearId: string) {
-  for (const fn of activityChecks) {
+  if (!studentIds.length) return null;
+  for (const fn of (await sources()).activitySources) {
     const problem = await fn(tx, ctx, { studentIds, academicYearId });
     if (problem) return problem;
   }
@@ -83,46 +92,49 @@ export async function yearActivity(tx: Tx, ctx: SchoolContext, studentIds: strin
 }
 
 // ---------------------------------------------------------------------------
-// The Student List's Attendance and Fees columns, the "Has dues" and "Overdue"
-// filter, and the same facts on Parents & Guardians (design: students.jsx).
-// Attendance Management and Fee Management each register one provider when they
-// are built; until then the columns show "–" and the fee filter is not offered.
-//
-//   registerListFacts({ attendance: true }, async (tx, ctx, q) => new Map([[id, { attendancePct: 94 }]]));
-//   registerListFacts({ fees: true }, async (tx, ctx, q) => new Map([[id, { feeDuePaise: 1095000n, feeOverdue: true }]]));
-//   registerFeeFilter(async (tx, ctx, { academicYearId, kind }) => studentIdsWithDues);
+// The Student List's Attendance, Result and Fees columns, its "Has dues" and
+// "Overdue" filter, and the same facts on Parent 360 (design: students.jsx).
+// Each source says who may see its column, and leaves out any student the
+// person may not see it for: fee facts reach only people allowed to see fees
+// (03 §2, Student List), results only people who see that class's results.
 export type ListFacts = {
-  /** Present days as a share of school days so far this year, 0 to 100. */
+  /** Present days as a share of school days so far this year, 0 to 100; null when nothing is marked. */
   attendancePct?: number | null;
-  /** What is still to pay this year, in paise; 0n when everything is paid. */
+  /** Fees fallen due (by today + 30 days, as on Fees by class) and not paid, in paise; 0n when paid; null when nothing has fallen due. */
   feeDuePaise?: bigint | null;
   /** True when some of the dues are past their due date. */
   feeOverdue?: boolean;
+  /** The year's published final result. */
+  result?: ResultKind | null;
+  resultText?: string | null;
 };
-type ListFactsFn = (tx: Tx, ctx: SchoolContext, q: { studentIds: string[]; academicYearId: string }) => Promise<Map<string, ListFacts>>;
-const listFactProviders: { covers: { attendance?: boolean; fees?: boolean }; fn: ListFactsFn }[] = [];
-export function registerListFacts(covers: { attendance?: boolean; fees?: boolean }, fn: ListFactsFn) {
-  listFactProviders.push({ covers, fn });
-}
-/** Facts for the students shown, and which columns have a source at all. */
-export async function listFacts(tx: Tx, ctx: SchoolContext, studentIds: string[], academicYearId: string | null) {
+export type ListColumn = "attendance" | "fees" | "results";
+/** The person asking: what they may see decides which facts they get. */
+export type FactViewer = { ctx: SchoolContext; permissions: PermissionMap; roles: { key: string | null }[] };
+export type ListSource = {
+  covers: ListColumn;
+  /** May this person see the column at all (their roles' permissions)? */
+  allowed: (who: FactViewer) => boolean;
+  load: (tx: Tx, who: FactViewer, q: FactQuery) => Promise<Map<string, ListFacts>>;
+};
+/** Students who owe fees (or owe overdue fees), within what this person may see; null when they may not see fees. */
+export type FeeFilterSource = (tx: Tx, who: FactViewer, q: { academicYearId: string; kind: "dues" | "overdue" }) => Promise<string[] | null>;
+
+/** Facts for the students shown, and which columns this person may see. */
+export async function listFacts(tx: Tx, who: FactViewer, studentIds: string[], academicYearId: string | null) {
   const out = new Map<string, ListFacts>();
-  const has = { attendance: listFactProviders.some((p) => p.covers.attendance), fees: listFactProviders.some((p) => p.covers.fees) };
-  if (!academicYearId || !studentIds.length) return { facts: out, has };
-  for (const p of listFactProviders) {
-    const part = await p.fn(tx, ctx, { studentIds, academicYearId });
+  const shown = (await sources()).listSources.filter((p) => p.allowed(who));
+  const shows: Record<ListColumn, boolean> = { attendance: false, fees: false, results: false };
+  for (const p of shown) shows[p.covers] = true;
+  if (!academicYearId || !studentIds.length) return { facts: out, shows };
+  for (const p of shown) {
+    const part = await p.load(tx, who, { studentIds, academicYearId });
     for (const [id, f] of part) out.set(id, { ...out.get(id), ...f });
   }
-  return { facts: out, has };
+  return { facts: out, shows };
 }
 
-type FeeFilterFn = (tx: Tx, ctx: SchoolContext, q: { academicYearId: string; kind: "dues" | "overdue" }) => Promise<string[]>;
-let feeFilter: FeeFilterFn | null = null;
-export function registerFeeFilter(fn: FeeFilterFn) {
-  feeFilter = fn;
-}
-export const feeFilterAvailable = () => feeFilter !== null;
-/** Students with dues (or overdue dues) this year; null when no module can say. */
-export async function studentsWithDues(tx: Tx, ctx: SchoolContext, academicYearId: string, kind: "dues" | "overdue") {
-  return feeFilter ? feeFilter(tx, ctx, { academicYearId, kind }) : null;
+/** Students with dues (or overdue dues) this year; null when this person may not see fees. */
+export async function studentsWithDues(tx: Tx, who: FactViewer, academicYearId: string, kind: "dues" | "overdue") {
+  return (await sources()).feeFilter(tx, who, { academicYearId, kind });
 }

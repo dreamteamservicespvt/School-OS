@@ -84,7 +84,8 @@ export type ReportAccess = {
   /** Early Warnings: work on flags (review, plan) for whom; leaders watch and remind. */
   warnings: { on: boolean; review: "all" | "own" | "none"; fees: boolean; feeReview: boolean; rule: boolean };
   /** AI signals on Early Warnings (Settings, Modules On/Off). */
-  ai: { insights: boolean; forecasts: boolean };
+  /** forecastScope "own": a class teacher sees the Looking ahead items about students of their own sections only. */
+  ai: { insights: boolean; forecasts: boolean; forecastScope: "all" | "own" };
   /** Results by teacher in Analytics: the Principal and Academic Head only (19 §10). */
   teacherResults: boolean;
 };
@@ -136,8 +137,11 @@ export function reportAccess(who: Who): ReportAccess {
   const feeSignals = fees && !own && !(roleKeys.includes("academic-head") && !full && !roleKeys.includes("vice-principal"));
   const leader = full || roleKeys.includes("vice-principal");
   const review: "all" | "own" | "none" = own ? "own" : full && pageMode(who, MODULE, "warnings") === "full" ? "all" : "none";
-  // AI only for the roles the school chose for the AI assistant (00-global.md §2.1 rule 8), and only for leaders here.
+  // AI only for the roles the school chose for the AI assistant (00-global.md §2.1 rule 8): leaders see all of it.
   const ai = aiAllowed(who) && leader;
+  // A class teacher sees the forecasts about their own students (19 Early Warnings: "A class teacher sees
+  // only their students"; TEACHING-15), when their role is chosen for AI. Never the money ones: fee signals stay with the school's money roles.
+  const ownForecasts = !ai && aiAllowed(who) && own && warningsOn;
 
   return {
     see: p.see, full, own, roleKeys, cats,
@@ -157,7 +161,7 @@ export function reportAccess(who: Who): ReportAccess {
       feeReview: feeSignals && warningsOn && full && who.permissions["fee-management"].change === "all",
       rule: roleKeys.includes("principal") && full,
     },
-    ai: { insights: ai && aiAllowed(who, "ai-insights"), forecasts: ai && aiAllowed(who, "ai-forecasts") },
+    ai: { insights: ai && aiAllowed(who, "ai-insights"), forecasts: (ai || ownForecasts) && aiAllowed(who, "ai-forecasts"), forecastScope: ai ? "all" : "own" },
     teacherResults: roleKeys.includes("principal") || roleKeys.includes("academic-head"),
   };
 }

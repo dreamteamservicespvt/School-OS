@@ -58,7 +58,12 @@ export function RestoreButton({ examId }: { examId: string }) {
 }
 
 /** Publishing (A10): says exactly what happens, with the parents' message as a choice. */
-export function PublishSheet({ examId, title, papers, students, firstDay, startOpen }: { examId: string; title: string; papers: number; students: number; firstDay: string; startOpen?: boolean }) {
+export function PublishSheet({ examId, title, papers, students, firstDay, past = 0, nextDay = null, startOpen }: {
+  examId: string; title: string; papers: number; students: number; firstDay: string;
+  /** Papers already held (before today), and the first day of a paper still to come. */
+  past?: number; nextDay?: string | null; startOpen?: boolean;
+}) {
+  const allPast = papers > 0 && past >= papers;
   const router = useRouter();
   const [open, setOpen] = useState(Boolean(startOpen));
   return (
@@ -70,9 +75,17 @@ export function PublishSheet({ examId, title, papers, students, firstDay, startO
         <ul className="flex flex-col gap-2 text-[14px] text-ink2">
           <li className="flex gap-2"><CalendarDays size={17} className="text-brand shrink-0 mt-0.5" aria-hidden="true" />{papers} {papers === 1 ? "paper goes" : "papers go"} on the School Calendar and into the Time Table, from {firstDay}.</li>
           <li className="flex gap-2"><IdCard size={17} className="text-brand shrink-0 mt-0.5" aria-hidden="true" />Admit cards become ready to print. Invigilators are told their papers.</li>
-          <li className="flex gap-2"><Send size={17} className="text-brand shrink-0 mt-0.5" aria-hidden="true" />Parents of {students} students see the datesheet on Parent Link, with a reminder the day before each paper.</li>
+          <li className="flex gap-2"><Send size={17} className="text-brand shrink-0 mt-0.5" aria-hidden="true" />Parents of {students} students see the datesheet on Parent Link{allPast ? "" : ", with a reminder the day before each paper still to come"}.</li>
         </ul>
-        <SwitchField name="tellParents" label="Message parents now" help="One message to each family. A message cannot be unsent." defaultOn />
+        {allPast ? (
+          <p className="flex gap-2 rounded-xl border border-line bg-sunken/60 px-4 py-3 text-[13.5px] text-ink2" role="note">
+            <CircleAlert size={17} className="text-warn shrink-0 mt-0.5" aria-hidden="true" />
+            {papers === 1 ? "The paper is" : `All ${papers} papers are`} already over, so no message goes to parents about {papers === 1 ? "it" : "them"}.
+          </p>
+        ) : (
+          <SwitchField name="tellParents" label="Message parents now" defaultOn
+            help={past ? `One message to each family about the papers still to come, from ${nextDay}. ${past} ${past === 1 ? "paper is" : "papers are"} already over and left out. A message cannot be unsent.` : "One message to each family. A message cannot be unsent."} />
+        )}
       </ActionSheet>
     </>
   );

@@ -63,7 +63,7 @@ Used by: the Principal and management (analytics, early warnings), the Accountan
 - Signal strength: **Watch** or **Act now** (inferred labels), from simple rules set by the school (inferred: rule thresholds come from Attendance Settings, Exam pass rules and Fee overdue days).
 - Status of each flag: **New**, **Reviewed**, **Action planned**, **Closed** (with who reviewed it and the note).
 - **AI signals (optional, schools using AI):** dropout risk, predictions (fees, results, attendance), and unusual activity (for example odd fee changes or many attendance edits by one person). Each is labelled "Suggestion", shows what it is based on, and never changes anything by itself.
-- A class teacher sees only their students; the Principal sees all.
+- A class teacher sees only their students; the Principal sees all. Of the AI signals, a class teacher sees the predictions ("Looking ahead") about the students of the sections they are class teacher of, never the fee or cash ones.
 - The same signals appear on the Dashboard (Needs Attention) and on the student's profile.
 
 **Actions**

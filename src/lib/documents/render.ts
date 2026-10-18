@@ -175,10 +175,13 @@ function codeBlock(input: RenderInput, values: Record<string, string>, data: Doc
   return out.join("");
 }
 
+/** A number or code with no spaces (admission number, phone, date): printed whole, never broken across lines. */
+export const keptWhole = (v: string) => v.length <= 24 && !/\s/.test(v) && /\d/.test(v);
+
 function infoGrid(input: RenderInput, values: Record<string, string>, keys: string[]) {
   const shown = keys.filter((k) => values[k]);
   if (!shown.length) return "";
-  return `<dl class="info">${shown.map((k) => `<div><dt>${esc(labelOf(input.type, k))}</dt><dd>${esc(values[k])}</dd></div>`).join("")}</dl>`;
+  return `<dl class="info">${shown.map((k) => `<div${keptWhole(values[k]) ? ` class="whole"` : ""}><dt>${esc(labelOf(input.type, k))}</dt><dd>${esc(values[k])}</dd></div>`).join("")}</dl>`;
 }
 
 function moneyPage(input: RenderInput, data: DocumentData, values: Record<string, string>) {
@@ -321,6 +324,7 @@ export function renderHtml(input: RenderInput): string {
     .body p{margin:0 0 3mm;text-align:justify}.body.small{font-size:9.5pt;margin-top:3mm}
     .info{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.5mm 6mm;margin:0 0 4mm;padding:3mm 4mm;border:1px solid #ccc;border-radius:1.5mm;flex:1}
     .info div{display:flex;gap:2mm}.info dt{min-width:32mm;color:#555}.info dd{margin:0;font-weight:600;min-width:0;overflow-wrap:anywhere}
+    .info div.whole{flex-wrap:wrap}.info div.whole dd{white-space:nowrap;overflow-wrap:normal}
     .withphoto{display:flex;gap:4mm;align-items:flex-start}
     table{width:100%;border-collapse:collapse}
     .lines th,.lines td{border:1px solid #bbb;padding:1.8mm 2.5mm;text-align:left;vertical-align:top}

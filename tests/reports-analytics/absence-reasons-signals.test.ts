@@ -84,6 +84,9 @@ describe("Early Warnings", () => {
     const z = list.find((r) => r.studentId === f.studentsA[2].id)!;
     expect(z.strength).toBe("WATCH");
     expect(z.reason).toMatch(/Most absent days were sick days or approved leave \(6 of 6\)/);
+    // "Based on" in school words, not the record's name (TEACHING-20).
+    expect(z.basis).toMatch(/Absent days in a row, flagged on 16-10-2026 · rule: \d+ school days in a row \(Attendance Settings\)/);
+    for (const r of list) expect(r.basis).not.toMatch(/Attendance Flag/);
   });
 
   it("Fees dispute absences are fee flags: the Principal sees them, the class teacher does not, and sees Other in the basis", async () => {

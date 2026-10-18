@@ -125,9 +125,10 @@ export function RemarksGrid({ rows, sectionId, period, classTeacher, principal, 
   const router = useRouter();
   const start = useMemo(() => Object.fromEntries(rows.map((r) => [r.studentId, { ct: r.classTeacherRemark, pr: r.principalRemark, ap: r.attendancePresent?.toString() ?? "", aw: r.attendanceWorking?.toString() ?? "" }])) as Record<string, RemarkDraft>, [rows]);
   const [vals, setVals] = useState(start);
-  const [hints, setHints] = useState<Record<string, { text: string | null; why: string }>>({});
-  // Remarks the teacher started from a suggestion: saved with "prepared by AI, confirmed by <teacher>" in the change history.
-  const [kept, setKept] = useState<Set<string>>(new Set());
+  const [hints, setHints] = useState<Record<string, { text: string | null; why: string; lines: { text: string; source: string }[] }>>({});
+  // The suggestion each kept remark came from, to log it "prepared by AI, confirmed by" the teacher.
+  const [kept, setKept] = useState<Record<string, string>>({});
+  const discard = (id: string) => setHints((h) => { const next = { ...h }; delete next[id]; return next; });
   const [saving, startSave] = useTransition();
   const [drafting, startDraft] = useTransition();
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
@@ -139,8 +140,12 @@ export function RemarksGrid({ rows, sectionId, period, classTeacher, principal, 
   const save = () => startSave(async () => {
     const out = changed.map((r) => {
       const v = vals[r.studentId];
-      const row: { studentId: string; classTeacherRemark?: string | null; principalRemark?: string | null; attendancePresent?: number | null; attendanceWorking?: number | null; fromSuggestion?: boolean } = { studentId: r.studentId };
-      if (classTeacher && v.ct !== start[r.studentId].ct) { row.classTeacherRemark = v.ct; if (kept.has(r.studentId)) row.fromSuggestion = true; }
+      const row: { studentId: string; classTeacherRemark?: string | null; principalRemark?: string | null; attendancePresent?: number | null; attendanceWorking?: number | null; suggestion?: "kept" | "edited" } = { studentId: r.studentId };
+      if (classTeacher && v.ct !== start[r.studentId].ct) {
+        row.classTeacherRemark = v.ct;
+        const from = kept[r.studentId];
+        if (from && v.ct.trim()) row.suggestion = v.ct.trim() === from.trim() ? "kept" : "edited";
+      }
       if (principal && v.pr !== start[r.studentId].pr) row.principalRemark = v.pr;
       if (classTeacher && !r.attendanceFromRegister && (v.ap !== start[r.studentId].ap || v.aw !== start[r.studentId].aw)) {
         row.attendancePresent = v.ap === "" ? null : Number(v.ap);
@@ -150,7 +155,7 @@ export function RemarksGrid({ rows, sectionId, period, classTeacher, principal, 
     });
     const r = await saveRemarksAction(sectionId, period, out);
     setMessage({ ok: r.ok, text: r.message });
-    if (r.ok) router.refresh();
+    if (r.ok) { setKept({}); router.refresh(); }
   });
 
   return (
@@ -160,9 +165,9 @@ export function RemarksGrid({ rows, sectionId, period, classTeacher, principal, 
           <Button variant="secondary" loading={drafting} loadingText="Drafting" onClick={() => startDraft(async () => {
             const r = await draftRemarksAction(sectionId, period);
             if (!r.ok) { setMessage({ ok: false, text: r.message }); return; }
-            setHints(Object.fromEntries(r.drafts.map((d) => [d.studentId, { text: d.text, why: d.why }])));
+            setHints(Object.fromEntries(r.drafts.map((d) => [d.studentId, { text: d.text, why: d.why, lines: d.lines }])));
           })}>Suggest remarks</Button>
-          <p className="text-sm text-ink-2">Drafts from each student&apos;s marks and attendance. Nothing is saved until you keep it and press Save.</p>
+          <p className="text-sm text-ink-2">Built only from each student&apos;s marks, the change since the exam before, attendance, homework and co-scholastic grades, with where each sentence comes from. No marks, no suggestion. Nothing is saved until you keep it and press Save.</p>
         </div>
       )}
       <ul className="space-y-3">
@@ -183,17 +188,31 @@ export function RemarksGrid({ rows, sectionId, period, classTeacher, principal, 
                 )}
               </div>
               <div className="grid gap-3 md:grid-cols-2">
-                <label className="block">
-                  <span className="mb-1 block text-sm font-medium">Class teacher remark</span>
-                  <textarea rows={2} maxLength={500} value={v.ct} disabled={!classTeacher} onChange={(e) => set(r.studentId, "ct", e.target.value)} className="w-full rounded-lg border border-line-strong bg-surface p-2 disabled:bg-surface-2" />
+                <div>
+                  <label className="block">
+                    <span className="mb-1 block text-sm font-medium">Class teacher remark</span>
+                    <textarea rows={2} maxLength={500} value={v.ct} disabled={!classTeacher} onChange={(e) => set(r.studentId, "ct", e.target.value)} className="w-full rounded-lg border border-line-strong bg-surface p-2 disabled:bg-surface-2" />
+                  </label>
                   {hint && (
-                    <span className="mt-1 block rounded-lg border border-dashed border-line-strong bg-surface-2 p-2 text-sm">
-                      <Badge tone="brand">Suggestion</Badge>{" "}
-                      {hint.text ?? hint.why}
-                      {hint.text && <><span className="block text-xs text-ink-2">{hint.why}</span><button type="button" className="mt-1 min-h-9 font-medium text-brand-text hover:underline" onClick={() => { set(r.studentId, "ct", hint.text!); setKept((k) => new Set(k).add(r.studentId)); }}>Use this</button></>}
-                    </span>
+                    <div className="mt-1 rounded-lg border border-dashed border-line-strong bg-surface-2 p-2 text-sm" role="note" aria-label={hint.text ? `Suggestion for ${r.name}` : `No suggestion for ${r.name}`}>
+                      {hint.text ? (
+                        <>
+                          <Badge tone="brand">Suggestion</Badge>
+                          <ol className="mt-1.5 space-y-1.5">
+                            {hint.lines.map((l, n) => (
+                              <li key={n}>{l.text}<span className="block text-xs text-ink-2">Source {n + 1}: {l.source}</span></li>
+                            ))}
+                          </ol>
+                          <span className="block text-xs text-ink-2 mt-1.5">{hint.why}</span>
+                          <span className="mt-1 flex flex-wrap gap-4">
+                            <button type="button" className="min-h-9 font-medium text-brand-text hover:underline" onClick={() => { set(r.studentId, "ct", hint.text!); setKept((k) => ({ ...k, [r.studentId]: hint.text! })); discard(r.studentId); }}>Use this</button>
+                            <button type="button" className="min-h-9 font-medium text-ink-2 hover:underline" onClick={() => discard(r.studentId)}>Discard</button>
+                          </span>
+                        </>
+                      ) : hint.why}
+                    </div>
                   )}
-                </label>
+                </div>
                 <label className="block">
                   <span className="mb-1 block text-sm font-medium">Principal remark</span>
                   <textarea rows={2} maxLength={500} value={v.pr} disabled={!principal} onChange={(e) => set(r.studentId, "pr", e.target.value)} className="w-full rounded-lg border border-line-strong bg-surface p-2 disabled:bg-surface-2" />

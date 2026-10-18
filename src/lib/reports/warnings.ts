@@ -29,7 +29,7 @@ import { writeAudit } from "../audit";
 import { notify } from "../notifications";
 import { remindedSince, sendReminder } from "../reminders";
 import { currentYear } from "../academic/years";
-import { ownSectionIds } from "../people";
+import { classTeacherSectionIds, ownSectionIds } from "../people";
 import { attendanceSettings } from "../attendance/settings";
 import { attendanceSummary } from "../attendance/summary";
 import { flagStatusOf } from "../attendance/flags";
@@ -493,6 +493,23 @@ export async function dashboardWarningStudents(tx: Tx, who: ReportViewer, a: Rep
 
 /* ---------- AI signals (optional: Settings, Modules On/Off) ---------- */
 
+/**
+ * The stored Looking ahead items this person sees (TEACHING-15): leaders see
+ * every one (fee and finance ones only with the school's money); a class
+ * teacher sees only those about students in the sections they are class
+ * teacher of, never a fee one.
+ */
+export async function visibleForecasts(tx: Tx, who: ReportViewer, a: ReportAccess) {
+  if (!a.ai.forecasts) return [];
+  const rows = await forecastsFor(tx, { fees: a.warnings.fees, finance: a.finance !== null });
+  if (a.ai.forecastScope === "all") return rows;
+  const year = await currentYear(tx, who.ctx);
+  const sections = year ? await classTeacherSectionIds(tx, who.ctx, year.id) : [];
+  if (!year || !sections.length) return [];
+  const mine = new Set((await tx.enrolment.findMany({ where: { sectionId: { in: sections }, academicYearId: year.id, archivedAt: null, status: "STUDYING" }, select: { studentId: true } })).map((e) => e.studentId));
+  return rows.filter((r) => r.area !== "fees" && r.area !== "finance" && r.studentId !== null && mine.has(r.studentId));
+}
+
 export type AiSignal = {
   key: string; kind: "dropout" | "prediction" | "unusual"; title: string; source: string; body: string; studentId?: string; flagId?: string;
   /** Looking ahead: the area, how soon to act, and where to look. */
@@ -585,7 +602,7 @@ export async function aiSignals(tx: Tx, who: ReportViewer, a: ReportAccess, now 
 
   if (a.ai.forecasts) {
     // Looking ahead: worked out by the background job and stored (forecasts.ts).
-    for (const f of await forecastsFor(tx, { fees: a.warnings.fees, finance: a.finance !== null })) {
+    for (const f of await visibleForecasts(tx, who, a)) {
       out.push({ key: f.key, kind: "prediction", area: f.area as ForecastArea, strength: f.strength as "WATCH" | "ACT_NOW", title: f.title, source: f.source, body: f.body, studentId: f.studentId ?? undefined, href: f.href ?? undefined, hrefLabel: f.hrefLabel ?? undefined });
     }
   }

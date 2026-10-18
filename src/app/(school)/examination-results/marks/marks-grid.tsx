@@ -26,8 +26,8 @@ import { Kbd } from "@/components/ui/display";
 import { Banner, Stats, Timeline, TONE_SOFT } from "@/components/ui/kit";
 import { inputCls } from "@/components/ui/field";
 import { cx } from "@/components/ui/cx";
-import { checkMark } from "@/lib/exams/compute";
-import { bandFor, type Band } from "@/lib/exams/grades";
+import { checkMark, typedTotal } from "@/lib/exams/compute";
+import type { Band } from "@/lib/exams/grades";
 import type { FormState } from "@/lib/forms";
 import { ActionSheet } from "../_components/sheets";
 import { readMarksSheet, requestChangeAction, saveMarksAction, submitPaperAction, type ImportedRow } from "./actions";
@@ -108,10 +108,9 @@ export function MarksGrid(props: Props) {
     const r = rows[s.id];
     if (!r || r.absent) return [s.id, { total: null as number | null, grade: "", done: Boolean(r?.absent) }];
     if (gradeOnly) return [s.id, { total: null, grade: r.grade, done: Boolean(r.grade) }];
-    const vals = cats.map((c) => num(r.parts[c.name] ?? ""));
-    if (vals.some((v) => v === null || Number.isNaN(v))) return [s.id, { total: null, grade: "", done: false }];
-    const total = vals.reduce((a: number, b) => a + (b as number), 0);
-    return [s.id, { total, grade: max ? bandFor((total / max) * 100, bands)?.grade ?? "" : "", done: !problemOf(r) }];
+    // No total and no grade for a mark outside its maximum (TEACHING-19): the error shows instead.
+    const t = typedTotal(cats.map((c) => ({ name: c.name, max: c.max, value: num(r.parts[c.name] ?? "") })), max, bands);
+    return [s.id, { total: t.total, grade: t.grade, done: t.valid && !problemOf(r) }];
   })), [rows, students, cats, gradeOnly, max, bands, problemOf]);
 
   const done = students.filter((s) => totals[s.id]?.done).length;
@@ -477,6 +476,14 @@ function LockedCell({ value, s, canRequest, onAsk }: { value: string; s: GridStu
   );
 }
 
+/** The number keys of One at a time, four to a row like a phone's keypad; the label is for screen readers. */
+const KEYS: { key: string; label?: string; wide?: boolean }[] = [
+  { key: "1" }, { key: "2" }, { key: "3" }, { key: "del", label: "Delete last digit" },
+  { key: "4" }, { key: "5" }, { key: "6" }, { key: "clear", label: "Clear the mark" },
+  { key: "7" }, { key: "8" }, { key: "9" }, { key: ".5", label: "Add a half mark" },
+  { key: "AB" }, { key: "0", wide: true }, { key: "ML" },
+];
+
 function OneAtATime({ students, rows, cats, gradeOnly, gradeList, canEdit, canRequest: canAsk, lateMarks, totals, max, bands, problemOf, setCell, setGrade, onAsk }: {
   students: GridStudent[]; rows: Record<string, Row>; cats: Cat[]; gradeOnly: boolean; gradeList: string[]; canEdit: boolean; canRequest: boolean; lateMarks: "approval" | "off";
   totals: Record<string, { total: number | null; grade: string; done: boolean }>; max: number; bands: Band[];
@@ -499,67 +506,74 @@ function OneAtATime({ students, rows, cats, gradeOnly, gradeList, canEdit, canRe
     if (key === ".5") return r.absent || v.includes(".") ? undefined : setCell(s.id, c.name, `${v || "0"}.5`);
     setCell(s.id, c.name, r.absent ? key : `${v}${key}`.slice(0, 5));
   };
+  const shown = r.absent ? code(r) : r.grade;
   return (
     <Card className="p-4 md:p-6 max-w-xl w-full mx-auto">
-      <div className="flex items-center gap-3">
-        <Avatar name={s.name} size={48} />
-        <div className="min-w-0 flex-1">
-          <p className="font-semibold text-[16px] truncate">{s.name}</p>
-          <p className="text-[13px] text-ink3">{s.rollNo ? `Roll ${s.rollNo} · ` : ""}{i + 1} of {students.length} · <span className="font-mono text-[12px]">{s.admissionNo}</span>{s.late ? " · Joined late" : ""}</p>
+      {/* On a phone the student and the mark box stay in view while the number keys and Next
+          are on screen, even on a small phone (TEACHING-14); short screens get smaller keys. */}
+      <div className="sticky top-16 z-10 -mx-4 -mt-4 px-4 pt-4 pb-2 rounded-t-2xl bg-surface md:static md:m-0 md:p-0 md:rounded-none">
+        <div className="flex items-center gap-3">
+          <span className="shrink-0 [@media(max-height:720px)]:hidden"><Avatar name={s.name} size={48} /></span>
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-[16px] truncate">{s.name}</p>
+            <p className="text-[13px] text-ink3 truncate">{s.rollNo ? `Roll ${s.rollNo} · ` : ""}{i + 1} of {students.length} · <span className="font-mono text-[12px]">{s.admissionNo}</span>{s.late ? " · Joined late" : ""}</p>
+          </div>
+          <select aria-label="Go to student" value={i} onChange={(ev) => go(Number(ev.target.value))} className={cx(inputCls(), "!h-10 !w-auto max-w-[40%] text-[13px]")}>
+            {students.map((x, n) => <option key={x.id} value={n}>{x.rollNo ? `${x.rollNo}. ` : ""}{x.name}{totals[x.id]?.done ? " ✓" : ""}</option>)}
+          </select>
         </div>
-        <select aria-label="Go to student" value={i} onChange={(ev) => go(Number(ev.target.value))} className={cx(inputCls(), "!h-10 !w-auto max-w-[40%] text-[13px]")}>
-          {students.map((x, n) => <option key={x.id} value={n}>{x.rollNo ? `${x.rollNo}. ` : ""}{x.name}{totals[x.id]?.done ? " ✓" : ""}</option>)}
-        </select>
+        {gradeOnly ? (
+          <div className="rounded-2xl border-2 border-brand bg-brand/5 p-3 mt-4 [@media(max-height:720px)]:mt-3 [@media(max-height:720px)]:p-2">
+            <span className="text-[12px] text-ink3 font-semibold flex items-center gap-1">{!canEdit && <Lock size={11} aria-hidden="true" />}Grade</span>
+            <span className={cx("block font-display text-[28px] font-semibold leading-tight [@media(max-height:720px)]:text-[24px]", r.absent && "text-info")} aria-live="polite">{shown || "—"}</span>
+          </div>
+        ) : (
+          <>
+            <div className={cx("grid gap-2 mt-4 [@media(max-height:720px)]:mt-3", cats.length > 1 ? "grid-cols-2" : "grid-cols-1")}>
+              {cats.map((x, n) => {
+                const xv = r.absent ? code(r) : r.parts[x.name] ?? "";
+                const xBad = !r.absent && xv !== "" && (Number.isNaN(Number(xv)) || Boolean(checkMark(x.name, x.max, Number(xv))));
+                return (
+                  <button key={x.name} type="button" onClick={() => (canEdit ? setK(n) : canRequest && !s.waiting ? onAsk(s) : undefined)} aria-pressed={k === n}
+                    className={cx("rounded-2xl border-2 p-3 text-left transition flex items-end justify-between gap-2 [@media(max-height:720px)]:p-2", k === n && canEdit ? "border-brand bg-brand/5" : "border-line")}>
+                    <span className="min-w-0">
+                      <span className="text-[12px] text-ink3 font-semibold flex items-center gap-1">{!canEdit && <Lock size={11} aria-hidden="true" />}{cats.length === 1 ? "Marks" : x.name} / {x.max}</span>
+                      <span className={cx("block font-display text-[28px] font-semibold tnum leading-tight [@media(max-height:720px)]:text-[24px]", xBad && "text-bad", r.absent && "text-info")} aria-live="polite">{xv || "—"}</span>
+                    </span>
+                    {/* The grade sits in the box, so the box and keys fit a small screen; never for a mark that is not allowed. */}
+                    {cats.length === 1 && t.grade && <span className="text-[13px] text-ink2 shrink-0 pb-1">Grade <Pill tone={toneOf(t.grade, bands)} className="!h-5 !text-[11px]">{t.grade}</Pill></span>}
+                  </button>
+                );
+              })}
+            </div>
+            {cats.length > 1 && <p className="mt-2 text-[13.5px] text-ink2">Total <b className="tnum text-ink">{t.total !== null ? `${fmt(t.total)} / ${max}` : "—"}</b>{t.grade && <> · Grade <Pill tone={toneOf(t.grade, bands)} className="!h-5 !text-[11px]">{t.grade}</Pill></>}</p>}
+            {e && <p className="text-[13px] text-bad flex items-center gap-1.5 mt-2" role="alert"><CircleAlert size={15} aria-hidden="true" />{s.name} {e}</p>}
+          </>
+        )}
       </div>
       {gradeOnly ? (
-        <>
-          <div className="rounded-2xl border-2 border-brand bg-brand/5 p-3 mt-4">
-            <span className="text-[12px] text-ink3 font-semibold flex items-center gap-1">{!canEdit && <Lock size={11} aria-hidden="true" />}Grade</span>
-            <span className={cx("block font-display text-[28px] font-semibold leading-tight", r.absent && "text-info")} aria-live="polite">{r.absent ? code(r) : r.grade || "—"}</span>
+        canEdit ? (
+          <div className="grid grid-cols-3 gap-2 mt-4 [@media(max-height:720px)]:mt-2 [@media(max-height:720px)]:gap-1.5" role="group" aria-label="Grades">
+            {[...gradeList, "AB", "ML"].map((g) => (
+              <button key={g} type="button" aria-pressed={shown === g} onClick={() => setGrade(s.id, g)}
+                className={cx("h-14 rounded-xl border text-[18px] font-semibold transition [@media(max-height:720px)]:h-11", shown === g ? "border-brand bg-brand text-brandink" : "border-line hover:bg-sunken/60", (g === "AB" || g === "ML") && shown !== g && "text-info")}>{g}</button>
+            ))}
           </div>
-          {canEdit ? (
-            <div className="grid grid-cols-3 gap-2 mt-4" role="group" aria-label="Grades">
-              {[...gradeList, "AB", "ML"].map((g) => (
-                <button key={g} type="button" aria-pressed={(r.absent ? code(r) : r.grade) === g} onClick={() => setGrade(s.id, g)}
-                  className={cx("h-14 rounded-xl border text-[18px] font-semibold transition", (r.absent ? code(r) : r.grade) === g ? "border-brand bg-brand text-brandink" : "border-line hover:bg-sunken/60", (g === "AB" || g === "ML") && (r.absent ? code(r) : r.grade) !== g && "text-info")}>{g}</button>
-              ))}
-            </div>
-          ) : canRequest && <Button variant="secondary" className="mt-4 w-full" disabled={s.waiting} onClick={() => onAsk(s)}>{s.waiting ? "Waiting for approval" : s.late ? "Add marks" : "Ask for a change"}</Button>}
-        </>
-      ) : (
-        <>
-          <div className={cx("grid gap-2 mt-4", cats.length > 1 ? "grid-cols-2" : "grid-cols-1")}>
-            {cats.map((x, n) => {
-              const xv = r.absent ? code(r) : r.parts[x.name] ?? "";
-              const xBad = !r.absent && xv !== "" && (Number.isNaN(Number(xv)) || Boolean(checkMark(x.name, x.max, Number(xv))));
-              return (
-                <button key={x.name} type="button" onClick={() => (canEdit ? setK(n) : canRequest && !s.waiting ? onAsk(s) : undefined)} aria-pressed={k === n}
-                  className={cx("rounded-2xl border-2 p-3 text-left transition", k === n && canEdit ? "border-brand bg-brand/5" : "border-line")}>
-                  <span className="text-[12px] text-ink3 font-semibold flex items-center gap-1">{!canEdit && <Lock size={11} aria-hidden="true" />}{cats.length === 1 ? "Marks" : x.name} / {x.max}</span>
-                  <span className={cx("block font-display text-[28px] font-semibold tnum leading-tight", xBad && "text-bad", r.absent && "text-info")} aria-live="polite">{xv || "—"}</span>
-                </button>
-              );
-            })}
-          </div>
-          {cats.length > 1 && <p className="mt-2 text-[13.5px] text-ink2">Total <b className="tnum text-ink">{t.total !== null ? `${fmt(t.total)} / ${max}` : "—"}</b>{t.grade && <> · Grade <Pill tone={toneOf(t.grade, bands)} className="!h-5 !text-[11px]">{t.grade}</Pill></>}</p>}
-          {cats.length === 1 && t.grade && <p className="mt-2 text-[13.5px] text-ink2">Grade <Pill tone={toneOf(t.grade, bands)} className="!h-5 !text-[11px]">{t.grade}</Pill></p>}
-          {e && <p className="text-[13px] text-bad flex items-center gap-1.5 mt-2" role="alert"><CircleAlert size={15} aria-hidden="true" />{s.name} {e}</p>}
-          {canEdit ? (
-            <div className="grid grid-cols-3 gap-2 mt-4" role="group" aria-label="Number keys">
-              {["1", "2", "3", "4", "5", "6", "7", "8", "9", "AB", "0", "ML"].map((key) => (
-                <button key={key} type="button" onClick={() => press(key)}
-                  className={cx("h-14 rounded-xl border border-line text-[20px] font-semibold tnum active:bg-sunken hover:bg-sunken/60 transition", (key === "AB" || key === "ML") && "text-info !text-[16px]")}>{key}</button>
-              ))}
-              <button type="button" onClick={() => press(".5")} aria-label="Add a half mark" className="h-12 rounded-xl border border-line text-[15px] font-semibold hover:bg-sunken/60">½</button>
-              <button type="button" onClick={() => setCell(s.id, c.name, "")} className="h-12 rounded-xl border border-line text-[14px] font-semibold text-ink2 hover:bg-sunken/60">Clear</button>
-              <button type="button" onClick={() => press("del")} aria-label="Delete last digit" className="h-12 rounded-xl border border-line grid place-items-center hover:bg-sunken/60"><Delete size={20} aria-hidden="true" /></button>
-            </div>
-          ) : <p className="text-[13.5px] text-ink3 mt-4">{s.late
-            ? (canRequest ? (s.waiting ? "Marks for this student are waiting for approval." : "Joined after the marks were in. Tap a mark to add marks; they need approval.") : "Joined after the marks were in: left out of this exam.")
-            : canRequest ? (s.waiting ? "A change for this student is waiting for approval." : "These marks are submitted. Tap a mark to ask for a change.") : "These marks cannot be changed here."}</p>}
-        </>
-      )}
-      <div className="flex gap-2 mt-4">
+        ) : canRequest && <Button variant="secondary" className="mt-4 w-full" disabled={s.waiting} onClick={() => onAsk(s)}>{s.waiting ? "Waiting for approval" : s.late ? "Add marks" : "Ask for a change"}</Button>
+      ) : canEdit ? (
+        <div className="grid grid-cols-4 gap-2 mt-4 [@media(max-height:720px)]:mt-2 [@media(max-height:720px)]:gap-1.5" role="group" aria-label="Number keys">
+          {KEYS.map(({ key, label, wide }) => (
+            <button key={key} type="button" aria-label={label} onClick={() => (key === "clear" ? setCell(s.id, c.name, "") : press(key))}
+              className={cx("h-14 rounded-xl border border-line font-semibold tnum active:bg-sunken hover:bg-sunken/60 transition grid place-items-center [@media(max-height:720px)]:h-11",
+                wide && "col-span-2", key === "AB" || key === "ML" ? "text-info text-[16px]" : key === "clear" ? "text-ink2 text-[14px]" : "text-[20px]")}>
+              {key === "del" ? <Delete size={20} aria-hidden="true" /> : key === "clear" ? "Clear" : key === ".5" ? "½" : key}
+            </button>
+          ))}
+        </div>
+      ) : <p className="text-[13.5px] text-ink3 mt-4">{s.late
+        ? (canRequest ? (s.waiting ? "Marks for this student are waiting for approval." : "Joined after the marks were in. Tap a mark to add marks; they need approval.") : "Joined after the marks were in: left out of this exam.")
+        : canRequest ? (s.waiting ? "A change for this student is waiting for approval." : "These marks are submitted. Tap a mark to ask for a change.") : "These marks cannot be changed here."}</p>}
+      <div className="flex gap-2 mt-4 [@media(max-height:720px)]:mt-2">
         <Button variant="secondary" icon={ChevronLeft} className="flex-1" disabled={i === 0} onClick={() => go(i - 1)}>Previous</Button>
         <Button variant="primary" iconRight={ChevronRight} className="flex-1" disabled={i === students.length - 1 || Boolean(e)}
           onClick={() => (!gradeOnly && k < cats.length - 1 && canEdit ? setK(k + 1) : go(i + 1))}>Next</Button>

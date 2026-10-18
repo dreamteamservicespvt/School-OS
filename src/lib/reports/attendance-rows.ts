@@ -99,10 +99,10 @@ export async function attendanceFlagRows(tx: Tx, ctx: SchoolContext, q: { year: 
       if (f.kind === "below-threshold") {
         strength = "ACT_NOW";
         reasons.push(p !== null ? `Attendance ${pctText(p)} this year (threshold ${rules.threshold}%)` : `Attendance ${pctText(Number(f.value))} when flagged on ${formatDate(f.raisedOn, "UTC")} (threshold ${rules.threshold}%)`);
-        basis.push(`Attendance Flag, raised ${formatDate(f.raisedOn, "UTC")}${p !== null ? ` · attendance ${since}` : ""} · threshold ${rules.threshold}% (Attendance Settings)`);
+        basis.push(`Low attendance, flagged on ${formatDate(f.raisedOn, "UTC")}${p !== null ? ` · the attendance register, ${since}` : ""} · threshold ${rules.threshold}% (Attendance Settings)`);
       } else {
         reasons.push(`Absent ${Number(f.value)} school days in a row, up to ${formatDate(f.raisedOn, "UTC")}`);
-        basis.push(`Attendance Flag · rule: ${rules.streakDays} days in a row (Attendance Settings)`);
+        basis.push(`Absent days in a row, flagged on ${formatDate(f.raisedOn, "UTC")} · rule: ${rules.streakDays} school days in a row (Attendance Settings)`);
         if (p !== null && p < rules.watch) strength = "ACT_NOW";
       }
     }

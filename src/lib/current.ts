@@ -86,8 +86,9 @@ async function supportCurrent(e: SupportEntry) {
   };
   const session: Session & { userLogin: UserLogin } = {
     id: e.requestId, userLoginId: SUPPORT_LOGIN_ID, tokenHash: "", schoolId: e.schoolId, campusId: null, userAgent: null, ipAddress: null,
-    deviceKey: null, signedInWithCode: false,
-    createdAt: now, lastUsedAt: now, expiresAt: e.endsAt, revokedAt: null, revokedReason: null, userLogin: user,
+    createdAt: now, lastUsedAt: now, expiresAt: e.endsAt, revokedAt: null, revokedReason: null,
+    // Not a sign-in: no device of its own, and never a code sign-in (so no password reset without the old one).
+    deviceKey: null, signedInWithCode: false, userLogin: user,
   };
   // Step 6: every page they open goes in the school's Audit Log (src/proxy.ts passes the path; prefetches are not passed).
   const path = (await headers()).get(SUPPORT_PATH_HEADER);

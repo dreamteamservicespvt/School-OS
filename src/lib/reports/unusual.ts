@@ -7,7 +7,7 @@
 // the number really grows. Fee changes are kept for people with the school's fees.
 import "server-only";
 
-import type { Forecast, Ctx } from "./forecasts";
+import { UNUSUAL_FEE, type Forecast, type Ctx } from "./forecasts";
 import { DAY_MS } from "../staff/dates";
 
 /** Attendance edits: changes to a register after it was taken, after the lock, and corrections. */
@@ -27,8 +27,6 @@ export const FEE_CHANGES = [
   { recordType: "Concession", action: "taken-off" },
 ] as const;
 
-/** Keys of fee-change signals start with this, so only people with the school's fees see them. */
-export const UNUSUAL_FEE = "unusual-fee:";
 
 /** The last this many days are compared with the 8 weeks before them. */
 const RECENT_DAYS = 14;

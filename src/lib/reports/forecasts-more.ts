@@ -14,7 +14,7 @@
 // Kept here so forecasts.ts only registers them (computeForecasts parts).
 import "server-only";
 
-import type { Forecast, Ctx } from "./forecasts";
+import { wholeRupees, type Forecast, type Ctx } from "./forecasts";
 import type { SubjectResult } from "../exams/compute";
 import { examSettings } from "../exams/settings";
 import { finalExams } from "../exams/results";
@@ -24,7 +24,7 @@ import { salarySettings } from "../salary/settings";
 import { creditBalances } from "../messaging/credits";
 import { channelSetups } from "../messaging/channels";
 import { CANCELLED_REASON } from "../messaging/send";
-import { formatDate, formatRupees } from "../format";
+import { formatDate } from "../format";
 import { addDays } from "../staff/dates";
 import { BUILT_MODULES } from "../modules";
 
@@ -34,8 +34,6 @@ const MAX_ITEMS = 15;
 const pct = (n: number) => `${Math.round(n)}%`;
 const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString("en-IN")} ${n === 1 ? one : many}`;
 const listWords = (xs: string[]) => (xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
-/** Money in text, in whole rupees. */
-export const wholeRupees = (paise: bigint) => formatRupees(BigInt(Math.round(Number(paise) / 100)) * BigInt(100));
 
 /* ---------- the arithmetic (pure, tested on its own) ---------- */
 

@@ -37,7 +37,7 @@ import { viewerOf } from "./run";
 import { aiSignals, dashboardWarnings, ACT_NOW_HREF } from "./warnings";
 import { closerLookWords } from "./strength";
 import { lookingAheadView } from "./looking-ahead";
-import { wholeRupees } from "./forecasts-more";
+import { wholeRupees } from "./forecasts";
 import type { ReportViewer } from "./types";
 
 /** The School Feature that switches the brief on (Settings, Modules On/Off, AI features). */

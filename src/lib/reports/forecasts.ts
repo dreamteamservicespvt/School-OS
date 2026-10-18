@@ -32,8 +32,6 @@ import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
 import { currentYears } from "../academic/years";
-import { cashForecasts, creditForecasts, marksNeededForecasts, reachForecasts, syllabusForecasts, wholeRupees } from "./forecasts-more";
-import { UNUSUAL_FEE, unusualForecasts } from "./unusual";
 import { attendanceSettings } from "../attendance/settings";
 import { attendanceSummary } from "../attendance/summary";
 import { schoolDays } from "../attendance/calendar";
@@ -44,7 +42,7 @@ import { promisesAhead } from "../fees/promises";
 import { admissionYear, loadSettings as admissionSettings } from "../admission/settings";
 import { loginsWithRole } from "../front-office/people";
 import { notify } from "../notifications";
-import { formatDate, formatRupeesShort } from "../format";
+import { formatDate, formatRupees, formatRupeesShort } from "../format";
 import { addDays, DAY_MS, todayIn } from "../staff/dates";
 import { BUILT_MODULES } from "../modules";
 
@@ -66,6 +64,12 @@ export type Forecast = {
   score?: number;
   certainty?: Certainty;
 };
+
+/** Money in text, in whole rupees. */
+export const wholeRupees = (paise: bigint) => formatRupees(BigInt(Math.round(Number(paise) / 100)) * BigInt(100));
+
+/** Keys of unusual fee-change signals (unusual.ts) start with this, so only people with the school's fees see them. */
+export const UNUSUAL_FEE = "unusual-fee:";
 
 /** The feature switch (Settings, Modules On/Off, AI features: Forecasts). */
 export const FORECAST_FEATURE = "ai-forecasts";
@@ -617,6 +621,9 @@ export async function computeForecasts(tx: Tx, ctx: SchoolContext, now = new Dat
   const today = todayIn(school.timeZone, now);
   const years = await currentYears(tx, ctx);
   if (!years.length) return [];
+  // The newer parts load only here (the background job), so pages that read stored signals stay light.
+  const { cashForecasts, creditForecasts, marksNeededForecasts, reachForecasts, syllabusForecasts } = await import("./forecasts-more");
+  const { unusualForecasts } = await import("./unusual");
   const wants = (area: string) => { const s = areaSwitch(area); return s === "both" ? on.forecasts || on.insights : on[s]; };
   const out: Forecast[] = [];
   const run = async (name: string, part: () => Promise<Forecast[]>) => {

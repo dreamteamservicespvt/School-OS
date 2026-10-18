@@ -3,7 +3,7 @@ import Link from "next/link";
 import { requireSettingsPage } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
 import { can } from "@/lib/permissions";
-import { formatDateTime } from "@/lib/format";
+import { formatDate, formatDateTime } from "@/lib/format";
 import { PARTS } from "@/lib/move-in/match";
 import { sectionLabel } from "@/lib/move-in/lookups";
 import { canBring, canUndo, kindInfo, lastFailure, moveInKinds, MoveInProblem, settleImports, workOn } from "@/lib/move-in/service";
@@ -14,6 +14,9 @@ import { ButtonLink } from "@/components/ui/button";
 import { AutoRefresh } from "../../parts";
 import { ColumnsForm, FixRowForm, SheetForm, ValuesForm } from "../forms";
 import { AddClassesButton, AddOptionsButton, ClearChoiceButton, ImportButton, LeaveOutButton, RemoveFileButton, RowChoices, TidySwitch, UndoFixButton, UndoImportButton } from "../parts";
+import { acceptAiColumnsAction, aiColumnsAction } from "../actions";
+import { aiReady } from "@/lib/ai";
+import { AiColumnSuggestions } from "@/components/import/ai-column-suggestions";
 
 export const metadata: Metadata = { title: "Check a file · Switching to School OS" };
 
@@ -124,6 +127,10 @@ export default async function MoveInFilePage({ params, searchParams }: Props) {
     cols: w.choices.columnMatch[c.key] ?? [], joinable: c.key === "fullName" || c.key === "address",
   }));
   const missingRequired = kind.columns.filter((c) => c.required && !(w.choices.columnMatch[c.key] ?? []).length);
+  // Smart Import's AI suggestions: only for the person it is on for, with the AI service connected, once one heading is matched.
+  const matchedKeys = kind.columns.filter((c) => (w.choices.columnMatch[c.key] ?? []).length);
+  const usedCols = new Set(Object.values(w.choices.columnMatch).flat());
+  const aiOffer = mayEdit && aiReady(current, "ai-smart-import") && matchedKeys.length > 0 && matchedKeys.length < kind.columns.length && headers.some((_, i) => !usedCols.has(i));
 
   return (
     <>
@@ -158,8 +165,14 @@ export default async function MoveInFilePage({ params, searchParams }: Props) {
         <div className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <Card>
             <CardHeader title="1. Match columns" description="School OS matched the headings it recognised, and found some columns by what they hold. Check each one against the examples." />
-            <CardBody>
-              {mayEdit ? <ColumnsForm id={file.id} rows={columnRows} headers={headers} samples={sample} /> : <p className="text-ink-2">Your role cannot change this file.</p>}
+            <CardBody className="space-y-4">
+              {w.remembered && (
+                <Alert title="Matched as last time.">
+                  {w.remembered.keys.length} {w.remembered.keys.length === 1 ? "column is" : "columns are"} matched the way you confirmed for {w.remembered.source ? `${w.remembered.source} files` : `“${w.remembered.fileName}”`} ({formatDate(w.remembered.updatedAt, tz)}). Check each one; change any that is wrong.
+                </Alert>
+              )}
+              {aiOffer && <AiColumnSuggestions ask={aiColumnsAction.bind(null, file.id)} accept={acceptAiColumnsAction.bind(null, file.id)} />}
+              {mayEdit ? <ColumnsForm key={JSON.stringify(w.choices.columnMatch)} id={file.id} rows={columnRows} headers={headers} samples={sample} /> : <p className="text-ink-2">Your role cannot change this file.</p>}
             </CardBody>
           </Card>
           <Card className="self-start">

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CircleCheck, Columns3, ListChecks, Sparkles, TriangleAlert } from "lucide-react";
+import { CircleCheck, Columns3, ListChecks, TriangleAlert } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { autoMatch, previewImport } from "@/lib/importer";
 import { decisionWords } from "@/lib/students/import";
@@ -21,8 +21,11 @@ import { inputCls } from "@/components/ui/field";
 import { ActionForm } from "@/components/students/action-form";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { BASE, studentPage } from "../../_lib/page";
-import { runImportAction } from "../../_actions/import";
-import { decisionsFrom, loadSheet, matchFrom } from "../load";
+import { aiColumnsAction, runImportAction } from "../../_actions/import";
+import { aiPicksFrom, aiPicksValue, decisionsFrom, loadSheet, matchFrom } from "../load";
+import { aiAllowed } from "@/lib/settings/switch-rules";
+import { aiReady } from "@/lib/ai";
+import { AiColumnSuggestions } from "@/components/import/ai-column-suggestions";
 import { ImportSteps } from "../steps";
 
 export const metadata: Metadata = { title: "Check the import" };
@@ -32,7 +35,7 @@ const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v.join(","
 
 /** Import (P10), steps 3 and 4: match the file's columns, see each row's problems, then import the good rows. */
 export default async function ImportMatchPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const { current, can, settings } = await studentPage();
+  const { current, can } = await studentPage();
   if (!can.manage) redirect(BASE);
   const raw = await searchParams;
   const sp: Record<string, string | undefined> = Object.fromEntries(Object.entries(raw).map(([k, v]) => [k, one(v)]));
@@ -41,7 +44,8 @@ export default async function ImportMatchPage({ searchParams }: { searchParams: 
   const updating = kindKey === STUDENT_UPDATE_IMPORT;
   const sectionId = isId(sp.section) ? sp.section! : null;
   const kind = studentImportFor(kindKey, { sectionId, applyFeePlan: sp.fee === "1" });
-  const smart = settings.smartImportOn;
+  // Smart Import: one switch, with the other AI features in Settings, Modules On/Off (00-global.md §2.1 rule 8).
+  const smart = aiAllowed(current, "ai-smart-import");
   const accepted = smart ? acceptedFixes(sp.fix) : new Set<string>();
   // Choices made for rows that may already be on record (d_<row>=…): nothing is merged without one.
   const decisions = updating ? {} : decisionsFrom(sp);
@@ -75,11 +79,16 @@ export default async function ImportMatchPage({ searchParams }: { searchParams: 
   const matchSuggestions = smart ? suggestMatch(kind.columns, sheet.headers, sheet.rows, match) : [];
   const fixSuggestions = smart ? suggestFixes(kind.columns, sheet.rows, match) : [];
   const fixValue = [...accepted].join(",");
+  // Columns matched from the AI assistant's suggestion and ticked by the person: marked, and named in the Audit Log at import.
+  const fromAi = smart ? aiPicksFrom(sp.ai, match) : [];
+  const aiValue = aiPicksValue(fromAi, match);
   const withMatch = (m: Record<string, number>) => {
     const q = new URLSearchParams();
     for (const k of keep) q.set(k, sp[k]!);
     for (const c of kind.columns) q.set(`m_${c.key}`, m[c.key] !== undefined ? String(m[c.key]) : "");
     if (fixValue) q.set("fix", fixValue);
+    const ai = aiPicksValue(fromAi.filter((k) => m[k] === match[k]), m);
+    if (ai) q.set("ai", ai);
     for (const [line, v] of Object.entries(decisions)) q.set(`d_${line}`, v);
     return `${BASE}/import/match?${q}`;
   };
@@ -89,10 +98,16 @@ export default async function ImportMatchPage({ searchParams }: { searchParams: 
     for (const k of keep) q.set(k, sp[k]!);
     for (const c of kind.columns) q.set(`m_${c.key}`, match[c.key] !== undefined ? String(match[c.key]) : "");
     if (fixValue) q.set("fix", fixValue);
+    if (aiValue) q.set("ai", aiValue);
     for (const [l, v] of Object.entries({ ...decisions, [line]: value ?? "" })) if (v) q.set(`d_${l}`, v);
     return `${BASE}/import/match?${q}`;
   };
   const decided = preview.good.filter((g) => decisions[g.line]);
+  // The AI assistant is asked only for what the rules left: no match and no rule suggestion, and only once a heading was recognised.
+  const ruleKeys = new Set([...Object.keys(match), ...matchSuggestions.map((m) => m.key)]);
+  const usedCols = new Set([...Object.values(match), ...matchSuggestions.map((m) => m.index)]);
+  const aiOffer = smart && aiReady(current, "ai-smart-import") && Object.keys(match).length > 0
+    && kind.columns.some((c) => !ruleKeys.has(c.key)) && sheet.headers.some((_, i) => !usedCols.has(i));
 
   return (
     <>
@@ -110,15 +125,17 @@ export default async function ImportMatchPage({ searchParams }: { searchParams: 
               <p className="mt-2 text-[12.5px] text-ink3">Nothing changes until you press “Use these matches”. You can still change any column below.</p>
             </Suggestion>
           )}
+          {aiOffer && <AiColumnSuggestions ask={aiColumnsAction.bind(null, sp.file!, kindKey, JSON.stringify(match))} baseHref={withMatch(match)} />}
           <Card>
             <CardHeader title="Match columns" description="We matched the headings we recognised. Check each one." icon={Columns3} />
             <form method="get" className="px-5 pb-5 flex flex-col gap-2.5">
               {keep.map((k) => <input key={k} type="hidden" name={k} value={sp[k]} />)}
               {fixValue && <input type="hidden" name="fix" value={fixValue} />}
+              {aiValue && <input type="hidden" name="ai" value={aiValue} />}
               {Object.entries(decisions).map(([line, v]) => <input key={line} type="hidden" name={`d_${line}`} value={v} />)}
               {kind.columns.map((c) => (
                 <label key={c.key} className="grid grid-cols-[1fr_12.5rem] items-center gap-2 text-[14px]">
-                  <span className="font-medium">{c.label}{c.required && <span className="text-bad" aria-hidden="true"> *</span>}</span>
+                  <span className="font-medium">{c.label}{c.required && <span className="text-bad" aria-hidden="true"> *</span>}{fromAi.includes(c.key) && <Pill tone="brand" className="!h-5 !text-[11px] ml-1.5">Suggestion you ticked</Pill>}</span>
                   <select name={`m_${c.key}`} defaultValue={match[c.key] ?? ""} className={cx(inputCls(), "h-10", c.required && match[c.key] === undefined && "border-bad")}>
                     <option value="">Not in the file</option>
                     {sheet.headers.map((h, i) => <option key={`${h}-${i}`} value={i}>{h || `Column ${i + 1}`}</option>)}
@@ -134,6 +151,7 @@ export default async function ImportMatchPage({ searchParams }: { searchParams: 
             <form method="get">
               {keep.map((k) => <input key={k} type="hidden" name={k} value={sp[k]} />)}
               {kind.columns.map((c) => <input key={c.key} type="hidden" name={`m_${c.key}`} value={match[c.key] ?? ""} />)}
+              {aiValue && <input type="hidden" name="ai" value={aiValue} />}
               <Suggestion title="Likely fixes in your file" source="the values in each matched column; empty cells stay empty"
                 actions={<button type="submit" className={buttonClass("soft", "sm")}>Use the ticked fixes</button>}>
                 <ul className="flex flex-col gap-3">
@@ -221,13 +239,15 @@ export default async function ImportMatchPage({ searchParams }: { searchParams: 
                 <input type="hidden" name="fee" value={sp.fee === "1" ? "1" : ""} />
                 <input type="hidden" name="match" value={JSON.stringify(match)} />
                 <input type="hidden" name="fix" value={fixValue} />
+                <input type="hidden" name="ai" value={aiValue} />
                 <input type="hidden" name="decisions" value={JSON.stringify(decisions)} />
                 <p className="text-[14px] text-ink2">Only the ready rows are imported{preview.bad.length ? `; the ${preview.bad.length} with problems are skipped` : ""}.{accepted.size ? ` The ${accepted.size} fixes you ticked are used.` : ""} {updating ? "Undo in Import history puts the old values back, except any changed again since." : "You can undo the whole import later from Import history."}</p>
               </ActionForm>
             )}
           </Card>
-          {!smart && can.manage && (
-            <p className="text-[12.5px] text-ink3 flex items-center gap-1.5"><Sparkles size={14} aria-hidden="true" />A messy sheet from an old system? Smart Import suggests column matches and fixes. Switch it on in <Link className="font-semibold text-brand underline" href={`${BASE}/settings`}>Student Settings</Link>.</p>
+          {/* Named only where the AI assistant is on for this person (00-global.md §2.1 rule 8). */}
+          {!smart && can.manage && aiAllowed(current) && (
+            <p className="text-[12.5px] text-ink3">A messy sheet from an old system? Smart Import suggests column matches and fixes. It is switched on with the other AI features, in Settings, Modules On/Off.</p>
           )}
         </div>
       </div>

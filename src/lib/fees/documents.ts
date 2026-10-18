@@ -15,7 +15,7 @@ import { MoneyProblem } from "./problem";
 import { dueStatus, openDues, studentCard } from "./dues";
 import { todayIn } from "../staff/dates";
 import { featureOn, feeSettings } from "./settings";
-import { modeLabel, percentWord } from "./words";
+import { cancelReasonLabel, modeLabel, percentWord } from "./words";
 import { financialYearOf } from "../finance/years";
 
 const ZERO = BigInt(0);
@@ -63,7 +63,7 @@ export async function receiptData(tx: Tx, ctx: SchoolContext, paymentId: string)
     const head = heads.find((h) => h.id === a.feeHeadId);
     const account = splitOn ? accounts.find((x) => x.id === a.bankAccountId) ?? main : null;
     return {
-      label: due?.kind === "LATE_FEE" ? (due.label ?? "Late fee") : `${head?.name ?? "Fees"}${due ? ` (${due.label})` : ""}`,
+      label: due?.kind === "LATE_FEE" ? (due.label ?? "Late fee") : `${head?.name ?? "Fees"}${due ? ` · ${due.label}` : ""}`,
       amountPaise: a.amountPaise,
       note: account ? `Into ${account.name}` : undefined,
     };
@@ -111,7 +111,7 @@ export async function renderReceipt(tx: Tx, ctx: SchoolContext, paymentId: strin
     if (r.payment.discountPaise > ZERO) parts.push(`Discount given with this payment: ${esc(formatRupees(r.payment.discountPaise))}.`);
     if (c === "Office copy" && r.payment.note) parts.push(`Note: ${esc(r.payment.note)}`);
     if (r.payment.broughtIn) parts.push(`Brought in from old software${r.payment.oldReceiptNo ? `, old receipt ${esc(r.payment.oldReceiptNo)}` : ""}. Not in the Day Book.`);
-    if (r.receipt.status === "cancelled") parts.push(`Cancelled on ${esc(formatDate(r.payment.cancelledAt ?? new Date()))}: ${esc(r.payment.cancelReason ?? "")}${r.payment.cancelNote ? ` (${esc(r.payment.cancelNote)})` : ""}.`);
+    if (r.receipt.status === "cancelled") parts.push(`Cancelled on ${esc(formatDate(r.payment.cancelledAt ?? new Date()))}: ${esc(cancelReasonLabel(r.payment.cancelReason))}${r.payment.cancelNote ? ` (${esc(r.payment.cancelNote)})` : ""}.`);
     if (terms) parts.push(terms);
     return { label: c, extra: parts.length ? parts.join("<br>") : null };
   });
@@ -186,7 +186,7 @@ export async function renderFeeInvoice(tx: Tx, ctx: SchoolContext, documentId: s
   const dues = await tx.studentFeeDue.findMany({ where: { id: { in: details.dueIds } }, orderBy: { dueDate: "asc" } });
   const heads = await tx.feeHead.findMany({ where: { id: { in: dues.map((d) => d.feeHeadId) } } });
   const card = await studentCard(tx, ctx, doc.studentId);
-  const lines = dues.map((d) => ({ label: d.kind === "LATE_FEE" ? d.label : `${heads.find((h) => h.id === d.feeHeadId)?.name ?? "Fees"} (${d.label})`, amountPaise: d.amountPaise - d.concessionPaise + d.adjustmentPaise - d.paidPaise > ZERO ? d.amountPaise - d.concessionPaise + d.adjustmentPaise - d.paidPaise : ZERO, note: `Due ${formatDate(d.dueDate)}` }));
+  const lines = dues.map((d) => ({ label: d.kind === "LATE_FEE" ? d.label : `${heads.find((h) => h.id === d.feeHeadId)?.name ?? "Fees"} · ${d.label}`, amountPaise: d.amountPaise - d.concessionPaise + d.adjustmentPaise - d.paidPaise > ZERO ? d.amountPaise - d.concessionPaise + d.adjustmentPaise - d.paidPaise : ZERO, note: `Due ${formatDate(d.dueDate)}` }));
   const rendered = await renderDocument(tx, ctx, "fee-invoice", {
     fields: {
       invoice_no: doc.number,

@@ -71,6 +71,9 @@ export const REFUND_STATUS_WORDS: Record<string, { label: string; tone: "success
 };
 
 export const CANCEL_REASONS = ["Wrong student", "Wrong amount", "Cheque bounced", "Duplicate", "Other"] as const;
+/** The words the accountant chose, shown wherever a cancel reason is shown; the stored value stays the short one ("Duplicate"). */
+const CANCEL_REASON_LABEL: Record<string, string> = { Duplicate: "Same payment entered twice" };
+export const cancelReasonLabel = (reason: string | null | undefined) => (reason ? CANCEL_REASON_LABEL[reason] ?? reason : "");
 export const REFUND_MODES = PAYMENT_MODES.filter((m) => ["CASH", "BANK_TRANSFER", "CHEQUE", "UPI"].includes(m.value));
 
 /** Counter permissions (06 §6): shown in Fee Settings. None go to Office Staff or Class Teacher by default. */

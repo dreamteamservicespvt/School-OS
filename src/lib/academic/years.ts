@@ -2,6 +2,7 @@
 // read-only (04-data-model.md rule 19, 03-school-year-and-day.md).
 import "server-only";
 
+import type { Enrolment } from "@prisma/client";
 import type { Tx, SchoolContext } from "../db";
 
 export class ClosedYearError extends Error {
@@ -127,4 +128,70 @@ export async function financialYearFor(tx: Tx, ctx: SchoolContext, date: Date) {
   return tx.financialYear.findFirst({
     where: { schoolId: ctx.schoolId, archivedAt: null, startDate: { lte: date }, endDate: { gte: date } },
   });
+}
+
+/**
+ * Of one student's enrolments, the one that is their class this year: the
+ * enrolment in an active academic year, else the one in the newest year.
+ * Never "the enrolment made last": promotion, imports and undo can add last
+ * year's enrolment after this year's (MONEY-01).
+ */
+export function pickCurrentEnrolment<E extends { academicYearId: string; createdAt: Date }>(
+  list: E[],
+  years: Map<string, { status: string; startDate: Date }>,
+): E | null {
+  let best: E | null = null;
+  const rank = (e: E) => {
+    const y = years.get(e.academicYearId);
+    return [y?.status === "ACTIVE" ? 1 : 0, y?.startDate.getTime() ?? 0, e.createdAt.getTime()];
+  };
+  for (const e of list) {
+    if (!best) { best = e; continue; }
+    const a = rank(e), b = rank(best);
+    if (a[0] > b[0] || (a[0] === b[0] && (a[1] > b[1] || (a[1] === b[1] && a[2] > b[2])))) best = e;
+  }
+  return best;
+}
+
+/**
+ * Each student's enrolment this year, by student id: the one in the current
+ * year of the student's own campus (each campus has its own year, by the
+ * currentYear rule: the newest active year, else the newest), else
+ * pickCurrentEnrolment. The one rule for "this year's class" everywhere.
+ */
+export async function currentEnrolments(tx: Tx, studentIds: string[]): Promise<Map<string, Enrolment>> {
+  const ids = [...new Set(studentIds)];
+  if (!ids.length) return new Map();
+  const [rows, students] = await Promise.all([
+    tx.enrolment.findMany({ where: { studentId: { in: ids }, archivedAt: null } }),
+    tx.student.findMany({ where: { id: { in: ids } }, select: { id: true, campusId: true } }),
+  ]);
+  const campusOf = new Map(students.map((s) => [s.id, s.campusId]));
+  const campusYears = await tx.academicYear.findMany({
+    where: { campusId: { in: [...new Set(students.map((s) => s.campusId))] }, archivedAt: null },
+    orderBy: { startDate: "desc" },
+    select: { id: true, campusId: true, status: true },
+  });
+  const currentOf = new Map<string, { id: string; status: string }>();
+  for (const y of campusYears) {
+    const have = currentOf.get(y.campusId);
+    if (!have || (have.status !== "ACTIVE" && y.status === "ACTIVE")) currentOf.set(y.campusId, y);
+  }
+  const years = await tx.academicYear.findMany({ where: { id: { in: [...new Set(rows.map((r) => r.academicYearId))] } }, select: { id: true, status: true, startDate: true } });
+  const yearMap = new Map(years.map((y) => [y.id, y]));
+  const byStudent = new Map<string, Enrolment[]>();
+  for (const r of rows) byStudent.set(r.studentId, [...(byStudent.get(r.studentId) ?? []), r]);
+  const out = new Map<string, Enrolment>();
+  for (const [id, list] of byStudent) {
+    const campus = campusOf.get(id);
+    const thisYear = campus ? currentOf.get(campus)?.id : undefined;
+    const e = (thisYear ? list.find((x) => x.academicYearId === thisYear) : undefined) ?? pickCurrentEnrolment(list, yearMap);
+    if (e) out.set(id, e);
+  }
+  return out;
+}
+
+/** One student's enrolment this year, or null when they are in no class. */
+export async function currentEnrolment(tx: Tx, studentId: string) {
+  return (await currentEnrolments(tx, [studentId])).get(studentId) ?? null;
 }

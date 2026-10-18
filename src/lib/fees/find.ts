@@ -37,6 +37,17 @@ export async function findStudents(tx: Tx, viewer: FeeViewer, q: string, today: 
   return describeStudents(tx, viewer, hits.map((h) => h.id), today);
 }
 
+/**
+ * The one intent word the Search box knows, by a plain rule (no guessing):
+ * "fee Ravi", "fees Ravi" or "collect Ravi" means Collect Fee for Ravi
+ * (Workflow 2 step 2). Returns the name or number typed after it.
+ */
+export function feeIntent(q: string): string | null {
+  const m = /^(?:fees?|collect(?:\s+fees?)?)\s+(.+)$/i.exec(q.trim());
+  const rest = m?.[1].trim() ?? "";
+  return rest.length >= 2 ? rest : null;
+}
+
 /** Students with the oldest overdue fees: most likely at the counter today. */
 export async function mostOverdue(tx: Tx, viewer: FeeViewer, today: Date, take = 6): Promise<FoundStudent[]> {
   const where: Prisma.StudentFeeDueWhereInput = { state: "OPEN", balancePaise: { gt: 0 }, dueDate: { lt: today } };

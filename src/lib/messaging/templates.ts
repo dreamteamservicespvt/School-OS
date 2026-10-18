@@ -203,8 +203,9 @@ export const READY_TEMPLATES: ReadyTemplate[] = [
     en: "Dear {guardian_name}, {student_name} ({class}) reached school late today, {date}. - {school_name}",
   } },
   { key: "fee-due", name: "Fee reminder", category: "fees", channel: "whatsapp", texts: {
-    en: "Dear {guardian_name}, a fee of {due_amount} for {student_name} ({class}) is due on {due_date}. You can pay on your Parent Link. Please ignore if already paid. - {school_name}",
-    te: "ప్రియమైన {guardian_name}, {student_name} ({class}) ఫీజు {due_amount} {due_date} లోపు చెల్లించాలి. మీ Parent Link లో చెల్లించవచ్చు. - {school_name}",
+    // Says where the details are, not "pay online": online payment may be off for the school or the class.
+    en: "Dear {guardian_name}, a fee of {due_amount} for {student_name} ({class}) is due on {due_date}. The details are on your Parent Link. Please ignore if already paid. - {school_name}",
+    te: "ప్రియమైన {guardian_name}, {student_name} ({class}) ఫీజు {due_amount} {due_date} లోపు చెల్లించాలి. వివరాలు మీ Parent Link లో ఉన్నాయి. - {school_name}",
   } },
   { key: "fee-due", name: "Fee reminder (SMS)", category: "fees", channel: "sms", texts: {
     en: "Dear Parent, fee of {due_amount} for {student_name} is due on {due_date}. Please ignore if paid. - {school_name}",

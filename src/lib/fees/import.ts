@@ -15,7 +15,7 @@ import { MoneyProblem } from "./problem";
 import { lockDues, refreshBalances } from "./dues";
 import { ensureFeeDefaults } from "./settings";
 import { financialYearOf } from "../finance/years";
-import { studentYear } from "../academic/years";
+import { currentEnrolment, studentYear } from "../academic/years";
 import { campusLimitOf } from "../staff/campus-logins";
 import { PAYMENT_MODES } from "./words";
 import { formatRupees } from "../format";
@@ -169,7 +169,10 @@ defineImport<PastReceipt>({
     const mode = modeOf(row.mode ?? "");
     if (!mode) problems.push(`Mode "${row.mode}" is not one of Cash, UPI, Card, Net banking, Bank transfer, Cheque or Online.`);
     if (problems.length || !student || !date || !amount.ok || !mode) return { ok: false, problems };
-    const enrol = await tx.enrolment.findFirst({ where: { studentId: student.id, archivedAt: null }, orderBy: { createdAt: "desc" } });
+    // The receipt belongs to the academic year its date falls in, else to the student's class this year.
+    const enrols = await tx.enrolment.findMany({ where: { studentId: student.id, archivedAt: null } });
+    const yearsOn = await tx.academicYear.findMany({ where: { id: { in: enrols.map((e) => e.academicYearId) }, startDate: { lte: date }, endDate: { gte: date } }, select: { id: true } });
+    const enrol = enrols.find((e) => yearsOn.some((y) => y.id === e.academicYearId)) ?? await currentEnrolment(tx, student.id);
     void ctx;
     return { ok: true, value: { studentId: student.id, oldReceiptNo: no, date, amountPaise: amount.value, mode, headName: row.feeHead?.trim() || null, academicYearId: enrol?.academicYearId ?? null } };
   },

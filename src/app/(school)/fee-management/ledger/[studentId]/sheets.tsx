@@ -129,7 +129,7 @@ export function InvoiceSheet({ studentId, closeHref, rows, father, canLink }: Co
             <li className="flex justify-between gap-3 px-4 py-2.5 font-semibold"><span>Total on the invoice</span><span className="tnum">{formatRupees(total)}</span></li>
           </ul>
           {canLink ? <SSwitch name="send" title={`Send to ${father} on WhatsApp`} sub="With a Razorpay link to pay online. The link works for 7 days." start />
-            : <p className="text-[13px] text-ink3">Online payment is not set up, so the invoice is made without a payment link. Set up Razorpay in Fee Settings.</p>}
+            : <p className="text-[13px] text-ink3">Online payment is not set up, so the invoice is made without a payment link. Gateways are connected in Settings, Payment Gateways.</p>}
         </>
       )}
     </SheetForm>

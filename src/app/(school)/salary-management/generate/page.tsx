@@ -33,6 +33,8 @@ const HREF = `${BASE}/generate`;
 const UUID = /^[0-9a-f-]{36}$/i;
 const ZERO = BigInt(0);
 const amt = formatRupees;
+/** "Venkat Reddy, Mallesh Yadav, Lakshmi Bai and 3 more". */
+const someNames = (names: string[], show = 3) => (names.length <= show ? (names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}` : names.join("")) : `${names.slice(0, show).join(", ")} and ${names.length - show} more`);
 const SHOW = [{ value: "all", label: "Everyone" }, { value: "flag", label: "Flagged" }, { value: "lop", label: "Loss of pay" }, { value: "adj", label: "Adjusted" }];
 
 /** Generate Salary (10 §2, mod-salary.jsx Generate): one run a month per campus, from Open to Locked. */
@@ -200,7 +202,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
                     {negative.length > 0 && <Check1 icon={TriangleAlert} tone="bad" title={`Net pay below zero for ${negative.length} staff · cannot be sent or approved`}
                       sub={`${negative.slice(0, 3).map((l) => (money ? `${name(l.staffId)} ${amt(l.netPaise)}` : name(l.staffId))).join(", ")}. A correction or one-time deduction is more than the pay. Change or remove the adjustment first.`}
                       action={<ButtonLink href={here({ show: "flag" })} scroll={false} size="sm" variant="secondary">Show</ButtonLink>} />}
-                    {noStructure.length > 0 && <Check1 icon={FileWarning} tone="warn" title={`${noStructure.length} staff ${noStructure.length === 1 ? "has" : "have"} no salary structure`} sub={`${noStructure.slice(0, 3).map((l) => `${name(l.staffId)}, ${staffOf.get(l.staffId)?.designation}`).join("; ")}. Left out until a structure exists.`}
+                    {noStructure.length > 0 && <Check1 icon={FileWarning} tone="warn" title={`${noStructure.length} staff ${noStructure.length === 1 ? "has" : "have"} no salary structure`} sub={`${noStructure.slice(0, 3).map((l) => `${name(l.staffId)}, ${staffOf.get(l.staffId)?.designation}`).join("; ")}${noStructure.length > 3 ? ` and ${noStructure.length - 3} more` : ""}. Left out until a structure exists.`}
                       action={p.change ? <ButtonLink href={`${BASE}/structures?do=add&staff=${noStructure[0].staffId}`} size="sm" variant="secondary">Add</ButtonLink> : null} />}
                     {incomplete.length > 0 && <Check1 icon={CalendarX2} tone="warn" title={`Attendance missing for ${incomplete.length} staff`} sub={incomplete.slice(0, 3).map((l) => `${name(l.staffId)} ${l.notMarkedDays} ${l.notMarkedDays === 1 ? "day" : "days"}`).join(", ") + ". Not marked and no leave asked."}
                       action={p.current.permissions["attendance-management"]?.see !== "none" ? <ButtonLink href="/attendance-management/staff" size="sm" variant="secondary">Open</ButtonLink> : null} />}
@@ -440,7 +442,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
       {doing === "send" && run && status === "CALCULATED" && (
         <ConfirmSheet closeHref={here({ do: null })} title={`Send ${monthName(run.month)} salary for approval?`} label="Send for approval" action={sendRunAction} hidden={{ runId: run.id }}>
           <div className="flex flex-col gap-3 text-[14px] text-ink2">
-            <p><b className="font-semibold text-ink">{run.staffCount} staff, net {amt(run.netPaise)}</b> (gross {amt(run.grossPaise)}).{noStructure.length ? ` ${noStructure.map((l) => name(l.staffId)).slice(0, 3).join(", ")} ${noStructure.length === 1 ? "is" : "are"} left out until they have a salary structure.` : ""}</p>
+            <p><b className="font-semibold text-ink">{run.staffCount} staff, net {amt(run.netPaise)}</b> (gross {amt(run.grossPaise)}).{noStructure.length ? ` ${noStructure.length} staff ${noStructure.length === 1 ? "is" : "are"} left out until they have a salary structure: ${someNames(noStructure.map((l) => name(l.staffId)))}.` : ""}</p>
             <p>Attendance after today is not in yet. Days after today, and leave or attendance changed after approval, come into next month’s salary by themselves as arrears or a deduction, with the reason.</p>
             {data.adjustments.length > 0 && <p>{data.adjustments.length} adjustment{data.adjustments.length > 1 ? "s" : ""} included, each with its reason.</p>}
             <p>Nobody approves a month they sent: it goes to the Principal, or to the School Admin when the Principal sent it.</p>

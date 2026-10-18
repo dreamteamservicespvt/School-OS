@@ -16,7 +16,7 @@ import { writeAudit } from "../audit";
 import { formatNumber, nextNumber } from "../sequences";
 import { formatDate, formatRupees } from "../format";
 import { MoneyProblem } from "../fees/problem";
-import { assertBooksOpen } from "./years";
+import { assertBooksOpen, assertNotFuture } from "./years";
 import { financeSettings } from "./settings";
 
 const ZERO = BigInt(0);
@@ -38,6 +38,7 @@ export async function addJournal(tx: Tx, ctx: SchoolContext, input: { date: Date
   if (debits !== credits) throw new MoneyProblem(`Debits ${formatRupees(debits)}, credits ${formatRupees(credits)}. They must be equal.`, "lines");
   const heads = await tx.accountHead.findMany({ where: { id: { in: lines.map((l) => l.accountHeadId) }, archivedAt: null } });
   if (heads.length !== new Set(lines.map((l) => l.accountHeadId)).size) throw new MoneyProblem("A head on this entry was not found or is archived. Choose it again.", "lines");
+  await assertNotFuture(tx, ctx, input.date, "date", "The journal date");
   const fy = await assertBooksOpen(tx, ctx, input.date);
   const s = await financeSettings(tx, ctx);
   const n = await nextNumber(tx, ctx, `journal:${fy.name}`);

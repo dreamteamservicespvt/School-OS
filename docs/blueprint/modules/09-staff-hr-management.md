@@ -112,7 +112,7 @@ Used by: the School Admin and, when the school switches them on, the HR and Offi
 **Actions**
 
 - **Apply for leave** (own, or on behalf of someone by HR).
-- **Approve** or **Reject** with a reason (also from Approvals). Approval runs automation A5.
+- **Approve** or **Reject** with a reason (also from Approvals, where the request shows the leave balance, the days left after it and the periods to cover, workflow 7 step 3; a one-step request shows no step number). Approval runs automation A5.
 - **Cancel or withdraw** leave: before it starts, the staff member can withdraw; after approval, cancelling restores the balance and removes the substitutions not yet taken (inferred).
 - Adjust a balance (HR only, with a reason).
 

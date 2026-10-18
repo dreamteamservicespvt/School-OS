@@ -26,6 +26,7 @@ import { UnfinishedList, type UnfinishedItem } from "./unfinished-list";
 import { finishesAny, unfinishedApprovals } from "@/lib/approvals-unfinished";
 import { decisionOf } from "@/lib/approval-waiting";
 import { approvalRecordLink } from "@/lib/approval-links";
+import { approvalFacts } from "@/lib/approval-facts";
 
 export const metadata: Metadata = { title: "Approvals" };
 
@@ -72,12 +73,14 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
     const people = await tx.userLogin.findMany({ where: { id: { in: ids } }, select: { id: true, displayName: true } });
     const roles = await tx.role.findMany({ select: { key: true, name: true } });
     const jobs = await askerJobs(tx, rows.map((r) => r.askedById));
+    // Facts only for requests still to decide: what the approver needs to see on the card.
+    const facts = await approvalFacts(tx, current.ctx, rows.filter((r) => OPEN_STATUSES.includes(r.status)));
     // Decided requests whose record never moved on: for the person who decided each, and the Principal and School Admin.
     const any = await finishesAny(tx, current.ctx);
     const decidedSome = any || Boolean(await tx.approval.findFirst({ where: { decidedById: current.user.id, status: { in: ["APPROVED", "REJECTED"] } }, select: { id: true } }));
     const unfinished = decidedSome ? await unfinishedApprovals(tx, current.ctx, { any }) : [];
     const deciders = await tx.userLogin.findMany({ where: { id: { in: unfinished.map((a) => a.decidedById).filter((x): x is string => Boolean(x)) } }, select: { id: true, displayName: true } });
-    return { rows, total, counts: new Map(counts), rules, decidable, jobs, unfinished, deciders: new Map(deciders.map((p) => [p.id, p.displayName])), people: new Map(people.map((p) => [p.id, p.displayName])), roles: new Map(roles.map((r) => [r.key, r.name])) };
+    return { rows, total, counts: new Map(counts), rules, decidable, jobs, facts, unfinished, deciders: new Map(deciders.map((p) => [p.id, p.displayName])), people: new Map(people.map((p) => [p.id, p.displayName])), roles: new Map(roles.map((r) => [r.key, r.name])) };
   });
 
   const now = new Date();
@@ -132,6 +135,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
       decidable: data.decidable.has(a.id),
       job: a.askedById === current.user.id ? null : data.jobs.get(a.askedById) ?? null,
       reason: a.reason,
+      facts: data.facts.get(a.id),
       overdue: open && workingDaysBetween(new Date(last?.at ?? a.createdAt), now) >= days,
     };
   });

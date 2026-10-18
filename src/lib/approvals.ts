@@ -139,6 +139,21 @@ async function stepsFor(tx: Tx, schoolId: string, type: string): Promise<{ steps
   return { steps: defaultSteps(type), escalateAfterDays: 2 };
 }
 
+/** How many steps the school's rule for a request type has (Settings, Forms & Approvals). */
+export async function ruleStepCount(tx: Tx, schoolId: string, type: string): Promise<number> {
+  return (await stepsFor(tx, schoolId, type)).steps.length;
+}
+
+/**
+ * "Step 2 of 3", for a request whose rule has more than one step; null for a
+ * one-step request (nothing to count). The stored step is 1-based; 0 is a
+ * person asked before the rule (a head of department), shown as the first.
+ */
+export function stepWords(step: number, steps: number): string | null {
+  if (steps <= 1) return null;
+  return `${Math.min(Math.max(step, 1), steps)} of ${steps}`;
+}
+
 /**
  * Puts a request in the Approvals list. A person never approves their own
  * request: if the requester is the only one who could, it goes to the next

@@ -1,22 +1,53 @@
 // Import enquiries (02 §2, D7; workflow 15 "Switching to School OS"): open
 // enquiries from the old software or a spreadsheet, through the one shared
-// importer (P10). The duplicate check runs on every row; rows matching an
-// existing phone are flagged, not added twice (02 Done when 12). Each
-// enquiry gets an owner and a follow-up. Imported by src/lib/import-registry.ts.
+// importer (P10). The duplicate check runs on every row: a child already on
+// record (same phone or email, same child's name) is flagged, not added twice
+// (02 Done when 12). A brother or sister (same phone, same parent, another
+// child) is one enquiry per child, linked to the family's enquiry. A phone on
+// record under another parent's name is never linked silently: the person
+// says whether it is the same family. Each enquiry gets an owner and a
+// follow-up. Imported by src/lib/import-registry.ts.
 import "server-only";
 import { nextEnquiryNo } from "./enquiries";
 
 import type { SchoolContext, Tx } from "../db";
-import { defineImport } from "../importer";
+import { defineImport, type RowChoice } from "../importer";
 import { writeAudit } from "../audit";
+import { namesAlike } from "../students/name-match";
 import { AdmissionProblem, checkMobile, todayIn, zonedToInstant } from "./act";
 import { CLOSED_STATUSES, admissionYear, live, loadSettings } from "./settings";
-import { defaultFollowUp, findDuplicates, pickOwner } from "./enquiries";
+import { defaultFollowUp, pickOwner } from "./enquiries";
 
 type Row = {
   childName: string; parentName: string; phone: string; email: string | null; classId: string | null;
   source: string; status: string; ownerStaffId: string | null; followUp: string | null; nextAction: string | null; notes: string | null;
+  /** A brother or sister of an enquiry already in School OS, or of an earlier row (linked when saved). */
+  sibling: boolean;
 };
+
+/** One family already on record with this phone or email: its parent names and children. */
+type Known = { text: string; parents: string[]; children: string[]; enquiryId: string | null };
+
+/** Open enquiries, open applications and current parents with this phone or email, with their names. */
+async function onRecord(tx: Tx, phone: string, email: string | null): Promise<Known[]> {
+  const or = <T>(p: T, e: T) => [p, ...(email ? [e] : [])];
+  const [enquiries, applications, guardians] = await Promise.all([
+    tx.enquiry.findMany({ where: { archivedAt: null, status: { notIn: [...CLOSED_STATUSES] }, OR: or({ phone }, { email: { equals: email!, mode: "insensitive" as const } }) }, orderBy: { createdAt: "asc" }, take: 10 }),
+    tx.application.findMany({ where: { archivedAt: null, stage: { notIn: ["REJECTED", "WITHDRAWN", "ADMITTED"] }, OR: or({ phone }, { email: { equals: email!, mode: "insensitive" as const } }) }, take: 10 }),
+    tx.guardian.findMany({
+      where: { archivedAt: null, OR: or({ phone }, { email: { equals: email!, mode: "insensitive" as const } }) }, take: 5,
+      include: { students: { where: { archivedAt: null, student: { archivedAt: null, status: { in: ["ACTIVE", "ADMITTED"] } } }, include: { student: { select: { fullName: true } } } } },
+    }),
+  ]);
+  return [
+    ...enquiries.map((e) => ({ text: `an open enquiry for ${e.childName}, from ${e.parentName}`, parents: [e.parentName], children: [e.childName], enquiryId: e.id })),
+    ...applications.map((a) => ({ text: `application ${a.applicationNo} for ${a.fullName}`, parents: [a.fatherName, a.motherName, a.guardianName].filter((x): x is string => Boolean(x)), children: [a.fullName], enquiryId: a.enquiryId })),
+    ...guardians.filter((g) => g.students.length).map((g) => ({ text: `${g.name}, parent of ${g.students.map((s) => s.student.fullName).join(" and ")}`, parents: [g.name], children: g.students.map((s) => s.student.fullName), enquiryId: null })),
+  ];
+}
+
+/** Rows of this file already seen with a phone: "f:<phone>" then line, child and parent. */
+const fileKey = (phone: string) => `f:${phone}:`;
 
 /** A date typed as DD-MM-YYYY, DD/MM/YYYY or YYYY-MM-DD, as YYYY-MM-DD; null when it is not a real date. */
 export function importDate(v: string): string | null {
@@ -49,9 +80,10 @@ defineImport<Row>({
     { key: "nextAction", label: "Next action", example: "Call to fix a school visit" },
     { key: "notes", label: "Notes", example: "Interested in the science stream later" },
   ],
-  async check(tx, ctx, row, seen) {
+  async check(tx, ctx, row, seen, place) {
     const s = await loadSettings(tx, ctx);
     const problems: string[] = [];
+    const choices: RowChoice[] = [];
     let phone = "";
     try {
       phone = checkMobile(row.phone, "phone");
@@ -60,13 +92,31 @@ defineImport<Row>({
     }
     const email = row.email.trim().toLowerCase() || null;
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) problems.push("Email does not look right.");
-    if (phone) {
-      if (seen.has(`p:${phone}`)) problems.push("This phone is on another row of the file.");
-      else {
-        seen.add(`p:${phone}`);
-        const matches = await findDuplicates(tx, { phone, email });
-        if (matches.length) problems.push(`Already in School OS: ${matches[0].text}. Not added twice.`);
+    const child = row.childName.trim();
+    const parent = row.parentName.trim();
+    let sibling = false;
+    let remember: string | null = null;
+    if (phone && child && parent) {
+      const chose = place?.decision;
+      // Earlier rows of this file with the same phone.
+      const earlier = [...seen].filter((k) => k.startsWith(fileKey(phone))).map((k) => JSON.parse(k.slice(fileKey(phone).length)) as { line: number; child: string; parent: string });
+      const sameChildRow = earlier.find((r) => namesAlike(r.child, child));
+      const known = await onRecord(tx, phone, email);
+      const sameChild = known.find((k) => k.children.some((c) => namesAlike(c, child)));
+      if (sameChildRow) problems.push(`Row ${sameChildRow.line} has the same child (${sameChildRow.child}) with this phone. Keep one row.`);
+      else if (sameChild) problems.push(`Already in School OS: ${sameChild.text}. Not added twice.`);
+      else if (earlier.length || known.length) {
+        // A brother or sister: the same family when a parent's name matches (close spellings allowed).
+        const family = earlier.some((r) => namesAlike(r.parent, parent)) || known.some((k) => k.parents.some((n) => namesAlike(n, parent)));
+        if (family || chose === "sibling") sibling = true;
+        else if (chose !== "other-family") {
+          const who = [...known.map((k) => k.text), ...earlier.map((r) => `row ${r.line} (${r.child}, from ${r.parent})`)].slice(0, 3).join("; ");
+          problems.push(`This phone is already on record for ${who}, not ${parent}. Say whether this is the same family.`);
+          choices.push({ value: "sibling", label: `Same family: add ${child} as a brother or sister` }, { value: "other-family", label: `A different family: add ${child} from ${parent} as its own enquiry` });
+        }
       }
+      // Remembered for the rows after it only when this row will be imported.
+      remember = `${fileKey(phone)}${JSON.stringify({ line: place?.line ?? 0, child, parent })}`;
     }
     let classId: string | null = null;
     if (row.className) {
@@ -99,10 +149,11 @@ defineImport<Row>({
     const followUp = row.followUp ? importDate(row.followUp) : null;
     if (row.followUp && !followUp) problems.push("Next follow-up is not a date like 15-10-2026.");
     if (row.childName.length > 120 || row.parentName.length > 120) problems.push("Names can be at most 120 letters.");
-    if (problems.length) return { ok: false, problems };
+    if (problems.length) return { ok: false, problems, ...(choices.length ? { choices } : {}) };
+    if (remember) seen.add(remember);
     return {
       ok: true,
-      value: { childName: row.childName.trim(), parentName: row.parentName.trim(), phone, email, classId, source, status, ownerStaffId, followUp, nextAction: row.nextAction.trim().slice(0, 200) || null, notes: row.notes.trim().slice(0, 2000) || null },
+      value: { childName: child, parentName: parent, phone, email, classId, source, status, ownerStaffId, followUp, nextAction: row.nextAction.trim().slice(0, 200) || null, notes: row.notes.trim().slice(0, 2000) || null, sibling },
     };
   },
   async save(tx: Tx, ctx: SchoolContext, v: Row) {
@@ -115,18 +166,23 @@ defineImport<Row>({
     const me = ctx.userId ? await tx.staff.findFirst({ where: { userLoginId: ctx.userId, archivedAt: null }, select: { id: true } }) : null;
     const owner = v.ownerStaffId ?? (await pickOwner(tx, ctx, s, { classId: v.classId, adderStaffId: me?.id ?? null, today: todayIn(school.timeZone) }));
     const nextFollowUpAt = v.followUp ? zonedToInstant(`${v.followUp}T11:00`, school.timeZone) : await defaultFollowUp(tx, school.timeZone);
+    // A brother or sister: linked to the family's first open enquiry (in School OS, or saved from an earlier row),
+    // found by the parent's name, so another family with the same phone is never linked.
+    const fam = v.sibling ? await tx.enquiry.findMany({ where: { phone: v.phone, archivedAt: null, status: { notIn: [...CLOSED_STATUSES] } }, orderBy: [{ createdAt: "asc" }, { enquiryNo: "asc" }], select: { id: true, childName: true, parentName: true, siblingOfId: true } }) : [];
+    const mine = fam.find((x) => namesAlike(x.parentName, v.parentName)) ?? fam[0] ?? null;
+    const first = mine?.siblingOfId ? fam.find((x) => x.id === mine.siblingOfId) ?? mine : mine;
     const e = await tx.enquiry.create({
       data: {
         enquiryNo: await nextEnquiryNo(tx, ctx),
         schoolId: ctx.schoolId, campusId: campus.id, academicYearId: year.id,
         childName: v.childName, parentName: v.parentName, phone: v.phone, email: v.email, classId: v.classId,
         source: v.source, firstSource: v.source, status: v.status, ownerStaffId: owner, nextFollowUpAt, nextAction: v.nextAction, notes: v.notes,
-        createdById: ctx.userId, updatedById: ctx.userId,
+        siblingOfId: first?.id ?? null, createdById: ctx.userId, updatedById: ctx.userId,
       },
     });
-    await tx.enquiryActivity.create({ data: { schoolId: ctx.schoolId, enquiryId: e.id, kind: "created", text: "Enquiry imported from a spreadsheet.", byId: ctx.userId } });
+    await tx.enquiryActivity.create({ data: { schoolId: ctx.schoolId, enquiryId: e.id, kind: "created", text: `Enquiry imported from a spreadsheet.${first ? ` Brother or sister of ${first.childName}.` : ""}`, byId: ctx.userId } });
     if (v.notes) await tx.enquiryActivity.create({ data: { schoolId: ctx.schoolId, enquiryId: e.id, kind: "note", text: v.notes, byId: ctx.userId } });
-    await writeAudit(tx, ctx, { action: "imported", recordType: "Enquiry", recordId: e.id, after: { childName: e.childName, phone: e.phone, status: e.status, owner } });
+    await writeAudit(tx, ctx, { action: "imported", recordType: "Enquiry", recordId: e.id, after: { childName: e.childName, phone: e.phone, status: e.status, owner, siblingOfId: e.siblingOfId } });
     return { id: e.id, created: true };
   },
   async undo(tx, ctx, ids) {

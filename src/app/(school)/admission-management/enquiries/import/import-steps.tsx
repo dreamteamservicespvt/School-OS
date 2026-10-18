@@ -16,6 +16,8 @@ export function ImportSteps({ columns, upload, check, run, undo }: {
   const [file, setFile] = useState<Upload | null>(null);
   const [match, setMatch] = useState<Record<string, string>>({});
   const [checked, setChecked] = useState<Checked | null>(null);
+  // Choices made for rows that asked (a phone on record under another parent's name), by line.
+  const [decisions, setDecisions] = useState<Record<number, string>>({});
   const [done, setDone] = useState<{ batchId: string; added: number; skipped: number; undone?: number } | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -24,6 +26,7 @@ export function ImportSteps({ columns, upload, check, run, undo }: {
     const fd = new FormData();
     fd.set("fileId", file!.fileId);
     for (const [k, v] of Object.entries(match)) fd.set(`col:${k}`, v);
+    for (const [line, v] of Object.entries(decisions)) fd.set(`decision:${line}`, v);
     return fd;
   };
 
@@ -31,7 +34,7 @@ export function ImportSteps({ columns, upload, check, run, undo }: {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     start(async () => {
-      setProblem(null); setChecked(null); setDone(null);
+      setProblem(null); setChecked(null); setDone(null); setDecisions({});
       const r = await upload(fd);
       if (!r.ok) { setProblem(r.message); return; }
       setFile(r.data);
@@ -43,6 +46,17 @@ export function ImportSteps({ columns, upload, check, run, undo }: {
     const r = await check(matchForm());
     if (!r.ok) setProblem(r.message); else setChecked(r.data);
   });
+  // A choice for a row checks the rows again, so the counts are right before importing.
+  const choose = (line: number, value: string) => {
+    const next = { ...decisions, [line]: value };
+    setDecisions(next);
+    start(async () => {
+      const fd = matchForm();
+      fd.set(`decision:${line}`, value);
+      const r = await check(fd);
+      if (!r.ok) setProblem(r.message); else setChecked(r.data);
+    });
+  };
   const onImport = () => start(async () => {
     setProblem(null);
     const r = await run(matchForm());
@@ -65,7 +79,7 @@ export function ImportSteps({ columns, upload, check, run, undo }: {
 
       <section aria-labelledby="step1" className="rounded-2xl border border-line bg-surface p-5">
         <h2 id="step1" className="text-lg font-semibold">1. Get the template</h2>
-        <p className="mt-1 text-ink-2">Fill one row per enquiry. Columns with * are needed. Follow-up dates like 15-10-2026. Sources and statuses must be ones in Admission Settings. A row whose phone is already in School OS is flagged, not added twice.</p>
+        <p className="mt-1 text-ink-2">Fill one row per enquiry, one row for each child. Columns with * are needed. Follow-up dates like 15-10-2026. Sources and statuses must be ones in Admission Settings. A child already in School OS is flagged, not added twice; a brother or sister with the same phone is added and linked to the family.</p>
         <a href="/admission-management/enquiries/import/template" className={`${buttonClass("secondary", "sm")} mt-3`} download>Download template</a>
       </section>
 
@@ -115,7 +129,16 @@ export function ImportSteps({ columns, upload, check, run, undo }: {
             <div className="mt-3">
               <p className="font-medium">Rows with problems are skipped:</p>
               <ul className="mt-1 max-h-72 space-y-1 overflow-y-auto text-sm">
-                {checked.bad.map((b) => <li key={b.line}><span className="font-medium">Row {b.line} ({b.name}):</span> {b.problems.join(" ")}</li>)}
+                {checked.bad.map((b) => (
+                  <li key={b.line}>
+                    <span className="font-medium">Row {b.line} ({b.name}):</span> {b.problems.join(" ")}
+                    {b.choices && b.choices.length > 0 && (
+                      <span className="mt-1 flex flex-wrap gap-2" role="group" aria-label={`Choose for row ${b.line}`}>
+                        {b.choices.map((c) => <Button key={c.value} size="sm" variant="secondary" onClick={() => choose(b.line, c.value)} disabled={pending}>{c.label}</Button>)}
+                      </span>
+                    )}
+                  </li>
+                ))}
               </ul>
               {badCsv && <a href={badCsv} download="enquiry-import-problems.csv" className="mt-2 inline-block text-brand-text underline">Download these rows</a>}
             </div>

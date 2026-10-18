@@ -9,7 +9,7 @@ import { withSchool, type SchoolContext, type Tx } from "@/lib/db";
 import { requireAction } from "@/lib/current";
 import { SHEET_TYPES, saveFile } from "@/lib/files";
 import { fileStore } from "@/lib/storage";
-import { autoMatch, importKind, previewImport, readSheet, runImport, undoImport } from "@/lib/importer";
+import { autoMatch, importKind, previewImport, readSheet, runImport, undoImport, type Decisions } from "@/lib/importer";
 import { flash } from "@/lib/flash";
 import { AdmissionProblem, file, problemState, str, UUID_RE } from "@/lib/admission/act";
 import { FullOnlyError, viewerFor } from "@/lib/admission/access";
@@ -19,7 +19,7 @@ const KIND = "admission-enquiries";
 const PURPOSE = "admission-import";
 
 export type Upload = { fileId: string; fileName: string; headers: string[]; match: Record<string, number>; rows: number };
-export type Checked = { good: number; bad: { line: number; name: string; problems: string[] }[]; sample: { line: number; name: string; detail: string }[] };
+export type Checked = { good: number; bad: { line: number; name: string; problems: string[]; choices?: { value: string; label: string }[] }[]; sample: { line: number; name: string; detail: string }[] };
 type Result<T> = { ok: true; data: T } | { ok: false; message: string };
 
 const kind = () => importKind(KIND)!;
@@ -52,6 +52,16 @@ function matchOf(fd: FormData, headers: string[]) {
   return match;
 }
 
+/** Choices made on screen for rows that asked (decision:<line> = "sibling" or "other-family"). */
+function decisionsOf(fd: FormData): Decisions {
+  const out: Decisions = {};
+  for (const [k, v] of fd.entries()) {
+    const m = /^decision:(\d{1,5})$/.exec(k);
+    if (m && typeof v === "string" && (v === "sibling" || v === "other-family")) out[Number(m[1])] = v;
+  }
+  return out;
+}
+
 function fail(e: unknown): { ok: false; message: string } {
   return { ok: false, message: problemState(e).message ?? "That did not work." };
 }
@@ -78,10 +88,10 @@ export async function checkEnquiryFile(fd: FormData): Promise<Result<Checked>> {
     const current = await team();
     return { ok: true, data: await withSchool(current.ctx, async (tx) => {
       const sheet = await rowsOf(tx, current.ctx, str(fd, "fileId"));
-      const p = await previewImport(tx, current.ctx, kind(), sheet.rows, matchOf(fd, sheet.headers));
+      const p = await previewImport(tx, current.ctx, kind(), sheet.rows, matchOf(fd, sheet.headers), decisionsOf(fd));
       return {
         good: p.good.length,
-        bad: p.bad.slice(0, 200).map((b) => ({ line: b.line, name: b.row.childName || "(no name)", problems: b.problems })),
+        bad: p.bad.slice(0, 200).map((b) => ({ line: b.line, name: b.row.childName || "(no name)", problems: b.problems, ...(b.choices?.length ? { choices: b.choices } : {}) })),
         sample: p.good.slice(0, 10).map((g) => ({ line: g.line, name: g.row.childName, detail: [g.row.parentName, g.row.className].filter(Boolean).join(", ") })),
       };
     }, { timeout: 120_000 }) };
@@ -95,7 +105,7 @@ export async function importEnquiryFile(fd: FormData): Promise<Result<{ batchId:
     const current = await team();
     const batch = await withSchool(current.ctx, async (tx) => {
       const sheet = await rowsOf(tx, current.ctx, str(fd, "fileId"));
-      const p = await previewImport(tx, current.ctx, kind(), sheet.rows, matchOf(fd, sheet.headers));
+      const p = await previewImport(tx, current.ctx, kind(), sheet.rows, matchOf(fd, sheet.headers), decisionsOf(fd));
       if (p.good.length === 0) throw new AdmissionProblem("No row is ready to import. Fix the problems and upload again.");
       return runImport(tx, current.ctx, kind(), sheet.fileName, p);
     }, { timeout: 300_000 });

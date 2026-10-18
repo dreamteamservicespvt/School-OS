@@ -78,7 +78,7 @@ Used by: teachers (Take Attendance for their classes, student leave for their se
 - Attach a document (for example a doctor's note).
 - **Approve** or **Reject** with a reason (also from Approvals). Class teachers can decide for their own sections up to the limit set in Forms & Approvals.
 - Cancel a leave (with a reason).
-- When approved, the days are marked **Leave** in Take Attendance in advance, and no absence message is sent for those days (inferred).
+- When approved, the days are marked **Leave** in Take Attendance in advance, and no absence message is sent for those days (inferred). Days already saved become **Leave** at the approval (full-day leave; a half day keeps its mark), so Take Attendance, the register and every % agree at once; each change is in the audit log (added 18 October 2026).
 - When absence reasons are on, approved leave also gives a reason to days already marked absent that have none or only "Not known yet": Medical is Sick, Holiday is Travel, any other type is Other with the leave type and reason as the note. A reason a person chose stays. Cancelling the leave puts those days back to "Not known yet".
 - **Leave balances and quotas (optional, switched on per school in Attendance Settings):** a limit per leave type for a term or year (for example 6 medical days per term), as in the old software. Each student then has a Leave Balance record per leave type, shown while recording leave ("Medical: 2 of 6 days left this term"). Leave beyond the quota shows a warning and goes to Approvals even when it is within the class teacher's limit (inferred).
 
@@ -168,7 +168,7 @@ See section 7 for the list. All reports leave out holidays, weekends and other n
 
 **Purpose:** know why a student was absent, so the school acts on the right thing (a call to the family, a fee conversation, nothing for a sick day), and Early Warnings can tell an unexplained absence from a sick day.
 
-- **Reasons:** Sick, Family function, Travel, Fees dispute, Not known yet, Other (with a short note, up to 100 characters). Only marks whose status counts as absent have a reason. Marks from before have none ("Not recorded").
+- **Reasons:** Sick, Family function, Travel, Fees dispute, Not known yet, Other (with a short note, up to 100 characters). Only marks whose status counts as absent have a reason. An absent mark with none (marks from before reasons were switched on, for example) is "Not known yet" on every screen and in every count: one word for one mark (changed 18 October 2026).
 - **Where a reason comes from:** Take Attendance (optional, "Not known yet" by default), approved Student Leave for that day (see Student Leave), or set later from the Absent list in the Attendance Register by the class teacher or the office. Parent Link stays read-only: a parent who explains an absence by phone or WhatsApp is recorded by staff on the Absent list.
 - **Who sees "Fees dispute":** only people who see the whole school's fees (Fee Management, Full or View). Everyone else sees "Other" without its note, cannot choose it, and keeps it unchanged when they leave the "Other" they see.
 - **Where reasons are used:** the class register and student calendar, the Student Profile's Attendance tab ("Absences and reasons"), the Date range report, the Absence reasons report (section 7), and Early Warnings (19 Reports & Analytics): an attendance flag's basis shows the reason mix ("6 not known yet, 2 sick"); when most absences are "Not known yet" a Watch becomes Act now; when most were sick days or approved leave an Act now above the threshold becomes a Watch. "Fees dispute" absences raise a fee flag, seen only by fee roles. In Looking ahead, many "Not known yet" absences count towards "may be thinking of leaving", absences that were mostly sick days or leave do not, and a "Fees dispute" counts as fees.
@@ -264,8 +264,8 @@ See section 7 for the list. All reports leave out holidays, weekends and other n
 **Automations:** owns **A4 Attendance marked**. Reacts to **A11 Holiday added**.
 
 A4 step by step:
-1. Attendance is saved for a class (or a device or QR punch completes a day's record).
-2. Parents of students marked Absent get one message for the day, using the absence template, after a short wait (default 15 minutes after saving, inferred) so a teacher's quick correction does not send a wrong message. A student marked absent in several periods still gets one message for the day.
+1. Attendance is saved for a class (or a device or QR punch completes a day's record, an approved correction changes a mark, or approved leave turns saved days into Leave).
+2. Parents of students marked Absent get one message for the day, using Communication's "Absent today" automatic message (its template and channels, set in Communication, Message Settings), after a short wait (default 15 minutes after saving, inferred) so a teacher's quick correction does not send a wrong message. A student marked absent in several periods still gets one message for the day. A student who punched in at the gate or checked in by QR but is marked Absent gets no message: the class teacher is asked to check the register. A correction or a punch for a day already past moves the flags on but sends no message for that day. Take Attendance and the class-wise register show the day's count: "Absence messages today: 12 sent, 2 not sent (1 no parent phone, 1 opted out)" (added 18 October 2026, gap list G08).
 3. The register and the Dashboard update.
 4. Each student's % is worked out again. Anyone falling below the threshold (default 75%) is flagged to the class teacher and the principal once, not every day (inferred: once per drop below).
 
@@ -283,7 +283,8 @@ A4 step by step:
 | Duplicate QR scan or scan outside the campus area | Blocked on the phone with a message | "Already marked at 8:02 AM" or "You are 300 m from school" | Not needed |
 | Device key leaked | Regenerate key; typed confirmation | "The old key stops working now" | Update the device |
 | Late rule differs between device and manual marking | One late rule used for both | Not needed | Not needed |
-| Percentages include holidays | Non-working days are left out of every %, report and register total | Register footer "22 working days" | Not needed |
+| Percentages include holidays | Non-working days are left out of every %, report and register total, by the school's one rule for a school day (04-data-model.md rule 18): the campus's working days, the Saturdays off, holidays of the school or the campus, and "allow attendance" typed in the School Calendar | Register footer "22 working days" | Not needed |
+| A device punch arrives after the lock, or for a staff mark set by hand | The punch adds the in time only; the status stays (a change is a correction) | Not needed | Request a correction |
 
 ## 6. Settings
 
@@ -304,7 +305,7 @@ The **Attendance Settings** page has four tabs, as in the old software:
 - Half-day rule for staff, for example in after 11:00 AM (inferred).
 
 **Notifications (alerts)**
-- Absence alert to parents on or off, template, delay before sending (inferred), and channels.
+- Absence alert to parents on or off, and the delay before sending (inferred). The message's text and channels are Communication's "Absent today" automatic message, shown here read-only with a link, so the preview is what parents get (one setting, 18 October 2026).
 - Late-arrival alert on or off.
 - Attendance % threshold alert: the % (default 75), who is told (parent, class teacher, principal).
 - Chronic absenteeism alert: number of days in a row (default 3) and who is told.
@@ -324,7 +325,7 @@ Student leave types, and who approves student leave, are set here (types) and in
 - Student leave by type and class.
 - Staff overtime (optional) and shift attendance (optional).
 - Device health: punches received and rejected by device (inferred).
-- Absence reasons (when switched on): absent days by reason for each class and section, or every absent day with one chosen reason (or not recorded), for any dates. A day absent in several periods counts once. "Fees dispute" is a column only for people who see the school's fees; for others it is counted in Other.
+- Absence reasons (when switched on): absent days by reason for each class and section, or every absent day with one chosen reason, for any dates (an absence with no reason saved counts as Not known yet). A day absent in several periods counts once. "Fees dispute" is a column only for people who see the school's fees; for others it is counted in Other.
 
 All leave out non-working days and follow P8.
 

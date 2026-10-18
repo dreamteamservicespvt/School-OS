@@ -93,7 +93,7 @@ export default async function ReportsPage({ searchParams }: Props) {
   if (r === "range" && !ex.get("person") && data.people[0]) ex.set("person", data.people[0].value);
   const t = data.table;
   const exportBtn = t && t.rows.length > 0 ? <ExportMenu href={`${PATH}/export?${ex}`} /> : null;
-  const sub = `Sundays and holidays are left out of every number${data.year ? ` · ${data.year.name}, school day ${data.dayNo} of ${data.total}` : ""}`;
+  const sub = `Holidays, Sundays and days off are left out of every number${data.year ? ` · ${data.year.name}, school day ${data.dayNo} of ${data.total}` : ""}`;
   const tabs = TABS.filter((x) => list.some((l) => l.key === x.key));
 
   return (
@@ -195,7 +195,7 @@ export default async function ReportsPage({ searchParams }: Props) {
           {!isTab && t && info && (
             <TableCard t={t} about={info.about} toolbar={<>
               {(r === "monthly" || r === "reasons") && data.sections.length > 0 && <UrlSelect param="section" label="Class and section" className="sm:w-52" options={[{ value: "", label: "Every class" }, ...data.sections.map((s) => ({ value: s.id, label: s.name }))]} />}
-              {r === "reasons" && <UrlSelect param="reason" label="Reason" className="sm:w-52" options={[{ value: "", label: "Every reason, by class" }, ...reasonChoices(access.seesFees).map((x) => ({ value: x.key, label: x.label })), { value: "none", label: "Not recorded" }]} />}
+              {r === "reasons" && <UrlSelect param="reason" label="Reason" className="sm:w-52" options={[{ value: "", label: "Every reason, by class" }, ...reasonChoices(access.seesFees).map((x) => ({ value: x.key, label: x.label }))]} />}
               {r === "range" && data.sections.length > 0 && <UrlSelect param="section" label="Class and section" className="sm:w-52" value={input.sectionId ?? data.sections[0]?.id ?? ""} options={data.sections.map((s) => ({ value: s.id, label: s.name }))} />}
               {r === "range" && <UrlSelect param="person" label="Student or staff member" className="sm:w-60" value={input.person ?? data.people[0]?.value ?? ""} options={data.people} />}
               {["monthly", "staff-monthly"].includes(r) && <MonthSelect value={isoDay(data.month).slice(0, 7)} min={data.bounds.min} max={data.bounds.max} className="sm:w-64" />}

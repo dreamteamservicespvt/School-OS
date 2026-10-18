@@ -78,7 +78,7 @@ export function DecideButtons({ approvalId, approve, label }: { approvalId: stri
 
 export function CancelLeaveForm({ requestId, action, started }: { requestId: string; action: Action; started: boolean }) {
   return (
-    <FormDialog trigger="Cancel leave" triggerSize="sm" triggerVariant="ghost" title="Cancel leave" action={action} submitLabel="Cancel leave" submitVariant="danger" hidden={{ requestId }}>
+    <FormDialog trigger="Cancel leave" triggerSize="sm" triggerVariant="ghost" title="Cancel leave" action={action} submitLabel="Cancel leave" submitVariant="danger" hidden={{ requestId }} cancelLabel="Keep leave">
       {(f) => (
         <>
           <p className="text-ink-2">{started ? "This leave has started. The days from today are cancelled and given back; the days already taken stay." : "The days go back to the balance, and any substitutions for it are cancelled."}</p>

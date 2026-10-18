@@ -3,7 +3,9 @@
 // starting point for a register nobody has saved yet, that this person may
 // still save. It never shows a student as present who has no saved mark:
 // - a saved mark is shown as saved;
-// - approved full-day leave starts as Leave (marked in advance);
+// - approved full-day leave is Leave (marked in advance), even over a mark
+//   saved before the leave was approved: saving keeps it Leave too, so the
+//   counts and the Save button agree with the row;
 // - once the class is saved, a student with no saved mark (admitted after the
 //   save, for example) is "Not marked";
 // - on a locked register this person cannot change, only saved marks show.
@@ -16,7 +18,7 @@ export function startMarks(rows: StartRow[], opts: { saved: boolean; readOnly: b
   const out: Record<string, StartMark> = {};
   for (const s of rows) {
     const fullLeave = Boolean(s.leave && !s.leave.halfDay);
-    out[s.id] = { statusKey: s.statusKey ?? (fullLeave ? "leave" : useDefault ? "present" : null), note: s.note ?? "" };
+    out[s.id] = { statusKey: fullLeave ? "leave" : s.statusKey ?? (useDefault ? "present" : null), note: s.note ?? "" };
   }
   return out;
 }

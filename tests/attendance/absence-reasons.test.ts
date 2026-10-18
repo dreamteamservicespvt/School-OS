@@ -2,7 +2,8 @@
 // yet" by default), filled from approved Student Leave, set later from the
 // day's absent list (audited, also after the lock), shown in the register and
 // the reports, and "Fees dispute" kept from people without the school's fees.
-// Marks from before keep working with no reason (not recorded).
+// Marks from before keep working with no reason saved, shown and counted as
+// "Not known yet", one word everywhere (browser finding TEACHING-04).
 import { beforeAll, describe, expect, it } from "vitest";
 import { withSchool } from "@/lib/db";
 import { decide } from "@/lib/approvals";
@@ -58,8 +59,8 @@ describe("the rules on their own", () => {
 
   it("describes the reason mix, folding Fees dispute into Other for people without fees", () => {
     const mix = { absent: 8, by: { "not-known": 4, sick: 2, "fees-dispute": 1, none: 1 }, coveredByLeave: 2 };
-    expect(mixText(mix, true)).toBe("4 not known yet, 2 sick, 1 fees dispute, 1 not recorded; 2 covered by approved leave");
-    expect(mixText(mix, false)).toBe("4 not known yet, 2 sick, 1 other, 1 not recorded; 2 covered by approved leave");
+    expect(mixText(mix, true)).toBe("5 not known yet, 2 sick, 1 fees dispute; 2 covered by approved leave");
+    expect(mixText(mix, false)).toBe("5 not known yet, 2 sick, 1 other; 2 covered by approved leave");
     expect(mixText({ absent: 3, by: { none: 3 }, coveredByLeave: 0 }, true)).toBe("");
     expect(mostlyUnexplained(mix, 3)).toBe(true);
     expect(mostlyUnexplained(mix, 5)).toBe(false);
@@ -105,7 +106,7 @@ describe("Take Attendance", () => {
     await expect(save(f.teacherA.id, "2026-10-08", allPresent(f.studentsA, { [absent]: { statusKey: "absent", reason: "fees-dispute" } }))).rejects.toThrow(/Choose the reason/);
   });
 
-  it("marks from before reasons were on stay not recorded, and saving them again after the lock is not a change", async () => {
+  it("marks from before reasons were on keep no saved reason, show as Not known yet everywhere, and saving them again after the lock is not a change", async () => {
     await reasonsOn(false);
     const absent = f.studentsA[4].id;
     await save(f.teacherA.id, "2026-10-09", allPresent(f.studentsA, { [absent]: { statusKey: "absent" } }));
@@ -113,6 +114,14 @@ describe("Take Attendance", () => {
     const r = await save(f.teacherA.id, "2026-10-09", allPresent(f.studentsA, { [absent]: { statusKey: "absent" } }), "15:00");
     expect(r.outcome).toBe("unchanged");
     expect((await markOf(absent, "2026-10-09")).absenceReason).toBeNull();
+    // One word for one mark: the Absent list, the register and the profile all say "Not known yet" (TEACHING-04).
+    const teacher = await accessFor(f, f.teacherA.id);
+    const list = await withSchool(as(f, f.teacherA.id), (tx) => absentList(tx, as(f, f.teacherA.id), teacher, { date: d("2026-10-09") }));
+    expect(list.find((x) => x.studentId === absent)?.reason).toMatchObject({ key: "not-known", label: "Not known yet" });
+    const grid = await withSchool(as(f, f.teacherA.id), (tx) => registerMonth(tx, as(f, f.teacherA.id), { sectionId: f.sectionA.id, month: d("2026-10-01"), today: d("2026-10-17"), reasons: { seesFees: false } }));
+    expect(grid!.rows.find((x) => x.id === absent)?.reasons["2026-10-09"]?.label).toBe("Not known yet");
+    const days = await withSchool(sys(), (tx) => studentAbsences(tx, sys(), absent, d("2026-10-01"), d("2026-10-17"), false));
+    expect(days.find((x) => x.date.toISOString().startsWith("2026-10-09"))?.reason.label).toBe("Not known yet");
   });
 });
 
@@ -169,7 +178,7 @@ describe("set later from the day's absent list", () => {
 });
 
 describe("approved Student Leave fills the reason", () => {
-  it("approving medical leave for a day already marked absent makes it Sick; cancelling the leave takes it back", async () => {
+  it("approving medical half-day leave for a day already marked absent makes it Sick; cancelling the leave takes it back", async () => {
     const student = f.studentsB[0].id;
     const accessB = await accessFor(f, f.teacherB.id);
     await withSchool(as(f, f.teacherB.id), (tx) => saveClassAttendance(tx, as(f, f.teacherB.id), accessB, {
@@ -179,7 +188,7 @@ describe("approved Student Leave fills the reason", () => {
     expect((await markOf(student, "2026-10-12")).absenceReason).toBe("not-known");
     const principal = await accessFor(f, f.principal.id);
     const leave = await withSchool(as(f, f.principal.id), (tx) => recordStudentLeave(tx, as(f, f.principal.id), principal, {
-      studentId: student, leaveTypeId: f.medical.id, from: d("2026-10-12"), to: d("2026-10-12"), halfDay: false, reason: "Viral fever", documentFileId: null, approveNow: true,
+      studentId: student, leaveTypeId: f.medical.id, from: d("2026-10-12"), to: d("2026-10-12"), halfDay: true, reason: "Viral fever", documentFileId: null, approveNow: true,
     }));
     expect(leave.approved).toBe(true);
     expect(await markOf(student, "2026-10-12")).toMatchObject({ statusKey: "absent", absenceReason: "sick", absenceNote: "Medical leave: Viral fever", reasonSource: "leave" });
@@ -198,11 +207,25 @@ describe("approved Student Leave fills the reason", () => {
     }));
     const office = await accessFor(f, f.officeLogin.id);
     const leave = await withSchool(as(f, f.officeLogin.id), (tx) => recordStudentLeave(tx, as(f, f.officeLogin.id), office, {
-      studentId: student, leaveTypeId: f.medical.id, from: d("2026-10-13"), to: d("2026-10-13"), halfDay: false, reason: "Doctor visit", documentFileId: null, approveNow: false,
+      studentId: student, leaveTypeId: f.medical.id, from: d("2026-10-13"), to: d("2026-10-13"), halfDay: true, reason: "Doctor visit", documentFileId: null, approveNow: false,
     }));
     const approval = await withSchool(sys(), (tx) => tx.approval.findFirstOrThrow({ where: { recordId: leave.request.id } }));
     await withSchool(as(f, f.teacherB.id), (tx) => decide(tx, as(f, f.teacherB.id), approval.id, "approve", null));
     expect((await markOf(student, "2026-10-13")).absenceReason).toBe("travel");
+  });
+
+  it("full-day leave approved for a day already marked absent turns the day into Leave (TEACHING-02)", async () => {
+    const student = f.studentsB[2].id;
+    const accessB = await accessFor(f, f.teacherB.id);
+    await withSchool(as(f, f.teacherB.id), (tx) => saveClassAttendance(tx, as(f, f.teacherB.id), accessB, {
+      sectionId: f.sectionB.id, date: d("2026-10-14"), periodNo: 0, now: at("2026-10-14", "09:00"), timeZone: TZ,
+      entries: f.studentsB.map((s) => ({ studentId: s.id, statusKey: s.id === student ? "absent" : "present" })),
+    }));
+    const principal = await accessFor(f, f.principal.id);
+    await withSchool(as(f, f.principal.id), (tx) => recordStudentLeave(tx, as(f, f.principal.id), principal, {
+      studentId: student, leaveTypeId: f.medical.id, from: d("2026-10-14"), to: d("2026-10-14"), halfDay: false, reason: "Viral fever", documentFileId: null, approveNow: true,
+    }));
+    expect(await markOf(student, "2026-10-14")).toMatchObject({ statusKey: "leave", absenceReason: null });
   });
 });
 

@@ -49,7 +49,7 @@ Used by: teachers (Take Attendance for their classes, student leave for their se
 **Actions**
 
 - View and update attendance (within the lock time, or by people with correction rights).
-- **Request a correction** after the lock: pick the date and student, the new status and a reason. The request goes to Approvals. When approved, the entry changes and the original stays in the audit log.
+- **Request a correction** after the lock: pick the date and student, the new status and a reason. The request goes to Approvals, where the card and the request show each change ("Akshara Pillai: Present → Absent") before anyone decides (added 18 October 2026). When approved, the entry changes and the original stays in the audit log.
 - Export the register (Excel, CSV, PDF) (P8).
 - Print the monthly register (P9).
 - Parents see each child's attendance for this month on Parent Link (the page is owned by Communication; read-only, decided 9 October 2026). It shows the same marks and % as this register, and nothing before the lock time is final (inferred).

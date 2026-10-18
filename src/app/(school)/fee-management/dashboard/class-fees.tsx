@@ -41,7 +41,7 @@ export function ClassFees({ data, sort, group, href, classHref, today }: {
     <div id="by-class" className="flex flex-col gap-4 scroll-mt-4">
       <Stats items={[
         { label: "Due so far", value: money(t.due), sub: `This year's fees due up to ${formatDate(new Date(today.getTime() + 30 * 86_400_000))} · ${t.students.toLocaleString("en-IN")} students`, icon: FileText },
-        { label: "Collected", value: money(t.paid), sub: `${pct}% of what is due`, icon: IndianRupee, tone: "ok" },
+        { label: "Collected", value: money(t.paid), sub: t.due > BigInt(0) ? `${pct}% of what is due` : "Nothing is due yet", icon: IndianRupee, tone: t.due > BigInt(0) ? "ok" : undefined },
         { label: "Pending, not late", value: money(t.notLate), sub: data.nextDue ? `Next due ${formatDate(data.nextDue)}` : "Nothing falls due in the next 30 days", icon: Hourglass, tone: t.notLate > BigInt(0) ? "warn" : undefined },
         { label: "Overdue", value: money(t.overdue), sub: `${t.overdueStudents} ${t.overdueStudents === 1 ? "student" : "students"} · ${t.over30} over 30 days`, icon: TriangleAlert, tone: t.overdue > BigInt(0) ? "bad" : undefined },
       ]} />

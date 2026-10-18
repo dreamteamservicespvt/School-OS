@@ -13,7 +13,7 @@ import { dataUri } from "../documents";
 import { MoneyProblem } from "../fees/problem";
 import { postToDayBook, reverseSource } from "./daybook";
 import { accountForMode, financeSettings } from "./settings";
-import { assertBooksOpen, financialYearOf } from "./years";
+import { assertBooksOpen, assertNotFuture, financialYearOf } from "./years";
 import { financeModeLabel } from "./words";
 
 export type IncomeInput = { date: Date; accountHeadId: string; amountPaise: bigint; receivedFrom: string; vendorId: string | null; mode: string; reference: string | null; accountId: string | null; note: string | null };
@@ -30,6 +30,7 @@ async function check(tx: Tx, input: IncomeInput) {
 }
 
 export async function recordIncome(tx: Tx, ctx: SchoolContext, input: IncomeInput, postNow: boolean) {
+  await assertNotFuture(tx, ctx, input.date, "date", "The date received");
   const head = await check(tx, input);
   const fy = postNow ? await assertBooksOpen(tx, ctx, input.date) : await financialYearOf(tx, ctx, input.date);
   const accountId = await accountForMode(tx, ctx, input.mode, input.accountId);
@@ -50,6 +51,7 @@ export async function postIncome(tx: Tx, ctx: SchoolContext, incomeId: string) {
   if (!i) throw new MoneyProblem("This income was not found.");
   if (i.status === "POSTED") return { ...i, dayBookDate: null as Date | null };
   if (i.status === "CANCELLED") throw new MoneyProblem("This income is cancelled.");
+  await assertNotFuture(tx, ctx, i.date, "date", "The date received");
   const fy = await assertBooksOpen(tx, ctx, i.date);
   const s = await financeSettings(tx, ctx);
   const n = await nextNumber(tx, ctx, `income-receipt:${fy.name}`);

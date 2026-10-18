@@ -29,7 +29,7 @@ export function MoveMoneySheet({ closeHref, accounts, from: start, to: startTo, 
       <SMoney name="amount" label="Amount" required start={startAmt ? String(startAmt) : ""} onValue={(v) => setAmt(num(v))}
         help={have ? `${have.label} has ${inr(have.balance)} now${hint ? ` · ${hint}` : ""}` : undefined} />
       <div className="grid grid-cols-2 gap-3">
-        <SDate name="date" label="Date" required start={today} />
+        <SDate name="date" label="Date" required start={today} max={today} />
         <SText name="reference" label="Reference" placeholder="Slip 220871" maxLength={60} help="Deposit slip number" />
       </div>
       <WarnCheck field="amount" name="confirmLowCash" title="Move it anyway" sub="The account goes below zero until money comes in." />

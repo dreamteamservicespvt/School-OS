@@ -53,7 +53,7 @@ Used by: the Accountant (Day Book, income, expenses, cash and bank, accounts), t
 
 | Field | Required | Default | Notes |
 |---|---|---|---|
-| Date | Yes | Today | |
+| Date | Yes | Today | Today or earlier: money cannot come in or go out on a day that has not come, as with a fee payment (18 October 2026) |
 | Income head | Yes | | From the chart of accounts |
 | Amount | Yes | | |
 | Received from | Yes | | Free text or pick a vendor or person (inferred) |
@@ -77,7 +77,7 @@ Used by: the Accountant (Day Book, income, expenses, cash and bank, accounts), t
 
 - **Record an expense** (from a phone in under a minute: photo of the bill, amount, head).
 - Expenses above the limit set in Finance Settings go to Approvals; below the limit they are approved at once (inferred: auto-approve below limit). A rejected expense goes back to Draft with the approver's reason, to be changed and sent again or cancelled (inferred).
-- Mark paid (mode, reference, date); the expense becomes Paid and only then posts to the Day Book, on the date paid, because that is when money leaves (decided 9 October 2026, D12). Draft, Waiting for approval and Approved expenses are not in the Day Book.
+- Mark paid (mode, reference, date); the expense becomes Paid and only then posts to the Day Book, on the date paid, because that is when money leaves (decided 9 October 2026, D12); the date paid is today or earlier (18 October 2026). Draft, Waiting for approval and Approved expenses are not in the Day Book.
 - **Import past expenses (optional):** a school that starts part way through the financial year can import its earlier expenses with the shared importer (P10), so expense reports cover the whole year. They are kept read-only, marked **Brought in**, and never post to the Day Book or the cash and bank books, because the opening balances already include them (decided 9 October 2026, D7; workflow 15, "Switching to School OS", see 02-workflows.md). The Accountant brings them in from **Expenses, Import past expenses**, without Settings; the ready Excel sheet lists the school's expense heads.
 - **Vendor bills / purchase invoices (optional):** record a vendor's bill with bill number and due date; pay later (part or full). A bill with the same vendor and bill number, or the same vendor, amount and date, gives a duplicate warning.
 - Cancel with a reason.
@@ -90,7 +90,7 @@ Used by: the Accountant (Day Book, income, expenses, cash and bank, accounts), t
 | Bill photo or file | No (Yes above a limit set in Finance Settings, inferred) | | Camera first on phones |
 | Amount | Yes | | |
 | Expense head | Yes | The head used last by this person (inferred) | |
-| Date | Yes | Today | |
+| Date | Yes | Today | Today or earlier: money cannot come in or go out on a day that has not come, as with a fee payment (18 October 2026) |
 | Vendor | No | | Pick or add inline |
 | Paid now | Yes | Yes | If yes: mode (default cash), reference for non-cash, cash or bank account |
 | Department or cost centre | No | The person's department (inferred) | Only when cost centres are on |
@@ -121,7 +121,7 @@ Used by: the Accountant (Day Book, income, expenses, cash and bank, accounts), t
 | From | Yes | Cash in hand | |
 | To | Yes | Main bank account | |
 | Amount | Yes | Today's cash closing balance | |
-| Date | Yes | Today | |
+| Date | Yes | Today | Today or earlier: money cannot come in or go out on a day that has not come, as with a fee payment (18 October 2026) |
 | Reference | No | | Deposit slip number |
 
 ### Budget
@@ -167,7 +167,7 @@ Used by: the Accountant (Day Book, income, expenses, cash and bank, accounts), t
 
 | Field | Required | Default | Notes |
 |---|---|---|---|
-| Date | Yes | Today | |
+| Date | Yes | Today | Today or earlier: money cannot come in or go out on a day that has not come, as with a fee payment (18 October 2026) |
 | Lines: account, debit or credit, amount | Yes, at least two | | Debits must equal credits |
 | Narration | Yes | | |
 | Campus | Yes | The person's campus | Multi-campus only |

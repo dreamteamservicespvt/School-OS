@@ -14,7 +14,7 @@ import { SArea, SMoney, SSelect } from "@/components/ui/sheet-fields";
 import { inputCls } from "@/components/ui/field";
 import { cx } from "@/components/ui/cx";
 import type { FormState } from "@/lib/forms";
-import { CANCEL_REASONS } from "@/lib/fees/words";
+import { CANCEL_REASONS, cancelReasonLabel } from "@/lib/fees/words";
 import { PayPill, Stamp } from "./bits";
 import type { PaySheetData } from "../_lib/pay-sheet";
 import { cancelPaymentAction, newLinkForFailed, rejectPayment, verifyPayment } from "../payments/actions";
@@ -133,7 +133,7 @@ export function CancelSheet({ p, closeHref, doneHref, needsOk, approver }: { p: 
         <li className="flex gap-2"><BookOpen size={15} className="shrink-0 mt-0.5 text-ink3" aria-hidden="true" />The Day Book gets a reversal today. The original line stays.</li>
       </ul>
       {needsOk && <Banner tone="warn" title={`Needs ${approver}’s approval.`}>This payment is older than today ({p.paidOn}), so it is decided in Approvals.</Banner>}
-      <SSelect name="reason" label="Reason" required placeholder="Choose a reason" options={CANCEL_REASONS.map((r) => ({ value: r, label: r === "Duplicate" ? "Same payment entered twice" : r }))} onChange={(e) => setReason(e.target.value)} />
+      <SSelect name="reason" label="Reason" required placeholder="Choose a reason" options={CANCEL_REASONS.map((r) => ({ value: r, label: cancelReasonLabel(r) }))} onChange={(e) => setReason(e.target.value)} />
       {reason === "Cheque bounced" && <SMoney name="bounceCharge" label="Bounce charge" help="Optional. Added to the student’s dues as its own row." />}
       <SArea name="note" label="Note" required={reason === "Other"} help="Printed on the cancelled receipt and kept in the audit log" placeholder="Example: collected again as the next receipt" />
     </SheetForm>

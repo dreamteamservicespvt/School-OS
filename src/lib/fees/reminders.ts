@@ -11,6 +11,7 @@ import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { formatDate, formatRupees } from "../format";
 import { addDays } from "../staff/dates";
+import { currentEnrolments } from "../academic/years";
 import { appUrl } from "../parent-link/token";
 import { MoneyProblem } from "./problem";
 import { openDues } from "./dues";
@@ -86,11 +87,11 @@ async function whoOwes(tx: Tx, studentIds: string[], today: Date) {
   const out: Planned[] = [];
   let nothing = 0;
   const unique = [...new Set(studentIds)];
-  const enrolments = await tx.enrolment.findMany({ where: { studentId: { in: unique }, archivedAt: null }, orderBy: { createdAt: "desc" }, select: { studentId: true, classId: true } });
+  const enrolments = await currentEnrolments(tx, unique);
   for (const id of unique) {
     const r = reminderRows(await openDues(tx, id), today);
     if (!r || r.due <= ZERO) { nothing++; continue; }
-    out.push({ studentId: id, due: r.due, dueDate: r.dueDate, dueIds: r.rows.map((d) => d.id), classId: enrolments.find((e) => e.studentId === id)?.classId ?? null });
+    out.push({ studentId: id, due: r.due, dueDate: r.dueDate, dueIds: r.rows.map((d) => d.id), classId: enrolments.get(id)?.classId ?? null });
   }
   return { out, nothing };
 }
@@ -113,13 +114,20 @@ function valuesFor(r: Planned, link: string) {
 }
 
 export type ReminderPreview = {
+  /** Students on the list. */
+  students: number;
+  /** Parents the reminder reaches (one parent with two children on the list counts once). */
   recipients: number;
+  /** Messages that go out: one per child, joined into one per phone when the text allows. The cost counts these. */
+  messages: number;
   skipped: { reason: string; count: number; names: string[] }[];
   skippedNothingDue: number;
   cost: number;
   creditProblem: string | null;
   problems: string[];
   sample: string | null;
+  /** Whose message the sample is: the parent, and the children it is about. */
+  sampleFor: { parent: string; students: string[] } | null;
   linkAvailable: boolean;
 };
 
@@ -128,20 +136,28 @@ export async function previewReminders(tx: Tx, ctx: SchoolContext, input: Remind
   const c = await checkInput(tx, ctx, input);
   const p = await whoOwes(tx, input.studentIds, input.today);
   const linkAvailable = p.out.length > 0 && Boolean(await gatewayFor(tx, ctx, p.out[0].classId));
-  if (!p.out.length) return { recipients: 0, skipped: [], skippedNothingDue: p.nothing, cost: 0, creditProblem: null, problems: [], sample: null, linkAvailable };
+  const students = new Set(input.studentIds).size;
+  if (!p.out.length) return { students, recipients: 0, messages: 0, skipped: [], skippedNothingDue: p.nothing, cost: 0, creditProblem: null, problems: [], sample: null, sampleFor: null, linkAvailable };
   const link = input.includeLink && linkAvailable ? `${appUrl()}/pay/…` : "the school office";
   const plan = await planMessage(tx, ctx, feeMessageInput({
     studentIds: p.out.map((r) => r.studentId), channel: c.channel, templateId: c.templateId, text: c.text,
     perStudent: Object.fromEntries(p.out.map((r) => [r.studentId, valuesFor(r, link)])), trigger: "Fee reminder", scheduledAt: input.scheduledAt ?? null,
   }));
+  // The sample is the message of the first student on the list who gets one, named with its own parent.
+  const order = new Map(input.studentIds.map((id, i) => [id, i]));
+  const place = (r: (typeof plan.rows)[number]) => Math.min(...[r.studentId, ...(r.students ?? []).map((s) => s.id)].map((id) => (id ? order.get(id) ?? Infinity : Infinity)));
+  const first = [...plan.rows].sort((a, b) => place(a) - place(b))[0] ?? null;
   return {
+    students,
     recipients: plan.people,
+    messages: plan.rows.length,
     skipped: plan.skipped.map((s) => ({ reason: s.reason, count: s.count, names: s.names })),
     skippedNothingDue: p.nothing,
     cost: plan.cost[c.channel] ?? 0,
     creditProblem: plan.creditProblem,
     problems: plan.problems,
-    sample: plan.rows[0]?.text ?? null,
+    sample: first?.text ?? null,
+    sampleFor: first ? { parent: first.candidate.name, students: (first.students ?? []).map((s) => s.name) } : null,
     linkAvailable,
   };
 }

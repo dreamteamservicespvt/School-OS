@@ -13,7 +13,7 @@ import { nextNumber, formatNumber } from "../sequences";
 import { MoneyProblem, MoneyWarning } from "../fees/problem";
 import { postToDayBook, reverseSource, accountBalances } from "./daybook";
 import { accountForMode, financeFeaturesOn, financeSettings } from "./settings";
-import { assertBooksOpen, financialYearOf } from "./years";
+import { assertBooksOpen, assertNotFuture, financialYearOf } from "./years";
 import { budgetImpact } from "./budgets";
 import { financeModeLabel } from "./words";
 
@@ -70,6 +70,7 @@ async function checkExpense(tx: Tx, ctx: SchoolContext, input: ExpenseInput, sel
  * budget warning when it takes a head over 80% or 100%, and what happened.
  */
 export async function recordExpense(tx: Tx, ctx: SchoolContext, input: ExpenseInput, payNow: PayInput | null, opts: { draft?: boolean } = {}) {
+  await assertNotFuture(tx, ctx, input.date, "date", input.isVendorBill ? "The bill date" : "The expense date");
   const head = await checkExpense(tx, ctx, input);
   const fy = await financialYearOf(tx, ctx, input.date);
   if (fy.status === "CLOSED") await assertBooksOpen(tx, ctx, input.date, "date");
@@ -136,6 +137,7 @@ export async function updateDraftExpense(tx: Tx, ctx: SchoolContext, expenseId: 
   if (!e) throw new MoneyProblem("This expense was not found.");
   if (e.status !== "DRAFT") throw new MoneyProblem("Posted entries cannot be edited. Cancel and record again?");
   if (e.broughtIn) throw new MoneyProblem("Brought in from old software. It cannot be changed.");
+  await assertNotFuture(tx, ctx, input.date, "date", "The expense date");
   const head = await checkExpense(tx, ctx, input, e.id);
   const updated = await tx.expense.update({
     where: { id: e.id },
@@ -169,6 +171,7 @@ export async function payExpense(tx: Tx, ctx: SchoolContext, expenseId: string, 
   if (amount <= ZERO) throw new MoneyProblem("Amount must be more than ₹0.", "payAmount");
   if (amount > left) throw new MoneyProblem(`Only ${formatRupees(left)} is left to pay on this expense.`, "payAmount");
   if (amount < left && !e.isVendorBill) throw new MoneyProblem("Only vendor bills can be paid in parts. Pay the full amount.", "payAmount");
+  await assertNotFuture(tx, ctx, input.date, "date", "The date paid");
   await assertBooksOpen(tx, ctx, input.date, "paidOn");
   const accountId = await accountForMode(tx, ctx, input.mode, input.accountId);
   const account = await tx.bankAccount.findFirst({ where: { id: accountId, archivedAt: null } });

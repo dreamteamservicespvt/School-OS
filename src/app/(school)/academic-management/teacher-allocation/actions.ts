@@ -3,9 +3,8 @@
 import { z } from "zod";
 import { checkbox, parseForm, type FormState } from "@/lib/forms";
 import { assignTeacher, endAllocation } from "@/lib/academic/allocation";
-import { mainCampusId } from "@/lib/academic/settings";
 import { AcademicRuleError } from "@/lib/academic/common";
-import { act } from "../_lib/server";
+import { act, staffInCampus } from "../_lib/server";
 
 const day = (label: string) => z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, `Choose the ${label}.`).transform((v) => new Date(`${v}T00:00:00Z`));
 
@@ -25,14 +24,17 @@ export async function assignAction(_prev: FormState, fd: FormData): Promise<Form
   const parsed = parseForm(assignSchema, fd);
   if (!parsed.ok) return parsed.state;
   const d = parsed.data;
-  return act("create", async ({ tx, current }) => {
+  return act("create", async ({ tx, current, campus }) => {
+    // One campus: the teacher is of the person's campus.
+    await staffInCampus(tx, current, d.staffId, "Choose a teacher.", "staffId");
     let sectionIds = [d.sectionId];
     if (d.allSections) {
       const s = await tx.section.findFirst({ where: { id: d.sectionId, academicYearId: d.yearId } });
       if (!s) throw new AcademicRuleError("Choose a class and section.", "sectionId");
       sectionIds = (await tx.section.findMany({ where: { classId: s.classId, academicYearId: d.yearId, archivedAt: null }, select: { id: true } })).map((x) => x.id);
     }
-    const campusId = await mainCampusId(tx, current.ctx);
+    // The year's campus: its workload limits.
+    const campusId = await campus();
     const r = await assignTeacher(tx, current.ctx, { yearId: d.yearId, campusId, sectionIds, subjectId: d.subjectId, staffId: d.staffId, role: d.role, periodsPerWeek: d.periodsPerWeek, fromDate: d.fromDate, overLimitReason: d.overLimitReason });
     return { flash: { message: r.message, undo: r.ids.length === 1 ? { kind: "academic-assignment", id: r.ids[0] } : undefined } };
   }, { formData: fd, yearId: d.yearId });
@@ -45,5 +47,5 @@ export async function endAllocationAction(_prev: FormState, fd: FormData): Promi
   return act("edit", async ({ tx, current }) => {
     const words = await endAllocation(tx, current.ctx, allocationId, from);
     return { flash: { message: `${words}: the assignment ends. History is kept.` } };
-  }, { formData: fd, yearOf: async (tx) => (await tx.teacherAllocation.findFirst({ where: { id: allocationId } }))?.academicYearId ?? null });
+  }, { formData: fd, yearOf: async (tx) => (await tx.teacherAllocation.findFirst({ where: { id: allocationId } }))?.academicYearId ?? null, notFound: "This assignment was not found." });
 }

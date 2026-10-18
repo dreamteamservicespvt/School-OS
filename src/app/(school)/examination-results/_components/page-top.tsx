@@ -53,7 +53,7 @@ export function PageTop({ page, href, sub, children, title, back, showYear = tru
         {!page.writable && page.year && <Pill tone="neutral"><Eye size={13} aria-hidden="true" />View only</Pill>}
         {showYear && page.years.length > 1 && (
           <Suspense>
-            <YearPicker years={page.years.map((y) => ({ id: y.id, name: y.name, status: y.status }))} current={page.year?.id ?? null} />
+            <YearPicker years={page.years.map((y) => ({ id: y.id, name: y.name, status: y.status }))} current={page.year?.id ?? null} defaultId={page.defaultYearId} />
           </Suspense>
         )}
         {page.writable && children}

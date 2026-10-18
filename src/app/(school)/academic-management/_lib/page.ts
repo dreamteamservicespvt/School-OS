@@ -6,9 +6,8 @@ import { redirect } from "next/navigation";
 import { reachFor } from "@/lib/permissions";
 import { requirePage } from "@/lib/current";
 import { withSchool } from "@/lib/db";
-import { chosenYear } from "@/lib/academic/years";
 import { academicScope } from "@/lib/academic/scope";
-import { mainCampusId } from "@/lib/academic/settings";
+import { campusYears, pageYear } from "@/lib/academic/page-campus";
 import { todayIn } from "@/lib/academic/common";
 import { correctionFor } from "./server";
 
@@ -27,12 +26,14 @@ export async function academicPage(rawParams: Record<string, string | string[] |
     redirect(opts.notForOwn === "home" ? "/academic-management/time-table/mine" : "/no-access?m=academic-management");
   }
   const today = todayIn(current.school.timeZone);
+  const asked = one(rawParams.year) || null;
   const base = await withSchool(current.ctx, async (tx) => {
-    const campusId = await mainCampusId(tx, current.ctx);
-    const year = await chosenYear(tx, current.ctx, one(rawParams.year) || null);
-    const years = await tx.academicYear.findMany({ where: { schoolId: current.ctx.schoolId, campusId, archivedAt: null }, orderBy: { startDate: "desc" } });
+    // The page's campus: the one the person is limited to, else the chosen year's, else their own (each campus has its own years).
+    const { year, campusId } = await pageYear(tx, current.ctx, current, asked);
+    const defaultYearId = asked ? (await pageYear(tx, current.ctx, current, null)).year?.id ?? null : year?.id ?? null;
+    const years = await campusYears(tx, current.ctx, campusId);
     const scope = await academicScope(tx, current, year?.id ?? null);
-    return { campusId, year, years, scope };
+    return { campusId, year, years, scope, defaultYearId };
   });
   const correction = await correctionFor(current, base.year?.id);
   const closed = base.year?.status === "CLOSED";
@@ -41,7 +42,8 @@ export async function academicPage(rawParams: Record<string, string | string[] |
     /** The year can be changed now: open, or closed with a correction running. */
     writable: Boolean(base.year) && (!closed || Boolean(correction)),
     closed,
-    yearQuery: base.year && base.year.status !== "ACTIVE" ? `year=${base.year.id}` : "",
+    // A year other than the person's default one (not active, or another campus's) stays in links and exports.
+    yearQuery: base.year && (base.year.status !== "ACTIVE" || base.year.id !== base.defaultYearId) ? `year=${base.year.id}` : "",
   };
 }
 

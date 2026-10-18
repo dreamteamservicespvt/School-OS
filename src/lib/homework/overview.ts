@@ -9,7 +9,7 @@ import { writeAudit } from "../audit";
 import { notify } from "../notifications";
 import { HomeworkProblem } from "./access";
 import type { HomeworkRow } from "./homework";
-import type { HomeworkScope } from "./scope";
+import { listWhere, type HomeworkScope } from "./scope";
 import { dayStartUtc } from "../periods";
 import { dayDate, plural } from "./words";
 
@@ -18,8 +18,12 @@ const dayStart = (today: Date, tz: string) => dayStartUtc(today.toISOString().sl
 
 export type TeacherLine = { staffId: string; name: string; subjects: string[]; classes: string[]; given: number; assigned: number; handed: number; toCheck: number; remindedAt: Date | null };
 
-/** Homework given in the dates, by teacher; teachers who teach but gave none are listed after. */
-export async function byTeacher(tx: Tx, rows: HomeworkRow[], yearId: string | null, today: Date, tz: string) {
+/**
+ * Homework given in the dates, by teacher; teachers who teach but gave none
+ * are listed after (allocations in each campus's current year, only the
+ * person's campus's classes when limited to one).
+ */
+export async function byTeacher(tx: Tx, rows: HomeworkRow[], s: Pick<HomeworkScope, "yearIds" | "campusSections">, today: Date, tz: string) {
   const map = new Map<string, TeacherLine>();
   for (const h of rows) {
     if (!h.teacherId) continue;
@@ -38,8 +42,11 @@ export async function byTeacher(tx: Tx, rows: HomeworkRow[], yearId: string | nu
   const lines = [...map.values()].sort((a, b) => b.given - a.given || a.name.localeCompare(b.name));
   // Teachers with allocations this year who gave nothing in these dates.
   const idle: { staffId: string; name: string; subjects: string[] }[] = [];
-  if (yearId) {
-    const alloc = await tx.teacherAllocation.findMany({ where: { academicYearId: yearId, archivedAt: null, staffId: { notIn: [...map.keys()] } }, select: { staffId: true, subjectId: true } });
+  if (s.yearIds.length) {
+    const alloc = await tx.teacherAllocation.findMany({
+      where: { academicYearId: { in: s.yearIds }, archivedAt: null, staffId: { notIn: [...map.keys()] }, ...(s.campusSections ? { sectionId: { in: s.campusSections } } : {}) },
+      select: { staffId: true, subjectId: true },
+    });
     const staff = await tx.staff.findMany({ where: { id: { in: [...new Set(alloc.map((a) => a.staffId))] }, archivedAt: null }, select: { id: true, fullName: true } });
     const subjects = await tx.subject.findMany({ where: { id: { in: [...new Set(alloc.map((a) => a.subjectId))] } }, select: { id: true, name: true } });
     const sub = new Map(subjects.map((x) => [x.id, x.name]));
@@ -65,11 +72,13 @@ export function loadByDay(rows: HomeworkRow[]) {
 export async function remindTeacher(tx: Tx, s: HomeworkScope, staffId: string, today: Date, tz: string) {
   if (s.level !== "full" || !s.modes.homework) throw new HomeworkProblem("Only the Principal, the School Admin, the Vice Principal or the Academic Head reminds teachers.");
   const staff = await tx.staff.findFirst({ where: { id: staffId, archivedAt: null }, select: { id: true, fullName: true, userLoginId: true } });
-  if (!staff) throw new HomeworkProblem("This teacher was not found.");
+  // Limited to one campus: only a teacher who gives homework in that campus's classes.
+  const here = !s.campusSections || (!!staff && (await tx.homework.count({ where: { teacherId: staff.id, sectionId: { in: s.campusSections } } })) > 0);
+  if (!staff || !here) throw new HomeworkProblem("This teacher was not found.");
   if (!staff.userLoginId) throw new HomeworkProblem(`${staff.fullName} has no login, so the reminder cannot reach them. Speak to them in person.`);
   const already = await tx.auditLogEntry.findFirst({ where: { action: "reminded-teacher", recordType: "Staff", recordId: staffId, at: { gte: dayStart(today, tz) } } });
   if (already) throw new HomeworkProblem(`${staff.fullName} was already reminded today.`);
-  const waiting = await tx.submission.count({ where: { archivedAt: null, status: { in: ["SUBMITTED", "LATE"] }, homework: { teacherId: staffId, archivedAt: null, academicYearId: s.yearId ?? undefined } } });
+  const waiting = await tx.submission.count({ where: { archivedAt: null, status: { in: ["SUBMITTED", "LATE"] }, homework: { teacherId: staffId, archivedAt: null, ...listWhere(s) } } });
   if (!waiting) throw new HomeworkProblem(`${staff.fullName} has nothing waiting to be checked.`);
   await notify(tx, s.ctx, { to: staff.userLoginId, type: "homework-remind", text: `${s.name}: ${plural(waiting, "piece")} of homework ${waiting === 1 ? "is" : "are"} waiting to be checked. Today, ${dayDate(today)}.`, link: "/homework-learning/submissions", groupKey: "homework-remind" });
   await writeAudit(tx, s.ctx, { action: "reminded-teacher", recordType: "Staff", recordId: staffId, after: { teacher: staff.fullName, waiting } });

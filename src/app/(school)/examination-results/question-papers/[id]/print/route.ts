@@ -5,8 +5,8 @@ import { requireAction } from "@/lib/current";
 import { withSchool } from "@/lib/db";
 import { PermissionDeniedError } from "@/lib/permissions";
 import { htmlToPdf } from "@/lib/pdf";
-import { chosenYear } from "@/lib/academic/years";
-import { examScope } from "@/lib/exams/scope";
+import { pageYear } from "@/lib/academic/page-campus";
+import { classInScope, examScope } from "@/lib/exams/scope";
 import { paperHtml, paperView, writesBank } from "@/lib/exams/questions";
 import { writeAudit } from "@/lib/audit";
 
@@ -27,9 +27,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const out = await withSchool(current.ctx, async (tx) => {
     const view = await paperView(tx, id);
     if (!view) return null;
-    const year = await chosenYear(tx, current.ctx, null);
+    const { year } = await pageYear(tx, current.ctx, current);
     if (!year) return null;
     const scope = await examScope(tx, current, year.id);
+    if (!(await classInScope(tx, scope, view.paper.classId))) return null;
     if (scope.office || !(await writesBank(tx, scope, year.id, view.paper.classId, view.paper.subjectId))) return "denied" as const;
     const school = await tx.school.findUniqueOrThrow({ where: { id: current.ctx.schoolId }, select: { name: true } });
     await writeAudit(tx, current.ctx, { action: "printed", recordType: "Question Paper", recordId: id, after: { answers } });

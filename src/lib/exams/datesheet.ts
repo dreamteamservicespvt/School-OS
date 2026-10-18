@@ -17,6 +17,15 @@ import { subjectsForClass } from "../academic/subjects";
 import { ExamRuleError, overlaps, timeRange, durationWords } from "./common";
 import { examSettings } from "./settings";
 import { messageParents } from "./notify-parents";
+import { examInScope, type ExamScope } from "./scope";
+
+/**
+ * Holidays and vacations that count for a campus: the whole school's (no campus) and the campus's own. In a school
+ * with two campuses, one campus's holiday does not stop the other's exams.
+ */
+export function campusHolidays(campusId: string | null | undefined): Prisma.CalendarEntryWhereInput {
+  return { archivedAt: null, type: { in: ["holiday", "vacation"] }, ...(campusId ? { OR: [{ campusId: null }, { campusId }] } : {}) };
+}
 
 export type ExamDetails = {
   title: string;
@@ -66,14 +75,15 @@ type Named = { id: string; name: string };
 
 async function names(tx: Tx, classIds: string[], subjectIds: string[], staffIds: string[]) {
   const [classes, subjects, staff] = await Promise.all([
-    tx.schoolClass.findMany({ where: { id: { in: classIds } }, select: { id: true, name: true } }),
+    tx.schoolClass.findMany({ where: { id: { in: classIds } }, select: { id: true, name: true, campusId: true } }),
     tx.subject.findMany({ where: { id: { in: subjectIds } }, select: { id: true, name: true, gradeOnly: true } }),
     tx.staff.findMany({ where: { id: { in: staffIds } }, select: { id: true, fullName: true } }),
   ]);
   const cls = new Map(classes.map((c) => [c.id, c.name]));
+  const campus = new Map(classes.map((c) => [c.id, c.campusId]));
   const sub = new Map(subjects.map((s) => [s.id, s]));
   const stf = new Map(staff.map((s) => [s.id, s.fullName]));
-  return { cls, sub, stf };
+  return { cls, campus, sub, stf };
 }
 
 const when = (r: { date: Date; startTime: string }) => `${time12(r.startTime)} on ${formatDate(r.date)}`;
@@ -108,7 +118,8 @@ export async function findClash(tx: Tx, examId: string | null, rows: (ScheduleRo
       if (a.classId === b.classId) {
         return `${cls(a.classId)} already has ${sub(b.subjectId)} at ${when(b)}${inExam(b)}. Change the date or time of ${sub(a.subjectId)}.`;
       }
-      if (a.room && b.room && a.room.trim().toLowerCase() === b.room.trim().toLowerCase()) {
+      // A room is a room of one campus: "Room 12" on another campus is another room.
+      if (a.room && b.room && a.room.trim().toLowerCase() === b.room.trim().toLowerCase() && n.campus.get(a.classId) === n.campus.get(b.classId)) {
         return `${a.room} is used by ${cls(b.classId)} (${sub(b.subjectId)}) at that time${inExam(b)}. Choose another room for ${cls(a.classId)} ${sub(a.subjectId)}.`;
       }
       if (a.invigilatorId && a.invigilatorId === b.invigilatorId) {
@@ -144,8 +155,8 @@ async function checkRefs(tx: Tx, yearId: string, d: ExamDetails) {
   return { type, term, year };
 }
 
-/** Checks each dated row: inside the exam dates, a real time, a duration and maximum marks; subjects of the class. */
-async function checkRows(tx: Tx, d: ExamDetails, rows: ScheduleRow[]) {
+/** Checks each dated row: inside the exam dates, a real time, a duration and maximum marks; subjects of the class. `campusId`: the exam's campus (its holidays). */
+async function checkRows(tx: Tx, d: ExamDetails, rows: ScheduleRow[], campusId: string) {
   const dated = rows.filter((r): r is ScheduleRow & { date: Date } => r.date !== null && d.classIds.includes(r.classId));
   if (dated.length === 0) throw new ExamRuleError("Give a date to at least one subject. Subjects with no date are left out.", "schedule");
   const n = await names(tx, d.classIds, [...new Set(dated.map((r) => r.subjectId))], []);
@@ -167,7 +178,7 @@ async function checkRows(tx: Tx, d: ExamDetails, rows: ScheduleRow[]) {
     if (r.room && r.room.length > 40) throw new ExamRuleError(`${label}: the room name can be at most 40 characters.`, "schedule");
     if (weekday(r.date) === 7) throw new ExamRuleError(`${label} is on a Sunday (${formatDate(r.date)}). Choose a school day.`, "schedule");
   }
-  const holidays = await tx.calendarEntry.findMany({ where: { archivedAt: null, type: { in: ["holiday", "vacation"] }, startDate: { lte: d.endDate }, endDate: { gte: d.startDate } } });
+  const holidays = await tx.calendarEntry.findMany({ where: { ...campusHolidays(campusId), startDate: { lte: d.endDate }, endDate: { gte: d.startDate } } });
   for (const r of dated) {
     const h = holidays.find((x) => x.startDate <= r.date && x.endDate >= r.date);
     if (h) throw new ExamRuleError(`${n.cls.get(r.classId)} ${n.sub.get(r.subjectId)?.name} is on ${formatDate(r.date)}, which is ${h.title} on the School Calendar. Choose another day.`, "schedule");
@@ -183,8 +194,8 @@ async function checkRows(tx: Tx, d: ExamDetails, rows: ScheduleRow[]) {
 export async function createDatesheet(tx: Tx, ctx: SchoolContext, yearId: string, d: ExamDetails, rows: ScheduleRow[]) {
   await assertYearOpen(tx, yearId);
   checkDetails(d);
-  await checkRefs(tx, yearId, d);
-  const dated = await checkRows(tx, d, rows);
+  const { year } = await checkRefs(tx, yearId, d);
+  const dated = await checkRows(tx, d, rows, year.campusId);
   const clash = await findClash(tx, null, dated);
   if (clash) throw new ExamRuleError(clash, "schedule");
   const settings = await examSettings(tx, ctx);
@@ -230,8 +241,8 @@ export async function updateDatesheet(tx: Tx, ctx: SchoolContext, examId: string
     if (exam.status !== "DRAFT") await syncCalendar(tx, ctx, examId);
     return { titleOnly: true };
   }
-  await checkRefs(tx, exam.academicYearId, d);
-  const dated = await checkRows(tx, d, rows);
+  const { year } = await checkRefs(tx, exam.academicYearId, d);
+  const dated = await checkRows(tx, d, rows, year.campusId);
   const clash = await findClash(tx, examId, dated);
   if (clash) throw new ExamRuleError(clash, "schedule");
   const settings = await examSettings(tx, ctx);
@@ -436,15 +447,19 @@ export type EntryView = {
   categories: Category[]; marksDueDate: Date | null;
 };
 
-/** One exam with its papers, in date and time order, with names filled in. */
-export async function examDetail(tx: Tx, examId: string, opts: { archived?: boolean } = {}) {
-  const exam = await tx.exam.findFirst({ where: { id: examId, ...(opts.archived ? {} : { archivedAt: null }) }, include: { entries: { where: { archivedAt: null }, orderBy: [{ date: "asc" }, { startTime: "asc" }] } } });
+/**
+ * One exam with its papers, in date and time order, with names filled in, and the campus of its year.
+ * Given the person's scope, an exam of another campus than theirs is not found (One campus).
+ */
+export async function examDetail(tx: Tx, examId: string, opts: { archived?: boolean; scope?: Pick<ExamScope, "yearIds"> } = {}) {
+  const exam = await tx.exam.findFirst({ where: { id: examId, ...(opts.archived ? {} : { archivedAt: null }), ...(opts.scope ? examInScope(opts.scope) : {}) }, include: { entries: { where: { archivedAt: null }, orderBy: [{ date: "asc" }, { startTime: "asc" }] } } });
   if (!exam) return null;
   const n = await names(tx, exam.classIds, [...new Set(exam.entries.map((e) => e.subjectId))], [...new Set(exam.entries.map((e) => e.invigilatorId).filter((x): x is string => Boolean(x)))]);
-  const [type, term, classes] = await Promise.all([
+  const [type, term, classes, year] = await Promise.all([
     tx.examType.findFirst({ where: { id: exam.examTypeId } }),
     tx.term.findFirst({ where: { id: exam.termId } }),
     tx.schoolClass.findMany({ where: { id: { in: exam.classIds } }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true, board: true } }),
+    tx.academicYear.findFirst({ where: { id: exam.academicYearId }, select: { campusId: true } }),
   ]);
   const entries: EntryView[] = exam.entries.map((e) => ({
     id: e.id, classId: e.classId, className: n.cls.get(e.classId) ?? "", subjectId: e.subjectId, subjectName: n.sub.get(e.subjectId)?.name ?? "", gradeOnly: Boolean(n.sub.get(e.subjectId)?.gradeOnly),
@@ -452,7 +467,7 @@ export async function examDetail(tx: Tx, examId: string, opts: { archived?: bool
     room: e.room, invigilatorId: e.invigilatorId, invigilator: e.invigilatorId ? n.stf.get(e.invigilatorId) ?? null : null, maxMarks: e.maxMarks, pattern: e.pattern,
     categories: readCategories(e.categories), marksDueDate: e.marksDueDate,
   }));
-  return { exam, entries, typeName: type?.name ?? "", termName: term?.name ?? "", classes };
+  return { exam, entries, typeName: type?.name ?? "", termName: term?.name ?? "", classes, campusId: year?.campusId ?? null };
 }
 
 export type ExamFilters = { q?: string; classId?: string; from?: Date | null; to?: Date | null; status?: string; archived?: boolean };

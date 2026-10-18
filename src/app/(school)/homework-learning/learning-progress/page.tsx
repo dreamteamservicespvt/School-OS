@@ -33,15 +33,17 @@ export default async function LearningProgressPage({ searchParams }: { searchPar
   const profiles = (p.current.permissions["student-management"]?.see ?? "none") !== "none";
 
   const data = await withSchool(p.current.ctx, async (tx) => {
-    const sectionIds = s.level === "full" ? null : [...new Set([...s.pairs.map((x) => x.sectionId), ...s.ctSections])];
-    const sections = s.yearId ? await tx.section.findMany({
-      where: { academicYearId: s.yearId, archivedAt: null, ...(sectionIds ? { id: { in: sectionIds } } : {}) },
+    // Full reach: every class, or every class of their campus; each campus's own current year.
+    const sectionIds = s.level === "full" ? s.sectionIds : [...new Set([...s.pairs.map((x) => x.sectionId), ...s.ctSections])];
+    const sections = s.yearIds.length ? await tx.section.findMany({
+      where: { academicYearId: { in: s.yearIds }, archivedAt: null, ...(sectionIds ? { id: { in: sectionIds } } : {}) },
       include: { schoolClass: { select: { name: true, sortOrder: true } } }, orderBy: [{ schoolClass: { sortOrder: "asc" } }, { name: "asc" }],
     }) : [];
-    const sectionId = sections.find((x) => x.id === one(sp.section))?.id ?? (s.pairs[0] && sections.find((x) => x.id === s.pairs[0].sectionId)?.id) ?? sections[0]?.id ?? null;
-    if (!sectionId) return { sections, sectionId: null };
+    const picked = sections.find((x) => x.id === one(sp.section)) ?? (s.pairs[0] && sections.find((x) => x.id === s.pairs[0].sectionId)) ?? sections[0] ?? null;
+    const sectionId = picked?.id ?? null;
+    if (!picked || !sectionId) return { sections, sectionId: null };
     const allSubjects = s.level === "full" || s.ctSections.includes(sectionId);
-    const alloc = await tx.teacherAllocation.findMany({ where: { sectionId, academicYearId: s.yearId!, archivedAt: null }, select: { subjectId: true } });
+    const alloc = await tx.teacherAllocation.findMany({ where: { sectionId, academicYearId: picked.academicYearId, archivedAt: null }, select: { subjectId: true } });
     const subjectIds = allSubjects ? [...new Set(alloc.map((a) => a.subjectId))] : s.pairs.filter((x) => x.sectionId === sectionId).map((x) => x.subjectId);
     const subjects = await tx.subject.findMany({ where: { id: { in: subjectIds } }, select: { id: true, name: true }, orderBy: { name: "asc" } });
     const wanted = one(sp.subject);

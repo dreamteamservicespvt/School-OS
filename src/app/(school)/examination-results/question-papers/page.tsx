@@ -64,6 +64,8 @@ export default async function QuestionPapersPage({ searchParams }: { searchParam
       .filter((x): x is NonNullable<typeof x> => Boolean(x))
       .sort((a, b) => a.sort - b.sort || a.label.localeCompare(b.label));
     const chosen = options.find((o) => o.value === pairKey) ?? null;
+    // One campus: only the papers and questions of the campus's classes.
+    const campusClassIds = s.campusId ? (await tx.schoolClass.findMany({ where: { campusId: s.campusId }, select: { id: true } })).map((c) => c.id) : null;
     const scopePairs = chosen ? [{ classId: chosen.classId, subjectId: chosen.subjectId }] : allowed;
 
     const span = range ? momentWhere(range, tz) : null;
@@ -72,11 +74,12 @@ export default async function QuestionPapersPage({ searchParams }: { searchParam
       ...(scopePairs ? { OR: scopePairs.length ? scopePairs.map((p) => ({ classId: p.classId, subjectId: p.subjectId })) : [{ id: { in: [] as string[] } }] } : {}),
       ...(q ? { title: { contains: q, mode: "insensitive" as const } } : {}),
       ...(span ? { createdAt: span } : {}),
+      ...(campusClassIds ? { classId: { in: campusClassIds } } : {}),
     };
     const [papers, bank, counts] = await Promise.all([
       tab === "papers" ? tx.questionPaper.findMany({ where: paperWhere, orderBy: { createdAt: "desc" }, take: 200 }) : Promise.resolve([]),
-      tab === "bank" ? questionBank(tx, scopePairs, { q, difficulty: diff || undefined }, { skip: (pageNo - 1) * BANK_PAGE, take: BANK_PAGE }) : Promise.resolve(null),
-      tab === "bank" ? tx.question.groupBy({ by: ["difficulty"], where: { archivedAt: null, ...(scopePairs ? { OR: scopePairs.length ? scopePairs.map((p) => ({ classId: p.classId, subjectId: p.subjectId })) : [{ id: { in: [] as string[] } }] } : {}) }, _count: true }) : Promise.resolve([]),
+      tab === "bank" ? questionBank(tx, scopePairs, { q, difficulty: diff || undefined, classIds: campusClassIds ?? undefined }, { skip: (pageNo - 1) * BANK_PAGE, take: BANK_PAGE }) : Promise.resolve(null),
+      tab === "bank" ? tx.question.groupBy({ by: ["difficulty"], where: { archivedAt: null, ...(campusClassIds ? { classId: { in: campusClassIds } } : {}), ...(scopePairs ? { OR: scopePairs.length ? scopePairs.map((p) => ({ classId: p.classId, subjectId: p.subjectId })) : [{ id: { in: [] as string[] } }] } : {}) }, _count: true }) : Promise.resolve([]),
     ]);
     const people = await tx.userLogin.findMany({ where: { id: { in: papers.map((p) => p.createdById).filter((x): x is string => Boolean(x)) } }, select: { id: true, displayName: true } });
     return { options, chosen, papers, bank, counts, people, exams };

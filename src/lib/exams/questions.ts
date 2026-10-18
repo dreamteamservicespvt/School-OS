@@ -10,7 +10,7 @@ import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { esc } from "../pdf";
 import { ExamRuleError } from "./common";
-import type { ExamScope } from "./scope";
+import { classInScope, examInScope, type ExamScope } from "./scope";
 
 export const QUESTION_TYPES = [
   { value: "mcq", label: "MCQ" },
@@ -28,9 +28,9 @@ export const DIFFICULTIES = [
 export const typeLabel = (t: string) => QUESTION_TYPES.find((x) => x.value === t)?.label ?? t;
 export const difficultyLabel = (d: string) => DIFFICULTIES.find((x) => x.value === d)?.label ?? d;
 
-/** May this person add questions and papers for this class and subject? */
+/** May this person add questions and papers for this class and subject? Full reach: any class (of their campus, when limited to one). */
 export async function writesBank(tx: Tx, scope: ExamScope, yearId: string, classId: string, subjectId: string) {
-  if (scope.manage) return true;
+  if (scope.manage) return classInScope(tx, scope, classId);
   if (!scope.teaches || scope.teaches.length === 0) return false;
   const sections = await tx.section.findMany({ where: { academicYearId: yearId, classId, archivedAt: null }, select: { id: true } });
   return scope.teaches.some((t) => t.subjectId === subjectId && sections.some((s) => s.id === t.sectionId));
@@ -98,7 +98,7 @@ export async function saveQuestion(tx: Tx, ctx: SchoolContext, scope: ExamScope,
   };
   if (q.id) {
     const before = await tx.question.findFirst({ where: { id: q.id, archivedAt: null } });
-    if (!before) throw new ExamRuleError("This question was not found.");
+    if (!before || !(await classInScope(tx, scope, before.classId))) throw new ExamRuleError("This question was not found.");
     if (!(await writesBank(tx, scope, yearId, before.classId, before.subjectId))) throw new ExamRuleError("You can change questions only for the subjects you teach.");
     const row = await tx.question.update({ where: { id: q.id }, data });
     await writeAudit(tx, ctx, { action: "updated", recordType: "Question", recordId: row.id, before, after: row });
@@ -111,17 +111,19 @@ export async function saveQuestion(tx: Tx, ctx: SchoolContext, scope: ExamScope,
 
 export async function archiveQuestion(tx: Tx, ctx: SchoolContext, scope: ExamScope, yearId: string, id: string) {
   const q = await tx.question.findFirst({ where: { id, archivedAt: null } });
-  if (!q) throw new ExamRuleError("This question was not found.");
+  if (!q || !(await classInScope(tx, scope, q.classId))) throw new ExamRuleError("This question was not found.");
   if (!(await writesBank(tx, scope, yearId, q.classId, q.subjectId))) throw new ExamRuleError("You can archive questions only for the subjects you teach.");
   await tx.question.update({ where: { id }, data: { archivedAt: new Date() } });
   await writeAudit(tx, ctx, { action: "archived", recordType: "Question", recordId: id, before: { text: q.text } });
 }
 
-export type BankFilters = { q?: string; classId?: string; subjectId?: string; chapterId?: string; type?: string; difficulty?: string };
+/** `classIds`: only these classes (the classes of the person's campus, when limited to one). */
+export type BankFilters = { q?: string; classId?: string; subjectId?: string; chapterId?: string; type?: string; difficulty?: string; classIds?: string[] };
 
 export async function questionBank(tx: Tx, pairs: { classId: string; subjectId: string }[] | null, f: BankFilters, page: { skip: number; take: number }) {
   const and: Prisma.QuestionWhereInput[] = [];
   if (f.q) and.push({ OR: [{ text: { contains: f.q, mode: "insensitive" } }, { tags: { has: f.q } }] });
+  if (f.classIds) and.push({ classId: { in: f.classIds } });
   if (pairs) and.push(pairs.length ? { OR: pairs.map((p) => ({ classId: p.classId, subjectId: p.subjectId })) } : { id: { in: [] } });
   const where: Prisma.QuestionWhereInput = {
     archivedAt: null,
@@ -179,6 +181,7 @@ export async function makePaper(
   if (input.title.trim().length < 2) throw new ExamRuleError("Type a title for the paper.", "title");
   if (!input.classId || !input.subjectId) throw new ExamRuleError("Choose the class and subject.", "classId");
   if (!(await writesBank(tx, scope, yearId, input.classId, input.subjectId))) throw new ExamRuleError("You can make papers only for the subjects you teach.");
+  if (input.examId && scope.yearIds && !(await tx.exam.findFirst({ where: { id: input.examId, ...examInScope(scope) }, select: { id: true } }))) throw new ExamRuleError("This exam was not found.", "examId");
   if (input.durationMin !== null && (!Number.isInteger(input.durationMin) || input.durationMin < 15 || input.durationMin > 600)) throw new ExamRuleError("Duration must be from 15 minutes to 10 hours.", "durationMin");
   const bank = await tx.question.findMany({ where: { classId: input.classId, subjectId: input.subjectId, archivedAt: null } });
   let ids: string[] = [];
@@ -211,7 +214,7 @@ export async function makePaper(
   const data = { title: input.title.trim(), examId: input.examId, classId: input.classId, subjectId: input.subjectId, method: input.method, questionIds: ids, totalMarks, durationMin: input.durationMin, instructions: input.instructions?.trim() || null };
   if (input.id) {
     const before = await tx.questionPaper.findFirst({ where: { id: input.id, archivedAt: null } });
-    if (!before) throw new ExamRuleError("This paper was not found.");
+    if (!before || !(await classInScope(tx, scope, before.classId))) throw new ExamRuleError("This paper was not found.");
     if (before.status === "final") throw new ExamRuleError("This paper is final. Make a copy to change it.");
     const row = await tx.questionPaper.update({ where: { id: input.id }, data });
     await writeAudit(tx, ctx, { action: "updated", recordType: "Question Paper", recordId: row.id, before, after: row });
@@ -224,7 +227,7 @@ export async function makePaper(
 
 export async function setPaperStatus(tx: Tx, ctx: SchoolContext, scope: ExamScope, yearId: string, id: string, to: "draft" | "final" | "archived") {
   const p = await tx.questionPaper.findFirst({ where: { id, archivedAt: null } });
-  if (!p) throw new ExamRuleError("This paper was not found.");
+  if (!p || !(await classInScope(tx, scope, p.classId))) throw new ExamRuleError("This paper was not found.");
   if (!(await writesBank(tx, scope, yearId, p.classId, p.subjectId))) throw new ExamRuleError("You can change papers only for the subjects you teach.");
   const data = to === "archived" ? { archivedAt: new Date() } : { status: to };
   await tx.questionPaper.update({ where: { id }, data });

@@ -13,7 +13,7 @@ export function PageTop({ page, title, href, children, showYear = true }: { page
         <div className="no-print flex flex-wrap items-center gap-2">
           {showYear && (
             <Suspense>
-              <YearPicker years={page.years.map((y) => ({ id: y.id, name: y.name, status: y.status }))} current={page.year?.id ?? null} />
+              <YearPicker years={page.years.map((y) => ({ id: y.id, name: y.name, status: y.status }))} current={page.year?.id ?? null} defaultId={page.defaultYearId} />
             </Suspense>
           )}
           {children}

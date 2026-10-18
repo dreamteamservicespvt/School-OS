@@ -5,7 +5,7 @@ import { ArrowLeft, CalendarDays, CalendarRange, Check, DoorOpen, FileText, Grid
 import { withSchool } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { isoDay, plural } from "@/lib/academic/common";
-import { examDetail, marksExist, upcomingPapers } from "@/lib/exams/datesheet";
+import { campusHolidays, examDetail, marksExist, upcomingPapers } from "@/lib/exams/datesheet";
 import { EXAM_STATUS_TONE, classRange, dayDate, patternLabel, shownExamStatus } from "@/lib/exams/common";
 import { sittings } from "@/lib/exams/seating";
 import { Pill } from "@/components/ui/badge";
@@ -27,7 +27,7 @@ export default async function DatesheetDetail({ params, searchParams }: { params
   const raw = await searchParams;
   const page = await examPage(raw);
   const data = await withSchool(page.current.ctx, async (tx) => {
-    const d = await examDetail(tx, id, { archived: true });
+    const d = await examDetail(tx, id, { archived: true, scope: page.scope });
     if (!d) return null;
     let mineClassIds: string[] | null = null;
     if (page.scope.sectionIds) {
@@ -42,7 +42,7 @@ export default async function DatesheetDetail({ params, searchParams }: { params
       sittings(tx, id),
       tx.seatAllocation.groupBy({ by: ["date", "startTime"], where: { examId: id, archivedAt: null }, _count: true }),
       tx.enrolment.groupBy({ by: ["classId"], where: { academicYearId: d.exam.academicYearId, classId: { in: d.exam.classIds }, archivedAt: null, status: "STUDYING" }, _count: true }),
-      tx.calendarEntry.findMany({ where: { archivedAt: null, type: { in: ["holiday", "vacation"] }, startDate: { lte: d.exam.endDate }, endDate: { gte: new Date(Date.UTC(d.exam.startDate.getUTCFullYear(), d.exam.startDate.getUTCMonth(), 1)) } }, select: { startDate: true, endDate: true, title: true } }),
+      tx.calendarEntry.findMany({ where: { ...campusHolidays(d.campusId), startDate: { lte: d.exam.endDate }, endDate: { gte: new Date(Date.UTC(d.exam.startDate.getUTCFullYear(), d.exam.startDate.getUTCMonth(), 1)) } }, select: { startDate: true, endDate: true, title: true } }),
       tx.userLogin.findMany({ where: { id: { in: [d.exam.publishedById, d.exam.updatedById ?? d.exam.createdById].filter((x): x is string => Boolean(x)) } }, select: { id: true, displayName: true } }),
     ]);
     return { ...d, mineClassIds, locked, categories: categories.map((c) => c.name), scaleName: scale?.name ?? null, sitList, seated: seated.length, students: counts.reduce((s, c) => s + c._count, 0), holidays, people };

@@ -4,9 +4,10 @@ import { z } from "zod";
 import { parseForm, type FormState } from "@/lib/forms";
 import { writeAudit } from "@/lib/audit";
 import { addClass, addClasses, addSection, addStream, archiveClass, archiveSection, archiveStream, reorderClasses, updateClass, updateSection } from "@/lib/academic/structure";
-import { mainCampusId } from "@/lib/academic/settings";
 import { AcademicRuleError, parseClassNames, parseSectionNames, plural } from "@/lib/academic/common";
-import { act, actSimple } from "./_lib/server";
+import type { Tx } from "@/lib/db";
+import type { Current } from "@/lib/current";
+import { act, actSimple, classOnCampus, staffInCampus } from "./_lib/server";
 
 const id = (label: string) => z.string().uuid(label);
 const optionalId = z.string().trim().transform((v) => (v === "" ? null : v)).refine((v) => v === null || /^[0-9a-f-]{36}$/i.test(v), "Choose from the list.");
@@ -26,12 +27,13 @@ export async function addClassAction(_prev: FormState, fd: FormData): Promise<Fo
   const parsed = parseForm(classSchema, fd);
   if (!parsed.ok) return parsed.state;
   const d = parsed.data;
-  return act("create", async ({ tx, current }) => {
-    const campusId = await mainCampusId(tx, current.ctx);
+  return act("create", async ({ tx, current, campus }) => {
+    // On the campus of the year shown (each campus has its own classes and years).
+    const campusId = await campus();
     let sortOrder: number | null = null;
     if (d.position === "start") sortOrder = 1;
     else if (d.position !== "end") {
-      const after = await tx.schoolClass.findFirst({ where: { id: d.position, archivedAt: null } });
+      const after = await tx.schoolClass.findFirst({ where: { id: d.position, campusId, archivedAt: null } });
       if (after) sortOrder = after.sortOrder + 1;
     }
     const r = await addClass(tx, current.ctx, { campusId, yearId: d.yearId, name: d.name, sortOrder, level: d.level, sectionNames: d.sections, seats: d.seats, board: d.board });
@@ -50,8 +52,8 @@ export async function addClassesAction(_prev: FormState, fd: FormData): Promise<
   const parsed = parseForm(classesSchema, fd);
   if (!parsed.ok) return parsed.state;
   const d = parsed.data;
-  return act("create", async ({ tx, current }) => {
-    const campusId = await mainCampusId(tx, current.ctx);
+  return act("create", async ({ tx, current, campus }) => {
+    const campusId = await campus();
     const r = await addClasses(tx, current.ctx, { campusId, yearId: d.yearId, names: d.names, sectionNames: d.sections, seats: d.seats });
     if (r.classes === 0) throw new AcademicRuleError(`All of these classes already exist in this year: ${r.skipped.join(", ")}.`, "names");
     return { flash: { message: `Added ${plural(r.classes, "class", "classes")} and ${plural(r.sections, "section")}.${r.skipped.length ? ` Already there: ${r.skipped.join(", ")}.` : ""}` } };
@@ -70,7 +72,8 @@ export async function updateClassAction(_prev: FormState, fd: FormData): Promise
   const parsed = parseForm(editClassSchema, fd);
   if (!parsed.ok) return parsed.state;
   const d = parsed.data;
-  return act("edit", async ({ tx, current }) => {
+  return act("edit", async ({ tx, current, campus }) => {
+    await classOnCampus(tx, d.classId, await campus());
     const r = await updateClass(tx, current.ctx, d.classId, { name: d.name, level: d.level, board: d.board });
     // The class board sets grading and report cards in Examination & Results (04 §5): applies to exams not yet created.
     return { flash: { message: r.boardChanged ? `${r.cls.name} saved. The new board applies to exams not yet created; past marks keep their old grading.` : `${r.cls.name} saved.`, tone: r.boardChanged ? "info" : "success" } };
@@ -79,9 +82,8 @@ export async function updateClassAction(_prev: FormState, fd: FormData): Promise
 
 export async function reorderClassesAction(yearId: string, ids: string[]): Promise<string | undefined> {
   if (!Array.isArray(ids) || ids.some((x) => typeof x !== "string")) return "That order could not be read.";
-  return actSimple("edit", async ({ tx, current }) => {
-    const campusId = await mainCampusId(tx, current.ctx);
-    await reorderClasses(tx, current.ctx, campusId, ids.slice(0, 200));
+  return actSimple("edit", async ({ tx, current, campus }) => {
+    await reorderClasses(tx, current.ctx, await campus(), ids.slice(0, 200));
   }, { yearId });
 }
 
@@ -101,14 +103,16 @@ export async function saveSectionAction(_prev: FormState, fd: FormData): Promise
   if (!parsed.ok) return parsed.state;
   const d = parsed.data;
   if (d.sectionId) {
-    return act("edit", async ({ tx, current }) => {
+    return act("edit", async ({ tx, current, campus }) => {
       if (!d.name) throw new AcademicRuleError("Section name is needed.", "name");
+      await sectionPicks(tx, current, await campus(), d);
       const r = await updateSection(tx, current.ctx, d.sectionId!, { name: d.name, seats: d.seats, classTeacherId: d.classTeacherId, streamId: d.streamId, room: d.room });
       return { flash: { message: r.warning ? `${r.label} saved. ${r.warning}` : `${r.label} saved.`, tone: r.warning ? "info" : "success" } };
-    }, { formData: fd, yearOf: async (tx) => (await tx.section.findFirst({ where: { id: d.sectionId! } }))?.academicYearId ?? d.yearId });
+    }, { formData: fd, yearOf: async (tx) => (await tx.section.findFirst({ where: { id: d.sectionId! } }))?.academicYearId ?? d.yearId, notFound: "This section was not found." });
   }
-  return act("create", async ({ tx, current }) => {
+  return act("create", async ({ tx, current, campus }) => {
     if (!d.classId) throw new AcademicRuleError("Choose the class.");
+    await sectionPicks(tx, current, await campus(), d);
     const r = await addSection(tx, current.ctx, d.classId, d.yearId, { name: d.name, seats: d.seats, classTeacherId: d.classTeacherId, streamId: d.streamId, room: d.room });
     return { flash: { message: `${r.label} added.` } };
   }, { formData: fd, yearId: d.yearId });
@@ -118,7 +122,7 @@ export async function archiveSectionAction(sectionId: string): Promise<string | 
   return actSimple("archive", async ({ tx, current }) => {
     const r = await archiveSection(tx, current.ctx, sectionId);
     return { flash: { message: `${r.label} archived.`, undo: { kind: "academic-section", id: sectionId } } };
-  }, { yearOf: async (tx) => (await tx.section.findFirst({ where: { id: sectionId } }))?.academicYearId ?? null });
+  }, { yearOf: async (tx) => (await tx.section.findFirst({ where: { id: sectionId } }))?.academicYearId ?? null, notFound: "This section was not found." });
 }
 
 export async function restoreSectionAction(sectionId: string): Promise<string | undefined> {
@@ -131,29 +135,46 @@ export async function restoreSectionAction(sectionId: string): Promise<string | 
     if (s.schoolClass.archivedAt) await tx.schoolClass.update({ where: { id: s.classId }, data: { archivedAt: null } });
     await writeAudit(tx, current.ctx, { action: "restored", recordType: "Section", recordId: s.id });
     return { flash: { message: `${s.schoolClass.name} ${s.name} restored.` } };
-  }, { yearOf: async (tx) => (await tx.section.findFirst({ where: { id: sectionId } }))?.academicYearId ?? null });
+  }, { yearOf: async (tx) => (await tx.section.findFirst({ where: { id: sectionId } }))?.academicYearId ?? null, notFound: "This section is not archived." });
 }
 
 export async function archiveClassAction(classId: string, yearId: string): Promise<string | undefined> {
-  return actSimple("archive", async ({ tx, current }) => {
+  return actSimple("archive", async ({ tx, current, campus }) => {
+    await classOnCampus(tx, classId, await campus());
     const r = await archiveClass(tx, current.ctx, classId, yearId);
     return { flash: { message: `${r.cls.name} archived with ${plural(r.sectionIds.length, "section")}.`, undo: { kind: "academic-class", id: `${classId}:${yearId}:${r.at.getTime()}` } } };
-  }, { yearId });
+  }, { yearId, notFound: "This class was not found." });
 }
 
 export async function addStreamAction(_prev: FormState, fd: FormData): Promise<FormState> {
-  const parsed = parseForm(z.object({ name: z.string().trim().min(1, "Stream name is needed.").max(40, "Stream name can be at most 40 characters.") }), fd);
+  const parsed = parseForm(z.object({
+    name: z.string().trim().min(1, "Stream name is needed.").max(40, "Stream name can be at most 40 characters."),
+    yearId: z.string().trim().optional().transform((v) => (v && /^[0-9a-f-]{36}$/i.test(v) ? v : null)),
+  }), fd);
   if (!parsed.ok) return parsed.state;
-  return act("create", async ({ tx, current }) => {
-    const campusId = await mainCampusId(tx, current.ctx);
-    const s = await addStream(tx, current.ctx, campusId, parsed.data.name);
+  return act("create", async ({ tx, current, campus }) => {
+    // On the campus of the year shown.
+    const s = await addStream(tx, current.ctx, await campus(), parsed.data.name);
     return { flash: { message: `${s.name} stream added.` } };
-  }, { formData: fd });
+  }, { formData: fd, pageYearId: parsed.data.yearId });
 }
 
 export async function archiveStreamAction(streamId: string): Promise<string | undefined> {
   return actSimple("archive", async ({ tx, current }) => {
     const s = await archiveStream(tx, current.ctx, streamId);
     return { flash: { message: `${s.name} stream archived.` } };
-  });
+  }, { campusOf: async (tx) => (await tx.stream.findFirst({ where: { id: streamId } }))?.campusId, notFound: "This stream was not found." });
+}
+
+/**
+ * The class teacher and stream chosen for a section: the class teacher of
+ * the person's own campus when they are limited to one, and a stream of the
+ * section's campus.
+ */
+async function sectionPicks(tx: Tx, current: Current, campusId: string, d: { classTeacherId: string | null; streamId: string | null }) {
+  await staffInCampus(tx, current, d.classTeacherId, "Choose a class teacher from the staff list.", "classTeacherId");
+  if (d.streamId) {
+    const s = await tx.stream.findFirst({ where: { id: d.streamId }, select: { campusId: true } });
+    if (s && s.campusId !== campusId) throw new AcademicRuleError("Choose from the list.", "streamId");
+  }
 }

@@ -7,7 +7,8 @@ import { withSchool } from "@/lib/db";
 import { isoDay } from "@/lib/academic/common";
 import { subjectsForClass } from "@/lib/academic/subjects";
 import { examSettings, gradeScales } from "@/lib/exams/settings";
-import { examDetail, marksExist } from "@/lib/exams/datesheet";
+import { campusHolidays, examDetail, marksExist } from "@/lib/exams/datesheet";
+import { inCampus } from "@/lib/campus";
 import type { ExamPage } from "../_lib/page";
 
 export type FormClass = { id: string; name: string; pattern: string; subjects: { id: string; name: string; gradeOnly: boolean; teacherId: string | null }[] };
@@ -23,7 +24,7 @@ export type FormData = {
 export async function datesheetFormData(page: ExamPage, examId: string | null): Promise<FormData | null> {
   const year = page.year!;
   return withSchool(page.current.ctx, async (tx) => {
-    const detail = examId ? await examDetail(tx, examId) : null;
+    const detail = examId ? await examDetail(tx, examId, { scope: page.scope }) : null;
     if (examId && !detail) return null;
     const [settings, types, terms, scales, sections, staff, holidays] = await Promise.all([
       examSettings(tx, page.current.ctx),
@@ -31,8 +32,8 @@ export async function datesheetFormData(page: ExamPage, examId: string | null): 
       tx.term.findMany({ where: { academicYearId: year.id, archivedAt: null }, orderBy: { sortOrder: "asc" } }),
       gradeScales(tx, page.current.ctx),
       tx.section.findMany({ where: { academicYearId: year.id, archivedAt: null }, include: { schoolClass: true }, orderBy: { schoolClass: { sortOrder: "asc" } } }),
-      tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] } }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true } }),
-      tx.calendarEntry.findMany({ where: { archivedAt: null, type: { in: ["holiday", "vacation"] }, startDate: { lte: year.endDate }, endDate: { gte: year.startDate } }, select: { startDate: true, endDate: true, title: true } }),
+      tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] }, ...inCampus(page.current) }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true } }),
+      tx.calendarEntry.findMany({ where: { ...campusHolidays(page.campusId), startDate: { lte: year.endDate }, endDate: { gte: year.startDate } }, select: { startDate: true, endDate: true, title: true } }),
     ]);
     const classMap = new Map<string, { id: string; name: string; sortOrder: number }>();
     for (const s of sections) if (!s.schoolClass.archivedAt) classMap.set(s.classId, { id: s.classId, name: s.schoolClass.name, sortOrder: s.schoolClass.sortOrder });

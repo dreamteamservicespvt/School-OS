@@ -6,6 +6,7 @@ import { formatDate } from "@/lib/format";
 import { closeChecks, openYearPreview, removeCheck, TERM_PRESETS, yearNameFor } from "@/lib/academic/lifecycle";
 import { academicSettings, periodSlots } from "@/lib/academic/settings";
 import { roomsFor, ROOM_KINDS } from "@/lib/academic/rooms";
+import { inCampus } from "@/lib/campus";
 import { ACADEMIC_FEATURES, featureOn } from "@/lib/academic/scope";
 import { DAY_NAMES, DAY_SHORT, addDays, isoDay, time12 } from "@/lib/academic/common";
 import { EmptyState } from "@/components/empty-state";
@@ -34,6 +35,7 @@ export default async function AcademicSettingsPage({ searchParams }: { searchPar
   const tab = tabs.some((t) => t.value === one(raw.tab)) ? one(raw.tab) : "years";
   const ctx = page.current.ctx;
   const rooms = featureOn(page.current, "academic-rooms");
+  const pageYearId = page.year?.id ?? "";
 
   const data = await withSchool(ctx, async (tx) => {
     const settings = await academicSettings(tx, ctx, page.campusId);
@@ -57,12 +59,14 @@ export default async function AcademicSettingsPage({ searchParams }: { searchPar
       return { kind: "terms" as const, settings, slots, terms };
     }
     if (tab === "teachers") {
-      const teachers = await tx.staff.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] }, staffType: "Teaching" }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, designation: true } });
+      const teachers = await tx.staff.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] }, staffType: "Teaching", ...inCampus(page.current) }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, designation: true } });
       const prefs = await tx.teacherPreference.findMany({ where: { schoolId: ctx.schoolId } });
       return { kind: "teachers" as const, settings, slots, teachers, prefs };
     }
     if (tab === "conditions") {
-      const conditions = await tx.subjectCondition.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null }, orderBy: { createdAt: "asc" } });
+      // One campus: the whole school's conditions and those for the campus's classes.
+      const campusClassIds = page.current.campusId ? (await tx.schoolClass.findMany({ where: { campusId: page.current.campusId }, select: { id: true } })).map((c) => c.id) : null;
+      const conditions = await tx.subjectCondition.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null, ...(campusClassIds ? { OR: [{ classId: null }, { classId: { in: campusClassIds } }] } : {}) }, orderBy: { createdAt: "asc" } });
       const subjects = await tx.subject.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } });
       const classes = await tx.schoolClass.findMany({ where: { campusId: page.campusId, archivedAt: null }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true } });
       return { kind: "conditions" as const, settings, slots, conditions, subjects, classes };
@@ -95,7 +99,7 @@ export default async function AcademicSettingsPage({ searchParams }: { searchPar
           <section aria-labelledby="years-h">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <h2 id="years-h" className="text-lg font-semibold">Academic years</h2>
-              <NewYearButton years={page.years.map((y) => ({ value: y.id, label: y.name }))} presets={TERM_PRESETS} suggested={{ name: yearNameFor(suggestedStart, suggestedEnd), start: isoDay(suggestedStart), end: isoDay(suggestedEnd) }} />
+              <NewYearButton years={page.years.map((y) => ({ value: y.id, label: y.name }))} presets={TERM_PRESETS} suggested={{ name: yearNameFor(suggestedStart, suggestedEnd), start: isoDay(suggestedStart), end: isoDay(suggestedEnd) }} pageYearId={pageYearId} />
             </div>
             <p className="mb-3 text-sm text-ink-2">One year is active at a time. Closed years are read-only, except corrections by the Principal or School Admin with a reason.</p>
             {data.info.length === 0 ? <EmptyState title="No academic year yet">Start the current year with its dates and terms. Classes, the Time Table and every record belong to a year.</EmptyState> : (
@@ -165,13 +169,13 @@ export default async function AcademicSettingsPage({ searchParams }: { searchPar
         )
       )}
 
-      {data.kind === "timings" && <TimingsForm s={data.settings} />}
+      {data.kind === "timings" && <TimingsForm s={data.settings} pageYearId={pageYearId} />}
 
       {data.kind === "periods" && (
         <section>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-lg font-semibold">Period master</h2>
-            <SlotButton workingDays={data.settings.workingDays} nextNumber={Math.max(0, ...teaching.map((s) => s.number)) + 1} />
+            <SlotButton workingDays={data.settings.workingDays} nextNumber={Math.max(0, ...teaching.map((s) => s.number)) + 1} pageYearId={pageYearId} />
           </div>
           <p className="mb-3 text-sm text-ink-2">The rows of every Time Table: periods, breaks and lunch, with times and the days each runs.</p>
           {data.slots.length === 0 ? <EmptyState title="No periods yet">Add Period 1, the breaks and lunch with their times. The Time Table uses these rows.</EmptyState> : (
@@ -183,7 +187,7 @@ export default async function AcademicSettingsPage({ searchParams }: { searchPar
                     <span className="block text-sm text-ink-2">{s.days.length === data.settings.workingDays.length && data.settings.workingDays.every((d) => s.days.includes(d)) ? "Every working day" : s.days.map((d) => DAY_SHORT[d]).join(", ")}{s.isBreak ? " · break" : ""}</span>
                   </span>
                   <span className="flex gap-1">
-                    <SlotButton slot={{ id: s.id, label: s.label, number: s.number, startTime: s.startTime, endTime: s.endTime, isBreak: s.isBreak, days: s.days }} workingDays={data.settings.workingDays} nextNumber={s.number} />
+                    <SlotButton slot={{ id: s.id, label: s.label, number: s.number, startTime: s.startTime, endTime: s.endTime, isBreak: s.isBreak, days: s.days }} workingDays={data.settings.workingDays} nextNumber={s.number} pageYearId={pageYearId} />
                     <ArchiveSlot id={s.id} label={s.label} />
                   </span>
                 </li>
@@ -246,7 +250,7 @@ export default async function AcademicSettingsPage({ searchParams }: { searchPar
             <section>
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h2 className="text-lg font-semibold">Rooms and labs</h2>
-                <RoomButton />
+                <RoomButton pageYearId={pageYearId} />
               </div>
               {data.roomList.length === 0 ? <EmptyState title="No rooms yet">Add labs and shared rooms. Each gets its own Time Table, and labs can be booked for a period.</EmptyState> : (
                 <ul className="divide-y divide-line rounded-2xl border border-line bg-surface">

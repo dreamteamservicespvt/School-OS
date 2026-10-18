@@ -8,6 +8,7 @@ import type { Tx } from "../db";
 import type { Current } from "../current";
 import { reachFor } from "../permissions";
 import { ownSectionIds, staffForUser } from "../people";
+import { narrowSections } from "../campus";
 
 export type AcademicScope = {
   /** "all" or "own". */
@@ -18,7 +19,7 @@ export type AcademicScope = {
   arrange: boolean;
   /** The person's Staff record, if any. */
   staffId: string | null;
-  /** Sections the person may see, or null for every section. */
+  /** Sections the person may see, or null for every section (never null for a person limited to one campus). */
   sectionIds: string[] | null;
   /** May make authorised corrections in a closed year. */
   canCorrect: boolean;
@@ -30,12 +31,14 @@ export async function academicScope(tx: Tx, current: Current, yearId: string | n
   const staff = await staffForUser(tx, current.ctx);
   const office = current.roles.some((r) => r.key === "office-staff");
   const own = see !== "all";
+  const allowed = own && !office ? (yearId ? await ownSectionIds(tx, current.ctx, yearId) : []) : null;
   return {
     see: own ? "own" : "all",
     manage: change === "all",
     arrange: change === "all" || (change === "own" && office),
     staffId: staff?.id ?? null,
-    sectionIds: own && !office ? (yearId ? await ownSectionIds(tx, current.ctx, yearId) : []) : null,
+    // One campus (05-roles.md): "every section" becomes every section of that campus (all its years).
+    sectionIds: await narrowSections(tx, current, allowed),
     canCorrect: change === "all" && current.roles.some((r) => r.key === "principal" || r.key === "school-admin"),
   };
 }

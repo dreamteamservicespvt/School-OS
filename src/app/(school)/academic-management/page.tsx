@@ -20,8 +20,9 @@ export default async function ClassesPage({ searchParams }: { searchParams: Sear
   const archived = one(raw.archived) === "1";
   const data = await withSchool(current.ctx, async (tx) => {
     const [classes, teachers, streams, school] = await Promise.all([
-      classesForYear(tx, current.ctx, page.campusId, year.id, scope.sectionIds),
-      scope.manage ? teacherChoices(tx, current.ctx, year.id) : Promise.resolve([]),
+      // The page's campus already limits a person who sees every class (One campus too), so classes with no section yet still show.
+      classesForYear(tx, current.ctx, page.campusId, year.id, scope.see === "own" ? scope.sectionIds : null),
+      scope.manage ? teacherChoices(tx, current.ctx, year.id, current) : Promise.resolve([]),
       tx.stream.findMany({ where: { schoolId: current.ctx.schoolId, campusId: page.campusId, archivedAt: null }, orderBy: { name: "asc" } }),
       tx.school.findUnique({ where: { id: current.ctx.schoolId }, select: { board: true } }),
     ]);
@@ -88,7 +89,7 @@ export default async function ClassesPage({ searchParams }: { searchParams: Sear
       )}
 
       <div className="no-print mt-6 flex flex-wrap items-center justify-between gap-3">
-        {streamsOn && canEdit ? <StreamsButton streams={data.streams.map((s) => ({ id: s.id, name: s.name }))} /> : <span />}
+        {streamsOn && canEdit ? <StreamsButton yearId={year.id} streams={data.streams.map((s) => ({ id: s.id, name: s.name }))} /> : <span />}
         <ExportLinks href={`/academic-management/export?kind=class-strength${yearQ}`} label="Class strength and seats" />
       </div>
       {sections.length > 0 && <p className="mt-2 text-sm text-ink-2">{plural(sections.filter((s) => !s.classTeacherId).length, "section")} without a class teacher.</p>}

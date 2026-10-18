@@ -7,6 +7,7 @@ import type { Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { formatDate } from "../format";
+import { inCampus, type CampusLimit } from "../campus";
 import { AcademicRuleError, addDays, plural } from "./common";
 import { academicSettings } from "./settings";
 import { mapActiveOn } from "./subjects";
@@ -199,10 +200,10 @@ export async function allocationGrid(tx: Tx, ctx: SchoolContext, yearId: string,
   return { subjects: subjects.map((s) => ({ id: s.id, name: s.name, code: s.code })), rows, gaps };
 }
 
-/** Each teacher's classes and subjects, periods per week and limit. */
-export async function teacherWorkloads(tx: Tx, ctx: SchoolContext, yearId: string, campusId: string, date: Date, onlyStaffId?: string | null) {
+/** Each teacher's classes and subjects, periods per week and limit. `limit`: only that campus's teachers (One campus). */
+export async function teacherWorkloads(tx: Tx, ctx: SchoolContext, yearId: string, campusId: string, date: Date, onlyStaffId?: string | null, limit?: CampusLimit | null) {
   const teachers = await tx.staff.findMany({
-    where: { schoolId: ctx.schoolId, archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] }, staffType: "Teaching", ...(onlyStaffId ? { id: onlyStaffId } : {}) },
+    where: { schoolId: ctx.schoolId, archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] }, staffType: "Teaching", ...(onlyStaffId ? { id: onlyStaffId } : {}), ...inCampus(limit) },
     orderBy: { fullName: "asc" },
     select: { id: true, fullName: true, designation: true },
   });

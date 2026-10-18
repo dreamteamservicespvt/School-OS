@@ -12,14 +12,15 @@ import { notify } from "../notifications";
 import { saveFile, DOCUMENT_TYPES, FileProblem } from "../files";
 import { formatDate } from "../format";
 import { HomeworkProblem } from "./access";
-import { requireStaff, requireWork, type HomeworkScope } from "./scope";
+import { onCampus, requireStaff, requireWork, type HomeworkScope } from "./scope";
 import { homeworkSettings, lateAfter } from "./settings";
 import { gradeFor, isPastDue, plural, scoreProblem } from "./words";
 import { tellParentsPending } from "./notify-parents";
 
 async function homeworkFor(tx: Tx, s: HomeworkScope, homeworkId: string) {
   const hw = await tx.homework.findFirst({ where: { id: homeworkId, archivedAt: null } });
-  if (!hw) throw new HomeworkProblem("This homework was not found. It may have been archived.");
+  // Another campus's homework is not found for a person limited to one campus.
+  if (!hw || !onCampus(s, hw.sectionId)) throw new HomeworkProblem("This homework was not found. It may have been archived.");
   requireWork(s, hw, "the marking of this homework", "submissions");
   const year = await tx.academicYear.findUnique({ where: { id: hw.academicYearId }, select: { status: true } });
   if (year?.status === "CLOSED") throw new HomeworkProblem("This academic year is closed, so its homework can only be read.");
@@ -195,7 +196,7 @@ export async function addComment(tx: Tx, s: HomeworkScope, submissionId: string,
   const sub = await tx.submission.findFirst({ where: { id: submissionId, archivedAt: null } });
   if (!sub) throw new HomeworkProblem("This submission was not found.");
   const hw = await tx.homework.findFirst({ where: { id: sub.homeworkId, archivedAt: null } });
-  if (!hw) throw new HomeworkProblem("This homework was not found.");
+  if (!hw || !onCampus(s, hw.sectionId)) throw new HomeworkProblem("This homework was not found.");
   const fromStudent = s.level === "student";
   if (fromStudent) {
     if (s.student?.id !== sub.studentId) throw new HomeworkProblem("You can comment only on your own work.");
@@ -219,7 +220,7 @@ export async function hideComment(tx: Tx, s: HomeworkScope, commentId: string, r
   const c = await tx.homeworkComment.findFirst({ where: { id: commentId } });
   if (!c) throw new HomeworkProblem("This comment was not found.");
   const hw = await tx.homework.findFirst({ where: { id: c.homeworkId } });
-  if (!hw) throw new HomeworkProblem("This homework was not found.");
+  if (!hw || !onCampus(s, hw.sectionId)) throw new HomeworkProblem("This homework was not found.");
   requireWork(s, hw, "comments on this homework", "submissions");
   if (hide && !reason.trim()) throw new HomeworkProblem("Say why it is hidden, so the student understands.", "reason");
   await tx.homeworkComment.update({ where: { id: c.id }, data: hide ? { hiddenAt: new Date(), hiddenReason: reason.trim().slice(0, 200) } : { hiddenAt: null, hiddenReason: null } });

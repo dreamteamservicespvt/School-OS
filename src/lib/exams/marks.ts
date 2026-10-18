@@ -25,7 +25,7 @@ import { categoriesOf, type Category } from "./datesheet";
 import { examSettings } from "./settings";
 import { sectionStudents, sitters, type RosterStudent } from "./roster";
 import { bandsFor, recomputeFinal, recomputeSection, sectionInfo } from "./results";
-import { teachesPaper, type ExamScope } from "./scope";
+import { examInScope, seesYear, teachesPaper, type ExamScope } from "./scope";
 
 /** `medical` is medical leave (ML): absent, and the paper is left out of the total. */
 export type MarkValue = { parts: Record<string, number | null>; absent: boolean; medical?: boolean; grade: string | null; remark: string | null };
@@ -42,10 +42,14 @@ export function readMarkRows(rows: unknown): ({ studentId: string } & MarkValue)
   });
 }
 
-/** Loads one paper (datesheet entry in one section) with everything the marks grid needs. */
-export async function loadPaper(tx: Tx, ctx: SchoolContext, entryId: string, sectionId: string) {
+/**
+ * Loads one paper (datesheet entry in one section) with everything the marks grid needs.
+ * Given the person's scope, a paper of another campus than theirs is not found (One campus).
+ */
+export async function loadPaper(tx: Tx, ctx: SchoolContext, entryId: string, sectionId: string, scope?: Pick<ExamScope, "yearIds">) {
   const entry = await tx.datesheetEntry.findFirst({ where: { id: entryId, archivedAt: null }, include: { exam: true } });
   if (!entry || entry.exam.archivedAt) return null;
+  if (scope && !seesYear(scope, entry.exam.academicYearId)) return null;
   const section = await sectionInfo(tx, sectionId);
   if (section.classId !== entry.classId) return null;
   const subject = await tx.subject.findFirstOrThrow({ where: { id: entry.subjectId } });
@@ -115,7 +119,7 @@ async function guard(tx: Tx, scope: ExamScope, paper: PaperView) {
  * are worked out again at once (A9).
  */
 export async function saveMarks(tx: Tx, ctx: SchoolContext, scope: ExamScope, input: { entryId: string; sectionId: string; rows: ({ studentId: string } & MarkValue)[] }) {
-  const paper = await loadPaper(tx, ctx, input.entryId, input.sectionId);
+  const paper = await loadPaper(tx, ctx, input.entryId, input.sectionId, scope);
   if (!paper) throw new ExamRuleError("This paper was not found. It may have been archived.");
   await guard(tx, scope, paper);
   if (!OPEN.includes(paper.paper.status)) throw new ExamRuleError("Marks are submitted. Request a change?");
@@ -150,7 +154,7 @@ export async function saveMarks(tx: Tx, ctx: SchoolContext, scope: ExamScope, in
 
 /** Submits a paper when every student has marks, absent or a grade. After this the teacher cannot change marks. */
 export async function submitPaper(tx: Tx, ctx: SchoolContext, scope: ExamScope, entryId: string, sectionId: string) {
-  const paper = await loadPaper(tx, ctx, entryId, sectionId);
+  const paper = await loadPaper(tx, ctx, entryId, sectionId, scope);
   if (!paper) throw new ExamRuleError("This paper was not found.");
   await guard(tx, scope, paper);
   if (!OPEN.includes(paper.paper.status)) throw new ExamRuleError("This paper is already submitted.");
@@ -170,7 +174,7 @@ export async function submitPaper(tx: Tx, ctx: SchoolContext, scope: ExamScope, 
 export async function reopenPaper(tx: Tx, ctx: SchoolContext, scope: ExamScope, entryId: string, sectionId: string, reason: string) {
   if (!scope.manage) throw new ExamRuleError("Only the Exam In-charge or the Principal can send marks back.");
   if (reason.trim().length < 5) throw new ExamRuleError("Give a reason of at least 5 characters, so the teacher knows what to fix.", "reason");
-  const paper = await loadPaper(tx, ctx, entryId, sectionId);
+  const paper = await loadPaper(tx, ctx, entryId, sectionId, scope);
   if (!paper) throw new ExamRuleError("This paper was not found.");
   await assertYearOpen(tx, paper.exam.academicYearId);
   if (paper.paper.status !== "SUBMITTED") throw new ExamRuleError(paper.paper.status === "LOCKED" ? "This paper is locked. A change now needs a moderation request with approval." : "This paper is not submitted.");
@@ -187,7 +191,7 @@ export async function reopenPaper(tx: Tx, ctx: SchoolContext, scope: ExamScope, 
 /** Locks submitted papers of an exam (Exam In-charge or Principal). Returns how many were locked and how many are still open. */
 export async function lockPapers(tx: Tx, ctx: SchoolContext, scope: ExamScope, examId: string, sectionIds: string[] | null) {
   if (!scope.manage) throw new ExamRuleError("Only the Exam In-charge or the Principal can lock marks.");
-  const exam = await tx.exam.findFirst({ where: { id: examId, archivedAt: null } });
+  const exam = await tx.exam.findFirst({ where: { id: examId, archivedAt: null, ...examInScope(scope) } });
   if (!exam) throw new ExamRuleError("This exam was not found.");
   await assertYearOpen(tx, exam.academicYearId);
   const entries = await tx.datesheetEntry.findMany({ where: { examId, archivedAt: null }, select: { id: true } });
@@ -213,7 +217,7 @@ function valueWords(v: { absent?: boolean; medical?: boolean; grade?: string | n
  * They too apply only once approved.
  */
 export async function requestModeration(tx: Tx, ctx: SchoolContext, scope: ExamScope, input: { entryId: string; sectionId: string; studentId: string; value: MarkValue; reason: string }) {
-  const paper = await loadPaper(tx, ctx, input.entryId, input.sectionId);
+  const paper = await loadPaper(tx, ctx, input.entryId, input.sectionId, scope);
   if (!paper) throw new ExamRuleError("This paper was not found.");
   await assertYearOpen(tx, paper.exam.academicYearId);
   if (!teachesPaper(scope, paper.section.id, paper.subject.id)) throw new ExamRuleError(`You do not teach ${paper.subject.name} in ${paper.section.label}. Ask the Exam In-charge or the Principal.`);

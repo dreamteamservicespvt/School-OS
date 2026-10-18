@@ -6,6 +6,7 @@ import "server-only";
 
 import Link from "next/link";
 import { withSchool } from "../db";
+import { inCampus } from "../campus";
 import { registerProfileTab, type ProfileTabArgs } from "../students/profile-tabs";
 import { effectiveVersion, gridRows, sectionGrid } from "./timetable";
 import { progressBoard, lateWords } from "./syllabus";
@@ -18,6 +19,8 @@ import { TimetableGrid } from "@/app/(school)/academic-management/time-table/gri
 async function load({ current, studentId, academicYearId }: ProfileTabArgs) {
   return withSchool(current.ctx, async (tx) => {
     if (!academicYearId) return null;
+    // One campus: another campus's student shows nothing here.
+    if (current.campusId && !(await tx.student.findFirst({ where: { id: studentId, ...inCampus(current) }, select: { id: true } }))) return null;
     const enrolment = await tx.enrolment.findFirst({
       where: { schoolId: current.ctx.schoolId, studentId, academicYearId, archivedAt: null },
       orderBy: { createdAt: "desc" },
@@ -44,7 +47,7 @@ async function load({ current, studentId, academicYearId }: ProfileTabArgs) {
       mine.map((s) => ({ sectionId: enrolment.sectionId, classId: enrolment.classId, subjectId: s.id, label, subject: s.name, teacher: teacherOf.get(s.id) ?? null })),
       today,
     );
-    return { sectionId: enrolment.sectionId, classId: enrolment.classId, label, version, slots: rows.slots, days: rows.days, cells, board, todayDay: weekday(today) };
+    return { yearId: academicYearId, sectionId: enrolment.sectionId, classId: enrolment.classId, label, version, slots: rows.slots, days: rows.days, cells, board, todayDay: weekday(today) };
   });
 }
 
@@ -63,7 +66,7 @@ async function TimeTableTab(args: ProfileTabArgs) {
     <div className="space-y-4">
       <Card>
         <CardHeader title={`Time Table of ${d.label}`} description={d.version ? "The Time Table in force today." : undefined}
-          action={<Link className="text-sm font-medium text-brand-text hover:underline" href={`/academic-management/time-table?section=${d.sectionId}`}>Open in Time Table</Link>} />
+          action={<Link className="text-sm font-medium text-brand-text hover:underline" href={`/academic-management/time-table?section=${d.sectionId}&year=${d.yearId}`}>Open in Time Table</Link>} />
         <CardBody>
           {!d.version || slots.length === 0 ? (
             <p className="text-ink-2">No Time Table is published for this class yet (Academic Management, Time Table).</p>
@@ -74,7 +77,7 @@ async function TimeTableTab(args: ProfileTabArgs) {
       </Card>
       <Card>
         <CardHeader title="Syllabus progress" description="Topics completed in this section, against the plan up to today."
-          action={<Link className="text-sm font-medium text-brand-text hover:underline" href={`/academic-management/syllabus?view=progress&class=${d.classId}`}>Open Syllabus</Link>} />
+          action={<Link className="text-sm font-medium text-brand-text hover:underline" href={`/academic-management/syllabus?view=progress&class=${d.classId}&year=${d.yearId}`}>Open Syllabus</Link>} />
         <CardBody>
           {withSyllabus.length === 0 ? (
             <p className="text-ink-2">No syllabus is added for this class&apos;s subjects yet (Academic Management, Syllabus &amp; Lesson Plans).</p>

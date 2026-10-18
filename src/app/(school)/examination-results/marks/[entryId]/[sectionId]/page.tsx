@@ -22,7 +22,7 @@ export default async function PaperPage({ params, searchParams }: { params: Prom
   if (!UUID.test(entryId) || !UUID.test(sectionId)) notFound();
   const page = await examPage(await searchParams);
   const data = await withSchool(page.current.ctx, async (tx) => {
-    const p = await loadPaper(tx, page.current.ctx, entryId, sectionId);
+    const p = await loadPaper(tx, page.current.ctx, entryId, sectionId, page.scope);
     if (!p) return null;
     const people = await tx.userLogin.findMany({ where: { id: { in: [p.paper.submittedById, p.paper.lockedById, ...p.marks.flatMap((m) => ((m.history as { by?: string; approvedBy?: string }[]) ?? []).flatMap((h) => [h.by, h.approvedBy]))].filter((x): x is string => Boolean(x)) } }, select: { id: true, displayName: true } });
     const allocs = await tx.teacherAllocation.findMany({ where: { sectionId, subjectId: p.subject.id, archivedAt: null }, select: { staffId: true } });

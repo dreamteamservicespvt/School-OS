@@ -10,7 +10,7 @@ import { writeAudit } from "../audit";
 import { notify } from "../notifications";
 import { nextNumber, formatNumber } from "../sequences";
 import { HomeworkProblem } from "./access";
-import { requireDesk, mayRead, type HomeworkScope } from "./scope";
+import { requireDesk, mayRead, onCampus, type HomeworkScope } from "./scope";
 import { sectionStudents } from "./homework";
 import { HANDED_IN, pct } from "./words";
 
@@ -24,7 +24,8 @@ export type ProgressRow = {
 /** Each student's homework, quizzes and lessons in one section, for a subject (or every subject) and dates. */
 export async function classProgress(tx: Tx, s: HomeworkScope, sectionId: string, subjectId: string | null, from: Date | null, to: Date | null, today: Date) {
   const section = await tx.section.findFirst({ where: { id: sectionId }, include: { schoolClass: { select: { name: true } } } });
-  if (!section) return null;
+  // Another campus's class is not found for a person limited to one campus.
+  if (!section || !onCampus(s, section.id)) return null;
   const allowedSubjects = subjectsReadable(s, sectionId);
   if (allowedSubjects === "none") return null;
   if (subjectId && allowedSubjects !== "all" && !allowedSubjects.includes(subjectId)) return null;
@@ -103,6 +104,7 @@ export async function homeworkDone(tx: Tx, studentIds: string[], academicYearId:
 
 /** Subjects of a section this person may read progress for: every subject (full, class teacher), or their own. */
 function subjectsReadable(s: HomeworkScope, sectionId: string): "all" | "none" | string[] {
+  if (!onCampus(s, sectionId)) return "none";
   if (s.level === "full") return "all";
   if (s.level !== "own") return "none";
   if (s.ctSections.includes(sectionId)) return "all";

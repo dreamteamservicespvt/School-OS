@@ -4,7 +4,7 @@ import type { FormState } from "@/lib/forms";
 import { plural } from "@/lib/academic/common";
 import { ExamRuleError } from "@/lib/exams/common";
 import { loadPaper, readMarkRows as cleanRows, remindTeachers, reopenPaper, requestModeration, saveMarks, submitPaper, lockPapers, type MarkValue } from "@/lib/exams/marks";
-import { teachesPaper } from "@/lib/exams/scope";
+import { assertInScope, assertYearInScope, teachesPaper } from "@/lib/exams/scope";
 import { readSheet } from "@/lib/importer";
 import { writeAudit } from "@/lib/audit";
 import { assertYearOpen } from "@/lib/academic/years";
@@ -41,7 +41,8 @@ export async function reopenPaperAction(_prev: FormState, fd: FormData): Promise
 }
 
 export async function lockPaperAction(entryId: string, sectionId: string) {
-  return actSimple("edit", async ({ tx, current }) => {
+  return actSimple("edit", async ({ tx, current, scope }) => {
+    await assertInScope(tx, scope, "paper", entryId);
     const entry = await tx.datesheetEntry.findFirst({ where: { id: entryId }, include: { exam: true } });
     if (!entry) throw new ExamRuleError("This paper was not found.");
     await assertYearOpen(tx, entry.exam.academicYearId);
@@ -87,7 +88,7 @@ export async function readMarksSheet(fd: FormData): Promise<ImportResult> {
   if (file.size > 2 * 1024 * 1024) return { ok: false, message: "This file is too big. A marks sheet should be under 2 MB." };
   let result: ImportResult = { ok: false, message: "The file could not be read." };
   const state = await act("edit", async ({ tx, current, scope }) => {
-    const paper = await loadPaper(tx, current.ctx, entryId, sectionId);
+    const paper = await loadPaper(tx, current.ctx, entryId, sectionId, scope);
     if (!paper) throw new ExamRuleError("This paper was not found.");
     if (!teachesPaper(scope, sectionId, paper.subject.id)) throw new ExamRuleError(`You do not teach ${paper.subject.name} in ${paper.section.label}.`);
     let sheet: { headers: string[]; rows: string[][] };
@@ -129,7 +130,10 @@ export async function remindTeachersAction(keys: string[]) {
     if (!yearId) throw new ExamRuleError("There is no academic year.");
     const list = (Array.isArray(keys) ? keys : []).map(String).filter((k) => /^[0-9a-f-]{36}\|[0-9a-f-]{36}$/i.test(k)).slice(0, 1000);
     if (!list.length) throw new ExamRuleError("Choose the papers first.");
-    const r = await remindTeachers(tx, current.ctx, scope, yearId, list);
+    // The papers' own year (each campus has its own), never another campus's for a person limited to one.
+    const entry = await tx.datesheetEntry.findFirst({ where: { id: list[0].split("|")[0] }, select: { exam: { select: { academicYearId: true } } } });
+    assertYearInScope(scope, entry?.exam.academicYearId, "paper");
+    const r = await remindTeachers(tx, current.ctx, scope, entry?.exam.academicYearId ?? yearId, list);
     return { flash: { message: `Reminder sent to ${plural(r.teachers, "teacher")} about ${plural(r.papers, "paper")}.${r.noLogin ? ` ${plural(r.noLogin, "paper")} ${r.noLogin === 1 ? "has" : "have"} no teacher who can sign in; tell them in person.` : ""}` } };
   }, { needs: "manage", revalidate: [`${BASE}/marks`] });
 }

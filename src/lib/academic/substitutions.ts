@@ -45,7 +45,8 @@ export async function needsOn(tx: Tx, ctx: SchoolContext, campusId: string, date
   if (off) return { off, rows: [] };
   const version = await effectiveVersion(tx, ctx, campusId, date);
   const away = await absentStaffOn(tx, ctx, date);
-  const subs = await tx.substitution.findMany({ where: { schoolId: ctx.schoolId, date, archivedAt: null, status: { not: "CANCELLED" } } });
+  // Only this campus's periods: another campus has its own Time Table and substitutions.
+  const subs = await tx.substitution.findMany({ where: { schoolId: ctx.schoolId, date, archivedAt: null, status: { not: "CANCELLED" }, period: { section: { schoolClass: { campusId } } } } });
   const periodIds = new Set<string>(subs.map((s) => s.periodId));
   const day = weekday(date);
   let fromAway: PeriodCell[] = [];
@@ -146,7 +147,8 @@ export async function assignSubstitute(tx: Tx, ctx: SchoolContext, input: { camp
   const sub = await tx.staff.findFirst({ where: { id: input.substituteId, archivedAt: null, status: "ACTIVE" } });
   if (!sub) throw new AcademicRuleError("Choose a substitute who is working today.", "substituteId");
   const away = await absentStaffOn(tx, ctx, input.date);
-  const periods = await tx.timetablePeriod.findMany({ where: { id: { in: input.periodIds }, archivedAt: null }, include: { section: { include: { schoolClass: true } }, subject: true } });
+  // The periods are on the campus whose free teachers are checked (another campus's periods are not found).
+  const periods = await tx.timetablePeriod.findMany({ where: { id: { in: input.periodIds }, archivedAt: null, section: { schoolClass: { campusId: input.campusId } } }, include: { section: { include: { schoolClass: true } }, subject: true } });
   if (periods.length !== input.periodIds.length) throw new AcademicRuleError("A chosen period is no longer in the Time Table. Reload the page.");
   const periodNos = periods.map((p) => p.periodNo);
   if (new Set(periodNos).size !== periodNos.length) throw new AcademicRuleError(`${sub.fullName} cannot cover two classes in the same period.`, "substituteId");

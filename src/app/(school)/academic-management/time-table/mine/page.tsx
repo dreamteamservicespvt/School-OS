@@ -24,7 +24,9 @@ export default async function MyTimeTablePage({ searchParams }: { searchParams: 
 
   const data = staffId ? await withSchool(page.current.ctx, async (tx) => {
     const day = await periodsForStaffOnDate(tx, page.current.ctx, staffId, date);
-    const exam = await examDayOn(tx, page.current.ctx, date);
+    // Exam days of the whole school and of the teacher's own campus.
+    const mine = await tx.staff.findFirst({ where: { id: staffId }, select: { campusId: true } });
+    const exam = await examDayOn(tx, page.current.ctx, date, mine?.campusId ?? null);
     return { ...day, exam };
   }) : null;
 

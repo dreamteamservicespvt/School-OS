@@ -4,6 +4,7 @@ import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
+import { inCampus, type CampusLimit } from "../campus";
 import { AcademicRuleError, guessLevel, nextSectionName, plural } from "./common";
 
 export type ClassRow = {
@@ -60,6 +61,9 @@ export async function addClass(tx: Tx, ctx: SchoolContext, input: NewClassInput)
   if (name.length > 60) throw new AcademicRuleError("Class name can be at most 60 characters.", "name");
   if (input.sectionNames.length === 0) throw new AcademicRuleError("Give at least one section, like A.", "sections");
   if (input.seats < 1 || input.seats > 500) throw new AcademicRuleError("Seats per section must be between 1 and 500.", "seats");
+  // Each campus has its own years: a class is added in a year of its own campus.
+  const year = await tx.academicYear.findFirst({ where: { id: input.yearId, campusId: input.campusId }, select: { id: true } });
+  if (!year) throw new AcademicRuleError("This academic year was not found.");
   let cls = await tx.schoolClass.findFirst({ where: { schoolId: ctx.schoolId, campusId: input.campusId, name: { equals: name, mode: "insensitive" } } });
   if (cls) {
     const inYear = await tx.section.count({ where: { classId: cls.id, academicYearId: input.yearId, archivedAt: null } });
@@ -133,6 +137,9 @@ export function seatsWarning(className: string, sectionName: string, students: n
 export async function addSection(tx: Tx, ctx: SchoolContext, classId: string, yearId: string, input: Partial<SectionInput>) {
   const cls = await tx.schoolClass.findFirst({ where: { id: classId, archivedAt: null } });
   if (!cls) throw new AcademicRuleError("This class was not found.");
+  // A section belongs to a year of its class's own campus (each campus has its own years).
+  const year = await tx.academicYear.findFirst({ where: { id: yearId, campusId: cls.campusId }, select: { id: true } });
+  if (!year) throw new AcademicRuleError("This class was not found.");
   const siblings = await tx.section.findMany({ where: { classId, academicYearId: yearId } });
   const name = (input.name?.trim() || nextSectionName(siblings.filter((s) => !s.archivedAt).map((s) => s.name))).slice(0, 30);
   const clash = siblings.find((s) => s.name.toLowerCase() === name.toLowerCase());
@@ -205,10 +212,10 @@ export async function archiveClass(tx: Tx, ctx: SchoolContext, classId: string, 
   return { cls, sectionIds: sections.map((s) => s.id), at: now };
 }
 
-/** Teachers with their current class-teacher duties, for the staff picker. */
-export async function teacherChoices(tx: Tx, ctx: SchoolContext, yearId: string) {
+/** Teachers with their current class-teacher duties, for the staff picker. `limit`: only that campus's teachers (One campus). */
+export async function teacherChoices(tx: Tx, ctx: SchoolContext, yearId: string, limit?: CampusLimit | null) {
   const [staff, duties] = await Promise.all([
-    tx.staff.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] }, staffType: "Teaching" }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, designation: true } }),
+    tx.staff.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] }, staffType: "Teaching", ...inCampus(limit) }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, designation: true } }),
     tx.section.findMany({ where: { academicYearId: yearId, archivedAt: null, classTeacherId: { not: null } }, select: { classTeacherId: true, name: true, schoolClass: { select: { name: true } } } }),
   ]);
   return staff.map((s) => {

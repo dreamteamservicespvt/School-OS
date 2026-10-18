@@ -6,14 +6,20 @@
 //   Teacher Allocation; results and analysis of their own sections.
 // - Class Teacher (Own): as a teacher, plus remarks and report cards of
 //   their own section.
+// A person limited to one campus ("One campus" in Users & Permissions) sees
+// only that campus's sections and the exams of that campus's years.
 import "server-only";
 
 import type { Tx } from "../db";
 import type { Current } from "../current";
 import { reachFor } from "../permissions";
 import { staffForUser } from "../people";
+import { campusSectionIds } from "../campus";
+import { campusYearIds } from "../academic/page-campus";
+import { ExamRuleError } from "./common";
 
-export type Who = Pick<Current, "permissions" | "roles" | "ctx" | "features">;
+/** The signed-in person (Current satisfies it). `campusId`: the campus their access is limited to; null or left out for the whole school. */
+export type Who = Pick<Current, "permissions" | "roles" | "ctx" | "features"> & { campusId?: string | null };
 
 export type ExamScope = {
   see: "all" | "own";
@@ -26,8 +32,12 @@ export type ExamScope = {
   /** May publish results (Exam Settings, "who can publish results"). */
   publish: boolean;
   staffId: string | null;
-  /** Sections whose results, report cards and datesheets this person sees; null = every section. */
+  /** Sections whose results, report cards and datesheets this person sees; null = every section (of every campus). */
   sectionIds: string[] | null;
+  /** The academic years of the campus this person is limited to (an exam belongs to a year); null = the whole school. */
+  yearIds: string[] | null;
+  /** The campus this person is limited to ("One campus"); null = the whole school. */
+  campusId: string | null;
   /** Subject and section pairs this person enters marks for; null = every paper. */
   teaches: { sectionId: string; subjectId: string }[] | null;
   /** Sections this person is class teacher of (remarks, report cards). */
@@ -66,6 +76,15 @@ export async function examScope(tx: Tx, who: Who, yearId: string | null): Promis
     sectionIds = [];
   }
 
+  // One campus: only that campus's sections, papers and class-teacher duties.
+  const campusSections = await campusSectionIds(tx, who);
+  if (campusSections) {
+    const mine = new Set(campusSections);
+    classTeacherOf = classTeacherOf.filter((id) => mine.has(id));
+    if (teaches) teaches = teaches.filter((t) => mine.has(t.sectionId));
+    if (sectionIds) sectionIds = sectionIds.filter((id) => mine.has(id));
+  }
+
   let publish = false;
   if (manage) {
     const settings = await tx.examSettings.findUnique({ where: { schoolId: who.ctx.schoolId }, select: { publishRoles: true } });
@@ -80,8 +99,10 @@ export async function examScope(tx: Tx, who: Who, yearId: string | null): Promis
     datesheets: manage || (office && change !== "none"),
     publish,
     staffId: staff?.id ?? null,
-    // Office Staff prepare datesheets and admit cards for every class.
-    sectionIds: office ? null : sectionIds,
+    // Office Staff prepare datesheets and admit cards for every class (of their campus, when limited to one).
+    sectionIds: office ? campusSections : sectionIds ?? campusSections,
+    yearIds: await campusYearIds(tx, who.ctx, who),
+    campusId: who.campusId ?? null,
     teaches: office ? [] : teaches,
     classTeacherOf,
     results: !office || manage,
@@ -94,7 +115,7 @@ export async function examScope(tx: Tx, who: Who, yearId: string | null): Promis
 /** May this person enter marks for this subject in this section? Server check (08 §5). */
 export function teachesPaper(scope: ExamScope, sectionId: string, subjectId: string) {
   if (scope.office && !scope.manage) return false;
-  if (scope.teaches === null) return true;
+  if (scope.teaches === null) return seesSection(scope, sectionId);
   return scope.teaches.some((t) => t.sectionId === sectionId && t.subjectId === subjectId);
 }
 
@@ -116,7 +137,37 @@ export function seesSection(scope: ExamScope, sectionId: string) {
 
 /** Remarks and report cards: full reach, or the class teacher of the section. */
 export function writesReportCards(scope: ExamScope, sectionId: string) {
-  return scope.manage || scope.classTeacherOf.includes(sectionId);
+  return (scope.manage && seesSection(scope, sectionId)) || scope.classTeacherOf.includes(sectionId);
+}
+
+/** Exams of the years this person sees (every year, unless limited to one campus): for where-clauses on Exam. */
+export function examInScope(scope: Pick<ExamScope, "yearIds">): { academicYearId?: { in: string[] } } {
+  return scope.yearIds ? { academicYearId: { in: scope.yearIds } } : {};
+}
+
+/** Is this year one this person sees (an exam's or a section's year)? */
+export function seesYear(scope: Pick<ExamScope, "yearIds">, academicYearId: string) {
+  return scope.yearIds === null || scope.yearIds.includes(academicYearId);
+}
+
+/** A section, exam or paper of another campus is "not found" for a person limited to one campus, so it stays unknown. */
+export function assertYearInScope(scope: Pick<ExamScope, "yearIds">, academicYearId: string | null | undefined, what = "exam") {
+  if (academicYearId && !seesYear(scope, academicYearId)) throw new ExamRuleError(`This ${what} was not found.`);
+}
+
+const YEAR_OF = {
+  exam: async (tx: Tx, id: string) => (await tx.exam.findFirst({ where: { id }, select: { academicYearId: true } }))?.academicYearId,
+  paper: async (tx: Tx, id: string) => (await tx.datesheetEntry.findFirst({ where: { id }, select: { exam: { select: { academicYearId: true } } } }))?.exam.academicYearId,
+  section: async (tx: Tx, id: string) => (await tx.section.findFirst({ where: { id }, select: { academicYearId: true } }))?.academicYearId,
+};
+
+/**
+ * For an id from a form or a link: refuses an exam, paper (datesheet entry) or section of another campus than the
+ * person's with the not-found words. Whole-school people, and ids that do not exist, pass (the work says not found).
+ */
+export async function assertInScope(tx: Tx, scope: Pick<ExamScope, "yearIds">, kind: keyof typeof YEAR_OF, id: string | null | undefined) {
+  if (!scope.yearIds || !id || !/^[0-9a-f-]{36}$/i.test(id)) return;
+  assertYearInScope(scope, await YEAR_OF[kind](tx, id), kind);
 }
 
 /** Optional parts switched on in Exam Settings (P19). */
@@ -132,4 +183,10 @@ export type ExamFeature = (typeof EXAM_FEATURES)[number]["key"];
 
 export function examFeatureOn(who: Pick<Current, "features">, key: ExamFeature) {
   return who.features.has(key);
+}
+
+/** Is this class one of the person's campus? Always, for the whole school. (Questions and papers belong to a class.) */
+export async function classInScope(tx: Tx, scope: Pick<ExamScope, "campusId">, classId: string) {
+  if (!scope.campusId) return true;
+  return (await tx.schoolClass.count({ where: { id: classId, campusId: scope.campusId } })) > 0;
 }

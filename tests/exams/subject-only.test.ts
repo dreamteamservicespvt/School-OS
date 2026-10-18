@@ -28,8 +28,10 @@ import { resultSheet } from "@/lib/exams/results";
 import { analyse, studentsBehind } from "@/lib/exams/analysis";
 import { examSettings } from "@/lib/exams/settings";
 import { GET as exportGet } from "@/app/(school)/examination-results/export/route";
+import { GET as reportCardPdf } from "@/app/(school)/examination-results/report-cards/pdf/route";
 import { academicSchool, d } from "../academic/fixture";
 import { addStudent } from "../students/fixtures";
+import { makeUser } from "../helpers";
 
 let s: Awaited<ReturnType<typeof academicSchool>>;
 let principal: ExamScope;
@@ -129,5 +131,33 @@ describe("the export refuses what the teacher may not see", () => {
     const head = (await res.text()).split("\n").find((l) => l.includes("Roll")) ?? "";
     expect(head).toContain("English");
     expect(head).toContain("Total");
+  });
+});
+
+describe("one student's report card PDF (G02)", () => {
+  const card = (sectionId: string, studentId: string) => reportCardPdf(new Request(`http://localhost/examination-results/report-cards/pdf?section=${sectionId}&period=exam:${examId}&student=${studentId}`));
+
+  it("is refused to a subject teacher who is not the class teacher, with the whole card's subjects, total and rank", async () => {
+    who.current = teacherCurrent;
+    const res = await card(s.s5b.id, in5b[0]);
+    expect(res.status).toBe(400);
+    expect(await res.text()).toMatch(/Only the class teacher of .*5 B/);
+  });
+
+  it("is refused to Office Staff, who see no results", async () => {
+    const office = await makeUser({ schools: [{ id: s.school.id, roleKeys: ["office-staff"] }], name: "Office Person" });
+    await s.run((tx) => tx.role.updateMany({ where: { key: "office-staff" }, data: { isEnabled: true } }));
+    who.current = await s.currentFor(office.id);
+    const res = await card(s.s5a.id, in5a[0]);
+    expect(res.status).toBe(400);
+    expect(await res.text()).toMatch(/Only the class teacher of/);
+  });
+
+  it("is not refused to the class teacher of the section or the Principal", async () => {
+    for (const [c, sectionId, studentId] of [[teacherCurrent, s.s5a.id, in5a[0]], [principalCurrent, s.s5b.id, in5b[0]]] as const) {
+      who.current = c;
+      const text = await (await card(sectionId, studentId)).clone().text().catch(() => "");
+      expect(text).not.toMatch(/Only the class teacher of/);
+    }
   });
 });

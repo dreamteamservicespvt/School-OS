@@ -67,6 +67,8 @@ export async function makeDraft(tx: Tx, ctx: SchoolContext, yearId: string, camp
   const existing = await draftVersion(tx, yearId);
   if (existing) return { version: existing, created: false };
   const year = await tx.academicYear.findUniqueOrThrow({ where: { id: yearId } });
+  // A Time Table belongs to its year's campus (each campus has its own years and period master).
+  if (year.campusId !== campusId) throw new AcademicRuleError("This academic year was not found.");
   const from = await publishedVersionForYear(tx, yearId, today);
   const version = await tx.timetableVersion.create({
     data: { schoolId: ctx.schoolId, academicYearId: yearId, campusId, name: `Time Table ${year.name}, draft of ${formatDate(today)}`, status: "DRAFT", createdById: ctx.userId },
@@ -356,6 +358,8 @@ export async function copyToYear(tx: Tx, ctx: SchoolContext, fromVersionId: stri
     tx.section.findMany({ where: { academicYearId: toYearId, archivedAt: null } }),
     tx.academicYear.findUniqueOrThrow({ where: { id: toYearId } }),
   ]);
+  // Copied only into a year of the same campus: another campus has its own sections and periods.
+  if (toYear.campusId !== from.campusId) throw new AcademicRuleError("This academic year was not found.", "toYearId");
   const map = new Map<string, string>();
   for (const o of oldSections) {
     const n = newSections.find((s) => s.classId === o.classId && s.name === o.name);

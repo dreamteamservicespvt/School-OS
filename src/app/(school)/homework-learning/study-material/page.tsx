@@ -56,7 +56,8 @@ async function StaffMaterial({ p, sp }: { p: HomeworkPage; sp: Sp }) {
     if (!pick) return { courses, pick: null };
     const detail = pick.id ? await courseDetail(tx, s, pick.id) : null;
     const lessons = detail?.lessons ?? [];
-    const chapters = (doing === "add" || doing === "edit") && pick.canWork && s.yearId ? await chaptersFor(tx, s.yearId, pick, p.today) : [];
+    // The syllabus of the course's own year (each campus has its own).
+    const chapters = (doing === "add" || doing === "edit") && pick.canWork && pick.yearId ? await chaptersFor(tx, pick.yearId, pick, p.today) : [];
     const who = whoId ? await lessonViewers(tx, s, whoId) : null;
     return { courses, pick, lessons, chapters, who };
   });

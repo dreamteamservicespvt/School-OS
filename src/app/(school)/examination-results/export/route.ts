@@ -8,9 +8,9 @@ import { formatDate } from "@/lib/format";
 import { PermissionDeniedError } from "@/lib/permissions";
 import { dateWhere, momentWhere, periodFromSearch } from "@/lib/periods";
 import { time12 } from "@/lib/academic/common";
-import { chosenYear } from "@/lib/academic/years";
+import { pageYear } from "@/lib/academic/page-campus";
 import { PAPER_STATUS_WORDS, classRange, patternLabel, shownExamStatus, showMarks } from "@/lib/exams/common";
-import { examScope, resultSubjects, type ExamScope } from "@/lib/exams/scope";
+import { examInScope, examScope, resultSubjects, type ExamScope } from "@/lib/exams/scope";
 import { papersFor, moderationList } from "@/lib/exams/marks";
 import { finalSheet, resultSheet } from "@/lib/exams/results";
 import { analyse } from "@/lib/exams/analysis";
@@ -33,7 +33,8 @@ export async function GET(req: Request) {
   }
   const dates = await periodSetup(current);
   const built = await withSchool(current.ctx, async (tx) => {
-    const year = await chosenYear(tx, current.ctx, p.get("year"));
+    // The chosen year, else the person's own campus's; never another campus's for a person limited to one campus.
+    const { year } = await pageYear(tx, current.ctx, current, p.get("year"));
     if (!year) return null;
     const scope = await examScope(tx, current, year.id);
     const out = await build(tx, current, scope, year.id, p, dates);
@@ -115,7 +116,7 @@ async function build(tx: Tx, current: Current, scope: ExamScope, yearId: string,
     const only = resultSubjects(scope, sectionId);
     if (kind === "result-sheet") {
       const examId = p.get("exam") ?? "";
-      if (!UUID.test(examId)) return null;
+      if (!UUID.test(examId) || !(await tx.exam.findFirst({ where: { id: examId, ...examInScope(scope) }, select: { id: true } }))) return null;
       const sheet = await resultSheet(tx, current.ctx, examId, sectionId, only);
       if (!sheet) return null;
       const overall = only === null ? ["Total", "%", "Grade", "Rank", "Result"] : [];
@@ -154,7 +155,7 @@ async function build(tx: Tx, current: Current, scope: ExamScope, yearId: string,
       subjectId: UUID.test(subjectId) ? subjectId : null,
     });
     if (!a) return null;
-    const title = exam === "final" ? "Final result" : (await tx.exam.findFirst({ where: { id: exam }, select: { title: true } }))?.title ?? "Exam";
+    const title = exam === "final" ? "Final result" : (await tx.exam.findFirst({ where: { id: exam, ...examInScope(scope) }, select: { title: true } }))?.title ?? "Exam";
     const rows = a.subjectRows.map((r) => ({ Subject: r.subject, Section: r.section, Teacher: r.teacher, Students: r.students, "Average %": r.average, "Pass %": r.passPercent, Failed: r.failed, Absent: r.absent }));
     return { title: `Exam analysis · ${title}`, filters: classRange(a.sections.map((x) => x.label)), labels: ["Subject", "Section", "Teacher", "Students", "Average %", "Pass %", "Failed", "Absent"], rows };
   }

@@ -38,10 +38,11 @@ function DayChecks({ name, label, chosen, help, error, only }: { name: string; l
 
 // ---------------------------------------------------------------- years
 
-export function NewYearButton({ years, suggested, presets }: { years: Opt[]; suggested: { name: string; start: string; end: string }; presets: readonly Opt[] }) {
+/** `pageYearId` (on the forms below): the page's year, so the change is made on that year's campus. */
+export function NewYearButton({ years, suggested, presets, pageYearId }: { years: Opt[]; suggested: { name: string; start: string; end: string }; presets: readonly Opt[]; pageYearId: string }) {
   const [copy, setCopy] = useState(years[0]?.value ?? "");
   return (
-    <FormDialog trigger="Start a new year" triggerVariant="primary" title="Start a new academic year" action={createYearAction} submitLabel="Create year">
+    <FormDialog trigger="Start a new year" triggerVariant="primary" title="Start a new academic year" action={createYearAction} submitLabel="Create year" hidden={{ pageYearId }}>
       {(state) => (
         <>
           <TextField label="Name" name="name" required defaultValue={v(state, "name", suggested.name)} error={err(state, "name")} />
@@ -183,10 +184,11 @@ export function FinancialYearButton({ suggested }: { suggested: { name: string; 
 
 // ---------------------------------------------------------------- timings and rules
 
-export function TimingsForm({ s }: { s: { dayStart: string; dayEnd: string; workingDays: number[]; halfDays: number[]; halfDayEnd: string | null; maxPeriodsPerDay: number; maxPeriodsPerWeek: number; maxConsecutive: number; autoSubstitutions: boolean } }) {
+export function TimingsForm({ s, pageYearId }: { s: { dayStart: string; dayEnd: string; workingDays: number[]; halfDays: number[]; halfDayEnd: string | null; maxPeriodsPerDay: number; maxPeriodsPerWeek: number; maxConsecutive: number; autoSubstitutions: boolean }; pageYearId: string }) {
   const [state, action] = useActionState(saveTimingsAction, null);
   return (
     <form action={action} className="space-y-6" noValidate>
+      <input type="hidden" name="pageYearId" value={pageYearId} />
       <FormMessage state={state} />
       <section className="space-y-4 rounded-2xl border border-line bg-surface p-4">
         <h2 className="font-semibold">School timings and working days</h2>
@@ -217,10 +219,10 @@ export function TimingsForm({ s }: { s: { dayStart: string; dayEnd: string; work
   );
 }
 
-export function SlotButton({ slot, workingDays, nextNumber }: { slot?: { id: string; label: string; number: number; startTime: string; endTime: string; isBreak: boolean; days: number[] }; workingDays: number[]; nextNumber: number }) {
+export function SlotButton({ slot, workingDays, nextNumber, pageYearId }: { slot?: { id: string; label: string; number: number; startTime: string; endTime: string; isBreak: boolean; days: number[] }; workingDays: number[]; nextNumber: number; pageYearId: string }) {
   const [isBreak, setIsBreak] = useState(slot?.isBreak ?? false);
   return (
-    <FormDialog trigger={slot ? "Edit" : "Add period or break"} triggerVariant={slot ? "ghost" : "primary"} triggerSize={slot ? "sm" : "md"} title={slot ? `Edit ${slot.label}` : "Add a period or break"} action={saveSlotAction} submitLabel="Save" hidden={{ id: slot?.id ?? "" }}>
+    <FormDialog trigger={slot ? "Edit" : "Add period or break"} triggerVariant={slot ? "ghost" : "primary"} triggerSize={slot ? "sm" : "md"} title={slot ? `Edit ${slot.label}` : "Add a period or break"} action={saveSlotAction} submitLabel="Save" hidden={{ id: slot?.id ?? "", pageYearId }}>
       {(state) => (
         <>
           <CheckboxField label="Lunch or break" name="isBreak" checked={isBreak} onChange={(e) => setIsBreak(e.target.checked)} />
@@ -339,9 +341,9 @@ export function FeatureToggle({ featureKey, label, help, on }: { featureKey: str
   );
 }
 
-export function RoomButton() {
+export function RoomButton({ pageYearId }: { pageYearId: string }) {
   return (
-    <FormDialog trigger="Add room or lab" triggerVariant="primary" title="Add a room or lab" action={addRoomAction} submitLabel="Add">
+    <FormDialog trigger="Add room or lab" triggerVariant="primary" title="Add a room or lab" action={addRoomAction} submitLabel="Add" hidden={{ pageYearId }}>
       {(state) => (
         <>
           <TextField label="Name" name="name" required defaultValue={v(state, "name")} placeholder="Chemistry lab" error={err(state, "name")} />

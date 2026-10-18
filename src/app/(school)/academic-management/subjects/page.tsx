@@ -27,8 +27,10 @@ export default async function SubjectsPage({ searchParams }: { searchParams: Sea
   const electivesOn = featureOn(page.current, "academic-electives");
   const view = ["class", "electives"].includes(one(raw.view)) && (one(raw.view) !== "electives" || electivesOn) ? one(raw.view) : "list";
   const canEdit = page.scope.manage && page.writable;
+  // The page's campus already limits a person who sees every class (One campus too).
+  const only = page.scope.see === "own" ? page.scope.sectionIds : null;
   const classes = await withSchool(page.current.ctx, (tx) => tx.schoolClass.findMany({
-    where: { campusId: page.campusId, archivedAt: null, ...(page.scope.sectionIds ? { sections: { some: { id: { in: page.scope.sectionIds } } } } : {}) },
+    where: { campusId: page.campusId, archivedAt: null, ...(only ? { sections: { some: { id: { in: only } } } } : {}) },
     orderBy: { sortOrder: "asc" }, select: { id: true, name: true },
   }));
   const views = [{ value: "list", label: "Subject list" }, { value: "class", label: "By class" }, ...(electivesOn ? [{ value: "electives", label: "Elective choices" }] : [])];
@@ -61,7 +63,8 @@ async function SubjectList({ raw, page, canEdit }: P) {
       tx.subject.findMany({
         where, ...skipTake(params),
         orderBy: orderByFor(params, { name: 1, code: 1, type: 1 }, { name: "asc" }) as Prisma.SubjectOrderByWithRelationInput,
-        include: { classes: { where: { archivedAt: null, OR: [{ toDate: null }, { toDate: { gte: page.today } }] }, include: { schoolClass: { select: { name: true, sortOrder: true, archivedAt: true } } } } },
+        // The classes of the page's campus (subjects are the whole school's; each campus maps its own classes).
+        include: { classes: { where: { archivedAt: null, OR: [{ toDate: null }, { toDate: { gte: page.today } }], schoolClass: { campusId: page.campusId } }, include: { schoolClass: { select: { name: true, sortOrder: true, archivedAt: true } } } } },
       }),
       tx.subject.count({ where }),
     ]);
@@ -87,7 +90,7 @@ async function SubjectList({ raw, page, canEdit }: P) {
         empty={params.q || params.filters.type || params.archived
           ? <EmptyState title="No subjects match">Try another search or remove a filter.</EmptyState>
           : <EmptyState title="No subjects yet">Add the subjects you teach, such as English, Mathematics and Science, and the classes they are taught in.</EmptyState>} />
-      <div className="mt-4"><ExportLinks href={`/academic-management/export?kind=subjects${params.q ? `&q=${encodeURIComponent(params.q)}` : ""}${params.filters.type ? `&type=${params.filters.type}` : ""}`} label="Subjects" /></div>
+      <div className="mt-4"><ExportLinks href={`/academic-management/export?kind=subjects${params.q ? `&q=${encodeURIComponent(params.q)}` : ""}${params.filters.type ? `&type=${params.filters.type}` : ""}${page.yearQuery ? `&${page.yearQuery}` : ""}`} label="Subjects" /></div>
     </>
   );
 }

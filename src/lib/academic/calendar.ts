@@ -38,9 +38,14 @@ export async function dayOff(tx: Tx, ctx: SchoolContext, date: Date, campusId: s
   return null;
 }
 
-/** Exam days on the calendar (from published datesheets, A10) that cover the date. */
-export async function examDayOn(tx: Tx, ctx: SchoolContext, date: Date) {
-  return tx.calendarEntry.findFirst({ where: { schoolId: ctx.schoolId, archivedAt: null, type: "exam_day", startDate: { lte: date }, endDate: { gte: date } } });
+/** Exam days on the calendar (from published datesheets, A10) that cover the date: the whole school's and, given a campus, that campus's. */
+export async function examDayOn(tx: Tx, ctx: SchoolContext, date: Date, campusId?: string | null) {
+  return tx.calendarEntry.findFirst({
+    where: {
+      schoolId: ctx.schoolId, archivedAt: null, type: "exam_day", startDate: { lte: date }, endDate: { gte: date },
+      ...(campusId ? { OR: [{ campusId: null }, { campusId }] } : {}),
+    },
+  });
 }
 
 /** Holidays and vacations between two dates, for lists and reports. */

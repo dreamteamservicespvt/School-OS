@@ -23,7 +23,7 @@ export default async function SeatingPage({ params, searchParams }: { params: Pr
   if (!(page.scope.datesheets || page.scope.manage)) redirect("/no-access");
   if (!page.current.features.has("exam-seating")) redirect(`/examination-results/datesheet/${id}`);
   const data = await withSchool(page.current.ctx, async (tx) => {
-    const d = await examDetail(tx, id);
+    const d = await examDetail(tx, id, { scope: page.scope });
     if (!d) return null;
     const list = await sittings(tx, id);
     const chosen = list.find((s) => s.key === one(raw.sitting)) ?? list[0];

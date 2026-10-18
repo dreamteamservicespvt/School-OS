@@ -10,14 +10,19 @@ import type { Tx } from "../db";
 import { writeAudit } from "../audit";
 import { notify } from "../notifications";
 import { HomeworkProblem } from "./access";
-import { requireDesk, requireYearOpen, shortSection, type HomeworkScope } from "./scope";
+import { inYears, onCampus, requireDesk, requireYearOpen, shortSection, type HomeworkScope } from "./scope";
 
 export const HIDE_REASONS = ["Not about the subject", "Unkind words", "Personal details shared", "Answers to a test"] as const;
 
-/** The boards this person may see. Staff only boards stay hidden from students. */
+/**
+ * The boards this person may see: of each campus's current year (only their
+ * campus's when limited to one campus, and then only its classes' boards and
+ * boards for no class). Staff only boards stay hidden from students.
+ */
 export function boardWhere(s: HomeworkScope): Prisma.DiscussionBoardWhereInput {
-  const base: Prisma.DiscussionBoardWhereInput = { archivedAt: null, OR: [{ academicYearId: null }, { academicYearId: s.yearId ?? undefined }] };
-  if (s.level === "full") return base;
+  const years = inYears(s);
+  const base: Prisma.DiscussionBoardWhereInput = { archivedAt: null, OR: [{ academicYearId: null }, years ? { academicYearId: years } : {}] };
+  if (s.level === "full") return s.campusSections ? { AND: [base, { OR: [{ sectionId: null }, { sectionId: { in: s.campusSections } }] }] } : base;
   if (s.level === "student") {
     // Their own section's boards, and boards for the whole school open to students.
     return { AND: [base, { audience: "all", visible: true, OR: [{ sectionId: s.student?.sectionId ?? "00000000-0000-0000-0000-000000000000" }, { sectionId: null }] }] };
@@ -38,13 +43,21 @@ function checkBoard(input: BoardInput) {
 
 export async function createBoard(tx: Tx, s: HomeworkScope, input: BoardInput) {
   requireDesk(s, "discussions");
-  requireYearOpen(s);
+  // A board for a class belongs to the class's own year (each campus has its own); a board for no class, to the person's own year.
+  requireYearOpen(s, input.sectionId ? undefined : s.yearId);
   const title = checkBoard(input);
+  let yearId = s.yearId;
+  if (input.sectionId) {
+    const section = await tx.section.findFirst({ where: { id: input.sectionId, academicYearId: { in: s.yearIds } }, select: { academicYearId: true } });
+    if (!section || !onCampus(s, input.sectionId)) throw new HomeworkProblem("Choose one of your own classes.", "sectionId");
+    requireYearOpen(s, section.academicYearId);
+    yearId = section.academicYearId;
+  }
   if (input.sectionId && s.level === "own" && !(s.sectionIds ?? []).includes(input.sectionId)) throw new HomeworkProblem("Choose one of your own classes.", "sectionId");
   if (input.sectionId && input.subjectId && s.level === "own" && !s.pairs.some((p) => p.sectionId === input.sectionId && p.subjectId === input.subjectId) && !s.ctSections.includes(input.sectionId)) throw new HomeworkProblem("You do not teach this subject to that class.", "subjectId");
   if (!input.sectionId && input.audience === "all" && s.level === "own") throw new HomeworkProblem("A board for students needs a class. Choose the class, or make it for staff only.", "sectionId");
   const b = await tx.discussionBoard.create({
-    data: { schoolId: s.ctx.schoolId, academicYearId: s.yearId, title, sectionId: input.sectionId, subjectId: input.sectionId ? input.subjectId : input.subjectId, description: input.description?.trim() || null, audience: input.audience, active: input.active, visible: input.visible, ownerId: s.ctx.userId, ownerName: s.name },
+    data: { schoolId: s.ctx.schoolId, academicYearId: yearId, title, sectionId: input.sectionId, subjectId: input.sectionId ? input.subjectId : input.subjectId, description: input.description?.trim() || null, audience: input.audience, active: input.active, visible: input.visible, ownerId: s.ctx.userId, ownerName: s.name },
   });
   await writeAudit(tx, s.ctx, { action: "created", recordType: "Discussion Board", recordId: b.id, after: { title, audience: input.audience, active: input.active } });
   return b;

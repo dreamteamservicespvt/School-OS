@@ -6,7 +6,7 @@ import { PermissionDeniedError } from "@/lib/permissions";
 import { formatDate } from "@/lib/format";
 import { esc, htmlToPdf } from "@/lib/pdf";
 import { examDetail } from "@/lib/exams/datesheet";
-import { examScope } from "@/lib/exams/scope";
+import { examScope, seesYear } from "@/lib/exams/scope";
 import { writeAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +25,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     const d = await examDetail(tx, id);
     if (!d) return null;
     const scope = await examScope(tx, current, d.exam.academicYearId);
+    if (!seesYear(scope, d.exam.academicYearId)) return null;
     if (scope.sectionIds) {
       const mine = await tx.section.findMany({ where: { id: { in: scope.sectionIds } }, select: { classId: true } });
       if (!d.exam.classIds.some((c) => mine.some((m) => m.classId === c))) return null;

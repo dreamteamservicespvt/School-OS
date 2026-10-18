@@ -8,6 +8,7 @@ import "server-only";
 import Link from "next/link";
 import { withSchool } from "../db";
 import { todayIn } from "../academic/common";
+import { studentYear } from "../academic/years";
 import { registerProfileTab, type ProfileTabArgs, type SummaryItem } from "../students/profile-tabs";
 import { homeworkLevel } from "./access";
 import { studentHomework } from "./progress";
@@ -32,7 +33,8 @@ async function load({ current, studentId, academicYearId }: ProfileTabArgs): Pro
   const today = todayIn(current.school.timeZone);
   return withSchool(current.ctx, async (tx) => {
     const s = await homeworkScope(tx, current, today);
-    const yearId = academicYearId ?? s.yearId;
+    // The year shown on the profile, else the student's own campus's current year. Another campus's homework is never read.
+    const yearId = academicYearId ?? (await studentYear(tx, current.ctx, studentId))?.id ?? null;
     const all = (await studentHomework(tx, studentId, yearId, 400)).filter((x) => mayRead(s, x.homework));
     if (!all.length) return null;
     const scored = all.filter((x) => x.score !== null && x.homework.maxMarks > 0);

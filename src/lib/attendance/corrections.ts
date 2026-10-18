@@ -10,7 +10,7 @@ import { writeAudit } from "../audit";
 import { requestApproval, type Decision } from "../approvals";
 import { formatDate } from "../format";
 import { isoDay } from "../staff/dates";
-import { AttendanceProblem, NotYoursError, type AttendanceAccess } from "./access";
+import { AttendanceProblem, NotYoursError, sectionAllowed, staffLimit, type AttendanceAccess } from "./access";
 import { statusList } from "./settings";
 import { dayInfo, offDayMessage } from "./calendar";
 import { absentKeys, nextReason, reasonsOn } from "./absence-reasons";
@@ -69,7 +69,7 @@ export async function requestCorrection(tx: Tx, ctx: SchoolContext, access: Atte
   if (input.forWhom === "student") {
     if (!input.sectionId) throw new AttendanceProblem("Choose the class.", "sectionId");
     const section = await tx.section.findFirst({ where: { id: input.sectionId, archivedAt: null }, include: { schoolClass: { select: { name: true, campusId: true } } } });
-    if (!section) throw new AttendanceProblem("This class was not found.", "sectionId");
+    if (!section || !sectionAllowed(access, section.id)) throw new AttendanceProblem("This class was not found.", "sectionId");
     // The daily register is the class teacher's; a subject teacher corrects only their period (as in Take Attendance).
     const mine = access.students === "all" || access.classSections.includes(section.id) || (input.periodNo > 0 && access.teachingSections.includes(section.id));
     if (!mine || access.change === "none") throw new NotYoursError();
@@ -87,7 +87,8 @@ export async function requestCorrection(tx: Tx, ctx: SchoolContext, access: Atte
   } else {
     if (access.staff !== "all" || access.change === "none") throw new AttendanceProblem("Only HR, the School Admin or the Principal can correct staff attendance.");
     if (input.date > (input.today ?? utcToday())) throw new AttendanceProblem(`${dayText(input.date)} has not come yet. A correction is for today or an earlier day.`, "date");
-    const staff = await tx.staff.findMany({ where: { id: { in: input.changes.map((c) => c.id) }, archivedAt: null }, select: { id: true, fullName: true } });
+    // A person limited to one campus corrects only that campus's staff (and their own record).
+    const staff = await tx.staff.findMany({ where: { AND: [{ id: { in: input.changes.map((c) => c.id) }, archivedAt: null }, staffLimit(access)] }, select: { id: true, fullName: true } });
     const marks = await tx.attendanceMark.findMany({ where: { staffId: { in: input.changes.map((c) => c.id) }, date: input.date, periodNo: 0, archivedAt: null } });
     for (const c of input.changes) {
       const s = staff.find((x) => x.id === c.id);
@@ -127,7 +128,12 @@ export async function applyCorrection(tx: Tx, ctx: SchoolContext, correctionId: 
   const c = await tx.attendanceCorrection.findUniqueOrThrow({ where: { id: correctionId } });
   const entries = c.entries as CorrectionEntry[];
   const section = c.sectionId ? await tx.section.findUnique({ where: { id: c.sectionId } }) : null;
-  const year = section ? { id: section.academicYearId } : await tx.academicYear.findFirst({ where: { schoolId: ctx.schoolId, startDate: { lte: c.date }, endDate: { gte: c.date }, archivedAt: null } });
+  // A mark's year is its campus's year: the section's, or (staff) the year of the staff member's campus on that date.
+  const yearOf = async (e: CorrectionEntry) => {
+    if (section) return { id: section.academicYearId };
+    const staff = c.forWhom === "staff" ? await tx.staff.findFirst({ where: { id: e.id }, select: { campusId: true } }) : null;
+    return tx.academicYear.findFirst({ where: { schoolId: ctx.schoolId, startDate: { lte: c.date }, endDate: { gte: c.date }, archivedAt: null, ...(staff ? { campusId: staff.campusId } : {}) } });
+  };
   const changed: { name: string; before: string | null; after: string }[] = [];
   // Absence reasons: a student corrected to absent gets "Not known yet" (when reasons are on); corrected away from absent, none.
   const students = c.forWhom === "student";
@@ -140,7 +146,7 @@ export async function applyCorrection(tx: Tx, ctx: SchoolContext, correctionId: 
       await tx.attendanceMark.update({ where: { id: mark.id }, data: { statusKey: e.to, note: e.note ?? mark.note, markedById: ctx.userId, markedAt: new Date(), method: mark.method, ...reason } });
     } else {
       await tx.attendanceMark.create({
-        data: { schoolId: ctx.schoolId, academicYearId: year?.id ?? null, ...where, sectionId: c.sectionId, date: c.date, periodNo: c.periodNo, statusKey: e.to, note: e.note, method: "register", markedById: ctx.userId, locked: true, ...reason },
+        data: { schoolId: ctx.schoolId, academicYearId: (await yearOf(e))?.id ?? null, ...where, sectionId: c.sectionId, date: c.date, periodNo: c.periodNo, statusKey: e.to, note: e.note, method: "register", markedById: ctx.userId, locked: true, ...reason },
       });
     }
     changed.push({ name: e.name, before: mark?.statusKey ?? null, after: e.to });

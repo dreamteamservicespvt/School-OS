@@ -8,7 +8,7 @@ import type { SchoolContext, Tx } from "../db";
 import type { DayRange } from "../periods";
 import { dateWhere } from "../periods";
 import { UUID_RE } from "../staff/act";
-import type { AttendanceAccess } from "./access";
+import { limitStudentIds, type AttendanceAccess } from "./access";
 import { registerChoices } from "./register";
 import { canDecideStudentLeave, quotaFor, quotaText, studentLeaveTypes } from "./student-leave";
 import { studentIdsForFilter } from "../students/find";
@@ -16,9 +16,13 @@ import { studentIdsForFilter } from "../students/find";
 export const LEAVE_STATUSES = ["WAITING", "APPROVED", "REJECTED", "CANCELLED"] as const;
 export type LeaveFilters = { q?: string; section?: string; type?: string; range?: DayRange | null; status: string; skip?: number; take?: number };
 
-/** Students in this person's reach for student leave: everyone (null) or their sections' students. */
-async function studentsInReach(tx: Tx, access: AttendanceAccess) {
-  if (access.studentLeave === "all") return null;
+/**
+ * Students in this person's reach for student leave: everyone (null), their
+ * campus's students when their access is limited to one campus, or their
+ * sections' students.
+ */
+export async function studentsInReach(tx: Tx, access: AttendanceAccess): Promise<string[] | null> {
+  if (access.studentLeave === "all") return limitStudentIds(tx, access);
   if (!access.yearId) return [];
   const sections = access.studentLeave === "own" ? access.classSections : [];
   return (await tx.enrolment.findMany({ where: { sectionId: { in: sections }, academicYearId: access.yearId, archivedAt: null }, select: { studentId: true } })).map((e) => e.studentId);
@@ -56,7 +60,8 @@ export async function describe(tx: Tx, ctx: SchoolContext, access: AttendanceAcc
   const studentIds = [...new Set(rows.map((r) => r.studentId!).filter(Boolean))];
   const [students, enrolments, users, types] = await Promise.all([
     tx.student.findMany({ where: { id: { in: studentIds } }, select: { id: true, fullName: true, admissionNo: true, photoFileId: true } }),
-    tx.enrolment.findMany({ where: { studentId: { in: studentIds }, archivedAt: null, ...(access.yearId ? { academicYearId: access.yearId } : {}) }, select: { studentId: true, sectionId: true, rollNo: true } }),
+    // Each student's class in their own campus's current year.
+    tx.enrolment.findMany({ where: { studentId: { in: studentIds }, archivedAt: null, ...(access.yearIds.length ? { academicYearId: { in: access.yearIds } } : {}) }, select: { studentId: true, sectionId: true, rollNo: true } }),
     tx.userLogin.findMany({ where: { id: { in: rows.flatMap((r) => [r.recordedById, r.decidedById]).filter((x): x is string => Boolean(x)) } }, select: { id: true, displayName: true } }),
     tx.leaveType.findMany({ where: { id: { in: [...new Set(rows.map((r) => r.leaveTypeId))] } }, select: { id: true, name: true } }),
   ]);

@@ -5,7 +5,7 @@ import { withSchool } from "@/lib/db";
 import { buildExport, exportResponse, logExport, type ExportFormat } from "@/lib/exports";
 import { formatDate, formatTime } from "@/lib/format";
 import { day, eachDay, isoDay, monthEnd, monthLabel, monthStart, todayIn } from "@/lib/staff/dates";
-import { attendanceAccess } from "@/lib/attendance/access";
+import { attendanceAccess, staffIdLimit, staffLimit } from "@/lib/attendance/access";
 import { attendanceSettings, METHOD_WORDS, statusList } from "@/lib/attendance/settings";
 import { staffDay } from "@/lib/attendance/staff";
 import { readMonth } from "@/lib/attendance/register";
@@ -33,7 +33,7 @@ export async function GET(req: Request) {
       if (access.staff !== "all") return new Response("Only HR, the School Admin or the Principal can export overtime.", { status: 403 });
       // The same dates as the Overtime list (This month when none is chosen).
       const range = periodFromSearch(Object.fromEntries(url.searchParams), { ...(await periodSetup(current)), fallback: "thismonth" });
-      const rows = await tx.overtimeEntry.findMany({ where: { archivedAt: null, ...(range ? { date: dateWhere(range) } : {}) }, orderBy: { date: "asc" } });
+      const rows = await tx.overtimeEntry.findMany({ where: { archivedAt: null, ...(range ? { date: dateWhere(range) } : {}), ...staffIdLimit(access) }, orderBy: { date: "asc" } });
       const staff = new Map((await tx.staff.findMany({ where: { id: { in: rows.map((r) => r.staffId) } }, select: { id: true, fullName: true, staffCode: true } })).map((s) => [s.id, s]));
       const words = range ? `Dates ${range.label}` : "All dates";
       const title = `Staff overtime${range ? ` ${range.label}` : ""}`;
@@ -52,7 +52,7 @@ export async function GET(req: Request) {
       const from = monthStart(m);
       const to = monthEnd(m);
       const staff = await tx.staff.findMany({
-        where: { archivedAt: null, joiningDate: { lte: to }, ...(access.staff === "all" ? { status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] } } : { id: access.staffId ?? "00000000-0000-0000-0000-000000000000" }) },
+        where: { archivedAt: null, joiningDate: { lte: to }, ...(access.staff === "all" ? { status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] }, AND: [staffLimit(access)] } : { id: access.staffId ?? "00000000-0000-0000-0000-000000000000" }) },
         orderBy: { fullName: "asc" }, select: { id: true, fullName: true, staffCode: true },
       });
       const [sum, days] = await Promise.all([

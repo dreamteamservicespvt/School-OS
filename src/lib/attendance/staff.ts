@@ -10,7 +10,7 @@ import { writeAudit } from "../audit";
 import { formatDate } from "../format";
 import { isoDay } from "../staff/dates";
 import { holidaySet, lopDates, onLeaveOn } from "../staff/leave";
-import { AttendanceProblem, BASE, type AttendanceAccess } from "./access";
+import { AttendanceProblem, BASE, staffAllowed, staffLimit, type AttendanceAccess } from "./access";
 import { dayInfo, OffDayError } from "./calendar";
 import { attendanceFeatures, attendanceSettings, statusList, statusMap, statusesFor, weightOf } from "./settings";
 import { instantAt, minutesOf, schoolDateOf } from "./time";
@@ -71,6 +71,8 @@ export async function staffDay(tx: Tx, ctx: SchoolContext, access: AttendanceAcc
   const where: Prisma.StaffWhereInput = {
     archivedAt: null, status: { in: [...ACTIVE_STAFF] }, joiningDate: { lte: date },
     ...(access.staff === "self" ? { id: access.staffId ?? "00000000-0000-0000-0000-000000000000" } : {}),
+    // Everyone means everyone on their campus when their access is limited to one.
+    ...(access.staff === "all" && access.campusLimit ? { AND: [staffLimit(access)] } : {}),
     ...(filters.departmentId ? { departmentId: filters.departmentId } : {}),
     ...(filters.q ? { OR: [{ fullName: { contains: filters.q, mode: "insensitive" } }, { staffCode: { contains: filters.q, mode: "insensitive" } }] } : {}),
   };
@@ -113,9 +115,15 @@ export async function saveStaffAttendance(tx: Tx, ctx: SchoolContext, access: At
   const valid = new Set(staffStatuses.map((s) => s.key));
   const absentKeys = new Set(staffStatuses.filter((s) => s.counts === "absent").map((s) => s.key));
   const ids = [...new Set(input.entries.map((e) => e.staffId))];
-  const staff = await tx.staff.findMany({ where: { id: { in: ids }, archivedAt: null }, select: { id: true, fullName: true, campusId: true } });
+  const staff = await tx.staff.findMany({ where: { AND: [{ id: { in: ids }, archivedAt: null }, staffLimit(access)] }, select: { id: true, fullName: true, campusId: true } });
   if (staff.length !== ids.length) throw new AttendanceProblem("One of the staff members was not found. Reload the page and save again.");
-  const year = await tx.academicYear.findFirst({ where: { schoolId: ctx.schoolId, startDate: { lte: input.date }, endDate: { gte: input.date }, archivedAt: null, ...(access.campusId ? { campusId: access.campusId } : {}) } });
+  // A mark's year is the year of the staff member's own campus on that date.
+  const years = new Map<string, string | null>();
+  for (const campusId of new Set(staff.map((s) => s.campusId))) {
+    const y = await tx.academicYear.findFirst({ where: { schoolId: ctx.schoolId, campusId, startDate: { lte: input.date }, endDate: { gte: input.date }, archivedAt: null }, select: { id: true } });
+    years.set(campusId, y?.id ?? null);
+  }
+  const yearOf = (staffId: string) => years.get(staff.find((s) => s.id === staffId)?.campusId ?? "") ?? null;
   const [existing, leave, shifts, fullDay] = await Promise.all([
     tx.attendanceMark.findMany({ where: { staffId: { in: ids }, date: input.date, periodNo: 0, archivedAt: null } }),
     onLeaveOn(tx, ctx, input.date, ids),
@@ -158,7 +166,7 @@ export async function saveStaffAttendance(tx: Tx, ctx: SchoolContext, access: At
     const b = existing.find((x) => x.staffId === c.staffId);
     const data = { statusKey: c.after, inTime: c.inTime, outTime: c.outTime, lateMinutes: c.late, note: c.note, markedById: ctx.userId, markedAt: input.now, leaveRequestId: c.after === "leave" ? fullLeave.get(c.staffId) ?? null : null };
     if (b) await tx.attendanceMark.update({ where: { id: b.id }, data: { ...data, method: b.method === "register" ? "register" : b.method } });
-    else await tx.attendanceMark.create({ data: { schoolId: ctx.schoolId, academicYearId: year?.id ?? null, staffId: c.staffId, date: input.date, periodNo: 0, method: "register", ...data } });
+    else await tx.attendanceMark.create({ data: { schoolId: ctx.schoolId, academicYearId: yearOf(c.staffId), staffId: c.staffId, date: input.date, periodNo: 0, method: "register", ...data } });
   }
   await writeAudit(tx, ctx, {
     action: lock.locked ? "staff-attendance-changed-after-lock" : "staff-attendance-saved", recordType: "Attendance Mark", recordId: null,
@@ -175,7 +183,7 @@ export async function recordOvertime(tx: Tx, ctx: SchoolContext, access: Attenda
   if (!(await attendanceFeatures(tx, ctx)).has("attendance-overtime")) throw new AttendanceProblem("Overtime is switched off. Switch it on in Attendance Settings.");
   if (!Number.isInteger(input.minutes) || input.minutes <= 0 || input.minutes > 16 * 60) throw new AttendanceProblem("Overtime must be between 15 minutes and 16 hours.", "hours");
   if (input.date > input.today) throw new AttendanceProblem("Overtime can be recorded for today or earlier days.", "date");
-  const staff = await tx.staff.findFirst({ where: { id: input.staffId, archivedAt: null } });
+  const staff = await tx.staff.findFirst({ where: { AND: [{ id: input.staffId, archivedAt: null }, staffLimit(access)] } });
   if (!staff) throw new AttendanceProblem("Choose the staff member.", "staffId");
   const row = await tx.overtimeEntry.create({ data: { schoolId: ctx.schoolId, staffId: staff.id, date: input.date, minutes: input.minutes, note: input.note, recordedById: ctx.userId } });
   await writeAudit(tx, ctx, { action: "created", recordType: "Overtime Entry", recordId: row.id, after: { staff: staff.fullName, date: isoDay(input.date), minutes: input.minutes, note: input.note } });
@@ -185,7 +193,7 @@ export async function recordOvertime(tx: Tx, ctx: SchoolContext, access: Attenda
 export async function archiveOvertime(tx: Tx, ctx: SchoolContext, access: AttendanceAccess, id: string) {
   if (access.staff !== "all" || access.change === "none") throw new AttendanceProblem("Only HR, the School Admin or the Principal can change overtime.");
   const row = await tx.overtimeEntry.findFirst({ where: { id, archivedAt: null } });
-  if (!row) throw new AttendanceProblem("This overtime entry was not found.");
+  if (!row || !staffAllowed(access, row.staffId)) throw new AttendanceProblem("This overtime entry was not found.");
   await tx.overtimeEntry.update({ where: { id }, data: { archivedAt: new Date() } });
   await writeAudit(tx, ctx, { action: "archived", recordType: "Overtime Entry", recordId: id, before: { minutes: row.minutes, date: isoDay(row.date) } });
 }
@@ -223,6 +231,7 @@ export async function setShiftArchived(tx: Tx, ctx: SchoolContext, access: Atten
 export async function assignShift(tx: Tx, ctx: SchoolContext, access: AttendanceAccess, input: { staffIds: string[]; shiftId: string; fromDate: Date }) {
   if (access.staff !== "all" || access.change === "none") throw new AttendanceProblem("Only HR, the School Admin or the Principal can assign shifts.");
   if (input.staffIds.length === 0) throw new AttendanceProblem("Choose at least one staff member.", "staffIds");
+  if (input.staffIds.some((id) => !staffAllowed(access, id))) throw new AttendanceProblem("One of the staff members was not found. Reload the page and try again.", "staffIds");
   const shift = await tx.staffShift.findFirst({ where: { id: input.shiftId, archivedAt: null } });
   if (!shift) throw new AttendanceProblem("Choose the shift.", "shiftId");
   const staff = await tx.staff.findMany({ where: { id: { in: input.staffIds }, archivedAt: null }, select: { id: true, fullName: true } });

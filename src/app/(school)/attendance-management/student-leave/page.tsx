@@ -12,7 +12,7 @@ import { isoDay, monthStart } from "@/lib/staff/dates";
 import { attendancePage } from "@/lib/attendance/page";
 import { BASE } from "@/lib/attendance/access";
 import { STUDENT_LEAVE_STATUS } from "@/lib/attendance/student-leave";
-import { LEAVE_STATUSES, studentLeaveDetail, studentLeaveList } from "@/lib/attendance/student-leave-list";
+import { LEAVE_STATUSES, studentLeaveDetail, studentLeaveList, studentsInReach } from "@/lib/attendance/student-leave-list";
 import { attendanceSettings } from "@/lib/attendance/settings";
 import { REASONS_FEATURE } from "@/lib/attendance/absence-reasons";
 import Link from "next/link";
@@ -63,9 +63,8 @@ export default async function StudentLeavePage({ searchParams }: Props) {
     // The numbers on top: waiting, on leave today, approved this month and the absence messages not sent for them.
     const reach = list.sections.map((s) => s.id);
     const scope = ownOnly ? { sectionId: { in: reach } } : {};
-    const mine = ownOnly && access.yearId
-      ? (await tx.enrolment.findMany({ where: { sectionId: { in: access.classSections }, academicYearId: access.yearId, archivedAt: null }, select: { studentId: true } })).map((e) => e.studentId)
-      : null;
+    // The same students as the list: their own class's, their campus's when limited to one campus, or everyone.
+    const mine = await studentsInReach(tx, access);
     const who = mine ? { in: mine } : { not: null };
     const [onLeaveToday, monthLeave, oldestWaiting, approvedMonth] = await Promise.all([
       tx.leaveRequest.count({ where: { status: "APPROVED", archivedAt: null, studentId: who, fromDate: { lte: today }, toDate: { gte: today } } }),

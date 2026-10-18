@@ -88,12 +88,13 @@ export function classGroups(list: GroupClass[]) {
 }
 
 /**
- * Every section of the year (or only the given ones) between two dates. Days
- * after `today` are left out; holidays and Sundays are never counted.
+ * Every section of the year (or of several years: each campus's current
+ * year), or only the given ones, between two dates. Days after `today` are
+ * left out; holidays and Sundays are never counted.
  */
 export async function classWise(
   tx: Tx, ctx: SchoolContext,
-  opts: { yearId: string; from: Date; to: Date; today: Date; sectionIds?: string[] | null; campusId?: string | null },
+  opts: { yearId: string | string[]; from: Date; to: Date; today: Date; sectionIds?: string[] | null; campusId?: string | null },
 ): Promise<ClassWise> {
   const to = opts.to > opts.today ? opts.today : opts.to;
   const [settings, list, days, sections] = await Promise.all([
@@ -101,7 +102,7 @@ export async function classWise(
     statusList(tx, ctx, { includeArchived: true }),
     schoolDays(tx, ctx, opts.from, to < opts.from ? opts.from : to, opts.campusId ?? null),
     tx.section.findMany({
-      where: { academicYearId: opts.yearId, archivedAt: null, ...(opts.sectionIds ? { id: { in: opts.sectionIds } } : {}) },
+      where: { academicYearId: Array.isArray(opts.yearId) ? { in: opts.yearId } : opts.yearId, archivedAt: null, ...(opts.sectionIds ? { id: { in: opts.sectionIds } } : {}) },
       include: { schoolClass: { select: { id: true, name: true, sortOrder: true, level: true } } },
     }),
   ]);

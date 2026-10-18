@@ -105,8 +105,16 @@ export type StudentLeaveInput = {
   approveNow: boolean;
 };
 
+/** Is the student on the person's campus? Always true for the whole school. */
+async function onCampus(tx: Tx, access: AttendanceAccess, studentId: string | null) {
+  if (!access.campusLimit) return true;
+  return Boolean(studentId && (await tx.student.findFirst({ where: { id: studentId, campusId: access.campusLimit }, select: { id: true } })));
+}
+
 export async function checkStudentLeave(tx: Tx, ctx: SchoolContext, access: AttendanceAccess, input: Omit<StudentLeaveInput, "approveNow" | "documentFileId">, opts: { ignoreRequestId?: string } = {}) {
   if (access.studentLeave === "none" || access.change === "none") throw new AttendanceProblem("Your role cannot record student leave. Ask the class teacher or the office.");
+  // A person limited to one campus records leave for that campus's students only.
+  if (!(await onCampus(tx, access, input.studentId))) throw new NotYoursError("this student");
   const type = await tx.leaveType.findFirst({ where: { id: input.leaveTypeId, forWhom: "student", archivedAt: null } });
   if (!type) throw new AttendanceProblem("Choose a leave type.", "leaveTypeId");
   if (input.to < input.from) throw new AttendanceProblem("To date is before the from date. Choose a to date on or after the from date.", "to");
@@ -209,7 +217,7 @@ async function tellClassTeacher(tx: Tx, ctx: SchoolContext, r: LeaveRequest) {
 /** May this person decide this student's leave? Full reach, or the class teacher within their limit. */
 export async function canDecideStudentLeave(tx: Tx, ctx: SchoolContext, access: AttendanceAccess, r: LeaveRequest) {
   if (r.status !== "WAITING" || r.recordedById === ctx.userId && !access.full) return false;
-  if (access.full) return true;
+  if (access.full) return onCampus(tx, access, r.studentId);
   const where = await enrolmentOn(tx, r.studentId!, r.fromDate);
   if (!where?.section || !access.classSections.includes(where.section.id)) return false;
   const settings = await attendanceSettings(tx, ctx);
@@ -227,7 +235,7 @@ export async function canDecideStudentLeave(tx: Tx, ctx: SchoolContext, access: 
  */
 export async function decideStudentLeave(tx: Tx, ctx: SchoolContext, access: AttendanceAccess, requestId: string, decision: "approve" | "reject", note: string | null) {
   const r = await tx.leaveRequest.findFirst({ where: { id: requestId, studentId: { not: null }, archivedAt: null } });
-  if (!r) throw new AttendanceProblem("This leave was not found.");
+  if (!r || !(await onCampus(tx, access, r.studentId))) throw new AttendanceProblem("This leave was not found.");
   if (r.status !== "WAITING") throw new AttendanceProblem("This leave was already decided.");
   if (decision === "reject" && (!note || note.trim().length < 5)) throw new AttendanceProblem("Give a reason of at least 5 characters, so the parent can be told why.", "note");
   if (r.approvalId) {
@@ -252,7 +260,7 @@ export async function decideStudentLeave(tx: Tx, ctx: SchoolContext, access: Att
 /** Cancels a student's leave with a reason. Days already taken stay on record; Take Attendance stops showing Leave for later days. */
 export async function cancelStudentLeave(tx: Tx, ctx: SchoolContext, access: AttendanceAccess, requestId: string, reason: string) {
   const r = await tx.leaveRequest.findFirst({ where: { id: requestId, studentId: { not: null }, archivedAt: null } });
-  if (!r) throw new AttendanceProblem("This leave was not found.");
+  if (!r || !(await onCampus(tx, access, r.studentId))) throw new AttendanceProblem("This leave was not found.");
   if (r.status === "CANCELLED" || r.status === "REJECTED") throw new AttendanceProblem("This leave is already closed.");
   if (reason.trim().length < 3) throw new AttendanceProblem("Give a short reason for cancelling.", "reason");
   if (access.studentLeave === "none" || access.change === "none") throw new NotYoursError("this student");

@@ -7,7 +7,7 @@ import "server-only";
 import type { SchoolContext, Tx } from "../db";
 import { remindedSince, sendReminder } from "../reminders";
 import { isoDay } from "../staff/dates";
-import { AttendanceProblem, BASE, type AttendanceAccess } from "./access";
+import { AttendanceProblem, BASE, sectionAllowed, type AttendanceAccess } from "./access";
 import { classWise } from "./classwise";
 import { lockState } from "./marks";
 import { attendanceSettings } from "./settings";
@@ -17,10 +17,14 @@ export const REMIND_ACTION = "attendance-reminder";
 
 export type NotMarkedRow = { sectionId: string; name: string; students: number; teacher: string | null; teacherLogin: string | null; remindedAt: Date | null };
 
-/** Sections not marked on a day (today for the Dashboard), with their class teachers and any reminder already sent. */
-export async function notMarkedOn(tx: Tx, ctx: SchoolContext, access: Pick<AttendanceAccess, "yearId" | "campusId">, date: Date, since: Date): Promise<NotMarkedRow[]> {
-  if (!access.yearId) return [];
-  const cw = await classWise(tx, ctx, { yearId: access.yearId, from: date, to: date, today: date, campusId: access.campusId });
+/**
+ * Sections not marked on a day (today for the Dashboard), with their class
+ * teachers and any reminder already sent: every campus's current year, or
+ * only the person's campus when their access is limited to one.
+ */
+export async function notMarkedOn(tx: Tx, ctx: SchoolContext, access: Pick<AttendanceAccess, "yearIds" | "campusId" | "limitSections">, date: Date, since: Date): Promise<NotMarkedRow[]> {
+  if (access.yearIds.length === 0) return [];
+  const cw = await classWise(tx, ctx, { yearId: access.yearIds, from: date, to: date, today: date, sectionIds: access.limitSections, campusId: access.campusId });
   const rows = cw.sections.filter((s) => s.notMarked);
   const sent = await remindedSince(tx, ctx, REMIND_ACTION, rows.map((r) => r.sectionId), since);
   return rows.map((r) => ({ sectionId: r.sectionId, name: r.name, students: r.students, teacher: r.teacher?.name ?? null, teacherLogin: r.teacher?.userLoginId ?? null, remindedAt: sent.get(r.sectionId) ?? null }));
@@ -34,10 +38,12 @@ export async function notMarkedOn(tx: Tx, ctx: SchoolContext, access: Pick<Atten
  */
 export async function remindNotMarked(tx: Tx, ctx: SchoolContext, access: AttendanceAccess, input: { sectionIds: string[]; date: Date; now: Date; timeZone: string }) {
   if (access.students !== "all") throw new AttendanceProblem("Only people who look after the whole school's attendance can send these reminders.");
-  if (!access.yearId) throw new AttendanceProblem("There is no academic year running now.");
+  if (access.yearIds.length === 0) throw new AttendanceProblem("There is no academic year running now.");
   const settings = await attendanceSettings(tx, ctx);
   const lock = lockState(settings, input.date, input.now, input.timeZone);
-  const cw = await classWise(tx, ctx, { yearId: access.yearId, from: input.date, to: input.date, today: input.date, sectionIds: input.sectionIds, campusId: access.campusId });
+  // Another campus's sections are left out for a person limited to one campus.
+  const sectionIds = input.sectionIds.filter((id) => sectionAllowed(access, id));
+  const cw = await classWise(tx, ctx, { yearId: access.yearIds, from: input.date, to: input.date, today: input.date, sectionIds, campusId: access.campusId });
   const reminded: string[] = [];
   const skipped: { name: string; why: string }[] = [];
   for (const s of cw.sections) {

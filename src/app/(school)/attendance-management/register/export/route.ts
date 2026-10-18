@@ -25,8 +25,9 @@ export async function GET(req: Request) {
   return withSchool(current.ctx, async (tx) => {
     const settings = await attendanceSettings(tx, current.ctx);
     const access = await attendanceAccess(tx, current.ctx, current, settings.lockOverrideRoles);
-    const year = await tx.academicYear.findFirst({ where: { archivedAt: null, startDate: { lte: month }, endDate: { gte: month } }, select: { id: true } });
-    const sections = await registerChoices(tx, access, year?.id ?? access.yearId);
+    // Each campus has its own school year: the sections of every year running in this month (the current years when none is).
+    const years = await tx.academicYear.findMany({ where: { archivedAt: null, startDate: { lte: month }, endDate: { gte: month } }, select: { id: true } });
+    const sections = await registerChoices(tx, access, years.length ? years.map((y) => y.id) : null);
     const section = sections.find((s) => s.id === url.searchParams.get("section"));
     if (!section) return new Response("This class was not found, or it is not one of yours.", { status: 404 });
     const reasonsOn = (await attendanceFeatures(tx, current.ctx)).has(REASONS_FEATURE);

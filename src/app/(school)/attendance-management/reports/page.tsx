@@ -5,7 +5,7 @@ import type { LucideIcon } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { isoDay } from "@/lib/staff/dates";
 import { attendancePage } from "@/lib/attendance/page";
-import { BASE } from "@/lib/attendance/access";
+import { BASE, sectionLimit } from "@/lib/attendance/access";
 import { registerChoices } from "@/lib/attendance/register";
 import { attendanceToday } from "@/lib/attendance/integrations";
 import { percentText } from "@/lib/attendance/summary";
@@ -61,7 +61,8 @@ export default async function ReportsPage({ searchParams }: Props) {
     const bounds = await schoolBounds(tx, today);
     const fixed = { ...input, month: clampMonth(input.month, bounds), person: r === "range" ? input.person ?? people[0]?.value ?? null : input.person };
     const table = list.length ? await runReport(tx, current.ctx, access, fixed) : null;
-    const day = r === "daily" ? await attendanceToday(tx, current.ctx, input.date, { sectionIds: access.students === "all" ? null : sections.map((s) => s.id), campusId: access.campusId }) : null;
+    // Whole-school numbers cover every campus (each with its own year), or only the person's campus when limited to one.
+    const day = r === "daily" ? await attendanceToday(tx, current.ctx, input.date, { sectionIds: access.students === "all" ? null : sections.map((s) => s.id), campusId: access.campusLimit }) : null;
     const year = access.yearId ? await tx.academicYear.findUnique({ where: { id: access.yearId }, select: { name: true, startDate: true, endDate: true } }) : null;
     const schoolDay = year ? await schoolDays(tx, current.ctx, year.startDate, year.endDate, access.campusId) : null;
     const dayNo = schoolDay ? schoolDay.working.filter((d) => d <= today).length : 0;
@@ -71,7 +72,7 @@ export default async function ReportsPage({ searchParams }: Props) {
 
     async function dailyTrend(t: typeof tx) {
       const from = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
-      const marks = await t.attendanceMark.groupBy({ by: ["date", "statusKey"], where: { date: { gte: from, lte: today }, studentId: { not: null }, periodNo: 0, archivedAt: null, ...(access.students === "all" ? {} : { sectionId: { in: sections.map((s) => s.id) } }) }, _count: true });
+      const marks = await t.attendanceMark.groupBy({ by: ["date", "statusKey"], where: { date: { gte: from, lte: today }, studentId: { not: null }, periodNo: 0, archivedAt: null, ...(access.students === "all" ? sectionLimit(access) : { sectionId: { in: sections.map((s) => s.id) } }) }, _count: true });
       const byDay = new Map<string, { p: number; n: number }>();
       for (const m of marks) {
         if (["leave", "medical", "excused"].includes(m.statusKey)) continue;

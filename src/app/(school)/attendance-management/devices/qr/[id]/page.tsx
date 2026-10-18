@@ -5,7 +5,7 @@ import { withSchool } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { appOrigin } from "@/lib/origin";
 import { attendancePage } from "@/lib/attendance/page";
-import { BASE } from "@/lib/attendance/access";
+import { BASE, campusOrSchool } from "@/lib/attendance/access";
 import { posterData, posterHtml, posterThemes } from "@/lib/attendance/poster";
 import { UUID_RE } from "@/lib/staff/act";
 import { PageHeader } from "@/components/shell/page-header";
@@ -25,7 +25,7 @@ export default async function QrPosterPage({ params }: { params: Promise<{ id: s
   if (!access.admin) redirect(BASE);
   const origin = await appOrigin();
   const data = await withSchool(current.ctx, async (tx) => {
-    const session = await tx.qrSession.findFirst({ where: { id, archivedAt: null } });
+    const session = await tx.qrSession.findFirst({ where: { id, archivedAt: null, ...campusOrSchool(access) } });
     if (!session) return null;
     return { session, poster: await posterData(tx, current.ctx, session, origin, today) };
   });

@@ -126,19 +126,25 @@ export async function todaysClasses(tx: Tx, ctx: SchoolContext, access: Attendan
  * Today for the Dashboard: students and staff present, classes not yet marked,
  * open flags. The student numbers add up the class-wise rows (./classwise.ts),
  * so the Dashboard, Attendance Reports and the class-wise view always agree.
+ * With a campus (a person limited to one campus), every number is that
+ * campus's: its year, sections, staff and flags.
  */
 export async function attendanceToday(tx: Tx, ctx: SchoolContext, today: Date, opts: { sectionIds?: string[] | null; campusId?: string | null } = {}) {
-  const days = await schoolDays(tx, ctx, today, today, opts.campusId ?? null);
+  const campusId = opts.campusId ?? null;
+  const days = await schoolDays(tx, ctx, today, today, campusId);
   const info = days.info(today);
   const years = await tx.academicYear.findMany({
-    where: { archivedAt: null, status: "ACTIVE", startDate: { lte: today }, endDate: { gte: today }, ...(opts.campusId ? { campusId: opts.campusId } : {}) },
-    select: { id: true },
+    where: { archivedAt: null, status: "ACTIVE", startDate: { lte: today }, endDate: { gte: today }, ...(campusId ? { campusId } : {}) },
+    select: { id: true, campusId: true },
   });
+  const campusStaff = campusId && !opts.sectionIds ? (await tx.staff.findMany({ where: { campusId }, select: { id: true } })).map((s) => s.id) : null;
+  const campusStudents = campusId ? (await tx.student.findMany({ where: { campusId }, select: { id: true } })).map((s) => s.id) : null;
   const [cws, staffMarks, staffCount, flags] = await Promise.all([
-    Promise.all(years.map((y) => classWise(tx, ctx, { yearId: y.id, from: today, to: today, today, sectionIds: opts.sectionIds ?? null, campusId: opts.campusId ?? null }))),
-    opts.sectionIds ? Promise.resolve([]) : tx.attendanceMark.findMany({ where: { date: today, staffId: { not: null }, periodNo: 0, archivedAt: null }, select: { statusKey: true } }),
-    opts.sectionIds ? Promise.resolve(0) : tx.staff.count({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] } } }),
-    tx.attendanceFlag.count({ where: OPEN_ATTENDANCE_FLAG }),
+    // Each campus's sections by its own year and its own School Calendar.
+    Promise.all(years.map((y) => classWise(tx, ctx, { yearId: y.id, from: today, to: today, today, sectionIds: opts.sectionIds ?? null, campusId: y.campusId }))),
+    opts.sectionIds ? Promise.resolve([]) : tx.attendanceMark.findMany({ where: { date: today, staffId: campusStaff ? { in: campusStaff } : { not: null }, periodNo: 0, archivedAt: null }, select: { statusKey: true } }),
+    opts.sectionIds ? Promise.resolve(0) : tx.staff.count({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] }, ...(campusId ? { campusId } : {}) } }),
+    tx.attendanceFlag.count({ where: { ...OPEN_ATTENDANCE_FLAG, ...(campusStudents ? { studentId: { in: campusStudents } } : {}) } }),
   ]);
   const rows = cws.flatMap((c) => c.sections).filter((s) => s.students > 0);
   const sum = (k: "marked" | "present" | "absent" | "leave" | "late" | "students" | "counted" | "weight") => rows.reduce((a, s) => a + s[k], 0);

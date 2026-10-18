@@ -4,7 +4,7 @@ import { withSchool } from "@/lib/db";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { canDecide } from "@/lib/approvals";
 import { attendancePage } from "@/lib/attendance/page";
-import { BASE } from "@/lib/attendance/access";
+import { BASE, correctionAllowed } from "@/lib/attendance/access";
 import { registerChoices } from "@/lib/attendance/register";
 import { CORRECTION_WORDS, type CorrectionEntry } from "@/lib/attendance/corrections";
 import { statusList } from "@/lib/attendance/settings";
@@ -35,9 +35,11 @@ export default async function CorrectionDetail({ params }: { params: Promise<{ i
     if (!c) return null;
     const sections = await registerChoices(tx, access);
     const mine = c.requestedById === current.user.id;
-    const allowed = mine || (c.forWhom === "staff" ? access.staff === "all" : access.students === "all" || sections.some((s) => s.id === c.sectionId));
+    // Another campus's correction is not found for a person limited to one campus.
+    const onCampus = correctionAllowed(access, c);
+    const allowed = mine || (onCampus && (c.forWhom === "staff" ? access.staff === "all" : access.students === "all" || sections.some((s) => s.id === c.sectionId)));
     const approval = c.approvalId ? await tx.approval.findUnique({ where: { id: c.approvalId } }) : null;
-    const decider = approval ? await canDecide(tx, current.ctx, approval) : false;
+    const decider = approval && onCampus ? await canDecide(tx, current.ctx, approval) : false;
     if (!allowed && !decider) return null;
     const section = c.sectionId ? await tx.section.findUnique({ where: { id: c.sectionId }, include: { schoolClass: { select: { name: true } } } }) : null;
     const users = await tx.userLogin.findMany({ where: { id: { in: [c.requestedById, c.decidedById].filter((x): x is string => Boolean(x)) } }, select: { id: true, displayName: true } });

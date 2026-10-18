@@ -6,7 +6,8 @@ import "server-only";
 import type { SchoolContext, Tx } from "../db";
 import { formatDate } from "../format";
 import { isoDay, monthEnd, monthLabel, monthStart } from "../staff/dates";
-import type { AttendanceAccess } from "./access";
+import { inCampus } from "../campus";
+import { staffAllowed, staffIdLimit, staffLimit, type AttendanceAccess } from "./access";
 import { schoolDays } from "./calendar";
 import { registerChoices } from "./register";
 import { attendanceSettings, statusList } from "./settings";
@@ -98,17 +99,17 @@ export async function runReport(tx: Tx, ctx: SchoolContext, access: AttendanceAc
       if (!info.on) return { title: `Daily attendance ${dayText(input.date)}`, filters: `Date ${dayText(input.date)}`, columns: [], rows: [], empty: `${info.title === "Sunday" ? "Sunday" : `Holiday: ${info.title}`}. Attendance is off for ${dayText(input.date)}.` };
       // The same per-section rows as the class-wise view and the Dashboard (./classwise.ts), so the numbers agree.
       if (sections.length) {
-        const years = await tx.academicYear.findMany({ where: { archivedAt: null, startDate: { lte: input.date }, endDate: { gte: input.date }, ...(access.campusId ? { campusId: access.campusId } : {}) }, select: { id: true } });
-        const wanted = access.students === "all" ? null : sections.map((s) => s.id);
+        const years = await tx.academicYear.findMany({ where: { archivedAt: null, startDate: { lte: input.date }, endDate: { gte: input.date }, ...(access.campusLimit ? { campusId: access.campusLimit } : {}) }, select: { id: true, campusId: true } });
+        const wanted = access.students === "all" ? access.limitSections : sections.map((s) => s.id);
         for (const y of years) {
-          const cw = await classWise(tx, ctx, { yearId: y.id, from: input.date, to: input.date, today: input.today, sectionIds: wanted, campusId: access.campusId });
+          const cw = await classWise(tx, ctx, { yearId: y.id, from: input.date, to: input.date, today: input.today, sectionIds: wanted, campusId: y.campusId });
           for (const s of cw.sections.filter((x) => x.students > 0 || x.marked > 0)) {
             rows.push({ who: s.name, total: s.students, present: s.present, absent: s.absent, late: s.late, leave: s.leave, notMarked: Math.max(0, s.students - s.marked), percent: pct(s.percent), _tone: s.marked === 0 ? "warning" : null });
           }
         }
       }
       if (staffAll) {
-        const staff = await tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] }, joiningDate: { lte: input.date } }, select: { id: true } });
+        const staff = await tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] }, joiningDate: { lte: input.date }, AND: [staffLimit(access)] }, select: { id: true } });
         const sum = await attendanceSummary(tx, ctx, { staffIds: staff.map((s) => s.id), from: input.date, to: input.date, today: input.today });
         const o = sum.overall;
         rows.push({ who: "All staff", total: staff.length, present: o.present, absent: o.absent, late: o.late, leave: o.leave, notMarked: staff.length - o.markedDays, percent: pct(o.percent), _tone: null });
@@ -167,7 +168,7 @@ export async function runReport(tx: Tx, ctx: SchoolContext, access: AttendanceAc
       if (!staffAll) return { title: "Staff monthly", filters: "", columns: [], rows: [], empty: "Only HR, the School Admin or the Principal can see this report." };
       const from = monthStart(input.month);
       const to = monthEnd(input.month);
-      const staff = await tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] }, joiningDate: { lte: to } }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, staffCode: true } });
+      const staff = await tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] }, joiningDate: { lte: to }, AND: [staffLimit(access)] }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, staffCode: true } });
       const sum = await attendanceSummary(tx, ctx, { staffIds: staff.map((s) => s.id), from, to, today: input.today, campusId: access.campusId });
       return {
         title: `Staff monthly attendance ${monthLabel(from)}`, filters: `Month ${monthLabel(from)}`,
@@ -183,6 +184,7 @@ export async function runReport(tx: Tx, ctx: SchoolContext, access: AttendanceAc
       const [kind, id] = (input.person ?? "").split(":");
       if (!id) return { title: "Date range", filters: "", columns: [], rows: [], empty: "Choose a student or staff member and the dates." };
       if (kind === "staff" && !staffAll && id !== access.staffId) return { title: "Date range", filters: "", columns: [], rows: [], empty: "You can only see your own attendance." };
+      if (kind === "staff" && !staffAllowed(access, id)) return { title: "Date range", filters: "", columns: [], rows: [], empty: "This staff member was not found." };
       if (kind === "student") {
         const sections = await sectionsInReach(tx, access);
         const enrolled = await tx.enrolment.findFirst({ where: { studentId: id, sectionId: { in: sections.map((s) => s.id) }, archivedAt: null } });
@@ -270,7 +272,7 @@ export async function runReport(tx: Tx, ctx: SchoolContext, access: AttendanceAc
         for (const m of marks.sort((a, b) => b._count - a._count)) rows.push({ who: people.get(m.studentId!) ?? "Student", kind: "Student", group: sections.find((s) => s.id === m.sectionId)?.name ?? "", count: m._count, minutes: "" });
       }
       if (staffAll) {
-        const marks = await tx.attendanceMark.groupBy({ by: ["staffId"], where: { statusKey: { in: ["late", "half-day"] }, lateMinutes: { gt: 0 }, date: { gte: from, lte: to }, archivedAt: null, staffId: { not: null } }, _count: true, _sum: { lateMinutes: true } });
+        const marks = await tx.attendanceMark.groupBy({ by: ["staffId"], where: { statusKey: { in: ["late", "half-day"] }, lateMinutes: { gt: 0 }, date: { gte: from, lte: to }, archivedAt: null, staffId: { not: null }, ...staffIdLimit(access) }, _count: true, _sum: { lateMinutes: true } });
         const people = new Map((await tx.staff.findMany({ where: { id: { in: marks.map((m) => m.staffId!) } }, select: { id: true, fullName: true, designation: true } })).map((s) => [s.id, s]));
         for (const m of marks.sort((a, b) => b._count - a._count)) rows.push({ who: people.get(m.staffId!)?.fullName ?? "Staff", kind: "Staff", group: people.get(m.staffId!)?.designation ?? "", count: m._count, minutes: minutesText(m._sum.lateMinutes ?? 0) });
       }
@@ -312,8 +314,8 @@ export async function runReport(tx: Tx, ctx: SchoolContext, access: AttendanceAc
       const from = input.dates?.from ?? monthStart(input.month);
       const to = input.dates?.to ?? monthEnd(input.month);
       const words = input.dates ? `${dayText(from)} to ${dayText(to)}` : monthLabel(from);
-      const ot = await tx.overtimeEntry.groupBy({ by: ["staffId"], where: { archivedAt: null, date: { gte: from, lte: to } }, _sum: { minutes: true }, _count: true });
-      const staff = await tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] } }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, staffCode: true } });
+      const ot = await tx.overtimeEntry.groupBy({ by: ["staffId"], where: { archivedAt: null, date: { gte: from, lte: to }, ...staffIdLimit(access) }, _sum: { minutes: true }, _count: true });
+      const staff = await tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] }, AND: [staffLimit(access)] }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, staffCode: true } });
       const assignments = await tx.staffShiftAssignment.findMany({ where: { archivedAt: null, fromDate: { lte: to } }, orderBy: { fromDate: "desc" }, include: { shift: true } });
       const shiftOf = new Map<string, string>();
       for (const a of assignments) if (!shiftOf.has(a.staffId) && !a.shift.archivedAt) shiftOf.set(a.staffId, a.shift.name);
@@ -333,7 +335,7 @@ export async function runReport(tx: Tx, ctx: SchoolContext, access: AttendanceAc
       if (!staffAll && !access.admin) return { title: "Device health", filters: "", columns: [], rows: [], empty: "Only the School Admin or the Principal can see this report." };
       const from = new Date(input.from);
       const to = new Date(input.to.getTime() + 24 * 3600 * 1000);
-      const devices = await tx.attendanceDevice.findMany({ where: { archivedAt: null }, orderBy: { name: "asc" } });
+      const devices = await tx.attendanceDevice.findMany({ where: { archivedAt: null, ...inCampus({ campusId: access.campusLimit }) }, orderBy: { name: "asc" } });
       const health = await deviceHealth(tx, ctx, from, to);
       return {
         title: `Device health ${dayText(input.from)} to ${dayText(input.to)}`, filters: `${dayText(input.from)} to ${dayText(input.to)}`,
@@ -423,7 +425,7 @@ export async function rangePeople(tx: Tx, access: AttendanceAccess, sectionId: s
     }
   }
   if (access.staff === "all") {
-    const staff = await tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] } }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, staffCode: true } });
+    const staff = await tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] }, AND: [staffLimit(access)] }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, staffCode: true } });
     for (const s of staff) out.push({ value: `staff:${s.id}`, label: `Staff: ${s.fullName} (${s.staffCode})` });
   } else if (access.staff === "self" && access.staffId) {
     out.push({ value: `staff:${access.staffId}`, label: "Me (staff attendance)" });

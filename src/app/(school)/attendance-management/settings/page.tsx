@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { attendancePage } from "@/lib/attendance/page";
-import { BASE } from "@/lib/attendance/access";
+import { BASE, studentLimit } from "@/lib/attendance/access";
 import { ATTENDANCE_FEATURES, COUNTS, statusList, TONES } from "@/lib/attendance/settings";
 import { BellRing, CalendarDays, Clock, CloudOff, ListChecks, Lock, MessageCircle, Palette, Scale, ScanFace, Table2 } from "lucide-react";
 import { formatDate } from "@/lib/format";
@@ -59,8 +59,8 @@ export default async function SettingsPage({ searchParams }: Props) {
       tx.leaveType.findMany({ where: { forWhom: "student", archivedAt: null }, orderBy: { name: "asc" } }),
       tx.studentLeaveQuota.findMany({ where: { archivedAt: null } }),
       tx.school.findUnique({ where: { id: current.ctx.schoolId }, select: { name: true } }),
-      // A real student for the message preview: the first in the school's list.
-      tx.enrolment.findFirst({ where: { archivedAt: null, academicYearId: access.yearId ?? undefined, student: { archivedAt: null } }, orderBy: { student: { fullName: "asc" } }, select: { sectionId: true, student: { select: { fullName: true } } } }),
+      // A real student for the message preview: the first in the list (every campus's current year; their own campus's when limited to one).
+      tx.enrolment.findFirst({ where: { archivedAt: null, ...(access.yearIds.length ? { academicYearId: { in: access.yearIds } } : {}), student: { archivedAt: null, ...studentLimit(access) } }, orderBy: { student: { fullName: "asc" } }, select: { sectionId: true, student: { select: { fullName: true } } } }),
     ]);
     const section = sample ? await tx.section.findFirst({ where: { id: sample.sectionId }, select: { name: true, schoolClass: { select: { name: true } } } }) : null;
     return { statuses, types, quotas, school, sample: sample ? { name: sample.student.fullName, className: section ? `${section.schoolClass.name} ${section.name}` : null } : null };

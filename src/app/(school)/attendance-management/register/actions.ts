@@ -11,7 +11,7 @@ import { decide, type Decision } from "@/lib/approvals";
 import { dateOf, FieldProblem, id, str, UUID_RE } from "@/lib/staff/act";
 import { act } from "@/lib/attendance/act";
 import { actionContext } from "@/lib/attendance/page";
-import { AttendanceProblem, BASE } from "@/lib/attendance/access";
+import { AttendanceProblem, BASE, correctionAllowed } from "@/lib/attendance/access";
 import { requestCorrection } from "@/lib/attendance/corrections";
 import { setAbsenceReason } from "@/lib/attendance/absence-reasons";
 import { remindNotMarked } from "@/lib/attendance/remind";
@@ -51,9 +51,11 @@ async function decideCorrection(fd: FormData, decision: Decision) {
   const { current } = await requireAction("attendance-management", decision === "withdraw" ? "edit" : "approve");
   const correctionId = id(fd, "correctionId", "correction");
   const note = str(fd, "note").slice(0, 500) || null;
+  const { access } = await actionContext(current);
   return withSchool(current.ctx, async (tx) => {
     const c = await tx.attendanceCorrection.findFirst({ where: { id: correctionId, archivedAt: null } });
-    if (!c || !c.approvalId) throw new AttendanceProblem("This correction was not found.");
+    // Another campus's correction is not found for a person limited to one campus.
+    if (!c || !c.approvalId || !correctionAllowed(access, c)) throw new AttendanceProblem("This correction was not found.");
     if (c.status !== "WAITING") throw new AttendanceProblem("This correction was already decided.");
     await decide(tx, current.ctx, c.approvalId, decision, note);
     return { id: c.id };

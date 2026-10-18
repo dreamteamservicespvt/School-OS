@@ -13,7 +13,7 @@ import { dateOf, FieldProblem, file, id, str, UUID_RE } from "@/lib/staff/act";
 import { daysText } from "@/lib/staff/leave";
 import { act } from "@/lib/attendance/act";
 import { actionContext } from "@/lib/attendance/page";
-import { AttendanceProblem } from "@/lib/attendance/access";
+import { AttendanceProblem, studentLimit } from "@/lib/attendance/access";
 import { cancelStudentLeave, checkStudentLeave, decideStudentLeave, quotaText, recordStudentLeave } from "@/lib/attendance/student-leave";
 
 function leaveInput(fd: FormData) {
@@ -36,12 +36,13 @@ export async function findStudents(q: string): Promise<StudentOption[]> {
   if (text.length < 2) return [];
   const { current } = await requireAction("attendance-management", "create");
   const { access } = await actionContext(current);
-  if (access.studentLeave === "none" || !access.yearId) return [];
-  // The one student search, within the students this person may record leave for.
-  const yearId = access.yearId;
+  if (access.studentLeave === "none" || access.yearIds.length === 0) return [];
+  // The one student search, within the students this person may record leave for: each student's
+  // class is in their own campus's current year, and a person limited to one campus finds that campus's students only.
+  const yearIds = access.yearIds;
   return withSchool(current.ctx, async (tx) => {
-    const scope = { enrolments: { some: { academicYearId: yearId, archivedAt: null, status: "STUDYING" as const, ...(access.studentLeave === "own" ? { sectionId: { in: access.classSections } } : {}) } } };
-    const hits = await findAnyStudents(tx, text, { scope, yearId, statuses: ["ACTIVE", "ADMITTED"], byParent: abilities(current).seeParents, take: 12 });
+    const scope = { ...studentLimit(access), enrolments: { some: { academicYearId: { in: yearIds }, archivedAt: null, status: "STUDYING" as const, ...(access.studentLeave === "own" ? { sectionId: { in: access.classSections } } : {}) } } };
+    const hits = await findAnyStudents(tx, text, { scope, yearId: yearIds, campusId: access.campusLimit, statuses: ["ACTIVE", "ADMITTED"], byParent: abilities(current).seeParents, take: 12 });
     return hits.map((h) => ({ id: h.id, label: h.name, detail: `${h.classSection ?? ""}${h.rollNo ? `, roll ${h.rollNo}` : ""} · ${h.admissionNo}` }));
   });
 }

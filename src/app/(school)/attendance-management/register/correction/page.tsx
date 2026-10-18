@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { withSchool } from "@/lib/db";
 import { attendancePage } from "@/lib/attendance/page";
-import { BASE } from "@/lib/attendance/access";
+import { BASE, staffLimit } from "@/lib/attendance/access";
 import { registerChoices } from "@/lib/attendance/register";
 import { lockState, roster, sectionInfo, dayText } from "@/lib/attendance/marks";
 import { statusList, statusesFor } from "@/lib/attendance/settings";
@@ -39,7 +39,7 @@ export default async function CorrectionPage({ searchParams }: Props) {
     const statuses = statusesFor(await statusList(tx, current.ctx), forWhom === "staff" ? "staff" : "students");
     if (forWhom === "staff") {
       if (access.staff !== "all") return { statuses, sections: [], section: null, people: null, info: await dayInfo(tx, current.ctx, date, access.campusId) };
-      const staff = await tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] } }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, staffCode: true } });
+      const staff = await tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] }, AND: [staffLimit(access)] }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, staffCode: true } });
       const marks = await tx.attendanceMark.findMany({ where: { staffId: { in: staff.map((s) => s.id) }, date, periodNo: 0, archivedAt: null }, select: { staffId: true, statusKey: true } });
       const staffNow = new Map(marks.map((m) => [m.staffId!, m.statusKey]));
       return {

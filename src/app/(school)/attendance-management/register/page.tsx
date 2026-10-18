@@ -10,7 +10,7 @@ import { dayStartUtc } from "@/lib/periods";
 import { ClassWiseView, NotMarkedCard } from "../_components/class-wise";
 import { withSchool } from "@/lib/db";
 import { attendancePage } from "@/lib/attendance/page";
-import { BASE } from "@/lib/attendance/access";
+import { BASE, sectionLimit } from "@/lib/attendance/access";
 import { readMonth, registerChoices, registerMonth, registerYears } from "@/lib/attendance/register";
 import { clampMonth } from "@/lib/attendance/calendar-months";
 import { studentMonth } from "@/lib/attendance/integrations";
@@ -52,13 +52,17 @@ export default async function RegisterPage({ searchParams }: Props) {
     // Any month from the first year this person may see up to this month (owner's rule, 12 Oct).
     const { years, bounds } = await registerYears(tx, access, today);
     const month = clampMonth(asked, bounds);
-    const year = years.find((y) => y.startDate <= month && y.endDate >= month) ?? years.find((y) => y.id === access.yearId) ?? null;
-    const sections = await registerChoices(tx, access, year?.id ?? access.yearId);
+    // Each campus has its own school year: the sections of every year running in this month (the current years when none is).
+    const covering = years.filter((y) => y.startDate <= month && y.endDate >= month);
+    const sections = await registerChoices(tx, access, covering.length ? covering.map((y) => y.id) : null);
     const wanted = one(sp.section);
     const wantedName = wanted ? (await registerChoices(tx, access)).find((s) => s.id === wanted)?.name ?? null : null;
     const section = sections.find((s) => s.id === wanted) ?? sections.find((s) => s.name === wantedName) ?? sections.find((s) => access.classSections.includes(s.id)) ?? sections[0] ?? null;
     const current_ = await registerChoices(tx, access);
-    const waiting = await tx.attendanceCorrection.count({ where: { status: "WAITING", archivedAt: null, forWhom: "student", ...(access.students === "all" ? {} : { sectionId: { in: current_.map((s) => s.id) } }) } });
+    const waiting = await tx.attendanceCorrection.count({ where: { status: "WAITING", archivedAt: null, forWhom: "student", ...(access.students === "all" ? sectionLimit(access) : { sectionId: { in: current_.map((s) => s.id) } }) } });
+    // The year shown is the chosen section's own year.
+    const sectionYear = section ? (await tx.section.findFirst({ where: { id: section.id }, select: { academicYearId: true } }))?.academicYearId : null;
+    const year = years.find((y) => y.id === sectionYear) ?? covering[0] ?? years.find((y) => y.id === access.yearId) ?? null;
     const base = { month, bounds, year, waiting };
     if (!section) return { ...base, sections, section: null, grid: null, student: null };
     const grid = await registerMonth(tx, current.ctx, { sectionId: section.id, month, today, status: view === "class" ? statusFilter || null : null, reasons: features.has(REASONS_FEATURE) ? { seesFees: access.seesFees } : null });
@@ -66,8 +70,8 @@ export default async function RegisterPage({ searchParams }: Props) {
     const sid = one(sp.student);
     const pick = grid.rows.find((r) => r.id === sid) ?? grid.rows[0] ?? null;
     if (!pick) return { ...base, sections, section, grid, student: null };
-    const cal = await studentMonth(tx, current.ctx, pick.id, month, today);
-    const yearSum = year ? (await attendanceSummary(tx, current.ctx, { studentId: pick.id, from: year.startDate, to: year.endDate, today })).people.get(pick.id) ?? null : null;
+    const cal = await studentMonth(tx, current.ctx, pick.id, month, today, grid.section.campusId);
+    const yearSum = year ? (await attendanceSummary(tx, current.ctx, { studentId: pick.id, from: year.startDate, to: year.endDate, today, campusId: grid.section.campusId })).people.get(pick.id) ?? null : null;
     return { ...base, sections, section, grid, student: { row: pick, cal, yearSum, options: grid.rows.map((r) => ({ value: r.id, label: `${r.roll ? `${r.roll}. ` : ""}${r.name}` })) }};
   });
   const month = data.month;
@@ -83,7 +87,7 @@ export default async function RegisterPage({ searchParams }: Props) {
   // The School Admin reads the register; the Principal and Vice Principal may still correct a mark (prototype attendance.jsx).
   const canChange = access.change !== "none" && access.pages.register === "full";
   const cellHref = (studentId: string, iso: string) => {
-    if (!canChange || !data.section || data.year?.id !== access.yearId) return null;
+    if (!canChange || !data.section || !data.year || !access.yearIds.includes(data.year.id)) return null;
     const d = new Date(`${iso}T00:00:00Z`);
     if (d > today) return null;
     const lock = lockState(settings, d, now, tz);
@@ -315,9 +319,10 @@ async function WholeSchool({ sp }: { sp: Record<string, string | string[] | unde
   const lock = lockState(settings, today, now, tz);
 
   const data = await withSchool(current.ctx, async (tx) => {
-    if (!access.yearId) return null;
+    if (access.yearIds.length === 0) return null;
+    // Every campus's current year (each campus has its own); only their campus's sections when limited to one.
     const [cw, notMarked] = await Promise.all([
-      classWise(tx, current.ctx, { yearId: access.yearId, from, to, today, campusId: access.campusId }),
+      classWise(tx, current.ctx, { yearId: access.yearIds, from, to, today, sectionIds: access.limitSections, campusId: access.campusId }),
       isToday ? notMarkedOn(tx, current.ctx, access, today, dayStartUtc(isoDay(today), tz)) : Promise.resolve([]),
     ]);
     return { cw, notMarked };

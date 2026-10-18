@@ -18,7 +18,7 @@ import { writeAudit } from "../audit";
 import { formatDate } from "../format";
 import { assertYearOpen } from "../academic/years";
 import { isoDay } from "../staff/dates";
-import { AttendanceProblem, NotYoursError, registerSections, type AttendanceAccess } from "./access";
+import { AttendanceProblem, NotYoursError, registerSections, sectionAllowed, sectionLimit, type AttendanceAccess } from "./access";
 import { attendanceFeatures, statusList, statusesFor } from "./settings";
 
 export const REASONS_FEATURE = "attendance-absence-reasons" as const;
@@ -109,11 +109,15 @@ export function nextReason(input: {
   return { absenceReason: input.wanted, absenceNote: note, reasonSource: "register" };
 }
 
-/** May this person set reasons later for this section? Whole-school reach, the class teacher, or the office (student leave for everyone). */
+/**
+ * May this person set reasons later for this section? Whole-school reach, the
+ * class teacher, or the office (student leave for everyone); on their own
+ * campus only when their access is limited to one.
+ */
 export function mayRecordReasons(access: AttendanceAccess, sectionId: string | null) {
   if (access.change === "none") return false;
-  if (access.students === "all" && access.change === "all") return true;
-  if (access.studentLeave === "all") return true;
+  if (access.students === "all" && access.change === "all" && sectionAllowed(access, sectionId)) return true;
+  if (access.studentLeave === "all" && sectionAllowed(access, sectionId)) return true;
   return Boolean(sectionId && access.classSections.includes(sectionId));
 }
 
@@ -123,7 +127,7 @@ export function mayOpenAbsentList(access: AttendanceAccess) {
 }
 
 function sectionsFor(access: AttendanceAccess): string[] | "all" {
-  if (access.students === "all" || access.studentLeave === "all") return "all";
+  if (access.students === "all" || access.studentLeave === "all") return access.limitSections ?? "all";
   return registerSections(access);
 }
 
@@ -190,7 +194,7 @@ export async function setAbsenceReason(tx: Tx, ctx: SchoolContext, access: Atten
   const note = cleanNote(input.note);
   if (input.reason === "other" && !note) throw new AttendanceProblem("Write a short note for Other, so others understand later.", "note");
   const keys = await absentKeys(tx, ctx);
-  const marks = await tx.attendanceMark.findMany({ where: { studentId: input.studentId, date: input.date, archivedAt: null, statusKey: { in: [...keys] } } });
+  const marks = await tx.attendanceMark.findMany({ where: { studentId: input.studentId, date: input.date, archivedAt: null, statusKey: { in: [...keys] }, ...sectionLimit(access) } });
   if (!marks.length) throw new AttendanceProblem(`This student is not marked absent on ${formatDate(input.date, "UTC")}.`);
   if (!mayRecordReasons(access, marks[0].sectionId)) throw new NotYoursError("this student");
   if (marks[0].academicYearId) await assertYearOpen(tx, marks[0].academicYearId);

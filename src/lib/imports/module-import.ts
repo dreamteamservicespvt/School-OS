@@ -15,7 +15,7 @@ import { can, PermissionDeniedError } from "../permissions";
 import { requireAction, getCurrent } from "../current";
 import { SHEET_TYPES, saveFile } from "../files";
 import { fileStore } from "../storage";
-import { errorCsv, importKind, previewImport, readSheet, runImport, undoImport, type ImportKind } from "../importer";
+import { errorCsv, importKind, leftCounts, previewImport, readSheet, runImport, undoImport, type ImportKind } from "../importer";
 import { matchColumns } from "../move-in/match";
 import { evCan, evViewer } from "../events/access";
 import "../import-registry";
@@ -74,7 +74,13 @@ export async function routeModuleImport(key: string): Promise<{ current: Current
 }
 
 export type Uploaded = { fileId: string; fileName: string; headers: string[]; match: Record<string, number>; rows: number };
-export type CheckedFile = { good: number; bad: { line: number; name: string; problems: string[] }[]; sample: { line: number; text: string }[] };
+export type CheckedFile = {
+  good: number;
+  bad: { line: number; name: string; problems: string[] }[];
+  sample: { line: number; text: string }[];
+  /** Rows left out on purpose, not problems (for example "No old dues"). */
+  left: { reason: string; count: number }[];
+};
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_ROWS = 3000;
@@ -128,6 +134,7 @@ export async function checkModuleFile(tx: Tx, ctx: SchoolContext, key: ModuleImp
     good: p.good.length,
     bad: p.bad.slice(0, 200).map((b) => ({ line: b.line, name: rowText(key, b.row) || "(empty row)", problems: b.problems })),
     sample: p.good.slice(0, 10).map((g) => ({ line: g.line, text: rowText(key, g.row) })),
+    left: leftCounts(p.left),
   };
 }
 
@@ -136,7 +143,7 @@ export async function runModuleFile(tx: Tx, ctx: SchoolContext, key: ModuleImpor
   const kind = importKind(key)!;
   const sheet = await sheetOf(tx, key, fileId);
   const p = await previewImport(tx, ctx, kind, sheet.rows, matchOf(fd, kind, sheet.headers.length));
-  if (p.good.length === 0) throw new ModuleImportProblem("No row is ready to import. Fix the problems and upload the file again.");
+  if (p.good.length === 0) throw new ModuleImportProblem(p.bad.length ? "No row is ready to import. Fix the problems and upload the file again." : "No row has anything to bring in.");
   return runImport(tx, ctx, kind, sheet.fileName, p);
 }
 

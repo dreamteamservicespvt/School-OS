@@ -43,7 +43,7 @@ Used by: the Admission Counsellor and Office Staff role templates, when the scho
 **Actions**
 
 - Add enquiry. Edit enquiry.
-- **Import enquiries:** bring in open enquiries from the old software or a spreadsheet with the shared importer (P10): child's name, parent's name, phone, class wanted, source, status, owner, next follow-up and notes. The duplicate check runs on every row. This is one step of workflow 15, "Switching to School OS" (see 02-workflows.md) (decided 9 October 2026).
+- **Import enquiries:** bring in open enquiries from the old software or a spreadsheet with the shared importer (P10): child's name, parent's name, phone, class wanted, source, status, owner, next follow-up and notes. The duplicate check runs on every row. This is one step of workflow 15, "Switching to School OS" (see 02-workflows.md) (decided 9 October 2026). Added 18 October 2026: one row and one enquiry per child. The same child already on record (same phone or email and a matching child's name) is flagged, not added twice; a brother or sister (same phone, same parent's name, close spellings allowed) is added and linked to the family's enquiry; a phone on record under another parent's name waits for the person to choose "Same family" or "A different family".
 - Change status (from the school's status list).
 - Change source: only for people with the admission permission, and only with a reason. The first recorded source stays in the activity log and in the source reports (decided 9 October 2026).
 - Assign owner; reassign (the old and new owner and the reason are kept in the history).
@@ -85,7 +85,7 @@ Duplicate warning: if the phone or email matches an open enquiry, application or
 - New application (at the counter). Opened from an enquiry, it is filled from the enquiry.
 - **Online application (optional):** a link the school shares by WhatsApp, SMS or email. Parents fill the form on their phone without a login; it arrives here with stage "Submitted online". The link can be shared per class or for all classes (inferred: the link mechanism; there is no school website or parent login).
 - Review: mark "Reviewed" with a note, or send back to the parent for missing details by message.
-- Collect application fee (optional): opens Fee Management, Collect Fee for this applicant with the application fee head. The receipt is made only after the payment is confirmed.
+- Collect application fee (optional): opens Fee Management, Collect Fee for this applicant with the application fee head. The receipt is made only after the payment is confirmed. Added 18 October 2026: an applicant is not a student yet, so the payment is kept on the application with the application fee's own receipt series, and Fee Management posts it to the Day Book like any fee (Other fee types, head "Application fee", Cash in hand or the bank account of its mode). Cancelling it is done the normal way: a reason from the list (Wrong applicant, Wrong amount, Cheque bounced, Duplicate, Other with a note), the receipt number stays on record marked cancelled, and the Day Book gets a reversal on the cancel date. Only the Principal or School Admin cancels.
 - Move to Documents, Test & Interview or Decision.
 - Withdraw (parent no longer interested), with a reason.
 
@@ -190,16 +190,16 @@ Consent texts and their versions are kept in Settings, Data Backup & Security, P
 - **Offer letter (optional):** generate from the offer-letter design (Settings, Document Designs), send by WhatsApp or email, and record when it was sent and accepted.
 - **Confirm admission:** the final step. If the school's stages include a payment step, the admission fee must be paid first (inferred: tied to the stage list).
 - On confirmation the applicant becomes a student automatically (automation A2), once per application:
-  - Student record created with an automatic admission number (format from Student Settings).
+  - Student record created with an automatic admission number (format from Student Settings). Added 18 October 2026: the papers verified in Documents & Verification become the student's documents (the same files, named as Student Settings lists them, so the profile shows them as collected), a verified photo becomes the student's photo, and the previous school keeps the last class and marks from the form.
   - Class and section allocated: the section with most free seats, unless the person picks one (inferred rule). Roll number: next free number in the section (inferred).
-  - Parent records created, or linked to existing parents when the phone matches (siblings). The consent given on the application moves to each guardian's Consent Records.
+  - Parent records created, or linked to existing parents when the phone matches (siblings). The consent given on the application moves to each guardian's Consent Records. Added 18 October 2026: an existing parent is linked only when the phone and the name match (close spellings allowed). When the phone is on record under another name, Confirm admission asks "Same family: link to Ravi Kumar (parent of Arjun)" or "A different family: add as a new parent with this phone" before anything is made; nothing is merged by itself.
   - Parent Link created for each guardian (when the school has Parent Link on; the page is owned by Communication) and sent with the welcome message, so the parent can see fees due, pay and download receipts from the first day (decided 9 October 2026).
   - Fee plan set up from the class Fee Structure for the year, including any approved concession.
   - Student login created (optional, schools giving students logins).
   - Transport assigned (optional, when Transport is on and a stop was chosen in preferences); this triggers A12.
   - ID card queued for printing in Certificates & ID Cards.
   - Parent gets a welcome message with the admission number (inferred: uses the "admission confirmed" template).
-- The result screen lists everything created, each with a link, and "Undo admission" for 10 minutes if nothing else has happened to the student yet (no payment, no attendance) (inferred).
+- The result screen lists everything created, each with a link, and "Undo admission" for 10 minutes if nothing else has happened to the student yet (no payment, no attendance) (inferred). Added 18 October 2026: Undo also takes the fee plan rows the admission made off the student's fees (marked removed, reason "Admission undone") and archives the documents it added; it is refused once a fee payment or payment link, a change to the fees, attendance, marks or an edit is recorded for the student.
 
 **Form fields: Confirm admission**
 
@@ -349,7 +349,9 @@ See section 7 for the reports. The page shows them as cards with the latest numb
 | Missing papers at decision | Decision screen shows missing required documents; confirm is blocked while a required document is not Verified, unless the school allows "admit with papers pending" (inferred) | "Birth certificate not verified" | Verify or upload; or record an exception with a reason |
 | Application fee receipt before payment | Receipt only after confirmed payment (A8 rules for online) | "Waiting for payment confirmation" | Retry payment or collect at the counter |
 | Converted twice | Conversion runs once per application; a second attempt opens the existing student (inferred) | "This application is already admitted as Arjun Rao, admission no. 2026/0145" | None needed |
-| Wrong conversion | Undo admission within 10 minutes if nothing else is linked (inferred); later, use Leaving & Alumni (withdrawal) | "Undo admission? The student, the new parent records, their Parent Links and the fees created will be removed." | Undo, or withdraw the student |
+| Another family's parent reused because the phone matched (added 18 October 2026) | A parent on record is reused only when the phone and the name match; otherwise Confirm admission asks first | "Phone 98765 43210 is already on record for Ravi Kumar (parent of Arjun Kumar), not for Suresh Babu named on this form. Say whether this is the same family." | Choose "Same family" or "A different family" |
+| Application fee cash not in the books (added 18 October 2026) | Every confirmed application fee is posted to the Day Book; a cancelled one is reversed | "Receipt SCH/AF/2027/00012 cancelled. The Day Book has a reversal of ₹500 today." | None needed |
+| Wrong conversion | Undo admission within 10 minutes if nothing else is linked (inferred); later, use Leaving & Alumni (withdrawal) | "Undo admission? The student, the new parent records, their Parent Links and the fees created will be removed." Refused with "A fee payment is already recorded for this student, so the admission cannot be undone." (added 18 October 2026) | Undo, or withdraw the student |
 | Waiting-list order changed by hand | Reason required; written to history | "Give a reason for moving Ananya above Kiran" | Move back |
 | AI auto-reply says something wrong | AI replies only with facts stored in Admission Settings (dates, fees, documents, contact) and hands over to a person when unsure; replies are labelled as automatic; staff can pause per enquiry | "AI auto-reply paused for this enquiry" | Pause, reply in person |
 | Restricted fields | Aadhaar-related fields visible only to allowed roles (see 00-global.md, section 5) | Field is hidden | Ask an admin |
@@ -427,7 +429,7 @@ Other records (inferred): **Enquiry Activity** (note, call, follow-up, reassignm
 9. The conversion report shows the same number of admissions as students created from applications this year.
 10. With Test & Interview switched off, the page and its stage are hidden everywhere.
 11. A guardian gives data consent on the application with a one-time code; after confirmation the Consent Record shows the text version agreed to, and the guardian receives a working Parent Link.
-12. Importing a spreadsheet of 200 old enquiries adds them with owners and follow-ups, and rows matching an existing phone are flagged, not added twice.
+12. Importing a spreadsheet of 200 old enquiries adds them with owners and follow-ups, and rows for a child already on record are flagged, not added twice; a brother or sister with the same phone and parent is added as its own enquiry, linked to the family (added 18 October 2026).
 
 ## 10. Open questions
 

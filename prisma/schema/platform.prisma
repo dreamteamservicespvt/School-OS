@@ -79,6 +79,8 @@ model ImportBatch {
   added        Int       @default(0)
   updated      Int       @default(0)
   skipped      Int       @default(0)
+  /// Rows left out on purpose, not problems, counted by reason: [{ reason: "No old dues", count: 300 }].
+  leftOut      Json      @default("[]") @map("left_out")
   /// Ids of records this import created, for Undo.
   createdIds   Json      @default("[]") @map("created_ids")
   /// Records this import changed, with the values before and after, so Undo can put them back.

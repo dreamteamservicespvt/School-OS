@@ -12,7 +12,7 @@ import { fullPage, BASE } from "@/lib/admission/page";
 import { UUID_RE } from "@/lib/admission/act";
 import { CLOSED_STAGES, movableTo, OPEN_STAGES, stageLabel } from "@/lib/admission/applications";
 import { DOC_STATUS_LABEL, progressOf } from "@/lib/admission/documents";
-import { COUNTER_MODES, activeRazorpay, feeStatus, modeLabel } from "@/lib/admission/fee";
+import { CANCEL_REASONS, COUNTER_MODES, activeRazorpay, feeStatus, modeLabel } from "@/lib/admission/fee";
 import { admissionConsentTexts, DATA_CONSENT } from "@/lib/admission/consent";
 import { outcomeLabel } from "@/lib/admission/tests";
 import { blockers } from "@/lib/admission/convert";
@@ -279,7 +279,7 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
                           </span>
                           <span className="flex gap-1 shrink-0">
                             {pay.status === "CONFIRMED" && !pay.cancelledAt && <a href={`${BASE}/applications/${app.id}/receipt/${pay.id}`} target="_blank" rel="noopener" className="inline-flex items-center h-8 px-3 rounded-lg text-[13px] font-semibold text-brand hover:bg-sunken">Receipt</a>}
-                            {pay.status === "CONFIRMED" && !pay.cancelledAt && viewer.overCapacity && <CancelPayment paymentId={pay.id} />}
+                            {pay.status === "CONFIRMED" && !pay.cancelledAt && viewer.overCapacity && <CancelPayment paymentId={pay.id} receiptNo={pay.receiptNo} reasons={CANCEL_REASONS} />}
                           </span>
                         </li>
                       ))}

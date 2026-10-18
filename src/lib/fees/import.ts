@@ -34,16 +34,36 @@ function rupees(v: string, label: string): { ok: true; value: bigint } | { ok: f
 
 type OldDue = { studentId: string; feeHeadId: string; amountPaise: bigint; dueDate: Date; note: string | null; headName: string };
 
+export const NO_OLD_DUES = "No old dues";
+
+/**
+ * A sheet that lists every student (an export of the old software, or the
+ * class list with an Amount column) has rows with no amount: those students
+ * simply have no old dues. An empty, "-", "nil" or zero amount is left out
+ * and counted as "No old dues", not shown as a problem.
+ */
+export function noOldDues(row: Record<string, string>): string | null {
+  const t = (row.amount ?? "").trim();
+  if (/^(nil|none|no dues|n\/?a)$/i.test(t)) return NO_OLD_DUES;
+  try {
+    const p = parseRupees(t, "Amount");
+    return p === null || p === BigInt(0) ? NO_OLD_DUES : null;
+  } catch {
+    return null;
+  }
+}
+
 defineImport<OldDue>({
   key: "fee-old-dues",
   label: "Fee opening balances (old dues)",
   columns: [
     { key: "admissionNo", label: "Admission number", required: true, example: "SPS/2021/0451", aliases: ["admission no", "adm no"] },
     { key: "feeHead", label: "Fee head", example: "Old dues", help: "Leave empty for Old dues", aliases: ["head"] },
-    { key: "amount", label: "Amount", required: true, example: "12500", aliases: ["due", "balance", "amount due"] },
+    { key: "amount", label: "Amount", required: true, example: "12500", help: "Empty or 0 for a student with no old dues: that row is left out", aliases: ["due", "balance", "amount due"] },
     { key: "dueDate", label: "Due date", required: true, example: "31-03-2026", help: "DD-MM-YYYY" },
     { key: "note", label: "Note", example: "Balance from 2025-26" },
   ],
+  leaveOut: noOldDues,
   async check(tx, ctx, row, seen) {
     await ensureFeeDefaults(tx, ctx);
     const problems: string[] = [];

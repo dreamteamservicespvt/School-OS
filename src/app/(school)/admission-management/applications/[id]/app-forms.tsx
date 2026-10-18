@@ -146,13 +146,18 @@ export function ConsentButtons({ id, phone, texts, parent }: { id: string; phone
   );
 }
 
-export function CancelPayment({ paymentId }: { paymentId: string }) {
+export function CancelPayment({ paymentId, receiptNo, reasons }: { paymentId: string; receiptNo: string | null; reasons: readonly string[] }) {
   const [open, setOpen] = useState(false);
   return (
     <>
       <Button size="sm" variant="ghost" onClick={() => setOpen(true)}>Cancel</Button>
-      <FormSheet open={open} onClose={() => setOpen(false)} title="Cancel this payment" sub="The payment and its receipt number stay on record, marked cancelled." action={cancelPaymentAction} hidden={{ paymentId }} submitLabel="Cancel payment" submitVariant="danger">
-        {(f) => <TextArea label="Reason" name="reason" required maxLength={300} defaultValue={f.val("reason")} error={f.err("reason")} />}
+      <FormSheet open={open} onClose={() => setOpen(false)} title={`Cancel receipt ${receiptNo ?? ""}`.trim()} sub="The payment and its receipt number stay on record, marked cancelled. The Day Book gets a reversal today." action={cancelPaymentAction} hidden={{ paymentId }} submitLabel="Cancel payment" submitVariant="danger">
+        {(f) => (
+          <>
+            <SelectField label="Why" name="reason" required placeholder="Choose" options={reasons.map((r) => ({ value: r, label: r }))} defaultValue={f.val("reason")} error={f.err("reason")} />
+            <TextArea label="Note" name="note" rows={2} maxLength={300} defaultValue={f.val("note")} error={f.err("note")} help="Needed when the reason is Other." />
+          </>
+        )}
       </FormSheet>
     </>
   );

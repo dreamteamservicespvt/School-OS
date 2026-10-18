@@ -49,12 +49,12 @@ This page follows 15 pieces of real school work from start to finish. Each one s
 5. The owner calls the family, writes notes and sets the next follow-up, until the family decides. If the family does not join, the owner closes the enquiry with a reason.
 6. The family fills the admission form. The office enters it in Applications, with the previous school and marks. Schools that take applications online can let families fill it online.
 7. **Automatic:** The application gets its own application number.
-8. If the school charges an application fee, the accountant collects it. **Automatic:** a receipt is made only after the payment is confirmed.
+8. If the school charges an application fee, the accountant collects it. **Automatic:** a receipt is made only after the payment is confirmed, and the money goes into the Day Book under Other fee types, "Application fee" (added 18 October 2026).
 9. The office uploads the birth certificate, TC, marksheets and other papers, and ticks each one against the list for that class in Documents & Verification.
 10. Schools with an entrance test or interview record the date, score and remarks in Test & Interview *(optional)*.
 11. The principal approves or rejects the application with remarks in Admission Decision. It also waits in Approvals. If seats are full, the child goes on the waiting list. Schools that give offer letters print one here.
 12. When the family accepts, the office confirms the admission.
-13. **Automatic:** The software creates the Student record with an admission number, class, section and roll number. It links the parents as Guardians, or links the child to an existing Guardian if a brother or sister already studies here. It sets up the year's fee plan, makes the ID card ready to print, makes a student login where the school gives students logins, and gives the bus stop chosen during admission when Transport is on.
+13. **Automatic:** The software creates the Student record with an admission number, class, section and roll number. It links the parents as Guardians, or links the child to an existing Guardian if a brother or sister already studies here (the phone and the name must match; added 18 October 2026: a phone on record under another name is asked about first, "Same family" or "A different family"). It turns the papers checked in step 9 into the student's documents, with the photo, and keeps the previous school's last class and marks. It sets up the year's fee plan, makes the ID card ready to print, makes a student login where the school gives students logins, and gives the bus stop chosen during admission when Transport is on.
 14. **Automatic:** The admission message goes to the parent through Communication. The Admission Dashboard and the Dashboard numbers go up.
 15. The parent pays the first fees at the counter (workflow 2) or by payment link (workflow 3).
 
@@ -68,10 +68,12 @@ This page follows 15 pieces of real school work from start to finish. Each one s
 | Seats are full | Seat rules in Admission Settings | Shows the seats left in each section. | Put the child on the waiting list. Every change to the rank is logged. |
 | A child is entered twice as a student | An application turns into a student only once. A duplicate check runs on name, date of birth, guardian and phone. | "A student with this name, date of birth and parent phone already exists in Class 3 A." | Link to the existing student instead. |
 | The wrong section is given | The decision screen shows the class and section before confirming | | Change the section on the Student Profile. The change is kept in the audit log. |
+| The family's phone is already on record under another parent's name (added 18 October 2026) | Confirm admission asks before linking anyone | "Phone 98765 43210 is already on record for Ravi Kumar (parent of Arjun Kumar), not for Suresh Babu named on this form. Say whether this is the same family." | Choose "Same family" to link that parent, or "A different family" to add a new parent with the phone. |
+| The admission was confirmed by mistake | Undo admission for 10 minutes, while nothing else has happened to the student | "A fee payment is already recorded for this student, so the admission cannot be undone." | Undo takes back the student, new parents, Parent Links, class place, fee plan and documents; later, record the student leaving. |
 
 ### Records created or changed
 
-- **Created:** Enquiry, Application, Approval, Student, Enrolment, Guardian (or a new link to an existing Guardian), Student Fee Due for each installment, Message, Notification. Where used: Payment, Receipt and Day Book Entry for the application fee; User Login for the student; Transport Assignment.
+- **Created:** Enquiry, Application, Approval, Student, Enrolment, Guardian (or a new link to an existing Guardian), Student Fee Due for each installment, Student Document for each verified paper, Message, Notification. Where used: the application fee payment with its receipt number, and its Day Book Entry; User Login for the student; Transport Assignment.
 - **Changed:** Enquiry (status becomes joined or lost), Application (decision), Audit Log Entry for every step.
 
 ### Diagram

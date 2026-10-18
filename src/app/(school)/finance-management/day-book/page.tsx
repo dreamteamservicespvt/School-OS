@@ -22,6 +22,7 @@ import { Line, ModeCell, Ref, signed } from "../_components/bits";
 import { BASE, financePage, financePeriod, one, qs, type SearchParams } from "../_lib/page";
 import { OldSoftwareBanner, OldSoftwareEmpty, allBeforeGoLive } from "@/components/money/go-live";
 import { feePageAllowedFor } from "@/lib/fees/access";
+import { can } from "@/lib/permissions";
 import { closePreview, closesBetween, closesDays, daysToClose, reopensDays } from "@/lib/finance/day-close";
 import { ActButton } from "../_components/forms";
 import { remindCloseAction } from "./actions";
@@ -51,6 +52,7 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
   const oneDay = from.getTime() === to.getTime();
   const seesPayments = feePageAllowedFor(p.current, "payments");
   const seesRefunds = feePageAllowedFor(p.current, "concessions");
+  const seesApplications = can(p.current.permissions, "admission-management", "view");
   // Close the day: the accountant counts and closes; the Principal and School Admin read, remind and may reopen.
   const closer = closesDays(p.current);
   const reopener = reopensDays(p.current);
@@ -137,6 +139,7 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
   const sourceLink = (r: DayRow): [string, string] | null => {
     if (r.sourceType.startsWith("payment") && seesPayments) return [r.sourceType === "payment-cancel" ? "Open the cancelled receipt in Fees" : "Open the payment in Fees", `/fee-management/payments/${r.sourceId}`];
     if (r.sourceType === "refund" && seesRefunds) return ["Open the refund in Fees", `/fee-management/concessions?tab=refunds&open=${r.sourceId}`];
+    if (r.sourceType.startsWith("application-fee") && r.applicationId && seesApplications) return ["Open the application in Admissions", `/admission-management/applications/${r.applicationId}`];
     if (r.sourceType.startsWith("income")) return ["Open in Income", `${BASE}/income?open=${r.sourceId}`];
     if (r.sourceType.startsWith("expense")) return ["Open the expense and bill", `${BASE}/expenses?pay=${r.sourceId}`];
     return null;
@@ -227,6 +230,7 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
                   <Line k={`Fee Dashboard · ${data.match.posted.count + data.match.waiting.count} payments`} v={formatRupees(data.match.posted.amount + data.match.waiting.amount)} bold />
                   <Line k={`Posted here · ${data.match.posted.count} payments`} v={formatRupees(data.match.posted.amount)} />
                   <Line k={`Waiting for verification · ${data.match.waiting.count}`} v={formatRupees(data.match.waiting.amount)} tone={data.match.waiting.count ? "warn" : undefined} />
+                  {data.match.applicationFees.count > 0 && <Line k={`Application fees, from Admissions · ${data.match.applicationFees.count}`} v={formatRupees(data.match.applicationFees.amount)} />}
                 </ul>
                 {data.match.waiting.count > 0 && <p className="px-5 pb-4 -mt-1 text-[12.5px] text-ink3">Cheques and bank transfers count only after the accountant checks them. Turn on “Show waiting entries” to see them here.</p>}
               </Card>

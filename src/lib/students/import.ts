@@ -115,6 +115,9 @@ export function decisionWords(raw: string) {
   if (d.family) return "A new student, linked to the family already on record.";
   if (d.familyRow) return `A new student in the same family as row ${d.familyRow}.`;
   if (d.isNew) return "A new student, with their own parent record.";
+  // Enquiries (src/lib/admission/import.ts): a phone on record under another parent's name.
+  if (d.sibling) return "A brother or sister: one more enquiry, linked to the family's enquiry.";
+  if (d.otherFamily) return "A different family with the same phone: its own enquiry.";
   return "";
 }
 
@@ -126,6 +129,8 @@ export function readDecision(raw: string | undefined) {
     family: new RegExp(`^family:(${UUID})$`, "i").exec(d)?.[1] ?? null,
     familyRow: Number(/^family-row:(\d{1,6})$/.exec(d)?.[1] ?? 0) || null,
     isNew: d === "new",
+    sibling: d === "sibling",
+    otherFamily: d === "other-family",
   };
 }
 

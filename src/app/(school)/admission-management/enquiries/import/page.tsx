@@ -21,7 +21,7 @@ export default async function ImportEnquiriesPage() {
   return (
     <>
       <PageHeader title="Import enquiries" href={`${BASE}/enquiries/import`} userId={current.user.id} />
-      <p className="mb-4 max-w-3xl text-ink-2">Bring in open enquiries from your old software or a spreadsheet. Each one gets an owner and a follow-up. Rows whose phone already belongs to an enquiry, application or parent are flagged and skipped.</p>
+      <p className="mb-4 max-w-3xl text-ink-2">Bring in open enquiries from your old software or a spreadsheet. Each one gets an owner and a follow-up. One row for each child: a child already in School OS is flagged and skipped, and a brother or sister with the same phone and parent is added, linked to the family. A phone on record under another parent’s name asks you first.</p>
       <ImportSteps columns={kind.columns.map((c) => ({ key: c.key, label: c.label, required: c.required, help: c.help }))} upload={uploadEnquiryFile} check={checkEnquiryFile} run={importEnquiryFile} undo={undoEnquiryImport} />
       {history.length > 0 && (
         <Card className="mt-5">

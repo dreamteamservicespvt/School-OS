@@ -40,7 +40,7 @@ export function DecideButtons({ id, name, sub, canDecide, canReject, full, waiti
   );
 }
 
-export function ConfirmButton({ id, name, sub, sections, defaultSection, today }: { id: string; name: string; sub: string; sections: Option[]; defaultSection: string | null; today: string }) {
+export function ConfirmButton({ id, name, sub, sections, defaultSection, today, family }: { id: string; name: string; sub: string; sections: Option[]; defaultSection: string | null; today: string; family: { question: string; options: Option[] } | null }) {
   const [open, setOpen] = useState(false);
   const [sec, setSec] = useState(defaultSection ?? sections[0]?.value ?? "");
   return (
@@ -59,6 +59,19 @@ export function ConfirmButton({ id, name, sub, sections, defaultSection, today }
               {f.err("sectionId") && <p className="text-[12.5px] text-bad">{f.err("sectionId")}</p>}
             </div>
             <TextField label="Admission date" name="admissionDate" type="date" required defaultValue={f.val("admissionDate", today)} error={f.err("admissionDate")} className="tnum" />
+            {family && (
+              <fieldset className="flex flex-col gap-2">
+                <legend className="text-[13px] font-semibold text-ink2 mb-1.5">Parents <span className="text-bad" aria-hidden="true">*</span></legend>
+                <p className="rounded-xl bg-warn/10 px-3.5 py-3 text-[13.5px] text-ink2">{family.question}</p>
+                {family.options.map((o) => (
+                  <label key={o.value} className="flex items-start gap-2.5 rounded-xl border border-line px-3.5 py-2.5 text-[14px] cursor-pointer has-[:checked]:border-brand has-[:checked]:bg-brand/5">
+                    <input type="radio" name="family" value={o.value} required defaultChecked={f.val("family") === o.value} className="mt-0.5 size-5 shrink-0" />
+                    <span>{o.label}</span>
+                  </label>
+                ))}
+                {f.err("family") && <p className="text-[12.5px] text-bad">{f.err("family")}</p>}
+              </fieldset>
+            )}
             <p className="text-[12.5px] text-ink3">Makes the student with an admission number, links the parents, sends Parent Link, sets up the fee plan and queues the ID card. Runs once per application.</p>
           </>
         )}
@@ -117,7 +130,7 @@ export function UndoAdmission({ id }: { id: string }) {
   return (
     <>
       <Button variant="ghost" icon={Undo2} onClick={() => setOpen(true)}>Undo admission (10 min)</Button>
-      <FormSheet open={open} onClose={() => setOpen(false)} title="Undo admission?" sub="The student, the new parent records, their Parent Links and the class place are archived. Allowed only while nothing else has happened to the student."
+      <FormSheet open={open} onClose={() => setOpen(false)} title="Undo admission?" sub="The student, the new parent records, their Parent Links, the class place, the fee plan and the documents are taken back. Allowed only while nothing else has happened to the student (no payment, attendance or marks)."
         action={undoAction} hidden={{ id }} submitLabel="Undo admission" submitVariant="danger" submitIcon={Undo2}>
         {() => <p className="text-[14px] text-ink2">The application goes back to approved. Nothing is deleted; the history keeps both steps.</p>}
       </FormSheet>

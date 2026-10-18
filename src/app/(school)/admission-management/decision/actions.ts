@@ -53,7 +53,8 @@ export async function confirmAction(_: FormState<unknown>, fd: FormData): Promis
     appId = id(fd, "id", "application");
     await inSchool("create", async (w) => {
       const admissionDate = dateOf(fd, "admissionDate", "Admission date");
-      return confirmAdmission(w.tx, w.ctx, w.v, appId, { sectionId: optionalId(fd, "sectionId"), admissionDate });
+      const family = maybe(fd, "family", "Family", 60);
+      return confirmAdmission(w.tx, w.ctx, w.v, appId, { sectionId: optionalId(fd, "sectionId"), admissionDate, family });
     }, { timeout: 60_000 });
   } catch (e) {
     if (e instanceof AlreadyAdmittedProblem) redirect(`${BASE}/${str(fd, "id")}/admitted`);

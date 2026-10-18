@@ -44,6 +44,13 @@ export type ImportKind<T> = {
    */
   check: (tx: Tx, ctx: SchoolContext, row: Record<string, string>, seen: Set<string>, place?: RowPlace) => Promise<RowResult<T>>;
   /**
+   * A row the kind leaves out on purpose, before any check: returns the
+   * words it is counted under in the result (for example "No old dues" for a
+   * row with no amount, in a sheet listing every student), or null to check
+   * the row. Such a row is not a problem and has nothing to fix.
+   */
+  leaveOut?: (row: Record<string, string>) => string | null;
+  /**
    * Saves one good row; returns the record's id and whether it was created.
    * An import that changes existing records returns what it changed
    * (`before` and `after`), so Undo can put the old values back.
@@ -142,10 +149,26 @@ export function autoMatch(columns: ImportColumn[], headers: string[]): Record<st
 
 export type BadRow = { line: number; row: Record<string, string>; problems: string[]; choices?: RowChoice[] };
 
+/** A row left out on purpose (ImportKind.leaveOut), with the words it is counted under. */
+export type LeftRow = { line: number; reason: string };
+
 export type Preview<T> = {
   good: { line: number; value: T; row: Record<string, string> }[];
   bad: BadRow[];
+  left: LeftRow[];
 };
+
+/** Rows left out on purpose, counted by reason, for the result: [{ reason: "No old dues", count: 300 }]. */
+export function leftCounts(left: LeftRow[]): { reason: string; count: number }[] {
+  const by = new Map<string, number>();
+  for (const l of left) by.set(l.reason, (by.get(l.reason) ?? 0) + 1);
+  return [...by.entries()].map(([reason, count]) => ({ reason, count }));
+}
+
+/** The counts as words: "300 no old dues". */
+export function leftWords(counts: { reason: string; count: number }[]): string {
+  return counts.map((c) => `${c.count} ${c.reason.toLowerCase()}`).join(", ");
+}
 
 /** Choices made for rows, by line in the file (from 2): "update:<id>", "new"... Only the kind that offered them reads them. */
 export type Decisions = Record<number, string>;
@@ -156,13 +179,18 @@ export type Decisions = Record<number, string>;
  * and choices name the rows as the person sees them; otherwise row i is line i + 2.
  */
 export async function previewImport<T>(tx: Tx, ctx: SchoolContext, kind: ImportKind<T>, rows: string[][], match: Record<string, number>, decisions: Decisions = {}, lines?: number[]): Promise<Preview<T>> {
-  const out: Preview<T> = { good: [], bad: [] };
+  const out: Preview<T> = { good: [], bad: [], left: [] };
   const seen = new Set<string>();
   for (let i = 0; i < rows.length; i++) {
     const line = lines?.[i] ?? i + 2;
     const place: RowPlace = { line, decision: decisions[line] || undefined };
     const row: Record<string, string> = {};
     for (const c of kind.columns) row[c.key] = match[c.key] !== undefined ? (rows[i][match[c.key]] ?? "").trim() : "";
+    const leave = kind.leaveOut?.(row);
+    if (leave) {
+      out.left.push({ line, reason: leave });
+      continue;
+    }
     const empty = kind.columns.filter((c) => c.required && !row[c.key]);
     if (empty.length) {
       // Show every problem of the row at once, so the office fixes it in one go:
@@ -233,13 +261,14 @@ export async function runImport<T>(tx: Tx, ctx: SchoolContext, kind: ImportKind<
       added: createdIds.length,
       updated,
       skipped: bad.length,
+      leftOut: leftCounts(preview.left ?? []),
       createdIds,
       updatedRows: updatedRows as unknown as Prisma.InputJsonValue,
       errorReport: bad.map((b) => ({ line: b.line, row: b.row, problems: b.problems })),
       importedById: ctx.userId,
     },
   });
-  await writeAudit(tx, ctx, { action: "imported", recordType: "Import", recordId: batch.id, after: { kind: kind.key, fileName, added: createdIds.length, updated, skipped: bad.length } });
+  await writeAudit(tx, ctx, { action: "imported", recordType: "Import", recordId: batch.id, after: { kind: kind.key, fileName, added: createdIds.length, updated, skipped: bad.length, leftOut: leftCounts(preview.left ?? []) } });
   return batch;
 }
 

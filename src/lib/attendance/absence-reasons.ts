@@ -9,7 +9,9 @@
 // - Later, from the day's absent list in the Attendance Register, by the class
 //   teacher or the office (for example after the parent calls back). Audited.
 // A "Fees dispute" reason is seen only by people with the whole school's fees;
-// everyone else sees "Other". Marks from before have no reason (not recorded).
+// everyone else sees "Other". An absent mark with no reason saved (marks from
+// before reasons were switched on, for example) is "Not known yet" on every
+// screen and in every count: one word for one mark (browser finding TEACHING-04).
 import "server-only";
 
 import type { Prisma } from "@prisma/client";
@@ -41,7 +43,7 @@ export const SOURCE_WORDS: Record<string, string> = { register: "Take Attendance
 
 const LABEL = new Map<string, string>(ABSENCE_REASONS.map((r) => [r.key, r.label]));
 export const isReason = (k: unknown): k is AbsenceReason => typeof k === "string" && LABEL.has(k);
-export const reasonLabel = (k: string | null | undefined) => (k ? LABEL.get(k) ?? k : "Not recorded");
+export const reasonLabel = (k: string | null | undefined) => (k ? LABEL.get(k) ?? k : "Not known yet");
 
 /** The reasons a person may choose: "Fees dispute" only with the school's fees. */
 export function reasonChoices(seesFees: boolean) {
@@ -56,6 +58,11 @@ export function shownReason(r: StoredReason, seesFees: boolean): ShownReason | n
   if (!r.absenceReason) return null;
   if (r.absenceReason === FEE_REASON && !seesFees) return { key: "other", label: "Other", note: null, source: r.reasonSource ?? null };
   return { key: r.absenceReason, label: reasonLabel(r.absenceReason), note: r.absenceNote, source: r.reasonSource ?? null };
+}
+
+/** An absent mark's reason as this person may see it: no reason saved is "Not known yet", the same word as everywhere else. */
+export function absentReason(r: StoredReason, seesFees: boolean): ShownReason {
+  return shownReason(r, seesFees) ?? { key: DEFAULT_REASON, label: reasonLabel(DEFAULT_REASON), note: null, source: r.reasonSource ?? null };
 }
 
 export const cleanNote = (s: unknown) => (typeof s === "string" ? s.trim().replace(/\s+/g, " ").slice(0, NOTE_MAX) : "") || null;
@@ -175,7 +182,7 @@ export async function absentList(tx: Tx, ctx: SchoolContext, access: AttendanceA
       rollNo: enrol.find((e) => e.studentId === sid && e.sectionId === first.sectionId)?.rollNo ?? null,
       className: sec ? `${sec.schoolClass.name} ${sec.name}` : "", statusName: statuses.get(first.statusKey) ?? first.statusKey,
       periods: list.filter((m) => m.periodNo > 0).map((m) => m.periodNo), note: first.note,
-      reason: shownReason(withReason, access.seesFees), mayChange: mayRecordReasons(access, first.sectionId),
+      reason: absentReason(withReason, access.seesFees), mayChange: mayRecordReasons(access, first.sectionId),
       leave: l ? `${types.get(l.leaveTypeId) ?? "Leave"} leave ${l.status === "APPROVED" ? "approved" : "waiting"}` : null,
     } });
   }
@@ -260,13 +267,13 @@ export async function studentAbsences(tx: Tx, ctx: SchoolContext, studentId: str
     orderBy: [{ date: "desc" }, { periodNo: "asc" }],
     select: { date: true, absenceReason: true, absenceNote: true, reasonSource: true },
   });
-  const out = new Map<string, { date: Date; reason: ShownReason | null }>();
+  const out = new Map<string, { date: Date; raw: string | null; reason: ShownReason }>();
   for (const m of marks) {
     const k = isoDay(m.date);
     const cur = out.get(k);
-    if (!cur || (!cur.reason && m.absenceReason)) out.set(k, { date: m.date, reason: shownReason(m, seesFees) });
+    if (!cur || (!cur.raw && m.absenceReason)) out.set(k, { date: m.date, raw: m.absenceReason, reason: absentReason(m, seesFees) });
   }
-  return [...out.values()];
+  return [...out.values()].map(({ date, reason }) => ({ date, reason }));
 }
 
 /* ---------- the reason mix, for reports and Early Warnings ---------- */
@@ -274,7 +281,7 @@ export async function studentAbsences(tx: Tx, ctx: SchoolContext, studentId: str
 export type ReasonMix = {
   /** Absent days (a day absent in several periods counts once). */
   absent: number;
-  /** Absent days per reason; "none" for days with no reason recorded. */
+  /** Absent days per reason. With reasons on, a day with no reason saved is "not-known"; with them off, "none". */
   by: Record<string, number>;
   /** Absent days with approved leave for that day. */
   coveredByLeave: number;
@@ -291,6 +298,8 @@ export async function reasonMix(tx: Tx, ctx: SchoolContext, studentIds: string[]
     orderBy: { periodNo: "asc" },
   });
   const leave = await tx.leaveRequest.findMany({ where: { studentId: { in: studentIds }, status: "APPROVED", archivedAt: null, fromDate: { lte: to }, toDate: { gte: from } }, select: { studentId: true, fromDate: true, toDate: true } });
+  // With absence reasons on, an absence with no reason saved is "Not known yet", as on every screen.
+  const none = (await reasonsOn(tx, ctx)) ? DEFAULT_REASON : "none";
   const days = new Map<string, Map<string, string | null>>();
   for (const m of marks) {
     const k = isoDay(m.date);
@@ -303,7 +312,7 @@ export async function reasonMix(tx: Tx, ctx: SchoolContext, studentIds: string[]
     const mix: ReasonMix = { absent: 0, by: {}, coveredByLeave: 0 };
     for (const [k, reason] of per) {
       mix.absent++;
-      const r = reason ?? "none";
+      const r = reason ?? none;
       mix.by[r] = (mix.by[r] ?? 0) + 1;
       const dt = new Date(`${k}T00:00:00Z`);
       if (leave.some((l) => l.studentId === sid && l.fromDate <= dt && l.toDate >= dt)) mix.coveredByLeave++;
@@ -331,7 +340,8 @@ export function mixText(mix: ReasonMix | undefined, seesFees: boolean) {
   const recorded = Object.keys(by).some((k) => k !== "none");
   if (!recorded) return "";
   const order = [...ABSENCE_REASONS.map((r) => r.key as string), "none"];
-  const parts = order.filter((k) => by[k]).map((k) => `${by[k]} ${k === "none" ? "not recorded" : reasonLabel(k).toLowerCase()}`);
+  if (by.none) { by[DEFAULT_REASON] = (by[DEFAULT_REASON] ?? 0) + by.none; delete by.none; }
+  const parts = order.filter((k) => by[k]).map((k) => `${by[k]} ${reasonLabel(k).toLowerCase()}`);
   const leave = mix.coveredByLeave ? `; ${mix.coveredByLeave} covered by approved leave` : "";
   return `${parts.join(", ")}${leave}`;
 }

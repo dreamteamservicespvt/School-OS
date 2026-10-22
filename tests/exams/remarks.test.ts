@@ -35,6 +35,7 @@ import { publishResults } from "@/lib/exams/results";
 import { examSettings } from "@/lib/exams/settings";
 import { examKey } from "@/lib/exams/common";
 import { draftRemarksAction, saveRemarksAction } from "@/app/(school)/examination-results/report-cards/actions";
+import { saveAssistant } from "@/lib/settings/switches";
 import { academicSchool, d } from "../academic/fixture";
 import { addStudent } from "../students/fixtures";
 
@@ -65,7 +66,9 @@ beforeAll(async () => {
   await s.run(async (tx) => {
     termId = (await tx.term.create({ data: { schoolId: s.school.id, academicYearId: s.year.id, name: "Term 1", startDate: d("2026-04-01"), endDate: d("2026-12-31"), sortOrder: 1 } })).id;
     await examSettings(tx, s.ctx);
-    for (const featureKey of ["ai-assistant", "ai-teacher-assistant"]) await tx.schoolFeature.create({ data: { schoolId: s.school.id, featureKey, isOn: true } });
+    // The AI assistant on for the Principal and teachers (Settings, Modules On/Off), with the teacher assistant.
+    await saveAssistant(tx, s.ctx, { on: true, roles: ["principal", "teacher"] });
+    await tx.schoolFeature.create({ data: { schoolId: s.school.id, featureKey: "ai-teacher-assistant", isOn: true } });
   });
   principal = await s.run(async (tx) => examScope(tx, await s.currentFor(s.principal.id), s.year.id));
   const [a, b, c, dd] = kids;

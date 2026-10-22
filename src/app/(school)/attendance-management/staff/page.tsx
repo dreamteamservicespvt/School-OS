@@ -129,7 +129,7 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
               <div key={k} className="rounded-xl bg-sunken/70 px-3 py-2.5"><p className="font-display text-[22px] font-semibold tnum leading-none">{v}</p><p className="text-[12px] text-ink3 font-semibold mt-1">{k}</p></div>
             ))}
           </div>
-          <p className="text-[12.5px] text-ink3">{y.workingDays} working days in {data.view.label}{data.view.month === ym(today) ? " so far" : ""}. Sundays and holidays are not counted.</p>
+          <p className="text-[12.5px] text-ink3">{y.workingDays} working days in {data.view.label}{data.view.month === ym(today) ? " so far" : ""}. Sundays, holidays and days off are not counted.</p>
         </div>
       </UrlSheet>
     );
@@ -391,7 +391,7 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
           <div className="sm:ml-auto"><ExportMenu href={`${PATH}/export?month=${ym(from)}`} /></div>
         </div>
         <Stats items={[
-          { label: "Working days", value: data.sum.workingDays, sub: "Sundays and holidays left out", icon: CalendarDays },
+          { label: "Working days", value: data.sum.workingDays, sub: "Sundays, holidays and days off left out", icon: CalendarDays },
           { label: all ? "Staff attendance" : "My attendance", value: percentText(data.sum.overall.percent), icon: UserCheck, tone: data.sum.overall.percent === null ? undefined : data.sum.overall.percent < settings.thresholdPercent ? "bad" : "ok" },
           { label: "Late marks", value: data.sum.overall.late, icon: Clock, tone: data.sum.overall.late ? "warn" : undefined },
           { label: "Leave days", value: data.sum.overall.leave, icon: CalendarDays },
@@ -409,7 +409,7 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
           {data.staff.length === 0 ? (
             <EmptyState bare title="Nobody to show" Icon={Users}>{all ? "No staff for this month." : "Your login is not linked to a staff record. Ask HR."}</EmptyState>
           ) : (
-            <div className="overflow-x-auto border-t border-line" tabIndex={0} role="region" aria-label={`Staff attendance, ${monthLabel(from)}`}>
+            <div className="relative overflow-x-auto border-t border-line" tabIndex={0} role="region" aria-label={`Staff attendance, ${monthLabel(from)}`}>
               <table className="w-max min-w-full border-collapse text-[13px]">
                 <caption className="sr-only">Staff attendance for {monthLabel(from)}</caption>
                 <thead>

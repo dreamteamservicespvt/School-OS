@@ -3,17 +3,69 @@
 import type { ModuleKey } from "../modules";
 import { publicUrlProblem } from "../net/public-address";
 
-/** AI features under the AI assistant (Modules On/Off). Each is a School Feature switch other modules read. */
+/**
+ * AI features under the AI assistant (Modules On/Off). Each is a School Feature switch other modules read.
+ * - ready: built; the school can switch it on.
+ * - coming-soon: listed so the school knows it is planned, but it cannot be switched on until it is built.
+ * - hidden: decided not to build (AI question papers, gap list 17 October 2026). The key is kept, never shown.
+ */
 export const AI_FEATURES = [
-  { key: "ai-ask-do", label: "Ask and Do", about: "Questions in plain words, and actions prepared as a filled form a person checks. Includes ready-made questions per role." },
-  { key: "ai-smart-import", label: "Smart Import", about: "Suggests how columns of an Excel file match, when importing." },
-  { key: "ai-enquiry-reply", label: "AI auto-reply to enquiries", about: "Suggests replies to admission enquiries; a person sends them." },
-  { key: "ai-insights", label: "Student insights and early warnings", about: "Flags students whose attendance, marks or fees need attention." },
-  { key: "ai-forecasts", label: "Forecasts", about: "Expected fee collection and admissions, from the school's own records." },
-  { key: "ai-teacher-assistant", label: "Teacher assistant", about: "Helps teachers draft lesson plans and homework." },
-  { key: "ai-question-papers", label: "AI question papers", about: "Drafts question papers from the syllabus for the teacher to edit." },
-  { key: "ai-translation", label: "Translation of typed messages", about: "Translates a typed message into each parent's language. The sender sees and can edit each translation; the parent's copy says \"Translated from English\"." },
-] as const;
+  { key: "ai-ask-do", label: "Ask and Do", status: "coming-soon", about: "Questions in plain words, and actions prepared as a filled form a person checks. Includes ready-made questions per role." },
+  { key: "ai-smart-import", label: "Smart Import", status: "ready", about: "When importing a spreadsheet, suggests which column is which and likely fixes (dates, phone numbers, class names). With the AI service connected, it also suggests columns the rules could not match, from the headings only. You tick each suggestion before it is used." },
+  { key: "ai-enquiry-reply", label: "AI auto-reply to enquiries", status: "coming-soon", about: "Suggests replies to admission enquiries; a person sends them." },
+  { key: "ai-insights", label: "Student insights and early warnings", status: "ready", about: "Flags students whose attendance, marks or fees need attention." },
+  { key: "ai-forecasts", label: "Forecasts", status: "ready", about: "Looking ahead from the school's own records: attendance and marks heading below the line, fees likely to come late, seats likely to stay empty, staff and cash." },
+  { key: "ai-principal-summary", label: "Principal summary", status: "ready", about: "Today's brief for the Principal and School Admin each school morning, and the weekly brief on Monday: what happened, what may need them next and what waits for their decision. Every number is the school's own record, with a link to the list behind it." },
+  { key: "ai-teacher-assistant", label: "Teacher assistant", status: "ready", about: "Drafts homework, feedback on submissions and report card remarks for the teacher to edit." },
+  { key: "ai-question-papers", label: "AI question papers", status: "hidden", about: "Not built: free tools already do this." },
+  { key: "ai-translation", label: "Translation of typed messages", status: "coming-soon", about: "Translates a typed message into each parent's language. The sender sees and can edit each translation; the parent's copy says \"Translated from English\"." },
+] as const satisfies readonly { key: string; label: string; status: "ready" | "coming-soon" | "hidden"; about: string }[];
+
+export type AiFeatureKey = (typeof AI_FEATURES)[number]["key"];
+
+/** The AI features shown in Modules On/Off: every one except those decided not to build. */
+export const SHOWN_AI_FEATURES = AI_FEATURES.filter((f) => f.status !== "hidden");
+
+/** A feature can be switched on, and works, only once it is built. */
+export const aiFeatureReady = (key: string) => AI_FEATURES.some((f) => f.key === key && f.status === "ready");
+
+/** Who may use the AI assistant when the school has not chosen yet: the leaders who switch it on. */
+export const DEFAULT_AI_ROLES: readonly string[] = ["school-admin", "principal"];
+
+/** The roles the school chose for the AI assistant (Modules On/Off), or the default leaders when none was saved. */
+export const aiRolesOf = (prefs: { aiRoles?: string[] | null }) => (Array.isArray(prefs.aiRoles) ? prefs.aiRoles : [...DEFAULT_AI_ROLES]);
+
+/** What the AI checks need to know about a person: the school's switches, their roles and the AI roles. */
+export type AiWho = { features: ReadonlySet<string>; roles: readonly { key: string | null }[]; aiRoles?: readonly string[] | null };
+
+export type AiOff = "assistant-off" | "feature-off" | "not-built" | "role-not-allowed";
+
+/** Plain words for why AI is not used here. */
+export const AI_OFF_WORDS: Record<AiOff, string> = {
+  "assistant-off": "The AI assistant is off for this school.",
+  "feature-off": "This AI feature is off for this school.",
+  "not-built": "This AI feature is not ready yet.",
+  "role-not-allowed": "Your role does not use the AI assistant in this school.",
+};
+
+/**
+ * Why AI may not be used by this person for this feature, or null when it may (00-global.md §2.1 rule 8):
+ * the AI assistant is on, the feature is built and on, and one of the person's roles is in the AI roles.
+ * Without a feature, only the assistant and the role are checked.
+ */
+export function aiOffReason(who: AiWho, feature?: string): AiOff | null {
+  if (!who.features.has("ai-assistant")) return "assistant-off";
+  if (feature) {
+    if (!aiFeatureReady(feature)) return "not-built";
+    if (!who.features.has(feature)) return "feature-off";
+  }
+  const allowed = new Set(who.aiRoles ?? DEFAULT_AI_ROLES);
+  if (!who.roles.some((r) => r.key && allowed.has(r.key))) return "role-not-allowed";
+  return null;
+}
+
+/** May this person use AI here: one check for every place AI appears. */
+export const aiAllowed = (who: AiWho, feature?: string) => aiOffReason(who, feature) === null;
 
 export type SchoolTemplate = {
   key: string;

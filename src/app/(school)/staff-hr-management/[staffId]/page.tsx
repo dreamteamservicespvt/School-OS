@@ -8,7 +8,7 @@ import { staffPage, BASE } from "@/lib/staff/page";
 import { canChangeStaff, canOpenStaff, canSeeSalary } from "@/lib/staff/access";
 import { campusStaffWhere } from "@/lib/staff/list";
 import { showRestricted } from "@/lib/staff/staff";
-import { balancesFor, daysText, holidaySet, leaveYearFor } from "@/lib/staff/leave";
+import { balancesFor, daysText, leaveYearFor, offDayMap } from "@/lib/staff/leave";
 import { docStatus, DOC_TONE, showDocNumber } from "@/lib/staff/documents";
 import { EMPLOYMENT_TYPES, hrSettings, statusLabel } from "@/lib/staff/settings";
 import { combineLevels, extraPermissions, roleLines } from "@/lib/staff/role-words";
@@ -476,7 +476,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
     const to = monthEnd(m);
     const data = await withSchool(current.ctx, async (tx) => {
       const [holidays, leaves] = await Promise.all([
-        holidaySet(tx, current.ctx, from, to, s!.campusId),
+        offDayMap(tx, current.ctx, from, to, s!.campusId),
         tx.leaveRequest.findMany({ where: { staffId: s!.id, status: "APPROVED", archivedAt: null, fromDate: { lte: to }, toDate: { gte: from } } }),
       ]);
       const types = await tx.leaveType.findMany({ where: { id: { in: leaves.map((l) => l.leaveTypeId) } } });
@@ -489,12 +489,13 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
     let working = 0;
     const cells = eachDay(from, to).map((d) => {
       const iso = isoDay(d);
-      const sunday = isoWeekday(d) === 7;
-      const holiday = data.holidays.has(iso);
+      const offDay = data.holidays.get(iso);
+      const sunday = offDay ? offDay.reason !== "holiday" : false;
+      const holiday = offDay?.reason === "holiday";
       const leave = data.leaves.find((l) => l.fromDate <= d && l.toDate >= d);
       if (!sunday && !holiday) working++;
       if (leave && !sunday && !holiday) leaveDays += leave.halfDay ? 0.5 : 1;
-      const label = sunday ? "Sunday" : holiday ? "Holiday" : leave ? (data.types.find((t) => t.id === leave.leaveTypeId)?.name ?? "Leave") + (leave.halfDay ? " (half)" : "") : d > today ? "" : "Working day";
+      const label = sunday ? offDay?.title ?? "Sunday" : holiday ? "Holiday" : leave ? (data.types.find((t) => t.id === leave.leaveTypeId)?.name ?? "Leave") + (leave.halfDay ? " (half)" : "") : d > today ? "" : "Working day";
       return { d, iso, sunday, holiday, leave: Boolean(leave) && !sunday && !holiday, label };
     });
     return (

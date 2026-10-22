@@ -84,9 +84,10 @@ function finishTotals(t: FeeTotals) {
 
 /**
  * The fee rows that count, for these students (or everyone the viewer may see:
- * the whole school, or their campus). "This year" is each campus's current year.
+ * the whole school, or their campus). "This year" is each campus's current year
+ * (`yearIds`), or the one year asked for.
  */
-async function dueRows(tx: Tx, viewer: FeeViewer, today: Date, studentIds: string[] | null): Promise<Row[]> {
+async function dueRows(tx: Tx, viewer: Pick<FeeViewer, "yearIds" | "campusId">, today: Date, studentIds: string[] | null): Promise<Row[]> {
   const horizon = addDays(today, DUE_WINDOW_DAYS);
   const where: Prisma.StudentFeeDueWhereInput = {
     state: "OPEN",
@@ -115,6 +116,33 @@ function studentFees(rows: Row[], today: Date, who: { studentId: string; name: s
     daysLate: oldestLate ? Math.floor((today.getTime() - oldestLate.dueDate.getTime()) / DAY_MS) : 0,
     oldest: o ? { label: o.label, dueDate: o.dueDate } : null,
   };
+}
+
+/**
+ * Each student's fees fallen due so far, from the same rows as Fees by class:
+ * what is still to pay and how much of it is overdue. A student with nothing
+ * fallen due yet is left out of the map. For the Student List and Parent 360.
+ */
+export async function feesDueOf(tx: Tx, yearId: string | null, today: Date, studentIds: string[]) {
+  const out = new Map<string, { pending: bigint; overdue: bigint }>();
+  if (!studentIds.length) return out;
+  for (const r of await dueRows(tx, { yearIds: yearId ? [yearId] : [], campusId: null }, today, studentIds)) {
+    const t = out.get(r.studentId) ?? { pending: ZERO, overdue: ZERO };
+    t.pending += r.balance;
+    if (r.balance > ZERO && r.dueDate < today) t.overdue += r.balance;
+    out.set(r.studentId, t);
+  }
+  return out;
+}
+
+/** Students who still owe fees fallen due so far ("Has dues"), or fees past their due date ("Overdue"): one read for the whole school. */
+export async function studentsOwing(tx: Tx, today: Date, kind: "dues" | "overdue") {
+  const rows = await tx.studentFeeDue.findMany({
+    where: { state: "OPEN", balancePaise: { gt: 0 }, dueDate: kind === "overdue" ? { lt: today } : { lte: addDays(today, DUE_WINDOW_DAYS) } },
+    select: { studentId: true },
+    distinct: ["studentId"],
+  });
+  return rows.map((r) => r.studentId);
 }
 
 /** Whom the viewer may see: everyone (on their campus, when limited to one), or (Own) their sections' students. */

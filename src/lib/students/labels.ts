@@ -171,3 +171,6 @@ export const OPTIONAL_FORM_FIELDS: { key: string; label: string }[] = [
 export function initials(name: string) {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]!.toUpperCase()).join("");
 }
+
+/** A published final result from Examination & Results, as the Student List and Promotion show it. */
+export const RESULT_LABEL = { pass: "Pass", fail: "Fail", compartment: "Compartment" } as const;

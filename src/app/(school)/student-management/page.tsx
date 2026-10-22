@@ -1,15 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Info, Download, IdCard, FileBadge, ArrowRightLeft, PenLine, KeyRound, Send, Upload, UserPlus, Images, History, SearchX, Users } from "lucide-react";
+import { Download, IdCard, FileBadge, ArrowRightLeft, PenLine, KeyRound, Send, Upload, UserPlus, Images, History, SearchX, Users } from "lucide-react";
 import { withSchool } from "@/lib/db";
-import { readListParams, listHref, orderByFor } from "@/lib/list";
+import { readListParams, listHref } from "@/lib/list";
 import { formatDate, formatRupees } from "@/lib/format";
 import { BUILT_MODULES } from "@/lib/modules";
 import { can } from "@/lib/permissions";
-import { listFactsByYear, feeFilterAvailable } from "@/lib/students/hooks";
-import { admissionOnlyFor } from "@/lib/fees/access";
+import { seesStudentFees } from "@/lib/fees/access";
 import { phoneShow, classShort } from "@/lib/students/show";
-import { CATEGORIES, GENDERS, LIST_COLUMNS, STATUS_LABEL, STUDENT_STATUSES, type StudentStatusKey } from "@/lib/students/labels";
+import { CATEGORIES, GENDERS, LIST_COLUMNS, RESULT_LABEL, STATUS_LABEL, STUDENT_STATUSES, type StudentStatusKey } from "@/lib/students/labels";
 import { Card } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
@@ -22,11 +21,11 @@ import { MoreMenu } from "@/components/ui/more-menu";
 import { BASE, studentPage } from "./_lib/page";
 import { StudentsHead } from "./_lib/head";
 import { EXPORT_FIELDS, fieldAllowed } from "./_lib/export-fields";
-import { classTiles, LIST_FILTERS, mainGuardian, photoSrc, sectionNames, studentListInclude, studentListWhere, studentsByYear, type ListStudent } from "./_lib/queries";
+import { LIST_FILTERS, loadStudentList, mainGuardian, type ListRow } from "./_lib/queries";
 
 export const metadata: Metadata = { title: "Student List" };
 
-type Row = ListStudent & { sectionLabel: string; photo: string | null; att: number | null; due: bigint | null; overdue: boolean };
+type Row = ListRow;
 
 const STEP = 25;
 
@@ -37,57 +36,27 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
   const shownCount = Math.min(500, Math.max(STEP, Number.parseInt(String(raw.n ?? ""), 10) || STEP));
   // Each student's class is in their own campus's current year (two campuses can start the year on different dates).
   const yearId = yearIds;
-  const feesOn = feeFilterAvailable();
-  if (!feesOn) delete params.filters.fee;
+  // The fee column and the "Has dues" filter only for people allowed to see fees (not the Admission Counsellor, who sees admission fees only).
+  const seeFees = seesStudentFees(current);
+  if (!seeFees) delete params.filters.fee;
 
-  const data = await withSchool(current.ctx, async (tx) => {
-    const where = await studentListWhere(tx, current, params, yearId, year?.startDate ?? null, settings);
-    const orderBy = orderByFor(params, { name: { fullName: params.dir }, admissionNo: { admissionNo: params.dir }, dateOfBirth: { dateOfBirth: params.dir } }, [{ fullName: "asc" }]);
-    const [total, tiles] = await Promise.all([tx.student.count({ where }), classTiles(tx, current, yearId)]);
-    let students;
-    if (params.sort) {
-      students = await tx.student.findMany({ where, include: studentListInclude(yearId), orderBy: orderBy as object, take: shownCount });
-    } else {
-      // Class, section and roll order, as on the class register (design: students.jsx).
-      const keys = await tx.student.findMany({ where, select: { id: true, fullName: true, enrolments: { where: { archivedAt: null, ...(yearId.length ? { academicYearId: { in: yearId } } : {}) }, take: 1, select: { classId: true, sectionId: true, rollNo: true } } } });
-      const classOrder = new Map(tiles.map((t, i) => [t.id, i]));
-      const secNames = await sectionNames(tx, keys.flatMap((k) => k.enrolments.map((e) => e.sectionId)));
-      const rank = (k: (typeof keys)[number]) => {
-        const e = k.enrolments[0];
-        return [e ? classOrder.get(e.classId) ?? 999 : 1000, e ? secNames.get(e.sectionId)?.sectionName ?? "" : "", e?.rollNo ?? 99999] as const;
-      };
-      keys.sort((a, b) => {
-        const x = rank(a), y = rank(b);
-        return x[0] - y[0] || x[1].localeCompare(y[1]) || x[2] - y[2] || a.fullName.localeCompare(b.fullName);
-      });
-      const ids = keys.slice(0, shownCount).map((k) => k.id);
-      const found = await tx.student.findMany({ where: { id: { in: ids } }, include: studentListInclude(yearId) });
-      const byId = new Map(found.map((x) => [x.id, x]));
-      students = ids.map((id) => byId.get(id)!).filter(Boolean);
-    }
-    const names = await sectionNames(tx, students.flatMap((s) => s.enrolments.map((e) => e.sectionId)));
-    const facts = await listFactsByYear(tx, current.ctx, studentsByYear(students, years.length ? years : year ? [year] : []));
-    // Class, section and roll order, as on the class register; sorting by a column keeps that column's order.
-    const rows: Row[] = students.map((s) => {
-      const f = facts.facts.get(s.id);
-      const e = s.enrolments[0];
-      return { ...s, guardians: ab.seeParents ? s.guardians : [], sectionLabel: e ? classShort(names.get(e.sectionId)?.className ?? "", names.get(e.sectionId)?.sectionName) : "", photo: photoSrc(s.photoFileId, current.ctx.schoolId), att: f?.attendancePct ?? null, due: f?.feeDuePaise ?? null, overdue: Boolean(f?.feeOverdue) };
-    });
-    return { total, rows, tiles, has: facts.has };
-  });
+  const data = await withSchool(current.ctx, (tx) =>
+    loadStudentList(tx, current, { params, yearId, years: years.length ? years : year ? [year] : [], yearStart: year?.startDate ?? null, settings, shown: shownCount, seeParents: ab.seeParents }));
 
   const f = params.filters;
   const curClass = data.tiles.find((t) => t.id === f.class) ?? null;
   const studying = data.tiles.reduce((n, t) => n + t.total, 0);
   const show = new Set((settings.listColumns.length ? settings.listColumns : LIST_COLUMNS.map((c) => c.key)).filter((k) => fieldAllowed(k, ab)));
-  // The Admission Counsellor has Fee "View" for admission fees only: no fee column.
-  const feeCol = can(current.permissions, "fee-management", "view") && !admissionOnlyFor(current);
-  const seeFees = data.has.fees && feeCol;
+  const feeCol = data.shows.fees;
+  // The Result column once the year's final results are published (for people who see them).
+  const resultCol = data.shows.results && data.rows.some((r) => r.result !== null || r.resultText !== null);
   const href = (change: Record<string, string | null>) => listHref(BASE, { ...params, page: 1 }, { ...change, page: null });
 
   const feePill = (s: Row, cls = "") => s.due === null ? null
     : s.due > 0n ? <Pill tone={s.overdue ? "bad" : "warn"} className={cls}>{formatRupees(s.due)} {s.overdue ? "overdue" : "due"}</Pill>
       : <Pill tone="ok" dot={!cls} className={cls}>{cls ? "Fees paid" : "Paid"}</Pill>;
+  const resultPill = (s: Row, cls = "") => s.resultText === null && s.result === null ? null
+    : <Pill tone={s.result === "pass" ? "ok" : s.result === "fail" ? "bad" : "warn"} className={cls}>{s.resultText ?? RESULT_LABEL[s.result!]}</Pill>;
 
   const columns: DataColumn<Row>[] = [
     { key: "name", label: "Student", sortHref: listHref(BASE, params, { sort: "name", dir: params.sort === "name" && params.dir === "asc" ? "desc" : "asc", page: null }), sorted: params.sort === "name" ? params.dir : null, render: (s) => (
@@ -109,13 +78,14 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
     ...(show.has("gender") ? [{ key: "gender", label: "Gender", render: (s: Row) => <span className="text-[13.5px]">{s.gender ?? "–"}</span> }] : []),
     ...(show.has("category") ? [{ key: "category", label: "Category", render: (s: Row) => <span className="text-[13.5px]">{s.category ?? "–"}</span> }] : []),
     ...(show.has("dateOfBirth") ? [{ key: "dob", label: "Date of birth", nowrap: true, render: (s: Row) => <span className="text-[13.5px] tnum">{s.dateOfBirth ? formatDate(s.dateOfBirth, tz) : "–"}</span> }] : []),
-    { key: "att", label: "Attendance", render: (s) => s.att === null ? <span className="text-ink3" title="Shown once Attendance Management records attendance">–</span> : (
+    ...(data.shows.attendance ? [{ key: "att", label: "Attendance", render: (s: Row) => s.att === null ? <span className="text-ink3" title="No attendance marked this year yet">–</span> : (
       <div className="flex items-center gap-2.5 w-28">
         <span className="flex-1 h-1.5 rounded-full bg-sunken overflow-hidden" aria-hidden="true"><span className={`block h-full rounded-full ${s.att < 85 ? "bg-warn" : "bg-ok"}`} style={{ width: `${s.att}%` }} /></span>
         <span className={`text-[13px] font-semibold tnum ${s.att < 85 ? "text-warn" : ""}`}>{s.att}%</span>
       </div>
-    ) },
-    ...(feeCol ? [{ key: "fees", label: "Fees", render: (s: Row) => feePill(s) ?? <span className="text-ink3" title="Shown once Fee Management has this student's fees">–</span> }] : []),
+    ) }] : []),
+    ...(resultCol ? [{ key: "result", label: "Result", nowrap: true, render: (s: Row) => resultPill(s) ?? <span className="text-ink3" title="No final result published">–</span> }] : []),
+    ...(feeCol ? [{ key: "fees", label: "Fees", render: (s: Row) => feePill(s) ?? <span className="text-ink3" title="No fees have fallen due yet">–</span> }] : []),
   ];
 
   const bulk: BulkAction[] = [
@@ -197,7 +167,7 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
       <Card className="mt-4 overflow-hidden">
         <Toolbar>
           <ListToolbar placeholder="Name, admission no., parent name or phone" showArchived={ab.manage}
-            filters={feesOn && seeFees ? [{ key: "fee", label: "Fees", allLabel: "Fees: everyone", options: [{ value: "dues", label: "Has dues" }, { value: "overdue", label: "Overdue" }] }] : []}
+            filters={seeFees ? [{ key: "fee", label: "Fees", allLabel: "Fees: everyone", options: [{ value: "dues", label: "Has dues" }, { value: "overdue", label: "Overdue" }] }] : []}
             more={[
               { key: "status", label: "Status", allLabel: "Status: studying", options: [...STUDENT_STATUSES.map((s) => ({ value: s, label: STATUS_LABEL[s] })), { value: "all", label: "Every status" }] },
               { key: "gender", label: "Gender", options: GENDERS.map((g) => ({ value: g, label: g })) },
@@ -220,6 +190,7 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
               sub: [s.sectionLabel || "No class", s.enrolments[0]?.rollNo ? `Roll ${s.enrolments[0].rollNo}` : null, g?.guardian.name].filter(Boolean).join(" · "),
               pills: [
                 feePill(s, cardPill),
+                resultCol ? resultPill(s, cardPill) : null,
                 s.att !== null ? <Pill key="a" tone={s.att < 85 ? "warn" : "neutral"} className={cardPill}>{s.att}% present</Pill> : null,
                 s.status !== "ACTIVE" ? <Pill key="s" tone={s.status === "ADMITTED" ? "info" : "neutral"} className={cardPill}>{s.status === "ADMITTED" ? "New" : STATUS_LABEL[s.status as StudentStatusKey]}</Pill> : null,
               ].filter(Boolean) as React.ReactNode[],
@@ -237,9 +208,6 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
               action={ab.manage ? <div className="flex flex-wrap justify-center gap-2"><ButtonLink href={`${BASE}/import`} icon={Upload}>Import students</ButtonLink><ButtonLink href={`${BASE}/new`} variant="primary" icon={UserPlus}>Add student</ButtonLink></div> : undefined} />
           )} />
       </Card>
-      {!data.has.attendance && data.rows.length > 0 && (
-        <p className="mt-3 text-[12.5px] text-ink3 flex items-center gap-1.5"><Info size={14} aria-hidden="true" />Attendance shows here once Attendance Management records it{feeCol && !data.has.fees ? ", and fees once Fee Management has them" : ""}.</p>
-      )}
     </>
   );
 }

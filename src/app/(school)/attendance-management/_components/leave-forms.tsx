@@ -64,6 +64,13 @@ function StudentPicker({ find, error, fixed, onPick }: { find: (q: string) => Pr
   );
 }
 
+/** The form's own fields: a problem with one of them shows under that field only (one message per problem). */
+const LEAVE_FIELDS = ["studentId", "leaveTypeId", "from", "to", "halfDay", "reason", "document"];
+const fieldOf = (s: PreviewState) => {
+  const k = s && !s.ok ? Object.keys(s.errors ?? {})[0] : undefined;
+  return k && LEAVE_FIELDS.includes(k) ? k : null;
+};
+
 function AutoPreview({ preview, onResult, tick }: { preview: (s: PreviewState, fd: FormData) => Promise<PreviewState>; onResult: (s: PreviewState) => void; tick: number }) {
   const ref = useRef<HTMLDivElement>(null);
   const report = useRef(onResult);
@@ -90,7 +97,7 @@ function AutoPreview({ preview, onResult, tick }: { preview: (s: PreviewState, f
   return (
     <div ref={ref} className="sm:col-span-2" aria-live="polite">
       {pending ? <p className="flex items-center gap-2 text-sm text-ink-2"><Spinner className="size-4" /> Checking days and quota…</p>
-        : state ? <p className={`rounded-lg px-3 py-2 text-sm ${!state.ok ? "bg-danger-soft text-danger" : state.data?.warn ? "bg-warn-bg text-warn-text" : "bg-surface-2"}`}>{state.ok ? state.data?.text : state.message}</p>
+        : state && !fieldOf(state) ? <p className={`rounded-lg px-3 py-2 text-sm ${!state.ok ? "bg-danger-soft text-danger" : state.data?.warn ? "bg-warn-bg text-warn-text" : "bg-surface-2"}`}>{state.ok ? state.data?.text : state.message}</p>
           : null}
     </div>
   );
@@ -103,34 +110,43 @@ export function RecordLeaveForm({ action, preview, find, types, today, defaultOp
   const [half, setHalf] = useState(false);
   const [canApprove, setCanApprove] = useState(false);
   const [tick, setTick] = useState(0);
+  // The live check's problem, shown under its field (until the form is sent and the server says again).
+  const [checked, setChecked] = useState<{ field: string; message: string } | null>(null);
   const medical = types[0]?.value ?? "";
   return (
-    <FormDialog trigger="Record leave" triggerVariant="primary" title="Record student leave" action={action} submitLabel="Save leave" pendingText="Saving…" wide multipart defaultOpen={defaultOpen}>
-      {(f) => (
+    <FormDialog trigger="Record leave" triggerVariant="primary" title="Record student leave" action={action} submitLabel="Save leave" pendingText="Saving…" wide multipart defaultOpen={defaultOpen} inlineFields={LEAVE_FIELDS}>
+      {(f) => {
+        const err = (k: string) => (checked?.field === k ? checked.message : f.err(k));
+        return (
         <div className="grid gap-4 sm:grid-cols-2">
-          <StudentPicker find={find} error={f.err("studentId")} fixed={fixedStudent} onPick={() => setTick((t) => t + 1)} />
-          <SelectField label="Leave type" name="leaveTypeId" required options={types} defaultValue={f.val("leaveTypeId", medical)} error={f.err("leaveTypeId")} className="sm:col-span-2" />
-          <TextField label="From date" name="from" type="date" required defaultValue={f.val("from", today)} error={f.err("from")} />
-          {!half && <TextField label="To date" name="to" type="date" required defaultValue={f.val("to", today)} error={f.err("to")} help="Sundays and holidays inside are not counted." />}
+          <StudentPicker find={find} error={err("studentId")} fixed={fixedStudent} onPick={() => setTick((t) => t + 1)} />
+          <SelectField label="Leave type" name="leaveTypeId" required options={types} defaultValue={f.val("leaveTypeId", medical)} error={err("leaveTypeId")} className="sm:col-span-2" />
+          <TextField label="From date" name="from" type="date" required defaultValue={f.val("from", today)} error={err("from")} />
+          {!half && <TextField label="To date" name="to" type="date" required defaultValue={f.val("to", today)} error={err("to")} help="Days without school inside (Sundays, holidays, days off) are not counted." />}
           <CheckboxField label="Half day" name="halfDay" checked={half} onChange={(e) => setHalf(e.target.checked)} help="For one date only." className="sm:col-span-2" />
-          <TextArea label="Reason" name="reason" required rows={2} maxLength={500} defaultValue={f.val("reason")} error={f.err("reason")} className="sm:col-span-2"
+          <TextArea label="Reason" name="reason" required rows={2} maxLength={500} defaultValue={f.val("reason")} error={err("reason")} className="sm:col-span-2"
             help="For example: fever, the parent called at 8:10 AM." />
           <div className="sm:col-span-2">
             <label htmlFor="student-leave-doc" className="mb-1 block text-sm font-medium">Document</label>
             <input id="student-leave-doc" name="document" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="block w-full rounded-lg border border-line-strong bg-surface p-2 text-sm" aria-describedby="student-leave-doc-help" />
             <p id="student-leave-doc-help" className={`mt-1 text-sm ${f.err("document") ? "text-danger" : "text-ink-2"}`}>{f.err("document") ?? "Optional. A photo or PDF, such as a doctor's note. Up to 10 MB."}</p>
           </div>
-          <AutoPreview preview={preview} tick={tick} onResult={(s) => setCanApprove(Boolean(s?.ok && s.data?.canApprove))} />
+          <AutoPreview preview={preview} tick={tick} onResult={(s) => {
+            setCanApprove(Boolean(s?.ok && s.data?.canApprove));
+            const k = fieldOf(s);
+            setChecked(k && s && !s.ok ? { field: k, message: s.message ?? "" } : null);
+          }} />
           {canApprove && <CheckboxField label="Approve now" name="approveNow" defaultChecked className="sm:col-span-2" help="You may decide this leave. Leave it ticked to approve it as you save; untick to send it to Approvals." />}
         </div>
-      )}
+        );
+      }}
     </FormDialog>
   );
 }
 
 export function CancelStudentLeave({ requestId, action, name }: { requestId: string; action: Action; name: string }) {
   return (
-    <FormDialog trigger="Cancel" triggerSize="sm" triggerVariant="ghost" title={`Cancel leave for ${name}`} action={action} submitLabel="Cancel leave" submitVariant="danger" hidden={{ requestId }}>
+    <FormDialog trigger="Cancel" triggerSize="sm" triggerVariant="ghost" title={`Cancel leave for ${name}`} action={action} submitLabel="Cancel leave" submitVariant="danger" hidden={{ requestId }} cancelLabel="Keep leave">
       {(f) => (
         <>
           <p className="text-ink-2">Take Attendance stops showing Leave for the days still to come. Days already marked stay as they are.</p>

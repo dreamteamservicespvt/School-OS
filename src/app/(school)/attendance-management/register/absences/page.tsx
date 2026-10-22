@@ -55,7 +55,8 @@ export default async function AbsentListPage({ searchParams }: Props) {
     const rows = on ? await absentList(tx, current.ctx, access, { date, sectionId }) : [];
     return { sections, rows };
   });
-  const rows = reasonFilter ? data.rows.filter((r) => (reasonFilter === "none" ? !r.reason : r.reason?.key === reasonFilter)) : data.rows;
+  const wantedReason = reasonFilter === "none" ? "not-known" : reasonFilter;
+  const rows = wantedReason ? data.rows.filter((r) => r.reason?.key === wantedReason) : data.rows;
   const notKnown = data.rows.filter((r) => !r.reason || r.reason.key === "not-known").length;
   const iso = isoDay(date);
   const isToday = iso === isoDay(today);
@@ -86,7 +87,7 @@ export default async function AbsentListPage({ searchParams }: Props) {
                   options={[{ value: "", label: "All my classes" }, ...data.sections.map((s) => ({ value: s.id, label: s.name }))]} />
               )}
               <UrlSelect param="reason" label="Reason" className="sm:w-52" value=""
-                options={[{ value: "", label: "Any reason" }, ...choices.map((r) => ({ value: r.key, label: r.label })), { value: "none", label: "Not recorded" }]} />
+                options={[{ value: "", label: "Any reason" }, ...choices.map((r) => ({ value: r.key, label: r.label }))]} />
             </div>
             <Stats items={[
               { label: "Absent", value: data.rows.length, sub: isToday ? "Today" : dayText(date), icon: UserX, tone: data.rows.length ? "bad" : undefined },
@@ -100,7 +101,7 @@ export default async function AbsentListPage({ searchParams }: Props) {
                   { key: "status", label: "Mark", render: (r) => <span className="text-ink2">{r.statusName}{r.periods.length ? ` (period ${r.periods.join(", ")})` : ""}</span> },
                   { key: "reason", label: "Reason", render: (r) => (
                     <span className="flex flex-col">
-                      <span><Pill tone={!r.reason || r.reason.key === "not-known" ? "warn" : "neutral"}>{r.reason?.label ?? "Not recorded"}</Pill></span>
+                      <span><Pill tone={!r.reason || r.reason.key === "not-known" ? "warn" : "neutral"}>{r.reason?.label ?? "Not known yet"}</Pill></span>
                       {r.reason?.note && <span className="text-[12.5px] text-ink3 mt-0.5">{r.reason.note}</span>}
                       {r.reason?.source && <span className="text-[12px] text-ink3">{SOURCE_WORDS[r.reason.source] ?? r.reason.source}</span>}
                     </span>
@@ -111,7 +112,7 @@ export default async function AbsentListPage({ searchParams }: Props) {
                   <ReasonButton action={setAbsenceReasonAction} studentId={r.studentId} date={iso} name={r.name} reasons={choices}
                     current={r.reason?.key ?? null} note={r.reason?.note ?? null} />
                 ) : null}
-                mobile={(r) => ({ avatar: r.name, title: r.name, sub: `${r.className} · ${r.reason?.label ?? "Not recorded"}${r.reason?.note ? ` · ${r.reason.note}` : ""}` })}
+                mobile={(r) => ({ avatar: r.name, title: r.name, sub: `${r.className} · ${r.reason?.label ?? "Not known yet"}${r.reason?.note ? ` · ${r.reason.note}` : ""}` })}
                 empty={<EmptyState bare title={reasonFilter ? "Nobody with this reason" : "Nobody absent"} Icon={UserX}>
                   {reasonFilter ? "Choose Any reason to see everyone absent on this day." : `No student is marked absent on ${dayText(date)} in your classes.`}
                 </EmptyState>} />

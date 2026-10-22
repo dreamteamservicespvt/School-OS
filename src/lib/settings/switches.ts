@@ -10,7 +10,8 @@ import { decryptField, encryptField } from "../crypto";
 import { BUILT_MODULES, MODULES, type ModuleKey } from "../modules";
 import { SettingsProblem } from "./common";
 import { ROLL_ORDERS, WEEK_STARTS, boardDefaults, readPreferences, type Preferences } from "./profile-rules";
-import { AI_FEATURES, INTEGRATIONS, SCHOOL_TEMPLATES, checkIntegrationFields, httpAllowed, type IntegrationDef } from "./switch-rules";
+import { AI_FEATURES, INTEGRATIONS, SCHOOL_TEMPLATES, aiFeatureReady, aiRolesOf, checkIntegrationFields, httpAllowed, type IntegrationDef } from "./switch-rules";
+import { aiPlatformDailyLimit } from "../ai/config";
 import { AddressRefused, publicFetch } from "../net/public-fetch";
 
 export * from "./switch-rules";
@@ -54,24 +55,34 @@ export async function savePreferences(tx: Tx, ctx: SchoolContext, input: { weekS
 }
 
 /** The AI assistant on or off, and which roles may use it. With it off, every AI feature is off. */
-export async function saveAssistant(tx: Tx, ctx: SchoolContext, input: { on: boolean; roles: string[] }) {
+export async function saveAssistant(tx: Tx, ctx: SchoolContext, input: { on: boolean; roles: string[]; dailyLimit?: number | null }) {
   const { school, prefs } = await prefsOf(tx, ctx);
   const roleRows = await tx.role.findMany({ where: { key: { in: input.roles }, archivedAt: null, isEnabled: true }, select: { key: true } });
   const roles = roleRows.map((r) => r.key!).filter(Boolean);
   if (input.on && roles.length === 0) throw new SettingsProblem("Choose at least one role that may use the AI assistant.", "aiRoles");
+  // The school may keep its AI requests below DREAM TEAM's daily limit, never above it.
+  const cap = aiPlatformDailyLimit();
+  const dailyLimit = input.dailyLimit === undefined ? prefs.aiDailyLimit ?? null : input.dailyLimit;
+  if (input.dailyLimit !== undefined && dailyLimit !== null && (!Number.isInteger(dailyLimit) || dailyLimit < 1 || dailyLimit > cap)) throw new SettingsProblem(`Give a whole number from 1 to ${cap}, or leave it empty for ${cap} a day.`, "aiDailyLimit");
   const was = await tx.schoolFeature.findUnique({ where: { schoolId_featureKey: { schoolId: ctx.schoolId, featureKey: "ai-assistant" } } });
   await tx.schoolFeature.upsert({
     where: { schoolId_featureKey: { schoolId: ctx.schoolId, featureKey: "ai-assistant" } },
     create: { schoolId: ctx.schoolId, featureKey: "ai-assistant", isOn: input.on },
     update: { isOn: input.on },
   });
-  await tx.school.update({ where: { id: school.id }, data: { preferences: { ...prefs, aiRoles: roles } as Prisma.InputJsonValue } });
-  await writeAudit(tx, ctx, { action: "changed-ai-assistant", recordType: "School", recordId: school.id, before: { on: was?.isOn ?? false, roles: prefs.aiRoles ?? [] }, after: { on: input.on, roles } });
+  await tx.school.update({ where: { id: school.id }, data: { preferences: { ...prefs, aiRoles: roles, aiDailyLimit: dailyLimit } as Prisma.InputJsonValue } });
+  await writeAudit(tx, ctx, {
+    action: "changed-ai-assistant", recordType: "School", recordId: school.id,
+    before: { on: was?.isOn ?? false, roles: aiRolesOf(prefs), dailyLimit: prefs.aiDailyLimit ?? null },
+    after: { on: input.on, roles, dailyLimit },
+  });
 }
 
 export async function setFeature(tx: Tx, ctx: SchoolContext, key: string, on: boolean) {
   const f = AI_FEATURES.find((x) => x.key === key);
-  if (!f) throw new SettingsProblem("This feature was not found.");
+  if (!f || (f.status === "hidden" && on)) throw new SettingsProblem("This feature was not found.");
+  // A feature that is not built yet cannot be switched on; one switched on before can still be switched off.
+  if (on && !aiFeatureReady(f.key)) throw new SettingsProblem(`${f.label} is coming soon. It can be switched on once it is ready.`);
   if (on) {
     const assistant = await tx.schoolFeature.findUnique({ where: { schoolId_featureKey: { schoolId: ctx.schoolId, featureKey: "ai-assistant" } } });
     if (!assistant?.isOn) throw new SettingsProblem("Switch on the AI assistant first.");

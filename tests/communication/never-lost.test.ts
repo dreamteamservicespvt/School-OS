@@ -29,8 +29,9 @@ type School = Awaited<ReturnType<typeof makeCommSchool>>;
 
 afterEach(() => vi.unstubAllGlobals());
 
-async function runAll() {
-  for (let i = 0; i < 10; i++) if ((await runDueJobs(50)) === 0) break;
+/** Runs one school's due jobs only: other test files' jobs share the queue. */
+async function runAll(s: School) {
+  for (let i = 0; i < 10; i++) if ((await runDueJobs(50, { schoolId: s.school.id })) === 0) break;
 }
 
 const turn = (s: School, channel: string, data: Record<string, unknown>) =>
@@ -361,7 +362,7 @@ describe("the sender hears when some of it was not delivered", () => {
     await addDlt(s.ctx, "general");
     const ctx: SchoolContext = s.ctx;
     const r = await withSchool(ctx, (tx) => sendMessage(tx, ctx, { to: { guardiansOf: [s.priya.id] }, channels: "preferred", text: "Sports day on Friday." }));
-    await runAll();
+    await runAll(s);
     const row = await withSchool(ctx, (tx) => tx.messageRecipient.findFirstOrThrow({ where: { messageId: r.messageId } }));
     expect(row).toMatchObject({ channel: "sms", status: "FAILED" });
     expect(row.failReason).toMatch(/MSG91 auth key is missing/);

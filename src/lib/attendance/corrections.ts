@@ -11,7 +11,9 @@ import { requestApproval, type Decision } from "../approvals";
 import { formatDate } from "../format";
 import { isoDay } from "../staff/dates";
 import { AttendanceProblem, NotYoursError, sectionAllowed, staffLimit, type AttendanceAccess } from "./access";
-import { statusList } from "./settings";
+import { attendanceSettings, statusList } from "./settings";
+import { queueAfterSave } from "./after-save";
+import { schoolDateOf } from "./time";
 import { dayInfo, offDayMessage } from "./calendar";
 import { absentKeys, nextReason, reasonsOn } from "./absence-reasons";
 
@@ -73,7 +75,7 @@ export async function requestCorrection(tx: Tx, ctx: SchoolContext, access: Atte
     // The daily register is the class teacher's; a subject teacher corrects only their period (as in Take Attendance).
     const mine = access.students === "all" || access.classSections.includes(section.id) || (input.periodNo > 0 && access.teachingSections.includes(section.id));
     if (!mine || access.change === "none") throw new NotYoursError();
-    await assertSchoolDay(tx, ctx, input.date, section.academicYearId, section.schoolClass.campusId, input.today);
+    await assertSchoolDay(tx, ctx, input.date, section.academicYearId, section.schoolClass.campusId, input.today, section.classId);
     sectionName = `${section.schoolClass.name} ${section.name}`;
     const enrolled = await tx.enrolment.findMany({ where: { sectionId: section.id, studentId: { in: input.changes.map((c) => c.id) }, archivedAt: null }, include: { student: { select: { id: true, fullName: true } } } });
     const marks = await tx.attendanceMark.findMany({ where: { studentId: { in: input.changes.map((c) => c.id) }, date: input.date, periodNo: input.periodNo, archivedAt: null } });
@@ -114,12 +116,12 @@ function utcToday() {
 }
 
 /** A student correction is for a school day of the section's year that has come (no future days, holidays or Sundays). */
-async function assertSchoolDay(tx: Tx, ctx: SchoolContext, date: Date, yearId: string, campusId: string | null, today = utcToday()) {
+async function assertSchoolDay(tx: Tx, ctx: SchoolContext, date: Date, yearId: string, campusId: string | null, today = utcToday(), classId: string | null = null) {
   if (date > today) throw new AttendanceProblem(`${dayText(date)} has not come yet. A correction is for today or an earlier day.`, "date");
   const year = await tx.academicYear.findUnique({ where: { id: yearId } });
   if (year && (date < year.startDate || date > year.endDate)) throw new AttendanceProblem(`${dayText(date)} is outside the academic year ${year.name}.`, "date");
   if (year?.status === "CLOSED") throw new AttendanceProblem(`${year.name} is closed, so its attendance cannot be changed.`, "date");
-  const info = await dayInfo(tx, ctx, date, campusId);
+  const info = await dayInfo(tx, ctx, date, campusId, { classId });
   if (!info.on) throw new AttendanceProblem(`${offDayMessage(info, date)} There is no attendance to correct.`, "date");
 }
 
@@ -156,6 +158,14 @@ export async function applyCorrection(tx: Tx, ctx: SchoolContext, correctionId: 
     before: changed.map((x) => ({ name: x.name, status: x.before })) as unknown as Prisma.InputJsonValue,
     after: { date: isoDay(c.date), period: c.periodNo || null, changes: changed.map((x) => ({ name: x.name, status: x.after })), correction: c.id } as unknown as Prisma.InputJsonValue,
   });
+  // A4 for the class (05 §4): the flags are worked out again, raised or cleared. A correction for
+  // today may still send the day's absence or late message; for a day already past, none goes now.
+  if (students && c.sectionId) {
+    const now = new Date();
+    const school = await tx.school.findUnique({ where: { id: ctx.schoolId }, select: { timeZone: true } });
+    const today = isoDay(schoolDateOf(now, school?.timeZone ?? "Asia/Kolkata")) === isoDay(c.date);
+    await queueAfterSave(tx, ctx, await attendanceSettings(tx, ctx), [{ sectionId: c.sectionId, date: c.date }], now, { messages: today });
+  }
   return changed.length;
 }
 
@@ -170,6 +180,18 @@ export async function onCorrectionDecision(tx: Tx, ctx: SchoolContext, approval:
 }
 
 export const CORRECTION_WORDS: Record<string, string> = { manual: "Correction", "offline-conflict": "Two versions (offline)", "offline-late": "Sent after the lock (offline)" };
+
+/** Each correction's changes in words, "Akshara Pillai: Present → Absent", for the request in Approvals. */
+export async function correctionChanges(tx: Tx, ctx: SchoolContext, ids: string[]): Promise<Map<string, string[]>> {
+  const out = new Map<string, string[]>();
+  if (!ids.length) return out;
+  const [rows, list] = await Promise.all([
+    tx.attendanceCorrection.findMany({ where: { id: { in: ids } }, select: { id: true, entries: true } }),
+    statusList(tx, ctx, { includeArchived: true }),
+  ]);
+  for (const c of rows) out.set(c.id, (c.entries as CorrectionEntry[]).map((e) => `${e.name}: ${statusName(list, e.from)} → ${statusName(list, e.to)}`));
+  return out;
+}
 
 export function statusName(list: { key: string; name: string }[], key: string | null) {
   if (!key) return "Not marked";

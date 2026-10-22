@@ -7,6 +7,8 @@ import type { Tx } from "../db";
 
 /** The parts of the signed-in person the Dashboard needs. Current satisfies it; tests build it from accessIn(). */
 export type Viewer = Pick<Current, "ctx" | "permissions" | "roles" | "modulesOn" | "features" | "school" | "scope" | "campusId"> & {
+  /** The roles the school chose for the AI assistant; the default leaders when left out. */
+  aiRoles?: readonly string[];
   user: { id: string; displayName: string };
 };
 
@@ -27,7 +29,7 @@ export type Tone = "brand" | "ok" | "warn" | "bad" | "info";
 export type DashIcon =
   | "UserX" | "TriangleAlert" | "ListChecks" | "ArrowRightLeft" | "CalendarDays" | "FileWarning" | "BadgeCheck" | "MessagesSquare"
   | "HeartHandshake" | "Award" | "Users" | "TrendingDown" | "Settings" | "CreditCard" | "Send" | "UserCheck" | "ClipboardCheck"
-  | "BookOpenCheck" | "Megaphone" | "Clock" | "ListTodo" | "Sparkles";
+  | "BookOpenCheck" | "Megaphone" | "Clock" | "ListTodo" | "Sparkles" | "BarChart3";
 
 /** One number in the brand band at the top ("School today"). */
 export type BandItem = {
@@ -103,7 +105,9 @@ export type Panel =
   | { kind: "bars"; title: string; sub: string; icon: DashIcon; rows: BarRow[]; goal?: number; lowBelow?: number; href?: string; linkLabel?: string; empty: string }
   | { kind: "classes-overview"; title: string; sub: string; total: number; classes: { id: string; name: string; total: number; href: string; sections: { id: string; name: string; count: number; href: string }[] }[]; href: string }
   | { kind: "list"; title: string; sub: string; icon: DashIcon; rows: ListRow[]; href?: string; linkLabel?: string; empty: string }
-  | { kind: "my-class"; title: string; sub: string; stats: { label: string; value: string; href?: string }[]; rows: ListRow[]; href: string };
+  | { kind: "my-class"; title: string; sub: string; stats: { label: string; value: string; href?: string }[]; rows: ListRow[]; href: string }
+  /** Today's brief (Principal summary): short lines in sections, each with the list behind it; forecasts marked "Suggestion". */
+  | { kind: "brief"; title: string; sub: string; sections: { heading: string; lines: { text: string; href?: string; suggestion?: boolean; basis?: string }[] }[]; note: string };
 
 export type PanelSlot = "first" | "main" | "side";
 

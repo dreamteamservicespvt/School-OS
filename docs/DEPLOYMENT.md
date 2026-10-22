@@ -38,6 +38,19 @@ yet: the owner chooses the hosting (decision 0001).
 School-specific keys (Razorpay, SMS, WhatsApp) are not environment settings:
 each school enters its own in Settings, where they are stored encrypted.
 
+The AI service is DREAM TEAM's, not a school's (gap list G28). All optional; with no key every school keeps School OS's own rules:
+
+| Setting | What it is |
+|---|---|
+| `ANTHROPIC_API_KEY` | DREAM TEAM's platform key for the AI service. Empty: "not connected". |
+| `AI_MODEL` | The model id, exactly as written (default `claude-opus-5-5`). |
+| `AI_DAILY_LIMIT` | Most AI requests a day for any one school (default 100). |
+| `AI_TIMEOUT_MS` | How long one request may take (default 20000). |
+| `AI_INR_PER_USD` | Rupees to a dollar, for the estimated cost schools see (default 88). |
+| `AI_GLOBAL_OFF` | `on` switches AI off for every school at once. |
+
+Before setting the key: the AI service is outside India. Only what each task needs is sent (Smart Import sends column headings and descriptions of their values, never a value), restricted fields never are, and every request is logged without its content. Decide with the owner whether the consent texts (Settings, Data Backup & Security) need a new version naming the AI service before features that send personal details are built.
+
 ## Backups (08-platform-security.md §4)
 
 - Switch on the database service's point-in-time recovery (7 days) and nightly snapshots (30 days), with a copy in a second Indian region.

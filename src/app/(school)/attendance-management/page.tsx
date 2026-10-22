@@ -8,6 +8,7 @@ import { attendancePage } from "@/lib/attendance/page";
 import { AttendanceProblem, BASE } from "@/lib/attendance/access";
 import { loadSheet, takeChoices, dayText } from "@/lib/attendance/marks";
 import { dayInfo, offDayMessage } from "@/lib/attendance/calendar";
+import { absenceMessagesOn, messageCountText } from "@/lib/attendance/alerts";
 import { clockHHMM } from "@/lib/attendance/time";
 import { day, isoDay } from "@/lib/staff/dates";
 import { UUID_RE } from "@/lib/staff/act";
@@ -58,7 +59,9 @@ export default async function TakeAttendancePage({ searchParams }: Props) {
     try {
       const sheet = await loadSheet(tx, current.ctx, access, { sectionId: chosen.sectionId, date, periodNo: chosen.periodNo, now, timeZone: tz });
       const teacher = sheet.section.classTeacherId ? await tx.staff.findFirst({ where: { id: sheet.section.classTeacherId }, select: { fullName: true } }) : null;
-      return { choices, chosen, sheet, problem: null, info: sheet.day, year, teacher: teacher?.fullName ?? null };
+      // What happened to the day's absence messages, sent or not and why (from the Attendance Alerts).
+      const messages = sheet.saved ? await absenceMessagesOn(tx, date, [sheet.section.id]) : null;
+      return { choices, chosen, sheet, problem: null, info: sheet.day, year, teacher: teacher?.fullName ?? null, messages };
     } catch (e) {
       if (e instanceof AttendanceProblem) return { choices, chosen, sheet: null, problem: e.message, info: null, year, teacher: null };
       throw e;
@@ -70,6 +73,7 @@ export default async function TakeAttendancePage({ searchParams }: Props) {
     label: `${c.name}${c.periodLabel ? ` · ${c.periodLabel}` : ""}${c.done ? " ✓" : ""}`,
   }));
   const sheet = data.sheet;
+  const messageLine = "messages" in data ? messageCountText(data.messages ?? null, isoDay(date) === isoDay(today)) : null;
   const correctionHref = data.chosen ? `${BASE}/register/correction?section=${data.chosen.sectionId}&date=${isoDay(date)}${data.chosen.periodNo ? `&period=${data.chosen.periodNo}` : ""}` : `${BASE}/register`;
   const sub = data.chosen
     ? [data.chosen.name, data.chosen.periodLabel, longDay(date), data.teacher ? `Class teacher ${data.teacher}` : null].filter(Boolean).join(" · ")
@@ -94,7 +98,7 @@ export default async function TakeAttendancePage({ searchParams }: Props) {
             If the school opens that day, turn on &quot;allow attendance&quot; for the date in the School Calendar.
           </Banner>
           <EmptyState title="No attendance on this day" Icon={CalendarOff} action={<Link href={BASE} className={buttonClass("secondary", "md")}>Go to today</Link>}>
-            Holidays and Sundays are left out of every %, report and register total.
+            Holidays, Sundays and days off are left out of every %, report and register total.
           </EmptyState>
         </>
       ) : data.problem ? (
@@ -112,6 +116,12 @@ export default async function TakeAttendancePage({ searchParams }: Props) {
           Students appear here once they are placed in this section in Student Management.
         </EmptyState>
       ) : (
+        <>
+        {messageLine && (
+          <Banner tone={data.messages?.notSent ? "warn" : "info"} className="mb-4" title={`${messageLine}.`}>
+            {data.messages?.notSent ? "Those parents were not told by message. Call them, or fix what stopped it (the parent's phone, the message switch in Communication)." : "Parents of students marked absent are told once for the day."}
+          </Banner>
+        )}
         <TakeSheet key={`${sheet.section.id}:${isoDay(date)}:${data.chosen!.periodNo}`}
           userId={current.user.id}
           sectionId={sheet.section.id} sectionName={sheet.section.name}
@@ -129,6 +139,7 @@ export default async function TakeAttendancePage({ searchParams }: Props) {
           savedAtText={sheet.savedAt ? formatTime(sheet.savedAt, tz) : null} savedBy={sheet.savedBy}
           locked={sheet.lock.locked} lockText={sheet.lock.atText} canChangeAfterLock={sheet.canChangeAfterLock}
           correctionHref={correctionHref} offlineOn={offlineOn} />
+        </>
       )}
     </>
   );

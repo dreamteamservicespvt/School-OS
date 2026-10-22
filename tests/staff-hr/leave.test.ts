@@ -5,6 +5,7 @@ import { withSchool } from "@/lib/db";
 import { decide } from "@/lib/approvals";
 import "@/lib/staff/handlers";
 import { adjustBalance, applyLeave, balancesFor, calendarLabel, cancelLeave, carryForward, countLeaveDays, LeaveProblem, onLeaveOn, teacherPeriods } from "@/lib/staff/leave";
+import { approvalFacts } from "@/lib/approval-facts";
 import { d, makeHrSchool } from "./fixture";
 
 let f: Awaited<ReturnType<typeof makeHrSchool>>;
@@ -18,8 +19,9 @@ async function balance(staffId: string, typeId: string) {
 }
 
 describe("counting leave days", () => {
-  it("leaves out Sundays and School Calendar holidays, and counts a half day as 0.5", () => {
-    const holidays = new Set(["2026-12-25"]);
+  it("leaves out the days that are not school days (Sundays, holidays), and counts a half day as 0.5", () => {
+    // The days off come from the school's one rule (offDaySet): here a Sunday and Christmas.
+    const holidays = new Set(["2026-11-15", "2026-12-25", "2026-12-27"]);
     expect(countLeaveDays(d("2026-11-14"), d("2026-11-16"), holidays)).toBe(2); // Sat, (Sun), Mon
     expect(countLeaveDays(d("2026-12-24"), d("2026-12-26"), holidays)).toBe(2); // Thu, (Fri holiday), Sat
     expect(countLeaveDays(d("2026-12-24"), d("2026-12-26"), holidays, { countsHolidays: true })).toBe(3);
@@ -41,6 +43,15 @@ describe("a teacher's casual leave, approved by the Principal (Done when 4)", ()
     const b = await balance(f.teacher.id, f.cl.id);
     expect(b.waiting).toBe(2);
     expect(b.left).toBe(12);
+  });
+
+  it("the Principal sees the leave balance and the periods to cover on the request (workflow 7 step 3, TEACHING-07)", async () => {
+    const approval = await withSchool(as(f.principal.id), (tx) => tx.approval.findUniqueOrThrow({ where: { id: approvalId } }));
+    const facts = await withSchool(as(f.principal.id), (tx) => approvalFacts(tx, as(f.principal.id), [approval]));
+    expect(facts.get(approvalId)).toEqual([
+      { label: "Leave balance", value: "Casual Leave: 12 of 12 days left, 10 days after this leave" },
+      { label: "Periods to cover", value: "5 periods need a substitute" },
+    ]);
   });
 
   it("cannot be approved by the teacher themselves", async () => {

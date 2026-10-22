@@ -65,6 +65,14 @@ export const withRealLinks = (text: string) =>
     .replace(PLACEHOLDER, (_, id: string) => linkUrl(id))
     .replace(INVITE_PLACEHOLDER, (_, id: string, nonce: string) => inviteUrl(id, nonce))
     .replace(SURVEY_PLACEHOLDER, (_, school: string, id: string) => surveyUrl(school, id));
+/** The personal links in a text, as they would be sent (for the server log on a tester's computer). */
+export function linksIn(text: string): { what: string; url: string }[] {
+  return [
+    ...[...text.matchAll(PLACEHOLDER)].map((m) => ({ what: "Parent Link", url: linkUrl(m[1]) })),
+    ...[...text.matchAll(INVITE_PLACEHOLDER)].map((m) => ({ what: "invite link", url: inviteUrl(m[1], m[2]) })),
+    ...[...text.matchAll(SURVEY_PLACEHOLDER)].map((m) => ({ what: "survey link", url: surveyUrl(m[1], m[2]) })),
+  ];
+}
 /** How a text with a link is shown on screen: never the link itself. */
 export const withHiddenLinks = (text: string) =>
   text.replace(PLACEHOLDER, "[personal Parent Link]").replace(INVITE_PLACEHOLDER, "[personal invite link]").replace(SURVEY_PLACEHOLDER, "[personal survey link]");

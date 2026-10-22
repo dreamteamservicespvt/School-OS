@@ -17,6 +17,7 @@ import { BEHAVIOUR_KINDS, BEHAVIOUR_KIND_LABEL, CERTIFICATE_LABEL, ID_CARD_FIELD
 import { BASE, studentPage } from "../_lib/page";
 import { campusPrefixes } from "../_lib/queries";
 import { saveSettingsAction } from "../_actions/settings";
+import { aiAllowed } from "@/lib/settings/switch-rules";
 
 export const metadata: Metadata = { title: "Student Settings" };
 
@@ -107,7 +108,7 @@ export default async function StudentSettingsPage({ searchParams }: { searchPara
               <FormArea name="requiredDocuments" label="Documents expected for every student" rows={4} defaultValue={settings.requiredDocuments.join("\n")} help="One per line. Shown as &quot;documents complete (5 of 6)&quot; on each student." />
               <div className="space-y-3 border-t border-line pt-4">
                 <FormCheck name="studentLoginsOn" label="Student logins (optional)" help="Older students can sign in to see their own records." defaultChecked={settings.studentLoginsOn} />
-                <FormCheck name="smartImportOn" label="Smart Import (optional)" help="On Import students, matches your file's columns to the student fields and suggests fixes for dates, phone numbers and class names. Suggestions only: you check every one before anything is saved." defaultChecked={settings.smartImportOn} />
+                {aiAllowed(current) && <p className="text-[13px] text-ink3">Smart Import is switched on or off with the other AI features, in {canSettings ? <Link className="font-semibold text-brand underline" href="/settings/modules#ai">Settings, Modules On/Off</Link> : "Settings, Modules On/Off"}.</p>}
               </div>
             </ActionForm>
           </div>

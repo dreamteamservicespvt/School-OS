@@ -6,6 +6,8 @@ import { periodFromSearch } from "@/lib/periods";
 import { periodSetup } from "@/lib/period-setup";
 import { classWise } from "@/lib/attendance/classwise";
 import { notMarkedOn } from "@/lib/attendance/remind";
+import { absenceMessagesOn, messageCountText } from "@/lib/attendance/alerts";
+import { Banner } from "@/components/ui/banner";
 import { dayStartUtc } from "@/lib/periods";
 import { ClassWiseView, NotMarkedCard } from "../_components/class-wise";
 import { withSchool } from "@/lib/db";
@@ -185,7 +187,7 @@ function ClassGrid({ grid, byKey, statuses, cellHref, statusFilter, threshold, t
           </EmptyState>
         </div>
       ) : (
-        <div className="overflow-x-auto scroll-thin" tabIndex={0} role="region" aria-label={`Register for ${grid.section.name}, ${grid.label}`}>
+        <div className="relative overflow-x-auto scroll-thin" tabIndex={0} role="region" aria-label={`Register for ${grid.section.name}, ${grid.label}`}>
           <table className="text-[13px] min-w-full border-separate border-spacing-0">
             <caption className="sr-only">{grid.section.name}, {grid.label}: students down the side, school days across</caption>
             <thead>
@@ -234,7 +236,7 @@ function ClassGrid({ grid, byKey, statuses, cellHref, statusFilter, threshold, t
         </div>
       )}
       {anyPast && grid.rows.length > 0 && (
-        <p className="px-5 py-3 border-t border-line text-[12.5px] text-ink3">Holidays, Sundays and days not marked are not counted. A half day counts as half. Below {threshold}% is shown in red.</p>
+        <p className="px-5 py-3 border-t border-line text-[12.5px] text-ink3">Holidays, Sundays, days off and days not marked are not counted. A half day counts as half. Below {threshold}% is shown in red.</p>
       )}
     </Card>
   );
@@ -325,7 +327,9 @@ async function WholeSchool({ sp }: { sp: Record<string, string | string[] | unde
       classWise(tx, current.ctx, { yearId: access.yearIds, from, to, today, sectionIds: access.limitSections, campusId: access.campusId }),
       isToday ? notMarkedOn(tx, current.ctx, access, today, dayStartUtc(isoDay(today), tz)) : Promise.resolve([]),
     ]);
-    return { cw, notMarked };
+    // One day: what happened to that day's absence messages across these classes (sent, or not and why).
+    const messages = isoDay(from) === isoDay(to) ? await absenceMessagesOn(tx, from, cw.sections.map((s) => s.sectionId)) : null;
+    return { cw, notMarked, messages };
   });
   const groupParam = one(sp.group) ?? "all";
   const group = data?.cw.groups.some((g) => g.key === groupParam) ? groupParam : "all";
@@ -350,6 +354,11 @@ async function WholeSchool({ sp }: { sp: Record<string, string | string[] | unde
       ) : (
         <div className="flex flex-col gap-5 lg:gap-6">
           <NotMarkedCard rows={data.notMarked} lockText={lock.atText} locked={lock.locked} canRemind={access.students === "all"} tz={tz} />
+          {messageCountText(data.messages, isToday) && (
+            <Banner tone={data.messages?.notSent ? "warn" : "info"} title={`${messageCountText(data.messages, isToday)}.`}>
+              {data.messages?.notSent ? "Those parents were not told by message. The class teacher sees the same line on Take Attendance." : "Parents of students marked absent are told once for the day."}
+            </Banner>
+          )}
           <ClassWiseView cw={data.cw} sort={sort} group={group} href={href} period={{ ...dates }} today={isToday} />
         </div>
       )}

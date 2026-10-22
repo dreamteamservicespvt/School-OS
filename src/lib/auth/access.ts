@@ -2,6 +2,7 @@
 // permissions in the chosen school.
 
 import { readPreferences } from "../settings/profile-rules";
+import { aiRolesOf } from "../settings/switch-rules";
 import { withSchool, withUser } from "../db";
 import { applyExceptions, combineRoles, narrowToOwn, type PermissionMap } from "../permissions";
 import { MODULES, type ModuleKey } from "../modules";
@@ -32,6 +33,8 @@ export type SchoolAccessView = {
   permissions: PermissionMap;
   modulesOn: Set<ModuleKey>;
   features: Set<string>;
+  /** Roles the school chose for the AI assistant (Settings, Modules On/Off); every AI check reads it (aiAllowed). */
+  aiRoles: string[];
   /** Scope of the person's access here (Settings, Users & Permissions): the widest of their access rows. */
   scope: "WHOLE_SCHOOL" | "CAMPUS" | "CHOSEN_CLASSES" | "OWN";
   /** The campus their access is limited to, when the scope is one campus. */
@@ -73,6 +76,8 @@ export async function supportAccessView(schoolId: string): Promise<SchoolAccessV
       campusId: null,
       modulesOn: new Set(modules.map((m) => m.moduleKey as ModuleKey)),
       features: new Set(features.map((f) => f.featureKey)),
+      // A support person holds no role, so no AI is offered to them.
+      aiRoles: [],
     };
   });
 }
@@ -113,6 +118,7 @@ export async function accessIn(userLoginId: string, schoolId: string): Promise<S
       campusId: scope === "CAMPUS" ? accesses.find((a) => a.scope === "CAMPUS")?.campusId ?? null : null,
       modulesOn: new Set(modules.map((m) => m.moduleKey as ModuleKey)),
       features: new Set(features.map((f) => f.featureKey)),
+      aiRoles: aiRolesOf(readPreferences(school.preferences)),
     };
   });
 }

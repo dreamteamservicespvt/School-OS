@@ -3,7 +3,9 @@
 // (no second Risk Flag), an older attendance Risk Flag joins it with its
 // review, a review in Early Warnings shows in Attendance and on the Dashboard,
 // a flag that clears in Attendance closes in Early Warnings, the Dashboard
-// counts the child once, and Looking ahead still counts attendance.
+// counts the child once (on the Early Warnings card, which says what it
+// counts), and an open Attendance Flag counts as the attendance concern when
+// marks are a concern too (two areas at once).
 import { beforeAll, describe, expect, it } from "vitest";
 import { withSchool } from "@/lib/db";
 import { accessIn } from "@/lib/auth/access";
@@ -103,12 +105,13 @@ describe("Attendance is flagged once", () => {
     expect(rows[0].reason).toBe("Attendance 20% this year (threshold 75%)");
     expect(rows[0].reviews).toHaveLength(1);
 
-    // Dashboard: the Attendance card counts him; the Early Warnings card does not count him again.
+    // Dashboard: the Early Warnings card counts him once (20% is well below the threshold: Act now),
+    // saying what it counts; the Attendance card does not count him again for people who see Early Warnings.
     for (const who of [f.principal.id, f.teacherA.id]) {
       const h = await home(who);
-      const below = h.attention.find((x) => x.id === "attendance.below-threshold");
-      expect(below, who).toMatchObject({ value: "1", href: "/reports-analytics/early-warnings?area=attendance" });
-      expect(h.attention.some((x) => x.id === "reports.early-warnings"), who).toBe(false);
+      const card = h.attention.find((x) => x.id === "reports.early-warnings");
+      expect(card, who).toMatchObject({ title: "Early warnings: 1 student needs a closer look: 1 attendance", href: "/reports-analytics/early-warnings?strength=ACT_NOW&period=all" });
+      expect(h.attention.some((x) => x.id === "attendance.below-threshold"), who).toBe(false);
     }
   });
 
@@ -126,7 +129,7 @@ describe("Attendance is flagged once", () => {
     await withSchool(teacher.ctx, (tx) => reviewFlag(tx, teacher, a, row.id, { decision: "NOT_A_CONCERN", note: "Long illness; the doctor's note is with the office.", action: null }, NOW));
     expect(await open(f.teacherA.id, aarav)).toHaveLength(0);
     expect((await open(f.teacherA.id, aarav, "CLOSED")).filter((x) => x.source === "attendance").map((x) => x.closedReason)).toEqual(["Long illness; the doctor's note is with the office."]);
-    expect((await home(f.principal.id)).attention.some((x) => x.id === "attendance.below-threshold")).toBe(false);
+    expect((await home(f.principal.id)).attention.some((x) => x.id === "attendance.below-threshold" || x.id === "reports.early-warnings")).toBe(false);
     expect((await withSchool(sys, (tx) => studentAttendanceTab(tx, sys, aarav, d("2026-10-09")))).openFlags).toEqual([]);
 
     // Still below the threshold: neither Attendance nor Early Warnings raises it again in this drop.
@@ -160,15 +163,16 @@ describe("Attendance is flagged once", () => {
     expect(still[0].id).not.toBe(streak.id);
   });
 
-  it("Looking ahead still counts an Attendance Flag as an open attendance concern", async () => {
+  it("counts an open Attendance Flag as the attendance concern when marks are a concern too; two open flags alone are not a leaving signal", async () => {
     const bhavya = f.studentsB[0].id;
     for (const k of ["ai-assistant", "ai-forecasts"]) await feature(sys, k);
-    // A marks concern as well: two areas at once is the leaving signal.
-    await withSchool(sys, (tx) => tx.riskFlag.create({ data: { schoolId: f.school.id, studentId: bhavya, academicYearId: f.year.id, sectionId: f.sectionB.id, area: "marks", strength: "ACT_NOW", reason: "FA 1: below the pass mark in Maths", basis: "FA 1 marks" } }));
+    await withSchool(sys, (tx) => tx.riskFlag.create({ data: { schoolId: f.school.id, studentId: bhavya, academicYearId: f.year.id, sectionId: f.sectionB.id, area: "marks", strength: "WATCH", reason: "FA 1: below the pass mark in Maths", basis: "Suggestion · based on FA 1 marks" } }));
+    // Early Warnings: two areas at once, each naming the other.
+    const rows = await open(f.principal.id, bhavya);
+    expect(rows.find((r) => r.area === "attendance")!.reason).toMatch(/Also a concern: marks/);
+    // Looking ahead: two open flags are not, on their own, a sign the family may be leaving (combined evidence only).
     await withSchool(sys, (tx) => refreshForecasts(tx, sys, at("2026-10-10", "20:00"), { force: true }));
     const leaving = (await withSchool(sys, (tx) => forecastsFor(tx, { fees: true, finance: true }))).filter((x) => x.area === "students" && x.studentId === bhavya);
-    expect(leaving).toHaveLength(1);
-    expect(leaving[0].body).toContain("open early warnings in 2 areas");
-    expect(leaving[0].body).toMatch(/\(marks and attendance\)|\(attendance and marks\)/);
+    expect(leaving).toHaveLength(0);
   });
 });

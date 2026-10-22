@@ -27,7 +27,7 @@ export type FeeViewer = {
   campusId: string | null;
 };
 
-export async function feeViewer(tx: Tx, ctx: SchoolContext, current: Pick<Current, "permissions" | "roles" | "user"> & { campusId?: string | null }): Promise<FeeViewer> {
+export async function feeViewer(tx: Tx, ctx: SchoolContext, current: Pick<Current, "permissions"> & { roles: { key: string | null }[]; user: { id: string }; campusId?: string | null }): Promise<FeeViewer> {
   const access = current.permissions["fee-management"];
   const campusId = current.campusId ?? null;
   const [year, years] = await Promise.all([currentYear(tx, ctx, await personCampusId(tx, ctx, current)), yearsFor(tx, ctx, campusId)]);
@@ -137,6 +137,16 @@ export function feePageAllowed(v: Pick<FeeViewer, "roleKeys" | "change" | "see">
 export function admissionOnlyFor(current: { permissions: Record<string, { change: Reach }>; roles?: { key: string | null }[] }) {
   const roleKeys = (current.roles ?? []).map((r) => r.key).filter((k): k is string => Boolean(k));
   return admissionOnly({ roleKeys, change: current.permissions["fee-management"]?.change ?? "none" });
+}
+
+/**
+ * May this person see students' fees outside Fee Management (the Student
+ * List's fee column and "Has dues" filter, Parent 360, the amounts on
+ * Promotion)? Anyone with Fee Management, except the Admission Counsellor.
+ * "Own" reach still sees only their own sections' students.
+ */
+export function seesStudentFees(current: { permissions: Record<string, { see: Reach; change: Reach }>; roles?: { key: string | null }[] }) {
+  return (current.permissions["fee-management"]?.see ?? "none") !== "none" && !admissionOnlyFor(current);
 }
 
 /** feePageAllowed from the signed-in person alone (no database), for links from other modules. */

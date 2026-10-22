@@ -14,6 +14,7 @@ import { AdmissionProblem } from "./act";
 import { requireFull, type Viewer } from "./access";
 import { activity, loadApplication } from "./applications";
 import { messageParent } from "./notify-parents";
+import { logCodeSentBy } from "../dev-codes";
 
 export const DATA_CONSENT = "data-processing";
 export const PHOTO_CONSENT = "photo";
@@ -68,6 +69,7 @@ export async function startOtp(tx: Tx, ctx: SchoolContext, input: { phone: strin
     const r = await messageParent(tx, ctx, { to: { name: "Parent", phone: input.phone }, template: "admission-consent-code", channel: "sms", text, secret: true, about: input.about ?? { recordType: "Application", recordId: input.purpose } });
     // Say why (for example no SMS set up), so the office does not blame the parent's number.
     if (r.status !== "queued") throw new AdmissionProblem(r.status === "skipped" && r.note ? `The code could not be sent. ${r.note}.` : "The code could not be sent to this number.");
+    await logCodeSentBy(tx, ctx, r.channel, { to: input.phone, purpose: "admission consent", code });
   }
   return { sentTo: `•••••${input.phone.slice(-4)}` };
 }

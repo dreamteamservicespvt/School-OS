@@ -178,7 +178,8 @@ export function TakeSheet(p: Props) {
   ];
   const savedNow = p.saved && !dirty;
   const lateCount = counts.c.late ?? 0;
-  const saveLabel = pending ? "Saving…" : savedNow ? "Saved" : `Save attendance: ${counts.c.present ?? 0} present, ${counts.c.absent ?? 0} absent${lateCount ? `, ${lateCount} late` : ""}${counts.notMarked ? `, ${counts.notMarked} not marked` : ""}`;
+  const leaveCount = counts.c.leave ?? 0;
+  const saveLabel = pending ? "Saving…" : savedNow ? "Saved" : `Save attendance: ${counts.c.present ?? 0} present, ${counts.c.absent ?? 0} absent${lateCount ? `, ${lateCount} late` : ""}${leaveCount ? `, ${leaveCount} on leave` : ""}${counts.notMarked ? `, ${counts.notMarked} not marked` : ""}`;
 
   return (
     <div className="pb-4 relative">
@@ -210,17 +211,17 @@ export function TakeSheet(p: Props) {
       )}
 
       {/* Counts + tools */}
-      <div className="flex flex-col md:flex-row gap-3 md:items-center mb-4">
-        <div className={cx("grid gap-2 flex-1", tiles.length === 5 ? "grid-cols-3 sm:grid-cols-5" : "grid-cols-2 sm:grid-cols-4")} aria-live="polite">
+      <div className="flex flex-col xl:flex-row gap-3 xl:items-center mb-4">
+        <div className="grid gap-2 flex-1 grid-cols-[repeat(auto-fit,minmax(6rem,1fr))]" aria-live="polite">
           {tiles.map((t) => (
             <div key={t.key} className="rounded-xl bg-surface border border-line px-3 py-2.5 min-w-0">
-              <p className={cx("font-display text-[22px] font-semibold tnum leading-none", t.key === "none" ? "text-ink3" : STATUS_SOFT[byKey.get(t.key)?.tone ?? "neutral"])}>{t.value}</p>
-              <p className="text-[12px] text-ink3 font-semibold mt-1 truncate">{t.label}</p>
+              <p className={cx("font-display text-[22px] font-semibold tnum leading-none whitespace-nowrap", t.key === "none" ? "text-ink3" : STATUS_SOFT[byKey.get(t.key)?.tone ?? "neutral"])}>{t.value}</p>
+              <p className="text-[12px] text-ink3 font-semibold mt-1 leading-tight">{t.label}</p>
             </div>
           ))}
         </div>
         <div className="flex gap-2">
-          <div className="relative flex-1 md:w-56">
+          <div className="relative flex-1 xl:w-56">
             <Search size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink3 pointer-events-none" aria-hidden="true" />
             <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name or roll no." aria-label="Find a student by name or roll number"
               className="h-11 w-full rounded-xl bg-surface border border-line pl-9 pr-9 text-[14.5px] outline-none focus:border-brand focus:ring-4 focus:ring-brand/15 [&::-webkit-search-cancel-button]:hidden" />
@@ -238,7 +239,7 @@ export function TakeSheet(p: Props) {
       )}
 
       {/* Students */}
-      <ul className="grid grid-cols-1 md:grid-cols-2 gap-2" aria-label={`Students of ${p.sectionName}`}>
+      <ul className="grid grid-cols-1 xl:grid-cols-2 gap-2" aria-label={`Students of ${p.sectionName}`}>
         {list.map((s) => {
           const m = marks[s.id];
           const v = m?.statusKey ?? null;

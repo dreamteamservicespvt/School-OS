@@ -46,9 +46,6 @@ export async function messageVisitor(tx: Tx, ctx: SchoolContext, msg: DeskMessag
       to: {}, channels: [channel], text: msg.secret ? "One-time pickup code" : msg.text, title: msg.trigger,
       trigger: msg.trigger, source: { type: msg.about.recordType, id: msg.about.recordId }, audienceLabel: msg.to.name, onNoCredits: "block",
     }, plan);
-    if (process.env.NODE_ENV !== "production" && msg.secret) {
-      console.info(JSON.stringify({ level: "info", event: "pickup-code", note: "development only", to: msg.to.phone.slice(-4), text: msg.text }));
-    }
     await writeAudit(tx, ctx, {
       action: "message-sent", recordType: msg.about.recordType, recordId: msg.about.recordId,
       after: { kind: msg.trigger, channel, to: maskPhone(msg.to.phone), text: msg.secret ? "(one-time code)" : msg.text },

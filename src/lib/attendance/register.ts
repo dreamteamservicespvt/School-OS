@@ -12,7 +12,7 @@ import { roster, sectionInfo } from "./marks";
 import { previousYearStart } from "./calendar-months";
 import { attendanceSettings, statusList, statusesFor } from "./settings";
 import { attendanceSummary, type PersonSummary } from "./summary";
-import { absentKeys, shownReason, type ShownReason } from "./absence-reasons";
+import { absentKeys, absentReason, type ShownReason } from "./absence-reasons";
 
 export type RegisterDate = { iso: string; day: number; weekday: string; off: string | null; future: boolean };
 export type RegisterRow = {
@@ -90,7 +90,7 @@ export async function registerMonth(tx: Tx, ctx: SchoolContext, input: { section
   const [students, days, sum, list] = await Promise.all([
     tx.academicYear.findUnique({ where: { id: section.academicYearId }, select: { endDate: true } })
       .then((y) => roster(tx, section.id, section.academicYearId, settings.registerOrder, { pastYear: Boolean(y && y.endDate < input.today) })),
-    schoolDays(tx, ctx, from, to, section.campusId),
+    schoolDays(tx, ctx, from, to, section.campusId, { classId: section.classId }),
     attendanceSummary(tx, ctx, { sectionId: section.id, from, to, today: input.today, campusId: section.campusId }),
     statusList(tx, ctx),
   ]);
@@ -108,12 +108,12 @@ export async function registerMonth(tx: Tx, ctx: SchoolContext, input: { section
   const reasonsBy = new Map<string, Record<string, ShownReason>>();
   if (input.reasons) {
     const keys = await absentKeys(tx, ctx);
-    const marks = await tx.attendanceMark.findMany({ where: { sectionId: section.id, date: { gte: from, lte: to }, archivedAt: null, studentId: { not: null }, statusKey: { in: [...keys] }, absenceReason: { not: null } }, orderBy: { periodNo: "asc" }, select: { studentId: true, date: true, absenceReason: true, absenceNote: true, reasonSource: true } });
+    const marks = await tx.attendanceMark.findMany({ where: { sectionId: section.id, date: { gte: from, lte: to }, archivedAt: null, studentId: { not: null }, statusKey: { in: [...keys] } }, orderBy: { periodNo: "asc" }, select: { studentId: true, date: true, absenceReason: true, absenceNote: true, reasonSource: true } });
     for (const m of marks) {
       const per = reasonsBy.get(m.studentId!) ?? {};
       const k = isoDay(m.date);
-      const shown = shownReason(m, input.reasons.seesFees);
-      if (!per[k] && shown) per[k] = shown;
+      // A reason saved in any period wins; an absence with none is "Not known yet" (the dot).
+      if (!per[k] || (per[k].key === "not-known" && m.absenceReason)) per[k] = absentReason(m, input.reasons.seesFees);
       reasonsBy.set(m.studentId!, per);
     }
   }

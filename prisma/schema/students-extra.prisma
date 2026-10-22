@@ -78,7 +78,8 @@ model StudentSettings {
   studentLoginsOn      Boolean   @default(false) @map("student_logins_on")
   /// DigiLocker-ready file of issued certificates (03 §2), switched on per school.
   digiLockerOn         Boolean   @default(false) @map("digilocker_on")
-  /// Smart Import: column matching and fix suggestions on the import (03 §2), switched on per school.
+  /// No longer read: Smart Import is the School Feature "ai-smart-import" in Settings, Modules On/Off (gap list G24).
+  /// Kept so nothing is lost; schools that had it on were switched on there (migration 20261018040655).
   smartImportOn        Boolean   @default(false) @map("smart_import_on")
   /// ID card: valid until (date) and cards per A4 page.
   idCardValidUntil     DateTime? @map("id_card_valid_until") @db.Date

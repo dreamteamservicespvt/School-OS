@@ -8,8 +8,6 @@ import type { TaskStatus } from "@prisma/client";
 import { withSchool, type Tx } from "../db";
 import { currentYear, yearsFor } from "../academic/years";
 import { personCampusId } from "../campus";
-import { academicSettings } from "../academic/settings";
-import { CLOSED_TYPES } from "../academic/calendar";
 import { approvalsFor, requestLabel } from "../approvals";
 import { decidableIds } from "../approvals-inbox";
 import { askerJobs } from "../approval-people";
@@ -18,7 +16,8 @@ import { todayFor } from "../periods";
 import { homesFor, isLeader } from "./homes";
 import { WIDGETS } from "./registry";
 import { BUILT_MODULES, type ModuleKey } from "../modules";
-import { addDays, daysBetween, dayWord, longDay, minuteIn, moduleOpen, plural } from "./common";
+import { daysBetween, dayWord, longDay, minuteIn, moduleOpen, plural } from "./common";
+import { schoolCalendar } from "../calendar/school-days";
 import { taskAccess, isOverdue, OPEN_TASK } from "./tasks";
 import type { AgendaItem, AttentionItem, BandItem, Birthday, DashContext, HomeKind, Panel, PanelSlot, Viewer, Widget, WidgetKind } from "./types";
 
@@ -210,29 +209,17 @@ function pageJob<T>(read: (c: DashContext) => Promise<T>, errors: unknown[], fal
   return job;
 }
 
-/** "School day 86 of 220" from the year's working days and closed days on the School Calendar. */
+/** "School day 86 of 220", from the school's one rule for a school day (src/lib/calendar/school-days.ts). */
 async function schoolDayLine(tx: Tx, viewer: Viewer, today: Date, year: DashContext["year"]) {
   if (!year) return null;
-  // The year's own campus: its timings and its closed days.
-  const campusId = year.campusId;
-  const settings = await academicSettings(tx, viewer.ctx, campusId);
-  const closed = await tx.calendarEntry.findMany({ where: { archivedAt: null, type: { in: CLOSED_TYPES }, attendanceOn: false, startDate: { lte: year.endDate }, endDate: { gte: year.startDate }, OR: [{ campusId: null }, { campusId }] } });
-  const off = new Set<string>();
-  for (const e of closed) for (let d = e.startDate; d <= e.endDate; d = addDays(d, 1)) off.add(d.toISOString().slice(0, 10));
-  const working = (d: Date) => settings.workingDays.includes(((d.getUTCDay() + 6) % 7) + 1) && !off.has(d.toISOString().slice(0, 10));
   if (today < year.startDate) return `${year.name} starts ${dayWord(year.startDate, today) === "Tomorrow" ? "tomorrow" : `in ${plural(daysBetween(today, year.startDate), "day")}`}`;
   if (today > year.endDate) return `${year.name} has ended`;
-  let n = 0, total = 0;
-  for (let d = year.startDate; d <= year.endDate; d = addDays(d, 1)) {
-    if (!working(d)) continue;
-    total++;
-    if (d <= today) n++;
-  }
-  if (!working(today)) {
-    const holiday = closed.find((e) => e.startDate <= today && e.endDate >= today);
-    return holiday ? `${holiday.title} · no school today` : "No school today";
-  }
-  return `School day ${n} of ${total}`;
+  // The year's own campus: its working days and its days off.
+  const cal = await schoolCalendar(tx, viewer.ctx, year.startDate, year.endDate, year.campusId);
+  const info = cal.info(today);
+  if (!info.on) return info.reason === "holiday" ? `${info.title} · no school today` : "No school today";
+  const working = cal.working();
+  return `School day ${working.filter((d) => d <= today).length} of ${working.length}`;
 }
 
 /** `lanes` sets how many transactions load the page (tests and measuring; 1 loads it all in one, one widget after another). */

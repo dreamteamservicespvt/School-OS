@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Award, BarChart3, CalendarDays, Clock, FileBadge, Flag, HeartPulse, History, Medal, Plus, Printer, Sparkles, Star, Timer, TrendingDown, TrendingUp, Trophy, UserPlus, Users } from "lucide-react";
+import { Award, BarChart3, CalendarDays, Clock, FileBadge, Flag, HeartPulse, History, Medal, Plus, Printer, Star, Timer, TrendingDown, TrendingUp, Trophy, UserPlus, Users } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { dateWhere } from "@/lib/periods";
 import { LEVEL_TONE, FIXTURE_RESULTS, GROUNDS, leaderboard, membersOf, missedInARow, bmi, runWords } from "@/lib/events/cocurricular";
@@ -189,7 +189,7 @@ export default async function CocurricularPage({ searchParams }: { searchParams:
               </Card>
               <Col>
                 <Card>
-                  <CardHeader title="Taking part this year" description="Students in each activity" icon={Sparkles} />
+                  <CardHeader title="Taking part this year" description="Students in each activity" icon={Users} />
                   <div className="px-5 pb-5">
                     {d.taking.length ? <HBars rows={d.taking} max={Math.max(...d.taking.map((x) => x.v))} unit="" labelWidth={86} /> : <p className="text-[13.5px] text-ink3">Nothing recorded this year yet.</p>}
                   </div>

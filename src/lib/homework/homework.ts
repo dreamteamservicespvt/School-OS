@@ -10,7 +10,7 @@ import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { notify } from "../notifications";
 import { saveFile, DOCUMENT_TYPES } from "../files";
-import { dayOff } from "../academic/calendar";
+import { schoolCalendar } from "../calendar/school-days";
 import { effectiveVersion } from "../academic/timetable";
 import { weekday } from "../academic/common";
 import { formatDate } from "../format";
@@ -19,6 +19,7 @@ import { listWhere, mayRead, onCampus, requireDesk, requireStaff, requireWork, r
 import { homeworkSettings } from "./settings";
 import { dayDate, homeworkStatus, HANDED_IN, isPastDue, plural, TO_CHECK, type HomeworkStatus } from "./words";
 import { tellParentsHomeworkSet } from "./notify-parents";
+import { aiConfirmedNote } from "../ai/audit";
 
 const DAY = 86_400_000;
 const addDays = (d: Date, n: number) => new Date(d.getTime() + n * DAY);
@@ -27,18 +28,22 @@ export type DueDefault = { date: Date; words: string; fromTimetable: boolean };
 
 /**
  * The next day the subject is taught to the section, from the Time Table in
- * force (17 §2, inferred), skipping holidays. Without a Time Table: the next
- * working day.
+ * force (17 §2, inferred), skipping days without school (the school's one
+ * rule: holidays, Sundays, Saturdays off, days that are not working days) and
+ * the class's exam days. Without a Time Table: the next school day.
  */
 export async function nextClassDay(tx: Tx, ctx: SchoolContext, sectionId: string, subjectId: string, today: Date): Promise<DueDefault> {
   const section = await tx.section.findFirst({ where: { id: sectionId }, include: { schoolClass: { select: { campusId: true } } } });
   if (!section) return { date: addDays(today, 1), words: dayDate(addDays(today, 1)), fromTimetable: false };
   const campusId = section.schoolClass.campusId;
+  const calendar = await schoolCalendar(tx, ctx, addDays(today, 1), addDays(today, 21), campusId);
   let firstWorking: Date | null = null;
   for (let i = 1; i <= 21; i++) {
     const d = addDays(today, i);
-    if (await dayOff(tx, ctx, d, campusId)) continue;
+    const info = calendar.info(d, { classId: section.classId });
+    if (!info.on) continue;
     firstWorking ??= d;
+    if (info.exam) continue;
     const version = await effectiveVersion(tx, ctx, campusId, d);
     if (!version) continue;
     const period = await tx.timetablePeriod.findFirst({ where: { versionId: version.id, sectionId, subjectId, dayOfWeek: weekday(d), archivedAt: null }, orderBy: { periodNo: "asc" } });
@@ -48,12 +53,14 @@ export async function nextClassDay(tx: Tx, ctx: SchoolContext, sectionId: string
   return { date: d, words: dayDate(d), fromTimetable: false };
 }
 
-/** The next working day (for "Tomorrow" when tomorrow is a holiday or Sunday). */
+/** The next school day (for "Tomorrow" when tomorrow is a holiday, a Sunday or a day off). */
 export async function nextWorkingDay(tx: Tx, ctx: SchoolContext, sectionId: string, today: Date) {
   const section = await tx.section.findFirst({ where: { id: sectionId }, include: { schoolClass: { select: { campusId: true } } } });
+  if (!section) return addDays(today, 1);
+  const calendar = await schoolCalendar(tx, ctx, addDays(today, 1), addDays(today, 14), section.schoolClass.campusId);
   for (let i = 1; i <= 14; i++) {
     const d = addDays(today, i);
-    if (!section || !(await dayOff(tx, ctx, d, section.schoolClass.campusId))) return d;
+    if (calendar.info(d, { classId: section.classId }).on) return d;
   }
   return addDays(today, 1);
 }
@@ -167,7 +174,7 @@ export async function giveHomework(tx: Tx, s: HomeworkScope, input: GiveInput, t
     await writeAudit(tx, ctx, {
       action: "created", recordType: "Homework", recordId: hw.id,
       after: { title, section: t.label, subject: subject.name, givenTo: input.givenTo, students: students.length, start: formatDate(input.startDate), due: formatDate(input.dueDate), maxMarks: input.maxMarks },
-      actorNote: input.fromSuggestion ? "Drafted by the teacher assistant, checked and sent by the teacher" : null,
+      actorNote: input.fromSuggestion ? await aiConfirmedNote(tx, ctx) : null,
     });
     // Students with logins get an app notification (17 §2 "Students are notified when homework is set").
     for (const st of students) {

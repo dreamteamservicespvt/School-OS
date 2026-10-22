@@ -1,7 +1,7 @@
 // Absence reasons in Early Warnings and Looking ahead (gap list P1.8): the
 // basis shows the reason mix; many "Not known yet" absences are a stronger
 // signal than sick days or approved leave; "Fees dispute" absences are fee
-// signals, seen only by people with the school's fees.
+// signals (Watch, like every fee flag), seen only by people with the school's fees.
 import { beforeAll, describe, expect, it } from "vitest";
 import { withSchool } from "@/lib/db";
 import { listFlags, refreshFlags } from "@/lib/reports/warnings";
@@ -78,12 +78,12 @@ describe("Early Warnings", () => {
     expect(y.basis).toMatch(/absence reasons: 6 sick/);
   });
 
-  it("an absent streak that was sick days is a Watch, not Act now, while above the threshold", async () => {
+  it("an absent streak above the threshold is a Watch, not Act now, with the sick days in the basis", async () => {
     const principal = await viewer(f.principal.id);
     const { list } = await withSchool(principal.ctx, (tx) => listFlags(tx, principal, reportAccess(principal), { status: "open", area: "attendance", q: "", raisedFrom: null, raisedTo: null }));
     const z = list.find((r) => r.studentId === f.studentsA[2].id)!;
     expect(z.strength).toBe("WATCH");
-    expect(z.reason).toMatch(/Most absent days were sick days or approved leave \(6 of 6\)/);
+    expect(z.basis).toMatch(/absence reasons: 6 sick/);
     // "Based on" in school words, not the record's name (TEACHING-20).
     expect(z.basis).toMatch(/Absent days in a row, flagged on 16-10-2026 · rule: \d+ school days in a row \(Attendance Settings\)/);
     for (const r of list) expect(r.basis).not.toMatch(/Attendance Flag/);
@@ -105,19 +105,20 @@ describe("Early Warnings", () => {
 });
 
 describe("Looking ahead: may be thinking of leaving", () => {
-  it("many unexplained absences count on their own; sick days do not; Fees dispute makes it a fee-only signal", async () => {
+  it("many unexplained absences are one strong sign, not enough alone; with a fee concern it is a fee-only signal; sick days never count", async () => {
     const ctx = { schoolId: f.school.id, userId: null };
     await withSchool(ctx, (tx) => refreshForecasts(tx, ctx, NOW, { force: true }));
     const all = await withSchool(ctx, (tx) => forecastsFor(tx, { fees: true, finance: true }));
     const leaving = all.filter((s) => s.area === "students");
-    const x = leaving.find((s) => s.studentId === f.studentsA[0].id)!;
-    expect(x.strength).toBe("WATCH");
-    expect(x.body).toMatch(/6 of 6 absent days have no reason known yet/);
+    // X: six absences nobody explained, and nothing else: combined evidence is needed.
+    expect(leaving.some((s) => s.studentId === f.studentsA[0].id)).toBe(false);
     expect(leaving.some((s) => s.studentId === f.studentsA[1].id || s.studentId === f.studentsA[2].id)).toBe(false);
+    // V: unexplained absences and a Fees dispute: a signal for people with the school's fees only.
     const v = leaving.find((s) => s.studentId === f.studentsA[4].id)!;
     expect(v.key.startsWith(LEAVING_WITH_FEES)).toBe(true);
-    expect(v.strength).toBe("ACT_NOW");
-    expect(v.body).toMatch(/fees dispute/);
+    expect(v.strength).toBe("WATCH");
+    expect(v.body).toMatch(/5 of 6 absent days have no reason known yet/);
+    expect(v.body).toMatch(/Fees dispute/);
     const noFees = await withSchool(ctx, (tx) => forecastsFor(tx, { fees: false, finance: false }));
     expect(noFees.some((s) => s.studentId === f.studentsA[4].id && s.area === "students")).toBe(false);
     expect(noFees.some((s) => /fees dispute/i.test(s.body))).toBe(false);

@@ -52,7 +52,7 @@ export async function applicationChoices(tx: Tx, current: Who, s: Settings, year
 export async function enquiryChoices(tx: Tx, ctx: SchoolContext, current: Who, s: Settings, tz: string) {
   const limit = current.campusId ?? null;
   const [classes, staff, fields, follow, years, rules, admitting, own, campus] = await Promise.all([
-    classList(tx, limit), admissionStaff(tx, ctx, { campusId: limit }), loadCustomFields(tx, "enquiry"), defaultFollowUp(tx, tz), openYears(tx, limit),
+    classList(tx, limit), admissionStaff(tx, ctx, { campusId: limit }), loadCustomFields(tx, "enquiry"), defaultFollowUp(tx, ctx, tz), openYears(tx, limit),
     tx.admissionClassRule.findMany({ select: { classId: true, ownerStaffId: true } }), admissionYears(tx, ctx, s, limit), personCampusId(tx, ctx, current), campusNames(tx, limit),
   ]);
   const year = await admissionYear(tx, ctx, s, own);

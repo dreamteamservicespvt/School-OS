@@ -33,8 +33,11 @@ function helpers(state: FormState<unknown>, pending: boolean): FormHelpers {
   };
 }
 
-function Message({ state }: { state: FormState<unknown> }) {
+function Message({ state, inline }: { state: FormState<unknown>; inline?: string[] }) {
   if (!state?.message || state.ok) return null;
+  // A problem shown next to its own field is not repeated above the form (one message per problem).
+  const keys = Object.keys(state.errors ?? {});
+  if (inline && keys.length > 0 && keys.every((k) => inline.includes(k))) return null;
   const link = (state.data as { link?: { href: string; label: string } } | undefined)?.link;
   if (state.errors && Object.keys(state.errors).length > 1) return <ErrorSummary errors={state.errors} />;
   return (
@@ -44,9 +47,9 @@ function Message({ state }: { state: FormState<unknown> }) {
   );
 }
 
-function Body({ action, hidden, submitLabel, pendingText, onDone, onCancel, children, submitVariant, multipart }: {
+function Body({ action, hidden, submitLabel, pendingText, onDone, onCancel, cancelLabel, children, submitVariant, multipart, inlineFields }: {
   action: Action; hidden?: Record<string, string>; submitLabel: string; pendingText?: string; onDone: (s: FormState<unknown>) => void; onCancel?: () => void;
-  children: (f: FormHelpers) => React.ReactNode; submitVariant?: ButtonVariant; multipart?: boolean;
+  cancelLabel?: string; children: (f: FormHelpers) => React.ReactNode; submitVariant?: ButtonVariant; multipart?: boolean; inlineFields?: string[];
 }) {
   const [state, formAction, pending] = useActionState(action, null);
   const done = useRef(false);
@@ -56,10 +59,10 @@ function Body({ action, hidden, submitLabel, pendingText, onDone, onCancel, chil
   return (
     <form action={formAction} className="space-y-4" data-multipart={multipart ? "" : undefined}>
       {hidden && Object.entries(hidden).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
-      <Message state={state} />
+      <Message state={state} inline={inlineFields} />
       {children(helpers(state, pending))}
       <div className="flex flex-col-reverse gap-2 border-t border-line pt-4 sm:flex-row sm:justify-end">
-        {onCancel && <Button variant="secondary" onClick={onCancel} disabled={pending}>Cancel</Button>}
+        {onCancel && <Button variant="secondary" onClick={onCancel} disabled={pending}>{cancelLabel ?? "Cancel"}</Button>}
         <SubmitButton variant={submitVariant} pendingText={pendingText ?? "Saving…"}>{submitLabel}</SubmitButton>
       </div>
     </form>
@@ -67,10 +70,14 @@ function Body({ action, hidden, submitLabel, pendingText, onDone, onCancel, chil
 }
 
 /** A button that opens a short form in a panel; the panel closes when it saves. */
-export function FormDialog({ trigger, triggerVariant = "secondary", triggerSize = "md", triggerClassName = "", title, action, submitLabel, pendingText, wide, hidden, children, submitVariant, multipart, onSaved, defaultOpen }: {
+export function FormDialog({ trigger, triggerVariant = "secondary", triggerSize = "md", triggerClassName = "", title, action, submitLabel, pendingText, wide, hidden, children, submitVariant, multipart, onSaved, defaultOpen, cancelLabel, inlineFields }: {
   trigger: React.ReactNode; triggerVariant?: ButtonVariant; triggerSize?: ButtonSize; triggerClassName?: string; title: string; action: Action; submitLabel: string;
   pendingText?: string; wide?: boolean; hidden?: Record<string, string>; children: (f: FormHelpers) => React.ReactNode; submitVariant?: ButtonVariant; multipart?: boolean;
   onSaved?: (s: FormState<unknown>) => void; defaultOpen?: boolean;
+  /** The words on the button that closes the panel without saving (default "Cancel"; P4: never two buttons that read alike). */
+  cancelLabel?: string;
+  /** Fields that show their own problem: a problem with only these is not repeated above the form. */
+  inlineFields?: string[];
 }) {
   const [open, setOpen] = useState(Boolean(defaultOpen));
   const [round, setRound] = useState(0);
@@ -79,7 +86,7 @@ export function FormDialog({ trigger, triggerVariant = "secondary", triggerSize 
       <Button variant={triggerVariant} size={triggerSize} className={triggerClassName} onClick={() => { setRound((r) => r + 1); setOpen(true); }}>{trigger}</Button>
       <Dialog open={open} onClose={() => setOpen(false)} title={title} wide={wide}>
         <Body key={round} action={action} hidden={hidden} submitLabel={submitLabel} pendingText={pendingText} submitVariant={submitVariant} multipart={multipart}
-          onCancel={() => setOpen(false)} onDone={(s) => { setOpen(false); onSaved?.(s); }}>
+          cancelLabel={cancelLabel} inlineFields={inlineFields} onCancel={() => setOpen(false)} onDone={(s) => { setOpen(false); onSaved?.(s); }}>
           {children}
         </Body>
       </Dialog>

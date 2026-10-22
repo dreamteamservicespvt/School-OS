@@ -12,6 +12,9 @@ import { cx } from "@/components/ui/cx";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { SelectField } from "@/components/ui/field";
 import { promotionPreview, type Preview } from "@/lib/students/promotion";
+import { seesStudentFees } from "@/lib/fees/access";
+import { seesResults } from "@/lib/exams/scope";
+import { RESULT_LABEL } from "@/lib/students/labels";
 import { StudentProblem } from "@/lib/students/students";
 import { BASE, studentPage } from "../_lib/page";
 import { campusPrefixes, classOptions, sectionOptions } from "../_lib/queries";
@@ -28,6 +31,10 @@ export default async function PromotionPage({ searchParams }: { searchParams: Pr
   const { current, year, can, tz } = await studentPage();
   if (!can.manage) redirect(BASE);
   const sp = await searchParams;
+  // Fee amounts only for people allowed to see fees; the "no fee dues" rule applies either way.
+  const seeFees = seesStudentFees(current);
+  // Marks and results only for people who see results (not Office Staff, who have datesheets and admit cards only); the pass rule applies either way.
+  const seeResults = seesResults(current);
 
   const data = await withSchool(current.ctx, async (tx) => {
     // One campus: that campus's years and classes only. Two campuses: each year is named with its campus.
@@ -42,7 +49,7 @@ export default async function PromotionPage({ searchParams }: { searchParams: Pr
     if (isId(sp.from) && !campusAllows(current, await sectionCampusId(tx, sp.from!))) error = { message: "Choose the class and section to promote.", field: "fromSectionId" };
     else if (isId(sp.from)) {
       try {
-        preview = await promotionPreview(tx, current.ctx, { fromSectionId: sp.from!, toYearId: isId(sp.toYear) ? sp.toYear : null, toClassId: isId(sp.toClass) ? sp.toClass : null });
+        preview = await promotionPreview(tx, current.ctx, { fromSectionId: sp.from!, toYearId: isId(sp.toYear) ? sp.toYear : null, toClassId: isId(sp.toClass) ? sp.toClass : null }, { feeAmounts: seeFees });
       } catch (e) {
         if (e instanceof StudentProblem) error = { message: e.message, field: e.field };
         else throw e;
@@ -59,9 +66,9 @@ export default async function PromotionPage({ searchParams }: { searchParams: Pr
   const laterYears = data.years.filter((y) => y.status !== "CLOSED" && data.fromYear && y.startDate > data.fromYear.startDate);
   const rows: ReviewRow[] = (p?.rows ?? []).map((r) => ({
     studentId: r.studentId, fullName: r.fullName, admissionNo: r.admissionNo, rollNo: r.rollNo, suggested: r.suggested, why: r.why,
-    result: r.facts.resultText ?? (r.facts.result ? (r.facts.result === "pass" ? "Pass" : "Fail") : null),
+    result: !seeResults ? null : r.facts.resultText ?? (r.facts.result ? RESULT_LABEL[r.facts.result] : null),
     attendance: r.facts.attendancePct != null ? `${Math.round(r.facts.attendancePct)}%` : null,
-    feeDue: r.facts.feeDuePaise ? formatRupees(r.facts.feeDuePaise) : null,
+    feeDue: seeFees && r.facts.feeDuePaise ? formatRupees(r.facts.feeDuePaise) : null,
     alreadyIn: r.alreadyIn,
   }));
 
@@ -79,7 +86,7 @@ export default async function PromotionPage({ searchParams }: { searchParams: Pr
       <div className="flex flex-col gap-5">
         {nextYear && (
           <Banner tone="info" icon={CalendarDays} title={`${nextYear.name} is being prepared.`}>
-            {p?.hasFacts ? "The list uses the results, attendance and fees recorded so far, and updates by itself." : "Results, attendance and fees show in the list once those modules record them."} Saved batches move students into {nextYear.name}.
+            The list uses the published final results, and the attendance and fees recorded so far, and updates by itself. Saved batches move students into {nextYear.name}.
           </Banner>
         )}
         <Card className="p-2.5 md:p-3">
@@ -138,13 +145,20 @@ export default async function PromotionPage({ searchParams }: { searchParams: Pr
                 ? `${p.from.className} is the final class. Students can be detained or marked Leaving (graduating).`
                 : `Moving to ${p.toClass?.name ?? ""} in ${p.toYear.name}. Rules: ${p.rules.passRequired ? "pass required" : "pass not required"}${p.rules.minAttendancePct != null ? `, at least ${p.rules.minAttendancePct}% attendance` : ""}${p.rules.feeDuesAllowed ? ", fee dues shown as a warning only" : ", no fee dues allowed"}${p.policyVersion ? ` (promotion policy version ${p.policyVersion})` : ""}.`} />
             <div className="px-5 pb-5">
+              {rows.length > 0 && !p.finalClass && p.resultsPublished < rows.length && (
+                <Alert tone="warning" className="mb-4" action={<Link className="font-medium underline" href="/examination-results/results">Open Results</Link>}>
+                  {p.resultsPublished === 0
+                    ? `Final results for ${p.from.className} are not published yet. Until they are, the suggestions use only attendance and fees. Publish the final results first.`
+                    : `Final results are published for ${p.resultsPublished} of ${rows.length} students in ${p.from.label}. The others show "final result not published".`}
+                </Alert>
+              )}
               {rows.length === 0 ? (
                 <Empty icon={Users} title="No students in this section" body={`Students who are studying in ${p.from.label} show here.`} />
               ) : (
                 <PromotionReview key={`${p.from.id}-${p.toYear.id}-${p.toClass?.id ?? ""}`} rows={rows} fromSectionId={p.from.id} fromLabel={p.from.label} fromYear={p.from.year.name}
                   toYearId={p.toYear.id} toYearName={p.toYear.name} toClassId={p.toClass?.id ?? null} toClassName={p.toClass?.name ?? null}
                   targetSections={p.targetSections.map((s) => ({ id: s.id, name: s.name }))} detainSections={p.detainSections.map((s) => ({ id: s.id, name: s.name }))}
-                  defaultSectionName={p.defaultSectionName} finalClass={p.finalClass} hasFacts={p.hasFacts} />
+                  defaultSectionName={p.defaultSectionName} finalClass={p.finalClass} />
               )}
             </div>
           </Card>

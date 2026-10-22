@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { CircleCheck, Info, Sparkles, TriangleAlert } from "lucide-react";
+import { CircleCheck, Info, TriangleAlert } from "lucide-react";
 import { cx } from "./cx";
 
 // A calm message strip (design/ui-prototype/src/kit.jsx Banner).
@@ -7,7 +7,7 @@ import { cx } from "./cx";
 export type BannerTone = "info" | "ok" | "warn" | "bad" | "brand";
 const BG: Record<BannerTone, string> = { info: "bg-info/8", ok: "bg-ok/10", warn: "bg-warn/12", bad: "bg-bad/10", brand: "bg-brand/8" };
 const TEXT: Record<BannerTone, string> = { info: "text-info", ok: "text-ok", warn: "text-warn", bad: "text-bad", brand: "text-brand" };
-const ICON: Record<BannerTone, LucideIcon> = { info: Info, ok: CircleCheck, warn: TriangleAlert, bad: TriangleAlert, brand: Sparkles };
+const ICON: Record<BannerTone, LucideIcon> = { info: Info, ok: CircleCheck, warn: TriangleAlert, bad: TriangleAlert, brand: Info };
 
 export function Banner({ tone = "info", icon, title, children, action, className, role }: {
   tone?: BannerTone; icon?: LucideIcon; title?: React.ReactNode; children?: React.ReactNode; action?: React.ReactNode; className?: string; role?: "status" | "alert";

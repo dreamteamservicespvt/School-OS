@@ -16,6 +16,7 @@ import { Col, Split } from "@/components/ui/blocks";
 import { BackLink } from "@/components/console/bits";
 import { InvitePreview } from "@/components/console/add-school-form";
 import { testMessageNote } from "@/components/console/test-code-note";
+import { mayLogCode } from "@/lib/dev-codes";
 
 export const metadata: Metadata = { title: "School added" };
 
@@ -41,6 +42,8 @@ export default async function AddDone({ searchParams }: { searchParams: Promise<
   const channels = [...new Set(messages.map((m) => CH[m.channel] ?? m.channel))];
   const failed = messages.filter((m) => m.status === "FAILED");
   const test = messages.length > 0 && messages.every((m) => m.status === "TEST");
+  // On a tester's computer a message in test mode went to the server log (dev-codes.ts).
+  const inLog = mayLogCode("none");
   const optional = s.modulesOn.length - CORE_MODULES.length;
   const role = ROLE_WORDS[invite?.roleKey ?? "school-admin"] ?? "School Admin";
   const admin = invite?.name ?? s.adminName ?? "The School Admin";
@@ -86,8 +89,8 @@ export default async function AddDone({ searchParams }: { searchParams: Promise<
         <Col>
           {invite && (
             <Card>
-              <CardHeader title="Invite on WhatsApp" description={failed.length ? `${failed.length} of ${messages.length} could not be sent. Resend from the school’s page.` : test ? testMessageNote() : `Sent to ${admin} at ${time}`} icon={MessageCircle}
-                action={<Pill tone={failed.length || (test && process.env.NODE_ENV === "production") ? "bad" : test ? "info" : "ok"} dot>{failed.length ? "Not sent" : test ? (process.env.NODE_ENV === "production" ? "Not sent" : "Test mode") : "Sent"}</Pill>} />
+              <CardHeader title="Invite on WhatsApp" description={failed.length ? `${failed.length} of ${messages.length} could not be sent. Resend from the school’s page.` : test ? testMessageNote(inLog) : `Sent to ${admin} at ${time}`} icon={MessageCircle}
+                action={<Pill tone={failed.length || (test && !inLog) ? "bad" : test ? "info" : "ok"} dot>{failed.length ? "Not sent" : test ? (inLog ? "Test mode" : "Not sent") : "Sent"}</Pill>} />
               <InvitePreview school={s.name} admin={admin} role={role} mobile={invite.phone} time={time} sent={!failed.length && !test} help={supportPhone()} host={appUrl().replace(/^https?:\/\//, "")} />
             </Card>
           )}

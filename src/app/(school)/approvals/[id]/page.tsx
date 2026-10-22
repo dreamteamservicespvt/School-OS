@@ -4,7 +4,8 @@ import { notFound } from "next/navigation";
 import { requireCurrent } from "@/lib/current";
 import { withSchool } from "@/lib/db";
 import { formatDateTime, formatRupees } from "@/lib/format";
-import { OPEN_STATUSES, canDecide, mayReject, requestLabel } from "@/lib/approvals";
+import { OPEN_STATUSES, canDecide, mayReject, requestLabel, ruleStepCount, stepWords } from "@/lib/approvals";
+import { approvalFacts } from "@/lib/approval-facts";
 import { ACTION_WORDS, canSeeApproval, statusWords, type HistoryLine } from "@/lib/approvals-inbox";
 import { approvalOffCampus } from "@/lib/approval-campus";
 import { approvalRecordLink } from "@/lib/approval-links";
@@ -34,19 +35,23 @@ export default async function ApprovalPage({ params }: { params: Promise<{ id: s
     // Older requests may have no lines; the asking itself is always the first.
     const history: HistoryLine[] = lines.length ? lines : [{ action: "asked", by: a.askedById, at: a.createdAt.toISOString(), note: null }];
     const ids = [...new Set([a.askedById, a.currentApproverId, a.decidedById, ...history.map((h) => h.by)].filter((x): x is string => Boolean(x)))];
-    const [people, roles, mayDecide, mayRejectIt, jobs, links] = await Promise.all([
+    const [people, roles, mayDecide, mayRejectIt, jobs, links, steps] = await Promise.all([
       tx.userLogin.findMany({ where: { id: { in: ids } }, select: { id: true, displayName: true } }),
       tx.role.findMany({ select: { key: true, name: true } }),
       canDecide(tx, current.ctx, a),
       mayReject(tx, current.ctx, a.type),
       askerJobs(tx, [a.askedById]),
       profileLinks(tx, current.permissions, a),
+      ruleStepCount(tx, current.ctx.schoolId, a.type),
     ]);
-    return { a, history, mayDecide, mayRejectIt, job: jobs.get(a.askedById) ?? null, links, people: new Map(people.map((p) => [p.id, p.displayName])), roles: new Map(roles.map((r) => [r.key, r.name])) };
+    // What the approver needs to see before deciding: the leave balance, the change asked for.
+    const facts = (await approvalFacts(tx, current.ctx, [a])).get(a.id) ?? [];
+    return { a, history, mayDecide, mayRejectIt, job: jobs.get(a.askedById) ?? null, links, steps, facts, people: new Map(people.map((p) => [p.id, p.displayName])), roles: new Map(roles.map((r) => [r.key, r.name])) };
   });
   // Not found and not allowed look the same, so nobody learns what exists.
   if (!data) notFound();
-  const { a, history, mayDecide, mayRejectIt, job, links, people, roles } = data;
+  const { a, history, mayDecide, mayRejectIt, job, links, steps, facts, people, roles } = data;
+  const step = stepWords(a.step, steps);
   const open = OPEN_STATUSES.includes(a.status);
   const status = statusWords(a.status, a.history);
   const name = (uid: string | null) => (uid ? (uid === current.user.id ? "You" : people.get(uid) ?? "Someone no longer here") : "School OS");
@@ -90,7 +95,8 @@ export default async function ApprovalPage({ params }: { params: Promise<{ id: s
               <Detail label="Kind">{requestLabel(a.type)}</Detail>
               {open && <Detail label="Waiting for">{cap(waitingFor)}{a.status === "ESCALATED" ? " (moved on after nobody decided in time)" : ""}</Detail>}
               {!open && a.decidedById && <Detail label={a.status === "WITHDRAWN" ? "Withdrawn by" : "Decided by"}>{name(a.decidedById)}{a.decidedAt ? `, ${formatDateTime(a.decidedAt, tz)}` : ""}</Detail>}
-              <Detail label="Step">{Math.max(1, a.step + 1)}</Detail>
+              {step && <Detail label="Step">{step}</Detail>}
+              {facts.map((f) => <Detail key={f.label} label={f.label}>{f.value}</Detail>)}
             </dl>
             {a.reason && <div className="mt-4 rounded-xl bg-sunken/60 px-4 py-3"><p className="text-[12.5px] text-ink3">Reason given</p><p className="whitespace-pre-line text-[14.5px] mt-0.5">{a.reason}</p></div>}
             {record && <p className="mt-4"><Link href={record.href} className="inline-flex min-h-11 items-center gap-1.5 font-semibold text-brand hover:underline"><I.ExternalLink size={16} aria-hidden="true" />{record.label}</Link></p>}

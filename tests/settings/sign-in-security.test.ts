@@ -130,6 +130,7 @@ describe("schools that already exist", () => {
     await prisma.userLogin.update({ where: { id: withPhone.id }, data: { phone: "+91 98480 55501" } });
     // As on the live server: no email server, the school's SMS not set up, nothing goes to a log.
     vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("APP_URL", "https://app.schoolos.in");
     try {
       for (const person of [admin, withPhone]) {
         const r = await signIn(person.username, PASSWORD, device, { sleep: noSleep });

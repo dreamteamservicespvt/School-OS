@@ -27,6 +27,9 @@ export const DRIVER_LIMIT_PER_MINUTE = 90;
 /** Points in one batch: 12 hours offline at the 30-second interval would be 1,440, so the app sends the queue in parts. */
 export const MAX_POINTS = 500;
 
+/** The rate-limit counter of one phone key. */
+export const driverKeyLimit = (keyHash: string) => `driver-key:${keyHash.slice(0, 32)}`;
+
 export const reply = (status: number, body: object, headers: Record<string, string> = {}) =>
   Response.json(body, { status, headers: { "Cache-Control": "no-store", ...headers } });
 
@@ -50,7 +53,7 @@ export async function driverCaller(request: Request): Promise<{ problem: Respons
     const schoolId = url.searchParams.get("s") ?? request.headers.get("x-school") ?? "";
     if (!UUID.test(schoolId) || !DRIVER_KEY_RE.test(key)) return { problem: reply(401, { problem: "Send the phone's key as 'Authorization: Bearer <key>' and the school in ?s=." }) };
     const keyHash = hashKey(key);
-    const limit = await hitLimit(`driver-key:${keyHash.slice(0, 32)}`, DRIVER_LIMIT_PER_MINUTE, 60);
+    const limit = await hitLimit(driverKeyLimit(keyHash), DRIVER_LIMIT_PER_MINUTE, 60);
     if (!limit.ok) return { problem: reply(429, { problem: "Too many requests from this phone. Send locations in batches." }, { "Retry-After": String(limit.retryAfterSeconds) }) };
     const ctx: SchoolContext = { schoolId, userId: null };
     const found = await withSchool(ctx, async (tx) => {

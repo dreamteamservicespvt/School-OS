@@ -295,9 +295,9 @@ describe("rows that may already be on record wait for a person's choice (G17)", 
     expect(after.checked!.problems).toEqual([]);
     expect(after.checked!.decided.map((d) => d.line)).toEqual([3]);
     await run((tx) => importFile(tx, ctx, id));
-    // Other test files share the job queue: run jobs until this file's import has settled.
+    // Other test files share the job queue: run this school's jobs until its import has settled.
     for (let i = 0; i < 40; i++) {
-      const ran = await runDueJobs(50);
+      const ran = await runDueJobs(50, { schoolId: ctx.schoolId });
       await run((tx) => settleImports(tx));
       const now = await run((tx) => tx.moveInFile.findUniqueOrThrow({ where: { id } }));
       if (now.status !== "importing" || ran === 0) break;

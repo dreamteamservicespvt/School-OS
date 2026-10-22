@@ -110,7 +110,7 @@ function Palette({ onClose, userId, pages, shortcuts, quick }: { onClose: () => 
     people.staff.forEach((s) => out.push({ sec: "Staff", label: s.name, sub: s.sub, href: s.href, avatar: s.name }));
     people.parents.forEach((s) => out.push({ sec: "Parents", label: s.name, sub: s.sub, href: s.href, avatar: s.name }));
     people.receipts.forEach((s) => out.push({ sec: "Receipts", label: s.name, sub: s.sub, href: s.href, icon: I.ReceiptText }));
-    quick.filter((x) => matches(x.label, typed)).forEach((x) => out.push({ sec: "Do this", label: x.label, sub: x.sub, href: x.href, icon: (I as unknown as Record<string, LucideIcon>)[x.icon] }));
+    quick.filter((x) => matches(x.label, typed)).forEach((x) => out.push({ sec: "Quick actions", label: x.label, sub: x.sub, href: x.href, icon: (I as unknown as Record<string, LucideIcon>)[x.icon] }));
     pages.filter((p) => matches(p.label, typed)).slice(0, 8).forEach((p) => out.push({ sec: "Pages", label: p.label, sub: p.hint ?? "Open", href: p.href, icon: I.FileText }));
     return out;
   }, [typed, people, pages, shortcuts, quick, lists]);

@@ -7,6 +7,7 @@ import { withSchool } from "@/lib/db";
 import { aboutRupees, payHabit, projectAttendance, projectNext, refreshForecasts, seatForecast, forecastsFor } from "@/lib/reports/forecasts";
 import { aiSignals, decideAiSignal, refreshFlags } from "@/lib/reports/warnings";
 import { reportAccess } from "@/lib/reports/access";
+import { saveAssistant } from "@/lib/settings/switches";
 import { viewerOf } from "@/lib/reports/run";
 import type { ReportViewer } from "@/lib/reports/types";
 import { collect, dues, feature, makeFeeSchool, R, type FeeSchool } from "../fees/fixture";
@@ -51,8 +52,8 @@ describe("the arithmetic", () => {
   });
 
   it("counts the open pipeline only when the school has its own joining rate", () => {
-    expect(seatForecast({ seats: 40, inClass: 20, approved: 2, pipeline: 10, joinRate: null })).toEqual({ expected: 22, fromPipeline: 0, empty: 18 });
-    expect(seatForecast({ seats: 40, inClass: 30, approved: 5, pipeline: 20, joinRate: 0.4 })).toEqual({ expected: 43, fromPipeline: 8, empty: -3 });
+    expect(seatForecast({ seats: 40, inClass: 20, approved: 2, pipeline: 10, joinRate: null })).toEqual({ expected: 22, fromPipeline: 0, moving: 0, empty: 18 });
+    expect(seatForecast({ seats: 40, inClass: 30, approved: 5, pipeline: 20, joinRate: 0.4 })).toEqual({ expected: 43, fromPipeline: 8, moving: 0, empty: -3 });
   });
 });
 
@@ -112,17 +113,21 @@ describe("Looking ahead for a real school", () => {
   });
 
   it("a class teacher sees the items about students of their own section, and only those (TEACHING-15)", async () => {
+    // Only once the school chooses the class teacher's role for the AI assistant (G24): until then, none.
+    expect(reportAccess(await viewer(att.school.id, att.teacherA.id)).ai.forecasts).toBe(false);
+    const sys = { schoolId: att.school.id, userId: att.admin.id };
+    await withSchool(sys, (tx) => saveAssistant(tx, sys, { on: true, roles: ["principal", "school-admin", "class-teacher"] }));
     const mine = await viewer(att.school.id, att.teacherA.id);
     const a = reportAccess(mine);
     expect(a.ai).toMatchObject({ forecasts: true, forecastScope: "own", insights: false });
-    const signals = await withSchool(mine.ctx, (tx) => aiSignals(tx, mine, a, ATT_NOW));
+    const signals = await withSchool(mine.ctx, (tx) => aiSignals(tx, mine, a));
     expect(signals.length).toBeGreaterThan(0);
     expect(signals.every((x) => x.kind === "prediction" && att.studentsA.some((s) => s.id === x.studentId))).toBe(true);
     expect(signals.some((x) => x.studentId === att.studentsA[1].id)).toBe(true);
     // The class teacher of 5 B sees none of 5 A's.
     const other = await viewer(att.school.id, att.teacherB.id);
     const b = reportAccess(other);
-    expect(await withSchool(other.ctx, (tx) => aiSignals(tx, other, b, ATT_NOW))).toEqual([]);
+    expect(await withSchool(other.ctx, (tx) => aiSignals(tx, other, b))).toEqual([]);
   });
 
   it("changes nothing until a person adds it for review; the flag then stays until a person closes it", async () => {
@@ -131,7 +136,7 @@ describe("Looking ahead for a real school", () => {
     expect(a.ai.forecasts).toBe(true);
     const flagsBefore = await withSchool(principal.ctx, (tx) => tx.riskFlag.count({ where: { studentId: att.studentsA[1].id } }));
     expect(flagsBefore).toBe(0);
-    const signals = await withSchool(principal.ctx, (tx) => aiSignals(tx, principal, a, ATT_NOW));
+    const signals = await withSchool(principal.ctx, (tx) => aiSignals(tx, principal, a));
     const s = signals.find((x) => x.kind === "prediction" && x.studentId === att.studentsA[1].id)!;
     expect(s.area).toBe("attendance");
     await withSchool(principal.ctx, (tx) => decideAiSignal(tx, principal, a, s.key, "FLAGGED", ATT_NOW));
@@ -140,7 +145,7 @@ describe("Looking ahead for a real school", () => {
     const flag = await withSchool(principal.ctx, (tx) => tx.riskFlag.findFirstOrThrow({ where: { studentId: att.studentsA[1].id } }));
     expect(flag).toMatchObject({ area: "attendance", strength: "WATCH", closedAt: null });
     // Decided: no longer offered.
-    const again = await withSchool(principal.ctx, (tx) => aiSignals(tx, principal, a, ATT_NOW));
+    const again = await withSchool(principal.ctx, (tx) => aiSignals(tx, principal, a));
     expect(again.some((x) => x.key === s.key)).toBe(false);
     const audit = await withSchool(principal.ctx, (tx) => tx.auditLogEntry.count({ where: { recordType: "AI Signal", action: "suggestion-added" } }));
     expect(audit).toBe(1);
@@ -177,9 +182,10 @@ describe("Looking ahead for a real school", () => {
     await withSchool(ctx, (tx) => tx.riskFlag.createMany({ data: ["attendance", "marks", "fees"].map((area) => ({ schoolId: att.school.id, studentId: student.id, academicYearId: att.year.id, sectionId: att.sectionA.id, area, strength: "WATCH", reason: `Test ${area}`, basis: "Test" })) }));
     await withSchool(ctx, (tx) => refreshForecasts(tx, ctx, new Date(ATT_NOW.getTime() + 8 * 3_600_000), { force: true }));
     const list = await withSchool(ctx, (tx) => forecastsFor(tx, { fees: true, finance: true }));
-    const leaving = list.find((f) => f.area === "students" && f.studentId === student.id)!;
-    expect(leaving.body).toContain("open early warnings in 3 areas (attendance, marks and fees)");
-    expect(leaving.body).not.toContain(" and marks and ");
+    // A marks and a fee concern without a sign in attendance is not enough to say a family may be leaving (G29).
+    expect(list.some((f) => f.area === "students" && f.studentId === student.id)).toBe(false);
+    // What each suggestion rests on reads as a proper list, never "a and b and c".
+    for (const f of list) expect(f.source).not.toMatch(/ and [^,]+ and /);
   });
 
   it("does nothing for a school that has not switched Forecasts on", async () => {

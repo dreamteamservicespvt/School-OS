@@ -4,7 +4,7 @@
 
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
-import { ChevronRight, CircleCheck, FileText, FileWarning, Info, SearchX, SlidersHorizontal, Sparkles, TriangleAlert } from "lucide-react";
+import { ChevronRight, CircleCheck, FileText, FileWarning, Info, Lightbulb, SearchX, SlidersHorizontal, Sparkles, TriangleAlert } from "lucide-react";
 import { buttonClass } from "./button";
 import { cx } from "./cx";
 import { Card } from "./card";
@@ -124,7 +124,7 @@ export function SettingRow({ title, sub, children, htmlFor }: { title: React.Rea
 
 /* ---------- Banner: a calm message strip ---------- */
 const BANNER: Record<string, string> = { info: "bg-info/8", ok: "bg-ok/10", warn: "bg-warn/12", bad: "bg-bad/10", brand: "bg-brand/8" };
-const BANNER_ICON: Record<string, LucideIcon> = { info: Info, ok: CircleCheck, warn: TriangleAlert, bad: TriangleAlert, brand: Sparkles };
+const BANNER_ICON: Record<string, LucideIcon> = { info: Info, ok: CircleCheck, warn: TriangleAlert, bad: TriangleAlert, brand: Info };
 export function Banner({ tone = "info", icon, title, children, action, className }: { tone?: "info" | "ok" | "warn" | "bad" | "brand"; icon?: LucideIcon; title?: React.ReactNode; children?: React.ReactNode; action?: React.ReactNode; className?: string }) {
   const Ic = icon ?? BANNER_ICON[tone];
   return (
@@ -137,11 +137,13 @@ export function Banner({ tone = "info", icon, title, children, action, className
 }
 
 /* ---------- Suggestion box: labelled, different background, never acts by itself ---------- */
-export function Suggestion({ title = "Suggestion", children, source, actions }: { title?: string; children: React.ReactNode; source?: React.ReactNode; actions?: React.ReactNode }) {
+/** ai: written by the AI service; only then does it carry the AI sparkle (00-global.md §2.1 rules 3 and 8). */
+export function Suggestion({ title = "Suggestion", children, source, actions, ai = false }: { title?: string; children: React.ReactNode; source?: React.ReactNode; actions?: React.ReactNode; ai?: boolean }) {
+  const Mark = ai ? Sparkles : Lightbulb;
   return (
     <Card className="border-brand/25 bg-brand/[.03]">
       <div className="px-5 pt-4 pb-1 flex items-center gap-2">
-        <Sparkles size={16} className="text-brand" aria-hidden="true" />
+        <Mark size={16} className="text-brand" aria-hidden="true" />
         <p className="font-semibold text-[14.5px]">{title}</p>
         <Pill tone="brand" className="!h-5 !text-[11px] ml-auto">Suggestion</Pill>
       </div>

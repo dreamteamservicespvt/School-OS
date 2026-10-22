@@ -57,8 +57,6 @@ export async function planPtm(tx: Tx, ctx: SchoolContext, input: PlanInput, toda
   const year = await tx.academicYear.findFirst({ where: { archivedAt: null, startDate: { lte: dayOf(input.date) }, endDate: { gte: dayOf(input.date) } } });
   if (!year) throw new EventsProblem("Pick a date inside the school year.", "date");
   await assertYearOpen(tx, year.id);
-  const off = await notWorkingDay(tx, ctx, input.date, null);
-  if (off) throw new EventsProblem(`${off} Pick a working day.`, "date");
   if (!input.classIds.length) throw new EventsProblem("Choose the classes.", "classIds");
   if (!SLOT_LENGTHS.includes(input.slotMinutes)) throw new EventsProblem("Slot length is 5, 10, 15 or 20 minutes.", "slotMinutes");
   if (input.endMin <= input.startMin) throw new EventsProblem("The end time is before the start time.", "endTime");
@@ -71,8 +69,13 @@ export async function planPtm(tx: Tx, ctx: SchoolContext, input: PlanInput, toda
     if (input.breakStartMin <= input.startMin || input.breakEndMin >= input.endMin) throw new EventsProblem("The break must be inside the time window, with slots before and after it.", "breakStart");
   }
   if ((input.endMin - input.startMin) / input.slotMinutes > MAX_SLOTS_PER_TEACHER) throw new EventsProblem(`That makes more than ${MAX_SLOTS_PER_TEACHER} slots per teacher. Use a shorter window or longer slots.`, "endTime");
-  const classes = await tx.schoolClass.findMany({ where: { id: { in: input.classIds }, archivedAt: null }, select: { id: true, name: true, sortOrder: true }, orderBy: { sortOrder: "asc" } });
+  const classes = await tx.schoolClass.findMany({ where: { id: { in: input.classIds }, archivedAt: null }, select: { id: true, name: true, sortOrder: true, campusId: true }, orderBy: { sortOrder: "asc" } });
   if (classes.length !== input.classIds.length) throw new EventsProblem("Some of these classes were not found.", "classIds");
+  // A school day for every class chosen, on its own campus.
+  for (const c of classes) {
+    const off = await notWorkingDay(tx, ctx, input.date, c.campusId, { classId: c.id });
+    if (off) throw new EventsProblem(`${off} Pick a working day.`, "date");
+  }
   const clash = await tx.ptm.findFirst({ where: { archivedAt: null, date: dayOf(input.date), classIds: { hasSome: input.classIds } } });
   if (clash) throw new EventsProblem(`There is already a PTM for ${clash.classesLabel} on ${dmy(input.date)}.`, "classIds");
 

@@ -12,7 +12,8 @@ import { AcademicRuleError, DAY_NAMES, DAY_SHORT, plural, weekday, wordList } fr
 import { academicSettings, periodSlots } from "./settings";
 import { allocationActiveOn, limitsFor } from "./allocation";
 import { mapActiveOn } from "./subjects";
-import { dayOff } from "./calendar";
+import { dayOffOf, type DayOff } from "./calendar";
+import { isSchoolDay } from "../calendar/school-days";
 import { assertYearWritable } from "./years";
 
 // ---------------------------------------------------------------- versions
@@ -502,16 +503,60 @@ async function place(tx: Tx, ctx: SchoolContext, versionId: string, sectionId: s
 
 export type DayPeriod = PeriodCell & { substitution?: { id: string; substituteName: string | null; status: string; forStaffName?: string | null } | null; isSubstitute?: boolean };
 
+/** One datesheet paper on a day (A10): it takes the place of the periods of the class sitting it. */
+export type ExamPaper = { examTitle: string; classId: string; className: string; subjectName: string; startTime: string; endTime: string; room: string | null; invigilatorId: string | null; invigilatorName: string | null };
+/** An exam day for a class or a teacher: the papers, and the classes whose periods they replace. */
+export type ExamDay = { title: string; papers: ExamPaper[]; classIds: string[]; classNames: string[] };
+
+const hhmmOf = (min: number) => `${String(Math.floor(min / 60) % 24).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
+
+/** The papers of published datesheets on a date, for some classes (or every class). */
+async function examPapersOn(tx: Tx, date: Date, classIds?: string[] | null): Promise<ExamPaper[]> {
+  const rows = await tx.datesheetEntry.findMany({
+    where: { date, archivedAt: null, exam: { archivedAt: null, status: { not: "DRAFT" } }, ...(classIds ? { classId: { in: classIds } } : {}) },
+    include: { exam: { select: { title: true } } },
+    orderBy: [{ startTime: "asc" }],
+  });
+  if (!rows.length) return [];
+  const [classes, subjects, staff] = await Promise.all([
+    tx.schoolClass.findMany({ where: { id: { in: [...new Set(rows.map((r) => r.classId))] } }, select: { id: true, name: true } }),
+    tx.subject.findMany({ where: { id: { in: [...new Set(rows.map((r) => r.subjectId))] } }, select: { id: true, name: true } }),
+    tx.staff.findMany({ where: { id: { in: [...new Set(rows.map((r) => r.invigilatorId).filter((x): x is string => Boolean(x)))] } }, select: { id: true, fullName: true } }),
+  ]);
+  return rows.map((r) => {
+    const [h, m] = r.startTime.split(":").map(Number);
+    return {
+      examTitle: r.exam.title, classId: r.classId, className: classes.find((c) => c.id === r.classId)?.name ?? "Class",
+      subjectName: subjects.find((x) => x.id === r.subjectId)?.name ?? "Paper", startTime: r.startTime, endTime: hhmmOf(h * 60 + m + r.durationMin),
+      room: r.room, invigilatorId: r.invigilatorId, invigilatorName: r.invigilatorId ? staff.find((x) => x.id === r.invigilatorId)?.fullName ?? null : null,
+    };
+  }).sort((a, b) => a.startTime.localeCompare(b.startTime) || a.className.localeCompare(b.className));
+}
+
+function examDayOf(papers: ExamPaper[], classIds: string[]): ExamDay | null {
+  if (!papers.length) return null;
+  const titles = [...new Set(papers.map((p) => p.examTitle))];
+  const names = [...new Set(papers.filter((p) => classIds.includes(p.classId)).map((p) => p.className))];
+  return { title: wordList(titles), papers, classIds, classNames: names };
+}
+
+/** On a half day (Academic Settings) the periods that start at or after the early end time are not held. */
+const beforeHalfDayEnd = (halfDayEnd: string | null) => (p: { startTime: string }) => !halfDayEnd || p.startTime < halfDayEnd;
+
 /**
  * A teacher's periods on a date from the published Time Table in force,
  * with substitutions: periods they cover for others are added, periods
- * covered for them are marked. Empty on a holiday (A11).
+ * covered for them are marked. Empty on a day without school (the school's
+ * one rule, A11). On an exam day the periods of the classes sitting a paper
+ * are dropped and the papers they invigilate are listed (A10); on a half day
+ * the periods after the early end are dropped.
  */
-export async function periodsForStaffOnDate(tx: Tx, ctx: SchoolContext, staffId: string, date: Date): Promise<{ off: Awaited<ReturnType<typeof dayOff>>; periods: DayPeriod[] }> {
+export async function periodsForStaffOnDate(tx: Tx, ctx: SchoolContext, staffId: string, date: Date): Promise<{ off: DayOff | null; periods: DayPeriod[]; exam: ExamDay | null; duties: ExamPaper[]; halfDayEnd: string | null }> {
   const staff = await tx.staff.findFirst({ where: { id: staffId }, select: { campusId: true } });
-  if (!staff) return { off: null, periods: [] };
-  const off = await dayOff(tx, ctx, date, staff.campusId);
-  if (off) return { off, periods: [] };
+  if (!staff) return { off: null, periods: [], exam: null, duties: [], halfDayEnd: null };
+  const info = await isSchoolDay(tx, ctx, date, { campusId: staff.campusId });
+  const off = dayOffOf(info);
+  if (off) return { off, periods: [], exam: null, duties: [], halfDayEnd: null };
   const version = await effectiveVersion(tx, ctx, staff.campusId, date);
   const day = weekday(date);
   const own = version ? (await cells(tx, { versionId: version.id, staffId, dayOfWeek: day })) : [];
@@ -519,27 +564,43 @@ export async function periodsForStaffOnDate(tx: Tx, ctx: SchoolContext, staffId:
   const covering = subs.filter((s) => s.substituteStaffId === staffId && s.status === "ARRANGED");
   const extra = covering.length ? await cells(tx, { id: { in: covering.map((c) => c.periodId) } }) : [];
   const names = new Map((await tx.staff.findMany({ where: { id: { in: subs.flatMap((s) => [s.substituteStaffId, s.absentStaffId]).filter((x): x is string => Boolean(x)) } }, select: { id: true, fullName: true } })).map((s) => [s.id, s.fullName]));
+  // A10: the datesheet replaces the periods of the classes sitting a paper today.
+  const papers = info.exam ? await examPapersOn(tx, date) : [];
+  const sitting = new Set(papers.map((p) => p.classId));
+  const held = (p: PeriodCell) => p.isBreak || !sitting.has(p.classId);
   const periods: DayPeriod[] = [
-    ...own.map((p) => {
+    ...own.filter(held).map((p) => {
       const s = subs.find((x) => x.periodId === p.id && x.absentStaffId === staffId);
       return { ...p, substitution: s ? { id: s.id, substituteName: s.substituteStaffId ? names.get(s.substituteStaffId) ?? null : null, status: s.status } : null };
     }),
-    ...extra.map((p) => {
+    ...extra.filter(held).map((p) => {
       const s = covering.find((x) => x.periodId === p.id)!;
       return { ...p, isSubstitute: true, substitution: { id: s.id, substituteName: null, status: s.status, forStaffName: names.get(s.absentStaffId) ?? null } };
     }),
-  ].sort((a, b) => a.periodNo - b.periodNo);
-  return { off, periods };
+  ].filter(beforeHalfDayEnd(info.halfDayEnd)).sort((a, b) => a.periodNo - b.periodNo);
+  const mineSitting = [...new Set([...own, ...extra].filter((p) => !p.isBreak && sitting.has(p.classId)).map((p) => p.classId))];
+  const duties = papers.filter((p) => p.invigilatorId === staffId);
+  const exam = mineSitting.length || duties.length ? examDayOf(papers, mineSitting) : null;
+  return { off, periods, exam, duties, halfDayEnd: info.halfDayEnd };
 }
 
-/** A section's periods on a date from the Time Table in force, empty on a holiday. */
-export async function periodsForSectionOnDate(tx: Tx, ctx: SchoolContext, sectionId: string, date: Date) {
+/**
+ * A section's periods on a date from the Time Table in force: none on a day
+ * without school; on an exam day for its class, the datesheet's papers in
+ * place of the periods (A10); on a half day, only the periods before the
+ * early end.
+ */
+export async function periodsForSectionOnDate(tx: Tx, ctx: SchoolContext, sectionId: string, date: Date): Promise<{ off: DayOff | null; periods: PeriodCell[]; exam: ExamDay | null; halfDayEnd: string | null }> {
   const section = await tx.section.findFirst({ where: { id: sectionId }, include: { schoolClass: true } });
-  if (!section) return { off: null, periods: [] as PeriodCell[] };
-  const off = await dayOff(tx, ctx, date, section.schoolClass.campusId);
-  if (off) return { off, periods: [] as PeriodCell[] };
+  if (!section) return { off: null, periods: [], exam: null, halfDayEnd: null };
+  const info = await isSchoolDay(tx, ctx, date, { campusId: section.schoolClass.campusId, classId: section.classId });
+  const off = dayOffOf(info);
+  if (off) return { off, periods: [], exam: null, halfDayEnd: null };
+  const papers = info.exam ? await examPapersOn(tx, date, [section.classId]) : [];
+  if (papers.length) return { off: null, periods: [], exam: examDayOf(papers, [section.classId]), halfDayEnd: info.halfDayEnd };
   const version = await effectiveVersion(tx, ctx, section.schoolClass.campusId, date);
-  return { off, periods: version ? await cells(tx, { versionId: version.id, sectionId, dayOfWeek: weekday(date) }) : [] };
+  const periods = version ? await cells(tx, { versionId: version.id, sectionId, dayOfWeek: weekday(date) }) : [];
+  return { off, periods: periods.filter(beforeHalfDayEnd(info.halfDayEnd)), exam: null, halfDayEnd: info.halfDayEnd };
 }
 
 /** Teachers free in a period of a version (not teaching then), for the free periods view. */

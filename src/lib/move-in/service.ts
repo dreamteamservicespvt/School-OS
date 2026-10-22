@@ -28,6 +28,8 @@ import { findHeaderRow, guessKind, matchColumns, type ColumnMatch } from "./matc
 import { classKey, plain, splitClassSection } from "./tidy";
 import { cleanCsv, prepareSheet, rowsForImport, type Choices, type Prepared } from "./prepare";
 import type { Lookups } from "./lookups";
+import { markRecalled, mergeRemembered, recallMapping, rememberMapping, type Recalled } from "./memory";
+import { aiConfirmedNote } from "../ai/audit";
 
 export class MoveInProblem extends Error {
   constructor(message: string, public field?: string) { super(message); }
@@ -154,10 +156,15 @@ export async function addUpload(tx: Tx, ctx: SchoolContext, permissions: Permiss
   const recognised = picks.filter((p) => p.first.kind && allowed.has(p.first.kind));
   // Sheets that are not recognised are left out, unless none is: then the first is opened to choose by hand.
   const chosen = recognised.length ? (upload.kind ? recognised.slice(0, 1) : recognised) : picks.slice(0, 1);
+  const recalledFrom: string[] = [];
   for (const p of chosen) {
     if (sheets[p.i].rows.length > MAX_ROWS + 1) throw new MoveInProblem(`The sheet "${sheets[p.i].name}" has ${sheets[p.i].rows.length - 1} rows. Bring in at most ${MAX_ROWS} at a time: split it into two files.`);
     const kind = p.first.kind && allowed.has(p.first.kind) ? p.first.kind : [...allowed][0];
-    const match = p.first.kind === kind ? p.first.match : firstChoices(sheets[p.i], kind).match;
+    // The match this school confirmed for a file with these headings goes on top of the rules' match.
+    const recalled = await recallMapping(tx, kind, sheets[p.i].rows[p.first.headerRow - 1] ?? []);
+    const rules = p.first.kind === kind ? p.first.match : firstChoices(sheets[p.i], kind).match;
+    const match = recalled ? mergeRemembered(rules, recalled.match) : rules;
+    if (recalled) { await markRecalled(tx, recalled.id); recalledFrom.push(recalled.source ?? recalled.fileName); }
     const row = await tx.moveInFile.create({
       data: {
         schoolId: ctx.schoolId, fileId: upload.fileId, fileName: upload.fileName.slice(0, 200), sheets: info, sheetIndex: p.i,
@@ -166,7 +173,7 @@ export async function addUpload(tx: Tx, ctx: SchoolContext, permissions: Permiss
     });
     made.push(row.id);
   }
-  await writeAudit(tx, ctx, { action: "uploaded", recordType: "Move-in File", recordId: made[0] ?? null, after: { fileName: upload.fileName, sheets: chosen.map((p) => sheets[p.i].name) } });
+  await writeAudit(tx, ctx, { action: "uploaded", recordType: "Move-in File", recordId: made[0] ?? null, after: { fileName: upload.fileName, sheets: chosen.map((p) => sheets[p.i].name), ...(recalledFrom.length ? { matchedAsLastTime: recalledFrom } : {}) } });
   return made;
 }
 
@@ -249,7 +256,12 @@ export async function workOn(tx: Tx, ctx: SchoolContext, id: string, opts: { che
   const prepared = prepareSheet(kind.key, kind.columns, sheet.rows, choices, lookups);
   let checked: Checked | null = null;
   if (opts.check) checked = await checkRows(tx, ctx, kind, prepared, decisionsOf(choices, prepared));
-  return { file, sheets, sheet, kind, lookups, choices, prepared, checked };
+  // A match confirmed before for files with these headings, when this file still uses it: shown as "matched as last time".
+  const recalled = file.status === "open" ? await recallMapping(tx, kind.key, sheet.rows[file.headerRow - 1] ?? []) : null;
+  const remembered: (Recalled & { keys: string[] }) | null = recalled
+    ? { ...recalled, keys: Object.keys(recalled.match).filter((k) => JSON.stringify(recalled.match[k]) === JSON.stringify(choices.columnMatch[k] ?? [])) }
+    : null;
+  return { file, sheets, sheet, kind, lookups, choices, prepared, checked, remembered: remembered?.keys.length ? remembered : null };
 }
 
 /**
@@ -293,9 +305,12 @@ export async function chooseSheet(tx: Tx, ctx: SchoolContext, id: string, input:
   if (!Number.isInteger(headerRow) || headerRow < 1 || headerRow > Math.min(sheet.rows.length, 30)) throw new MoveInProblem("Choose the row that holds the headings.", "headerRow");
   const headerChanged = headerRow !== f.headerRow;
   const kind = importKind(input.kind)!;
-  const match = sheetChanged || kindChanged || headerChanged
-    ? matchColumns(kind.key, kind.columns, sheet.rows[headerRow - 1] ?? [], sheet.rows.slice(headerRow, headerRow + 60))
-    : (f.columnMatch as ColumnMatch);
+  let match = f.columnMatch as ColumnMatch;
+  if (sheetChanged || kindChanged || headerChanged) {
+    match = matchColumns(kind.key, kind.columns, sheet.rows[headerRow - 1] ?? [], sheet.rows.slice(headerRow, headerRow + 60));
+    const recalled = await recallMapping(tx, kind.key, sheet.rows[headerRow - 1] ?? []);
+    if (recalled) { match = mergeRemembered(match, recalled.match); await markRecalled(tx, recalled.id); }
+  }
   await tx.moveInFile.update({
     where: { id },
     data: {
@@ -317,6 +332,49 @@ export async function setColumns(tx: Tx, id: string, match: ColumnMatch) {
     if (cols.length) clean[c.key] = [...new Set(cols)].slice(0, 3);
   }
   await tx.moveInFile.update({ where: { id }, data: { columnMatch: clean } });
+}
+
+/** What Smart Import's question to the AI assistant needs from one file: the fields and columns still unmatched. The values only to describe their kind. */
+export async function aiColumnInput(tx: Tx, id: string) {
+  const f = await openFile(tx, id);
+  const sheets = await readStored(tx, f.fileId);
+  const sheet = sheets[f.sheetIndex] ?? sheets[0];
+  const kind = kindOf(f.kind);
+  const match = (f.columnMatch ?? {}) as ColumnMatch;
+  return {
+    importing: kindInfo(kind.key)?.label ?? kind.label,
+    fields: kind.columns.map((c) => ({ key: c.key, label: c.label })),
+    headers: sheet.rows[f.headerRow - 1] ?? [],
+    rows: sheet.rows.slice(f.headerRow, f.headerRow + 200),
+    matched: new Set(Object.keys(match).filter((k) => match[k]?.length)),
+    used: new Set(Object.values(match).flat()),
+  };
+}
+
+/**
+ * The AI assistant's column suggestions the person ticked: added to the file's
+ * column match (only fields and columns still free), and written in the Audit
+ * Log as "prepared by AI, confirmed by <person>" (00-global.md §2.1 rule 6).
+ */
+export async function acceptAiColumns(tx: Tx, ctx: SchoolContext, id: string, picks: { key: string; index: number }[]) {
+  const f = await openFile(tx, id);
+  const sheets = await readStored(tx, f.fileId);
+  const headers = sheets[f.sheetIndex]?.rows[f.headerRow - 1] ?? [];
+  const kind = kindOf(f.kind);
+  const match: ColumnMatch = { ...((f.columnMatch ?? {}) as ColumnMatch) };
+  const used = new Set(Object.values(match).flat());
+  const added: { column: string; heading: string }[] = [];
+  for (const p of picks.slice(0, 60)) {
+    const col = kind.columns.find((c) => c.key === p.key);
+    if (!col || match[p.key]?.length || !Number.isInteger(p.index) || p.index < 0 || p.index >= headers.length || used.has(p.index)) continue;
+    match[p.key] = [p.index];
+    used.add(p.index);
+    added.push({ column: col.label, heading: headers[p.index] ?? "" });
+  }
+  if (!added.length) throw new MoveInProblem("These columns are matched already. Check the list of columns.");
+  await tx.moveInFile.update({ where: { id }, data: { columnMatch: match } });
+  await writeAudit(tx, ctx, { action: "columns-matched", recordType: "Move-in File", recordId: id, after: { fileName: f.fileName, columns: added }, actorNote: await aiConfirmedNote(tx, ctx) });
+  return added.length;
 }
 
 export async function setTidy(tx: Tx, id: string, on: boolean) {
@@ -489,6 +547,8 @@ export async function importFile(tx: Tx, ctx: SchoolContext, id: string) {
   const decisions = Object.fromEntries(Object.entries(decisionsOf(w.choices, w.prepared)).filter(([line]) => lines.includes(Number(line))));
   await startImport(tx, ctx, { kind: w.kind.key, fileId, match: identity, lines, decisions });
   await tx.moveInFile.update({ where: { id }, data: { status: "importing", importFileId: fileId } });
+  // Bringing the file in confirms its column match: the next file with these headings is matched the same way.
+  await rememberMapping(tx, ctx, { kind: w.kind.key, headers: w.sheet.rows[f.headerRow - 1] ?? [], match: w.choices.columnMatch, fileName: f.fileName });
   await writeAudit(tx, ctx, { action: "import-started", recordType: "Move-in File", recordId: id, after: { kind: w.kind.key, rows: ready.length, leftWithProblems: w.checked!.problems.length } });
   return { rows: ready.length, problems: w.checked!.problems.length };
 }

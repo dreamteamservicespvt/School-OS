@@ -6,6 +6,8 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { withSchool } from "@/lib/db";
 import { decide } from "@/lib/approvals";
 import "@/lib/attendance/handlers";
+// Loaded before the first decision, so loading every module's follow-ups never eats the decision's transaction time.
+import "@/lib/approval-handlers";
 import { saveClassAttendance, loadSheet, LockedError, type Entry } from "@/lib/attendance/marks";
 import { requestCorrection } from "@/lib/attendance/corrections";
 import { afterAttendanceSaved } from "@/lib/attendance/alerts";
@@ -108,7 +110,7 @@ describe("one mark per student per day, one message per absence (Done when 2)", 
     expect(alerts).toHaveLength(1);
     expect(alerts[0].studentId).toBe(f.studentsA[1].id);
     expect(alerts[0].guardianId).toBe(f.studentsA[1].guardianId);
-    expect(alerts[0].text).toContain("Diya Reddy of Class 5 A is absent today (05-10-2026)");
+    expect(alerts[0].text).toBe("Diya Reddy (Class 5 A) absent on 05-10-2026");
     expect(alerts[0].note).toBeNull();
     expect(alerts[0].status).toBe("sent");
     // Sent through Communication: one message to that parent, not two.

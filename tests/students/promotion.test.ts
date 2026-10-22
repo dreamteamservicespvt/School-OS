@@ -1,23 +1,20 @@
 // Year-end promotion (A13): 03 §9 "Done when" 6 and rule 4 of 04-data-model.md.
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { withSchool } from "@/lib/db";
 import { confirmPromotion, promotionPreview, undoPromotion } from "@/lib/students/promotion";
-import { onEnrolled, registerYearActivity } from "@/lib/students/hooks";
+import { onEnrolled } from "@/lib/students/hooks";
 import { addStudent, studentSchool } from "./fixtures";
 
 let s: Awaited<ReturnType<typeof studentSchool>>;
 const ids: string[] = [];
 const enrolled: { studentId: string; how: string; academicYearId: string }[] = [];
-let activity: string | null = null;
 
 beforeAll(async () => {
   s = await studentSchool();
   for (let i = 0; i < 5; i++) ids.push((await addStudent(s.ctx, s.s5a)).student.id);
   // Fee Management's fee plan hook, as it will plug in (A13 "with the new fee plan").
   onEnrolled(async (_tx, _ctx, e) => { enrolled.push(e); });
-  registerYearActivity(async () => activity);
 });
-afterAll(() => { activity = null; });
 
 describe("promotion", () => {
   it("needs the target year to exist", async () => {
@@ -78,11 +75,19 @@ describe("promotion", () => {
     });
   });
 
-  it("cannot be undone once something is recorded in the new year", async () => {
+  it("cannot be undone once attendance is marked or fees are paid in the new year (03 §2: no attendance, no payment)", async () => {
     const batch = await withSchool(s.ctx, (tx) => tx.promotionBatch.findFirstOrThrow({ where: { fromSectionId: s.s5a } }));
-    activity = "attendance is marked for 3 students";
-    await expect(withSchool(s.ctx, (tx) => undoPromotion(tx, s.ctx, batch.id))).rejects.toThrow(/attendance is marked for 3 students in the new year/);
-    activity = null;
+    const undo = () => withSchool(s.ctx, (tx) => undoPromotion(tx, s.ctx, batch.id));
+    const promoted = await withSchool(s.ctx, (tx) => tx.enrolment.findFirstOrThrow({ where: { academicYearId: s.nextYearId, archivedAt: null } }));
+    const day = new Date("2027-04-05T00:00:00Z");
+    // Attendance's own check, as every server action gets it (no registration needed).
+    const mark = await withSchool(s.ctx, (tx) => tx.attendanceMark.create({ data: { schoolId: s.school.id, academicYearId: s.nextYearId, studentId: promoted.studentId, sectionId: promoted.sectionId, date: day, statusKey: "present" } }));
+    await expect(undo()).rejects.toThrow(/cannot be undone: attendance is marked for 1 student in the new year/);
+    await withSchool(s.ctx, (tx) => tx.attendanceMark.update({ where: { id: mark.id }, data: { archivedAt: new Date() } }));
+    // Fee Management's: a payment for the new year.
+    const pay = await withSchool(s.ctx, (tx) => tx.payment.create({ data: { schoolId: s.school.id, studentId: promoted.studentId, academicYearId: s.nextYearId, amountPaise: BigInt(150000), mode: "CASH", paidAt: new Date(), paymentDate: day } }));
+    await expect(undo()).rejects.toThrow(/cannot be undone: fees are paid for 1 student in the new year/);
+    await withSchool(s.ctx, (tx) => tx.payment.update({ where: { id: pay.id }, data: { status: "CANCELLED", cancelReason: "Entered by mistake" } }));
   });
 
   it("can be undone while nothing is recorded, and done again", async () => {

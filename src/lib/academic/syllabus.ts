@@ -9,7 +9,7 @@ import { writeAudit } from "../audit";
 import { formatDate } from "../format";
 import { AcademicRuleError, addDays, plural, weekday } from "./common";
 import { effectiveVersion } from "./timetable";
-import { dayOff } from "./calendar";
+import { schoolCalendar } from "../calendar/school-days";
 
 export const KIND_ORDER: SyllabusItemKind[] = ["UNIT", "CHAPTER", "LESSON", "TOPIC"];
 export const KIND_WORDS: Record<SyllabusItemKind, string> = { UNIT: "Unit", CHAPTER: "Chapter", LESSON: "Lesson", TOPIC: "Topic" };
@@ -185,9 +185,12 @@ export async function nextPendingTopic(tx: Tx, yearId: string, sectionId: string
 
 /** The next date with a period of this subject in this section in the published Time Table (the lesson plan's default). */
 export async function nextPeriodDate(tx: Tx, ctx: SchoolContext, sectionId: string, subjectId: string, from: Date, campusId: string) {
+  const classId = (await tx.section.findFirst({ where: { id: sectionId }, select: { classId: true } }))?.classId ?? null;
+  const calendar = await schoolCalendar(tx, ctx, from, addDays(from, 20), campusId);
   for (let i = 0; i < 21; i++) {
     const date = addDays(from, i);
-    if (await dayOff(tx, ctx, date, campusId)) continue;
+    const info = calendar.info(date, { classId });
+    if (!info.on || info.exam) continue;
     const version = await effectiveVersion(tx, ctx, campusId, date);
     if (!version) continue;
     const has = await tx.timetablePeriod.findFirst({ where: { versionId: version.id, sectionId, subjectId, dayOfWeek: weekday(date), archivedAt: null } });

@@ -7,7 +7,7 @@ import { resendToUnseen } from "@/lib/homework/notify-parents";
 import { remindTeacher } from "@/lib/homework/overview";
 import { submitWork } from "@/lib/homework/submissions";
 import { draftHomework, type Draft } from "@/lib/homework/assistant";
-import { assistantOn, homeworkFeatures } from "@/lib/homework/settings";
+import { homeworkFeatures, teacherAssistantFor } from "@/lib/homework/settings";
 import { plural } from "@/lib/homework/words";
 import { hwAsk, hwForm, hwQuick } from "./_lib/action";
 import { UUID } from "./_lib/page";
@@ -106,7 +106,7 @@ export async function submitWorkAction(_prev: unknown, fd: FormData) {
 export async function draftHomeworkAction(sectionId: string, subjectId: string): Promise<{ draft: Draft | null; problem?: string }> {
   const r = await hwAsk("create", async ({ tx, s, today, current }) => {
     if (!UUID.test(sectionId) || !UUID.test(subjectId)) throw new HomeworkProblem("Choose the class and subject first.");
-    const on = assistantOn(await homeworkFeatures(tx, current.ctx));
+    const on = teacherAssistantFor(await homeworkFeatures(tx, current.ctx), current);
     return draftHomework(tx, s, sectionId, subjectId, today, on);
   });
   if (!r.ok) return { draft: null, problem: r.problem };

@@ -123,7 +123,8 @@ describe("sending push alerts", () => {
       if (body.message.token.startsWith("gone")) return Response.json({ error: { status: "NOT_FOUND", details: [{ errorCode: "UNREGISTERED" }] } }, { status: 404 });
       return Response.json({ name: "projects/school-os-test/messages/1" });
     }));
-    await runDueJobs(50);
+    // This school's push jobs only: other test files' jobs share the queue.
+    await runDueJobs(50, { schoolId: school.id, kinds: ["push-send"] });
 
     expect(sentTo.sort()).toEqual(["gone-browser-token-000000000", "live-browser-token-000000000"]);
     const devices = await withSchool(ctx(), (tx) => tx.pushDevice.findMany({ where: { userLoginId: person.id }, orderBy: { token: "asc" } }));

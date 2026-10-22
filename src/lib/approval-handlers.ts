@@ -13,13 +13,14 @@ import "server-only";
 import type { AskableType, FollowUp } from "./approvals";
 import type { LinkMaker } from "./approval-links";
 import type { StillWaiting } from "./approval-waiting";
+import type { FactsMaker } from "./approval-facts";
 import { followUps as privacy, unfinished as privacyWaiting } from "./data-security/privacy";
-import { followUps as staff, unfinished as staffWaiting } from "./staff/handlers";
+import { followUps as staff, unfinished as staffWaiting, approvalFacts as staffFacts } from "./staff/handlers";
 import { followUps as exams, approvalLinks as examLinks, unfinished as examsWaiting } from "./exams/handlers";
 import { followUps as admission, approvalLinks as admissionLinks, unfinished as admissionWaiting } from "./admission/handlers";
 import { followUps as communication, approvalLinks as communicationLinks, unfinished as communicationWaiting } from "./communication/handlers";
 import { followUps as students, unfinished as studentsWaiting } from "./students/handlers";
-import { followUps as attendance, approvalLinks as attendanceLinks, unfinished as attendanceWaiting } from "./attendance/handlers";
+import { followUps as attendance, approvalLinks as attendanceLinks, unfinished as attendanceWaiting, approvalFacts as attendanceFacts } from "./attendance/handlers";
 import { followUps as fees, approvalLinks as feeLinks, unfinished as feesWaiting } from "./fees/handlers";
 import { followUps as finance, approvalLinks as financeLinks, unfinished as financeWaiting } from "./finance/handlers";
 import { followUps as salary, approvalLinks as salaryLinks, unfinished as salaryWaiting } from "./salary/handlers";
@@ -43,7 +44,9 @@ function build() {
     ...privacyWaiting, ...staffWaiting, ...examsWaiting, ...admissionWaiting, ...communicationWaiting, ...studentsWaiting, ...attendanceWaiting,
     ...feesWaiting, ...financeWaiting, ...salaryWaiting, ...transportWaiting, ...libraryWaiting, ...hostelWaiting, ...inventoryWaiting,
   } satisfies Record<AskableType, StillWaiting>;
-  return { followUps: followUps as Partial<Record<string, FollowUp>>, links: links as Partial<Record<string, LinkMaker>>, waiting: waiting as Partial<Record<string, StillWaiting>> };
+  // What the approver sees on the request before deciding (./approval-facts.ts).
+  const facts = { ...staffFacts, ...attendanceFacts } satisfies Partial<Record<AskableType, FactsMaker>>;
+  return { followUps: followUps as Partial<Record<string, FollowUp>>, links: links as Partial<Record<string, LinkMaker>>, waiting: waiting as Partial<Record<string, StillWaiting>>, facts: facts as Partial<Record<string, FactsMaker>> };
 }
 let lists: ReturnType<typeof build> | null = null;
 const all = () => (lists ??= build());
@@ -61,6 +64,11 @@ export function unfinishedOf(type: string): StillWaiting | null {
 /** Every request type's check, for the Approvals page. */
 export function unfinishedChecks(): [string, StillWaiting][] {
   return Object.entries(all().waiting).filter((e): e is [string, StillWaiting] => typeof e[1] === "function");
+}
+
+/** The facts shown on a request type before deciding, if it has any. */
+export function approvalFactsOf(type: string): FactsMaker | null {
+  return Object.hasOwn(all().facts, type) ? (all().facts[type] ?? null) : null;
 }
 
 /** Where a request type's record opens, if it has a page. */

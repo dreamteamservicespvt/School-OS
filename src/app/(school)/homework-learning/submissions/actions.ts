@@ -6,7 +6,7 @@ import { acceptLate, addComment, bulkComplete, gradeSubmission, hideComment, set
 import { remindParents } from "@/lib/homework/notify-parents";
 import { draftFeedback } from "@/lib/homework/assistant";
 import { onCampus } from "@/lib/homework/scope";
-import { assistantOn, homeworkFeatures, homeworkSettings, lateAfter } from "@/lib/homework/settings";
+import { homeworkFeatures, homeworkSettings, lateAfter, teacherAssistantFor } from "@/lib/homework/settings";
 import { plural } from "@/lib/homework/words";
 import { hwAsk, hwForm, hwQuick } from "../_lib/action";
 import { UUID } from "../_lib/page";
@@ -79,7 +79,7 @@ export async function draftFeedbackAction(submissionId: string, result: string, 
     const settings = await homeworkSettings(tx, current.ctx);
     const late = sub.status === "LATE" || (!!sub.submittedAt && sub.submittedAt > lateAfter(hw.dueDate, current.school.timeZone, settings.graceMinutes));
     const n = /^\d+$/.test(score.trim()) ? Number(score) : null;
-    return draftFeedback({ firstName: (st?.fullName ?? "").split(" ")[0], score: n, max: hw.maxMarks, result: result === "INCORRECT" ? "INCORRECT" : "COMPLETE", late, note: sub.note }, assistantOn(await homeworkFeatures(tx, current.ctx)));
+    return draftFeedback({ firstName: (st?.fullName ?? "").split(" ")[0], score: n, max: hw.maxMarks, result: result === "INCORRECT" ? "INCORRECT" : "COMPLETE", late, note: sub.note }, teacherAssistantFor(await homeworkFeatures(tx, current.ctx), current));
   });
   return r.ok ? { text: r.data.instructions, source: r.data.source } : { problem: r.problem };
 }

@@ -13,10 +13,12 @@ import { formatTime } from "../format";
 import { isoDay } from "../staff/dates";
 import { AttendanceProblem, campusOpen, campusOrSchool, type AttendanceAccess } from "./access";
 import { dayInfo } from "./calendar";
+import { offDayWords } from "../calendar/school-days";
 import { attendanceFeatures, attendanceSettings } from "./settings";
 import { metresBetween, schoolDateOf } from "./time";
 import { shiftsOn, statusFromInTime } from "./staff";
 import { enrolmentOn } from "./student-leave";
+import { queueAfterSave } from "./after-save";
 
 export const POSTER_THEMES = [
   { value: "ocean", label: "Ocean Blue" },
@@ -145,8 +147,9 @@ export async function checkIn(tx: Tx, ctx: SchoolContext, input: CheckInInput): 
   const far = fenceCheck(fence, who, input.location);
   if (far) return { ok: false, message: far };
 
-  const info = await dayInfo(tx, ctx, date, campusId);
-  if (!info.on) return { ok: false, message: info.reason === "holiday" ? `Today is a holiday (${info.title}). No check-in needed.` : "Today is a Sunday. No check-in needed." };
+  const classId = student ? (await enrolmentOn(tx, student.id, date))?.enrolment.classId ?? null : null;
+  const info = await dayInfo(tx, ctx, date, campusId, { classId });
+  if (!info.on) return { ok: false, message: `Today is ${offDayWords(info)}. No check-in needed.` };
 
   const existing = await tx.attendanceMark.findFirst({ where: { ...(staff ? { staffId: staff.id } : { studentId: student!.id }), date, periodNo: 0, archivedAt: null } });
   if (existing?.inTime) return { ok: false, message: `Already marked at ${formatTime(existing.inTime, input.timeZone)}.` };
@@ -172,6 +175,8 @@ export async function checkIn(tx: Tx, ctx: SchoolContext, input: CheckInInput): 
     ? await tx.attendanceMark.update({ where: { id: existing.id }, data })
     : await tx.attendanceMark.create({ data: { schoolId: ctx.schoolId, academicYearId: year?.id ?? null, ...(staff ? { staffId: staff.id } : { studentId: student!.id, sectionId: enrol!.enrolment.sectionId }), date, periodNo: 0, ...data } });
   await writeAudit(tx, ctx, { action: "checked-in", recordType: "Attendance Mark", recordId: mark.id, after: { method: input.method, status: statusKey, at: input.now.toISOString(), lateMinutes } });
+  // A4 for the student's class: a late check-in tells the parent (when on), and the flags follow.
+  if (student && enrol) await queueAfterSave(tx, ctx, settings, [{ sectionId: enrol.enrolment.sectionId, date }], input.now);
   const words = statusKey === "late" ? `Checked in at ${formatTime(input.now, input.timeZone)}, ${lateMinutes} minutes late.` : statusKey === "half-day" ? `Checked in at ${formatTime(input.now, input.timeZone)}. After the half-day time, so it is a half day.` : `Checked in at ${formatTime(input.now, input.timeZone)}. Have a good day.`;
   return { ok: true, message: words, at: input.now, statusKey };
 }

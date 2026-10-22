@@ -8,20 +8,24 @@ import "server-only";
 import { Prisma, type AttendanceSetting } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
-import { enqueue } from "../jobs";
 import { fileLink } from "../files";
+import { ruleReady } from "../messaging/automatic";
 import { formatDate, formatTime } from "../format";
 import { assertYearOpen } from "../academic/years";
 import { sectionInCampus } from "../campus";
 import { isoDay } from "../staff/dates";
 import { AttendanceProblem, BASE, canTakeDaily, NotYoursError, sectionAllowed, type AttendanceAccess } from "./access";
 import { dayInfo, OffDayError } from "./calendar";
+import { loadSchoolCalendar } from "../calendar/school-days";
 import { attendanceFeatures, attendanceSettings, statusList, statusesFor, type StatusInfo } from "./settings";
 import { instantAt, schoolDateOf, time12 } from "./time";
 import { sectionPeriods, teacherPeriodsOn } from "./timetable";
 import { createCorrection } from "./corrections";
 import { ON_REGISTER_STATUSES } from "./on-register";
 import { nextReason, reasonChoices, reasonFromLeave, REASONS_FEATURE, shownReason, type ShownReason } from "./absence-reasons";
+import { queueAfterSave } from "./after-save";
+
+export { absenceSendTime } from "./after-save";
 
 export const dayText = (d: Date) => formatDate(d, "UTC");
 
@@ -73,29 +77,33 @@ export class LockedError extends AttendanceProblem {
   }
 }
 
-/** When absence messages go for a save made now, or null when they are off. */
-export function absenceSendTime(settings: Pick<AttendanceSetting, "absenceAlertOn" | "absenceDelayMinutes">, now: Date) {
-  if (!settings.absenceAlertOn) return null;
-  return new Date(now.getTime() + settings.absenceDelayMinutes * 60000);
-}
 
 // ---------------------------------------------------------------- choosing a class
 
 export type TakeChoice = { sectionId: string; name: string; periodNo: number; periodLabel: string | null; startTime: string | null; done: boolean };
 
-/** The classes (and periods) a person may take on a date, for Take Attendance and the teacher's home. */
+/**
+ * The classes (and periods) a person may take on a date, for Take Attendance
+ * and the teacher's home. Classes with no school that day (a holiday, a
+ * Sunday, a day off for their campus) are left out.
+ */
 export async function takeChoices(tx: Tx, ctx: SchoolContext, access: AttendanceAccess, date: Date): Promise<TakeChoice[]> {
   if (access.students === "none" || access.change === "none" || !access.yearId) return [];
   const features = await attendanceFeatures(tx, ctx);
   const periodWise = features.has("attendance-period-wise");
   const full = access.students === "all" && access.change === "all";
   // Whole-school people: every campus's current year (their campus's only when limited to one); others their own sections.
-  const sections = await tx.section.findMany({
-    where: full
-      ? { academicYearId: { in: access.yearIds }, archivedAt: null, ...sectionInCampus({ campusId: access.campusLimit }) }
-      : { academicYearId: access.yearId, archivedAt: null, id: { in: periodWise ? [...access.classSections, ...access.teachingSections] : access.classSections } },
-    include: { schoolClass: { select: { name: true, sortOrder: true, campusId: true } } },
-  });
+  // Only sections whose campus and class have school on the day.
+  const [all, calendar] = await Promise.all([
+    tx.section.findMany({
+      where: full
+        ? { academicYearId: { in: access.yearIds }, archivedAt: null, ...sectionInCampus({ campusId: access.campusLimit }) }
+        : { academicYearId: access.yearId, archivedAt: null, id: { in: periodWise ? [...access.classSections, ...access.teachingSections] : access.classSections } },
+      include: { schoolClass: { select: { name: true, sortOrder: true, campusId: true } } },
+    }),
+    loadSchoolCalendar(tx, ctx, date, date),
+  ]);
+  const sections = all.filter((s) => calendar.campus(s.schoolClass.campusId).info(date, { classId: s.classId }).on);
   sections.sort((a, b) => a.schoolClass.sortOrder - b.schoolClass.sortOrder || a.name.localeCompare(b.name));
   const done = await tx.attendanceMark.groupBy({ by: ["sectionId", "periodNo"], where: { date, sectionId: { in: sections.map((s) => s.id) }, archivedAt: null }, _count: true });
   const isDone = (sid: string, p: number) => done.some((d) => d.sectionId === sid && d.periodNo === p);
@@ -113,7 +121,7 @@ export async function takeChoices(tx: Tx, ctx: SchoolContext, access: Attendance
   const mine = await teacherPeriodsOn(tx, ctx, access.staffId, access.campusId, date);
   for (const p of mine) {
     const s = sections.find((x) => x.id === p.sectionId) ?? (await tx.section.findFirst({ where: { id: p.sectionId }, include: { schoolClass: { select: { name: true, sortOrder: true, campusId: true } } } }));
-    if (!s || !sectionAllowed(access, s.id)) continue;
+    if (!s || !sectionAllowed(access, s.id) || !calendar.campus(s.schoolClass.campusId).info(date, { classId: s.classId }).on) continue;
     out.push({ sectionId: s.id, name: `${s.schoolClass.name} ${s.name}`, periodNo: p.periodNo, periodLabel: `Period ${p.periodNo}, ${time12(p.startTime)}${p.subject ? ` · ${p.subject}` : ""}${p.substitute ? " (substitution)" : ""}`, startTime: p.startTime, done: isDone(s.id, p.periodNo) });
   }
   return out;
@@ -146,7 +154,7 @@ export async function loadSheet(tx: Tx, ctx: SchoolContext, access: AttendanceAc
   const settings = await attendanceSettings(tx, ctx);
   const reasonsOn = (await attendanceFeatures(tx, ctx)).has(REASONS_FEATURE);
   const [info, statuses, students, marks, lastSubmission] = await Promise.all([
-    dayInfo(tx, ctx, input.date, section.campusId),
+    dayInfo(tx, ctx, input.date, section.campusId, { classId: section.classId }),
     statusList(tx, ctx),
     roster(tx, section.id, section.academicYearId, settings.registerOrder),
     tx.attendanceMark.findMany({ where: { sectionId: section.id, date: input.date, periodNo: input.periodNo, archivedAt: null } }),
@@ -203,6 +211,8 @@ export type SaveResult = {
   messagesAt?: Date | null;
   /** Absence messages are on, but no WhatsApp or SMS channel is connected. */
   noChannel?: boolean;
+  /** Absence messages are on here, but Communication's "Absent today" message is switched off: nothing goes. */
+  ruleOff?: boolean;
   summary: string;
 };
 
@@ -236,7 +246,7 @@ export async function saveClassAttendance(tx: Tx, ctx: SchoolContext, access: At
   if (input.date > today) throw new AttendanceProblem(`${dayText(input.date)} has not come yet. Attendance can be taken for today or earlier days.`, "date");
   const year = await tx.academicYear.findUnique({ where: { id: section.academicYearId } });
   if (year && (input.date < year.startDate || input.date > year.endDate)) throw new AttendanceProblem(`${dayText(input.date)} is outside the academic year ${year.name}.`, "date");
-  const info = await dayInfo(tx, ctx, input.date, section.campusId);
+  const info = await dayInfo(tx, ctx, input.date, section.campusId, { classId: section.classId });
   if (!info.on) throw new OffDayError(info, input.date);
   if (input.entries.length === 0) throw new AttendanceProblem("Mark at least one student before saving.");
 
@@ -377,18 +387,18 @@ export async function saveClassAttendance(tx: Tx, ctx: SchoolContext, access: At
   await record("saved", null);
 
   // A4: absence messages after a short wait, then flags. Safe to run twice.
-  const sendAt = absenceSendTime(settings, input.now) ?? input.now;
-  const bucket = Math.ceil(sendAt.getTime() / (5 * 60000));
-  await enqueue(tx, ctx, "attendance-after-save", `attendance:${section.id}:${isoDay(input.date)}:${bucket}`, { sectionId: section.id, date: isoDay(input.date) }, sendAt);
+  const { sendAt } = await queueAfterSave(tx, ctx, settings, [{ sectionId: section.id, date: input.date }], input.now);
 
   const counts = countsOf(entries);
-  // Promise a message only when a channel can carry it (no "Sent" without WhatsApp or SMS).
-  const wantsMessage = settings.absenceAlertOn && (counts.absent ?? 0) > 0;
-  const channelReady = wantsMessage && (await tx.messagingChannel.count({ where: { isOn: true, channel: { in: settings.absenceChannels.length ? settings.absenceChannels : ["whatsapp", "sms"] } } })) > 0;
+  // Promise a message only when it can go: Communication's "Absent today" message is on and a channel can carry it
+  // (the same check the sender makes, so the save never promises what parents do not get).
+  const wantsMessage = settings.absenceAlertOn && entries.some((e) => absentKeys.has(e.statusKey));
+  const rule = wantsMessage ? await ruleReady(tx, ctx, "absence") : null;
   return {
     outcome: "saved", counts, changed: changes.length, clockFlagged,
-    messagesAt: channelReady ? sendAt : null,
-    noChannel: wantsMessage && !channelReady,
+    messagesAt: rule?.ready ? sendAt : null,
+    noChannel: Boolean(rule?.on && !rule.ready),
+    ruleOff: Boolean(rule && !rule.on),
     summary: `Attendance saved for ${label}: ${countsText(counts, statuses)}.`,
   };
 }

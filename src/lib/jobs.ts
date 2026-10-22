@@ -51,9 +51,13 @@ function kickJobs() {
     .catch(() => { kickPending = false; });
 }
 
-/** Claims and runs jobs that are due. Returns how many ran. */
-export async function runDueJobs(limit = 10): Promise<number> {
-  const claimed = await prisma.$queryRaw<{ job_id: string; job_school_id: string }[]>`SELECT * FROM claim_background_jobs(${limit}::int)`;
+/**
+ * Claims and runs jobs that are due. Returns how many ran. `only` keeps it to
+ * one school's jobs and/or some kinds (tests run their own jobs this way).
+ */
+export async function runDueJobs(limit = 10, only: { schoolId?: string; kinds?: string[] } = {}): Promise<number> {
+  const claimed = await prisma.$queryRaw<{ job_id: string; job_school_id: string }[]>`
+    SELECT * FROM claim_background_jobs(${limit}::int, ${only.schoolId ?? null}::uuid, ${only.kinds?.length ? only.kinds : null}::text[])`;
   for (const { job_id, job_school_id } of claimed) {
     await runOne(job_id, job_school_id);
   }

@@ -229,7 +229,7 @@ describe("Student Profile tabs from built modules", () => {
     expect(all.filter((t) => !t.tabless).map((t) => t.key)).toEqual(["timetable", "attendance", "fees", "exams", "homework", "activities", "communication"]);
     // Reports & Analytics adds early-warning items to the Today panel, with no tab of its own.
     expect(all.filter((t) => t.tabless).map((t) => t.key)).toEqual(["early-warnings"]);
-  });
+  }, 120_000); // Loading every module's tab code the first time takes a while on a busy machine.
 });
 
 describe("notifications on the channels a person chose", () => {

@@ -9,7 +9,7 @@ import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { formatDate } from "../format";
 import { isoDay } from "../staff/dates";
-import { holidaySet, lopDates, onLeaveOn } from "../staff/leave";
+import { lopDates, offDaySet, onLeaveOn } from "../staff/leave";
 import { AttendanceProblem, BASE, staffAllowed, staffLimit, type AttendanceAccess } from "./access";
 import { dayInfo, OffDayError } from "./calendar";
 import { attendanceFeatures, attendanceSettings, statusList, statusMap, statusesFor, weightOf } from "./settings";
@@ -276,10 +276,21 @@ export async function staffMonthForSalary(tx: Tx, ctx: SchoolContext, input: { s
   const paid = (l: { leaveTypeId: string }) => types.find((t) => t.id === l.leaveTypeId)?.paid ?? true;
   // Days beyond the balance are the last counted days of each leave.
   const withLop = leaves.filter((l) => paid(l) && Number(details.find((x) => x.leaveRequestId === l.id)?.lopDays ?? 0) > 0);
-  const holidays = withLop.length
-    ? await holidaySet(tx, ctx, withLop.reduce((m, l) => (l.fromDate < m ? l.fromDate : m), withLop[0].fromDate), withLop.reduce((m, l) => (l.toDate > m ? l.toDate : m), withLop[0].toDate), input.campusId ?? null)
-    : new Set<string>();
-  const lopOf = new Map(withLop.map((l) => [l.id, lopDates(l, Number(details.find((x) => x.leaveRequestId === l.id)!.lopDays), holidays, rules.find((r) => r.leaveTypeId === l.leaveTypeId)?.countsHolidays ?? false)]));
+  // Each staff member's days off are their own campus's.
+  const campusOf = new Map((await tx.staff.findMany({ where: { id: { in: input.staffIds } }, select: { id: true, campusId: true } })).map((s) => [s.id, s.campusId]));
+  const offBy = new Map<string, Set<string>>();
+  const offFor = async (staffId: string | null) => {
+    const campusId = (staffId && campusOf.get(staffId)) || input.campusId || null;
+    const key = campusId ?? "";
+    if (!offBy.has(key)) {
+      offBy.set(key, withLop.length
+        ? await offDaySet(tx, ctx, withLop.reduce((m, l) => (l.fromDate < m ? l.fromDate : m), withLop[0].fromDate), withLop.reduce((m, l) => (l.toDate > m ? l.toDate : m), withLop[0].toDate), campusId)
+        : new Set<string>());
+    }
+    return offBy.get(key)!;
+  };
+  const lopOf = new Map<string, Map<string, number>>();
+  for (const l of withLop) lopOf.set(l.id, lopDates(l, Number(details.find((x) => x.leaveRequestId === l.id)!.lopDays), await offFor(l.staffId), rules.find((r) => r.leaveTypeId === l.leaveTypeId)?.countsHolidays ?? false));
   const overtime = await tx.overtimeEntry.groupBy({ by: ["staffId"], where: { staffId: { in: input.staffIds }, date: { gte: input.from, lte: input.to }, archivedAt: null }, _sum: { minutes: true } });
   const fromKey = isoDay(input.from);
   const toKey = isoDay(input.to < input.from ? input.from : input.to);
@@ -288,7 +299,8 @@ export async function staffMonthForSalary(tx: Tx, ctx: SchoolContext, input: { s
     const mine = leaves.filter((l) => l.staffId === id);
     const r = { present: 0, absent: 0, leave: 0, half: 0, late: 0, notMarked: 0, unpaid: 0, beyond: 0 };
     const working = new Set<string>();
-    for (const d of sum.workingDates) {
+    const myWorking = sum.workingOf(id);
+    for (const d of myWorking) {
       const k = isoDay(d);
       working.add(k);
       const on = mine.filter((l) => l.fromDate <= d && l.toDate >= d);
@@ -324,7 +336,7 @@ export async function staffMonthForSalary(tx: Tx, ctx: SchoolContext, input: { s
       }
     }
     return {
-      staffId: id, workingDays: sum.workingDays, presentDays: r.present, absentDays: r.absent, leaveDays: r.leave,
+      staffId: id, workingDays: myWorking.length, presentDays: r.present, absentDays: r.absent, leaveDays: r.leave,
       halfDays: r.half, lateMarks: r.late, overtimeMinutes: overtime.find((o) => o.staffId === id)?._sum.minutes ?? 0, notMarkedDays: r.notMarked,
       unpaidLeaveDays: r.unpaid, leaveLopDays: r.beyond,
     };

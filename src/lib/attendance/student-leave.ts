@@ -18,6 +18,7 @@ import { AttendanceProblem, BASE, NotYoursError, type AttendanceAccess } from ".
 import { schoolDays } from "./calendar";
 import { attendanceFeatures, attendanceSettings, ensureAttendanceDefaults } from "./settings";
 import { fillReasonsFromLeave, undoReasonsFromLeave } from "./absence-reasons";
+import { queueAfterSave } from "./after-save";
 
 const dayText = (d: Date) => formatDate(d, "UTC");
 const num = (d: Prisma.Decimal | number | null | undefined) => Number(d ?? 0);
@@ -45,7 +46,7 @@ export async function enrolmentOn(tx: Tx, studentId: string, date: Date) {
   for (const e of rows) {
     const year = await tx.academicYear.findUnique({ where: { id: e.academicYearId } });
     if (year && year.startDate <= date && year.endDate >= date) {
-      const section = await tx.section.findUnique({ where: { id: e.sectionId }, include: { schoolClass: { select: { name: true } } } });
+      const section = await tx.section.findUnique({ where: { id: e.sectionId }, include: { schoolClass: { select: { name: true, campusId: true } } } });
       return { enrolment: e, year, section, sectionName: section ? `${section.schoolClass.name} ${section.name}` : "" };
     }
   }
@@ -137,10 +138,10 @@ export async function checkStudentLeave(tx: Tx, ctx: SchoolContext, access: Atte
     throw new AttendanceProblem(`${first} already has leave from ${dayText(overlap.fromDate)} to ${dayText(overlap.toDate)}. Change the existing leave instead.`, "from");
   }
 
-  // Holidays and Sundays inside the range are not counted (05 §2 form).
-  const days = (await schoolDays(tx, ctx, input.from, input.to, student.campusId)).working.length;
+  // Days without school inside the range (holidays, Sundays, days off) are not counted (05 §2 form).
+  const days = (await schoolDays(tx, ctx, input.from, input.to, where.section.schoolClass.campusId, { classId: where.enrolment.classId })).working.length;
   const counted = input.halfDay ? (days > 0 ? 0.5 : 0) : days;
-  if (counted <= 0) throw new AttendanceProblem("These dates are all Sundays or holidays on the School Calendar, so no leave is needed.", "from");
+  if (counted <= 0) throw new AttendanceProblem("These dates are all days without school (Sundays, days off or School Calendar holidays), so no leave is needed.", "from");
   const quota = await quotaFor(tx, ctx, input.studentId, type.id, input.from, opts);
   const overQuota = quota ? counted > quota.left : false;
   const settings = await attendanceSettings(tx, ctx);
@@ -169,8 +170,8 @@ export async function recordStudentLeave(tx: Tx, ctx: SchoolContext, access: Att
   if (input.approveNow && c.mayDecide) {
     await tx.leaveRequest.update({ where: { id: request.id }, data: { status: "APPROVED", decidedById: ctx.userId, decidedAt: new Date(), decisionReason: "Approved when recorded" } });
     await writeAudit(tx, ctx, { action: "leave-approve", recordType: "Leave Request", recordId: request.id, before: { status: "WAITING" }, after: { status: "APPROVED", note: "Approved when recorded" } });
-    // Days already marked absent take their reason from the leave (absence reasons).
-    await fillReasonsFromLeave(tx, ctx, request.id);
+    // Days already saved become Leave; half-day absences take their reason from the leave (absence reasons).
+    await onApproved(tx, ctx, request);
     return { request, approved: true, summary, quota: c.quota, overQuota: c.overQuota };
   }
 
@@ -199,10 +200,43 @@ export async function onStudentLeaveDecision(tx: Tx, ctx: SchoolContext, approva
     await tx.leaveRequest.update({ where: { id: r.id }, data: { status, decidedById: decision === "withdraw" ? null : ctx.userId, decidedAt: new Date(), decisionReason: note } });
     await writeAudit(tx, ctx, { action: `leave-${decision}`, recordType: "Leave Request", recordId: r.id, before: { status: r.status }, after: { status, note } });
     if (decision === "approve") {
-      await fillReasonsFromLeave(tx, ctx, r.id);
+      await onApproved(tx, ctx, r);
       await tellClassTeacher(tx, ctx, r);
     }
   }
+}
+
+/**
+ * Approved full-day leave for days already saved (workflow 6 step 5): those
+ * marks become Leave at once, so Take Attendance, the register and every %
+ * agree, and they count as leave, not as present or absent (browser finding
+ * TEACHING-02). Audited with the marks they had. A half day keeps its mark
+ * (the other half of the day was attended or missed). A4 runs for those days
+ * so a flag the absences raised can clear; no message goes for them.
+ */
+export async function studentMarksToLeave(tx: Tx, ctx: SchoolContext, r: Pick<LeaveRequest, "id" | "studentId" | "fromDate" | "toDate" | "halfDay">) {
+  if (r.halfDay || !r.studentId) return 0;
+  const marks = await tx.attendanceMark.findMany({
+    where: { studentId: r.studentId, archivedAt: null, date: { gte: r.fromDate, lte: r.toDate }, statusKey: { not: "leave" } },
+    orderBy: [{ date: "asc" }, { periodNo: "asc" }], select: { id: true, date: true, periodNo: true, statusKey: true, sectionId: true },
+  });
+  if (!marks.length) return 0;
+  await tx.attendanceMark.updateMany({ where: { id: { in: marks.map((m) => m.id) } }, data: { statusKey: "leave", leaveRequestId: r.id, absenceReason: null, absenceNote: null, reasonSource: null } });
+  const student = await tx.student.findUnique({ where: { id: r.studentId }, select: { fullName: true } });
+  await writeAudit(tx, ctx, {
+    action: "student-attendance-leave-approved", recordType: "Attendance Mark", recordId: r.id,
+    before: marks.map((m) => ({ student: student?.fullName ?? null, date: isoDay(m.date), period: m.periodNo || null, status: m.statusKey })) as unknown as Prisma.InputJsonValue,
+    after: { student: student?.fullName ?? null, leaveRequestId: r.id, status: "leave", dates: [...new Set(marks.map((m) => isoDay(m.date)))] },
+  });
+  const targets = marks.filter((m) => m.sectionId).map((m) => ({ sectionId: m.sectionId!, date: m.date }));
+  await queueAfterSave(tx, ctx, await attendanceSettings(tx, ctx), targets, new Date(), { messages: false });
+  return marks.length;
+}
+
+/** What approving a student's leave does to attendance: saved days become Leave; half-day absences take their reason from it. */
+async function onApproved(tx: Tx, ctx: SchoolContext, r: Pick<LeaveRequest, "id" | "studentId" | "fromDate" | "toDate" | "halfDay">) {
+  await studentMarksToLeave(tx, ctx, r);
+  await fillReasonsFromLeave(tx, ctx, r.id);
 }
 
 /** The class teacher hears of approved leave in their section, so Take Attendance makes sense. */
@@ -254,7 +288,7 @@ export async function decideStudentLeave(tx: Tx, ctx: SchoolContext, access: Att
   const status = decision === "approve" ? "APPROVED" : "REJECTED";
   await tx.leaveRequest.update({ where: { id: r.id }, data: { status, decidedById: ctx.userId, decidedAt: new Date(), decisionReason: note?.trim() || null } });
   await writeAudit(tx, ctx, { action: `leave-${decision}`, recordType: "Leave Request", recordId: r.id, before: { status: r.status }, after: { status, note } });
-  if (status === "APPROVED") await fillReasonsFromLeave(tx, ctx, r.id);
+  if (status === "APPROVED") await onApproved(tx, ctx, r);
 }
 
 /** Cancels a student's leave with a reason. Days already taken stay on record; Take Attendance stops showing Leave for later days. */

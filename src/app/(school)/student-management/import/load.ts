@@ -59,3 +59,20 @@ export function matchFrom(params: Record<string, string | undefined>, auto: Reco
   }
   return out;
 }
+
+/**
+ * The fields matched from an AI suggestion the person ticked, from the page address or the form
+ * ("ai=fullName:3,guardianPhone:7"). A field counts only while it is still matched to that column:
+ * once the person matches it to another column, it is their own choice.
+ */
+export function aiPicksFrom(value: string | null | undefined, match: Record<string, number>): string[] {
+  const out = new Set<string>();
+  for (const part of String(value ?? "").split(",").slice(0, 60)) {
+    const m = /^([A-Za-z]+):(\d{1,4})$/.exec(part.trim());
+    if (m && match[m[1]] === Number(m[2])) out.add(m[1]);
+  }
+  return [...out];
+}
+
+/** The same list written back, for links and forms. */
+export const aiPicksValue = (keys: string[], match: Record<string, number>) => keys.filter((k) => match[k] !== undefined).map((k) => `${k}:${match[k]}`).join(",");

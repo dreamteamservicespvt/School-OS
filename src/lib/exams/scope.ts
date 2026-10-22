@@ -112,6 +112,14 @@ export async function examScope(tx: Tx, who: Who, yearId: string | null): Promis
   };
 }
 
+/** Sees results at all: anyone with Examination & Results, except Office Staff on their own (datesheets and admit cards only). As examScope().results, without the database. */
+export function seesResults(who: Pick<Current, "permissions"> & { roles: { key: string | null }[] }) {
+  const see = reachFor(who.permissions, "examination-results", "view");
+  if (see === "none") return false;
+  const office = see === "own" && who.roles.some((r) => r.key === "office-staff");
+  return !office || reachFor(who.permissions, "examination-results", "edit") === "all";
+}
+
 /** May this person enter marks for this subject in this section? Server check (08 §5). */
 export function teachesPaper(scope: ExamScope, sectionId: string, subjectId: string) {
   if (scope.office && !scope.manage) return false;

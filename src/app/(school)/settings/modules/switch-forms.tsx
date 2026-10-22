@@ -37,7 +37,17 @@ export function ModuleSwitch({ moduleKey, name, on, ready, stage, hides, mayEdit
   return <ActionButton variant="ghost" size="md" label={<span className="inline-flex items-center gap-2"><SwitchLook on={false} />Off</span>} pendingLabel="Switching on…" run={() => moduleAction(moduleKey, true)} />;
 }
 
-export function FeatureSwitch({ featureKey, label, on, assistantOn, mayEdit }: { featureKey: string; label: string; on: boolean; assistantOn: boolean; mayEdit: boolean }) {
+export function FeatureSwitch({ featureKey, label, on, assistantOn, mayEdit, ready = true }: { featureKey: string; label: string; on: boolean; assistantOn: boolean; mayEdit: boolean; ready?: boolean }) {
+  // Not built yet: it cannot be switched on. One switched on before it was held back can still be switched off.
+  if (!ready) {
+    if (!on || !mayEdit) return <Badge>Coming soon</Badge>;
+    return (
+      <span className="inline-flex flex-wrap items-center gap-2">
+        <Badge>Coming soon</Badge>
+        <ActionButton variant="ghost" size="md" label={<span>Switch off<span className="sr-only"> {label}</span></span>} pendingLabel="Switching off…" run={() => featureAction(featureKey, false)} />
+      </span>
+    );
+  }
   if (!mayEdit) return <Badge tone={on ? "success" : "neutral"}>{on ? "On" : "Off"}</Badge>;
   if (!assistantOn) return <Badge>{on ? "On, paused" : "Off"}</Badge>;
   return (
@@ -125,7 +135,7 @@ export function PreferencesForm({ weekStart, rollNumberOrder, mayEdit }: { weekS
   );
 }
 
-export function AssistantForm({ on, roles, chosen, mayEdit }: { on: boolean; roles: { key: string; name: string }[]; chosen: string[]; mayEdit: boolean }) {
+export function AssistantForm({ on, roles, chosen, mayEdit, dailyLimit, platformLimit }: { on: boolean; roles: { key: string; name: string }[]; chosen: string[]; mayEdit: boolean; dailyLimit: number | null; platformLimit: number }) {
   const [state, action] = useActionState(assistantAction, null);
   const [isOn, setIsOn] = useState(state?.values ? state.values.on === "on" : on);
   const [picked, setPicked] = useState<string[]>(state?.values?.aiRoles ? state.values.aiRoles.split(",") : chosen);
@@ -150,6 +160,11 @@ export function AssistantForm({ on, roles, chosen, mayEdit }: { on: boolean; rol
           </div>
           {state?.errors?.aiRoles && <p className="mt-1 text-sm text-danger">{state.errors.aiRoles}</p>}
         </fieldset>
+      )}
+      {isOn && (
+        <TextField label="Most AI requests a day" name="aiDailyLimit" type="number" inputMode="numeric" min={1} max={platformLimit} className="max-w-xs"
+          defaultValue={state?.values?.aiDailyLimit ?? (dailyLimit === null ? "" : String(dailyLimit))} placeholder={String(platformLimit)} disabled={!mayEdit}
+          error={state?.errors?.aiDailyLimit} help={`For the whole school. Empty: ${platformLimit} a day, the most DREAM TEAM allows. After that, everyone carries on without AI until tomorrow.`} />
       )}
       {mayEdit && <SubmitButton variant="secondary" pendingText="Saving…">Save AI assistant</SubmitButton>}
     </form>

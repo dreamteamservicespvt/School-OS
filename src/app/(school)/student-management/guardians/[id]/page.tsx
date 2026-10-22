@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { Ban, ChevronRight, Eye, FileText, FolderOpen, GraduationCap, IndianRupee, MessageCircle, Pencil, RefreshCw, Send, ShieldAlert, ShieldCheck, ShieldX, Smartphone, Merge } from "lucide-react";
+import { Ban, ChevronRight, Eye, FileText, FolderOpen, GraduationCap, IndianRupee, MessageCircle, Pencil, Receipt, RefreshCw, Send, ShieldAlert, ShieldCheck, ShieldX, Smartphone, Merge } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { formatDate, formatDateTime, formatRupees } from "@/lib/format";
 import { fileLink } from "@/lib/files";
@@ -17,16 +17,15 @@ import { Banner, Col, DL, Split, Stats, type StatItem } from "@/components/ui/bl
 import { cx } from "@/components/ui/cx";
 import { ActionForm, FormArea, FormSelect } from "@/components/students/action-form";
 import { ActionButton, ConfirmAction } from "@/components/students/confirm-action";
-import { consentRows, consentState } from "@/lib/students/consent";
-import { parentLinkProvider, parentLinkStatus } from "@/lib/students/guardians";
-import { listFactsByYear } from "@/lib/students/hooks";
-import { CONSENT_STATUS_LABEL, CONSENT_TYPES, STATUS_LABEL, STATUS_TONE, languageLabel } from "@/lib/students/labels";
+import { consentState } from "@/lib/students/consent";
+import { parentLinkProvider } from "@/lib/students/guardians";
+import { CONSENT_STATUS_LABEL, CONSENT_TYPES, RESULT_LABEL, STATUS_LABEL, STATUS_TONE, languageLabel } from "@/lib/students/labels";
 import { classShort, phoneShow } from "@/lib/students/show";
 import { BASE, studentPage } from "../../_lib/page";
-import { sectionNames, studentsByYear } from "../../_lib/queries";
 import { consentRequestAction, parentLinkAction, setPrimaryAction, withdrawConsentAction } from "../../_actions/guardians";
-import { admissionOnlyFor } from "@/lib/fees/access";
-import { visibleGuardianFor } from "../load";
+import { feePageAllowedFor } from "@/lib/fees/access";
+import { PAYMENT_STATUS_WORDS, modeLabel } from "@/lib/fees/words";
+import { loadParent360 } from "../load";
 
 export const metadata: Metadata = { title: "Parent" };
 
@@ -35,37 +34,22 @@ const stateWord = (s: keyof typeof TONE) => s === "NONE" ? "Not given" : CONSENT
 
 export default async function Parent360({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { current, year, years, yearIds, can, tz } = await studentPage();
+  const { current, year, can, tz } = await studentPage();
   if (!can.seeParents) redirect(BASE);
   const provider = parentLinkProvider();
-  const data = await withSchool(current.ctx, async (tx) => {
-    const g = await visibleGuardianFor(tx, current, id);
-    if (!g) return null;
-    // Each child's class in their own campus's current year; one campus: only that campus's children.
-    const links = await tx.studentGuardian.findMany({ where: { guardianId: id, archivedAt: null, ...(current.campusId ? { student: { campusId: current.campusId } } : {}) }, orderBy: { createdAt: "asc" }, include: { student: { include: { enrolments: { where: { archivedAt: null, ...(yearIds.length ? { academicYearId: { in: yearIds } } : {}) }, take: 1 } } } } });
-    const names = await sectionNames(tx, links.flatMap((l) => l.student.enrolments.map((e) => e.sectionId)));
-    const consents = (await consentRows(tx, current.ctx, { guardianIds: [id] })).sort((a, b) => a.studentId.localeCompare(b.studentId) || a.consentType.localeCompare(b.consentType));
-    const texts = await tx.consentText.findMany({ where: { id: { in: consents.map((c) => c.consentTextId).filter((x): x is string => Boolean(x)) } } });
-    const docs = can.seeDocuments ? await tx.studentDocument.findMany({ where: { guardianId: id, archivedAt: null }, orderBy: { createdAt: "desc" } }) : [];
-    const link = provider ? (await parentLinkStatus(tx, current.ctx, [id])).get(id) ?? null : null;
-    const merged = g.archivedAt ? await tx.guardianMerge.findFirst({ where: { mergedId: id } }) : null;
-    const facts = await listFactsByYear(tx, current.ctx, studentsByYear(links.map((l) => l.student), years.length ? years : year ? [year] : []));
-    return { g, links, names, consents, texts, docs, link, merged, facts };
-  });
+  const data = await withSchool(current.ctx, (tx) => loadParent360(tx, current, id, { yearId: year?.id ?? null, seeDocuments: can.seeDocuments, parentLink: Boolean(provider) }));
   if (!data) notFound();
-  const { g, facts } = data;
+  const { g } = data;
   const path = `${BASE}/guardians/${id}`;
-  const childName = (sid: string) => data.links.find((l) => l.studentId === sid)?.student.fullName ?? "A former child";
+  const childName = (sid: string) => data.kids.find((l) => l.studentId === sid)?.student.fullName ?? "A former child";
   const live = !g.archivedAt;
   const manage = can.manage && live;
-  const seeFees = facts.has.fees && allowed(current.permissions, "fee-management", "view") && !admissionOnlyFor(current);
-  const message = live && BUILT_MODULES.has("communication") && allowed(current.permissions, "communication", "create") && data.links.length > 0;
-  const restricted = data.links.filter((l) => l.restriction);
-  const kids = data.links.map((l) => {
-    const e = l.student.enrolments[0];
-    const n = e ? data.names.get(e.sectionId) : null;
-    return { ...l, cls: n ? classShort(n.className, n.sectionName) : null, fact: facts.facts.get(l.studentId) };
-  });
+  const seeFees = data.shows.fees;
+  const message = live && BUILT_MODULES.has("communication") && allowed(current.permissions, "communication", "create") && data.kids.length > 0;
+  const restricted = data.kids.filter((l) => l.restriction);
+  const kids = data.kids.map((k) => ({ ...k, cls: k.section ? classShort(k.section.className, k.section.sectionName) : null }));
+  // A receipt opens on Payments for people who may open it, else on the student's ledger.
+  const paymentHref = (p: { id: string; studentId: string }) => feePageAllowedFor(current, "payments") ? `/fee-management/payments/${p.id}` : feePageAllowedFor(current, "ledger") ? `/fee-management/ledger/${p.studentId}` : null;
   const dataState = consentState(data.consents, "data-processing");
   const totalDue = kids.reduce((a, k) => a + (k.fact?.feeDuePaise ?? BigInt(0)), BigInt(0));
   const anyOverdue = kids.some((k) => k.fact?.feeOverdue);
@@ -77,7 +61,7 @@ export default async function Parent360({ params }: { params: Promise<{ id: stri
 
   const stats: StatItem[] = [
     { label: "Children here", value: String(kids.length), sub: kids.map((k) => k.cls ?? "No class").join(" · ") || "None linked", icon: GraduationCap },
-    ...(seeFees ? [{ label: "Fees due, all children", value: totalDue > BigInt(0) ? formatRupees(totalDue) : "Nothing due", tone: totalDue > BigInt(0) ? "bad" as const : "ok" as const, sub: totalDue > BigInt(0) ? (anyOverdue ? "Some of it is overdue" : "Not overdue yet") : "All paid", icon: IndianRupee }] : []),
+    ...(seeFees ? [{ label: "Fees due, all children", value: totalDue > BigInt(0) ? formatRupees(totalDue) : "Nothing due", tone: totalDue > BigInt(0) ? "bad" as const : "ok" as const, sub: totalDue > BigInt(0) ? (anyOverdue ? "Some of it is overdue" : "Not overdue yet") : kids.some((k) => k.fact?.feeDuePaise != null) ? "All paid" : "No fees have fallen due yet", icon: IndianRupee }] : []),
     ...(provider ? [{ label: "Parent Link", value: data.link?.status ?? "Not sent", tone: data.link?.status === "Active" ? "ok" as const : data.link?.status === "Revoked" ? "bad" as const : undefined, sub: data.link?.lastOpenedAt ? `Last opened ${formatDateTime(data.link.lastOpenedAt, tz)}` : "Not opened yet", icon: Smartphone }] : []),
     { label: "Data consent", value: stateWord(dataState), tone: TONE[dataState], sub: CONSENT_TYPES.filter((t) => t.key !== "data-processing").map((t) => `${t.label}: ${stateWord(consentState(data.consents, t.key)).toLowerCase()}`).join(" · ") || undefined, icon: ShieldCheck },
     { label: "Messages", value: g.optedOut ? "Opted out" : "Yes", tone: g.optedOut ? "warn" : undefined, sub: g.optedOut ? "Only urgent notices" : `In ${languageLabel(g.language)}`, icon: MessageCircle },
@@ -144,17 +128,24 @@ export default async function Parent360({ params }: { params: Promise<{ id: stri
                           </span>
                           <ChevronRight size={17} className="text-ink3" aria-hidden="true" />
                         </Link>
-                        <div className="grid grid-cols-2 gap-2 text-[13px]">
-                          <div className="rounded-xl bg-sunken/60 px-2.5 py-2">
-                            <p className="text-ink3 text-[12px] font-semibold">Attendance</p>
-                            <p className={cx("font-semibold tnum", k.fact?.attendancePct != null && k.fact.attendancePct < 85 && "text-warn")}>{k.fact?.attendancePct != null ? `${Math.round(k.fact.attendancePct)}% this year` : "–"}</p>
+                        {(data.shows.attendance || seeFees) && (
+                          <div className="grid grid-cols-2 gap-2 text-[13px]">
+                            {data.shows.attendance && (
+                              <div className="rounded-xl bg-sunken/60 px-2.5 py-2">
+                                <p className="text-ink3 text-[12px] font-semibold">Attendance</p>
+                                <p className={cx("font-semibold tnum", k.fact?.attendancePct != null && k.fact.attendancePct < 85 && "text-warn")}>{k.fact?.attendancePct != null ? `${Math.round(k.fact.attendancePct)}% this year` : "Not marked yet"}</p>
+                              </div>
+                            )}
+                            {seeFees && (
+                              <div className="rounded-xl bg-sunken/60 px-2.5 py-2">
+                                <p className="text-ink3 text-[12px] font-semibold">Fees</p>
+                                <p className={cx("font-semibold tnum", due > BigInt(0) && "text-bad")}>{k.fact?.feeDuePaise == null ? "Nothing due yet" : due > BigInt(0) ? `${formatRupees(due)} ${k.fact.feeOverdue ? "overdue" : "due"}` : "Paid"}</p>
+                              </div>
+                            )}
                           </div>
-                          <div className="rounded-xl bg-sunken/60 px-2.5 py-2">
-                            <p className="text-ink3 text-[12px] font-semibold">Fees</p>
-                            <p className={cx("font-semibold tnum", due > BigInt(0) && "text-bad")}>{!seeFees ? "–" : due > BigInt(0) ? `${formatRupees(due)} ${k.fact?.feeOverdue ? "overdue" : "due"}` : "Paid"}</p>
-                          </div>
-                        </div>
+                        )}
                         <div className="flex flex-wrap gap-1.5 items-center">
+                          {(k.fact?.resultText || k.fact?.result) && <Pill tone={k.fact.result === "pass" ? "ok" : k.fact.result === "fail" ? "bad" : "warn"}>Result: {k.fact.resultText ?? RESULT_LABEL[k.fact.result!]}</Pill>}
                           {k.student.status !== "ACTIVE" && <Pill tone={STATUS_TONE[k.student.status]}>{STATUS_LABEL[k.student.status]}</Pill>}
                           {k.isPrimary && <Pill tone="brand">Primary contact for messages</Pill>}
                           {k.canPickUp && !k.restriction && <Pill tone="ok">May pick up</Pill>}
@@ -167,6 +158,34 @@ export default async function Parent360({ params }: { params: Promise<{ id: stri
                 </ul>
               )}
             </Card>
+
+            {seeFees && (
+              <Card>
+                <CardHeader title="Payments" description={kids.length > 1 ? "The latest payments for all children" : "The latest payments"} icon={Receipt} />
+                {data.payments.length === 0 ? <p className="px-5 pb-5 text-[13.5px] text-ink3">No payments yet.</p> : (
+                  <ul className="px-3 pb-3">
+                    {data.payments.map((p) => {
+                      const to = paymentHref(p);
+                      const status = PAYMENT_STATUS_WORDS[p.status] ?? { label: p.status, tone: "neutral" as const };
+                      const body = (
+                        <>
+                          <span className="min-w-0 flex-1">
+                            <b className="font-semibold text-[14px] tnum">{formatRupees(p.amountPaise)}</b>
+                            <span className="block text-[12.5px] text-ink3 truncate">{childName(p.studentId)} · {formatDate(p.paymentDate, tz)} · {modeLabel(p.mode)}{p.receiptNo ? ` · Receipt ${p.receiptNo}` : ""}{p.broughtIn ? " · Brought in" : ""}</span>
+                          </span>
+                          <Pill tone={status.tone}>{status.label}</Pill>
+                        </>
+                      );
+                      return (
+                        <li key={p.id}>
+                          {to ? <Link href={to} className="flex items-center gap-3 px-2 py-2.5 rounded-xl hover:bg-sunken/60">{body}</Link> : <div className="flex items-center gap-3 px-2 py-2.5">{body}</div>}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </Card>
+            )}
 
             <Card>
               <CardHeader title="Contact details" icon={FileText} />

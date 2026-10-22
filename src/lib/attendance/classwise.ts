@@ -8,7 +8,7 @@ import "server-only";
 import type { SchoolContext, Tx } from "../db";
 import { guessLevel, LEVELS } from "../academic/common";
 import { isoDay } from "../staff/dates";
-import { schoolDays } from "./calendar";
+import { loadSchoolCalendar } from "../calendar/school-days";
 import { attendanceSettings, statusList, statusMap, weightOf } from "./settings";
 import { addDay, dayStatus, finish, type DayMark, type PersonSummary } from "./summary";
 import { registerBook } from "./on-register";
@@ -90,29 +90,40 @@ export function classGroups(list: GroupClass[]) {
 /**
  * Every section of the year (or of several years: each campus's current
  * year), or only the given ones, between two dates. Days after `today` are
- * left out; holidays and Sundays are never counted.
+ * left out; days that are not school days for the section's campus and class
+ * (holidays, Sundays, days off) are never counted.
  */
 export async function classWise(
   tx: Tx, ctx: SchoolContext,
   opts: { yearId: string | string[]; from: Date; to: Date; today: Date; sectionIds?: string[] | null; campusId?: string | null },
 ): Promise<ClassWise> {
   const to = opts.to > opts.today ? opts.today : opts.to;
-  const [settings, list, days, sections] = await Promise.all([
+  const [settings, list, calendar, sections] = await Promise.all([
     attendanceSettings(tx, ctx),
     statusList(tx, ctx, { includeArchived: true }),
-    schoolDays(tx, ctx, opts.from, to < opts.from ? opts.from : to, opts.campusId ?? null),
+    loadSchoolCalendar(tx, ctx, opts.from, to < opts.from ? opts.from : to),
     tx.section.findMany({
       where: { academicYearId: Array.isArray(opts.yearId) ? { in: opts.yearId } : opts.yearId, archivedAt: null, ...(opts.sectionIds ? { id: { in: opts.sectionIds } } : {}) },
-      include: { schoolClass: { select: { id: true, name: true, sortOrder: true, level: true } } },
+      include: { schoolClass: { select: { id: true, name: true, sortOrder: true, level: true, campusId: true } } },
     }),
   ]);
   const statuses = statusMap(list);
-  const working = to < opts.from ? [] : days.working;
-  const workingKeys = new Set(working.map(isoDay));
+  // Each section's school days: its own campus and class (sections of one class share them).
+  const byClass = new Map<string, { dates: Date[]; keys: Set<string> }>();
+  const workingOf = new Map(sections.map((sec) => {
+    let w = byClass.get(sec.schoolClass.id);
+    if (!w) {
+      const dates = to < opts.from ? [] : calendar.campus(sec.schoolClass.campusId).working({ classId: sec.schoolClass.id });
+      w = { dates, keys: new Set(dates.map(isoDay)) };
+      byClass.set(sec.schoolClass.id, w);
+    }
+    return [sec.id, w];
+  }));
+  const anyWorking = [...workingOf.values()].some((w) => w.dates.length > 0);
   const ids = sections.map((s) => s.id);
   const [book, marks, teachers] = await Promise.all([
     registerBook(tx, ids),
-    working.length === 0 ? Promise.resolve([]) : tx.attendanceMark.findMany({
+    !anyWorking ? Promise.resolve([]) : tx.attendanceMark.findMany({
       where: { sectionId: { in: ids }, studentId: { not: null }, archivedAt: null, date: { gte: opts.from, lte: to } },
       select: { studentId: true, sectionId: true, date: true, periodNo: true, statusKey: true },
     }),
@@ -130,7 +141,7 @@ export async function classWise(
   const byDay = new Map<string, { sectionId: string; marks: DayMark[] }>();
   for (const m of marks) {
     const k = isoDay(m.date);
-    if (!workingKeys.has(k) || !m.sectionId) continue;
+    if (!m.sectionId || !workingOf.get(m.sectionId)?.keys.has(k)) continue;
     if (!book.has(m.sectionId, m.studentId!, k)) continue;
     const key = `${m.studentId}:${k}`;
     const e = byDay.get(key) ?? { sectionId: m.sectionId, marks: [] };
@@ -139,10 +150,11 @@ export async function classWise(
   }
   const rule = settings.periodDayRule === "most" ? "most" : "any";
   const sums = new Map<string, { s: PersonSummary; present: number }>();
-  const empty = (): PersonSummary => ({ workingDays: working.length, markedDays: 0, countedDays: 0, present: 0, absent: 0, late: 0, leave: 0, byStatus: {}, percent: null });
+  const daysOf = (sectionId: string) => workingOf.get(sectionId)?.dates.length ?? 0;
+  const empty = (sectionId: string): PersonSummary => ({ workingDays: daysOf(sectionId), markedDays: 0, countedDays: 0, present: 0, absent: 0, late: 0, leave: 0, byStatus: {}, percent: null });
   for (const { sectionId, marks: dm } of byDay.values()) {
     const st = dayStatus(dm, statuses, rule);
-    const row = sums.get(sectionId) ?? { s: empty(), present: 0 };
+    const row = sums.get(sectionId) ?? { s: empty(sectionId), present: 0 };
     addDay(row.s, st, statuses);
     if (st && PRESENTISH(weightOf(statuses.get(st)))) row.present++;
     sums.set(sectionId, row);
@@ -150,10 +162,10 @@ export async function classWise(
 
   const { groups, groupOf } = classGroups(sections.map((s) => s.schoolClass));
 
-  const oneDay = working.length === 1 && isoDay(opts.from) === isoDay(to);
+  const oneDay = anyWorking && isoDay(opts.from) === isoDay(to);
   const rows: SectionAttendance[] = sections.map((sec) => {
     const r = sums.get(sec.id);
-    const s = r ? finish(r.s) : empty();
+    const s = r ? finish(r.s) : empty(sec.id);
     const t = sec.classTeacherId ? teacherOf.get(sec.classTeacherId) : undefined;
     const students = count.get(sec.id) ?? 0;
     return {
@@ -168,20 +180,20 @@ export async function classWise(
       marked: s.markedDays,
       counted: s.countedDays,
       weight: s.present,
-      notMarked: working.length > 0 && students > 0 && s.markedDays === 0,
+      notMarked: daysOf(sec.id) > 0 && students > 0 && s.markedDays === 0,
       present: r?.present ?? 0,
       absent: s.absent,
       late: s.late,
       leave: s.leave,
       percent: s.percent,
-      days: working.length,
+      days: daysOf(sec.id),
     };
   }).sort((a, b) => a.sort - b.sort || a.name.localeCompare(b.name));
 
   const marked = rows.filter((r) => r.marked > 0);
   const all = { countedDays: 0, present: 0 };
   for (const r of sums.values()) { all.countedDays += r.s.countedDays; all.present += r.s.present; }
-  const off = working.length === 0 ? (to < opts.from ? "Not started" : days.info(opts.from).title ?? "No school days") : null;
+  const off = !anyWorking ? (to < opts.from ? "Not started" : calendar.campus(opts.campusId ?? sections[0]?.schoolClass.campusId).info(opts.from).title ?? "No school days") : null;
   return {
     from: opts.from, to, oneDay, off,
     sections: rows,

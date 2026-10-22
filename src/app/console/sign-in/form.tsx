@@ -98,7 +98,7 @@ export function OtpBoxes({ name = "code", error, label }: { name?: string; error
   );
 }
 
-export function CodeStep({ sentTo, name, trustDays, test, shownCode }: { sentTo: string; name: string; trustDays: number; test: boolean; shownCode?: string | null }) {
+export function CodeStep({ sentTo, name, trustDays, test, inLog, shownCode }: { sentTo: string; name: string; trustDays: number; test: boolean; inLog?: boolean; shownCode?: string | null }) {
   const [state, action, pending] = useActionState<CodeState, FormData>(consoleCodeAction, null);
   const [resent, setResent] = useState<CodeState>(null);
   const [sending, startSending] = useTransition();
@@ -118,7 +118,7 @@ export function CodeStep({ sentTo, name, trustDays, test, shownCode }: { sentTo:
       {shownCode ? (
         <Alert tone="info">Test copy: no SMS is set up, so your code is <b className="font-semibold tracking-widest">{shownCode}</b>.</Alert>
       ) : (
-        test && <TestCodeNote />
+        test && <TestCodeNote inLog={inLog} />
       )}
       <OtpBoxes label={`6-digit code sent to +91 ${sentTo}`} error={wrong} />
       <p className="text-[12.5px] text-ink3 -mt-2">It works for 10 minutes.</p>

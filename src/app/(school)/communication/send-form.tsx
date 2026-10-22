@@ -15,6 +15,7 @@ import type { SendPreview } from "@/lib/communication/send-form";
 import { blanksFor, strayBlanks, unfitBlankWords, unknownBlankWords, unknownVariables, type BlankAudience } from "@/lib/messaging/blanks";
 import { countWithReason } from "@/lib/messaging/skip-words";
 import { EMERGENCY_EVENT } from "./send-head-actions";
+import { TranslatePanel } from "./translate-panel";
 import { Button } from "@/components/ui/button";
 import { Banner } from "@/components/ui/banner";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -61,6 +62,8 @@ export type SendFormData = {
   initialNote?: string | null;
   /** A saved group opened from "Saved groups". */
   initialGroup?: string | null;
+  /** "Translate for parents" is offered: the AI assistant and its translation switch are on for this person (G40). */
+  translate?: boolean;
 };
 
 type Aud = "school" | "classes" | "sections" | "staff" | "single" | "group";
@@ -159,6 +162,7 @@ export function SendForm({ data }: { data: SendFormData }) {
   const [liveRaw, setLive] = useState<SendPreview | null>(null);
   const [checking, setChecking] = useState(false);
   const [version, setVersion] = useState(0);
+  const [trBlock, setTrBlock] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const liveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const liveSeq = useRef(0);
@@ -219,8 +223,9 @@ export function SendForm({ data }: { data: SendFormData }) {
     if (blankError && !e.text) { if (titleBlankError) e.title ??= blankError; else e.text = blankError; }
     if (when === "later" && !at) e.scheduledAt = "Choose the date and time to send.";
     if (backupOn && !smsBackupTemplates.length) e.backup = "SMS backup needs an SMS template with a DLT template ID for this message type. Add one in Message Templates, or untick SMS backup.";
+    if (trBlock && needsText) e.translations = trBlock;
     return e;
-  }, [aud, classes, sections, who, staffKinds, people, groupId, channels, tpl, needsTitle, title, needsText, text, when, at, backupOn, smsBackupTemplates.length, blankError, titleBlankError]);
+  }, [aud, classes, sections, who, staffKinds, people, groupId, channels, tpl, needsTitle, title, needsText, text, when, at, backupOn, smsBackupTemplates.length, blankError, titleBlankError, trBlock]);
   const whoReady = !err.who;
   const live = whoReady ? liveRaw : null;
   const valid = Object.keys(err).length === 0;
@@ -277,7 +282,7 @@ export function SendForm({ data }: { data: SendFormData }) {
   function trySend() {
     setTried(true);
     if (!valid) {
-      const first = ["who", "channels", "sms", "title", "text", "scheduledAt", "backup"].find((k) => err[k]);
+      const first = ["who", "channels", "sms", "title", "text", "translations", "scheduledAt", "backup"].find((k) => err[k]);
       document.getElementById(`send-${first}`)?.focus();
       return;
     }
@@ -562,8 +567,15 @@ export function SendForm({ data }: { data: SendFormData }) {
                 </div>
               )}
 
+              {!isStaff && data.translate && needsText && (
+                <div id="send-translations" tabIndex={-1}>
+                  <TranslatePanel text={text} title={title} languages={live?.languages ?? []}
+                    getForm={() => { if (!formRef.current) return null; const fd = new FormData(formRef.current); fd.delete("file"); return fd; }}
+                    onChanged={touch} onBlock={setTrBlock} />
+                </div>
+              )}
               {!isStaff && (
-                <p className="text-[12.5px] text-ink3">Language: each parent gets a template in their own language when the template has that version; a typed message goes as written.</p>
+                <p className="text-[12.5px] text-ink3">Language: each parent gets a template in their own language when the template has that version; a typed message goes as written{data.translate && needsText ? ", unless you translate it above" : ""}.</p>
               )}
             </div>
           </Card>
@@ -638,6 +650,7 @@ export function SendForm({ data }: { data: SendFormData }) {
                   <div className="flex items-center gap-2.5 mb-2.5">
                     <Avatar name={sample.name} size={32} />
                     <div className="min-w-0 flex-1"><p className="text-[13.5px] font-semibold truncate">{sample.name}</p><p className="text-[12px] text-ink3 truncate">{sample.description}</p></div>
+                    {sample.translated && <Pill tone="brand" className="!h-[22px] !text-[11.5px]">{sample.translated}</Pill>}
                     <Pill tone="neutral" className="!h-[22px] !text-[11.5px]">{sample.channel}</Pill>
                   </div>
                   <div className="rounded-2xl rounded-tl-md bg-surface border border-line p-3 shadow-card max-w-full">

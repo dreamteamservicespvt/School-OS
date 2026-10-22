@@ -16,6 +16,20 @@ import { isChannel } from "@/lib/messaging/channels";
 import { BACKUP_TYPES, type BackupType } from "@/lib/messaging/settings";
 import type { AudienceRule, Scope } from "@/lib/messaging/recipients";
 import { yearsFor } from "@/lib/academic/years";
+import { aiReady, AI_REASON_WORDS } from "@/lib/ai";
+import { aiOffReason } from "@/lib/settings/switch-rules";
+import { readTranslations, translationKey, type TranslationLanguage } from "@/lib/messaging/translation";
+import { translateTyped } from "@/lib/communication/translate";
+import type { Current } from "@/lib/current";
+
+/**
+ * The translations the sender confirmed (G40), only while the school's translation switch allows them:
+ * with AI or the switch off, everyone gets the text as typed, whatever the form says.
+ */
+function confirmedTranslations(current: Current, form: FormData, english: { text: string | null; title: string | null }) {
+  if (!aiReady(current, "ai-translation")) return { ok: true as const, translations: null };
+  return readTranslations(form, english);
+}
 
 /** A sender limited to one campus reaches that campus only, whatever the form says (also kept on the message and the group). */
 const onCampus = (to: AudienceRule, scope: Scope): AudienceRule => (scope.campusId ? { ...to, campusIds: [scope.campusId] } : to);
@@ -27,7 +41,9 @@ export async function checkOrSend(_prev: SendState, form: FormData): Promise<Sen
   const { current, scope } = access;
   const read = readSendForm(form, current.school.timeZone);
   if (!read.ok) return { ok: false, message: Object.keys(read.errors).length === 1 ? Object.values(read.errors)[0] : `Please fix ${Object.keys(read.errors).length} things before checking.`, errors: read.errors };
-  const input = { ...read.input, to: onCampus(read.input.to, scope), scope };
+  const tr = confirmedTranslations(current, form, read.input);
+  if (!tr.ok) return { ok: false, message: tr.problem, errors: { translations: tr.problem } };
+  const input = { ...read.input, to: onCampus(read.input.to, scope), scope, translations: tr.translations };
   if (input.emergency) {
     if (!access.canEmergency) return { ok: false, message: "Only the Principal and School Admin can send an emergency broadcast." };
     if (form.get("intent") === "send" && String(form.get("emergencyWord") ?? "").trim().toUpperCase() !== "EMERGENCY") {
@@ -90,8 +106,10 @@ export async function livePreview(form: FormData): Promise<LivePreview> {
   const templates = Object.fromEntries(channels.map((ch) => [ch, /^[0-9a-f-]{36}$/.test(String(form.get(`template_${ch}`) ?? "")) ? String(form.get(`template_${ch}`)) : null]));
   const typeRaw = String(form.get("messageType") ?? "general");
   const messageType: BackupType | "general" = (BACKUP_TYPES as readonly string[]).includes(typeRaw) ? (typeRaw as BackupType) : "general";
+  const tr = read.ok ? confirmedTranslations(current, form, read.input) : null;
+  if (tr && !tr.ok) return { preview: null, errors: { translations: tr.problem } };
   const input: SendInput = read.ok
-    ? { ...read.input, to: onCampus(read.input.to, scope), scope }
+    ? { ...read.input, to: onCampus(read.input.to, scope), scope, translations: tr?.ok ? tr.translations : null }
     : {
         to, channels, templates, scope, messageType,
         text: String(form.get("text") ?? "").trim() || null,
@@ -116,6 +134,48 @@ export async function livePreview(form: FormData): Promise<LivePreview> {
     if (e instanceof MessagingProblem) return { preview: null, errors: { kinds: e.message } };
     throw e;
   }
+}
+
+export type TranslateState = {
+  ok: boolean;
+  message?: string;
+  /** The English the versions were made from (translationKey), sent back with the confirmed versions. */
+  from?: string;
+  versions?: { language: TranslationLanguage; name: string; text: string; title: string | null; problem: string | null; messages: number }[];
+};
+
+/**
+ * "Translate for parents" (G40): the typed text, translated once for each language the chosen parents
+ * read on WhatsApp, email or the app. Nothing is sent or saved; the sender reads and edits each version.
+ */
+export async function translateForParents(form: FormData): Promise<TranslateState> {
+  const { current, scope } = await commAction("create");
+  if (!aiReady(current, "ai-translation")) {
+    const off = aiOffReason(current, "ai-translation");
+    return { ok: false, message: off ? AI_REASON_WORDS[off] : AI_REASON_WORDS["not-connected"] };
+  }
+  const read = readSendForm(form, current.school.timeZone);
+  if (!read.ok) return { ok: false, message: Object.values(read.errors)[0] ?? "Fill in the message first." };
+  const text = (read.input.text ?? "").trim();
+  if (!text) return { ok: false, message: "Type the message first. Templates use their own language versions and are not translated." };
+  const input: SendInput = { ...read.input, to: onCampus(read.input.to, scope), scope, translations: null };
+  let languages: { language: TranslationLanguage; messages: number }[];
+  try {
+    const plan = await withSchool(current.ctx, (tx) => planMessage(tx, current.ctx, input));
+    languages = (plan.languages ?? []).map((l) => ({ language: l.language, messages: l.messages }));
+  } catch (e) {
+    if (e instanceof MessagingProblem) return { ok: false, message: e.message };
+    throw e;
+  }
+  if (!languages.length) return { ok: false, message: "Every parent chosen reads English, or gets this by SMS or a template, so there is nothing to translate." };
+  const english = { text, title: read.input.title ?? null };
+  const versions = await translateTyped(current.ctx, english, languages.map((l) => l.language));
+  return {
+    ok: versions.some((v) => !v.problem),
+    message: versions.every((v) => v.problem) ? versions[0].problem! : undefined,
+    from: translationKey(text, english.title),
+    versions: versions.map((v) => ({ ...v, messages: languages.find((l) => l.language === v.language)?.messages ?? 0 })),
+  };
 }
 
 /** Save the chosen recipients as a group (inferred). */

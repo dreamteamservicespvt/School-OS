@@ -11,6 +11,7 @@ import { messageSettings } from "@/lib/messaging/settings";
 import { ensureReadyTemplates, categoryLabel } from "@/lib/messaging/templates";
 import { sectionLabel } from "@/lib/people";
 import { Banner } from "@/components/ui/banner";
+import { aiReady } from "@/lib/ai";
 import { CommHead } from "./_components/comm-head";
 import { SendForm, type Person, type SendFormData } from "./send-form";
 import { SendHeadActions } from "./send-head-actions";
@@ -146,6 +147,8 @@ export default async function SendMessagePage({ searchParams }: { searchParams: 
     timeZone: current.school.timeZone,
     channelLabels: CHANNEL_LABEL,
     initialGroup: groupParam && data.groups.some((g) => g.id === groupParam) ? groupParam : null,
+    // "Translate for parents" (G40): only with the AI assistant and its translation switch on for this person.
+    translate: aiReady(current, "ai-translation"),
   };
 
   return (

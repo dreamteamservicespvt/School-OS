@@ -80,8 +80,13 @@ export type SendPreview = {
   people: number;
   messages: number;
   audienceLabel: string;
-  cost: { channel: string; credits: number }[];
+  /** test: the channel is in test mode, so these credits are not used (nothing is sent). */
+  cost: { channel: string; credits: number; test?: boolean }[];
   backupCost: number;
+  /** The SMS backup's credits are not used either when SMS is in test mode. */
+  backupTest?: boolean;
+  /** Channels in test mode this message would use, by name ("WhatsApp"): nobody receives what goes on them. */
+  testMode: string[];
   balances: { whatsapp: number; sms: number };
   creditProblem: string | null;
   problems: string[];
@@ -99,8 +104,10 @@ export function previewOf(plan: Plan, input: SendInput): SendPreview {
     people: plan.people,
     messages: plan.rows.length,
     audienceLabel: plan.audienceLabel,
-    cost: Object.entries(plan.cost).map(([channel, credits]) => ({ channel: CHANNEL_LABEL[channel as Channel], credits: credits ?? 0 })),
+    cost: Object.entries(plan.cost).map(([channel, credits]) => ({ channel: CHANNEL_LABEL[channel as Channel], credits: credits ?? 0, ...(plan.testMode.includes(channel as Channel) ? { test: true } : {}) })),
     backupCost: plan.backupCost,
+    ...(plan.backupCost && plan.testMode.includes("sms") ? { backupTest: true } : {}),
+    testMode: plan.testMode.map((c) => CHANNEL_LABEL[c]),
     balances: plan.balances,
     creditProblem: plan.creditProblem,
     problems: plan.problems,

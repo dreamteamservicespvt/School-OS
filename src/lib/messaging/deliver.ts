@@ -11,9 +11,9 @@ import { writeAudit } from "../audit";
 import { enqueue } from "../jobs";
 import { notify } from "../notifications";
 import { fileStore } from "../storage";
-import { CHANNEL_LABEL, channelSecrets, channelSetups, type Channel, type ProviderChannel } from "./channels";
+import { CHANNEL_LABEL, channelSecrets, channelSetups, PROVIDER_CHANNELS, type Channel, type ProviderChannel } from "./channels";
 import { creditBalances, creditsFor, PAID_CHANNELS, returnCredits, spendCredits } from "./credits";
-import { providerFor, type Outgoing, type Provider, type SendResult } from "./providers";
+import { inTestMode, providerFor, type Outgoing, type Provider, type SendResult } from "./providers";
 import { CANCELLED_REASON, DELIVER_JOB, MessagingProblem, NOT_SENT } from "./send";
 
 export { CANCELLED_REASON };
@@ -157,6 +157,10 @@ export async function deliverMessage(tx: Tx, ctx: SchoolContext, payload: { mess
         const res = results[i];
         if (res.ok) {
           sent++;
+          // Test mode sent nothing, so it uses no credits (COMM-04). Credits taken while the channel was live
+          // (it was switched to test mode before this went) come back.
+          const test = c.providers[r.channel as ProviderChannel]?.key === "sandbox";
+          if (test && PAID_CHANNELS.has(r.channel as Channel) && r.credits > 0) await returnCredits(t, ctx, r.channel as Channel, r.credits, `Returned: test mode, not sent to ${r.name}`, r.messageId);
           await t.messageRecipient.update({
             where: { id: r.id },
             data: {
@@ -167,7 +171,8 @@ export async function deliverMessage(tx: Tx, ctx: SchoolContext, payload: { mess
               deliveredAt: res.status === "DELIVERED" ? now : null,
               lockedAt: null,
               failReason: null,
-              history: historyWith(r.history, { at: now.toISOString(), status: res.status }),
+              ...(test ? { credits: 0 } : {}),
+              history: historyWith(r.history, { at: now.toISOString(), status: res.status, ...(test ? { note: "Test mode: not really sent" } : {}) }),
             },
           });
           if (r.channel === "app" && r.userLoginId) {
@@ -235,6 +240,12 @@ export async function tellSenderAboutFailures(tx: Tx, ctx: SchoolContext, messag
   });
 }
 
+/** The channels that are switched on but in test mode: what goes on them is only recorded. */
+async function testModeChannels(tx: Tx, ctx: SchoolContext): Promise<Set<Channel>> {
+  const setups = await channelSetups(tx, ctx);
+  return new Set<Channel>(PROVIDER_CHANNELS.filter((ch) => inTestMode(setups[ch])));
+}
+
 /** Status changes from providers only move forward (Read never goes back to Delivered). */
 export async function applyStatus(tx: Tx, ctx: SchoolContext, providerMessageId: string, status: "SENT" | "DELIVERED" | "READ" | "FAILED", at: Date, reason?: string | null) {
   const r = await tx.messageRecipient.findFirst({ where: { schoolId: ctx.schoolId, providerMessageId } });
@@ -293,8 +304,11 @@ export async function retryFailed(tx: Tx, ctx: SchoolContext, messageId: string)
   if (!msg || msg.status === "CANCELLED") throw new MessagingProblem("This message was cancelled, so it cannot be retried.");
   const { rows, retryLimit } = await retryableFailures(tx, ctx, messageId);
   if (rows.length === 0) throw new MessagingProblem(`Nothing to retry. Failed messages can be retried up to ${retryLimit} times (Message Settings). People who were not sent it can be resent by another channel.`);
+  // A channel in test mode sends nothing and uses no credits.
+  const testOn = await testModeChannels(tx, ctx);
+  const cost = (r: { channel: string; text: string }) => (testOn.has(r.channel as Channel) ? 0 : creditsFor(r.channel as Channel, r.text));
   const needs: Record<string, number> = {};
-  for (const r of rows) if (PAID_CHANNELS.has(r.channel as Channel)) needs[r.channel] = (needs[r.channel] ?? 0) + creditsFor(r.channel as Channel, r.text);
+  for (const r of rows) if (PAID_CHANNELS.has(r.channel as Channel) && cost(r)) needs[r.channel] = (needs[r.channel] ?? 0) + cost(r);
   const have = await creditBalances(tx, ctx);
   for (const [ch, n] of Object.entries(needs)) {
     if (n > have[ch as "sms" | "whatsapp"]) throw new MessagingProblem(`Retrying needs ${n} ${ch === "sms" ? "SMS" : "WhatsApp"} credits. You have ${have[ch as "sms" | "whatsapp"]}. Top up in Settings, SMS, WhatsApp & Email.`);
@@ -303,7 +317,7 @@ export async function retryFailed(tx: Tx, ctx: SchoolContext, messageId: string)
   for (const r of rows) {
     await tx.messageRecipient.update({
       where: { id: r.id },
-      data: { status: "QUEUED", failReason: null, failedAt: null, queuedAt: now, credits: creditsFor(r.channel as Channel, r.text), history: historyWith(r.history, { at: now.toISOString(), status: "QUEUED", note: "Retry" }) },
+      data: { status: "QUEUED", failReason: null, failedAt: null, queuedAt: now, credits: cost(r), history: historyWith(r.history, { at: now.toISOString(), status: "QUEUED", note: "Retry" }) },
     });
   }
   for (const [ch, n] of Object.entries(needs)) await spendCredits(tx, ctx, ch as Channel, n, `Retry: ${msg.title ?? msg.audienceLabel}`, msg.id);
@@ -325,6 +339,8 @@ export async function runSmsBackup(tx: Tx, ctx: SchoolContext, now = new Date())
   const since = new Date(now.getTime() - 3 * 24 * 3600_000);
   const messages = await tx.message.findMany({ where: { schoolId: ctx.schoolId, smsBackup: true, status: { in: ["QUEUED", "SENT"] }, createdAt: { gte: since }, backupTemplateId: { not: null } } });
   let made = 0;
+  // SMS in test mode sends nothing, so the backup SMS uses no credits.
+  const smsTest = messages.length ? (await testModeChannels(tx, ctx)).has("sms") : false;
   for (const m of messages) {
     const type = m.messageType as BackupType;
     const rule = settings.smsBackup[type];
@@ -355,7 +371,7 @@ export async function runSmsBackup(tx: Tx, ctx: SchoolContext, now = new Date())
       const v = versions.find((x) => x.language === r.language) ?? versions.find((x) => x.language === "en") ?? versions[0];
       const out = render(v.body, r.values as Record<string, string>);
       if (!out.ok) continue;
-      const cost = creditsFor("sms", out.text);
+      const cost = smsTest ? 0 : creditsFor("sms", out.text);
       if (cost > balance) break;
       balance -= cost;
       const reason = r.status === "FAILED" ? `${CHANNEL_LABEL[r.channel as Channel]} failed: ${r.failReason ?? "not delivered"}` : `Not read within ${Math.round(waitMs / 60_000)} minutes`;

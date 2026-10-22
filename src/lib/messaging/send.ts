@@ -19,7 +19,10 @@ import { formatDate } from "../format";
 import { CHANNEL_LABEL, channelSetups, PREFERRED_ORDER, PROVIDER_CHANNELS, whatsappIsLive, type Channel } from "./channels";
 import { creditBalances, creditProblem, creditsFor, PAID_CHANNELS, spendCredits } from "./credits";
 import { describeAudience, resolveAudience, SYSTEM_SCOPE, type AudienceRule, type Candidate, type Scope, type StudentInfo } from "./recipients";
-import { bareText, currentVersions, isApproved, missingWords, render, strayBlanks, strayBraces, templateByKey, TYPED_CARRIER, variablesIn, versionFor, type Rendered, type UsableVersion } from "./templates";
+import { bareText, currentVersions, isApproved, missingWords, render, strayBlanks, strayBraces, templateByKey, TYPED_CARRIER, unknownVariables, variablesIn, versionFor, type Rendered, type UsableVersion } from "./templates";
+import { blanksFor, unknownBlankWords, type BlankAudience } from "./blanks";
+import { inTestMode } from "./providers";
+import { countWithReason } from "./skip-words";
 import { BACKUP_TYPES, type BackupType } from "./settings";
 
 export const MAX_TEXT = 1000;
@@ -121,7 +124,12 @@ export type Plan = {
   notSent?: NotSentRow[];
   people: number;
   skipped: SkipGroup[];
+  /** What the messages cost in credits, channel by channel (shown before sending). */
   cost: Partial<Record<Channel, number>>;
+  /** The credits that will really be used: none on a channel in test mode, which sends nothing. */
+  charged: Partial<Record<Channel, number>>;
+  /** Channels used by this message that are in test mode: nobody receives what goes on them. */
+  testMode: Channel[];
   backupCost: number;
   balances: Record<"whatsapp" | "sms", number>;
   creditProblem: string | null;
@@ -354,6 +362,10 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
   if (typed.length > MAX_TEXT) problem(`The message has ${typed.length} characters. It can have at most ${MAX_TEXT}.`);
   const strayTyped = [...new Set([...strayBlanks(typed), ...strayBlanks(title ?? "")])];
   if (strayTyped.length) problem(strayWords(strayTyped));
+  // A blank that is not on the list ({parent_name}) blocks the send, naming the blank meant (COMM-01). It is not
+  // a value the people lack, so nobody is counted as "has no …" for it: it stays as typed in the preview.
+  const unknownTyped = [...new Set([...unknownVariables(typed), ...unknownVariables(title ?? "")])];
+  const asTyped: Record<string, string> = Object.fromEntries(unknownTyped.map((k) => [k, `{${k}}`]));
   for (const ch of primary) {
     if (!chosen.has(ch) && ch !== "sms" && !typed) problem(`Type the message, or choose a ${CHANNEL_LABEL[ch]} template.`);
   }
@@ -420,6 +432,10 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
 
   const scope = input.scope ?? SYSTEM_SCOPE;
   const candidates = await resolveAudience(tx, ctx, input.to, scope);
+  if (unknownTyped.length) {
+    const kinds = [...new Set(candidates.map((c): BlankAudience => (c.type === "guardian" ? "parents" : c.type === "student" ? "students" : "staff")))];
+    problem(unknownBlankWords(unknownTyped, blanksFor(kinds))!);
+  }
   const skipped = new Map<string, SkipGroup>();
   const planned: PlannedRow[] = [];
   const notSent: NotSentRow[] = [];
@@ -438,6 +454,7 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
     for (const studentId of units) {
       const students = studentId ? c.students.filter((s) => s.id === studentId) : c.students;
       const values: Record<string, string> = {
+        ...asTyped,
         ...baseValues(school, c, students),
         ...(input.values ?? {}),
         ...(studentId ? input.perStudent![studentId] : c.students.length === 1 && input.perStudent?.[c.students[0].id] ? input.perStudent[c.students[0].id] : {}),
@@ -483,7 +500,7 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
           return null;
         }
         const stray = [...new Set([...strayBraces(f.text), ...(t && t.ok ? strayBraces(t.text) : [])])];
-        if (stray.length && !strayTyped.length) problem(strayWords(stray));
+        if (stray.length && !strayTyped.length && !unknownTyped.length) problem(strayWords(stray));
         return {
           candidate: c,
           rowKey,
@@ -538,6 +555,9 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
 
   const cost: Partial<Record<Channel, number>> = {};
   for (const r of rows) if (PAID_CHANNELS.has(r.channel)) cost[r.channel] = (cost[r.channel] ?? 0) + r.credits;
+  // Test mode sends nothing, so it uses no credits (COMM-04): the cost is shown, but not taken.
+  const testOn = new Set<Channel>(PROVIDER_CHANNELS.filter((c) => on.has(c) && inTestMode(setups[c])));
+  const charged: Partial<Record<Channel, number>> = Object.fromEntries(Object.entries(cost).filter(([c]) => !testOn.has(c as Channel)));
 
   // Backup SMS that may be needed: one per guardian message not already going by SMS.
   let backupCost = 0;
@@ -551,8 +571,9 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
   }
 
   const balances = await creditBalances(tx, ctx);
-  const needs = { ...cost, sms: (cost.sms ?? 0) + backupCost };
+  const needs = { ...charged, sms: (charged.sms ?? 0) + (testOn.has("sms") ? 0 : backupCost) };
   const used = [...new Set(rows.map((r) => r.channel))];
+  const backupUsed = backupVersions.length > 0 && backupCost > 0;
   return {
     // The channels chosen, and any a person fell back to (shown on Message History).
     channels: primary.length || used.length ? [...new Set([...primary, ...used])] : [...new Set(notSent.map((n) => n.channel))],
@@ -561,6 +582,8 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
     people: reached.size,
     skipped: [...skipped.values()].sort((a, b) => b.count - a.count),
     cost,
+    charged,
+    testMode: [...testOn].filter((c) => used.includes(c) || (c === "sms" && backupUsed)),
     backupCost,
     balances,
     creditProblem: creditProblem(needs, balances),
@@ -625,7 +648,7 @@ export async function recordSend(tx: Tx, ctx: SchoolContext, input: SendInput, p
       recipientCount: plan.people,
       // Not sent people are recipients (Failed), not "left out".
       skipped: plan.skipped.filter((g) => !g.notSent).map(({ reason, count, names }) => ({ reason, count, names })) as unknown as Prisma.InputJsonValue,
-      creditCost: Object.values(plan.cost).reduce((a, b) => a + (b ?? 0), 0),
+      creditCost: Object.values(plan.charged).reduce((a, b) => a + (b ?? 0), 0),
       status: !sending ? "SENT" : scheduled ? "SCHEDULED" : "QUEUED",
       sentAt: sending ? null : now,
       isEmergency: Boolean(input.emergency),
@@ -655,7 +678,8 @@ export async function recordSend(tx: Tx, ctx: SchoolContext, input: SendInput, p
   await tx.messageRecipient.createMany({
     data: [
       ...plan.rows.map((r) => {
-        const noCredits = failForCredits && PAID_CHANNELS.has(r.channel);
+        const testMode = plan.testMode.includes(r.channel);
+        const noCredits = failForCredits && PAID_CHANNELS.has(r.channel) && !testMode;
         return {
           schoolId: ctx.schoolId,
           messageId: message.id,
@@ -670,7 +694,7 @@ export async function recordSend(tx: Tx, ctx: SchoolContext, input: SendInput, p
           status: noCredits ? "FAILED" as const : "QUEUED" as const,
           failReason: noCredits ? "Not enough credits when it was sent. Top up and retry." : null,
           failedAt: noCredits ? now : null,
-          credits: noCredits ? 0 : r.credits,
+          credits: noCredits || testMode ? 0 : r.credits,
           history: [{ at, status: noCredits ? "FAILED" : "QUEUED", note: noCredits ? "Not enough credits" : scheduled ? "Scheduled" : null }],
         };
       }),
@@ -694,7 +718,7 @@ export async function recordSend(tx: Tx, ctx: SchoolContext, input: SendInput, p
     ],
   });
   if (!failForCredits) {
-    for (const [ch, n] of Object.entries(plan.cost)) {
+    for (const [ch, n] of Object.entries(plan.charged)) {
       await spendCredits(tx, ctx, ch as Channel, n ?? 0, `${message.title ?? message.audienceLabel}: ${plan.rows.filter((r) => r.channel === ch).length} ${CHANNEL_LABEL[ch as Channel]}`, message.id);
     }
   }
@@ -706,7 +730,7 @@ export async function recordSend(tx: Tx, ctx: SchoolContext, input: SendInput, p
     actorNote: input.ruleKey ? `Automatic rule: ${input.ruleKey}` : null,
     after: { to: plan.audienceLabel, people: plan.people, notSent: notSent.length, channels: plan.channels, credits: message.creditCost, scheduledAt: scheduled ? input.scheduledAt!.toISOString() : null },
   });
-  return { messageId: message.id, queued: plan.rows.length, people: plan.people, skipped: plan.skipped, cost: plan.cost, scheduled, repeated: false, notSent: notSent.length };
+  return { messageId: message.id, queued: plan.rows.length, people: plan.people, skipped: plan.skipped, cost: plan.charged, scheduled, repeated: false, notSent: notSent.length };
 }
 
 /** Plans and records in one step. See the header of ./index.ts. */
@@ -719,9 +743,32 @@ export async function sendMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
   return recordSend(tx, ctx, input, plan);
 }
 
-/** Words for skipped people: "12 opted out of messages, 3 have no due amount". */
+/**
+ * For a plan made by hand (one message to an applicant or a visitor): the
+ * credits really used, none on a channel in test mode (COMM-04).
+ */
+export async function chargesFor(tx: Tx, ctx: SchoolContext, cost: Partial<Record<Channel, number>>): Promise<Pick<Plan, "charged" | "testMode">> {
+  const setups = await channelSetups(tx, ctx);
+  const testMode = PROVIDER_CHANNELS.filter((c) => setups[c].isOn && inTestMode(setups[c]) && c in cost);
+  return { charged: Object.fromEntries(Object.entries(cost).filter(([c]) => !testMode.includes(c as (typeof PROVIDER_CHANNELS)[number]))), testMode };
+}
+
+/** "WhatsApp is in test mode, so nobody receives it." */
+export function testModeWords(channels: Channel[]) {
+  return channels.length ? `${join(channels.map((c) => CHANNEL_LABEL[c]))} ${channels.length > 1 ? "are" : "is"} in test mode, so nobody receives it` : "";
+}
+
+/** The credits a send really uses: "3 WhatsApp credits", "Free", or "No credits: WhatsApp is in test mode, so nobody receives it". */
+export function creditWords(plan: Pick<Plan, "charged" | "testMode">, channelLabel = "") {
+  const n = Object.values(plan.charged).reduce((a, b) => a + (b ?? 0), 0);
+  const test = testModeWords(plan.testMode);
+  if (n) return `${n.toLocaleString("en-IN")} ${channelLabel ? `${channelLabel} ` : ""}credits${test ? `; ${test}` : ""}`;
+  return test ? `No credits: ${test}` : "Free";
+}
+
+/** Words for skipped people: "12 opted out of messages; 3 have no due amount". */
 export function skippedWords(groups: SkipGroup[]) {
-  return groups.map((g) => `${g.count} ${g.reason.charAt(0).toLowerCase()}${g.reason.slice(1)}`).join("; ");
+  return groups.map((g) => countWithReason(g.count, g.reason)).join("; ");
 }
 
 /** The reason nobody (or not everyone) got a message, in a sentence; null when everyone was reached. */

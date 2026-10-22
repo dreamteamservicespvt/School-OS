@@ -108,13 +108,12 @@ describe("SMS and DLT (rule 34)", () => {
 });
 
 describe("credits", () => {
-  it("blocks a send when credits are short and takes credits when sent", async () => {
-    const low = await makeCommSchool({ credits: 1 });
-    await expect(withSchool(low.ctx, (tx) => sendMessage(tx, low.ctx, { to: { kinds: ["parents"], classIds: [low.cls.id] }, channels: ["whatsapp"], text: "Hello" }))).rejects.toThrow(/WhatsApp needs 3 credits\. You have 1\./);
+  // Credits on a real account (checked, taken, given back) are tested in send-checks.test.ts (COMM-04).
+  it("test mode sends nothing, so it takes no credits", async () => {
     const before = await withSchool(s.ctx, (tx) => creditBalances(tx, s.ctx));
     await withSchool(s.ctx, (tx) => sendMessage(tx, s.ctx, { to: { kinds: ["parents"], classIds: [s.cls.id] }, channels: ["whatsapp"], text: "Hello" }));
     const after = await withSchool(s.ctx, (tx) => creditBalances(tx, s.ctx));
-    expect(before.whatsapp - after.whatsapp).toBe(3);
+    expect(before.whatsapp - after.whatsapp).toBe(0);
   });
 });
 

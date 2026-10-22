@@ -16,6 +16,7 @@ import { KeepSelect } from "@/components/ui/keep-select";
 import { inputCls } from "@/components/ui/field";
 import { FormResultProvider, useTyped } from "@/components/ui/url-sheet";
 import { cx } from "@/components/ui/cx";
+import { ProblemInView } from "@/components/ui/problem-in-view";
 import type { FormState } from "@/lib/forms";
 
 type Act = (prev: FormState<unknown>, fd: FormData) => Promise<FormState<unknown>>;
@@ -247,9 +248,9 @@ export function InlineForm<T>({ action, children, submit, pendingText, className
       {hidden && Object.entries(hidden).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
       <div key={round} className="contents">{children(state, round)}</div>
       {state && !state.ok && state.message && (fieldErrors === 0 || link) && (
-        <div className="rounded-xl bg-bad/10 text-bad px-3.5 py-2.5 text-[13.5px]" role="alert">
+        <ProblemInView token={state}><div className="rounded-xl bg-bad/10 text-bad px-3.5 py-2.5 text-[13.5px]" role="alert">
           {state.message} {link && <Link className="font-semibold underline" href={link.href}>{link.label}</Link>}
-        </div>
+        </div></ProblemInView>
       )}
       <Button type="submit" variant="primary" size="lg" loading={pending} loadingText={pendingText} className="w-full">{typeof submit === "function" ? submit(state) : submit}</Button>
     </form>

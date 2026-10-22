@@ -12,6 +12,7 @@ import { FieldShell, inputCls, SelectField, TextArea, TextField } from "@/compon
 import { cx } from "@/components/ui/cx";
 import { FormSheet, WhenField } from "../_components/forms";
 import { addToTestAction, cancelInterviewAction, freeSlotsAction, outcomeAction, scheduleInterviewAction, scheduleTestAction, scoresAction } from "./actions";
+import { KeepCheck, KeepSelect } from "@/components/ui/keep-select";
 
 export type Applicant = { id: string; name: string; meta: string };
 
@@ -86,9 +87,9 @@ export function ScheduleInterviewButton({ applicants, staff, defaultInterviewer,
             <SelectField label="Applicant" name="applicationId" required options={applicants.map((a) => ({ value: a.id, label: `${a.name} · ${a.meta}` }))} placeholder="Choose" defaultValue={f.val("applicationId", startFor ?? undefined)} error={f.err("applicationId")} />
             <div className="grid grid-cols-2 gap-3">
               <FieldShell label="Interviewer" id="si-w" required>
-                <select id="si-w" name="interviewerStaffId" value={who} onChange={(e) => setWho(e.target.value)} className={cx(inputCls(false), "h-11 pr-9")}>
+                <KeepSelect id="si-w" name="interviewerStaffId" value={who} onChange={(e) => setWho(e.target.value)} className={cx(inputCls(false), "h-11 pr-9")}>
                   {staff.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-                </select>
+                </KeepSelect>
               </FieldShell>
               <FieldShell label="Day" id="si-d" required>
                 <input id="si-d" type="date" min={today} value={day} onChange={(e) => setDay(e.target.value)} className={cx(inputCls(false), "h-11 tnum")} />
@@ -141,7 +142,7 @@ export function ScoreDialog({ testId, title, sub, maxMarks, lines, canChange, cl
                       {err && <p className="text-[11.5px] text-bad mt-1">0 to {maxMarks}</p>}
                     </div>
                     <label className="flex items-center gap-2 text-[13px] text-ink2 col-span-2 md:col-span-1">
-                      <input type="checkbox" name={`absent_${x.applicationId}`} checked={x.absent} disabled={!canChange} onChange={(e) => setRows((l) => l.map((y, j) => (j === i ? { ...y, absent: e.target.checked } : y)))} className="size-4 accent-brand" />Absent
+                      <KeepCheck type="checkbox" name={`absent_${x.applicationId}`} checked={x.absent} disabled={!canChange} onChange={(e) => setRows((l) => l.map((y, j) => (j === i ? { ...y, absent: e.target.checked } : y)))} className="size-4 accent-brand" />Absent
                     </label>
                     <input name={`remarks_${x.applicationId}`} aria-label={`Remarks for ${x.name}`} value={x.remarks} disabled={!canChange} maxLength={300} placeholder="Remarks"
                       onChange={(e) => setRows((l) => l.map((y, j) => (j === i ? { ...y, remarks: e.target.value } : y)))} className={cx(inputCls(false), "h-10 col-span-2 md:col-span-1 text-[14px]")} />

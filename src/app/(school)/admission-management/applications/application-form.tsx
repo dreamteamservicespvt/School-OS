@@ -16,10 +16,12 @@ import { Banner } from "@/components/ui/chips";
 import { Checkbox, Switch } from "@/components/ui/controls";
 import { FieldShell, inputCls, SelectField, TextArea, TextField, type Option } from "@/components/ui/field";
 import { cx } from "@/components/ui/cx";
+import { ProblemInView } from "@/components/ui/problem-in-view";
 import { CustomFieldInputs } from "@/components/custom-fields";
 import type { CustomFieldDef, CustomValues } from "@/lib/custom-field-rules";
 import { FormProblem, MoreDetails, PhoneField, SegField, SubHead, Submit } from "../_components/forms";
 import { checkFormCodeAction, saveApplicationAction, sendFormCodeAction } from "./actions";
+import { KeepSelect } from "@/components/ui/keep-select";
 
 export type FormClass = { value: string; label: string; previousSchool: boolean; seatsText: string; full: boolean };
 
@@ -43,6 +45,9 @@ type Props = {
   consentVersion?: string | null;
   photoConsentAsked?: boolean;
   applicationNo?: string | null;
+  /** Transport and Hostel are optional modules: their switches show only when the school has them on (02 §3 "when those modules are on"). */
+  transportOn?: boolean;
+  hostelOn?: boolean;
 };
 
 const GENDER_OPTIONS = [{ value: "Female", label: "Girl" }, { value: "Male", label: "Boy" }, { value: "Other", label: "Other" }];
@@ -58,7 +63,7 @@ export function ApplicationForm(p: Props) {
   const [code, setCode] = useState("");
   const [sent, setSent] = useState<string | null>(null);
   const [checked, setChecked] = useState(false);
-  const [codeMsg, setCodeMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [codeMsg, setCodeMsg] = useState<{ ok: boolean; text: string; warn?: boolean } | null>(null);
   const [photo, setPhoto] = useState(false);
   const [busy, start] = useTransition();
   const router = useRouter();
@@ -72,6 +77,9 @@ export function ApplicationForm(p: Props) {
   const cls = p.classes.find((c) => c.value === classId);
   const matches = dismissedFor !== state ? state?.data?.matches ?? [] : [];
   const edit = Boolean(p.values.id);
+  // A preference already saved stays shown (and kept) even if the module was switched off since.
+  const showTransport = Boolean(p.transportOn || p.values.transportNeeded);
+  const showHostel = Boolean(p.hostelOn || p.values.hostelNeeded);
   const digits = phone.replace(/\D/g, "").slice(-10);
   const phoneOk = /^[6-9]\d{9}$/.test(digits);
   // A new phone number needs a new code.
@@ -82,7 +90,7 @@ export function ApplicationForm(p: Props) {
 
   const sendCode = () => start(async () => {
     const r = await sendFormCodeAction(digits);
-    setCodeMsg({ ok: r.ok, text: r.message });
+    setCodeMsg({ ok: r.ok, text: r.message, warn: r.testMode });
     if (r.ok) { setSent(digits); setChecked(false); setCode(""); }
   });
   const checkCode = () => start(async () => {
@@ -98,7 +106,7 @@ export function ApplicationForm(p: Props) {
       {force && <input type="hidden" name="force" value="1" />}
       {matches.length === 0 && <FormProblem state={state} />}
       {matches.length > 0 && (
-        <div role="alert" className="rounded-2xl bg-warn/10 p-4">
+        <ProblemInView token={state}><div role="alert" className="rounded-2xl bg-warn/10 p-4">
           <p className="font-semibold flex items-center gap-2"><CircleAlert size={17} className="text-warn" aria-hidden="true" />This child may already have an application</p>
           <ul className="mt-2 space-y-1 text-[14px] text-ink2">{matches.map((m) => <li key={`${m.kind}-${m.id}`}>{m.text}</li>)}</ul>
           <div className="mt-3 flex flex-wrap gap-2">
@@ -106,7 +114,7 @@ export function ApplicationForm(p: Props) {
             <Button size="sm" variant="secondary" onClick={() => { setForce(true); setDismissedFor(state); setTimeout(() => formRef.current?.requestSubmit(), 0); }}>Save anyway</Button>
             <Button size="sm" variant="ghost" onClick={() => setDismissedFor(state)}>Cancel</Button>
           </div>
-        </div>
+        </div></ProblemInView>
       )}
 
       <Card className="p-4 md:p-6 flex flex-col gap-4">
@@ -126,10 +134,10 @@ export function ApplicationForm(p: Props) {
           )}
           <FieldShell label="Class applied for" id="na-cls" required error={err("classId")}
             help={cls ? (cls.full ? <span className="text-warn font-semibold">{cls.label} is full. The application can still go on the waiting list.</span> : `Seats left · ${cls.seatsText}`) : undefined}>
-            <select id="na-cls" name="classId" value={classId} onChange={(e) => setClassId(e.target.value)} aria-invalid={err("classId") ? true : undefined} className={cx(inputCls(err("classId")), "h-11 pr-9")}>
+            <KeepSelect id="na-cls" name="classId" value={classId} onChange={(e) => setClassId(e.target.value)} aria-invalid={err("classId") ? true : undefined} className={cx(inputCls(err("classId")), "h-11 pr-9")}>
               <option value="">Choose class</option>
               {p.classes.map((c) => <option key={c.value} value={c.value}>{c.label}{c.full ? " (full)" : ""}</option>)}
-            </select>
+            </KeepSelect>
           </FieldShell>
         </div>
         <div className="grid md:grid-cols-2 gap-3">
@@ -171,13 +179,15 @@ export function ApplicationForm(p: Props) {
         <SubHead>Preferences</SubHead>
         <div className="grid md:grid-cols-2 gap-3">
           <TextField label="Second language" name="secondLanguage" maxLength={40} placeholder="Telugu or Hindi" defaultValue={val("secondLanguage")} />
-          <div className="flex flex-col gap-2.5 rounded-xl border border-line p-3">
-            <div className="flex items-center gap-3 text-[14px]"><Switch on={transport} onChange={setTransport} label="Transport needed" /><span className="font-semibold">Transport needed</span></div>
-            {transport && <input type="hidden" name="transportNeeded" value="on" />}
-            {transport && <input name="transportStop" aria-label="Pick-up place" maxLength={80} placeholder="Pick-up place, e.g. Miyapur X Roads" defaultValue={val("transportStop")} className={cx(inputCls(false), "h-10")} />}
-            <div className="flex items-center gap-3 text-[14px]"><Switch on={hostel} onChange={setHostel} label="Hostel needed" /><span className="font-semibold">Hostel needed</span></div>
-            {hostel && <input type="hidden" name="hostelNeeded" value="on" />}
-          </div>
+          {(showTransport || showHostel) && (
+            <div className="flex flex-col gap-2.5 rounded-xl border border-line p-3">
+              {showTransport && <div className="flex items-center gap-3 text-[14px]"><Switch on={transport} onChange={setTransport} label="Transport needed" /><span className="font-semibold">Transport needed</span></div>}
+              {transport && <input type="hidden" name="transportNeeded" value="on" />}
+              {showTransport && transport && <input name="transportStop" aria-label="Pick-up place" maxLength={80} placeholder="Pick-up place, e.g. Miyapur X Roads" defaultValue={val("transportStop")} className={cx(inputCls(false), "h-10")} />}
+              {showHostel && <div className="flex items-center gap-3 text-[14px]"><Switch on={hostel} onChange={setHostel} label="Hostel needed" /><span className="font-semibold">Hostel needed</span></div>}
+              {hostel && <input type="hidden" name="hostelNeeded" value="on" />}
+            </div>
+          )}
         </div>
 
         <MoreDetails defaultOpen={Boolean(val("email") || val("category") || val("religion") || val("occupation") || err("email") || err("aadhaar"))}>
@@ -228,7 +238,7 @@ export function ApplicationForm(p: Props) {
                   {photo && <input type="hidden" name="consent_photo" value="on" />}
                 </div>
               )}
-              {codeMsg && <p role="status" className={cx("text-[12.5px] flex items-center gap-1.5", codeMsg.ok ? "text-ok" : "text-bad")}>{!codeMsg.ok && <CircleAlert size={14} aria-hidden="true" />}{codeMsg.text}</p>}
+              {codeMsg && <p role="status" className={cx("text-[12.5px] flex items-center gap-1.5", codeMsg.warn ? "text-warn" : codeMsg.ok ? "text-ok" : "text-bad")}>{(!codeMsg.ok || codeMsg.warn) && <CircleAlert size={14} aria-hidden="true" className="shrink-0" />}{codeMsg.text}</p>}
               {err("code") && !codeMsg && <p className="text-[12.5px] text-bad flex items-center gap-1.5"><CircleAlert size={14} aria-hidden="true" />{err("code")}</p>}
             </div>
           </>

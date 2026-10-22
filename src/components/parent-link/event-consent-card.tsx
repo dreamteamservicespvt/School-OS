@@ -81,6 +81,7 @@ export function EventConsentCard({ token, preview, maskedPhone, c }: { token: st
         ) : (
           <form action={(fd) => { confirm(fd); }} className="mt-4 flex flex-col gap-3">
             <p className="text-[14px] text-ink2">You are saying <b className="font-semibold text-ink">yes</b> for {c.child}. To confirm, enter the 6-digit code sent to <b className="font-semibold text-ink tnum whitespace-nowrap">{maskedPhone}</b>.</p>
+            {asked?.notSent && <p role="status" className="text-[13px] text-warn">{asked.message}</p>}
             <label htmlFor={`ec-${c.eventId}-${c.studentId}`} className="sr-only">6-digit code</label>
             <input id={`ec-${c.eventId}-${c.studentId}`} name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9 ]{6,7}" maxLength={7} required className={codeCls} />
             {confirmed && !confirmed.ok && <p role="alert" className="text-[13px] text-bad">{confirmed.message}</p>}

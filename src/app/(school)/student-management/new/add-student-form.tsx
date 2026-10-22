@@ -8,6 +8,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { BLOOD_GROUPS, CATEGORIES, GENDERS, RELATIONS } from "@/lib/students/labels";
 import type { FormState } from "@/lib/forms";
 import { addStudent, checkAdmissionNo, parentsForPhone, type AddStudentData } from "../_actions/students";
+import { KeepCheck } from "@/components/ui/keep-select";
 
 type Section = { value: string; label: string; seats: number; filled: number };
 type Parent = { id: string; name: string; relationship: string; children: string[] };
@@ -99,12 +100,12 @@ export function AddStudentForm({ sections, defaultSection, today, nextAdmissionN
             <div className="mt-2 space-y-2">
               {parents.map((p) => (
                 <label key={p.id} className="flex min-h-11 items-start gap-2">
-                  <input type="radio" name="linkChoice" checked={linkId === p.id} onChange={() => setLinkId(p.id)} className="mt-1 size-4 accent-brand" />
+                  <KeepCheck type="radio" name="linkChoice" checked={linkId === p.id} onChange={() => setLinkId(p.id)} className="mt-1 size-4 accent-brand" />
                   <span>Link <strong>{p.name}</strong> ({p.relationship}{p.children.length ? `, parent of ${p.children.join(", ")}` : ""})</span>
                 </label>
               ))}
               <label className="flex min-h-11 items-center gap-2">
-                <input type="radio" name="linkChoice" checked={!linkId} onChange={() => setLinkId("")} className="size-4 accent-brand" />
+                <KeepCheck type="radio" name="linkChoice" checked={!linkId} onChange={() => setLinkId("")} className="size-4 accent-brand" />
                 <span>Add as a new parent</span>
               </label>
             </div>

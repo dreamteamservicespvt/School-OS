@@ -128,7 +128,7 @@ export const QUICK_BY_ROLE: Record<string, Quick[]> = {
     q("/communication", "communication", "Message parents", "Only parents of your classes", "Send"),
   ],
   receptionist: [
-    q("/front-office/visitors", "front-office", "Add visitor", "Name, phone and who they meet", "IdCard"),
+    q("/front-office/visitors?do=visitor", "front-office", "Add visitor", "Name, phone and who they meet", "IdCard"),
     q("/admission-management", "admission-management", "Add enquiry", "A parent asked about admission", "PhoneIncoming"),
     q("/front-office/pickup", "front-office", "Early pickup", "A parent is taking a child home", "Users"),
     q("/fee-management", "fee-management", "Collect fee", "Find a student and take payment", "IndianRupee"),
@@ -162,5 +162,5 @@ export const QUICK_BY_ROLE: Record<string, Quick[]> = {
     q("/transport-management/students?do=assign", "transport-management", "Give a bus stop", "Route, stop and the stop's fee", "Route"),
     q("/transport-management/vehicles?view=costs&do=cost&ck=FUEL", "transport-management", "Record fuel", "Fuel bill for a vehicle", "ReceiptText"),
   ],
-  "gate-security": [q("/front-office/visitors", "front-office", "Add visitor", "Name, phone and who they meet", "IdCard")],
+  "gate-security": [q("/front-office/visitors?do=visitor", "front-office", "Add visitor", "Name, phone and who they meet", "IdCard")],
 };

@@ -18,6 +18,7 @@ import {
   achievementAction, archiveAchievementAction, assignHousesAction, certificatesAction, clubAction, creditCorrectionAction, fitnessAction, fixtureAction,
   houseAction, housePointsAction, membersAction, resultAction, sessionAction, teamAction,
 } from "../activity-actions";
+import { KeepCheck, KeepSelect } from "@/components/ui/keep-select";
 
 type Opt = { value: string; label: string };
 export type PickStudent = { id: string; name: string; place: string };
@@ -45,10 +46,10 @@ export function StudentPicker({ students, name = "studentIds", start = [], label
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name or class" aria-label="Search students" className={cx(inputCls(false), "h-11 pl-10")} />
         </div>
         {places.length > 1 && (
-          <select value={place} onChange={(e) => setPlace(e.target.value)} aria-label="Class" className={cx(inputCls(false), "h-11 !w-[130px] shrink-0")}>
+          <KeepSelect value={place} onChange={(e) => setPlace(e.target.value)} aria-label="Class" className={cx(inputCls(false), "h-11 !w-[130px] shrink-0")}>
             <option value="">All classes</option>
             {places.map((p) => <option key={p} value={p}>{p}</option>)}
-          </select>
+          </KeepSelect>
         )}
       </div>
       {!single && place && list.length > 0 && (
@@ -60,7 +61,7 @@ export function StudentPicker({ students, name = "studentIds", start = [], label
         {shown.map((s) => (
           <li key={s.id}>
             <label className={cx("flex items-center gap-3 px-3 py-2 cursor-pointer", on.has(s.id) ? "bg-brand/5" : "hover:bg-sunken/60")}>
-              <input type={single ? "radio" : "checkbox"} name={`pick-${name}`} checked={on.has(s.id)} onChange={(e) => toggle(s.id, e.target.checked)} className={single ? "size-4 accent-[var(--color-brand)]" : tickCls} />
+              <KeepCheck type={single ? "radio" : "checkbox"} name={`pick-${name}`} checked={on.has(s.id)} onChange={(e) => toggle(s.id, e.target.checked)} className={single ? "size-4 accent-[var(--color-brand)]" : tickCls} />
               <Avatar name={s.name} size={28} />
               <span className="min-w-0 flex-1"><span className="block text-[14px] font-medium truncate">{s.name}</span><span className="block text-[12px] text-ink3">{s.place || "—"}</span></span>
             </label>
@@ -259,7 +260,7 @@ export function SessionSheet({ closeHref, kind, groupId, name, members, today, v
         {members.map((m) => (
           <li key={m.id}>
             <label className={cx("flex items-center gap-3 px-3 py-2 cursor-pointer", on.has(m.id) ? "bg-ok/5" : "")}>
-              <input type="checkbox" name="present" value={m.id} checked={on.has(m.id)} onChange={(e) => setOn((x) => { const n = new Set(x); if (e.target.checked) n.add(m.id); else n.delete(m.id); return n; })} className={tickCls} />
+              <KeepCheck type="checkbox" name="present" value={m.id} checked={on.has(m.id)} onChange={(e) => setOn((x) => { const n = new Set(x); if (e.target.checked) n.add(m.id); else n.delete(m.id); return n; })} className={tickCls} />
               <Avatar name={m.name} size={28} />
               <span className="min-w-0 flex-1"><span className="block text-[14px] font-medium truncate">{m.name}</span><span className="block text-[12px] text-ink3">{m.place}</span></span>
             </label>

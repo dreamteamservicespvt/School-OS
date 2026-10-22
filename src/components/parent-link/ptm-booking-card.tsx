@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Pill } from "@/components/ui/badge";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { cx } from "@/components/ui/cx";
+import { KeepCheck } from "@/components/ui/keep-select";
 
 export type PtmCardData = {
   ptmId: string; studentId: string; child: string; when: string; window: string; venue: string | null; breakWords: string | null; open: boolean; parentBooking: boolean; closesOn: string;
@@ -101,7 +102,7 @@ export function PtmBookingCard({ token, preview, c }: { token: string; preview: 
               <legend className="text-[13px] font-semibold text-ink2 mb-1.5">Meet</legend>
               {c.teachers.map((x) => (
                 <label key={x.staffId} className={cx("flex items-center gap-3 rounded-2xl border px-3.5 min-h-12 py-2 cursor-pointer", teacher === x.staffId ? "border-brand ring-1 ring-brand bg-brand/[.04]" : "border-line")}>
-                  <input type="radio" name="teacher" value={x.staffId} checked={teacher === x.staffId} onChange={() => { setTeacher(x.staffId); setSlot(""); }} className="w-4 h-4 accent-[var(--color-brand)]" />
+                  <KeepCheck type="radio" name="teacher" value={x.staffId} checked={teacher === x.staffId} onChange={() => { setTeacher(x.staffId); setSlot(""); }} className="w-4 h-4 accent-[var(--color-brand)]" />
                   <span className="min-w-0"><b className="font-semibold text-[14px] block truncate">{x.name}</b><span className="text-[12.5px] text-ink3 block truncate">{x.label} · {x.free.length ? `${x.free.length} free ${x.free.length === 1 ? "time" : "times"}` : "fully booked"}</span></span>
                 </label>
               ))}
@@ -114,7 +115,7 @@ export function PtmBookingCard({ token, preview, c }: { token: string; preview: 
                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                   {t.free.map((s) => (
                     <label key={s.id} className={cx("h-11 rounded-xl border grid place-items-center text-[14px] font-semibold tnum cursor-pointer transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand", slot === s.id ? "bg-brand text-brandink border-brand" : "border-line hover:border-brand")}>
-                      <input type="radio" name="time" value={s.id} checked={slot === s.id} onChange={() => setSlot(s.id)} className="sr-only" />
+                      <KeepCheck type="radio" name="time" value={s.id} checked={slot === s.id} onChange={() => setSlot(s.id)} className="sr-only" />
                       {s.time.replace(/ (AM|PM)$/, "")}<span className="sr-only"> {s.time.slice(-2)}</span>
                     </label>
                   ))}

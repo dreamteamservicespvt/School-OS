@@ -7,6 +7,7 @@ import { payFees, type PayState } from "@/app/p/[token]/fee-actions";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Button } from "@/components/ui/button";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
+import { KeepCheck } from "@/components/ui/keep-select";
 
 export type PayRow = { id: string; head: string; label: string; dueDate: string; balance: string; balancePaise: string; status: { label: string; tone: BadgeTone }; ticked: boolean };
 
@@ -34,7 +35,7 @@ export function FeesPayForm({ token, studentId, rows, canPay, preview }: { token
           <li key={r.id}>
             <label className="flex min-h-14 items-center gap-3 px-3 py-2">
               {canPay && (
-                <input type="checkbox" name="dueId" value={r.id} checked={ticked.has(r.id)} onChange={() => toggle(r.id)} className="size-5 shrink-0 accent-[var(--brand)]" aria-label={`Pay ${r.head} ${r.label}`} />
+                <KeepCheck type="checkbox" name="dueId" value={r.id} checked={ticked.has(r.id)} onChange={() => toggle(r.id)} className="size-5 shrink-0 accent-[var(--brand)]" aria-label={`Pay ${r.head} ${r.label}`} />
               )}
               <span className="min-w-0 flex-1">
                 <span className="block font-medium">{r.head}{r.label ? `, ${r.label}` : ""}</span>

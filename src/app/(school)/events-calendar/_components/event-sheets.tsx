@@ -19,6 +19,7 @@ import type { FormState } from "@/lib/forms";
 import { attendanceAction, cancelEventAction, officeConsentAction, registerAction, remindAction, saveEventAction, seatsAction, volunteerAction } from "../actions";
 import { StudentPicker, type PickStudent } from "./co-sheets";
 import { WarningConfirm } from "./bits";
+import { KeepSelect } from "@/components/ui/keep-select";
 
 type Opt = { value: string; label: string };
 
@@ -55,9 +56,9 @@ export function EventSheet({ closeHref, start, types, venues, classes, reminders
         <SSelect name="venue" label="Venue" options={venueOptions} start={start.venue ?? ""} />
         <label className="flex flex-col gap-1.5">
           <span className="text-[13px] font-semibold text-ink2">Audience<span className="text-bad" aria-hidden="true"> *</span></span>
-          <select name="audienceKind" value={audience} onChange={(e) => setAudience(e.target.value)} className={cx(inputCls(false), "h-11")}>
+          <KeepSelect name="audienceKind" value={audience} onChange={(e) => setAudience(e.target.value)} className={cx(inputCls(false), "h-11")}>
             {audiences.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
+          </KeepSelect>
         </label>
       </div>
       {campuses.length > 1 && <SSelect name="campusId" label="Campus" help="An event of one campus is shown and sent only to that campus" options={[{ value: "", label: "All campuses" }, ...campuses]} start={start.campusId ?? ""} />}

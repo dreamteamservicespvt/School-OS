@@ -33,7 +33,7 @@ export async function signInSmsTemplate(tx: Tx, ctx: SchoolContext): Promise<str
   return ready ? t.id : null;
 }
 
-export async function sendCodeBySms(input: { schoolId: string; userLoginId: string; phone: string; code: string; key: string | null; purpose?: string }): Promise<{ sent: boolean; messageId?: string }> {
+export async function sendCodeBySms(input: { schoolId: string; userLoginId: string; phone: string; code: string; key: string | null; purpose?: string }): Promise<{ sent: boolean; messageId?: string; testMode?: boolean }> {
   const ctx: SchoolContext = { schoolId: input.schoolId, userId: input.userLoginId };
   try {
     return await withSchool(ctx, async (tx) => {
@@ -53,8 +53,9 @@ export async function sendCodeBySms(input: { schoolId: string; userLoginId: stri
         idempotencyKey: input.key ? `${input.purpose && input.purpose !== "sign-in" ? input.purpose : "two-step"}:${input.key}` : null,
       });
       const setups = await channelSetups(tx, ctx);
-      logOneTimeCode({ to: input.phone, purpose: CODE_PURPOSE_WORDS[input.purpose ?? "sign-in"] ?? input.purpose ?? "sign-in", code: input.code, carriedBy: inTestMode(setups.sms) ? "test" : "real" });
-      return { sent: true, messageId: r.messageId };
+      const testMode = inTestMode(setups.sms);
+      logOneTimeCode({ to: input.phone, purpose: CODE_PURPOSE_WORDS[input.purpose ?? "sign-in"] ?? input.purpose ?? "sign-in", code: input.code, carriedBy: testMode ? "test" : "real" });
+      return { sent: true, messageId: r.messageId, testMode };
     });
   } catch (e) {
     // No credits, no number on the login, or a template problem: the code goes by email instead.

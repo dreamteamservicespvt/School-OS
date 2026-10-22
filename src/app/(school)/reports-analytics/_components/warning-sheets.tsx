@@ -10,6 +10,7 @@ import { SArea, SText } from "@/components/ui/sheet-fields";
 import { FieldShell } from "@/components/ui/field";
 import { Segmented } from "@/components/ui/controls";
 import { dropRuleAction, reviewAction } from "../actions";
+import { KeepSelect } from "@/components/ui/keep-select";
 
 type Decision = "REVIEWED" | "ACTION_PLANNED" | "NOT_A_CONCERN";
 const DECISIONS: { value: Decision; label: string }[] = [
@@ -49,11 +50,11 @@ function ReviewFields({ fee, dec, setDec, actions, teacher, counsellor, dueWords
       <SArea name="note" label="Note" required rows={3} placeholder={dec === "NOT_A_CONCERN" ? "Was unwell on the exam day; doctor’s note seen" : "Spoke to the student after class…"} />
       {dec !== "NOT_A_CONCERN" && (
         <FieldShell label={dec === "ACTION_PLANNED" ? "Action" : "Action (optional)"} id="rv-act" required={dec === "ACTION_PLANNED"} error={a.error} help={hint}>
-          <select id="rv-act" name="action" value={action} onChange={(e) => setAction(e.target.value)} aria-invalid={a.error ? true : undefined}
+          <KeepSelect id="rv-act" name="action" value={action} onChange={(e) => setAction(e.target.value)} aria-invalid={a.error ? true : undefined}
             className="h-11 w-full rounded-xl border border-line bg-surface px-3 text-[14px] outline-none focus:border-brand focus:ring-4 focus:ring-brand/15">
             <option value="">No action yet</option>
             {actions.filter((x) => fee || !x.fees).map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}
-          </select>
+          </KeepSelect>
         </FieldShell>
       )}
     </>

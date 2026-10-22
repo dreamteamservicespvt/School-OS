@@ -10,6 +10,7 @@ import { Dialog, SheetHead, sheetCls } from "./dialog";
 import { Button } from "./button";
 import { SubmitButton } from "./submit-button";
 import { ErrorSummary } from "./field";
+import { ProblemInView } from "./problem-in-view";
 import { Alert } from "./alert";
 import type { FormState } from "@/lib/forms";
 
@@ -97,7 +98,7 @@ export function SheetForm<T>({ title, sub, wide, closeHref, doneHref, action, su
               {hidden && Object.entries(hidden).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
               <ErrorSummary errors={state?.errors} />
               {children}
-              {showMessage && <Alert tone="danger">{state?.message}</Alert>}
+              {showMessage && <ProblemInView token={state}><Alert tone="danger">{state?.message}</Alert></ProblemInView>}
             </div>
             <div className="border-t border-line px-5 py-3.5 flex flex-wrap gap-2 justify-end">
               {extraButtons}

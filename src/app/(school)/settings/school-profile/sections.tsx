@@ -7,6 +7,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { ConfirmButton } from "@/components/ui/confirm";
 import { BOARDS, LANGUAGES, TIME_ZONES, boardDefaultsWords } from "@/lib/settings/profile-rules";
 import { removeLogoAction, saveBoardAction, saveComplianceAction, saveLogoAction, saveRegionAction } from "./actions";
+import { KeepCheck } from "@/components/ui/keep-select";
 
 export function LogoForm({ logoHref }: { logoHref: string | null }) {
   const [state, action] = useActionState(saveLogoAction, null);
@@ -65,7 +66,7 @@ export function BoardForm({ board, secondBoard }: { board: string; secondBoard: 
         </Alert>
       )}
       <label className="flex min-h-11 items-center gap-3">
-        <input type="checkbox" name="twoBoards" checked={two} onChange={(e) => setTwo(e.target.checked)} className="size-5 accent-brand" />
+        <KeepCheck type="checkbox" name="twoBoards" checked={two} onChange={(e) => setTwo(e.target.checked)} className="size-5 accent-brand" />
         <span className="font-medium">This school runs two boards</span>
       </label>
       {two && (
@@ -88,7 +89,7 @@ export function RegionForm({ languages, defaultLanguage, timeZone }: { languages
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {LANGUAGES.map((l) => (
             <label key={l.value} className="flex min-h-11 items-center gap-3 rounded-lg border border-line px-3">
-              <input type="checkbox" name="languages" value={l.value} checked={on.includes(l.value)}
+              <KeepCheck type="checkbox" name="languages" value={l.value} checked={on.includes(l.value)}
                 onChange={(e) => {
                   const next = e.target.checked ? [...on, l.value] : on.filter((x) => x !== l.value);
                   setOn(next);

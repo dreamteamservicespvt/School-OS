@@ -7,7 +7,7 @@ import { deviceInfo } from "@/lib/current";
 import { formValues, type FormState } from "@/lib/forms";
 import { checkMobile, need, problemState, str } from "@/lib/admission/act";
 import { readApplicationForm } from "@/lib/admission/application-form";
-import { DATA_CONSENT } from "@/lib/admission/consent";
+import { DATA_CONSENT, otpSentParentWords } from "@/lib/admission/consent";
 import { checkOnlineCode, schoolByCode, sendOnlineCode, submitOnline } from "@/lib/admission/public";
 
 const CLOSED = "This admission form was not found. Please check the link with the school.";
@@ -18,7 +18,7 @@ export async function sendApplyCodeAction(code: string, phone: string): Promise<
   try {
     const to = checkMobile(phone.replace(/\D/g, "").slice(-10), "phone", "Mobile number");
     const r = await sendOnlineCode(school.id, to, (await deviceInfo()).ipAddress);
-    return { ok: true, message: `Code sent by SMS to ${r.sentTo}. It works for 10 minutes.` };
+    return otpSentParentWords(r, r.sentTo);
   } catch (e) {
     return { ok: false, message: problemState(e).message ?? "The code could not be sent." };
   }

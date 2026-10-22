@@ -73,7 +73,7 @@ export async function sendOnlineCode(schoolId: string, phone: string, ip: string
     const s = await loadSettings(tx, systemCtx(schoolId));
     if (!s.onlineOn) throw new AdmissionProblem("Online applications are closed at this school just now. Please contact the school office.");
     const school = await tx.school.findUniqueOrThrow({ where: { id: schoolId }, select: { name: true } });
-    return startOtp(tx, systemCtx(schoolId), { phone, purpose: `online:${phone}`, schoolName: school.name, about: null });
+    return startOtp(tx, systemCtx(schoolId), { phone, purpose: `online:${phone}`, schoolName: school.name, about: null }, { forParent: true });
   });
 }
 

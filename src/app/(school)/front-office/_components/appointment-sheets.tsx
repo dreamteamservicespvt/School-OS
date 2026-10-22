@@ -14,6 +14,7 @@ import { cx } from "@/components/ui/cx";
 import { clockOf, mobileDigits } from "@/lib/front-office/words";
 import { bookAction, lookupPhone, slotsFor } from "../actions";
 import { PhoneBox, SegField } from "./fields";
+import { KeepSelect } from "@/components/ui/keep-select";
 
 export type Slots = { leave: string | null; free: number[]; taken: { start: number; label: string; kind: string }[] } | null;
 type Opt = { value: string; label: string };
@@ -62,14 +63,14 @@ export function BookSheet({ closeHref, staff, days, start, slots: first, resched
       hidden={{ startMin: chosenOk ? String(at) : "", lengthMin: String(length), ...(reschedule ? { rescheduleId: reschedule.id } : {}) }}>
       <div className="grid sm:grid-cols-2 gap-3">
         <FieldShell label="With" id="bk-who" required error={typedStaff.error}>
-          <select id="bk-who" name="staffId" value={staffId} onChange={(e) => { setStaffId(e.target.value); setAt(null); setClash(null); }} className={cx(inputCls(typedStaff.error), "h-11")}>
+          <KeepSelect id="bk-who" name="staffId" value={staffId} onChange={(e) => { setStaffId(e.target.value); setAt(null); setClash(null); }} className={cx(inputCls(typedStaff.error), "h-11")}>
             {staff.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-          </select>
+          </KeepSelect>
         </FieldShell>
         <FieldShell label="Date" id="bk-date" required error={typedDay.error}>
-          <select id="bk-date" name="date" value={day} onChange={(e) => { setDay(e.target.value); setAt(null); setClash(null); }} className={cx(inputCls(typedDay.error), "h-11")}>
+          <KeepSelect id="bk-date" name="date" value={day} onChange={(e) => { setDay(e.target.value); setAt(null); setClash(null); }} className={cx(inputCls(typedDay.error), "h-11")}>
             {days.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
-          </select>
+          </KeepSelect>
         </FieldShell>
       </div>
       <FieldShell label="Time" id="bk-time" required error={clash ?? atError}>

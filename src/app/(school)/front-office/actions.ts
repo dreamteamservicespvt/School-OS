@@ -25,6 +25,7 @@ import { clockOf, FRONT_OFFICE_FEATURES, minutesOf, type ReplyKey } from "@/lib/
 import { withSchool } from "@/lib/db";
 import { requireCurrent } from "@/lib/current";
 import { flash } from "@/lib/flash";
+import { codeNotSentWords } from "@/lib/dev-codes";
 import { revalidatePath } from "next/cache";
 
 type S = FormState<unknown>;
@@ -133,7 +134,7 @@ export async function sendCodeAction(_: S, fd: FormData): Promise<S> {
   return foAction("edit", fd, async (w) => {
     need(w.can.release, "release students");
     return sendPickupCode(w.tx, w.ctx, id(fd, "studentId", "student"), id(fd, "guardianId", "person collecting"));
-  }, (r) => ({ message: `Code sent to ${r.to}. Ask them to read out the 4 digits.`, tone: "info" }));
+  }, (r) => ({ message: r.testMode ? codeNotSentWords({ to: r.to, channel: r.channel, inLog: r.inLog }) : `Code sent to ${r.to}. Ask them to read out the 4 digits.`, tone: "info" }));
 }
 
 export async function releaseAction(_: S, fd: FormData): Promise<S> {

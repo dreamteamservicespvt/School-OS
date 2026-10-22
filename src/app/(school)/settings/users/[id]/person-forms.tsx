@@ -12,6 +12,7 @@ import { checkIndianMobile } from "@/lib/format";
 import { accessAction, detailsAction, disableAction, enableAction, exceptionsAction, linkAction, resendInviteAction, twoStepAction, type LinkState } from "../actions";
 import { AccessFields, type CampusOption, type RoleOption } from "../access-fields";
 import { CopyLink } from "../new/invite-form";
+import { KeepSelect } from "@/components/ui/keep-select";
 
 export function DetailsForm({ userId, name, phone, email, locked }: { userId: string; name: string; phone: string; email: string; locked: string | null }) {
   const [state, action] = useActionState(detailsAction, null);
@@ -115,11 +116,11 @@ export function ExceptionsForm({ userId, rows }: { userId: string; rows: Excepti
                 <th scope="row" className="px-3 py-1.5 text-left font-medium">{r.name}</th>
                 <td className="px-3 py-1.5 text-ink-2">{r.fromRoles}</td>
                 <td className="px-3 py-1.5">
-                  <select name={`ex_${r.key}`} value={values[r.key]} aria-label={`Exception for ${r.name}`} onChange={(e) => setValues({ ...values, [r.key]: e.target.value })}
+                  <KeepSelect name={`ex_${r.key}`} value={values[r.key]} aria-label={`Exception for ${r.name}`} onChange={(e) => setValues({ ...values, [r.key]: e.target.value })}
                     className="h-11 w-full min-w-32 rounded-lg border border-line-strong bg-surface px-2">
                     <option value="">As their roles</option>
                     {LEVEL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
+                  </KeepSelect>
                 </td>
               </tr>
             ))}

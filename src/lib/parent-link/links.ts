@@ -23,7 +23,7 @@ import { ensureReadyTemplates, templateByKey } from "../messaging/templates";
 import { messageSettings } from "../messaging/settings";
 import type { AudienceRule } from "../messaging/recipients";
 import { OPEN_LINK } from "../students/guardian-access";
-import { logCodeSentBy, mayLogCode } from "../dev-codes";
+import { codeNotSentParentWords, logCodeSentBy, mayLogCode, PARENT_CODE_NOT_SENT } from "../dev-codes";
 
 export class ParentLinkProblem extends Error {}
 
@@ -278,7 +278,7 @@ export async function sendCode(tx: Tx, ctx: SchoolContext, linkId: string, purpo
     templateId = t.id;
     break;
   }
-  if (!channel || !templateId) throw new ParentLinkProblem("The school cannot send codes right now. Please call the school.");
+  if (!channel || !templateId) throw new ParentLinkProblem(PARENT_CODE_NOT_SENT);
   // An earlier unused code stops working when a new one is sent.
   await tx.parentLinkCode.updateMany({ where: { parentLinkId: linkId, purpose, usedAt: null }, data: { expiresAt: now } });
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
@@ -297,12 +297,25 @@ export async function sendCode(tx: Tx, ctx: SchoolContext, linkId: string, purpo
     idempotencyKey: `parent-link-code:${row.id}`,
   });
   await tx.parentLinkCode.update({ where: { id: row.id }, data: { messageId: sent.messageId } });
-  if (mayLogCode(inTestMode(setups[channel]) ? "test" : "real")) {
-    const guardian = await tx.guardian.findUnique({ where: { id: link.guardianId }, select: { phone: true } });
-    await logCodeSentBy(tx, ctx, channel, { to: guardian?.phone, purpose: purpose === "device" ? "Parent Link, new phone" : "Parent Link, consent", code });
-  }
+  const testMode = inTestMode(setups[channel]);
+  const guardian = await tx.guardian.findUnique({ where: { id: link.guardianId }, select: { phone: true } });
+  const inLog = mayLogCode(testMode ? "test" : "real")
+    && await logCodeSentBy(tx, ctx, channel, { to: guardian?.phone, purpose: purpose === "device" ? "Parent Link, new phone" : "Parent Link, consent", code });
+  // Nobody can read a code Test mode kept back (outside a tester's computer): end it, so the page does not wait for it.
+  if (testMode && !inLog) await tx.parentLinkCode.update({ where: { id: row.id }, data: { expiresAt: now } });
   await writeAudit(tx, ctx, { action: "code-sent", recordType: "Parent Link", recordId: linkId, after: { purpose, channel } });
-  return row;
+  // Test mode only records the message: the page must not say "Code sent" (QA ADMIT-03).
+  return { ...row, channel, testMode, inLog, sentTo: maskPhone(guardian?.phone ?? "") };
+}
+
+/**
+ * What the parent's page says once a code has gone, or was kept back by Test mode: no staff
+ * words there. A kept-back code is refused (ok false) except on a tester's computer, where
+ * the code is in the server log and the page goes on to the code box.
+ */
+export function codeSentWords(r: { testMode: boolean; inLog: boolean }, sent: string): { ok: boolean; message: string; notSent?: boolean } {
+  if (!r.testMode) return { ok: true, message: sent };
+  return { ok: r.inLog, message: codeNotSentParentWords(r.inLog), notSent: true };
 }
 
 export type CodeCheck = { ok: true; code: { id: string; detail: unknown } } | { ok: false; message: string };

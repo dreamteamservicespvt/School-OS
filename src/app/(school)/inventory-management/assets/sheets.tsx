@@ -16,6 +16,7 @@ import type { FormState } from "@/lib/forms";
 import { SegField } from "../_components/client";
 import { Warned } from "../purchases/sheets";
 import { addAssetAction, addRepairAction, assignAction, disposeAction, linkItemAction, scanTagAction, startAssetAuditAction, updateAssetAction, updateRepairAction } from "./actions";
+import { KeepSelect } from "@/components/ui/keep-select";
 
 type Opt = { value: string; label: string };
 export type PlaceOpts = { rooms: Opt[]; departments: Opt[]; staff: Opt[] };
@@ -188,10 +189,10 @@ export function ScanTags({ auditId, rooms, startRoom }: { auditId: string; rooms
       <input type="hidden" name="auditId" value={auditId} />
       <div className="flex flex-col gap-1.5">
         <label htmlFor="scan-room" className="text-[13px] font-semibold text-ink2">Room you are checking</label>
-        <select id="scan-room" name="roomId" value={room} onChange={(e) => setRoom(e.target.value)} className="h-11 rounded-xl border border-line bg-surface px-3 text-[14.5px]">
+        <KeepSelect id="scan-room" name="roomId" value={room} onChange={(e) => setRoom(e.target.value)} className="h-11 rounded-xl border border-line bg-surface px-3 text-[14.5px]">
           <option value="">Choose the room</option>
           {rooms.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-        </select>
+        </KeepSelect>
       </div>
       <div className="flex gap-2">
         <div className="relative flex-1 min-w-0">

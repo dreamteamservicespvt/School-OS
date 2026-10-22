@@ -6,6 +6,7 @@ import { CheckboxField, ErrorSummary, TextArea, TextField } from "@/components/u
 import { SubmitButton } from "@/components/ui/submit-button";
 import type { FormState } from "@/lib/forms";
 import { saveConsentAction } from "../actions";
+import { KeepSelect } from "@/components/ui/keep-select";
 
 type Start = { title: string; text: Record<string, string>; askedOnAdmission: boolean };
 
@@ -26,11 +27,11 @@ export function ConsentForm({ types, languages, starts, initialType }: {
       <FormMessage state={state?.message ? state : null} />
       <div>
         <label htmlFor="consent-type" className="mb-1 block text-sm font-medium">Consent type<span className="text-danger" aria-hidden="true"> *</span></label>
-        <select id="consent-type" name="consentType" value={type} onChange={(e) => setType(e.target.value)}
+        <KeepSelect id="consent-type" name="consentType" value={type} onChange={(e) => setType(e.target.value)}
           className="min-h-11 w-full rounded-lg border border-line-strong bg-surface px-3 text-base text-ink">
           {types.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
           <option value="new">A new consent type…</option>
-        </select>
+        </KeepSelect>
       </div>
       {type === "new" && <TextField label="Name of the new consent type" name="newType" required defaultValue={v?.newType} error={state?.errors?.newType} help="For example: Field trips, or Use of student work in the newsletter." />}
       <div key={type} className="space-y-4">

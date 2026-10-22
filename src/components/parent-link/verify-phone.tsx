@@ -30,7 +30,9 @@ export function VerifyPhone({ token, maskedPhone, codeSent }: { token: string; m
           </>
         ) : (
           <>
-            <p role="status" className="text-[14px] text-ink2 mt-1">We sent a 6-digit code by SMS to <b className="font-semibold text-ink tnum whitespace-nowrap">{maskedPhone}</b>. {sent?.message?.replace(/^Code sent\. ?/, "") ?? ""}</p>
+            {sent?.notSent
+              ? <p role="status" className="text-[14px] text-warn mt-1">{sent.message}</p>
+              : <p role="status" className="text-[14px] text-ink2 mt-1">We sent a 6-digit code to <b className="font-semibold text-ink tnum whitespace-nowrap">{maskedPhone}</b>. {sent?.message?.replace(/^Code sent\. ?/, "") ?? ""}</p>}
             <form action={check} className="mt-4 flex flex-col gap-3">
               <label htmlFor="pl-code" className="text-[13px] font-semibold text-ink2">6-digit code</label>
               <input id="pl-code" name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9 ]{6,7}" maxLength={7} required autoFocus

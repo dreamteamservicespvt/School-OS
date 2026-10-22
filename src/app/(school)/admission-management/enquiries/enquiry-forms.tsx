@@ -1,7 +1,7 @@
 "use client";
 
 // Add and edit an enquiry (02 §2; design: mod-admissions.jsx AddEnquirySheet).
-// Five things now, the rest folded under More details. The phone is checked
+// The required things now (02 §2 Form fields), the rest folded under More details. The phone is checked
 // for a matching family when the person leaves it (02 Done when 2): Open
 // existing, Add as sibling enquiry, or Cancel.
 
@@ -153,7 +153,7 @@ export function AddEnquiryButton({ c, variant = "primary", label = "Add enquiry"
   return (
     <>
       <Button variant={variant} size={size} icon={Plus} className={className} onClick={() => { setRound((r) => r + 1); setOpen(true); }}>{label}</Button>
-      <Dialog open={open} onClose={() => setOpen(false)} title="Add enquiry" sub="Five things now. Add the rest later from the enquiry.">
+      <Dialog open={open} onClose={() => setOpen(false)} title="Add enquiry" sub="The basics now. Add the rest later from the enquiry.">
         <EnquiryForm key={round} c={c} onCancel={() => setOpen(false)} onDone={(id) => { setOpen(false); router.push(`/admission-management/enquiries?id=${id}`); }} />
       </Dialog>
     </>

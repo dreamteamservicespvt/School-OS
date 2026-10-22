@@ -21,6 +21,7 @@ import type { FormState } from "@/lib/forms";
 import type { DueStatus } from "@/lib/fees/dues";
 import { DUE_WORD } from "../../_components/bits";
 import { askDiscountApproval, collectFee, qrPaid, resendReceipt, sendLink, showQr, type Collected, type QrLink } from "./actions";
+import { KeepCheck } from "@/components/ui/keep-select";
 
 export type DueRow = { id: string; head: string; label: string; due: string; net: number; paid: number; balance: number; status: DueStatus; lateFee: boolean };
 
@@ -248,7 +249,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
                   <p className="text-[13px] font-semibold text-ink2">Waive the late fee</p>
                   {lateTicked.map((r) => (
                     <label key={r.id} className="flex items-center gap-2.5 text-[13.5px]">
-                      <input type="checkbox" name="waiveDueId" value={r.id} checked={waive.has(r.id)} onChange={(e) => { setEdited(null); setWaive((x) => { const n = new Set(x); if (e.target.checked) n.add(r.id); else n.delete(r.id); return n; }); }} className="size-4 accent-[rgb(var(--brand))]" />
+                      <KeepCheck type="checkbox" name="waiveDueId" value={r.id} checked={waive.has(r.id)} onChange={(e) => { setEdited(null); setWaive((x) => { const n = new Set(x); if (e.target.checked) n.add(r.id); else n.delete(r.id); return n; }); }} className="size-4 accent-[rgb(var(--brand))]" />
                       <span className="flex-1">{r.label}</span><span className="tnum font-semibold">{inr(r.balance)}</span>
                     </label>
                   ))}

@@ -11,6 +11,7 @@ import { Button, type ButtonSize, type ButtonVariant } from "@/components/ui/but
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Alert } from "@/components/ui/alert";
 import { ErrorSummary } from "@/components/ui/field";
+import { ProblemInView } from "@/components/ui/problem-in-view";
 import type { FormState } from "@/lib/forms";
 
 export type Action = (prev: FormState<unknown>, fd: FormData) => Promise<FormState<unknown>>;
@@ -41,9 +42,11 @@ function Message({ state, inline }: { state: FormState<unknown>; inline?: string
   const link = (state.data as { link?: { href: string; label: string } } | undefined)?.link;
   if (state.errors && Object.keys(state.errors).length > 1) return <ErrorSummary errors={state.errors} />;
   return (
-    <Alert tone="danger" action={link ? <Link href={link.href} className="font-medium underline">{link.label}</Link> : undefined}>
-      {state.message}
-    </Alert>
+    <ProblemInView token={state}>
+      <Alert tone="danger" action={link ? <Link href={link.href} className="font-medium underline">{link.label}</Link> : undefined}>
+        {state.message}
+      </Alert>
+    </ProblemInView>
   );
 }
 

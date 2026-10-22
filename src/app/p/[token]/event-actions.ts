@@ -12,10 +12,11 @@ import { withSchool } from "@/lib/db";
 import { deviceInfo } from "@/lib/current";
 import { hitLimit, limitMessage } from "@/lib/rate-limit";
 import { MessagingProblem } from "@/lib/messaging/send";
-import { ParentLinkProblem } from "@/lib/parent-link/links";
+import { codeSentWords, ParentLinkProblem } from "@/lib/parent-link/links";
 import { askEventConsentCode, confirmEventConsent, declineOnParentLink } from "@/lib/events/consent";
 import { localNow } from "@/lib/events/jobs";
 import type { GuardianState } from "./actions";
+import { PARENT_CODE_NOT_SENT } from "@/lib/dev-codes";
 import { guardianFor as accessFor } from "./guardian";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -41,6 +42,11 @@ function ids(form: FormData) {
 }
 
 /** Step 1 of "yes": a code to the registered mobile. */
+/** The code box opens only when there is a code to type (sent, or in the log on a tester's computer). */
+function codeStep(w: { ok: boolean; message: string; notSent?: boolean }): GuardianState {
+  return w.ok ? { ok: true, step: "code", message: w.message, notSent: w.notSent } : { ok: false, message: w.message };
+}
+
 export async function askEventConsent(token: string, _prev: GuardianState, form: FormData): Promise<GuardianState> {
   const device = await deviceInfo();
   const g = await guardianFor(token);
@@ -53,11 +59,11 @@ export async function askEventConsent(token: string, _prev: GuardianState, form:
   ]);
   if (limited) return { ok: false, message: limited };
   try {
-    await withSchool(g.ctx, (tx) => askEventConsentCode(tx, g.ctx, g.linkId, g.guardianId, x.eventId, x.studentId, g.today));
-    return { ok: true, step: "code", message: "Code sent. Type it below to confirm." };
+    const sent = await withSchool(g.ctx, (tx) => askEventConsentCode(tx, g.ctx, g.linkId, g.guardianId, x.eventId, x.studentId, g.today));
+    return codeStep(codeSentWords(sent, "Code sent. Type it below to confirm."));
   } catch (e) {
     if (e instanceof ParentLinkProblem) return { ok: false, message: e.message };
-    if (e instanceof MessagingProblem) return { ok: false, message: "The school cannot send codes right now. Please call the school." };
+    if (e instanceof MessagingProblem) return { ok: false, message: PARENT_CODE_NOT_SENT };
     throw e;
   }
 }

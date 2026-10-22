@@ -65,12 +65,37 @@ export function logOneTimeCode(input: { to: string | null | undefined; purpose: 
   return true;
 }
 
+/** Whether the school's channel is in Test mode: its messages are only recorded, nothing leaves School OS. */
+export async function channelInTestMode(tx: Tx, ctx: SchoolContext, channel: string): Promise<boolean> {
+  const setup = (await channelSetups(tx, ctx))[channel as ProviderChannel];
+  return Boolean(setup && inTestMode(setup));
+}
+
 /** A code sent through one of the school's channels: Test mode, or a real provider. */
 export async function logCodeSentBy(tx: Tx, ctx: SchoolContext, channel: string, input: { to: string | null | undefined; purpose: string; code: string }): Promise<boolean> {
   // On a live server nothing is written, so there is nothing to look up.
   if (!mayLogCode("test")) return false;
-  const setup = (await channelSetups(tx, ctx))[channel as ProviderChannel];
-  return logOneTimeCode({ ...input, carriedBy: setup && inTestMode(setup) ? "test" : "real" });
+  return logOneTimeCode({ ...input, carriedBy: (await channelInTestMode(tx, ctx, channel)) ? "test" : "real" });
+}
+
+const CHANNEL_WORDS: Record<string, string> = { sms: "SMS", whatsapp: "WhatsApp", email: "Email" };
+/** "SMS", "WhatsApp" or "Email", for a screen. */
+export const channelWord = (channel: string) => CHANNEL_WORDS[channel] ?? channel;
+
+/**
+ * What a screen says when Test mode kept a one-time code back (QA ADMIT-03):
+ * never "Code sent", because nothing reached the phone.
+ */
+/** For a parent's screen (online admission form, Parent Link): no staff words or settings paths. */
+export const PARENT_CODE_NOT_SENT = "We could not send the code just now. Please contact the school office.";
+
+/** What a parent's screen says when the code was not sent; on a tester's computer it adds where the code is. */
+export function codeNotSentParentWords(inLog: boolean): string {
+  return `${PARENT_CODE_NOT_SENT}${inLog ? " (On this tester's computer the code is in the server log.)" : ""}`;
+}
+
+export function codeNotSentWords(input: { to: string; channel: string; inLog: boolean }): string {
+  return `Test mode, not sent: no code went to ${input.to}, because the school's ${channelWord(input.channel)} is in Test mode (Settings, SMS, WhatsApp & Email).${input.inLog ? " On this computer the code is in the server log." : ""}`;
 }
 
 /** A personal link that Test mode did not send, on a tester's computer only. */

@@ -127,7 +127,8 @@ export async function deliverCodeTo(to: CodeTo, code: string, purpose: CodePurpo
   }
   if (to.phone && to.schoolId && to.userLoginId) {
     const sms = await sendCodeBySms({ schoolId: to.schoolId, userLoginId: to.userLoginId, phone: to.phone, code, key: to.key ?? null, purpose });
-    if (sms.sent) return { channel: "sms", sentTo: maskPhone(to.phone) };
+    // Test mode only records the SMS (allowed for codes on a tester's computer only): say so, not "sent to" the phone (QA ADMIT-03).
+    if (sms.sent) return { channel: "sms", sentTo: sms.testMode ? `the server log (Test mode, not sent to ${maskPhone(to.phone)} by SMS)` : maskPhone(to.phone) };
   }
   if (mailProblem) return { problem: mailProblem };
   if (mayLogCode("none")) {

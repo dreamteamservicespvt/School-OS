@@ -15,6 +15,7 @@ import { LocationField, SegField } from "./fields";
 import type { MapRoute } from "./map";
 import type { LatLng } from "@/lib/transport/geo";
 import { plural } from "@/lib/transport/words";
+import { KeepCheck, KeepSelect } from "@/components/ui/keep-select";
 
 type Opt = { value: string; label: string };
 
@@ -107,15 +108,15 @@ export function RouteMessageSheet({ closeHref, routes, start }: {
         </div>
       )}
       <FieldShell label="Route" id="rm-route" required error={tRoute.error}>
-        <select id="rm-route" name="routeId" value={routeId} onChange={(e) => setRouteId(e.target.value)} className={cx(inputCls(tRoute.error), "h-11")}>
+        <KeepSelect id="rm-route" name="routeId" value={routeId} onChange={(e) => setRouteId(e.target.value)} className={cx(inputCls(tRoute.error), "h-11")}>
           {routes.map((x) => <option key={x.id} value={x.id}>{x.label} · {plural(x.parents, "parent")}</option>)}
-        </select>
+        </KeepSelect>
       </FieldShell>
       <FieldShell label="Message" id="rm-text" required error={tText.error} help={`${body.length} of 600 characters`}>
         <textarea id="rm-text" name="text" rows={5} maxLength={600} value={body} onChange={(e) => setBody(e.target.value)} className={cx(inputCls(tText.error), "py-2.5 leading-relaxed")} />
       </FieldShell>
       <label className="flex items-start gap-3 rounded-xl border border-line px-3.5 py-3 cursor-pointer">
-        <input type="checkbox" checked={sure} onChange={(e) => setSure(e.target.checked)} className="mt-1 size-4 accent-[rgb(var(--brand))]" />
+        <KeepCheck type="checkbox" checked={sure} onChange={(e) => setSure(e.target.checked)} className="mt-1 size-4 accent-[rgb(var(--brand))]" />
         <span className="text-[14px]"><b className="font-semibold">{r ? `Send to ${plural(r.parents, "parent")} of ${r.label}?` : "Send this message?"}</b><span className="block text-[12.5px] text-ink3">I have read the message. It goes on WhatsApp, with SMS where WhatsApp fails.</span></span>
       </label>
     </SheetForm>

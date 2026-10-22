@@ -12,9 +12,11 @@ import { Check, ChevronDown, CircleAlert } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button, type ButtonSize, type ButtonVariant } from "@/components/ui/button";
 import { ErrorSummary, FieldShell, inputCls } from "@/components/ui/field";
+import { ProblemInView } from "@/components/ui/problem-in-view";
 import { Segmented, type SegOption } from "@/components/ui/controls";
 import { cx } from "@/components/ui/cx";
 import type { FormState } from "@/lib/forms";
+import { KeepSelect } from "@/components/ui/keep-select";
 
 export type Action = (prev: FormState<unknown>, fd: FormData) => Promise<FormState<unknown>>;
 
@@ -36,10 +38,12 @@ export function FormProblem({ state }: { state: FormState<unknown> }) {
   const link = (state.data as { link?: { href: string; label: string } } | undefined)?.link;
   if (state.errors && Object.keys(state.errors).length > 1) return <ErrorSummary errors={state.errors} />;
   return (
-    <div role="alert" className="rounded-xl bg-bad/10 px-3.5 py-3 text-[14px] text-bad flex items-start gap-2">
-      <CircleAlert size={17} className="shrink-0 mt-0.5" aria-hidden="true" />
-      <p className="flex-1">{state.message}{link && <> <Link href={link.href} className="font-semibold underline">{link.label}</Link></>}</p>
-    </div>
+    <ProblemInView token={state}>
+      <div role="alert" className="rounded-xl bg-bad/10 px-3.5 py-3 text-[14px] text-bad flex items-start gap-2">
+        <CircleAlert size={17} className="shrink-0 mt-0.5" aria-hidden="true" />
+        <p className="flex-1">{state.message}{link && <> <Link href={link.href} className="font-semibold underline">{link.label}</Link></>}</p>
+      </div>
+    </ProblemInView>
   );
 }
 
@@ -190,9 +194,9 @@ export function WhenField({ name, label, defaultValue, error, required, timeLabe
         <input id={`${id}-d`} type="date" value={date} min={min} onChange={(e) => setDate(e.target.value)} aria-invalid={error ? true : undefined} className={cx(inputCls(error), "h-11 tnum")} />
       </FieldShell>
       <FieldShell label={timeLabel} id={`${id}-t`} required={required}>
-        <select id={`${id}-t`} value={time} onChange={(e) => setTime(e.target.value)} className={cx(inputCls(false), "h-11 pr-9")}>
+        <KeepSelect id={`${id}-t`} value={time} onChange={(e) => setTime(e.target.value)} className={cx(inputCls(false), "h-11 pr-9")}>
           {times.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-        </select>
+        </KeepSelect>
       </FieldShell>
       <input type="hidden" name={name} value={date ? `${date}T${time}` : ""} />
     </div>

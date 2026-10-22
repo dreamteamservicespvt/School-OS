@@ -20,6 +20,7 @@ import { cx } from "@/components/ui/cx";
 import type { FormState } from "@/lib/forms";
 import { saveDatesheet } from "./actions";
 import type { FormData as Data, FormRow } from "./form-data";
+import { KeepSelect } from "@/components/ui/keep-select";
 
 const PATTERNS = [{ value: "PERCENTAGE", label: "Percentage" }, { value: "GRADING", label: "Grading" }, { value: "CGPA", label: "CGPA" }];
 const DURATIONS = [30, 45, 60, 75, 90, 105, 120, 150, 180, 210, 240].map((m) => ({ value: String(m), label: m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ""}` }));
@@ -246,14 +247,14 @@ export function DatesheetForm({ data }: { data: Data }) {
                     <p className="text-[13px] font-semibold text-ink2">Bulk apply · each Apply changes only its own column</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                       <BulkBox label="Start time" onApply={() => applyColumn("startTime")}>
-                        <select aria-label="Start time for all" value={bulk.startTime} onChange={(e) => setBulk({ ...bulk, startTime: e.target.value })} className={cx(inputCls(), "h-11")}>
+                        <KeepSelect aria-label="Start time for all" value={bulk.startTime} onChange={(e) => setBulk({ ...bulk, startTime: e.target.value })} className={cx(inputCls(), "h-11")}>
                           {TIMES.map((t) => <option key={t} value={t}>{time12(t)}</option>)}
-                        </select>
+                        </KeepSelect>
                       </BulkBox>
                       <BulkBox label="Duration" onApply={() => applyColumn("durationMin")}>
-                        <select aria-label="Duration for all" value={bulk.durationMin} onChange={(e) => setBulk({ ...bulk, durationMin: e.target.value })} className={cx(inputCls(), "h-11")}>
+                        <KeepSelect aria-label="Duration for all" value={bulk.durationMin} onChange={(e) => setBulk({ ...bulk, durationMin: e.target.value })} className={cx(inputCls(), "h-11")}>
                           {DURATIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                        </select>
+                        </KeepSelect>
                       </BulkBox>
                       {mode === "single" && (
                         <BulkBox label="Location" onApply={() => applyColumn("room")}>
@@ -289,10 +290,10 @@ export function DatesheetForm({ data }: { data: Data }) {
                                   <div className="grid gap-2 sm:grid-cols-[1fr_11rem_14rem] sm:items-center">
                                     <span className="text-[14px]">{subjectOf(r.classId, r.subjectId)?.name} <span className="text-[12.5px] text-ink3">{showDay(r.date)}, {time12(r.startTime)}</span></span>
                                     <input aria-label={`${c.name} ${subjectOf(r.classId, r.subjectId)?.name} room`} disabled={dis} value={r.room} maxLength={40} onChange={(e) => update({ classId: r.classId, subjectId: r.subjectId }, { room: e.target.value })} className={cell()} />
-                                    <select aria-label={`${c.name} ${subjectOf(r.classId, r.subjectId)?.name} invigilator`} disabled={dis} value={r.invigilatorId} onChange={(e) => update({ classId: r.classId, subjectId: r.subjectId }, { invigilatorId: e.target.value })} className={cell()}>
+                                    <KeepSelect aria-label={`${c.name} ${subjectOf(r.classId, r.subjectId)?.name} invigilator`} disabled={dis} value={r.invigilatorId} onChange={(e) => update({ classId: r.classId, subjectId: r.subjectId }, { invigilatorId: e.target.value })} className={cell()}>
                                       <option value="">No invigilator</option>
                                       {data.staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                    </select>
+                                    </KeepSelect>
                                   </div>
                                   {rowError(r) && <p className="text-[12.5px] text-bad flex items-center gap-1.5"><CircleAlert size={14} aria-hidden="true" />{rowError(r)}</p>}
                                 </li>
@@ -362,34 +363,34 @@ function ScheduleRows({ rows, label, gradeOnly, staff, onChange, dis, showRoom, 
                     <th scope="row" className={cx("pr-2 py-2 text-left font-semibold whitespace-nowrap", !r.date && "text-ink3")}>{label(r)}</th>
                     <td className="px-1 py-2"><input type="date" aria-label={`${label(r)} exam date`} aria-invalid={e ? true : undefined} disabled={dis} value={r.date} onChange={(ev) => onChange(r, { date: ev.target.value })} className={cx(cell(e), "!w-[138px] tnum")} /></td>
                     <td className="px-1 py-2">
-                      <select aria-label={`${label(r)} start time`} disabled={dis} value={r.startTime} onChange={(ev) => onChange(r, { startTime: ev.target.value })} className={cx(cell(), "!w-[104px]")}>
+                      <KeepSelect aria-label={`${label(r)} start time`} disabled={dis} value={r.startTime} onChange={(ev) => onChange(r, { startTime: ev.target.value })} className={cx(cell(), "!w-[104px]")}>
                         {timeOptions(r.startTime).map((t) => <option key={t} value={t}>{time12(t)}</option>)}
-                      </select>
+                      </KeepSelect>
                     </td>
                     <td className="px-1 py-2">
-                      <select aria-label={`${label(r)} duration`} disabled={dis} value={String(r.durationMin)} onChange={(ev) => onChange(r, { durationMin: Number(ev.target.value) })} className={cx(cell(), "!w-[96px]")}>
+                      <KeepSelect aria-label={`${label(r)} duration`} disabled={dis} value={String(r.durationMin)} onChange={(ev) => onChange(r, { durationMin: Number(ev.target.value) })} className={cx(cell(), "!w-[96px]")}>
                         {!DURATIONS.some((x) => x.value === String(r.durationMin)) && <option value={r.durationMin}>{r.durationMin} min</option>}
                         {DURATIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                      </select>
+                      </KeepSelect>
                     </td>
                     <td className="px-1 py-2 tnum text-ink2 whitespace-nowrap">{r.date && r.startTime ? time12(endOf(r.startTime, r.durationMin)) : "—"}</td>
                     {showRoom && <td className="px-1 py-2"><input aria-label={`${label(r)} location`} disabled={dis} maxLength={40} value={r.room} placeholder={roomHint} onChange={(ev) => onChange(r, { room: ev.target.value })} className={cx(cell(), "!w-[96px]")} /></td>}
                     {showRoom && (
                       <td className="px-1 py-2">
-                        <select aria-label={`${label(r)} invigilator`} disabled={dis} value={r.invigilatorId} onChange={(ev) => onChange(r, { invigilatorId: ev.target.value })} className={cx(cell(), "!w-[148px]")}>
+                        <KeepSelect aria-label={`${label(r)} invigilator`} disabled={dis} value={r.invigilatorId} onChange={(ev) => onChange(r, { invigilatorId: ev.target.value })} className={cx(cell(), "!w-[148px]")}>
                           <option value="">None</option>
                           {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                        </select>
+                        </KeepSelect>
                       </td>
                     )}
                     <td className="px-1 py-2">
                       {gradeOnly(r) ? <span className="text-[13px] text-ink3">Graded</span> : <input inputMode="numeric" aria-label={`${label(r)} maximum marks`} disabled={dis} value={r.maxMarks || ""} onChange={(ev) => onChange(r, { maxMarks: Number(ev.target.value.replace(/\D/g, "")) })} className={cx(cell(), "!w-[64px] tnum text-center")} />}
                     </td>
                     <td className="px-1 py-2">
-                      <select aria-label={`${label(r)} pattern`} disabled={dis} value={r.pattern} onChange={(ev) => onChange(r, { pattern: ev.target.value })} className={cx(cell(), "!w-[120px]")}>
+                      <KeepSelect aria-label={`${label(r)} pattern`} disabled={dis} value={r.pattern} onChange={(ev) => onChange(r, { pattern: ev.target.value })} className={cx(cell(), "!w-[120px]")}>
                         <option value="">Exam&apos;s pattern</option>
                         {PATTERNS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                      </select>
+                      </KeepSelect>
                     </td>
                   </tr>
                   {e && <tr className="border-b border-line/70"><td /><td colSpan={heads.length - 1} className="pb-2 px-1.5"><p className="text-[12.5px] text-bad flex items-center gap-1.5" role="alert"><CircleAlert size={14} aria-hidden="true" />{e}</p></td></tr>}
@@ -409,31 +410,31 @@ function ScheduleRows({ rows, label, gradeOnly, staff, onChange, dis, showRoom, 
               <div className="grid grid-cols-2 gap-2">
                 <label className="col-span-2 flex flex-col gap-1 text-[12px] font-semibold text-ink3">Exam date<input type="date" disabled={dis} value={r.date} onChange={(ev) => onChange(r, { date: ev.target.value })} className={cx(cell(e), "!h-11")} /></label>
                 <label className="flex flex-col gap-1 text-[12px] font-semibold text-ink3">Start time
-                  <select disabled={dis} value={r.startTime} onChange={(ev) => onChange(r, { startTime: ev.target.value })} className={cx(cell(), "!h-11")}>{timeOptions(r.startTime).map((t) => <option key={t} value={t}>{time12(t)}</option>)}</select>
+                  <KeepSelect disabled={dis} value={r.startTime} onChange={(ev) => onChange(r, { startTime: ev.target.value })} className={cx(cell(), "!h-11")}>{timeOptions(r.startTime).map((t) => <option key={t} value={t}>{time12(t)}</option>)}</KeepSelect>
                 </label>
                 <label className="flex flex-col gap-1 text-[12px] font-semibold text-ink3">Duration
-                  <select disabled={dis} value={String(r.durationMin)} onChange={(ev) => onChange(r, { durationMin: Number(ev.target.value) })} className={cx(cell(), "!h-11")}>
+                  <KeepSelect disabled={dis} value={String(r.durationMin)} onChange={(ev) => onChange(r, { durationMin: Number(ev.target.value) })} className={cx(cell(), "!h-11")}>
                     {!DURATIONS.some((x) => x.value === String(r.durationMin)) && <option value={r.durationMin}>{r.durationMin} min</option>}
                     {DURATIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
+                  </KeepSelect>
                 </label>
                 {showRoom && <label className="flex flex-col gap-1 text-[12px] font-semibold text-ink3">Location<input disabled={dis} maxLength={40} value={r.room} placeholder={roomHint} onChange={(ev) => onChange(r, { room: ev.target.value })} className={cx(cell(), "!h-11")} /></label>}
                 {showRoom && (
                   <label className="flex flex-col gap-1 text-[12px] font-semibold text-ink3">Invigilator
-                    <select disabled={dis} value={r.invigilatorId} onChange={(ev) => onChange(r, { invigilatorId: ev.target.value })} className={cx(cell(), "!h-11")}>
+                    <KeepSelect disabled={dis} value={r.invigilatorId} onChange={(ev) => onChange(r, { invigilatorId: ev.target.value })} className={cx(cell(), "!h-11")}>
                       <option value="">None</option>
                       {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                    </select>
+                    </KeepSelect>
                   </label>
                 )}
                 <label className="flex flex-col gap-1 text-[12px] font-semibold text-ink3">Max marks
                   {gradeOnly(r) ? <span className="flex h-11 items-center text-[14px] font-normal text-ink3">Graded</span> : <input inputMode="numeric" disabled={dis} value={r.maxMarks || ""} onChange={(ev) => onChange(r, { maxMarks: Number(ev.target.value.replace(/\D/g, "")) })} className={cx(cell(), "!h-11 tnum")} />}
                 </label>
                 <label className="flex flex-col gap-1 text-[12px] font-semibold text-ink3">Pattern
-                  <select disabled={dis} value={r.pattern} onChange={(ev) => onChange(r, { pattern: ev.target.value })} className={cx(cell(), "!h-11")}>
+                  <KeepSelect disabled={dis} value={r.pattern} onChange={(ev) => onChange(r, { pattern: ev.target.value })} className={cx(cell(), "!h-11")}>
                     <option value="">Exam&apos;s pattern</option>
                     {PATTERNS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
+                  </KeepSelect>
                 </label>
               </div>
               {r.startTime && r.date && <p className="mt-1.5 text-[12.5px] text-ink3">{time12(r.startTime)} to {time12(endOf(r.startTime, r.durationMin))}</p>}

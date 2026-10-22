@@ -142,6 +142,11 @@ describe("the consent code (D8a)", () => {
       .rejects.toThrow("The code could not be sent. No messaging channel is set up (Settings, SMS, WhatsApp & Email).");
   });
 
+  it("tells a parent on the online form plainly, with no staff words or settings path (QA ADMIT-03)", async () => {
+    await expect(withSchool(principal.ctx, (tx) => startOtp(tx, principal.ctx, { phone: "9988776643", purpose: "test:no-channel-parent", schoolName: "Test", about: null }, { forParent: true })))
+      .rejects.toThrow(/^We could not send the code just now\. Please contact the school office\.$/);
+  });
+
   it("refuses an expired code", async () => {
     await withSchool(principal.ctx, (tx) => startOtp(tx, principal.ctx, { phone, purpose, schoolName: "Test", about: null }, { deliver }));
     const later = new Date(Date.now() + 11 * 60_000);

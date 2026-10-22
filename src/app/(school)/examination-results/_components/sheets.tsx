@@ -12,6 +12,7 @@ import { buttonClass, Button, type ButtonSize, type ButtonVariant } from "@/comp
 import { SheetHead, sheetCls } from "@/components/ui/dialog";
 import { inputCls } from "@/components/ui/field";
 import { cx } from "@/components/ui/cx";
+import { ProblemInView } from "@/components/ui/problem-in-view";
 
 export type Trigger = { label: React.ReactNode; variant?: ButtonVariant; size?: ButtonSize; icon?: React.ReactNode; className?: string; ariaLabel?: string; disabled?: boolean };
 
@@ -106,7 +107,7 @@ export function ActionSheet({ trigger, open: forced, onClose, title, sub, childr
                 <input value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" className={cx(inputCls(), "h-11")} />
               </label>
             )}
-            {error && <p role="alert" className="rounded-xl bg-bad/10 px-3.5 py-2.5 text-sm text-bad">{error}</p>}
+            {error && <ProblemInView token={error}><p role="alert" className="rounded-xl bg-bad/10 px-3.5 py-2.5 text-sm text-bad">{error}</p></ProblemInView>}
           </form>
           {!bare && (
             <div className="border-t border-line px-5 py-3.5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">

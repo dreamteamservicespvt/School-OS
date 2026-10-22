@@ -17,6 +17,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { Avatar } from "@/components/ui/avatar";
 import { cx } from "@/components/ui/cx";
 import { saveCustomAction, saveScheduleAction, scheduleStatusAction, sendNowAction } from "../actions";
+import { KeepSelect } from "@/components/ui/keep-select";
 
 /** Ticks a column on or off in the page address; the preview follows. */
 export function ColumnPicker({ fields, chosen }: { fields: { key: string; label: string }[]; chosen: string[] }) {
@@ -98,11 +99,11 @@ function ScheduleFields({ start, reports, presets, people }: { start: ScheduleSt
   return (
     <>
       <FieldShell label="Report" id="sc-rep" required error={r.error}>
-        <select id="sc-rep" name="reportKey" value={report} onChange={(e) => setReport(e.target.value)} className={selectCls} aria-invalid={r.error ? true : undefined}>
+        <KeepSelect id="sc-rep" name="reportKey" value={report} onChange={(e) => setReport(e.target.value)} className={selectCls} aria-invalid={r.error ? true : undefined}>
           <option value="">Pick a report</option>
           {group("Custom").length > 0 && <optgroup label="My custom reports">{group("Custom").map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}</optgroup>}
           <optgroup label="All reports">{group("Catalogue").map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}</optgroup>
-        </select>
+        </KeepSelect>
       </FieldShell>
       <FieldShell label="Filters" id="sc-fil" help="Relative dates move with each send, like “last week”">
         <select id="sc-fil" name="datePreset" defaultValue={start.datePreset} className={selectCls}>
@@ -111,17 +112,17 @@ function ScheduleFields({ start, reports, presets, people }: { start: ScheduleSt
       </FieldShell>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <FieldShell label="How often" id="sc-freq" required>
-          <select id="sc-freq" name="frequency" value={freq} onChange={(e) => setFreq(e.target.value)} className={selectCls}>
+          <KeepSelect id="sc-freq" name="frequency" value={freq} onChange={(e) => setFreq(e.target.value)} className={selectCls}>
             <option value="DAILY">Daily</option><option value="WEEKLY">Weekly</option><option value="MONTHLY">Monthly</option>
-          </select>
+          </KeepSelect>
         </FieldShell>
         <FieldShell label="Day" id="sc-day">
           {freq === "WEEKLY"
-            ? <select id="sc-day" name="day" value={day} onChange={(e) => setDay(e.target.value)} className={selectCls}>{DAYS.map((d, i) => <option key={d} value={String(i + 1)}>{d}</option>)}</select>
+            ? <KeepSelect id="sc-day" name="day" value={day} onChange={(e) => setDay(e.target.value)} className={selectCls}>{DAYS.map((d, i) => <option key={d} value={String(i + 1)}>{d}</option>)}</KeepSelect>
             : <select id="sc-day" className={selectCls}><option>{freq === "DAILY" ? "Every school day" : "1st of the month"}</option></select>}
         </FieldShell>
         <FieldShell label="Time" id="sc-time">
-          <select id="sc-time" name="timeMin" value={time} onChange={(e) => setTime(e.target.value)} className={selectCls}>{TIMES.map((t) => <option key={t} value={String(t)}>{timeWords(t)}</option>)}</select>
+          <KeepSelect id="sc-time" name="timeMin" value={time} onChange={(e) => setTime(e.target.value)} className={selectCls}>{TIMES.map((t) => <option key={t} value={String(t)}>{timeWords(t)}</option>)}</KeepSelect>
         </FieldShell>
       </div>
       <FieldShell label="Format" id="sc-fmt" required>

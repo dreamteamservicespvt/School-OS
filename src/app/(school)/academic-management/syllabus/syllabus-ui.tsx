@@ -13,6 +13,7 @@ import {
   addItemAction, archiveItemAction, archiveLessonPlanAction, copySourcesAction, copySyllabusAction, logProgressAction, moveItemAction,
   pasteItemsAction, planDefaultsAction, saveLessonPlanAction, untickAction, updateItemAction,
 } from "./actions";
+import { KeepCheck } from "@/components/ui/keep-select";
 
 type Kind = "UNIT" | "CHAPTER" | "LESSON" | "TOPIC";
 const KINDS: Kind[] = ["UNIT", "CHAPTER", "LESSON", "TOPIC"];
@@ -187,7 +188,7 @@ export function DailyLog({ chapters, yearId, sectionId, date, maxDate }: { chapt
                   </div>
                 ) : (
                   <label className="flex min-h-14 cursor-pointer items-center gap-3 px-4 hover:bg-surface-2">
-                    <input type="checkbox" name="itemIds" value={t.id} className="size-6" checked={picked.includes(t.id)} onChange={() => toggle(t.id)} />
+                    <KeepCheck type="checkbox" name="itemIds" value={t.id} className="size-6" checked={picked.includes(t.id)} onChange={() => toggle(t.id)} />
                     <span className="flex-1">{t.title}</span>
                     {t.status !== "Planned" && <Badge tone={STATUS_TONE[t.status] ?? "neutral"}>{t.status}</Badge>}
                   </label>

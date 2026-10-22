@@ -8,7 +8,7 @@ import "server-only";
 import { examScope, resultSubjects, type ExamScope } from "../../exams/scope";
 import { papersFor } from "../../exams/marks";
 import { classRange } from "../../exams/common";
-import { addDays, dayWord, n, plural, someNames } from "../common";
+import { addDays, dayWord, dueWord, n, plural, someNames } from "../common";
 import type { AgendaItem, AttentionItem, BarRow, DashContext, Widget } from "../types";
 
 const BASE = "/examination-results";
@@ -112,12 +112,14 @@ const marksDue: Widget<"attention"> = {
     const late = papers.filter((p) => p.due && p.due < c.today);
     const exams = [...new Set(papers.map((p) => p.examId))];
     const own = v.scope.teaches !== null;
+    // The earliest due date of the papers shown (the late ones first).
+    const due = papers.map((p) => p.due).filter((d): d is Date => Boolean(d)).sort((a, b) => a.getTime() - b.getTime())[0];
     return {
       id: own ? "exams.my-marks-due" : "exams.marks-due", tone: late.length ? "bad" : "warn", icon: "ClipboardCheck",
       title: late.length
         ? `${plural(late.length, "paper")} ${own ? "of yours " : ""}past the marks due date`
         : `${plural(papers.length, "paper")} ${own ? "of yours " : ""}waiting for marks`,
-      detail: someNames(papers.map((p) => `${p.subjectName} ${p.sectionLabel}`), 3) + (papers[0].due ? ` · due ${dayWord(papers[0].due, c.today).toLowerCase()}` : ""),
+      detail: someNames(papers.map((p) => `${p.subjectName} ${p.sectionLabel}`), 3) + (due ? ` · ${dueWord(due, c.today)}` : ""),
       action: own ? "Enter marks" : "See papers",
       href: `${BASE}/marks${exams.length === 1 ? `?exam=${exams[0]}` : ""}`, value: `${papers.length}:${late.length}`,
     };

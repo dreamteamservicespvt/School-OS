@@ -13,6 +13,7 @@ import { SheetForm, useTyped } from "@/components/ui/url-sheet";
 import { cx } from "@/components/ui/cx";
 import { Text } from "../sheets";
 import { attendanceAction, cancelClassAction, materialAction, recordingAction, scheduleClassAction } from "./actions";
+import { KeepCheck, KeepSelect } from "@/components/ui/keep-select";
 
 export type OcSection = { id: string; label: string; subjects: { id: string; name: string }[] };
 
@@ -30,14 +31,14 @@ export function ScheduleSheet({ closeHref, sections, start }: { closeHref: strin
       hidden={{ sectionId: section?.id ?? "", subjectId }} submitLabel={<><CalendarPlus size={16} aria-hidden="true" />Schedule</>} pendingText="Scheduling…">
       <div className="grid grid-cols-2 gap-3">
         <FieldShell label="Class and section" id="oc-cls" required>
-          <select id="oc-cls" value={section?.id} onChange={(e) => { setSectionId(e.target.value); const n = sections.find((x) => x.id === e.target.value); if (n && !n.subjects.some((x) => x.id === subjectId)) setSubjectId(n.subjects[0]?.id ?? ""); }} className={cx(inputCls(), "h-11")}>
+          <KeepSelect id="oc-cls" value={section?.id} onChange={(e) => { setSectionId(e.target.value); const n = sections.find((x) => x.id === e.target.value); if (n && !n.subjects.some((x) => x.id === subjectId)) setSubjectId(n.subjects[0]?.id ?? ""); }} className={cx(inputCls(), "h-11")}>
             {sections.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}
-          </select>
+          </KeepSelect>
         </FieldShell>
         <FieldShell label="Subject" id="oc-sub" required>
-          <select id="oc-sub" value={subjectId} onChange={(e) => setSubjectId(e.target.value)} className={cx(inputCls(), "h-11")}>
+          <KeepSelect id="oc-sub" value={subjectId} onChange={(e) => setSubjectId(e.target.value)} className={cx(inputCls(), "h-11")}>
             {section?.subjects.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
-          </select>
+          </KeepSelect>
         </FieldShell>
       </div>
       <Text name="title" label="Title" placeholder="Half Yearly revision: geometry" help="Optional. Left empty, it is the subject and class." />
@@ -87,7 +88,7 @@ export function AttendanceSheet({ closeHref, id, title, roster }: { closeHref: s
         {roster.map((r) => (
           <li key={r.id}>
             <label className="flex items-center gap-3 py-2 cursor-pointer">
-              <input type="checkbox" name="joined" value={r.id} checked={on.has(r.id)} className="size-4"
+              <KeepCheck type="checkbox" name="joined" value={r.id} checked={on.has(r.id)} className="size-4"
                 onChange={(e) => setOn((x) => { const n = new Set(x); if (e.target.checked) n.add(r.id); else n.delete(r.id); return n; })} />
               <Avatar name={r.name} size={28} /><span className="flex-1 text-[14px]">{r.name}</span>
             </label>

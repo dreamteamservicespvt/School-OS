@@ -14,7 +14,7 @@ import { AdmissionProblem } from "./act";
 import { requireFull, type Viewer } from "./access";
 import { activity, loadApplication } from "./applications";
 import { messageParent } from "./notify-parents";
-import { logCodeSentBy } from "../dev-codes";
+import { channelInTestMode, channelWord, codeNotSentParentWords, codeNotSentWords, logCodeSentBy, PARENT_CODE_NOT_SENT } from "../dev-codes";
 
 export const DATA_CONSENT = "data-processing";
 export const PHOTO_CONSENT = "photo";
@@ -53,7 +53,7 @@ function hashCode(id: string, code: string) {
 type Deliver = (phone: string, text: string) => Promise<boolean>;
 
 /** Sends a new one-time code to a parent's mobile for one purpose (ending any earlier one). */
-export async function startOtp(tx: Tx, ctx: SchoolContext, input: { phone: string; purpose: string; schoolName: string; about: { recordType: "Application" | "Enquiry"; recordId: string } | null }, opts: { now?: Date; deliver?: Deliver } = {}) {
+export async function startOtp(tx: Tx, ctx: SchoolContext, input: { phone: string; purpose: string; schoolName: string; about: { recordType: "Application" | "Enquiry"; recordId: string } | null }, opts: { now?: Date; deliver?: Deliver; forParent?: boolean } = {}) {
   const now = opts.now ?? new Date();
   if (!/^[6-9]\d{9}$/.test(input.phone)) throw new AdmissionProblem("Give a 10-digit Indian mobile number for the code.", "phone");
   const limit = await hitLimit(`admission-otp:${ctx.schoolId}:${input.phone}`, OTP_MAX_SENDS, 900, now);
@@ -63,15 +63,33 @@ export async function startOtp(tx: Tx, ctx: SchoolContext, input: { phone: strin
   const row = await tx.admissionOtp.create({ data: { schoolId: ctx.schoolId, phone: input.phone, purpose: input.purpose, codeHash: "pending", expiresAt: new Date(now.getTime() + OTP_TTL_MS) } });
   await tx.admissionOtp.update({ where: { id: row.id }, data: { codeHash: hashCode(row.id, code) } });
   const text = `${code} is your code to confirm consent for admission at ${input.schoolName}. It works for 10 minutes. Do not share it with anyone else.`;
+  const sentTo = `•••••${input.phone.slice(-4)}`;
   if (opts.deliver) {
     if (!(await opts.deliver(input.phone, text))) throw new AdmissionProblem("The code could not be sent just now. Please try again in a minute.");
-  } else {
-    const r = await messageParent(tx, ctx, { to: { name: "Parent", phone: input.phone }, template: "admission-consent-code", channel: "sms", text, secret: true, about: input.about ?? { recordType: "Application", recordId: input.purpose } });
-    // Say why (for example no SMS set up), so the office does not blame the parent's number.
-    if (r.status !== "queued") throw new AdmissionProblem(r.status === "skipped" && r.note ? `The code could not be sent. ${r.note}.` : "The code could not be sent to this number.");
-    await logCodeSentBy(tx, ctx, r.channel, { to: input.phone, purpose: "admission consent", code });
+    return { sentTo, channel: "sms", testMode: false, inLog: false };
   }
-  return { sentTo: `•••••${input.phone.slice(-4)}` };
+  const r = await messageParent(tx, ctx, { to: { name: "Parent", phone: input.phone }, template: "admission-consent-code", channel: "sms", text, secret: true, about: input.about ?? { recordType: "Application", recordId: input.purpose } });
+  // Say why (for example no SMS set up), so the office does not blame the parent's number.
+  // A parent (online form) is never shown staff words or settings paths.
+  if (r.status !== "queued") throw new AdmissionProblem(opts.forParent ? PARENT_CODE_NOT_SENT : r.status === "skipped" && r.note ? `The code could not be sent. ${r.note}.` : "The code could not be sent to this number.");
+  // Test mode only records the message: the screen must not say "Code sent" (QA ADMIT-03).
+  const testMode = await channelInTestMode(tx, ctx, r.channel);
+  const inLog = await logCodeSentBy(tx, ctx, r.channel, { to: input.phone, purpose: "admission consent", code });
+  return { sentTo, channel: r.channel, testMode, inLog };
+}
+
+/**
+ * What the parent's online form says once startOtp has run. A code Test mode kept back
+ * is refused (ok false) except on a tester's computer, where the code is in the server log.
+ */
+export function otpSentParentWords(r: { channel: string; testMode: boolean; inLog: boolean }, to: string): { ok: boolean; message: string } {
+  if (r.testMode) return { ok: r.inLog, message: codeNotSentParentWords(r.inLog) };
+  return { ok: true, message: `Code sent to ${to} by ${channelWord(r.channel)}. It works for 10 minutes.` };
+}
+
+/** What the screen says once startOtp has run: sent, and how, or kept back by Test mode. */
+export function otpSentWords(r: { channel: string; testMode: boolean; inLog: boolean }, to: string): string {
+  return r.testMode ? codeNotSentWords({ to, channel: r.channel, inLog: r.inLog }) : `Code sent to ${to} by ${channelWord(r.channel)}. It works for 10 minutes.`;
 }
 
 export type OtpResult = { ok: true } | { ok: false; message: string };

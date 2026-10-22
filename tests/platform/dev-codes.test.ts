@@ -113,6 +113,8 @@ describe("codes and links sent through the school's channels", () => {
     watchLog();
     const r = await deliverCodeTo({ email: null, phone: "+91 98765 43210", name: "Phone Principal", schoolId: s.school.id, userLoginId: person.id, key: `dev-codes-${person.id}`.slice(0, 40) }, "112233");
     expect(r).toMatchObject({ channel: "sms" });
+    // The sign-in page must not say the code went to the phone (QA ADMIT-03).
+    expect((r as { sentTo: string }).sentTo).toMatch(/^the server log \(Test mode, not sent to .+ by SMS\)$/);
     expect(devLines()).toEqual(["[dev] one-time code for xxxxxx3210 (sign-in): 112233"]);
   });
 

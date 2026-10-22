@@ -13,6 +13,7 @@ import { FieldShell, type Option } from "@/components/ui/field";
 import { Banner } from "@/components/ui/blocks";
 import { cx } from "@/components/ui/cx";
 import type { FormState } from "@/lib/forms";
+import { KeepCheck } from "@/components/ui/keep-select";
 
 type Action = (prev: FormState, fd: FormData) => Promise<FormState>;
 /** Prices in rupees for the sheet's own sums. */
@@ -40,7 +41,7 @@ function PlanCards({ plan, setPlan, prices }: { plan: string; setPlan: (p: strin
 function HostelBox({ on, setOn, price }: { on: boolean; setOn: (v: boolean) => void; price: number }) {
   return (
     <label className="flex items-center gap-3 rounded-xl border border-line p-3.5 cursor-pointer">
-      <input type="checkbox" name="hostel" checked={on} onChange={(e) => setOn(e.target.checked)} className="size-5 accent-brand" />
+      <KeepCheck type="checkbox" name="hostel" checked={on} onChange={(e) => setOn(e.target.checked)} className="size-5 accent-brand" />
       <span className="flex-1 text-[14px]"><b className="font-semibold">Hostel add-on</b><span className="block text-[12.5px] text-ink3">{inr(price)} per school a year</span></span>
     </label>
   );

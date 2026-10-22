@@ -6,6 +6,7 @@
 // subject teachers see only their own subjects (owner's rules, 12 Oct 2026).
 import { beforeAll, describe, expect, it } from "vitest";
 import { buildHome } from "@/lib/dashboard/compose";
+import { dueWord } from "@/lib/dashboard/common";
 import type { Panel } from "@/lib/dashboard/types";
 import type { Current } from "@/lib/current";
 import { academicSchool, d } from "../academic/fixture";
@@ -82,6 +83,17 @@ describe("exams.marks-due", () => {
   it("the Principal sees every paper of this school, none of another's", async () => {
     const a = att(await buildHome(principal, { now: NOW }), "exams.marks-due");
     expect(a?.title).toBe("5 papers waiting for marks");
+  });
+});
+
+describe("due dates on the marks card (QA ADMIT-04)", () => {
+  const today = new Date("2026-10-22T00:00:00Z"); // a Thursday
+  it("reads like the rest of the Dashboard, never a lowercase weekday with a bare day number", () => {
+    expect(dueWord(today, today)).toBe("due today");
+    expect(dueWord(new Date("2026-10-23T00:00:00Z"), today)).toBe("due tomorrow");
+    expect(dueWord(new Date("2026-10-26T00:00:00Z"), today)).toBe("due Mon");
+    expect(dueWord(new Date("2026-10-19T00:00:00Z"), today)).toBe("due Mon 19 Oct");
+    expect(dueWord(new Date("2026-11-05T00:00:00Z"), today)).toBe("due Thu 5 Nov");
   });
 });
 

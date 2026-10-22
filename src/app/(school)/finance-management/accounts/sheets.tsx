@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { inputCls, type Option } from "@/components/ui/field";
 import { cx } from "@/components/ui/cx";
 import { journalAction } from "./actions";
+import { KeepSelect } from "@/components/ui/keep-select";
 
 const inr = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
 const num = (s: string) => Number(s.replace(/[^\d.]/g, "")) || 0;
@@ -28,10 +29,10 @@ export function JournalSheet({ closeHref, today, heads }: { closeHref: string; t
         <p className="text-[13px] font-semibold text-ink2">Lines</p>
         {lines.map((l, i) => (
           <div key={l.k} className="grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_140px_auto] gap-2 items-center">
-            <select name="lineHead" aria-label={`Account, line ${i + 1}`} value={l.head} onChange={(e) => set(l.k, { head: e.target.value })} className={cx(inputCls(), "h-11")}>
+            <KeepSelect name="lineHead" aria-label={`Account, line ${i + 1}`} value={l.head} onChange={(e) => set(l.k, { head: e.target.value })} className={cx(inputCls(), "h-11")}>
               <option value="">Choose an account</option>
               {heads.map((h) => <option key={h.value} value={h.value}>{h.label}</option>)}
-            </select>
+            </KeepSelect>
             <input type="hidden" name="lineSide" value={l.side} />
             <Segmented label={`Side, line ${i + 1}`} value={l.side} onChange={(v) => set(l.k, { side: v as "Dr" | "Cr" })} options={[{ value: "Dr", label: "Debit" }, { value: "Cr", label: "Credit" }]} />
             <input name="lineAmount" inputMode="decimal" aria-label={`Amount, line ${i + 1}`} value={l.amt} onChange={(e) => set(l.k, { amt: e.target.value })} placeholder="₹" className={cx(inputCls(), "h-11 tnum")} />

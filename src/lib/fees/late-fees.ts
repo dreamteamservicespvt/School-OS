@@ -11,6 +11,7 @@ import { addDays, DAY_MS } from "../staff/dates";
 import { formatDate, formatRupees } from "../format";
 import { refreshBalances } from "./dues";
 import { feeSettings, type FeeSettings } from "./settings";
+import { moveInGoLive } from "../move-in/live";
 
 /** The late fee for a row on a day: 0 inside the grace period. */
 export function lateFeeFor(s: Pick<FeeSettings, "lateFeeOn" | "lateFeeType" | "lateFeePaise" | "lateFeePercentBp" | "graceDays" | "lateFeeMaxPaise">, d: Pick<StudentFeeDue, "dueDate" | "balancePaise">, today: Date): bigint {
@@ -28,6 +29,9 @@ export function lateFeeFor(s: Pick<FeeSettings, "lateFeeOn" | "lateFeeType" | "l
 /**
  * Adds or grows late fee rows for every overdue row past the grace period.
  * One late fee row per row; per-day late fees grow until the row is paid.
+ * For a school that moved in from old software, days before the go-live date
+ * are never counted: those months were the old software's, and any late fee
+ * it charged came in with the old dues (workflow 15).
  * Returns how many rows were added and grown.
  */
 export async function addLateFees(tx: Tx, ctx: SchoolContext, today: Date) {
@@ -43,10 +47,11 @@ export async function addLateFees(tx: Tx, ctx: SchoolContext, today: Date) {
   });
   const existing = await tx.studentFeeDue.findMany({ where: { kind: "LATE_FEE", parentDueId: { in: overdue.map((d) => d.id) } } });
   const byParent = new Map(existing.map((e) => [e.parentDueId!, e]));
+  const goLive = await moveInGoLive(tx, ctx);
   let added = 0, grown = 0;
   for (const d of overdue) {
     if (!allowed.has(d.feeHeadId)) continue;
-    const fee = lateFeeFor(s, d, today);
+    const fee = lateFeeFor(s, goLive && d.dueDate < goLive ? { ...d, dueDate: goLive } : d, today);
     if (fee <= BigInt(0)) continue;
     const row = byParent.get(d.id);
     if (!row) {

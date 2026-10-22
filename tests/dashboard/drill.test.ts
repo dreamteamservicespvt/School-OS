@@ -12,6 +12,7 @@ import { attendanceAccess } from "@/lib/attendance/access";
 import { attendanceSettings } from "@/lib/attendance/settings";
 import { registerWhole } from "@/lib/attendance/classwise";
 import { staffDay, staffDayCounts } from "@/lib/attendance/staff";
+import { readReportInput, runReport, type ReportKey } from "@/lib/attendance/reports";
 import { feeViewer } from "@/lib/fees/access";
 import { recentPayments } from "@/lib/fees/dashboard";
 import { defaulters } from "@/lib/fees/defaulters";
@@ -74,7 +75,7 @@ describe("attendance tiles open lists with the same numbers", () => {
       const list = await registerList(f.who[key]);
       expect(num(tile.big), key).toBe(list.present);
       expect(num(tile.of!), key).toBe(list.markedStudents);
-      expect(tile.foot, key).toContain(`${list.absent} absent, ${list.late} late`);
+      expect(tile.foot, key).toContain(`${list.absent} absent`);
     }
     // Main 5 A: 3 present (one late) and 1 absent; the student who left is not on the register. North: 2 present, 1 absent.
     expect(band(await home("principal"), "attendance.students-present")!.big).toBe("5");
@@ -89,6 +90,27 @@ describe("attendance tiles open lists with the same numbers", () => {
     expect(tile.big).toBe("Not taken");
     expect(list.markedSections).toBe(0);
     expect(list.sections).toBeGreaterThan(0);
+  });
+
+  it("absent days in a row and below the threshold: the Chronic absence report it opens lists the same students (one who left is not counted)", async () => {
+    for (const key of ["principal", "northAdmin", "classTeacher"] as const) {
+      const h = await home(key);
+      for (const id of ["attendance.absent-streak", "attendance.below-threshold"]) {
+        const a = card(h, id);
+        if (!a) continue;
+        expect(pathOf(a.href), `${key} ${id}`).toBe("/attendance-management/reports");
+        const sp = paramsOf(a.href);
+        const rows = await read(f.who[key], async (tx) => {
+          const settings = await attendanceSettings(tx, f.who[key].ctx);
+          const access = await attendanceAccess(tx, f.who[key].ctx, f.who[key], settings.lockOverrideRoles);
+          return (await runReport(tx, f.who[key].ctx, access, readReportInput((k) => sp[k], TODAY, ["chronic" as ReportKey]))).rows;
+        });
+        expect(num(a.value), `${key} ${id}`).toBe(rows.length);
+      }
+    }
+    expect(card(await home("principal"), "attendance.absent-streak")!.value).toBe("2");
+    expect(card(await home("northAdmin"), "attendance.absent-streak")!.value).toBe("1");
+    expect(card(await home("classTeacher"), "attendance.absent-streak")!.value).toBe("1");
   });
 
   it("staff present: Staff Attendance shows the same present of the same staff", async () => {

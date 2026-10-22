@@ -17,7 +17,7 @@ import { staffDay, staffDayCounts } from "../../attendance/staff";
 import { schoolDays } from "../../attendance/calendar";
 import { classWise, registerWhole } from "../../attendance/classwise";
 import { ON_REGISTER_STATUSES } from "../../attendance/on-register";
-import { OPEN_ATTENDANCE_FLAG } from "../../attendance/flags";
+import { chronicFlags, type FlagKind } from "../../attendance/reports";
 import { reportAccess } from "../../reports/access";
 import { addDays, campusStudents, iso, moduleOpen, n, plural, reach } from "../common";
 import type { AttentionItem, BarRow, DashContext, Viewer, Widget } from "../types";
@@ -89,7 +89,9 @@ const studentsPresent: Widget<"band"> = {
     return {
       id: "attendance.students-present", label: "Students present", big: n(t.present), of: `/ ${n(t.markedStudents)}`,
       ring: t.percent ?? undefined,
-      foot: `${pctText} · ${n(t.absent)} absent, ${n(t.late)} late${t.notMarkedSections ? ` · ${plural(t.notMarkedSections, "class", "classes")} not marked` : ""}`,
+      foot: t.notMarkedSections
+        ? `${pctText} of marked · ${n(t.absent)} absent · ${plural(t.notMarkedSections, "class", "classes")} not marked`
+        : `${pctText} · ${n(t.absent)} absent, ${n(t.late)} late`,
       href,
     };
   },
@@ -183,22 +185,24 @@ const leaveWaiting: Widget<"band"> = {
   },
 };
 
-async function flagCard(c: DashContext, kind: "absent-streak" | "below-threshold"): Promise<AttentionItem | null> {
+/**
+ * Students with an open Attendance Flag of this kind: the Chronic absence
+ * report's own list (chronicFlags), filtered to the kind, which the card
+ * opens; the flags are reviewed in Early Warnings, for the people who see it.
+ */
+async function flagCard(c: DashContext, kind: FlagKind): Promise<AttentionItem | null> {
   const a = await access(c);
   if (a.students === "none") return null;
-  const own = a.students === "all" ? await campusStudents(c) : await ownStudents(c, a);
-  if (own && own.length === 0) return null;
-  // Reviewed in Early Warnings, for the people who see it; the Chronic absence report otherwise.
   const warnings = moduleOpen(c.viewer, "reports-analytics") && reportAccess(c.viewer).warnings.on;
   // People who see Early Warnings count these children on its card (students who need a closer look), once.
   if (kind === "below-threshold" && warnings) return null;
-  const flags = await c.tx.attendanceFlag.findMany({ where: { kind, ...OPEN_ATTENDANCE_FLAG, ...(own ? { studentId: { in: own } } : {}) }, select: { studentId: true, status: true } });
-  const count = new Set(flags.map((f) => f.studentId)).size;
+  const { flags } = await chronicFlags(c.tx, a, kind);
+  const count = flags.length;
   if (count === 0) return null;
   const s = await settings(c);
-  const notReviewed = new Set(flags.filter((f) => f.status === "NEW").map((f) => f.studentId)).size;
-  const review = warnings && notReviewed ? ` ${notReviewed} not reviewed yet.` : "";
-  const href = warnings ? "/reports-analytics/early-warnings?area=attendance" : `${BASE}/reports?report=chronic`;
+  const notReviewed = flags.filter((f) => f.status === "NEW").length;
+  const review = warnings && notReviewed ? ` ${notReviewed} not reviewed yet in Early Warnings.` : "";
+  const href = `${BASE}/reports?report=chronic&flag=${kind}`;
   return kind === "absent-streak"
     ? {
         id: "attendance.absent-streak", tone: "warn", icon: "UserX",

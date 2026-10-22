@@ -115,6 +115,13 @@ export async function drillSchool() {
       await tx.attendanceMark.create({ data: { schoolId: sid, staffId: s.id, date: TODAY, statusKey: k } });
     }
 
+    // Attendance concerns: Ishaan (5 A) absent 3 days in a row, as is the student who left; Nisha (North) below the threshold.
+    const flag = (studentId: string, kind: string, value: number) => tx.attendanceFlag.create({ data: { schoolId: sid, studentId, kind, value, raisedOn: day("2026-10-09") } });
+    await flag(kids.a3.id, "absent-streak", 3);
+    await flag(kids.left.id, "absent-streak", 5);
+    await flag(kids.n3.id, "below-threshold", 62);
+    await flag(kids.n3.id, "absent-streak", 3);
+
     // Fees: one head, dues per student; the first installment (1 July) is overdue.
     await ensureFeeDefaults(tx, ctx);
     await ensureFinanceDefaults(tx, ctx);

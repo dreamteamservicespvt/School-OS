@@ -28,6 +28,7 @@ import { EditDetails, NotePrefsTable, PasswordButton, TwoStepRow } from "./parts
 import { LanguageChoice } from "./language-choice";
 import { getT } from "@/lib/i18n/server";
 import { cleanLang, isLang, schoolLanguages } from "@/lib/i18n/languages";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "My profile" };
 
@@ -96,12 +97,12 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
       <div className="flex flex-col gap-5 lg:gap-6">
         {twoStepOn && params.twoStep === "add" && (
           <Alert tone="warning" title="Your role needs two-step login, but no one-time code can reach you yet">
-            You signed in with your password only this time. {cannotReach ?? "The sign-in code could not be sent (for example, the school's SMS has no credits left). Ask your School Admin."}
+            <Words k="You signed in with your password only this time." /> {cannotReach ?? "The sign-in code could not be sent (for example, the school's SMS has no credits left). Ask your School Admin."}
           </Alert>
         )}
         {withoutOld && params.newPassword === "1" && (
           <Alert tone="info" title="You signed in with a one-time code">
-            If you forgot your password, press Set a new password under Password and sign-in. Your old password is not needed for the next 30 minutes.
+            <Words k="If you forgot your password, press Set a new password under Password and sign-in. Your old password is not needed for the next 30 minutes." />
           </Alert>
         )}
         <Card>
@@ -114,7 +115,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                 <div className="flex gap-1.5 mt-1.5 flex-wrap">
                   {roleNames[0] && <Pill tone="brand">{roleNames[0]}</Pill>}
                   {staff && <Pill tone="neutral"><span className="font-mono text-[11.5px]">{staff.staffCode}</span></Pill>}
-                  {twoStepOn && <Pill tone="ok"><I.ShieldCheck size={13} aria-hidden="true" />Two-step login on</Pill>}
+                  {twoStepOn && <Pill tone="ok"><I.ShieldCheck size={13} aria-hidden="true" /><Words k="Two-step login on" /></Pill>}
                 </div>
               </div>
             </div>
@@ -149,7 +150,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
               <div className="divide-y divide-line/70 border-t border-line/70">
                 <div className="flex items-center gap-3 px-5 py-3.5">
                   <div className="min-w-0 flex-1 text-[14px]">
-                    <b className="font-semibold block">Password</b>
+                    <b className="font-semibold block"><Words k="Password" /></b>
                     <span className="block text-[12.5px] text-ink3">{u.passwordChangedAt ? `Last changed ${formatDate(u.passwordChangedAt)}` : "Set when you accepted your invite"}</span>
                   </div>
                   <PasswordButton withoutOld={withoutOld} />
@@ -168,13 +169,13 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                     <li key={s.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sunken/60">
                       <span className="w-10 h-10 rounded-xl bg-sunken text-ink2 grid place-items-center shrink-0"><d.icon size={19} aria-hidden="true" /></span>
                       <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-[14px] truncate">{d.name}{me && <Pill tone="brand" className="!h-5 !text-[11px] ml-2 align-middle">This device</Pill>}</p>
+                        <p className="font-semibold text-[14px] truncate">{d.name}{me && <Pill tone="brand" className="!h-5 !text-[11px] ml-2 align-middle"><Words k="This device" /></Pill>}</p>
                         <p className="text-[12.5px] text-ink3 truncate">{me ? "Active now" : `Last used ${formatDateTime(s.lastUsedAt, tz)}`}{s.ipAddress ? ` · ${s.ipAddress}` : ""}</p>
                       </div>
                       {!me && (
                         <form action={signOutDevice}>
                           <input type="hidden" name="sessionId" value={s.id} />
-                          <button type="submit" className="h-8 px-3 rounded-lg text-[13px] font-semibold text-ink2 hover:bg-sunken hover:text-ink">Sign out</button>
+                          <button type="submit" className="h-8 px-3 rounded-lg text-[13px] font-semibold text-ink2 hover:bg-sunken hover:text-ink"><Words k="Sign out" /></button>
                         </form>
                       )}
                     </li>
@@ -185,15 +186,15 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                 <div className="px-5 pb-4 pt-1">
                   <ConfirmButton trigger="Sign out everywhere else" triggerVariant="danger-soft" title="Sign out everywhere else?"
                     confirmLabel={`Sign out ${others} device${others === 1 ? "" : "s"}`} confirmVariant="danger" onConfirm={signOutOthers}>
-                    You are signed out on {others} other device{others === 1 ? "" : "s"}. You stay signed in here. Your password is needed to sign in there again{twoStepOn ? ", and the one-time code" : ""}.
+                    <Words k="You are signed out on" /> {others} <Words k="other device" />{others === 1 ? "" : "s"}<Words k=". You stay signed in here. Your password is needed to sign in there again" />{twoStepOn ? ", and the one-time code" : ""}.
                   </ConfirmButton>
                 </div>
               )}
               {remembered.length > 0 && (
                 <div className="border-t border-line/70">
                   <div className="px-5 pt-4 pb-1">
-                    <h3 className="font-semibold text-[14px]">Remembered devices</h3>
-                    <p className="text-[12.5px] text-ink3">These do not ask for the one-time code when you sign in with your password. Signing out on a device forgets it. A device not used for {REMEMBER_DAYS} days is forgotten.</p>
+                    <h3 className="font-semibold text-[14px]"><Words k="Remembered devices" /></h3>
+                    <p className="text-[12.5px] text-ink3"><Words k="These do not ask for the one-time code when you sign in with your password. Signing out on a device forgets it. A device not used for" /> {REMEMBER_DAYS} <Words k="days is forgotten." /></p>
                   </div>
                   <ul className="px-2 pb-2">
                     {remembered.map((r) => {
@@ -203,12 +204,12 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                         <li key={r.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sunken/60">
                           <span className="w-10 h-10 rounded-xl bg-sunken text-ink2 grid place-items-center shrink-0"><d.icon size={19} aria-hidden="true" /></span>
                           <div className="min-w-0 flex-1">
-                            <p className="font-semibold text-[14px] truncate">{d.name}{here && <Pill tone="brand" className="!h-5 !text-[11px] ml-2 align-middle">This device</Pill>}</p>
-                            <p className="text-[12.5px] text-ink3 truncate">Remembered {formatDate(r.createdAt)} · last used {formatDateTime(r.lastUsedAt, tz)}</p>
+                            <p className="font-semibold text-[14px] truncate">{d.name}{here && <Pill tone="brand" className="!h-5 !text-[11px] ml-2 align-middle"><Words k="This device" /></Pill>}</p>
+                            <p className="text-[12.5px] text-ink3 truncate"><Words k="Remembered" /> {formatDate(r.createdAt)} <Words k="· last used" /> {formatDateTime(r.lastUsedAt, tz)}</p>
                           </div>
                           <form action={forgetRemembered}>
                             <input type="hidden" name="deviceId" value={r.id} />
-                            <button type="submit" className="h-8 px-3 rounded-lg text-[13px] font-semibold text-ink2 hover:bg-sunken hover:text-ink">Forget</button>
+                            <button type="submit" className="h-8 px-3 rounded-lg text-[13px] font-semibold text-ink2 hover:bg-sunken hover:text-ink"><Words k="Forget" /></button>
                           </form>
                         </li>
                       );
@@ -249,7 +250,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                   <I.Palette size={18} className="text-ink3" aria-hidden="true" />{t("Colours and text size")}<I.ChevronRight size={16} className="text-ink3 ml-auto" aria-hidden="true" />
                 </Link>
                 {current.schools.length > 1 && (
-                  <p className="flex items-center gap-3 px-3 h-11 text-[14px] text-ink3"><I.Building2 size={18} aria-hidden="true" />{current.schools.length} schools: switch from your name at the top</p>
+                  <p className="flex items-center gap-3 px-3 h-11 text-[14px] text-ink3"><I.Building2 size={18} aria-hidden="true" />{current.schools.length} <Words k="schools: switch from your name at the top" /></p>
                 )}
                 <form action={signOut}>
                   <button type="submit" className="w-full flex items-center gap-3 px-3 h-11 rounded-xl hover:bg-sunken text-[14px] font-medium text-left text-bad">

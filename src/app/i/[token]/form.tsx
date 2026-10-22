@@ -10,6 +10,7 @@ import { inputCls } from "@/components/ui/field";
 import { cx } from "@/components/ui/cx";
 import { OtpBoxes } from "@/app/console/sign-in/form";
 import { finishInviteAction, sendInviteCodeAction, type FinishState, type SendState } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 export function SchoolInviteForm({ token, phoneMasked, reset }: { token: string; phoneMasked: string; reset: boolean }) {
   const [sent, setSent] = useState<SendState>(null);
@@ -24,7 +25,7 @@ export function SchoolInviteForm({ token, phoneMasked, reset }: { token: string;
     return (
       <div className="flex flex-col gap-4">
         <Alert tone="danger">{state.message}</Alert>
-        <ButtonLink href="/sign-in" variant="primary" size="lg" className="w-full">Go to sign in</ButtonLink>
+        <ButtonLink href="/sign-in" variant="primary" size="lg" className="w-full"><Words k="Go to sign in" /></ButtonLink>
       </div>
     );
   }
@@ -34,9 +35,9 @@ export function SchoolInviteForm({ token, phoneMasked, reset }: { token: string;
         {sent && !sent.ok && <Alert tone="danger">{sent.message}</Alert>}
         <div className="rounded-xl bg-sunken p-3.5 flex items-center gap-3 text-[14px]">
           <MessageSquareText size={20} className="text-brand shrink-0" aria-hidden="true" />
-          <span>First we send a 6-digit code by SMS to <b className="font-semibold tnum">+91 {phoneMasked}</b>, to check this is your phone.</span>
+          <span><Words k="First we send a 6-digit code by SMS to" /> <b className="font-semibold tnum">+91 {phoneMasked}</b><Words k=", to check this is your phone." /></span>
         </div>
-        <Button variant="primary" size="lg" className="w-full" loading={sending} loadingText="Sending…" onClick={send}>Send the code</Button>
+        <Button variant="primary" size="lg" className="w-full" loading={sending} loadingText="Sending…" onClick={send}><Words k="Send the code" /></Button>
       </div>
     );
   }
@@ -73,12 +74,12 @@ export function SchoolInviteForm({ token, phoneMasked, reset }: { token: string;
         </ul>
       </div>
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="confirm" className="text-[13px] font-semibold text-ink2">Type it again</label>
+        <label htmlFor="confirm" className="text-[13px] font-semibold text-ink2"><Words k="Type it again" /></label>
         <input id="confirm" name="confirm" type={show ? "text" : "password"} autoComplete="new-password" required value={again} onChange={(e) => setAgain(e.target.value)}
           aria-invalid={mismatch || undefined} aria-describedby={mismatch ? "confirm-error" : undefined} className={cx(inputCls(mismatch), "h-11")} />
-        {mismatch && <p id="confirm-error" className="text-[12.5px] text-bad">The two passwords are not the same yet.</p>}
+        {mismatch && <p id="confirm-error" className="text-[12.5px] text-bad"><Words k="The two passwords are not the same yet." /></p>}
       </div>
-      <Button type="submit" variant="primary" size="lg" className="w-full mt-1" loading={pending} loadingText="Saving…" disabled={!ready}>Save password and sign in</Button>
+      <Button type="submit" variant="primary" size="lg" className="w-full mt-1" loading={pending} loadingText="Saving…" disabled={!ready}><Words k="Save password and sign in" /></Button>
       <button type="button" disabled={sending} onClick={send} className="h-10 self-start text-[14px] font-semibold text-brand hover:underline disabled:opacity-60">{sending ? "Sending…" : "Send a new code"}</button>
     </form>
   );

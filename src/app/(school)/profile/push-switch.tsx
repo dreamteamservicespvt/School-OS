@@ -10,6 +10,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { Switch } from "@/components/ui/controls";
 import { Toast } from "@/components/ui/toast";
 import { removePushDevice, savePushDevice } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 export type PushWebConfig = { apiKey: string; projectId: string; messagingSenderId: string; appId: string; vapidKey: string | null };
 
@@ -116,7 +117,7 @@ export function PushSwitch({ config, schoolAllows }: { config: PushWebConfig | n
   return (
     <div className="flex items-start gap-3 px-5 py-3.5 border-t border-line">
       <div className="min-w-0 flex-1">
-        <p className="font-semibold text-[14px]">Push alerts on this device</p>
+        <p className="font-semibold text-[14px]"><Words k="Push alerts on this device" /></p>
         <p className="text-[12.5px] text-ink3">{help}</p>
       </div>
       <Switch on={on} onChange={(v) => void flip(v)} label="Push alerts on this device" disabled={busy || state !== "ok"} />

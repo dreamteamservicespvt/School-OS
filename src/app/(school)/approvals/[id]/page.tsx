@@ -18,6 +18,7 @@ import { Avatar } from "@/components/ui/avatar";
 import * as I from "lucide-react";
 import { DecisionBar } from "./decision-bar";
 import { schoolRoles } from "@/lib/school-roles";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Request" };
 
@@ -64,12 +65,12 @@ export default async function ApprovalPage({ params }: { params: Promise<{ id: s
   return (
     <div className="pb-32 sm:pb-0">
       <PageHeader title={a.summary} href={`/approvals/${a.id}`} userId={current.user.id}
-        crumbs={<><Link href="/approvals" className="font-semibold text-brand hover:underline">Approvals</Link><I.ChevronRight size={14} aria-hidden="true" /><span>{requestLabel(a.type)}</span></>}>
+        crumbs={<><Link href="/approvals" className="font-semibold text-brand hover:underline"><Words k="Approvals" /></Link><I.ChevronRight size={14} aria-hidden="true" /><span>{requestLabel(a.type)}</span></>}>
         <Badge tone={status.tone}>{status.label}</Badge>
       </PageHeader>
       <div className="space-y-5">
-        {open && mine && <Alert tone="info">This is your request, so you cannot approve it. It is waiting for {waitingFor === "You" ? "you" : waitingFor}.</Alert>}
-        {open && !mine && !mayDecide && <Alert tone="info">This request is waiting for {waitingFor}. You can see it but not decide it.</Alert>}
+        {open && mine && <Alert tone="info"><Words k="This is your request, so you cannot approve it. It is waiting for" /> {waitingFor === "You" ? "you" : waitingFor}.</Alert>}
+        {open && !mine && !mayDecide && <Alert tone="info"><Words k="This request is waiting for" /> {waitingFor}<Words k=". You can see it but not decide it." /></Alert>}
         {!open && a.decisionReason && <Alert tone={a.status === "APPROVED" ? "success" : "warning"} title={status.label}>{a.decisionReason}</Alert>}
         <Card>
           <div className="flex items-center gap-3 px-5 pt-5 pb-1">
@@ -77,7 +78,7 @@ export default async function ApprovalPage({ params }: { params: Promise<{ id: s
             <div className="min-w-0 flex-1">
               <p className="font-semibold text-[15px] truncate">{name(a.askedById)}</p>
               {job && <p className="text-[13px] text-ink2">{job}</p>}
-              <p className="text-[13px] text-ink3 tnum">Asked {formatDateTime(a.createdAt, tz)}</p>
+              <p className="text-[13px] text-ink3 tnum"><Words k="Asked" /> {formatDateTime(a.createdAt, tz)}</p>
             </div>
             {a.amountPaise !== null && <p className="font-display text-xl font-semibold tnum">{formatRupees(a.amountPaise)}</p>}
           </div>
@@ -99,7 +100,7 @@ export default async function ApprovalPage({ params }: { params: Promise<{ id: s
               {step && <Detail label="Step">{step}</Detail>}
               {facts.map((f) => <Detail key={f.label} label={f.label}>{f.value}</Detail>)}
             </dl>
-            {a.reason && <div className="mt-4 rounded-xl bg-sunken/60 px-4 py-3"><p className="text-[12.5px] text-ink3">Reason given</p><p className="whitespace-pre-line text-[14.5px] mt-0.5">{a.reason}</p></div>}
+            {a.reason && <div className="mt-4 rounded-xl bg-sunken/60 px-4 py-3"><p className="text-[12.5px] text-ink3"><Words k="Reason given" /></p><p className="whitespace-pre-line text-[14.5px] mt-0.5">{a.reason}</p></div>}
             {record && <p className="mt-4"><Link href={record.href} className="inline-flex min-h-11 items-center gap-1.5 font-semibold text-brand hover:underline"><I.ExternalLink size={16} aria-hidden="true" />{record.label}</Link></p>}
           </CardBody>
         </Card>

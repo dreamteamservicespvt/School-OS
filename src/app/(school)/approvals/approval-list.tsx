@@ -11,6 +11,7 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/controls";
 import { ConfirmButton } from "@/components/ui/confirm";
 import { bulkApproveAction, decideAction } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 export type ApprovalRow = {
   id: string; summary: string; typeLabel: string; amount: string | null; amountPaise: string | null; askedBy: string; askedByName: string; asked: string;
@@ -66,7 +67,7 @@ export function ApprovalList({ rows }: { rows: ApprovalRow[] }) {
                 router.refresh();
               }}>
               <ul className="max-h-60 list-disc overflow-y-auto pl-5 text-sm">{chosen.map((r) => <li key={r.id}>{r.summary}{r.amount ? `: ${r.amount}` : ""}</li>)}</ul>
-              <p className="mt-2">{totalWords ? `Total ${totalWords}. ` : ""}Each is checked on its own; any that cannot be approved are listed after.</p>
+              <p className="mt-2">{totalWords ? `Total ${totalWords}. ` : ""}<Words k="Each is checked on its own; any that cannot be approved are listed after." /></p>
             </ConfirmButton>
           )}
         </div>
@@ -83,21 +84,21 @@ export function ApprovalList({ rows }: { rows: ApprovalRow[] }) {
               <Avatar name={r.askedBy === "you" ? r.askedByName : r.askedBy} size={42} />
               <Link href={`/approvals/${r.id}`} className="min-w-0 flex-1 group">
                 <p className="font-semibold text-[15px] group-hover:text-brand transition">{r.summary}</p>
-                <p className="text-[13px] text-ink2">Asked by {r.askedBy}{r.job ? <span className="text-ink3">, {r.job}</span> : null}</p>
+                <p className="text-[13px] text-ink2"><Words k="Asked by" /> {r.askedBy}{r.job ? <span className="text-ink3">, {r.job}</span> : null}</p>
                 {r.reason && <p className="text-[13px] text-ink2 line-clamp-2 mt-0.5">“{r.reason}”</p>}
                 {r.facts?.map((f) => <p key={f.label} className="text-[13px] text-ink2 mt-0.5"><span className="text-ink3">{f.label}:</span> {f.value}</p>)}
                 <p className="text-[12.5px] text-ink3 mt-0.5">{r.typeLabel} · {r.asked}{r.waitingFor ? ` · waiting for ${r.waitingFor}` : ""}</p>
                 <span className="flex flex-wrap items-center gap-1.5 mt-1.5">
                   {r.amount && <span className="font-display font-semibold text-[14px] tnum mr-1">{r.amount}</span>}
-                  {r.overdue && <Pill tone="bad">Overdue</Pill>}
+                  {r.overdue && <Pill tone="bad"><Words k="Overdue" /></Pill>}
                   <Pill tone={r.status.tone}>{r.status.label}</Pill>
                 </span>
               </Link>
             </div>
             {r.decidable && (
               <div className="flex gap-2 md:shrink-0 pl-[54px] md:pl-0">
-                <Button variant="soft" icon={Check} loading={busy === r.id} onClick={() => approve(r)}>Approve</Button>
-                <ButtonLink href={`/approvals/${r.id}`} variant="ghost">Decline</ButtonLink>
+                <Button variant="soft" icon={Check} loading={busy === r.id} onClick={() => approve(r)}><Words k="Approve" /></Button>
+                <ButtonLink href={`/approvals/${r.id}`} variant="ghost"><Words k="Decline" /></ButtonLink>
               </div>
             )}
           </li>

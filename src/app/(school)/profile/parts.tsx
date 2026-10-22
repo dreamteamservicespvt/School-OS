@@ -15,6 +15,7 @@ import { cx } from "@/components/ui/cx";
 import { NOTE_CHANNELS, NOTE_CHANNEL_LABEL, type NoteChannel, type NoteKind, type NotePrefs } from "@/lib/notification-kinds";
 import { PasswordForm } from "./password-form";
 import { confirmContactCode, saveMyName, saveNotePrefs, sendContactCode, setTwoStep, type CodeResult, type Result } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 type Say = { n: number; message: string; tone?: "success" | "info" | "danger" } | null;
 function useSay() {
@@ -36,7 +37,7 @@ export function EditDetails({ name, phone, email }: { name: string; phone: strin
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button variant="primary" icon={I.Pencil} onClick={() => setOpen(true)}>Edit details</Button>
+      <Button variant="primary" icon={I.Pencil} onClick={() => setOpen(true)}><Words k="Edit details" /></Button>
       <Dialog open={open} onClose={() => setOpen(false)} title="Edit my details" sub="Your name changes at once. A new mobile number or email needs a one-time code sent to it.">
         <div className="flex flex-col gap-5">
           <NameForm name={name} />
@@ -55,7 +56,7 @@ function NameForm({ name }: { name: string }) {
       <FieldShell label="Full name" id="me-name" required>
         <div className="flex gap-2">
           <input id="me-name" name="name" defaultValue={name} required minLength={2} maxLength={80} autoComplete="name" className={cx(inputCls(), "h-11 flex-1")} />
-          <Button type="submit" variant="secondary" loading={pending}>Save</Button>
+          <Button type="submit" variant="secondary" loading={pending}><Words k="Save" /></Button>
         </div>
       </FieldShell>
       <Msg state={state} />
@@ -123,8 +124,8 @@ export function TwoStepRow({ required, on, sendsTo, cannotReach = null }: { requ
     : value ? `A code goes to ${sendsTo ?? "your phone or email"} after your password.` : "A code to your phone or email after your password. Safer if someone learns your password.";
   return (
     <div className="flex items-center gap-3 px-5 py-3.5">
-      <div className="min-w-0 flex-1 text-[14px]"><b className="font-semibold block">Two-step login</b><span className={cx("block text-[12.5px]", cannotReach ? "text-warn" : "text-ink3")}>{sub}</span></div>
-      {cannotReach ? <Pill tone="warn"><I.TriangleAlert size={12} aria-hidden="true" />Not set up</Pill> : required ? <Pill tone="ok"><I.Lock size={12} aria-hidden="true" />On</Pill> : (
+      <div className="min-w-0 flex-1 text-[14px]"><b className="font-semibold block"><Words k="Two-step login" /></b><span className={cx("block text-[12.5px]", cannotReach ? "text-warn" : "text-ink3")}>{sub}</span></div>
+      {cannotReach ? <Pill tone="warn"><I.TriangleAlert size={12} aria-hidden="true" /><Words k="Not set up" /></Pill> : required ? <Pill tone="ok"><I.Lock size={12} aria-hidden="true" /><Words k="On" /></Pill> : (
         <Switch on={value} label="Two-step login" disabled={pending} onChange={(v) => {
           setValue(v);
           start(async () => {
@@ -162,14 +163,14 @@ export function NotePrefsTable({ kinds, prefs, allowed, phone }: { kinds: NoteKi
         <table className="text-[13.5px] min-w-full">
           <thead>
             <tr className="border-b border-line text-ink3 text-[12px]">
-              <th scope="col" className="sticky left-0 z-10 bg-surface text-left font-semibold px-5 py-2.5 min-w-[190px]">Kind</th>
+              <th scope="col" className="sticky left-0 z-10 bg-surface text-left font-semibold px-5 py-2.5 min-w-[190px]"><Words k="Kind" /></th>
               {NOTE_CHANNELS.map((c) => <th key={c} scope="col" className={cx("font-semibold px-3 py-2.5 text-center", !allowed.includes(c) && "opacity-50")}>{NOTE_CHANNEL_LABEL[c]}</th>)}
             </tr>
           </thead>
           <tbody>
             {kinds.map((k) => (
               <tr key={k.key} className="border-b border-line/60 last:border-0">
-                <th scope="row" className="sticky left-0 z-10 bg-surface px-5 py-2.5 font-medium text-left">{k.label}{k.locked && <span className="block text-[11.5px] text-ink3 font-normal">Always in the app</span>}</th>
+                <th scope="row" className="sticky left-0 z-10 bg-surface px-5 py-2.5 font-medium text-left">{k.label}{k.locked && <span className="block text-[11.5px] text-ink3 font-normal"><Words k="Always in the app" /></span>}</th>
                 {NOTE_CHANNELS.map((c) => (
                   <td key={c} className={cx("px-3 py-2.5 text-center", !allowed.includes(c) && "opacity-40")}>
                     <span className="inline-flex"><Checkbox checked={(value[k.key] ?? []).includes(c)} label={`${k.label} by ${NOTE_CHANNEL_LABEL[c]}`} onChange={(on) => flip(k, c, on)} /></span>

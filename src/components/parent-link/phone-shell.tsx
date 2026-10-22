@@ -2,6 +2,7 @@
 // coloured header with its name, a greeting, and white cards overlapping the header below.
 import { Lock } from "lucide-react";
 import { englishT, type T } from "@/lib/i18n/t";
+import { tx } from "@/lib/i18n/tx";
 
 function Mark() {
   return (
@@ -29,11 +30,11 @@ export function PhoneShell({ schoolName, kind, hello, name, schoolPhone, childre
           <div className="relative flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5 min-w-0">
               <span className="w-9 h-9 rounded-xl bg-white/15 grid place-items-center shrink-0"><Mark /></span>
-              <div className="min-w-0"><p className="font-display font-semibold text-[15px] leading-tight truncate">{schoolName ?? "School OS"}</p><p className="text-[11.5px] opacity-75">{kind ?? t("Parent Link")}</p></div>
+              <div className="min-w-0"><p className="font-display font-semibold text-[15px] leading-tight truncate">{schoolName ?? "School OS"}</p><p className="text-[11.5px] opacity-75">{kind ? t.any(kind) : t("Parent Link")}</p></div>
             </div>
             {right}
           </div>
-          {hello && <p className="relative mt-5 text-[14px] opacity-80">{hello}</p>}
+          {hello && <p className="relative mt-5 text-[14px] opacity-80">{t.any(hello)}</p>}
           {name && <h1 className="relative font-display text-[26px] font-semibold leading-tight">{name}</h1>}
           {!hello && !name && <div className="h-8" />}
         </header>
@@ -59,7 +60,7 @@ export function PhoneNotice({ title, icon, children }: { title: string; icon?: R
   return (
     <PhoneCard className="flex flex-col items-center text-center gap-2 py-8">
       {icon && <span className="w-14 h-14 rounded-2xl bg-sunken text-ink3 grid place-items-center mb-1" aria-hidden="true">{icon}</span>}
-      <h2 className="font-semibold text-[17px]">{title}</h2>
+      <h2 className="font-semibold text-[17px]">{tx(title)}</h2>
       {children && <div className="text-[14px] text-ink2 max-w-sm">{children}</div>}
     </PhoneCard>
   );

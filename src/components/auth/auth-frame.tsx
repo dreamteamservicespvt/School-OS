@@ -4,6 +4,7 @@ import { LanguagePicker } from "@/components/language-picker";
 import { I18nProvider } from "@/lib/i18n/client";
 import { catalogueFor, makeT, screenLanguage } from "@/lib/i18n/server";
 import { SCREEN_LANGUAGES } from "@/lib/i18n/languages";
+import { tx } from "@/lib/i18n/tx";
 
 /**
  * The sign-in pages of the approved design (design/ui-prototype/src/signin.jsx):
@@ -48,8 +49,8 @@ export async function AuthFrame({ eyebrow, title, sub, pickLanguage, children }:
           {pickLanguage && <LanguagePicker value={lang} choices={SCREEN_LANGUAGES} className="ml-auto" />}
         </div>
         <div className="my-auto w-full max-w-[400px] mx-auto py-10">
-          {eyebrow && <p className="text-[13px] font-semibold text-brand">{eyebrow}</p>}
-          <h1 className="font-display text-[30px] font-semibold tracking-tight leading-tight mt-1">{title}</h1>
+          {eyebrow && <p className="text-[13px] font-semibold text-brand">{tx(eyebrow)}</p>}
+          <h1 className="font-display text-[30px] font-semibold tracking-tight leading-tight mt-1">{tx(title)}</h1>
           {sub && <p className="text-ink3 mt-1.5 text-[15px]">{sub}</p>}
           <div className="mt-7">{children}</div>
         </div>

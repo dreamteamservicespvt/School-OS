@@ -11,6 +11,7 @@ import { Toast } from "@/components/ui/toast";
 import { cx } from "@/components/ui/cx";
 import { setAppearance } from "../actions";
 import { setSchoolColour } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 const THEME_ICON = { light: I.Sun, dark: I.Moon, system: I.MonitorSmartphone } as const;
 
@@ -126,7 +127,7 @@ export function Appearance({ theme, accent, textSize, schoolAccent, schoolName, 
 
       <Card>
         <CardHeader title="School colour" description="Buttons, highlights and the top band use this colour" />
-        {locked && <p className="mx-5 mb-3 rounded-xl bg-info/10 px-3.5 py-2.5 text-[13.5px] text-info">Your School Admin has chosen this colour for everyone. You can still pick light or dark.</p>}
+        {locked && <p className="mx-5 mb-3 rounded-xl bg-info/10 px-3.5 py-2.5 text-[13.5px] text-info"><Words k="Your School Admin has chosen this colour for everyone. You can still pick light or dark." /></p>}
         <div className="grid grid-cols-3 md:grid-cols-6 gap-3 px-5 pb-4" role="radiogroup" aria-label="School colour">
           {ACCENTS.map((a) => {
             const on = state.accent === a.key;
@@ -145,8 +146,8 @@ export function Appearance({ theme, accent, textSize, schoolAccent, schoolName, 
           <div className="mx-5 mb-5 rounded-xl bg-sunken p-3.5 flex items-center gap-3">
             <Switch id="acc-all" on={forAll} onChange={toggleForAll} label="Use this colour for everyone" />
             <label htmlFor="acc-all" className="text-[14px]">
-              <b className="font-semibold">Use for everyone in the school</b>
-              <span className="block text-[12.5px] text-ink3">Only School Admin can change this. Each person can still pick light or dark.</span>
+              <b className="font-semibold"><Words k="Use for everyone in the school" /></b>
+              <span className="block text-[12.5px] text-ink3"><Words k="Only School Admin can change this. Each person can still pick light or dark." /></span>
             </label>
           </div>
         )}
@@ -158,7 +159,7 @@ export function Appearance({ theme, accent, textSize, schoolAccent, schoolName, 
           {([["normal", "Standard", "text-[15px]"], ["large", "Large", "text-[18px]"]] as const).map(([v, l, c]) => (
             <button key={v} type="button" role="radio" aria-checked={state.textSize === v} onClick={() => save({ textSize: v })}
               className={cx("rounded-2xl border-2 p-4 text-left transition", state.textSize === v ? "border-brand" : "border-line hover:border-ink3/40")}>
-              <span className={cx("block font-semibold truncate", c)}>Aa · {sampleName}</span>
+              <span className={cx("block font-semibold truncate", c)}><Words k="Aa ·" /> {sampleName}</span>
               <span className="block text-[13px] text-ink3 mt-1">{l}</span>
             </button>
           ))}
@@ -168,10 +169,10 @@ export function Appearance({ theme, accent, textSize, schoolAccent, schoolName, 
       <Card>
         <CardHeader title="Preview" />
         <div className="px-5 pb-5 flex flex-wrap gap-2 items-center pointer-events-none" aria-hidden="true" inert>
-          <Button variant="primary" icon={I.IndianRupee}>Collect ₹30,650</Button>
-          <Button variant="soft" icon={I.Send}>Send reminder</Button>
-          <Button variant="secondary">Cancel</Button>
-          <Pill tone="ok" dot>Paid</Pill><Pill tone="warn">Due</Pill><Pill tone="bad">Overdue</Pill><Pill tone="brand">New</Pill>
+          <Button variant="primary" icon={I.IndianRupee}><Words k="Collect ₹30,650" /></Button>
+          <Button variant="soft" icon={I.Send}><Words k="Send reminder" /></Button>
+          <Button variant="secondary"><Words k="Cancel" /></Button>
+          <Pill tone="ok" dot><Words k="Paid" /></Pill><Pill tone="warn"><Words k="Due" /></Pill><Pill tone="bad"><Words k="Overdue" /></Pill><Pill tone="brand"><Words k="New" /></Pill>
         </div>
       </Card>
       {toast && <Toast key={toast.n} flash={{ message: toast.message, tone: toast.tone }} />}

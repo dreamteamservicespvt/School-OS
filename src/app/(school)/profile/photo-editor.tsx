@@ -15,6 +15,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Toast } from "@/components/ui/toast";
 import { cx } from "@/components/ui/cx";
 import { removeMyPhoto, saveMyPhoto } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 const VIEW = 280;
 const OUT = 512;
@@ -195,8 +196,8 @@ export function PhotoEditor({ name, src }: { name: string; src: string | null })
         sub={pic ? "Drag to move it. Zoom with the slider, the mouse wheel or two fingers." : "Shown next to your name in School OS. Only people in this school see it."}
         footer={pic ? (
           <>
-            <Button variant="secondary" onClick={() => { setPic(null); setView(START); }} disabled={busy}>Choose another</Button>
-            <Button variant="primary" icon={I.Check} onClick={save} loading={busy} loadingText="Saving">Save photo</Button>
+            <Button variant="secondary" onClick={() => { setPic(null); setView(START); }} disabled={busy}><Words k="Choose another" /></Button>
+            <Button variant="primary" icon={I.Check} onClick={save} loading={busy} loadingText="Saving"><Words k="Save photo" /></Button>
           </>
         ) : undefined}>
         <input ref={pickRef} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" tabIndex={-1} onChange={(e) => { load(e.target.files?.[0]); e.target.value = ""; }} />
@@ -212,22 +213,22 @@ export function PhotoEditor({ name, src }: { name: string; src: string | null })
               <Avatar name={name} size={96} src={src} />
               <p className="text-[14px] text-ink2">{touch ? "Choose a photo from your phone, or take a new one." : "Drop a photo here, or choose one from your computer."}</p>
               <div className="flex gap-2 flex-wrap justify-center">
-                <Button variant="primary" icon={I.ImagePlus} onClick={() => pickRef.current?.click()}>Choose a photo</Button>
-                {touch && <Button variant="secondary" icon={I.Camera} onClick={() => cameraRef.current?.click()}>Take a photo</Button>}
+                <Button variant="primary" icon={I.ImagePlus} onClick={() => pickRef.current?.click()}><Words k="Choose a photo" /></Button>
+                {touch && <Button variant="secondary" icon={I.Camera} onClick={() => cameraRef.current?.click()}><Words k="Take a photo" /></Button>}
               </div>
-              <p className="text-[12px] text-ink3">JPG, PNG or WEBP. You can move and zoom it next.</p>
+              <p className="text-[12px] text-ink3"><Words k="JPG, PNG or WEBP. You can move and zoom it next." /></p>
             </div>
             {problem && <p role="alert" className="rounded-xl px-3.5 py-2.5 text-sm bg-bad/10 text-bad">{problem}</p>}
             {src && (
               confirmRemove ? (
                 <div className="flex items-center gap-2 flex-wrap rounded-xl bg-sunken px-3.5 py-2.5">
-                  <p className="text-[13.5px] flex-1 min-w-[10rem]">Take your photo off? Your initials show instead.</p>
-                  <Button variant="secondary" size="sm" onClick={() => setConfirmRemove(false)} disabled={busy}>Keep it</Button>
-                  <Button variant="danger" size="sm" onClick={remove} loading={busy} loadingText="Removing">Remove photo</Button>
+                  <p className="text-[13.5px] flex-1 min-w-[10rem]"><Words k="Take your photo off? Your initials show instead." /></p>
+                  <Button variant="secondary" size="sm" onClick={() => setConfirmRemove(false)} disabled={busy}><Words k="Keep it" /></Button>
+                  <Button variant="danger" size="sm" onClick={remove} loading={busy} loadingText="Removing"><Words k="Remove photo" /></Button>
                 </div>
               ) : (
                 <button type="button" onClick={() => setConfirmRemove(true)} className="self-center text-[13px] font-semibold text-bad hover:underline inline-flex items-center gap-1.5">
-                  <I.Trash2 size={14} aria-hidden="true" />Remove my photo
+                  <I.Trash2 size={14} aria-hidden="true" /><Words k="Remove my photo" />
                 </button>
               )
             )}
@@ -259,8 +260,8 @@ export function PhotoEditor({ name, src }: { name: string; src: string | null })
               <button type="button" aria-label="Zoom in" onClick={() => setView((v) => zoomTo(pic, v, v.zoom * 1.2))} className="w-8 h-8 rounded-lg grid place-items-center text-ink2 hover:bg-sunken"><I.ZoomIn size={17} aria-hidden="true" /></button>
             </div>
             <div className="flex gap-2">
-              <Button variant="secondary" size="sm" icon={I.RotateCw} onClick={() => setView((v) => clampView(pic, { ...v, turn: (v.turn + 1) % 4 }))}>Rotate</Button>
-              <Button variant="ghost" size="sm" icon={I.Undo2} onClick={() => setView(START)}>Reset</Button>
+              <Button variant="secondary" size="sm" icon={I.RotateCw} onClick={() => setView((v) => clampView(pic, { ...v, turn: (v.turn + 1) % 4 }))}><Words k="Rotate" /></Button>
+              <Button variant="ghost" size="sm" icon={I.Undo2} onClick={() => setView(START)}><Words k="Reset" /></Button>
             </div>
             {problem && <p role="alert" className="w-full rounded-xl px-3.5 py-2.5 text-sm bg-bad/10 text-bad">{problem}</p>}
           </div>

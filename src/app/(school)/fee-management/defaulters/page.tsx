@@ -39,7 +39,9 @@ export default async function DefaultersPage({ searchParams }: { searchParams: S
   const q = one(sp.q).trim().slice(0, 80);
   const cls = one(sp.class);
   const age = one(sp.age);
-  const above = AMOUNTS.some((a) => a.value === one(sp.above)) ? one(sp.above) : "";
+  // Any whole-rupee amount from a link (Ask: "Who owes ₹15,000 or more?"); the list offers the usual ones.
+  const above = /^[1-9]\d{0,8}$/.test(one(sp.above)) ? one(sp.above) : "";
+  const amounts = AMOUNTS.some((a) => a.value === above) ? AMOUNTS : [...AMOUNTS, { value: above, label: `₹${Number(above).toLocaleString("en-IN")} or more` }];
   const rem = one(sp.rem) === "yes" || one(sp.rem) === "no" ? one(sp.rem) : "";
   const per = feePeriod(sp, p.dates, null);
   const who = one(sp.who);
@@ -126,7 +128,7 @@ export default async function DefaultersPage({ searchParams }: { searchParams: S
             <div className="grid grid-cols-2 gap-2.5 md:flex md:flex-wrap">
               <UrlSelect id="def-cls" param="class" label="Class" className="md:w-36" options={[{ value: "", label: "All classes" }, ...all.classTotals.filter((c) => c.classId).map((c) => ({ value: c.classId!, label: c.className }))]} />
               <UrlSelect id="def-age" param="age" label="Days late" className="md:w-40" options={[{ value: "", label: "Any days late" }, ...all.ageingTotals.map((g) => ({ value: String(g.index), label: g.label }))]} />
-              <UrlSelect id="def-amt" param="above" label="Amount" className="md:w-40" options={AMOUNTS} />
+              <UrlSelect id="def-amt" param="above" label="Amount" className="md:w-40" options={amounts} />
               <UrlSelect id="def-rem" param="rem" label="Reminders" className="md:w-40" options={REMINDED} />
               <PeriodFilter {...p.dates} allLabel="Any due date" />
             </div>

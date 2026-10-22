@@ -14,6 +14,7 @@ import type { PageLink } from "./nav-data";
 import type { Quick } from "./nav-config";
 import { readList, recordRecent, storageKey } from "./local-lists";
 import { typedKey } from "./typed-key";
+import type { QuestionKey } from "@/lib/ask/questions";
 
 export const OPEN_SEARCH_EVENT = "sos:open-search";
 
@@ -55,12 +56,20 @@ export function RecentPages({ userId, pages }: { userId: string; pages: PageLink
   return null;
 }
 
-export function CommandPalette(props: { open: boolean; onClose: () => void; userId: string; pages: PageLink[]; shortcuts: PageLink[]; quick: Quick[] }) {
+type PaletteProps = {
+  open: boolean; onClose: () => void; userId: string; pages: PageLink[]; shortcuts: PageLink[]; quick: Quick[];
+  /** Ready-made questions for the person's role (gap list G27), and every question they may ask. */
+  questions?: PageLink[]; askKeys?: QuestionKey[];
+  /** Ask and Do with the AI service is on for this person; off, nothing AI shows (00-global.md §2.1 rule 8). */
+  ai?: boolean;
+};
+
+export function CommandPalette(props: PaletteProps) {
   // Mounted fresh each time it opens, so it always starts empty.
   return props.open ? <Palette {...props} /> : null;
 }
 
-function Palette({ onClose, userId, pages, shortcuts, quick }: { onClose: () => void; userId: string; pages: PageLink[]; shortcuts: PageLink[]; quick: Quick[] }) {
+function Palette({ onClose, userId, pages, shortcuts, quick, questions = [] }: Omit<PaletteProps, "open">) {
   const router = useRouter();
   const [q, setQ] = useState("");
   const [sel, setSel] = useState(0);
@@ -117,6 +126,8 @@ function Palette({ onClose, userId, pages, shortcuts, quick }: { onClose: () => 
       lists.pinned.forEach((p) => out.push({ sec: "Pinned", label: p.label, href: p.href, icon: I.Pin }));
       lists.recent.filter((r) => !lists.pinned.some((p) => p.href === r.href)).slice(0, 5).forEach((p) => out.push({ sec: "Recent", label: p.label, href: p.href, icon: I.Clock }));
       shortcuts.filter((s) => !quick.some((x) => x.label === s.label)).forEach((s) => out.push({ sec: "Shortcuts", label: s.label, href: s.href, icon: I.CornerDownRight }));
+      // Below the shortcuts: questions for the person's role, each answered from its own list (00-global.md §2).
+      questions.forEach((x) => out.push({ sec: "Questions", label: x.label, href: x.href, icon: I.CircleHelp }));
       return out;
     }
     // "fee Ravi": Collect Fee for each Ravi, first.
@@ -128,7 +139,7 @@ function Palette({ onClose, userId, pages, shortcuts, quick }: { onClose: () => 
     quick.filter((x) => matches(x.label, typed)).forEach((x) => out.push({ sec: "Quick actions", label: x.label, sub: x.sub, href: x.href, icon: (I as unknown as Record<string, LucideIcon>)[x.icon] }));
     pages.filter((p) => matches(p.label, typed)).slice(0, 8).forEach((p) => out.push({ sec: "Pages", label: p.label, sub: p.hint ?? "Open", href: p.href, icon: I.FileText }));
     return out;
-  }, [typed, people, pages, shortcuts, quick, lists]);
+  }, [typed, people, pages, shortcuts, quick, lists, questions]);
 
   const choose = useCallback((r: Row) => { onClose(); router.push(r.href); }, [onClose, router]);
   const onKey = (e: React.KeyboardEvent) => {

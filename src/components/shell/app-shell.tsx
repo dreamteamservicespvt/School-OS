@@ -20,6 +20,7 @@ import { Logo } from "./logo";
 import { NAV_GROUPS, type BarItem, type IconName, type Quick } from "./nav-config";
 import { CommandPalette, OPEN_SEARCH_EVENT } from "./search-box";
 import type { PageLink } from "./nav-data";
+import type { QuestionKey } from "@/lib/ask/questions";
 
 export type ShellNote = { id: string; text: string; when: string; unread: boolean };
 export type ShellProps = {
@@ -34,6 +35,9 @@ export type ShellProps = {
   quick: Quick[];
   pages: PageLink[];
   shortcuts: PageLink[];
+  /** Ready-made questions for the empty Search box (gap list G27), and every question this person may ask. */
+  questions?: PageLink[];
+  askKeys?: QuestionKey[];
   approvals: number;
   canApprove: boolean;
   canMessage: boolean;
@@ -475,7 +479,7 @@ function phoneTitle(pathname: string, pages: PageLink[]) {
 }
 
 export function AppShell(props: ShellProps) {
-  const { school, schools, year, person, menu, landing, bottom, quick, pages, shortcuts, approvals, canApprove, canMessage, unread, notes, theme, support, children } = props;
+  const { school, schools, year, person, menu, landing, bottom, quick, pages, shortcuts, questions = [], askKeys = [], approvals, canApprove, canMessage, unread, notes, theme, support, children } = props;
   const ai = props.ai === true;
   const pathname = usePathname();
   const [palette, setPalette] = useState(false);
@@ -515,7 +519,7 @@ export function AppShell(props: ShellProps) {
         {children}
       </div>
       <BottomNav items={bottom} onMore={() => setMore(true)} />
-      <CommandPalette open={palette} onClose={() => setPalette(false)} userId={person.id} pages={pages} shortcuts={shortcuts} quick={quick} />
+      <CommandPalette open={palette} onClose={() => setPalette(false)} userId={person.id} pages={pages} shortcuts={shortcuts} quick={quick} questions={questions} askKeys={askKeys} ai={ai} />
       <NotifPanel open={notif} onClose={() => setNotif(false)} notes={notes} total={unread} />
       <ProfileMenu open={profile} onClose={() => setProfile(false)} person={person} school={school} schools={schools} theme={theme} onSwitch={() => setSwitchOpen(true)} support={support} />
       <MoreSheet open={more} onClose={() => setMore(false)} menu={menu} landing={landing} />

@@ -72,6 +72,8 @@ export default async function SchoolLayout({ children }: { children: React.React
       quick={shell.quick}
       pages={shell.pages}
       shortcuts={shell.shortcuts}
+      questions={shell.questions}
+      askKeys={shell.askKeys}
       approvals={shell.approvals}
       canApprove={shell.canApprove}
       canMessage

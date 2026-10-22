@@ -12,12 +12,13 @@ import { writeAudit } from "../audit";
 import { formatDate, formatRupees } from "../format";
 import { addDays } from "../staff/dates";
 import { currentEnrolments } from "../academic/years";
-import { appUrl } from "../parent-link/token";
+import { withHiddenLinks } from "../parent-link/token";
 import { MoneyProblem } from "./problem";
 import { openDues } from "./dues";
 import { feeSettings, gatewayFor, type FeeSettings } from "./settings";
 import { feeMessageInput, planMessage, sendAutomatic, sendMessage } from "./notify-parents";
-import { createPaymentLink, payPath } from "./online";
+import { payPlan, type PayPlan } from "./reminder-pay";
+import { ruleReady, ruleStates } from "../messaging/automatic";
 import { pausedByPromise } from "./promises";
 import { REMINDER_CHANNELS, TEMPLATE_VARIABLES } from "./words";
 import { movingIn } from "../move-in/live";
@@ -111,8 +112,13 @@ async function checkInput(tx: Tx, ctx: SchoolContext, input: ReminderInput) {
   return { channel, templateId: null, text: checkTemplate(input.text ?? "") };
 }
 
-function valuesFor(r: Planned, link: string) {
-  return { due_amount: formatRupees(r.due), due_date: formatDate(r.dueDate), link };
+function valuesFor(r: Planned, pay: PayPlan) {
+  return { due_amount: formatRupees(r.due), due_date: formatDate(r.dueDate), ...pay.perStudent[r.studentId] };
+}
+
+/** The message blanks of each family: the amount and date, and how this guardian pays this child (./reminder-pay.ts). */
+function blanksOf(out: Planned[], pay: PayPlan) {
+  return { perStudent: Object.fromEntries(out.map((r) => [r.studentId, valuesFor(r, pay)])), perGuardianStudent: pay.perGuardianStudent };
 }
 
 export type ReminderPreview = {
@@ -140,10 +146,10 @@ export async function previewReminders(tx: Tx, ctx: SchoolContext, input: Remind
   const linkAvailable = p.out.length > 0 && Boolean(await gatewayFor(tx, ctx, p.out[0].classId));
   const students = new Set(input.studentIds).size;
   if (!p.out.length) return { students, recipients: 0, messages: 0, skipped: [], skippedNothingDue: p.nothing, cost: 0, creditProblem: null, problems: [], sample: null, sampleFor: null, linkAvailable };
-  const link = input.includeLink && linkAvailable ? `${appUrl()}/pay/…` : "the school office";
+  const pay = await payPlan(tx, ctx, p.out, { online: input.includeLink, makeLinks: false, allGuardians: false });
   const plan = await planMessage(tx, ctx, feeMessageInput({
     studentIds: p.out.map((r) => r.studentId), channel: c.channel, templateId: c.templateId, text: c.text,
-    perStudent: Object.fromEntries(p.out.map((r) => [r.studentId, valuesFor(r, link)])), trigger: "Fee reminder", scheduledAt: input.scheduledAt ?? null,
+    ...blanksOf(p.out, pay), trigger: "Fee reminder", scheduledAt: input.scheduledAt ?? null,
   }));
   // The sample is the message of the first student on the list who gets one, named with its own parent.
   const order = new Map(input.studentIds.map((id, i) => [id, i]));
@@ -158,7 +164,7 @@ export async function previewReminders(tx: Tx, ctx: SchoolContext, input: Remind
     cost: plan.cost[c.channel] ?? 0,
     creditProblem: plan.creditProblem,
     problems: plan.problems,
-    sample: first?.text ?? null,
+    sample: first ? withHiddenLinks(first.text) : null,
     sampleFor: first ? { parent: first.candidate.name, students: (first.students ?? []).map((s) => s.name) } : null,
     linkAvailable,
   };
@@ -169,19 +175,11 @@ export async function sendReminders(tx: Tx, ctx: SchoolContext, input: ReminderI
   const c = await checkInput(tx, ctx, input);
   const p = await whoOwes(tx, input.studentIds, input.today);
   if (!p.out.length) throw new MoneyProblem("None of these students owe anything now. Nothing was sent.");
-  const links = new Map<string, string>();
-  for (const r of p.out) {
-    let link = "the school office";
-    if (input.includeLink && (await gatewayFor(tx, ctx, r.classId))) {
-      const made = await createPaymentLink(tx, ctx, { studentId: r.studentId, dueIds: r.dueIds, source: "LINK", channel: c.channel });
-      link = `${appUrl()}${payPath(ctx.schoolId, made.token)}`;
-    }
-    links.set(r.studentId, link);
-  }
+  // Each guardian's own Parent Link, or a payment link that works for 7 days, or the school office (./reminder-pay.ts).
+  const pay = await payPlan(tx, ctx, p.out, { online: input.includeLink, makeLinks: true, allGuardians: false });
   const send = feeMessageInput({
     studentIds: p.out.map((r) => r.studentId), channel: c.channel, templateId: c.templateId, text: c.text,
-    perStudent: Object.fromEntries(p.out.map((r) => [r.studentId, valuesFor(r, links.get(r.studentId)!)])),
-    trigger: "Fee reminder", scheduledAt: input.scheduledAt ?? null,
+    ...blanksOf(p.out, pay), trigger: "Fee reminder", scheduledAt: input.scheduledAt ?? null,
   });
   const plan = await planMessage(tx, ctx, send);
   if (plan.problems.length) throw new MoneyProblem(plan.problems[0]);
@@ -307,11 +305,15 @@ export async function automaticReminders(tx: Tx, ctx: SchoolContext, today: Date
   const day = await remindersDueOn(tx, ctx, s, today);
   if (day.quiet) return { sent: 0, status: "quiet" };
   if (!day.out.length) return { sent: 0, status: "nobody" };
+  // No payment links are made while the rule is off in Message Settings.
+  if (!(await ruleReady(tx, ctx, "fee-due")).on) return { sent: 0, status: "rule-off" };
+  const allGuardians = (await ruleStates(tx, ctx)).find((r) => r.key === "fee-due")?.sendTo === "all";
+  const pay = await payPlan(tx, ctx, day.out, { online: true, makeLinks: true, allGuardians });
   const r = await sendAutomatic(tx, ctx, {
     rule: "fee-due",
     event: { key: `fee-due:${iso(today)}`, label: `Fee reminders of ${formatDate(today)}` },
     to: { guardiansOf: day.out.map((x) => x.studentId) },
-    perStudent: Object.fromEntries(day.out.map((x) => [x.studentId, valuesFor(x, "your Parent Link")])),
+    ...blanksOf(day.out, pay),
     source: null,
   });
   if (r.status === "off") return { sent: 0, status: "rule-off" };
@@ -336,6 +338,7 @@ export async function reminderHistory(tx: Tx, studentId: string) {
   return rows.map((r) => {
     const mine = recipients.filter((x) => x.messageId === r.messageId);
     const status = !r.messageId ? (r.status === "skipped" ? "Skipped" : "Not sent") : mine.length ? [...new Set(mine.map((m) => RECIPIENT_STATUS[m.status] ?? m.status))].join(", ") : r.status === "scheduled" ? "Scheduled" : "Waiting";
-    return { ...r, deliveryStatus: status, channels: [...new Set(mine.map((m) => m.channel))] };
+    // Never a link that opens a Parent Link or pays: placeholders show as words.
+    return { ...r, text: withHiddenLinks(r.text), deliveryStatus: status, channels: [...new Set(mine.map((m) => m.channel))] };
   });
 }

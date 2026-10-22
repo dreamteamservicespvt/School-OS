@@ -40,6 +40,8 @@ export function feeMessageInput(input: {
   templateId: string | null;
   text: string | null;
   perStudent: Record<string, Record<string, string>>;
+  /** A guardian's own values about one child ("guardianId:studentId"), e.g. their Parent Link. */
+  perGuardianStudent?: Record<string, Record<string, string>>;
   trigger: string;
   source?: { type: string; id: string } | null;
   scheduledAt?: Date | null;
@@ -51,6 +53,7 @@ export function feeMessageInput(input: {
     templates: input.templateId ? { [input.channel]: input.templateId } : undefined,
     text: input.templateId ? null : input.text,
     perStudent: input.perStudent,
+    perGuardianStudent: input.perGuardianStudent,
     messageType: "fee",
     trigger: input.trigger,
     source: input.source ?? null,

@@ -226,7 +226,8 @@ describe("the reminder preview (MONEY-03, MONEY-06)", () => {
   it("the default Fee reminder does not promise online payment", () => {
     const t = READY_TEMPLATES.find((x) => x.key === "fee-due" && x.channel === "whatsapp")!;
     expect(t.texts.en).not.toMatch(/pay on your Parent Link|pay online/i);
-    expect(t.texts.en).toContain("Parent Link");
+    // How to pay is filled for each parent (Parent Link, payment link or the school office; gap list G11).
+    expect(t.texts.en).toContain("{how_to_pay}");
   });
 });
 

@@ -23,6 +23,7 @@ export const VARIABLES: { key: string; label: string; sample: string }[] = [
   { key: "ticket_number", label: "Ticket number", sample: "Q-00012" },
   { key: "code", label: "One-time code", sample: "482913" },
   { key: "link", label: "Link", sample: "https://app.schoolos.in/p/…" },
+  { key: "how_to_pay", label: "How to pay", sample: "Pay online on your Parent Link: https://app.schoolos.in/p/…" },
   { key: "message", label: "Message text", sample: "School will close at 12:30 PM today." },
 ];
 

@@ -122,6 +122,8 @@ export type AutomaticInput = {
   to: AudienceRule;
   values?: Record<string, string>;
   perStudent?: Record<string, Record<string, string>>;
+  /** Blanks for one guardian about one child, keyed "guardianId:studentId". */
+  perGuardianStudent?: Record<string, Record<string, string>>;
   source?: { type: string; id: string } | null;
   /** A person asked for this copy now (for example "Send the receipt again"): it goes even while the school is moving in. */
   byHand?: boolean;
@@ -180,6 +182,7 @@ export async function sendAutomatic(tx: Tx, ctx: SchoolContext, input: Automatic
     templates,
     values: input.values,
     perStudent: input.perStudent,
+    perGuardianStudent: input.perGuardianStudent,
     messageType: def.messageType,
     smsBackup: Boolean(backupOn),
     ruleKey: def.key,

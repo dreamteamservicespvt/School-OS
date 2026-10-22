@@ -13,6 +13,8 @@ been seen again in the browser.
 | ADMIT-04 | P4 | Dashboard | "due mon 19" on the marks card | Fixed | 786339c |
 | ADMIT-05 | P4 | Admission Management | Add enquiry says "Five things now" but asks for seven | Fixed | b24eec7 |
 | ADMIT-06 | P4 | Dashboard / Front Office | Receptionist's "Add visitor" opens the list, not the sheet | Fixed | 41932fc |
+| APPLY-01 | P2 | Admission Management (online form), and five other forms | A refused send clears the consent ticks | Fixed | 5eb8c0c |
+| APPLY-02 | P3 | Admission Management (online form) | "School name" under Previous school not marked needed until after Send | Fixed | 21452c6 |
 
 Also checked: the New application form showed "Transport needed" (and "Hostel needed") even with the
 module off. Transport is not in version 1 (README "Decisions made"). Blueprint 02 §3 asks for these
@@ -82,3 +84,52 @@ saved.
 ## ADMIT-06 · P4 · Dashboard · "Add visitor" needs a second press
 - **Actual:** the Receptionist's dashboard "Add visitor" opened /front-office/visitors without the sheet.
 - **Fix:** 41932fc. The quick action for the Receptionist and Gate Security now links to `/front-office/visitors?do=visitor` (src/components/shell/nav-config.ts).
+
+---
+
+## Round 2 (browser testing, 22-10-2026, afternoon)
+
+Fixes are on branch `wave8/w1`. Each was checked by typecheck, lint and the tests named. They have not yet been seen
+again in the browser.
+
+## APPLY-01 · P2 · Online admission form · A refused send clears the consent ticks
+- **Steps:**
+  1. Open the public form /apply/[code]. Choose Class 2, fill in everything except Previous school, tick "Use of my
+     child's data" and confirm the mobile.
+  2. Press Send application.
+- **Expected:** "For Class 2, give the previous school." and the consent still ticked.
+- **Actual:** the problem shows, but the data consent tick (and the photo tick) has come off. The parent must notice
+  and tick again, or the next send is refused for consent.
+- **Root cause:** React resets a `<form action>` after every send. The consent boxes were uncontrolled
+  (`defaultChecked`), so they went back to unticked. tests/keep-on-reset.test.ts (ADMIT-01) checked only controlled
+  boxes (`checked`, `<select value>`), so it did not see them. The public form was scanned, but this kind of box was not.
+- **Fix:** 5eb8c0c.
+  - The consent ticks are held by the screen and drawn with `KeepCheck` (src/components/ui/keep-select.tsx), so they
+    stay as the parent left them.
+  - The guard test now also fails for an uncontrolled tick box or round choice inside a `<form action={…}>`, unless
+    its `defaultChecked` comes from the values the refused save sends back. Those are listed by name in
+    `FROM_VALUES_SENT_BACK`: the custom-field editor, School documents and Add student's gender. A GET form
+    (`action="/address"`) no longer counts as an action form. With the old apply form the test fails on
+    src/app/apply/[code]/apply-form.tsx.
+  - The wider check found five more ticks of the same kind, fixed the same way:
+    - Sign in: "Keep me signed in" came back ticked after a wrong password.
+    - Sign-in code: "Shared computer" came off after a wrong code, so the next try remembered the device.
+    - Console sign-in: "Trust this device" came off after a wrong code.
+    - Parent Link consent: a child the guardian had unticked was ticked again after a refused send.
+    - Staff, Give a login: the roles went back to the default role after a refused save.
+  - Not covered: an uncontrolled tick in a shared field piece whose form is in another file. The test cannot see the
+    form there.
+  - Test: tests/keep-on-reset.test.ts.
+
+## APPLY-02 · P3 · Online admission form · "School name" not marked needed until after Send
+- **Steps:** on /apply/[code], choose Class 2.
+- **Expected:** "School name" under Previous school has the red * as soon as the class is chosen, because the send
+  needs it.
+- **Actual:** no *; "For Class 2, give the previous school." appears only after Send.
+- **Root cause:** the send checks `needsPreviousSchool()` (Class 2 and above, src/lib/admission/settings.ts). The
+  public form showed the Previous school box only when the class's papers ask for a TC, and never marked it needed.
+- **Fix:** 21452c6. `publicForm()` (src/lib/admission/public.ts) gives each class `previousSchoolNeeded` from the same
+  rule the send uses. The form marks "School name" needed for those classes, and shows the Previous school box for
+  them even when the class's papers do not ask for a TC. The staff New application form already used this rule and
+  marked the field, so it was not changed.
+  Test: tests/admission/admission.test.ts ("marks the previous school as needed on the form… (APPLY-02)").

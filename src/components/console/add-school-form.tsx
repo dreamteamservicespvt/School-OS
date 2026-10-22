@@ -19,6 +19,7 @@ import { cx } from "@/components/ui/cx";
 import { Logo } from "@/components/shell/logo";
 import type { FormState } from "@/lib/forms";
 import type { AddWarnings } from "@/app/console/(app)/schools/new/actions";
+import { KeepCheck, KeepSelect } from "@/components/ui/keep-select";
 
 type Action = (prev: FormState, fd: FormData) => Promise<FormState>;
 type Check = (input: { name: string; city: string; phone: string; mobile: string; groupId: string | null }) => Promise<AddWarnings>;
@@ -239,7 +240,7 @@ export function AddSchoolForm(p: AddSchoolProps) {
                       );
                     })}
                   </div>
-                  <label className="flex items-center gap-3 mt-2 text-[14px] cursor-pointer"><input type="checkbox" checked={hostel} onChange={(e) => setHostel(e.target.checked)} className="size-5 accent-brand" />Hostel add-on, {inr(p.prices.hostel)} a year</label>
+                  <label className="flex items-center gap-3 mt-2 text-[14px] cursor-pointer"><KeepCheck type="checkbox" checked={hostel} onChange={(e) => setHostel(e.target.checked)} className="size-5 accent-brand" />Hostel add-on, {inr(p.prices.hostel)} a year</label>
                   <p className="text-[12.5px] text-ink3">First invoice for about {Math.max(approx, p.prices.min).toLocaleString("en-IN")} students: {inr(est)} + GST {inr(est * 0.18)}.</p>
                 </FieldShell>
               )}
@@ -304,9 +305,9 @@ export function AddSchoolForm(p: AddSchoolProps) {
 function Sel({ id, value, onChange, options }: { id: string; value: string; onChange: (v: string) => void; options: Option[] }) {
   return (
     <div className="relative">
-      <select id={id} value={value} onChange={(e) => onChange(e.target.value)} className={cx(inputCls(), "h-11 appearance-none pr-10 cursor-pointer")}>
+      <KeepSelect id={id} value={value} onChange={(e) => onChange(e.target.value)} className={cx(inputCls(), "h-11 appearance-none pr-10 cursor-pointer")}>
         {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-      </select>
+      </KeepSelect>
       <I.ChevronDown size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-ink3 pointer-events-none" aria-hidden="true" />
     </div>
   );

@@ -13,6 +13,7 @@ import { inputCls } from "@/components/ui/field";
 import { cx } from "@/components/ui/cx";
 import { addEntryAction, copyHolidaysAction, removeEntryAction } from "../actions";
 import { WarningConfirm } from "./bits";
+import { KeepSelect } from "@/components/ui/keep-select";
 
 type Opt = { value: string; label: string };
 const TYPE_OPTIONS: Opt[] = [
@@ -43,9 +44,9 @@ export function AddEntrySheet({ closeHref, defDate, classes, campuses }: { close
       </div>
       <label className="flex flex-col gap-1.5">
         <span className="text-[13px] font-semibold text-ink2">Applies to</span>
-        <select name="applies" value={applies} onChange={(e) => setApplies(e.target.value)} className={cx(inputCls(false), "h-11")}>
+        <KeepSelect name="applies" value={applies} onChange={(e) => setApplies(e.target.value)} className={cx(inputCls(false), "h-11")}>
           {appliesOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
+        </KeepSelect>
       </label>
       {applies === "classes" && <SChips name="classIds" label="Classes" options={classes} required />}
       <details className="group">

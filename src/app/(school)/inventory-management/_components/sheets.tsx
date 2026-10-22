@@ -13,6 +13,7 @@ import {
   archiveCategoryAction, archiveItemAction, archiveLocationAction, saveCategoryAction, saveItemAction, saveLocationAction, saveSetAction, startAuditAction,
   returnAction, stockInAction, stockOutAction, transferAction,
 } from "../actions";
+import { KeepCheck } from "@/components/ui/keep-select";
 
 type Opt = { value: string; label: string };
 
@@ -59,7 +60,7 @@ export function ItemSheet({ closeHref, doneHref, categories, units, stores, star
           <b className="font-semibold block">Expiry tracking</b>
           <span className="block text-[12.5px] text-ink3 mt-0.5">For chemicals and perishables: stock is kept by batch, and expired stock cannot be issued.</span>
         </div>
-        <input type="checkbox" name="tracksExpiry" checked={tracks} onChange={(e) => setTracks(e.target.checked)} className="size-5 accent-[var(--brand)]" aria-label="Expiry tracking" />
+        <KeepCheck type="checkbox" name="tracksExpiry" checked={tracks} onChange={(e) => setTracks(e.target.checked)} className="size-5 accent-[var(--brand)]" aria-label="Expiry tracking" />
       </div>
       {!editing && (
         <fieldset className="flex flex-col gap-2">

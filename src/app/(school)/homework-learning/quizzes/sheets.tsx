@@ -15,6 +15,7 @@ import { cx } from "@/components/ui/cx";
 import { ActionButton } from "@/components/students/confirm-action";
 import { Text } from "../sheets";
 import { archiveQuizAction, closeQuizAction, createQuizAction, markShortAction, openQuizAction, submitQuizAction } from "./actions";
+import { KeepCheck, KeepSelect } from "@/components/ui/keep-select";
 
 export type QKind = "CHOICE" | "TRUE_FALSE" | "SHORT";
 export type QDraft = { kind: QKind; text: string; options: string[]; correctIndex: number | null; marks: number };
@@ -36,13 +37,13 @@ function QuestionEditor({ q, n, onChange, onRemove }: { q: QDraft; n: number; on
       </div>
       <div className="flex flex-wrap items-center gap-2 pl-5">
         <label className="sr-only" htmlFor={`qk-${n}`}>Question {n} type</label>
-        <select id={`qk-${n}`} value={q.kind} onChange={(e) => kind(e.target.value as QKind)} className={cx(inputCls(), "!h-9 !w-auto text-[13px]")}>
+        <KeepSelect id={`qk-${n}`} value={q.kind} onChange={(e) => kind(e.target.value as QKind)} className={cx(inputCls(), "!h-9 !w-auto text-[13px]")}>
           <option value="CHOICE">Multiple choice</option><option value="TRUE_FALSE">True or false</option><option value="SHORT">Short answer</option>
-        </select>
+        </KeepSelect>
         <label className="sr-only" htmlFor={`qm-${n}`}>Question {n} marks</label>
-        <select id={`qm-${n}`} value={q.marks} onChange={(e) => onChange({ ...q, marks: Number(e.target.value) })} className={cx(inputCls(), "!h-9 !w-auto text-[13px]")}>
+        <KeepSelect id={`qm-${n}`} value={q.marks} onChange={(e) => onChange({ ...q, marks: Number(e.target.value) })} className={cx(inputCls(), "!h-9 !w-auto text-[13px]")}>
           {[1, 2, 3, 4, 5].map((m) => <option key={m} value={m}>{m} {m === 1 ? "mark" : "marks"}</option>)}
-        </select>
+        </KeepSelect>
         {q.kind === "SHORT" && <span className="text-[12.5px] text-ink3">You mark short answers yourself</span>}
       </div>
       {q.kind !== "SHORT" && (
@@ -50,7 +51,7 @@ function QuestionEditor({ q, n, onChange, onRemove }: { q: QDraft; n: number; on
           <legend className="sr-only">Choices for question {n}; tick the right one</legend>
           {q.options.map((o, j) => (
             <div key={j} className="flex items-center gap-2">
-              <input type="radio" name={`right-${n}`} checked={q.correctIndex === j} onChange={() => onChange({ ...q, correctIndex: j })} aria-label={`Choice ${"abcdef"[j]} is right`} className="size-4 accent-[var(--color-ok)]" />
+              <KeepCheck type="radio" name={`right-${n}`} checked={q.correctIndex === j} onChange={() => onChange({ ...q, correctIndex: j })} aria-label={`Choice ${"abcdef"[j]} is right`} className="size-4 accent-[var(--color-ok)]" />
               {q.kind === "TRUE_FALSE" ? <span className={cx("h-9 px-3 rounded-lg text-[13.5px] inline-flex items-center", q.correctIndex === j ? "bg-ok/10 text-ok font-semibold" : "bg-sunken text-ink2")}>{o}</span> : (
                 <>
                   <label className="sr-only" htmlFor={`qo-${n}-${j}`}>Choice {"abcdef"[j]}</label>
@@ -97,14 +98,14 @@ export function QuizSheet({ closeHref, sections, bank, start, defaults, edit }: 
       {!start && (
         <div className="grid grid-cols-2 gap-3">
           <FieldShell label="Class and section" id="cq-cls" required>
-            <select id="cq-cls" value={section?.id} onChange={(e) => { setSectionId(e.target.value); const n = sections.find((x) => x.id === e.target.value); if (n && !n.subjects.some((x) => x.id === subjectId)) setSubjectId(n.subjects[0]?.id ?? ""); }} className={cx(inputCls(), "h-11")}>
+            <KeepSelect id="cq-cls" value={section?.id} onChange={(e) => { setSectionId(e.target.value); const n = sections.find((x) => x.id === e.target.value); if (n && !n.subjects.some((x) => x.id === subjectId)) setSubjectId(n.subjects[0]?.id ?? ""); }} className={cx(inputCls(), "h-11")}>
               {sections.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}
-            </select>
+            </KeepSelect>
           </FieldShell>
           <FieldShell label="Subject" id="cq-sub" required>
-            <select id="cq-sub" value={subjectId} onChange={(e) => setSubjectId(e.target.value)} className={cx(inputCls(), "h-11")}>
+            <KeepSelect id="cq-sub" value={subjectId} onChange={(e) => setSubjectId(e.target.value)} className={cx(inputCls(), "h-11")}>
               {section?.subjects.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
-            </select>
+            </KeepSelect>
           </FieldShell>
         </div>
       )}

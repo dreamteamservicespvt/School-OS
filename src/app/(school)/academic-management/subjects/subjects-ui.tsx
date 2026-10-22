@@ -9,6 +9,7 @@ import {
   addSubjectAction, archiveSubjectAction, copyMapAction, endMapAction, mapSubjectAction, recordChoicesAction, removeChoiceAction,
   reopenMapAction, restoreSubjectAction, saveOptionAction, updateMapAction, updateSubjectAction,
 } from "./actions";
+import { KeepCheck } from "@/components/ui/keep-select";
 
 type Opt = { id: string; name: string };
 const TYPES = [{ value: "CORE", label: "Core" }, { value: "OPTIONAL", label: "Optional" }, { value: "ELECTIVE", label: "Elective" }, { value: "LANGUAGE", label: "Language" }];
@@ -43,7 +44,7 @@ function SubjectFields({ state, classes, today }: { state: Parameters<typeof v>[
       {classes.length > 0 && (
         <fieldset>
           <legend className="mb-1 text-sm font-medium">Classes <span className="font-normal text-ink-2">(can be mapped later)</span></legend>
-          <label className="mb-2 flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" className="size-5 accent-brand" checked={all} onChange={(e) => setAll(e.target.checked)} /> All classes</label>
+          <label className="mb-2 flex min-h-11 items-center gap-2 text-sm"><KeepCheck type="checkbox" className="size-5 accent-brand" checked={all} onChange={(e) => setAll(e.target.checked)} /> All classes</label>
           <div className="grid max-h-48 grid-cols-2 gap-1 overflow-y-auto rounded-lg border border-line p-2 sm:grid-cols-3">
             {classes.map((c) => (
               <label key={c.id} className="flex min-h-10 items-center gap-2 text-sm">

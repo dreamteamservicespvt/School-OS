@@ -8,6 +8,7 @@ import { cx } from "@/components/ui/cx";
 import { MenuItem, MenuLink, MoreMenu, SelectBar } from "@/components/ui/kit-client";
 import { ActionSheet } from "../_components/sheets";
 import { archiveQuestionAction, makePaperForm, paperStatusAction, saveQuestionForm } from "./actions";
+import { KeepSelect } from "@/components/ui/keep-select";
 
 export type Pair = { value: string; label: string; chapters: { id: string; title: string }[] };
 type Opt = { value: string; label: string };
@@ -39,11 +40,11 @@ export function AddQuestionButton({ pairs, start }: { pairs: Pair[]; start: stri
       <Button variant="secondary" icon={Plus} onClick={() => setOpen(true)}>Add question</Button>
       <ActionSheet open={open} onClose={() => setOpen(false)} title="Add question" sub="It goes into the question bank for the class and subject." confirmLabel="Add to bank" pendingText="Adding…" run={saveQuestionForm} wide>
         <div className="grid gap-4 md:grid-cols-2">
-          <F label="Class and subject"><select name="pair" value={pair} onChange={(e) => setPair(e.target.value)} className={field}>{pairs.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}</select></F>
+          <F label="Class and subject"><KeepSelect name="pair" value={pair} onChange={(e) => setPair(e.target.value)} className={field}>{pairs.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}</KeepSelect></F>
           <F label="Chapter" hint={chapters.length ? undefined : "No chapters yet. Add the syllabus in Academic Management first."}>
             <select name="chapterId" required className={field} defaultValue=""><option value="" disabled>Choose from the syllabus</option>{chapters.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}</select>
           </F>
-          <F label="Type"><select name="type" value={type} onChange={(e) => setType(e.target.value)} className={field}>{TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select></F>
+          <F label="Type"><KeepSelect name="type" value={type} onChange={(e) => setType(e.target.value)} className={field}>{TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</KeepSelect></F>
           <F label="Marks"><input name="marks" type="number" inputMode="numeric" min={1} max={100} defaultValue={1} required className={cx(field, "tnum")} /></F>
           <F label="Question" className="md:col-span-2"><textarea name="text" required rows={3} maxLength={4000} placeholder="Type the question as it should print" className={cx(inputCls(), "py-2.5")} /></F>
           {(type === "mcq" || type === "match") && (
@@ -79,7 +80,7 @@ function PaperFields({ pairs, exams, pair, setPair, manual }: { pairs: Pair[]; e
     <div className="grid gap-4 md:grid-cols-2">
       <F label="Title" className="md:col-span-2"><input name="title" required maxLength={120} placeholder="Half Yearly · Mathematics · Class 6" className={field} /></F>
       {manual ? <input type="hidden" name="pair" value={pair} /> : (
-        <F label="Class and subject"><select name="pair" value={pair} onChange={(e) => setPair(e.target.value)} className={field}>{pairs.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}</select></F>
+        <F label="Class and subject"><KeepSelect name="pair" value={pair} onChange={(e) => setPair(e.target.value)} className={field}>{pairs.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}</KeepSelect></F>
       )}
       <F label="Exam" hint="Optional."><select name="examId" className={field} defaultValue=""><option value="">Not for one exam</option>{exams.map((e) => <option key={e.value} value={e.value}>{e.label}</option>)}</select></F>
       <F label="Time allowed" hint="Minutes. Optional."><input name="durationMin" type="number" inputMode="numeric" min={15} max={600} placeholder="180" className={cx(field, "tnum")} /></F>

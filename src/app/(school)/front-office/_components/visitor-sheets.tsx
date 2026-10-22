@@ -17,6 +17,7 @@ import { ID_PROOF_TYPES, PEOPLE_COUNTS, mobileDigits, vehicleProblem } from "@/l
 import type { ReturningVisitor } from "@/lib/front-office/visitors";
 import { checkOutAction, gateEntryAction, lookupVisitor, registerVisitorAction } from "../actions";
 import { CameraBox, PhoneBox, SegField, useCanScanQr } from "./fields";
+import { KeepSelect } from "@/components/ui/keep-select";
 
 export type MeetChoice = { id: string; name: string; role: string; now: string; tone: "ok" | "warn" | "bad" };
 const TONE = { ok: "text-ok", warn: "text-warn", bad: "text-bad" } as const;
@@ -84,17 +85,17 @@ function VisitorFields({ purposes, staff, photoRequired, idRequired, preset }: {
               aria-invalid={name.error ? true : undefined} className={cx(inputCls(name.error), "h-11")} />
           </FieldShell>
           <FieldShell label="Purpose" id="vs-purpose" required error={purpose.error}>
-            <select id="vs-purpose" name="purpose" value={why} onChange={(e) => setWhy(e.target.value)} className={cx(inputCls(purpose.error), "h-11")}>
+            <KeepSelect id="vs-purpose" name="purpose" value={why} onChange={(e) => setWhy(e.target.value)} className={cx(inputCls(purpose.error), "h-11")}>
               {purposes.map((p) => <option key={p} value={p}>{p}</option>)}
-            </select>
+            </KeepSelect>
           </FieldShell>
           {why === "Admission enquiry" && <Banner tone="info" title="The enquiry form opens next,">so the details reach Admissions with an owner and a follow-up.</Banner>}
           <FieldShell label="Person to meet" id="vs-meet" required={needMeet} error={meet.error}
             help={m ? <span className={cx("font-semibold", TONE[m.tone])}>{m.now}</span> : "Shows if they are on leave or teaching now"}>
-            <select id="vs-meet" name="meetStaffId" value={meetId} onChange={(e) => setMeetId(e.target.value)} className={cx(inputCls(meet.error), "h-11")} aria-invalid={meet.error ? true : undefined}>
+            <KeepSelect id="vs-meet" name="meetStaffId" value={meetId} onChange={(e) => setMeetId(e.target.value)} className={cx(inputCls(meet.error), "h-11")} aria-invalid={meet.error ? true : undefined}>
               <option value="">Choose staff member</option>
               {staff.map((s) => <option key={s.id} value={s.id}>{s.name} · {s.role}</option>)}
-            </select>
+            </KeepSelect>
           </FieldShell>
           {m?.tone === "bad" && <p className="text-[12.5px] text-bad flex items-center gap-1.5" role="alert"><CircleAlert size={14} aria-hidden="true" />{m.name} is not in today ({m.now.toLowerCase()}). Book an appointment instead, or choose someone else.</p>}
           {preset?.note && <input type="hidden" name="note" value={preset.note} />}

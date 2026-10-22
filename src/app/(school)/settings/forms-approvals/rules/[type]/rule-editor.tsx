@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { ruleSummary, type StepDraft } from "@/lib/settings/approval-rule-words";
 import { saveRuleAction } from "../../actions";
+import { KeepSelect } from "@/components/ui/keep-select";
 
 type Option = { value: string; label: string };
 type Step = { approver: string; upTo: string };
@@ -87,11 +88,11 @@ export function RuleEditor({ type, label, steps: start, escalateAfterDays, roles
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <label htmlFor={`approver${i}`} className="mb-1 block text-sm font-medium">Who approves <span className="text-danger" aria-hidden="true">*</span></label>
-                <select id={`approver${i}`} name={`approver${i}`} value={s.approver} onChange={(e) => set(i, { approver: e.target.value })} className="h-11 w-full rounded-lg border border-line-strong bg-surface px-3">
+                <KeepSelect id={`approver${i}`} name={`approver${i}`} value={s.approver} onChange={(e) => set(i, { approver: e.target.value })} className="h-11 w-full rounded-lg border border-line-strong bg-surface px-3">
                   <option value="">Choose</option>
                   <optgroup label="A role (anyone with it)">{roles.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}</optgroup>
                   {people.length > 0 && <optgroup label="A named person">{people.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}</optgroup>}
-                </select>
+                </KeepSelect>
               </div>
               <TextField label="Up to amount (₹)" name={`upTo${i}`} inputMode="decimal" value={s.upTo} placeholder="No limit" onChange={(e) => set(i, { upTo: e.target.value })}
                 help="Leave blank for no limit. Requests with no amount go to step 1." />

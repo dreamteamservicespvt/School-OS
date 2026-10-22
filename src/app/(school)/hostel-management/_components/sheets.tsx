@@ -20,6 +20,7 @@ import {
   decidePassAction, guardiansAction, messExpenseAction, moveAction, raiseMaintenanceAction, recordIncidentAction, recordVisitorAction, requestPassAction, saveFeePlanAction,
   saveHeadCountAction, saveHostelAction, saveMenuAction, setWardensAction, updateRoomAction, type FoundStudent, type GuardianChoice,
 } from "../actions";
+import { KeepSelect } from "@/components/ui/keep-select";
 
 type Opt = { value: string; label: string };
 const RELATIONS = ["Father", "Mother", "Uncle", "Aunt", "Grandfather", "Grandmother", "Brother", "Sister", "Local guardian", "Other"];
@@ -139,14 +140,14 @@ export function WardensSheet({ closeHref, hostelId, hostelName, staff, start }: 
             <li key={i} className="rounded-xl border border-line p-3 flex flex-col gap-2">
               <div className="grid grid-cols-[1fr_140px] gap-2">
                 <label className="sr-only" htmlFor={`wd-${i}`}>Warden {i + 1}</label>
-                <select id={`wd-${i}`} name="staffId" value={r.staffId} onChange={(e) => set(i, "staffId", e.target.value)} className={cx(inputCls(), "h-11")}>
+                <KeepSelect id={`wd-${i}`} name="staffId" value={r.staffId} onChange={(e) => set(i, "staffId", e.target.value)} className={cx(inputCls(), "h-11")}>
                   <option value="">Choose a staff member</option>
                   {staff.map((x) => <option key={x.id} value={x.id} disabled={rows.some((y, j) => j !== i && y.staffId === x.id)}>{x.name}{x.sub ? ` · ${x.sub}` : ""}</option>)}
-                </select>
+                </KeepSelect>
                 <label className="sr-only" htmlFor={`wt-${i}`}>Title</label>
-                <select id={`wt-${i}`} name="title" value={r.title} onChange={(e) => set(i, "title", e.target.value)} className={cx(inputCls(), "h-11")}>
+                <KeepSelect id={`wt-${i}`} name="title" value={r.title} onChange={(e) => set(i, "title", e.target.value)} className={cx(inputCls(), "h-11")}>
                   {["Warden", "Assistant warden", "Night warden"].map((x) => <option key={x} value={x}>{x}</option>)}
-                </select>
+                </KeepSelect>
               </div>
               <div className="flex items-center justify-between gap-2 text-[12.5px]">
                 <span className={s && !s.hasLogin ? "text-warn" : "text-ink3"}>{s ? (s.hasLogin ? "Has a School OS login: gets alerts and approves outings." : "No School OS login yet: cannot approve outings until one is added in Staff & HR.") : ""}</span>
@@ -217,25 +218,25 @@ export function AllocateSheet({ closeHref, hostels, beds, plans, start, waiting,
       {student && <input type="hidden" name="studentId" value={student.id} />}
       <div className="grid sm:grid-cols-2 gap-3">
         <FieldShell label="Hostel" id="al-h" required error={genderBad && hostel ? `${hostel.gender === "GIRLS" ? "Girls' hostel. Choose the boys' hostel." : "Boys' hostel. Choose the girls' hostel."}` : undefined}>
-          <select id="al-h" value={hid} onChange={(e) => { setHid(e.target.value); setBedId(beds.find((b) => b.hostelId === e.target.value)?.id ?? ""); setPlanId(null); }} aria-invalid={genderBad ? true : undefined} className={cx(inputCls(genderBad ? "x" : undefined), "h-11")}>
+          <KeepSelect id="al-h" value={hid} onChange={(e) => { setHid(e.target.value); setBedId(beds.find((b) => b.hostelId === e.target.value)?.id ?? ""); setPlanId(null); }} aria-invalid={genderBad ? true : undefined} className={cx(inputCls(genderBad ? "x" : undefined), "h-11")}>
             {hostels.map((h) => <option key={h.id} value={h.id}>{h.name} ({beds.filter((b) => b.hostelId === h.id).length} free)</option>)}
-          </select>
+          </KeepSelect>
         </FieldShell>
         <FieldShell label="Room and bed" id="al-bed" required error={fBed.error ?? (!free.length ? `No free bed in ${hostel?.name ?? "this hostel"}. Check a student out or unblock a bed first.` : undefined)} help={bed ? `${bed.floor} floor${bed.roomType ? ` · ${bed.roomType}` : ""}` : undefined}>
-          <select id="al-bed" name="bedId" value={bedId} onChange={(e) => { setBedId(e.target.value); setPlanId(null); }} aria-invalid={fBed.error ? true : undefined} className={cx(inputCls(fBed.error), "h-11")}>
+          <KeepSelect id="al-bed" name="bedId" value={bedId} onChange={(e) => { setBedId(e.target.value); setPlanId(null); }} aria-invalid={fBed.error ? true : undefined} className={cx(inputCls(fBed.error), "h-11")}>
             {!free.length && <option value="">No free bed</option>}
             {byRoom.map(([room, list]) => <optgroup key={room} label={room}>{list.map((b) => <option key={b.id} value={b.id}>Room {b.roomNo}, Bed {b.bedNo}{b.roomType ? ` · ${b.roomType}` : ""}</option>)}</optgroup>)}
-          </select>
+          </KeepSelect>
         </FieldShell>
       </div>
       <div className="grid sm:grid-cols-2 gap-3">
         <SDate name="startDate" label="Check-in date" required start={todayStr} />
         <FieldShell label="Fee plan" id="al-plan" required error={fPlan.error} help={auto && plan === auto.id ? "Set by the hostel and room type." : undefined}>
-          <select id="al-plan" name="feePlanId" value={plan} onChange={(e) => setPlanId(e.target.value)} aria-invalid={fPlan.error ? true : undefined} className={cx(inputCls(fPlan.error), "h-11")}>
+          <KeepSelect id="al-plan" name="feePlanId" value={plan} onChange={(e) => setPlanId(e.target.value)} aria-invalid={fPlan.error ? true : undefined} className={cx(inputCls(fPlan.error), "h-11")}>
             {plan === "" && <option value="">Choose the fee plan</option>}
             {plans.filter((p) => !p.hostelId || p.hostelId === hid).map((p) => <option key={p.id} value={p.id}>{p.words}</option>)}
             <option value="none">No hostel fees</option>
-          </select>
+          </KeepSelect>
         </FieldShell>
       </div>
       <SSwitch name="checkedIn" title="Checked in now" sub="Turn off if the student arrives later. You check them in from the residents list." start />

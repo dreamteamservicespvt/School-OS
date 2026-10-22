@@ -13,6 +13,7 @@ import { INTEGRATION_STATUS, checkIntegrationFields, type IntegrationDef } from 
 import {
   applyTemplateAction, assistantAction, connectAction, disconnectAction, featureAction, moduleAction, preferencesAction, previewTemplateAction, retestAction, type PreviewState,
 } from "./actions";
+import { KeepCheck } from "@/components/ui/keep-select";
 
 /** A switch that looks like one, for a module or feature. */
 function SwitchLook({ on }: { on: boolean }) {
@@ -143,7 +144,7 @@ export function AssistantForm({ on, roles, chosen, mayEdit, dailyLimit, platform
     <form action={action} className="space-y-4">
       <FormMessage state={state} />
       <label className="flex min-h-11 items-center gap-3">
-        <input type="checkbox" name="on" checked={isOn} disabled={!mayEdit} onChange={(e) => setIsOn(e.target.checked)} className="size-5 accent-brand" />
+        <KeepCheck type="checkbox" name="on" checked={isOn} disabled={!mayEdit} onChange={(e) => setIsOn(e.target.checked)} className="size-5 accent-brand" />
         <span><span className="font-medium">AI assistant is on</span><span className="block text-sm text-ink-2">The AI only prepares and suggests. A person always checks before anything is saved or sent.</span></span>
       </label>
       {isOn && (
@@ -152,7 +153,7 @@ export function AssistantForm({ on, roles, chosen, mayEdit, dailyLimit, platform
           <div className="grid gap-2 sm:grid-cols-3">
             {roles.map((r) => (
               <label key={r.key} className="flex min-h-11 items-center gap-3 rounded-lg border border-line px-3">
-                <input type="checkbox" name="aiRoles" value={r.key} checked={picked.includes(r.key)} disabled={!mayEdit}
+                <KeepCheck type="checkbox" name="aiRoles" value={r.key} checked={picked.includes(r.key)} disabled={!mayEdit}
                   onChange={(e) => setPicked(e.target.checked ? [...picked, r.key] : picked.filter((x) => x !== r.key))} className="size-5 accent-brand" />
                 <span className="text-sm">{r.name}</span>
               </label>

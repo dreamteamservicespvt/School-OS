@@ -10,6 +10,7 @@ import { Segmented } from "@/components/ui/controls";
 import { SelectField, TextArea, TextField, type Option } from "@/components/ui/field";
 import { ActionButton, FormSheet, SubHead } from "../_components/forms";
 import { confirmAction, decideAction, moveWaitAction, offerAcceptedAction, offerSeatAction, offerSentAction, rerankAction, undoAction, waitAction } from "./actions";
+import { KeepSelect } from "@/components/ui/keep-select";
 
 export function DecideButtons({ id, name, sub, canDecide, canReject, full, waitingList, seatsNote }: { id: string; name: string; sub: string; canDecide: boolean; canReject: boolean; full: boolean; waitingList: boolean; seatsNote: string }) {
   const [open, setOpen] = useState<null | "approve" | "reject" | "wait">(null);
@@ -54,7 +55,7 @@ export function ConfirmButton({ id, name, sub, sections, defaultSection, today, 
               <p className="text-[13px] font-semibold text-ink2">Section <span className="text-bad" aria-hidden="true">*</span></p>
               {sections.length <= 4
                 ? <Segmented label="Section" value={sec} onChange={setSec} options={sections} className="w-full" size="sm" />
-                : <select aria-label="Section" value={sec} onChange={(e) => setSec(e.target.value)} className="h-11 rounded-xl border border-line bg-surface px-3">{sections.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}</select>}
+                : <KeepSelect aria-label="Section" value={sec} onChange={(e) => setSec(e.target.value)} className="h-11 rounded-xl border border-line bg-surface px-3">{sections.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}</KeepSelect>}
               <p className="text-[12.5px] text-ink3">The section with most free seats is picked for you.</p>
               {f.err("sectionId") && <p className="text-[12.5px] text-bad">{f.err("sectionId")}</p>}
             </div>

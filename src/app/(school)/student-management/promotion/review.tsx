@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import type { FormState } from "@/lib/forms";
 import { confirmPromotionAction } from "../_actions/promotion";
+import { KeepSelect } from "@/components/ui/keep-select";
 
 type Kind = "PROMOTE" | "DETAIN" | "LEAVING";
 export type ReviewRow = {
@@ -88,16 +89,16 @@ export function PromotionReview({ rows, fromSectionId, fromLabel, fromYear, toYe
                     {r.alreadyIn ? <Badge>Already in {r.alreadyIn}</Badge> : (
                       <div className="flex flex-wrap gap-2">
                         <label><span className="sr-only">Decision for {r.fullName}</span>
-                          <select value={d.decision} onChange={(e) => set(r.studentId, { decision: e.target.value as Kind, toSectionId: "" })} className="h-11 rounded-xl border border-line bg-surface px-2">
+                          <KeepSelect value={d.decision} onChange={(e) => set(r.studentId, { decision: e.target.value as Kind, toSectionId: "" })} className="h-11 rounded-xl border border-line bg-surface px-2">
                             {(["PROMOTE", "DETAIN", "LEAVING"] as Kind[]).filter((k) => k !== "PROMOTE" || !finalClass).map((k) => <option key={k} value={k}>{LABEL[k]}</option>)}
-                          </select>
+                          </KeepSelect>
                         </label>
                         {d.decision !== "LEAVING" && (
                           <label><span className="sr-only">Section for {r.fullName}</span>
-                            <select value={d.toSectionId} onChange={(e) => set(r.studentId, { toSectionId: e.target.value })} className="h-11 rounded-xl border border-line bg-surface px-2">
+                            <KeepSelect value={d.toSectionId} onChange={(e) => set(r.studentId, { toSectionId: e.target.value })} className="h-11 rounded-xl border border-line bg-surface px-2">
                               <option value="">{d.decision === "PROMOTE" ? toClassName : fromLabel.split(" ").slice(0, -1).join(" ")} {defaultName(d.decision)}</option>
                               {(d.decision === "PROMOTE" ? targetSections : detainSections).filter((s) => s.name !== defaultSectionName).map((s) => <option key={s.id} value={s.id}>{d.decision === "PROMOTE" ? toClassName : ""} {s.name}</option>)}
-                            </select>
+                            </KeepSelect>
                           </label>
                         )}
                       </div>

@@ -13,6 +13,7 @@ import { cx } from "@/components/ui/cx";
 import type { FormState } from "@/lib/forms";
 import { ActionSheet } from "../_components/sheets";
 import { cancelScheduledAction, publishAction, unpublishAction } from "./actions";
+import { KeepCheck } from "@/components/ui/keep-select";
 
 type Sec = { id: string; label: string; ready: boolean; problems: string[]; published: boolean; scheduled: string | null; students: number };
 
@@ -129,7 +130,7 @@ export function PublishedMenu({ keyName, title, sections, chosen }: { keyName: s
             <legend className="text-[13px] font-semibold text-ink2 mb-1">Sections</legend>
             {sections.map((s) => (
               <label key={s.id} className="flex min-h-10 items-center gap-2.5 text-[14px] text-ink">
-                <input type="checkbox" checked={picked.includes(s.id)} onChange={(e) => setPicked((p) => (e.target.checked ? [...p, s.id] : p.filter((x) => x !== s.id)))} className="size-5 accent-brand" />{s.label}
+                <KeepCheck type="checkbox" checked={picked.includes(s.id)} onChange={(e) => setPicked((p) => (e.target.checked ? [...p, s.id] : p.filter((x) => x !== s.id)))} className="size-5 accent-brand" />{s.label}
               </label>
             ))}
           </fieldset>

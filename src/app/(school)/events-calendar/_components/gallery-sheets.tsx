@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { cx } from "@/components/ui/cx";
 import type { FormState } from "@/lib/forms";
 import { albumAccessAction, publishAlbumAction, saveAlbumAction, tagAction } from "../actions";
+import { KeepSelect } from "@/components/ui/keep-select";
 
 type Opt = { value: string; label: string };
 
@@ -144,9 +145,9 @@ export function AccessForm({ albumId, visibleTo, classIds, consentRule, classes,
       {vis === "CLASSES" && [...cls].map((c) => <input key={c} type="hidden" name="classIds" value={c} />)}
       <label className="flex flex-col gap-1.5">
         <span className="text-[13px] font-semibold text-ink2">Visible to</span>
-        <select name="visibleTo" value={vis} disabled={!canEdit} onChange={(e) => setVis(e.target.value)} className={cx(inputCls(false), "h-11")} id="al-vis">
+        <KeepSelect name="visibleTo" value={vis} disabled={!canEdit} onChange={(e) => setVis(e.target.value)} className={cx(inputCls(false), "h-11")} id="al-vis">
           {VIS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
+        </KeepSelect>
         <span className="text-[12.5px] text-ink3">{vis === "STAFF" ? "Change before publishing so parents can see it" : "Parents get it through a link in a message"}</span>
       </label>
       {vis === "CLASSES" && (

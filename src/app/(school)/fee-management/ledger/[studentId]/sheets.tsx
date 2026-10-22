@@ -16,6 +16,7 @@ import type { Option } from "@/components/ui/field";
 import type { FormState } from "@/lib/forms";
 import { formatRupees } from "@/lib/format";
 import { addChargeAction, addOldDuesAction, adjustAction, assignPlanAction, certificateAction, invoiceAction, resendInvoiceAction } from "./actions";
+import { KeepCheck } from "@/components/ui/keep-select";
 
 type Common = { studentId: string; closeHref: string };
 
@@ -116,7 +117,7 @@ export function InvoiceSheet({ studentId, closeHref, rows, father, canLink }: Co
             {rows.map((r) => (
               <li key={r.id}>
                 <label className="flex items-center gap-3 px-4 py-2.5 cursor-pointer">
-                  <input type="checkbox" name="dueId" value={r.id} checked={ticked.has(r.id)} onChange={() => flip(r.id)} className="size-4 accent-[var(--color-brand)] shrink-0" />
+                  <KeepCheck type="checkbox" name="dueId" value={r.id} checked={ticked.has(r.id)} onChange={() => flip(r.id)} className="size-4 accent-[var(--color-brand)] shrink-0" />
                   <span className="min-w-0 flex-1">{r.label} <span className="text-[12.5px] text-ink3">· {r.status}</span></span>
                   <span className="tnum shrink-0">{r.amount}</span>
                 </label>

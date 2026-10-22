@@ -20,6 +20,7 @@ import { CustomFieldInputs } from "@/components/custom-fields";
 import type { CustomFieldDef, CustomValues } from "@/lib/custom-field-rules";
 import { FormProblem, MoreDetails, PhoneField, SegField, SubHead, Submit } from "../_components/forms";
 import { checkFormCodeAction, saveApplicationAction, sendFormCodeAction } from "./actions";
+import { KeepSelect } from "@/components/ui/keep-select";
 
 export type FormClass = { value: string; label: string; previousSchool: boolean; seatsText: string; full: boolean };
 
@@ -126,10 +127,10 @@ export function ApplicationForm(p: Props) {
           )}
           <FieldShell label="Class applied for" id="na-cls" required error={err("classId")}
             help={cls ? (cls.full ? <span className="text-warn font-semibold">{cls.label} is full. The application can still go on the waiting list.</span> : `Seats left · ${cls.seatsText}`) : undefined}>
-            <select id="na-cls" name="classId" value={classId} onChange={(e) => setClassId(e.target.value)} aria-invalid={err("classId") ? true : undefined} className={cx(inputCls(err("classId")), "h-11 pr-9")}>
+            <KeepSelect id="na-cls" name="classId" value={classId} onChange={(e) => setClassId(e.target.value)} aria-invalid={err("classId") ? true : undefined} className={cx(inputCls(err("classId")), "h-11 pr-9")}>
               <option value="">Choose class</option>
               {p.classes.map((c) => <option key={c.value} value={c.value}>{c.label}{c.full ? " (full)" : ""}</option>)}
-            </select>
+            </KeepSelect>
           </FieldShell>
         </div>
         <div className="grid md:grid-cols-2 gap-3">

@@ -21,6 +21,7 @@ import { FREQUENCIES, HEAD_KINDS, headKindLabel, type FrequencyValue } from "@/l
 import {
   archiveHeadAction, assignClassAction, copyAction, discardAction, prepareYearAction, publishAction, removeRowAction, restoreAction, saveHeadAction, saveRowAction,
 } from "./actions";
+import { KeepCheck } from "@/components/ui/keep-select";
 
 export type HeadData = { id: string; name: string; kind: string; taxable: boolean; gstRate: string; sacCode: string; bankAccountId: string; lateFeeApplies: boolean; system: boolean };
 
@@ -37,7 +38,7 @@ export function HeadSheet({ closeHref, head, banks, gstin, splitOn }: { closeHre
           <b className="font-semibold block">Taxable (GST)</b>
           <span className="block text-[12.5px] text-ink3 mt-0.5">{gstin ? `Uses the school’s GSTIN ${gstin} from School Profile` : "Add the school’s GSTIN in School Profile first"}</span>
         </div>
-        <input type="checkbox" name="taxable" checked={taxable} onChange={(e) => setTaxable(e.target.checked)} className="size-5 accent-[var(--color-brand)]" aria-label="Taxable (GST)" />
+        <KeepCheck type="checkbox" name="taxable" checked={taxable} onChange={(e) => setTaxable(e.target.checked)} className="size-5 accent-[var(--color-brand)]" aria-label="Taxable (GST)" />
       </div>
       {taxable && (
         <div className="grid grid-cols-2 gap-3">

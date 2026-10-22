@@ -8,6 +8,7 @@
 
 import { useId, useMemo, useState } from "react";
 import { type CustomFieldDef, type CustomValues, checkOne, isFieldShown, valueAsText } from "@/lib/custom-field-rules";
+import { KeepCheck, KeepSelect } from "@/components/ui/keep-select";
 
 const control = "w-full rounded-lg border bg-surface px-3 text-base text-ink placeholder:text-ink-2/70";
 
@@ -70,7 +71,7 @@ export function CustomFieldInputs({ fields, values, errors = {}, fileLinks = {},
               <legend className="mb-1 block text-sm font-medium">{label}</legend>
               {(["yes", "no"] as const).map((v) => (
                 <label key={v} className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-4 ${typed[f.key] === v ? "border-brand bg-brand-soft text-brand-text" : "border-line-strong"}`}>
-                  <input type="radio" name={name} value={v} checked={typed[f.key] === v} disabled={disabled} required={f.required}
+                  <KeepCheck type="radio" name={name} value={v} checked={typed[f.key] === v} disabled={disabled} required={f.required}
                     onChange={() => { set(f.key, v); setLocal((l) => ({ ...l, [f.key]: "" })); }} className="size-4 accent-brand" />
                   {v === "yes" ? "Yes" : "No"}
                 </label>
@@ -84,10 +85,10 @@ export function CustomFieldInputs({ fields, values, errors = {}, fileLinks = {},
           };
           if (f.fieldType === "choice") {
             input = (
-              <select {...common} value={typed[f.key] ?? ""} required={f.required} onChange={(e) => { set(f.key, e.target.value); setLocal((l) => ({ ...l, [f.key]: "" })); }} className={`${control} h-11 ${border}`}>
+              <KeepSelect {...common} value={typed[f.key] ?? ""} required={f.required} onChange={(e) => { set(f.key, e.target.value); setLocal((l) => ({ ...l, [f.key]: "" })); }} className={`${control} h-11 ${border}`}>
                 <option value="">Choose</option>
                 {f.choices.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
+              </KeepSelect>
             );
           } else if (f.fieldType === "file") {
             input = (

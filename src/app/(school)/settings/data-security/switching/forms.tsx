@@ -9,6 +9,7 @@ import { SelectField, TextField } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import type { FormState } from "@/lib/forms";
 import { columnsAction, expectedAction, fixRowAction, sheetAction, uploadAction, valuesAction } from "./actions";
+import { KeepSelect } from "@/components/ui/keep-select";
 
 type Opt = { value: string; label: string };
 
@@ -168,11 +169,11 @@ export function ColumnsForm({ id, rows, headers, samples }: { id: string; rows: 
                   {Array.from({ length: slots }, (_, slot) => (
                     <label key={slot} className="min-w-0 flex-1 basis-48">
                       <span className="sr-only">{slot === 0 ? `Column for ${r.label}` : `Joined with`}</span>
-                      <select name={`col_${r.key}${slot ? `_${slot}` : ""}`} value={cols[slot] !== undefined ? String(cols[slot]) : ""} onChange={(e) => pick(r.key, slot, e.target.value)}
+                      <KeepSelect name={`col_${r.key}${slot ? `_${slot}` : ""}`} value={cols[slot] !== undefined ? String(cols[slot]) : ""} onChange={(e) => pick(r.key, slot, e.target.value)}
                         className={`h-11 w-full rounded-lg border bg-surface px-2 ${r.required && !cols.length ? "border-danger" : "border-line-strong"}`}>
                         <option value="">{slot === 0 ? "Not in the file" : "Join another column…"}</option>
                         {options.map((o) => <option key={o.value} value={o.value}>{o.label}{used.has(Number(o.value)) && !cols.includes(Number(o.value)) ? ` (also ${used.get(Number(o.value))})` : ""}</option>)}
-                      </select>
+                      </KeepSelect>
                     </label>
                   ))}
                 </div>

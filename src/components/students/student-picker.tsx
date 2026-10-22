@@ -8,6 +8,7 @@ import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { useFormResult } from "./action-form";
 import { Spinner } from "@/components/ui/button";
 import { searchStudents, studentsInSection, type PickedStudent } from "@/app/(school)/student-management/_actions/lookup";
+import { KeepCheck, KeepSelect } from "@/components/ui/keep-select";
 
 export function StudentPicker({ name, label, multiple = false, sections = [], initial = [], anyStatus = false, required = true, help }: {
   name: string; label: string; multiple?: boolean; sections?: { value: string; label: string }[];
@@ -59,11 +60,11 @@ export function StudentPicker({ name, label, multiple = false, sections = [], in
             {sections.length > 0 && (
               <label>
                 <span className="sr-only">Or open a section</span>
-                <select value={section} onChange={(e) => { const v = e.target.value; setSection(v); setQ(""); if (v) start(async () => setFound(await studentsInSection(v))); else setFound([]); }}
+                <KeepSelect value={section} onChange={(e) => { const v = e.target.value; setSection(v); setQ(""); if (v) start(async () => setFound(await studentsInSection(v))); else setFound([]); }}
                   className="h-11 rounded-xl border border-line bg-surface px-3 text-base">
                   <option value="">Or open a section</option>
                   {sections.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-                </select>
+                </KeepSelect>
               </label>
             )}
           </div>
@@ -75,7 +76,7 @@ export function StudentPicker({ name, label, multiple = false, sections = [], in
               {found.map((s) => (
                 <li key={s.id}>
                   <label className="flex min-h-11 cursor-pointer items-center gap-3 px-1">
-                    <input type={multiple ? "checkbox" : "radio"} checked={has(s)} onChange={() => toggle(s)} className="size-5 accent-brand" />
+                    <KeepCheck type={multiple ? "checkbox" : "radio"} checked={has(s)} onChange={() => toggle(s)} className="size-5 accent-brand" />
                     <span>{s.name} <span className="text-[13.5px] text-ink2">{s.cls} · {s.admissionNo}</span></span>
                   </label>
                 </li>

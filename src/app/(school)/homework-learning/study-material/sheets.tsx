@@ -14,6 +14,7 @@ import { cx } from "@/components/ui/cx";
 import { AttachPicker } from "../_components/attach";
 import { Text } from "../sheets";
 import { addLessonAction, archiveLessonAction, copyCourseAction, editLessonAction, lessonDoneAction, lessonVisibleAction, moveLessonAction } from "./actions";
+import { KeepCheck, KeepSelect } from "@/components/ui/keep-select";
 
 export type CourseRef = { sectionId: string; subjectId: string; label: string; subject: string };
 export type LessonForm = { id: string; title: string; chapterId: string; notes: string; visible: boolean; items: { id: string; name: string }[] };
@@ -47,7 +48,7 @@ export function LessonSheet({ closeHref, course, chapters, lesson, maxMb }: {
           {lesson.items.map((f) => (
             <label key={f.id} className={cx("flex items-center gap-2.5 rounded-xl border border-line px-3 py-2 text-[13.5px]", remove.has(f.id) && "opacity-50 line-through")}>
               <span className="flex-1 min-w-0 truncate">{f.name}</span>
-              <input type="checkbox" name="remove" value={f.id} checked={remove.has(f.id)} className="size-4"
+              <KeepCheck type="checkbox" name="remove" value={f.id} checked={remove.has(f.id)} className="size-4"
                 onChange={(e) => setRemove((x) => { const n = new Set(x); if (e.target.checked) n.add(f.id); else n.delete(f.id); return n; })} />
               <span className="text-[12.5px] text-ink3">Remove</span>
             </label>
@@ -84,9 +85,9 @@ export function CopyCourseSheet({ closeHref, courseId, subject, lessons, targets
       submitLabel={<><Copy size={16} aria-hidden="true" />{name ? `Copy to ${name}` : "Copy"}</>} pendingText="Copying…">
       {targets.length > 1 && (
         <FieldShell label="Copy to" id="cp-to" required>
-          <select id="cp-to" value={to} onChange={(e) => setTo(e.target.value)} className={cx(inputCls(), "h-11")}>
+          <KeepSelect id="cp-to" value={to} onChange={(e) => setTo(e.target.value)} className={cx(inputCls(), "h-11")}>
             {targets.map((t) => <option key={t.id} value={t.id}>Class {t.label}</option>)}
-          </select>
+          </KeepSelect>
         </FieldShell>
       )}
       <p className="text-[14px] text-ink2">

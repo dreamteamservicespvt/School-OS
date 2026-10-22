@@ -15,6 +15,7 @@ import { ErrorSummary, FieldShell, inputCls } from "@/components/ui/field";
 import { Segmented, type SegOption } from "@/components/ui/controls";
 import { cx } from "@/components/ui/cx";
 import type { FormState } from "@/lib/forms";
+import { KeepSelect } from "@/components/ui/keep-select";
 
 export type Action = (prev: FormState<unknown>, fd: FormData) => Promise<FormState<unknown>>;
 
@@ -190,9 +191,9 @@ export function WhenField({ name, label, defaultValue, error, required, timeLabe
         <input id={`${id}-d`} type="date" value={date} min={min} onChange={(e) => setDate(e.target.value)} aria-invalid={error ? true : undefined} className={cx(inputCls(error), "h-11 tnum")} />
       </FieldShell>
       <FieldShell label={timeLabel} id={`${id}-t`} required={required}>
-        <select id={`${id}-t`} value={time} onChange={(e) => setTime(e.target.value)} className={cx(inputCls(false), "h-11 pr-9")}>
+        <KeepSelect id={`${id}-t`} value={time} onChange={(e) => setTime(e.target.value)} className={cx(inputCls(false), "h-11 pr-9")}>
           {times.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-        </select>
+        </KeepSelect>
       </FieldShell>
       <input type="hidden" name={name} value={date ? `${date}T${time}` : ""} />
     </div>

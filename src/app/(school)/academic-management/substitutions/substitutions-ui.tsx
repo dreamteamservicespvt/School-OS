@@ -8,6 +8,7 @@ import { ConfirmButton } from "@/components/ui/confirm";
 import { SelectField, TextField } from "@/components/ui/field";
 import { FormDialog, err, v } from "../_components/form-dialog";
 import { assignAction, endCoverAction, markAbsentAction, removeSubstituteAction, suggestAction, temporaryTeacherAction, unmarkAbsentAction } from "./actions";
+import { KeepCheck } from "@/components/ui/keep-select";
 
 export type Need = {
   periodId: string; periodNo: number; startTime: string; endTime: string; sectionLabel: string; subjectName: string | null;
@@ -104,7 +105,7 @@ function AssignDialog({ teacher, periods, initial, date, onClose }: { teacher: s
             <div className="flex flex-wrap gap-2">
               {periods.map((p) => (
                 <label key={p.periodId} className={`flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm ${chosen.includes(p.periodId) ? "border-brand bg-brand-soft" : "border-line"}`}>
-                  <input type="checkbox" name="periodIds" value={p.periodId} className="size-5" checked={chosen.includes(p.periodId)} onChange={() => toggle(p.periodId)} />
+                  <KeepCheck type="checkbox" name="periodIds" value={p.periodId} className="size-5" checked={chosen.includes(p.periodId)} onChange={() => toggle(p.periodId)} />
                   Period {p.periodNo}, {p.sectionLabel}
                 </label>
               ))}
@@ -123,7 +124,7 @@ function AssignDialog({ teacher, periods, initial, date, onClose }: { teacher: s
                 {list.map((s, i) => (
                   <li key={s.id}>
                     <label className={`flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border px-3 py-2 ${pick === s.id ? "border-brand bg-brand-soft" : "border-line hover:bg-surface-2"}`}>
-                      <input type="radio" name="substituteId" value={s.id} className="mt-1 size-5" checked={pick === s.id} onChange={() => setPick(s.id)} />
+                      <KeepCheck type="radio" name="substituteId" value={s.id} className="mt-1 size-5" checked={pick === s.id} onChange={() => setPick(s.id)} />
                       <span>
                         <span className="font-medium">{s.name}</span>{i === 0 && <Badge tone="success" className="ml-2">Best match</Badge>}
                         <span className="block text-sm text-ink-2">{[s.designation, s.why].filter(Boolean).join(" · ")}</span>

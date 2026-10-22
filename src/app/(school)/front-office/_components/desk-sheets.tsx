@@ -20,6 +20,7 @@ import type { KnownPhone } from "@/lib/front-office/calls";
 import { mobileDigits } from "@/lib/front-office/words";
 import { addNoteAction, callFollowUpAction, clearNoteAction, enquiryAction, logCallAction, lookupPhone, searchFrom, walkInAction } from "../actions";
 import { PhoneBox, SegField } from "./fields";
+import { KeepSelect } from "@/components/ui/keep-select";
 
 type Opt = { value: string; label: string };
 
@@ -112,9 +113,9 @@ function CallFields({ purposes, classes, staff, defaultWho, today, admissions }:
         <input key={name.key} ref={nameRef} id="cl-name" name="name" defaultValue={name.value} maxLength={120} autoComplete="off" aria-invalid={name.error ? true : undefined} className={cx(inputCls(name.error), "h-11")} />
       </FieldShell>
       <FieldShell label="Purpose" id="cl-purpose" required error={purpose.error}>
-        <select id="cl-purpose" name="purpose" value={why} onChange={(e) => setWhy(e.target.value)} className={cx(inputCls(purpose.error), "h-11")}>
+        <KeepSelect id="cl-purpose" name="purpose" value={why} onChange={(e) => setWhy(e.target.value)} className={cx(inputCls(purpose.error), "h-11")}>
           {purposes.map((p) => <option key={p} value={p}>{p}</option>)}
-        </select>
+        </KeepSelect>
       </FieldShell>
       {why === "Admission enquiry" && (
         <div className="grid sm:grid-cols-2 gap-3 rounded-xl bg-sunken/70 p-3.5">

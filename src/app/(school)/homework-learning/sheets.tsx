@@ -12,6 +12,7 @@ import { cx } from "@/components/ui/cx";
 import { AttachPicker, HandInPicker } from "./_components/attach";
 import { RemindButton as SharedRemind } from "@/components/remind-button";
 import { archiveHomeworkAction, draftHomeworkAction, editHomeworkAction, giveHomeworkAction, remindTeacherAction, resendHomeworkAction, submitWorkAction } from "./actions";
+import { KeepCheck, KeepSelect } from "@/components/ui/keep-select";
 
 export type DueChoice = { date: string; words: string };
 export type GiveSection = {
@@ -102,12 +103,12 @@ export function GiveSheet({ closeHref, sections, own, today, defaultMax, onlineO
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-2">
-            <select id="gh-class" value={section.id} onChange={(e) => pick(e.target.value)} className={cx(inputCls(), "h-11")} aria-label="Class">
+            <KeepSelect id="gh-class" value={section.id} onChange={(e) => pick(e.target.value)} className={cx(inputCls(), "h-11")} aria-label="Class">
               {sections.map((c) => <option key={c.id} value={c.id}>Class {c.label} · {c.students}</option>)}
-            </select>
-            <select value={subject.id} onChange={(e) => { setSubjectId(e.target.value); setDraft(null); }} className={cx(inputCls(), "h-11")} aria-label="Subject">
+            </KeepSelect>
+            <KeepSelect value={subject.id} onChange={(e) => { setSubjectId(e.target.value); setDraft(null); }} className={cx(inputCls(), "h-11")} aria-label="Subject">
               {section.subjects.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
-            </select>
+            </KeepSelect>
           </div>
         )}
       </FieldShell>
@@ -165,7 +166,7 @@ export function GiveSheet({ closeHref, sections, own, today, defaultMax, onlineO
             <legend className="sr-only">Chosen students</legend>
             {section.roster.map((st) => (
               <label key={st.id} className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-sunken/60 text-[14px] cursor-pointer">
-                <input type="checkbox" name="studentIds" value={st.id} checked={chosen.has(st.id)} className="size-4 accent-[rgb(var(--brand))]"
+                <KeepCheck type="checkbox" name="studentIds" value={st.id} checked={chosen.has(st.id)} className="size-4 accent-[rgb(var(--brand))]"
                   onChange={(e) => setChosen((x) => { const n = new Set(x); if (e.target.checked) n.add(st.id); else n.delete(st.id); return n; })} />
                 <span className="tnum text-ink3 w-6 text-right">{st.rollNo ?? ""}</span>{st.name}
               </label>
@@ -214,7 +215,7 @@ export function EditSheet({ closeHref, hw, files, onlineOn }: {
           {files.map((f) => (
             <label key={f.id} className={cx("flex items-center gap-2.5 rounded-xl border border-line px-3 py-2 text-[13.5px]", remove.has(f.id) && "opacity-50 line-through")}>
               <span className="flex-1 min-w-0 truncate">{f.name}</span>
-              <input type="checkbox" name="remove" value={f.id} checked={remove.has(f.id)} className="size-4"
+              <KeepCheck type="checkbox" name="remove" value={f.id} checked={remove.has(f.id)} className="size-4"
                 onChange={(e) => setRemove((x) => { const n = new Set(x); if (e.target.checked) n.add(f.id); else n.delete(f.id); return n; })} />
               <span className="text-[12.5px] text-ink3">Remove</span>
             </label>

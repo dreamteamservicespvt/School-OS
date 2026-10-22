@@ -18,6 +18,7 @@ import { ASSIGN_TYPES } from "@/lib/transport/words";
 import { addFeeAction, assignAction, carryOverAction, changePlaceAction, endAtYearEndAction, stopPlaceAction } from "../actions";
 import { ActButton, ConfirmAct, SegField } from "./fields";
 import type { Candidate, PlaceOption } from "../_lib/options";
+import { KeepCheck, KeepSelect } from "@/components/ui/keep-select";
 
 /** Route and stop choice: routes show their free seats, stops their pickup time and fee. */
 function RouteStop({ places, start, type }: { places: PlaceOption[]; start: { routeId: string; stopId: string }; type: string }) {
@@ -31,16 +32,16 @@ function RouteStop({ places, start, type }: { places: PlaceOption[]; start: { ro
   return (
     <>
       <FieldShell label="Route" id="tr-route" required error={tRoute.error} help={route ? (route.capacity == null ? "No vehicle yet, so no seat limit" : `${route.used} of ${route.capacity} seats used · ${route.free} free${route.bus ? ` · ${route.bus}` : ""}`) : "Free seats show next to each route"}>
-        <select id="tr-route" name="routeId" value={routeId} onChange={(e) => { setRouteId(e.target.value); setStopId(""); }} aria-invalid={tRoute.error ? true : undefined} className={cx(inputCls(tRoute.error), "h-11")}>
+        <KeepSelect id="tr-route" name="routeId" value={routeId} onChange={(e) => { setRouteId(e.target.value); setStopId(""); }} aria-invalid={tRoute.error ? true : undefined} className={cx(inputCls(tRoute.error), "h-11")}>
           <option value="">Choose the route</option>
           {places.map((r) => <option key={r.id} value={r.id} disabled={r.free === 0}>Route {r.number} · {r.name}{r.capacity != null ? ` · ${r.free === 0 ? "full" : `${r.free} free`}` : ""}</option>)}
-        </select>
+        </KeepSelect>
       </FieldShell>
       <FieldShell label="Stop" id="tr-stop" required error={tStop.error} help={fee ? `Transport fee ${fee} a month, added to fees from the start date` : route && !route.stops.length ? "This route has no stops yet" : undefined}>
-        <select id="tr-stop" name="stopId" value={stopId} onChange={(e) => setStopId(e.target.value)} disabled={!route} aria-invalid={tStop.error ? true : undefined} className={cx(inputCls(tStop.error), "h-11")}>
+        <KeepSelect id="tr-stop" name="stopId" value={stopId} onChange={(e) => setStopId(e.target.value)} disabled={!route} aria-invalid={tStop.error ? true : undefined} className={cx(inputCls(tStop.error), "h-11")}>
           <option value="">{route ? "Choose the stop" : "Choose the route first"}</option>
           {route?.stops.map((s) => <option key={s.id} value={s.id}>{s.name} · {s.pickup}{s.two ? ` · ${s.two}` : " · no fee yet"}</option>)}
-        </select>
+        </KeepSelect>
       </FieldShell>
     </>
   );
@@ -76,10 +77,10 @@ export function AssignSheet({ closeHref, sections, sectionId, find, students, pr
         <legend className="text-[13px] font-semibold text-ink2 mb-1.5">Students <span className="text-bad" aria-hidden="true">*</span></legend>
         <div className="grid sm:grid-cols-2 gap-2">
           <label className="sr-only" htmlFor="tr-sec">Class</label>
-          <select id="tr-sec" value={sectionId} onChange={(e) => go({ sec: e.target.value || null, find: null })} className={cx(inputCls(false), "h-11")}>
+          <KeepSelect id="tr-sec" value={sectionId} onChange={(e) => go({ sec: e.target.value || null, find: null })} className={cx(inputCls(false), "h-11")}>
             <option value="">Pick a class</option>
             {sections.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-          </select>
+          </KeepSelect>
           <div className="relative">
             <Search size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink3 pointer-events-none" aria-hidden="true" />
             <label className="sr-only" htmlFor="tr-find">Find a student</label>
@@ -100,7 +101,7 @@ export function AssignSheet({ closeHref, sections, sectionId, find, students, pr
               {students.map((s) => (
                 <li key={s.id}>
                   <label className={cx("flex items-center gap-3 px-3.5 py-2.5 text-[14px]", s.has ? "opacity-55" : "cursor-pointer hover:bg-sunken/50")}>
-                    <input type="checkbox" className="size-4 accent-[rgb(var(--brand))]" disabled={s.has} checked={picked.has(s.id)}
+                    <KeepCheck type="checkbox" className="size-4 accent-[rgb(var(--brand))]" disabled={s.has} checked={picked.has(s.id)}
                       onChange={(e) => setPicked((x) => { const n = new Set(x); if (e.target.checked) n.add(s.id); else n.delete(s.id); return n; })} />
                     <span className="min-w-0 flex-1"><b className="font-semibold">{s.name}</b><span className="text-ink3"> · {s.cls} · {s.admissionNo}</span></span>
                     {s.has && <span className="text-[12px] text-ink3 shrink-0">Has a stop</span>}
@@ -229,7 +230,7 @@ export function CarrySheet({ closeHref, items, fromYear, toYear, toStart }: { cl
       {blocked > 0 && <Alert tone="warning">{blocked} place{blocked === 1 ? "" : "s"} cannot be carried over yet. The reason is shown on each.</Alert>}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <label className="inline-flex items-center gap-2 text-[14px] font-semibold min-h-11 cursor-pointer">
-          <input type="checkbox" checked={allOn} onChange={() => setPicked(allOn ? new Set() : new Set(can.map((i) => i.id)))} className="size-4 accent-[rgb(var(--brand))]" />
+          <KeepCheck type="checkbox" checked={allOn} onChange={() => setPicked(allOn ? new Set() : new Set(can.map((i) => i.id)))} className="size-4 accent-[rgb(var(--brand))]" />
           Tick every place that can go ({can.length})
         </label>
         <span className="text-[13px] text-ink3" aria-live="polite">{n} ticked</span>
@@ -238,7 +239,7 @@ export function CarrySheet({ closeHref, items, fromYear, toYear, toStart }: { cl
         {items.map((i) => (
           <li key={i.id}>
             <label className={cx("flex items-start gap-3 px-3 py-2.5 text-[14px]", i.blocked ? "opacity-70" : "cursor-pointer hover:bg-sunken/60")}>
-              <input type="checkbox" disabled={Boolean(i.blocked)} checked={picked.has(i.id)} onChange={() => toggle(i.id)} aria-label={`Carry over ${i.name}`} className="mt-1 size-4 shrink-0 accent-[rgb(var(--brand))]" />
+              <KeepCheck type="checkbox" disabled={Boolean(i.blocked)} checked={picked.has(i.id)} onChange={() => toggle(i.id)} aria-label={`Carry over ${i.name}`} className="mt-1 size-4 shrink-0 accent-[rgb(var(--brand))]" />
               <span className="min-w-0 flex-1">
                 <b className="font-semibold">{i.name}</b>
                 <span className="text-ink3"> · {i.newClass ? `${i.cls || "—"} → ${i.newClass}` : i.cls}</span>

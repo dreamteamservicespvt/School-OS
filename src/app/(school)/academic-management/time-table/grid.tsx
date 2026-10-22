@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { CheckboxField, SelectField, TextField } from "@/components/ui/field";
 import { FormDialog, err, v } from "../_components/form-dialog";
 import { checkClashAction, removePeriodAction, savePeriodAction } from "./actions";
+import { KeepCheck } from "@/components/ui/keep-select";
 
 const DAY_NAMES = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const DAY_SHORT = ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -257,7 +258,7 @@ function PeriodFields({ edit, day, slot, cell, state }: { edit: EditContext; day
               help={subjectId && assigned.length === 0 ? "Nobody is assigned to this subject here yet, so everyone is listed." : subjectId && !showAll ? "Teachers assigned to this subject and class." : undefined} />
             {subjectId && assigned.length > 0 && (
               <label className="mt-2 flex min-h-11 items-center gap-2 text-[15px]">
-                <input type="checkbox" className="size-5" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />
+                <KeepCheck type="checkbox" className="size-5" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />
                 Show all teachers
               </label>
             )}

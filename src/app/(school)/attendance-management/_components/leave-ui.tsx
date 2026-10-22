@@ -17,6 +17,7 @@ import { useCloseUrlSheet } from "@/components/ui/url-controls";
 import { cx } from "@/components/ui/cx";
 import type { FormState } from "@/lib/forms";
 import { ActionSheet, FormProblem, QuickChips, type Action } from "./sheet-form";
+import { KeepCheck } from "@/components/ui/keep-select";
 
 type Found = { id: string; label: string; detail: string };
 type PreviewState = FormState<{ text: string; canApprove: boolean; warn: boolean }>;
@@ -261,7 +262,7 @@ export function RowTick({ formId, id, label }: { formId: string; id: string; lab
 export function AllTick({ formId }: { formId: string }) {
   const [on, setOn] = useState(false);
   return (
-    <input type="checkbox" aria-label="Select all" checked={on} className="size-[18px] rounded accent-brand cursor-pointer"
+    <KeepCheck type="checkbox" aria-label="Select all" checked={on} className="size-[18px] rounded accent-brand cursor-pointer"
       onChange={(e) => {
         setOn(e.target.checked);
         document.querySelectorAll<HTMLInputElement>(`input[form="${formId}"][name="ids"]`).forEach((x) => { x.checked = e.target.checked; });

@@ -173,7 +173,7 @@ export async function FileReview({ current, place, id, sp }: Props) {
         <div className="pb-2 pt-1">
           {mayEdit ? (
             <SheetForm place={place.key} id={file.id} sheetIndex={file.sheetIndex} headerRow={file.headerRow} kind={kind.key}
-              sheets={sheetList.map((s, i) => ({ value: String(i), label: `${s.name} (${s.rows} rows)` }))}
+              sheets={sheetList.map((s, i) => ({ value: String(i), label: `${s.name} (${count(s.rows, "row")})` }))}
               headerChoices={w.sheet.rows.slice(0, 20).map((r, i) => ({ value: String(i + 1), label: `Row ${i + 1}: ${r.filter(Boolean).slice(0, 4).join(", ").slice(0, 60) || "empty"}` }))}
               kinds={kinds.map((k) => ({ value: k.key, label: k.label }))} />
           ) : <p className="text-ink-2">Your role can look at this file but not change it.</p>}
@@ -265,7 +265,7 @@ export async function FileReview({ current, place, id, sp }: Props) {
                       )}
                       {column !== "class" && can(current.permissions, "staff-hr-management", "edit") && <AddOptionsButton place={place.key} id={file.id} column={column} words={groups.map((g) => g.value)} />}
                     </ValuesForm>
-                  ) : <p className="text-ink-2">{groups.length} words need matching. Your role cannot change this file.</p>}
+                  ) : <p className="text-ink-2">{count(groups.length, "word")} {groups.length === 1 ? "needs" : "need"} matching. Your role cannot change this file.</p>}
                 </CardBody>
               </Card>
             );
@@ -285,7 +285,7 @@ export async function FileReview({ current, place, id, sp }: Props) {
             <Num label="Ready to bring in" value={checked.ready.length} tone="success" />
             <Num label="With problems" value={checked.problems.length} tone={checked.problems.length ? "danger" : undefined} />
             <Num label="Left out by you" value={prepared.passed.leftOut} />
-            <Num label="Passed over" value={prepared.passed.empty + prepared.passed.headings + prepared.passed.totals + checked.left.reduce((a, l) => a + l.count, 0)} hint={[prepared.passed.empty && `${prepared.passed.empty} empty`, prepared.passed.headings && `${prepared.passed.headings} repeated headings`, prepared.passed.totals && `${prepared.passed.totals} total ${prepared.passed.totals === 1 ? "row" : "rows"}`, ...checked.left.map((l) => `${l.count} ${l.reason.toLowerCase()}`)].filter(Boolean).join(", ") || undefined} />
+            <Num label="Passed over" value={prepared.passed.empty + prepared.passed.headings + prepared.passed.totals + checked.left.reduce((a, l) => a + l.count, 0)} hint={[prepared.passed.empty && `${prepared.passed.empty} empty`, prepared.passed.headings && `${prepared.passed.headings} repeated ${prepared.passed.headings === 1 ? "heading row" : "heading rows"}`, prepared.passed.totals && `${prepared.passed.totals} total ${prepared.passed.totals === 1 ? "row" : "rows"}`, ...checked.left.map((l) => `${l.count} ${l.reason.toLowerCase()}`)].filter(Boolean).join(", ") || undefined} />
           </dl>
           {missingRequired.length > 0 && <Alert tone="warning" title={`Choose the column for ${missingRequired.map((c) => c.label).join(", ")}.`} action={<Link className="font-medium underline" href={`${here}?step=columns`}>Match columns</Link>}>Every row shows a problem until it is matched.</Alert>}
           {prepared.unmatched.length > 0 && <Alert tone="warning" title={`${prepared.unmatched.length} ${prepared.unmatched.length === 1 ? "word needs" : "words need"} matching.`} action={<Link className="font-medium underline" href={`${here}?step=values`}>Match words</Link>}>Rows with an unmatched class or designation show a problem until it is matched.</Alert>}

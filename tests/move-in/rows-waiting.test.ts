@@ -144,3 +144,14 @@ describe("counts in plain words", () => {
     expect(stayWords(0, 0)).toBe("");
   });
 });
+
+describe("Undo says one record is and two records are (QA UNDO-01)", () => {
+  it("names what the import added and changed", async () => {
+    const { undoWords } = await import("@/lib/imports/words");
+    expect(undoWords(1, 0, "holiday", "holidays")).toBe("The 1 holiday it added is archived.");
+    expect(undoWords(2, 0, "holiday", "holidays")).toBe("The 2 holidays it added are archived.");
+    expect(undoWords(0, 1, "student", "students")).toBe("The 1 record it changed is put back as it was.");
+    expect(undoWords(3, 2, "student", "students")).toBe("The 3 students it added are archived, and the 2 records it changed are put back as they were.");
+    expect(undoWords(0, 0, "holiday", "holidays")).toBe("");
+  });
+});

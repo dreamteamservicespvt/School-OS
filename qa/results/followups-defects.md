@@ -233,3 +233,25 @@ were checked by reading the code, typecheck and lint.
 - **Test:** tests/fees/before-go-live.test.ts, "where to type the go-live date" (1 test): the go-live check's words
   name the card on this page and not the Settings path; the Fee Management words keep the path.
 - **Status:** Fixed.
+
+## UNDO-01 · P4 · Every import page · "The 1 record it added are archived"
+- **Steps:** bring in a file with one ready row on any import page; press Undo import.
+- **Expected:** "The 1 holiday it added is archived."
+- **Actual:** "The 1 record it added are archived, and the file opens again so you can fix it and bring it in again."
+- **Root cause:** the Undo dialog in src/components/import/file-buttons.tsx counted the noun ("1 record") but always
+  said "are", and named records, not what the page brings in.
+- **Fix:** new `undoWords()` in src/lib/imports/words.ts (with `count()` and `stayWords()` from IMPORT-01): "The 1
+  holiday it added is archived.", "The 2 holidays it added are archived.", and for an import that changed records
+  "the 1 record it changed is put back as it was". Used by the Undo import dialog (now also for an import that only
+  updated records) and by the message after Undo. Swept the other import texts for the same pattern:
+  - Undo this import (Earlier imports): "The 1 holiday it brought in is taken back as a whole".
+  - The message after Undo from Earlier imports: "1 record put back as it was".
+  - Add missing classes: "Add this class and section to this year? It is added … and the rows are matched to it".
+  - Add designations / departments: "Add this designation to HR Settings?".
+  - "1 word needs matching", the sheet picker's "(1 row)", "1 repeated heading row" under Passed over.
+  - Bring in (IMPORT-01): "Only the 1 ready row is brought in. The 1 row with problems stays here…".
+  - Outside src/components/import, the same pattern on Student Management's import result page: "The 1 student it
+    added is archived, … and their admission number is free".
+- **Test:** tests/move-in/rows-waiting.test.ts, "Undo says one record is and two records are" (1 test), and the
+  plain-words counts for Bring in (1 test).
+- **Status:** Fixed.

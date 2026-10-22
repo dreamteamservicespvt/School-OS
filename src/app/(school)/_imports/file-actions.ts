@@ -29,7 +29,7 @@ import { suggestColumnsByAi, type AiColumnsResult } from "@/lib/ai/smart-import"
 import { placeCurrent, placeOf, placeOptions, placeRefusal } from "@/lib/imports/place-access";
 import { fileHref, placeHolds, wordsFor, type ImportPlace } from "@/lib/imports/places";
 import { fileBatchIds, reopenAfterUndo } from "@/lib/move-in/batches";
-import { count, stayWords } from "@/lib/imports/words";
+import { count, stayWords, undoWords } from "@/lib/imports/words";
 
 const isId = (v: unknown): v is string => typeof v === "string" && /^[0-9a-f-]{36}$/i.test(v);
 
@@ -312,8 +312,8 @@ export async function undoFileImportAction(placeKey: string, id: string, batchId
     refresh(place, id);
   });
   if (r) return r;
-  const parts = [archived ? `${count(archived, words.one, words.many)} it added ${archived === 1 ? "is" : "are"} archived` : "", putBack ? `${count(putBack, "record")} it changed ${putBack === 1 ? "is" : "are"} put back as ${putBack === 1 ? "it was" : "they were"}` : ""].filter(Boolean);
-  await flash({ message: `Import undone${parts.length ? `: ${parts.join(", and ")}` : ""}. Its rows are back with the file, to fix and bring in again.` });
+  const done = undoWords(archived, putBack, words.one, words.many);
+  await flash({ message: `Import undone.${done ? ` ${done}` : ""} Its rows are back with the file, to fix and bring in again.` });
 }
 
 /**
@@ -347,5 +347,5 @@ export async function undoBatchAction(placeKey: string, batchId: string): Promis
     refresh(place);
   });
   if (r) return r;
-  await flash({ message: `Import undone: ${archived} ${archived === 1 ? words.one : words.many} taken back${putBack ? `, ${putBack} put back as they were` : ""}. The import stays in the history.` });
+  await flash({ message: `Import undone: ${count(archived, words.one, words.many)} taken back${putBack ? `, ${count(putBack, "record")} put back as ${putBack === 1 ? "it was" : "they were"}` : ""}. The import stays in the history.` });
 }

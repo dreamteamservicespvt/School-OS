@@ -10,6 +10,7 @@ import type { SchoolContext, Tx } from "../db";
 import { formatDate, formatRupees } from "../format";
 import { DEFAULT_GO_LIVE } from "../finance/go-live";
 import { beforeGoLive, type BeforeGoLive } from "../fees/before-go-live";
+import { currentYears } from "../academic/years";
 
 const ZERO = BigInt(0);
 
@@ -52,9 +53,11 @@ export const paiseOf = (v: string | null | undefined): bigint | null => {
 
 /** The money School OS holds from the old software, as of the go-live date. */
 export async function moneyTotals(tx: Tx, ctx: SchoolContext, goLive: Date | null): Promise<MoneyTotals> {
+  // "Fees collected this year": receipts dated in this academic year (the earliest start of the campuses' current years).
+  const yearStart = (await currentYears(tx, ctx)).reduce<Date | null>((min, y) => (!min || y.startDate < min ? y.startDate : min), null);
   const [oldDues, receipts, holders, openings, accounts, finance, before] = await Promise.all([
     tx.studentFeeDue.findMany({ where: { kind: "OLD_DUES", broughtIn: true, state: "OPEN" }, select: { studentId: true, amountPaise: true } }),
-    tx.payment.findMany({ where: { broughtIn: true, status: { not: "CANCELLED" } }, select: { studentId: true, amountPaise: true } }),
+    tx.payment.findMany({ where: { broughtIn: true, status: { not: "CANCELLED" }, ...(yearStart ? { paymentDate: { gte: yearStart } } : {}) }, select: { studentId: true, amountPaise: true } }),
     tx.payment.findMany({
       where: { broughtIn: true, status: "POSTED", advancePaise: { gt: 0 } },
       select: { id: true, studentId: true, advancePaise: true, allocations: { where: { fromAdvance: true }, select: { amountPaise: true } } },

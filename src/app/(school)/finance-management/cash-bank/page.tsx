@@ -194,7 +194,8 @@ export default async function CashBankPage({ searchParams }: { searchParams: Sea
       )}
       {adding && <AddAccountSheet closeHref={here()} today={today} hasMain={data.accounts.some((a) => a.kind === "BANK" && a.isMain)} />}
       {opening && (
-        <OpeningSheet closeHref={here()} today={iso(p.fy.startDate)} goLive={goLive ? formatDate(goLive) : null}
+        // "As on" starts on the go-live date when the school started part way through this financial year (workflow 15).
+        <OpeningSheet closeHref={here()} today={iso(p.goLive > p.fy.startDate && p.goLive <= p.fy.endDate ? p.goLive : p.fy.startDate)} goLive={goLive ? formatDate(goLive) : null}
           accounts={data.accounts.map((a) => {
             const ob = data.openings.find((o) => o.accountId === a.id);
             return { value: a.id, label: a.name, set: Boolean(ob), amount: ob ? rupees(ob.amountPaise) : 0, pending: Boolean(ob?.approvalId && pending.has(ob.approvalId)) };

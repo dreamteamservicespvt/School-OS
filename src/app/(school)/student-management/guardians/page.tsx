@@ -18,20 +18,21 @@ import { parentLinkProvider, parentLinkStatus } from "@/lib/students/guardians";
 import { CONSENT_STATUS_LABEL } from "@/lib/students/labels";
 import { phoneShow, classShort } from "@/lib/students/show";
 import { shortDate } from "@/lib/students/show";
-import { BASE, studentPage } from "../_lib/page";
+import { BASE, studentPageOnCampus } from "../_lib/page";
 import { StudentsHead } from "../_lib/head";
 import { sectionNames } from "../_lib/queries";
 
 export const metadata: Metadata = { title: "Parents & Guardians" };
 
-const FILTERS = ["consent", "photo", "link", "relation"] as const;
+const FILTERS = ["consent", "photo", "link", "relation", "campus"] as const;
 const TONE = { GIVEN: "ok", WITHDRAWN: "bad", REQUESTED: "warn", NONE: "warn" } as const;
 const STEP = 25;
 
 export default async function GuardiansPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const { current, yearIds, can, tz } = await studentPage();
-  if (!can.seeParents) redirect(BASE);
   const raw = await searchParams;
+  // One campus chosen on the Dashboard (?campus=): that campus's parents, as the card counted them.
+  const { current, yearIds, can, tz } = await studentPageOnCampus(raw.campus);
+  if (!can.seeParents) redirect(BASE);
   const params = readListParams(raw, FILTERS);
   const take = Math.min(500, Math.max(STEP, Number.parseInt(String(raw.n ?? ""), 10) || STEP));
   const provider = parentLinkProvider();
@@ -88,7 +89,7 @@ export default async function GuardiansPage({ searchParams }: { searchParams: Pr
   type Row = (typeof data.rows)[number];
 
   const chipValue = f.consent === "not-given" ? "nocons" : f.consent === "withdrawn" ? "withdrawn" : f.photo === "not-given" ? "nophoto" : f.link === "not-opened" ? "notopen" : "all";
-  const chip = (change: Record<string, string | null>) => listHref(path, { ...params, filters: f.relation ? { relation: f.relation } : {}, page: 1 }, { consent: null, photo: null, link: null, ...change, page: null });
+  const chip = (change: Record<string, string | null>) => listHref(path, { ...params, filters: { ...(f.relation ? { relation: f.relation } : {}), ...(f.campus ? { campus: f.campus } : {}) }, page: 1 }, { consent: null, photo: null, link: null, ...change, page: null });
   const linkPill = (g: Row, cls?: string) => !provider ? null
     : g.link?.status === "Active" ? <Pill tone="ok" className={cls}>{cls ? "Link active" : "Active"}</Pill>
       : g.link?.status === "Revoked" ? <Pill tone="bad" className={cls}>{cls ? "Link revoked" : "Revoked"}</Pill>

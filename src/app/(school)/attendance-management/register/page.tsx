@@ -11,7 +11,7 @@ import { Banner } from "@/components/ui/banner";
 import { dayStartUtc } from "@/lib/periods";
 import { ClassWiseView, NotMarkedCard } from "../_components/class-wise";
 import { withSchool } from "@/lib/db";
-import { attendancePage } from "@/lib/attendance/page";
+import { attendancePage, onCampusFromPage } from "@/lib/attendance/page";
 import { BASE, sectionLimit } from "@/lib/attendance/access";
 import { readMonth, registerChoices, registerMonth, registerYears } from "@/lib/attendance/register";
 import { clampMonth } from "@/lib/attendance/calendar-months";
@@ -311,7 +311,10 @@ function StudentCalendar({ s, byKey, statuses, sectionName, yearName, cellHref, 
 
 /** The class-wise view of every section (Principal, Vice Principal, School Admin, Academic Head). */
 async function WholeSchool({ sp }: { sp: Record<string, string | string[] | undefined> }) {
-  const { current, access, features, settings, tz, today, now } = await attendancePage();
+  const p = await attendancePage();
+  const { current, features, settings, tz, today, now } = p;
+  // One campus chosen on the Dashboard (?campus=): its sections only, as the card counted them.
+  const { access } = await onCampusFromPage(p, sp.campus);
   const dates = await periodSetup(current);
   const range = periodFromSearch(sp, { ...dates, fallback: "today" });
   const from = range ? new Date(`${range.from}T00:00:00Z`) : today;
@@ -339,7 +342,7 @@ async function WholeSchool({ sp }: { sp: Record<string, string | string[] | unde
   const group = data?.cw.groups.some((g) => g.key === groupParam) ? groupParam : "all";
   const href = (change: Record<string, string | null>) => {
     const p = new URLSearchParams();
-    const keep: Record<string, string | null> = { period: one(sp.period) ?? null, from: one(sp.from) ?? null, to: one(sp.to) ?? null, sort: one(sp.sort) ?? null, group: group === "all" ? null : group, class: classId, ...change };
+    const keep: Record<string, string | null> = { period: one(sp.period) ?? null, from: one(sp.from) ?? null, to: one(sp.to) ?? null, sort: one(sp.sort) ?? null, group: group === "all" ? null : group, class: classId, campus: one(sp.campus) ?? null, ...change };
     for (const [k, v] of Object.entries(keep)) if (v) p.set(k, v);
     return p.size ? `${BASE}/register?${p}` : `${BASE}/register`;
   };

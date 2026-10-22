@@ -8,7 +8,7 @@ import { requireAction, requirePage } from "@/lib/current";
 import { withSchool } from "@/lib/db";
 import { appOrigin } from "@/lib/origin";
 import { currentYear, yearsFor } from "@/lib/academic/years";
-import { personCampusId } from "@/lib/campus";
+import { narrowToCampus, personCampusId } from "@/lib/campus";
 import type { Current } from "@/lib/current";
 import type { Tx } from "@/lib/db";
 import { getStudentSettings } from "@/lib/students/settings";
@@ -52,6 +52,21 @@ export const studentPage = cache(async () => {
   }));
   return { current, settings, year, years, yearIds, can: abilities(current, settings), tz: current.school.timeZone };
 });
+
+/**
+ * studentPage narrowed to a campus chosen in the page address (?campus=, from
+ * the Dashboard's filter, src/lib/campus.ts narrowToCampus): that campus's
+ * students and its year. Never wider than the person's own limit.
+ */
+export async function studentPageOnCampus(raw: string | string[] | undefined) {
+  const p = await studentPage();
+  if (!raw) return p;
+  return withSchool(p.current.ctx, async (tx) => {
+    const current = await narrowToCampus(tx, p.current, raw);
+    if (current === p.current) return p;
+    return { ...p, current, ...(await pageYears(tx, current)) };
+  });
+}
 
 /** For server actions: checks the role on the server first; "manage" also needs Full. */
 export async function studentAction(action: Action, opts: { manage?: boolean } = {}) {

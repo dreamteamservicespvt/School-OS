@@ -4,7 +4,7 @@ import { reasonChoices } from "@/lib/attendance/absence-reasons";
 import type { LucideIcon } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { isoDay } from "@/lib/staff/dates";
-import { attendancePage } from "@/lib/attendance/page";
+import { attendancePage, onCampusFromPage } from "@/lib/attendance/page";
 import { BASE, sectionLimit } from "@/lib/attendance/access";
 import { registerChoices } from "@/lib/attendance/register";
 import { attendanceToday } from "@/lib/attendance/integrations";
@@ -45,7 +45,10 @@ const num = (v: string | number | null | undefined) => (typeof v === "number" ? 
 
 export default async function ReportsPage({ searchParams }: Props) {
   const sp = await searchParams;
-  const { current, access, features, today } = await attendancePage();
+  const page = await attendancePage();
+  const { current, features, today } = page;
+  // One campus chosen on the Dashboard (?campus=): that campus's sections only, as the card counted them.
+  const { access } = await onCampusFromPage(page, sp.campus);
   const list = reportsFor(access, features as Set<string>);
   const get = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : null);
   const dates = await periodSetup(current);

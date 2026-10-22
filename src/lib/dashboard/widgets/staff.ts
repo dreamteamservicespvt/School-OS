@@ -47,7 +47,8 @@ const staffBand: Widget<"band"> = {
     // The Staff List's own filter (active staff, the person's campus), and its "On leave today" among the staff on roll.
     const sv = await staffViewer(c);
     const [active, roll] = await Promise.all([
-      c.tx.staff.count({ where: staffWhere(readListParams({}, STAFF_FILTERS), sv) }),
+      // A campus chosen on the Dashboard goes to the Staff List as its own Campus filter (?campus=).
+      c.tx.staff.count({ where: staffWhere(readListParams(c.filters.campusId ? { campus: c.filters.campusId } : {}, STAFF_FILTERS), sv) }),
       c.tx.staff.findMany({ where: onRollWhere(sv), select: { id: true } }),
     ]);
     const away = (await onLeaveOn(c.tx, c.viewer.ctx, c.today, roll.map((r) => r.id))).size;

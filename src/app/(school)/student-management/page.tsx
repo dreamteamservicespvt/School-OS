@@ -18,7 +18,7 @@ import { DataList, cardPill, type DataColumn } from "@/components/ui/data-list";
 import { InlineBulkBar, type BulkAction } from "@/components/ui/list-controls";
 import { ListToolbar } from "@/components/list/list-toolbar";
 import { MoreMenu } from "@/components/ui/more-menu";
-import { BASE, studentPage } from "./_lib/page";
+import { BASE, studentPageOnCampus } from "./_lib/page";
 import { StudentsHead } from "./_lib/head";
 import { EXPORT_FIELDS, fieldAllowed } from "./_lib/export-fields";
 import { LIST_FILTERS, loadStudentList, mainGuardian, type ListRow } from "./_lib/queries";
@@ -30,8 +30,9 @@ type Row = ListRow;
 const STEP = 25;
 
 export default async function StudentListPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const { current, settings, year, years, yearIds, can: ab, tz } = await studentPage();
   const raw = await searchParams;
+  // One campus chosen on the Dashboard (?campus=): that campus's students and year, as the card counted them.
+  const { current, settings, year, years, yearIds, can: ab, tz } = await studentPageOnCampus(raw.campus);
   const params = readListParams(raw, LIST_FILTERS);
   const shownCount = Math.min(500, Math.max(STEP, Number.parseInt(String(raw.n ?? ""), 10) || STEP));
   // Each student's class is in their own campus's current year (two campuses can start the year on different dates).

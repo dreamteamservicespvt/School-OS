@@ -5,7 +5,7 @@ import { CalendarDays, Clock, Fingerprint, History, Info, Minus, PencilLine, QrC
 import { withSchool } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { day, eachDay, isoDay, monthEnd, monthLabel, monthStart } from "@/lib/staff/dates";
-import { attendancePage } from "@/lib/attendance/page";
+import { attendancePage, onCampusFromPage } from "@/lib/attendance/page";
 import { BASE, correctionAllowed, staffAllowed, staffIdLimit, staffLimit } from "@/lib/attendance/access";
 import { readMonth } from "@/lib/attendance/register";
 import { lockState, dayText } from "@/lib/attendance/marks";
@@ -53,7 +53,10 @@ const plus = (hhmm: string, min: number) => { const [h, m] = hhmm.split(":").map
 
 export default async function StaffAttendancePage({ searchParams }: Props) {
   const sp = await searchParams;
-  const { current, access, settings, features, tz, today, now } = await attendancePage();
+  const page = await attendancePage();
+  const { current, settings, features, tz, today, now } = page;
+  // One campus chosen on the Dashboard (?campus=): that campus's staff only, as the card counted them.
+  const { access } = await onCampusFromPage(page, sp.campus);
   if (access.staff === "none") redirect("/no-access?m=attendance-management");
   const all = access.staff === "all";
   // The Principal and Vice Principal read staff attendance; HR and the office mark it (prototype DUTY).

@@ -12,6 +12,9 @@ import { assignable, taskAccess } from "@/lib/dashboard/tasks";
 import { setupProgress, setupSteps } from "@/lib/dashboard/setup";
 import { moduleOpen, reach } from "@/lib/dashboard/common";
 import { todayFor } from "@/lib/periods";
+import { readDashFilters } from "@/lib/dashboard/filters";
+import { formatDate } from "@/lib/format";
+import { DashFilterBar } from "./filter-bar";
 import { Band } from "@/components/ui/band";
 import { Card, CardHeader } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
@@ -45,8 +48,10 @@ export default async function DashboardPage({ searchParams }: Search) {
   const setupFirst = sp.view !== "dashboard" && moduleOpen(current, "settings") && reach(current, "settings", "edit") === "all";
   const setup = setupFirst ? withSchool(current.ctx, (tx) => setupSteps(tx, current.ctx, current)) : null;
   const access = taskAccess(current);
+  // The filters (01 §2 Controls): a campus within the person's limit, and a past day; the cards and their links follow them.
+  const { filters, campuses } = await withSchool(current.ctx, (tx) => readDashFilters(tx, current.ctx, current, sp, todayFor(tz, now)));
   const page = Promise.all([
-    buildHome(current, { now }),
+    buildHome(current, { now, filters }),
     withSchool(current.ctx, (tx) => assignable(tx, { ctx: current.ctx, access })),
   ]);
   page.catch(() => {}); // Awaited below; a school sent to setup never needs it.
@@ -97,6 +102,11 @@ export default async function DashboardPage({ searchParams }: Search) {
           {primary && <ButtonLink href={primary.href} variant="primary" icon={iconOf(primary.icon)}>{primary.label}</ButtonLink>}
         </div>
       </div>
+
+      {(campuses.length > 1 || home.leader) && (
+        <DashFilterBar campuses={campuses.length > 1 ? campuses : []} day={home.leader ? home.filters.date?.toISOString().slice(0, 10) ?? "" : null} today={today}
+          showing={[home.filters.campusId ? campuses.find((c) => c.id === home.filters.campusId)?.name : null, home.filters.date ? formatDate(home.filters.date, "UTC") : null].filter((x): x is string => Boolean(x)).join(" · ")} />
+      )}
 
       {first.length > 0 && <div className="md:hidden flex flex-col gap-5">{first.map((p, i) => <PanelCard key={i} panel={p} />)}</div>}
 

@@ -309,3 +309,46 @@ describe("admissions, staff and approvals open lists with the same numbers", () 
     expect(count).toBe(2);
   });
 });
+
+describe("the Dashboard's filters reach every card and the lists they open", () => {
+  it("one campus chosen: the cards count that campus only, and each link carries ?campus= to a list that counts the same", async () => {
+    const h = await buildHome(f.who.principal, { now: NOW, filters: { campusId: f.north, date: null } });
+    expect(h.failed).toEqual([]);
+    const north = { ...f.who.principal, campusId: f.north } as Current;
+    const present = band(h, "attendance.students-present")!;
+    expect(paramsOf(present.href!).campus).toBe(f.north);
+    expect(num(present.big)).toBe((await registerList(north)).present);
+    expect(present.big).toBe(band(await home("northAdmin"), "attendance.students-present")!.big);
+    const fees = band(h, "fees.collected-today")!;
+    expect(paramsOf(fees.href!).campus).toBe(f.north);
+    expect(fees.big).toBe(formatRupeesShort((await feeList(north, fees.href!)).sum));
+    const applications = card(h, "admissions.pending-applications")!;
+    expect(paramsOf(applications.href).campus).toBe(f.north);
+    expect(num(applications.value)).toBe(await admissionList(north, applications.href));
+    expect(num(applications.value)).toBe(1);
+    // Every link on the page carries the campus.
+    for (const href of [...h.band.map((b) => b.href), ...h.attention.map((a) => a.href)].filter((x): x is string => Boolean(x))) {
+      if (pathOf(href).startsWith("/dashboard")) continue;
+      expect(paramsOf(href).campus, href).toBe(f.north);
+    }
+  });
+
+  it("a campus outside the person's own limit is not taken: a one-campus login keeps its campus", async () => {
+    const h = await buildHome(f.who.northAdmin, { now: NOW, filters: { campusId: null, date: null } });
+    expect(band(h, "attendance.students-present")!.big).toBe("2");
+  });
+
+  it("another day: the control centre counts that day, and the lists open on that day", async () => {
+    const h = await buildHome(f.who.principal, { now: NOW, filters: { campusId: null, date: day("2026-10-10") } });
+    const fees = band(h, "fees.collected-today")!;
+    expect(paramsOf(fees.href!)).toMatchObject({ period: "custom", from: "2026-10-10", to: "2026-10-10" });
+    const list = await feeList(f.who.principal, fees.href!);
+    expect(fees.big).toBe(formatRupeesShort(list.sum));
+    expect(list.total).toBe(1);
+    const present = band(h, "attendance.students-present")!;
+    expect(paramsOf(present.href!)).toMatchObject({ period: "custom", from: "2026-10-10" });
+    // A teacher's home stays on today.
+    const t = await buildHome(f.who.classTeacher, { now: NOW, filters: { campusId: null, date: day("2026-10-10") } });
+    expect(t.filters.date).toBeNull();
+  });
+});

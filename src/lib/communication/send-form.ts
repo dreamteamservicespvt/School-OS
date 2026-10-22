@@ -9,6 +9,7 @@ import { MAX_TEXT, type Plan, type SendInput } from "../messaging/send";
 import { withHiddenLinks } from "../parent-link/token";
 import { smsParts } from "../messaging/templates";
 import { localToUtc } from "./time";
+import { TRANSLATION_LANGUAGE_NAME } from "../messaging/translation";
 
 const ids = (form: FormData, key: string) => [...new Set(form.getAll(key).map(String).filter((v) => /^[0-9a-f-]{36}$/.test(v)))];
 const keys = (form: FormData, key: string) => [...new Set(form.getAll(key).map(String).filter((v) => /^[a-z0-9-]{1,40}$/.test(v)))];
@@ -75,7 +76,8 @@ export function readSendForm(form: FormData, timeZone: string, now = new Date())
   };
 }
 
-export type PreviewRow = { name: string; description: string; channel: string; title: string | null; text: string; parts: number | null };
+/** translated: the language this person's copy was translated into ("Telugu"). */
+export type PreviewRow = { name: string; description: string; channel: string; title: string | null; text: string; parts: number | null; translated?: string };
 export type SendPreview = {
   people: number;
   messages: number;
@@ -96,6 +98,8 @@ export type SendPreview = {
   scheduledAt: string | null;
   emergency: boolean;
   fingerprint: string;
+  /** Parents' languages other than English that the typed text reaches (G40): messages in each, and how many use a confirmed translation. */
+  languages: { language: string; name: string; messages: number; translated: number }[];
 };
 
 /** What the sender sees before sending: count, cost, who is left out and a real preview. */
@@ -119,9 +123,11 @@ export function previewOf(plan: Plan, input: SendInput): SendPreview {
       title: r.title,
       text: withHiddenLinks(r.text),
       parts: r.channel === "sms" ? smsParts(r.text) : null,
+      ...(r.translated ? { translated: TRANSLATION_LANGUAGE_NAME[r.translated] } : {}),
     })),
     scheduledAt: input.scheduledAt ? input.scheduledAt.toISOString() : null,
     emergency: Boolean(input.emergency),
     fingerprint: `${plan.people}:${plan.rows.length}:${Object.values(plan.cost).join(",")}`,
+    languages: (plan.languages ?? []).map((l) => ({ ...l, name: TRANSLATION_LANGUAGE_NAME[l.language] })),
   };
 }

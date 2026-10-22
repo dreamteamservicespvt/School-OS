@@ -26,6 +26,8 @@ import { countWithReason } from "./skip-words";
 import { BACKUP_TYPES, type BackupType } from "./settings";
 import { CODE_MASK, codeSenderWords, hasCode, ONE_TIME_CODE, sealCode, withCode, type OneTimeCode } from "./one-time-code";
 import { SYSTEM_MESSAGE_SENT, systemSenderWords, type SystemPurpose } from "./system-message";
+import { isTranslationLanguage, TRANSLATED_CHANNELS, translationProblem, withTranslatedLabel, type TranslationLanguage, type Translations } from "./translation";
+import { aiConfirmedNote } from "../ai/audit";
 
 export const MAX_TEXT = 1000;
 export const DELIVER_JOB = "messaging:deliver";
@@ -48,6 +50,12 @@ export type SendInput = {
   text?: string | null;
   /** Title for app notifications and email. */
   title?: string | null;
+  /**
+   * The typed text in parents' languages, each read and confirmed by the sender (G40). A parent whose
+   * language is here gets it on WhatsApp, email or the app, labelled "Translated from English"; SMS and
+   * templates are never translated. Only passed when the school's translation switch allows the sender.
+   */
+  translations?: Translations | null;
   /** Blanks for everyone. */
   values?: Record<string, string>;
   /** Blanks for one student's guardians (e.g. due amount). Brothers and sisters then get one message each, unless the words are the same apart from their names. */
@@ -102,6 +110,8 @@ type Source = { body: string | null; typed: string | null; carried: boolean; tit
 
 export type PlannedRow = {
   candidate: Candidate;
+  /** The language version of the typed text used, when it was translated. */
+  translated?: TranslationLanguage;
   rowKey: string;
   studentId: string | null;
   channel: Channel;
@@ -152,6 +162,11 @@ export type Plan = {
   problems: string[];
   audienceLabel: string;
   backupTemplateId: string | null;
+  /**
+   * Parents' languages other than English among the messages that carry the typed text on WhatsApp, email
+   * or the app: how many messages are in each, and how many of them use a confirmed translation (G40).
+   */
+  languages?: { language: TranslationLanguage; messages: number; translated: number }[];
 };
 
 function digits(phone: string | null) {
@@ -377,6 +392,14 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
   }
   if (typed.length > MAX_TEXT) problem(`The message has ${typed.length} characters. It can have at most ${MAX_TEXT}.`);
   const strayTyped = [...new Set([...strayBlanks(typed), ...strayBlanks(title ?? "")])];
+  // Confirmed translations keep the typed text's blanks exactly (G40); one that does not blocks the send.
+  const translations = new Map<TranslationLanguage, { text: string; title: string | null }>();
+  for (const [lang, t] of Object.entries(input.translations ?? {})) {
+    if (!isTranslationLanguage(lang) || !t || !typed) continue;
+    const p = translationProblem({ text: typed, title }, t, lang);
+    if (p) problem(p);
+    else translations.set(lang, { text: withTranslatedLabel(t.text, lang), title: (t.title ?? "").trim() || null });
+  }
   if (strayTyped.length) problem(strayWords(strayTyped));
   // A blank that is not on the list ({parent_name}) blocks the send, naming the blank meant (COMM-01). It is not
   // a value the people lack, so nobody is counted as "has no …" for it: it stays as typed in the preview.
@@ -495,14 +518,17 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
         const addr = addressFor(c, ch, providersOn);
         if ("skip" in addr) { addressSkip ??= addr.skip; return null; }
         let version: UsableVersion | null = null;
-        let rowTitle = title;
-        const src: Source = { body: null, typed: typed || null, carried: false, title: null, values };
+        // A parent's own language version of the typed text, on a channel that carries free text (never SMS, never a template).
+        const lang = c.type === "guardian" && TRANSLATED_CHANNELS.has(ch) && isTranslationLanguage(c.language) ? c.language : null;
+        const tr = lang && (!route.versions || route.carried) ? translations.get(lang) ?? null : null;
+        let rowTitle = tr?.title ?? title;
+        const src: Source = { body: null, typed: (tr ? tr.text : typed) || null, carried: false, title: null, values };
         if (route.versions) {
           version = versionFor(route.versions, c.language, school.defaultLanguage);
           if (!version) { whys.push(`there is no ${CHANNEL_LABEL[ch]} text for this message`); return null; }
           src.body = version.body;
           src.carried = route.carried;
-          rowTitle = route.carried ? title : version.subject ?? title;
+          rowTitle = route.carried ? tr?.title ?? title : version.subject ?? title;
         }
         if (src.body === null && !src.typed) return null;
         src.title = rowTitle;
@@ -522,13 +548,14 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
         if (stray.length && !strayTyped.length && !unknownTyped.length) problem(strayWords(stray));
         return {
           candidate: c,
+          ...(tr && lang ? { translated: lang } : {}),
           rowKey,
           keys: [rowKey],
           students,
           studentId: studentId ?? (c.students.length === 1 ? c.students[0].id : c.type === "student" ? c.id : null),
           channel: ch,
           address: addr.address,
-          language: version?.language ?? c.language,
+          language: tr && lang ? lang : version?.language ?? c.language,
           version,
           title: t && t.ok ? t.text : rowTitle,
           text: f.text,
@@ -590,6 +617,16 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
     }
   }
 
+  const byLanguage = new Map<TranslationLanguage, { language: TranslationLanguage; messages: number; translated: number }>();
+  for (const r of rows) {
+    const l = r.candidate.language;
+    if (r.candidate.type !== "guardian" || !TRANSLATED_CHANNELS.has(r.channel) || !isTranslationLanguage(l) || !r.source?.typed || (r.source.body !== null && !r.source.carried)) continue;
+    const e = byLanguage.get(l) ?? { language: l, messages: 0, translated: 0 };
+    e.messages++;
+    if (r.translated) e.translated++;
+    byLanguage.set(l, e);
+  }
+
   const balances = await creditBalances(tx, ctx);
   const needs = { ...charged, sms: (charged.sms ?? 0) + (testOn.has("sms") ? 0 : backupCost) };
   const used = [...new Set(rows.map((r) => r.channel))];
@@ -610,6 +647,7 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
     problems,
     audienceLabel: input.audienceLabel ?? (await describeAudience(tx, ctx, input.to)),
     backupTemplateId: backupVersions.length ? backupTemplateId : null,
+    languages: [...byLanguage.values()],
   };
 }
 
@@ -661,6 +699,12 @@ export async function recordSend(tx: Tx, ctx: SchoolContext, input: SendInput, p
     if (stored.some((t) => hasCode(t, code.code))) throw new Error("A one-time code must never be stored in a message. Put CODE_MASK in the text and pass the code as oneTimeCode.");
   }
 
+  // The language versions really used, kept for Message History (G40); the sender confirmed each.
+  const usedLangs = new Set(plan.rows.map((r) => r.translated).filter(Boolean));
+  const translations = Object.entries(input.translations ?? {})
+    .filter(([lang, t]) => t && usedLangs.has(lang as TranslationLanguage))
+    .map(([language, t]) => ({ language, text: t!.text.trim(), title: (t!.title ?? "").trim() || null, edited: Boolean(t!.edited) }));
+
   const now = new Date();
   const scheduled = sending && !code && Boolean(input.scheduledAt && input.scheduledAt.getTime() > now.getTime() + 30_000);
   const first = plan.rows[0];
@@ -695,6 +739,7 @@ export async function recordSend(tx: Tx, ctx: SchoolContext, input: SendInput, p
       resendOfId: input.resendOfId ?? null,
       idempotencyKey: input.idempotencyKey ?? null,
       scheduledAt: scheduled ? input.scheduledAt : null,
+      translations,
     },
   });
   const at = now.toISOString();
@@ -760,10 +805,11 @@ export async function recordSend(tx: Tx, ctx: SchoolContext, input: SendInput, p
     action: code ? "one-time-code-sent" : scheduled ? "scheduled-message" : system ? SYSTEM_MESSAGE_SENT : input.emergency ? "sent-emergency-broadcast" : "sent-message",
     recordType: "Message",
     recordId: message.id,
-    actorNote: input.ruleKey ? `Automatic rule: ${input.ruleKey}` : code ? codeSenderWords(code.purpose) : system ? systemSenderWords(system) : null,
+    // A translation is prepared by AI and confirmed by the sender (00-global.md §2.1 rule 6).
+    actorNote: input.ruleKey ? `Automatic rule: ${input.ruleKey}` : code ? codeSenderWords(code.purpose) : system ? systemSenderWords(system) : translations.length ? await aiConfirmedNote(tx, ctx) : null,
     after: code
       ? { purpose: input.trigger ?? code.purpose, to: plan.audienceLabel, channels: plan.channels, credits: message.creditCost, code: "hidden" }
-      : { to: plan.audienceLabel, people: plan.people, notSent: notSent.length, channels: plan.channels, credits: message.creditCost, scheduledAt: scheduled ? input.scheduledAt!.toISOString() : null },
+      : { to: plan.audienceLabel, people: plan.people, notSent: notSent.length, channels: plan.channels, credits: message.creditCost, scheduledAt: scheduled ? input.scheduledAt!.toISOString() : null, ...(translations.length ? { translatedInto: translations.map((t) => t.language) } : {}) },
   });
   return { messageId: message.id, queued: plan.rows.length, people: plan.people, skipped: plan.skipped, cost: plan.charged, scheduled, repeated: false, notSent: notSent.length };
 }

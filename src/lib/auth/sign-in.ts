@@ -12,6 +12,7 @@ import { schoolsFor } from "./access";
 import { codeChannels, needsTwoStep, startChallenge, type Deliver, type SignInPurpose } from "./two-step";
 import { isRememberedDevice } from "./remembered";
 import { securityAlert } from "./security-alert";
+import { startFirstChange } from "./invites";
 
 /** Wrong passwords before the login is locked (inferred). */
 export const MAX_FAILED_ATTEMPTS = 5;
@@ -23,9 +24,11 @@ export const SLOW_DOWN_AFTER = 3;
 export type SignInResult =
   /** `remembered`: the code was skipped because this is a remembered device (its cookie is renewed). */
   | { ok: true; token: string; userLoginId: string; schoolId: string; remembered?: boolean }
-  | { ok: false; message: string; twoStep?: undefined }
+  | { ok: false; message: string; twoStep?: undefined; firstChange?: undefined }
+  /** The password is a temporary one from the school: the person chooses their own first, on the invite page with this token. */
+  | { ok: false; message: string; twoStep?: undefined; firstChange: string }
   /** The password is right, but a one-time code is needed first (two-step login). */
-  | { ok: false; message: string; twoStep: { userLoginId: string; schoolId: string } };
+  | { ok: false; message: string; twoStep: { userLoginId: string; schoolId: string }; firstChange?: undefined };
 
 const WRONG = "The login or password is wrong. Check both and try again.";
 
@@ -109,6 +112,10 @@ export async function signIn(usernameInput: string, password: string, device: De
     where: { id: user.id },
     data: { failedAttempts: 0, lockedUntil: null },
   });
+  // A temporary password from the school (09 Add Staff) only opens the page to choose their own (08 §2).
+  if (user.mustChangePassword) {
+    return { ok: false, message: "Choose your own password to finish signing in.", firstChange: await startFirstChange(user.id, now) };
+  }
   let remembered = false;
   if (await needsTwoStepInAny(user.id, schools)) {
     remembered = await isRememberedDevice(user.id, opts.trustedDevice, now);

@@ -55,6 +55,7 @@ export async function signInAction(_prev: SignInState, formData: FormData): Prom
     await keepChallenge(step.token);
     redirect("/sign-in/code");
   }
+  if (!result.ok && result.firstChange) redirect(`/invite/${result.firstChange}?first=1`);
   if (!result.ok) return { message: result.message, username };
   // A remembered device skipped the code: its 180 days start again from today.
   if (result.remembered) await keepRemembered(jar.get(REMEMBERED_COOKIE)!.value);

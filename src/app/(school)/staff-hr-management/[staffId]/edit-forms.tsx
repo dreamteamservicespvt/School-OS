@@ -9,6 +9,7 @@ import { KeepCheck } from "@/components/ui/keep-select";
 import { Button, buttonClass } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { FormDialog, type Action } from "../_components/forms";
+import { SignInChoice } from "../_components/sign-in-choice";
 import type { AccessLevel } from "@/lib/roles";
 import { LEVEL_OPTIONS } from "@/lib/staff/role-words";
 import { Pencil } from "lucide-react";
@@ -176,8 +177,9 @@ export function GiveLoginForm({ staffId, roles, defaultRole, modules, action, su
   // Held by React so a refused save keeps the roles ticked.
   const [roleKeys, setRoleKeys] = useState<string[]>(defaultRole ? [defaultRole] : []);
   if (state?.ok) {
-    const data = state.data as { username: string; inviteLink: string };
-    return <InviteLink username={data.username} link={data.inviteLink} />;
+    const data = state.data as { username: string; inviteLink: string | null };
+    if (!data.inviteLink) return <Alert tone="success">{state.message}</Alert>;
+    return <InviteLink username={data.username} link={data.inviteLink} sentWords={state.message} />;
   }
   if (!open) return <Button size="sm" onClick={() => setOpen(true)}>Give a login</Button>;
   return (
@@ -197,6 +199,7 @@ export function GiveLoginForm({ staffId, roles, defaultRole, modules, action, su
         </div>
       </fieldset>
       <TextField label="Username" name="username" placeholder={suggested} help="Leave empty to use the school's format." error={state?.errors?.username} />
+      <SignInChoice error={state?.errors?.temporaryPassword} />
       <details className="rounded-xl border border-line p-3">
         <summary className="cursor-pointer font-medium">Adjust permissions (advanced)</summary>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -205,18 +208,19 @@ export function GiveLoginForm({ staffId, roles, defaultRole, modules, action, su
       </details>
       <div className="flex gap-2">
         <Button variant="secondary" onClick={() => setOpen(false)}>Cancel</Button>
-        <SubmitButton pendingText="Making login…">Make login and invite</SubmitButton>
+        <SubmitButton pendingText="Making login…">Make login</SubmitButton>
       </div>
     </form>
   );
 }
 
-export function InviteLink({ username, link }: { username: string; link: string }) {
+export function InviteLink({ username, link, sentWords }: { username: string; link: string; sentWords?: string }) {
   const [copied, setCopied] = useState(false);
   const full = typeof window !== "undefined" ? `${window.location.origin}${link}` : link;
   return (
     <div className="rounded-xl border border-success/40 bg-success-soft p-4">
       <p className="font-medium">Sign-in link for {username} (works for 7 days)</p>
+      {sentWords && <p className="mt-1 text-sm">{sentWords}</p>}
       <p className="mt-1 break-all text-sm">{full}</p>
       <div className="mt-2 flex flex-wrap gap-2">
         <Button size="sm" variant="secondary" onClick={async () => { await navigator.clipboard.writeText(full); setCopied(true); }}>{copied ? "Copied" : "Copy link"}</Button>
@@ -231,7 +235,7 @@ export function NewLinkButton({ staffId, action }: { staffId: string; action: Ac
   const [state, formAction] = useActionState(action, null);
   if (state?.ok) {
     const d = state.data as { link: string; username: string };
-    return <InviteLink username={d.username} link={d.link} />;
+    return <InviteLink username={d.username} link={d.link} sentWords={state.message} />;
   }
   return (
     <form action={formAction} className="inline-flex flex-col gap-1">

@@ -2,11 +2,27 @@
 // types or knows a school user's password (08-platform-security.md §2).
 
 import { prisma } from "../db";
-import { checkNewPassword, hashPassword } from "./password";
+import { checkNewPassword, hashPassword, verifyPassword } from "./password";
 import { hashToken, newToken } from "./tokens";
 
 /** How long an invite link works (inferred: 7 days). */
 export const INVITE_VALID_MS = 7 * 24 * 60 * 60 * 1000;
+/** How long the link to choose one's own password after a temporary one works (inferred: 30 minutes, as for a code sign-in). */
+export const FIRST_CHANGE_VALID_MS = 30 * 60 * 1000;
+
+/**
+ * A login with a temporary password (09 Add Staff) has signed in with it: a
+ * short link to choose their own password, on the invite page. No session is
+ * made until they have (08 §2).
+ */
+export async function startFirstChange(userLoginId: string, now = new Date()) {
+  const token = newToken();
+  await prisma.userLogin.update({
+    where: { id: userLoginId },
+    data: { inviteTokenHash: hashToken(token), inviteExpiresAt: new Date(now.getTime() + FIRST_CHANGE_VALID_MS) },
+  });
+  return token;
+}
 
 export async function createInvite(userLoginId: string, now = new Date()) {
   const token = newToken();
@@ -30,6 +46,9 @@ export async function acceptInvite(token: string, password: string, now = new Da
   if (!user) return { ok: false, message: "This invite link has expired or was already used. Ask your School Admin for a new one." };
   const problem = checkNewPassword(password);
   if (problem) return { ok: false, message: problem };
+  if (user.mustChangePassword && user.passwordHash && (await verifyPassword(user.passwordHash, password))) {
+    return { ok: false, message: "Choose a new password, not the temporary one your school gave you." };
+  }
   await prisma.userLogin.update({
     where: { id: user.id },
     data: {
@@ -38,6 +57,7 @@ export async function acceptInvite(token: string, password: string, now = new Da
       inviteTokenHash: null,
       inviteExpiresAt: null,
       passwordChangedAt: now,
+      mustChangePassword: false,
       failedAttempts: 0,
       lockedUntil: null,
     },

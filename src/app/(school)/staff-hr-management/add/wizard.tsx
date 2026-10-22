@@ -16,6 +16,7 @@ import type { AccessLevel } from "@/lib/roles";
 import { LEVEL_OPTIONS, combineLevels, extraPermissions, levelWords } from "@/lib/staff/role-words";
 import type { ModuleKey } from "@/lib/modules";
 import type { Created } from "./actions";
+import { SignInChoice } from "../_components/sign-in-choice";
 
 type Option = { value: string; label: string };
 export type WizardData = {
@@ -223,7 +224,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
       <fieldset data-step="2" hidden={step !== 2} className="space-y-4 rounded-2xl border border-line bg-surface p-5">
         <legend className="sr-only">Step 2: What they can open</legend>
         <CheckboxField name="giveLogin" label="Give a login to School OS" checked={giveLogin} onChange={(e) => setGiveLogin(e.target.checked)}
-          help="They get an invite link to set their own password. Staff without a login can still be on the Time Table and payroll." />
+          help="They get an invite link to set their own password, or a temporary password you give them. Staff without a login can still be on the Time Table and payroll." />
         {giveLogin && (
           <>
             <div>
@@ -254,6 +255,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
                 help={`Leave empty to use ${data.usernameFormat === "staffid" ? "their staff ID" : `"${suggestedUsername || "the school's format"}"`} (a number is added if it is taken).`} />
               {data.campuses.length > 1 && <SelectField label="Campuses they can open" name="accessCampusId" defaultValue="" options={data.campuses} placeholder="All campuses" />}
             </div>
+            <SignInChoice error={err("temporaryPassword")} />
             <details className="rounded-xl border border-line p-4">
               <summary className="cursor-pointer font-medium">Adjust permissions (advanced)</summary>
               <p className="mt-2 text-sm text-ink-2">Start from the roles; change a module only when this one person needs something different. Changes show on their profile.</p>
@@ -356,9 +358,15 @@ function Summary({ done, onAnother }: { done: Created; onAnother: () => void }) 
         <div><dt className="text-sm text-ink-2">Roles</dt><dd className="font-medium">{done.roles.length ? done.roles.join(", ") : "None"}</dd></div>
         <div><dt className="text-sm text-ink-2">Classes and subjects</dt><dd className="font-medium">{done.allocated ? `${done.allocated} in Teacher Allocation` : "None"}</dd></div>
       </dl>
+      {done.temporary && done.username && (
+        <Alert tone="info" title="Temporary password">
+          They sign in with the username <b>{done.username}</b> and the temporary password you typed. Give it to them in person: it is not shown again or sent by message. At their first sign-in they choose their own password.
+        </Alert>
+      )}
       {link && (
         <div className="rounded-xl border border-line bg-surface-2 p-4">
           <p className="font-medium">Invite link (works for 7 days)</p>
+          {done.sentWords && <p className="mt-1 text-sm">{done.sentWords}</p>}
           <p className="mt-1 break-all text-sm text-ink-2">{link}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             <Button size="sm" variant="secondary" onClick={async () => { await navigator.clipboard.writeText(link); setCopied(true); }}>{copied ? "Copied" : "Copy link"}</Button>

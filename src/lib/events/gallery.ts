@@ -6,12 +6,13 @@
 // already published.
 import "server-only";
 
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import sharp from "sharp";
 import type { Album, MediaItem, MediaTag } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { IMAGE_TYPES, FileProblem, saveFile, sniffType } from "../files";
+import { refuseDangerous, scanUpload } from "../upload-check";
 import { fileStore } from "../storage";
 import { nextNumber } from "../sequences";
 import { consentRows, requestConsent } from "../students/consent";
@@ -183,8 +184,12 @@ export async function addMedia(tx: Tx, ctx: SchoolContext, albumId: string, file
     if (file.size > MAX_VIDEO_BYTES) throw new FileProblem(`${file.name} is ${(file.size / 1024 / 1024).toFixed(0)} MB. Videos can be at most 50 MB.`);
     const id = randomUUID();
     const key = `${ctx.schoolId}/gallery-video/${id}`;
-    await fileStore().put(key, Buffer.from(await file.arrayBuffer()), vt);
-    await tx.storedFile.create({ data: { id, schoolId: ctx.schoolId, storageKey: key, fileName: file.name.slice(0, 200) || "video", contentType: vt, sizeBytes: file.size, purpose: "gallery-video", uploadedById: ctx.userId } });
+    const body = Buffer.from(await file.arrayBuffer());
+    // The same checks as every other upload: no program by name, and the virus scanner when it is set up.
+    refuseDangerous(body, file.name);
+    await scanUpload(body);
+    await fileStore().put(key, body, vt);
+    await tx.storedFile.create({ data: { id, schoolId: ctx.schoolId, storageKey: key, fileName: file.name.slice(0, 200) || "video", contentType: vt, sizeBytes: file.size, sha256: createHash("sha256").update(body).digest("hex"), purpose: "gallery-video", uploadedById: ctx.userId } });
     fileId = id;
     kind = "VIDEO";
   } else {

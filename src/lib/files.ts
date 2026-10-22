@@ -5,6 +5,9 @@ import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto
 import sharp from "sharp";
 import type { SchoolContext, Tx } from "./db";
 import { fileStore } from "./storage";
+import { checkCsv, checkPdf, checkWorkbook, cleanPhoto, FileProblem, refuseDangerous, scanUpload } from "./upload-check";
+
+export { FileProblem };
 
 /** Default upload limit (inferred: 10 MB per file). */
 export const MAX_FILE_BYTES = 10 * 1024 * 1024;
@@ -18,8 +21,6 @@ export const SHEET_TYPES = [
   "application/vnd.ms-excel",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 ] as const;
-
-export class FileProblem extends Error {}
 
 /** Looks at the first bytes, not the name, to know what a file really is. */
 export function sniffType(buf: Buffer): string | null {
@@ -39,21 +40,44 @@ export type SaveFileInput = {
   maxImageWidth?: number;
 };
 
+/**
+ * Every check an upload passes before it is kept (upload-check.ts): what it
+ * really is by its content, no programs, scripts or web pages, no PDF
+ * programs or Excel macros, photos without hidden details, and the virus
+ * scanner when it is set up. Returns the bytes to keep and their type.
+ */
+export async function checkUpload(body: Buffer, fileName: string, allowed: readonly string[], maxImageWidth?: number): Promise<{ body: Buffer; type: string }> {
+  refuseDangerous(body, fileName);
+  let type = sniffType(body) ?? (fileName.toLowerCase().endsWith(".csv") ? "text/csv" : null);
+  if (!type || !allowed.includes(type)) {
+    const kinds = allowed.some((t) => t.startsWith("image/")) && allowed.includes("application/pdf")
+      ? "a photo (JPG or PNG) or a PDF" : allowed.some((t) => t.startsWith("image/")) ? "a photo (JPG or PNG)" : "a CSV or Excel file";
+    throw new FileProblem(`This file type is not allowed here. Upload ${kinds}.`);
+  }
+  if (type === "application/pdf") checkPdf(body);
+  if (type === SHEET_TYPES[2]) checkWorkbook(body);
+  if (type === "text/csv") checkCsv(body);
+  if (type.startsWith("image/")) {
+    if (maxImageWidth) {
+      try {
+        body = await sharp(body).rotate().resize({ width: maxImageWidth, withoutEnlargement: true }).jpeg({ quality: 82 }).toBuffer();
+      } catch {
+        throw new FileProblem("This photo could not be opened. It may be damaged. Save or take it again and upload it.");
+      }
+      type = "image/jpeg";
+    } else {
+      body = await cleanPhoto(body, type);
+    }
+  }
+  await scanUpload(body);
+  return { body, type };
+}
+
 export async function saveFile(tx: Tx, ctx: SchoolContext, input: SaveFileInput) {
   const { file } = input;
   if (!file || file.size === 0) throw new FileProblem("Choose a file to upload.");
   if (file.size > MAX_FILE_BYTES) throw new FileProblem(`This file is ${(file.size / 1024 / 1024).toFixed(1)} MB. Files can be at most 10 MB.`);
-  let body: Buffer = Buffer.from(await file.arrayBuffer());
-  let type = sniffType(body) ?? (file.name.toLowerCase().endsWith(".csv") ? "text/csv" : null);
-  if (!type || !input.allowed.includes(type)) {
-    const kinds = input.allowed.some((t) => t.startsWith("image/")) && input.allowed.includes("application/pdf")
-      ? "a photo (JPG or PNG) or a PDF" : input.allowed.some((t) => t.startsWith("image/")) ? "a photo (JPG or PNG)" : "a CSV or Excel file";
-    throw new FileProblem(`This file type is not allowed here. Upload ${kinds}.`);
-  }
-  if (type.startsWith("image/") && input.maxImageWidth) {
-    body = await sharp(body).rotate().resize({ width: input.maxImageWidth, withoutEnlargement: true }).jpeg({ quality: 82 }).toBuffer();
-    type = "image/jpeg";
-  }
+  const { body, type } = await checkUpload(Buffer.from(await file.arrayBuffer()), file.name, input.allowed, input.maxImageWidth);
   const id = randomUUID();
   const key = `${ctx.schoolId}/${input.purpose}/${id}`;
   await fileStore().put(key, body, type);

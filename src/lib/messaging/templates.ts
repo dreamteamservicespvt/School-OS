@@ -58,8 +58,9 @@ export function missingWords(missing: string[]) {
 
 /** SMS parts: 160 characters (153 per part when longer), or 70 (67) with Indian scripts. */
 export function smsParts(raw: string): number {
-  // A Parent Link placeholder is counted as the real link it becomes.
-  const text = raw.replace(/⟦parent-link:[^⟧]+⟧/g, `${appUrl()}/p/${"x".repeat(43)}`).replace(/⟦invite:[^⟧]+⟧/g, `${appUrl()}/invite/${"x".repeat(43)}`);
+  // A Parent Link, invite or payment link placeholder is counted as the real link it becomes.
+  const text = raw.replace(/⟦parent-link:[^⟧]+⟧/g, `${appUrl()}/p/${"x".repeat(43)}`).replace(/⟦invite:[^⟧]+⟧/g, `${appUrl()}/invite/${"x".repeat(43)}`)
+    .replace(/⟦pay-link:[^⟧]+⟧/g, `${appUrl()}/pay/${"x".repeat(36)}/${"x".repeat(43)}`);
   const unicode = /[^\x00-\x7F₹]/.test(text);
   const len = [...text].length;
   const single = unicode ? 70 : 160;

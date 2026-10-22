@@ -13,6 +13,7 @@ import { linkByToken, LINK_DAYS } from "@/lib/fees/online";
 import { createLink } from "@/lib/parent-link/links";
 import { appUrl, linksIn, payPlaceholderFor, withHiddenLinks, withRealLinks } from "@/lib/parent-link/token";
 import { updateSettings } from "@/lib/messaging/settings";
+import { smsParts } from "@/lib/messaging/templates";
 import { makeFeeSchool, type FeeSchool } from "./fixture";
 import { d } from "../attendance/fixture";
 
@@ -42,6 +43,9 @@ describe("the words", () => {
     expect(withHiddenLinks(`Pay: ${ph}`)).toBe("Pay: [payment link]");
     expect(withRealLinks(`Pay: ${ph}`)).toMatch(new RegExp(`^Pay: ${appUrl()}/pay/11111111-1111-1111-1111-111111111111/[A-Za-z0-9_-]{40,}$`));
     expect(linksIn(ph)).toHaveLength(1);
+    // An SMS is counted with the real link in it, not the (shorter, non-Latin) placeholder.
+    const words = "Dear Parent, fee of Rs 6,000 for Ravi Kumar is due on 10-10-2026. Pay online with this link (it works until 17-10-2026): ";
+    expect(smsParts(`${words}${ph}`)).toBe(smsParts(withRealLinks(`${words}${ph}`)));
   });
 });
 

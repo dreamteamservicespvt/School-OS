@@ -58,7 +58,30 @@ async function byHead(tx: Tx, ctx: SchoolContext, f: FinanceFilter) {
   let broughtIn = ZERO;
   for (const p of oldFees) { lines.push({ key: feeHead ? `head:${feeHead}` : "unassigned", kind: "INCOME", date: p.paymentDate, amount: p.amountPaise }); broughtIn += p.amountPaise; }
   for (const e of oldExpenses) { lines.push({ key: `head:${e.accountHeadId}`, kind: "EXPENSE", date: e.date, amount: e.amountPaise }); broughtIn += e.amountPaise; }
-  return { accounts, lines, broughtIn };
+  // Journal entries (Accounts) move amounts between heads, for example a wrong head corrected: a debit
+  // raises an expense head and lowers an income head, a credit the other way. A reversal nets off its
+  // original. Lines on a cash or bank account are not income or expense.
+  const journals = await tx.journalLine.findMany({
+    where: { accountHeadId: { not: null, ...(f.hidePay?.length ? { notIn: f.hidePay } : {}) }, entry: { financialYearId: f.financialYearId, date: { gte: f.from, lte: f.to } } },
+    select: { accountHeadId: true, debitPaise: true, creditPaise: true, entry: { select: { date: true } } },
+  });
+  let journal = 0;
+  for (const l of journals) {
+    const key = `head:${l.accountHeadId}`;
+    const kind = accounts.get(key)?.kind;
+    if (kind !== "INCOME" && kind !== "EXPENSE") continue;
+    const amount = kind === "EXPENSE" ? l.debitPaise - l.creditPaise : l.creditPaise - l.debitPaise;
+    if (amount === ZERO) continue;
+    lines.push({ key, kind, date: l.entry.date, amount });
+    journal++;
+  }
+  return { accounts, lines, broughtIn, journal };
+}
+
+/** The report's note: records brought in from old software, journal entries. */
+function headNote(broughtIn: bigint, journal: number) {
+  const parts = [broughtIn > ZERO ? BROUGHT_IN_NOTE : null, journal ? JOURNAL_NOTE : null].filter(Boolean);
+  return parts.length ? parts.join(" ") : undefined;
 }
 
 function isIncome(e: Pick<DayBookEntry, "section" | "direction">) {
@@ -67,6 +90,7 @@ function isIncome(e: Pick<DayBookEntry, "section" | "direction">) {
 }
 
 const BROUGHT_IN_NOTE = "Includes records brought in from old software (they are not in the Day Book).";
+const JOURNAL_NOTE = "Includes journal entries from Accounts (they move amounts between heads and are not in the Day Book).";
 
 export const FINANCE_REPORTS: FinanceReportDef[] = [
   {
@@ -75,7 +99,7 @@ export const FINANCE_REPORTS: FinanceReportDef[] = [
     about: "By head and by month",
     filters: ["dates", "group"],
     run: async (tx, ctx, f) => {
-      const { accounts, lines, broughtIn } = await byHead(tx, ctx, f);
+      const { accounts, lines, broughtIn, journal } = await byHead(tx, ctx, f);
       const map = new Map<string, { period: string; key: string; kind: string; amount: bigint }>();
       for (const l of lines) {
         const p = periodOf(l.date, f.group);
@@ -94,7 +118,7 @@ export const FINANCE_REPORTS: FinanceReportDef[] = [
         columns: [{ key: "period", label: f.group === "month" ? "Month" : "Date" }, { key: "head", label: "Head" }, { key: "group", label: "Group" }, { key: "income", label: "Income", kind: "money" }, { key: "expense", label: "Expense", kind: "money" }],
         rows,
         totals: { period: "Total", income, expense },
-        note: broughtIn > ZERO ? BROUGHT_IN_NOTE : undefined,
+        note: headNote(broughtIn, journal),
       };
     },
   },
@@ -104,7 +128,7 @@ export const FINANCE_REPORTS: FinanceReportDef[] = [
     about: "Income less expenses for the period",
     filters: ["dates"],
     run: async (tx, ctx, f) => {
-      const { accounts, lines, broughtIn } = await byHead(tx, ctx, f);
+      const { accounts, lines, broughtIn, journal } = await byHead(tx, ctx, f);
       const totals = new Map<string, bigint>();
       for (const l of lines) totals.set(l.key, (totals.get(l.key) ?? ZERO) + l.amount);
       const rowsFor = (kind: "INCOME" | "EXPENSE") =>
@@ -129,7 +153,7 @@ export const FINANCE_REPORTS: FinanceReportDef[] = [
         columns: [{ key: "section", label: "" }, { key: "group", label: "Group" }, { key: "head", label: "Head" }, { key: "amount", label: "Amount", kind: "money" }],
         rows,
         totals: { section: income >= expense ? "Surplus" : "Deficit", amount: income >= expense ? income - expense : expense - income },
-        note: broughtIn > ZERO ? BROUGHT_IN_NOTE : undefined,
+        note: headNote(broughtIn, journal),
         chart: [{ label: "Income", value: income }, { label: "Expenses", value: expense }],
       };
     },

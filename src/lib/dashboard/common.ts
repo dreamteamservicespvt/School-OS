@@ -43,6 +43,18 @@ export function dayDate(d: Date) {
   return `${WEEKDAY[d.getUTCDay()]} ${d.getUTCDate()} ${MONTH[d.getUTCMonth()]}`;
 }
 
+/**
+ * A due date on a card: "due today", "due tomorrow", "due Fri", or "due Mon 19 Oct"
+ * for a day already gone or a week or more away (QA ADMIT-04: not "due mon 19").
+ */
+export function dueWord(d: Date, today: Date) {
+  const diff = daysBetween(today, d);
+  if (diff === 0) return "due today";
+  if (diff === 1) return "due tomorrow";
+  if (diff > 1 && diff < 7) return `due ${WEEKDAY[d.getUTCDay()]}`;
+  return `due ${dayDate(d)}`;
+}
+
 /** "08:45" to "8:45". */
 export function clock(hhmm: string) {
   const [h, m] = hhmm.split(":").map(Number);

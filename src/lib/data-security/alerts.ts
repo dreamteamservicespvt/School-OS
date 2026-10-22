@@ -18,7 +18,7 @@ export async function securityAlerts(tx: Tx, since: Date, take = 20) {
     where: {
       at: { gte: since },
       OR: [
-        { action: { in: ["locked-after-wrong-passwords", "two-step-locked", "signed-in-new-device", "signed-in-without-two-step", "data-export-requested", "person-exported", "webhook-refused"] } },
+        { action: { in: ["locked-after-wrong-passwords", "two-step-locked", "signed-in-new-device", "signed-in-without-two-step", "data-export-requested", "person-exported", "webhook-refused", "pickup-code-locked"] } },
         { action: "exported", after: { path: ["rows"], gte: MASS_EXPORT_ROWS } },
       ],
     },
@@ -35,8 +35,9 @@ export async function securityAlerts(tx: Tx, since: Date, take = 20) {
       r.action === "data-export-requested" ? "Full data export asked for" :
       r.action === "person-exported" ? "One person's data exported" :
       r.action === "webhook-refused" ? "Payment confirmation with a wrong signature" :
+      r.action === "pickup-code-locked" ? "Student Pickup code checks locked after wrong codes" :
       `Mass export: ${after.title ?? "a list"} (${after.rows?.toLocaleString("en-IN")} rows)`;
-    const tone: "danger" | "warning" = ["locked-after-wrong-passwords", "two-step-locked", "webhook-refused"].includes(r.action) ? "danger" : "warning";
+    const tone: "danger" | "warning" = ["locked-after-wrong-passwords", "two-step-locked", "webhook-refused", "pickup-code-locked"].includes(r.action) ? "danger" : "warning";
     return { id: r.id, at: r.at, kind, tone, userLoginId: r.userLoginId, recordId: r.recordId, device: r.device, ipAddress: r.ipAddress };
   });
 }

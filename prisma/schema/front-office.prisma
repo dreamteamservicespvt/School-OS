@@ -171,6 +171,30 @@ model PickupCode {
   @@map("pickup_code")
 }
 
+/// Pickup Code Try (inferred; gap list G04): one wrong Student Pickup code, who typed
+/// it at the desk, for which student and guardian, and the lock it started, if any.
+/// Wrong codes are counted per student (whoever typed them) and per person at the
+/// desk (whichever students); too many in an hour lock code checks for a while, and a
+/// right code is refused until the lock ends (src/lib/front-office/pickup.ts).
+model PickupCodeTry {
+  id                 String    @id @default(uuid()) @db.Uuid
+  schoolId           String    @map("school_id") @db.Uuid
+  studentId          String    @map("student_id") @db.Uuid
+  guardianId         String    @map("guardian_id") @db.Uuid
+  pickupCodeId       String?   @map("pickup_code_id") @db.Uuid
+  /// The login of the person at the desk who typed it.
+  enteredById        String?   @map("entered_by_id") @db.Uuid
+  at                 DateTime  @default(now())
+  /// Set on the try that locked code checks for this student.
+  studentLockedUntil DateTime? @map("student_locked_until")
+  /// Set on the try that locked code checks for the person who typed it.
+  personLockedUntil  DateTime? @map("person_locked_until")
+
+  @@index([schoolId, studentId, at])
+  @@index([schoolId, enteredById, at])
+  @@map("pickup_code_try")
+}
+
 /// Front Office Note (inferred): a short note for whoever is at the desk.
 model FrontOfficeNote {
   id          String    @id @default(uuid()) @db.Uuid

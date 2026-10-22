@@ -112,6 +112,25 @@ function privateHostName(host: string) {
   return h === "localhost" || h.endsWith(".localhost") || h.endsWith(".local") || h.endsWith(".internal") || h.endsWith(".lan") || h.endsWith(".home.arpa") || !h.includes(".");
 }
 
+const HOST_ONLY_WORDS = "Enter only the server name, like smtp.gmail.com, without https:// or a port.";
+
+/**
+ * Checks a server name typed on its own (the school's email server, SMTP):
+ * a real internet name or a public IP address, never the server itself, a
+ * private network or the cloud's metadata address. Returns the problem in
+ * plain words, or null. The name is checked again after it is looked up
+ * (publicAddresses in src/lib/net/public-fetch.ts).
+ */
+export function publicHostProblem(raw: string): string | null {
+  const host = raw.trim().replace(/^\[|\]$/g, "").replace(/\.$/, "").toLowerCase();
+  if (!host) return "Enter the server name, like smtp.gmail.com.";
+  if (isIpAddress(host)) return isPrivateAddress(host) ? PRIVATE_ADDRESS_WORDS : null;
+  if (host.length > 253 || !/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/.test(host)) return HOST_ONLY_WORDS;
+  // A last part that is all numbers ("127.1", "0x7f.1") is an address in disguise, never a real name.
+  if (/^(0x[0-9a-f]*|\d+)$/.test(host.split(".").at(-1) ?? "")) return PRIVATE_ADDRESS_WORDS;
+  return privateHostName(host) ? PRIVATE_ADDRESS_WORDS : null;
+}
+
 /**
  * Checks a typed web address before School OS calls it: https only (http
  * only where allowed, for Tally), no user name or password in it, and not a

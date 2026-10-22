@@ -9,6 +9,23 @@ import { networkFailure, postJson } from "./types";
 export const GRAPH_VERSION = /^v\d+\.\d+$/.test(process.env.WHATSAPP_GRAPH_API_VERSION ?? "") ? process.env.WHATSAPP_GRAPH_API_VERSION! : "v23.0";
 export const GRAPH = `https://graph.facebook.com/${GRAPH_VERSION}`;
 
+/**
+ * Meta's phone number IDs and WhatsApp Business account IDs are numbers only.
+ * The school types them, and they go into the Graph address, so anything else
+ * is refused: it could change which address School OS calls (08-platform-security.md §7).
+ */
+export const META_ID = /^\d{1,30}$/;
+
+/** Only Graph API pages on Meta's own address are followed, never a link to anywhere else. */
+export function isGraphPage(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" && u.origin === new URL(GRAPH).origin && !u.username && !u.password;
+  } catch {
+    return false;
+  }
+}
+
 type GraphError = { error?: { code?: number; message?: string; error_data?: { details?: string } } };
 
 /** Plain words for WhatsApp's error codes (the common ones). */
@@ -30,6 +47,7 @@ export function whatsappProvider({ config, secrets }: ProviderConfig): Provider 
     key: "meta-cloud",
     async send(msg: Outgoing): Promise<SendResult> {
       if (!config.phoneNumberId || !secrets.accessToken) return { ok: false, retryable: false, reason: "WhatsApp is not fully connected. Check Settings, SMS, WhatsApp & Email." };
+      if (!META_ID.test(config.phoneNumberId)) return { ok: false, retryable: false, reason: "The WhatsApp phone number ID has only numbers. Check it in Settings, SMS, WhatsApp & Email." };
       const to = `91${msg.to}`;
       const body = msg.whatsappTemplate
         ? {
@@ -65,6 +83,7 @@ export function whatsappProvider({ config, secrets }: ProviderConfig): Provider 
 /** Sends a template to WhatsApp for approval. Blanks become {{1}}, {{2}}... in the order they appear. */
 export async function submitWhatsappTemplate(p: ProviderConfig, t: { name: string; language: string; category: "UTILITY" | "MARKETING" | "AUTHENTICATION"; body: string; variables: string[] }) {
   if (!p.config.businessAccountId || !p.secrets.accessToken) return { ok: false as const, reason: "Add the WhatsApp Business account ID and access token in Settings, SMS, WhatsApp & Email first." };
+  if (!META_ID.test(p.config.businessAccountId)) return { ok: false as const, reason: "The WhatsApp Business account ID has only numbers. Check it in Settings, SMS, WhatsApp & Email." };
   let text = t.body;
   t.variables.forEach((v, i) => { text = text.split(`{${v}}`).join(`{{${i + 1}}}`); });
   try {
@@ -89,7 +108,7 @@ export async function submitWhatsappTemplate(p: ProviderConfig, t: { name: strin
 
 /** Asks WhatsApp for a submitted template's approval status. */
 export async function whatsappTemplateStatus(p: ProviderConfig, name: string, language: string) {
-  if (!p.config.businessAccountId || !p.secrets.accessToken) return null;
+  if (!p.config.businessAccountId || !p.secrets.accessToken || !META_ID.test(p.config.businessAccountId)) return null;
   try {
     const url = `${GRAPH}/${encodeURIComponent(p.config.businessAccountId)}/message_templates?name=${encodeURIComponent(name)}`;
     const res = await fetch(url, { headers: { Authorization: `Bearer ${p.secrets.accessToken}` }, signal: AbortSignal.timeout(8000) });
@@ -107,7 +126,7 @@ export async function whatsappTemplateStatus(p: ProviderConfig, name: string, la
  * caller never mistakes a failed call for "WhatsApp has no templates".
  */
 export async function listWhatsappTemplates(p: ProviderConfig): Promise<Map<string, { status: string; note: string | null }> | null> {
-  if (!p.config.businessAccountId || !p.secrets.accessToken) return null;
+  if (!p.config.businessAccountId || !p.secrets.accessToken || !META_ID.test(p.config.businessAccountId)) return null;
   const out = new Map<string, { status: string; note: string | null }>();
   let url: string | null = `${GRAPH}/${encodeURIComponent(p.config.businessAccountId)}/message_templates?fields=name,language,status,rejected_reason&limit=200`;
   try {
@@ -119,6 +138,8 @@ export async function listWhatsappTemplates(p: ProviderConfig): Promise<Map<stri
         out.set(`${t.name}|${t.language}`, { status: t.status.toUpperCase(), note: t.rejected_reason && t.rejected_reason !== "NONE" ? t.rejected_reason : null });
       }
       url = json.paging?.next ?? null;
+      // The next page must be on Meta's own address; anything else is not followed, and the list is not complete.
+      if (url && !isGraphPage(url)) return null;
     }
     return url ? null : out;
   } catch {

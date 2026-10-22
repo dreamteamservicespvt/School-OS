@@ -7,6 +7,9 @@ import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { channelSecrets, channelSetups, encryptSecrets, PROVIDER_FIELDS, PROVIDERS, type ProviderChannel } from "./channels";
 import { providerFor } from "./providers";
+import { SMTP_PORTS } from "./providers/smtp";
+import { META_ID } from "./providers/whatsapp";
+import { publicHostProblem } from "../net/public-address";
 
 export class ChannelProblem extends Error {}
 
@@ -34,8 +37,16 @@ export async function checkChannel(tx: Tx, ctx: SchoolContext, channel: Provider
   }
   if (input.provider === "msg91" && input.config.senderId && !/^[A-Za-z]{6}$/.test(input.config.senderId.trim())) e.senderId = "The sender ID is exactly 6 letters.";
   if (input.provider === "smtp") {
-    if (input.config.port && !/^\d{2,5}$/.test(input.config.port.trim())) e.port = "Enter a port number, usually 587 or 465.";
+    if (input.config.port && !(SMTP_PORTS as readonly number[]).includes(Number(input.config.port.trim()))) e.port = "Enter the port your email provider gives: 587, 465, 25 or 2525.";
+    // The server name must be on the public internet (08-platform-security.md §7); it is looked up and checked again when used.
+    const hostProblem = input.config.host?.trim() ? publicHostProblem(input.config.host) : null;
+    if (hostProblem) e.host = hostProblem;
     if (input.config.fromAddress && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.config.fromAddress.trim())) e.fromAddress = "Enter an email address like office@school.in.";
+  }
+  if (input.provider === "meta-cloud") {
+    // Numbers only: these go into the address School OS calls at Meta (08-platform-security.md §7).
+    if (input.config.phoneNumberId?.trim() && !META_ID.test(input.config.phoneNumberId.trim())) e.phoneNumberId = "The phone number ID has only numbers, as shown in Meta Business Manager, WhatsApp, API setup.";
+    if (input.config.businessAccountId?.trim() && !META_ID.test(input.config.businessAccountId.trim())) e.businessAccountId = "The WhatsApp Business account ID has only numbers, as shown in Meta Business Manager.";
   }
   if (input.provider === "meta-cloud" && input.config.displayNumber && !/^[6-9]\d{9}$/.test(input.config.displayNumber.replace(/\D/g, "").slice(-10))) e.displayNumber = "Enter a 10-digit mobile number.";
   if (!Number.isInteger(input.lowCreditAlert) || input.lowCreditAlert < 0 || input.lowCreditAlert > 100000) e.lowCreditAlert = "Enter a number of credits from 0 to 100000.";

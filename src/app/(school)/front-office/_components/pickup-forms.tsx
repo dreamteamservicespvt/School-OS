@@ -141,10 +141,12 @@ const NO_PHOTO_OPTIONS: { value: NoPhotoCheck; title: (name: string) => string; 
   { value: "call", title: () => "A parent or guardian confirmed on a call", sub: "Call a number on the student’s record and ask who is collecting." },
 ];
 
-export function ReleaseForm({ student, people, codeCheck, releasedBy, nowHHMM, stopHref, photoBase }: {
+export function ReleaseForm({ student, people, codeCheck, codeLock = null, releasedBy, nowHHMM, stopHref, photoBase }: {
   student: { id: string; first: string };
   people: PickupChoice[];
   codeCheck: boolean;
+  /** Code checks are locked after too many wrong codes: why and until when (gap list G04). */
+  codeLock?: string | null;
   releasedBy: string;
   nowHHMM: string;
   stopHref: string;
@@ -166,7 +168,7 @@ export function ReleaseForm({ student, people, codeCheck, releasedBy, nowHHMM, s
   const codeSent = codeState?.ok && codeFor === who;
   // A photo on record is matched with the face; without one, ID proof or a call to a guardian instead.
   const verified = g ? (g.photo ? photo : Boolean(check)) : false;
-  const ready = Boolean(g && verified && (!codeCheck || code.length === 4) && why);
+  const ready = Boolean(g && verified && (!codeCheck || (code.length === 4 && !codeLock)) && why);
   const err = state && !state.ok ? state.errors ?? {} : {};
   const choose = (id: string) => { setWho(id); setPhoto(false); setCheck(""); setCode(""); };
 
@@ -225,7 +227,9 @@ export function ReleaseForm({ student, people, codeCheck, releasedBy, nowHHMM, s
             {codeCheck && (
               <div className="rounded-xl border border-line p-3 mt-2 flex flex-col sm:flex-row sm:items-center gap-3">
                 <span className="text-[14px] flex-1"><b className="font-semibold block">Code to the guardian’s phone</b><span className="text-[12.5px] text-ink3">Switched on by the school. Sent to the number on {g.name.split(" ")[0]}’s record.</span></span>
-                {!codeSent ? (
+                {codeLock ? (
+                  <p role="alert" className="text-[12.5px] text-bad flex gap-1.5 sm:max-w-[300px]"><TriangleAlert size={15} className="shrink-0 mt-0.5" aria-hidden="true" />{codeLock}</p>
+                ) : !codeSent ? (
                   <div className="flex flex-col items-start gap-1">
                     <Button type="submit" formAction={sendCode} formNoValidate variant="secondary" icon={Send} loading={sending} onClick={() => setCodeFor(who)}>Send code</Button>
                     {codeState && !codeState.ok && <span className="text-[12px] text-bad max-w-[260px]" role="alert">{codeState.message}</span>}
@@ -235,6 +239,7 @@ export function ReleaseForm({ student, people, codeCheck, releasedBy, nowHHMM, s
                     <input name="code" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 4))} inputMode="numeric" autoComplete="one-time-code" placeholder="4 digits"
                       className={cx(inputCls(err.code), "h-11 !w-28 tnum text-center tracking-[.3em] font-semibold")} aria-label="Code from the guardian" aria-invalid={err.code ? true : undefined} />
                     {code.length === 4 && <CircleCheck size={20} className="text-ok" aria-hidden="true" />}
+                    <Button type="submit" formAction={sendCode} formNoValidate variant="ghost" size="sm" loading={sending} onClick={() => { setCodeFor(who); setCode(""); }}>Send a new code</Button>
                   </div>
                 )}
                 {codeSent && (codeState?.data as { testMode?: boolean } | undefined)?.testMode && <p role="status" className="text-[12px] text-warn max-w-[260px]">{codeState?.message}</p>}
@@ -261,7 +266,7 @@ export function ReleaseForm({ student, people, codeCheck, releasedBy, nowHHMM, s
           </div>
           {state && !state.ok && !Object.keys(err).length && <p className="text-[13px] text-bad" role="alert">{state.message}</p>}
           <Button type="submit" variant="primary" size="lg" className="w-full !h-14 !text-[16px]" icon={DoorOpen} disabled={!ready} loading={pending}>
-            {pending ? "Making gate pass…" : ready ? `Release ${student.first} and make gate pass` : !verified ? (g.photo ? "Check the photo first" : "Check ID proof or call first") : codeCheck && code.length !== 4 ? (codeSent ? "Enter the code from the guardian" : "Send the code first") : "Choose a reason"}
+            {pending ? "Making gate pass…" : ready ? `Release ${student.first} and make gate pass` : !verified ? (g.photo ? "Check the photo first" : "Check ID proof or call first") : codeCheck && codeLock ? "Code checks are locked" : codeCheck && code.length !== 4 ? (codeSent ? "Enter the code from the guardian" : "Send the code first") : "Choose a reason"}
           </Button>
         </div>
       ) : (

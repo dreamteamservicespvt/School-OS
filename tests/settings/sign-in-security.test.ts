@@ -17,6 +17,9 @@ vi.mock("@/lib/current", () => ({
   clearSessionCookie: async () => {},
 }));
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
+// School OS's own mail server: off, as in the other tests, unless a test switches it on.
+const mail = vi.hoisted(() => ({ on: false, sent: [] as { to: string; subject: string; text: string }[] }));
+vi.mock("@/lib/auth/mail", () => ({ mailIsSetUp: () => mail.on, sendMail: async (to: string, subject: string, text: string) => { mail.sent.push({ to, subject, text }); } }));
 // A password change keeps this browser's remembered device (its cookie); here there is none.
 vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => undefined, set: () => {}, delete: () => {} }), headers: async () => new Headers() }));
 
@@ -69,6 +72,27 @@ describe("two-step login is on from the first day", () => {
     const teacher = await makeUser({ schools: [{ id: school.id, roleKeys: ["teacher"] }] });
     expect(await roleNeedsTwoStep(teacher.id, school.id)).toBe(false);
     expect((await signIn(teacher.username, PASSWORD, device, { sleep: noSleep })).ok).toBe(true);
+  });
+});
+
+describe("a person who works in two schools", () => {
+  it("types the code when a role of theirs needs it in either school, because the School switcher does not ask again", async () => {
+    const other = await makeSchool("Second Sign-in School");
+    // Oldest access first: a Teacher in the school they land in, the Principal in the other.
+    const person = await makeUser({ schools: [{ id: school.id, roleKeys: ["teacher"] }, { id: other.id, roleKeys: ["principal"] }] });
+    expect(await roleNeedsTwoStep(person.id, school.id)).toBe(false);
+    const r = await signIn(person.username, PASSWORD, device, { sleep: noSleep });
+    expect(!r.ok && r.twoStep).toEqual({ userLoginId: person.id, schoolId: school.id });
+
+    // With a code instead of the password, one code is not enough either.
+    await prisma.userLogin.update({ where: { id: person.id }, data: { email: "two.schools@example.com", phone: "+91 98480 54323" } });
+    const c = catcher();
+    const started = await startCodeSignIn(person.username, device, { deliver: c.deliver });
+    if (!started.ok) throw new Error(started.message);
+    expect(c.sent[0]).toMatchObject({ phone: null, email: "two.schools@example.com" });
+    const first = await verifyChallenge(started.token, c.sent[0].code, device);
+    if (!first.ok) throw new Error(first.message);
+    expect(await afterRightCode(first, device, { deliver: c.deliver })).toMatchObject({ kind: "second-code" });
   });
 });
 
@@ -221,7 +245,8 @@ describe("signing in with a one-time code instead of the password", () => {
     if (!second.ok) throw new Error(second.message);
     expect(second.purpose).toBe("code-sign-in-second");
     const done = await afterRightCode(second, device, { deliver: c.deliver });
-    expect(done).toMatchObject({ kind: "signed-in", mayRemember: true });
+    // Codes typed instead of the password never make a remembered device, two of them neither (08-platform-security.md §2).
+    expect(done).toMatchObject({ kind: "signed-in", mayRemember: false });
     if (done.kind === "signed-in") expect((await findSession(done.token))?.userLoginId).toBe(principal.id);
   });
 
@@ -256,6 +281,25 @@ describe("a sign-in from a new device", () => {
     expect(notes[0].text).toMatch(/^New sign-in to Safe Sign-in School on Chrome on Windows computer \(10\.0\.0\.32\), .*Not you\? Sign out everywhere in My profile/);
     expect(notes[0].link).toBe("/profile#devices");
     expect(await audits(school.id, teacher.id, "signed-in-new-device")).toHaveLength(1);
+  });
+
+  it("also goes by email to the person, from School OS's own mail server when the school's email is not set up", async () => {
+    const mailed = await makeUser({ schools: [{ id: school.id, roleKeys: ["teacher"] }], name: "Mailed Teacher" });
+    await prisma.userLogin.update({ where: { id: mailed.id }, data: { email: "mailed.teacher@example.com" } });
+    mail.on = true;
+    mail.sent.length = 0;
+    try {
+      await completeSignIn(mailed.id, school.id, { userAgent: "Mozilla/5.0 (Windows NT 10.0) Chrome/130.0", deviceId: "first-device-0123456789abcdef" });
+      expect(mail.sent).toHaveLength(0);
+      await completeSignIn(mailed.id, school.id, { userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) Version/17.0 Safari/605.1.15", ipAddress: "10.0.0.41", deviceId: "second-device-0123456789abcdef" });
+      expect(mail.sent).toEqual([{ to: "mailed.teacher@example.com", subject: "New sign-in to School OS", text: expect.stringMatching(/^Hello Mailed Teacher,\n\nNew sign-in to Safe Sign-in School on Safari on Mac \(10\.0\.0\.41\), .*Not you\? Sign out everywhere in My profile/) }]);
+      // It is one of the Security alerts on Data Backup & Security too.
+      const { daysAgo, securityAlerts } = await import("@/lib/data-security/alerts");
+      const alerts = await withSchool(as(school.id), (tx) => securityAlerts(tx, daysAgo(1)));
+      expect(alerts.filter((a) => a.recordId === mailed.id).map((a) => a.kind)).toEqual(["Sign-in from a new device"]);
+    } finally {
+      mail.on = false;
+    }
   });
 
   it("a browser already used before device ids came in is not called new", async () => {

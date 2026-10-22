@@ -6,3 +6,12 @@ export class FrontOfficeProblem extends Error {
     this.name = "FrontOfficeProblem";
   }
 }
+
+/**
+ * A refusal whose record must stay, such as a wrong pickup code that is counted
+ * and written to the audit log. The work returns it instead of throwing, so what
+ * it wrote is saved; the action then answers with the message, like a problem.
+ */
+export class KeptRefusal {
+  constructor(readonly message: string, readonly field?: string) {}
+}

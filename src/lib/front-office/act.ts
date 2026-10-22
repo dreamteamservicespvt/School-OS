@@ -17,9 +17,9 @@ import { MessagingProblem } from "../messaging/send";
 import { QueryProblem } from "../communication/queries";
 import { TaskProblem } from "../dashboard/tasks";
 import { foCan, foViewer, type FoCan, type FoViewer } from "./access";
-import { FrontOfficeProblem } from "./problem";
+import { FrontOfficeProblem, KeptRefusal } from "./problem";
 
-export { FrontOfficeProblem } from "./problem";
+export { FrontOfficeProblem, KeptRefusal } from "./problem";
 
 export type FoWork = { tx: Tx; ctx: SchoolContext; v: FoViewer; can: FoCan; current: Current; tz: string };
 
@@ -47,10 +47,17 @@ export async function inFrontOffice<T>(action: Action, work: (w: FoWork) => Prom
   return withSchool(current.ctx, (tx) => work({ tx, ctx: current.ctx, v, can: foCan(v), current, tz: current.school.timeZone }));
 }
 
-/** A server action: checks, does the work, answers with a FormState. */
-export async function foAction<T>(action: Action, fd: FormData | undefined, work: (w: FoWork) => Promise<T>, success: (result: T) => Flash | string): Promise<FormState<T>> {
+/**
+ * A server action: checks, does the work, answers with a FormState. Work that
+ * returns a KeptRefusal is saved (what it wrote stays) and answered as a refusal.
+ */
+export async function foAction<T>(action: Action, fd: FormData | undefined, work: (w: FoWork) => Promise<T | KeptRefusal>, success: (result: T) => Flash | string): Promise<FormState<T>> {
   try {
     const result = await inFrontOffice(action, work);
+    if (result instanceof KeptRefusal) {
+      revalidatePath("/", "layout");
+      return { ok: false, message: result.message, errors: result.field ? { [result.field]: result.message } : undefined, values: fd ? formValues(fd) : undefined };
+    }
     const f = success(result);
     const message = typeof f === "string" ? f : f.message;
     await flash(typeof f === "string" ? { message } : f);

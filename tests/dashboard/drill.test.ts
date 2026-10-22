@@ -12,6 +12,13 @@ import { attendanceAccess } from "@/lib/attendance/access";
 import { attendanceSettings } from "@/lib/attendance/settings";
 import { registerWhole } from "@/lib/attendance/classwise";
 import { staffDay, staffDayCounts } from "@/lib/attendance/staff";
+import { feeViewer } from "@/lib/fees/access";
+import { recentPayments } from "@/lib/fees/dashboard";
+import { defaulters } from "@/lib/fees/defaulters";
+import { hiddenPayHeads } from "@/lib/finance/access";
+import { dayBookView } from "@/lib/finance/daybook-view";
+import { expenseRows, NO_FILTER } from "@/lib/finance/expense-list";
+import { formatRupees, formatRupeesShort } from "@/lib/format";
 import { drillSchool, NOW, TODAY, day, type DrillSchool } from "./drill-fixture";
 
 let f: DrillSchool;
@@ -41,6 +48,12 @@ async function registerList(who: Current, date = TODAY) {
     return (await registerWhole(tx, who.ctx, access, date, date, date)).totals;
   });
 }
+
+describe("every home loads", () => {
+  it("no card fails to load for any role", async () => {
+    for (const key of Object.keys(f.who) as (keyof DrillSchool["who"])[]) expect((await home(key)).failed, key).toEqual([]);
+  });
+});
 
 describe("attendance tiles open lists with the same numbers", () => {
   it("students present today: the register shows the same present, absent and late, the student who left not counted", async () => {
@@ -83,3 +96,80 @@ describe("attendance tiles open lists with the same numbers", () => {
   });
 });
 
+
+/** Fee Dashboard's Recent payments for a link's filters (full, partial or both), as the page reads them. */
+async function feeList(who: Current, href: string) {
+  const sp = paramsOf(href);
+  expect(pathOf(href)).toBe("/fee-management/dashboard");
+  const from = sp.period === "today" ? TODAY : sp.from ? day(sp.from) : day("2026-04-01");
+  const to = sp.period === "today" ? TODAY : sp.to ? day(sp.to) : TODAY;
+  return read(who, async (tx) => {
+    const v = await feeViewer(tx, who.ctx, who);
+    return recentPayments(tx, v, { from, to, status: sp.status ?? null, partial: sp.kind === "all" ? null : sp.kind === "partial" }, 0);
+  });
+}
+
+describe("money tiles open lists with the same numbers", () => {
+  it("fees collected today: the payments list it opens holds the same payments and amount (partial ones included, cancelled and waiting ones left out)", async () => {
+    for (const key of ["principal", "accountant", "northAccountant"] as const) {
+      const tile = band(await home(key), "fees.collected-today")!;
+      const list = await feeList(f.who[key], tile.href!);
+      expect(tile.big, key).toBe(formatRupeesShort(list.sum));
+      expect(tile.foot, key).toContain(`${list.total} payment`);
+    }
+    // Main and North: ₹6,000 + ₹2,000 (partial) + ₹5,000; North alone: ₹5,000.
+    expect((await feeList(f.who.principal, band(await home("principal"), "fees.collected-today")!.href!)).total).toBe(3);
+    expect((await feeList(f.who.northAccountant, band(await home("northAccountant"), "fees.collected-today")!.href!)).total).toBe(1);
+  });
+
+  it("waiting for verification: the list holds every waiting payment, however old, with their amount", async () => {
+    for (const key of ["accountant", "northAccountant"] as const) {
+      const tile = band(await home(key), "fees.cheques-to-verify")!;
+      const list = await feeList(f.who[key], tile.href!);
+      expect(num(tile.big), key).toBe(list.total);
+      if (list.total) expect(tile.foot, key).toContain(formatRupees(list.sum));
+    }
+    expect(band(await home("accountant"), "fees.cheques-to-verify")!.big).toBe("2");
+  });
+
+  it("defaulters and overdue fees: Defaulters lists the same students and amount (a student who left still owes; an archived one is not counted)", async () => {
+    for (const key of ["principal", "accountant", "northAccountant"] as const) {
+      const list = await read(f.who[key], async (tx) => defaulters(tx, f.who[key].ctx, await feeViewer(tx, f.who[key].ctx, f.who[key]), TODAY));
+      const amount = list.rows.reduce((s, r) => s + r.overduePaise, BigInt(0));
+      const h = await home(key);
+      const b = band(h, "fees.defaulters");
+      if (b) { expect(pathOf(b.href!)).toBe("/fee-management/defaulters"); expect(num(b.big), key).toBe(list.rows.length); }
+      const a = card(h, "fees.overdue");
+      if (a) { expect(pathOf(a.href)).toBe("/fee-management/defaulters"); expect(a.value, key).toBe(`${list.rows.length}:${amount}`); }
+      expect(Boolean(a || b), key).toBe(true);
+    }
+    const all = await read(f.who.accountant, async (tx) => defaulters(tx, f.who.accountant.ctx, await feeViewer(tx, f.who.accountant.ctx, f.who.accountant), TODAY));
+    expect(all.rows.map((r) => r.name).sort()).toEqual(["Bina Bose", "Diya Reddy", "Ishaan Kumar", "Lalit Left", "Meera Iyer", "Nikhil Naidu"]);
+  });
+
+  it("Day Book today and Money today: the Day Book shows the same totals", async () => {
+    const h = await home("accountant");
+    const book = await read(f.who.accountant, async (tx) => dayBookView(tx, { from: TODAY, to: TODAY, classId: null, depositAccountId: null, waiting: false, hidePay: await hiddenPayHeads(tx, f.who.accountant.permissions) }));
+    // The band shows when it is among the accountant's first four numbers.
+    const tile = band(h, "finance.day-book");
+    if (tile) {
+      expect(paramsOf(tile.href!).period).toBe("today");
+      expect(tile.big).toBe(formatRupeesShort(book.totals.net));
+    }
+    const money = [...h.panels.first, ...h.panels.main, ...h.panels.side].find((p) => p.kind === "list" && p.title === "Money today");
+    const spent = money?.kind === "list" ? money.rows.find((r) => r.id === "spent") : undefined;
+    expect(spent?.right).toBe(formatRupees(book.totals.expense));
+    const collected = money?.kind === "list" ? money.rows.find((r) => r.id === "collected") : undefined;
+    const list = await feeList(f.who.accountant, collected!.href!);
+    expect(collected!.right).toBe(formatRupees(list.sum));
+  });
+
+  it("expenses waiting for approval: the Waiting tab lists every one, last financial year's too", async () => {
+    const a = card(await home("principal"), "finance.expenses")!;
+    expect(paramsOf(a.href).tab).toBe("waiting");
+    const list = await read(f.who.principal, async (tx) => expenseRows(tx, { ...NO_FILTER, hidePay: await hiddenPayHeads(tx, f.who.principal.permissions), status: "WAITING" }, 100));
+    const sum = list.rows.reduce((s, r) => s + r.amountPaise, BigInt(0));
+    expect(a.value).toBe(`${list.count}:${sum}`);
+    expect(list.count).toBe(3);
+  });
+});

@@ -151,7 +151,8 @@ export async function recentPayments(tx: Tx, viewer: FeeViewer, f: RecentFilter,
   const [rows, total, sumAgg] = await Promise.all([
     tx.payment.findMany({ where, orderBy: { paidAt: "desc" }, take, skip, include: { allocations: { where: { fromAdvance: false }, select: { feeHeadId: true } } } }),
     tx.payment.count({ where }),
-    tx.payment.aggregate({ where: { ...where, status: "POSTED" }, _sum: { amountPaise: true } }),
+    // The money in the list: posted payments, or those of the one status chosen.
+    tx.payment.aggregate({ where: { ...where, status: (f.status ?? "POSTED") as never }, _sum: { amountPaise: true } }),
   ]);
   const students = await tx.student.findMany({ where: { id: { in: rows.map((r) => r.studentId) } }, select: { id: true, fullName: true, admissionNo: true } });
   const classes = await classOfStudents(tx, rows.map((r) => r.studentId), viewer.yearIds);

@@ -52,7 +52,8 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
   const p = await feeGuard("dashboard");
   if (p.level === "admission") return <AdmissionFees searchParams={searchParams} />;
   const sp = await searchParams;
-  const tab = one(sp.kind) === "partial" ? "partial" : "full";
+  // "all": full and partial payments together (the Dashboard's money tiles open this, so the list holds every payment they count).
+  const tab = one(sp.kind) === "partial" ? "partial" : one(sp.kind) === "all" ? "all" : "full";
   const status = STATUS.some((s) => s.value === one(sp.status)) ? one(sp.status) : "all";
   const mode = MODES.some((s) => s.value === one(sp.mode)) ? one(sp.mode) : "all";
   const per = feePeriod(sp, p.dates, "today");
@@ -81,7 +82,7 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
       modeBreakdown(tx, period === "today" ? today : monthStart(today), today, only),
       failedOnline(tx, addDays(today, -7), only),
       tx.payment.findMany({ where: { ...only, status: "WAITING" }, orderBy: { paidAt: "asc" }, select: { id: true, amountPaise: true } }),
-      recentPayments(tx, p.viewer, { ...base, partial: tab === "partial" }, take, (page - 1) * take),
+      recentPayments(tx, p.viewer, { ...base, partial: tab === "all" ? null : tab === "partial" }, take, (page - 1) * take),
       Promise.all([recentPayments(tx, p.viewer, { ...base, partial: false }, 0), recentPayments(tx, p.viewer, { ...base, partial: true }, 0)]),
       // A forecast is a suggestion: shown only with the AI assistant on, to the roles chosen for it (00-global.md §2.1 rule 8).
       p.features.has("fee-forecast") && aiAllowed(p.current) ? forecast(tx, today, { promises: promisesOn, only }) : Promise.resolve(null),
@@ -118,7 +119,7 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
   const mMax = methods.reduce((a, m) => (m.amount > a ? m.amount : a), BigInt(0));
   const mTotal = methods.reduce((a, m) => a + m.amount, BigInt(0));
   const waitingSum = data.waiting.reduce((a, w) => a + w.amountPaise, BigInt(0));
-  const keep = { kind: tab === "partial" ? "partial" : null, status: status === "all" ? null : status, mode: mode === "all" ? null : mode, ...per.keep, how: period === "month" ? "month" : null, q: q || null };
+  const keep = { kind: tab === "full" ? null : tab, status: status === "all" ? null : status, mode: mode === "all" ? null : mode, ...per.keep, how: period === "month" ? "month" : null, q: q || null };
   const here = qs(HREF, keep);
   const payHref = (id: string) => qs(HREF, { ...keep, page: page > 1 ? String(page) : null, pay: id });
   const fullCount = data.counts[0].total;
@@ -129,6 +130,8 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
     ...data.failed.stuck.map((s) => ({ id: s.id, kind: "link" as const, studentId: s.studentId, amount: s.amountPaise, at: s.lastAttemptAt ?? s.updatedAt,
       why: s.gatewayStatus === "authorized" ? "The bank holds the money; Razorpay has not taken it yet" : "Not confirmed by Razorpay within 30 minutes" })),
   ].sort((a, b) => b.at.getTime() - a.at.getTime()).slice(0, 8);
+  // Every failed or stuck payment, as the Dashboard's card counts them (the card shows the newest 8).
+  const failedCount = data.failed.failed.length + data.failed.stuck.length;
   const dayWord = (d: Date) => (formatDate(d, p.tz) === formatDate(today, "UTC") ? formatTime(d, p.tz) : `${formatDate(d, p.tz)}, ${formatTime(d, p.tz)}`);
   const longDate = new Intl.DateTimeFormat("en-IN", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }).format(today);
 
@@ -193,7 +196,7 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
           </Card>
           <div className="grid lg:grid-cols-2 xl:grid-cols-1 gap-5 lg:gap-6 lg:col-span-2 xl:col-span-1 items-start">
             <Card>
-              <CardHeader title="Failed online payments" description="No receipt was made for these" icon={CircleX} action={<Pill tone={failedRows.length ? "bad" : "ok"}>{failedRows.length}</Pill>} />
+              <CardHeader title="Failed online payments" description="No receipt was made for these" icon={CircleX} action={<Pill tone={failedCount ? "bad" : "ok"}>{failedCount}</Pill>} />
               {data.failed.started > 0 && <p className="px-5 pb-2 -mt-1 text-[12.5px] text-ink3">{data.failed.started} {data.failed.started === 1 ? "payment was" : "payments were"} opened and not paid in the last 7 days: Razorpay says no money was taken.</p>}
               {failedRows.length === 0 ? (
                 <p className="px-5 pb-5 text-[13.5px] text-ink3">No failed or stuck online payments in the last 7 days.</p>
@@ -293,6 +296,7 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
             <LinkTabs className="px-3" label="Payment kind" tabs={[
               { href: qs(HREF, { ...keep, kind: null }), label: "Full payments", count: fullCount, on: tab === "full" },
               { href: qs(HREF, { ...keep, kind: "partial" }), label: "Partial payments", count: partCount, on: tab === "partial" },
+              { href: qs(HREF, { ...keep, kind: "all" }), label: "All payments", count: fullCount + partCount, on: tab === "all" },
             ]} />
             <Toolbar>
               <UrlSearch id="pay-q" placeholder="Student, class or receipt no." />
@@ -304,7 +308,7 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
             </Toolbar>
             <OldSoftwareBanner goLive={p.goLive} from={per.from} to={per.to} what="fee payments" className="mx-4 mb-3" />
             <DataList rows={list.rows} rowKey={(r) => r.id} rowHref={(r) => payHref(r.id)} minWidth={760} caption="Recent payments"
-              footer={<><span className="tnum">Showing {list.rows.length ? (page - 1) * take + 1 : 0}–{(page - 1) * take + list.rows.length} of {list.total} {whenWord} · {formatRupees(list.sum)} posted</span>
+              footer={<><span className="tnum">Showing {list.rows.length ? (page - 1) * take + 1 : 0}–{(page - 1) * take + list.rows.length} of {list.total} {whenWord} · {formatRupees(list.sum)} {status === "all" || status === "POSTED" ? "posted" : STATUS.find((x) => x.value === status)?.label.toLowerCase()}</span>
                 <span className="flex gap-2">
                   {page > 1 && <Link className={buttonClass("ghost", "sm")} href={qs(HREF, { ...keep, page: String(page - 1) })} scroll={false}>Newer</Link>}
                   {page * take < list.total && <Link className={buttonClass("ghost", "sm")} href={qs(HREF, { ...keep, page: String(page + 1) })} scroll={false}>Older</Link>}

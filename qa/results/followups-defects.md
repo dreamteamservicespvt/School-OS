@@ -9,6 +9,7 @@ proved by a vitest test against `school_os_w4_test` where the fix is in the app.
 | LABEL-01 | P3 | Communication (Message History), Settings (Audit Log) | Parent Link and staff invite messages labelled "Emergency broadcast" | Fixed |
 | SEED-02 | P4 | Demo data (Staff & HR, Leave) | A half-day leave on 21-10-2026, a school holiday, counted as 0.5 days | Fixed |
 | SEED-03 | P3 | Demo data, Approvals | Demo requests point at no record; approving one says the person was told | Fixed |
+| HYDRATE-01 | P4 | Student Management (Student List), every page with sideways rows | React hydration warning on the Student list | Fixed |
 
 ---
 
@@ -111,3 +112,42 @@ proved by a vitest test against `school_os_w4_test` where the fix is in the app.
   would read better; it is left for the Fee Management owner.
 - **Status:** Fixed. An existing demo database keeps its six old rows until it is seeded again; the app now refuses
   to approve them.
+
+## HYDRATE-01 · P4 · Student List · React hydration warning
+- **Steps:** open Student Management › Student List on a phone-width window (or any width where the module tabs or
+  the class chips do not fit), with the browser console open, on a dev server.
+- **Expected:** no React warnings.
+- **Actual:** "A tree hydrated but some attributes of the server rendered HTML didn't match the client properties.
+  This won't be patched up." The diff React printed was not a date or a time: it was `- data-more="right"` on the
+  module tabs (`ul.no-scrollbar`) and on the class chips ("Students by class", `nav.no-scrollbar`).
+- **Reproduced:** on a webpack dev server of this branch (phone width, Chrome), with the Student list's data held
+  back a few seconds so that the page streams in after React has started (as on a slow database or a big school):
+  the warning came on 3 loads out of 3. Without the delay it did not show, because the page had arrived before
+  React started. Time zone and locale made no difference (Asia/Kolkata en-IN and America/New_York en-US both tried).
+- **Root cause:** src/components/ui/scroll-hints.tsx (on every page, from the root layout) marks each sideways row
+  `data-more="left|right|both"` so globals.css can show a fade, and does it again on every change to the page. It
+  is in its own Suspense boundary, so it runs before the page itself is hydrated. When the Student list streamed in
+  (inside its `loading.tsx` boundary), ScrollHints marked its tabs and chips at once; React then hydrated them,
+  found an attribute it had not drawn, and warned. The same could happen on any page with a sideways row that
+  streams in late.
+- **Fix:** ScrollHints now touches a row only once React has taken it over: React keeps its own key
+  (`__reactFiber$…`) on every element it has hydrated, and the row is checked for the key that `<body>` carries. A
+  row React has not reached yet is looked at again every 100 ms (for up to 10 seconds, then it is marked as
+  before). A row's selected tab is still brought into view once per page, now also for rows that stream in late.
+  If a future React keeps no such key, nothing waits and it works as before. No date or time is drawn differently
+  on the server and in the browser on this page: dates use `formatDate()` with the school's time zone on the
+  server; the client components on the page (search and filters, bulk bar, tabs, the More menu, the pin) draw
+  nothing time- or locale-dependent.
+- **Same pattern elsewhere:** ScrollHints is the only code that changes attributes of elements React draws, on
+  every page. Other client code that changes the page does it after a person's action (theme, colours on `<html>`,
+  which React has already hydrated) or changes properties, not attributes (`checked` on bulk tick boxes). Client
+  components that use the current time do so in effects or after an action (marks "saved at", photo time, quiz
+  timer), not while drawing the page. So the one fix covers every page with sideways rows (module tabs, page tabs,
+  chips, segmented filters).
+- **Verified:** the same reproduction after the fix: once the dev server had rebuilt the changed file, no warning on
+  7 Student list loads out of 7 (the one load made while it was still rebuilding warned once), and none on Parents
+  & Guardians or the Dashboard; the rows still get `data-more="right"`, so the fade still shows. Test:
+  tests/scroll-hints.test.ts (3 tests): a row without React's key is left alone, a hydrated row is marked, nothing
+  waits when React keeps no key, and the React that Next.js runs still keeps that key (so an upgrade that changes
+  it fails the test instead of bringing the warning back unnoticed).
+- **Status:** Fixed.

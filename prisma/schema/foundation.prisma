@@ -149,6 +149,9 @@ model UserLogin {
   theme             String          @default("light")
   accent            String          @default("royal")
   textSize          String          @default("normal") @map("text_size")
+  /// The person's own screen language (00-global.md §1.4, My profile, Language): one of the
+  /// school's switched-on languages. Empty: the school's default language.
+  language          String?
   createdAt         DateTime        @default(now()) @map("created_at")
   updatedAt         DateTime        @updatedAt @map("updated_at")
   archivedAt        DateTime?       @map("archived_at")

@@ -8,6 +8,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { Button } from "@/components/ui/button";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
 import { KeepCheck } from "@/components/ui/keep-select";
+import { useT } from "@/lib/i18n/client";
 
 export type PayRow = { id: string; head: string; label: string; dueDate: string; balance: string; balancePaise: string; status: { label: string; tone: BadgeTone }; ticked: boolean };
 
@@ -17,6 +18,7 @@ function rupees(paise: bigint) {
 }
 
 export function FeesPayForm({ token, studentId, rows, canPay, preview }: { token: string; studentId: string; rows: PayRow[]; canPay: boolean; preview: boolean }) {
+  const t = useT();
   const [state, action] = useActionState<PayState, FormData>(payFees.bind(null, token), null);
   const [ticked, setTicked] = useState(() => new Set(rows.filter((r) => r.ticked).map((r) => r.id)));
   const total = useMemo(() => rows.filter((r) => ticked.has(r.id)).reduce((s, r) => s + BigInt(r.balancePaise), BigInt(0)), [rows, ticked]);
@@ -35,15 +37,15 @@ export function FeesPayForm({ token, studentId, rows, canPay, preview }: { token
           <li key={r.id}>
             <label className="flex min-h-14 items-center gap-3 px-3 py-2">
               {canPay && (
-                <KeepCheck type="checkbox" name="dueId" value={r.id} checked={ticked.has(r.id)} onChange={() => toggle(r.id)} className="size-5 shrink-0 accent-[var(--brand)]" aria-label={`Pay ${r.head} ${r.label}`} />
+                <KeepCheck type="checkbox" name="dueId" value={r.id} checked={ticked.has(r.id)} onChange={() => toggle(r.id)} className="size-5 shrink-0 accent-[var(--brand)]" aria-label={t("Pay {fee}", { fee: `${t.any(r.head)} ${r.label}` })} />
               )}
               <span className="min-w-0 flex-1">
-                <span className="block font-medium">{r.head}{r.label ? `, ${r.label}` : ""}</span>
-                <span className="block text-sm text-ink-2">Due on {r.dueDate}</span>
+                <span className="block font-medium">{t.any(r.head)}{r.label ? `, ${r.label}` : ""}</span>
+                <span className="block text-sm text-ink-2">{t("Due on {date}", { date: r.dueDate })}</span>
               </span>
               <span className="text-right">
                 <span className="block font-semibold tabular-nums">{r.balance}</span>
-                <Badge tone={r.status.tone}>{r.status.label}</Badge>
+                <Badge tone={r.status.tone}>{t.any(r.status.label)}</Badge>
               </span>
             </label>
           </li>
@@ -52,16 +54,16 @@ export function FeesPayForm({ token, studentId, rows, canPay, preview }: { token
       {canPay ? (
         <div className="flex flex-wrap items-center gap-3">
           {preview || total <= BigInt(0) ? (
-            <Button size="lg" disabled title={preview ? "Preview only" : "Tick a fee to pay"}>
-              {total > BigInt(0) ? `Pay ${rupees(total)}` : "Tick a fee to pay"}
+            <Button size="lg" disabled title={preview ? t("Preview only") : t("Tick a fee to pay")}>
+              {total > BigInt(0) ? t("Pay {amount}", { amount: rupees(total) }) : t("Tick a fee to pay")}
             </Button>
           ) : (
-            <SubmitButton size="lg" pendingText="Opening payment page">Pay {rupees(total)}</SubmitButton>
+            <SubmitButton size="lg" pendingText={t("Opening payment page")}>{t("Pay {amount}", { amount: rupees(total) })}</SubmitButton>
           )}
-          <span className="text-sm text-ink-2">UPI, card or net banking. Your receipt comes here once the payment is confirmed.</span>
+          <span className="text-sm text-ink-2">{t("UPI, card or net banking. Your receipt comes here once the payment is confirmed.")}</span>
         </div>
       ) : (
-        <p className="text-sm text-ink-2">Please pay at the school office. Online payment is not switched on for this class.</p>
+        <p className="text-sm text-ink-2">{t("Please pay at the school office. Online payment is not switched on for this class.")}</p>
       )}
       {state && !state.ok && <p role="alert" className="text-sm font-medium text-danger">{state.message}</p>}
     </form>

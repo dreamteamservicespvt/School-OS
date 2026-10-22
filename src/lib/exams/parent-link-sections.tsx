@@ -6,6 +6,7 @@ import "server-only";
 import { registerSection, type GuardianView } from "../parent-link/sections";
 import { todayIn } from "../academic/common";
 import { parentDatesheets, parentReportCards, type ParentDatesheet, type ParentReportCard } from "./parent-link";
+import { makeT } from "../i18n/server";
 
 registerSection<ParentDatesheet[]>({
   key: "exam-datesheet",
@@ -32,17 +33,18 @@ registerSection<ParentReportCard[]>({
 });
 
 function DatesheetSection({ data, view }: { data: ParentDatesheet[]; view: GuardianView }) {
+  const t = makeT(view.lang);
   return (
     <section aria-labelledby="pl-exams" className="rounded-2xl border border-line bg-surface p-4 shadow-card">
-      <h2 id="pl-exams" className="text-lg font-semibold">Exams for {view.child.firstName}</h2>
+      <h2 id="pl-exams" className="text-lg font-semibold">{t("Exams for {name}", { name: view.child.firstName })}</h2>
       {data.map((x) => (
         <div key={x.examId} className="mt-3">
-          <p className="font-medium">{x.title} <span className="font-normal text-ink-2">· {x.from} to {x.to}</span></p>
+          <p className="font-medium">{x.title} <span className="font-normal text-ink-2">· {t("{from} to {to}", { from: x.from, to: x.to })}</span></p>
           <ul className="mt-2 divide-y divide-line rounded-xl border border-line">
             {x.papers.map((p) => (
               <li key={`${p.date}-${p.subject}`} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-3 py-2">
-                <span className="font-medium">{p.subject}</span>
-                <span className="text-sm text-ink-2">{p.day} {p.date}, {p.time}{p.maxMarks !== "Graded" ? ` · out of ${p.maxMarks}` : ""}</span>
+                <span className="font-medium">{t.any(p.subject)}</span>
+                <span className="text-sm text-ink-2">{t.any(p.day)} {p.date}, {p.time}{p.maxMarks !== "Graded" ? ` · ${t("out of {n}", { n: p.maxMarks })}` : ""}</span>
               </li>
             ))}
           </ul>
@@ -53,17 +55,18 @@ function DatesheetSection({ data, view }: { data: ParentDatesheet[]; view: Guard
 }
 
 function ReportCardsSection({ data, view }: { data: ParentReportCard[]; view: GuardianView }) {
+  const t = makeT(view.lang);
   const href = (r: ParentReportCard) => `/p/${view.token}/report-card?child=${view.child.id}&year=${r.yearId}&period=${encodeURIComponent(r.period)}`;
   return (
     <section aria-labelledby="pl-report-cards" className="rounded-2xl border border-line bg-surface p-4 shadow-card">
-      <h2 id="pl-report-cards" className="text-lg font-semibold">Report cards</h2>
+      <h2 id="pl-report-cards" className="text-lg font-semibold">{t("Report cards")}</h2>
       <ul className="mt-2 divide-y divide-line">
         {data.map((r) => (
           <li key={`${r.yearId}-${r.period}`} className="flex flex-wrap items-center justify-between gap-2 py-2">
-            <span><span className="font-medium">{r.label}</span> <span className="text-sm text-ink-2">{r.year}{r.publishedOn ? ` · published ${r.publishedOn}` : ""}</span></span>
+            <span><span className="font-medium">{r.label}</span> <span className="text-sm text-ink-2">{r.year}{r.publishedOn ? ` · ${t("published {date}", { date: r.publishedOn })}` : ""}</span></span>
             {view.preview || !view.token
-              ? <span className="text-sm text-ink-2">Download (shown to the parent)</span>
-              : <a href={href(r)} className="inline-flex min-h-11 items-center rounded-lg border border-line-strong px-3 font-medium text-brand-text hover:bg-surface-2">Download PDF</a>}
+              ? <span className="text-sm text-ink-2">{t("Download (shown to the parent)")}</span>
+              : <a href={href(r)} className="inline-flex min-h-11 items-center rounded-lg border border-line-strong px-3 font-medium text-brand-text hover:bg-surface-2">{t("Download PDF")}</a>}
           </li>
         ))}
       </ul>

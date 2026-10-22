@@ -23,17 +23,20 @@ import { cleanTheme } from "@/lib/theme";
 import { cx } from "@/components/ui/cx";
 import { Info, Lock, TriangleAlert } from "lucide-react";
 import { aiAllowed } from "@/lib/settings/switch-rules";
+import { I18nProvider } from "@/lib/i18n/client";
+import { catalogueFor, makeT, personLanguage } from "@/lib/i18n/server";
+import type { T } from "@/lib/i18n/t";
 
 export const dynamic = "force-dynamic";
 
 /** "5 min", "2 h", "3 d": how long ago, for the notifications panel. */
-function ago(d: Date) {
+function ago(d: Date, t: T) {
   const m = Math.max(0, Math.round((Date.now() - d.getTime()) / 60000));
-  if (m < 1) return "Now";
-  if (m < 60) return `${m} min`;
+  if (m < 1) return t("Now");
+  if (m < 60) return t("{n} min", { n: m });
   const h = Math.round(m / 60);
-  if (h < 24) return `${h} h`;
-  return `${Math.round(h / 24)} d`;
+  if (h < 24) return t("{n} h", { n: h });
+  return t("{n} d", { n: Math.round(h / 24) });
 }
 
 export default async function SchoolLayout({ children }: { children: React.ReactNode }) {
@@ -55,12 +58,16 @@ export default async function SchoolLayout({ children }: { children: React.React
     admin ? schoolPlanState(current.school.id).catch(() => null) : Promise.resolve(null),
   ]);
   if (missing) notFound();
+  // The person's own screen language, within the school's languages (00-global.md §1.4).
+  const lang = personLanguage(current.user, current.school);
+  const t = makeT(lang);
   const supportEnds = current.support ? endsWords(current.support.endsAt, new Date(), current.school.timeZone) : null;
   const banner = isPaused(current)
-    ? { tone: "problem" as const, text: "School OS for this school is paused. You can still pay or download the school's data.", payUrl: null, href: "/paused" }
+    ? { tone: "problem" as const, text: t("School OS for this school is paused. You can still pay or download the school's data."), payUrl: null, href: "/paused" }
     : planBanner(plan);
 
   return (
+    <I18nProvider lang={lang} dict={catalogueFor(lang)}>
     <AppShell
       school={{ id: current.school.id, name: current.school.name, place: shell.place }}
       schools={current.schools.map((s) => ({ id: s.id, name: s.name }))}
@@ -76,7 +83,7 @@ export default async function SchoolLayout({ children }: { children: React.React
       canApprove={shell.canApprove}
       canMessage
       unread={shell.unread}
-      notes={notes.map((n) => ({ id: n.id, text: n.text, when: ago(n.createdAt), unread: isUnread(n) }))}
+      notes={notes.map((n) => ({ id: n.id, text: n.text, when: ago(n.createdAt, t), unread: isUnread(n) }))}
       theme={cleanTheme(current.user.theme)}
       support={supportEnds ? { ends: supportEnds } : null}
       ai={aiAllowed(current, "ai-ask-do")}
@@ -99,12 +106,13 @@ export default async function SchoolLayout({ children }: { children: React.React
           banner.tone === "problem" ? "bg-bad/10 border-bad/25" : banner.tone === "info" ? "bg-info/10 border-info/25" : "bg-warn/15 border-warn/30")}>
           <Info size={16} className={cx("shrink-0", banner.tone === "problem" ? "text-bad" : banner.tone === "info" ? "text-info" : "text-warn")} aria-hidden="true" />
           <p className="flex-1 min-w-0">{banner.text}</p>
-          {"href" in banner ? <Link href={banner.href} className="font-semibold text-brand hover:underline">See what to do</Link>
-            : banner.payUrl ? <a href={banner.payUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand hover:underline">Pay now</a> : null}
+          {"href" in banner ? <Link href={banner.href} className="font-semibold text-brand hover:underline">{t("See what to do")}</Link>
+            : banner.payUrl ? <a href={banner.payUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand hover:underline">{t("Pay now")}</a> : null}
         </div>
       )}
       <main id="main" className="w-full max-w-[1400px] mx-auto px-4 md:px-6 xl:px-8 py-5 md:py-7 pb-28 md:pb-10 animate-rise">{children}</main>
       <Toast key={flashed ? JSON.stringify(flashed) : "none"} flash={flashed} undoAction={undoChange} />
     </AppShell>
+    </I18nProvider>
   );
 }

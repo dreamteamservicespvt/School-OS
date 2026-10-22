@@ -8,6 +8,8 @@ import { loadSections } from "@/lib/parent-link/render";
 import { GuardianPage } from "@/components/parent-link/guardian-page";
 import { Banner } from "@/components/ui/banner";
 import { BackLink, RecordHead } from "@/components/ui/split";
+import { I18nProvider } from "@/lib/i18n/client";
+import { catalogueFor } from "@/lib/i18n/server";
 
 export const metadata: Metadata = { title: "What guardians see" };
 
@@ -43,7 +45,12 @@ export default async function PreviewPage({ params, searchParams }: { params: Pr
       <div className="mx-auto w-full max-w-[400px] sm:rounded-[40px] sm:border-[10px] sm:border-ink/90 sm:shadow-pop overflow-hidden bg-bg">
         <div className="sm:h-[780px] sm:overflow-y-auto scroll-thin">
           {data.view ? (
-            <GuardianPage framed view={data.view} sections={data.sections} schoolPhone={data.phone} basePath={`/communication/parent-link/${id}/preview`} />
+            // In the guardian's own language, as they see it.
+            <I18nProvider lang={data.view.lang} dict={catalogueFor(data.view.lang)} setDocumentLang={false}>
+              <div lang={data.view.lang}>
+                <GuardianPage framed view={data.view} sections={data.sections} schoolPhone={data.phone} basePath={`/communication/parent-link/${id}/preview`} />
+              </div>
+            </I18nProvider>
           ) : (
             <p className="py-8 px-6 text-center text-ink3">This guardian has no children studying in the school now, so the page shows &ldquo;Please contact the school&rdquo;.</p>
           )}

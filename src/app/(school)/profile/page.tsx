@@ -25,6 +25,9 @@ import { ConfirmButton } from "@/components/ui/confirm";
 import { signOut, signOutDevice } from "../actions";
 import { forgetRemembered, signOutOthers } from "./actions";
 import { EditDetails, NotePrefsTable, PasswordButton, TwoStepRow } from "./parts";
+import { LanguageChoice } from "./language-choice";
+import { getT } from "@/lib/i18n/server";
+import { cleanLang, isLang, schoolLanguages } from "@/lib/i18n/languages";
 
 export const metadata: Metadata = { title: "My profile" };
 
@@ -54,8 +57,10 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
   // A DREAM TEAM support person has no login here, so no profile (07-super-admin.md §3.4).
   if (current.support) redirect("/dashboard");
   const params = await searchParams;
+  const t = await getT();
   const tz = current.school.timeZone;
   const u = current.user;
+  const languages = schoolLanguages(current.school.languages, current.school.defaultLanguage);
   const withoutOld = mayResetWithoutOld(current.session);
   const [sessions, remembered, staff, mustTwoStep, allowed] = await Promise.all([
     prisma.session.findMany({ where: { userLoginId: u.id, revokedAt: null, expiresAt: { gt: new Date() } }, orderBy: { lastUsedAt: "desc" } }),
@@ -79,15 +84,15 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
   const others = sessions.filter((s) => s.id !== current.session.id).length;
 
   const work: { href: string; icon: LucideIcon; title: string; sub: string; show: boolean }[] = [
-    { href: "/staff-hr-management/leave", icon: I.CalendarDays, title: "My leave", sub: "Ask for leave and see what is left", show: Boolean(staff) && can("staff-hr-management") },
-    { href: "/salary-management/slips?mine=1", icon: I.Wallet, title: "My salary slips", sub: "Each month's slip to view or download", show: Boolean(staff) && can("salary-management") && BUILT_MODULES.has("salary-management") },
-    { href: staff ? `/staff-hr-management/${staff.id}` : "/staff-hr-management", icon: I.FileText, title: "My staff record", sub: "ID card, joining letter and documents", show: Boolean(staff) && can("staff-hr-management") },
-    { href: "/inventory-management/report-problem", icon: I.Wrench, title: "Report a problem", sub: "Something broken? Send it with a photo", show: Boolean(staff) && current.modulesOn.has("inventory-management") && BUILT_MODULES.has("inventory-management") },
+    { href: "/staff-hr-management/leave", icon: I.CalendarDays, title: t("My leave"), sub: t("Ask for leave and see what is left"), show: Boolean(staff) && can("staff-hr-management") },
+    { href: "/salary-management/slips?mine=1", icon: I.Wallet, title: t("My salary slips"), sub: t("Each month's slip to view or download"), show: Boolean(staff) && can("salary-management") && BUILT_MODULES.has("salary-management") },
+    { href: staff ? `/staff-hr-management/${staff.id}` : "/staff-hr-management", icon: I.FileText, title: t("My staff record"), sub: t("ID card, joining letter and documents"), show: Boolean(staff) && can("staff-hr-management") },
+    { href: "/inventory-management/report-problem", icon: I.Wrench, title: t("Report a problem"), sub: t("Something broken? Send it with a photo"), show: Boolean(staff) && current.modulesOn.has("inventory-management") && BUILT_MODULES.has("inventory-management") },
   ];
 
   return (
     <div>
-      <PageHeader title="My profile" href="/profile" userId={u.id} sub="Your own details, password, devices and alerts. Only you see this page." />
+      <PageHeader title={t("My profile")} href="/profile" userId={u.id} sub={t("Your own details, password, language, devices and alerts. Only you see this page.")} />
       <div className="flex flex-col gap-5 lg:gap-6">
         {twoStepOn && params.twoStep === "add" && (
           <Alert tone="warning" title="Your role needs two-step login, but no one-time code can reach you yet">
@@ -122,20 +127,25 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
         <div className="grid gap-5 lg:gap-6 items-start xl:grid-cols-[minmax(0,1fr)_340px]">
           <div className="flex flex-col gap-5 lg:gap-6 min-w-0">
             <Card>
-              <CardHeader title="My details" description="Changing your mobile number or email needs a one-time code" icon={I.User} />
+              <CardHeader title={t("My details")} description={t("Changing your mobile number or email needs a one-time code")} icon={I.User} />
               <DL rows={[
-                ["Full name", u.displayName],
-                ["Mobile number", <span key="p" className="tnum">{u.phone ?? "Not given"}</span>],
-                ["Email", u.email ?? "Not given"],
-                ["Username", <span key="u" className="font-mono text-[13.5px]">{u.username}</span>],
-                ...(staff ? ([["Staff code", <span key="c" className="font-mono text-[13.5px]">{staff.staffCode}</span>], ["Joined", formatDate(staff.joiningDate)]] as [string, React.ReactNode][]) : []),
-                ["Roles", roleNames.join(", ") || "None"],
-                ["Last signed in", u.lastSignInAt ? formatDateTime(u.lastSignInAt, tz) : "Now"],
+                [t("Full name"), u.displayName],
+                [t("Mobile number"), <span key="p" className="tnum">{u.phone ?? t("Not given")}</span>],
+                [t("Email"), u.email ?? t("Not given")],
+                [t("Username"), <span key="u" className="font-mono text-[13.5px]">{u.username}</span>],
+                ...(staff ? ([[t("Staff code"), <span key="c" className="font-mono text-[13.5px]">{staff.staffCode}</span>], [t("Joined"), formatDate(staff.joiningDate)]] as [string, React.ReactNode][]) : []),
+                [t("Roles"), roleNames.join(", ") || t("None")],
+                [t("Last signed in"), u.lastSignInAt ? formatDateTime(u.lastSignInAt, tz) : t("Now")],
               ]} />
             </Card>
 
+            <Card id="language" className="scroll-mt-20">
+              <CardHeader title={t("Language")} description={t("The language your screens are shown in. The school chooses which languages are on.")} icon={I.Languages} />
+              <LanguageChoice chosen={isLang(u.language) && languages.includes(u.language) ? cleanLang(u.language) : null} languages={languages} schoolDefault={cleanLang(current.school.defaultLanguage)} />
+            </Card>
+
             <Card id="password" className="scroll-mt-20">
-              <CardHeader title="Password and sign-in" icon={I.KeyRound} />
+              <CardHeader title={t("Password and sign-in")} icon={I.KeyRound} />
               <div className="divide-y divide-line/70 border-t border-line/70">
                 <div className="flex items-center gap-3 px-5 py-3.5">
                   <div className="min-w-0 flex-1 text-[14px]">
@@ -149,7 +159,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
             </Card>
 
             <Card id="devices" className="scroll-mt-20">
-              <CardHeader title="Signed-in devices" description="Sign out of a phone you lost or a computer you shared" icon={I.MonitorSmartphone} />
+              <CardHeader title={t("Signed-in devices")} description={t("Sign out of a phone you lost or a computer you shared")} icon={I.MonitorSmartphone} />
               <ul className="px-2 pb-2">
                 {sessions.map((s) => {
                   const d = describeDevice(s.userAgent);
@@ -209,7 +219,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
             </Card>
 
             <Card className="overflow-hidden">
-              <CardHeader title="My notifications" description="Choose how each kind reaches you. Some cannot be switched off." icon={I.Bell} />
+              <CardHeader title={t("My notifications")} description={t("Choose how each kind reaches you. Some cannot be switched off.")} icon={I.Bell} />
               <NotePrefsTable kinds={kinds} prefs={readNotePrefs(u.notificationPrefs)} allowed={allowed as NoteChannel[]} phone={u.phone} />
               <PushSwitch config={pushWebConfig()} schoolAllows={allowed.includes("push")} />
             </Card>
@@ -218,7 +228,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
           <div className="flex flex-col gap-5 lg:gap-6 min-w-0">
             {work.some((w) => w.show) && (
               <Card>
-                <CardHeader title="My work" icon={I.Briefcase} />
+                <CardHeader title={t("My work")} icon={I.Briefcase} />
                 <ul className="px-2 pb-2">
                   {work.filter((w) => w.show).map((w) => (
                     <li key={w.title}>
@@ -236,14 +246,14 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
             <Card>
               <div className="p-2">
                 <Link href="/profile/appearance" className="w-full flex items-center gap-3 px-3 h-11 rounded-xl hover:bg-sunken text-[14px] font-medium">
-                  <I.Palette size={18} className="text-ink3" aria-hidden="true" />Colours and text size<I.ChevronRight size={16} className="text-ink3 ml-auto" aria-hidden="true" />
+                  <I.Palette size={18} className="text-ink3" aria-hidden="true" />{t("Colours and text size")}<I.ChevronRight size={16} className="text-ink3 ml-auto" aria-hidden="true" />
                 </Link>
                 {current.schools.length > 1 && (
                   <p className="flex items-center gap-3 px-3 h-11 text-[14px] text-ink3"><I.Building2 size={18} aria-hidden="true" />{current.schools.length} schools: switch from your name at the top</p>
                 )}
                 <form action={signOut}>
                   <button type="submit" className="w-full flex items-center gap-3 px-3 h-11 rounded-xl hover:bg-sunken text-[14px] font-medium text-left text-bad">
-                    <I.LogOut size={18} aria-hidden="true" />Sign out
+                    <I.LogOut size={18} aria-hidden="true" />{t("Sign out")}
                   </button>
                 </form>
               </div>

@@ -14,13 +14,13 @@ import { FieldShell, inputCls } from "@/components/ui/field";
 import { Alert } from "@/components/ui/alert";
 import { Spinner } from "@/components/ui/button";
 import { cx } from "@/components/ui/cx";
-import { SegField, StudentFind } from "./client";
+import { ConfirmAct, SegField, StudentFind } from "./client";
 import {
-  addFloorAction, addRoomAction, allocateAction, archiveFeePlanAction, blockBedAction, cancelPassAction, checkoutAction, closeHostelAction, closeRoomAction,
+  addFloorAction, addRoomAction, allocateAction, archiveFeePlanAction, blockBedAction, cancelPassAction, carryOverAction, checkoutAction, closeHostelAction, closeRoomAction, yearEndCheckoutAction,
   decidePassAction, guardiansAction, messExpenseAction, moveAction, raiseMaintenanceAction, recordIncidentAction, recordVisitorAction, requestPassAction, saveFeePlanAction,
   saveHeadCountAction, saveHostelAction, saveMenuAction, setWardensAction, updateRoomAction, type FoundStudent, type GuardianChoice,
 } from "../actions";
-import { KeepSelect } from "@/components/ui/keep-select";
+import { KeepCheck, KeepSelect } from "@/components/ui/keep-select";
 import { bedStartFor, bedYearOf } from "@/lib/hostel/words";
 
 type Opt = { value: string; label: string };
@@ -298,6 +298,65 @@ export function CheckoutSheet({ closeHref, allocationId, name, where, todayStr, 
       {due && <Alert tone="warning" title={due}>You can still check out. The fees stay due and are cleared in Leaving &amp; Alumni.</Alert>}
       <SDate name="date" label="Check-out date" required start={todayStr} className="sm:max-w-[220px]" />
       <SArea name="reason" label="Reason" required maxLength={200} placeholder="Family moved closer to school; now a day scholar" />
+    </SheetForm>
+  );
+}
+
+/* ---------- A new academic year: carry boarders over ---------- */
+
+export type CarryItem = { id: string; name: string; cls: string; newClass: string | null; where: string; hostel: string; fees: string; blocked: string | null; note: string | null };
+
+/**
+ * The review before carrying boarders into the new year: each boarder with
+ * what happens to them. Those who can go are ticked, except boarders with no
+ * class in the new year yet; those who cannot go say why.
+ */
+export function CarrySheet({ closeHref, items, fromYear, toYear, toStart }: { closeHref: string; items: CarryItem[]; fromYear: string; toYear: string; toStart: string }) {
+  const can = items.filter((i) => !i.blocked);
+  const [picked, setPicked] = useState<Set<string>>(() => new Set(can.filter((i) => !i.note).map((i) => i.id)));
+  const allOn = can.length > 0 && can.every((i) => picked.has(i.id));
+  const toggle = (id: string) => setPicked((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  // Year-end check-out works for any boarder on the list, also those who cannot be carried over (left the school).
+  const [out, setOut] = useState<Set<string>>(() => new Set());
+  const join = [...picked].join(",");
+  const outIds = [...new Set([...picked, ...out])];
+  const blocked = items.length - can.length;
+  const n = picked.size;
+  return (
+    <SheetForm title={`Carry boarders over to ${toYear}`} sub={`Each boarder keeps their bed from ${toStart}, and the ${toYear} hostel fee plan for their room goes on their fees. Nothing is charged twice.`}
+      closeHref={closeHref} action={carryOverAction} wide pendingText="Carrying over…" submitDisabled={n === 0}
+      submitLabel={n ? `Carry over ${n} boarder${n === 1 ? "" : "s"}` : "Carry over"} hidden={{ allocationIds: join }}
+      extraButtons={outIds.length > 0 ? (
+        <ConfirmAct action={yearEndCheckoutAction} fields={{ allocationIds: outIds.join(",") }} trigger={`Check out ${outIds.length} at year end`} triggerVariant="ghost" title={`Check out ${outIds.length} boarder${outIds.length === 1 ? "" : "s"} at year end?`} confirmLabel={`Check out ${outIds.length}`} danger>
+          <p className="text-[14px] text-ink2">For boarders not staying in the hostel in {toYear}. They are checked out on the last day of {fromYear}, their beds become free and nothing of {toYear} is charged. Fees already due or paid stay as they are.</p>
+        </ConfirmAct>
+      ) : undefined}>
+      {blocked > 0 && <Alert tone="warning">{blocked} boarder{blocked === 1 ? "" : "s"} cannot be carried over yet. The reason is shown on each.</Alert>}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <label className="inline-flex items-center gap-2 text-[14px] font-semibold min-h-11 cursor-pointer">
+          <KeepCheck type="checkbox" checked={allOn} onChange={() => setPicked(allOn ? new Set() : new Set(can.map((i) => i.id)))} className="size-4 accent-[rgb(var(--brand))]" />
+          Tick every boarder who can go ({can.length})
+        </label>
+        <span className="text-[13px] text-ink3" aria-live="polite">{n} ticked</span>
+      </div>
+      <ul className="flex flex-col divide-y divide-line rounded-xl border border-line max-h-[52vh] overflow-y-auto">
+        {items.map((i) => (
+          <li key={i.id}>
+            <div className={cx("flex items-start gap-3 px-3 py-2.5 text-[14px]", i.blocked ? "" : "hover:bg-sunken/60")}>
+              {i.blocked
+                ? <KeepCheck type="checkbox" checked={out.has(i.id)} onChange={() => setOut((p) => { const s = new Set(p); if (s.has(i.id)) s.delete(i.id); else s.add(i.id); return s; })} aria-label={`Check out ${i.name} at year end`} className="mt-1 size-4 shrink-0 accent-[rgb(var(--bad))]" />
+                : <KeepCheck type="checkbox" checked={picked.has(i.id)} onChange={() => toggle(i.id)} aria-label={`Carry over ${i.name}`} className="mt-1 size-4 shrink-0 accent-[rgb(var(--brand))]" />}
+              <span className="min-w-0 flex-1">
+                <b className="font-semibold">{i.name}</b>
+                <span className="text-ink3"> · {i.newClass ? `${i.cls || "—"} → ${i.newClass}` : i.cls}</span>
+                <span className="block text-[12.5px] text-ink2">{i.where} · {i.hostel}</span>
+                {i.blocked ? <span className="block text-[12.5px] text-bad">{i.blocked}{out.has(i.id) ? " Ticked to check out at year end." : ""}</span>
+                  : <span className="block text-[12.5px] text-ink3">{i.fees}{i.note ? <span className="text-warn"> · {i.note}</span> : null}</span>}
+              </span>
+            </div>
+          </li>
+        ))}
+      </ul>
     </SheetForm>
   );
 }

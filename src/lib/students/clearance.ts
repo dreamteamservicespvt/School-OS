@@ -47,3 +47,19 @@ export async function runClearanceChecks(tx: Tx, ctx: SchoolContext, studentId: 
   }
   return out;
 }
+
+/**
+ * What a module does when a student has left (the leaving request completed
+ * on the last date), in the same transaction: Hostel frees a bed still held
+ * (a waived hostel check) and stops the hostel fees after the last date.
+ */
+export type LeftEvent = { studentId: string; lastDate: Date; reason: string };
+type LeftFn = (tx: Tx, ctx: SchoolContext, e: LeftEvent) => Promise<void>;
+const leftHandlers = new Map<string, LeftFn>();
+/** Registering the same name again replaces it. */
+export function registerOnLeft(name: string, fn: LeftFn) {
+  leftHandlers.set(name, fn);
+}
+export async function runOnLeft(tx: Tx, ctx: SchoolContext, e: LeftEvent) {
+  for (const fn of leftHandlers.values()) await fn(tx, ctx, e);
+}

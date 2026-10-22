@@ -116,7 +116,7 @@ function assertGender(hostel: { gender: "BOYS" | "GIRLS" }, student: { gender: s
  * covers `from` and every later one (or, after a move, only those due after
  * `from`). Each becomes a row of the student's fees in Fee Management.
  */
-async function addFees(tx: Tx, ctx: SchoolContext, a: BedAllocation, plan: FeePlan, from: Date, opts: { onlyAfter?: boolean } = {}) {
+export async function addHostelFees(tx: Tx, ctx: SchoolContext, a: BedAllocation, plan: FeePlan, from: Date, opts: { onlyAfter?: boolean } = {}) {
   const list = plan.installments;
   const firstLater = list.findIndex((i) => i.dueDate.getTime() > from.getTime());
   const start = opts.onlyAfter ? (firstLater < 0 ? list.length : firstLater) : Math.max(0, (firstLater < 0 ? list.length : firstLater) - 1);
@@ -238,7 +238,7 @@ export async function allocate(tx: Tx, ctx: SchoolContext, input: AllocateInput,
       feePlanId: plan?.id ?? null, note: input.note, createdById: ctx.userId,
     },
   });
-  const fees = plan ? await addFees(tx, ctx, a, plan, input.startDate) : { total: ZERO, rows: 0 };
+  const fees = plan ? await addHostelFees(tx, ctx, a, plan, input.startDate) : { total: ZERO, rows: 0 };
   const where = bedWords(room.roomNo, bed.bedNo);
   await writeAudit(tx, ctx, {
     action: "allocated", recordType: "Bed Allocation", recordId: a.id,
@@ -290,7 +290,7 @@ export async function moveBed(tx: Tx, ctx: SchoolContext, input: MoveInput, opts
   let feeChange: { stopped: bigint; added: bigint } | null = null;
   if (newPlan && oldPlan && newPlan.id !== oldPlan.id) {
     const s = await stopFees(tx, ctx, a.studentId, input.date, `Moved to ${bedWords(room.roomNo, bed.bedNo)} (${newPlan.name})`);
-    const add = await addFees(tx, ctx, next, newPlan, input.date, { onlyAfter: true });
+    const add = await addHostelFees(tx, ctx, next, newPlan, input.date, { onlyAfter: true });
     feeChange = { stopped: s.stopped, added: add.total };
   }
   const from = bedWords(oldRoom.roomNo, oldBed.bedNo);
@@ -318,6 +318,23 @@ export async function checkOut(tx: Tx, ctx: SchoolContext, input: CheckOutInput,
   const where = bedWords(room.roomNo, bed.bedNo);
   await writeAudit(tx, ctx, { action: "checked-out", recordType: "Bed Allocation", recordId: a.id, before: { bed: where }, after: { student: student.fullName, date: isoOf(input.date), reason: input.reason.trim(), feesStopped: formatRupees(fees.stopped), feesKept: formatRupees(fees.kept), dueAtCheckout: formatRupees(dueBefore) } });
   return { name: student.fullName, first: student.firstName, where, fees, dueBefore };
+}
+
+/**
+ * The student left the school (Leaving & Alumni completed on the last date)
+ * while still holding a bed, because the hostel check was waived: the bed is
+ * freed on the last date and the hostel fees due after it stop, so a student
+ * who left is never charged again. Fees already due or paid stay.
+ */
+export async function releaseOnLeaving(tx: Tx, ctx: SchoolContext, studentId: string, lastDate: Date, reason: string) {
+  const a = await tx.bedAllocation.findFirst({ where: { studentId, status: "ACTIVE" } });
+  if (!a) return null;
+  const date = lastDate.getTime() < a.startDate.getTime() ? a.startDate : lastDate;
+  const why = `Left the school: ${reason}`.slice(0, 200);
+  await tx.bedAllocation.update({ where: { id: a.id }, data: { status: "CHECKED_OUT", endDate: date, endedAt: new Date(), endedById: ctx.userId, endReason: why } });
+  const fees = await stopFees(tx, ctx, studentId, date, why);
+  await writeAudit(tx, ctx, { action: "checked-out", recordType: "Bed Allocation", recordId: a.id, after: { date: isoOf(date), reason: why, feesStopped: formatRupees(fees.stopped), feesKept: formatRupees(fees.kept) } });
+  return fees;
 }
 
 /* ---------- Residents ---------- */

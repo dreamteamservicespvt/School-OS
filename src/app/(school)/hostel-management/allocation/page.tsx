@@ -7,7 +7,7 @@
 // Fee Management.
 import Link from "next/link";
 import type { Metadata } from "next";
-import { BedDouble, FileText, History, Search, UserPlus, Users } from "lucide-react";
+import { BedDouble, CalendarClock, FileText, History, Search, UserPlus, Users } from "lucide-react";
 import type { Prisma } from "@prisma/client";
 import { withSchool } from "@/lib/db";
 import { formatDate, formatRupees } from "@/lib/format";
@@ -22,7 +22,8 @@ import { ExportButton } from "@/components/ui/export-button";
 import { UrlSheet } from "@/components/ui/url-sheet";
 import { UrlSearch } from "@/components/ui/url-controls";
 import { PeriodFilter } from "@/components/list/period-filter";
-import { Stats, Stack, Toolbar, DataList, Empty, ListRow } from "@/components/money/kit";
+import { Banner, Stats, Stack, Toolbar, DataList, Empty, ListRow } from "@/components/money/kit";
+import { carryOverRows } from "@/lib/hostel/carry";
 import { clockAt } from "@/lib/front-office/time";
 import { roomGrid } from "@/lib/hostel/rooms";
 import { bedHistory, bedYears, hostelFeesDue, outNow, residents, studentsInfo, waitingForBed, type Resident } from "@/lib/hostel/allocation";
@@ -31,7 +32,7 @@ import { BASE, RESIDENT_STATUS, bedWords, genderFits, isoOf, plural } from "@/li
 import { inScope } from "@/lib/hostel/scope";
 import { HostelHead } from "../_components/head";
 import { ActButton } from "../_components/client";
-import { AllocateSheet, CheckoutSheet, MoveSheet, type FreeBed } from "../_components/sheets";
+import { AllocateSheet, CarrySheet, CheckoutSheet, MoveSheet, type CarryItem, type FreeBed } from "../_components/sheets";
 import { checkInAction, type FoundStudent } from "../actions";
 import { hostelGuard, hostelPeriod, idParam, one, qs, type SearchParams } from "../_lib/page";
 import { studentIdsForFilter } from "@/lib/students/find";
@@ -122,7 +123,10 @@ export default async function AllocationPage({ searchParams }: { searchParams: S
         if (s) history = { student: { id: s.id, name: s.name, cls: s.classSection }, rows: own };
       }
     }
-    return { total, rows, active, arriving, awayCount, outCount, dues, waiting, beds, plans, startStudent, move, checkout, checkoutDue, history, wantsAllocate };
+    // A new year is open: boarders whose bed is still on last year wait to be carried over.
+    const carry = await carryOverRows(tx, mine);
+    const carryInfo = can.allocate && one(sp.carry) === "1" && carry.length ? await studentsInfo(tx, ctx, carry.map((r) => r.allocation.studentId)) : new Map<string, never>();
+    return { total, rows, active, arriving, awayCount, outCount, dues, waiting, beds, plans, startStudent, move, checkout, checkoutDue, history, wantsAllocate, carry, carryInfo };
   });
 
   const base = `${BASE}/allocation`;
@@ -141,6 +145,12 @@ export default async function AllocationPage({ searchParams }: { searchParams: S
   };
 
   const counts: Record<string, number> = { "": d.active, arriving: d.arriving, away: d.awayCount, out: d.outCount };
+  const carryTo = d.carry[0]?.toYear ?? null;
+  const carryFrom = d.carry[0]?.fromYear ?? null;
+  const carryItems: CarryItem[] = d.carry.map((r) => ({
+    id: r.allocation.id, name: r.name, cls: d.carryInfo.get(r.allocation.studentId)?.classSection ?? "", newClass: r.newClass, where: r.where, hostel: r.hostelName,
+    fees: r.plan ? `${r.plan.name}${v.seesFees ? ` · ${formatRupees(planTotal(r.plan))} a year` : ""}` : "No hostel fees, as before", blocked: r.blocked, note: r.note,
+  }));
 
   return (
     <>
@@ -148,6 +158,12 @@ export default async function AllocationPage({ searchParams }: { searchParams: S
         sub={can.allocate ? "Who has which bed. Give a bed, check in, move a student or check them out." : "Who has which bed, who has not arrived and who is away."}
         actions={can.allocate ? <ButtonLink href={href({ allocate: "1" })} variant="primary" icon={UserPlus} scroll={false}>Give a bed</ButtonLink> : undefined} />
       <Stack>
+        {carryTo && carryFrom && (
+          <Banner tone="info" icon={CalendarClock} title={`${carryTo.name} is open: ${plural(d.carry.length, "boarder")} from ${carryFrom.name} to carry over`}
+            action={can.allocate ? <ButtonLink href={href({ carry: "1" })} scroll={false} variant="primary" size="sm">Review and carry over</ButtonLink> : undefined}>
+            {can.allocate ? `Boarders keep their bed from ${formatDate(carryTo.startDate, "UTC")}, and the ${carryTo.name} hostel fees are added. Boarders not staying are checked out at year end. Review them first.` : "The warden reviews and carries them over."}
+          </Banner>
+        )}
         <Stats items={[
           { label: "Residents", value: String(d.active), sub: p.myHostels.length === 1 ? p.myHostels[0].name : `${p.myHostels.length} hostels`, icon: Users, href: href({ show: null }), active: show === "" },
           { label: "Not arrived", value: String(d.arriving), sub: "bed given, not checked in", tone: d.arriving ? "warn" : undefined, href: href({ show: "arriving" }), active: show === "arriving" },
@@ -211,6 +227,9 @@ export default async function AllocationPage({ searchParams }: { searchParams: S
           start={{ bedId: idParam(sp.bed), hostelId: null, student: d.startStudent }}
           waiting={d.waiting.map((w) => ({ id: w.id, name: w.name, admissionNo: w.admissionNo, cls: w.classSection ?? "", gender: genderFits(w.gender), bed: null, hostelId: null, campusId: w.campusId, years: w.years, joins: w.joins ? isoOf(w.joins) : null }))}
           todayStr={p.todayStr} showFees={v.seesFees} />
+      )}
+      {can.allocate && one(sp.carry) === "1" && carryTo && carryFrom && (
+        <CarrySheet closeHref={href({ carry: null })} items={carryItems} fromYear={carryFrom.name} toYear={carryTo.name} toStart={formatDate(carryTo.startDate, "UTC")} />
       )}
       {d.move && <MoveSheet closeHref={href({ move: null })} allocationId={d.move.allocation.id} name={d.move.student.name} from={bedWords(d.move.roomNo, d.move.bedNo)} beds={d.beds} hostels={p.myHostels} todayStr={p.todayStr} />}
       {d.checkout && (

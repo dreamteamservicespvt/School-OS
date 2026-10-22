@@ -23,6 +23,7 @@ import {
 import { addRoom, closeRoom, setBedBlocked, updateRoom } from "@/lib/hostel/rooms";
 import { allocate, bedYears, checkIn, checkOut, moveBed, studentsInfo } from "@/lib/hostel/allocation";
 import { cancelPass, markOut, markReturned, requestPass } from "@/lib/hostel/outings";
+import { carryOver, checkOutAtYearEnd } from "@/lib/hostel/carry";
 import { authorisedList, recordVisitor, visitorOut } from "@/lib/hostel/visitors";
 import { remindRollCall, saveRollCall } from "@/lib/hostel/rollcall";
 import { recordIncident } from "@/lib/hostel/incidents";
@@ -254,6 +255,26 @@ export async function checkoutAction(_p: S, fd: FormData): Promise<S> {
     const due = r.dueBefore > BigInt(0) ? (w.can.seeFees ? ` ${formatRupees(r.dueBefore)} hostel fees still due: collect them in Fee Management.` : " Hostel fees are still due; the office collects them.") : "";
     return `${r.name} checked out. ${r.where} is free now.${fees}${due}`;
   }, (m) => m);
+}
+
+/** A new academic year: carries the ticked boarders over (same bed; the new year's hostel fees). */
+export async function carryOverAction(_p: S, fd: FormData): Promise<S> {
+  return hostelAction("edit", fd, async (w) => {
+    need(w.can.allocate, "carry boarders over");
+    return carryOver(w.tx, w.ctx, ids(fd, "allocationIds"), w.mine);
+  }, (r) => [
+    `${plural(r.carried, "boarder")} carried over to ${r.year}, keeping ${r.carried === 1 ? "their bed" : "their beds"}.`,
+    r.feeRows ? (`${r.year} hostel fees added (${plural(r.feeRows, "row")})`) + "." : null,
+    r.skipped.length ? `${plural(r.skipped.length, "boarder")} left as before: ${r.skipped.slice(0, 3).map((s) => `${s.name} (${s.why})`).join("; ")}${r.skipped.length > 3 ? "…" : ""}` : null,
+  ].filter(Boolean).join(" "));
+}
+
+/** Checks the ticked boarders out at the end of the old year: not staying in the hostel in the new year. */
+export async function yearEndCheckoutAction(_p: S, fd: FormData): Promise<S> {
+  return hostelAction("edit", fd, async (w) => {
+    need(w.can.allocate, "check students out");
+    return checkOutAtYearEnd(w.tx, w.ctx, ids(fd, "allocationIds"), w.mine, w.now);
+  }, (r) => `${plural(r.done, "boarder")} checked out at year end. Nothing of ${r.year} is charged.${r.skipped.length ? ` Not done: ${r.skipped.map((s) => `${s.name} (${s.why})`).join("; ")}` : ""}`);
 }
 
 /* ---------- Roll call and incidents ---------- */

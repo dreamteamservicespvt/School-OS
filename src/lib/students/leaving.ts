@@ -11,7 +11,7 @@ import { writeAudit } from "../audit";
 import { requestApproval } from "../approvals";
 import { formatRupees } from "../format";
 import { currentEnrolment } from "../academic/years";
-import { runClearanceChecks } from "./clearance";
+import { runClearanceChecks, runOnLeft } from "./clearance";
 // Each module's clearance check registers itself when imported.
 import "../fees/clearance";
 import "../library/clearance";
@@ -108,6 +108,8 @@ export async function completeLeaving(tx: Tx, ctx: SchoolContext, leavingRequest
   const years = await tx.academicYear.findMany({ where: { startDate: { lte: req.lastDate } }, select: { id: true } });
   await tx.enrolment.updateMany({ where: { studentId: req.studentId, status: "STUDYING", archivedAt: null, academicYearId: { in: years.map((y) => y.id) } }, data: { status: "LEFT" } });
   await tx.leavingRequest.update({ where: { id: req.id }, data: { status: "LEFT", leftOn: req.lastDate } });
+  // Modules let go of what the student still holds (a hostel bed whose check was waived), so nothing more is charged.
+  await runOnLeft(tx, ctx, { studentId: req.studentId, lastDate: req.lastDate, reason: req.reason });
   await writeAudit(tx, ctx, { action: "left", recordType: "Leaving Request", recordId: req.id, after: { status: to, lastDate: req.lastDate.toISOString().slice(0, 10) } });
 }
 

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Prisma } from "@prisma/client";
-import { CheckCheck, CircleAlert, Coins, Eye, FlaskConical, Info, MessageSquareText, Users } from "lucide-react";
+import { CheckCheck, CircleAlert, Coins, Eye, FlaskConical, Info, Languages, MessageSquareText, Users } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { commPage } from "@/lib/communication/access";
 import { readListParams, skipTake, listHref } from "@/lib/list";
@@ -13,6 +13,7 @@ import { NOT_SENT } from "@/lib/messaging/send";
 import { CODE_HIDDEN_LABEL, hiddenCodeText, isCodeMessage } from "@/lib/messaging/one-time-code";
 import { systemPurposeOf, systemWhatWords } from "@/lib/messaging/system-message";
 import { withHiddenLinks } from "@/lib/parent-link/token";
+import { isTranslationLanguage, TRANSLATED_CHANNELS, TRANSLATION_LANGUAGE_NAME, translatedLabel } from "@/lib/messaging/translation";
 import { countsFor, DELIVERY_LABEL, inTestMode, MESSAGE_STATUS_LABEL, messageCampusWhere, recipientCampusWhere, senderNames, senderWords } from "@/lib/communication/history";
 import { unreadCount } from "@/lib/messaging/resend";
 import { EmptyState } from "@/components/empty-state";
@@ -74,7 +75,11 @@ export default async function MessagePage({ params, searchParams }: Props) {
     const resendOf = m.resendOfId ? await tx.message.findUnique({ where: { id: m.resendOfId }, select: { id: true, title: true, audienceLabel: true } }) : null;
     const on = [...(await onChannels(tx, current.ctx))];
     const backupWhy = await tx.messageRecipient.groupBy({ by: ["backupReason"], where: { messageId: m.id, isBackup: true }, _count: { _all: true } });
-    return { m, rows, total, counts, retry, unread, names, resendOf, on, backupWhy };
+    // How many people got each translated version (G40): WhatsApp, email and app copies in that language.
+    const translated = Array.isArray(m.translations) && m.translations.length
+      ? await tx.messageRecipient.groupBy({ by: ["language"], where: { messageId: m.id, isBackup: false, channel: { in: [...TRANSLATED_CHANNELS] }, recipientType: "guardian" }, _count: { _all: true } })
+      : [];
+    return { m, rows, total, counts, retry, unread, names, resendOf, on, backupWhy, translated };
   });
   if (!data) notFound();
   const { m, counts } = data;
@@ -103,6 +108,11 @@ export default async function MessagePage({ params, searchParams }: Props) {
   if (data.resendOf) details.push(["Resend of", <Link key="r" className="text-brand font-semibold hover:underline" href={`/communication/history/${data.resendOf.id}`}>{data.resendOf.title ?? data.resendOf.audienceLabel}</Link>]);
   if (m.smsBackup) details.push(["SMS backup", counts.backup ? `${counts.backup} also sent by SMS (${data.backupWhy.map((b) => `${b.backupReason ?? "not delivered"}: ${b._count._all}`).join("; ")})` : "On; none needed yet"]);
   const filtered = Boolean(list.q || Object.keys(list.filters).length);
+  // The language versions the sender read and confirmed before sending (G40).
+  const versions = (Array.isArray(m.translations) ? m.translations : []) as { language: string; text: string; title: string | null; edited?: boolean }[];
+  const versionLangs = new Set(versions.map((v) => v.language));
+  const langCount = (l: string) => data.translated.find((t) => t.language === l)?._count._all ?? 0;
+  const versionOf = (r: R) => (r.recipientType === "guardian" && !r.isBackup && TRANSLATED_CHANNELS.has(r.channel) && versionLangs.has(r.language) && isTranslationLanguage(r.language) ? TRANSLATION_LANGUAGE_NAME[r.language] : null);
 
   return (
     <>
@@ -158,7 +168,7 @@ export default async function MessagePage({ params, searchParams }: Props) {
               empty={<EmptyState bare title={filtered ? "Nobody matches" : "Nobody was sent this message"}>{filtered ? "Try another name or status." : "Everyone chosen was left out; see the reasons above."}</EmptyState>}
               columns={[
                 { key: "name", label: "Recipient", render: (r) => <div className="flex items-center gap-2.5"><Avatar name={r.name} size={32} /><div className="min-w-0"><p className="font-semibold leading-tight truncate">{r.name}</p><p className="text-[12.5px] text-ink3 truncate">{r.description ?? r.address}</p></div></div> },
-                { key: "ch", label: "Channel", render: (r) => <span className="text-[13px]">{CHANNEL_LABEL[r.channel as Channel] ?? r.channel}</span> },
+                { key: "ch", label: "Channel", render: (r) => <span className="text-[13px]">{CHANNEL_LABEL[r.channel as Channel] ?? r.channel}{versionOf(r) && <span className="block text-[12px] text-ink3">{versionOf(r)} version</span>}</span> },
                 { key: "st", label: "Status", render: (r) => <div><Pill tone={tone(r)} dot>{statusWord(r)}</Pill>{why(r) && <p className="text-[12px] text-ink3 mt-0.5">{why(r)}</p>}</div> },
                 { key: "t", label: "Time", align: "right", nowrap: true, render: (r) => <span className="text-[13px]">{when(r)}</span> },
               ]}
@@ -173,6 +183,33 @@ export default async function MessagePage({ params, searchParams }: Props) {
                 {sample && <p className="text-[12.5px] text-ink3 mt-2">{isCode ? `Shown as ${sample.name} received it, with the code hidden.` : `Shown as ${sample.name} received it. Each person’s copy fills in their own details.`}</p>}
               </div>
             </Card>
+            {versions.length > 0 && (
+              <Card>
+                <CardHeader title="Language versions" icon={Languages} description="Translated by the AI service, read and confirmed by the sender before sending" />
+                <ul className="px-5 pb-5 flex flex-col gap-3">
+                  <li>
+                    <p className="text-[12.5px] font-semibold text-ink3 mb-1">English, as typed</p>
+                    <div className="rounded-xl bg-sunken/70 p-3 text-[13.5px] leading-relaxed whitespace-pre-line break-words">
+                      {m.title && <p className="font-semibold mb-1">{m.title}</p>}
+                      {shownText(m.body, isCode)}
+                    </div>
+                  </li>
+                  {versions.filter((v) => isTranslationLanguage(v.language)).map((v) => (
+                    <li key={v.language}>
+                      <p className="text-[12.5px] font-semibold text-ink3 mb-1 flex items-center gap-2">
+                        {TRANSLATION_LANGUAGE_NAME[v.language as keyof typeof TRANSLATION_LANGUAGE_NAME]} · {langCount(v.language).toLocaleString("en-IN")} {langCount(v.language) === 1 ? "person" : "people"}
+                        {v.edited && <Pill tone="neutral" className="!h-5 !text-[11px]">Changed by the sender</Pill>}
+                      </p>
+                      <div className="rounded-xl bg-sunken/70 p-3 text-[13.5px] leading-relaxed whitespace-pre-line break-words" lang={v.language}>
+                        {v.title && <p className="font-semibold mb-1">{v.title}</p>}
+                        {shownText(v.text, isCode)}
+                        <p className="mt-2 text-[12.5px] text-ink3">{translatedLabel(v.language as Parameters<typeof translatedLabel>[0])}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+            )}
             <Card>
               <CardHeader title="Details" icon={Info} />
               <DL cols={1} rows={details} />

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button, buttonClass } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { ConfirmButton } from "@/components/ui/confirm";
+import { KeepCheck } from "@/components/ui/keep-select";
 import type { RemarkOption } from "@/lib/exams/remark-drafts";
 import type { RemarkRow } from "@/lib/exams/report-cards";
 import { draftRemarksAction, makePdfAction, markCardsAction, saveCoScholasticAction, saveCompetencyAction, saveRemarksAction } from "./actions";
@@ -202,7 +203,7 @@ export function RemarksGrid({ rows, sectionId, period, classTeacher, principal, 
             {waiting.length > 0 && <Button variant="secondary" onClick={reviewNext}>Review next ({waiting.length} waiting)</Button>}
             {reword && (
               <label className="flex min-h-11 items-center gap-2 text-sm">
-                <input type="checkbox" checked={useAi} onChange={(e) => setUseAi(e.target.checked)} className="h-5 w-5" />
+                <KeepCheck type="checkbox" checked={useAi} onChange={(e) => setUseAi(e.target.checked)} className="h-5 w-5" />
                 Also reword with the AI assistant (it sees only the marks, attendance and homework shown as sources, never the student&apos;s name)
               </label>
             )}

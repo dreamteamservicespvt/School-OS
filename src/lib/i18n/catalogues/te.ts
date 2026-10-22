@@ -145,7 +145,7 @@ export const te: Catalogue = {
   "Age {from} to {to} on 1 June": "జూన్ 1 నాటికి వయస్సు {from} నుండి {to}",
   "any": "ఏదైనా",
   "Application fee {amount}": "దరఖాస్తు ఫీజు {amount}",
-  "Child": "పిల్లలు",
+  "Child": "బిడ్డ",
   "First name": "మొదటి పేరు",
   "Last name": "ఇంటి పేరు",
   "Date of birth": "పుట్టిన తేదీ",

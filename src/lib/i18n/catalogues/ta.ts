@@ -172,7 +172,7 @@ export const ta: Catalogue = {
   "Marks or %": "மதிப்பெண் அல்லது %",
   "How did you hear about us?": "எங்களைப் பற்றி எப்படித் தெரிந்துகொண்டீர்கள்?",
   "Choose, if you like": "விரும்பினால் தேர்ந்தெடுக்கவும்",
-  "Consent": "ஒப்புதல் சம்மதம்",
+  "Consent": "சம்மதம்",
   "Read the full text": "முழு உரையைப் படிக்கவும்",
   "Your name": "உங்கள் பெயர்",
   "The parent or guardian giving consent": "சம்மதம் அளிக்கும் பெற்றோர் அல்லது பாதுகாவலர்",

@@ -42,9 +42,12 @@ export type PromotionRules = { passRequired: boolean; minAttendancePct: number |
  */
 export function suggestion(f: PromotionFacts, rules: PromotionRules, o: { leaving: boolean; finalClass: boolean; feeAmounts: boolean }): { suggested: PromotionDecisionKind; why: string } {
   if (o.leaving) return { suggested: "LEAVING", why: "leaving request in progress" };
-  if (o.finalClass) return { suggested: "LEAVING", why: "final class" };
   const stop: string[] = [];
   const note: string[] = [];
+  // The final class: students finish school (Leaving) unless the result or
+  // attendance rule holds them back to repeat it. Fee dues never stop a
+  // student finishing; the leaving clearance (A14) collects them.
+  if (o.finalClass) note.push("final class");
   if (f.result === "fail") (rules.passRequired ? stop : note).push(rules.passRequired ? "did not pass" : "did not pass, but a pass is not required");
   else if (f.result === "compartment") (rules.passRequired ? stop : note).push(rules.passRequired ? "compartment result, not a pass yet" : "compartment result");
   else if (f.result === "pass") note.push("passed");
@@ -56,10 +59,10 @@ export function suggestion(f: PromotionFacts, rules: PromotionRules, o: { leavin
   const due = f.feeDuePaise ?? BigInt(0);
   if (due > BigInt(0)) {
     const fees = o.feeAmounts ? `${formatRupees(due)} fees due` : "fees due";
-    if (rules.feeDuesAllowed) note.push(`${fees} (a warning only)`);
+    if (rules.feeDuesAllowed || o.finalClass) note.push(`${fees} (a warning only)`);
     else stop.push(fees);
   }
-  return { suggested: stop.length ? "DETAIN" : "PROMOTE", why: [...stop, ...note].join(", ") };
+  return { suggested: stop.length ? "DETAIN" : o.finalClass ? "LEAVING" : "PROMOTE", why: [...stop, ...note].join(", ") };
 }
 
 /** Next class in order on the same campus, or null for the final class. */

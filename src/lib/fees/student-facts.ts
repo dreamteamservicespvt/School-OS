@@ -34,9 +34,15 @@ async function feeVisible(tx: Tx, who: FactViewer, ids: string[]): Promise<strin
 
 /** Everything still to pay for the year being finished and any earlier year (old dues brought in), whatever its due date. */
 export const promotionFacts: PromotionSource = async (tx, _ctx, q) => {
-  const year = await tx.academicYear.findUnique({ where: { id: q.academicYearId }, select: { startDate: true } });
+  const year = await tx.academicYear.findUnique({ where: { id: q.academicYearId }, select: { startDate: true, endDate: true, campusId: true } });
   if (!year) return new Map();
-  const later = await tx.academicYear.findMany({ where: { startDate: { gt: year.startDate } }, select: { id: true } });
+  // Later years: this campus's next years, and any year starting after this one
+  // ends. Another campus's same school year (it may start a few weeks later)
+  // still counts, for a student who moved campus during the year.
+  const later = await tx.academicYear.findMany({
+    where: { OR: [{ campusId: year.campusId, startDate: { gt: year.startDate } }, { startDate: { gt: year.endDate } }] },
+    select: { id: true },
+  });
   const sums = await tx.studentFeeDue.groupBy({
     by: ["studentId"],
     where: { studentId: { in: q.studentIds }, state: "OPEN", balancePaise: { gt: 0 }, ...(later.length ? { academicYearId: { notIn: later.map((y) => y.id) } } : {}) },

@@ -13,6 +13,7 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { SelectField } from "@/components/ui/field";
 import { promotionPreview, type Preview } from "@/lib/students/promotion";
 import { seesStudentFees } from "@/lib/fees/access";
+import { seesResults } from "@/lib/exams/scope";
 import { RESULT_LABEL } from "@/lib/students/labels";
 import { StudentProblem } from "@/lib/students/students";
 import { BASE, studentPage } from "../_lib/page";
@@ -31,6 +32,8 @@ export default async function PromotionPage({ searchParams }: { searchParams: Pr
   const sp = await searchParams;
   // Fee amounts only for people allowed to see fees; the "no fee dues" rule applies either way.
   const seeFees = seesStudentFees(current);
+  // Marks and results only for people who see results (not Office Staff, who have datesheets and admit cards only); the pass rule applies either way.
+  const seeResults = seesResults(current);
 
   const data = await withSchool(current.ctx, async (tx) => {
     const years = await tx.academicYear.findMany({ where: { archivedAt: null }, orderBy: { startDate: "asc" } });
@@ -58,7 +61,7 @@ export default async function PromotionPage({ searchParams }: { searchParams: Pr
   const laterYears = data.years.filter((y) => y.status !== "CLOSED" && data.fromYear && y.startDate > data.fromYear.startDate);
   const rows: ReviewRow[] = (p?.rows ?? []).map((r) => ({
     studentId: r.studentId, fullName: r.fullName, admissionNo: r.admissionNo, rollNo: r.rollNo, suggested: r.suggested, why: r.why,
-    result: r.facts.resultText ?? (r.facts.result ? RESULT_LABEL[r.facts.result] : null),
+    result: !seeResults ? null : r.facts.resultText ?? (r.facts.result ? RESULT_LABEL[r.facts.result] : null),
     attendance: r.facts.attendancePct != null ? `${Math.round(r.facts.attendancePct)}%` : null,
     feeDue: seeFees && r.facts.feeDuePaise ? formatRupees(r.facts.feeDuePaise) : null,
     alreadyIn: r.alreadyIn,

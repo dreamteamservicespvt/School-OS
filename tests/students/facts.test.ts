@@ -14,6 +14,7 @@ import { LIST_FILTERS, loadStudentList } from "@/app/(school)/student-management
 import { loadParent360 } from "@/app/(school)/student-management/guardians/load";
 import type { Current } from "@/lib/current";
 import { profileTabsFor } from "@/lib/students/profile-tabs";
+import { seesResults } from "@/lib/exams/scope";
 import "@/lib/fees/profile-tab";
 import { makeUser } from "../helpers";
 import { addStudent, studentSchool } from "./fixtures";
@@ -232,5 +233,69 @@ describe("Student Profile: the fee status agrees with the Student List", () => {
     // The first instalment is 100 days away: nothing is due yet, as on the Student List.
     expect(await strip(id.d)).toEqual([expect.objectContaining({ label: "Fees", value: "Nothing due yet", sub: "₹6,000 not due yet" })]);
     expect(await strip(id.c)).toEqual([expect.objectContaining({ value: "All paid" })]);
+  });
+});
+
+describe("Promotion: the final class, campuses and who sees results", () => {
+  it("in the final class a student who did not pass is suggested Detain; the others finish school, fees only a warning", async () => {
+    const t = await studentSchool();
+    const failed = (await addStudent(t.ctx, t.s6a)).student.id;
+    const passed = (await addStudent(t.ctx, t.s6a)).student.id;
+    await withSchool(t.ctx, async (tx) => {
+      for (const [studentId, outcome, percent] of [[failed, "Fail", 28], [passed, "Pass", 81]] as const) {
+        await tx.result.create({ data: { schoolId: t.school.id, academicYearId: t.yearId, key: `final:${t.yearId}`, studentId, classId: t.c6, sectionId: t.s6a, percent, outcome, complete: true, status: "PUBLISHED" } });
+      }
+      const head = await tx.feeHead.create({ data: { schoolId: t.school.id, name: "Tuition fee", kind: "tuition" } });
+      await tx.studentFeeDue.create({ data: { schoolId: t.school.id, studentId: passed, academicYearId: t.yearId, feeHeadId: head.id, label: "Term fee", dueDate: day("2026-07-10"), amountPaise: R(1000), balancePaise: R(1000) } });
+      await savePolicy(tx, t.ctx, t.yearId, { passRequired: true, minAttendancePct: null, feeDuesAllowed: false, exceptionApproverRole: "principal" });
+    });
+    const p = await withSchool(t.ctx, (tx) => promotionPreview(tx, t.ctx, { fromSectionId: t.s6a }));
+    expect(p.finalClass).toBe(true);
+    const row = (sid: string) => p.rows.find((r) => r.studentId === sid)!;
+    expect(row(failed)).toMatchObject({ suggested: "DETAIN", why: "did not pass, final class" });
+    expect(row(passed)).toMatchObject({ suggested: "LEAVING", why: "final class, passed, ₹1,000 fees due (a warning only)" });
+  });
+
+  it("fees due count every year up to this one, on any campus, never the next year's; Parent 360 shows each child's own campus year", async () => {
+    const t = await studentSchool();
+    const x = await addStudent(t.ctx, t.s5a);
+    const gid = (await withSchool(t.ctx, (tx) => tx.studentGuardian.findFirstOrThrow({ where: { studentId: x.student.id } }))).guardianId;
+    // A second campus whose school year starts in June.
+    const north = await withSchool(t.ctx, async (tx) => {
+      const campus = await tx.campus.create({ data: { schoolId: t.school.id, name: "North Campus" } });
+      const year = await tx.academicYear.create({ data: { schoolId: t.school.id, campusId: campus.id, name: "2026-27", startDate: day("2026-06-01"), endDate: day("2027-05-31"), status: "ACTIVE" } });
+      const cls = await tx.schoolClass.create({ data: { schoolId: t.school.id, campusId: campus.id, name: "Class 2", sortOrder: 2 } });
+      const sec = await tx.section.create({ data: { schoolId: t.school.id, classId: cls.id, academicYearId: year.id, name: "A", seats: 40 } });
+      return { yearId: year.id, classId: cls.id, sectionId: sec.id };
+    });
+    const y = (await addStudent(t.ctx, north.sectionId, { linkGuardianId: gid, duplicateReason: "Brother on the North Campus" })).student.id;
+    await withSchool(t.ctx, async (tx) => {
+      const head = await tx.feeHead.create({ data: { schoolId: t.school.id, name: "Tuition fee", kind: "tuition" } });
+      const due = (academicYearId: string, amount: bigint) =>
+        tx.studentFeeDue.create({ data: { schoolId: t.school.id, studentId: x.student.id, academicYearId, feeHeadId: head.id, label: "Term fee", dueDate: day("2026-07-10"), amountPaise: amount, balancePaise: amount } });
+      await due(t.yearId, R(1000));
+      await due(north.yearId, R(500)); // from the months on the North Campus
+      await due(t.nextYearId, R(700)); // next year's fees are not this year's dues
+      await tx.attendanceMark.create({ data: { schoolId: t.school.id, academicYearId: north.yearId, studentId: y, sectionId: north.sectionId, date: day("2026-07-06"), statusKey: "present" } });
+      await tx.result.create({ data: { schoolId: t.school.id, academicYearId: north.yearId, key: `final:${north.yearId}`, studentId: y, classId: north.classId, sectionId: north.sectionId, percent: 90, outcome: "Pass", complete: true, status: "PUBLISHED" } });
+    });
+    const p = await withSchool(t.ctx, (tx) => promotionPreview(tx, t.ctx, { fromSectionId: t.s5a }));
+    expect(p.rows.find((r) => r.studentId === x.student.id)!.facts.feeDuePaise).toBe(R(1500));
+
+    const who = await t.who(t.admin.id);
+    const parent = (await withSchool(who.ctx, (tx) => loadParent360(tx, who, gid, { yearId: t.yearId, seeDocuments: false, parentLink: false })))!;
+    const brother = parent.kids.find((k) => k.studentId === y)!;
+    expect(brother.enrolment?.academicYearId).toBe(north.yearId);
+    expect(brother.section?.className).toBe("Class 2");
+    expect(brother.fact).toMatchObject({ attendancePct: 100, result: "pass", resultText: "Pass, 90%" });
+  });
+
+  it("only people who see results get marks on the promotion page: not Office Staff, who have datesheets and admit cards only", async () => {
+    const office = await makeUser({ schools: [{ id: s.school.id, roleKeys: ["office-staff"] }], name: "Office Staff" });
+    await withSchool(s.ctx, (tx) => tx.role.updateMany({ where: { key: "office-staff" }, data: { isEnabled: true } }));
+    expect(seesResults(await s.who(office.id))).toBe(false);
+    expect(seesResults(await s.who(s.principal.id))).toBe(true);
+    expect(seesResults(await s.who(s.teacherUser.id))).toBe(true);
+    expect(seesResults(await s.who(s.accountantUser.id))).toBe(false);
   });
 });

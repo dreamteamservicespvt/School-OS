@@ -91,8 +91,16 @@ async function whoOwes(tx: Tx, studentIds: string[], today: Date) {
   let nothing = 0;
   const unique = [...new Set(studentIds)];
   const enrolments = await currentEnrolments(tx, unique);
+  // Every student's open rows in one read, in openDues() order (G37: one read per student took a big school's
+  // reminder day past the background job's 15 second limit).
+  const open = new Map<string, Awaited<ReturnType<typeof openDues>>>();
+  for (const d of await tx.studentFeeDue.findMany({ where: { studentId: { in: unique }, state: "OPEN", balancePaise: { gt: 0 } }, orderBy: [{ dueDate: "asc" }, { kind: "asc" }, { createdAt: "asc" }] })) {
+    const list = open.get(d.studentId);
+    if (list) list.push(d);
+    else open.set(d.studentId, [d]);
+  }
   for (const id of unique) {
-    const r = reminderRows(await openDues(tx, id), today);
+    const r = reminderRows(open.get(id) ?? [], today);
     if (!r || r.due <= ZERO) { nothing++; continue; }
     out.push({ studentId: id, due: r.due, dueDate: r.dueDate, dueIds: r.rows.map((d) => d.id), classId: enrolments.get(id)?.classId ?? null });
   }

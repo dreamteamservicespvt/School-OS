@@ -252,6 +252,17 @@ if (process.env.REPORTS !== "0") {
   }
 }
 
+// Fee reminders on a reminder day: switched on, 7 days after the term's due date (rolled back).
+add("Fee reminders: a reminder day, switched on", async () => {
+  const { automaticReminders } = await import("../src/lib/fees/reminders");
+  const job = { ...principal, ctx: { schoolId, userId: null } } as Current;
+  return rolledBack(job, async (tx) => {
+    const day = (await tx.$queryRaw<{ d: Date }[]>`SELECT due_date AS d FROM student_fee_due GROUP BY due_date ORDER BY count(*) DESC LIMIT 1`)[0].d;
+    await tx.feeSetting.update({ where: { schoolId }, data: { remindersOn: true, reminderDays: [7] } });
+    return automaticReminders(tx, job.ctx, new Date(day.getTime() + 7 * 86_400_000));
+  });
+}, true);
+
 // Background schedules for this school (each rolled back). They run with the
 // usual 15 second limit for one transaction, so one slower than that fails.
 if (process.env.SCHEDULES !== "0") {

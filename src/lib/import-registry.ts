@@ -15,3 +15,7 @@ import "./library/import";
 import "./hostel/import";
 import "./inventory/import";
 import "./salary/import";
+import "./salary/to-date";
+import "./attendance/opening";
+import "./staff/leave-import";
+import "./staff/pay-details-import";

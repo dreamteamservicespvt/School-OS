@@ -77,6 +77,7 @@ const TYPES: Record<string, ValueType> = {
   guardianPhone: "phone", motherPhone: "phone", phone: "phone",
   dateOfBirth: "date", admissionDate: "date", joiningDate: "date",
   gender: "gender", bloodGroup: "blood", aadhaar: "digits", pen: "digits", createLogin: "yesno",
+  bankAccount: "digits", uan: "digits", esiNo: "digits",
   className: "class", sectionName: "section", designation: "lookup", department: "lookup",
 };
 

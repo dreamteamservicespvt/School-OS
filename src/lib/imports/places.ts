@@ -8,7 +8,7 @@
 // the person who does that work never needs Settings (05-roles.md).
 import type { ModuleKey } from "../modules";
 
-export type PlaceKey = "settings" | "fees" | "finance" | "events" | "staff" | "enquiries" | "library" | "inventory-items" | "inventory-assets" | "hostel" | "students" | "salary";
+export type PlaceKey = "settings" | "fees" | "finance" | "events" | "staff" | "enquiries" | "library" | "inventory-items" | "inventory-assets" | "hostel" | "students" | "salary" | "attendance";
 
 export type ImportPlace = {
   key: PlaceKey;
@@ -31,14 +31,30 @@ export const PLACES: Record<PlaceKey, ImportPlace> = {
   fees: { key: "fees", module: "fee-management", base: "/fee-management/ledger/import", kinds: ["fee-old-dues", "fee-past-receipts"], name: "Import old dues and receipts" },
   finance: { key: "finance", module: "finance-management", base: "/finance-management/expenses/import", kinds: ["finance-past-expenses"], name: "Import past expenses" },
   events: { key: "events", module: "events-calendar", base: "/events-calendar/import", kinds: ["calendar-holidays"], name: "Import holidays" },
-  staff: { key: "staff", module: "staff-hr-management", base: "/staff-hr-management/import", kinds: ["staff"], name: "Import staff", undoAs: "create" },
+  staff: { key: "staff", module: "staff-hr-management", base: "/staff-hr-management/import", kinds: ["staff", "staff-pay-details", "staff-leave-balances"], name: "Import staff", undoAs: "create" },
   enquiries: { key: "enquiries", module: "admission-management", base: "/admission-management/enquiries/import", kinds: ["admission-enquiries"], name: "Import enquiries", undoAs: "create" },
   library: { key: "library", module: "library-management", base: "/library-management/books/import", kinds: ["library-catalogue"], name: "Import books" },
   "inventory-items": { key: "inventory-items", module: "inventory-management", base: "/inventory-management/items/import", downloads: "/inventory-management/import", kinds: ["inventory-items"], name: "Import items" },
   "inventory-assets": { key: "inventory-assets", module: "inventory-management", base: "/inventory-management/assets/import", downloads: "/inventory-management/import", kinds: ["inventory-assets"], name: "Import assets" },
   hostel: { key: "hostel", module: "hostel-management", base: "/hostel-management/rooms/import", kinds: ["hostel-rooms"], name: "Import rooms" },
   students: { key: "students", module: "student-management", base: "/student-management/import", kinds: ["students", "students-update"], name: "Import students" },
-  salary: { key: "salary", module: "salary-management", base: "/salary-management/structures/import", kinds: ["salary-structures"], name: "Import salary structures" },
+  salary: { key: "salary", module: "salary-management", base: "/salary-management/structures/import", kinds: ["salary-structures", "salary-to-date"], name: "Import salary" },
+  attendance: { key: "attendance", module: "attendance-management", base: "/attendance-management/import", kinds: ["attendance-so-far"], name: "Import attendance so far" },
+};
+
+/**
+ * Kinds listed for Switching to School OS that keep their own module page's
+ * rules there too, because the module's own rule is narrower than "may add in
+ * the module": attendance so far needs full Attendance Management (05-roles.md).
+ */
+export const OWN_RULES: Record<string, PlaceKey> = {
+  "attendance-so-far": "attendance",
+  // Leave balances: HR's work (full Staff & HR), as for adjusting a balance by hand.
+  "staff-leave-balances": "staff",
+  // Pay details are restricted fields: HR, the Principal and the School Admin only (09 §1).
+  "staff-pay-details": "staff",
+  // Salary to date: full Salary Management only, as for salary itself.
+  "salary-to-date": "salary",
 };
 
 export function importPlace(key: unknown): ImportPlace | null {
@@ -79,6 +95,10 @@ export const HOME: Record<string, { href: string; label: string }> = {
   "inventory-items": { href: "/inventory-management/items", label: "Open Items & Stock" },
   "inventory-assets": { href: "/inventory-management/assets", label: "Open Assets" },
   "hostel-rooms": { href: "/hostel-management/rooms", label: "Open Rooms & Beds" },
+  "attendance-so-far": { href: "/attendance-management/register", label: "Open Attendance Register" },
+  "staff-leave-balances": { href: "/staff-hr-management/leave?view=balances", label: "Open leave balances" },
+  "staff-pay-details": { href: "/staff-hr-management", label: "Open Staff List" },
+  "salary-to-date": { href: "/salary-management/history", label: "Open Salary History" },
 };
 
 /** One record and many, in the words of each kind's own module. */
@@ -96,6 +116,10 @@ export const WORDS: Record<string, { one: string; many: string }> = {
   students: { one: "student", many: "students" },
   "students-update": { one: "student's changes", many: "students' changes" },
   "salary-structures": { one: "salary structure", many: "salary structures" },
+  "attendance-so-far": { one: "student's attendance so far", many: "students' attendance so far" },
+  "staff-leave-balances": { one: "leave balance", many: "leave balances" },
+  "staff-pay-details": { one: "staff member's pay details", many: "staff members' pay details" },
+  "salary-to-date": { one: "staff member's salary to date", many: "staff members' salary to date" },
 };
 
 export const wordsFor = (kind: string, label: string) => WORDS[kind] ?? { one: label.toLowerCase().replace(/s$/, ""), many: label.toLowerCase() };

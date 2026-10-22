@@ -26,8 +26,8 @@ import {
 import { aiReady } from "@/lib/ai";
 import { aiAllowed } from "@/lib/settings/switch-rules";
 import { suggestColumnsByAi, type AiColumnsResult } from "@/lib/ai/smart-import";
-import { placeCurrent, placeOf, placeOptions, placeRefusal } from "@/lib/imports/place-access";
-import { fileHref, placeHolds, wordsFor, type ImportPlace } from "@/lib/imports/places";
+import { bringable, placeCurrent, placeOf, placeOptions, placeRefusal } from "@/lib/imports/place-access";
+import { fileHref, OWN_RULES, placeHolds, wordsFor, type ImportPlace } from "@/lib/imports/places";
 import { fileBatchIds, reopenAfterUndo } from "@/lib/move-in/batches";
 import { count, stayWords, undoWords } from "@/lib/imports/words";
 
@@ -91,9 +91,13 @@ export async function uploadAction(_prev: FormState, fd: FormData): Promise<Form
       if (why) return { ok: false, message: why, errors: { kind: why }, values };
     }
     const options = await placeOptions(place, current, fd);
+    // Switching to School OS works out what each sheet holds: never a kind whose own rules refuse this person.
+    const strict = place.key === "settings" ? Object.keys(OWN_RULES) : [];
+    const ok = await bringable(current, place, strict);
+    const exclude = strict.filter((k) => !ok.has(k));
     ids = await withSchool(current.ctx, async (tx) => {
       const saved = await saveFile(tx, current.ctx, { file, purpose: "move-in", allowed: SHEET_TYPES });
-      return addUpload(tx, current.ctx, current.permissions, { fileId: saved.id, fileName: file.name, kind: kind || null, options }, current.modulesOn);
+      return addUpload(tx, current.ctx, current.permissions, { fileId: saved.id, fileName: file.name, kind: kind || null, options, exclude }, current.modulesOn);
     }, { timeout: 120_000 });
   } catch (e) {
     const m = problem(e);

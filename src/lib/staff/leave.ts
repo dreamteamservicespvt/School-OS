@@ -28,7 +28,12 @@ const num = (d: Prisma.Decimal | number | null | undefined) => Number(d ?? 0);
 /** "1 day", "2.5 days" */
 export const daysText = (n: number) => `${Number.isInteger(n) ? n : n.toFixed(1)} day${n === 1 ? "" : "s"}`;
 
-type Adjustment = { days: number; reason: string; byId: string | null; at: string; kind?: "manual" | "carry-forward"; fromYearId?: string };
+/**
+ * One change to a balance, with its reason. "brought-in": the balance at
+ * go-live from the old software (./leave-import.ts), and "brought-in-undone"
+ * the same days taken back when that import is undone (same `ref`).
+ */
+export type Adjustment = { days: number; reason: string; byId: string | null; at: string; kind?: "manual" | "carry-forward" | "brought-in" | "brought-in-undone"; fromYearId?: string; ref?: string };
 
 // ---------------------------------------------------------------- days
 

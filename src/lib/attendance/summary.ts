@@ -11,6 +11,7 @@ import { isoDay } from "../staff/dates";
 import { loadSchoolCalendar } from "../calendar/school-days";
 import { attendanceSettings, statusList, statusMap, weightOf, type StatusInfo } from "./settings";
 import { registerBook, type RegisterBook } from "./on-register";
+import { coveredBy, openingsFor, type Opening } from "./opening-totals";
 
 export type DayMark = { statusKey: string; periodNo: number; lateMinutes?: number | null };
 
@@ -30,6 +31,12 @@ export type PersonSummary = {
   byStatus: Record<string, number>;
   /** Present ÷ counted × 100, one decimal; null when nothing counted yet. */
   percent: number | null;
+  /**
+   * Attendance so far brought in from the old software (./opening.ts), already
+   * added to the days above: the days the school met and was present, up to
+   * the day before the school started on School OS.
+   */
+  broughtIn?: { met: number; present: number; upTo: Date };
 };
 
 const emptySummary = (workingDays: number): PersonSummary => ({ workingDays, markedDays: 0, countedDays: 0, present: 0, absent: 0, late: 0, leave: 0, byStatus: {}, percent: null });
@@ -146,9 +153,13 @@ export async function attendanceSummary(
     where: { archivedAt: null, date: { gte: opts.from, lte: to }, ...(side === "student" ? { studentId: { in: ids } } : { staffId: { in: ids } }), ...("sectionId" in opts ? { sectionId: opts.sectionId } : {}) },
     select: { studentId: true, staffId: true, date: true, periodNo: true, statusKey: true },
   });
+  // Attendance so far brought in for a student (a school that started part way through the year):
+  // added when the range holds all of it; a mark on one of its days is not counted again.
+  const openings = side === "student" ? await openingsFor(tx, ids, opts.from, to) : new Map<string, Opening[]>();
   const grouped = new Map<string, Map<string, DayMark[]>>();
   for (const m of marks) {
     const pid = (side === "student" ? m.studentId : m.staffId)!;
+    if (coveredBy(openings.get(pid), m.date)) continue;
     const k = isoDay(m.date);
     if (!workingFor(placeOf(pid)).keys.has(k)) continue;
     if (book && "sectionId" in opts && !book.has(opts.sectionId, pid, k)) continue;
@@ -170,6 +181,16 @@ export async function attendanceSummary(
       if (st) statusByDay.set(k, st);
       addDay(s, st, statuses);
       addDay(overall, st, statuses);
+    }
+    const brought = openings.get(id);
+    if (brought) {
+      // The register's own school days in those weeks give way to the old register's count.
+      const covered = workingFor(placeOf(id)).dates.filter((d) => coveredBy(brought, d)).length;
+      let met = 0, present = 0, upTo = brought[0].upTo;
+      for (const o of brought) { met += o.met; present += o.present; if (o.upTo > upTo) upTo = o.upTo; }
+      for (const x of [s, overall]) { x.markedDays += met; x.countedDays += met; x.present += present; x.absent += met - present; }
+      s.workingDays += met - covered;
+      s.broughtIn = { met, present, upTo };
     }
     people.set(id, finish(s));
     dayMap.set(id, statusByDay);

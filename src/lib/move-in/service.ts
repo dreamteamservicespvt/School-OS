@@ -52,8 +52,11 @@ export type MoveInKind = { key: string; label: string; module: ModuleKey; order:
 const KNOWN: Record<string, Omit<MoveInKind, "key" | "label">> = {
   departments: { module: "settings", order: 1, about: "Departments such as Science and Accounts, with their heads. Bring these first if your staff list has departments." },
   staff: { module: "staff-hr-management", order: 2, about: "Teachers and other staff, with phone, designation and joining date. Logins can be made for them." },
+  "staff-pay-details": { module: "staff-hr-management", order: 2.1, about: "Each staff member's bank account, IFSC, PAN, UAN (PF) and ESI numbers, so salary and the PF and ESI statements are right from the first month. Restricted: HR, the Principal and the School Admin only." },
+  "staff-leave-balances": { module: "staff-hr-management", order: 2.2, about: "Starting part way through the year? For each staff member and leave type, the days left at go-live (or the days taken so far). Leave left, the leave check and loss of pay in salary are right from the first day." },
   students: { module: "student-management", order: 3, about: "Students with their class, section, roll number and admission number, and their parents. Old admission numbers are kept." },
   "students-update": { module: "student-management", order: 4, about: "Changes to students already here, found by admission number." },
+  "attendance-so-far": { module: "attendance-management", order: 4.5, about: "Starting part way through the year? For each student, the days the school met and the days present up to the day before go-live. Attendance % and early warnings count them from the first day." },
   "fee-old-dues": { module: "fee-management", order: 6, about: "For each student, the amount still unpaid from before. Each becomes an opening balance row on the Student Fee Ledger, marked Brought in." },
   "fee-past-receipts": { module: "fee-management", order: 7, about: "Payments already made this year in the old software, with their receipt numbers. They reduce the dues, are kept read-only as Brought in, and never reach the Day Book." },
   "finance-past-expenses": { module: "finance-management", order: 9, about: "Expenses of this financial year, for reports. Kept as Brought in; they never reach the Day Book or the cash and bank books." },
@@ -63,6 +66,7 @@ const KNOWN: Record<string, Omit<MoveInKind, "key" | "label">> = {
   "hostel-rooms": { module: "hostel-management", order: 13, about: "Hostel rooms and their beds." },
   "inventory-items": { module: "inventory-management", order: 14, about: "Items with their opening stock." },
   "inventory-assets": { module: "inventory-management", order: 15, about: "The asset register with tags." },
+  "salary-to-date": { module: "salary-management", order: 9.5, about: "Starting part way through the financial year? Each staff member's gross pay, PF, ESI, Professional Tax and TDS already paid this year, for the year's totals and the TDS check. Never posted to the Day Book. Full Salary Management only." },
   // Brought in only on Salary Management's own page (restricted pay details), not listed for Switching.
   "salary-structures": { module: "salary-management", order: 16, about: "Each staff member's basic, allowances and monthly TDS, from the month they start." },
 };
@@ -156,12 +160,13 @@ export function firstChoices(sheet: Sheet, kindKey?: string | null) {
  * records: a workbook with a Students sheet and a Staff sheet becomes two.
  * The person may only bring in what their role can add.
  */
-export async function addUpload(tx: Tx, ctx: SchoolContext, permissions: PermissionMap, upload: { fileId: string; fileName: string; kind?: string | null; options?: Record<string, unknown> }, modulesOn?: ReadonlySet<ModuleKey>) {
+export async function addUpload(tx: Tx, ctx: SchoolContext, permissions: PermissionMap, upload: { fileId: string; fileName: string; kind?: string | null; options?: Record<string, unknown>; exclude?: readonly string[] }, modulesOn?: ReadonlySet<ModuleKey>) {
   const sheets = await readStored(tx, upload.fileId);
   const info: SheetInfo[] = sheets.map((s) => ({ name: s.name, rows: Math.max(0, s.rows.length - 1) }));
   const usable = sheets.map((s, i) => ({ s, i })).filter(({ s }) => s.rows.filter((r) => r.some((c) => c)).length >= 2);
   if (!usable.length) throw new MoveInProblem("This file has no rows to bring in. Put the headings in one row and the records below them.");
-  const allowed = new Set(moveInKinds(modulesOn).filter((k) => canBring(permissions, k.key, modulesOn)).map((k) => k.key));
+  // `exclude`: kinds the place's own rules refuse this person (a module page's narrower rule, src/lib/imports/places.ts OWN_RULES).
+  const allowed = new Set(moveInKinds(modulesOn).filter((k) => canBring(permissions, k.key, modulesOn) && !upload.exclude?.includes(k.key)).map((k) => k.key));
   // A kind not listed for Switching, chosen on its module's page ("Changes to students already here").
   if (upload.kind && mayChoose(permissions, upload.kind, modulesOn)) allowed.add(upload.kind);
   if (!allowed.size) throw new MoveInProblem("Your role cannot add any of these records. Ask your School Admin.");
@@ -216,11 +221,12 @@ export async function schoolLookups(tx: Tx, ctx: SchoolContext): Promise<Lookups
     include: { schoolClass: { select: { name: true, sortOrder: true } } },
     orderBy: [{ schoolClass: { sortOrder: "asc" } }, { name: "asc" }],
   }) : [];
-  const [designations, departments, feeHeads, expenseHeads] = await Promise.all([
+  const [designations, departments, feeHeads, expenseHeads, leaveTypes] = await Promise.all([
     tx.designation.findMany({ where: { archivedAt: null }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { name: true } }),
     tx.department.findMany({ where: { archivedAt: null }, orderBy: { name: "asc" }, select: { name: true } }),
     tx.feeHead.findMany({ where: { archivedAt: null }, orderBy: { name: "asc" }, select: { name: true } }),
     tx.accountHead.findMany({ where: { kind: "EXPENSE", archivedAt: null }, orderBy: { name: "asc" }, select: { name: true } }),
+    tx.leaveType.findMany({ where: { forWhom: "staff", paid: true, archivedAt: null }, orderBy: { name: "asc" }, select: { name: true } }),
   ]);
   return {
     yearId: year?.id ?? null,
@@ -230,6 +236,7 @@ export async function schoolLookups(tx: Tx, ctx: SchoolContext): Promise<Lookups
     departments: departments.map((d) => d.name),
     feeHeads: feeHeads.map((h) => h.name),
     expenseHeads: expenseHeads.map((h) => h.name),
+    leaveTypes: leaveTypes.map((t) => t.name),
   };
 }
 

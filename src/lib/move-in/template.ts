@@ -32,6 +32,10 @@ const UPLOAD_AT: Record<string, string> = {
   "inventory-items": "Inventory Management, Items & Stock, Import",
   "inventory-assets": "Inventory Management, Assets, Import",
   "hostel-rooms": "Hostel Management, Rooms & Beds, Import",
+  "attendance-so-far": "Attendance Management, Import attendance so far",
+  "staff-leave-balances": "Staff & HR Management, Import staff",
+  "staff-pay-details": "Staff & HR Management, Import staff",
+  "salary-to-date": "Salary Management, Salary Structures, Import",
 };
 /** Kinds brought in only on their own module's page. */
 const ONLY_THERE: Record<string, string> = {
@@ -63,6 +67,7 @@ export async function templateWorkbook(kind: ImportKind<unknown>, lookups: Looku
     mode: PAYMENT_MODES.map((m) => m.label),
     ...(kind.key === "finance-past-expenses" ? { head: lookups.expenseHeads ?? [] } : {}),
     ...(kind.key === "calendar-holidays" ? { type: ["Holiday", "Vacation"] } : {}),
+    ...(kind.key === "staff-leave-balances" ? { leaveType: lookups.leaveTypes ?? [] } : {}),
   };
 
   ws.columns = kind.columns.map((c) => ({ header: c.label + (c.required ? " *" : ""), key: c.key, width: Math.max(14, Math.min(36, c.label.length + 6)) }));

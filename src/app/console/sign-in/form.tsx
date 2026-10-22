@@ -8,6 +8,7 @@ import { Alert } from "@/components/ui/alert";
 import { TestCodeNote } from "@/components/console/test-code-note";
 import { FieldShell, inputCls } from "@/components/ui/field";
 import { cx } from "@/components/ui/cx";
+import { KeepCheck } from "@/components/ui/keep-select";
 import { consoleBackAction, consoleCodeAction, consolePasswordAction, consoleResendAction, type CodeState, type PasswordState } from "./actions";
 
 export function PasswordStep({ notice }: { notice?: string }) {
@@ -101,6 +102,7 @@ export function OtpBoxes({ name = "code", error, label }: { name?: string; error
 export function CodeStep({ sentTo, name, trustDays, test, inLog, shownCode }: { sentTo: string; name: string; trustDays: number; test: boolean; inLog?: boolean; shownCode?: string | null }) {
   const [state, action, pending] = useActionState<CodeState, FormData>(consoleCodeAction, null);
   const [resent, setResent] = useState<CodeState>(null);
+  const [trust, setTrust] = useState(false);
   const [sending, startSending] = useTransition();
   const shown = resent && (!state || resent.sent) ? resent : state;
   if (shown?.restart) {
@@ -123,7 +125,7 @@ export function CodeStep({ sentTo, name, trustDays, test, inLog, shownCode }: { 
       <OtpBoxes label={`6-digit code sent to +91 ${sentTo}`} error={wrong} />
       <p className="text-[12.5px] text-ink3 -mt-2">It works for 10 minutes.</p>
       <label className="flex items-start gap-2.5 text-[14px] text-ink2 cursor-pointer select-none">
-        <input type="checkbox" name="trust" className="mt-0.5 size-5 shrink-0 rounded-md accent-brand" />
+        <KeepCheck type="checkbox" name="trust" checked={trust} onChange={(e) => setTrust(e.target.checked)} className="mt-0.5 size-5 shrink-0 rounded-md accent-brand" />
         <span>Trust this device for {trustDays} days. Only on your own phone or computer.</span>
       </label>
       <p className="text-[13px] text-ink3">Signing in as <b className="font-semibold text-ink2">{name}</b>. The console signs you out after 30 minutes without use.</p>

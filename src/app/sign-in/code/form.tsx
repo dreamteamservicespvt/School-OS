@@ -5,11 +5,14 @@ import { useActionState, useState, useTransition } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { cx } from "@/components/ui/cx";
+import { KeepCheck } from "@/components/ui/keep-select";
 import { resendCodeAction, verifyCodeAction, type CodeState } from "../actions";
 
 export function CodeForm({ sentTo, remembers, sharedDefault = false }: { sentTo: string; remembers: boolean; sharedDefault?: boolean }) {
   const [state, action, pending] = useActionState<CodeState, FormData>(verifyCodeAction, null);
   const [resent, setResent] = useState<CodeState>(null);
+  // Held by React: a wrong code must not untick "Shared computer" (the device would then be remembered).
+  const [shared, setShared] = useState(sharedDefault);
   const [sending, startSending] = useTransition();
   const shown = resent && (!state || resent.sent) ? resent : state;
   const restart = state?.restart || resent?.restart;
@@ -37,7 +40,7 @@ export function CodeForm({ sentTo, remembers, sharedDefault = false }: { sentTo:
       </div>
       {remembers && (
         <label className="flex items-start gap-2.5 text-[14px] text-ink2 cursor-pointer select-none">
-          <input type="checkbox" name="shared" defaultChecked={sharedDefault} className="mt-0.5 size-5 shrink-0 rounded-md accent-brand" />
+          <KeepCheck type="checkbox" name="shared" checked={shared} onChange={(e) => setShared(e.target.checked)} className="mt-0.5 size-5 shrink-0 rounded-md accent-brand" />
           <span>Shared computer: ask for the code every time. <span className="text-ink3">Otherwise this device is remembered and will not ask for a code until you sign out here.</span></span>
         </label>
       )}

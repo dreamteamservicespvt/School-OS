@@ -7,6 +7,7 @@ import { Check } from "lucide-react";
 import { askConsent, confirmConsentCode, type GuardianState } from "@/app/p/[token]/actions";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { KeepCheck } from "@/components/ui/keep-select";
 
 export type ConsentChild = { id: string; name: string; given: boolean };
 
@@ -14,6 +15,8 @@ const codeCls = "h-14 w-full rounded-2xl bg-surface border border-line px-4 text
 
 export function ConsentForm({ token, consentTextId, title, kids: children, maskedPhone, preview }: { token: string; consentTextId: string; title: string; kids: ConsentChild[]; maskedPhone: string; preview: boolean }) {
   const [action, setAction] = useState<"give" | "withdraw" | null>(null);
+  // Children the guardian took the tick off; held by React so a refused send does not tick them again.
+  const [off, setOff] = useState<string[]>([]);
   const [asked, ask] = useActionState<GuardianState, FormData>(askConsent.bind(null, token), null);
   const [confirmed, confirm] = useActionState<GuardianState, FormData>(confirmConsentCode.bind(null, token), null);
   const notGiven = children.filter((c) => !c.given);
@@ -47,7 +50,7 @@ export function ConsentForm({ token, consentTextId, title, kids: children, maske
     );
   }
 
-  const choose = (a: "give" | "withdraw") => (preview ? undefined : () => setAction(a));
+  const choose = (a: "give" | "withdraw") => (preview ? undefined : () => { setOff([]); setAction(a); });
   if (action) {
     const list = action === "give" ? notGiven : given;
     return (
@@ -58,7 +61,8 @@ export function ConsentForm({ token, consentTextId, title, kids: children, maske
           <legend className="text-[13px] font-semibold text-ink2 mb-1">{action === "give" ? "Say yes for" : "Withdraw for"}</legend>
           {list.map((c) => (
             <label key={c.id} className="flex items-center gap-3 rounded-xl bg-sunken/60 px-3.5 h-12 cursor-pointer select-none">
-              <input type="checkbox" name="studentId" value={c.id} defaultChecked className="size-5 accent-[var(--color-brand)]" />
+              <KeepCheck type="checkbox" name="studentId" value={c.id} checked={!off.includes(c.id)}
+                onChange={(e) => { const on = e.target.checked; setOff((o) => on ? o.filter((x) => x !== c.id) : [...o, c.id]); }} className="size-5 accent-[var(--color-brand)]" />
               <span className="text-[14px]">{c.name}</span>
             </label>
           ))}

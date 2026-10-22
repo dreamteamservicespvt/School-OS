@@ -10,10 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SelectField, TextArea, TextField, inputCls } from "@/components/ui/field";
 import { cx } from "@/components/ui/cx";
+import { KeepCheck } from "@/components/ui/keep-select";
 import { FormProblem, PhoneField, SegField, SubHead, Submit } from "@/app/(school)/admission-management/_components/forms";
 import { checkApplyCodeAction, sendApplyCodeAction, submitApplyAction } from "./actions";
 
-type Cls = { id: string; name: string; fee: string | null; minAge: number | null; maxAge: number | null; previousSchool: boolean };
+type Cls = { id: string; name: string; fee: string | null; minAge: number | null; maxAge: number | null; previousSchool: boolean; previousSchoolNeeded: boolean };
 type Consent = { type: string; title: string; text: string; required: boolean };
 
 export function ApplyForm({ code, yearId, yearName, classes, preset, consents, categories, sources, relations, onlinePayment }: {
@@ -26,6 +27,8 @@ export function ApplyForm({ code, yearId, yearName, classes, preset, consents, c
   const [sent, setSent] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  // Held by React so a refused send keeps the ticks (APPLY-01).
+  const [agreed, setAgreed] = useState<string[]>([]);
   const [busy, start] = useTransition();
   const val = (k: string) => state?.values?.[k];
   const err = (k: string) => state?.errors?.[k];
@@ -91,7 +94,7 @@ export function ApplyForm({ code, yearId, yearName, classes, preset, consents, c
         <Card className="p-4 md:p-5 flex flex-col gap-4">
           <SubHead>Previous school</SubHead>
           <div className="grid sm:grid-cols-3 gap-3">
-            <TextField label="School name" name="previousSchool" maxLength={150} defaultValue={val("previousSchool")} error={err("previousSchool")} className="sm:col-span-3" />
+            <TextField label="School name" name="previousSchool" required={cls.previousSchoolNeeded} maxLength={150} defaultValue={val("previousSchool")} error={err("previousSchool")} className="sm:col-span-3" />
             <TextField label="Last class" name="previousClass" maxLength={40} defaultValue={val("previousClass")} error={err("previousClass")} />
             <TextField label="Marks or %" name="previousMarks" maxLength={40} defaultValue={val("previousMarks")} error={err("previousMarks")} />
           </div>
@@ -108,7 +111,8 @@ export function ApplyForm({ code, yearId, yearName, classes, preset, consents, c
         <SubHead>Consent</SubHead>
         {consents.map((c) => (
           <div key={c.type} className="flex items-start gap-3">
-            <input id={`consent-${c.type}`} type="checkbox" name="consent" value={c.type} defaultChecked={c.required ? undefined : false} className="mt-0.5 size-5 shrink-0 rounded-md accent-brand" />
+            <KeepCheck id={`consent-${c.type}`} type="checkbox" name="consent" value={c.type} checked={agreed.includes(c.type)}
+              onChange={(e) => { const on = e.target.checked; setAgreed((a) => on ? [...a.filter((t) => t !== c.type), c.type] : a.filter((t) => t !== c.type)); }} className="mt-0.5 size-5 shrink-0 rounded-md accent-brand" />
             <div className="min-w-0">
               <label htmlFor={`consent-${c.type}`} className="text-[14.5px] font-semibold">{c.title}{c.required && <span className="text-bad" aria-hidden="true"> *</span>}</label>
               <details className="text-[13px] text-ink3"><summary className="cursor-pointer text-brand font-semibold w-fit">Read the full text</summary><p className="mt-1 whitespace-pre-line">{c.text}</p></details>

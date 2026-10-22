@@ -9,7 +9,8 @@ import { describeDevice } from "../data-security/audit-view";
 import { burnPasswordCheck, verifyPassword } from "./password";
 import { createSession, deviceKeyOf, type DeviceInfo } from "./sessions";
 import { schoolsFor } from "./access";
-import { codeChannels, isTrustedDevice, needsTwoStep, startChallenge, type Deliver, type SignInPurpose } from "./two-step";
+import { codeChannels, needsTwoStep, startChallenge, type Deliver, type SignInPurpose } from "./two-step";
+import { isRememberedDevice } from "./remembered";
 import { securityAlert } from "./security-alert";
 
 /** Wrong passwords before the login is locked (inferred). */
@@ -20,7 +21,8 @@ export const LOCK_MS = 15 * 60 * 1000;
 export const SLOW_DOWN_AFTER = 3;
 
 export type SignInResult =
-  | { ok: true; token: string; userLoginId: string; schoolId: string }
+  /** `remembered`: the code was skipped because this is a remembered device (its cookie is renewed). */
+  | { ok: true; token: string; userLoginId: string; schoolId: string; remembered?: boolean }
   | { ok: false; message: string; twoStep?: undefined }
   /** The password is right, but a one-time code is needed first (two-step login). */
   | { ok: false; message: string; twoStep: { userLoginId: string; schoolId: string } };
@@ -51,7 +53,7 @@ export async function findLogin(input: string) {
   return null;
 }
 
-type Options = { now?: Date; sleep?: (ms: number) => Promise<void>; /** The browser's trusted-device token, if any. */ trustedDevice?: string | null };
+type Options = { now?: Date; sleep?: (ms: number) => Promise<void>; /** The browser's remembered-device token, if any (remembered.ts). */ trustedDevice?: string | null };
 const realSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 export async function signIn(usernameInput: string, password: string, device: DeviceInfo, opts: Options = {}): Promise<SignInResult> {
@@ -107,11 +109,13 @@ export async function signIn(usernameInput: string, password: string, device: De
     where: { id: user.id },
     data: { failedAttempts: 0, lockedUntil: null },
   });
-  if ((await needsTwoStep(user.id, schoolId)) && !(await isTrustedDevice(user.id, opts.trustedDevice, now))) {
-    return { ok: false, message: "Type the one-time code to finish signing in.", twoStep: { userLoginId: user.id, schoolId } };
+  let remembered = false;
+  if (await needsTwoStep(user.id, schoolId)) {
+    remembered = await isRememberedDevice(user.id, opts.trustedDevice, now);
+    if (!remembered) return { ok: false, message: "Type the one-time code to finish signing in.", twoStep: { userLoginId: user.id, schoolId } };
   }
   const { token } = await completeSignIn(user.id, schoolId, device, now);
-  return { ok: true, token, userLoginId: user.id, schoolId };
+  return { ok: true, token, userLoginId: user.id, schoolId, ...(remembered ? { remembered } : {}) };
 }
 
 /** Sessions from before browsers had their own device id are matched by browser name for this long. */
@@ -233,7 +237,8 @@ export async function startCodeSignIn(typed: string, device: DeviceInfo, opts: {
 }
 
 export type AfterCode =
-  | { kind: "signed-in"; token: string; userLoginId: string; mayTrust: boolean }
+  /** `mayRemember`: false after one code typed instead of the password; that never makes a remembered device. Two codes (email and mobile) may. */
+  | { kind: "signed-in"; token: string; userLoginId: string; mayRemember: boolean }
   /** The first of two codes was right; the second went to the person's other contact. */
   | { kind: "second-code"; token: string; sentTo: string }
   | { kind: "problem"; message: string };
@@ -257,7 +262,7 @@ export async function afterRightCode(
     return { kind: "second-code", token: s.token, sentTo: s.sentTo };
   }
   const { token } = await completeSignIn(v.userLoginId, v.schoolId, device, now, { byCode: v.purpose !== "sign-in" });
-  return { kind: "signed-in", token, userLoginId: v.userLoginId, mayTrust: v.purpose !== "code-sign-in" };
+  return { kind: "signed-in", token, userLoginId: v.userLoginId, mayRemember: v.purpose !== "code-sign-in" };
 }
 
 /** A wrong password for a real login goes into each of its schools' login history. */

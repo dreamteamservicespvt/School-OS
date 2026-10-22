@@ -8,3 +8,6 @@ export function newToken(): string {
 export function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
+
+/** The stored form of a browser's device id (see signInDevice in lib/current.ts). */
+export const deviceKeyOf = (deviceId: string | null | undefined) => (deviceId ? hashToken(`device:${deviceId}`) : null);

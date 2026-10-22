@@ -12,6 +12,7 @@ import { formatDateTime } from "@/lib/format";
 import { schoolsFor } from "@/lib/auth/access";
 import { clearSessionCookie, deviceInfo, requireCurrent } from "@/lib/current";
 import { cookies } from "next/headers";
+import { forgetDevice, REMEMBERED_COOKIE } from "@/lib/auth/remembered";
 import { ACCENT_COOKIE, SIZE_COOKIE, THEME_COOKIE, cleanAccent, cleanTextSize, cleanTheme } from "@/lib/theme";
 
 async function audit(action: string, extra: { recordId?: string; after?: object } = {}) {
@@ -29,10 +30,18 @@ async function audit(action: string, extra: { recordId?: string; after?: object 
   );
 }
 
+/** Signing out on a device forgets it, so the next sign-in there asks for the two-step code. */
+async function forgetThisDevice(userLoginId: string, deviceKey: string | null) {
+  const jar = await cookies();
+  await forgetDevice(userLoginId, { token: jar.get(REMEMBERED_COOKIE)?.value, deviceKey });
+  jar.delete(REMEMBERED_COOKIE);
+}
+
 export async function signOut() {
   const current = await requireCurrent({ paused: "any" });
   await audit("signed-out");
   await revokeSession(current.session.id, current.user.id, "Signed out");
+  await forgetThisDevice(current.user.id, current.session.deviceKey);
   await clearSessionCookie();
   redirect("/sign-in");
 }
@@ -40,7 +49,9 @@ export async function signOut() {
 export async function signOutEverywhere() {
   const current = await requireCurrent();
   await audit("signed-out-everywhere");
+  // Every remembered device is forgotten too (sessions.ts).
   await revokeAllSessions(current.user.id, "Signed out everywhere");
+  (await cookies()).delete(REMEMBERED_COOKIE);
   await clearSessionCookie();
   redirect("/sign-in?signedOut=everywhere");
 }
@@ -49,7 +60,10 @@ export async function signOutDevice(formData: FormData) {
   const current = await requireCurrent();
   const sessionId = String(formData.get("sessionId") ?? "");
   if (sessionId === current.session.id) return signOut();
+  const other = await prisma.session.findFirst({ where: { id: sessionId, userLoginId: current.user.id }, select: { deviceKey: true } });
   await revokeSession(sessionId, current.user.id, "Signed out from another device");
+  // That device is forgotten too, unless it is this same browser.
+  if (other?.deviceKey && other.deviceKey !== current.session.deviceKey) await forgetDevice(current.user.id, { deviceKey: other.deviceKey });
   await audit("signed-out-device", { after: { session: sessionId } });
   revalidatePath("/profile");
 }
@@ -117,8 +131,8 @@ export async function changePassword(_prev: PasswordState, formData: FormData): 
   });
   // Used once: the next change needs the new password.
   if (withoutOld) await prisma.session.update({ where: { id: current.session.id }, data: { signedInWithCode: false } });
-  // A changed password signs out every other device.
-  const others = await revokeAllSessions(user.id, "Password changed", current.session.id);
+  // A changed password signs out every other device, and forgets every remembered device but this one.
+  const others = await revokeAllSessions(user.id, "Password changed", current.session.id, { keepRememberedToken: (await cookies()).get(REMEMBERED_COOKIE)?.value });
   const device = await deviceInfo();
   // The person is told even though they did it themselves: it matters most when it was not them.
   const afterSave = await withSchool(current.ctx, async (tx) => {

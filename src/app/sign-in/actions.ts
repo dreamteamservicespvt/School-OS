@@ -4,7 +4,9 @@ import { cleanAccent } from "@/lib/theme";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { afterRightCode, signIn, startCodeSignIn, startSecondStep } from "@/lib/auth/sign-in";
-import { CHALLENGE_COOKIE, CODE_TTL_MS, TRUST_DAYS, TRUSTED_COOKIE, findChallenge, startChallenge, trustDevice, verifyChallenge } from "@/lib/auth/two-step";
+import { CHALLENGE_COOKIE, CODE_TTL_MS, KEEP_SIGNED_IN_COOKIE, findChallenge, startChallenge, verifyChallenge } from "@/lib/auth/two-step";
+import { forgetDevice, rememberDevice, REMEMBERED_COOKIE, REMEMBERED_COOKIE_MAX_AGE } from "@/lib/auth/remembered";
+import { deviceKeyOf } from "@/lib/auth/tokens";
 import { setAppearanceCookies, setSessionCookie, signInDevice } from "@/lib/current";
 import { prisma } from "@/lib/db";
 import { hitLimit, limitMessage } from "@/lib/rate-limit";
@@ -13,7 +15,11 @@ export type SignInState = { message: string; username: string } | null;
 
 const secure = process.env.NODE_ENV === "production";
 
-const REMEMBER_COOKIE = "sos_remember";
+const REMEMBER_COOKIE = KEEP_SIGNED_IN_COOKIE;
+
+async function keepRemembered(token: string) {
+  (await cookies()).set(REMEMBERED_COOKIE, token, { httpOnly: true, secure, sameSite: "lax", path: "/", maxAge: REMEMBERED_COOKIE_MAX_AGE });
+}
 
 async function finish(userLoginId: string, token: string, remember = true) {
   await setSessionCookie(token, remember);
@@ -35,7 +41,7 @@ export async function signInAction(_prev: SignInState, formData: FormData): Prom
   const limit = await hitLimit(`sign-in:ip:${device.ipAddress ?? "unknown"}`, 30, 600);
   if (!limit.ok) return { message: limitMessage(limit), username };
   const jar = await cookies();
-  const result = await signIn(username, password, device, { trustedDevice: jar.get(TRUSTED_COOKIE)?.value });
+  const result = await signIn(username, password, device, { trustedDevice: jar.get(REMEMBERED_COOKIE)?.value });
   const remember = formData.get("remember") === "on";
   if (!result.ok && result.twoStep) {
     const step = await startSecondStep(result.twoStep.userLoginId, result.twoStep.schoolId, device);
@@ -50,6 +56,8 @@ export async function signInAction(_prev: SignInState, formData: FormData): Prom
     redirect("/sign-in/code");
   }
   if (!result.ok) return { message: result.message, username };
+  // A remembered device skipped the code: its 180 days start again from today.
+  if (result.remembered) await keepRemembered(jar.get(REMEMBERED_COOKIE)!.value);
   await finish(result.userLoginId, result.token, remember);
   redirect("/dashboard");
 }
@@ -94,9 +102,13 @@ export async function verifyCodeAction(_prev: CodeState, formData: FormData): Pr
     await keepChallenge(next.token);
     redirect("/sign-in/code");
   }
-  if (next.mayTrust && formData.get("trust") === "on") {
-    const trusted = await trustDevice(next.userLoginId, device);
-    jar.set(TRUSTED_COOKIE, trusted, { httpOnly: true, secure, sameSite: "lax", path: "/", maxAge: TRUST_DAYS * 86_400 });
+  // After the password and a right code, this device is remembered, unless the
+  // person ticked "Shared computer: ask for the code every time".
+  if (next.mayRemember && formData.get("shared") !== "on") {
+    await keepRemembered(await rememberDevice(next.userLoginId, device));
+  } else if (next.mayRemember) {
+    await forgetDevice(next.userLoginId, { token: jar.get(REMEMBERED_COOKIE)?.value, deviceKey: deviceKeyOf(device.deviceId) });
+    jar.delete(REMEMBERED_COOKIE);
   }
   const remember = jar.get(REMEMBER_COOKIE)?.value !== "0";
   jar.delete({ name: REMEMBER_COOKIE, path: "/sign-in" });

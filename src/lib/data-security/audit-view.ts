@@ -68,6 +68,7 @@ const WORDS: Record<string, string> = {
   "signed-out": "Signed out",
   "signed-out-everywhere": "Signed out everywhere",
   "signed-out-device": "Signed out a device",
+  "forgot-remembered-device": "Forgot a remembered device",
   "changed-password": "Changed password",
   "asked-approval": "Asked for approval",
   "approval-approve": "Approved in Approvals",

@@ -12,6 +12,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert } from "@/components/ui/alert";
 import { ExportButton, TwoStepSwitch, AutoRefresh } from "./parts";
+import { REMEMBER_DAYS } from "@/lib/auth/remembered";
 
 export const metadata: Metadata = { title: "Data Backup & Security" };
 
@@ -122,7 +123,7 @@ export default async function DataSecurityPage() {
                 <Link href="/settings/users" className="font-medium text-brand-text underline">Users &amp; Permissions</Link>.
               </span>
             </p>
-            <p className="text-sm text-ink-2">A person can trust their own device for 30 days. If a phone is lost, another School Admin or the Principal resets two-step login in Users &amp; Permissions.</p>
+            <p className="text-sm text-ink-2">After the code, a device is remembered and does not ask again until the person signs out there (or does not use it for {REMEMBER_DAYS} days). On a shared computer they tick &ldquo;Shared computer&rdquo; to be asked every time. If a phone is lost, another School Admin or the Principal resets two-step login in Users &amp; Permissions.</p>
             {unreachable.length > 0 && (
               <Alert tone="warning" title={`No code can reach ${unreachable.length === 1 ? "1 person" : `${unreachable.length} people`} yet`}>
                 {unreachable.map((p) => p.displayName).join(", ")} still sign{unreachable.length === 1 ? "s" : ""} in with the password only, so nobody is locked out. Add a mobile number or email for them in{" "}

@@ -17,6 +17,8 @@ vi.mock("@/lib/current", () => ({
   clearSessionCookie: async () => {},
 }));
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
+// A password change keeps this browser's remembered device (its cookie); here there is none.
+vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => undefined, set: () => {}, delete: () => {} }), headers: async () => new Headers() }));
 
 import { prisma, withSchool } from "@/lib/db";
 import { afterRightCode, CODE_ALONE_WORDS, completeSignIn, signIn, startCodeSignIn, startSecondStep } from "@/lib/auth/sign-in";
@@ -173,7 +175,7 @@ describe("signing in with a one-time code instead of the password", () => {
     if (!v.ok) throw new Error(v.message);
     expect(v.purpose).toBe("code-sign-in");
     const done = await afterRightCode(v, device, { deliver: c.deliver });
-    expect(done).toMatchObject({ kind: "signed-in", mayTrust: false });
+    expect(done).toMatchObject({ kind: "signed-in", mayRemember: false });
     if (done.kind !== "signed-in") return;
     const session = await findSession(done.token);
     expect(session?.signedInWithCode).toBe(true);
@@ -219,7 +221,7 @@ describe("signing in with a one-time code instead of the password", () => {
     if (!second.ok) throw new Error(second.message);
     expect(second.purpose).toBe("code-sign-in-second");
     const done = await afterRightCode(second, device, { deliver: c.deliver });
-    expect(done).toMatchObject({ kind: "signed-in", mayTrust: true });
+    expect(done).toMatchObject({ kind: "signed-in", mayRemember: true });
     if (done.kind === "signed-in") expect((await findSession(done.token))?.userLoginId).toBe(principal.id);
   });
 

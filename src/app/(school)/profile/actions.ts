@@ -10,6 +10,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma, withSchool } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
 import { revokeAllSessions } from "@/lib/auth/sessions";
+import { forgetRememberedDevice, REMEMBERED_COOKIE } from "@/lib/auth/remembered";
 import { confirmContactChange, roleNeedsTwoStep, startContactChange, type ContactKind } from "@/lib/auth/two-step";
 import { deviceInfo, requireAction, requireCurrent } from "@/lib/current";
 import { hitLimit, limitMessage } from "@/lib/rate-limit";
@@ -100,11 +101,20 @@ export async function saveNotePrefs(prefs: Record<string, string[]>): Promise<Re
   return { ok: true, message: "Saved" };
 }
 
-/** Signs out every other device; this one stays signed in. */
+/** Signs out every other device and forgets every remembered device but this one; this one stays signed in. */
 export async function signOutOthers() {
   const current = await requireCurrent();
-  const n = await revokeAllSessions(current.user.id, "Signed out everywhere else", current.session.id);
+  const n = await revokeAllSessions(current.user.id, "Signed out everywhere else", current.session.id, { keepRememberedToken: (await cookies()).get(REMEMBERED_COOKIE)?.value });
   await audit("signed-out-everywhere-else", undefined, { devices: n });
+  revalidatePath("/profile");
+}
+
+/** "Forget" on a remembered device: the next sign-in there asks for the two-step code. */
+export async function forgetRemembered(formData: FormData) {
+  const current = await requireCurrent();
+  const id = String(formData.get("deviceId") ?? "");
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return;
+  if (await forgetRememberedDevice(current.user.id, id)) await audit("forgot-remembered-device", undefined, { device: id });
   revalidatePath("/profile");
 }
 

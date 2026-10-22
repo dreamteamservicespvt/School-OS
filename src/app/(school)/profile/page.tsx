@@ -10,6 +10,7 @@ import { reachFor } from "@/lib/permissions";
 import { BUILT_MODULES, type ModuleKey } from "@/lib/modules";
 import { codeChannels, roleNeedsTwoStep, twoStepHelp } from "@/lib/auth/two-step";
 import { mayResetWithoutOld } from "@/lib/auth/sessions";
+import { REMEMBER_DAYS, rememberedDevices } from "@/lib/auth/remembered";
 import { Alert } from "@/components/ui/alert";
 import { onChannels } from "@/lib/messaging/channels";
 import { NOTE_KINDS, readNotePrefs, type NoteChannel } from "@/lib/notification-kinds";
@@ -22,7 +23,7 @@ import { Card, CardHeader } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
 import { ConfirmButton } from "@/components/ui/confirm";
 import { signOut, signOutDevice } from "../actions";
-import { signOutOthers } from "./actions";
+import { forgetRemembered, signOutOthers } from "./actions";
 import { EditDetails, NotePrefsTable, PasswordButton, TwoStepRow } from "./parts";
 
 export const metadata: Metadata = { title: "My profile" };
@@ -56,8 +57,9 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
   const tz = current.school.timeZone;
   const u = current.user;
   const withoutOld = mayResetWithoutOld(current.session);
-  const [sessions, staff, mustTwoStep, allowed] = await Promise.all([
+  const [sessions, remembered, staff, mustTwoStep, allowed] = await Promise.all([
     prisma.session.findMany({ where: { userLoginId: u.id, revokedAt: null, expiresAt: { gt: new Date() } }, orderBy: { lastUsedAt: "desc" } }),
+    rememberedDevices(u.id),
     withSchool(current.ctx, (tx) => tx.staff.findFirst({ where: { userLoginId: u.id }, select: { id: true, staffCode: true, joiningDate: true, photoFileId: true } })),
     roleNeedsTwoStep(u.id, current.school.id),
     withSchool(current.ctx, async (tx) => {
@@ -173,8 +175,35 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                 <div className="px-5 pb-4 pt-1">
                   <ConfirmButton trigger="Sign out everywhere else" triggerVariant="danger-soft" title="Sign out everywhere else?"
                     confirmLabel={`Sign out ${others} device${others === 1 ? "" : "s"}`} confirmVariant="danger" onConfirm={signOutOthers}>
-                    You are signed out on {others} other device{others === 1 ? "" : "s"}. You stay signed in here. Your password is needed to sign in there again.
+                    You are signed out on {others} other device{others === 1 ? "" : "s"}. You stay signed in here. Your password is needed to sign in there again{twoStepOn ? ", and the one-time code" : ""}.
                   </ConfirmButton>
+                </div>
+              )}
+              {remembered.length > 0 && (
+                <div className="border-t border-line/70">
+                  <div className="px-5 pt-4 pb-1">
+                    <h3 className="font-semibold text-[14px]">Remembered devices</h3>
+                    <p className="text-[12.5px] text-ink3">These do not ask for the one-time code when you sign in with your password. Signing out on a device forgets it. A device not used for {REMEMBER_DAYS} days is forgotten.</p>
+                  </div>
+                  <ul className="px-2 pb-2">
+                    {remembered.map((r) => {
+                      const d = describeDevice(r.userAgent);
+                      const here = Boolean(r.deviceKey && r.deviceKey === current.session.deviceKey);
+                      return (
+                        <li key={r.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sunken/60">
+                          <span className="w-10 h-10 rounded-xl bg-sunken text-ink2 grid place-items-center shrink-0"><d.icon size={19} aria-hidden="true" /></span>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-semibold text-[14px] truncate">{d.name}{here && <Pill tone="brand" className="!h-5 !text-[11px] ml-2 align-middle">This device</Pill>}</p>
+                            <p className="text-[12.5px] text-ink3 truncate">Remembered {formatDate(r.createdAt)} · last used {formatDateTime(r.lastUsedAt, tz)}</p>
+                          </div>
+                          <form action={forgetRemembered}>
+                            <input type="hidden" name="deviceId" value={r.id} />
+                            <button type="submit" className="h-8 px-3 rounded-lg text-[13px] font-semibold text-ink2 hover:bg-sunken hover:text-ink">Forget</button>
+                          </form>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 </div>
               )}
             </Card>

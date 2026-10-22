@@ -1,10 +1,12 @@
 // Two-step login (08-platform-security.md §2): a 6-digit code, kept only as a
-// hash, valid 10 minutes and 5 tries, with a trusted-device option.
+// hash, valid 10 minutes and 5 tries; after it the device is remembered
+// (remembered-devices.test.ts has the rest).
 import { beforeAll, describe, expect, it } from "vitest";
 import { prisma, withSchool } from "@/lib/db";
 import { signIn, completeSignIn } from "@/lib/auth/sign-in";
 import { findSession } from "@/lib/auth/sessions";
-import { CODE_TTL_MS, deliverCode, isTrustedDevice, MAX_CODE_TRIES, maskEmail, needsTwoStep, startChallenge, trustDevice, TWO_STEP_FEATURE, verifyChallenge } from "@/lib/auth/two-step";
+import { CODE_TTL_MS, deliverCode, MAX_CODE_TRIES, maskEmail, needsTwoStep, startChallenge, TWO_STEP_FEATURE, verifyChallenge } from "@/lib/auth/two-step";
+import { isRememberedDevice, rememberDevice, REMEMBER_DAYS } from "@/lib/auth/remembered";
 import { makeSchool, makeUser, noSleep, PASSWORD } from "../helpers";
 
 const device = { userAgent: "Two-step browser", ipAddress: "10.0.0.9" };
@@ -116,16 +118,16 @@ describe("one-time codes", () => {
   });
 });
 
-describe("trusted devices", () => {
-  it("skip the code for 30 days, until two-step login is reset", async () => {
-    const token = await trustDevice(principal.id, device);
-    expect(await isTrustedDevice(principal.id, token)).toBe(true);
-    expect(await isTrustedDevice(teacher.id, token)).toBe(false);
-    expect(await isTrustedDevice(principal.id, token, new Date(Date.now() + 31 * 86_400_000))).toBe(false);
+describe("remembered devices", () => {
+  it("skip the code until two-step login is reset, or for at most 180 days without use", async () => {
+    const token = await rememberDevice(principal.id, device);
+    expect(await isRememberedDevice(principal.id, token)).toBe(true);
+    expect(await isRememberedDevice(teacher.id, token)).toBe(false);
+    expect(await isRememberedDevice(principal.id, token, new Date(Date.now() + (REMEMBER_DAYS + 1) * 86_400_000))).toBe(false);
     expect((await signIn(principal.username, PASSWORD, device, { sleep: noSleep, trustedDevice: token })).ok).toBe(true);
 
     await prisma.userLogin.update({ where: { id: principal.id }, data: { twoStepResetAt: new Date() } });
-    expect(await isTrustedDevice(principal.id, token)).toBe(false);
+    expect(await isRememberedDevice(principal.id, token)).toBe(false);
     const r = await signIn(principal.username, PASSWORD, device, { sleep: noSleep, trustedDevice: token });
     expect(!r.ok && r.twoStep).toBeTruthy();
   });

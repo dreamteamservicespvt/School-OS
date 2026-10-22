@@ -126,3 +126,58 @@ describe("Attendance so far (G19)", () => {
     expect(after.people.get(f.ravi.id)?.broughtIn).toBeUndefined();
   });
 });
+
+describe("Leave balances at go-live (G19)", () => {
+  it("HR's work, as on Staff Leave; each row moves one balance and Undo takes it back", async () => {
+    const principal = await who(f.principal.id);
+    const acc = await who(f.accountant.id);
+    expect(await placeRefusal(principal, PLACES.staff, "staff-leave-balances", "create")).toBeNull();
+    expect(await placeRefusal(principal, PLACES.settings, "staff-leave-balances", "create")).toBeNull();
+    expect(await placeRefusal(acc, PLACES.staff, "staff-leave-balances", "create")).not.toBeNull();
+    expect(await placeRefusal(acc, PLACES.settings, "staff-leave-balances", "create")).not.toBeNull();
+
+    const c = f.pctx;
+    const { asha } = await run(c, async (tx) => {
+      const base = { schoolId: f.school.id, campusId: f.school.campus.id, designation: "Teacher", joiningDate: day("2020-06-01") };
+      const asha = await tx.staff.create({ data: { ...base, staffCode: "LB-1", firstName: "Asha", fullName: "Asha Rao", phone: "9876500911" } });
+      await tx.staff.create({ data: { ...base, staffCode: "LB-2", firstName: "Bala", fullName: "Bala Iyer", phone: "9876500912" } });
+      for (const [name, code, days, paid] of [["Casual Leave", "CL", 12, true], ["Earned Leave", "EL", 15, true], ["Leave Without Pay", "LWP", 0, false]] as const) {
+        await tx.leaveType.create({ data: { schoolId: f.school.id, forWhom: "staff", name, code, daysPerYear: days, paid } });
+      }
+      return { asha };
+    });
+    const csv = "Emp Code,Leave Type,Balance,Leave Taken\nLB-1,CL,8,\nLB-1,el,,4\nLB-2,LWP,3,\nLB-2,CL,2,2\nLB-9,CL,1,\nLB-2,EL,,\n";
+    const [id] = await upload(c, csv, "leave.csv", "staff-leave-balances");
+    const w = await run(c, (tx) => workOn(tx, c, id, { check: true }));
+    expect(w.choices.columnMatch).toMatchObject({ staffId: [0], leaveType: [1], daysLeft: [2], daysTaken: [3] });
+    const checked = w.checked!;
+    expect(checked.ready.map((r) => r.line)).toEqual([2, 3]);
+    const problem = (line: number) => checked.problems.find((p) => p.line === line)?.problems.join(" ") ?? "";
+    expect(problem(4)).toMatch(/Leave Without Pay is unpaid and has no balance/);
+    expect(problem(5)).toMatch(/Fill Days left or Days taken, not both/);
+    expect(problem(6)).toMatch(/No staff member has the staff ID LB-9/);
+    expect(checked.problems.some((p) => p.line === 7)).toBe(false);
+
+    const batchId = await bringIn(c, id, PLACES.staff);
+    const left = async () => {
+      const rows = await run(c, async (tx) => {
+        const { balancesFor } = await import("@/lib/staff/leave");
+        return (await balancesFor(tx, c, [asha.id], f.year.id)).get(asha.id)!;
+      });
+      return Object.fromEntries(rows.filter((r) => r.limited).map((r) => [r.type.code, r.left]));
+    };
+    expect(await left()).toEqual({ CL: 8, EL: 11 });
+    const batch = await run(c, (tx) => tx.importBatch.findUniqueOrThrow({ where: { id: batchId } }));
+    expect(batch).toMatchObject({ added: 0, updated: 2 });
+    expect(await run(c, (tx) => tx.auditLogEntry.count({ where: { action: "leave-balance-adjusted", recordType: "Leave Balance", after: { path: ["kind"], equals: "brought-in" } } }))).toBe(2);
+
+    // Brought in twice: the second file says so.
+    const [again] = await upload(c, "Staff ID,Leave type,Days left\nLB-1,Casual Leave,9\n", "again.csv", "staff-leave-balances");
+    expect((await run(c, (tx) => workOn(tx, c, again, { check: true }))).checked!.problems[0].problems.join(" ")).toMatch(/already brought in \(8 days left at go-live\)/);
+
+    expect(await run(c, (tx) => undoImport(tx, c, batchId))).toMatchObject({ archived: 0, putBack: 2 });
+    expect(await left()).toEqual({ CL: 12, EL: 15 });
+    // After Undo the same file can come in again.
+    expect((await run(c, (tx) => workOn(tx, c, again, { check: true }))).checked!.ready).toHaveLength(1);
+  });
+});

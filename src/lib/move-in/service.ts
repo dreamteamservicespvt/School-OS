@@ -52,6 +52,7 @@ export type MoveInKind = { key: string; label: string; module: ModuleKey; order:
 const KNOWN: Record<string, Omit<MoveInKind, "key" | "label">> = {
   departments: { module: "settings", order: 1, about: "Departments such as Science and Accounts, with their heads. Bring these first if your staff list has departments." },
   staff: { module: "staff-hr-management", order: 2, about: "Teachers and other staff, with phone, designation and joining date. Logins can be made for them." },
+  "staff-leave-balances": { module: "staff-hr-management", order: 2.2, about: "Starting part way through the year? For each staff member and leave type, the days left at go-live (or the days taken so far). Leave left, the leave check and loss of pay in salary are right from the first day." },
   students: { module: "student-management", order: 3, about: "Students with their class, section, roll number and admission number, and their parents. Old admission numbers are kept." },
   "students-update": { module: "student-management", order: 4, about: "Changes to students already here, found by admission number." },
   "attendance-so-far": { module: "attendance-management", order: 4.5, about: "Starting part way through the year? For each student, the days the school met and the days present up to the day before go-live. Attendance % and early warnings count them from the first day." },
@@ -218,11 +219,12 @@ export async function schoolLookups(tx: Tx, ctx: SchoolContext): Promise<Lookups
     include: { schoolClass: { select: { name: true, sortOrder: true } } },
     orderBy: [{ schoolClass: { sortOrder: "asc" } }, { name: "asc" }],
   }) : [];
-  const [designations, departments, feeHeads, expenseHeads] = await Promise.all([
+  const [designations, departments, feeHeads, expenseHeads, leaveTypes] = await Promise.all([
     tx.designation.findMany({ where: { archivedAt: null }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { name: true } }),
     tx.department.findMany({ where: { archivedAt: null }, orderBy: { name: "asc" }, select: { name: true } }),
     tx.feeHead.findMany({ where: { archivedAt: null }, orderBy: { name: "asc" }, select: { name: true } }),
     tx.accountHead.findMany({ where: { kind: "EXPENSE", archivedAt: null }, orderBy: { name: "asc" }, select: { name: true } }),
+    tx.leaveType.findMany({ where: { forWhom: "staff", paid: true, archivedAt: null }, orderBy: { name: "asc" }, select: { name: true } }),
   ]);
   return {
     yearId: year?.id ?? null,
@@ -232,6 +234,7 @@ export async function schoolLookups(tx: Tx, ctx: SchoolContext): Promise<Lookups
     departments: departments.map((d) => d.name),
     feeHeads: feeHeads.map((h) => h.name),
     expenseHeads: expenseHeads.map((h) => h.name),
+    leaveTypes: leaveTypes.map((t) => t.name),
   };
 }
 

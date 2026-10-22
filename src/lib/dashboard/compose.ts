@@ -19,7 +19,7 @@ import { BUILT_MODULES, type ModuleKey } from "../modules";
 import { daysBetween, dayWord, longDay, minuteIn, moduleOpen, plural } from "./common";
 import { schoolCalendar } from "../calendar/school-days";
 import { taskAccess, isOverdue, OPEN_TASK } from "./tasks";
-import type { AgendaItem, AttentionItem, BandItem, Birthday, DashContext, HomeKind, Panel, PanelSlot, Viewer, Widget, WidgetKind } from "./types";
+import type { AgendaItem, AttentionItem, BandItem, Birthday, DashContext, HomeKind, Panel, PanelSlot, Viewer, Widget, WidgetKind, WidgetOutput } from "./types";
 
 /** Band order inside a home, where it differs from the registry order. Slot ids come first so they lead once wired. */
 const BAND_ORDER: Partial<Record<HomeKind, string[]>> = {
@@ -220,6 +220,30 @@ async function schoolDayLine(tx: Tx, viewer: Viewer, today: Date, year: DashCont
   if (!info.on) return info.reason === "holiday" ? `${info.title} · no school today` : "No school today";
   const working = cal.working();
   return `School day ${working.filter((d) => d <= today).length} of ${working.length}`;
+}
+
+/** Of these widget ids, the ones this person's Dashboard shows (their homes, module open, allowed). */
+export function widgetsOpenTo(viewer: Viewer, ids: readonly string[]) {
+  return widgetsFor(viewer, homesFor(viewer)).filter((w) => ids.includes(w.id));
+}
+
+/**
+ * Loads some of this person's widgets of one kind in the given transaction,
+ * exactly as their Dashboard does (Ask answers "Whose birthday is this week?"
+ * with the Dashboard's own rows, gap list G27).
+ */
+export async function loadWidgetsIn<K extends WidgetKind>(tx: Tx, viewer: Viewer, kind: K, ids: readonly string[], now = new Date()): Promise<WidgetOutput[K][]> {
+  const list = widgetsOpenTo(viewer, ids).filter((w) => w.kind === kind);
+  if (!list.length) return [];
+  const tz = viewer.school.timeZone;
+  const year = await yearIn(tx, viewer);
+  const c: DashContext = { tx, viewer, homes: homesFor(viewer), today: todayFor(tz, now), now, tz, minuteNow: minuteIn(tz, now), year, yearIds: await yearIdsIn(tx, viewer, year), memo: memoFor() };
+  const out: WidgetOutput[K][] = [];
+  for (const w of list) {
+    const r = await w.load(c);
+    if (r != null) out.push(...((Array.isArray(r) ? r : [r]) as WidgetOutput[K][]));
+  }
+  return out;
 }
 
 /** `lanes` sets how many transactions load the page (tests and measuring; 1 loads it all in one, one widget after another). */

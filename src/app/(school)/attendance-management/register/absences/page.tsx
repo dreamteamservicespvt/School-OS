@@ -22,6 +22,7 @@ import { AttHead } from "../../_components/att-head";
 import { DataList } from "../../_components/data-list";
 import { ReasonButton } from "../../_components/reason-form";
 import { setAbsenceReasonAction } from "../actions";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Absent list" };
 
@@ -75,7 +76,7 @@ export default async function AbsentListPage({ searchParams }: Props) {
         )}
         {!on ? (
           <EmptyState title="Absence reasons are off" Icon={Settings2}
-            action={access.admin ? <Link href={`${BASE}/settings`} className={buttonClass("secondary", "md")}>Open Attendance Settings</Link> : undefined}>
+            action={access.admin ? <Link href={`${BASE}/settings`} className={buttonClass("secondary", "md")}><Words k="Open Attendance Settings" /></Link> : undefined}>
             {access.admin ? "Switch on Absence reasons in Attendance Settings, Punch methods, More options, to record why students were absent." : "The school does not record absence reasons. Ask the School Admin to switch them on."}
           </EmptyState>
         ) : (
@@ -117,7 +118,7 @@ export default async function AbsentListPage({ searchParams }: Props) {
                   {reasonFilter ? "Choose Any reason to see everyone absent on this day." : `No student is marked absent on ${dayText(date)} in your classes.`}
                 </EmptyState>} />
             </Card>
-            <p className="text-[13px] text-ink3">Setting a reason does not change the mark or the attendance %. Every change is kept in the audit log.</p>
+            <p className="text-[13px] text-ink3"><Words k="Setting a reason does not change the mark or the attendance %. Every change is kept in the audit log." /></p>
           </>
         )}
       </div>

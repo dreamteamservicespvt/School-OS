@@ -20,6 +20,7 @@ import { EmptyState } from "@/components/empty-state";
 import { AttHead } from "../../_components/att-head";
 import { CORRECTION_STATUS } from "../../_components/words";
 import { pillTone } from "../../_components/status";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Attendance corrections" };
 
@@ -86,7 +87,7 @@ export default async function CorrectionsPage({ searchParams }: Props) {
   return (
     <>
       <AttHead access={access} features={features} userId={current.user.id} href={path} sub="Changes asked for after attendance locked, decided in Approvals"
-        actions={access.change !== "none" ? <ButtonLink href={`${BASE}/register/correction`} variant="primary" icon={Plus}>Request a correction</ButtonLink> : undefined} />
+        actions={access.change !== "none" ? <ButtonLink href={`${BASE}/register/correction`} variant="primary" icon={Plus}><Words k="Request a correction" /></ButtonLink> : undefined} />
       <div className="flex flex-col gap-4">
         <Chips label="Register views" value="corrections" options={[
           { value: "class", label: "Class register", href: `${BASE}/register` },

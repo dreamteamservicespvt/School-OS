@@ -20,6 +20,7 @@ import { StatusChip, type StatusView } from "../../../_components/status";
 import { DecisionButtons } from "../../../_components/decision";
 import { CORRECTION_STATUS } from "../../../_components/words";
 import { approveCorrectionAction, rejectCorrectionAction, withdrawCorrectionAction } from "../../actions";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Attendance correction" };
 
@@ -68,7 +69,7 @@ export default async function CorrectionDetail({ params }: { params: Promise<{ i
   return (
     <>
       <AttHead access={access} features={features} userId={current.user.id} href={`${BASE}/register/corrections/${c.id}`} sub={`Correction · ${title}`}
-        actions={<ButtonLink href={`${BASE}/register/corrections`} icon={ArrowLeft}>All corrections</ButtonLink>} />
+        actions={<ButtonLink href={`${BASE}/register/corrections`} icon={ArrowLeft}><Words k="All corrections" /></ButtonLink>} />
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="space-y-5">
@@ -76,21 +77,21 @@ export default async function CorrectionDetail({ params }: { params: Promise<{ i
             <CardHeader title={title} description={CORRECTION_WORDS[c.kind] ?? c.kind}
               action={<Pill tone={CORRECTION_STATUS[c.status]?.tone ?? "neutral"}>{CORRECTION_STATUS[c.status]?.label ?? c.status}</Pill>} />
             <CardBody className="space-y-4">
-              <p className="rounded-xl bg-sunken px-4 py-3 text-[14.5px]"><span className="font-semibold">Reason: </span>{c.reason}</p>
+              <p className="rounded-xl bg-sunken px-4 py-3 text-[14.5px]"><span className="font-semibold"><Words k="Reason:" /> </span>{c.reason}</p>
               {waiting && (
                 <DecisionButtons hidden={hidden} canDecide={data.decider} canWithdraw={data.mine} what="correction"
                   approve={approveCorrectionAction} reject={rejectCorrectionAction} withdraw={withdrawCorrectionAction} />
               )}
-              {waiting && !data.decider && !data.mine && <Banner tone="info">This correction is waiting for the approver in Approvals.</Banner>}
+              {waiting && !data.decider && !data.mine && <Banner tone="info"><Words k="This correction is waiting for the approver in Approvals." /></Banner>}
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-[15px]">
-                  <caption className="sr-only">Changes asked for</caption>
+                  <caption className="sr-only"><Words k="Changes asked for" /></caption>
                   <thead className="border-b border-line text-sm text-ink3">
                     <tr>
                       <th scope="col" className="py-2 pr-3 font-medium">{c.forWhom === "staff" ? "Staff member" : "Student"}</th>
                       <th scope="col" className="py-2 pr-3 font-medium">{waiting ? "Saved now" : "Was"}</th>
                       <th scope="col" className="py-2 pr-3 font-medium">{waiting ? "Asked for" : "Changed to"}</th>
-                      <th scope="col" className="py-2 font-medium">Note</th>
+                      <th scope="col" className="py-2 font-medium"><Words k="Note" /></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-line">
@@ -114,9 +115,9 @@ export default async function CorrectionDetail({ params }: { params: Promise<{ i
               <CardBody>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-[15px]">
-                    <caption className="sr-only">The saved version and the second version side by side</caption>
+                    <caption className="sr-only"><Words k="The saved version and the second version side by side" /></caption>
                     <thead className="border-b border-line text-sm text-ink3">
-                      <tr><th scope="col" className="py-2 pr-3 font-medium">Student</th><th scope="col" className="py-2 pr-3 font-medium">Saved first</th><th scope="col" className="py-2 font-medium">Second version</th></tr>
+                      <tr><th scope="col" className="py-2 pr-3 font-medium"><Words k="Student" /></th><th scope="col" className="py-2 pr-3 font-medium"><Words k="Saved first" /></th><th scope="col" className="py-2 font-medium"><Words k="Second version" /></th></tr>
                     </thead>
                     <tbody className="divide-y divide-line">
                       {versions.second.map((v) => {
@@ -124,7 +125,7 @@ export default async function CorrectionDetail({ params }: { params: Promise<{ i
                         const differs = first?.status !== v.status;
                         return (
                           <tr key={v.id} className={differs ? "bg-warn/10" : ""}>
-                            <td className="py-2 pr-3">{v.name}{differs && <span className="sr-only"> (different)</span>}</td>
+                            <td className="py-2 pr-3">{v.name}{differs && <span className="sr-only"> <Words k="(different)" /></span>}</td>
                             <td className="py-2 pr-3"><StatusChip status={st(first?.status ?? null)} size="sm" /></td>
                             <td className="py-2"><StatusChip status={st(v.status)} size="sm" /></td>
                           </tr>
@@ -147,8 +148,8 @@ export default async function CorrectionDetail({ params }: { params: Promise<{ i
               ...(c.decidedAt ? [[c.status === "WITHDRAWN" ? "Withdrawn on" : "Decided", `${formatDateTime(c.decidedAt, tz)}${c.decidedById ? ` by ${data.names.get(c.decidedById) ?? "the approver"}` : ""}`] as [string, React.ReactNode]] : []),
               ...(c.decisionNote ? [["Decision note", c.decisionNote] as [string, React.ReactNode]] : []),
             ]} />
-            {c.status === "APPROVED" && <p className="text-[13px] text-ink3">The marks as they were before are kept in the audit log.</p>}
-            {data.approval && <ButtonLink href={`/approvals/${data.approval.id}`} variant="ghost" size="sm" icon={ExternalLink}>Open in Approvals</ButtonLink>}
+            {c.status === "APPROVED" && <p className="text-[13px] text-ink3"><Words k="The marks as they were before are kept in the audit log." /></p>}
+            {data.approval && <ButtonLink href={`/approvals/${data.approval.id}`} variant="ghost" size="sm" icon={ExternalLink}><Words k="Open in Approvals" /></ButtonLink>}
           </CardBody>
         </Card>
       </div>

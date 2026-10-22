@@ -7,6 +7,7 @@ import { useMemo, useState } from "react";
 import { SelectField, TextArea, TextField } from "@/components/ui/field";
 import { ActionForm, type Action } from "../../staff-hr-management/_components/forms";
 import { toneClass, type StatusView } from "./status";
+import { Words } from "@/lib/i18n/client";
 
 export type CorrectionPerson = { id: string; label: string; current: string | null; checked: boolean };
 
@@ -35,7 +36,7 @@ export function CorrectionForm({ action, hidden, people, statuses, forWhom }: {
                       <input type="checkbox" name="people" value={p.id} defaultChecked={p.checked} className="size-5 accent-[var(--brand)]" />
                       <span className="min-w-0 flex-1 truncate">{p.label}</span>
                       <span className={`shrink-0 rounded-md border px-2 py-0.5 text-xs ${st ? toneClass(st.tone) : "border-dashed border-line-strong text-ink-2"}`}>
-                        Now: {st?.name ?? "Not marked"}
+                        <Words k="Now:" /> {st?.name ?? "Not marked"}
                       </span>
                     </label>
                   </li>

@@ -25,6 +25,7 @@ import { ActionButton } from "../../../staff-hr-management/_components/forms";
 import { AttHead } from "../../_components/att-head";
 import { DeviceForm, MapUserForm, RegenerateKey } from "../../_components/device-forms";
 import { autoMatchAction, deviceStateAction, mapUserAction, regenerateKeyAction, reprocessAction, unmapUserAction, updateDeviceAction } from "../actions";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Attendance device" };
 
@@ -90,7 +91,7 @@ export default async function DevicePage({ params, searchParams }: { params: Pro
   return (
     <>
       <AttHead access={access} features={features} userId={current.user.id} href={path} sub={`${d.name} · ${typeLabel} · ${d.location ?? "No location"} · ${d.serialNo}`}
-        actions={<ButtonLink href={`${BASE}/devices`} variant="ghost" icon={ArrowLeft}>All devices</ButtonLink>} />
+        actions={<ButtonLink href={`${BASE}/devices`} variant="ghost" icon={ArrowLeft}><Words k="All devices" /></ButtonLink>} />
       <div className="flex flex-col gap-5 lg:gap-6">
         <Stats items={[
           { label: "Status", value: archived ? "Archived" : st.label, sub: d.lastSyncAt ? `Last sync ${formatDateTime(d.lastSyncAt, tz)}` : "Never connected", tone: archived || st.tone === "neutral" ? undefined : TONE[st.tone] as "ok" | "warn" | "bad", icon: ScanFace },
@@ -98,12 +99,12 @@ export default async function DevicePage({ params, searchParams }: { params: Pro
           { label: "Rejected", value: data.rejected, sub: range?.label ?? "All dates", tone: data.rejected ? "warn" : undefined, icon: ListChecks, href: qs({ punches: "rejected" }) },
           { label: "Users mapped", value: data.maps.length, sub: data.unmapped.length ? `${data.unmapped.length} unknown users sent punches` : "No unknown users", icon: Link2 },
         ]} />
-        {!d.isActive && !archived && <Banner tone="info" title="This device is inactive.">Its punches are received but rejected until it is active again.</Banner>}
+        {!d.isActive && !archived && <Banner tone="info" title="This device is inactive."><Words k="Its punches are received but rejected until it is active again." /></Banner>}
         <Split side={340}>
           <Col className="min-w-0">
             <Card className="overflow-hidden">
               <CardHeader icon={ListChecks} title="Punches" description="A punch counts only if the device is active, the person is mapped and allowed, the time is inside the attendance window, it is a school day, and it is not a repeat."
-                action={!archived && canEdit ? <ActionButton action={reprocessAction} hidden={{ deviceId: d.id }} size="md" pendingText="Re-running…">Re-run sync</ActionButton> : undefined} />
+                action={!archived && canEdit ? <ActionButton action={reprocessAction} hidden={{ deviceId: d.id }} size="md" pendingText="Re-running…"><Words k="Re-run sync" /></ActionButton> : undefined} />
               <div className="flex flex-wrap items-center gap-2 px-3 pb-3 border-b border-line">
                 <Chips label="Punches shown" value={onlyRejected ? "rejected" : "all"} options={[
                   { value: "all", label: "All", count: data.accepted + data.rejected, href: qs({ punches: null }) },
@@ -116,36 +117,36 @@ export default async function DevicePage({ params, searchParams }: { params: Pro
                   { key: "t", label: "Time", render: (p) => <span className="tnum whitespace-nowrap">{formatDateTime(p.punchedAt, tz)}</span> },
                   { key: "u", label: "Device user", render: (p) => <span className="font-mono">{p.deviceUserNo}</span> },
                   { key: "p", label: "Person", render: (p) => data.names.get(p.staffId ?? p.studentId ?? "") ?? <span className="text-ink3">—</span> },
-                  { key: "r", label: "Result", render: (p) => (p.accepted ? <Pill tone="ok">Counted</Pill> : <Pill tone="bad">{REJECT_WORDS[p.rejectReason ?? ""] ?? "Rejected"}</Pill>) },
+                  { key: "r", label: "Result", render: (p) => (p.accepted ? <Pill tone="ok"><Words k="Counted" /></Pill> : <Pill tone="bad">{REJECT_WORDS[p.rejectReason ?? ""] ?? "Rejected"}</Pill>) },
                   { key: "n", label: "Punch no.", render: (p) => <span className="font-mono text-ink3">{p.punchNo}</span> },
                 ]}
-                mobile={(p) => ({ title: data.names.get(p.staffId ?? p.studentId ?? "") ?? `User ${p.deviceUserNo}`, sub: formatDateTime(p.punchedAt, tz), right: p.accepted ? <Pill tone="ok">Counted</Pill> : <Pill tone="bad">{REJECT_WORDS[p.rejectReason ?? ""] ?? "Rejected"}</Pill> })}
+                mobile={(p) => ({ title: data.names.get(p.staffId ?? p.studentId ?? "") ?? `User ${p.deviceUserNo}`, sub: formatDateTime(p.punchedAt, tz), right: p.accepted ? <Pill tone="ok"><Words k="Counted" /></Pill> : <Pill tone="bad">{REJECT_WORDS[p.rejectReason ?? ""] ?? "Rejected"}</Pill> })}
                 footer={<Pager page={list.page} pageSize={PAGE_SIZE} total={data.total} href={(n) => listHref(path, list, { page: n })} />}
                 empty={<EmptyState bare Icon={ListChecks} title={onlyRejected ? "No rejected punches" : "No punches in these dates"}>{onlyRejected ? "Every punch received was counted." : "Punches appear here as soon as the device sends them."}</EmptyState>} />
             </Card>
             <Card>
               <CardHeader icon={Link2} title="User mapping" description="Match each device user number to a student or staff member. Auto-match uses staff IDs and admission numbers."
-                action={!archived && canEdit ? <div className="flex flex-wrap gap-2"><ActionButton action={autoMatchAction} hidden={{ deviceId: d.id }} size="md" pendingText="Matching…">Auto-match</ActionButton><MapUserForm action={mapUserAction} deviceId={d.id} people={data.people} /></div> : undefined} />
+                action={!archived && canEdit ? <div className="flex flex-wrap gap-2"><ActionButton action={autoMatchAction} hidden={{ deviceId: d.id }} size="md" pendingText="Matching…"><Words k="Auto-match" /></ActionButton><MapUserForm action={mapUserAction} deviceId={d.id} people={data.people} /></div> : undefined} />
               <div className="px-5 pb-5 flex flex-col gap-3">
                 {data.unmapped.length > 0 && (
                   <div className="rounded-xl border border-warn/30 bg-warn/10 p-3 text-[14px]">
-                    <p className="font-semibold text-warn">{data.unmapped.length} unknown device {data.unmapped.length === 1 ? "user" : "users"} sent punches</p>
+                    <p className="font-semibold text-warn">{data.unmapped.length} <Words k="unknown device" /> {data.unmapped.length === 1 ? "user" : "users"} <Words k="sent punches" /></p>
                     <ul className="mt-2 flex flex-col gap-1">
                       {data.unmapped.slice(0, 20).map((u) => (
                         <li key={u.deviceUserNo} className="flex flex-wrap items-center justify-between gap-2">
-                          <span className="text-ink2">User <span className="font-mono">{u.deviceUserNo}</span>: {u._count} {u._count === 1 ? "punch" : "punches"} rejected</span>
+                          <span className="text-ink2"><Words k="User" /> <span className="font-mono">{u.deviceUserNo}</span>: {u._count} {u._count === 1 ? "punch" : "punches"} <Words k="rejected" /></span>
                           {!archived && canEdit && <MapUserForm action={mapUserAction} deviceId={d.id} people={data.people} defaultNo={u.deviceUserNo} />}
                         </li>
                       ))}
                     </ul>
                   </div>
                 )}
-                {data.maps.length === 0 ? <p className="text-[14px] text-ink3">No users mapped yet. Auto-match after the first punches arrive, or map numbers by hand.</p> : (
+                {data.maps.length === 0 ? <p className="text-[14px] text-ink3"><Words k="No users mapped yet. Auto-match after the first punches arrive, or map numbers by hand." /></p> : (
                   <ul className="divide-y divide-line/70">
                     {data.maps.map((m) => (
                       <li key={m.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-[14px]">
                         <span><span className="font-mono">{m.deviceUserNo}</span> → {data.names.get(m.staffId ?? m.studentId ?? "") ?? "Unknown"} <span className="text-[12.5px] text-ink3">({m.matchedBy === "auto" ? "auto-matched" : "by hand"})</span></span>
-                        {!archived && canEdit && <ActionButton action={unmapUserAction} hidden={{ mapId: m.id }} variant="ghost">Remove</ActionButton>}
+                        {!archived && canEdit && <ActionButton action={unmapUserAction} hidden={{ mapId: m.id }} variant="ghost"><Words k="Remove" /></ActionButton>}
                       </li>
                     ))}
                   </ul>
@@ -173,14 +174,14 @@ export default async function DevicePage({ params, searchParams }: { params: Pro
                 <CardHeader icon={Settings2} title="Change" />
                 <div className="px-5 pb-5 flex flex-wrap gap-2">
                   {archived ? (
-                    <ActionButton action={deviceStateAction} hidden={{ deviceId: d.id, change: "restore" }} size="md">Restore</ActionButton>
+                    <ActionButton action={deviceStateAction} hidden={{ deviceId: d.id, change: "restore" }} size="md"><Words k="Restore" /></ActionButton>
                   ) : (
                     <>
                       <DeviceForm action={updateDeviceAction} campuses={data.campuses.map((c) => ({ value: c.id, label: c.name }))} types={[...DEVICE_TYPES]} allowed={[...ALLOWED_USERS]}
                         device={{ id: d.id, name: d.name, serialNo: d.serialNo, location: d.location, campusId: d.campusId, deviceType: d.deviceType, allowedUsers: d.allowedUsers, ipAddress: d.ipAddress, connectionNote: d.connectionNote }} />
                       <RegenerateKey deviceId={d.id} name={d.name} action={regenerateKeyAction} />
                       <ActionButton action={deviceStateAction} hidden={{ deviceId: d.id, change: d.isActive ? "deactivate" : "activate" }} size="md">{d.isActive ? "Deactivate" : "Make active"}</ActionButton>
-                      <ActionButton action={deviceStateAction} hidden={{ deviceId: d.id, change: "archive" }} size="md" variant="danger-outline">Archive</ActionButton>
+                      <ActionButton action={deviceStateAction} hidden={{ deviceId: d.id, change: "archive" }} size="md" variant="danger-outline"><Words k="Archive" /></ActionButton>
                     </>
                   )}
                 </div>

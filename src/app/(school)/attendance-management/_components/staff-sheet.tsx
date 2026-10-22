@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { SearchIcon } from "@/components/icons";
 import { saveStaffDay } from "../staff/actions";
 import { toneClass, type StatusView } from "./status";
+import { Words } from "@/lib/i18n/client";
 
 export type StaffSheetRow = {
   id: string; name: string; code: string; designation: string; department: string | null; shift: string | null; start: string;
@@ -87,8 +88,8 @@ export function StaffSheet(p: Props) {
     <div className={p.canEdit ? "pb-28" : ""}>
       {p.locked && !p.override && p.canEdit && (
         <Alert tone="warning" className="mb-3" title={`Attendance for ${p.dateText} locked at ${p.lockText}.`}
-          action={<Link href={p.correctionHref} className={buttonClass("secondary", "sm")}>Request a correction</Link>}>
-          Staff not yet marked can still be marked. A change to a saved mark needs a correction request.
+          action={<Link href={p.correctionHref} className={buttonClass("secondary", "sm")}><Words k="Request a correction" /></Link>}>
+          <Words k="Staff not yet marked can still be marked. A change to a saved mark needs a correction request." />
         </Alert>
       )}
       <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -97,19 +98,19 @@ export function StaffSheet(p: Props) {
           <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, staff ID or department" aria-label="Search staff"
             className="h-11 w-full rounded-lg border border-line-strong bg-surface pl-10 pr-3 text-base" />
         </div>
-        {p.canEdit && <Button variant="secondary" onClick={allPresent}>Mark all present</Button>}
+        {p.canEdit && <Button variant="secondary" onClick={allPresent}><Words k="Mark all present" /></Button>}
       </div>
       <ul className="mb-3 flex flex-wrap gap-1.5 text-sm" aria-live="polite" aria-label="Counts">
         {p.statuses.filter((s) => counts.c[s.key]).map((s) => (
           <li key={s.key} className={`rounded-full border px-2.5 py-1 ${toneClass(s.tone)}`}><span className="font-semibold tabular-nums">{counts.c[s.key]}</span> {s.name.toLowerCase()}</li>
         ))}
-        <li className="rounded-full border border-line-strong px-2.5 py-1 text-ink-2"><span className="font-semibold tabular-nums">{counts.none}</span> not marked</li>
+        <li className="rounded-full border border-line-strong px-2.5 py-1 text-ink-2"><span className="font-semibold tabular-nums">{counts.none}</span> <Words k="not marked" /></li>
       </ul>
       {result && (
         <Alert tone={result.ok ? "success" : "danger"} className="mb-3" action={result.link ? <Link href={result.link.href} className="font-medium underline">{result.link.label}</Link> : undefined}>{result.text}</Alert>
       )}
       {shown.length === 0 ? (
-        <p className="rounded-xl border border-line bg-surface px-4 py-6 text-center text-ink-2">No staff match “{q}”.</p>
+        <p className="rounded-xl border border-line bg-surface px-4 py-6 text-center text-ink-2"><Words k="No staff match “" />{q}”.</p>
       ) : (
         <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
           {shown.map((r) => {
@@ -123,10 +124,10 @@ export function StaffSheet(p: Props) {
                   <p className="font-medium">{r.name} <span className="text-sm font-normal text-ink-2">· {r.code}</span></p>
                   <p className="text-sm text-ink-2">{[r.designation, r.department, r.shift ? `${r.shift} shift` : `Starts ${r.start}`].filter(Boolean).join(" · ")}</p>
                   <div className="mt-1 flex flex-wrap gap-1.5">
-                    {r.onLeave && <Badge tone="brand">On approved leave</Badge>}
-                    {late && <Badge tone="warning">{r.lateMinutes} min late</Badge>}
+                    {r.onLeave && <Badge tone="brand"><Words k="On approved leave" /></Badge>}
+                    {late && <Badge tone="warning">{r.lateMinutes} <Words k="min late" /></Badge>}
                     {r.methodText && <Badge>{r.methodText}</Badge>}
-                    {r.overtime && <Badge tone="success">Overtime {r.overtime}</Badge>}
+                    {r.overtime && <Badge tone="success"><Words k="Overtime" /> {r.overtime}</Badge>}
                   </div>
                 </div>
                 <div className="flex flex-wrap items-end gap-2">
@@ -145,16 +146,16 @@ export function StaffSheet(p: Props) {
                       {p.statuses.map((s) => <option key={s.key} value={s.key}>{s.name}</option>)}
                     </select>
                   )}
-                  <label className="text-xs text-ink-2">In
+                  <label className="text-xs text-ink-2"><Words k="In" />
                     <input type="time" value={e?.inTime ?? ""} disabled={lock} onChange={(ev) => change(r.id, { inTime: ev.target.value })}
                       className="mt-0.5 block h-11 w-28 rounded-lg border border-line-strong bg-surface px-2 text-sm text-ink" />
                   </label>
-                  <label className="text-xs text-ink-2">Out
+                  <label className="text-xs text-ink-2"><Words k="Out" />
                     <input type="time" value={e?.outTime ?? ""} disabled={lock} onChange={(ev) => change(r.id, { outTime: ev.target.value })}
                       className="mt-0.5 block h-11 w-28 rounded-lg border border-line-strong bg-surface px-2 text-sm text-ink" />
                   </label>
                   {lock && p.canEdit && r.statusKey && (
-                    <Link href={`${p.correctionHref}&staff=${r.id}`} className="min-h-11 content-center text-sm font-medium text-brand-text hover:underline">Correct<span className="sr-only"> {r.name}</span></Link>
+                    <Link href={`${p.correctionHref}&staff=${r.id}`} className="min-h-11 content-center text-sm font-medium text-brand-text hover:underline"><Words k="Correct" /><span className="sr-only"> {r.name}</span></Link>
                   )}
                 </div>
               </li>

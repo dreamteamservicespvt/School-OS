@@ -22,6 +22,7 @@ import { EmptyState } from "@/components/empty-state";
 import { RemindButton } from "@/components/remind-button";
 import { cx } from "@/components/ui/cx";
 import { remindNotMarkedAction } from "../register/actions";
+import { Words } from "@/lib/i18n/client";
 
 const TONE_TEXT = { ok: "text-ok", warn: "text-warn", bad: "text-bad" } as const;
 const TONE_BG = { ok: "bg-ok/12 text-ok", warn: "bg-warn/12 text-warn", bad: "bg-bad/10 text-bad" } as const;
@@ -49,7 +50,7 @@ export function NotMarkedCard({ rows, lockText, locked, canRemind, tz }: { rows:
           </li>
         ))}
       </ul>
-      <p className="px-5 pb-4 text-[12.5px] text-ink3">A class not marked by {lockText} shows as not taken, and no absence message goes to parents. Remind sends the class teacher a message in the app.</p>
+      <p className="px-5 pb-4 text-[12.5px] text-ink3"><Words k="A class not marked by" /> {lockText} <Words k="shows as not taken, and no absence message goes to parents. Remind sends the class teacher a message in the app." /></p>
     </Card>
   );
 }
@@ -96,10 +97,10 @@ export function ClassWiseView({ cw, sort, group, href, period, today }: {
         </Toolbar>
         {cw.off ? (
           <EmptyState bare title={cw.off === "Sunday" ? "Sunday: no school" : cw.off === "Not started" ? "These dates have not come yet" : `No school: ${cw.off}`} Icon={CalendarDays}>
-            Holidays and Sundays are never counted. Choose another date.
+            <Words k="Holidays and Sundays are never counted. Choose another date." />
           </EmptyState>
         ) : list.length === 0 ? (
-          <EmptyState bare title="No sections to show" Icon={LayoutGrid}>Sections appear here once they have students.</EmptyState>
+          <EmptyState bare title="No sections to show" Icon={LayoutGrid}><Words k="Sections appear here once they have students." /></EmptyState>
         ) : (
           <ul className="grid sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-2.5 p-3">
             {list.map((s) => {
@@ -112,11 +113,11 @@ export function ClassWiseView({ cw, sort, group, href, period, today }: {
                       <span className={cx("w-11 h-11 rounded-xl grid place-items-center shrink-0 text-[12.5px] font-bold", TONE_BG[t])} aria-hidden="true">{short(s.name)}</span>
                       <span className="min-w-0 flex-1">
                         <span className="block font-semibold text-[14.5px] leading-snug truncate">{s.name}</span>
-                        <span className="block text-[12.5px] text-ink3 truncate">{s.teacher?.name ?? "No class teacher"} · {n(s.students)} students</span>
+                        <span className="block text-[12.5px] text-ink3 truncate">{s.teacher?.name ?? "No class teacher"} · {n(s.students)} <Words k="students" /></span>
                       </span>
                       {s.marked > 0 && s.percent !== null
                         ? <span className={cx("font-display text-[20px] font-semibold tnum shrink-0", TONE_TEXT[t])}>{percentText(s.percent)}</span>
-                        : <Pill tone="warn" className="shrink-0">Not marked</Pill>}
+                        : <Pill tone="warn" className="shrink-0"><Words k="Not marked" /></Pill>}
                     </span>
                     <Progress value={s.percent ?? 0} tone={t} />
                     <span className="text-[12.5px] text-ink2 truncate">
@@ -130,7 +131,7 @@ export function ClassWiseView({ cw, sort, group, href, period, today }: {
             })}
           </ul>
         )}
-        <p className="px-5 pb-4 text-[12.5px] text-ink3">Green is 92% or more, amber 85% to 92%, red below 85%. Late counts as present; leave, holidays and Sundays are not counted.</p>
+        <p className="px-5 pb-4 text-[12.5px] text-ink3"><Words k="Green is 92% or more, amber 85% to 92%, red below 85%. Late counts as present; leave, holidays and Sundays are not counted." /></p>
       </Card>
     </div>
   );

@@ -6,6 +6,7 @@ import { BASE } from "@/lib/attendance/access";
 import { PLACES } from "@/lib/imports/places";
 import { ImportHome } from "@/components/import/import-home";
 import { AttHead } from "../_components/att-head";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Import attendance so far · Attendance" };
 
@@ -19,7 +20,7 @@ export default async function ImportAttendancePage() {
   if (!access.full || access.see !== "all") redirect(`${BASE}/register`);
   return (
     <>
-      <AttHead access={access} features={features} userId={current.user.id} href={`${BASE}/import`} sub={<Link href={`${BASE}/register`} className="font-semibold text-brand hover:underline">Attendance Register</Link>} />
+      <AttHead access={access} features={features} userId={current.user.id} href={`${BASE}/import`} sub={<Link href={`${BASE}/register`} className="font-semibold text-brand hover:underline"><Words k="Attendance Register" /></Link>} />
       <ImportHome current={current} place={PLACES.attendance} about={ABOUT} />
     </>
   );

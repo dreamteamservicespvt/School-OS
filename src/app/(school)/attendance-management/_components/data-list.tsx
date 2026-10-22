@@ -4,6 +4,7 @@ import { ChevronRight } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { cx } from "@/components/ui/cx";
 import { TONE_SOFT, type SoftTone } from "@/components/ui/stats";
+import { Words } from "@/lib/i18n/client";
 
 // Attendance's own copy of the list (href, actions and lead cells, Pager).
 // A list as a table on computers and cards on phones (design/ui-prototype/src/kit.jsx DataList).
@@ -38,7 +39,7 @@ export function DataList<R>({ columns, rows, rowKey, href, mobile, empty, footer
             <tr className="text-[12px] text-ink3 font-semibold border-b border-line">
               {lead && <th scope="col" className="pl-4 pr-2 py-3 w-10">{lead.header}</th>}
               {columns.map((c, i) => <th key={c.key} scope="col" className={cx("px-3 py-3 font-semibold whitespace-nowrap", i === 0 && !lead && "pl-5", i === columns.length - 1 && !actions && !href && "pr-5", c.align === "right" && "text-right")}>{c.label}</th>)}
-              {actions && <th scope="col" className="w-12 pr-5"><span className="sr-only">Actions</span></th>}
+              {actions && <th scope="col" className="w-12 pr-5"><span className="sr-only"><Words k="Actions" /></span></th>}
               {href && !actions && <th className="w-8" aria-hidden="true" />}
             </tr>
           </thead>
@@ -90,7 +91,7 @@ export function DataList<R>({ columns, rows, rowKey, href, mobile, empty, footer
       </ul>
       {footer !== false && (
         <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-line text-[13px] text-ink3 flex-wrap">
-          {footer ?? <span className="tnum">Showing {rows.length} of {rows.length}</span>}
+          {footer ?? <span className="tnum"><Words k="Showing" /> {rows.length} <Words k="of" /> {rows.length}</span>}
         </div>
       )}
     </>
@@ -104,12 +105,12 @@ export function Pager({ page, pageSize, total, href }: { page: number; pageSize:
   const to = Math.min(total, page * pageSize);
   return (
     <>
-      <span className="tnum" aria-live="polite">Showing {from} to {to} of {total.toLocaleString("en-IN")}</span>
+      <span className="tnum" aria-live="polite"><Words k="Showing" /> {from} <Words k="to" /> {to} <Words k="of" /> {total.toLocaleString("en-IN")}</span>
       {pages > 1 && (
         <nav aria-label="Pages" className="flex items-center gap-2">
-          {page > 1 && <Link href={href(page - 1)} scroll={false} className="h-8 px-3 rounded-lg border border-line bg-surface text-ink font-semibold inline-flex items-center hover:bg-sunken">Previous</Link>}
-          <span className="tnum">Page {page} of {pages}</span>
-          {page < pages && <Link href={href(page + 1)} scroll={false} className="h-8 px-3 rounded-lg border border-line bg-surface text-ink font-semibold inline-flex items-center hover:bg-sunken">Next</Link>}
+          {page > 1 && <Link href={href(page - 1)} scroll={false} className="h-8 px-3 rounded-lg border border-line bg-surface text-ink font-semibold inline-flex items-center hover:bg-sunken"><Words k="Previous" /></Link>}
+          <span className="tnum"><Words k="Page" /> {page} <Words k="of" /> {pages}</span>
+          {page < pages && <Link href={href(page + 1)} scroll={false} className="h-8 px-3 rounded-lg border border-line bg-surface text-ink font-semibold inline-flex items-center hover:bg-sunken"><Words k="Next" /></Link>}
         </nav>
       )}
     </>

@@ -13,6 +13,7 @@ import { Banner } from "@/components/ui/banner";
 import { ConfirmButton } from "@/components/ui/confirm";
 import { saveSheet } from "../actions";
 import { isNetworkError, QUEUE_EVENT, readQueue, writeQueue, type QueuedSave } from "./offline-queue";
+import { Words } from "@/lib/i18n/client";
 
 const SCOPE = "/attendance-management";
 
@@ -120,12 +121,12 @@ export function OfflinePanel({ userId, offlineOn }: { userId: string; offlineOn:
         </Banner>
       )}
       {note && (
-        <Banner tone="ok" role="status" action={<Button size="sm" variant="ghost" onClick={() => setNote(null)}>Close</Button>}>{note}</Banner>
+        <Banner tone="ok" role="status" action={<Button size="sm" variant="ghost" onClick={() => setNote(null)}><Words k="Close" /></Button>}>{note}</Banner>
       )}
       {waiting.length > 0 && (
         <Banner tone="info" icon={CloudUpload} title="Waiting to send:"
-          action={<Button size="sm" variant="secondary" onClick={() => void flush()} disabled={!online || sending} loading={sending} loadingText="Sending…">Send now</Button>}>
-          {waiting.map((q) => `${q.sectionName}${q.periodLabel ? ` (${q.periodLabel})` : ""}, ${q.dateText}: ${q.summary}`).join(" · ")}. Saved on this phone; it goes to school when the phone is online.
+          action={<Button size="sm" variant="secondary" onClick={() => void flush()} disabled={!online || sending} loading={sending} loadingText="Sending…"><Words k="Send now" /></Button>}>
+          {waiting.map((q) => `${q.sectionName}${q.periodLabel ? ` (${q.periodLabel})` : ""}, ${q.dateText}: ${q.summary}`).join(" · ")}<Words k=". Saved on this phone; it goes to school when the phone is online." />
         </Banner>
       )}
       {stuck.map((q) => (
@@ -135,11 +136,11 @@ export function OfflinePanel({ userId, offlineOn }: { userId: string; offlineOn:
               {q.link && <Link href={q.link.href} className="text-[13.5px] font-semibold text-brand hover:underline">{q.link.label}</Link>}
               <ConfirmButton trigger="Remove from this phone" triggerVariant="danger-soft" title="Remove this attendance from the phone?" confirmLabel="Remove from this phone" confirmVariant="danger"
                 onConfirm={async () => { writeQueue(userId, readQueue(userId).filter((x) => x.clientId !== q.clientId)); }}>
-                The marks for {q.sectionName} on {q.dateText} were never saved at school. After removing them, take the attendance again or request a correction.
+                <Words k="The marks for" /> {q.sectionName} <Words k="on" /> {q.dateText} <Words k="were never saved at school. After removing them, take the attendance again or request a correction." />
               </ConfirmButton>
             </div>
           }>
-          {q.problem} On this phone: {q.summary}.
+          {q.problem} <Words k="On this phone:" /> {q.summary}.
         </Banner>
       ))}
     </div>

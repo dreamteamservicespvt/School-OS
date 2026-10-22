@@ -10,6 +10,7 @@ import { Spinner } from "@/components/ui/button";
 import { SearchIcon } from "@/components/icons";
 import type { FormState } from "@/lib/forms";
 import { FormDialog, type Action } from "../../staff-hr-management/_components/forms";
+import { Words } from "@/lib/i18n/client";
 
 type Option = { value: string; label: string };
 type Found = { id: string; label: string; detail: string };
@@ -32,11 +33,11 @@ function StudentPicker({ find, error, fixed, onPick }: { find: (q: string) => Pr
   return (
     <div className="sm:col-span-2">
       <input type="hidden" name="studentId" value={chosen?.id ?? ""} />
-      <label htmlFor={id} className="mb-1 block text-sm font-medium">Student <span className="text-danger">*</span></label>
+      <label htmlFor={id} className="mb-1 block text-sm font-medium"><Words k="Student" /> <span className="text-danger">*</span></label>
       {chosen ? (
         <div className="flex min-h-11 items-center justify-between gap-2 rounded-lg border border-line-strong bg-surface-2 px-3 py-2">
           <div><p className="font-medium">{chosen.label}</p><p className="text-sm text-ink-2">{chosen.detail}</p></div>
-          {!fixed && <button type="button" className="min-h-11 px-2 font-medium text-brand-text hover:underline" onClick={() => { setChosen(null); setQ(""); setList([]); onPick(); }}>Change</button>}
+          {!fixed && <button type="button" className="min-h-11 px-2 font-medium text-brand-text hover:underline" onClick={() => { setChosen(null); setQ(""); setList([]); onPick(); }}><Words k="Change" /></button>}
         </div>
       ) : (
         <div className="relative">
@@ -56,7 +57,7 @@ function StudentPicker({ find, error, fixed, onPick }: { find: (q: string) => Pr
               ))}
             </ul>
           )}
-          {q.trim().length >= 2 && !pending && list.length === 0 && <p className="mt-1 text-sm text-ink-2">No student found. Only students you may record leave for are shown.</p>}
+          {q.trim().length >= 2 && !pending && list.length === 0 && <p className="mt-1 text-sm text-ink-2"><Words k="No student found. Only students you may record leave for are shown." /></p>}
         </div>
       )}
       {error && <p id={`${id}-error`} className="mt-1 text-sm text-danger">{error}</p>}
@@ -96,7 +97,7 @@ function AutoPreview({ preview, onResult, tick }: { preview: (s: PreviewState, f
   }, [preview, tick]);
   return (
     <div ref={ref} className="sm:col-span-2" aria-live="polite">
-      {pending ? <p className="flex items-center gap-2 text-sm text-ink-2"><Spinner className="size-4" /> Checking days and quota…</p>
+      {pending ? <p className="flex items-center gap-2 text-sm text-ink-2"><Spinner className="size-4" /> <Words k="Checking days and quota…" /></p>
         : state && !fieldOf(state) ? <p className={`rounded-lg px-3 py-2 text-sm ${!state.ok ? "bg-danger-soft text-danger" : state.data?.warn ? "bg-warn-bg text-warn-text" : "bg-surface-2"}`}>{state.ok ? state.data?.text : state.message}</p>
           : null}
     </div>
@@ -127,7 +128,7 @@ export function RecordLeaveForm({ action, preview, find, types, today, defaultOp
           <TextArea label="Reason" name="reason" required rows={2} maxLength={500} defaultValue={f.val("reason")} error={err("reason")} className="sm:col-span-2"
             help="For example: fever, the parent called at 8:10 AM." />
           <div className="sm:col-span-2">
-            <label htmlFor="student-leave-doc" className="mb-1 block text-sm font-medium">Document</label>
+            <label htmlFor="student-leave-doc" className="mb-1 block text-sm font-medium"><Words k="Document" /></label>
             <input id="student-leave-doc" name="document" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="block w-full rounded-lg border border-line-strong bg-surface p-2 text-sm" aria-describedby="student-leave-doc-help" />
             <p id="student-leave-doc-help" className={`mt-1 text-sm ${f.err("document") ? "text-danger" : "text-ink-2"}`}>{f.err("document") ?? "Optional. A photo or PDF, such as a doctor's note. Up to 10 MB."}</p>
           </div>
@@ -149,7 +150,7 @@ export function CancelStudentLeave({ requestId, action, name }: { requestId: str
     <FormDialog trigger="Cancel" triggerSize="sm" triggerVariant="ghost" title={`Cancel leave for ${name}`} action={action} submitLabel="Cancel leave" submitVariant="danger" hidden={{ requestId }} cancelLabel="Keep leave">
       {(f) => (
         <>
-          <p className="text-ink-2">Take Attendance stops showing Leave for the days still to come. Days already marked stay as they are.</p>
+          <p className="text-ink-2"><Words k="Take Attendance stops showing Leave for the days still to come. Days already marked stay as they are." /></p>
           <TextArea label="Reason" name="reason" required rows={2} minLength={3} maxLength={500} defaultValue={f.val("reason")} error={f.err("reason")} />
         </>
       )}

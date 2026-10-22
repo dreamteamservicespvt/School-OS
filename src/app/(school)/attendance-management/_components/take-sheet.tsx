@@ -25,6 +25,7 @@ import { enqueueSave, isNetworkError, newClientId } from "./offline-queue";
 import { QuickChips } from "./sheet-form";
 import { STATUS_ON, STATUS_SOFT, type StatusView } from "./status";
 import { startMarks, unsavedCount } from "./sheet-start";
+import { Words } from "@/lib/i18n/client";
 
 export type SheetStatus = StatusView & { counts: string };
 export type SheetRow = {
@@ -186,7 +187,7 @@ export function TakeSheet(p: Props) {
       {/* Status banner */}
       {readOnly ? (
         <Banner tone="warn" icon={Lock} className="mb-4" title={`Attendance for ${p.dateText} locked at ${p.lockText}.`}
-          action={<Link href={p.correctionHref} className={buttonClass("secondary", "sm")}>Request a correction</Link>}>
+          action={<Link href={p.correctionHref} className={buttonClass("secondary", "sm")}><Words k="Request a correction" /></Link>}>
           {!p.saved
             ? "Attendance was not taken: nothing is saved for this day, so nobody is marked. To add the marks, request a correction; the principal approves it."
             : `${unsaved ? `${studentsWord(unsaved)} not marked: no mark is saved for them on this day. ` : ""}A change now needs a correction request. The principal approves it, and the original stays in the audit log.`}
@@ -198,16 +199,16 @@ export function TakeSheet(p: Props) {
         </Banner>
       ) : p.locked && !p.saved ? (
         <Banner tone="warn" icon={Info} className="mb-4" title={`Not taken: nothing is saved for ${p.dateText}.`}>
-          It locked at {p.lockText}. You may still take it; every change is recorded in the audit log.{p.defaultStatus === "present" ? " Everyone starts as present until you save." : ""}
+          <Words k="It locked at" /> {p.lockText}<Words k=". You may still take it; every change is recorded in the audit log." />{p.defaultStatus === "present" ? " Everyone starts as present until you save." : ""}
         </Banner>
       ) : p.locked ? (
-        <Banner tone="info" icon={Info} className="mb-4" title={`Locked at ${p.lockText}.`}>You may still change it; every change is recorded in the audit log.</Banner>
+        <Banner tone="info" icon={Info} className="mb-4" title={`Locked at ${p.lockText}.`}><Words k="You may still change it; every change is recorded in the audit log." /></Banner>
       ) : p.defaultStatus === "present" && !p.saved ? (
-        <Banner tone="info" icon={Info} className="mb-4" title="Not saved yet. Everyone starts as present.">Tap only the students who are absent or late, then save.</Banner>
+        <Banner tone="info" icon={Info} className="mb-4" title="Not saved yet. Everyone starts as present."><Words k="Tap only the students who are absent or late, then save." /></Banner>
       ) : p.saved ? (
-        <Banner tone="info" icon={Info} className="mb-4" title="Changes not saved yet.">Save to keep them. You can change it until {p.lockText}.</Banner>
+        <Banner tone="info" icon={Info} className="mb-4" title="Changes not saved yet."><Words k="Save to keep them. You can change it until" /> {p.lockText}.</Banner>
       ) : (
-        <Banner tone="info" icon={Info} className="mb-4" title="Nobody is marked yet.">Tap P, A or L for each student, or mark everyone present first.</Banner>
+        <Banner tone="info" icon={Info} className="mb-4" title="Nobody is marked yet."><Words k="Tap P, A or L for each student, or mark everyone present first." /></Banner>
       )}
 
       {/* Counts + tools */}
@@ -227,7 +228,7 @@ export function TakeSheet(p: Props) {
               className="h-11 w-full rounded-xl bg-surface border border-line pl-9 pr-9 text-[14.5px] outline-none focus:border-brand focus:ring-4 focus:ring-brand/15 [&::-webkit-search-cancel-button]:hidden" />
             {q && <button type="button" onClick={() => setQ("")} aria-label="Clear search" className="absolute right-1.5 top-1/2 -translate-y-1/2 size-8 grid place-items-center rounded-lg text-ink3 hover:bg-sunken"><X size={15} aria-hidden="true" /></button>}
           </div>
-          {!readOnly && <Button variant="secondary" icon={CheckCheck} className="h-11" disabled={!changed} onClick={() => setConfirmAll(true)}>All present</Button>}
+          {!readOnly && <Button variant="secondary" icon={CheckCheck} className="h-11" disabled={!changed} onClick={() => setConfirmAll(true)}><Words k="All present" /></Button>}
         </div>
       </div>
 
@@ -262,7 +263,7 @@ export function TakeSheet(p: Props) {
                       : <button type="button" onClick={() => setNoteFor(s.id)} className="hover:text-brand text-left truncate max-w-full">{m?.note ? m.note : s.leave?.halfDay ? "Half-day leave approved · Add note" : "Add note"}</button>}
                 </p>
               </div>
-              {isFixed ? <Pill tone="info">Leave</Pill> : (
+              {isFixed ? <Pill tone="info"><Words k="Leave" /></Pill> : (
                 <div className="flex gap-1 shrink-0" role="radiogroup" aria-label={`Attendance for ${s.name}`}>
                   {extra && (
                     <button type="button" role="radio" aria-checked="true" aria-label={extra.name} title={`${extra.name}. Tap to choose another status.`} disabled={readOnly}
@@ -293,7 +294,7 @@ export function TakeSheet(p: Props) {
           );
         })}
       </ul>
-      {list.length === 0 && <p className="text-center text-ink3 py-10">No student called “{q}” in {p.sectionName}.</p>}
+      {list.length === 0 && <p className="text-center text-ink3 py-10"><Words k="No student called “" />{q}<Words k="” in" /> {p.sectionName}.</p>}
 
       {/* Save bar */}
       {!readOnly && (
@@ -305,7 +306,7 @@ export function TakeSheet(p: Props) {
       )}
 
       <Dialog open={confirmAll} onClose={() => setConfirmAll(false)} title="Mark everyone present again?" sub="The absent and late marks you made will be cleared. Students on leave stay on leave."
-        footer={<><Button variant="ghost" onClick={() => setConfirmAll(false)}>Keep my marks</Button><Button variant="primary" onClick={markAllPresent}>Mark all present</Button></>}>
+        footer={<><Button variant="ghost" onClick={() => setConfirmAll(false)}><Words k="Keep my marks" /></Button><Button variant="primary" onClick={markAllPresent}><Words k="Mark all present" /></Button></>}>
         <div />
       </Dialog>
 
@@ -341,11 +342,11 @@ function NoteSheet({ row, mark, statuses, extra, reasons, reason, onClose, onSav
   const needsNote = absent && rk === "other" && rk !== (row?.reason?.key ?? null) && !rn.trim();
   return (
     <Dialog open={Boolean(row)} onClose={onClose} title={row ? `Note for ${row.name}` : "Note"} sub="Only staff can see this"
-      footer={<><Button variant="ghost" onClick={onClose}>Cancel</Button><Button variant="primary" disabled={needsNote} onClick={() => onSave(st, t.trim().slice(0, 300), absent ? { key: rk, note: rn.trim().slice(0, 100) } : null)}>Save note</Button></>}>
+      footer={<><Button variant="ghost" onClick={onClose}><Words k="Cancel" /></Button><Button variant="primary" disabled={needsNote} onClick={() => onSave(st, t.trim().slice(0, 300), absent ? { key: rk, note: rn.trim().slice(0, 100) } : null)}><Words k="Save note" /></Button></>}>
       {row && (
         <div className="flex flex-col gap-4">
           <div>
-            <p className="text-[13px] font-semibold text-ink2 mb-2">Status</p>
+            <p className="text-[13px] font-semibold text-ink2 mb-2"><Words k="Status" /></p>
             <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={`Status for ${row.name}`}>
               {statuses.map((s) => {
                 const on = st === s.key;
@@ -357,11 +358,11 @@ function NoteSheet({ row, mark, statuses, extra, reasons, reason, onClose, onSav
                 );
               })}
             </div>
-            {extra.length > 0 && <p className="text-[12.5px] text-ink3 mt-2">P, A and L are on the list. The others are here.</p>}
+            {extra.length > 0 && <p className="text-[12.5px] text-ink3 mt-2"><Words k="P, A and L are on the list. The others are here." /></p>}
           </div>
           {absent && reasons && (
             <div>
-              <p className="text-[13px] font-semibold text-ink2 mb-2">Reason for the absence <span className="font-normal text-ink3">(optional)</span></p>
+              <p className="text-[13px] font-semibold text-ink2 mb-2"><Words k="Reason for the absence" /> <span className="font-normal text-ink3"><Words k="(optional)" /></span></p>
               <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={`Reason for the absence of ${row.name}`}>
                 {reasons.map((r) => {
                   const on = (rk ?? "not-known") === r.key;
@@ -384,7 +385,7 @@ function NoteSheet({ row, mark, statuses, extra, reasons, reason, onClose, onSav
           )}
           <QuickChips items={NOTE_CHIPS} onPick={setT} />
           <label className="flex flex-col gap-1.5">
-            <span className="sr-only">Note</span>
+            <span className="sr-only"><Words k="Note" /></span>
             <textarea value={t} onChange={(e) => setT(e.target.value)} rows={3} maxLength={300} placeholder="Type a short note"
               className={cx(inputCls(false), "p-3 text-[15px]")} />
           </label>

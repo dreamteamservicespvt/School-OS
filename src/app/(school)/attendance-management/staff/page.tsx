@@ -41,6 +41,7 @@ import { Cell, type StatusView } from "../_components/status";
 import { StaffSheet } from "../_components/staff-sheet";
 import { ArchiveOvertime, ArchiveShift, AssignShiftForm, OvertimeForm, ShiftForm } from "../_components/staff-forms";
 import { archiveOvertimeAction, archiveShiftAction, assignShiftAction, recordOvertimeAction, saveShiftAction } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Staff Attendance" };
 
@@ -98,7 +99,7 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
   return (
     <>
       <AttHead access={access} features={features} userId={current.user.id} href={PATH} sub={sub}
-        actions={canEdit && view === "day" ? <ButtonLink href={`${PATH}?view=mark${wanted ? `&date=${wanted}` : ""}`} icon={PencilLine}>Mark by hand</ButtonLink> : undefined} />
+        actions={canEdit && view === "day" ? <ButtonLink href={`${PATH}?view=mark${wanted ? `&date=${wanted}` : ""}`} icon={PencilLine}><Words k="Mark by hand" /></ButtonLink> : undefined} />
       <div className="flex flex-col gap-5 lg:gap-6">
         {views.length > 1 && <Chips label="Staff attendance views" value={view} options={views} />}
         {view === "day" && <DayView />}
@@ -124,7 +125,7 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
     const y = data.view.summary;
     return (
       <UrlSheet param={["staff", "month"]} title={data.s.fullName} sub={`${data.s.designation} · ${data.s.staffCode}`}
-        footer={<>{canEdit && <ButtonLink href={`${PATH}?view=mark&date=${isoDay(today)}`} icon={PencilLine}>Correct today</ButtonLink>}<CloseSheetButton param={["staff", "month"]} variant="ghost" /></>}>
+        footer={<>{canEdit && <ButtonLink href={`${PATH}?view=mark&date=${isoDay(today)}`} icon={PencilLine}><Words k="Correct today" /></ButtonLink>}<CloseSheetButton param={["staff", "month"]} variant="ghost" /></>}>
         <div className="flex flex-col gap-4">
           <MonthCalendar view={data.view} statuses={statuses} min={data.bounds.min} max={data.bounds.max} todayIso={isoDay(today)} threshold={settings.thresholdPercent} compact />
           <div className="grid grid-cols-3 gap-2">
@@ -132,7 +133,7 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
               <div key={k} className="rounded-xl bg-sunken/70 px-3 py-2.5"><p className="font-display text-[22px] font-semibold tnum leading-none">{v}</p><p className="text-[12px] text-ink3 font-semibold mt-1">{k}</p></div>
             ))}
           </div>
-          <p className="text-[12.5px] text-ink3">{y.workingDays} working days in {data.view.label}{data.view.month === ym(today) ? " so far" : ""}. Sundays, holidays and days off are not counted.</p>
+          <p className="text-[12.5px] text-ink3">{y.workingDays} <Words k="working days in" /> {data.view.label}{data.view.month === ym(today) ? " so far" : ""}<Words k=". Sundays, holidays and days off are not counted." /></p>
         </div>
       </UrlSheet>
     );
@@ -182,7 +183,7 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
       .toSorted((a, b) => Number(notIn(b)) - Number(notIn(a)) || Number(isLate(b)) - Number(isLate(a)));
     const statusPill = (r: StaffDayRow) => {
       if (notIn(r)) return <Pill tone={isToday && !lock.locked ? "bad" : "neutral"}>{isToday ? "Not in yet" : "Not marked"}</Pill>;
-      if (!r.mark) return <Pill tone="info">On leave</Pill>;
+      if (!r.mark) return <Pill tone="info"><Words k="On leave" /></Pill>;
       const st = byKey.get(r.mark.statusKey);
       const tone = r.mark.statusKey === "present" ? "ok" : isLate(r) ? "warn" : r.mark.statusKey === "absent" ? "bad" : "info";
       return <Pill tone={tone}>{r.mark.statusKey === "late" && r.mark.lateMinutes ? `Late · ${r.mark.lateMinutes} min` : st?.name ?? r.mark.statusKey}</Pill>;
@@ -215,7 +216,7 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
             <div className="px-5 pb-5"><OwnCalendar staffId={me.staffId} /></div>
           </Card>
         </>
-      ) : <EmptyState title="Your login is not linked to a staff record" Icon={Users}>Ask HR to link your login to your staff record.</EmptyState>;
+      ) : <EmptyState title="Your login is not linked to a staff record" Icon={Users}><Words k="Ask HR to link your login to your staff record." /></EmptyState>;
     }
 
     return (
@@ -226,7 +227,7 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
           { label: "On leave", value: leave.length, sub: "Approved in Staff & HR", icon: CalendarDays, href: qs({ status: "leave" }) },
           { label: isToday ? "Not in yet" : "Not marked", value: missing.length, sub: missing.length ? (isToday ? `No punch by ${new Intl.DateTimeFormat("en-IN", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: tz }).format(now)}` : "No mark that day") : "Everyone is in", tone: missing.length ? "bad" : "ok", icon: UserX, href: qs({ status: "not-marked" }) },
         ]} />
-        {!data.info.on && <Banner tone="warn" title={offDayMessage(data.info, date)}>If the school opens that day, turn on &quot;allow attendance&quot; for the date in the School Calendar.</Banner>}
+        {!data.info.on && <Banner tone="warn" title={offDayMessage(data.info, date)}><Words k={"If the school opens that day, turn on \"allow attendance\" for the date in the School Calendar."} /></Banner>}
         {tiles.length > 1 && (
           <Card>
             <CardHeader icon={Building2} title="By department" description={deptName ? `Showing ${deptName} only · tap it again for everyone` : "Tap a department to see only its staff"} />
@@ -237,7 +238,7 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
                   <li key={t.id} className="min-w-0">
                     <Link href={qs({ department: on ? null : t.id, status: null })} aria-current={on ? "true" : undefined}
                       className={cx("block h-full text-left rounded-xl border p-3 transition-colors min-w-0", on ? "border-brand bg-brand/10" : "border-line hover:bg-sunken/70")}>
-                      <span className="flex items-baseline justify-between gap-2 min-w-0"><span className="font-semibold text-[14px] truncate">{t.name}</span><span className="tnum text-[13px] text-ink2 shrink-0"><b className="text-ink">{t.in}</b> of {t.n}</span></span>
+                      <span className="flex items-baseline justify-between gap-2 min-w-0"><span className="font-semibold text-[14px] truncate">{t.name}</span><span className="tnum text-[13px] text-ink2 shrink-0"><b className="text-ink">{t.in}</b> <Words k="of" /> {t.n}</span></span>
                       <Progress value={(t.in / t.n) * 100} tone={t.out ? "warn" : "ok"} className="mt-2" />
                       <span className={cx("block text-[12px] mt-1.5 leading-snug", t.out ? "text-ink2" : "text-ink3")}>
                         {[t.late && `${t.late} late`, t.leave && `${t.leave} on leave`, t.notIn && `${t.notIn} ${isToday ? "not in" : "not marked"}`].filter(Boolean).join(" · ") || "Everyone is in"}
@@ -271,17 +272,17 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
               actions={(r) => <RowMenu label={`Actions for ${r.name}`} items={menu(r)} />}
               columns={[
                 { key: "name", label: "Staff", render: (r) => <div className="flex items-center gap-3 min-w-0"><Avatar name={r.name} size={34} /><div className="min-w-0"><p className="font-semibold leading-tight whitespace-nowrap">{r.name}</p><p className="text-[12.5px] text-ink3 truncate">{r.designation} · {r.department ?? "No department"}</p></div></div> },
-                { key: "in", label: "Came in", render: (r) => r.mark?.inTime ? <div className="whitespace-nowrap"><p className="tnum leading-tight">{clockHHMM(r.mark.inTime, tz)}{r.mark.outTime ? <span className="text-ink3"> to {clockHHMM(r.mark.outTime, tz)}</span> : null}</p>{source(r)}</div> : <span className="text-ink3">—</span> },
-                { key: "st", label: "Status", render: (r) => <div>{statusPill(r)}{r.onLeave && r.mark?.statusKey !== "leave" && <p className="text-[11.5px] text-ink3 mt-0.5">Approved leave</p>}{r.overtimeMinutes > 0 && <p className="text-[11.5px] text-ink3 mt-0.5">Overtime {minutesText(r.overtimeMinutes)}</p>}</div> },
+                { key: "in", label: "Came in", render: (r) => r.mark?.inTime ? <div className="whitespace-nowrap"><p className="tnum leading-tight">{clockHHMM(r.mark.inTime, tz)}{r.mark.outTime ? <span className="text-ink3"> <Words k="to" /> {clockHHMM(r.mark.outTime, tz)}</span> : null}</p>{source(r)}</div> : <span className="text-ink3">—</span> },
+                { key: "st", label: "Status", render: (r) => <div>{statusPill(r)}{r.onLeave && r.mark?.statusKey !== "leave" && <p className="text-[11.5px] text-ink3 mt-0.5"><Words k="Approved leave" /></p>}{r.overtimeMinutes > 0 && <p className="text-[11.5px] text-ink3 mt-0.5"><Words k="Overtime" /> {minutesText(r.overtimeMinutes)}</p>}</div> },
               ]}
               mobile={(r) => ({ avatar: r.name, title: r.name, sub: `${r.designation} · ${r.mark?.inTime ? `in ${clockHHMM(r.mark.inTime, tz)}` : r.onLeave ? "on leave" : "no punch yet"}`, right: statusPill(r) })}
-              footer={rows.length > 0 ? <p className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum">Showing {rows.length} of {dc.all}</p> : false}
+              footer={rows.length > 0 ? <p className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum"><Words k="Showing" /> {rows.length} <Words k="of" /> {dc.all}</p> : false}
               empty={<EmptyState bare Icon={Users} title={filtered ? "No staff match" : "No staff yet"}>{filtered ? "Try another name, department or status." : "Staff appear here once they are added in Staff & HR Management."}</EmptyState>} />
           </Card>
           <Col>
             <Card>
               <CardHeader icon={History} title="Corrections" description="Changes after the lock time go to Approvals" />
-              {data.corrections.length === 0 ? <p className="px-5 pb-5 text-[14px] text-ink3">No staff corrections yet.</p> : (
+              {data.corrections.length === 0 ? <p className="px-5 pb-5 text-[14px] text-ink3"><Words k="No staff corrections yet." /></p> : (
                 <ul className="px-2 pb-2">
                   {data.corrections.map((c) => {
                     const e = (Array.isArray(c.entries) ? c.entries : []) as { name?: string; from?: string | null; to?: string }[];
@@ -339,14 +340,14 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
     return (
       <>
         <div className="flex flex-wrap items-center gap-3">
-          <ButtonLink href={`${PATH}${wanted ? `?date=${wanted}` : ""}`} variant="ghost" icon={ArrowLeft}>Back to the list</ButtonLink>
+          <ButtonLink href={`${PATH}${wanted ? `?date=${wanted}` : ""}`} variant="ghost" icon={ArrowLeft}><Words k="Back to the list" /></ButtonLink>
           <UrlDate label="Date" value={isoDay(date)} max={isoDay(today)} className="w-44" />
         </div>
-        <p className="text-[14px] text-ink2 -mt-2">For staff without a punch. Mark everyone present, then change the exceptions. Devices, QR and the app fill the rest.</p>
+        <p className="text-[14px] text-ink2 -mt-2"><Words k="For staff without a punch. Mark everyone present, then change the exceptions. Devices, QR and the app fill the rest." /></p>
         {!data.info.on ? (
-          <Banner tone="warn" title={offDayMessage(data.info, date)}>If the school opens that day, turn on &quot;allow attendance&quot; for the date in the School Calendar.</Banner>
+          <Banner tone="warn" title={offDayMessage(data.info, date)}><Words k={"If the school opens that day, turn on \"allow attendance\" for the date in the School Calendar."} /></Banner>
         ) : data.rows.length === 0 ? (
-          <EmptyState title="No staff yet" Icon={Users}>Staff appear here once they are added in Staff &amp; HR Management.</EmptyState>
+          <EmptyState title="No staff yet" Icon={Users}><Words k={"Staff appear here once they are added in Staff & HR Management."} /></EmptyState>
         ) : (
           <StaffSheet key={isoDay(date)} date={isoDay(date)} dateText={dayText(date)} statuses={statuses} canEdit={canEdit}
             locked={lock.locked} lockText={lock.atText} override={access.lockOverride}
@@ -399,7 +400,7 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
           <div className="flex flex-wrap items-start justify-between gap-3 px-5 pt-4 pb-3">
             <div>
               <h2 className="font-display text-[17px] font-semibold">{monthLabel(from)}</h2>
-              <p className="text-[13px] text-ink3">{data.staff.length} staff · {data.sum.workingDays} school days · {percentText(data.sum.overall.percent)} present</p>
+              <p className="text-[13px] text-ink3">{data.staff.length} <Words k="staff ·" /> {data.sum.workingDays} <Words k="school days ·" /> {percentText(data.sum.overall.percent)} <Words k="present" /></p>
             </div>
             <ul aria-label="Colour legend" className="flex flex-wrap gap-x-3 gap-y-1 text-[12px] text-ink2">
               {legend.map((s) => <li key={s.key} className="flex items-center gap-1.5"><Cell status={s} label={s.name} size={18} />{s.name}</li>)}
@@ -410,14 +411,14 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
           ) : (
             <div className="relative overflow-x-auto border-t border-line" tabIndex={0} role="region" aria-label={`Staff attendance, ${monthLabel(from)}`}>
               <table className="w-max min-w-full border-collapse text-[13px]">
-                <caption className="sr-only">Staff attendance for {monthLabel(from)}</caption>
+                <caption className="sr-only"><Words k="Staff attendance for" /> {monthLabel(from)}</caption>
                 <thead>
                   <tr className="text-ink3">
-                    <th scope="col" className="sticky left-0 z-10 bg-surface min-w-48 px-4 py-2 text-left font-semibold text-[12.5px]">Staff</th>
+                    <th scope="col" className="sticky left-0 z-10 bg-surface min-w-48 px-4 py-2 text-left font-semibold text-[12.5px]"><Words k="Staff" /></th>
                     {dates.map((d) => <th key={d.iso} scope="col" className="w-8 px-0.5 py-2 text-center font-semibold"><span className="block tnum">{d.day}</span><span className="block text-[10.5px] font-normal">{d.wd}</span></th>)}
-                    <th scope="col" className="px-2 text-right font-semibold">Present</th>
-                    <th scope="col" className="px-2 text-right font-semibold">Late</th>
-                    <th scope="col" className="px-2 text-right font-semibold">Leave</th>
+                    <th scope="col" className="px-2 text-right font-semibold"><Words k="Present" /></th>
+                    <th scope="col" className="px-2 text-right font-semibold"><Words k="Late" /></th>
+                    <th scope="col" className="px-2 text-right font-semibold"><Words k="Leave" /></th>
                     <th scope="col" className="px-4 text-right font-semibold">%</th>
                   </tr>
                 </thead>
@@ -444,7 +445,7 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
               </table>
             </div>
           )}
-          <p className="px-5 py-3 border-t border-line text-[12.5px] text-ink3">Holidays and Sundays are not counted. This month reaches Generate Salary with present days, leave and late marks.</p>
+          <p className="px-5 py-3 border-t border-line text-[12.5px] text-ink3"><Words k="Holidays and Sundays are not counted. This month reaches Generate Salary with present days, leave and late marks." /></p>
         </Card>
       </>
     );
@@ -481,7 +482,7 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
             { key: "note", label: "Note", render: (r) => <span className="text-ink2">{r.note ?? "—"}</span> },
           ]}
           mobile={(r) => ({ avatar: names.get(r.staffId)?.fullName ?? "Staff", title: names.get(r.staffId)?.fullName ?? "Staff member", sub: `${formatDate(r.date, "UTC")} · ${minutesText(r.minutes)}${r.note ? ` · ${r.note}` : ""}` })}
-          empty={<EmptyState bare Icon={Timer} title="No overtime in these dates">Record overtime with a note when staff work extra hours.</EmptyState>} />
+          empty={<EmptyState bare Icon={Timer} title="No overtime in these dates"><Words k="Record overtime with a note when staff work extra hours." /></EmptyState>} />
       </Card>
     );
   }
@@ -504,14 +505,14 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
         <CardHeader icon={Clock} title="Staff shifts" description={`Staff without a shift start at ${time12(settings.staffStartTime)} (Attendance Settings). Late marks follow each shift's start time.`}
           action={canEdit ? <div className="flex flex-wrap gap-2"><ShiftForm action={saveShiftAction} />{active.length > 0 && <AssignShiftForm action={assignShiftAction} today={isoDay(today)} shifts={active.map((s) => ({ value: s.id, label: `${s.name} (${time12(s.startTime)} to ${time12(s.endTime)})` }))} staff={data.staff.map((s) => ({ value: s.id, label: `${s.fullName} (${s.staffCode})`, current: currentShift.get(s.id) ?? "School hours" }))} />}</div> : undefined} />
         {data.shifts.length === 0 ? (
-          <EmptyState bare Icon={Clock} title="No shifts yet">Add a shift, such as Morning 7:00 AM to 1:00 PM, then assign staff to it.</EmptyState>
+          <EmptyState bare Icon={Clock} title="No shifts yet"><Words k="Add a shift, such as Morning 7:00 AM to 1:00 PM, then assign staff to it." /></EmptyState>
         ) : (
           <ul className="px-2 pb-2">
             {data.shifts.map((s) => (
               <li key={s.id} className={`flex flex-wrap items-center justify-between gap-2 px-3 py-2.5 rounded-xl ${s.archivedAt ? "text-ink3" : ""}`}>
                 <div>
-                  <p className="font-semibold text-[14.5px]">{s.name}{s.archivedAt && <Pill tone="neutral" className="ml-2 !h-5 !text-[11px]">Archived</Pill>}</p>
-                  <p className="text-[12.5px] text-ink3 tnum">{time12(s.startTime)} to {time12(s.endTime)} · late after {s.lateAfterMin ?? settings.staffLateAfterMin} minutes · {count(s.id)} staff</p>
+                  <p className="font-semibold text-[14.5px]">{s.name}{s.archivedAt && <Pill tone="neutral" className="ml-2 !h-5 !text-[11px]"><Words k="Archived" /></Pill>}</p>
+                  <p className="text-[12.5px] text-ink3 tnum">{time12(s.startTime)} <Words k="to" /> {time12(s.endTime)} <Words k="· late after" /> {s.lateAfterMin ?? settings.staffLateAfterMin} <Words k="minutes ·" /> {count(s.id)} <Words k="staff" /></p>
                 </div>
                 {canEdit && (
                   <div className="flex gap-1">

@@ -10,6 +10,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button, Spinner } from "@/components/ui/button";
 import { cx } from "@/components/ui/cx";
+import { Words } from "@/lib/i18n/client";
 
 const NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const idx = (m: string) => { const [y, mo] = m.split("-").map(Number); return y * 12 + (mo - 1); };
@@ -45,7 +46,7 @@ export function MonthSelect({ value, min, max, param = "month", keep, className 
     <div className={cx("flex items-center gap-2", className)} aria-busy={pending}>
       <Button variant="secondary" size="sm" icon={ChevronLeft} aria-label="Earlier month" disabled={!canBack || pending} onClick={() => go(key(k - 1))} className="!px-2.5" />
       <div className="relative flex-1 min-w-0">
-        <label htmlFor={id} className="sr-only">Month</label>
+        <label htmlFor={id} className="sr-only"><Words k="Month" /></label>
         <select id={id} value={value} onChange={(e) => go(e.target.value)} disabled={pending}
           className="appearance-none w-full h-9 pl-3 pr-8 rounded-xl bg-sunken/70 hover:bg-sunken text-[14px] font-semibold text-center outline-none cursor-pointer focus-visible:ring-2 focus-visible:ring-brand/40">
           {monthOptions(min, max).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}

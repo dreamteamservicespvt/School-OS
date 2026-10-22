@@ -12,6 +12,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Alert } from "@/components/ui/alert";
 import { ConfirmButton } from "@/components/ui/confirm";
 import { ActionForm, FormDialog, type Action } from "../../staff-hr-management/_components/forms";
+import { Words } from "@/lib/i18n/client";
 
 type Option = { value: string; label: string };
 
@@ -25,7 +26,7 @@ function CopyKey({ value }: { value: string }) {
           try { await navigator.clipboard.writeText(value); setCopied("yes"); } catch { setCopied("no"); }
         }}>{copied === "yes" ? "Copied" : "Copy"}</Button>
       </div>
-      {copied === "no" && <p className="text-sm text-danger">This browser did not allow copying. Select the key and copy it by hand.</p>}
+      {copied === "no" && <p className="text-sm text-danger"><Words k="This browser did not allow copying. Select the key and copy it by hand." /></p>}
       <p className="text-sm text-ink-2" aria-live="polite">{copied === "yes" ? "Copied. Paste it into the device's settings now." : "Paste it into the device's settings. It is shown only this once; School OS keeps only a scrambled copy."}</p>
     </div>
   );
@@ -37,7 +38,7 @@ export function KeyDialog({ keyValue, onClose, title }: { keyValue: string | nul
       {keyValue && (
         <div className="space-y-4">
           <CopyKey value={keyValue} />
-          <div className="flex justify-end border-t border-line pt-4"><Button onClick={onClose}>I have copied it</Button></div>
+          <div className="flex justify-end border-t border-line pt-4"><Button onClick={onClose}><Words k="I have copied it" /></Button></div>
         </div>
       )}
     </Dialog>
@@ -65,7 +66,7 @@ export function DeviceForm({ action, campuses, types, allowed, device, defaultCa
             <SelectField label="Device type" name="deviceType" required placeholder="Choose" options={types} defaultValue={f.val("deviceType", device?.deviceType)} error={f.err("deviceType")} />
             <SelectField label="Allowed users" name="allowedUsers" required options={allowed} defaultValue={f.val("allowedUsers", device?.allowedUsers ?? "both")} error={f.err("allowedUsers")} className="sm:col-span-2" />
             <details className="sm:col-span-2" open={Boolean(device?.ipAddress || device?.connectionNote)}>
-              <summary className="min-h-11 cursor-pointer content-center font-medium text-brand-text">More details: connection</summary>
+              <summary className="min-h-11 cursor-pointer content-center font-medium text-brand-text"><Words k="More details: connection" /></summary>
               <div className="mt-2 grid gap-4 sm:grid-cols-2">
                 <TextField label="IP address" name="ipAddress" maxLength={100} placeholder="192.168.1.20" defaultValue={f.val("ipAddress", device?.ipAddress)} error={f.err("ipAddress")} />
                 <TextArea label="API or connection notes" name="connectionNote" rows={2} maxLength={500} defaultValue={f.val("connectionNote", device?.connectionNote)} className="sm:col-span-2" />
@@ -91,7 +92,7 @@ export function RegenerateKey({ deviceId, name, action }: { deviceId: string; na
           setKey(r.key);
           router.refresh();
         }}>
-        The old key stops working now. The device cannot send punches until you put the new key into it.
+        <Words k="The old key stops working now. The device cannot send punches until you put the new key into it." />
       </ConfirmButton>
       <KeyDialog keyValue={key} onClose={() => setKey(null)} title="New key: copy it now" />
     </>
@@ -107,7 +108,7 @@ export function MapUserForm({ action, deviceId, people, defaultNo }: { action: A
         <div className="space-y-4">
           <TextField label="Device user number" name="deviceUserNo" required maxLength={40} defaultValue={f.val("deviceUserNo", defaultNo)} error={f.err("deviceUserNo")} help="The number the person has on the device." />
           <label className="block">
-            <span className="mb-1 block text-sm font-medium">Find the person</span>
+            <span className="mb-1 block text-sm font-medium"><Words k="Find the person" /></span>
             <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name, staff ID or admission number" className="h-11 w-full rounded-lg border border-line-strong bg-surface px-3 text-base" />
           </label>
           <SelectField label="Student or staff member" name="who" required placeholder={shown.length ? "Choose" : "Nobody matches"} options={shown} defaultValue={f.val("who")} error={f.err("who")} />
@@ -189,9 +190,9 @@ export function GeoFenceForm({ action, campuses, fence, campusId }: {
         <div className="flex flex-col gap-5 sm:flex-row">
           <FenceDrawing radius={radius} />
           <div className="grid flex-1 gap-4 sm:grid-cols-2">
-            {campuses.length > 1 && <p className="text-sm text-ink-2 sm:col-span-2">Campus: {campuses.find((c) => c.value === campusId)?.label}</p>}
+            {campuses.length > 1 && <p className="text-sm text-ink-2 sm:col-span-2"><Words k="Campus:" /> {campuses.find((c) => c.value === campusId)?.label}</p>}
             <div className="sm:col-span-2">
-              <Button variant="secondary" onClick={locate} loading={locating} loadingText="Finding you…">Use my current location</Button>
+              <Button variant="secondary" onClick={locate} loading={locating} loadingText="Finding you…"><Words k="Use my current location" /></Button>
               {problem && <p role="alert" className="mt-1 text-sm text-danger">{problem}</p>}
             </div>
             <TextField label="Latitude" name="latitude" required inputMode="decimal" value={lat} onChange={(e) => setLat(e.target.value)} error={f.err("latitude")} placeholder="17.385044" />
@@ -201,7 +202,7 @@ export function GeoFenceForm({ action, campuses, fence, campusId }: {
               <CheckboxField label="On for staff" name="staffOn" defaultChecked={fence?.staffOn ?? true} help="Staff QR and mobile check-ins must be inside the circle." />
               <CheckboxField label="On for students" name="studentsOn" defaultChecked={fence?.studentsOn ?? false} />
             </div>
-            {lat && lng && <p className="text-sm sm:col-span-2"><a className="font-medium text-brand-text hover:underline" target="_blank" rel="noopener noreferrer" href={`https://www.openstreetmap.org/?mlat=${encodeURIComponent(lat)}&mlon=${encodeURIComponent(lng)}#map=18/${encodeURIComponent(lat)}/${encodeURIComponent(lng)}`}>Check the point on a map</a></p>}
+            {lat && lng && <p className="text-sm sm:col-span-2"><a className="font-medium text-brand-text hover:underline" target="_blank" rel="noopener noreferrer" href={`https://www.openstreetmap.org/?mlat=${encodeURIComponent(lat)}&mlon=${encodeURIComponent(lng)}#map=18/${encodeURIComponent(lat)}/${encodeURIComponent(lng)}`}><Words k="Check the point on a map" /></a></p>}
           </div>
         </div>
       )}
@@ -210,5 +211,5 @@ export function GeoFenceForm({ action, campuses, fence, campusId }: {
 }
 
 export function NoKeyNote() {
-  return <Alert tone="info">Device keys are shown only once, when the device is added or its key is regenerated.</Alert>;
+  return <Alert tone="info"><Words k="Device keys are shown only once, when the device is added or its key is regenerated." /></Alert>;
 }

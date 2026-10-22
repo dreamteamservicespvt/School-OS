@@ -6,6 +6,7 @@ import { BASE } from "@/lib/attendance/access";
 import { PLACES } from "@/lib/imports/places";
 import { FileReview } from "@/components/import/file-review";
 import { AttHead } from "../../../_components/att-head";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Check a file · Import attendance so far" };
 
@@ -15,7 +16,7 @@ export default async function AttendanceImportFilePage({ params, searchParams }:
   if (!access.full || access.see !== "all") redirect(`${BASE}/register`);
   return (
     <>
-      <AttHead access={access} features={features} userId={current.user.id} href={`${BASE}/import`} sub={<Link href={`${BASE}/import`} className="font-semibold text-brand hover:underline">Import attendance so far</Link>} />
+      <AttHead access={access} features={features} userId={current.user.id} href={`${BASE}/import`} sub={<Link href={`${BASE}/import`} className="font-semibold text-brand hover:underline"><Words k="Import attendance so far" /></Link>} />
       <FileReview current={current} place={PLACES.attendance} id={(await params).id} sp={await searchParams} />
     </>
   );

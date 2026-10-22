@@ -32,6 +32,7 @@ import { MonthSelect } from "@/components/attendance/month-select";
 import { ExportMenu } from "../_components/export-menu";
 import { cellClass, Legend, type StatusView } from "../_components/status";
 import { REASONS_FEATURE } from "@/lib/attendance/absence-reasons";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Attendance Register" };
 
@@ -105,7 +106,7 @@ export default async function RegisterPage({ searchParams }: Props) {
       <AttHead access={access} features={features} userId={current.user.id} href={`${BASE}/register`} sub={sub}
         actions={<>
           {/* Starting part way through the year (workflow 15): the totals from the old register. */}
-          {access.full && access.see === "all" && <ButtonLink href={`${BASE}/import`} variant="ghost" icon={Upload}>Import attendance so far</ButtonLink>}
+          {access.full && access.see === "all" && <ButtonLink href={`${BASE}/import`} variant="ghost" icon={Upload}><Words k="Import attendance so far" /></ButtonLink>}
           {exportHref && view === "class" ? <ExportMenu href={exportHref} print /> : null}
         </>} />
 
@@ -117,7 +118,7 @@ export default async function RegisterPage({ searchParams }: Props) {
         <div className="flex flex-col gap-4">
           {access.classWise && (
             <Link href={`${BASE}/register`} className="self-start inline-flex items-center gap-1.5 min-h-11 px-3.5 rounded-xl border border-line bg-surface text-[14px] font-semibold hover:bg-sunken">
-              <ArrowLeft size={16} aria-hidden="true" />All classes
+              <ArrowLeft size={16} aria-hidden="true" /><Words k="All classes" />
             </Link>
           )}
           <Chips label="Register views" value={view} options={[
@@ -147,10 +148,10 @@ export default async function RegisterPage({ searchParams }: Props) {
           {view === "student" && (data.student ? (
             <StudentCalendar s={data.student} byKey={byKey} statuses={statuses} sectionName={data.section?.name ?? ""} yearName={data.year?.name ?? null} cellHref={cellHref} threshold={settings.thresholdPercent} />
           ) : (
-            <EmptyState title="No students in this section" Icon={Users}>Students appear here once they are placed in the section.</EmptyState>
+            <EmptyState title="No students in this section" Icon={Users}><Words k="Students appear here once they are placed in the section." /></EmptyState>
           ))}
           {canChange && (
-            <p className="text-[13px] text-ink3">Tap a mark to change it. After the lock time ({time12(settings.lockTime)}) a change goes to Approvals as a correction request.</p>
+            <p className="text-[13px] text-ink3"><Words k="Tap a mark to change it. After the lock time (" />{time12(settings.lockTime)}<Words k=") a change goes to Approvals as a correction request." /></p>
           )}
         </div>
       )}
@@ -176,15 +177,15 @@ function ClassGrid({ grid, byKey, statuses, cellHref, statusFilter, threshold, t
       <div className="flex items-center justify-between gap-3 px-5 py-4 flex-wrap">
         <div>
           <h2 className="font-semibold">{grid.label}</h2>
-          <p className="text-[13px] text-ink3">{grid.section.name} · {grid.rows.length} {grid.rows.length === 1 ? "student" : "students"} · {grid.workingDays} school {grid.workingDays === 1 ? "day" : "days"}{thisMonth ? " so far" : ""} · {percentText(grid.overall.percent)} present</p>
+          <p className="text-[13px] text-ink3">{grid.section.name} · {grid.rows.length} {grid.rows.length === 1 ? "student" : "students"} · {grid.workingDays} <Words k="school" /> {grid.workingDays === 1 ? "day" : "days"}{thisMonth ? " so far" : ""} · {percentText(grid.overall.percent)} <Words k="present" /></p>
         </div>
         <Legend statuses={legend} extra={<>
-          {shown.some((d) => d.off) && <li className="flex items-center gap-1.5"><span aria-hidden="true" className={cx("w-4 h-4 rounded grid place-items-center text-[9px] font-bold", HOLIDAY_CELL)}>H</span>Holiday</li>}
-          {anyNotKnown && <li className="flex items-center gap-1.5"><span aria-hidden="true" className="w-2 h-2 rounded-full bg-warn" />Reason not known yet</li>}
+          {shown.some((d) => d.off) && <li className="flex items-center gap-1.5"><span aria-hidden="true" className={cx("w-4 h-4 rounded grid place-items-center text-[9px] font-bold", HOLIDAY_CELL)}>H</span><Words k="Holiday" /></li>}
+          {anyNotKnown && <li className="flex items-center gap-1.5"><span aria-hidden="true" className="w-2 h-2 rounded-full bg-warn" /><Words k="Reason not known yet" /></li>}
         </>} />
       </div>
       {!anyPast ? (
-        <div className="border-t border-line"><EmptyState bare title="This month has not started" Icon={CalendarDays}>Marks show here from the first school day of {grid.label}.</EmptyState></div>
+        <div className="border-t border-line"><EmptyState bare title="This month has not started" Icon={CalendarDays}><Words k="Marks show here from the first school day of" /> {grid.label}.</EmptyState></div>
       ) : grid.rows.length === 0 ? (
         <div className="border-t border-line">
           <EmptyState bare title={statusFilter ? "No student matches this status" : "No students in this section"} Icon={Users}>
@@ -194,10 +195,10 @@ function ClassGrid({ grid, byKey, statuses, cellHref, statusFilter, threshold, t
       ) : (
         <div className="relative overflow-x-auto scroll-thin" tabIndex={0} role="region" aria-label={`Register for ${grid.section.name}, ${grid.label}`}>
           <table className="text-[13px] min-w-full border-separate border-spacing-0">
-            <caption className="sr-only">{grid.section.name}, {grid.label}: students down the side, school days across</caption>
+            <caption className="sr-only">{grid.section.name}, {grid.label}<Words k=": students down the side, school days across" /></caption>
             <thead>
               <tr className="text-ink3">
-                <th scope="col" className="sticky left-0 z-10 bg-surface text-left font-semibold px-4 py-2 min-w-[180px] border-y border-line">Student</th>
+                <th scope="col" className="sticky left-0 z-10 bg-surface text-left font-semibold px-4 py-2 min-w-[180px] border-y border-line"><Words k="Student" /></th>
                 {shown.map((d) => (
                   <th key={d.iso} scope="col" title={d.off ?? undefined} className="font-semibold px-1 py-2 w-10 tnum border-y border-line">
                     {d.day}<span className="block text-[10px] font-medium">{d.weekday.slice(0, 2)}</span>
@@ -241,7 +242,7 @@ function ClassGrid({ grid, byKey, statuses, cellHref, statusFilter, threshold, t
         </div>
       )}
       {anyPast && grid.rows.length > 0 && (
-        <p className="px-5 py-3 border-t border-line text-[12.5px] text-ink3">Holidays, Sundays, days off and days not marked are not counted. A half day counts as half. Below {threshold}% is shown in red.</p>
+        <p className="px-5 py-3 border-t border-line text-[12.5px] text-ink3"><Words k="Holidays, Sundays, days off and days not marked are not counted. A half day counts as half. Below" /> {threshold}<Words k="% is shown in red." /></p>
       )}
     </Card>
   );
@@ -267,10 +268,10 @@ function StudentCalendar({ s, byKey, statuses, sectionName, yearName, cellHref, 
         <div className="flex items-center justify-between gap-3 px-5 py-4 flex-wrap">
           <div>
             <h2 className="font-semibold">{s.row.name}</h2>
-            <p className="text-[13px] text-ink3">{sectionName} · {s.cal.label} · Admission no. {s.row.admissionNo}</p>
+            <p className="text-[13px] text-ink3">{sectionName} · {s.cal.label} <Words k="· Admission no." /> {s.row.admissionNo}</p>
           </div>
           <Legend statuses={statuses.filter((x) => CORE.includes(x.key) || s.cal.cells.some((c) => c.statusKey === x.key))}
-            extra={s.cal.cells.some((c) => c.off && c.off !== "Sunday") ? <li className="flex items-center gap-1.5"><span aria-hidden="true" className={cx("w-4 h-4 rounded grid place-items-center text-[9px] font-bold", HOLIDAY_CELL)}>H</span>Holiday</li> : undefined} />
+            extra={s.cal.cells.some((c) => c.off && c.off !== "Sunday") ? <li className="flex items-center gap-1.5"><span aria-hidden="true" className={cx("w-4 h-4 rounded grid place-items-center text-[9px] font-bold", HOLIDAY_CELL)}>H</span><Words k="Holiday" /></li> : undefined} />
         </div>
         <div className="px-3 sm:px-5 pb-5">
           <div className="grid grid-cols-7 gap-1 sm:gap-1.5 text-center" role="grid" aria-label={`${s.row.name}, ${s.cal.label}`}>
@@ -299,7 +300,7 @@ function StudentCalendar({ s, byKey, statuses, sectionName, yearName, cellHref, 
       </Card>
       {Object.keys(s.row.reasons).length > 0 && (
         <Card className="overflow-hidden">
-          <h2 className="px-5 pt-4 font-semibold">Reasons for absences</h2>
+          <h2 className="px-5 pt-4 font-semibold"><Words k="Reasons for absences" /></h2>
           <ul className="px-2 pb-2 divide-y divide-line/70">
             {Object.entries(s.row.reasons).sort(([a], [b]) => a.localeCompare(b)).map(([iso, r]) => (
               <li key={iso} className="flex items-center gap-3 px-3 py-2.5 text-[14px]">
@@ -360,9 +361,9 @@ async function WholeSchool({ sp }: { sp: Record<string, string | string[] | unde
     <>
       <AttHead access={access} features={features} userId={current.user.id} href={`${BASE}/register`} sub={sub} />
       {!data ? (
-        <EmptyState title="No academic year running now" Icon={CalendarDays}>Attendance shows here once the academic year has started and its sections are set up in Academic Management.</EmptyState>
+        <EmptyState title="No academic year running now" Icon={CalendarDays}><Words k="Attendance shows here once the academic year has started and its sections are set up in Academic Management." /></EmptyState>
       ) : data.cw.sections.length === 0 ? (
-        <EmptyState title="No classes to show" Icon={Users}>No sections are set up for this academic year yet. Add them in Academic Setup.</EmptyState>
+        <EmptyState title="No classes to show" Icon={Users}><Words k="No sections are set up for this academic year yet. Add them in Academic Setup." /></EmptyState>
       ) : (
         <div className="flex flex-col gap-5 lg:gap-6">
           <NotMarkedCard rows={data.notMarked} lockText={lock.atText} locked={lock.locked} canRemind={access.students === "all"} tz={tz} />

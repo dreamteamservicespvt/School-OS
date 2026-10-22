@@ -9,6 +9,7 @@ import type { SchoolContext, Tx } from "../db";
 import { currentYears } from "../academic/years";
 import { childrenOfGuardian } from "../students/guardian-access";
 import type { GuardianView, ParentLinkChild } from "./sections";
+import { pickLanguage, schoolLanguages, type Lang } from "../i18n/languages";
 
 /**
  * "Joining Class 3 A in 2027-28" for each child with no class this year whose
@@ -77,15 +78,17 @@ export async function guardianChildren(tx: Tx, ctx: SchoolContext, guardianId: s
   return { children, academicYearId: main?.id ?? null, yearOfCampus: new Map(years.map((y) => [y.campusId, y.id])) };
 }
 
-export async function loadGuardianView(tx: Tx, ctx: SchoolContext, input: { linkId: string; guardianId: string; childId?: string | null; token: string; preview: boolean }): Promise<GuardianView | null> {
+export async function loadGuardianView(tx: Tx, ctx: SchoolContext, input: { linkId: string; guardianId: string; childId?: string | null; token: string; preview: boolean; lang?: Lang | null }): Promise<GuardianView | null> {
   const [school, guardian] = await Promise.all([
-    tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { name: true, timeZone: true } }),
+    tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { name: true, timeZone: true, languages: true, defaultLanguage: true } }),
     tx.guardian.findFirstOrThrow({ where: { id: input.guardianId, schoolId: ctx.schoolId }, select: { name: true, language: true } }),
   ]);
   const { children, academicYearId, yearOfCampus } = await guardianChildren(tx, ctx, input.guardianId);
   if (!children.length) return null;
   // A child id from the address that is not this guardian's own is ignored.
   const child = children.find((c) => c.id === input.childId) ?? children[0];
+  // The page's language (src/lib/parent-link/language.ts); a staff preview shows the guardian's own language.
+  const languages = schoolLanguages(school.languages, school.defaultLanguage);
   return {
     schoolId: ctx.schoolId,
     schoolName: school.name,
@@ -94,6 +97,8 @@ export async function loadGuardianView(tx: Tx, ctx: SchoolContext, input: { link
     guardianId: input.guardianId,
     guardianName: guardian.name,
     language: guardian.language,
+    lang: pickLanguage([input.lang, guardian.language], languages, school.defaultLanguage),
+    languages,
     children,
     child,
     token: input.token,

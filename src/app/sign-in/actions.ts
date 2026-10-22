@@ -9,7 +9,22 @@ import { forgetDevice, rememberDevice, REMEMBERED_COOKIE, REMEMBERED_COOKIE_MAX_
 import { deviceKeyOf } from "@/lib/auth/tokens";
 import { setAppearanceCookies, setSessionCookie, signInDevice } from "@/lib/current";
 import { prisma } from "@/lib/db";
-import { hitLimit, limitMessage } from "@/lib/rate-limit";
+import { hitLimit } from "@/lib/rate-limit";
+import { browserLanguage, makeT } from "@/lib/i18n/server";
+import { LANG_COOKIE, isLang } from "@/lib/i18n/languages";
+import type { T } from "@/lib/i18n/t";
+
+/** The sign-in pages speak the language chosen on this browser; fixed messages from the sign-in rules are in the catalogue. */
+async function words(): Promise<T> {
+  return makeT((await browserLanguage()) ?? "en");
+}
+
+/** "Too many tries…" in the page's language. */
+function waitWords(t: T, r: { retryAfterSeconds: number }) {
+  return r.retryAfterSeconds < 90
+    ? t("Too many tries in a short time. Please wait {n} seconds and try again.", { n: r.retryAfterSeconds })
+    : t("Too many tries in a short time. Please wait {n} minutes and try again.", { n: Math.ceil(r.retryAfterSeconds / 60) });
+}
 
 export type SignInState = { message: string; username: string } | null;
 
@@ -23,8 +38,10 @@ async function keepRemembered(token: string) {
 
 async function finish(userLoginId: string, token: string, remember = true) {
   await setSessionCookie(token, remember);
-  const user = await prisma.userLogin.findUnique({ where: { id: userLoginId }, select: { theme: true, accent: true, textSize: true } });
+  const user = await prisma.userLogin.findUnique({ where: { id: userLoginId }, select: { theme: true, accent: true, textSize: true, language: true } });
   if (user) await setAppearanceCookies(user.theme, cleanAccent(user.accent), user.textSize);
+  // The person's own screen language follows them to this browser (the sign-in page uses it next time).
+  if (user && isLang(user.language)) (await cookies()).set(LANG_COOKIE, user.language, { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax" });
 }
 
 async function keepChallenge(token: string) {
@@ -34,18 +51,19 @@ async function keepChallenge(token: string) {
 export async function signInAction(_prev: SignInState, formData: FormData): Promise<SignInState> {
   const username = String(formData.get("username") ?? "").trim();
   const password = String(formData.get("password") ?? "");
+  const t = await words();
   if (!username || !password) {
-    return { message: "Type your username and your password.", username };
+    return { message: t("Type your username and your password."), username };
   }
   const device = await signInDevice();
   const limit = await hitLimit(`sign-in:ip:${device.ipAddress ?? "unknown"}`, 30, 600);
-  if (!limit.ok) return { message: limitMessage(limit), username };
+  if (!limit.ok) return { message: waitWords(t, limit), username };
   const jar = await cookies();
   const result = await signIn(username, password, device, { trustedDevice: jar.get(REMEMBERED_COOKIE)?.value });
   const remember = formData.get("remember") === "on";
   if (!result.ok && result.twoStep) {
     const step = await startSecondStep(result.twoStep.userLoginId, result.twoStep.schoolId, device);
-    if (step.kind === "problem") return { message: step.message, username };
+    if (step.kind === "problem") return { message: t.any(step.message), username };
     if (step.kind === "signed-in") {
       // No code can reach this person yet: signed in, and My profile shows how to fix it.
       await finish(result.twoStep.userLoginId, step.token, remember);
@@ -56,7 +74,7 @@ export async function signInAction(_prev: SignInState, formData: FormData): Prom
     redirect("/sign-in/code");
   }
   if (!result.ok && result.firstChange) redirect(`/invite/${result.firstChange}?first=1`);
-  if (!result.ok) return { message: result.message, username };
+  if (!result.ok) return { message: t.any(result.message), username };
   // A remembered device skipped the code: its 180 days start again from today.
   if (result.remembered) await keepRemembered(jar.get(REMEMBERED_COOKIE)!.value);
   await finish(result.userLoginId, result.token, remember);
@@ -71,12 +89,13 @@ export async function signInAction(_prev: SignInState, formData: FormData): Prom
  */
 export async function codeSignInAction(_prev: SignInState, formData: FormData): Promise<SignInState> {
   const username = String(formData.get("username") ?? "").trim();
-  if (!username) return { message: "Type your mobile number, email or username.", username };
+  const t = await words();
+  if (!username) return { message: t("Type your mobile number, email or username."), username };
   const device = await signInDevice();
   const limit = await hitLimit(`code-sign-in:ip:${device.ipAddress ?? "unknown"}`, 10, 600);
-  if (!limit.ok) return { message: limitMessage(limit), username };
+  if (!limit.ok) return { message: waitWords(t, limit), username };
   const started = await startCodeSignIn(username, device);
-  if (!started.ok) return { message: started.message, username };
+  if (!started.ok) return { message: t.any(started.message), username };
   await keepChallenge(started.token);
   (await cookies()).set(REMEMBER_COOKIE, formData.get("remember") === "on" ? "1" : "0", { httpOnly: true, secure, sameSite: "lax", path: "/sign-in", maxAge: CODE_TTL_MS / 1000 });
   redirect("/sign-in/code");
@@ -88,16 +107,17 @@ export async function verifyCodeAction(_prev: CodeState, formData: FormData): Pr
   const jar = await cookies();
   const token = jar.get(CHALLENGE_COOKIE)?.value;
   const device = await signInDevice();
+  const t = await words();
   const limit = await hitLimit(`two-step:ip:${device.ipAddress ?? "unknown"}`, 30, 600);
-  if (!limit.ok) return { message: limitMessage(limit) };
+  if (!limit.ok) return { message: waitWords(t, limit) };
   const result = await verifyChallenge(token, String(formData.get("code") ?? ""), device);
   if (!result.ok) {
     if (result.restart) jar.delete({ name: CHALLENGE_COOKIE, path: "/sign-in" });
-    return { message: result.message, restart: result.restart };
+    return { message: t.any(result.message), restart: result.restart };
   }
   jar.delete({ name: CHALLENGE_COOKIE, path: "/sign-in" });
   const next = await afterRightCode(result, device);
-  if (next.kind === "problem") return { message: next.message, restart: true };
+  if (next.kind === "problem") return { message: t.any(next.message), restart: true };
   if (next.kind === "second-code") {
     // The first code was right; the page now asks for the second one.
     await keepChallenge(next.token);
@@ -121,14 +141,15 @@ export async function verifyCodeAction(_prev: CodeState, formData: FormData): Pr
 export async function resendCodeAction(): Promise<CodeState> {
   const jar = await cookies();
   const challenge = await findChallenge(jar.get(CHALLENGE_COOKIE)?.value);
+  const t = await words();
   if (!challenge?.schoolId) {
     jar.delete({ name: CHALLENGE_COOKIE, path: "/sign-in" });
-    return { message: "Your sign-in has timed out. Sign in again.", restart: true };
+    return { message: t("Your sign-in has timed out. Sign in again."), restart: true };
   }
   // A new code goes the same way as the one it replaces, for the same step.
   const only = challenge.purpose === "sign-in" ? undefined : challenge.channel === "email" ? "email" : challenge.channel === "sms" ? "phone" : undefined;
   const started = await startChallenge(challenge.userLoginId, challenge.schoolId, await signInDevice(), { purpose: challenge.purpose, only });
-  if (!started.ok) return { message: started.message };
+  if (!started.ok) return { message: t.any(started.message) };
   await keepChallenge(started.token);
-  return { message: `A new code was sent to ${started.sentTo}. The earlier code no longer works.`, sent: true };
+  return { message: t("A new code was sent to {to}. The earlier code no longer works.", { to: started.sentTo }), sent: true };
 }

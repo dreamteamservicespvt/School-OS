@@ -82,7 +82,7 @@ async function supportCurrent(e: SupportEntry) {
   const user: UserLogin = {
     id: SUPPORT_LOGIN_ID, username: "dream-team-support", displayName: `DREAM TEAM support (${e.name})`, phone: null, email: null, passwordHash: null, status: "ACTIVE",
     inviteTokenHash: null, inviteExpiresAt: null, failedAttempts: 0, lockedUntil: null, lastSignInAt: null, passwordChangedAt: null, mustChangePassword: false, twoStepResetAt: null, twoStepChosen: false,
-    notificationPrefs: {}, theme: "system", accent: "royal", textSize: "normal", createdAt: now, updatedAt: now, archivedAt: null,
+    notificationPrefs: {}, theme: "system", accent: "royal", textSize: "normal", language: null, createdAt: now, updatedAt: now, archivedAt: null,
   };
   const session: Session & { userLogin: UserLogin } = {
     id: e.requestId, userLoginId: SUPPORT_LOGIN_ID, tokenHash: "", schoolId: e.schoolId, campusId: null, userAgent: null, ipAddress: null,

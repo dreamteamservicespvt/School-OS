@@ -21,6 +21,7 @@
 import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
+import type { Lang } from "../i18n/languages";
 
 export type ParentLinkChild = { id: string; name: string; firstName: string; classLabel: string; sectionId: string | null; classId: string | null; campusId: string | null; admissionNo: string; photoFileId: string | null };
 
@@ -31,7 +32,11 @@ export type GuardianView = {
   linkId: string;
   guardianId: string;
   guardianName: string;
+  /** The guardian's message language (Guardian record). */
   language: string;
+  /** The language this page is shown in, and the school's languages to choose from (src/lib/parent-link/language.ts). */
+  lang: Lang;
+  languages: Lang[];
   children: ParentLinkChild[];
   child: ParentLinkChild;
   /** The link's token, for forms posting back to the page. Empty in a staff preview. */

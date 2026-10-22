@@ -110,12 +110,22 @@ export async function signIn(usernameInput: string, password: string, device: De
     data: { failedAttempts: 0, lockedUntil: null },
   });
   let remembered = false;
-  if (await needsTwoStep(user.id, schoolId)) {
+  if (await needsTwoStepInAny(user.id, schools)) {
     remembered = await isRememberedDevice(user.id, opts.trustedDevice, now);
     if (!remembered) return { ok: false, message: "Type the one-time code to finish signing in.", twoStep: { userLoginId: user.id, schoolId } };
   }
   const { token } = await completeSignIn(user.id, schoolId, device, now);
   return { ok: true, token, userLoginId: user.id, schoolId, ...(remembered ? { remembered } : {}) };
+}
+
+/**
+ * Two-step login is decided once, at sign-in, for every school the person can
+ * open: the School switcher opens their other schools without asking again, so
+ * a Teacher in one school who is the Principal in another types the code too.
+ */
+async function needsTwoStepInAny(userLoginId: string, schools: { id: string }[]): Promise<boolean> {
+  for (const school of schools) if (await needsTwoStep(userLoginId, school.id)) return true;
+  return false;
 }
 
 /** Sessions from before browsers had their own device id are matched by browser name for this long. */
@@ -223,10 +233,11 @@ export async function startCodeSignIn(typed: string, device: DeviceInfo, opts: {
   const now = opts.now ?? new Date();
   const user = await findLogin(typed);
   const usable = user && user.status === "ACTIVE" && !user.archivedAt && (!user.lockedUntil || user.lockedUntil <= now);
-  const school = user && usable ? (await schoolsFor(user.id))[0] : null;
+  const schools = user && usable ? await schoolsFor(user.id) : [];
+  const school = schools[0];
   if (!user || !school || (!user.phone && !user.email)) return { ok: false, message: CANNOT_SEND };
   let only: "email" | undefined;
-  if (await needsTwoStep(user.id, school.id)) {
+  if (await needsTwoStepInAny(user.id, schools)) {
     const can = await (opts.channels ?? codeChannels)(user, school.id);
     if (!can.email || !can.phone) return { ok: false, message: CODE_ALONE_WORDS };
     only = "email";
@@ -236,8 +247,16 @@ export async function startCodeSignIn(typed: string, device: DeviceInfo, opts: {
   return { ok: true, token: started.token };
 }
 
+/**
+ * Whether a sign-in by two codes (email, then mobile) instead of the password
+ * may make a remembered device. Open owner decision: off for now, as the
+ * blueprint says no code typed instead of the password makes one
+ * (08-platform-security.md §2). Switching it on is this one line.
+ */
+export const TWO_CODES_REMEMBER_DEVICE = false;
+
 export type AfterCode =
-  /** `mayRemember`: false after one code typed instead of the password; that never makes a remembered device. Two codes (email and mobile) may. */
+  /** `mayRemember`: true only after the password and a code; codes typed instead of the password do not (see TWO_CODES_REMEMBER_DEVICE). */
   | { kind: "signed-in"; token: string; userLoginId: string; mayRemember: boolean }
   /** The first of two codes was right; the second went to the person's other contact. */
   | { kind: "second-code"; token: string; sentTo: string }
@@ -255,14 +274,15 @@ export async function afterRightCode(
   opts: { now?: Date; deliver?: Deliver } = {},
 ): Promise<AfterCode> {
   const now = opts.now ?? new Date();
-  if (v.purpose === "code-sign-in" && (await needsTwoStep(v.userLoginId, v.schoolId))) {
+  if (v.purpose === "code-sign-in" && (await needsTwoStepInAny(v.userLoginId, await schoolsFor(v.userLoginId)))) {
     const only = v.channel === "sms" ? "email" : "phone";
     const s = await startChallenge(v.userLoginId, v.schoolId, device, { now, deliver: opts.deliver, purpose: "code-sign-in-second", only });
     if (!s.ok) return { kind: "problem", message: `${s.message} Your role needs a second code ${only === "phone" ? "on your mobile" : "by email"}. Sign in with your password instead, or ask your School Admin.` };
     return { kind: "second-code", token: s.token, sentTo: s.sentTo };
   }
   const { token } = await completeSignIn(v.userLoginId, v.schoolId, device, now, { byCode: v.purpose !== "sign-in" });
-  return { kind: "signed-in", token, userLoginId: v.userLoginId, mayRemember: v.purpose !== "code-sign-in" };
+  const mayRemember = v.purpose === "sign-in" || (v.purpose === "code-sign-in-second" && TWO_CODES_REMEMBER_DEVICE);
+  return { kind: "signed-in", token, userLoginId: v.userLoginId, mayRemember };
 }
 
 /** A wrong password for a real login goes into each of its schools' login history. */

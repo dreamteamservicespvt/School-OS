@@ -14,7 +14,6 @@
 import "server-only";
 
 import type { Prisma } from "@prisma/client";
-import type { SchoolContext, Tx } from "../db";
 import { defineImport, type ImportKind, type UpdatedRow } from "../importer";
 import { writeAudit } from "../audit";
 import { decryptField, encryptField, maskLast4 } from "../crypto";

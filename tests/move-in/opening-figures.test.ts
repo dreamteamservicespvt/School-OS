@@ -245,3 +245,71 @@ describe("Staff pay details (G19)", () => {
     expect(await run(c, (tx) => tx.staff.findUniqueOrThrow({ where: { id: pd1.id } }))).toMatchObject({ panEnc: null, bankAccountEnc: null, bankIfsc: null, bankName: null, uan: "100000000001", esiNo: "3199999999" });
   });
 });
+
+describe("Salary to date (G19)", () => {
+  it("full Salary Management only; counted in the year's totals and the TDS check, never in the Day Book; Undo takes it back", async () => {
+    const { buildSalaryReport } = await import("@/lib/salary/reports");
+    const { salaryBroughtInForMonth, yearlyGross } = await import("@/lib/salary/to-date-totals");
+    const { monthOf } = await import("@/lib/salary/to-date");
+    const acc = await who(f.accountant.id);
+    const teacher = await who((await makeUser({ schools: [{ id: f.school.id, roleKeys: ["teacher"] }] })).id);
+    for (const place of [PLACES.salary, PLACES.settings]) {
+      expect(await placeRefusal(acc, place, "salary-to-date", "create")).toBeNull();
+      expect(await placeRefusal(teacher, place, "salary-to-date", "create")).not.toBeNull();
+    }
+    expect([monthOf("Sep-26"), monthOf("09-2026"), monthOf("2026-09"), monthOf("September 2026"), monthOf("30-09-2026")].map((d) => d?.toISOString().slice(0, 10))).toEqual(Array(5).fill("2026-09-01"));
+    expect(monthOf("13-2026")).toBeNull();
+
+    const c = f.ctx;
+    const sd1 = await run(c, async (tx) => {
+      const base = { schoolId: f.school.id, campusId: f.school.campus.id, designation: "Teacher", joiningDate: day("2020-06-01") };
+      await tx.staff.create({ data: { ...base, staffCode: "SD-2", firstName: "Lata", fullName: "Lata Menon", phone: "9876500932" } });
+      return tx.staff.create({ data: { ...base, staffCode: "SD-1", firstName: "Mohan", fullName: "Mohan Das", phone: "9876500931" } });
+    });
+    const dayBook = () => run(c, (tx) => tx.dayBookEntry.count());
+    const booksBefore = await dayBook();
+    const csv = "Emp Code,Gross Salary,EPF,ESIC,PT,Income Tax,Up To\nSD-1,\"1,80,000\",15840,0,1200,6000,Sep-26\nSD-2,1000,600,0,0,600,September 2026\nSD-9,100,,,,,09-2026\nSD-1,100,,,,,09-2026\n";
+    const [id] = await upload(c, csv, "salary-to-date.csv", "salary-to-date");
+    const w = await run(c, (tx) => workOn(tx, c, id, { check: true }));
+    expect(w.choices.columnMatch).toMatchObject({ staffId: [0], gross: [1], pf: [2], esi: [3], pt: [4], tds: [5], upToMonth: [6] });
+    const checked = w.checked!;
+    expect(checked.ready.map((r) => r.line)).toEqual([2]);
+    const problem = (line: number) => checked.problems.find((p) => p.line === line)?.problems.join(" ") ?? "";
+    expect(problem(3)).toMatch(/cannot be more than the gross paid/);
+    expect(problem(4)).toMatch(/No staff member has the staff ID SD-9/);
+    expect(problem(5)).toMatch(/twice in the file/);
+
+    const batchId = await bringIn(c, id, PLACES.salary);
+    const row = await run(c, (tx) => tx.salaryToDate.findFirstOrThrow({ where: { staffId: sd1.id, archivedAt: null } }));
+    expect(row).toMatchObject({ fromMonth: day("2026-04-01"), upToMonth: day("2026-09-01"), grossPaise: 18000000n, pfPaise: 1584000n, ptPaise: 120000n, tdsPaise: 600000n });
+    expect(await run(c, (tx) => tx.auditLogEntry.count({ where: { action: "brought-in", recordType: "Salary to Date", recordId: row.id } }))).toBe(1);
+    // Paid before School OS: never in the Day Book.
+    expect(await dayBook()).toBe(booksBefore);
+
+    // The year's likely pay for the TDS check: six months brought in, six at this month's gross.
+    const forOct = await run(c, (tx) => salaryBroughtInForMonth(tx, [sd1.id], day("2026-10-01")));
+    expect(forOct.get(sd1.id)?.months).toBe(6);
+    expect(yearlyGross(3000000n, forOct.get(sd1.id))).toBe(18000000n + 3000000n * 6n);
+    expect(yearlyGross(3000000n, undefined)).toBe(36000000n);
+    expect((await run(c, (tx) => salaryBroughtInForMonth(tx, [sd1.id], day("2027-04-01")))).size).toBe(0);
+
+    // Salary reports for the year show it as its own row.
+    const year = { from: day("2026-04-01"), to: day("2027-03-31"), money: true };
+    const history = await run(c, (tx) => buildSalaryReport(tx, "employee", { ...year, staffId: sd1.id }));
+    expect(history!.rows[0]).toMatchObject({ m: "Before School OS, April to September 2026" });
+    expect(String(history!.rows[0].g)).toMatch(/1,80,000/);
+    const ptTds = await run(c, (tx) => buildSalaryReport(tx, "pt-tds", year));
+    expect(ptTds!.rows.map((x) => x.id)).toContain("SD-1");
+    // A period that holds only part of it (October on) leaves it out.
+    const later = await run(c, (tx) => buildSalaryReport(tx, "employee", { from: day("2026-10-01"), to: day("2027-03-31"), money: true, staffId: sd1.id }));
+    expect(later!.rows).toHaveLength(0);
+
+    // Brought in twice: the second file says so.
+    const [again] = await upload(c, "Staff ID,Gross paid,Up to month\nSD-1,1000,09-2026\n", "again.csv", "salary-to-date");
+    expect((await run(c, (tx) => workOn(tx, c, again, { check: true }))).checked!.problems[0].problems.join(" ")).toMatch(/already brought in for 2026-27/);
+
+    await run(c, (tx) => undoImport(tx, c, batchId));
+    expect((await run(c, (tx) => tx.salaryToDate.findUniqueOrThrow({ where: { id: row.id } }))).archivedAt).not.toBeNull();
+    expect((await run(c, (tx) => buildSalaryReport(tx, "employee", { ...year, staffId: sd1.id })))!.rows).toHaveLength(0);
+  });
+});

@@ -15,6 +15,7 @@ import { MoneyProblem } from "../fees/problem";
 import { formatDate, formatRupees } from "../format";
 import { isoDay } from "../staff/dates";
 import { staffMonthForSalary } from "../attendance/staff";
+import { salaryBroughtInForMonth, yearlyGross } from "./to-date-totals";
 import { postToDayBook, reverseSource } from "../finance/daybook";
 import { assertBooksOpen } from "../finance/years";
 import { accountForMode, systemHead } from "../finance/settings";
@@ -123,6 +124,8 @@ export async function calculateRun(tx: Tx, ctx: SchoolContext, runId: string, to
   // Leave or attendance changed after an earlier month's salary was approved: arrears or a deduction here.
   await carryCorrections(tx, ctx, run, paidIds, today, settings.lateMarksPerHalfDay);
   const adjustments = await tx.payrollAdjustment.findMany({ where: { runId: run.id, archivedAt: null } });
+  // Salary already paid this financial year before School OS (Salary to date, G19), for the year's likely pay.
+  const broughtIn = await salaryBroughtInForMonth(tx, paidIds, month);
 
   const calendarDays = end.getUTCDate();
   const daysInMonth = settings.lopDays === "thirty" ? 30 : calendarDays;
@@ -172,7 +175,7 @@ export async function calculateRun(tx: Tx, ctx: SchoolContext, runId: string, to
         const parts = [x.pfPaise !== ZERO ? `PF ${formatRupees(x.pfPaise)}` : null, x.esiPaise !== ZERO ? `ESI ${formatRupees(x.esiPaise)}` : null].filter(Boolean);
         notes.push(`${correctionLabel(x)}: ${x.type === "DEDUCTION" ? "−" : "+"}${formatRupees(x.amountPaise)}${parts.length ? `, with ${parts.join(" and ")} on it by the rules of ${monthName(x.forMonth!)}` : ""}`);
       }
-      if (st.tdsPaise === ZERO && pay.fullGross * BigInt(12) > yearlyLimit) flags.push("No TDS amount");
+      if (st.tdsPaise === ZERO && yearlyGross(pay.fullGross, broughtIn.get(s.id)) > yearlyLimit) flags.push("No TDS amount");
       if (pay.recoveryReduced) {
         flags.push("Recovery reduced");
         notes.push(`Loan or advance recovery reduced to ${formatRupees(pay.recovery)} this month so net pay is not below zero; the rest moves to next month`);

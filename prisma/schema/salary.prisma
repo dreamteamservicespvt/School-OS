@@ -409,3 +409,33 @@ model StatutoryStatement {
   @@index([schoolId, runId])
   @@map("statutory_statement")
 }
+
+/// Salary to Date: one staff member's salary already paid this financial year
+/// in the old software, before the school started on School OS (workflow 15,
+/// gap list G19). Read for the year's totals (Salary Slips' tax summary, the
+/// salary reports) and the yearly pay behind the "No TDS amount" check. Never
+/// posted to the Day Book: that money left before School OS. Made only by an
+/// import; Undo archives it.
+model SalaryToDate {
+  id              String    @id @default(uuid()) @db.Uuid
+  schoolId        String    @map("school_id") @db.Uuid
+  staffId         String    @map("staff_id") @db.Uuid
+  financialYearId String    @map("financial_year_id") @db.Uuid
+  /// First day of the first month covered: the start of the financial year.
+  fromMonth       DateTime  @map("from_month") @db.Date
+  /// First day of the last month covered.
+  upToMonth       DateTime  @map("up_to_month") @db.Date
+  grossPaise      BigInt    @map("gross_paise")
+  pfPaise         BigInt    @default(0) @map("pf_paise")
+  esiPaise        BigInt    @default(0) @map("esi_paise")
+  ptPaise         BigInt    @default(0) @map("pt_paise")
+  tdsPaise        BigInt    @default(0) @map("tds_paise")
+  createdById     String?   @map("created_by_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  archivedAt      DateTime? @map("archived_at")
+
+  @@index([schoolId, staffId])
+  @@index([schoolId, financialYearId])
+  @@map("salary_to_date")
+}

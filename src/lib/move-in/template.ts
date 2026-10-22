@@ -35,6 +35,7 @@ const UPLOAD_AT: Record<string, string> = {
   "attendance-so-far": "Attendance Management, Import attendance so far",
   "staff-leave-balances": "Staff & HR Management, Import staff",
   "staff-pay-details": "Staff & HR Management, Import staff",
+  "salary-to-date": "Salary Management, Salary Structures, Import",
 };
 /** Kinds brought in only on their own module's page. */
 const ONLY_THERE: Record<string, string> = {

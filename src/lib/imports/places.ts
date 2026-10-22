@@ -38,7 +38,7 @@ export const PLACES: Record<PlaceKey, ImportPlace> = {
   "inventory-assets": { key: "inventory-assets", module: "inventory-management", base: "/inventory-management/assets/import", downloads: "/inventory-management/import", kinds: ["inventory-assets"], name: "Import assets" },
   hostel: { key: "hostel", module: "hostel-management", base: "/hostel-management/rooms/import", kinds: ["hostel-rooms"], name: "Import rooms" },
   students: { key: "students", module: "student-management", base: "/student-management/import", kinds: ["students", "students-update"], name: "Import students" },
-  salary: { key: "salary", module: "salary-management", base: "/salary-management/structures/import", kinds: ["salary-structures"], name: "Import salary structures" },
+  salary: { key: "salary", module: "salary-management", base: "/salary-management/structures/import", kinds: ["salary-structures", "salary-to-date"], name: "Import salary" },
   attendance: { key: "attendance", module: "attendance-management", base: "/attendance-management/import", kinds: ["attendance-so-far"], name: "Import attendance so far" },
 };
 
@@ -53,6 +53,8 @@ export const OWN_RULES: Record<string, PlaceKey> = {
   "staff-leave-balances": "staff",
   // Pay details are restricted fields: HR, the Principal and the School Admin only (09 §1).
   "staff-pay-details": "staff",
+  // Salary to date: full Salary Management only, as for salary itself.
+  "salary-to-date": "salary",
 };
 
 export function importPlace(key: unknown): ImportPlace | null {
@@ -96,6 +98,7 @@ export const HOME: Record<string, { href: string; label: string }> = {
   "attendance-so-far": { href: "/attendance-management/register", label: "Open Attendance Register" },
   "staff-leave-balances": { href: "/staff-hr-management/leave?view=balances", label: "Open leave balances" },
   "staff-pay-details": { href: "/staff-hr-management", label: "Open Staff List" },
+  "salary-to-date": { href: "/salary-management/history", label: "Open Salary History" },
 };
 
 /** One record and many, in the words of each kind's own module. */
@@ -116,6 +119,7 @@ export const WORDS: Record<string, { one: string; many: string }> = {
   "attendance-so-far": { one: "student's attendance so far", many: "students' attendance so far" },
   "staff-leave-balances": { one: "leave balance", many: "leave balances" },
   "staff-pay-details": { one: "staff member's pay details", many: "staff members' pay details" },
+  "salary-to-date": { one: "staff member's salary to date", many: "staff members' salary to date" },
 };
 
 export const wordsFor = (kind: string, label: string) => WORDS[kind] ?? { one: label.toLowerCase().replace(/s$/, ""), many: label.toLowerCase() };

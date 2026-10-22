@@ -66,6 +66,7 @@ const KNOWN: Record<string, Omit<MoveInKind, "key" | "label">> = {
   "hostel-rooms": { module: "hostel-management", order: 13, about: "Hostel rooms and their beds." },
   "inventory-items": { module: "inventory-management", order: 14, about: "Items with their opening stock." },
   "inventory-assets": { module: "inventory-management", order: 15, about: "The asset register with tags." },
+  "salary-to-date": { module: "salary-management", order: 9.5, about: "Starting part way through the financial year? Each staff member's gross pay, PF, ESI, Professional Tax and TDS already paid this year, for the year's totals and the TDS check. Never posted to the Day Book. Full Salary Management only." },
   // Brought in only on Salary Management's own page (restricted pay details), not listed for Switching.
   "salary-structures": { module: "salary-management", order: 16, about: "Each staff member's basic, allowances and monthly TDS, from the month they start." },
 };

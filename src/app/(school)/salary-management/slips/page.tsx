@@ -23,6 +23,7 @@ import { AllTick, BulkBar, RowTick } from "../_components/bulk";
 import { BASE, MODULE, one, qs, salaryPage, salaryPeriod, type SearchParams } from "../_lib/page";
 import { sendSlipsAction } from "./actions";
 import { SlipView, type SlipPerson } from "./slip-view";
+import { salaryBroughtIn, sumBroughtIn } from "@/lib/salary/to-date-totals";
 
 export const metadata = { title: "Salary Slips" };
 
@@ -64,12 +65,14 @@ async function MySlips({ sp }: { sp: Record<string, string | string[] | undefine
     const campus = await tx.campus.findFirst({ where: { id: staff.campusId }, select: { name: true, address: true } });
     // Own adjustments only (bonus, arrears, corrections of an earlier month), shown on the slip with their month or reason.
     const adjustments = await tx.payrollAdjustment.findMany({ where: { staffId: me.id, archivedAt: null, runId: { in: slips.map((s) => s.runId) } }, orderBy: { createdAt: "asc" } });
-    return { settings, slips, lines, staff, thisRun, campus, adjustments };
+    // Salary paid this financial year before School OS (Salary to date, G19), when the period holds it.
+    const before = sumBroughtIn(await salaryBroughtIn(tx, { staffIds: [me.id], from: per.from, to: per.to }));
+    return { settings, slips, lines, staff, thisRun, campus, adjustments, before };
   });
   const lineOf = new Map(data.lines.map((l) => [l.id, l]));
   const latest = data.slips[0];
   const ll = latest ? lineOf.get(latest.lineId) : null;
-  const ytd = data.slips.reduce((a, s) => { const l = lineOf.get(s.lineId)!; return { pay: a.pay + l.grossPaise, pf: a.pf + l.pfPaise, pt: a.pt + l.ptPaise, tds: a.tds + l.tdsPaise }; }, { pay: ZERO, pf: ZERO, pt: ZERO, tds: ZERO });
+  const ytd = data.slips.reduce((a, s) => { const l = lineOf.get(s.lineId)!; return { pay: a.pay + l.grossPaise, pf: a.pf + l.pfPaise, pt: a.pt + l.ptPaise, tds: a.tds + l.tdsPaise }; }, { pay: data.before.gross, pf: data.before.pf, pt: data.before.pt, tds: data.before.tds });
   const fyEnd = per.to ? new Date(Date.UTC(per.to.getUTCFullYear(), per.to.getUTCMonth() + 1, 0)) : null;
   const monthsLeft = latest && fyEnd ? Math.max(0, (fyEnd.getUTCFullYear() - latest.month.getUTCFullYear()) * 12 + fyEnd.getUTCMonth() - latest.month.getUTCMonth()) : 0;
   const yearly = ytd.pay + (ll ? ll.grossPaise * BigInt(monthsLeft) : ZERO);
@@ -130,6 +133,7 @@ async function MySlips({ sp }: { sp: Record<string, string | string[] | undefine
               <CardHeader title={`Tax summary · ${per.label}`} description={months ? `${monthName(data.slips[months - 1].month).split(" ")[0]} to ${monthName(data.slips[0].month)}, paid so far` : "Nothing paid in this period"} icon={Calculator} />
               <ul className="px-5 pb-3 text-[14px] flex flex-col gap-1.5 tnum">
                 <li className="flex justify-between"><span className="text-ink2">Gross paid</span><b className="font-semibold">{formatRupees(ytd.pay)}</b></li>
+                {data.before.gross > ZERO && <li className="flex justify-between text-[13px]"><span className="text-ink3">of which before School OS</span><span className="text-ink3">{formatRupees(data.before.gross)}</span></li>}
                 <li className="flex justify-between"><span className="text-ink2">PF (yours)</span><span>{formatRupees(ytd.pf)}</span></li>
                 <li className="flex justify-between"><span className="text-ink2">Professional Tax</span><span>{formatRupees(ytd.pt)}</span></li>
                 <li className="flex justify-between"><span className="text-ink2">TDS deducted</span><span>{formatRupees(ytd.tds)}</span></li>

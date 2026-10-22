@@ -14,14 +14,17 @@ export type ResendWho = "unread" | "failed";
 /**
  * Unread: people whose message went (sent, delivered or failed) and who have
  * not read it. Someone still Queued has not been sent it yet, so a resend
- * would give them a second copy (COMM-03).
+ * would give them a second copy (COMM-03). A copy made in test mode (the
+ * sandbox provider) was only recorded and never reached anyone, so it is not
+ * "unread" either: a resend is only for people a real channel sent it to (COMM-07).
  */
 const UNREAD = ["SENT", "DELIVERED", "FAILED"] as const;
+const TEST_MODE_PROVIDER = "sandbox";
 
 /** Which first-message recipients a resend is for. Unread: everyone sent it who is not yet at Read. */
 async function targets(tx: Tx, ctx: SchoolContext, messageId: string, who: ResendWho) {
   const rows = await tx.messageRecipient.findMany({
-    where: { schoolId: ctx.schoolId, messageId, isBackup: false, ...(who === "failed" ? { status: "FAILED" } : { status: { in: [...UNREAD] } }) },
+    where: { schoolId: ctx.schoolId, messageId, isBackup: false, ...(who === "failed" ? { status: "FAILED" } : { status: { in: [...UNREAD] }, OR: [{ provider: null }, { provider: { not: TEST_MODE_PROVIDER } }] }) },
     select: { recipientType: true, guardianId: true, studentId: true, staffId: true, userLoginId: true, values: true, status: true },
   });
   // Someone who read it on any channel has read it.
@@ -65,7 +68,13 @@ export async function resendInput(tx: Tx, ctx: SchoolContext, messageId: string,
   if (m.status === "SCHEDULED" || m.status === "CANCELLED") throw new MessagingProblem("This message has not been sent, so there is nothing to resend.");
   if (who === "unread" && m.status !== "SENT") throw new MessagingProblem("This message is still going out. Resend to unread once everyone has been sent it.");
   const t = await targets(tx, ctx, messageId, who);
-  if (!t.count) throw new MessagingProblem(who === "failed" ? "Nobody failed. There is nothing to resend." : "Everyone has read this message. There is nothing to resend.");
+  if (!t.count) {
+    if (who === "failed") throw new MessagingProblem("Nobody failed. There is nothing to resend.");
+    const testOnly = await tx.messageRecipient.count({ where: { schoolId: ctx.schoolId, messageId, isBackup: false, provider: TEST_MODE_PROVIDER, status: { in: ["SENT", "DELIVERED"] } } });
+    throw new MessagingProblem(testOnly
+      ? "The people who have not read it were sent it in test mode, so nobody received it and there is nothing to resend. Send a new message once the channel is live."
+      : "Everyone has read this message. There is nothing to resend.");
+  }
   const templates: Partial<Record<Channel, string>> = {};
   if (m.templateId) {
     const first = await tx.template.findUnique({ where: { id: m.templateId } });

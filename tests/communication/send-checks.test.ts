@@ -83,13 +83,18 @@ describe("words for people left out (COMM-06)", () => {
   });
 });
 
-describe("Resend to unread (COMM-03)", () => {
-  it("is offered only after the message has gone, to people it went to", async () => {
+describe("Resend to unread (COMM-03, COMM-07)", () => {
+  it("is offered only after the message has gone, to people a real channel sent it to", async () => {
     const r = await withSchool(s.ctx, (tx) => sendMessage(tx, s.ctx, { to: { kinds: ["parents"], sectionIds: [s.a.id] }, channels: ["whatsapp"], text: "Sports day is on Friday." }));
     // Still queued: nobody has been sent it, so there is nobody to resend to.
     expect(await withSchool(s.ctx, (tx) => unreadCount(tx, s.ctx, r.messageId))).toBe(0);
     await expect(withSchool(s.ctx, (tx) => planResend(tx, s.ctx, r.messageId, "unread", "whatsapp", SYSTEM_SCOPE))).rejects.toThrow(/still going out/);
     await runAll(s);
+    // Sent in test mode: only recorded, nobody received it, so there is nobody to resend to (COMM-07).
+    expect(await withSchool(s.ctx, (tx) => unreadCount(tx, s.ctx, r.messageId))).toBe(0);
+    await expect(withSchool(s.ctx, (tx) => planResend(tx, s.ctx, r.messageId, "unread", "whatsapp", SYSTEM_SCOPE))).rejects.toThrow(/sent it in test mode, so nobody received it/);
+    // As if a real WhatsApp account had sent it.
+    await withSchool(s.ctx, (tx) => tx.messageRecipient.updateMany({ where: { messageId: r.messageId }, data: { provider: "meta-cloud" } }));
     expect(await withSchool(s.ctx, (tx) => unreadCount(tx, s.ctx, r.messageId))).toBe(r.people);
     // Someone who read it is left out.
     await withSchool(s.ctx, async (tx) => {

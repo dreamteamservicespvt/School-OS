@@ -2,6 +2,7 @@
 // that nobody, including DREAM TEAM, can read them back.
 
 import { hash, verify } from "@node-rs/argon2";
+import { isCommonPassword } from "./common-passwords";
 
 const OPTIONS = { memoryCost: 19456, timeCost: 2, parallelism: 1 } as const;
 
@@ -24,10 +25,15 @@ export async function burnPasswordCheck(password: string): Promise<void> {
   await verifyPassword(await dummyHash, password);
 }
 
-/** Password rules (inferred until Settings, Users & Permissions sets them): at least 8 characters, with a letter and a number. */
-export function checkNewPassword(password: string): string | null {
-  if (password.length < 8) return "Use at least 8 characters.";
-  if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) return "Use at least one letter and one number.";
+/**
+ * The rules every new password follows: at least `minLength` characters (8, or
+ * more when the school's Password Policy asks, password-rules.ts), a letter and
+ * a number, and not a common password (common-passwords.ts).
+ */
+export function checkNewPassword(password: string, minLength = 8): string | null {
+  if (password.length < minLength) return `Use at least ${minLength} characters.`;
   if (password.length > 200) return "Use at most 200 characters.";
+  if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) return "Use at least one letter and one number.";
+  if (isCommonPassword(password)) return "This password is too common and easy to guess. Choose one that is not a common word, name or keyboard pattern.";
   return null;
 }

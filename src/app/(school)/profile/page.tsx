@@ -25,6 +25,7 @@ import { ConfirmButton } from "@/components/ui/confirm";
 import { signOut, signOutDevice } from "../actions";
 import { forgetRemembered, signOutOthers } from "./actions";
 import { EditDetails, NotePrefsTable, PasswordButton, TwoStepRow } from "./parts";
+import { passwordRulesForLogin, passwordRuleWords } from "@/lib/auth/password-rules";
 
 export const metadata: Metadata = { title: "My profile" };
 
@@ -85,6 +86,9 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
     { href: "/inventory-management/report-problem", icon: I.Wrench, title: "Report a problem", sub: "Something broken? Send it with a photo", show: Boolean(staff) && current.modulesOn.has("inventory-management") && BUILT_MODULES.has("inventory-management") },
   ];
 
+  // The password rules of the person's schools (the strictest), shown with Change password.
+  const passwordRules = await passwordRulesForLogin(u.id);
+
   return (
     <div>
       <PageHeader title="My profile" href="/profile" userId={u.id} sub="Your own details, password, devices and alerts. Only you see this page." />
@@ -142,7 +146,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                     <b className="font-semibold block">Password</b>
                     <span className="block text-[12.5px] text-ink3">{u.passwordChangedAt ? `Last changed ${formatDate(u.passwordChangedAt)}` : "Set when you accepted your invite"}</span>
                   </div>
-                  <PasswordButton withoutOld={withoutOld} />
+                  <PasswordButton withoutOld={withoutOld} minLength={passwordRules.minLength} rulesWords={passwordRuleWords(passwordRules)} />
                 </div>
                 <TwoStepRow required={mustTwoStep} on={twoStepOn} sendsTo={u.email ?? u.phone} cannotReach={cannotReach} />
               </div>

@@ -11,6 +11,7 @@ import { changeAccess, disableUser, enableUser, inviteUser, linkRecord, resendIn
 import { archiveRole, createRole, restoreRole, restoreRoleVersion, setTemplateOn, updateRole } from "@/lib/settings/roles";
 import { asFormState, runSettings } from "../run";
 import { forgetSessionRules, saveSessionRules } from "@/lib/auth/session-rules";
+import { savePasswordRules } from "@/lib/auth/password-rules";
 
 const PAGE = "users" as const;
 import { inviteSentWords } from "@/lib/settings/invite-message";
@@ -203,4 +204,16 @@ export async function saveSessionRulesAction(_: FormState, fd: FormData): Promis
   if (!r.data) return { ok: true, message: "Nothing changed." };
   revalidatePath(`${USERS}/sign-in-rules`);
   return { ok: true, message: "Session rules saved. They apply to every signed-in device from its next page." };
+}
+
+/** Saves the school's password rules (shortest password, earlier passwords, expiry). They apply the next time anyone sets a password. */
+export async function savePasswordRulesAction(_: FormState, fd: FormData): Promise<FormState> {
+  const values = formValues(fd);
+  const expiry = String(fd.get("expiryDays") ?? "never");
+  const input = { minLength: Number(fd.get("minLength")), history: Number(fd.get("history")), expiryDays: expiry === "never" ? null : Number(expiry) };
+  const r = await runSettings(PAGE, "edit", (tx, current) => savePasswordRules(tx, current.ctx, input));
+  if (!r.ok) return asFormState(r, values, "");
+  if (!r.data) return { ok: true, message: "Nothing changed." };
+  revalidatePath(`${USERS}/sign-in-rules`);
+  return { ok: true, message: "Password rules saved. They apply the next time anyone sets a password. Nobody is signed out." };
 }

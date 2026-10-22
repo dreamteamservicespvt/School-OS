@@ -5,7 +5,8 @@ import { redirect } from "next/navigation";
 import { prisma, withSchool } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
 import { hitLimit, limitMessage } from "@/lib/rate-limit";
-import { checkNewPassword, hashPassword, verifyPassword } from "@/lib/auth/password";
+import { hashPassword, verifyPassword } from "@/lib/auth/password";
+import { keepOldPassword, newPasswordProblem } from "@/lib/auth/password-rules";
 import { mayResetWithoutOld, revokeAllSessions, revokeSession, setSessionSchool } from "@/lib/auth/sessions";
 import { securityAlert } from "@/lib/auth/security-alert";
 import { formatDateTime } from "@/lib/format";
@@ -120,11 +121,13 @@ export async function changePassword(_prev: PasswordState, formData: FormData): 
   if (!withoutOld && (!user.passwordHash || !(await verifyPassword(user.passwordHash, oldPassword)))) {
     return { ok: false, message: "Your current password is not right. Check it and try again." };
   }
-  const problem = checkNewPassword(newPassword);
-  if (problem) return { ok: false, message: `New password: ${problem}` };
   if (newPassword !== confirm) return { ok: false, message: "The two new passwords are not the same. Type them again." };
+  // The school's password rules (the strictest of the person's schools) and their earlier passwords.
+  const problem = await newPasswordProblem(user.id, newPassword);
+  if (problem) return { ok: false, message: `New password: ${problem}` };
 
   const now = new Date();
+  await keepOldPassword(user.id, user.passwordHash, now);
   await prisma.userLogin.update({
     where: { id: user.id },
     data: { passwordHash: await hashPassword(newPassword), passwordChangedAt: now, mustChangePassword: false },

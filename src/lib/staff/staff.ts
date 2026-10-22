@@ -12,6 +12,7 @@ import { randomUUID } from "node:crypto";
 import { hashToken, newToken } from "../auth/tokens";
 import { INVITE_VALID_MS } from "../auth/invites";
 import { checkNewPassword, hashPassword } from "../auth/password";
+import { readPasswordRules } from "../auth/password-rules";
 import { inviteTokenFor } from "../parent-link/token";
 import { sendInviteMessage, type InviteSent } from "../settings/invite-message";
 import { assertYearOpen } from "../academic/years";
@@ -269,7 +270,8 @@ export async function giveLogin(tx: Tx, ctx: SchoolContext, staff: Staff, login:
   }
   const temporary = Boolean(login.temporaryPassword);
   if (temporary) {
-    const bad = checkNewPassword(login.temporaryPassword!);
+    // The school's password rules apply to a temporary password too (it opens the login until it is changed).
+    const bad = checkNewPassword(login.temporaryPassword!, (await readPasswordRules(tx, ctx.schoolId)).minLength);
     if (bad) throw new StaffProblem(`Temporary password: ${bad}`, "temporaryPassword");
   }
   const id = randomUUID();

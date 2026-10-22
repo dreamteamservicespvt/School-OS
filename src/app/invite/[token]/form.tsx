@@ -8,14 +8,14 @@ import { inputCls } from "@/components/ui/field";
 import { cx } from "@/components/ui/cx";
 import { acceptInviteAction, type InviteState } from "./actions";
 
-export function InviteForm({ token }: { token: string }) {
+export function InviteForm({ token, minLength = 8, rulesWords }: { token: string; /** The school's shortest password (Password Policy). */ minLength?: number; rulesWords?: string }) {
   const [state, action, pending] = useActionState<InviteState, FormData>(acceptInviteAction.bind(null, token), null);
   const [pw, setPw] = useState("");
   const [again, setAgain] = useState("");
   const [show, setShow] = useState(false);
   // The same rules the server checks, shown as the person types.
   const rules = [
-    { ok: pw.length >= 8, label: "At least 8 characters" },
+    { ok: pw.length >= minLength, label: `At least ${minLength} characters` },
     { ok: /[a-z]/i.test(pw), label: "A letter" },
     { ok: /\d/.test(pw), label: "A number" },
   ];
@@ -24,6 +24,7 @@ export function InviteForm({ token }: { token: string }) {
   return (
     <form action={action} className="flex flex-col gap-4">
       {state?.message && <Alert tone="danger">{state.message}</Alert>}
+      {rulesWords && <p className="text-[13px] text-ink2">{rulesWords}</p>}
       <div className="flex flex-col gap-1.5">
         <label htmlFor="password" className="text-[13px] font-semibold text-ink2">New password</label>
         <div className="relative">

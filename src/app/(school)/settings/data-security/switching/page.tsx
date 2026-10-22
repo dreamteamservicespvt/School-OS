@@ -5,15 +5,16 @@ import { withSchool } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { findModule } from "@/lib/modules";
 import { formatDate, formatDateTime } from "@/lib/format";
-import { canBring, canUndo, goLiveSummary, kindInfo, moveInKinds, settleImports } from "@/lib/move-in/service";
+import { canBring, canUndo, goLiveSummary, kindInfo, kindModule, moveInKinds, settleImports } from "@/lib/move-in/service";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert } from "@/components/ui/alert";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/empty-state";
 import { AutoRefresh } from "../parts";
-import { UploadForm } from "./forms";
-import { RemoveFileButton } from "./parts";
+import { UploadForm } from "@/components/import/file-forms";
+import { PLACES } from "@/lib/imports/places";
+import { RemoveFileButton } from "@/components/import/file-buttons";
 
 export const metadata: Metadata = { title: "Switching to School OS · Data Backup & Security" };
 
@@ -28,13 +29,10 @@ const SCREEN_STEPS = [
   { key: "opening-balances", order: 8, title: "Opening cash and bank balances", module: "finance-management" as const, href: "/finance-management/cash-bank", button: "Open Cash & Bank", about: "The Accountant enters the cash book and each bank account on the go-live date, and the financial year (April to March unless changed)." },
 ];
 
-/** Where each import also has its own page in its module, for people who do not use Settings (the Accountant). */
-const MODULE_PAGE: Record<string, string> = {
-  "fee-old-dues": "/fee-management/ledger/import?kind=fee-old-dues",
-  "fee-past-receipts": "/fee-management/ledger/import?kind=fee-past-receipts",
-  "finance-past-expenses": "/finance-management/expenses/import",
-  "calendar-holidays": "/events-calendar/import",
-};
+/** Where each import also has its own page in its module, for people who do not use Settings (the Accountant): the same engine there. */
+const MODULE_PAGE: Record<string, string> = Object.fromEntries(
+  Object.values(PLACES).filter((p) => p.key !== "settings").flatMap((p) => (p.kinds ?? []).map((k) => [k, `${p.base}?kind=${k}`])),
+);
 
 type Search = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -61,7 +59,9 @@ export default async function SwitchingPage({ searchParams }: Search) {
     const batches = await tx.importBatch.findMany({ where: { id: { in: files.map((f) => f.batchId).filter((x): x is string => Boolean(x)) } } });
     return { files, summary, counts, batches: new Map(batches.map((b) => [b.id, b])) };
   });
-  const { files, summary } = data;
+  const { summary } = data;
+  // Files of records the person may not see in their own module (salary details, for example) are not listed.
+  const files = data.files.filter((f) => can(current.permissions, kindModule(f.kind), "view"));
   const kinds = moveInKinds(current.modulesOn);
   const mine = kinds.filter((k) => canBring(current.permissions, k.key, current.modulesOn));
   const importing = files.some((f) => f.status === "importing");
@@ -127,7 +127,7 @@ export default async function SwitchingPage({ searchParams }: Search) {
         <Card id="bring-in" className="self-start">
           <CardHeader title="Bring in a file" description="School OS finds the headings, works out what the file holds, matches the columns and tidies dates, phones and names. You check every row before anything is saved." />
           <CardBody>
-            {mine.length ? <UploadForm kinds={mine.map((k) => ({ value: k.key, label: k.label }))} kind={wantKind && mine.some((k) => k.key === wantKind) ? wantKind : undefined} />
+            {mine.length ? <UploadForm place="settings" kinds={mine.map((k) => ({ value: k.key, label: k.label }))} kind={wantKind && mine.some((k) => k.key === wantKind) ? wantKind : undefined} />
               : <p className="text-ink-2">Your role can see this page but not add records. Ask your School Admin.</p>}
             <details className="mt-4 text-sm text-ink-2">
               <summary className="min-h-11 cursor-pointer py-2 font-medium text-ink">Records on paper?</summary>
@@ -159,7 +159,7 @@ export default async function SwitchingPage({ searchParams }: Search) {
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <FileStatus status={f.status} undone={Boolean(batch?.undoneAt)} />
-                  {f.status !== "importing" && canBring(current.permissions, f.kind, current.modulesOn) && <RemoveFileButton id={f.id} imported={f.status === "imported"} />}
+                  {f.status !== "importing" && canBring(current.permissions, f.kind, current.modulesOn) && <RemoveFileButton place="settings" id={f.id} imported={f.status === "imported"} back={BASE} />}
                   {f.status === "imported" && batch && !batch.undoneAt && canUndo(current.permissions, f.kind, current.modulesOn) && <ButtonLink href={`${BASE}/${f.id}`} size="sm">See result</ButtonLink>}
                   {f.status === "open" && canBring(current.permissions, f.kind, current.modulesOn) && <ButtonLink href={`${BASE}/${f.id}`} size="sm" variant="primary">Continue</ButtonLink>}
                 </div>

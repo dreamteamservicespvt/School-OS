@@ -25,6 +25,18 @@ const UPLOAD_AT: Record<string, string> = {
   "fee-past-receipts": "Fee Management, Student Fee Ledger, Import",
   "finance-past-expenses": "Finance Management, Expenses, Import",
   "calendar-holidays": "Events & Calendar, School Calendar, Import",
+  students: "Student Management, Import students",
+  staff: "Staff & HR Management, Import staff",
+  "admission-enquiries": "Admission Management, Enquiries, Import",
+  "library-catalogue": "Library Management, Books, Import",
+  "inventory-items": "Inventory Management, Items & Stock, Import",
+  "inventory-assets": "Inventory Management, Assets, Import",
+  "hostel-rooms": "Hostel Management, Rooms & Beds, Import",
+};
+/** Kinds brought in only on their own module's page. */
+const ONLY_THERE: Record<string, string> = {
+  "students-update": "Student Management, Import students, Changes to students already here",
+  "salary-structures": "Salary Management, Salary Structures, Import",
 };
 
 export async function templateWorkbook(kind: ImportKind<unknown>, lookups: Lookups, schoolName: string): Promise<Buffer> {
@@ -91,7 +103,8 @@ export async function templateWorkbook(kind: ImportKind<unknown>, lookups: Looku
   help.columns = [{ header: "Column", width: 30 }, { header: "How to fill it", width: 90 }];
   help.getRow(1).font = { bold: true };
   help.addRow([`${schoolName}: ${kind.label}`, "Fill one row for each record on the first sheet. Columns with a star must be filled. Leave other columns empty when you do not know."]);
-  help.addRow(["", `Upload the file in ${UPLOAD_AT[kind.key] ? `${UPLOAD_AT[kind.key]}, or in ` : ""}Settings, Data Backup & Security, Switching to School OS. Every row is checked and you see the problems before anything is saved.`]);
+  const where = ONLY_THERE[kind.key] ?? `${UPLOAD_AT[kind.key] ? `${UPLOAD_AT[kind.key]}, or in ` : ""}Settings, Data Backup & Security, Switching to School OS`;
+  help.addRow(["", `Upload the file in ${where}. Every row is checked and you see the problems before anything is saved.`]);
   for (const c of kind.columns) {
     const list = listFor[c.key];
     help.addRow([c.label + (c.required ? " *" : ""), [c.help, c.example ? `Example: ${c.example}.` : null, list?.length ? `Choose from: ${list.slice(0, 12).join(", ")}${list.length > 12 ? "…" : ""}.` : null].filter(Boolean).join(" ") || "Optional."]);

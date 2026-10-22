@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ModuleImportPage } from "@/components/import/module-import-page";
+import { PLACES } from "@/lib/imports/places";
+import { ImportHome } from "@/components/import/import-home";
 import { EvHead } from "../_components/head";
 import { BASE, evGuard } from "../_lib/page";
 
@@ -19,7 +20,7 @@ export default async function HolidayImportPage() {
     <>
       <EvHead pageName="Import holidays" href={`${BASE}/import`}
         sub={<>The holiday list from a spreadsheet. <Link href={BASE} className="font-semibold text-brand hover:underline">School Calendar</Link></>} />
-      <ModuleImportPage current={p.current} keys={["calendar-holidays"]} base={`${BASE}/import`} about={ABOUT} doneHref={BASE} doneLabel="Open School Calendar" />
+      <ImportHome current={p.current} place={PLACES.events} about={ABOUT} />
     </>
   );
 }

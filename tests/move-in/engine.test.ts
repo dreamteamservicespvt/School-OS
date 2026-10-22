@@ -2,7 +2,7 @@
 // headings and values the many ways old software writes them.
 import { describe, expect, it } from "vitest";
 import ExcelJS from "exceljs";
-import { decodeText, guessSeparator, readDelimited, readWorkbook, ReadProblem } from "@/lib/move-in/read";
+import { decodeText, guessSeparator, readDelimited, readTable, readWorkbook, ReadProblem } from "@/lib/move-in/read";
 import { classKey, dateOrder, readDate, splitClassSection, tidyBloodGroup, tidyDate, tidyGender, tidyName, tidyPhone } from "@/lib/move-in/tidy";
 import { closeEnough, findHeaderRow, guessKind, matchColumns } from "@/lib/move-in/match";
 import { parseRupees } from "@/lib/fees/act";
@@ -60,6 +60,17 @@ describe("reading files", () => {
     const sheets = await readWorkbook(Buffer.from(await wb.xlsx.writeBuffer()), "school.xlsx");
     expect(sheets.map((s) => s.name)).toEqual(["Students", "Staff"]);
     expect(sheets[0].rows[2]).toEqual(["Ravi", "14-03-2016", "9876543210"]);
+  });
+  it("reads one table for a sheet read in one go (marks from Excel), with a given separator for School OS's own clean file", async () => {
+    const t = await readTable(Buffer.from("Admission no;Roll no;Theory (80)\r\n\r\nA-1;1;72\r\nA-2;2;AB\r\n"), "marks.csv");
+    expect(t).toEqual({ headers: ["Admission no", "Roll no", "Theory (80)"], rows: [["A-1", "1", "72"], ["A-2", "2", "AB"]] });
+    const wb = new ExcelJS.Workbook();
+    wb.addWorksheet("Empty");
+    const m = wb.addWorksheet("Marks");
+    m.addRow([" Roll no ", "Theory (80)"]);
+    m.addRow([1, 64.5]);
+    expect(await readTable(Buffer.from(await wb.xlsx.writeBuffer()), "marks.xlsx")).toEqual({ headers: ["Roll no", "Theory (80)"], rows: [["1", "64.5"]] });
+    expect(readDelimited("Name,Stock\nChalk,Main store: 100; Lab store: 20\n", ",")).toEqual([["Name", "Stock"], ["Chalk", "Main store: 100; Lab store: 20"]]);
   });
   it("explains old .xls files instead of failing", async () => {
     await expect(readWorkbook(Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 1, 2]), "old.xls")).rejects.toThrow(ReadProblem);

@@ -1,6 +1,6 @@
 // Smart Import's question to the AI service (gap list G18): which file column
 // holds each School OS field the rules could not match. The rules always go
-// first (src/lib/move-in/match.ts, src/lib/students/smart-import.ts). What is
+// first (src/lib/move-in/match.ts, the one import engine's matcher). What is
 // sent is only each left-over column's heading and a description of what its
 // values look like, worked out here ("10-digit mobile numbers starting 6 to
 // 9", "dates written DD-MM-YYYY"). Never a value from the file.

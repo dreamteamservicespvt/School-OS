@@ -11,7 +11,8 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { withSchool, type Tx } from "@/lib/db";
 import { decide } from "@/lib/approvals";
 import "@/lib/approval-handlers";
-import { importKind, previewImport, runImport, undoImport, autoMatch } from "@/lib/importer";
+import { importKind, previewImport, runImport, undoImport} from "@/lib/importer";
+import { byHeadings } from "../helpers";
 import "@/lib/import-registry";
 import { saveFile } from "@/lib/files";
 import { mainBankAccount } from "@/lib/finance/settings";
@@ -286,7 +287,7 @@ describe("Inventory Management rules", () => {
       ["Stapler", "Stationery", "crate", "", "", "4", ""],
       ["Paint brush", "Art", "piece", "", "25", "30", ""],
     ];
-    const pv = await run((tx) => previewImport(tx, ctx(), items, rows, autoMatch(items.columns, headers)));
+    const pv = await run((tx) => previewImport(tx, ctx(), items, rows, byHeadings(items, headers)));
     expect(pv.good.map((g) => g.row.name)).toEqual(["Duster", "Phenyl", "Paint brush"]);
     expect(pv.bad).toHaveLength(2);
     const batch = await run((tx) => runImport(tx, ctx(), items, "items.csv", pv));
@@ -307,7 +308,7 @@ describe("Inventory Management rules", () => {
       ["Ghost", "IT", "Nowhere room", "", ""],
       ["Bad type", "Spaceship", "Room 12", "", ""],
     ];
-    const apv = await run((tx) => previewImport(tx, ctx(), assets, aRows, autoMatch(assets.columns, aHeaders)));
+    const apv = await run((tx) => previewImport(tx, ctx(), assets, aRows, byHeadings(assets, aHeaders)));
     expect(apv.good.map((g) => g.row.name)).toEqual(["Projector", "Bench", "Laptop"]);
     expect(apv.bad).toHaveLength(2);
     const aBatch = await run((tx) => runImport(tx, ctx(), assets, "assets.csv", apv));

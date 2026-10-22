@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ModuleImportPage } from "@/components/import/module-import-page";
+import { PLACES } from "@/lib/imports/places";
+import { ImportHome } from "@/components/import/import-home";
 import { FinanceHead } from "../../_components/finance-head";
 import { BASE, financePage } from "../../_lib/page";
 
@@ -19,8 +20,7 @@ export default async function ExpenseImportPage() {
     <>
       <FinanceHead pageName="Import past expenses" href={`${BASE}/expenses/import`}
         sub={<>Moving from old software or registers. <Link href={`${BASE}/expenses`} className="font-semibold text-brand hover:underline">Expenses</Link></>} />
-      <ModuleImportPage current={p.current} keys={["finance-past-expenses"]} base={`${BASE}/expenses/import`} about={ABOUT}
-        doneHref={`${BASE}/expenses`} doneLabel="Open Expenses" />
+      <ImportHome current={p.current} place={PLACES.finance} about={ABOUT} />
     </>
   );
 }

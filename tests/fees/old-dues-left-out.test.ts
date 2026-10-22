@@ -1,8 +1,8 @@
 // Old dues from a sheet that lists every student (workflow 15, follow-up C):
 // a row with an empty, "-", "nil" or zero amount is simply left out and
 // counted as "No old dues" in the check and the result, never shown as a
-// problem row to fix. Through the Fee Management import actions, as the
-// Accountant, with a real session.
+// problem row to fix. Through Fee Management's Import page, as the Accountant,
+// with a real session, on the one import engine (Switching to School OS, G16).
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 let token: string | null = null;
@@ -13,13 +13,16 @@ vi.mock("next/headers", () => ({
 vi.mock("next/navigation", () => ({
   redirect: (url: string) => { throw new Error(`REDIRECT ${url}`); },
   notFound: () => { throw new Error("NOT_FOUND"); },
+  unstable_rethrow: () => {},
 }));
 vi.mock("next/cache", () => ({ revalidatePath: () => {}, revalidateTag: () => {} }));
 
 import { createSession } from "@/lib/auth/sessions";
 import { withSchool } from "@/lib/db";
 import { noOldDues } from "@/lib/fees/import";
-import { checkModuleImport, runModuleImport, uploadModuleImport } from "@/app/(school)/_imports/actions";
+import { runDueJobs } from "@/lib/jobs";
+import { settleImports, workOn } from "@/lib/move-in/service";
+import { importAction, uploadAction } from "@/app/(school)/_imports/file-actions";
 import { makeFeeSchool, type FeeSchool } from "./fixture";
 
 let f: FeeSchool;
@@ -46,31 +49,31 @@ describe("rows with no old dues are left out, not problems (follow-up C)", () =>
       "NOPE-1,,100,31-03-2026",
     ].join("\n");
     const up = new FormData();
+    up.set("place", "fees");
     up.set("kind", "fee-old-dues");
     up.set("file", new File([csv], "every-student.csv", { type: "text/csv" }));
-    const u = await uploadModuleImport(up);
-    if (!u.ok) throw new Error(u.message);
-    const fd = () => {
-      const x = new FormData();
-      x.set("kind", "fee-old-dues");
-      x.set("fileId", u.data.fileId);
-      for (const [k, v] of Object.entries(u.data.match)) x.set(`col:${k}`, String(v));
-      return x;
-    };
-    const checked = await checkModuleImport(fd());
-    if (!checked.ok) throw new Error(checked.message);
-    expect(checked.data.good).toBe(1);
-    expect(checked.data.bad.map((b) => b.line)).toEqual([6]);
-    expect(checked.data.bad[0].problems.join(" ")).toMatch(/No student with admission number "NOPE-1"/);
-    expect(checked.data.left).toEqual([{ reason: "No old dues", count: 3 }]);
+    // Uploading opens the file's own page on Fee Management.
+    const sent = await uploadAction(null, up).then((r) => r?.message ?? "Not uploaded", (e: Error) => e.message);
+    const id = /^REDIRECT \/fee-management\/ledger\/import\/review\/([0-9a-f-]{36})$/.exec(sent)?.[1];
+    if (!id) throw new Error(sent);
 
-    const ran = await runModuleImport(fd());
-    expect(ran).toMatchObject({ ok: true, data: { added: 1, skipped: 1, left: [{ reason: "No old dues", count: 3 }] } });
-    if (!ran.ok) return;
-    const batch = await withSchool(f.ctx, (tx) => tx.importBatch.findUniqueOrThrow({ where: { id: ran.data.batchId } }));
+    const checked = (await withSchool(f.ctx, (tx) => workOn(tx, f.ctx, id, { check: true }), { timeout: 120_000 })).checked!;
+    expect(checked.ready).toHaveLength(1);
+    expect(checked.problems.map((b) => b.line)).toEqual([6]);
+    expect(checked.problems[0].problems.join(" ")).toMatch(/No student with admission number "NOPE-1"/);
+    expect(checked.left).toEqual([{ reason: "No old dues", count: 3 }]);
+
+    expect(await importAction("fees", id)).toBeUndefined();
+    for (let i = 0; i < 10; i++) if ((await runDueJobs(50, { schoolId: f.school.id })) === 0) break;
+    const batch = await withSchool(f.ctx, async (tx) => {
+      await settleImports(tx);
+      const file = await tx.moveInFile.findUniqueOrThrow({ where: { id } });
+      return tx.importBatch.findUniqueOrThrow({ where: { id: file.batchId! } });
+    });
+    expect(batch).toMatchObject({ added: 1, skipped: 0, importedById: f.accountant.id });
     expect(batch.leftOut).toEqual([{ reason: "No old dues", count: 3 }]);
-    // Only the real problem is in the rows to download and fix.
-    expect((batch.errorReport as { line: number }[]).map((b) => b.line)).toEqual([6]);
+    // The file is now imported; the row with a problem was never brought in.
+    expect((await withSchool(f.ctx, (tx) => workOn(tx, f.ctx, id, { check: true }), { timeout: 120_000 })).file.status).toBe("imported");
     const old = await withSchool(f.ctx, (tx) => tx.studentFeeDue.findMany({ where: { kind: "OLD_DUES", state: "OPEN" } }));
     expect(old.map((d) => [d.studentId, d.amountPaise])).toEqual([[f.ravi.id, BigInt(350000)]]);
   });

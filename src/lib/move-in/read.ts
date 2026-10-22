@@ -45,6 +45,18 @@ async function readXlsx(buf: Buffer): Promise<Sheet[]> {
   return sheets;
 }
 
+/**
+ * The first sheet that holds anything, as its headings (the first row) and the
+ * rows under them, empty rows left out: for a sheet read in one go, such as
+ * marks typed in Excel. Same reading as Switching to School OS.
+ */
+export async function readTable(buf: Buffer, fileName: string): Promise<{ headers: string[]; rows: string[][] }> {
+  const sheets = await readWorkbook(buf, fileName);
+  const sheet = sheets.find((s) => s.rows.some((r) => r.some((c) => c.trim()))) ?? sheets[0];
+  const rows = (sheet?.rows ?? []).filter((r) => r.some((c) => c.trim() !== ""));
+  return { headers: (rows[0] ?? []).map((h) => h.trim()), rows: rows.slice(1) };
+}
+
 const pad = (n: number) => String(n).padStart(2, "0");
 export const ddmmyyyy = (d: Date) => `${pad(d.getUTCDate())}-${pad(d.getUTCMonth() + 1)}-${d.getUTCFullYear()}`;
 
@@ -82,9 +94,8 @@ export function decodeText(buf: Buffer): string {
   }
 }
 
-/** Splits CSV text, finding the separator (comma, semicolon, tab or bar) the file uses. */
-export function readDelimited(text: string): string[][] {
-  const sep = guessSeparator(text);
+/** Splits CSV text, finding the separator (comma, semicolon, tab or bar) the file uses, unless it is given. */
+export function readDelimited(text: string, sep = guessSeparator(text)): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
   let cell = "";

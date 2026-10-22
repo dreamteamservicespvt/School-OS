@@ -31,6 +31,10 @@ model MoveInFile {
   rowChoices  Json      @default("{}") @map("row_choices")
   /// Tidy-ups (dates, phones, capitals, class names) are on unless switched off.
   tidy        Boolean   @default(true)
+  /// Choices made with the upload on a module's Import page, read by the import's own
+  /// checks: on Student Management, the section for rows with no class and whether
+  /// each student gets their class fee plan ({ sectionId, applyFeePlan }).
+  options     Json      @default("{}")
   /// open, importing, imported or cancelled.
   status      String    @default("open")
   /// The cleaned file handed to the shared importer, and the Import Batch it made.

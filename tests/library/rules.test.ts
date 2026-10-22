@@ -9,7 +9,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { withSchool, type Tx } from "@/lib/db";
 import { decide } from "@/lib/approvals";
-import { importKind, previewImport, runImport, undoImport, autoMatch } from "@/lib/importer";
+import { importKind, previewImport, runImport, undoImport} from "@/lib/importer";
 import { runClearanceChecks } from "@/lib/students/clearance";
 import { isbnValid, ISBN_INVALID } from "@/lib/library/isbn";
 import { copyByCode, withdrawCopy } from "@/lib/library/catalogue";
@@ -23,7 +23,7 @@ import { remindLibrarian } from "@/lib/library/reminders";
 import { CATALOGUE_IMPORT } from "@/lib/library/import";
 import "@/lib/library/handlers";
 import "@/lib/library/clearance";
-import { makeSchool } from "../helpers";
+import { makeSchool, byHeadings } from "../helpers";
 import { TODAY, addTestBook, as, desk, makeLibrarySchool, plus, staffMember, student, type LibFixture } from "./fixture";
 
 describe("Library Management rules", () => {
@@ -293,7 +293,7 @@ describe("Library Management rules", () => {
       ["Space Atlas", "Ravi Kumar; Anita Desai", "", "Astronomy", "2", "abc"],
       ["Tenali Stories", "Unknown", "", "Telugu", "", "120"],
     ];
-    const match = autoMatch(kind.columns, headers);
+    const match = byHeadings(kind, headers);
     const preview = await run((tx) => previewImport(tx, ctx(), kind, rows, match));
     expect(preview.good.map((g) => g.row.title)).toEqual(["The Jungle Book", "Tenali Stories"]);
     expect(preview.bad.map((b) => b.problems[0])).toEqual([ISBN_INVALID, "Title is empty.", "Price must be a number of rupees, like 275."]);

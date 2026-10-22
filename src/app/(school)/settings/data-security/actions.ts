@@ -7,10 +7,9 @@ import { withSchool } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
 import { flash } from "@/lib/flash";
 import { formValues, type FormState } from "@/lib/forms";
-import { DOCUMENT_TYPES, FileProblem, SHEET_TYPES, saveFile } from "@/lib/files";
-import { importKind, undoImport } from "@/lib/importer";
+import { DOCUMENT_TYPES, FileProblem, saveFile } from "@/lib/files";
+import { undoImport } from "@/lib/importer";
 import { requestDataExport } from "@/lib/data-security/data-export";
-import { startImport } from "@/lib/data-security/imports";
 import { mayImport } from "@/lib/move-in/service";
 import { PrivacyProblem, personTypesFor, requestDeletion, setRetention, DELETION_PARTS, type DeletionPart } from "@/lib/data-security/privacy";
 import { ConsentProblem, saveConsentText } from "@/lib/data-security/consent";
@@ -42,37 +41,7 @@ export async function setTwoStepAction(on: boolean): Promise<string | void> {
   revalidatePath(BASE);
 }
 
-// Imports
-
-export async function uploadImportFile(_prev: FormState, fd: FormData): Promise<FormState> {
-  const { current } = await requireSettingsAction(PAGE, "create");
-  const kind = String(fd.get("kind") ?? "");
-  if (!importKind(kind)) return { ok: false, message: "Choose what you are importing.", errors: { kind: "Choose what you are importing." } };
-  if (!mayImport(current.permissions, kind, "create", current.modulesOn)) return { ok: false, message: "Your role cannot add these records. Ask your School Admin.", errors: { kind: "Your role cannot add these records." }, values: { kind } };
-  const file = fd.get("file");
-  if (!(file instanceof File) || file.size === 0) return { ok: false, message: "Choose a CSV or Excel file to upload.", errors: { file: "Choose a CSV or Excel file to upload." }, values: { kind } };
-  let id: string;
-  try {
-    const saved = await withSchool(current.ctx, (tx) => saveFile(tx, current.ctx, { file, purpose: "import", allowed: SHEET_TYPES }));
-    id = saved.id;
-  } catch (e) {
-    const message = e instanceof FileProblem ? e.message : "The file did not upload. Try again.";
-    return { ok: false, message, errors: { file: message }, values: { kind } };
-  }
-  redirect(`${BASE}/imports/new?kind=${encodeURIComponent(kind)}&file=${id}&step=match`);
-}
-
-export async function startImportAction(kind: string, fileId: string, match: Record<string, number>): Promise<string | void> {
-  const { current } = await requireSettingsAction(PAGE, "create");
-  const k = importKind(kind);
-  if (!k) return "This import is not known.";
-  if (!mayImport(current.permissions, kind, "create", current.modulesOn)) return "Your role cannot add these records. Ask your School Admin.";
-  const missing = k.columns.filter((c) => c.required && match[c.key] === undefined).map((c) => c.label);
-  if (missing.length) return `Match a column for ${missing.join(", ")} first.`;
-  await withSchool(current.ctx, (tx) => startImport(tx, current.ctx, { kind, fileId, match }));
-  await flash({ message: `${k.label} import started. The good rows are being imported now; you will get a notification when it is done.`, link: { href: `${BASE}/imports`, label: "See import history" } });
-  redirect(`${BASE}/imports`);
-}
+// Imports: files come in through the one import engine (src/app/(school)/_imports/file-actions.ts); Undo from the history here.
 
 export async function undoImportAction(batchId: string): Promise<string | void> {
   const { current } = await requireSettingsAction(PAGE, "archive");

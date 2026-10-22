@@ -14,7 +14,7 @@ import { findLogin } from "@/lib/auth/sign-in";
 import { addUpload, canBring, chooseRow, importFile, lastFailure, mayImport, moveInKinds, phonesOfDifferentFamilies, settleImports, workOn } from "@/lib/move-in/service";
 import { studentImport, STUDENT_IMPORT } from "@/lib/students/import";
 import { saveStudentSettings } from "@/lib/students/settings";
-import { moduleImportRefusal, runModuleFile, checkModuleFile, undoModuleImport, uploadModuleFile } from "@/lib/imports/module-import";
+import { moduleImportRefusal } from "@/lib/imports/module-import";
 import { templateWorkbook } from "@/lib/move-in/template";
 import ExcelJS from "exceljs";
 import "@/lib/fees/import";
@@ -361,21 +361,8 @@ describe("the Accountant brings in old dues, receipts and expenses from their ow
     expect(moveInKinds(new Set(["library-management"])).map((k) => k.key)).toContain("library-catalogue");
   });
 
-  it("uploads, checks, imports and undoes old dues as the Accountant, without Settings", async () => {
-    const actx = f.ctx; // the Accountant
-    const csv = `Adm No,Fee Head,Balance,Due Date,Remarks\n${f.ravi.admissionNo},,"Rs. 3,500/-",31-03-2026,From 2025-26\nNOPE-1,,100,31-03-2026,\n`;
-    const up = await run((tx) => uploadModuleFile(tx, actx, "fee-old-dues", new File([csv], "old-dues.csv")), actx);
-    expect(up.match).toMatchObject({ admissionNo: 0, amount: 2, dueDate: 3 });
-    const fd = new FormData();
-    for (const [k, v] of Object.entries(up.match)) fd.set(`col:${k}`, String(v));
-    const seen = await run((tx) => checkModuleFile(tx, actx, "fee-old-dues", up.fileId, fd), actx);
-    expect(seen.good).toBe(1);
-    expect(seen.bad[0].problems.join(" ")).toMatch(/No student with admission number "NOPE-1"/);
-    const batch = await run((tx) => runModuleFile(tx, actx, "fee-old-dues", up.fileId, fd), actx);
-    expect(batch).toMatchObject({ added: 1, skipped: 1, kind: "fee-old-dues", importedById: f.accountant.id });
-    await run((tx) => undoModuleImport(tx, actx, "fee-old-dues", batch.id), actx);
-    expect(await run((tx) => tx.studentFeeDue.count({ where: { studentId: f.ravi.id, kind: "OLD_DUES", state: "OPEN" } }), actx)).toBe(0);
-  });
+  // Uploading, checking, importing and undoing old dues as the Accountant, without Settings, on the
+  // one import engine: tests/move-in/one-engine.test.ts.
 
   it("a students import with old dues brought in is undone only after the old dues import", async () => {
     const a = adm("OD");

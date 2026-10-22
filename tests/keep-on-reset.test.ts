@@ -54,7 +54,6 @@ const OUTSIDE_ACTION_FORMS: Record<string, string> = {
   "src/app/(school)/inventory-management/_components/import-steps.tsx#ImportSteps": "import wizard",
   "src/app/(school)/library-management/books/import/import-steps.tsx#ImportSteps": "import wizard",
   "src/app/(school)/staff-hr-management/import/import-steps.tsx#ImportSteps": "import wizard",
-  "src/components/import/module-import-steps.tsx#ModuleImportSteps": "import wizard",
   "src/components/import/ai-column-suggestions.tsx#AiColumnSuggestionCard": "import wizard",
   // Screens that save from a button (startTransition), with no action form.
   "src/app/(school)/communication/settings/settings-forms.tsx#RuleRow": "saves from a button",

@@ -26,6 +26,7 @@ const UPLOAD_AT: Record<string, string> = {
   "finance-past-expenses": "Finance Management, Expenses, Import",
   "calendar-holidays": "Events & Calendar, School Calendar, Import",
   students: "Student Management, Import students",
+  "consent-paper-forms": "Student Management, Import students",
   staff: "Staff & HR Management, Import staff",
   "admission-enquiries": "Admission Management, Enquiries, Import",
   "library-catalogue": "Library Management, Books, Import",

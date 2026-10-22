@@ -34,6 +34,8 @@ import { isUnclear } from "../ai/register-photo";
 import { alignGoLive } from "../finance/settings-save";
 import { keptMoney, MONEY_KEYS, moneyTotals, type MoneyExpected } from "./money";
 import { broughtInOf, fileBatchIds } from "./batches";
+import { messageSettings } from "../messaging/settings";
+import { askConsentOnGoLive } from "../parent-link/consent";
 
 
 export class MoveInProblem extends Error {
@@ -57,6 +59,7 @@ const KNOWN: Record<string, Omit<MoveInKind, "key" | "label">> = {
   "staff-pay-details": { module: "staff-hr-management", order: 2.1, about: "Each staff member's bank account, IFSC, PAN, UAN (PF) and ESI numbers, so salary and the PF and ESI statements are right from the first month. Restricted: HR, the Principal and the School Admin only." },
   "staff-leave-balances": { module: "staff-hr-management", order: 2.2, about: "Starting part way through the year? For each staff member and leave type, the days left at go-live (or the days taken so far). Leave left, the leave check and loss of pay in salary are right from the first day." },
   students: { module: "student-management", order: 3, about: "Students with their class, section, roll number and admission number, and their parents. Old admission numbers are kept." },
+  "consent-paper-forms": { module: "student-management", order: 3.5, about: "Consent forms parents already signed on paper: data, photo and APAAR consent, given or refused, with the date on the form. Each is kept as recorded from a paper form, with your name. Consents already given in Parent Link are never replaced." },
   "students-update": { module: "student-management", order: 4, about: "Changes to students already here, found by admission number." },
   "attendance-so-far": { module: "attendance-management", order: 4.5, about: "Starting part way through the year? For each student, the days the school met and the days present up to the day before go-live. Attendance % and early warnings count them from the first day." },
   "academic-allocations": { module: "academic-management", order: 4.6, about: "Which teacher teaches which subject in which class and section, and each section's class teacher. Attendance, marks entry and the Time Table use it from the first day. Full Academic Management only." },
@@ -835,4 +838,16 @@ export async function liveGuardianIds(tx: Tx) {
   // Not a guardian whose every child has a custody restriction against them.
   const rows = await tx.guardian.findMany({ where: { archivedAt: null, students: { some: { ...OPEN_LINK, student: { archivedAt: null, status: "ACTIVE" } } } }, select: { id: true } });
   return rows.map((r) => r.id);
+}
+
+/**
+ * Step 10, with "Send each parent their Parent Link now": the consent request
+ * (DPDP Act 2023) to each guardian of this year's students without consent on
+ * record (gap list G42). Not asked when Parent Link or its consent forms are
+ * switched off: the guardian could not answer. Returns null then.
+ */
+export async function askConsentAfterGoLive(tx: Tx, ctx: SchoolContext) {
+  const settings = await messageSettings(tx, ctx);
+  if (!settings.parentLink.on || settings.parentLink.shows.consent === false) return null;
+  return askConsentOnGoLive(tx, ctx, await liveGuardianIds(tx));
 }

@@ -8,7 +8,7 @@ import { ArrowUpRight, Award, CalendarCheck2, CircleCheck, Cake, Clock, Download
 import { withSchool } from "@/lib/db";
 import { getCurrent } from "@/lib/current";
 import { formatDate, formatDateTime } from "@/lib/format";
-import { languageLabel, BEHAVIOUR_KIND_LABEL, isPositive, RELATIONS, type BehaviourKind } from "@/lib/students/labels";
+import { CONSENT_STATUS_LABEL, consentHowWords, languageLabel, BEHAVIOUR_KIND_LABEL, isPositive, RELATIONS, type BehaviourKind } from "@/lib/students/labels";
 import type { StudentAbilities } from "@/lib/students/access";
 import type { ResolvedSettings } from "@/lib/students/settings";
 import type { SummaryItem } from "@/lib/students/profile-tabs";
@@ -29,6 +29,16 @@ import { pickupAction, setPrimaryAction, unlinkGuardianAction } from "../../_act
 import { adjustPointsAction } from "../../_actions/behaviour";
 
 type Base = { can: StudentAbilities; tz: string };
+
+/** "Given by Srinivas Kumar, 12-06-2026 · Paper form, recorded by the office" */
+function apaarWords(c: NonNullable<Profile["apaarConsent"]>, tz: string) {
+  const when = c.on ? formatDate(c.on, c.how === "paper-form" ? "UTC" : tz) : "";
+  if (c.state === "GIVEN") return `Given by ${c.guardianName ?? "a parent"}${when ? `, ${when}` : ""} · ${consentHowWords(c.how)}`;
+  if (c.state === "WITHDRAWN") return `Withdrawn by ${c.guardianName ?? "a parent"}${when ? `, ${when}` : ""}`;
+  if (c.state === "REFUSED") return `${c.guardianName ?? "A parent"} said no on a paper form${when ? ` dated ${when}` : ""}`;
+  if (c.state === "REQUESTED") return "Asked in Parent Link, waiting for the parent";
+  return "Not given. A parent gives it in Parent Link, on the application form or on a signed paper form.";
+}
 
 /** The small "Edit" link on a card (students.jsx EditBtn). */
 export function EditLink({ href, label = "Edit", icon: Icon = Pencil }: { href: string; label?: string; icon?: LucideIcon }) {
@@ -136,6 +146,12 @@ export function OverviewTab({ p, can, settings, href, tz, today }: Base & { p: P
                 </li>
               ))}
             </ul>
+            {p.apaarConsent && (
+              <p className="px-5 pb-3 -mt-1 text-[13.5px] flex items-center justify-between gap-3">
+                <span className="min-w-0"><span className="block">APAAR consent</span><span className="block text-[12.5px] text-ink3">{apaarWords(p.apaarConsent, tz)}</span></span>
+                <Pill tone={p.apaarConsent.state === "GIVEN" ? "ok" : p.apaarConsent.state === "WITHDRAWN" || p.apaarConsent.state === "REFUSED" ? "bad" : "warn"}>{CONSENT_STATUS_LABEL[p.apaarConsent.state]}</Pill>
+              </p>
+            )}
             <p className="px-5 pb-4 -mt-1 text-[12.5px] text-ink3">APAAR and PEN are exported from Reports &amp; Analytics, Government Reports.</p>
           </Card>
         )}

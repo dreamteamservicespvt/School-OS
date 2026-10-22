@@ -25,7 +25,7 @@ import { sectionNames } from "../_lib/queries";
 export const metadata: Metadata = { title: "Parents & Guardians" };
 
 const FILTERS = ["consent", "photo", "link", "relation", "campus"] as const;
-const TONE = { GIVEN: "ok", WITHDRAWN: "bad", REQUESTED: "warn", NONE: "warn" } as const;
+const TONE = { GIVEN: "ok", WITHDRAWN: "bad", REFUSED: "bad", REQUESTED: "warn", NONE: "warn" } as const;
 const STEP = 25;
 
 export default async function GuardiansPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {

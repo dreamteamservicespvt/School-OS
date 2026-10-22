@@ -210,8 +210,8 @@ async function returnFile(tx: Tx, ctx: SchoolContext, c: Check) {
   }
   if (c.ret.key === "apaar") {
     const st = await loadStudents(tx, c.year.id, c.campus?.id ?? null);
-    const consent = new Map((await tx.consentRecord.findMany({ where: { consentType: "apaar", studentId: { in: st.map((r) => r.s.id) } }, orderBy: { givenAt: "desc" } })).map((x) => [x.studentId, x]));
-    return { name: `APAAR-PEN-${tag}.csv`, type: "text/csv", body: csv(["UDISE_CODE", "ADMISSION_NO", "STUDENT_NAME", "GENDER", "DOB", "CLASS", "SECTION", "PEN", "APAAR_ID", "CONSENT", "CONSENT_DATE"], st.map((r) => { const k = consent.get(r.s.id); return [codes.udise, r.s.admissionNo, r.s.fullName, r.s.gender, ddmmyyyy(r.s.dateOfBirth), cls(r.className), r.section, r.s.pen, r.s.apaarId, k ? (k.withdrawnAt ? "WITHDRAWN" : "GIVEN") : "NOT RECORDED", k ? ddmmyyyy(k.givenAt) : ""]; })) };
+    const consent = new Map((await tx.consentRecord.findMany({ where: { consentType: "apaar", archivedAt: null, studentId: { in: st.map((r) => r.s.id) } }, orderBy: { givenAt: "desc" } })).map((x) => [x.studentId, x]));
+    return { name: `APAAR-PEN-${tag}.csv`, type: "text/csv", body: csv(["UDISE_CODE", "ADMISSION_NO", "STUDENT_NAME", "GENDER", "DOB", "CLASS", "SECTION", "PEN", "APAAR_ID", "CONSENT", "CONSENT_DATE"], st.map((r) => { const k = consent.get(r.s.id); return [codes.udise, r.s.admissionNo, r.s.fullName, r.s.gender, ddmmyyyy(r.s.dateOfBirth), cls(r.className), r.section, r.s.pen, r.s.apaarId, k ? (k.refused ? "REFUSED" : k.withdrawnAt ? "WITHDRAWN" : "GIVEN") : "NOT RECORDED", k ? ddmmyyyy(k.givenAt) : ""]; })) };
   }
   if (c.ret.key === "rte") {
     const rte = await rteStudents(tx, c.year.id);

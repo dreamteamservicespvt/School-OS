@@ -9,6 +9,7 @@ import "./fees/import";
 import "./finance/import";
 import "./students/import";
 import "./students/update-import";
+import "./students/paper-consent";
 import "./admission/import";
 import "./events/import";
 import "./library/import";

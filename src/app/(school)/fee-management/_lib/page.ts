@@ -8,7 +8,7 @@ import { redirect } from "next/navigation";
 import { requirePage } from "@/lib/current";
 import { withSchool } from "@/lib/db";
 import { currentYear } from "@/lib/academic/years";
-import { personCampusId } from "@/lib/campus";
+import { narrowToCampus, personCampusId } from "@/lib/campus";
 import { todayIn } from "@/lib/staff/dates";
 import { admissionOnly as isAdmissionOnly, feeLevel, feePageAllowed, feeViewer, type FeePageKey } from "@/lib/fees/access";
 import { counterAllowed, feeFeaturesOn, feeSettings } from "@/lib/fees/settings";
@@ -81,6 +81,19 @@ export async function feeGuard(page: FeePageKey) {
   const p = await feePage();
   if (!p.may(page)) redirect(feePageAllowed(p.viewer, page) && page !== "dashboard" ? `${BASE}/dashboard` : `/no-access?m=${MODULE}`);
   return p;
+}
+
+/**
+ * The person's fee view narrowed to a campus chosen in the page address
+ * (?campus=, from the Dashboard's filter, src/lib/campus.ts narrowToCampus):
+ * that campus's students' money only. Never wider than their own limit.
+ */
+export async function feeViewOnCampus(p: Awaited<ReturnType<typeof feePage>>, raw: string | string[] | undefined) {
+  if (!raw) return p.viewer;
+  return withSchool(p.current.ctx, async (tx) => {
+    const who = await narrowToCampus(tx, p.current, raw);
+    return who === p.current ? p.viewer : feeViewer(tx, who.ctx, who);
+  });
 }
 
 /** Fee Settings: full Fee Management only. */

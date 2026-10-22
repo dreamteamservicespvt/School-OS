@@ -33,7 +33,8 @@ describe("today's numbers count the register", () => {
     const tile = home.band.find((b) => b.id === "attendance.students-present");
     // 5 A: Rohan present + Meera late = 2, Diya absent, Ishaan on leave (not counted), Varun not marked; 5 B not taken.
     expect(tile?.big).toBe("2");
-    expect(tile?.of).toBe("/ 10");
+    // Of the students in the sections marked (5 A), as Attendance Register says it (gap list G36).
+    expect(tile?.of).toBe("/ 5");
     expect(tile?.foot).toBe("66.7% of marked · 1 absent · 1 class not marked");
     // The leaver's marks are still stored.
     const kept = await withSchool({ schoolId: f.school.id, userId: null }, (tx) => tx.attendanceMark.count({ where: { studentId: f.leaverId, archivedAt: null } }));

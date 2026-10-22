@@ -4,17 +4,22 @@
 import "server-only";
 
 import { approvalsFor } from "../../approvals";
-import { hrSettings } from "../../staff/settings";
+import { hrFeaturesOn, hrSettings } from "../../staff/settings";
+import { viewerFor, type ViewerSource } from "../../staff/access";
+import { campusStaffWhere, onRollWhere, STAFF_FILTERS, staffWhere } from "../../staff/list";
+import { readListParams } from "../../list";
 import { docStatus } from "../../staff/documents";
-import { balancesFor, leaveYearFor } from "../../staff/leave";
+import { balancesFor, leaveYearFor, onLeaveOn } from "../../staff/leave";
 import { addDays, dayDate, dayWord, myStaff, n, plural, reach, shortDate, someNames } from "../common";
 import type { AgendaItem, Birthday, DashContext, ListRow, Viewer, Widget } from "../types";
 
 const BASE = "/staff-hr-management";
 const isHr = (v: Viewer) => reach(v, "staff-hr-management") === "all";
 const ACTIVE = ["ACTIVE", "ON_LEAVE", "SUSPENDED"] as const;
-/** One campus: that campus's staff only. */
-const campus = (c: DashContext) => (c.viewer.campusId ? { campusId: c.viewer.campusId } : {});
+/** The person as the Staff & HR pages see them (their reach, campus and own Staff record), read once. */
+const staffViewer = (c: DashContext) => c.memo("staff-viewer", () => viewerFor(c.tx, c.viewer.ctx, c.viewer as unknown as ViewerSource));
+/** One campus: that campus's staff and the person's own record, as the Staff & HR lists show them. */
+const campus = async (c: DashContext) => campusStaffWhere(await staffViewer(c));
 
 /** Approved leave covering today, read once. */
 function onLeaveToday(c: DashContext) {
@@ -23,7 +28,7 @@ function onLeaveToday(c: DashContext) {
       where: { status: "APPROVED", archivedAt: null, staffId: { not: null }, fromDate: { lte: c.today }, toDate: { gte: c.today } },
       orderBy: { fromDate: "asc" },
     });
-    const staff = await c.tx.staff.findMany({ where: { id: { in: rows.map((r) => r.staffId!) }, archivedAt: null, ...campus(c) }, select: { id: true, fullName: true, designation: true, staffCode: true } });
+    const staff = await c.tx.staff.findMany({ where: { id: { in: rows.map((r) => r.staffId!) }, archivedAt: null, AND: [await campus(c)] }, select: { id: true, fullName: true, designation: true, staffCode: true } });
     const types = new Map((await c.tx.leaveType.findMany({ where: { id: { in: rows.map((r) => r.leaveTypeId) } }, select: { id: true, name: true } })).map((t) => [t.id, t.name]));
     return rows.flatMap((r) => {
       const s = staff.find((x) => x.id === r.staffId);
@@ -39,8 +44,15 @@ const staffBand: Widget<"band"> = {
   homes: ["leader", "hr"],
   allowed: isHr,
   async load(c) {
-    const [active, away] = await Promise.all([c.tx.staff.count({ where: { archivedAt: null, status: "ACTIVE", ...campus(c) } }), onLeaveToday(c)]);
-    return { id: "staff.head-count", label: "Staff", big: n(active), foot: away.length ? `${plural(away.length, "person", "people")} on leave today` : "No one on leave today", href: BASE };
+    // The Staff List's own filter (active staff, the person's campus), and its "On leave today" among the staff on roll.
+    const sv = await staffViewer(c);
+    const [active, roll] = await Promise.all([
+      // A campus chosen on the Dashboard goes to the Staff List as its own Campus filter (?campus=).
+      c.tx.staff.count({ where: staffWhere(readListParams(c.filters.campusId ? { campus: c.filters.campusId } : {}, STAFF_FILTERS), sv) }),
+      c.tx.staff.findMany({ where: onRollWhere(sv), select: { id: true } }),
+    ]);
+    const away = (await onLeaveOn(c.tx, c.viewer.ctx, c.today, roll.map((r) => r.id))).size;
+    return { id: "staff.head-count", label: "Staff", big: n(active), foot: away ? `${plural(away, "person", "people")} on leave today` : "No one on leave today", href: BASE };
   },
 };
 
@@ -83,7 +95,7 @@ function documentStates(c: DashContext) {
     const settings = await hrSettings(c.tx, c.viewer.ctx);
     const soonDays = Math.max(...settings.reminderDays, 30);
     const docs = await c.tx.staffDocument.findMany({
-      where: { archivedAt: null, expiresOn: { not: null }, staff: { archivedAt: null, status: { notIn: ["RESIGNED", "RETIRED", "TERMINATED"] }, ...campus(c) } },
+      where: { archivedAt: null, expiresOn: { not: null }, staff: { archivedAt: null, status: { notIn: ["RESIGNED", "RETIRED", "TERMINATED"] }, AND: [await campus(c)] } },
       include: { staff: { select: { fullName: true } } }, orderBy: { expiresOn: "asc" },
     });
     const withState = docs.map((d) => ({ ...d, st: docStatus(d, c.today, soonDays) }));
@@ -135,11 +147,13 @@ const openPositions: Widget<"band"> = {
   homes: ["hr"],
   allowed: (v) => reach(v, "staff-hr-management", "edit") === "all",
   async load(c) {
-    const vacancies = await c.tx.vacancy.findMany({ where: { archivedAt: null, status: "OPEN" }, select: { openings: true, _count: { select: { applications: true } } } });
+    // Recruitment is switched on per school; its page counts open vacancies, their posts and live applications.
+    if (!(await hrFeaturesOn(c.tx, c.viewer.ctx)).has("hr-recruitment")) return null;
+    const vacancies = await c.tx.vacancy.findMany({ where: { archivedAt: null, status: "OPEN" }, select: { openings: true, _count: { select: { applications: { where: { archivedAt: null } } } } } });
     if (!vacancies.length) return null;
     const openings = vacancies.reduce((s, v) => s + v.openings, 0);
     const applicants = vacancies.reduce((s, v) => s + v._count.applications, 0);
-    return { id: "staff.open-positions", label: "Open positions", big: n(openings), foot: `${plural(applicants, "applicant")}`, href: `${BASE}/recruitment` };
+    return { id: "staff.open-positions", label: "Open vacancies", big: n(vacancies.length), foot: `${plural(openings, "post")} · ${plural(applicants, "applicant")}`, href: `${BASE}/recruitment?view=recruitment` };
   },
 };
 
@@ -194,7 +208,7 @@ const staffBirthdays: Widget<"birthdays"> = {
     const keys = days.map((d) => d.toISOString().slice(5, 10));
     const found = await c.tx.$queryRaw<{ id: string }[]>`SELECT id FROM staff WHERE archived_at IS NULL AND date_of_birth IS NOT NULL AND to_char(date_of_birth, 'MM-DD') = ANY(${keys})`;
     if (!found.length) return [];
-    const staff = await c.tx.staff.findMany({ where: { id: { in: found.map((f) => f.id) }, status: { in: [...ACTIVE] }, ...campus(c) }, select: { id: true, fullName: true, dateOfBirth: true, userLoginId: true } });
+    const staff = await c.tx.staff.findMany({ where: { id: { in: found.map((f) => f.id) }, status: { in: [...ACTIVE] }, AND: [await campus(c)] }, select: { id: true, fullName: true, dateOfBirth: true, userLoginId: true } });
     return staff.map((s): Birthday => {
       const day = days.find((d) => d.toISOString().slice(5, 10) === s.dateOfBirth!.toISOString().slice(5, 10))!;
       const mine = s.userLoginId === c.viewer.user.id;

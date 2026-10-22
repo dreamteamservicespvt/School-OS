@@ -59,7 +59,8 @@ export async function classOptions(tx: Tx, who?: Who) {
   return classes.map((c) => ({ value: c.id, label: `${prefix.get(c.campusId) ?? ""}${c.name}` }));
 }
 
-export const LIST_FILTERS = ["class", "section", "status", "gender", "category", "new", "photo", "docs", "ids", "fee"] as const;
+// "campus": a campus chosen on the Dashboard (the page narrows the person to it); kept here so the list's links keep it.
+export const LIST_FILTERS = ["class", "section", "status", "gender", "category", "new", "photo", "docs", "ids", "fee", "campus"] as const;
 
 /** Builds the Student List's where-clause from the filters in the page address. */
 export async function studentListWhere(tx: Tx, who: Who, params: ListParams, yearId: YearIds, yearStart: Date | null, settings: ResolvedSettings): Promise<Prisma.StudentWhereInput> {
@@ -142,7 +143,9 @@ export async function classTiles(tx: Tx, who: Who, yearId: YearIds) {
   const scope = await studentScope(tx, who, years);
   const rows = await tx.enrolment.groupBy({
     by: ["classId", "sectionId"],
-    where: { academicYearId: { in: years }, archivedAt: null, status: "STUDYING", student: { AND: [scope, { archivedAt: null, status: { in: [...STUDYING] } }] } },
+    // The Student List's class and section filter (studentListWhere): a studying student's enrolment in the class this year,
+    // whatever the enrolment's own status, so a tile and the list it opens count the same students.
+    where: { academicYearId: { in: years }, archivedAt: null, student: { AND: [scope, { archivedAt: null, status: { in: [...STUDYING] } }] } },
     _count: true,
   });
   const sections = await sectionNames(tx, rows.map((r) => r.sectionId));

@@ -14,6 +14,7 @@ import { askerJobs } from "../approval-people";
 import { formatRupees } from "../format";
 import { todayFor } from "../periods";
 import { homesFor, isLeader } from "./homes";
+import { carryAll, type DashFilters } from "./filters";
 import { WIDGETS } from "./registry";
 import { BUILT_MODULES, type ModuleKey } from "../modules";
 import { daysBetween, dayWord, longDay, minuteIn, moduleOpen, plural } from "./common";
@@ -61,6 +62,8 @@ export type Home = {
   tasks: { access: "full" | "own"; mine: TaskCardRow[]; given: TaskCardRow[]; left: number; mineTotal: number; givenTotal: number };
   /** Widget ids that failed to load this time (logged; the rest of the page still shows). */
   failed: string[];
+  /** The filters the numbers were worked out for (the day only on the control centre). */
+  filters: DashFilters;
 };
 
 type Collected = { [K in WidgetKind]: { w: Widget; item: unknown }[] };
@@ -237,7 +240,7 @@ export async function loadWidgetsIn<K extends WidgetKind>(tx: Tx, viewer: Viewer
   if (!list.length) return [];
   const tz = viewer.school.timeZone;
   const year = await yearIn(tx, viewer);
-  const c: DashContext = { tx, viewer, homes: homesFor(viewer), today: todayFor(tz, now), now, tz, minuteNow: minuteIn(tz, now), year, yearIds: await yearIdsIn(tx, viewer, year), memo: memoFor() };
+  const c: DashContext = { tx, viewer, homes: homesFor(viewer), today: todayFor(tz, now), now, tz, minuteNow: minuteIn(tz, now), filters: { campusId: null, date: null }, year, yearIds: await yearIdsIn(tx, viewer, year), memo: memoFor() };
   const out: WidgetOutput[K][] = [];
   for (const w of list) {
     const r = await w.load(c);
@@ -246,12 +249,21 @@ export async function loadWidgetsIn<K extends WidgetKind>(tx: Tx, viewer: Viewer
   return out;
 }
 
-/** `lanes` sets how many transactions load the page (tests and measuring; 1 loads it all in one, one widget after another). */
-export async function buildHome(viewer: Viewer, opts: { now?: Date; widgets?: readonly Widget[]; built?: ReadonlySet<ModuleKey>; lanes?: number } = {}): Promise<Home> {
+/**
+ * `lanes` sets how many transactions load the page (tests and measuring; 1 loads it all in one, one widget after another).
+ * `filters`: the Dashboard's campus and day (./filters.ts). The person is narrowed to the campus for every card, the
+ * control centre's "today" moves to the day chosen, and every link carries both, so each list opens on what was counted.
+ */
+export async function buildHome(person: Viewer, opts: { now?: Date; widgets?: readonly Widget[]; built?: ReadonlySet<ModuleKey>; lanes?: number; filters?: DashFilters } = {}): Promise<Home> {
   const now = opts.now ?? new Date();
-  const tz = viewer.school.timeZone;
-  const today = todayFor(tz, now);
+  const tz = person.school.timeZone;
+  // One campus chosen: every card counts that campus only, as if the person were limited to it (never wider than their own limit).
+  const viewer: Viewer = opts.filters?.campusId ? { ...person, campusId: opts.filters.campusId } : person;
   const homes = homesFor(viewer);
+  // Another day: only on the control centre, whose numbers are about the school's day; a teacher's home stays on today.
+  const day = isLeader(homes) ? opts.filters?.date ?? null : null;
+  const filters: DashFilters = { campusId: opts.filters?.campusId ?? null, date: day };
+  const today = day ?? todayFor(tz, now);
   const list = widgetsFor(viewer, homes, opts.widgets, opts.built);
   const leader = isLeader(homes);
   const access = taskAccess(viewer);
@@ -289,7 +301,8 @@ export async function buildHome(viewer: Viewer, opts: { now?: Date; widgets?: re
   const dayJob = pageJob(({ tx, year }) => schoolDayLine(tx, viewer, today, year), errors, () => null);
 
   const queue: Job[][] = [...bundlesOf(list.map((w, i) => widgetJob(w, i, results, failedIds))), [seenJob], [approvalJob], [taskJob], [dayJob]];
-  await runLanes(viewer, { viewer, homes, today, now, tz, minuteNow: minuteIn(tz, now) }, queue, opts.lanes);
+  // A past day is over: every period of it has ended.
+  await runLanes(viewer, { viewer, homes, today, now, tz, minuteNow: day ? 24 * 60 : minuteIn(tz, now), filters }, queue, opts.lanes);
   if (errors.length) throw errors[0];
 
   const out: Collected = { band: [], attention: [], agenda: [], birthdays: [], panel: [] };
@@ -355,7 +368,8 @@ export async function buildHome(viewer: Viewer, opts: { now?: Date; widgets?: re
     homes, leader,
     first: viewer.user.displayName.split(" ")[0],
     dayLine: [longDay(today), dayJob.value].filter(Boolean).join(" · "),
-    band, attention, hiddenSeen: attentionAll.length - attention.length, panels, agenda, birthdays,
+    band: carryAll(band, filters), attention: carryAll(attention, filters), hiddenSeen: attentionAll.length - attention.length,
+    panels: carryAll(panels, filters), agenda: carryAll(agenda, filters), birthdays, filters,
     approvals: mayApprove ? {
       count: ap.count,
       rows: ap.rows.filter((a) => ap.decidable.has(a.id)).map((a) => ({ id: a.id, who: ap.askers.get(a.askedById) ?? "Someone", as: ap.jobs.get(a.askedById) ?? null, what: `${requestLabel(a.type)} · ${a.summary}`, why: a.reason, amount: a.amountPaise !== null ? formatRupees(a.amountPaise) : null })),

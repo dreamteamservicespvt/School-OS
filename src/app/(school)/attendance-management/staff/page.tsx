@@ -5,12 +5,12 @@ import { CalendarDays, Clock, Fingerprint, History, Info, Minus, PencilLine, QrC
 import { withSchool } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { day, eachDay, isoDay, monthEnd, monthLabel, monthStart } from "@/lib/staff/dates";
-import { attendancePage } from "@/lib/attendance/page";
+import { attendancePage, onCampusFromPage } from "@/lib/attendance/page";
 import { BASE, correctionAllowed, staffAllowed, staffIdLimit, staffLimit } from "@/lib/attendance/access";
 import { readMonth } from "@/lib/attendance/register";
 import { lockState, dayText } from "@/lib/attendance/marks";
 import { dayInfo, offDayMessage, schoolDays } from "@/lib/attendance/calendar";
-import { staffDay, type StaffDayRow } from "@/lib/attendance/staff";
+import { staffDay, staffDayCounts, type StaffDayRow } from "@/lib/attendance/staff";
 import { staffMonth } from "@/lib/attendance/integrations";
 import { clampMonth, staffBounds } from "@/lib/attendance/calendar-months";
 import { METHOD_WORDS, statusList, statusesFor } from "@/lib/attendance/settings";
@@ -53,7 +53,10 @@ const plus = (hhmm: string, min: number) => { const [h, m] = hhmm.split(":").map
 
 export default async function StaffAttendancePage({ searchParams }: Props) {
   const sp = await searchParams;
-  const { current, access, settings, features, tz, today, now } = await attendancePage();
+  const page = await attendancePage();
+  const { current, settings, features, tz, today, now } = page;
+  // One campus chosen on the Dashboard (?campus=): that campus's staff only, as the card counted them.
+  const { access } = await onCampusFromPage(page, sp.campus);
   if (access.staff === "none") redirect("/no-access?m=attendance-management");
   const all = access.staff === "all";
   // The Principal and Vice Principal read staff attendance; HR and the office mark it (prototype DUTY).
@@ -157,16 +160,12 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
       };
     });
     const lock = lockState(settings, date, now, tz);
-    const isLate = (r: StaffDayRow) => ["late", "half-day"].includes(r.mark?.statusKey ?? "");
-    const isLeave = (r: StaffDayRow) => r.onLeave || r.mark?.statusKey === "leave";
-    const notIn = (r: StaffDayRow) => !r.mark && !r.onLeave;
-    const isIn = (r: StaffDayRow) => ["present", "late", "half-day"].includes(r.mark?.statusKey ?? "");
-    // The cards at the top: the whole staff that day.
+    // The cards at the top: the whole staff that day (the same counts as the Dashboard's tile).
     const w = data.whole;
-    const present = w.filter(isIn).length;
-    const late = w.filter(isLate);
-    const leave = w.filter(isLeave);
-    const missing = w.filter(notIn);
+    const counts = staffDayCounts(w);
+    const { isLate, isLeave, isIn, present, late, leave } = counts;
+    const notIn = counts.notInYet;
+    const missing = counts.notIn;
     const lateAvg = late.length ? Math.round(late.reduce((s, r) => s + (r.mark?.lateMinutes ?? 0), 0) / late.length) : 0;
     const total = w.length;
     // By department (owner's prototype changes of 13 Oct 2026): tiles replace the department dropdown.

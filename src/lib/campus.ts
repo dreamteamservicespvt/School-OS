@@ -104,3 +104,17 @@ export async function campusChoices(tx: Tx, ctx: SchoolContext, limit: CampusLim
     select: { id: true, name: true },
   });
 }
+
+/**
+ * A campus chosen in the page address (?campus=, as the Dashboard's cards send
+ * it, gap list G36): the person narrowed to that campus, as if limited to it.
+ * Never wider than their own limit: a campus they may not see, or none, gives
+ * the same person back.
+ */
+export async function narrowToCampus<T extends CampusLimit & { ctx: SchoolContext }>(tx: Tx, who: T, raw: string | string[] | undefined | null): Promise<T> {
+  const id = Array.isArray(raw) ? raw[0] : raw;
+  if (!id || !/^[0-9a-f-]{36}$/i.test(id) || who.campusId === id) return who;
+  if (who.campusId) return who;
+  const ok = (await campusChoices(tx, who.ctx, who)).some((c) => c.id === id);
+  return ok ? { ...who, campusId: id } : who;
+}

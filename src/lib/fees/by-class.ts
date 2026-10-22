@@ -89,9 +89,12 @@ function finishTotals(t: FeeTotals) {
  */
 async function dueRows(tx: Tx, viewer: Pick<FeeViewer, "yearIds" | "campusId">, today: Date, studentIds: string[] | null): Promise<Row[]> {
   const horizon = addDays(today, DUE_WINDOW_DAYS);
+  const archived = (await tx.student.findMany({ where: { archivedAt: { not: null } }, select: { id: true } })).map((s) => s.id);
   const where: Prisma.StudentFeeDueWhereInput = {
     state: "OPEN",
     dueDate: { lte: horizon },
+    // An archived student's rows are not counted, as on Defaulters (fees/defaulters.ts). Archived students are few.
+    ...(archived.length ? { NOT: { studentId: { in: archived } } } : {}),
     ...(viewer.yearIds.length ? { OR: [{ academicYearId: { in: viewer.yearIds } }, { balancePaise: { gt: 0 } }] } : {}),
     ...(studentIds ? { studentId: { in: studentIds } } : await feeStudentFilter(tx, viewer)),
   };

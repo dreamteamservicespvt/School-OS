@@ -355,7 +355,8 @@ export async function lowStockItems(tx: Tx, take = 200) {
   const totals = await totalsFor(tx);
   return items
     .map((i) => ({ item: i, total: totals.get(i.id) ?? 0, reorder: reorderOf(i, i.category) }))
-    .filter((x) => x.reorder > 0 && stockState(x.total, x.reorder) !== "OK")
+    // The same rule as Items & Stock (itemsList): an item with no reorder level is low only when none is left.
+    .filter((x) => (x.reorder > 0 || x.total <= 0) && stockState(x.total, x.reorder) !== "OK")
     .sort((a, b) => a.total - a.reorder - (b.total - b.reorder) || a.item.name.localeCompare(b.item.name))
     .slice(0, take);
 }

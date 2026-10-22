@@ -4,7 +4,7 @@ import { withSchool } from "@/lib/db";
 import { readListParams, skipTake, listHref, PAGE_SIZE } from "@/lib/list";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { can } from "@/lib/permissions";
-import { admissionPage, BASE } from "@/lib/admission/page";
+import { admissionPage, viewerOnCampus, BASE } from "@/lib/admission/page";
 import { UUID_RE, instantToLocal, zonedToInstant } from "@/lib/admission/act";
 import { ENQUIRY_FILTERS, enquiryOrder, enquiryWhere } from "@/lib/admission/list";
 import { enquiryScope, canWorkOn } from "@/lib/admission/access";
@@ -38,8 +38,11 @@ type Search = { searchParams: Promise<Record<string, string | string[] | undefin
 const PATH = `${BASE}/enquiries`;
 
 export default async function EnquiriesPage({ searchParams }: Search) {
-  const { current, viewer, settings, year, tz, today } = await admissionPage();
+  const page = await admissionPage();
+  const { current, settings, year, tz, today } = page;
   const raw = await searchParams;
+  // One campus chosen on the Dashboard (?campus=): that campus's enquiries, as the card counted them.
+  const viewer = await viewerOnCampus(page, raw.campus);
   const params = readListParams(raw, ENQUIRY_FILTERS);
   const openId = typeof raw.id === "string" && UUID_RE.test(raw.id) ? raw.id : null;
   const now = new Date();

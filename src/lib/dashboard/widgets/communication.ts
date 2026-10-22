@@ -14,10 +14,13 @@ import type { AttentionItem, DashContext, Widget } from "../types";
 
 const QUERIES = "/communication/queries";
 
-/** The same count Feedback & Queries shows with these filters. */
+/**
+ * The same count Feedback & Queries shows with these filters: its reach (the
+ * person's change reach, as the page reads it) and their campus (gap list G36).
+ */
 async function queryCount(c: DashContext, filters: Record<string, string>) {
-  const r = reach(c.viewer, "communication") === "all" ? "all" : "own";
-  const where = queryListWhere(await queryWhere(c.tx, c.viewer.ctx, r), c.viewer.ctx, readListParams(filters, QUERY_FILTERS), c.now);
+  const r = reach(c.viewer, "communication", "create") === "all" ? "all" : "own";
+  const where = queryListWhere(await queryWhere(c.tx, c.viewer.ctx, r, c.viewer.campusId ?? null), c.viewer.ctx, readListParams(filters, QUERY_FILTERS), c.now, c.tz);
   return { count: await c.tx.query.count({ where }), where };
 }
 

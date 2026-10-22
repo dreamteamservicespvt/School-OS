@@ -48,6 +48,8 @@ export type ReportInput = {
   person: string | null;
   /** Student leave report: this month or the whole year. */
   period: "month" | "year";
+  /** Chronic absence report: one kind of flag only (the Dashboard's cards open it so); null shows both. */
+  flag?: FlagKind | null;
   /** Absence reasons report: one reason (or "none", not recorded); null groups every reason by class. */
   reason?: string | null;
   today: Date;
@@ -82,6 +84,24 @@ export function reportsFor(access: AttendanceAccess, features: Set<string>) {
 
 async function sectionsInReach(tx: Tx, access: AttendanceAccess) {
   return registerChoices(tx, access);
+}
+
+export type FlagKind = "absent-streak" | "below-threshold";
+export const FLAG_KINDS: FlagKind[] = ["absent-streak", "below-threshold"];
+
+/**
+ * The open Attendance Flags the Chronic absence report lists for this person:
+ * students studying in the sections they may see, one flag per student and
+ * kind (the newest). The Dashboard's "absent N days in a row" and "below N%"
+ * cards count these same students (gap list G36).
+ */
+export async function chronicFlags(tx: Tx, access: AttendanceAccess, kind: FlagKind | null = null) {
+  const sections = await sectionsInReach(tx, access);
+  const enrol = await tx.enrolment.findMany({ where: { sectionId: { in: sections.map((s) => s.id) }, archivedAt: null, status: "STUDYING" }, select: { studentId: true, sectionId: true } });
+  const all = await tx.attendanceFlag.findMany({ where: { studentId: { in: enrol.map((e) => e.studentId) }, ...OPEN_ATTENDANCE_FLAG, ...(kind ? { kind } : {}) }, orderBy: { raisedOn: "desc" } });
+  const seen = new Set<string>();
+  const flags = all.filter((f) => { const k = `${f.studentId}:${f.kind}`; if (seen.has(k)) return false; seen.add(k); return true; });
+  return { flags, enrol, sections };
 }
 
 export async function runReport(tx: Tx, ctx: SchoolContext, access: AttendanceAccess, input: ReportInput): Promise<ReportTable> {
@@ -251,13 +271,12 @@ export async function runReport(tx: Tx, ctx: SchoolContext, access: AttendanceAc
       };
     }
     case "chronic": {
-      const sections = await sectionsInReach(tx, access);
-      const enrol = await tx.enrolment.findMany({ where: { sectionId: { in: sections.map((s) => s.id) }, archivedAt: null, status: "STUDYING" }, select: { studentId: true, sectionId: true } });
-      const flags = await tx.attendanceFlag.findMany({ where: { studentId: { in: enrol.map((e) => e.studentId) }, ...OPEN_ATTENDANCE_FLAG }, orderBy: { raisedOn: "desc" } });
+      const { flags, enrol, sections } = await chronicFlags(tx, access, input.flag ?? null);
       const people = new Map((await tx.student.findMany({ where: { id: { in: flags.map((f) => f.studentId) } }, select: { id: true, fullName: true, admissionNo: true } })).map((s) => [s.id, s]));
       const sectionOf = new Map(enrol.map((e) => [e.studentId, sections.find((s) => s.id === e.sectionId)?.name ?? ""]));
       return {
-        title: "Chronic absence", filters: `Below ${settings.thresholdPercent}% or absent ${settings.chronicDays} days in a row; open flags`,
+        title: "Chronic absence",
+        filters: `${input.flag === "absent-streak" ? `Absent ${settings.chronicDays} days in a row` : input.flag === "below-threshold" ? `Below ${settings.thresholdPercent}%` : `Below ${settings.thresholdPercent}% or absent ${settings.chronicDays} days in a row`}; open flags`,
         columns: [{ key: "who", label: "Student", phone: "title" }, { key: "class", label: "Class", phone: "meta" }, { key: "kind", label: "Flag", phone: "badge" }, { key: "value", label: "Value", numeric: true }, { key: "since", label: "Flagged on", phone: "meta" }, { key: "review", label: "Review" }],
         rows: flags.map((f) => ({
           who: people.get(f.studentId)?.fullName ?? "Student", class: sectionOf.get(f.studentId) ?? "",
@@ -469,6 +488,7 @@ export function readReportInput(get: (k: string) => string | null | undefined, t
     report, date: d("date", today), month, from, to,
     sectionId: section && UUID.test(section) ? section : null,
     person: person && /^(student|staff):[0-9a-f-]{36}$/i.test(person) ? person : null,
+    flag: FLAG_KINDS.find((k) => k === get("flag")) ?? null,
     period: get("period") === "year" ? "year" : "month",
     reason: (() => { const v = get("reason"); return v && (v === "none" || isReason(v)) ? v : null; })(),
     today,

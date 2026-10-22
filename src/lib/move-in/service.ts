@@ -52,6 +52,7 @@ export type MoveInKind = { key: string; label: string; module: ModuleKey; order:
 const KNOWN: Record<string, Omit<MoveInKind, "key" | "label">> = {
   departments: { module: "settings", order: 1, about: "Departments such as Science and Accounts, with their heads. Bring these first if your staff list has departments." },
   staff: { module: "staff-hr-management", order: 2, about: "Teachers and other staff, with phone, designation and joining date. Logins can be made for them." },
+  "staff-pay-details": { module: "staff-hr-management", order: 2.1, about: "Each staff member's bank account, IFSC, PAN, UAN (PF) and ESI numbers, so salary and the PF and ESI statements are right from the first month. Restricted: HR, the Principal and the School Admin only." },
   "staff-leave-balances": { module: "staff-hr-management", order: 2.2, about: "Starting part way through the year? For each staff member and leave type, the days left at go-live (or the days taken so far). Leave left, the leave check and loss of pay in salary are right from the first day." },
   students: { module: "student-management", order: 3, about: "Students with their class, section, roll number and admission number, and their parents. Old admission numbers are kept." },
   "students-update": { module: "student-management", order: 4, about: "Changes to students already here, found by admission number." },

@@ -181,3 +181,67 @@ describe("Leave balances at go-live (G19)", () => {
     expect((await run(c, (tx) => workOn(tx, c, again, { check: true }))).checked!.ready).toHaveLength(1);
   });
 });
+
+describe("Staff pay details (G19)", () => {
+  it("restricted: HR, the Principal and the School Admin only; never in plain words in the Audit Log; Undo puts the old values back", async () => {
+    const principal = await who(f.principal.id);
+    // Role templates start switched off; HR is switched on here.
+    await run(f.pctx, (tx) => tx.role.updateMany({ where: { key: "hr" }, data: { isEnabled: true } }));
+    const hr = await who((await makeUser({ schools: [{ id: f.school.id, roleKeys: ["hr"] }] })).id);
+    const acc = await who(f.accountant.id);
+    for (const p of [principal, hr]) {
+      expect(await placeRefusal(p, PLACES.staff, "staff-pay-details", "create")).toBeNull();
+      expect(await placeRefusal(p, PLACES.settings, "staff-pay-details", "create")).toBeNull();
+    }
+    expect(await placeRefusal(acc, PLACES.staff, "staff-pay-details", "create")).not.toBeNull();
+    expect(await placeRefusal(acc, PLACES.settings, "staff-pay-details", "archive")).not.toBeNull();
+
+    const c = f.pctx;
+    const pd1 = await run(c, async (tx) => {
+      const base = { schoolId: f.school.id, campusId: f.school.campus.id, designation: "Teacher", joiningDate: day("2020-06-01") };
+      await tx.staff.create({ data: { ...base, staffCode: "PD-2", firstName: "Gita", fullName: "Gita Nair", phone: "9876500922" } });
+      return tx.staff.create({ data: { ...base, staffCode: "PD-1", firstName: "Hari", fullName: "Hari Prasad", phone: "9876500921", uan: "100000000001" } });
+    });
+    const csv = [
+      "Emp Code,Bank,A/c No,IFSC Code,PAN No,UAN No,ESIC No",
+      "PD-1,State Bank of India,3001 2345 678,sbin0001234,abcde1234f,1009 8765 4321,3112345678",
+      "PD-2,,12345,,,,",
+      "PD-3,,,,ABCDE1234F,,",
+      "PD-2,,,,,,",
+    ].join("\n");
+    const [id] = await upload(c, csv, "pay.csv", "staff-pay-details");
+    const w = await run(c, (tx) => workOn(tx, c, id, { check: true }));
+    expect(w.choices.columnMatch).toMatchObject({ staffId: [0], bankName: [1], bankAccount: [2], bankIfsc: [3], pan: [4], uan: [5], esiNo: [6] });
+    const checked = w.checked!;
+    expect(checked.ready.map((r) => r.line)).toEqual([2]);
+    const problem = (line: number) => checked.problems.find((p) => p.line === line)?.problems.join(" ") ?? "";
+    expect(problem(3)).toMatch(/9 to 18 digits.*IFSC is needed with the bank account/);
+    expect(problem(4)).toMatch(/No staff member has the staff ID PD-3/);
+    expect(checked.problems.some((p) => p.line === 5)).toBe(false);
+
+    const batchId = await bringIn(c, id, PLACES.staff);
+    const { decryptField } = await import("@/lib/crypto");
+    const after = await run(c, (tx) => tx.staff.findUniqueOrThrow({ where: { id: pd1.id } }));
+    expect(decryptField(after.panEnc!)).toBe("ABCDE1234F");
+    expect(decryptField(after.bankAccountEnc!)).toBe("30012345678");
+    expect(after).toMatchObject({ bankIfsc: "SBIN0001234", bankName: "State Bank of India", uan: "100987654321", esiNo: "3112345678" });
+    // Only masked values in the Audit Log, and never the plain numbers with the import for Undo.
+    const audit = await run(c, (tx) => tx.auditLogEntry.findMany({ where: { recordType: "Staff", recordId: pd1.id } }));
+    expect(audit.map((a) => a.action)).toContain("changed-restricted");
+    const words = JSON.stringify(audit);
+    expect(words).not.toMatch(/30012345678|ABCDE1234F/);
+    expect(words).toMatch(/PAN ••••••234F/);
+    const batch = await run(c, (tx) => tx.importBatch.findUniqueOrThrow({ where: { id: batchId } }));
+    expect(batch).toMatchObject({ added: 0, updated: 1 });
+    expect(JSON.stringify(batch.updatedRows)).not.toMatch(/30012345678|ABCDE1234F/);
+
+    // The same details again: nothing to change.
+    const [again] = await upload(c, "Staff ID,PAN\nPD-1,ABCDE1234F\n", "again.csv", "staff-pay-details");
+    expect((await run(c, (tx) => workOn(tx, c, again, { check: true }))).checked!.problems[0].problems.join(" ")).toMatch(/already on Hari Prasad's record/);
+
+    // Changed by hand since: kept. The rest goes back to what was on record.
+    await run(c, (tx) => tx.staff.update({ where: { id: pd1.id }, data: { esiNo: "3199999999" } }));
+    expect(await run(c, (tx) => undoImport(tx, c, batchId))).toMatchObject({ putBack: 1 });
+    expect(await run(c, (tx) => tx.staff.findUniqueOrThrow({ where: { id: pd1.id } }))).toMatchObject({ panEnc: null, bankAccountEnc: null, bankIfsc: null, bankName: null, uan: "100000000001", esiNo: "3199999999" });
+  });
+});

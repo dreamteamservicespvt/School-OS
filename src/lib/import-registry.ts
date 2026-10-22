@@ -17,3 +17,4 @@ import "./inventory/import";
 import "./salary/import";
 import "./attendance/opening";
 import "./staff/leave-import";
+import "./staff/pay-details-import";

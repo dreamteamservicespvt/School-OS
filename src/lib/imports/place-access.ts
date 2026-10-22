@@ -11,7 +11,7 @@ import { canBring, canUndo, kindInfo, MoveInProblem } from "../move-in/service";
 import { moduleImportRefusal } from "./module-import";
 import { findModule } from "../modules";
 import { PermissionDeniedError, reachFor } from "../permissions";
-import { HrOnlyError } from "../staff/access";
+import { canSeeRestricted, HrOnlyError } from "../staff/access";
 import { withSchool } from "../db";
 import { FullOnlyError, viewerFor } from "../admission/access";
 import { libCan, libViewer } from "../library/access";
@@ -58,7 +58,10 @@ export async function placeRefusal(current: Current, place: ImportPlace, kind: s
       return moduleImportRefusal(current, kind, need);
     case "staff":
       // HR's own work: Staff & HR full, for bringing in and for Undo alike.
-      return reachFor(current.permissions, "staff-hr-management", "create") === "all" ? null : new HrOnlyError("importing staff").message;
+      if (reachFor(current.permissions, "staff-hr-management", "create") !== "all") return new HrOnlyError(kind === "staff" ? "importing staff" : "this").message;
+      // Pay details are restricted fields (PAN, bank account): only the roles that may see them in full (09 §1).
+      if (kind === "staff-pay-details" && !canSeeRestricted(current.roles.map((r) => r.key))) return "Only HR, the Principal or the School Admin can bring in pay details. They are restricted.";
+      return null;
     case "enquiries": {
       // The admission team's work (Admission Management full), for bringing in and for Undo alike.
       if (reachFor(current.permissions, "admission-management", "create") === "none") return new FullOnlyError("importing enquiries").message;

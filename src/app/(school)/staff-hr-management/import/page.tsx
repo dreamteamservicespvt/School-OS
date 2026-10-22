@@ -10,6 +10,7 @@ export const metadata: Metadata = { title: "Import staff" };
 
 const ABOUT = {
   staff: "One row per staff member, with phone, designation and joining date. Each is added as if typed on Add staff; a login is made when the row says so. Designations and departments not in HR Settings can be matched or added while you check the file.",
+  "staff-pay-details": "One row per staff member with the staff ID and any of bank name, bank account number, IFSC, PAN, UAN (PF) and ESI number. Empty cells keep what is on record. PAN and the bank account are kept encrypted and only their last 4 characters go into the history. HR, the Principal and the School Admin only. Undo puts the old values back.",
   "staff-leave-balances": "Starting part way through the year: one row per staff member and leave type, with the days left on the go-live date or the days already taken this year. Each becomes an adjustment marked Brought in on that person's balance, so leave left and loss of pay are right from the first day. Undo takes the days back.",
 };
 

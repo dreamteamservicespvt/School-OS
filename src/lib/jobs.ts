@@ -109,6 +109,9 @@ async function runOne(jobId: string, schoolId: string) {
 type Schedule = { name: string; everyMinutes: number; run: (tx: Tx, ctx: SchoolContext, now: Date) => Promise<unknown> };
 const schedules: Schedule[] = [];
 
+/** Every schedule defined so far, read only (scripts/perf-run.ts times each one at a real school's size). */
+export const scheduleList = (): readonly Schedule[] => schedules;
+
 /**
  * Work that runs on a timer for every school, such as escalations and reminders. Work that waits on another service gets the long transaction.
  * heldWhileMovingIn: work that exists to message parents or add charges does not run for a school still moving in

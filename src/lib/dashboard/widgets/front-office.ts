@@ -41,7 +41,7 @@ const insideNow: Widget<"band"> = {
       c.tx.visitorEntry.count({ where: live }),
       c.tx.visitorEntry.count({ where: { AND: [{ archivedAt: null, visitDate: c.today }, scope] } }),
     ]);
-    return { id: "front-office.inside", label: "Visitors inside now", big: n(count), foot: `${plural(today, "visitor")} today`, href: `${BASE}/visitors?status=In` };
+    return { id: "front-office.inside", label: "Visitors inside now", big: n(count), foot: `${plural(today, "visitor")} today`, href: `${BASE}/visitors?status=In&view=log` };
   },
 };
 
@@ -55,11 +55,13 @@ const deskToday: Widget<"band"> = {
   async load(c) {
     const from = instantOf(iso(c.today), 0, c.tz);
     const to = instantOf(iso(addDays(c.today, 1)), 0, c.tz);
-    const [calls, appts] = await Promise.all([
+    // Appointments: today's not cancelled, as Appointments says "N booked"; the ones still to come in the foot.
+    const [calls, appts, toCome] = await Promise.all([
       c.tx.callLogEntry.count({ where: { archivedAt: null, at: { gte: from, lt: to } } }),
+      c.tx.appointment.count({ where: { archivedAt: null, date: c.today, status: { not: "CANCELLED" } } }),
       c.tx.appointment.count({ where: { archivedAt: null, date: c.today, status: { in: ["BOOKED", "ARRIVED"] } } }),
     ]);
-    return { id: "front-office.desk-today", label: "Appointments today", big: n(appts), foot: `${plural(calls, "call")} logged`, href: `${BASE}/appointments` };
+    return { id: "front-office.desk-today", label: "Appointments today", big: n(appts), foot: `${n(toCome)} still to come · ${plural(calls, "call")} logged`, href: `${BASE}/appointments` };
   },
 };
 
@@ -81,7 +83,8 @@ const expiredPasses: Widget<"attention"> = {
       id: "front-office.expired-passes", tone: "bad", icon: "TriangleAlert",
       title: `${plural(count, "visitor pass", "visitor passes")} expired with nobody checked out`,
       detail: `${someNames(rows.map((r) => `${r.name} (${r.passNo})`))}${count > 2 ? ` and ${n(count - 2)} more` : ""}. Check they have left.`,
-      action: "Review", href: `${BASE}/visitors?status=Expired`, value: String(count),
+      // view=log: the visitor log, also for Gate Security when the gate log is on (it opens on gate entries otherwise).
+      action: "Review", href: `${BASE}/visitors?status=Expired&view=log`, value: String(count),
     };
   },
 };

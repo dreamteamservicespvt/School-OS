@@ -12,14 +12,21 @@ import { formatRupees, formatRupeesShort } from "../../format";
 import { feeViewer, feePageAllowed, admissionOnlyFor, feePageAllowedFor, feeStudentFilter, type FeeViewer, type FeePageKey } from "../../fees/access";
 import { feeTiles, monthlyTrend, recentPayments } from "../../fees/dashboard";
 import { failedOnline } from "../../fees/online";
-import { financePageAllowed, hiddenPayHeads, expensesWithoutPay, type FinancePageKey } from "../../finance/access";
+import { financePageAllowed, hiddenPayHeads, type FinancePageKey } from "../../finance/access";
+import { dayBookView } from "../../finance/daybook-view";
+import { expenseWhere, NO_FILTER } from "../../finance/expense-list";
 import { accountBalances } from "../../finance/daybook";
-import { n, plural, someNames, addDays, shortDate } from "../common";
+import { n, plural, someNames, addDays, shortDate, iso } from "../common";
 import type { DashContext, Viewer, Widget } from "../types";
 import { doesWork } from "../../duty";
 
 const FEES = "/fee-management";
 const FIN = "/finance-management";
+/** Today's posted payments, full and partial: exactly the payments "Fees collected today" adds up. */
+const COLLECTED_TODAY = `${FEES}/dashboard?period=today&status=POSTED&kind=all`;
+/** Payments waiting for verification, from the oldest one's date to today, full and partial. */
+const waitingHref = (oldest: Date | null, today: Date) =>
+  `${FEES}/dashboard?status=WAITING&kind=all${oldest ? `&from=${iso(oldest)}&to=${iso(today)}` : "&period=acyear"}`;
 const ZERO = BigInt(0);
 const DAY = 86_400_000;
 
@@ -55,7 +62,7 @@ const collectedToday: Widget<"band"> = {
     return {
       id: "fees.collected-today", label: "Fees collected today", big: formatRupeesShort(t.amount),
       foot: t.count ? `${plural(t.count, "payment")}${upi ? ` · ${n(upi)} by UPI` : ""}` : "No payments yet today",
-      href: `${FEES}/dashboard?period=today`,
+      href: COLLECTED_TODAY,
     };
   },
 };
@@ -76,7 +83,7 @@ const chequesToVerify: Widget<"band"> = {
     return {
       id: "fees.cheques-to-verify", label: "Waiting for verification", big: n(count),
       foot: count ? `${formatRupees(agg._sum.amountPaise ?? ZERO)} · oldest ${shortDate(oldest!.paymentDate)}` : "Nothing to verify",
-      href: `${FEES}/dashboard?status=WAITING&period=acyear`,
+      href: waitingHref(oldest?.paymentDate ?? null, c.today),
     };
   },
 };
@@ -168,7 +175,7 @@ const collectionChart: Widget<"panel"> = {
         // Each bar: share of the fees due so far that was collected by the end of that month.
         sub: year.due > ZERO ? `${formatRupeesShort(year.paid)} of ${formatRupeesShort(year.due)} due so far · ${Math.round(year.percent)}%` : `${c.year.name}: nothing due yet`,
         rows: months.map((m) => ({ key: m.key, label: m.label, value: pct(m.paidSoFar, m.dueSoFar) })),
-        goal: 90, lowBelow: 75, href: `${FEES}/reports`, linkLabel: "Reports",
+        goal: 90, lowBelow: 75, href: `${FEES}/reports?r=by-class`, linkLabel: "Fees by class",
         empty: "No fees have fallen due this year yet.",
       },
     };
@@ -199,7 +206,7 @@ const recent: Widget<"panel"> = {
           rightTone: tone[r.status as keyof typeof tone] ?? "neutral",
         })),
         // Collect Fee is the module's first page; the Principal and School Admin never sit at the counter (src/lib/duty.ts).
-        href: collects(c, v) ? FEES : `${FEES}/dashboard`,
+        href: collects(c, v) ? FEES : `${FEES}/dashboard?period=acyear&kind=all`,
         linkLabel: collects(c, v) ? "Collect fee" : "Fee Dashboard",
         empty: "No fee payments yet this year.",
       },
@@ -212,6 +219,11 @@ function payHeads(c: DashContext) {
   return c.memo("pay-heads", () => hiddenPayHeads(c.tx, c.viewer.permissions));
 }
 
+/** Today's Day Book for this person (staff pay left out unless their role sees salaries): the Day Book page's own call. */
+function dayBookToday(c: DashContext) {
+  return c.memo("day-book-today", async () => dayBookView(c.tx, { from: c.today, to: c.today, classId: null, depositAccountId: null, waiting: false, hidePay: await payHeads(c) }));
+}
+
 const moneyToday: Widget<"panel"> = {
   id: "finance.money-today",
   module: "finance-management",
@@ -219,12 +231,12 @@ const moneyToday: Widget<"panel"> = {
   homes: ["accountant"],
   allowed: finance("day-book"),
   async load(c) {
-    const hidden = await payHeads(c);
     const only = await onCampus(c);
-    const [t, waiting, spent, balances, cashAccounts] = await Promise.all([
+    const [t, waiting, oldest, book, balances, cashAccounts] = await Promise.all([
       tiles(c),
       c.tx.payment.aggregate({ where: { status: "WAITING", broughtIn: false, ...only }, _sum: { amountPaise: true }, _count: { _all: true } }),
-      c.tx.expensePayment.aggregate({ where: { date: c.today, cancelledAt: null, ...(hidden ? { expense: expensesWithoutPay(hidden) } : {}) }, _sum: { amountPaise: true }, _count: { _all: true } }),
+      c.tx.payment.findFirst({ where: { status: "WAITING", broughtIn: false, ...only }, orderBy: { paymentDate: "asc" }, select: { paymentDate: true } }),
+      dayBookToday(c),
       accountBalances(c.tx, c.viewer.ctx),
       c.tx.bankAccount.findMany({ where: { kind: "CASH", archivedAt: null }, select: { id: true } }),
     ]);
@@ -232,9 +244,10 @@ const moneyToday: Widget<"panel"> = {
     const v = c.viewer;
     const feeOk = !admissionOnlyFor(v) && feePageAllowedFor(v, "dashboard");
     const rows = [
-      feeOk && { id: "collected", title: "Fees collected today", sub: plural(t.today.count, "payment"), right: formatRupees(t.today.amount), rightTone: "ok" as const, href: `${FEES}/dashboard?period=today` },
-      feeOk && { id: "cheques", title: "Waiting for verification", sub: plural(waiting._count._all, "payment"), right: formatRupees(waiting._sum.amountPaise ?? ZERO), rightTone: waiting._count._all ? "warn" as const : "neutral" as const, href: `${FEES}/dashboard?status=WAITING&period=acyear` },
-      { id: "spent", title: "Expenses paid today", sub: plural(spent._count._all, "payment"), right: formatRupees(spent._sum.amountPaise ?? ZERO), rightTone: "neutral" as const, href: `${FIN}/expenses?period=today` },
+      feeOk && { id: "collected", title: "Fees collected today", sub: plural(t.today.count, "payment"), right: formatRupees(t.today.amount), rightTone: "ok" as const, href: COLLECTED_TODAY },
+      feeOk && { id: "cheques", title: "Waiting for verification", sub: plural(waiting._count._all, "payment"), right: formatRupees(waiting._sum.amountPaise ?? ZERO), rightTone: waiting._count._all ? "warn" as const : "neutral" as const, href: waitingHref(oldest?.paymentDate ?? null, c.today) },
+      // The Day Book's own "Total expense" for today (expenses and salary paid, less any cancelled), so the row and the page agree.
+      { id: "spent", title: "Spent today", sub: plural(book.totals.expenseCount, "payment"), right: formatRupees(book.totals.expense), rightTone: "neutral" as const, href: `${FIN}/day-book?period=today` },
       { id: "cash", title: "Cash in hand", sub: "All cash accounts", right: formatRupees(cash), rightTone: cash < ZERO ? "bad" as const : "neutral" as const, href: financePageAllowed(v.permissions, "cash-bank") ? `${FIN}/cash-bank` : undefined },
     ].filter((r): r is Exclude<typeof r, false> => Boolean(r));
     return {
@@ -244,6 +257,7 @@ const moneyToday: Widget<"panel"> = {
   },
 };
 
+/** "Day Book today": the Day Book page's own totals for today (one call, dayBookView), so the band and the page agree. */
 const dayBook: Widget<"band"> = {
   id: "finance.day-book",
   module: "finance-management",
@@ -251,26 +265,17 @@ const dayBook: Widget<"band"> = {
   homes: ["accountant"],
   allowed: finance("day-book"),
   async load(c) {
-    const hidden = await payHeads(c);
-    const rows = await c.tx.dayBookEntry.groupBy({
-      by: ["direction"],
-      where: {
-        date: c.today, sourceType: { notIn: ["transfer", "transfer-cancel"] },
-        ...(hidden ? { AND: [{ section: { notIn: ["salary", "salary-advance"] } }, { sourceType: { notIn: ["payroll", "salary-advance"] } }, { OR: [{ accountHeadId: null }, { accountHeadId: { notIn: hidden } }] }] } : {}),
-      },
-      _sum: { amountPaise: true }, _count: { _all: true },
-    });
-    const sum = (d: "IN" | "OUT") => rows.find((r) => r.direction === d)?._sum.amountPaise ?? ZERO;
-    const count = rows.reduce((s, r) => s + r._count._all, 0);
-    const net = sum("IN") - sum("OUT");
+    const v = await dayBookToday(c);
+    const t = v.totals;
     return {
-      id: "finance.day-book", label: "Day Book today", big: formatRupeesShort(net),
-      foot: count ? `${formatRupeesShort(sum("IN"))} in · ${formatRupeesShort(sum("OUT"))} out` : "No entries yet today",
-      href: `${FIN}/day-book`,
+      id: "finance.day-book", label: "Day Book today", big: formatRupeesShort(t.net),
+      foot: v.rows.length ? `${formatRupeesShort(t.income)} in · ${formatRupeesShort(t.expense)} out` : "No entries yet today",
+      href: `${FIN}/day-book?period=today`,
     };
   },
 };
 
+/** Expenses waiting for approval: the Expenses page's own "Waiting for approval" tab (one filter, expenseWhere). */
 const expenses: Widget<"attention"> = {
   id: "finance.expenses",
   module: "finance-management",
@@ -278,8 +283,7 @@ const expenses: Widget<"attention"> = {
   homes: ["leader"],
   allowed: finance("expenses"),
   async load(c) {
-    const hidden = await payHeads(c);
-    const where = { status: "WAITING" as const, ...(hidden ? expensesWithoutPay(hidden) : {}) };
+    const where = expenseWhere({ ...NO_FILTER, hidePay: await payHeads(c), status: "WAITING" });
     const [agg, rows] = await Promise.all([
       c.tx.expense.aggregate({ where, _sum: { amountPaise: true }, _count: { _all: true } }),
       c.tx.expense.findMany({ where, orderBy: { date: "asc" }, take: 2, select: { note: true, date: true, amountPaise: true } }),
@@ -292,7 +296,7 @@ const expenses: Widget<"attention"> = {
       id: "finance.expenses", tone: days > 3 ? "warn" : "info", icon: "ClipboardCheck",
       title: `${plural(count, "expense")} waiting for approval · ${formatRupees(agg._sum.amountPaise ?? ZERO)}`,
       detail: `${someNames(rows.map((r) => `${r.note ?? "Expense"} (${formatRupees(r.amountPaise)})`))}${count > 2 ? ` and ${n(count - 2)} more` : ""}${days ? ` · oldest ${shortDate(oldest.date)}` : ""}`,
-      action: "Review", href: `${FIN}/expenses?status=WAITING`, value: `${count}:${agg._sum.amountPaise ?? ZERO}`,
+      action: "Review", href: `${FIN}/expenses?tab=waiting`, value: `${count}:${agg._sum.amountPaise ?? ZERO}`,
     };
   },
 };

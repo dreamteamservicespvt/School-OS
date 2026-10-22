@@ -126,6 +126,9 @@ export function decisionWords(raw: string) {
   // Enquiries (src/lib/admission/import.ts): a phone on record under another parent's name.
   if (d.sibling) return "A brother or sister: one more enquiry, linked to the family's enquiry.";
   if (d.otherFamily) return "A different family with the same phone: its own enquiry.";
+  // Academic Management imports (src/lib/academic/import-common.ts): the teacher a name in the file means.
+  if (/^staff:/i.test(raw.trim())) return "The teacher you chose. Rows below with the same name follow this choice.";
+  if (/^handover:/i.test(raw.trim())) return "Hands over to this teacher: the earlier assignment ends the day before, and its history is kept.";
   return "";
 }
 

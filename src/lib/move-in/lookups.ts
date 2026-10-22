@@ -12,7 +12,15 @@ export type Lookups = {
   /** Fee heads (Fee Structure) and expense heads (Finance Settings), for the money sheets' drop-downs. */
   feeHeads?: string[];
   expenseHeads?: string[];
+  /** Staff leave types with a balance (HR Settings), for the leave balances sheet. */
+  leaveTypes?: string[];
+  /** Subjects and teachers ("Asha Rao (T-001)"), for the Academic Management sheets' drop-downs. */
+  subjects?: string[];
+  teachers?: string[];
 };
+
+/** "Asha Rao (T-001)": a teacher as the ready sheet's drop-down writes one, read back by the Academic Management imports. */
+export const teacherOption = (s: { fullName: string; staffCode: string | null }) => (s.staffCode ? `${s.fullName} (${s.staffCode})` : s.fullName);
 
 export const sectionLabel = (s: { className: string; sectionName: string }) => `${s.className} ${s.sectionName}`;
 

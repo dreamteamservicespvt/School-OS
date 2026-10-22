@@ -12,7 +12,7 @@ import { withSchool } from "../db";
 import { formatDate, formatRupees } from "../format";
 import { registerProfileTab, type ProfileTabArgs } from "../students/profile-tabs";
 import { hostelViewer, pageOpen } from "./access";
-import { activeBedOf, bedHistory, residentStatus } from "./allocation";
+import { activeBedOf, bedHistory, hostelAsked, residentStatus } from "./allocation";
 import { passWhen, shownStatus } from "./outings";
 import { wardensByHostel } from "./settings";
 import { BASE, MODULE, PASS_STATUS, RESIDENT_STATUS, SESSION, plural } from "./words";
@@ -24,18 +24,19 @@ const ZERO = BigInt(0);
 async function load(current: Current, studentId: string) {
   const now = new Date();
   return withSchool(current.ctx, async (tx) => {
-    const [bed, history, passes, absences, incidents, charges] = await Promise.all([
+    const [bed, history, passes, absences, incidents, charges, asked] = await Promise.all([
       activeBedOf(tx, studentId),
       bedHistory(tx, studentId),
       tx.gatePass.findMany({ where: { kind: "HOSTEL_OUTING", studentId, archivedAt: null }, orderBy: { fromAt: "desc" }, take: 8 }),
       tx.rollCallMark.findMany({ where: { studentId, mark: "ABSENT" }, include: { rollCall: { select: { date: true, session: true } } }, orderBy: { createdAt: "desc" }, take: 8 }),
       tx.hostelIncident.findMany({ where: { studentIds: { has: studentId }, archivedAt: null }, orderBy: { at: "desc" }, take: 6 }),
       tx.hostelFeeCharge.findMany({ where: { studentId, state: { in: ["ADDED", "KEPT"] } }, select: { dueId: true } }),
+      hostelAsked(tx, studentId),
     ]);
     const dues = charges.length ? await tx.studentFeeDue.findMany({ where: { id: { in: charges.map((c) => c.dueId) }, state: "OPEN" }, orderBy: { dueDate: "asc" } }) : [];
     const wardens = bed ? (await wardensByHostel(tx, [bed.hostel.id])).get(bed.hostel.id) ?? [] : [];
     const out = passes.find((p) => p.status === "OUT");
-    return { bed, history, passes, absences, incidents, dues, wardens, out, now };
+    return { bed, history, passes, absences, incidents, dues, wardens, out, now, asked };
   });
 }
 
@@ -56,6 +57,11 @@ export async function HostelPanel({ current, studentId }: { current: Current; st
             <p className="text-ink3 text-[13px]">Since {formatDate(d.bed.allocation.startDate, "UTC")}{d.bed.allocation.checkedInAt ? `, checked in ${formatDate(d.bed.allocation.checkedInAt, tz)}` : ", not arrived yet"}</p>
             {d.wardens.length > 0 && <p className="text-ink3 text-[13px]">Warden: {d.wardens.map((w) => `${w.name}${w.title !== "Warden" ? ` (${w.title.toLowerCase()})` : ""}`).join(", ")}</p>}
             {d.out && <p className="text-[13px]">Out on pass {d.out.passNo} with {d.out.collectorName}, back by {d.out.toAt ? formatDate(d.out.toAt, tz) : ""} {d.out.toAt ? new Intl.DateTimeFormat("en-IN", { timeZone: tz, hour: "numeric", minute: "2-digit" }).format(d.out.toAt) : ""}.</p>}
+          </div>
+        ) : d.asked && !d.history.length ? (
+          <div className="px-5 py-4 flex flex-col gap-1.5 text-[13.5px]">
+            <p><Pill tone="warn">Waiting for a bed</Pill> Hostel needed on admission application {d.asked.applicationNo}, {formatDate(d.asked.createdAt, tz)}.</p>
+            {pageOpen(v, "allocation") && <Link href={`${BASE}/allocation?allocate=1&student=${studentId}`} className="text-[13px] font-semibold text-brand hover:underline self-start">Give a bed in Allocation</Link>}
           </div>
         ) : <p className="px-5 py-4 text-[13.5px] text-ink3">Not living in the hostel now.</p>}
       </Card>

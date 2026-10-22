@@ -14,6 +14,7 @@ import { pageHidden } from "./duty";
 import { answersSupport, waitingSupportCount } from "./console/support";
 import type { ModuleKey } from "./modules";
 import { foLanding, foViewer } from "./front-office/access";
+import { offeredQuestions, readyMadeFor } from "./ask/answer";
 
 /** The page a module's own address opens, when the link names no page. */
 const FRONT_PAGE: Partial<Record<string, string>> = { "attendance-management": "take", "fee-management": "dashboard" };
@@ -108,9 +109,15 @@ export async function shellData(current: Current) {
   const parts = campus?.address?.split(",").map((x) => x.trim()).filter(Boolean) ?? [];
   const place = parts.length >= 3 ? parts.slice(-3, -1).join(", ") : parts[0] ?? campus?.name ?? "";
 
+  // Ask, rule-based (gap list G27): only questions about lists the person's role already opens.
+  const askKeys = offeredQuestions(current);
+  const questions = readyMadeFor(current, askKeys).map((q) => ({ label: q.title, href: q.href }));
+
   return {
     menu,
     landing,
+    askKeys,
+    questions,
     bottom,
     quick,
     place,

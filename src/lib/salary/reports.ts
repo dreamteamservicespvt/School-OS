@@ -5,6 +5,7 @@ import type { Tx } from "../db";
 import type { ExportColumn } from "../exports";
 import { formatDate, formatRupees } from "../format";
 import { firstOfMonth, monthName } from "./words";
+import { broughtInLabel, salaryBroughtIn, sumBroughtIn } from "./to-date-totals";
 
 export const SALARY_REPORTS = [
   { key: "summary", title: "Monthly payroll summary", sub: "Gross, deductions and net for each month", money: true },
@@ -75,13 +76,20 @@ export async function buildSalaryReport(tx: Tx, key: SalaryReportKey, o: { from:
       rows: [...by.values()].sort((a, b) => (b.gross > a.gross ? 1 : b.gross < a.gross ? -1 : 0)).map((v) => ({ d: v.d, g: v.g, s: v.staff.size, gr: r(v.gross), n: r(v.net) })),
     };
   }
+  // Salary paid this financial year before School OS (Salary to date, G19): its own row, never a month's.
+  const before = key === "employee" || key === "deductions" || key === "pt-tds"
+    ? await salaryBroughtIn(tx, { staffIds: key === "employee" ? [o.staffId ?? "00000000-0000-0000-0000-000000000000"] : undefined, from: o.from, to: o.to, campusId: o.campusId })
+    : [];
   if (key === "employee") {
     if (!o.staffId) return null;
-    const s = who.get(o.staffId);
+    const s = who.get(o.staffId) ?? (before.length ? await tx.staff.findUnique({ where: { id: o.staffId }, select: { id: true, fullName: true, staffCode: true, designation: true, department: { select: { name: true } } } }) : null);
     return {
       title: `${def.title}${s ? ` · ${s.fullName}` : ""}`,
       columns: [col("Month", "m"), col("Paid days", "pd"), col("Loss of pay days", "lop"), col("Gross", "g"), col("PF", "pf"), col("ESI", "esi"), col("Professional Tax", "pt"), col("TDS", "tds"), col("Loans and advances", "rec"), col("Other deductions", "cut"), col("Net", "n")],
-      rows: lines.map((l) => ({ m: label(l.runId), pd: n(l.paidDays), lop: n(l.lopDays), g: r(l.grossPaise), pf: r(l.pfPaise), esi: r(l.esiPaise), pt: r(l.ptPaise), tds: r(l.tdsPaise), rec: r(l.recoveryPaise), cut: r(l.cutPaise), n: r(l.netPaise) })),
+      rows: [
+        ...before.map((b) => ({ m: broughtInLabel(b), pd: "", lop: "", g: r(b.gross), pf: r(b.pf), esi: r(b.esi), pt: r(b.pt), tds: r(b.tds), rec: "", cut: "", n: "" })),
+        ...lines.map((l) => ({ m: label(l.runId), pd: n(l.paidDays), lop: n(l.lopDays), g: r(l.grossPaise), pf: r(l.pfPaise), esi: r(l.esiPaise), pt: r(l.ptPaise), tds: r(l.tdsPaise), rec: r(l.recoveryPaise), cut: r(l.cutPaise), n: r(l.netPaise) })),
+      ],
     };
   }
   if (key === "deductions") {
@@ -90,14 +98,24 @@ export async function buildSalaryReport(tx: Tx, key: SalaryReportKey, o: { from:
     return {
       title: def.title,
       columns: [col("Month", "m"), col("PF", "pf"), col("ESI", "esi"), col("Professional Tax", "pt"), col("TDS", "tds"), col("Loans and advances", "rec"), col("Other deductions", "cut"), col("Total deductions", "all"), col("Employer PF", "epf"), col("Employer ESI", "eesi")],
-      rows: [...by.entries()].map(([k, v]) => ({ m: label(k), ...Object.fromEntries(Object.entries(v).map(([a, b]) => [a, r(b)])) })),
+      rows: [
+        ...(before.length ? [(() => { const t = sumBroughtIn(before); return { m: "Before School OS (brought in)", pf: r(t.pf), esi: r(t.esi), pt: r(t.pt), tds: r(t.tds), rec: "", cut: "", all: r(t.pf + t.esi + t.pt + t.tds), epf: "", eesi: "" }; })()] : []),
+        ...[...by.entries()].map(([k, v]) => ({ m: label(k), ...Object.fromEntries(Object.entries(v).map(([a, b]) => [a, r(b)])) })),
+      ],
     };
   }
   if (key === "pt-tds") {
     return {
       title: def.title,
       columns: [col("Month", "m"), col("Staff ID", "id"), col("Staff member", "s"), col("Gross", "g"), col("Professional Tax", "pt"), col("TDS", "tds")],
-      rows: lines.filter((l) => l.ptPaise > ZERO || l.tdsPaise > ZERO).map((l) => ({ m: label(l.runId), id: who.get(l.staffId)?.staffCode ?? "", s: who.get(l.staffId)?.fullName ?? "", g: r(l.grossPaise), pt: r(l.ptPaise), tds: r(l.tdsPaise) })),
+      rows: [
+        ...(await (async () => {
+          const shown = before.filter((b) => b.pt > ZERO || b.tds > ZERO);
+          const people = new Map((await tx.staff.findMany({ where: { id: { in: shown.map((b) => b.staffId) } }, select: { id: true, fullName: true, staffCode: true } })).map((p) => [p.id, p]));
+          return shown.map((b) => ({ m: broughtInLabel(b), id: people.get(b.staffId)?.staffCode ?? "", s: people.get(b.staffId)?.fullName ?? "", g: r(b.gross), pt: r(b.pt), tds: r(b.tds) }));
+        })()),
+        ...lines.filter((l) => l.ptPaise > ZERO || l.tdsPaise > ZERO).map((l) => ({ m: label(l.runId), id: who.get(l.staffId)?.staffCode ?? "", s: who.get(l.staffId)?.fullName ?? "", g: r(l.grossPaise), pt: r(l.ptPaise), tds: r(l.tdsPaise) })),
+      ],
     };
   }
   // days: no money at all, for HR's View too.

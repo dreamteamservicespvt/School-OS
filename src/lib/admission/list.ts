@@ -11,7 +11,8 @@ import { STAGES } from "./applications";
 import { instantToLocal, zonedToInstant } from "./act";
 import { momentWhere, type DayRange } from "../periods";
 
-export const ENQUIRY_FILTERS = ["quick", "source", "status", "class", "owner", "campaign", "year", "view", "period", "from", "to"] as const;
+// "campus": a campus chosen on the Dashboard (the pages narrow the person to it); kept so the lists' links keep it.
+export const ENQUIRY_FILTERS = ["quick", "source", "status", "class", "owner", "campaign", "year", "view", "period", "from", "to", "campus"] as const;
 export const QUICK = [
   { value: "mine", label: "My enquiries" },
   { value: "today", label: "Follow-up today" },
@@ -70,7 +71,7 @@ export function enquiryOrder(params: ListParams) {
   }, [{ nextFollowUpAt: { sort: "asc", nulls: "last" } }, { createdAt: "desc" }]) as Prisma.EnquiryOrderByWithRelationInput | Prisma.EnquiryOrderByWithRelationInput[];
 }
 
-export const APPLICATION_FILTERS = ["stage", "class", "year", "docs", "fee", "channel", "period", "from", "to"] as const;
+export const APPLICATION_FILTERS = ["stage", "class", "year", "docs", "fee", "channel", "period", "from", "to", "campus"] as const;
 
 /** campusId: the campus the person is limited to (Viewer.campusId); none for the whole school. */
 export function applicationWhere(params: ListParams, opts: { yearId: string | string[]; range?: DayRange | null; timeZone?: string; campusId?: string | null }): Prisma.ApplicationWhereInput {

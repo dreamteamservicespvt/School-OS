@@ -189,7 +189,7 @@ async function Desk({ p, sp }: { p: LibPageData & { mode: string }; sp: Raw }) {
 
     const counts = await deskCounts(tx, today);
     const rows = await listRows(tx, ctx, s, list, today);
-    const resv = await tx.reservation.findMany({ where: { status: { in: ["READY", "WAITING"] } }, orderBy: [{ status: "asc" }, { reservedAt: "asc" }], take: 12});
+    const resv = await tx.reservation.findMany({ where: { status: { in: ["READY", "WAITING"] } }, orderBy: [{ status: "asc" }, { reservedAt: "asc" }], take: 200 }); // every reservation, as the Reservations number counts them
     const resvMembers = await issueMembers(tx, ctx, s, resv);
     const cancel = cancelId ? resv.find((r) => r.id === cancelId) ?? (await tx.reservation.findFirst({ where: { id: cancelId, status: { in: ["READY", "WAITING"] } } })) : null;
     const history = await historyRows(tx, ctx, s, sp, p);

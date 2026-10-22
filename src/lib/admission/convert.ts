@@ -307,7 +307,7 @@ export async function confirmAdmission(tx: Tx, ctx: SchoolContext, v: Viewer, ap
 
 /** What has already happened to a new student, in plain words; empty when the admission can still be undone. */
 async function happenedSince(tx: Tx, studentId: string, admittedAt: Date, feeDueIds: string[] | undefined) {
-  const [payments, links, concessions, adjustments, otherDues, attendance, marks, edits] = await Promise.all([
+  const [payments, links, concessions, adjustments, otherDues, attendance, marks, edits, beds] = await Promise.all([
     tx.payment.count({ where: { studentId } }),
     tx.paymentLink.count({ where: { studentId } }),
     tx.concession.count({ where: { studentId, archivedAt: null } }),
@@ -317,6 +317,8 @@ async function happenedSince(tx: Tx, studentId: string, admittedAt: Date, feeDue
     tx.attendanceMark.count({ where: { studentId } }),
     tx.marks.count({ where: { studentId } }),
     tx.auditLogEntry.count({ where: { recordId: studentId, recordType: "Student", at: { gt: new Date(admittedAt.getTime() + 60_000) } } }),
+    // A hostel bed given since (Hostel Management): the warden checks the student out first.
+    tx.bedAllocation.count({ where: { studentId } }),
   ]);
   const out: string[] = [];
   if (payments) out.push("a fee payment");
@@ -325,6 +327,7 @@ async function happenedSince(tx: Tx, studentId: string, admittedAt: Date, feeDue
   if (attendance) out.push("attendance");
   if (marks) out.push("marks");
   if (edits) out.push("a change to the student's record");
+  if (beds) out.push("a hostel bed");
   return out;
 }
 

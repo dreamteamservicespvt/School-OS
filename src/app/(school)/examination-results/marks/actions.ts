@@ -9,6 +9,7 @@ import { readTable } from "@/lib/move-in/read";
 import { writeAudit } from "@/lib/audit";
 import { assertYearOpen } from "@/lib/academic/years";
 import { act, actSimple, str, BASE } from "../_lib/server";
+import { checkSheet } from "@/lib/upload-check";
 
 export type MarkRow = { studentId: string } & MarkValue;
 export type SaveResult = { ok: true; saved: number; done: number; of: number } | { ok: false; message: string; offline?: false };
@@ -92,7 +93,10 @@ export async function readMarksSheet(fd: FormData): Promise<ImportResult> {
     if (!paper) throw new ExamRuleError("This paper was not found.");
     if (!teachesPaper(scope, sectionId, paper.subject.id)) throw new ExamRuleError(`You do not teach ${paper.subject.name} in ${paper.section.label}.`);
     let sheet: { headers: string[]; rows: string[][] };
-    try { sheet = await readTable(Buffer.from(await file.arrayBuffer()), file.name); } catch { throw new ExamRuleError("This file could not be read. Save it as .xlsx or .csv and try again."); }
+    const body = Buffer.from(await file.arrayBuffer());
+    // Programs, web pages and Excel macros are refused before the sheet is read (upload-check.ts).
+    try { checkSheet(body, file.name); } catch (e) { throw new ExamRuleError(e instanceof Error ? e.message : "This file could not be read."); }
+    try { sheet = await readTable(body, file.name); } catch { throw new ExamRuleError("This file could not be read. Save it as .xlsx or .csv and try again."); }
     const h = sheet.headers.map((x) => x.trim().toLowerCase());
     const col = (...names: string[]) => h.findIndex((x) => names.includes(x));
     const iAdm = col("admission no", "admission number", "admission no.");

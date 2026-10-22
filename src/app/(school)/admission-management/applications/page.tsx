@@ -4,7 +4,7 @@ import { withSchool } from "@/lib/db";
 import { readListParams, skipTake, listHref, PAGE_SIZE } from "@/lib/list";
 import { formatDate } from "@/lib/format";
 import { periodFromSearch } from "@/lib/periods";
-import { fullPage, BASE } from "@/lib/admission/page";
+import { fullPage, viewerOnCampus, BASE } from "@/lib/admission/page";
 import { APPLICATION_FILTERS, applicationOrder, applicationWhere } from "@/lib/admission/list";
 import { OPEN_STAGES, STAGES } from "@/lib/admission/applications";
 import { progressOf } from "@/lib/admission/documents";
@@ -36,8 +36,11 @@ const PATH = `${BASE}/applications`;
 const NONE = "00000000-0000-0000-0000-000000000000";
 
 export default async function ApplicationsPage({ searchParams }: Search) {
-  const { current, viewer, settings, year, tz } = await fullPage();
+  const page = await fullPage();
+  const { current, settings, year, tz } = page;
   const raw = await searchParams;
+  // One campus chosen on the Dashboard (?campus=): that campus's applications, as the card counted them.
+  const viewer = await viewerOnCampus(page, raw.campus);
   const params = readListParams(raw, APPLICATION_FILTERS);
   const range = periodFromSearch(raw, { timeZone: tz });
   const now = new Date();

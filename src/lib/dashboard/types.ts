@@ -127,6 +127,8 @@ export type DashContext = {
   yearIds: string[];
   /** Read once and shared between loaders. */
   memo: <T>(key: string, fn: () => Promise<T>) => Promise<T>;
+  /** The Dashboard's filters (./filters.ts): the campus chosen (the viewer is already narrowed to it) and the day. */
+  filters: { campusId: string | null; date: Date | null };
 };
 
 export type WidgetKind = "band" | "attention" | "agenda" | "birthdays" | "panel";

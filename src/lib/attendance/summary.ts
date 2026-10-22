@@ -11,6 +11,7 @@ import { isoDay } from "../staff/dates";
 import { loadSchoolCalendar } from "../calendar/school-days";
 import { attendanceSettings, statusList, statusMap, weightOf, type StatusInfo } from "./settings";
 import { registerBook, type RegisterBook } from "./on-register";
+import { coveredBy, openingsFor, type Opening } from "./opening-totals";
 
 export type DayMark = { statusKey: string; periodNo: number; lateMinutes?: number | null };
 
@@ -30,6 +31,12 @@ export type PersonSummary = {
   byStatus: Record<string, number>;
   /** Present ÷ counted × 100, one decimal; null when nothing counted yet. */
   percent: number | null;
+  /**
+   * Attendance so far brought in from the old software (./opening.ts), already
+   * added to the days above: the days the school met and was present, up to
+   * the day before the school started on School OS.
+   */
+  broughtIn?: { met: number; present: number; upTo: Date };
 };
 
 const emptySummary = (workingDays: number): PersonSummary => ({ workingDays, markedDays: 0, countedDays: 0, present: 0, absent: 0, late: 0, leave: 0, byStatus: {}, percent: null });
@@ -90,6 +97,9 @@ export type SummaryResult = {
   people: Map<string, PersonSummary>;
   /** Day status per person per date (YYYY-MM-DD). */
   days: Map<string, Map<string, string>>;
+  /** For narrowSummary: the totals brought in that the range holds, and the day statuses on their days (not counted here). */
+  openings?: Map<string, Opening[]>;
+  coveredDays?: Map<string, Map<string, string>>;
 };
 
 /**
@@ -143,23 +153,38 @@ export async function attendanceSummary(
   const main = workingFor(fallback);
 
   const packed = ids.length === 0 || to < opts.from ? [] : await packedMarks(tx, side, ids, opts.from, to, "sectionId" in opts ? opts.sectionId : null);
+  // Attendance so far brought in for a student (a school that started part way through the year):
+  // added when the range holds all of it; a mark on one of its days is not counted again.
+  const openings = side === "student" ? await openingsFor(tx, ids, opts.from, to) : new Map<string, Opening[]>();
   const grouped = new Map<string, Map<string, DayMark[]>>();
+  // Marks on days a total brought in covers, kept apart: a shorter range that does not hold that total counts them (narrowSummary).
+  const coveredMarks = new Map<string, Map<string, DayMark[]>>();
   const inBook = book && "sectionId" in opts ? { book, sectionId: opts.sectionId } : null;
   for (const r of packed) {
     const pid = r.pid;
     const working = workingFor(placeOf(pid)).keys;
+    const brought = openings.get(pid);
     let byDay = grouped.get(pid);
     for (const one of r.packed.split("\u001e")) {
       const a = one.indexOf("\u001f");
       const b = one.indexOf("\u001f", a + 1);
-      const k = dayOf(one.slice(0, a));
+      const n = one.slice(0, a);
+      const k = dayOf(n);
       if (!working.has(k)) continue;
       if (inBook && !inBook.book.has(inBook.sectionId, pid, k)) continue;
-      if (!byDay) grouped.set(pid, (byDay = new Map<string, DayMark[]>()));
       const m: DayMark = { statusKey: one.slice(b + 1), periodNo: Number(one.slice(a + 1, b)) };
-      const arr = byDay.get(k);
+      let into: Map<string, DayMark[]>;
+      if (brought && coveredBy(brought, new Date(Number(n) * DAY))) {
+        let c = coveredMarks.get(pid);
+        if (!c) coveredMarks.set(pid, (c = new Map<string, DayMark[]>()));
+        into = c;
+      } else {
+        if (!byDay) grouped.set(pid, (byDay = new Map<string, DayMark[]>()));
+        into = byDay;
+      }
+      const arr = into.get(k);
       if (arr) arr.push(m);
-      else byDay.set(k, [m]);
+      else into.set(k, [m]);
     }
   }
   const rule = settings.periodDayRule === "most" ? "most" : "any";
@@ -175,12 +200,31 @@ export async function attendanceSummary(
       addDay(s, st, statuses);
       addDay(overall, st, statuses);
     }
+    const brought = openings.get(id);
+    if (brought) {
+      // The register's own school days in those weeks give way to the old register's count.
+      const covered = workingFor(placeOf(id)).dates.filter((d) => coveredBy(brought, d)).length;
+      let met = 0, present = 0, upTo = brought[0].upTo;
+      for (const o of brought) { met += o.met; present += o.present; if (o.upTo > upTo) upTo = o.upTo; }
+      for (const x of [s, overall]) { x.markedDays += met; x.countedDays += met; x.present += present; x.absent += met - present; }
+      s.workingDays += met - covered;
+      s.broughtIn = { met, present, upTo };
+    }
     people.set(id, finish(s));
     dayMap.set(id, statusByDay);
   }
+  const coveredDays = new Map<string, Map<string, string>>();
+  for (const [id, byDay] of coveredMarks) {
+    const out = new Map<string, string>();
+    for (const [k, dm] of byDay) {
+      const st = dayStatus(dm, statuses, rule);
+      if (st) out.set(k, st);
+    }
+    coveredDays.set(id, out);
+  }
   return {
     workingDays: main.dates.length, workingDates: main.dates, workingOf: (id) => workingFor(placeOf(id)).dates,
-    overall: finish(overall), people, days: dayMap,
+    overall: finish(overall), people, days: dayMap, openings, coveredDays,
   };
 }
 
@@ -232,8 +276,24 @@ export function narrowSummary(sum: SummaryResult, from: Date, to: Date, statuses
   const b = isoDay(to);
   const out = new Map<string, PersonSummary>();
   for (const [id, byDay] of sum.days) {
-    const s = emptySummary(sum.workingOf(id).filter((d) => d >= from && d <= to).length);
+    const working = sum.workingOf(id).filter((d) => d >= from && d <= to);
+    const s = emptySummary(working.length);
     for (const [k, st] of byDay) if (k >= a && k <= b) addDay(s, st, statuses);
+    // Totals brought in count only when this range holds all of them (openingsFor); the marks on the days of
+    // the others count as marks, as a summary of this range alone would count them.
+    const all = sum.openings?.get(id) ?? [];
+    const inside = all.filter((o) => o.from >= from && o.upTo <= to);
+    for (const [k, st] of sum.coveredDays?.get(id) ?? []) {
+      if (k >= a && k <= b && !coveredBy(inside, new Date(`${k}T00:00:00Z`))) addDay(s, st, statuses);
+    }
+    if (inside.length) {
+      const covered = working.filter((d) => coveredBy(inside, d)).length;
+      let met = 0, present = 0, upTo = inside[0].upTo;
+      for (const o of inside) { met += o.met; present += o.present; if (o.upTo > upTo) upTo = o.upTo; }
+      s.markedDays += met; s.countedDays += met; s.present += present; s.absent += met - present;
+      s.workingDays += met - covered;
+      s.broughtIn = { met, present, upTo };
+    }
     out.set(id, finish(s));
   }
   return out;

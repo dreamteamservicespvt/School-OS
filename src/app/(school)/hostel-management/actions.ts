@@ -18,11 +18,12 @@ import {
 } from "@/lib/hostel/act";
 import { assertHostel } from "@/lib/hostel/scope";
 import {
-  addFloor, addHostel, archiveFeePlan, closeHostel, saveFeePlan, saveMeals, saveMessages, saveRules, saveTimings, setWardens, updateHostel, type InstallmentInput,
+  addFloor, addHostel, archiveFeePlan, closeHostel, openYears, saveFeePlan, saveMeals, saveMessages, saveRules, saveTimings, setWardens, updateHostel, type InstallmentInput,
 } from "@/lib/hostel/settings";
 import { addRoom, closeRoom, setBedBlocked, updateRoom } from "@/lib/hostel/rooms";
-import { allocate, checkIn, checkOut, moveBed, studentsInfo } from "@/lib/hostel/allocation";
+import { allocate, bedYears, checkIn, checkOut, moveBed, studentsInfo } from "@/lib/hostel/allocation";
 import { cancelPass, markOut, markReturned, requestPass } from "@/lib/hostel/outings";
+import { carryOver, checkOutAtYearEnd } from "@/lib/hostel/carry";
 import { authorisedList, recordVisitor, visitorOut } from "@/lib/hostel/visitors";
 import { remindRollCall, saveRollCall } from "@/lib/hostel/rollcall";
 import { recordIncident } from "@/lib/hostel/incidents";
@@ -31,7 +32,7 @@ import { copyMenu, recordMessExpense, saveHeadCount, saveMenuItem } from "@/lib/
 import { wardenLogins } from "@/lib/hostel/settings";
 import { notify } from "@/lib/notifications";
 import { writeAudit } from "@/lib/audit";
-import { BASE, INCIDENT_TYPE, OUTING_TYPE, ROOM_TYPES, plural, type Gender, type IncidentType, type OutingType } from "@/lib/hostel/words";
+import { BASE, INCIDENT_TYPE, OUTING_TYPE, ROOM_TYPES, isoOf, plural, type BedYear, type Gender, type IncidentType, type OutingType } from "@/lib/hostel/words";
 
 type S<T = unknown> = FormState<T>;
 
@@ -53,12 +54,17 @@ async function roomInScope(w: HostelWork, roomId: string) {
 
 /* ---------- Finding students in forms ---------- */
 
-/** `campusId`: the student's campus, so the bed sheet offers the fee plans of that campus's year. */
-export type FoundStudent = { id: string; name: string; admissionNo: string; cls: string; gender: Gender | null; bed: string | null; hostelId: string | null; campusId?: string | null };
+/**
+ * `campusId`: the student's campus. `years`: the school years of the
+ * student's class and `joins` the day they join (ISO), so the bed sheet
+ * starts the bed on the right day and offers the fee plans of that year.
+ */
+export type FoundStudent = { id: string; name: string; admissionNo: string; cls: string; gender: Gender | null; bed: string | null; hostelId: string | null; campusId?: string | null; years?: BedYear[]; joins?: string | null };
 
 /**
  * Students for the pickers: "new" finds studying students without a bed (for
- * Allocate); "resident" finds students living in the person's own hostels.
+ * Allocate), including students just admitted and those admitted for next
+ * year; "resident" finds students living in the person's own hostels.
  */
 export async function findStudentsAction(q: string, mode: "new" | "resident"): Promise<FoundStudent[]> {
   const term = String(q ?? "").trim().slice(0, 60);
@@ -73,9 +79,11 @@ export async function findStudentsAction(q: string, mode: "new" | "resident"): P
       // Each student's class in their own campus's current year.
       const yearIds = (await currentYears(w.tx, w.ctx)).map((y) => y.id);
       const rows = mode === "new"
-        ? await findStudents(w.tx, term, { scope: inCampus(w.current), where: { id: { notIn: active.map((a) => a.studentId) } }, yearId: yearIds, statuses: ["ACTIVE"], take: 12 })
+        ? await findStudents(w.tx, term, { scope: inCampus(w.current), where: { id: { notIn: active.map((a) => a.studentId) } }, yearId: yearIds, take: 12 })
         : await findStudents(w.tx, term, { scope: inCampus(w.current), where: { id: { in: active.filter((a) => w.mine === null || w.mine.includes(a.hostelId)).map((a) => a.studentId) } }, yearId: yearIds, statuses: "any", take: 12 });
       const info = await studentsInfo(w.tx, w.ctx, rows.map((r) => r.id));
+      const years = mode === "new" ? await bedYears(w.tx, rows.map((r) => r.id)) : new Map<string, BedYear[]>();
+      const joins = mode === "new" ? new Map((await w.tx.student.findMany({ where: { id: { in: rows.map((r) => r.id) } }, select: { id: true, joiningDate: true } })).map((s) => [s.id, s.joiningDate ? isoOf(s.joiningDate) : null])) : new Map<string, string | null>();
       const rooms = await w.tx.hostelRoom.findMany({ where: { id: { in: rows.map((r) => activeBy.get(r.id)?.roomId).filter((x): x is string => Boolean(x)) } }, select: { id: true, roomNo: true } });
       const beds = await w.tx.hostelBed.findMany({ where: { id: { in: rows.map((r) => activeBy.get(r.id)?.bedId).filter((x): x is string => Boolean(x)) } }, select: { id: true, bedNo: true } });
       return rows.map((r) => {
@@ -84,7 +92,7 @@ export async function findStudentsAction(q: string, mode: "new" | "resident"): P
         const room = a ? rooms.find((x) => x.id === a.roomId) : null;
         const bed = a ? beds.find((x) => x.id === a.bedId) : null;
         const g = (s.gender ?? "").toLowerCase();
-        return { id: s.id, name: s.name, admissionNo: s.admissionNo, cls: s.classSection ?? "", gender: (["male", "m", "boy"].includes(g) ? "BOYS" : ["female", "f", "girl"].includes(g) ? "GIRLS" : null) as Gender | null, bed: room && bed ? `Room ${room.roomNo}, Bed ${bed.bedNo}` : null, hostelId: a?.hostelId ?? null, campusId: s.campusId };
+        return { id: s.id, name: s.name, admissionNo: s.admissionNo, cls: s.classSection ?? "", gender: (["male", "m", "boy"].includes(g) ? "BOYS" : ["female", "f", "girl"].includes(g) ? "GIRLS" : null) as Gender | null, bed: room && bed ? `Room ${room.roomNo}, Bed ${bed.bedNo}` : null, hostelId: a?.hostelId ?? null, campusId: s.campusId, ...(mode === "new" ? { years: years.get(r.id) ?? [], joins: joins.get(r.id) ?? null } : {}) };
       });
     });
   } catch {
@@ -215,7 +223,7 @@ export async function allocateAction(_p: S, fd: FormData): Promise<S> {
     const r = await allocate(w.tx, w.ctx, {
       studentId, bedId: id(fd, "bedId", "bed"), startDate: isoDate(fd, "startDate", "Check-in date")!, checkedIn: on(fd, "checkedIn"),
       feePlanId: plan === "none" ? "none" : id(fd, "feePlanId", "fee plan"), note: maybe(fd, "note", "Note", 300),
-    }, { now: w.now, assertHostel: inMine(w) });
+    }, { now: w.now, today: w.today, assertHostel: inMine(w) });
     return { name: r.student.fullName, where: r.where, hostel: r.hostel.name, fees: r.fees.rows ? (w.can.seeFees ? `${formatRupees(r.fees.total)} hostel fees added to their fees` : "hostel fees added to their fees") : null, checkedIn: on(fd, "checkedIn") };
   }, (r) => `${r.name} has ${r.where}, ${r.hostel}${r.checkedIn ? ", checked in" : ""}.${r.fees ? ` ${r.fees[0].toUpperCase()}${r.fees.slice(1)}.` : ""}`);
 }
@@ -247,6 +255,26 @@ export async function checkoutAction(_p: S, fd: FormData): Promise<S> {
     const due = r.dueBefore > BigInt(0) ? (w.can.seeFees ? ` ${formatRupees(r.dueBefore)} hostel fees still due: collect them in Fee Management.` : " Hostel fees are still due; the office collects them.") : "";
     return `${r.name} checked out. ${r.where} is free now.${fees}${due}`;
   }, (m) => m);
+}
+
+/** A new academic year: carries the ticked boarders over (same bed; the new year's hostel fees). */
+export async function carryOverAction(_p: S, fd: FormData): Promise<S> {
+  return hostelAction("edit", fd, async (w) => {
+    need(w.can.allocate, "carry boarders over");
+    return carryOver(w.tx, w.ctx, ids(fd, "allocationIds"), w.mine);
+  }, (r) => [
+    `${plural(r.carried, "boarder")} carried over to ${r.year}, keeping ${r.carried === 1 ? "their bed" : "their beds"}.`,
+    r.feeRows ? (`${r.year} hostel fees added (${plural(r.feeRows, "row")})`) + "." : null,
+    r.skipped.length ? `${plural(r.skipped.length, "boarder")} left as before: ${r.skipped.slice(0, 3).map((s) => `${s.name} (${s.why})`).join("; ")}${r.skipped.length > 3 ? "…" : ""}` : null,
+  ].filter(Boolean).join(" "));
+}
+
+/** Checks the ticked boarders out at the end of the old year: not staying in the hostel in the new year. */
+export async function yearEndCheckoutAction(_p: S, fd: FormData): Promise<S> {
+  return hostelAction("edit", fd, async (w) => {
+    need(w.can.allocate, "check students out");
+    return checkOutAtYearEnd(w.tx, w.ctx, ids(fd, "allocationIds"), w.mine, w.now);
+  }, (r) => `${plural(r.done, "boarder")} checked out at year end. Nothing of ${r.year} is charged.${r.skipped.length ? ` Not done: ${r.skipped.map((s) => `${s.name} (${s.why})`).join("; ")}` : ""}`);
 }
 
 /* ---------- Roll call and incidents ---------- */
@@ -480,10 +508,15 @@ export async function saveFeePlanAction(_p: S, fd: FormData): Promise<S> {
   return hostelAction("edit", fd, async (w) => {
     need(w.can.feePlans, "set hostel fee plans");
     const planId = optionalId(fd, "planId");
-    // A changed plan keeps its own year; a new plan is for the current year of the person's own campus.
+    // A changed plan keeps its own year; a new plan is for the year chosen on the page (next year's, set
+    // before it opens) or else the current year of the person's own campus.
     const existing = planId ? await w.tx.hostelFeePlan.findFirst({ where: { id: planId, archivedAt: null }, select: { academicYearId: true } }) : null;
     if (planId && !existing) throw new HostelProblem("This fee plan was not found.");
-    const year = existing ? { id: existing.academicYearId } : await currentYear(w.tx, w.ctx, await personCampusId(w.tx, w.ctx, w.current));
+    const campusId = await personCampusId(w.tx, w.ctx, w.current);
+    const chosen = optionalId(fd, "yearId");
+    const later = chosen && !existing ? (await openYears(w.tx, w.ctx, campusId)).find((y) => y.id === chosen) : null;
+    if (chosen && !existing && !later) throw new HostelProblem("This school year is closed or not yours. Choose another year.");
+    const year = existing ? { id: existing.academicYearId } : later ?? await currentYear(w.tx, w.ctx, campusId);
     if (!year) throw new HostelProblem("Set up this academic year first (Academic Management).");
     const labels = fd.getAll("instLabel").map((x) => String(x).trim());
     const dues = fd.getAll("instDue").map((x) => String(x).trim());

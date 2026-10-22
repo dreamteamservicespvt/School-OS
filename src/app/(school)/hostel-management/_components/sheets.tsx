@@ -14,13 +14,14 @@ import { FieldShell, inputCls } from "@/components/ui/field";
 import { Alert } from "@/components/ui/alert";
 import { Spinner } from "@/components/ui/button";
 import { cx } from "@/components/ui/cx";
-import { SegField, StudentFind } from "./client";
+import { ConfirmAct, SegField, StudentFind } from "./client";
 import {
-  addFloorAction, addRoomAction, allocateAction, archiveFeePlanAction, blockBedAction, cancelPassAction, checkoutAction, closeHostelAction, closeRoomAction,
+  addFloorAction, addRoomAction, allocateAction, archiveFeePlanAction, blockBedAction, cancelPassAction, carryOverAction, checkoutAction, closeHostelAction, closeRoomAction, yearEndCheckoutAction,
   decidePassAction, guardiansAction, messExpenseAction, moveAction, raiseMaintenanceAction, recordIncidentAction, recordVisitorAction, requestPassAction, saveFeePlanAction,
   saveHeadCountAction, saveHostelAction, saveMenuAction, setWardensAction, updateRoomAction, type FoundStudent, type GuardianChoice,
 } from "../actions";
-import { KeepSelect } from "@/components/ui/keep-select";
+import { KeepCheck, KeepSelect } from "@/components/ui/keep-select";
+import { bedStartFor, bedYearOf } from "@/lib/hostel/words";
 
 type Opt = { value: string; label: string };
 const RELATIONS = ["Father", "Mother", "Uncle", "Aunt", "Grandfather", "Grandmother", "Brother", "Sister", "Local guardian", "Other"];
@@ -165,8 +166,8 @@ export function WardensSheet({ closeHref, hostelId, hostelName, staff, start }: 
 /* ---------- Allocation ---------- */
 
 export type FreeBed = { id: string; hostelId: string; roomNo: string; bedNo: number; floor: string; roomType: string | null };
-/** `campusId`: the campus whose school year the plan is for. */
-export type PlanOpt = { id: string; name: string; hostelId: string | null; roomType: string | null; words: string; campusId?: string | null };
+/** `campusId`: the campus whose school year the plan is for; `yearId`: that school year. */
+export type PlanOpt = { id: string; name: string; hostelId: string | null; roomType: string | null; words: string; campusId?: string | null; yearId?: string; yearName?: string };
 
 function planFor(plans: PlanOpt[], hostelId: string, roomType: string | null) {
   const score = (p: PlanOpt) => (p.hostelId && p.hostelId !== hostelId) || (p.roomType && p.roomType !== roomType) ? -1 : (p.hostelId ? 2 : 0) + (p.roomType ? 1 : 0);
@@ -178,13 +179,21 @@ export function AllocateSheet({ closeHref, hostels, beds, plans: allPlans, start
 }) {
   const startBed = beds.find((b) => b.id === start.bedId) ?? null;
   const [student, setStudent] = useState<FoundStudent | null>(start.student);
+  // The bed starts today, or on the day the student joins (a student admitted for next year: that year's first day).
+  const defaultStart = (s: FoundStudent | null) => (s ? bedStartFor(s.years ?? [], s.joins ?? null, todayStr) : todayStr);
+  const fStart = useTyped("startDate", defaultStart(start.student));
+  const [startIso, setStartIso] = useState(fStart.value || todayStr);
+  const bedYear = student?.years?.length ? bedYearOf(student.years, startIso) : null;
+  const future = startIso > todayStr;
   const firstHostel = startBed?.hostelId ?? start.hostelId ?? (student?.gender ? hostels.find((h) => h.gender === student.gender)?.id : null) ?? hostels[0]?.id ?? "";
   const [hid, setHid] = useState(firstHostel);
   const free = beds.filter((b) => b.hostelId === hid);
   const [bedId, setBedId] = useState(startBed?.id ?? free[0]?.id ?? "");
   const bed = beds.find((b) => b.id === bedId) ?? null;
-  // Only the plans of the student's own campus's year (each campus has its own school year).
-  const plans = allPlans.filter((p) => !p.campusId || !student?.campusId || p.campusId === student.campusId);
+  // Only the plans of the year the bed belongs to (the student's class that year; each campus has its own school year).
+  const plans = student?.years?.length
+    ? allPlans.filter((p) => bedYear !== null && (!p.yearId || p.yearId === bedYear.id))
+    : allPlans.filter((p) => !p.campusId || !student?.campusId || p.campusId === student.campusId);
   const auto = bed ? planFor(plans, bed.hostelId, bed.roomType) : null;
   const [planId, setPlanId] = useState<string | null>(null);
   const plan = planId === null ? auto?.id ?? (plans.length ? "" : "none") : planId;
@@ -192,8 +201,9 @@ export function AllocateSheet({ closeHref, hostels, beds, plans: allPlans, start
   const genderBad = student?.gender && hostel && student.gender !== hostel.gender;
   const pickStudent = (s: FoundStudent | null) => {
     setStudent(s);
-    // Another student may be on another campus, with that campus's plans.
-    if (s?.campusId !== student?.campusId) setPlanId(null);
+    setStartIso(defaultStart(s));
+    // Another student may be on another campus or year, with that year's plans.
+    setPlanId(null);
     if (s?.gender && !startBed) {
       const h = hostels.find((x) => x.gender === s.gender);
       if (h) { setHid(h.id); setBedId(beds.find((b) => b.hostelId === h.id)?.id ?? ""); }
@@ -235,16 +245,20 @@ export function AllocateSheet({ closeHref, hostels, beds, plans: allPlans, start
         </FieldShell>
       </div>
       <div className="grid sm:grid-cols-2 gap-3">
-        <SDate name="startDate" label="Check-in date" required start={todayStr} />
+        <FieldShell label="Check-in date" id="al-start" required error={fStart.error ?? (student?.years?.length && !bedYear ? `${student.name.split(" ")[0]}'s class is for ${student.years.map((y) => y.name).join(" and ")}. Choose a day in that year.` : undefined)}
+          help={bedYear ? `The first night. The bed and its fees are for ${bedYear.name}${future ? "; it waits for the student till then" : ""}.` : undefined}>
+          <input id="al-start" type="date" name="startDate" value={startIso} onChange={(e) => { setStartIso(e.target.value); setPlanId(null); }} aria-invalid={fStart.error ? true : undefined} className={cx(inputCls(fStart.error), "h-11")} />
+        </FieldShell>
         <FieldShell label="Fee plan" id="al-plan" required error={fPlan.error} help={auto && plan === auto.id ? "Set by the hostel and room type." : undefined}>
           <KeepSelect id="al-plan" name="feePlanId" value={plan} onChange={(e) => setPlanId(e.target.value)} aria-invalid={fPlan.error ? true : undefined} className={cx(inputCls(fPlan.error), "h-11")}>
-            {plan === "" && <option value="">Choose the fee plan</option>}
+            {plan === "" && <option value="">{bedYear && !plans.length ? `No ${bedYear.name} plan yet` : "Choose the fee plan"}</option>}
             {plans.filter((p) => !p.hostelId || p.hostelId === hid).map((p) => <option key={p.id} value={p.id}>{p.words}</option>)}
             <option value="none">No hostel fees</option>
           </KeepSelect>
         </FieldShell>
       </div>
-      <SSwitch name="checkedIn" title="Checked in now" sub="Turn off if the student arrives later. You check them in from the residents list." start />
+      <SSwitch key={future ? "later" : "now"} name="checkedIn" title="Checked in now" sub={future ? "Off: the bed starts later. You check the student in from the residents list when they arrive." : "Turn off if the student arrives later. You check them in from the residents list."} start={!future} />
+      {bedYear && !plans.length && <Alert tone="warning" title={`No hostel fee plan for ${bedYear.name} yet.`}>Add it in Hostel Settings, Hostel fees (the Accountant or Principal), or give the bed with No hostel fees and add the fees later.</Alert>}
       <SArea name="note" label="Note" maxLength={300} placeholder="Optional. For example: needs a lower bunk." />
       {student && bed && !genderBad && (
         <div className="rounded-xl p-3.5 text-[13.5px] text-ink2 flex gap-2.5 bg-brand/[.06] border border-brand/20">
@@ -284,6 +298,65 @@ export function CheckoutSheet({ closeHref, allocationId, name, where, todayStr, 
       {due && <Alert tone="warning" title={due}>You can still check out. The fees stay due and are cleared in Leaving &amp; Alumni.</Alert>}
       <SDate name="date" label="Check-out date" required start={todayStr} className="sm:max-w-[220px]" />
       <SArea name="reason" label="Reason" required maxLength={200} placeholder="Family moved closer to school; now a day scholar" />
+    </SheetForm>
+  );
+}
+
+/* ---------- A new academic year: carry boarders over ---------- */
+
+export type CarryItem = { id: string; name: string; cls: string; newClass: string | null; where: string; hostel: string; fees: string; blocked: string | null; note: string | null };
+
+/**
+ * The review before carrying boarders into the new year: each boarder with
+ * what happens to them. Those who can go are ticked, except boarders with no
+ * class in the new year yet; those who cannot go say why.
+ */
+export function CarrySheet({ closeHref, items, fromYear, toYear, toStart }: { closeHref: string; items: CarryItem[]; fromYear: string; toYear: string; toStart: string }) {
+  const can = items.filter((i) => !i.blocked);
+  const [picked, setPicked] = useState<Set<string>>(() => new Set(can.filter((i) => !i.note).map((i) => i.id)));
+  const allOn = can.length > 0 && can.every((i) => picked.has(i.id));
+  const toggle = (id: string) => setPicked((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  // Year-end check-out works for any boarder on the list, also those who cannot be carried over (left the school).
+  const [out, setOut] = useState<Set<string>>(() => new Set());
+  const join = [...picked].join(",");
+  const outIds = [...new Set([...picked, ...out])];
+  const blocked = items.length - can.length;
+  const n = picked.size;
+  return (
+    <SheetForm title={`Carry boarders over to ${toYear}`} sub={`Each boarder keeps their bed from ${toStart}, and the ${toYear} hostel fee plan for their room goes on their fees. Nothing is charged twice.`}
+      closeHref={closeHref} action={carryOverAction} wide pendingText="Carrying over…" submitDisabled={n === 0}
+      submitLabel={n ? `Carry over ${n} boarder${n === 1 ? "" : "s"}` : "Carry over"} hidden={{ allocationIds: join }}
+      extraButtons={outIds.length > 0 ? (
+        <ConfirmAct action={yearEndCheckoutAction} fields={{ allocationIds: outIds.join(",") }} trigger={`Check out ${outIds.length} at year end`} triggerVariant="ghost" title={`Check out ${outIds.length} boarder${outIds.length === 1 ? "" : "s"} at year end?`} confirmLabel={`Check out ${outIds.length}`} danger>
+          <p className="text-[14px] text-ink2">For boarders not staying in the hostel in {toYear}. They are checked out on the last day of {fromYear}, their beds become free and nothing of {toYear} is charged. Fees already due or paid stay as they are.</p>
+        </ConfirmAct>
+      ) : undefined}>
+      {blocked > 0 && <Alert tone="warning">{blocked} boarder{blocked === 1 ? "" : "s"} cannot be carried over yet. The reason is shown on each.</Alert>}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <label className="inline-flex items-center gap-2 text-[14px] font-semibold min-h-11 cursor-pointer">
+          <KeepCheck type="checkbox" checked={allOn} onChange={() => setPicked(allOn ? new Set() : new Set(can.map((i) => i.id)))} className="size-4 accent-[rgb(var(--brand))]" />
+          Tick every boarder who can go ({can.length})
+        </label>
+        <span className="text-[13px] text-ink3" aria-live="polite">{n} ticked</span>
+      </div>
+      <ul className="flex flex-col divide-y divide-line rounded-xl border border-line max-h-[52vh] overflow-y-auto">
+        {items.map((i) => (
+          <li key={i.id}>
+            <div className={cx("flex items-start gap-3 px-3 py-2.5 text-[14px]", i.blocked ? "" : "hover:bg-sunken/60")}>
+              {i.blocked
+                ? <KeepCheck type="checkbox" checked={out.has(i.id)} onChange={() => setOut((p) => { const s = new Set(p); if (s.has(i.id)) s.delete(i.id); else s.add(i.id); return s; })} aria-label={`Check out ${i.name} at year end`} className="mt-1 size-4 shrink-0 accent-[rgb(var(--bad))]" />
+                : <KeepCheck type="checkbox" checked={picked.has(i.id)} onChange={() => toggle(i.id)} aria-label={`Carry over ${i.name}`} className="mt-1 size-4 shrink-0 accent-[rgb(var(--brand))]" />}
+              <span className="min-w-0 flex-1">
+                <b className="font-semibold">{i.name}</b>
+                <span className="text-ink3"> · {i.newClass ? `${i.cls || "—"} → ${i.newClass}` : i.cls}</span>
+                <span className="block text-[12.5px] text-ink2">{i.where} · {i.hostel}</span>
+                {i.blocked ? <span className="block text-[12.5px] text-bad">{i.blocked}{out.has(i.id) ? " Ticked to check out at year end." : ""}</span>
+                  : <span className="block text-[12.5px] text-ink3">{i.fees}{i.note ? <span className="text-warn"> · {i.note}</span> : null}</span>}
+              </span>
+            </div>
+          </li>
+        ))}
+      </ul>
     </SheetForm>
   );
 }
@@ -573,14 +646,14 @@ export function ExpenseSheet({ closeHref, todayStr, vendors, items, billAbove }:
 
 export type PlanStart = { id: string; name: string; hostelId: string; roomType: string; includesMess: boolean; note: string; installments: { label: string; due: string; amount: string }[] };
 
-export function FeePlanSheet({ closeHref, hostels, start, yearName }: { closeHref: string; hostels: { id: string; name: string }[]; start: PlanStart | null; yearName: string }) {
+export function FeePlanSheet({ closeHref, hostels, start, yearName, yearId }: { closeHref: string; hostels: { id: string; name: string }[]; start: PlanStart | null; yearName: string; yearId?: string }) {
   const t = useTyped("installments", null);
   const [rows, setRows] = useState(start?.installments.length ? start.installments : [{ label: "Quarter 1", due: "", amount: "" }]);
   const set = (i: number, k: "label" | "due" | "amount", v: string) => setRows((r) => r.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
   const total = rows.reduce((s, r) => s + (Number(r.amount.replace(/[₹,\s]/g, "")) || 0), 0);
   return (
     <SheetForm title={start ? `Change ${start.name}` : "Add a hostel fee plan"} sub={`For ${yearName}. Students given a bed get these installments in their fees (Fee Management, under Hostel fee).`} closeHref={closeHref} action={saveFeePlanAction} wide
-      submitLabel={start ? "Save plan" : "Add plan"} hidden={start ? { planId: start.id } : undefined}>
+      submitLabel={start ? "Save plan" : "Add plan"} hidden={start ? { planId: start.id } : yearId ? { yearId } : undefined}>
       <SText name="name" label="Plan name" required maxLength={60} start={start?.name} placeholder="Non-AC rooms" />
       <div className="grid sm:grid-cols-2 gap-3">
         <SSelect name="hostelId" label="Hostel" options={[{ value: "", label: "Every hostel" }, ...hostels.map((h) => ({ value: h.id, label: h.name }))]} start={start?.hostelId ?? ""} />

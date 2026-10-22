@@ -12,7 +12,7 @@ import { offDayMessage, schoolDays } from "./calendar";
 import { loadSchoolCalendar } from "../calendar/school-days";
 import { registerChoices } from "./register";
 import { attendanceSettings, statusList, statusMap } from "./settings";
-import { addDay, attendanceSummary, finish, percentText, type PersonSummary } from "./summary";
+import { attendanceSummary, finish, narrowSummary, percentText, type PersonSummary } from "./summary";
 import { deviceHealth, REJECT_WORDS } from "./devices";
 import { minutesText } from "./time";
 import { classWise } from "./classwise";
@@ -48,6 +48,8 @@ export type ReportInput = {
   person: string | null;
   /** Student leave report: this month or the whole year. */
   period: "month" | "year";
+  /** Chronic absence report: one kind of flag only (the Dashboard's cards open it so); null shows both. */
+  flag?: FlagKind | null;
   /** Absence reasons report: one reason (or "none", not recorded); null groups every reason by class. */
   reason?: string | null;
   today: Date;
@@ -82,6 +84,24 @@ export function reportsFor(access: AttendanceAccess, features: Set<string>) {
 
 async function sectionsInReach(tx: Tx, access: AttendanceAccess) {
   return registerChoices(tx, access);
+}
+
+export type FlagKind = "absent-streak" | "below-threshold";
+export const FLAG_KINDS: FlagKind[] = ["absent-streak", "below-threshold"];
+
+/**
+ * The open Attendance Flags the Chronic absence report lists for this person:
+ * students studying in the sections they may see, one flag per student and
+ * kind (the newest). The Dashboard's "absent N days in a row" and "below N%"
+ * cards count these same students (gap list G36).
+ */
+export async function chronicFlags(tx: Tx, access: AttendanceAccess, kind: FlagKind | null = null) {
+  const sections = await sectionsInReach(tx, access);
+  const enrol = await tx.enrolment.findMany({ where: { sectionId: { in: sections.map((s) => s.id) }, archivedAt: null, status: "STUDYING" }, select: { studentId: true, sectionId: true } });
+  const all = await tx.attendanceFlag.findMany({ where: { studentId: { in: enrol.map((e) => e.studentId) }, ...OPEN_ATTENDANCE_FLAG, ...(kind ? { kind } : {}) }, orderBy: { raisedOn: "desc" } });
+  const seen = new Set<string>();
+  const flags = all.filter((f) => { const k = `${f.studentId}:${f.kind}`; if (seen.has(k)) return false; seen.add(k); return true; });
+  return { flags, enrol, sections };
 }
 
 export async function runReport(tx: Tx, ctx: SchoolContext, access: AttendanceAccess, input: ReportInput): Promise<ReportTable> {
@@ -235,16 +255,21 @@ export async function runReport(tx: Tx, ctx: SchoolContext, access: AttendanceAc
       // A person's day status does not depend on the range or on who else is in it, so a class's month is its students' days of that month.
       const enrolled = await tx.enrolment.findMany({ where: { sectionId: { in: withClass.map((s) => s.id) }, archivedAt: null }, select: { studentId: true, sectionId: true } });
       const whole = months.length ? await attendanceSummary(tx, ctx, { studentIds: [...new Set(enrolled.map((e) => e.studentId))], from: months[0], to: monthEnd(months[months.length - 1]), today: input.today }) : null;
+      // Each month as a summary of that month alone (attendance brought in counts in the month that holds all of it).
+      const byMonth = months.map((m) => (whole ? narrowSummary(whole, m, monthEnd(m) < input.today ? monthEnd(m) : input.today, statusBy) : new Map<string, PersonSummary>()));
       for (const [cls, ids] of classes) {
         const inClass = new Set(ids);
         const studentIds = enrolled.filter((e) => inClass.has(e.sectionId)).map((e) => e.studentId);
         const row: ReportRow = { who: cls };
         let yearPresent = 0;
         let yearCounted = 0;
-        for (const m of months) {
+        for (const [i, m] of months.entries()) {
           const key = isoDay(m).slice(0, 7);
           const month: PersonSummary = { workingDays: 0, markedDays: 0, countedDays: 0, present: 0, absent: 0, late: 0, leave: 0, byStatus: {}, percent: null };
-          for (const id of studentIds) for (const [day, st] of whole?.days.get(id) ?? []) if (day.startsWith(key)) addDay(month, st, statusBy);
+          for (const id of studentIds) {
+            const p = byMonth[i].get(id);
+            if (p) { month.countedDays += p.countedDays; month.present += p.present; }
+          }
           finish(month);
           row[key] = month.countedDays ? pct(month.percent) : "";
           yearPresent += month.present;
@@ -260,13 +285,12 @@ export async function runReport(tx: Tx, ctx: SchoolContext, access: AttendanceAc
       };
     }
     case "chronic": {
-      const sections = await sectionsInReach(tx, access);
-      const enrol = await tx.enrolment.findMany({ where: { sectionId: { in: sections.map((s) => s.id) }, archivedAt: null, status: "STUDYING" }, select: { studentId: true, sectionId: true } });
-      const flags = await tx.attendanceFlag.findMany({ where: { studentId: { in: enrol.map((e) => e.studentId) }, ...OPEN_ATTENDANCE_FLAG }, orderBy: { raisedOn: "desc" } });
+      const { flags, enrol, sections } = await chronicFlags(tx, access, input.flag ?? null);
       const people = new Map((await tx.student.findMany({ where: { id: { in: flags.map((f) => f.studentId) } }, select: { id: true, fullName: true, admissionNo: true } })).map((s) => [s.id, s]));
       const sectionOf = new Map(enrol.map((e) => [e.studentId, sections.find((s) => s.id === e.sectionId)?.name ?? ""]));
       return {
-        title: "Chronic absence", filters: `Below ${settings.thresholdPercent}% or absent ${settings.chronicDays} days in a row; open flags`,
+        title: "Chronic absence",
+        filters: `${input.flag === "absent-streak" ? `Absent ${settings.chronicDays} days in a row` : input.flag === "below-threshold" ? `Below ${settings.thresholdPercent}%` : `Below ${settings.thresholdPercent}% or absent ${settings.chronicDays} days in a row`}; open flags`,
         columns: [{ key: "who", label: "Student", phone: "title" }, { key: "class", label: "Class", phone: "meta" }, { key: "kind", label: "Flag", phone: "badge" }, { key: "value", label: "Value", numeric: true }, { key: "since", label: "Flagged on", phone: "meta" }, { key: "review", label: "Review" }],
         rows: flags.map((f) => ({
           who: people.get(f.studentId)?.fullName ?? "Student", class: sectionOf.get(f.studentId) ?? "",
@@ -478,6 +502,7 @@ export function readReportInput(get: (k: string) => string | null | undefined, t
     report, date: d("date", today), month, from, to,
     sectionId: section && UUID.test(section) ? section : null,
     person: person && /^(student|staff):[0-9a-f-]{36}$/i.test(person) ? person : null,
+    flag: FLAG_KINDS.find((k) => k === get("flag")) ?? null,
     period: get("period") === "year" ? "year" : "month",
     reason: (() => { const v = get("reason"); return v && (v === "none" || isReason(v)) ? v : null; })(),
     today,

@@ -10,6 +10,8 @@ import { Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { confirmPay, startPay } from "./actions";
+import { useT } from "@/lib/i18n/client";
+import { screenMessage } from "@/lib/i18n/messages";
 
 type RazorpayResponse = { razorpay_payment_id: string; razorpay_order_id: string; razorpay_signature: string };
 type RazorpayInstance = { open: () => void; on: (event: string, fn: (r: { error?: { description?: string } }) => void) => void };
@@ -32,6 +34,7 @@ function loadCheckout(): Promise<boolean> {
 }
 
 export function PayButton({ schoolId, token, amount }: { schoolId: string; token: string; amount: string }) {
+  const t = useT();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: "danger" | "success" | "info"; text: string } | null>(null);
@@ -40,9 +43,9 @@ export function PayButton({ schoolId, token, amount }: { schoolId: string; token
     setBusy(true);
     setMessage(null);
     const started = await startPay(schoolId, token);
-    if (!started.ok) { setBusy(false); setMessage({ tone: "danger", text: started.message }); return; }
+    if (!started.ok) { setBusy(false); setMessage({ tone: "danger", text: screenMessage(t, started.message) }); return; }
     const ready = await loadCheckout();
-    if (!ready || !window.Razorpay) { setBusy(false); setMessage({ tone: "danger", text: "The payment window could not open. Check your internet and try again." }); return; }
+    if (!ready || !window.Razorpay) { setBusy(false); setMessage({ tone: "danger", text: t("The payment window could not open. Check your internet and try again.") }); return; }
     const c = started.checkout;
     const rz = new window.Razorpay({
       key: c.keyId,
@@ -55,23 +58,23 @@ export function PayButton({ schoolId, token, amount }: { schoolId: string; token
       theme: { color: getComputedStyle(document.documentElement).getPropertyValue("--brand").trim() ? `rgb(${getComputedStyle(document.documentElement).getPropertyValue("--brand").trim().replace(/\s+/g, ",")})` : undefined },
       modal: { ondismiss: () => setBusy(false) },
       handler: async (r: RazorpayResponse) => {
-        setMessage({ tone: "info", text: "Confirming your payment…" });
+        setMessage({ tone: "info", text: t("Confirming your payment…") });
         const done = await confirmPay(schoolId, token, { paymentId: r.razorpay_payment_id, orderId: r.razorpay_order_id, signature: r.razorpay_signature });
         setBusy(false);
-        setMessage({ tone: done.ok ? "success" : "info", text: done.message });
+        setMessage({ tone: done.ok ? "success" : "info", text: screenMessage(t, done.message) });
         router.refresh();
       },
     });
     rz.on("payment.failed", (r) => {
       setBusy(false);
-      setMessage({ tone: "danger", text: `The payment did not go through${r.error?.description ? `: ${r.error.description}` : ""}. No money was taken. You can try again.` });
+      setMessage({ tone: "danger", text: `${t("The payment did not go through. No money was taken. You can try again.")}${r.error?.description ? ` (${r.error.description})` : ""}` });
     });
     rz.open();
   };
 
   return (
     <div className="mt-4 flex flex-col gap-3">
-      <Button variant="primary" size="lg" className="w-full !h-14 !text-[16px]" icon={Lock} loading={busy} loadingText="Opening payment…" onClick={pay}>Pay {amount}</Button>
+      <Button variant="primary" size="lg" className="w-full !h-14 !text-[16px]" icon={Lock} loading={busy} loadingText={t("Opening payment…")} onClick={pay}>{t("Pay {amount}", { amount })}</Button>
       {message && <Alert tone={message.tone}>{message.text}</Alert>}
     </div>
   );

@@ -175,7 +175,7 @@ export function rowsForImport(columns: ImportColumn[], rows: PreparedRow[]): str
   return rows.map((r) => columns.map((c) => r.values[c.key] ?? ""));
 }
 
-const csvCell = (s: string) => (/[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
+export const csvCell = (s: string) => (/[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
 
 /** A CSV with the import's headings and the cleaned rows (read only by the shared importer). */
 export function cleanCsv(columns: ImportColumn[], rows: PreparedRow[]): string {

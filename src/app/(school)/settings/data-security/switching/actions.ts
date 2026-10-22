@@ -15,7 +15,7 @@ import type { FormState } from "@/lib/forms";
 import { AcademicRuleError } from "@/lib/academic/common";
 import { ParentLinkProblem, sendToFamilies } from "@/lib/parent-link/links";
 import { MessagingProblem } from "@/lib/messaging";
-import { MoveInProblem, goLive, liveGuardianIds, saveExpected } from "@/lib/move-in/service";
+import { MoveInProblem, askConsentAfterGoLive, goLive, liveGuardianIds, saveExpected } from "@/lib/move-in/service";
 import { parseRupees } from "@/lib/fees/act";
 import { MoneyProblem } from "@/lib/fees/problem";
 import { MONEY_KEYS, type MoneyExpected } from "@/lib/move-in/money";
@@ -98,6 +98,15 @@ export async function goLiveAction(sendLinks: boolean): Promise<string | void> {
     } catch (e) {
       unstable_rethrow(e);
       linkNote = e instanceof ParentLinkProblem || e instanceof MessagingProblem ? ` Parent Links were not sent: ${e.message} You can send them later from Communication, Parent Link.` : " Parent Links were not sent. You can send them from Communication, Parent Link.";
+    }
+    // The consent request goes with the links (workflow 15, step 10): to each parent without consent on record.
+    try {
+      const asked = await withSchool(current.ctx, (tx) => askConsentAfterGoLive(tx, current.ctx), { timeout: 300_000 });
+      linkNote += asked === null ? " Consent was not asked: Parent Link or its consent forms are switched off in Communication, Settings."
+        : asked.guardians ? ` Consent requests went to ${asked.guardians} ${asked.guardians === 1 ? "parent" : "parents"}; see who answered in Settings, Data Backup & Security, Consent.` : "";
+    } catch (e) {
+      unstable_rethrow(e);
+      linkNote += " Consent requests were not sent. Send them from Student Management, Parents & Guardians.";
     }
   }
   await flash({ message: `Your school is live on School OS.${linkNote}` });

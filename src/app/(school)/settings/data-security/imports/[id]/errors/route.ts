@@ -4,6 +4,8 @@ import { withSchool } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { errorCsv, importKind } from "@/lib/importer";
 import { mayImport } from "@/lib/move-in/service";
+import { OWN_RULES, PLACES } from "@/lib/imports/places";
+import { placeRefusal } from "@/lib/imports/place-access";
 import "@/lib/import-registry";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +22,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   if (!batch) return new Response("This import was not found.", { status: 404 });
   // The rows are for people who may bring that kind of record in, in its own module (salary details, for example).
   if (!mayImport(current.permissions, batch.kind, "create", current.modulesOn)) return new Response("Your role does not allow this. Ask your School Admin.", { status: 403 });
+  // Kinds with a narrower rule on their own page (pay details, for example) keep it here.
+  if (Object.hasOwn(OWN_RULES, batch.kind)) {
+    const why = await placeRefusal(current, PLACES.settings, batch.kind, "create");
+    if (why) return new Response(why, { status: 403 });
+  }
   const kind = importKind(batch.kind);
   const bad = (batch.errorReport ?? []) as Bad[];
   const columns = kind?.columns ?? [...new Set(bad.flatMap((b) => Object.keys(b.row)))].map((k) => ({ key: k, label: k }));

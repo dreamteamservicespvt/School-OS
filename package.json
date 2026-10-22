@@ -21,7 +21,9 @@
     "db:reset": "bash scripts/reset-dev-db.sh",
     "worker": "tsx --conditions=react-server --env-file-if-exists=.env scripts/worker.ts",
     "check:links": "node scripts/check-links.mjs",
-    "console:owner": "tsx --conditions=react-server --env-file-if-exists=.env scripts/console-owner.ts"
+    "console:owner": "tsx --conditions=react-server --env-file-if-exists=.env scripts/console-owner.ts",
+    "backup:files": "tsx --conditions=react-server --env-file-if-exists=.env scripts/backup-files.ts",
+    "restore:test": "tsx --conditions=react-server --env-file-if-exists=.env scripts/restore-test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.131.0",

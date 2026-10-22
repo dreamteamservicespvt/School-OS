@@ -37,7 +37,9 @@ export default async function ConsentRequestPage({ searchParams }: { searchParam
     const inCampus = current.campusId ? [{ students: { some: { ...OPEN_LINK, student: campus } } }] : [];
     const guardians = where ? await tx.guardian.findMany({ where: { AND: [where, { archivedAt: null }, ...inCampus] }, select: { id: true, name: true }, take: 5000 }) : [];
     const consents = guardians.length ? await consentRows(tx, current.ctx, { guardianIds: guardians.map((g) => g.id) }) : [];
-    const pending = guardians.filter((g) => CONSENT_TYPES.some((t) => consentState(consents.filter((c) => c.guardianId === g.id), t.key) !== "GIVEN"));
+    // Only the consents the school asks for (a type with a current text).
+    const asked = new Set((await tx.consentText.findMany({ where: { isCurrent: true }, select: { consentType: true } })).map((t) => t.consentType));
+    const pending = guardians.filter((g) => CONSENT_TYPES.some((t) => asked.has(t.key) && consentState(consents.filter((c) => c.guardianId === g.id), t.key) !== "GIVEN"));
     return { sections, guardians, pending };
   });
   const label = ids.length ? `${ids.length} chosen parents` : sp.section ? `the parents of ${data.sections.find((s) => s.value === sp.section)?.label ?? "the section"}` : sp.scope === "all" ? "every parent of current students" : null;
@@ -72,7 +74,7 @@ export default async function ConsentRequestPage({ searchParams }: { searchParam
                 {data.pending.length === 0 ? <p className="text-ink2">Everyone here has already given consent. Nothing to send.</p> : (
                   <ConfirmAction action={consentRequestAction} fields={{ ids: data.pending.map((g) => g.id).join(","), types: "" }} trigger={`Send to ${data.pending.length} ${data.pending.length === 1 ? "parent" : "parents"}`} triggerVariant="primary"
                     title={`Send a consent request to ${data.pending.length} ${data.pending.length === 1 ? "parent" : "parents"}?`} confirmLabel={`Send to ${data.pending.length}`}>
-                    They get data and photo consent requests for each of their children through Parent Link.
+                    They get a request for each consent the school asks for (data, photo and APAAR consent where set up), for each of their children, through Parent Link.
                   </ConfirmAction>
                 )}
               </CardBody>

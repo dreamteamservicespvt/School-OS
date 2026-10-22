@@ -5,7 +5,7 @@ import { readListParams } from "@/lib/list";
 import { formatDate } from "@/lib/format";
 import { PermissionDeniedError, reachFor } from "@/lib/permissions";
 import { currentYear, yearsFor } from "@/lib/academic/years";
-import { personCampusId } from "@/lib/campus";
+import { narrowToCampus, personCampusId } from "@/lib/campus";
 import { getStudentSettings } from "@/lib/students/settings";
 import { abilities } from "@/lib/students/access";
 import { STATUS_LABEL } from "@/lib/students/labels";
@@ -16,20 +16,23 @@ export const dynamic = "force-dynamic";
 
 /** Student List export (P8): the chosen fields, with the list's filters, as Excel, CSV or PDF. */
 export async function GET(req: Request) {
-  let current;
+  let signedIn;
   try {
-    ({ current } = await requireAction("student-management", "export"));
+    ({ current: signedIn } = await requireAction("student-management", "export"));
   } catch (e) {
     if (e instanceof PermissionDeniedError) return new Response("You do not have permission to export students.", { status: 403 });
     throw e;
   }
   // Only people who see every student may export the list (abilities().exportList).
-  if (reachFor(current.permissions, "student-management", "export") !== "all") return new Response("You do not have permission to export students.", { status: 403 });
+  if (reachFor(signedIn.permissions, "student-management", "export") !== "all") return new Response("You do not have permission to export students.", { status: 403 });
   const url = new URL(req.url);
   const raw: Record<string, string> = {};
   for (const k of [...LIST_FILTERS, "q", "archived"]) { const v = url.searchParams.get(k); if (v) raw[k] = v; }
   const params = readListParams(raw, LIST_FILTERS);
   const format = (["csv", "xlsx", "pdf"].includes(url.searchParams.get("format") ?? "") ? url.searchParams.get("format") : "xlsx") as ExportFormat;
+  // A campus chosen on the Dashboard (?campus=) narrows the export as it narrows the list.
+  const me = signedIn;
+  const current = await withSchool(me.ctx, (tx) => narrowToCampus(tx, me, params.filters.campus));
   const tz = current.school.timeZone;
 
   const file = await withSchool(current.ctx, async (tx) => {

@@ -14,12 +14,18 @@ import { hitLimit, limitMessage } from "@/lib/rate-limit";
 import { ACCESS_WORDS, deviceCookieName, findLink, guardianAccess } from "@/lib/parent-link/links";
 import { startParentLinkPayment } from "@/lib/fees/parent-link";
 import { MoneyProblem } from "@/lib/fees/problem";
+import { parentLinkWords, parentMessage } from "@/lib/parent-link/language";
 
 export type PayState = { ok: false; message: string } | null;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function payFees(token: string, _prev: PayState, form: FormData): Promise<PayState> {
+  const r = await payFeesEn(token, form);
+  return r ? { ok: false, message: parentMessage(await parentLinkWords(token), r.message) ?? r.message } : r;
+}
+
+async function payFeesEn(token: string, form: FormData): Promise<PayState> {
   const studentId = String(form.get("studentId") ?? "");
   const dueIds = form.getAll("dueId").map(String).filter((x) => UUID.test(x));
   if (!UUID.test(studentId)) return { ok: false, message: "Choose your child first." };

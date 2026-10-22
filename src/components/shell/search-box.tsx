@@ -14,6 +14,9 @@ import type { PageLink } from "./nav-data";
 import type { Quick } from "./nav-config";
 import { readList, recordRecent, storageKey } from "./local-lists";
 import { typedKey } from "./typed-key";
+import { askInWords } from "@/app/(school)/ask/actions";
+import { askHref, closestQuestions, isQuestionKey, looksLikeQuestion, matchIntent, questionTitle, type QuestionKey } from "@/lib/ask/questions";
+import { useT } from "@/lib/i18n/client";
 
 export const OPEN_SEARCH_EVENT = "sos:open-search";
 
@@ -42,8 +45,14 @@ export function matches(label: string, query: string) {
   return query.toLowerCase().split(/\s+/).filter(Boolean).every((t) => words.some((w) => nearlyStartsWith(w, t)));
 }
 
+/** A label in the person's screen language (any script): each typed word starts a word of it. */
+function matchesOwn(label: string, query: string) {
+  const words = label.toLocaleLowerCase().split(/[\s,()&/-]+/u).filter(Boolean);
+  return query.toLocaleLowerCase().split(/\s+/).filter(Boolean).every((t) => words.some((w) => w.startsWith(t)));
+}
+
 type Person = { id: string; name: string; sub: string; href: string };
-type Row = { sec: string; label: string; sub?: string; href: string; icon?: LucideIcon; avatar?: string };
+type Row = { sec: string; label: string; sub?: string; href: string; icon?: LucideIcon; avatar?: string; run?: () => void };
 
 /** Remembers the pages this person opens, for "Recent". */
 export function RecentPages({ userId, pages }: { userId: string; pages: PageLink[] }) {
@@ -55,13 +64,37 @@ export function RecentPages({ userId, pages }: { userId: string; pages: PageLink
   return null;
 }
 
-export function CommandPalette(props: { open: boolean; onClose: () => void; userId: string; pages: PageLink[]; shortcuts: PageLink[]; quick: Quick[] }) {
+type PaletteProps = {
+  open: boolean; onClose: () => void; userId: string; pages: PageLink[]; shortcuts: PageLink[]; quick: Quick[];
+  /** Ready-made questions for the person's role (gap list G27), and every question they may ask. */
+  questions?: PageLink[]; askKeys?: QuestionKey[];
+  /** Ask and Do with the AI service is on for this person; off, nothing AI shows (00-global.md §2.1 rule 8). */
+  ai?: boolean;
+};
+
+export function CommandPalette(props: PaletteProps) {
   // Mounted fresh each time it opens, so it always starts empty.
   return props.open ? <Palette {...props} /> : null;
 }
 
-function Palette({ onClose, userId, pages, shortcuts, quick }: { onClose: () => void; userId: string; pages: PageLink[]; shortcuts: PageLink[]; quick: Quick[] }) {
+const NO_KEYS: QuestionKey[] = [];
+const NO_LINKS: PageLink[] = [];
+
+function Palette({ onClose, userId, pages, shortcuts, quick, questions = NO_LINKS, askKeys = NO_KEYS, ai = false }: Omit<PaletteProps, "open">) {
+  const t = useT();
   const router = useRouter();
+  // Asking the AI assistant which ready-made question the words mean (only with Ask and Do on for this person).
+  const [asking, setAsking] = useState<{ q: string; busy: boolean; problem: string | null } | null>(null);
+  const askAi = useCallback(async (q: string) => {
+    setAsking({ q, busy: true, problem: null });
+    try {
+      const r = await askInWords(q);
+      if ("href" in r) { onClose(); router.push(r.href); return; }
+      setAsking({ q, busy: false, problem: r.problem });
+    } catch {
+      setAsking({ q, busy: false, problem: "Asking did not work. Check the connection and try again." });
+    }
+  }, [onClose, router]);
   const [q, setQ] = useState("");
   const [sel, setSel] = useState(0);
   const [found, setFound] = useState<{ q: string; collect: Person[]; students: Person[]; staff: Person[]; parents: Person[]; receipts: Person[]; problem: string | null }>({ q: "", collect: [], students: [], staff: [], parents: [], receipts: [], problem: null });
@@ -94,18 +127,18 @@ function Palette({ onClose, userId, pages, shortcuts, quick }: { onClose: () => 
   useEffect(() => {
     if (typed.length < 2) return;
     const ctrl = new AbortController();
-    const t = setTimeout(async () => {
+    const timer = setTimeout(async () => {
       try {
         const res = await fetch(`/api/v1/search?q=${encodeURIComponent(typed)}`, { signal: ctrl.signal });
         const body = await res.json();
-        if (!res.ok) setFound({ q: typed, collect: [], students: [], staff: [], parents: [], receipts: [], problem: body.problem ?? "Search did not work. Try again." });
+        if (!res.ok) setFound({ q: typed, collect: [], students: [], staff: [], parents: [], receipts: [], problem: body.problem ?? t("Search did not work. Try again.") });
         else setFound({ q: typed, collect: body.collect ?? [], students: body.students ?? [], staff: body.staff ?? [], parents: body.parents ?? [], receipts: body.receipts ?? [], problem: null });
       } catch (e) {
-        if ((e as Error).name !== "AbortError") setFound({ q: typed, collect: [], students: [], staff: [], parents: [], receipts: [], problem: "Search needs the internet. Check the connection and try again." });
+        if ((e as Error).name !== "AbortError") setFound({ q: typed, collect: [], students: [], staff: [], parents: [], receipts: [], problem: t("Search needs the internet. Check the connection and try again.") });
       }
     }, 180);
-    return () => { clearTimeout(t); ctrl.abort(); };
-  }, [typed]);
+    return () => { clearTimeout(timer); ctrl.abort(); };
+  }, [typed, t]);
   const loading = typed.length >= 2 && found.q !== typed;
   const people = useMemo(() => (found.q === typed ? found : { collect: [] as Person[], students: [] as Person[], staff: [] as Person[], parents: [] as Person[], receipts: [] as Person[] }), [found, typed]);
   const problem = found.q === typed ? found.problem : null;
@@ -113,24 +146,39 @@ function Palette({ onClose, userId, pages, shortcuts, quick }: { onClose: () => 
   const results = useMemo<Row[]>(() => {
     const out: Row[] = [];
     if (typed.length < 2) {
-      quick.slice(0, 4).forEach((x) => out.push({ sec: "Quick actions", label: x.label, sub: x.sub, href: x.href, icon: (I as unknown as Record<string, LucideIcon>)[x.icon] }));
-      lists.pinned.forEach((p) => out.push({ sec: "Pinned", label: p.label, href: p.href, icon: I.Pin }));
-      lists.recent.filter((r) => !lists.pinned.some((p) => p.href === r.href)).slice(0, 5).forEach((p) => out.push({ sec: "Recent", label: p.label, href: p.href, icon: I.Clock }));
-      shortcuts.filter((s) => !quick.some((x) => x.label === s.label)).forEach((s) => out.push({ sec: "Shortcuts", label: s.label, href: s.href, icon: I.CornerDownRight }));
+      quick.slice(0, 4).forEach((x) => out.push({ sec: t("Quick actions"), label: t.any(x.label), sub: t.any(x.sub), href: x.href, icon: (I as unknown as Record<string, LucideIcon>)[x.icon] }));
+      lists.pinned.forEach((p) => out.push({ sec: t("Pinned"), label: t.any(p.label), href: p.href, icon: I.Pin }));
+      lists.recent.filter((r) => !lists.pinned.some((p) => p.href === r.href)).slice(0, 5).forEach((p) => out.push({ sec: t("Recent"), label: t.any(p.label), href: p.href, icon: I.Clock }));
+      shortcuts.filter((s) => !quick.some((x) => x.label === s.label)).forEach((s) => out.push({ sec: t("Shortcuts"), label: t.any(s.label), href: s.href, icon: I.CornerDownRight }));
+      // Below the shortcuts: questions for the person's role, each answered from its own list (00-global.md §2).
+      questions.forEach((x) => out.push({ sec: "Questions", label: x.label, href: x.href, icon: I.CircleHelp }));
       return out;
     }
+    // Search by intent (gap list G27): "absent today", "fees due class 5", "late staff" open a ready-made
+    // question with its class and dates filled in, answered from the list itself.
+    const asked = typed.length >= 3 ? matchIntent(typed, askKeys).slice(0, 3) : [];
+    asked.forEach((m) => out.push({ sec: "Questions", label: m.title, href: m.href, icon: I.CircleHelp }));
     // "fee Ravi": Collect Fee for each Ravi, first.
-    people.collect.forEach((s) => out.push({ sec: "Collect fee", label: s.name, sub: s.sub, href: s.href, icon: I.IndianRupee }));
-    people.students.forEach((s) => out.push({ sec: "Students", label: s.name, sub: s.sub, href: s.href, avatar: s.name }));
-    people.staff.forEach((s) => out.push({ sec: "Staff", label: s.name, sub: s.sub, href: s.href, avatar: s.name }));
-    people.parents.forEach((s) => out.push({ sec: "Parents", label: s.name, sub: s.sub, href: s.href, avatar: s.name }));
-    people.receipts.forEach((s) => out.push({ sec: "Receipts", label: s.name, sub: s.sub, href: s.href, icon: I.ReceiptText }));
-    quick.filter((x) => matches(x.label, typed)).forEach((x) => out.push({ sec: "Quick actions", label: x.label, sub: x.sub, href: x.href, icon: (I as unknown as Record<string, LucideIcon>)[x.icon] }));
-    pages.filter((p) => matches(p.label, typed)).slice(0, 8).forEach((p) => out.push({ sec: "Pages", label: p.label, sub: p.hint ?? "Open", href: p.href, icon: I.FileText }));
+    // A label is found by its English words or by its words in the person's language.
+    const found = (label: string) => matches(label, typed) || (t.lang !== "en" && matchesOwn(t.any(label), typed));
+    people.collect.forEach((s) => out.push({ sec: t("Collect fee"), label: s.name, sub: s.sub, href: s.href, icon: I.IndianRupee }));
+    people.students.forEach((s) => out.push({ sec: t("Students"), label: s.name, sub: s.sub, href: s.href, avatar: s.name }));
+    people.staff.forEach((s) => out.push({ sec: t("Staff"), label: s.name, sub: s.sub, href: s.href, avatar: s.name }));
+    people.parents.forEach((s) => out.push({ sec: t("Parents"), label: s.name, sub: s.sub, href: s.href, avatar: s.name }));
+    people.receipts.forEach((s) => out.push({ sec: t("Receipts"), label: s.name, sub: s.sub, href: s.href, icon: I.ReceiptText }));
+    quick.filter((x) => found(x.label)).forEach((x) => out.push({ sec: t("Quick actions"), label: t.any(x.label), sub: t.any(x.sub), href: x.href, icon: (I as unknown as Record<string, LucideIcon>)[x.icon] }));
+    pages.filter((p) => found(p.label)).slice(0, 8).forEach((p) => out.push({ sec: t("Pages"), label: t.any(p.label), sub: p.hint ? t.any(p.hint) : t("Open"), href: p.href, icon: I.FileText }));
+    // A question no ready-made one matches: the closest ones the person may ask.
+    if (!asked.length && askKeys.length && looksLikeQuestion(typed)) {
+      if (ai) out.unshift({ sec: "Ask School OS", label: `Ask: “${typed}”`, sub: "The AI assistant picks the question; the answer comes from your school's lists", href: "#ask", icon: I.Sparkles, run: () => void askAi(typed) });
+      const ready = questions.map((x) => new URLSearchParams(x.href.split("?")[1] ?? "").get("q")).filter(isQuestionKey);
+      closestQuestions(typed, askKeys, ready).forEach((k) => out.push({ sec: "Closest questions", label: questionTitle(k), href: askHref(k), icon: I.CircleHelp }));
+    }
     return out;
-  }, [typed, people, pages, shortcuts, quick, lists]);
+  }, [typed, people, pages, shortcuts, quick, lists, questions, askKeys, ai, askAi, t]);
 
-  const choose = useCallback((r: Row) => { onClose(); router.push(r.href); }, [onClose, router]);
+  const choose = useCallback((r: Row) => { if (r.run) { r.run(); return; } onClose(); router.push(r.href); }, [onClose, router]);
+  const askNote = asking && asking.q === typed ? asking : null;
   const onKey = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowDown") { e.preventDefault(); setSel((s) => Math.min(s + 1, results.length - 1)); }
     if (e.key === "ArrowUp") { e.preventDefault(); setSel((s) => Math.max(s - 1, 0)); }
@@ -141,29 +189,30 @@ function Palette({ onClose, userId, pages, shortcuts, quick }: { onClose: () => 
   return (
     <div className="fixed inset-0 z-50 flex justify-center items-start md:pt-[10vh]">
       <div className="absolute inset-0 bg-shade/45 backdrop-blur-[2px] animate-fade" onClick={onClose} aria-hidden="true" />
-      <div ref={box} role="dialog" aria-modal="true" aria-label="Search"
+      <div ref={box} role="dialog" aria-modal="true" aria-label={t("Search")}
         className="relative w-full h-full md:h-auto md:max-w-2xl bg-surface md:rounded-2xl shadow-pop animate-rise flex flex-col md:max-h-[70vh] md:mx-6">
         <div className="flex items-center gap-3 px-4 h-16 border-b border-line shrink-0">
-          {loading ? <I.LoaderCircle size={20} className="text-ink3 animate-spin" aria-hidden="true" /> : <I.Search size={20} className="text-ink3" aria-hidden="true" />}
+          {loading || askNote?.busy ? <I.LoaderCircle size={20} className="text-ink3 animate-spin" aria-hidden="true" /> : <I.Search size={20} className="text-ink3" aria-hidden="true" />}
           <input ref={inp} value={q} onChange={(e) => { setQ(e.target.value); setSel(0); }} onKeyDown={onKey} type="search"
-            role="combobox" aria-expanded="true" aria-controls="cmdk-list" aria-autocomplete="list" aria-label="Search"
+            role="combobox" aria-expanded="true" aria-controls="cmdk-list" aria-autocomplete="list" aria-label={t("Search")}
             aria-activedescendant={results[sel] ? `cmdk-${sel}` : undefined}
-            placeholder="Search a student, parent, staff member, receipt or page"
+            placeholder={t("Search a student, parent, staff member, receipt or page")}
             className="flex-1 bg-transparent outline-none text-[16px] placeholder:text-ink3 min-w-0 [&::-webkit-search-cancel-button]:hidden" />
           <button type="button" onClick={onClose} className="text-sm font-semibold text-ink2 px-2 h-8 rounded-lg hover:bg-sunken">
-            <span className="md:hidden">Cancel</span><span className="hidden md:inline"><Kbd>Esc</Kbd></span>
+            <span className="md:hidden">{t("Cancel")}</span><span className="hidden md:inline"><Kbd>Esc</Kbd></span>
           </button>
         </div>
-        <div id="cmdk-list" role="listbox" aria-label="Search results" className="overflow-y-auto scroll-thin p-2 flex-1">
+        <div id="cmdk-list" role="listbox" aria-label={t("Search results")} className="overflow-y-auto scroll-thin p-2 flex-1">
           {problem && <p role="alert" className="mx-3 my-2 rounded-xl bg-bad/10 px-3.5 py-2.5 text-sm text-bad">{problem}</p>}
+          {askNote?.problem && <p role="alert" className="mx-3 my-2 rounded-xl bg-sunken px-3.5 py-2.5 text-sm text-ink2">{askNote.problem}</p>}
           {typed.length >= 2 && !loading && results.length === 0 && !problem && (
             <div className="text-center py-12 px-6">
-              <p className="font-semibold">Nothing found for “{typed}”</p>
-              <p className="text-sm text-ink3 mt-1">Check the spelling, or search by admission number or parent phone.</p>
+              <p className="font-semibold">{t("Nothing found for “{text}”", { text: typed })}</p>
+              <p className="text-sm text-ink3 mt-1">{t("Check the spelling, or search by admission number or parent phone.")}</p>
             </div>
           )}
           {typed.length < 2 && results.length === 0 && (
-            <p className="text-center py-12 px-6 text-sm text-ink3">Type at least two letters of a name, an admission number, a phone number or a page.</p>
+            <p className="text-center py-12 px-6 text-sm text-ink3">{t("Type at least two letters of a name, an admission number, a phone number or a page.")}</p>
           )}
           {results.map((r, i) => {
             const head = r.sec !== lastSec ? (lastSec = r.sec) : null;
@@ -187,9 +236,9 @@ function Palette({ onClose, userId, pages, shortcuts, quick }: { onClose: () => 
           })}
         </div>
         <div className="hidden md:flex items-center gap-4 px-4 h-11 border-t border-line text-xs text-ink3 shrink-0">
-          <span className="flex items-center gap-1.5"><Kbd>↑</Kbd><Kbd>↓</Kbd> move</span>
-          <span className="flex items-center gap-1.5"><Kbd>Enter</Kbd> open</span>
-          <span className="ml-auto">Only shows what your role is allowed to see</span>
+          <span className="flex items-center gap-1.5"><Kbd>↑</Kbd><Kbd>↓</Kbd> {t("move")}</span>
+          <span className="flex items-center gap-1.5"><Kbd>Enter</Kbd> {t("open")}</span>
+          <span className="ml-auto">{t("Only shows what your role is allowed to see")}</span>
         </div>
       </div>
     </div>

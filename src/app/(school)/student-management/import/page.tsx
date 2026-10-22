@@ -14,6 +14,7 @@ export const metadata: Metadata = { title: "Import students" };
 
 const ABOUT = {
   students: "One row per student, with their class, section and parents: the ready sheet, your own sheet, an export from your old software or the UDISE+ download. Old admission numbers are kept. A row that may already be on record waits for your choice: the same student (update the record here), the same family, or a new student.",
+  "consent-paper-forms": "Consent forms parents signed on paper before School OS: one row for each child, parent and consent (data, photo, APAAR, messages), Given or Refused, with the date on the form. Each is kept as recorded from a paper form, with your name and the text version. A consent already on record is never replaced, and an older form never overwrites a newer answer. Undo takes the import back.",
   "students-update": "Changes to students already here: a sheet with the admission number and the columns to correct, such as phones or addresses. Empty cells are left as they are, every change is listed before saving, and Undo puts the old values back.",
 };
 

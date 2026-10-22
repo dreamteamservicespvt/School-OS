@@ -13,8 +13,10 @@ import { Alert } from "@/components/ui/alert";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/empty-state";
 import { AutoRefresh } from "../parts";
-import { UploadForm } from "@/components/import/file-forms";
-import { PLACES } from "@/lib/imports/places";
+import { PhotoUploadForm, UploadForm } from "@/components/import/file-forms";
+import { photoRefusal } from "@/lib/move-in/photos";
+import { OWN_RULES, PLACES } from "@/lib/imports/places";
+import { placeRefusal } from "@/lib/imports/place-access";
 import { RemoveFileButton } from "@/components/import/file-buttons";
 
 export const metadata: Metadata = { title: "Switching to School OS · Data Backup & Security" };
@@ -55,22 +57,39 @@ export default async function SwitchingPage({ searchParams }: Search) {
         tx.expense.count({ where: { broughtIn: true, status: { not: "CANCELLED" } } }),
         tx.feeStructure.count({ where: { archivedAt: null } }),
         tx.openingBalance.count({ where: { archivedAt: null, kind: { not: "STUDENT_DUES" } } }),
+        tx.openingAttendance.count({ where: { archivedAt: null } }),
+        tx.staff.count({ where: { archivedAt: null, OR: [{ bankAccountEnc: { not: null } }, { panEnc: { not: null } }, { uan: { not: null } }] } }),
+        tx.salaryToDate.count({ where: { archivedAt: null } }),
+        tx.leaveBalance.count({ where: { archivedAt: null, adjustments: { array_contains: [{ kind: "brought-in" }] } } }),
+        tx.teacherAllocation.count({ where: { archivedAt: null, toDate: null } }),
+        tx.syllabusItem.count({ where: { archivedAt: null } }),
+        tx.timetablePeriod.count({ where: { archivedAt: null, subjectId: { not: null }, version: { archivedAt: null, status: { in: ["DRAFT", "PUBLISHED"] } } } }),
       ]),
     ]);
     const batches = await tx.importBatch.findMany({ where: { id: { in: files.flatMap((f) => fileBatchIds(f)) } } });
     return { files, summary, counts, batches: new Map(batches.map((b) => [b.id, b])) };
   });
   const { summary } = data;
-  // Files of records the person may not see in their own module (salary details, for example) are not listed.
-  const files = data.files.filter((f) => can(current.permissions, kindModule(f.kind), "view"));
   const kinds = moveInKinds(current.modulesOn);
-  const mine = kinds.filter((k) => canBring(current.permissions, k.key, current.modulesOn));
+  // A kind whose own module page has a narrower rule (attendance so far, pay details) keeps it here.
+  const refused = new Set<string>();
+  for (const k of Object.keys(OWN_RULES)) {
+    if (await placeRefusal(current, PLACES.settings, k, "create")) refused.add(k);
+  }
+  const mayBring = (key: string) => !refused.has(key) && canBring(current.permissions, key, current.modulesOn);
+  const mayUndo = (key: string) => !refused.has(key) && canUndo(current.permissions, key, current.modulesOn);
+  const mine = kinds.filter((k) => mayBring(k.key));
+  // Files of records the person may not see in their own module (salary details, for example) are not listed.
+  const files = data.files.filter((f) => can(current.permissions, kindModule(f.kind), "view") && !refused.has(f.kind));
   const importing = files.some((f) => f.status === "importing");
   const live = summary.plan?.wentLiveAt;
-  const [departments, oldDues, receipts, expenses, structures, openings] = data.counts;
+  const [departments, oldDues, receipts, expenses, structures, openings, attendanceSoFar, payDetails, salaryToDate, leaveBalances, allocations, syllabusItems, periods] = data.counts;
   const have: Record<string, number> = {
     departments, staff: summary.staff, students: summary.students, "fee-old-dues": oldDues, "fee-past-receipts": receipts, "finance-past-expenses": expenses,
-    "fee-structures": structures, "opening-balances": openings,
+    "fee-structures": structures, "opening-balances": openings, "attendance-so-far": attendanceSoFar, "staff-leave-balances": leaveBalances, "staff-pay-details": payDetails, "salary-to-date": salaryToDate,
+    "academic-allocations": allocations,
+    "academic-timetable": periods,
+    "academic-syllabus": syllabusItems,
   };
   // The steps after setting up the year: each import, and the steps typed on a screen, in workflow 15 order.
   const steps = [
@@ -107,8 +126,8 @@ export default async function SwitchingPage({ searchParams }: Search) {
               {steps.map(({ kind: k, screen: s }, i) => k ? (
                 <Step key={k.key} n={i + 2} title={k.label} done={(have[k.key] ?? 0) > 0}
                   status={have[k.key] !== undefined ? `${have[k.key]} in School OS` : undefined} about={k.about}>
-                  {canBring(current.permissions, k.key, current.modulesOn) && <ButtonLink href={`${BASE}?kind=${k.key}#bring-in`} size="sm">Bring in</ButtonLink>}
-                  <a href={`${BASE}/template/${k.key}`} className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-brand-text hover:bg-surface-2">Ready Excel sheet</a>
+                  {mayBring(k.key) && <ButtonLink href={`${BASE}?kind=${k.key}#bring-in`} size="sm">Bring in</ButtonLink>}
+                  {!refused.has(k.key) && <a href={`${BASE}/template/${k.key}`} className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-brand-text hover:bg-surface-2">Ready Excel sheet</a>}
                   {MODULE_PAGE[k.key] && <span className="text-sm text-ink-2">Also on {findModule(k.module)?.name ?? "its module"}, for the person who does it.</span>}
                 </Step>
               ) : s && (
@@ -133,6 +152,12 @@ export default async function SwitchingPage({ searchParams }: Search) {
             <details className="mt-4 text-sm text-ink-2">
               <summary className="min-h-11 cursor-pointer py-2 font-medium text-ink">Records on paper?</summary>
               <p>Download the ready Excel sheet next to each step. It has drop-down lists of your own classes, sections and designations, so typing from the register is quick and the rows are right the first time.</p>
+              {mine.length > 0 && (
+                <div className="mt-3 border-t border-line pt-3 text-ink">
+                  <p className="mb-2 font-medium">Or upload photos of the register pages</p>
+                  <PhotoUploadForm place="settings" kinds={mine.map((k) => ({ value: k.key, label: k.label }))} kind={wantKind && mine.some((k) => k.key === wantKind) ? wantKind : undefined} refusal={photoRefusal(current)} />
+                </div>
+              )}
             </details>
             <details className="text-sm text-ink-2">
               <summary className="min-h-11 cursor-pointer py-2 font-medium text-ink">Old Excel file (.xls)?</summary>
@@ -162,9 +187,9 @@ export default async function SwitchingPage({ searchParams }: Search) {
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <FileStatus status={f.status} undone={Boolean(batch?.undoneAt)} part={part.length > 0} />
-                  {f.status !== "importing" && canBring(current.permissions, f.kind, current.modulesOn) && <RemoveFileButton place="settings" id={f.id} imported={f.status === "imported" || part.length > 0} back={BASE} />}
-                  {f.status === "imported" && batch && !batch.undoneAt && canUndo(current.permissions, f.kind, current.modulesOn) && <ButtonLink href={`${BASE}/${f.id}`} size="sm">See result</ButtonLink>}
-                  {f.status === "open" && canBring(current.permissions, f.kind, current.modulesOn) && <ButtonLink href={`${BASE}/${f.id}`} size="sm" variant="primary">Continue</ButtonLink>}
+                  {f.status !== "importing" && mayBring(f.kind) && <RemoveFileButton place="settings" id={f.id} imported={f.status === "imported" || part.length > 0} back={BASE} />}
+                  {f.status === "imported" && batch && !batch.undoneAt && mayUndo(f.kind) && <ButtonLink href={`${BASE}/${f.id}`} size="sm">See result</ButtonLink>}
+                  {f.status === "open" && mayBring(f.kind) && <ButtonLink href={`${BASE}/${f.id}`} size="sm" variant="primary">Continue</ButtonLink>}
                 </div>
               </li>
             );

@@ -48,6 +48,8 @@ export type AiTask<T> = {
   needs?: readonly (DeclarableField | "images")[];
   effort?: "low" | "medium" | "high";
   maxTokens?: number;
+  /** A longer time limit for a task that reads a picture (never more than 2 minutes); the platform setting when longer. */
+  minTimeoutMs?: number;
 };
 
 export type AiResult<T> = { ok: true; data: T; callId: string } | { ok: false; reason: AiReason; words: string; callId: string | null };
@@ -128,7 +130,7 @@ export async function aiTask<T>(ctx: SchoolContext, task: AiTask<T>, now = new D
 
     const answer: AiAnswer = await gate.provider.ask({
       model, system: task.system, text: gate.text, images: task.images ?? [], schema: task.schema,
-      effort: task.effort ?? "low", maxTokens: task.maxTokens ?? 4000, timeoutMs: aiTimeoutMs(),
+      effort: task.effort ?? "low", maxTokens: task.maxTokens ?? 4000, timeoutMs: Math.min(Math.max(aiTimeoutMs(), task.minTimeoutMs ?? 0), 120_000),
     }).catch((): AiAnswer => ({ outcome: "failed", error: "unreadable", usage: NO_USAGE, model }));
 
     // The answer must fit the shape asked for; anything else is a failure, never shown.

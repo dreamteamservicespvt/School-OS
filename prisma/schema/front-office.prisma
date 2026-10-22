@@ -67,6 +67,8 @@ model VisitorEntry {
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
   archivedAt     DateTime? @map("archived_at")
+  /// When the retention check removed its personal details (Settings, Data Backup & Security, Privacy).
+  clearedAt      DateTime? @map("cleared_at")
 
   @@unique([schoolId, passNo])
   @@index([schoolId, visitDate])
@@ -93,6 +95,8 @@ model GateEntry {
   recordedById   String?   @map("recorded_by_id") @db.Uuid
   createdAt      DateTime  @default(now()) @map("created_at")
   archivedAt     DateTime? @map("archived_at")
+  /// When the retention check removed its personal details (Settings, Data Backup & Security, Privacy).
+  clearedAt      DateTime? @map("cleared_at")
 
   @@index([schoolId, at])
   @@map("gate_entry")

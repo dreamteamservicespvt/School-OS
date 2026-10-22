@@ -10,6 +10,7 @@ import { addCondition, addFinancialYear, archiveCondition, archiveTerm, savePref
 import { addRoom, archiveRoom } from "@/lib/academic/rooms";
 import { ACADEMIC_FEATURES, type AcademicFeature } from "@/lib/academic/scope";
 import { noticeNewYear } from "@/lib/transport/carry";
+import { noticeNewYear as noticeHostelYear } from "@/lib/hostel/carry";
 import type { Tx } from "@/lib/db";
 import { act, actSimple, pageYearOf, sameCampus, staffInCampus, yearCampus } from "../_lib/server";
 
@@ -66,7 +67,9 @@ export async function openYearAction(yearId: string, oldYear: "close" | "keep"):
     const r = await openYear(tx, current.ctx, yearId, oldYear);
     // Transport: bus places from last year wait for the Transport In-charge to carry them over.
     const bus = current.modulesOn.has("transport-management") ? await noticeNewYear(tx, current.ctx, r.year) : 0;
-    return { flash: { message: `${r.year.name} is now the active year.${r.previous ? ` ${r.previous.name} is ${oldYear === "close" ? "closed and read-only" : "kept open for late changes"}.` : ""}${bus ? ` ${bus} bus place${bus === 1 ? "" : "s"} to carry over: the Transport In-charge is told.` : ""}` } };
+    // Hostel: boarders keep their bed once the warden carries them over, with the new year's hostel fees.
+    const boarders = current.modulesOn.has("hostel-management") ? await noticeHostelYear(tx, current.ctx, r.year) : 0;
+    return { flash: { message: `${r.year.name} is now the active year.${r.previous ? ` ${r.previous.name} is ${oldYear === "close" ? "closed and read-only" : "kept open for late changes"}.` : ""}${bus ? ` ${bus} bus place${bus === 1 ? "" : "s"} to carry over: the Transport In-charge is told.` : ""}${boarders ? ` ${boarders} boarder${boarders === 1 ? "" : "s"} to carry over: the wardens are told.` : ""}` } };
   }, { campusOf: yearCampusOf(yearId), notFound: NO_YEAR });
 }
 

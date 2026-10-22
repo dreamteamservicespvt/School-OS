@@ -132,6 +132,8 @@ export default async function TimeTablePage({ searchParams }: { searchParams: Se
     <>
       <PageTop page={page} title="Time Table" href={PATH}>
         <ButtonLink href="/academic-management/time-table/mine" size="sm">My day</ButtonLink>
+        {/* Gap list G44: a complete Time Table from Excel, into the draft (never published by itself). */}
+        {scope.arrange && <ButtonLink href="/academic-management/import?kind=academic-timetable" size="sm" variant="ghost">Import from Excel</ButtonLink>}
       </PageTop>
       <ViewSwitch views={views} current={view} keep={["version"]} />
       {(scope.arrange || data.versions.length > 0) && (

@@ -11,14 +11,15 @@ import { canBring, canUndo, kindInfo, MoveInProblem } from "../move-in/service";
 import { moduleImportRefusal } from "./module-import";
 import { findModule } from "../modules";
 import { PermissionDeniedError, reachFor } from "../permissions";
-import { HrOnlyError } from "../staff/access";
+import { canSeeRestricted, HrOnlyError } from "../staff/access";
 import { withSchool } from "../db";
 import { FullOnlyError, viewerFor } from "../admission/access";
 import { libCan, libViewer } from "../library/access";
 import { invCan, invViewer } from "../inventory/access";
 import { hostelCan, hostelViewer } from "../hostel/access";
 import { salaryLevel } from "../salary/access";
-import { importPlace, placeHolds, type ImportPlace } from "./places";
+import { arrangesTimetable } from "../academic/scope";
+import { importPlace, OWN_RULES, PLACES, placeHolds, type ImportPlace } from "./places";
 
 type Need = "create" | "archive";
 
@@ -41,17 +42,27 @@ export async function placeRefusal(current: Current, place: ImportPlace, kind: s
   const owner = findModule(place.module);
   if (place.key !== "settings" && owner?.optional && !current.modulesOn.has(place.module)) return `${owner.name} is switched off for this school. A School Admin can switch it on in Settings, Modules On/Off.`;
   switch (place.key) {
-    case "settings":
+    case "settings": {
+      // A kind whose module page has a narrower rule keeps it here (attendance so far: full Attendance Management).
+      const own = Object.hasOwn(OWN_RULES, kind) ? OWN_RULES[kind] : null;
+      if (own) {
+        const why = await placeRefusal(current, PLACES[own], kind, need);
+        if (why) return why;
+      }
       return (need === "create" ? canBring : canUndo)(current.permissions, kind, current.modulesOn)
         ? null
         : `Your role cannot ${need === "create" ? "add" : "undo"} ${kindInfo(kind)?.label.toLowerCase() ?? "these records"}. Ask your School Admin.`;
+    }
     case "fees":
     case "finance":
     case "events":
       return moduleImportRefusal(current, kind, need);
     case "staff":
       // HR's own work: Staff & HR full, for bringing in and for Undo alike.
-      return reachFor(current.permissions, "staff-hr-management", "create") === "all" ? null : new HrOnlyError("importing staff").message;
+      if (reachFor(current.permissions, "staff-hr-management", "create") !== "all") return new HrOnlyError(kind === "staff" ? "importing staff" : "this").message;
+      // Pay details are restricted fields (PAN, bank account): only the roles that may see them in full (09 §1).
+      if (kind === "staff-pay-details" && !canSeeRestricted(current.roles.map((r) => r.key))) return "Only HR, the Principal or the School Admin can bring in pay details. They are restricted.";
+      return null;
     case "enquiries": {
       // The admission team's work (Admission Management full), for bringing in and for Undo alike.
       if (reachFor(current.permissions, "admission-management", "create") === "none") return new FullOnlyError("importing enquiries").message;
@@ -82,7 +93,25 @@ export async function placeRefusal(current: Current, place: ImportPlace, kind: s
       // Full Salary Management only (the Accountant, the Principal, the School Admin), as for typing a structure.
       return reachFor(current.permissions, "salary-management", need) !== "none" && salaryLevel(current.permissions) === "full"
         ? null : "Only the Accountant, the Principal or the School Admin can change salary.";
+    case "attendance": {
+      // Whole-school attendance work: full Attendance Management (the Principal, the School Admin, the Vice Principal).
+      const p = current.permissions["attendance-management"];
+      return reachFor(current.permissions, "attendance-management", need) !== "none" && p?.change === "all" && p?.see === "all"
+        ? null : "Only the Principal, the Vice Principal or the School Admin can bring in attendance so far.";
+    }
+    case "academic":
+      // The Time Table: the people who keep it (full Academic Management, or the Office Staff template), as for editing a period.
+      if (kind === "academic-timetable") return arrangesTimetable(current) ? null : "Your role does not arrange the Time Table. Ask the office or the Principal.";
+      // Teacher Allocation and the syllabus: full Academic Management, as for Assign teacher and setting up the curriculum.
+      return reachFor(current.permissions, "academic-management", "edit") === "all" && reachFor(current.permissions, "academic-management", need) === "all"
+        ? null : "Only people with full Academic Management (the Principal, the Vice Principal or the School Admin) can bring these in.";
   }
+}
+
+/** The kinds this person may bring in at this place, for its upload and its Bring in buttons. */
+export async function bringable(current: Current, place: ImportPlace, keys: readonly string[]): Promise<Set<string>> {
+  const ok = await Promise.all(keys.map(async (k) => ((await placeRefusal(current, place, k, "create")) === null ? k : null)));
+  return new Set(ok.filter((k): k is string => k !== null));
 }
 
 /**

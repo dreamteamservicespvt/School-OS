@@ -19,6 +19,7 @@ import { parentPtms } from "./ptm-parent";
 import { consentForms, forCampus } from "./consent";
 import { albumUrl } from "./settings";
 import { CLOSING, clock, dayOf, isoOf, longDay, timeSpan } from "./words";
+import { makeT } from "../i18n/server";
 
 type Data = {
   consents: EventConsentCardData[];
@@ -31,6 +32,7 @@ type Data = {
 };
 
 function EventsSection({ data, view }: { data: Data; view: GuardianView }) {
+  const t = makeT(view.lang);
   const row = "flex items-start gap-3 py-2.5 border-t border-line/70 first:border-0";
   return (
     <div className="flex flex-col gap-1 text-[14px]">
@@ -48,26 +50,26 @@ function EventsSection({ data, view }: { data: Data; view: GuardianView }) {
         {data.ptm.map((p) => (
           <li key={p.id} className={row}>
             <Users size={18} className="text-brand mt-0.5 shrink-0" aria-hidden="true" />
-            <span className="min-w-0"><b className="font-semibold block">PTM: {p.when}</b><span className="text-[13px] text-ink2">With {p.teacher} ({p.label}){p.venue ? `, ${p.venue}` : ""}</span></span>
+            <span className="min-w-0"><b className="font-semibold block">{t("PTM: {when}", { when: p.when })}</b><span className="text-[13px] text-ink2">{t("With {teacher} ({label})", { teacher: p.teacher, label: t.any(p.label) })}{p.venue ? `, ${p.venue}` : ""}</span></span>
           </li>
         ))}
         {data.events.map((e) => (
           <li key={e.id} className={row}>
             <CalendarDays size={18} className="text-ok mt-0.5 shrink-0" aria-hidden="true" />
             <span className="min-w-0"><b className="font-semibold block">{e.name}</b>
-              <span className="text-[13px] text-ink2">{e.when}{e.venue ? ` · ${e.venue}` : ""}{e.registered ? " · Registered" : ""}{e.registered && e.fee ? ` · Fee ${e.fee}, in Fees due` : ""}</span></span>
+              <span className="text-[13px] text-ink2">{e.when}{e.venue ? ` · ${e.venue}` : ""}{e.registered ? ` · ${t("Registered")}` : ""}{e.registered && e.fee ? ` · ${t("Fee {amount}, in Fees due", { amount: e.fee })}` : ""}</span></span>
           </li>
         ))}
         {data.holidays.map((h) => (
           <li key={h.id} className={row}>
             <Sun size={18} className="text-bad mt-0.5 shrink-0" aria-hidden="true" />
-            <span className="min-w-0"><b className="font-semibold block">{h.title}</b><span className="text-[13px] text-ink2">{h.when} · school closed</span></span>
+            <span className="min-w-0"><b className="font-semibold block">{h.title}</b><span className="text-[13px] text-ink2">{h.when} · {t("school closed")}</span></span>
           </li>
         ))}
         {data.albums.map((a) => (
           <li key={a.id} className={row}>
             <Images size={18} className="text-info mt-0.5 shrink-0" aria-hidden="true" />
-            <span className="min-w-0"><a href={a.url} className="font-semibold block text-brand hover:underline">Photos: {a.name}</a><span className="text-[13px] text-ink2">{a.when}</span></span>
+            <span className="min-w-0"><a href={a.url} className="font-semibold block text-brand hover:underline">{t("Photos: {name}", { name: a.name })}</a><span className="text-[13px] text-ink2">{a.when}</span></span>
           </li>
         ))}
       </ul>

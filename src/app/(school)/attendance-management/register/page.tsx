@@ -1,17 +1,18 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, CalendarDays, CalendarX2, ClipboardPen, Users } from "lucide-react";
+import { ArrowLeft, CalendarDays, CalendarX2, ClipboardPen, Upload, Users } from "lucide-react";
+import { ButtonLink } from "@/components/ui/button";
 import { periodFromSearch } from "@/lib/periods";
 import { periodSetup } from "@/lib/period-setup";
-import { classWise } from "@/lib/attendance/classwise";
+import { registerWhole } from "@/lib/attendance/classwise";
 import { notMarkedOn } from "@/lib/attendance/remind";
 import { absenceMessagesOn, messageCountText } from "@/lib/attendance/alerts";
 import { Banner } from "@/components/ui/banner";
 import { dayStartUtc } from "@/lib/periods";
 import { ClassWiseView, NotMarkedCard } from "../_components/class-wise";
 import { withSchool } from "@/lib/db";
-import { attendancePage } from "@/lib/attendance/page";
+import { attendancePage, onCampusFromPage } from "@/lib/attendance/page";
 import { BASE, sectionLimit } from "@/lib/attendance/access";
 import { readMonth, registerChoices, registerMonth, registerYears } from "@/lib/attendance/register";
 import { clampMonth } from "@/lib/attendance/calendar-months";
@@ -102,7 +103,11 @@ export default async function RegisterPage({ searchParams }: Props) {
   return (
     <>
       <AttHead access={access} features={features} userId={current.user.id} href={`${BASE}/register`} sub={sub}
-        actions={exportHref && view === "class" ? <ExportMenu href={exportHref} print /> : undefined} />
+        actions={<>
+          {/* Starting part way through the year (workflow 15): the totals from the old register. */}
+          {access.full && access.see === "all" && <ButtonLink href={`${BASE}/import`} variant="ghost" icon={Upload}>Import attendance so far</ButtonLink>}
+          {exportHref && view === "class" ? <ExportMenu href={exportHref} print /> : null}
+        </>} />
 
       {data.sections.length === 0 ? (
         <EmptyState title="No classes to show" Icon={Users}>
@@ -311,7 +316,10 @@ function StudentCalendar({ s, byKey, statuses, sectionName, yearName, cellHref, 
 
 /** The class-wise view of every section (Principal, Vice Principal, School Admin, Academic Head). */
 async function WholeSchool({ sp }: { sp: Record<string, string | string[] | undefined> }) {
-  const { current, access, features, settings, tz, today, now } = await attendancePage();
+  const p = await attendancePage();
+  const { current, features, settings, tz, today, now } = p;
+  // One campus chosen on the Dashboard (?campus=): its sections only, as the card counted them.
+  const { access } = await onCampusFromPage(p, sp.campus);
   const dates = await periodSetup(current);
   const range = periodFromSearch(sp, { ...dates, fallback: "today" });
   const from = range ? new Date(`${range.from}T00:00:00Z`) : today;
@@ -324,18 +332,22 @@ async function WholeSchool({ sp }: { sp: Record<string, string | string[] | unde
     if (access.yearIds.length === 0) return null;
     // Every campus's current year (each campus has its own); only their campus's sections when limited to one.
     const [cw, notMarked] = await Promise.all([
-      classWise(tx, current.ctx, { yearId: access.yearIds, from, to, today, sectionIds: access.limitSections, campusId: access.campusId }),
+      // The same call as the Dashboard's "Students present" tile.
+      registerWhole(tx, current.ctx, access, from, to, today),
       isToday ? notMarkedOn(tx, current.ctx, access, today, dayStartUtc(isoDay(today), tz)) : Promise.resolve([]),
     ]);
     // One day: what happened to that day's absence messages across these classes (sent, or not and why).
     const messages = isoDay(from) === isoDay(to) ? await absenceMessagesOn(tx, from, cw.sections.map((s) => s.sectionId)) : null;
     return { cw, notMarked, messages };
   });
+  // One class (the Dashboard's "Attendance this week" opens a class's sections this way).
+  const classId = one(sp.class) ?? null;
+  if (data && classId && data.cw.sections.some((x) => x.classId === classId)) data.cw = { ...data.cw, sections: data.cw.sections.filter((x) => x.classId === classId) };
   const groupParam = one(sp.group) ?? "all";
   const group = data?.cw.groups.some((g) => g.key === groupParam) ? groupParam : "all";
   const href = (change: Record<string, string | null>) => {
     const p = new URLSearchParams();
-    const keep: Record<string, string | null> = { period: one(sp.period) ?? null, from: one(sp.from) ?? null, to: one(sp.to) ?? null, sort: one(sp.sort) ?? null, group: group === "all" ? null : group, ...change };
+    const keep: Record<string, string | null> = { period: one(sp.period) ?? null, from: one(sp.from) ?? null, to: one(sp.to) ?? null, sort: one(sp.sort) ?? null, group: group === "all" ? null : group, class: classId, campus: one(sp.campus) ?? null, ...change };
     for (const [k, v] of Object.entries(keep)) if (v) p.set(k, v);
     return p.size ? `${BASE}/register?${p}` : `${BASE}/register`;
   };

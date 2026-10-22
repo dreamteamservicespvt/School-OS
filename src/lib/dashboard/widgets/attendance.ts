@@ -13,17 +13,16 @@ import { attendanceAccess, BASE, type AttendanceAccess } from "../../attendance/
 import { attendanceSettings } from "../../attendance/settings";
 import { attendanceToday } from "../../attendance/integrations";
 import { lockState, takeChoices, type TakeChoice } from "../../attendance/marks";
-import { staffDay } from "../../attendance/staff";
+import { staffDay, staffDayCounts } from "../../attendance/staff";
 import { schoolDays } from "../../attendance/calendar";
-import { classWise } from "../../attendance/classwise";
+import { classWise, registerWhole } from "../../attendance/classwise";
 import { ON_REGISTER_STATUSES } from "../../attendance/on-register";
-import { OPEN_ATTENDANCE_FLAG } from "../../attendance/flags";
+import { chronicFlags, type FlagKind } from "../../attendance/reports";
 import { reportAccess } from "../../reports/access";
 import { addDays, campusStudents, iso, moduleOpen, n, plural, reach } from "../common";
 import type { AttentionItem, BarRow, DashContext, Viewer, Widget } from "../types";
 
 const MODULE = "attendance-management" as const;
-const PRESENT = ["present", "late", "half-day"];
 const fullReach = (v: Viewer) => reach(v, MODULE) === "all";
 
 /**
@@ -41,8 +40,6 @@ function access(c: DashContext): Promise<AttendanceAccess> {
   });
 }
 const settings = (c: DashContext) => c.memo("attendance-settings", () => attendanceSettings(c.tx, c.viewer.ctx));
-/** Today's whole-school numbers, read once per page (from the class-wise rows). */
-const today = (c: DashContext) => c.memo("attendance-today", () => attendanceToday(c.tx, c.viewer.ctx, c.today, { campusId: c.viewer.campusId ?? null }));
 /** The classes and periods this person may take today, with "done". */
 export function choices(c: DashContext): Promise<TakeChoice[]> {
   return c.memo("attendance-choices", async () => takeChoices(c.tx, c.viewer.ctx, await access(c), c.today));
@@ -66,7 +63,12 @@ function ownStudents(c: DashContext, a: AttendanceAccess) {
   });
 }
 
-/** "Students present today": present / expected, with absent and late. */
+/**
+ * "Students present today": present of the students in the sections marked,
+ * with absent and late. The same call as Attendance Register's whole-school
+ * view (registerWhole), so the tile and the list it opens count the same
+ * students, years, campus and school days (gap list G36).
+ */
 const studentsPresent: Widget<"band"> = {
   id: "attendance.students-present",
   module: MODULE,
@@ -75,30 +77,27 @@ const studentsPresent: Widget<"band"> = {
   allowed: fullReach,
   async load(c) {
     const a = await access(c);
-    if (a.students !== "all") return null;
-    // The same class-wise rows as Attendance (the whole-school register) and the daily report.
-    const t = await today(c);
+    if (a.students !== "all" || a.yearIds.length === 0) return null;
+    const cw = await registerWhole(c.tx, c.viewer.ctx, a, c.today, c.today, c.today);
     const href = `${BASE}/register`;
-    if (t.off) return { id: "attendance.students-present", label: "Students present", ...offTile({ reason: t.offReason, title: t.off }), href };
-    const expected = t.students.total;
-    if (t.students.marked === 0) return { id: "attendance.students-present", label: "Students present", big: "Not taken", foot: `${plural(t.classes.notMarked, "class", "classes")} not marked yet`, href };
-    // The same % as Attendance Reports and the register: present ÷ days counted (leave not counted).
-    const pct = t.students.percent;
-    const pctText = pct === null ? "Nobody counted" : `${pct}%`;
-    // Students in a taken class who have no mark (new admissions, for example) are named, not counted as present.
-    const unmarked = t.students.notMarked - t.classes.notMarkedStudents;
+    // No section has school today (a holiday on every campus the person sees, a Sunday...).
+    if (cw.off) return { id: "attendance.students-present", label: "Students present", ...offTile(await schoolDayOff(c, a.campusId ?? null)), href };
+    const t = cw.totals;
+    if (t.markedSections === 0) return { id: "attendance.students-present", label: "Students present", big: "Not taken", foot: `${plural(t.notMarkedSections, "class", "classes")} not marked yet`, href };
+    // The same % as Attendance Register and Attendance Reports: present ÷ days counted (leave not counted).
+    const pctText = t.percent === null ? "Nobody counted" : `${t.percent}%`;
     return {
-      id: "attendance.students-present", label: "Students present", big: n(t.students.present), of: `/ ${n(expected)}`,
-      ring: pct ?? undefined,
-      foot: t.classes.notMarked
-        ? `${pctText} of marked · ${n(t.students.absent)} absent · ${plural(t.classes.notMarked, "class", "classes")} not marked`
-        : `${pctText} · ${n(t.students.absent)} absent, ${n(t.students.late)} late${unmarked > 0 ? ` · ${n(unmarked)} not marked` : ""}`,
+      id: "attendance.students-present", label: "Students present", big: n(t.present), of: `/ ${n(t.markedStudents)}`,
+      ring: t.percent ?? undefined,
+      foot: t.notMarkedSections
+        ? `${pctText} of marked · ${n(t.absent)} absent · ${plural(t.notMarkedSections, "class", "classes")} not marked`
+        : `${pctText} · ${n(t.absent)} absent, ${n(t.late)} late`,
       href,
     };
   },
 };
 
-/** "Staff present": present / expected (not on leave), with on leave and not in yet. */
+/** "Staff present": present of all staff that day, with on leave and not in yet; the same counts as Staff Attendance (staffDayCounts). */
 const staffPresent: Widget<"band"> = {
   id: "attendance.staff-present",
   module: MODULE,
@@ -111,15 +110,11 @@ const staffPresent: Widget<"band"> = {
     const off = await schoolDayOff(c, a.campusId ?? c.viewer.campusId ?? null);
     const href = `${BASE}/staff`;
     if (!off.on) return { id: "attendance.staff-present", label: "Staff present", ...offTile(off), href };
-    const rows = await staffDay(c.tx, c.viewer.ctx, a, c.today);
-    const leave = rows.filter((r) => r.onLeave).length;
-    const present = rows.filter((r) => r.mark && PRESENT.includes(r.mark.statusKey)).length;
-    const notIn = rows.filter((r) => !r.mark && !r.onLeave).length;
-    const expected = rows.length - leave;
+    const t = staffDayCounts(await staffDay(c.tx, c.viewer.ctx, a, c.today));
     return {
-      id: "attendance.staff-present", label: "Staff present", big: n(present), of: `/ ${n(expected)}`,
-      ring: expected ? Math.round((present / expected) * 100) : undefined,
-      foot: `${n(leave)} on leave · ${n(notIn)} not in yet`, href,
+      id: "attendance.staff-present", label: "Staff present", big: n(t.present), of: `/ ${n(t.total)}`,
+      ring: t.total ? Math.round((t.present / t.total) * 100) : undefined,
+      foot: `${n(t.leave.length)} on leave · ${n(t.notIn.length)} not in yet`, href,
     };
   },
 };
@@ -190,22 +185,24 @@ const leaveWaiting: Widget<"band"> = {
   },
 };
 
-async function flagCard(c: DashContext, kind: "absent-streak" | "below-threshold"): Promise<AttentionItem | null> {
+/**
+ * Students with an open Attendance Flag of this kind: the Chronic absence
+ * report's own list (chronicFlags), filtered to the kind, which the card
+ * opens; the flags are reviewed in Early Warnings, for the people who see it.
+ */
+async function flagCard(c: DashContext, kind: FlagKind): Promise<AttentionItem | null> {
   const a = await access(c);
   if (a.students === "none") return null;
-  const own = a.students === "all" ? await campusStudents(c) : await ownStudents(c, a);
-  if (own && own.length === 0) return null;
-  // Reviewed in Early Warnings, for the people who see it; the Chronic absence report otherwise.
   const warnings = moduleOpen(c.viewer, "reports-analytics") && reportAccess(c.viewer).warnings.on;
   // People who see Early Warnings count these children on its card (students who need a closer look), once.
   if (kind === "below-threshold" && warnings) return null;
-  const flags = await c.tx.attendanceFlag.findMany({ where: { kind, ...OPEN_ATTENDANCE_FLAG, ...(own ? { studentId: { in: own } } : {}) }, select: { studentId: true, status: true } });
-  const count = new Set(flags.map((f) => f.studentId)).size;
+  const { flags } = await chronicFlags(c.tx, a, kind);
+  const count = flags.length;
   if (count === 0) return null;
   const s = await settings(c);
-  const notReviewed = new Set(flags.filter((f) => f.status === "NEW").map((f) => f.studentId)).size;
-  const review = warnings && notReviewed ? ` ${notReviewed} not reviewed yet.` : "";
-  const href = warnings ? "/reports-analytics/early-warnings?area=attendance" : `${BASE}/reports?report=chronic`;
+  const notReviewed = flags.filter((f) => f.status === "NEW").length;
+  const review = warnings && notReviewed ? ` ${notReviewed} not reviewed yet in Early Warnings.` : "";
+  const href = `${BASE}/reports?report=chronic&flag=${kind}`;
   return kind === "absent-streak"
     ? {
         id: "attendance.absent-streak", tone: "warn", icon: "UserX",
@@ -260,7 +257,8 @@ const weekByClass: Widget<"panel"> = {
   allowed: fullReach,
   async load(c) {
     if (!c.year) return null;
-    const monday = addDays(c.today, -((c.today.getUTCDay() + 6) % 7));
+    // "This week" as the register's date filter counts it: from the school's first day of the week.
+    const monday = addDays(c.today, -((c.today.getUTCDay() + 7 - (c.viewer.school.weekStart === "sunday" ? 0 : 1)) % 7));
     // The class-wise rows of the week (the same source as Attendance and Reports), added up per class.
     // Each campus's own current year (only theirs for a person limited to one campus).
     const cw = await classWise(c.tx, c.viewer.ctx, { yearId: c.yearIds, from: monday, to: c.today, today: c.today, campusId: c.viewer.campusId ?? null });
@@ -274,11 +272,11 @@ const weekByClass: Widget<"panel"> = {
     }
     const s = await settings(c);
     const rows: BarRow[] = [...byClass.entries()].sort((a, b) => a[1].sort - b[1].sort)
-      .map(([id, r]) => ({ key: id, label: r.label, value: Math.round((r.weight / r.counted) * 100), href: `${BASE}/register?period=thisweek` }));
+      .map(([id, r]) => ({ key: id, label: r.label, value: Math.round((r.weight / r.counted) * 100), href: `${BASE}/register?period=thisweek&class=${id}` }));
     return {
       slot: "main",
       panel: {
-        kind: "bars", title: "Attendance this week", sub: "Students present by class, Monday to today", icon: "UserCheck",
+        kind: "bars", title: "Attendance this week", sub: `Students present by class, ${c.viewer.school.weekStart === "sunday" ? "Sunday" : "Monday"} to today`, icon: "UserCheck",
         rows, goal: 90, lowBelow: s.thresholdPercent, href: `${BASE}/reports?report=trends`, linkLabel: "Attendance Reports",
         empty: "No attendance marked this week yet.",
       },

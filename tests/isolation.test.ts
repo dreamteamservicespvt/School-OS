@@ -948,6 +948,30 @@ describe("Switching to School OS files stay in their school", () => {
     });
     await expect(withSchool(ctxA(), (tx) => tx.importMapping.create({ data: { schoolId: b.id, kind: "students", headerKey: "from-a", fileName: "x.xlsx" } }))).rejects.toThrow();
   });
+
+  it("school A cannot read, change or add to school B's attendance so far (Opening Attendance, G19)", async () => {
+    const some = "00000000-0000-4000-8000-00000000b019";
+    const data = { schoolId: b.id, academicYearId: some, studentId: some, fromDate: new Date("2026-04-01"), upTo: new Date("2026-09-30"), daysMet: 92, daysPresent: 90 };
+    const row = await withSchool({ schoolId: b.id, userId: userB.id }, (tx) => tx.openingAttendance.create({ data }));
+    await withSchool(ctxA(), async (tx) => {
+      expect(await tx.openingAttendance.count()).toBe(0);
+      expect(await tx.openingAttendance.findUnique({ where: { id: row.id } })).toBeNull();
+      expect((await tx.openingAttendance.updateMany({ where: { id: row.id }, data: { daysPresent: 92 } })).count).toBe(0);
+    });
+    await expect(withSchool(ctxA(), (tx) => tx.openingAttendance.create({ data }))).rejects.toThrow();
+  });
+
+  it("school A cannot read, change or add to school B's salary to date (Salary to Date, G19)", async () => {
+    const some = "00000000-0000-4000-8000-00000000b020";
+    const data = { schoolId: b.id, staffId: some, financialYearId: some, fromMonth: new Date("2026-04-01"), upToMonth: new Date("2026-09-01"), grossPaise: BigInt(18000000), tdsPaise: BigInt(600000) };
+    const row = await withSchool({ schoolId: b.id, userId: userB.id }, (tx) => tx.salaryToDate.create({ data }));
+    await withSchool(ctxA(), async (tx) => {
+      expect(await tx.salaryToDate.count()).toBe(0);
+      expect(await tx.salaryToDate.findUnique({ where: { id: row.id } })).toBeNull();
+      expect((await tx.salaryToDate.updateMany({ where: { id: row.id }, data: { archivedAt: new Date() } })).count).toBe(0);
+    });
+    await expect(withSchool(ctxA(), (tx) => tx.salaryToDate.create({ data }))).rejects.toThrow();
+  });
 });
 
 describe("The AI Call log stays in its school", () => {
@@ -960,6 +984,18 @@ describe("The AI Call log stays in its school", () => {
       expect((await tx.aiCall.aggregate({ _sum: { costPaise: true } }))._sum.costPaise).toBeNull();
     });
     await expect(withSchool(ctxA(), (tx) => tx.aiCall.create({ data: { schoolId: b.id, feature: "ai-smart-import", purpose: "From A", model: "x" } }))).rejects.toThrow();
+  });
+});
+
+describe("Retention runs stay in their school", () => {
+  it("school A cannot read, change or add to school B's retention runs (Privacy, G46)", async () => {
+    const row = await withSchool({ schoolId: b.id, userId: userB.id }, (tx) => tx.retentionRun.create({ data: { schoolId: b.id, runOn: new Date("2026-10-23"), status: "waiting", due: { enquiries: { count: 3, before: "2024-10-23T00:00:00.000Z" } } } }));
+    await withSchool(ctxA(), async (tx) => {
+      expect(await tx.retentionRun.count()).toBe(0);
+      expect(await tx.retentionRun.findUnique({ where: { id: row.id } })).toBeNull();
+      expect((await tx.retentionRun.updateMany({ where: { id: row.id }, data: { status: "cleared" } })).count).toBe(0);
+    });
+    await expect(withSchool(ctxA(), (tx) => tx.retentionRun.create({ data: { schoolId: b.id, runOn: new Date("2026-10-24") } }))).rejects.toThrow();
   });
 });
 

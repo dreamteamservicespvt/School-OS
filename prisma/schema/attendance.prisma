@@ -438,3 +438,31 @@ model StudentLeaveQuota {
 
   @@map("student_leave_quota")
 }
+
+/// Opening Attendance: one student's attendance so far this year, brought in
+/// from the old software or the paper register when the school starts on
+/// School OS part way through the year (workflow 15, gap list G19). An opening
+/// total, not daily marks: it is added to the student's attendance % for any
+/// period that holds the whole of from_date to up_to. Made only by an import;
+/// Undo archives it.
+model OpeningAttendance {
+  id             String    @id @default(uuid()) @db.Uuid
+  schoolId       String    @map("school_id") @db.Uuid
+  academicYearId String    @map("academic_year_id") @db.Uuid
+  studentId      String    @map("student_id") @db.Uuid
+  /// The first day the totals cover: the start of the academic year.
+  fromDate       DateTime  @map("from_date") @db.Date
+  /// The last day the totals cover (the day before the school started on School OS).
+  upTo           DateTime  @map("up_to") @db.Date
+  /// Days the school met for the student in that time; a half day is 0.5.
+  daysMet        Decimal   @map("days_met") @db.Decimal(5, 1)
+  daysPresent    Decimal   @map("days_present") @db.Decimal(5, 1)
+  createdById    String?   @map("created_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  archivedAt     DateTime? @map("archived_at")
+
+  @@index([schoolId, studentId])
+  @@index([schoolId, academicYearId])
+  @@map("opening_attendance")
+}

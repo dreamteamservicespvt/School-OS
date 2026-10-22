@@ -63,7 +63,7 @@ describe("one AI check for every place AI appears", () => {
   });
 
   it("never offers a feature that is not built, even with an old switch left on", () => {
-    for (const key of ["ai-ask-do", "ai-enquiry-reply", "ai-translation", "ai-question-papers"]) {
+    for (const key of ["ai-enquiry-reply", "ai-translation", "ai-question-papers"]) {
       expect(aiOffReason(who(["ai-assistant", key], ["principal"]), key)).toBe("not-built");
     }
   });
@@ -71,7 +71,7 @@ describe("one AI check for every place AI appears", () => {
   it("hides AI question papers from Modules On/Off and lists the rest", () => {
     expect(SHOWN_AI_FEATURES.map((f) => f.key)).not.toContain("ai-question-papers");
     expect(AI_FEATURES.find((f) => f.key === "ai-question-papers")?.status).toBe("hidden");
-    expect(AI_FEATURES.filter((f) => f.status === "coming-soon").map((f) => f.key).sort()).toEqual(["ai-ask-do", "ai-enquiry-reply", "ai-translation"]);
+    expect(AI_FEATURES.filter((f) => f.status === "coming-soon").map((f) => f.key).sort()).toEqual(["ai-enquiry-reply", "ai-translation"]);
   });
 
   it("shows forecasts and the teacher assistant only to the roles chosen for AI", async () => {
@@ -94,7 +94,7 @@ describe("one AI check for every place AI appears", () => {
 
   it("refuses to switch on a feature that is coming soon or not built, and still lets one be switched off", async () => {
     await withSchool(actx(), (tx) => tx.schoolFeature.upsert({ where: { schoolId_featureKey: { schoolId: school.id, featureKey: "ai-translation" } }, create: { schoolId: school.id, featureKey: "ai-translation", isOn: true }, update: { isOn: true } }));
-    await expect(withSchool(actx(), (tx) => setFeature(tx, actx(), "ai-ask-do", true))).rejects.toThrow(/coming soon/);
+    await expect(withSchool(actx(), (tx) => setFeature(tx, actx(), "ai-enquiry-reply", true))).rejects.toThrow(/coming soon/);
     await expect(withSchool(actx(), (tx) => setFeature(tx, actx(), "ai-question-papers", true))).rejects.toThrow(SettingsProblem);
     expect(await withSchool(actx(), (tx) => setFeature(tx, actx(), "ai-translation", false))).toBe(true);
   });

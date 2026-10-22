@@ -19,7 +19,7 @@ import { ExportButton } from "@/components/ui/export-button";
 import { PeriodFilter } from "@/components/list/period-filter";
 import { cx } from "@/components/ui/cx";
 import { FeeHead } from "../_components/fee-head";
-import { BASE, feeGuard, feePeriod, one, qs, type SearchParams } from "../_lib/page";
+import { BASE, feeGuard, feePeriod, feeViewOnCampus, one, qs, type SearchParams } from "../_lib/page";
 import { DefaulterList, type DefaulterItem } from "./list";
 import { CallNoteForm } from "./call-note";
 
@@ -34,12 +34,16 @@ const STAT_TONES: Tone[] = ["neutral", "warn", "bad", "bad"];
 export default async function DefaultersPage({ searchParams }: { searchParams: SearchParams }) {
   const p = await feeGuard("defaulters");
   const sp = await searchParams;
+  // One campus chosen on the Dashboard (?campus=): that campus's students only, as the card counted them.
+  const viewer = await feeViewOnCampus(p, sp.campus);
   const canEdit = p.does("defaulters");
   const promisesOn = p.features.has(PROMISE_FEATURE);
   const q = one(sp.q).trim().slice(0, 80);
   const cls = one(sp.class);
   const age = one(sp.age);
-  const above = AMOUNTS.some((a) => a.value === one(sp.above)) ? one(sp.above) : "";
+  // Any whole-rupee amount from a link (Ask: "Who owes ₹15,000 or more?"); the list offers the usual ones.
+  const above = /^[1-9]\d{0,8}$/.test(one(sp.above)) ? one(sp.above) : "";
+  const amounts = AMOUNTS.some((a) => a.value === above) ? AMOUNTS : [...AMOUNTS, { value: above, label: `₹${Number(above).toLocaleString("en-IN")} or more` }];
   const rem = one(sp.rem) === "yes" || one(sp.rem) === "no" ? one(sp.rem) : "";
   const per = feePeriod(sp, p.dates, null);
   const who = one(sp.who);
@@ -56,12 +60,12 @@ export default async function DefaultersPage({ searchParams }: { searchParams: S
   };
 
   const data = await withSchool(p.current.ctx, async (tx) => {
-    const [all, list] = await defaulterLists(tx, p.current.ctx, p.viewer, p.today, [{}, filter]);
+    const [all, list] = await defaulterLists(tx, p.current.ctx, viewer, p.today, [{}, filter]);
     const photos = await tx.student.findMany({ where: { id: { in: list.rows.map((r) => r.studentId) } }, select: { id: true, photoFileId: true } });
     const templates = canEdit ? await Promise.all((["whatsapp", "sms", "email"] as const).map((c) => feeTemplates(tx, p.current.ctx, c))) : [[], [], []];
     const gateway = canEdit ? Boolean(await gatewayFor(tx, p.current.ctx, null)) : false;
     let history = null;
-    if (/^[0-9a-f-]{36}$/i.test(who) && (await canSeeStudent(tx, p.viewer, who))) {
+    if (/^[0-9a-f-]{36}$/i.test(who) && (await canSeeStudent(tx, viewer, who))) {
       const row = all.rows.find((r) => r.studentId === who) ?? null;
       const student = await tx.student.findFirst({ where: { id: who }, select: { id: true, fullName: true } });
       const [rems, calls] = await Promise.all([reminderHistory(tx, who), tx.feeCallNote.findMany({ where: { studentId: who }, orderBy: { createdAt: "desc" }, take: 30 })]);
@@ -72,7 +76,7 @@ export default async function DefaultersPage({ searchParams }: { searchParams: S
   });
 
   const { all, list } = data;
-  const keep = { q: q || null, class: filter.classId, section: filter.sectionId ?? null, age: filter.ageing !== null ? String(filter.ageing) : null, above: above || null, rem: rem || null, ...per.keep };
+  const keep = { campus: one(sp.campus) || null, q: q || null, class: filter.classId, section: filter.sectionId ?? null, age: filter.ageing !== null ? String(filter.ageing) : null, above: above || null, rem: rem || null, ...per.keep };
   const here = (extra: Record<string, string | null> = {}) => qs(HREF, { ...keep, ...extra });
   const filtered = Boolean(q || filter.classId || filter.ageing !== null || above || rem || per.range);
   const over30 = all.rows.filter((r) => r.daysOverdue > 30).length;
@@ -126,7 +130,7 @@ export default async function DefaultersPage({ searchParams }: { searchParams: S
             <div className="grid grid-cols-2 gap-2.5 md:flex md:flex-wrap">
               <UrlSelect id="def-cls" param="class" label="Class" className="md:w-36" options={[{ value: "", label: "All classes" }, ...all.classTotals.filter((c) => c.classId).map((c) => ({ value: c.classId!, label: c.className }))]} />
               <UrlSelect id="def-age" param="age" label="Days late" className="md:w-40" options={[{ value: "", label: "Any days late" }, ...all.ageingTotals.map((g) => ({ value: String(g.index), label: g.label }))]} />
-              <UrlSelect id="def-amt" param="above" label="Amount" className="md:w-40" options={AMOUNTS} />
+              <UrlSelect id="def-amt" param="above" label="Amount" className="md:w-40" options={amounts} />
               <UrlSelect id="def-rem" param="rem" label="Reminders" className="md:w-40" options={REMINDED} />
               <PeriodFilter {...p.dates} allLabel="Any due date" />
             </div>

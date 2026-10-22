@@ -8,7 +8,7 @@ import { Prisma } from "@prisma/client";
 import { readListParams } from "../../list";
 import { abilities, studentScope } from "../../students/access";
 import { getStudentSettings } from "../../students/settings";
-import { consentRows, consentState } from "../../students/consent";
+import { guardianConsentGroups, guardiansInReach } from "../../students/guardian-list";
 import { STUDYING } from "../../students/labels";
 import { classTiles, LIST_FILTERS, studentListWhere } from "@/app/(school)/student-management/_lib/queries";
 import { addDays, campusStudents, dayWord, myClassSections, n, plural } from "../common";
@@ -41,20 +41,11 @@ const studentsBand: Widget<"band"> = {
   },
 };
 
-/** Guardians with data consent not given, the same as Parents & Guardians filtered to "Consent not given". */
+/** Guardians in reach and those whose data consent is not given: Parents & Guardians' own reach and consent groups (one function). */
 async function guardiansWithoutConsent(c: DashContext) {
   return c.memo("guardians-no-consent", async () => {
-    const can = await canOf(c);
-    const and: Prisma.GuardianWhereInput[] = [{ archivedAt: null }];
-    // Own reach, or one campus: the parents of their students only.
-    if (can.reach === "own" || c.viewer.campusId) and.push({ students: { some: { archivedAt: null, student: await studentScope(c.tx, c.viewer, c.yearIds) } } });
-    const guardians = await c.tx.guardian.findMany({ where: { AND: and }, select: { id: true } });
-    if (!guardians.length) return { total: 0, without: 0 };
-    const rows = await consentRows(c.tx, c.viewer.ctx, { guardianIds: guardians.map((g) => g.id) });
-    const by = new Map<string, { consentType: string; status: string }[]>();
-    for (const r of rows) by.set(r.guardianId, [...(by.get(r.guardianId) ?? []), r]);
-    const without = guardians.filter((g) => consentState(by.get(g.id) ?? [], "data-processing") !== "GIVEN").length;
-    return { total: guardians.length, without };
+    const g = await guardianConsentGroups(c.tx, c.viewer, await guardiansInReach(c.tx, c.viewer, c.yearIds));
+    return { total: g.allIds.length, without: g.dataNot.length };
   });
 }
 

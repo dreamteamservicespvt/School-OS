@@ -29,7 +29,7 @@ export const READY_TEXTS: Record<string, { title: string; en: string }> = {
   },
   apaar: {
     title: "APAAR ID",
-    en: "I agree that {school} may create or link my child's APAAR ID (Automated Permanent Academic Account Registry) and share the details the government asks for, only for that purpose.",
+    en: "As the parent or guardian of my child, who is a minor, I agree that {school} may create or link my child's APAAR ID (Automated Permanent Academic Account Registry) and share the details the government asks for, only for that purpose.",
   },
   "message-opt-in": {
     title: "Messages on WhatsApp and SMS",

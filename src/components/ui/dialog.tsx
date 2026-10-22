@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef } from "react";
 import { X } from "lucide-react";
 import { cx } from "./cx";
+import { useT } from "@/lib/i18n/client";
 
 /** Dialog on a computer, bottom sheet on a phone (design/ui-prototype/src/ui.jsx Sheet). */
 export const sheetCls = (wide?: boolean) => cx(
@@ -13,6 +14,7 @@ export const sheetCls = (wide?: boolean) => cx(
 );
 
 export function SheetHead({ titleId, title, sub, onClose }: { titleId: string; title: React.ReactNode; sub?: React.ReactNode; onClose: () => void }) {
+  const t = useT();
   return (
     <>
       <div className="md:hidden mx-auto mt-2.5 w-10 h-1.5 rounded-full bg-line" aria-hidden="true" />
@@ -21,7 +23,7 @@ export function SheetHead({ titleId, title, sub, onClose }: { titleId: string; t
           <h2 id={titleId} className="font-display font-semibold text-lg leading-tight">{title}</h2>
           {sub && <p className="text-sm text-ink3 mt-1">{sub}</p>}
         </div>
-        <button type="button" onClick={onClose} aria-label="Close" title="Close"
+        <button type="button" onClick={onClose} aria-label={t("Close")} title={t("Close")}
           className="inline-flex items-center justify-center rounded-xl text-ink2 hover:bg-sunken hover:text-ink transition shrink-0 size-9">
           <X size={19} aria-hidden="true" />
         </button>

@@ -41,6 +41,33 @@ and one for each other ready role: `subjectteacher`, `reception`, `transport` (T
 `boyswarden` (Hostel Warden), `store` (Store Keeper).
 Their password is `DEMO_PASSWORD` from your `.env`.
 
+## Backups
+
+What School OS expects from hosting, and what it does itself (08-platform-security.md §4):
+
+- **The database** is backed up by the hosting service: continuous backup with point-in-time restore
+  (any moment of the last 7 days), a nightly copy kept 30 days, a monthly copy kept 1 year, in a second
+  place in India. School OS does not do this itself. `scripts/backup.sh` makes an extra, encrypted nightly
+  copy with `pg_dump` and records it, so every school sees "Last backup" in Data Backup & Security.
+  It needs `BACKUP_DATABASE_URL`: a login that can read past row-level security (BYPASSRLS), because the
+  owner login cannot dump the school tables.
+- **Files** (photos, documents, receipts, report cards) are copied by the worker every hour
+  (`schedule:file-backup`) to `BACKUP_S3_BUCKET` (or `BACKUP_FILES_DIR` on a computer), each with its
+  SHA-256 checksum. `npm run backup:files` does it at once. Until one of them is set, file copies are off
+  and Data Backup & Security says so.
+- **Restore tests**: `npm run restore:test` makes a fresh dump (or takes `-- --dump FILE`), restores it into a
+  scratch database `<database>_restore_test` on the same server, checks rows per school and that every file a
+  record points to is in the file backup with the right checksum, writes a report to `restore-reports/`,
+  records the result (shown to every school) and drops the scratch database. It needs `pg_dump` and
+  `pg_restore` (`PG_BIN`) and `RESTORE_ADMIN_URL` (on a computer, the local `postgres` login is used).
+  Run it once a month, and after any change to hosting.
+- **Retention**: the worker's nightly `schedule:retention-check` lists records past the school's keeping
+  periods for the School Admin (Settings, Data Backup & Security, Privacy) and clears old one-time codes and
+  expired export files by itself.
+- **Upload checks**: every upload is checked by its content, not its name; programs, web pages, scripts and
+  Excel files with macros are refused, and photos lose their location data. A virus scanner (ClamAV's
+  `clamd`) is used when `CLAMAV_HOST` is set; until then uploads are not scanned for viruses.
+
 ## Checks
 
 ```bash

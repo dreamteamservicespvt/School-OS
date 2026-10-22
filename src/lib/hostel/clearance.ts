@@ -6,8 +6,8 @@
 // is switched on.
 import "server-only";
 
-import { registerClearanceCheck } from "../students/clearance";
-import { activeBedOf } from "./allocation";
+import { registerClearanceCheck, registerOnLeft } from "../students/clearance";
+import { activeBedOf, releaseOnLeaving } from "./allocation";
 import { BASE } from "./words";
 
 registerClearanceCheck(
@@ -19,3 +19,8 @@ registerClearanceCheck(
   },
   { moduleKey: "hostel-management" },
 );
+
+// A student who left with the hostel check waived: the bed is freed and the hostel fees after the last date stop.
+registerOnLeft("Hostel", async (tx, ctx, e) => {
+  await releaseOnLeaving(tx, ctx, e.studentId, e.lastDate, e.reason);
+});

@@ -10,13 +10,15 @@ import { schoolDateOf } from "./time";
 import { lockState } from "./marks";
 import { ensureAttendanceDefaults } from "./settings";
 import { parseMonth, studentCalendar, type CalendarData } from "./calendar-months";
+import { makeT } from "../i18n/server";
 
 type Data = CalendarData & { todayFinal: boolean; lockText: string; todayIso: string; threshold: number };
 
-function AttendanceSection({ data }: { data: Data; view: GuardianView }) {
+function AttendanceSection({ data, view }: { data: Data; view: GuardianView }) {
+  const t = makeT(view.lang);
   return (
-    <MonthCalendar view={data.view} statuses={data.statuses} min={data.bounds.min} max={data.bounds.max} threshold={data.threshold} todayIso={data.todayIso}
-      note={!data.todayFinal ? <p className="text-[13px] text-ink2">Today&apos;s attendance can still change until {data.lockText}.</p> : undefined} />
+    <MonthCalendar t={t} view={data.view} statuses={data.statuses} min={data.bounds.min} max={data.bounds.max} threshold={data.threshold} todayIso={data.todayIso}
+      note={!data.todayFinal ? <p className="text-[13px] text-ink2">{t("Today’s attendance can still change until {time}.", { time: data.lockText })}</p> : undefined} />
   );
 }
 

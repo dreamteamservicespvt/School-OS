@@ -7,7 +7,7 @@ import { qrSvg } from "@/lib/students/codes";
 import { fileLink } from "@/lib/files";
 import { abilities } from "@/lib/students/access";
 import { checkPass } from "@/lib/front-office/visitors";
-import { pickupStudent, pickupsOn, searchStudents } from "@/lib/front-office/pickup";
+import { pickupCodeLock, pickupLockWords, pickupStudent, pickupsOn, searchStudents } from "@/lib/front-office/pickup";
 import { clockAt, shortDay } from "@/lib/front-office/time";
 import { closedWords, hhmmOf, maskPhone, showPhone } from "@/lib/front-office/words";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -46,20 +46,22 @@ export default async function PickupPage({ searchParams }: { searchParams: Searc
   const keep = { ...period.keep, student: studentId };
 
   const data = await withSchool(ctx, async (tx) => {
-    const [results, info, list, pass, check, school] = await Promise.all([
+    const [results, info, list, pass, check, school, lock] = await Promise.all([
       q ? searchStudents(tx, ctx, q, 8, p.current) : Promise.resolve([]),
       studentId ? pickupStudent(tx, ctx, studentId, p.today) : Promise.resolve(null),
       (async () => { const m = momentWhere(range, p.tz); return pickupsOn(tx, m.gte, m.lt); })(),
       gpId ? tx.gatePass.findFirst({ where: { id: gpId, kind: "PICKUP", archivedAt: null } }) : Promise.resolve(null),
       "check" in sp ? checkPass(tx, one(sp.check), p.now) : Promise.resolve(null),
       tx.school.findUnique({ where: { id: ctx.schoolId }, select: { phone: true } }),
+      // Too many wrong pickup codes lock code checks for a while (gap list G04).
+      studentId && p.settings.pickupCodeCheck && canRelease ? pickupCodeLock(tx, studentId, ctx.userId, p.now) : Promise.resolve(null),
     ]);
     const passMore = pass ? await Promise.all([
       tx.student.findFirst({ where: { id: pass.studentId }, select: { fullName: true, photoFileId: true } }),
       pass.guardianId ? tx.guardian.findFirst({ where: { id: pass.guardianId }, select: { photoFileId: true } }) : null,
       pass.issuedById ? tx.userLogin.findUnique({ where: { id: pass.issuedById }, select: { displayName: true } }) : null,
     ]) : null;
-    return { results, info, list, pass, passMore, check, deskPhone: school?.phone ?? null };
+    return { results, info, list, pass, passMore, check, deskPhone: school?.phone ?? null, lock };
   });
 
   const info = data.info;
@@ -123,6 +125,7 @@ export default async function PickupPage({ searchParams }: { searchParams: Searc
                 )}
                 {canRelease ? (
                   <ReleaseForm key={info.student.id} student={{ id: info.student.id, first: info.student.first }} people={people} codeCheck={p.settings.pickupCodeCheck}
+                    codeLock={data.lock ? pickupLockWords(data.lock, info.student.first, p.tz) : null}
                     releasedBy={p.current.user.displayName} nowHHMM={hhmmOf(p.minute)} stopHref={here({ stop: "1" })}
                     photoBase={abilities(p.current).manage ? "/student-management/guardians/" : null} />
                 ) : (

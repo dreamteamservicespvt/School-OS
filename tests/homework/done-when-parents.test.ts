@@ -110,7 +110,8 @@ describe("Done when 9: the teacher assistant", () => {
       const src = readFileSync(join(root, file), "utf8");
       const at = src.indexOf(heading);
       expect(at, file).toBeGreaterThan(0);
-      expect(src.slice(at, at + 200), file).toMatch(/>Suggestion</);
+      // The label may be translated (gap list G39): plain text or the Words wrapper.
+      expect(src.slice(at, at + 200), file).toMatch(/>Suggestion<|<Words k="Suggestion"/);
     }
     expect(readFileSync(join(root, "submissions/sheets.tsx"), "utf8")).toMatch(/\{ai && \(!draft/);
   });

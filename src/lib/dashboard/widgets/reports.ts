@@ -60,12 +60,16 @@ const earlyWarnings: Widget<"attention"> = {
   },
 };
 
-/** Looking ahead (forecasts.ts): suggestions about what may happen next, most important first, for the leaders who have Forecasts or Student insights on. */
+/**
+ * Looking ahead (forecasts.ts): suggestions about what may happen next, most
+ * important first, for the leaders who have Forecasts or Student insights on,
+ * and for a class teacher about their own students.
+ */
 const lookingAhead: Widget<"attention"> = {
   id: "reports.looking-ahead",
   module: "reports-analytics",
   kind: "attention",
-  homes: ["leader"],
+  homes: ["leader", "class-teacher"],
   allowed: (v) => access(v).ai.forecasts || access(v).ai.insights,
   async load(c: DashContext) {
     const a = access(c.viewer);
@@ -106,9 +110,9 @@ function panelOf(ch: AChart): Panel {
       : [];
   const href = `${BASE}/analytics?area=${ch.key.split(".")[0]}`;
   if (ch.kind === "hbars" && (ch.unit ?? "%") === "%" && (ch.max ?? 100) <= 100) {
-    return { kind: "bars", title: ch.title, sub: ch.sub, icon: "Sparkles", rows: rows.slice(0, 12).map((r) => ({ key: r.k, label: r.k, value: r.v })), goal: ch.goal, lowBelow: ch.lowBelow, href, linkLabel: "Analytics", empty: ch.empty ?? "Nothing yet." };
+    return { kind: "bars", title: ch.title, sub: ch.sub, icon: "BarChart3", rows: rows.slice(0, 12).map((r) => ({ key: r.k, label: r.k, value: r.v })), goal: ch.goal, lowBelow: ch.lowBelow, href, linkLabel: "Analytics", empty: ch.empty ?? "Nothing yet." };
   }
-  return { kind: "list", title: ch.title, sub: ch.sub, icon: "Sparkles", rows: rows.slice(0, 8).map((r) => ({ id: r.k, title: r.k, sub: "", right: r.label })), href, linkLabel: "Analytics", empty: ch.empty ?? "Nothing yet." };
+  return { kind: "list", title: ch.title, sub: ch.sub, icon: "BarChart3", rows: rows.slice(0, 8).map((r) => ({ id: r.k, title: r.k, sub: "", right: r.label })), href, linkLabel: "Analytics", empty: ch.empty ?? "Nothing yet." };
 }
 
 /** Charts the person pinned from Analytics, under their numbers. */

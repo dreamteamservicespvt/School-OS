@@ -8,7 +8,7 @@ import type { Tx } from "../db";
 import type { DayRange } from "../periods";
 import { momentWhere } from "../periods";
 import { formatRupees } from "../format";
-import { classOfStudents } from "./dues";
+import { classInYearOf, classOfStudents } from "./dues";
 import { concessionTypeLabel, CONCESSION_TYPES, percentWord } from "./words";
 import { studentIdsForFilter } from "../students/find";
 
@@ -76,10 +76,10 @@ export async function concessionRows(tx: Tx, f: ConcessionFilter, take = 300) {
   ]);
   const heads = await tx.feeHead.findMany({ where: { id: { in: [...new Set(list.flatMap((c) => c.feeHeadIds))] } }, select: { id: true, name: true } });
   const headName = new Map(heads.map((h) => [h.id, h.name]));
-  const [who, kids, classes] = await Promise.all([
+  const [who, kids, classIn] = await Promise.all([
     people(tx, list.flatMap((c) => [c.requestedById, c.decidedById])),
     names(tx, list.map((c) => c.studentId)),
-    classOfStudents(tx, [...new Set(list.map((c) => c.studentId))]),
+    classInYearOf(tx, list),
   ]);
   const rows: ConcessionRow[] = list.map((c) => {
     const s = kids.get(c.studentId);
@@ -89,7 +89,7 @@ export async function concessionRows(tx: Tx, f: ConcessionFilter, take = 300) {
       studentId: c.studentId,
       name: s?.fullName ?? "Student",
       admissionNo: s?.admissionNo ?? "",
-      classLabel: classes.get(c.studentId)?.label ?? "",
+      classLabel: classIn(c.studentId, c.academicYearId)?.label ?? "",
       createdAt: c.createdAt,
       type: c.type,
       typeLabel: concessionTypeLabel(c.type),

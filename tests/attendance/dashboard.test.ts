@@ -60,4 +60,19 @@ describe("Attendance on the Dashboard", () => {
       expect(home.band.some((b) => b.id === "attendance.students-present" || b.id === "attendance.my-section-today")).toBe(false);
     }
   });
+
+  it("on a holiday the tiles say Holiday, never \"0 present, everyone not in yet\", and no card asks to take attendance (one school-day rule)", async () => {
+    const HOLIDAY = "2026-10-02"; // Gandhi Jayanti; an ordinary event that day does not open it.
+    await withSchool({ schoolId: f.school.id, userId: null }, (tx) => tx.calendarEntry.create({ data: { schoolId: f.school.id, academicYearId: f.year.id, type: "event", title: "Fire drill", startDate: d(HOLIDAY), endDate: d(HOLIDAY), attendanceOn: false } }));
+    const home = await buildHome(await viewer(f.principal.id), { now: at(HOLIDAY, "09:30") });
+    expect(home.band.find((b) => b.id === "attendance.students-present")).toMatchObject({ big: "Holiday", foot: "Gandhi Jayanti" });
+    expect(home.band.find((b) => b.id === "attendance.staff-present")).toMatchObject({ big: "Holiday", foot: "Gandhi Jayanti" });
+    expect(home.dayLine).toMatch(/Gandhi Jayanti · no school today/);
+    const teacher = await buildHome(await viewer(f.teacherB.id), { now: at(HOLIDAY, "09:30") });
+    expect(teacher.band.find((b) => b.id === "attendance.my-section-today")?.big).toBe("Holiday");
+    expect(teacher.attention.some((x) => x.id.startsWith("attendance.not-taken"))).toBe(false);
+    // A Sunday says why there is no school.
+    const sunday = await buildHome(await viewer(f.principal.id), { now: at("2026-10-04", "09:30") });
+    expect(sunday.band.find((b) => b.id === "attendance.staff-present")).toMatchObject({ big: "No school", foot: "Sunday, not a working day" });
+  });
 });

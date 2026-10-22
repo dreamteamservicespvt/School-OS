@@ -71,6 +71,9 @@ export const REFUND_STATUS_WORDS: Record<string, { label: string; tone: "success
 };
 
 export const CANCEL_REASONS = ["Wrong student", "Wrong amount", "Cheque bounced", "Duplicate", "Other"] as const;
+/** The words the accountant chose, shown wherever a cancel reason is shown; the stored value stays the short one ("Duplicate"). */
+const CANCEL_REASON_LABEL: Record<string, string> = { Duplicate: "Same payment entered twice" };
+export const cancelReasonLabel = (reason: string | null | undefined) => (reason ? CANCEL_REASON_LABEL[reason] ?? reason : "");
 export const REFUND_MODES = PAYMENT_MODES.filter((m) => ["CASH", "BANK_TRANSFER", "CHEQUE", "UPI"].includes(m.value));
 
 /** Counter permissions (06 §6): shown in Fee Settings. None go to Office Staff or Class Teacher by default. */
@@ -100,7 +103,7 @@ export const FEE_FEATURES = [
   { key: "fee-bank-accounts", label: "Fees into different bank accounts", about: "Each fee head goes to a chosen bank account; receipts and the Day Book show it." },
   { key: "fee-category-fees", label: "Category-wise fees", about: "Different fee amounts for different student categories." },
   { key: "fee-scholarships", label: "Scholarships", about: "Scholarship types, applied to a student's fees as a reduction." },
-  { key: "fee-forecast", label: "Collection forecast", about: "A suggested collection for the next 3 months from installments due and past payments." },
+  { key: "fee-forecast", label: "Collection forecast", about: "A suggested collection for the next 3 months from installments due and past payments. Shown while the AI assistant is on (Settings, Modules On/Off), to the roles chosen there." },
   { key: "fee-promises", label: "Promise to pay", about: "On a call, note the date (and amount) a family promises to pay. Automatic reminders to them pause until then; a broken promise puts them back at the top of Defaulters." },
 ] as const;
 export type FeeFeature = (typeof FEE_FEATURES)[number]["key"];

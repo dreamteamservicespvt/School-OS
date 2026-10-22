@@ -43,8 +43,11 @@ import { admissionYear, loadSettings as admissionSettings } from "../admission/s
 import { loginsWithRole } from "../front-office/people";
 import { notify } from "../notifications";
 import { formatDate, formatRupees, formatRupeesShort } from "../format";
+import { wordList } from "../academic/common";
 import { addDays, DAY_MS, todayIn } from "../staff/dates";
 import { BUILT_MODULES } from "../modules";
+import { readPreferences } from "../settings/profile-rules";
+import { aiRolesOf } from "../settings/switch-rules";
 
 export type ForecastArea = "attendance" | "marks" | "fees" | "students" | "admissions" | "staff" | "finance" | "academic" | "messages" | "activity";
 export const FORECAST_AREA_LABEL: Record<ForecastArea, string> = {
@@ -81,6 +84,8 @@ const EVERY_MS = 3 * 60 * 60 * 1000;
 const LEADER_ROLES = ["principal", "school-admin"];
 
 const pct = (n: number) => `${Math.round(n * 10) / 10}%`;
+/** An estimate in whole rupees: "about ₹9,92,347", never paise (TEACHING-20). */
+export const aboutRupees = (paise: bigint) => wholeRupees(paise);
 const month = (d: Date) => d.toISOString().slice(0, 7);
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
@@ -431,7 +436,7 @@ async function leavingForecasts(c: Ctx, enrolled: Enrolled[]): Promise<Forecast[
       score: 20 + score * 5, certainty: score >= LEAVING_ACT_NOW ? "medium" : "low",
       title: `${who.get(f.id) ?? "A student"} (${cls.get(sectionOf.get(f.id)!) ?? "class"}) may be thinking of leaving`,
       body: `${facts.length > 1 ? "Several signs together" : "One strong sign"}: ${facts.join("; ")}. Signs like these together often come before a family moves their child. A friendly talk with the family may help; you decide.`,
-      source: `${[...new Set(basis)].join(", ")} this year`,
+      source: `${wordList([...new Set(basis)])} this year`,
       href: `/student-management/students/${f.id}`, hrefLabel: "Open profile",
     };
   };
@@ -669,7 +674,8 @@ export async function computeForecasts(tx: Tx, ctx: SchoolContext, now = new Dat
 /**
  * Works the signals out again and stores them: new ones are added, changed ones
  * updated, and ones the numbers no longer support are cleared. The Principal
- * and School Admin are told once, in one notification, when new ones appear.
+ * and School Admin, when their role uses the AI assistant, are told once, in
+ * one notification, when new ones appear.
  * Only for schools with Forecasts or Student insights switched on (with the AI
  * assistant); at most every 3 hours unless forced.
  */
@@ -704,7 +710,10 @@ export async function refreshForecasts(tx: Tx, ctx: SchoolContext, now = new Dat
   const toTell = rankSignals(fresh.filter((f) => !decided.has(f.key)));
   if (toTell.length) {
     const people = new Set<string>();
-    for (const role of LEADER_ROLES) for (const id of await loginsWithRole(tx, ctx, role)) people.add(id);
+    // Only the leaders whose role the school chose for the AI assistant (Settings, Modules On/Off) are told.
+    const school = await tx.school.findUnique({ where: { id: ctx.schoolId }, select: { preferences: true } });
+    const aiRoles = new Set(aiRolesOf(readPreferences(school?.preferences)));
+    for (const role of LEADER_ROLES.filter((r) => aiRoles.has(r))) for (const id of await loginsWithRole(tx, ctx, role)) people.add(id);
     const urgent = toTell.filter((f) => f.strength === "ACT_NOW").length;
     // The example named in the notification is never about money or one person's changes.
     const example = toTell.find((f) => !["fees", "finance", "activity"].includes(f.area) && !f.key.startsWith(LEAVING_WITH_FEES));

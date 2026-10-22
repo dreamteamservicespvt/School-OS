@@ -9,7 +9,7 @@ import { formatDate, formatDateTime, formatRupees } from "../format";
 import { canSeeStudent, type FeeViewer } from "./access";
 import { studentCard } from "./dues";
 import { featureOn } from "./settings";
-import { percentWord } from "./words";
+import { cancelReasonLabel, percentWord } from "./words";
 
 const ZERO = BigInt(0);
 
@@ -80,7 +80,7 @@ export async function paymentView(tx: Tx, ctx: SchoolContext, viewer: FeeViewer,
       ? reversal ? `Original on ${formatDate(posted.date)} kept, reversal on ${formatDate(reversal.date)}` : `Entry on ${formatDate(posted.date)}`
       : p.broughtIn ? "Brought in, never in the Day Book" : "Not in the Day Book yet",
     cancel: p.status === "CANCELLED" ? {
-      reason: p.cancelReason ?? (p.rejectReason ? "Not verified" : "Cancelled"),
+      reason: p.cancelReason ? cancelReasonLabel(p.cancelReason) : p.rejectReason ? "Not verified" : "Cancelled",
       note: p.rejectReason ?? p.cancelNote,
       by: canceller?.displayName ?? "School office",
       when: p.cancelledAt ? formatDateTime(p.cancelledAt, tz) : "",

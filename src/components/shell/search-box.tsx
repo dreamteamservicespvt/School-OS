@@ -63,7 +63,7 @@ function Palette({ onClose, userId, pages, shortcuts, quick }: { onClose: () => 
   const router = useRouter();
   const [q, setQ] = useState("");
   const [sel, setSel] = useState(0);
-  const [found, setFound] = useState<{ q: string; students: Person[]; staff: Person[]; parents: Person[]; receipts: Person[]; problem: string | null }>({ q: "", students: [], staff: [], parents: [], receipts: [], problem: null });
+  const [found, setFound] = useState<{ q: string; collect: Person[]; students: Person[]; staff: Person[]; parents: Person[]; receipts: Person[]; problem: string | null }>({ q: "", collect: [], students: [], staff: [], parents: [], receipts: [], problem: null });
   const [lists] = useState(() => ({ recent: readList(storageKey(userId, "recent")), pinned: readList(storageKey(userId, "pinned")) }));
   const inp = useRef<HTMLInputElement>(null);
 
@@ -83,16 +83,16 @@ function Palette({ onClose, userId, pages, shortcuts, quick }: { onClose: () => 
       try {
         const res = await fetch(`/api/v1/search?q=${encodeURIComponent(typed)}`, { signal: ctrl.signal });
         const body = await res.json();
-        if (!res.ok) setFound({ q: typed, students: [], staff: [], parents: [], receipts: [], problem: body.problem ?? "Search did not work. Try again." });
-        else setFound({ q: typed, students: body.students ?? [], staff: body.staff ?? [], parents: body.parents ?? [], receipts: body.receipts ?? [], problem: null });
+        if (!res.ok) setFound({ q: typed, collect: [], students: [], staff: [], parents: [], receipts: [], problem: body.problem ?? "Search did not work. Try again." });
+        else setFound({ q: typed, collect: body.collect ?? [], students: body.students ?? [], staff: body.staff ?? [], parents: body.parents ?? [], receipts: body.receipts ?? [], problem: null });
       } catch (e) {
-        if ((e as Error).name !== "AbortError") setFound({ q: typed, students: [], staff: [], parents: [], receipts: [], problem: "Search needs the internet. Check the connection and try again." });
+        if ((e as Error).name !== "AbortError") setFound({ q: typed, collect: [], students: [], staff: [], parents: [], receipts: [], problem: "Search needs the internet. Check the connection and try again." });
       }
     }, 180);
     return () => { clearTimeout(t); ctrl.abort(); };
   }, [typed]);
   const loading = typed.length >= 2 && found.q !== typed;
-  const people = useMemo(() => (found.q === typed ? found : { students: [] as Person[], staff: [] as Person[], parents: [] as Person[], receipts: [] as Person[] }), [found, typed]);
+  const people = useMemo(() => (found.q === typed ? found : { collect: [] as Person[], students: [] as Person[], staff: [] as Person[], parents: [] as Person[], receipts: [] as Person[] }), [found, typed]);
   const problem = found.q === typed ? found.problem : null;
 
   const results = useMemo<Row[]>(() => {
@@ -104,11 +104,13 @@ function Palette({ onClose, userId, pages, shortcuts, quick }: { onClose: () => 
       shortcuts.filter((s) => !quick.some((x) => x.label === s.label)).forEach((s) => out.push({ sec: "Shortcuts", label: s.label, href: s.href, icon: I.CornerDownRight }));
       return out;
     }
+    // "fee Ravi": Collect Fee for each Ravi, first.
+    people.collect.forEach((s) => out.push({ sec: "Collect fee", label: s.name, sub: s.sub, href: s.href, icon: I.IndianRupee }));
     people.students.forEach((s) => out.push({ sec: "Students", label: s.name, sub: s.sub, href: s.href, avatar: s.name }));
     people.staff.forEach((s) => out.push({ sec: "Staff", label: s.name, sub: s.sub, href: s.href, avatar: s.name }));
     people.parents.forEach((s) => out.push({ sec: "Parents", label: s.name, sub: s.sub, href: s.href, avatar: s.name }));
     people.receipts.forEach((s) => out.push({ sec: "Receipts", label: s.name, sub: s.sub, href: s.href, icon: I.ReceiptText }));
-    quick.filter((x) => matches(x.label, typed)).forEach((x) => out.push({ sec: "Do this", label: x.label, sub: x.sub, href: x.href, icon: (I as unknown as Record<string, LucideIcon>)[x.icon] }));
+    quick.filter((x) => matches(x.label, typed)).forEach((x) => out.push({ sec: "Quick actions", label: x.label, sub: x.sub, href: x.href, icon: (I as unknown as Record<string, LucideIcon>)[x.icon] }));
     pages.filter((p) => matches(p.label, typed)).slice(0, 8).forEach((p) => out.push({ sec: "Pages", label: p.label, sub: p.hint ?? "Open", href: p.href, icon: I.FileText }));
     return out;
   }, [typed, people, pages, shortcuts, quick, lists]);

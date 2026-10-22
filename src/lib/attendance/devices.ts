@@ -14,8 +14,11 @@ import { AttendanceProblem, type AttendanceAccess } from "./access";
 import { dayInfo } from "./calendar";
 import { attendanceSettings } from "./settings";
 import { clockMinutes, instantAt, minutesOf, schoolDateOf } from "./time";
+import { isoDay } from "../staff/dates";
 import { shiftsOn, statusFromInTime } from "./staff";
 import { enrolmentOn } from "./student-leave";
+import { lockState } from "./marks";
+import { queueAfterSave, type AfterSaveTarget } from "./after-save";
 
 export const DEVICE_TYPES = [
   { value: "face", label: "Face recognition" },
@@ -192,8 +195,11 @@ export async function unmapUser(tx: Tx, ctx: SchoolContext, access: AttendanceAc
 export type PunchIn = { punchNo: string; userNo: string; time: string };
 export type PunchOut = { punchNo: string; result: "accepted" | "rejected" | "duplicate"; reason?: string };
 
-/** Marks attendance for one accepted punch. Returns the mark id. */
-async function markFromPunch(tx: Tx, ctx: SchoolContext, input: { staffId?: string | null; studentId?: string | null; at: Date; date: Date; method: string; timeZone: string }) {
+/**
+ * Marks attendance for one accepted punch. Returns the mark id, and for a
+ * student the section and day (A4 runs for them after the batch).
+ */
+async function markFromPunch(tx: Tx, ctx: SchoolContext, input: { staffId?: string | null; studentId?: string | null; at: Date; date: Date; method: string; timeZone: string; now: Date }): Promise<{ markId: string; sectionId: string | null } | null> {
   const settings = await attendanceSettings(tx, ctx);
   if (input.staffId) {
     const existing = await tx.attendanceMark.findFirst({ where: { staffId: input.staffId, date: input.date, periodNo: 0, archivedAt: null } });
@@ -203,31 +209,43 @@ async function markFromPunch(tx: Tx, ctx: SchoolContext, input: { staffId?: stri
       if (!existing.inTime || input.at < existing.inTime) {
         const rule = (await shiftsOn(tx, ctx, [input.staffId], input.date)).get(input.staffId)!;
         const auto = statusFromInTime(input.at, input.date, rule, settings.staffHalfDayAfter, input.timeZone);
-        Object.assign(data, { inTime: input.at, lateMinutes: auto.lateMinutes, ...(["present", "late", "half-day", "absent"].includes(existing.statusKey) ? { statusKey: auto.statusKey } : {}) });
+        // A mark a person made by hand, or a day already locked, keeps its status: a punch that
+        // arrives late only adds the in time (rule 17). Changing it is a correction.
+        const byHand = existing.method === "register" || Boolean(existing.markedById && !["qr", "mobile"].includes(existing.method));
+        const locked = lockState(settings, input.date, input.now, input.timeZone).locked;
+        const mayChange = !byHand && !locked && ["present", "late", "half-day", "absent"].includes(existing.statusKey);
+        Object.assign(data, { inTime: input.at, ...(mayChange ? { lateMinutes: auto.lateMinutes, statusKey: auto.statusKey } : {}) });
         if (existing.inTime && (!existing.outTime || existing.inTime > existing.outTime)) data.outTime = existing.inTime;
+        if (mayChange && auto.statusKey !== existing.statusKey) {
+          await writeAudit(tx, ctx, {
+            action: "device-punch-applied", recordType: "Attendance Mark", recordId: existing.id,
+            before: { status: existing.statusKey, inTime: existing.inTime?.toISOString() ?? null },
+            after: { status: auto.statusKey, inTime: input.at.toISOString(), lateMinutes: auto.lateMinutes, method: input.method },
+          });
+        }
       } else if (!existing.outTime || input.at > existing.outTime) data.outTime = input.at;
       if (Object.keys(data).length) await tx.attendanceMark.update({ where: { id: existing.id }, data });
-      return existing.id;
+      return { markId: existing.id, sectionId: null };
     }
     const rule = (await shiftsOn(tx, ctx, [input.staffId], input.date)).get(input.staffId)!;
     const auto = statusFromInTime(input.at, input.date, rule, settings.staffHalfDayAfter, input.timeZone);
     const year = await tx.academicYear.findFirst({ where: { schoolId: ctx.schoolId, startDate: { lte: input.date }, endDate: { gte: input.date }, archivedAt: null } });
     const mark = await tx.attendanceMark.create({ data: { schoolId: ctx.schoolId, academicYearId: year?.id ?? null, staffId: input.staffId, date: input.date, periodNo: 0, statusKey: auto.statusKey, lateMinutes: auto.lateMinutes, inTime: input.at, method: input.method, markedAt: new Date() } });
-    return mark.id;
+    return { markId: mark.id, sectionId: null };
   }
   const where = await enrolmentOn(tx, input.studentId!, input.date);
   if (!where) return null;
   const existing = await tx.attendanceMark.findFirst({ where: { studentId: input.studentId!, date: input.date, periodNo: 0, archivedAt: null } });
   if (existing) {
     if (!existing.outTime || input.at > existing.outTime) await tx.attendanceMark.update({ where: { id: existing.id }, data: existing.inTime ? { outTime: input.at } : { inTime: input.at } });
-    return existing.id;
+    return { markId: existing.id, sectionId: existing.sectionId ?? where.enrolment.sectionId };
   }
   const late = Math.floor((input.at.getTime() - instantAt(input.date, settings.studentStartTime, input.timeZone).getTime()) / 60000);
   const isLate = late > settings.studentLateAfterMin;
   const mark = await tx.attendanceMark.create({
     data: { schoolId: ctx.schoolId, academicYearId: where.year.id, studentId: input.studentId!, sectionId: where.enrolment.sectionId, date: input.date, periodNo: 0, statusKey: isLate ? "late" : "present", lateMinutes: isLate ? late : 0, inTime: input.at, method: input.method, markedAt: new Date() },
   });
-  return mark.id;
+  return { markId: mark.id, sectionId: where.enrolment.sectionId };
 }
 
 /**
@@ -241,6 +259,7 @@ export async function receivePunches(tx: Tx, ctx: SchoolContext, device: Attenda
   const known = await tx.devicePunch.findMany({ where: { deviceId: device.id, punchNo: { in: punches.map((p) => String(p.punchNo)) } }, select: { punchNo: true } });
   const seen = new Set(known.map((k) => k.punchNo));
   const maps = await tx.deviceUserMap.findMany({ where: { deviceId: device.id, archivedAt: null } });
+  const marked: AfterSaveTarget[] = [];
   for (const p of punches) {
     const punchNo = String(p.punchNo ?? "").trim().slice(0, 80);
     const userNo = String(p.userNo ?? "").trim().slice(0, 40);
@@ -259,8 +278,11 @@ export async function receivePunches(tx: Tx, ctx: SchoolContext, device: Attenda
     let markId: string | null = null;
     let reason = verdict;
     if (!verdict) {
-      markId = await markFromPunch(tx, ctx, { staffId: map!.staffId, studentId: map!.studentId, at, date: schoolDateOf(at, timeZone), method: device.deviceType, timeZone });
+      const date = schoolDateOf(at, timeZone);
+      const m = await markFromPunch(tx, ctx, { staffId: map!.staffId, studentId: map!.studentId, at, date, method: device.deviceType, timeZone, now });
+      markId = m?.markId ?? null;
       if (!markId) reason = "not-studying";
+      if (m?.sectionId) marked.push({ sectionId: m.sectionId, date });
     }
     await tx.devicePunch.create({
       data: { schoolId: ctx.schoolId, deviceId: device.id, punchNo, deviceUserNo: userNo, punchedAt: at, receivedAt: now, accepted: !reason, rejectReason: reason, staffId: map?.staffId ?? null, studentId: map?.studentId ?? null, markId },
@@ -269,6 +291,11 @@ export async function receivePunches(tx: Tx, ctx: SchoolContext, device: Attenda
   }
   const lastPunch = punches.map((p) => new Date(p.time)).filter((d) => !Number.isNaN(d.getTime())).sort((a, b) => b.getTime() - a.getTime())[0];
   await tx.attendanceDevice.update({ where: { id: device.id }, data: { lastSyncAt: now, ...(lastPunch ? { lastPunchAt: lastPunch > (device.lastPunchAt ?? new Date(0)) ? lastPunch : device.lastPunchAt } : {}) } });
+  // A4 for each class and day the punches completed (late messages, flags), once per batch.
+  // A punch that reaches the school on a later day moves the flags on; no message goes for a past day.
+  const today = schoolDateOf(now, timeZone);
+  await queueAfterSave(tx, ctx, settings, marked.filter((t) => isoDay(t.date) === isoDay(today)), now);
+  await queueAfterSave(tx, ctx, settings, marked.filter((t) => isoDay(t.date) !== isoDay(today)), now, { messages: false });
   return out;
 }
 
@@ -280,7 +307,9 @@ async function checkPunch(tx: Tx, ctx: SchoolContext, device: AttendanceDevice, 
   const mins = clockMinutes(at, timeZone);
   if (mins < minutesOf(windowStart) || mins > minutesOf(windowEnd)) return "outside-window";
   const date = schoolDateOf(at, timeZone);
-  const info = await dayInfo(tx, ctx, date, device.campusId);
+  // A student's school day is their class's (a School Calendar entry may open a day for some classes only).
+  const classId = map.studentId ? (await enrolmentOn(tx, map.studentId, date))?.enrolment.classId ?? null : null;
+  const info = await dayInfo(tx, ctx, date, device.campusId, { classId });
   if (!info.on) return "holiday";
   const recent = await tx.devicePunch.findFirst({
     where: { accepted: true, punchedAt: { gte: new Date(at.getTime() - repeatMinutes * 60000), lte: new Date(at.getTime() + repeatMinutes * 60000) }, ...(map.staffId ? { staffId: map.staffId } : { studentId: map.studentId }) },
@@ -298,6 +327,7 @@ export async function reprocessRejected(tx: Tx, ctx: SchoolContext, access: Atte
   const rows = await tx.devicePunch.findMany({ where: { deviceId, accepted: false, rejectReason: { in: ["unknown-user", "not-allowed"] } }, orderBy: { punchedAt: "asc" }, take: 2000 });
   const maps = await tx.deviceUserMap.findMany({ where: { deviceId, archivedAt: null } });
   let accepted = 0;
+  const marked: AfterSaveTarget[] = [];
   for (const p of rows) {
     const map = maps.find((m) => m.deviceUserNo === p.deviceUserNo) ?? null;
     const reason = await checkPunch(tx, ctx, device, map, p.punchedAt, now, timeZone, settings.repeatPunchMinutes, settings.punchWindowStart, settings.punchWindowEnd);
@@ -305,10 +335,17 @@ export async function reprocessRejected(tx: Tx, ctx: SchoolContext, access: Atte
       if (reason !== p.rejectReason) await tx.devicePunch.update({ where: { id: p.id }, data: { rejectReason: reason } });
       continue;
     }
-    const markId = await markFromPunch(tx, ctx, { staffId: map!.staffId, studentId: map!.studentId, at: p.punchedAt, date: schoolDateOf(p.punchedAt, timeZone), method: device.deviceType, timeZone });
+    const date = schoolDateOf(p.punchedAt, timeZone);
+    const m = await markFromPunch(tx, ctx, { staffId: map!.staffId, studentId: map!.studentId, at: p.punchedAt, date, method: device.deviceType, timeZone, now });
+    const markId = m?.markId ?? null;
     await tx.devicePunch.update({ where: { id: p.id }, data: { accepted: Boolean(markId), rejectReason: markId ? null : "not-studying", staffId: map!.staffId, studentId: map!.studentId, markId } });
     if (markId) accepted++;
+    if (m?.sectionId) marked.push({ sectionId: m.sectionId, date });
   }
+  // Punches let through on a later day: the flags follow; no message goes for a past day.
+  const today = schoolDateOf(now, timeZone);
+  await queueAfterSave(tx, ctx, settings, marked.filter((t) => isoDay(t.date) === isoDay(today)), now);
+  await queueAfterSave(tx, ctx, settings, marked.filter((t) => isoDay(t.date) !== isoDay(today)), now, { messages: false });
   await writeAudit(tx, ctx, { action: "device-punches-reprocessed", recordType: "Attendance Device", recordId: deviceId, after: { checked: rows.length, accepted } });
   return { checked: rows.length, accepted };
 }

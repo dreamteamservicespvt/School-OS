@@ -36,7 +36,8 @@ async function upload(buf: Buffer, name: string, kind?: string) {
 }
 
 async function drainJobs() {
-  for (let i = 0; i < 10; i++) if ((await runDueJobs(50)) === 0) break;
+  // This school's jobs only: other test files' jobs share the queue.
+  for (let i = 0; i < 10; i++) if ((await runDueJobs(50, { schoolId: ctx.schoolId })) === 0) break;
   await withSchool(ctx, (tx) => settleImports(tx));
 }
 

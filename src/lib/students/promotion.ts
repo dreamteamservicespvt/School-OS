@@ -12,8 +12,6 @@ import { currentPolicy } from "./settings";
 import { promotionFacts, runEnrolled, yearActivity, type PromotionFacts } from "./hooks";
 import { applyStatus, StudentProblem } from "./students";
 import { STUDYING } from "./labels";
-// Modules that give promotion facts and year activity (./hooks.ts).
-import "../attendance/student-hooks";
 
 export type PreviewRow = {
   studentId: string;
@@ -24,6 +22,7 @@ export type PreviewRow = {
   status: string;
   facts: PromotionFacts;
   suggested: PromotionDecisionKind;
+  /** Every reason for the suggestion in plain words, e.g. "did not pass, ₹4,500 fees due". */
   why: string;
   /** Set when the student is already in the target year (promoted before). */
   alreadyIn: string | null;
@@ -31,6 +30,40 @@ export type PreviewRow = {
 };
 
 export type Preview = Awaited<ReturnType<typeof promotionPreview>>;
+
+export type PromotionRules = { passRequired: boolean; minAttendancePct: number | null; feeDuesAllowed: boolean };
+
+/**
+ * The suggested decision for one student from the promotion policy (03 §6)
+ * and the facts Examination & Results, Attendance and Fee Management give,
+ * with every reason: what stops promotion first, then what is only a warning
+ * or not known yet. Only a suggestion; the person decides each row.
+ * `feeAmounts` false leaves the amount out for people who may not see fees.
+ */
+export function suggestion(f: PromotionFacts, rules: PromotionRules, o: { leaving: boolean; finalClass: boolean; feeAmounts: boolean }): { suggested: PromotionDecisionKind; why: string } {
+  if (o.leaving) return { suggested: "LEAVING", why: "leaving request in progress" };
+  const stop: string[] = [];
+  const note: string[] = [];
+  // The final class: students finish school (Leaving) unless the result or
+  // attendance rule holds them back to repeat it. Fee dues never stop a
+  // student finishing; the leaving clearance (A14) collects them.
+  if (o.finalClass) note.push("final class");
+  if (f.result === "fail") (rules.passRequired ? stop : note).push(rules.passRequired ? "did not pass" : "did not pass, but a pass is not required");
+  else if (f.result === "compartment") (rules.passRequired ? stop : note).push(rules.passRequired ? "compartment result, not a pass yet" : "compartment result");
+  else if (f.result === "pass") note.push("passed");
+  else note.push("final result not published");
+  if (rules.minAttendancePct !== null) {
+    if (f.attendancePct === undefined || f.attendancePct === null) note.push("no attendance marked");
+    else if (f.attendancePct < rules.minAttendancePct) stop.push(`attendance ${f.attendancePct}% is below ${rules.minAttendancePct}%`);
+  }
+  const due = f.feeDuePaise ?? BigInt(0);
+  if (due > BigInt(0)) {
+    const fees = o.feeAmounts ? `${formatRupees(due)} fees due` : "fees due";
+    if (rules.feeDuesAllowed || o.finalClass) note.push(`${fees} (a warning only)`);
+    else stop.push(fees);
+  }
+  return { suggested: stop.length ? "DETAIN" : o.finalClass ? "LEAVING" : "PROMOTE", why: [...stop, ...note].join(", ") };
+}
 
 /** Next class in order on the same campus, or null for the final class. */
 export async function nextClass(tx: Tx, classId: string) {
@@ -44,7 +77,8 @@ export async function nextYear(tx: Tx, yearId: string) {
   return tx.academicYear.findFirst({ where: { campusId: y.campusId, archivedAt: null, startDate: { gt: y.startDate } }, orderBy: { startDate: "asc" } });
 }
 
-export async function promotionPreview(tx: Tx, ctx: SchoolContext, q: { fromSectionId: string; toYearId?: string | null; toClassId?: string | null }) {
+/** `feeAmounts`: false for people who may not see fees; the policy still applies, the amount is left out of the reasons. */
+export async function promotionPreview(tx: Tx, ctx: SchoolContext, q: { fromSectionId: string; toYearId?: string | null; toClassId?: string | null }, opts: { feeAmounts?: boolean } = {}) {
   const from = await tx.section.findFirst({ where: { id: q.fromSectionId, archivedAt: null }, include: { schoolClass: true, academicYear: true } });
   if (!from) throw new StudentProblem("Choose the class and section to promote.", "fromSectionId");
   if (from.academicYear.status === "CLOSED") throw new StudentProblem(`Locked: ${from.academicYear.name} is closed. Promotion is done before the year is closed.`, "fromSectionId");
@@ -63,7 +97,7 @@ export async function promotionPreview(tx: Tx, ctx: SchoolContext, q: { fromSect
   const finalClass = !defaultNext && !q.toClassId;
 
   const policy = await currentPolicy(tx, from.academicYearId);
-  const rules = { passRequired: policy?.passRequired ?? true, minAttendancePct: policy?.minAttendancePct ?? null, feeDuesAllowed: policy?.feeDuesAllowed ?? true };
+  const rules: PromotionRules = { passRequired: policy?.passRequired ?? true, minAttendancePct: policy?.minAttendancePct ?? null, feeDuesAllowed: policy?.feeDuesAllowed ?? true };
 
   const enrolments = await tx.enrolment.findMany({
     where: { sectionId: from.id, academicYearId: from.academicYearId, archivedAt: null, student: { archivedAt: null, status: { in: [...STUDYING] } } },
@@ -71,7 +105,7 @@ export async function promotionPreview(tx: Tx, ctx: SchoolContext, q: { fromSect
     orderBy: [{ rollNo: "asc" }],
   });
   const ids = enrolments.map((e) => e.studentId);
-  const { facts, hasProviders } = await promotionFacts(tx, ctx, ids, from.academicYearId);
+  const facts = await promotionFacts(tx, ctx, ids, from.academicYearId);
   const inTarget = await tx.enrolment.findMany({ where: { studentId: { in: ids }, academicYearId: toYear.id, archivedAt: null }, include: { student: false } });
   const targetSections = toClass ? await tx.section.findMany({ where: { classId: toClass.id, academicYearId: toYear.id, archivedAt: null }, orderBy: { name: "asc" } }) : [];
   const sameClassTarget = await tx.section.findMany({ where: { classId: from.classId, academicYearId: toYear.id, archivedAt: null }, orderBy: { name: "asc" } });
@@ -84,19 +118,10 @@ export async function promotionPreview(tx: Tx, ctx: SchoolContext, q: { fromSect
     const already = inTarget.find((t) => t.studentId === e.studentId);
     const alreadySec = already ? inTargetSections.find((s) => s.id === already.sectionId) : null;
     const leave = leaving.find((l) => l.studentId === e.studentId);
-    let suggested: PromotionDecisionKind = "PROMOTE";
-    const why: string[] = [];
-    if (leave) { suggested = "LEAVING"; why.push("leaving request in progress"); }
-    else if (finalClass) { suggested = "LEAVING"; why.push("final class"); }
-    else {
-      if (rules.passRequired && f.result === "fail") { suggested = "DETAIN"; why.push("did not pass"); }
-      if (rules.minAttendancePct !== null && f.attendancePct !== undefined && f.attendancePct !== null && f.attendancePct < rules.minAttendancePct) { suggested = "DETAIN"; why.push(`attendance ${f.attendancePct}% is below ${rules.minAttendancePct}%`); }
-      if (!rules.feeDuesAllowed && f.feeDuePaise && f.feeDuePaise > BigInt(0)) { suggested = "DETAIN"; why.push(`${formatRupees(f.feeDuePaise)} fees due`); }
-      if (suggested === "PROMOTE") why.push(f.result === "pass" ? "passed" : "meets the promotion policy");
-    }
+    const { suggested, why } = suggestion(f, rules, { leaving: Boolean(leave), finalClass, feeAmounts: opts.feeAmounts ?? true });
     return {
       studentId: e.studentId, enrolmentId: e.id, fullName: e.student.fullName, admissionNo: e.student.admissionNo, rollNo: e.rollNo, status: e.student.status,
-      facts: f, suggested, why: why.join(", "),
+      facts: f, suggested, why,
       alreadyIn: already ? (alreadySec ? `${alreadySec.schoolClass.name} ${alreadySec.name}` : "the new year") : null,
       leavingRequestId: leave?.id ?? null,
     };
@@ -113,7 +138,8 @@ export async function promotionPreview(tx: Tx, ctx: SchoolContext, q: { fromSect
     defaultSectionName: from.name,
     rules,
     policyVersion: policy?.version ?? null,
-    hasFacts: hasProviders,
+    /** Students with a published final result: none means the results are not published yet (workflow 11). */
+    resultsPublished: rows.filter((r) => r.facts.result != null || r.facts.resultText != null).length,
     rows,
     usedTargetIds: allTargetIds,
   };

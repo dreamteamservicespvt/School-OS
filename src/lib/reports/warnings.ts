@@ -29,7 +29,7 @@ import { writeAudit } from "../audit";
 import { notify } from "../notifications";
 import { remindedSince, sendReminder } from "../reminders";
 import { currentYear, currentYears } from "../academic/years";
-import { ownSectionIds } from "../people";
+import { classTeacherSectionIds, ownSectionIds } from "../people";
 import { attendanceSettings } from "../attendance/settings";
 import { attendanceSummary } from "../attendance/summary";
 import { flagStatusOf, OPEN_ATTENDANCE_FLAG } from "../attendance/flags";
@@ -543,6 +543,32 @@ export async function dashboardWarnings(tx: Tx, who: ReportViewer, a: ReportAcce
 
 /* ---------- AI signals (optional: Settings, Modules On/Off) ---------- */
 
+/**
+ * The stored Looking ahead items this person sees (TEACHING-15), most
+ * important first: leaders see every one (fee and finance ones only with the
+ * school's money, unusual activity only with Student insights on); a class
+ * teacher sees only those about students in the sections they are class
+ * teacher of, never a fee one.
+ */
+export async function visibleForecasts(tx: Tx, who: ReportViewer, a: ReportAccess) {
+  if (!a.ai.forecasts && !a.ai.insights) return [];
+  // Ranked most important first (forecastsFor); unusual activity only with Student insights on.
+  const rows = await forecastsFor(tx, { fees: a.warnings.fees, finance: a.finance !== null, forecasts: a.ai.forecasts, insights: a.ai.insights });
+  if (a.ai.forecastScope === "all") return rows;
+  const year = await currentYear(tx, who.ctx, who.campusId);
+  const sections = year ? await classTeacherSectionIds(tx, who.ctx, year.id) : [];
+  if (!year || !sections.length) return [];
+  const mine = new Set((await tx.enrolment.findMany({ where: { sectionId: { in: sections }, academicYearId: year.id, archivedAt: null, status: "STUDYING" }, select: { studentId: true } })).map((e) => e.studentId));
+  return rows.filter((r) => r.area !== "fees" && r.area !== "finance" && r.studentId !== null && mine.has(r.studentId));
+}
+
+/**
+ * What a suggestion's key may contain: "dropout:<id>:2026-10" and
+ * "unusual-att:<id>:2026-10-18" here, and Looking ahead's keys (forecasts.ts),
+ * among them "leaving-f:<id>:attendance+fees+marks:2026-10" with a "+".
+ */
+export const SIGNAL_KEY_RE = /^[\w:.+-]{1,200}$/;
+
 export type AiSignal = {
   key: string; kind: "dropout" | "prediction" | "unusual"; title: string; source: string; body: string; studentId?: string; flagId?: string;
   /** Looking ahead: the area, how soon to act, and where to look. */
@@ -561,7 +587,7 @@ export type AiSignal = {
  */
 export async function aiSignals(tx: Tx, who: ReportViewer, a: ReportAccess): Promise<AiSignal[]> {
   if (!a.ai.insights && !a.ai.forecasts) return [];
-  const rows = await forecastsFor(tx, { fees: a.warnings.fees, finance: a.finance !== null, forecasts: a.ai.forecasts, insights: a.ai.insights });
+  const rows = await visibleForecasts(tx, who, a);
   const out: AiSignal[] = rows.map((f) => ({
     key: f.key, kind: f.area === "activity" ? "unusual" : f.area === "students" ? "dropout" : "prediction",
     area: f.area as ForecastArea, strength: f.strength as "WATCH" | "ACT_NOW", title: f.title, source: f.source, body: f.body,

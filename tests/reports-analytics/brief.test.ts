@@ -14,6 +14,7 @@ import type { ReportViewer } from "@/lib/reports/types";
 import { briefAllowed, briefKind, briefNote, briefTime, composeBrief, sendBriefs } from "@/lib/reports/brief";
 import { channelsForType } from "@/lib/notification-kinds";
 import { feature } from "../fees/fixture";
+import { saveAssistant } from "@/lib/settings/switches";
 import { at, d, makeAttendanceSchool, type Fixture } from "../attendance/fixture";
 
 let f: Fixture;
@@ -148,5 +149,17 @@ describe("Sending the brief", () => {
     await feature(sys, "ai-principal-summary", false);
     expect(await withSchool(sys, (tx) => sendBriefs(tx, sys, at("2026-10-20", "07:45")))).toMatchObject({ sent: 0, skipped: "off" });
     await feature(sys, "ai-principal-summary", true);
+  });
+
+  it("goes only to the leaders whose role the school chose for the AI assistant", async () => {
+    const admin = { schoolId: f.school.id, userId: f.admin.id };
+    await withSchool(admin, (tx) => saveAssistant(tx, admin, { on: true, roles: ["school-admin"] }));
+    expect(briefAllowed(await viewer(f.principal.id))).toBe(false);
+    expect(briefAllowed(await viewer(f.admin.id))).toBe(true);
+    expect((await home(f.principal.id, at("2026-10-21", "08:00"))).panels.first.some((p) => p.kind === "brief")).toBe(false);
+    expect(await withSchool(sys, (tx) => sendBriefs(tx, sys, at("2026-10-21", "07:45")))).toMatchObject({ sent: 1 });
+    const today = await withSchool(sys, (tx) => tx.managementBrief.findMany({ where: { forDate: d("2026-10-21") }, select: { userLoginId: true } }));
+    expect(today.map((b) => b.userLoginId)).toEqual([f.admin.id]);
+    await withSchool(admin, (tx) => saveAssistant(tx, admin, { on: true, roles: ["school-admin", "principal"] }));
   });
 });

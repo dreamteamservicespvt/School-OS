@@ -11,8 +11,7 @@ import { writeAudit } from "../audit";
 import { formatDate } from "../format";
 import { EventsProblem, EventsWarning } from "./problem";
 import { CLOSING, ENTRY_TYPES, addDaysIso, clock, dayOf, dmy, isEntryType, isoOf, timeSpan, type EntryType } from "./words";
-import { eventsSettings } from "./settings";
-import { weekendOf } from "./words";
+import { isSchoolDay, offDayWords } from "../calendar/school-days";
 
 export type CalItem = {
   id: string;
@@ -208,16 +207,12 @@ export async function holidayList(tx: Tx, ctx: SchoolContext, yearId: string, ca
   });
 }
 
-/** A working day for a PTM or an event check: not a weekend, not a holiday. Returns why not, or null. */
-export async function notWorkingDay(tx: Tx, ctx: SchoolContext, iso: string, campusId?: string | null): Promise<string | null> {
-  const s = await eventsSettings(tx, ctx);
-  const w = weekendOf(iso, s);
-  const hol = await tx.calendarEntry.findFirst({
-    where: { schoolId: ctx.schoolId, archivedAt: null, type: { in: [...CLOSING] }, attendanceOn: false, startDate: { lte: dayOf(iso) }, endDate: { gte: dayOf(iso) }, ...(campusId ? { OR: [{ campusId: null }, { campusId }] } : {}) },
-  });
-  if (hol) return `${dmy(iso)} is a holiday (${hol.title}).`;
-  if (w) return `${dmy(iso)} is a ${w === "Sunday" ? "Sunday" : w.toLowerCase()}, not a working day.`;
-  return null;
+/** A school day for a PTM or a daily activity (the school's one rule, src/lib/calendar/school-days.ts). Returns why not, or null. */
+export async function notWorkingDay(tx: Tx, ctx: SchoolContext, iso: string, campusId?: string | null, opts: { classId?: string | null } = {}): Promise<string | null> {
+  const info = await isSchoolDay(tx, ctx, dayOf(iso), { campusId, classId: opts.classId ?? null });
+  if (info.on) return null;
+  if (info.reason === "holiday") return `${dmy(iso)} is a holiday (${info.title}).`;
+  return `${dmy(iso)} is ${offDayWords(info)}, not a working day.`;
 }
 
 /** The entry for an event or PTM: made, moved or archived with it. */

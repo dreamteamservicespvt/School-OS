@@ -3,7 +3,6 @@ import Link from "next/link";
 import { withSchool } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { periodsForStaffOnDate } from "@/lib/academic/timetable";
-import { examDayOn } from "@/lib/academic/calendar";
 import { DAY_NAMES, addDays, isoDay, parseDay, plural, time12, weekday } from "@/lib/academic/common";
 import { EmptyState } from "@/components/empty-state";
 import { Alert } from "@/components/ui/alert";
@@ -22,11 +21,7 @@ export default async function MyTimeTablePage({ searchParams }: { searchParams: 
   const date = parseDay(one(raw.date)) ?? page.today;
   const staffId = page.scope.staffId;
 
-  const data = staffId ? await withSchool(page.current.ctx, async (tx) => {
-    const day = await periodsForStaffOnDate(tx, page.current.ctx, staffId, date);
-    const exam = await examDayOn(tx, page.current.ctx, date);
-    return { ...day, exam };
-  }) : null;
+  const data = staffId ? await withSchool(page.current.ctx, (tx) => periodsForStaffOnDate(tx, page.current.ctx, staffId, date)) : null;
 
   const isToday = isoDay(date) === isoDay(page.today);
   const link = (d: Date) => `${PATH}?date=${isoDay(d)}`;
@@ -52,7 +47,17 @@ export default async function MyTimeTablePage({ searchParams }: { searchParams: 
         <Alert tone="info" title={data.off.kind === "holiday" ? `Holiday: ${data.off.title}` : `${data.off.title}: no school`}>No periods on this day.</Alert>
       ) : (
         <>
-          {data.exam && <Alert tone="warning" className="mb-3" title="Exam day">{data.exam.title}. The datesheet replaces periods for the classes sitting the exam.</Alert>}
+          {data.exam && (
+            <Alert tone="warning" className="mb-3" title={`Exam day: ${data.exam.title}`}>
+              {data.exam.classNames.length ? `The datesheet replaces your periods with ${data.exam.classNames.join(", ")}.` : "The datesheet replaces the periods of the classes sitting a paper."}
+              {data.duties.length > 0 && (
+                <ul className="mt-2 space-y-1">
+                  {data.duties.map((p, i) => <li key={i}>Invigilate {p.className} {p.subjectName}, {time12(p.startTime)} to {time12(p.endTime)}{p.room ? ` · ${p.room}` : ""}</li>)}
+                </ul>
+              )}
+            </Alert>
+          )}
+          {data.halfDayEnd && <Alert tone="info" className="mb-3" title={`Half day: school ends at ${time12(data.halfDayEnd)}`}>Periods after that are not held today.</Alert>}
           {teaching.length === 0 ? (
             <EmptyState title="No periods on this day">Nothing in the published Time Table for you. If that looks wrong, ask the office.</EmptyState>
           ) : (

@@ -29,7 +29,7 @@ export async function GET(request: Request) {
       const filters = filterWords(f, names);
       const out = await buildExport(format, [
         { label: "When", value: (r) => formatDateTime(r.at, tz) },
-        { label: "Person", value: (r) => (r.userLoginId ? names.get(r.userLoginId) ?? r.userLoginId : r.actorNote ?? "School OS") },
+        { label: "Person", value: (r) => (r.userLoginId ? `${names.get(r.userLoginId) ?? r.userLoginId}${r.actorNote ? ` · ${r.actorNote}` : ""}` : r.actorNote ?? "School OS") },
         { label: "Action", value: (r) => actionWords(r.action) },
         { label: "Record type", value: (r) => r.recordType },
         { label: "Record ID", value: (r) => r.recordId },

@@ -131,7 +131,7 @@ Used by: the Principal, Vice Principal or Academic Head and the timetable in-cha
 - **Print** one class or many classes, and teacher Time Tables (browser print, P9). Legend: teaching, lunch, fixed or assembly.
 - **Calendar feed (optional):** a read-only link a teacher can add to Google or Outlook calendar.
 - **Lab booking (optional):** book a lab for a period; blocked if already booked.
-- Adjusts automatically for events, exams and holidays: on a holiday no periods show; on exam days the Datesheet replaces periods for the classes sitting the exam (automation A10 and A11).
+- Adjusts automatically for events, exams and holidays: on a holiday no periods show; on exam days the Datesheet replaces periods for the classes sitting the exam (automation A10 and A11). A teacher's day shows the papers they invigilate in place of the periods of the classes sitting them.
 
 **Form fields: Edit period**
 
@@ -337,7 +337,7 @@ The **Academic Settings** page holds:
 
 - **Academic years:** open and close years (start and end date; one active year per campus). Closed years become read-only except for authorised corrections. "Start new year" copies the structure without overwriting the old one. **Remove year** (decided 9 October 2026): a wrongly created year (for example the wrong dates or a duplicate) can be removed, with its copied classes, sections and terms, while nothing has been recorded in it yet (no attendance, fees or marks). After that it can only be closed.
 - **Terms or semesters** inside a year (yearly, two terms, semesters or the school's own). Default comes from the board chosen in Settings, School Profile.
-- **School timings and working days:** start and end time, which days are working days (for example Monday to Saturday), and half days (inferred: half days).
+- **School timings and working days:** start and end time, which days are working days (for example Monday to Saturday), and half days (inferred: half days). The working days are part of the school's one rule for a school day (04-data-model.md rule 18): a day that is not a working day of the campus has no attendance, no periods and no leave counted. On a half day the periods that start after the early end are not held.
 - **Period master:** periods, breaks and lunch, with start and end times for each day of the week.
 - **Teacher workload limits:** maximum periods per day and per week.
 - **Limit on consecutive periods** for a teacher.

@@ -47,7 +47,10 @@ export async function preferencesAction(_: FormState, fd: FormData): Promise<For
 export async function assistantAction(_: FormState, fd: FormData): Promise<FormState> {
   const on = fd.get("on") === "on";
   const roles = fd.getAll("aiRoles").map(String);
-  const r = await runSettings(PAGE, "edit", (tx, current) => saveAssistant(tx, current.ctx, { on, roles }));
+  // Empty: DREAM TEAM's daily limit. Not sent (the field hidden while off): kept as it was.
+  const rawLimit = fd.get("aiDailyLimit");
+  const dailyLimit = rawLimit === null ? undefined : String(rawLimit).trim() === "" ? null : Number(String(rawLimit).trim());
+  const r = await runSettings(PAGE, "edit", (tx, current) => saveAssistant(tx, current.ctx, { on, roles, dailyLimit }));
   if (r.ok) revalidatePath("/", "layout");
   return asFormState(r, { ...formValues(fd), aiRoles: roles.join(",") }, on ? "AI assistant saved. Only the chosen roles see it." : "AI assistant is off. Every AI feature is off with it.");
 }

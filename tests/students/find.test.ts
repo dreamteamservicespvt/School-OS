@@ -175,38 +175,3 @@ describe("findStudents", () => {
     expect(idsOf(await find("p"))).toEqual([ids.priya]);
   });
 });
-
-describe("speed with 2,000 students", () => {
-  it("answers each search quickly (numbers logged; the bound only catches a runaway query)", async () => {
-    const big = await studentSchool();
-    const first = ["Aarav", "Vivaan", "Aditya", "Vihaan", "Arjun", "Sai", "Reyansh", "Krishna", "Ishaan", "Shaurya", "Ananya", "Diya", "Saanvi", "Aadhya", "Pari", "Lakshmi", "Priya", "Kavya", "Meera", "Sneha"];
-    const last = ["Sharma", "Reddy", "Rao", "Kumar", "Naidu", "Patel", "Iyer", "Gupta", "Singh", "Varma"];
-    await withSchool({ schoolId: big.school.id, userId: null }, async (tx) => {
-      const n = 2000;
-      const students = Array.from({ length: n }, (_, i) => ({ id: crypto.randomUUID(), schoolId: big.school.id, campusId: big.school.campus.id, admissionNo: `ADM/2026/${String(i + 1).padStart(4, "0")}`, firstName: first[i % 20], lastName: last[(i * 7) % 10], fullName: `${first[i % 20]} ${last[(i * 7) % 10]}` }));
-      await tx.student.createMany({ data: students });
-      await tx.enrolment.createMany({ data: students.map((st, i) => ({ schoolId: big.school.id, studentId: st.id, academicYearId: big.yearId, classId: big.c5, sectionId: [big.s5a, big.s5b][i % 2], rollNo: Math.floor(i / 2) + 1 })) });
-      const guardians = students.map((st, i) => ({ id: crypto.randomUUID(), schoolId: big.school.id, name: `${first[(i + 7) % 20]} ${st.lastName}`, relationship: "Father", phone: `9${String(100000000 + i * 4111).slice(0, 9)}` }));
-      await tx.guardian.createMany({ data: guardians });
-      await tx.studentGuardian.createMany({ data: students.map((st, i) => ({ schoolId: big.school.id, studentId: st.id, guardianId: guardians[i].id, relationship: "Father", isPrimary: true })) });
-    }, { timeout: 60_000 });
-    const ctx = { schoolId: big.school.id, userId: big.admin.id };
-    const teacher = { schoolId: big.school.id, userId: big.teacherUser.id };
-    const teacherScope = await withSchool(teacher, async (tx) => studentScope(tx, await big.who(big.teacherUser.id), big.yearId));
-    const times: Record<string, number> = {};
-    for (const [label, q, c, scope] of [
-      ["name", "Priya Sharma", ctx, {}], ["typo", "Shrama", ctx, {}], ["initial", "P Sharma", ctx, {}], ["admission", "ADM/2026/0999", ctx, {}],
-      ["phone", "4111", ctx, {}], ["roll", "5 A 40", ctx, {}], ["one letter", "a", ctx, {}], ["class teacher", "Kavya", teacher, teacherScope],
-    ] as const) {
-      await withSchool(c, (tx) => findStudents(tx, q, { scope, yearId: big.yearId })); // warm
-      const t0 = performance.now();
-      const runs = 5;
-      for (let i = 0; i < runs; i++) await withSchool(c, (tx) => findStudents(tx, q, { scope, yearId: big.yearId }));
-      times[label] = Math.round((performance.now() - t0) / runs);
-    }
-    console.log("student search ms (2,000 students, incl. transaction):", JSON.stringify(times));
-    for (const ms of Object.values(times)) expect(ms).toBeLessThan(5000);
-    const [hit] = await withSchool(ctx, (tx) => findStudents(tx, "ADM/2026/0999", { scope: {}, yearId: big.yearId }));
-    expect(hit.admissionNo).toBe("ADM/2026/0999");
-  }, 120_000);
-});

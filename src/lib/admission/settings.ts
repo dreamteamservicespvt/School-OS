@@ -157,9 +157,9 @@ export async function loadSettings(tx: Tx, ctx: SchoolContext): Promise<Settings
   // First use: made with the defaults. Two first page loads at once must not
   // fail on each other, so a row someone else just made is kept as it is.
   await tx.$executeRaw`
-    INSERT INTO admission_setting (id, school_id, stages, enquiry_statuses, sources, loss_reasons, updated_at)
+    INSERT INTO admission_setting (id, school_id, stages, enquiry_statuses, sources, loss_reasons, created_at, updated_at)
     VALUES (${randomUUID()}::uuid, ${ctx.schoolId}::uuid, ${JSON.stringify(DEFAULT_STAGES)}::jsonb, ${JSON.stringify(DEFAULT_STATUSES)}::jsonb,
-            ${JSON.stringify(DEFAULT_SOURCES)}::jsonb, ${JSON.stringify(DEFAULT_LOSS_REASONS)}::jsonb, now())
+            ${JSON.stringify(DEFAULT_SOURCES)}::jsonb, ${JSON.stringify(DEFAULT_LOSS_REASONS)}::jsonb, now() AT TIME ZONE 'UTC', now() AT TIME ZONE 'UTC')
     ON CONFLICT (school_id) DO NOTHING`;
   return shape(await tx.admissionSetting.findUniqueOrThrow({ where: { schoolId: ctx.schoolId } }));
 }

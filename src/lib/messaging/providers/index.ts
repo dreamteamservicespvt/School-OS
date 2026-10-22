@@ -16,4 +16,7 @@ export function providerFor(setup: ChannelSetup, secrets: Record<string, string>
   return sandboxProvider;
 }
 
+/** Test mode: this channel's messages go to the Sandbox, so nothing leaves School OS. */
+export const inTestMode = (setup: ChannelSetup) => providerFor(setup, {}).key === sandboxProvider.key;
+
 export type { Outgoing, Provider, SendResult } from "./types";

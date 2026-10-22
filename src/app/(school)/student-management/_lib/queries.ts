@@ -4,13 +4,14 @@ import "server-only";
 
 import type { Prisma } from "@prisma/client";
 import type { Tx } from "@/lib/db";
-import type { ListParams } from "@/lib/list";
+import { orderByFor, type ListParams } from "@/lib/list";
 import { studentScope, type Who } from "@/lib/students/access";
 import { STUDENT_STATUSES, STUDYING, type StudentStatusKey } from "@/lib/students/labels";
 import { fileLink } from "@/lib/files";
 import { ownSectionIds } from "@/lib/people";
 import type { ResolvedSettings } from "@/lib/students/settings";
-import { studentsWithDues } from "@/lib/students/hooks";
+import { listFacts, studentsWithDues, type ResultKind } from "@/lib/students/hooks";
+import { classShort } from "@/lib/students/show";
 import { studentIdsMatching } from "@/lib/students/find";
 
 export type SectionOption = { value: string; label: string; classId: string; className: string; sectionName: string; seats: number; filled: number };
@@ -63,8 +64,8 @@ export async function studentListWhere(tx: Tx, who: Who, params: ListParams, yea
     and.push({ id: { notIn: complete.map((c) => c.student_id) } });
   }
   if ((f.fee === "dues" || f.fee === "overdue") && yearId) {
-    // Fee Management says which students owe fees; without it the filter is not offered.
-    const owing = await studentsWithDues(tx, who.ctx, yearId, f.fee);
+    // Fee Management says which students owe fees, within what this person may see; people who may not see fees get no fee filter.
+    const owing = await studentsWithDues(tx, who, yearId, f.fee);
     if (owing) and.push({ id: { in: owing } });
   }
   if (f.ids) {
@@ -127,4 +128,65 @@ export async function classTiles(tx: Tx, who: Who, yearId: string | null) {
       const secs = rows.filter((r) => r.classId === c.id).map((r) => ({ id: r.sectionId, name: sections.get(r.sectionId)?.sectionName ?? "", count: r._count })).sort((a, b) => a.name.localeCompare(b.name));
       return { id: c.id, name: c.name, total: secs.reduce((n, s) => n + s.count, 0), sections: secs };
     });
+}
+
+export type ListRow = ListStudent & {
+  sectionLabel: string;
+  photo: string | null;
+  /** This year's attendance %, for people who may see attendance. */
+  att: number | null;
+  /** Fees fallen due and not paid (Fees by class's rule); null when nothing has fallen due or the person may not see fees. */
+  due: bigint | null;
+  overdue: boolean;
+  /** The year's published final result, for people who see that class's results. */
+  result: ResultKind | null;
+  resultText: string | null;
+};
+
+/**
+ * The Student List (03 §2): the students matching the filters, in class,
+ * section and roll order (or by the chosen column), up to `shown`, with the
+ * attendance, result and fee facts this person may see. Fast for a school of
+ * 2,000: the facts are read once for the students shown, never one by one.
+ */
+export async function loadStudentList(tx: Tx, who: Who, o: { params: ListParams; yearId: string | null; yearStart: Date | null; settings: ResolvedSettings; shown: number; seeParents: boolean }) {
+  const { params, yearId, shown } = o;
+  const where = await studentListWhere(tx, who, params, yearId, o.yearStart, o.settings);
+  const orderBy = orderByFor(params, { name: { fullName: params.dir }, admissionNo: { admissionNo: params.dir }, dateOfBirth: { dateOfBirth: params.dir } }, [{ fullName: "asc" }]);
+  const [total, tiles] = await Promise.all([tx.student.count({ where }), classTiles(tx, who, yearId)]);
+  let students: ListStudent[];
+  if (params.sort) {
+    students = await tx.student.findMany({ where, include: studentListInclude(yearId), orderBy: orderBy as object, take: shown });
+  } else {
+    // Class, section and roll order, as on the class register (design: students.jsx).
+    const keys = await tx.student.findMany({ where, select: { id: true, fullName: true, enrolments: { where: { archivedAt: null, ...(yearId ? { academicYearId: yearId } : {}) }, take: 1, select: { classId: true, sectionId: true, rollNo: true } } } });
+    const classOrder = new Map(tiles.map((t, i) => [t.id, i]));
+    const secNames = await sectionNames(tx, keys.flatMap((k) => k.enrolments.map((e) => e.sectionId)));
+    const rank = (k: (typeof keys)[number]) => {
+      const e = k.enrolments[0];
+      return [e ? classOrder.get(e.classId) ?? 999 : 1000, e ? secNames.get(e.sectionId)?.sectionName ?? "" : "", e?.rollNo ?? 99999] as const;
+    };
+    keys.sort((a, b) => {
+      const x = rank(a), y = rank(b);
+      return x[0] - y[0] || x[1].localeCompare(y[1]) || x[2] - y[2] || a.fullName.localeCompare(b.fullName);
+    });
+    const ids = keys.slice(0, shown).map((k) => k.id);
+    const found = await tx.student.findMany({ where: { id: { in: ids } }, include: studentListInclude(yearId) });
+    const byId = new Map(found.map((x) => [x.id, x]));
+    students = ids.map((id) => byId.get(id)!).filter(Boolean);
+  }
+  const names = await sectionNames(tx, students.flatMap((s) => s.enrolments.map((e) => e.sectionId)));
+  const facts = await listFacts(tx, who, students.map((s) => s.id), yearId);
+  const rows: ListRow[] = students.map((s) => {
+    const f = facts.facts.get(s.id);
+    const e = s.enrolments[0];
+    return {
+      ...s, guardians: o.seeParents ? s.guardians : [],
+      sectionLabel: e ? classShort(names.get(e.sectionId)?.className ?? "", names.get(e.sectionId)?.sectionName) : "",
+      photo: photoSrc(s.photoFileId, who.ctx.schoolId),
+      att: f?.attendancePct ?? null, due: f?.feeDuePaise ?? null, overdue: Boolean(f?.feeOverdue),
+      result: f?.result ?? null, resultText: f?.resultText ?? null,
+    };
+  });
+  return { total, rows, tiles, shows: facts.shows };
 }

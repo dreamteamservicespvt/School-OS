@@ -15,6 +15,7 @@ import { logActivity, maskMobile, SYSTEM_ACTOR } from "./activity";
 import { notifyTeam } from "./notify";
 import { codesByWhatsapp, deliver } from "./outbox";
 import { inviteState } from "./schools";
+import { logOneTimeCode } from "../dev-codes";
 
 export const INVITE_CODE_TTL_MS = 10 * 60 * 1000;
 export const INVITE_CODE_TRIES = 5;
@@ -58,6 +59,7 @@ export async function sendSchoolInviteCode(token: string, ip: string | null, now
     ? { channel: "whatsapp", to: look.invite.phone, purpose: "code", text, safeText: safe, templateParams: [code], buttonParam: code }
     : { channel: "sms", to: look.invite.phone, purpose: "code", text, safeText: safe, templateParams: [code] }]);
   if (sent.every((s) => s.status === "FAILED")) return { ok: false as const, message: "The code could not be sent just now. Try again in a minute." };
+  logOneTimeCode({ to: look.invite.phone, purpose: "school invite", code, carriedBy: sent.every((s) => s.status === "TEST") ? "none" : "real" });
   return { ok: true as const, sentTo: maskMobile(look.invite.phone), by: sent[0]?.channel === "whatsapp" ? "WhatsApp" : "SMS", test: sent.every((s) => s.status === "TEST") };
 }
 

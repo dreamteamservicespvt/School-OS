@@ -273,6 +273,7 @@ describe("Strong evidence only", () => {
     const aarav = leaving.find((x) => x.studentId === f.studentsA[0].id)!;
     expect(aarav.body).toMatch(/attendance fell three months in a row \(August 100%, September 86\.4%, October 63\.6%\)/);
     expect(aarav.body).toMatch(/there is an open marks flag/);
+    expect(aarav.source).toBe("attendance by month and open Early Warning flags this year");
     expect(aarav.strength).toBe("WATCH");
     // Diya: a low mark and fees due: not enough. Ishaan: falling, nothing else: not enough.
     expect(leaving.some((x) => x.studentId === f.studentsA[1].id || x.studentId === f.studentsA[2].id)).toBe(false);

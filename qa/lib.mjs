@@ -41,14 +41,33 @@ export async function newPage(viewport = VIEWPORTS.laptop1280, opts = {}) {
   return page;
 }
 
-/** Signs in with a username (or phone/email) through the real sign-in screen. */
+/**
+ * Signs in with a username (or phone/email) through the real sign-in screen.
+ * When two-step login asks for a code, it is read from the server log
+ * (QA_SERVER_LOG; the server writes "[dev] one-time code ..." lines).
+ */
 export async function signIn(page, login, password = PASSWORD) {
   await page.goto(`${BASE}/sign-in`);
   await page.getByLabel(/username|mobile|login/i).first().fill(login);
   await page.getByLabel(/password/i).first().fill(password);
   await Promise.all([page.waitForLoadState("networkidle"), page.getByRole("button", { name: "Sign in", exact: true }).click()]);
   await page.waitForLoadState("networkidle");
+  if (new URL(page.url()).pathname.startsWith("/sign-in/code")) {
+    const code = lastDevCode();
+    if (code) {
+      await page.getByLabel("6-digit code").fill(code);
+      await Promise.all([page.waitForLoadState("networkidle"), page.getByRole("button", { name: "Verify and sign in" }).click()]);
+      await page.waitForLoadState("networkidle");
+    }
+  }
   return page;
+}
+
+/** The latest one-time code the server wrote to its log on this computer, e.g. "[dev] one-time code for xxxxxx3210 (sign-in): 123456". */
+export function lastDevCode(logFile = process.env.QA_SERVER_LOG) {
+  if (!logFile || !existsSync(logFile)) return null;
+  const line = readFileSync(logFile, "utf8").split(/\r?\n/).reverse().find((l) => l.includes("[dev] one-time code"));
+  return line?.match(/: (\d{4,6})\s*$/)?.[1] ?? null;
 }
 
 export async function asUser(login, viewport) {

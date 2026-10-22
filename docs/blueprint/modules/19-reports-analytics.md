@@ -72,7 +72,7 @@ Used by: the Principal and management (analytics, early warnings), the Accountan
   - **Syllabus**: the date a section would finish a subject at the pace taught so far, against the last planned date or the end of the year.
   - **Message credits**: the day credits run out at the use of the last 30 days, with the messages already scheduled. **Guardians who cannot be reached**: every message to them failed in the last 60 days.
   - **Unusual activity** (with Student insights on): attendance changes and fee changes (cancelled payments, removed or adjusted dues, refunds, concessions and counter discounts) by one person in two weeks, against that person's own usual over the 8 weeks before, with the usual number shown. One closed as not a concern stays quiet until the number doubles.
-- A class teacher sees only their students; the Principal sees all.
+- A class teacher sees only their students; the Principal sees all. Of the AI signals, a class teacher sees the predictions ("Looking ahead") about the students of the sections they are class teacher of, never the fee or cash ones.
 - The same signals appear on the Dashboard (Needs Attention) and on the student's profile. The Dashboard card says what it counts, for example "12 students need a closer look: 5 attendance, 4 marks, 3 in two areas" (students with an Act now flag, once each, never fee defaulters), and opens that list.
 
 **Actions**

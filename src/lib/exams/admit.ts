@@ -8,6 +8,7 @@ import "server-only";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { renderDocument, type DocumentData } from "../documents";
+import { currentDesign } from "../documents/designs";
 import { formatDate } from "../format";
 import { ExamRuleError } from "./common";
 import { examDetail, type EntryView } from "./datesheet";
@@ -55,6 +56,12 @@ export async function renderAdmitCards(tx: Tx, ctx: SchoolContext, input: { exam
   const year = await tx.academicYear.findFirstOrThrow({ where: { id: detail.exam.academicYearId } });
   const guardians = await tx.studentGuardian.findMany({ where: { studentId: { in: chosen.map((s) => s.studentId) }, archivedAt: null }, include: { guardian: { select: { name: true } } } });
   const campus = await tx.student.findMany({ where: { id: { in: chosen.map((s) => s.studentId) } }, select: { id: true, campusId: true } });
+  // 08 Admit Cards: signature lines for the student, the class teacher and the school's chosen
+  // signatory. The signatories chosen in Document Designs print with their names; with none chosen,
+  // a line for the Principal.
+  const design = await currentDesign(tx, "admit-card");
+  const signatories = design.options.signatoryIds.length ? await tx.signatory.count({ where: { id: { in: design.options.signatoryIds }, archivedAt: null } }) : 0;
+  const signLines = ["Student", "Class teacher", ...(signatories ? [] : ["Principal"])];
   const records: DocumentData[] = chosen.map((s) => {
     const mine = guardians.filter((g) => g.studentId === s.studentId);
     return {
@@ -66,7 +73,7 @@ export async function renderAdmitCards(tx: Tx, ctx: SchoolContext, input: { exam
       rows: rowsFor(detail.entries, s, subjects),
       photoFileId: s.photoFileId,
       campusId: campus.find((c) => c.id === s.studentId)?.campusId ?? null,
-      signLines: ["Student", "Class teacher"],
+      signLines,
     };
   });
   const doc = await renderDocument(tx, ctx, "admit-card", records);

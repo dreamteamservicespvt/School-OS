@@ -29,6 +29,7 @@ import { toSheet } from "../_lib/pay-sheet";
 import { BASE, feeGuard, feePeriod, one, qs, type SearchParams } from "../_lib/page";
 import { PeriodFilter } from "@/components/list/period-filter";
 import { OldSoftwareBanner, OldSoftwareEmpty, allBeforeGoLive } from "@/components/money/go-live";
+import { aiAllowed } from "@/lib/settings/switch-rules";
 
 export const metadata = { title: "Fee Dashboard" };
 
@@ -77,7 +78,8 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
       tx.payment.findMany({ where: { status: "WAITING" }, orderBy: { paidAt: "asc" }, select: { id: true, amountPaise: true } }),
       recentPayments(tx, p.viewer, { ...base, partial: tab === "partial" }, take, (page - 1) * take),
       Promise.all([recentPayments(tx, p.viewer, { ...base, partial: false }, 0), recentPayments(tx, p.viewer, { ...base, partial: true }, 0)]),
-      p.features.has("fee-forecast") ? forecast(tx, today, { promises: promisesOn }) : Promise.resolve(null),
+      // A forecast is a suggestion: shown only with the AI assistant on, to the roles chosen for it (00-global.md §2.1 rule 8).
+      p.features.has("fee-forecast") && aiAllowed(p.current) ? forecast(tx, today, { promises: promisesOn }) : Promise.resolve(null),
       promisesOn ? promiseSummary(tx, today, p.viewer.yearId) : Promise.resolve(null),
     ]);
     const upiToday = (await modeBreakdown(tx, today, today)).find((m) => m.mode === "UPI")?.count ?? 0;
@@ -136,7 +138,7 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
       <Stack>
         <Band items={[
           { label: "Collected today", big: formatRupees(tiles.today.amount), foot: `${tiles.today.count} ${tiles.today.count === 1 ? "payment" : "payments"} · ${data.upiToday} by UPI`, href: `${HREF}#recent` },
-          { label: "Collected this year", big: formatRupeesShort(tiles.year.paid), foot: `of ${formatRupeesShort(tiles.year.due)} due so far · ${Math.round(tiles.year.percent)}%`, href: `${HREF}#by-class` },
+          { label: "Collected this year", big: formatRupeesShort(tiles.year.paid), foot: tiles.year.due > BigInt(0) ? `of ${formatRupeesShort(tiles.year.due)} due so far · ${Math.round(tiles.year.percent)}%` : "Nothing is due yet this year", href: `${HREF}#by-class` },
           { label: "Pending", big: formatRupeesShort(tiles.pending), foot: tiles.nextDue ? `Not late yet · next due ${formatDate(tiles.nextDue)}` : "Nothing falls due in the next 30 days", href: p.may("reports") ? `${BASE}/reports?r=outstanding` : undefined },
           { label: "Overdue", big: formatRupeesShort(tiles.overdue), foot: `${tiles.overdueStudents} ${tiles.overdueStudents === 1 ? "student" : "students"} · ${tiles.over30} over 30 days`, href: p.may("defaulters") ? `${BASE}/defaulters` : undefined },
         ]} />
@@ -157,7 +159,7 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
             <CardHeader title="Monthly collection" description={`Collected against due, ${p.year?.name ?? "this year"} (₹ lakh)`} icon={ChartColumn} />
             <div className="px-5 pb-1 flex items-baseline gap-3 flex-wrap">
               <p className="font-display text-[28px] font-semibold tnum">{formatRupeesShort(collectedSoFar)}</p>
-              <p className="text-[13px] text-ink3">of {formatRupeesShort(dueSoFar)} due so far · <span className="text-ok font-semibold">{pct(collectedSoFar, dueSoFar)}%</span></p>
+              <p className="text-[13px] text-ink3">{dueSoFar > BigInt(0) ? <>of {formatRupeesShort(dueSoFar)} due so far · <span className="text-ok font-semibold">{pct(collectedSoFar, dueSoFar)}%</span></> : "Nothing is due yet this year"}</p>
             </div>
             <div className="px-3 pb-2">
               {trend.length ? <Bars data={trend.map((m) => ({ k: m.label, v: Math.round(lakh(m.collected) * 100) / 100, v2: Math.round(lakh(m.due) * 100) / 100, tip: `${m.label}: ${formatRupees(m.collected)} collected of ${formatRupees(m.due)} due` }))}

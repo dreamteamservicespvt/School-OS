@@ -11,7 +11,7 @@ import { entryAllowed, findEntry } from "@/lib/reports/catalogue";
 import { togglePin } from "@/lib/reports/pins";
 import { prepareReport, ReportProblem } from "@/lib/reports/run";
 import { analyticsAreas, areaOfChart } from "@/lib/reports/analytics";
-import { decideAiSignal, DECISION_LABEL, flagArea, mayReview, remindFlag, reviewFlag, saveDropRule, WarningProblem, type Decision } from "@/lib/reports/warnings";
+import { decideAiSignal, DECISION_LABEL, flagArea, mayReview, remindFlag, reviewFlag, saveDropRule, SIGNAL_KEY_RE, WarningProblem, type Decision } from "@/lib/reports/warnings";
 import { archiveCustom, cleanSpec, CustomProblem, saveCustom, saveSchedule, sendSchedule, setScheduleStatus } from "@/lib/reports/custom";
 import { redirect } from "next/navigation";
 import { formatDateTime } from "@/lib/format";
@@ -79,7 +79,7 @@ export async function dropRuleAction(_: S, fd: FormData): Promise<S> {
 }
 
 export async function aiDecisionAction(key: string, decision: "FLAGGED" | "DISMISSED"): Promise<string | null> {
-  if (!/^[\w:.-]{1,200}$/.test(key) || !["FLAGGED", "DISMISSED"].includes(decision)) return "That suggestion was not found.";
+  if (typeof key !== "string" || !SIGNAL_KEY_RE.test(key) || !["FLAGGED", "DISMISSED"].includes(decision)) return "That suggestion was not found.";
   return repQuick("view", async (w) => {
     if (!w.a.ai.insights && !w.a.ai.forecasts) throw new WarningProblem("AI signals are off for this school.");
     return decideAiSignal(w.tx, w.current, w.a, key, decision);

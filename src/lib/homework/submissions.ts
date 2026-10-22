@@ -16,6 +16,7 @@ import { requireStaff, requireWork, type HomeworkScope } from "./scope";
 import { homeworkSettings, lateAfter } from "./settings";
 import { gradeFor, isPastDue, plural, scoreProblem } from "./words";
 import { tellParentsPending } from "./notify-parents";
+import { aiConfirmedNote } from "../ai/audit";
 
 async function homeworkFor(tx: Tx, s: HomeworkScope, homeworkId: string) {
   const hw = await tx.homework.findFirst({ where: { id: homeworkId, archivedAt: null } });
@@ -54,7 +55,7 @@ export async function gradeSubmission(tx: Tx, s: HomeworkScope, submissionId: st
   await writeAudit(tx, s.ctx, {
     action: "graded", recordType: "Submission", recordId: sub.id, before,
     after: { homework: hw.title, student: student?.fullName ?? "", status: "GRADED", result: input.result, score, outOf: hw.maxMarks, grade, feedback: input.feedback.trim() || null, handInAgain: input.allowResubmit },
-    actorNote: input.fromSuggestion ? "Feedback drafted by the teacher assistant, checked by the teacher" : null,
+    actorNote: input.fromSuggestion ? await aiConfirmedNote(tx, s.ctx) : null,
   });
   if (student?.userLoginId) {
     await notify(tx, s.ctx, { to: student.userLoginId, type: "homework-checked", text: input.allowResubmit ? `${hw.title}: your teacher asks you to hand in again.` : `${hw.title} is checked.`, link: "/homework-learning?tab=checked", groupKey: "homework-checked", mergedText: (n) => `${n} homework checked` });

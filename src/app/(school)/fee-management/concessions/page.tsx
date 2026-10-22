@@ -7,6 +7,7 @@ import { fileLink } from "@/lib/files";
 import { formatDate, formatRupees } from "@/lib/format";
 import { canSeeStudent } from "@/lib/fees/access";
 import { concessionRows, refundRows, scholarshipTypes, type ConcessionRow, type RefundRow } from "@/lib/fees/concession-list";
+import { concessionHeadChoices } from "@/lib/fees/concessions";
 import { studentCard } from "@/lib/fees/dues";
 import { findStudents } from "@/lib/fees/find";
 import { refundable } from "@/lib/fees/refunds";
@@ -131,11 +132,14 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
     // New concession or refund: the student first, then the form.
     let pick = null;
     let chosen = null;
+    // New concession: the fee heads the student still has something to pay on this year, Tuition first chosen.
+    let choices: Awaited<ReturnType<typeof concessionHeadChoices>> | null = null;
     const payments: { value: string; label: string; max: string; maxRupees: string; mode: string }[] = [];
     if (doing === "new" || doing === "refund") {
       if (UUID.test(student) && (await canSeeStudent(tx, p.viewer, student))) {
         const card = await studentCard(tx, ctx, student);
         if (card) chosen = { id: student, name: card.name, classLabel: card.classSection ?? "" };
+        if (card && doing === "new") choices = await concessionHeadChoices(tx, student);
         if (chosen && doing === "refund") {
           const pays = await tx.payment.findMany({ where: { studentId: student, status: "POSTED", broughtIn: false, cancelApprovalId: null }, orderBy: { paidAt: "desc" }, take: 40 });
           const receipts = await tx.receipt.findMany({ where: { paymentId: { in: pays.map((x) => x.id) } }, select: { paymentId: true, number: true } });
@@ -151,7 +155,7 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
     }
     const accounts = mark ? await tx.bankAccount.findMany({ where: { archivedAt: null }, orderBy: [{ kind: "asc" }, { name: "asc" }], select: { id: true, name: true, kind: true, accountLast4: true } }) : [];
     const scholarshipNames = doing === "new" ? (await tx.concession.groupBy({ by: ["scholarshipType"], where: { type: "SCHOLARSHIP", scholarshipType: { not: null } } })).map((r) => r.scholarshipType!) : [];
-    return { cons, refs, schol, rules, ruleUse, heads, counts, opened, decide, pick, chosen, payments, accounts, scholarshipNames };
+    return { cons, refs, schol, rules, ruleUse, heads, counts, opened, decide, pick, chosen, choices, payments, accounts, scholarshipNames };
   });
 
   const [applied, waitingC, waitingR, refunded, toPay, scholStudents, scholCount, conCount, refCount] = data.counts;
@@ -425,7 +429,7 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
         </UrlSheet>
       )}
       {doing === "new" && chosen && (
-        <ConcessionSheet closeHref={close} student={chosen} heads={headOptions} scholarships={data.scholarshipNames} limit={limit} startType={tab === "scholarships" ? "SCHOLARSHIP" : "DISCOUNT"} />
+        <ConcessionSheet closeHref={close} student={chosen} heads={(data.choices?.heads ?? data.heads).map((h) => ({ value: h.id, label: h.name }))} startHead={data.choices?.startId ?? null} scholarships={data.scholarshipNames} limit={limit} startType={tab === "scholarships" ? "SCHOLARSHIP" : "DISCOUNT"} />
       )}
       {doing === "refund" && chosen && (
         <RefundSheet closeHref={close} student={chosen} payments={data.payments} modes={REFUND_MODES.map((m) => ({ value: m.value, label: m.label }))} />

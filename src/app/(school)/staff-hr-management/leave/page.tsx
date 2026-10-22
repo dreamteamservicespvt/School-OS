@@ -6,8 +6,8 @@ import { formatDate } from "@/lib/format";
 import { approvalsFor } from "@/lib/approvals";
 import { staffPage, BASE } from "@/lib/staff/page";
 import { balancesFor, calendarLabel, daysText, leaveYearFor } from "@/lib/staff/leave";
-import { addDays, eachDay, isoDay, isoWeekday, monthEnd, monthLabel, monthStart } from "@/lib/staff/dates";
-import { holidaySet } from "@/lib/staff/leave";
+import { addDays, eachDay, isoDay, monthEnd, monthLabel, monthStart } from "@/lib/staff/dates";
+import { offDayMap } from "@/lib/staff/leave";
 import { StaffHead } from "../_components/head";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge, Pill, type BadgeTone } from "@/components/ui/badge";
@@ -313,7 +313,7 @@ export default async function StaffLeavePage({ searchParams }: Props) {
       const deptIds = dept && departments.some((d) => d.id === dept) ? [dept] : hr ? null : viewer.headOf;
       const staff = await tx.staff.findMany({ where: { archivedAt: null, ...(deptIds ? { departmentId: { in: deptIds } } : {}) }, select: { id: true, fullName: true, departmentId: true, campusId: true } });
       const leaves = await tx.leaveRequest.findMany({ where: { staffId: { in: staff.map((s) => s.id) }, status: { in: ["APPROVED", "WAITING"] }, archivedAt: null, fromDate: { lte: to }, toDate: { gte: from } }, orderBy: { fromDate: "asc" } });
-      const holidays = await holidaySet(tx, current.ctx, from, to, base.me?.campusId ?? null);
+      const holidays = await offDayMap(tx, current.ctx, from, to, base.me?.campusId ?? null);
       return { departments, staff, leaves, holidays };
     });
     const prev = isoDay(addDays(from, -1)).slice(0, 7);
@@ -325,8 +325,8 @@ export default async function StaffLeavePage({ searchParams }: Props) {
       const s = data.staff.find((x) => x.id === l.staffId);
       return calendarLabel({ typeName: t?.name ?? "Leave", sensitive: rule?.sensitive ?? false, viewerIsHr: viewer.restricted, viewerIsStaff: l.staffId === viewer.staffId, viewerIsApprover: Boolean(s?.departmentId && viewer.headOf.includes(s.departmentId)) });
     };
-    const days = eachDay(from, to).filter((d) => isoWeekday(d) !== 7);
-    const busy = days.map((d) => ({ d, people: data.leaves.filter((l) => l.fromDate <= d && l.toDate >= d) })).filter((x) => x.people.length || data.holidays.has(isoDay(x.d)));
+    const days = eachDay(from, to).filter((d) => data.holidays.get(isoDay(d))?.reason !== "sunday");
+    const busy = days.map((d) => ({ d, people: data.leaves.filter((l) => l.fromDate <= d && l.toDate >= d) })).filter((x) => x.people.length || data.holidays.get(isoDay(x.d))?.reason === "holiday");
     return (
       <Card>
         <CardHeader title={`Who is on leave, ${monthLabel(from)}`} description="Approved leave, and leave waiting for a decision (marked)."
@@ -352,7 +352,7 @@ export default async function StaffLeavePage({ searchParams }: Props) {
                 <li key={isoDay(d)} className="grid gap-1 py-2 sm:grid-cols-[10rem_1fr]">
                   <span className={`font-medium ${isoDay(d) === isoDay(today) ? "text-brand-text" : ""}`}>{formatDate(d, tz)} <span className="text-sm font-normal text-ink-2">{d.toLocaleDateString("en-IN", { weekday: "short", timeZone: "UTC" })}</span></span>
                   <span className="flex flex-wrap gap-2">
-                    {data.holidays.has(isoDay(d)) && <Badge>Holiday</Badge>}
+                    {data.holidays.has(isoDay(d)) && <Badge>{data.holidays.get(isoDay(d))!.reason === "holiday" ? "Holiday" : data.holidays.get(isoDay(d))!.title ?? "Day off"}</Badge>}
                     {people.map((l) => {
                       const s = data.staff.find((x) => x.id === l.staffId);
                       return <Badge key={l.id} tone={l.status === "APPROVED" ? "brand" : "warning"}>{s?.fullName}: {label(l)}{l.halfDay ? " (half)" : ""}{l.status === "WAITING" ? " (waiting)" : ""}</Badge>;

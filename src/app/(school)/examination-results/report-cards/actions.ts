@@ -5,10 +5,12 @@ import { enqueue } from "@/lib/jobs";
 import { writeAudit } from "@/lib/audit";
 import { ExamRuleError } from "@/lib/exams/common";
 import { draftRemarks, findPeriod, markCards, saveCoScholastic, saveCompetencyLevels, saveRemarks, type RemarkRow } from "@/lib/exams/report-cards";
+import type { RemarkDraft } from "@/lib/exams/remark-drafts";
 import { periodPublished } from "@/lib/exams/report-status";
 import { sectionInfo } from "@/lib/exams/results";
 import { sectionStudents } from "@/lib/exams/roster";
 import { writesReportCards } from "@/lib/exams/scope";
+import { aiAllowed } from "@/lib/settings/switch-rules";
 import { act, actSimple } from "../_lib/server";
 
 const UUID = /^[0-9a-f-]{36}$/i;
@@ -30,7 +32,7 @@ export async function saveRemarksAction(sectionId: string, period: string, rows:
   return grid(async ({ tx, current, scope }) => {
     check(sectionId, period);
     if (!Array.isArray(rows) || rows.length > 300) throw new ExamRuleError("Reload the page and try again.");
-    const n = await saveRemarks(tx, current.ctx, scope, { sectionId, period, rows, principal: scope.principal });
+    const n = await saveRemarks(tx, current.ctx, scope, { sectionId, period, rows, principal: scope.principal, confirmedBy: current.user.displayName });
     return { flash: { message: n ? `Saved for ${plural(n, "student")}.` : "Nothing had changed." } };
   });
 }
@@ -54,12 +56,12 @@ export async function saveCompetencyAction(sectionId: string, period: string, ro
 }
 
 /** Suggestions only: nothing is saved until the teacher keeps them and saves. */
-export async function draftRemarksAction(sectionId: string, period: string): Promise<{ ok: boolean; message: string; drafts: { studentId: string; text: string | null; why: string }[] }> {
-  let drafts: { studentId: string; text: string | null; why: string }[] = [];
+export async function draftRemarksAction(sectionId: string, period: string): Promise<{ ok: boolean; message: string; drafts: RemarkDraft[] }> {
+  let drafts: RemarkDraft[] = [];
   const r = await act("view", async ({ tx, current, scope }) => {
     check(sectionId, period);
     if (!writesReportCards(scope, sectionId)) throw new ExamRuleError("Only the class teacher of this section, the Exam In-charge or the Principal can draft remarks.");
-    if (!current.features.has("ai-assistant") || !current.features.has("ai-teacher-assistant")) throw new ExamRuleError("Remark suggestions are switched off for this school.");
+    if (!aiAllowed(current, "ai-teacher-assistant")) throw new ExamRuleError(current.features.has("ai-teacher-assistant") && current.features.has("ai-assistant") ? "Remark suggestions are not used by your role in this school." : "Remark suggestions are switched off for this school.");
     drafts = await draftRemarks(tx, current.ctx, sectionId, period);
   }, { needs: "any" });
   return { ok: Boolean(r?.ok), message: r?.message ?? "", drafts };

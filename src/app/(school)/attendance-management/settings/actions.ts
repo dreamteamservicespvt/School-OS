@@ -18,7 +18,6 @@ import { HHMM, minutesOf } from "@/lib/attendance/time";
 
 const METHODS = ["register", "mobile", "qr", "device", "geo"];
 const NOTIFY = ["parent", "class-teacher", "principal"];
-const CHANNELS = ["whatsapp", "sms", "app"];
 const ROLE_KEYS = ["principal", "school-admin", "vice-principal", "class-teacher", "hr"];
 
 async function admin() {
@@ -123,13 +122,9 @@ export async function saveLateRulesAction(_: FormState<unknown>, fd: FormData) {
 export async function saveNotificationsAction(_: FormState<unknown>, fd: FormData) {
   return act(fd, async () => {
     const current = await admin();
-    const template = str(fd, "absenceTemplate").slice(0, 600);
-    if (on(fd, "absenceAlertOn") && !template.includes("{student}")) throw new FieldProblem("The message must include {student}, so the parent knows which child.", "absenceTemplate");
-    const absenceChannels = many(fd, "absenceChannels", CHANNELS);
-    if (on(fd, "absenceAlertOn") && absenceChannels.length === 0) throw new FieldProblem("Choose at least one channel for absence messages.", "absenceChannels");
+    // The message's text and channels are Communication's "Absent today" message (one setting); only the switch and the wait are here.
     const data = {
-      absenceAlertOn: on(fd, "absenceAlertOn"), absenceDelayMinutes: int(fd, "absenceDelayMinutes", "Wait before sending", 0, 240), absenceChannels,
-      absenceTemplate: template || "Dear parent, {student} of {class} is absent today ({date}). Please call the school if this is not expected. {school}",
+      absenceAlertOn: on(fd, "absenceAlertOn"), absenceDelayMinutes: int(fd, "absenceDelayMinutes", "Wait before sending", 0, 240),
       lateAlertOn: on(fd, "lateAlertOn"),
       thresholdOn: on(fd, "thresholdOn"), thresholdPercent: int(fd, "thresholdPercent", "Threshold %", 1, 100), thresholdNotify: many(fd, "thresholdNotify", NOTIFY),
       chronicOn: on(fd, "chronicOn"), chronicDays: int(fd, "chronicDays", "Days in a row", 2, 30), chronicNotify: many(fd, "chronicNotify", NOTIFY),

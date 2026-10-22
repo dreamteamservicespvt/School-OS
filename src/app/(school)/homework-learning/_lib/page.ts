@@ -12,7 +12,7 @@ import { withSchool } from "@/lib/db";
 import { periodSetup } from "@/lib/period-setup";
 import { todayIn } from "@/lib/academic/common";
 import { homeworkScope } from "@/lib/homework/scope";
-import { assistantOn, homeworkFeatures, homeworkSettings } from "@/lib/homework/settings";
+import { homeworkFeatures, homeworkSettings, teacherAssistantFor } from "@/lib/homework/settings";
 import { HOMEWORK_PAGES, homeworkPageAllowed, type HomeworkPageKey } from "@/lib/homework/access";
 
 export const MODULE = "homework-learning" as const;
@@ -46,7 +46,7 @@ export const homeworkPage = cache(async () => {
   const edits = (page: HomeworkPageKey) => may(page) && s.modes[page] === "edit" && s.level !== "student";
   const student = s.level === "student";
   const own = s.level === "own";
-  const ai = assistantOn(data.features);
+  const ai = teacherAssistantFor(data.features, current);
   return { current, dates, tz, now, today, ...data, may, edits, student, own, ai };
 });
 

@@ -14,7 +14,8 @@ import { writeAudit } from "../audit";
 import { hitLimit, limitMessage } from "../rate-limit";
 import { hashToken, newToken } from "./tokens";
 import { mailIsSetUp, sendMail } from "./mail";
-import { sendCodeBySms, signInSmsTemplate } from "./two-step-sms";
+import { CODE_PURPOSE_WORDS, sendCodeBySms, signInSmsTemplate } from "./two-step-sms";
+import { logOneTimeCode, mayLogCode } from "../dev-codes";
 import type { DeviceInfo } from "./sessions";
 
 export const TWO_STEP_FEATURE = "two-step-login";
@@ -107,7 +108,8 @@ const PURPOSE_WORDS: Record<string, string> = { "sign-in": "sign-in code", "chan
  * Sends a one-time code: by email first when the person has one and email is
  * set up on the server; else by SMS through Communication when the school's
  * SMS channel is on and its one-time-code template has a DLT template ID
- * (rule 34). In development with neither, writes it to the server log only.
+ * (rule 34). On a tester's computer with neither, writes it to the server
+ * log only (dev-codes.ts); there every code sent is also written there.
  */
 export async function deliverCodeTo(to: CodeTo, code: string, purpose: CodePurpose = "sign-in"): Promise<{ channel: string; sentTo: string } | NotSent> {
   const what = PURPOSE_WORDS[purpose] ?? "confirmation code";
@@ -116,6 +118,7 @@ export async function deliverCodeTo(to: CodeTo, code: string, purpose: CodePurpo
     try {
       if (purpose === "change-email") await sendMail(to.email, `${code} confirms your new email for School OS`, `Hello ${to.name},\n\nType ${code} in My profile to confirm this email address. It works for 10 minutes.\n\nIf you did not ask for this, you can ignore this email.\n`);
       else await sendMail(to.email, `${code} is your School OS ${purpose === "sign-in" ? "sign-in code" : "confirmation code"}`, `Hello ${to.name},\n\nYour School OS ${what} is ${code}. It works for 10 minutes.\n\nIf you did not ask for this, change your password and tell your School Admin.\n`);
+      logOneTimeCode({ to: to.email, purpose: CODE_PURPOSE_WORDS[purpose] ?? purpose, code, carriedBy: "real" });
       return { channel: "email", sentTo: maskEmail(to.email) };
     } catch (e) {
       console.error(JSON.stringify({ level: "error", event: "two-step-mail-failed", error: e instanceof Error ? e.message : String(e) }));
@@ -127,8 +130,8 @@ export async function deliverCodeTo(to: CodeTo, code: string, purpose: CodePurpo
     if (sms.sent) return { channel: "sms", sentTo: maskPhone(to.phone) };
   }
   if (mailProblem) return { problem: mailProblem };
-  if (process.env.NODE_ENV !== "production") {
-    console.info(JSON.stringify({ level: "info", event: "two-step-code", purpose, note: "Email and SMS are not set up; development only", to: to.name, code }));
+  if (mayLogCode("none")) {
+    logOneTimeCode({ to: to.phone ?? to.email, purpose: CODE_PURPOSE_WORDS[purpose] ?? purpose, code, carriedBy: "none" });
     return { channel: "log", sentTo: "the server log (email is not set up on this computer)" };
   }
   return { unreachable: true, problem: unreachableWords(to) };
@@ -155,7 +158,7 @@ export function twoStepHelp(user: { email: string | null; phone: string | null }
  * developer's computer the server log stands in for both.
  */
 export async function codeChannels(user: { id: string; email: string | null; phone: string | null }, schoolId: string): Promise<{ email: boolean; phone: boolean }> {
-  const devLog = process.env.NODE_ENV !== "production";
+  const devLog = mayLogCode("none");
   const email = Boolean(user.email) && (mailIsSetUp() || devLog);
   let phone = false;
   if (user.phone) {

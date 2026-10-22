@@ -82,12 +82,12 @@ function finishTotals(t: FeeTotals) {
 }
 
 /** The fee rows that count, for these students (or everyone the viewer may see). */
-async function dueRows(tx: Tx, viewer: FeeViewer, today: Date, studentIds: string[] | null): Promise<Row[]> {
+async function dueRows(tx: Tx, yearId: string | null, today: Date, studentIds: string[] | null): Promise<Row[]> {
   const horizon = addDays(today, DUE_WINDOW_DAYS);
   const where: Prisma.StudentFeeDueWhereInput = {
     state: "OPEN",
     dueDate: { lte: horizon },
-    ...(viewer.yearId ? { OR: [{ academicYearId: viewer.yearId }, { balancePaise: { gt: 0 } }] } : {}),
+    ...(yearId ? { OR: [{ academicYearId: yearId }, { balancePaise: { gt: 0 } }] } : {}),
     ...(studentIds ? { studentId: { in: studentIds } } : {}),
   };
   const rows = await tx.studentFeeDue.findMany({ where, select: { studentId: true, label: true, dueDate: true, amountPaise: true, concessionPaise: true, adjustmentPaise: true, paidPaise: true, balancePaise: true } });
@@ -113,6 +113,33 @@ function studentFees(rows: Row[], today: Date, who: { studentId: string; name: s
   };
 }
 
+/**
+ * Each student's fees fallen due so far, from the same rows as Fees by class:
+ * what is still to pay and how much of it is overdue. A student with nothing
+ * fallen due yet is left out of the map. For the Student List and Parent 360.
+ */
+export async function feesDueOf(tx: Tx, yearId: string | null, today: Date, studentIds: string[]) {
+  const out = new Map<string, { pending: bigint; overdue: bigint }>();
+  if (!studentIds.length) return out;
+  for (const r of await dueRows(tx, yearId, today, studentIds)) {
+    const t = out.get(r.studentId) ?? { pending: ZERO, overdue: ZERO };
+    t.pending += r.balance;
+    if (r.balance > ZERO && r.dueDate < today) t.overdue += r.balance;
+    out.set(r.studentId, t);
+  }
+  return out;
+}
+
+/** Students who still owe fees fallen due so far ("Has dues"), or fees past their due date ("Overdue"): one read for the whole school. */
+export async function studentsOwing(tx: Tx, today: Date, kind: "dues" | "overdue") {
+  const rows = await tx.studentFeeDue.findMany({
+    where: { state: "OPEN", balancePaise: { gt: 0 }, dueDate: kind === "overdue" ? { lt: today } : { lte: addDays(today, DUE_WINDOW_DAYS) } },
+    select: { studentId: true },
+    distinct: ["studentId"],
+  });
+  return rows.map((r) => r.studentId);
+}
+
 /** Whom the viewer may see: everyone, or (Own) their sections' students. */
 function sectionFilter(viewer: FeeViewer): Prisma.SectionWhereInput {
   return viewer.see === "all" ? {} : { id: { in: viewer.sectionIds ?? [] } };
@@ -132,7 +159,7 @@ export async function feesByClass(tx: Tx, viewer: FeeViewer, today: Date): Promi
     : [];
   const sectionOf = new Map(enrol.map((e) => [e.studentId, e.sectionId]));
   // Own reach: only their sections' students. Full and View: every row in the school.
-  const rows = await dueRows(tx, viewer, today, viewer.see === "all" ? null : [...sectionOf.keys()]);
+  const rows = await dueRows(tx, viewer.yearId, today, viewer.see === "all" ? null : [...sectionOf.keys()]);
   const byStudent = new Map<string, Row[]>();
   for (const r of rows) byStudent.set(r.studentId, [...(byStudent.get(r.studentId) ?? []), r]);
   // Everyone in a section counts as a student of it, even with nothing due yet.
@@ -177,7 +204,7 @@ export async function sectionFees(tx: Tx, viewer: FeeViewer, sectionId: string, 
     where: { sectionId, academicYearId: viewer.yearId, archivedAt: null, student: { archivedAt: null } },
     select: { studentId: true, rollNo: true, student: { select: { fullName: true, admissionNo: true } } },
   });
-  const rows = await dueRows(tx, viewer, today, enrol.map((e) => e.studentId));
+  const rows = await dueRows(tx, viewer.yearId, today, enrol.map((e) => e.studentId));
   const students = enrol.map((e) => studentFees(rows.filter((r) => r.studentId === e.studentId), today, { studentId: e.studentId, name: e.student.fullName, admissionNo: e.student.admissionNo, rollNo: e.rollNo }));
   const totals = emptyTotals();
   for (const s of students) addStudent(totals, s);

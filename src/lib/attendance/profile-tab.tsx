@@ -31,7 +31,7 @@ const LEAVE_TONE: Record<string, "ok" | "warn" | "bad" | "neutral"> = { APPROVED
 /** "9 absent days: 5 not known yet, 2 sick, 2 travel" */
 function reasonSummary(list: { reason: { label: string } | null }[]) {
   const by = new Map<string, number>();
-  for (const a of list) by.set(a.reason?.label ?? "Not recorded", (by.get(a.reason?.label ?? "Not recorded") ?? 0) + 1);
+  for (const a of list) by.set(a.reason?.label ?? "Not known yet", (by.get(a.reason?.label ?? "Not known yet") ?? 0) + 1);
   return `${list.length} absent ${list.length === 1 ? "day" : "days"} this year: ${[...by.entries()].sort((a, b) => b[1] - a[1]).map(([k, n]) => `${n} ${k.toLowerCase()}`).join(", ")}`;
 }
 const LEAVE_WORD: Record<string, string> = { APPROVED: "Approved", WAITING: "Waiting", REJECTED: "Rejected", CANCELLED: "Cancelled", WITHDRAWN: "Cancelled" };
@@ -113,7 +113,7 @@ registerProfileTab({
                 <li key={a.date.toISOString()} className="flex items-center gap-3 px-3 py-2.5">
                   <span className="w-24 shrink-0 text-[14px] tnum text-ink2">{formatDate(a.date, "UTC")}</span>
                   <span className="min-w-0 flex-1 text-[14px]">{a.reason?.note ?? ""}</span>
-                  <Pill tone={!a.reason || a.reason.key === "not-known" ? "warn" : "neutral"}>{a.reason?.label ?? "Not recorded"}</Pill>
+                  <Pill tone={!a.reason || a.reason.key === "not-known" ? "warn" : "neutral"}>{a.reason?.label ?? "Not known yet"}</Pill>
                 </li>
               ))}
             </ul>

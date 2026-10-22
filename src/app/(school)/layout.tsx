@@ -21,6 +21,7 @@ import { currentYear } from "@/lib/academic/years";
 import { cleanTheme } from "@/lib/theme";
 import { cx } from "@/components/ui/cx";
 import { Info, Lock, TriangleAlert } from "lucide-react";
+import { aiAllowed } from "@/lib/settings/switch-rules";
 
 export const dynamic = "force-dynamic";
 
@@ -75,6 +76,7 @@ export default async function SchoolLayout({ children }: { children: React.React
       notes={notes.map((n) => ({ id: n.id, text: n.text, when: ago(n.createdAt), unread: isUnread(n) }))}
       theme={cleanTheme(current.user.theme)}
       support={supportEnds ? { ends: supportEnds } : null}
+      ai={aiAllowed(current, "ai-ask-do")}
     >
       {current.support && supportEnds && <SupportBar schoolName={current.school.name} ends={supportEnds} endsAt={current.support.endsAt.toISOString()} who={current.support.name} />}
       <RecentPages userId={current.user.id} pages={shell.pages} />

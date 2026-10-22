@@ -8,9 +8,9 @@ import type { Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { formatDate, formatRupees } from "../format";
 import { DAY_MS } from "../staff/dates";
-import { classOfStudents } from "./dues";
+import { classInYearOf, classOfStudents } from "./dues";
 import { ageingGroupOf, feeSettings } from "./settings";
-import { ageingLabel, concessionTypeLabel, modeLabel, percentWord, CONCESSION_STATUS_WORDS, REFUND_STATUS_WORDS } from "./words";
+import { ageingLabel, cancelReasonLabel, concessionTypeLabel, modeLabel, percentWord, CONCESSION_STATUS_WORDS, REFUND_STATUS_WORDS } from "./words";
 import { defaulters } from "./defaulters";
 import { feesByClass } from "./by-class";
 import type { FeeViewer } from "./access";
@@ -37,10 +37,27 @@ function periodLabel(key: string, g: ReportFilter["group"]) {
   return formatDate(new Date(`${key}T00:00:00Z`));
 }
 
+/**
+ * Students in a class, for the class filter on records that belong to a year:
+ * a record counts when the student was in that class in the record's year
+ * (a payment made last year in Class 2 is not a Class 3 payment).
+ */
+async function inClassFilter(tx: Tx, classId: string | null) {
+  if (!classId) return null;
+  const rows = await tx.enrolment.findMany({ where: { classId, archivedAt: null }, select: { studentId: true, academicYearId: true } });
+  const pairs = new Set(rows.map((e) => `${e.studentId}|${e.academicYearId}`));
+  const classIn = await classInYearOf(tx, rows.map((e) => ({ studentId: e.studentId })));
+  return {
+    studentIds: [...new Set(rows.map((e) => e.studentId))],
+    has: (studentId: string, academicYearId?: string | null) => (academicYearId ? pairs.has(`${studentId}|${academicYearId}`) : classIn(studentId)?.classId === classId),
+  };
+}
+
 /** Posted, School OS payments in the period (never brought-in ones), with the filters applied. */
 async function payments(tx: Tx, f: ReportFilter, extra: Prisma.PaymentWhereInput = {}) {
-  const classStudents = f.classId ? (await tx.enrolment.findMany({ where: { classId: f.classId, archivedAt: null }, select: { studentId: true } })).map((e) => e.studentId) : null;
-  return tx.payment.findMany({
+  const inClass = await inClassFilter(tx, f.classId);
+  const classStudents = inClass?.studentIds ?? null;
+  const list = await tx.payment.findMany({
     where: {
       status: "POSTED",
       broughtIn: false,
@@ -54,6 +71,7 @@ async function payments(tx: Tx, f: ReportFilter, extra: Prisma.PaymentWhereInput
     include: { allocations: { where: { fromAdvance: false } } },
     orderBy: { paidAt: "asc" },
   });
+  return inClass ? list.filter((p) => inClass.has(p.studentId, p.academicYearId)) : list;
 }
 
 async function names(tx: Tx, studentIds: string[]) {
@@ -112,13 +130,13 @@ export const FEE_REPORTS: ReportDef[] = [
       const heads = await headNames(tx);
       const receipts = await tx.receipt.findMany({ where: { paymentId: { in: list.map((p) => p.id) } } });
       const users = await tx.userLogin.findMany({ where: { id: { in: list.map((p) => p.collectedById).filter((x): x is string => Boolean(x)) } }, select: { id: true, displayName: true } });
-      const classes = await classOfStudents(tx, list.map((p) => p.studentId));
+      const classIn = await classInYearOf(tx, list);
       const rows = list.map((p) => ({
         date: p.paymentDate,
         receipt: receipts.find((r) => r.paymentId === p.id)?.number ?? "",
         student: n.get(p.studentId)?.fullName ?? "",
         admissionNo: n.get(p.studentId)?.admissionNo ?? "",
-        class: classes.get(p.studentId)?.label ?? "",
+        class: classIn(p.studentId, p.academicYearId)?.label ?? "",
         heads: [...new Set(p.allocations.map((a) => heads.get(a.feeHeadId)?.name ?? ""))].join(", ") || (p.advancePaise > ZERO ? "Advance" : ""),
         mode: modeLabel(p.mode),
         reference: p.reference ?? p.chequeNo ?? "",
@@ -233,12 +251,12 @@ export const FEE_REPORTS: ReportDef[] = [
     async run(tx, _ctx, f) {
       const list = await tx.concession.findMany({ where: { createdAt: { gte: f.from, lt: new Date(f.to.getTime() + DAY_MS) } }, orderBy: { createdAt: "asc" } });
       const n = await names(tx, list.map((c) => c.studentId));
-      const classes = await classOfStudents(tx, list.map((c) => c.studentId));
-      const filtered = list.filter((c) => !f.classId || classes.get(c.studentId)?.classId === f.classId);
+      const classIn = await classInYearOf(tx, list);
+      const filtered = list.filter((c) => !f.classId || classIn(c.studentId, c.academicYearId)?.classId === f.classId);
       const users = await tx.userLogin.findMany({ where: { id: { in: filtered.flatMap((c) => [c.requestedById, c.decidedById]).filter((x): x is string => Boolean(x)) } }, select: { id: true, displayName: true } });
       const who = (id: string | null) => users.find((u) => u.id === id)?.displayName ?? "";
       const rows = filtered.map((c) => ({
-        date: c.createdAt, student: n.get(c.studentId)?.fullName ?? "", class: classes.get(c.studentId)?.label ?? "", type: concessionTypeLabel(c.type),
+        date: c.createdAt, student: n.get(c.studentId)?.fullName ?? "", class: classIn(c.studentId, c.academicYearId)?.label ?? "", type: concessionTypeLabel(c.type),
         value: c.mode === "percent" ? percentWord(c.percentBp) : formatRupees(c.amountPaise), reason: c.reason, requestedBy: who(c.requestedById), decidedBy: who(c.decidedById),
         status: CONCESSION_STATUS_WORDS[c.status]?.label ?? c.status, applied: c.appliedPaise,
       }));
@@ -259,10 +277,10 @@ export const FEE_REPORTS: ReportDef[] = [
     filters: ["dates", "class"],
     async run(tx, _ctx, f) {
       const rowsDb = await tx.studentFeeDue.findMany({ where: { kind: "LATE_FEE", createdAt: { gte: f.from, lt: new Date(f.to.getTime() + DAY_MS) } } });
-      const classes = await classOfStudents(tx, rowsDb.map((r) => r.studentId));
+      const classIn = await classInYearOf(tx, rowsDb);
       const n = await names(tx, rowsDb.map((r) => r.studentId));
-      const filtered = rowsDb.filter((r) => !f.classId || classes.get(r.studentId)?.classId === f.classId);
-      const rows = filtered.map((r) => ({ date: r.dueDate, student: n.get(r.studentId)?.fullName ?? "", class: classes.get(r.studentId)?.label ?? "", on: r.label.replace(/^Late fee: /, ""), added: r.amountPaise, waived: r.concessionPaise, collected: r.paidPaise, open: r.state === "OPEN" ? r.balancePaise : ZERO }));
+      const filtered = rowsDb.filter((r) => !f.classId || classIn(r.studentId, r.academicYearId)?.classId === f.classId);
+      const rows = filtered.map((r) => ({ date: r.dueDate, student: n.get(r.studentId)?.fullName ?? "", class: classIn(r.studentId, r.academicYearId)?.label ?? "", on: r.label.replace(/^Late fee: /, ""), added: r.amountPaise, waived: r.concessionPaise, collected: r.paidPaise, open: r.state === "OPEN" ? r.balancePaise : ZERO }));
       return {
         columns: [
           { key: "date", label: "Added on", kind: "date" }, { key: "student", label: "Student" }, { key: "class", label: "Class" }, { key: "on", label: "Late on" },
@@ -304,11 +322,11 @@ export const FEE_REPORTS: ReportDef[] = [
     async run(tx, _ctx, f) {
       const list = await tx.payment.findMany({ where: { status: "CANCELLED", cancelledAt: { gte: f.from, lt: new Date(f.to.getTime() + DAY_MS) } }, orderBy: { cancelledAt: "asc" } });
       const n = await names(tx, list.map((p) => p.studentId));
-      const classes = await classOfStudents(tx, list.map((p) => p.studentId));
+      const classIn = await classInYearOf(tx, list);
       const receipts = await tx.receipt.findMany({ where: { paymentId: { in: list.map((p) => p.id) } } });
       const users = await tx.userLogin.findMany({ where: { id: { in: list.map((p) => p.cancelledById).filter((x): x is string => Boolean(x)) } }, select: { id: true, displayName: true } });
-      const filtered = list.filter((p) => !f.classId || classes.get(p.studentId)?.classId === f.classId);
-      const rows = filtered.map((p) => ({ cancelledOn: p.cancelledAt, paidOn: p.paymentDate, receipt: receipts.find((r) => r.paymentId === p.id)?.number ?? "Not posted", student: n.get(p.studentId)?.fullName ?? "", class: classes.get(p.studentId)?.label ?? "", mode: modeLabel(p.mode), by: users.find((u) => u.id === p.cancelledById)?.displayName ?? "", reason: [p.cancelReason, p.cancelNote ?? p.rejectReason].filter(Boolean).join(": "), amount: p.amountPaise }));
+      const filtered = list.filter((p) => !f.classId || classIn(p.studentId, p.academicYearId)?.classId === f.classId);
+      const rows = filtered.map((p) => ({ cancelledOn: p.cancelledAt, paidOn: p.paymentDate, receipt: receipts.find((r) => r.paymentId === p.id)?.number ?? "Not posted", student: n.get(p.studentId)?.fullName ?? "", class: classIn(p.studentId, p.academicYearId)?.label ?? "", mode: modeLabel(p.mode), by: users.find((u) => u.id === p.cancelledById)?.displayName ?? "", reason: [cancelReasonLabel(p.cancelReason), p.cancelNote ?? p.rejectReason].filter(Boolean).join(": "), amount: p.amountPaise }));
       return {
         columns: [
           { key: "cancelledOn", label: "Cancelled on", kind: "date" }, { key: "paidOn", label: "Paid on", kind: "date" }, { key: "receipt", label: "Receipt" }, { key: "student", label: "Student" }, { key: "class", label: "Class" },

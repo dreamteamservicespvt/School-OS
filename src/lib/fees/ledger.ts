@@ -6,10 +6,10 @@
 import "server-only";
 
 import type { Tx } from "../db";
-import { formatRupees } from "../format";
+import { formatDate, formatRupees } from "../format";
 import { todayIn } from "../staff/dates";
 import { dueStatus, netAmount } from "./dues";
-import { concessionTypeLabel, modeLabel } from "./words";
+import { cancelReasonLabel, concessionTypeLabel, modeLabel } from "./words";
 
 const ZERO = BigInt(0);
 
@@ -93,12 +93,10 @@ export async function studentLedger(tx: Tx, studentId: string, today: Date, tz: 
     return `${headName(d.feeHeadId)} · ${d.label}`;
   };
 
-  // Which rows belong in the balance now: fallen due, or already touched.
-  const touched = new Set<string>([
-    ...payments.flatMap((p) => p.allocations.map((a) => a.dueId)),
-    ...conLines.map((l) => l.dueId),
-    ...adjustments.map((a) => a.dueId),
-  ]);
+  // Which rows belong in the balance now: fallen due, or already paid towards (paid ahead).
+  // A concession or adjustment on a later installment does not bring it forward: it stays
+  // under Coming up at its reduced amount, so next term's fee never looks owed today.
+  const touched = new Set<string>(payments.filter((p) => p.status === "POSTED").flatMap((p) => p.allocations.filter((a) => a.amountPaise > ZERO).map((a) => a.dueId)));
   const shown = dues.filter((d) => d.dueDate <= today || touched.has(d.id) || d.kind !== "FEE");
   const shownIds = new Set(shown.map((d) => d.id));
   const comingUp = dues.filter((d) => !shownIds.has(d.id) && d.state === "OPEN");
@@ -115,7 +113,7 @@ export async function studentLedger(tx: Tx, studentId: string, today: Date, tz: 
         ? d.parentDueId ? `Added for ${rowName(d.parentDueId)}` : "Late fee"
         : d.kind === "CHARGE"
           ? `Added for this student${d.exceptionReason ? ` · ${d.exceptionReason}` : ""}`
-          : d.exceptionReason ? `Different from the class plan · ${d.exceptionReason}` : `Due ${d.dueDate.toISOString().slice(0, 10)}`;
+          : d.exceptionReason ? `Different from the class plan · ${d.exceptionReason}` : `Due ${formatDate(d.dueDate)}`;
     entries.push({ ...base, key: `due:${d.id}`, kind, date: d.dueDate, title, sub, ref: null, debit: d.amountPaise, credit: ZERO, balance: ZERO, broughtIn: d.broughtIn, order: 0 });
     if (d.state === "REMOVED") {
       const left = netAmount(d) - d.paidPaise;
@@ -169,7 +167,7 @@ export async function studentLedger(tx: Tx, studentId: string, today: Date, tz: 
     const rcpt = receiptOf(p.id) ?? p.oldReceiptNo;
     const modeText = p.mode === "CHEQUE" ? `Cheque ${p.chequeNo ?? ""}`.trim() : modeLabel(p.mode);
     const waiting = p.status === "WAITING";
-    const cancelled = p.status === "CANCELLED" ? { reason: p.cancelReason ?? "Cancelled", when: p.cancelledAt ?? p.updatedAt } : null;
+    const cancelled = p.status === "CANCELLED" ? { reason: cancelReasonLabel(p.cancelReason) || "Cancelled", when: p.cancelledAt ?? p.updatedAt } : null;
     const counts = p.status === "POSTED";
     entries.push({
       key: `pay:${p.id}`, kind: "receipt", date: p.paymentDate,
@@ -223,7 +221,7 @@ export async function studentLedger(tx: Tx, studentId: string, today: Date, tz: 
     const left = p.allocations.filter((a) => !a.fromAdvance).reduce((s, a) => s + (dueById.get(a.dueId)?.state === "OPEN" ? dueById.get(a.dueId)!.balancePaise : ZERO), ZERO);
     return {
       id: p.id, date: p.paymentDate, receiptNo: receiptOf(p.id), oldReceiptNo: p.oldReceiptNo, heads: rows.join(", ") || "Advance",
-      mode: p.mode, amount: p.amountPaise, status: p.status, partial: p.isPartial, broughtIn: p.broughtIn, cancelReason: p.cancelReason, leftOnRows: left,
+      mode: p.mode, amount: p.amountPaise, status: p.status, partial: p.isPartial, broughtIn: p.broughtIn, cancelReason: p.cancelReason ? cancelReasonLabel(p.cancelReason) : null, leftOnRows: left,
     };
   });
 

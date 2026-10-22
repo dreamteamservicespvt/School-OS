@@ -39,6 +39,7 @@ import { closerLookWords } from "./strength";
 import { lookingAheadView } from "./looking-ahead";
 import { wholeRupees } from "./forecasts";
 import type { ReportViewer } from "./types";
+import { aiAllowed, DEFAULT_AI_ROLES } from "../settings/switch-rules";
 
 /** The School Feature that switches the brief on (Settings, Modules On/Off, AI features). */
 export const BRIEF_FEATURE = "ai-principal-summary";
@@ -197,7 +198,8 @@ export async function briefOn(tx: Tx, ctx: SchoolContext) {
 
 /**
  * The morning job (every 15 minutes): from 7:30 to 11 AM on a school day, each
- * Principal and School Admin gets this morning's brief once, worked out with
+ * Principal and School Admin (when the school chose their role for the AI
+ * assistant) gets this morning's brief once, worked out with
  * their own permissions, kept, and sent as a notification (with the copies
  * they chose). Safe to run twice: a brief already sent is not sent again.
  */
@@ -215,7 +217,8 @@ export async function sendBriefs(tx: Tx, ctx: SchoolContext, now = new Date()) {
     const have = await tx.managementBrief.findUnique({ where: { schoolId_userLoginId_kind_forDate: { schoolId: ctx.schoolId, userLoginId: userId, kind, forDate: today } } });
     if (have?.sentAt) continue;
     const who = await viewerOf(tx, userId, ctx.schoolId);
-    if (!who) continue;
+    // Only a Principal or School Admin whose role the school chose for the AI assistant.
+    if (!who || !briefAllowed(who)) continue;
     const brief = await composeBrief(tx, who, now, kind);
     const lines = brief.lines as unknown as Prisma.InputJsonValue;
     const row = have
@@ -242,7 +245,13 @@ export async function todaysBrief(tx: Tx, who: ReportViewer, now = new Date()): 
   return composeBrief(tx, who, now);
 }
 
-/** May this person see the brief? The Principal or School Admin, with the brief switched on. */
-export function briefAllowed(who: Pick<ReportViewer, "roles" | "features">) {
-  return who.features.has("ai-assistant") && who.features.has(BRIEF_FEATURE) && who.roles.some((r) => r.key !== null && BRIEF_ROLES.includes(r.key));
+/**
+ * May this person see the brief? The Principal or School Admin, with the brief
+ * switched on, when the school chose that role for the AI assistant (Settings,
+ * Modules On/Off; 00-global.md §2.1 rule 8), as for every AI feature.
+ */
+export function briefAllowed(who: Pick<ReportViewer, "roles" | "features" | "aiRoles">) {
+  if (!aiAllowed(who, BRIEF_FEATURE)) return false;
+  const allowed = new Set(who.aiRoles ?? DEFAULT_AI_ROLES);
+  return who.roles.some((r) => r.key !== null && BRIEF_ROLES.includes(r.key) && allowed.has(r.key));
 }

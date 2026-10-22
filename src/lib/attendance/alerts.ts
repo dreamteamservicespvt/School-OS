@@ -3,6 +3,14 @@
 // students on approved leave); then each student's % is worked out again and
 // anyone below the threshold, or absent several days in a row, is flagged
 // once to the class teacher and the principal. Safe to run twice.
+//
+// It runs after every way a student's mark is written (./after-save.ts): the
+// register, device and QR punches, approved corrections and approved leave.
+// The parent message itself is Communication's "Absent today" (or "Late
+// arrival") automatic message: its template, channels and on/off are the one
+// setting (Communication, Message Settings). A student who punched in at the
+// gate but is marked absent is not messaged: the class teacher is asked to
+// check the register.
 import "server-only";
 
 import { Prisma } from "@prisma/client";
@@ -11,13 +19,14 @@ import { notify } from "../notifications";
 import { writeAudit } from "../audit";
 import { formatDate } from "../format";
 import { addDays, isoDay } from "../staff/dates";
+import { ruleReady } from "../messaging/automatic";
 import { BASE } from "./access";
 import { schoolDays } from "./calendar";
-import { attendanceSettings, statusList, statusMap, weightOf } from "./settings";
+import { attendanceFeatures, attendanceSettings, statusList, statusMap, weightOf } from "./settings";
 import { attendanceSummary, dayStatus, percentText } from "./summary";
 import { sendAttendanceMessage } from "./notify-parents";
 import { studentLeavesOn } from "./marks";
-import { instantAt, schoolDateOf } from "./time";
+import { instantAt, schoolDateOf, time12 } from "./time";
 import { CLEARED_REASON } from "./flags";
 import { OPEN_LINK } from "../students/guardian-access";
 
@@ -34,15 +43,19 @@ export function fillTemplate(template: string, values: Record<string, string>) {
   return template.replace(/\{(\w+)\}/g, (_, k: string) => values[k] ?? "");
 }
 
-/** Saves one alert per student/day/kind and hands each new one to Communication. Returns how many were new. */
-export async function raiseAlerts(tx: Tx, ctx: SchoolContext, date: Date, kind: string, rows: { studentId: string; text: string }[], channels: string[]) {
+/**
+ * Saves one alert per student/day/kind and hands each new one to Communication. Returns how many were new.
+ * A row with `held` is saved as not sent, with that note, and goes to nobody.
+ */
+export async function raiseAlerts(tx: Tx, ctx: SchoolContext, date: Date, kind: string, rows: { studentId: string; text: string; held?: string }[], channels: string[]) {
   if (rows.length === 0) return 0;
   const guardians = await primaryGuardians(tx, rows.map((r) => r.studentId));
   const created = await tx.attendanceAlert.createManyAndReturn({
-    data: rows.map((r) => ({ schoolId: ctx.schoolId, studentId: r.studentId, date, kind, guardianId: guardians.get(r.studentId) ?? null, text: r.text, channels })),
+    data: rows.map((r) => ({ schoolId: ctx.schoolId, studentId: r.studentId, date, kind, guardianId: guardians.get(r.studentId) ?? null, text: r.text, channels, ...(r.held ? { status: "skipped", note: r.held } : {}) })),
     skipDuplicates: true,
   });
   for (const alert of created) {
+    if (alert.status === "skipped") continue;
     const outcome = await sendAttendanceMessage(tx, ctx, alert);
     await tx.attendanceAlert.update({ where: { id: alert.id }, data: { status: outcome.status, note: outcome.note, messageRef: outcome.messageRef ?? null } });
   }
@@ -59,36 +72,59 @@ async function loginsWithRole(tx: Tx, ctx: SchoolContext, key: string) {
 
 export type AfterSaveResult = { messages: number; flagged: number; cleared: number };
 
-export async function afterAttendanceSaved(tx: Tx, ctx: SchoolContext, payload: { sectionId: string; date: string }): Promise<AfterSaveResult> {
+export async function afterAttendanceSaved(tx: Tx, ctx: SchoolContext, payload: { sectionId: string; date: string; messages?: boolean }): Promise<AfterSaveResult> {
   const date = day(payload.date);
   const settings = await attendanceSettings(tx, ctx);
   const section = await tx.section.findFirst({ where: { id: payload.sectionId }, include: { schoolClass: { select: { name: true, campusId: true } } } });
   if (!section) return { messages: 0, flagged: 0, cleared: 0 };
   const className = `${section.schoolClass.name} ${section.name}`;
-  const school = await tx.school.findUnique({ where: { id: ctx.schoolId }, select: { name: true } });
+  const school = await tx.school.findUnique({ where: { id: ctx.schoolId }, select: { name: true, timeZone: true } });
   const statuses = statusMap(await statusList(tx, ctx, { includeArchived: true }));
-  const marks = await tx.attendanceMark.findMany({ where: { sectionId: section.id, date, archivedAt: null, studentId: { not: null } }, select: { studentId: true, periodNo: true, statusKey: true, lateMinutes: true } });
+  const marks = await tx.attendanceMark.findMany({ where: { sectionId: section.id, date, archivedAt: null, studentId: { not: null } }, select: { studentId: true, periodNo: true, statusKey: true, lateMinutes: true, inTime: true } });
   const studentIds = [...new Set(marks.map((m) => m.studentId!))];
   const students = await tx.student.findMany({ where: { id: { in: studentIds } }, select: { id: true, fullName: true, firstName: true } });
   const nameOf = (id: string) => students.find((s) => s.id === id)?.fullName ?? "Your child";
+  // A status that counts as absent (the school's own ones too), not only the "absent" key.
+  const isAbsent = (key: string) => weightOf(statuses.get(key)) === 0;
 
-  // 1. One absence message per absent student for the day. With period-wise
-  //    attendance, the first period saved that day decides (05 §10).
+  // 1. One absence message per absent student for the day. Each student's own
+  //    marks decide: the once-a-day mark, or, with period-wise attendance, the
+  //    first period the register marked them in (05 §10). A device's gate
+  //    punch is a once-a-day mark, so in a period-wise school it never hides
+  //    a student marked absent in period 1.
   let messages = 0;
-  if (settings.absenceAlertOn) {
-    const firstPeriod = Math.min(...marks.map((m) => m.periodNo));
-    const deciding = marks.filter((m) => m.periodNo === (marks.some((x) => x.periodNo === 0) ? 0 : firstPeriod));
-    const absent = deciding.filter((m) => m.statusKey === "absent").map((m) => m.studentId!);
-    const onLeave = await studentLeavesOn(tx, absent, date);
-    const rows = absent.filter((id) => !onLeave.has(id)).map((id) => ({
-      studentId: id,
-      text: fillTemplate(settings.absenceTemplate, { student: nameOf(id), class: className, date: formatDate(date, "UTC"), school: school?.name ?? "" }),
-    }));
-    messages += await raiseAlerts(tx, ctx, date, "absence", rows, settings.absenceChannels);
-  }
-  if (settings.lateAlertOn) {
-    const late = marks.filter((m) => m.statusKey === "late").map((m) => m.studentId!);
-    messages += await raiseAlerts(tx, ctx, date, "late", late.map((id) => ({ studentId: id, text: `Dear parent, ${nameOf(id)} of ${className} came late to school today (${formatDate(date, "UTC")}). ${school?.name ?? ""}` })), settings.absenceChannels);
+  const wantsMessages = payload.messages !== false;
+  if (wantsMessages && (settings.absenceAlertOn || settings.lateAlertOn)) {
+    const periodWise = (await attendanceFeatures(tx, ctx)).has("attendance-period-wise");
+    const byStudent = new Map<string, typeof marks>();
+    for (const m of marks) byStudent.set(m.studentId!, [...(byStudent.get(m.studentId!) ?? []), m]);
+    const deciding = [...byStudent.values()].map((list) => {
+      const periods = list.filter((m) => m.periodNo > 0).sort((a, b) => a.periodNo - b.periodNo);
+      return (periodWise && periods[0]) || list.find((m) => m.periodNo === 0) || periods[0];
+    });
+    if (settings.absenceAlertOn) {
+      const absent = deciding.filter((m) => isAbsent(m.statusKey)).map((m) => m.studentId!);
+      const onLeave = await studentLeavesOn(tx, absent, date);
+      const gate = await inAtGate(tx, absent, date, marks, school?.timeZone ?? "Asia/Kolkata");
+      const rule = await ruleReady(tx, ctx, "absence");
+      const rows = absent.filter((id) => !onLeave.has(id)).map((id) => {
+        const at = gate.get(id);
+        return {
+          studentId: id,
+          text: `${nameOf(id)} (${className}) absent on ${formatDate(date, "UTC")}`,
+          held: at ? `Punched in at ${at}, but marked absent. Not sent: check the register.` : undefined,
+        };
+      });
+      messages += await raiseAlerts(tx, ctx, date, "absence", rows, rule.channels);
+      // The class teacher checks a register that disagrees with the gate.
+      const held = rows.filter((r) => r.held);
+      if (held.length) await tellGate(tx, ctx, section, className, date, held.map((r) => nameOf(r.studentId)));
+    }
+    if (settings.lateAlertOn) {
+      const late = deciding.filter((m) => m.statusKey === "late").map((m) => m.studentId!);
+      const rule = await ruleReady(tx, ctx, "late");
+      messages += await raiseAlerts(tx, ctx, date, "late", late.map((id) => ({ studentId: id, text: `${nameOf(id)} (${className}) late on ${formatDate(date, "UTC")}` })), rule.channels);
+    }
   }
 
   // 2. Flags, once per drop below, cleared when they recover.
@@ -135,7 +171,7 @@ export async function afterAttendanceSaved(tx: Tx, ctx: SchoolContext, payload: 
 
   if (settings.chronicOn) {
     const from = addDays(date, -Math.max(settings.chronicDays * 3, 14));
-    const days = await schoolDays(tx, ctx, from, date, section.schoolClass.campusId);
+    const days = await schoolDays(tx, ctx, from, date, section.schoolClass.campusId, { classId: section.classId });
     const recent = days.working.slice(-settings.chronicDays);
     const all = await tx.attendanceMark.findMany({ where: { studentId: { in: studentIds }, date: { in: recent }, archivedAt: null }, select: { studentId: true, date: true, periodNo: true, statusKey: true } });
     const rule = settings.periodDayRule === "most" ? "most" : "any";
@@ -159,6 +195,79 @@ export async function afterAttendanceSaved(tx: Tx, ctx: SchoolContext, payload: 
     }
   }
   return { messages, flagged, cleared };
+}
+
+export type MessageCount = { sent: number; waiting: number; notSent: number; reasons: { why: string; count: number }[] };
+
+/** A not-sent note in a few words, for the count line. */
+function whyWords(note: string | null): string {
+  const n = (note ?? "").toLowerCase();
+  if (n.startsWith("punched in")) return "punched in at the gate";
+  if (n.includes("opted out")) return "opted out";
+  if (n.includes("phone number")) return "no parent phone";
+  if (n.includes("no parent")) return "no parent on file";
+  if (n.includes("switched off")) return "message switched off";
+  if (n.includes("channel") || n.includes("whatsapp") || n.includes("sms")) return "no channel ready";
+  return n ? n.replace(/\.$/, "") : "not sent";
+}
+
+/**
+ * The day's absence messages for some sections, from the Attendance Alerts:
+ * how many went, how many wait for the delay, and how many did not go and
+ * why, so the office never believes messages went when they did not (G08).
+ * Null when nothing is marked yet.
+ */
+export async function absenceMessagesOn(tx: Tx, date: Date, sectionIds: string[]): Promise<MessageCount | null> {
+  if (!sectionIds.length) return null;
+  const marked = await tx.attendanceMark.findMany({ where: { sectionId: { in: sectionIds }, date, archivedAt: null, studentId: { not: null } }, select: { studentId: true }, distinct: ["studentId"] });
+  if (!marked.length) return null;
+  const rows = await tx.attendanceAlert.findMany({ where: { date, kind: "absence", studentId: { in: marked.map((m) => m.studentId!) } }, select: { status: true, note: true } });
+  const out: MessageCount = { sent: 0, waiting: 0, notSent: 0, reasons: [] };
+  const why = new Map<string, number>();
+  for (const r of rows) {
+    if (r.status === "sent") out.sent++;
+    else if (r.status === "waiting") out.waiting++;
+    else {
+      out.notSent++;
+      const w = whyWords(r.note);
+      why.set(w, (why.get(w) ?? 0) + 1);
+    }
+  }
+  out.reasons = [...why].map(([w, count]) => ({ why: w, count })).sort((a, b) => b.count - a.count);
+  return out;
+}
+
+/** "Absence messages today: 12 sent, 2 not sent (1 no parent phone, 1 opted out)". Null when there are none. */
+export function messageCountText(c: MessageCount | null, isToday: boolean): string | null {
+  if (!c || c.sent + c.waiting + c.notSent === 0) return null;
+  const parts = [c.sent ? `${c.sent} sent` : null, c.waiting ? `${c.waiting} waiting` : null, c.notSent ? `${c.notSent} not sent (${c.reasons.map((r) => `${r.count} ${r.why}`).join(", ")})` : null].filter(Boolean);
+  return `Absence messages${isToday ? " today" : ""}: ${parts.join(", ")}`;
+}
+
+/** Students with an accepted gate punch (device) or a check-in time (QR) that day: "8:02 AM", by student. */
+async function inAtGate(tx: Tx, studentIds: string[], date: Date, marks: { studentId: string | null; inTime: Date | null }[], timeZone: string) {
+  const out = new Map<string, string>();
+  if (!studentIds.length) return out;
+  const clock = (d: Date) => time12(new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", minute: "2-digit", hour12: false }).format(d));
+  for (const m of marks) if (m.studentId && m.inTime && studentIds.includes(m.studentId) && !out.has(m.studentId)) out.set(m.studentId, clock(m.inTime));
+  const punches = await tx.devicePunch.findMany({
+    where: { accepted: true, studentId: { in: studentIds }, punchedAt: { gte: instantAt(date, "00:00", timeZone), lt: instantAt(addDays(date, 1), "00:00", timeZone) } },
+    orderBy: { punchedAt: "asc" }, select: { studentId: true, punchedAt: true },
+  });
+  for (const p of punches) if (p.studentId && !out.has(p.studentId)) out.set(p.studentId, clock(p.punchedAt));
+  return out;
+}
+
+async function tellGate(tx: Tx, ctx: SchoolContext, section: { id: string; classTeacherId: string | null }, className: string, date: Date, names: string[]) {
+  const teacher = section.classTeacherId ? await tx.staff.findUnique({ where: { id: section.classTeacherId }, select: { userLoginId: true } }) : null;
+  if (!teacher?.userLoginId) return;
+  const who = names.length === 1 ? `${names[0]} punched in at the gate` : `${names.length} students punched in at the gate`;
+  await notify(tx, ctx, {
+    to: teacher.userLoginId, type: "attendance-flag",
+    text: `${who} but ${names.length === 1 ? "is" : "are"} marked absent in ${className} on ${formatDate(date, "UTC")}. No absence message went to the parents. Check the register.`,
+    link: `${BASE}/register/absences?date=${isoDay(date)}&section=${section.id}`, groupKey: `attendance-gate-${section.id}-${isoDay(date)}`,
+    mergedText: (n) => `${n} students in ${className} punched in at the gate but are marked absent`,
+  });
 }
 
 /** Sets the "locked" mark on saved marks once the lock time has passed (rule 17). Safe to run twice. */

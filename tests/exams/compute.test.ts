@@ -4,7 +4,7 @@
 // final result with weights. Pure functions, no database.
 import { describe, expect, it } from "vitest";
 import { bandFor, checkBands, presetBands, type Band } from "@/lib/exams/grades";
-import { checkMark, examResult, finalResult, rankWithTies, subjectResult, type PaperInput, type PassRules } from "@/lib/exams/compute";
+import { checkMark, examResult, finalResult, rankWithTies, subjectResult, typedTotal, type PaperInput, type PassRules } from "@/lib/exams/compute";
 import { checkValue } from "@/lib/exams/marks";
 
 const CBSE = presetBands("cbse")!;
@@ -165,5 +165,20 @@ describe("mark checks", () => {
   });
   it("a grade-only subject takes only the school's grades", () => {
     expect(checkValue(st, { parts: {}, absent: false, grade: "Z", remark: null }, [], true, ["A", "B", "C"])).toMatch(/choose a grade/);
+  });
+});
+
+describe("the total and grade shown while marks are typed (TEACHING-19)", () => {
+  it("shows no grade for a mark above the maximum, below 0 or not a number", () => {
+    for (const value of [25, -1, Number.NaN, 12.3]) {
+      expect(typedTotal([{ name: "Marks", max: 20, value }], 20, CBSE)).toEqual({ total: null, grade: "", valid: false });
+    }
+    expect(typedTotal([{ name: "Marks", max: 20, value: null }], 20, CBSE)).toEqual({ total: null, grade: "", valid: false });
+  });
+
+  it("shows the total and grade for marks within their maximums", () => {
+    expect(typedTotal([{ name: "Marks", max: 20, value: 19 }], 20, CBSE)).toEqual({ total: 19, grade: "A1", valid: true });
+    expect(typedTotal([{ name: "Theory", max: 80, value: 70 }, { name: "Internal", max: 20, value: 25 }], 100, CBSE).grade).toBe("");
+    expect(typedTotal([{ name: "Theory", max: 80, value: 70 }, { name: "Internal", max: 20, value: 18.5 }], 100, CBSE)).toEqual({ total: 88.5, grade: "A2", valid: true });
   });
 });

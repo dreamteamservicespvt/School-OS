@@ -60,7 +60,7 @@ export async function addEntryAction(_: S, fd: FormData): Promise<S> {
     }
     return { entry, told };
   }, (r) => ({
-    message: `${ENTRY_TYPES[r.entry.type as keyof typeof ENTRY_TYPES]?.label ?? "Entry"} added: ${r.entry.title}. ${r.entry.attendanceOn ? "Attendance can still be taken." : "Attendance is off on these days."}${toldWords(r.told)}`,
+    message: `${ENTRY_TYPES[r.entry.type as keyof typeof ENTRY_TYPES]?.label ?? "Entry"} added: ${r.entry.title}. ${["holiday", "vacation"].includes(r.entry.type) ? (r.entry.attendanceOn ? "Attendance can still be taken." : "Attendance is off on these days.") : r.entry.attendanceOn ? "Attendance is taken on these days, even on a weekend or holiday." : "Attendance follows the normal school days."}${toldWords(r.told)}`,
     undo: { kind: "ev-entry-add", id: r.entry.id },
   }));
 }
@@ -70,7 +70,7 @@ export async function removeEntryAction(_: S, fd: FormData): Promise<S> {
     need(w.can.calendar, "change the School Calendar");
     return removeEntry(w.tx, w.ctx, id(fd, "entryId", "entry"));
   }, (e) => ({
-    message: e.attendanceOn ? `${e.title} removed from the calendar.` : `${e.title} removed. Attendance will be needed for ${dmy(e.startDate.toISOString().slice(0, 10))}${e.endDate > e.startDate ? ` to ${dmy(e.endDate.toISOString().slice(0, 10))}` : ""}.`,
+    message: e.attendanceOn || !["holiday", "vacation"].includes(e.type) ? `${e.title} removed from the calendar.` : `${e.title} removed. Attendance will be needed for ${dmy(e.startDate.toISOString().slice(0, 10))}${e.endDate > e.startDate ? ` to ${dmy(e.endDate.toISOString().slice(0, 10))}` : ""}.`,
     undo: { kind: "ev-entry-remove", id: e.id },
   }));
 }

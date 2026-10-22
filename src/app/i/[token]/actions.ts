@@ -4,14 +4,15 @@ import { redirect } from "next/navigation";
 import { deviceInfo, setSessionCookie, signInDevice } from "@/lib/current";
 import { finishSchoolInvite, sendSchoolInviteCode } from "@/lib/console/school-invite";
 import { hitLimit, limitMessage } from "@/lib/rate-limit";
+import { mayLogCode } from "@/lib/dev-codes";
 
-export type SendState = { ok: boolean; message: string; sentTo?: string; test?: boolean } | null;
+export type SendState = { ok: boolean; message: string; sentTo?: string; test?: boolean; inLog?: boolean } | null;
 export type FinishState = { message: string; field?: "code" | "password"; restart?: boolean } | null;
 
 export async function sendInviteCodeAction(token: string): Promise<SendState> {
   const r = await sendSchoolInviteCode(token, (await deviceInfo()).ipAddress ?? null);
   if (!r.ok) return { ok: false, message: r.message };
-  return { ok: true, message: `Code sent by ${r.by} to +91 ${r.sentTo}.`, sentTo: r.sentTo, test: r.test };
+  return { ok: true, message: `Code sent by ${r.by} to +91 ${r.sentTo}.`, sentTo: r.sentTo, test: r.test, inLog: r.test && mayLogCode("none") };
 }
 
 export async function finishInviteAction(token: string, _prev: FinishState, fd: FormData): Promise<FinishState> {

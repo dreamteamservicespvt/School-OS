@@ -93,7 +93,7 @@ export default async function ReportsPage({ searchParams }: Props) {
   if (r === "range" && !ex.get("person") && data.people[0]) ex.set("person", data.people[0].value);
   const t = data.table;
   const exportBtn = t && t.rows.length > 0 ? <ExportMenu href={`${PATH}/export?${ex}`} /> : null;
-  const sub = `Sundays and holidays are left out of every number${data.year ? ` · ${data.year.name}, school day ${data.dayNo} of ${data.total}` : ""}`;
+  const sub = `Holidays, Sundays and days off are left out of every number${data.year ? ` · ${data.year.name}, school day ${data.dayNo} of ${data.total}` : ""}`;
   const tabs = TABS.filter((x) => list.some((l) => l.key === x.key));
 
   return (
@@ -111,7 +111,8 @@ export default async function ReportsPage({ searchParams }: Props) {
             <>
               {data.day.off ? <Banner tone="info" title={`${data.day.off}.`}>Attendance is off for this date. Choose another date.</Banner> : (
                 <Stats items={[
-                  { label: "Students present", value: `${data.day.students.present.toLocaleString("en-IN")} of ${data.day.students.marked.toLocaleString("en-IN")}`, sub: data.day.students.marked ? `${percentText(data.day.students.percent)} · ${data.day.students.late} came late${data.day.students.notMarked ? ` · ${data.day.students.notMarked} not marked` : ""}` : "Not marked yet", tone: "ok", icon: UserCheck },
+                  // The count and its % use the same students: those on leave are left out of both (TEACHING-19).
+                  { label: "Students present", value: `${data.day.students.present.toLocaleString("en-IN")} of ${data.day.students.counted.toLocaleString("en-IN")}`, sub: data.day.students.marked ? `${percentText(data.day.students.percent)} · ${data.day.students.late} came late${data.day.students.leave ? ` · ${data.day.students.leave} on leave, not counted` : ""}${data.day.students.notMarked ? ` · ${data.day.students.notMarked} not marked` : ""}` : "Not marked yet", tone: "ok", icon: UserCheck },
                   { label: "Absent", value: data.day.students.absent, sub: `${data.day.students.leave} more on approved leave`, icon: UserX, tone: data.day.students.absent ? "bad" : undefined },
                   { label: "Classes marked", value: `${data.day.classes.total - data.day.classes.notMarked} of ${data.day.classes.total}`, sub: data.day.classes.notMarked ? `${data.day.classes.notMarked} not marked yet` : "Every class is marked", icon: ListChecks, tone: data.day.classes.notMarked ? "warn" : "ok", href: data.day.classes.notMarked ? BASE : undefined },
                   ...(access.staff === "all" ? [{ label: "Staff present", value: `${data.day.staff.present} of ${data.day.staff.total}`, sub: `${data.day.staff.late} late · ${data.day.staff.total - data.day.staff.marked} not in yet`, icon: Users, href: `${BASE}/staff` }] : []),
@@ -195,7 +196,7 @@ export default async function ReportsPage({ searchParams }: Props) {
           {!isTab && t && info && (
             <TableCard t={t} about={info.about} toolbar={<>
               {(r === "monthly" || r === "reasons") && data.sections.length > 0 && <UrlSelect param="section" label="Class and section" className="sm:w-52" options={[{ value: "", label: "Every class" }, ...data.sections.map((s) => ({ value: s.id, label: s.name }))]} />}
-              {r === "reasons" && <UrlSelect param="reason" label="Reason" className="sm:w-52" options={[{ value: "", label: "Every reason, by class" }, ...reasonChoices(access.seesFees).map((x) => ({ value: x.key, label: x.label })), { value: "none", label: "Not recorded" }]} />}
+              {r === "reasons" && <UrlSelect param="reason" label="Reason" className="sm:w-52" options={[{ value: "", label: "Every reason, by class" }, ...reasonChoices(access.seesFees).map((x) => ({ value: x.key, label: x.label }))]} />}
               {r === "range" && data.sections.length > 0 && <UrlSelect param="section" label="Class and section" className="sm:w-52" value={input.sectionId ?? data.sections[0]?.id ?? ""} options={data.sections.map((s) => ({ value: s.id, label: s.name }))} />}
               {r === "range" && <UrlSelect param="person" label="Student or staff member" className="sm:w-60" value={input.person ?? data.people[0]?.value ?? ""} options={data.people} />}
               {["monthly", "staff-monthly"].includes(r) && <MonthSelect value={isoDay(data.month).slice(0, 7)} min={data.bounds.min} max={data.bounds.max} className="sm:w-64" />}

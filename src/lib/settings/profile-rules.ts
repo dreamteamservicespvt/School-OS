@@ -84,6 +84,8 @@ export type Preferences = {
   rollNumberOrder?: "name" | "gender-name" | "admission";
   /** Role keys allowed to use the AI assistant. */
   aiRoles?: string[];
+  /** Most requests to the AI service a day for this school (never more than DREAM TEAM's limit). */
+  aiDailyLimit?: number | null;
   secondBoard?: string | null;
   boardDefaults?: BoardDefaults;
   compliance?: { udiseCode?: string | null; boardSchoolCode?: string | null; registrationNumber?: string | null; panNumber?: string | null };

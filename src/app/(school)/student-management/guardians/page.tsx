@@ -13,26 +13,26 @@ import { ListToolbar } from "@/components/list/list-toolbar";
 import { DataList, cardPill, type DataColumn } from "@/components/ui/data-list";
 import { InlineBulkBar } from "@/components/ui/list-controls";
 import { cx } from "@/components/ui/cx";
-import { studentScope } from "@/lib/students/access";
-import { consentRows, consentState } from "@/lib/students/consent";
+import { guardianConsentGroups, guardiansInReach } from "@/lib/students/guardian-list";
 import { parentLinkProvider, parentLinkStatus } from "@/lib/students/guardians";
 import { CONSENT_STATUS_LABEL } from "@/lib/students/labels";
 import { phoneShow, classShort } from "@/lib/students/show";
 import { shortDate } from "@/lib/students/show";
-import { BASE, studentPage } from "../_lib/page";
+import { BASE, studentPageOnCampus } from "../_lib/page";
 import { StudentsHead } from "../_lib/head";
 import { sectionNames } from "../_lib/queries";
 
 export const metadata: Metadata = { title: "Parents & Guardians" };
 
-const FILTERS = ["consent", "photo", "link", "relation"] as const;
-const TONE = { GIVEN: "ok", WITHDRAWN: "bad", REQUESTED: "warn", NONE: "warn" } as const;
+const FILTERS = ["consent", "photo", "link", "relation", "campus"] as const;
+const TONE = { GIVEN: "ok", WITHDRAWN: "bad", REFUSED: "bad", REQUESTED: "warn", NONE: "warn" } as const;
 const STEP = 25;
 
 export default async function GuardiansPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const { current, yearIds, can, tz } = await studentPage();
-  if (!can.seeParents) redirect(BASE);
   const raw = await searchParams;
+  // One campus chosen on the Dashboard (?campus=): that campus's parents, as the card counted them.
+  const { current, yearIds, can, tz } = await studentPageOnCampus(raw.campus);
+  if (!can.seeParents) redirect(BASE);
   const params = readListParams(raw, FILTERS);
   const take = Math.min(500, Math.max(STEP, Number.parseInt(String(raw.n ?? ""), 10) || STEP));
   const provider = parentLinkProvider();
@@ -40,24 +40,9 @@ export default async function GuardiansPage({ searchParams }: { searchParams: Pr
   const f = params.filters;
 
   const data = await withSchool(current.ctx, async (tx) => {
-    const scope = await studentScope(tx, current, yearIds);
-    // Own reach, or one campus: the parents of their students only.
-    const inReach: Prisma.GuardianWhereInput = can.reach === "own" || current.campusId ? { students: { some: { archivedAt: null, student: scope } } } : {};
-    const base: Prisma.GuardianWhereInput = { AND: [{ archivedAt: params.archived ? { not: null } : null }, inReach] };
-
-    // Consent states are read once: for the counts on the chips and tiles, and for the filters.
-    const all = await tx.guardian.findMany({ where: base, select: { id: true } });
-    const allIds = all.map((g) => g.id);
-    const rowsC = await consentRows(tx, current.ctx, { guardianIds: allIds });
-    const byGuardian = new Map<string, { consentType: string; status: string }[]>();
-    for (const r of rowsC) { const list = byGuardian.get(r.guardianId) ?? []; list.push({ consentType: r.consentType, status: r.status }); byGuardian.set(r.guardianId, list); }
-    const state = (id: string, type: string) => consentState(byGuardian.get(id) ?? [], type);
-    const ids = {
-      dataNot: allIds.filter((id) => state(id, "data-processing") !== "GIVEN" && state(id, "data-processing") !== "WITHDRAWN"),
-      dataWithdrawn: allIds.filter((id) => state(id, "data-processing") === "WITHDRAWN"),
-      photoNot: allIds.filter((id) => state(id, "photo") !== "GIVEN"),
-      photoWithdrawn: allIds.filter((id) => state(id, "photo") === "WITHDRAWN"),
-    };
+    // The same reach and consent groups as the Dashboard's Parents and consent cards.
+    const base = await guardiansInReach(tx, current, yearIds, { archived: params.archived });
+    const { allIds, state, ...ids } = await guardianConsentGroups(tx, current, base);
     const links = provider ? await parentLinkStatus(tx, current.ctx, allIds) : new Map<string, { status: string; lastOpenedAt: Date | null }>();
     const notOpened = allIds.filter((id) => !links.get(id)?.lastOpenedAt);
     const activeLinks = allIds.filter((id) => links.get(id)?.status === "Active").length;
@@ -104,7 +89,7 @@ export default async function GuardiansPage({ searchParams }: { searchParams: Pr
   type Row = (typeof data.rows)[number];
 
   const chipValue = f.consent === "not-given" ? "nocons" : f.consent === "withdrawn" ? "withdrawn" : f.photo === "not-given" ? "nophoto" : f.link === "not-opened" ? "notopen" : "all";
-  const chip = (change: Record<string, string | null>) => listHref(path, { ...params, filters: f.relation ? { relation: f.relation } : {}, page: 1 }, { consent: null, photo: null, link: null, ...change, page: null });
+  const chip = (change: Record<string, string | null>) => listHref(path, { ...params, filters: { ...(f.relation ? { relation: f.relation } : {}), ...(f.campus ? { campus: f.campus } : {}) }, page: 1 }, { consent: null, photo: null, link: null, ...change, page: null });
   const linkPill = (g: Row, cls?: string) => !provider ? null
     : g.link?.status === "Active" ? <Pill tone="ok" className={cls}>{cls ? "Link active" : "Active"}</Pill>
       : g.link?.status === "Revoked" ? <Pill tone="bad" className={cls}>{cls ? "Link revoked" : "Revoked"}</Pill>

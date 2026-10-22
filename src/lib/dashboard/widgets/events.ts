@@ -9,7 +9,7 @@ import "server-only";
 import { evCan, evViewer } from "../../events/access";
 import { eventMoney } from "../../events/events";
 import { formatRupees } from "../../format";
-import { addDays, dayWord, plural, shortDate } from "../common";
+import { addDays, dayWord, iso, plural, shortDate } from "../common";
 import type { AgendaItem, DashContext, Viewer, Widget } from "../types";
 
 const BASE = "/events-calendar";
@@ -61,7 +61,8 @@ const feesDue: Widget<"attention"> = {
       id: "events.fees-due", tone: "info", icon: "CreditCard",
       title: `Event fees due: ${formatRupees(due)} from ${plural(students, "student")}`,
       detail: next ? `Next: ${next.name}, ${shortDate(next.date)}. Collected through Fee Management.` : "Collected through Fee Management.",
-      action: "Open", href: `${BASE}/events?f=up`, value: due.toString(),
+      // The events still to come, over all their dates (Events keeps to this academic year otherwise).
+      action: "Open", href: `${BASE}/events?f=up&period=custom&from=${iso(c.today)}&to=${iso(events.reduce((d, e) => (e.date > d ? e.date : d), c.today))}`, value: due.toString(),
     };
   },
 };

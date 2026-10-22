@@ -224,5 +224,13 @@ export async function lastBackup() {
     prisma.backupRun.findFirst({ where: { kind: "nightly", ...REAL_BACKUP }, orderBy: { finishedAt: "desc" } }),
     prisma.backupRun.findFirst({ where: { restoreTestedAt: { not: null }, ...REAL_BACKUP }, orderBy: { restoreTestedAt: "desc" } }),
   ]);
-  return { at: nightly?.finishedAt ?? null, restoreTestedAt: restore?.restoreTestedAt ?? null };
+  const details = (restore?.details ?? null) as { schools?: number; files?: { checked?: number } } | null;
+  return {
+    at: nightly?.finishedAt ?? null,
+    restoreTestedAt: restore?.restoreTestedAt ?? null,
+    /** The last restore test (npm run restore:test): older rows without a result passed. */
+    restorePassed: restore ? restore.result !== "failed" : null,
+    restoreSchools: details?.schools ?? null,
+    restoreFiles: details?.files?.checked ?? null,
+  };
 }

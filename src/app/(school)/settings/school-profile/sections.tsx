@@ -8,6 +8,7 @@ import { ConfirmButton } from "@/components/ui/confirm";
 import { BOARDS, LANGUAGES, TIME_ZONES, boardDefaultsWords } from "@/lib/settings/profile-rules";
 import { removeLogoAction, saveBoardAction, saveComplianceAction, saveLogoAction, saveRegionAction } from "./actions";
 import { KeepCheck } from "@/components/ui/keep-select";
+import { LANGUAGE_OWN_NAME, isLang } from "@/lib/i18n/languages";
 
 export function LogoForm({ logoHref }: { logoHref: string | null }) {
   const [state, action] = useActionState(saveLogoAction, null);
@@ -95,14 +96,14 @@ export function RegionForm({ languages, defaultLanguage, timeZone }: { languages
                   setOn(next);
                   if (!next.includes(def) && next[0]) setDef(next[0]);
                 }} className="size-5 accent-brand" />
-              {l.label}
+              <span>{l.label}{isLang(l.value) && l.value !== "en" && <span lang={l.value} className="ml-1.5 text-ink-2">{LANGUAGE_OWN_NAME[l.value]}</span>}</span>
             </label>
           ))}
         </div>
         {state?.errors?.languages && <p className="mt-1 text-sm text-danger">{state.errors.languages}</p>}
       </fieldset>
       <div className="grid gap-4 sm:grid-cols-2">
-        <SelectField label="Default language" name="defaultLanguage" required value={def} onChange={(e) => setDef(e.target.value)} options={LANGUAGES.filter((l) => on.includes(l.value))} error={state?.errors?.defaultLanguage} help="New staff and messages start in this language." />
+        <SelectField label="Default language" name="defaultLanguage" required value={def} onChange={(e) => setDef(e.target.value)} options={LANGUAGES.filter((l) => on.includes(l.value))} error={state?.errors?.defaultLanguage} help="Screens show in this language for anyone who has not chosen their own in My profile; new parents' messages start in it too." />
         <SelectField label="Time zone" name="timeZone" required defaultValue={timeZone} options={TIME_ZONES} error={state?.errors?.timeZone} />
       </div>
       <dl className="grid gap-3 rounded-xl bg-surface-2 p-4 text-sm sm:grid-cols-3">

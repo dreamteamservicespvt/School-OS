@@ -8,7 +8,7 @@ import { flatten, lateWords, progressBoard, syllabusTree, type TreeNode } from "
 import { isoDay, parseDay, plural } from "@/lib/academic/common";
 import { EmptyState } from "@/components/empty-state";
 import { Badge } from "@/components/ui/badge";
-import { buttonClass } from "@/components/ui/button";
+import { ButtonLink, buttonClass } from "@/components/ui/button";
 import { academicPage, one, type SearchParams } from "../_lib/page";
 import { NoYear, PageTop } from "../_components/page-top";
 import { ExportLinks } from "../_components/export-links";
@@ -102,7 +102,10 @@ export default async function SyllabusPage({ searchParams }: { searchParams: Sea
 
   return (
     <>
-      <PageTop page={page} title="Syllabus & Lesson Plans" href={PATH} />
+      <PageTop page={page} title="Syllabus & Lesson Plans" href={PATH}>
+        {/* Gap list G44: chapters and topics with their planned month or week, from an Excel sheet. */}
+        {page.scope.manage && <ButtonLink href="/academic-management/import?kind=academic-syllabus" size="sm" variant="ghost">Import from Excel</ButtonLink>}
+      </PageTop>
       <ViewSwitch views={views} current={view} />
 
       {data.kind === "progress" && (

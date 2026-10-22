@@ -5,7 +5,9 @@ import { FormMessage } from "@/components/ui/alert";
 import { CheckboxField, ErrorSummary, TextArea, TextField } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import type { FormState } from "@/lib/forms";
-import { requestDeletionAction, saveRetentionAction } from "../actions";
+import { useRouter } from "next/navigation";
+import { ConfirmButton } from "@/components/ui/confirm";
+import { clearRetentionAction, requestDeletionAction, saveRetentionAction } from "../actions";
 import { KeepCheck } from "@/components/ui/keep-select";
 
 type Rule = { recordType: string; label: string; keepMonths: number | null; legal?: string };
@@ -93,5 +95,17 @@ export function DeletionForm({ personType, personId, personName, parts }: { pers
       <p className="text-sm text-ink-2">Nothing is removed until the request is approved in Approvals. Then the chosen details are blanked out; fee receipts, results and the audit log stay, without the removed details.</p>
       <SubmitButton pendingText="Sending…">Send for approval</SubmitButton>
     </form>
+  );
+}
+
+/** The School Admin's approval of the retention list. */
+export function ClearRetentionButton({ runId, total, lines }: { runId: string; total: number; lines: string[] }) {
+  const router = useRouter();
+  return (
+    <ConfirmButton trigger={total === 1 ? "Clear this record" : `Clear these ${total} records`} triggerVariant="danger-outline" title={`Remove personal details from ${total} record${total === 1 ? "" : "s"}?`} confirmLabel="Remove personal details" confirmVariant="danger"
+      onConfirm={async () => { const p = await clearRetentionAction(runId); if (!p) router.refresh(); return p; }}>
+      <ul className="list-disc space-y-1 pl-5">{lines.map((l) => <li key={l}>{l}</li>)}</ul>
+      <p className="mt-2">This cannot be undone. The records themselves stay (pass numbers, counts and costs), and this is written to the audit log.</p>
+    </ConfirmButton>
   );
 }

@@ -7,9 +7,9 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import { requirePage } from "../current";
 import { withSchool } from "../db";
-import { personCampusId } from "../campus";
+import { narrowToCampus, personCampusId } from "../campus";
 import type { Action } from "../permissions";
-import { viewerFor } from "./access";
+import { viewerFor, type Viewer } from "./access";
 import { admissionYear, loadSettings } from "./settings";
 import { todayIn } from "./act";
 
@@ -40,4 +40,15 @@ export async function workPage(action: Action = "view") {
   const p = await admissionPage(action);
   if (p.viewer.see !== "all" || p.viewer.change !== "all") redirect(`/no-access?m=${MODULE}`);
   return p;
+}
+
+/**
+ * The admission viewer narrowed to a campus chosen in the page address
+ * (?campus=, from the Dashboard's filter, src/lib/campus.ts narrowToCampus):
+ * that campus's enquiries and applications. Never wider than their own limit.
+ */
+export async function viewerOnCampus(p: { current: Awaited<ReturnType<typeof admissionPage>>["current"]; viewer: Viewer }, raw: string | string[] | undefined): Promise<Viewer> {
+  if (!raw) return p.viewer;
+  const who = await withSchool(p.current.ctx, (tx) => narrowToCampus(tx, p.current, raw));
+  return who.campusId === p.viewer.campusId ? p.viewer : { ...p.viewer, campusId: who.campusId ?? null };
 }

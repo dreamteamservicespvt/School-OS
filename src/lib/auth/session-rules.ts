@@ -15,6 +15,7 @@
 import { withSchool, type SchoolContext, type Tx } from "../db";
 import { writeAudit } from "../audit";
 import { SettingsProblem } from "../settings/common";
+import { englishT, type T } from "../i18n/t";
 
 export type SessionRules = {
   /** Minutes without use before a sign-in on a computer ends. */
@@ -39,11 +40,10 @@ export const IDLE_CHOICES = [5, 10, 15, 30, 60, 120, 240, 480, 720, DAY, 3 * DAY
 export const MAX_SESSION_CHOICES = [60, 240, 480, 720, DAY, 3 * DAY, 7 * DAY, 14 * DAY, 30 * DAY, 90 * DAY] as const;
 
 /** "30 minutes", "1 hour", "7 days". */
-export function durationWords(minutes: number): string {
-  const n = (v: number, one: string) => `${v} ${one}${v === 1 ? "" : "s"}`;
-  if (minutes % DAY === 0) return n(minutes / DAY, "day");
-  if (minutes % 60 === 0) return n(minutes / 60, "hour");
-  return n(minutes, "minute");
+export function durationWords(minutes: number, t: T = englishT): string {
+  if (minutes % DAY === 0) { const n = minutes / DAY; return n === 1 ? t("{n} day", { n }) : t("{n} days", { n }); }
+  if (minutes % 60 === 0) { const n = minutes / 60; return n === 1 ? t("{n} hour", { n }) : t("{n} hours", { n }); }
+  return minutes === 1 ? t("{n} minute", { n: minutes }) : t("{n} minutes", { n: minutes });
 }
 
 /** Phones (and tablets): the browser or the installed app. Everything else counts as a computer. */
@@ -60,11 +60,11 @@ export const TIMED_OUT_REASONS: Record<TimeOut, string> = {
 };
 
 /** The sign-in page's words after a sign-in ended by itself (`/sign-in?signedOut=away&m=30`). */
-export function timedOutWords(signedOut: string | undefined, m: string | undefined): string | undefined {
+export function timedOutWords(signedOut: string | undefined, m: string | undefined, t: T = englishT): string | undefined {
   const minutes = Number(m);
-  const how = Number.isInteger(minutes) && minutes > 0 && minutes <= 200_000 ? durationWords(minutes) : null;
-  if (signedOut === "away") return `You were signed out because you were away${how ? ` for ${how}` : " for a while"}. Sign in again to carry on.`;
-  if (signedOut === "too-long") return `You were signed out because your school ends every sign-in after ${how ?? "a set time"}. Sign in again to carry on.`;
+  const time = Number.isInteger(minutes) && minutes > 0 && minutes <= 200_000 ? durationWords(minutes, t) : null;
+  if (signedOut === "away") return time ? t("You were signed out because you were away for {time}. Sign in again to carry on.", { time }) : t("You were signed out because you were away for a while. Sign in again to carry on.");
+  if (signedOut === "too-long") return time ? t("You were signed out because your school ends every sign-in after {time}. Sign in again to carry on.", { time }) : t("You were signed out because your school ends every sign-in after a set time. Sign in again to carry on.");
   return undefined;
 }
 

@@ -51,10 +51,12 @@ export default async function EventsPage({ searchParams }: { searchParams: Searc
   const rows = data.all.filter((e) => matches(e) && (f === "up" ? ["PLANNED", "OPEN"].includes(st(e)) : f === "done" ? st(e) === "DONE" : f === "cancel" ? st(e) === "CANCELLED" : true))
     .sort((a, b) => (f === "done" ? b.date.getTime() - a.date.getTime() : 0));
   const live = data.all.filter((e) => st(e) !== "CANCELLED");
+  // The money tiles follow the Show choice: "Coming up" adds up the events still to come (the Dashboard's "Event fees due" opens this).
+  const moneyLive = f === "up" ? live.filter((e) => ["PLANNED", "OPEN"].includes(st(e))) : live;
   const sum = (pick: (m: { collected: bigint; due: bigint; refunded: bigint }) => bigint, list = data.all) => list.reduce((a, e) => a + (data.money.get(e.id) ? pick(data.money.get(e.id)!) : ZERO), ZERO);
-  const collected = sum((m) => m.collected, live);
-  const due = sum((m) => m.due, live);
-  const dueStudents = live.reduce((a, e) => a + (data.money.get(e.id)?.dueStudents ?? 0), 0);
+  const collected = sum((m) => m.collected, moneyLive);
+  const due = sum((m) => m.due, moneyLive);
+  const dueStudents = moneyLive.reduce((a, e) => a + (data.money.get(e.id)?.dueStudents ?? 0), 0);
   const refunded = sum((m) => m.refunded);
   const upcoming = live.filter((e) => ["PLANNED", "OPEN"].includes(st(e)));
   const next = upcoming[0];

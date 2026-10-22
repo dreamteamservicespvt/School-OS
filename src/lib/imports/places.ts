@@ -8,7 +8,7 @@
 // the person who does that work never needs Settings (05-roles.md).
 import type { ModuleKey } from "../modules";
 
-export type PlaceKey = "settings" | "fees" | "finance" | "events" | "staff" | "enquiries" | "library" | "inventory-items" | "inventory-assets" | "hostel" | "students" | "salary" | "attendance";
+export type PlaceKey = "settings" | "fees" | "finance" | "events" | "staff" | "enquiries" | "library" | "inventory-items" | "inventory-assets" | "hostel" | "students" | "salary" | "attendance" | "academic";
 
 export type ImportPlace = {
   key: PlaceKey;
@@ -37,9 +37,10 @@ export const PLACES: Record<PlaceKey, ImportPlace> = {
   "inventory-items": { key: "inventory-items", module: "inventory-management", base: "/inventory-management/items/import", downloads: "/inventory-management/import", kinds: ["inventory-items"], name: "Import items" },
   "inventory-assets": { key: "inventory-assets", module: "inventory-management", base: "/inventory-management/assets/import", downloads: "/inventory-management/import", kinds: ["inventory-assets"], name: "Import assets" },
   hostel: { key: "hostel", module: "hostel-management", base: "/hostel-management/rooms/import", kinds: ["hostel-rooms"], name: "Import rooms" },
-  students: { key: "students", module: "student-management", base: "/student-management/import", kinds: ["students", "students-update"], name: "Import students" },
+  students: { key: "students", module: "student-management", base: "/student-management/import", kinds: ["students", "students-update", "consent-paper-forms"], name: "Import students" },
   salary: { key: "salary", module: "salary-management", base: "/salary-management/structures/import", kinds: ["salary-structures", "salary-to-date"], name: "Import salary" },
   attendance: { key: "attendance", module: "attendance-management", base: "/attendance-management/import", kinds: ["attendance-so-far"], name: "Import attendance so far" },
+  academic: { key: "academic", module: "academic-management", base: "/academic-management/import", kinds: ["academic-allocations", "academic-timetable", "academic-syllabus"], name: "Import from Excel" },
 };
 
 /**
@@ -55,6 +56,12 @@ export const OWN_RULES: Record<string, PlaceKey> = {
   "staff-pay-details": "staff",
   // Salary to date: full Salary Management only, as for salary itself.
   "salary-to-date": "salary",
+  // Academic Management: Teacher Allocation needs full Academic Management, as for Assign teacher.
+  "academic-allocations": "academic",
+  // The Time Table: the people who keep it (full Academic Management, or the Office Staff template).
+  "academic-timetable": "academic",
+  // The syllabus: full Academic Management, as for setting up the curriculum.
+  "academic-syllabus": "academic",
 };
 
 export function importPlace(key: unknown): ImportPlace | null {
@@ -83,6 +90,7 @@ export const errorsHref = (place: ImportPlace, batchId: string, kind: string) =>
 export const HOME: Record<string, { href: string; label: string }> = {
   students: { href: "/student-management", label: "Open Student List" },
   "students-update": { href: "/student-management", label: "Open Student List" },
+  "consent-paper-forms": { href: "/settings/data-security/consent", label: "Open Consent" },
   "salary-structures": { href: "/salary-management/structures", label: "Open Salary Structures" },
   staff: { href: "/staff-hr-management", label: "Open Staff List" },
   departments: { href: "/staff-hr-management/settings", label: "Open HR Settings" },
@@ -99,6 +107,9 @@ export const HOME: Record<string, { href: string; label: string }> = {
   "staff-leave-balances": { href: "/staff-hr-management/leave?view=balances", label: "Open leave balances" },
   "staff-pay-details": { href: "/staff-hr-management", label: "Open Staff List" },
   "salary-to-date": { href: "/salary-management/history", label: "Open Salary History" },
+  "academic-allocations": { href: "/academic-management/teacher-allocation", label: "Open Teacher Allocation" },
+  "academic-timetable": { href: "/academic-management/time-table?version=draft", label: "Open the draft Time Table" },
+  "academic-syllabus": { href: "/academic-management/syllabus", label: "Open Syllabus & Lesson Plans" },
 };
 
 /** One record and many, in the words of each kind's own module. */
@@ -115,11 +126,15 @@ export const WORDS: Record<string, { one: string; many: string }> = {
   "hostel-rooms": { one: "room", many: "rooms" },
   students: { one: "student", many: "students" },
   "students-update": { one: "student's changes", many: "students' changes" },
+  "consent-paper-forms": { one: "paper consent", many: "paper consents" },
   "salary-structures": { one: "salary structure", many: "salary structures" },
   "attendance-so-far": { one: "student's attendance so far", many: "students' attendance so far" },
   "staff-leave-balances": { one: "leave balance", many: "leave balances" },
   "staff-pay-details": { one: "staff member's pay details", many: "staff members' pay details" },
   "salary-to-date": { one: "staff member's salary to date", many: "staff members' salary to date" },
+  "academic-allocations": { one: "teacher assignment", many: "teacher assignments" },
+  "academic-timetable": { one: "period", many: "periods" },
+  "academic-syllabus": { one: "chapter or topic", many: "chapters and topics" },
 };
 
 export const wordsFor = (kind: string, label: string) => WORDS[kind] ?? { one: label.toLowerCase().replace(/s$/, ""), many: label.toLowerCase() };

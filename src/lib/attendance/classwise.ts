@@ -12,6 +12,7 @@ import { loadSchoolCalendar } from "../calendar/school-days";
 import { attendanceSettings, statusList, statusMap, weightOf } from "./settings";
 import { addDay, dayStatus, finish, type DayMark, type PersonSummary } from "./summary";
 import { registerBook } from "./on-register";
+import type { AttendanceAccess } from "./access";
 
 export type ClassGroup = { key: string; label: string; sort: number };
 
@@ -214,6 +215,16 @@ export async function classWise(
 }
 
 /** Sort for the class-wise view: lowest % first, sections not marked before everything, or class order. */
+/**
+ * Every section a person may see, for these dates: what Attendance Register
+ * opens on for the whole school, and the Dashboard's "Students present" tile
+ * (one call, so the tile and the list it opens always count the same
+ * students). Each campus's current year; only their campus when limited to one.
+ */
+export function registerWhole(tx: Tx, ctx: SchoolContext, access: Pick<AttendanceAccess, "yearIds" | "limitSections" | "campusId">, from: Date, to: Date, today: Date) {
+  return classWise(tx, ctx, { yearId: access.yearIds, from, to, today, sectionIds: access.limitSections, campusId: access.campusId });
+}
+
 export function sortSections(rows: SectionAttendance[], by: "low" | "class") {
   if (by === "class") return rows;
   return [...rows].sort((a, b) => Number(b.notMarked) - Number(a.notMarked) || (a.percent ?? 999) - (b.percent ?? 999) || a.sort - b.sort);

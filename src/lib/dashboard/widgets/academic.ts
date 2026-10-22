@@ -122,7 +122,8 @@ const mySubstitutions: Widget<"attention"> = {
       tone: "warn", icon: "ArrowRightLeft",
       title: `Substitution today: ${p.sectionLabel}, period ${p.periodNo}${p.subjectName ? ` (${p.subjectName})` : ""}`,
       detail: `${p.substitution?.forStaffName ?? "A teacher"} is away · ${clock(p.startTime)}${p.room ? ` · ${/^\d/.test(p.room) ? `Room ${p.room}` : p.room}` : ""}`,
-      action: "See it", href: `${SUBS}?view=by-teacher`, value: p.id,
+      // A teacher's substitution duties are on their own Time Table (Substitutions is not a teacher's page).
+      action: "See it", href: TT, value: p.id,
     }));
   },
 };
@@ -141,7 +142,7 @@ const myAgenda: Widget<"agenda"> = {
       id: `period:${p.id}`, time: clock(p.startTime),
       title: p.isSubstitute ? `Substitution: ${p.sectionLabel} ${p.subjectName ?? ""}`.trim() : `${p.sectionLabel} · ${p.subjectName ?? p.label ?? "Period"}`,
       where: [p.room ? (/^\d/.test(p.room) ? `Room ${p.room}` : p.room) : null, p.isSubstitute && p.substitution?.forStaffName ? `for ${p.substitution.forStaffName}` : null].filter(Boolean).join(" · ") || "From your Time Table",
-      tone: p.isSubstitute ? "warn" : "brand", href: p.isSubstitute ? `${SUBS}?view=by-teacher` : TT, sort: minutesOf(p.startTime),
+      tone: p.isSubstitute ? "warn" : "brand", href: TT, sort: minutesOf(p.startTime),
     }));
   },
 };
@@ -163,8 +164,9 @@ const openSubstitutions: Widget<"attention"> = {
   homes: ["leader", "academic-head", "office"],
   allowed: (v) => arranges(v),
   async load(c) {
+    // Every period of the day still without a teacher, as Substitutions lists them ("N still needed").
     const needs = await needsToday(c);
-    const left = needs.open.filter((r) => minutesOf(r.endTime) > c.minuteNow);
+    const left = needs.open;
     if (!left.length) return null;
     return {
       id: "academic.periods-without-teacher", tone: "bad", icon: "ArrowRightLeft",

@@ -20,6 +20,7 @@ import { writeAudit } from "../audit";
 import { SettingsProblem } from "../settings/common";
 import { schoolsFor } from "./access";
 import { checkNewPassword, verifyPassword } from "./password";
+import { englishT, type T } from "../i18n/t";
 
 export type PasswordRules = {
   minLength: number;
@@ -153,9 +154,9 @@ export async function savePasswordRules(tx: Tx, ctx: SchoolContext, input: Passw
 }
 
 /** "At least 10 characters, a letter and a number, not a common password; not one of your last 3." For the forms. */
-export function passwordRuleWords(rules: PasswordRules): string {
-  const parts = [`At least ${rules.minLength} characters, with a letter and a number`, "not a common password"];
-  if (rules.history === 1) parts.push("not the one you have now");
-  if (rules.history > 1) parts.push(`not one of your last ${rules.history}`);
-  return `${parts.join("; ")}.`;
+export function passwordRuleWords(rules: PasswordRules, t: T = englishT): string {
+  const n = rules.minLength;
+  if (rules.history === 1) return t("At least {n} characters, with a letter and a number; not a common password; not the one you have now.", { n });
+  if (rules.history > 1) return t("At least {n} characters, with a letter and a number; not a common password; not one of your last {count}.", { n, count: rules.history });
+  return t("At least {n} characters, with a letter and a number; not a common password.", { n });
 }

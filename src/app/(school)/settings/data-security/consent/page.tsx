@@ -5,7 +5,22 @@ import { formatDate } from "@/lib/format";
 import { consentTexts, LANGUAGE_NAMES, READY_TEXTS } from "@/lib/data-security/consent";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ButtonLink } from "@/components/ui/button";
+import { can } from "@/lib/permissions";
+import { consentLog, type ConsentCounts } from "@/lib/students/consent-log";
+import { goLiveConsentStatus } from "@/lib/parent-link/consent";
 import { ConsentForm } from "./form";
+
+const n = (x: number) => x.toLocaleString("en-IN");
+/** "212 of 318 given (40 from paper forms) · 61 waiting · 3 refused · 2 withdrawn · 40 not asked" */
+function counts(c: ConsentCounts) {
+  const parts = [`${n(c.given)} of ${n(c.total)} given${c.fromPaper ? ` (${n(c.fromPaper)} from paper forms)` : ""}`];
+  if (c.waiting) parts.push(`${n(c.waiting)} waiting`);
+  if (c.refused) parts.push(`${n(c.refused)} refused`);
+  if (c.withdrawn) parts.push(`${n(c.withdrawn)} withdrawn`);
+  if (c.notAsked) parts.push(`${n(c.notAsked)} not asked`);
+  return parts.join(" · ");
+}
 
 export const metadata: Metadata = { title: "Consent · Data Backup & Security" };
 
@@ -18,10 +33,11 @@ export default async function ConsentPage({ searchParams }: Search) {
   const data = await withSchool(current.ctx, async (tx) => {
     const school = await tx.school.findUnique({ where: { id: current.ctx.schoolId }, select: { languages: true, defaultLanguage: true } });
     const people = await tx.schoolAccess.findMany({ select: { userLogin: { select: { id: true, displayName: true } } } });
-    return { types: await consentTexts(tx), school, names: new Map(people.map((p) => [p.userLogin.id, p.userLogin.displayName])) };
+    return { types: await consentTexts(tx), school, names: new Map(people.map((p) => [p.userLogin.id, p.userLogin.displayName])), log: await consentLog(tx, current.ctx, { campusId: current.campusId }), goLive: await goLiveConsentStatus(tx, current.ctx) };
   });
   const langs = [...new Set([data.school?.defaultLanguage ?? "en", ...(data.school?.languages ?? ["en"])])];
   const canEdit = may.edit;
+  const mayRecord = can(current.permissions, "student-management", "create");
   const starts = Object.fromEntries(data.types.map((t) => [t.key, t.current
     ? { title: t.current.title, text: t.current.text as Record<string, string>, askedOnAdmission: t.current.askedOnAdmission }
     : { title: READY_TEXTS[t.key]?.title ?? "", text: READY_TEXTS[t.key] ? { en: READY_TEXTS[t.key].en } : {}, askedOnAdmission: t.key === "data-processing" || t.key === "photo" }]));
@@ -57,10 +73,43 @@ export default async function ConsentPage({ searchParams }: Search) {
             )}
           </Card>
         ))}
-        <Card>
-          <CardHeader title="Who has agreed" />
-          <CardBody>
-            <p className="text-ink-2">Each guardian&apos;s consent, given on the admission form or through Parent Link and confirmed by a one-time code, is kept on the guardian in Student Management, with the version agreed to. The log by consent type and class (given, not given, withdrawn) appears here once Student Management records consents.</p>
+        {data.goLive && (
+          <Card id="asked-on-go-live">
+            <CardHeader title="Asked on going live" description="The consent request sent with each parent's Parent Link when the school went live on School OS." />
+            <CardBody className="space-y-2">
+              <p className="tnum"><strong>{n(data.goLive.asked)}</strong> {data.goLive.asked === 1 ? "parent" : "parents"} asked · <strong>{n(data.goLive.answered)}</strong> answered · <strong>{n(data.goLive.waiting)}</strong> waiting</p>
+              <ul className="space-y-1 text-[13.5px] text-ink-2 tnum">
+                {data.goLive.byType.map((t) => (
+                  <li key={t.consentType}>{data.types.find((x) => x.key === t.consentType)?.label ?? t.consentType}: {n(t.given)} of {n(t.asked)} given · {n(t.waiting)} waiting{t.refused ? ` · ${n(t.refused)} refused` : ""}{t.withdrawn ? ` · ${n(t.withdrawn)} withdrawn` : ""}</li>
+                ))}
+              </ul>
+              <p className="text-[13.5px] text-ink-2">Remind those waiting from Communication, Parent Link, Consent forms.</p>
+            </CardBody>
+          </Card>
+        )}
+        <Card id="who-agreed">
+          <CardHeader title="Who has agreed" description="This year's students, by consent and class. A student counts as given while a parent on record has agreed (in Parent Link, on the application form or on a signed paper form)."
+            action={mayRecord ? <ButtonLink href="/settings/data-security/consent/paper" size="sm" variant="secondary">Paper forms received</ButtonLink> : undefined} />
+          <CardBody className="space-y-5">
+            {data.log.length === 0 ? <p className="text-ink-2">No consent texts yet, so nobody has been asked.</p> : data.log.map((t) => (
+              <section key={t.consentType} aria-labelledby={`log-${t.consentType}`} className="space-y-2">
+                <h3 id={`log-${t.consentType}`} className="font-semibold">{t.title} <span className="font-normal text-ink-2">· version {t.version}</span></h3>
+                <p className="text-[13.5px] tnum">{counts(t.totals)}</p>
+                {t.classes.length > 0 && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[520px] text-[13px] tnum">
+                      <caption className="sr-only">{t.title} by class</caption>
+                      <thead><tr className="text-left text-ink-2"><th scope="col" className="py-1 pr-2 font-medium">Class</th><th scope="col" className="px-2 font-medium">Given</th><th scope="col" className="px-2 font-medium">From paper</th><th scope="col" className="px-2 font-medium">Waiting</th><th scope="col" className="px-2 font-medium">Refused</th><th scope="col" className="px-2 font-medium">Withdrawn</th><th scope="col" className="px-2 font-medium">Not asked</th></tr></thead>
+                      <tbody>
+                        {t.classes.map((c) => (
+                          <tr key={c.classId} className="border-t border-line/70"><th scope="row" className="py-1 pr-2 text-left font-medium">{c.className}</th><td className="px-2">{c.given} of {c.total}</td><td className="px-2">{c.fromPaper}</td><td className="px-2">{c.waiting}</td><td className="px-2">{c.refused}</td><td className="px-2">{c.withdrawn}</td><td className="px-2">{c.notAsked}</td></tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+            ))}
           </CardBody>
         </Card>
       </div>

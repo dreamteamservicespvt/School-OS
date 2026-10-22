@@ -95,7 +95,8 @@ describe("Dashboard Recent payments link", () => {
   it("sends the Principal to the Fee Dashboard: collecting is not the Principal's work", async () => {
     const home = await buildHome(await currentFor(f.school.id, f.principal.id), { now: new Date() });
     const p = recent(all(home));
-    expect(p?.href).toBe("/fee-management/dashboard");
+    // The link carries the Dashboard's period so the Fee Dashboard opens on what was counted (gap list G36).
+    expect(p?.href?.split("?")[0]).toBe("/fee-management/dashboard");
     expect(p?.linkLabel).toBe("Fee Dashboard");
   });
 });

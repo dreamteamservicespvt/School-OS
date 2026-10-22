@@ -14,6 +14,15 @@ import { ageingLabel, cancelReasonLabel, concessionTypeLabel, modeLabel, percent
 import { defaulters } from "./defaulters";
 import { feesByClass } from "./by-class";
 import { feeStudentFilter, type FeeViewer } from "./access";
+import { instantAt } from "@/lib/attendance/time";
+
+/** A report's dates as real instants in the school's time zone: a payment cancelled at 1 AM in India is on that day, not the day before (UTC). */
+async function instantRange(tx: Tx, ctx: SchoolContext, f: { from: Date; to: Date }) {
+  const school = await tx.school.findUnique({ where: { id: ctx.schoolId }, select: { timeZone: true } });
+  const tz = school?.timeZone ?? "Asia/Kolkata";
+  return { gte: instantAt(f.from, "00:00", tz), lt: instantAt(new Date(f.to.getTime() + DAY_MS), "00:00", tz) };
+}
+
 
 const ZERO = BigInt(0);
 
@@ -261,8 +270,8 @@ export const FEE_REPORTS: ReportDef[] = [
     label: "Discount and concession report",
     about: "Every discount, scholarship, bulk discount and waiver with reason, status and amount.",
     filters: ["dates", "class"],
-    async run(tx, _ctx, f, viewer) {
-      const list = await tx.concession.findMany({ where: { ...(await feeStudentFilter(tx, viewer)), createdAt: { gte: f.from, lt: new Date(f.to.getTime() + DAY_MS) } }, orderBy: { createdAt: "asc" } });
+    async run(tx, ctx, f, viewer) {
+      const list = await tx.concession.findMany({ where: { ...(await feeStudentFilter(tx, viewer)), createdAt: await instantRange(tx, ctx, f) }, orderBy: { createdAt: "asc" } });
       const n = await names(tx, list.map((c) => c.studentId));
       const classIn = await classInYearOf(tx, list);
       const filtered = list.filter((c) => !f.classId || classIn(c.studentId, c.academicYearId)?.classId === f.classId);
@@ -288,8 +297,8 @@ export const FEE_REPORTS: ReportDef[] = [
     label: "Penalty (late fee) report",
     about: "Late fee added, waived and collected in the period.",
     filters: ["dates", "class"],
-    async run(tx, _ctx, f, viewer) {
-      const rowsDb = await tx.studentFeeDue.findMany({ where: { ...(await feeStudentFilter(tx, viewer)), kind: "LATE_FEE", createdAt: { gte: f.from, lt: new Date(f.to.getTime() + DAY_MS) } } });
+    async run(tx, ctx, f, viewer) {
+      const rowsDb = await tx.studentFeeDue.findMany({ where: { ...(await feeStudentFilter(tx, viewer)), kind: "LATE_FEE", createdAt: await instantRange(tx, ctx, f) } });
       const classIn = await classInYearOf(tx, rowsDb);
       const n = await names(tx, rowsDb.map((r) => r.studentId));
       const filtered = rowsDb.filter((r) => !f.classId || classIn(r.studentId, r.academicYearId)?.classId === f.classId);
@@ -332,8 +341,8 @@ export const FEE_REPORTS: ReportDef[] = [
     label: "Cancelled payments report",
     about: "Who cancelled which payment, when, the reason and the amount (replaces the old Deleted Payments Log).",
     filters: ["dates", "class"],
-    async run(tx, _ctx, f, viewer) {
-      const list = await tx.payment.findMany({ where: { ...(await feeStudentFilter(tx, viewer)), status: "CANCELLED", cancelledAt: { gte: f.from, lt: new Date(f.to.getTime() + DAY_MS) } }, orderBy: { cancelledAt: "asc" } });
+    async run(tx, ctx, f, viewer) {
+      const list = await tx.payment.findMany({ where: { ...(await feeStudentFilter(tx, viewer)), status: "CANCELLED", cancelledAt: await instantRange(tx, ctx, f) }, orderBy: { cancelledAt: "asc" } });
       const n = await names(tx, list.map((p) => p.studentId));
       const classIn = await classInYearOf(tx, list);
       const receipts = await tx.receipt.findMany({ where: { paymentId: { in: list.map((p) => p.id) } } });
@@ -355,8 +364,8 @@ export const FEE_REPORTS: ReportDef[] = [
     label: "Refund report",
     about: "Refunds asked, approved and paid, with reason and mode.",
     filters: ["dates", "class"],
-    async run(tx, _ctx, f, viewer) {
-      const list = await tx.refund.findMany({ where: { ...(await feeStudentFilter(tx, viewer)), createdAt: { gte: f.from, lt: new Date(f.to.getTime() + DAY_MS) } }, orderBy: { createdAt: "asc" } });
+    async run(tx, ctx, f, viewer) {
+      const list = await tx.refund.findMany({ where: { ...(await feeStudentFilter(tx, viewer)), createdAt: await instantRange(tx, ctx, f) }, orderBy: { createdAt: "asc" } });
       const n = await names(tx, list.map((r) => r.studentId));
       const classes = await classOfStudents(tx, list.map((r) => r.studentId));
       const filtered = list.filter((r) => !f.classId || classes.get(r.studentId)?.classId === f.classId);
@@ -464,8 +473,8 @@ export const FEE_REPORTS: ReportDef[] = [
     label: "Online payments",
     about: "Every gateway confirmation and failure: posted, already posted (a second confirmation), failed, found by reconciliation, matched by hand, not matched, or refunded or disputed at Razorpay.",
     filters: ["dates"],
-    async run(tx, _ctx, f, viewer) {
-      const all = await tx.gatewayTransaction.findMany({ where: { receivedAt: { gte: f.from, lt: new Date(f.to.getTime() + DAY_MS) } }, orderBy: { receivedAt: "asc" } });
+    async run(tx, ctx, f, viewer) {
+      const all = await tx.gatewayTransaction.findMany({ where: { receivedAt: await instantRange(tx, ctx, f) }, orderBy: { receivedAt: "asc" } });
       const pays = await tx.payment.findMany({ where: { id: { in: all.map((l) => l.paymentId).filter((x): x is string => Boolean(x)) }, ...(await feeStudentFilter(tx, viewer)) }, select: { id: true, studentId: true } });
       // A person limited to one campus: only their campus's payments. Rows not matched to any payment belong to no campus and stay.
       const list = viewer.campusId ? all.filter((l) => !l.paymentId || pays.some((p) => p.id === l.paymentId)) : all;

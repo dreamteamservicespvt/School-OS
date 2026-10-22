@@ -126,13 +126,13 @@ export async function composeBrief(tx: Tx, who: ReportViewer, now = new Date(), 
     const month = await tx.payment.aggregate({ where: { status: "POSTED", broughtIn: false, paymentDate: { gte: monthStart, lte: today }, ...only }, _sum: { amountPaise: true } });
     const expected = fc.months[0]?.expected ?? null;
     lines.push({
-      section: "happened", href: `/fee-management/dashboard?period=custom&${range}`,
+      section: "happened", href: `/fee-management/dashboard?period=custom&${range}&status=POSTED&kind=all`,
       text: `Fees collected ${back.short}: ${wholeRupees(paid._sum.amountPaise ?? BigInt(0))} in ${plural(paid._count._all, "payment")}.`,
       basis: "posted payments (Fee Management)",
     });
     if (expected !== null) {
       lines.push({
-        section: "happened", href: "/fee-management/dashboard", suggestion: true,
+        section: "happened", href: "/fee-management/dashboard?period=thismonth&status=POSTED&kind=all", suggestion: true,
         text: `This month so far: ${wholeRupees(month._sum.amountPaise ?? BigInt(0))} collected, of about ${wholeRupees(expected)} expected this month.`,
         basis: "the expected amount is a Suggestion: this month's dues at the share your families usually pay (Fee Dashboard)",
       });
@@ -147,7 +147,7 @@ export async function composeBrief(tx: Tx, who: ReportViewer, now = new Date(), 
     ]);
     if (enquiries + applications + admitted > 0) {
       lines.push({
-        section: "happened", href: "/admission-management/enquiries",
+        section: "happened", href: `/admission-management/enquiries?period=custom&${range}`,
         text: `Admissions ${back.short}: ${plural(enquiries, "new enquiry", "new enquiries")}, ${plural(applications, "application")}, ${admitted} admitted.`,
         basis: "enquiries and applications (Admission Management)",
       });

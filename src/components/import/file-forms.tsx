@@ -10,7 +10,7 @@ import { FormMessage } from "@/components/ui/alert";
 import { CheckboxField, SelectField, TextField } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import type { FormState } from "@/lib/forms";
-import { columnsAction, fixRowAction, sheetAction, uploadAction, valuesAction } from "@/app/(school)/_imports/file-actions";
+import { columnsAction, fixRowAction, sheetAction, uploadAction, uploadPhotosAction, valuesAction } from "@/app/(school)/_imports/file-actions";
 import { KeepSelect } from "@/components/ui/keep-select";
 
 type Opt = { value: string; label: string };
@@ -46,6 +46,68 @@ export function UploadForm({ place, kinds, kind, guess = true, help, students }:
         </>
       )}
       <SubmitButton pendingText="Reading the file…">Upload and check</SubmitButton>
+    </form>
+  );
+}
+
+/** Most photos at once, and their size together (the server takes at most 25 MB a request). */
+const MAX_PHOTOS = 5;
+const MAX_PHOTO_BYTES = 24 * 1024 * 1024;
+
+/**
+ * Photos or scans of paper register pages (gap list G43), read by the AI
+ * assistant into rows that open in the same review as a sheet. With the AI
+ * assistant off for this person, it says so plainly and points to the ready sheet.
+ */
+export function PhotoUploadForm({ place, kinds, kind, guess = true, students, refusal, sheetHref }: { place: string; kinds: Opt[]; kind?: string; guess?: boolean; students?: StudentChoices; refusal: string | null; sheetHref?: string }) {
+  const [state, action] = useActionState<FormState, FormData>(uploadPhotosAction, null);
+  const [tooMuch, setTooMuch] = useState<string | null>(null);
+  if (refusal) {
+    return (
+      <div className="space-y-2 text-sm">
+        <p role="note">{refusal}</p>
+        {sheetHref && <a href={sheetHref} download className="inline-flex min-h-11 items-center font-medium text-brand-text hover:underline">Download the ready Excel sheet</a>}
+      </div>
+    );
+  }
+  const refused = Boolean(state && !state.ok);
+  const fileError = tooMuch ?? state?.errors?.photos;
+  return (
+    <form action={action} className="space-y-4" noValidate onSubmit={(e) => { if (tooMuch) e.preventDefault(); }}>
+      <FormMessage state={state} />
+      <input type="hidden" name="place" value={place} />
+      <p className="text-sm text-ink-2">Take a clear photo of each register page, straight from above in good light, or upload a PDF scan. The AI assistant copies each page into rows; you then match the columns and check every row against the photo before anything is saved.</p>
+      <div>
+        <label htmlFor="move-in-photos" className="mb-1 block text-sm font-medium">Photos of the pages<span className="text-danger" aria-hidden="true"> *</span></label>
+        <input id="move-in-photos" name="photos" type="file" multiple required accept="image/jpeg,image/png,image/webp,application/pdf"
+          aria-describedby="move-in-photos-help" aria-invalid={Boolean(fileError)}
+          onChange={(e) => {
+            const list = Array.from(e.currentTarget.files ?? []);
+            const bytes = list.reduce((n, f) => n + f.size, 0);
+            setTooMuch(list.length > MAX_PHOTOS ? `Choose at most ${MAX_PHOTOS} pages at a time.` : bytes > MAX_PHOTO_BYTES ? "These photos are more than 24 MB together. Upload fewer pages at a time." : null);
+          }}
+          className="block w-full rounded-lg border border-line-strong bg-surface p-2 text-base file:mr-3 file:min-h-10 file:rounded-md file:border-0 file:bg-surface-2 file:px-3 file:text-ink" />
+        {fileError ? <p className="mt-1 text-sm text-danger">{fileError}</p> : (
+          <p id="move-in-photos-help" className="mt-1 text-sm text-ink-2">JPG, PNG or PDF, up to {MAX_PHOTOS} pages at a time, 24 MB together. Only these pictures are sent to the AI service, for reading them, and each request is logged.</p>
+        )}
+      </div>
+      {kinds.length === 1 && !guess ? <input type="hidden" name="kind" value={kinds[0].value} /> : (
+        <SelectField label="What is on the pages?" name="kind" options={guess ? [{ value: "", label: "Let School OS work it out" }, ...kinds] : kinds} defaultValue={state?.values?.kind ?? kind ?? (guess ? "" : kinds[0]?.value)} error={state?.errors?.kind} />
+      )}
+      {students && (
+        <>
+          <SelectField key={`s${refused}`} label="Class and section" name="sectionId" options={[{ value: "", label: "From the register's Class and Section columns" }, ...students.sections]}
+            defaultValue={(refused ? state?.values?.sectionId : undefined) ?? students.sectionId ?? ""} error={state?.errors?.sectionId} help="Used for new students on rows with no class." />
+          <CheckboxField key={`f${refused}`} name="applyFeePlan" label="Apply the class fee plan" help="Each new student gets the fee plan of their class (Fee Management)."
+            defaultChecked={refused ? state?.values?.applyFeePlan === "on" : true} />
+        </>
+      )}
+      <div>
+        <CheckboxField key={`p${refused}`} name="privateCovered" label="Aadhaar, bank and other private numbers are covered or cut out on these pages"
+          help="They are never sent to the AI service. Add them by hand after the records are in." defaultChecked={refused ? state?.values?.privateCovered === "on" : false} aria-invalid={Boolean(state?.errors?.privateCovered)} />
+        {state?.errors?.privateCovered && <p className="mt-1 text-sm text-danger">{state.errors.privateCovered}</p>}
+      </div>
+      <SubmitButton pendingText="Reading the pages… this can take a minute">Read the pages and check</SubmitButton>
     </form>
   );
 }

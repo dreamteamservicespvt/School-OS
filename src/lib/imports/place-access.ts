@@ -18,6 +18,7 @@ import { libCan, libViewer } from "../library/access";
 import { invCan, invViewer } from "../inventory/access";
 import { hostelCan, hostelViewer } from "../hostel/access";
 import { salaryLevel } from "../salary/access";
+import { arrangesTimetable } from "../academic/scope";
 import { importPlace, OWN_RULES, PLACES, placeHolds, type ImportPlace } from "./places";
 
 type Need = "create" | "archive";
@@ -98,6 +99,12 @@ export async function placeRefusal(current: Current, place: ImportPlace, kind: s
       return reachFor(current.permissions, "attendance-management", need) !== "none" && p?.change === "all" && p?.see === "all"
         ? null : "Only the Principal, the Vice Principal or the School Admin can bring in attendance so far.";
     }
+    case "academic":
+      // The Time Table: the people who keep it (full Academic Management, or the Office Staff template), as for editing a period.
+      if (kind === "academic-timetable") return arrangesTimetable(current) ? null : "Your role does not arrange the Time Table. Ask the office or the Principal.";
+      // Teacher Allocation and the syllabus: full Academic Management, as for Assign teacher and setting up the curriculum.
+      return reachFor(current.permissions, "academic-management", "edit") === "all" && reachFor(current.permissions, "academic-management", need) === "all"
+        ? null : "Only people with full Academic Management (the Principal, the Vice Principal or the School Admin) can bring these in.";
   }
 }
 

@@ -11,7 +11,7 @@ import { inventorySettings } from "../../inventory/settings";
 import { billsWithState } from "../../inventory/purchases";
 import { BASE, PRIORITY, billState, qtyWords } from "../../inventory/words";
 import { formatRupees } from "../../format";
-import { n, plural, shortDate } from "../common";
+import { iso, n, plural, shortDate } from "../common";
 import type { ListRow, Viewer, Widget } from "../types";
 
 const viewerOf = (v: Viewer) => invViewer(v as unknown as Parameters<typeof invViewer>[0]);
@@ -26,7 +26,7 @@ const lowBand: Widget<"band"> = {
   homes: ["store", "leader"],
   allowed: sees("items"),
   async load(c) {
-    const low = await c.memo("inv-low", () => lowStockItems(c.tx));
+    const low = await c.memo("inv-low", () => lowStockItems(c.tx, 5000));
     const out = low.filter((x) => x.total <= 0).length;
     return { id: "inventory.low-stock", label: "Low stock items", big: n(low.length), foot: low.length ? (out ? `${plural(out, "item")} out of stock` : "At or below the reorder level") : "Everything above its level", href: `${BASE}/items?state=low` };
   },
@@ -40,11 +40,14 @@ const openOrders: Widget<"band"> = {
   homes: ["store"],
   allowed: sees("purchases"),
   async load(c) {
-    const [open, late] = await Promise.all([
+    const [open, late, oldest] = await Promise.all([
       c.tx.purchaseOrder.count({ where: { status: { in: ["SENT", "PART_RECEIVED"] } } }),
       c.tx.purchaseOrder.count({ where: { status: { in: ["SENT", "PART_RECEIVED"] }, expectedOn: { lt: c.today } } }),
+      c.tx.purchaseOrder.findFirst({ where: { status: { in: ["SENT", "PART_RECEIVED"] } }, orderBy: { date: "asc" }, select: { date: true } }),
     ]);
-    return { id: "inventory.open-orders", label: "Orders to receive", big: n(open), foot: late ? `${plural(late, "order")} late` : open ? "None late" : "Nothing on order", href: `${BASE}/purchases?tab=orders&status=open` };
+    // From the oldest open order's date: the orders list keeps to this financial year unless dates are given.
+    const dates = oldest ? `&from=${iso(oldest.date)}&to=${iso(c.today > oldest.date ? c.today : oldest.date)}` : "";
+    return { id: "inventory.open-orders", label: "Orders to receive", big: n(open), foot: late ? `${plural(late, "order")} late` : open ? "None late" : "Nothing on order", href: `${BASE}/purchases?tab=orders&status=open${dates}` };
   },
 };
 
@@ -76,7 +79,7 @@ const maintenanceBand: Widget<"band"> = {
       c.tx.maintenanceRequest.count({ where: { status: { in: ["OPEN", "IN_PROGRESS"] } } }),
       c.tx.maintenanceRequest.count({ where: { status: { in: ["OPEN", "IN_PROGRESS"] }, priority: { in: ["HIGH", "URGENT"] } } }),
     ]);
-    return { id: "inventory.maintenance", label: "Maintenance open", big: n(open), foot: urgent ? `${plural(urgent, "urgent or high request")}` : open ? "None urgent" : "Nothing open", href: `${BASE}/rooms?tab=maintenance` };
+    return { id: "inventory.maintenance", label: "Maintenance open", big: n(open), foot: urgent ? `${plural(urgent, "urgent or high request")}` : open ? "None urgent" : "Nothing open", href: `${BASE}/rooms?tab=maintenance&status=open` };
   },
 };
 
@@ -88,7 +91,7 @@ const outOfStock: Widget<"attention"> = {
   homes: ["store", "leader"],
   allowed: sees("items"),
   async load(c) {
-    const low = await c.memo("inv-low", () => lowStockItems(c.tx));
+    const low = await c.memo("inv-low", () => lowStockItems(c.tx, 5000));
     const out = low.filter((x) => x.total <= 0);
     if (!out.length) return null;
     const desk = keeps(c.viewer);
@@ -96,7 +99,7 @@ const outOfStock: Widget<"attention"> = {
       id: "inventory.out-of-stock", tone: "bad", icon: "TriangleAlert",
       title: `${plural(out.length, "store item")} out of stock`,
       detail: `${out.slice(0, 3).map((x) => x.item.name).join(", ")}${out.length > 3 ? ` and ${out.length - 3} more` : ""}. ${desk ? "Raise a purchase request." : "Ask the store keeper to order them."}`,
-      action: desk ? "Raise request" : "Review", href: desk ? `${BASE}/purchases?tab=requests&new=1&low=1` : `${BASE}/items?state=low`, value: String(out.length),
+      action: desk ? "Raise request" : "Review", href: desk ? `${BASE}/purchases?tab=requests&new=1&low=1` : `${BASE}/items?state=out`, value: String(out.length),
     };
   },
 };
@@ -109,14 +112,18 @@ const urgentMaintenance: Widget<"attention"> = {
   homes: ["store", "leader"],
   allowed: sees("rooms"),
   async load(c) {
-    const rows = await c.tx.maintenanceRequest.findMany({ where: { status: { in: ["OPEN", "IN_PROGRESS"] }, priority: "URGENT" }, orderBy: { raisedAt: "asc" }, take: 3 });
+    const where = { status: { in: ["OPEN" as const, "IN_PROGRESS" as const] }, priority: "URGENT" as const };
+    const [rows, count, unassigned] = await Promise.all([
+      c.tx.maintenanceRequest.findMany({ where, orderBy: { raisedAt: "asc" }, take: 3 }),
+      c.tx.maintenanceRequest.count({ where }),
+      c.tx.maintenanceRequest.count({ where: { ...where, status: "OPEN" } }),
+    ]);
     if (!rows.length) return null;
-    const unassigned = rows.filter((r) => r.status === "OPEN").length;
     return {
       id: "inventory.urgent-maintenance", tone: "warn", icon: "TriangleAlert",
-      title: `${plural(rows.length, "urgent maintenance request")} open`,
+      title: `${plural(count, "urgent maintenance request")} open`,
       detail: unassigned ? `${plural(unassigned, "request")} with no technician yet. Oldest: ${rows[0].problem.slice(0, 60)}.` : `Oldest: ${rows[0].problem.slice(0, 60)}.`,
-      action: "Review", href: `${BASE}/rooms?tab=maintenance&priority=URGENT`, value: rows.map((r) => r.number).join(","),
+      action: "Review", href: `${BASE}/rooms?tab=maintenance&priority=URGENT&status=open`, value: `${count}:${rows.map((r) => r.number).join(",")}`,
     };
   },
 };
@@ -172,7 +179,7 @@ const lowPanel: Widget<"panel"> = {
   homes: ["store"],
   allowed: sees("items"),
   async load(c) {
-    const low = (await c.memo("inv-low", () => lowStockItems(c.tx))).slice(0, 6);
+    const low = (await c.memo("inv-low", () => lowStockItems(c.tx, 5000))).slice(0, 6);
     const rows: ListRow[] = low.map((x) => ({
       id: x.item.id, title: x.item.name, sub: `${x.item.code} · reorder at ${x.reorder}`, right: x.total <= 0 ? "Out of stock" : `${qtyWords(x.total, x.item.unit)} left`, rightTone: x.total <= 0 ? "bad" : "warn", href: `${BASE}/items/${x.item.id}`,
     }));
@@ -197,7 +204,7 @@ const maintenancePanel: Widget<"panel"> = {
       id: r.id, title: r.problem.slice(0, 70), sub: `${r.number} · ${rooms.get(r.roomId) ?? ""} · ${shortDate(r.raisedAt)}${r.status === "OPEN" ? " · no technician" : ""}`,
       right: PRIORITY[r.priority].label, rightTone: r.priority === "URGENT" ? "bad" : r.priority === "HIGH" ? "warn" : "info", href: `${BASE}/rooms?tab=maintenance&request=${r.id}`,
     }));
-    return { slot: "main", panel: { kind: "list", title: "Maintenance requests", sub: "Open, most urgent first", icon: "ListChecks", rows, href: `${BASE}/rooms?tab=maintenance`, linkLabel: "All requests", empty: "No maintenance requests are open." } };
+    return { slot: "main", panel: { kind: "list", title: "Maintenance requests", sub: "Open, most urgent first", icon: "ListChecks", rows, href: `${BASE}/rooms?tab=maintenance&status=open`, linkLabel: "All open requests", empty: "No maintenance requests are open." } };
   },
 };
 

@@ -25,7 +25,8 @@ export const metadata = { title: "Advances & Loans" };
 const HREF = `${BASE}/advances`;
 const UUID = /^[0-9a-f-]{36}$/i;
 const ZERO = BigInt(0);
-const SHOW = [{ value: "active", label: "Active" }, { value: "closed", label: "Closed" }, { value: "all", label: "All" }];
+// "To pay": approved and not paid out yet (the Dashboard's card opens this).
+const SHOW = [{ value: "active", label: "Active" }, { value: "unpaid", label: "To pay" }, { value: "closed", label: "Closed" }, { value: "all", label: "All" }];
 const OPEN = ["WAITING", "APPROVED", "ACTIVE"];
 type Hist = { at?: string; by?: string; what: string; reason?: string | null };
 
@@ -60,7 +61,7 @@ export default async function AdvancesPage({ searchParams }: { searchParams: Sea
   const inPeriod = (a: (typeof data.all)[number]) => !per.from || !per.to || (given(a) >= per.from && given(a) <= new Date(per.to.getTime() + 86_399_999));
   const rows = data.all
     .filter(inPeriod)
-    .filter((a) => show === "all" || (show === "active" ? OPEN.includes(a.status) : !OPEN.includes(a.status)))
+    .filter((a) => show === "all" || (show === "unpaid" ? a.status === "APPROVED" : show === "active" ? OPEN.includes(a.status) : !OPEN.includes(a.status)))
     .filter((a) => { const s = staffOf.get(a.staffId); return !q || [s?.fullName, s?.staffCode, a.number, a.reason].some((v) => v?.toLowerCase().includes(q)); });
   const active = data.all.filter((a) => a.status === "ACTIVE");
   const unpaid = data.all.filter((a) => a.status === "APPROVED");

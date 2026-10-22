@@ -12,6 +12,7 @@ import { Pill } from "@/components/ui/badge";
 import { cx } from "@/components/ui/cx";
 import { ApplyNotice, ApplyShell } from "../../shell";
 import { PayButton } from "./pay-button";
+import { schoolPageLanguage } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Your application", robots: { index: false, follow: false }, referrer: "no-referrer" };
@@ -33,11 +34,13 @@ const WHERE: Record<string, { step: number; words: string; tone: "info" | "ok" |
 
 export default async function StatusPage({ params, searchParams }: { params: Promise<{ code: string; id: string }>; searchParams: Promise<{ t?: string; new?: string }> }) {
   const { code, id } = await params;
-  const { t, new: isNew } = await searchParams;
+  const { t: token, new: isNew } = await searchParams;
   const school = await schoolByCode(decodeURIComponent(code));
   if (!school || !UUID_RE.test(id)) notFound();
-  if (!t || !checkStatusToken(school.id, id, t)) {
-    return <ApplyShell schoolName={school.name}><ApplyNotice title="This link is not valid">Please use the link the school sent you, or call the school office.</ApplyNotice></ApplyShell>;
+  const page = await schoolPageLanguage(school.id);
+  const { t } = page;
+  if (!token || !checkStatusToken(school.id, id, token)) {
+    return <ApplyShell schoolName={school.name} page={page}><ApplyNotice title={t("This link is not valid")}>{t("Please use the link the school sent you, or call the school office.")}</ApplyNotice></ApplyShell>;
   }
   const [a, form] = await Promise.all([applicationStatus(school.id, id), publicForm(school.id)]);
   if (!a) notFound();
@@ -45,33 +48,33 @@ export default async function StatusPage({ params, searchParams }: { params: Pro
   const tz = form.school.timeZone;
   const canPay = a.onlinePayment && a.feeDue && (a.fee.key === "due" || a.fee.key === "waiting") && where.step >= 0;
   return (
-    <ApplyShell schoolName={form.school.name} sub="Your application">
+    <ApplyShell schoolName={form.school.name} sub={t("Your application")} page={page}>
       {isNew && (
         <div className="flex flex-col items-center text-center mb-5">
           <span className="w-14 h-14 rounded-full bg-ok text-surface grid place-items-center shadow-pop"><Check size={30} strokeWidth={3} aria-hidden="true" /></span>
-          <h1 className="font-display text-[22px] font-semibold mt-3">Application sent</h1>
-          <p className="text-[14px] text-ink3 mt-1">Keep this page. The link lets you see where your application stands{a.feeDue ? " and pay the fee" : ""}.</p>
+          <h1 className="font-display text-[22px] font-semibold mt-3">{t("Application sent")}</h1>
+          <p className="text-[14px] text-ink3 mt-1">{a.feeDue ? t("Keep this page. The link lets you see where your application stands and pay the fee.") : t("Keep this page. The link lets you see where your application stands.")}</p>
         </div>
       )}
       <Card className="p-4 md:p-5 flex flex-col gap-4">
         <div className="flex items-start gap-3 justify-between">
           <div className="min-w-0">
-            {!isNew && <h1 className="sr-only">Your application</h1>}
+            {!isNew && <h1 className="sr-only">{t("Your application")}</h1>}
             <p className="font-semibold text-[17px] leading-tight">{a.fullName}</p>
-            <p className="text-[13px] text-ink3">{a.className} · <span className="font-mono">{a.applicationNo}</span> · sent {formatDate(a.createdAt, tz)}</p>
+            <p className="text-[13px] text-ink3">{a.className} · <span className="font-mono">{a.applicationNo}</span> · {t("sent {date}", { date: formatDate(a.createdAt, tz) })}</p>
           </div>
-          <Pill tone={where.tone} className="shrink-0">{where.step >= 4 ? "Admitted" : where.step < 0 ? (a.stage === "REJECTED" ? "Not approved" : "Withdrawn") : "In progress"}</Pill>
+          <Pill tone={where.tone} className="shrink-0">{where.step >= 4 ? t("Admitted") : where.step < 0 ? (a.stage === "REJECTED" ? t("Not approved") : t("Withdrawn")) : t("In progress")}</Pill>
         </div>
-        <p className="text-[14.5px]">{where.words}</p>
+        <p className="text-[14.5px]">{t.any(where.words)}</p>
         {where.step >= 0 && (
-          <ol className="grid grid-cols-4 gap-1.5" aria-label="Steps">
+          <ol className="grid grid-cols-4 gap-1.5" aria-label={t("Steps")}>
             {STEPS.map((s, i) => {
               const done = i < where.step || where.step >= 4;
               const now = i === where.step;
               return (
                 <li key={s} className="flex flex-col gap-1.5">
                   <span className={cx("h-1.5 rounded-full", done ? "bg-ok" : now ? "bg-brand" : "bg-sunken")} aria-hidden="true" />
-                  <span className={cx("text-[11.5px] leading-tight", now ? "font-semibold text-ink" : "text-ink3")}>{s}{done && <span className="sr-only"> (done)</span>}{now && <span className="sr-only"> (now)</span>}</span>
+                  <span className={cx("text-[11.5px] leading-tight", now ? "font-semibold text-ink" : "text-ink3")}>{t.any(s)}{done && <span className="sr-only"> ({t("done")})</span>}{now && <span className="sr-only"> ({t("now")})</span>}</span>
                 </li>
               );
             })}
@@ -81,23 +84,23 @@ export default async function StatusPage({ params, searchParams }: { params: Pro
 
       {a.feeDue !== null && (
         <Card className="p-4 md:p-5 mt-4 flex flex-col gap-3">
-          <p className="font-semibold text-[15px]">Application fee</p>
+          <p className="font-semibold text-[15px]">{t("Application fee")}</p>
           {a.fee.key === "paid" ? (
-            <p className="text-[14px] text-ok font-semibold flex items-center gap-2"><CircleCheck size={18} aria-hidden="true" />Paid</p>
+            <p className="text-[14px] text-ok font-semibold flex items-center gap-2"><CircleCheck size={18} aria-hidden="true" />{t("Paid")}</p>
           ) : (
             <>
-              <p className="text-[14px] text-ink2">{a.feeDue} to pay.{a.fee.key === "waiting" && <span className="flex items-center gap-1.5 text-ink3 text-[13px] mt-1"><Clock size={14} aria-hidden="true" />A payment was started. If money was taken, the receipt appears here once Razorpay confirms it.</span>}</p>
-              {canPay ? <PayButton code={form.school.code} id={id} token={t} amount={a.feeDue} /> : <p className="text-[13.5px] text-ink3">Please pay at the school office.</p>}
+              <p className="text-[14px] text-ink2">{t("{amount} to pay.", { amount: a.feeDue })}{a.fee.key === "waiting" && <span className="flex items-center gap-1.5 text-ink3 text-[13px] mt-1"><Clock size={14} aria-hidden="true" />{t("A payment was started. If money was taken, the receipt appears here once Razorpay confirms it.")}</span>}</p>
+              {canPay ? <PayButton code={form.school.code} id={id} token={token} amount={a.feeDue} /> : <p className="text-[13.5px] text-ink3">{t("Please pay at the school office.")}</p>}
             </>
           )}
           {a.receipts.length > 0 && (
             <ul className="border-t border-line/70 pt-3 flex flex-col gap-1.5 text-[13.5px]">
-              {a.receipts.map((r) => <li key={r.receiptNo ?? String(r.at)} className="flex justify-between gap-3"><span>Receipt <span className="font-mono">{r.receiptNo}</span>{r.at ? ` · ${formatDateTime(r.at, tz)}` : ""}</span><b className="font-semibold tnum">{r.amount}</b></li>)}
+              {a.receipts.map((r) => <li key={r.receiptNo ?? String(r.at)} className="flex justify-between gap-3"><span>{t("Receipt")} <span className="font-mono">{r.receiptNo}</span>{r.at ? ` · ${formatDateTime(r.at, tz)}` : ""}</span><b className="font-semibold tnum">{r.amount}</b></li>)}
             </ul>
           )}
         </Card>
       )}
-      {form.school.phone && <p className="text-[13px] text-ink3 mt-5 text-center">Questions? Call the school office on <a className="font-semibold text-brand tnum" href={`tel:${form.school.phone}`}>{form.school.phone}</a>.</p>}
+      {form.school.phone && <p className="text-[13px] text-ink3 mt-5 text-center">{t("Questions? Call the school office on")} <a className="font-semibold text-brand tnum" href={`tel:${form.school.phone}`}>{form.school.phone}</a>.</p>}
     </ApplyShell>
   );
 }

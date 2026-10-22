@@ -13,7 +13,8 @@ import { Alert } from "@/components/ui/alert";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/empty-state";
 import { AutoRefresh } from "../parts";
-import { UploadForm } from "@/components/import/file-forms";
+import { PhotoUploadForm, UploadForm } from "@/components/import/file-forms";
+import { photoRefusal } from "@/lib/move-in/photos";
 import { OWN_RULES, PLACES } from "@/lib/imports/places";
 import { placeRefusal } from "@/lib/imports/place-access";
 import { RemoveFileButton } from "@/components/import/file-buttons";
@@ -60,6 +61,9 @@ export default async function SwitchingPage({ searchParams }: Search) {
         tx.staff.count({ where: { archivedAt: null, OR: [{ bankAccountEnc: { not: null } }, { panEnc: { not: null } }, { uan: { not: null } }] } }),
         tx.salaryToDate.count({ where: { archivedAt: null } }),
         tx.leaveBalance.count({ where: { archivedAt: null, adjustments: { array_contains: [{ kind: "brought-in" }] } } }),
+        tx.teacherAllocation.count({ where: { archivedAt: null, toDate: null } }),
+        tx.syllabusItem.count({ where: { archivedAt: null } }),
+        tx.timetablePeriod.count({ where: { archivedAt: null, subjectId: { not: null }, version: { archivedAt: null, status: { in: ["DRAFT", "PUBLISHED"] } } } }),
       ]),
     ]);
     const batches = await tx.importBatch.findMany({ where: { id: { in: files.flatMap((f) => fileBatchIds(f)) } } });
@@ -79,10 +83,13 @@ export default async function SwitchingPage({ searchParams }: Search) {
   const files = data.files.filter((f) => can(current.permissions, kindModule(f.kind), "view") && !refused.has(f.kind));
   const importing = files.some((f) => f.status === "importing");
   const live = summary.plan?.wentLiveAt;
-  const [departments, oldDues, receipts, expenses, structures, openings, attendanceSoFar, payDetails, salaryToDate, leaveBalances] = data.counts;
+  const [departments, oldDues, receipts, expenses, structures, openings, attendanceSoFar, payDetails, salaryToDate, leaveBalances, allocations, syllabusItems, periods] = data.counts;
   const have: Record<string, number> = {
     departments, staff: summary.staff, students: summary.students, "fee-old-dues": oldDues, "fee-past-receipts": receipts, "finance-past-expenses": expenses,
     "fee-structures": structures, "opening-balances": openings, "attendance-so-far": attendanceSoFar, "staff-leave-balances": leaveBalances, "staff-pay-details": payDetails, "salary-to-date": salaryToDate,
+    "academic-allocations": allocations,
+    "academic-timetable": periods,
+    "academic-syllabus": syllabusItems,
   };
   // The steps after setting up the year: each import, and the steps typed on a screen, in workflow 15 order.
   const steps = [
@@ -145,6 +152,12 @@ export default async function SwitchingPage({ searchParams }: Search) {
             <details className="mt-4 text-sm text-ink-2">
               <summary className="min-h-11 cursor-pointer py-2 font-medium text-ink">Records on paper?</summary>
               <p>Download the ready Excel sheet next to each step. It has drop-down lists of your own classes, sections and designations, so typing from the register is quick and the rows are right the first time.</p>
+              {mine.length > 0 && (
+                <div className="mt-3 border-t border-line pt-3 text-ink">
+                  <p className="mb-2 font-medium">Or upload photos of the register pages</p>
+                  <PhotoUploadForm place="settings" kinds={mine.map((k) => ({ value: k.key, label: k.label }))} kind={wantKind && mine.some((k) => k.key === wantKind) ? wantKind : undefined} refusal={photoRefusal(current)} />
+                </div>
+              )}
             </details>
             <details className="text-sm text-ink-2">
               <summary className="min-h-11 cursor-pointer py-2 font-medium text-ink">Old Excel file (.xls)?</summary>

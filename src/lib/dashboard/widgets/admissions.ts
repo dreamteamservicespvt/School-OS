@@ -17,8 +17,9 @@ const NONE = "00000000-0000-0000-0000-000000000000";
 
 function admissionView(c: DashContext): Promise<{ v: AdmissionViewer; yearIds: string[] }> {
   return c.memo("admission-view", async () => {
-    const source = { permissions: c.viewer.permissions, roles: c.viewer.roles, user: c.viewer.user } as unknown as ViewerSource;
-    const [v, years] = await Promise.all([viewerFor(c.tx, c.viewer.ctx, source), openYears(c.tx)]);
+    // The person's campus limit too, as the Enquiries and Applications lists read it (gap list G36).
+    const source = { permissions: c.viewer.permissions, roles: c.viewer.roles, user: c.viewer.user, campusId: c.viewer.campusId ?? null } as unknown as ViewerSource;
+    const [v, years] = await Promise.all([viewerFor(c.tx, c.viewer.ctx, source), openYears(c.tx, c.viewer.campusId ?? null)]);
     return { v, yearIds: years.length ? years.map((y) => y.id) : [NONE] };
   });
 }
@@ -85,8 +86,8 @@ const pendingApplications: Widget<"attention"> = {
   homes: ["leader", "admission", "office"],
   allowed: (v) => v.permissions["admission-management"].see === "all",
   async load(c) {
-    const { yearIds } = await admissionView(c);
-    const where = applicationWhere(readListParams({ stage: "DECISION" }, APPLICATION_FILTERS), { yearId: yearIds, timeZone: c.tz });
+    const { v, yearIds } = await admissionView(c);
+    const where = applicationWhere(readListParams({ stage: "DECISION" }, APPLICATION_FILTERS), { yearId: yearIds, timeZone: c.tz, campusId: v.campusId });
     const [count, rows] = await Promise.all([
       c.tx.application.count({ where }),
       c.tx.application.findMany({ where, orderBy: { createdAt: "asc" }, take: 2, select: { fullName: true } }),

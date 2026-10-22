@@ -14,6 +14,7 @@ import type { SchoolContext, Tx } from "../db";
 import { Check, FileSignature, ShieldCheck, X } from "lucide-react";
 import { Pill } from "@/components/ui/badge";
 import { cx } from "@/components/ui/cx";
+import { makeT } from "../i18n/server";
 
 async function noticesFor(tx: Tx, ctx: SchoolContext, view: GuardianView, children: GuardianView["children"]) {
   const rows = await noticesForGuardian(tx, ctx, children);
@@ -88,6 +89,7 @@ registerSection<ConsentData>({
 });
 
 function ConsentSection({ data, view }: { data: ConsentData; view: GuardianView }) {
+  const t = makeT(view.lang);
   return (
     <div className="flex flex-col divide-y divide-line/70 -mt-1">
       {data.forms.map((f) => {
@@ -99,13 +101,13 @@ function ConsentSection({ data, view }: { data: ConsentData; view: GuardianView 
                 {all ? <ShieldCheck size={21} aria-hidden="true" /> : <FileSignature size={21} aria-hidden="true" />}
               </span>
               <div className="min-w-0 flex-1">
-                {f.waitingSince ? <Pill tone="warn" dot>Consent needed</Pill> : all ? <Pill tone="ok">Consent given</Pill> : null}
+                {f.waitingSince ? <Pill tone="warn" dot>{t("Consent needed")}</Pill> : all ? <Pill tone="ok">{t("Consent given")}</Pill> : null}
                 <h3 className="font-semibold text-[15px] mt-1.5">{f.text.title}</h3>
-                {f.replyBy && f.waitingSince && <p className="text-[13px] text-ink3">Please reply by {formatDate(f.replyBy, view.timeZone)}</p>}
+                {f.replyBy && f.waitingSince && <p className="text-[13px] text-ink3">{t("Please reply by {date}", { date: formatDate(f.replyBy, view.timeZone) })}</p>}
               </div>
             </div>
             <details className="mt-2 group">
-              <summary className="min-h-11 flex items-center cursor-pointer text-[13.5px] font-semibold text-brand list-none [&::-webkit-details-marker]:hidden">Read the form (version {f.text.version})</summary>
+              <summary className="min-h-11 flex items-center cursor-pointer text-[13.5px] font-semibold text-brand list-none [&::-webkit-details-marker]:hidden">{t("Read the form (version {n})", { n: f.text.version })}</summary>
               <p className="whitespace-pre-line text-[13.5px] text-ink2 rounded-2xl bg-sunken/60 p-3.5">{f.wording}</p>
             </details>
             <ul className="mt-2 flex flex-col gap-1.5 text-[14px]">
@@ -113,7 +115,7 @@ function ConsentSection({ data, view }: { data: ConsentData; view: GuardianView 
                 <li key={c.id} className="flex items-center gap-2.5">
                   <span className={cx("w-6 h-6 rounded-full grid place-items-center shrink-0", c.given ? "bg-ok/15 text-ok" : "bg-sunken text-ink3")}>{c.given ? <Check size={14} strokeWidth={2.6} aria-hidden="true" /> : <X size={14} strokeWidth={2.6} aria-hidden="true" />}</span>
                   <span className="min-w-0"><span className="font-semibold">{c.name}</span>{" "}
-                    {c.given && c.givenAt ? <span className="text-ink3 text-[13px]">· given {formatDate(c.givenAt, view.timeZone)}</span> : <span className="text-ink3 text-[13px]">· not given</span>}</span>
+                    {c.given && c.givenAt ? <span className="text-ink3 text-[13px]">· {t("given {date}", { date: formatDate(c.givenAt, view.timeZone) })}</span> : <span className="text-ink3 text-[13px]">· {t("not given")}</span>}</span>
                 </li>
               ))}
             </ul>

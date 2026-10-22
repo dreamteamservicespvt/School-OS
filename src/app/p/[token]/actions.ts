@@ -16,6 +16,7 @@ import { ACCESS_WORDS, confirmDevice, deviceCookieName, findLink, hashToken, lin
 import { askConsentCode, confirmConsent } from "@/lib/parent-link/consent";
 import { guardianFor } from "./guardian";
 import { PARENT_CODE_NOT_SENT } from "@/lib/dev-codes";
+import { parentLinkWords, parentMessage } from "@/lib/parent-link/language";
 
 /** notSent: Test mode kept the code back; the page shows the message instead of "code sent". */
 export type GuardianState = { ok: boolean; message?: string; step?: "code" | "done"; notSent?: boolean } | null;
@@ -25,6 +26,12 @@ const GONE = ACCESS_WORDS.gone;
 /** The code box opens only when there is a code to type (sent, or in the log on a tester's computer). */
 function codeStep(w: { ok: boolean; message: string; notSent?: boolean }): GuardianState {
   return w.ok ? { ok: true, step: "code", message: w.message, notSent: w.notSent } : { ok: false, message: w.message };
+}
+
+/** The guardian's page language for an action's message (fixed and numbered messages; see parentMessage). */
+async function inPageLanguage(token: string, s: GuardianState): Promise<GuardianState> {
+  if (!s?.message) return s;
+  return { ...s, message: parentMessage(await parentLinkWords(token), s.message) };
 }
 
 async function limits(keys: [string, number, number][]) {
@@ -48,6 +55,10 @@ async function setDeviceCookie(linkId: string, key: string, days: number) {
 /** Sends a one-time code to the guardian's registered mobile for this phone. */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- the form action passes these; nothing is read from them
 export async function sendDeviceCode(token: string, _prev: GuardianState, _form: FormData): Promise<GuardianState> {
+  return inPageLanguage(token, await sendDeviceCodeEn(token));
+}
+
+async function sendDeviceCodeEn(token: string): Promise<GuardianState> {
   const device = await deviceInfo();
   const found = await findLink(token);
   if (!found) return { ok: false, message: GONE };
@@ -78,6 +89,10 @@ export async function sendDeviceCode(token: string, _prev: GuardianState, _form:
 
 /** Checks the code typed on this phone; the phone is then remembered. */
 export async function verifyDevice(token: string, _prev: GuardianState, form: FormData): Promise<GuardianState> {
+  return inPageLanguage(token, await verifyDeviceEn(token, form));
+}
+
+async function verifyDeviceEn(token: string, form: FormData): Promise<GuardianState> {
   const device = await deviceInfo();
   const typed = String(form.get("code") ?? "").replace(/\D/g, "");
   if (typed.length !== 6) return { ok: false, step: "code", message: "Type the 6-digit code from the message." };
@@ -100,6 +115,10 @@ export async function verifyDevice(token: string, _prev: GuardianState, form: Fo
 
 /** Step 1 of giving or withdrawing consent: a code to the registered mobile. */
 export async function askConsent(token: string, _prev: GuardianState, form: FormData): Promise<GuardianState> {
+  return inPageLanguage(token, await askConsentEn(token, form));
+}
+
+async function askConsentEn(token: string, form: FormData): Promise<GuardianState> {
   const device = await deviceInfo();
   const g = await guardianFor(token, "consent");
   if (!g.ok) return { ok: false, message: g.message };
@@ -124,6 +143,10 @@ export async function askConsent(token: string, _prev: GuardianState, form: Form
 
 /** Step 2: the code confirms the consent. */
 export async function confirmConsentCode(token: string, _prev: GuardianState, form: FormData): Promise<GuardianState> {
+  return inPageLanguage(token, await confirmConsentCodeEn(token, form));
+}
+
+async function confirmConsentCodeEn(token: string, form: FormData): Promise<GuardianState> {
   const device = await deviceInfo();
   const typed = String(form.get("code") ?? "").replace(/\D/g, "");
   if (typed.length !== 6) return { ok: false, step: "code", message: "Type the 6-digit code from the message." };
@@ -133,5 +156,7 @@ export async function confirmConsentCode(token: string, _prev: GuardianState, fo
   if (limited) return { ok: false, step: "code", message: limited };
   const result = await withSchool(g.ctx, (tx) => confirmConsent(tx, g.ctx, g.linkId, g.guardianId, typed, device));
   if (!result.ok) return { ok: false, step: "code", message: result.message };
-  return { ok: true, step: "done", message: result.action === "give" ? `Thank you. Your consent for "${result.title}" is recorded.` : `Your consent for "${result.title}" is withdrawn.` };
+  const t = await parentLinkWords(token);
+  // Already in the page's language: parentMessage leaves words it does not know as they are.
+  return { ok: true, step: "done", message: result.action === "give" ? t("Thank you. Your consent for “{title}” is recorded.", { title: result.title }) : t("Your consent for “{title}” is withdrawn.", { title: result.title }) };
 }

@@ -33,7 +33,8 @@ describe("Attendance on the Dashboard", () => {
     const home = await buildHome(await viewer(f.principal.id), { now: at(DAY, "09:30") });
     const students = home.band.find((b) => b.id === "attendance.students-present");
     expect(students?.big).toBe("4");
-    expect(students?.of).toBe("/ 10");
+    // Of the students in the sections marked, as Attendance Register says it (gap list G36).
+    expect(students?.of).toBe("/ 5");
     expect(students?.foot).toBe("80% of marked · 1 absent · 1 class not marked");
     expect(students?.href).toBe("/attendance-management/register");
     expect(home.band.some((b) => b.id === "attendance.staff-present")).toBe(true);

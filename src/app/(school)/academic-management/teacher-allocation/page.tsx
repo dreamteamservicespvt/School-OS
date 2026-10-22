@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { Upload } from "lucide-react";
+import { ButtonLink } from "@/components/ui/button";
 import { withSchool } from "@/lib/db";
 import { allocationGrid, allocationActiveOn, teacherWorkloads } from "@/lib/academic/allocation";
 import { mapActiveOn } from "@/lib/academic/subjects";
@@ -50,7 +52,10 @@ export default async function AllocationPage({ searchParams }: { searchParams: S
 
   return (
     <>
-      <PageTop page={page} title="Teacher Allocation" href={PATH} />
+      <PageTop page={page} title="Teacher Allocation" href={PATH}>
+        {/* Gap list G44: the allocation from an Excel sheet, on the one import engine. */}
+        {page.scope.manage && <ButtonLink href="/academic-management/import?kind=academic-allocations" variant="ghost" icon={Upload}>Import from Excel</ButtonLink>}
+      </PageTop>
       <ViewSwitch views={[{ value: "grid", label: "By class" }, { value: "teachers", label: own ? "My classes and load" : "Teachers and workload" }]} current={view} />
       {view === "grid" && data.grid && (
         <>

@@ -113,12 +113,14 @@ const schedules: Schedule[] = [];
  * Work that runs on a timer for every school, such as escalations and reminders. Work that waits on another service gets the long transaction.
  * heldWhileMovingIn: work that exists to message parents or add charges does not run for a school still moving in
  * (workflow 15, step 10: automations start on go-live; move-in/live.ts).
+ * keepResult: the run's plain counts are kept on the job, for a screen to show (file backups).
  */
-export function defineSchedule(name: string, everyMinutes: number, run: Schedule["run"], opts: { ownTransaction?: boolean; heldWhileMovingIn?: boolean } = {}) {
+export function defineSchedule(name: string, everyMinutes: number, run: Schedule["run"], opts: { ownTransaction?: boolean; heldWhileMovingIn?: boolean; keepResult?: boolean } = {}) {
   schedules.push({ name, everyMinutes, run });
   defineJob(`schedule:${name}`, name, async (tx, ctx) => {
     if (opts.heldWhileMovingIn && (await movingIn(tx, ctx))) return { held: HELD_UNTIL_LIVE };
-    await run(tx, ctx, new Date());
+    const result = await run(tx, ctx, new Date());
+    if (opts.keepResult) return result as Prisma.InputJsonValue;
   }, { ownTransaction: opts.ownTransaction });
 }
 

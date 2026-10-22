@@ -10,6 +10,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cx } from "./cx";
 import { Avatar } from "./avatar";
 import { TONE_SOFT, type Tone } from "./blocks";
+import { Words } from "@/lib/i18n/client";
 
 export type DataColumn<Row> = {
   key: string;
@@ -78,7 +79,7 @@ export function DataList<Row>({ rows, columns, rowKey, rowHref: rowHrefIn, href:
 }) {
   const pick = rowHrefIn ?? hrefIn;
   const rowHref = pick ? (r: Row) => pick(r) || null : undefined;
-  if (!rows.length) return <>{empty ?? <p className="px-5 py-10 text-center text-[14px] text-ink3">Nothing matches. Try a different search or filter.</p>}</>;
+  if (!rows.length) return <>{empty ?? <p className="px-5 py-10 text-center text-[14px] text-ink3"><Words k="Nothing matches. Try a different search or filter." /></p>}</>;
   const tick = (r: Row) => select ? (
     <input type="checkbox" form={select.form} name={select.name ?? "id"} value={select.value ? select.value(r) : rowKey(r)} aria-label={select.label(r)} data-bulk-row className={cx(tickCls, "relative z-[1]")} />
   ) : null;
@@ -96,7 +97,7 @@ export function DataList<Row>({ rows, columns, rowKey, rowHref: rowHrefIn, href:
                   {c.sortHref ? <Link href={c.sortHref} scroll={false} className="inline-flex items-center gap-1 hover:text-ink">{c.label}<span aria-hidden="true" className="text-[10px]">{c.sorted === "asc" ? "▲" : c.sorted === "desc" ? "▼" : ""}</span></Link> : c.label}
                 </th>
               ))}
-              {rowHref && <th scope="col" className="w-10"><span className="sr-only">Open</span></th>}
+              {rowHref && <th scope="col" className="w-10"><span className="sr-only"><Words k="Open" /></span></th>}
             </tr>
           </thead>
           <tbody>
@@ -126,7 +127,7 @@ export function DataList<Row>({ rows, columns, rowKey, rowHref: rowHrefIn, href:
       {select && pickMode && (
         <label className={cx("flex items-center gap-3 px-4 py-3 border-b border-line/70 text-[14px] font-semibold text-ink2 cursor-pointer", bp === "md" ? "md:hidden" : "lg:hidden")}>
           <input type="checkbox" data-bulk-all aria-label={select.allLabel ?? "Select all on this page"} className={tickCls} />
-          {select.allLabel ?? "Select all on this page"}
+          {select.allLabel ?? <Words k="Select all on this page" />}
         </label>
       )}
       <ul className={cx("divide-y divide-line/70", bp === "md" ? "md:hidden" : "lg:hidden")} aria-label={caption}>
@@ -178,12 +179,12 @@ function PagingFooter({ paging }: { paging: Paging }) {
   const btn = "h-8 px-3 rounded-lg border border-line bg-surface text-ink2 font-semibold grid place-items-center hover:bg-sunken";
   return (
     <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-line text-[13px] text-ink3 flex-wrap">
-      <span className="tnum" aria-live="polite">Showing {from.toLocaleString("en-IN")}–{to.toLocaleString("en-IN")} of {paging.total.toLocaleString("en-IN")}</span>
+      <span className="tnum" aria-live="polite"><Words k="Showing {from}–{to} of {total}" vars={{ from: from.toLocaleString("en-IN"), to: to.toLocaleString("en-IN"), total: paging.total.toLocaleString("en-IN") }} /></span>
       {pages > 1 && (
         <nav aria-label="Pages" className="flex items-center gap-1.5">
-          {paging.page > 1 ? <Link className={btn} href={paging.href(paging.page - 1)}>Previous</Link> : null}
-          <span className="px-2 tnum">Page {paging.page} of {pages}</span>
-          {paging.page < pages ? <Link className={btn} href={paging.href(paging.page + 1)}>Next</Link> : null}
+          {paging.page > 1 ? <Link className={btn} href={paging.href(paging.page - 1)}><Words k="Previous" /></Link> : null}
+          <span className="px-2 tnum"><Words k="Page {page} of {pages}" vars={{ page: paging.page, pages }} /></span>
+          {paging.page < pages ? <Link className={btn} href={paging.href(paging.page + 1)}><Words k="Next" /></Link> : null}
         </nav>
       )}
     </div>
@@ -201,11 +202,11 @@ export function Pager({ page, pageSize, total, prevHref, nextHref, scroll }: { p
   const btn = "grid size-9 place-items-center rounded-lg border border-line text-ink2 hover:bg-sunken";
   return (
     <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-line text-[13px] text-ink3 flex-wrap">
-      <span className="tnum" aria-live="polite">Showing {from}{to > from ? ` to ${to}` : ""} of {total.toLocaleString("en-IN")}</span>
+      <span className="tnum" aria-live="polite">{to > from ? <Words k="Showing {from} to {to} of {total}" vars={{ from, to, total: total.toLocaleString("en-IN") }} /> : <Words k="Showing {from} of {total}" vars={{ from, total: total.toLocaleString("en-IN") }} />}</span>
       {pages > 1 && (
         <nav aria-label="Pages" className="flex items-center gap-1.5">
           {page > 1 && <Link href={prevHref} scroll={scroll} aria-label="Previous page" className={btn}><ChevronLeft size={17} aria-hidden="true" /></Link>}
-          <span className="tnum px-1">Page {page} of {pages}</span>
+          <span className="tnum px-1"><Words k="Page {page} of {pages}" vars={{ page, pages }} /></span>
           {page < pages && <Link href={nextHref} scroll={scroll} aria-label="Next page" className={btn}><ChevronRight size={17} aria-hidden="true" /></Link>}
         </nav>
       )}

@@ -15,6 +15,7 @@ import { PrivacyProblem, personTypesFor, requestDeletion, setRetention, DELETION
 import { ConsentProblem, saveConsentText } from "@/lib/data-security/consent";
 import { TWO_STEP_FEATURE } from "@/lib/data-security/alerts";
 import { DecisionProblem } from "@/lib/approvals";
+import { clearListed, RetentionProblem } from "@/lib/data-security/retention";
 
 const BASE = "/settings/data-security";
 const PAGE = "data-security" as const;
@@ -116,6 +117,21 @@ export async function requestDeletionAction(_prev: FormState, fd: FormData): Pro
   }
   await flash({ message: "Deletion request sent to Approvals. Nothing is removed until it is approved.", link: { href: "/approvals", label: "Open Approvals" } });
   redirect(`${BASE}/privacy#deletion`);
+}
+
+/** The School Admin's yes to the retention list: personal details of the listed records are blanked (nothing is deleted). */
+export async function clearRetentionAction(runId: string): Promise<string | void> {
+  const { current } = await requireSettingsAction(PAGE, "edit");
+  if (!/^[0-9a-f-]{36}$/i.test(runId)) return "This list was not found. Reload the page.";
+  try {
+    const run = await withSchool(current.ctx, (tx) => clearListed(tx, current.ctx, runId), { timeout: 120_000 });
+    const n = Object.values(run.cleared as Record<string, number>).reduce((a, b) => a + b, 0);
+    await flash({ message: n ? `Done. Personal details were removed from ${n} record${n === 1 ? "" : "s"}. The records stay, and this is in the audit log.` : "Nothing needed clearing any more." });
+  } catch (e) {
+    if (e instanceof RetentionProblem) return e.message;
+    throw e;
+  }
+  revalidatePath(`${BASE}/privacy`);
 }
 
 // Consent

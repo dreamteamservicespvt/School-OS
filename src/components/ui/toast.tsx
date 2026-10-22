@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { CircleCheck, Info, TriangleAlert, X } from "lucide-react";
 import { cx } from "./cx";
+import { useT } from "@/lib/i18n/client";
 
 type Flash = { message: string; tone?: "success" | "info" | "danger"; link?: { href: string; label: string }; undo?: { kind: string; id: string } };
 
@@ -12,6 +13,7 @@ const ICON_TONE = { success: "text-ok", info: "text-info", danger: "text-bad" };
 
 /** The dark pill toast of the approved design. Undo stays for 10 seconds (P5). */
 export function Toast({ flash, undoAction }: { flash: Flash | null; undoAction?: (kind: string, id: string) => Promise<void> }) {
+  const t = useT();
   const [shown, setShown] = useState<Flash | null>(flash);
   const [undoing, setUndoing] = useState(false);
 
@@ -36,10 +38,10 @@ export function Toast({ flash, undoAction }: { flash: Flash | null; undoAction?:
         {shown.undo && undoAction && (
           <button type="button" disabled={undoing} className="text-sm font-bold px-3 h-8 rounded-lg hover:bg-bg/10"
             onClick={async () => { setUndoing(true); await undoAction(shown.undo!.kind, shown.undo!.id); setShown(null); }}>
-            Undo
+            {t("Undo")}
           </button>
         )}
-        <button type="button" aria-label="Close" onClick={() => setShown(null)} className="grid size-8 place-items-center rounded-lg hover:bg-bg/10 opacity-75"><X size={16} aria-hidden="true" /></button>
+        <button type="button" aria-label={t("Close")} onClick={() => setShown(null)} className="grid size-8 place-items-center rounded-lg hover:bg-bg/10 opacity-75"><X size={16} aria-hidden="true" /></button>
       </div>
     </div>
   );

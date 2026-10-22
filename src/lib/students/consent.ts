@@ -13,8 +13,9 @@ import { StudentProblem } from "./students";
 import { CONSENT_TYPES } from "./labels";
 import { OPEN_LINK } from "./guardian-access";
 
-export type ConsentState = "GIVEN" | "WITHDRAWN" | "REQUESTED" | "NONE";
-export type ConsentRow = { guardianId: string; studentId: string; consentType: string; status: Exclude<ConsentState, "NONE">; consentTextId: string | null; version: number | null; givenOn: Date | null; method: string | null; withdrawnOn: Date | null; withdrawnNote: string | null };
+/** REFUSED: the guardian said no on a paper form (gap list G42); they can still agree later in Parent Link. */
+export type ConsentState = "GIVEN" | "WITHDRAWN" | "REFUSED" | "REQUESTED" | "NONE";
+export type ConsentRow = { guardianId: string; studentId: string; consentType: string; status: Exclude<ConsentState, "NONE">; consentTextId: string | null; version: number | null; givenOn: Date | null; method: string | null; withdrawnOn: Date | null; withdrawnNote: string | null; recordedById?: string | null; recordedOn?: Date | null };
 
 async function currentText(tx: Tx, ctx: SchoolContext, consentType: string) {
   return tx.consentText.findFirst({ where: { schoolId: ctx.schoolId, consentType, isCurrent: true }, orderBy: { version: "desc" } });
@@ -29,6 +30,7 @@ export async function consentRows(tx: Tx, ctx: SchoolContext, where: { guardianI
   const records = await tx.consentRecord.findMany({
     where: {
       schoolId: ctx.schoolId,
+      archivedAt: null,
       ...(where.guardianIds ? { guardianId: { in: where.guardianIds } } : {}),
       ...(where.studentIds ? { studentId: { in: where.studentIds } } : {}),
       ...(where.consentType ? { consentType: where.consentType } : {}),
@@ -41,9 +43,10 @@ export async function consentRows(tx: Tx, ctx: SchoolContext, where: { guardianI
     if (out.has(key)) continue;
     out.set(key, {
       guardianId: r.guardianId, studentId: r.studentId, consentType: r.consentType,
-      status: r.withdrawnAt ? "WITHDRAWN" : "GIVEN",
+      status: r.refused ? "REFUSED" : r.withdrawnAt ? "WITHDRAWN" : "GIVEN",
       consentTextId: r.consentTextId, version: r.textVersion, givenOn: r.givenAt, method: r.how,
-      withdrawnOn: r.withdrawnAt, withdrawnNote: r.withdrawnHow,
+      withdrawnOn: r.refused ? null : r.withdrawnAt, withdrawnNote: r.refused ? null : r.withdrawnHow,
+      recordedById: r.createdById, recordedOn: r.createdAt,
     });
   }
   const requests = await tx.consentRequest.findMany({
@@ -68,7 +71,10 @@ export async function consentRows(tx: Tx, ctx: SchoolContext, where: { guardianI
  * Sends a consent request to the chosen guardians, through Parent Link, for each
  * consent type. Guardians who have already given it for every child are left out.
  */
-export async function requestConsent(tx: Tx, ctx: SchoolContext, guardianIds: string[], types: string[] = CONSENT_TYPES.map((t) => t.key)) {
+export async function requestConsent(tx: Tx, ctx: SchoolContext, guardianIds: string[], chosen?: string[]) {
+  // Not chosen: every consent the school asks for (a type with a current text).
+  const types = chosen ?? (await tx.consentText.findMany({ where: { schoolId: ctx.schoolId, isCurrent: true, consentType: { in: CONSENT_TYPES.map((t) => t.key) } }, select: { consentType: true }, distinct: ["consentType"] })).map((t) => t.consentType);
+  if (!types.length) throw new StudentProblem("There is no consent text yet. Add one in Settings, Data Backup & Security.");
   let requested = 0;
   let alreadyGiven = 0;
   const reached = new Set<string>();
@@ -124,6 +130,7 @@ export function consentState(records: { consentType: string; status: string }[],
   const mine = records.filter((r) => r.consentType === consentType);
   if (mine.length === 0) return "NONE";
   if (mine.some((r) => r.status === "WITHDRAWN")) return "WITHDRAWN";
+  if (mine.some((r) => r.status === "REFUSED")) return "REFUSED";
   if (mine.every((r) => r.status === "GIVEN")) return "GIVEN";
   if (mine.some((r) => r.status === "REQUESTED")) return "REQUESTED";
   return "NONE";
@@ -133,4 +140,26 @@ export function consentState(records: { consentType: string; status: string }[],
 export async function photoConsentStands(tx: Tx, ctx: SchoolContext, studentId: string) {
   const rows = (await consentRows(tx, ctx, { studentIds: [studentId], consentType: "photo" })).filter((r) => r.status !== "REQUESTED");
   return rows.length > 0 && rows.every((r) => r.status === "GIVEN");
+}
+
+export type ApaarConsent = { state: ConsentState; guardianName: string | null; on: Date | null; how: string | null };
+
+/**
+ * APAAR consent for one child (gap list G42; 03 §1 Identifiers): its own
+ * purpose, never bundled with data consent. A guardian's consent for a minor:
+ * it stands while any parent on record (not one with a custody restriction)
+ * has given it. Otherwise the latest answer: withdrawn, refused on a paper
+ * form, asked in Parent Link, or not given.
+ */
+export async function apaarConsentOf(tx: Tx, ctx: SchoolContext, studentId: string): Promise<ApaarConsent> {
+  const links = await tx.studentGuardian.findMany({ where: { studentId, ...OPEN_LINK, guardian: { archivedAt: null } }, select: { guardianId: true, guardian: { select: { name: true } } } });
+  if (!links.length) return { state: "NONE", guardianName: null, on: null, how: null };
+  const rows = await consentRows(tx, ctx, { studentIds: [studentId], consentType: "apaar", guardianIds: links.map((l) => l.guardianId) });
+  const name = (g: string) => links.find((l) => l.guardianId === g)?.guardian.name ?? null;
+  const pick = (st: ConsentState) => rows.find((r) => r.status === st);
+  for (const st of ["GIVEN", "WITHDRAWN", "REFUSED", "REQUESTED"] as const) {
+    const r = pick(st);
+    if (r) return { state: st, guardianName: name(r.guardianId), on: st === "WITHDRAWN" ? r.withdrawnOn : r.givenOn, how: r.method };
+  }
+  return { state: "NONE", guardianName: null, on: null, how: null };
 }

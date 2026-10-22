@@ -15,6 +15,8 @@ import { clearSessionCookie, deviceInfo, getCurrent, requireCurrent } from "@/li
 import { cookies } from "next/headers";
 import { forgetDevice, REMEMBERED_COOKIE } from "@/lib/auth/remembered";
 import { ACCENT_COOKIE, SIZE_COOKIE, THEME_COOKIE, cleanAccent, cleanTextSize, cleanTheme } from "@/lib/theme";
+import { LANG_COOKIE, isLang, schoolLanguages } from "@/lib/i18n/languages";
+import { personLanguage } from "@/lib/i18n/server";
 
 async function audit(action: string, extra: { recordId?: string; after?: object } = {}) {
   const current = await requireCurrent({ paused: "any" });
@@ -169,6 +171,24 @@ export async function setAppearance(formData: FormData) {
   jar.set(THEME_COOKIE, theme, opts);
   jar.set(ACCENT_COOKIE, current.school.accent ? cleanAccent(current.school.accent) : accent, opts);
   jar.set(SIZE_COOKIE, textSize, opts);
+  revalidatePath("/", "layout");
+}
+
+/**
+ * The person's own screen language (00-global.md §1.4, My profile, Language): one of the
+ * school's switched-on languages, or empty for the school's default language.
+ */
+export async function setScreenLanguage(formData: FormData) {
+  const current = await requireCurrent();
+  // A DREAM TEAM support person has no login here, so no profile (07-super-admin.md §3.4).
+  if (current.support) return;
+  const raw = String(formData.get("language") ?? "");
+  const enabled = schoolLanguages(current.school.languages, current.school.defaultLanguage);
+  const language = raw === "" ? null : isLang(raw) && enabled.includes(raw) ? raw : undefined;
+  if (language === undefined) return;
+  await prisma.userLogin.update({ where: { id: current.user.id }, data: { language } });
+  // The sign-in page and pages with no sign-in on this browser follow the choice too.
+  (await cookies()).set(LANG_COOKIE, personLanguage({ language }, current.school), { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax" });
   revalidatePath("/", "layout");
 }
 

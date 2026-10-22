@@ -142,18 +142,25 @@ export async function attendanceSummary(
   const placeOf = (id: string): Place => places?.get(id) ?? fallback;
   const main = workingFor(fallback);
 
-  const marks = ids.length === 0 || to < opts.from ? [] : await packedMarks(tx, side, ids, opts.from, to, "sectionId" in opts ? opts.sectionId : null);
+  const packed = ids.length === 0 || to < opts.from ? [] : await packedMarks(tx, side, ids, opts.from, to, "sectionId" in opts ? opts.sectionId : null);
   const grouped = new Map<string, Map<string, DayMark[]>>();
-  for (const m of marks) {
-    const pid = m.pid;
-    const k = m.day;
-    if (!workingFor(placeOf(pid)).keys.has(k)) continue;
-    if (book && "sectionId" in opts && !book.has(opts.sectionId, pid, k)) continue;
-    const byDay = grouped.get(pid) ?? new Map<string, DayMark[]>();
-    const arr = byDay.get(k) ?? [];
-    arr.push(m);
-    byDay.set(k, arr);
-    grouped.set(pid, byDay);
+  const inBook = book && "sectionId" in opts ? { book, sectionId: opts.sectionId } : null;
+  for (const r of packed) {
+    const pid = r.pid;
+    const working = workingFor(placeOf(pid)).keys;
+    let byDay = grouped.get(pid);
+    for (const one of r.packed.split("\u001e")) {
+      const a = one.indexOf("\u001f");
+      const b = one.indexOf("\u001f", a + 1);
+      const k = dayOf(one.slice(0, a));
+      if (!working.has(k)) continue;
+      if (inBook && !inBook.book.has(inBook.sectionId, pid, k)) continue;
+      if (!byDay) grouped.set(pid, (byDay = new Map<string, DayMark[]>()));
+      const m: DayMark = { statusKey: one.slice(b + 1), periodNo: Number(one.slice(a + 1, b)) };
+      const arr = byDay.get(k);
+      if (arr) arr.push(m);
+      else byDay.set(k, [m]);
+    }
   }
   const rule = settings.periodDayRule === "most" ? "most" : "any";
   const people = new Map<string, PersonSummary>();
@@ -177,8 +184,17 @@ export async function attendanceSummary(
   };
 }
 
-type PackedMark = { pid: string; day: string; periodNo: number; statusKey: string };
 const DAY = 86_400_000;
+/** Days since 1 January 1970 as "YYYY-MM-DD": a few hundred different ones, each worked out once. */
+const DAYS = new Map<string, string>();
+function dayOf(n: string) {
+  let d = DAYS.get(n);
+  if (!d) {
+    d = new Date(Number(n) * DAY).toISOString().slice(0, 10);
+    if (DAYS.size < 20_000) DAYS.set(n, d);
+  }
+  return d;
+}
 
 /**
  * Every mark of these people between two dates (inclusive), not archived, in
@@ -188,36 +204,37 @@ const DAY = 86_400_000;
  * per mark: a whole school's year is about 250,000 marks, and turning each
  * into its own row took the database client seconds (gap list G37).
  */
-async function packedMarks(tx: Tx, side: "student" | "staff", ids: string[], from: Date, to: Date, sectionId: string | null): Promise<PackedMark[]> {
+async function packedMarks(tx: Tx, side: "student" | "staff", ids: string[], from: Date, to: Date, sectionId: string | null) {
   const fromDay = isoDay(from);
   const toDay = isoDay(to);
-  const rows = side === "student"
-    ? await tx.$queryRaw<{ pid: string; packed: string }[]>`
+  return side === "student"
+    ? tx.$queryRaw<{ pid: string; packed: string }[]>`
         SELECT student_id::text AS pid, string_agg((date - DATE '1970-01-01') || chr(31) || period_no || chr(31) || status_key, chr(30)) AS packed
         FROM attendance_mark
         WHERE archived_at IS NULL AND student_id = ANY(${ids}::uuid[]) AND date BETWEEN ${fromDay}::date AND ${toDay}::date
           AND (${sectionId}::uuid IS NULL OR section_id = ${sectionId}::uuid)
         GROUP BY student_id`
-    : await tx.$queryRaw<{ pid: string; packed: string }[]>`
+    : tx.$queryRaw<{ pid: string; packed: string }[]>`
         SELECT staff_id::text AS pid, string_agg((date - DATE '1970-01-01') || chr(31) || period_no || chr(31) || status_key, chr(30)) AS packed
         FROM attendance_mark
         WHERE archived_at IS NULL AND staff_id = ANY(${ids}::uuid[]) AND date BETWEEN ${fromDay}::date AND ${toDay}::date
           AND (${sectionId}::uuid IS NULL OR section_id = ${sectionId}::uuid)
         GROUP BY staff_id`;
-  const out: PackedMark[] = [];
-  // Dates come as days since 1 January 1970: a few hundred different ones, each turned into "YYYY-MM-DD" once.
-  const days = new Map<string, string>();
-  const dayOf = (n: string) => {
-    let d = days.get(n);
-    if (!d) days.set(n, (d = new Date(Number(n) * DAY).toISOString().slice(0, 10)));
-    return d;
-  };
-  for (const r of rows) {
-    for (const one of r.packed.split("\u001e")) {
-      const a = one.indexOf("\u001f");
-      const b = one.indexOf("\u001f", a + 1);
-      out.push({ pid: r.pid, day: dayOf(one.slice(0, a)), periodNo: Number(one.slice(a + 1, b)), statusKey: one.slice(b + 1) });
-    }
+}
+
+/**
+ * The same people's totals for a shorter range inside the one summed, from
+ * its day statuses (a day's status does not depend on the range): no second
+ * read of the marks (G37). `statuses`: statusMap() of every status, archived too.
+ */
+export function narrowSummary(sum: SummaryResult, from: Date, to: Date, statuses: Map<string, StatusInfo>): Map<string, PersonSummary> {
+  const a = isoDay(from);
+  const b = isoDay(to);
+  const out = new Map<string, PersonSummary>();
+  for (const [id, byDay] of sum.days) {
+    const s = emptySummary(sum.workingOf(id).filter((d) => d >= from && d <= to).length);
+    for (const [k, st] of byDay) if (k >= a && k <= b) addDay(s, st, statuses);
+    out.set(id, finish(s));
   }
   return out;
 }

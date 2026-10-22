@@ -32,8 +32,8 @@ import { remindedSince, sendReminder } from "../reminders";
 import { currentYear, currentYears, studentYear, yearsFor } from "../academic/years";
 import { personCampusId } from "../campus";
 import { classTeacherSectionIds, ownSectionIds } from "../people";
-import { attendanceSettings } from "../attendance/settings";
-import { attendanceSummary } from "../attendance/summary";
+import { attendanceSettings, statusList, statusMap } from "../attendance/settings";
+import { attendanceSummary, narrowSummary } from "../attendance/summary";
 import { flagStatusOf, OPEN_ATTENDANCE_FLAG } from "../attendance/flags";
 import { examSettings } from "../exams/settings";
 import type { SubjectResult } from "../exams/compute";
@@ -125,10 +125,12 @@ async function attendanceSignals(tx: Tx, ctx: SchoolContext, year: { id: string;
   const ids = [...enrol.keys()].filter((id) => !covered.has(id));
   if (!ids.length || today < year.startDate) return [];
   const recentFrom = addDays(today, -29) < year.startDate ? year.startDate : addDays(today, -29);
-  const [sum, recent] = await Promise.all([
+  // The last 30 days come from the year's own day statuses: one read of the marks, not two (G37).
+  const [sum, statuses] = await Promise.all([
     attendanceSummary(tx, ctx, { studentIds: ids, from: year.startDate, to: today, today }),
-    attendanceSummary(tx, ctx, { studentIds: ids, from: recentFrom, to: today, today }),
+    statusList(tx, ctx, { includeArchived: true }).then(statusMap),
   ]);
+  const recent = { people: narrowSummary(sum, recentFrom, today, statuses) };
   const since = `${formatDate(year.startDate, "UTC")} to ${formatDate(today, "UTC")}`;
   const out: Signal[] = [];
   for (const id of ids) {

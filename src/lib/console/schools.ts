@@ -20,6 +20,7 @@ import { MODULES } from "../modules";
 import { logActivity, maskMobile, showMobile, tenDigits, type ConsoleActor } from "./activity";
 import { appUrl, deliver, supportPhone, type ConsoleChannel, type ConsoleOutgoing, type Delivered } from "./outbox";
 import { ADMIN_ROLE_KEYS, measureSchool, schoolAdmins } from "./measure";
+import { forgetAllDevices } from "../auth/remembered";
 
 export class ConsoleProblem extends Error {
   constructor(message: string, readonly field?: string) {
@@ -138,6 +139,7 @@ async function reviveLogin(tx: Tx, loginId: string, input: { name: string; mobil
     data: { status: "INVITED", passwordHash: null, failedAttempts: 0, lockedUntil: null, archivedAt: null, inviteTokenHash: null, inviteExpiresAt: null, displayName: input.name.slice(0, 120), phone: showMobile(input.mobile), email: input.email },
   });
   await tx.session.updateMany({ where: { userLoginId: loginId, revokedAt: null }, data: { revokedAt: new Date(), revokedReason: "Login switched back on by DREAM TEAM" } });
+  await forgetAllDevices(tx, loginId);
 }
 
 /** The login a new admin gets: theirs from elsewhere in the group, an unusable one switched back on, or a new one. */
@@ -512,6 +514,7 @@ export async function resetAdminLogin(actor: ConsoleActor, schoolId: string, use
     const card = await cardOrThrow(tx, schoolId);
     await tx.userLogin.update({ where: { id: userLoginId }, data: { passwordHash: null, failedAttempts: 0, lockedUntil: null } });
     const revoked = await tx.session.updateMany({ where: { userLoginId, revokedAt: null }, data: { revokedAt: now, revokedReason: "Login reset by DREAM TEAM" } });
+    await forgetAllDevices(tx, userLoginId, { now });
     await writeAudit(tx, ctx, { action: "login reset by DREAM TEAM", recordType: "User Login", recordId: userLoginId, after: { reason: input.reason.trim(), signedOutDevices: revoked.count }, actorNote: `DREAM TEAM: ${actor.name}` });
     const r = await makeInvite(tx, actor, { school: { id: schoolId, name: card.name }, userLoginId, name: a.name, phone, email: a.email, roleKey: a.roleKey, channels, kind: "RESET" }, now);
     await logActivity(tx, actor, { type: "login", school: { id: schoolId, name: card.name }, text: `reset ${a.name}’s login at ${card.name} and sent a reset link to +91 ${maskMobile(phone)}. The old password stopped working. Reason: ${input.reason.trim()}` });
@@ -539,6 +542,7 @@ export async function disableAdmin(actor: ConsoleActor, schoolId: string, userLo
     if (elsewhere === 0) {
       await tx.userLogin.update({ where: { id: userLoginId }, data: { status: "DISABLED" } });
       revoked = (await tx.session.updateMany({ where: { userLoginId, revokedAt: null }, data: { revokedAt: now, revokedReason: "Disabled by DREAM TEAM" } })).count;
+      await forgetAllDevices(tx, userLoginId, { now });
     }
     await writeAudit(tx, ctx, { action: "admin disabled by DREAM TEAM", recordType: "User Login", recordId: userLoginId, before: { status: a.status }, after: { status: "DISABLED", reason: reason.trim(), signedOutDevices: revoked }, actorNote: `DREAM TEAM: ${actor.name}` });
     const others = await tx.schoolAccess.findMany({ where: { schoolId, archivedAt: null, roles: { some: { role: { key: { in: [...ADMIN_ROLE_KEYS] } } } } }, select: { userLoginId: true } });

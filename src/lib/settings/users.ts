@@ -20,6 +20,7 @@ import { INVITE_VALID_MS } from "../auth/invites";
 import { MODULE_KEYS, MODULES } from "../modules";
 import type { AccessLevel } from "../roles";
 import { SettingsProblem, activeSchoolAdminIds, actorName, alertPermissionChange } from "./common";
+import { forgetAllDevices } from "../auth/remembered";
 
 export const SCOPES: { value: AccessScope; label: string; help: string }[] = [
   { value: "WHOLE_SCHOOL", label: "Whole school", help: "Every record their roles allow, in every campus." },
@@ -269,6 +270,7 @@ export async function disableUser(tx: Tx, ctx: SchoolContext, userLoginId: strin
   const others = otherSchoolIds.filter((s) => s !== ctx.schoolId);
   if (others.length === 0) await tx.userLogin.update({ where: { id: userLoginId }, data: { status: "DISABLED" } });
   const revoked = await tx.session.updateMany({ where: { userLoginId, revokedAt: null }, data: { revokedAt: now, revokedReason: "Disabled by the school" } });
+  await forgetAllDevices(tx, userLoginId, { now });
   await writeAudit(tx, ctx, { action: "disabled", recordType: "User Login", recordId: userLoginId, before: { status: login.status }, after: { status: "DISABLED", signedOutDevices: revoked.count } });
   const who = await actorName(tx, ctx);
   await alertPermissionChange(tx, ctx, `${who} disabled ${login.displayName}'s login. They were signed out on ${revoked.count} device${revoked.count === 1 ? "" : "s"}.`, `/settings/users/${userLoginId}`);

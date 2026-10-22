@@ -12,6 +12,7 @@ import { nextNumber, formatNumber } from "../sequences";
 import { formatDate } from "../format";
 import { currentYear } from "../academic/years";
 import { hrPeople } from "./access";
+import { forgetAllDevices } from "../auth/remembered";
 
 export class ExitProblem extends Error {
   constructor(message: string, public field?: string) {
@@ -225,6 +226,7 @@ export async function finishLastDay(tx: Tx, ctx: SchoolContext, exitCaseId: stri
     const elsewhere = await tx.schoolAccess.count({ where: { userLoginId: staff.userLoginId, archivedAt: null } });
     if (elsewhere === 0) {
       await tx.userLogin.update({ where: { id: staff.userLoginId }, data: { status: "DISABLED", inviteTokenHash: null, inviteExpiresAt: null } });
+      await forgetAllDevices(tx, staff.userLoginId);
     }
     await tx.session.updateMany({ where: { userLoginId: staff.userLoginId, revokedAt: null, ...(elsewhere ? { schoolId: ctx.schoolId } : {}) }, data: { revokedAt: new Date(), revokedReason: "Left the school" } });
     loginClosed = true;
@@ -308,5 +310,6 @@ export async function switchOffLogin(tx: Tx, ctx: SchoolContext, staffId: string
   const elsewhere = await tx.schoolAccess.count({ where: { userLoginId: login.id, archivedAt: null } });
   if (elsewhere === 0) await tx.userLogin.update({ where: { id: login.id }, data: { status: "DISABLED" } });
   await tx.session.updateMany({ where: { userLoginId: login.id, revokedAt: null }, data: { revokedAt: new Date(), revokedReason: "Login switched off" } });
+  await forgetAllDevices(tx, login.id);
   await writeAudit(tx, ctx, { action: "login-switched-off", recordType: "User Login", recordId: login.id, before: { status: login.status }, after: { reason } });
 }

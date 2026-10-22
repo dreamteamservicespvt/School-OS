@@ -13,7 +13,8 @@ import { bookAppointment, dayPlan, setAppointmentStatus } from "@/lib/front-offi
 import { deskEnquiry, logCall } from "@/lib/front-office/calls";
 import { addWalkIn } from "@/lib/front-office/desk";
 import { frontOfficeSettings, passExpiryFor } from "@/lib/front-office/settings";
-import { maskPhone, phoneProblem, tidyVehicle, vehicleProblem } from "@/lib/front-office/words";
+import { closedWords, maskPhone, passLine, phoneProblem, tidyVehicle, vehicleProblem } from "@/lib/front-office/words";
+import { randomUUID } from "node:crypto";
 import { as, at, currentOf, day, makeFrontOfficeSchool, TZ, type FoFixture } from "./fixture";
 
 const visitor = (over: Partial<RegisterInput> = {}): RegisterInput => ({
@@ -109,6 +110,8 @@ describe("Front Office rules", () => {
   });
 
   it("needs collector, photo check, reason and time, and makes a gate pass of kind Pickup (Done when 4, 12)", async () => {
+    // The father has a photo on record, so the desk matches his face with it.
+    await withSchool(as(f, null), (tx) => tx.guardian.update({ where: { id: f.father.id }, data: { photoFileId: randomUUID() } }));
     const base = { studentId: f.aarav.id, guardianId: f.father.id, code: null, otherReason: null, minute: null };
     await expect(withSchool(desk(), (tx) => releaseStudent(tx, desk(), { ...base, photoMatch: false, reason: "Unwell" }, { timeZone: TZ, codeCheck: false }))).rejects.toThrow(/face matches the photo/);
     await expect(withSchool(desk(), (tx) => releaseStudent(tx, desk(), { ...base, photoMatch: true, reason: "" }, { timeZone: TZ, codeCheck: false }))).rejects.toThrow("Choose a reason.");
@@ -128,6 +131,44 @@ describe("Front Office rules", () => {
     await withSchool(desk(), (tx) => releaseStudent(tx, desk(), { ...base, studentId: f.diya.id, photoMatch: true, reason: "Other", otherReason: "Appointment with Dr. Rao at KGH" }, { timeZone: TZ, codeCheck: false }));
     const other = await withSchool(as(f, f.classTeacher.id), (tx) => tx.notification.findFirst({ where: { userLoginId: f.classTeacher.id, type: "early-pickup", text: { contains: "Diya" } } }));
     expect(other?.text).toContain(": Appointment with Dr. Rao at KGH.");
+  });
+
+  it("asks for ID proof or a call, never a photo match, when the guardian has no photo on record (QA FO-01)", async () => {
+    const { kiran, mohan } = await withSchool(as(f, null), async (tx) => {
+      const kiran = await tx.student.create({ data: { schoolId: f.school.id, campusId: f.school.campus.id, admissionNo: "ADM-7", firstName: "Kiran", lastName: "Pillai", fullName: "Kiran Pillai", status: "ACTIVE" } });
+      await tx.enrolment.create({ data: { schoolId: f.school.id, studentId: kiran.id, academicYearId: f.yearId, classId: f.c1, sectionId: f.section.id, rollNo: 7 } });
+      const mohan = await tx.guardian.create({ data: { schoolId: f.school.id, name: "Mohan Pillai", relationship: "Father", phone: "9849031300" } });
+      await tx.studentGuardian.create({ data: { schoolId: f.school.id, studentId: kiran.id, guardianId: mohan.id, relationship: "Father", isPrimary: true } });
+      return { kiran, mohan };
+    });
+    const info = await withSchool(desk(), (tx) => pickupStudent(tx, desk(), kiran.id, day(TODAY)));
+    expect(info!.people[0]).toMatchObject({ guardianId: mohan.id, photoFileId: null, allowed: true });
+    const base = { studentId: kiran.id, guardianId: mohan.id, code: null, reason: "Unwell", otherReason: null, minute: null };
+    // A photo-match tick means nothing without a photo: it is refused.
+    await expect(withSchool(desk(), (tx) => releaseStudent(tx, desk(), { ...base, photoMatch: true }, { timeZone: TZ, codeCheck: false })))
+      .rejects.toThrow("No photo of Mohan on record. Check their ID proof, or call a registered parent or guardian.");
+    // With the school's code check on, the code is still needed after the ID proof.
+    await expect(withSchool(desk(), (tx) => releaseStudent(tx, desk(), { ...base, photoMatch: false, otherCheck: "call" }, { timeZone: TZ, codeCheck: true }))).rejects.toThrow("Enter the 4-digit code the guardian received.");
+    const r = await withSchool(desk(), (tx) => releaseStudent(tx, desk(), { ...base, photoMatch: false, otherCheck: "id-proof" }, { timeZone: TZ, codeCheck: false }));
+    expect(r.pass).toMatchObject({ kind: "PICKUP", collectorName: "Mohan Pillai", verification: "ID proof" });
+  });
+
+  it("names the holiday on a closed day instead of saying attendance is not marked (QA FO-02)", async () => {
+    await withSchool(as(f, null), (tx) => tx.calendarEntry.create({ data: { schoolId: f.school.id, academicYearId: f.yearId, type: "holiday", title: "Test holidays", startDate: day("2026-11-02"), endDate: day("2026-11-03") } }));
+    const closed = await withSchool(desk(), (tx) => pickupStudent(tx, desk(), f.diya.id, day("2026-11-02")));
+    expect(closed!.closed).toEqual({ reason: "holiday", title: "Test holidays" });
+    expect(closedWords(closed!.closed!)).toBe("School is closed today (Test holidays)");
+    const open = await withSchool(desk(), (tx) => pickupStudent(tx, desk(), f.diya.id, day("2026-11-04")));
+    expect(open!.closed).toBeNull();
+    const sunday = await withSchool(desk(), (tx) => pickupStudent(tx, desk(), f.diya.id, day("2026-11-08")));
+    expect(sunday!.closed).toEqual({ reason: "sunday", title: "Sunday" });
+  });
+
+  it("says today's pass expiry, the late visitor's hour and a closed day plainly (QA FO-03)", () => {
+    const end = 15 * 60;
+    expect(passLine(end, 10 * 60, null)).toBe("Today’s passes expire by themselves at 3:00 PM");
+    expect(passLine(end, end - 10, null)).toBe("A pass made now lasts an hour");
+    expect(passLine(end, 10 * 60, { reason: "holiday", title: "Dasara holidays" })).toBe("School is closed today (Dasara holidays) · today’s passes expire by themselves at 3:00 PM");
   });
 
   it("sends a desk enquiry straight to Admission Management with an owner and a follow-up (Done when 5)", async () => {

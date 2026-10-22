@@ -77,7 +77,7 @@ export default async function DeskPage({ searchParams }: { searchParams: SearchP
   return (
     <div>
       <FoHead pageName="Reception Desk" href={BASE}
-        sub={`${shortDay(p.today)}${deskWho ? ` · ${deskWho}` : ""} · passes expire at ${p.passEndWords}`}
+        sub={`${shortDay(p.today)}${deskWho ? ` · ${deskWho}` : ""} · ${p.passLine}`}
         actions={p.can.desk ? <>
           <ButtonLink href={here({ do: "walkin" })} scroll={false} variant="secondary" icon={ClipboardList}>Walk-in request</ButtonLink>
           {p.can.manage && <MoreMenu label="Front Office settings" items={[

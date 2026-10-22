@@ -12,25 +12,26 @@ import { writeAudit } from "../audit";
 import { notify } from "../notifications";
 import { formatNumber, nextNumber } from "../sequences";
 import { currentYear } from "../academic/years";
+import { isSchoolDay } from "../calendar/school-days";
 import { findStudents } from "../students/find";
 import { FrontOfficeProblem } from "./problem";
 import { messageVisitor } from "./notify";
 import { logCodeSentBy } from "../dev-codes";
 import { clockAt, instantOf, localOf, todayIso } from "./time";
-import { maskPhone, PICKUP_REASONS } from "./words";
+import { maskPhone, NO_PHOTO_CHECKS, PICKUP_REASONS, type NoPhotoCheck } from "./words";
 
 export type PickupStudent = { id: string; name: string; first: string; admissionNo: string; photoFileId: string | null; classSection: string | null; rollNo: number | null };
 
 export async function enrolmentsOf(tx: Tx, ctx: SchoolContext, ids: string[]) {
   const year = await currentYear(tx, ctx);
-  if (!ids.length || !year) return new Map<string, { sectionId: string; label: string; rollNo: number | null; classTeacherId: string | null }>();
+  if (!ids.length || !year) return new Map<string, { sectionId: string; classId: string; campusId: string; label: string; rollNo: number | null; classTeacherId: string | null }>();
   const rows = await tx.enrolment.findMany({ where: { studentId: { in: ids }, academicYearId: year.id, archivedAt: null }, select: { studentId: true, sectionId: true, rollNo: true } });
-  const sections = await tx.section.findMany({ where: { id: { in: [...new Set(rows.map((r) => r.sectionId))] } }, select: { id: true, name: true, classTeacherId: true, schoolClass: { select: { name: true } } } });
+  const sections = await tx.section.findMany({ where: { id: { in: [...new Set(rows.map((r) => r.sectionId))] } }, select: { id: true, name: true, classTeacherId: true, schoolClass: { select: { id: true, name: true, campusId: true } } } });
   const byId = new Map(sections.map((s) => [s.id, s]));
-  const out = new Map<string, { sectionId: string; label: string; rollNo: number | null; classTeacherId: string | null }>();
+  const out = new Map<string, { sectionId: string; classId: string; campusId: string; label: string; rollNo: number | null; classTeacherId: string | null }>();
   for (const r of rows) {
     const s = byId.get(r.sectionId);
-    if (s) out.set(r.studentId, { sectionId: s.id, label: `${s.schoolClass.name.replace(/^Class\s+/i, "")} ${s.name}`, rollNo: r.rollNo, classTeacherId: s.classTeacherId });
+    if (s) out.set(r.studentId, { sectionId: s.id, classId: s.schoolClass.id, campusId: s.schoolClass.campusId, label: `${s.schoolClass.name.replace(/^Class\s+/i, "")} ${s.name}`, rollNo: r.rollNo, classTeacherId: s.classTeacherId });
   }
   return out;
 }
@@ -70,7 +71,11 @@ export async function searchStudents(tx: Tx, ctx: SchoolContext, rawQ: string, t
 
 export type PickupPerson = { guardianId: string; name: string; relationship: string; phone: string; photoFileId: string | null; restriction: string | null; allowed: boolean };
 
-/** The student, their class teacher, today's attendance and the approved pickup list. */
+/**
+ * The student, their class teacher, today's attendance, whether today is a
+ * school day for their class (the one school-day rule, so a holiday is named
+ * instead of "attendance not marked yet", QA FO-02) and the approved pickup list.
+ */
 export async function pickupStudent(tx: Tx, ctx: SchoolContext, studentId: string, today: Date) {
   const s = await tx.student.findFirst({
     where: { id: studentId, archivedAt: null },
@@ -85,9 +90,10 @@ export async function pickupStudent(tx: Tx, ctx: SchoolContext, studentId: strin
   });
   if (!s) return null;
   const enr = (await enrolmentsOf(tx, ctx, [s.id])).get(s.id) ?? null;
-  const [teacher, mark] = await Promise.all([
+  const [teacher, mark, day] = await Promise.all([
     enr?.classTeacherId ? tx.staff.findFirst({ where: { id: enr.classTeacherId }, select: { fullName: true, userLoginId: true } }) : null,
     tx.attendanceMark.findFirst({ where: { studentId: s.id, date: today, periodNo: 0, archivedAt: null }, select: { statusKey: true } }),
+    isSchoolDay(tx, ctx, today, { campusId: enr?.campusId ?? null, classId: enr?.classId ?? null }),
   ]);
   const status = mark ? await tx.attendanceStatus.findFirst({ where: { key: mark.statusKey }, select: { name: true, tone: true } }) : null;
   const people: PickupPerson[] = s.guardians
@@ -98,6 +104,8 @@ export async function pickupStudent(tx: Tx, ctx: SchoolContext, studentId: strin
     classTeacher: teacher?.fullName ?? null,
     classTeacherLogin: teacher?.userLoginId ?? null,
     attendance: status ? { label: status.name, tone: status.tone } : null,
+    /** Null on a school day; else why the school is closed today for this student's class. */
+    closed: day.on ? null : { reason: day.reason, title: day.title },
     people,
   };
 }
@@ -139,7 +147,7 @@ async function checkCode(tx: Tx, studentId: string, guardianId: string, code: st
   await tx.pickupCode.update({ where: { id: row.id }, data: { usedAt: now } });
 }
 
-export type ReleaseInput = { studentId: string; guardianId: string; photoMatch: boolean; code: string | null; reason: string; otherReason: string | null; minute: number | null };
+export type ReleaseInput = { studentId: string; guardianId: string; photoMatch: boolean; otherCheck?: NoPhotoCheck | null; code: string | null; reason: string; otherReason: string | null; minute: number | null };
 
 /** Releases a student to a person on the approved list and makes the Pickup gate pass (16 Done when 3, 4, 12). */
 export async function releaseStudent(tx: Tx, ctx: SchoolContext, input: ReleaseInput, opts: { timeZone: string; codeCheck: boolean; now?: Date }) {
@@ -152,7 +160,16 @@ export async function releaseStudent(tx: Tx, ctx: SchoolContext, input: ReleaseI
   if (!person || !person.allowed) {
     throw new FrontOfficeProblem(`Not on ${info.student.first}’s pickup list. Call a registered guardian.`, "guardianId");
   }
-  if (!input.photoMatch) throw new FrontOfficeProblem(`Check that ${person.name.split(" ")[0]}’s face matches the photo.`, "photoMatch");
+  // A photo on record is matched with the face; without one the desk checks ID proof or calls a guardian.
+  const first = person.name.split(" ")[0];
+  const checks: string[] = [];
+  if (person.photoFileId) {
+    if (!input.photoMatch) throw new FrontOfficeProblem(`Check that ${first}’s face matches the photo.`, "photoMatch");
+    checks.push("photo");
+  } else {
+    if (!input.otherCheck) throw new FrontOfficeProblem(`No photo of ${first} on record. Check their ID proof, or call a registered parent or guardian.`, "photoMatch");
+    checks.push(NO_PHOTO_CHECKS[input.otherCheck]);
+  }
   if (opts.codeCheck) await checkCode(tx, input.studentId, input.guardianId, (input.code ?? "").trim(), now);
   let reason = input.reason;
   if (!(PICKUP_REASONS as readonly string[]).includes(reason)) throw new FrontOfficeProblem("Choose a reason.", "reason");
@@ -169,7 +186,8 @@ export async function releaseStudent(tx: Tx, ctx: SchoolContext, input: ReleaseI
   const open = await tx.gatePass.findFirst({ where: { studentId: input.studentId, kind: "PICKUP", status: "ISSUED", archivedAt: null, timeOut: { gte: instantOf(day, 0, opts.timeZone) } } });
   if (open) throw new FrontOfficeProblem(`${info.student.first} already has gate pass ${open.passNo} waiting at the gate.`);
   const passNo = formatNumber(`GP-${day.slice(0, 4)}-`, await nextNumber(tx, ctx, `gate-pass-${day.slice(0, 4)}`), 4);
-  const verification = opts.codeCheck ? "photo, code" : "photo";
+  if (opts.codeCheck) checks.push("code");
+  const verification = checks.join(", ");
   const pass = await tx.gatePass.create({
     data: {
       schoolId: ctx.schoolId, passNo, kind: "PICKUP", studentId: input.studentId, sectionLabel: info.student.classSection, reason, timeOut,

@@ -22,7 +22,8 @@ import { parentLinkProvider } from "@/lib/students/guardians";
 import { CONSENT_STATUS_LABEL, CONSENT_TYPES, RESULT_LABEL, STATUS_LABEL, STATUS_TONE, languageLabel } from "@/lib/students/labels";
 import { classShort, phoneShow } from "@/lib/students/show";
 import { BASE, studentPage } from "../../_lib/page";
-import { consentRequestAction, parentLinkAction, setPrimaryAction, withdrawConsentAction } from "../../_actions/guardians";
+import { consentRequestAction, parentLinkAction, removeGuardianPhoto, setPrimaryAction, uploadGuardianPhoto, withdrawConsentAction } from "../../_actions/guardians";
+import { PhotoUpload } from "../../students/[id]/photo-upload";
 import { feePageAllowedFor } from "@/lib/fees/access";
 import { PAYMENT_STATUS_WORDS, modeLabel } from "@/lib/fees/words";
 import { loadParent360 } from "../load";
@@ -84,7 +85,11 @@ export default async function Parent360({ params }: { params: Promise<{ id: stri
 
         <Card className="p-4 md:p-5 flex flex-col lg:flex-row lg:items-center gap-4">
           <div className="flex items-center gap-4 min-w-0 flex-1">
-            <Avatar name={g.name} size={60} />
+            {manage ? (
+              <PhotoUpload action={uploadGuardianPhoto.bind(null, id)} remove={removeGuardianPhoto.bind(null, id)} hasPhoto={Boolean(g.photoFileId)} name={g.name}>
+                <Avatar name={g.name} size={60} src={g.photoFileId ? fileLink(g.photoFileId, current.ctx.schoolId) : null} />
+              </PhotoUpload>
+            ) : <Avatar name={g.name} size={60} src={g.photoFileId ? fileLink(g.photoFileId, current.ctx.schoolId) : null} />}
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="font-display text-[23px] md:text-[26px] font-semibold tracking-tight leading-tight">{g.name}</h1>

@@ -6,6 +6,32 @@ export const BASE = "/front-office";
 export const ID_PROOF_TYPES = ["Aadhaar", "Driving licence", "Voter ID", "PAN card", "Office ID", "Passport"] as const;
 export const PEOPLE_COUNTS = ["1", "2", "3", "4+"] as const;
 export const PICKUP_REASONS = ["Doctor visit", "Unwell", "Family function", "Exam or competition", "Other"] as const;
+
+/**
+ * How the desk checked a person who has no photo on record (QA FO-01): there
+ * is no face to match, so their ID proof is checked against the name, or a
+ * registered parent or guardian confirms on a call.
+ */
+export const NO_PHOTO_CHECKS = { "id-proof": "ID proof", call: "call to a guardian" } as const;
+export type NoPhotoCheck = keyof typeof NO_PHOTO_CHECKS;
+export const isNoPhotoCheck = (v: string): v is NoPhotoCheck => Object.hasOwn(NO_PHOTO_CHECKS, v);
+
+/** Why the school is closed today, from the one school-day rule (a holiday, a Sunday, a Saturday off). */
+export type ClosedDay = { reason: "sunday" | "weekend" | "holiday" | null; title: string | null };
+/** "School is closed today (Dasara holidays)". */
+export const closedWords = (c: ClosedDay) => `School is closed today (${c.title ?? (c.reason === "holiday" ? "Holiday" : "not a working day")})`;
+
+
+/**
+ * Today's pass expiry in words (QA FO-03): passes end at today's set time (the
+ * end of the school day by default); a visitor who comes within 15 minutes of
+ * it, or later, gets an hour (passExpiryFor). A closed day is said first.
+ */
+export function passLine(passEnd: number, minute: number, closed: ClosedDay | null) {
+  const pass = minute < passEnd - 15 ? `today’s passes expire by themselves at ${clockOf(passEnd)}` : `a pass made now lasts an hour`;
+  return closed ? `${closedWords(closed)} · ${pass}` : pass.charAt(0).toUpperCase() + pass.slice(1);
+}
+
 export const GATE_KINDS = [
   { value: "vehicle", label: "Vehicle" },
   { value: "school-bus", label: "School bus" },

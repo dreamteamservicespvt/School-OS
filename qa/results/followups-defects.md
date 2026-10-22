@@ -151,3 +151,109 @@ proved by a vitest test against `school_os_w4_test` where the fix is in the app.
   waits when React keeps no key, and the React that Next.js runs still keeps that key (so an upgrade that changes
   it fails the test instead of bringing the warning back unnoticed).
 - **Status:** Fixed.
+
+---
+
+# Follow-up defects from browser testing of the one import engine (22-10-2026, night)
+
+Three findings from browser testing after gap list G16 (one import engine) was merged. Fixes are on branch
+`wave11/w1`, each proved by a vitest test against `school_os_w1_test` where the fix is in the app. Screen-only parts
+were checked by reading the code, typecheck and lint.
+
+| ID | Priority | Module | Short title | Status |
+|---|---|---|---|---|
+| IMPORT-01 | P1 | Every import page, Switching to School OS | Rows with problems and rows left out are lost after Bring in | Fixed |
+| GOLIVE-01 | P4 | Settings (Switching to School OS, Go-live check) | "Fees due before go-live" sends the person to the page they are on | Fixed |
+| UNDO-01 | P4 | Every import page | "The 1 record it added are archived" | Fixed |
+
+## IMPORT-01 · P1 · Every import page · Rows with problems and rows left out are lost after Bring in
+- **Steps:** Events & Calendar › Import holidays; upload a 2-row CSV with one ready row and one row with a problem
+  (date 31-02-2027); Check and bring in; Bring in 1 holiday.
+- **Expected:** what the confirm promises: "The 1 row with problems stays here; fix it and bring it in after." The
+  row is counted after the import, can be fixed, and is brought in as a further import, with Undo for each import.
+- **Actual:** the confirm said "Only the 1 ready row are imported. The 1 row with problems stay here; fix them and
+  bring them in after." After the import the file page showed only "Brought in · Added 1 · Updated 0 · Left out
+  with problems 0" with Open School Calendar and Undo import. The row with the problem was not counted anywhere and
+  could not be fixed or brought in; only Undo opened the file again. The same on all 12 import pages and in
+  Switching to School OS. Rows the person left out were lost the same way.
+- **Root cause:** `importFile()` in src/lib/move-in/service.ts sent only the ready rows to the import job, and
+  `settleImports()` then marked the whole file `imported`. A Move-in File knew one Import Batch and nothing about
+  which of its rows that import brought in, so it could not stay open for the rest. "Left out with problems" on the
+  result counted only rows that failed inside the job, not the rows held back by the check.
+- **Design chosen:** one file carries several imports (the simplest safe design: no second file to keep in step
+  with the first, and the fixes, matches and choices already made stay with the rows they were made for).
+  - The file keeps which of its rows each import brought in (`brought_in`: row → Import Batch), every import not
+    undone (`batch_ids`, oldest first) and how many rows were still waiting after its last import (`waiting`).
+  - Bring in sends only the ready rows not brought in before. When the import is done, a row the import could not
+    save goes back to the file. A file with rows still waiting (rows with problems, rows left out by the person, rows
+    not saved) opens again; a file with none is `imported`.
+  - Rows already brought in are not checked or sent again, and show as "Brought in already" in the counts. The sheet,
+    heading row and kind cannot change while part of the file is brought in (rows are known by their row number).
+  - Undo works for each import on its own, wherever it is pressed (the file page, the module's Earlier imports,
+    Settings › Imports): its rows go back to the file, which opens again; the file's other imports stay. Rows the
+    kind leaves out on purpose ("No old dues") are counted with the file's first import only.
+  - The file page shows a card for each import ("Brought in, part 1 of 2": Added, Updated, Not saved, with its own
+    Undo) and, while rows wait, "1 row with problems not brought in yet" (also "… and 1 row left out by you"), then
+    the rows to fix. The Switching to School OS file list and the module Import pages say "Part brought in · 2 rows
+    not brought in yet". Remove from list says the records it brought in stay.
+  - The confirm: "Only the 1 ready row is brought in. The 1 row with problems stays here, counted with the file; fix
+    it and bring it in after." (rows left out are named the same way); the message after Bring in says the same.
+- **Go-live check:** a file with nothing brought in still counts as "not imported yet" and stops going live, as
+  before. A file part brought in with rows still waiting does not stop going live (its ready rows are in, and rows
+  left out on purpose may never be needed); it is a warning instead: "1 file is part brought in: 2 rows with problems
+  or left out are not brought in yet. Open it to fix the rows and bring them in, or remove the file from the list if
+  they are not needed; what it brought in stays."
+- **Migration:** `20261022193000_move_in_file_rows_waiting` adds `batch_ids`, `brought_in` and `waiting` to
+  `move_in_file` with empty defaults, and puts each existing file's import into `batch_ids`. Existing files keep
+  working: one already imported shows its one import with Undo as before; one still being checked has none; an import
+  still running when the update lands settles as `imported`, as before.
+- **Tests:** tests/move-in/rows-waiting.test.ts (6 tests): a holiday file with a ready row, a row with a problem and a
+  row left out brings in the ready row and keeps the other two counted with the file; the go-live check warns about
+  it without stopping; the fixed row and the row brought back come in as a second import of the same file (file then
+  imported, two batches); Undo of the second, then of the first, each puts its own rows back; a file sent before the
+  update settles and undoes as before; the plain-words counts. tests/move-in/service.test.ts,
+  tests/move-in/one-engine.test.ts and tests/fees/old-dues-left-out.test.ts now expect a file with a row left out,
+  or a row with a problem, to stay part brought in with that row counted (the last one said before "the row with a
+  problem was never brought in").
+- **Status:** Fixed.
+
+## GOLIVE-01 · P4 · Settings › Switching to School OS › Go-live check · "Fees due before go-live" sends the person to the page they are on
+- **Steps:** Settings › Data Backup & Security › Switching to School OS › Go-live check, with no go-live date typed
+  yet, as a person who sees fees.
+- **Expected:** the card points at the Go-live date field on the same page.
+- **Actual:** the card "Fees due before go-live" said "Type the go-live date on the go-live check (Settings, Data
+  Backup & Security, Switching to School OS) to see the fees due before it." while the person was on that page.
+- **Root cause:** `BeforeGoLivePanel` (src/app/(school)/fee-management/ledger/import/before-go-live.tsx, from gap
+  list G14) is shared by Fee Management › Import old dues and receipts and the go-live check, and had one sentence
+  for both.
+- **Fix:** the panel is told where it is. New src/lib/fees/go-live-date-hint.ts gives the words: on the go-live check
+  "Type the go-live date under What your old software says on this page to see the fees due before it.", with "What
+  your old software says" a link to that card (the card that holds the Go-live date field, now `id="old-software"`).
+  A person who cannot type it there reads "The Principal or School Admin types the go-live date under What your old
+  software says on this page; then the fees due before it show here." Fee Management's Import page keeps the path to
+  the go-live check.
+- **Test:** tests/fees/before-go-live.test.ts, "where to type the go-live date" (1 test): the go-live check's words
+  name the card on this page and not the Settings path; the Fee Management words keep the path.
+- **Status:** Fixed.
+
+## UNDO-01 · P4 · Every import page · "The 1 record it added are archived"
+- **Steps:** bring in a file with one ready row on any import page; press Undo import.
+- **Expected:** "The 1 holiday it added is archived."
+- **Actual:** "The 1 record it added are archived, and the file opens again so you can fix it and bring it in again."
+- **Root cause:** the Undo dialog in src/components/import/file-buttons.tsx counted the noun ("1 record") but always
+  said "are", and named records, not what the page brings in.
+- **Fix:** new `undoWords()` in src/lib/imports/words.ts (with `count()` and `stayWords()` from IMPORT-01): "The 1
+  holiday it added is archived.", "The 2 holidays it added are archived.", and for an import that changed records
+  "the 1 record it changed is put back as it was". Used by the Undo import dialog (now also for an import that only
+  updated records) and by the message after Undo. Swept the other import texts for the same pattern:
+  - Undo this import (Earlier imports): "The 1 holiday it brought in is taken back as a whole".
+  - The message after Undo from Earlier imports: "1 record put back as it was".
+  - Add missing classes: "Add this class and section to this year? It is added … and the rows are matched to it".
+  - Add designations / departments: "Add this designation to HR Settings?".
+  - "1 word needs matching", the sheet picker's "(1 row)", "1 repeated heading row" under Passed over.
+  - Bring in (IMPORT-01): "Only the 1 ready row is brought in. The 1 row with problems stays here…".
+  - Outside src/components/import, the same pattern on Student Management's import result page: "The 1 student it
+    added is archived, … and their admission number is free".
+- **Test:** tests/move-in/rows-waiting.test.ts, "Undo says one record is and two records are" (1 test), and the
+  plain-words counts for Bring in (1 test).
+- **Status:** Fixed.

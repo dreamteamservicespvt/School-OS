@@ -8,6 +8,7 @@ import "server-only";
 import { Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "./db";
 import { writeAudit } from "./audit";
+import { reopenAfterUndo } from "./move-in/batches";
 
 export type ImportColumn = { key: string; label: string; required?: boolean; example?: string; help?: string; aliases?: string[] };
 
@@ -224,8 +225,8 @@ export async function undoImport(tx: Tx, ctx: SchoolContext, batchId: string) {
   const changed = (batch.updatedRows ?? []) as unknown as UpdatedRow[];
   const putBack = changed.length && kind.revert ? await kind.revert(tx, ctx, changed) : 0;
   await tx.importBatch.update({ where: { id: batchId }, data: { undoneAt: new Date(), undoneById: ctx.userId } });
-  // The file it came from opens again, wherever the Undo was pressed, so the corrected rows can be brought in (workflow 15).
-  await tx.moveInFile.updateMany({ where: { batchId, status: "imported", archivedAt: null }, data: { status: "open", batchId: null, importFileId: null } });
+  // The rows it brought in go back to the file they came from, wherever the Undo was pressed, so they can be fixed and brought in again (workflow 15).
+  await reopenAfterUndo(tx, batchId);
   await writeAudit(tx, ctx, { action: "import-undone", recordType: "Import", recordId: batchId, after: { kind: batch.kind, archived: created.length, putBack } });
   return { archived: created.length, putBack };
 }

@@ -10,6 +10,7 @@ import { viewOf } from "@/lib/fees/before-go-live";
 import { counterAllowed, feeSettings } from "@/lib/fees/settings";
 import { feeViewer } from "@/lib/fees/access";
 import { BeforeGoLivePanel } from "@/app/(school)/fee-management/ledger/import/before-go-live";
+import { GO_LIVE_FORM_ANCHOR } from "@/lib/fees/go-live-date-hint";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
 import { ExpectedForm } from "../forms";
@@ -107,13 +108,13 @@ export default async function GoLiveCheckPage() {
           {see.fees && (
             <Card>
               <CardHeader title="Fees due before go-live" description="The fee plans cover the whole year. Months before the go-live date were the old software's, and are never billed twice." />
-              <CardBody><BeforeGoLivePanel view={viewOf(s.money.before)} canSettle={canSettle} /></CardBody>
+              <CardBody><BeforeGoLivePanel view={viewOf(s.money.before)} canSettle={canSettle} place={{ on: "go-live-check", canType: canLive }} /></CardBody>
             </Card>
           )}
         </div>
 
         <div className="space-y-5">
-          <Card>
+          <Card id={GO_LIVE_FORM_ANCHOR}>
             <CardHeader title="What your old software says" description="Type the totals from the old software or registers. School OS shows any difference." />
             <CardBody>
               {canLive ? <ExpectedForm money={see} values={{

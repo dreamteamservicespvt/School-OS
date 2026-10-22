@@ -113,11 +113,12 @@ describe("bringing in an old software's workbook", () => {
 
   it("imports the ready rows through the shared importer, as a background job", async () => {
     const r = await withSchool(ctx, (tx) => importFile(tx, ctx, studentsFile));
-    expect(r).toEqual({ rows: 3, problems: 0 });
+    expect(r).toEqual({ rows: 3, problems: 0, leftOut: 1 });
     await expect(withSchool(ctx, (tx) => fixRow(tx, studentsFile, 6, {}))).rejects.toThrow(/being imported/);
     await drainJobs();
     const f = await withSchool(ctx, (tx) => tx.moveInFile.findUniqueOrThrow({ where: { id: studentsFile } }));
-    expect(f.status).toBe("imported");
+    // Row 7 was left out: it stays with the file, counted, so the file is part brought in (QA IMPORT-01).
+    expect(f).toMatchObject({ status: "open", waiting: 1, batchIds: [f.batchId] });
     const batch = await withSchool(ctx, (tx) => tx.importBatch.findUniqueOrThrow({ where: { id: f.batchId! } }));
     expect(batch).toMatchObject({ kind: "students", added: 3, skipped: 0 });
     const arjun = await withSchool(ctx, (tx) => tx.student.findFirst({ where: { admissionNo: "OLD-101" }, include: { enrolments: true, guardians: { include: { guardian: true } } } }));
@@ -132,6 +133,8 @@ describe("bringing in an old software's workbook", () => {
     expect(sum.students).toBe(3);
     expect(blockers(sum).join(" ")).toMatch(/1 file is not imported/);
     expect(warnings(sum).join(" ")).toMatch(/old software says 4 students; School OS has 3 \(-1\)/);
+    // The students file is part brought in (its left-out row waits): a warning, not a reason to wait.
+    expect(warnings(sum).join(" ")).toMatch(/1 file is part brought in: 1 row with problems or left out is not brought in yet/);
   });
 
   it("matches staff designations by the words schools use, and adds new ones to HR Settings", async () => {

@@ -72,8 +72,12 @@ describe("rows with no old dues are left out, not problems (follow-up C)", () =>
     });
     expect(batch).toMatchObject({ added: 1, skipped: 0, importedById: f.accountant.id });
     expect(batch.leftOut).toEqual([{ reason: "No old dues", count: 3 }]);
-    // The file is now imported; the row with a problem was never brought in.
-    expect((await withSchool(f.ctx, (tx) => workOn(tx, f.ctx, id, { check: true }), { timeout: 120_000 })).file.status).toBe("imported");
+    // The row with a problem was not brought in: it stays with the file, counted, to fix and bring in (QA IMPORT-01).
+    const after = await withSchool(f.ctx, (tx) => workOn(tx, f.ctx, id, { check: true }), { timeout: 120_000 });
+    expect(after.file).toMatchObject({ status: "open", waiting: 1 });
+    expect(after.prepared.passed.broughtIn).toBe(1);
+    expect(after.checked!.problems.map((b) => b.line)).toEqual([6]);
+    expect(after.checked!.ready).toEqual([]);
     const old = await withSchool(f.ctx, (tx) => tx.studentFeeDue.findMany({ where: { kind: "OLD_DUES", state: "OPEN" } }));
     expect(old.map((d) => [d.studentId, d.amountPaise])).toEqual([[f.ravi.id, BigInt(350000)]]);
   });

@@ -2,8 +2,10 @@
 // every import page: Settings, Switching to School OS, and each module's own
 // Import page. Match columns, match words, then check every row: fix a row,
 // leave it out, choose for a row that may already be on record, and bring in
-// the ready rows; afterwards the result and Undo. The page that shows it
-// checks who may open it; every action checks again on the server.
+// the ready rows; afterwards the result and Undo. Rows not brought in (rows
+// with problems, rows left out) stay with the file, counted, to fix and bring
+// in as a further import of it, each import with its own Undo. The page that
+// shows it checks who may open it; every action checks again on the server.
 import Link from "next/link";
 import type { Current } from "@/lib/current";
 import { withSchool } from "@/lib/db";
@@ -14,6 +16,8 @@ import { sectionLabel } from "@/lib/move-in/lookups";
 import { kindInfo, kindModule, lastFailure, moveInKinds, MoveInProblem, settleImports, workOn } from "@/lib/move-in/service";
 import { placeHolds, errorsHref, fileHref, HOME, problemsHref, wordsFor, type ImportPlace } from "@/lib/imports/places";
 import { placeRefusal } from "@/lib/imports/place-access";
+import { fileBatchIds } from "@/lib/move-in/batches";
+import { count } from "@/lib/imports/words";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -35,7 +39,7 @@ type Step = (typeof STEPS)[number]["key"];
 type Props = { current: Current; place: ImportPlace; id: string; sp: Record<string, string | string[] | undefined> };
 
 export async function FileReview({ current, place, id, sp }: Props) {
-  const step: Step = STEPS.some((s) => s.key === sp.step) ? (sp.step as Step) : "columns";
+  const asked: Step | null = STEPS.some((s) => s.key === sp.step) ? (sp.step as Step) : null;
   const tz = current.school.timeZone;
   const BASE = place.base;
   const here = fileHref(place, id);
@@ -43,15 +47,19 @@ export async function FileReview({ current, place, id, sp }: Props) {
   const result = await withSchool(current.ctx, async (tx) => {
     await settleImports(tx);
     try {
-      const f = /^[0-9a-f-]{36}$/i.test(id) ? await tx.moveInFile.findFirst({ where: { id, archivedAt: null }, select: { kind: true } }) : null;
+      const f = /^[0-9a-f-]{36}$/i.test(id) ? await tx.moveInFile.findFirst({ where: { id, archivedAt: null }, select: { kind: true, batchIds: true, batchId: true } }) : null;
       // A module's page shows only the files it brings in.
       if (f && !placeHolds(place, f.kind)) throw new MoveInProblem("This file was not found. It may have been removed.");
       // Its rows only for people who may see those records in their own module (salary details, for example).
       if (f && !can(current.permissions, kindModule(f.kind), "view")) throw new MoveInProblem("Your role cannot see these records.");
-      const w = await workOn(tx, current.ctx, id, { check: step === "check" });
-      const batch = w.file.batchId ? await tx.importBatch.findUnique({ where: { id: w.file.batchId } }) : null;
+      // A file part brought in opens on its rows still waiting, counted.
+      const part = Boolean(f && fileBatchIds(f).length);
+      const step: Step = asked ?? (part ? "check" : "columns");
+      const w = await workOn(tx, current.ctx, id, { check: step === "check" || part });
+      const ids = fileBatchIds(w.file);
+      const batches = ids.length ? await tx.importBatch.findMany({ where: { id: { in: ids } }, orderBy: { createdAt: "asc" } }) : [];
       const failure = w.file.status === "open" ? await lastFailure(tx, w.file.importFileId) : null;
-      return { ok: true as const, w, batch, failure };
+      return { ok: true as const, w, batches, failure, step };
     } catch (e) {
       if (e instanceof MoveInProblem) return { ok: false as const, message: e.message };
       throw e;
@@ -61,7 +69,7 @@ export async function FileReview({ current, place, id, sp }: Props) {
   if (!result.ok) {
     return <Alert tone="danger" action={<Link className="font-medium underline" href={BASE}>Back to {place.name}</Link>}>{result.message}</Alert>;
   }
-  const { w, batch, failure } = result;
+  const { w, batches, failure, step } = result;
   const { file, kind, prepared, lookups, checked } = w;
   const info = kindInfo(kind.key);
   const label = info?.label ?? kind.label;
@@ -72,51 +80,64 @@ export async function FileReview({ current, place, id, sp }: Props) {
   const sheetList = file.sheets as { name: string; rows: number }[];
   const sheetName = sheetList.length > 1 ? sheetList[file.sheetIndex]?.name : null;
   const headers = prepared.headers;
+  const allRows = prepared.rows.length + prepared.passed.broughtIn;
 
   const header = (
     <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
       <div>
         <Link href={BASE} className="text-sm font-medium text-brand-text hover:underline">← {place.name}</Link>
         <h2 className="mt-1 text-xl font-semibold break-all">{file.fileName}{sheetName ? ` · ${sheetName}` : ""}</h2>
-        <p className="text-sm text-ink-2">{label} · {prepared.rows.length} {prepared.rows.length === 1 ? "row" : "rows"} · uploaded {formatDateTime(file.createdAt, tz)}</p>
+        <p className="text-sm text-ink-2">{label} · {count(allRows, "row")} · uploaded {formatDateTime(file.createdAt, tz)}</p>
       </div>
-      {file.status !== "importing" && mayBring && <RemoveFileButton place={place.key} id={file.id} imported={file.status === "imported"} back={BASE} />}
+      {file.status !== "importing" && mayBring && <RemoveFileButton place={place.key} id={file.id} imported={file.status === "imported" || batches.length > 0} back={BASE} />}
     </div>
   );
 
-  // ── After the import has started ──
+  // What each import of this file brought in, with its own Undo.
+  const broughtIn = batches.length > 0 && (
+    <section aria-label="Brought in from this file" className="mb-4 space-y-3">
+      {batches.map((batch, i) => (
+        <Card key={batch.id}>
+          <CardHeader title={batches.length > 1 ? `Brought in, part ${i + 1} of ${batches.length}` : "Brought in"} description={formatDateTime(batch.createdAt, tz)} />
+          <CardBody className="space-y-4">
+            <dl className="grid grid-cols-2 gap-3 md:grid-cols-3">
+              <Num label="Added" value={batch.added} tone="success" />
+              <Num label="Updated" value={batch.updated} />
+              {batch.skipped > 0 && <Num label="Not saved, back with the file" value={batch.skipped} tone="warning" />}
+              {(batch.leftOut as { reason: string; count: number }[]).map((l) => <Num key={l.reason} label={`${l.reason} (nothing to bring in)`} value={l.count} />)}
+            </dl>
+            <div className="flex flex-wrap gap-2">
+              {HOME[kind.key] && i === batches.length - 1 && <ButtonLink href={HOME[kind.key].href} variant="primary">{HOME[kind.key].label}</ButtonLink>}
+              {batch.skipped > 0 && <a href={errorsHref(place, batch.id, kind.key)} className="inline-flex min-h-11 items-center rounded-lg px-3 font-medium text-brand-text hover:bg-surface-2" download>Download the rows not saved</a>}
+              {(batch.added > 0 || batch.updated > 0) && undoRefused === null && file.status !== "importing" && <UndoImportButton place={place.key} id={file.id} batchId={batch.id} added={batch.added} updated={batch.updated} one={words.one} many={words.many} />}
+            </div>
+            {batch.skipped > 0 && <p className="text-sm text-ink-2">{batch.skipped === 1 ? "This row changed" : "These rows changed"} between the check and the import (for example a section filled up). {batch.skipped === 1 ? "It is" : "They are"} back with the file below, to fix and bring in.</p>}
+          </CardBody>
+        </Card>
+      ))}
+    </section>
+  );
+
+  // ── While the import runs, and once every row is brought in ──
   if (file.status !== "open") {
     return (
       <>
         {header}
-        {file.status === "importing" ? (
-          <Card><CardBody className="space-y-2" >
+        {file.status === "importing" && (
+          <Card className="mb-4"><CardBody className="space-y-2" >
             <AutoRefresh seconds={4} />
             <p className="font-medium" role="status">Bringing in {words.many} now…</p>
             <p className="text-ink-2">This page updates by itself. You can leave it; you will get a notification when it is done.</p>
           </CardBody></Card>
-        ) : batch ? (
-          <Card>
-            <CardHeader title={batch.undoneAt ? "This import was undone" : "Brought in"} description={`${formatDateTime(batch.createdAt, tz)}${batch.undoneAt ? ` · undone ${formatDateTime(batch.undoneAt, tz)}` : ""}`} />
-            <CardBody className="space-y-4">
-              <dl className="grid grid-cols-3 gap-3">
-                <Num label="Added" value={batch.added} tone="success" />
-                <Num label="Updated" value={batch.updated} />
-                <Num label="Left out with problems" value={batch.skipped} tone={batch.skipped ? "warning" : undefined} />
-                {(batch.leftOut as { reason: string; count: number }[]).map((l) => <Num key={l.reason} label={`${l.reason} (nothing to bring in)`} value={l.count} />)}
-              </dl>
-              <div className="flex flex-wrap gap-2">
-                {HOME[kind.key] && !batch.undoneAt && <ButtonLink href={HOME[kind.key].href} variant="primary">{HOME[kind.key].label}</ButtonLink>}
-                {batch.skipped > 0 && <a href={errorsHref(place, batch.id, kind.key)} className="inline-flex min-h-11 items-center rounded-lg px-3 font-medium text-brand-text hover:bg-surface-2" download>Download rows with problems</a>}
-                {!batch.undoneAt && (batch.added > 0 || batch.updated > 0) && undoRefused === null && <UndoImportButton place={place.key} id={file.id} added={batch.added} one={words.one} many={words.many} />}
-              </div>
-              {batch.skipped > 0 && <p className="text-sm text-ink-2">Some rows changed between the check and the import (for example a section filled up). Fix them in the downloaded file and bring that file in.</p>}
-            </CardBody>
-          </Card>
-        ) : <Alert>This file was imported.</Alert>}
+        )}
+        {broughtIn || (file.status === "imported" && <Alert>This file was imported.</Alert>)}
+        {file.status === "imported" && batches.length > 0 && <p className="text-sm text-ink-2">Every row of this file is brought in.</p>}
       </>
     );
   }
+
+  // Rows still with a file part brought in: counted in plain words.
+  const waiting = batches.length > 0 && checked ? waitingWords(checked.ready.length, checked.problems.length, prepared.passed.leftOut) : "";
 
   // What else the sheet could hold: kinds this page brings in that the person may add here, and its own.
   const kinds: { key: string; label: string }[] = [];
@@ -140,12 +161,19 @@ export async function FileReview({ current, place, id, sp }: Props) {
     <>
       {header}
       {failure && <Alert tone="danger" className="mb-4" title="The last import did not finish, and nothing was saved.">{failure} Fix the rows below and bring them in again.</Alert>}
+      {broughtIn}
+      {waiting && (
+        <Alert tone="warning" className="mb-4" title={waiting}
+          action={step !== "check" ? <Link className="font-medium underline" href={`${here}?step=check`}>See the rows</Link> : undefined}>
+          {mayEdit ? "Fix them below and bring them in: they come in as a further import of this file, with its own Undo. Not needed? Remove the file from the list; what it brought in stays." : "Your role can look at this file but not bring them in."}
+        </Alert>
+      )}
       <details className="mb-4 rounded-2xl border border-line bg-surface px-5 py-3" open={sp.sheet === "1"}>
         <summary className="min-h-11 cursor-pointer py-2 font-medium">Sheet, heading row and what it holds <span className="font-normal text-ink-2">· {label}, headings in row {file.headerRow}</span></summary>
         <div className="pb-2 pt-1">
           {mayEdit ? (
             <SheetForm place={place.key} id={file.id} sheetIndex={file.sheetIndex} headerRow={file.headerRow} kind={kind.key}
-              sheets={sheetList.map((s, i) => ({ value: String(i), label: `${s.name} (${s.rows} rows)` }))}
+              sheets={sheetList.map((s, i) => ({ value: String(i), label: `${s.name} (${count(s.rows, "row")})` }))}
               headerChoices={w.sheet.rows.slice(0, 20).map((r, i) => ({ value: String(i + 1), label: `Row ${i + 1}: ${r.filter(Boolean).slice(0, 4).join(", ").slice(0, 60) || "empty"}` }))}
               kinds={kinds.map((k) => ({ value: k.key, label: k.label }))} />
           ) : <p className="text-ink-2">Your role can look at this file but not change it.</p>}
@@ -237,7 +265,7 @@ export async function FileReview({ current, place, id, sp }: Props) {
                       )}
                       {column !== "class" && can(current.permissions, "staff-hr-management", "edit") && <AddOptionsButton place={place.key} id={file.id} column={column} words={groups.map((g) => g.value)} />}
                     </ValuesForm>
-                  ) : <p className="text-ink-2">{groups.length} words need matching. Your role cannot change this file.</p>}
+                  ) : <p className="text-ink-2">{count(groups.length, "word")} {groups.length === 1 ? "needs" : "need"} matching. Your role cannot change this file.</p>}
                 </CardBody>
               </Card>
             );
@@ -253,10 +281,11 @@ export async function FileReview({ current, place, id, sp }: Props) {
       {step === "check" && checked && (
         <div className="space-y-5">
           <dl className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            {prepared.passed.broughtIn > 0 && <Num label="Brought in already" value={prepared.passed.broughtIn} tone="success" />}
             <Num label="Ready to bring in" value={checked.ready.length} tone="success" />
             <Num label="With problems" value={checked.problems.length} tone={checked.problems.length ? "danger" : undefined} />
             <Num label="Left out by you" value={prepared.passed.leftOut} />
-            <Num label="Passed over" value={prepared.passed.empty + prepared.passed.headings + prepared.passed.totals + checked.left.reduce((a, l) => a + l.count, 0)} hint={[prepared.passed.empty && `${prepared.passed.empty} empty`, prepared.passed.headings && `${prepared.passed.headings} repeated headings`, prepared.passed.totals && `${prepared.passed.totals} total ${prepared.passed.totals === 1 ? "row" : "rows"}`, ...checked.left.map((l) => `${l.count} ${l.reason.toLowerCase()}`)].filter(Boolean).join(", ") || undefined} />
+            <Num label="Passed over" value={prepared.passed.empty + prepared.passed.headings + prepared.passed.totals + checked.left.reduce((a, l) => a + l.count, 0)} hint={[prepared.passed.empty && `${prepared.passed.empty} empty`, prepared.passed.headings && `${prepared.passed.headings} repeated ${prepared.passed.headings === 1 ? "heading row" : "heading rows"}`, prepared.passed.totals && `${prepared.passed.totals} total ${prepared.passed.totals === 1 ? "row" : "rows"}`, ...checked.left.map((l) => `${l.count} ${l.reason.toLowerCase()}`)].filter(Boolean).join(", ") || undefined} />
           </dl>
           {missingRequired.length > 0 && <Alert tone="warning" title={`Choose the column for ${missingRequired.map((c) => c.label).join(", ")}.`} action={<Link className="font-medium underline" href={`${here}?step=columns`}>Match columns</Link>}>Every row shows a problem until it is matched.</Alert>}
           {prepared.unmatched.length > 0 && <Alert tone="warning" title={`${prepared.unmatched.length} ${prepared.unmatched.length === 1 ? "word needs" : "words need"} matching.`} action={<Link className="font-medium underline" href={`${here}?step=values`}>Match words</Link>}>Rows with an unmatched class or designation show a problem until it is matched.</Alert>}
@@ -331,7 +360,7 @@ export async function FileReview({ current, place, id, sp }: Props) {
               </div>
             )}
             <CardBody className="flex flex-wrap items-center gap-3 border-t border-line">
-              {mayEdit && checked.ready.length > 0 ? <ImportButton place={place.key} id={file.id} ready={checked.ready.length} problems={checked.problems.length} one={words.one} many={words.many} />
+              {mayEdit && checked.ready.length > 0 ? <ImportButton place={place.key} id={file.id} ready={checked.ready.length} problems={checked.problems.length} leftOut={prepared.passed.leftOut} one={words.one} many={words.many} />
                 : <p className="text-ink-2">{checked.ready.length ? bringRefused ?? "Your role cannot bring these in." : "Fix the problems above, or match the columns and words, to make rows ready."}</p>}
               {kind.key === "students" && <p className="text-sm text-ink-2">A parent already on record with the same phone is linked only when the name matches (a close spelling is fine), so brothers and sisters share their parents. Any other match waits for your choice above.</p>}
             </CardBody>
@@ -340,6 +369,14 @@ export async function FileReview({ current, place, id, sp }: Props) {
       )}
     </>
   );
+}
+
+/** "1 row with problems and 2 rows left out by you not brought in yet". */
+function waitingWords(ready: number, problems: number, leftOut: number) {
+  const parts = [ready ? `${count(ready, "row")} ready` : "", problems ? `${count(problems, "row")} with problems` : "", leftOut ? `${count(leftOut, "row")} left out by you` : ""].filter(Boolean);
+  if (!parts.length) return "";
+  const list = parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}` : parts[0];
+  return `${list} not brought in yet`;
 }
 
 function Num({ label, value, tone, hint }: { label: string; value: number; tone?: "success" | "danger" | "warning"; hint?: string }) {

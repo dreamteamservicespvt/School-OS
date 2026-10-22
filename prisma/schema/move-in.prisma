@@ -35,11 +35,21 @@ model MoveInFile {
   /// checks: on Student Management, the section for rows with no class and whether
   /// each student gets their class fee plan ({ sectionId, applyFeePlan }).
   options     Json      @default("{}")
-  /// open, importing, imported or cancelled.
+  /// open (being checked, or part brought in with rows still waiting),
+  /// importing, imported (every row brought in) or cancelled.
   status      String    @default("open")
-  /// The cleaned file handed to the shared importer, and the Import Batch it made.
+  /// The cleaned file handed to the shared importer last, and the Import Batch it made.
   importFileId String?  @map("import_file_id") @db.Uuid
   batchId     String?   @map("batch_id") @db.Uuid
+  /// Every import of this file not undone, oldest first. A file is brought in
+  /// a part at a time: the ready rows first, then the rows fixed after.
+  batchIds    String[]  @default([]) @map("batch_ids") @db.Uuid
+  /// Row number → the Import Batch that brought it in (while it is being
+  /// brought in, the cleaned file's id). These rows are not checked again.
+  broughtIn   Json      @default("{}") @map("brought_in")
+  /// Rows still with the file after its last import: rows with problems,
+  /// rows left out by the person, and rows the import could not save.
+  waiting     Int       @default(0)
   createdById String?   @map("created_by_id") @db.Uuid
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")

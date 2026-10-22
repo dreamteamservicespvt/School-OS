@@ -11,6 +11,7 @@ import { ActionButton } from "@/app/(school)/settings/action-button";
 import {
   addClassesAction, addOptionsAction, chooseRowAction, importAction, leaveOutAction, removeAction, tidyAction, undoBatchAction, undoFileImportAction, undoFixAction,
 } from "@/app/(school)/_imports/file-actions";
+import { stayWords, undoWords } from "@/lib/imports/words";
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
@@ -24,9 +25,9 @@ export function TidySwitch({ place, id, on }: OnFile & { on: boolean }) {
 export function AddClassesButton({ place, id, words, labels }: OnFile & { words: string[]; labels: string[] }) {
   const router = useRouter();
   return (
-    <ConfirmButton trigger={`Add ${plural(words.length, "missing class", "missing classes")} to this year`} title="Add these classes and sections to this year?" confirmLabel={`Add ${plural(words.length, "class", "classes")}`}
+    <ConfirmButton trigger={`Add ${plural(words.length, "missing class", "missing classes")} to this year`} title={words.length === 1 ? "Add this class and section to this year?" : "Add these classes and sections to this year?"} confirmLabel={`Add ${plural(words.length, "class", "classes")}`}
       onConfirm={async () => { const p = await addClassesAction(place, id, words); if (!p) router.refresh(); return p; }}>
-      <p>They are added in Academic Management with 40 seats each, and the rows are matched to them:</p>
+      <p>{words.length === 1 ? "It is added in Academic Management with 40 seats, and the rows are matched to it:" : "They are added in Academic Management with 40 seats each, and the rows are matched to them:"}</p>
       <p className="mt-2 font-medium text-ink">{labels.slice(0, 12).join(", ")}{labels.length > 12 ? ` and ${labels.length - 12} more` : ""}</p>
       <p className="mt-2">Check the spelling first: a class written wrongly should be matched to the right class instead.</p>
     </ConfirmButton>
@@ -37,7 +38,7 @@ export function AddOptionsButton({ place, id, column, words }: OnFile & { column
   const router = useRouter();
   const what = column === "designation" ? "designation" : "department";
   return (
-    <ConfirmButton trigger={`Add ${plural(words.length, what)} to HR Settings`} title={`Add these ${what}s to HR Settings?`} confirmLabel={`Add ${plural(words.length, what)}`}
+    <ConfirmButton trigger={`Add ${plural(words.length, what)} to HR Settings`} title={words.length === 1 ? `Add this ${what} to HR Settings?` : `Add these ${what}s to HR Settings?`} confirmLabel={`Add ${plural(words.length, what)}`}
       onConfirm={async () => { const p = await addOptionsAction(place, id, column, words); if (!p) router.refresh(); return p; }}>
       <p className="font-medium text-ink">{words.slice(0, 12).join(", ")}{words.length > 12 ? ` and ${words.length - 12} more` : ""}</p>
       {column === "designation" && <p className="mt-2">New designations have no default role, so logins for these staff are made from their profile later.</p>}
@@ -73,13 +74,13 @@ export function UndoFixButton({ place, id, line }: OnFile & { line: number }) {
   return <ActionButton variant="ghost" label="Undo my fix" run={async () => { const p = await undoFixAction(place, id, line); if (!p) router.refresh(); return p; }} />;
 }
 
-export function ImportButton({ place, id, ready, problems, one, many }: OnFile & { ready: number; problems: number; one: string; many: string }) {
+export function ImportButton({ place, id, ready, problems, leftOut, one, many }: OnFile & { ready: number; problems: number; leftOut: number; one: string; many: string }) {
   const router = useRouter();
   return (
     <ConfirmButton trigger={`Bring in ${plural(ready, one, many)}`} triggerVariant="primary" title={`Bring in ${plural(ready, one, many)}?`} confirmLabel={`Bring in ${plural(ready, "row")}`}
       onConfirm={async () => { const p = await importAction(place, id); if (!p) router.refresh(); return p; }}>
-      <p>Only the {plural(ready, "ready row")} are imported.{problems ? ` The ${plural(problems, "row")} with problems stay here; fix them and bring them in after.` : ""}</p>
-      <p className="mt-2">You can undo the whole import later from this page; what it added is archived, never lost.</p>
+      <p>Only the {plural(ready, "ready row")} {ready === 1 ? "is" : "are"} brought in.{problems || leftOut ? ` ${stayWords(problems, leftOut)}` : ""}</p>
+      <p className="mt-2">You can undo this import later from this page; what it added is archived, never lost.</p>
     </ConfirmButton>
   );
 }
@@ -94,12 +95,13 @@ export function RemoveFileButton({ place, id, imported, back }: OnFile & { impor
   );
 }
 
-export function UndoImportButton({ place, id, added, one, many }: OnFile & { added: number; one: string; many: string }) {
+export function UndoImportButton({ place, id, batchId, added, updated = 0, one, many }: OnFile & { batchId: string; added: number; updated?: number; one: string; many: string }) {
   const router = useRouter();
+  const what = added ? plural(added, one, many) : plural(updated, "change");
   return (
-    <ConfirmButton trigger="Undo import" triggerVariant="danger-outline" title={`Undo the import of ${plural(added, one, many)}?`} confirmLabel={`Undo import of ${plural(added, "record")}`} confirmVariant="danger"
-      onConfirm={async () => { const p = await undoFileImportAction(place, id); if (!p) router.refresh(); return p; }}>
-      The {plural(added, "record")} it added are archived, and the file opens again so you can fix it and bring it in again. This is written to the audit log.
+    <ConfirmButton trigger="Undo import" triggerVariant="danger-outline" title={`Undo the import of ${what}?`} confirmLabel={`Undo import of ${what}`} confirmVariant="danger"
+      onConfirm={async () => { const p = await undoFileImportAction(place, id, batchId); if (!p) router.refresh(); return p; }}>
+      {undoWords(added, updated, one, many)} Its rows go back to the file, so you can fix them and bring them in again. This is written to the audit log.
     </ConfirmButton>
   );
 }
@@ -110,7 +112,7 @@ export function UndoBatchButton({ place, batchId, label, added, one, many }: { p
   return (
     <ConfirmButton trigger="Undo this import" triggerVariant="danger-outline" title={`Undo this import of ${label.toLowerCase()}?`} confirmLabel={`Undo import of ${plural(added, one, many)}`} confirmVariant="danger"
       onConfirm={async () => { const p = await undoBatchAction(place, batchId); if (!p) router.refresh(); return p; }}>
-      The {plural(added, one, many)} it brought in are taken back as a whole and the import stays in the history. This is written to the audit log.
+      The {plural(added, one, many)} it brought in {added === 1 ? "is" : "are"} taken back as a whole, and the import stays in the history. This is written to the audit log.
     </ConfirmButton>
   );
 }

@@ -17,6 +17,7 @@ import { SegField } from "../_components/client";
 import { Warned } from "../purchases/sheets";
 import { addAssetAction, addRepairAction, assignAction, disposeAction, linkItemAction, scanTagAction, startAssetAuditAction, updateAssetAction, updateRepairAction } from "./actions";
 import { KeepSelect } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 type Opt = { value: string; label: string };
 export type PlaceOpts = { rooms: Opt[]; departments: Opt[]; staff: Opt[] };
@@ -56,14 +57,14 @@ export function AssetSheet({ closeHref, doneHref, types, vendors, places, start,
       </div>
       <div className="grid grid-cols-2 gap-3">
         {editing ? <SText name="tag" label="Asset tag" required maxLength={24} start={start!.tag} className="[&_input]:font-mono [&_input]:uppercase" />
-          : n > 1 ? <div className="text-[13px] text-ink3 self-end pb-3">Each gets the next tag from {nextTag}.</div>
+          : n > 1 ? <div className="text-[13px] text-ink3 self-end pb-3"><Words k="Each gets the next tag from" /> {nextTag}.</div>
           : <SText name="tag" label="Asset tag" maxLength={24} placeholder={nextTag} className="[&_input]:font-mono [&_input]:uppercase" help={`Empty: ${nextTag}`} />}
         {!editing && (
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="asset-count" className="text-[13px] font-semibold text-ink2">How many</label>
+            <label htmlFor="asset-count" className="text-[13px] font-semibold text-ink2"><Words k="How many" /></label>
             <input key={count.key} id="asset-count" name="count" type="number" min={1} max={100} defaultValue={count.value} onChange={(e) => setN(Math.max(1, Math.min(100, Number(e.target.value) || 1)))}
               className={cx(inputCls(count.error), "h-11 tnum")} />
-            {count.error ? <p className="text-[12.5px] text-bad">{count.error}</p> : <p className="text-[12.5px] text-ink3">For example 30 desks, each with its own tag.</p>}
+            {count.error ? <p className="text-[12.5px] text-bad">{count.error}</p> : <p className="text-[12.5px] text-ink3"><Words k="For example 30 desks, each with its own tag." /></p>}
           </div>
         )}
         {editing && <SText name="serialNo" label="Serial number" maxLength={60} start={start!.serialNo} />}
@@ -124,7 +125,7 @@ export function RepairUpdateSheet({ closeHref, logId, words, vendors, today, sta
           </div>
           <label className="flex items-center gap-2 rounded-xl border border-line px-4 py-3 text-[14px]">
             <input type="checkbox" name="toFinance" defaultChecked className="size-4" />
-            <span><b className="font-semibold">Send the cost to Finance</b><span className="block text-[12.5px] text-ink3">Recorded as an expense under Repairs and maintenance.</span></span>
+            <span><b className="font-semibold"><Words k="Send the cost to Finance" /></b><span className="block text-[12.5px] text-ink3"><Words k="Recorded as an expense under Repairs and maintenance." /></span></span>
           </label>
           <SText name="billNo" label="Vendor's bill number" maxLength={40} placeholder="Optional" />
           <input type="file" name="bill" accept="image/*,application/pdf" aria-label="Photo or PDF of the bill" className="text-[13px]" />
@@ -153,7 +154,7 @@ export function DisposeSheet({ closeHref, assetId, words, today }: { closeHref: 
             <SSelect name="saleMode" label="Received by" options={[{ value: "CASH", label: "Cash" }, { value: "UPI", label: "UPI" }, { value: "BANK_TRANSFER", label: "Bank transfer" }, { value: "CHEQUE", label: "Cheque" }]} start="CASH" />
             <SText name="saleRef" label="Reference" maxLength={60} placeholder="Optional" />
           </div>
-          <Alert tone="info">When approved, the sale goes to Finance as income (Scrap sale).</Alert>
+          <Alert tone="info"><Words k="When approved, the sale goes to Finance as income (Scrap sale)." /></Alert>
         </>
       )}
     </SheetForm>
@@ -188,7 +189,7 @@ export function ScanTags({ auditId, rooms, startRoom }: { auditId: string; rooms
     <form action={run} className="flex flex-col gap-3">
       <input type="hidden" name="auditId" value={auditId} />
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="scan-room" className="text-[13px] font-semibold text-ink2">Room you are checking</label>
+        <label htmlFor="scan-room" className="text-[13px] font-semibold text-ink2"><Words k="Room you are checking" /></label>
         <KeepSelect id="scan-room" name="roomId" value={room} onChange={(e) => setRoom(e.target.value)} className="h-11 rounded-xl border border-line bg-surface px-3 text-[14.5px]">
           <option value="">Choose the room</option>
           {rooms.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
@@ -196,11 +197,11 @@ export function ScanTags({ auditId, rooms, startRoom }: { auditId: string; rooms
       </div>
       <div className="flex gap-2">
         <div className="relative flex-1 min-w-0">
-          <label htmlFor="scan-tag" className="sr-only">Asset tag</label>
+          <label htmlFor="scan-tag" className="sr-only"><Words k="Asset tag" /></label>
           <ScanLine size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink3" aria-hidden="true" />
           <input ref={input} id="scan-tag" name="code" placeholder="Scan the tag, or type it" autoComplete="off" spellCheck={false} autoFocus className={cx(inputCls(state && !state.ok ? "x" : undefined), "h-12 pl-11 font-mono text-[15px] uppercase")} />
         </div>
-        <Button type="submit" variant="primary" loading={pending} className="h-12">Check</Button>
+        <Button type="submit" variant="primary" loading={pending} className="h-12"><Words k="Check" /></Button>
       </div>
       {state && <p className={cx("rounded-xl px-3.5 py-2.5 text-[13.5px] font-semibold", state.ok ? (/not where|not in the register|disposed/.test(state.message ?? "") ? "bg-warn/12 text-warn" : "bg-ok/10 text-ok") : "bg-bad/10 text-bad")} role="status">{state.message}</p>}
     </form>

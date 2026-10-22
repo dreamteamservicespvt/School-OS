@@ -31,6 +31,7 @@ import { ItemSheet, SetSheet, StartAuditSheet, StockInSheet, StockOutSheet, Tran
 import { BASE, invGuard, invPeriod, one, qs, addQ, uuidOr, type SearchParams } from "../_lib/page";
 import { itemsList, movesList, readItemsFilter, readMovesFilter } from "../_lib/lists";
 import { archiveSetAction, remindStoreAction } from "../actions";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Items & Stock · Inventory Management" };
 
@@ -102,7 +103,7 @@ export default async function ItemsPage({ searchParams }: { searchParams: Search
         ...(s.bookSetsOn ? [{ label: "Make a book set", href: here({ open: "set", set: null }), icon: <BookCopy size={16} aria-hidden="true" /> }] : []),
         { label: "Import items", href: `${BASE}/items/import`, icon: <FileUp size={16} aria-hidden="true" /> },
       ]} />
-      <ButtonLink href={here({ open: "add" })} variant="primary" icon={Plus} scroll={false}>Add item</ButtonLink>
+      <ButtonLink href={here({ open: "add" })} variant="primary" icon={Plus} scroll={false}><Words k="Add item" /></ButtonLink>
     </div>
   ) : can.remind && low.length ? <ActButton action={remindStoreAction} fields={{ what: "low" }} label="Remind store keeper" icon="bell" size="md" /> : undefined;
 
@@ -113,7 +114,7 @@ export default async function ItemsPage({ searchParams }: { searchParams: Search
         <Stats items={stats} />
         {low.length > 0 && view === "" && f.state !== "low" && (
           <Banner tone={out.length ? "bad" : "warn"} icon={TriangleAlert} title={`${plural(low.length, "item")} at or below the reorder level`}
-            action={can.purchase ? <ButtonLink href={`${BASE}/purchases?tab=requests&new=1&low=1`} size="sm" variant="primary" icon={ShoppingCart}>Raise purchase request</ButtonLink> : <ButtonLink href={here({ state: "low" })} size="sm" variant="secondary">Show them</ButtonLink>}>
+            action={can.purchase ? <ButtonLink href={`${BASE}/purchases?tab=requests&new=1&low=1`} size="sm" variant="primary" icon={ShoppingCart}><Words k="Raise purchase request" /></ButtonLink> : <ButtonLink href={here({ state: "low" })} size="sm" variant="secondary"><Words k="Show them" /></ButtonLink>}>
             {low.slice(0, 4).map((r) => `${itemLabel(r.item)} (${r.total <= 0 ? "out" : `${r.total} left`})`).join(", ")}{low.length > 4 ? ` and ${low.length - 4} more` : ""}.
           </Banner>
         )}
@@ -142,7 +143,7 @@ export default async function ItemsPage({ searchParams }: { searchParams: Search
                   { label: "Store", render: (b) => storeName.get(b.locationId) ?? "" },
                   { label: "Quantity", right: true, render: (b) => b.qty },
                   { label: "Expires", nowrap: true, render: (b) => <span className={b.expiresOn < today ? "text-bad font-semibold" : "text-warn"}>{b.expiresOn < today ? `Expired ${day(b.expiresOn)}` : day(b.expiresOn)}</span> },
-                  ...(can.stock ? [{ label: "", render: (b: (typeof d.expiring)[number]) => (b.expiresOn < today ? <Link className="text-[13px] font-semibold text-brand hover:underline" href={here({ open: "out", kind: "EXPIRED", item: b.itemId, store: b.locationId })} scroll={false}>Record as expired</Link> : null) }] : []),
+                  ...(can.stock ? [{ label: "", render: (b: (typeof d.expiring)[number]) => (b.expiresOn < today ? <Link className="text-[13px] font-semibold text-brand hover:underline" href={here({ open: "out", kind: "EXPIRED", item: b.itemId, store: b.locationId })} scroll={false}><Words k="Record as expired" /></Link> : null) }] : []),
                 ]} />
               </Card>
             )}
@@ -160,15 +161,15 @@ export default async function ItemsPage({ searchParams }: { searchParams: Search
                 rowClass={(r) => r.state === "OUT" && "bg-bad/5"}
                 empty={<Empty icon={f.q || f.cat || f.state || f.store || per.range ? Search : Boxes} title={f.q || f.cat || f.state || f.store || per.range ? "No items match" : view === "lab" ? "No lab stock yet" : "No items yet"}
                   body={f.q || f.cat || f.state || f.store || per.range ? "Try another search or clear the filters." : can.stock ? "Add the first item, or import them from a spreadsheet." : "The store keeper adds the items."}
-                  action={can.stock && !f.q ? <ButtonLink href={`${BASE}/items/import`} variant="secondary" icon={FileUp}>Import items</ButtonLink> : undefined} />}
+                  action={can.stock && !f.q ? <ButtonLink href={`${BASE}/items/import`} variant="secondary" icon={FileUp}><Words k="Import items" /></ButtonLink> : undefined} />}
                 columns={[
                   { key: "code", label: "Code", nowrap: true, render: (r) => <span className="font-mono text-[13px]">{r.item.code}</span> },
-                  { key: "name", label: "Item", render: (r) => <span className="block min-w-[180px]"><b className={r.state === "OUT" ? "font-semibold text-bad" : "font-semibold"}>{itemLabel(r.item)}</b><span className="block text-[12px] text-ink3">{catName.get(r.item.categoryId) ?? ""}{r.item.tracksExpiry && !d.expiredItems.has(r.item.id) ? " · expiry tracked" : ""}{d.expiredItems.has(r.item.id) && <b className="font-semibold text-bad"> · expired batch</b>}</span></span> },
+                  { key: "name", label: "Item", render: (r) => <span className="block min-w-[180px]"><b className={r.state === "OUT" ? "font-semibold text-bad" : "font-semibold"}>{itemLabel(r.item)}</b><span className="block text-[12px] text-ink3">{catName.get(r.item.categoryId) ?? ""}{r.item.tracksExpiry && !d.expiredItems.has(r.item.id) ? " · expiry tracked" : ""}{d.expiredItems.has(r.item.id) && <b className="font-semibold text-bad"> <Words k="· expired batch" /></b>}</span></span> },
                   { key: "unit", label: "Unit", render: (r) => r.item.unit },
                   { key: "stock", label: f.store ? `In ${storeName.get(f.store) ?? "store"}` : "In stock", align: "right", render: (r) => <b className={r.state === "OUT" ? "text-bad" : r.state === "LOW" ? "text-warn" : ""}>{r.shown.toLocaleString("en-IN")}</b> },
                   ...(d.stores.length > 1 && !f.store ? [{ key: "by", label: "By store", render: (r: (typeof d.rows)[number]) => <span className="text-[12.5px] text-ink2">{[...r.stores.entries()].filter(([, q]) => q).map(([l, q]) => `${storeName.get(l) ?? "Store"}: ${q.toLocaleString("en-IN")}`).join(" · ")}</span> }] : []),
-                  { key: "reorder", label: "Reorder at", align: "right", render: (r) => (r.reorder ? r.reorder : <span className="text-ink3">None</span>) },
-                  { key: "value", label: "Value", align: "right", nowrap: true, render: (r) => (r.item.pricePaise !== null ? formatRupees(r.value) : <span className="text-ink3">No price</span>) },
+                  { key: "reorder", label: "Reorder at", align: "right", render: (r) => (r.reorder ? r.reorder : <span className="text-ink3"><Words k="None" /></span>) },
+                  { key: "value", label: "Value", align: "right", nowrap: true, render: (r) => (r.item.pricePaise !== null ? formatRupees(r.value) : <span className="text-ink3"><Words k="No price" /></span>) },
                   { key: "state", label: "Status", render: (r) => <Pill tone={STOCK_STATE[r.state].tone}>{STOCK_STATE[r.state].label}</Pill> },
                 ]}
                 phone={(r) => ({ title: itemLabel(r.item), sub: `${r.item.code} · ${catName.get(r.item.categoryId) ?? ""}${r.reorder ? ` · reorder at ${r.reorder}` : ""}`, right: qtyWords(r.shown, r.item.unit), icon: Boxes, iconTone: r.state === "OUT" ? "bad" : r.state === "LOW" ? "warn" : "brand", pills: r.state !== "OK" ? <Pill tone={STOCK_STATE[r.state].tone}>{STOCK_STATE[r.state].label}</Pill> : undefined })}
@@ -180,7 +181,7 @@ export default async function ItemsPage({ searchParams }: { searchParams: Search
 
         {view === "sets" && (
           <Card>
-            <CardHeader title="Book sets" description="Items issued together; the set price goes to the student's fees." divided action={can.stock ? <ButtonLink href={here({ open: "set", set: null })} size="sm" variant="secondary" icon={Plus} scroll={false}>Make a set</ButtonLink> : undefined} />
+            <CardHeader title="Book sets" description="Items issued together; the set price goes to the student's fees." divided action={can.stock ? <ButtonLink href={here({ open: "set", set: null })} size="sm" variant="secondary" icon={Plus} scroll={false}><Words k="Make a set" /></ButtonLink> : undefined} />
             {d.sets.length === 0 ? <Empty icon={BookCopy} title="No book sets yet" body={can.stock ? "Make a set: pick the items, the price and the classes." : "The store keeper makes the sets."} /> : (
               <ul className="divide-y divide-line">
                 {d.sets.map((st) => {
@@ -195,7 +196,7 @@ export default async function ItemsPage({ searchParams }: { searchParams: Search
                         </div>
                         <div className="flex items-center gap-2">
                           <Pill tone={full ? "ok" : "bad"}>{full ? `${full} full set${full === 1 ? "" : "s"} in stock` : "No full set in stock"}</Pill>
-                          {can.stock && <ButtonLink href={here({ open: "set", set: st.id })} size="sm" variant="ghost" scroll={false}>Change</ButtonLink>}
+                          {can.stock && <ButtonLink href={here({ open: "set", set: st.id })} size="sm" variant="ghost" scroll={false}><Words k="Change" /></ButtonLink>}
                           {can.stock && <ActButton action={archiveSetAction} fields={{ setId: st.id }} label="Archive" icon="archive" variant="ghost" />}
                         </div>
                       </div>
@@ -212,7 +213,7 @@ export default async function ItemsPage({ searchParams }: { searchParams: Search
 
         {view === "audits" && (
           <Card>
-            <CardHeader title="Stock audits" description="Count each item; differences change stock only after approval." divided action={can.stock ? <ButtonLink href={here({ open: "audit" })} size="sm" variant="secondary" icon={ClipboardCheck} scroll={false}>Start an audit</ButtonLink> : undefined} />
+            <CardHeader title="Stock audits" description="Count each item; differences change stock only after approval." divided action={can.stock ? <ButtonLink href={here({ open: "audit" })} size="sm" variant="secondary" icon={ClipboardCheck} scroll={false}><Words k="Start an audit" /></ButtonLink> : undefined} />
             <DataList rows={d.audits} rowKey={(a) => a.id} rowHref={(a) => `${BASE}/items/audits/${a.id}`} minWidth={700} caption="Stock audits"
               empty={<Empty icon={ClipboardCheck} title="No stock audits yet" body={can.stock ? "Start one to count a store." : "The store keeper counts the stores."} />}
               columns={[

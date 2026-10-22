@@ -22,6 +22,7 @@ import {
 } from "../actions";
 import { KeepCheck, KeepSelect } from "@/components/ui/keep-select";
 import { bedStartFor, bedYearOf } from "@/lib/hostel/words";
+import { Words } from "@/lib/i18n/client";
 
 type Opt = { value: string; label: string };
 const RELATIONS = ["Father", "Mother", "Uncle", "Aunt", "Grandfather", "Grandmother", "Brother", "Sister", "Local guardian", "Other"];
@@ -101,7 +102,7 @@ export function BlockSheet({ closeHref, bedId, words, block, reason }: { closeHr
   return (
     <SheetForm title={block ? `Block ${words}?` : `Unblock ${words}?`} sub={block ? "A blocked bed is not offered to anyone until it is unblocked." : "The bed becomes free and can be given to a student."}
       closeHref={closeHref} action={blockBedAction} submitLabel={block ? "Block bed" : "Unblock bed"} hidden={{ bedId, block: block ? "yes" : "no" }}>
-      {!block && reason && <p className="text-[13.5px] text-ink2">Blocked because: <b className="font-semibold text-ink">{reason}</b></p>}
+      {!block && reason && <p className="text-[13.5px] text-ink2"><Words k="Blocked because:" /> <b className="font-semibold text-ink">{reason}</b></p>}
       <SArea name="reason" label="Reason" required maxLength={200} placeholder={block ? "Mattress torn, new one ordered" : "Carpenter fixed the frame"} help="Others will read it." />
     </SheetForm>
   );
@@ -140,25 +141,25 @@ export function WardensSheet({ closeHref, hostelId, hostelName, staff, start }: 
           return (
             <li key={i} className="rounded-xl border border-line p-3 flex flex-col gap-2">
               <div className="grid grid-cols-[1fr_140px] gap-2">
-                <label className="sr-only" htmlFor={`wd-${i}`}>Warden {i + 1}</label>
+                <label className="sr-only" htmlFor={`wd-${i}`}><Words k="Warden" /> {i + 1}</label>
                 <KeepSelect id={`wd-${i}`} name="staffId" value={r.staffId} onChange={(e) => set(i, "staffId", e.target.value)} className={cx(inputCls(), "h-11")}>
                   <option value="">Choose a staff member</option>
                   {staff.map((x) => <option key={x.id} value={x.id} disabled={rows.some((y, j) => j !== i && y.staffId === x.id)}>{x.name}{x.sub ? ` · ${x.sub}` : ""}</option>)}
                 </KeepSelect>
-                <label className="sr-only" htmlFor={`wt-${i}`}>Title</label>
+                <label className="sr-only" htmlFor={`wt-${i}`}><Words k="Title" /></label>
                 <KeepSelect id={`wt-${i}`} name="title" value={r.title} onChange={(e) => set(i, "title", e.target.value)} className={cx(inputCls(), "h-11")}>
                   {["Warden", "Assistant warden", "Night warden"].map((x) => <option key={x} value={x}>{x}</option>)}
                 </KeepSelect>
               </div>
               <div className="flex items-center justify-between gap-2 text-[12.5px]">
                 <span className={s && !s.hasLogin ? "text-warn" : "text-ink3"}>{s ? (s.hasLogin ? "Has a School OS login: gets alerts and approves outings." : "No School OS login yet: cannot approve outings until one is added in Staff & HR.") : ""}</span>
-                {rows.length > 1 && <button type="button" onClick={() => setRows((x) => x.filter((_, j) => j !== i))} className="font-semibold text-bad hover:underline shrink-0">Remove</button>}
+                {rows.length > 1 && <button type="button" onClick={() => setRows((x) => x.filter((_, j) => j !== i))} className="font-semibold text-bad hover:underline shrink-0"><Words k="Remove" /></button>}
               </div>
             </li>
           );
         })}
       </ul>
-      {rows.length < 6 && <button type="button" onClick={() => setRows((x) => [...x, { staffId: "", title: "Assistant warden" }])} className="self-start text-[13.5px] font-semibold text-brand hover:underline">Add another warden</button>}
+      {rows.length < 6 && <button type="button" onClick={() => setRows((x) => [...x, { staffId: "", title: "Assistant warden" }])} className="self-start text-[13.5px] font-semibold text-brand hover:underline"><Words k="Add another warden" /></button>}
     </SheetForm>
   );
 }
@@ -222,7 +223,7 @@ export function AllocateSheet({ closeHref, hostels, beds, plans: allPlans, start
       <StudentFind name="studentId" label="Student" mode="new" start={student ? [student] : []} onPick={(x) => pickStudent(x[0] ?? null)} help="Studying students without a bed." />
       {!student && waiting.length > 0 && (
         <div className="flex flex-col gap-1.5 -mt-1">
-          <span className="text-[12.5px] text-ink3">Waiting for a bed (hostel needed at admission):</span>
+          <span className="text-[12.5px] text-ink3"><Words k="Waiting for a bed (hostel needed at admission):" /></span>
           <div className="flex flex-wrap gap-1.5">
             {waiting.slice(0, 8).map((w) => (
               <button key={w.id} type="button" onClick={() => pickStudent(w)} className="h-9 px-3 rounded-full border border-line bg-surface hover:bg-sunken text-[13px] font-semibold">{w.name}<span className="text-ink3 font-normal"> · {w.cls}</span></button>
@@ -258,12 +259,12 @@ export function AllocateSheet({ closeHref, hostels, beds, plans: allPlans, start
         </FieldShell>
       </div>
       <SSwitch key={future ? "later" : "now"} name="checkedIn" title="Checked in now" sub={future ? "Off: the bed starts later. You check the student in from the residents list when they arrive." : "Turn off if the student arrives later. You check them in from the residents list."} start={!future} />
-      {bedYear && !plans.length && <Alert tone="warning" title={`No hostel fee plan for ${bedYear.name} yet.`}>Add it in Hostel Settings, Hostel fees (the Accountant or Principal), or give the bed with No hostel fees and add the fees later.</Alert>}
+      {bedYear && !plans.length && <Alert tone="warning" title={`No hostel fee plan for ${bedYear.name} yet.`}><Words k="Add it in Hostel Settings, Hostel fees (the Accountant or Principal), or give the bed with No hostel fees and add the fees later." /></Alert>}
       <SArea name="note" label="Note" maxLength={300} placeholder="Optional. For example: needs a lower bunk." />
       {student && bed && !genderBad && (
         <div className="rounded-xl p-3.5 text-[13.5px] text-ink2 flex gap-2.5 bg-brand/[.06] border border-brand/20">
           <Info size={17} className="shrink-0 mt-0.5 text-brand" aria-hidden="true" />
-          <p>{plan === "none" ? `No hostel fees will be added for ${student.name}.` : <>The fees of <b className="font-semibold text-ink">{plans.find((p) => p.id === plan)?.name ?? "the plan"}</b> from the installment covering the check-in date are added to {student.name}&apos;s fees{showFees ? "" : " in Fee Management"}. Parents see them in Parent Link.</>} Free beds in {hostel?.name}: {free.length} → {free.length - 1}.</p>
+          <p>{plan === "none" ? `No hostel fees will be added for ${student.name}.` : <><Words k="The fees of" /> <b className="font-semibold text-ink">{plans.find((p) => p.id === plan)?.name ?? "the plan"}</b> <Words k="from the installment covering the check-in date are added to" /> {student.name}<Words k="'s fees" />{showFees ? "" : " in Fee Management"}<Words k=". Parents see them in Parent Link." /></>} <Words k="Free beds in" /> {hostel?.name}: {free.length} → {free.length - 1}.</p>
         </div>
       )}
     </SheetForm>
@@ -274,7 +275,7 @@ export function MoveSheet({ closeHref, allocationId, name, from, beds, hostels, 
   const f = useTyped("bedId", "");
   return (
     <SheetForm title={`Move ${name}`} sub={`Now in ${from}. The old bed becomes free; the history is kept.`} closeHref={closeHref} action={moveAction} submitLabel="Move student" hidden={{ allocationId }}>
-      {beds.length === 0 ? <Alert tone="warning" title="No free bed.">Check a student out, or unblock a bed, first.</Alert> : (
+      {beds.length === 0 ? <Alert tone="warning" title="No free bed."><Words k="Check a student out, or unblock a bed, first." /></Alert> : (
         <FieldShell label="New room and bed" id="mv-bed" required error={f.error}>
           <select key={f.key} id="mv-bed" name="bedId" defaultValue={f.value} aria-invalid={f.error ? true : undefined} className={cx(inputCls(f.error), "h-11")}>
             <option value="">Choose a free bed</option>
@@ -294,8 +295,8 @@ export function MoveSheet({ closeHref, allocationId, name, from, beds, hostels, 
 export function CheckoutSheet({ closeHref, allocationId, name, where, todayStr, due, outOn }: { closeHref: string; allocationId: string; name: string; where: string; todayStr: string; due: string | null; outOn: string | null }) {
   return (
     <SheetForm title={`Check out ${name}?`} sub={`${where} becomes free. Hostel fees stop from the next installment.`} closeHref={closeHref} action={checkoutAction} submitLabel="Check out" submitVariant="danger" hidden={{ allocationId }}>
-      {outOn && <Alert tone="warning" title={`Out on pass ${outOn}.`}>Mark them returned first, or check out after they are back.</Alert>}
-      {due && <Alert tone="warning" title={due}>You can still check out. The fees stay due and are cleared in Leaving &amp; Alumni.</Alert>}
+      {outOn && <Alert tone="warning" title={`Out on pass ${outOn}.`}><Words k="Mark them returned first, or check out after they are back." /></Alert>}
+      {due && <Alert tone="warning" title={due}><Words k={"You can still check out. The fees stay due and are cleared in Leaving & Alumni."} /></Alert>}
       <SDate name="date" label="Check-out date" required start={todayStr} className="sm:max-w-[220px]" />
       <SArea name="reason" label="Reason" required maxLength={200} placeholder="Family moved closer to school; now a day scholar" />
     </SheetForm>
@@ -328,16 +329,16 @@ export function CarrySheet({ closeHref, items, fromYear, toYear, toStart }: { cl
       submitLabel={n ? `Carry over ${n} boarder${n === 1 ? "" : "s"}` : "Carry over"} hidden={{ allocationIds: join }}
       extraButtons={outIds.length > 0 ? (
         <ConfirmAct action={yearEndCheckoutAction} fields={{ allocationIds: outIds.join(",") }} trigger={`Check out ${outIds.length} at year end`} triggerVariant="ghost" title={`Check out ${outIds.length} boarder${outIds.length === 1 ? "" : "s"} at year end?`} confirmLabel={`Check out ${outIds.length}`} danger>
-          <p className="text-[14px] text-ink2">For boarders not staying in the hostel in {toYear}. They are checked out on the last day of {fromYear}, their beds become free and nothing of {toYear} is charged. Fees already due or paid stay as they are.</p>
+          <p className="text-[14px] text-ink2"><Words k="For boarders not staying in the hostel in" /> {toYear}<Words k=". They are checked out on the last day of" /> {fromYear}<Words k=", their beds become free and nothing of" /> {toYear} <Words k="is charged. Fees already due or paid stay as they are." /></p>
         </ConfirmAct>
       ) : undefined}>
-      {blocked > 0 && <Alert tone="warning">{blocked} boarder{blocked === 1 ? "" : "s"} cannot be carried over yet. The reason is shown on each.</Alert>}
+      {blocked > 0 && <Alert tone="warning">{blocked} <Words k="boarder" />{blocked === 1 ? "" : "s"} <Words k="cannot be carried over yet. The reason is shown on each." /></Alert>}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <label className="inline-flex items-center gap-2 text-[14px] font-semibold min-h-11 cursor-pointer">
           <KeepCheck type="checkbox" checked={allOn} onChange={() => setPicked(allOn ? new Set() : new Set(can.map((i) => i.id)))} className="size-4 accent-[rgb(var(--brand))]" />
-          Tick every boarder who can go ({can.length})
+          <Words k="Tick every boarder who can go (" />{can.length})
         </label>
-        <span className="text-[13px] text-ink3" aria-live="polite">{n} ticked</span>
+        <span className="text-[13px] text-ink3" aria-live="polite">{n} <Words k="ticked" /></span>
       </div>
       <ul className="flex flex-col divide-y divide-line rounded-xl border border-line max-h-[52vh] overflow-y-auto">
         {items.map((i) => (
@@ -379,7 +380,7 @@ function RequestFields({ places, hostelId }: { places: RequestPlaces; hostelId: 
       <SSelect key={`${hostelId}-${p.key}`} name="placeId" label="Place" required options={options} start={p.value || here?.value} help="The hostel, or a room or place from Inventory's register" />
       <SegField name="priority" label="Priority" start="NORMAL" options={PRIORITIES} />
       <div className="flex flex-col gap-1.5">
-        <span className="text-[13px] font-semibold text-ink2">Photo</span>
+        <span className="text-[13px] font-semibold text-ink2"><Words k="Photo" /></span>
         <label className="flex items-center gap-3 rounded-xl border border-dashed border-line px-4 py-3 min-h-11 cursor-pointer hover:bg-sunken/60 focus-within:ring-2 focus-within:ring-brand/40">
           <Camera size={20} className="text-ink3 shrink-0" aria-hidden="true" />
           <span className="text-[14px] min-w-0 truncate">{photo || "Take a photo or choose one (optional)"}</span>
@@ -426,15 +427,15 @@ export function IncidentSheet({ closeHref, hostels, todayStr, nowTime, behaviour
         <>
           <div className="flex items-center gap-3 rounded-xl border border-line px-4 py-3">
             <div className="min-w-0 flex-1 text-[14px]">
-              <b className="font-semibold block">Raise a maintenance request</b>
-              <span className="block text-[12.5px] text-ink3 mt-0.5">Goes to the store keeper in Inventory Management, who assigns a technician.</span>
+              <b className="font-semibold block"><Words k="Raise a maintenance request" /></b>
+              <span className="block text-[12.5px] text-ink3 mt-0.5"><Words k="Goes to the store keeper in Inventory Management, who assigns a technician." /></span>
             </div>
             <Switch on={raise} onChange={setRaise} label="Raise a maintenance request" name="raiseRequest" />
           </div>
           {raise && <RequestFields places={requestPlaces} hostelId={hostelId} />}
         </>
       )}
-      {maint && (!requestPlaces || !raise) && <p className="text-[12.5px] text-ink3 flex gap-1.5"><Info size={14} className="shrink-0 mt-0.5" aria-hidden="true" />Repairs are followed up from the hostel incident log.</p>}
+      {maint && (!requestPlaces || !raise) && <p className="text-[12.5px] text-ink3 flex gap-1.5"><Info size={14} className="shrink-0 mt-0.5" aria-hidden="true" /><Words k="Repairs are followed up from the hostel incident log." /></p>}
     </SheetForm>
   );
 }
@@ -444,11 +445,11 @@ export function RaiseRequestSheet({ closeHref, incidentId, words, problem, hoste
   return (
     <SheetForm title="Raise a maintenance request" sub={words} closeHref={closeHref} action={raiseMaintenanceAction} submitLabel="Raise request" pendingText="Sending…" hidden={{ incidentId }}>
       <div className="rounded-xl bg-sunken/60 px-4 py-3 text-[14px]">
-        <span className="block text-[12.5px] font-semibold text-ink3 mb-0.5">Problem</span>
+        <span className="block text-[12.5px] font-semibold text-ink3 mb-0.5"><Words k="Problem" /></span>
         {problem}
       </div>
       <RequestFields places={places} hostelId={hostelId} />
-      <p className="text-[12.5px] text-ink3">The store keeper is told and follows it up in Inventory Management, Rooms, Labs &amp; Maintenance.</p>
+      <p className="text-[12.5px] text-ink3"><Words k={"The store keeper is told and follows it up in Inventory Management, Rooms, Labs & Maintenance."} /></p>
     </SheetForm>
   );
 }
@@ -475,7 +476,7 @@ export function PassSheet({ closeHref, todayStr, nowTime, backBy, start, startGu
   const chosen = g.list?.find((x) => x.guardianId === gw) ?? null;
   return (
     <SheetForm title="New outing pass" sub="Recorded by the hostel, approved by the warden in Approvals." closeHref={closeHref} action={requestPassAction} submitLabel="Save and send for approval" wide pendingText="Saving…">
-      <p className="text-[13px] text-ink2 flex flex-wrap items-center gap-2"><span className="font-semibold text-ink3">Kind</span><span className="inline-flex items-center h-6 px-2.5 rounded-full bg-brand/10 text-brand text-[12px] font-semibold">Gate Pass · Hostel Outing</span><span className="text-ink3">Early pickup at the gate is a Pickup pass in Front Office.</span></p>
+      <p className="text-[13px] text-ink2 flex flex-wrap items-center gap-2"><span className="font-semibold text-ink3"><Words k="Kind" /></span><span className="inline-flex items-center h-6 px-2.5 rounded-full bg-brand/10 text-brand text-[12px] font-semibold"><Words k="Gate Pass · Hostel Outing" /></span><span className="text-ink3"><Words k="Early pickup at the gate is a Pickup pass in Front Office." /></span></p>
       <StudentFind name="studentId" label="Student" mode="resident" start={student ? [student] : []} onPick={(x) => { setStudent(x[0] ?? null); setGw(""); g.load(x[0]?.id ?? null); }} help="Students living in the hostel only." />
       <SegField name="outingType" label="Type" start={type} onChange={setType} options={[{ value: "OUTING", label: "Outing · same day" }, { value: "LEAVE", label: "Leave · overnight" }]} />
       <div className="grid sm:grid-cols-2 gap-3">
@@ -490,7 +491,7 @@ export function PassSheet({ closeHref, todayStr, nowTime, backBy, start, startGu
       </div>
       <FieldShell label="Going with" id="ps-gw" required error={tG.error} help={student ? "A named person: one of the student's guardians, or someone else." : "Choose the student first."}>
         {student ? (
-          g.pending ? <span className="flex items-center gap-2 text-[13px] text-ink3"><Spinner /> Loading the guardians…</span> : (
+          g.pending ? <span className="flex items-center gap-2 text-[13px] text-ink3"><Spinner /> <Words k="Loading the guardians…" /></span> : (
             <div className="flex flex-wrap gap-2">
               {(g.list ?? []).map((x) => (
                 <button key={x.guardianId} type="button" aria-pressed={gw === x.guardianId} disabled={Boolean(x.restriction)} title={x.restriction ?? undefined} onClick={() => setGw(x.guardianId)}
@@ -498,10 +499,10 @@ export function PassSheet({ closeHref, todayStr, nowTime, backBy, start, startGu
                   {x.name}<span className="text-[11.5px] font-normal text-ink3">{x.relation}{x.restriction ? " · restricted" : ""}</span>
                 </button>
               ))}
-              <button type="button" aria-pressed={gw === "other"} onClick={() => setGw("other")} className={cx("min-h-10 px-3.5 rounded-xl text-[13.5px] font-semibold border transition", gw === "other" ? "bg-brand/10 border-brand text-brand" : "bg-surface border-line text-ink2 hover:border-ink3/50")}>Someone else</button>
+              <button type="button" aria-pressed={gw === "other"} onClick={() => setGw("other")} className={cx("min-h-10 px-3.5 rounded-xl text-[13.5px] font-semibold border transition", gw === "other" ? "bg-brand/10 border-brand text-brand" : "bg-surface border-line text-ink2 hover:border-ink3/50")}><Words k="Someone else" /></button>
             </div>
           )
-        ) : <p className="text-[13px] text-ink3">No student chosen.</p>}
+        ) : <p className="text-[13px] text-ink3"><Words k="No student chosen." /></p>}
         <input type="hidden" name="guardianId" value={gw} />
       </FieldShell>
       {gw === "other" && (
@@ -511,10 +512,10 @@ export function PassSheet({ closeHref, todayStr, nowTime, backBy, start, startGu
             <SSelect name="withRelation" label="Relation" required options={RELATIONS.map((r) => ({ value: r, label: r }))} placeholder="Choose" />
             <SText name="withPhone" label="Mobile" required inputMode="tel" maxLength={14} placeholder="98490 12345" />
           </div>
-          <div className="rounded-xl p-3.5 text-[13.5px] text-ink2 flex gap-2.5 bg-warn/12"><ShieldAlert size={17} className="shrink-0 mt-0.5 text-warn" aria-hidden="true" /><p>Not on {student?.name.split(" ")[0] ?? "the student"}&apos;s list. The warden should call a parent before approving. Security checks the photo ID at the gate.</p></div>
+          <div className="rounded-xl p-3.5 text-[13.5px] text-ink2 flex gap-2.5 bg-warn/12"><ShieldAlert size={17} className="shrink-0 mt-0.5 text-warn" aria-hidden="true" /><p><Words k="Not on" /> {student?.name.split(" ")[0] ?? "the student"}<Words k="'s list. The warden should call a parent before approving. Security checks the photo ID at the gate." /></p></div>
         </>
       )}
-      {chosen && !chosen.allowed && !chosen.restriction && <p className="text-[12.5px] text-warn">{chosen.name} is not marked as allowed to pick up {student?.name.split(" ")[0]}. The warden decides.</p>}
+      {chosen && !chosen.allowed && !chosen.restriction && <p className="text-[12.5px] text-warn">{chosen.name} <Words k="is not marked as allowed to pick up" /> {student?.name.split(" ")[0]}<Words k=". The warden decides." /></p>}
       <SArea name="reason" label="Reason" required maxLength={200} placeholder="Family lunch for grandmother's birthday" />
     </SheetForm>
   );
@@ -549,7 +550,7 @@ export function VisitorSheet({ closeHref, hours, inHours, start, startGuardians 
       <StudentFind name="studentId" label="Came to meet" mode="resident" start={student ? [student] : []} onPick={(x) => { setStudent(x[0] ?? null); setGw(""); g.load(x[0]?.id ?? null); }} help="The resident student the visitor has come to meet." />
       {student && (
         <FieldShell label="Visitor" id="vs-who" required error={tG.error}>
-          {g.pending ? <span className="flex items-center gap-2 text-[13px] text-ink3"><Spinner /> Loading the list…</span> : (
+          {g.pending ? <span className="flex items-center gap-2 text-[13px] text-ink3"><Spinner /> <Words k="Loading the list…" /></span> : (
             <div className="flex flex-wrap gap-2">
               {(g.list ?? []).map((x) => (
                 <button key={x.guardianId} type="button" aria-pressed={gw === x.guardianId} onClick={() => setGw(x.guardianId)}
@@ -557,7 +558,7 @@ export function VisitorSheet({ closeHref, hours, inHours, start, startGuardians 
                   {x.name}<span className="text-[11.5px] font-normal text-ink3">{x.relation}{x.allowed ? "" : " · not on the list"}</span>
                 </button>
               ))}
-              <button type="button" aria-pressed={gw === "other"} onClick={() => setGw("other")} className={cx("min-h-10 px-3.5 rounded-xl text-[13.5px] font-semibold border transition", gw === "other" ? "bg-brand/10 border-brand text-brand" : "bg-surface border-line text-ink2 hover:border-ink3/50")}>Someone else</button>
+              <button type="button" aria-pressed={gw === "other"} onClick={() => setGw("other")} className={cx("min-h-10 px-3.5 rounded-xl text-[13.5px] font-semibold border transition", gw === "other" ? "bg-brand/10 border-brand text-brand" : "bg-surface border-line text-ink2 hover:border-ink3/50")}><Words k="Someone else" /></button>
             </div>
           )}
           <input type="hidden" name="guardianId" value={gw === "other" ? "" : gw} />
@@ -572,11 +573,11 @@ export function VisitorSheet({ closeHref, hours, inHours, start, startGuardians 
       )}
       {student && (gw || !inHours) && (
         !needsWarden ? (
-          <div className="rounded-xl p-3.5 text-[13.5px] text-ink2 flex gap-2.5 bg-brand/[.06] border border-brand/20"><ShieldCheck size={17} className="shrink-0 mt-0.5 text-brand" aria-hidden="true" /><p><b className="font-semibold text-ink">{chosen?.name} is on {student.name.split(" ")[0]}&apos;s list</b> as {chosen?.relation.toLowerCase()}. They can meet without approval.</p></div>
+          <div className="rounded-xl p-3.5 text-[13.5px] text-ink2 flex gap-2.5 bg-brand/[.06] border border-brand/20"><ShieldCheck size={17} className="shrink-0 mt-0.5 text-brand" aria-hidden="true" /><p><b className="font-semibold text-ink">{chosen?.name} <Words k="is on" /> {student.name.split(" ")[0]}<Words k="'s list" /></b> <Words k="as" /> {chosen?.relation.toLowerCase()}<Words k=". They can meet without approval." /></p></div>
         ) : (
           <div className={cx("rounded-xl p-3.5 text-[13.5px] flex flex-col gap-2.5", tOk.error ? "bg-bad/10" : "bg-warn/12")}>
             <p className="text-ink2 flex gap-2"><ShieldAlert size={17} className={cx("shrink-0 mt-0.5", tOk.error ? "text-bad" : "text-warn")} aria-hidden="true" />
-              <span>{gw && (gw === "other" || (chosen && !chosen.allowed)) ? <><b className="font-semibold text-ink">Not on {student.name.split(" ")[0]}&apos;s authorised list.</b> Call a parent to check, then the warden approves.</> : <><b className="font-semibold text-ink">Outside visiting hours</b> ({hours}). The warden approves.</>}</span>
+              <span>{gw && (gw === "other" || (chosen && !chosen.allowed)) ? <><b className="font-semibold text-ink"><Words k="Not on" /> {student.name.split(" ")[0]}<Words k="'s authorised list." /></b> <Words k="Call a parent to check, then the warden approves." /></> : <><b className="font-semibold text-ink"><Words k="Outside visiting hours" /></b> ({hours}<Words k="). The warden approves." /></>}</span>
             </p>
             <SSwitch name="wardenApproved" title="Warden approved this visit" sub="Recorded with your name." />
             {tOk.error && <p className="text-[12.5px] text-bad" role="alert">{tOk.error}</p>}
@@ -611,7 +612,7 @@ export function CountSheet({ closeHref, date, dateWords, meal, expected, start }
       <FieldShell label="Plates served" id="hc-n" required error={t.error}>
         <input key={t.key} id="hc-n" name="actual" type="number" inputMode="numeric" min={0} max={5000} defaultValue={t.value} onChange={(e) => setN(Number(e.target.value))} aria-invalid={t.error ? true : undefined} className={cx(inputCls(t.error), "h-12 w-36 tnum text-[18px]")} />
       </FieldShell>
-      {n > expected + 5 && <p className="text-[12.5px] text-warn">More than the boarders expected ({expected}). Count again, or say why below.</p>}
+      {n > expected + 5 && <p className="text-[12.5px] text-warn"><Words k="More than the boarders expected (" />{expected}<Words k="). Count again, or say why below." /></p>}
       <SText name="note" label={n < expected ? "Why fewer?" : "Note"} maxLength={200} start={start.note} placeholder={n < expected ? "2 fasting for Navratri" : "Optional"} />
     </SheetForm>
   );
@@ -660,22 +661,22 @@ export function FeePlanSheet({ closeHref, hostels, start, yearName, yearId }: { 
         <SSelect name="roomType" label="Room type" options={[{ value: "", label: "Every room type" }, ...ROOM_TYPES.map((x) => ({ value: x, label: x }))]} start={start?.roomType ?? ""} />
       </div>
       <fieldset className="flex flex-col gap-2">
-        <legend className="text-[13px] font-semibold text-ink2 mb-1.5">Installments<span className="text-bad" aria-hidden="true"> *</span></legend>
+        <legend className="text-[13px] font-semibold text-ink2 mb-1.5"><Words k="Installments" /><span className="text-bad" aria-hidden="true"> *</span></legend>
         {t.error && <p className="text-[12.5px] text-bad" role="alert">{t.error}</p>}
         {rows.map((r, i) => (
           <div key={i} className="grid grid-cols-[1fr_150px_120px_auto] gap-2 items-center">
-            <label className="sr-only" htmlFor={`in-l-${i}`}>Installment {i + 1} name</label>
+            <label className="sr-only" htmlFor={`in-l-${i}`}><Words k="Installment" /> {i + 1} <Words k="name" /></label>
             <input id={`in-l-${i}`} name="instLabel" value={r.label} onChange={(e) => set(i, "label", e.target.value)} placeholder="Quarter 1" className={cx(inputCls(), "h-10")} />
-            <label className="sr-only" htmlFor={`in-d-${i}`}>Installment {i + 1} due date</label>
+            <label className="sr-only" htmlFor={`in-d-${i}`}><Words k="Installment" /> {i + 1} <Words k="due date" /></label>
             <input id={`in-d-${i}`} name="instDue" type="date" value={r.due} onChange={(e) => set(i, "due", e.target.value)} className={cx(inputCls(), "h-10")} />
-            <label className="sr-only" htmlFor={`in-a-${i}`}>Installment {i + 1} amount in rupees</label>
+            <label className="sr-only" htmlFor={`in-a-${i}`}><Words k="Installment" /> {i + 1} <Words k="amount in rupees" /></label>
             <input id={`in-a-${i}`} name="instAmount" inputMode="decimal" value={r.amount} onChange={(e) => set(i, "amount", e.target.value)} placeholder="₹ 24000" className={cx(inputCls(), "h-10 tnum text-right")} />
-            {rows.length > 1 ? <button type="button" onClick={() => setRows((x) => x.filter((_, j) => j !== i))} className="text-[13px] font-semibold text-bad hover:underline px-1">Remove</button> : <span />}
+            {rows.length > 1 ? <button type="button" onClick={() => setRows((x) => x.filter((_, j) => j !== i))} className="text-[13px] font-semibold text-bad hover:underline px-1"><Words k="Remove" /></button> : <span />}
           </div>
         ))}
         <div className="flex items-center justify-between gap-3">
-          {rows.length < 12 ? <button type="button" onClick={() => setRows((x) => [...x, { label: `Quarter ${x.length + 1}`, due: "", amount: x[x.length - 1]?.amount ?? "" }])} className="text-[13.5px] font-semibold text-brand hover:underline">Add installment</button> : <span />}
-          <span className="text-[13px] text-ink3 tnum">Total ₹{total.toLocaleString("en-IN")} a year</span>
+          {rows.length < 12 ? <button type="button" onClick={() => setRows((x) => [...x, { label: `Quarter ${x.length + 1}`, due: "", amount: x[x.length - 1]?.amount ?? "" }])} className="text-[13.5px] font-semibold text-brand hover:underline"><Words k="Add installment" /></button> : <span />}
+          <span className="text-[13px] text-ink3 tnum"><Words k="Total ₹" />{total.toLocaleString("en-IN")} <Words k="a year" /></span>
         </div>
       </fieldset>
       <SSwitch name="includesMess" title="Includes mess" sub="The mess part is not charged separately." start={start?.includesMess ?? true} />
@@ -687,7 +688,7 @@ export function FeePlanSheet({ closeHref, hostels, start, yearName, yearId }: { 
 export function ArchivePlanSheet({ closeHref, planId, name }: { closeHref: string; planId: string; name: string }) {
   return (
     <SheetForm title={`Archive ${name}?`} sub="New beds will not use it. Fees already added to students stay as they are." closeHref={closeHref} action={archiveFeePlanAction} submitLabel="Archive plan" submitVariant="danger" hidden={{ planId }}>
-      <p className="text-[13.5px] text-ink2">You can add a new plan for the same rooms afterwards.</p>
+      <p className="text-[13.5px] text-ink2"><Words k="You can add a new plan for the same rooms afterwards." /></p>
     </SheetForm>
   );
 }

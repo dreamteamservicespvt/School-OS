@@ -14,6 +14,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Pill } from "@/components/ui/badge";
 import { cx } from "@/components/ui/cx";
 import { bookSlotAction, cancelPtmAction, notesAction, planPtmAction } from "../actions";
+import { Words } from "@/lib/i18n/client";
 
 type Opt = { value: string; label: string };
 
@@ -41,7 +42,7 @@ export function PlanPtmSheet({ closeHref, classes, groups, slotMinutes, venues, 
       <div className="rounded-xl bg-sunken/70 p-3.5 flex flex-col gap-3">
         <div className="flex items-center gap-3">
           <Switch on={brk} onChange={setBrk} label="A break in the middle" />
-          <span className="text-[14px] flex-1"><b className="font-semibold">A break in the middle</b><span className="block text-[12.5px] text-ink3">No slots are made in the break, for every teacher</span></span>
+          <span className="text-[14px] flex-1"><b className="font-semibold"><Words k="A break in the middle" /></b><span className="block text-[12.5px] text-ink3"><Words k="No slots are made in the break, for every teacher" /></span></span>
         </div>
         {brk && <input type="hidden" name="breakOn" value="on" />}
         {brk && (
@@ -52,7 +53,7 @@ export function PlanPtmSheet({ closeHref, classes, groups, slotMinutes, venues, 
         )}
       </div>
       <div className="flex flex-col gap-1.5">
-        <span className="text-[13px] font-semibold text-ink2">Slot length<span className="text-bad" aria-hidden="true"> *</span></span>
+        <span className="text-[13px] font-semibold text-ink2"><Words k="Slot length" /><span className="text-bad" aria-hidden="true"> *</span></span>
         <Segmented label="Slot length" value={slot} onChange={setSlot} className="w-full" options={[5, 10, 15, 20].map((m) => ({ value: String(m), label: `${m} minutes` }))} />
       </div>
       <SSelect name="venue" label="Venue" options={[{ value: "", label: "Each teacher’s classroom" }, ...venues.map((v) => ({ value: v, label: v }))]} start="" />
@@ -92,7 +93,7 @@ export function BookSlotSheet({ closeHref, slotId, title, sub, students }: { clo
               className={cx("w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition", pick === s.id ? "bg-brand/8 ring-1 ring-brand" : "hover:bg-sunken/70")}>
               <Avatar name={s.name} size={36} />
               <span className="min-w-0 flex-1"><span className="block font-semibold text-[14.5px] truncate">{s.name}</span><span className="block text-[12.5px] text-ink3 truncate">{s.place} · {s.parent}</span></span>
-              {s.hasSlot && <Pill tone="warn">Has a slot · {s.hasSlot}</Pill>}
+              {s.hasSlot && <Pill tone="warn"><Words k="Has a slot ·" /> {s.hasSlot}</Pill>}
             </button>
           </li>
         ))}
@@ -126,8 +127,8 @@ export function MeetingSheet({ closeHref, m, extra }: { closeHref: string; m: Me
             {m.marks.rows.map((e) => <li key={e.name} className="flex justify-between gap-3"><span>{e.name}</span><span className="tnum">{e.before != null && <span className="text-ink3">{e.before} → </span>}<b className={cx("font-semibold", e.low && "text-warn")}>{e.now}</b></span></li>)}
           </ul>
         </div>
-      ) : <p className="text-[13.5px] text-ink3">No exam results yet this year.</p>}
-      <div className="rounded-xl border border-line p-3 text-[13.5px]"><p className="font-semibold mb-0.5">Behaviour notes</p><p className="text-ink2">{m.behaviour}</p></div>
+      ) : <p className="text-[13.5px] text-ink3"><Words k="No exam results yet this year." /></p>}
+      <div className="rounded-xl border border-line p-3 text-[13.5px]"><p className="font-semibold mb-0.5"><Words k="Behaviour notes" /></p><p className="text-ink2">{m.behaviour}</p></div>
     </>
   );
   if (!m.canNotes) {
@@ -148,7 +149,7 @@ export function MeetingSheet({ closeHref, m, extra }: { closeHref: string; m: Me
       <SArea name="remarks" label="Teacher remarks" rows={2} start={m.notes.remarks} placeholder="What you told the parent" maxLength={1000} />
       <SArea name="feedback" label="Parent feedback" rows={2} start={m.notes.feedback} placeholder="What the parent said" maxLength={1000} />
       <SText name="followUp" label="Follow-up actions" start={m.notes.followUp} placeholder="For example: check the Science diary every Friday" maxLength={300} />
-      {m.notes.saved && <Pill tone="ok" className="self-start">Notes saved</Pill>}
+      {m.notes.saved && <Pill tone="ok" className="self-start"><Words k="Notes saved" /></Pill>}
     </SheetForm>
   );
 }

@@ -25,6 +25,7 @@ import { CommonSheets } from "../_components/common-sheets";
 import { GateEntrySheet } from "../_components/visitor-sheets";
 import { CheckSheet } from "../_components/pass-check";
 import { BASE, addQ, foGuard, foPeriod, one, qs, type SearchParams } from "../_lib/page";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata = { title: "Visitors" };
 
@@ -117,9 +118,9 @@ export default async function VisitorsPage({ searchParams }: { searchParams: Sea
       <FoHead pageName="Visitors" href={HREF}
         sub={gate ? "At the gate only: register visitors, record vehicles and check passes" : p.passLine}
         actions={<>
-          {p.can.gateWork && <ButtonLink href={`${sheetHref}${sheetHref.includes("?") ? "&" : "?"}check=`} scroll={false} variant="secondary" icon={ScanLine}>Check a pass</ButtonLink>}
-          {gate && gateLogOn && p.can.gateWork && <ButtonLink href={addQ(sheetHref, { do: "gate" })} scroll={false} variant="secondary" icon={Car}>Gate entry</ButtonLink>}
-          {p.can.register && <ButtonLink href={addQ(sheetHref, { do: "visitor" })} scroll={false} variant="primary" icon={UserPlus}>Add visitor</ButtonLink>}
+          {p.can.gateWork && <ButtonLink href={`${sheetHref}${sheetHref.includes("?") ? "&" : "?"}check=`} scroll={false} variant="secondary" icon={ScanLine}><Words k="Check a pass" /></ButtonLink>}
+          {gate && gateLogOn && p.can.gateWork && <ButtonLink href={addQ(sheetHref, { do: "gate" })} scroll={false} variant="secondary" icon={Car}><Words k="Gate entry" /></ButtonLink>}
+          {p.can.register && <ButtonLink href={addQ(sheetHref, { do: "visitor" })} scroll={false} variant="primary" icon={UserPlus}><Words k="Add visitor" /></ButtonLink>}
           {p.can.manage && !p.may("desk") && <FoManageMenu href={sheetHref} />}
         </>} />
       <Stack>
@@ -131,15 +132,15 @@ export default async function VisitorsPage({ searchParams }: { searchParams: Sea
         ]} />
         {firstExpired && !gate && (
           <Banner tone="bad" title={`${data.expired.length} visitor${data.expired.length === 1 ? "" : "s"} not checked out${firstExpired.visitDate.getTime() === p.today.getTime() ? " today" : ""}:`}
-            action={p.can.checkOut ? <ButtonLink href={addQ(sheetHref, { out: firstExpired.id })} scroll={false} size="sm" variant="secondary" icon={LogOut}>Check out with the right time</ButtonLink>
+            action={p.can.checkOut ? <ButtonLink href={addQ(sheetHref, { out: firstExpired.id })} scroll={false} size="sm" variant="secondary" icon={LogOut}><Words k="Check out with the right time" /></ButtonLink>
               : p.can.remind ? <ActButton action={remindDeskAction} fields={{ visitorId: firstExpired.id }} label="Remind" icon="send" pendingText="Sending…" /> : undefined}>
-            {firstExpired.name}, pass {firstExpired.passNo}, expired at {clockAt(firstExpired.passExpiresAt, p.tz)} on {firstExpired.visitDate.getTime() === p.today.getTime() ? "today" : dayMonth(firstExpired.visitDate)}.
+            {firstExpired.name}<Words k=", pass" /> {firstExpired.passNo}<Words k=", expired at" /> {clockAt(firstExpired.passExpiresAt, p.tz)} <Words k="on" /> {firstExpired.visitDate.getTime() === p.today.getTime() ? "today" : dayMonth(firstExpired.visitDate)}.
           </Banner>
         )}
         {gateLogOn && (
           <SegLinks value={view} label="Visitor log or gate log" className="self-start" options={[
-            { value: "log", label: <><IdCard size={16} aria-hidden="true" />Visitor log</>, href: qs(HREF, { view: gate ? "log" : null }) },
-            { value: "gate", label: <><Car size={16} aria-hidden="true" />Gate log</>, href: qs(HREF, { view: gate ? null : "gate" }) },
+            { value: "log", label: <><IdCard size={16} aria-hidden="true" /><Words k="Visitor log" /></>, href: qs(HREF, { view: gate ? "log" : null }) },
+            { value: "gate", label: <><Car size={16} aria-hidden="true" /><Words k="Gate log" /></>, href: qs(HREF, { view: gate ? null : "gate" }) },
           ]} />
         )}
         {view === "log" ? (
@@ -156,11 +157,11 @@ export default async function VisitorsPage({ searchParams }: { searchParams: Sea
                 columns={[
                   { key: "name", label: "Visitor", render: (v) => <div className="flex items-center gap-3"><Avatar name={v.name} size={36} src={v.photoFileId ? fileLink(v.photoFileId, v.schoolId) : null} /><div className="min-w-0"><p className="font-semibold leading-tight">{v.name}</p><p className="text-[12px] text-ink3 tnum whitespace-nowrap">{phoneOf(v.phone)}{v.peopleCount > 1 ? ` · ${v.peopleCount} people` : ""}</p></div></div> },
                   { key: "purpose", label: "Purpose", render: (v) => <div><p className="text-[13.5px]">{v.purpose}</p>{v.note && <p className="text-[12px] text-ink3">{v.note}</p>}</div> },
-                  { key: "meet", label: "To meet", render: (v) => { const r = replyOf(v.staffReply); const st = visitorStatus(v, now); return <div><p className="text-[13.5px]">{staffName(v.meetStaffId) || <span className="text-ink3">—</span>}</p>{r && st === "In" && <p className={cx("text-[12px] font-semibold", { ok: "text-ok", warn: "text-warn", bad: "text-bad" }[r.tone])}>Replied: {r.label}</p>}</div>; } },
+                  { key: "meet", label: "To meet", render: (v) => { const r = replyOf(v.staffReply); const st = visitorStatus(v, now); return <div><p className="text-[13.5px]">{staffName(v.meetStaffId) || <span className="text-ink3">—</span>}</p>{r && st === "In" && <p className={cx("text-[12px] font-semibold", { ok: "text-ok", warn: "text-warn", bad: "text-bad" }[r.tone])}><Words k="Replied:" /> {r.label}</p>}</div>; } },
                   { key: "veh", label: "Vehicle", nowrap: true, render: (v) => (v.vehicleNo ? <span className="font-mono text-[12.5px]">{v.vehicleNo}</span> : <span className="text-ink3">—</span>) },
                   { key: "time", label: "In / out", nowrap: true, render: (v) => { const st = visitorStatus(v, now); return <span className="tnum text-[13px]">{v.visitDate.getTime() !== p.today.getTime() ? `${dayMonth(v.visitDate)}, ` : ""}{clockAt(v.timeIn, p.tz)} – {v.timeOut ? clockAt(v.timeOut, p.tz) : st === "Expired" ? "?" : "now"}</span>; } },
                   { key: "st", label: "Status", render: (v) => { const st = visitorStatus(v, now); return <div><Pill tone={VISITOR_TONE[st]} dot={st === "In"}>{st}</Pill><p className="text-[11.5px] text-ink3 font-mono mt-0.5">{v.passNo}</p></div>; } },
-                  { key: "act", label: "", render: (v) => (p.can.checkOut && visitorStatus(v, now) !== "Out" ? <ButtonLink href={addQ(sheetHref, { out: v.id })} scroll={false} size="sm" variant="secondary" icon={LogOut} className="relative z-[1]">Check out</ButtonLink> : null) },
+                  { key: "act", label: "", render: (v) => (p.can.checkOut && visitorStatus(v, now) !== "Out" ? <ButtonLink href={addQ(sheetHref, { out: v.id })} scroll={false} size="sm" variant="secondary" icon={LogOut} className="relative z-[1]"><Words k="Check out" /></ButtonLink> : null) },
                 ]}
                 phone={(v) => {
                   const st = visitorStatus(v, now);
@@ -177,8 +178,8 @@ export default async function VisitorsPage({ searchParams }: { searchParams: Sea
                   };
                 }}
                 empty={q || status !== "all" || !isToday
-                  ? <Empty icon={SearchX} title="No visitor matches" body={masked ? "Try the vehicle number, the pass number or another day." : "Try the phone number, the vehicle number or another day."} action={<ButtonLink href={HREF} variant="secondary">Clear filters</ButtonLink>} />
-                  : <Empty icon={DoorOpen} title="No visitors yet today" body="Every visitor gets a pass with a QR code that expires by itself." action={p.can.register ? <ButtonLink href={addQ(sheetHref, { do: "visitor" })} scroll={false} variant="secondary" icon={UserPlus}>Add visitor</ButtonLink> : undefined} />} />
+                  ? <Empty icon={SearchX} title="No visitor matches" body={masked ? "Try the vehicle number, the pass number or another day." : "Try the phone number, the vehicle number or another day."} action={<ButtonLink href={HREF} variant="secondary"><Words k="Clear filters" /></ButtonLink>} />
+                  : <Empty icon={DoorOpen} title="No visitors yet today" body="Every visitor gets a pass with a QR code that expires by itself." action={p.can.register ? <ButtonLink href={addQ(sheetHref, { do: "visitor" })} scroll={false} variant="secondary" icon={UserPlus}><Words k="Add visitor" /></ButtonLink> : undefined} />} />
             </Card>
             {p.v.see === "all" && (
               <Col>
@@ -186,9 +187,9 @@ export default async function VisitorsPage({ searchParams }: { searchParams: Sea
                   <CardHeader title="This week" description="Visitors by day" icon={ChartColumn} />
                   <div className="px-3 pb-1"><BarsChart data={byDay} height={140} max={weekTop} ticks={[0, weekTop / 2, weekTop]} ariaLabel="Visitors by day this week" /></div>
                   <div className="px-5 pb-5 pt-2">
-                    <p className="eyebrow text-ink3 mb-2.5">By purpose</p>
-                    {byPurpose.length ? <HBars rows={byPurpose} max={Math.max(1, byPurpose[0].v)} unit="" labelWidth={92} ariaLabel="Visitors by purpose this week" /> : <p className="text-[13px] text-ink3">No visitors this week yet.</p>}
-                    <p className="text-[12.5px] text-ink3 mt-3">Average time inside: <b className="text-ink2">{avgInside != null ? `${avgInside} minute${avgInside === 1 ? "" : "s"}` : "not known yet"}</b></p>
+                    <p className="eyebrow text-ink3 mb-2.5"><Words k="By purpose" /></p>
+                    {byPurpose.length ? <HBars rows={byPurpose} max={Math.max(1, byPurpose[0].v)} unit="" labelWidth={92} ariaLabel="Visitors by purpose this week" /> : <p className="text-[13px] text-ink3"><Words k="No visitors this week yet." /></p>}
+                    <p className="text-[12.5px] text-ink3 mt-3"><Words k="Average time inside:" /> <b className="text-ink2">{avgInside != null ? `${avgInside} minute${avgInside === 1 ? "" : "s"}` : "not known yet"}</b></p>
                   </div>
                 </Card>
               </Col>
@@ -198,7 +199,7 @@ export default async function VisitorsPage({ searchParams }: { searchParams: Sea
           <Card className="overflow-hidden">
             <CardHeader title="Gate log" description="Entries and exits at the main gate, with vehicle numbers and passes checked" icon={Car}
               action={<div className="flex gap-2 flex-wrap justify-end">
-                {p.can.gateWork && <ButtonLink href={addQ(sheetHref, { do: "gate" })} scroll={false} size="sm" variant="soft" icon={Plus} aria-label="Gate entry"><span className="hidden sm:inline">Gate entry</span></ButtonLink>}
+                {p.can.gateWork && <ButtonLink href={addQ(sheetHref, { do: "gate" })} scroll={false} size="sm" variant="soft" icon={Plus} aria-label="Gate entry"><span className="hidden sm:inline"><Words k="Gate entry" /></span></ButtonLink>}
                 {p.can.exportGate && <ExportButton href={gateExportHref} size="sm" />}
               </div>} />
             <div className="px-5 pb-3"><PeriodFilter {...p.dates} fallback="today" prefix="g" size="sm" /></div>
@@ -213,7 +214,7 @@ export default async function VisitorsPage({ searchParams }: { searchParams: Sea
               ]}
               phone={(g) => ({ title: gateWho(g), sub: `${clockAt(g.at, p.tz)} · ${g.purpose || "—"}`, icon: g.direction === "IN" ? LogIn : LogOut, iconTone: g.direction === "IN" ? "info" : "neutral", pills: g.vehicleNo ? <Pill className="!h-[22px] !text-[11.5px] font-mono">{g.vehicleNo}</Pill> : undefined })}
               empty={<Empty icon={Car} title={gRange.from === p.todayStr && gRange.to === p.todayStr ? "No gate entries yet today" : "No gate entries on these dates"} body="Vehicles, school buses and deliveries are recorded here with the time."
-                action={p.can.gateWork ? <ButtonLink href={addQ(sheetHref, { do: "gate" })} scroll={false} variant="secondary" icon={Plus}>Gate entry</ButtonLink> : <ButtonLink href={qs(HREF, { view: "gate" })} variant="secondary">Show today</ButtonLink>} />} />
+                action={p.can.gateWork ? <ButtonLink href={addQ(sheetHref, { do: "gate" })} scroll={false} variant="secondary" icon={Plus}><Words k="Gate entry" /></ButtonLink> : <ButtonLink href={qs(HREF, { view: "gate" })} variant="secondary"><Words k="Show today" /></ButtonLink>} />} />
           </Card>
         )}
       </Stack>

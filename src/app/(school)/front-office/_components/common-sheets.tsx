@@ -26,6 +26,7 @@ import { ListsSheet, SettingsSheet } from "./settings-sheets";
 import { ActButton } from "./fields";
 import { sendPassAction } from "../actions";
 import { BASE, UUID, addQ, foPage, one, qs } from "../_lib/page";
+import { Words } from "@/lib/i18n/client";
 
 type SP = Record<string, string | string[] | undefined>;
 
@@ -89,7 +90,7 @@ export async function CommonSheets({ sp, href, keepKeys }: { sp: SP; href: strin
       {listsOpen && <ListsSheet closeHref={close} lists={p.settings} />}
       {data.pass && <PassSheet close={close} v={data.pass} met={data.met} canCheckOut={p.can.checkOut} canSend={p.can.register} masked={!p.can.visitorPhones} tz={p.tz} schoolName={p.current.school.name} now={now} />}
       {passId && !data.pass && (
-        <UrlSheet title="Pass not found" closeHref={close}><p className="text-[14px] text-ink2 pb-4">This visitor entry was not found, or it is not one you can see.</p></UrlSheet>
+        <UrlSheet title="Pass not found" closeHref={close}><p className="text-[14px] text-ink2 pb-4"><Words k="This visitor entry was not found, or it is not one you can see." /></p></UrlSheet>
       )}
       {data.out && (
         <CheckOutSheet closeHref={close} start={visitorStatus(data.out, now) === "Expired" ? hhmmOf(Math.min(23 * 60 + 59, minuteOfInstant(data.out.passExpiresAt, p.tz))) : hhmmOf(minuteNow(p.tz, now))}
@@ -120,7 +121,7 @@ async function PassSheet({ close, v, met, canCheckOut, canSend, masked, tz, scho
       <div className="flex flex-col items-center gap-4 pb-1">
         <div className={cx("w-full rounded-2xl border-2 overflow-hidden", expired || out ? "border-bad/40" : "border-line")}>
           <div className={cx("px-4 py-2.5 flex items-center justify-between", expired || out ? "bg-bad/10" : "bg-brand/10")}>
-            <span className={cx("eyebrow", expired || out ? "text-bad" : "text-brand")}>Visitor · {schoolName}</span>
+            <span className={cx("eyebrow", expired || out ? "text-bad" : "text-brand")}><Words k="Visitor ·" /> {schoolName}</span>
             <span className="font-mono text-[12.5px] font-semibold">{v.passNo}</span>
           </div>
           <div className="p-4 flex items-center gap-4">
@@ -128,7 +129,7 @@ async function PassSheet({ close, v, met, canCheckOut, canSend, masked, tz, scho
             <div className="min-w-0 flex-1">
               <p className="font-display font-semibold text-[19px] leading-tight">{v.name}</p>
               <p className="text-[13px] text-ink3">{v.purpose}{met ? ` · to meet ${met}` : ""}</p>
-              <p className="text-[13px] text-ink3 tnum">In {clockAt(v.timeIn, tz)}{v.peopleCount > 1 ? ` · ${v.peopleCount} people` : ""}{v.vehicleNo ? ` · ${v.vehicleNo}` : ""}</p>
+              <p className="text-[13px] text-ink3 tnum"><Words k="In" /> {clockAt(v.timeIn, tz)}{v.peopleCount > 1 ? ` · ${v.peopleCount} people` : ""}{v.vehicleNo ? ` · ${v.vehicleNo}` : ""}</p>
               <p className="text-[12.5px] text-ink3 tnum">{masked ? maskPhone(v.phone) : showPhone(v.phone)}</p>
             </div>
           </div>
@@ -139,7 +140,7 @@ async function PassSheet({ close, v, met, canCheckOut, canSend, masked, tz, scho
         </div>
         {!out && canSend && (
           <div className="grid grid-cols-2 gap-2 w-full">
-            <a href={`${BASE}/visitors/${v.id}/pass`} target="_blank" rel="noopener" className={buttonClass("secondary")}><Printer size={17} aria-hidden="true" />Print</a>
+            <a href={`${BASE}/visitors/${v.id}/pass`} target="_blank" rel="noopener" className={buttonClass("secondary")}><Printer size={17} aria-hidden="true" /><Words k="Print" /></a>
             {canSend && !expired ? <ActButton action={sendPassAction} fields={{ visitorId: v.id }} label="Send to phone" icon="message" variant="secondary" size="md" className="w-full" pendingText="Sending…" />
               : <span />}
           </div>

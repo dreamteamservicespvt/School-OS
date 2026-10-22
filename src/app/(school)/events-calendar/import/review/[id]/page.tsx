@@ -5,6 +5,7 @@ import { PLACES } from "@/lib/imports/places";
 import { FileReview } from "@/components/import/file-review";
 import { EvHead } from "../../../_components/head";
 import { BASE, evGuard } from "../../../_lib/page";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Check a file · Import holidays" };
 
@@ -14,7 +15,7 @@ export default async function HolidayImportFilePage({ params, searchParams }: { 
   if (!p.can.calendar) redirect(BASE);
   return (
     <>
-      <EvHead pageName="Import holidays" href={`${BASE}/import`} sub={<Link href={BASE} className="font-semibold text-brand hover:underline">School Calendar</Link>} />
+      <EvHead pageName="Import holidays" href={`${BASE}/import`} sub={<Link href={BASE} className="font-semibold text-brand hover:underline"><Words k="School Calendar" /></Link>} />
       <FileReview current={p.current} place={PLACES.events} id={(await params).id} sp={await searchParams} />
     </>
   );

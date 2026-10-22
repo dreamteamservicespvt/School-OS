@@ -21,6 +21,7 @@ import { invViewer, pageOpen } from "@/lib/inventory/access";
 import { BASE, MAINT_STATUS, MODULE, PRIORITY } from "@/lib/inventory/words";
 import { ReportProblemForm } from "../rooms/sheets";
 import { one, qs, uuidOr, type SearchParams } from "../_lib/page";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Report a problem" };
 const SELF = `${BASE}/report-problem`;
@@ -65,7 +66,7 @@ export default async function ReportProblemPage({ searchParams }: { searchParams
       <PageHeader title="Report a problem" href={SELF} userId={current.user.id} sub="Something broken or not working? Send it with a photo. The store keeper is told." />
       <Stack>
         {!d.staff ? (
-          <Banner tone="info" title="Only staff members report problems here">Ask a staff member to report it.</Banner>
+          <Banner tone="info" title="Only staff members report problems here"><Words k="Ask a staff member to report it." /></Banner>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-5 items-start">
             <Card>
@@ -82,7 +83,7 @@ export default async function ReportProblemPage({ searchParams }: { searchParams
                 </Card>
               )}
               <Card>
-                <CardHeader title="My requests" divided action={seesRooms ? <Link className="text-[13px] font-semibold text-brand hover:underline" href={`${BASE}/rooms`}>All requests</Link> : undefined} />
+                <CardHeader title="My requests" divided action={seesRooms ? <Link className="text-[13px] font-semibold text-brand hover:underline" href={`${BASE}/rooms`}><Words k="All requests" /></Link> : undefined} />
                 {d.mine.length === 0 ? <Empty icon={Wrench} title="Nothing reported yet" body="What you report shows here with its progress." /> : <ul className="divide-y divide-line">{d.mine.map((r) => <Row key={r.id} r={r} />)}</ul>}
               </Card>
             </div>

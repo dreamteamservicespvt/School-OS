@@ -19,6 +19,7 @@ import { InvHead } from "../_components/head";
 import { ArchiveCategorySheet, ArchiveLocationSheet, CategorySheet, LocationSheet } from "../_components/sheets";
 import { BASE, invGuard, one, UUID, type SearchParams } from "../_lib/page";
 import { SettingsForm } from "./settings-form";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Inventory Settings · Inventory Management" };
 
@@ -57,7 +58,7 @@ export default async function InventorySettingsPage({ searchParams }: { searchPa
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 items-start">
           <Card>
             <CardHeader title="Item categories" icon={FolderTree} description="Each with its reorder level and the Finance head its bills go to." divided
-              action={can.settings ? <ButtonLink href={`${base}?cat=new`} size="sm" icon={Plus} scroll={false}>Add category</ButtonLink> : undefined} />
+              action={can.settings ? <ButtonLink href={`${base}?cat=new`} size="sm" icon={Plus} scroll={false}><Words k="Add category" /></ButtonLink> : undefined} />
             <ul className="divide-y divide-line/70">
               {d.cats.map((c) => (
                 <li key={c.id} className="flex items-center gap-3 px-5 py-3 flex-wrap">
@@ -65,11 +66,11 @@ export default async function InventorySettingsPage({ searchParams }: { searchPa
                     <p className="font-semibold text-[14px]">{c.name}</p>
                     <p className="text-[12.5px] text-ink3">{plural(items(c.id), "item")} · {c.defaultReorderLevel ? `reorder at ${c.defaultReorderLevel}` : "no reorder level"}{c.expenseHeadId ? ` · ${headName.get(c.expenseHeadId) ?? ""}` : ""}</p>
                   </div>
-                  {c.isLab && <Pill tone="info">Lab</Pill>}
+                  {c.isLab && <Pill tone="info"><Words k="Lab" /></Pill>}
                   {can.settings && (
                     <span className="flex items-center gap-3 text-[13px] font-semibold">
-                      <Link href={`${base}?cat=${c.id}`} scroll={false} className="text-brand hover:underline">Change</Link>
-                      {items(c.id) === 0 && <Link href={`${base}?archcat=${c.id}`} scroll={false} className="text-ink3 hover:underline" aria-label={`Archive ${c.name}`}>Archive</Link>}
+                      <Link href={`${base}?cat=${c.id}`} scroll={false} className="text-brand hover:underline"><Words k="Change" /></Link>
+                      {items(c.id) === 0 && <Link href={`${base}?archcat=${c.id}`} scroll={false} className="text-ink3 hover:underline" aria-label={`Archive ${c.name}`}><Words k="Archive" /></Link>}
                     </span>
                   )}
                 </li>
@@ -78,7 +79,7 @@ export default async function InventorySettingsPage({ searchParams }: { searchPa
           </Card>
           <Card>
             <CardHeader title="Stores" icon={Warehouse} description="Where stock is kept. New stock and issues start from the main store." divided
-              action={can.settings ? <ButtonLink href={`${base}?store=new`} size="sm" icon={Plus} scroll={false}>Add store</ButtonLink> : undefined} />
+              action={can.settings ? <ButtonLink href={`${base}?store=new`} size="sm" icon={Plus} scroll={false}><Words k="Add store" /></ButtonLink> : undefined} />
             <ul className="divide-y divide-line/70">
               {d.stores.map((l) => (
                 <li key={l.id} className="flex items-center gap-3 px-5 py-3 flex-wrap">
@@ -86,11 +87,11 @@ export default async function InventorySettingsPage({ searchParams }: { searchPa
                     <p className="font-semibold text-[14px]">{l.name}</p>
                     <p className="text-[12.5px] text-ink3">{held(l.id) ? `Stock of ${plural(held(l.id), "item")}` : "No stock"}</p>
                   </div>
-                  {l.isMain && <Pill tone="brand">Main store</Pill>}
+                  {l.isMain && <Pill tone="brand"><Words k="Main store" /></Pill>}
                   {can.settings && (
                     <span className="flex items-center gap-3 text-[13px] font-semibold">
-                      <Link href={`${base}?store=${l.id}`} scroll={false} className="text-brand hover:underline">Change</Link>
-                      {!l.isMain && held(l.id) === 0 && <Link href={`${base}?archstore=${l.id}`} scroll={false} className="text-ink3 hover:underline" aria-label={`Archive ${l.name}`}>Archive</Link>}
+                      <Link href={`${base}?store=${l.id}`} scroll={false} className="text-brand hover:underline"><Words k="Change" /></Link>
+                      {!l.isMain && held(l.id) === 0 && <Link href={`${base}?archstore=${l.id}`} scroll={false} className="text-ink3 hover:underline" aria-label={`Archive ${l.name}`}><Words k="Archive" /></Link>}
                     </span>
                   )}
                 </li>
@@ -105,7 +106,7 @@ export default async function InventorySettingsPage({ searchParams }: { searchPa
           units: s.units.join(", "), lowStockAlerts: s.lowStockAlerts, bookSetsOn: s.bookSetsOn, setsWithMissing: s.setsWithMissing,
           assetTypes: s.assetTypes, rates: s.rates, depreciationMethod: s.depreciationMethod, warrantyReminderDays: s.warrantyReminderDays,
         }} />
-        <p className="text-[13px] text-ink3">The purchase order and asset tag designs are in <Link className="font-semibold text-brand hover:underline" href="/settings/document-designs">Settings, Document Designs</Link>. Who approves purchases, transfers and disposals is in <Link className="font-semibold text-brand hover:underline" href="/settings/forms-approvals">Forms & Approvals</Link>.</p>
+        <p className="text-[13px] text-ink3"><Words k="The purchase order and asset tag designs are in" /> <Link className="font-semibold text-brand hover:underline" href="/settings/document-designs"><Words k="Settings, Document Designs" /></Link><Words k=". Who approves purchases, transfers and disposals is in" /> <Link className="font-semibold text-brand hover:underline" href="/settings/forms-approvals"><Words k={"Forms & Approvals"} /></Link>.</p>
       </Stack>
       {cat && <CategorySheet closeHref={base} heads={d.heads} start={cat === "new" ? null : { id: cat.id, name: cat.name, isLab: cat.isLab, reorder: String(cat.defaultReorderLevel), headId: cat.expenseHeadId ?? "" }} />}
       {store && <LocationSheet closeHref={base} start={store === "new" ? null : { id: store.id, name: store.name, isMain: store.isMain }} />}

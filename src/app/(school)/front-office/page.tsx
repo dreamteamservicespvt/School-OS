@@ -19,6 +19,7 @@ import { FoHead } from "./_components/head";
 import { CommonSheets } from "./_components/common-sheets";
 import { NoteAdd, NoteClear } from "./_components/desk-sheets";
 import { BASE, addQ, foPage, foTabs, type SearchParams } from "./_lib/page";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata = { title: "Reception Desk" };
 
@@ -79,7 +80,7 @@ export default async function DeskPage({ searchParams }: { searchParams: SearchP
       <FoHead pageName="Reception Desk" href={BASE}
         sub={`${shortDay(p.today)}${deskWho ? ` · ${deskWho}` : ""} · ${p.passLine}`}
         actions={p.can.desk ? <>
-          <ButtonLink href={here({ do: "walkin" })} scroll={false} variant="secondary" icon={ClipboardList}>Walk-in request</ButtonLink>
+          <ButtonLink href={here({ do: "walkin" })} scroll={false} variant="secondary" icon={ClipboardList}><Words k="Walk-in request" /></ButtonLink>
           {p.can.manage && <MoreMenu label="Front Office settings" items={[
             { label: "Front Office settings", href: here({ do: "settings" }), icon: <Settings2 size={16} aria-hidden="true" /> },
             { label: "Purposes and departments", href: here({ do: "lists" }), icon: <ListChecks size={16} aria-hidden="true" /> },
@@ -90,7 +91,7 @@ export default async function DeskPage({ searchParams }: { searchParams: SearchP
           { label: "In the building now", big: String(data.inside.length), foot: waiting ? `${waiting} waiting to be called in` : data.inside.length ? "Nobody waiting" : "Nobody inside", href: `${BASE}/visitors?status=In` },
           { label: "Visitors today", big: String(data.todayCount), foot: avg != null ? `Average ${avg} minutes inside` : "No visit closed yet", href: `${BASE}/visitors` },
           { label: "Appointments today", big: String(data.appts.length), foot: next ? `Next: ${clockOf(next.startMin)}, ${next.visitorName}` : "None left today", href: p.may("appointments") ? `${BASE}/appointments` : undefined },
-          { label: "Calls and enquiries", big: <>{data.calls}<span className="text-[0.55em] opacity-70 font-medium"> calls · {data.enquiries} enq.</span></>, foot: data.followUps ? `${data.followUps} follow-up${data.followUps === 1 ? "" : "s"} due today` : "No follow-ups due today", href: p.may("enquiries") ? `${BASE}/enquiries` : undefined },
+          { label: "Calls and enquiries", big: <>{data.calls}<span className="text-[0.55em] opacity-70 font-medium"> <Words k="calls ·" /> {data.enquiries} <Words k="enq." /></span></>, foot: data.followUps ? `${data.followUps} follow-up${data.followUps === 1 ? "" : "s"} due today` : "No follow-ups due today", href: p.may("enquiries") ? `${BASE}/enquiries` : undefined },
         ]} />
 
         {BIG.length > 0 && (
@@ -108,15 +109,15 @@ export default async function DeskPage({ searchParams }: { searchParams: SearchP
           <Col>
             {firstExpired && (
               <Banner tone="bad" title={`${data.expired.length} visitor${data.expired.length === 1 ? "" : "s"} not checked out${data.expired.every((v) => isToday(v.visitDate)) ? " today" : ""}.`}
-                action={p.can.checkOut ? <Link href={here({ out: firstExpired.id })} scroll={false} className={buttonClass("secondary", "sm")}><LogOut size={15} aria-hidden="true" />Close with the right time</Link> : undefined}>
-                Pass {firstExpired.passNo} ({firstExpired.name}) expired at {clockAt(firstExpired.passExpiresAt, p.tz)}{isToday(firstExpired.visitDate) ? " today" : ` on ${shortDay(firstExpired.visitDate)}`}.
+                action={p.can.checkOut ? <Link href={here({ out: firstExpired.id })} scroll={false} className={buttonClass("secondary", "sm")}><LogOut size={15} aria-hidden="true" /><Words k="Close with the right time" /></Link> : undefined}>
+                <Words k="Pass" /> {firstExpired.passNo} ({firstExpired.name}<Words k=") expired at" /> {clockAt(firstExpired.passExpiresAt, p.tz)}{isToday(firstExpired.visitDate) ? " today" : ` on ${shortDay(firstExpired.visitDate)}`}.
               </Banner>
             )}
             <Card>
               <CardHeader title="In the building now" description="Staff replies show here as they come in" icon={Users} action={<Pill tone="ok">{data.inside.length}</Pill>} />
               {data.inside.length === 0 ? (
                 <Empty icon={DoorOpen} title="Nobody is inside" body="Visitors show here from the moment they are registered."
-                  action={p.can.register ? <ButtonLink href={here({ do: "visitor" })} scroll={false} variant="secondary" icon={IdCard}>New visitor</ButtonLink> : undefined} />
+                  action={p.can.register ? <ButtonLink href={here({ do: "visitor" })} scroll={false} variant="secondary" icon={IdCard}><Words k="New visitor" /></ButtonLink> : undefined} />
               ) : (
                 <ul className="px-2 pb-2">
                   {data.inside.map((v) => {
@@ -127,10 +128,10 @@ export default async function DeskPage({ searchParams }: { searchParams: SearchP
                         <Avatar name={v.name} size={40} />
                         <Link href={here({ pass: v.id })} scroll={false} className="min-w-0 flex-1 text-left">
                           <p className="font-semibold text-[14.5px] leading-snug truncate">{v.name} <span className="text-ink3 font-normal">· {v.purpose}</span></p>
-                          <p className="text-[12.5px] text-ink3 truncate">{r && met && <span className="sm:hidden font-semibold text-ink2">{met.split(" ")[0]}: {r.label} · </span>}In {clockAt(v.timeIn, p.tz)}{met ? ` · to meet ${met}` : ""}{v.note ? ` · ${v.note}` : ""}</p>
+                          <p className="text-[12.5px] text-ink3 truncate">{r && met && <span className="sm:hidden font-semibold text-ink2">{met.split(" ")[0]}: {r.label} · </span>}<Words k="In" /> {clockAt(v.timeIn, p.tz)}{met ? ` · to meet ${met}` : ""}{v.note ? ` · ${v.note}` : ""}</p>
                         </Link>
                         {r && met && <Pill tone={r.tone} className="hidden sm:inline-flex">{met.split(" ")[0]}: {r.label}</Pill>}
-                        {p.can.checkOut && <ButtonLink href={here({ out: v.id })} scroll={false} size="sm" variant="secondary" icon={LogOut} aria-label={`Check out ${v.name}`}><span className="hidden sm:inline">Check out</span></ButtonLink>}
+                        {p.can.checkOut && <ButtonLink href={here({ out: v.id })} scroll={false} size="sm" variant="secondary" icon={LogOut} aria-label={`Check out ${v.name}`}><span className="hidden sm:inline"><Words k="Check out" /></span></ButtonLink>}
                       </li>
                     );
                   })}
@@ -139,10 +140,10 @@ export default async function DeskPage({ searchParams }: { searchParams: SearchP
             </Card>
             <Card>
               <CardHeader title="Walk-in requests" description="Each has a number the person can ask about" icon={ClipboardList}
-                action={p.can.desk ? <ButtonLink href={here({ do: "walkin" })} scroll={false} size="sm" variant="soft" icon={ClipboardList}>New request</ButtonLink> : undefined} />
+                action={p.can.desk ? <ButtonLink href={here({ do: "walkin" })} scroll={false} size="sm" variant="soft" icon={ClipboardList}><Words k="New request" /></ButtonLink> : undefined} />
               {data.requests.length === 0 ? (
                 <Empty icon={ClipboardList} title="No walk-in requests yet" body="A parent asking for a bonafide certificate or a fee statement gets a request number here."
-                  action={p.can.desk ? <ButtonLink href={here({ do: "walkin" })} scroll={false} variant="secondary">Walk-in request</ButtonLink> : undefined} />
+                  action={p.can.desk ? <ButtonLink href={here({ do: "walkin" })} scroll={false} variant="secondary"><Words k="Walk-in request" /></ButtonLink> : undefined} />
               ) : (
                 <ul className="px-2 pb-2">
                   {data.requests.map((r) => {
@@ -169,14 +170,14 @@ export default async function DeskPage({ searchParams }: { searchParams: SearchP
                     {p.can.desk && <NoteClear id={n.id} />}
                   </li>
                 ))}
-                {data.notes.length === 0 && <li className="text-[13.5px] text-ink3 py-2">No notes. {p.can.desk ? "Add one for the next person at the desk." : ""}</li>}
+                {data.notes.length === 0 && <li className="text-[13.5px] text-ink3 py-2"><Words k="No notes." /> {p.can.desk ? "Add one for the next person at the desk." : ""}</li>}
               </ul>
               {p.can.desk ? <NoteAdd /> : <div className="h-4" />}
             </Card>
             {p.may("appointments") && (
               <Card>
-                <CardHeader title="Appointments today" description="Next one first" icon={CalendarClock} action={<Link href={`${BASE}/appointments`} className="text-[13px] font-semibold text-brand hover:underline">Open</Link>} />
-                {apptsSorted.length === 0 ? <p className="px-5 pb-5 text-[13.5px] text-ink3">No appointments today.</p> : (
+                <CardHeader title="Appointments today" description="Next one first" icon={CalendarClock} action={<Link href={`${BASE}/appointments`} className="text-[13px] font-semibold text-brand hover:underline"><Words k="Open" /></Link>} />
+                {apptsSorted.length === 0 ? <p className="px-5 pb-5 text-[13.5px] text-ink3"><Words k="No appointments today." /></p> : (
                   <ul className="px-2 pb-2">
                     {apptsSorted.slice(0, 5).map((a) => {
                       const inMeeting = a.status === "ARRIVED" && a.startMin <= p.minute && p.minute < a.startMin + a.lengthMin;
@@ -188,8 +189,8 @@ export default async function DeskPage({ searchParams }: { searchParams: SearchP
               </Card>
             )}
             <Card>
-              <CardHeader title="Early pickups today" icon={DoorOpen} action={<Link href={`${BASE}/pickup`} className="text-[13px] font-semibold text-brand hover:underline">Open</Link>} />
-              {data.pickups.length === 0 ? <p className="px-5 pb-5 text-[13.5px] text-ink3">No early pickups today.</p> : (
+              <CardHeader title="Early pickups today" icon={DoorOpen} action={<Link href={`${BASE}/pickup`} className="text-[13px] font-semibold text-brand hover:underline"><Words k="Open" /></Link>} />
+              {data.pickups.length === 0 ? <p className="px-5 pb-5 text-[13.5px] text-ink3"><Words k="No early pickups today." /></p> : (
                 <ul className="px-2 pb-2">
                   {data.pickups.map((g) => (
                     <li key={g.id}><ListRow avatar={g.student} title={`${g.student}${g.sectionLabel ? `, ${g.sectionLabel}` : ""}`} sub={`${clockAt(g.timeOut, p.tz)} · with ${g.collectorName} (${(g.collectorRelation ?? "").toLowerCase()}) · ${g.reason}`}

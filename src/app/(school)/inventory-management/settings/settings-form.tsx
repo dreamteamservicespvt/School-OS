@@ -16,6 +16,7 @@ import { Alert } from "@/components/ui/alert";
 import { cx } from "@/components/ui/cx";
 import type { FormState } from "@/lib/forms";
 import { saveSettingsAction } from "../actions";
+import { Words } from "@/lib/i18n/client";
 
 export type SettingsStart = {
   itemCodePrefix: string; itemCodeWidth: number; nextItem: string;
@@ -127,7 +128,7 @@ export function SettingsForm({ start, readOnly, heads }: { start: SettingsStart;
           <Row title="Approve purchases up to" sub="Requests and orders above this wait in Approvals."><Num name="approveUpTo" label="Approve purchases up to" start={start.approveUpTo} money width="w-32" /></Row>
           <Toggle name="transfersNeedApproval" title="Transfers between stores need approval" start={start.transfersNeedApproval} />
           <Row title="Expense head for vendor bills" sub="Used when the item's category has no head of its own.">
-            <label htmlFor="set-defaultExpenseHeadId" className="sr-only">Expense head for vendor bills</label>
+            <label htmlFor="set-defaultExpenseHeadId" className="sr-only"><Words k="Expense head for vendor bills" /></label>
             <select id="set-defaultExpenseHeadId" name="defaultExpenseHeadId" defaultValue={v("defaultExpenseHeadId", start.defaultExpenseHeadId)} disabled={readOnly} className={cx(inputCls(err("defaultExpenseHeadId")), "h-10 w-60 max-w-full")}>
               <option value="">Not set</option>
               {heads.map((h) => <option key={h.value} value={h.value}>{h.label}</option>)}
@@ -155,7 +156,7 @@ export function SettingsForm({ start, readOnly, heads }: { start: SettingsStart;
               : <><Segmented label="Depreciation method" value={method} onChange={setMethod} size="sm" options={[{ value: "SLM", label: "Straight line" }, { value: "WDV", label: "Written-down value" }]} /><input type="hidden" name="depreciationMethod" value={method} /></>}
           </Row>
           <div className="px-5 py-3.5">
-            <p className="text-[14px] font-semibold mb-2">Rate a year by type</p>
+            <p className="text-[14px] font-semibold mb-2"><Words k="Rate a year by type" /></p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {start.assetTypes.map((t) => (
                 <div key={t} className="flex items-center justify-between gap-2 rounded-xl border border-line px-3 py-2">
@@ -171,7 +172,7 @@ export function SettingsForm({ start, readOnly, heads }: { start: SettingsStart;
 
       {!readOnly && (
         <div className="sticky bottom-20 md:bottom-3 z-10 flex justify-end">
-          <Button type="submit" variant="primary" size="lg" icon={Save} loading={pending} loadingText="Saving…" className="shadow-pop">Save settings</Button>
+          <Button type="submit" variant="primary" size="lg" icon={Save} loading={pending} loadingText="Saving…" className="shadow-pop"><Words k="Save settings" /></Button>
         </div>
       )}
     </form>

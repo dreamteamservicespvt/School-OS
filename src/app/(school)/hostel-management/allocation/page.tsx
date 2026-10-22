@@ -36,6 +36,7 @@ import { AllocateSheet, CarrySheet, CheckoutSheet, MoveSheet, type CarryItem, ty
 import { checkInAction, type FoundStudent } from "../actions";
 import { hostelGuard, hostelPeriod, idParam, one, qs, type SearchParams } from "../_lib/page";
 import { studentIdsForFilter } from "@/lib/students/find";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Allocation · Hostel Management" };
 
@@ -139,8 +140,8 @@ export default async function AllocationPage({ searchParams }: { searchParams: S
     if (r.allocation.status !== "ACTIVE") return null;
     const bits: React.ReactNode[] = [];
     if (can.allocate && !r.allocation.checkedInAt) bits.push(<ActButton key="in" action={checkInAction} fields={{ allocationId: r.allocation.id }} label="Check in" icon="in" variant="primary" />);
-    if (can.allocate) bits.push(<Link key="mv" href={href({ move: r.allocation.id })} scroll={false} className="text-[13px] font-semibold text-brand hover:underline">Move</Link>);
-    if (can.allocate) bits.push(<Link key="co" href={href({ checkout: r.allocation.id })} scroll={false} className="text-[13px] font-semibold text-bad hover:underline">Check out</Link>);
+    if (can.allocate) bits.push(<Link key="mv" href={href({ move: r.allocation.id })} scroll={false} className="text-[13px] font-semibold text-brand hover:underline"><Words k="Move" /></Link>);
+    if (can.allocate) bits.push(<Link key="co" href={href({ checkout: r.allocation.id })} scroll={false} className="text-[13px] font-semibold text-bad hover:underline"><Words k="Check out" /></Link>);
     return bits.length ? <span className="flex items-center gap-3 justify-end flex-wrap">{bits}</span> : null;
   };
 
@@ -156,11 +157,11 @@ export default async function AllocationPage({ searchParams }: { searchParams: S
     <>
       <HostelHead pageName="Allocation" href={base} mode={p.mode}
         sub={can.allocate ? "Who has which bed. Give a bed, check in, move a student or check them out." : "Who has which bed, who has not arrived and who is away."}
-        actions={can.allocate ? <ButtonLink href={href({ allocate: "1" })} variant="primary" icon={UserPlus} scroll={false}>Give a bed</ButtonLink> : undefined} />
+        actions={can.allocate ? <ButtonLink href={href({ allocate: "1" })} variant="primary" icon={UserPlus} scroll={false}><Words k="Give a bed" /></ButtonLink> : undefined} />
       <Stack>
         {carryTo && carryFrom && (
           <Banner tone="info" icon={CalendarClock} title={`${carryTo.name} is open: ${plural(d.carry.length, "boarder")} from ${carryFrom.name} to carry over`}
-            action={can.allocate ? <ButtonLink href={href({ carry: "1" })} scroll={false} variant="primary" size="sm">Review and carry over</ButtonLink> : undefined}>
+            action={can.allocate ? <ButtonLink href={href({ carry: "1" })} scroll={false} variant="primary" size="sm"><Words k="Review and carry over" /></ButtonLink> : undefined}>
             {can.allocate ? `Boarders keep their bed from ${formatDate(carryTo.startDate, "UTC")}, and the ${carryTo.name} hostel fees are added. Boarders not staying are checked out at year end. Review them first.` : "The warden reviews and carries them over."}
           </Banner>
         )}
@@ -185,20 +186,20 @@ export default async function AllocationPage({ searchParams }: { searchParams: S
           <DataList rows={d.rows} rowKey={(r) => r.allocation.id} minWidth={v.seesFees ? 1040 : 920} caption="Hostel residents"
             empty={<Empty icon={params.q ? Search : BedDouble} title={params.q ? "No resident matches" : show === "out" ? "Nobody checked out in these dates" : show === "away" ? "Everyone is in the hostel" : show === "arriving" ? "Everyone has arrived" : "No residents yet"}
               body={params.q ? "Try another name, or clear the search." : show === "" && can.allocate ? "Give the first bed to a student waiting for one." : undefined}
-              action={show === "" && !params.q && can.allocate ? <ButtonLink href={href({ allocate: "1" })} variant="primary" icon={UserPlus} scroll={false}>Give a bed</ButtonLink> : undefined} />}
+              action={show === "" && !params.q && can.allocate ? <ButtonLink href={href({ allocate: "1" })} variant="primary" icon={UserPlus} scroll={false}><Words k="Give a bed" /></ButtonLink> : undefined} />}
             columns={[
               { key: "student", label: "Student", render: (r) => <span><b className="font-semibold">{seesStudents ? <Link href={`/student-management/students/${r.student.id}?tab=hostel`} className="hover:underline">{r.student.name}</Link> : r.student.name}</b><span className="block text-[12.5px] text-ink3">{r.student.classSection ?? "No class"} · <span className="font-mono">{r.student.admissionNo}</span></span></span> },
-              { key: "where", label: "Hostel, room, bed", render: (r) => <span>{bedWords(r.roomNo, r.bedNo)}<span className="block text-[12.5px] text-ink3">{r.hostelName} · {r.floor} floor</span></span> },
-              { key: "in", label: show === "out" ? "Stayed" : "Check-in", nowrap: true, render: (r) => show === "out" ? `${formatDate(r.allocation.startDate, "UTC")} to ${r.allocation.endDate ? formatDate(r.allocation.endDate, "UTC") : ""}` : r.allocation.checkedInAt ? <span>{formatDate(r.allocation.checkedInAt, tz)}<span className="block text-[12.5px] text-ink3">{clockAt(r.allocation.checkedInAt, tz)}</span></span> : <span className="text-ink3">From {formatDate(r.allocation.startDate, "UTC")}</span> },
+              { key: "where", label: "Hostel, room, bed", render: (r) => <span>{bedWords(r.roomNo, r.bedNo)}<span className="block text-[12.5px] text-ink3">{r.hostelName} · {r.floor} <Words k="floor" /></span></span> },
+              { key: "in", label: show === "out" ? "Stayed" : "Check-in", nowrap: true, render: (r) => show === "out" ? `${formatDate(r.allocation.startDate, "UTC")} to ${r.allocation.endDate ? formatDate(r.allocation.endDate, "UTC") : ""}` : r.allocation.checkedInAt ? <span>{formatDate(r.allocation.checkedInAt, tz)}<span className="block text-[12.5px] text-ink3">{clockAt(r.allocation.checkedInAt, tz)}</span></span> : <span className="text-ink3"><Words k="From" /> {formatDate(r.allocation.startDate, "UTC")}</span> },
               { key: "status", label: "Status", render: (r) => <span><Pill tone={statusOf(r).tone}>{statusOf(r).label}</Pill>{r.backBy && <span className={`block text-[12px] mt-0.5 ${r.status === "LATE" ? "text-bad font-semibold" : "text-ink3"}`}>{away(r)}</span>}{r.allocation.status !== "ACTIVE" && r.allocation.endReason && <span className="block text-[12px] text-ink3 mt-0.5">{r.allocation.endReason}</span>}</span> },
               ...(v.seesFees ? [{ key: "fees", label: "Hostel fees due", align: "right" as const, nowrap: true, render: (r: Resident) => { const due = d.dues.get(r.student.id); return due && due > BigInt(0) ? <b className="font-semibold text-warn">{formatRupees(due)}</b> : <span className="text-ink3">{r.allocation.status === "ACTIVE" ? "Nothing due" : ""}</span>; } }] : []),
-              { key: "hist", label: "", render: (r) => <Link href={href({ history: r.student.id })} scroll={false} className="text-[13px] font-semibold text-ink2 hover:underline whitespace-nowrap">Bed history</Link> },
+              { key: "hist", label: "", render: (r) => <Link href={href({ history: r.student.id })} scroll={false} className="text-[13px] font-semibold text-ink2 hover:underline whitespace-nowrap"><Words k="Bed history" /></Link> },
               { key: "act", label: "", render: acts },
             ]}
             phone={(r) => ({
               title: r.student.name, sub: `${bedWords(r.roomNo, r.bedNo)} · ${r.student.classSection ?? ""}${r.backBy ? ` · ${away(r)}` : ""}`, icon: BedDouble, iconTone: statusOf(r).tone,
-              right: <span className="flex flex-col items-end gap-1"><Pill tone={statusOf(r).tone}>{statusOf(r).label}</Pill>{v.seesFees && (d.dues.get(r.student.id) ?? BigInt(0)) > BigInt(0) && <span className="text-[12px] font-semibold text-warn tnum">{formatRupees(d.dues.get(r.student.id)!)} due</span>}</span>,
-              pills: <span className="flex items-center gap-3 flex-wrap">{acts(r)}<Link href={href({ history: r.student.id })} scroll={false} className="text-[13px] font-semibold text-ink2 hover:underline">Bed history</Link></span>,
+              right: <span className="flex flex-col items-end gap-1"><Pill tone={statusOf(r).tone}>{statusOf(r).label}</Pill>{v.seesFees && (d.dues.get(r.student.id) ?? BigInt(0)) > BigInt(0) && <span className="text-[12px] font-semibold text-warn tnum">{formatRupees(d.dues.get(r.student.id)!)} <Words k="due" /></span>}</span>,
+              pills: <span className="flex items-center gap-3 flex-wrap">{acts(r)}<Link href={href({ history: r.student.id })} scroll={false} className="text-[13px] font-semibold text-ink2 hover:underline"><Words k="Bed history" /></Link></span>,
             })}
           />
           {d.total > 0 && <Pager page={params.page} pageSize={PAGE_SIZE} total={d.total} prevHref={listHref(base, params, { page: params.page > 2 ? params.page - 1 : null })} nextHref={listHref(base, params, { page: params.page + 1 })} />}
@@ -213,7 +214,7 @@ export default async function AllocationPage({ searchParams }: { searchParams: S
               {d.waiting.map((w) => (
                 <li key={w.id}>
                   <ListRow title={w.name} sub={`${w.classSection ?? "No class"} · ${w.admissionNo} · hostel needed on application ${w.applicationNo ?? ""}${w.askedAt ? `, ${formatDate(w.askedAt, tz)}` : ""}${w.joins && w.joins.getTime() > p.today.getTime() ? ` · joins ${formatDate(w.joins, "UTC")}` : ""}`} icon={UserPlus} iconTone="warn"
-                    right={can.allocate ? <ButtonLink href={href({ allocate: "1", student: w.id })} size="sm" variant="secondary" scroll={false}>Give a bed</ButtonLink> : <Pill tone="warn">Waiting</Pill>} />
+                    right={can.allocate ? <ButtonLink href={href({ allocate: "1", student: w.id })} size="sm" variant="secondary" scroll={false}><Words k="Give a bed" /></ButtonLink> : <Pill tone="warn"><Words k="Waiting" /></Pill>} />
                 </li>
               ))}
             </ul>
@@ -247,11 +248,11 @@ export default async function AllocationPage({ searchParams }: { searchParams: S
                 </div>
                 <p className="text-[13px] text-ink3 mt-0.5">{h.hostelName} · {formatDate(h.startDate, "UTC")}{h.endDate ? ` to ${formatDate(h.endDate, "UTC")}` : " onwards"}</p>
                 {h.endReason && <p className="text-[13px] text-ink2 mt-1">{h.endReason}</p>}
-                {h.status === "ACTIVE" && <a href={`${base}/letter/${h.id}`} target="_blank" rel="noopener" className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-brand hover:underline mt-2"><FileText size={14} aria-hidden="true" />Allocation letter with the hostel rules</a>}
+                {h.status === "ACTIVE" && <a href={`${base}/letter/${h.id}`} target="_blank" rel="noopener" className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-brand hover:underline mt-2"><FileText size={14} aria-hidden="true" /><Words k="Allocation letter with the hostel rules" /></a>}
               </li>
             ))}
           </ol>
-          <p className="text-[12.5px] text-ink3 mt-4 flex items-center gap-1.5"><History size={14} aria-hidden="true" />{plural(d.history.rows.length, "bed")} on record. Moves and check-outs are never deleted.</p>
+          <p className="text-[12.5px] text-ink3 mt-4 flex items-center gap-1.5"><History size={14} aria-hidden="true" />{plural(d.history.rows.length, "bed")} <Words k="on record. Moves and check-outs are never deleted." /></p>
         </UrlSheet>
       )}
     </>

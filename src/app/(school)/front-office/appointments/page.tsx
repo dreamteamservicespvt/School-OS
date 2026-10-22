@@ -21,6 +21,7 @@ import { BookSheet } from "../_components/appointment-sheets";
 import { RowMenu, type RowItem } from "../_components/row-menu";
 import { appointmentStatusAction, remindAction } from "../actions";
 import { BASE, UUID, addQ, foGuard, one, qs, type SearchParams } from "../_lib/page";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata = { title: "Appointments" };
 
@@ -85,9 +86,9 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
   return (
     <div>
       <FoHead pageName="Appointments" href={HREF} sub="Meetings with the Principal and staff. Booked, leave and teaching times cannot be chosen."
-        actions={desk ? <ButtonLink href={addQ(here, { do: "book" })} scroll={false} variant="primary" icon={CalendarPlus}>Book appointment</ButtonLink> : null} />
+        actions={desk ? <ButtonLink href={addQ(here, { do: "book" })} scroll={false} variant="primary" icon={CalendarPlus}><Words k="Book appointment" /></ButtonLink> : null} />
       {!chosen ? (
-        <Card><Empty icon={UsersRound} title="No staff yet" body="Appointments are booked with staff members. Add staff in Staff & HR Management first." action={<ButtonLink href="/staff-hr-management" variant="secondary">Open Staff & HR</ButtonLink>} /></Card>
+        <Card><Empty icon={UsersRound} title="No staff yet" body="Appointments are booked with staff members. Add staff in Staff & HR Management first." action={<ButtonLink href="/staff-hr-management" variant="secondary"><Words k={"Open Staff & HR"} /></ButtonLink>} /></Card>
       ) : (
         <Split side={380}>
           <Card className="overflow-hidden">
@@ -100,12 +101,12 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
                   ...(nextDays.includes(dayIso) ? [] : [{ value: dayIso, label: dayLabel(dayIso), href: here }])]} />
                 <form action={HREF} className="flex items-center gap-2">
                   {keep.staff && <input type="hidden" name="staff" value={keep.staff} />}
-                  <label htmlFor="ap-day" className="sr-only">Another day</label>
+                  <label htmlFor="ap-day" className="sr-only"><Words k="Another day" /></label>
                   <input id="ap-day" name="day" type="date" defaultValue={dayIso} className="h-9 rounded-xl border border-line bg-surface px-2.5 text-[13px] tnum" />
-                  <button type="submit" className="h-9 px-3 rounded-xl border border-line text-[13px] font-semibold hover:bg-sunken">Show</button>
+                  <button type="submit" className="h-9 px-3 rounded-xl border border-line text-[13px] font-semibold hover:bg-sunken"><Words k="Show" /></button>
                 </form>
                 {data.staff.length > 5 && <UrlSelect id="ap-staff" param="staff" label="Someone else" className="w-full sm:w-60 [&_select]:h-9 [&_select]:text-[13px]" options={data.staff.map((s) => ({ value: s.id, label: `${s.fullName} · ${s.designation}` }))} />}
-                <span className="text-[12.5px] text-ink3">{chosen.designation} · {p.settings.slotMinutes}-minute slots</span>
+                <span className="text-[12.5px] text-ink3">{chosen.designation} · {p.settings.slotMinutes}<Words k="-minute slots" /></span>
               </div>
             </div>
             {data.plan && <Timeline plan={data.plan} dayIso={dayIso} today={p.todayStr} minute={p.minute} desk={desk} bookHref={(m) => addQ(here, { do: "book", with: chosen.id, on: dayIso, at: String(m) })} />}
@@ -116,7 +117,7 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
                 action={p.can.export ? <ExportButton href={qs(`${HREF}/export`, { day: dayIso })} size="sm" /> : undefined} />
               {sorted.length === 0 ? (
                 <Empty icon={CalendarX2} title="No appointments on this day" body="Free slots show on the left. Booked times cannot be booked twice."
-                  action={desk ? <ButtonLink href={addQ(here, { do: "book" })} scroll={false} variant="secondary" icon={CalendarPlus}>Book appointment</ButtonLink> : undefined} />
+                  action={desk ? <ButtonLink href={addQ(here, { do: "book" })} scroll={false} variant="secondary" icon={CalendarPlus}><Words k="Book appointment" /></ButtonLink> : undefined} />
               ) : (
                 <ul className="px-2 pb-2">
                   {sorted.map((a) => {
@@ -128,7 +129,7 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
                         <span className="w-14 shrink-0 text-[13px] font-semibold tnum">{clock.replace(/ (AM|PM)$/, "")}<span className="block text-[11px] text-ink3 font-medium">{clock.slice(-2)} · {a.lengthMin}m</span></span>
                         <div className="min-w-0 flex-1">
                           <p className={cx("font-semibold text-[14px] truncate", a.status === "CANCELLED" && "line-through")}>{a.visitorName}</p>
-                          <p className="text-[12.5px] text-ink3 truncate">With {staffName(a.staffId)} · {a.purpose}</p>
+                          <p className="text-[12.5px] text-ink3 truncate"><Words k="With" /> {staffName(a.staffId)} · {a.purpose}</p>
                           <Pill tone={inMeeting ? "brand" : st.tone} dot={inMeeting} className="!h-5 !text-[11px] mt-1">{inMeeting ? "In meeting" : st.label}</Pill>
                         </div>
                         {desk && <RowMenu label={`Actions for ${a.visitorName}`} items={apptItems(a, here, isToday, needsDesk)} />}
@@ -152,11 +153,11 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
       {data.cancel && (
         <SheetForm title={`Cancel ${data.cancel.visitorName}’s appointment?`} sub={`${shortDay(data.cancel.date)}, ${clockOf(data.cancel.startMin)} with ${staffName(data.cancel.staffId)}. A message goes to the visitor.`}
           closeHref={here} action={appointmentStatusAction} hidden={{ appointmentId: data.cancel.id, status: "CANCELLED" }} submitLabel="Cancel appointment" submitVariant="danger" pendingText="Cancelling…">
-          <p className="text-[14px] text-ink2">The time becomes free for someone else. You can undo this for a short while.</p>
+          <p className="text-[14px] text-ink2"><Words k="The time becomes free for someone else. You can undo this for a short while." /></p>
         </SheetForm>
       )}
       {(one(sp.re) || one(sp.cancel)) && !data.re && !data.cancel && (
-        <UrlSheet title="Appointment not open" closeHref={here}><p className="text-[14px] text-ink2 pb-4">This appointment was not found, or it is no longer booked.</p></UrlSheet>
+        <UrlSheet title="Appointment not open" closeHref={here}><p className="text-[14px] text-ink2 pb-4"><Words k="This appointment was not found, or it is no longer booked." /></p></UrlSheet>
       )}
       <CommonSheets sp={sp} href={HREF} keepKeys={["staff", "day"]} />
     </div>
@@ -191,7 +192,7 @@ function Timeline({ plan, dayIso, today, minute, desk, bookHref }: { plan: DayPl
       <ol className="p-3 md:p-4">
         <li className="grid grid-cols-[64px_1fr] gap-3 items-start">
           <span className="text-[12.5px] font-semibold text-ink3 tnum pt-2.5">{clockOf(plan.start)}</span>
-          <div className="rounded-xl px-3.5 py-2.5 bg-bad/10 text-bad"><p className="text-[13.5px] font-semibold">{plan.leave}{dayIso === today ? " today" : ""}</p><p className="text-[12px] opacity-80 tnum">{clockOf(plan.start)} – {clockOf(plan.end)} · no meetings can be booked</p></div>
+          <div className="rounded-xl px-3.5 py-2.5 bg-bad/10 text-bad"><p className="text-[13.5px] font-semibold">{plan.leave}{dayIso === today ? " today" : ""}</p><p className="text-[12px] opacity-80 tnum">{clockOf(plan.start)} – {clockOf(plan.end)} <Words k="· no meetings can be booked" /></p></div>
         </li>
       </ol>
     );
@@ -222,7 +223,7 @@ function Timeline({ plan, dayIso, today, minute, desk, bookHref }: { plan: DayPl
           {r.kind === "free" ? (
             <div className="flex flex-wrap gap-1.5 py-1">
               {r.slots.map((m) => {
-                const words = <>{clockOf(m).replace(/ (AM|PM)$/, "")} <span className="font-normal">free</span></>;
+                const words = <>{clockOf(m).replace(/ (AM|PM)$/, "")} <span className="font-normal"><Words k="free" /></span></>;
                 return desk
                   ? <Link key={m} href={bookHref(m)} scroll={false} className="h-9 px-3 rounded-lg text-[12.5px] font-semibold tnum transition border border-dashed border-line text-ink3 hover:border-brand hover:text-brand hover:bg-brand/5 inline-flex items-center gap-1" aria-label={`Book ${clockOf(m)}`}>{words}</Link>
                   : <span key={m} className="h-9 px-3 rounded-lg text-[12.5px] font-semibold tnum border border-dashed border-line text-ink3 inline-flex items-center gap-1">{words}</span>;
@@ -239,7 +240,7 @@ function Timeline({ plan, dayIso, today, minute, desk, bookHref }: { plan: DayPl
                   <p className="text-[13.5px] font-semibold leading-snug">{s.label}</p>
                   <p className="text-[12px] opacity-80 tnum">{clockOf(s.start)} – {clockOf(s.end)}{s.kind === "teach" ? " · from the Time Table" : ""}</p>
                 </div>
-                {now ? <Pill tone="brand" dot>In progress</Pill> : st ? <Pill tone={st.tone}>{st.label}</Pill> : null}
+                {now ? <Pill tone="brand" dot><Words k="In progress" /></Pill> : st ? <Pill tone={st.tone}>{st.label}</Pill> : null}
               </div>
             );
           })()}

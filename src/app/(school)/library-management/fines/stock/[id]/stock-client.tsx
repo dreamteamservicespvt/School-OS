@@ -14,6 +14,7 @@ import { inputCls } from "@/components/ui/field";
 import { cx } from "@/components/ui/cx";
 import type { ScanResult } from "@/lib/library/stock";
 import { scanStockAction, closeStockAction, markMissingLostAction } from "../../../actions";
+import { Words } from "@/lib/i18n/client";
 
 type Line = { at: number; ok: boolean; kind: ScanResult["kind"] | "problem"; text: string };
 
@@ -36,13 +37,13 @@ export function StockScanner({ sessionId }: { sessionId: string }) {
     <div className="flex flex-col gap-3">
       <form ref={form} action={run} className="flex gap-2">
         <input type="hidden" name="sessionId" value={sessionId} />
-        <label htmlFor="stock-code" className="sr-only">Book barcode or accession number</label>
+        <label htmlFor="stock-code" className="sr-only"><Words k="Book barcode or accession number" /></label>
         <div className="relative flex-1 min-w-0">
           <ScanLine size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink3" aria-hidden="true" />
           <input ref={input} id="stock-code" name="code" autoFocus autoComplete="off" spellCheck={false} placeholder="Scan each copy, or type its accession number"
             className={cx(inputCls(false), "h-12 pl-11 font-mono text-[15px]")} />
         </div>
-        <Button type="submit" variant="primary" loading={pending} className="h-12">Add</Button>
+        <Button type="submit" variant="primary" loading={pending} className="h-12"><Words k="Add" /></Button>
       </form>
       {lines.length > 0 && (
         <ul className="flex flex-col divide-y divide-line/70 rounded-xl border border-line" aria-live="polite" aria-label="Scanned just now">
@@ -88,7 +89,7 @@ export function MarkLostButton({ sessionId, count }: { sessionId: string; count:
         if (!r?.ok) return r?.message ?? "That did not work.";
         router.refresh();
       }}>
-      The copies stay in the catalogue as Lost, with this stock check as the reason. No member is charged. A copy found later can be put back on the shelf from its book&apos;s page.
+      <Words k="The copies stay in the catalogue as Lost, with this stock check as the reason. No member is charged. A copy found later can be put back on the shelf from its book's page." />
     </ConfirmButton>
   );
 }

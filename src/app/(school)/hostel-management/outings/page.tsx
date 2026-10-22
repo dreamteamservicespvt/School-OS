@@ -36,6 +36,7 @@ import { CancelPassSheet, PassSheet, RejectPassSheet, VisitorSheet } from "../_c
 import { decidePassAction, markOutAction, markReturnedAction, remindWardenAction, visitorOutAction, type FoundStudent, type GuardianChoice } from "../actions";
 import { BASE, hostelGuard, hostelPeriod, idParam, one, qs, type Raw, type SearchParams } from "../_lib/page";
 import { studentIdsForFilter } from "@/lib/students/find";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Outing & Visitors · Hostel Management" };
 
@@ -134,11 +135,11 @@ async function PassesView({ p, sp }: { p: P; sp: Raw }) {
     const bits: React.ReactNode[] = [];
     if (r.status === "WAITING" && r.approvalId && d.deciders.has(r.approvalId)) {
       bits.push(<ActButton key="ok" action={decidePassAction} fields={{ passId: r.id, decision: "approve" }} label="Approve" icon="check" variant="primary" />);
-      bits.push(<Link key="no" href={href({ reject: r.id })} scroll={false} className="text-[13px] font-semibold text-bad hover:underline">Reject</Link>);
+      bits.push(<Link key="no" href={href({ reject: r.id })} scroll={false} className="text-[13px] font-semibold text-bad hover:underline"><Words k="Reject" /></Link>);
     }
     if (can.outings && r.status === "APPROVED") bits.push(<ActButton key="out" action={markOutAction} fields={{ passId: r.id }} label="Mark out" icon="out" variant="primary" />);
     if (can.outings && r.status === "OUT") bits.push(<ActButton key="back" action={markReturnedAction} fields={{ passId: r.id }} label="Mark returned" icon="in" variant={shownStatus(r, now) === "LATE" ? "primary" : "secondary"} />);
-    if (can.outings && (r.status === "WAITING" || r.status === "APPROVED")) bits.push(<Link key="c" href={href({ cancel: r.id })} scroll={false} className="text-[13px] font-semibold text-ink2 hover:underline">Cancel</Link>);
+    if (can.outings && (r.status === "WAITING" || r.status === "APPROVED")) bits.push(<Link key="c" href={href({ cancel: r.id })} scroll={false} className="text-[13px] font-semibold text-ink2 hover:underline"><Words k="Cancel" /></Link>);
     return bits.length ? <span className="flex items-center gap-3 justify-end flex-wrap">{bits}</span> : null;
   };
 
@@ -151,17 +152,17 @@ async function PassesView({ p, sp }: { p: P; sp: Raw }) {
     <>
       <HostelHead pageName="Outing & Visitors" href={base} mode={p.mode}
         sub={can.outings ? "Outing and leave passes: the warden approves, you mark the student out and back." : "Outing and leave passes, students out now and late returns."}
-        actions={can.outings ? <ButtonLink href={href({ new: "1" })} variant="primary" icon={Plus} scroll={false}>New pass</ButtonLink> : undefined} />
+        actions={can.outings ? <ButtonLink href={href({ new: "1" })} variant="primary" icon={Plus} scroll={false}><Words k="New pass" /></ButtonLink> : undefined} />
       <Stack>
         <Views view="passes" />
         {d.late.length > 0 && (
           <div className="flex flex-col gap-2">
           <Banner tone="bad" icon={AlertTriangle} title={`${plural(d.late.length, "student")} not back.`}
-            action={can.remind ? <span className="flex gap-2 flex-wrap">{lateHostels.map((h) => <ActButton key={h} action={remindWardenAction} fields={{ hostelId: h, what: "late" }} label={lateHostels.length > 1 ? `Remind ${d.hostels.get(h)}` : "Remind the warden"} icon="bell" />)}</span> : undefined}>Call the person they are with; mark them returned when they are back.</Banner>
+            action={can.remind ? <span className="flex gap-2 flex-wrap">{lateHostels.map((h) => <ActButton key={h} action={remindWardenAction} fields={{ hostelId: h, what: "late" }} label={lateHostels.length > 1 ? `Remind ${d.hostels.get(h)}` : "Remind the warden"} icon="bell" />)}</span> : undefined}><Words k="Call the person they are with; mark them returned when they are back." /></Banner>
             <ul className="rounded-2xl border border-line bg-surface px-4 py-3 flex flex-col gap-2 text-[14px] text-ink2">
               {d.late.map((r) => (
                 <li key={r.id} className="flex items-center gap-2 flex-wrap">
-                  <span className="flex-1 min-w-0"><b className="font-semibold">{d.info.get(r.studentId)?.name ?? "Student"}</b> not returned (due {r.toAt ? clockAt(r.toAt, tz) : ""}{r.toAt && formatDate(r.toAt, tz) !== formatDate(now, tz) ? `, ${formatDate(r.toAt, tz)}` : ""}) · {lateWords(minutesLate(r, now))} late · with {r.collectorName}{can.outings && r.collectorPhone ? `, ${showPhone(r.collectorPhone)}` : ""}</span>
+                  <span className="flex-1 min-w-0"><b className="font-semibold">{d.info.get(r.studentId)?.name ?? "Student"}</b> <Words k="not returned (due" /> {r.toAt ? clockAt(r.toAt, tz) : ""}{r.toAt && formatDate(r.toAt, tz) !== formatDate(now, tz) ? `, ${formatDate(r.toAt, tz)}` : ""}) · {lateWords(minutesLate(r, now))} <Words k="late · with" /> {r.collectorName}{can.outings && r.collectorPhone ? `, ${showPhone(r.collectorPhone)}` : ""}</span>
                   {can.outings && <ActButton action={markReturnedAction} fields={{ passId: r.id }} label="Mark returned" icon="in" />}
                 </li>
               ))}
@@ -191,17 +192,17 @@ async function PassesView({ p, sp }: { p: P; sp: Raw }) {
               { key: "with", label: "Going with", render: (r) => <span>{going(r)}<span className="block text-[12.5px] text-ink3 tnum">{phone(r.collectorPhone)}</span></span> },
               { key: "when", label: "From and to", render: (r) => <span className="text-[13.5px]">{passWhen(r, tz)}</span> },
               { key: "reason", label: "Reason", className: "max-w-[220px]", render: (r) => <span className="line-clamp-2">{r.reason}</span> },
-              { key: "status", label: "Status", render: (r) => <span><Pill tone={st(r).tone}>{st(r).label}</Pill>{shownStatus(r, now) === "LATE" && <span className="block text-[12px] text-bad font-semibold mt-0.5">{lateWords(minutesLate(r, now))} late</span>}{r.status === "RETURNED" && r.returnedAt && <span className="block text-[12px] text-ink3 mt-0.5">back {clockAt(r.returnedAt, tz)}{minutesLate(r, now) > 0 ? `, ${lateWords(minutesLate(r, now))} late` : ""}</span>}</span> },
+              { key: "status", label: "Status", render: (r) => <span><Pill tone={st(r).tone}>{st(r).label}</Pill>{shownStatus(r, now) === "LATE" && <span className="block text-[12px] text-bad font-semibold mt-0.5">{lateWords(minutesLate(r, now))} <Words k="late" /></span>}{r.status === "RETURNED" && r.returnedAt && <span className="block text-[12px] text-ink3 mt-0.5"><Words k="back" /> {clockAt(r.returnedAt, tz)}{minutesLate(r, now) > 0 ? `, ${lateWords(minutesLate(r, now))} late` : ""}</span>}</span> },
               { key: "act", label: "", render: acts },
             ]}
             phone={(r) => ({
               title: name(r), sub: `${OUTING_TYPE[(r.outingType ?? "OUTING") as OutingType].label} with ${going(r)} · ${passWhen(r, tz)}`, icon: Ticket, iconTone: st(r).tone,
-              right: <Pill tone={st(r).tone}>{st(r).label}</Pill>, pills: <span className="flex items-center gap-3 flex-wrap">{acts(r)}<Link href={href({ pass: r.id })} scroll={false} className="text-[13px] font-semibold text-ink2 hover:underline">Details</Link></span>,
+              right: <Pill tone={st(r).tone}>{st(r).label}</Pill>, pills: <span className="flex items-center gap-3 flex-wrap">{acts(r)}<Link href={href({ pass: r.id })} scroll={false} className="text-[13px] font-semibold text-ink2 hover:underline"><Words k="Details" /></Link></span>,
             })}
           />
           {d.total > 0 && <Pager page={params.page} pageSize={PAGE_SIZE} total={d.total} prevHref={listHref(base, params, { page: params.page > 2 ? params.page - 1 : null })} nextHref={listHref(base, params, { page: params.page + 1 })} />}
         </Card>
-        <p className="text-[12.5px] text-ink3">Each pass is a Gate Pass of kind Hostel Outing, so the front gate sees it too. New outings are back by {minuteWords(s.outingBackMinute)} unless you change it. {!(s.messageOnOut || s.messageOnReturn) ? "Messages to parents are off in Hostel Settings."
+        <p className="text-[12.5px] text-ink3"><Words k="Each pass is a Gate Pass of kind Hostel Outing, so the front gate sees it too. New outings are back by" /> {minuteWords(s.outingBackMinute)} <Words k="unless you change it." /> {!(s.messageOnOut || s.messageOnReturn) ? "Messages to parents are off in Hostel Settings."
           : !d.canMessage ? "Messages to parents are on in Hostel Settings, but no WhatsApp, SMS or email is connected, so parents are not told. Connect one in Settings, SMS, WhatsApp & Email."
           : `Parents are told when their child ${[s.messageOnOut && "goes out", s.messageOnReturn && "comes back"].filter(Boolean).join(" and ")}.`}</p>
       </Stack>
@@ -222,7 +223,7 @@ async function PassesView({ p, sp }: { p: P; sp: Raw }) {
                 ["Came back", opened.returnedAt ? `${formatDate(opened.returnedAt, tz)}, ${clockAt(opened.returnedAt, tz)}${minutesLate(opened, now) ? ` (${lateWords(minutesLate(opened, now))} late)` : ""}` : opened.status === "OUT" ? "Not yet" : "—"],
               ]} />
               <div className="flex gap-2 flex-wrap justify-end">
-                {(opened.status === "APPROVED" || opened.status === "OUT") && <a href={`${base}/pass/${opened.id}`} target="_blank" rel="noopener" className="inline-flex items-center gap-1.5 h-10 px-3.5 rounded-xl border border-line bg-surface hover:bg-sunken text-[14px] font-semibold"><FileText size={16} aria-hidden="true" />Print pass</a>}
+                {(opened.status === "APPROVED" || opened.status === "OUT") && <a href={`${base}/pass/${opened.id}`} target="_blank" rel="noopener" className="inline-flex items-center gap-1.5 h-10 px-3.5 rounded-xl border border-line bg-surface hover:bg-sunken text-[14px] font-semibold"><FileText size={16} aria-hidden="true" /><Words k="Print pass" /></a>}
                 {acts(opened)}
               </div>
             </div>
@@ -282,10 +283,10 @@ async function VisitorsView({ p, sp }: { p: P; sp: Raw }) {
     <>
       <HostelHead pageName="Outing & Visitors" href={base} mode={p.mode}
         sub={`Hostel visitors, each meeting one resident. Visiting hours: ${visitingWords(s)}.`}
-        actions={can.outings ? <ButtonLink href={href({ new: "1" })} variant="primary" icon={Plus} scroll={false}>Record visitor</ButtonLink> : undefined} />
+        actions={can.outings ? <ButtonLink href={href({ new: "1" })} variant="primary" icon={Plus} scroll={false}><Words k="Record visitor" /></ButtonLink> : undefined} />
       <Stack>
         <Views view="visitors" />
-        {!inHours && can.outings && <Banner tone="info" title="Outside visiting hours now.">Visitors now need the warden&apos;s approval. Visiting hours: {visitingWords(s)}.</Banner>}
+        {!inHours && can.outings && <Banner tone="info" title="Outside visiting hours now."><Words k="Visitors now need the warden's approval. Visiting hours:" /> {visitingWords(s)}.</Banner>}
         <Stats items={[
           { label: "Inside now", value: String(d.insideNow), sub: "not signed out", tone: d.insideNow ? "info" : undefined, href: href({ inside: "1" }), active: inside, icon: Users },
           { label: "Today", value: String(d.today), sub: "visitors", icon: UserCheck },
@@ -306,18 +307,18 @@ async function VisitorsView({ p, sp }: { p: P; sp: Raw }) {
               { key: "student", label: "Student met", render: (r) => <span><b className="font-semibold">{met(r)?.name ?? "Student"}</b><span className="block text-[12.5px] text-ink3">{met(r)?.classSection ?? ""}</span></span> },
               { key: "visitor", label: "Visitor", render: (r) => <span>{r.name}<span className="block text-[12.5px] text-ink3">{r.relation ?? ""}{r.phone ? ` · ${can.outings ? showPhone(r.phone) : maskPhone(r.phone)}` : ""}</span></span> },
               { key: "in", label: "In", nowrap: true, render: (r) => clockAt(r.timeIn, tz) },
-              { key: "out", label: "Out", nowrap: true, render: (r) => (r.timeOut ? clockAt(r.timeOut, tz) : <Pill tone="info">Inside</Pill>) },
+              { key: "out", label: "Out", nowrap: true, render: (r) => (r.timeOut ? clockAt(r.timeOut, tz) : <Pill tone="info"><Words k="Inside" /></Pill>) },
               { key: "allowed", label: "Allowed by", render: (r) => <span className={r.allowedBy === "WARDEN" ? "text-warn" : "text-ink2"}>{allowed(r)}</span> },
               { key: "act", label: "", render: (r) => (can.outings && !r.timeOut ? <ActButton action={visitorOutAction} fields={{ visitorId: r.id }} label="Sign out" icon="out" /> : null) },
             ]}
             phone={(r) => ({
               title: `${r.name} → ${met(r)?.name ?? "Student"}`, sub: `${formatDate(r.visitDate, "UTC")} · in ${clockAt(r.timeIn, tz)}${r.timeOut ? ` · out ${clockAt(r.timeOut, tz)}` : ""} · ${allowed(r)}`, icon: Users, iconTone: r.timeOut ? "neutral" : "info",
-              right: r.timeOut ? undefined : <Pill tone="info">Inside</Pill>, pills: can.outings && !r.timeOut ? <ActButton action={visitorOutAction} fields={{ visitorId: r.id }} label="Sign out" icon="out" /> : undefined,
+              right: r.timeOut ? undefined : <Pill tone="info"><Words k="Inside" /></Pill>, pills: can.outings && !r.timeOut ? <ActButton action={visitorOutAction} fields={{ visitorId: r.id }} label="Sign out" icon="out" /> : undefined,
             })}
           />
           {d.total > 0 && <Pager page={params.page} pageSize={PAGE_SIZE} total={d.total} prevHref={listHref(base, params, { view: "visitors", page: params.page > 2 ? params.page - 1 : null })} nextHref={listHref(base, params, { view: "visitors", page: params.page + 1 })} />}
         </Card>
-        <p className="text-[12.5px] text-ink3">Hostel visits are Visitor Entries, so they also show in the Front Office visitor log. Requests and complaints from residents go to Communication, Feedback &amp; Queries.</p>
+        <p className="text-[12.5px] text-ink3"><Words k={"Hostel visits are Visitor Entries, so they also show in the Front Office visitor log. Requests and complaints from residents go to Communication, Feedback & Queries."} /></p>
       </Stack>
       {d.fresh && <VisitorSheet closeHref={href({ new: null, student: null })} hours={visitingWords(s)} inHours={inHours} start={d.fresh.student} startGuardians={d.fresh.guardians} />}
     </>

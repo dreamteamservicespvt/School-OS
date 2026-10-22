@@ -14,6 +14,7 @@ import {
   returnAction, stockInAction, stockOutAction, transferAction,
 } from "../actions";
 import { KeepCheck } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 type Opt = { value: string; label: string };
 
@@ -38,7 +39,7 @@ export function ItemSheet({ closeHref, doneHref, categories, units, stores, star
       </div>
       <div className="grid sm:grid-cols-2 gap-3">
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="item-cat" className="text-[13px] font-semibold text-ink2">Category <span className="text-bad" aria-hidden="true">*</span></label>
+          <label htmlFor="item-cat" className="text-[13px] font-semibold text-ink2"><Words k="Category" /> <span className="text-bad" aria-hidden="true">*</span></label>
           <select key={cat.key} id="item-cat" name="categoryId" defaultValue={cat.value} onChange={(e) => { setCatId(e.target.value); if (!editing && labCategories.includes(e.target.value)) setTracks(true); }}
             aria-invalid={cat.error ? true : undefined} className="h-11 rounded-xl border border-line bg-surface px-3 text-[14.5px] aria-[invalid=true]:border-bad">
             <option value="">Choose the category</option>
@@ -57,32 +58,32 @@ export function ItemSheet({ closeHref, doneHref, categories, units, stores, star
       </div>
       <div className="flex items-center gap-3 rounded-xl border border-line px-4 py-3">
         <div className="min-w-0 flex-1 text-[14px]">
-          <b className="font-semibold block">Expiry tracking</b>
-          <span className="block text-[12.5px] text-ink3 mt-0.5">For chemicals and perishables: stock is kept by batch, and expired stock cannot be issued.</span>
+          <b className="font-semibold block"><Words k="Expiry tracking" /></b>
+          <span className="block text-[12.5px] text-ink3 mt-0.5"><Words k="For chemicals and perishables: stock is kept by batch, and expired stock cannot be issued." /></span>
         </div>
         <KeepCheck type="checkbox" name="tracksExpiry" checked={tracks} onChange={(e) => setTracks(e.target.checked)} className="size-5 accent-[var(--brand)]" aria-label="Expiry tracking" />
       </div>
       {!editing && (
         <fieldset className="flex flex-col gap-2">
-          <legend className="text-[13px] font-semibold text-ink2 mb-1.5">Opening stock</legend>
+          <legend className="text-[13px] font-semibold text-ink2 mb-1.5"><Words k="Opening stock" /></legend>
           {Array.from({ length: storeRows }, (_, i) => (
             <div key={i} className="grid grid-cols-[1fr_110px] gap-2">
-              <label className="sr-only" htmlFor={`open-loc-${i}`}>Store {i + 1}</label>
+              <label className="sr-only" htmlFor={`open-loc-${i}`}><Words k="Store" /> {i + 1}</label>
               <select id={`open-loc-${i}`} name="openLoc" defaultValue={stores[i]?.value ?? stores[0]?.value} className="h-11 rounded-xl border border-line bg-surface px-3 text-[14.5px]">
                 {stores.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
               </select>
-              <label className="sr-only" htmlFor={`open-qty-${i}`}>Quantity in store {i + 1}</label>
+              <label className="sr-only" htmlFor={`open-qty-${i}`}><Words k="Quantity in store" /> {i + 1}</label>
               <input id={`open-qty-${i}`} name="openQty" inputMode="numeric" placeholder="0" className="h-11 rounded-xl border border-line bg-surface px-3 text-right tnum text-[14.5px]" />
             </div>
           ))}
-          {storeRows < stores.length && <button type="button" className="self-start text-[13px] font-semibold text-brand hover:underline" onClick={() => setStoreRows((n) => n + 1)}>Add stock in another store</button>}
+          {storeRows < stores.length && <button type="button" className="self-start text-[13px] font-semibold text-brand hover:underline" onClick={() => setStoreRows((n) => n + 1)}><Words k="Add stock in another store" /></button>}
           {tracks && (
             <div className="grid grid-cols-2 gap-3 mt-1">
               <SText name="batchNo" label="Batch" maxLength={40} placeholder="Optional" />
               <SDate name="expiresOn" label="Expiry date" help="Of the opening stock" />
             </div>
           )}
-          <p className="text-[12.5px] text-ink3">Empty or 0: no stock yet. Stock comes in later with Stock in or a purchase order.</p>
+          <p className="text-[12.5px] text-ink3"><Words k="Empty or 0: no stock yet. Stock comes in later with Stock in or a purchase order." /></p>
         </fieldset>
       )}
       <SArea name="note" label="Note" maxLength={300} start={start?.note} placeholder="Optional" />
@@ -107,7 +108,7 @@ export function StockInSheet({ closeHref, items, stores, start, today }: { close
   return (
     <SheetForm title="Stock in" sub="Stock that came without a purchase order: a donation, a return, a found box." closeHref={closeHref} action={stockInAction} submitLabel="Add to stock" pendingText="Saving…">
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="in-item" className="text-[13px] font-semibold text-ink2">Item <span className="text-bad" aria-hidden="true">*</span></label>
+        <label htmlFor="in-item" className="text-[13px] font-semibold text-ink2"><Words k="Item" /> <span className="text-bad" aria-hidden="true">*</span></label>
         <select key={it.key} id="in-item" name="itemId" defaultValue={it.value} onChange={(e) => setItemId(e.target.value)} aria-invalid={it.error ? true : undefined} className="h-11 rounded-xl border border-line bg-surface px-3 text-[14.5px]">
           <option value="">Choose the item</option>
           {items.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -154,7 +155,7 @@ export function StockOutSheet({ closeHref, items, stores, batches, start, today 
       closeHref={closeHref} action={stockOutAction} submitLabel={kind === "OUT" ? "Record stock out" : `Record as ${kind.toLowerCase()}`} submitVariant={kind === "OUT" ? "primary" : "danger"}>
       <SegField name="kind" label="What happened" start={start.kind || "OUT"} options={OUT_KINDS} onChange={setKind} />
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="out-item" className="text-[13px] font-semibold text-ink2">Item <span className="text-bad" aria-hidden="true">*</span></label>
+        <label htmlFor="out-item" className="text-[13px] font-semibold text-ink2"><Words k="Item" /> <span className="text-bad" aria-hidden="true">*</span></label>
         <select key={it.key} id="out-item" name="itemId" defaultValue={it.value} onChange={(e) => setItemId(e.target.value)} aria-invalid={it.error ? true : undefined} className="h-11 rounded-xl border border-line bg-surface px-3 text-[14.5px]">
           <option value="">Choose the item</option>
           {items.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -163,7 +164,7 @@ export function StockOutSheet({ closeHref, items, stores, batches, start, today 
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="out-store" className="text-[13px] font-semibold text-ink2">Store <span className="text-bad" aria-hidden="true">*</span></label>
+          <label htmlFor="out-store" className="text-[13px] font-semibold text-ink2"><Words k="Store" /> <span className="text-bad" aria-hidden="true">*</span></label>
           <select key={loc.key} id="out-store" name="locationId" defaultValue={loc.value} onChange={(e) => setLocId(e.target.value)} className="h-11 rounded-xl border border-line bg-surface px-3 text-[14.5px]">
             {stores.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
@@ -186,7 +187,7 @@ export function TransferSheet({ closeHref, items, stores, stockBy, start, today,
     <SheetForm title="Transfer stock" sub={needsApproval ? "Transfers wait for approval; stock moves when approved." : "Stock moves from one store to the other at once."} closeHref={closeHref} action={transferAction} submitLabel={needsApproval ? "Send for approval" : "Transfer"} wide>
       <div className="grid sm:grid-cols-2 gap-3">
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="tr-from" className="text-[13px] font-semibold text-ink2">From store <span className="text-bad" aria-hidden="true">*</span></label>
+          <label htmlFor="tr-from" className="text-[13px] font-semibold text-ink2"><Words k="From store" /> <span className="text-bad" aria-hidden="true">*</span></label>
           <select key={from.key} id="tr-from" name="fromLocationId" defaultValue={from.value} onChange={(e) => setFromId(e.target.value)} className="h-11 rounded-xl border border-line bg-surface px-3 text-[14.5px]">
             {stores.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
@@ -247,7 +248,7 @@ export function CategorySheet({ closeHref, heads, start }: { closeHref: string; 
 export function ArchiveCategorySheet({ closeHref, id, name }: { closeHref: string; id: string; name: string }) {
   return (
     <SheetForm title={`Archive ${name}`} sub="Only a category with no items can be archived." closeHref={closeHref} action={archiveCategoryAction} submitLabel="Archive" submitVariant="danger" hidden={{ categoryId: id }}>
-      <Alert tone="info">It stays in the history of old records.</Alert>
+      <Alert tone="info"><Words k="It stays in the history of old records." /></Alert>
     </SheetForm>
   );
 }
@@ -264,7 +265,7 @@ export function LocationSheet({ closeHref, start }: { closeHref: string; start: 
 export function ArchiveLocationSheet({ closeHref, id, name }: { closeHref: string; id: string; name: string }) {
   return (
     <SheetForm title={`Archive ${name}`} sub="Only a store with no stock left can be archived. Transfer the stock out first." closeHref={closeHref} action={archiveLocationAction} submitLabel="Archive" submitVariant="danger" hidden={{ locationId: id }}>
-      <Alert tone="info">Its movements stay in the history.</Alert>
+      <Alert tone="info"><Words k="Its movements stay in the history." /></Alert>
     </SheetForm>
   );
 }

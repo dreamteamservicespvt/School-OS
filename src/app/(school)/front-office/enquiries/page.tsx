@@ -24,6 +24,7 @@ import { FollowUpSheet } from "../_components/desk-sheets";
 import { RowMenu, type RowItem } from "../_components/row-menu";
 import { closeCallAction, closeWalkInAction } from "../actions";
 import { BASE, UUID, addQ, foGuard, foPeriod, one, qs, type SearchParams } from "../_lib/page";
+import { Words } from "@/lib/i18n/client";
 
 
 export const metadata = { title: "Enquiries & Calls" };
@@ -95,8 +96,8 @@ export default async function EnquiriesPage({ searchParams }: { searchParams: Se
     <div>
       <FoHead pageName="Enquiries & Calls" href={HREF} sub="Walk-in and phone enquiries go straight to Admission Management. Every call is logged."
         actions={desk ? <>
-          <ButtonLink href={addQ(sheetHref, { do: "call" })} scroll={false} variant="secondary" icon={PhoneCall}>Log a call</ButtonLink>
-          {admCreate && <ButtonLink href={addQ(sheetHref, { do: "enquiry" })} scroll={false} variant="primary" icon={Plus}>New enquiry</ButtonLink>}
+          <ButtonLink href={addQ(sheetHref, { do: "call" })} scroll={false} variant="secondary" icon={PhoneCall}><Words k="Log a call" /></ButtonLink>
+          {admCreate && <ButtonLink href={addQ(sheetHref, { do: "enquiry" })} scroll={false} variant="primary" icon={Plus}><Words k="New enquiry" /></ButtonLink>}
         </> : null} />
       <Stack>
         <Stats items={[
@@ -106,15 +107,15 @@ export default async function EnquiriesPage({ searchParams }: { searchParams: Se
           { label: "Complaints sent as queries", value: String(data.complaints), sub: "Last 7 days", icon: MessageSquare, href: qs(HREF, { view: "calls", purpose: "Complaint", period: "last7" }) },
         ]} />
         <SegLinks value={view} label="Enquiries, calls or walk-in requests" className="self-start max-w-full overflow-x-auto" options={[
-          { value: "enq", label: <><UserPlus size={16} aria-hidden="true" />Enquiry register</>, href: HREF },
-          { value: "calls", label: <><Phone size={16} aria-hidden="true" />Call log</>, href: qs(HREF, { view: "calls" }) },
-          { value: "requests", label: <><ClipboardList size={16} aria-hidden="true" />Walk-in requests</>, href: qs(HREF, { view: "requests" }) },
+          { value: "enq", label: <><UserPlus size={16} aria-hidden="true" /><Words k="Enquiry register" /></>, href: HREF },
+          { value: "calls", label: <><Phone size={16} aria-hidden="true" /><Words k="Call log" /></>, href: qs(HREF, { view: "calls" }) },
+          { value: "requests", label: <><ClipboardList size={16} aria-hidden="true" /><Words k="Walk-in requests" /></>, href: qs(HREF, { view: "requests" }) },
         ]} />
 
         {view === "enq" && (
           <Card className="overflow-hidden">
             <CardHeader title="Enquiries taken at the desk" description="The same records as Admission Management, Enquiries" icon={UserPlus}
-              action={admSee ? <ButtonLink href="/admission-management/enquiries" size="sm" variant="soft" icon={ExternalLink}>Open in Admissions</ButtonLink> : undefined} />
+              action={admSee ? <ButtonLink href="/admission-management/enquiries" size="sm" variant="soft" icon={ExternalLink}><Words k="Open in Admissions" /></ButtonLink> : undefined} />
             <Toolbar>
               <UrlSearch id="enq-search" placeholder={phones ? "Child, parent, phone or enquiry number" : "Child, parent or enquiry number"} />
               <PeriodFilter {...p.dates} fallback="last7" />
@@ -127,12 +128,12 @@ export default async function EnquiriesPage({ searchParams }: { searchParams: Se
                 { key: "parent", label: "Parent", render: (e) => <div><p className="leading-tight">{e.parentName}</p><p className="text-[12px] text-ink3 tnum">{phones ? showPhone(e.phone) : maskPhone(e.phone)}</p></div> },
                 { key: "cls", label: "Class wanted", nowrap: true, render: (e) => data.classes.find((c) => c.id === e.classId)?.name ?? <span className="text-ink3">—</span> },
                 { key: "src", label: "Source", render: (e) => <Pill tone={e.source === "phone" ? "info" : "brand"}>{SOURCE_WORDS[e.source] ?? e.source}</Pill> },
-                { key: "owner", label: "Owner", render: (e) => <span className="text-[13.5px]">{data.owners.find((o) => o.id === e.ownerStaffId)?.fullName ?? <span className="text-ink3">Not given yet</span>}</span> },
+                { key: "owner", label: "Owner", render: (e) => <span className="text-[13.5px]">{data.owners.find((o) => o.id === e.ownerStaffId)?.fullName ?? <span className="text-ink3"><Words k="Not given yet" /></span>}</span> },
                 { key: "next", label: "Next follow-up", render: (e) => (e.nextFollowUpAt ? <span className={cx("text-[13px]", dayOf(e.nextFollowUpAt) <= p.todayStr && "text-warn font-semibold")}>{dayOf(e.nextFollowUpAt) === p.todayStr ? `Today, ${clockAt(e.nextFollowUpAt, p.tz)}` : whenWords(e.nextFollowUpAt, p.tz, now)}</span> : <span className="text-ink3">—</span>) },
               ]}
               phone={(e) => ({ title: `${e.childName}${data.classes.find((c) => c.id === e.classId) ? ` · ${data.classes.find((c) => c.id === e.classId)!.name}` : ""}`, sub: `${e.parentName} · ${timeWords(e.createdAt)}`, avatar: e.childName, pills: <Pill tone={e.source === "phone" ? "info" : "brand"} className="!h-[22px] !text-[11.5px]">{SOURCE_WORDS[e.source] ?? e.source}</Pill> })}
-              empty={q ? <Empty icon={SearchX} title="No enquiry matches" body="Try the parent’s name or another date range." action={<ButtonLink href={HREF} variant="secondary">Clear filters</ButtonLink>} />
-                : <Empty icon={UserPlus} title="No desk enquiries on these dates" body="Walk-in and phone enquiries saved here go straight to Admissions with an owner." action={admCreate ? <ButtonLink href={addQ(sheetHref, { do: "enquiry" })} scroll={false} variant="secondary" icon={Plus}>New enquiry</ButtonLink> : undefined} />} />
+              empty={q ? <Empty icon={SearchX} title="No enquiry matches" body="Try the parent’s name or another date range." action={<ButtonLink href={HREF} variant="secondary"><Words k="Clear filters" /></ButtonLink>} />
+                : <Empty icon={UserPlus} title="No desk enquiries on these dates" body="Walk-in and phone enquiries saved here go straight to Admissions with an owner." action={admCreate ? <ButtonLink href={addQ(sheetHref, { do: "enquiry" })} scroll={false} variant="secondary" icon={Plus}><Words k="New enquiry" /></ButtonLink> : undefined} />} />
           </Card>
         )}
 
@@ -150,21 +151,21 @@ export default async function EnquiriesPage({ searchParams }: { searchParams: Se
                 { key: "t", label: "Time", nowrap: true, render: (c) => <span className="flex items-center gap-2 tnum text-[13.5px]"><span className={cx("w-7 h-7 rounded-lg grid place-items-center", c.direction === "IN" ? TONE_SOFT.info : TONE_SOFT.neutral)} aria-label={c.direction === "IN" ? "Incoming" : "Outgoing"}>{c.direction === "IN" ? <PhoneIncoming size={14} aria-hidden="true" /> : <PhoneOutgoing size={14} aria-hidden="true" />}</span>{timeWords(c.at)}</span> },
                 { key: "name", label: "Caller or person called", render: (c) => <div><p className="font-semibold leading-tight">{c.name}</p>{c.who && <p className="text-[12px] text-ink3">{c.who}</p>}</div> },
                 { key: "phone", label: "Phone", nowrap: true, render: (c) => <span className="tnum text-[13.5px]">{ph(c)}</span> },
-                { key: "purpose", label: "Purpose", render: (c) => <div className="max-w-[260px]"><p className="text-[13.5px] font-medium">{c.purpose}</p>{c.note && <p className="text-[12px] text-ink3">{c.note}</p>}{c.queryNo && c.queryId && <Link href={`/communication/queries/${c.queryId}`} className="relative z-[1] text-[12px] font-semibold text-brand hover:underline">Query {c.queryNo}</Link>}</div> },
+                { key: "purpose", label: "Purpose", render: (c) => <div className="max-w-[260px]"><p className="text-[13.5px] font-medium">{c.purpose}</p>{c.note && <p className="text-[12px] text-ink3">{c.note}</p>}{c.queryNo && c.queryId && <Link href={`/communication/queries/${c.queryId}`} className="relative z-[1] text-[12px] font-semibold text-brand hover:underline"><Words k="Query" /> {c.queryNo}</Link>}</div> },
                 { key: "fu", label: "Follow-up", render: (c) => (c.status === "FOLLOW_UP" && c.followUpAt ? <span className={cx("text-[13px] font-semibold", c.followUpAt <= now ? "text-bad" : "text-warn")}>{timeWords(c.followUpAt)}{c.followUpLoginId ? ` · ${loginName(c.followUpLoginId)}` : ""}</span> : <span className="text-ink3">—</span>) },
                 { key: "st", label: "Status", render: (c) => { const s = CALL_STATUS[c.status] ?? CALL_STATUS.CLOSED; return <Pill tone={s.tone}>{s.label}</Pill>; } },
                 { key: "act", label: "", render: (c) => (desk ? <RowMenu label={`Actions for the call with ${c.name}`} items={callItems(c, sheetHref, phones)} /> : null) },
               ]}
-              phone={(c) => ({ title: c.name, sub: `${timeWords(c.at)} · ${c.purpose} · ${ph(c)}`, icon: c.direction === "IN" ? PhoneIncoming : PhoneOutgoing, iconTone: c.direction === "IN" ? "info" : "neutral", right: desk ? <RowMenu label={`Actions for the call with ${c.name}`} items={callItems(c, sheetHref, phones)} /> : undefined, pills: c.status === "FOLLOW_UP" && c.followUpAt ? <Pill tone="warn" className="!h-[22px] !text-[11.5px]">Follow-up: {timeWords(c.followUpAt)}</Pill> : undefined })}
-              empty={q || purpose !== "all" ? <Empty icon={SearchX} title="No call matches" body="Try another name, purpose or date range." action={<ButtonLink href={qs(HREF, { view: "calls" })} variant="secondary">Clear filters</ButtonLink>} />
-                : <Empty icon={Phone} title="No calls logged on these dates" body="Log incoming and outgoing calls so nothing is forgotten." action={desk ? <ButtonLink href={addQ(sheetHref, { do: "call" })} scroll={false} variant="secondary" icon={PhoneCall}>Log a call</ButtonLink> : undefined} />} />
+              phone={(c) => ({ title: c.name, sub: `${timeWords(c.at)} · ${c.purpose} · ${ph(c)}`, icon: c.direction === "IN" ? PhoneIncoming : PhoneOutgoing, iconTone: c.direction === "IN" ? "info" : "neutral", right: desk ? <RowMenu label={`Actions for the call with ${c.name}`} items={callItems(c, sheetHref, phones)} /> : undefined, pills: c.status === "FOLLOW_UP" && c.followUpAt ? <Pill tone="warn" className="!h-[22px] !text-[11.5px]"><Words k="Follow-up:" /> {timeWords(c.followUpAt)}</Pill> : undefined })}
+              empty={q || purpose !== "all" ? <Empty icon={SearchX} title="No call matches" body="Try another name, purpose or date range." action={<ButtonLink href={qs(HREF, { view: "calls" })} variant="secondary"><Words k="Clear filters" /></ButtonLink>} />
+                : <Empty icon={Phone} title="No calls logged on these dates" body="Log incoming and outgoing calls so nothing is forgotten." action={desk ? <ButtonLink href={addQ(sheetHref, { do: "call" })} scroll={false} variant="secondary" icon={PhoneCall}><Words k="Log a call" /></ButtonLink> : undefined} />} />
           </Card>
         )}
 
         {view === "requests" && (
           <Card className="overflow-hidden">
             <CardHeader title="Walk-in requests" description="Each has a number the person can ask about. The status follows the department’s task." icon={ClipboardList}
-              action={desk ? <ButtonLink href={addQ(sheetHref, { do: "walkin" })} scroll={false} size="sm" variant="soft" icon={Plus}>New request</ButtonLink> : undefined} />
+              action={desk ? <ButtonLink href={addQ(sheetHref, { do: "walkin" })} scroll={false} size="sm" variant="soft" icon={Plus}><Words k="New request" /></ButtonLink> : undefined} />
             <Toolbar>
               <UrlSearch id="req-search" placeholder="Request number, like REQ-2026-0012, or name" />
               <PeriodFilter {...p.dates} fallback="last7" />
@@ -180,8 +181,8 @@ export default async function EnquiriesPage({ searchParams }: { searchParams: Se
                 { key: "act", label: "", render: (r) => !desk || requestStatus(r, data.tasks.find((t) => t.id === r.taskId)) === "DONE" ? null : <RowMenu label={`Actions for ${r.requestNo}`} items={[{ label: "Mark done", icon: "done", action: closeWalkInAction, fields: { requestId: r.id } }]} /> },
               ]}
               phone={(r) => { const s = REQUEST_STATUS[requestStatus(r, data.tasks.find((t) => t.id === r.taskId))] ?? REQUEST_STATUS.SENT; return { title: r.request, sub: `${r.requestNo} · ${r.fromName} · ${r.department}`, icon: ClipboardList, iconTone: s.tone, pills: <Pill tone={s.tone} className="!h-[22px] !text-[11.5px]">{s.label}</Pill> }; }}
-              empty={q ? <Empty icon={SearchX} title={`No request matches “${q}”`} body="Check the number on the person’s slip or message, or try a wider date range." action={<ButtonLink href={qs(HREF, { view: "requests", period: "last30" })} variant="secondary">Show the last 30 days</ButtonLink>} />
-                : <Empty icon={ClipboardList} title="No walk-in requests on these dates" body="A parent asking for a bonafide certificate or a fee statement gets a request number." action={desk ? <ButtonLink href={addQ(sheetHref, { do: "walkin" })} scroll={false} variant="secondary" icon={Plus}>Walk-in request</ButtonLink> : undefined} />} />
+              empty={q ? <Empty icon={SearchX} title={`No request matches “${q}”`} body="Check the number on the person’s slip or message, or try a wider date range." action={<ButtonLink href={qs(HREF, { view: "requests", period: "last30" })} variant="secondary"><Words k="Show the last 30 days" /></ButtonLink>} />
+                : <Empty icon={ClipboardList} title="No walk-in requests on these dates" body="A parent asking for a bonafide certificate or a fee statement gets a request number." action={desk ? <ButtonLink href={addQ(sheetHref, { do: "walkin" })} scroll={false} variant="secondary" icon={Plus}><Words k="Walk-in request" /></ButtonLink> : undefined} />} />
           </Card>
         )}
       </Stack>

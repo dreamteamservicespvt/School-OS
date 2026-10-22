@@ -21,6 +21,7 @@ import { HOSTEL_REPORT_LIST } from "@/lib/hostel/reports";
 import { isoOf } from "@/lib/hostel/words";
 import { HostelHead } from "../_components/head";
 import { BASE, hostelGuard, hostelPeriod, one, qs, type SearchParams } from "../_lib/page";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Hostel Reports · Hostel Management" };
 const SHOW = 100;
@@ -74,12 +75,12 @@ export default async function HostelReportsPage({ searchParams }: { searchParams
         ]} />
         <div className="grid gap-5 grid-cols-1 lg:grid-cols-2">
           <Card className="p-5">
-            <h2 className="font-semibold text-[15px] mb-3">Occupancy by hostel</h2>
-            {d.occ.rows.length ? <HBars labelWidth={110} valueWidth={72} rows={d.occ.rows.map((r) => ({ key: r.hostel.id, label: r.hostel.name, value: r.beds ? (r.taken / r.beds) * 100 : 0, text: `${r.taken} / ${r.beds}`, tone: r.free === 0 ? "warn" as const : "brand" as const }))} /> : <p className="text-[13.5px] text-ink3">No hostel yet.</p>}
+            <h2 className="font-semibold text-[15px] mb-3"><Words k="Occupancy by hostel" /></h2>
+            {d.occ.rows.length ? <HBars labelWidth={110} valueWidth={72} rows={d.occ.rows.map((r) => ({ key: r.hostel.id, label: r.hostel.name, value: r.beds ? (r.taken / r.beds) * 100 : 0, text: `${r.taken} / ${r.beds}`, tone: r.free === 0 ? "warn" as const : "brand" as const }))} /> : <p className="text-[13.5px] text-ink3"><Words k="No hostel yet." /></p>}
           </Card>
           <Card className="p-5">
-            <h2 className="font-semibold text-[15px] mb-3">Roll call absences by day</h2>
-            {days.length ? <BarsChart ariaLabel="Roll call absences by day" data={days.map(([k, v]) => ({ k: `${Number(k.slice(8))} ${MONTHS[Number(k.slice(5, 7)) - 1]}`, v }))} /> : <p className="text-[13.5px] text-ink3">No roll calls on these dates.</p>}
+            <h2 className="font-semibold text-[15px] mb-3"><Words k="Roll call absences by day" /></h2>
+            {days.length ? <BarsChart ariaLabel="Roll call absences by day" data={days.map(([k, v]) => ({ k: `${Number(k.slice(8))} ${MONTHS[Number(k.slice(5, 7)) - 1]}`, v }))} /> : <p className="text-[13.5px] text-ink3"><Words k="No roll calls on these dates." /></p>}
           </Card>
         </div>
 
@@ -110,7 +111,7 @@ export default async function HostelReportsPage({ searchParams }: { searchParams
                 <SimpleTable caption={report.name} minWidth={Math.max(560, t.columns.length * 120)} rows={[...t.rows.slice(0, SHOW)]}
                   cols={t.columns.map((c) => ({ label: c.label, right: c.kind === "number" || c.kind === "money" || c.kind === "percent", render: (row: Record<string, unknown>) => cellText(row[c.key] as never, c.kind) }))}
                   foot={t.totals && t.rows.length <= SHOW ? t.columns.map((c) => cellText(t.totals![c.key], c.kind)) : undefined} />
-                {t.rows.length > SHOW && <p className="px-5 py-3 border-t border-line text-[13px] text-ink3">Showing the first {SHOW} of {t.rows.length.toLocaleString("en-IN")} rows. Export the report for all of them.</p>}
+                {t.rows.length > SHOW && <p className="px-5 py-3 border-t border-line text-[13px] text-ink3"><Words k="Showing the first" /> {SHOW} <Words k="of" /> {t.rows.length.toLocaleString("en-IN")} <Words k="rows. Export the report for all of them." /></p>}
               </>
             ) : <Empty icon={FileBarChart} title={t.empty ?? "Nothing matches"} />}
             {t.note && <p className="px-5 py-3 border-t border-line text-[13px] text-ink2">{t.note}</p>}

@@ -5,6 +5,7 @@ import { PLACES } from "@/lib/imports/places";
 import { ImportHome } from "@/components/import/import-home";
 import { LibHead } from "../../_components/head";
 import { BASE, libGuard } from "../../_lib/page";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Import books · Library Management" };
 
@@ -18,7 +19,7 @@ export default async function ImportBooksPage() {
   if (!p.can.catalogue) redirect(`${BASE}/books`);
   return (
     <>
-      <LibHead pageName="Import books" href={`${BASE}/books/import`} mode={p.mode} sub={<Link href={`${BASE}/books`} className="hover:underline">Books</Link>} />
+      <LibHead pageName="Import books" href={`${BASE}/books/import`} mode={p.mode} sub={<Link href={`${BASE}/books`} className="hover:underline"><Words k="Books" /></Link>} />
       <ImportHome current={p.current} place={PLACES.library} about={ABOUT} />
     </>
   );

@@ -27,6 +27,7 @@ import { ArchiveItemSheet, ItemSheet, StockInSheet, StockOutSheet, TransferSheet
 import { BASE, invGuard, invPeriod, one, qs, UUID, type SearchParams } from "../../_lib/page";
 import { whoNames } from "../../_lib/lists";
 import { restoreItemAction } from "../../actions";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Item · Inventory Management" };
 const day = (d: Date) => formatDate(d, "UTC");
@@ -79,16 +80,16 @@ export default async function ItemPage({ params, searchParams }: { params: Promi
           { label: "Transfer between stores", href: href({ open: "transfer" }), icon: <ArrowLeftRight size={16} aria-hidden="true" /> },
           { label: "Archive item", href: href({ open: "archive" }), tone: "bad" },
         ]} />
-        <ButtonLink href={href({ open: "in" })} variant="primary" icon={PackagePlus} scroll={false}>Stock in</ButtonLink>
+        <ButtonLink href={href({ open: "in" })} variant="primary" icon={PackagePlus} scroll={false}><Words k="Stock in" /></ButtonLink>
       </div>
     )
   ) : undefined;
 
   return (
     <>
-      <InvHead pageName={itemLabel(item)} href={self} mode={p.mode} actions={actions} sub={<><Link href={`${BASE}/items`} className="hover:underline">Items & Stock</Link> · <span className="font-mono">{item.code}</span></>} />
+      <InvHead pageName={itemLabel(item)} href={self} mode={p.mode} actions={actions} sub={<><Link href={`${BASE}/items`} className="hover:underline"><Words k={"Items & Stock"} /></Link> · <span className="font-mono">{item.code}</span></>} />
       <Stack>
-        {archived && <Banner tone="info" title="Archived">This item is archived. Its history stays; its code is never given again.</Banner>}
+        {archived && <Banner tone="info" title="Archived"><Words k="This item is archived. Its history stays; its code is never given again." /></Banner>}
         <Stats items={[
           { label: "In stock", value: qtyWords(total, item.unit), tone: state === "OUT" ? "bad" : state === "LOW" ? "warn" : undefined },
           { label: "Reorder level", value: reorder ? reorder.toLocaleString("en-IN") : "None", sub: item.reorderLevel === null ? "From the category" : "This item's own" },
@@ -123,7 +124,7 @@ export default async function ItemPage({ params, searchParams }: { params: Promi
             {item.tracksExpiry && (
               <Card>
                 <CardHeader title="Batches" description="Oldest expiry is issued first. Expired stock cannot be issued." divided />
-                {d.batches.length === 0 ? <p className="px-5 py-4 text-[13.5px] text-ink3">No stock in any batch.</p> : (
+                {d.batches.length === 0 ? <p className="px-5 py-4 text-[13.5px] text-ink3"><Words k="No stock in any batch." /></p> : (
                   <SimpleTable caption="Batches" rows={d.batches} rowKey={(b) => b.id} minWidth={300} cols={[
                     { label: "Batch", render: (b) => <span className="font-mono">{b.batchNo}</span> },
                     { label: "Store", render: (b) => storeName.get(b.locationId) ?? "" },

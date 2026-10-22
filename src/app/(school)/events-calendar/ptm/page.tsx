@@ -21,6 +21,7 @@ import { ActButton } from "../_components/bits";
 import { BookSlotSheet, CancelPtmSheet, MeetingSheet, PlanPtmSheet, type BookPick, type MeetingView } from "../_components/ptm-sheets";
 import { cancelBookingAction, queueAction, summaryAction } from "../actions";
 import { BASE, UUID, evGuard, evPeriod, one, qs, type SearchParams } from "../_lib/page";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata = { title: "PTM" };
 
@@ -113,7 +114,7 @@ export default async function PtmPage({ searchParams }: { searchParams: SearchPa
   const sub = p.can.own
     ? `Only your own PTM slots and notes. ${byParents ? "Parents book a slot on Parent Link; the office can book for them." : "The office books slots for parents who call or come in."}`
     : `Parent–teacher meetings: slots per teacher, booked ${byParents ? "by parents on Parent Link or by the office" : "by the office for parents"}, with notes.`;
-  const head = <EvHead pageName="PTM" href={HREF} sub={sub} actions={plan && <ButtonLink href={here({ do: "plan" })} scroll={false} variant="primary" icon={Plus}>Plan a PTM</ButtonLink>} />;
+  const head = <EvHead pageName="PTM" href={HREF} sub={sub} actions={plan && <ButtonLink href={here({ do: "plan" })} scroll={false} variant="primary" icon={Plus}><Words k="Plan a PTM" /></ButtonLink>} />;
   const planSheet = plan && doing === "plan" ? await (async () => {
     const cls = await classOptions();
     const group = (label: string, test: (n: string) => boolean) => ({ label, ids: cls.filter((c) => test(c.name)).map((c) => c.id) });
@@ -133,7 +134,7 @@ export default async function PtmPage({ searchParams }: { searchParams: SearchPa
         {head}
         <Stack>
           <div className="flex"><PeriodFilter {...p.dates} fallback="acyear" ahead /></div>
-          <Card><Empty icon={CalendarX2} title="No PTM in these dates" body="Pick other dates to see earlier or later PTMs." action={<ButtonLink variant="secondary" href={HREF}>This academic year</ButtonLink>} /></Card>
+          <Card><Empty icon={CalendarX2} title="No PTM in these dates" body="Pick other dates to see earlier or later PTMs." action={<ButtonLink variant="secondary" href={HREF}><Words k="This academic year" /></ButtonLink>} /></Card>
         </Stack>
         {planSheet}
       </div>
@@ -212,7 +213,7 @@ export default async function PtmPage({ searchParams }: { searchParams: SearchPa
       <Stack>
         <div className="flex flex-col md:flex-row md:items-center gap-2.5">
           <PeriodFilter {...p.dates} fallback="acyear" ahead />
-          <p className="text-[13px] text-ink3">Showing: {vp.label} · {d.ptms.length} {d.ptms.length === 1 ? "PTM day" : "PTM days"}</p>
+          <p className="text-[13px] text-ink3"><Words k="Showing:" /> {vp.label} · {d.ptms.length} {d.ptms.length === 1 ? "PTM day" : "PTM days"}</p>
         </div>
         <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
           {d.ptms.map((x) => {
@@ -227,9 +228,9 @@ export default async function PtmPage({ searchParams }: { searchParams: SearchPa
                 <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1"><p className="font-display font-semibold text-[15px] md:text-[18px] leading-tight whitespace-nowrap">{shortDay(isoOf(x.date))}</p><Pill tone={PTM_STATUS_TONE[st]} className="!h-[22px] !text-[11px]">{st}</Pill></div>
                 <p className="text-[12.5px] text-ink3 mt-1">{x.classesLabel} · {clock(x.startMin)} – {clock(x.endMin)}</p>
                 {p.can.own ? (mine.length ? (
-                  <><p className="text-[13px] mt-2 tnum"><b className="font-semibold">{mine.filter((m) => m.studentId).length}</b><span className="text-ink3"> of {mine.length} of your slots booked</span></p><Progress value={(mine.filter((m) => m.studentId).length / mine.length) * 100} className="mt-1.5" /></>
-                ) : <p className="text-[13px] mt-2 text-ink3">No slots for you</p>) : (
-                  <><p className="text-[13px] mt-2 tnum"><b className="font-semibold">{b}</b><span className="text-ink3"> of {total} slots {st === "Done" ? `· ${d.met.get(x.id) ?? 0} met` : "booked"}</span></p>
+                  <><p className="text-[13px] mt-2 tnum"><b className="font-semibold">{mine.filter((m) => m.studentId).length}</b><span className="text-ink3"> <Words k="of" /> {mine.length} <Words k="of your slots booked" /></span></p><Progress value={(mine.filter((m) => m.studentId).length / mine.length) * 100} className="mt-1.5" /></>
+                ) : <p className="text-[13px] mt-2 text-ink3"><Words k="No slots for you" /></p>) : (
+                  <><p className="text-[13px] mt-2 tnum"><b className="font-semibold">{b}</b><span className="text-ink3"> <Words k="of" /> {total} <Words k="slots" /> {st === "Done" ? `· ${d.met.get(x.id) ?? 0} met` : "booked"}</span></p>
                     <Progress value={total ? (b / total) * 100 : 0} className="mt-1.5" tone={st === "Done" ? "ok" : "brand"} /></>
                 )}
               </Link>
@@ -245,14 +246,14 @@ export default async function PtmPage({ searchParams }: { searchParams: SearchPa
         )}
         {status === "Done" && full && (
           <Banner tone="info" title={`Held on ${niceDay(iso)}: ${d.met.get(D.id) ?? 0} of ${d.booked.get(D.id) ?? 0} booked parents came.`}
-            action={plan && (D.summarySentAt ? <Pill tone="ok">Summary sent {dmy(isoOf(D.summarySentAt))}</Pill> : d.absent.length ? <ActButton action={summaryAction} fields={{ ptmId: D.id }} icon="Send" label={`Send summary to ${d.absent.length} absent`} /> : null)}>
-            Notes are on each student’s profile, Activities tab.
+            action={plan && (D.summarySentAt ? <Pill tone="ok"><Words k="Summary sent" /> {dmy(isoOf(D.summarySentAt))}</Pill> : d.absent.length ? <ActButton action={summaryAction} fields={{ ptmId: D.id }} icon="Send" label={`Send summary to ${d.absent.length} absent`} /> : null)}>
+            <Words k="Notes are on each student’s profile, Activities tab." />
           </Banner>
         )}
         {status === "Booking open" && full && (
           <Banner tone="info" title={`Booking is open for ${shortDay(iso)}.`}
             action={plan && <MoreMenu label="More PTM actions" items={[{ label: "Cancel this PTM", href: here({ do: "cancel" }), icon: <X size={16} aria-hidden="true" />, tone: "bad" }]} />}>
-            {d.teachers.length} teachers, {D.slotMinutes}-minute slots. {byParents ? "Parents book on Parent Link until the day before; the office can book for them. " : ""}Parents get a confirmation when booked and a reminder the day before.
+            {d.teachers.length} <Words k="teachers," /> {D.slotMinutes}<Words k="-minute slots." /> {byParents ? "Parents book on Parent Link until the day before; the office can book for them. " : ""}<Words k="Parents get a confirmation when booked and a reminder the day before." />
           </Banner>
         )}
 
@@ -263,10 +264,10 @@ export default async function PtmPage({ searchParams }: { searchParams: SearchPa
               action={<Legend items={[["bg-brand/15", "Booked"], ["bg-ok/15", "Notes saved"], ["bg-sunken border border-line", "Free"]]} />} />
             <div className="overflow-x-auto scroll-thin border-t border-line">
               <table className="text-[12.5px] min-w-full">
-                <caption className="sr-only">Teacher slots</caption>
+                <caption className="sr-only"><Words k="Teacher slots" /></caption>
                 <thead>
                   <tr className="border-b border-line text-ink3">
-                    <th scope="col" className="sticky left-0 z-10 bg-surface text-left font-semibold px-4 py-2 min-w-[170px]">Teacher</th>
+                    <th scope="col" className="sticky left-0 z-10 bg-surface text-left font-semibold px-4 py-2 min-w-[170px]"><Words k="Teacher" /></th>
                     {times.map((t) => <th scope="col" key={t} className="font-semibold px-1 py-2 tnum whitespace-nowrap min-w-[96px]">{brk && t === brk.from ? "Break" : clockShort(t)}</th>)}
                   </tr>
                 </thead>
@@ -304,7 +305,7 @@ export default async function PtmPage({ searchParams }: { searchParams: SearchPa
                 </tbody>
               </table>
             </div>
-            <p className="px-5 py-3 text-[12.5px] text-ink3 border-t border-line">One parent per slot. The % on a booked slot is the student’s homework done this year. Parents get a confirmation and a reminder the evening before{byParents ? ", and can change or cancel on Parent Link until the day before" : ""}. {d.teachers.length} teachers.</p>
+            <p className="px-5 py-3 text-[12.5px] text-ink3 border-t border-line"><Words k="One parent per slot. The % on a booked slot is the student’s homework done this year. Parents get a confirmation and a reminder the evening before" />{byParents ? ", and can change or cancel on Parent Link until the day before" : ""}. {d.teachers.length} <Words k="teachers." /></p>
           </Card>
         )}
 
@@ -316,23 +317,23 @@ export default async function PtmPage({ searchParams }: { searchParams: SearchPa
                 const done = noted.has(c.id);
                 const breakHere = brk && c.startMin > brk.from && (i === 0 || mineList[i - 1].startMin < brk.from);
                 return (<Fragment key={c.id}>
-                  {breakHere && <li className="px-3 py-2 text-[12.5px] text-ink3 font-semibold border-t border-line/70 tnum">{clock(brk.from)} – {clock(brk.to)} · Break</li>}
+                  {breakHere && <li className="px-3 py-2 text-[12.5px] text-ink3 font-semibold border-t border-line/70 tnum">{clock(brk.from)} – {clock(brk.to)} <Words k="· Break" /></li>}
                   <li key={c.id} className="border-t border-line/70 first:border-0">
                     <div className="flex items-center gap-3 px-3 py-2.5">
                       <span className="w-14 text-[13px] font-semibold tnum text-ink2 shrink-0">{clockShort(c.startMin)}</span>
-                      {!c.studentId ? <span className="flex-1 text-[13.5px] text-ink3">Free</span> : (
+                      {!c.studentId ? <span className="flex-1 text-[13.5px] text-ink3"><Words k="Free" /></span> : (
                         <>
                           <Avatar name={student(c.studentId)?.fullName ?? "Student"} size={32} />
                           <div className="min-w-0 flex-1">
                             <p className="font-semibold text-[14px] truncate">{parentOf(c)}</p>
-                            <p className="text-[12px] text-ink3 truncate">Parent of {student(c.studentId)?.fullName} · {d.places.get(c.studentId)?.label}{c.bookedVia === "parent-link" ? " · booked on Parent Link" : ""}</p>
+                            <p className="text-[12px] text-ink3 truncate"><Words k="Parent of" /> {student(c.studentId)?.fullName} · {d.places.get(c.studentId)?.label}{c.bookedVia === "parent-link" ? " · booked on Parent Link" : ""}</p>
                             <p className="text-[12px] text-ink2 tnum">{hw(c.studentId) != null ? `Homework ${hw(c.studentId)}% done this year` : "No homework given yet"}</p>
                           </div>
-                          {done ? <Pill tone="ok">Notes saved</Pill> : c.arrivedAt ? <Pill tone="brand">Arrived</Pill> : null}
+                          {done ? <Pill tone="ok"><Words k="Notes saved" /></Pill> : c.arrivedAt ? <Pill tone="brand"><Words k="Arrived" /></Pill> : null}
                         </>
                       )}
-                      {!c.studentId ? (bookable ? <ButtonLink size="sm" variant="ghost" icon={Plus} href={here({ do: "book", slot: c.id })} scroll={false}>Book</ButtonLink> : null)
-                        : <ButtonLink size="sm" variant="secondary" href={here({ do: "meet", slot: c.id })} scroll={false}>Open</ButtonLink>}
+                      {!c.studentId ? (bookable ? <ButtonLink size="sm" variant="ghost" icon={Plus} href={here({ do: "book", slot: c.id })} scroll={false}><Words k="Book" /></ButtonLink> : null)
+                        : <ButtonLink size="sm" variant="secondary" href={here({ do: "meet", slot: c.id })} scroll={false}><Words k="Open" /></ButtonLink>}
                     </div>
                   </li>
                 </Fragment>);

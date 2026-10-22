@@ -17,6 +17,7 @@ import { COPY_STATUS, plural, type CopyStatus } from "@/lib/library/words";
 import { LibHead } from "../../../_components/head";
 import { BASE, libGuard, UUID } from "../../../_lib/page";
 import { CloseStockButton, MarkLostButton, StockScanner } from "./stock-client";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Stock check · Library Management" };
 
@@ -48,7 +49,7 @@ export default async function StockCheckPage({ params }: { params: Promise<{ id:
 
   return (
     <>
-      <LibHead pageName={session.name} href={`${base}/stock/${id}`} mode={p.mode} sub={<Link href={`${base}?view=stock`} className="hover:underline">Stock check</Link>}
+      <LibHead pageName={session.name} href={`${base}/stock/${id}`} mode={p.mode} sub={<Link href={`${base}?view=stock`} className="hover:underline"><Words k="Stock check" /></Link>}
         actions={can.fines && open && d.progress ? <CloseStockButton sessionId={id} notScanned={d.progress.notScanned} /> : undefined} />
       <Stack>
         {open && d.progress ? (
@@ -64,12 +65,12 @@ export default async function StockCheckPage({ params }: { params: Promise<{ id:
               <Col>
                 {can.fines ? (
                   <Card className="p-4 md:p-5 flex flex-col gap-3">
-                    <h2 className="font-semibold text-[15px]">Scan the shelves</h2>
-                    <p className="text-[13.5px] text-ink3">Go shelf by shelf. Each copy counts once; scanning it again does nothing. Issued books are out with members and are not expected.</p>
+                    <h2 className="font-semibold text-[15px]"><Words k="Scan the shelves" /></h2>
+                    <p className="text-[13.5px] text-ink3"><Words k="Go shelf by shelf. Each copy counts once; scanning it again does nothing. Issued books are out with members and are not expected." /></p>
                     <StockScanner sessionId={id} />
                   </Card>
                 ) : (
-                  <Card className="p-5 text-[14px] text-ink2">The librarian is scanning the shelves. The result shows here when the check is closed.</Card>
+                  <Card className="p-5 text-[14px] text-ink2"><Words k="The librarian is scanning the shelves. The result shows here when the check is closed." /></Card>
                 )}
               </Col>
               <Col>
@@ -85,7 +86,7 @@ export default async function StockCheckPage({ params }: { params: Promise<{ id:
               { label: "Missing", value: (session.missing ?? 0).toLocaleString("en-IN"), tone: session.missing ? "bad" : "ok" },
               { label: "Extra", value: (session.extra ?? 0).toLocaleString("en-IN") },
             ]} />
-            <p className="text-[13px] text-ink3">Started {formatDateTime(session.startedAt, tz)}{session.closedAt ? ` · closed ${formatDateTime(session.closedAt, tz)}` : ""}{session.lostMarkedAt ? ` · missing copies marked lost ${formatDateTime(session.lostMarkedAt, tz)}` : ""}.</p>
+            <p className="text-[13px] text-ink3"><Words k="Started" /> {formatDateTime(session.startedAt, tz)}{session.closedAt ? ` · closed ${formatDateTime(session.closedAt, tz)}` : ""}{session.lostMarkedAt ? ` · missing copies marked lost ${formatDateTime(session.lostMarkedAt, tz)}` : ""}.</p>
             <Split>
               <Col>
                 <Card>
@@ -128,7 +129,7 @@ function ScanList({ scans, title, empty = "Nothing scanned yet.", icon }: { scan
               <li key={x.id} className="flex items-center gap-3 px-4 py-2.5">
                 <span className="font-mono text-[13px] font-semibold shrink-0">{x.code}</span>
                 <span className="min-w-0 flex-1 truncate text-[13.5px] text-ink2">{x.copy ? x.copy.book.title : "Not in the catalogue"}</span>
-                {st && !ON_SHELF.includes(x.copy!.status as CopyStatus) ? <Pill tone={st.tone}>{st.label}</Pill> : !x.copy ? <Pill tone="warn">Unknown</Pill> : null}
+                {st && !ON_SHELF.includes(x.copy!.status as CopyStatus) ? <Pill tone={st.tone}>{st.label}</Pill> : !x.copy ? <Pill tone="warn"><Words k="Unknown" /></Pill> : null}
               </li>
             );
           })}

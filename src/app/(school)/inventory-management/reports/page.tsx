@@ -24,6 +24,7 @@ import { MOVE_KIND, stockState } from "@/lib/inventory/words";
 import { InvHead } from "../_components/head";
 import { BASE, invGuard, invPeriod, one, qs, type SearchParams } from "../_lib/page";
 import { readReportFilter, STORE_REPORTS } from "../_lib/reports";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Inventory Reports · Inventory Management" };
 const SHOW = 100;
@@ -91,12 +92,12 @@ export default async function InventoryReportsPage({ searchParams }: { searchPar
         ]} />
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           <Card className="p-5">
-            <h2 className="font-semibold text-[15px] mb-3">Stock value by category</h2>
-            {d.byCat.length ? <HBars labelWidth={110} valueWidth={96} rows={d.byCat.slice(0, 8).map((c) => ({ key: c.id, label: c.name, value: (Number(c.value / BigInt(100)) / maxCat) * 100, text: formatRupees(c.value) }))} /> : <p className="text-[13.5px] text-ink3">No stock in hand.</p>}
+            <h2 className="font-semibold text-[15px] mb-3"><Words k="Stock value by category" /></h2>
+            {d.byCat.length ? <HBars labelWidth={110} valueWidth={96} rows={d.byCat.slice(0, 8).map((c) => ({ key: c.id, label: c.name, value: (Number(c.value / BigInt(100)) / maxCat) * 100, text: formatRupees(c.value) }))} /> : <p className="text-[13.5px] text-ink3"><Words k="No stock in hand." /></p>}
           </Card>
           <Card className="p-5">
-            <h2 className="font-semibold text-[15px] mb-3">Stock movements · {per.label}</h2>
-            {moveRows.length ? <HBars labelWidth={110} valueWidth={56} rows={moveRows.map((m) => ({ key: m.kind, label: MOVE_KIND[m.kind].label, value: (m.count / maxMove) * 100, text: m.count.toLocaleString("en-IN"), tone: ["DAMAGED", "LOST", "EXPIRED"].includes(m.kind) ? "bad" as const : "brand" as const }))} /> : <p className="text-[13.5px] text-ink3">No stock moved on these dates.</p>}
+            <h2 className="font-semibold text-[15px] mb-3"><Words k="Stock movements ·" /> {per.label}</h2>
+            {moveRows.length ? <HBars labelWidth={110} valueWidth={56} rows={moveRows.map((m) => ({ key: m.kind, label: MOVE_KIND[m.kind].label, value: (m.count / maxMove) * 100, text: m.count.toLocaleString("en-IN"), tone: ["DAMAGED", "LOST", "EXPIRED"].includes(m.kind) ? "bad" as const : "brand" as const }))} /> : <p className="text-[13.5px] text-ink3"><Words k="No stock moved on these dates." /></p>}
           </Card>
         </div>
 
@@ -127,7 +128,7 @@ export default async function InventoryReportsPage({ searchParams }: { searchPar
                 <SimpleTable caption={r.report.name} minWidth={Math.max(560, t.columns.length * 120)} rows={[...t.rows.slice(0, SHOW)]}
                   cols={t.columns.map((c) => ({ label: c.label, right: c.kind === "number" || c.kind === "money" || c.kind === "percent", render: (row: Record<string, unknown>) => cellText(row[c.key] as never, c.kind) }))}
                   foot={t.totals && t.rows.length <= SHOW ? t.columns.map((c) => cellText(t.totals![c.key], c.kind)) : undefined} />
-                {t.rows.length > SHOW && <p className="px-5 py-3 border-t border-line text-[13px] text-ink3">Showing the first {SHOW} of {t.rows.length.toLocaleString("en-IN")} rows. Export the report for all of them.</p>}
+                {t.rows.length > SHOW && <p className="px-5 py-3 border-t border-line text-[13px] text-ink3"><Words k="Showing the first" /> {SHOW} <Words k="of" /> {t.rows.length.toLocaleString("en-IN")} <Words k="rows. Export the report for all of them." /></p>}
               </>
             ) : <Empty icon={FileBarChart} title={t.empty ?? "Nothing matches"} />}
             {t.note && <p className="px-5 py-3 border-t border-line text-[13px] text-ink2">{t.note}</p>}

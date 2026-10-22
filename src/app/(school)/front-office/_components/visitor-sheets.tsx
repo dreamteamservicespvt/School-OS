@@ -18,6 +18,7 @@ import type { ReturningVisitor } from "@/lib/front-office/visitors";
 import { checkOutAction, gateEntryAction, lookupVisitor, registerVisitorAction } from "../actions";
 import { CameraBox, PhoneBox, SegField, useCanScanQr } from "./fields";
 import { KeepSelect } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 export type MeetChoice = { id: string; name: string; role: string; now: string; tone: "ok" | "warn" | "bad" };
 const TONE = { ok: "text-ok", warn: "text-warn", bad: "text-bad" } as const;
@@ -89,7 +90,7 @@ function VisitorFields({ purposes, staff, photoRequired, idRequired, preset }: {
               {purposes.map((p) => <option key={p} value={p}>{p}</option>)}
             </KeepSelect>
           </FieldShell>
-          {why === "Admission enquiry" && <Banner tone="info" title="The enquiry form opens next,">so the details reach Admissions with an owner and a follow-up.</Banner>}
+          {why === "Admission enquiry" && <Banner tone="info" title="The enquiry form opens next,"><Words k="so the details reach Admissions with an owner and a follow-up." /></Banner>}
           <FieldShell label="Person to meet" id="vs-meet" required={needMeet} error={meet.error}
             help={m ? <span className={cx("font-semibold", TONE[m.tone])}>{m.now}</span> : "Shows if they are on leave or teaching now"}>
             <KeepSelect id="vs-meet" name="meetStaffId" value={meetId} onChange={(e) => setMeetId(e.target.value)} className={cx(inputCls(meet.error), "h-11")} aria-invalid={meet.error ? true : undefined}>
@@ -97,7 +98,7 @@ function VisitorFields({ purposes, staff, photoRequired, idRequired, preset }: {
               {staff.map((s) => <option key={s.id} value={s.id}>{s.name} · {s.role}</option>)}
             </KeepSelect>
           </FieldShell>
-          {m?.tone === "bad" && <p className="text-[12.5px] text-bad flex items-center gap-1.5" role="alert"><CircleAlert size={14} aria-hidden="true" />{m.name} is not in today ({m.now.toLowerCase()}). Book an appointment instead, or choose someone else.</p>}
+          {m?.tone === "bad" && <p className="text-[12.5px] text-bad flex items-center gap-1.5" role="alert"><CircleAlert size={14} aria-hidden="true" />{m.name} <Words k="is not in today (" />{m.now.toLowerCase()}<Words k="). Book an appointment instead, or choose someone else." /></p>}
           {preset?.note && <input type="hidden" name="note" value={preset.note} />}
         </div>
         <div className="flex flex-col gap-4 min-w-0">
@@ -107,7 +108,7 @@ function VisitorFields({ purposes, staff, photoRequired, idRequired, preset }: {
       </div>
       <details className="group rounded-xl border border-line" open={openMore}>
         <summary className="list-none cursor-pointer flex items-center justify-between px-4 h-11 text-[14px] font-semibold text-ink2">
-          More details: ID proof and vehicle<ChevronDown size={16} className="group-open:rotate-180 transition" aria-hidden="true" />
+          <Words k="More details: ID proof and vehicle" /><ChevronDown size={16} className="group-open:rotate-180 transition" aria-hidden="true" />
         </summary>
         <div className="px-4 pb-4 flex flex-col gap-4">
           <div className="grid grid-cols-[140px_1fr] gap-3">
@@ -155,7 +156,7 @@ function TimeField({ start }: { start: string }) {
 function TimeLabel({ start }: { start: string }) {
   const [v, setV] = useState(shared || start);
   useEffect(() => { listeners.add(setV); return () => { listeners.delete(setV); }; }, []);
-  return <>Check out at {ampm(v) || "…"}</>;
+  return <><Words k="Check out at" /> {ampm(v) || "…"}</>;
 }
 
 const GATE_OPTIONS = [{ value: "vehicle", label: "Vehicle" }, { value: "school-bus", label: "School bus" }, { value: "delivery", label: "Delivery" }, { value: "person", label: "Person" }];
@@ -228,13 +229,13 @@ export function PassCheckForm({ base, code }: { base: string; code: string }) {
         {!scanning && (
           <div className="flex flex-col items-center gap-1.5 text-ink3 text-[13px]">
             <ScanLine size={28} aria-hidden="true" />{busy ? "Reading…" : canScan ? "Hold the QR inside the frame" : "Type the pass number below"}
-            {canScan && <Button size="sm" variant="secondary" onClick={() => setScanning(true)}>Use the camera</Button>}
+            {canScan && <Button size="sm" variant="secondary" onClick={() => setScanning(true)}><Words k="Use the camera" /></Button>}
           </div>
         )}
       </div>
       <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); go(String(new FormData(e.currentTarget).get("code") ?? "")); }}>
         <input name="code" defaultValue={code} placeholder="V-0246 or GP-2026-0190" className={cx(inputCls(false), "h-11 font-mono uppercase")} aria-label="Pass number" autoComplete="off" />
-        <Button type="submit" variant="primary" loading={busy}>Check</Button>
+        <Button type="submit" variant="primary" loading={busy}><Words k="Check" /></Button>
       </form>
     </div>
   );

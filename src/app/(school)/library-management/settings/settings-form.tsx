@@ -16,6 +16,7 @@ import { Alert } from "@/components/ui/alert";
 import { cx } from "@/components/ui/cx";
 import type { FormState } from "@/lib/forms";
 import { saveSettingsAction } from "../actions";
+import { Words } from "@/lib/i18n/client";
 
 export type SettingsStart = {
   rules: { level: string; books: number; loanDays: number }[];
@@ -89,23 +90,23 @@ export function SettingsForm({ start, readOnly }: { start: SettingsStart; readOn
         <CardHeader title="Borrowing limits and loan days" description="Books at a time and days per loan. A category's own loan days come first." divided />
         <div className="overflow-x-auto scroll-thin">
           <table className="w-full text-[14px] min-w-[420px]">
-            <caption className="sr-only">Borrowing limits by member type</caption>
-            <thead><tr className="text-[12px] text-ink3 border-b border-line text-left"><th scope="col" className="px-5 py-2.5 font-semibold">Members</th><th scope="col" className="px-3 py-2.5 font-semibold">Books at a time</th><th scope="col" className="px-3 py-2.5 font-semibold">Loan days</th></tr></thead>
+            <caption className="sr-only"><Words k="Borrowing limits by member type" /></caption>
+            <thead><tr className="text-[12px] text-ink3 border-b border-line text-left"><th scope="col" className="px-5 py-2.5 font-semibold"><Words k="Members" /></th><th scope="col" className="px-3 py-2.5 font-semibold"><Words k="Books at a time" /></th><th scope="col" className="px-3 py-2.5 font-semibold"><Words k="Loan days" /></th></tr></thead>
             <tbody className="divide-y divide-line/70">
               {start.rules.map((r) => (
                 <tr key={r.level}>
-                  <th scope="row" className="px-5 py-2.5 font-semibold text-left">{r.level} classes</th>
+                  <th scope="row" className="px-5 py-2.5 font-semibold text-left">{r.level} <Words k="classes" /></th>
                   <td className="px-3 py-2"><Num name={`books-${r.level}`} label={`Books for ${r.level}`} start={r.books} max={30} width="w-20" /></td>
                   <td className="px-3 py-2"><Num name={`days-${r.level}`} label={`Loan days for ${r.level}`} start={r.loanDays} min={1} max={180} width="w-20" /></td>
                 </tr>
               ))}
               <tr>
-                <th scope="row" className="px-5 py-2.5 font-semibold text-left">Other students<span className="block text-[12px] text-ink3 font-normal">Classes with no group</span></th>
+                <th scope="row" className="px-5 py-2.5 font-semibold text-left"><Words k="Other students" /><span className="block text-[12px] text-ink3 font-normal"><Words k="Classes with no group" /></span></th>
                 <td className="px-3 py-2"><Num name="studentBooks" label="Books for other students" start={start.studentBooks} max={30} width="w-20" /></td>
                 <td className="px-3 py-2"><Num name="studentLoanDays" label="Loan days for other students" start={start.studentLoanDays} min={1} max={180} width="w-20" /></td>
               </tr>
               <tr>
-                <th scope="row" className="px-5 py-2.5 font-semibold text-left">Staff</th>
+                <th scope="row" className="px-5 py-2.5 font-semibold text-left"><Words k="Staff" /></th>
                 <td className="px-3 py-2"><Num name="staffBooks" label="Books for staff" start={start.staffBooks} max={30} width="w-20" /></td>
                 <td className="px-3 py-2"><Num name="staffLoanDays" label="Loan days for staff" start={start.staffLoanDays} min={1} max={180} width="w-20" /></td>
               </tr>
@@ -138,7 +139,7 @@ export function SettingsForm({ start, readOnly }: { start: SettingsStart; readOn
         <div className="divide-y divide-line/70">
           <Row title="Book labels"><Seg name="labelType" label="Label type" start={start.labelType} options={[{ value: "barcode", label: "Barcode" }, { value: "qr", label: "QR code" }, { value: "rfid", label: "RFID" }]} /></Row>
           <Row title="Accession number format" sub={`The next copy gets ${start.nextPreview}.`}>
-            <label htmlFor="set-accessionPrefix" className="sr-only">Prefix</label>
+            <label htmlFor="set-accessionPrefix" className="sr-only"><Words k="Prefix" /></label>
             <input id="set-accessionPrefix" name="accessionPrefix" defaultValue={v("accessionPrefix", start.accessionPrefix)} maxLength={8} placeholder="Prefix" disabled={readOnly}
               aria-invalid={err("accessionPrefix") ? true : undefined} className={cx(inputCls(err("accessionPrefix")), "h-10 w-24 font-mono")} />
             <Num name="accessionWidth" label="Digits" start={start.accessionWidth} min={1} max={10} suffix="digits" width="w-20" />
@@ -159,7 +160,7 @@ export function SettingsForm({ start, readOnly }: { start: SettingsStart; readOn
 
       {!readOnly && (
         <div className="sticky bottom-20 md:bottom-3 z-10 flex justify-end">
-          <Button type="submit" variant="primary" size="lg" icon={Save} loading={pending} loadingText="Saving…" className="shadow-pop">Save settings</Button>
+          <Button type="submit" variant="primary" size="lg" icon={Save} loading={pending} loadingText="Saving…" className="shadow-pop"><Words k="Save settings" /></Button>
         </div>
       )}
     </form>

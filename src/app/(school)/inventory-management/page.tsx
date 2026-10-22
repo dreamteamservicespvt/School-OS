@@ -27,6 +27,7 @@ import { ReturnSheet } from "./_components/sheets";
 import { BASE, invGuard, invPeriod, one, qs, addQ, uuidOr, type SearchParams } from "./_lib/page";
 import { issuesList, readIssuesFilter, recipients } from "./_lib/lists";
 import { findStudentsAction, giveMissingAction, issueAction, issueSetAction, remindStoreAction } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Issue Stock · Inventory Management" };
 
@@ -104,21 +105,21 @@ export default async function IssueStockPage({ searchParams }: { searchParams: S
             <span className="block min-w-[200px] text-[13.5px]">
               {r.bookSetId && <b className="font-semibold block">{d.sets.get(r.bookSetId) ?? "Book set"}</b>}
               {r.lines.map((l) => { const it = d.items.get(l.itemId); return <span key={l.id} className="block">{it ? itemLabel(it) : "Item"} × {l.qty}</span>; })}
-              {Array.isArray(r.missing) && (r.missing as unknown[]).length > 0 && <Pill tone="warn" className="mt-1">{plural((r.missing as unknown[]).length, "item")} to give later</Pill>}
+              {Array.isArray(r.missing) && (r.missing as unknown[]).length > 0 && <Pill tone="warn" className="mt-1">{plural((r.missing as unknown[]).length, "item")} <Words k="to give later" /></Pill>}
             </span>
           ) },
           { key: "to", label: "Issued to", render: (r) => <span className="block min-w-[150px]">{d.to.get(r.id)}<span className="block text-[12px] text-ink3">{ISSUE_TO[r.toKind]}</span></span> },
-          { key: "charge", label: "Charged", align: "right", nowrap: true, render: (r) => (r.chargePaise > ZERO ? formatRupees(r.chargePaise) : <span className="text-ink3">Free</span>) },
+          { key: "charge", label: "Charged", align: "right", nowrap: true, render: (r) => (r.chargePaise > ZERO ? formatRupees(r.chargePaise) : <span className="text-ink3"><Words k="Free" /></span>) },
           { key: "by", label: "Issued by", render: (r) => d.who.get(r.createdById ?? "") ?? "" },
           { key: "ret", label: "Returnable", render: (r) => {
-            if (!r.returnable) return <span className="text-ink3">No</span>;
+            if (!r.returnable) return <span className="text-ink3"><Words k="No" /></span>;
             const out = r.lines.reduce((a, l) => a + l.qty - l.returnedQty, 0);
-            return out ? <Pill tone="warn">{out} out</Pill> : <Pill tone="ok">Returned</Pill>;
+            return out ? <Pill tone="warn">{out} <Words k="out" /></Pill> : <Pill tone="ok"><Words k="Returned" /></Pill>;
           } },
           ...(desk ? [{ key: "act", label: "", render: (r: (typeof d.rows)[number]) => (
             <span className="flex flex-col gap-1 items-start">
               {r.returnable && r.lines.filter((l) => l.returnedQty < l.qty).map((l) => (
-                <a key={l.id} href={here({ ret: l.id })} className="text-[13px] font-semibold text-brand hover:underline whitespace-nowrap">Return {d.items.get(l.itemId)?.name ?? "item"}</a>
+                <a key={l.id} href={here({ ret: l.id })} className="text-[13px] font-semibold text-brand hover:underline whitespace-nowrap"><Words k="Return" /> {d.items.get(l.itemId)?.name ?? "item"}</a>
               ))}
               {Array.isArray(r.missing) && (r.missing as unknown[]).length > 0 && <ActButton action={giveMissingAction} fields={{ issueId: r.id }} label="Give the rest" icon="check" />}
             </span>
@@ -130,7 +131,7 @@ export default async function IssueStockPage({ searchParams }: { searchParams: S
             title: d.to.get(r.id) ?? "", icon: r.bookSetId ? BookCopy : PackageOpen, iconTone: "brand",
             sub: `${day(r.date)} · ${r.bookSetId ? d.sets.get(r.bookSetId) ?? "Book set" : r.lines.map((l) => `${d.items.get(l.itemId)?.name ?? "Item"} × ${l.qty}`).join(", ")}`,
             right: r.chargePaise > ZERO ? formatRupees(r.chargePaise) : undefined,
-            pills: r.returnable ? (out ? <Pill tone="warn">{out} to return</Pill> : <Pill tone="ok">Returned</Pill>) : undefined,
+            pills: r.returnable ? (out ? <Pill tone="warn">{out} <Words k="to return" /></Pill> : <Pill tone="ok"><Words k="Returned" /></Pill>) : undefined,
           };
         }}
       />

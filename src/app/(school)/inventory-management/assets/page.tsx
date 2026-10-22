@@ -32,6 +32,7 @@ import { assetsList, decidable, readAssetsFilter, whoNames } from "../_lib/lists
 import { decideAction, remindStoreAction } from "../actions";
 import { closeAssetAuditAction } from "./actions";
 import { AssetSheet, ScanTags, StartAssetAuditSheet } from "./sheets";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Assets · Inventory Management" };
 
@@ -108,7 +109,7 @@ export default async function AssetsPage({ searchParams }: { searchParams: Searc
         { label: "Start an asset check", href: here({ view: "audit", open: "audit" }), icon: <ScanLine size={16} aria-hidden="true" /> },
         ...(f.room ? [{ label: `Print tags for ${roomName.get(f.room) ?? "this room"}`, href: `${BASE}/assets/tags?room=${f.room}`, file: true, icon: <Printer size={16} aria-hidden="true" /> }] : []),
       ]} />
-      <ButtonLink href={here({ open: "add" })} variant="primary" icon={Plus} scroll={false}>Add asset</ButtonLink>
+      <ButtonLink href={here({ open: "add" })} variant="primary" icon={Plus} scroll={false}><Words k="Add asset" /></ButtonLink>
     </div>
   ) : can.remind && ending.length ? <ActButton action={remindStoreAction} fields={{ what: "maintenance" }} label="Remind store keeper" icon="bell" size="md" /> : undefined;
 
@@ -120,13 +121,13 @@ export default async function AssetsPage({ searchParams }: { searchParams: Searc
       <Stack>
         <Stats items={stats} />
         {d.waiting > 0 && view !== "disposals" && (
-          <Banner tone="info" icon={Trash2} title={`${plural(d.waiting, "disposal")} waiting for approval`} action={<ButtonLink href={here({ view: "disposals" })} size="sm" variant="secondary">Show</ButtonLink>}>
-            Disposed assets stay in the register as Disposed.
+          <Banner tone="info" icon={Trash2} title={`${plural(d.waiting, "disposal")} waiting for approval`} action={<ButtonLink href={here({ view: "disposals" })} size="sm" variant="secondary"><Words k="Show" /></ButtonLink>}>
+            <Words k="Disposed assets stay in the register as Disposed." />
           </Banner>
         )}
         {ending.length > 0 && view === "" && !f.cover && (
-          <Banner tone="warn" icon={CalendarClock} title={`Warranty or AMC ending soon on ${plural(ending.length, "asset")}`} action={<ButtonLink href={here({ cover: "ending", status: null })} size="sm" variant="secondary">Show them</ButtonLink>}>
-            Ending in the next {days} days. Renew the AMC or get repairs done while covered.
+          <Banner tone="warn" icon={CalendarClock} title={`Warranty or AMC ending soon on ${plural(ending.length, "asset")}`} action={<ButtonLink href={here({ cover: "ending", status: null })} size="sm" variant="secondary"><Words k="Show them" /></ButtonLink>}>
+            <Words k="Ending in the next" /> {days} <Words k="days. Renew the AMC or get repairs done while covered." />
           </Banner>
         )}
         <SegLinks label="Assets views" value={view} options={[
@@ -148,22 +149,22 @@ export default async function AssetsPage({ searchParams }: { searchParams: Searc
                 {can.export && <ExportButton href={qs(`${BASE}/assets/export`, keep)} />}
               </div>
             </Toolbar>
-            {f.cover && <p className="px-5 pb-2 text-[13px] text-warn font-semibold">Showing warranty or AMC ending in the next {days} days. <Link className="text-brand hover:underline" href={here({ cover: null })}>Show all</Link></p>}
+            {f.cover && <p className="px-5 pb-2 text-[13px] text-warn font-semibold"><Words k="Showing warranty or AMC ending in the next" /> {days} <Words k="days." /> <Link className="text-brand hover:underline" href={here({ cover: null })}><Words k="Show all" /></Link></p>}
             <DataList rows={d.list.rows} rowKey={(a) => a.id} rowHref={(a) => `${BASE}/assets/${a.id}`} minWidth={960} caption="Asset register"
               rowClass={(a) => a.status === "DISPOSED" && "opacity-70"}
               empty={<Empty icon={filtered ? Search : Monitor} title={filtered ? "No assets match" : "No assets yet"}
                 body={filtered ? "Try another search or clear the filters." : can.assets ? "Add the first asset, or import them from a spreadsheet." : "The store keeper adds the assets."}
-                action={can.assets && !filtered ? <ButtonLink href={`${BASE}/assets/import`} variant="secondary" icon={FileUp}>Import assets</ButtonLink> : undefined} />}
+                action={can.assets && !filtered ? <ButtonLink href={`${BASE}/assets/import`} variant="secondary" icon={FileUp}><Words k="Import assets" /></ButtonLink> : undefined} />}
               columns={[
                 { key: "tag", label: "Tag", nowrap: true, render: (a) => <span className="font-mono text-[13px] font-semibold">{a.tag}</span> },
                 { key: "name", label: "Asset", render: (a) => <span className="block min-w-[170px]"><b className="font-semibold">{a.name}</b><span className="block text-[12px] text-ink3">{a.type}{a.serialNo ? ` · ${a.serialNo}` : ""}</span></span> },
                 { key: "where", label: "Where", render: (a) => d.list!.places(a) },
-                { key: "bought", label: "Bought", nowrap: true, render: (a) => day(a.purchaseDate) || <span className="text-ink3">Not given</span> },
+                { key: "bought", label: "Bought", nowrap: true, render: (a) => day(a.purchaseDate) || <span className="text-ink3"><Words k="Not given" /></span> },
                 { key: "cost", label: "Cost", align: "right", nowrap: true, render: (a) => (a.costPaise !== null ? formatRupees(a.costPaise) : "") },
                 { key: "value", label: "Value today", align: "right", nowrap: true, render: (a) => (a.costPaise !== null ? formatRupees(bookValue(a, s.depreciationMethod, rateOf(a, s), today)) : "") },
                 { key: "cover", label: "Warranty / AMC", nowrap: true, render: (a) => {
                   const end = [a.warrantyEnd, a.amcEnd].filter((x): x is Date => Boolean(x) && x! >= today).sort((x, y) => x.getTime() - y.getTime())[0];
-                  return end ? <span className={end <= soon ? "text-warn font-semibold" : ""}>{day(end)}</span> : <span className="text-ink3">None</span>;
+                  return end ? <span className={end <= soon ? "text-warn font-semibold" : ""}>{day(end)}</span> : <span className="text-ink3"><Words k="None" /></span>;
                 } },
                 { key: "status", label: "Status", render: (a) => <Pill tone={ASSET_STATUS[a.status].tone}>{ASSET_STATUS[a.status].label}</Pill> },
               ]}
@@ -197,7 +198,7 @@ export default async function AssetsPage({ searchParams }: { searchParams: Searc
               { label: "How", render: (x) => DISPOSAL_METHOD[x.method] ?? x.method },
               { label: "Reason", render: (x) => x.reason },
               { label: "Sale", right: true, nowrap: true, render: (x) => (x.salePaise !== null ? formatRupees(x.salePaise) : "") },
-              { label: "Status", render: (x) => (x.status === "WAITING" && x.approvalId && d.mine.has(x.approvalId) ? <Link className="text-[13px] font-semibold text-brand hover:underline" href={here({ disposal: x.id })} scroll={false}>Decide</Link> : <Pill tone={APPROVAL_STATUS[x.status].tone}>{APPROVAL_STATUS[x.status].label}</Pill>) },
+              { label: "Status", render: (x) => (x.status === "WAITING" && x.approvalId && d.mine.has(x.approvalId) ? <Link className="text-[13px] font-semibold text-brand hover:underline" href={here({ disposal: x.id })} scroll={false}><Words k="Decide" /></Link> : <Pill tone={APPROVAL_STATUS[x.status].tone}>{APPROVAL_STATUS[x.status].label}</Pill>) },
             ]} />
             {d.disposals.length === 0 && <Empty icon={Trash2} title={per.range ? "No disposals in these dates" : "No disposals"} body="Dispose of an asset from its page. It needs approval." />}
           </Card>
@@ -220,8 +221,8 @@ export default async function AssetsPage({ searchParams }: { searchParams: Searc
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                       <ScanTags auditId={d.audit.id} rooms={d.audit.roomId ? d.rooms.filter((r) => r.value === d.audit!.roomId) : d.rooms} startRoom={d.audit.roomId ?? ""} />
                       <div>
-                        <p className="text-[13px] font-semibold text-ink2 mb-1.5">Last scanned</p>
-                        {d.lastScans.length === 0 ? <p className="text-[13.5px] text-ink3">Nothing scanned yet.</p> : (
+                        <p className="text-[13px] font-semibold text-ink2 mb-1.5"><Words k="Last scanned" /></p>
+                        {d.lastScans.length === 0 ? <p className="text-[13.5px] text-ink3"><Words k="Nothing scanned yet." /></p> : (
                           <ul className="text-[13.5px] divide-y divide-line rounded-xl border border-line">
                             {d.lastScans.map((x) => <li key={x.id} className="px-3 py-2 flex justify-between gap-2"><span className="font-mono">{x.code}</span><span className="text-ink3">{roomName.get(x.roomId ?? "") ?? ""} · {formatDateTime(x.scannedAt, tz)}</span></li>)}
                           </ul>
@@ -231,7 +232,7 @@ export default async function AssetsPage({ searchParams }: { searchParams: Searc
                   )}
                   {d.result.missing.length > 0 && (
                     <div>
-                      <h3 className="text-[14px] font-bold mb-2 text-bad">Missing ({d.result.missing.length})</h3>
+                      <h3 className="text-[14px] font-bold mb-2 text-bad"><Words k="Missing (" />{d.result.missing.length})</h3>
                       <SimpleTable caption="Missing assets" rows={d.result.missing} rowKey={(x) => x.id} minWidth={420} cols={[
                         { label: "Tag", render: (x) => <Link className="font-mono font-semibold hover:underline" href={`${BASE}/assets/${x.id}`}>{x.tag}</Link> },
                         { label: "Asset", render: (x) => x.name },
@@ -241,7 +242,7 @@ export default async function AssetsPage({ searchParams }: { searchParams: Searc
                   )}
                   {d.result.misplaced.length > 0 && (
                     <div>
-                      <h3 className="text-[14px] font-bold mb-2 text-warn">Misplaced ({d.result.misplaced.length})</h3>
+                      <h3 className="text-[14px] font-bold mb-2 text-warn"><Words k="Misplaced (" />{d.result.misplaced.length})</h3>
                       <SimpleTable caption="Misplaced assets" rows={d.result.misplaced} rowKey={(x) => x.id} minWidth={480} cols={[
                         { label: "Tag", render: (x) => <Link className="font-mono font-semibold hover:underline" href={`${BASE}/assets/${x.id}`}>{x.tag}</Link> },
                         { label: "Asset", render: (x) => x.name },
@@ -254,8 +255,8 @@ export default async function AssetsPage({ searchParams }: { searchParams: Searc
                 </div>
               </Card>
             ) : (
-              <Banner tone="info" icon={ScanLine} title="No asset check open" action={can.assets ? <ButtonLink href={here({ open: "audit" })} size="sm" variant="primary" scroll={false}>Start a check</ButtonLink> : undefined}>
-                A check lists what is missing and misplaced as tags are scanned room by room.
+              <Banner tone="info" icon={ScanLine} title="No asset check open" action={can.assets ? <ButtonLink href={here({ open: "audit" })} size="sm" variant="primary" scroll={false}><Words k="Start a check" /></ButtonLink> : undefined}>
+                <Words k="A check lists what is missing and misplaced as tags are scanned room by room." />
               </Banner>
             )}
             {d.audits.length > 0 && (
@@ -267,7 +268,7 @@ export default async function AssetsPage({ searchParams }: { searchParams: Searc
                     return (
                       <li key={a.id}>
                         <Link href={here({ audit: a.id })} className="px-5 py-3 flex items-center gap-3 hover:bg-sunken/60 text-[14px]">
-                          <span className="flex-1 min-w-0"><b className="font-semibold">{a.name}</b><span className="block text-[12.5px] text-ink3">{formatDateTime(a.startedAt, tz)} · {plural(a._count.scans, "tag")} scanned{r ? ` · ${r.missing?.length ?? 0} missing, ${r.misplaced?.length ?? 0} misplaced` : ""}</span></span>
+                          <span className="flex-1 min-w-0"><b className="font-semibold">{a.name}</b><span className="block text-[12.5px] text-ink3">{formatDateTime(a.startedAt, tz)} · {plural(a._count.scans, "tag")} <Words k="scanned" />{r ? ` · ${r.missing?.length ?? 0} missing, ${r.misplaced?.length ?? 0} misplaced` : ""}</span></span>
                           <Pill tone={a.status === "OPEN" ? "info" : "neutral"}>{a.status === "OPEN" ? "Open" : "Closed"}</Pill>
                         </Link>
                       </li>
@@ -297,7 +298,7 @@ export default async function AssetsPage({ searchParams }: { searchParams: Searc
               ...(d.disposal.salePaise !== null ? [["Sale", `${formatRupees(d.disposal.salePaise)}${d.disposal.buyer ? ` to ${d.disposal.buyer}` : ""}`] as [string, React.ReactNode]] : []),
               ...(d.disposal.decisionNote ? [["Decision note", d.disposal.decisionNote] as [string, React.ReactNode]] : []),
             ]} />
-            <Link className="text-[14px] font-semibold text-brand hover:underline" href={`${BASE}/assets/${d.disposal.assetId}`}>Open the asset</Link>
+            <Link className="text-[14px] font-semibold text-brand hover:underline" href={`${BASE}/assets/${d.disposal.assetId}`}><Words k="Open the asset" /></Link>
           </div>
         </UrlSheet>
       )}

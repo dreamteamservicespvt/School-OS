@@ -27,6 +27,7 @@ import {
 import { archiveGroupAction, certificatesAction, removeMemberAction } from "../activity-actions";
 import { achievementList, pickStudents, staffOptions } from "../_lib/co";
 import { BASE, UUID, evGuard, evPeriod, one, qs, type SearchParams } from "../_lib/page";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata = { title: "Co-curricular & Sports" };
 
@@ -138,7 +139,7 @@ export default async function CocurricularPage({ searchParams }: { searchParams:
   return (
     <div>
       <EvHead pageName="Co-curricular & Sports" href={HREF} sub="Activities, achievements and certificates, houses, clubs and sports teams. Achievements also show on the student’s profile."
-        actions={canEdit && <ButtonLink href={here({ t: null, do: "add" })} scroll={false} variant="primary" icon={Plus}>Record achievement</ButtonLink>} />
+        actions={canEdit && <ButtonLink href={here({ t: null, do: "add" })} scroll={false} variant="primary" icon={Plus}><Words k="Record achievement" /></ButtonLink>} />
       <Chips label="Co-curricular sections" className="mb-5" value={tab} options={tabOptions} />
 
       {d.kind === "ach" && (() => {
@@ -169,7 +170,7 @@ export default async function CocurricularPage({ searchParams }: { searchParams:
                 ]} />}
                 <DataList rows={rows} rowKey={(a) => a.id} minWidth={760} caption="Achievements" scroll={false}
                   select={canEdit ? { form: "ach-bulk", label: (a) => `Select ${a.student}, ${a.activity}`, allLabel: "Select every achievement shown" } : undefined}
-                  footer={<p className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum">Showing: {vp.label} · {spanWords(range.from, range.to)} · {rows.length} achievements</p>}
+                  footer={<p className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum"><Words k="Showing:" /> {vp.label} · {spanWords(range.from, range.to)} · {rows.length} <Words k="achievements" /></p>}
                   empty={<Empty icon={Award} title="No achievements in these dates" body="Pick other dates or another level." />}
                   columns={[
                     { key: "s", label: "Student", render: (a) => <div className="flex items-center gap-2.5"><Avatar name={a.student} size={32} /><div><p className="font-semibold leading-tight">{a.student}</p><p className="text-[12.5px] text-ink3">{a.place}</p></div></div> },
@@ -178,9 +179,9 @@ export default async function CocurricularPage({ searchParams }: { searchParams:
                     ...(s.creditsOn ? [{ key: "cr", label: "Credits", align: "right" as const, render: (a: (typeof rows)[number]) => <span className="tnum">{a.credits ? `+${a.credits}` : "—"}</span> }] : []),
                     { key: "cert", label: "Certificate", render: (a) => (
                       <div className="flex flex-col items-start gap-0.5">
-                        {a.certificateNo ? <span className="flex items-center gap-1"><Pill tone="ok" dot>Issued</Pill><a href={qs(`${HREF}/certificates`, { ids: a.id })} target="_blank" rel="noopener" className="relative z-[1] text-[12.5px] font-semibold text-brand px-1 h-7 inline-flex items-center gap-1"><Printer size={14} aria-hidden="true" />Print</a></span>
-                          : canEdit ? <ActButton action={certificatesAction} fields={{ achievementIds: a.id }} label="Issue" icon="FileBadge" variant="soft" /> : <span className="text-ink3 text-[13px]">Not yet</span>}
-                        {canEdit && <Link href={here({ do: "archive", id: a.id })} scroll={false} className="relative z-[1] text-[12.5px] text-ink3 hover:text-bad px-1 h-6 inline-flex items-center">Take off</Link>}
+                        {a.certificateNo ? <span className="flex items-center gap-1"><Pill tone="ok" dot><Words k="Issued" /></Pill><a href={qs(`${HREF}/certificates`, { ids: a.id })} target="_blank" rel="noopener" className="relative z-[1] text-[12.5px] font-semibold text-brand px-1 h-7 inline-flex items-center gap-1"><Printer size={14} aria-hidden="true" /><Words k="Print" /></a></span>
+                          : canEdit ? <ActButton action={certificatesAction} fields={{ achievementIds: a.id }} label="Issue" icon="FileBadge" variant="soft" /> : <span className="text-ink3 text-[13px]"><Words k="Not yet" /></span>}
+                        {canEdit && <Link href={here({ do: "archive", id: a.id })} scroll={false} className="relative z-[1] text-[12.5px] text-ink3 hover:text-bad px-1 h-6 inline-flex items-center"><Words k="Take off" /></Link>}
                       </div>
                     ) },
                   ]}
@@ -191,14 +192,14 @@ export default async function CocurricularPage({ searchParams }: { searchParams:
                 <Card>
                   <CardHeader title="Taking part this year" description="Students in each activity" icon={Users} />
                   <div className="px-5 pb-5">
-                    {d.taking.length ? <HBars rows={d.taking} max={Math.max(...d.taking.map((x) => x.v))} unit="" labelWidth={86} /> : <p className="text-[13.5px] text-ink3">Nothing recorded this year yet.</p>}
+                    {d.taking.length ? <HBars rows={d.taking} max={Math.max(...d.taking.map((x) => x.v))} unit="" labelWidth={86} /> : <p className="text-[13.5px] text-ink3"><Words k="Nothing recorded this year yet." /></p>}
                   </div>
                 </Card>
                 {s.creditsOn && (
                   <Card>
-                    <CardHeader title="Activity credits" description="Added with each achievement, by level" icon={Star} action={canEdit && <ButtonLink size="sm" variant="ghost" href={here({ do: "credit" })} scroll={false}>Correct</ButtonLink>} />
+                    <CardHeader title="Activity credits" description="Added with each achievement, by level" icon={Star} action={canEdit && <ButtonLink size="sm" variant="ghost" href={here({ do: "credit" })} scroll={false}><Words k="Correct" /></ButtonLink>} />
                     <ul className="px-5 pb-5 flex flex-col gap-1.5 text-[13.5px]">
-                      {s.levels.map((l) => <li key={l} className="flex justify-between"><span className="text-ink2">{l}</span><span className="tnum text-ink3">+{creditsFor(s, l, false)} taking part · <b className="font-semibold text-ink">+{creditsFor(s, l, true)}</b> winning</span></li>)}
+                      {s.levels.map((l) => <li key={l} className="flex justify-between"><span className="text-ink2">{l}</span><span className="tnum text-ink3">+{creditsFor(s, l, false)} <Words k="taking part ·" /> <b className="font-semibold text-ink">+{creditsFor(s, l, true)}</b> <Words k="winning" /></span></li>)}
                     </ul>
                   </Card>
                 )}
@@ -225,14 +226,14 @@ export default async function CocurricularPage({ searchParams }: { searchParams:
                     <span className={cx("absolute left-0 top-0 bottom-0 w-1.5", HOUSE_BG[h.colour])} aria-hidden="true" />
                     <div className="flex items-center justify-between gap-2"><p className="font-semibold text-[14.5px] truncate">{h.name}</p><span className={cx("text-[12px] font-bold tnum px-2 h-6 rounded-full grid place-items-center", i === 0 ? "bg-brand text-brandink" : "bg-sunken text-ink2")}>#{i + 1}</span></div>
                     <p className="font-display text-[26px] font-semibold tnum leading-tight mt-1">{n(h.points)}</p>
-                    <p className="text-[12.5px] text-ink3 truncate">{h.students} students{h.captain ? ` · Captain ${h.captain}` : ""}</p>
+                    <p className="text-[12.5px] text-ink3 truncate">{h.students} <Words k="students" />{h.captain ? ` · Captain ${h.captain}` : ""}</p>
                   </Card>
                 ))}
               </div>
               <Split side={340}>
                 <Card className="min-w-0">
                   <CardHeader title="House points" description="Every change needs a reason and is kept" icon={BarChart3}
-                    action={canEdit && <div className="flex gap-2 flex-wrap justify-end"><ButtonLink size="sm" variant="ghost" icon={UserPlus} href={here({ do: "points-assign" })} scroll={false}>Assign students</ButtonLink><ButtonLink size="sm" variant="soft" icon={Plus} href={here({ do: "points" })} scroll={false}>Add or remove points</ButtonLink></div>} />
+                    action={canEdit && <div className="flex gap-2 flex-wrap justify-end"><ButtonLink size="sm" variant="ghost" icon={UserPlus} href={here({ do: "points-assign" })} scroll={false}><Words k="Assign students" /></ButtonLink><ButtonLink size="sm" variant="soft" icon={Plus} href={here({ do: "points" })} scroll={false}><Words k="Add or remove points" /></ButtonLink></div>} />
                   <ul className="px-5 pb-5 flex flex-col gap-3">
                     {d.board.map((h) => {
                       const top = Math.max(1, ...d.board.map((x) => x.points));
@@ -245,7 +246,7 @@ export default async function CocurricularPage({ searchParams }: { searchParams:
                       );
                     })}
                   </ul>
-                  {d.without > 0 && <p className="px-5 pb-5 -mt-2 text-[13px] text-warn">{n(d.without)} students have no house this year.</p>}
+                  {d.without > 0 && <p className="px-5 pb-5 -mt-2 text-[13px] text-warn">{n(d.without)} <Words k="students have no house this year." /></p>}
                 </Card>
                 <Card className="min-w-0">
                   <CardHeader title="Latest changes" icon={History} />
@@ -255,13 +256,13 @@ export default async function CocurricularPage({ searchParams }: { searchParams:
                       const h = d.board.find((x) => x.id === l.houseId);
                       return <Row key={l.id} icon={l.points > 0 ? TrendingUp : TrendingDown} iconTone={l.points > 0 ? "ok" : "bad"} title={`${l.points > 0 ? "+" : "−"}${Math.abs(l.points)} ${(h?.name ?? "House").replace(/ House$/, "")}`} sub={`${l.reason} · ${d.givers.get(l.givenById ?? "") ?? "Staff"} · ${shortDay(isoOf(l.date)).replace(/^\w+ /, "")}`} />;
                     })}
-                    {!d.log.length && <li className="px-3 py-3 text-[13.5px] text-ink3">No changes in these dates.</li>}
+                    {!d.log.length && <li className="px-3 py-3 text-[13.5px] text-ink3"><Words k="No changes in these dates." /></li>}
                   </ul>
                 </Card>
               </Split>
             </>
           ) : (
-            <Card><Empty icon={Flag} title="No houses yet" body="Add the houses, with their colours and captains, in Events Settings." action={p.can.settings ? <ButtonLink variant="secondary" href={`${BASE}/settings`}>Open Events Settings</ButtonLink> : undefined} /></Card>
+            <Card><Empty icon={Flag} title="No houses yet" body="Add the houses, with their colours and captains, in Events Settings." action={p.can.settings ? <ButtonLink variant="secondary" href={`${BASE}/settings`}><Words k="Open Events Settings" /></ButtonLink> : undefined} /></Card>
           )}
           {doing === "points" && d.board.length > 0 && <PointsSheet closeHref={here({ do: null })} houses={d.board.map((h) => ({ value: h.id, label: h.name }))} />}
           {doing === "points-assign" && d.board.length > 0 && <AssignHousesSheet closeHref={here({ do: null })} houses={d.board.map((h) => ({ value: h.id, label: h.name }))} students={d.students} without={d.without} />}
@@ -270,7 +271,7 @@ export default async function CocurricularPage({ searchParams }: { searchParams:
 
       {d.kind === "clubs" && (
         <div className="flex flex-col gap-5 lg:gap-6">
-          {canEdit && <div className="flex justify-end -mt-2"><ButtonLink size="sm" variant="secondary" icon={Plus} href={here({ do: "club", id: null })} scroll={false}>New club</ButtonLink></div>}
+          {canEdit && <div className="flex justify-end -mt-2"><ButtonLink size="sm" variant="secondary" icon={Plus} href={here({ do: "club", id: null })} scroll={false}><Words k="New club" /></ButtonLink></div>}
           {d.clubs.length ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {d.clubs.map((c) => (
@@ -279,24 +280,24 @@ export default async function CocurricularPage({ searchParams }: { searchParams:
                     <span className="w-11 h-11 rounded-xl bg-brand/10 text-brand grid place-items-center shrink-0"><EvIcon name={clubIcon(c.name)} size={20} /></span>
                     <span className="min-w-0"><span className="block font-semibold text-[15px] group-hover:text-brand">{c.name}</span><span className="block text-[12.5px] text-ink3">{c.inChargeId ? `In-charge ${d.inCharge.get(c.inChargeId) ?? ""}` : "No in-charge yet"}</span></span>
                   </Link>
-                  <p className="text-[13.5px] text-ink2 flex items-center gap-4 flex-wrap"><span className="flex items-center gap-1.5"><Users size={15} className="text-ink3" aria-hidden="true" /><b className="font-semibold tnum">{d.counts.get(c.id) ?? 0}</b> members</span>{c.meets && <span className="flex items-center gap-1.5"><Clock size={15} className="text-ink3" aria-hidden="true" />{c.meets}</span>}</p>
-                  {canEdit && <div className="flex gap-2 flex-wrap"><ButtonLink size="sm" variant="secondary" icon={UserPlus} href={here({ do: "members", id: c.id })} scroll={false}>Add members</ButtonLink><ButtonLink size="sm" variant="ghost" href={here({ do: "session", id: c.id })} scroll={false}>Record meeting</ButtonLink></div>}
+                  <p className="text-[13.5px] text-ink2 flex items-center gap-4 flex-wrap"><span className="flex items-center gap-1.5"><Users size={15} className="text-ink3" aria-hidden="true" /><b className="font-semibold tnum">{d.counts.get(c.id) ?? 0}</b> <Words k="members" /></span>{c.meets && <span className="flex items-center gap-1.5"><Clock size={15} className="text-ink3" aria-hidden="true" />{c.meets}</span>}</p>
+                  {canEdit && <div className="flex gap-2 flex-wrap"><ButtonLink size="sm" variant="secondary" icon={UserPlus} href={here({ do: "members", id: c.id })} scroll={false}><Words k="Add members" /></ButtonLink><ButtonLink size="sm" variant="ghost" href={here({ do: "session", id: c.id })} scroll={false}><Words k="Record meeting" /></ButtonLink></div>}
                 </Card>
               ))}
             </div>
-          ) : <Card><Empty icon={Users} title="No clubs yet" body="Add a club with its in-charge and meeting time." action={canEdit ? <ButtonLink variant="secondary" icon={Plus} href={here({ do: "club" })} scroll={false}>New club</ButtonLink> : undefined} /></Card>}
+          ) : <Card><Empty icon={Users} title="No clubs yet" body="Add a club with its in-charge and meeting time." action={canEdit ? <ButtonLink variant="secondary" icon={Plus} href={here({ do: "club" })} scroll={false}><Words k="New club" /></ButtonLink> : undefined} /></Card>}
           {d.open && <GroupMembers kind="club" id={d.open.id} name={d.open.name} members={d.members} canEdit={canEdit} closeHref={here({ g: null })} editHref={here({ do: "club", id: d.open.id })} />}
           <Card className="overflow-hidden">
             <CardHeader title="Meetings" description="Who came to each meeting" icon={CalendarDays} />
             <div className="px-5 pb-3"><PeriodFilter {...p.dates} fallback="acyear" /></div>
             <DataList rows={d.meetings} rowKey={(m) => m.id} minWidth={560} caption="Club meetings" scroll={false}
-              footer={<p className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum">Showing: {vp.label} · {spanWords(range.from, range.to)} · {d.meetings.length} meetings</p>}
+              footer={<p className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum"><Words k="Showing:" /> {vp.label} · {spanWords(range.from, range.to)} · {d.meetings.length} <Words k="meetings" /></p>}
               empty={<Empty icon={CalendarDays} title="No meetings in these dates" body="Pick other dates." />}
               columns={[
                 { key: "c", label: "Club", render: (m) => <span className="font-semibold">{d.clubs.find((c) => c.id === m.clubId)?.name}</span> },
                 { key: "d", label: "Date", nowrap: true, render: (m) => <span className="tnum text-[13px]">{longDay(isoOf(m.date))}</span> },
                 { key: "t", label: "Topic", render: (m) => <span className="text-[13px] text-ink2">{m.topic ?? "—"}</span> },
-                { key: "p", label: "Present", align: "right", render: (m) => <span className="tnum">{m.presentIds.length} of {m.memberIds.length}</span> },
+                { key: "p", label: "Present", align: "right", render: (m) => <span className="tnum">{m.presentIds.length} <Words k="of" /> {m.memberIds.length}</span> },
               ]}
               mobile={(m) => ({ title: d.clubs.find((c) => c.id === m.clubId)?.name ?? "Club", sub: `${shortDay(isoOf(m.date))}${m.topic ? ` · ${m.topic}` : ""}`, icon: CalendarDays, right: <span className="tnum text-[13px]">{m.presentIds.length}/{m.memberIds.length}</span> })} />
           </Card>
@@ -322,7 +323,7 @@ export default async function CocurricularPage({ searchParams }: { searchParams:
         const todayTeam = today ? d.teams.find((t) => t.id === today.teamId) : null;
         return (
           <div className="flex flex-col gap-5 lg:gap-6">
-            {canEdit && <div className="flex justify-end -mt-2"><ButtonLink size="sm" variant="secondary" icon={Plus} href={here({ do: "team", id: null })} scroll={false}>New team</ButtonLink></div>}
+            {canEdit && <div className="flex justify-end -mt-2"><ButtonLink size="sm" variant="secondary" icon={Plus} href={here({ do: "team", id: null })} scroll={false}><Words k="New team" /></ButtonLink></div>}
             {d.teams.length ? (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
                 {d.teams.map((t) => (
@@ -330,17 +331,17 @@ export default async function CocurricularPage({ searchParams }: { searchParams:
                     <Link href={here({ g: g === t.id ? null : t.id })} scroll={false} className="group">
                       <span className="w-10 h-10 rounded-xl bg-brand/10 text-brand grid place-items-center"><EvIcon name={teamIcon(t.sport)} size={19} /></span>
                       <span className="block font-semibold text-[14.5px] mt-2.5 group-hover:text-brand">{t.name}</span>
-                      <span className="block text-[12.5px] text-ink3">{d.counts.get(t.id) ?? 0} players · coach {t.coachId ? d.coaches.get(t.coachId) ?? "" : `${t.coachName ?? ""} (visiting coach)`}</span>
+                      <span className="block text-[12.5px] text-ink3">{d.counts.get(t.id) ?? 0} <Words k="players · coach" /> {t.coachId ? d.coaches.get(t.coachId) ?? "" : `${t.coachName ?? ""} (visiting coach)`}</span>
                     </Link>
-                    {canEdit && <div className="flex gap-2 flex-wrap mt-3"><ButtonLink size="sm" variant="secondary" icon={UserPlus} href={here({ do: "members", id: t.id })} scroll={false}>Add players</ButtonLink><ButtonLink size="sm" variant="ghost" href={here({ do: "session", id: t.id })} scroll={false}>Mark attendance</ButtonLink></div>}
+                    {canEdit && <div className="flex gap-2 flex-wrap mt-3"><ButtonLink size="sm" variant="secondary" icon={UserPlus} href={here({ do: "members", id: t.id })} scroll={false}><Words k="Add players" /></ButtonLink><ButtonLink size="sm" variant="ghost" href={here({ do: "session", id: t.id })} scroll={false}><Words k="Mark attendance" /></ButtonLink></div>}
                   </Card>
                 ))}
               </div>
-            ) : <Card><Empty icon={Trophy} title="No sports teams yet" body="Add a team with its sport and coach." action={canEdit ? <ButtonLink variant="secondary" icon={Plus} href={here({ do: "team" })} scroll={false}>New team</ButtonLink> : undefined} /></Card>}
+            ) : <Card><Empty icon={Trophy} title="No sports teams yet" body="Add a team with its sport and coach." action={canEdit ? <ButtonLink variant="secondary" icon={Plus} href={here({ do: "team" })} scroll={false}><Words k="New team" /></ButtonLink> : undefined} /></Card>}
             {d.open && <GroupMembers kind="team" id={d.open.id} name={d.open.name} members={d.members} canEdit={canEdit} closeHref={here({ g: null })} editHref={here({ do: "team", id: d.open.id })} />}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 lg:gap-6 items-start">
               <Card>
-                <CardHeader title="Fixtures and results" icon={Trophy} action={canEdit && <ButtonLink size="sm" variant="soft" icon={Plus} href={here({ do: "fixture" })} scroll={false}>Add fixture</ButtonLink>} />
+                <CardHeader title="Fixtures and results" icon={Trophy} action={canEdit && <ButtonLink size="sm" variant="soft" icon={Plus} href={here({ do: "fixture" })} scroll={false}><Words k="Add fixture" /></ButtonLink>} />
                 <div className="px-5 pb-2"><PeriodFilter {...p.dates} fallback="acyear" ahead /></div>
                 <ul className="px-2 pb-2">
                   {d.fixtures.map((f) => {
@@ -350,27 +351,27 @@ export default async function CocurricularPage({ searchParams }: { searchParams:
                     const sub = f.result ? `${f.score ? f.score : r?.label} · ${shortDay(isoOf(f.date)).replace(/^\w+ /, "")}` : `${when} · ${(GROUNDS.find((x) => x.value === f.ground)?.label ?? "").toLowerCase()}${f.venue ? ` · ${f.venue}` : ""}`;
                     const due = !f.result && isoOf(f.date) <= p.today;
                     return <Row key={f.id} icon={f.result ? (tone === "ok" ? Trophy : Flag) : CalendarDays} iconTone={tone} title={f.title} sub={sub}
-                      right={canEdit && due ? <ButtonLink size="sm" variant="soft" href={here({ do: "result", id: f.id })} scroll={false}>Record result</ButtonLink> : undefined} />;
+                      right={canEdit && due ? <ButtonLink size="sm" variant="soft" href={here({ do: "result", id: f.id })} scroll={false}><Words k="Record result" /></ButtonLink> : undefined} />;
                   })}
-                  {!d.fixtures.length && <li className="px-3 py-3 text-[13.5px] text-ink3">No fixtures in these dates.</li>}
+                  {!d.fixtures.length && <li className="px-3 py-3 text-[13.5px] text-ink3"><Words k="No fixtures in these dates." /></li>}
                 </ul>
               </Card>
               <Col>
                 <Card>
                   <CardHeader title={today ? "Training today" : "Training"} description={today && todayTeam ? `${todayTeam.sport}${today.startMin != null ? `, ${clock(today.startMin)}` : ""}${today.venue ? ` · ${today.venue}` : ""}` : `${vp.label} · ${d.sessions.length} sessions`} icon={Timer}
-                    action={canEdit && d.teams.length > 0 && <ButtonLink size="sm" variant="secondary" href={here({ do: "session", id: (todayTeam ?? d.teams[0]).id })} scroll={false}>Mark attendance</ButtonLink>} />
+                    action={canEdit && d.teams.length > 0 && <ButtonLink size="sm" variant="secondary" href={here({ do: "session", id: (todayTeam ?? d.teams[0]).id })} scroll={false}><Words k="Mark attendance" /></ButtonLink>} />
                   <div className="px-5 pb-5 flex items-center gap-4">
                     <Ring value={avg ?? 0} size={64} stroke={7} tone={avg != null && avg < 75 ? "warn" : "ok"}><span className="text-[13px] font-bold tnum">{avg != null ? `${avg}%` : "—"}</span></Ring>
                     <p className="text-[13.5px] text-ink2">{avg != null ? `Average training attendance in these dates.${missing ? ` ${missing} ${missing === 1 ? "player has" : "players have"} missed 3 sessions in a row.` : ""}` : "No training recorded in these dates."}</p>
                   </div>
                 </Card>
                 <Card>
-                  <CardHeader title="Fitness records" description="BMI, 600 m run, sit-and-reach" icon={HeartPulse} action={canEdit && <ButtonLink size="sm" variant="ghost" icon={Plus} href={here({ do: "fitness" })} scroll={false}>Record test</ButtonLink>} />
+                  <CardHeader title="Fitness records" description="BMI, 600 m run, sit-and-reach" icon={HeartPulse} action={canEdit && <ButtonLink size="sm" variant="ghost" icon={Plus} href={here({ do: "fitness" })} scroll={false}><Words k="Record test" /></ButtonLink>} />
                   <div className="px-5 pb-5">
-                    {fitRows.length ? <><HBars rows={fitRows} lowBelow={85} labelWidth={64} /><p className="text-[12.5px] text-ink3 mt-3">Tests done in these dates, by class</p></> : <p className="text-[13.5px] text-ink3">No fitness tests in these dates.</p>}
+                    {fitRows.length ? <><HBars rows={fitRows} lowBelow={85} labelWidth={64} /><p className="text-[12.5px] text-ink3 mt-3"><Words k="Tests done in these dates, by class" /></p></> : <p className="text-[13.5px] text-ink3"><Words k="No fitness tests in these dates." /></p>}
                     {d.recent.length > 0 && (
                       <ul className="mt-4 flex flex-col divide-y divide-line/60 text-[13px]">
-                        {d.recent.map((r) => <li key={r.id} className="py-2 flex justify-between gap-3"><span className="truncate"><b className="font-semibold">{d.recentNames.get(r.studentId)}</b><span className="text-ink3"> · {shortDay(isoOf(r.date)).replace(/^\w+ /, "")}</span></span><span className="tnum text-ink2 shrink-0">BMI {bmi(r.heightCm, r.weightKg) ?? "—"} · {runWords(r.runSeconds)} · {r.reachCm ?? "—"} cm</span></li>)}
+                        {d.recent.map((r) => <li key={r.id} className="py-2 flex justify-between gap-3"><span className="truncate"><b className="font-semibold">{d.recentNames.get(r.studentId)}</b><span className="text-ink3"> · {shortDay(isoOf(r.date)).replace(/^\w+ /, "")}</span></span><span className="tnum text-ink2 shrink-0"><Words k="BMI" /> {bmi(r.heightCm, r.weightKg) ?? "—"} · {runWords(r.runSeconds)} · {r.reachCm ?? "—"} <Words k="cm" /></span></li>)}
                       </ul>
                     )}
                   </div>
@@ -395,7 +396,7 @@ function GroupMembers({ kind, id, name, members, canEdit, closeHref, editHref }:
   return (
     <Card className="overflow-hidden">
       <CardHeader title={`${kind === "club" ? "Members" : "Players"} of ${name}`} description={`${members.length} this year`} icon={Users}
-        action={<div className="flex gap-2">{canEdit && <ButtonLink size="sm" variant="ghost" href={editHref} scroll={false}>Change</ButtonLink>}{canEdit && <ActButton action={archiveGroupAction} fields={{ kind, groupId: id }} label="Archive" variant="ghost" />}<ButtonLink size="sm" variant="ghost" href={closeHref} scroll={false}>Close</ButtonLink></div>} />
+        action={<div className="flex gap-2">{canEdit && <ButtonLink size="sm" variant="ghost" href={editHref} scroll={false}><Words k="Change" /></ButtonLink>}{canEdit && <ActButton action={archiveGroupAction} fields={{ kind, groupId: id }} label="Archive" variant="ghost" />}<ButtonLink size="sm" variant="ghost" href={closeHref} scroll={false}><Words k="Close" /></ButtonLink></div>} />
       <DataList rows={members} rowKey={(m) => m.id} minWidth={480} caption={`Members of ${name}`} scroll={false}
         empty={<Empty icon={Users} title="No members yet" body={kind === "club" ? "Add members by class." : "Add players by class."} />}
         columns={[

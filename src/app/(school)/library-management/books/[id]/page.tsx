@@ -26,6 +26,7 @@ import { COPY_STATUS, paiseToRupees, plural, type CopyStatus } from "@/lib/libra
 import { LibHead } from "../../_components/head";
 import { AddCopiesSheet, BackOnShelfSheet, BookSheet, LostSheet, WithdrawSheet } from "../../_components/sheets";
 import { BASE, libGuard, libPeriod, one, qs, UUID, type SearchParams } from "../../_lib/page";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Book · Library Management" };
 const day = (d: Date) => formatDate(d, "UTC");
@@ -73,14 +74,14 @@ export default async function BookPage({ params, searchParams }: { params: Promi
 
   const actions = can.catalogue ? (
     <div className="flex gap-2 flex-wrap">
-      <ButtonLink href={href({ open: "edit" })} icon={PencilLine} scroll={false}>Change details</ButtonLink>
-      <ButtonLink href={href({ open: "copies" })} variant="primary" icon={Plus} scroll={false}>Add copies</ButtonLink>
+      <ButtonLink href={href({ open: "edit" })} icon={PencilLine} scroll={false}><Words k="Change details" /></ButtonLink>
+      <ButtonLink href={href({ open: "copies" })} variant="primary" icon={Plus} scroll={false}><Words k="Add copies" /></ButtonLink>
     </div>
   ) : undefined;
 
   return (
     <>
-      <LibHead pageName={book.title} href={self} mode={p.mode} actions={actions} sub={<Link href={`${BASE}/books`} className="hover:underline">Books</Link>} />
+      <LibHead pageName={book.title} href={self} mode={p.mode} actions={actions} sub={<Link href={`${BASE}/books`} className="hover:underline"><Words k="Books" /></Link>} />
       <Stack>
         <Stats items={[
           { label: "Copies", value: d.counts.total },
@@ -93,16 +94,16 @@ export default async function BookPage({ params, searchParams }: { params: Promi
           <Col>
             <Card>
               <CardHeader title="Copies" icon={BookOpen} description={`${plural(liveCopies.length, "copy", "copies")}${d.counts.withdrawn ? `, ${d.counts.withdrawn} withdrawn` : ""}. Accession numbers are never given again.`} divided
-                action={can.catalogue && liveCopies.length > 0 ? <ButtonLink href={`${BASE}/books/labels?book=${book.id}`} size="sm" icon={Printer} target="_blank" prefetch={false}>All labels</ButtonLink> : undefined} />
+                action={can.catalogue && liveCopies.length > 0 ? <ButtonLink href={`${BASE}/books/labels?book=${book.id}`} size="sm" icon={Printer} target="_blank" prefetch={false}><Words k="All labels" /></ButtonLink> : undefined} />
               {can.catalogue && liveCopies.length > 0 ? (
                 <form method="get" action={`${BASE}/books/labels`} target="_blank" className="contents">
                   <CopyTable copies={book.copies} holders={d.holders} today={today} href={href} withPick canChange />
                   <div className="hidden lg:flex items-center gap-2.5 flex-wrap px-4 py-3 border-t border-line">
-                    <label htmlFor="label-skip" className="text-[13px] text-ink2">Labels already used on the sheet</label>
+                    <label htmlFor="label-skip" className="text-[13px] text-ink2"><Words k="Labels already used on the sheet" /></label>
                     <select id="label-skip" name="skip" defaultValue="0" className={cx(inputCls(false), "h-10 w-20")}>
                       {Array.from({ length: 24 }, (_, i) => <option key={i} value={i}>{i}</option>)}
                     </select>
-                    <Button type="submit" variant="secondary" size="sm" icon={Printer} className="ml-auto">Print labels for ticked copies</Button>
+                    <Button type="submit" variant="secondary" size="sm" icon={Printer} className="ml-auto"><Words k="Print labels for ticked copies" /></Button>
                   </div>
                 </form>
               ) : (
@@ -120,13 +121,13 @@ export default async function BookPage({ params, searchParams }: { params: Promi
                   { key: "due", label: "Due", nowrap: true, render: (h) => day(h.dueOn) },
                   { key: "ret", label: "Returned", nowrap: true, render: (h) => (h.returnedOn ? `${day(h.returnedOn)}${h.lateDays ? ` · ${h.lateDays}d late` : ""}` : <Pill tone={h.dueOn.getTime() < today.getTime() ? "bad" : "info"}>{h.dueOn.getTime() < today.getTime() ? "Overdue" : "Out"}</Pill>) },
                 ]}
-                phone={(h) => ({ title: h.member ? holderWords(h.member) : "—", sub: `Copy ${h.copy.accessionNo} · issued ${day(h.issuedOn)}`, right: h.returnedOn ? <span className="text-[12.5px] text-ink3">Returned</span> : <Pill tone="info">Out</Pill> })}
+                phone={(h) => ({ title: h.member ? holderWords(h.member) : "—", sub: `Copy ${h.copy.accessionNo} · issued ${day(h.issuedOn)}`, right: h.returnedOn ? <span className="text-[12.5px] text-ink3"><Words k="Returned" /></span> : <Pill tone="info"><Words k="Out" /></Pill> })}
               />
             </Card>
           </Col>
           <Col>
             <Card className="p-5">
-              <h2 className="font-semibold text-[15px] mb-3">Details</h2>
+              <h2 className="font-semibold text-[15px] mb-3"><Words k="Details" /></h2>
               <DL cols={2} rows={[
                 ["Author(s)", d.authors.length ? d.authors.map((a) => a.name).join(", ") : book.authorText],
                 ["Publisher", d.publisher?.name ?? "—"],
@@ -149,13 +150,13 @@ export default async function BookPage({ params, searchParams }: { params: Promi
                       <span className="grid place-items-center size-7 rounded-full bg-sunken text-[12.5px] font-semibold tnum shrink-0">{i + 1}</span>
                       <div className="min-w-0 flex-1">
                         <p className="font-semibold text-[14px] truncate">{r.member ? holderWords(r.member) : "Member"}</p>
-                        <p className="text-[12.5px] text-ink3">Since {formatDate(r.reservedAt, p.tz)}</p>
+                        <p className="text-[12.5px] text-ink3"><Words k="Since" /> {formatDate(r.reservedAt, p.tz)}</p>
                       </div>
-                      {r.status === "READY" ? <Pill tone="ok">Ready at the desk</Pill> : <Pill tone="info">Waiting</Pill>}
+                      {r.status === "READY" ? <Pill tone="ok"><Words k="Ready at the desk" /></Pill> : <Pill tone="info"><Words k="Waiting" /></Pill>}
                     </li>
                   ))}
                 </ol>
-              ) : <p className="px-5 py-4 text-[13.5px] text-ink3">Nobody is waiting for this book.</p>}
+              ) : <p className="px-5 py-4 text-[13.5px] text-ink3"><Words k="Nobody is waiting for this book." /></p>}
             </Card>
           </Col>
         </Split>
@@ -189,9 +190,9 @@ function CopyTable({ copies, holders, today, href, withPick, canChange }: { copi
     if (!canChange || c.status === "WITHDRAWN") return null;
     return (
       <div className="flex gap-3 justify-end text-[13px] font-semibold">
-        {(c.status === "LOST" || c.status === "DAMAGED") && <Link href={href({ shelf: c.id })} scroll={false} className="text-brand hover:underline">Back on shelf</Link>}
-        {c.status !== "LOST" && <Link href={href({ lost: c.id })} scroll={false} className="text-ink2 hover:underline">Lost or damaged</Link>}
-        {c.status !== "ISSUED" && c.status !== "RESERVED" && <Link href={href({ withdraw: c.id })} scroll={false} className="text-bad hover:underline">Withdraw</Link>}
+        {(c.status === "LOST" || c.status === "DAMAGED") && <Link href={href({ shelf: c.id })} scroll={false} className="text-brand hover:underline"><Words k="Back on shelf" /></Link>}
+        {c.status !== "LOST" && <Link href={href({ lost: c.id })} scroll={false} className="text-ink2 hover:underline"><Words k="Lost or damaged" /></Link>}
+        {c.status !== "ISSUED" && c.status !== "RESERVED" && <Link href={href({ withdraw: c.id })} scroll={false} className="text-bad hover:underline"><Words k="Withdraw" /></Link>}
       </div>
     );
   };
@@ -205,7 +206,7 @@ function CopyTable({ copies, holders, today, href, withPick, canChange }: { copi
         { key: "bar", label: "Barcode", nowrap: true, render: (c) => <span className="font-mono text-[13px] text-ink3">{c.barcode}</span> },
         { key: "status", label: "Status", render: (c) => { const st = COPY_STATUS[c.status as CopyStatus]; return <Pill tone={st.tone}>{st.label}</Pill>; } },
         { key: "who", label: "Who has it", render: (c) => <span className="text-[13.5px]">{holderText(c)}</span> },
-        { key: "label", label: "Label", nowrap: true, render: (c) => (c.labelPrintedAt ? <span className="text-[12.5px] text-ink3">Printed</span> : c.status === "WITHDRAWN" ? "" : <Pill tone="warn">Not printed</Pill>) },
+        { key: "label", label: "Label", nowrap: true, render: (c) => (c.labelPrintedAt ? <span className="text-[12.5px] text-ink3"><Words k="Printed" /></span> : c.status === "WITHDRAWN" ? "" : <Pill tone="warn"><Words k="Not printed" /></Pill>) },
         ...(canChange ? [{ key: "act", label: "", render: acts }] : []),
       ]}
       phone={(c) => {

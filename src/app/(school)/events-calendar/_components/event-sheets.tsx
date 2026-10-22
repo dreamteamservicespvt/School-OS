@@ -20,6 +20,7 @@ import { attendanceAction, cancelEventAction, officeConsentAction, registerActio
 import { StudentPicker, type PickStudent } from "./co-sheets";
 import { WarningConfirm } from "./bits";
 import { KeepSelect } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 type Opt = { value: string; label: string };
 
@@ -55,7 +56,7 @@ export function EventSheet({ closeHref, start, types, venues, classes, reminders
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <SSelect name="venue" label="Venue" options={venueOptions} start={start.venue ?? ""} />
         <label className="flex flex-col gap-1.5">
-          <span className="text-[13px] font-semibold text-ink2">Audience<span className="text-bad" aria-hidden="true"> *</span></span>
+          <span className="text-[13px] font-semibold text-ink2"><Words k="Audience" /><span className="text-bad" aria-hidden="true"> *</span></span>
           <KeepSelect name="audienceKind" value={audience} onChange={(e) => setAudience(e.target.value)} className={cx(inputCls(false), "h-11")}>
             {audiences.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </KeepSelect>
@@ -67,14 +68,14 @@ export function EventSheet({ closeHref, start, types, venues, classes, reminders
       <div className="rounded-xl bg-sunken/70 p-3.5 flex flex-col gap-3">
         <label className="flex items-center gap-3">
           <Checkbox checked={reg} onChange={setReg} label="Registration" />
-          <span className="text-[14px] flex-1"><b className="font-semibold">Registration</b><span className="block text-[12.5px] text-ink3">Staff record who joins. Limit seats if needed.</span></span>
+          <span className="text-[14px] flex-1"><b className="font-semibold"><Words k="Registration" /></b><span className="block text-[12.5px] text-ink3"><Words k="Staff record who joins. Limit seats if needed." /></span></span>
         </label>
         {reg && <input type="hidden" name="registrationOn" value="on" />}
         {reg && <SText name="seats" label="Seats" help="Leave empty for no limit" inputMode="numeric" start={start.seats} className="tnum" />}
         {reg && (audience === "school" || audience === "classes") && (
           <label className="flex items-center gap-3">
             <Checkbox checked={consent} onChange={setConsent} label="Parent consent on Parent Link" />
-            <span className="text-[14px] flex-1"><b className="font-semibold">Parent consent on Parent Link</b><span className="block text-[12.5px] text-ink3">For trips and outings. A yes registers the child and adds any fee; a no is recorded.</span></span>
+            <span className="text-[14px] flex-1"><b className="font-semibold"><Words k="Parent consent on Parent Link" /></b><span className="block text-[12.5px] text-ink3"><Words k="For trips and outings. A yes registers the child and adds any fee; a no is recorded." /></span></span>
           </label>
         )}
         {reg && consent && (audience === "school" || audience === "classes") && <input type="hidden" name="consentOn" value="on" />}
@@ -127,7 +128,7 @@ export function RegisterSheet({ closeHref, eventId, students, seatsLeft, fee }: 
       </div>
       <label className="flex items-center gap-3 px-2 text-[13.5px] font-semibold text-ink2">
         <Checkbox checked={allOn} onChange={(v) => setOn((x) => { const n = new Set(x); for (const s of free) { if (v) n.add(s.id); else n.delete(s.id); } return n; })} label="Tick everyone shown" />
-        Tick everyone shown ({free.length})
+        <Words k="Tick everyone shown (" />{free.length})
       </label>
       <ul className="flex flex-col max-h-[46vh] overflow-y-auto scroll-thin">
         {list.map((s) => (
@@ -136,11 +137,11 @@ export function RegisterSheet({ closeHref, eventId, students, seatsLeft, fee }: 
               <Checkbox checked={s.registered || on.has(s.id)} onChange={(v) => { if (s.registered) return; setOn((x) => { const n = new Set(x); if (v) n.add(s.id); else n.delete(s.id); return n; }); }} label={s.name} />
               <Avatar name={s.name} size={32} />
               <span className="min-w-0 flex-1"><span className="block text-[14px] font-semibold truncate">{s.name}</span><span className="block text-[12.5px] text-ink3">{s.place}</span></span>
-              {s.registered && <Pill tone="ok" className="!h-[22px] !text-[11px]">Registered</Pill>}
+              {s.registered && <Pill tone="ok" className="!h-[22px] !text-[11px]"><Words k="Registered" /></Pill>}
             </label>
           </li>
         ))}
-        {!list.length && <li className="px-2 py-4 text-[14px] text-ink3">No students match.</li>}
+        {!list.length && <li className="px-2 py-4 text-[14px] text-ink3"><Words k="No students match." /></li>}
       </ul>
       {[...on].map((v) => <input key={v} type="hidden" name="studentIds" value={v} />)}
     </SheetForm>
@@ -177,13 +178,13 @@ export function AttendanceForm({ eventId, rows, canMark, marked }: { eventId: st
   return (
     <form action={run} className="p-4 flex flex-col gap-3">
       <input type="hidden" name="eventId" value={eventId} />
-      <p className="text-[13.5px] text-ink2">{marked ? "Marked on the day." : "Tick who came."} <b className="font-semibold tnum">{n} of {rows.length}</b> present.</p>
+      <p className="text-[13.5px] text-ink2">{marked ? "Marked on the day." : "Tick who came."} <b className="font-semibold tnum">{n} <Words k="of" /> {rows.length}</b> <Words k="present." /></p>
       <ul className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
         {rows.map((k) => (
           <li key={k.id} className={cx("flex items-center gap-3 rounded-xl border px-3 py-2", marks[k.id] ? "border-line" : "border-bad/30 bg-bad/[.04]")}>
             <Checkbox checked={marks[k.id]} onChange={(v) => canMark && setMarks({ ...marks, [k.id]: v })} label={k.name} />
             <span className="min-w-0 flex-1"><span className="block text-[14px] font-medium truncate">{k.name}</span><span className="block text-[12px] text-ink3">{k.place}</span></span>
-            {!marks[k.id] && <span className="text-[12px] text-bad font-semibold">Absent</span>}
+            {!marks[k.id] && <span className="text-[12px] text-bad font-semibold"><Words k="Absent" /></span>}
             {marks[k.id] && <input type="hidden" name="present" value={k.id} />}
           </li>
         ))}

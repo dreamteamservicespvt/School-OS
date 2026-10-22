@@ -19,6 +19,7 @@ import {
   houseAction, housePointsAction, membersAction, resultAction, sessionAction, teamAction,
 } from "../activity-actions";
 import { KeepCheck, KeepSelect } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 type Opt = { value: string; label: string };
 export type PickStudent = { id: string; name: string; place: string };
@@ -67,8 +68,8 @@ export function StudentPicker({ students, name = "studentIds", start = [], label
             </label>
           </li>
         ))}
-        {!shown.length && <li className="px-3 py-4 text-[14px] text-ink3">No students match.</li>}
-        {list.length > shown.length && <li className="px-3 py-2 text-[12.5px] text-ink3">{list.length - shown.length} more. Search or pick a class to see them.</li>}
+        {!shown.length && <li className="px-3 py-4 text-[14px] text-ink3"><Words k="No students match." /></li>}
+        {list.length > shown.length && <li className="px-3 py-2 text-[12.5px] text-ink3">{list.length - shown.length} <Words k="more. Search or pick a class to see them." /></li>}
       </ul>
       {[...on].map((v) => <input key={v} type="hidden" name={name} value={v} />)}
       {t.error ? <p className="text-[12.5px] text-bad">{t.error}</p> : help ? <p className="text-[12.5px] text-ink3">{help}</p> : null}
@@ -99,11 +100,11 @@ export function AchievementSheet({ closeHref, students, kinds, levels, credits, 
         <SDate name="date" label="Date" required start={today} max={today} />
       </div>
       <div className="flex flex-col gap-1.5">
-        <span className="text-[13px] font-semibold text-ink2">Level</span>
+        <span className="text-[13px] font-semibold text-ink2"><Words k="Level" /></span>
         <Segmented label="Level" value={level} onChange={setLevel} options={levels} className="w-full" />
       </div>
       <div className="flex flex-col gap-1.5">
-        <span className="text-[13px] font-semibold text-ink2">Result</span>
+        <span className="text-[13px] font-semibold text-ink2"><Words k="Result" /></span>
         <Segmented label="Result" value={result} onChange={setResult} options={[{ value: "won", label: "Won or placed" }, { value: "part", label: "Took part" }]} className="w-full" />
       </div>
       {result === "won" && <SText name="position" label="Position or result" maxLength={60} placeholder="1st, Winners, Gold medal…" />}
@@ -115,9 +116,9 @@ export function AchievementSheet({ closeHref, students, kinds, levels, credits, 
       )}
       <div className="rounded-xl bg-sunken/70 p-3.5 flex items-center gap-3">
         <Switch id="af-cert" on={cert} onChange={setCert} label="Issue a certificate now" />
-        <label htmlFor="af-cert" className="text-[14px] flex-1"><b className="font-semibold">Issue a certificate now</b><span className="block text-[12.5px] text-ink3">Parents are told by message; print it from the list</span></label>
+        <label htmlFor="af-cert" className="text-[14px] flex-1"><b className="font-semibold"><Words k="Issue a certificate now" /></b><span className="block text-[12.5px] text-ink3"><Words k="Parents are told by message; print it from the list" /></span></label>
       </div>
-      {creditsOn && <p className="text-[13px] text-ink2 flex items-center gap-2"><Star size={15} className="text-brand" aria-hidden="true" />Activity credits: <b className="font-semibold">+{n}</b> <span className="text-ink3">for {result === "won" ? "a" : "taking part in a"} {level.toLowerCase()}-level {result === "won" ? "result" : "activity"}</span></p>}
+      {creditsOn && <p className="text-[13px] text-ink2 flex items-center gap-2"><Star size={15} className="text-brand" aria-hidden="true" /><Words k="Activity credits:" /> <b className="font-semibold">+{n}</b> <span className="text-ink3"><Words k="for" /> {result === "won" ? "a" : "taking part in a"} {level.toLowerCase()}<Words k="-level" /> {result === "won" ? "result" : "activity"}</span></p>}
     </SheetForm>
   );
 }
@@ -145,7 +146,7 @@ export function CreditSheet({ closeHref, students, studentId, total }: { closeHr
   return (
     <SheetForm title="Correct activity credits" sub="A reason is needed. Every change is kept." closeHref={closeHref} action={creditCorrectionAction} submitLabel="Save credits" hidden={studentId ? { studentId } : undefined}>
       {!studentId && <StudentPicker students={students} name="studentId" single label="Student" />}
-      {total != null && <p className="text-[13.5px] text-ink2">Total this year: <b className="font-semibold tnum">{total}</b></p>}
+      {total != null && <p className="text-[13.5px] text-ink2"><Words k="Total this year:" /> <b className="font-semibold tnum">{total}</b></p>}
       <SText name="points" label="Credits" required inputMode="numeric" help="Use a minus sign to take credits away, like -5" className="tnum" />
       <SText name="reason" label="Reason" required maxLength={160} placeholder="For example: Debate credits missed on 6 Sep" />
     </SheetForm>
@@ -190,7 +191,7 @@ export function HouseSheet({ closeHref, house, students, colours }: { closeHref:
     <SheetForm title={house ? `Change ${house.name}` : "Add a house"} sub="Name, colour and captain. Changes are logged." closeHref={closeHref} action={houseAction} submitLabel="Save" hidden={{ ...(house ? { houseId: house.id } : {}), colour }}>
       <SText name="name" label="Name" required maxLength={40} start={house?.name ?? ""} placeholder="For example: Tagore House" />
       <div className="flex flex-col gap-1.5">
-        <span className="text-[13px] font-semibold text-ink2">Colour</span>
+        <span className="text-[13px] font-semibold text-ink2"><Words k="Colour" /></span>
         <div className="flex gap-2 flex-wrap" role="radiogroup" aria-label="Colour">
           {colours.map((o) => (
             <button key={o.value} type="button" role="radio" aria-checked={colour === o.value} onClick={() => setColour(o.value)}
@@ -253,7 +254,7 @@ export function SessionSheet({ closeHref, kind, groupId, name, members, today, v
         </div>
       )}
       <div className="flex items-center justify-between">
-        <p className="text-[13px] font-semibold text-ink2">{on.size} of {members.length} present</p>
+        <p className="text-[13px] font-semibold text-ink2">{on.size} <Words k="of" /> {members.length} <Words k="present" /></p>
         <button type="button" className="text-[12.5px] font-semibold text-brand h-8" onClick={() => setOn(on.size === members.length ? new Set() : new Set(members.map((m) => m.id)))}>{on.size === members.length ? "Untick all" : "Tick all"}</button>
       </div>
       <ul className="flex flex-col max-h-[36vh] overflow-y-auto scroll-thin rounded-xl border border-line divide-y divide-line/60">

@@ -5,6 +5,7 @@ import { PLACES } from "@/lib/imports/places";
 import { ImportHome } from "@/components/import/import-home";
 import { HostelHead } from "../../_components/head";
 import { BASE, hostelGuard } from "../../_lib/page";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Import rooms · Hostel Management" };
 
@@ -17,7 +18,7 @@ export default async function ImportRoomsPage() {
   };
   return (
     <>
-      <HostelHead pageName="Import rooms" href={`${BASE}/rooms/import`} mode={p.mode} sub={<Link href={`${BASE}/rooms`} className="hover:underline">Rooms & Beds</Link>} />
+      <HostelHead pageName="Import rooms" href={`${BASE}/rooms/import`} mode={p.mode} sub={<Link href={`${BASE}/rooms`} className="hover:underline"><Words k={"Rooms & Beds"} /></Link>} />
       <ImportHome current={p.current} place={PLACES.hostel} about={about} />
     </>
   );

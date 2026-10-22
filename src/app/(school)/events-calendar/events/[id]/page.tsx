@@ -21,6 +21,7 @@ import { ActButton } from "../../_components/bits";
 import { AttendanceForm, CancelEventSheet, EventSheet, OfficeConsentSheet, RegisterSheet, RemindSheet, SeatsSheet, VolunteerSheet } from "../../_components/event-sheets";
 import { remindConsentAction, removeVolunteerAction, withdrawAction } from "../../actions";
 import { BASE, UUID, evGuard, one, qs, type SearchParams } from "../../_lib/page";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata = { title: "Event" };
 
@@ -142,9 +143,9 @@ export default async function EventPage({ params, searchParams }: { params: Prom
         </div>
         {full && !cancelled && (
           <div className="flex gap-2 flex-wrap">
-            {e.registrationOn && onOrAfter && n > 0 && <ButtonLink href={here({ tab: "att" })} scroll={false} variant="secondary" icon={ListChecks}>Mark attendance</ButtonLink>}
-            {e.registrationOn && !done && <ButtonLink href={here({ do: "register" })} scroll={false} variant="secondary" icon={UserPlus} className="hidden md:inline-flex">Register students</ButtonLink>}
-            {!done && <ButtonLink href={here({ do: "remind" })} scroll={false} variant="primary" icon={BellRing}>Send reminder</ButtonLink>}
+            {e.registrationOn && onOrAfter && n > 0 && <ButtonLink href={here({ tab: "att" })} scroll={false} variant="secondary" icon={ListChecks}><Words k="Mark attendance" /></ButtonLink>}
+            {e.registrationOn && !done && <ButtonLink href={here({ do: "register" })} scroll={false} variant="secondary" icon={UserPlus} className="hidden md:inline-flex"><Words k="Register students" /></ButtonLink>}
+            {!done && <ButtonLink href={here({ do: "remind" })} scroll={false} variant="primary" icon={BellRing}><Words k="Send reminder" /></ButtonLink>}
             <MoreMenu items={menu} />
           </div>
         )}
@@ -170,7 +171,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
               e.registrationOn ? (
                 <DataList rows={regRows} rowKey={(r) => r.id} minWidth={560} caption="Registrations"
                   footer={`${n} registered · ${e.audienceLabel}`}
-                  empty={<Empty icon={ClipboardList} title="Nobody is registered yet" body={full && !done && !cancelled ? "Register the students who join." : "Registrations show here."} action={full && !done && !cancelled ? <ButtonLink variant="secondary" icon={UserPlus} href={here({ do: "register" })}>Register students</ButtonLink> : undefined} />}
+                  empty={<Empty icon={ClipboardList} title="Nobody is registered yet" body={full && !done && !cancelled ? "Register the students who join." : "Registrations show here."} action={full && !done && !cancelled ? <ButtonLink variant="secondary" icon={UserPlus} href={here({ do: "register" })}><Words k="Register students" /></ButtonLink> : undefined} />}
                   columns={[
                     { key: "s", label: "Student", render: (r) => <div className="flex items-center gap-2.5"><Avatar name={name(r.studentId)} size={30} /><span className="font-semibold">{name(r.studentId)}</span></div> },
                     { key: "cls", label: "Class", render: (r) => placeOf(r.studentId) || "—" },
@@ -185,8 +186,8 @@ export default async function EventPage({ params, searchParams }: { params: Prom
               <>
                 {full && consentOpen && (
                   <div className="flex items-center gap-2 flex-wrap px-4 py-3 border-b border-line">
-                    <p className="text-[13px] text-ink3 flex-1 min-w-[200px]">{e.consentBy ? `Reply by ${longDay(isoOf(e.consentBy))}. ` : ""}A yes on Parent Link is confirmed with a one-time code and registers the child.</p>
-                    <ButtonLink size="sm" variant="secondary" href={here({ do: "consent" })} scroll={false}>Record consent</ButtonLink>
+                    <p className="text-[13px] text-ink3 flex-1 min-w-[200px]">{e.consentBy ? `Reply by ${longDay(isoOf(e.consentBy))}. ` : ""}<Words k="A yes on Parent Link is confirmed with a one-time code and registers the child." /></p>
+                    <ButtonLink size="sm" variant="secondary" href={here({ do: "consent" })} scroll={false}><Words k="Record consent" /></ButtonLink>
                   </div>
                 )}
                 <DataList rows={consentRows} rowKey={(r) => r.id} minWidth={560} caption="Parent consent"
@@ -195,10 +196,10 @@ export default async function EventPage({ params, searchParams }: { params: Prom
                   columns={[
                     { key: "s", label: "Student", render: (r) => <div className="flex items-center gap-2.5"><Avatar name={r.name} size={30} /><span className="font-semibold">{r.name}</span></div> },
                     { key: "cls", label: "Class", render: (r) => r.place || "—" },
-                    { key: "a", label: "Consent on Parent Link", render: (r) => (r.answer ? <Pill tone={CONSENT_WORDS[r.answer as "GIVEN" | "DECLINED"].tone} dot>{CONSENT_WORDS[r.answer as "GIVEN" | "DECLINED"].label}</Pill> : <Pill tone="warn" dot>Waiting</Pill>) },
+                    { key: "a", label: "Consent on Parent Link", render: (r) => (r.answer ? <Pill tone={CONSENT_WORDS[r.answer as "GIVEN" | "DECLINED"].tone} dot>{CONSENT_WORDS[r.answer as "GIVEN" | "DECLINED"].label}</Pill> : <Pill tone="warn" dot><Words k="Waiting" /></Pill>) },
                     { key: "h", label: "How", render: (r) => <span className="text-[13px] text-ink3">{r.how === "office" ? "Recorded by the office" : r.how ? "Parent Link" : "—"}{r.at ? ` · ${formatDateTime(r.at, p.tz)}` : ""}</span> },
                   ]}
-                  phone={(r) => ({ title: r.name, sub: r.place, avatar: r.name, pills: r.answer ? <Pill tone={CONSENT_WORDS[r.answer as "GIVEN" | "DECLINED"].tone} className="!h-[22px] !text-[11.5px]">{CONSENT_WORDS[r.answer as "GIVEN" | "DECLINED"].label}</Pill> : <Pill tone="warn" className="!h-[22px] !text-[11.5px]">Waiting</Pill> })} />
+                  phone={(r) => ({ title: r.name, sub: r.place, avatar: r.name, pills: r.answer ? <Pill tone={CONSENT_WORDS[r.answer as "GIVEN" | "DECLINED"].tone} className="!h-[22px] !text-[11.5px]">{CONSENT_WORDS[r.answer as "GIVEN" | "DECLINED"].label}</Pill> : <Pill tone="warn" className="!h-[22px] !text-[11.5px]"><Words k="Waiting" /></Pill> })} />
               </>
             )}
             {tab === "att" && (
@@ -209,13 +210,13 @@ export default async function EventPage({ params, searchParams }: { params: Prom
             )}
             {tab === "pay" && showMoney && d.money && (
               <div className="p-5 flex flex-col gap-4">
-                <Banner tone="info" title="Collected through Fee Management.">A fee row “{e.name}” of {formatRupees(fee!)} was added for each student who registered. Parents pay on Parent Link or at the counter.</Banner>
+                <Banner tone="info" title="Collected through Fee Management."><Words k="A fee row “" />{e.name}<Words k="” of" /> {formatRupees(fee!)} <Words k="was added for each student who registered. Parents pay on Parent Link or at the counter." /></Banner>
                 <HBars labelWidth={48} valueWidth={150} rows={[
                   { key: "paid", label: "Paid", value: d.money.paidStudents, text: `${d.money.paidStudents} · ${formatRupees(d.money.collected)}`, tone: "ok" },
                   { key: "due", label: "Due", value: d.money.dueStudents, text: `${d.money.dueStudents} · ${formatRupees(d.money.due)}`, tone: "warn" },
                   ...(d.money.refunded > ZERO ? [{ key: "ref", label: "Refund", value: 1, text: formatRupees(d.money.refunded) }] : []),
                 ]} />
-                <p className="text-[13px] text-ink3">If the event is cancelled or a student withdraws, unpaid fees are removed and paid fees are refunded through Fee Management.</p>
+                <p className="text-[13px] text-ink3"><Words k="If the event is cancelled or a student withdraws, unpaid fees are removed and paid fees are refunded through Fee Management." /></p>
               </div>
             )}
             {tab === "vol" && (
@@ -228,7 +229,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
                     </li>
                   ))}
                 </ul>
-              ) : <Empty icon={HandHeart} title="No volunteers yet" body="List staff, students or parents helping, with their duties." action={full && !cancelled ? <ButtonLink variant="secondary" icon={Plus} href={here({ do: "volunteer" })}>Add a volunteer</ButtonLink> : undefined} />
+              ) : <Empty icon={HandHeart} title="No volunteers yet" body="List staff, students or parents helping, with their duties." action={full && !cancelled ? <ButtonLink variant="secondary" icon={Plus} href={here({ do: "volunteer" })}><Words k="Add a volunteer" /></ButtonLink> : undefined} />
             )}
             {tab === "rem" && <div className="p-5"><Timeline items={timeline} /></div>}
           </Card>
@@ -239,10 +240,10 @@ export default async function EventPage({ params, searchParams }: { params: Prom
                 <div className="px-5 pb-5 flex flex-col gap-3">
                   <div className="flex items-center gap-4">
                     <Ring value={c.total ? (c.given / c.total) * 100 : 0} size={64} stroke={7} tone="ok"><span className="text-[13px] font-bold tnum">{c.total ? Math.round((c.given / c.total) * 100) : 0}%</span></Ring>
-                    <p className="text-[13.5px] text-ink2"><b className="font-semibold tnum">{c.given}</b> given · <b className="font-semibold tnum">{c.waiting}</b> waiting · <b className="font-semibold tnum">{c.declined}</b> declined</p>
+                    <p className="text-[13.5px] text-ink2"><b className="font-semibold tnum">{c.given}</b> <Words k="given ·" /> <b className="font-semibold tnum">{c.waiting}</b> <Words k="waiting ·" /> <b className="font-semibold tnum">{c.declined}</b> <Words k="declined" /></p>
                   </div>
                   {full && consentOpen && c.waiting > 0 && <ActButton action={remindConsentAction} fields={{ eventId: e.id }} label={`Remind ${c.waiting} waiting`} icon="Bell" className="w-full" />}
-                  {full && consentOpen && c.waiting > 0 && <p className="text-[12.5px] text-ink3">Only the parents who have not answered get the reminder.</p>}
+                  {full && consentOpen && c.waiting > 0 && <p className="text-[12.5px] text-ink3"><Words k="Only the parents who have not answered get the reminder." /></p>}
                 </div>
               </Card>
             )}

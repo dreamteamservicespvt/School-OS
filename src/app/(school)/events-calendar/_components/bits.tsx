@@ -11,6 +11,7 @@ import { Button, type ButtonVariant } from "@/components/ui/button";
 import { cx } from "@/components/ui/cx";
 import type { FormState } from "@/lib/forms";
 import { EvIcon } from "./icons";
+import { Words } from "@/lib/i18n/client";
 
 /** A select whose choices are page addresses (Jump to month, class, campus). */
 export function JumpSelect({ value, options, label, id, className }: { value: string; options: { value: string; label: string; href: string }[]; label: string; id: string; className?: string }) {
@@ -38,7 +39,7 @@ export function WarningConfirm({ keyName }: { keyName: string }) {
   return (
     <>
       <input type="hidden" name="confirm" value={w} />
-      <p className="text-[12.5px] text-ink2 rounded-xl bg-warn/10 px-3 py-2">Press the button again to save anyway.</p>
+      <p className="text-[12.5px] text-ink2 rounded-xl bg-warn/10 px-3 py-2"><Words k="Press the button again to save anyway." /></p>
     </>
   );
 }

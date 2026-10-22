@@ -18,6 +18,7 @@ import { EvIcon } from "./_components/icons";
 import { JumpSelect } from "./_components/bits";
 import { AddEntrySheet, CopyHolidaysSheet, RemoveEntrySheet } from "./_components/calendar-sheets";
 import { BASE, evGuard, evPeriod, one, qs, type SearchParams } from "./_lib/page";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata = { title: "School Calendar" };
 
@@ -109,8 +110,8 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
     <div>
       <EvHead pageName="School Calendar" href={BASE} sub={sub}
         actions={full && <>
-          <ButtonLink href={here({ do: "import" })} scroll={false} variant="secondary" icon={Upload} className="hidden md:inline-flex">Import</ButtonLink>
-          <ButtonLink href={here({ do: "add" })} scroll={false} variant="primary" icon={Plus}>Add to calendar</ButtonLink>
+          <ButtonLink href={here({ do: "import" })} scroll={false} variant="secondary" icon={Upload} className="hidden md:inline-flex"><Words k="Import" /></ButtonLink>
+          <ButtonLink href={here({ do: "add" })} scroll={false} variant="primary" icon={Plus}><Words k="Add to calendar" /></ButtonLink>
         </>} />
       <Stack>
         <div className="flex flex-col lg:flex-row gap-2.5 lg:items-center">
@@ -118,7 +119,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
             <MonthArrow href={month > firstMonth ? here({ m: prev, d: null }) : null} label="Earlier month" dir="prev" />
             <JumpSelect id="cal-jump" label="Jump to month" value={month} options={monthsList} className="w-44 min-w-0" />
             <MonthArrow href={month < lastMonth ? here({ m: next, d: null }) : null} label="Later month" dir="next" />
-            <ButtonLink href={here({ m: ym(p.today), d: p.today })} variant="ghost" className="ml-1" scroll={false}>Today</ButtonLink>
+            <ButtonLink href={here({ m: ym(p.today), d: p.today })} variant="ghost" className="ml-1" scroll={false}><Words k="Today" /></ButtonLink>
           </div>
           <div className="flex-1" />
           {p.campuses.length > 1 && (
@@ -128,8 +129,8 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
           <JumpSelect id="cal-cls" label="Class" value={classId || "all"} className="lg:w-44"
             options={[{ value: "all", label: "All classes", href: here({ class: null }) }, ...data.classes.map((c) => ({ value: c.id, label: c.name, href: here({ class: c.id }) }))]} />
           <SegLinks label="Calendar view" value={view} options={[
-            { value: "month", label: <span className="flex items-center gap-1.5"><CalendarDays size={15} aria-hidden="true" />Month</span>, href: here({ view: null, period: null, from: null, to: null }) },
-            { value: "list", label: <span className="flex items-center gap-1.5"><List size={15} aria-hidden="true" />Year list</span>, href: here({ view: "list" }) },
+            { value: "month", label: <span className="flex items-center gap-1.5"><CalendarDays size={15} aria-hidden="true" /><Words k="Month" /></span>, href: here({ view: null, period: null, from: null, to: null }) },
+            { value: "list", label: <span className="flex items-center gap-1.5"><List size={15} aria-hidden="true" /><Words k="Year list" /></span>, href: here({ view: "list" }) },
           ]} />
         </div>
         <Chips label="Entry type" value={type} options={TYPE_CHIPS.map((t) => ({ value: t.value, label: t.label, href: here({ type: t.value === "all" ? null : t.value }) }))} />
@@ -139,7 +140,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
             <Card className="overflow-hidden min-w-0">
               <div className="px-4 md:px-5 pt-4 pb-3 flex items-center justify-between gap-3">
                 <h3 className="font-display font-semibold text-[19px]">{monthLabel(month)}</h3>
-                <span className="text-[12.5px] text-ink3">{shown.filter((e) => ym(e.from) === month || ym(e.to) === month).length} entries</span>
+                <span className="text-[12.5px] text-ink3">{shown.filter((e) => ym(e.from) === month || ym(e.to) === month).length} <Words k="entries" /></span>
               </div>
               <div className="grid grid-cols-7 border-t border-line/70 text-center text-[11.5px] font-semibold text-ink3" aria-hidden="true">
                 {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => <span key={d} className="py-2">{d}</span>)}
@@ -164,7 +165,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
                       </span>
                       <span className="hidden lg:flex flex-col gap-0.5 min-w-0">
                         {es.slice(0, 3).map((e) => <span key={e.id} title={e.title} className={cx("truncate rounded-md px-1.5 py-0.5 text-[11px] font-semibold leading-tight", ENTRY_TYPES[e.type].chip)}>{e.title.replace(/^PTM: /, "PTM ")}</span>)}
-                        {es.length > 3 && <span className="text-[11px] text-ink3 font-semibold px-1">+{es.length - 3} more</span>}
+                        {es.length > 3 && <span className="text-[11px] text-ink3 font-semibold px-1">+{es.length - 3} <Words k="more" /></span>}
                       </span>
                       <span className="lg:hidden flex gap-0.5 justify-center flex-wrap">{es.slice(0, 3).map((e) => <span key={e.id} className={cx("w-1.5 h-1.5 rounded-full", ENTRY_TYPES[e.type].dot)} />)}</span>
                     </Link>
@@ -173,14 +174,14 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
               </div>
               <div className="px-4 md:px-5 py-3.5 flex flex-col gap-2">
                 <Legend items={[["bg-bad/40", "Holiday or vacation"], ["bg-info/40", "Exam day"], ["bg-ok/40", "Event"], ["bg-brand/40", "PTM"], ["bg-warn/40", "Admission test"], ["bg-sunken border border-line", "Weekend"]]} />
-                <p className="text-[12.5px] text-ink3">Holiday: attendance is off that day. Event: it shows here and the day stays a normal school day or weekend. &quot;Attendance allowed&quot;: someone opened that date for attendance. Weekends: {weekendWords}, and the days that are not working days in Academic Settings.</p>
+                <p className="text-[12.5px] text-ink3"><Words k={"Holiday: attendance is off that day. Event: it shows here and the day stays a normal school day or weekend. \"Attendance allowed\": someone opened that date for attendance. Weekends:"} /> {weekendWords}<Words k=", and the days that are not working days in Academic Settings." /></p>
               </div>
             </Card>
             <Col>
               <Card>
                 <CardHeader icon={CalendarDays} title={sel === p.today ? `Today, ${niceDay(sel).split(", ")[1]}` : niceDay(sel)}
                   description={selInfo.on ? (selInfo.opened ? "School day: attendance allowed" : "School day") : selWeekend ? `${selWeekend} · no school` : "Attendance is off"}
-                  action={full ? <ButtonLink size="sm" variant="soft" icon={Plus} href={here({ do: "add" })} scroll={false}>Add</ButtonLink> : undefined} />
+                  action={full ? <ButtonLink size="sm" variant="soft" icon={Plus} href={here({ do: "add" })} scroll={false}><Words k="Add" /></ButtonLink> : undefined} />
                 {selEntries.length ? (
                   <ul className="px-3 pb-3 flex flex-col">
                     {selEntries.map((e) => (
@@ -192,9 +193,9 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
                           {e.details && <p className="text-[12.5px] text-ink2 mt-0.5">{e.details}</p>}
                           <div className="flex gap-1.5 mt-1.5 flex-wrap">
                             <Pill tone={ENTRY_TYPES[e.type].tone} className="!h-[22px] !text-[11.5px]">{ENTRY_TYPES[e.type].label}</Pill>
-                            {e.source === "datesheet" && <Pill tone="neutral" className="!h-[22px] !text-[11.5px]">From the datesheet</Pill>}
-                            {e.source === "admission" && <Pill tone="neutral" className="!h-[22px] !text-[11.5px]">From Admission</Pill>}
-                            {e.attendanceOn && !e.source && <Pill tone="neutral" className="!h-[22px] !text-[11.5px]">Attendance allowed</Pill>}
+                            {e.source === "datesheet" && <Pill tone="neutral" className="!h-[22px] !text-[11.5px]"><Words k="From the datesheet" /></Pill>}
+                            {e.source === "admission" && <Pill tone="neutral" className="!h-[22px] !text-[11.5px]"><Words k="From Admission" /></Pill>}
+                            {e.attendanceOn && !e.source && <Pill tone="neutral" className="!h-[22px] !text-[11.5px]"><Words k="Attendance allowed" /></Pill>}
                           </div>
                         </div>
                         {full && e.removable && (
@@ -219,7 +220,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
                       </li>
                     ))}
                   </ul>
-                ) : <p className="px-5 pb-5 text-[14px] text-ink3">Nothing planned in the next six months.</p>}
+                ) : <p className="px-5 pb-5 text-[14px] text-ink3"><Words k="Nothing planned in the next six months." /></p>}
               </Card>
             </Col>
           </Split>
@@ -230,12 +231,12 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
             <Toolbar><PeriodFilter {...p.dates} fallback="acyear" ahead earliest={data.years[0] ? isoOf(data.years[0].startDate) : undefined} /></Toolbar>
             <DataList rows={listed} rowKey={(e) => e.id} rowHref={(e) => e.href ?? null} minWidth={720} caption="Calendar list"
               footer={`Showing: ${vp.label} · ${spanWords(range.from, range.to)} · ${listed.length} entries`}
-              empty={<Empty icon={CalendarX2} title="Nothing on the calendar in these dates" body="Pick other dates." action={<ButtonLink variant="secondary" href={here({ period: null, from: null, to: null })}>This academic year</ButtonLink>} />}
+              empty={<Empty icon={CalendarX2} title="Nothing on the calendar in these dates" body="Pick other dates." action={<ButtonLink variant="secondary" href={here({ period: null, from: null, to: null })}><Words k="This academic year" /></ButtonLink>} />}
               columns={[
                 { key: "from", label: "Date", nowrap: true, render: (e) => <span className="tnum">{spanWords(e.from, e.to)}</span> },
                 { key: "name", label: "Name", render: (e) => <span className="font-semibold">{e.title}</span> },
                 { key: "type", label: "Type", render: (e) => <Pill tone={ENTRY_TYPES[e.type].tone}>{ENTRY_TYPES[e.type].label}</Pill> },
-                { key: "att", label: "Attendance", render: (e) => (closesSchool(e) ? <span className="text-bad font-semibold">Off</span> : e.attendanceOn && !e.source ? <span className="text-ink2">Allowed</span> : <span className="text-ink2">As usual</span>) },
+                { key: "att", label: "Attendance", render: (e) => (closesSchool(e) ? <span className="text-bad font-semibold"><Words k="Off" /></span> : e.attendanceOn && !e.source ? <span className="text-ink2"><Words k="Allowed" /></span> : <span className="text-ink2"><Words k="As usual" /></span>) },
                 { key: "cls", label: "Applies to", render: (e) => <span className="text-[13px] text-ink2">{appliesWords(e, data.classes, p.campuses)}</span> },
               ]}
               phone={(e) => ({ title: e.title, sub: spanWords(e.from, e.to), icon: CalendarDays, iconTone: ENTRY_TYPES[e.type].tone, pills: <Pill tone={ENTRY_TYPES[e.type].tone} className="!h-[22px] !text-[11.5px]">{ENTRY_TYPES[e.type].label}</Pill> })} />
@@ -248,8 +249,8 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
           {out.holidays.length ? (
             <div className="overflow-x-auto scroll-thin border-t border-line">
               <table className="w-full text-[14px] min-w-[520px]">
-                <caption className="sr-only">Holiday list {yearLabel}</caption>
-                <thead><tr className="text-[12px] text-ink3 text-left border-b border-line"><th scope="col" className="px-5 py-2.5 font-semibold">Date</th><th scope="col" className="px-3 py-2.5 font-semibold">Name</th><th scope="col" className="px-3 py-2.5 font-semibold">Type</th><th scope="col" className="px-5 py-2.5 font-semibold text-right">Days</th></tr></thead>
+                <caption className="sr-only"><Words k="Holiday list" /> {yearLabel}</caption>
+                <thead><tr className="text-[12px] text-ink3 text-left border-b border-line"><th scope="col" className="px-5 py-2.5 font-semibold"><Words k="Date" /></th><th scope="col" className="px-3 py-2.5 font-semibold"><Words k="Name" /></th><th scope="col" className="px-3 py-2.5 font-semibold"><Words k="Type" /></th><th scope="col" className="px-5 py-2.5 font-semibold text-right"><Words k="Days" /></th></tr></thead>
                 <tbody>
                   {out.holidays.map((e) => (
                     <tr key={e.id} className={cx("border-b border-line/70 last:border-0", isoOf(e.endDate) < p.today && "text-ink3")}>
@@ -263,7 +264,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
               </table>
             </div>
           ) : <Empty icon={Sun} title="No holidays yet" body={full ? "Add them one by one, import a spreadsheet, or copy last year’s list." : "The school has not added holidays for this year yet."}
-            action={full ? <ButtonLink variant="secondary" icon={History} href={here({ do: "copy" })} scroll={false}>Copy last year’s holidays</ButtonLink> : undefined} />}
+            action={full ? <ButtonLink variant="secondary" icon={History} href={here({ do: "copy" })} scroll={false}><Words k="Copy last year’s holidays" /></ButtonLink> : undefined} />}
         </Card>
       </Stack>
 
@@ -273,8 +274,8 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
       {doing === "import" && (
         <UrlSheet title="Import the holiday list" sub="Copy last year's list with dates to check, or pick a spreadsheet." closeHref={closeHref}>
           <div className="flex flex-col gap-2">
-            <ButtonLink href={here({ do: "copy" })} scroll={false} variant="secondary" icon={History} className="justify-start">Copy last year&apos;s holidays</ButtonLink>
-            <ButtonLink href={`${BASE}/import`} variant="secondary" icon={FileSpreadsheet} className="justify-start">From a spreadsheet (Excel or CSV)</ButtonLink>
+            <ButtonLink href={here({ do: "copy" })} scroll={false} variant="secondary" icon={History} className="justify-start"><Words k="Copy last year's holidays" /></ButtonLink>
+            <ButtonLink href={`${BASE}/import`} variant="secondary" icon={FileSpreadsheet} className="justify-start"><Words k="From a spreadsheet (Excel or CSV)" /></ButtonLink>
           </div>
         </UrlSheet>
       )}

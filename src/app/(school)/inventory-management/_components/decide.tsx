@@ -7,6 +7,7 @@ import { useActionState, useState } from "react";
 import { Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { FormState } from "@/lib/forms";
+import { Words } from "@/lib/i18n/client";
 
 type Act = (p: FormState<unknown>, fd: FormData) => Promise<FormState<unknown>>;
 
@@ -19,7 +20,7 @@ export function DecideBox({ action, approvalId, question }: { action: Act; appro
       <p className="text-[14px] font-semibold">{question}</p>
       {rejecting && (
         <div className="flex flex-col gap-1.5">
-          <label htmlFor={`reason-${approvalId}`} className="text-[13px] font-semibold text-ink2">Reason <span className="text-bad" aria-hidden="true">*</span></label>
+          <label htmlFor={`reason-${approvalId}`} className="text-[13px] font-semibold text-ink2"><Words k="Reason" /> <span className="text-bad" aria-hidden="true">*</span></label>
           <textarea id={`reason-${approvalId}`} name="note" rows={2} maxLength={300} required className="rounded-xl border border-line bg-surface px-3 py-2 text-[14px]" placeholder="For example: buy from the usual vendor at the lower price" />
         </div>
       )}
@@ -27,13 +28,13 @@ export function DecideBox({ action, approvalId, question }: { action: Act; appro
       <div className="flex gap-2 flex-wrap">
         {rejecting ? (
           <>
-            <Button type="submit" name="decision" value="reject" variant="danger" loading={pending}>Do not approve</Button>
-            <Button variant="ghost" onClick={() => setRejecting(false)}>Back</Button>
+            <Button type="submit" name="decision" value="reject" variant="danger" loading={pending}><Words k="Do not approve" /></Button>
+            <Button variant="ghost" onClick={() => setRejecting(false)}><Words k="Back" /></Button>
           </>
         ) : (
           <>
-            <Button type="submit" name="decision" value="approve" variant="primary" icon={Check} loading={pending}>Approve</Button>
-            <Button variant="secondary" icon={X} onClick={() => setRejecting(true)}>Do not approve</Button>
+            <Button type="submit" name="decision" value="approve" variant="primary" icon={Check} loading={pending}><Words k="Approve" /></Button>
+            <Button variant="secondary" icon={X} onClick={() => setRejecting(true)}><Words k="Do not approve" /></Button>
           </>
         )}
       </div>

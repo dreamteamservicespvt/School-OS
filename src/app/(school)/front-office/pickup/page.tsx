@@ -25,6 +25,7 @@ import { ActButton } from "../_components/fields";
 import { PickupList, ReleaseForm, ScanIdButton, StopSheet, type PickupChoice } from "../_components/pickup-forms";
 import { sendGatePassAction } from "../actions";
 import { BASE, UUID, addQ, foGuard, foPeriod, one, qs, type SearchParams } from "../_lib/page";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata = { title: "Student Pickup" };
 
@@ -80,19 +81,19 @@ export default async function PickupPage({ searchParams }: { searchParams: Searc
     <div>
       <FoHead pageName="Student Pickup" href={HREF}
         sub={`${p.closedToday ? `${closedWords(p.closedToday)} · ` : ""}${gate ? "At the gate: check the pickup gate pass and the photos before a child leaves" : "Early pickup gate pass, only for people on the student’s approved pickup list"}`}
-        actions={p.can.gateWork ? <ButtonLink href={`${checkBase}${checkBase.includes("?") ? "&" : "?"}check=`} scroll={false} variant={gate ? "primary" : "secondary"} icon={ScanLine}>Check gate pass</ButtonLink> : null} />
+        actions={p.can.gateWork ? <ButtonLink href={`${checkBase}${checkBase.includes("?") ? "&" : "?"}check=`} scroll={false} variant={gate ? "primary" : "secondary"} icon={ScanLine}><Words k="Check gate pass" /></ButtonLink> : null} />
       <Split side={380}>
         <Col>
           <Card className="p-4 md:p-5">
-            <label htmlFor="pk-search" className="text-[13px] font-semibold text-ink2">Find the student</label>
+            <label htmlFor="pk-search" className="text-[13px] font-semibold text-ink2"><Words k="Find the student" /></label>
             <div className="flex gap-2 mt-1.5">
               <UrlSearch id="pk-search" big placeholder="Student name, class or number" label="Find the student" />
               <ScanIdButton base={HREF} />
             </div>
             {q && (
               <ul className="mt-2 divide-y divide-line/70 animate-fade">
-                {q.length < 2 && <li className="py-3 text-[13.5px] text-ink3">Type at least 2 letters.</li>}
-                {q.length >= 2 && data.results.length === 0 && <li className="py-3 text-[13.5px] text-ink3">No student called “{q}”. Try the admission number.</li>}
+                {q.length < 2 && <li className="py-3 text-[13.5px] text-ink3"><Words k="Type at least 2 letters." /></li>}
+                {q.length >= 2 && data.results.length === 0 && <li className="py-3 text-[13.5px] text-ink3"><Words k="No student called “" />{q}<Words k="”. Try the admission number." /></li>}
                 {data.results.map((x) => (
                   <li key={x.id}>
                     <Link href={qs(HREF, { student: x.id, ...period.keep })} scroll={false} className="w-full flex items-center gap-3 py-2.5 text-left hover:bg-sunken/60 rounded-xl px-2">
@@ -104,7 +105,7 @@ export default async function PickupPage({ searchParams }: { searchParams: Searc
                 ))}
               </ul>
             )}
-            {!q && !info && <p className="text-[12.5px] text-ink3 mt-2">Search by name, admission number, or a class and section like 7 B.</p>}
+            {!q && !info && <p className="text-[12.5px] text-ink3 mt-2"><Words k="Search by name, admission number, or a class and section like 7 B." /></p>}
           </Card>
 
           {info ? (
@@ -114,13 +115,13 @@ export default async function PickupPage({ searchParams }: { searchParams: Searc
                 <div className="min-w-0 flex-1">
                   <p className="font-display font-semibold text-[20px] leading-tight">{info.student.name}</p>
                   <p className="text-[13px] text-ink3">{info.student.classSection ? `Class ${info.student.classSection}` : "No class this year"}{info.student.rollNo ? ` · Roll ${info.student.rollNo}` : ""} · <span className="font-mono text-[12px]">{info.student.admissionNo}</span></p>
-                  <p className="text-[13px] text-ink3">{info.classTeacher ? `Class teacher ${info.classTeacher} · ` : ""}{info.attendance ? <span className={cx("font-semibold", { success: "text-ok", danger: "text-bad", warning: "text-warn", info: "text-info" }[info.attendance.tone] ?? "text-ink2")}>{info.attendance.label} today</span> : info.closed ? <span className="font-semibold text-warn">{closedWords(info.closed)}</span> : <span>Attendance not marked yet</span>}</p>
+                  <p className="text-[13px] text-ink3">{info.classTeacher ? `Class teacher ${info.classTeacher} · ` : ""}{info.attendance ? <span className={cx("font-semibold", { success: "text-ok", danger: "text-bad", warning: "text-warn", info: "text-info" }[info.attendance.tone] ?? "text-ink2")}>{info.attendance.label} <Words k="today" /></span> : info.closed ? <span className="font-semibold text-warn">{closedWords(info.closed)}</span> : <span><Words k="Attendance not marked yet" /></span>}</p>
                 </div>
               </div>
               <div className="p-4 md:p-5 flex flex-col gap-4">
                 {info.closed && !gate && (
                   <Banner tone="info" icon={CalendarOff} title={`${closedWords(info.closed)}.`}>
-                    Release {info.student.first} only if they are at school today, for example for an event or a special class.{hostelOn ? " Boarders going out use a Hostel Outing pass in Hostel Management." : ""}
+                    <Words k="Release" /> {info.student.first} <Words k="only if they are at school today, for example for an event or a special class." />{hostelOn ? " Boarders going out use a Hostel Outing pass in Hostel Management." : ""}
                   </Banner>
                 )}
                 {canRelease ? (
@@ -131,19 +132,19 @@ export default async function PickupPage({ searchParams }: { searchParams: Searc
                 ) : (
                   <>
                     <div>
-                      <p className="text-[13px] font-semibold text-ink2 mb-2">Approved pickup list <span className="font-normal text-ink3">· from Student Management, Parents & Guardians</span></p>
-                      {people.length ? <PickupList people={people} canChoose={false} /> : <p className="text-[13.5px] text-ink3">Nobody is on {info.student.first}’s pickup list yet.</p>}
+                      <p className="text-[13px] font-semibold text-ink2 mb-2"><Words k="Approved pickup list" /> <span className="font-normal text-ink3"><Words k={"· from Student Management, Parents & Guardians"} /></span></p>
+                      {people.length ? <PickupList people={people} canChoose={false} /> : <p className="text-[13.5px] text-ink3"><Words k="Nobody is on" /> {info.student.first}<Words k="’s pickup list yet." /></p>}
                       {people.filter((x) => !x.allowed && x.restriction).map((x) => <p key={x.guardianId} className="mt-2 text-[13px] text-bad flex gap-1.5"><Ban size={15} className="shrink-0 mt-0.5" aria-hidden="true" />{x.restriction}</p>)}
-                      {p.can.gateWork && <Link href={here({ stop: "1" })} scroll={false} className="mt-3 inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-bad hover:underline"><UserRound size={16} aria-hidden="true" />Someone not on this list is here</Link>}
+                      {p.can.gateWork && <Link href={here({ stop: "1" })} scroll={false} className="mt-3 inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-bad hover:underline"><UserRound size={16} aria-hidden="true" /><Words k="Someone not on this list is here" /></Link>}
                     </div>
-                    {gate ? <Banner tone="info" title="At the gate:">a child leaves only with a pickup gate pass from the desk. Match both faces with these photos.</Banner>
-                      : <Banner tone="info">Only the reception desk releases a student. The list is changed in Student Management.</Banner>}
+                    {gate ? <Banner tone="info" title="At the gate:"><Words k="a child leaves only with a pickup gate pass from the desk. Match both faces with these photos." /></Banner>
+                      : <Banner tone="info"><Words k="Only the reception desk releases a student. The list is changed in Student Management." /></Banner>}
                   </>
                 )}
               </div>
             </Card>
           ) : studentId ? (
-            <Card><Empty icon={Search} title="Student not found" body="This student is not in the school records, or has left." action={<ButtonLink href={HREF} variant="secondary">Find another student</ButtonLink>} /></Card>
+            <Card><Empty icon={Search} title="Student not found" body="This student is not in the school records, or has left." action={<ButtonLink href={HREF} variant="secondary"><Words k="Find another student" /></ButtonLink>} /></Card>
           ) : (
             <Card><Empty icon={DoorOpen} title="Find the student first" body="The approved pickup list shows here, with photos. Only people on it can collect the child." /></Card>
           )}
@@ -163,7 +164,7 @@ export default async function PickupPage({ searchParams }: { searchParams: Searc
                           <Avatar name={g.student} size={38} src={photoOf(g.studentPhotoFileId)} />
                           <div className="min-w-0 flex-1">
                             <p className="font-semibold text-[14.5px] truncate">{g.student}{g.sectionLabel ? <span className="text-ink3 font-normal"> · {g.sectionLabel}</span> : null}</p>
-                            <p className="text-[12.5px] text-ink3 truncate">{isToday ? "" : `${shortDay(new Date(`${localDay(g.timeOut, p.tz)}T00:00:00Z`))}, `}{clockAt(g.timeOut, p.tz)} · with {g.collectorName} ({(g.collectorRelation ?? "guardian").toLowerCase()}) · {g.reason}</p>
+                            <p className="text-[12.5px] text-ink3 truncate">{isToday ? "" : `${shortDay(new Date(`${localDay(g.timeOut, p.tz)}T00:00:00Z`))}, `}{clockAt(g.timeOut, p.tz)} <Words k="· with" /> {g.collectorName} ({(g.collectorRelation ?? "guardian").toLowerCase()}) · {g.reason}</p>
                           </div>
                           <Pill tone={g.status === "LEFT" ? "ok" : "warn"}>{g.status === "LEFT" ? "Left" : "At gate"}</Pill>
                         </div>
@@ -176,12 +177,12 @@ export default async function PickupPage({ searchParams }: { searchParams: Searc
             )}
           </Card>
           <Card className="p-5">
-            <p className="font-semibold text-[14.5px] flex items-center gap-2"><ShieldCheck size={17} className="text-brand" aria-hidden="true" />How pickup stays safe</p>
+            <p className="font-semibold text-[14.5px] flex items-center gap-2"><ShieldCheck size={17} className="text-brand" aria-hidden="true" /><Words k="How pickup stays safe" /></p>
             <ul className="mt-2.5 flex flex-col gap-2 text-[13.5px] text-ink2">
-              <li className="flex gap-2"><Check size={16} className="text-ok shrink-0 mt-0.5" aria-hidden="true" />Only people on the approved list can be chosen.</li>
+              <li className="flex gap-2"><Check size={16} className="text-ok shrink-0 mt-0.5" aria-hidden="true" /><Words k="Only people on the approved list can be chosen." /></li>
               <li className="flex gap-2"><Check size={16} className="text-ok shrink-0 mt-0.5" aria-hidden="true" />{p.settings.pickupCodeCheck ? "Photo match (no photo on record: ID proof or a call to a guardian), and a code to the guardian’s phone." : "Photo match with the guardian’s photo on record; with no photo, ID proof or a call to a guardian."}</li>
-              <li className="flex gap-2"><Check size={16} className="text-ok shrink-0 mt-0.5" aria-hidden="true" />The gate checks the pass before the child leaves.</li>
-              <li className="flex gap-2"><Ban size={16} className="text-bad shrink-0 mt-0.5" aria-hidden="true" />The list is changed only in Student Management, never at the desk or gate.</li>
+              <li className="flex gap-2"><Check size={16} className="text-ok shrink-0 mt-0.5" aria-hidden="true" /><Words k="The gate checks the pass before the child leaves." /></li>
+              <li className="flex gap-2"><Ban size={16} className="text-bad shrink-0 mt-0.5" aria-hidden="true" /><Words k="The list is changed only in Student Management, never at the desk or gate." /></li>
             </ul>
           </Card>
         </Col>
@@ -214,23 +215,23 @@ async function GatePassSheet({ close, pass, student, studentPhoto, guardianPhoto
     <UrlSheet title={`Gate pass ${pass.passNo}`} sub={left ? `Used at the gate at ${pass.leftAt ? clockAt(pass.leftAt, tz) : "an earlier time"}.` : "Kind: Pickup. Gate Security scans it before the child leaves."} closeHref={close}>
       <div className="flex flex-col items-center gap-4 pb-1">
         <div className="w-full rounded-2xl border-2 border-line overflow-hidden">
-          <div className="px-4 py-2.5 bg-brand/10 flex justify-between items-center"><span className="eyebrow text-brand">Pickup gate pass</span><span className="font-mono text-[12.5px] font-semibold">{pass.passNo}</span></div>
+          <div className="px-4 py-2.5 bg-brand/10 flex justify-between items-center"><span className="eyebrow text-brand"><Words k="Pickup gate pass" /></span><span className="font-mono text-[12.5px] font-semibold">{pass.passNo}</span></div>
           <div className="grid grid-cols-2 gap-3 p-4">
             {([[student, `${pass.sectionLabel ?? ""} · student`.replace(/^ · /, ""), studentPhoto], [pass.collectorName ?? "", `${pass.collectorRelation ?? "Guardian"} · collecting`, guardianPhoto]] as const).map(([n, sub, ph]) => (
               <div key={`${n}${sub}`} className="flex items-center gap-2.5 min-w-0"><Avatar name={n} size={46} src={ph} /><div className="min-w-0"><p className="font-semibold text-[14px] truncate">{n}</p><p className="text-[12px] text-ink3 truncate">{sub}</p></div></div>
             ))}
           </div>
           <div className="px-4 pb-3 text-[13px] text-ink2 grid grid-cols-2 gap-x-3 gap-y-1">
-            <span><span className="text-ink3">Time </span>{clockAt(pass.timeOut, tz)}</span><span><span className="text-ink3">Reason </span>{pass.reason}</span>
-            <span><span className="text-ink3">Verified </span>{pass.verification ?? "photo"}</span><span><span className="text-ink3">By </span>{issuedBy ?? "—"}</span>
+            <span><span className="text-ink3"><Words k="Time" /> </span>{clockAt(pass.timeOut, tz)}</span><span><span className="text-ink3"><Words k="Reason" /> </span>{pass.reason}</span>
+            <span><span className="text-ink3"><Words k="Verified" /> </span>{pass.verification ?? "photo"}</span><span><span className="text-ink3"><Words k="By" /> </span>{issuedBy ?? "—"}</span>
           </div>
           <div className="flex justify-center pb-4"><div className="p-3 rounded-2xl bg-white border border-line" role="img" aria-label={`QR code for gate pass ${pass.passNo}`} dangerouslySetInnerHTML={{ __html: qr }} /></div>
         </div>
         <div className="grid grid-cols-2 gap-2 w-full">
-          <a href={`${HREF}/pass/${pass.id}`} target="_blank" rel="noopener" className={buttonClass("secondary")}><Printer size={17} aria-hidden="true" />Print</a>
+          <a href={`${HREF}/pass/${pass.id}`} target="_blank" rel="noopener" className={buttonClass("secondary")}><Printer size={17} aria-hidden="true" /><Words k="Print" /></a>
           {canSend && !left ? <ActButton action={sendGatePassAction} fields={{ gatePassId: pass.id }} label="Send to phone" icon="message" variant="secondary" size="md" className="w-full" pendingText="Sending…" /> : <span />}
         </div>
-        <ButtonLink href={addQ(close, { gp: null })} scroll={false} variant="primary" className="w-full">Done</ButtonLink>
+        <ButtonLink href={addQ(close, { gp: null })} scroll={false} variant="primary" className="w-full"><Words k="Done" /></ButtonLink>
       </div>
     </UrlSheet>
   );

@@ -14,6 +14,7 @@ import { EvHead } from "../_components/head";
 import { EvIcon } from "../_components/icons";
 import { AlbumSheet } from "../_components/gallery-sheets";
 import { BASE, evGuard, evPeriod, one, qs, type SearchParams } from "../_lib/page";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata = { title: "Gallery" };
 
@@ -59,16 +60,16 @@ export default async function GalleryPage({ searchParams }: { searchParams: Sear
   return (
     <div>
       <EvHead pageName="Gallery" href={HREF} sub="Photo and video albums by event. Students without photo consent are blurred or left out."
-        actions={p.can.gallery && <ButtonLink href={here({ do: "new" })} scroll={false} variant="primary" icon={FolderPlus}>New album</ButtonLink>} />
+        actions={p.can.gallery && <ButtonLink href={here({ do: "new" })} scroll={false} variant="primary" icon={FolderPlus}><Words k="New album" /></ButtonLink>} />
       <Stack>
-        {d.missing > 0 && <Banner tone="warn" title={`${d.missing} ${d.missing === 1 ? "student" : "students"} in published albums ${d.missing === 1 ? "has" : "have"} no photo consent.`}>They are left out of shared photos or blurred. Ask their guardians from the album page.</Banner>}
+        {d.missing > 0 && <Banner tone="warn" title={`${d.missing} ${d.missing === 1 ? "student" : "students"} in published albums ${d.missing === 1 ? "has" : "have"} no photo consent.`}><Words k="They are left out of shared photos or blurred. Ask their guardians from the album page." /></Banner>}
         <div className="flex items-center gap-3 flex-wrap">
           <PeriodFilter {...p.dates} fallback="acyear" />
           <SegLinks label="Album status" value={f} options={[
             { value: "all", label: "All", href: here({ f: null }) }, { value: "PUBLISHED", label: "Published", href: here({ f: "PUBLISHED" }) },
             { value: "DRAFT", label: "Drafts", href: here({ f: "DRAFT" }) }, { value: "ARCHIVED", label: "Archived", href: here({ f: "ARCHIVED" }) },
           ]} />
-          <span className="text-[13px] text-ink3 tnum">{vp.label} · {spanWords(range.from, range.to)} · {rows.length} albums · {totalPhotos} photos</span>
+          <span className="text-[13px] text-ink3 tnum">{vp.label} · {spanWords(range.from, range.to)} · {rows.length} <Words k="albums ·" /> {totalPhotos} <Words k="photos" /></span>
         </div>
         {rows.length ? (
           <ul className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
@@ -92,7 +93,7 @@ export default async function GalleryPage({ searchParams }: { searchParams: Sear
             ))}
           </ul>
         ) : (
-          <Card><Empty icon={Images} title="No albums here" body="No albums in these dates. Pick other dates or another filter." action={p.can.gallery ? <ButtonLink variant="secondary" icon={FolderPlus} href={here({ do: "new" })} scroll={false}>New album</ButtonLink> : undefined} /></Card>
+          <Card><Empty icon={Images} title="No albums here" body="No albums in these dates. Pick other dates or another filter." action={p.can.gallery ? <ButtonLink variant="secondary" icon={FolderPlus} href={here({ do: "new" })} scroll={false}><Words k="New album" /></ButtonLink> : undefined} /></Card>
         )}
       </Stack>
       {doing === "new" && (

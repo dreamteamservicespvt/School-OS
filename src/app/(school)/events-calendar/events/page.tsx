@@ -17,6 +17,7 @@ import { EvHead } from "../_components/head";
 import { EvIcon } from "../_components/icons";
 import { EventSheet } from "../_components/event-sheets";
 import { BASE, evGuard, evPeriod, one, qs, type SearchParams } from "../_lib/page";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata = { title: "Events" };
 
@@ -67,7 +68,7 @@ export default async function EventsPage({ searchParams }: { searchParams: Searc
     <div>
       <EvHead pageName={acc ? "Event Payments" : "Events"} href={HREF}
         sub={acc ? "Events with a fee: what is collected, what is due and what was refunded. Read only." : "Plan events with date, venue and audience; registrations, payments and reminders where needed."}
-        actions={full && <ButtonLink href={here({ do: "create" })} scroll={false} variant="primary" icon={Plus}>Create event</ButtonLink>} />
+        actions={full && <ButtonLink href={here({ do: "create" })} scroll={false} variant="primary" icon={Plus}><Words k="Create event" /></ButtonLink>} />
       <Stack>
         <Stats items={acc ? [
           { label: "Events with a fee", value: String(data.all.length), icon: CalendarDays, sub: spanWords(range.from, range.to) },
@@ -92,18 +93,18 @@ export default async function EventsPage({ searchParams }: { searchParams: Searc
           </Toolbar>
           <DataList rows={rows} rowKey={(e) => e.id} rowHref={(e) => `${HREF}/${e.id}`} minWidth={820} caption={acc ? "Event payments" : "Events"}
             footer={`Showing: ${vp.label} · ${spanWords(range.from, range.to)} · ${rows.length} events`}
-            empty={<Empty icon={CalendarX2} title={acc ? "No events with a fee here" : "No events here"} body="Try other dates or another filter." action={<ButtonLink variant="secondary" href={HREF}>Show all events</ButtonLink>} />}
+            empty={<Empty icon={CalendarX2} title={acc ? "No events with a fee here" : "No events here"} body="Try other dates or another filter." action={<ButtonLink variant="secondary" href={HREF}><Words k="Show all events" /></ButtonLink>} />}
             columns={[
               { key: "name", label: "Event", render: (e) => <div className="flex items-center gap-3"><span className="w-9 h-9 rounded-xl bg-brand/10 text-brand grid place-items-center shrink-0"><EvIcon name={eventIcon(e.type, e.name)} size={17} /></span><div><p className="font-semibold leading-tight">{e.name}</p><p className="text-[12.5px] text-ink3">{e.type}</p></div></div> },
-              { key: "date", label: "Date and time", nowrap: true, render: (e) => <span className="text-[13px] tnum">{when(e) === "Today" ? <b className="font-semibold text-brand">Today</b> : when(e)}<span className="block text-ink3 text-[12px]">{timeSpan(e.startMin, e.endMin)}</span></span> },
+              { key: "date", label: "Date and time", nowrap: true, render: (e) => <span className="text-[13px] tnum">{when(e) === "Today" ? <b className="font-semibold text-brand"><Words k="Today" /></b> : when(e)}<span className="block text-ink3 text-[12px]">{timeSpan(e.startMin, e.endMin)}</span></span> },
               ...(acc ? [] : [{ key: "venue", label: "Venue", render: (e: (typeof rows)[number]) => <span className="text-[13px]">{e.venue ?? "—"}</span> }]),
               { key: "aud", label: "Audience", render: (e) => <span className="text-[13px] text-ink2">{e.audienceLabel}</span> },
-              { key: "reg", label: acc ? "Fee" : "Registered", align: "right", render: (e) => (e.registrationOn ? <span className="text-[13px]"><b className="font-semibold">{data.regs.get(e.id) ?? 0}</b>{e.seats ? <span className="text-ink3"> of {e.seats}</span> : ""}{e.feePaise ? <span className="block text-[12px] text-ink3">{formatRupees(e.feePaise)} each</span> : ""}</span> : <span className="text-ink3">—</span>) },
+              { key: "reg", label: acc ? "Fee" : "Registered", align: "right", render: (e) => (e.registrationOn ? <span className="text-[13px]"><b className="font-semibold">{data.regs.get(e.id) ?? 0}</b>{e.seats ? <span className="text-ink3"> <Words k="of" /> {e.seats}</span> : ""}{e.feePaise ? <span className="block text-[12px] text-ink3">{formatRupees(e.feePaise)} <Words k="each" /></span> : ""}</span> : <span className="text-ink3">—</span>) },
               { key: "status", label: "Status", render: (e) => <Pill tone={EVENT_STATUS[st(e)].tone} dot>{EVENT_STATUS[st(e)].label}</Pill> },
             ]}
             phone={(e) => ({
               title: e.name, sub: `${when(e)} · ${timeSpan(e.startMin, e.endMin)}${acc || !e.venue ? "" : ` · ${e.venue}`}`, icon: Users, iconTone: "brand",
-              pills: <><Pill tone={EVENT_STATUS[st(e)].tone} className="!h-[22px] !text-[11.5px]">{EVENT_STATUS[st(e)].label}</Pill>{e.registrationOn && <Pill tone="neutral" className="!h-[22px] !text-[11.5px]">{data.regs.get(e.id) ?? 0}{e.seats ? ` of ${e.seats}` : ""} registered</Pill>}</>,
+              pills: <><Pill tone={EVENT_STATUS[st(e)].tone} className="!h-[22px] !text-[11.5px]">{EVENT_STATUS[st(e)].label}</Pill>{e.registrationOn && <Pill tone="neutral" className="!h-[22px] !text-[11.5px]">{data.regs.get(e.id) ?? 0}{e.seats ? ` of ${e.seats}` : ""} <Words k="registered" /></Pill>}</>,
             })} />
         </Card>
       </Stack>

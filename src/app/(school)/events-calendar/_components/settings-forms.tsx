@@ -12,6 +12,7 @@ import { cx } from "@/components/ui/cx";
 import type { FormState } from "@/lib/forms";
 import { creditsAction, listAction, renewFeedAction, settingsAction } from "../actions";
 import { CopyLink } from "./bits";
+import { Words } from "@/lib/i18n/client";
 
 type S = FormState<unknown>;
 
@@ -81,8 +82,8 @@ export function ListEditor({ list, items, canEdit, addLabel, placeholder, fixed 
       {canEdit && adding && (
         <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); if (value.trim()) send("add", value); }}>
           <input value={value} onChange={(e) => setValue(e.target.value)} placeholder={placeholder} aria-label={addLabel} maxLength={40} autoFocus className={cx(inputCls(false), "h-10 flex-1")} />
-          <Button type="submit" size="sm" variant="primary" loading={pending} className="!h-10">Add</Button>
-          <Button size="sm" variant="ghost" className="!h-10" onClick={() => { setAdding(false); setValue(""); }}>Cancel</Button>
+          <Button type="submit" size="sm" variant="primary" loading={pending} className="!h-10"><Words k="Add" /></Button>
+          <Button size="sm" variant="ghost" className="!h-10" onClick={() => { setAdding(false); setValue(""); }}><Words k="Cancel" /></Button>
         </form>
       )}
       {state && <p role={state.ok ? "status" : "alert"} className={cx("text-[12.5px]", state.ok ? "text-ok" : "text-bad")}>{state.message}</p>}
@@ -135,10 +136,10 @@ export function FeedForm({ on, links, canEdit }: { on: boolean; links: { label: 
               <CopyLink url={l.url} />
             </div>
           ))}
-          <p className="text-[12.5px] text-ink3">Paste a link in Google Calendar (Add by URL) or Outlook (Subscribe from web).</p>
+          <p className="text-[12.5px] text-ink3"><Words k="Paste a link in Google Calendar (Add by URL) or Outlook (Subscribe from web)." /></p>
           {canEdit && (
             <form action={renew} className="self-start">
-              <Button type="submit" size="sm" variant="ghost" loading={renewing}>Make new links (old ones stop)</Button>
+              <Button type="submit" size="sm" variant="ghost" loading={renewing}><Words k="Make new links (old ones stop)" /></Button>
             </form>
           )}
           {renewState && <p role={renewState.ok ? "status" : "alert"} className={cx("text-[12.5px]", renewState.ok ? "text-ok" : "text-bad")}>{renewState.message}</p>}
@@ -155,7 +156,7 @@ export function GalleryRuleForm({ rule, canEdit }: { rule: string; canEdit: bool
   return (
     <div className="px-5 pb-5 flex flex-col gap-2">
       <Segmented label="Students without photo consent" value={v} onChange={(x) => { if (!canEdit) return; setV(x); save({ galleryRule: x }); }} options={[{ value: "OUT", label: "Leave the photo out" }, { value: "BLUR", label: "Blur them" }]} className="w-full" />
-      <p className="text-[12.5px] text-ink3">For new albums; each album can change it. Consent texts are in Settings, Data Backup & Security.</p>
+      <p className="text-[12.5px] text-ink3"><Words k={"For new albums; each album can change it. Consent texts are in Settings, Data Backup & Security."} /></p>
       {state && <p role={state.ok ? "status" : "alert"} className={cx("text-[12.5px]", state.ok ? "text-ok" : "text-bad")}>{state.message}</p>}
     </div>
   );
@@ -190,7 +191,7 @@ export function CreditsForm({ on, levels, take, win, canEdit }: { on: boolean; l
           <input type="hidden" name="levels" value={levels.length} />
           <div className="overflow-x-auto scroll-thin border-t border-line">
             <table className="w-full text-[13.5px] min-w-[360px]">
-              <thead><tr className="text-[12px] text-ink3 text-left border-b border-line"><th scope="col" className="px-5 py-2 font-semibold">Level</th><th scope="col" className="px-3 py-2 font-semibold text-right">Taking part</th><th scope="col" className="px-5 py-2 font-semibold text-right">Winning</th></tr></thead>
+              <thead><tr className="text-[12px] text-ink3 text-left border-b border-line"><th scope="col" className="px-5 py-2 font-semibold"><Words k="Level" /></th><th scope="col" className="px-3 py-2 font-semibold text-right"><Words k="Taking part" /></th><th scope="col" className="px-5 py-2 font-semibold text-right"><Words k="Winning" /></th></tr></thead>
               <tbody>
                 {levels.map((l, i) => (
                   <tr key={l} className="border-b border-line/70 last:border-0">
@@ -202,7 +203,7 @@ export function CreditsForm({ on, levels, take, win, canEdit }: { on: boolean; l
               </tbody>
             </table>
           </div>
-          {canEdit && dirty && <div className="px-5 py-3 flex justify-end border-t border-line"><Button type="submit" size="sm" variant="primary" loading={pending}>Save credits</Button></div>}
+          {canEdit && dirty && <div className="px-5 py-3 flex justify-end border-t border-line"><Button type="submit" size="sm" variant="primary" loading={pending}><Words k="Save credits" /></Button></div>}
         </form>
       )}
       {(state ?? sw) && <p role={(state ?? sw)!.ok ? "status" : "alert"} className={cx("text-[12.5px] px-5 py-3", (state ?? sw)!.ok ? "text-ok" : "text-bad")}>{(state ?? sw)!.message}</p>}

@@ -5,6 +5,7 @@ import { PLACES } from "@/lib/imports/places";
 import { FileReview } from "@/components/import/file-review";
 import { HostelHead } from "../../../../_components/head";
 import { BASE, hostelGuard } from "../../../../_lib/page";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Check a file · Import rooms" };
 
@@ -14,7 +15,7 @@ export default async function RoomsImportFilePage({ params, searchParams }: { pa
   if (!p.can.rooms) redirect(`${BASE}/rooms`);
   return (
     <>
-      <HostelHead pageName="Import rooms" href={`${BASE}/rooms/import`} mode={p.mode} sub={<Link href={`${BASE}/rooms`} className="hover:underline">Rooms & Beds</Link>} />
+      <HostelHead pageName="Import rooms" href={`${BASE}/rooms/import`} mode={p.mode} sub={<Link href={`${BASE}/rooms`} className="hover:underline"><Words k={"Rooms & Beds"} /></Link>} />
       <FileReview current={p.current} place={PLACES.hostel} id={(await params).id} sp={await searchParams} />
     </>
   );

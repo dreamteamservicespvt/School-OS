@@ -77,19 +77,39 @@ async function saveResults(
   ranksOn: boolean, tieRule: string,
 ) {
   const ranks = ranksOn ? rankWithTies(computed.filter((c) => !c.result.leftOut).map((c) => ({ id: c.studentId, percent: c.result.percent, total: c.result.total, complete: c.result.complete })), tieRule) : new Map<string, number>();
-  for (const c of computed) {
-    if (c.keep) continue;
+  const todo = computed.filter((c) => !c.keep);
+  if (!todo.length) return;
+  const now = new Date();
+  const rows = todo.map((c) => {
     const r = c.result;
-    const data = {
-      total: r.total, maxTotal: r.maxTotal, percent: r.percent, grade: r.grade, points: r.points, rank: r.leftOut ? null : ranks.get(c.studentId) ?? null,
-      outcome: r.outcome, complete: r.complete, missing: r.missing, absentPapers: r.absentPapers, leftOut: Boolean(r.leftOut),
-      subjects: r.subjects as unknown as Prisma.InputJsonValue, computedAt: new Date(), classId: base.classId, sectionId: base.sectionId,
+    return {
+      studentId: c.studentId,
+      data: {
+        total: r.total, maxTotal: r.maxTotal, percent: r.percent, grade: r.grade, points: r.points, rank: r.leftOut ? null : ranks.get(c.studentId) ?? null,
+        outcome: r.outcome, complete: r.complete, missing: r.missing, absentPapers: r.absentPapers, leftOut: Boolean(r.leftOut),
+        subjects: r.subjects as unknown as Prisma.InputJsonValue, computedAt: now, classId: base.classId, sectionId: base.sectionId,
+      },
     };
-    await tx.result.upsert({
-      where: { schoolId_key_studentId: { schoolId: ctx.schoolId, key: base.key, studentId: c.studentId } },
-      create: { schoolId: ctx.schoolId, academicYearId: base.yearId, examId: base.examId, key: base.key, studentId: c.studentId, ...data },
-      update: data,
-    });
+  });
+  // New results in one write and changed ones in one more (G37: one query per student made a whole school's
+  // results run past the 15 second limit of the background job that publishes them).
+  const have = new Set((await tx.result.findMany({ where: { key: base.key, studentId: { in: rows.map((r) => r.studentId) } }, select: { studentId: true } })).map((r) => r.studentId));
+  const fresh = rows.filter((r) => !have.has(r.studentId));
+  if (fresh.length) {
+    await tx.result.createMany({ data: fresh.map((r) => ({ schoolId: ctx.schoolId, academicYearId: base.yearId, examId: base.examId, key: base.key, studentId: r.studentId, ...r.data })) });
+  }
+  const changed = rows.filter((r) => have.has(r.studentId)).map((r) => ({
+    student_id: r.studentId, total: r.data.total, max_total: r.data.maxTotal, percent: r.data.percent, grade: r.data.grade, points: r.data.points, rank: r.data.rank,
+    outcome: r.data.outcome, complete: r.data.complete, missing: r.data.missing, absent_papers: r.data.absentPapers, left_out: r.data.leftOut, subjects: r.data.subjects,
+  }));
+  if (changed.length) {
+    await tx.$executeRaw`
+      UPDATE result AS t SET total = v.total, max_total = v.max_total, percent = v.percent, grade = v.grade, points = v.points, rank = v.rank,
+        outcome = v.outcome, complete = v.complete, missing = v.missing, absent_papers = v.absent_papers, left_out = v.left_out, subjects = v.subjects,
+        computed_at = (${now}::timestamptz AT TIME ZONE 'UTC'), class_id = ${base.classId}::uuid, section_id = ${base.sectionId}::uuid,
+        updated_at = (${now}::timestamptz AT TIME ZONE 'UTC')
+      FROM jsonb_to_recordset(${JSON.stringify(changed)}::jsonb) AS v(student_id uuid, total float8, max_total float8, percent float8, grade text, points float8, rank int, outcome text, complete boolean, missing int, absent_papers int, left_out boolean, subjects jsonb)
+      WHERE t.school_id = ${ctx.schoolId}::uuid AND t.key = ${base.key} AND t.student_id = v.student_id`;
   }
 }
 

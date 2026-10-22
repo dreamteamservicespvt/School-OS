@@ -13,6 +13,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/empty-state";
 import { AutoRefresh } from "../parts";
 import { UploadForm } from "@/components/import/file-forms";
+import { PLACES } from "@/lib/imports/places";
 import { RemoveFileButton } from "@/components/import/file-buttons";
 
 export const metadata: Metadata = { title: "Switching to School OS · Data Backup & Security" };
@@ -28,13 +29,10 @@ const SCREEN_STEPS = [
   { key: "opening-balances", order: 8, title: "Opening cash and bank balances", module: "finance-management" as const, href: "/finance-management/cash-bank", button: "Open Cash & Bank", about: "The Accountant enters the cash book and each bank account on the go-live date, and the financial year (April to March unless changed)." },
 ];
 
-/** Where each import also has its own page in its module, for people who do not use Settings (the Accountant). */
-const MODULE_PAGE: Record<string, string> = {
-  "fee-old-dues": "/fee-management/ledger/import?kind=fee-old-dues",
-  "fee-past-receipts": "/fee-management/ledger/import?kind=fee-past-receipts",
-  "finance-past-expenses": "/finance-management/expenses/import",
-  "calendar-holidays": "/events-calendar/import",
-};
+/** Where each import also has its own page in its module, for people who do not use Settings (the Accountant): the same engine there. */
+const MODULE_PAGE: Record<string, string> = Object.fromEntries(
+  Object.values(PLACES).filter((p) => p.key !== "settings").flatMap((p) => (p.kinds ?? []).map((k) => [k, `${p.base}?kind=${k}`])),
+);
 
 type Search = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
